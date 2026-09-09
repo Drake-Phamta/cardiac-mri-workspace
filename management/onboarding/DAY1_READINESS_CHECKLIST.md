@@ -28,6 +28,34 @@ Baseline **bắt đầu** vào **2026-09-10**.
 
 ---
 
+## VIỆC TỒN TỪ DAY 0 — ghi cuối Day 0 (2026-09-09)
+
+Đây **không** phải việc mới của Day 1. Đây là việc **Day 0 chưa đóng được** vì người liên quan hết thời gian.
+Ghi ở đây để không rơi, **không** để coi như đã xong.
+
+| # | Việc tồn | Ai phải làm | Trạng thái cuối Day 0 |
+|---:|---|---|---|
+| **1** | **Đóng vòng cross-review của drill Git**: `APPROVE` của Vũ Hùng Anh trên **PR #1** · Vũ Hùng Anh sửa **PR #3** (thiếu field `Reviewer`) · `APPROVE` của leader trên #3 · squash merge cả hai | Vũ Hùng Anh → Phạm Tuấn Anh | Nửa của leader **xong**: PR #1 sửa tại `50b3d10`; `CHANGES_REQUESTED` trên #3 lúc 22:37. Chờ Vũ Hùng Anh |
+| 2 | **Day 0 của Bế Quốc Khánh** — checklist, drill Git, sign-off riêng | Bế Quốc Khánh | Chưa bắt đầu trên repo tính đến cuối Day 0 |
+| 3 | **Day 0 của Nguyễn Gia Đức Trung** — checklist, drill Git, sign-off riêng | Nguyễn Gia Đức Trung | Chưa bắt đầu trên repo tính đến cuối Day 0 |
+| 4 | **Review PR #2** — `docs: add 3D mesh UI and FPS reference` | Phạm Tuấn Anh | Ngoài phạm vi drill; hoãn để không lẫn hai việc |
+
+> **Mục 1 chặn `A4`, mục 2–3 chặn `A1`/`A3`/`A4`.** Cửa này không `PASS` khi chúng còn mở.
+
+**Ghi chú thói quen review, không phải vi phạm ranh giới:** trong Day 0 có một lần reviewer push thẳng vào
+nhánh của author (`9d02c1e` trên PR #1). Trên việc thật, điều này phá luật một-chủ-sở-hữu trên file
+integration-sensitive (`15` §9) — góp ý thuộc về review, sửa thuộc về tác giả. Nêu để sửa thói quen từ
+Day 1, không ghi thành lỗi của ai.
+
+**KHÔNG phải việc tồn Day 0 — là follow-up Integration/CI của Day 1** (`NFR-MAINT-001`/`002`/`003`): chưa có
+`.github/` (PR template, CI skeleton) · `delete_branch_on_merge = false` · chưa có branch protection trên
+`main`.
+
+> **Không lùi ngày.** Việc tồn ở đây được đóng **trong** Execution Day 1 và ghi nhận ở ngày đóng thật —
+> không ghi ngược thành đã hoàn thành trong Day 0.
+
+---
+
 ## PHẦN A · TEAM
 
 | # | Kiểm | Trạng thái |
