@@ -91,6 +91,7 @@ Chi tiết ở §3.1 bên dưới.
 - `../readiness/READINESS_REVIEW_RESOLUTION.md` — **§10 và §11 là bản ghi có thẩm quyền** về quyết định và trạng thái
 - `../readiness/OPEN_DECISIONS.md` — toàn bộ DR và kết quả đã duyệt
 - `../spikes/SPIKE_PHASE_PLAN.md` · `../spikes/SPIKE_PHASE_STATE.yaml`
+- [3D_MESH_UI_FPS_REFERENCE.md](3D_MESH_UI_FPS_REFERENCE.md) — wireframe 2D↔3D và ghi chú tối ưu FPS cho Spike B; **tham khảo, không thay spec**
 
 > ### ⚠ Đừng đọc `00`→`17` tuyến tính trước Day 1
 >
@@ -213,6 +214,7 @@ management/onboarding/
 ├── TEAM_SHARED_CORE.md              LEVEL 1  quan trọng nhất
 ├── PROJECT_ONE_PAGE_MAP.md          LEVEL 1  bản đồ 1 trang
 ├── TEAM_WORKFLOW_QUICKSTART.md      LEVEL 2  quy trình hằng ngày
+├── 3D_MESH_UI_FPS_REFERENCE.md      REFERENCE  demo UI + tối ưu FPS cho Spike B
 ├── DAY0_LEADER_CHEATSHEET.md        1-2 trang, leader mở trong lúc điều phối
 ├── DAY0_KICKOFF_RUNBOOK.md          kịch bản điều phối chi tiết cho leader
 ├── SHARED_CORE_CHECK.md             15 câu kiểm tra hiểu biết
