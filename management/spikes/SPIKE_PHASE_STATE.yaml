@@ -1,0 +1,577 @@
+# SPIKE PHASE STATE — machine-readable
+#
+# Owner of this file: CHAT A - PROJECT CONTROL (leader-operated).
+# Authoritative readiness context: management/readiness/READINESS_REVIEW_RESOLUTION.md section 10.
+#
+# RULES
+#   - STATUS SEMANTICS (corrected): ACTIVE means ACTUAL EXECUTION HAS STARTED. An authorised and assigned
+#     spike whose owner has not started, and whose started_at is null, is PREPARED - never ACTIVE.
+#     When an owner actually starts: set status to ACTIVE and record the real started_at. NEVER backdate it.
+#   - status ACCEPTED requires real evidence in RESULT.md, reviewer APPROVE, and a QA Red Team PASS.
+#     See acceptance_workflow. Never set it otherwise.
+#   - The `review.state` field is the REVIEW state and is independent of the spike execution `status`.
+#   - Values marked UNVERIFIED must be captured from the real device/hardware, never inferred.
+#   - Claude must not populate any measurement field. See SPIKE_PHASE_PLAN.md section 0.
+
+schema_version: 1
+
+phase:
+  name: SPIKE_PHASE
+  status: OPEN
+  opened_at: "2026-09-08"
+  authorised_by: "Team Leader"
+  preceded_by: "Readiness Decision Phase (ACCEPTED and CLOSED)"
+  project_verdict: READY_WITH_CONDITIONS
+  wave: 1
+
+  authorised_outputs:
+    - spike task and control artifacts
+    - harness / instrumentation / fixture / measurement-script preparation
+    - execution coordination of authorised spikes
+
+  explicitly_not_authorised:
+    - MASTER_PLAN_30_DAYS.md
+    - day-1 production feature plan
+    - final repository architecture
+    - final mobile stack choice          # GATE-MOB-01 needs Spike A + B evidence
+    - final DINOv2 recipe                # GATE-ML-01 needs Spike C1 evidence
+    - production feature implementation
+    - any edit to docs/specs/v1.0/
+
+execution_state_semantics:
+  NOT_STARTED:     "not yet prepared"
+  PREPARED:        "authorised and assigned; task + evidence template exist; harness/prep work may proceed; execution NOT started; started_at is null"
+  ACTIVE:          "the owner has ACTUALLY STARTED work; started_at records the real date/time"
+  BLOCKED:         "cannot proceed; blocked_by names the dependency"
+  EVIDENCE_READY:  "RESULT.md exists with real measurements; awaiting Secondary Reviewer"
+  NEEDS_FIX:       "reviewer or QA rejected the evidence; owner corrects or gathers more"
+  ACCEPTED:        "reviewer APPROVE + QA Red Team PASS + Project Control transition"
+  NEGATIVE_RESULT: "the spike ran correctly and the answer is 'no'. A valid, valuable outcome."
+  rule: "Do not label a spike ACTIVE to express authorisation. Authorisation is PREPARED."
+
+review_state_semantics:
+  note: "Independent of the spike execution `status` field. Tracks the review workflow only."
+  NOT_REQUESTED:     "no evidence submitted yet"
+  QUEUED_FOR_REVIEW: "evidence ready, but the reviewer's single review slot is occupied"
+  REVIEWING:         "occupying the reviewer's one active review slot"
+  APPROVED:          "reviewer approved; proceeds to QA Red Team challenge"
+  NEEDS_FIX:         "reviewer rejected; returns to the owner"
+
+readiness_conditions_open:
+  C1:
+    description: "Spike D completes; DATASET_AUDIT.md + manifest ACCEPTED, resolving GATE-DATA-01 and Path A/B provenance"
+    unblocked_by: SPIKE_D
+  C4:
+    description: "RA-B01 resolved - 3D error pipeline defined on Spike F evidence, or explicit scope decision"
+    unblocked_by: SPIKE_F
+  C6:
+    description: "Axis-aligned-only policy approved (DR-012); confirmation against the actual validated package still required"
+    state: PARTIALLY_RESOLVED
+    unblocked_by: SPIKE_D
+    warning: "Do NOT mark C6 CLOSED before Spike D evidence exists."
+
+readiness_conditions_closed: [C2, C3, C5, C7, C8]
+
+team:
+  - name: "Pham Tuan Anh"
+    name_vi: "Phạm Tuấn Anh"
+    role: "Team Leader"
+    gross_availability_hours_per_day: 8
+  - name: "Vu Hung Anh"
+    name_vi: "Vũ Hùng Anh"
+    role: "Member"
+    gross_availability_hours_per_day: 8
+  - name: "Be Quoc Khanh"
+    name_vi: "Bế Quốc Khánh"
+    role: "Member"
+    gross_availability_hours_per_day: 8
+  - name: "Nguyen Gia Duc Trung"
+    name_vi: "Nguyễn Gia Đức Trung"
+    role: "Member"
+    gross_availability_hours_per_day: 8
+
+capacity_note: >
+  8 h/day/member is GROSS availability only. 4 x 8h = 32h/day must NOT be treated as guaranteed
+  feature-development capacity. Pham Tuan Anh's time must reserve explicit capacity for Project Control,
+  integration coordination, code/review work, EOD processing, Claude orchestration, blocker handling and
+  cross-contract coordination. No effective-capacity number has been computed. RISK-CAP-01 = MEDIUM.
+
+environments:
+
+  mobile_demo_device:
+    id: DEVICE_DEMO_01
+    model_declared: "Samsung Galaxy A17 5G"
+    decision: "DR-006 APPROVED"
+    kind: physical            # emulator is not acceptable for NFR-PERF-002/003
+    unit_count: 1             # EXACTLY ONE authorised physical unit - leader confirmed
+    contention: "measurement windows for SPIKE_A, SPIKE_B and SPIKE_E must not overlap; see device_measurement_queue"
+    profile_captured: false
+    profile:                  # every field must be read from the device; do not infer
+      model_identifier: UNVERIFIED
+      android_version_build: UNVERIFIED
+      ram_and_performance_profile: UNVERIFIED
+      cpu_info_from_tooling: UNVERIFIED
+      gpu_info_from_tooling: UNVERIFIED
+      resolution_and_refresh: UNVERIFIED
+      exact_test_configuration: UNVERIFIED
+    required_before: [SPIKE_A, SPIKE_B, SPIKE_E]
+    governs: [NFR-PERF-001, NFR-PERF-002, NFR-PERF-003, NFR-PERF-004, NFR-USAB-005,
+              TC-PERF-001, TC-PERF-002, TC-PERF-003, TC-PERF-004, TC-USAB-005]
+
+  backend_server:
+    id: SERVER_MACMINI_01
+    model_declared: "Mac mini M2, 24 GB RAM"
+    decision: "DR-003 APPROVED"
+    physical_location: "remote from the demo venue"
+    hosts: [backend_api, persistence, mri_and_mask_artifacts, metrics,
+            precomputed_prediction_artifacts, reconstruction_artifacts]
+    training_required_here: false
+
+  demo_network:
+    profile: "LOCAL_DEMO - PRIVATE OVERLAY / CELLULAR ACCESS"
+    decision: "DR-003 APPROVED"
+    path: "Galaxy A17 5G -> real 4G/5G cellular Internet -> authenticated Tailscale private overlay -> remote Mac mini M2"
+    trust_boundary: "authorised private-overlay (tailnet) device membership - NOT physical network membership"
+    venue_wifi_trusted: false
+    venue_wifi_required: false
+    public_exposure_required: false
+    lan_measurement_valid_as_acceptance_evidence: false   # diagnostic/control only
+
+  ml_compute:
+    id: COMPUTE_ML_01
+    declared: UNVERIFIED       # Spike C0 first deliverable is to state what compute actually exists
+    may_be_separate_from_mac_mini: true
+
+frozen_constraints:
+  canonical_indexing:
+    decision: "DR-008a APPROVED"
+    voxel_order: "(x, y, z)"
+    x: "source image column"
+    y: "source image row"
+    z: "source slice index"
+    shape_xyz: "[Nx, Ny, Nz]"
+    spacing_xyz: "[Sx, Sy, Sz]"
+    api_slice_index: "z, valid 0..Nz-1"
+    slice_shape: "[Ny, Nx]"
+    pixel_to_voxel: "(u,v) -> (x=u, y=v, z=slice_index)"
+    origin: "top-left source pixel is (0,0); +x right, +y down"
+    library_memory_order_in_contract: false
+    applies_to: [SPIKE_A, SPIKE_B, SPIKE_F]
+  picking_accuracy:
+    source: "SCQ-06"
+    canonical_fixtures: "EXACT expected slice - zero tolerance"
+    decimated_real_mesh_max_error_slices: 1
+    may_be_relaxed: false
+    note: "Fixed BEFORE Spike B. Do not loosen to obtain a passing framework."
+    applies_to: [SPIKE_B, SPIKE_F]
+  geometry_support_boundary:
+    decision: "DR-012 APPROVED"
+    supported: "validated axis-aligned only"
+    unsupported_behaviour: "reject with GEOMETRY_NOT_VALIDATED"
+    applies_to: [SPIKE_D, SPIKE_B, SPIKE_F]
+  normalization_policy:
+    decision: "DR-011 APPROVED"
+    cohort_fitted_statistics_allowed: false
+    required: "documented per-image/per-volume normalization plus fixed pretrained-model constants where required"
+    identical_across: [model_families, data_fractions]
+    applies_to: [SPIKE_C0, SPIKE_C1]
+  dataset_substitution:
+    allowed: false
+    note: "Requires the full 00 section 13 process. Never silent."
+
+spikes:
+
+  - id: SPIKE_D
+    name: "Dataset acquisition / validation / provenance"
+    priority: P0
+    owner: "Be Quoc Khanh"
+    reviewer: "Vu Hung Anh"
+    status: PREPARED          # authorised and assigned; execution not started
+    blocked_by: []
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Vu Hung Anh"
+      priority_rank: 1          # ahead of SPIKE_A in Vu Hung Anh's queue - SPIKE_D is P0
+      queue_note: >
+        Vu Hung Anh reviews SPIKE_D and SPIKE_A. Default priority: SPIKE_D before SPIKE_A because D is P0.
+        If SPIKE_A becomes EVIDENCE_READY while D is not ready, Vu may review A. Once D becomes
+        EVIDENCE_READY, D takes priority for the next available review slot.
+    directory: management/spikes/SPIKE_D_DATASET
+    task: management/spikes/SPIKE_D_DATASET/TASK.md
+    evidence_template: management/spikes/SPIKE_D_DATASET/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected:
+      - management/spikes/SPIKE_D_DATASET/RESULT.md
+      - management/DATASET_AUDIT.md
+      - data/manifests/dataset_manifest.*
+    evidence_present: false
+    latest_tested_commit: null
+    environment: null
+    related_dr: [DR-001, DR-002, DR-012, DR-G01, DR-G02]
+    related_condition: [C1, C6]
+    unblocks: [GATE-DATA-01, GATE-SPLIT-01, SPIKE_C1, C1, C6]
+    escalation:
+      rule: "DR-001 APPROVED"
+      trigger: >
+        By the end of the FIRST EXECUTION DAY: if no usable official package exists locally, OR validation
+        exposes a blocking defect preventing GATE-DATA-01 acceptance, escalate RA-H01 to BLOCKER and open
+        the dataset contingency process.
+      forbidden: "silent substitution of another dataset"
+    next_action: "Owner begins acquisition; on starting, set status ACTIVE and record started_at. Follow TASK.md day-one ordering so the DR-001 trigger is evaluable on time."
+
+  - id: SPIKE_A
+    name: "2D scientific viewer / brush interaction"
+    priority: P1
+    owner: "Pham Tuan Anh"
+    reviewer: "Vu Hung Anh"
+    status: PREPARED          # authorised and assigned; execution not started
+    blocked_by: []
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Vu Hung Anh"
+      priority_rank: 2          # behind SPIKE_D in Vu Hung Anh's queue
+      queue_note: "May be reviewed ahead of D only while D is not EVIDENCE_READY."
+    directory: management/spikes/SPIKE_A_2D
+    task: management/spikes/SPIKE_A_2D/TASK.md
+    evidence_template: management/spikes/SPIKE_A_2D/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected: [management/spikes/SPIKE_A_2D/RESULT.md]
+    evidence_present: false
+    latest_tested_commit: null
+    environment: DEVICE_DEMO_01
+    device_profile_prerequisite: true
+    device_measurement_slot: 1  # FIRST in the single-device measurement queue
+    related_dr: [DR-006, DR-008a, DR-009, DR-G05]
+    related_condition: []
+    unblocks: [GATE-MOB-01]
+    measurement_owner: "Pham Tuan Anh (physical device) - Claude must not fabricate touch/performance values"
+    next_action: "Capture the DR-006 device profile, then build the harness with synthetic fixtures. Holds measurement slot 1 on the single authorised device."
+
+  - id: SPIKE_B
+    name: "3D linked interaction"
+    priority: P1
+    owner: "Vu Hung Anh"
+    reviewer: "Pham Tuan Anh"
+    status: PREPARED          # authorised and assigned; execution not started
+    blocked_by: []
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Pham Tuan Anh"
+      priority_rank: 1          # ahead of SPIKE_E in Pham Tuan Anh's queue
+      queue_note: >
+        Pham Tuan Anh reviews SPIKE_B and SPIKE_E. Default priority: SPIKE_B before SPIKE_E because B is P1
+        and feeds GATE-MOB-01 and DR-008c directly, while E is P2.
+    directory: management/spikes/SPIKE_B_3D
+    task: management/spikes/SPIKE_B_3D/TASK.md
+    evidence_template: management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected: [management/spikes/SPIKE_B_3D/RESULT.md]
+    evidence_present: false
+    latest_tested_commit: null
+    environment: DEVICE_DEMO_01
+    device_profile_prerequisite: true
+    device_measurement_slot: 2  # SECOND in the single-device measurement queue
+    parallel_work_allowed: "harness and canonical fixture work may proceed while SPIKE_A is being prepared or measured"
+    related_dr: [DR-006, DR-008a, DR-008b, DR-008c, DR-G05]
+    related_condition: []
+    unblocks: [GATE-MOB-01, DR-008c]
+    hard_constraint: "fixtures EXACT; decimated real mesh max error 1 source slice; must not be relaxed"
+    negative_result_rule: >
+      If no tested configuration satisfies BOTH NFR-PERF-002 and the +/-1 source-slice bound, record
+      NEGATIVE_RESULT and escalate. Do not widen the tolerance.
+    next_action: "Build the canonical geometry fixture set against the DR-008a convention, then the 3D harness. Off-device work proceeds in parallel with Spike A; holds measurement slot 2."
+
+  - id: SPIKE_C0
+    name: "Preliminary ML compute feasibility (synthetic / shape-matched data)"
+    priority: P1
+    owner: "Be Quoc Khanh"
+    reviewer: "Vu Hung Anh"
+    status: PREPARED
+    blocked_by: []
+    wip_note: >
+      QUEUED. May use otherwise-idle waiting time during dataset download, but MUST NOT become a second
+      primary task competing with SPIKE_D. It occupies the "small preparation activity" slot of 15 section 7.
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Vu Hung Anh"
+      priority_rank: 3          # behind SPIKE_D and SPIKE_A
+      queue_note: "Lowest of Vu Hung Anh's three; C0 evidence cannot close GATE-ML-01 in any case."
+    directory: management/spikes/SPIKE_C_ML
+    task: management/spikes/SPIKE_C_ML/TASK.md
+    evidence_template: management/spikes/SPIKE_C_ML/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected: [management/spikes/SPIKE_C_ML/RESULT.md]
+    evidence_present: false
+    latest_tested_commit: null
+    environment: COMPUTE_ML_01
+    related_dr: [DR-007, DR-011, DR-G03]
+    related_condition: []
+    unblocks: []
+    may_close_gate_ml_01: false
+    next_action: "Declare the actual available compute; prepare pipeline bring-up on shape-matched synthetic volumes."
+
+  - id: SPIKE_C1
+    name: "Final real-data ML feasibility (small representative validated real subset)"
+    priority: P1
+    owner: "Be Quoc Khanh"
+    reviewer: "Vu Hung Anh"
+    status: BLOCKED
+    blocked_by: [SPIKE_D]
+    blocked_reason: "Requires an ACCEPTED Spike D and a validated representative real subset (readiness condition C1)."
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Vu Hung Anh"
+      priority_rank: null       # not queued while BLOCKED
+    directory: management/spikes/SPIKE_C_ML
+    task: management/spikes/SPIKE_C_ML/TASK.md
+    evidence_template: management/spikes/SPIKE_C_ML/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected: [management/spikes/SPIKE_C_ML/RESULT.md]
+    evidence_present: false
+    latest_tested_commit: null
+    environment: COMPUTE_ML_01
+    related_dr: [DR-007, DR-011, DR-002, DR-G03]
+    related_condition: [C1]
+    unblocks: [GATE-ML-01]
+    may_close_gate_ml_01: true
+    subset_rule: "Drawn from the TRAINING partition only once GATE-SPLIT-01 resolves; never validation or holdout."
+    next_action: "Wait for Spike D acceptance. No work while BLOCKED."
+
+  - id: SPIKE_E
+    name: "Artifact transport over the canonical demo network"
+    priority: P2
+    owner: "Nguyen Gia Duc Trung"
+    reviewer: "Pham Tuan Anh"
+    status: PREPARED          # authorised and assigned; execution not started
+    blocked_by: []
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Pham Tuan Anh"
+      priority_rank: 2          # behind SPIKE_B in Pham Tuan Anh's queue
+      queue_note: "May be reviewed ahead of B only while B is not EVIDENCE_READY."
+    directory: management/spikes/SPIKE_E_TRANSPORT
+    task: management/spikes/SPIKE_E_TRANSPORT/TASK.md
+    evidence_template: management/spikes/SPIKE_E_TRANSPORT/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected: [management/spikes/SPIKE_E_TRANSPORT/RESULT.md]
+    evidence_present: false
+    latest_tested_commit: null
+    environment: [DEVICE_DEMO_01, SERVER_MACMINI_01, demo_network]
+    device_profile_prerequisite: true
+    device_measurement_slot: 3  # THIRD in the single-device measurement queue
+    parallel_work_allowed: >
+      Owner must NOT wait idly for the phone. Before the device slot: Mac mini backend stub;
+      Tailscale/private-overlay connectivity verification; representative artifact payloads; transport
+      instrumentation; latency-distribution logging; retry/reconnect harness; measurement scripts and
+      templates.
+    related_dr: [DR-003, DR-006, ADR-ART-001]
+    related_condition: []
+    unblocks: [ADR-ART-001, "first-load performance budget (RA-H13)", "canonical-demo connectivity fallback"]
+    hard_constraint: "Acceptance evidence MUST be measured over real cellular + Tailscale overlay. LAN measurements are diagnostic/control only."
+    scope_firewall: "Fallback informs a demo-resilience measure only; must not become full offline mode, a second architecture, or backend-on-phone. PR-CACHE-01 stays SHOULD."
+    linked_risk: [RISK-DEMO-NET-01, RA-H13]
+    next_action: "Stand up the Mac mini backend stub and instrumentation; verify overlay connectivity. Do not idle waiting for the phone; holds measurement slot 3."
+
+  - id: SPIKE_F
+    name: "3D error representation"
+    priority: P1
+    owner: "Vu Hung Anh"
+    reviewer: "Pham Tuan Anh"
+    status: PREPARED
+    blocked_by: []
+    wip_note: >
+      QUEUED behind SPIKE_B as Vu Hung Anh's next primary spike. Preparation with synthetic TP/FP/FN
+      fixtures may begin, but it must not become a second primary task while SPIKE_B is ACTIVE.
+    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    review:
+      state: NOT_REQUESTED
+      reviewer: "Pham Tuan Anh"
+      priority_rank: 3          # behind SPIKE_B and SPIKE_E
+      queue_note: "Queued behind Spike B as Vu Hung Anh's next primary spike; review slot follows."
+    directory: management/spikes/SPIKE_F_3D_ERROR
+    task: management/spikes/SPIKE_F_3D_ERROR/TASK.md
+    evidence_template: management/spikes/SPIKE_F_3D_ERROR/EVIDENCE_TEMPLATE.md
+    evidence_paths_expected: [management/spikes/SPIKE_F_3D_ERROR/RESULT.md]
+    evidence_present: false
+    latest_tested_commit: null
+    environment: DEVICE_DEMO_01
+    related_dr: [DR-005, DR-008a, DR-008b]
+    related_condition: [C4]
+    related_finding: [RA-B01]
+    unblocks: [DR-005, C4, PR-ERR-03, PR-3D-05]
+    depends_on_capability_from: SPIKE_B
+    negative_result_rule: >
+      If the MUST feature is not achievable within the project window, report the NEGATIVE_RESULT and
+      trigger the formal scope decision via DR-005. Never silently simplify. 03 section 4 lists
+      "3D is decorative only and cannot link back to MRI slices" as an MVP rejection condition.
+    next_action: "Prepare synthetic TP/FP/FN fixtures only. Do not start primary work while Spike B is ACTIVE."
+
+wip_compliance:
+  rule: "15 section 7: max 1 primary implementation task; optionally 1 review task; optionally 1 small auxiliary activity."
+
+  intended_first_execution_wave:
+    note: >
+      These are the intended primary tasks WHEN THE HUMANS BEGIN. All spikes are currently PREPARED, not
+      ACTIVE. Each owner transitions their own spike to ACTIVE and records the real started_at on starting.
+    "Be Quoc Khanh":
+      primary: SPIKE_D
+      queued: [SPIKE_C0]
+      constraint: >
+        SPIKE_D is the only primary active task. SPIKE_C0 remains PREPARED. During pure download/I-O idle
+        time only SMALL C0 preparation is allowed - never a competing primary implementation task.
+    "Pham Tuan Anh":
+      primary: SPIKE_A
+      queued: []
+      constraint: "Also holds 2 review assignments (SPIKE_B, SPIKE_E), serialized - see review_serialization."
+    "Vu Hung Anh":
+      primary: SPIKE_B
+      queued: [SPIKE_F]
+      constraint: >
+        SPIKE_B is the only primary active task. SPIKE_F remains PREPARED. Synthetic fixture preparation is
+        allowed, but SPIKE_F implementation must not become a second active primary task.
+    "Nguyen Gia Duc Trung":
+      primary: SPIKE_E
+      queued: []
+      constraint: >
+        MUST NOT wait idly for the phone. Before the SPIKE_E device-measurement slot, allowed work: Mac mini
+        backend stub; Tailscale/private-overlay connectivity verification; representative artifact payloads;
+        transport instrumentation; latency-distribution logging; retry/reconnect harness; measurement
+        scripts and templates.
+
+  primary_task_compliance: COMPLIANT
+
+  conflicts:
+    - id: WIP-CONFLICT-01
+      title: "Review capacity - two members each hold 2 review assignments"
+      status: RESOLVED_BY_REVIEW_SERIALIZATION
+      resolved_at: "2026-09-08"
+      resolution: >
+        Reviewer assignments are NOT changed. Review windows are serialized instead: a member may have at
+        most ONE review in REVIEWING state at a time; any second review assignment remains
+        QUEUED_FOR_REVIEW. Reviewer ownership must not be changed merely to eliminate a scheduling conflict.
+      see: review_serialization
+    - id: WIP-CONFLICT-02
+      title: "One physical device contended by three spikes"
+      status: RESOLVED_BY_DEVICE_MEASUREMENT_SERIALIZATION
+      resolved_at: "2026-09-08"
+      resolution: >
+        The project has EXACTLY ONE authorised physical Samsung Galaxy A17 5G. Harness/code preparation for
+        SPIKE_A, SPIKE_B and SPIKE_E may proceed in parallel, but their physical-device MEASUREMENT windows
+        may not overlap. Reserved measurement order: SPIKE_A, then SPIKE_B, then SPIKE_E. This ordering
+        applies to measurement access only, not to all implementation work.
+      see: device_measurement_queue
+
+review_serialization:
+  rule: "A member may have at most ONE review in REVIEWING state at a time. A second assignment stays QUEUED_FOR_REVIEW."
+  ownership_change_permitted: false     # do not reassign reviewers to dodge scheduling
+  reviewers:
+    "Vu Hung Anh":
+      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1]
+      default_priority: [SPIKE_D, SPIKE_A]
+      rationale: "SPIKE_D before SPIKE_A because SPIKE_D is P0."
+      pre_emption_rule: >
+        If SPIKE_A becomes EVIDENCE_READY while SPIKE_D is not ready, Vu MAY review SPIKE_A. However, once
+        SPIKE_D becomes EVIDENCE_READY, SPIKE_D receives priority for the next available review slot.
+      currently_reviewing: null
+      queued: []
+    "Pham Tuan Anh":
+      reviews: [SPIKE_B, SPIKE_E, SPIKE_F]
+      default_priority: [SPIKE_B, SPIKE_E]
+      rationale: >
+        SPIKE_B before SPIKE_E because SPIKE_B is P1 and feeds GATE-MOB-01 and DR-008c directly, while
+        SPIKE_E is P2.
+      pre_emption_rule: >
+        If SPIKE_E becomes EVIDENCE_READY while SPIKE_B is not ready, Pham MAY review SPIKE_E. Once SPIKE_B
+        becomes EVIDENCE_READY, SPIKE_B receives priority for the next available review slot.
+      currently_reviewing: null
+      queued: []
+
+device_measurement_queue:
+  device: DEVICE_DEMO_01
+  model: "Samsung Galaxy A17 5G"
+  authorised_units: 1
+  rule: "Physical-device measurement windows must NOT overlap. Applies to MEASUREMENT ACCESS ONLY."
+  order:
+    - slot: 1
+      spike: SPIKE_A
+      owner: "Pham Tuan Anh"
+      status: NOT_STARTED
+      measurements: ["cached slice-switch p95 (NFR-PERF-001)", "brush feedback latency (NFR-PERF-003)",
+                     "stroke-loss count", "gesture separation", "brush accuracy after zoom/pan"]
+    - slot: 2
+      spike: SPIKE_B
+      owner: "Vu Hung Anh"
+      status: NOT_STARTED
+      measurements: ["median FPS + stalls (NFR-PERF-002)", "picking error interior vs surface-tangent",
+                     "decimation frontier across >=3 levels", "device memory"]
+      parallel_before_slot: "harness and canonical geometry fixture work proceeds while SPIKE_A is prepared or measured"
+    - slot: 3
+      spike: SPIKE_E
+      owner: "Nguyen Gia Duc Trung"
+      status: NOT_STARTED
+      measurements: ["time to first usable slice cold open", "uncached slice latency",
+                     "continuous navigation with prefetch", "mask/mesh transport", "device memory",
+                     "latency spread under cellular variation", "reconnect/retry"]
+      parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A/B hold the phone"
+      acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated Tailscale overlay -> remote Mac mini M2 24 GB"
+      lan_results: "diagnostic only - never acceptance evidence"
+  note: >
+    SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and
+    therefore does not add contention in this wave.
+
+acceptance_workflow:
+  rule: "No spike becomes ACCEPTED merely because RESULT.md exists."
+  sequence:
+    - step: 1
+      actor: "Primary Owner"
+      action: "Executes the spike and records real evidence in RESULT.md"
+      result_state: EVIDENCE_READY
+    - step: 2
+      actor: "Secondary Reviewer"
+      action: "Technical / evidence review; occupies the reviewer's single REVIEWING slot"
+      outcome: [APPROVE, NEEDS_FIX]
+      on_needs_fix: >
+        Spike returns to NEEDS_FIX. Owner corrects or gathers additional evidence. A known-invalid claim must
+        NOT be forwarded to final acceptance.
+    - step: 3
+      actor: "CHAT E - QA / Red Team"
+      action: "Independently challenges the evidence"
+      outcome: [PASS, REJECT]
+      on_reject: "Spike is NOT ACCEPTED regardless of owner or reviewer opinion."
+      evidence_inspection_required_for: [SPIKE_D, SPIKE_B, SPIKE_F]
+      evidence_inspection_note: >
+        For evidence-driven gates, QA must inspect the ACTUAL RECORDED EVIDENCE relevant to the gate - not
+        only the summary verdict.
+    - step: 4
+      actor: "CHAT A - Project Control"
+      action: "Performs the final state transition"
+      result_state: ACCEPTED
+
+chat_routing:
+  SPIKE_D:  {lead: "CHAT C - ML/Imaging Research", support: ["CHAT D - Implementation", "CHAT A - Project Control"]}
+  SPIKE_A:  {lead: "CHAT D - Implementation", support: ["CHAT B - Technical Architect", "CHAT C - ML/Imaging Research"]}
+  SPIKE_B:  {lead: "CHAT D - Implementation", support: ["CHAT B - Technical Architect", "CHAT C - ML/Imaging Research"]}
+  SPIKE_C0: {lead: "CHAT C - ML/Imaging Research", support: ["CHAT A - Project Control"]}
+  SPIKE_C1: {lead: "CHAT C - ML/Imaging Research", support: ["CHAT A - Project Control"]}
+  SPIKE_E:  {lead: "CHAT B - Technical Architect", support: ["CHAT D - Implementation"]}
+  SPIKE_F:  {lead: "CHAT C - ML/Imaging Research", support: ["CHAT D - Implementation", "CHAT B - Technical Architect"]}
+  acceptance_challenge_all: "CHAT E - QA/Red Team, before any spike moves to ACCEPTED"
+  phase_state_owner: "CHAT A - PROJECT CONTROL"
+
+gates_that_must_not_close_early:
+  GATE-MOB-01:
+    requires: [SPIKE_A, SPIKE_B]
+    note: "No mobile framework may be selected or frozen before both are ACCEPTED."
+  GATE-ML-01:
+    requires: [SPIKE_C1]
+    note: "Spike C0 evidence is explicitly insufficient to close this gate."
+
+integrity:
+  frozen_spec_checksums: "19/19 OK"
+  frozen_spec_modified: false
+  master_plan_30_days_created: false
+  production_modules_created: false
+  mobile_framework_frozen: false
+  ml_recipe_frozen: false
+  spikes_executed: 0
+  result_files_present: 0
