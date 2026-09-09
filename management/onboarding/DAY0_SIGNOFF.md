@@ -35,18 +35,43 @@
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` |
+| A · Shared Core | `PASS` |
 | B · Git Workflow | `NOT_CHECKED` |
-| C · Project Pipeline | `NOT_CHECKED` |
-| D · Own Vertical (V1 Case Explorer / 2D MRI) | `NOT_CHECKED` |
-| E · Own Technical Block (Integration / CI / cross-contract) | `NOT_CHECKED` |
-| F · Current Spike (**Spike A**) | `NOT_CHECKED` |
-| G · Evidence Workflow | `NOT_CHECKED` |
-| H · Blocker Escalation | `NOT_CHECKED` |
-| I · Repo Access | `NOT_CHECKED` |
-| J · Environment Ready | `NOT_CHECKED` |
+| C · Project Pipeline | `PASS` |
+| D · Own Vertical (V1 Case Explorer / 2D MRI) | `PASS` |
+| E · Own Technical Block (Integration / CI / cross-contract) | `PASS` |
+| F · Current Spike (**Spike A**) | `PASS` |
+| G · Evidence Workflow | `PASS` |
+| H · Blocker Escalation | `PASS` |
+| I · Repo Access | `PASS` |
+| J · Environment Ready | `PASS` |
 | **K · Overall Day-0 Status** | `NOT_CHECKED` |
-| L · Clarifications Required | |
+| L · Clarifications Required | **Git drill — cross-review half outstanding.** Author half complete and mechanically verified: branch `chore/practice-tuan-anh`, commit `262a549` carrying the `PRACTICE-01` ID, PR **#1** open against `main`, diff confined to `management/onboarding/practice/PRACTICE_PHAM_TUAN_ANH.md`. Still missing: a genuine `NEEDS_FIX` **received from** and **given to** Vũ Hùng Anh, and a third-party `APPROVE`. All three require `scalliontor`, who was not available on Day 0. GitHub does not permit approving one's own pull request, and a self-posted comment is not a received review — so no substitute satisfies column B. |
+
+**Basis for A · C · D · E · F · G · H** — the leader completed an **interactive Day-0 knowledge gate on
+2026-09-09** covering five areas:
+
+1. scientific validity / data leakage
+2. artifact provenance
+3. geometry
+4. governance / Gate / DR
+5. ownership boundaries
+
+A **geometry misconception surfaced during the gate and was corrected before pass** — the gate was not a
+recitation check, and it was not passed on the first answer to that topic.
+
+**Basis for I · J** — verified mechanically on 2026-09-09 through the GitHub API: a real push to
+`origin/chore/practice-tuan-anh` and PR **#1** opened against `main`; `git` and `gh` authenticated and
+working, repository role `admin`/`push`. Mobile tooling is deliberately **not** installed — it waits on
+`GATE-MOB-01`.
+
+**Why K is not `PASS`** — column B is a **mandatory** Day-0 requirement and it is open. A mandatory Day-0
+requirement is not deferred into Execution Day 1 while readiness is declared, so the leader's Day-0
+sign-off stands **INCOMPLETE** until the cross-reviewed drill genuinely happens.
+
+**No operational blocker was found** — repository access, tooling and ownership are all satisfied. That is
+**not** a declaration of readiness for Execution Day 1. **Readiness is NOT declared** while column B is
+open, and this record must not be read as declaring it.
 
 ---
 
@@ -155,16 +180,27 @@ Leader xác nhận **cuối Day 0**:
 
 | Mục | Trạng thái |
 |---|---|
-| **Không spike nào ở `ACTIVE`** | `NOT_CHECKED` |
-| **Mọi `started_at` vẫn là `null`** | `NOT_CHECKED` |
-| **Không `RESULT.md` nào được tạo** | `NOT_CHECKED` |
-| **Không tải dataset chính thức như công việc Spike D** | `NOT_CHECKED` |
-| **Không `DATASET_AUDIT.md`** | `NOT_CHECKED` |
-| **Không thu bằng chứng thiết bị / mạng / ML / geometry** | `NOT_CHECKED` |
-| **Không tạo module production** | `NOT_CHECKED` |
-| **`docs/specs/v1.0/` không bị sửa** (checksum 19/19 OK) | `NOT_CHECKED` |
-| **Không `MASTER_PLAN_30_DAYS.md`** | `NOT_CHECKED` |
-| Bài drill Git chỉ chạm file luyện tập, **không** chạm spec/spike/production | `NOT_CHECKED` |
+| **Không spike nào ở `ACTIVE`** | `PASS` — repo-verified |
+| **Mọi `started_at` vẫn là `null`** | `PASS` — repo-verified (7/7) |
+| **Không `RESULT.md` nào được tạo** | `PASS` — repo-verified |
+| **Không tải dataset chính thức như công việc Spike D** | `PASS` — **leader-attested** |
+| **Không `DATASET_AUDIT.md`** | `PASS` — repo-verified |
+| **Không thu bằng chứng thiết bị / mạng / ML / geometry** | `PASS` — **leader-attested** |
+| **Không tạo module production** | `PASS` — repo-verified (tracked tree) + **leader-attested** (uncommitted work) |
+| **`docs/specs/v1.0/` không bị sửa** (checksum 19/19 OK) | `PASS` — repo-verified, 19/19 OK |
+| **Không `MASTER_PLAN_30_DAYS.md`** | `PASS` — repo-verified |
+| Bài drill Git chỉ chạm file luyện tập, **không** chạm spec/spike/production | `PASS` — repo-verified, PR #1 diff = 1 file |
+
+> ### Hai loại bằng chứng, không trộn lẫn
+>
+> **`repo-verified`** — chứng minh trực tiếp từ repository: `SPIKE_PHASE_STATE.yaml`, `sha256sum -c
+> SPEC_MANIFEST_SHA256.txt`, quét filesystem, diff cây tracked so với `d5aa460`, và `git diff` phạm vi của
+> PR #1.
+>
+> **`leader-attested`** — **không** chứng minh được từ repository, vì đó là hoạt động của con người ngoài
+> Git. Việc repo trống **không** phải bằng chứng là không ai tải dataset hay không ai đo máy. Ba hàng này
+> được ghi trên cơ sở **Phạm Tuấn Anh đã hỏi trực tiếp cả ba thành viên trong ngày 2026-09-09 và xác nhận
+> không ai vượt ranh giới** — không phải trên cơ sở suy diễn từ repository.
 
 ---
 
@@ -177,6 +213,19 @@ Ghi lại các vướng mắc phát hiện khi cài tooling / kiểm truy cập.
 | 1 | | | | | |
 | 2 | | | | | |
 | 3 | | | | | |
+
+**Phạm Tuấn Anh — không có onboarding blocker.** Quyền truy cập repo đã đủ (`admin`/`push`), cả ba lời mời
+cho thành viên đã được nhận, `git` và `gh` hoạt động. Mục drill Git còn mở được theo dõi ở **cột L**, không
+ghi ở đây — nó không phải vướng mắc tooling hay truy cập.
+
+Ba mục dưới đây **không** phải blocker và **không** chặn Execution Day 1; chúng là **việc follow-up
+Integration/CI của Day 1** thuộc technical block của leader (`NFR-MAINT-001`/`002`/`003`):
+
+| # | Mục | Vì sao chưa làm hôm nay |
+|---:|---|---|
+| 1 | Chưa có `.github/` — không có PR template, không có CI skeleton | Day 0 chỉ cài tooling và drill; dựng CI là việc của block Integration/CI trên Execution Day 1 |
+| 2 | `delete_branch_on_merge = false` trên repository | Thiết lập tiện dụng, không phải yêu cầu Day 0 |
+| 3 | Không có branch protection trên `main` | Cần quyết định chính sách review trước khi bật, không phải việc Day 0 |
 
 ---
 
