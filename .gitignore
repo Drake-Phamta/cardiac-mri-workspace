@@ -1,0 +1,81 @@
+# =============================================================================
+# Money/dataset governance — enforced by `12` §3 and NFR-SEC-004
+# =============================================================================
+
+# --- DATASET BYTES MUST NEVER BE COMMITTED --------------------------------
+# `12` §3: "Do not redistribute the dataset outside permitted terms."
+# `06` §5: raw package stays outside version control.
+# SPIKE_D_DATASET/TASK.md forbids "Committing dataset bytes to the repository".
+#
+# The MANIFEST is tracked (it is the GATE-DATA-01 acceptance artifact);
+# the raw volumes are not.
+data/**
+!data/manifests/
+!data/manifests/**
+*.nrrd
+*.nii
+*.nii.gz
+*.dcm
+*.mha
+*.mhd
+*.raw
+
+# --- MODEL WEIGHTS / CHECKPOINTS ------------------------------------------
+# Referenced by id/checksum in experiment manifests (`08` §10), not committed.
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+checkpoints/
+runs/
+wandb/
+
+# --- SECRETS --------------------------------------------------------------
+# NFR-SEC-004: "Secrets/config credentials shall not be committed."
+# `12` §6: store secrets in environment/secret configuration, never in source.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+*.jks
+secrets/
+credentials.json
+service-account*.json
+
+# --- SPIKE / MEASUREMENT SCRATCH ------------------------------------------
+# Spike harnesses are throwaway; RESULT.md and evidence artifacts ARE tracked.
+spikes/**/build/
+spikes/**/.gradle/
+spikes/**/node_modules/
+
+# --- PYTHON ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# --- NODE / MOBILE --------------------------------------------------------
+node_modules/
+.expo/
+*.apk
+*.aab
+*.ipa
+local.properties
+
+# --- OS / EDITOR ----------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
