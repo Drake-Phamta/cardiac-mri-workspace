@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DAY 0 — Cardiac MRI Workspace</title>
-<meta name="description" content="Bảng theo dõi nhiệm vụ Day 0 (09/09/2026) của nhóm dự án AI-assisted Cardiac MRI Research Workspace.">
+<title>DAY 01 · PHASE A — Cardiac MRI Workspace</title>
+<meta name="description" content="Bảng điều phối Execution Day 01 (10/09/2026) — Phase A: đóng nợ Day 0 và chuẩn bị. READY: NO.">
 <style>
 :root{
   --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --ink:#16191d; --ink-2:#4a5158;
@@ -27,178 +27,123 @@
 }}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{
-  margin:0; background:var(--bg); color:var(--ink);
-  font:15px/1.62 var(--sans);
-}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.62 var(--sans)}
 .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 64px}
 
 /* ---------- header ---------- */
 header.top{
-  background:var(--panel); border:1px solid var(--line); border-radius:14px;
-  padding:20px 22px; margin-bottom:18px;
+  background:var(--panel);border:2px solid var(--warn-line);border-radius:14px;
+  padding:20px 22px;margin-bottom:18px;
 }
 .eyebrow{font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin:0 0 10px}
-h1{margin:0 0 4px;font-size:clamp(24px,5vw,34px);line-height:1.15;letter-spacing:-.02em}
+h1{margin:0 0 6px;font-size:clamp(24px,5vw,34px);line-height:1.15;letter-spacing:-.02em}
 h1 .day{color:var(--accent)}
+.phase{
+  display:inline-block;font:700 13px/1 var(--mono);letter-spacing:.06em;
+  background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-line);
+  border-radius:7px;padding:9px 13px;margin:2px 0 10px;
+}
 .sub{margin:0;color:var(--ink-2);font-size:15px}
-.timeline{
-  display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line-2);
+.readybar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-top:14px;padding:13px 15px;border-radius:11px;
+  background:var(--stop-soft);border:1px solid var(--stop-line);
 }
-.pill{
-  font:600 12px/1 var(--mono);padding:7px 11px;border-radius:999px;
-  background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);
-}
-.pill.now{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-.pill.next{background:var(--warn-soft);border-color:var(--warn-line);color:var(--warn)}
+.readybar .k{font:800 20px/1 var(--mono);letter-spacing:.04em;color:var(--stop)}
+.readybar .t{font-size:13.5px;color:var(--ink-2);flex:1;min-width:220px}
+.timeline{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2)}
+.pill{font:600 12px/1 var(--mono);padding:7px 11px;border-radius:999px;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2)}
+.pill.now{background:var(--warn-soft);border-color:var(--warn-line);color:var(--warn)}
+.pill.off{background:var(--panel-2);border-color:var(--line);color:var(--ink-3)}
 
-/* ---------- generic section ---------- */
-section{
-  background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  padding:20px 22px;margin-bottom:16px;
-}
+/* ---------- section ---------- */
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px}
 section.urgent{border-color:var(--warn-line);background:var(--warn-soft)}
-h2{
-  margin:0 0 4px;font-size:18px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
-}
-h2 .num{
-  font:700 12px/1 var(--mono);color:var(--ink-3);
-  border:1px solid var(--line);border-radius:6px;padding:4px 7px;flex:none;
-}
+section.stopsec{border-color:var(--stop-line);background:var(--stop-soft)}
+h2{margin:0 0 4px;font-size:18px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+h2 .num{font:700 12px/1 var(--mono);color:var(--ink-3);border:1px solid var(--line);border-radius:6px;padding:4px 7px;flex:none}
 section.urgent h2 .num{border-color:var(--warn-line);color:var(--warn)}
+section.stopsec h2 .num{border-color:var(--stop-line);color:var(--stop)}
 .lede{margin:2px 0 14px;color:var(--ink-2);font-size:14px}
-h3{margin:20px 0 8px;font-size:14px;letter-spacing:.01em}
+h3{margin:18px 0 8px;font-size:14px;letter-spacing:.01em}
 p{margin:0 0 10px}
-code{
-  font:13px/1.45 var(--mono);background:var(--panel-2);border:1px solid var(--line);
-  border-radius:5px;padding:1px 5px;
-}
-pre{
-  margin:10px 0;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
-  padding:12px 14px;overflow-x:auto;
-}
+code{font:13px/1.45 var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+pre{margin:10px 0;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;overflow-x:auto}
 pre code{background:none;border:0;padding:0;font-size:12.5px;white-space:pre}
 a{color:var(--accent)}
 strong{font-weight:650}
 ul{margin:0 0 10px;padding-left:20px}
 li{margin:3px 0}
 
-/* ---------- read list ---------- */
-.readlist{list-style:none;padding:0;margin:0 0 12px;display:grid;gap:8px}
-.readlist li{
-  display:flex;gap:11px;align-items:flex-start;
-  background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin:0;
-}
-.readlist .n{
-  font:700 12px/1.5 var(--mono);color:var(--accent);flex:none;min-width:18px;
-}
-.readlist .f{font:600 12.5px/1.5 var(--mono);word-break:break-all}
-.readlist .t{color:var(--ink-3);font-size:12.5px}
-
-/* ---------- steps ---------- */
-.steps{list-style:none;padding:0;margin:0;counter-reset:s}
-.steps li{margin:0 0 7px}
-.steps label{
-  display:flex;gap:12px;align-items:flex-start;cursor:pointer;
-  background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;
-  transition:border-color .12s,background .12s;
-}
-.steps label:hover{border-color:var(--accent)}
-.steps input{
-  appearance:none;-webkit-appearance:none;flex:none;
-  width:19px;height:19px;margin:1px 0 0;border:2px solid var(--line);border-radius:5px;
-  background:var(--panel);cursor:pointer;position:relative;
-}
-.steps input:checked{background:var(--go);border-color:var(--go)}
-.steps input:checked::after{
-  content:"";position:absolute;left:4.5px;top:1px;width:5px;height:10px;
-  border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);
-}
-.steps .body{flex:1;min-width:0}
-.steps .lbl{font-weight:600}
-.steps .desc{color:var(--ink-3);font-size:13px;margin-top:1px}
-.steps input:checked ~ .body .lbl{text-decoration:line-through;color:var(--ink-3);font-weight:500}
-.progress{
-  display:flex;align-items:center;gap:11px;margin:14px 0 0;padding-top:14px;
-  border-top:1px solid var(--line-2);font:600 12px/1 var(--mono);color:var(--ink-3);
-}
-.bar{flex:1;height:7px;background:var(--line-2);border-radius:99px;overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:var(--go);border-radius:99px;transition:width .2s}
-.note-local{margin:9px 0 0;font-size:12.5px;color:var(--ink-3)}
+/* ---------- table ---------- */
+.tblwrap{overflow-x:auto;margin:0 0 4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line-2);vertical-align:top}
+th{font:700 11px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td .id{font:700 12px/1.5 var(--mono);color:var(--ink-2)}
+.st{font:700 11px/1 var(--mono);padding:5px 8px;border-radius:5px;white-space:nowrap;display:inline-block}
+.st.no{background:var(--stop-soft);color:var(--stop);border:1px solid var(--stop-line)}
+.st.ok{background:var(--go-soft);color:var(--go);border:1px solid var(--go-line)}
+.st.wait{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-line)}
+.st.idle{background:var(--panel-2);color:var(--ink-3);border:1px solid var(--line)}
 
 /* ---------- member cards ---------- */
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}
 .card{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:15px 16px}
-.card .who{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.card.block{border-color:var(--stop-line)}
+.card .who{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .card .nm{font-size:17px;font-weight:700;letter-spacing:-.01em}
-.card .tag{
-  font:700 10.5px/1 var(--mono);letter-spacing:.07em;padding:4px 7px;border-radius:5px;
-  background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);
-}
+.card .tag{font:700 10.5px/1 var(--mono);letter-spacing:.07em;padding:4px 7px;border-radius:5px;
+  background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
 .card .tag.lead{background:var(--warn-soft);color:var(--warn);border-color:var(--warn-line)}
+.card .tag.p0{background:var(--stop-soft);color:var(--stop);border-color:var(--stop-line)}
+.blockflag{font:700 11px/1.4 var(--mono);color:var(--stop);margin:0 0 9px}
+.nowbox{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--warn);
+  border-radius:8px;padding:10px 12px;margin:0 0 9px;font-size:13.5px}
+.nowbox b{display:block;font:700 10.5px/1 var(--mono);letter-spacing:.08em;color:var(--warn);margin-bottom:5px}
+.laterbox{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--ink-3);
+  border-radius:8px;padding:10px 12px;margin:0 0 9px;font-size:13.5px}
+.laterbox b{display:block;font:700 10.5px/1 var(--mono);letter-spacing:.08em;color:var(--ink-3);margin-bottom:5px}
 dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 11px;font-size:13px}
 dt{color:var(--ink-3);font-weight:600;white-space:nowrap}
 dd{margin:0;min-width:0;word-break:break-word}
-dd .path{font:12px/1.45 var(--mono);word-break:break-all}
-.card .install{
-  margin-top:12px;padding-top:11px;border-top:1px solid var(--line);font-size:13px;
-}
-.card .install b{display:block;font-size:11px;font-family:var(--mono);letter-spacing:.08em;
-  text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+.card .pk{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);font-size:13px}
 
-/* ---------- gate ---------- */
-.topics{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin:12px 0}
-.topic{
-  background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:11px 12px;
-  font-size:13px;
-}
-.topic .k{font:700 11px/1 var(--mono);color:var(--accent);display:block;margin-bottom:5px}
-.verdict{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0 0}
-.v{font:700 12px/1 var(--mono);padding:8px 12px;border-radius:7px}
-.v.pass{background:var(--go-soft);color:var(--go);border:1px solid var(--go-line)}
-.v.clar{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-line)}
+/* ---------- phone ---------- */
+.phonebox{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:15px 17px;margin:0 0 13px}
+.phonebox .hold{font:700 14px/1.4 var(--mono);color:var(--ink-2)}
+.phonebox .why{margin:6px 0 0;font-size:13px;color:var(--ink-3)}
+.amend{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:9px;
+  padding:11px 13px;margin:12px 0 0;font-size:13px;color:var(--ink-2)}
+.amend b{color:var(--warn)}
 
-/* ---------- do / dont ---------- */
-.dd{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.col{border-radius:11px;padding:15px 17px;border:1px solid}
-.col.yes{background:var(--go-soft);border-color:var(--go-line)}
-.col.no{background:var(--stop-soft);border-color:var(--stop-line)}
-.col h3{margin:0 0 9px;font:700 13px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase}
-.col.yes h3{color:var(--go)} .col.no h3{color:var(--stop)}
-.col ul{margin:0;padding-left:19px;font-size:13.5px}
-.why{
-  margin:11px 0 0;padding-top:10px;border-top:1px solid var(--stop-line);
-  font-size:12.5px;color:var(--ink-2);
-}
+/* ---------- queues ---------- */
+.queues{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.q{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:14px 16px}
+.q .qn{font-weight:700;margin-bottom:7px}
+.q .flow{font:700 13px/1.5 var(--mono);color:var(--accent)}
+.q .note{font-size:12.5px;color:var(--ink-3);margin-top:7px}
 
-/* ---------- hard rules ---------- */
-.hard{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.hard .h{background:var(--stop-soft);border:1px solid var(--stop-line);border-radius:10px;padding:14px 15px}
-.hard .h .t{font-weight:700;margin-bottom:5px;color:var(--stop)}
-.hard .h p{margin:0;font-size:13px;color:var(--ink-2)}
+/* ---------- stop list ---------- */
+.stoplist{columns:2;column-gap:22px;margin:0;padding-left:19px;font-size:13.5px}
+.stoplist li{margin:5px 0;break-inside:avoid}
 
 /* ---------- footer ---------- */
-footer{
-  margin-top:22px;padding:18px 20px;border:1px solid var(--line);border-radius:12px;
-  background:var(--panel);font-size:12.5px;color:var(--ink-3);
-}
-footer .disc{
-  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
-  padding:11px 13px;margin:0 0 12px;color:var(--ink-2);
-}
+footer{margin-top:22px;padding:18px 20px;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);font-size:12.5px;color:var(--ink-3)}
+footer .disc{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  padding:11px 13px;margin:0 0 12px;color:var(--ink-2)}
 footer p{margin:0 0 6px}
 footer a{word-break:break-all}
 
-@media (max-width:820px){
-  .topics{grid-template-columns:repeat(2,1fr)}
-  .hard{grid-template-columns:1fr}
-}
+@media (max-width:820px){ .stoplist{columns:1} }
 @media (max-width:700px){
   .wrap{padding:14px 12px 48px}
   header.top,section{padding:16px 15px;border-radius:12px}
   .cards{grid-template-columns:1fr}
-  .dd{grid-template-columns:1fr}
-  .topics{grid-template-columns:1fr}
+  .queues{grid-template-columns:1fr}
   dl{grid-template-columns:1fr;gap:2px}
   dt{margin-top:6px}
 }
@@ -209,262 +154,292 @@ footer a{word-break:break-all}
 
 <header class="top">
   <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace</p>
-  <h1><span class="day">DAY 0</span> — 09/09/2026</h1>
-  <p class="sub">Team onboarding. Hôm nay là để <strong>hiểu</strong>, chưa phải để làm.</p>
+  <h1><span class="day">DAY 01</span> — 10/09/2026</h1>
+  <div class="phase">PHASE A — ĐANG ĐÓNG NỢ DAY 0 / CHUẨN BỊ EXECUTION</div>
+  <p class="sub">Execution Day 1 <strong>chưa bắt đầu</strong>. Ngày trên lịch không tự khởi động nó —
+     chỉ <strong>tuyên bố của leader</strong> mới làm điều đó.</p>
+  <div class="readybar">
+    <span class="k">READY: NO</span>
+    <span class="t">Chưa cutover · chưa spike nào <code>ACTIVE</code> · chưa <code>started_at</code> nào
+      được ghi · <strong>đồng hồ DR-001 chưa chạy</strong>.</span>
+  </div>
   <div class="timeline">
-    <span class="pill now">Day 0 · 09/09 · KHÔNG thuộc baseline 30 ngày</span>
-    <span class="pill next">Execution Day 1 · 10/09 · baseline bắt đầu</span>
-    <span class="pill">Giờ linh hoạt — miễn xong trong ngày</span>
+    <span class="pill now">Phase A · đóng nợ Day 0 + chuẩn bị</span>
+    <span class="pill off">Cutover · chờ cửa R1–R9</span>
+    <span class="pill off">Phase B · execution</span>
+    <span class="pill off">EOD · review + quyết định Day 2</span>
   </div>
 </header>
 
-<!-- ① -->
+<!-- A -->
 <section class="urgent">
-  <h2><span class="num">01</span> Việc gấp nhất — làm ngay bây giờ</h2>
-  <p class="lede">Hùng Anh, Khánh, Trung: mở email, tìm thư mời từ GitHub, bấm <strong>Accept invitation</strong>.</p>
-  <p>Repo đã public nên <strong>clone được ngay không cần chờ accept</strong>. Nhưng phải accept mới
-     <strong>push</strong> được — nếu chưa, bài thực hành Git chiều nay sẽ tắc.</p>
-  <pre><code>git clone https://github.com/Drake-Phamta/cardiac-mri-workspace.git</code></pre>
-  <p style="margin-bottom:0">Không thấy email thì nhắn Tuấn Anh.</p>
+  <h2><span class="num">A</span> Việc cần đóng trước READY</h2>
+  <p class="lede">Cửa <code>R1</code>–<code>R9</code>. Trượt một mục là không tuyên bố. Kiểm bằng máy,
+     không bằng lời khai.</p>
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>#</th><th>Điều kiện</th><th>Trạng thái</th><th>Ai gỡ</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td>Bốn PR practice đã squash merge</td>
+          <td><span class="st no">CHƯA</span></td><td>#1 #3 #4 còn mở · PR của Trung chưa tồn tại</td></tr>
+      <tr><td class="id">R2</td><td>Mỗi người tham gia hợp lệ vào chu trình review</td>
+          <td><span class="st no">CHƯA</span></td><td>cả bốn</td></tr>
+      <tr><td class="id">R3</td><td><code>DAY0_SIGNOFF.md</code> cột K = <code>PASS</code> ×4</td>
+          <td><span class="st no">CHƯA</span></td><td>leader chấm sau khi merge</td></tr>
+      <tr><td class="id">R4</td><td>§5 tổng hợp điền và leader ký</td>
+          <td><span class="st no">CHƯA</span></td><td>leader</td></tr>
+      <tr><td class="id">R5</td><td><code>DAY1_READINESS_CHECKLIST.md</code> Phần A · B · B.1 · C · D</td>
+          <td><span class="st no">CHƯA</span></td><td>Project Control</td></tr>
+      <tr><td class="id">R6</td><td><code>MASTER_PLAN_30_DAYS.md</code> tồn tại và được leader chấp nhận</td>
+          <td><span class="st no">CHƯA</span></td><td>Project Control sinh → leader chấp nhận</td></tr>
+      <tr><td class="id">R7</td><td>Baseline không đóng băng quyết định phụ thuộc bằng chứng</td>
+          <td><span class="st wait">CHỜ R6</span></td><td>leader</td></tr>
+      <tr><td class="id">R8</td><td>6 <code>PREPARED</code> + 1 <code>BLOCKED</code>, 7 × <code>started_at: null</code></td>
+          <td><span class="st ok">ĐẠT</span></td><td>—</td></tr>
+      <tr><td class="id">R9</td><td>Spec 19/19 · 0 <code>RESULT.md</code> · 0 <code>DATASET_AUDIT.md</code> · 0 <code>data/manifests/</code></td>
+          <td><span class="st ok">ĐẠT</span></td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-bottom:0"><strong>Đường tới hạn:</strong>
+     Trung mở PR → Trung review PR #4 → Khánh merge → leader chấm sign-off → baseline → cutover.
+     <strong>Trung đang là nút thắt của ba cột B.</strong></p>
 </section>
 
-<!-- ② -->
+<!-- B -->
 <section>
-  <h2><span class="num">02</span> Đọc 25 phút đầu</h2>
-  <p class="lede">Đọc tại phòng, không cần đọc trước. Brief riêng đọc ở phiên chiều.</p>
-  <ul class="readlist">
-    <li><span class="n">1</span><span><span class="f">management/onboarding/README.md</span>
-        <span class="t"> — ~10 phút · có bảng chỉ rõ brief của từng người ở đâu</span></span></li>
-    <li><span class="n">2</span><span><span class="f">management/onboarding/PROJECT_ONE_PAGE_MAP.md</span>
-        <span class="t"> — ~15 phút · bản đồ 1 trang, mở suốt dự án</span></span></li>
-  </ul>
-  <p style="margin-bottom:0"><strong>Đừng đọc <code>docs/specs/00</code> → <code>17</code> theo thứ tự.</strong>
-     Bộ đó có 39 product requirement, 79 FR/NFR, 69 acceptance test — không ai cần đọc hết.
-     Chỉ tra khi cần; tài liệu nào cũng dẫn số ID để nhảy thẳng tới đúng chỗ.</p>
-</section>
+  <h2><span class="num">B</span> Việc của từng người</h2>
+  <p class="lede"><strong>NOW</strong> là việc làm ngay trong Phase A. <strong>SAU READY</strong> chỉ bắt
+     đầu khi leader đã tuyên bố cutover.</p>
 
-<!-- ③ -->
-<section>
-  <h2><span class="num">03</span> Chín bước hôm nay</h2>
-  <p class="lede">Thứ tự cố định, giờ linh hoạt. Tick để tự theo dõi tiến độ của mình.</p>
-  <ul class="steps" id="steps">
-    <li><label><input type="checkbox" data-k="s1"><span class="body">
-      <span class="lbl">Accept invite + clone + đọc 2 file</span>
-      <span class="desc">Xem khối 01 và 02 phía trên</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s2"><span class="body">
-      <span class="lbl">Mở đầu — ta xây gì, trả lời câu hỏi nghiên cứu nào</span>
-      <span class="desc">Thành công nghĩa là gì, và KHÔNG nghĩa là gì</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s3"><span class="body">
-      <span class="lbl">Shared Core I — MRI/LA, dataset, artifact, split, leakage</span>
-      <span class="desc">Ba lớp artifact: IMMUTABLE / DERIVED / HUMAN · vì sao không split theo slice</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s4"><span class="body">
-      <span class="lbl">Shared Core II — metric, toạ độ 2D↔3D, review semantics</span>
-      <span class="desc">Quy ước <code>(x,y,z)</code> · luật empty-slice · brush không chờ mạng</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s5"><span class="body">
-      <span class="lbl">Kiến trúc — ai đưa gì cho ai, suốt pipeline</span>
-      <span class="desc">Mỗi chặng: owner? input? output? ai tiêu thụ?</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s6"><span class="body">
-      <span class="lbl">Thực hành Git — MỖI NGƯỜI tự làm, không ngồi xem</span>
-      <span class="desc">branch → commit → PR → nhận NEEDS_FIX → sửa → approve → squash merge</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s7"><span class="body">
-      <span class="lbl">Ownership — ai sở hữu gì + đọc brief riêng của mình</span>
-      <span class="desc">Trả lời được 10 câu trong brief, nhất là "tôi được tự quyết gì / phải qua DR gì"</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s8"><span class="body">
-      <span class="lbl">Kiểm hiểu biết cuối ngày</span>
-      <span class="desc">5 câu miệng mỗi người — xem khối 05</span></span></label></li>
-    <li><label><input type="checkbox" data-k="s9"><span class="body">
-      <span class="lbl">Chốt sẵn sàng cho mai + ký biên bản</span>
-      <span class="desc"><code>DAY0_SIGNOFF.md</code> điền tay, không điền sẵn PASS</span></span></label></li>
-  </ul>
-  <div class="progress"><span id="pct">0 / 9</span><span class="bar"><i id="bar"></i></span></div>
-  <p class="note-local">Trạng thái tick lưu ngay trên máy bạn thôi — không đồng bộ cho người khác thấy.</p>
-</section>
-
-<!-- ④ -->
-<section>
-  <h2><span class="num">04</span> Bốn người — ai làm gì</h2>
-  <p class="lede">Mỗi người là Primary Owner trên <strong>cả hai trục</strong>: một mobile vertical và một
-     technical block. Không ai chỉ cần hiểu khối của mình.</p>
   <div class="cards">
 
-    <div class="card">
-      <div class="who"><span class="nm">Tuấn Anh</span><span class="tag lead">LEADER</span></div>
+    <div class="card block">
+      <div class="who"><span class="nm">Nguyễn Gia Đức Trung</span><span class="tag">V4 · Spike E</span></div>
+      <p class="blockflag">🔴 ĐANG CHẶN BA CỘT B — LÀM PHẦN NÀY TRƯỚC SPIKE E</p>
+      <div class="nowbox"><b>NOW</b>
+        ① điền <code>PRACTICE_NGUYEN_GIA_DUC_TRUNG.md</code> · ② nhánh <code>chore/practice-duc-trung</code>
+        → push → mở PR · ③ <strong>review PR #4 của Khánh</strong> — approve nếu đúng, chỉ request changes
+        khi có lỗi thật · ④ merge PR của mình.
+      </div>
+      <div class="laterbox"><b>SAU READY</b>
+        Cellular 5G thật + overlay → <strong>phân bố</strong> latency → ghi direct-vs-relayed từng phép đo.
+        Backend stub và Tailscale làm được ngay trong Phase A, nhãn <code>PREP</code>.
+      </div>
       <dl>
-        <dt>Vertical</dt><dd>V1 — Case Explorer / 2D MRI</dd>
-        <dt>Khối</dt><dd>Integration / CI / cross-contract</dd>
-        <dt>Spike</dt><dd>Spike A — 2D viewer / brush</dd>
-        <dt>Reviewer</dt><dd>Hùng Anh</dd>
-        <dt>Brief</dt><dd class="path">member_briefs/PHAM_TUAN_ANH.md</dd>
-        <dt>Task</dt><dd class="path">spikes/SPIKE_A_2D/TASK.md</dd>
+        <dt>Reviewer</dt><dd>Bế Quốc Khánh</dd>
+        <dt>Mình review</dt><dd>Bế Quốc Khánh — PR #4</dd>
+        <dt>Chặn bởi</dt><dd>—</dd>
       </dl>
-      <div class="install"><b>Cài hôm nay</b>
-        Chỉ cần Git. Tooling mobile <strong>chờ <code>GATE-MOB-01</code></strong> — chưa chọn framework,
-        cài trước dễ thiên vị lựa chọn.</div>
-    </div>
-
-    <div class="card">
-      <div class="who"><span class="nm">Hùng Anh</span><span class="tag">V2 · GEOMETRY</span></div>
-      <dl>
-        <dt>Vertical</dt><dd>V2 — 3D / Spatial Error</dd>
-        <dt>Khối</dt><dd>Imaging / Geometry / hợp đồng 2D↔3D</dd>
-        <dt>Spike</dt><dd>Spike B — 3D linked interaction</dd>
-        <dt>Reviewer</dt><dd>Tuấn Anh</dd>
-        <dt>Brief</dt><dd class="path">member_briefs/VU_HUNG_ANH.md</dd>
-        <dt>Task</dt><dd class="path">spikes/SPIKE_B_3D/TASK.md</dd>
-      </dl>
-      <div class="install"><b>Cài hôm nay</b>
-        Chỉ cần Git. Việc đầu tiên của bạn — bộ canonical geometry fixture — là code thuần, chạy ở đâu cũng
-        được, không cần tooling mobile.</div>
+      <p class="pk"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/tasks/DAY01_NGUYEN_GIA_DUC_TRUNG.md">📄 Task packet của tôi</a></p>
     </div>
 
     <div class="card">
-      <div class="who"><span class="nm">Khánh</span><span class="tag">V3 · ML</span></div>
+      <div class="who"><span class="nm">Vũ Hùng Anh</span><span class="tag">V2 3D · Spike B</span></div>
+      <div class="nowbox"><b>NOW</b>
+        ① <strong>sửa PR #3</strong> — thêm dòng <code>Reviewer:</code>, push · ② <strong><code>APPROVE</code>
+        PR #1</strong> (leader đã push fix <code>50b3d10</code>). Prep toolchain mesh/render làm được, nhãn
+        <code>PREP</code>.
+      </div>
+      <div class="laterbox"><b>SAU READY</b>
+        Bộ canonical geometry fixture DR-008a → <strong>công bố format sớm</strong> (Spike A và F đều chờ)
+        → ≥3 mức decimation → harness picking desktop → đo máy sau cùng.
+      </div>
       <dl>
-        <dt>Vertical</dt><dd>V3 — Experiment / Cohort</dd>
-        <dt>Khối</dt><dd>ML Training / Evaluation</dd>
-        <dt>Spike</dt><dd>Spike D — Dataset <strong>(P0, ưu tiên cao nhất)</strong></dd>
-        <dt>Reviewer</dt><dd>Hùng Anh</dd>
-        <dt>Brief</dt><dd class="path">member_briefs/BE_QUOC_KHANH.md</dd>
-        <dt>Task</dt><dd class="path">spikes/SPIKE_D_DATASET/TASK.md</dd>
+        <dt>Reviewer</dt><dd>Phạm Tuấn Anh (vị trí 1)</dd>
+        <dt>Mình review</dt><dd><strong>Spike D → Spike A</strong> — D ưu tiên vì P0</dd>
+        <dt>Chặn bởi</dt><dd>—</dd>
       </dl>
-      <div class="install"><b>Cài hôm nay</b>
-        Python + thư viện đọc <strong>NRRD</strong> (thử mở được 1 file) · <strong>kiểm dung lượng đĩa
-        trống</strong> — mai mới tải gói dataset.</div>
+      <p class="pk"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/tasks/DAY01_VU_HUNG_ANH.md">📄 Task packet của tôi</a></p>
     </div>
 
     <div class="card">
-      <div class="who"><span class="nm">Trung</span><span class="tag">V4 · BACKEND</span></div>
+      <div class="who"><span class="nm">Bế Quốc Khánh</span><span class="tag p0">Spike D · P0</span></div>
+      <div class="nowbox"><b>NOW</b>
+        PR #4 <strong>đang chờ review của Trung</strong> — file của bạn đã đủ 7 field, không phải sửa gì
+        trước. Trong lúc chờ: prep tooling NRRD trên file <strong>tự sinh</strong>, nhãn <code>PREP</code>.
+      </div>
+      <div class="laterbox"><b>SAU READY</b>
+        §Day-one bước 1–5: tải gói chính thức → inventory → provenance vòng đầu → mở 2–3 volume →
+        <strong>đánh giá trigger DR-001 và báo leader trước cuối ngày</strong>.
+      </div>
       <dl>
-        <dt>Vertical</dt><dd>V4 — Review / Findings</dd>
-        <dt>Khối</dt><dd>Backend / Persistence / Ingestion</dd>
-        <dt>Spike</dt><dd>Spike E — Artifact transport</dd>
-        <dt>Reviewer</dt><dd>Tuấn Anh</dd>
-        <dt>Brief</dt><dd class="path">member_briefs/NGUYEN_GIA_DUC_TRUNG.md</dd>
-        <dt>Task</dt><dd class="path">spikes/SPIKE_E_TRANSPORT/TASK.md</dd>
+        <dt>Reviewer</dt><dd>Vũ Hùng Anh (vị trí 1 — D là P0)</dd>
+        <dt>Mình review</dt><dd>Nguyễn Gia Đức Trung</dd>
+        <dt>Chặn bởi</dt><dd><strong>Nguyễn Gia Đức Trung</strong></dd>
       </dl>
-      <div class="install"><b>Cài hôm nay</b>
-        Tooling backend · <strong>Tailscale trên CẢ laptop VÀ điện thoại</strong> · thử truy cập được Mac
-        mini. Không vào được thì báo <strong>ngay hôm nay</strong>.</div>
+      <p class="pk"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/tasks/DAY01_BE_QUOC_KHANH.md">📄 Task packet của tôi</a></p>
     </div>
 
-  </div>
-  <p class="note-local">Đường dẫn tính từ <code>management/onboarding/</code> và <code>management/</code>.</p>
-</section>
-
-<!-- ⑤ -->
-<section>
-  <h2><span class="num">05</span> Kiểm hiểu biết cuối ngày</h2>
-  <p class="lede">Nói trước để không ai bị bất ngờ. Mỗi người trả lời miệng <strong>5 câu</strong>, mỗi câu
-     một chủ đề.</p>
-  <div class="topics">
-    <div class="topic"><span class="k">① KHOA HỌC</span>tính hợp lệ khoa học, leakage, vì sao split theo bệnh nhân</div>
-    <div class="topic"><span class="k">② ARTIFACT</span>GT / RawPrediction / ProcessedPrediction / ReviewedMask</div>
-    <div class="topic"><span class="k">③ GEOMETRY</span>toạ độ <code>(x,y,z)</code>, liên kết 2D↔3D</div>
-    <div class="topic"><span class="k">④ QUY TRÌNH</span>bằng chứng, nghiệm thu, khi nào phải mở DR</div>
-    <div class="topic"><span class="k">⑤ VIỆC RIÊNG</span>phần bạn sở hữu và ranh giới quyền quyết định</div>
-  </div>
-  <div class="verdict"><span class="v pass">PASS</span><span class="v clar">CẦN-LÀM-RÕ</span></div>
-  <p style="margin-top:12px;margin-bottom:0"><strong>KHÔNG phải thi lấy điểm.</strong> Mục đích là biết ai
-     hiểu tới đâu để phân việc đúng. Học thuộc đáp án không qua được — sẽ có câu hỏi lại bằng tình huống
-     khác. <strong>CẦN-LÀM-RÕ cũng không sao</strong>, chỉ là sẽ làm cặp ở phần đó.</p>
-</section>
-
-<!-- ⑥ -->
-<section>
-  <h2><span class="num">06</span> Hôm nay được và không được</h2>
-  <div class="dd">
-    <div class="col yes">
-      <h3>✓ Thoải mái</h3>
-      <ul>
-        <li>Đọc, hỏi, tranh luận</li>
-        <li>Cài và cấu hình tooling</li>
-        <li>Kiểm quyền truy cập repo</li>
-        <li>Thử clone / branch / PR</li>
-        <li>Học thư viện ở mức khái niệm</li>
-        <li>Xem trước nhiệm vụ của mình</li>
-        <li>Làm rõ ai sở hữu gì</li>
-      </ul>
-      <p class="why" style="border-top-color:var(--go-line)">Cài bị lỗi gì thì <strong>báo ngay</strong> —
-         ghi vào <code>DAY0_SIGNOFF.md</code> mục blocker. Phát hiện hôm nay tốt hơn phát hiện mai.</p>
+    <div class="card">
+      <div class="who"><span class="nm">Phạm Tuấn Anh</span><span class="tag lead">LEADER</span><span class="tag">Spike A</span></div>
+      <div class="nowbox"><b>NOW — vai Project Control</b>
+        Đốc Trung và Hùng Anh · approve PR #3 khi đã sửa · merge bốn PR · chấm
+        <code>DAY0_SIGNOFF.md</code> · §5 + ký · baseline 30 ngày · điền checklist · kiểm R1–R9 ·
+        <strong>tuyên bố cutover</strong>.
+      </div>
+      <div class="laterbox"><b>SAU READY — vai chủ sở hữu Spike A</b>
+        Chụp <strong>profile DR-006</strong> (tiền đề của cả A, B và E) → nhả máy cho Trung → harness
+        Spike A → review Spike B rồi Spike E.
+      </div>
+      <dl>
+        <dt>Reviewer</dt><dd>Vũ Hùng Anh (vị trí 2)</dd>
+        <dt>Mình review</dt><dd>Spike B → Spike E</dd>
+        <dt>Chặn bởi</dt><dd>Trung, Hùng Anh</dd>
+      </dl>
+      <p class="pk"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/tasks/DAY01_PHAM_TUAN_ANH.md">📄 Task packet của tôi</a></p>
     </div>
-    <div class="col no">
-      <h3>✕ Chưa làm — không linh hoạt</h3>
-      <ul>
-        <li><strong>Chưa tải dataset chính thức</strong></li>
-        <li>Chưa đo gì trên điện thoại</li>
-        <li>Chưa đo mạng</li>
-        <li>Chưa viết code spike thật</li>
-        <li>Chưa tạo <code>RESULT.md</code> nào</li>
-        <li>Chưa chuyển spike nào sang <code>ACTIVE</code></li>
-      </ul>
-      <p class="why">Đồng hồ đếm hạn của dự án (<code>DR-001</code>) bắt đầu <strong>ngày mai 10/09</strong>.
-         Hôm nay mà làm thật thì mốc thời gian bị lệch và mất tác dụng kiểm soát tiến độ.</p>
-    </div>
+
   </div>
 </section>
 
-<!-- ⑦ -->
+<!-- C -->
 <section>
-  <h2><span class="num">07</span> Ba thứ giờ linh hoạt nhưng nội dung thì không</h2>
-  <div class="hard">
-    <div class="h"><p class="t">Cửa kiểm không nén, không bỏ</p>
-      <p>Đây là thứ dễ bị hy sinh nhất khi hết giờ, mà lại là lý do Day 0 tồn tại. Nếu buổi trôi chậm thì
-         cắt phiên khác, giữ nguyên cửa kiểm.</p></div>
-    <div class="h"><p class="t">Drill Git — tự tay, không ngồi xem</p>
-      <p>Từng người phải <strong>nhận</strong> và <strong>đưa</strong> một <code>NEEDS_FIX</code>. Xem
-         người khác làm thì không tính.</p></div>
-    <div class="h"><p class="t">Ranh giới "chưa bắt đầu thật"</p>
-      <p>Ba khối trên linh hoạt được vì là thứ tự công việc. Còn ranh giới này gắn với đồng hồ
-         <code>DR-001</code> khởi động mai, nên nó cứng bất kể buổi nhanh hay chậm.</p></div>
+  <h2><span class="num">C</span> Execution frontier</h2>
+  <p class="lede">Đọc từ <code>management/spikes/SPIKE_PHASE_STATE.yaml</code>.
+     <code>ACTIVE = 0</code> · <code>ACCEPTED = 0</code> · <code>evidence_present = false</code> ×7.</p>
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>Spike</th><th>Chủ sở hữu</th><th>Trạng thái</th><th><code>started_at</code></th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <tr><td class="id">SPIKE_D</td><td>Bế Quốc Khánh</td><td><span class="st idle">PREPARED</span></td><td><code>null</code></td>
+          <td><strong>P0</strong> · critical path <code>D → C1/C6 → SPIKE_C1 → GATE-ML-01</code></td></tr>
+      <tr><td class="id">SPIKE_A</td><td>Phạm Tuấn Anh</td><td><span class="st idle">PREPARED</span></td><td><code>null</code></td>
+          <td>nạp <code>GATE-MOB-01</code> cùng B</td></tr>
+      <tr><td class="id">SPIKE_B</td><td>Vũ Hùng Anh</td><td><span class="st idle">PREPARED</span></td><td><code>null</code></td>
+          <td>nạp <code>GATE-MOB-01</code> + DR-008c</td></tr>
+      <tr><td class="id">SPIKE_E</td><td>Nguyễn Gia Đức Trung</td><td><span class="st idle">PREPARED</span></td><td><code>null</code></td>
+          <td>nạp <code>ADR-ART-001</code></td></tr>
+      <tr><td class="id">SPIKE_C0</td><td>Bế Quốc Khánh</td><td><span class="st idle">PREPARED</span></td><td><code>null</code></td>
+          <td><strong>không</strong> thành primary thứ hai</td></tr>
+      <tr><td class="id">SPIKE_F</td><td>Vũ Hùng Anh</td><td><span class="st idle">PREPARED</span></td><td><code>null</code></td>
+          <td><strong>không</strong> thành primary thứ hai</td></tr>
+      <tr><td class="id">SPIKE_C1</td><td>Bế Quốc Khánh</td><td><span class="st no">BLOCKED</span></td><td><code>null</code></td>
+          <td><code>blocked_by: SPIKE_D</code></td></tr>
+    </tbody>
+  </table>
   </div>
+</section>
+
+<!-- D -->
+<section>
+  <h2><span class="num">D</span> 📱 Galaxy A17 5G</h2>
+  <div class="phonebox">
+    <div class="hold">NGƯỜI GIỮ CHO ĐO CHÍNH THỨC: KHÔNG CÓ AI</div>
+    <p class="why">Chưa cutover — <code>GATE 0</code> đang có hiệu lực. Máy <strong>được</strong> dùng để
+       cài và cấu hình tooling; mọi thứ capture ở giai đoạn này là
+       <code>PREP / DIAGNOSTIC ONLY</code> và <strong>bị loại trừ đích danh</strong> khỏi acceptance
+       dataset.</p>
+  </div>
+  <h3>Hàng đợi đo dự kiến sau READY</h3>
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>#</th><th>Người</th><th>Cổng vào</th><th>Cổng nhả</th></tr></thead>
+    <tbody>
+      <tr><td class="id">1</td><td>Phạm Tuấn Anh</td><td>commit chuyển trạng thái đã land</td>
+          <td>profile DR-006 committed + baseline A9/A10 captured</td></tr>
+      <tr><td class="id">2</td><td>Nguyễn Gia Đức Trung</td><td>stub tới được <strong>và</strong> overlay đã lên</td>
+          <td>phân bố latency captured + direct-vs-relayed ghi đủ</td></tr>
+      <tr><td class="id">3</td><td>Vũ Hùng Anh</td><td>≥3 mức decimation + harness picking chạy desktop</td>
+          <td>đo FPS / stall / picking xong</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="amend"><b>⚠ Đây là TU CHÍNH.</b> Thứ tự <code>A → E → B</code> thay cho
+     <code>A → B → E</code> đã ghi trong <code>WIP-CONFLICT-02</code> và
+     <code>DAY1_READINESS_CHECKLIST.md</code> PHẦN E. Lý do: Spike B có nhiều giờ việc không cần máy để
+     lấp chỗ chờ, còn Spike E thì gating vào chính khả năng máy tới được backend. Sẽ được ghi vào cutover
+     record và vào YAML.</div>
+  <p style="margin:12px 0 0"><strong>Không đo thì không giữ máy.</strong> Chưa đủ điều kiện vào cổng của
+     mình thì máy nhảy sang người kế.</p>
+</section>
+
+<!-- E -->
+<section>
+  <h2><span class="num">E</span> Hàng đợi review</h2>
+  <p class="lede">Theo <strong>sự kiện</strong>, không theo giờ. Một item <code>REVIEWING</code> mỗi
+     người, không preempt.</p>
+  <div class="queues">
+    <div class="q">
+      <div class="qn">Vũ Hùng Anh</div>
+      <div class="flow">Spike D → Spike A</div>
+      <p class="note">D trước vì là <strong>P0</strong> và nằm trên critical path.</p>
+    </div>
+    <div class="q">
+      <div class="qn">Phạm Tuấn Anh</div>
+      <div class="flow">Spike B → Spike E</div>
+      <p class="note">B trước vì nạp <code>GATE-MOB-01</code> + DR-008c.</p>
+    </div>
+  </div>
+  <p style="margin:13px 0 0">Một item chỉ vào hàng khi chủ sở hữu <strong>đã commit gói evidence tối
+     thiểu</strong> và đặt nó thành <code>EVIDENCE_READY</code>. Nếu item ưu tiên cao chưa sẵn sàng,
+     reviewer <strong>lấy item sẵn sàng kế tiếp</strong> thay vì ngồi không; ưu tiên nhận slot trống kế
+     tiếp chứ không chặn reviewer vô hạn.</p>
+  <p style="margin-bottom:0"><strong>Hiện tại cả hai hàng đợi đều trống</strong> — chưa spike nào chạy.</p>
+</section>
+
+<!-- F -->
+<section>
+  <h2><span class="num">F</span> Evidence</h2>
+  <p class="lede">Chỉ hiển thị thứ đã commit vào repo.</p>
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>Spike</th><th>Acceptance evidence</th></tr></thead>
+    <tbody>
+      <tr><td class="id">SPIKE_D</td><td><span class="st idle">chưa có</span></td></tr>
+      <tr><td class="id">SPIKE_A</td><td><span class="st idle">chưa có</span></td></tr>
+      <tr><td class="id">SPIKE_B</td><td><span class="st idle">chưa có</span></td></tr>
+      <tr><td class="id">SPIKE_E</td><td><span class="st idle">chưa có</span></td></tr>
+      <tr><td class="id">C0 · F · C1</td><td><span class="st idle">chưa có</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin:12px 0 0">Không <code>RESULT.md</code> nào tồn tại. Không <code>DATASET_AUDIT.md</code>.
+     Không <code>data/manifests/</code>.</p>
+  <p style="margin-bottom:0"><strong>Output của giai đoạn prep không phải acceptance evidence</strong> và
+     không bao giờ được chuyển thành acceptance evidence bằng cách gỡ nhãn.</p>
+</section>
+
+<!-- G -->
+<section class="stopsec">
+  <h2><span class="num">G</span> KHÔNG LÀM</h2>
+  <ul class="stoplist">
+    <li>Chuyển spike sang <code>ACTIVE</code> <strong>trước cutover</strong></li>
+    <li>Ghi <code>started_at</code> thật trước cutover</li>
+    <li><strong>Acceptance benchmark</strong> trước cutover — prep thì được, nhưng phải dán nhãn</li>
+    <li>Bắt đầu <strong>Spike C1</strong> — còn <code>BLOCKED_BY_SPIKE_D</code></li>
+    <li>Đóng băng <strong>DINOv2 recipe</strong> — <code>GATE-ML-01</code> cần Spike C1, C0 không đủ</li>
+    <li>Chọn hoặc đóng băng <strong>mobile framework</strong> — <code>GATE-MOB-01</code> cần cả A và B</li>
+    <li>Dùng <strong>LAN / Wi-Fi trường</strong> làm acceptance evidence cho Spike E</li>
+    <li><strong>Slice-level split</strong> — patient-level là invariant</li>
+    <li>Chọn Path A hay Path B — đó là DR-002, sau bằng chứng</li>
+    <li>Nới trần <strong>±1 source slice</strong> — không đạt thì là <code>NEGATIVE_RESULT</code></li>
+    <li>Sửa <code>docs/specs/v1.0/**</code> — đóng băng</li>
+    <li>Commit dataset bytes, secret hay binary lớn</li>
+    <li><strong>Cấy lỗi</strong> để có <code>NEEDS_FIX</code></li>
+    <li>Sửa central state (<code>SPIKE_PHASE_STATE.yaml</code>, <code>DAY01_STATUS.md</code>) từ nhánh
+        thành viên — chỉ Project Control</li>
+  </ul>
 </section>
 
 <footer>
-  <p class="disc"><strong>Miễn trừ.</strong> Đây là dự án <strong>nghiên cứu và giáo dục</strong>.
-     Hệ thống <strong>không</strong> dùng cho chẩn đoán hay quyết định điều trị lâm sàng, và
-     <strong>không</strong> có bất kỳ tuyên bố nào về việc được cấp phép quản lý, đã kiểm định lâm sàng,
-     hay độ tin cậy chẩn đoán. <span style="color:var(--ink-3)">(theo <code>12</code> §1)</span></p>
-  <p>Repo: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">github.com/Drake-Phamta/cardiac-mri-workspace</a></p>
-  <p>Ba điều kiện <code>C1</code>, <code>C4</code>, <code>C6</code> vẫn <strong>MỞ</strong> và phụ thuộc
-     bằng chứng spike. Mobile framework, DINOv2 recipe, ngân sách mesh, biểu diễn lỗi 3D, chiến lược
-     transport và Path A/B <strong>đều chưa được chốt</strong> — chúng đóng qua đúng cửa gate/DR sau khi có
-     bằng chứng.</p>
-  <p style="margin-bottom:0;color:var(--ink-3)">Trang tĩnh, sinh từ tài liệu onboarding trong repo.
-     Cập nhật: 09/09/2026.</p>
+  <p class="disc"><strong>Nghiên cứu và giáo dục.</strong> Đây là dự án nghiên cứu học thuật, không phải
+     sản phẩm chẩn đoán lâm sàng. Không tuyên bố có phê duyệt pháp quy hay đã kiểm định lâm sàng. Không
+     dùng cho quyết định y khoa.</p>
+  <p><strong>Trang này là bản phản chiếu, không phải nguồn sự thật.</strong> Mọi giá trị ở đây đến từ
+     <code>management/day01/DAY01_STATUS.md</code> và <code>management/spikes/SPIKE_PHASE_STATE.yaml</code>
+     đã commit. Trang không lưu trạng thái nào trên máy bạn và không có ô tick nào tạo ra sự thật dự án.</p>
+  <p>Nguồn thẩm quyền theo thứ tự: <code>docs/specs/v1.0/**</code> →
+     <code>management/readiness/READINESS_REVIEW_RESOLUTION.md</code> §10–§11 →
+     <code>management/spikes/SPIKE_PHASE_STATE.yaml</code> → <code>DAY01_CUTOVER_RECORD.md</code> (khi tồn
+     tại) → <code>DAY01_STATUS.md</code>.</p>
+  <p>Điều kiện <strong>C1, C4, C6</strong> vẫn <strong>MỞ</strong> và phụ thuộc bằng chứng. DR-002,
+     DR-005, DR-008c vẫn mở.</p>
+  <p>Repo: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">github.com/Drake-Phamta/cardiac-mri-workspace</a>
+     · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/DAY01_RUNBOOK.md">DAY01_RUNBOOK.md</a>
+     · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/DAY01_STATUS.md">DAY01_STATUS.md</a></p>
 </footer>
 
 </div>
-<script>
-(function(){
-  var boxes = Array.prototype.slice.call(document.querySelectorAll('#steps input[type=checkbox]'));
-  var pct = document.getElementById('pct'), bar = document.getElementById('bar');
-  var KEY = 'day0-progress-v1';
-
-  function load(){
-    try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }
-    catch(e){ return {}; }
-  }
-  function save(st){
-    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){ /* private mode: ignore */ }
-  }
-  function paint(){
-    var n = boxes.filter(function(b){ return b.checked; }).length;
-    pct.textContent = n + ' / ' + boxes.length;
-    bar.style.width = (n / boxes.length * 100) + '%';
-  }
-
-  var state = load();
-  boxes.forEach(function(b){
-    if (state[b.dataset.k]) b.checked = true;
-    b.addEventListener('change', function(){
-      var st = load();
-      if (b.checked) st[b.dataset.k] = 1; else delete st[b.dataset.k];
-      save(st);
-      paint();
-    });
-  });
-  paint();
-})();
-</script>
 </body>
 </html>

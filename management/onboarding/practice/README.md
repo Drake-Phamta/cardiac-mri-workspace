@@ -50,8 +50,21 @@ A practice file is complete only when **all** of these are filled in with the au
 6. Where I escalate a conflict between two frozen spec files, and what I must open
 7. **Reviewer** — the name of the person reviewing this file, per the pairing table above
 
-Field 7 is deliberately absent from the stub files. A reviewer who approves a practice file with no
-reviewer line has missed the defect the drill is built around.
+Field 7 is not pre-printed in the stub files, so it is the field most often forgotten — but a missing
+field is only worth a `NEEDS_FIX` **if it is actually missing**.
+
+### Review honestly
+
+| Rule |
+|---|
+| Request changes **only for a genuine defect** — something wrong in the PR as the author submitted it |
+| A PR that is correct on arrival is **approved**, immediately |
+| **Never plant a defect** so that you have something to reject |
+| **Never push into another member's branch** to create or fix a finding — say it in the review, let the author fix it |
+| Never invent a review comment to satisfy a checklist |
+
+The drill exists to prove you can run a **legitimate** PR and review cycle, not to produce a rejection.
+An approval on a correct PR is a complete, successful drill.
 
 ---
 
