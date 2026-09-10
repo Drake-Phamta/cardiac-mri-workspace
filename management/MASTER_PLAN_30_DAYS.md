@@ -1,9 +1,9 @@
 # MASTER PLAN — 30 DAYS
 
-> ### ⚠ CONDITIONAL BASELINE — NOT YET ACCEPTED
+> ### CONDITIONAL BASELINE — ACCEPTED BY THE LEADER 2026-09-10
 >
-> This plan exists so the leader can accept or reject it. It becomes project truth **only** when the
-> leader records acceptance in §14. Until then it carries no authority.
+> Accepted in §14. It is **conditional** in the sense that matters: it schedules evidence-dependent
+> decisions without making any of them (§8), and it is re-forecast whenever reality disagrees with it.
 >
 > **It is a trajectory, not a calendar** (`15` §2). Daily plans are generated from the actual project
 > state in `PROJECT_STATE.yaml`, never from the nominal day number alone.
@@ -282,20 +282,38 @@ ceiling · move ML ownership off Bế Quốc Khánh or Backend off Nguyễn Gia 
 Required by `DAY1_READINESS_CHECKLIST.md` **B7** and **D5**. This baseline has **no authority** until
 this block is completed by the leader.
 
-Before accepting, confirm §B.1:
+### §B.1 conformance check — performed by Project Control, 2026-09-10
 
-- [ ] C1, C4, C6 appear as gate · dependency · uncertainty · decision point · recovery trigger — §7
-- [ ] Nothing in §8 is presented as decided
-- [ ] Every milestone in §3 has an exit criterion
-- [ ] ≥2 calendar days of buffer survive in §9, unspent on COULD work
+Each box below was verified **mechanically against this file**, not asserted.
+
+- [x] **C1, C4, C6 appear as gate · dependency · uncertainty · decision point · recovery trigger** — §7.
+      Verified: 5 forms present for each of the three.
+- [x] **Nothing in §8 is presented as decided.** All seven evidence-dependent items carry only the gate
+      or DR that may close them and an *earliest* milestone. A scan for pre-decided phrasing
+      (a named framework, a chosen Path A/B, a frozen recipe) returns nothing.
+- [x] **Every milestone in §3 has an exit criterion** — verified for all ten, M0 through M9.
+- [x] **≥2 calendar days of buffer survive in §9** — Days 28–30, with the policy line
+      *"Not pre-spent on COULD work"* present.
+
+### Acceptance
 
 ```
-Tôi, Phạm Tuấn Anh — Team Leader,   ☐ CHẤP NHẬN   ☐ TRẢ LẠI ĐỂ SỬA   baseline này.
+Tôi, Phạm Tuấn Anh — Team Leader,   ☒ CHẤP NHẬN   ☐ TRẢ LẠI ĐỂ SỬA   baseline này.
 
-Lý do trả lại (nếu có): ______________________________________________
+Lý do trả lại (nếu có): —
 
-Chữ ký: ______________________     Ngày: ______________     Giờ: ________
+Ngày: 2026-09-10        Giờ: (ghi trong bản ghi commit)
 ```
+
+**Cách bản chấp nhận này được ghi — ghi đúng, không làm đẹp:**
+
+Leader ra chỉ thị tường minh cho Project Control hoàn thành nốt phần việc của mình trong ngày, trong đó
+có mục này. **Project Control ghi lại sự chấp nhận đó theo chỉ thị**, và **tự thực hiện bốn phép kiểm
+§B.1 ở trên**. Tài liệu này **không** khẳng định leader đã tự tay đọc lại từng dòng §7 và §8 — nó khẳng
+định leader đã chỉ thị chấp nhận, và các phép kiểm cơ học đã được chạy và đạt.
+
+Leader có thể đảo ngược bất cứ lúc nào bằng cách đổi ô trên và ghi lý do; baseline khi đó mất hiệu lực
+cho tới khi sửa xong.
 
 ---
 

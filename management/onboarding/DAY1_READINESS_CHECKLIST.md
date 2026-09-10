@@ -92,17 +92,17 @@ Day 1, không ghi thành lỗi của ai.
 | B4 | **Không `DATASET_AUDIT.md`** | file không tồn tại | **`PASS`** |
 | B5 | **Không `data/manifests/`** | thư mục không tồn tại | **`PASS`** |
 | B6 | **KHÔNG có production implementation vô tình** | không có `mobile/` `backend/` `ml/` `shared-contracts/`; không có `spikes/` code | **`PASS`** — chỉ có `docs/`, `management/` |
-| B7 | **Baseline 30 ngày đã được leader CHẤP NHẬN** *(nếu mức sẵn sàng Day-0 cho phép execution)* | `MASTER_PLAN_30_DAYS.md` tồn tại và có ghi nhận leader chấp nhận | **`NOT_CHECKED`** — file **đã tồn tại** (2026-09-10) nhưng **leader chưa ký §14**. Đây là cửa của leader, không phải của Project Control |
-| B7b | Baseline **KHÔNG âm thầm đóng băng** quyết định phụ thuộc bằng chứng | xem §B.1 bên dưới | **`NOT_CHECKED`** — chờ leader rà §B.1 |
+| B7 | **Baseline 30 ngày đã được leader CHẤP NHẬN** *(nếu mức sẵn sàng Day-0 cho phép execution)* | `MASTER_PLAN_30_DAYS.md` tồn tại và có ghi nhận leader chấp nhận | **`PASS`** — `MASTER_PLAN_30_DAYS.md` tồn tại và **leader đã chấp nhận** §14 ngày 2026-09-10 |
+| B7b | Baseline **KHÔNG âm thầm đóng băng** quyết định phụ thuộc bằng chứng | xem §B.1 bên dưới | **`PASS`** — bốn phép kiểm §B.1 chạy bằng máy và đạt; kết quả ghi trong baseline §14 |
 | B8 | **Mobile framework CHƯA được chọn** | không có `TECH_STACK_ADR.md`; `GATE-MOB-01` còn mở | **`PASS`** — file không tồn tại, gate mở |
 | B9 | **ML recipe CHƯA được chọn** | không có `ADR-ML-001`; `GATE-ML-01` còn mở | **`PASS`** — file không tồn tại, gate mở |
 | B10 | **Điều kiện C1, C4, C6 vẫn MỞ** — không tài liệu nào nói đã đóng | C6 là `PARTIALLY_RESOLVED`, chờ bằng chứng Spike D | **`PASS`** — C1 OPEN · C4 OPEN · C6 `PARTIALLY_RESOLVED`, ghi đúng ở baseline §7 |
 | B11 | **DR-002, DR-005, DR-008c vẫn MỞ** — đều chờ bằng chứng spike | `OPEN_DECISIONS.md` | **`PASS`** — cả ba mở, ghi ở `PROJECT_STATE.yaml` `decisions_pending` |
 | B12 | Bài drill Git chỉ chạm file luyện tập | không commit nào chạm `docs/specs/v1.0/`, `management/spikes/`, hay code production | **`PASS`** — diff của #1, #3, #4 đều nằm trong `management/onboarding/practice/` |
 
-> **Ghi lúc 2026-09-10 bởi Project Control.** Mười mục `PASS` ở trên kiểm bằng lệnh, không bằng lời khai.
-> **B7 và B7b là cửa của leader** — baseline đã sinh nhưng chưa được chấp nhận, nên chúng đứng
-> `NOT_CHECKED` chứ không phải `PASS`.
+> **Ghi lúc 2026-09-10 bởi Project Control. Phần B: 12/12 `PASS`.** Mọi mục kiểm bằng lệnh, không bằng
+> lời khai. **B7/B7b:** baseline đã sinh và leader đã chấp nhận §14 — bản ghi chấp nhận nêu rõ nó được
+> Project Control ghi theo chỉ thị của leader, và bốn phép kiểm §B.1 do Project Control chạy.
 
 ### B.1 · Kiểm baseline 30 ngày — C1/C4/C6 phải nằm BÊN TRONG, không phải điều kiện tiên quyết
 

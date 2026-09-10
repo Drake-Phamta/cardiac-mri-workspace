@@ -27,6 +27,11 @@ execution_day_1_declared: false
 execution_day_1_started_at: null    # set once, at cutover, from DAY01_CUTOVER_RECORD.md
 dr_001_clock_running: false
 cutover_record: null                # management/day01/DAY01_CUTOVER_RECORD.md once it exists
+baseline_accepted: true             # MASTER_PLAN_30_DAYS.md section 14, 2026-09-10
+baseline_accepted_note: >
+  Recorded by Project Control on the leader's explicit instruction. Project Control ran the
+  four section B.1 conformance checks; the record does not claim the leader personally
+  re-read sections 7 and 8 line by line.
 
 # --- REQUIREMENTS -----------------------------------------------------------
 # Counts mechanically verified from the frozen specification, not from
@@ -178,7 +183,7 @@ forecast:
   current_completion_day: null      # no execution data yet — estimating now would be fabrication
   confidence: null
   remaining_buffer_days: 2          # planned days 28-30, not yet consumed
-  basis: "Baseline generated 2026-09-10, NOT yet accepted by the leader."
+  basis: "Baseline generated and accepted by the leader 2026-09-10. No execution data yet."
 
 # --- MILESTONES -------------------------------------------------------------
 milestones:

@@ -37,9 +37,9 @@ ra — file này không chứa giờ dự kiến.
 | **R2** | Mỗi người tham gia hợp lệ vào chu trình review | **CHƯA** — **không PR nào trong drill có `APPROVED`**; xem §2.1 | cả bốn |
 | **R3** | `DAY0_SIGNOFF.md` cột K = `PASS` ×4 | **CHƯA** — 1/4 điền một phần, 3/4 trống | leader chấm |
 | **R4** | §5 tổng hợp điền và ký | **CHƯA** | leader |
-| **R5** | `DAY1_READINESS_CHECKLIST.md` A/B/B.1/C/D | **MỘT PHẦN** — **Phần B 10/12 `PASS`**, **Phần C 6/6 `PASS`** đã điền. Phần A chờ Khánh + Trung; B7/B7b chờ leader; Phần D và G chỉ điền tại cutover | Project Control ✔ / leader / hai bạn |
-| **R6** | `MASTER_PLAN_30_DAYS.md` tồn tại và được chấp nhận | **MỘT PHẦN** — **file đã tồn tại** (sinh 2026-09-10). Chờ **leader ký §14** | Project Control ✔ / **leader** |
-| **R7** | Baseline không đóng băng gì phụ thuộc bằng chứng | **CHỜ LEADER RÀ** — baseline §8 liệt kê 7 mục không-đóng-băng, §7 đặt C1/C4/C6 dưới cả 5 dạng | leader |
+| **R5** | `DAY1_READINESS_CHECKLIST.md` A/B/B.1/C/D | **MỘT PHẦN** — **Phần B 12/12 `PASS`**, **Phần C 6/6 `PASS`**. **Phần A vẫn 0/10** — chờ Khánh + Trung. Phần D và G chỉ điền tại cutover | Project Control ✔ / **hai bạn** |
+| **R6** | `MASTER_PLAN_30_DAYS.md` tồn tại và được chấp nhận | **✅ ĐẠT** — sinh 2026-09-10, leader chấp nhận §14 | — |
+| **R7** | Baseline không đóng băng gì phụ thuộc bằng chứng | **✅ ĐẠT** — 4 phép kiểm §B.1 chạy bằng máy, đều đạt; kết quả ghi ở baseline §14 | — |
 | **R8** | Trạng thái spike đúng Phần C | **ĐẠT** — 6 `PREPARED` + 1 `BLOCKED`, 7 × `started_at: null` | — |
 | **R9** | Spec 19/19 · không `RESULT.md` · không `DATASET_AUDIT.md` · không `data/manifests/` | **ĐẠT** | — |
 
@@ -219,9 +219,9 @@ Không `RESULT.md` nào tồn tại. Không `DATASET_AUDIT.md`. Không `data/man
 
 | Artifact | Trạng thái |
 |---|---|
-| `../MASTER_PLAN_30_DAYS.md` | **đã sinh** 2026-09-10 — baseline **có điều kiện**, chờ leader ký §14 |
+| `../MASTER_PLAN_30_DAYS.md` | **đã sinh và được leader chấp nhận** 2026-09-10 §14 |
 | `../PROJECT_STATE.yaml` | **đã sinh** — bắt buộc theo `15` §4, trước đó thiếu. `day: 0`, `forecast.confidence: null` |
-| `../onboarding/DAY1_READINESS_CHECKLIST.md` | Phần B **10/12 `PASS`**, Phần C **6/6 `PASS`** |
+| `../onboarding/DAY1_READINESS_CHECKLIST.md` | Phần B **12/12 `PASS`**, Phần C **6/6 `PASS`**, Phần A **0/10** |
 
 > Output của giai đoạn prep **không** phải acceptance evidence và không bao giờ được chuyển thành
 > acceptance evidence bằng cách gỡ nhãn.
@@ -237,7 +237,7 @@ Không `RESULT.md` nào tồn tại. Không `DATASET_AUDIT.md`. Không `data/man
 | 3 | `PRACTICE_VU_HUNG_ANH.md` trên `main` thiếu dòng `Reviewer:` — merged khi `CHANGES_REQUESTED` còn mở | Vũ Hùng Anh | mở PR nhỏ bổ sung field, leader approve |
 | 4 | **PR #5 chưa có `APPROVED`** → dashboard Day-01 chưa lên được, cả nhóm chưa có bảng việc | Vũ Hùng Anh | `gh pr review 5 --approve` |
 | 5 | **`R2` chưa thoả** — chưa lượt drill nào có `APPROVED` (§2.1) | leader quyết | giữ chuẩn, hoặc ghi nhận thực tế đã áp dụng |
-| 6 | Baseline 30 ngày **đã sinh**, chờ leader ký §14 | **leader** | đọc `../MASTER_PLAN_30_DAYS.md` §7, §8, §14 rồi tick 4 ô và ký |
+| ~~6~~ | ~~Baseline 30 ngày~~ | — | **ĐÃ ĐÓNG** 2026-09-10 — baseline sinh và được chấp nhận, `R6` + `R7` đạt |
 
 **Không có operational blocker nào chặn việc chuẩn bị.** Cả bốn người đều có việc prep làm được ngay.
 
