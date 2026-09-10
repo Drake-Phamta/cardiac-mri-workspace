@@ -46,7 +46,7 @@ Mesh từ geometry (Hùng Anh) ──►            │
                                             ▼
                               [ TÔI: Backend / Persistence — Mac mini M2 24 GB, ở XA ]
                                             │
-                                            │  cellular 4G/5G → Tailscale overlay xác thực
+                                            │  cellular 4G/5G → ZeroTier overlay xác thực
                                             ▼
                               Mobile app  ──► Tuấn Anh (2D) · Hùng Anh (3D)
                                             │
@@ -187,7 +187,7 @@ Samsung Galaxy A17 5G
         │
         │  cellular 4G / 5G THẬT
         ▼
-Tailscale private overlay xác thực
+ZeroTier private overlay xác thực
         │
         ▼
 Mac mini M2, 24 GB RAM      (ở XA địa điểm demo)
@@ -209,7 +209,7 @@ Chỉ có **MỘT** máy Galaxy A17 5G. Thứ tự đo: **A → B → E**. Trong
 
 ```text
 ✔  Mac mini backend stub
-✔  xác minh kết nối Tailscale / private overlay
+✔  xác minh kết nối ZeroTier / private overlay
 ✔  payload artifact đại diện
 ✔  transport instrumentation
 ✔  logging phân bố độ trễ
@@ -217,7 +217,7 @@ Chỉ có **MỘT** máy Galaxy A17 5G. Thứ tự đo: **A → B → E**. Trong
 ✔  script và template đo
 ```
 
-**Bước setup gating:** xác nhận điện thoại tới được Mac mini qua cellular + Tailscale. **Làm việc này trước tiên** — nó là bước chưa biết trước thời lượng.
+**Bước setup gating:** xác nhận điện thoại tới được Mac mini qua cellular + ZeroTier. **Làm việc này trước tiên** — nó là bước chưa biết trước thời lượng.
 
 #### 13 acceptance criteria — tóm lược (đầy đủ ở `../spikes/SPIKE_E_TRANSPORT/TASK.md`)
 
@@ -320,7 +320,7 @@ Ghi **`NOT MEASURED — <lý do>`**. Trung thực và được chấp nhận. **
 ```text
 1.  Đặt Spike E → ACTIVE, ghi started_at THẬT (không lùi ngày).
 2.  DỰNG MAC MINI BACKEND STUB và XÁC MINH điện thoại tới được nó
-    qua cellular + Tailscale.
+    qua cellular + ZeroTier.
         ← đây là bước setup GATING và là việc chưa biết trước thời lượng.
           Làm trước tiên.
 3.  Đăng ký slot đo thiết bị #3 với Tuấn Anh (sau A và B).
@@ -347,7 +347,7 @@ Ghi **`NOT MEASURED — <lý do>`**. Trung thực và được chấp nhận. **
 
 | Tình huống | Làm gì |
 |---|---|
-| **Điện thoại không tới được Mac mini qua cellular + Tailscale** | Báo **Phạm Tuấn Anh** ngay — đây là bước setup gating của Spike E, không phải chi tiết nhỏ |
+| **Điện thoại không tới được Mac mini qua cellular + ZeroTier** | Báo **Phạm Tuấn Anh** ngay — đây là bước setup gating của Spike E, không phải chi tiết nhỏ |
 | **Không chiến lược nào đạt `NFR-PERF-001` khi điều hướng liên tục** | Leo thang; nạp vào `ADR-ART-001` và `RISK-DEMO-NET-01` |
 | **Độ trải độ trễ làm hero demo không đáng tin** | Leo thang; fallback DR-003 ✅ trở thành thành phần chịu lực |
 | **Đề xuất fallback đang phình thành offline mode** | **DỪNG.** Đó là vi phạm scope firewall — `00` §13 / `03` §5 |
@@ -359,10 +359,77 @@ Ghi **`NOT MEASURED — <lý do>`**. Trung thực và được chấp nhận. **
 
 ---
 
+## 15 · Mười câu Day 0 tôi phải trả lời được — kèm câu trả lời mẫu
+
+> Các câu trả lời dưới đây dùng để **học và tự diễn đạt lại bằng lời của tôi**, không phải bằng chứng rằng tôi đã `PASS`. Leader vẫn phải hỏi, kiểm tra mức hiểu thật và ghi kết quả thật vào `DAY0_SIGNOFF.md`. Bộ câu hỏi Shared Core Q1–Q15 đã có đáp án tối thiểu và tiêu chí `PASS` ngay dưới từng câu trong [`../SHARED_CORE_CHECK.md`](../SHARED_CORE_CHECK.md).
+
+### 1. Mobile vertical chính của tôi là gì?
+
+**Câu trả lời của tôi:** Tôi là Primary Owner của **V4 Review / Findings**. Tôi chịu trách nhiệm cho trạng thái review, lưu brush correction, đồng bộ draft, commit thành `ReviewedMask` version mới và tạo/mở `Finding`. Tôi phải bảo đảm việc review không bao giờ ghi đè prediction nguồn.
+
+### 2. Technical block chính của tôi là gì?
+
+**Câu trả lời của tôi:** Tôi là Primary Owner của **Backend / Persistence / Raw Dataset Ingestion / Experiment Artifact Ingestion**. Tôi chịu trách nhiệm API, lưu trữ bền vững, artifact store, phân giải quyền/đường dẫn artifact và hai hợp đồng ingestion riêng.
+
+### 3. Spike hiện tại của tôi là gì?
+
+**Câu trả lời của tôi:** **Spike E — Artifact transport over the canonical demo network**. Spike này phải đo các chiến lược truyền MRI slice, mask và mesh trên đường thật `Galaxy A17 5G → cellular 4G/5G → ZeroTier private overlay → Mac mini ở xa`, rồi đề xuất chiến lược cho `ADR-ART-001`, ngân sách first-load và fallback tối thiểu. Trong Day 0 tôi chỉ hiểu task và chuẩn bị môi trường, chưa thực thi hay đo.
+
+### 4. Đầu vào của tôi là gì?
+
+**Câu trả lời của tôi:**
+
+- Từ **Bế Quốc Khánh**: dataset đã kiểm định, `dataset_manifest.*`, `Experiment`, `AnalysisRun`, prediction mask và metric.
+- Từ **Vũ Hùng Anh**: mesh `Reconstruction3D`, geometry contract version và quy ước tọa độ canonical.
+- Từ **Phạm Tuấn Anh**: brush primitive của V1 cùng yêu cầu tích hợp/CI.
+- Từ frozen specification: API contract, domain model, security, artifact semantics và acceptance criteria.
+
+### 5. Đầu ra của tôi là gì?
+
+**Câu trả lời của tôi:**
+
+- Backend API cho 2D, 3D và cohort UI.
+- Hai schema manifest, hai validator và hai acceptance test cho hai ingestion contract.
+- Persistence cho `Review`, `ReviewedMask` và `Finding`.
+- V4 Review/Findings UI chạy được.
+- Sau khi Spike E được thực thi: backend stub/harness, số đo thật trong `RESULT.md`, đề xuất first-load budget, chiến lược transport và tập artifact fallback tối thiểu.
+
+### 6. Ai review tôi?
+
+**Câu trả lời của tôi:** **Phạm Tuấn Anh** review Spike E, V4 và Backend/Persistence/Ingestion. Với Spike E, sau reviewer còn phải qua **CHAT E — QA/Red Team**; cuối cùng **CHAT A — Project Control** mới chuyển trạng thái `ACCEPTED`. Im lặng không phải `APPROVE`.
+
+### 7. Tôi được tự quyết những gì?
+
+**Câu trả lời của tôi:** Trong biên đã duyệt, tôi được tự quyết cấu trúc nội bộ backend stub, cách bố trí instrumentation/script tổng hợp, payload đại diện, retry/reconnect harness, các chiến lược transport để **thử**, tổ chức nội bộ V4 và chi tiết validator miễn phủ đủ check bắt buộc. Tôi không được dùng quyền owner để tự đổi contract hoặc chọn quyết định cuối đang chờ bằng chứng.
+
+### 8. Những gì bắt buộc phải qua DR, gate hoặc phối hợp?
+
+**Câu trả lời của tôi:** Chiến lược transport cuối phải qua `ADR-ART-001`; thay API contract, domain model, metric/geometry semantics, deployment policy, frozen requirement hoặc acceptance criteria phải dừng và mở Decision Request. Contract 1 phải tôn trọng `GATE-DATA-01`; Contract 2 phải tôn trọng `GATE-SPLIT-01 + GATE-ML-01`. File/interface integration-sensitive phải phối hợp với owner và leader trước khi sửa.
+
+### 9. Bằng chứng nào đóng được task hiện tại của tôi?
+
+**Câu trả lời của tôi:** Spike E cần số đo thật do tôi thực hiện trên đúng đường cellular + ZeroTier tới Mac mini ở xa, gồm cold first-load, uncached slice, continuous navigation/prefetch, mask/mesh transport, memory, phân bố latency, reconnect/retry, trạng thái direct/relay, first-load budget, fallback tối thiểu và khuyến nghị có trade-off. Mọi acceptance criterion phải có pass/fail hoặc `NOT MEASURED — <lý do>`. Sau đó cần Tuấn Anh `APPROVE`, QA `PASS` và Project Control chuyển trạng thái; chỉ có `RESULT.md` chưa đủ.
+
+### 10. Ai tiêu thụ đầu ra của tôi?
+
+**Câu trả lời của tôi:** Tuấn Anh dùng endpoint cho viewer 2D và review công việc của tôi; Hùng Anh dùng API geometry/mesh cho 3D; Khánh cần ingestion schema/validator để output của anh ấy được nhận; người dùng dùng V4 Review/Findings; `ADR-ART-001` và `RA-H13` dùng bằng chứng Spike E để quyết định transport và first-load budget.
+
+### Hai câu theo vai trò có khả năng được hỏi thêm
+
+#### Tôi đo transport trên Wi-Fi/LAN cùng mạng với Mac mini và số rất tốt. Có dùng làm bằng chứng nghiệm thu Spike E không?
+
+**Câu trả lời của tôi:** **Không.** Bằng chứng nghiệm thu phải đi qua `Galaxy A17 5G → cellular 4G/5G thật → ZeroTier overlay xác thực → Mac mini ở xa`. LAN chỉ được ghi là diagnostic/control có nhãn rõ; Wi-Fi hội trường không được tin cậy và không cần cho demo.
+
+#### Hai hợp đồng ingestion khác nhau ở đâu?
+
+**Câu trả lời của tôi:** **Contract 1** nạp raw dataset/case (`MRICase`, `MRIVolume`, `GroundTruthMask`), chạy một lần mỗi gói trước training và gate bởi `GATE-DATA-01`. **Contract 2** nạp precomputed experiment artifact (`Experiment`, `AnalysisRun`, prediction, metric, mesh), chạy lặp lại sau đánh giá và gate bởi `GATE-SPLIT-01 + GATE-ML-01`. Chúng có thể dùng chung cơ chế offline CLI + versioned manifest, nhưng mỗi contract phải có schema, validator và acceptance test riêng.
+
+---
+
 ## Nhắc lại ranh giới Day 0 (2026-09-09)
 
 Hôm nay: **KHÔNG** đặt Spike E sang `ACTIVE` · **KHÔNG** `RESULT.md` · **KHÔNG** đo transport cellular · **KHÔNG** đo trên máy · **KHÔNG** dựng harness spike "thật".
 
-Hôm nay **ĐƯỢC**: đọc `SPIKE_E_TRANSPORT/TASK.md` kỹ (đặc biệt luật đo và scope firewall) · đọc `11` API contract ở mức khái niệm · cài tooling backend · kiểm tra Mac mini bật được và Tailscale cài được · học Tailscale ở mức khái niệm · drill Git · hỏi mọi câu về hai hợp đồng ingestion.
+Hôm nay **ĐƯỢC**: đọc `SPIKE_E_TRANSPORT/TASK.md` kỹ (đặc biệt luật đo và scope firewall) · đọc `11` API contract ở mức khái niệm · cài tooling backend · kiểm tra Mac mini bật được và ZeroTier cài được · học ZeroTier ở mức khái niệm · drill Git · hỏi mọi câu về hai hợp đồng ingestion.
 
-**Nếu việc cài tooling phát hiện vướng mắc** (Tailscale không chạy, không truy cập được Mac mini, thiếu quyền) → ghi vào cột "Clarifications Required" của `DAY0_SIGNOFF.md` như **onboarding blocker**. Phát hiện hôm nay tốt hơn nhiều so với phát hiện ngày mai.
+**Nếu việc cài tooling phát hiện vướng mắc** (ZeroTier không chạy, không truy cập được Mac mini, thiếu quyền) → ghi vào cột "Clarifications Required" của `DAY0_SIGNOFF.md` như **onboarding blocker**. Phát hiện hôm nay tốt hơn nhiều so với phát hiện ngày mai.

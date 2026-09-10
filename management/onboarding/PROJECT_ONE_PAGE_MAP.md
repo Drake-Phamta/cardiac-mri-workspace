@@ -27,7 +27,7 @@ Training  ──►  RawPredictionMask [IMMUTABLE]
                               │
                               ▼
                         Backend / Persistence   (Mac mini M2 24 GB — ở XA)
-                              │  cellular 4G/5G → Tailscale overlay xác thực
+                              │  cellular 4G/5G → ZeroTier overlay xác thực
                               ▼
                         Mobile Workspace        (Galaxy A17 5G — MỘT máy duy nhất)
                               │

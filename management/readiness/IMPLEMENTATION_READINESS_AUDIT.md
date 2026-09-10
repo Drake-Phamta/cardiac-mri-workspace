@@ -313,7 +313,7 @@ to be omitted when the backend is bound to localhost or a trusted private networ
 attributable to the configured reviewer alias).
 
 **[APPROVED INTERPRETATION, Round 3]** The approved profile satisfies "trusted private network" through
-**authenticated private-overlay (tailnet) membership** — which is **not** physical LAN co-location. The
+**authenticated private-overlay (ZeroTier network) membership** — which is **not** physical LAN co-location. The
 backend is deliberately physically remote, and the venue Wi-Fi is explicitly untrusted and not required.
 
 **Recommended resolution.** **[RECOMMENDATION]** Re-sequence GATE-DEPLOY-01 to resolve **before API

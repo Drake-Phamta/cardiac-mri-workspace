@@ -182,7 +182,7 @@ operations. `11` declares **zero** auth surface — the only trace is the `UNAUT
 1. **Declare `LOCAL_DEMO` now.** ✅ **This option was approved** — see the approved outcome below. No public
    auth surface needed; `09` §10 and `12` §5 permit omitting authentication when the backend is bound to
    localhost or a trusted private network. **[APPROVED INTERPRETATION]** The approved profile satisfies
-   "trusted private network" through an **authenticated private overlay (tailnet) membership boundary**,
+   "trusted private network" through an **authenticated private overlay (ZeroTier network) membership boundary**,
    which is **not** the same as physical LAN co-location — see the approved outcome. Obligations that
    still apply: no public unauthenticated writes, no open directory listings, write actions attributable
    to the configured reviewer alias, secrets out of source control. Also removes RA-H17 entirely.
@@ -208,6 +208,8 @@ dataset-terms review to the `12` §8.1 gate.
 
 ### Approved outcome — `LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS
 
+> **Overlay amendment (2026-09-10).** The project leader approved **ZeroTier** as the canonical private-overlay implementation, replacing Tailscale. All topology, onboarding, Spike E, and evidence-template references are aligned to this decision. Acceptance still requires the real cellular path; LAN-only connectivity remains diagnostic.
+
 > **Critical interpretation.** `LOCAL_DEMO` describes the **trust / exposure profile**, **not** physical
 > co-location. The backend is deliberately **physically remote** from the demo venue.
 
@@ -218,7 +220,7 @@ Samsung Galaxy A17 5G          (single authorised physical demo device)
         |
         |  4G / 5G cellular Internet
         v
-Authenticated private overlay  (Tailscale tailnet)
+Authenticated private overlay  (ZeroTier network)
         |
         v
 Remote Mac mini M2, 24 GB RAM
@@ -229,7 +231,7 @@ Remote Mac mini M2, 24 GB RAM
         +-- Reconstruction / experiment artifacts
 ```
 
-**Trust boundary.** **Authorised private-overlay (tailnet) device membership — not physical network
+**Trust boundary.** **Authorised private-overlay (ZeroTier network) device membership — not physical network
 membership.** Only explicitly authorised overlay devices may reach the backend.
 
 **The physical school/venue Wi-Fi is explicitly NOT required for the canonical demo, is NOT part of the

@@ -165,12 +165,12 @@ Thứ tự ĐO đã đặt trước:
 **Việc chạy song song trong lúc người khác giữ máy:**
 
 - **Vũ Hùng Anh** — dựng harness và bộ canonical geometry fixture trong lúc Spike A đang chuẩn bị **hoặc đang đo**.
-- **Nguyễn Gia Đức Trung** — **tuyệt đối không ngồi chờ**: dựng Mac mini backend stub · xác minh kết nối Tailscale/overlay · tạo payload artifact đại diện · transport instrumentation · logging phân bố độ trễ · harness retry/reconnect · script và template đo.
+- **Nguyễn Gia Đức Trung** — **tuyệt đối không ngồi chờ**: dựng Mac mini backend stub · xác minh kết nối ZeroTier/overlay · tạo payload artifact đại diện · transport instrumentation · logging phân bố độ trễ · harness retry/reconnect · script và template đo.
 
 **Spike E vẫn PHẢI đo nghiệm thu trên đường thật:**
 
 ```text
-Galaxy A17 5G → cellular 4G/5G thật → Tailscale overlay xác thực → Mac mini M2 24 GB
+Galaxy A17 5G → cellular 4G/5G thật → ZeroTier overlay xác thực → Mac mini M2 24 GB
 ```
 
 **Kết quả LAN chỉ là diagnostic — KHÔNG BAO GIỜ là bằng chứng nghiệm thu.**

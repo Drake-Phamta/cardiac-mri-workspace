@@ -124,7 +124,7 @@
 | Nói được **hai hợp đồng ingestion** khác nhau ở đâu | `NOT_CHECKED` |
 | Hiểu **scope firewall** trên fallback | `NOT_CHECKED` |
 | Mac mini bật được, truy cập được | `NOT_CHECKED` |
-| Tailscale cài được trên cả máy tính và điện thoại | `NOT_CHECKED` |
+| ZeroTier cài được trên cả máy tính và điện thoại | `NOT_CHECKED` |
 
 ---
 

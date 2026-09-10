@@ -613,7 +613,7 @@ Trong các slice có **GT không rỗng**, xếp theo:
    ┌──────────────────────────┐
    │  Backend / Persistence   │  Mac mini M2 24 GB (ở XA) · API · artifact store
    └────────────┬─────────────┘
-                │  cellular 4G/5G → Tailscale overlay xác thực
+                │  cellular 4G/5G → ZeroTier overlay xác thực
                 ▼
    ┌──────────────────────────┐
    │  Mobile Workspace        │  Galaxy A17 5G · study → cohort → case → slice ↔ 3D

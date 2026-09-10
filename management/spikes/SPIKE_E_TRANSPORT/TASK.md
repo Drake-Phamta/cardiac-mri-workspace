@@ -41,7 +41,7 @@ Samsung Galaxy A17 5G
         |
         |  real 4G / 5G cellular Internet
         v
-Authenticated Tailscale private overlay
+Authenticated ZeroTier private overlay
         |
         v
 Remote Mac mini M2, 24 GB RAM   (physically remote from the demo venue)
@@ -75,6 +75,8 @@ contended-cellular environment.
 | Q9 | What **first-load performance budget** should be proposed? |
 | Q10 | What is the **minimum artifact set** for the canonical-demo connectivity fallback, and its on-device size? |
 
+> **Lưu ý cho owner trong Day 0:** Q1–Q10 ở bảng này là **câu hỏi nghiên cứu của Spike E**, không phải câu hỏi onboarding có thể trả lời bằng suy đoán. Chưa điền con số hay kết luận trong Day 0. Chỉ trả lời chúng sau khi Nguyễn Gia Đức Trung thực hiện phép đo thật trên đúng đường cellular + overlay và thu được evidence; trường không đo được phải ghi `NOT MEASURED — <lý do>`.
+
 ## Candidate strategies to compare
 
 **[ASSUMPTION — to be tested, not presumed]**
@@ -98,7 +100,7 @@ endpoints, or versioned artifact URLs, all deferred to `ADR-ART-001`.
 ## Prerequisites
 
 1. **DR-006 device profile captured** from the Galaxy A17 5G.
-2. Mac mini reachable from the phone over cellular + Tailscale — **confirm this first**; it is the gating
+2. Mac mini reachable from the phone over cellular + ZeroTier — **confirm this first**; it is the gating
    setup step.
 3. Backend stub deployed on the Mac mini.
 
@@ -110,7 +112,7 @@ endpoints, or versioned artifact URLs, all deferred to `ADR-ART-001`.
 | Device profile | **[UNVERIFIED — capture]** all seven DR-006 fields |
 | Server | **Mac mini M2, 24 GB RAM** — **[RECORD]** macOS version, backend stub identity/version |
 | Network | **[RECORD]** carrier, 4G vs 5G, signal indication, and the measurement location |
-| Overlay | **[RECORD]** Tailscale version; **whether the connection is direct or relayed** — relay adds latency and must be labelled |
+| Overlay | **[RECORD]** ZeroTier version; **whether the connection is direct or relayed** — relay adds latency and must be labelled |
 | Time of day | **[RECORD]** cellular contention varies; note it |
 | LAN control run | **[RECORD, optional]** clearly labelled **diagnostic only** |
 

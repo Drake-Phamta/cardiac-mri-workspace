@@ -19,7 +19,7 @@
 | 4 | Chuẩn bị repo cho bài drill Git | Tạo sẵn nhánh `main` sạch; xác nhận cả 4 người có quyền push nhánh + mở PR |
 | 5 | Tạo file luyện tập | `management/onboarding/practice/PRACTICE_<TÊN>.md` — file vô hại, dùng cho drill |
 | 6 | **Sạc đầy Galaxy A17 5G** | Chỉ để cho mọi người **nhìn thấy**; **không đo gì trong Day 0** |
-| 7 | Kiểm tra Mac mini bật và Tailscale chạy | Chỉ để minh hoạ topology; **không đo** |
+| 7 | Kiểm tra Mac mini bật và ZeroTier chạy | Chỉ để minh hoạ topology; **không đo** |
 | 8 | Bảng trắng / giấy A3 | Để vẽ lại sơ đồ pipeline khi hỏi |
 | 9 | Đọc trước `TEAM_SHARED_CORE.md` mục **D, F, G** | Ba mục người ta hay hiểu sai nhất. **Leader phải đọc cả file**; thành viên thì **không** — xem mục 11 |
 | 10 | Chuẩn bị nước/đồ ăn nhẹ | Ngày dài, 08:30–18:00 |
