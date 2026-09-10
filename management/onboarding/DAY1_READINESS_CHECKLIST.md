@@ -63,7 +63,7 @@ Day 1, không ghi thành lỗi của ai.
 | A1 | **4/4 thành viên hoàn thành onboarding** (`DAY0_SIGNOFF.md` cột K) | `NOT_CHECKED` |
 | A2 | **Không còn hiểu nhầm nghiêm trọng nào chưa xử lý** — không mục `NEEDS_CLARIFICATION` nào chặn việc | `NOT_CHECKED` |
 | A3 | **4/4 có repository access** — đã push nhánh và mở PR thật trong drill | `NOT_CHECKED` |
-| A4 | **4/4 hiểu workflow branch/PR** — đã tự tay làm đủ chu trình gồm nhận và đưa `NEEDS_FIX` | `NOT_CHECKED` |
+| A4 | **4/4 hiểu workflow branch/PR** — tham gia hợp lệ vào chu trình PR/review ⚠ **đã tu chính** | `NOT_CHECKED` |
 | A5 | 4/4 hiểu `RESULT.md` ≠ `ACCEPTED` và biết 4 bước nghiệm thu | `NOT_CHECKED` |
 | A6 | 4/4 biết ghi `NOT MEASURED — <lý do>` thay vì bịa giá trị | `NOT_CHECKED` |
 | A7 | 4/4 biết đường leo thang blocker và khi nào phải mở DR | `NOT_CHECKED` |
@@ -71,25 +71,38 @@ Day 1, không ghi thành lỗi của ai.
 | A9 | Mỗi người nói được **hành động đầu tiên Day 1** của mình một cách cụ thể | `NOT_CHECKED` |
 | A10 | Onboarding blocker (nếu có) đã ghi ở `DAY0_SIGNOFF.md` §4 và **không** cái nào chặn việc bắt đầu | `NOT_CHECKED` |
 
+> **⚠ `A4` đã được tu chính.** Bản gốc đòi mỗi người phải **nhận** và **đưa** một `NEEDS_FIX`. Yêu cầu đó
+> được thay thế, vì ép buộc phải có một lần từ chối sẽ tạo ra bằng chứng giả — điều này đã thực sự xảy ra
+> một lần trong Day 0. **Luật thay thế:** reviewer chỉ `CHANGES_REQUESTED` khi có **lỗi thật**; PR đúng
+> thì `APPROVE` thẳng và đó là một lượt drill hoàn chỉnh; bài drill chấm trên **tham gia hợp lệ** vào chu
+> trình PR/review. Toàn văn: [`DAY0_SIGNOFF.md`](DAY0_SIGNOFF.md) §0.
+>
+> **Phần A vẫn `NOT_CHECKED` toàn bộ** — nó phụ thuộc vào hành động thật của Bế Quốc Khánh và Nguyễn Gia
+> Đức Trung, chưa xảy ra tính đến 2026-09-10. **Không mục nào ở đây được chấm hộ.**
+
 ---
 
 ## PHẦN B · PROJECT
 
 | # | Kiểm | Cách kiểm | Trạng thái |
 |---:|---|---|---|
-| B1 | **`docs/specs/v1.0/` KHÔNG bị sửa** | `cd docs/specs/v1.0 && sha256sum -c SPEC_MANIFEST_SHA256.txt` → **19/19 OK** | `NOT_CHECKED` |
-| B2 | **Trạng thái spike-control hợp lệ** | `SPIKE_PHASE_STATE.yaml` parse được; trạng thái khớp Phần C | `NOT_CHECKED` |
-| B3 | **KHÔNG có bằng chứng bịa** | `find management -name 'RESULT.md'` → **0 file** | `NOT_CHECKED` |
-| B4 | **Không `DATASET_AUDIT.md`** | file không tồn tại | `NOT_CHECKED` |
-| B5 | **Không `data/manifests/`** | thư mục không tồn tại | `NOT_CHECKED` |
-| B6 | **KHÔNG có production implementation vô tình** | không có `mobile/` `backend/` `ml/` `shared-contracts/`; không có `spikes/` code | `NOT_CHECKED` |
-| B7 | **Baseline 30 ngày đã được leader CHẤP NHẬN** *(nếu mức sẵn sàng Day-0 cho phép execution)* | `MASTER_PLAN_30_DAYS.md` tồn tại và có ghi nhận leader chấp nhận | `NOT_CHECKED` |
-| B7b | Baseline **KHÔNG âm thầm đóng băng** quyết định phụ thuộc bằng chứng | xem §B.1 bên dưới | `NOT_CHECKED` |
-| B8 | **Mobile framework CHƯA được chọn** | không có `TECH_STACK_ADR.md`; `GATE-MOB-01` còn mở | `NOT_CHECKED` |
-| B9 | **ML recipe CHƯA được chọn** | không có `ADR-ML-001`; `GATE-ML-01` còn mở | `NOT_CHECKED` |
-| B10 | **Điều kiện C1, C4, C6 vẫn MỞ** — không tài liệu nào nói đã đóng | C6 là `PARTIALLY_RESOLVED`, chờ bằng chứng Spike D | `NOT_CHECKED` |
-| B11 | **DR-002, DR-005, DR-008c vẫn MỞ** — đều chờ bằng chứng spike | `OPEN_DECISIONS.md` | `NOT_CHECKED` |
-| B12 | Bài drill Git chỉ chạm file luyện tập | không commit nào chạm `docs/specs/v1.0/`, `management/spikes/`, hay code production | `NOT_CHECKED` |
+| B1 | **`docs/specs/v1.0/` KHÔNG bị sửa** | `cd docs/specs/v1.0 && sha256sum -c SPEC_MANIFEST_SHA256.txt` → **19/19 OK** | **`PASS`** — 19/19 OK, 0 commit chạm `docs/specs/` |
+| B2 | **Trạng thái spike-control hợp lệ** | `SPIKE_PHASE_STATE.yaml` parse được; trạng thái khớp Phần C | **`PASS`** — khớp chính xác Phần C |
+| B3 | **KHÔNG có bằng chứng bịa** | `find management -name 'RESULT.md'` → **0 file** | **`PASS`** — 0 file |
+| B4 | **Không `DATASET_AUDIT.md`** | file không tồn tại | **`PASS`** |
+| B5 | **Không `data/manifests/`** | thư mục không tồn tại | **`PASS`** |
+| B6 | **KHÔNG có production implementation vô tình** | không có `mobile/` `backend/` `ml/` `shared-contracts/`; không có `spikes/` code | **`PASS`** — chỉ có `docs/`, `management/` |
+| B7 | **Baseline 30 ngày đã được leader CHẤP NHẬN** *(nếu mức sẵn sàng Day-0 cho phép execution)* | `MASTER_PLAN_30_DAYS.md` tồn tại và có ghi nhận leader chấp nhận | **`NOT_CHECKED`** — file **đã tồn tại** (2026-09-10) nhưng **leader chưa ký §14**. Đây là cửa của leader, không phải của Project Control |
+| B7b | Baseline **KHÔNG âm thầm đóng băng** quyết định phụ thuộc bằng chứng | xem §B.1 bên dưới | **`NOT_CHECKED`** — chờ leader rà §B.1 |
+| B8 | **Mobile framework CHƯA được chọn** | không có `TECH_STACK_ADR.md`; `GATE-MOB-01` còn mở | **`PASS`** — file không tồn tại, gate mở |
+| B9 | **ML recipe CHƯA được chọn** | không có `ADR-ML-001`; `GATE-ML-01` còn mở | **`PASS`** — file không tồn tại, gate mở |
+| B10 | **Điều kiện C1, C4, C6 vẫn MỞ** — không tài liệu nào nói đã đóng | C6 là `PARTIALLY_RESOLVED`, chờ bằng chứng Spike D | **`PASS`** — C1 OPEN · C4 OPEN · C6 `PARTIALLY_RESOLVED`, ghi đúng ở baseline §7 |
+| B11 | **DR-002, DR-005, DR-008c vẫn MỞ** — đều chờ bằng chứng spike | `OPEN_DECISIONS.md` | **`PASS`** — cả ba mở, ghi ở `PROJECT_STATE.yaml` `decisions_pending` |
+| B12 | Bài drill Git chỉ chạm file luyện tập | không commit nào chạm `docs/specs/v1.0/`, `management/spikes/`, hay code production | **`PASS`** — diff của #1, #3, #4 đều nằm trong `management/onboarding/practice/` |
+
+> **Ghi lúc 2026-09-10 bởi Project Control.** Mười mục `PASS` ở trên kiểm bằng lệnh, không bằng lời khai.
+> **B7 và B7b là cửa của leader** — baseline đã sinh nhưng chưa được chấp nhận, nên chúng đứng
+> `NOT_CHECKED` chứ không phải `PASS`.
 
 ### B.1 · Kiểm baseline 30 ngày — C1/C4/C6 phải nằm BÊN TRONG, không phải điều kiện tiên quyết
 
@@ -137,12 +150,29 @@ Thay vào đó, baseline phải chứa chúng **tường minh**:
 
 | # | Kiểm | Trạng thái |
 |---:|---|---|
-| C1 | 6 spike ở `PREPARED`, 1 ở `BLOCKED` — **không cái nào `ACTIVE`** | `NOT_CHECKED` |
-| C2 | **Mọi `started_at` là `null`** | `NOT_CHECKED` |
-| C3 | Không spike nào ở `ACCEPTED` | `NOT_CHECKED` |
-| C4 | Mọi `evidence_present` là `false` | `NOT_CHECKED` |
-| C5 | `WIP-CONFLICT-01` = `RESOLVED_BY_REVIEW_SERIALIZATION` | `NOT_CHECKED` |
-| C6 | `WIP-CONFLICT-02` = `RESOLVED_BY_DEVICE_MEASUREMENT_SERIALIZATION` | `NOT_CHECKED` |
+| C1 | 6 spike ở `PREPARED`, 1 ở `BLOCKED` — **không cái nào `ACTIVE`** | **`PASS`** — `PREPARED=6`, `BLOCKED=1`, `ACTIVE=0` |
+| C2 | **Mọi `started_at` là `null`** | **`PASS`** — 7/7 `null` |
+| C3 | Không spike nào ở `ACCEPTED` | **`PASS`** — `ACCEPTED=0` |
+| C4 | Mọi `evidence_present` là `false` | **`PASS`** — 7/7 `false` |
+| C5 | `WIP-CONFLICT-01` = `RESOLVED_BY_REVIEW_SERIALIZATION` | **`PASS`** |
+| C6 | `WIP-CONFLICT-02` = `RESOLVED_BY_DEVICE_MEASUREMENT_SERIALIZATION` | **`PASS`** — **kèm tu chính thứ tự đo `A → E → B`**, xem ghi chú dưới |
+
+> **Kiểm lúc 2026-09-10 bởi Project Control.** `SPIKE_C1` giữ `BLOCKED` với `blocked_by: [SPIKE_D]`.
+
+### Hai tu chính có hiệu lực, ghi để không ai áp dụng ngầm
+
+**1 · Override §D.3 — một người ghi central state.** Mục **D.3** bên dưới ghi *"mỗi chủ sở hữu tự làm cho
+spike của mình"*. **Điều này bị override:** chỉ **leader / Project Control** được sửa
+`../spikes/SPIKE_PHASE_STATE.yaml` và `../day01/DAY01_STATUS.md`. Lý do: bốn nhánh cùng chạm một file YAML
+vừa gây merge conflict vừa làm việc chuyển trạng thái mất tính nguyên tử. Sau cutover, Project Control
+thực hiện **một** commit chuyển trạng thái duy nhất cho cả bốn spike.
+
+**2 · Tu chính thứ tự đo thiết bị — `A → E → B`.** `WIP-CONFLICT-02` và **PHẦN E** bên dưới ghi
+`A → B → E`. Đổi thành **`A → E → B`** vì Spike B có nhiều giờ việc không cần máy để lấp chỗ chờ, còn
+Spike E thì gating vào chính khả năng máy tới được backend.
+
+Cả hai sẽ được nhắc lại trong `DAY01_CUTOVER_RECORD.md` khi nó được tạo. Chi tiết:
+[`../day01/DAY01_RUNBOOK.md`](../day01/DAY01_RUNBOOK.md) §4.
 
 **Câu lệnh kiểm nhanh:**
 
