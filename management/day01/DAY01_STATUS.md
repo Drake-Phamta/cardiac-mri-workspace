@@ -70,6 +70,20 @@ Ghi lại đúng sự việc, không đánh giá con người, vì nó ảnh hư
 Điều này lệch với `TEAM_WORKFLOW_QUICKSTART.md` §2 luật **3** (*cần ít nhất một reviewer được chỉ định
 approve mới merge được*) và luật **4** (*squash merge là mặc định*), nguồn `15` §8.
 
+**PR #5 (`365e53e`) cũng merge không có `APPROVED` — ghi rõ hoàn cảnh:**
+
+- PR #5 được request review cho `scalliontor` lúc 2026-09-10, và **không có review nào được submit**.
+- Leader báo rằng **Vũ Hùng Anh đã đọc PR và đồng ý bằng lời**, nhưng **không submit được từ máy của mình
+  do máy đang có sự cố**.
+- Leader chỉ đạo merge vì cả nhóm đang không có bảng việc Day-01 nào để làm việc.
+- **Project Control đã từ chối submit review dưới tài khoản `scalliontor`.** Một dòng
+  *"scalliontor approved"* do người khác bấm sẽ là chữ ký giả trong bản ghi công khai. Thay vào đó PR được
+  merge **dưới tài khoản leader**, và sự đồng ý bằng lời của Vũ Hùng Anh được ghi ở đây đúng như nó là —
+  **một lời đồng ý, không phải một review đã submit**.
+
+**Vì vậy, tính tới lúc này: cả ba PR đã merge — #1, #3, #5 — đều không có review `APPROVED`.**
+`R2` **CHƯA THOẢ**, và không được chấm cao hơn chỉ vì các PR đã đóng.
+
 **Hệ quả cho `R2`:** tính đến lúc này **không lượt drill nào có `APPROVED`**, nên `R2` chưa thoả — kể cả
 với hai PR đã merged. `R2` không được chấm cao hơn thực tế chỉ vì PR đã đóng.
 
