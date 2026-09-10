@@ -111,26 +111,30 @@ Thay vào đó, baseline phải chứa chúng **tường minh**:
 
 | # | Baseline phải thể hiện C1/C4/C6 dưới dạng | Trạng thái |
 |---:|---|---|
-| B1a | **Gate** — mốc rõ ràng phải qua | `NOT_CHECKED` |
-| B1b | **Dependency** — việc gì chờ việc gì | `NOT_CHECKED` |
-| B1c | **Điểm bất định trên critical path** — thừa nhận chưa biết | `NOT_CHECKED` |
-| B1d | **Decision point** — ai quyết, khi nào, dựa trên bằng chứng nào | `NOT_CHECKED` |
-| B1e | **Recovery trigger** — làm gì nếu bằng chứng ra kết quả xấu | `NOT_CHECKED` |
+| B1a | **Gate** — mốc rõ ràng phải qua | **`PASS`** — C1→`GATE-DATA-01` (M1→M2) · C4→DR-005 (M2) · C6→Spike D **A14** |
+| B1b | **Dependency** — việc gì chờ việc gì | **`PASS`** — `SPIKE_C1 blocked_by SPIKE_D` · Spike F sau Spike B · geometry contract M3 phụ thuộc A14 |
+| B1c | **Điểm bất định trên critical path** — thừa nhận chưa biết | **`PASS`** — baseline §7 nói thẳng *"this is not yet known"* cho cả ba |
+| B1d | **Decision point** — ai quyết, khi nào, dựa trên bằng chứng nào | **`PASS`** — mỗi điều kiện ghi rõ *leader quyết, tại M2, trên bằng chứng nào* |
+| B1e | **Recovery trigger** — làm gì nếu bằng chứng ra kết quả xấu | **`PASS`** — C1→DR-001/RA-H01 BLOCKER · C4→`SPIKE_PHASE_PLAN` §9.3 · C6→DR trước khi M3 đóng băng |
 
 **Và baseline KHÔNG ĐƯỢC âm thầm đóng băng bất kỳ mục nào sau đây:**
 
 | Mục phụ thuộc bằng chứng | Chỉ đóng sau | Trạng thái |
 |---|---|---|
-| **Path A / Path B** | Spike D → DR-002 / `GATE-SPLIT-01` | `NOT_CHECKED` |
-| **Mobile framework** | Spike A **và** Spike B → `GATE-MOB-01` | `NOT_CHECKED` |
-| **DINOv2 recipe cuối** | **Spike C1** (C0 không đủ) → `GATE-ML-01` | `NOT_CHECKED` |
-| **Ngân sách mesh cuối** | Spike B → DR-008c, trong trần ±1 slice | `NOT_CHECKED` |
-| **Biểu diễn lỗi 3D cuối** | Spike F → DR-005 | `NOT_CHECKED` |
-| **Chiến lược transport cuối** | Spike E → `ADR-ART-001` | `NOT_CHECKED` |
-| **Mọi quyết định phụ thuộc bằng chứng khác** | đúng cửa gate/DR của nó | `NOT_CHECKED` |
+| **Path A / Path B** | Spike D → DR-002 / `GATE-SPLIT-01` | **`PASS`** — baseline §8 liệt kê là mục **chưa quyết**, earliest M2 |
+| **Mobile framework** | Spike A **và** Spike B → `GATE-MOB-01` | **`PASS`** — §8, earliest M2; không framework nào được nêu tên |
+| **DINOv2 recipe cuối** | **Spike C1** (C0 không đủ) → `GATE-ML-01` | **`PASS`** — §8, earliest M4; ghi rõ *C0 is not sufficient* |
+| **Ngân sách mesh cuối** | Spike B → DR-008c, trong trần ±1 slice | **`PASS`** — §8, earliest M2, kèm trần ±1 slice |
+| **Biểu diễn lỗi 3D cuối** | Spike F → DR-005 | **`PASS`** — §8, earliest M2 |
+| **Chiến lược transport cuối** | Spike E → `ADR-ART-001` | **`PASS`** — §8, earliest M2 |
+| **Mọi quyết định phụ thuộc bằng chứng khác** | đúng cửa gate/DR của nó | **`PASS`** — §8 dòng cuối + §13 *what this plan is not authorised to do* |
 
 > Nếu baseline có chỗ nào **giả định** một trong các mục trên đã chốt → **trả lại để sửa trước khi
 > tuyên bố Execution Day 1.**
+
+> **Kiểm 2026-09-10 bởi Project Control — §B.1 đạt 12/12.** Quét toàn văn `MASTER_PLAN_30_DAYS.md` tìm
+> cách diễn đạt chốt sẵn (một framework được nêu tên, một Path A/B đã chọn, một recipe đã đóng băng):
+> **không có kết quả nào**. Chi tiết bốn phép kiểm ghi ở baseline §14.
 
 ---
 
