@@ -12,6 +12,42 @@
 
 ---
 
+## 0 · TU CHÍNH BÀI DRILL GIT — ghi 2026-09-10, leader phê duyệt
+
+**Phạm vi hẹp: chỉ áp dụng cho tiêu chí của bài drill Git Day 0.** Không đụng tới bất kỳ tiêu chí nào khác,
+không đụng spec đóng băng.
+
+Bản gốc của bài drill — [`DAY0_KICKOFF_RUNBOOK.md`](DAY0_KICKOFF_RUNBOOK.md) bước 6 và mục "Kết quả mong đợi
+chính xác", cùng `A4` trong [`DAY1_READINESS_CHECKLIST.md`](DAY1_READINESS_CHECKLIST.md) — yêu cầu **mọi
+thành viên phải NHẬN một `NEEDS_FIX`** và **ĐƯA một `NEEDS_FIX`** cho người khác.
+
+**Yêu cầu đó được thay thế**, vì ép buộc phải có một lần từ chối sẽ tạo ra **bằng chứng giả**: reviewer
+không tìm thấy lỗi thật sẽ bịa ra một lỗi, hoặc tệ hơn là **tự tạo lỗi trên nhánh của tác giả rồi yêu cầu
+sửa chính lỗi mình vừa cấy**. Điều này đã thực sự xảy ra một lần trong Day 0.
+
+### Luật thay thế
+
+| # | Luật |
+|---:|---|
+| 1 | Reviewer chỉ `CHANGES_REQUESTED` / `NEEDS_FIX` khi **có lỗi thật** — lỗi tồn tại trong PR đúng như tác giả nộp |
+| 2 | PR đúng ngay từ đầu thì **`APPROVE`** thẳng. Đó là một lượt drill **hoàn chỉnh và thành công** |
+| 3 | **Không ai được cấy lỗi**, push lỗi vào nhánh người khác, hay bịa review comment cho khớp checklist |
+| 4 | Bài drill được chấm trên việc **tham gia hợp lệ** vào chu trình PR/review: mở PR của mình · được pair review · review PR của pair · squash merge |
+
+### Điều KHÔNG thay đổi
+
+- **Sự kiện lịch sử giữ nguyên.** Các `CHANGES_REQUESTED` đã xảy ra vẫn là sự kiện thật và vẫn được ghi
+  đúng như đã xảy ra.
+- **Không bịa ngược.** Không ở đâu được ghi rằng một `NEEDS_FIX` đã xảy ra nếu nó không xảy ra.
+- **Không ai `PASS` vì có tu chính này.** Tu chính chỉ đổi *tiêu chí chấm*, không tự chấm hộ ai. Cột B của
+  từng người vẫn cần hành động thật của chính người đó.
+- Bản runbook Day 0 **không bị viết lại** — nó là bản ghi lịch sử của điều đã được chỉ đạo hôm đó. Tu chính
+  này đứng đè lên nó.
+
+**Áp dụng cho:** `A4` của `DAY1_READINESS_CHECKLIST.md` và cột **B** của bảng dưới đây.
+
+---
+
 ## 1 · Bảng ký nhận
 
 | # | Cột | Nội dung kiểm |
