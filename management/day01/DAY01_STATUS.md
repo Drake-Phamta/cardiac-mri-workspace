@@ -29,8 +29,8 @@ ra — file này không chứa giờ dự kiến.
 
 | # | Mục | Trạng thái | Ai gỡ |
 |---:|---|---|---|
-| **R1** | Bốn PR practice merged | **CHƯA** — #1, #3, #4 còn `open`; PR của Trung **chưa tồn tại** | cả bốn |
-| **R2** | Mỗi người tham gia hợp lệ vào chu trình review | **CHƯA** — xem bảng §2 | cả bốn |
+| **R1** | Bốn PR practice merged | **2/4** — #1 và #3 đã merged; #4 còn `open`; PR của Trung **chưa tồn tại** | Khánh + Trung |
+| **R2** | Mỗi người tham gia hợp lệ vào chu trình review | **CHƯA** — **không PR nào trong drill có `APPROVED`**; xem §2.1 | cả bốn |
 | **R3** | `DAY0_SIGNOFF.md` cột K = `PASS` ×4 | **CHƯA** — 1/4 điền một phần, 3/4 trống | leader chấm |
 | **R4** | §5 tổng hợp điền và ký | **CHƯA** | leader |
 | **R5** | `DAY1_READINESS_CHECKLIST.md` A/B/B.1/C/D | **CHƯA** — chưa điền | Project Control |
@@ -48,12 +48,34 @@ ra — file này không chứa giờ dự kiến.
 
 | PR | Nhánh | Tác giả | Trạng thái | Còn thiếu gì |
 |---|---|---|---|---|
-| **#1** | `chore/practice-tuan-anh` | Phạm Tuấn Anh | `open`, 3 commit | `APPROVE` của Vũ Hùng Anh (fix `50b3d10` đã push, chưa re-review) |
-| **#3** | `chore/practice-hung-anh` | Vũ Hùng Anh | `open`, 1 commit | Vũ Hùng Anh sửa theo `CHANGES_REQUESTED`, rồi leader approve |
+| **#1** | `chore/practice-tuan-anh` | Phạm Tuấn Anh | **merged** `b28921f` 13:16 | — |
+| **#3** | `chore/practice-hung-anh` | Vũ Hùng Anh | **merged** `01ab6a0` 13:14 | **dòng `Reviewer:` vẫn thiếu trên `main`** — `CHANGES_REQUESTED` chưa được xử lý trước khi merge |
 | **#4** | `chore/practice-quoc-khanh` | Bế Quốc Khánh | `open`, 1 commit | **Review của Nguyễn Gia Đức Trung** — chưa có review nào |
 | — | `chore/practice-duc-trung` | Nguyễn Gia Đức Trung | **chưa tồn tại** | tạo file, nhánh, push, mở PR |
+| **#5** | `docs/day01-phase-a-control` | Project Control | `open` | `APPROVE` của Vũ Hùng Anh — dashboard Day-01 chưa lên được cho tới khi merge |
 
 **PR #2** (`docs: add 3D mesh UI and FPS reference`) đã merged — `2096a35`. Không thuộc drill.
+
+### 2.1 · Ghi nhận cách #1 và #3 được merge
+
+Ghi lại đúng sự việc, không đánh giá con người, vì nó ảnh hưởng trực tiếp tới `R2`:
+
+- Cả **#1** và **#3** được merge bởi `scalliontor` lúc 13:14 và 13:16 ngày 2026-09-10.
+- **Không PR nào có review `APPROVED`.** #1 chỉ có `CHANGES_REQUESTED` của `scalliontor`; #3 chỉ có
+  `CHANGES_REQUESTED` của `Drake-Phamta`.
+- **#3 được merge đè lên `CHANGES_REQUESTED` đang mở, bởi chính tác giả**, và thay đổi được yêu cầu
+  **chưa được thực hiện** — `PRACTICE_VU_HUNG_ANH.md` trên `main` vẫn thiếu dòng `Reviewer:`.
+- Không dùng squash: #3 tạo merge commit `01ab6a0`; #1 đưa cả ba commit vào `main` riêng lẻ.
+
+Điều này lệch với `TEAM_WORKFLOW_QUICKSTART.md` §2 luật **3** (*cần ít nhất một reviewer được chỉ định
+approve mới merge được*) và luật **4** (*squash merge là mặc định*), nguồn `15` §8.
+
+**Hệ quả cho `R2`:** tính đến lúc này **không lượt drill nào có `APPROVED`**, nên `R2` chưa thoả — kể cả
+với hai PR đã merged. `R2` không được chấm cao hơn thực tế chỉ vì PR đã đóng.
+
+**Chờ leader quyết:** (a) giữ chuẩn — Hùng Anh mở PR nhỏ bổ sung dòng `Reviewer:`, leader approve, và
+Hùng Anh approve PR #5; hoặc (b) leader áp dụng cùng thực tế đã dùng cho #1/#3 cho PR #5, và bản ghi nêu
+rõ cả ba PR đều merge không qua approval.
 
 ---
 
@@ -63,7 +85,7 @@ ra — file này không chứa giờ dự kiến.
 
 | | |
 |---|---|
-| **NOW** | Đóng nợ Day 0: đốc Trung · approve #3 khi Hùng Anh sửa · hoàn tất sign-off. Prep tooling Android **được**, dán nhãn `PREP` |
+| **NOW** | PR #1 đã merged. Còn: đốc Trung · quyết cách xử lý #1/#3 merge không approval (§2.1) · hoàn tất sign-off. Prep tooling Android **được**, dán nhãn `PREP` |
 | **SAU READY** | Chụp profile DR-006 → nhả máy → harness Spike A |
 | **Reviewer của mình** | Vũ Hùng Anh (hàng đợi vị trí 2, sau Spike D) |
 | **Mình review** | Spike B → Spike E |
@@ -74,7 +96,7 @@ ra — file này không chứa giờ dự kiến.
 
 | | |
 |---|---|
-| **NOW** | **Sửa PR #3** theo review · `APPROVE` PR #1 (leader đã push fix `50b3d10`). Prep toolchain mesh/render **được**, dán nhãn `PREP` |
+| **NOW** | PR #3 đã merged nhưng **dòng `Reviewer:` vẫn thiếu trên `main`** → mở PR nhỏ bổ sung · **`APPROVE` PR #5** để dashboard Day-01 lên được. Prep toolchain mesh/render **được**, dán nhãn `PREP` |
 | **SAU READY** | Fixture canonical DR-008a → **công bố format sớm** → ≥3 mức decimation → đo máy sau cùng |
 | **Reviewer của mình** | Phạm Tuấn Anh (vị trí 1) |
 | **Mình review** | **Spike D → Spike A** — D ưu tiên vì là P0 |
@@ -186,9 +208,10 @@ Không `RESULT.md` nào tồn tại. Không `DATASET_AUDIT.md`. Không `data/man
 |---:|---|---|---|
 | 1 | PR practice của Nguyễn Gia Đức Trung chưa tồn tại | Nguyễn Gia Đức Trung | tạo file → nhánh → push → PR |
 | 2 | PR #4 chưa có review | Nguyễn Gia Đức Trung | review trung thực: approve nếu đúng, chỉ request changes khi có lỗi thật |
-| 3 | PR #3 chưa sửa theo review | Vũ Hùng Anh | thêm field `Reviewer`, push |
-| 4 | PR #1 chưa được re-review sau fix | Vũ Hùng Anh | `gh pr review 1 --approve` |
-| 5 | `MASTER_PLAN_30_DAYS.md` chưa tồn tại | Project Control → leader chấp nhận | lượt làm việc riêng, sau khi nợ Day 0 đóng |
+| 3 | `PRACTICE_VU_HUNG_ANH.md` trên `main` thiếu dòng `Reviewer:` — merged khi `CHANGES_REQUESTED` còn mở | Vũ Hùng Anh | mở PR nhỏ bổ sung field, leader approve |
+| 4 | **PR #5 chưa có `APPROVED`** → dashboard Day-01 chưa lên được, cả nhóm chưa có bảng việc | Vũ Hùng Anh | `gh pr review 5 --approve` |
+| 5 | **`R2` chưa thoả** — chưa lượt drill nào có `APPROVED` (§2.1) | leader quyết | giữ chuẩn, hoặc ghi nhận thực tế đã áp dụng |
+| 6 | `MASTER_PLAN_30_DAYS.md` chưa tồn tại | Project Control → leader chấp nhận | lượt làm việc riêng, sau khi nợ Day 0 đóng |
 
 **Không có operational blocker nào chặn việc chuẩn bị.** Cả bốn người đều có việc prep làm được ngay.
 

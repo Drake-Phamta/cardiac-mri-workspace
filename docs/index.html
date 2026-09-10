@@ -110,6 +110,14 @@ dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 11px;font-size:1
 dt{color:var(--ink-3);font-weight:600;white-space:nowrap}
 dd{margin:0;min-width:0;word-break:break-word}
 .card .pk{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);font-size:13px}
+.cmd{margin:9px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;overflow-x:auto}
+.cmd b{display:block;font:700 10px/1 var(--mono);letter-spacing:.08em;color:var(--ink-3);margin-bottom:6px}
+.cmd code{display:block;background:none;border:0;padding:0;font:12px/1.7 var(--mono);white-space:pre}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rule{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;font-size:13.5px}
+.rule .t{font-weight:700;margin-bottom:5px}
+.rule p{margin:0;color:var(--ink-2);font-size:13px}
 
 /* ---------- phone ---------- */
 .phonebox{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:15px 17px;margin:0 0 13px}
@@ -180,10 +188,14 @@ footer a{word-break:break-all}
   <table>
     <thead><tr><th>#</th><th>Điều kiện</th><th>Trạng thái</th><th>Ai gỡ</th></tr></thead>
     <tbody>
-      <tr><td class="id">R1</td><td>Bốn PR practice đã squash merge</td>
-          <td><span class="st no">CHƯA</span></td><td>#1 #3 #4 còn mở · PR của Trung chưa tồn tại</td></tr>
+      <tr><td class="id">R1</td><td>Bốn PR practice đã merge</td>
+          <td><span class="st wait">2 / 4</span></td><td>#1 và #3 đã merged · #4 còn mở · PR của Trung chưa tồn tại</td></tr>
       <tr><td class="id">R2</td><td>Mỗi người tham gia hợp lệ vào chu trình review</td>
-          <td><span class="st no">CHƯA</span></td><td>cả bốn</td></tr>
+          <td><span class="st no">CHƯA</span></td>
+          <td><strong>Chưa PR nào trong drill có <code>APPROVED</code>.</strong> #1 và #3 được merge khi
+              chỉ có <code>CHANGES_REQUESTED</code>, và thay đổi yêu cầu trên #3 chưa được thực hiện —
+              <code>PRACTICE_VU_HUNG_ANH.md</code> trên <code>main</code> vẫn thiếu dòng
+              <code>Reviewer:</code></td></tr>
       <tr><td class="id">R3</td><td><code>DAY0_SIGNOFF.md</code> cột K = <code>PASS</code> ×4</td>
           <td><span class="st no">CHƯA</span></td><td>leader chấm sau khi merge</td></tr>
       <tr><td class="id">R4</td><td>§5 tổng hợp điền và leader ký</td>
@@ -218,10 +230,25 @@ footer a{word-break:break-all}
       <div class="who"><span class="nm">Nguyễn Gia Đức Trung</span><span class="tag">V4 · Spike E</span></div>
       <p class="blockflag">🔴 ĐANG CHẶN BA CỘT B — LÀM PHẦN NÀY TRƯỚC SPIKE E</p>
       <div class="nowbox"><b>NOW</b>
-        ① điền <code>PRACTICE_NGUYEN_GIA_DUC_TRUNG.md</code> · ② nhánh <code>chore/practice-duc-trung</code>
-        → push → mở PR · ③ <strong>review PR #4 của Khánh</strong> — approve nếu đúng, chỉ request changes
-        khi có lỗi thật · ④ merge PR của mình.
+        ① điền <code>PRACTICE_NGUYEN_GIA_DUC_TRUNG.md</code> — 6 chỗ <code>TODO</code> bằng lời của bạn,
+        <strong>và nhớ thêm dòng <code>Reviewer: Bế Quốc Khánh</code></strong> (field bắt buộc số 7, không
+        in sẵn trong stub) · ② nhánh → push → mở PR · ③ <strong>review PR #4 của Khánh</strong> — file
+        bạn ấy đã đủ 7 field, <strong>đúng thì approve thẳng</strong>, đừng đi tìm lỗi cho bằng được ·
+        ④ merge PR của mình sau khi được approve.
       </div>
+      <div class="cmd"><b>copy-paste</b><code>git switch main
+git pull --ff-only origin main
+git switch -c chore/practice-duc-trung
+# sửa management/onboarding/practice/PRACTICE_NGUYEN_GIA_DUC_TRUNG.md rồi LƯU
+git status --short          # phải thấy dòng  M ...
+git add management/onboarding/practice/PRACTICE_NGUYEN_GIA_DUC_TRUNG.md
+git commit -m "chore(practice): PRACTICE-01 add role summary"
+git push -u origin chore/practice-duc-trung
+gh pr create --base main --title "chore(practice): PRACTICE-01 add role summary" --body "Day-0 Git drill. Practice file only. Reviewer @qkhanhbe."
+
+# rồi review PR #4 của Khánh
+gh pr diff 4 --name-only
+gh pr review 4 --approve -b "APPROVE: du 7 field, diff nam trong practice/"</code></div>
       <div class="laterbox"><b>SAU READY</b>
         Cellular 5G thật + overlay → <strong>phân bố</strong> latency → ghi direct-vs-relayed từng phép đo.
         Backend stub và Tailscale làm được ngay trong Phase A, nhãn <code>PREP</code>.
@@ -237,10 +264,21 @@ footer a{word-break:break-all}
     <div class="card">
       <div class="who"><span class="nm">Vũ Hùng Anh</span><span class="tag">V2 3D · Spike B</span></div>
       <div class="nowbox"><b>NOW</b>
-        ① <strong>sửa PR #3</strong> — thêm dòng <code>Reviewer:</code>, push · ② <strong><code>APPROVE</code>
-        PR #1</strong> (leader đã push fix <code>50b3d10</code>). Prep toolchain mesh/render làm được, nhãn
-        <code>PREP</code>.
+        PR #3 đã merged, nhưng <strong>dòng <code>Reviewer:</code> vẫn thiếu trên <code>main</code></strong>
+        — nó được merge khi <code>CHANGES_REQUESTED</code> còn mở, nên mở một PR nhỏ bổ sung nốt ·
+        ② <strong><code>APPROVE</code> PR #5</strong> — bộ control Day-01, cả nhóm chưa xem được bảng việc
+        hôm nay cho tới khi nó merge. Prep toolchain mesh/render làm được, nhãn <code>PREP</code>.
       </div>
+      <div class="cmd"><b>copy-paste</b><code>gh pr diff 5 --name-only
+gh pr review 5 --approve -b "APPROVE: management artifacts only"
+
+git switch main &amp;&amp; git pull --ff-only origin main
+git switch -c chore/practice-hung-anh-reviewer
+# thêm vào cuối PRACTICE_VU_HUNG_ANH.md:  - **Reviewer:** Phạm Tuấn Anh
+git add management/onboarding/practice/PRACTICE_VU_HUNG_ANH.md
+git commit -m "chore(practice): PRACTICE-01 add missing reviewer field"
+git push -u origin chore/practice-hung-anh-reviewer
+gh pr create --base main --title "chore(practice): PRACTICE-01 add missing reviewer field" --body "Bo sung field bat buoc so 7 con thieu tren main."</code></div>
       <div class="laterbox"><b>SAU READY</b>
         Bộ canonical geometry fixture DR-008a → <strong>công bố format sớm</strong> (Spike A và F đều chờ)
         → ≥3 mức decimation → harness picking desktop → đo máy sau cùng.
@@ -258,7 +296,13 @@ footer a{word-break:break-all}
       <div class="nowbox"><b>NOW</b>
         PR #4 <strong>đang chờ review của Trung</strong> — file của bạn đã đủ 7 field, không phải sửa gì
         trước. Trong lúc chờ: prep tooling NRRD trên file <strong>tự sinh</strong>, nhãn <code>PREP</code>.
+        Khi Trung mở PR, bạn review lại bạn ấy.
       </div>
+      <div class="cmd"><b>copy-paste — khi Trung mở PR</b><code>gh pr diff &lt;n&gt; --name-only
+gh pr review &lt;n&gt; --approve -b "APPROVE: du 7 field, diff nam trong practice/"
+
+# sau khi PR #4 cua ban duoc approve
+gh pr merge 4 --squash --delete-branch</code></div>
       <div class="laterbox"><b>SAU READY</b>
         §Day-one bước 1–5: tải gói chính thức → inventory → provenance vòng đầu → mở 2–3 volume →
         <strong>đánh giá trigger DR-001 và báo leader trước cuối ngày</strong>.
@@ -274,10 +318,14 @@ footer a{word-break:break-all}
     <div class="card">
       <div class="who"><span class="nm">Phạm Tuấn Anh</span><span class="tag lead">LEADER</span><span class="tag">Spike A</span></div>
       <div class="nowbox"><b>NOW — vai Project Control</b>
-        Đốc Trung và Hùng Anh · approve PR #3 khi đã sửa · merge bốn PR · chấm
+        PR #1 đã merged. Còn: đốc Trung · quyết cách xử lý việc #1 và #3 merge không có
+        <code>APPROVED</code> (ảnh hưởng <code>R2</code>) · merge nốt #4 và PR của Trung · chấm
         <code>DAY0_SIGNOFF.md</code> · §5 + ký · baseline 30 ngày · điền checklist · kiểm R1–R9 ·
         <strong>tuyên bố cutover</strong>.
       </div>
+      <div class="cmd"><b>kiểm sau mỗi PR</b><code>gh pr diff &lt;n&gt; --name-only
+gh api repos/Drake-Phamta/cardiac-mri-workspace/pulls/&lt;n&gt;/reviews
+git log --format='%an' origin/&lt;branch&gt;    # chỉ một tên</code></div>
       <div class="laterbox"><b>SAU READY — vai chủ sở hữu Spike A</b>
         Chụp <strong>profile DR-006</strong> (tiền đề của cả A, B và E) → nhả máy cho Trung → harness
         Spike A → review Spike B rồi Spike E.
@@ -290,6 +338,47 @@ footer a{word-break:break-all}
       <p class="pk"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/tasks/DAY01_PHAM_TUAN_ANH.md">📄 Task packet của tôi</a></p>
     </div>
 
+  </div>
+</section>
+
+<!-- B2 -->
+<section>
+  <h2><span class="num">B2</span> Luật chung — áp cho cả nhóm hôm nay</h2>
+  <div class="rules">
+    <div class="rule">
+      <div class="t">Review trung thực</div>
+      <p>Chỉ <code>NEEDS_FIX</code> khi có <strong>lỗi thật</strong> trong PR đúng như tác giả nộp. PR đúng
+         thì <strong>approve thẳng</strong> — đó là một lượt drill hoàn chỉnh. <strong>Không cấy lỗi</strong>,
+         không push vào nhánh người khác để tạo hay sửa lỗi.</p>
+    </div>
+    <div class="rule">
+      <div class="t">Merge cần approval</div>
+      <p>Cần <strong>ít nhất một reviewer được chỉ định <code>APPROVE</code></strong> mới merge
+         (<code>15</code> §8). <strong>Squash merge</strong> là mặc định. Không push thẳng
+         <code>main</code>. Không merge đè lên <code>CHANGES_REQUESTED</code> đang mở.</p>
+    </div>
+    <div class="rule">
+      <div class="t">Nhãn PREP</div>
+      <p>Mọi thứ ghi lại <strong>trước cutover</strong> phải mang nhãn
+         <code>PREP / DIAGNOSTIC ONLY — NOT ACCEPTANCE EVIDENCE</code>, ngay lúc capture, và bị loại trừ
+         đích danh khỏi acceptance dataset.</p>
+    </div>
+    <div class="rule">
+      <div class="t">Một spike một PR</div>
+      <p>Nhánh <code>spike/SPIKE_&lt;X&gt;</code>. Không PR nào trộn hai spike, không trộn spike với
+         artifact quản lý. Title PR mang ID spike.</p>
+    </div>
+    <div class="rule">
+      <div class="t">Evidence — nhỏ mà thật</div>
+      <p>CSV/JSON, log nhỏ, manifest, checksum, bản ghi lệnh, bảng tóm tắt có dữ liệu thô đứng sau.
+         Artifact lớn để ngoài git kèm checksum + lệnh sinh. Không đo được thì ghi
+         <code>NOT MEASURED — &lt;lý do&gt;</code>, <strong>đừng bịa</strong>.</p>
+    </div>
+    <div class="rule">
+      <div class="t">Central state một người ghi</div>
+      <p>Chỉ Project Control sửa <code>SPIKE_PHASE_STATE.yaml</code> và <code>DAY01_STATUS.md</code>.
+         Bạn tạo sự thật qua <strong>nhánh, commit, PR và reviewer state</strong> của mình.</p>
+    </div>
   </div>
 </section>
 
