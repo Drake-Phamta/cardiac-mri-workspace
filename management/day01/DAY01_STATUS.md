@@ -172,10 +172,29 @@ rõ cả ba PR đều merge không qua approval.
 
 ```
 NGƯỜI GIỮ HIỆN TẠI:  Phạm Tuấn Anh — GATE 1
-ĐANG LÀM:            chụp profile thiết bị DR-006
-ĐIỀU KIỆN NHẢ:       profile committed + baseline A9/A10 captured
+ĐÃ XONG:             profile DR-006 chụp thật, commit 6d0ae77 + 9e1270c
+CÒN LẠI Ở GATE 1:    baseline A9/A10 — NHƯNG chưa chạy được, chưa có harness
+KHUYẾN NGHỊ:         NHẢ MÁY NGAY cho Nguyễn Gia Đức Trung
 NGƯỜI KẾ TIẾP:       Nguyễn Gia Đức Trung (GATE 2) — vào khi stub tới được và ZeroTier đã lên
 ```
+
+> **Vì sao khuyến nghị nhả máy sớm hơn điều kiện gốc.** Cổng nhả GATE 1 viết là *"profile committed +
+> baseline A9/A10 captured"*. Nhưng **A9/A10 không chạy được khi chưa có harness**, mà harness là việc
+> desktop — không cần điện thoại. Giữ máy để chờ một phép đo chưa thể chạy là đúng cái mà luật *"không
+> đo thì không giữ máy"* cấm. Profile đã xong và nó là phần duy nhất của GATE 1 thực sự cần thiết bị
+> ngay. Dựng harness trước, nhận lại máy sau để chạy A9/A10.
+
+### Ba phát hiện từ profile, ảnh hưởng cách chạy spike
+
+| # | Phát hiện | Ảnh hưởng |
+|---:|---|---|
+| 1 | **`dalvik.vm.heapgrowthlimit = 256 MB`/app** dù máy có 7,29 GiB RAM | Volume MRI và mesh **không** nạp được vào heap Java. Spike A và B phải dùng native memory / mmap / nạp theo slice. Nạp thẳng vào `NFR-PERF-001` và `GATE-MOB-01` |
+| 2 | **Panel hỗ trợ 90 Hz nhưng đang chạy 60 Hz** | Frame budget 16,7 ms so với 11,1 ms. Android tự đổi mode. **Spike B phải ghim refresh hoặc ghi mode đang chạy cho từng phép đo**, nếu không hai lần đo lệch nhau mà không giải thích được |
+| 3 | **Auto-brightness BẬT + máy đang sạc USB** | Cả hai làm đổi công suất và nhiệt giữa chừng. Phải chuyển manual và chốt sạc-hay-pin **trước** A9/A10, áp dụng thống nhất cho cả ba spike |
+
+**Ghi thêm cho Spike E:** máy đang bám **LTE** (Viettel), không phải 5G. Không vi phạm — DR-003 ghi
+*"real 4G/5G cellular"*. Nhưng `E12` phải ghi **công nghệ mạng thực tế** cho từng phép đo bên cạnh
+direct-vs-relayed, vì phân bố latency 4G và 5G khác nhau đáng kể.
 
 Trong `GATE 0`, máy **được** dùng để cài và cấu hình tooling. Mọi thứ capture ở đây là
 `PREP / DIAGNOSTIC ONLY` và **bị loại trừ đích danh** khỏi acceptance dataset.
