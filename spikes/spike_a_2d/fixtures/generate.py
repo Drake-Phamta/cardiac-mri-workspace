@@ -32,6 +32,7 @@ import base64
 import hashlib
 import json
 import os
+import zlib
 
 # --- fixture parameters -----------------------------------------------------
 # Small enough to ship as an app asset, large enough that slice navigation and
@@ -41,6 +42,41 @@ NX, NY, NZ = 64, 64, 16
 SEED = 2024                      # same seed the project uses for splits
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# --- minimal PNG encoder ---------------------------------------------------
+# stdlib only, no Pillow, so the fixture regenerates on any machine with plain
+# Python. Grayscale 8-bit, filter type 0 on every scanline.
+#
+# The app needs displayable images: React Native cannot draw a raw byte buffer,
+# and rendering 4096 Views per slice is not a viewer, it is a stress test of the
+# wrong thing. Pre-encoding here also matches what A9 actually asks about —
+# "switching among already available/cached slices" — so the measurement is of
+# slice switching, not of a PNG encoder written in JavaScript.
+
+def _png_chunk(tag: bytes, data: bytes) -> bytes:
+    return (len(data).to_bytes(4, "big") + tag + data
+            + (zlib.crc32(tag + data) & 0xFFFFFFFF).to_bytes(4, "big"))
+
+
+def encode_png_gray(buf: bytes, width: int, height: int) -> bytes:
+    raw = bytearray()
+    for y in range(height):
+        raw.append(0)                                  # filter: None
+        raw += buf[y * width:(y + 1) * width]
+    ihdr = (width.to_bytes(4, "big") + height.to_bytes(4, "big")
+            + bytes([8, 0, 0, 0, 0]))                  # 8-bit, grayscale
+    signature = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+    return (signature
+            + _png_chunk(b"IHDR", ihdr)
+            + _png_chunk(b"IDAT", zlib.compress(bytes(raw), 9))
+            + _png_chunk(b"IEND", b""))
+
+
+def to_data_uri(buf: bytes, width: int, height: int) -> str:
+    return "data:image/png;base64," + base64.b64encode(
+        encode_png_gray(buf, width, height)).decode("ascii")
+
+
 
 
 def voxel_value(x: int, y: int, z: int) -> int:
@@ -88,6 +124,7 @@ def build_volume():
     """Returns (slices_b64, per_slice_sha256). Slice buffers are [Ny][Nx] bytes."""
     slices_b64 = []
     digests = []
+    pngs = []
     for z in range(NZ):
         buf = bytearray(NX * NY)
         for y in range(NY):
@@ -98,7 +135,8 @@ def build_volume():
         raw = bytes(buf)
         slices_b64.append(base64.b64encode(raw).decode("ascii"))
         digests.append(hashlib.sha256(raw).hexdigest())
-    return slices_b64, digests
+        pngs.append(to_data_uri(raw, NX, NY))
+    return slices_b64, digests, pngs
 
 
 def build_mask():
@@ -113,6 +151,7 @@ def build_mask():
     """
     slices_b64 = []
     digests = []
+    pngs = []
     for z in range(NZ):
         cx = NX / 2 + (z - NZ / 2) * 0.8
         cy = NY / 2
@@ -126,7 +165,8 @@ def build_mask():
         raw = bytes(buf)
         slices_b64.append(base64.b64encode(raw).decode("ascii"))
         digests.append(hashlib.sha256(raw).hexdigest())
-    return slices_b64, digests
+        pngs.append(to_data_uri(bytes(b * 255 for b in raw), NX, NY))
+    return slices_b64, digests, pngs
 
 
 # --- brush mapping cases ----------------------------------------------------
@@ -204,8 +244,8 @@ def build_brush_cases():
 
 
 def main():
-    vol_b64, vol_digests = build_volume()
-    mask_b64, mask_digests = build_mask()
+    vol_b64, vol_digests, vol_png = build_volume()
+    mask_b64, mask_digests, mask_png = build_mask()
     cases = build_brush_cases()
 
     volume = {
@@ -216,6 +256,7 @@ def main():
         "shape_xyz": [NX, NY, NZ],
         "slice_shape_yx": [NY, NX],
         "encoding": "base64(uint8), one entry per slice, row-major [Ny][Nx] inside each slice",
+        "png_note": "slices_png_data_uri holds the same pixels as an 8-bit grayscale PNG, so the app can display a slice without a JS pixel-buffer renderer. Pre-encoding is deliberate: A9 measures switching among ALREADY CACHED slices.",
         "indexing": {
             "decision": "DR-008a",
             "x": "source image COLUMN",
@@ -239,6 +280,7 @@ def main():
         "intensity_rule": "value = ((x*37 + y*17 + z*5 + seed) % 251) + 2, markers overwrite with 255",
         "slice_sha256": vol_digests,
         "slices_b64": vol_b64,
+        "slices_png_data_uri": vol_png,
     }
 
     mask = {
@@ -252,6 +294,7 @@ def main():
         "shape": "disc, centre drifts with z, radius varies with z",
         "slice_sha256": mask_digests,
         "slices_b64": mask_b64,
+        "slices_png_data_uri": mask_png,
     }
 
     brush = {

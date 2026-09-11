@@ -52,6 +52,14 @@ spikes/**/build/
 spikes/**/.gradle/
 spikes/**/node_modules/
 
+# --- SPIKE SCAFFOLDING ----------------------------------------------------
+# expo prebuild regenerates spikes/**/android/ from app.json, so it is build
+# output rather than source. The spike is throwaway; the native project is
+# reproducible with `npx expo run:android`.
+spikes/**/android/
+spikes/**/.expo/
+spikes/**/ios/
+
 # --- PYTHON ---------------------------------------------------------------
 __pycache__/
 *.py[cod]
