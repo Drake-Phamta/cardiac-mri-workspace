@@ -46,7 +46,7 @@ Mesh từ geometry (Hùng Anh) ──►            │
                                             ▼
                               [ TÔI: Backend / Persistence — Mac mini M2 24 GB, ở XA ]
                                             │
-                                            │  cellular 4G/5G → Tailscale overlay xác thực
+                                            │  cellular 4G/5G → ZeroTier overlay xác thực
                                             ▼
                               Mobile app  ──► Tuấn Anh (2D) · Hùng Anh (3D)
                                             │
@@ -187,7 +187,7 @@ Samsung Galaxy A17 5G
         │
         │  cellular 4G / 5G THẬT
         ▼
-Tailscale private overlay xác thực
+ZeroTier private overlay xác thực
         │
         ▼
 Mac mini M2, 24 GB RAM      (ở XA địa điểm demo)
@@ -209,7 +209,7 @@ Chỉ có **MỘT** máy Galaxy A17 5G. Thứ tự đo: **A → B → E**. Trong
 
 ```text
 ✔  Mac mini backend stub
-✔  xác minh kết nối Tailscale / private overlay
+✔  xác minh kết nối ZeroTier / private overlay
 ✔  payload artifact đại diện
 ✔  transport instrumentation
 ✔  logging phân bố độ trễ
@@ -217,7 +217,7 @@ Chỉ có **MỘT** máy Galaxy A17 5G. Thứ tự đo: **A → B → E**. Trong
 ✔  script và template đo
 ```
 
-**Bước setup gating:** xác nhận điện thoại tới được Mac mini qua cellular + Tailscale. **Làm việc này trước tiên** — nó là bước chưa biết trước thời lượng.
+**Bước setup gating:** xác nhận điện thoại tới được Mac mini qua cellular + ZeroTier. **Làm việc này trước tiên** — nó là bước chưa biết trước thời lượng.
 
 #### 13 acceptance criteria — tóm lược (đầy đủ ở `../spikes/SPIKE_E_TRANSPORT/TASK.md`)
 
@@ -320,7 +320,7 @@ Ghi **`NOT MEASURED — <lý do>`**. Trung thực và được chấp nhận. **
 ```text
 1.  Đặt Spike E → ACTIVE, ghi started_at THẬT (không lùi ngày).
 2.  DỰNG MAC MINI BACKEND STUB và XÁC MINH điện thoại tới được nó
-    qua cellular + Tailscale.
+    qua cellular + ZeroTier.
         ← đây là bước setup GATING và là việc chưa biết trước thời lượng.
           Làm trước tiên.
 3.  Đăng ký slot đo thiết bị #3 với Tuấn Anh (sau A và B).
@@ -347,7 +347,7 @@ Ghi **`NOT MEASURED — <lý do>`**. Trung thực và được chấp nhận. **
 
 | Tình huống | Làm gì |
 |---|---|
-| **Điện thoại không tới được Mac mini qua cellular + Tailscale** | Báo **Phạm Tuấn Anh** ngay — đây là bước setup gating của Spike E, không phải chi tiết nhỏ |
+| **Điện thoại không tới được Mac mini qua cellular + ZeroTier** | Báo **Phạm Tuấn Anh** ngay — đây là bước setup gating của Spike E, không phải chi tiết nhỏ |
 | **Không chiến lược nào đạt `NFR-PERF-001` khi điều hướng liên tục** | Leo thang; nạp vào `ADR-ART-001` và `RISK-DEMO-NET-01` |
 | **Độ trải độ trễ làm hero demo không đáng tin** | Leo thang; fallback DR-003 ✅ trở thành thành phần chịu lực |
 | **Đề xuất fallback đang phình thành offline mode** | **DỪNG.** Đó là vi phạm scope firewall — `00` §13 / `03` §5 |
@@ -363,6 +363,6 @@ Ghi **`NOT MEASURED — <lý do>`**. Trung thực và được chấp nhận. **
 
 Hôm nay: **KHÔNG** đặt Spike E sang `ACTIVE` · **KHÔNG** `RESULT.md` · **KHÔNG** đo transport cellular · **KHÔNG** đo trên máy · **KHÔNG** dựng harness spike "thật".
 
-Hôm nay **ĐƯỢC**: đọc `SPIKE_E_TRANSPORT/TASK.md` kỹ (đặc biệt luật đo và scope firewall) · đọc `11` API contract ở mức khái niệm · cài tooling backend · kiểm tra Mac mini bật được và Tailscale cài được · học Tailscale ở mức khái niệm · drill Git · hỏi mọi câu về hai hợp đồng ingestion.
+Hôm nay **ĐƯỢC**: đọc `SPIKE_E_TRANSPORT/TASK.md` kỹ (đặc biệt luật đo và scope firewall) · đọc `11` API contract ở mức khái niệm · cài tooling backend · kiểm tra Mac mini bật được và ZeroTier cài được · học ZeroTier ở mức khái niệm · drill Git · hỏi mọi câu về hai hợp đồng ingestion.
 
-**Nếu việc cài tooling phát hiện vướng mắc** (Tailscale không chạy, không truy cập được Mac mini, thiếu quyền) → ghi vào cột "Clarifications Required" của `DAY0_SIGNOFF.md` như **onboarding blocker**. Phát hiện hôm nay tốt hơn nhiều so với phát hiện ngày mai.
+**Nếu việc cài tooling phát hiện vướng mắc** (ZeroTier không chạy, không truy cập được Mac mini, thiếu quyền) → ghi vào cột "Clarifications Required" của `DAY0_SIGNOFF.md` như **onboarding blocker**. Phát hiện hôm nay tốt hơn nhiều so với phát hiện ngày mai.

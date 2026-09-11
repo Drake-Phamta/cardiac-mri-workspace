@@ -76,7 +76,7 @@ Phase A không phải là ngồi chờ. Chuẩn bị được khuyến khích, m
 **ĐƯỢC làm trước cutover:**
 
 cài dependency và tooling · dựng harness · compile và chạy code tổng hợp · cấu hình Android tooling ·
-cài và cấu hình Tailscale · dựng backend stub trên Mac mini · verify tooling khởi động được · chuẩn bị
+cài và cấu hình ZeroTier · dựng backend stub trên Mac mini · verify tooling khởi động được · chuẩn bị
 fixture · debug kết nối.
 
 **Mọi thứ ghi lại trong Phase A phải dán nhãn, ngay lúc capture:**

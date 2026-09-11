@@ -137,7 +137,7 @@ rõ cả ba PR đều merge không qua approval.
 | | |
 |---|---|
 | **NOW** | ① điền file practice · ② nhánh + push + mở PR · ③ **review PR #4 của Khánh**. Ba việc này **trước** mọi việc Spike E |
-| **SONG SONG** | Sau khi ①–③ đã chạy: prep Mac mini stub + Tailscale + debug kết nối, tất cả dán nhãn `PREP` |
+| **SONG SONG** | Sau khi ①–③ đã chạy: prep Mac mini stub + ZeroTier + debug kết nối, tất cả dán nhãn `PREP` |
 | **SAU READY** | Cellular 5G thật + overlay → **phân bố** latency → ghi direct-vs-relayed từng phép đo |
 | **Reviewer của mình** | Bế Quốc Khánh |
 | **Mình review** | **Bế Quốc Khánh — PR #4** |

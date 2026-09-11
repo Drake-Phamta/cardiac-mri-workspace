@@ -318,7 +318,7 @@ Owner thực thi → EVIDENCE_READY
 
 > **"Bạn đo transport trên Wi-Fi cùng mạng với Mac mini, số rất tốt. Có dùng làm bằng chứng nghiệm thu Spike E được không?"**
 
-**Đáp án mong đợi:** **Không.** Bằng chứng nghiệm thu **phải** đo trên đường thật: Galaxy A17 5G → **cellular 4G/5G thật** → **Tailscale overlay xác thực** → Mac mini ở xa. Kết quả LAN **chỉ là diagnostic**, có nhãn rõ. Wi-Fi hội trường **không tin cậy và không cần** cho demo.
+**Đáp án mong đợi:** **Không.** Bằng chứng nghiệm thu **phải** đo trên đường thật: Galaxy A17 5G → **cellular 4G/5G thật** → **ZeroTier overlay xác thực** → Mac mini ở xa. Kết quả LAN **chỉ là diagnostic**, có nhãn rõ. Wi-Fi hội trường **không tin cậy và không cần** cho demo.
 
 > **"Hai hợp đồng ingestion khác nhau ở đâu?"**
 

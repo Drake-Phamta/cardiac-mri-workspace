@@ -179,14 +179,14 @@ slot 3  ->  SPIKE_E   (Nguyễn Gia Đức Trung)
 - **Spike B** harness and canonical-fixture work proceeds while Spike A is being prepared **or measured**.
 - **Spike E** backend / network / instrumentation work proceeds while A and B are using the phone. The
   owner **must not wait idly**. Allowed before the Spike E device slot:
-  Mac mini backend stub · Tailscale / private-overlay connectivity verification · representative artifact
+  Mac mini backend stub · ZeroTier / private-overlay connectivity verification · representative artifact
   payloads · transport instrumentation · latency-distribution logging · retry/reconnect harness ·
   measurement scripts and templates.
 
 **Spike E's final acceptance measurements must still be taken on:**
 
 ```text
-Galaxy A17 5G -> actual 4G/5G cellular network -> authenticated Tailscale overlay
+Galaxy A17 5G -> actual 4G/5G cellular network -> authenticated ZeroTier overlay
               -> remote Mac mini M2, 24 GB
 ```
 
@@ -228,7 +228,7 @@ Samsung Galaxy A17 5G
         |
         |  real 4G / 5G cellular Internet
         v
-Authenticated Tailscale private overlay
+Authenticated ZeroTier private overlay
         |
         v
 Remote Mac mini M2, 24 GB RAM   (physically remote from the demo venue)
@@ -416,7 +416,7 @@ Spike D additionally produces, outside this tree:
 | **Bế Quốc Khánh** | **Spike D** — begin acquisition from the documented official source. Read `SPIKE_D_DATASET/TASK.md` §Day-one ordering **first**: the DR-001 trigger is measured from the **first execution day**, so acquisition and the first-pass provenance read must precede deep validation. | Set Spike D → `ACTIVE`, record the real `started_at` |
 | **Phạm Tuấn Anh** | **Spike A** — capture the DR-006 device profile from the Galaxy A17 5G (a prerequisite for **all three** device spikes), then build the Spike A harness with synthetic fixtures. Holds **device slot 1**. | Set Spike A → `ACTIVE`, record `started_at` |
 | **Vũ Hùng Anh** | **Spike B** — build the `09` §6 canonical geometry fixture set against the DR-008a convention. It is the input to Spike B, Spike F **and** `TC-MAINT-002`. Off-device work proceeds while Spike A holds the phone. Holds **device slot 2**. | Set Spike B → `ACTIVE`, record `started_at` |
-| **Nguyễn Gia Đức Trung** | **Spike E** — stand up the Mac mini backend stub and verify the phone reaches it over cellular + Tailscale. **Do not wait idly for the phone**: build instrumentation, payloads, latency logging, retry/reconnect harness and scripts meanwhile. Holds **device slot 3**. | Set Spike E → `ACTIVE`, record `started_at` |
+| **Nguyễn Gia Đức Trung** | **Spike E** — stand up the Mac mini backend stub and verify the phone reaches it over cellular + ZeroTier. **Do not wait idly for the phone**: build instrumentation, payloads, latency logging, retry/reconnect harness and scripts meanwhile. Holds **device slot 3**. | Set Spike E → `ACTIVE`, record `started_at` |
 
 **Both §4 conflicts are now RESOLVED** — no leader decision is outstanding for this wave.
 

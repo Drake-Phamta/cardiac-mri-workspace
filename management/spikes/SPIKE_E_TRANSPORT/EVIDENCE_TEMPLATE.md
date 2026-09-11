@@ -15,7 +15,7 @@
 4. When complete, set `evidence_present: true` and `status: EVIDENCE_READY` for this spike in
    `../SPIKE_PHASE_STATE.yaml`, and hand it to the reviewer.
 
-> **Non-fabrication rule.** Every latency, throughput, byte count, memory figure, reconnect timing and network condition below must be **measured over the real cellular + Tailscale overlay path** by the owner.
+> **Non-fabrication rule.** Every latency, throughput, byte count, memory figure, reconnect timing and network condition below must be **measured over the real cellular + ZeroTier overlay path** by the owner.
 >
 > Claude may build harnesses, fixtures, scripts and templates, and may analyse values you supply. Claude
 > **must not** produce the measurements themselves.
@@ -71,13 +71,13 @@
 
 | Field | Value |
 |---|---|
-| Path used for acceptance | **cellular → Tailscale overlay → remote Mac mini** — [RECORD] confirm |
+| Path used for acceptance | **cellular → ZeroTier overlay → remote Mac mini** — [RECORD] confirm |
 | Carrier | [RECORD] |
 | 4G or 5G | [RECORD] |
 | Signal indication | [RECORD] |
 | Measurement location | [RECORD] |
 | Time(s) of day | [RECORD] — cellular contention varies |
-| Tailscale version | [RECORD] |
+| ZeroTier version | [RECORD] |
 | **Connection direct or relayed?** | [RECORD] — relay adds latency; label every run |
 | Mac mini macOS version | [RECORD] |
 | Backend stub identity / version | [RECORD] |

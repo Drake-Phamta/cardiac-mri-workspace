@@ -61,7 +61,7 @@ not with the two stronger members.
 
 Profile: **`LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS.** The backend Mac mini M2 (24 GB RAM) is
 **physically remote**; the phone reaches it over **4G/5G cellular → authenticated private overlay
-(Tailscale)**. **Venue Wi-Fi is not trusted and not required.** Training need not run on the Mac mini.
+(ZeroTier)**. **Venue Wi-Fi is not trusted and not required.** Training need not run on the Mac mini.
 
 **This materially changes Spike E** — see its section. It also means any spike measuring client–server
 latency must use the real cellular + overlay path, not a LAN proxy.

@@ -260,7 +260,7 @@ Chữ ký / xác nhận: ______________________
 | **Bế Quốc Khánh** | Đọc lại **§Day-one ordering**, rồi bắt đầu tải gói từ nguồn chính thức. Ghi acquisition record trong lúc tải. **Đánh giá trigger DR-001 và báo leader trước cuối ngày** |
 | **Phạm Tuấn Anh** | **Chụp profile thiết bị DR-006 từ Galaxy A17 5G** — tiền đề cho **cả** Spike A, B **và** E. Rồi dựng harness Spike A |
 | **Vũ Hùng Anh** | Bắt đầu **bộ canonical geometry fixture** theo DR-008a — đầu vào của Spike B, Spike F **và** `TC-MAINT-002`. Công bố format cho Phạm Tuấn Anh |
-| **Nguyễn Gia Đức Trung** | Dựng **Mac mini backend stub** và **xác minh điện thoại tới được qua cellular + Tailscale** — bước setup gating. **Không ngồi chờ máy** |
+| **Nguyễn Gia Đức Trung** | Dựng **Mac mini backend stub** và **xác minh điện thoại tới được qua cellular + ZeroTier** — bước setup gating. **Không ngồi chờ máy** |
 
 ### Hai luật tuần tự hoá vẫn áp dụng từ ngày một
 

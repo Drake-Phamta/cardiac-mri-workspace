@@ -85,7 +85,7 @@ Tuấn Anh giữ máy.
 
 ### Được làm, nhưng phải dán nhãn
 
-Dựng **Mac mini M2 backend stub** · cài và cấu hình **Tailscale** trên **cả** Mac mini và điện thoại ·
+Dựng **Mac mini M2 backend stub** · cài và cấu hình **ZeroTier** trên **cả** Mac mini và điện thoại ·
 kiểm Mac mini bật được và truy cập được · debug kết nối nếu cần · cài tooling backend · đọc kỹ
 [`../../spikes/SPIKE_E_TRANSPORT/TASK.md`](../../spikes/SPIKE_E_TRANSPORT/TASK.md), đặc biệt **luật đo** và
 **scope firewall**.
@@ -101,7 +101,7 @@ PREP / DIAGNOSTIC ONLY — NOT ACCEPTANCE EVIDENCE
 Ghi con số latency / throughput **chính thức** · tính bất kỳ phép đo nào vào tiêu chí E · ghi `started_at`
 · nói Spike E đang `ACTIVE`.
 
-> ⚠ **Chỗ dễ trượt nhất của bạn.** Tailscale vừa kết nối thì phản xạ tự nhiên là chạy ngay một cái ping
+> ⚠ **Chỗ dễ trượt nhất của bạn.** ZeroTier vừa kết nối thì phản xạ tự nhiên là chạy ngay một cái ping
 > hoặc speed test. **Xác nhận tới được là dừng.** Con số nào ghi lại ở giai đoạn này đều phải mang nhãn
 > prep và **bị loại trừ đích danh** khỏi acceptance dataset.
 
