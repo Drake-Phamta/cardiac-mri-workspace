@@ -21,8 +21,8 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 0                              # pre-cutover. Becomes 1 when the leader declares.
-phase: PHASE_A_DAY0_DEBT_AND_PREPARATION
+day: 2                              # Day 1 = 2026-09-10 passed with no execution (see DAY_LOG.md)
+phase: PHASE_A_DAY0_DEBT_AND_PREPARATION   # cutover still not declared
 execution_day_1_declared: false
 execution_day_1_started_at: null    # set once, at cutover, from DAY01_CUTOVER_RECORD.md
 dr_001_clock_running: false
