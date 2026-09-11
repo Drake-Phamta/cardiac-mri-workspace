@@ -72,7 +72,7 @@ sửa chính lỗi mình vừa cấy**. Điều này đã thực sự xảy ra m
 | Cột | Trạng thái |
 |---|---|
 | A · Shared Core | `PASS` |
-| B · Git Workflow | `NOT_CHECKED` |
+| B · Git Workflow | **`PASS`** |
 | C · Project Pipeline | `PASS` |
 | D · Own Vertical (V1 Case Explorer / 2D MRI) | `PASS` |
 | E · Own Technical Block (Integration / CI / cross-contract) | `PASS` |
@@ -81,7 +81,7 @@ sửa chính lỗi mình vừa cấy**. Điều này đã thực sự xảy ra m
 | H · Blocker Escalation | `PASS` |
 | I · Repo Access | `PASS` |
 | J · Environment Ready | `PASS` |
-| **K · Overall Day-0 Status** | `NOT_CHECKED` |
+| **K · Overall Day-0 Status** | **`PASS`** |
 | L · Clarifications Required | **Git drill — carried into Execution Day 1.** *Done and verified on Day 0:* branch `chore/practice-tuan-anh`; the leader's commit `262a549` carrying the `PRACTICE-01` ID; PR **#1** opened; a real `CHANGES_REQUESTED` from `scalliontor` at 21:17; the fix `50b3d10`; and the leader's own `CHANGES_REQUESTED` on Vũ Hùng Anh's PR **#3** at 22:37. *Outstanding, because Vũ Hùng Anh ran out of time on Day 0:* his `APPROVE` on #1, his fix on #3, the leader's `APPROVE` on #3, and the squash merge of both. Tracked as **carry-over item 1** in `DAY1_READINESS_CHECKLIST.md`; gate **A4** there cannot pass until it closes. **Two things this record must not smooth over.** (1) The `CHANGES_REQUESTED` on #1 pointed at wording the reviewer had himself introduced by pushing `9d02c1e` into the author's branch five minutes earlier; the genuine defect — the missing `Reviewer` field required by `practice/README.md` — went uncaught, and the fix `50b3d10` closed both. (2) Execution mechanics: the leader personally performed branch, edit, commit, push and PR creation (`262a549`, 19:23); the later fix commit and the review submission on #3 were executed on his behalf by Project Control at his explicit instruction. |
 
 **Basis for A · C · D · E · F · G · H** — the leader completed an **interactive Day-0 knowledge gate on
@@ -115,18 +115,26 @@ open, and this record must not be read as declaring it.
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` |
-| B · Git Workflow | `NOT_CHECKED` |
-| C · Project Pipeline | `NOT_CHECKED` |
-| D · Own Vertical (V2 3D / Spatial Error) | `NOT_CHECKED` |
-| E · Own Technical Block (Imaging / Geometry / canonical 2D↔3D) | `NOT_CHECKED` |
-| F · Current Spike (**Spike B**) | `NOT_CHECKED` |
-| G · Evidence Workflow | `NOT_CHECKED` |
-| H · Blocker Escalation | `NOT_CHECKED` |
-| I · Repo Access | `NOT_CHECKED` |
-| J · Environment Ready | `NOT_CHECKED` |
+| A · Shared Core | `NOT_CHECKED` — chờ leader |
+| B · Git Workflow | **`PASS`** |
+| C · Project Pipeline | `NOT_CHECKED` — chờ leader |
+| D · Own Vertical (V2 3D / Spatial Error) | **`PASS`** |
+| E · Own Technical Block (Imaging / Geometry / canonical 2D↔3D) | **`PASS`** |
+| F · Current Spike (**Spike B**) | **`PASS`** |
+| G · Evidence Workflow | `NOT_CHECKED` — chờ leader |
+| H · Blocker Escalation | **`PASS`** |
+| I · Repo Access | **`PASS`** |
+| J · Environment Ready | `NOT_CHECKED` — chờ leader |
 | **K · Overall Day-0 Status** | `NOT_CHECKED` |
-| L · Clarifications Required | |
+| L · Clarifications Required | PR #1 và #3 đều merge **không có `APPROVED`** nào, và **#3 được merge đè lên `CHANGES_REQUESTED` đang mở, bởi chính tác giả** — thay đổi được yêu cầu chưa thực hiện, nên `PRACTICE_VU_HUNG_ANH.md` trên `main` **vẫn thiếu dòng `Reviewer:`**. Không chặn Spike B; ghi là technical debt, đóng bằng một PR nhỏ. |
+
+**Cơ sở B · I** — bản ghi GitHub: mở **PR #3** (`chore/practice-hung-anh`, 1 file, +6/−6), được leader
+review (`CHANGES_REQUESTED` 09-09 22:37), và **đã review PR #1 của leader** (`CHANGES_REQUESTED`
+09-09 21:17). Tham gia đủ chu trình theo tu chính §0.
+
+**Cơ sở D · E · F · H** — `practice/PRACTICE_VU_HUNG_ANH.md` đã merge vào `main`, tự diễn đạt: V2 3D
+linked interaction · Imaging/Geometry giữ hợp đồng canonical 2D↔3D · Spike B · escalation đúng `00` §12
+(dừng, báo Project Control, mở DR, không tự chọn spec).
 
 ---
 
@@ -134,18 +142,27 @@ open, and this record must not be read as declaring it.
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` |
-| B · Git Workflow | `NOT_CHECKED` |
-| C · Project Pipeline | `NOT_CHECKED` |
-| D · Own Vertical (V3 Experiment / Cohort) | `NOT_CHECKED` |
-| E · Own Technical Block (ML Training / Evaluation) | `NOT_CHECKED` |
-| F · Current Spike (**Spike D — P0**) | `NOT_CHECKED` |
-| G · Evidence Workflow | `NOT_CHECKED` |
-| H · Blocker Escalation | `NOT_CHECKED` |
-| I · Repo Access | `NOT_CHECKED` |
-| J · Environment Ready | `NOT_CHECKED` |
+| A · Shared Core | `NOT_CHECKED` — chờ leader |
+| B · Git Workflow | **`NEEDS_CLARIFICATION`** |
+| C · Project Pipeline | `NOT_CHECKED` — chờ leader |
+| D · Own Vertical (V3 Experiment / Cohort) | **`PASS`** |
+| E · Own Technical Block (ML Training / Evaluation) | **`PASS`** |
+| F · Current Spike (**Spike D — P0**) | **`PASS`** |
+| G · Evidence Workflow | `NOT_CHECKED` — chờ leader |
+| H · Blocker Escalation | **`PASS`** |
+| I · Repo Access | **`PASS`** |
+| J · Environment Ready | `NOT_CHECKED` — chờ leader |
 | **K · Overall Day-0 Status** | `NOT_CHECKED` |
-| L · Clarifications Required | |
+| L · Clarifications Required | **Nửa reviewer của bài drill còn thiếu.** Đã làm: mở **PR #4**, được **Nguyễn Gia Đức Trung `APPROVED`** (11-09 03:13), đã merged. **Chưa làm: review PR của ai.** Theo bảng phân cặp, Khánh review PR của Trung — nhưng Khánh vắng cả 10/09 và 11/09 nên **leader đã review PR #8 thay**. **Không chặn Spike D**; đóng khi Khánh review một PR thật của đồng đội. |
+
+**Cơ sở B · I** — bản ghi GitHub: mở **PR #4** (`chore/practice-quoc-khanh`, 1 file, +8/−8), được
+`TrungNGD195` **`APPROVED`** 2026-09-11 03:13, đã squash merge. Push và PR đều thật. `B` chưa `PASS` vì
+tu chính §0 chấm trên **tham gia đủ chu trình**, trong đó có việc review PR của pair.
+
+**Cơ sở D · E · F · H** — `practice/PRACTICE_BE_QUOC_KHANH.md` đã merge vào `main`, tự diễn đạt: V3 so
+sánh experiment theo họ model và lượng dữ liệu · khối ML nằm sau dataset audit và **patient-level split**,
+tạo checkpoint và `RawPredictionMask` **bất biến** · Spike D với `GATE-DATA-01` · escalation đúng `00`
+§12. Cậu ấy còn tự ghi *Day 0 chỉ chuẩn bị tooling, chưa tải gói hay chạy spike* — hiểu đúng ranh giới.
 
 **Kiểm thêm bắt buộc cho Spike D (P0)** — ghi kết quả vào cột L nếu chưa đạt:
 
@@ -164,18 +181,27 @@ open, and this record must not be read as declaring it.
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` |
-| B · Git Workflow | `NOT_CHECKED` |
-| C · Project Pipeline | `NOT_CHECKED` |
-| D · Own Vertical (V4 Review / Findings) | `NOT_CHECKED` |
-| E · Own Technical Block (Backend / Persistence / Ingestion) | `NOT_CHECKED` |
-| F · Current Spike (**Spike E**) | `NOT_CHECKED` |
-| G · Evidence Workflow | `NOT_CHECKED` |
-| H · Blocker Escalation | `NOT_CHECKED` |
-| I · Repo Access | `NOT_CHECKED` |
-| J · Environment Ready | `NOT_CHECKED` |
+| A · Shared Core | `NOT_CHECKED` — chờ leader |
+| B · Git Workflow | **`PASS`** |
+| C · Project Pipeline | `NOT_CHECKED` — chờ leader |
+| D · Own Vertical (V4 Review / Findings) | **`PASS`** |
+| E · Own Technical Block (Backend / Persistence / Ingestion) | **`PASS`** |
+| F · Current Spike (**Spike E**) | **`PASS`** |
+| G · Evidence Workflow | `NOT_CHECKED` — chờ leader |
+| H · Blocker Escalation | **`PASS`** |
+| I · Repo Access | **`PASS`** |
+| J · Environment Ready | `NOT_CHECKED` — chờ leader |
 | **K · Overall Day-0 Status** | `NOT_CHECKED` |
-| L · Clarifications Required | |
+| L · Clarifications Required | Đề xuất **ZeroTier** thay Tailscale, leader duyệt — ghi thành **DR-003a**. Đường đi ban đầu sai: nhánh `docs/zerotier-canonical` sửa thẳng `SPIKE_PHASE_STATE.yaml` và `READINESS_REVIEW_RESOLUTION.md`, là central state và bản ghi quyết định mà **chỉ Project Control được ghi**. Nội dung đã nhận, đường đi thì không; nhánh đóng không merge. Không tính là lỗi Day-0, nhưng là luật phải nhớ từ Day 2. |
+
+**Cơ sở B · I** — bản ghi GitHub: mở **PR #8** (`chore/practice-trung-clean`, 1 file, +8/−8), được leader
+**`APPROVED`** 2026-09-11 04:34, đã squash merge; và **đã review PR #4 của Khánh** (`APPROVED` 03:13).
+Tham gia đủ chu trình. Đáng ghi nhận: PR #7 ban đầu lẫn 19 file, **cậu ấy tự phát hiện, tự đóng và mở lại
+bản sạch 1 file** — đúng phản xạ, không ai phải nhắc.
+
+**Cơ sở D · E · F · H** — `practice/PRACTICE_NGUYEN_GIA_DUC_TRUNG.md` đã merge vào `main`, tự diễn đạt:
+V4 Review/Findings với `ReviewedMask` lưu **phiên bản mới** chứ không ghi đè · Backend/Persistence/
+Ingestion · Spike E trên đường cellular + ZeroTier · escalation đúng `00` §12.
 
 **Kiểm thêm bắt buộc cho Spike E** — ghi kết quả vào cột L nếu chưa đạt:
 
