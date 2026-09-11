@@ -65,7 +65,11 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=1.0, help="seconds between probes")
     ap.add_argument("--timeout", type=float, default=5.0, help="per-probe timeout, seconds")
     ap.add_argument("--backoff", default="0.5,1,2,4,8",
-                    help="stated retry backoff in seconds; measured, not recommended")
+                    help="the retry policy UNDER TEST; its attempt count is reported, but it no "
+                         "longer controls how often the link is probed")
+    ap.add_argument("--outage-probe-interval", type=float, default=0.5,
+                    help="probe cadence DURING an outage. This sets the resolution of the "
+                         "reconnect measurement and is deliberately decoupled from --backoff")
     ap.add_argument("--note", default="")
     args = ap.parse_args()
 
@@ -87,6 +91,8 @@ def main() -> int:
     outages: list[dict] = []
     current: dict | None = None
     attempts_in_outage = 0
+    backoff_would_have_waited = 0.0
+    last_ok_t: float | None = None
     end = time.time() + args.duration
     was_up: bool | None = None
 
@@ -112,39 +118,90 @@ def main() -> int:
             if was_up is None:
                 print("  link is " + ("UP" if ok else "DOWN") + " at start")
             elif was_up and not ok:
-                current = {"down_at": now, "attempts": 0}
+                # The link failed somewhere between the last good probe and this
+                # one. Recording only `now` silently claims the outage began at
+                # the moment it was noticed.
+                current = {"down_at": now, "last_ok_at": last_ok_t, "attempts": 0}
                 attempts_in_outage = 0
+                backoff_would_have_waited = 0.0
                 print(f"  {time.strftime('%H:%M:%S')}  link DOWN ({err})")
             elif (not was_up) and ok:
                 if current:
                     current["up_at"] = now
-                    current["reconnect_seconds"] = round(now - current["down_at"], 3)
+                    # An interval, not a point. The true recovery happened
+                    # between the previous failed probe and this successful one,
+                    # and the true failure between the last good probe and the
+                    # first failed one. Reporting a single three-decimal number
+                    # for something known only to within a probe gap is how a
+                    # 32% over-estimate got printed as 10.537.
+                    lo = now - current["down_at"]
+                    hi = (now - current["last_ok_at"]) if current["last_ok_at"] else None
+                    current["reconnect_seconds_min"] = round(lo, 3)
+                    current["reconnect_seconds_max"] = round(hi, 3) if hi else None
+                    current["measurement_resolution_s"] = args.outage_probe_interval
                     current["attempts"] = attempts_in_outage
+                    current["backoff_policy_would_have_waited_s"] = round(
+                        backoff_would_have_waited, 2)
                     outages.append(current)
                     f.write(json.dumps({"record_type": "outage", **current},
                                        ensure_ascii=False) + "\n")
-                    print(f"  {time.strftime('%H:%M:%S')}  link UP again after "
-                          f"{current['reconnect_seconds']}s, {attempts_in_outage} attempt(s)")
+                    rng = (f"{current['reconnect_seconds_min']}"
+                           f"-{current['reconnect_seconds_max']}s"
+                           if current["reconnect_seconds_max"]
+                           else f"{current['reconnect_seconds_min']}s")
+                    print(f"  {time.strftime('%H:%M:%S')}  link UP again after {rng} "
+                          f"(+/-{args.outage_probe_interval}s), {attempts_in_outage} probe(s); "
+                          f"the stated backoff would have waited "
+                          f"{current['backoff_policy_would_have_waited_s']}s")
                     current = None
+            if ok:
+                last_ok_t = now
             was_up = ok
 
             if not ok:
                 attempts_in_outage += 1
-                delay = backoff[min(attempts_in_outage - 1, len(backoff) - 1)]
+                # The stated backoff is what a CLIENT would wait. Using it as the
+                # probe cadence made the recovery instant unknowable to within
+                # the last sleep - up to 8 s with the default policy - while the
+                # result was printed to three decimals. A controlled 8.00 s
+                # outage was reported as 10.537 s, a 32% over-estimate.
+                # Probe finely; report what the policy would have done separately.
+                backoff_would_have_waited += backoff[
+                    min(attempts_in_outage - 1, len(backoff) - 1)]
+                delay = args.outage_probe_interval
             else:
                 delay = args.interval
             time.sleep(delay)
 
         up = [s for s in samples if s["ok"]]
+        # #29: the old availability_fraction was successes / probes. Successful
+        # probes arrive every --interval while failed ones used to arrive every
+        # backoff step, so the sample was time-non-uniform and over-counted
+        # uptime: a run that was truly down 8 s of 18 s reported 0.7647 instead
+        # of 0.56. Weight each sample by the time it represents.
+        observed_s = (samples[-1]["t"] - samples[0]["t"]) if len(samples) > 1 else 0.0
+        down_s = 0.0
+        for a, b in zip(samples, samples[1:]):
+            if not a["ok"]:
+                down_s += b["t"] - a["t"]
         summary = {
             "record_type": "summary",
             "probes": len(samples),
             "successful": len(up),
-            "availability_fraction": round(len(up) / len(samples), 4) if samples else None,
+            "observed_seconds": round(observed_s, 2),
+            "down_seconds": round(down_s, 2),
+            "availability_time_weighted": (round(1.0 - down_s / observed_s, 4)
+                                           if observed_s > 0 else None),
+            "availability_by_probe_count": round(len(up) / len(samples), 4) if samples else None,
+            "availability_note": "Use the time-weighted figure. The probe-count figure is kept "
+                                 "only so the two can be compared; it over-counts uptime "
+                                 "whenever probe spacing differs between up and down states.",
             "steady_state_ms_median": (sorted(s["ms"] for s in up)[len(up) // 2]
                                        if up else None),
             "outages_observed": len(outages),
-            "reconnect_seconds": [o["reconnect_seconds"] for o in outages],
+            "reconnect_seconds_min": [o["reconnect_seconds_min"] for o in outages],
+            "reconnect_seconds_max": [o["reconnect_seconds_max"] for o in outages],
+            "measurement_resolution_s": args.outage_probe_interval,
             "unresolved_outage_at_end": bool(current),
             "note": ("No outage was observed during this run. That is not a reconnect time "
                      "of zero - it means the link never dropped while the harness watched."
@@ -153,11 +210,20 @@ def main() -> int:
         f.write(json.dumps(summary, ensure_ascii=False) + "\n")
 
     print()
-    print(f"  probes {summary['probes']}, up {summary['successful']} "
-          f"({(summary['availability_fraction'] or 0) * 100:.1f}%)")
+    print(f"  probes {summary['probes']}, up {summary['successful']}")
+    print(f"  observed {summary['observed_seconds']}s, down {summary['down_seconds']}s")
+    print(f"  availability, TIME-weighted : "
+          f"{(summary['availability_time_weighted'] or 0) * 100:.1f}%")
+    print(f"  availability, by probe count: "
+          f"{(summary['availability_by_probe_count'] or 0) * 100:.1f}%  <- biased, do not quote")
     print(f"  outages observed: {summary['outages_observed']}")
-    if summary["reconnect_seconds"]:
-        print(f"  reconnect seconds: {summary['reconnect_seconds']}")
+    if summary["outages_observed"]:
+        for o in outages:
+            hi = o["reconnect_seconds_max"]
+            print(f"    reconnect between {o['reconnect_seconds_min']}s and "
+                  f"{hi if hi else 'unknown'}s  (resolution "
+                  f"{summary['measurement_resolution_s']}s, {o['attempts']} probes; the stated "
+                  f"backoff would have waited {o['backoff_policy_would_have_waited_s']}s)")
     else:
         print("  no outage observed - E9 is NOT answered by this run")
     if summary["unresolved_outage_at_end"]:

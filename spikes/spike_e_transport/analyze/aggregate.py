@@ -33,6 +33,11 @@ from collections import defaultdict
 
 NFR_PERF_001_MS = 200      # p95 target for slice navigation
 
+# Above this share of failed requests a distribution stops describing the link
+# and starts describing the subset that happened to survive. Not a spec number;
+# a harness guard, stated so it can be argued with.
+MAX_FAIL_RATE = 0.05
+
 
 def nearest_rank(sorted_vals: list[float], p: int):
     if not sorted_vals:
@@ -55,17 +60,31 @@ def summarise(values: list[float]) -> dict:
 
 
 def load(path: str):
-    header, samples = None, []
+    """Read a run file, tolerating the way real runs end.
+
+    A cellular run stops when the phone dies or the operator hits Ctrl-C, which
+    leaves the last line half-written. The first version called json.loads with
+    no guard and died with a JSONDecodeError traceback instead of saying the
+    run was incomplete.
+    """
+    header, samples, truncated = None, [], 0
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            rec = json.loads(line)
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                truncated += 1
+                continue
             if rec.get("record_type") == "run_header":
                 header = rec
             elif rec.get("record_type") == "sample":
                 samples.append(rec)
+    if truncated:
+        print(f"  {os.path.basename(path)}: {truncated} unparseable line(s) skipped - the run "
+              f"ended mid-write. Samples before that point are still valid.")
     return header, samples
 
 
@@ -139,26 +158,41 @@ def main() -> int:
         if not ok:
             print(f"  {criterion:<5} {scenario:<20} {len(rows):>4} {fails:>4} "
                   f"{'—':>8} {'—':>8} {'—':>8} {'—':>8}  {'—':>8}   all requests failed")
-            report["scenarios"][scenario] = {
-                "criterion": criterion, "requests": len(rows), "failed": fails,
+            report["scenarios"][f"{criterion}:{scenario}"] = {
+                "criterion": criterion, "scenario": scenario,
+                "requests": len(rows), "failed": fails,
                 "total_ms": None,
                 "note": "every request failed; no distribution exists",
             }
             continue
 
+        # #25: the docstring above names this exact lie - "a p95 computed only
+        # over the requests that succeeded, on a link that dropped a third of
+        # them, is a lie with a decimal point" - and the first version then told
+        # it. The p95 is still computed over successes, because a failed request
+        # has no latency, but the failure rate now travels WITH the number
+        # everywhere it is printed or written, and a run that lost too much is
+        # not reported as a clean result.
         total = summarise([r["ms_total"] for r in ok])
+        fail_rate = fails / len(rows) if rows else 0.0
+        total["failed"] = fails
+        total["failure_rate"] = round(fail_rate, 4)
+        total["distribution_is_representative"] = fail_rate <= MAX_FAIL_RATE
         srv = [r["server_handling_ms"] for r in ok
                if isinstance(r.get("server_handling_ms"), (int, float))
                and r["server_handling_ms"] == r["server_handling_ms"]]
         srv_s = summarise(srv) if srv else None
         kb = sum(r["bytes"] for r in ok) / len(ok) / 1024.0
 
+        flag = "" if total["distribution_is_representative"] else \
+            f"   <-- {fail_rate * 100:.0f}% FAILED, distribution not representative"
         print(f"  {criterion:<5} {scenario:<20} {total['n']:>4} {fails:>4} {kb:>8.1f} "
               f"{total['p50']:>8.1f} {total['p95']:>8.1f} {total['max']:>8.1f}  "
-              f"{(srv_s['p50'] if srv_s else float('nan')):>8.2f}")
+              f"{(srv_s['p50'] if srv_s else float('nan')):>8.2f}{flag}")
 
-        report["scenarios"][scenario] = {
+        report["scenarios"][f"{criterion}:{scenario}"] = {
             "criterion": criterion,
+            "scenario": scenario,
             "requests": len(rows),
             "failed": fails,
             "mean_payload_kb": round(kb, 2),
@@ -172,18 +206,30 @@ def main() -> int:
 
     # E4 / NFR-PERF-001 - the one threshold this spike can check directly.
     print()
-    nav = {k: v for k, v in report["scenarios"].items()
-           if v["criterion"] == "E4" and v.get("total_ms")}
-    if nav:
+    # #26: this section used to vanish silently when every E4 request failed -
+    # precisely when the target is most violated. An E4 scenario that produced
+    # no successful request is now REPORTED as unanswerable rather than omitted.
+    all_e4 = {k: v for k, v in report["scenarios"].items() if v["criterion"] == "E4"}
+    if all_e4:
         print(f"  NFR-PERF-001 — p95 <= {NFR_PERF_001_MS} ms for slice navigation (E4):")
-        for name, v in sorted(nav.items()):
-            p95 = v["total_ms"]["p95"]
+        by_scenario = {}
+        for name, v in sorted(all_e4.items()):
+            t = v.get("total_ms")
+            if not t:
+                print(f"    {name:<20} NOT ANSWERABLE — all {v['requests']} requests failed")
+                by_scenario[name] = None
+                continue
+            p95 = t["p95"]
             verdict = "within target" if p95 <= NFR_PERF_001_MS else "EXCEEDS TARGET"
+            if not t["distribution_is_representative"]:
+                verdict += (f"  (but {t['failure_rate'] * 100:.0f}% of requests failed - "
+                            f"this p95 describes the survivors, not the link)")
             print(f"    {name:<20} p95 {p95:>8.1f} ms   {verdict}")
-        report["nfr_perf_001"] = {
-            "target_ms": NFR_PERF_001_MS,
-            "by_scenario": {k: v["total_ms"]["p95"] for k, v in nav.items()},
-        }
+            by_scenario[name] = p95
+        report["nfr_perf_001"] = {"target_ms": NFR_PERF_001_MS, "by_scenario": by_scenario}
+    else:
+        print("  NFR-PERF-001 — no E4 navigation scenario in this run, so the 200 ms target")
+        print("  was not exercised at all.")
 
     print()
     if not acceptance:
@@ -204,6 +250,36 @@ def main() -> int:
             json.dump(report, f, indent=1, ensure_ascii=False)
             f.write("\n")
         print(f"\n  wrote  {args.out}")
+
+    # #27: the first version returned 0 for a run that lost 46 of 57 requests.
+    # A summary of a catastrophically incomplete run must not look like success
+    # to whoever is reading the exit code.
+    unrepresentative = [k for k, v in report["scenarios"].items()
+                        if v.get("total_ms") and
+                        not v["total_ms"]["distribution_is_representative"]]
+    dead = [k for k, v in report["scenarios"].items() if not v.get("total_ms")]
+    overall_fail = sum(v["failed"] for v in report["scenarios"].values())
+    overall_n = sum(v["requests"] for v in report["scenarios"].values())
+    report["run_quality"] = {
+        "requests": overall_n, "failed": overall_fail,
+        "failure_rate": round(overall_fail / overall_n, 4) if overall_n else None,
+        "scenarios_with_no_successful_request": dead,
+        "scenarios_above_max_fail_rate": unrepresentative,
+        "max_fail_rate_used": MAX_FAIL_RATE,
+    }
+    if dead or unrepresentative:
+        print()
+        print(f"  RUN QUALITY: {overall_fail} of {overall_n} requests failed "
+              f"({overall_fail / overall_n * 100:.0f}%).")
+        if dead:
+            print(f"    no successful request at all: {', '.join(sorted(dead))}")
+        if unrepresentative:
+            print(f"    above the {MAX_FAIL_RATE * 100:.0f}% threshold: "
+                  f"{', '.join(sorted(unrepresentative))}")
+        print("  Exiting non-zero. These numbers describe the requests that survived, not the")
+        print("  link, and they are not acceptance evidence in this state.")
+        print()
+        return 1
     print()
     return 0
 
