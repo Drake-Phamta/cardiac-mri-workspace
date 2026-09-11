@@ -275,7 +275,27 @@ last_canonical_smoke:
 
 # --- INTEGRITY --------------------------------------------------------------
 integrity:
-  frozen_spec_checksums: "19/19 OK"     # verified 2026-09-11 23:46
+  frozen_spec_checksums: "19/19 OK"     # verified 2026-09-12 00:05, after .gitattributes
+  checksum_check_caveat: >
+    Before 2026-09-12 this check could pass for a reason unrelated to the files being
+    correct. core.autocrlf=true rewrites LF to CRLF on checkout, and sha256sum -c hashes
+    the WORKING COPY - so a file git had not re-materialised still had its original
+    endings and passed by accident, while one it had touched failed despite a perfect
+    blob. .gitattributes now marks docs/specs/v1.0/** as -text, so the working copy is
+    byte-identical to the blob on every platform. CI on ubuntu-latest was never affected,
+    which is why this went unnoticed for three days.
+  qa_review:
+    record: management/day03/QA_REVIEW_001.md
+    date: "2026-09-12"
+    scope: "the four tooling packages built overnight - Spike D, B, E, C0"
+    findings: 49
+    critical: 8
+    all_fixed: true
+    method: "adversarial, executed against deliberately broken inputs - not a read-through"
+    note: >
+      Every CRITICAL was of one kind: a harness producing a wrong number that looked right.
+      One of them, the Spike B B14 group difference, had already been published to the
+      spike owner and was retracted in public rather than quietly corrected.
   spec_files_modified_since_freeze: 0
   result_md_count: 0
   dataset_audit_present: false

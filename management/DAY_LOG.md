@@ -38,13 +38,21 @@ Ba việc. Không đủ ba thì ngày này tính là trượt, bất kể làm �
 | 2 | **Hai ô `NOT_CHECKED` của Trung đóng** — Mac mini bật được, ZeroTier lên trên cả hai máy | Nguyễn Gia Đức Trung | Cổng vào `GATE 2`. Ba ngày chưa ai xác nhận |
 | 3 | **4 PR treo có review thật** | cả ba | Hàng đợi tắc hoàn toàn. `15` §11: *"silence is not approval"* |
 
-### Đã xong
-
-*(chờ bằng chứng — ô này chỉ được ghi khi có SHA, số PR, hoặc đường dẫn file đã commit)*
+### Đã xong — đêm 2026-09-12, 00:00–01:30
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| | | |
+| **Phạm Tuấn Anh** | Kết nối ZeroTier cho Mac mini · mở khoá máy cho bài đo | xác minh ở `day03/overlay_reachability_20260912.md` |
+| **Phạm Tuấn Anh** / PC | **Đo lại `A9` ở kích thước slice THẬT `576×576`** — p95 **50,23 ms** | `0bc4b0b`, `EVIDENCE_RAW/a9_slice_switch_20260912T005710` |
+| Project Control | **Xác minh Mac mini tới được trên overlay** — `10.134.129.115`, ping 20/20, chữ ký cổng macOS. Hai ô `NOT_CHECKED` của Trung đóng bằng **quan sát**, không phải lời khai | `7d07954` |
+| Project Control | **`DR-006a`** — thiết bị ở lại với chủ, tách vai *operator* / *owner*, kèm 4 ràng buộc | `7d07954` |
+| Phạm Tuấn Anh | **Ký §9 profile DR-006**, ghi rõ đường ký | `7d07954` |
+| Project Control | Trả nợ `A → E → B` trong 4 file còn ghi sai · đổi reviewer Spike E sang Hùng Anh kèm **ghi rõ cái giá** | `7d07954`, `5f21ea2` |
+| Project Control | **`.gitattributes`** — `sha256sum -c` trên Windows có thể **pass vì lý do không liên quan**; đã sửa tận gốc | `e9c2db1` |
+| Project Control | **CI guardrails đã chứng minh biết ĐỎ** — nhánh âm sửa 1 dòng spec → 2 job spec FAIL, 2 job kia vẫn pass | PR #19 (đóng, không merge) |
+| **Luồng review độc lập** | **Soi đối kháng 4 gói dụng cụ → 49 lỗi, 8 CRITICAL** | `day03/QA_REVIEW_001.md` |
+| Project Control | **Sửa toàn bộ 49 lỗi**, mỗi bản sửa kiểm lại bằng chính trigger của người review | `f449380` `3a8f257` `0e0c8fe` `fabbe83` |
+| Project Control | **Rút lại công khai** "phát hiện" `B14` sai mà tôi đã báo cho Hùng Anh | `9296fc0`, PR #15 |
 
 ### Còn tồn — mang sang từ Day 2
 

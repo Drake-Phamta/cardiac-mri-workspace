@@ -138,8 +138,10 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
   <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace</p>
   <h1><span class="day">DAY 3</span> — 12/09/2026</h1>
   <div class="phase" style="background:var(--go-soft);color:var(--go);border-color:var(--go-line)">PHASE B — EXECUTION · cutover 11/09 12:00 · đồng hồ DR-001 đang chạy</div>
-  <p class="sub"><strong>Đêm qua gỡ được bế tắc bên ngoài lớn nhất của dự án: gói dataset đã về máy và verify xong.</strong>
-     Dụng cụ cho cả bốn spike đã dựng sẵn. Hôm nay không còn lý do bên ngoài nào — chỉ còn chạy và ký tên.</p>
+  <p class="sub"><strong>Gói dataset đã về và verify xong · Mac mini đã tới được trên overlay ·
+     <code>A9</code> đã đo lại ở kích thước slice THẬT.</strong>
+     Dụng cụ cho cả bốn spike đã dựng, <strong>đã bị soi đối kháng và đã sửa 49 lỗi</strong>.
+     Hôm nay không còn lý do bên ngoài nào — chỉ còn chạy và ký tên.</p>
 
   <div class="metrics">
     <div class="m"><span class="k">Ngày</span><span class="v">3 / 30</span></div>
@@ -176,7 +178,16 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
     <tr><td>Harness Spike B + <strong>đề xuất</strong> geometry fixture</td><td>32/32 điểm exact · 4 mức decimation · sai số picking trong bound ±1</td><td>PR #15</td></tr>
     <tr><td>Stub + harness Spike E</td><td>4 strategy · smoke loopback 98/98</td><td>PR #16</td></tr>
     <tr><td>Harness compute C0</td><td>4 variant · phát hiện stride do <em>decoder</em> quyết định</td><td>PR #17</td></tr>
-    <tr><td><strong>CI guardrails</strong> — nợ Integration/CI từ Day 1</td><td>4 job, xanh trên PR của chính nó, và <strong>đã kiểm là biết đỏ</strong></td><td>PR #18</td></tr>
+    <tr><td><strong>CI guardrails</strong> — nợ Integration/CI từ Day 1</td><td>4 job, xanh trên PR của chính nó, và <strong>đã kiểm là biết đỏ</strong> (nhánh âm → 2 job spec FAIL)</td><td>PR #18</td></tr>
+    <tr><td><strong>Mac mini trên overlay</strong></td>
+        <td><span class="st ok">TỚI ĐƯỢC</span> <code>10.134.129.115</code> · ping 20/20 · chữ ký cổng macOS (22 · 3283 · 5900 · 5000). Hai ô <code>NOT_CHECKED</code> của Trung đóng bằng <strong>quan sát</strong></td>
+        <td><code>day03/overlay_reachability_20260912.md</code></td></tr>
+    <tr><td><strong><code>A9</code> đo lại ở <code>576×576</code></strong> — kích thước slice THẬT</td>
+        <td><span class="st ok">p95 = 50,23 ms</span> — <em>thấp hơn</em> 65,31 ms của bản 64×64, ở 81 lần số pixel. Kèm phát hiện <strong>376 MB bộ nhớ ngoại suy</strong> cho 88 slice</td>
+        <td>PR #13</td></tr>
+    <tr><td><strong>Soi đối kháng 4 gói dụng cụ</strong></td>
+        <td><span class="st no">49 lỗi · 8 CRITICAL</span> — tất cả đã sửa, mỗi bản sửa kiểm lại bằng chính trigger của người review</td>
+        <td><code>day03/QA_REVIEW_001.md</code></td></tr>
   </table>
   </div>
   <div class="amend"><b>⚠ Phát hiện đổi kế hoạch:</b> slice thật là <strong>576×576</strong> (có case 640×640), không phải 64×64 như fixture Spike A —
@@ -276,7 +287,8 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
   <div class="queues">
     <div class="q"><div class="qn">Thứ tự đo</div>
       <div class="flow">A → E → B</div>
-      <p class="note">GATE 2 · Trung — vào khi <strong>stub tới được VÀ overlay đã lên</strong>. Cả hai còn <code>NOT_CHECKED</code>.<br>
+      <p class="note">GATE 2 · Trung — vào khi <strong>stub tới được VÀ overlay đã lên</strong>.
+         Overlay <strong>đã lên</strong> và Mac mini <strong>đã tới được</strong>; <strong>stub chưa chạy</strong> (cổng 8787 đóng) và ZeroTier trên điện thoại chưa kiểm — <strong>cổng vẫn đóng</strong>.<br>
          GATE 3 · Hùng Anh — điều kiện vào <strong>đã đủ</strong> (≥3 mức decimation + harness desktop chạy được, PR #15).</p></div>
     <div class="q"><div class="qn">Nợ quản trị</div>
       <p class="note">Mô hình <em>"một máy, một người giữ, bàn giao theo cổng"</em> của <code>WIP-CONFLICT-02</code>
@@ -302,6 +314,14 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
     <li><code>15</code> §13 — <em>"escalate blockers rather than hiding them until EOD"</em></li>
     <li><code>15</code> §5 — <strong>khả dụng của thành viên là trường bắt buộc</strong> của kế hoạch ngày</li>
   </ul>
+  <div class="amend"><b>⚠ Bài học thứ hai, từ đợt soi đối kháng đêm nay:</b>
+     <strong>một dòng comment khẳng định sự trung thực là một lời hứa phải kiểm được.</strong>
+     Bảy trong 49 lỗi nằm đúng ở những chỗ tài liệu khoe rằng nó trung thực —
+     <em>"a check that could not be performed never reports PASS"</em> rồi PASS,
+     <em>"a p95 over only the successes is a lie with a decimal point"</em> rồi in đúng con số đó.
+     Viết ra rồi không kiểm <strong>tệ hơn không viết</strong>, vì người đọc sau sẽ tin nó thay vì tự soi.
+     Chi tiết: <code>day03/QA_REVIEW_001.md</code></div>
+
   <h3>Ba luật từ hôm nay</h3>
   <ul>
     <li><strong>Khai báo khả dụng trước 09:00.</strong> Một dòng là đủ. <em>"Hôm nay tôi bận cả ngày"</em> là câu trả lời hợp lệ và hữu ích</li>
@@ -383,7 +403,11 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
      <code>management/incidents/INC-001</code> · <code>management/PROJECT_STATE.yaml</code> ·
      <code>management/spikes/SPIKE_PHASE_STATE.yaml</code></p>
   <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> · <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> ·
-     cập nhật 12/09/2026 sáng sớm.</p>
+     cập nhật 12/09/2026, 01:30.</p>
+  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
+     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
+     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
+     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
 </footer>
 
 </div>
