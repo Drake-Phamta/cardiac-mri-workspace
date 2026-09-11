@@ -174,7 +174,7 @@ Xác nhận:  ☐ ĐÃ ĐỌC VÀ ĐỒNG Ý     Ngày: ______________     Giờ
 ## 10 · Cách chụp — ghi để tái lập được
 
 Thiết bị do **Phạm Tuấn Anh** cắm và authorize trên máy tính của chính anh
-(`adb devices` → `R5CY931SQYZ  device`). Các lệnh `adb` đọc giá trị **do Project Control chạy** trên cùng
+(`adb devices` → `R5CY931SQ…  device`). Các lệnh `adb` đọc giá trị **do Project Control chạy** trên cùng
 máy đó, theo yêu cầu của leader, và **toàn bộ output là dữ liệu thật trả về từ thiết bị** — không có giá
 trị nào do Project Control sinh ra.
 
