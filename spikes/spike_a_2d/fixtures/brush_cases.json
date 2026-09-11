@@ -1,0 +1,888 @@
+{
+ "_warning": "TEMPORARY Spike A fixture. See volume_synthetic.json.",
+ "viewport": {
+  "width": 1080,
+  "height": 1440
+ },
+ "transform": {
+  "source_x": "(u - pan_x) / zoom",
+  "source_y": "(v - pan_y) / zoom",
+  "rounding": "floor",
+  "rounding_reason": "pixel (x,y) covers [x,x+1) x [y,y+1) under a top-left origin",
+  "outside_image": "expected_source_pixel is null and the app MUST NOT paint"
+ },
+ "a5_note": "The frozen spec sets NO pixel tolerance for brush mapping. This spike reports the observed error distribution and PROPOSES a tolerance; it does not assume one.",
+ "case_count": 60,
+ "cases": [
+  {
+   "id": "BC-000",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 8.0,
+   "touch_v": 8.0,
+   "slice_index": 0,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-001",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 16.0,
+   "touch_v": 16.0,
+   "slice_index": 1,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-002",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 24.0,
+   "touch_v": 24.0,
+   "slice_index": 2,
+   "expected_source_pixel": [
+    1,
+    1
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-003",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 512.0,
+   "touch_v": 512.0,
+   "slice_index": 3,
+   "expected_source_pixel": [
+    31,
+    31
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-004",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 1016.0,
+   "touch_v": 1016.0,
+   "slice_index": 4,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-005",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 1024.0,
+   "touch_v": 1024.0,
+   "slice_index": 5,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-006",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 8.0,
+   "touch_v": 1016.0,
+   "slice_index": 6,
+   "expected_source_pixel": [
+    0,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-007",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 1016.0,
+   "touch_v": 8.0,
+   "slice_index": 7,
+   "expected_source_pixel": [
+    63,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-008",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 264.0,
+   "touch_v": 264.0,
+   "slice_index": 8,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-009",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 279.984,
+   "touch_v": 279.984,
+   "slice_index": 9,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-010",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": -72.0,
+   "touch_v": 168.0,
+   "slice_index": 10,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-011",
+   "geometry": "fit",
+   "zoom": 16.0,
+   "pan_x": 8.0,
+   "pan_y": 8.0,
+   "touch_u": 1080.0,
+   "touch_v": 88.0,
+   "slice_index": 11,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-012",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": -256.0,
+   "touch_v": -256.0,
+   "slice_index": 12,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-013",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": -240.0,
+   "touch_v": -240.0,
+   "slice_index": 13,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-014",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": -224.0,
+   "touch_v": -224.0,
+   "slice_index": 14,
+   "expected_source_pixel": [
+    1,
+    1
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-015",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 752.0,
+   "touch_v": 752.0,
+   "slice_index": 15,
+   "expected_source_pixel": [
+    31,
+    31
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-016",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 1760.0,
+   "touch_v": 1760.0,
+   "slice_index": 0,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-017",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 1776.0,
+   "touch_v": 1776.0,
+   "slice_index": 1,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-018",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": -256.0,
+   "touch_v": 1760.0,
+   "slice_index": 2,
+   "expected_source_pixel": [
+    0,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-019",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 1760.0,
+   "touch_v": -256.0,
+   "slice_index": 3,
+   "expected_source_pixel": [
+    63,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-020",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 256.0,
+   "touch_v": 256.0,
+   "slice_index": 4,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-021",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 287.968,
+   "touch_v": 287.968,
+   "slice_index": 5,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-022",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": -416.0,
+   "touch_v": 64.0,
+   "slice_index": 6,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-023",
+   "geometry": "zoom_in_2x",
+   "zoom": 32.0,
+   "pan_x": -256.0,
+   "pan_y": -256.0,
+   "touch_u": 1888.0,
+   "touch_v": -96.0,
+   "slice_index": 7,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-024",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": -900.0,
+   "touch_v": -700.0,
+   "slice_index": 8,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-025",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": -868.0,
+   "touch_v": -668.0,
+   "slice_index": 9,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-026",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": -836.0,
+   "touch_v": -636.0,
+   "slice_index": 10,
+   "expected_source_pixel": [
+    1,
+    1
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-027",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 1116.0,
+   "touch_v": 1316.0,
+   "slice_index": 11,
+   "expected_source_pixel": [
+    31,
+    31
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-028",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 3132.0,
+   "touch_v": 3332.0,
+   "slice_index": 12,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-029",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 3164.0,
+   "touch_v": 3364.0,
+   "slice_index": 13,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-030",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": -900.0,
+   "touch_v": 3332.0,
+   "slice_index": 14,
+   "expected_source_pixel": [
+    0,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-031",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 3132.0,
+   "touch_v": -700.0,
+   "slice_index": 15,
+   "expected_source_pixel": [
+    63,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-032",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 124.0,
+   "touch_v": 324.0,
+   "slice_index": 0,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-033",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 187.936,
+   "touch_v": 387.936,
+   "slice_index": 1,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-034",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": -1220.0,
+   "touch_v": -60.0,
+   "slice_index": 2,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-035",
+   "geometry": "zoom_in_4x",
+   "zoom": 64.0,
+   "pan_x": -900.0,
+   "pan_y": -700.0,
+   "touch_u": 3388.0,
+   "touch_v": -380.0,
+   "slice_index": 3,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-036",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 300.0,
+   "touch_v": 400.0,
+   "slice_index": 4,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-037",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 304.0,
+   "touch_v": 404.0,
+   "slice_index": 5,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-038",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 308.0,
+   "touch_v": 408.0,
+   "slice_index": 6,
+   "expected_source_pixel": [
+    1,
+    1
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-039",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 552.0,
+   "touch_v": 652.0,
+   "slice_index": 7,
+   "expected_source_pixel": [
+    31,
+    31
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-040",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 804.0,
+   "touch_v": 904.0,
+   "slice_index": 8,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-041",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 808.0,
+   "touch_v": 908.0,
+   "slice_index": 9,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-042",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 300.0,
+   "touch_v": 904.0,
+   "slice_index": 10,
+   "expected_source_pixel": [
+    0,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-043",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 804.0,
+   "touch_v": 400.0,
+   "slice_index": 11,
+   "expected_source_pixel": [
+    63,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-044",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 428.0,
+   "touch_v": 528.0,
+   "slice_index": 12,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-045",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 435.992,
+   "touch_v": 535.992,
+   "slice_index": 13,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-046",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 260.0,
+   "touch_v": 480.0,
+   "slice_index": 14,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-047",
+   "geometry": "zoom_out_half",
+   "zoom": 8.0,
+   "pan_x": 300.0,
+   "pan_y": 400.0,
+   "touch_u": 836.0,
+   "touch_v": 440.0,
+   "slice_index": 15,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-048",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": -100.0,
+   "touch_v": 620.0,
+   "slice_index": 0,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-049",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": -88.0,
+   "touch_v": 632.0,
+   "slice_index": 1,
+   "expected_source_pixel": [
+    0,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-050",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": -76.0,
+   "touch_v": 644.0,
+   "slice_index": 2,
+   "expected_source_pixel": [
+    1,
+    1
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-051",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 656.0,
+   "touch_v": 1376.0,
+   "slice_index": 3,
+   "expected_source_pixel": [
+    31,
+    31
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-052",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 1412.0,
+   "touch_v": 2132.0,
+   "slice_index": 4,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-053",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 1424.0,
+   "touch_v": 2144.0,
+   "slice_index": 5,
+   "expected_source_pixel": [
+    63,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-054",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": -100.0,
+   "touch_v": 2132.0,
+   "slice_index": 6,
+   "expected_source_pixel": [
+    0,
+    63
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-055",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 1412.0,
+   "touch_v": 620.0,
+   "slice_index": 7,
+   "expected_source_pixel": [
+    63,
+    0
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-056",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 284.0,
+   "touch_v": 1004.0,
+   "slice_index": 8,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-057",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 307.976,
+   "touch_v": 1027.976,
+   "slice_index": 9,
+   "expected_source_pixel": [
+    16,
+    16
+   ],
+   "must_not_paint": false
+  },
+  {
+   "id": "BC-058",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": -220.0,
+   "touch_v": 860.0,
+   "slice_index": 10,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  },
+  {
+   "id": "BC-059",
+   "geometry": "panned_corner",
+   "zoom": 24.0,
+   "pan_x": -100.0,
+   "pan_y": 620.0,
+   "touch_u": 1508.0,
+   "touch_v": 740.0,
+   "slice_index": 11,
+   "expected_source_pixel": null,
+   "must_not_paint": true
+  }
+ ]
+}
