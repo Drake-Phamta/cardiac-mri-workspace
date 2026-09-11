@@ -179,10 +179,14 @@ risks:
 
 # --- FORECAST ---------------------------------------------------------------
 forecast:
-  target_day: 30
+  target_day: 30                    # Day 30 = 2026-10-09, FIXED by leader decision - does not slip
   current_completion_day: null      # no execution data yet — estimating now would be fabrication
   confidence: null
-  remaining_buffer_days: 2          # planned days 28-30, not yet consumed
+  remaining_buffer_days: 1          # was 2; Day 1 (2026-09-10) lost with zero spike execution
+  buffer_note: >
+    Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
+    Day 30 fixed, so the lost day is absorbed by buffer rather than pushing the deadline. One
+    more lost day takes buffer to zero and fires 15 section 18 recovery trigger 2.
   basis: "Baseline generated and accepted by the leader 2026-09-10. No execution data yet."
 
 # --- MILESTONES -------------------------------------------------------------
