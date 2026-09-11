@@ -61,7 +61,91 @@ Nên trong repo hiện **không có một con số transport nào**. Chúng là 
 
 ---
 
-## PHẦN I — `NOW` · đóng hai ô phần cứng
+---
+
+## 📱 Bạn KHÔNG cần cầm được điện thoại — `DR-006a` revision 1
+
+Cả nhóm ở xa nhau, và máy Galaxy A17 là máy cá nhân của leader. Bản đầu của `DR-006a` ghi *"buổi đo
+có hẹn để chủ sở hữu tự bấm"* là đường ưu tiên — **đường đó không tồn tại**, và nó đã được sửa.
+
+**Đường thật:**
+
+```text
+máy CỦA BẠN  --ZeroTier overlay-->  PC của leader  --USB-->  Galaxy A17
+                                                                  |
+                                     traffic ĐO đi ----------------+--> cellular THẬT
+```
+
+Leader giữ máy cắm USB và mở adb server trên địa chỉ ZeroTier của anh ấy. **Bạn nối tới từ máy mình
+và tự chạy phép đo** — phím bạn gõ, bạn quyết khi nào dừng, log thô của bạn.
+
+```bash
+# tren may BAN, sau khi leader da mo adb server
+export ANDROID_ADB_SERVER_ADDRESS=10.134.129.145
+export ANDROID_ADB_SERVER_PORT=5037
+adb devices          # phai thay R5CY931SQ... device
+```
+
+**Vì sao kênh điều khiển đi USB chứ không đi overlay:** nếu điều khiển cũng đi qua cellular+overlay
+thì nó **làm nhiễm đúng đường mà `E1` đang đo**. Đi USB thì Wi-Fi điện thoại **tắt**, và traffic đo
+đi cellular thật.
+
+**Hệ quả cho bạn:** luật *"executed by chính bạn"* **giữ nguyên**, `E10` `E11` `E13` vẫn là của bạn,
+và leader **không** phải rút khỏi vai reviewer. Không có gì bị nới lỏng.
+
+**Chỉ khi buổi từ xa không thực hiện được** thì mới dùng phương án dự phòng — leader bấm, bạn diễn
+giải — và khi đó bốn ràng buộc của `DR-006a` mới có hiệu lực, cho **đúng spike đó, đúng bằng chứng
+đó**. File evidence ghi ai vận hành.
+
+---
+
+## PHẦN I — `NOW` · việc hôm nay KHÔNG cần điện thoại
+
+> **Ba việc dưới đây là thứ đang thực sự chặn `GATE 2`, và không việc nào cần tới máy.**
+> Phần đo trên thiết bị tính sau, khi hẹn được buổi từ xa với leader.
+
+### ① `zerotier-cli peers` — một giây, trả lời `E12`
+
+```bash
+sudo zerotier-cli peers        # tren Mac mini
+```
+
+Từ máy leader, ping tới Mac mini cho **p50 = 38 ms**. Với một hop mà Mac mini ở xa như DR-003 yêu
+cầu thì hợp lý cho đường **relayed**; nếu nó ở cùng mạng nội bộ thì 38 ms **quá cao cho direct** và
+có gì đó đáng nghi. `E12` đòi direct-vs-relayed cho **mọi** phép đo, nên biết trước khi đo tốt hơn
+phát hiện sau.
+
+### ② Sinh payload trên Mac mini
+
+```bash
+git fetch origin && git switch spike-e/stub-and-harness
+python spikes/spike_e_transport/payloads/generate.py --out payloads/out
+```
+
+Shape mặc định `576×576×88` giờ **có căn cứ** — đó là kích thước slice thật trong gói dataset mở đêm
+qua. Khi Khánh xong `A6`, dùng con số chính thức của cậu ấy.
+
+### ③ Chạy stub, bind địa chỉ overlay — **đây là thứ mở `GATE 2`**
+
+```bash
+python spikes/spike_e_transport/stub/server.py \
+    --payloads payloads/out --bind <dia-chi-ZeroTier-cua-Mac-mini>
+```
+
+Nó sẽ **in cảnh báo** khi bind khác loopback. Cảnh báo đó đúng — đọc nó. Địa chỉ phải là **địa chỉ
+overlay**, không phải LAN, không phải public.
+
+Xong bước này thì **cổng 8787 mở**, và cổng vào `GATE 2` — *"stub tới được VÀ overlay đã lên"* —
+được thoả. Báo Project Control để xác minh từ phía leader.
+
+### ④ Review PR #16
+
+Dụng cụ dựng cho chính bạn, và nó **vừa bị soi ra 10 lỗi** (2 CRITICAL) — trong đó có một chỗ script
+tổng hợp *nói đúng lời nói dối mà docstring của nó gọi tên*. Đã sửa, nhưng đáng để bạn tự soi lại.
+
+---
+
+## PHẦN II — đóng hai ô phần cứng
 
 ### ① Mac mini
 

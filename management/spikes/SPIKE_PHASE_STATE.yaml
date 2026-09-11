@@ -475,6 +475,22 @@ wip_compliance:
           "one holder, handed over at each gate" model is replaced: slots remain a serialization of
           MEASUREMENT WINDOWS, and operator (who holds the device) is separated from owner (who is
           accountable for the criteria and the interpretation). Both are recorded in the evidence.
+        applies_to: [SPIKE_E, SPIKE_B, SPIKE_F]   # every spike needing the phone. The team is
+                                                  # dispersed; nobody else can reach the device.
+        primary_model: >
+          Owner operates REMOTELY. Leader keeps the phone on USB and exposes the adb server on his
+          ZeroTier overlay address; the owner drives it from his own machine. Control travels over
+          USB, so the phone's Wi-Fi stays OFF and measured traffic goes over real cellular - which
+          is what E1 requires and why the control channel is deliberately not on the overlay.
+          Under this model "executed by <owner>" holds and none of the constraints below trigger.
+        primary_model_cost: >
+          The leader's PC must be powered and reachable during the session, and an adb server on
+          the overlay is controllable by anyone on that network. The overlay is authenticated and
+          members-only (DR-003a), so exposure is bounded to the team - but it is real. Opened for
+          a session, closed after, and the session recorded.
+        fallback_model: >
+          Leader operates, owner interprets. Only when the remote session is not possible. The
+          four constraints below then apply to that spike, for that evidence.
         constraints_that_make_it_valid:
           - "Pham Tuan Anh withdraws as SPIKE_E Secondary Reviewer where he operated the device"
           - "E10, E11 and E13 are written by Nguyen Gia Duc Trung"
@@ -488,9 +504,47 @@ wip_compliance:
 review_serialization:
   rule: "A member may have at most ONE review in REVIEWING state at a time. A second assignment stays QUEUED_FOR_REVIEW."
   ownership_change_permitted: false     # do not reassign reviewers to dodge scheduling
+  # That prohibition is about SCHEDULING, in those words: SPIKE_PHASE_PLAN.md says "Reviewer
+  # ownership must not be changed merely to eliminate the scheduling conflict." It is not a
+  # prohibition on removing a reviewer who can no longer be independent.
+  reassignments:
+    - date: "2026-09-12"
+      spike: SPIKE_E
+      from: "Pham Tuan Anh"
+      to: "Vu Hung Anh"
+      reason: "CONFLICT OF INTEREST, not scheduling"
+      basis: >
+        DR-006a as first written made Pham Tuan Anh the device OPERATOR for SPIKE_E. Producing the
+        measurements and then reviewing them is self-approval under two role names.
+      status: REVERTED
+      reverted_at: "2026-09-12"
+      reverted_because: >
+        DR-006a revision 1 replaced that model. The team is dispersed, so the first version's
+        "preferred alternative" - a session where the owner operates the device in person - does
+        not exist. What does exist is the owner operating it REMOTELY: the leader keeps the phone
+        on USB and exposes the adb server on his ZeroTier address, and the owner drives it from
+        his own machine. Control travels over USB so the phone's Wi-Fi stays off and the measured
+        traffic still goes over real cellular, which E1 requires. The leader no longer produces
+        the evidence, so the recusal has no basis.
+        Kept here rather than deleted: the reassignment happened and was committed. It is reversed
+        because its premise turned out to be false, not because it was wrong on what was known.
+    - date: "2026-09-12"
+      spike: SPIKE_E
+      from: "Vu Hung Anh"
+      to: "Pham Tuan Anh"
+      reason: "reverts the entry above - DR-006a revision 1"
+      conditional_rule: >
+        If a remote session is not possible for a given measurement and the leader operates the
+        device himself, the recusal applies to THAT spike for THAT evidence. It is conditional on
+        who actually operated, and the evidence file records the operator.
+  commit_hygiene_note: >
+    The rationale for the first reassignment was committed to the spike-b branch by mistake on
+    2026-09-12 00:31 instead of to main, so for several hours main carried the reviewer change
+    with no recorded reason sitting directly under a flag that says reviewers are not reassigned.
+    Recorded rather than silently tidied.
   reviewers:
     "Vu Hung Anh":
-      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1, SPIKE_E]   # SPIKE_E added 2026-09-12, DR-006a (a)
+      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1]   # SPIKE_E added then REVERTED 2026-09-12; see reassignments
       default_priority: [SPIKE_D, SPIKE_A]
       rationale: "SPIKE_D before SPIKE_A because SPIKE_D is P0."
       pre_emption_rule: >
@@ -499,9 +553,11 @@ review_serialization:
       currently_reviewing: null
       queued: []
     "Pham Tuan Anh":
-      reviews: [SPIKE_B, SPIKE_F]        # SPIKE_E removed 2026-09-12 - DR-006a constraint (a):
-                                         # he operates the device for SPIKE_E, so he must not also
-                                         # review the evidence he produced.
+      reviews: [SPIKE_B, SPIKE_E, SPIKE_F]   # SPIKE_E removed then RESTORED 2026-09-12, DR-006a rev 1   # SPIKE_E removed then RESTORED 2026-09-12.
+                                         # DR-006a revision 1: the owner operates the device
+                                         # REMOTELY over adb, so the leader does not produce that
+                                         # evidence and constraint (a) does not bite. See
+                                         # review_serialization.reassignments for both moves.
       default_priority: [SPIKE_B, SPIKE_E]
       rationale: >
         SPIKE_B before SPIKE_E because SPIKE_B is P1 and feeds GATE-MOB-01 and DR-008c directly, while

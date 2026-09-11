@@ -19,11 +19,10 @@ Tin nhắn nhóm gợi ý:
 > Có một bản ghi về hôm qua để cả nhóm rút kinh nghiệm: <link `INC-001`>
 > Luật mới từ hôm nay: **khai báo khả dụng trước 09:00**, một dòng là đủ.
 
-### ② Ký §9 profile DR-006
+### ② ~~Ký §9 profile DR-006~~ — ✅ **XONG** 2026-09-12 00:25
 
-Ô `☐ ĐÃ ĐỌC VÀ ĐỒNG Ý` trong
-[`DR006_DEVICE_PROFILE.md`](../../spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md) vẫn trống. Đây là
-attestation của chủ sở hữu thiết bị, chỉ bạn tick được.
+Đã tick theo xác nhận bằng lời của anh, và **đường ký ghi rõ ngay trong §9**: anh xác nhận trong
+chat, Project Control gõ vào file. Không phải chữ ký điện tử, và bản ghi nói đúng như vậy.
 
 ### ③ Quyết PR #13
 
@@ -88,22 +87,55 @@ chuyển sang tiêu thụ bộ của cậu ấy. **Đừng ghi vào `tests/fixtu
 
 ## PHẦN III — Project Control
 
-### ⑦ Tu chính hàng đợi thiết bị — nợ quản trị
+### ⑦ ~~Tu chính hàng đợi thiết bị~~ — ✅ **XONG**, và nó đã được sửa MỘT LẦN NỮA
 
-Máy Galaxy A17 là **tài sản cá nhân của bạn** và không bàn giao. Mô hình `WIP-CONFLICT-02` — *"một
-máy, một người giữ, bàn giao theo cổng"* — **không thực hiện được** với thiết bị không thuộc dự án.
+**`DR-006a` đã ghi** trong `OPEN_DECISIONS.md` Part 2b. Nhưng bản đầu của nó **sai một chỗ quan
+trọng**, và anh là người chỉ ra: nó ghi *"buổi đo có hẹn để chủ sở hữu tự bấm"* là đường ưu tiên —
+trong khi cả nhóm **ở xa nhau** nên đường đó không tồn tại. Tôi viết một phương án ưu tiên mà không
+kiểm xem nó có khả thi.
 
-Đêm qua đã ghi vào `SPIKE_PHASE_STATE.yaml` là `NOT_YET_AMENDED`, kèm lý do chưa chặn ai: `GATE 2`
-của Trung dù sao cũng chưa mở.
+**`DR-006a` revision 1** thay bằng mô hình thật, và **mở rộng sang cả Spike B và F** — vì nếu không
+ai tới được máy thì `B10` `B11` `F7` cũng vướng y hệt, không riêng Spike E.
 
-**Phải giải quyết trước khi Trung đủ điều kiện vào `GATE 2`** — có thể là hôm nay nếu cậu ấy đóng
-được hai ô phần cứng. Ba đường:
+> **Hệ quả tốt:** dưới mô hình mới, **anh KHÔNG phải rút khỏi vai reviewer nữa**. Việc chuyển Spike E
+> sang Hùng Anh **đã được hoàn tác** — tiền đề của nó là anh sẽ tạo ra bằng chứng, mà giờ anh không.
+> Hùng Anh trở lại **bốn** suất review thay vì năm.
+>
+> Cả hai lần chuyển vẫn nằm trong `SPIKE_PHASE_STATE.yaml` → `reassignments`, không xoá.
 
-| Đường | Đánh đổi |
-|---|---|
-| **Buổi đo có hẹn, chủ sở hữu spike tự bấm** | Giữ nguyên luật *"executed by <tên>"*. Cần hai người cùng chỗ hoặc remote vào PC của bạn |
-| Bạn vận hành, chủ sở hữu diễn giải | Cần tu chính đè hai câu trong `SPIKE_E_TRANSPORT/TASK.md`, và bạn phải **rút khỏi vai reviewer Spike E** |
-| Hoãn tới khi cần thật | Hợp lệ, nhưng đừng để nó thành bất ngờ vào đúng lúc Trung sẵn sàng |
+> ⚠ **Một lỗi tôi phải báo:** commit ghi lý do cho lần đổi reviewer đầu tiên **vào nhầm nhánh
+> `spike-b`** lúc 00:31 thay vì `main`. Nên trong vài giờ, `main` mang thay đổi reviewer **mà không
+> có lý do kèm theo**, nằm ngay dưới một cờ ghi *"không đổi reviewer"*. Đã gộp về `main` và ghi lại
+> trong `commit_hygiene_note`.
+
+### ⑦b · **Mở buổi đo từ xa** — thứ thay thế cho "bàn giao máy"
+
+Đây là **mô hình chính** từ `DR-006a` revision 1: chủ sở hữu tự bấm từ xa, anh chỉ cung cấp thiết bị.
+
+```powershell
+# tren may anh, khi bat dau buoi do
+adb kill-server
+adb -a -P 5037 nodaemon server        # nghe tren moi interface, gom ca ZeroTier
+
+# chu so huu, tren may ho:
+#   export ANDROID_ADB_SERVER_ADDRESS=10.134.129.145
+#   adb devices        -> phai thay R5CY931SQ...
+```
+
+> ⚠ **Bề mặt bảo mật — ghi lại chứ không lờ đi.** adb server nghe trên overlay thì **bất kỳ ai trên
+> mạng ZeroTier đó cũng điều khiển được máy anh**. Overlay có xác thực và chỉ thành viên (DR-003a),
+> nên phơi bày giới hạn trong nhóm — nhưng nó có thật. **Mở theo buổi, `adb kill-server` ngay sau
+> khi xong**, và ghi lại buổi đó.
+
+**Vì sao kênh điều khiển đi USB chứ không đi overlay:** nếu điều khiển cũng đi qua cellular + overlay
+thì nó **làm nhiễm đúng đường `E1` đang đo**. Đi USB thì Wi-Fi điện thoại tắt, traffic đo đi cellular
+thật.
+
+### ⑦c · Overlay — đã verify, còn thiếu đúng hai mắt xích
+
+Đêm qua xác minh: Mac mini **sống và tới được** (`10.134.129.115`, ping 20/20, chữ ký cổng macOS).
+Còn thiếu: **stub chưa chạy** (cổng 8787 đóng) — việc của Trung hôm nay — và **ZeroTier trên điện
+thoại** chưa cần nữa, vì mô hình từ xa dùng USB làm kênh điều khiển.
 
 ### ⑧ Theo dõi hàng đợi review
 

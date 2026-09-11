@@ -1284,13 +1284,66 @@ routing problem DR-003a refused for a different change. He may propose returning
 self-operation at any time, and that proposal does not need a new decision from the leader; it only
 needs him to say so.
 
-**Preferred alternative, now more available than it was.** On 2026-09-12 00:20 the Mac mini was
-verified reachable on the ZeroTier overlay from the leader's machine
-(`management/day03/overlay_reachability_20260912.md`). With the backend side already up, the
-remaining device work is short — installing ZeroTier on the phone and running the harness. **A
-scheduled session in which Trung operates the device himself, with the leader present, satisfies
-every criterion without invoking this amendment at all.** Where that session is possible, take it;
-this amendment exists for when it is not.
+---
+
+## DR-006a · REVISION 1 — 2026-09-12
+
+**What I got wrong in the first version.** It named *"a scheduled session in which the owner
+operates the device himself, with the leader present"* as the preferred path. **That path does not
+exist.** The team is geographically dispersed; no other member can reach the leader's phone, and the
+leader is the only person who can test it quickly. I wrote a preferred alternative without checking
+whether it was available.
+
+It also scoped the amendment to Spike E alone. If nobody can reach the device, the same problem
+applies to **Spike B (`B10`, `B11`, real-mesh picking)** and **Spike F (`F7`)**, both owned by Vũ
+Hùng Anh, who is equally remote.
+
+### The model that IS available — the owner operates REMOTELY
+
+```text
+owner's machine  --ZeroTier overlay-->  leader's PC  --USB-->  Galaxy A17
+                                                                   |
+                                            measurement traffic ---+--> real cellular
+```
+
+The leader keeps the phone on USB and exposes the adb server on his **ZeroTier overlay address**.
+The owner connects from his own machine and **runs the measurement himself** — his keystrokes, his
+choice of when to stop, his raw output.
+
+**Why this preserves everything the first version had to override:**
+
+| | |
+|---|---|
+| *"executed by Nguyễn Gia Đức Trung"* | **holds** — he executes it, from his own machine |
+| Leader recusal as reviewer | **NOT required** — he did not produce the evidence |
+| `00` §14 *"personally analyzed, designed, and implemented"* | **holds** |
+| `E1` acceptance path | **holds, and is the reason for the USB control channel:** commands travel over USB, so the phone's Wi-Fi stays **off** and the measured traffic goes over real cellular. Putting the control channel on the overlay instead would contaminate the very link `E1` measures |
+
+**Cost, recorded:** the leader's PC must be powered and reachable during the owner's session, and an
+adb server exposed on the overlay is controllable by **anyone on that network**. The overlay is
+authenticated and members-only (DR-003a), so the exposure is bounded to the team — but it is real.
+**It is opened for a session and closed after**, and the session is recorded.
+
+### What survives from the first version
+
+**The device still does not change hands, and operator is still separated from owner.** Both remain
+necessary, because the remote session depends on the leader being available. When he is not, the
+fallback is the first version's model — leader operates, owner interprets — **and then, and only
+then, the four constraints apply**, including his recusal as reviewer of that spike.
+
+### Consequence: the reviewer change is REVERTED
+
+The first version moved Spike E review from Phạm Tuấn Anh to Vũ Hùng Anh under constraint (a),
+because the leader would have produced the evidence. **Under the remote model he does not**, so the
+reason is gone and the change goes with it. Spike E returns to Phạm Tuấn Anh, and Vũ Hùng Anh drops
+back from five review assignments to four.
+
+**Recorded rather than quietly undone:** the reassignment happened, was committed, and is reversed
+here because its premise turned out to be false — not because it was wrong given what was known at
+the time. `SPIKE_PHASE_STATE.yaml` keeps both entries in its `reassignments` list.
+
+**If the fallback is ever used for a given spike, the recusal applies to that spike for that
+evidence.** It is conditional on who actually operated, and the evidence file records that.
 
 **Why this is not a frozen-spec change.** `docs/specs/v1.0/**` contains no rule about who may operate
 a device. `14` §5, §6, `15` §9, §11 and `00` §13 were all checked. **Spec checksums remain 19/19 OK

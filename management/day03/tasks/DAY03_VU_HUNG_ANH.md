@@ -106,19 +106,25 @@ tuyến** chứ không theo nhãn đặt sẵn. Kết quả mới nằm trong `F
 
 **6 PR mở, 0 review được submit.** `15` §11: *"silence is not approval"*.
 
-> ### ⚠ Bạn vừa nhận thêm một suất review — và tôi nói luôn cái giá
+> ### ℹ Có một thay đổi reviewer đã được ĐỀ XUẤT rồi HOÀN TÁC — bạn không bị thêm việc
 >
-> **`DR-006a`** (ghi đêm 2026-09-12) cho phép leader làm **operator** cầm máy đo cho Spike E, vì
-> Galaxy A17 là máy cá nhân của anh ấy và không bàn giao. Ràng buộc đi kèm: **người tạo ra số đo
-> không được là người review số đó**, nên leader rút khỏi vai reviewer Spike E và **nó chuyển sang
-> bạn**.
+> Bản đầu của `DR-006a` chuyển Spike E sang bạn, vì leader sẽ là người cầm máy đo cho spike đó và
+> người tạo ra số không được review chính số đó. Nó đã được commit, và **đã hoàn tác**.
 >
-> Bạn giờ giữ **năm** suất review — `D` `A` `C0` `C1` `E` — trong khi vẫn sở hữu Spike B và Spike F.
-> `WIP-CONFLICT-01` chỉ cho **một** suất `REVIEWING` tại một thời điểm, nên **hàng đợi dài ra chứ
-> việc không biến mất**. Nếu Spike D và Spike E cùng sẵn sàng một ngày thì **D thắng vì P0**.
+> **Lý do hoàn tác:** tiền đề sai. Bản đầu ghi *"buổi đo có hẹn để chủ sở hữu tự bấm"* là đường ưu
+> tiên, nhưng cả nhóm **ở xa nhau** nên đường đó không tồn tại. `DR-006a` revision 1 thay bằng
+> **chủ sở hữu tự bấm TỪ XA qua adb** — leader giữ máy cắm USB, mở adb server trên địa chỉ ZeroTier,
+> chủ sở hữu điều khiển từ máy mình. Leader không còn tạo ra bằng chứng, nên việc rút lui không còn
+> cơ sở.
 >
-> Đây là đánh đổi có chủ ý: hi sinh thông lượng để giữ tính độc lập của review. Nếu nó thành nút
-> thắt thật thì **nói ra** — đó là dữ kiện leader cần, không phải chuyện bạn phải gánh im lặng.
+> **Bạn giữ nguyên bốn suất review** — `D` `A` `C0` `C1`. Không thêm gì.
+>
+> Cả hai lần chuyển đều nằm trong `SPIKE_PHASE_STATE.yaml` → `review_serialization.reassignments`,
+> không xoá đi — nó xảy ra thật, và nó bị đảo vì tiền đề sai chứ không phải vì quyết định sai tại
+> thời điểm đó.
+>
+> **Ngoại lệ có điều kiện vẫn còn:** nếu một phép đo cụ thể không chạy được từ xa và leader phải tự
+> bấm, thì với **đúng spike đó** anh ấy rút khỏi vai reviewer. Áp dụng cho cả `B10`/`B11` của bạn.
 
 | PR | Của | Tại sao bạn |
 |---|---|---|
@@ -175,6 +181,48 @@ Dòng đầu quan trọng nhất: nó mở khoá Spike A và Spike F.
 | Chọn hay đóng băng mobile framework | `GATE-MOB-01` cần **cả A và B** |
 | **Push vào nhánh người khác** | `15` §9. Góp ý thuộc về review; sửa thuộc về tác giả |
 | Bắt đầu Spike F như primary thứ hai | WIP-limited sau Spike B |
+
+---
+
+## 📱 Bạn KHÔNG cần cầm được điện thoại — `DR-006a` revision 1
+
+Cả nhóm ở xa nhau, và máy Galaxy A17 là máy cá nhân của leader. Bản đầu của `DR-006a` ghi *"buổi đo
+có hẹn để chủ sở hữu tự bấm"* là đường ưu tiên — **đường đó không tồn tại**, và nó đã được sửa.
+
+**Đường thật:**
+
+```text
+máy CỦA BẠN  --ZeroTier overlay-->  PC của leader  --USB-->  Galaxy A17
+                                                                  |
+                                     traffic ĐO đi ----------------+--> cellular THẬT
+```
+
+Leader giữ máy cắm USB và mở adb server trên địa chỉ ZeroTier của anh ấy. **Bạn nối tới từ máy mình
+và tự chạy phép đo** — phím bạn gõ, bạn quyết khi nào dừng, log thô của bạn.
+
+```bash
+# tren may BAN, sau khi leader da mo adb server
+export ANDROID_ADB_SERVER_ADDRESS=10.134.129.145
+export ANDROID_ADB_SERVER_PORT=5037
+adb devices          # phai thay R5CY931SQ... device
+```
+
+**Vì sao kênh điều khiển đi USB chứ không đi overlay:** nếu điều khiển cũng đi qua cellular+overlay
+thì nó **làm nhiễm đúng đường mà `E1` đang đo**. Đi USB thì Wi-Fi điện thoại **tắt**, và traffic đo
+đi cellular thật.
+
+**Hệ quả cho bạn:** luật *"executed by chính bạn"* **giữ nguyên**, `E10` `E11` `E13` vẫn là của bạn,
+và leader **không** phải rút khỏi vai reviewer. Không có gì bị nới lỏng.
+
+**Chỉ khi buổi từ xa không thực hiện được** thì mới dùng phương án dự phòng — leader bấm, bạn diễn
+giải — và khi đó bốn ràng buộc của `DR-006a` mới có hiệu lực, cho **đúng spike đó, đúng bằng chứng
+đó**. File evidence ghi ai vận hành.
+
+Với bạn nghĩa là: `B10` `B11` và picking trên mesh thật vẫn **do chính bạn chạy**, chỉ là chạy từ xa.
+Điều kiện vào `GATE 3` của bạn — ≥3 mức decimation và harness picking chạy desktop — **đã đủ** từ
+PR #15.
+
+---
 
 ## Cổng thiết bị — bạn là `GATE 3`
 
