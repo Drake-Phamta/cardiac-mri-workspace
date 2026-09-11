@@ -186,9 +186,9 @@ spikes:
     priority: P0
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: PREPARED          # authorised and assigned; execution not started
+    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
     blocked_by: []
-    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: NOT_REQUESTED
       reviewer: "Vu Hung Anh"
@@ -224,9 +224,9 @@ spikes:
     priority: P1
     owner: "Pham Tuan Anh"
     reviewer: "Vu Hung Anh"
-    status: PREPARED          # authorised and assigned; execution not started
+    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
     blocked_by: []
-    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: NOT_REQUESTED
       reviewer: "Vu Hung Anh"
@@ -252,9 +252,9 @@ spikes:
     priority: P1
     owner: "Vu Hung Anh"
     reviewer: "Pham Tuan Anh"
-    status: PREPARED          # authorised and assigned; execution not started
+    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
     blocked_by: []
-    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: NOT_REQUESTED
       reviewer: "Pham Tuan Anh"
@@ -342,9 +342,9 @@ spikes:
     priority: P2
     owner: "Nguyen Gia Duc Trung"
     reviewer: "Pham Tuan Anh"
-    status: PREPARED          # authorised and assigned; execution not started
+    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
     blocked_by: []
-    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: NOT_REQUESTED
       reviewer: "Pham Tuan Anh"
