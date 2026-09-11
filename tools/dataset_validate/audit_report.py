@@ -158,15 +158,26 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("")
     add("### 4.3 Axis alignment — DR-012 boundary (A14)")
     add("")
-    oblique = [c["case_id"] for c in cases
-               if (c.get("mri") or {}).get("axis_aligned") is False]
+    # Masks were skipped here while checks.py A14 examined both, so the same
+    # document could print "every readable volume is axis-aligned" in this
+    # section and A14 FAIL naming an oblique mask in section 8.
+    oblique = [f"{c['case_id']}/{role}" for c in cases for role in ("mri", "mask")
+               if (c.get(role) or {}).get("axis_aligned") is False]
+    unknown = [f"{c['case_id']}/{role}" for c in cases for role in ("mri", "mask")
+               if c.get(role) is not None
+               and not isinstance((c.get(role) or {}).get("axis_aligned"), bool)]
     if oblique:
         add(f"**{len(oblique)} volume(s) are NOT axis-aligned:** {', '.join(oblique[:20])}")
         add("")
         add("> DR-012 restricts the MVP to **validated axis-aligned geometry**. An oblique case is")
         add("> rejected with `GEOMETRY_NOT_VALIDATED`. It is not silently resampled into range.")
+    elif unknown:
+        add(f"**{len(unknown)} volume(s) could not be checked** (no usable direction matrix): "
+            f"{', '.join(unknown[:20])}")
+        add("")
+        add("> Unchecked is not aligned. DR-012 needs *validated* axis-aligned geometry.")
     else:
-        add("Every readable volume is axis-aligned — compatible with the DR-012 boundary.")
+        add("Every readable volume **and mask** is axis-aligned — compatible with DR-012.")
     add("")
 
     # --- field 6: foreground label mapping ---------------------------------

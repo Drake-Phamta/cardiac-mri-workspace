@@ -110,12 +110,33 @@ def _is_axis_aligned(space_directions, tol: float = 1e-6) -> tuple[Any, str]:
 
 
 def _diagonal_spacing(space_directions):
-    """Voxel spacing along each axis, from the direction matrix."""
+    """Voxel spacing along each axis - a LENGTH, so always positive.
+
+    The first version returned the signed diagonal. LPS-oriented LGE MRI
+    routinely carries negative x/y direction cosines, and the manifest then
+    published `spacing: [-0.625, -0.625, 1.25]` as a measured cohort value.
+    Nothing downstream caught it, because both volumes in a case share the sign
+    and the equality comparison still matched.
+
+    The sign is orientation, not size. It stays in `space_directions`, which is
+    recorded separately and unmodified.
+    """
     if space_directions is None:
         return None
     try:
         rows = [r for r in space_directions if r is not None]
-        return [round(float(rows[i][i]), 6) for i in range(len(rows))]
+        return [round(abs(float(rows[i][i])), 6) for i in range(len(rows))]
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def _negative_axes(space_directions):
+    """Which axes have a negative direction cosine. Recorded, not corrected."""
+    if space_directions is None:
+        return None
+    try:
+        rows = [r for r in space_directions if r is not None]
+        return [i for i in range(len(rows)) if float(rows[i][i]) < 0]
     except (TypeError, ValueError, IndexError):
         return None
 
@@ -181,6 +202,9 @@ def _inspect_volume(path: str, nrrd, want_checksums: bool) -> dict:
     spacing = _diagonal_spacing(directions)
     record["spacing"] = spacing if spacing is not None else \
         NOT_MEASURED + " - not derivable from header"
+    neg = _negative_axes(directions)
+    record["negative_direction_axes"] = neg if neg is not None else \
+        NOT_MEASURED + " - no direction matrix"
 
     aligned, why = _is_axis_aligned(directions)
     record["axis_aligned"] = aligned

@@ -27,8 +27,8 @@ data/manifests/dataset_manifest.json     machine-readable, generated  (criterion
 management/DATASET_AUDIT.md              rendered from that manifest  (criterion A19)
 ```
 
-It answers **15 of the 20** acceptance criteria mechanically. It refuses to answer four, and
-says so out loud:
+It answers **16 of the 20** acceptance criteria mechanically. It refuses to answer the other
+four, and says so out loud:
 
 | # | Criterion | Why a script must not answer it |
 |---|---|---|

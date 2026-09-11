@@ -47,8 +47,40 @@ class Result:
                 "status": self.status, "detail": self.detail}
 
 
+EMPTY_MANIFEST_TITLES = [
+    ("A1", "Acquisition record"), ("A2", "Case count by released partition"),
+    ("A3", "Per-case presence of the required files"),
+    ("A4", "Every NRRD loads; MRI is 3D; mask is 3D"),
+    ("A5", "File format and dtype recorded per file"),
+    ("A6", "Cohort shape distribution"), ("A7", "Spacing, origin and direction recorded"),
+    ("A8", "MRI/mask shape and spacing compatibility"),
+    ("A9", "Are masks already spatially aligned with the MRI?"),
+    ("A10", "Mask unique values recorded"),
+    ("A11", "laendo.nrrd verified as the LA cavity target"),
+    ("A12", "Test-label presence and provenance"), ("A13", "Path A vs Path B evidence"),
+    ("A14", "Axis-alignment verdict - DR-012 boundary"),
+    ("A15", "Corrupted / missing / unreadable files listed"),
+    ("A16", "Case IDs unique; de-identified IDs assigned"),
+    ("A17", "Metadata audit against the privacy allowlist"),
+    ("A18", "Licence / data-use terms preserved"),
+    ("A19", "management/DATASET_AUDIT.md complete"),
+    ("A20", "dataset_manifest machine-readable"),
+]
+
+
 def run_checks(manifest: dict) -> list[Result]:
     cases = manifest.get("cases", [])
+
+    # An empty manifest must not produce a column of PASS. validate.py exits
+    # before reaching here, but this function is the documented entry point for
+    # re-running the judgement against a manifest someone else produced, and 8
+    # of 20 criteria used to pass vacuously on an empty list - including "all
+    # volumes across 0 cases loaded and are 3D".
+    if not cases:
+        return [Result(cid, title, NOT_RUN,
+                       "manifest contains no cases - nothing was examined")
+                for cid, title in EMPTY_MANIFEST_TITLES]
+
     out: list[Result] = []
 
     out.append(_a1_acquisition(manifest))
@@ -116,16 +148,21 @@ def _a2_case_counts(manifest: dict) -> Result:
 def _a3_file_presence(cases: list[dict]) -> Result:
     if not cases:
         return Result("A3", f"Per-case presence of {MRI} and {MASK}", FAIL, "no cases")
-    no_mri = [c["case_id"] for c in cases if not c["files_present"][MRI]]
     no_mask = [c["case_id"] for c in cases if not c["files_present"][MASK]]
-    detail = (f"{len(cases)} cases; {len(cases) - len(no_mri)} with {MRI}, "
-              f"{len(cases) - len(no_mask)} with {MASK}")
+    # NOTE on what this can and cannot detect: discover_cases() only creates a
+    # case for a directory that already contains lgemri.nrrd, so "no MRI" is
+    # unreachable here by construction. Checking it would be a tautology, so it
+    # is not checked and that is said out loud instead of being dressed up.
+    # What A3 genuinely records is per-case MASK presence.
+    detail = (f"{len(cases)} case(s) discovered by the presence of {MRI}; "
+              f"{len(cases) - len(no_mask)} also carry {MASK}")
     if no_mask:
-        detail += f"; missing mask in {len(no_mask)} case(s)"
-    # A missing mask is a recorded fact, not a failure - the test partition is
-    # expected to lack labels. A12 is where that question is answered.
-    return Result("A3", f"Per-case presence of {MRI} and {MASK}",
-                  FAIL if no_mri else PASS, detail)
+        detail += f"; {len(no_mask)} without a mask ({', '.join(no_mask[:5])})"
+    detail += (". A case directory lacking " + MRI + " is not discovered at all and therefore "
+               "cannot be reported here - a package whose layout differs is caught by A2.")
+    # A missing mask is a recorded fact, not a failure: the test partition is
+    # expected to lack labels. A12 answers that question.
+    return Result("A3", f"Per-case presence of {MRI} and {MASK}", PASS, detail)
 
 
 def _a4_loads(cases: list[dict]) -> Result:
@@ -217,14 +254,36 @@ def _a8_compatibility(cases: list[dict]) -> Result:
 
 
 def _a9_alignment(cases: list[dict]) -> Result:
-    aligned = [c["case_id"] for c in cases
-               if (c.get("mri_mask_compatibility") or {}).get("origin_equal") is True]
+    """A9 asks a yes/no question, so the verdict has to depend on the answer.
+
+    The first version computed `aligned`, printed it, and then returned PASS
+    unconditionally. A package where NO mask shared its MRI origin reported
+    "0 of 1 labelled case(s) share the MRI origin exactly" with an ok beside it.
+    """
+    title = "Are masks already spatially aligned with the MRI?"
     checked = [c for c in cases if c.get("mask") is not None]
     if not checked:
-        return Result("A9", "Are masks already spatially aligned with the MRI?", NOT_RUN,
-                      "no case in this package carries a mask")
-    return Result("A9", "Are masks already spatially aligned with the MRI?", PASS,
-                  f"{len(aligned)} of {len(checked)} labelled case(s) share the MRI origin exactly")
+        return Result("A9", title, NOT_RUN, "no case in this package carries a mask")
+
+    aligned, misaligned, undetermined = [], [], []
+    for c in checked:
+        v = (c.get("mri_mask_compatibility") or {}).get("origin_equal")
+        (aligned if v is True else misaligned if v is False else undetermined).append(c["case_id"])
+
+    if undetermined:
+        return Result("A9", title, NOT_RUN,
+                      f"{len(undetermined)} case(s) have no comparable origin "
+                      f"({', '.join(undetermined[:5])}) - undetermined is not aligned")
+    if misaligned:
+        # Not aligned is a real, recordable state - `06` section 4 asks whether
+        # resampling is required - but it is not a PASS for a question asking
+        # whether they ARE aligned.
+        return Result("A9", title, FAIL,
+                      f"{len(misaligned)} of {len(checked)} labelled case(s) do NOT share the "
+                      f"MRI origin: {', '.join(misaligned[:5])}. A transform is required "
+                      f"before use; see A8.")
+    return Result("A9", title, PASS,
+                  f"all {len(aligned)} labelled case(s) share the MRI origin exactly")
 
 
 def _a10_mask_values(cases: list[dict]) -> Result:
@@ -301,8 +360,15 @@ def _a15_anomalies(cases: list[dict]) -> Result:
                 problems.append(f"{c['case_id']}/{role}: unreadable")
             elif vol.get("has_non_finite") is True:
                 problems.append(f"{c['case_id']}/{role}: contains non-finite values")
-    return Result("A15", "Corrupted / missing / unreadable files listed", PASS,
-                  f"{len(problems)} anomaly(ies): {'; '.join(problems[:6]) if problems else 'none'}")
+    # The criterion is that anomalies are LISTED, so finding some is not itself a
+    # failure - but printing ok beside a list of corrupt files is. An anomaly is
+    # surfaced as FAIL so it cannot be skimmed past.
+    status = FAIL if problems else PASS
+    return Result("A15", "Corrupted / missing / unreadable files listed", status,
+                  f"{len(problems)} anomaly(ies): "
+                  f"{'; '.join(problems[:6]) if problems else 'none'}"
+                  + (" - listed; affected cases must be excluded with a recorded reason"
+                     if problems else ""))
 
 
 def _a16_ids(cases: list[dict]) -> Result:
@@ -331,16 +397,26 @@ def _a17_privacy(cases: list[dict]) -> Result:
                     findings.append(f"{c['case_id']}/{role}:{item['key']}")
             else:
                 unchecked += 1
+    title = "Metadata audit against the privacy allowlist"
     if findings:
-        return Result("A17", "Metadata audit against the privacy allowlist", FAIL,
+        return Result("A17", title, FAIL,
                       f"{len(findings)} header key(s) matched an identifier pattern: "
                       f"{', '.join(findings[:6])}. NFR-SEC-005 requires these be reported and "
-                      "excluded from the app metadata path. Values were NOT copied into this manifest.")
-    if unchecked and not any(c.get("mri", {}).get("read_ok") for c in cases):
-        return Result("A17", "Metadata audit against the privacy allowlist", NOT_RUN,
-                      "no header could be read")
-    return Result("A17", "Metadata audit against the privacy allowlist", PASS,
-                  "no header key matched a direct-identifier pattern")
+                      "excluded from the app metadata path. Values were NOT copied here.")
+    # ANY unreadable header means this audit did not cover the package. The old
+    # version only said NOT_RUN when NO header at all was readable, so a single
+    # unreadable mask among many still printed PASS - breaking this module's own
+    # rule 1 about never passing what it did not look at.
+    if unchecked:
+        return Result("A17", title, NOT_RUN,
+                      f"{unchecked} volume(s) could not be opened, so their headers were never "
+                      f"scanned. Nothing was found in the ones that were, but this audit does "
+                      f"not cover the package.")
+    if not any(isinstance((c.get(r) or {}).get("header_identifier_findings"), list)
+               for c in cases for r in ("mri", "mask")):
+        return Result("A17", title, NOT_RUN, "no header was scanned")
+    return Result("A17", title, PASS,
+                  "every readable header scanned; none matched a direct-identifier pattern")
 
 
 # --- summary ----------------------------------------------------------------
@@ -354,7 +430,13 @@ def summarise(results: list[Result]) -> dict[str, Any]:
         "fail": counts[FAIL],
         "not_run": counts[NOT_RUN],
         "owner_verdict_required": counts[OWNER],
-        "gate_data_01_ready": counts[FAIL] == 0 and counts[NOT_RUN] == 0 and counts[OWNER] == 0,
-        "note": "gate_data_01_ready is a mechanical precondition only. GATE-DATA-01 closes "
-                "through the four-step acceptance workflow, never because a script printed PASS.",
+        # The old `gate_data_01_ready` required owner_verdict_required == 0, but
+        # A11/A13/A18 are unconditionally OWNER and A19 unconditionally NOT_RUN,
+        # so it was structurally always False and carried no information.
+        # What a script CAN state is the machine-checkable half.
+        "machine_checks_clean": counts[FAIL] == 0 and counts[NOT_RUN] == 0,
+        "owner_verdicts_outstanding": counts[OWNER],
+        "note": "machine_checks_clean covers only what a script can decide. GATE-DATA-01 also "
+                "needs the owner verdicts (A11, A13, A18), the rendered audit (A19), and the "
+                "four-step acceptance workflow. No script closes that gate.",
     }

@@ -171,7 +171,12 @@ def selftest() -> int:
         print("  ok    unlabelled partition reported, not treated as an error")
         print("  ok    A11 / A13 / A18 left to the owner, never auto-passed")
         print("  ok    audit renders from a manifest containing failures")
-        print("\n  SELFTEST PASSED — the harness works. It has measured nothing real.\n")
+        print()
+        print("  SELFTEST PASSED - the harness works. It has measured nothing real.")
+        print("  Exit code 0 means the SELFTEST passed. The A14 FAIL printed above is the")
+        print("  expected result on a deliberately planted oblique volume, not a run failure -")
+        print("  the documented 0/1 exit contract applies to --root runs, not to --selftest.")
+        print()
         return 0
 
 
