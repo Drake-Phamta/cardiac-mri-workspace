@@ -1,0 +1,10 @@
+# Spike C0 compute probe. The exact resolved versions are recorded in every
+# probe output, because SPIKE_C_ML/TASK.md lists the framework and version as a
+# required environment field.
+#
+# Install torch for YOUR hardware first - the right build depends on your CUDA
+# version, and the default wheel may be CPU-only:
+#     https://pytorch.org/get-started/locally/
+torch>=2.0
+numpy>=1.24
+psutil>=5.9      # CPU peak-memory reading when no CUDA device is present
