@@ -60,16 +60,21 @@ Day 1, không ghi thành lỗi của ai.
 
 | # | Kiểm | Trạng thái |
 |---:|---|---|
-| A1 | **4/4 thành viên hoàn thành onboarding** (`DAY0_SIGNOFF.md` cột K) | `NOT_CHECKED` |
-| A2 | **Không còn hiểu nhầm nghiêm trọng nào chưa xử lý** — không mục `NEEDS_CLARIFICATION` nào chặn việc | `NOT_CHECKED` |
-| A3 | **4/4 có repository access** — đã push nhánh và mở PR thật trong drill | `NOT_CHECKED` |
-| A4 | **4/4 hiểu workflow branch/PR** — tham gia hợp lệ vào chu trình PR/review ⚠ **đã tu chính** | `NOT_CHECKED` |
-| A5 | 4/4 hiểu `RESULT.md` ≠ `ACCEPTED` và biết 4 bước nghiệm thu | `NOT_CHECKED` |
-| A6 | 4/4 biết ghi `NOT MEASURED — <lý do>` thay vì bịa giá trị | `NOT_CHECKED` |
-| A7 | 4/4 biết đường leo thang blocker và khi nào phải mở DR | `NOT_CHECKED` |
-| A8 | 4/4 tooling local cần cho spike của mình đã cài và chạy thử | `NOT_CHECKED` |
-| A9 | Mỗi người nói được **hành động đầu tiên Day 1** của mình một cách cụ thể | `NOT_CHECKED` |
-| A10 | Onboarding blocker (nếu có) đã ghi ở `DAY0_SIGNOFF.md` §4 và **không** cái nào chặn việc bắt đầu | `NOT_CHECKED` |
+| A1 | **4/4 thành viên hoàn thành onboarding** (`DAY0_SIGNOFF.md` cột K) | **`PASS`** — 4/4 cột K, Khánh có điều kiện |
+| A2 | **Không còn hiểu nhầm nghiêm trọng nào chưa xử lý** — không mục `NEEDS_CLARIFICATION` nào chặn việc | **`PASS`** — một mục duy nhất (cột B của Khánh) không chặn Spike D |
+| A3 | **4/4 có repository access** — đã push nhánh và mở PR thật trong drill | **`PASS`** — PR #1 #3 #4 #8, tất cả đã merged |
+| A4 | **4/4 hiểu workflow branch/PR** — tham gia hợp lệ vào chu trình PR/review ⚠ **đã tu chính** | **`PASS`** — 3/4 đủ cả hai vai; Khánh thiếu vai reviewer, ghi ở cột L |
+| A5 | 4/4 hiểu `RESULT.md` ≠ `ACCEPTED` và biết 4 bước nghiệm thu | **`PASS`** — đánh giá của leader |
+| A6 | 4/4 biết ghi `NOT MEASURED — <lý do>` thay vì bịa giá trị | **`PASS`** — đánh giá của leader |
+| A7 | 4/4 biết đường leo thang blocker và khi nào phải mở DR | **`PASS`** — cả bốn trả lời đúng `00` §12 trong file practice đã merge |
+| A8 | 4/4 tooling local cần cho spike của mình đã cài và chạy thử | **`NEEDS_CLARIFICATION`** — 4 mục phần cứng của Khánh và Trung chưa ai xác nhận |
+| A9 | Mỗi người nói được **hành động đầu tiên Day 1** của mình một cách cụ thể | **`PASS`** — ghi trong `day01/tasks/DAY01_*.md` của từng người |
+| A10 | Onboarding blocker (nếu có) đã ghi ở `DAY0_SIGNOFF.md` §4 và **không** cái nào chặn việc bắt đầu | **`PASS`** — 0 blocker chặn việc |
+
+> **Ghi 2026-09-11 bởi Project Control theo chỉ thị leader.** `A5`/`A6` dựa trên **đánh giá của leader**,
+> không phải cửa kiểm có biên bản. **`A8` là `NEEDS_CLARIFICATION`, không phải `PASS`** — đĩa trống và
+> thư viện NRRD của Khánh, Mac mini và ZeroTier của Trung **chưa ai xác nhận**. Nó không chặn tuyên bố,
+> nhưng **chặn bước 1 của Spike D và cổng GATE 2 của Spike E trên thực tế**.
 
 > **⚠ `A4` đã được tu chính.** Bản gốc đòi mỗi người phải **nhận** và **đưa** một `NEEDS_FIX`. Yêu cầu đó
 > được thay thế, vì ép buộc phải có một lần từ chối sẽ tạo ra bằng chứng giả — điều này đã thực sự xảy ra
@@ -198,13 +203,13 @@ test -f management/DATASET_AUDIT.md && echo EXISTS || echo absent               
 
 | # | Điều kiện | Trạng thái |
 |---:|---|---|
-| D1 | Phần A: **tất cả** mục `PASS` hoặc có kế hoạch xử lý đã ghi | `NOT_CHECKED` |
-| D2 | Phần B: **tất cả** mục `PASS` | `NOT_CHECKED` |
-| D3 | Phần C: trạng thái spike đúng **chính xác** | `NOT_CHECKED` |
-| D4 | `DAY0_SIGNOFF.md` đã được leader ký | `NOT_CHECKED` |
-| D5 | **Baseline 30 ngày đã được leader CHẤP NHẬN** | `NOT_CHECKED` |
-| D6 | Baseline chứa C1/C4/C6 như gate/dependency/uncertainty/decision point/recovery trigger (§B.1) | `NOT_CHECKED` |
-| D7 | Baseline **không** âm thầm đóng băng quyết định phụ thuộc bằng chứng (§B.1) | `NOT_CHECKED` |
+| D1 | Phần A: **tất cả** mục `PASS` hoặc có kế hoạch xử lý đã ghi | **`PASS`** — A8 `NEEDS_CLARIFICATION` có hạn và chủ ghi rõ |
+| D2 | Phần B: **tất cả** mục `PASS` | **`PASS`** — 12/12 |
+| D3 | Phần C: trạng thái spike đúng **chính xác** | **`PASS`** — 6/6 |
+| D4 | `DAY0_SIGNOFF.md` đã được leader ký | **`PASS`** — ký 2026-09-11, `SẴN SÀNG CÓ ĐIỀU KIỆN` |
+| D5 | **Baseline 30 ngày đã được leader CHẤP NHẬN** | **`PASS`** — `MASTER_PLAN_30_DAYS.md` §14, 2026-09-10 |
+| D6 | Baseline chứa C1/C4/C6 như gate/dependency/uncertainty/decision point/recovery trigger (§B.1) | **`PASS`** — §7, 5/5 dạng cho cả ba |
+| D7 | Baseline **không** âm thầm đóng băng quyết định phụ thuộc bằng chứng (§B.1) | **`PASS`** — §8, 7 mục còn mở |
 
 ### D.2 Leader tuyên bố
 

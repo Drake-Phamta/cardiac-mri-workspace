@@ -115,18 +115,22 @@ open, and this record must not be read as declaring it.
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` — chờ leader |
+| A · Shared Core | **`PASS`** |
 | B · Git Workflow | **`PASS`** |
-| C · Project Pipeline | `NOT_CHECKED` — chờ leader |
+| C · Project Pipeline | **`PASS`** |
 | D · Own Vertical (V2 3D / Spatial Error) | **`PASS`** |
 | E · Own Technical Block (Imaging / Geometry / canonical 2D↔3D) | **`PASS`** |
 | F · Current Spike (**Spike B**) | **`PASS`** |
-| G · Evidence Workflow | `NOT_CHECKED` — chờ leader |
+| G · Evidence Workflow | **`PASS`** |
 | H · Blocker Escalation | **`PASS`** |
 | I · Repo Access | **`PASS`** |
-| J · Environment Ready | `NOT_CHECKED` — chờ leader |
-| **K · Overall Day-0 Status** | `NOT_CHECKED` |
+| J · Environment Ready | **`PASS`** |
+| **K · Overall Day-0 Status** | **`PASS`** |
 | L · Clarifications Required | PR #1 và #3 đều merge **không có `APPROVED`** nào, và **#3 được merge đè lên `CHANGES_REQUESTED` đang mở, bởi chính tác giả** — thay đổi được yêu cầu chưa thực hiện, nên `PRACTICE_VU_HUNG_ANH.md` trên `main` **vẫn thiếu dòng `Reviewer:`**. Không chặn Spike B; ghi là technical debt, đóng bằng một PR nhỏ. |
+
+**Cơ sở A · C · G · J** — **đánh giá của Team Leader**, dựa trên ba ngày làm việc cùng nhóm và
+các artifact người này đã tạo. **Đây KHÔNG phải một cửa kiểm có biên bản** như knowledge gate của
+chính leader ngày 2026-09-09. Ghi theo chỉ thị tường minh của leader ngày **2026-09-11**.
 
 **Cơ sở B · I** — bản ghi GitHub: mở **PR #3** (`chore/practice-hung-anh`, 1 file, +6/−6), được leader
 review (`CHANGES_REQUESTED` 09-09 22:37), và **đã review PR #1 của leader** (`CHANGES_REQUESTED`
@@ -142,18 +146,22 @@ linked interaction · Imaging/Geometry giữ hợp đồng canonical 2D↔3D · 
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` — chờ leader |
+| A · Shared Core | **`PASS`** |
 | B · Git Workflow | **`NEEDS_CLARIFICATION`** |
-| C · Project Pipeline | `NOT_CHECKED` — chờ leader |
+| C · Project Pipeline | **`PASS`** |
 | D · Own Vertical (V3 Experiment / Cohort) | **`PASS`** |
 | E · Own Technical Block (ML Training / Evaluation) | **`PASS`** |
 | F · Current Spike (**Spike D — P0**) | **`PASS`** |
-| G · Evidence Workflow | `NOT_CHECKED` — chờ leader |
+| G · Evidence Workflow | **`PASS`** |
 | H · Blocker Escalation | **`PASS`** |
 | I · Repo Access | **`PASS`** |
-| J · Environment Ready | `NOT_CHECKED` — chờ leader |
-| **K · Overall Day-0 Status** | `NOT_CHECKED` |
+| J · Environment Ready | **`PASS`** |
+| **K · Overall Day-0 Status** | **`PASS`** — có điều kiện, xem cột L |
 | L · Clarifications Required | **Nửa reviewer của bài drill còn thiếu.** Đã làm: mở **PR #4**, được **Nguyễn Gia Đức Trung `APPROVED`** (11-09 03:13), đã merged. **Chưa làm: review PR của ai.** Theo bảng phân cặp, Khánh review PR của Trung — nhưng Khánh vắng cả 10/09 và 11/09 nên **leader đã review PR #8 thay**. **Không chặn Spike D**; đóng khi Khánh review một PR thật của đồng đội. |
+
+**Cơ sở A · C · G · J** — **đánh giá của Team Leader**, dựa trên ba ngày làm việc cùng nhóm và
+các artifact người này đã tạo. **Đây KHÔNG phải một cửa kiểm có biên bản** như knowledge gate của
+chính leader ngày 2026-09-09. Ghi theo chỉ thị tường minh của leader ngày **2026-09-11**.
 
 **Cơ sở B · I** — bản ghi GitHub: mở **PR #4** (`chore/practice-quoc-khanh`, 1 file, +8/−8), được
 `TrungNGD195` **`APPROVED`** 2026-09-11 03:13, đã squash merge. Push và PR đều thật. `B` chưa `PASS` vì
@@ -168,12 +176,17 @@ tạo checkpoint và `RawPredictionMask` **bất biến** · Spike D với `GATE
 
 | Mục | Trạng thái |
 |---|---|
-| Hiểu **§Day-one ordering** và vì sao thứ tự quan trọng | `NOT_CHECKED` |
-| Nói đúng được **trigger DR-001** và thời điểm tính | `NOT_CHECKED` |
-| Hiểu rằng **không được tự chọn Path A/B** | `NOT_CHECKED` |
-| Hiểu **không bao giờ âm thầm thay dataset** | `NOT_CHECKED` |
-| Đủ dung lượng đĩa trống cho gói dataset | `NOT_CHECKED` |
-| Thư viện đọc NRRD đã cài, chạy thử được | `NOT_CHECKED` |
+| Hiểu **§Day-one ordering** và vì sao thứ tự quan trọng | **`PASS`** — đánh giá của leader |
+| Nói đúng được **trigger DR-001** và thời điểm tính | **`PASS`** — đánh giá của leader |
+| Hiểu rằng **không được tự chọn Path A/B** | **`PASS`** — đánh giá của leader |
+| Hiểu **không bao giờ âm thầm thay dataset** | **`PASS`** — đánh giá của leader |
+| Đủ dung lượng đĩa trống cho gói dataset | **`NOT_CHECKED`** — dữ kiện máy của Khánh, chưa ai xác nhận |
+| Thư viện đọc NRRD đã cài, chạy thử được | **`NOT_CHECKED`** — dữ kiện máy của Khánh, chưa ai xác nhận |
+
+> **Hai dòng cuối là dữ kiện phần cứng, không phải hiểu biết** — không ai ngoài Khánh xác nhận được, và
+> Project Control không suy đoán. Chúng nằm ở bảng phụ nên **không chặn cột K**, nhưng **chặn bước 1 của
+> Spike D trên thực tế**: không đủ đĩa thì không tải được gói, không có thư viện NRRD thì không mở được
+> volume. **Hạn: trước khi Khánh bắt đầu §Day-one bước 1.**
 
 ---
 
@@ -181,18 +194,22 @@ tạo checkpoint và `RawPredictionMask` **bất biến** · Spike D với `GATE
 
 | Cột | Trạng thái |
 |---|---|
-| A · Shared Core | `NOT_CHECKED` — chờ leader |
+| A · Shared Core | **`PASS`** |
 | B · Git Workflow | **`PASS`** |
-| C · Project Pipeline | `NOT_CHECKED` — chờ leader |
+| C · Project Pipeline | **`PASS`** |
 | D · Own Vertical (V4 Review / Findings) | **`PASS`** |
 | E · Own Technical Block (Backend / Persistence / Ingestion) | **`PASS`** |
 | F · Current Spike (**Spike E**) | **`PASS`** |
-| G · Evidence Workflow | `NOT_CHECKED` — chờ leader |
+| G · Evidence Workflow | **`PASS`** |
 | H · Blocker Escalation | **`PASS`** |
 | I · Repo Access | **`PASS`** |
-| J · Environment Ready | `NOT_CHECKED` — chờ leader |
-| **K · Overall Day-0 Status** | `NOT_CHECKED` |
+| J · Environment Ready | **`PASS`** |
+| **K · Overall Day-0 Status** | **`PASS`** |
 | L · Clarifications Required | Đề xuất **ZeroTier** thay Tailscale, leader duyệt — ghi thành **DR-003a**. Đường đi ban đầu sai: nhánh `docs/zerotier-canonical` sửa thẳng `SPIKE_PHASE_STATE.yaml` và `READINESS_REVIEW_RESOLUTION.md`, là central state và bản ghi quyết định mà **chỉ Project Control được ghi**. Nội dung đã nhận, đường đi thì không; nhánh đóng không merge. Không tính là lỗi Day-0, nhưng là luật phải nhớ từ Day 2. |
+
+**Cơ sở A · C · G · J** — **đánh giá của Team Leader**, dựa trên ba ngày làm việc cùng nhóm và
+các artifact người này đã tạo. **Đây KHÔNG phải một cửa kiểm có biên bản** như knowledge gate của
+chính leader ngày 2026-09-09. Ghi theo chỉ thị tường minh của leader ngày **2026-09-11**.
 
 **Cơ sở B · I** — bản ghi GitHub: mở **PR #8** (`chore/practice-trung-clean`, 1 file, +8/−8), được leader
 **`APPROVED`** 2026-09-11 04:34, đã squash merge; và **đã review PR #4 của Khánh** (`APPROVED` 03:13).
@@ -207,11 +224,16 @@ Ingestion · Spike E trên đường cellular + ZeroTier · escalation đúng `0
 
 | Mục | Trạng thái |
 |---|---|
-| Hiểu **LAN KHÔNG thoả bằng chứng nghiệm thu Spike E** | `NOT_CHECKED` |
-| Nói được **hai hợp đồng ingestion** khác nhau ở đâu | `NOT_CHECKED` |
-| Hiểu **scope firewall** trên fallback | `NOT_CHECKED` |
-| Mac mini bật được, truy cập được | `NOT_CHECKED` |
-| ZeroTier cài được trên cả máy tính và điện thoại | `NOT_CHECKED` |
+| Hiểu **LAN KHÔNG thoả bằng chứng nghiệm thu Spike E** | **`PASS`** — đánh giá của leader |
+| Nói được **hai hợp đồng ingestion** khác nhau ở đâu | **`PASS`** — đánh giá của leader |
+| Hiểu **scope firewall** trên fallback | **`PASS`** — đánh giá của leader |
+| Mac mini bật được, truy cập được | **`NOT_CHECKED`** — dữ kiện máy của Trung, chưa ai xác nhận |
+| ZeroTier cài được trên cả máy tính và điện thoại | **`NOT_CHECKED`** — chưa ai xác nhận |
+
+> **Hai dòng cuối là dữ kiện phần cứng.** Trung **đề xuất** ZeroTier và viết cẩm nang về nó, nên nhiều
+> khả năng đã cài — nhưng *nhiều khả năng* không phải bằng chứng, và Project Control không ghi suy đoán
+> thành sự thật. Không chặn cột K, nhưng **là cổng vào GATE 2 của Spike E**: chưa xác nhận stub tới được
+> và overlay đã lên thì **không nhận máy**. **Hạn: trước khi Trung nhận Galaxy A17.**
 
 ---
 
@@ -296,25 +318,32 @@ Integration/CI của Day 1** thuộc technical block của leader (`NFR-MAINT-00
 | Mục | Nội dung |
 |---|---|
 | **Ngày Day 0 thực tế** | 2026-09-09 |
-| **Giờ bắt đầu / kết thúc thực tế** | |
-| **Số người có mặt đủ ngày** | ___ / 4 |
-| **Shared Core `PASS`** | ___ / 4 |
-| **Workflow READY** | ___ / 4 |
-| **Hiểu nhiệm vụ cá nhân READY** | ___ / 4 |
-| **Repo / Environment READY** | ___ / 4 |
-| **Onboarding blocker còn mở** | ___ |
-| **Có blocker nào chặn việc bắt đầu Execution Day 1?** | ☐ Không ☐ Có → ghi chi tiết bên dưới |
+| **Giờ bắt đầu / kết thúc thực tế** | *không ghi lại vào thời điểm đó* |
+| **Số người có mặt đủ ngày** | *không ghi lại vào thời điểm đó* |
+| **Shared Core `PASS`** | **4 / 4** |
+| **Workflow READY** | **3 / 4** — Bế Quốc Khánh `NEEDS_CLARIFICATION` |
+| **Hiểu nhiệm vụ cá nhân READY** (D+E+F) | **4 / 4** |
+| **Repo / Environment READY** (I+J) | **4 / 4** |
+| **Onboarding blocker còn mở** | **0 chặn việc**; 4 mục phần cứng chưa xác nhận, ghi ở bảng phụ |
+| **Có blocker nào chặn việc bắt đầu Execution Day 1?** | ☒ **Không** ☐ Có |
 
 **Chi tiết blocker chặn Day 1 (nếu có):**
 
 ```
-(để trống nếu không có)
+Không có blocker chặn việc bắt đầu.
+
+Ba mục còn mở, đều KHÔNG chặn:
+  1. Bế Quốc Khánh chưa review PR của đồng đội (cột B). Đóng khi cậu ấy review một PR thật.
+  2. Bốn mục phần cứng chưa ai xác nhận — đĩa trống và thư viện NRRD của Khánh; Mac mini và
+     ZeroTier của Trung. Không chặn cutover, nhưng CHẶN bước đầu tiên của Spike D và cổng
+     GATE 2 của Spike E trên thực tế.
+  3. Vũ Hùng Anh: dòng Reviewer còn thiếu trên main — technical debt, một PR nhỏ.
 ```
 
 **Kết luận của leader về việc bắt đầu Execution Day 1 (2026-09-10):**
 
 ☐ **SẴN SÀNG** — chuyển sang [DAY1_READINESS_CHECKLIST.md](DAY1_READINESS_CHECKLIST.md)
-☐ **SẴN SÀNG CÓ ĐIỀU KIỆN** — cần làm rõ các mục ghi ở cột L, xử lý đầu Day 1
+☒ **SẴN SÀNG CÓ ĐIỀU KIỆN** — cần làm rõ các mục ghi ở cột L, xử lý đầu Day 1
 ☐ **CHƯA SẴN SÀNG** — nêu lý do và hành động khắc phục
 
 **Chữ ký / xác nhận:**
@@ -322,8 +351,15 @@ Integration/CI của Day 1** thuộc technical block của leader (`NFR-MAINT-00
 ```
 Phạm Tuấn Anh — Team Leader
 
-Chữ ký: ______________________     Ngày: 2026-09-09     Giờ: ________
+Ký:   ☒ ĐÃ KÝ          Ngày ký thực tế: 2026-09-11
 ```
+
+**Cách bản ký này được ghi — ghi đúng, không làm đẹp.** Day 0 diễn ra 2026-09-09 nhưng sign-off
+**không được ký trong ngày đó**; nó được hoàn tất **hai ngày sau**, vào 2026-09-11, sau khi bài drill
+Git đóng xong. Project Control ghi theo **chỉ thị tường minh của leader**; các ô A·C·G·J của ba thành
+viên dựa trên **đánh giá của leader**, không phải một cửa kiểm có biên bản.
+
+Leader có thể đảo ngược bất cứ lúc nào bằng cách đổi ô và ghi lý do.
 
 ---
 
