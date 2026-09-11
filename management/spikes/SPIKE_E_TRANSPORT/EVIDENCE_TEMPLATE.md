@@ -26,11 +26,13 @@
 
 | Field | Value |
 |---|---|
-| Owner who executed | [RECORD] |
+| **Device operator** — who physically ran it | [RECORD] · DR-006a |
+| **Owner** — who designed the measurement and interprets it | [RECORD] · must be Nguyễn Gia Đức Trung |
+| If operator ≠ owner: has the owner reproduced ≥1 run? | [RECORD] yes/no · **required before ACCEPTED** (DR-006a constraint c) |
 | Date(s) executed | [RECORD] |
 | Actual start (matches `started_at` in state file) | [RECORD] |
 | Repository commit tested | [RECORD] |
-| Reviewer | Phạm Tuấn Anh |
+| Reviewer | **[RECORD]** — **NOT Phạm Tuấn Anh** if he operated the device (DR-006a constraint a). Proposed: Vũ Hùng Anh |
 | Reviewer verdict | [RECORD] `APPROVE` / `NEEDS_FIX` / `BLOCKED_DECISION_REQUIRED` |
 | QA / Red-Team challenge (CHAT E) performed | [RECORD] yes/no + outcome |
 

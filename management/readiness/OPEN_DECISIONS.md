@@ -1213,6 +1213,95 @@ BEFORE REPORT
   DR-014  uncertainty reporting     →  final report
 ```
 
+### DR-006a — The demo device stays with its owner; measurement access becomes a session, not a handover
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-006 ✅ — declared target demo device · and the custody model in `WIP-CONFLICT-02` |
+| **Proposed by** | Project Control, 2026-09-11 |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-12 |
+| **Status** | ✅ **APPROVED** |
+
+**What DR-006 says.** It declares the device — *"Target physical demo device: **Samsung Galaxy A17
+5G**"* — and requires the hardware profile to be captured from the actual device. **It says nothing
+about who owns, holds, or operates that device.** The custody model lives in `WIP-CONFLICT-02`:
+one authorised unit, serialized measurement windows, handed over at each gate.
+
+**What actually happened.** The Galaxy A17 5G is **Phạm Tuấn Anh's personal property**, and on
+2026-09-11 he stated it does not leave his possession. The repository had already recorded him as
+*"Chủ sở hữu thiết bị"* and noted the device was authorised on *"máy tính của chính anh"*. The
+"one holder, handed over at each gate" model cannot be executed against a device the project does
+not own, and no governance document anywhere addresses that contingency — the gap is real, not an
+oversight being papered over here.
+
+**The amendment.**
+
+1. **The device stays with its owner. There is no handover.** The gate sequence `A → E → B` survives
+   unchanged as a serialization of **measurement windows**, not of physical custody.
+2. **A new distinction the repository did not previously have — `operator` ≠ `owner`:**
+   - **operator** — the person physically holding the device and running the commands
+   - **owner** — the person accountable for the criteria, the measurement design, the
+     interpretation and the recommendation
+3. **For Spike E:** operator = Phạm Tuấn Anh · owner = Nguyễn Gia Đức Trung. This **overrides** three
+   sentences that say otherwise, and overrides them in the open rather than by quiet editing:
+   - `SPIKE_E_TRANSPORT/TASK.md` — *"All network measurements over the real cellular + overlay path —
+     **executed by Nguyễn Gia Đức Trung**."*
+   - same file — *"**All network and device measurements are executed by Nguyễn Gia Đức Trung** over
+     the real cellular + overlay path."*
+   - `SPIKE_A_2D/DR006_DEVICE_PROFILE.md` §10 — *"mọi phép đo hiệu năng — … `E8` phân bố latency —
+     **vẫn do chủ sở hữu tự chạy trên máy thật**."* *(recorded 2026-09-11 on the leader's own
+     instruction; superseded here by the same authority)*
+
+**Four constraints. Without them this amendment manufactures evidence, and it is void.**
+
+| # | Constraint | Why |
+|---|---|---|
+| **a** | **The leader withdraws as Spike E Secondary Reviewer.** Proposed replacement: Vũ Hùng Anh | The four-step workflow rests on the person who produced the evidence not being the person who reviews it. Operating the device *and* reviewing the numbers is self-approval with two names on it |
+| **b** | **`E10`, `E11` and `E13` are written by Nguyễn Gia Đức Trung** — the proposed budget, the minimum fallback artifact set, and the strategy recommendation | `00` §14 requires every member to defend a function *"they personally analyzed, designed, and implemented"*. These three criteria are that part |
+| **c** | **Trung personally reproduces at least one run** before Spike E can reach `ACCEPTED` | `14` §6 — *"A block is not considered healthy if only one person can explain/run/debug it"* |
+| **d** | **Ownership does not move.** Trung remains Primary Owner of Spike E | `OPEN_DECISIONS.md` Ownership governance: *"Pairing … preserves ownership; transferring … destroys it"*, and the anti-bottleneck rule names him explicitly |
+
+**What does NOT change.**
+
+| Unchanged |
+|---|
+| The device is still the **Samsung Galaxy A17 5G**, physical, never an emulator |
+| Measurement windows still **do not overlap** · order still **`A → E → B`** |
+| **`E1` stands** — acceptance evidence over real cellular + overlay; LAN runs are diagnostic only |
+| **`E12` stands** — direct-vs-relayed recorded for every measurement |
+| The acceptance topology stays binding: `Galaxy A17 → real cellular → ZeroTier → remote Mac mini M2` |
+| Every non-fabrication rule. An operator may press buttons; nobody may invent a number |
+| The **evidence record names both people** — see the template change below |
+
+**Recorded cost, stated plainly rather than buried.** This is a weaker arrangement for `00` §14 and
+`16` §6 than Trung running his own measurements. The defense chain for a member runs
+`… → commits/PR → tests → …`, and an operator's hands on the device is a step that does not appear
+in that chain. The amendment is approved with that cost visible, not in spite of it.
+
+**Trung keeps the right to reverse this.** His `TASK.md` was amended while he was absent — the same
+routing problem DR-003a refused for a different change. He may propose returning to
+self-operation at any time, and that proposal does not need a new decision from the leader; it only
+needs him to say so.
+
+**Preferred alternative, now more available than it was.** On 2026-09-12 00:20 the Mac mini was
+verified reachable on the ZeroTier overlay from the leader's machine
+(`management/day03/overlay_reachability_20260912.md`). With the backend side already up, the
+remaining device work is short — installing ZeroTier on the phone and running the harness. **A
+scheduled session in which Trung operates the device himself, with the leader present, satisfies
+every criterion without invoking this amendment at all.** Where that session is possible, take it;
+this amendment exists for when it is not.
+
+**Why this is not a frozen-spec change.** `docs/specs/v1.0/**` contains no rule about who may operate
+a device. `14` §5, §6, `15` §9, §11 and `00` §13 were all checked. **Spec checksums remain 19/19 OK
+and no spec file is touched.** What changes is an acceptance-contract sentence inside a `TASK.md`,
+which `00` §13 routes through exactly this kind of recorded decision.
+
+**Binding consequence.** Evidence templates for Spike E gain two fields — `Device operator` and
+`Owner who designed and interpreted` — and a `RESULT.md` that leaves either blank is incomplete.
+An evidence file whose operator field names someone who did not touch the device is a false record,
+and this amendment does not authorise one.
+
 ---
 
 **Related documents:** `IMPLEMENTATION_READINESS_AUDIT.md` · `TECHNICAL_SPIKES_REQUIRED.md` ·

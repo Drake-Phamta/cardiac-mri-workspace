@@ -166,8 +166,18 @@ từ thông số công bố của nhà sản xuất, và KHÔNG có giá trị n
 
 Trường không đọc được đã ghi NOT MEASURED kèm lý do — có 3 trường như vậy.
 
-Xác nhận:  ☐ ĐÃ ĐỌC VÀ ĐỒNG Ý     Ngày: ______________     Giờ: ________
+Xác nhận:  ☑ ĐÃ ĐỌC VÀ ĐỒNG Ý     Ngày: 2026-09-12     Giờ: 00:25 +07:00
 ```
+
+> **Đường ký — ghi đúng như nó đã xảy ra.**
+>
+> Phạm Tuấn Anh xác nhận **bằng lời trong chat với Project Control**, và Project Control tick ô này
+> **theo chỉ đạo của anh**. Đây là **lời xác nhận của chủ sở hữu thiết bị**, không phải chữ ký điện tử
+> và không phải một hành động anh tự tay gõ vào file.
+>
+> Ghi như vậy theo đúng tiền lệ PR #5 (`day01/DAY01_STATUS.md`): một hành động do người khác thực
+> hiện được ghi **dưới tên người thực sự làm**, kèm mô tả trung thực việc người vắng mặt đã làm gì.
+> Ở đây leader có mặt và đã đọc; Project Control chỉ là người gõ.
 
 ---
 
@@ -178,9 +188,19 @@ Thiết bị do **Phạm Tuấn Anh** cắm và authorize trên máy tính của
 máy đó, theo yêu cầu của leader, và **toàn bộ output là dữ liệu thật trả về từ thiết bị** — không có giá
 trị nào do Project Control sinh ra.
 
-Ranh giới giữ nguyên: **mọi phép đo hiệu năng — `A9` p95 slice-switch, `A10` brush latency, `B10` FPS,
-`B11` stall, `E8` phân bố latency — vẫn do chủ sở hữu tự chạy trên máy thật.** Mục này chỉ là thuộc tính
-tĩnh của thiết bị.
+~~Ranh giới giữ nguyên: **mọi phép đo hiệu năng — `A9` p95 slice-switch, `A10` brush latency, `B10`
+FPS, `B11` stall, `E8` phân bố latency — vẫn do chủ sở hữu tự chạy trên máy thật.**~~
+
+> **Câu trên bị DR-006a đè, ngày 2026-09-12.** Giữ lại nguyên văn, gạch ngang, không xoá — nó là một
+> cam kết có thật đã được ghi ngày 2026-09-11 theo chỉ đạo của chính leader, và bị thay bởi cùng thẩm
+> quyền đó.
+>
+> Thay bằng: **operator** (người cầm máy bấm) và **owner** (người chịu trách nhiệm tiêu chí và diễn
+> giải) là hai vai tách rời, và **bản ghi bằng chứng phải nêu cả hai**. Xem
+> [`../../readiness/OPEN_DECISIONS.md`](../../readiness/OPEN_DECISIONS.md) DR-006a, kèm bốn ràng buộc
+> mà thiếu chúng thì tu chính vô hiệu.
+
+Mục này chỉ là thuộc tính tĩnh của thiết bị.
 
 ```bash
 export PATH="$PATH:$LOCALAPPDATA/Android/Sdk/platform-tools"

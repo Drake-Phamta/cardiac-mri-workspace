@@ -227,13 +227,34 @@ Ingestion · Spike E trên đường cellular + ZeroTier · escalation đúng `0
 | Hiểu **LAN KHÔNG thoả bằng chứng nghiệm thu Spike E** | **`PASS`** — đánh giá của leader |
 | Nói được **hai hợp đồng ingestion** khác nhau ở đâu | **`PASS`** — đánh giá của leader |
 | Hiểu **scope firewall** trên fallback | **`PASS`** — đánh giá của leader |
-| Mac mini bật được, truy cập được | **`NOT_CHECKED`** — dữ kiện máy của Trung, chưa ai xác nhận |
-| ZeroTier cài được trên cả máy tính và điện thoại | **`NOT_CHECKED`** — chưa ai xác nhận |
+| Mac mini bật được, truy cập được | **`VERIFIED`** 2026-09-12 00:20 — **quan sát được**, không phải lời khai. Xem ghi chú dưới |
+| ZeroTier cài trên **máy tính** | **`VERIFIED`** 2026-09-12 00:20 — overlay `3b19b3a71652c5f0` đang chạy |
+| ZeroTier cài trên **điện thoại** | **`NOT_CHECKED`** — không quan sát được từ máy tính |
 
-> **Hai dòng cuối là dữ kiện phần cứng.** Trung **đề xuất** ZeroTier và viết cẩm nang về nó, nên nhiều
-> khả năng đã cài — nhưng *nhiều khả năng* không phải bằng chứng, và Project Control không ghi suy đoán
-> thành sự thật. Không chặn cột K, nhưng **là cổng vào GATE 2 của Spike E**: chưa xác nhận stub tới được
-> và overlay đã lên thì **không nhận máy**. **Hạn: trước khi Trung nhận Galaxy A17.**
+> ### Cập nhật 2026-09-12 — hai ô đầu đã đóng, và ai đóng chúng
+>
+> Leader báo đã kết nối ZeroTier cho Mac mini. Project Control **kiểm chứng thay vì chép lại**, và
+> kết quả có bằng chứng quan sát được:
+>
+> ```text
+> 10.134.129.115   TTL 64   ping 20/20, mất 0 gói, p50 38 ms
+> cổng mở: 22 (SSH) · 3283 (Apple Remote Desktop) · 5900 (Screen Sharing) · 5000 (AirPlay)
+> ```
+>
+> Ba cổng `3283` `5900` `5000` cùng mở là chữ ký macOS. Chi tiết đầy đủ và lệnh tái lập:
+> [`../day03/overlay_reachability_20260912.md`](../day03/overlay_reachability_20260912.md).
+>
+> **Người xác nhận là Phạm Tuấn Anh, không phải Nguyễn Gia Đức Trung.** Hai ô này nằm trong bảng của
+> Trung vì Mac mini được ghi là máy của cậu ấy. Việc leader truy cập được nó là **một dữ kiện mới mà
+> bản sign-off gốc chưa lường tới**, và bản ghi nói đúng điều đó thay vì gán công cho người không có mặt.
+>
+> **`GATE 2` VẪN CHƯA MỞ.** Cổng vào là *"backend stub **tới được** VÀ overlay đã lên"*. Overlay lên
+> rồi; **stub chưa chạy** — cổng `8787` đóng. Và ô thứ ba, ZeroTier trên điện thoại, vẫn trống.
+>
+> Ba dòng trên **không** là bằng chứng nghiệm thu Spike E. Đường vừa chứng minh là
+> *máy tính → Wi-Fi → overlay → Mac mini*. Topology nghiệm thu đòi
+> *Galaxy A17 → **cellular thật** → overlay → Mac mini*, và `TASK.md:197` bác thẳng bằng chứng đo sai
+> đường.
 
 ---
 

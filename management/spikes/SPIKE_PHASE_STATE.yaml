@@ -466,17 +466,23 @@ wip_compliance:
         work that need no device to fill the wait, while SPIKE_E gates on the phone reaching the
         backend at all. This YAML was not updated at the cutover commit as DAY01_RUNBOOK.md line 128
         required; that omission is corrected here on 2026-09-11.
-      open_amendment_required:
-        issue: >
-          The Galaxy A17 5G is the personal property of Pham Tuan Anh and he has declared that it does
-          not leave his possession. The "one device, one holder, handed over at each gate" model this
-          conflict was resolved with therefore cannot be executed as written.
-        status: NOT_YET_AMENDED
-        blocking_now: false
-        why_not_blocking: >
-          GATE 2 is not open regardless: Nguyen Gia Duc Trung's Mac mini and ZeroTier are both
-          NOT_CHECKED, and those are the gate entry conditions. Nobody is waiting on the phone today.
-        must_be_resolved_before: "Nguyen Gia Duc Trung satisfies the GATE 2 entry conditions"
+      custody_amendment:
+        status: RESOLVED_BY_DR_006A
+        resolved_at: "2026-09-12"
+        record: management/readiness/OPEN_DECISIONS.md  # Part 2b, DR-006a
+        summary: >
+          The Galaxy A17 5G is Pham Tuan Anh's personal property and does not change hands. The
+          "one holder, handed over at each gate" model is replaced: slots remain a serialization of
+          MEASUREMENT WINDOWS, and operator (who holds the device) is separated from owner (who is
+          accountable for the criteria and the interpretation). Both are recorded in the evidence.
+        constraints_that_make_it_valid:
+          - "Pham Tuan Anh withdraws as SPIKE_E Secondary Reviewer where he operated the device"
+          - "E10, E11 and E13 are written by Nguyen Gia Duc Trung"
+          - "Trung personally reproduces at least one run before SPIKE_E can be ACCEPTED"
+          - "Ownership does not move - Trung remains SPIKE_E Primary Owner"
+        preferred_alternative: >
+          A scheduled session in which the spike owner operates the device himself satisfies every
+          criterion without invoking DR-006a. Take it where possible."
       see: device_measurement_queue
 
 review_serialization:
@@ -484,7 +490,7 @@ review_serialization:
   ownership_change_permitted: false     # do not reassign reviewers to dodge scheduling
   reviewers:
     "Vu Hung Anh":
-      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1]
+      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1, SPIKE_E]   # SPIKE_E added 2026-09-12, DR-006a (a)
       default_priority: [SPIKE_D, SPIKE_A]
       rationale: "SPIKE_D before SPIKE_A because SPIKE_D is P0."
       pre_emption_rule: >
@@ -493,7 +499,9 @@ review_serialization:
       currently_reviewing: null
       queued: []
     "Pham Tuan Anh":
-      reviews: [SPIKE_B, SPIKE_E, SPIKE_F]
+      reviews: [SPIKE_B, SPIKE_F]        # SPIKE_E removed 2026-09-12 - DR-006a constraint (a):
+                                         # he operates the device for SPIKE_E, so he must not also
+                                         # review the evidence he produced.
       default_priority: [SPIKE_B, SPIKE_E]
       rationale: >
         SPIKE_B before SPIKE_E because SPIKE_B is P1 and feeds GATE-MOB-01 and DR-008c directly, while
@@ -519,6 +527,7 @@ device_measurement_queue:
     - slot: 2
       spike: SPIKE_E
       owner: "Nguyen Gia Duc Trung"
+      operator: "Pham Tuan Anh (device owner) - DR-006a; prefer a session where the owner operates"
       status: NOT_STARTED
       measurements: ["time to first usable slice cold open", "uncached slice latency",
                      "continuous navigation with prefetch", "mask/mesh transport", "device memory",
@@ -542,8 +551,14 @@ device_measurement_queue:
     day01/DAY01_CUTOVER_RECORD.md section 4.3.
   custody_note: >
     The device is Pham Tuan Anh's personal property and is not handed over. Slots remain a
-    serialisation of MEASUREMENT WINDOWS; how a non-owner reaches the device is an open amendment
-    recorded under WIP-CONFLICT-02. Not blocking while GATE 2 entry conditions are unmet.
+    serialisation of MEASUREMENT WINDOWS. Operator and owner are separate roles under DR-006a
+    (2026-09-12) and both are recorded in every evidence file.
+  gate_2_status:
+    overlay_up: true              # verified 2026-09-12 00:20, see management/day03/overlay_reachability_20260912.md
+    mac_mini_reachable: true      # 10.134.129.115, ping 20/20, macOS port signature 22/3283/5900/5000
+    zerotier_on_phone: false      # NOT CHECKED - not observable from the computer
+    stub_running: false           # port 8787 closed
+    gate_open: false              # entry needs the stub REACHABLE, not just the overlay up
   note: >
     SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and
     therefore does not add contention in this wave.
