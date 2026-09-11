@@ -87,7 +87,7 @@ members:
     vertical: "V1 Case Explorer / 2D MRI"
     technical_block: "Integration / CI / cross-contract"
     primary_spike: SPIKE_A
-    reviews: [SPIKE_B, SPIKE_E]
+    reviews: [SPIKE_B]              # SPIKE_E removed 2026-09-12, DR-006a (a) - he operates that device
     day0_signoff_columns_pass: 9    # of 11; B and K remain NOT_CHECKED
     day0_practice_pr: 1
     day0_practice_pr_merged: true
