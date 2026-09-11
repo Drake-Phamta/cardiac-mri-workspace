@@ -35,6 +35,26 @@ truy vết qua **`commits/PR` mang tên người đó**. Không ai làm hộ ph�
 
 ---
 
+> ### ⚠ Dụng cụ đang nằm trên nhánh PR, chưa lên `main`
+>
+> Lệnh dưới đây chỉ chạy được sau khi bạn lấy nhánh về. Hai đường, chọn một:
+>
+> ```bash
+> # A · vua review vua dung — khuyen nghi
+> git fetch origin && git switch tools/spike-d-validation
+> # ...review, approve PR #14, roi merge. Sau do tool nam tren main.
+>
+> # B · can chay ngay, review sau
+> git fetch origin && git switch tools/spike-d-validation
+> # lam viec trên nhánh nay, review PR trong ngay
+> ```
+>
+> **Đừng commit kết quả audit vào nhánh `tools/spike-d-validation`** — nhánh đó là dụng cụ và bạn là
+> người review nó. Audit của bạn đi trên nhánh riêng (`spike/SPIKE_D`), reviewer là **Vũ Hùng Anh**
+> theo ma trận.
+
+---
+
 ## PHẦN I — `NOW`, làm trước mọi thứ khác
 
 ### ① Xác nhận hai ô phần cứng của **máy bạn** — 5 phút

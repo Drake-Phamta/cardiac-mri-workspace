@@ -30,6 +30,17 @@ Nên trong repo hiện **không có một con số transport nào**. Chúng là 
 
 ---
 
+> ### ⚠ Dụng cụ đang nằm trên nhánh PR, chưa lên `main`
+>
+> ```bash
+> git fetch origin && git switch spike-e/stub-and-harness
+> ```
+>
+> Review PR #16 rồi merge thì nó lên `main`. Cần chạy ngay thì cứ làm trên nhánh đó.
+> **Bằng chứng đo của bạn đi trên nhánh riêng**, không trộn vào nhánh dụng cụ.
+
+---
+
 ## PHẦN I — `NOW` · đóng hai ô phần cứng
 
 ### ① Mac mini

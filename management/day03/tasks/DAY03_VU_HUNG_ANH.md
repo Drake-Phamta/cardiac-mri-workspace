@@ -27,6 +27,14 @@ trên PR #1 — nên lần này tôi để nguyên đường của bạn.)*
 
 ---
 
+> ### ⚠ Dụng cụ đang nằm trên nhánh PR, chưa lên `main`
+>
+> ```bash
+> git fetch origin && git switch spike-b/harness-and-fixture-proposal
+> ```
+
+---
+
 ## PHẦN I — `NOW` · bộ geometry fixture
 
 ### ① Đọc bản đề xuất — 15 phút
