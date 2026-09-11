@@ -79,3 +79,9 @@ desktop.ini
 .vscode/
 *.swp
 *~
+
+# --- SPIKE MESH ARTIFACTS -------------------------------------------------
+# DAY01_VU_HUNG_ANH.md: large mesh artifacts stay out of git; record the
+# checksum and the command that regenerates them instead. The JSON summaries
+# next to them ARE tracked - they are the diagnostic record.
+spikes/**/mesh/out/*.obj
