@@ -457,59 +457,16 @@ wip_compliance:
       resolution: >
         The project has EXACTLY ONE authorised physical Samsung Galaxy A17 5G. Harness/code preparation for
         SPIKE_A, SPIKE_B and SPIKE_E may proceed in parallel, but their physical-device MEASUREMENT windows
-        may not overlap. Reserved measurement order: SPIKE_A, then SPIKE_E, then SPIKE_B. This ordering
+        may not overlap. Reserved measurement order: SPIKE_A, then SPIKE_B, then SPIKE_E. This ordering
         applies to measurement access only, not to all implementation work.
-      amended_at: "2026-09-11"
-      amendment: >
-        Order changed from A -> B -> E to A -> E -> B. Recorded in day01/DAY01_RUNBOOK.md section 4.3
-        and binding from day01/DAY01_CUTOVER_RECORD.md section 4.3. Reason: SPIKE_B has many hours of
-        work that need no device to fill the wait, while SPIKE_E gates on the phone reaching the
-        backend at all. This YAML was not updated at the cutover commit as DAY01_RUNBOOK.md line 128
-        required; that omission is corrected here on 2026-09-11.
-      custody_amendment:
-        status: RESOLVED_BY_DR_006A
-        resolved_at: "2026-09-12"
-        record: management/readiness/OPEN_DECISIONS.md  # Part 2b, DR-006a
-        summary: >
-          The Galaxy A17 5G is Pham Tuan Anh's personal property and does not change hands. The
-          "one holder, handed over at each gate" model is replaced: slots remain a serialization of
-          MEASUREMENT WINDOWS, and operator (who holds the device) is separated from owner (who is
-          accountable for the criteria and the interpretation). Both are recorded in the evidence.
-        constraints_that_make_it_valid:
-          - "Pham Tuan Anh withdraws as SPIKE_E Secondary Reviewer where he operated the device"
-          - "E10, E11 and E13 are written by Nguyen Gia Duc Trung"
-          - "Trung personally reproduces at least one run before SPIKE_E can be ACCEPTED"
-          - "Ownership does not move - Trung remains SPIKE_E Primary Owner"
-        preferred_alternative: >
-          A scheduled session in which the spike owner operates the device himself satisfies every
-          criterion without invoking DR-006a. Take it where possible."
       see: device_measurement_queue
 
 review_serialization:
   rule: "A member may have at most ONE review in REVIEWING state at a time. A second assignment stays QUEUED_FOR_REVIEW."
   ownership_change_permitted: false     # do not reassign reviewers to dodge scheduling
-  # That prohibition is about SCHEDULING, in those words: SPIKE_PHASE_PLAN.md says "Reviewer
-  # ownership must not be changed merely to eliminate the scheduling conflict." It is not a
-  # prohibition on removing a reviewer who can no longer be independent.
-  reassignments:
-    - date: "2026-09-12"
-      spike: SPIKE_E
-      from: "Pham Tuan Anh"
-      to: "Vu Hung Anh"
-      reason: "CONFLICT OF INTEREST, not scheduling"
-      basis: >
-        DR-006a makes Pham Tuan Anh the device OPERATOR for SPIKE_E. Producing the measurements and
-        then reviewing them is self-approval under two role names, and step 2 of the acceptance
-        workflow carries information only if the reviewer did not produce the evidence.
-      cost_recorded: >
-        This puts Vu Hung Anh on FIVE review assignments (D, A, C0, C1, E) while he also owns
-        SPIKE_B and SPIKE_F. WIP-CONFLICT-01 caps him at one REVIEWING slot, so the queue lengthens
-        rather than the work disappearing. If SPIKE_D and SPIKE_E become EVIDENCE_READY the same
-        day, SPIKE_D wins on P0 and SPIKE_E waits. A deliberate trade of throughput for
-        independence; the leader should watch it.
   reviewers:
     "Vu Hung Anh":
-      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1, SPIKE_E]   # SPIKE_E added 2026-09-12, DR-006a (a)
+      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1]
       default_priority: [SPIKE_D, SPIKE_A]
       rationale: "SPIKE_D before SPIKE_A because SPIKE_D is P0."
       pre_emption_rule: >
@@ -518,9 +475,7 @@ review_serialization:
       currently_reviewing: null
       queued: []
     "Pham Tuan Anh":
-      reviews: [SPIKE_B, SPIKE_F]        # SPIKE_E removed 2026-09-12 - DR-006a constraint (a):
-                                         # he operates the device for SPIKE_E, so he must not also
-                                         # review the evidence he produced.
+      reviews: [SPIKE_B, SPIKE_E, SPIKE_F]
       default_priority: [SPIKE_B, SPIKE_E]
       rationale: >
         SPIKE_B before SPIKE_E because SPIKE_B is P1 and feeds GATE-MOB-01 and DR-008c directly, while
@@ -544,40 +499,22 @@ device_measurement_queue:
       measurements: ["cached slice-switch p95 (NFR-PERF-001)", "brush feedback latency (NFR-PERF-003)",
                      "stroke-loss count", "gesture separation", "brush accuracy after zoom/pan"]
     - slot: 2
-      spike: SPIKE_E
-      owner: "Nguyen Gia Duc Trung"
-      operator: "Pham Tuan Anh (device owner) - DR-006a; prefer a session where the owner operates"
-      status: NOT_STARTED
-      measurements: ["time to first usable slice cold open", "uncached slice latency",
-                     "continuous navigation with prefetch", "mask/mesh transport", "device memory",
-                     "latency spread under cellular variation", "reconnect/retry"]
-      parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A holds the phone"
-      acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB"
-      lan_results: "diagnostic only - never acceptance evidence"
-      entry_gate: "backend stub reachable AND overlay up - BOTH still NOT_CHECKED as of 2026-09-11"
-      tooling_ready: "spikes/spike_e_transport - stub, client harness, retry harness, aggregation (PR #16)"
-    - slot: 3
       spike: SPIKE_B
       owner: "Vu Hung Anh"
       status: NOT_STARTED
       measurements: ["median FPS + stalls (NFR-PERF-002)", "picking error interior vs surface-tangent",
                      "decimation frontier across >=3 levels", "device memory"]
-      parallel_before_slot: "harness and canonical geometry fixture work proceeds while SPIKE_A or SPIKE_E holds the phone"
-      entry_gate: ">=3 decimation levels built AND picking harness running on desktop"
-      tooling_ready: "spikes/spike_b_3d - 4 decimation levels and a picking-error harness already run (PR #15)"
-  order_note: >
-    Amended 2026-09-11 to A -> E -> B. See wip_conflicts WIP-CONFLICT-02 amendment and
-    day01/DAY01_CUTOVER_RECORD.md section 4.3.
-  custody_note: >
-    The device is Pham Tuan Anh's personal property and is not handed over. Slots remain a
-    serialisation of MEASUREMENT WINDOWS. Operator and owner are separate roles under DR-006a
-    (2026-09-12) and both are recorded in every evidence file.
-  gate_2_status:
-    overlay_up: true              # verified 2026-09-12 00:20, see management/day03/overlay_reachability_20260912.md
-    mac_mini_reachable: true      # 10.134.129.115, ping 20/20, macOS port signature 22/3283/5900/5000
-    zerotier_on_phone: false      # NOT CHECKED - not observable from the computer
-    stub_running: false           # port 8787 closed
-    gate_open: false              # entry needs the stub REACHABLE, not just the overlay up
+      parallel_before_slot: "harness and canonical geometry fixture work proceeds while SPIKE_A is prepared or measured"
+    - slot: 3
+      spike: SPIKE_E
+      owner: "Nguyen Gia Duc Trung"
+      status: NOT_STARTED
+      measurements: ["time to first usable slice cold open", "uncached slice latency",
+                     "continuous navigation with prefetch", "mask/mesh transport", "device memory",
+                     "latency spread under cellular variation", "reconnect/retry"]
+      parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A/B hold the phone"
+      acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB"
+      lan_results: "diagnostic only - never acceptance evidence"
   note: >
     SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and
     therefore does not add contention in this wave.

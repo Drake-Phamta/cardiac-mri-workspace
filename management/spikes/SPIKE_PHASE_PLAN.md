@@ -145,18 +145,8 @@ Each member holds exactly **one** intended primary spike. The directive's explic
 
 | Reviewer | Reviews | Default priority | Rationale |
 |---|---|---|---|
-| **Vũ Hùng Anh** | Spike D, Spike A, **Spike E** *(plus C0/C1 later)* | **Spike D → Spike A → Spike E** | Spike D is **P0** |
-| **Phạm Tuấn Anh** | Spike B *(plus F later)* | **Spike B** | Spike B is **P1** and feeds `GATE-MOB-01` and DR-008c directly |
-
-> **Amended 2026-09-12 — Spike E moved from Phạm Tuấn Anh to Vũ Hùng Anh.** Not a scheduling change.
-> DR-006a makes the leader the device **operator** for Spike E, and someone who produced the
-> measurements cannot also be the independent reviewer of them. See `OPEN_DECISIONS.md` DR-006a
-> constraint (a) and the `reassignments` block in `SPIKE_PHASE_STATE.yaml`.
->
-> ⚠ **Cost, recorded rather than hidden:** Vũ Hùng Anh now holds **five** review assignments while
-> owning Spike B and Spike F. `WIP-CONFLICT-01` caps him at one `REVIEWING` slot, so the queue gets
-> longer — the work does not vanish. If Spike D and Spike E are ready the same day, **Spike D wins on
-> P0** and Spike E waits. This is a deliberate trade of throughput for independence.
+| **Vũ Hùng Anh** | Spike D, Spike A *(plus C0/C1 later)* | **Spike D → Spike A** | Spike D is **P0** |
+| **Phạm Tuấn Anh** | Spike B, Spike E *(plus F later)* | **Spike B → Spike E** | Spike B is **P1** and feeds `GATE-MOB-01` and DR-008c directly; Spike E is **P2** |
 
 **Pre-emption rule — both reviewers.** If the lower-priority spike becomes `EVIDENCE_READY` while the
 higher-priority one is not ready, the reviewer **may** review the lower one. **But once the
