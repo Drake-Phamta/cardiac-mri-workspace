@@ -11,12 +11,16 @@
 ## PHA HIỆN TẠI
 
 ```
-PHASE A — ĐÓNG NỢ DAY 0 / CHUẨN BỊ
-READY: NO
-Execution Day 1: 2026-09-10 (leader đã chốt NGÀY) — nhưng CHƯA TUYÊN BỐ
-Cutover: CHƯA XẢY RA          (DAY01_CUTOVER_RECORD.md chưa tồn tại)
-Đồng hồ DR-001: CHƯA CHẠY
+PHASE B — EXECUTION            ĐANG CHẠY
+READY: YES (có điều kiện)
+Cutover: 2026-09-11 12:00 +07:00   -> day01/DAY01_CUTOVER_RECORD.md
+Hôm nay: DAY 2                 Day 30 = 2026-10-09 (KHÔNG lùi)
+Đồng hồ DR-001: ĐANG CHẠY      trigger đánh giá CUỐI HÔM NAY (DR-001a)
+Buffer: 1 / 2 ngày             Day 1 trượt, ăn vào buffer
 ```
+
+> ⚠ **Buffer còn một ngày cho 29 ngày còn lại.** Mất thêm một ngày là buffer bằng 0 và `15` §18
+> recovery trigger 2 kích hoạt.
 
 **Leader đã chốt ngày:** `Execution Day 1 = 2026-09-10`, `Day 30 = 2026-10-09`. Ngày đã chốt **không
 đồng nghĩa** với đã tuyên bố — đồng hồ DR-001 chỉ chạy từ lúc leader tuyên bố và
@@ -152,23 +156,25 @@ rõ cả ba PR đều merge không qua approval.
 
 | Spike | Chủ sở hữu | Trạng thái | `started_at` | Ghi chú |
 |---|---|---|---|---|
-| **SPIKE_D** | Bế Quốc Khánh | `PREPARED` | `null` | **P0**, critical path `D → C1/C6 → SPIKE_C1 → GATE-ML-01` |
-| **SPIKE_A** | Phạm Tuấn Anh | `PREPARED` | `null` | Nạp `GATE-MOB-01` cùng B |
-| **SPIKE_B** | Vũ Hùng Anh | `PREPARED` | `null` | Nạp `GATE-MOB-01` + DR-008c |
-| **SPIKE_E** | Nguyễn Gia Đức Trung | `PREPARED` | `null` | Nạp `ADR-ART-001` |
+| **SPIKE_D** | Bế Quốc Khánh | **`ACTIVE`** | `2026-09-11T12:00+07:00` | **P0**, critical path `D → C1/C6 → SPIKE_C1 → GATE-ML-01` |
+| **SPIKE_A** | Phạm Tuấn Anh | **`ACTIVE`** | `2026-09-11T12:00+07:00` | Nạp `GATE-MOB-01` cùng B |
+| **SPIKE_B** | Vũ Hùng Anh | **`ACTIVE`** | `2026-09-11T12:00+07:00` | Nạp `GATE-MOB-01` + DR-008c |
+| **SPIKE_E** | Nguyễn Gia Đức Trung | **`ACTIVE`** | `2026-09-11T12:00+07:00` | Nạp `ADR-ART-001` |
 | **SPIKE_C0** | Bế Quốc Khánh | `PREPARED` | `null` | **Không** thành primary thứ hai |
 | **SPIKE_F** | Vũ Hùng Anh | `PREPARED` | `null` | **Không** thành primary thứ hai |
 | **SPIKE_C1** | Bế Quốc Khánh | **`BLOCKED`** | `null` | `blocked_by: SPIKE_D` |
 
-`ACTIVE = 0` · `ACCEPTED = 0` · `evidence_present = false` ×7.
+`ACTIVE = 4` (D·A·B·E) · `PREPARED = 2` (C0·F) · `BLOCKED = 1` (C1) · `ACCEPTED = 0` · `evidence_present = false` ×7.
 
 ---
 
 ## 5 · 📱 Galaxy A17 5G
 
 ```
-NGƯỜI GIỮ HIỆN TẠI:  KHÔNG CÓ AI GIỮ CHO ĐO CHÍNH THỨC
-LÝ DO:               chưa cutover — GATE 0 đang có hiệu lực
+NGƯỜI GIỮ HIỆN TẠI:  Phạm Tuấn Anh — GATE 1
+ĐANG LÀM:            chụp profile thiết bị DR-006
+ĐIỀU KIỆN NHẢ:       profile committed + baseline A9/A10 captured
+NGƯỜI KẾ TIẾP:       Nguyễn Gia Đức Trung (GATE 2) — vào khi stub tới được và ZeroTier đã lên
 ```
 
 Trong `GATE 0`, máy **được** dùng để cài và cấu hình tooling. Mọi thứ capture ở đây là
