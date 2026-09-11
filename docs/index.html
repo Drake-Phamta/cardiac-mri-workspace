@@ -181,13 +181,13 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
     <tr><td><strong>CI guardrails</strong> — nợ Integration/CI từ Day 1</td><td>4 job, xanh trên PR của chính nó, và <strong>đã kiểm là biết đỏ</strong> (nhánh âm → 2 job spec FAIL)</td><td>PR #18</td></tr>
     <tr><td><strong>Mac mini trên overlay</strong></td>
         <td><span class="st ok">TỚI ĐƯỢC</span> <code>10.134.129.115</code> · ping 20/20 · chữ ký cổng macOS (22 · 3283 · 5900 · 5000). Hai ô <code>NOT_CHECKED</code> của Trung đóng bằng <strong>quan sát</strong></td>
-        <td><code>day03/overlay_reachability_20260912.md</code></td></tr>
+        <td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/overlay_reachability_20260912.md"><code>day03/overlay_reachability_20260912.md</code></a></td></tr>
     <tr><td><strong><code>A9</code> đo lại ở <code>576×576</code></strong> — kích thước slice THẬT</td>
         <td><span class="st ok">p95 = 50,23 ms</span> — <em>thấp hơn</em> 65,31 ms của bản 64×64, ở 81 lần số pixel. Kèm phát hiện <strong>376 MB bộ nhớ ngoại suy</strong> cho 88 slice</td>
         <td>PR #13</td></tr>
     <tr><td><strong>Soi đối kháng 4 gói dụng cụ</strong></td>
         <td><span class="st no">49 lỗi · 8 CRITICAL</span> — tất cả đã sửa, mỗi bản sửa kiểm lại bằng chính trigger của người review</td>
-        <td><code>day03/QA_REVIEW_001.md</code></td></tr>
+        <td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/QA_REVIEW_001.md"><code>day03/QA_REVIEW_001.md</code></a></td></tr>
   </table>
   </div>
   <div class="amend"><b>⚠ Phát hiện đổi kế hoạch:</b> slice thật là <strong>576×576</strong> (có case 640×640), không phải 64×64 như fixture Spike A —
@@ -208,47 +208,47 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
 
 <section>
   <h2><span class="num">C</span> Việc của từng người hôm nay</h2>
-  <p class="lede">Gói đầy đủ: <code>management/day03/tasks/</code></p>
+  <p class="lede">Bấm vào tên để mở gói nhiệm vụ đầy đủ của bạn — <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">xem tất cả</a></p>
   <div class="cards">
 
     <div class="card">
-      <div class="who"><span class="nm">Bế Quốc Khánh</span><span class="tag p0">SPIKE_D · P0</span></div>
+      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/DAY03_BE_QUOC_KHANH.md">Bế Quốc Khánh</a></span><span class="tag p0">SPIKE_D · P0</span></div>
       <div class="nowbox"><b>NGAY</b>
         Xác nhận <strong>đĩa trống + thư viện NRRD trên máy bạn</strong> (5 phút, <code>NOT_CHECKED</code> từ Day 0) →
         <code>--selftest</code> dụng cụ → chạy validator trên gói thật → sinh manifest + audit.</div>
       <div class="laterbox"><b>SAU ĐÓ</b>
         Viết tay 4 verdict script từ chối trả lời hộ: <code>A11</code> ý nghĩa nhãn · <code>A12</code> provenance ·
-        <code>A13</code> bằng chứng Path A/B · <code>A18</code> license. Review PR #14.</div>
+        <code>A13</code> bằng chứng Path A/B · <code>A18</code> license. Review <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/14">PR #14</a>.</div>
       <dl><dt>Mở khoá</dt><dd>toàn bộ phần sau của dự án</dd>
           <dt>Cột B</dt><dd>vẫn mở — chưa review PR thật nào</dd></dl>
     </div>
 
     <div class="card">
-      <div class="who"><span class="nm">Nguyễn Gia Đức Trung</span><span class="tag">SPIKE_E</span></div>
+      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/DAY03_NGUYEN_GIA_DUC_TRUNG.md">Nguyễn Gia Đức Trung</a></span><span class="tag">SPIKE_E</span></div>
       <div class="nowbox"><b>NGAY — và không phải cái điện thoại</b>
         <strong>Mac mini bật được?</strong> · <strong>ZeroTier lên trên cả máy tính lẫn điện thoại?</strong>
         Hai ô này là <em>cổng vào GATE 2</em>, <code>NOT_CHECKED</code> ba ngày, và chỉ bạn đóng được.</div>
       <div class="laterbox"><b>SAU ĐÓ</b>
         Sinh payload trên Mac mini → chạy stub bind địa chỉ overlay → đo từ điện thoại trên
-        <strong>cellular thật</strong>. Review PR #16.</div>
+        <strong>cellular thật</strong>. Review <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/16">PR #16</a>.</div>
       <dl><dt>Cảnh báo</dt><dd>ZeroTier vừa lên thì <strong>dừng</strong>, đừng speed test — số đó bị loại khỏi nghiệm thu</dd></dl>
     </div>
 
     <div class="card">
-      <div class="who"><span class="nm">Vũ Hùng Anh</span><span class="tag">SPIKE_B + geometry</span></div>
+      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/DAY03_VU_HUNG_ANH.md">Vũ Hùng Anh</a></span><span class="tag">SPIKE_B + geometry</span></div>
       <div class="nowbox"><b>NGAY — việc mở khoá hai người khác</b>
-        Quyết về <strong>bộ canonical geometry fixture</strong>: nhận / sửa / thay bản đề xuất ở PR #15,
+        Quyết về <strong>bộ canonical geometry fixture</strong>: nhận / sửa / thay bản đề xuất ở <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/15">PR #15</a>,
         rồi <strong>công bố format</strong> cho Phạm Tuấn Anh.</div>
       <div class="laterbox"><b>SAU ĐÓ</b>
-        Review <strong>PR #13</strong> (mở 9 giờ, chưa ai đụng) và PR #15.
+        Review <strong>PR #13</strong> (mở 9 giờ, chưa ai đụng) và <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/15">PR #15</a>.
         Phán về phát hiện <em>interior sai gấp ~7 lần surface-tangent</em> — ngược kỳ vọng của spec.</div>
       <dl><dt>Lưu ý</dt><dd>đề xuất nằm <strong>ngoài</strong> <code>tests/fixtures/geometry/</code> — đường đó là của bạn, DR-013</dd></dl>
     </div>
 
     <div class="card">
-      <div class="who"><span class="nm">Phạm Tuấn Anh</span><span class="tag lead">LEADER + SPIKE_A</span></div>
+      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/DAY03_PHAM_TUAN_ANH.md">Phạm Tuấn Anh</a></span><span class="tag lead">LEADER + SPIKE_A</span></div>
       <div class="nowbox"><b>NGAY</b>
-        Gửi <code>INC-001</code> + 4 packet cho nhóm · ký §9 profile DR-006 · <strong>quyết PR #13</strong>.</div>
+        Gửi <code>INC-001</code> + 4 packet cho nhóm · ký §9 profile DR-006 · <strong>quyết <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/13">PR #13</a></strong>.</div>
       <div class="laterbox"><b>SAU ĐÓ</b>
         <strong>Đo lại <code>A9</code> ở 576×576</strong> · tu chính hàng đợi thiết bị · đóng ngày bằng
         <code>DAY03_EOD_REVIEW</code>.</div>
@@ -264,15 +264,15 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
   <div class="tblwrap">
   <table>
     <tr><th>PR</th><th>Nội dung</th><th>Người review</th><th>Tuổi</th></tr>
-    <tr><td><strong>#13</strong></td><td>Spike A — profile DR-006 + phép đo <code>A9</code></td><td>Vũ Hùng Anh</td><td><span class="st no">9+ giờ</span></td></tr>
-    <tr><td>#14</td><td>Dụng cụ validate Spike D</td><td>Bế Quốc Khánh</td><td><span class="st wait">mới</span></td></tr>
-    <tr><td>#15</td><td>Harness Spike B + đề xuất fixture</td><td>Vũ Hùng Anh</td><td><span class="st wait">mới</span></td></tr>
-    <tr><td>#16</td><td>Stub + harness Spike E</td><td>Nguyễn Gia Đức Trung</td><td><span class="st wait">mới</span></td></tr>
-    <tr><td>#17</td><td>Harness compute C0</td><td>Bế Quốc Khánh</td><td><span class="st wait">mới</span></td></tr>
-    <tr><td>#18</td><td>CI guardrails + PR template</td><td>—</td><td><span class="st wait">mới</span></td></tr>
+    <tr><td><strong><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/13">#13</a></strong></td><td>Spike A — profile DR-006 + phép đo <code>A9</code></td><td>Vũ Hùng Anh</td><td><span class="st no">9+ giờ</span></td></tr>
+    <tr><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/14">#14</a></td><td>Dụng cụ validate Spike D</td><td>Bế Quốc Khánh</td><td><span class="st wait">mới</span></td></tr>
+    <tr><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/15">#15</a></td><td>Harness Spike B + đề xuất fixture</td><td>Vũ Hùng Anh</td><td><span class="st wait">mới</span></td></tr>
+    <tr><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/16">#16</a></td><td>Stub + harness Spike E</td><td>Nguyễn Gia Đức Trung</td><td><span class="st wait">mới</span></td></tr>
+    <tr><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/17">#17</a></td><td>Harness compute C0</td><td>Bế Quốc Khánh</td><td><span class="st wait">mới</span></td></tr>
+    <tr><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/18">#18</a></td><td>CI guardrails + PR template</td><td>—</td><td><span class="st wait">mới</span></td></tr>
   </table>
   </div>
-  <div class="amend"><b>Vì sao reviewer là chính chủ sở hữu spike:</b> PR #14–#17 là <em>dụng cụ dựng cho từng người</em>.
+  <div class="amend"><b>Vì sao reviewer là chính chủ sở hữu spike:</b> <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/14">PR #14</a>–#17 là <em>dụng cụ dựng cho từng người</em>.
      Gán họ làm reviewer là cố ý — nó buộc họ đọc dụng cụ trước khi dùng, đúng <code>14</code> §6:
      <em>"A block is not considered healthy if only one person can explain/run/debug it."</em></div>
 </section>
@@ -289,7 +289,7 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
       <div class="flow">A → E → B</div>
       <p class="note">GATE 2 · Trung — vào khi <strong>stub tới được VÀ overlay đã lên</strong>.
          Overlay <strong>đã lên</strong> và Mac mini <strong>đã tới được</strong>; <strong>stub chưa chạy</strong> (cổng 8787 đóng) và ZeroTier trên điện thoại chưa kiểm — <strong>cổng vẫn đóng</strong>.<br>
-         GATE 3 · Hùng Anh — điều kiện vào <strong>đã đủ</strong> (≥3 mức decimation + harness desktop chạy được, PR #15).</p></div>
+         GATE 3 · Hùng Anh — điều kiện vào <strong>đã đủ</strong> (≥3 mức decimation + harness desktop chạy được, <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/15">PR #15</a>).</p></div>
     <div class="q"><div class="qn">Nợ quản trị</div>
       <p class="note">Mô hình <em>"một máy, một người giữ, bàn giao theo cổng"</em> của <code>WIP-CONFLICT-02</code>
          <strong>không thực hiện được</strong> với thiết bị cá nhân. Ghi là <code>NOT_YET_AMENDED</code> trong state file.
@@ -320,7 +320,7 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
      <em>"a check that could not be performed never reports PASS"</em> rồi PASS,
      <em>"a p95 over only the successes is a lie with a decimal point"</em> rồi in đúng con số đó.
      Viết ra rồi không kiểm <strong>tệ hơn không viết</strong>, vì người đọc sau sẽ tin nó thay vì tự soi.
-     Chi tiết: <code>day03/QA_REVIEW_001.md</code></div>
+     Chi tiết: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/QA_REVIEW_001.md"><code>day03/QA_REVIEW_001.md</code></a></div>
 
   <h3>Ba luật từ hôm nay</h3>
   <ul>
@@ -332,7 +332,7 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
      <strong>không ai được giảm việc</strong> — làm thay không xoá nghĩa vụ. Nếu lặp lại thì <code>TC-TEAM-001</code>
      (bốn gói bằng chứng thành viên, điều kiện nghiệm thu MVP cuối) hỏng <strong>vĩnh viễn</strong>:
      chuỗi bảo vệ của mỗi người chạy qua <code>commits/PR</code> mang tên người đó.
-     Chi tiết: <code>management/incidents/INC-001</code></div>
+     Chi tiết: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md"><code>management/incidents/INC-001</code></a></div>
 </section>
 
 <section>
@@ -399,9 +399,10 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
      Ô "đã xong" chỉ được ghi khi có commit SHA, số PR, hoặc đường dẫn file đã commit.
      Thành viên tạo ra sự thật bằng nhánh, file evidence, commit, PR và reviewer state;
      Project Control phản chiếu vào đây.</p>
-  <p>Nguồn: <code>management/DAY_LOG.md</code> · <code>management/day02/DAY02_EOD_REVIEW.md</code> ·
-     <code>management/incidents/INC-001</code> · <code>management/PROJECT_STATE.yaml</code> ·
-     <code>management/spikes/SPIKE_PHASE_STATE.yaml</code></p>
+  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">tất cả PR đang mở</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ hôm nay</a></p>
+  <p>Nguồn: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md"><code>management/DAY_LOG.md</code></a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day02/DAY02_EOD_REVIEW.md"><code>management/day02/DAY02_EOD_REVIEW.md</code></a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md"><code>management/incidents/INC-001</code></a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/PROJECT_STATE.yaml"><code>management/PROJECT_STATE.yaml</code></a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/spikes/SPIKE_PHASE_STATE.yaml"><code>management/spikes/SPIKE_PHASE_STATE.yaml</code></a></p>
   <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> · <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> ·
      cập nhật 12/09/2026, 01:30.</p>
   <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
