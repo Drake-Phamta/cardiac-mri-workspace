@@ -41,6 +41,19 @@ import zlib
 NX, NY, NZ = 64, 64, 16
 SEED = 2024                      # same seed the project uses for splits
 
+# Nx and Ny are overridable from the command line so A9 can be re-measured at the
+# REAL cohort slice size. Spike D's package, opened 2026-09-11, shows 576x576 and
+# 640x640 in-plane - between 81x and 100x the pixels of the 64x64 default, which
+# is why the first A9 result carries a scope limit saying it must be redone.
+#
+# Nz stays 16. The A9 navigation sequence indexes slices 0..15, and changing two
+# variables at once would make the two runs incomparable. One variable moves.
+#
+#     python generate.py --nx 576 --ny 576
+#
+# A 576x576 fixture is roughly 7 MB of JSON and is NOT committed: .gitignore
+# excludes it, and the run records the sha256 plus this command instead.
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # --- minimal PNG encoder ---------------------------------------------------
@@ -244,6 +257,17 @@ def build_brush_cases():
 
 
 def main():
+    global NX, NY
+    import argparse
+    ap = argparse.ArgumentParser(description="Generate the Spike A fixture set.")
+    ap.add_argument("--nx", type=int, default=NX, help="in-plane width  (default 64)")
+    ap.add_argument("--ny", type=int, default=NY, help="in-plane height (default 64)")
+    args = ap.parse_args()
+
+    if (args.nx, args.ny) != (NX, NY):
+        NX, NY = args.nx, args.ny
+        print(f"  in-plane size overridden to {NX}x{NY} (Nz stays {NZ})")
+
     vol_b64, vol_digests, vol_png = build_volume()
     mask_b64, mask_digests, mask_png = build_mask()
     cases = build_brush_cases()
