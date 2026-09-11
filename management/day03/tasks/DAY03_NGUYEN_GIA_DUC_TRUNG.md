@@ -1,18 +1,38 @@
 # DAY 3 — Nguyễn Gia Đức Trung · 2026-09-12
 
-> ## Thứ chặn bạn KHÔNG phải cái điện thoại
+> ## Cập nhật đêm 2026-09-12 — hai phần ba đường đã thông
 >
-> Cổng vào `GATE 2` viết là: *"backend stub tới được **VÀ** overlay đã lên"*.
->
-> Hai ô này `NOT_CHECKED` từ Day 0, đã ba ngày, và **chỉ bạn đóng được**:
+> Leader kết nối ZeroTier cho Mac mini đêm qua. Project Control **kiểm chứng** thay vì tin lời:
 >
 > ```text
-> ☐  Mac mini bật được và truy cập được
-> ☐  ZeroTier cài và chạy trên CẢ máy tính LẪN điện thoại
+> ✅  10.134.129.115   TTL 64   ping 20/20, mất 0 gói, p50 38 ms
+>     cổng mở: 22 SSH · 3283 Apple Remote Desktop · 5900 Screen Sharing · 5000 AirPlay
+>     → ba cổng 3283 + 5900 + 5000 cùng mở là chữ ký macOS. Mac mini ĐANG SỐNG.
+>
+> ✅  ZeroTier trên máy tính — network 3b19b3a71652c5f0, đang chạy
+> ☐  ZeroTier trên ĐIỆN THOẠI — chưa kiểm, không quan sát được từ máy tính
+> ☐  stub chạy trên Mac mini — cổng 8787 ĐÓNG
 > ```
 >
-> Chừng nào hai ô đó chưa đóng thì Spike E không vào được cổng, **bất kể ai đang giữ máy**. Đây là
-> việc đầu tiên của hôm nay và nó mất khoảng một tiếng.
+> **`GATE 2` vẫn chưa mở**, vì cổng vào là *"stub **tới được**"*, không phải *"overlay đã lên"*.
+> Nhưng việc còn lại giờ **ngắn hơn nhiều** so với hôm qua: chạy stub, và cài ZeroTier lên điện thoại.
+>
+> Chi tiết + lệnh tái lập: [`../overlay_reachability_20260912.md`](../overlay_reachability_20260912.md)
+
+---
+
+## 🔍 Một manh mối cho `E12`, kiểm giúp trước khi đo
+
+**p50 = 38 ms** cho một hop *máy tính → overlay → Mac mini* là **cao**. Nếu Mac mini ở xa như DR-003
+yêu cầu thì hợp lý cho đường **relayed**. Nếu nó ở cùng mạng nội bộ thì 38 ms **quá cao cho direct**
+và có gì đó đáng nghi.
+
+```bash
+zerotier-cli peers      # can quyen admin / sudo
+```
+
+Một giây là xong, và `E12` đòi direct-vs-relayed cho **mọi** phép đo. Nếu đường này thật sự relayed
+thì nó định hình toàn bộ budget `E10` của bạn — biết trước khi đo tốt hơn phát hiện sau.
 
 ---
 

@@ -69,41 +69,62 @@ bằng bộ của bạn.
 
 ---
 
-## 🔍 Một phát hiện ngược kỳ vọng — cần bạn phán
+## ❌ RÚT LẠI — "phát hiện" tôi báo cho bạn là SAI
 
-`picking_error.py` chạy 13 tia × 6 hướng camera × 4 mức decimation trên mesh tổng hợp:
+**Bỏ qua hoàn toàn phần này nếu bạn đã đọc bản trước.** Tôi đã nói với bạn rằng nhóm `interior` sai
+gấp ~7 lần nhóm `surface_tangent`, và gọi đó là một phát hiện ngược kỳ vọng của spec. **Nó không phải
+phát hiện. Nó là tạo tác từ chính cách tôi dựng tia.**
 
-| Mức | cell | tam giác | nhóm | max err | **mean err** |
-|---:|---:|---:|---|---:|---:|
-| 0 | 1 | 5648 | interior | 0 | 0,000 |
-| 0 | 1 | 5648 | surface_tangent | 0 | 0,000 |
-| 3 | 4 | 356 | **interior** | 1 | **0,433** |
-| 3 | 4 | 356 | **surface_tangent** | 1 | **0,063** |
+Một luồng review độc lập đo lại từng tia và cho kết quả:
 
-**Nhóm `interior` sai gấp ~7 lần nhóm `surface_tangent`.** Ngược với `TECHNICAL_SPIKES_REQUIRED.md`,
-vốn mô tả surface-tangent là ca khó.
+| nhóm | \|d_z\| trung bình | slice z lệch trên mỗi mm dọc tia | góc tới so với **pháp tuyến bề mặt** |
+|---|---:|---:|---|
+| `interior` | 0,984 | **0,787** | 0–15° |
+| `surface_tangent` | 0,049 | **0,0395** | **11–17°** |
 
-**Giả thuyết của tôi:** thứ quyết định sai số theo `z` là góc giữa tia và **pháp tuyến bề mặt tại
-điểm chạm**, không phải góc giữa tia và **mặt phẳng slice**. Tia dọc `+z` chạm nắp khối, nơi pháp
-tuyến cũng dọc `z` → decimation dịch bề mặt **thẳng theo `z`**. Tia gần song song mặt phẳng slice
-chạm sườn, nơi pháp tuyến nằm trong `xy` → điểm chạm dịch theo `x,y`, `z` gần như không đổi.
+**Mọi tia tôi gắn nhãn `surface_tangent` đều đâm vào bề mặt ở 11–17° so với pháp tuyến** — tức gần
+vuông góc, **ngược hẳn với cái tên**. Và chúng **kém nhạy 20 lần** theo trục z. Với tỉ lệ nhạy
+0,787 / 0,0395 ≈ 20, nhóm `interior` **chắc chắn phải thua**. Con số 7× là hệ quả số học của cách
+đặt tia, không chứa thông tin gì về geometry.
 
-**Tôi không tự sửa nhãn nhóm.** Định nghĩa nhóm là một phần hợp đồng fixture và là **quyết định của
-bạn**. Nếu giả thuyết đúng thì `B14` nên phân nhóm theo góc tia–pháp tuyến, và đó là thứ đáng viết
-vào `RESULT.md`.
+**Nghĩa là `B14` chưa được đo.** Harness cũ không phân nhóm theo thứ quyết định sai số.
 
-*(Cảnh báo phạm vi: mesh **tổng hợp**, chạy desktop, `DIAGNOSTIC`. Mesh thật có thể cho kết luận khác.)*
+Và một lỗi nữa cùng chỗ: **kiểm "mức 0 phải bằng 0" là tautology** — nó so mesh mức 0 với **chính
+nó**. Người review dịch mesh đi 5 slice và nó **vẫn báo sai số 0**. Dòng trong README cũ nói *"nếu
+khác 0 thì harness sai"* là vô nghĩa: nó **không thể** khác 0.
+
+**Tôi đã sửa harness** — xem PR #15, commit sau bản đầu. Ground truth giờ là **ray-march trực tiếp
+trên mask voxel**, độc lập với mọi mesh, và nhóm được tính **tại thời điểm chạm theo góc tia–pháp
+tuyến** chứ không theo nhãn đặt sẵn. Kết quả mới nằm trong `FORMAT.md` §6.
+
+**Việc của bạn không đổi:** vẫn cần bạn phán định nghĩa nhóm cho `B14`. Nhưng giờ bạn phán trên số
+đúng, không phải trên số tôi dựng sai.
 
 ---
 
-## PHẦN II — hàng đợi review đang tắc hoàn toàn
+## PHẦN II — hàng đợi review, và một thay đổi ảnh hưởng tới bạn
 
-**5 PR mở, 0 review được submit.** `15` §11: *"silence is not approval"*.
+**6 PR mở, 0 review được submit.** `15` §11: *"silence is not approval"*.
+
+> ### ⚠ Bạn vừa nhận thêm một suất review — và tôi nói luôn cái giá
+>
+> **`DR-006a`** (ghi đêm 2026-09-12) cho phép leader làm **operator** cầm máy đo cho Spike E, vì
+> Galaxy A17 là máy cá nhân của anh ấy và không bàn giao. Ràng buộc đi kèm: **người tạo ra số đo
+> không được là người review số đó**, nên leader rút khỏi vai reviewer Spike E và **nó chuyển sang
+> bạn**.
+>
+> Bạn giờ giữ **năm** suất review — `D` `A` `C0` `C1` `E` — trong khi vẫn sở hữu Spike B và Spike F.
+> `WIP-CONFLICT-01` chỉ cho **một** suất `REVIEWING` tại một thời điểm, nên **hàng đợi dài ra chứ
+> việc không biến mất**. Nếu Spike D và Spike E cùng sẵn sàng một ngày thì **D thắng vì P0**.
+>
+> Đây là đánh đổi có chủ ý: hi sinh thông lượng để giữ tính độc lập của review. Nếu nó thành nút
+> thắt thật thì **nói ra** — đó là dữ kiện leader cần, không phải chuyện bạn phải gánh im lặng.
 
 | PR | Của | Tại sao bạn |
 |---|---|---|
-| **#13** | Spike A của leader — profile DR-006 + phép đo `A9` | Bạn là reviewer Spike A. **Mở 9 giờ rồi** |
+| **#13** | Spike A của leader — profile DR-006 + phép đo `A9` | Bạn là reviewer Spike A. **Mở hơn 12 giờ** |
 | **#15** | Harness Spike B + fixture đề xuất | Dụng cụ dựng cho **chính bạn** |
+| #16 | Stub + harness Spike E | **mới**: bạn là reviewer Spike E từ `DR-006a` |
 
 Với #15 tôi muốn bạn soi: format fixture có phải thứ bạn muốn ký tên dưới không · nhóm
 `out_of_range` có đúng không · phát hiện ở trên bạn đọc ra cách khác không · **bạn chạy được không**
