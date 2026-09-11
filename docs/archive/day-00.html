@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 0 · 2026-09-09 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 0: Onboarding và sign-off">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top amber">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 0</span> — 09/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st wait">MỘT PHẦN</span> &nbsp; Onboarding và sign-off</div>
+  <p class="sub">Sign-off đạt 4/4 ở cột K, nhưng bốn ô phần cứng không ai xác nhận và hai trong số đó còn mở tới tận Day 3.
+</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Cả nhóm</strong> — Sign-off Day 0 — cả bốn thành viên <code>PASS</code> cột <code>K</code> <code>management/onboarding/DAY0_SIGNOFF.md</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Bế Quốc Khánh</strong> — Cột <code>B</code> — chưa review PR thật nào</li><li><strong>Cả nhóm</strong> — Bốn ô phần cứng <code>NOT_CHECKED</code></li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li>Bỏ luật <code>NEEDS_FIX</code> dàn dựng sau sự cố PR #1 cấy lỗi</li></ul></section>
+
+
+<footer>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
+     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
+     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
+  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
+     <a href="../archive/index.html">lịch sử ngày</a></p>
+  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc 12/09/2026 06:57
+     bằng <code>tools/board/build_board.py</code>.</p>
+  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
+     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
+     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
+     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+</footer>
+</div>
+</body>
+</html>
