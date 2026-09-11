@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DAY 2 · Cardiac MRI Workspace</title>
-<meta name="description" content="Bảng điều phối hằng ngày — AI-assisted Cardiac MRI Research Workspace. Day 2, 11/09/2026. Day 30 = 09/10, buffer còn 1 ngày.">
+<title>DAY 2 · EXECUTION · Cardiac MRI Workspace</title>
+<meta name="description" content="Bảng điều phối hằng ngày — AI-assisted Cardiac MRI Research Workspace. Day 2, 11/09/2026. EXECUTION đang chạy. Day 30 = 09/10, buffer còn 1 ngày.">
 <style>
 :root{
   --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --ink:#16191d; --ink-2:#4a5158;
@@ -137,11 +137,11 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
 <header class="top">
   <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace</p>
   <h1><span class="day">DAY 2</span> — 11/09/2026</h1>
-  <div class="phase">PHASE A — ĐÓNG NỢ DAY 0 · CUTOVER CHƯA XẢY RA</div>
-  <p class="sub">Execution chưa khởi động. Chỉ <strong>tuyên bố của leader</strong> mới bật nó, và đồng
-     hồ DR-001 bắt đầu từ đúng lúc đó.</p>
+  <div class="phase" style="background:var(--go-soft);color:var(--go);border-color:var(--go-line)">PHASE B — EXECUTION ĐANG CHẠY · cutover 11/09 12:00</div>
+  <p class="sub">Bốn spike <strong>D · A · B · E</strong> đã <code>ACTIVE</code> từ 12:00 hôm nay.
+     <strong>Đồng hồ DR-001 đang chạy</strong> — trigger đánh giá cuối hôm nay.</p>
   <div class="metrics">
-    <div class="m bad"><span class="k">Cutover</span><span class="v">CHƯA</span></div>
+    <div class="m ok"><span class="k">Cutover</span><span class="v">12:00</span></div>
     <div class="m"><span class="k">Day 30 — cố định</span><span class="v">09/10</span></div>
     <div class="m"><span class="k">Còn lại</span><span class="v">29 ngày</span></div>
     <div class="m bad"><span class="k">Buffer</span><span class="v">1 / 2</span></div>
@@ -155,46 +155,52 @@ footer p{margin:0 0 6px} footer a{word-break:break-all}
     <p><strong>Day 1 (10/09) trôi qua với 0 spike chạy, 0 <code>started_at</code>, 0 bằng chứng.</strong>
        Leader chọn giữ <code>Day 30 = 09/10</code> nên ngày mất ăn vào buffer thay vì đẩy hạn — buffer
        <strong>2 → 1</strong>. <strong>Mất thêm một ngày nữa là buffer bằng 0</strong> và
-       <code>15</code> §18 recovery trigger 2 kích hoạt. Cảnh báo này hiện là <em>cố ý</em>.</p>
+       <code>15</code> §18 recovery trigger 2 kích hoạt. Cảnh báo này hiện là <em>cố ý</em>.
+       Execution đã bắt đầu 11/09 12:00 — nhưng buffer không hồi lại, nó chỉ tiêu tiếp nếu trượt thêm.</p>
   </div>
 </div>
 
 <!-- A -->
 <section>
-  <h2><span class="num">A</span> Còn gì chặn cutover</h2>
-  <p class="lede">Cửa <code>R1</code>–<code>R9</code>. Trượt một mục là không tuyên bố.</p>
+  <h2><span class="num">A</span> Cutover đã xảy ra — cửa R1–R9 qua lúc 12:00</h2>
+  <p class="lede">Toàn văn: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day01/DAY01_CUTOVER_RECORD.md"><code>DAY01_CUTOVER_RECORD.md</code></a></p>
   <div class="tblwrap">
   <table>
-    <thead><tr><th>#</th><th>Điều kiện</th><th>Trạng thái</th><th>Ai gỡ</th></tr></thead>
+    <thead><tr><th>#</th><th>Điều kiện</th><th>Kết quả</th></tr></thead>
     <tbody>
-      <tr><td><code>R1</code></td><td>Bốn PR practice merged</td><td><span class="st ok">4 / 4</span></td><td>— xong hôm nay</td></tr>
-      <tr><td><code>R2</code></td><td>Mỗi người tham gia hợp lệ chu trình review</td><td><span class="st wait">3 / 4</span></td><td><strong>Khánh chưa review PR của ai</strong></td></tr>
-      <tr><td><code>R3</code></td><td>Cột <code>K</code> = <code>PASS</code> ×4</td><td><span class="st no">1 / 4</span></td><td><strong>leader chấm A·C·G·J cho 3 bạn</strong></td></tr>
-      <tr><td><code>R4</code></td><td>§5 tổng hợp + chữ ký</td><td><span class="st no">CHƯA</span></td><td>leader, sau R3</td></tr>
-      <tr><td><code>R5</code></td><td>Checklist Day-1 A/B/B.1/C/D</td><td><span class="st wait">B·B.1·C xong</span></td><td>Phần A chờ R3</td></tr>
-      <tr><td><code>R6</code></td><td>Baseline tồn tại + được chấp nhận</td><td><span class="st ok">ĐẠT</span></td><td>—</td></tr>
-      <tr><td><code>R7</code></td><td>Baseline không đóng băng gì phụ thuộc bằng chứng</td><td><span class="st ok">ĐẠT</span></td><td>—</td></tr>
-      <tr><td><code>R8</code></td><td>Trạng thái spike hợp lệ</td><td><span class="st ok">ĐẠT</span></td><td>—</td></tr>
-      <tr><td><code>R9</code></td><td>Spec 19/19 · không bằng chứng bịa</td><td><span class="st ok">ĐẠT</span></td><td>—</td></tr>
+      <tr><td><code>R1</code></td><td>Bốn PR practice merged</td><td><span class="st ok">4 / 4</span></td></tr>
+      <tr><td><code>R2</code></td><td>Tham gia hợp lệ chu trình review</td><td><span class="st wait">có điều kiện</span> — Khánh chưa review PR của ai</td></tr>
+      <tr><td><code>R3</code></td><td>Cột <code>K</code> = <code>PASS</code> ×4</td><td><span class="st ok">4 / 4</span></td></tr>
+      <tr><td><code>R4</code></td><td>§5 + chữ ký</td><td><span class="st ok">ĐÃ KÝ 11/09</span></td></tr>
+      <tr><td><code>R5</code></td><td>Checklist Day-1</td><td><span class="st wait">A8 cần làm rõ</span> — 4 mục phần cứng</td></tr>
+      <tr><td><code>R6</code> <code>R7</code></td><td>Baseline tồn tại, được chấp nhận, không đóng băng gì</td><td><span class="st ok">ĐẠT</span></td></tr>
+      <tr><td><code>R8</code> <code>R9</code></td><td>Trạng thái spike · spec 19/19 · không bằng chứng bịa</td><td><span class="st ok">ĐẠT</span></td></tr>
     </tbody>
   </table>
   </div>
-  <p style="margin-bottom:0"><strong>Đường tới hạn còn lại rất ngắn:</strong> leader chấm 12 ô kiến thức
-     (A·C·G·J cho ba bạn) → §5 + ký → kiểm R1–R9 → tuyên bố. Không còn phụ thuộc ai vắng mặt.</p>
+  <div class="amend"><b>⚠ Hai mục còn mở, ghi rõ chứ không làm tròn:</b> Bế Quốc Khánh <strong>chưa
+     review PR của ai</strong> (cột B <code>NEEDS_CLARIFICATION</code>); và <strong>bốn mục phần cứng
+     chưa ai xác nhận</strong> — đĩa trống + thư viện NRRD của Khánh, Mac mini + ZeroTier của Trung.
+     Không chặn tuyên bố, nhưng <strong>chặn bước 1 của Spike D và cổng GATE 2 của Spike E trên thực
+     tế</strong>.</div>
 </section>
 
 <!-- B -->
 <section>
   <h2><span class="num">B</span> Critical path — thứ quyết định Day 30</h2>
   <div class="cpath"><code>SPIKE_D ──► GATE-DATA-01 ──► split ──► SPIKE_C1 ──► GATE-ML-01 ──► training ──► metrics
-  ❌            ❌             ❌          🔒 BLOCKED       ❌           ❌          ❌
-chưa chạy      mở            mở        by SPIKE_D        mở
+ ▶ ACTIVE        ❌            ❌       🔒 BLOCKED        ❌           ❌          ❌
+  12:00          mở            mở       by SPIKE_D        mở
 
 SPIKE_A + SPIKE_B ──► GATE-MOB-01 ──► framework ──► V1 V2 V3 V4
-    ❌       ❌            ❌
- chưa chạy chưa chạy      mở</code></div>
-  <p style="margin:12px 0 0"><strong>Spike D là P0 và đã sang ngày thứ hai chưa chạy.</strong> Mọi ngày
-     trễ ở đây đẩy Day 30 — mà Day 30 thì không được lùi, nên nó ăn vào buffer.</p>
+ ▶ ACTIVE  ▶ ACTIVE        ❌
+  12:00     12:00          mở
+
+SPIKE_E ──► ADR-ART-001        C0 · F: PREPARED (không thành primary thứ hai)
+ ▶ ACTIVE       ❌              C1: BLOCKED by SPIKE_D</code></div>
+  <p style="margin:12px 0 0"><strong>Spike D là P0.</strong> Việc quan trọng nhất hôm nay là
+     <strong>verdict trigger DR-001</strong> của Bế Quốc Khánh, phải có trước cuối ngày — đây là lần
+     đánh giá thứ hai, lần đầu đã trượt vì execution chưa bắt đầu.</p>
 </section>
 
 <!-- C -->
