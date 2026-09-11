@@ -158,8 +158,9 @@ NOT_REQUESTED  →  QUEUED_FOR_REVIEW  →  REVIEWING  →  APPROVED
 ```text
 Thứ tự ĐO đã đặt trước:
    1.  Spike A   (Phạm Tuấn Anh)
-   2.  Spike B   (Vũ Hùng Anh)
-   3.  Spike E   (Nguyễn Gia Đức Trung)
+   2.  Spike E   (Nguyễn Gia Đức Trung)
+   3.  Spike B   (Vũ Hùng Anh)
+   ⚠ TU CHÍNH 2026-09-11: đổi từ A → B → E. Xem day01/DAY01_RUNBOOK.md §4.3
 ```
 
 **Việc chạy song song trong lúc người khác giữ máy:**

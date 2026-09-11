@@ -13,61 +13,135 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 2 — 2026-09-11** |
-| Ngày còn lại tới Day 30 | **29** |
+| Ngày hôm nay | **Day 3 — 2026-09-12** |
+| Ngày còn lại tới Day 30 | **28** |
 | **Buffer còn** | **1 ngày** *(dự trù 2, đã tiêu 1 vì Day 1 trượt)* |
-| Cutover | **chưa xảy ra** tính tới lúc ghi |
+| Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
+| Đồng hồ DR-001 | **đang chạy** |
+| Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
 | Ngưỡng leo thang | mất thêm **1** ngày → buffer = 0 → `15` §18 trigger 2 kích hoạt |
+| `15` §18 | ⚠ **trigger 3 ĐÃ THOẢ** — xem [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
 
 ---
 
-## DAY 2 — 2026-09-11 · `ĐANG MỞ`
+## DAY 3 — 2026-09-12 · `ĐANG MỞ`
+
+**Gói nhiệm vụ từng người:** [`day03/tasks/`](day03/tasks/)
+
+### Điều kiện để Day 3 KHÔNG trượt
+
+Ba việc. Không đủ ba thì ngày này tính là trượt, bất kể làm được gì khác.
+
+| # | Điều kiện | Ai | Vì sao là điều kiện chứ không phải mong muốn |
+|---:|---|---|---|
+| 1 | **`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`**, do Khánh commit | Bế Quốc Khánh | P0 critical path. Gói đã tải xong, dụng cụ đã dựng xong — không còn lý do bên ngoài nào |
+| 2 | **Hai ô `NOT_CHECKED` của Trung đóng** — Mac mini bật được, ZeroTier lên trên cả hai máy | Nguyễn Gia Đức Trung | Cổng vào `GATE 2`. Ba ngày chưa ai xác nhận |
+| 3 | **4 PR treo có review thật** | cả ba | Hàng đợi tắc hoàn toàn. `15` §11: *"silence is not approval"* |
+
+### Đã xong
+
+*(chờ bằng chứng — ô này chỉ được ghi khi có SHA, số PR, hoặc đường dẫn file đã commit)*
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| | | |
+
+### Còn tồn — mang sang từ Day 2
+
+| Ai | Việc | Hạn |
+|---|---|---|
+| **Bế Quốc Khánh** | Audit `A1`–`A20` trên gói đã có · xác nhận đĩa trống + thư viện NRRD **trên máy bạn** · khai báo compute ML (`C0-1`) · review một PR thật *(cột `B` sign-off vẫn mở)* | trong Day 3 |
+| **Nguyễn Gia Đức Trung** | Mac mini + ZeroTier · review PR #16 | trong Day 3 |
+| **Vũ Hùng Anh** | Nhận/thay bộ geometry fixture + công bố format · review PR #13 và #15 · PR nhỏ thêm dòng `Reviewer:` | trong Day 3 |
+| **Phạm Tuấn Anh** | Đo lại `A9` ở 576×576 · ký §9 profile DR-006 · `guardrails.yml` · tu chính hàng đợi thiết bị | trong Day 3 |
+
+---
+
+## DAY 2 — 2026-09-11 · **`MỘT PHẦN`** — ngày execution đầu tiên
+
+> **Kết quả ngày:** gỡ được bế tắc bên ngoài lớn nhất của dự án (dataset), nhưng **không tiêu chí
+> nghiệm thu nào của bất kỳ spike nào được đóng**, và **ba trên bốn thành viên không có hoạt động nào
+> sau cutover**. Chi tiết: [`day02/DAY02_EOD_REVIEW.md`](day02/DAY02_EOD_REVIEW.md) ·
+> [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md)
 
 ### Đã xong
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| Nguyễn Gia Đức Trung | Review PR #4 của Khánh — `APPROVED` | API review 03:13:39Z |
-| Nguyễn Gia Đức Trung | Mở PR #8 practice bản sạch (1 file) sau khi tự đóng PR #7 lẫn 19 file | PR #8, PR #7 closed |
-| Bế Quốc Khánh | PR #4 được merge | `c4499bd` |
-| Nguyễn Gia Đức Trung | PR #8 được merge | `39fb7af` |
-| Phạm Tuấn Anh | Review + `APPROVED` PR #8 (thay Khánh vắng mặt) | API review 04:34:51Z |
-| Project Control | **DR-003a** — ZeroTier thành overlay chuẩn; **DR-001a** — trigger đánh giá cuối Day 2 | `75184f5` |
-| Project Control | Chấm các ô sign-off có bằng chứng; leader đạt **11/11 `PASS`** | `38c4bc4` |
+| Phạm Tuấn Anh | Tuyên bố cutover execution, 12:00 +07:00 | `DAY01_CUTOVER_RECORD.md`, `d5d8ef7` |
+| Project Control | Chuyển D/A/B/E sang `ACTIVE`, `started_at` thật | `413fa8d` |
+| Phạm Tuấn Anh | **Profile thiết bị DR-006** chụp thật từ Galaxy A17 | `6d0ae77` + `9e1270c` |
+| Phạm Tuấn Anh | **Spike A `A9` p95 = 65,31 ms** — phép đo hiệu năng đầu tiên của dự án | PR #13, `c9290b0` |
+| **Phạm Tuấn Anh** | **Thu thập gói LASC 2018** — 2 200 962 438 byte, SHA-256 `bee5ee5b…`, 100 + 54 case, giải nén và xác minh 12/12 volume load được | `day02/dr001_usability_probe.json` |
+| **Project Control** | **Trigger DR-001 đánh giá 23:44 — KHÔNG nổ** | `day02/DAY02_EOD_REVIEW.md` §4 |
+| Project Control | Dụng cụ validate Spike D — 15/20 tiêu chí cơ khí hoá, 4 tiêu chí **từ chối trả lời hộ** | PR #14, `96c89f4` |
+| Project Control | Harness Spike B + **bản đề xuất** geometry fixture, 32/32 điểm exact | PR #15, `c3a4719` |
+| Project Control | Stub + client harness + aggregate Spike E, smoke 98/98 | PR #16, `a356772` |
+| Project Control | **`INC-001`** — biên bản sự kiện và tuyên bố recovery `15` §18 | `incidents/INC-001` |
+| Project Control | **`DAY02_EOD_REVIEW`** — bản EOD review đầu tiên được điền của dự án (`15` §15) | `day02/DAY02_EOD_REVIEW.md` |
+| Nguyễn Gia Đức Trung | Review PR #4 của Khánh — `APPROVED` *(trước cutover)* | API review 03:13:39Z |
+| Nguyễn Gia Đức Trung | PR #8 practice bản sạch được merge *(trước cutover)* | `39fb7af` |
+| Bế Quốc Khánh | PR #4 được merge *(trước cutover)* | `c4499bd` |
 
 ### Còn tồn
 
 | Ai | Việc | Vì sao chưa xong | Hạn |
 |---|---|---|---|
-| **Phạm Tuấn Anh** | Chấm **A · C · G · J** cho ba thành viên + các mục phụ Spike D/E | Không có bản ghi nào về cửa kiến thức cho ba bạn; Project Control không chấm thứ mình không thấy | trước cutover hôm nay |
-| **Phạm Tuấn Anh** | §5 tổng hợp + chữ ký Day 0 | Cần cột `K` của cả bốn | sau mục trên |
-| **Phạm Tuấn Anh** | Tuyên bố cutover, tạo `DAY01_CUTOVER_RECORD.md` | Cần `R1`–`R9` qua | hôm nay |
-| **Bế Quốc Khánh** | Review PR thật của một đồng đội | Vắng cả 10/09 và 11/09 | đóng cột `B` khi làm |
-| **Vũ Hùng Anh** | PR nhỏ thêm dòng `Reviewer:` vào `PRACTICE_VU_HUNG_ANH.md` | #3 merge đè `CHANGES_REQUESTED` chưa xử lý | technical debt |
-| **Cả bốn** | Spike D · A · B · E chưa chạy | Chưa cutover | sau cutover |
+| **Bế Quốc Khánh** | Audit `A1`–`A20` Spike D | **0 hoạt động sau cutover.** Gói và dụng cụ giờ đã sẵn | Day 3 |
+| **Bế Quốc Khánh** | Đĩa trống + thư viện NRRD **trên máy bạn** | `NOT_CHECKED` ba ngày. Không ai xác nhận hộ được | Day 3 |
+| **Bế Quốc Khánh** | Khai báo compute ML (`C0-1`) | `ml_compute.declared: UNVERIFIED` | Day 3 |
+| **Bế Quốc Khánh** | Review PR thật của đồng đội — cột `B` | vắng 10/09, 11/09 | khi làm |
+| **Nguyễn Gia Đức Trung** | Mac mini bật được + ZeroTier trên cả hai máy | **0 hoạt động sau cutover.** Đây là cổng vào `GATE 2`, không phải điện thoại | Day 3 |
+| **Vũ Hùng Anh** | Bộ canonical geometry fixture | **0 hoạt động cả ngày.** Bản đề xuất đã có ở PR #15 để nhận hoặc thay | Day 3 |
+| **Vũ Hùng Anh** | Dòng `Reviewer:` trong `PRACTICE_VU_HUNG_ANH.md` trên `main` | nợ kỹ thuật từ Day 0 | Day 3 |
+| **Cả ba** | Review 4 PR đang treo | hàng đợi trống hoàn toàn | Day 3 |
+| **Phạm Tuấn Anh** | Đo lại `A9` ở kích thước slice thật | `A6` sơ bộ mới có tối nay | Day 3 |
+| **Phạm Tuấn Anh** | Ký §9 profile DR-006 · `guardrails.yml` · tu chính hàng đợi thiết bị | — | Day 3 |
 
 ### Quyết định ghi trong ngày
 
-- **DR-003a** — overlay chuẩn = **ZeroTier** (Trung đề xuất, leader duyệt). Mọi phần thực chất của DR-003
-  giữ nguyên: profile `LOCAL_DEMO`, backend vật lý ở xa, trust boundary là overlay membership, venue
-  Wi-Fi không tin cậy, **`E1` LAN không phải acceptance evidence**.
-- **DR-001a** — trigger dataset đánh giá cuối **Day 2** thay vì Day 1, vì Day 1 không có execution.
-  Nội dung và ngưỡng **không đổi**. Không tự cho là trigger đã nổ.
-- Leader review PR #8 **thay Bế Quốc Khánh** vì cậu ấy vắng — ghi rõ trong sign-off cột L.
+- **Trigger DR-001: KHÔNG nổ.** Có gói chính thức dùng được trên máy cục bộ lúc 23:41:51.
+- **`15` §18 recovery kích hoạt** — Level 1 cho đúng việc thu thập dataset, Level 5 de-scope kế hoạch
+  ngày. **Quyền sở hữu không chuyển cho ai.** Lý do đầy đủ: `INC-001` §4.
+- **Ranh giới của đêm phục hồi:** sinh **dụng cụ**, không sinh **bằng chứng của người khác**. Không
+  `RESULT.md` nào cho D/B/E/C, không cờ `EVIDENCE_READY`, không commit dưới tài khoản người khác.
+- **Bộ geometry fixture dựng thành bản đề xuất có nhãn**, đặt ngoài `tests/fixtures/geometry/**` —
+  DR-013 giao đường đó cho Vũ Hùng Anh và format là quyền cậu ấy quyết.
+- **Máy Galaxy A17 không bàn giao** — tài sản cá nhân của leader. Cần tu chính `WIP-CONFLICT-02`, ghi
+  là nợ quản trị mang sang Day 3. Không chặn ai hôm nay vì `GATE 2` chưa mở.
+
+### ⚠ Phát hiện đổi kế hoạch
+
+- **Kích thước slice thật là 576×576 hoặc 640×640**, không phải 64×64 như fixture Spike A. Con số
+  `A9` = 65,31 ms **không còn đại diện** — nhiều hơn 81–100 lần số pixel. Đo lại là ưu tiên cao.
+- **Testing Set CÓ `laendo.nrrd`** — liên quan `A12` / `RA-H02` và ảnh hưởng lựa chọn Path A/B (DR-002).
+- **Giá trị mask là `0` và `255`**, không phải `0`/`1`. Code giả định `==1` sẽ ra mask rỗng.
+- **`lawall.nrrd` tồn tại** — `06` §2 cấm dùng làm target khi chưa xác minh provenance.
+- **`space directions` là ma trận đơn vị** — header có thể không mang spacing vật lý thật. `06` §4:
+  metric thể tích tuyệt đối **bị vô hiệu** cho tới khi geometry được validate.
+
+*(Cả năm quan sát trên **4 / 154 case**. Câu trả lời toàn cohort thuộc về Bế Quốc Khánh.)*
 
 ### Blocker
 
 | Trạng thái | Blocker |
 |---|---|
-| **Đã đóng** | PR practice của Trung chưa tồn tại → đã mở và merged |
-| **Đã đóng** | PR #4 không ai review → Trung đã `APPROVED` |
-| **Mở** | Ô `A/C/G/J` của ba thành viên — chỉ leader chấm được |
-| **Mở** | Khánh vắng hai ngày liên tiếp |
+| **Đã đóng** | Gói dataset chưa có trên máy → đã tải, đã xác minh |
+| **Đã đóng** | Không có dụng cụ validate dataset → PR #14 |
+| **Đã đóng** | Bộ geometry fixture chưa tồn tại → PR #15 (đề xuất) |
+| **Đã đóng** | Không có stub/harness Spike E → PR #16 |
+| **Mở** | Đĩa trống + thư viện NRRD của Khánh — **chỉ Khánh** |
+| **Mở** | Mac mini + ZeroTier của Trung — **chỉ Trung** |
+| **Mở** | Compute ML chưa khai báo — **chỉ Khánh** |
+| **Mở** | 4 PR mở, **0 review submit** |
 
 ### Forecast
 
-`Day 30 = 2026-10-09` — **còn khả thi, nhưng không còn dư địa.** Buffer **1/2**. Spike D là P0 trên
-critical path và **vẫn chưa chạy sang ngày thứ hai**.
+`Day 30 = 2026-10-09` — **còn khả thi.** Buffer **1/2**. Critical path **không còn bị chặn bởi yếu tố
+bên ngoài**; từ đây nó chỉ còn phụ thuộc vào việc chủ sở hữu có chạy hay không.
+
+Màu trạng thái: 🟠 **AMBER** — `15` §16. Không RED vì bế tắc bên ngoài lớn nhất đã gỡ và có bằng chứng
+thật. Không GREEN vì **0 tiêu chí nghiệm thu nào được đóng** và ba người không sản xuất gì sau cutover.
 
 ---
 

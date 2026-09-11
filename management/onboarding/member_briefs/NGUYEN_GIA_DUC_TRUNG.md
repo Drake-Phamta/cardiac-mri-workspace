@@ -205,7 +205,7 @@ Mac mini M2, 24 GB RAM      (ở XA địa điểm demo)
 
 #### Slot đo thiết bị: **3 / 3** — nhưng TUYỆT ĐỐI KHÔNG NGỒI CHỜ
 
-Chỉ có **MỘT** máy Galaxy A17 5G. Thứ tự đo: **A → B → E**. Trong lúc Tuấn Anh và Hùng Anh giữ máy, **việc của tôi chạy song song hoàn toàn**:
+Chỉ có **MỘT** máy Galaxy A17 5G. Thứ tự đo: **A → E → B** — *tu chính 2026-09-11, bản gốc ghi `A → B → E`; xem [`../../day01/DAY01_RUNBOOK.md`](../../day01/DAY01_RUNBOOK.md) §4.3.* **Tôi đo THỨ HAI, không phải thứ ba.** Trong lúc Tuấn Anh giữ máy, **việc của tôi chạy song song hoàn toàn**:
 
 ```text
 ✔  Mac mini backend stub

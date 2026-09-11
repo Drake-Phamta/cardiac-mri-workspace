@@ -457,8 +457,26 @@ wip_compliance:
       resolution: >
         The project has EXACTLY ONE authorised physical Samsung Galaxy A17 5G. Harness/code preparation for
         SPIKE_A, SPIKE_B and SPIKE_E may proceed in parallel, but their physical-device MEASUREMENT windows
-        may not overlap. Reserved measurement order: SPIKE_A, then SPIKE_B, then SPIKE_E. This ordering
+        may not overlap. Reserved measurement order: SPIKE_A, then SPIKE_E, then SPIKE_B. This ordering
         applies to measurement access only, not to all implementation work.
+      amended_at: "2026-09-11"
+      amendment: >
+        Order changed from A -> B -> E to A -> E -> B. Recorded in day01/DAY01_RUNBOOK.md section 4.3
+        and binding from day01/DAY01_CUTOVER_RECORD.md section 4.3. Reason: SPIKE_B has many hours of
+        work that need no device to fill the wait, while SPIKE_E gates on the phone reaching the
+        backend at all. This YAML was not updated at the cutover commit as DAY01_RUNBOOK.md line 128
+        required; that omission is corrected here on 2026-09-11.
+      open_amendment_required:
+        issue: >
+          The Galaxy A17 5G is the personal property of Pham Tuan Anh and he has declared that it does
+          not leave his possession. The "one device, one holder, handed over at each gate" model this
+          conflict was resolved with therefore cannot be executed as written.
+        status: NOT_YET_AMENDED
+        blocking_now: false
+        why_not_blocking: >
+          GATE 2 is not open regardless: Nguyen Gia Duc Trung's Mac mini and ZeroTier are both
+          NOT_CHECKED, and those are the gate entry conditions. Nobody is waiting on the phone today.
+        must_be_resolved_before: "Nguyen Gia Duc Trung satisfies the GATE 2 entry conditions"
       see: device_measurement_queue
 
 review_serialization:
@@ -499,22 +517,33 @@ device_measurement_queue:
       measurements: ["cached slice-switch p95 (NFR-PERF-001)", "brush feedback latency (NFR-PERF-003)",
                      "stroke-loss count", "gesture separation", "brush accuracy after zoom/pan"]
     - slot: 2
-      spike: SPIKE_B
-      owner: "Vu Hung Anh"
-      status: NOT_STARTED
-      measurements: ["median FPS + stalls (NFR-PERF-002)", "picking error interior vs surface-tangent",
-                     "decimation frontier across >=3 levels", "device memory"]
-      parallel_before_slot: "harness and canonical geometry fixture work proceeds while SPIKE_A is prepared or measured"
-    - slot: 3
       spike: SPIKE_E
       owner: "Nguyen Gia Duc Trung"
       status: NOT_STARTED
       measurements: ["time to first usable slice cold open", "uncached slice latency",
                      "continuous navigation with prefetch", "mask/mesh transport", "device memory",
                      "latency spread under cellular variation", "reconnect/retry"]
-      parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A/B hold the phone"
+      parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A holds the phone"
       acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB"
       lan_results: "diagnostic only - never acceptance evidence"
+      entry_gate: "backend stub reachable AND overlay up - BOTH still NOT_CHECKED as of 2026-09-11"
+      tooling_ready: "spikes/spike_e_transport - stub, client harness, retry harness, aggregation (PR #16)"
+    - slot: 3
+      spike: SPIKE_B
+      owner: "Vu Hung Anh"
+      status: NOT_STARTED
+      measurements: ["median FPS + stalls (NFR-PERF-002)", "picking error interior vs surface-tangent",
+                     "decimation frontier across >=3 levels", "device memory"]
+      parallel_before_slot: "harness and canonical geometry fixture work proceeds while SPIKE_A or SPIKE_E holds the phone"
+      entry_gate: ">=3 decimation levels built AND picking harness running on desktop"
+      tooling_ready: "spikes/spike_b_3d - 4 decimation levels and a picking-error harness already run (PR #15)"
+  order_note: >
+    Amended 2026-09-11 to A -> E -> B. See wip_conflicts WIP-CONFLICT-02 amendment and
+    day01/DAY01_CUTOVER_RECORD.md section 4.3.
+  custody_note: >
+    The device is Pham Tuan Anh's personal property and is not handed over. Slots remain a
+    serialisation of MEASUREMENT WINDOWS; how a non-owner reaches the device is an open amendment
+    recorded under WIP-CONFLICT-02. Not blocking while GATE 2 entry conditions are unmet.
   note: >
     SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and
     therefore does not add contention in this wave.
