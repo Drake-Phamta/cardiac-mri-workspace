@@ -261,3 +261,5 @@ The project succeeds only when all of the following are true:
 - Every team member can explain the shared end-to-end core and can defend at least one mobile function they personally analyzed, designed, and implemented.
 - The repository remains continuously integrable; progress is tracked using accepted evidence rather than subjective percentages.
 
+
+<!-- CI negative test. This branch is never merged. -->
