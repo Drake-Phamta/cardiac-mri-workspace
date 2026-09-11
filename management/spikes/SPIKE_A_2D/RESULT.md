@@ -31,7 +31,7 @@
 | A6 | Undo tái lập trạng thái trước | `NOT MEASURED` | chặng S5 |
 | A7 | Redo tái lập trạng thái đã undo | `NOT MEASURED` | chặng S5 |
 | A8 | Save/reload tái lập đúng nét sửa | `NOT MEASURED` | chặng S5 |
-| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO — đạt ngưỡng, phạm vi hạn chế** | **p95 = 65,31 ms**. Xem §Kết quả A9 |
+| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO HAI LẦN — đạt ngưỡng ở cả hai** | `64×64`: **65,31 ms** · **`576×576` (thật): 50,23 ms**. Kèm phát hiện bộ nhớ **376 MB ngoại suy** cho 88 slice. Xem §Kết quả A9 |
 | A10 | Phản hồi brush ≤ 100 ms, 0 nét mất | `NOT MEASURED` | chưa dựng brush — chặng S5 |
 | A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | chặng S7 |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
@@ -42,40 +42,101 @@
 
 ## Kết quả A9 — slice-switch đã cache
 
-**Bài test 30 bước, chuỗi cố định** (8 bước tiến, 8 bước lùi, 8 bước nhảy, 6 bước tiến).
-Dữ liệu thô: [`EVIDENCE_RAW/a9_slice_switch_20260911T140919+0700.json`](../../../spikes/spike_a_2d/EVIDENCE_RAW/)
+**Đã đo HAI LẦN, ở hai kích thước slice.** Lần thứ hai là lần có ý nghĩa.
 
-| Phép đo | n | min | p50 | p95 | max |
-|---|---:|---:|---:|---:|---:|
-| **ms tới frame hiển thị** | 30 | 33,01 | 34,21 | **65,31** | 65,41 |
-| ms tới decode xong | 30 | 18,78 | 22,62 | 46,94 | 48,64 |
+| Lần | Fixture | Ngày | p50 | **p95** | max | Ngưỡng 200 ms |
+|---|---|---|---:|---:|---:|---|
+| 1 | `64×64×16` | 2026-09-11 14:09 | 34,21 | **65,31** | 65,41 | đạt |
+| **2** | **`576×576×16`** — kích thước slice **THẬT** | 2026-09-12 00:52 | 35,68 | **50,23** | 50,45 | **đạt** |
 
-**Ngưỡng `NFR-PERF-001`: p95 ≤ 200 ms. Đo được 65,31 ms — dưới ngưỡng, dư khoảng 3 lần.**
+Dữ liệu thô: [`EVIDENCE_RAW/`](../../../spikes/spike_a_2d/EVIDENCE_RAW/) · 30 mẫu mỗi lần, chuỗi 30
+bước cố định, percentile **nearest-rank**, **không loại outlier**.
 
-**Định nghĩa đang đo là gì**, vì con số không có nghĩa nếu thiếu định nghĩa:
-- `ms_to_frame` = từ lúc state đổi đến **frame đầu tiên vẽ xong sau khi ảnh decode**. Spec nói *"update
-  the **visible** slice"* nên đây là con số trung thực.
+### Vì sao lần 2 quan trọng
+
+`RESULT.md` bản đầu ghi giới hạn phạm vi số 1: *"Kích thước slice LGE MRI thật CHƯA BIẾT… `A9` phải
+đo lại khi `A6` của Spike D có kết quả."* Gói dataset mở đêm 2026-09-11 cho thấy **`576×576×88`**
+(có case `640×640`). Fixture cũ nhỏ hơn **81 lần** về số pixel.
+
+Đã đo lại. **Chỉ MỘT biến thay đổi:** `Nz` giữ nguyên 16 để chuỗi 30 bước giống hệt.
+
+### ⚠ Kết quả ngược trực giác — và cách đọc nó cho đúng
+
+**Ở 81 lần số pixel, p95 KHÔNG tăng. Nó giảm, 65,31 → 50,23 ms.**
+
+Lời giải thích khả dĩ, và nó là điều quan trọng nhất trong mục này: **`A9` đo việc chuyển giữa các
+slice ĐÃ CACHE.** Toàn bộ 16 slice được decode một lần ở bước prewarm trước khi bài đo bắt đầu. Chi
+phí mỗi bước chuyển là **bridge JS + compositing của React Native**, cộng việc GPU thu nhỏ một bitmap
+đã decode sẵn — **không phải chi phí theo số pixel**.
+
+Nếu đúng thì đây là dữ kiện có giá trị cho `GATE-MOB-01`: với kiến trúc nạp sẵn, `NFR-PERF-001`
+**không nhạy với kích thước slice**.
+
+> **Nhưng đây KHÔNG phải một thí nghiệm có kiểm soát, và tôi không trình bày nó như vậy.**
+> Ba điều kiện khác nhau giữa hai lần chạy:
+>
+> | | Lần 1 | Lần 2 |
+> |---|---|---|
+> | Brightness | 128 | **255** |
+> | Pin | 80%, `NOT_CHARGING` | **19%, đang sạc** |
+> | Nhiệt độ pin | 35,0 °C | **36,6 °C** |
+>
+> Chiều của chênh lệch (thấp hơn ở 81 lần pixel) không được giải thích bởi bất kỳ điều nào ở trên,
+> nhưng **độ lớn của chúng so được với độ lớn của chênh lệch**. Nên đây là **một quan sát**, không
+> phải một kết luận. Muốn kết luận thì chạy lại cả hai kích thước trong cùng một điều kiện.
+
+### 🔴 Phát hiện quan trọng hơn cả con số p95 — bộ nhớ
+
+| Thời điểm | Graphics | TOTAL PSS |
+|---|---:|---:|
+| Trước bài đo | 268 KB | 79,6 MB |
+| **Sau bài đo** | **69 994 KB ≈ 68 MB** | **186 MB** |
+
+**≈ 4,3 MB graphics mỗi slice** (volume + mask overlay, đã decode sang bitmap).
+
+**Ngoại suy tới độ sâu THẬT của cohort — 88 slice:**
+
+```text
+4,3 MB/slice × 88 slice  ≈  376 MB graphics memory
+```
+
+> **Chiến lược "prewarm toàn bộ volume" KHÔNG co giãn tới dữ liệu thật.** 376 MB là con số đáng lo
+> ngay cả khi graphics memory nằm ngoài heap Java 256 MB mà profile DR-006 đã cảnh báo.
+>
+> Điều này **không làm hỏng con số `A9`** — `A9` hỏi về slice *đã cache*, và với 16 slice thì chúng
+> đã cache thật. Nhưng nó nói rằng **một viewer thật không thể cache cả volume**, nên nó sẽ phải
+> decode theo yêu cầu — và lúc đó `A9` **sẽ** nhạy với kích thước slice theo cách lần đo này không
+> thấy được.
+>
+> **Đây là việc tiếp theo của Spike A, và nó quan trọng hơn phần brush:** đo `A9` với một cache có
+> giới hạn (ví dụ cửa sổ ±3 slice) thay vì cache toàn bộ. Đó mới là hành vi của ứng dụng thật.
+
+### Định nghĩa đang đo là gì
+
+- `ms_to_frame` = từ lúc state đổi đến **frame đầu tiên vẽ xong sau khi ảnh decode**. Spec nói
+  *"update the **visible** slice"* nên đây là con số trung thực.
 - `ms_to_load` = tới lúc decode xong. Giữ lại để thấy tách bạch decode và paint.
 - Percentile **nearest-rank**, không nội suy, **không loại outlier**.
 
-### Điều kiện đo
+### Điều kiện lần đo thứ hai
 
-Build **RELEASE** (`--variant release`, APK 68.815.824 byte, `flags=0x0` — không có `FLAG_DEBUGGABLE`).
-Thermal status **0 trước và sau**, không throttling. Pin 80→79%, cắm USB nhưng **status 4 =
-`NOT_CHARGING`** nên không có nhiệt do sạc. Brightness **manual 128** (auto đã tắt trước khi chạy).
-Refresh **60 Hz** suốt bài. Chỉ harness ở foreground.
+Build **RELEASE** — cài lúc 00:37:03, `flags=0x0`, APK 82 888 384 byte (so với 68 815 824 byte của
+bản 64×64; chênh lệch đúng bằng fixture). Thermal status **0 trước và sau**. Pin 19→20%, **đang
+sạc**. Brightness **manual 255**. `low_power = 0`. Governor `energy_aware`. Refresh **60 Hz** suốt
+bài. Màn hình ghim sáng bằng `svc power stayon usb` để không khoá giữa chừng.
 
-### ⚠ Bốn giới hạn phạm vi — đọc trước khi dùng con số này
+**Ai vận hành:** Project Control bấm nút qua `adb input tap`, **theo chỉ đạo của leader**, trên máy do
+chính anh cắm và mở khoá. Chủ sở hữu Spike A là Phạm Tuấn Anh; theo **DR-006a** operator và owner
+được ghi tách bạch. **Không con số nào do Project Control sinh ra** — tất cả đến từ thiết bị.
 
-1. **Fixture là 64×64. Kích thước slice LGE MRI thật CHƯA BIẾT** — Spike D tiêu chí `A6` mới ghi phân bố
-   shape của cohort. Nên **65,31 ms là chặn dưới, không phải bằng chứng ở kích thước dữ liệu thật.**
-   **`A9` phải đo lại khi `A6` của Spike D có kết quả.**
-2. **Nửa sau của `A9` — *"không full-volume transfer mỗi gesture"* — `NOT MEASURED`.** Fixture nằm local,
-   chưa có đường mạng nào. Nửa đó thuộc về Spike E.
-3. **Một lần chạy 30 bước.** Tiêu chí đòi bài 30 bước nên số mẫu đúng yêu cầu, nhưng một lần chạy không
-   mô tả được biến động giữa các lần.
-4. Ảnh decode từ PNG đã encode sẵn, giữ trong bộ nhớ. Viewer thật decode từ ổ đĩa hoặc mạng theo yêu cầu
-   sẽ khác.
+### Ba giới hạn phạm vi còn lại
+
+1. **Nửa sau của `A9` — *"không full-volume transfer mỗi gesture"* — vẫn `NOT MEASURED`.** Fixture
+   nằm local, chưa có đường mạng nào. Nửa đó thuộc Spike E.
+2. **Mỗi kích thước chạy một lần.** Chuỗi 30 bước đúng yêu cầu tiêu chí, nhưng một lần chạy không mô
+   tả được biến động giữa các lần.
+3. **`Nz = 16`, độ sâu thật là 88.** Giữ cố định có chủ ý để cô lập biến kích thước slice — nhưng nó
+   chính là lý do con số bộ nhớ ở trên phải **ngoại suy** thay vì đo trực tiếp.
 
 ---
 
