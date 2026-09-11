@@ -1083,6 +1083,103 @@ already required by `08` §7's distribution visualisation.
 
 ---
 
+## Part 2b — Amendments recorded during execution
+
+Amendments change an already-approved DR. They are recorded here rather than edited silently into the
+original text, so the original decision and the reason it changed both remain readable.
+
+---
+
+### DR-001a — The Day-1 trigger is evaluated at the end of **Day 2**
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-001 ✅ — dataset acquisition contingency protocol |
+| **Proposed by** | Project Control |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-11 |
+| **Status** | ✅ **APPROVED** |
+
+**What DR-001 says.** *"If, by the end of the first execution day, there is no usable official package
+locally, or package/provenance validation exposes a blocking defect preventing `GATE-DATA-01` acceptance —
+then `RA-H01` escalates to BLOCKER and the dataset contingency process opens."*
+
+**What actually happened.** Day 1 (2026-09-10) was recorded as the planned execution start in
+`MASTER_PLAN_30_DAYS.md` §1, but **the cutover was never declared**: no `DAY01_CUTOVER_RECORD.md`, no
+spike `ACTIVE`, `started_at` null on all seven, `dr_001_clock_running: false`. The day was spent closing
+Day-0 debt, generating the baseline, and building the Day-01 control package. **Spike D never started, so
+the trigger was never evaluated.**
+
+**The amendment.** The trigger is evaluated at the **end of Day 2 (2026-09-11)** instead. **Its content
+and thresholds are unchanged** — same two conditions, same `RA-H01` → BLOCKER consequence, same
+prohibition on silent dataset substitution.
+
+**Why the trigger is NOT treated as already fired.** By the letter, Day 1 ended with no usable package
+locally, which reads as the trigger condition. But the cause was that **execution had not begun**, not
+that the dataset is problematic. Recording it as fired would attribute a dataset failure that has not
+been demonstrated, and would open a contingency process against a package nobody has yet tried to
+acquire. That would damage the trigger's meaning rather than honour it.
+
+**This is a deliberate deviation from the letter of DR-001, decided by the leader, with the reason
+recorded.** It is not a reading of what DR-001 already said.
+
+**Binding consequence.** If the trigger is **again** not evaluated at the end of Day 2, it will have
+slipped two consecutive days and lost its protective purpose entirely. At that point the failure is a
+project-control failure, not a dataset question, and it escalates on its own terms.
+
+---
+
+### DR-003a — Canonical private overlay is **ZeroTier**
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-003 ✅ — `LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS |
+| **Proposed by** | Nguyễn Gia Đức Trung (Spike E owner), 2026-09-10 |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-11 *(approval given 2026-09-10; recorded here)* |
+| **Status** | ✅ **APPROVED** |
+
+**Change.** The concrete private-overlay product in the canonical demo topology changes from
+**Tailscale** to **ZeroTier**.
+
+```text
+Samsung Galaxy A17 5G
+        |  real 4G / 5G cellular Internet
+        v
+Authenticated private overlay  (ZeroTier network)      <-- was: Tailscale tailnet
+        v
+Remote Mac mini M2, 24 GB RAM
+```
+
+**Trust boundary** becomes *authorised **ZeroTier network** device membership* — still **NOT** physical
+network membership.
+
+**What does NOT change — every substantive part of DR-003 survives:**
+
+| Unchanged |
+|---|
+| Profile stays **`LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS** |
+| The backend stays **physically remote** from the demo venue |
+| The trust boundary is still **overlay membership, not physical network membership** |
+| **Venue Wi-Fi remains untrusted and not required**, and must not be the measurement path |
+| **`E1` stands: acceptance evidence must be measured over real cellular + overlay. LAN runs are diagnostic only** |
+| `E12` stands: direct-vs-relayed recorded for **every** measurement |
+| No public endpoint, no public authentication surface, no dataset exposure |
+
+**Why this is not a frozen-spec change.** `docs/specs/v1.0/**` **never names Tailscale**. It is
+technology-neutral and requires only an *authenticated private overlay*. Tailscale was the concrete
+product named in the DR-003 decision record and in `SPIKE_E_TRANSPORT/TASK.md`, not in the specification.
+ZeroTier satisfies the same specified property. **Spec checksums remain 19/19 OK and no spec file is
+touched.**
+
+**Note on how this arrived.** The change was first pushed on branch `docs/zerotier-canonical`, which
+edited `SPIKE_PHASE_STATE.yaml` and `READINESS_REVIEW_RESOLUTION.md` directly. Those are central-state
+and decision-record files that **only Project Control may write** (see the §D.3 override in
+`day01/DAY01_RUNBOOK.md` §4.2). **The content was accepted; the route was not.** Project Control applied
+the edits, and that branch is closed unmerged. The proposal itself was correct and is credited above.
+
+---
+
 ## Part 3 — Decision dependency order
 
 Ordered by what each unblocks, not by calendar.

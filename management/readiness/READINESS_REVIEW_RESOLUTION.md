@@ -755,7 +755,7 @@ Samsung Galaxy A17 5G          (single authorised physical demo device)
         |
         |  4G / 5G cellular Internet
         v
-Authenticated private overlay  (Tailscale tailnet)
+Authenticated private overlay  (ZeroTier network)
         |
         v
 Remote Mac mini M2, 24 GB RAM
@@ -768,7 +768,7 @@ Remote Mac mini M2, 24 GB RAM
 
 #### Trust boundary
 
-**Authorised private-overlay (tailnet) device membership — NOT physical network membership.** Only explicitly
+**Authorised private-overlay (ZeroTier network) device membership — NOT physical network membership.** Only explicitly
 authorised overlay devices may reach the backend.
 
 **The physical school/venue Wi-Fi is explicitly NOT required for the canonical demo, is NOT part of the

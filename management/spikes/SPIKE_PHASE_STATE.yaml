@@ -130,8 +130,8 @@ environments:
   demo_network:
     profile: "LOCAL_DEMO - PRIVATE OVERLAY / CELLULAR ACCESS"
     decision: "DR-003 APPROVED"
-    path: "Galaxy A17 5G -> real 4G/5G cellular Internet -> authenticated Tailscale private overlay -> remote Mac mini M2"
-    trust_boundary: "authorised private-overlay (tailnet) device membership - NOT physical network membership"
+    path: "Galaxy A17 5G -> real 4G/5G cellular Internet -> authenticated ZeroTier private overlay -> remote Mac mini M2"
+    trust_boundary: "authorised private-overlay (ZeroTier network) device membership - NOT physical network membership"
     venue_wifi_trusted: false
     venue_wifi_required: false
     public_exposure_required: false
@@ -361,13 +361,13 @@ spikes:
     device_measurement_slot: 3  # THIRD in the single-device measurement queue
     parallel_work_allowed: >
       Owner must NOT wait idly for the phone. Before the device slot: Mac mini backend stub;
-      Tailscale/private-overlay connectivity verification; representative artifact payloads; transport
+      ZeroTier/private-overlay connectivity verification; representative artifact payloads; transport
       instrumentation; latency-distribution logging; retry/reconnect harness; measurement scripts and
       templates.
     related_dr: [DR-003, DR-006, ADR-ART-001]
     related_condition: []
     unblocks: [ADR-ART-001, "first-load performance budget (RA-H13)", "canonical-demo connectivity fallback"]
-    hard_constraint: "Acceptance evidence MUST be measured over real cellular + Tailscale overlay. LAN measurements are diagnostic/control only."
+    hard_constraint: "Acceptance evidence MUST be measured over real cellular + ZeroTier overlay. LAN measurements are diagnostic/control only."
     scope_firewall: "Fallback informs a demo-resilience measure only; must not become full offline mode, a second architecture, or backend-on-phone. PR-CACHE-01 stays SHOULD."
     linked_risk: [RISK-DEMO-NET-01, RA-H13]
     next_action: "Stand up the Mac mini backend stub and instrumentation; verify overlay connectivity. Do not idle waiting for the phone; holds measurement slot 3."
@@ -434,7 +434,7 @@ wip_compliance:
       queued: []
       constraint: >
         MUST NOT wait idly for the phone. Before the SPIKE_E device-measurement slot, allowed work: Mac mini
-        backend stub; Tailscale/private-overlay connectivity verification; representative artifact payloads;
+        backend stub; ZeroTier/private-overlay connectivity verification; representative artifact payloads;
         transport instrumentation; latency-distribution logging; retry/reconnect harness; measurement
         scripts and templates.
 
@@ -513,7 +513,7 @@ device_measurement_queue:
                      "continuous navigation with prefetch", "mask/mesh transport", "device memory",
                      "latency spread under cellular variation", "reconnect/retry"]
       parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A/B hold the phone"
-      acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated Tailscale overlay -> remote Mac mini M2 24 GB"
+      acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB"
       lan_results: "diagnostic only - never acceptance evidence"
   note: >
     SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and

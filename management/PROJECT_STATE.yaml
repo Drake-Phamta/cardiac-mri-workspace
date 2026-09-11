@@ -21,8 +21,8 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 0                              # pre-cutover. Becomes 1 when the leader declares.
-phase: PHASE_A_DAY0_DEBT_AND_PREPARATION
+day: 2                              # Day 1 = 2026-09-10 passed with no execution (see DAY_LOG.md)
+phase: PHASE_A_DAY0_DEBT_AND_PREPARATION   # cutover still not declared
 execution_day_1_declared: false
 execution_day_1_started_at: null    # set once, at cutover, from DAY01_CUTOVER_RECORD.md
 dr_001_clock_running: false
@@ -179,10 +179,14 @@ risks:
 
 # --- FORECAST ---------------------------------------------------------------
 forecast:
-  target_day: 30
+  target_day: 30                    # Day 30 = 2026-10-09, FIXED by leader decision - does not slip
   current_completion_day: null      # no execution data yet — estimating now would be fabrication
   confidence: null
-  remaining_buffer_days: 2          # planned days 28-30, not yet consumed
+  remaining_buffer_days: 1          # was 2; Day 1 (2026-09-10) lost with zero spike execution
+  buffer_note: >
+    Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
+    Day 30 fixed, so the lost day is absorbed by buffer rather than pushing the deadline. One
+    more lost day takes buffer to zero and fires 15 section 18 recovery trigger 2.
   basis: "Baseline generated and accepted by the leader 2026-09-10. No execution data yet."
 
 # --- MILESTONES -------------------------------------------------------------
