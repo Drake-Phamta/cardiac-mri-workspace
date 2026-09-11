@@ -79,3 +79,9 @@ desktop.ini
 .vscode/
 *.swp
 *~
+
+# --- SPIKE E PAYLOADS -----------------------------------------------------
+# Generated synthetic payloads: large and reproducible, so the generator is
+# tracked and the bytes are not. Regenerate with payloads/generate.py.
+spikes/**/payloads/out/
+spikes/**/payloads/out_*/
