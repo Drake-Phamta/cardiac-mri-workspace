@@ -144,32 +144,52 @@ khẳng định.
 
 ---
 
-## 6 · Một phát hiện ngược với kỳ vọng — cần anh soi
+## 6 · ❌ RÚT LẠI — "phát hiện" ở bản đầu là SAI
 
-Harness `picking_error.py` chạy 13 tia × 6 hướng camera × 4 mức decimation. Kết quả trên mesh tổng hợp:
+Bản đầu của file này báo rằng nhóm `interior` sai gấp ~7 lần nhóm `surface_tangent`, và gọi đó là
+phát hiện ngược kỳ vọng của spec. **Sai. Đó là tạo tác từ chính cách tôi dựng tia.**
 
-| Mức | cell | tam giác | nhóm | max err | mean err |
-|---:|---:|---:|---|---:|---:|
-| 0 | 1 | 5648 | interior | 0 | 0.00 |
-| 0 | 1 | 5648 | surface_tangent | 0 | 0.00 |
-| 3 | 4 | 356 | **interior** | 1 | **0.433** |
-| 3 | 4 | 356 | **surface_tangent** | 1 | **0.063** |
+Một luồng review độc lập đo lại từng tia:
 
-**Nhóm `interior` sai NHIỀU HƠN nhóm `surface_tangent` khoảng 7 lần.** Điều này ngược với kỳ vọng của
-`TECHNICAL_SPIKES_REQUIRED.md`, vốn mô tả surface-tangent là ca khó.
+| nhóm (nhãn cũ) | \|d_z\| TB | slice lệch / mm dọc tia | góc tới so với **pháp tuyến** |
+|---|---:|---:|---|
+| `interior` | 0,984 | **0,787** | 0–15° |
+| `surface_tangent` | 0,049 | **0,0395** | **11–17°** |
 
-Giải thích khả dĩ: cái quyết định sai số theo trục `z` không phải là góc giữa **tia và mặt phẳng
-slice**, mà là góc giữa **tia và pháp tuyến bề mặt tại điểm chạm**. Một tia đi dọc `+z` chạm vào nắp
-trên của khối, nơi pháp tuyến cũng dọc `z` — decimation dịch bề mặt **thẳng theo z**, nên sai số rơi
-trọn vào slice index. Tia gần song song mặt phẳng slice lại chạm vào sườn, nơi pháp tuyến nằm trong
-mặt phẳng `xy` — decimation dịch điểm chạm chủ yếu theo `x,y`, `z` gần như không đổi.
+Mọi tia gắn nhãn `surface_tangent` **đâm gần vuông góc với bề mặt**, ngược hẳn cái tên, và **kém
+nhạy 20 lần** theo trục z. Với tỉ lệ đó, nhóm `interior` **buộc phải** ra số lớn hơn. Con số 7× là số
+học, không phải hình học.
 
-**Tôi không sửa nhãn nhóm theo phát hiện này.** Định nghĩa nhóm là một phần hợp đồng fixture, và đổi
-nó là quyết định của anh. Nhưng nếu đúng, thì tiêu chí `B14` nên phân nhóm theo **góc tia–pháp tuyến**
-chứ không theo góc tia–mặt phẳng slice, và đó là thứ đáng nêu khi anh viết `RESULT.md`.
+**Và kiểm "mức 0 phải bằng 0" là tautology** — nó so mesh mức 0 với chính nó. Người review dịch mesh
+đi 5 slice, nó vẫn báo 0.
 
-Cảnh báo về phạm vi: đây là **mesh tổng hợp, chạy desktop, `DIAGNOSTIC`**. Mesh thật từ Spike D có thể
-cho kết luận khác hẳn.
+### Đã sửa cả hai
+
+| Cũ | Mới |
+|---|---|
+| ground truth = ray-cast vào mesh mức 0 | **DDA ray-march trực tiếp trên mask voxel** — không chạm mesh nào |
+| nhóm lấy từ nhãn đặt sẵn trong fixture | **tính tại điểm chạm** theo góc tia–pháp tuyến bề mặt |
+| không báo độ nhạy | báo `slices/mm dọc tia` cho từng nhóm, để phân biệt hình học với đòn bẩy |
+
+**Kết quả mới, trên cùng mesh tổng hợp:**
+
+| Mức | tam giác | nhóm | góc tới TB | slice/mm | max | mean |
+|---:|---:|---|---:|---:|---:|---:|
+| 0 | 5648 | grazing | 76,3° | 0,432 | 0 | 0,000 |
+| 0 | 5648 | steep | 26,4° | 0,375 | **1** | **0,016** |
+| 3 | 356 | grazing | 76,3° | 0,432 | 1 | 0,125 |
+| 3 | 356 | steep | 26,4° | 0,375 | 1 | 0,210 |
+
+Ba điều đáng chú ý:
+
+1. **Mức 0 giờ KHÁC 0** (steep, mean 0,016). Tautology biến mất — đó là chi phí thật của phương pháp
+   trích bề mặt theo mặt voxel, đo được vì ground truth không còn là chính nó.
+2. **Độ nhạy hai nhóm giờ chỉ chênh 1,15 lần** (0,432 vs 0,375), không phải 20 lần. So sánh mới công bằng.
+3. **Không còn chênh lệch 7×.** Khi kiểm soát độ nhạy, hai nhóm gần như ngang nhau. **Đó mới là câu
+   trả lời thật, và nó nhạt hơn nhiều so với cái tôi báo lần đầu.**
+
+**Việc của anh không đổi:** định nghĩa nhóm cho `B14` vẫn là quyết định của anh. Ngưỡng 60° tôi chọn
+là **tuỳ tiện** — ghi ra để anh phản biện một con số cụ thể.
 
 ---
 

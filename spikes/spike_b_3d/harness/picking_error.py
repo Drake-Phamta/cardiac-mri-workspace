@@ -10,36 +10,47 @@ measures against them rather than negotiating with them:
     | Canonical synthetic geometry fixtures | EXACT expected slice - zero tolerance |
     | Real decimated-mesh picking           | maximum error = +/-1 source slice     |
 
-    "This threshold is fixed before Spike B. Spike B validates conformance; it
-     does not derive or negotiate the value."
     "DO NOT loosen the tolerance merely to obtain a passing framework."
 
-HOW GROUND TRUTH IS ESTABLISHED
--------------------------------
-Level 0 is the undecimated voxel-face surface. Every point on it lies exactly
-on a cell boundary, so the slice it resolves to is unambiguous. For a given
-ray, the level-0 hit is the truth; the same ray against a decimated mesh gives
-the observed value; the difference is the decimation-induced picking error.
+=============================================================================
+REWRITTEN 2026-09-12 after an independent review. The first version was wrong
+in two ways that both produced numbers looking like results.
+=============================================================================
 
-This is the only honest way to attribute the error. Comparing a decimated hit
-against an analytic sphere would fold the extraction method's own error into
-the number and blame decimation for it.
+1. THE LEVEL-0 SELF-CHECK WAS A TAUTOLOGY.
+   Ground truth was "cast the ray at the level-0 mesh", and level 0 was then
+   compared against itself. Its error was a floating-point identity, not a
+   check. The reviewer translated the level-0 mesh by 5 slices and it still
+   reported 0 error - which is exactly what a tautology does.
 
-INTERIOR VS SURFACE-TANGENT
----------------------------
-Reported as separate groups because B14 requires it, and because the reason is
-real: a ray nearly parallel to the slice plane converts a small positional
-error into a large error along z. `TECHNICAL_SPIKES_REQUIRED.md` puts it
-plainly - a good interior-point result must not be able to mask a tangent-point
-failure.
+   FIXED: ground truth is now a DDA ray-march over the VOXEL MASK. It touches
+   no mesh at all, so level 0's error is a real measurement of what voxel-face
+   extraction costs, and every decimation level is measured against the data
+   rather than against another approximation of it.
 
-CAMERA ROTATION - criterion B6
-------------------------------
-B6 asks whether B4 and B5 still hold after the camera rotates and zooms.
-Rotating the camera about the volume is equivalent to rotating the ray set, so
-the harness re-runs every ray at several orientations and reports the worst
-case. Zoom does not change which triangle a ray hits, so it is not simulated -
-and that reasoning is stated rather than silently omitted.
+2. THE RAY GROUPS DID NOT MEAN WHAT THEIR NAMES SAID.
+   Rays were labelled interior / surface_tangent in the fixture by their
+   direction relative to the SLICE PLANE. The reviewer measured the actual
+   geometry: every "surface_tangent" ray struck the surface 11-17 degrees off
+   the NORMAL - nearly head-on, the opposite of tangent - and was 20x LESS
+   sensitive in the slice axis. With a 20x sensitivity ratio the "interior"
+   group could not not lose, so the ~7x difference reported as a finding was
+   arithmetic, not geometry. B14 was not being measured.
+
+   FIXED: the group is computed AT THE HIT, from the angle between the ray and
+   the true surface normal, and the per-ray slice-axis sensitivity is reported
+   alongside so the reader can see whether a group difference is geometry or
+   just leverage. Fixture labels are recorded but no longer drive anything.
+
+WHY THE NORMAL, NOT THE SLICE PLANE
+    What moves the resolved slice is displacement of the hit ALONG THE RAY
+    projected onto z. A ray arriving along the surface normal converts a
+    surface displacement directly into z error. A ray grazing the surface
+    slides a long way across it for a small normal displacement - dangerous for
+    WHERE on the surface you land, but not for WHICH SLICE, unless the surface
+    normal also has a z component. Those are different failure modes and B14
+    wants them separated, so this reports both the incidence angle and the
+    measured z-sensitivity.
 """
 
 from __future__ import annotations
@@ -48,17 +59,70 @@ import argparse
 import json
 import math
 import os
+import sys
 
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ROOT, "mesh"))
+
 DEFAULT_FIXTURE = os.path.join(ROOT, "fixtures_proposal", "geometry_fixture_v0.json")
 DEFAULT_MESH = os.path.join(ROOT, "mesh", "out", "mesh_levels.json")
 
 EPS = 1e-9
 SCQ06_BOUND = 1          # +/-1 source slice, frozen. Never widened here.
+GRAZING_COS = math.cos(math.radians(60.0))   # |n.d| below this is "grazing"
 
+
+# --- ground truth: DDA over the voxel mask, no mesh involved ----------------
+
+def march_mask(origin_w, dir_w, mask, spacing, origin, step=0.25):
+    """First occupied voxel along the ray, by marching in VOXEL space.
+
+    Returns (slice_index, normal_axis, abs_cos_incidence) or None.
+
+    `normal_axis` is the voxel axis whose face the ray crossed on entry. The
+    volume is axis-aligned (DR-012), so that face's world normal is the world
+    axis unit vector, which makes the incidence angle exact rather than
+    estimated from a triangle.
+    """
+    shape = np.array(mask.shape, dtype=np.float64)
+    sp = np.asarray(spacing, dtype=np.float64)
+    o = np.asarray(origin, dtype=np.float64)
+
+    d_w = np.asarray(dir_w, dtype=np.float64)
+    d_w = d_w / np.linalg.norm(d_w)
+
+    p_v = (np.asarray(origin_w, dtype=np.float64) - o) / sp    # voxel coords
+    d_v = d_w / sp                                             # voxel-space direction
+    n = np.linalg.norm(d_v)
+    if n < EPS:
+        return None
+    d_v = d_v / n
+
+    # March far enough to cross the whole volume from anywhere reasonable.
+    max_steps = int(4.0 * float(np.linalg.norm(shape)) / step) + 8
+    prev_idx = None
+    for _ in range(max_steps):
+        idx = np.floor(p_v + 1e-9).astype(np.int64)
+        inside = bool(np.all(idx >= 0) and np.all(idx < shape))
+        if inside and mask[idx[0], idx[1], idx[2]]:
+            # Which face did we come through? The axis that changed last.
+            if prev_idx is None:
+                axis = int(np.argmax(np.abs(d_v)))          # started inside
+            else:
+                diff = np.nonzero(idx != prev_idx)[0]
+                axis = int(diff[0]) if diff.size else int(np.argmax(np.abs(d_v)))
+            # World normal of an axis-aligned voxel face is the world axis.
+            cos_inc = abs(float(d_w[axis]))
+            return int(idx[2]), axis, cos_inc
+        prev_idx = idx
+        p_v = p_v + d_v * step
+    return None
+
+
+# --- mesh intersection ------------------------------------------------------
 
 def load_obj(path: str):
     verts, tris = [], []
@@ -68,16 +132,19 @@ def load_obj(path: str):
                 verts.append([float(v) for v in line.split()[1:4]])
             elif line.startswith("f "):
                 tris.append([int(p.split("/")[0]) - 1 for p in line.split()[1:4]])
-    return np.asarray(verts, dtype=np.float64), np.asarray(tris, dtype=np.int64)
+    v = np.asarray(verts, dtype=np.float64) if verts else np.zeros((0, 3))
+    # A decimation level can legitimately collapse to zero triangles. Shape the
+    # empty array so tris[:, 0] does not raise instead of returning no hits.
+    t = np.asarray(tris, dtype=np.int64) if tris else np.zeros((0, 3), dtype=np.int64)
+    return v, t
 
 
 def ray_mesh_first_hit(origin, direction, verts, tris):
-    """Moller-Trumbore, vectorised over every triangle. Returns the nearest hit point.
-
-    Back faces are accepted. A viewer picks what the user sees, and rejecting
-    back faces here would silently drop the concave cases that are exactly where
-    picking goes wrong.
-    """
+    """Moller-Trumbore, vectorised. Back faces accepted: a viewer picks what the
+    user sees, and rejecting them would drop the concave cases that are exactly
+    where picking goes wrong."""
+    if tris.shape[0] == 0:
+        return None
     o = np.asarray(origin, dtype=np.float64)
     d = np.asarray(direction, dtype=np.float64)
     d = d / np.linalg.norm(d)
@@ -100,8 +167,7 @@ def ray_mesh_first_hit(origin, direction, verts, tris):
     ok = (~parallel) & (u >= -EPS) & (v >= -EPS) & (u + v <= 1.0 + EPS) & (t > EPS)
     if not ok.any():
         return None
-    t_hit = np.where(ok, t, np.inf)
-    return o + d * float(t_hit.min())
+    return o + d * float(np.where(ok, t, np.inf).min())
 
 
 def slice_of_world(point, spacing, origin, shape):
@@ -125,7 +191,11 @@ def rotation(axis: str, deg: float) -> np.ndarray:
     return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float64)
 
 
+# --- run --------------------------------------------------------------------
+
 def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
+    from build_mesh import synthetic_mask                     # same mask the mesh came from
+
     with open(fixture_path, encoding="utf-8") as f:
         fixture = json.load(f)
     with open(mesh_path, encoding="utf-8") as f:
@@ -135,62 +205,103 @@ def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
     spacing = fixture["spacing_xyz_mm"]
     origin = fixture["origin_world_mm"]
     rays = fixture["picking_rays"]
+    mask = synthetic_mask(shape)
 
-    centre = np.array([origin[i] + shape[i] * spacing[i] / 2.0 for i in range(3)])
+    # One definition of the centre, taken from the fixture. Previously this
+    # recomputed it and landed half a voxel away from the ray builder's centre,
+    # so the B6 rotations pivoted about a different point than the rays assumed.
+    if "volume_centre_world" in fixture:
+        centre = np.asarray(fixture["volume_centre_world"], dtype=np.float64)
+    else:
+        raise SystemExit(
+            "Fixture has no volume_centre_world. Regenerate it:
+"
+            "    python spikes/spike_b_3d/fixtures_proposal/generate.py
+"
+            "Computing a centre here is how the harness and the fixture drifted "
+            "half a voxel apart the first time.")
 
     levels = {}
+    missing = []
     for lv in meshes["levels"]:
-        v, t = load_obj(os.path.join(ROOT, lv["obj"]))
+        p = os.path.join(ROOT, lv["obj"])
+        if not os.path.exists(p):
+            missing.append(lv["obj"])
+            continue
+        v, t = load_obj(p)
         levels[lv["level"]] = {"meta": lv, "verts": v, "tris": t}
+    if missing:
+        raise SystemExit(
+            "Mesh files named by mesh_levels.json are not on disk:\n  "
+            + "\n  ".join(missing)
+            + "\n\nThe .obj files are gitignored as regenerable while the JSON summary is\n"
+              "tracked, so a clean checkout has the index without the meshes. Run:\n"
+              "    python spikes/spike_b_3d/mesh/build_mesh.py\n")
 
-    base = levels[0]
-    # Camera orientations for B6. Identity first so the unrotated case is
-    # reported on its own before the worst case across orientations.
     orientations = [("identity", np.eye(3))]
     for axis, deg in [("y", 30), ("y", -45), ("x", 25), ("x", -35), ("z", 40)]:
         orientations.append((f"rot_{axis}{deg:+d}", rotation(axis, deg)))
 
+    # --- ground truth per (ray, orientation), from the MASK -----------------
+    truth = {}
+    for name, R in orientations:
+        for ray in rays:
+            o = R @ (np.asarray(ray["origin_world"]) - centre) + centre
+            d = R @ np.asarray(ray["direction_world"])
+            g = march_mask(o, d, mask, spacing, origin)
+            if g is None:
+                continue
+            slice_true, axis, cos_inc = g
+            d_unit = d / np.linalg.norm(d)
+            truth[(ray["id"], name)] = {
+                "origin": o, "dir": d,
+                "slice_true": slice_true,
+                "normal_axis": "xyz"[axis],
+                "abs_cos_incidence": round(cos_inc, 4),
+                "incidence_deg": round(math.degrees(math.acos(min(1.0, cos_inc))), 1),
+                # How many slices the resolved index moves per mm of displacement
+                # ALONG the ray. This is the leverage that decides whether a group
+                # difference is geometry or just sensitivity.
+                "slices_per_mm_along_ray": round(abs(d_unit[2]) / spacing[2], 4),
+                "group": "steep" if cos_inc >= GRAZING_COS else "grazing",
+                "fixture_label": ray["group"],
+            }
+
     per_level = []
     for level, data in sorted(levels.items()):
         groups: dict[str, list[dict]] = {}
-        misses = 0
-        for name, R in orientations:
-            for ray in rays:
-                o = R @ (np.asarray(ray["origin_world"]) - centre) + centre
-                d = R @ np.asarray(ray["direction_world"])
+        for (ray_id, orient), g in truth.items():
+            hit = ray_mesh_first_hit(g["origin"], g["dir"], data["verts"], data["tris"])
+            obs = slice_of_world(hit, spacing, origin, shape)
+            rec = {
+                "ray": ray_id, "orientation": orient,
+                "group": g["group"], "fixture_label": g["fixture_label"],
+                "incidence_deg": g["incidence_deg"],
+                "slices_per_mm_along_ray": g["slices_per_mm_along_ray"],
+                "expected_slice": g["slice_true"], "observed_slice": obs,
+                "error_slices": None if obs is None else abs(obs - g["slice_true"]),
+            }
+            if obs is None:
+                rec["note"] = "mesh produced no hit where the mask does"
+            groups.setdefault(g["group"], []).append(rec)
 
-                truth_pt = ray_mesh_first_hit(o, d, base["verts"], base["tris"])
-                truth = slice_of_world(truth_pt, spacing, origin, shape)
-                if truth is None:
-                    continue          # this ray misses the volume; not a picking failure
-
-                hit_pt = ray_mesh_first_hit(o, d, data["verts"], data["tris"])
-                obs = slice_of_world(hit_pt, spacing, origin, shape)
-                if obs is None:
-                    misses += 1
-                    groups.setdefault(ray["group"], []).append({
-                        "ray": ray["id"], "orientation": name,
-                        "expected_slice": truth, "observed_slice": None,
-                        "error_slices": None,
-                        "note": "decimated mesh produced no hit where level 0 did",
-                    })
-                    continue
-
-                groups.setdefault(ray["group"], []).append({
-                    "ray": ray["id"], "orientation": name,
-                    "expected_slice": truth, "observed_slice": obs,
-                    "error_slices": abs(obs - truth),
-                })
-
-        group_stats = {}
-        for g, samples in groups.items():
+        stats = {}
+        for grp, samples in groups.items():
             errs = [s["error_slices"] for s in samples if s["error_slices"] is not None]
-            group_stats[g] = {
+            no_hit = sum(1 for s in samples if s["error_slices"] is None)
+            stats[grp] = {
                 "samples": len(samples),
-                "no_hit": sum(1 for s in samples if s["error_slices"] is None),
+                "no_hit": no_hit,
                 "max_error_slices": max(errs) if errs else None,
                 "mean_error_slices": round(sum(errs) / len(errs), 4) if errs else None,
-                "within_bound": (max(errs) <= SCQ06_BOUND) if errs else None,
+                "mean_incidence_deg": round(
+                    sum(s["incidence_deg"] for s in samples) / len(samples), 1),
+                "mean_slices_per_mm": round(
+                    sum(s["slices_per_mm_along_ray"] for s in samples) / len(samples), 4),
+                # A no-hit is the LARGEST possible picking error, not a missing
+                # sample. The first version excluded them and could therefore
+                # call a mesh that misses the volume "within bound".
+                "within_bound": (bool(errs) and max(errs) <= SCQ06_BOUND and no_hit == 0),
                 "error_histogram": {str(e): errs.count(e) for e in sorted(set(errs))},
             }
 
@@ -199,30 +310,47 @@ def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
             "cluster_cell_voxels": data["meta"]["cluster_cell_voxels"],
             "triangle_count": data["meta"]["triangle_count"],
             "reduction_vs_level_0": data["meta"]["reduction_vs_level_0"],
-            "no_hit_total": misses,
-            "by_group": group_stats,
+            "no_hit_total": sum(s["no_hit"] for s in stats.values()),
+            "by_group": stats,
             "samples": [s for g in groups.values() for s in g],
         })
 
-    report = {
+    return {
         "_status": "DIAGNOSTIC - synthetic mesh, desktop run. NOT acceptance evidence.",
-        "_why": ("Criteria B5, B10 and B11 require the physical Galaxy A17 5G and are "
-                 "executed by Vu Hung Anh (SPIKE_B_3D/TASK.md). This harness measures the "
-                 "decimation-induced picking error on a synthetic mesh so the frontier has "
-                 "a shape before the device run."),
+        "_rewritten": "2026-09-12 - previous version had a tautological ground truth and "
+                      "mislabelled ray groups; see the module docstring.",
         "bound_slices": SCQ06_BOUND,
         "bound_source": "SCQ-06, frozen before Spike B. Not negotiable by this harness.",
-        "ground_truth": "level 0 undecimated voxel-face surface; every point on a cell boundary",
+        "ground_truth": "DDA ray-march over the voxel mask. Touches no mesh.",
+        "grouping": f"computed at the hit: |n.d| >= {GRAZING_COS:.3f} (60 deg) is steep, "
+                    f"below is grazing. Fixture labels recorded but not used.",
         "orientations_tested": [n for n, _ in orientations],
-        "camera_zoom_note": ("Zoom does not change which triangle a ray intersects, so it is "
-                             "not simulated. Rotation is, because it does."),
+        "camera_zoom_note": "Zoom does not change which triangle a ray intersects, so it is "
+                            "not simulated. Rotation is, because it does.",
+        "ground_truth_rays": len(truth),
         "levels": per_level,
-    }
-    if out_path:
-        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(report, f, indent=1, ensure_ascii=False)
-            f.write("\n")
-    return report
+    } if not out_path else _write(out_path, {
+        "_status": "DIAGNOSTIC - synthetic mesh, desktop run. NOT acceptance evidence.",
+        "_rewritten": "2026-09-12 - previous version had a tautological ground truth and "
+                      "mislabelled ray groups; see the module docstring.",
+        "bound_slices": SCQ06_BOUND,
+        "bound_source": "SCQ-06, frozen before Spike B. Not negotiable by this harness.",
+        "ground_truth": "DDA ray-march over the voxel mask. Touches no mesh.",
+        "grouping": f"computed at the hit: |n.d| >= {GRAZING_COS:.3f} (60 deg) is steep, "
+                    f"below is grazing. Fixture labels recorded but not used.",
+        "orientations_tested": [n for n, _ in orientations],
+        "camera_zoom_note": "Zoom does not change which triangle a ray intersects, so it is "
+                            "not simulated. Rotation is, because it does.",
+        "ground_truth_rays": len(truth),
+        "levels": per_level,
+    })
+
+
+def _write(path, payload):
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(payload, f, indent=1, ensure_ascii=False)
+        f.write("\n")
+    return payload
 
 
 def main() -> int:
@@ -239,49 +367,58 @@ def main() -> int:
     rep = run(args.fixture, args.mesh, args.out)
 
     print()
-    print(f"  bound: max {rep['bound_slices']} source slice (SCQ-06, frozen)")
-    print(f"  orientations: {', '.join(rep['orientations_tested'])}   <- criterion B6")
+    print(f"  bound        max {rep['bound_slices']} source slice (SCQ-06, frozen)")
+    print(f"  ground truth {rep['ground_truth']}")
+    print(f"  grouping     {rep['grouping']}")
+    print(f"  orientations {', '.join(rep['orientations_tested'])}   <- criterion B6")
+    print(f"  rays hitting the mask: {rep['ground_truth_rays']}")
     print()
-    header = f"  {'level':>5} {'cell':>5} {'tris':>7} {'group':<16} {'n':>4} {'max err':>8} {'mean':>7}  verdict"
-    print(header)
-    print("  " + "-" * (len(header) - 2))
+    head = (f"  {'lvl':>3} {'tris':>6} {'group':<9} {'n':>4} {'nohit':>5} "
+            f"{'incid':>6} {'sl/mm':>7} {'max':>4} {'mean':>7}  verdict")
+    print(head)
+    print("  " + "-" * (len(head) - 2))
 
     breaches = []
     for lv in rep["levels"]:
         for g in sorted(lv["by_group"]):
             st = lv["by_group"][g]
             ok = st["within_bound"]
-            verdict = "within bound" if ok else "EXCEEDS BOUND"
-            if ok is False:
-                breaches.append((lv["level"], g, st["max_error_slices"]))
-            print(f"  {lv['level']:>5} {str(lv['cluster_cell_voxels']):>5} "
-                  f"{lv['triangle_count']:>7} {g:<16} {st['samples']:>4} "
-                  f"{str(st['max_error_slices']):>8} {str(st['mean_error_slices']):>7}  {verdict}")
-        if lv["no_hit_total"]:
-            print(f"  {'':>5} {'':>5} {'':>7} {'(no hit)':<16} {lv['no_hit_total']:>4}"
-                  f"   decimated mesh lost a surface the level-0 mesh had")
+            if not ok:
+                breaches.append((lv["level"], g, st["max_error_slices"], st["no_hit"]))
+            print(f"  {lv['level']:>3} {lv['triangle_count']:>6} {g:<9} {st['samples']:>4} "
+                  f"{st['no_hit']:>5} {st['mean_incidence_deg']:>5.1f}d "
+                  f"{st['mean_slices_per_mm']:>7.4f} {str(st['max_error_slices']):>4} "
+                  f"{str(st['mean_error_slices']):>7}  "
+                  f"{'within bound' if ok else 'NOT within bound'}")
 
     print()
-    # B13: the largest reduction that still respects the bound, on this synthetic mesh.
+    print("  Read the two middle columns before the two right ones: a group with 20x the")
+    print("  slices-per-mm leverage will show more slice error for the same geometric")
+    print("  displacement. That is sensitivity, not a property of the decimation.")
+    print()
+
     usable = [lv for lv in rep["levels"]
-              if all(s["within_bound"] for s in lv["by_group"].values()
-                     if s["within_bound"] is not None)]
+              if lv["by_group"]
+              and lv["no_hit_total"] == 0
+              and all(s["within_bound"] for s in lv["by_group"].values())]
     if usable:
         best = max(usable, key=lambda lv: lv["reduction_vs_level_0"])
         print(f"  Largest reduction still within +/-{SCQ06_BOUND} slice on THIS synthetic mesh:")
         print(f"    level {best['level']}, cell {best['cluster_cell_voxels']}, "
               f"{best['triangle_count']} triangles, "
               f"{best['reduction_vs_level_0'] * 100:.1f}% fewer than level 0")
-    if breaches:
-        print(f"  Bound exceeded at: " +
-              "; ".join(f"level {l} / {g} / max {e} slices" for l, g, e in breaches))
+    else:
+        print("  NO level is within bound on every group with zero missed hits.")
         print("  That is a result. The bound is frozen (SCQ-06) and is not widened to pass.")
+    if breaches:
+        print("  Outside bound: " + "; ".join(
+            f"level {l}/{g} max {e} slices, {n} missed hits" for l, g, e, n in breaches))
 
     print()
     print("  DIAGNOSTIC ONLY - synthetic mesh, desktop, no frame rate, no device.")
-    print("  B13 needs the real mesh AND the on-device FPS from Vu Hung Anh before a")
-    print("  decimation budget can be recommended. A reduction that picks accurately but")
-    print("  renders at 12 FPS fails B10.")
+    print("  B13 needs the real mesh AND on-device FPS from Vu Hung Anh before a decimation")
+    print("  budget can be recommended. A reduction that picks accurately but renders at")
+    print("  12 FPS fails B10.")
     print(f"  wrote  {os.path.relpath(args.out, ROOT)}")
     print()
     return 0

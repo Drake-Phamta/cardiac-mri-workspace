@@ -93,24 +93,40 @@ render 12 FPS là **trượt `B10`**.
 | 2 | 3 | 317 | 632 | 88,8% | 1,43 ms |
 | 3 | 4 | 178 | 356 | 93,7% | 1,36 ms |
 
-**Sai số picking, 13 tia × 6 hướng camera:**
+**Sai số picking — 13 tia × 6 hướng camera, 78 tia chạm mask:**
 
-| Mức | interior max / mean | surface_tangent max / mean | Trong bound ±1 |
-|---:|---|---|---|
-| 0 | 0 / 0,000 | 0 / 0,000 | ✓ *(phải bằng 0 — đây là ground truth)* |
-| 1 | 1 / 0,400 | 1 / 0,063 | ✓ |
-| 2 | 1 / 0,333 | 1 / 0,083 | ✓ |
-| 3 | 1 / 0,433 | 1 / 0,063 | ✓ |
+> ### ❌ Bản đầu của bảng này SAI. Đã rút lại.
+>
+> Ground truth cũ là *ray-cast vào mesh mức 0*, nên **mức 0 được so với chính nó** — sai số 0 là một
+> đồng nhất thức, không phải một phép kiểm. Và nhãn nhóm không mô tả đúng hình học: mọi tia
+> `surface_tangent` đâm gần **vuông góc** với bề mặt và **kém nhạy 20 lần** theo trục z, nên chênh
+> lệch "7×" tôi báo là số học chứ không phải phát hiện. Chi tiết: [`FORMAT.md`](fixtures_proposal/FORMAT.md) §6.
+>
+> **Đã sửa:** ground truth là **DDA ray-march trên mask voxel**, không chạm mesh nào; nhóm **tính tại
+> điểm chạm** theo góc tia–pháp tuyến; và độ nhạy được báo cùng bảng.
+
+| Mức | tam giác | nhóm | góc tới TB | slice/mm | nohit | max | mean | trong bound |
+|---:|---:|---|---:|---:|---:|---:|---:|---|
+| 0 | 5648 | grazing | 76,3° | 0,432 | 0 | 0 | 0,000 | ✓ |
+| 0 | 5648 | steep | 26,4° | 0,375 | 0 | **1** | **0,016** | ✓ |
+| 1 | 1448 | grazing | 76,3° | 0,432 | 0 | 1 | 0,250 | ✓ |
+| 1 | 1448 | steep | 26,4° | 0,375 | 0 | 1 | 0,194 | ✓ |
+| 2 | 632 | grazing | 76,3° | 0,432 | 0 | 1 | 0,063 | ✓ |
+| 2 | 632 | steep | 26,4° | 0,375 | 0 | 1 | 0,194 | ✓ |
+| 3 | 356 | grazing | 76,3° | 0,432 | 0 | 1 | 0,125 | ✓ |
+| 3 | 356 | steep | 26,4° | 0,375 | 0 | 1 | 0,210 | ✓ |
+
+**Đọc hai cột giữa trước hai cột phải.** Một nhóm có đòn bẩy `slice/mm` lớn hơn sẽ ra sai số slice lớn
+hơn với cùng một độ dịch hình học — đó là độ nhạy, không phải tính chất của decimation. Lần này hai
+nhóm chỉ chênh 1,15 lần, nên so sánh có nghĩa.
 
 **Bốn giới hạn phạm vi — đọc trước khi dùng bảng trên:**
 
-1. **Mesh tổng hợp, không phải giải phẫu.** Mask thật từ Spike D có tỉ lệ khung hình, độ cong và
-   vùng lõm khác — kết luận có thể đảo.
-2. **Không có số FPS nào.** Chạy desktop. `B10` `B11` cần Galaxy A17 và cần chính anh chạy.
-3. **Mức 0 bằng 0 là kiểm tra tính đúng đắn của harness, không phải kết quả.** Nếu nó khác 0 thì
-   harness sai chứ không phải mesh sai.
-4. **Zoom không được mô phỏng** — zoom không đổi tam giác nào bị tia cắt. Xoay thì có, nên xoay được
-   chạy. Lý do ghi trong `picking_error.py` thay vì lặng lẽ bỏ qua.
+1. **Mesh tổng hợp, không phải giải phẫu.** Mask thật từ Spike D có thể đảo kết luận.
+2. **Không có số FPS nào.** `B10` `B11` cần Galaxy A17 và cần chính anh chạy.
+3. **Mức 0 khác 0 là một KẾT QUẢ, không phải lỗi harness** — nó đo chi phí của phương pháp trích bề
+   mặt theo mặt voxel, và chỉ đo được vì ground truth không còn là chính nó.
+4. **Zoom không được mô phỏng** — zoom không đổi tam giác nào bị tia cắt. Xoay thì có, nên xoay được chạy.
 
 ---
 

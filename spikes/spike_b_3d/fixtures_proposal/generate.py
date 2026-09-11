@@ -151,10 +151,17 @@ def _test_points() -> list[dict]:
     for z in (0, 1, nz - 2, nz - 1):
         add(cx, cy, z, "slice_boundary", f"slice index {z}")
 
-    # half-voxel positions: the rounding rule must be stated, not discovered
-    for x, y, z in [(10.5, 8.0, 6.0), (10.0, 8.5, 6.0), (10.0, 8.0, 6.5)]:
+    # Half-voxel positions. The z values are chosen so floor and round-to-nearest
+    # DISAGREE, which the first version got wrong: it used z = 6.5, and Python's
+    # banker's rounding sends 6.5 to 6, the same answer floor gives. A
+    # round-to-nearest consumer passed the group that exists to catch it.
+    # Odd .5 values differ under both banker's rounding (3.5 -> 4) and half-up.
+    for x, y, z in [(10.5, 8.0, 3.5), (10.0, 8.5, 7.5), (10.0, 8.0, 11.5),
+                    (10.5, 8.5, 5.0)]:
         add(x, y, z, "half_voxel",
-            "half-voxel offset; consumer must apply the declared rounding rule")
+            f"z={z}: floor gives {int(z // 1)}, round-to-nearest gives a different "
+            f"slice. A consumer that rounds disagrees here" if z % 1 else
+            "half-voxel in x and y only; the slice index must be unaffected")
 
     # out of range - a correct implementation must REJECT, not clamp
     for x, y, z in [(-1, 5, 3), (nx, 5, 3), (5, -1, 3), (5, ny, 3),
@@ -166,6 +173,16 @@ def _test_points() -> list[dict]:
     return points
 
 
+def _volume_centre() -> list[float]:
+    """The single definition of the volume centre, published in the fixture.
+
+    Voxel index k spans [k, k+1), so the volume spans [0, N) and its centre is
+    at N/2 in voxel coordinates - not (N-1)/2, which is the centre of the voxel
+    INDICES rather than of the volume.
+    """
+    return voxel_to_world(SHAPE_XYZ[0] / 2, SHAPE_XYZ[1] / 2, SHAPE_XYZ[2] / 2)
+
+
 def _camera_rays() -> list[dict]:
     """Rays for the picking-error harness, split interior vs surface-tangent.
 
@@ -175,7 +192,11 @@ def _camera_rays() -> list[dict]:
     own group.
     """
     nx, ny, nz = SHAPE_XYZ
-    centre = voxel_to_world((nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2)
+    # Published as volume_centre_world below so consumers use ONE definition.
+    # The ray builder and the picking harness previously computed centres half a
+    # voxel apart - (n-1)/2 here, n/2 there - and silently rotated about
+    # different points.
+    centre = _volume_centre()
     rays: list[dict] = []
     rid = 0
 
@@ -228,6 +249,7 @@ def build() -> dict:
             "memory_order": "NOT part of the contract - consumers go through shape_xyz",
         },
         "shape_xyz": SHAPE_XYZ,
+        "volume_centre_world": _volume_centre(),
         "slice_shape_yx": [SHAPE_XYZ[1], SHAPE_XYZ[0]],
         "spacing_xyz_mm": SPACING,
         "origin_world_mm": ORIGIN,
@@ -240,9 +262,12 @@ def build() -> dict:
             "rounding": "floor",
             "rounding_rationale": (
                 "voxel (x,y,z) covers [x, x+1) x [y, y+1) x [z, z+1) under a top-left "
-                "origin, so floor is the consistent choice. A consumer that rounds to "
-                "nearest will disagree with this fixture at every half-voxel point, "
-                "which is why the half_voxel group exists."
+                "origin, so floor is the consistent choice. The half_voxel group uses "
+                "ODD half-values of z (3.5, 7.5, 11.5) specifically because floor and "
+                "round-to-nearest disagree there under both banker's and half-up "
+                "rounding. An earlier version used z=6.5, where Python rounds to 6 and "
+                "floor also gives 6 - so a round-to-nearest consumer passed the very "
+                "check meant to catch it."
             ),
             "out_of_range": "REJECT. Do not clamp into range.",
         },

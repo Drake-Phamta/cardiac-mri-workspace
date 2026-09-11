@@ -163,13 +163,30 @@ def check_fixture(fixture: dict, impl: dict[str, Callable],
         findings.append(Finding("-", "fixture", "self_consistency",
                                 f"slice_shape_yx {fixture.get('slice_shape_yx')} is not "
                                 f"[Ny, Nx] = {[shape[1], shape[0]]} - DR-008a"))
-    if fixture.get("axis_aligned") is True:
-        for i, row in enumerate(fixture.get("space_directions", [])):
-            for j, value in enumerate(row):
-                if i != j and value != 0.0:
-                    findings.append(Finding("-", "fixture", "self_consistency",
-                                            f"axis_aligned is true but direction[{i}][{j}] "
-                                            f"= {value} - DR-012"))
+    # DR-012 / A14. The old version only ran when axis_aligned was already true,
+    # so a fixture declaring `false` with an oblique matrix, or one with no
+    # direction matrix at all, sailed through with "0 findings".
+    directions = fixture.get("space_directions")
+    declared = fixture.get("axis_aligned")
+    if directions is None:
+        findings.append(Finding("-", "fixture", "self_consistency",
+                                "no space_directions - axis alignment cannot be checked, and "
+                                "DR-012 restricts the MVP to VALIDATED axis-aligned geometry"))
+    else:
+        off_diagonal = [(i, j, v) for i, row in enumerate(directions)
+                        for j, v in enumerate(row) if i != j and v != 0.0]
+        actually_aligned = not off_diagonal
+        if declared is not True:
+            findings.append(Finding(
+                "-", "fixture", "geometry_profile",
+                f"axis_aligned is {declared!r}. DR-012 supports validated axis-aligned "
+                f"geometry only; an oblique fixture must be rejected with "
+                f"GEOMETRY_NOT_VALIDATED, not consumed"))
+        if declared is True and not actually_aligned:
+            i, j, v = off_diagonal[0]
+            findings.append(Finding("-", "fixture", "self_consistency",
+                                    f"axis_aligned is true but direction[{i}][{j}] = {v} "
+                                    f"- DR-012"))
     return findings
 
 
@@ -200,12 +217,21 @@ def main() -> int:
 
     groups = sorted({p["group"] for p in fixture["points"]})
     print()
+    if not groups:
+        print("  This fixture declares no test points. Nothing was checked.")
+        print("  That is not a pass - a conformance run over zero points proves nothing.")
+        print()
+        return 2
     width = max(len(g) for g in groups)
     for g in groups:
         total = sum(1 for p in fixture["points"] if p["group"] == g)
-        bad = len(by_group.get(g, []))
-        mark = "FAIL" if bad else "ok  "
-        print(f"  {mark} {g:{width}s}  {total - bad}/{total} points conform")
+        # Count DISTINCT FAILING POINTS, not findings. One bad point can raise up
+        # to seven findings (three axes forward, three back, one slice), and the
+        # old arithmetic printed things like "-46/8 points conform".
+        bad_points = len({f.point_id for f in by_group.get(g, [])})
+        mark = "FAIL" if bad_points else "ok  "
+        print(f"  {mark} {g:{width}s}  {total - bad_points}/{total} points conform"
+              + (f"   ({len(by_group[g])} findings)" if bad_points else ""))
 
     if findings:
         print()

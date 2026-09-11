@@ -1,9 +1,10 @@
 {
  "_status": "DIAGNOSTIC - synthetic mesh, desktop run. NOT acceptance evidence.",
- "_why": "Criteria B5, B10 and B11 require the physical Galaxy A17 5G and are executed by Vu Hung Anh (SPIKE_B_3D/TASK.md). This harness measures the decimation-induced picking error on a synthetic mesh so the frontier has a shape before the device run.",
+ "_rewritten": "2026-09-12 - previous version had a tautological ground truth and mislabelled ray groups; see the module docstring.",
  "bound_slices": 1,
  "bound_source": "SCQ-06, frozen before Spike B. Not negotiable by this harness.",
- "ground_truth": "level 0 undecimated voxel-face surface; every point on a cell boundary",
+ "ground_truth": "DDA ray-march over the voxel mask. Touches no mesh.",
+ "grouping": "computed at the hit: |n.d| >= 0.500 (60 deg) is steep, below is grazing. Fixture labels recorded but not used.",
  "orientations_tested": [
   "identity",
   "rot_y+30",
@@ -13,6 +14,7 @@
   "rot_z+40"
  ],
  "camera_zoom_note": "Zoom does not change which triangle a ray intersects, so it is not simulated. Rotation is, because it does.",
+ "ground_truth_rays": 78,
  "levels": [
   {
    "level": 0,
@@ -21,24 +23,29 @@
    "reduction_vs_level_0": 0.0,
    "no_hit_total": 0,
    "by_group": {
-    "interior": {
-     "samples": 30,
+    "steep": {
+     "samples": 62,
      "no_hit": 0,
-     "max_error_slices": 0,
-     "mean_error_slices": 0.0,
+     "max_error_slices": 1,
+     "mean_error_slices": 0.0161,
+     "mean_incidence_deg": 26.4,
+     "mean_slices_per_mm": 0.375,
      "within_bound": true,
      "error_histogram": {
-      "0": 30
+      "0": 61,
+      "1": 1
      }
     },
-    "surface_tangent": {
-     "samples": 48,
+    "grazing": {
+     "samples": 16,
      "no_hit": 0,
      "max_error_slices": 0,
      "mean_error_slices": 0.0,
+     "mean_incidence_deg": 76.3,
+     "mean_slices_per_mm": 0.4318,
      "within_bound": true,
      "error_histogram": {
-      "0": 48
+      "0": 16
      }
     }
    },
@@ -46,6 +53,10 @@
     {
      "ray": "RAY_001",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
      "expected_slice": 4,
      "observed_slice": 4,
      "error_slices": 0
@@ -53,6 +64,10 @@
     {
      "ray": "RAY_002",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 5,
      "error_slices": 0
@@ -60,6 +75,10 @@
     {
      "ray": "RAY_003",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 5,
      "error_slices": 0
@@ -67,6 +86,10 @@
     {
      "ray": "RAY_004",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 12.6,
+     "slices_per_mm_along_ray": 0.7807,
      "expected_slice": 5,
      "observed_slice": 5,
      "error_slices": 0
@@ -74,181 +97,10 @@
     {
      "ray": "RAY_005",
      "orientation": "identity",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_y+30",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_y-45",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x+25",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x-35",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_z+40",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 15.1,
+     "slices_per_mm_along_ray": 0.7725,
      "expected_slice": 5,
      "observed_slice": 5,
      "error_slices": 0
@@ -256,6 +108,10 @@
     {
      "ray": "RAY_006",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -263,6 +119,10 @@
     {
      "ray": "RAY_007",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -270,6 +130,10 @@
     {
      "ray": "RAY_008",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -277,6 +141,10 @@
     {
      "ray": "RAY_009",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -284,20 +152,10 @@
     {
      "ray": "RAY_010",
      "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.0153,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -305,41 +163,98 @@
     {
      "ray": "RAY_013",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.0235,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
     },
     {
+     "ray": "RAY_001",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 30.0,
+     "slices_per_mm_along_ray": 0.6928,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 51.5,
+     "slices_per_mm_along_ray": 0.6258,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 31.1,
+     "slices_per_mm_along_ray": 0.6852,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 19.5,
+     "slices_per_mm_along_ray": 0.7542,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.5,
+     "slices_per_mm_along_ray": 0.6304,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 30.1,
+     "slices_per_mm_along_ray": 0.3291,
      "expected_slice": 14,
      "observed_slice": 14,
      "error_slices": 0
     },
     {
-     "ray": "RAY_007",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_008",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 32.0,
+     "slices_per_mm_along_ray": 0.3563,
      "expected_slice": 14,
      "observed_slice": 14,
      "error_slices": 0
     },
     {
-     "ray": "RAY_009",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_010",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.0,
+     "slices_per_mm_along_ray": 0.3698,
      "expected_slice": 15,
      "observed_slice": 15,
      "error_slices": 0
@@ -347,6 +262,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0376,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -354,6 +273,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.119,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -361,13 +284,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.058,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
+     "ray": "RAY_001",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.0,
+     "slices_per_mm_along_ray": 0.5657,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 36.5,
+     "slices_per_mm_along_ray": 0.6433,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.6,
+     "slices_per_mm_along_ray": 0.5594,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 34.1,
+     "slices_per_mm_along_ray": 0.4416,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 41.3,
+     "slices_per_mm_along_ray": 0.6009,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -375,6 +350,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 43.2,
+     "slices_per_mm_along_ray": 0.497,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -382,6 +361,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5631,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -389,6 +372,10 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5198,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -396,6 +383,10 @@
     {
      "ray": "RAY_010",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 48.4,
+     "slices_per_mm_along_ray": 0.5526,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -403,6 +394,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.144,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -410,6 +405,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0775,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -417,13 +416,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.1275,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
     },
     {
+     "ray": "RAY_002",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 26.3,
+     "slices_per_mm_along_ray": 0.717,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 16.5,
+     "slices_per_mm_along_ray": 0.7672,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 22.2,
+     "slices_per_mm_along_ray": 0.7406,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 39.4,
+     "slices_per_mm_along_ray": 0.6185,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1523,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -431,6 +482,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0415,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -438,6 +493,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1248,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -445,146 +504,406 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0693,
      "expected_slice": 10,
      "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x+25",
-     "expected_slice": 10,
-     "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x+25",
-     "expected_slice": 8,
-     "observed_slice": 8,
      "error_slices": 0
     },
     {
      "ray": "RAY_012",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 24.2,
+     "slices_per_mm_along_ray": 0.2884,
      "expected_slice": 9,
      "observed_slice": 9,
      "error_slices": 0
     },
     {
+     "ray": "RAY_001",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 35.0,
+     "slices_per_mm_along_ray": 0.6553,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.4,
+     "slices_per_mm_along_ray": 0.6481,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 43.5,
+     "slices_per_mm_along_ray": 0.58,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1815,
+     "expected_slice": 13,
+     "observed_slice": 13,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1067,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1568,
+     "expected_slice": 13,
+     "observed_slice": 13,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.1193,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.4107,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 52.4,
+     "slices_per_mm_along_ray": 0.4877,
+     "expected_slice": 15,
+     "observed_slice": 16,
+     "error_slices": 1
+    },
+    {
      "ray": "RAY_013",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 34.9,
+     "slices_per_mm_along_ray": 0.4305,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
+     "expected_slice": 4,
+     "observed_slice": 4,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.6,
+     "slices_per_mm_along_ray": 0.0611,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.0153,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_013",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.7,
+     "slices_per_mm_along_ray": 0.0235,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.4349,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.3,
+     "slices_per_mm_along_ray": 0.4094,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_006",
+     "orientation": "rot_y-45",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.5835,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
      "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 65.0,
+     "slices_per_mm_along_ray": 0.725,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 75.4,
+     "slices_per_mm_along_ray": 0.111,
+     "expected_slice": 10,
+     "observed_slice": 10,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3735,
      "expected_slice": 8,
      "observed_slice": 8,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_007",
-     "orientation": "rot_x-35",
-     "expected_slice": 13,
-     "observed_slice": 13,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_008",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_009",
-     "orientation": "rot_x-35",
-     "expected_slice": 13,
-     "observed_slice": 13,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x-35",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_x-35",
-     "expected_slice": 16,
-     "observed_slice": 16,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_013",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3527,
+     "expected_slice": 8,
+     "observed_slice": 8,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
      "orientation": "rot_x-35",
-     "expected_slice": 15,
-     "observed_slice": 15,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.5947,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 69.1,
+     "slices_per_mm_along_ray": 0.7436,
+     "expected_slice": 5,
+     "observed_slice": 5,
      "error_slices": 0
     },
     {
      "ray": "RAY_006",
-     "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_007",
-     "orientation": "rot_z+40",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.8,
+     "slices_per_mm_along_ray": 0.0814,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
     },
     {
-     "ray": "RAY_008",
+     "ray": "RAY_003",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 83.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 4,
+     "observed_slice": 4,
      "error_slices": 0
     },
     {
-     "ray": "RAY_009",
+     "ray": "RAY_004",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 77.7,
+     "slices_per_mm_along_ray": 0.7807,
+     "expected_slice": 4,
+     "observed_slice": 4,
      "error_slices": 0
     },
     {
-     "ray": "RAY_010",
+     "ray": "RAY_005",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 76.8,
+     "slices_per_mm_along_ray": 0.7725,
+     "expected_slice": 5,
+     "observed_slice": 5,
      "error_slices": 0
     },
     {
-     "ray": "RAY_011",
+     "ray": "RAY_006",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_013",
-     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 85.6,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -598,26 +917,30 @@
    "reduction_vs_level_0": 0.7436,
    "no_hit_total": 0,
    "by_group": {
-    "interior": {
-     "samples": 30,
+    "steep": {
+     "samples": 62,
      "no_hit": 0,
      "max_error_slices": 1,
-     "mean_error_slices": 0.4,
+     "mean_error_slices": 0.1935,
+     "mean_incidence_deg": 26.4,
+     "mean_slices_per_mm": 0.375,
      "within_bound": true,
      "error_histogram": {
-      "0": 18,
+      "0": 50,
       "1": 12
      }
     },
-    "surface_tangent": {
-     "samples": 48,
+    "grazing": {
+     "samples": 16,
      "no_hit": 0,
      "max_error_slices": 1,
-     "mean_error_slices": 0.0625,
+     "mean_error_slices": 0.25,
+     "mean_incidence_deg": 76.3,
+     "mean_slices_per_mm": 0.4318,
      "within_bound": true,
      "error_histogram": {
-      "0": 45,
-      "1": 3
+      "0": 12,
+      "1": 4
      }
     }
    },
@@ -625,6 +948,10 @@
     {
      "ray": "RAY_001",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
      "expected_slice": 4,
      "observed_slice": 4,
      "error_slices": 0
@@ -632,6 +959,10 @@
     {
      "ray": "RAY_002",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -639,6 +970,10 @@
     {
      "ray": "RAY_003",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -646,6 +981,10 @@
     {
      "ray": "RAY_004",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 12.6,
+     "slices_per_mm_along_ray": 0.7807,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -653,181 +992,10 @@
     {
      "ray": "RAY_005",
      "orientation": "identity",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 5,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_y+30",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_y-45",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x+25",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 6,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x-35",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_z+40",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 15.1,
+     "slices_per_mm_along_ray": 0.7725,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -835,6 +1003,10 @@
     {
      "ray": "RAY_006",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 11,
      "observed_slice": 10,
      "error_slices": 1
@@ -842,6 +1014,10 @@
     {
      "ray": "RAY_007",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -849,6 +1025,10 @@
     {
      "ray": "RAY_008",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -856,6 +1036,10 @@
     {
      "ray": "RAY_009",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -863,20 +1047,10 @@
     {
      "ray": "RAY_010",
      "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.0153,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -884,41 +1058,98 @@
     {
      "ray": "RAY_013",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.0235,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
     },
     {
+     "ray": "RAY_001",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 30.0,
+     "slices_per_mm_along_ray": 0.6928,
+     "expected_slice": 6,
+     "observed_slice": 5,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 51.5,
+     "slices_per_mm_along_ray": 0.6258,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 31.1,
+     "slices_per_mm_along_ray": 0.6852,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 19.5,
+     "slices_per_mm_along_ray": 0.7542,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.5,
+     "slices_per_mm_along_ray": 0.6304,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 30.1,
+     "slices_per_mm_along_ray": 0.3291,
      "expected_slice": 14,
      "observed_slice": 14,
      "error_slices": 0
     },
     {
-     "ray": "RAY_007",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_008",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 32.0,
+     "slices_per_mm_along_ray": 0.3563,
      "expected_slice": 14,
      "observed_slice": 14,
      "error_slices": 0
     },
     {
-     "ray": "RAY_009",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_010",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.0,
+     "slices_per_mm_along_ray": 0.3698,
      "expected_slice": 15,
      "observed_slice": 14,
      "error_slices": 1
@@ -926,6 +1157,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0376,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -933,6 +1168,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.119,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -940,13 +1179,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.058,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
+     "ray": "RAY_001",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.0,
+     "slices_per_mm_along_ray": 0.5657,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 36.5,
+     "slices_per_mm_along_ray": 0.6433,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.6,
+     "slices_per_mm_along_ray": 0.5594,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 34.1,
+     "slices_per_mm_along_ray": 0.4416,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 41.3,
+     "slices_per_mm_along_ray": 0.6009,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -954,6 +1245,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 43.2,
+     "slices_per_mm_along_ray": 0.497,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -961,6 +1256,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5631,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -968,6 +1267,10 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5198,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -975,6 +1278,10 @@
     {
      "ray": "RAY_010",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 48.4,
+     "slices_per_mm_along_ray": 0.5526,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -982,6 +1289,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.144,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -989,6 +1300,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0775,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -996,13 +1311,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.1275,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
     },
     {
+     "ray": "RAY_002",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 26.3,
+     "slices_per_mm_along_ray": 0.717,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 16.5,
+     "slices_per_mm_along_ray": 0.7672,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 22.2,
+     "slices_per_mm_along_ray": 0.7406,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 39.4,
+     "slices_per_mm_along_ray": 0.6185,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1523,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -1010,6 +1377,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0415,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1017,6 +1388,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1248,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -1024,48 +1399,65 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0693,
      "expected_slice": 10,
      "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x+25",
-     "expected_slice": 10,
-     "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x+25",
-     "expected_slice": 8,
-     "observed_slice": 8,
      "error_slices": 0
     },
     {
      "ray": "RAY_012",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 24.2,
+     "slices_per_mm_along_ray": 0.2884,
      "expected_slice": 9,
      "observed_slice": 9,
      "error_slices": 0
     },
     {
-     "ray": "RAY_013",
-     "orientation": "rot_x+25",
-     "expected_slice": 8,
-     "observed_slice": 8,
+     "ray": "RAY_001",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 35.0,
+     "slices_per_mm_along_ray": 0.6553,
+     "expected_slice": 6,
+     "observed_slice": 6,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
+     "ray": "RAY_002",
      "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.4,
+     "slices_per_mm_along_ray": 0.6481,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 43.5,
+     "slices_per_mm_along_ray": 0.58,
+     "expected_slice": 7,
+     "observed_slice": 7,
      "error_slices": 0
     },
     {
      "ray": "RAY_007",
      "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1815,
      "expected_slice": 13,
      "observed_slice": 13,
      "error_slices": 0
@@ -1073,6 +1465,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1067,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -1080,6 +1476,10 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1568,
      "expected_slice": 13,
      "observed_slice": 13,
      "error_slices": 0
@@ -1087,6 +1487,10 @@
     {
      "ray": "RAY_010",
      "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.1193,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -1094,6 +1498,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.4107,
      "expected_slice": 15,
      "observed_slice": 15,
      "error_slices": 0
@@ -1101,27 +1509,54 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_x-35",
-     "expected_slice": 16,
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 52.4,
+     "slices_per_mm_along_ray": 0.4877,
+     "expected_slice": 15,
      "observed_slice": 16,
-     "error_slices": 0
+     "error_slices": 1
     },
     {
      "ray": "RAY_013",
      "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 34.9,
+     "slices_per_mm_along_ray": 0.4305,
      "expected_slice": 15,
      "observed_slice": 15,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
+     "ray": "RAY_001",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 10,
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
+     "expected_slice": 4,
+     "observed_slice": 4,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 5,
+     "observed_slice": 4,
      "error_slices": 1
     },
     {
      "ray": "RAY_007",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.6,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -1129,6 +1564,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1136,6 +1575,10 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1143,6 +1586,10 @@
     {
      "ray": "RAY_010",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.0153,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1150,6 +1597,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1157,6 +1608,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1164,9 +1619,189 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.7,
+     "slices_per_mm_along_ray": 0.0235,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.4349,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.3,
+     "slices_per_mm_along_ray": 0.4094,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_006",
+     "orientation": "rot_y-45",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.5835,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 65.0,
+     "slices_per_mm_along_ray": 0.725,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 75.4,
+     "slices_per_mm_along_ray": 0.111,
+     "expected_slice": 10,
+     "observed_slice": 10,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3735,
+     "expected_slice": 8,
+     "observed_slice": 8,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_013",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3527,
+     "expected_slice": 8,
+     "observed_slice": 8,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.5947,
+     "expected_slice": 7,
+     "observed_slice": 6,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 69.1,
+     "slices_per_mm_along_ray": 0.7436,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_006",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.8,
+     "slices_per_mm_along_ray": 0.0814,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 83.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 4,
+     "observed_slice": 4,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 77.7,
+     "slices_per_mm_along_ray": 0.7807,
+     "expected_slice": 4,
+     "observed_slice": 4,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 76.8,
+     "slices_per_mm_along_ray": 0.7725,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_006",
+     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 85.6,
+     "slices_per_mm_along_ray": 0.0611,
+     "expected_slice": 11,
+     "observed_slice": 10,
+     "error_slices": 1
     }
    ]
   },
@@ -1177,26 +1812,30 @@
    "reduction_vs_level_0": 0.8881,
    "no_hit_total": 0,
    "by_group": {
-    "interior": {
-     "samples": 30,
+    "steep": {
+     "samples": 62,
      "no_hit": 0,
      "max_error_slices": 1,
-     "mean_error_slices": 0.3333,
+     "mean_error_slices": 0.1935,
+     "mean_incidence_deg": 26.4,
+     "mean_slices_per_mm": 0.375,
      "within_bound": true,
      "error_histogram": {
-      "0": 20,
-      "1": 10
+      "0": 50,
+      "1": 12
      }
     },
-    "surface_tangent": {
-     "samples": 48,
+    "grazing": {
+     "samples": 16,
      "no_hit": 0,
      "max_error_slices": 1,
-     "mean_error_slices": 0.0833,
+     "mean_error_slices": 0.0625,
+     "mean_incidence_deg": 76.3,
+     "mean_slices_per_mm": 0.4318,
      "within_bound": true,
      "error_histogram": {
-      "0": 44,
-      "1": 4
+      "0": 15,
+      "1": 1
      }
     }
    },
@@ -1204,6 +1843,10 @@
     {
      "ray": "RAY_001",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
      "expected_slice": 4,
      "observed_slice": 4,
      "error_slices": 0
@@ -1211,6 +1854,10 @@
     {
      "ray": "RAY_002",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1218,6 +1865,10 @@
     {
      "ray": "RAY_003",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1225,6 +1876,10 @@
     {
      "ray": "RAY_004",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 12.6,
+     "slices_per_mm_along_ray": 0.7807,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1232,13 +1887,87 @@
     {
      "ray": "RAY_005",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 15.1,
+     "slices_per_mm_along_ray": 0.7725,
      "expected_slice": 5,
      "observed_slice": 5,
      "error_slices": 0
     },
     {
+     "ray": "RAY_006",
+     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.0153,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_013",
+     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.0235,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_001",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 30.0,
+     "slices_per_mm_along_ray": 0.6928,
      "expected_slice": 6,
      "observed_slice": 5,
      "error_slices": 1
@@ -1246,6 +1975,10 @@
     {
      "ray": "RAY_002",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 51.5,
+     "slices_per_mm_along_ray": 0.6258,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -1253,6 +1986,10 @@
     {
      "ray": "RAY_003",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 31.1,
+     "slices_per_mm_along_ray": 0.6852,
      "expected_slice": 6,
      "observed_slice": 5,
      "error_slices": 1
@@ -1260,6 +1997,10 @@
     {
      "ray": "RAY_004",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 19.5,
+     "slices_per_mm_along_ray": 0.7542,
      "expected_slice": 5,
      "observed_slice": 5,
      "error_slices": 0
@@ -1267,13 +2008,87 @@
     {
      "ray": "RAY_005",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.5,
+     "slices_per_mm_along_ray": 0.6304,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
     },
     {
+     "ray": "RAY_006",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 30.1,
+     "slices_per_mm_along_ray": 0.3291,
+     "expected_slice": 14,
+     "observed_slice": 14,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 32.0,
+     "slices_per_mm_along_ray": 0.3563,
+     "expected_slice": 14,
+     "observed_slice": 14,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.0,
+     "slices_per_mm_along_ray": 0.3698,
+     "expected_slice": 15,
+     "observed_slice": 14,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0376,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.119,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_013",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.058,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_001",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.0,
+     "slices_per_mm_along_ray": 0.5657,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -1281,6 +2096,10 @@
     {
      "ray": "RAY_002",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 36.5,
+     "slices_per_mm_along_ray": 0.6433,
      "expected_slice": 6,
      "observed_slice": 5,
      "error_slices": 1
@@ -1288,6 +2107,10 @@
     {
      "ray": "RAY_003",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.6,
+     "slices_per_mm_along_ray": 0.5594,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -1295,6 +2118,10 @@
     {
      "ray": "RAY_004",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 34.1,
+     "slices_per_mm_along_ray": 0.4416,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -1302,230 +2129,10 @@
     {
      "ray": "RAY_005",
      "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x+25",
-     "expected_slice": 6,
-     "observed_slice": 5,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 6,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x-35",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_z+40",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_z+40",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_006",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_007",
-     "orientation": "identity",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_008",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_009",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_013",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_006",
-     "orientation": "rot_y+30",
-     "expected_slice": 14,
-     "observed_slice": 14,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_007",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_008",
-     "orientation": "rot_y+30",
-     "expected_slice": 14,
-     "observed_slice": 14,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_009",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 14,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_y+30",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_y+30",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_013",
-     "orientation": "rot_y+30",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_006",
-     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 41.3,
+     "slices_per_mm_along_ray": 0.6009,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -1533,6 +2140,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 43.2,
+     "slices_per_mm_along_ray": 0.497,
      "expected_slice": 7,
      "observed_slice": 6,
      "error_slices": 1
@@ -1540,6 +2151,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5631,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -1547,6 +2162,10 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5198,
      "expected_slice": 7,
      "observed_slice": 6,
      "error_slices": 1
@@ -1554,6 +2173,10 @@
     {
      "ray": "RAY_010",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 48.4,
+     "slices_per_mm_along_ray": 0.5526,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -1561,6 +2184,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.144,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -1568,6 +2195,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0775,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -1575,13 +2206,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.1275,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
     },
     {
+     "ray": "RAY_002",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 26.3,
+     "slices_per_mm_along_ray": 0.717,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 16.5,
+     "slices_per_mm_along_ray": 0.7672,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 22.2,
+     "slices_per_mm_along_ray": 0.7406,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 39.4,
+     "slices_per_mm_along_ray": 0.6185,
+     "expected_slice": 6,
+     "observed_slice": 5,
+     "error_slices": 1
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1523,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -1589,6 +2272,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0415,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1596,6 +2283,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1248,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -1603,146 +2294,406 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0693,
      "expected_slice": 10,
      "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x+25",
-     "expected_slice": 10,
-     "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x+25",
-     "expected_slice": 8,
-     "observed_slice": 8,
      "error_slices": 0
     },
     {
      "ray": "RAY_012",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 24.2,
+     "slices_per_mm_along_ray": 0.2884,
      "expected_slice": 9,
      "observed_slice": 9,
      "error_slices": 0
     },
     {
+     "ray": "RAY_001",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 35.0,
+     "slices_per_mm_along_ray": 0.6553,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.4,
+     "slices_per_mm_along_ray": 0.6481,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 43.5,
+     "slices_per_mm_along_ray": 0.58,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1815,
+     "expected_slice": 13,
+     "observed_slice": 13,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1067,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1568,
+     "expected_slice": 13,
+     "observed_slice": 13,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.1193,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.4107,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 52.4,
+     "slices_per_mm_along_ray": 0.4877,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_013",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 34.9,
+     "slices_per_mm_along_ray": 0.4305,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
+     "expected_slice": 4,
+     "observed_slice": 4,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.6,
+     "slices_per_mm_along_ray": 0.0611,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.0153,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_013",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.7,
+     "slices_per_mm_along_ray": 0.0235,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.4349,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.3,
+     "slices_per_mm_along_ray": 0.4094,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_006",
+     "orientation": "rot_y-45",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.5835,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
      "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 65.0,
+     "slices_per_mm_along_ray": 0.725,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 75.4,
+     "slices_per_mm_along_ray": 0.111,
+     "expected_slice": 10,
+     "observed_slice": 10,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3735,
      "expected_slice": 8,
      "observed_slice": 8,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
+     "ray": "RAY_013",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3527,
+     "expected_slice": 8,
+     "observed_slice": 8,
      "error_slices": 0
     },
     {
-     "ray": "RAY_007",
+     "ray": "RAY_004",
      "orientation": "rot_x-35",
-     "expected_slice": 13,
-     "observed_slice": 13,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_008",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_009",
-     "orientation": "rot_x-35",
-     "expected_slice": 13,
-     "observed_slice": 13,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x-35",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_x-35",
-     "expected_slice": 16,
-     "observed_slice": 15,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.5947,
+     "expected_slice": 7,
+     "observed_slice": 6,
      "error_slices": 1
     },
     {
-     "ray": "RAY_013",
+     "ray": "RAY_005",
      "orientation": "rot_x-35",
-     "expected_slice": 15,
-     "observed_slice": 15,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 69.1,
+     "slices_per_mm_along_ray": 0.7436,
+     "expected_slice": 5,
+     "observed_slice": 5,
      "error_slices": 0
     },
     {
      "ray": "RAY_006",
-     "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_007",
-     "orientation": "rot_z+40",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.8,
+     "slices_per_mm_along_ray": 0.0814,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
     },
     {
-     "ray": "RAY_008",
+     "ray": "RAY_003",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 83.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 4,
+     "observed_slice": 4,
      "error_slices": 0
     },
     {
-     "ray": "RAY_009",
+     "ray": "RAY_004",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 77.7,
+     "slices_per_mm_along_ray": 0.7807,
+     "expected_slice": 4,
+     "observed_slice": 4,
      "error_slices": 0
     },
     {
-     "ray": "RAY_010",
+     "ray": "RAY_005",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 76.8,
+     "slices_per_mm_along_ray": 0.7725,
+     "expected_slice": 5,
+     "observed_slice": 5,
      "error_slices": 0
     },
     {
-     "ray": "RAY_011",
+     "ray": "RAY_006",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_013",
-     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 85.6,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -1756,26 +2707,30 @@
    "reduction_vs_level_0": 0.937,
    "no_hit_total": 0,
    "by_group": {
-    "interior": {
-     "samples": 30,
+    "steep": {
+     "samples": 62,
      "no_hit": 0,
      "max_error_slices": 1,
-     "mean_error_slices": 0.4333,
+     "mean_error_slices": 0.2097,
+     "mean_incidence_deg": 26.4,
+     "mean_slices_per_mm": 0.375,
      "within_bound": true,
      "error_histogram": {
-      "0": 17,
+      "0": 49,
       "1": 13
      }
     },
-    "surface_tangent": {
-     "samples": 48,
+    "grazing": {
+     "samples": 16,
      "no_hit": 0,
      "max_error_slices": 1,
-     "mean_error_slices": 0.0625,
+     "mean_error_slices": 0.125,
+     "mean_incidence_deg": 76.3,
+     "mean_slices_per_mm": 0.4318,
      "within_bound": true,
      "error_histogram": {
-      "0": 45,
-      "1": 3
+      "0": 14,
+      "1": 2
      }
     }
    },
@@ -1783,6 +2738,10 @@
     {
      "ray": "RAY_001",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
      "expected_slice": 4,
      "observed_slice": 4,
      "error_slices": 0
@@ -1790,6 +2749,10 @@
     {
      "ray": "RAY_002",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1797,6 +2760,10 @@
     {
      "ray": "RAY_003",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1804,6 +2771,10 @@
     {
      "ray": "RAY_004",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 12.6,
+     "slices_per_mm_along_ray": 0.7807,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1811,181 +2782,10 @@
     {
      "ray": "RAY_005",
      "orientation": "identity",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 5,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 5,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_y+30",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_y+30",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 5,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_y-45",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_y-45",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x+25",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x+25",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_x-35",
-     "expected_slice": 6,
-     "observed_slice": 6,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 7,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_x-35",
-     "expected_slice": 7,
-     "observed_slice": 6,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_x-35",
-     "expected_slice": 5,
-     "observed_slice": 5,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_001",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_002",
-     "orientation": "rot_z+40",
-     "expected_slice": 5,
-     "observed_slice": 4,
-     "error_slices": 1
-    },
-    {
-     "ray": "RAY_003",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_004",
-     "orientation": "rot_z+40",
-     "expected_slice": 4,
-     "observed_slice": 4,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_005",
-     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 15.1,
+     "slices_per_mm_along_ray": 0.7725,
      "expected_slice": 5,
      "observed_slice": 4,
      "error_slices": 1
@@ -1993,6 +2793,10 @@
     {
      "ray": "RAY_006",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 11,
      "observed_slice": 10,
      "error_slices": 1
@@ -2000,6 +2804,10 @@
     {
      "ray": "RAY_007",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -2007,6 +2815,10 @@
     {
      "ray": "RAY_008",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -2014,6 +2826,10 @@
     {
      "ray": "RAY_009",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0306,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -2021,20 +2837,10 @@
     {
      "ray": "RAY_010",
      "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "identity",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.0153,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -2042,41 +2848,98 @@
     {
      "ray": "RAY_013",
      "orientation": "identity",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.0235,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
     },
     {
+     "ray": "RAY_001",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 30.0,
+     "slices_per_mm_along_ray": 0.6928,
+     "expected_slice": 6,
+     "observed_slice": 5,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 51.5,
+     "slices_per_mm_along_ray": 0.6258,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 31.1,
+     "slices_per_mm_along_ray": 0.6852,
+     "expected_slice": 6,
+     "observed_slice": 5,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 19.5,
+     "slices_per_mm_along_ray": 0.7542,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.5,
+     "slices_per_mm_along_ray": 0.6304,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 30.1,
+     "slices_per_mm_along_ray": 0.3291,
      "expected_slice": 14,
      "observed_slice": 14,
      "error_slices": 0
     },
     {
-     "ray": "RAY_007",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_008",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 32.0,
+     "slices_per_mm_along_ray": 0.3563,
      "expected_slice": 14,
      "observed_slice": 14,
      "error_slices": 0
     },
     {
-     "ray": "RAY_009",
-     "orientation": "rot_y+30",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
      "ray": "RAY_010",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.0,
+     "slices_per_mm_along_ray": 0.3698,
      "expected_slice": 15,
      "observed_slice": 14,
      "error_slices": 1
@@ -2084,6 +2947,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0376,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -2091,6 +2958,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.119,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
@@ -2098,13 +2969,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y+30",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.058,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
+     "ray": "RAY_001",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.0,
+     "slices_per_mm_along_ray": 0.5657,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 36.5,
+     "slices_per_mm_along_ray": 0.6433,
+     "expected_slice": 6,
+     "observed_slice": 5,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 45.6,
+     "slices_per_mm_along_ray": 0.5594,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 34.1,
+     "slices_per_mm_along_ray": 0.4416,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 41.3,
+     "slices_per_mm_along_ray": 0.6009,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -2112,6 +3035,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 43.2,
+     "slices_per_mm_along_ray": 0.497,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -2119,6 +3046,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5631,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -2126,6 +3057,10 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 49.5,
+     "slices_per_mm_along_ray": 0.5198,
      "expected_slice": 7,
      "observed_slice": 7,
      "error_slices": 0
@@ -2133,6 +3068,10 @@
     {
      "ray": "RAY_010",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 48.4,
+     "slices_per_mm_along_ray": 0.5526,
      "expected_slice": 6,
      "observed_slice": 6,
      "error_slices": 0
@@ -2140,6 +3079,10 @@
     {
      "ray": "RAY_011",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.144,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -2147,6 +3090,10 @@
     {
      "ray": "RAY_012",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.8,
+     "slices_per_mm_along_ray": 0.0775,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -2154,13 +3101,65 @@
     {
      "ray": "RAY_013",
      "orientation": "rot_y-45",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 11.4,
+     "slices_per_mm_along_ray": 0.1275,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
     },
     {
+     "ray": "RAY_002",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 26.3,
+     "slices_per_mm_along_ray": 0.717,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 16.5,
+     "slices_per_mm_along_ray": 0.7672,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_004",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 22.2,
+     "slices_per_mm_along_ray": 0.7406,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_005",
+     "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 39.4,
+     "slices_per_mm_along_ray": 0.6185,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_006",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1523,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -2168,6 +3167,10 @@
     {
      "ray": "RAY_007",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.0415,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0
@@ -2175,6 +3178,10 @@
     {
      "ray": "RAY_008",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1248,
      "expected_slice": 10,
      "observed_slice": 10,
      "error_slices": 0
@@ -2182,146 +3189,406 @@
     {
      "ray": "RAY_009",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.0693,
      "expected_slice": 10,
      "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x+25",
-     "expected_slice": 10,
-     "observed_slice": 10,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x+25",
-     "expected_slice": 8,
-     "observed_slice": 8,
      "error_slices": 0
     },
     {
      "ray": "RAY_012",
      "orientation": "rot_x+25",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 24.2,
+     "slices_per_mm_along_ray": 0.2884,
      "expected_slice": 9,
      "observed_slice": 9,
      "error_slices": 0
     },
     {
+     "ray": "RAY_001",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 35.0,
+     "slices_per_mm_along_ray": 0.6553,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 55.4,
+     "slices_per_mm_along_ray": 0.6481,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_003",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 43.5,
+     "slices_per_mm_along_ray": 0.58,
+     "expected_slice": 7,
+     "observed_slice": 7,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 17.2,
+     "slices_per_mm_along_ray": 0.1815,
+     "expected_slice": 13,
+     "observed_slice": 13,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1067,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.8,
+     "slices_per_mm_along_ray": 0.1568,
+     "expected_slice": 13,
+     "observed_slice": 13,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 16.7,
+     "slices_per_mm_along_ray": 0.1193,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.4107,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 52.4,
+     "slices_per_mm_along_ray": 0.4877,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
      "ray": "RAY_013",
+     "orientation": "rot_x-35",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 34.9,
+     "slices_per_mm_along_ray": 0.4305,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 0.0,
+     "slices_per_mm_along_ray": 0.8,
+     "expected_slice": 4,
+     "observed_slice": 4,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_002",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "interior",
+     "incidence_deg": 8.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.6,
+     "slices_per_mm_along_ray": 0.0611,
+     "expected_slice": 12,
+     "observed_slice": 12,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_008",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.4,
+     "slices_per_mm_along_ray": 0.0306,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 33.3,
+     "slices_per_mm_along_ray": 0.0153,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.9,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_013",
+     "orientation": "rot_z+40",
+     "group": "steep",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 28.7,
+     "slices_per_mm_along_ray": 0.0235,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_012",
+     "orientation": "identity",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.047,
+     "expected_slice": 11,
+     "observed_slice": 11,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_007",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.4349,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_009",
+     "orientation": "rot_y+30",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.3,
+     "slices_per_mm_along_ray": 0.4094,
+     "expected_slice": 15,
+     "observed_slice": 15,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_006",
+     "orientation": "rot_y-45",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.4,
+     "slices_per_mm_along_ray": 0.5835,
+     "expected_slice": 6,
+     "observed_slice": 6,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_001",
      "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 65.0,
+     "slices_per_mm_along_ray": 0.725,
+     "expected_slice": 5,
+     "observed_slice": 5,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_010",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 75.4,
+     "slices_per_mm_along_ray": 0.111,
+     "expected_slice": 10,
+     "observed_slice": 10,
+     "error_slices": 0
+    },
+    {
+     "ray": "RAY_011",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3735,
      "expected_slice": 8,
      "observed_slice": 8,
      "error_slices": 0
     },
     {
-     "ray": "RAY_006",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
+     "ray": "RAY_013",
+     "orientation": "rot_x+25",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.3527,
+     "expected_slice": 8,
+     "observed_slice": 8,
      "error_slices": 0
     },
     {
-     "ray": "RAY_007",
+     "ray": "RAY_004",
      "orientation": "rot_x-35",
-     "expected_slice": 13,
-     "observed_slice": 13,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_008",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_009",
-     "orientation": "rot_x-35",
-     "expected_slice": 13,
-     "observed_slice": 13,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_010",
-     "orientation": "rot_x-35",
-     "expected_slice": 12,
-     "observed_slice": 12,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_011",
-     "orientation": "rot_x-35",
-     "expected_slice": 15,
-     "observed_slice": 15,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_x-35",
-     "expected_slice": 16,
-     "observed_slice": 15,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 78.7,
+     "slices_per_mm_along_ray": 0.5947,
+     "expected_slice": 7,
+     "observed_slice": 6,
      "error_slices": 1
     },
     {
-     "ray": "RAY_013",
+     "ray": "RAY_005",
      "orientation": "rot_x-35",
-     "expected_slice": 15,
-     "observed_slice": 15,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 69.1,
+     "slices_per_mm_along_ray": 0.7436,
+     "expected_slice": 5,
+     "observed_slice": 5,
      "error_slices": 0
     },
     {
      "ray": "RAY_006",
-     "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_007",
-     "orientation": "rot_z+40",
+     "orientation": "rot_x-35",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 73.8,
+     "slices_per_mm_along_ray": 0.0814,
      "expected_slice": 12,
      "observed_slice": 12,
      "error_slices": 0
     },
     {
-     "ray": "RAY_008",
+     "ray": "RAY_003",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 83.5,
+     "slices_per_mm_along_ray": 0.7911,
+     "expected_slice": 4,
+     "observed_slice": 4,
      "error_slices": 0
     },
     {
-     "ray": "RAY_009",
+     "ray": "RAY_004",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 77.7,
+     "slices_per_mm_along_ray": 0.7807,
+     "expected_slice": 4,
+     "observed_slice": 4,
      "error_slices": 0
     },
     {
-     "ray": "RAY_010",
+     "ray": "RAY_005",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
+     "group": "grazing",
+     "fixture_label": "interior",
+     "incidence_deg": 76.8,
+     "slices_per_mm_along_ray": 0.7725,
+     "expected_slice": 5,
+     "observed_slice": 4,
+     "error_slices": 1
     },
     {
-     "ray": "RAY_011",
+     "ray": "RAY_006",
      "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_012",
-     "orientation": "rot_z+40",
-     "expected_slice": 11,
-     "observed_slice": 11,
-     "error_slices": 0
-    },
-    {
-     "ray": "RAY_013",
-     "orientation": "rot_z+40",
+     "group": "grazing",
+     "fixture_label": "surface_tangent",
+     "incidence_deg": 85.6,
+     "slices_per_mm_along_ray": 0.0611,
      "expected_slice": 11,
      "observed_slice": 11,
      "error_slices": 0

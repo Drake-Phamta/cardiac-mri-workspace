@@ -19,7 +19,7 @@
  ],
  "mask_source": "deterministic synthetic blob (ellipsoid + lobe)",
  "foreground_voxels": 6855,
- "surface_extraction_ms": 33.934,
+ "surface_extraction_ms": 30.425,
  "extraction_method": "exact voxel-face - every surface point lies on a cell boundary",
  "levels": [
   {
@@ -27,7 +27,7 @@
    "cluster_cell_voxels": 1,
    "vertex_count": 2825,
    "triangle_count": 5648,
-   "decimation_ms": 0.017,
+   "decimation_ms": 0.02,
    "reduction_vs_level_0": 0.0,
    "obj": "mesh/out/level_0_cell1.obj"
   },
@@ -36,7 +36,7 @@
    "cluster_cell_voxels": 2,
    "vertex_count": 721,
    "triangle_count": 1448,
-   "decimation_ms": 1.817,
+   "decimation_ms": 1.723,
    "reduction_vs_level_0": 0.7436,
    "obj": "mesh/out/level_1_cell2.obj"
   },
@@ -45,7 +45,7 @@
    "cluster_cell_voxels": 3,
    "vertex_count": 317,
    "triangle_count": 632,
-   "decimation_ms": 1.426,
+   "decimation_ms": 1.683,
    "reduction_vs_level_0": 0.8881,
    "obj": "mesh/out/level_2_cell3.obj"
   },
@@ -54,7 +54,7 @@
    "cluster_cell_voxels": 4,
    "vertex_count": 178,
    "triangle_count": 356,
-   "decimation_ms": 1.358,
+   "decimation_ms": 1.564,
    "reduction_vs_level_0": 0.937,
    "obj": "mesh/out/level_3_cell4.obj"
   }
