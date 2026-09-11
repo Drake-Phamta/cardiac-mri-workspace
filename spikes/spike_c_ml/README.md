@@ -95,6 +95,44 @@ Mọi file output đều ghi câu này.
 
 ---
 
+## ❌ Bản đầu có 15 lỗi — review độc lập tìm ra. Đã sửa.
+
+Nghiêm trọng nhất, đúng loại "con số sai mà trông đúng":
+
+> **`C0-3` bịa ra trần batch.** Bản đầu coi *"không ném RuntimeError"* là *"vừa"*. Trên Windows,
+> driver NVIDIA **âm thầm tràn sang system memory** thay vì báo OOM. Cả bốn variant đều báo
+> `batch 64` trên card **4 GB**, trong khi chính harness ghi nhận đỉnh **8135 MB** — gấp 1,9 lần
+> card — rồi in thêm *"the true ceiling may be higher"*. Con số VRAM nằm ngay trong cùng bản ghi và
+> **chưa bao giờ được đọc**.
+
+**Sau khi sửa, đo lại trên chính máy đó (`--img 224`):**
+
+| Variant | Trần cũ | **Trần mới** | Dừng vì |
+|---|---:|---:|---|
+| `unet_base32_depth4` | 64 | **16** | batch 32 ngốn **4,01 GB** / 4,00 GB VRAM |
+| `unet_base16_depth4` | 64 | **64** | không tràn |
+| `vit_s14_linear_decoder` | 64 | **32** | batch 64 ngốn **5,65 GB** |
+| `vit_s14_progressive_decoder` | 64 | **32** | batch 64 ngốn **6,21 GB** |
+
+Phép tìm giờ cũng **có optimizer**: bản đầu chỉ forward + backward, bỏ `exp_avg` và `exp_avg_sq` của
+AdamW — hai bản sao fp32 nữa của toàn bộ tham số — trong khi `C0-3` hỏi cái gì vừa cho **training**.
+
+### Các lỗi nặng khác
+
+| Lỗi | Hệ quả nếu không sửa |
+|---|---|
+| **Peak memory trên CPU vô nghĩa** — RSS *hiện tại*, không reset, chỉ tăng. Reviewer đo UNet 4,62 M ra 588,8 MB rồi UNet 1,16 M ngay sau ra **601,5 MB**, lớn hơn | Cột `C0-2` sai trên đúng đường mà người **không có GPU** sẽ dùng |
+| **Probe không chạy được với mặc định của chính nó** — `--img 518` chia hết 14 nhưng không chia hết 16 | Gõ lệnh trong README và nhận exit 2 |
+| **`extrapolate.py` âm thầm bỏ mọi variant OOM**, rồi kết luận *"spread 1,8 tới 1,8 ngày"* | Kết luận so sánh kiến trúc rút từ **một** kiến trúc sống sót |
+| **Không co giãn theo độ phân giải** — đo ở 224² ngoại suy cho 576² là **thiếu 6,6 lần** | Lịch training sai một bậc |
+| **`--device cpu` vẫn ghi tên GPU** | Verdict đo trên CPU lưu dưới tên phần cứng chưa hề chạm |
+| **`synthetic/generate.py` là artifact chết** — docstring nói nó nuôi probe, không gì đọc nó | Giờ có `--input-from` |
+| **Ba định nghĩa median khác nhau** trong repo | Dùng nearest-rank p50, khớp Spike E |
+| **Cùng một số in ra hai giá trị** (2,7 d ở bảng, 2,6 d ở tóm tắt) | Trong script mà mục đích là *"in mọi số trung gian để kiểm tay"* |
+| `--hours-per-day 0` → `ZeroDivisionError`; `--epochs 0` → *"0,0 ngày, vừa 30 ngày"* | — |
+
+---
+
 ## Smoke test đã chạy — và vì sao nó không nằm trong `EVIDENCE_RAW/`
 
 Đêm 2026-09-11 toàn bộ chuỗi được chạy thử ở `112×112`, batch 1, trên một RTX 3050 Ti Laptop 4 GB.

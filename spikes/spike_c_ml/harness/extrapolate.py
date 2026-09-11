@@ -71,6 +71,9 @@ def main() -> int:
     ap.add_argument("--ablations", type=int, default=DEFAULT_ABLATIONS)
     ap.add_argument("--hours-per-day", type=float, default=8.0,
                     help="ASSUMPTION: usable compute hours per calendar day")
+    ap.add_argument("--target-img", type=int, default=None,
+                    help="in-plane size the calendar should describe. Step time scales roughly "
+                         "with its square, and the probe may have run at something else")
     ap.add_argument("--out", help="write the extrapolation as JSON here")
     args = ap.parse_args()
 
@@ -85,12 +88,45 @@ def main() -> int:
         probe = json.load(f)
 
     batch = probe["input_shape"][0]
-    variants = [r for r in probe["results"] if "train_step" in r]
+    probe_img = probe["input_shape"][-1]
+    all_results = probe.get("results", [])
+    variants = [r for r in all_results if "train_step" in r]
+    failed = [r for r in all_results if "train_step" not in r]
+
     if args.variant:
-        variants = [r for r in variants if r["variant"] == args.variant]
+        wanted = [r for r in variants if r["variant"] == args.variant]
+        if not wanted:
+            known = sorted(r["variant"] for r in all_results)
+            # #48: a typo used to print "every one failed to run", which is the
+            # wrong diagnosis and sends the reader looking for an OOM.
+            if any(r["variant"] == args.variant for r in failed):
+                rec = next(r for r in failed if r["variant"] == args.variant)
+                print()
+                print(f"  Variant {args.variant!r} is in this probe file but did not run:")
+                print(f"    {rec.get('error', 'no train_step recorded')[:160]}")
+                print()
+            else:
+                print(f"\n  No variant named {args.variant!r} in that probe file.")
+                print(f"  Present: {', '.join(known)}\n")
+            return 1
+        variants = wanted
+
     if not variants:
-        print("  No usable variant in that probe file (every one failed to run).")
+        print("\n  No variant in that probe file produced a timing.")
+        for r in failed:
+            print(f"    {r['variant']}: {r.get('error', 'no train_step recorded')[:140]}")
+        print("\n  Nothing to extrapolate from. This is not a calendar of zero days.\n")
         return 1
+
+    for name, val in (("--hours-per-day", args.hours_per_day), ("--epochs", args.epochs),
+                      ("--train-cases", args.train_cases),
+                      ("--slices-per-case", args.slices_per_case),
+                      ("--overhead-factor", args.overhead_factor)):
+        if val <= 0:
+            print(f"\n  {name} is {val}. A calendar built on that is not a small number,")
+            print("  it is a meaningless one - the old version printed 0.0 days and said the")
+            print("  matrix fits in 30 days.\n")
+            return 2
 
     slices_total = args.train_cases * args.slices_per_case
     steps_per_epoch = -(-slices_total // batch)          # ceil
@@ -120,6 +156,27 @@ def main() -> int:
     print(f"    usable compute hours per day    {args.hours_per_day}")
     print(f"    runs x ablations                {args.runs} + {args.ablations}")
     print()
+    # #42: the old version multiplied steps by the measured ms with no reference
+    # to the resolution that ms came from. A probe at 224 extrapolated against a
+    # 576 cohort understated the calendar by roughly (576/224)^2 = 6.6x, and the
+    # "why this is preliminary" list never mentioned it.
+    scale = 1.0
+    if args.target_img and args.target_img != probe_img:
+        scale = (args.target_img / probe_img) ** 2
+        print("  RESOLUTION MISMATCH - scaled, and the assumption is stated")
+        print(f"    probe measured at            {probe_img} x {probe_img}")
+        print(f"    calendar is for              {args.target_img} x {args.target_img}")
+        print(f"    quadratic scale factor       {scale:.2f}x   <- ASSUMPTION, not measured")
+        print("    Step time is assumed to scale with pixel count. That is roughly true for")
+        print("    convolutions and for attention over a patch grid, but it is an assumption")
+        print("    and the right fix is to re-run the probe at the target size.")
+        print()
+    elif not args.target_img:
+        print(f"  NOTE: step time was measured at {probe_img} x {probe_img} and is used as-is.")
+        print(f"  The real cohort is 576 x 576 (with 640 x 640 cases). If those differ, pass")
+        print(f"  --target-img to scale, or better, re-run the probe at the real size.")
+        print()
+
     print("  ARITHMETIC")
     print(f"    slices_total    = {args.train_cases} cases x {args.slices_per_case} slices"
           f" = {slices_total:,}")
@@ -133,21 +190,34 @@ def main() -> int:
 
     rows = []
     for v in variants:
-        ms = v["train_step"]["ms_median"]
+        ms = v["train_step"]["ms_median"] * scale
         h_epoch = steps_per_epoch * ms / 1000.0 / 3600.0
         h_run = h_epoch * args.epochs * args.overhead_factor
         h_matrix = h_run * (args.runs + args.ablations)
         days = h_matrix / args.hours_per_day
+        # #41: the table printed raw `days` with :.1f while the summary printed
+        # round(days, 2) with :.1f, so the same quantity appeared as 2.7 in one
+        # line and 2.6 six lines below. Round once, use that everywhere.
+        days_r = round(days, 2)
         rows.append({
             "variant": v["variant"],
-            "measured_ms_per_train_step": ms,
+            "measured_ms_per_train_step": round(v["train_step"]["ms_median"], 2),
+            "ms_per_train_step_after_scaling": round(ms, 2),
+            "resolution_scale_applied": round(scale, 4),
             "hours_per_epoch": round(h_epoch, 3),
             "hours_per_run": round(h_run, 2),
             "hours_full_matrix": round(h_matrix, 2),
-            "calendar_days_at_given_hours": round(days, 2),
+            "calendar_days_at_given_hours": days_r,
         })
         print(f"  {v['variant']:<30} {ms:>9.1f} {h_epoch:>9.2f} {h_run:>10.1f} "
-              f"{fmt_hours(h_matrix):>12} {days:>10.1f} d")
+              f"{fmt_hours(h_matrix):>12} {days_r:>10.1f} d")
+
+    if failed:
+        print()
+        print(f"  {len(failed)} variant(s) produced no timing and are ABSENT from the table:")
+        for r in failed:
+            print(f"    {r['variant']:<30} {r.get('error', 'no train_step')[:90]}")
+        print("  A spread computed across the survivors is not a spread across the candidates.")
 
     print()
     best = min(rows, key=lambda r: r["calendar_days_at_given_hours"])
@@ -157,6 +227,10 @@ def main() -> int:
     print(f"  Dearest variant:  {worst['variant']} — "
           f"{worst['calendar_days_at_given_hours']:.1f} calendar days")
     print()
+    if len(rows) < 2:
+        print("  Only one variant survived, so there is no spread to report and the")
+        print("  architecture comparison C0-8 asks for cannot be made from this run.")
+        print()
     print("  C0-8 PRELIMINARY VERDICT")
     print(f"    Fits a 30-day project only if the matrix is run on the cheapest variant AND")
     print(f"    the assumptions above hold. At {args.epochs} epochs and overhead "
@@ -194,8 +268,15 @@ def main() -> int:
             "derived": {"slices_total": slices_total, "steps_per_epoch": steps_per_epoch},
             "by_variant": rows,
             "c0_10_statement": "Does NOT close GATE-ML-01. DR-007 forbids it on C0 evidence alone.",
-            "invalidated_by": ("Spike D criterion A6 reporting a different cohort shape, or C1-6 "
-                               "showing convergence needs a different epoch count."),
+            "resolution": {"probe_img": probe_img, "target_img": args.target_img,
+                           "scale_applied": round(scale, 4),
+                           "scaling_assumption": "step time proportional to pixel count"},
+            "variants_that_did_not_run": [
+                {"variant": r["variant"], "error": r.get("error")} for r in failed],
+            "invalidated_by": ("Spike D criterion A6 reporting a different cohort shape, C1-6 "
+                               "showing convergence needs a different epoch count, or a probe "
+                               "re-run at the real slice size replacing the quadratic scaling "
+                               "assumption with a measurement."),
         }
         with open(args.out, "w", encoding="utf-8", newline="\n") as f:
             json.dump(payload, f, indent=1, ensure_ascii=False)

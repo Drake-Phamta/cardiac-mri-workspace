@@ -107,8 +107,8 @@ class UNet2D(nn.Module):
         return self.head(x)
 
     @staticmethod
-    def output_stride() -> int:
-        return 1
+    def output_stride() -> float:
+        return 1.0
 
 
 class ViTSegStandIn(nn.Module):
@@ -121,8 +121,11 @@ class ViTSegStandIn(nn.Module):
 
     Two decoders are offered because C0-5 asks for the EFFECTIVE output stride,
     and the choice of decoder is precisely what sets it:
-        'linear'   one projection per patch, then bilinear upsample -> stride 14
-        'progressive'  learned upsampling back to full resolution   -> stride 1
+        'linear'       one projection per patch, then bilinear upsample -> stride 14
+        'progressive'  three learned doublings (x8), remainder interpolated
+                       -> effective stride 14/8 = 1.75, NOT 1. No power-of-two
+                       stack lands on 14 = 2*7, so the last step interpolates
+                       and carries no learned detail.
     """
 
     def __init__(self, img: int = 518, patch: int = 14, dim: int = 384,
@@ -214,14 +217,66 @@ def describe_compute() -> dict:
     return info
 
 
-def peak_memory_bytes(device: str) -> int | None:
-    if device == "cuda":
-        return torch.cuda.max_memory_allocated()
+def _rss() -> int | None:
     try:
         import psutil
         return psutil.Process(os.getpid()).memory_info().rss
     except ImportError:
         return None
+
+
+class PeakTracker:
+    """Peak memory for the measured section only.
+
+    On CUDA this is torch.cuda.max_memory_allocated, which is a true peak.
+
+    On CPU the first version returned the process's CURRENT RSS - interpreter,
+    torch libraries, allocator caches and all - and never reset it, so the
+    figure only ever grew. The reviewer measured a 4.62 M-parameter UNet at
+    588.8 MB and a 1.16 M-parameter UNet, a quarter the size, at 601.5 MB
+    immediately afterwards. The column was meaningless on the exact path a
+    GPU-less owner would use.
+
+    It is now a DELTA above a baseline taken at the start of the section, and
+    it is sampled during the run rather than read once at the end. It is still
+    not a true peak - the allocator does not hand memory back promptly - so it
+    is labelled rss_delta and never called "peak" on the CPU path.
+    """
+
+    def __init__(self, device: str):
+        self.device = device
+        self.baseline = None
+        self.max_rss = 0
+
+    def start(self):
+        if self.device == "cuda":
+            torch.cuda.reset_peak_memory_stats()
+            torch.cuda.empty_cache()
+        else:
+            self.baseline = _rss()
+            self.max_rss = self.baseline or 0
+
+    def sample(self):
+        if self.device != "cuda":
+            r = _rss()
+            if r and r > self.max_rss:
+                self.max_rss = r
+
+    def result(self) -> dict:
+        if self.device == "cuda":
+            return {"metric": "torch.cuda.max_memory_allocated",
+                    "bytes": int(torch.cuda.max_memory_allocated()),
+                    "is_true_peak": True}
+        if self.baseline is None:
+            return {"metric": "unavailable", "bytes": None, "is_true_peak": False,
+                    "note": "psutil not installed; install it or read this as NOT MEASURED"}
+        return {"metric": "process RSS delta above a baseline, sampled during the run",
+                "bytes": int(self.max_rss - self.baseline),
+                "baseline_bytes": int(self.baseline),
+                "is_true_peak": False,
+                "note": "NOT a true peak. The allocator does not return memory promptly, so "
+                        "this is a lower bound on what the section needed and an upper bound "
+                        "on nothing. Do not compare it across processes."}
 
 
 def reset_peak(device: str) -> None:
@@ -251,7 +306,8 @@ def time_steps(model, x, y, device: str, steps: int, train: bool) -> dict:
             with torch.no_grad():
                 model(x)
     sync(device)
-    reset_peak(device)
+    tracker = PeakTracker(device)
+    tracker.start()
 
     times = []
     for _ in range(steps):
@@ -265,60 +321,159 @@ def time_steps(model, x, y, device: str, steps: int, train: bool) -> dict:
                 model(x)
         sync(device)
         times.append((time.perf_counter() - t0) * 1000.0)
+        tracker.sample()
 
     times.sort()
+    # #40: the old ms_median was times[len//2], the UPPER median - times[5] of
+    # 10 - and biased high. It is also the single measured input to the whole
+    # C0-7/C0-8 calendar. Nearest-rank p50 is used instead, the same definition
+    # the Spike E aggregator uses, so the two harnesses are comparable as that
+    # file claims.
+    k = max(1, -(-50 * len(times) // 100))
     return {
         "steps": steps,
         "ms_min": round(times[0], 2),
-        "ms_median": round(times[len(times) // 2], 2),
+        "ms_median": round(times[k - 1], 2),
+        "median_definition": "nearest-rank p50, no interpolation",
         "ms_max": round(times[-1], 2),
-        "peak_memory_bytes": peak_memory_bytes(device),
+        "memory": tracker.result(),
     }
 
 
-def largest_fitting_batch(build, x_shape, device: str, start: int, cap: int = 64) -> dict:
-    """C0-3. Doubles until it fails, then reports the last size that worked."""
-    ok, tried = 0, []
-    b = start
+def largest_fitting_batch(build, x_shape, device: str, start: int,
+                          cap: int = 64, vram_bytes: int | None = None) -> dict:
+    """C0-3, the largest batch that actually fits for TRAINING.
+
+    Two things the first version got wrong, both of which inflated the answer.
+
+    1. It treated "no RuntimeError" as "fits". On Windows the NVIDIA driver
+       silently spills past VRAM into system memory instead of raising OOM, so
+       every variant reported batch 64 on a 4 GB card while the harness's OWN
+       recorded peak reached 8135 MB - 1.9x the card - and it then printed
+       "the true ceiling may be higher". The VRAM figure was sitting in the
+       same record and was never consulted. It is now the deciding test.
+
+    2. It ran forward and backward but never built an optimizer or stepped it,
+       so AdamW's exp_avg and exp_avg_sq - two more fp32 copies of every
+       parameter - and the step's temporaries were absent, while the timing
+       path did use AdamW. C0-3 asks what fits TRAINING.
+    """
+    ok, tried, stop = 0, [], None
+    b = max(1, start)
     while b <= cap:
         try:
             reset_peak(device)
             model = build().to(device)
+            opt = torch.optim.AdamW(model.parameters(), lr=1e-4)
             x = torch.randn(b, *x_shape, device=device)
             y = (torch.rand(b, 1, x_shape[1], x_shape[2], device=device) > 0.8).float()
-            loss = nn.BCEWithLogitsLoss()(model(x), y)
-            loss.backward()
+            opt.zero_grad(set_to_none=True)
+            nn.BCEWithLogitsLoss()(model(x), y).backward()
+            opt.step()                     # optimizer state is part of the footprint
             sync(device)
-            ok = b
-            tried.append({"batch": b, "fitted": True,
-                          "peak_memory_bytes": peak_memory_bytes(device)})
-            del model, x, y, loss
+            peak = torch.cuda.max_memory_allocated() if device == "cuda" else None
+
+            overflowed = bool(vram_bytes and peak and peak > vram_bytes)
+            tried.append({"batch": b, "ran_without_error": True,
+                          "peak_memory_bytes": peak,
+                          "exceeded_vram": overflowed,
+                          "fitted": not overflowed})
+            del model, opt, x, y
             reset_peak(device)
-        except RuntimeError as exc:
-            tried.append({"batch": b, "fitted": False, "error": str(exc)[:160]})
+            if overflowed:
+                # It ran, but only because the driver spilled to system memory.
+                # That is not a fit; it is a fit-shaped performance cliff.
+                stop = (f"batch {b} allocated {peak / 1024 ** 3:.2f} GB against "
+                        f"{vram_bytes / 1024 ** 3:.2f} GB of VRAM - the driver spilled to "
+                        f"system memory. Counted as NOT fitting.")
+                break
+            ok = b
+        except (RuntimeError, MemoryError) as exc:
+            # MemoryError, not just RuntimeError: CPU and MPS raise that, and it
+            # used to escape the handler and abort the whole probe mid-search.
+            tried.append({"batch": b, "ran_without_error": False, "fitted": False,
+                          "error": f"{type(exc).__name__}: {str(exc)[:160]}"})
+            stop = f"batch {b} raised {type(exc).__name__}"
             break
         b *= 2
-    return {"largest_fitting_batch": ok, "attempts": tried,
-            "cap_reached": ok >= cap,
-            "note": ("Search capped at %d; the true ceiling may be higher." % cap)
-                    if ok >= cap else None}
+    notes = []
+    if ok >= cap:
+        notes.append(f"Search capped at {cap}; the true ceiling may be higher.")
+    if start > 1 and (ok & (ok - 1)) and ok:
+        notes.append(f"Doubling started at {start}, so only {start}, {start*2}, ... were tried. "
+                     f"The true ceiling lies between {ok} and {ok * 2} and was not bisected.")
+    if vram_bytes is None and device == "cuda":
+        notes.append("VRAM total unknown, so a silent spill could not be detected.")
+    if device != "cuda":
+        notes.append("Not a CUDA device: there is no VRAM limit to test against, so a batch is "
+                     "counted as fitting whenever it does not raise. Treat with suspicion.")
+    return {"largest_fitting_batch": ok, "attempts": tried, "cap_reached": ok >= cap,
+            "stopped_because": stop, "vram_total_bytes": vram_bytes,
+            "note": " ".join(notes) or None}
+
+
+def _make_input(args, device):
+    """Probe input: random by default, real synthetic slices on request.
+
+    Memory and step time are set by tensor shapes and layer counts, not by the
+    values in the tensor, so torch.randn answers C0's question. synthetic/
+    generate.py existed but nothing read it - a dead artifact whose docstring
+    claimed it fed this probe. --input-from makes that claim true and lets the
+    owner check the equivalence instead of believing it.
+    """
+    if not args.input_from:
+        return torch.randn(args.batch, 1, args.img, args.img, device=device)
+    import glob
+    import numpy as np
+    files = sorted(glob.glob(os.path.join(args.input_from, "*_volume_int16.npy")))
+    if not files:
+        raise SystemExit(f"No *_volume_int16.npy under {args.input_from}.\n"
+                         f"Run: python spikes/spike_c_ml/synthetic/generate.py")
+    vol = np.load(files[0], mmap_mode="r")
+    nx, ny, nz = vol.shape
+    if nx < args.img or ny < args.img:
+        raise SystemExit(f"Volume is {nx}x{ny} in-plane but --img is {args.img}. Generate at "
+                         f"least that size, or lower --img.")
+    sl = np.stack([np.asarray(vol[:args.img, :args.img, k % nz], dtype=np.float32).T
+                   for k in range(args.batch)])
+    t = torch.from_numpy(sl).unsqueeze(1).to(device)
+    return (t - t.mean()) / (t.std() + 1e-6)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--operator", required=True,
                     help="who is running this, on their own compute (C0-1)")
-    ap.add_argument("--img", type=int, default=518,
-                    help="square input size; must be divisible by 14 for the ViT stand-in")
+    # 518 was the old default and it CANNOT RUN: 518 % 14 == 0 but 518 % 16 == 6,
+    # and the pre-flight check requires both. The probe rejected its own
+    # defaults. 560 satisfies both (560 = 16*35 = 14*40) and is the closest
+    # usable size to the 576x576 the real package actually contains.
+    ap.add_argument("--img", type=int, default=560,
+                    help="square input size; must be divisible by BOTH 16 (UNet pools 4x) "
+                         "and 14 (ViT patch). 112, 224, 336, 448, 560, 672 all work")
     ap.add_argument("--batch", type=int, default=2, help="intended batch size")
     ap.add_argument("--steps", type=int, default=10)
     ap.add_argument("--device", default=None, help="cuda | mps | cpu (default: best available)")
     ap.add_argument("--find-batch", action="store_true", help="also run the C0-3 batch search")
+    ap.add_argument("--input-from", default=None,
+                    help="directory from synthetic/generate.py. Slices are taken from those "
+                         "volumes instead of torch.randn. Shapes drive memory and throughput, "
+                         "so randn answers C0 correctly - this exists so the owner can confirm "
+                         "that on real-shaped data rather than take it on trust")
     ap.add_argument("--note", default="")
     args = ap.parse_args()
 
     compute = describe_compute()
     device = args.device or compute["device_kind"]
+    # #45: with --device cpu on a CUDA machine the record still named the GPU,
+    # so a CPU-measured calendar verdict was filed against hardware it never
+    # touched. Say what was actually used.
+    if device != compute.get("device_kind"):
+        compute = dict(compute)
+        compute["device_actually_used"] = device
+        compute["compute_used_for_this_run"] = (
+            f"{device} - NOT the {compute.get('gpu_name')} reported above. Every timing and "
+            f"memory figure in this record was produced on {device}.")
     torch.manual_seed(2024)
 
     # The two families constrain the input size differently: the UNet pools four
@@ -341,21 +496,31 @@ def main() -> int:
         print()
         return 2
 
-    variants = [
-        ("unet_base32_depth4", lambda: UNet2D(base=32, depth=4), 1),
-        ("unet_base16_depth4", lambda: UNet2D(base=16, depth=4), 1),
-        ("vit_s14_linear_decoder",
-         lambda: ViTSegStandIn(img=args.img, decoder="linear"), 14),
+    # Strides come from the models themselves rather than being retyped here.
+    # The two definitions could previously drift with nothing to notice: the
+    # class docstring said 1, output_stride() said 1.75, and this table said
+    # 14/8 - three values for the number C0-5 asks about.
+    builders = [
+        ("unet_base32_depth4", lambda: UNet2D(base=32, depth=4)),
+        ("unet_base16_depth4", lambda: UNet2D(base=16, depth=4)),
+        ("vit_s14_linear_decoder", lambda: ViTSegStandIn(img=args.img, decoder="linear")),
         ("vit_s14_progressive_decoder",
-         lambda: ViTSegStandIn(img=args.img, decoder="progressive"), 14 / 8),
+         lambda: ViTSegStandIn(img=args.img, decoder="progressive")),
     ]
+    variants = []
+    for name, build in builders:
+        probe_model = build()
+        stride = probe_model.output_stride()
+        del probe_model
+        variants.append((name, build, float(stride)))
 
     print()
     print(f"  operator   {args.operator}")
     print(f"  device     {device}   {compute.get('gpu_name')}")
     if compute.get("vram_total_gb"):
         print(f"  vram       {compute['vram_total_gb']} GB")
-    print(f"  input      {args.batch} x 1 x {args.img} x {args.img}")
+    print(f"  input      {args.batch} x 1 x {args.img} x {args.img}"
+          + (f"   from {args.input_from}" if args.input_from else "   (torch.randn)"))
     print()
     head = (f"  {'variant':<30} {'stride':>6} {'params M':>9} "
             f"{'fwd ms':>8} {'train ms':>9} {'peak MB':>9}")
@@ -367,24 +532,27 @@ def main() -> int:
         try:
             model = build().to(device)
             params = sum(p.numel() for p in model.parameters())
-            x = torch.randn(args.batch, 1, args.img, args.img, device=device)
+            x = _make_input(args, device)
             y = (torch.rand(args.batch, 1, args.img, args.img, device=device) > 0.8).float()
 
             fwd = time_steps(model, x, y, device, args.steps, train=False)
             trn = time_steps(model, x, y, device, args.steps, train=True)
-            peak = trn["peak_memory_bytes"]
+            peak = trn["memory"]["bytes"]
 
             entry = {
                 "variant": name,
                 "effective_output_stride": stride,
+                "stride_source": "model.output_stride(), not a hardcoded table",
                 "parameters": params,
                 "forward": fwd,
                 "train_step": trn,
+                "train_memory": trn["memory"],
                 "peak_memory_bytes_train": peak,
             }
             if args.find_batch:
                 entry["batch_search"] = largest_fitting_batch(
-                    build, (1, args.img, args.img), device, start=max(1, args.batch))
+                    build, (1, args.img, args.img), device, start=max(1, args.batch),
+                    vram_bytes=compute.get("vram_total_bytes"))
             results.append(entry)
 
             print(f"  {name:<30} {stride:>6.2f} {params / 1e6:>9.2f} "
@@ -412,6 +580,8 @@ def main() -> int:
         "device_used": device,
         "input_shape": [args.batch, 1, args.img, args.img],
         "input_is_synthetic": True,
+        "input_source": args.input_from or "torch.randn - shapes drive memory and step time, "
+                                           "not values; use --input-from to confirm",
         "vit_is_stand_in": ("Shape- and compute-equivalent stand-in for DINOv2 ViT-S/14, "
                             "not the real checkpoint. Peak memory and step time depend on "
                             "tensor shapes and layer counts, not weight values."),
@@ -428,6 +598,10 @@ def main() -> int:
         f.write("\n")
 
     print()
+    if device != "cuda":
+        print("  NOTE on the memory column: this is not a CUDA device, so the figure is a")
+        print("  process RSS delta, not a true peak, and it is not comparable across runs.")
+        print()
     print("  C0-5 — effective output stride is set by the DECODER, not the encoder:")
     print("     UNet                      stride 1   full resolution via skip connections")
     print("     ViT-S/14 linear decoder   stride 14  one logit per patch; upsampling adds")
