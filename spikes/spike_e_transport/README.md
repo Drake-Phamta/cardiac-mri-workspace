@@ -30,10 +30,10 @@
 > *"Claude **may**: write the backend stub, build the client harness and instrumentation, write the
 > aggregation scripts, prepare the result template, and analyse measurements the owner supplies."*
 
-Và giữ phép đo lại cho chủ sở hữu:
-
-> *"**All network and device measurements are executed by Nguyễn Gia Đức Trung** over the real
-> cellular + overlay path."*
+Và giữ phép đo lại cho chủ sở hữu. Theo DR-006a, **operator** là người trực tiếp cầm thiết bị
+(có thể là Phạm Tuấn Anh); **owner** vẫn là Nguyễn Gia Đức Trung, người xác định tiêu chí và viết
+kết luận. Nếu Trung trực tiếp chạy máy thì hai vai trò trùng nhau. Cả hai tên đều phải nằm trong
+run header — thiếu một tên thì `aggregate.py` từ chối tổng hợp.
 
 Dựng đêm 2026-09-11 — [`INC-001`](../../management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md).
 **Không có `RESULT.md`. Không con số nào trong repo là phép đo của bạn.**
@@ -84,13 +84,13 @@ python stub/server.py --payloads payloads/out
 # 3 · trên điện thoại / trên đường thật
 python client/harness.py --base http://<zt-addr>:8787 \
     --path cellular-overlay --connection direct \
-    --operator "Nguyễn Gia Đức Trung" --repeats 5 \
+    --operator "Phạm Tuấn Anh" --owner "Nguyễn Gia Đức Trung" --repeats 5 \
     --note "4G Viettel, ngoài trời, 3 vạch"
 
 # 4 · E9
 python client/retry.py --base http://<zt-addr>:8787 \
     --path cellular-overlay --connection relayed \
-    --operator "Nguyễn Gia Đức Trung" --duration 600
+    --operator "Phạm Tuấn Anh" --owner "Nguyễn Gia Đức Trung" --duration 600
 
 # 5 · tổng hợp
 python analyze/aggregate.py EVIDENCE_RAW/e_transport_*.jsonl --out summary.json

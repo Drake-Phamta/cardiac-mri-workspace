@@ -107,6 +107,39 @@ def pack_mask_bits(slice_u8: np.ndarray) -> bytes:
     return np.packbits(slice_u8.astype(bool), axis=None).tobytes()
 
 
+def write_synthetic_mesh(path: str, level: int) -> int:
+    """Write a deterministic UV-sphere stand-in when Spike B meshes are absent.
+
+    Spike E only needs representative byte/triangle sizes for E6 until the
+    geometry owner supplies real decimation levels.  The manifest labels these
+    meshes as synthetic so they can never be mistaken for anatomy.
+    """
+    rings = 8 * (2 ** level)
+    segments = 16 * (2 ** level)
+    lines = ["# SYNTHETIC SPIKE_E mesh; not real anatomy\n"]
+    for i in range(rings + 1):
+        theta = np.pi * i / rings
+        z = np.cos(theta)
+        radius = np.sin(theta)
+        for j in range(segments):
+            phi = 2.0 * np.pi * j / segments
+            lines.append(f"v {radius * np.cos(phi):.6f} "
+                         f"{radius * np.sin(phi):.6f} {z:.6f}\n")
+    triangles = 0
+    for i in range(rings):
+        for j in range(segments):
+            a = i * segments + j + 1
+            b = i * segments + ((j + 1) % segments) + 1
+            c = (i + 1) * segments + j + 1
+            d = (i + 1) * segments + ((j + 1) % segments) + 1
+            lines.append(f"f {a} {b} {c}\n")
+            lines.append(f"f {b} {d} {c}\n")
+            triangles += 2
+    with open(path, "w", encoding="ascii", newline="\n") as f:
+        f.writelines(lines)
+    return triangles
+
+
 def build(out_dir: str, shape, mesh_levels_json: str | None) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     nx, ny, nz = shape
@@ -146,31 +179,44 @@ def build(out_dir: str, shape, mesh_levels_json: str | None) -> dict:
     # directory would break the moment either side moves.
     meshes = []
     mesh_dir = os.path.join(out_dir, "meshes")
+    os.makedirs(mesh_dir, exist_ok=True)
+    mesh_levels = []
+    spike_b_root = None
     if mesh_levels_json and os.path.exists(mesh_levels_json):
-        os.makedirs(mesh_dir, exist_ok=True)
         spike_b_root = os.path.dirname(os.path.dirname(os.path.abspath(mesh_levels_json)))
         with open(mesh_levels_json, encoding="utf-8") as f:
-            ml = json.load(f)
-        for lv in ml.get("levels", []):
-            # lv["obj"] is relative to the Spike B root, e.g. "mesh/out/level_0_cell1.obj"
+            mesh_levels = json.load(f).get("levels", [])
+
+    # Spike B is a soft dependency.  If its manifest or OBJ files are not
+    # available, create comparable deterministic stand-ins instead of silently
+    # leaving E6 with an empty mesh set.
+    if not mesh_levels:
+        mesh_levels = [{"level": level} for level in range(4)]
+
+    for lv in mesh_levels:
+        level = int(lv["level"])
+        src = None
+        if spike_b_root and lv.get("obj"):
             src = os.path.normpath(os.path.join(spike_b_root, *lv["obj"].split("/")[1:]))
-            entry = {
-                "level": lv["level"],
-                "triangle_count": lv["triangle_count"],
-                "source": "Spike B SYNTHETIC mesh (spikes/spike_b_3d/mesh/out)",
-            }
-            if os.path.exists(src):
-                dst = os.path.join(mesh_dir, f"level_{lv['level']}.obj")
-                with open(src, "rb") as fin, open(dst, "wb") as fout:
-                    fout.write(fin.read())
-                entry["size_bytes"] = os.path.getsize(dst)
-                entry["served_as"] = f"/mesh/{lv['level']}.obj"
-            else:
-                entry["size_bytes"] = None
-                entry["served_as"] = None
-                entry["missing"] = (f"{src} not found - run spikes/spike_b_3d/mesh/"
-                                    f"build_mesh.py first. E6 cannot be measured without it.")
-            meshes.append(entry)
+        dst = os.path.join(mesh_dir, f"level_{level}.obj")
+        entry = {
+            "level": level,
+            "triangle_count": lv.get("triangle_count"),
+            "source": "Spike B SYNTHETIC mesh (spikes/spike_b_3d/mesh/out)"
+                       if src else "Spike E synthetic fallback — Spike B mesh unavailable",
+        }
+        if src and os.path.exists(src):
+            with open(src, "rb") as fin, open(dst, "wb") as fout:
+                fout.write(fin.read())
+            entry["size_bytes"] = os.path.getsize(dst)
+            entry["triangle_count"] = entry["triangle_count"] or "from Spike B manifest"
+        else:
+            entry["triangle_count"] = write_synthetic_mesh(dst, level)
+            entry["synthetic"] = True
+            entry["substitution"] = "Spike B decimation unavailable; deterministic UV-sphere stand-in"
+            entry["size_bytes"] = os.path.getsize(dst)
+        entry["served_as"] = f"/mesh/{level}.obj"
+        meshes.append(entry)
 
     manifest = {
         "_status": "SYNTHETIC PAYLOADS - not dataset bytes, not acceptance evidence",

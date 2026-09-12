@@ -102,6 +102,9 @@ def main() -> int:
             print("  without --path and --connection there is no way to tell diagnostic")
             print("  data from acceptance data.")
             return 2
+        if not h.get("operator") or not h.get("owner"):
+            print(f"  {path}: run header must name both operator and owner (DR-006a).")
+            return 2
         headers.append((path, h))
         samples.extend(s)
 
@@ -134,6 +137,7 @@ def main() -> int:
     print(f"  path        {path_kind}" + ("" if acceptance else "   <-- DIAGNOSTIC ONLY"))
     print(f"  connection  {connection}")
     print(f"  operators   {', '.join(sorted({h['operator'] for _, h in headers}))}")
+    print(f"  owners      {', '.join(sorted({h['owner'] for _, h in headers}))}")
     print(f"  runs        {len(headers)}   samples {len(samples)}")
     print()
 
@@ -148,6 +152,8 @@ def main() -> int:
         "is_acceptance_evidence": acceptance,
         "percentile_definition": "nearest-rank, no interpolation, no outlier removal",
         "source_files": [os.path.basename(p) for p, _ in headers],
+        "operators": sorted({h["operator"] for _, h in headers}),
+        "owners": sorted({h["owner"] for _, h in headers}),
         "scenarios": {},
     }
 

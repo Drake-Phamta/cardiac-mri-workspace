@@ -60,7 +60,10 @@ def main() -> int:
     ap.add_argument("--base", required=True)
     ap.add_argument("--path", required=True, choices=["cellular-overlay", "lan-diagnostic"])
     ap.add_argument("--connection", required=True, choices=["direct", "relayed"])
-    ap.add_argument("--operator", required=True)
+    ap.add_argument("--operator", required=True,
+                    help="device operator who physically ran this")
+    ap.add_argument("--owner", required=True,
+                    help="owner who designed and interprets the measurement (DR-006a)")
     ap.add_argument("--duration", type=int, default=300, help="seconds to observe")
     ap.add_argument("--interval", type=float, default=1.0, help="seconds between probes")
     ap.add_argument("--timeout", type=float, default=5.0, help="per-probe timeout, seconds")
@@ -98,7 +101,8 @@ def main() -> int:
 
     with open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps({
-            "record_type": "run_header", "captured_at": stamp, "operator": args.operator,
+            "record_type": "run_header", "captured_at": stamp,
+            "operator": args.operator, "owner": args.owner,
             "base": args.base, "measurement_path": args.path,
             "overlay_connection": args.connection, "backoff_policy_s": backoff,
             "probe_interval_s": args.interval, "probe_timeout_s": args.timeout,
@@ -111,6 +115,7 @@ def main() -> int:
             ok, ms, err = probe(url, args.timeout)
             now = time.time()
             rec = {"record_type": "probe", "t": now, "ok": ok,
+                   "operator": args.operator, "owner": args.owner,
                    "ms": round(ms, 2), "error": err}
             samples.append(rec)
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")

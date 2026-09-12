@@ -10,10 +10,12 @@ THROWAWAY SPIKE CODE under spikes/spike_e_transport/. Not production.
      instrumentation, write the aggregation scripts, prepare the result
      template, and analyse measurements the owner supplies."
 
-and keeps the measurements with the owner:
+and keeps the measurements attributable:
 
-    "All network and device measurements are executed by Nguyen Gia Duc Trung
-     over the real cellular + overlay path."
+    DR-006a requires every evidence run to name both the device operator (the
+    person who physically runs the phone) and the owner (Nguyen Gia Duc Trung,
+    who owns the criteria and interpretation). The stub does not create or
+    certify measurements.
 
     WHERE THIS MUST RUN FOR ACCEPTANCE
 
@@ -271,7 +273,7 @@ def main() -> int:
     print()
     print("  LAN RUNS ARE DIAGNOSTIC ONLY. Acceptance evidence requires")
     print("  Galaxy A17 -> real cellular -> ZeroTier overlay -> remote Mac mini M2,")
-    print("  measured by Nguyen Gia Duc Trung. Ctrl-C to stop.")
+    print("  operator and owner are recorded by the client harness. Ctrl-C to stop.")
     print()
 
     httpd = ThreadingHTTPServer((args.bind, args.port), Handler)

@@ -31,13 +31,15 @@ presented as acceptance evidence -> Evidence rejected".
 Find the connection type with:  zerotier-cli peers
 
 WHO RUNS IT
-    Nguyen Gia Duc Trung, on the Galaxy A17, over real cellular, against the
-    Mac mini. This file is the instrument; the readings are his.
+    The operator named by --operator physically runs the Galaxy A17 over real
+    cellular against the Mac mini. The --owner is Nguyễn Gia Đức Trung: he
+    owns the criteria, interprets the run and writes E10/E13. If Trung runs
+    the phone himself, both fields may contain his name.
 
 Usage:
     python harness.py --base http://10.x.x.x:8787 \
         --path cellular-overlay --connection direct \
-        --operator "Nguyen Gia Duc Trung" --slices 88
+        --operator "Pham Tuan Anh" --owner "Nguyen Gia Duc Trung" --slices 88
 """
 
 from __future__ import annotations
@@ -140,7 +142,9 @@ def main() -> int:
                     help="E1: acceptance evidence requires cellular-overlay")
     ap.add_argument("--connection", required=True, choices=["direct", "relayed"],
                     help="E12: required for EVERY measurement. Find it with: zerotier-cli peers")
-    ap.add_argument("--operator", required=True, help="who physically ran this")
+    ap.add_argument("--operator", required=True, help="device operator who physically ran this")
+    ap.add_argument("--owner", required=True,
+                    help="owner who designed and interprets the measurement (DR-006a)")
     ap.add_argument("--slices", type=int, default=88)
     ap.add_argument("--window-radius", type=int, default=2)
     ap.add_argument("--repeats", type=int, default=3,
@@ -157,6 +161,7 @@ def main() -> int:
         "record_type": "run_header",
         "captured_at": stamp,
         "operator": args.operator,
+        "owner": args.owner,
         "base": args.base,
         "measurement_path": args.path,
         "overlay_connection": args.connection,
@@ -171,6 +176,7 @@ def main() -> int:
 
     print()
     print(f"  operator    {args.operator}")
+    print(f"  owner       {args.owner}")
     print(f"  path        {args.path}"
           + ("" if args.path == "cellular-overlay" else "   <-- DIAGNOSTIC ONLY"))
     print(f"  connection  {args.connection}    (E12)")
@@ -190,6 +196,8 @@ def main() -> int:
                     "criterion": criterion,
                     "measurement_path": args.path,
                     "overlay_connection": args.connection,
+                    "operator": args.operator,
+                    "owner": args.owner,
                 })
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 if rec["ok"]:
