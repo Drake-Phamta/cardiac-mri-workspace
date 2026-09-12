@@ -80,6 +80,12 @@ desktop.ini
 *.swp
 *~
 
+# --- SPIKE E PAYLOADS -----------------------------------------------------
+# Generated synthetic payloads: large and reproducible, so the generator is
+# tracked and the bytes are not. Regenerate with payloads/generate.py.
+spikes/**/payloads/out/
+spikes/**/payloads/out_*/
+
 # --- SPIKE A FIXTURE AT REAL SLICE SIZE -----------------------------------
 # The 64x64 fixture IS tracked - it is small and it anchors the conformance
 # checks. The 576x576 regeneration used to re-measure A9 at the real cohort
