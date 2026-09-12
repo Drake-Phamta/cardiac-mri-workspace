@@ -258,6 +258,14 @@ def discover_cases(root: str) -> list[dict]:
         if MRI_FILENAME in lower:
             rel = os.path.relpath(dirpath, root)
             parts = rel.split(os.sep)
+            # Every file in the case directory, not just the two we expect.
+            # A17 asks for identifiers "in headers OR SIDECARS", and the first
+            # version only ever looked at lgemri and laendo - so the desktop.ini
+            # this package actually ships inside one Training Set case, and the
+            # lawall.nrrd present in all 154 cases, were both invisible to a
+            # check whose whole job is noticing unexpected content.
+            extras = sorted(f for f in filenames
+                            if f.lower() not in (MRI_FILENAME, MASK_FILENAME))
             found.append({
                 "source_dir_relative": rel.replace(os.sep, "/"),
                 "source_dir_name": os.path.basename(dirpath),
@@ -265,6 +273,7 @@ def discover_cases(root: str) -> list[dict]:
                 "abs_dir": dirpath,
                 "mri_file": lower.get(MRI_FILENAME),
                 "mask_file": lower.get(MASK_FILENAME),
+                "other_files": extras,
             })
     found.sort(key=lambda c: c["source_dir_relative"])
     return found
@@ -283,8 +292,14 @@ def scan_package(root: str, want_checksums: bool = True,
     # source path so two runs agree.
     for index, found in enumerate(cases_found, start=1):
         case_id = f"CASE_{index:04d}"
+        # `06` section 2: anything beyond the two required files is not a core
+        # target until its provenance and semantics are verified. Recorded, and
+        # split so a stray non-NRRD stands out from a companion annotation.
+        extras = found.get("other_files") or []
         entry: dict[str, Any] = {
             "case_id": case_id,
+            "other_files_in_case_dir": extras,
+            "non_nrrd_sidecars": [f for f in extras if not f.lower().endswith(".nrrd")],
             "source_dir_relative": found["source_dir_relative"],
             "source_dir_name": found["source_dir_name"],
             "partition_as_released": found["partition_as_released"],
@@ -313,6 +328,7 @@ def scan_package(root: str, want_checksums: bool = True,
 
             # A8 / A9 - compatibility between the two volumes.
             entry["mri_mask_compatibility"] = _compare(mri, mask)
+
         else:
             entry["mask"] = None
             entry["mri_mask_compatibility"] = {
@@ -321,6 +337,23 @@ def scan_package(root: str, want_checksums: bool = True,
                 "origin_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
                 "resampling_required": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
             }
+
+        # Companion NRRDs - lawall.nrrd is in all 154 cases of this package and
+        # was never opened. Headers are scanned for identifiers; pixel data is
+        # not audited, because `06` section 2 says a file outside the required
+        # pair is not a core target until its provenance is verified.
+        companions = {}
+        for name in extras:
+            if not name.lower().endswith(".nrrd"):
+                continue
+            vol = _inspect_volume(os.path.join(found["abs_dir"], name), nrrd,
+                                  want_checksums=False)
+            vol.pop("_data", None)
+            vol["path_relative"] = f"{found['source_dir_relative']}/{name}"
+            vol["note"] = ("companion file, NOT a required target (`06` section 2). Header "
+                           "scanned for identifiers; pixel content not audited.")
+            companions[name] = vol
+        entry["companion_volumes"] = companions
 
         cases.append(entry)
 

@@ -57,11 +57,11 @@ One dependency: `pynrrd`. Its **exact version is recorded in every manifest**, b
 python tools/dataset_validate/validate.py --selftest
 
 # 2 · look at the package, print the criteria table, write nothing
-python tools/dataset_validate/validate.py --root "C:/cardiac-data/lasc2018/2018_UTAH_MICCAI"
+python tools/dataset_validate/validate.py --root "C:/cardiac-data/lasc2018/extracted"
 
 # 3 · produce the acceptance artifacts
 python tools/dataset_validate/validate.py \
-    --root "C:/cardiac-data/lasc2018/2018_UTAH_MICCAI" \
+    --root "C:/cardiac-data/lasc2018/extracted" \
     --acquisition C:/cardiac-data/lasc2018/acquisition.json \
     --write-manifest --write-audit
 ```
@@ -77,6 +77,18 @@ input has not been tested.
 
 The selftest writes nothing into the repository and measures nothing real.
 
+> ### The package is already on disk, and the paths above are the real ones
+>
+> `C:/cardiac-data/lasc2018/extracted` — **154 cases**, 100 under `Training Set` and 54 under
+> `Testing Set`, **14.2 GiB** extracted. `acquisition.json` sits next to it, already filled in.
+>
+> The first two versions of this README pointed `--root` at
+> `C:/cardiac-data/lasc2018/2018_UTAH_MICCAI`, **a directory that does not exist** — copy-pasting it
+> returned exit 2 on the first command. It also showed a `LICENSE_TERMS.txt` that does not exist:
+> the archive ships **no licence file at all**, only 462 NRRDs, two Python files and one stray
+> `desktop.ini`. Criterion `A18` therefore means archiving the Cardiac Atlas page separately, not
+> finding a file in the zip.
+
 ### The acquisition JSON
 
 Criterion `A1` needs the download record, which the scanner cannot read off the disk. Supply it:
@@ -88,8 +100,8 @@ Criterion `A1` needs the download record, which the scanner cannot read off the 
   "download_started": "2026-09-11T23:12:06+07:00",
   "download_finished": "2026-09-11T23:48:31+07:00",
   "acquired_by": "Pham Tuan Anh",
-  "extraction_location": "C:/cardiac-data/lasc2018/2018_UTAH_MICCAI",
-  "license_terms_path": "C:/cardiac-data/lasc2018/LICENSE_TERMS.txt",
+  "extraction_location": "C:/cardiac-data/lasc2018/extracted",
+  "license_terms_path": "NOT MEASURED - the archive contains no licence file; the terms live on the Cardiac Atlas page and must be archived separately (A18)",
   "package_files": [
     {"name": "2018_UTAH_MICCAI.zip", "size_bytes": 2200962438, "sha256": "..."}
   ],

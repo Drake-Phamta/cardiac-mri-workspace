@@ -207,7 +207,12 @@ def main() -> int:
 
     acquisition = None
     if args.acquisition:
-        with open(args.acquisition, encoding="utf-8") as f:
+        # utf-8-sig, not utf-8. Any JSON written on Windows by PowerShell's
+        # Out-File -Encoding utf8 carries a BOM, and json.load rejects it with
+        # "Unexpected UTF-8 BOM". The acquisition record for this project was
+        # written exactly that way, so the documented command failed on its
+        # second argument. Reading utf-8-sig accepts both with and without.
+        with open(args.acquisition, encoding="utf-8-sig") as f:
             acquisition = json.load(f)
 
     manifest = scan_package(args.root, want_checksums=not args.no_checksums,

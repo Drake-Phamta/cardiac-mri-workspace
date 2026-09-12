@@ -384,11 +384,20 @@ def _a16_ids(cases: list[dict]) -> Result:
 
 
 def _a17_privacy(cases: list[dict]) -> Result:
+    """A17 - metadata audit. `TASK.md:130` says "headers OR SIDECARS".
+
+    The first version scanned only lgemri and laendo headers. This package
+    ships a lawall.nrrd in all 154 cases and a stray desktop.ini inside one
+    Training Set case; neither was ever opened by a check whose entire purpose
+    is noticing unexpected content.
+    """
     findings = []
+    sidecars = []
     unchecked = 0
     for c in cases:
-        for role in ("mri", "mask"):
-            vol = c.get(role)
+        vols = [("mri", c.get("mri")), ("mask", c.get("mask"))]
+        vols += [(f"companion:{n}", v) for n, v in (c.get("companion_volumes") or {}).items()]
+        for role, vol in vols:
             if vol is None:
                 continue
             f = vol.get("header_identifier_findings")
@@ -397,6 +406,8 @@ def _a17_privacy(cases: list[dict]) -> Result:
                     findings.append(f"{c['case_id']}/{role}:{item['key']}")
             else:
                 unchecked += 1
+        for name in (c.get("non_nrrd_sidecars") or []):
+            sidecars.append(f"{c['case_id']}/{name}")
     title = "Metadata audit against the privacy allowlist"
     if findings:
         return Result("A17", title, FAIL,
@@ -407,6 +418,13 @@ def _a17_privacy(cases: list[dict]) -> Result:
     # version only said NOT_RUN when NO header at all was readable, so a single
     # unreadable mask among many still printed PASS - breaking this module's own
     # rule 1 about never passing what it did not look at.
+    if sidecars:
+        return Result("A17", title, FAIL,
+                      f"{len(sidecars)} non-NRRD sidecar file(s) inside case directories: "
+                      f"{', '.join(sidecars[:6])}. `06` section 2 says a file outside the required "
+                      f"pair is not a core target until its provenance and semantics are verified, "
+                      f"and TASK.md:130 asks for identifiers in headers OR SIDECARS. Content was "
+                      f"NOT read - the owner decides whether to exclude or clear each one.")
     if unchecked:
         return Result("A17", title, NOT_RUN,
                       f"{unchecked} volume(s) could not be opened, so their headers were never "
@@ -415,8 +433,10 @@ def _a17_privacy(cases: list[dict]) -> Result:
     if not any(isinstance((c.get(r) or {}).get("header_identifier_findings"), list)
                for c in cases for r in ("mri", "mask")):
         return Result("A17", title, NOT_RUN, "no header was scanned")
+    n_comp = sum(len(c.get("companion_volumes") or {}) for c in cases)
     return Result("A17", title, PASS,
-                  "every readable header scanned; none matched a direct-identifier pattern")
+                  f"every readable header scanned across required files and {n_comp} companion "
+                  f"volume(s); no sidecars; none matched a direct-identifier pattern")
 
 
 # --- summary ----------------------------------------------------------------
