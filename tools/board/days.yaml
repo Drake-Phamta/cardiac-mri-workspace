@@ -22,25 +22,25 @@ members:
     role: "ML training / evaluation"
     owns: [SPIKE_D, SPIKE_C0, SPIKE_C1]
     reviews: []            # filled from the state file
-    packet: management/day03/tasks/DAY03_BE_QUOC_KHANH.md
+    packet: management/day04/tasks/DAY04_BE_QUOC_KHANH.md
   trung:
     name: "Nguyễn Gia Đức Trung"
     github: TrungNGD195
     role: "Backend / persistence / ingestion"
     owns: [SPIKE_E]
-    packet: management/day03/tasks/DAY03_NGUYEN_GIA_DUC_TRUNG.md
+    packet: management/day04/tasks/DAY04_NGUYEN_GIA_DUC_TRUNG.md
   hunganh:
     name: "Vũ Hùng Anh"
     github: scalliontor
     role: "Geometry / 3D"
     owns: [SPIKE_B, SPIKE_F, "tests/fixtures/geometry"]
-    packet: management/day03/tasks/DAY03_VU_HUNG_ANH.md
+    packet: management/day04/tasks/DAY04_VU_HUNG_ANH.md
   tuananh:
     name: "Phạm Tuấn Anh"
     github: Drake-Phamta
     role: "Team Leader · Project Control · Integration/CI"
     owns: [SPIKE_A]
-    packet: management/day03/tasks/DAY03_PHAM_TUAN_ANH.md
+    packet: management/day04/tasks/DAY04_PHAM_TUAN_ANH.md
 
 # Acceptance criteria per spike, from each TASK.md. `measured` counts criteria
 # with real data behind them; it is NOT the same as accepted, and the board
@@ -58,71 +58,123 @@ criteria:
 # A9 measured twice, A12 partial (one candidate only).
 
 today:
-  day: 3
-  date: "2026-09-12"
+  day: 4
+  date: "2026-09-13"
   headline: >
-    Gói dataset đã về và verify xong · Mac mini đã tới được trên overlay ·
-    A9 đã đo lại ở kích thước slice THẬT · dụng cụ bốn spike đã dựng, đã bị soi
-    đối kháng và đã sửa 49 lỗi.
+    Mọi bế tắc bên ngoài đã gỡ — dataset trên đĩa, dụng cụ đã sửa 4 lỗi chặn và chạy được
+    từ lệnh đầu, Mac mini tới được, bảng tự sinh từ state file. Critical path vẫn đứng yên
+    sang ngày thứ năm, buffer đã về 0, trạng thái RED.
   conditions:
     - who: khanh
-      what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, do chính Khánh commit"
-      why: "P0 critical path. Gói và dụng cụ đều sẵn — không còn lý do bên ngoài nào"
+      what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, **do chính bạn commit**"
+      why: "P0, ngày thứ 5. Lệnh giờ chạy được từ lệnh đầu — 4 lỗi chặn đã sửa tối qua"
     - who: trung
-      what: "Chạy stub trên Mac mini, bind địa chỉ overlay → cổng 8787 mở"
-      why: "Đây là cổng vào GATE 2. Không cần điện thoại"
-    - who: null
-      what: "6 PR đang treo có review thật"
-      why: "Hàng đợi tắc hoàn toàn. `15` §11 — im lặng không phải chấp thuận"
+      what: "Chạy stub trên Mac mini → cổng 8787 mở"
+      why: "Cổng vào `GATE 2`. Không cần điện thoại"
+    - who: hunganh
+      what: "Review PR #13 *(mở từ trưa 11/09 — 33,7 giờ lúc chốt Day 3)* và quyết bộ geometry fixture"
+      why: "Leader là tác giả nên **không tự approve được**. Fixture chặn cả Spike A lẫn Spike F"
   tasks:
     khanh:
       now:
-        - "Xác nhận **đĩa trống + thư viện NRRD trên máy bạn** — 5 phút, `NOT_CHECKED` từ Day 0"
+        - "**Khai báo khả dụng** — một dòng. *\"Hôm nay tôi bận cả ngày\"* là câu trả lời hợp lệ"
+        - "Xác nhận **đĩa trống + thư viện NRRD trên máy bạn** — cần **14,2 GiB**, không phải 6 GB như packet cũ ghi sai"
         - "`validate.py --selftest` — phải báo `A14 FAIL` trên volume oblique cài sẵn"
       then:
-        - "Chạy validator trên gói thật → sinh manifest + `DATASET_AUDIT.md`"
-        - "Viết tay 4 verdict script từ chối trả lời hộ: `A11` `A12` `A13` `A18`"
-        - "Kiểm 5 quan sát leader thấy trên 4/154 case — nhất là **mask là `0`/`255`, không phải `0`/`1`**"
+        - "Chạy validator trên gói thật → **manifest + `DATASET_AUDIT.md`**, commit dưới tài khoản bạn"
+        - "Viết 4 verdict script từ chối trả lời: `A11` `A13` `A18`, cộng mapping `A10` và provenance `A12`"
+        - "**`A17` sẽ báo FAIL** vì có `desktop.ini` trong `CASE_0097` — quyết loại trừ hay giải trình"
       later:
-        - "Review PR #14 — dụng cụ dựng cho chính bạn"
-        - "Probe C0 (`--img 560`) — **chỉ khi Spike D đã xong**"
+        - "Review PR #14 và #17 — dụng cụ dựng cho chính bạn"
+        - "Khai báo compute `C0-1`, rồi mới chạy probe"
       debts:
-        - "Cột `B` sign-off — chưa review PR thật nào của đồng đội"
-        - "Khai báo compute ML (`C0-1`) — `ml_compute.declared` vẫn `UNVERIFIED`"
+        - "Cột `B` sign-off — chưa review PR thật nào của đồng đội, từ Day 0"
+        - "`ml_compute.declared` vẫn `UNVERIFIED` — ô cuối cùng còn lại trong state file"
+      note: "Tối qua đã sửa 4 lỗi sẽ chặn bạn ngay lệnh đầu: `--root` sai đường dẫn, UTF-8 BOM trong `acquisition.json`, một file licence không tồn tại, và `A17` không quét sidecar. Đã kiểm bằng cách chạy thật trên cả 154 case."
     trung:
       now:
-        - "`zerotier-cli peers` — một giây, trả lời `E12` direct-vs-relayed"
-        - "Sinh payload trên Mac mini"
-        - "**Chạy stub bind địa chỉ overlay** → cổng 8787 mở → `GATE 2` mở"
+        - "**Chạy stub trên Mac mini** bind địa chỉ overlay → cổng 8787 → **`GATE 2` mở**"
+        - "`sudo zerotier-cli peers` → direct hay relayed, trả lời `E12`"
       then:
-        - "Review PR #16 — dụng cụ dựng cho bạn, vừa sửa 10 lỗi"
+        - "Cài **ZeroTier lên điện thoại** *(vẫn bắt buộc — USB chỉ là kênh điều khiển)*"
+        - "Hẹn buổi đo từ xa với leader"
       later:
-        - "Đo trên đường thật — **từ xa qua adb**, hẹn buổi với leader"
+        - "Review PR #14 hoặc #15 của đồng đội"
       debts: []
-      note: "Việc hôm nay **không cần điện thoại**. Thứ chặn bạn là stub, không phải máy."
+      note: "Hôm qua bạn là người **duy nhất** có việc thật land: review PR #16 với ba phát hiện đúng, một cái luồng soi đối kháng đã bỏ sót, rồi tự sửa cả ba. Một lưu ý quy trình: lần sau nêu trong review và để tác giả sửa — `15` §191 cấm push vào nhánh người khác, và approve commit của chính mình thì nửa sau là tự review."
     hunganh:
       now:
-        - "Quyết về bộ **canonical geometry fixture**: nhận / sửa / thay bản đề xuất ở PR #15"
-        - "**Công bố format** cho Phạm Tuấn Anh — mốc mở khoá Spike A và Spike F"
+        - "**Khai báo khả dụng** — một dòng"
+        - "**Review PR #13** — mở từ **trưa 11/09**, chưa một review nào, và leader là tác giả nên không tự approve được"
       then:
-        - "Review **PR #13** (mở >12 giờ) và PR #15"
-        - "Phán định nghĩa nhóm cho `B14` — trên số ĐÃ SỬA, không phải số tôi dựng sai"
+        - "Quyết bộ **canonical geometry fixture**: nhận / sửa / thay bản đề xuất ở PR #15"
+        - "**Công bố format** — mốc mở khoá Spike A và Spike F"
       later:
-        - "Thay mask tổng hợp bằng mask thật khi Khánh xong audit"
+        - "Phán định nghĩa nhóm `B14` trên **số đã sửa** — bản cũ tôi báo sai, đã rút lại"
+        - "PR nhỏ thêm dòng `Reviewer:` vào `PRACTICE_VU_HUNG_ANH.md`"
       debts:
-        - "`PRACTICE_VU_HUNG_ANH.md` trên `main` vẫn thiếu dòng `Reviewer:`"
+        - "4 suất review đang treo: PR #13 *(33,7 giờ lúc chốt Day 3)*, #15, và #14/#17 khi Khánh xong"
+        - "`PRACTICE_VU_HUNG_ANH.md` trên `main` vẫn thiếu dòng `Reviewer:` — nợ từ Day 0"
+      note: "Điều kiện vào `GATE 3` của bạn — ≥3 mức decimation và harness picking chạy desktop — **đã đủ** từ PR #15. Không có gì chặn bạn ngoài việc bắt đầu."
     tuananh:
       now:
-        - "Gửi `INC-001` + 4 packet cho nhóm"
-        - "**Quyết PR #13** — đợi review hay merge và ghi trung thực"
+        - "**Quyết recovery** — trigger 2 và 3 đều đã nổ. Đọc `DAY03_EOD_REVIEW` §11 trước: **de-scope `COULD` không mua thêm ngày nào**"
+        - "Gán reviewer cho **PR #18**, rồi merge có review"
       then:
-        - "Mở buổi đo từ xa khi Trung/Hùng Anh cần máy"
-        - "`A9` đã đo lại xong ✅ — việc tiếp là đo với **cache có giới hạn**, không phải brush"
+        - "Liên lạc trực tiếp Khánh và Hùng Anh — gọi, không nhắn"
+        - "Quyết cài gì lên Galaxy A17: ZeroTier là **bắt buộc**, HTTP client thì chọn đường"
       later:
-        - "Đóng ngày: `DAY03_EOD_REVIEW` + `DAY_LOG` + `PROJECT_STATE`"
+        - "Nếu năng lực thật là một người rưỡi thì **lập lại kế hoạch 30 ngày trên con số đó**"
       debts: []
+      note: "Sáu PR đều do anh viết nên anh **không approve được cái nào** — GitHub cấm tự approve. Hàng đợi review chỉ mở được từ phía ba người kia."
 
 history:
+  - day: 3
+    date: "2026-09-12"
+    status: missed
+    title: "Bế tắc bên ngoài đã gỡ hết, critical path vẫn đứng yên"
+    summary: >
+      Hai trên ba điều kiện không đạt. Dataset, dụng cụ và Mac mini giờ đều sẵn sàng, nên từ đây
+      critical path không còn phụ thuộc vào công cụ hay dữ liệu nữa. Buffer về 0, trạng thái RED.
+    done:
+      - who: trung
+        what: "**Review PR #16 thật** — `CHANGES_REQUESTED` → `APPROVED`, **ba phát hiện đúng**, một cái luồng soi đối kháng đã bỏ sót"
+        ref: "API review 09:54Z, 10:10Z"
+      - who: trung
+        what: "`03147e3` — 141 dòng / 6 file, tự sửa cả ba phát hiện của mình"
+        ref: "03147e3"
+      - who: tuananh
+        what: "**4 lỗi chặn trong dụng cụ Spike D** — `--root` sai, **UTF-8 BOM**, licence bịa, `A17` không quét sidecar. Kiểm bằng chạy thật trên 154 case"
+        ref: "3bf2a80"
+      - who: tuananh
+        what: "**`DR-006a` revision 1** — đính chính: USB là kênh điều khiển, **ZeroTier trên điện thoại VẪN bắt buộc**"
+        ref: "91bd052"
+      - who: tuananh
+        what: "Bảng **sinh tự động từ state file** + kho lưu trữ theo ngày"
+        ref: "888c4e1"
+      - who: null
+        what: "**9 mục state hygiene** — gồm 7 trường device profile `UNVERIFIED` đang **chặn nghiệm thu A/B/E/F**"
+        ref: "2ba21cc"
+    missed:
+      - who: khanh
+        what: "Audit `A1`–`A20` — **0 hoạt động ngày thứ 4**, dù gói và dụng cụ đều sẵn"
+      - who: hunganh
+        what: "Bộ geometry fixture · review PR #13 *(33,7 giờ)* và #15 — **0 hoạt động ngày thứ 4**"
+      - who: trung
+        what: "Stub trên Mac mini — cổng 8787 vẫn đóng, `GATE 2` vẫn chưa mở"
+      - who: null
+        what: "**1/6 PR có review.** Cả sáu đều do leader viết nên anh không approve được cái nào"
+    decisions:
+      - "**Trigger 2 và 3 của `15` §18 đều đã nổ** — buffer 1 → 0, và trigger 3 sống qua chu kỳ EOD **thứ ba**"
+      - "**Level 5 de-scope chưa tuyên bố** — `15` §414 nói đó là quyết định của leader"
+      - "Merge PR #16 **kèm bản ghi** rằng commit đi vào nhánh người khác và `APPROVED` xác nhận commit của chính người approve"
+      - "Ngoại lệ `INC-001` **đã hết hiệu lực** lúc 00:00; state file ghi `recovery.active: true` suốt cả ngày là một lỗi, đã sửa"
+    findings:
+      - "**De-scope `COULD` không mua thêm ngày nào.** PRD §3.1: cả 11 mục `COULD`/`SHOULD` *\"not part of the critical-path acceptance floor\"*. Sàn nghiệm thu là **28 `MUST`**"
+      - "**Thang recovery 5 mức không có mức nào** cho tình huống ba trên bốn người không hoạt động — `INC-001` §4.1 đã ghi"
+      - "**Trigger 2 viết dựa trên một ngưỡng không tồn tại** — `MASTER_PLAN` nói *\"≥2 ngày\"* nhưng không đâu định nghĩa ngưỡng an toàn bằng số"
+      - "**Điện thoại không có Python, Termux, curl hay wget** — harness Spike E viết bằng Python và `docstring` ghi *\"runs on the Galaxy A17\"*. Máy không chạy được nó"
+
   - day: 2
     date: "2026-09-11"
     status: partial

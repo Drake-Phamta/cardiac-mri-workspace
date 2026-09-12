@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 3 · 2026-09-12 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 3: Bế tắc bên ngoài đã gỡ hết, critical path vẫn đứng yên">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top red">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 3</span> — 12/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st no">TRƯỢT</span> &nbsp; Bế tắc bên ngoài đã gỡ hết, critical path vẫn đứng yên</div>
+  <p class="sub">Hai trên ba điều kiện không đạt. Dataset, dụng cụ và Mac mini giờ đều sẵn sàng, nên từ đây critical path không còn phụ thuộc vào công cụ hay dữ liệu nữa. Buffer về 0, trạng thái RED.
+</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Nguyễn Gia Đức Trung</strong> — <strong>Review PR #16 thật</strong> — <code>CHANGES_REQUESTED</code> → <code>APPROVED</code>, <strong>ba phát hiện đúng</strong>, một cái luồng soi đối kháng đã bỏ sót <code>API review 09:54Z, 10:10Z</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — <code>03147e3</code> — 141 dòng / 6 file, tự sửa cả ba phát hiện của mình <code>03147e3</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>4 lỗi chặn trong dụng cụ Spike D</strong> — <code>--root</code> sai, <strong>UTF-8 BOM</strong>, licence bịa, <code>A17</code> không quét sidecar. Kiểm bằng chạy thật trên 154 case <code>3bf2a80</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong><code>DR-006a</code> revision 1</strong> — đính chính: USB là kênh điều khiển, <strong>ZeroTier trên điện thoại VẪN bắt buộc</strong> <code>91bd052</code></li><li><strong>Phạm Tuấn Anh</strong> — Bảng <strong>sinh tự động từ state file</strong> + kho lưu trữ theo ngày <code>888c4e1</code></li><li><strong>Cả nhóm</strong> — <strong>9 mục state hygiene</strong> — gồm 7 trường device profile <code>UNVERIFIED</code> đang <strong>chặn nghiệm thu A/B/E/F</strong> <code>2ba21cc</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Bế Quốc Khánh</strong> — Audit <code>A1</code>–<code>A20</code> — <strong>0 hoạt động ngày thứ 4</strong>, dù gói và dụng cụ đều sẵn</li><li><strong>Vũ Hùng Anh</strong> — Bộ geometry fixture · review PR #13 <em>(33,7 giờ)</em> và #15 — <strong>0 hoạt động ngày thứ 4</strong></li><li><strong>Nguyễn Gia Đức Trung</strong> — Stub trên Mac mini — cổng 8787 vẫn đóng, <code>GATE 2</code> vẫn chưa mở</li><li><strong>Cả nhóm</strong> — <strong>1/6 PR có review.</strong> Cả sáu đều do leader viết nên anh không approve được cái nào</li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li><strong>Trigger 2 và 3 của <code>15</code> §18 đều đã nổ</strong> — buffer 1 → 0, và trigger 3 sống qua chu kỳ EOD <strong>thứ ba</strong></li><li><strong>Level 5 de-scope chưa tuyên bố</strong> — <code>15</code> §414 nói đó là quyết định của leader</li><li>Merge PR #16 <strong>kèm bản ghi</strong> rằng commit đi vào nhánh người khác và <code>APPROVED</code> xác nhận commit của chính người approve</li><li>Ngoại lệ <code>INC-001</code> <strong>đã hết hiệu lực</strong> lúc 00:00; state file ghi <code>recovery.active: true</code> suốt cả ngày là một lỗi, đã sửa</li></ul></section>
+<section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong>De-scope <code>COULD</code> không mua thêm ngày nào.</strong> PRD §3.1: cả 11 mục <code>COULD</code>/<code>SHOULD</code> <em>&quot;not part of the critical-path acceptance floor&quot;</em>. Sàn nghiệm thu là <strong>28 <code>MUST</code></strong></li><li><strong>Thang recovery 5 mức không có mức nào</strong> cho tình huống ba trên bốn người không hoạt động — <code>INC-001</code> §4.1 đã ghi</li><li><strong>Trigger 2 viết dựa trên một ngưỡng không tồn tại</strong> — <code>MASTER_PLAN</code> nói <em>&quot;≥2 ngày&quot;</em> nhưng không đâu định nghĩa ngưỡng an toàn bằng số</li><li><strong>Điện thoại không có Python, Termux, curl hay wget</strong> — harness Spike E viết bằng Python và <code>docstring</code> ghi <em>&quot;runs on the Galaxy A17&quot;</em>. Máy không chạy được nó</li></ul></section>
+
+<footer>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
+     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
+     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
+  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
+     <a href="../archive/index.html">lịch sử ngày</a></p>
+  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc 13/09/2026 00:03
+     bằng <code>tools/board/build_board.py</code>.</p>
+  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
+     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
+     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
+     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+</footer>
+</div>
+</body>
+</html>

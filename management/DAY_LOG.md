@@ -13,14 +13,68 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 3 — 2026-09-12** |
-| Ngày còn lại tới Day 30 | **28** |
-| **Buffer còn** | **1 ngày** *(dự trù 2, đã tiêu 1 vì Day 1 trượt)* |
+| Ngày hôm nay | **Day 4 — 2026-09-13** |
+| Ngày còn lại tới Day 30 | **27** |
+| **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt)* |
+| Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
 | Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
-| Ngưỡng leo thang | mất thêm **1** ngày → buffer = 0 → `15` §18 trigger 2 kích hoạt |
-| `15` §18 | ⚠ **trigger 3 ĐÃ THOẢ** — xem [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
+| Ngưỡng leo thang | **đã vượt.** Mất thêm ngày nào từ đây là **buffer âm** — hạn Day 30 không lùi |
+| `15` §18 | ⚠ **trigger 2 ĐÃ NỔ** (buffer → 0) **chồng lên trigger 3 ĐÃ NỔ** từ Day 2, nay sống qua **chu kỳ EOD thứ ba** — xem [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
+| Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
+
+---
+
+## DAY 4 — 2026-09-13 · `ĐANG MỞ`
+
+**Gói nhiệm vụ từng người:** [`day04/tasks/`](day04/tasks/)
+
+> **Ngày đầu tiên dự án ở trạng thái 🔴 RED với buffer 0.** Mọi bế tắc bên ngoài đã được gỡ trong
+> Day 3 — dataset trên đĩa, dụng cụ bốn spike đã dựng và sửa hết lỗi chặn, Mac mini tới được, bảng
+> tự sinh từ state file. **Từ hôm nay, thứ duy nhất còn chặn critical path là khả dụng của người.**
+
+### Điều kiện để Day 4 KHÔNG trượt
+
+| # | Ai | Điều kiện | Vì sao |
+|---|---|---|---|
+| 1 | **Bế Quốc Khánh** | `dataset_manifest.json` + `DATASET_AUDIT.md` land trên `main`, **do chính cậu ấy commit** | P0, ngày thứ 5. Lệnh giờ chạy được từ lệnh đầu — 4 lỗi chặn đã sửa ở `3bf2a80` |
+| 2 | **Nguyễn Gia Đức Trung** | Stub chạy trên Mac mini → **cổng 8787 mở** | Cổng vào `GATE 2`. **Không cần điện thoại** |
+| 3 | **Vũ Hùng Anh** | Review **PR #13** *(mở từ trưa 11/09, 0 review)* và **quyết bộ geometry fixture** | Leader là tác giả nên không tự approve được. Fixture chặn cả Spike A lẫn Spike F |
+
+**Không đủ ba thì ngày này tính là trượt** — cùng luật đã áp cho Day 1 và Day 3.
+
+### Đã xong — trong ngày
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| *(chưa có)* | | |
+
+### Còn tồn — mang sang từ Day 3
+
+| Ai | Việc | Ai đóng được |
+|---|---|---|
+| **Bế Quốc Khánh** | Audit `A1`–`A20` · verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` · **đĩa trống + NRRD trên máy cậu ấy** · compute `C0-1` · review một PR thật *(cột `B` từ Day 0)* | **chỉ cậu ấy** |
+| **Vũ Hùng Anh** | Bộ geometry fixture + **công bố format** · review PR #13 và #15 · phán nhóm `B14` · dòng `Reviewer:` *(nợ từ Day 0)* | **chỉ cậu ấy** |
+| **Nguyễn Gia Đức Trung** | Chạy stub → mở `GATE 2` · **ZeroTier trên điện thoại** *(vẫn bắt buộc)* · `E1`–`E9` `E12` | **chỉ cậu ấy** |
+| **Phạm Tuấn Anh** | **Quyết recovery** · gán reviewer cho PR #18 · quyết cài gì lên Galaxy A17 · liên lạc trực tiếp Khánh và Hùng Anh | leader |
+
+> **`INC-001` §5 — dòng phải nhắc lại mỗi ngày cho tới khi hết nợ:** *"làm thay không xoá nghĩa vụ."*
+> Ngoại lệ cho phép Project Control làm thay **đã hết hiệu lực lúc 00:00 ngày 2026-09-12** và
+> **không tự gia hạn** (§4.5). Không một dòng nào trong bảng trên được chuyển sang người khác.
+
+### Hàng đợi review — **5 PR mở, 0 review**
+
+| PR | Nhánh | Tuổi lúc chốt Day 3 | Review |
+|---|---|---|---|
+| #13 | `spike/SPIKE_A` | 33,7 giờ | **0** |
+| #14 | `tools/spike-d-validation` | 24,6 giờ | **0** |
+| #15 | `spike-b/harness-and-fixture-proposal` | 24,4 giờ | **0** |
+| #17 | `spike-c0/compute-probe` | 24,0 giờ | **0** |
+| #18 | `chore/ci-guardrails` | 23,9 giờ | **0** |
+
+**Cả 5 đều do leader viết** → GitHub cấm tự approve → hàng đợi này **chỉ mở được từ phía ba người
+kia**. `15` §7 gọi đúng tình trạng này là *"a large queue of unreviewed 'done' work"*.
 
 ---
 
