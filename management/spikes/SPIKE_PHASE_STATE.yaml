@@ -105,15 +105,23 @@ environments:
     kind: physical            # emulator is not acceptable for NFR-PERF-002/003
     unit_count: 1             # EXACTLY ONE authorised physical unit - leader confirmed
     contention: "measurement windows for SPIKE_A, SPIKE_B and SPIKE_E must not overlap; see device_measurement_queue"
-    profile_captured: false
-    profile:                  # every field must be read from the device; do not infer
-      model_identifier: UNVERIFIED
-      android_version_build: UNVERIFIED
-      ram_and_performance_profile: UNVERIFIED
-      cpu_info_from_tooling: UNVERIFIED
-      gpu_info_from_tooling: UNVERIFIED
-      resolution_and_refresh: UNVERIFIED
-      exact_test_configuration: UNVERIFIED
+    profile_captured: true    # 2026-09-11 ~12:30, read from the handset over adb
+    profile_record: management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md
+    profile_signed: "2026-09-12T00:25+07:00"   # section 9; signing route recorded in the file
+    profile:                  # every field READ FROM THE DEVICE - see the record above
+      model_identifier: "SM-A176B"
+      android_version_build: "Android 16, API 36, BP4A.251205.006.A176BXXS6CZG7"
+      ram_and_performance_profile: "MemTotal 7,641,100 kB; dalvik.vm.heapgrowthlimit 256m"
+      cpu_info_from_tooling: "s5e8535, 8 cores; per-core model name NOT MEASURED on Android 16"
+      gpu_info_from_tooling: "ARM Mali-G68, OpenGL ES 3.2"
+      resolution_and_refresh: "1080x2340 @450dpi; supports [90, 60] Hz, running at 60"
+      exact_test_configuration: "recorded per measurement run in the evidence JSON"
+    mirroring_note: >
+      These seven fields sat at UNVERIFIED for a full day after the profile was captured and
+      signed. Left that way they would have BLOCKED acceptance of SPIKE_A, B, E and F -
+      SPIKE_PHASE_PLAN.md line 359 requires the environment profile to carry no UNVERIFIED
+      placeholders in fields the result depends on. Mirroring committed facts inward is
+      Project Control's job and it was not done.
     required_before: [SPIKE_A, SPIKE_B, SPIKE_E]
     governs: [NFR-PERF-001, NFR-PERF-002, NFR-PERF-003, NFR-PERF-004, NFR-USAB-005,
               TC-PERF-001, TC-PERF-002, TC-PERF-003, TC-PERF-004, TC-USAB-005]
@@ -591,7 +599,12 @@ device_measurement_queue:
       parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A holds the phone"
       acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB"
       lan_results: "diagnostic only - never acceptance evidence"
-      entry_gate: "backend stub reachable AND overlay up - BOTH still NOT_CHECKED as of 2026-09-11"
+      entry_gate: "backend stub reachable AND overlay up"
+      entry_gate_state_2026_09_12: >
+        Overlay UP and Mac mini reachable, verified by observation from the leader's machine at
+        00:20. The stub is NOT running - port 8787 closed at 16:20 and again at 23:05. The gate
+        turns on the stub, not on the overlay, so it remains SHUT - and the work that opens it
+        needs no phone.
       tooling_ready: "spikes/spike_e_transport - stub, client harness, retry harness, aggregation (PR #16)"
     - slot: 3
       spike: SPIKE_B

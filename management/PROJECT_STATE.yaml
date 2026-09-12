@@ -39,12 +39,36 @@ dr_001_trigger:
   acquired_by: "Pham Tuan Anh - ACQUISITION ONLY, a Level-1 recovery action under INC-001"
   audit_still_owned_by: "Be Quoc Khanh - criteria A2-A20 are unchanged and unstarted"
 recovery:
-  active: true
-  record: management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md
-  trigger_met: "15 section 18 trigger 3 - critical-path blocker survived two EOD cycles"
-  levels_applied: "Level 1 for dataset acquisition only; Level 5 de-scope of the Day 2 plan"
-  ownership_transferred: false      # anti-bottleneck rule: pairing preserves ownership
-  expires: "2026-09-12"             # one night only; does not self-renew
+  active: false                     # EXPIRED at the start of Day 3, as written
+  previous_invocation:
+    active_on: "2026-09-11"
+    record: management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md
+    trigger_met: "15 section 18 trigger 3 - critical-path blocker survived two EOD cycles"
+    levels_applied: "Level 1 for dataset acquisition only; Level 5 de-scope of the Day 2 plan"
+    ownership_transferred: false
+    expired: "2026-09-12T00:00+07:00"
+    expiry_basis: >
+      INC-001 section 4.5: the exception applied to 2026-09-11 only and does not self-renew.
+      Re-invoking requires a NEW leader decision with a NEW recorded reason. This field said
+      active: true for the whole of Day 3 because nobody mirrored the expiry inward - a
+      state-hygiene failure, corrected here rather than quietly.
+  triggers_now_met:
+    - id: "trigger 3"
+      text: "a critical-path blocker survives two EOD cycles without credible resolution"
+      state: "MET since Day 2, and has now survived a THIRD EOD cycle. SPIKE_D is P0 with
+              evidence_present false on its fourth day; the package and the tooling are both
+              ready and on disk."
+    - id: "trigger 2"
+      text: "remaining buffer drops below the planned safety threshold"
+      state: "FIRES with the Day-3 close - buffer goes 1 -> 0."
+      governance_gap: >
+        MASTER_PLAN_30_DAYS.md plans for a buffer of at least 2 days, but NO numeric safety
+        threshold is defined anywhere in the frozen spec. Trigger 2 is therefore written
+        against an undefined threshold. Recorded as a real gap, not papered over.
+  next_action: >
+    Level 5 de-scope is the level that fits, and 15 section 414 makes it an explicit leader
+    decision. The candidate COULD/SHOULD inventory is prepared in day03/DAY03_EOD_REVIEW.md
+    section 11. Project Control does not declare it.
 cutover_record: management/day01/DAY01_CUTOVER_RECORD.md
 baseline_accepted: true             # MASTER_PLAN_30_DAYS.md section 14, 2026-09-10
 baseline_accepted_note: >
@@ -90,7 +114,9 @@ members:
     reviews: [SPIKE_B, SPIKE_E]     # removed then RESTORED 2026-09-12: under DR-006a rev 1 the
                                     # owner operates the device remotely, so the leader does not
                                     # produce that evidence. See SPIKE_PHASE_STATE reassignments.
-    day0_signoff_columns_pass: 9    # of 11; B and K remain NOT_CHECKED
+    day0_signoff_columns_pass: 11   # of 11. Was 9 with a comment saying B and K were
+                                    # NOT_CHECKED; DAY0_SIGNOFF.md lines 79 and 84 have both
+                                    # at PASS since the drill closed in 9cc1f55.
     day0_practice_pr: 1
     day0_practice_pr_merged: true
     blocked_by: []
@@ -132,8 +158,28 @@ members:
     day0_practice_pr_merged: true
     blocked_by: []
     open_items:
-      - "Mac mini reachable: NOT_CHECKED - this is the GATE 2 entry gate, not the phone"
-      - "ZeroTier on both computer and phone: NOT_CHECKED"
+      - "ZeroTier on the PHONE: NOT_CHECKED - not observable from a computer. Still required:
+         the data path is phone -> cellular -> overlay -> Mac mini and the Mac mini has no public
+         endpoint, so USB control does not remove the overlay requirement (DR-006a revision 1)."
+      - "Run the stub on the Mac mini so port 8787 answers. THIS is the GATE 2 key, and it needs
+         no phone at all."
+      - "E1-E9 and E12 over real cellular + overlay."
+    closed_2026_09_12:
+      - "Mac mini reachable: VERIFIED by observation from the leader's machine at 00:20 -
+         10.134.129.115, ping 100/100, 0% loss, macOS port signature. Closed by Pham Tuan Anh,
+         NOT by Trung. See management/day03/overlay_reachability_20260912.md."
+      - "ZeroTier on the COMPUTER: VERIFIED in the same run, network 3b19b3a71652c5f0."
+    activity_2026_09_12:
+      reviews: "PR #16 - CHANGES_REQUESTED 09:54Z then APPROVED 10:10Z. Three real findings, one
+                of which the adversarial review had missed (meshes: [] so /mesh/{level}.obj 404s
+                while the README described four levels served)."
+      commits: "b400c0d merge main; 03147e3 fix(spike-e) - 141 lines across 6 files, fixing all
+                three findings himself."
+      process_note: >
+        Both commits went into the leader's branch, which 15 section 191 and practice/README.md
+        line 63 both forbid, and his APPROVED verifies a commit he wrote himself. Recorded rather
+        than merged silently - see the PR #16 merge comment. The substance was good and this was
+        the first real member engagement of the execution phase.
     post_cutover_activity_2026_09_11: 0
 
 # --- SPIKES -----------------------------------------------------------------
@@ -176,7 +222,11 @@ integration:
   branch_protection: false          # no protection configured on main
   production_modules_present: false
   contracts_frozen: false
-  ci_configured: false              # no .github/ yet — Day-1 Integration/CI follow-up, still open
+  ci_configured: false              # correct for main. The workflow exists on
+                                    # chore/ci-guardrails and was verified to go RED on a
+                                    # deliberate spec change, but PR #18 has no assigned
+                                    # reviewer and was not self-merged. Closes on merge with
+                                    # a review.
 
 # --- TESTS ------------------------------------------------------------------
 tests:
@@ -238,11 +288,49 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:
-  - number: 4
-    branch: chore/practice-quoc-khanh
-    author: qkhanhbe
-    waiting_on: "review by TrungNGD195"
+open_prs:                           # as of 2026-09-12 23:50; PR #4 merged 2026-09-11 and was
+                                    # still listed here for two days
+  - number: 13
+    branch: spike/SPIKE_A
+    author: Drake-Phamta
+    reviewer: scalliontor
+    age_hours: 33
+    reviews_submitted: 0
+    note: "oldest in the queue; carries the A9 re-measurement at real slice size"
+  - number: 14
+    branch: tools/spike-d-validation
+    author: Drake-Phamta
+    reviewer: qkhanhbe
+    age_hours: 24
+    reviews_submitted: 0
+  - number: 15
+    branch: spike-b/harness-and-fixture-proposal
+    author: Drake-Phamta
+    reviewer: scalliontor
+    age_hours: 24
+    reviews_submitted: 0
+  - number: 17
+    branch: spike-c0/compute-probe
+    author: Drake-Phamta
+    reviewer: qkhanhbe
+    age_hours: 23
+    reviews_submitted: 0
+  - number: 18
+    branch: chore/ci-guardrails
+    author: Drake-Phamta
+    reviewer: null
+    age_hours: 23
+    reviews_submitted: 0
+    defect: >
+      No reviewer assigned at all, which is itself a breach of 15 section 2.8 - every task has
+      an owner and a reviewer before work starts. Not self-merged: PRs 1, 3 and 5 already
+      merged without an APPROVED review and R2 is still unsatisfied because of it.
+open_prs_note: >
+  All six open PRs were authored by Pham Tuan Anh, so he can approve none of them - GitHub
+  forbids approving your own pull request, and SPIKE_PHASE_PLAN.md step 2 requires the
+  reviewer to be a different actor from the owner. 15 section 7: "If review capacity is
+  unavailable, Project Control must treat that as a planning constraint rather than allowing
+  a large queue of unreviewed done work." This is that queue.
 merged_prs_note: >
   PRs 1, 3 and 5 were merged WITHOUT an APPROVED review. See
   management/day01/DAY01_STATUS.md section 2.1. Readiness item R2 is therefore NOT satisfied
