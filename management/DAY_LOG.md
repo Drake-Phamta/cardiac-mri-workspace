@@ -24,7 +24,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 3 — 2026-09-12 · `ĐANG MỞ`
+## DAY 3 — 2026-09-12 · **`TRƯỢT`** — mọi bế tắc bên ngoài đã gỡ, critical path vẫn đứng yên
 
 **Gói nhiệm vụ từng người:** [`day03/tasks/`](day03/tasks/)
 
@@ -54,14 +54,43 @@ Ba việc. Không đủ ba thì ngày này tính là trượt, bất kể làm �
 | Project Control | **Sửa toàn bộ 49 lỗi**, mỗi bản sửa kiểm lại bằng chính trigger của người review | `f449380` `3a8f257` `0e0c8fe` `fabbe83` |
 | Project Control | **Rút lại công khai** "phát hiện" `B14` sai mà tôi đã báo cho Hùng Anh | `9296fc0`, PR #15 |
 
-### Còn tồn — mang sang từ Day 2
+### Đã xong — trong ngày và tối 2026-09-12
 
-| Ai | Việc | Hạn |
+| Ai | Việc | Bằng chứng |
 |---|---|---|
-| **Bế Quốc Khánh** | Audit `A1`–`A20` trên gói đã có · xác nhận đĩa trống + thư viện NRRD **trên máy bạn** · khai báo compute ML (`C0-1`) · review một PR thật *(cột `B` sign-off vẫn mở)* | trong Day 3 |
-| **Nguyễn Gia Đức Trung** | Mac mini + ZeroTier · review PR #16 | trong Day 3 |
-| **Vũ Hùng Anh** | Nhận/thay bộ geometry fixture + công bố format · review PR #13 và #15 · PR nhỏ thêm dòng `Reviewer:` | trong Day 3 |
-| **Phạm Tuấn Anh** | Đo lại `A9` ở 576×576 · ký §9 profile DR-006 · `guardrails.yml` · tu chính hàng đợi thiết bị | trong Day 3 |
+| **Nguyễn Gia Đức Trung** | **Review PR #16 thật** — `CHANGES_REQUESTED` 16:54 → `APPROVED` 17:10. Ba phát hiện đúng, **một cái luồng review đối kháng đã bỏ sót** | API review |
+| **Nguyễn Gia Đức Trung** | `03147e3` — 141 dòng / 6 file, tự sửa cả ba phát hiện của mình | commit |
+| Project Control | Merge PR #16, **kèm bản ghi** rằng hai commit đi vào nhánh người khác (`15` §191) và `APPROVED` xác nhận commit của chính người approve | `6a36909` |
+| Phạm Tuấn Anh | **`DR-006a` revision 1** — đính chính lỗi nhầm kênh điều khiển với đường dữ liệu; **ZeroTier trên điện thoại VẪN bắt buộc** | `91bd052` |
+| Phạm Tuấn Anh | Bảng **sinh tự động từ state file** + kho lưu trữ theo ngày, 27 link | `888c4e1` |
+| Phạm Tuấn Anh | Đo chặng overlay: 100 ping, p50 **29 ms**, **max 235 ms**, mất **0%**, MTU 1500 — `DIAGNOSTIC` | `day03/` |
+| Phạm Tuấn Anh | **4 lỗi chặn trong dụng cụ Spike D** — `--root` sai đường dẫn · **UTF-8 BOM** · licence bịa · `A17` không quét sidecar | `3bf2a80` |
+| Project Control | **9 mục state hygiene** — gồm 7 trường device profile `UNVERIFIED` **đang chặn nghiệm thu A/B/E/F** | `2ba21cc` |
+| Project Control | **`DAY03_EOD_REVIEW.md`** — 18 trường `15` §15, gồm cả trường `DAY02` thiếu | `day03/` |
+
+### Còn tồn — sang Day 4
+
+| Ai | Việc | Vì sao chưa xong |
+|---|---|---|
+| **Bế Quốc Khánh** | Audit `A1`–`A20` · verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` · đĩa trống + NRRD **trên máy bạn** · compute `C0-1` · review một PR thật | **0 hoạt động ngày thứ 4.** Gói, dụng cụ và lệnh giờ đều sẵn |
+| **Vũ Hùng Anh** | Bộ geometry fixture + công bố format · review PR #13 *(33 giờ)* và #15 · phán nhóm `B14` · dòng `Reviewer:` | **0 hoạt động ngày thứ 4** |
+| **Nguyễn Gia Đức Trung** | **Chạy stub → cổng 8787 → mở `GATE 2`** · ZeroTier trên điện thoại · `E1`–`E9` `E12` | có làm hôm nay, phần thiết bị chưa tới |
+| **Phạm Tuấn Anh** | Gán reviewer cho PR #18 · **quyết recovery** · quyết cài gì lên Galaxy A17 | chờ quyết định |
+
+### Kết quả ngày — **TRƯỢT**
+
+**Hai trên ba điều kiện không đạt.** Điều kiện 1 không đạt; điều kiện 2 đạt một nửa và **do sai
+người** (leader xác minh, không phải Trung), stub vẫn chưa chạy; điều kiện 3 đạt **1/6**.
+
+**Buffer 1 → 0.** `15` §18 **trigger 2 nổ**, chồng lên **trigger 3 đã nổ** từ Day 2 và nay sống qua
+**chu kỳ EOD thứ ba**. Màu trạng thái chuyển **🔴 RED**.
+
+> **Điều đáng ghi nhất của ngày:** mọi bế tắc **bên ngoài** đã được gỡ — dataset về máy, dụng cụ
+> dựng xong và sửa xong 4 lỗi chặn, Mac mini tới được, lệnh của Khánh giờ chạy được từ lệnh đầu.
+> **Critical path vẫn đứng yên sang ngày thứ tư.** Từ đây nó không còn phụ thuộc vào công cụ hay dữ
+> liệu nữa.
+
+Chi tiết đầy đủ: [`day03/DAY03_EOD_REVIEW.md`](day03/DAY03_EOD_REVIEW.md)
 
 ---
 

@@ -266,8 +266,8 @@ forecast:
   target_day: 30                    # Day 30 = 2026-10-09, FIXED by leader decision - does not slip
   current_completion_day: null      # still no accepted work to extrapolate from
   confidence: null
-  status_colour: AMBER              # 15 section 16; reasoning in day02/DAY02_EOD_REVIEW.md section 12
-  remaining_buffer_days: 1          # was 2; Day 1 (2026-09-10) lost with zero spike execution
+  status_colour: RED                # was AMBER; see day03/DAY03_EOD_REVIEW.md section 12              # 15 section 16; reasoning in day02/DAY02_EOD_REVIEW.md section 12
+  remaining_buffer_days: 0          # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
   buffer_note: >
     Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
     Day 30 fixed, so the lost day is absorbed by buffer rather than pushing the deadline. One
