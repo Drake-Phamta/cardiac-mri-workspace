@@ -1,0 +1,201 @@
+# Narrative for the execution board. The NUMBERS are not here.
+#
+# Anything derivable - spike status, gates, conditions, the reviewer matrix,
+# buffer days, ACCEPTED count - is read from management/PROJECT_STATE.yaml and
+# management/spikes/SPIKE_PHASE_STATE.yaml by build_board.py. Duplicating those
+# here is how a board starts telling a different story from the repository.
+#
+# What lives here is the part no state file knows: what each person is being
+# asked to do, and what actually happened on a given day.
+#
+# RULE, the same one DAY_LOG.md carries: a "done" line needs a traceable
+# reference - a commit SHA, a PR number, or a committed file path. No evidence,
+# no done.
+
+repo: https://github.com/Drake-Phamta/cardiac-mri-workspace
+pages: https://drake-phamta.github.io/cardiac-mri-workspace
+
+members:
+  khanh:
+    name: "Bế Quốc Khánh"
+    github: qkhanhbe
+    role: "ML training / evaluation"
+    owns: [SPIKE_D, SPIKE_C0, SPIKE_C1]
+    reviews: []            # filled from the state file
+    packet: management/day03/tasks/DAY03_BE_QUOC_KHANH.md
+  trung:
+    name: "Nguyễn Gia Đức Trung"
+    github: TrungNGD195
+    role: "Backend / persistence / ingestion"
+    owns: [SPIKE_E]
+    packet: management/day03/tasks/DAY03_NGUYEN_GIA_DUC_TRUNG.md
+  hunganh:
+    name: "Vũ Hùng Anh"
+    github: scalliontor
+    role: "Geometry / 3D"
+    owns: [SPIKE_B, SPIKE_F, "tests/fixtures/geometry"]
+    packet: management/day03/tasks/DAY03_VU_HUNG_ANH.md
+  tuananh:
+    name: "Phạm Tuấn Anh"
+    github: Drake-Phamta
+    role: "Team Leader · Project Control · Integration/CI"
+    owns: [SPIKE_A]
+    packet: management/day03/tasks/DAY03_PHAM_TUAN_ANH.md
+
+# Acceptance criteria per spike, from each TASK.md. `measured` counts criteria
+# with real data behind them; it is NOT the same as accepted, and the board
+# says so wherever it shows a bar.
+criteria:
+  SPIKE_D:  {total: 20, measured: 0,  label: "A1–A20"}
+  SPIKE_A:  {total: 12, measured: 3,  label: "A1–A12"}
+  SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15"}
+  SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13"}
+  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10"}
+  SPIKE_C1: {total: 10, measured: 0,  label: "C1-1–C1-10"}
+  SPIKE_F:  {total: 12, measured: 0,  label: "F1–F12"}
+
+# Spike A's three: A1 partial (n/total renders; exact-match unverified),
+# A9 measured twice, A12 partial (one candidate only).
+
+today:
+  day: 3
+  date: "2026-09-12"
+  headline: >
+    Gói dataset đã về và verify xong · Mac mini đã tới được trên overlay ·
+    A9 đã đo lại ở kích thước slice THẬT · dụng cụ bốn spike đã dựng, đã bị soi
+    đối kháng và đã sửa 49 lỗi.
+  conditions:
+    - who: khanh
+      what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, do chính Khánh commit"
+      why: "P0 critical path. Gói và dụng cụ đều sẵn — không còn lý do bên ngoài nào"
+    - who: trung
+      what: "Chạy stub trên Mac mini, bind địa chỉ overlay → cổng 8787 mở"
+      why: "Đây là cổng vào GATE 2. Không cần điện thoại"
+    - who: null
+      what: "6 PR đang treo có review thật"
+      why: "Hàng đợi tắc hoàn toàn. `15` §11 — im lặng không phải chấp thuận"
+  tasks:
+    khanh:
+      now:
+        - "Xác nhận **đĩa trống + thư viện NRRD trên máy bạn** — 5 phút, `NOT_CHECKED` từ Day 0"
+        - "`validate.py --selftest` — phải báo `A14 FAIL` trên volume oblique cài sẵn"
+      then:
+        - "Chạy validator trên gói thật → sinh manifest + `DATASET_AUDIT.md`"
+        - "Viết tay 4 verdict script từ chối trả lời hộ: `A11` `A12` `A13` `A18`"
+        - "Kiểm 5 quan sát leader thấy trên 4/154 case — nhất là **mask là `0`/`255`, không phải `0`/`1`**"
+      later:
+        - "Review PR #14 — dụng cụ dựng cho chính bạn"
+        - "Probe C0 (`--img 560`) — **chỉ khi Spike D đã xong**"
+      debts:
+        - "Cột `B` sign-off — chưa review PR thật nào của đồng đội"
+        - "Khai báo compute ML (`C0-1`) — `ml_compute.declared` vẫn `UNVERIFIED`"
+    trung:
+      now:
+        - "`zerotier-cli peers` — một giây, trả lời `E12` direct-vs-relayed"
+        - "Sinh payload trên Mac mini"
+        - "**Chạy stub bind địa chỉ overlay** → cổng 8787 mở → `GATE 2` mở"
+      then:
+        - "Review PR #16 — dụng cụ dựng cho bạn, vừa sửa 10 lỗi"
+      later:
+        - "Đo trên đường thật — **từ xa qua adb**, hẹn buổi với leader"
+      debts: []
+      note: "Việc hôm nay **không cần điện thoại**. Thứ chặn bạn là stub, không phải máy."
+    hunganh:
+      now:
+        - "Quyết về bộ **canonical geometry fixture**: nhận / sửa / thay bản đề xuất ở PR #15"
+        - "**Công bố format** cho Phạm Tuấn Anh — mốc mở khoá Spike A và Spike F"
+      then:
+        - "Review **PR #13** (mở >12 giờ) và PR #15"
+        - "Phán định nghĩa nhóm cho `B14` — trên số ĐÃ SỬA, không phải số tôi dựng sai"
+      later:
+        - "Thay mask tổng hợp bằng mask thật khi Khánh xong audit"
+      debts:
+        - "`PRACTICE_VU_HUNG_ANH.md` trên `main` vẫn thiếu dòng `Reviewer:`"
+    tuananh:
+      now:
+        - "Gửi `INC-001` + 4 packet cho nhóm"
+        - "**Quyết PR #13** — đợi review hay merge và ghi trung thực"
+      then:
+        - "Mở buổi đo từ xa khi Trung/Hùng Anh cần máy"
+        - "`A9` đã đo lại xong ✅ — việc tiếp là đo với **cache có giới hạn**, không phải brush"
+      later:
+        - "Đóng ngày: `DAY03_EOD_REVIEW` + `DAY_LOG` + `PROJECT_STATE`"
+      debts: []
+
+history:
+  - day: 2
+    date: "2026-09-11"
+    status: partial
+    title: "Ngày execution đầu tiên"
+    summary: >
+      Gỡ được bế tắc bên ngoài lớn nhất của dự án, nhưng không tiêu chí nghiệm thu
+      nào được đóng và ba trên bốn thành viên không có hoạt động nào sau cutover.
+    done:
+      - who: tuananh
+        what: "Tuyên bố cutover 12:00 · profile thiết bị DR-006 · **`A9` p95 = 65,31 ms** — phép đo hiệu năng đầu tiên của dự án"
+        ref: "6d0ae77 · c9290b0"
+      - who: tuananh
+        what: "**Thu thập gói LASC 2018** — 2 200 962 438 byte, 100 + 54 case, verify 12/12 volume"
+        ref: "day02/dr001_usability_probe.json"
+      - who: null
+        what: "**Trigger DR-001 đánh giá 23:44 — KHÔNG nổ**, trong hạn, lần thứ hai"
+        ref: "day02/DAY02_EOD_REVIEW.md §4"
+      - who: null
+        what: "Dụng cụ cho cả bốn spike · CI guardrails · `INC-001` · bản EOD review đầu tiên được điền"
+        ref: "PR #14 #15 #16 #17 #18"
+      - who: trung
+        what: "Review PR #4 của Khánh — `APPROVED` *(trước cutover)*"
+        ref: "API review 03:13Z"
+    missed:
+      - who: khanh
+        what: "Audit Spike D — **0 hoạt động sau cutover**"
+      - who: trung
+        what: "Mac mini + ZeroTier — **0 hoạt động sau cutover**"
+      - who: hunganh
+        what: "Bộ geometry fixture — **0 hoạt động cả ngày**"
+      - who: null
+        what: "6 PR mở, **0 review được submit**"
+    decisions:
+      - "**Trigger DR-001 không nổ** — có gói chính thức dùng được trên máy lúc 23:41:51"
+      - "**`15` §18 recovery kích hoạt** — Level 1 cho việc thu thập dataset, Level 5 de-scope kế hoạch ngày. Quyền sở hữu **không chuyển**"
+      - "Ranh giới đêm phục hồi: sinh **dụng cụ**, không sinh **bằng chứng của người khác**"
+    findings:
+      - "**Slice thật là `576×576`** (có case `640×640`), không phải 64×64 — 81 lần số pixel"
+      - "**Mask mang giá trị `0` và `255`**, không phải `0`/`1` — code giả định `== 1` sẽ ra mask rỗng"
+      - "**Testing Set CÓ nhãn** — ảnh hưởng lựa chọn Path A/B của `DR-002`"
+
+  - day: 1
+    date: "2026-09-10"
+    status: missed
+    title: "Trượt hoàn toàn"
+    summary: >
+      Không cutover, không spike ACTIVE, không bằng chứng. Ngày này ăn mất 1 ngày buffer.
+    done: []
+    missed:
+      - who: null
+        what: "Không có cutover, `started_at` null trên cả bảy spike, đồng hồ DR-001 chưa chạy"
+    decisions:
+      - "**DR-001a** — dời đánh giá trigger sang cuối Day 2, nội dung và ngưỡng **không đổi**"
+      - "**DR-003a** — overlay chuẩn là **ZeroTier** (Trung đề xuất, leader duyệt)"
+    findings:
+      - "Nguyên nhân gốc: một **nghi thức onboarding Git chặn critical path**. Luật đã vào runbook: không nghi thức nào được chặn critical path quá một ngày"
+
+  - day: 0
+    date: "2026-09-09"
+    status: partial
+    title: "Onboarding và sign-off"
+    summary: >
+      Sign-off đạt 4/4 ở cột K, nhưng bốn ô phần cứng không ai xác nhận và hai
+      trong số đó còn mở tới tận Day 3.
+    done:
+      - who: null
+        what: "Sign-off Day 0 — cả bốn thành viên `PASS` cột `K`"
+        ref: "management/onboarding/DAY0_SIGNOFF.md"
+    missed:
+      - who: khanh
+        what: "Cột `B` — chưa review PR thật nào"
+      - who: null
+        what: "Bốn ô phần cứng `NOT_CHECKED`"
+    decisions:
+      - "Bỏ luật `NEEDS_FIX` dàn dựng sau sự cố PR #1 cấy lỗi"
+    findings: []

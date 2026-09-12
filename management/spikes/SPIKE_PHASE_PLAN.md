@@ -148,6 +148,17 @@ Each member holds exactly **one** intended primary spike. The directive's explic
 | **Vũ Hùng Anh** | Spike D, Spike A *(plus C0/C1 later)* | **Spike D → Spike A** | Spike D is **P0** |
 | **Phạm Tuấn Anh** | Spike B, Spike E *(plus F later)* | **Spike B → Spike E** | Spike B is **P1** and feeds `GATE-MOB-01` and DR-008c directly; Spike E is **P2** |
 
+> **Ghi chú 2026-09-12 — ma trận này KHÔNG đổi, nhưng suýt đổi.** Bản đầu của `DR-006a` chuyển Spike E
+> sang Vũ Hùng Anh vì leader sẽ là người cầm máy đo, và người tạo ra số không được review chính số đó.
+> **`DR-006a` revision 1 bỏ tiền đề ấy:** cả nhóm ở xa nhau nên "buổi đo có mặt" không tồn tại, và mô
+> hình thay thế là **chủ sở hữu tự bấm TỪ XA qua adb** — leader giữ máy cắm USB, mở adb server trên địa
+> chỉ ZeroTier, chủ sở hữu điều khiển từ máy mình. Leader không còn tạo ra bằng chứng, nên việc rút lui
+> không còn cơ sở và ma trận trở về nguyên trạng.
+>
+> **Ngoại lệ có điều kiện:** nếu một phép đo cụ thể không chạy được từ xa và leader phải tự bấm, thì
+> với **đúng spike đó, đúng bằng chứng đó**, anh rút khỏi vai reviewer. File evidence ghi ai vận hành.
+> Lịch sử đầy đủ trong `SPIKE_PHASE_STATE.yaml` → `review_serialization.reassignments`.
+
 **Pre-emption rule — both reviewers.** If the lower-priority spike becomes `EVIDENCE_READY` while the
 higher-priority one is not ready, the reviewer **may** review the lower one. **But once the
 higher-priority spike becomes `EVIDENCE_READY`, it receives priority for the next available review slot.**

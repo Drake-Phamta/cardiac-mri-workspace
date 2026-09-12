@@ -1,0 +1,61 @@
+# =============================================================================
+# Line-ending policy — this file exists to keep `sha256sum -c` meaningful
+# =============================================================================
+#
+# The project's integrity model rests on one command returning 19/19:
+#
+#     cd docs/specs/v1.0 && sha256sum -c SPEC_MANIFEST_SHA256.txt
+#
+# That command hashes the WORKING COPY. On Windows, core.autocrlf=true rewrites
+# LF to CRLF on checkout, which changes every byte count and therefore every
+# hash — while the committed blob is untouched and perfectly correct.
+#
+# Discovered 2026-09-12: after a branch switch, a local run reported
+# 00_PROJECT_MASTER_CONTEXT.md as FAILED. The blob was LF, 13,882 bytes,
+# sha256 005d0ef9… — an exact match for the manifest. The working copy was
+# CRLF, 14,145 bytes. Nothing was damaged; the CHECK was lying.
+#
+# That is the dangerous failure mode, and not because of the false alarm. The
+# same mechanism can produce a false PASS: a file that git has not
+# re-materialised since it was written still has its original endings, so the
+# check passes for a reason unrelated to the file being correct. A guard that
+# can be right by accident is not a guard.
+#
+# CI on ubuntu-latest checks out LF and was never affected — which is exactly
+# why the discrepancy could have sat here unnoticed.
+
+# --- FROZEN SPECIFICATION — never convert, ever -----------------------------
+# -text disables all line-ending conversion, so the working copy stays
+# byte-identical to the blob on every platform and the checksum check means
+# what it claims to mean.
+docs/specs/v1.0/**          -text
+
+# --- MANIFESTS AND CHECKSUMMED ARTIFACTS ------------------------------------
+# Fixtures carry per-slice checksums; evidence files are hashed and cited.
+# Both must round-trip byte-for-byte.
+*.sha256                    -text
+SPEC_MANIFEST_SHA256.txt    -text
+spikes/**/fixtures/**       -text
+spikes/**/fixtures_proposal/** -text
+data/manifests/**           -text
+
+# --- EVERYTHING ELSE: normalise to LF in the repository ---------------------
+# Stored as LF, checked out as LF. One representation, no surprises, and diffs
+# stay readable across the team's machines.
+*.py      text eol=lf
+*.js      text eol=lf
+*.json    text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+*.html    text eol=lf
+*.sh      text eol=lf
+
+# --- BINARY -----------------------------------------------------------------
+*.png     binary
+*.jpg     binary
+*.apk     binary
+*.zip     binary
+*.nrrd    binary
+*.npy     binary

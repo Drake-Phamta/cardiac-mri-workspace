@@ -21,11 +21,30 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 2                              # Day 1 = 2026-09-10 passed with no execution (see DAY_LOG.md)
+day: 3                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md
-dr_001_clock_running: true          # started at the cutover; trigger evaluated end of Day 2 per DR-001a
+dr_001_clock_running: true          # started at the cutover
+dr_001_trigger:
+  evaluated: true
+  evaluated_at: "2026-09-11T23:44:00+07:00"
+  fired: false
+  basis: >
+    A usable official package is present locally. 2018_UTAH_MICCAI.zip, 2200962438 bytes,
+    sha256 bee5ee5bd19a1caa1a375e147e56e7e691a4bc64e3873dc672d9d2b963a8f5e0, extracted to
+    C:/cardiac-data/lasc2018/extracted (outside version control). 100 training and 54 testing
+    cases. A usability probe opened 12 volumes across 4 cases: all loaded, all 3D. See
+    management/day02/DAY02_EOD_REVIEW.md section 4 and day02/dr001_usability_probe.json.
+  acquired_by: "Pham Tuan Anh - ACQUISITION ONLY, a Level-1 recovery action under INC-001"
+  audit_still_owned_by: "Be Quoc Khanh - criteria A2-A20 are unchanged and unstarted"
+recovery:
+  active: true
+  record: management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md
+  trigger_met: "15 section 18 trigger 3 - critical-path blocker survived two EOD cycles"
+  levels_applied: "Level 1 for dataset acquisition only; Level 5 de-scope of the Day 2 plan"
+  ownership_transferred: false      # anti-bottleneck rule: pairing preserves ownership
+  expires: "2026-09-12"             # one night only; does not self-renew
 cutover_record: management/day01/DAY01_CUTOVER_RECORD.md
 baseline_accepted: true             # MASTER_PLAN_30_DAYS.md section 14, 2026-09-10
 baseline_accepted_note: >
@@ -68,7 +87,9 @@ members:
     vertical: "V1 Case Explorer / 2D MRI"
     technical_block: "Integration / CI / cross-contract"
     primary_spike: SPIKE_A
-    reviews: [SPIKE_B, SPIKE_E]
+    reviews: [SPIKE_B, SPIKE_E]     # removed then RESTORED 2026-09-12: under DR-006a rev 1 the
+                                    # owner operates the device remotely, so the leader does not
+                                    # produce that evidence. See SPIKE_PHASE_STATE reassignments.
     day0_signoff_columns_pass: 9    # of 11; B and K remain NOT_CHECKED
     day0_practice_pr: 1
     day0_practice_pr_merged: true
@@ -92,8 +113,14 @@ members:
     reviews: [nguyen_gia_duc_trung]
     day0_signoff_columns_pass: 0
     day0_practice_pr: 4
-    day0_practice_pr_merged: false
-    blocked_by: [nguyen_gia_duc_trung]
+    day0_practice_pr_merged: true   # c4499bd
+    blocked_by: []                  # dataset acquired and tooling delivered 2026-09-11
+    open_items:
+      - "A1-A20 audit: package and tooling both ready; not started"
+      - "free disk and NRRD library on HIS machine: NOT_CHECKED since Day 0"
+      - "ML compute declaration (C0-1): ml_compute.declared is UNVERIFIED"
+      - "column B: has not reviewed a real teammate PR"
+    post_cutover_activity_2026_09_11: 0
   nguyen_gia_duc_trung:
     role: "Backend / persistence / ingestion"
     vertical: "V4 Review / findings"
@@ -101,10 +128,13 @@ members:
     primary_spike: SPIKE_E
     reviews: [be_quoc_khanh]
     day0_signoff_columns_pass: 0
-    day0_practice_pr: null          # not created
-    day0_practice_pr_merged: false
+    day0_practice_pr: 8             # 39fb7af
+    day0_practice_pr_merged: true
     blocked_by: []
-    note: "Blocking three column-B cells. No repository activity on 2026-09-10."
+    open_items:
+      - "Mac mini reachable: NOT_CHECKED - this is the GATE 2 entry gate, not the phone"
+      - "ZeroTier on both computer and phone: NOT_CHECKED"
+    post_cutover_activity_2026_09_11: 0
 
 # --- SPIKES -----------------------------------------------------------------
 # Mirrors management/spikes/SPIKE_PHASE_STATE.yaml, which remains the authority.
@@ -146,13 +176,17 @@ integration:
   branch_protection: false          # no protection configured on main
   production_modules_present: false
   contracts_frozen: false
-  ci_configured: false              # no .github/ yet — Day-1 Integration/CI follow-up
+  ci_configured: false              # no .github/ yet — Day-1 Integration/CI follow-up, still open
 
 # --- TESTS ------------------------------------------------------------------
 tests:
   passed: 0
   failed: 0
-  note: "No test harness exists yet. Spike harnesses are throwaway and are not counted here."
+  note: >
+    No PRODUCT test harness exists. Spike harnesses are throwaway and are deliberately not
+    counted here. For the record, tool self-checks run on 2026-09-11 were: geometry
+    conformance 32/32 exact, dataset validator selftest passed (and correctly failed A14 on a
+    planted oblique volume), Spike E loopback smoke 98/98. Those test the tools, not the product.
 
 # --- RISKS ------------------------------------------------------------------
 # From management/readiness/RISK_REGISTER_INITIAL.md
@@ -180,8 +214,9 @@ risks:
 # --- FORECAST ---------------------------------------------------------------
 forecast:
   target_day: 30                    # Day 30 = 2026-10-09, FIXED by leader decision - does not slip
-  current_completion_day: null      # no execution data yet — estimating now would be fabrication
+  current_completion_day: null      # still no accepted work to extrapolate from
   confidence: null
+  status_colour: AMBER              # 15 section 16; reasoning in day02/DAY02_EOD_REVIEW.md section 12
   remaining_buffer_days: 1          # was 2; Day 1 (2026-09-10) lost with zero spike execution
   buffer_note: >
     Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
@@ -242,7 +277,27 @@ last_canonical_smoke:
 
 # --- INTEGRITY --------------------------------------------------------------
 integrity:
-  frozen_spec_checksums: "19/19 OK"
+  frozen_spec_checksums: "19/19 OK"     # verified 2026-09-12 00:05, after .gitattributes
+  checksum_check_caveat: >
+    Before 2026-09-12 this check could pass for a reason unrelated to the files being
+    correct. core.autocrlf=true rewrites LF to CRLF on checkout, and sha256sum -c hashes
+    the WORKING COPY - so a file git had not re-materialised still had its original
+    endings and passed by accident, while one it had touched failed despite a perfect
+    blob. .gitattributes now marks docs/specs/v1.0/** as -text, so the working copy is
+    byte-identical to the blob on every platform. CI on ubuntu-latest was never affected,
+    which is why this went unnoticed for three days.
+  qa_review:
+    record: management/day03/QA_REVIEW_001.md
+    date: "2026-09-12"
+    scope: "the four tooling packages built overnight - Spike D, B, E, C0"
+    findings: 49
+    critical: 8
+    all_fixed: true
+    method: "adversarial, executed against deliberately broken inputs - not a read-through"
+    note: >
+      Every CRITICAL was of one kind: a harness producing a wrong number that looked right.
+      One of them, the Spike B B14 group difference, had already been published to the
+      spike owner and was retracted in public rather than quietly corrected.
   spec_files_modified_since_freeze: 0
   result_md_count: 0
   dataset_audit_present: false

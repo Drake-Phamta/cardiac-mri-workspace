@@ -136,7 +136,8 @@ REVIEW  (1 slot REVIEWING mỗi người)
   Phạm Tuấn Anh  : Spike B  →  Spike E     (B là P1, nạp GATE-MOB-01 + DR-008c; E là P2)
 
 THIẾT BỊ  (MỘT máy Galaxy A17 5G)
-  Thứ tự ĐO:  1. Spike A   →   2. Spike B   →   3. Spike E
+  Thứ tự ĐO:  1. Spike A   →   2. Spike E   →   3. Spike B
+   ⚠ TU CHÍNH 2026-09-11: đổi từ A → B → E. Xem day01/DAY01_RUNBOOK.md §4.3
   Việc dựng harness/code CHẠY SONG SONG được — chỉ cửa sổ ĐO không được chồng
 ```
 
