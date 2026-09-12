@@ -1310,6 +1310,35 @@ The leader keeps the phone on USB and exposes the adb server on his **ZeroTier o
 The owner connects from his own machine and **runs the measurement himself** — his keystrokes, his
 choice of when to stop, his raw output.
 
+### ⚠ CORRECTION, same day — I confused the control channel with the data path
+
+Revision 1 as first written implied the phone no longer needs ZeroTier because the control channel
+runs over USB. **That is wrong, and it was wrong in a way that would have wasted the owner's day.**
+
+USB carries the *control* channel. The *data* path is still
+`phone → cellular → ZeroTier overlay → Mac mini`, and the Mac mini has **no public endpoint** —
+DR-003 forbids one. So the phone can only reach it **through the overlay**, which means
+**ZeroTier on the phone is mandatory**, not optional.
+
+Verified on the device rather than reasoned about:
+
+```text
+phone ping 10.134.129.115   3 sent, 0 received, 100% loss
+phone interfaces            lo · rmnet1 (cellular 53.102.89.217) · wlan0 — NO ZeroTier
+phone route to 10.134.129.0/24   none
+```
+
+**What USB actually buys**, and it is still worth having:
+
+| | |
+|---|---|
+| The owner drives the run from his own machine | so *"executed by the owner"* holds |
+| Control traffic does **not** ride the measured link | so it does not pollute what `E1` measures |
+| The phone's Wi-Fi can be **off** during the run | so the data path is genuinely cellular |
+
+It does **not** remove the overlay requirement. Corrected in Trung's packet, the leader's packet and
+the board on the same day it was written.
+
 **Why this preserves everything the first version had to override:**
 
 | | |

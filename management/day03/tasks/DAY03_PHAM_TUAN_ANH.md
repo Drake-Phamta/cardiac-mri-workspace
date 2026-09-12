@@ -134,8 +134,17 @@ thật.
 ### ⑦c · Overlay — đã verify, còn thiếu đúng hai mắt xích
 
 Đêm qua xác minh: Mac mini **sống và tới được** (`10.134.129.115`, ping 20/20, chữ ký cổng macOS).
-Còn thiếu: **stub chưa chạy** (cổng 8787 đóng) — việc của Trung hôm nay — và **ZeroTier trên điện
-thoại** chưa cần nữa, vì mô hình từ xa dùng USB làm kênh điều khiển.
+Còn thiếu **hai** thứ, và một trong hai là việc của anh:
+
+| Thiếu | Ai làm |
+|---|---|
+| **Stub chưa chạy** — cổng 8787 đóng | Trung, trên Mac mini |
+| **ZeroTier trên điện thoại** — chưa cài | **anh**, xem ⑦d |
+
+> ⚠ **Đính chính lỗi của tôi.** Tôi từng viết là không cần ZeroTier trên điện thoại nữa vì kênh điều
+> khiển đi USB. **Sai.** USB là kênh *điều khiển*; đường *dữ liệu* vẫn phải đi
+> `điện thoại → cellular → overlay → Mac mini`, và Mac mini không có endpoint công khai.
+> Đã kiểm trên máy: điện thoại ping Mac mini **mất 100%**, không interface ZeroTier, không route.
 
 ### ⑧ Theo dõi hàng đợi review
 

@@ -54,8 +54,10 @@ Nên trong repo hiện **không có một con số transport nào**. Chúng là 
 > `10.134.129.115` · **ping 100/100, mất 0%** · chữ ký cổng macOS (22 · 3283 · 5900 · 5000).
 > **Bạn không cần set up ZeroTier gì thêm** — nó đang chạy.
 >
-> Và **không cần cài ZeroTier lên điện thoại nữa**: `DR-006a` revision 1 dùng **USB làm kênh điều
-> khiển**, xem PHẦN II.
+> ⚠ **Đính chính (bản trước của packet này nói sai):** **VẪN PHẢI cài ZeroTier lên điện thoại.**
+> USB chỉ là kênh **điều khiển**; đường **dữ liệu** vẫn đi `điện thoại → cellular → overlay → Mac
+> mini`, và Mac mini không có endpoint công khai (DR-003 cấm). Đã kiểm trên máy thật:
+> điện thoại ping Mac mini **mất 100%**, không có interface ZeroTier, không có route.
 >
 > Thứ duy nhất còn chặn `GATE 2` là **stub chưa chạy** — cổng `8787` đóng khi kiểm lúc 16:20.
 
@@ -101,8 +103,8 @@ forwarding.
 
 ## PHẦN II — Đo trên đường thật: bạn tự bấm, TỪ XA
 
-> **Bạn KHÔNG cần cầm điện thoại của leader, và không cần ZeroTier trên điện thoại.**
-> `DR-006a` revision 1:
+> **Bạn KHÔNG cần cầm điện thoại của leader** — nhưng **điện thoại VẪN phải ở trên overlay**.
+> `DR-006a` revision 1 (đã đính chính):
 
 ```text
 may CUA BAN  --ZeroTier-->  PC cua leader  --USB-->  Galaxy A17
@@ -119,6 +121,9 @@ adb devices        # phai thay R5CY931SQ...  device
 
 **Kênh điều khiển đi USB là có chủ ý** — nếu nó đi qua overlay thì nó nhiễm đúng đường `E1` đang đo.
 Đi USB thì Wi-Fi điện thoại **tắt** và traffic đo đi cellular thật.
+
+> ⚠ **Nhưng USB KHÔNG thay được ZeroTier trên điện thoại.** Đường dữ liệu vẫn phải qua overlay để
+> tới Mac mini. Leader đang set up sẵn phần này — xem checklist dưới.
 
 **Hệ quả:** luật *"executed by Nguyễn Gia Đức Trung"* **giữ nguyên**, `E10` `E11` `E13` vẫn của bạn,
 và leader **không** phải rút khỏi vai reviewer. Không có gì bị nới lỏng.
