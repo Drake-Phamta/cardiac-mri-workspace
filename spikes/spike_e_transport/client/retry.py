@@ -59,7 +59,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
     ap.add_argument("--path", required=True,
-                    choices=["wifi-overlay", "cellular-overlay", "lan-diagnostic"])  # DR-003b
+                    choices=["wifi-overlay", "cellular-overlay", "lan-diagnostic"],
+                    help="E1 (DR-003b): wifi-overlay is the canonical acceptance path, "
+                         "cellular-overlay stays valid, lan-diagnostic is never acceptance")
     ap.add_argument("--connection", required=True, choices=["direct", "relayed"])
     ap.add_argument("--operator", required=True,
                     help="device operator who physically ran this")

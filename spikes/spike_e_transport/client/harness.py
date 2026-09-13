@@ -20,25 +20,28 @@ TWO FLAGS ARE MANDATORY, AND THE HARNESS REFUSES TO RUN WITHOUT THEM
 Neither is discoverable from inside this process, and both are acceptance
 conditions:
 
-    E1   "All acceptance measurements taken over real cellular + overlay -
-          LAN runs labelled diagnostic only"
+    E1   acceptance measurements are taken over a Wi-Fi uplink + ZeroTier
+         overlay to the remote Mac mini (wifi-overlay) - the canonical path
+         since DR-003b, 2026-09-13. Real cellular + overlay (cellular-overlay)
+         remains valid. The two are never merged. Same-LAN runs - the phone on
+         the Mac mini's own network - are lan-diagnostic only.
     E12  "Direct-vs-relayed overlay connection recorded for EVERY measurement"
 
 Defaulting either one would let a LAN run wearing no label drift into the
 acceptance dataset. TASK.md is blunt about the consequence: "LAN measurements
 presented as acceptance evidence -> Evidence rejected".
 
-Find the connection type with:  zerotier-cli peers
+Find the connection type with:  zerotier-cli peers   (on the Mac mini)
 
 WHO RUNS IT
-    The operator named by --operator physically runs the Galaxy A17 over real
-    cellular against the Mac mini. The --owner is Nguyễn Gia Đức Trung: he
-    owns the criteria, interprets the run and writes E10/E13. If Trung runs
-    the phone himself, both fields may contain his name.
+    The operator named by --operator runs the Galaxy A17 on the path named by
+    --path against the Mac mini - under DR-006a revision 2 that is Pham Tuan
+    Anh. The --owner is Nguyễn Gia Đức Trung: he owns the criteria, designs
+    the run, interprets it and writes E10/E11/E13.
 
 Usage:
     python harness.py --base http://10.x.x.x:8787 \
-        --path cellular-overlay --connection direct \
+        --path wifi-overlay --connection direct \
         --operator "Pham Tuan Anh" --owner "Nguyen Gia Duc Trung" --slices 88
 """
 
@@ -154,7 +157,8 @@ def main() -> int:
     ap.add_argument("--window-radius", type=int, default=2)
     ap.add_argument("--repeats", type=int, default=3,
                     help="E8 wants a spread, not a median; one pass is not a distribution")
-    ap.add_argument("--note", default="", help="cellular signal conditions, location, time of day")
+    ap.add_argument("--note", default="",
+                    help="uplink conditions (Wi-Fi SSID/RSSI or cellular signal), location, time of day")
     args = ap.parse_args()
 
     plan = scenarios(args.base.rstrip("/"), args.slices, args.window_radius)
