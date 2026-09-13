@@ -21,6 +21,9 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from typing import Any
 
@@ -373,6 +376,118 @@ def scan_package(root: str, want_checksums: bool = True,
         "cases": cases,
     }
     return manifest
+
+
+def scan_archive(archive_path: str, want_checksums: bool = True,
+                 acquisition: dict | None = None) -> dict:
+    """Produce the same manifest as :func:`scan_package` without full extraction.
+
+    The released archive expands to more space than some owner machines have
+    available.  Each member is therefore extracted into a private temporary
+    directory, inspected with the exact same ``_inspect_volume`` function as
+    the directory path, and removed before the next member.  At most one NRRD
+    payload is present outside the archive at a time.
+    """
+    nrrd, nrrd_version = _load_nrrd()
+    started = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    archive_abs = os.path.abspath(archive_path)
+
+    with zipfile.ZipFile(archive_abs, "r") as zf, tempfile.TemporaryDirectory() as tmp:
+        by_dir: dict[str, dict[str, tuple[str, zipfile.ZipInfo]]] = {}
+        for info in zf.infolist():
+            normalized = info.filename.replace("\\", "/").rstrip("/")
+            if info.is_dir() or "/" not in normalized:
+                continue
+            rel_dir, filename = normalized.rsplit("/", 1)
+            by_dir.setdefault(rel_dir, {})[filename.lower()] = (filename, info)
+
+        case_dirs = sorted(rel for rel, files in by_dir.items() if MRI_FILENAME in files)
+        cases: list[dict[str, Any]] = []
+
+        def inspect(info: zipfile.ZipInfo, slot: str, checksum: bool) -> dict:
+            temp_path = os.path.join(tmp, slot)
+            with zf.open(info, "r") as source, open(temp_path, "wb") as target:
+                shutil.copyfileobj(source, target, length=1 << 20)
+            try:
+                return _inspect_volume(temp_path, nrrd, checksum)
+            finally:
+                os.remove(temp_path)
+
+        for index, rel_dir in enumerate(case_dirs, start=1):
+            files = by_dir[rel_dir]
+            parts = rel_dir.split("/")
+            mri_name, mri_info = files[MRI_FILENAME]
+            mask_item = files.get(MASK_FILENAME)
+            extras = sorted(original for lower, (original, _info) in files.items()
+                            if lower not in (MRI_FILENAME, MASK_FILENAME))
+
+            entry: dict[str, Any] = {
+                "case_id": f"CASE_{index:04d}",
+                "other_files_in_case_dir": extras,
+                "non_nrrd_sidecars": [f for f in extras if not f.lower().endswith(".nrrd")],
+                "source_dir_relative": rel_dir,
+                "source_dir_name": parts[-1],
+                "partition_as_released": parts[-2] if len(parts) >= 2 else "(package root)",
+                "files_present": {
+                    MRI_FILENAME: True,
+                    MASK_FILENAME: mask_item is not None,
+                },
+            }
+
+            mri = inspect(mri_info, f"{index:04d}_mri.nrrd", want_checksums)
+            mri.pop("_data", None)
+            mri["path_relative"] = f"{rel_dir}/{mri_name}"
+            entry["mri"] = mri
+
+            if mask_item is not None:
+                mask_name, mask_info = mask_item
+                mask = inspect(mask_info, f"{index:04d}_mask.nrrd", want_checksums)
+                mask_data = mask.pop("_data", None)
+                mask["path_relative"] = f"{rel_dir}/{mask_name}"
+                mask["unique_values"] = (
+                    _mask_unique_values(mask_data) if mask_data is not None
+                    else NOT_MEASURED + " - file did not load"
+                )
+                entry["mask"] = mask
+                entry["mri_mask_compatibility"] = _compare(mri, mask)
+            else:
+                entry["mask"] = None
+                entry["mri_mask_compatibility"] = {
+                    "shape_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
+                    "spacing_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
+                    "origin_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
+                    "directions_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
+                    "resampling_required": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
+                }
+
+            companions = {}
+            for name in extras:
+                if not name.lower().endswith(".nrrd"):
+                    continue
+                _original, info = files[name.lower()]
+                vol = inspect(info, f"{index:04d}_companion.nrrd", False)
+                vol.pop("_data", None)
+                vol["path_relative"] = f"{rel_dir}/{name}"
+                vol["note"] = ("companion file, NOT a required target (`06` section 2). Header "
+                               "scanned for identifiers; pixel content not audited.")
+                companions[name] = vol
+            entry["companion_volumes"] = companions
+            cases.append(entry)
+
+    return {
+        "manifest_version": "1.0",
+        "generated_at": started,
+        "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
+        "package_root": archive_abs + "!/",
+        "nrrd_library": nrrd_version,
+        "acquisition": acquisition or {
+            "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
+        },
+        "case_count_total": len(cases),
+        "partitions": _partition_summary(cases),
+        "shape_distribution": _shape_distribution(cases),
+        "cases": cases,
+    }
 
 
 def _compare(mri: dict, mask: dict) -> dict:

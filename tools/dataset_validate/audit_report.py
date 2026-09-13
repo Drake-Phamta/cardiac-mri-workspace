@@ -39,6 +39,7 @@ def _fmt(value: Any) -> str:
 
 def render(manifest: dict, results: list, summary: dict) -> str:
     acq = manifest.get("acquisition") or {}
+    owner = acq.get("owner_verdicts") or {}
     parts = manifest.get("partitions") or {}
     dist = manifest.get("shape_distribution") or {}
     cases = manifest.get("cases") or []
@@ -60,8 +61,8 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("> Editing this file by hand makes it disagree with the manifest, and the manifest is")
     add("> the artifact `GATE-DATA-01` accepts (`06` §9.1, criterion A20).")
     add("")
-    add(f"**Generated at:** {manifest.get('generated_at')}  ")
-    add(f"**NRRD reader:** `{manifest.get('nrrd_library')}`  ")
+    add(f"**Generated at:** {manifest.get('generated_at')}")
+    add(f"**NRRD reader:** `{manifest.get('nrrd_library')}`")
     add(f"**Package root:** `{manifest.get('package_root')}`")
     add("")
     add("---")
@@ -79,6 +80,9 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add(f"| Acquired by | {_fmt(acq.get('acquired_by', NOT_MEASURED))} |")
     add(f"| Extraction location | {_fmt(acq.get('extraction_location', NOT_MEASURED))} |")
     add(f"| Licence / terms preserved at | {_fmt(acq.get('license_terms_path', NOT_MEASURED))} |")
+    add(f"| Owner verdicts confirmed by | {_fmt(owner.get('confirmed_by', NOT_MEASURED))} |")
+    add(f"| Owner verdicts confirmed at | {_fmt(owner.get('confirmed_at', NOT_MEASURED))} |")
+    add(f"| A18 owner verdict | {_fmt(owner.get('a18_terms', NOT_MEASURED + ' — owner confirmation pending'))} |")
     add("")
     files = acq.get("package_files") or []
     if files:
@@ -89,6 +93,14 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     else:
         add(f"Package files: `{NOT_MEASURED} — acquisition record not supplied`")
     add("")
+    license_files = acq.get("license_files") or []
+    if license_files:
+        add("| Preserved policy file | Size (bytes) | SHA-256 |")
+        add("|---|---:|---|")
+        for f in license_files:
+            add(f"| `{f.get('name')}` | {f.get('size_bytes')} | "
+                f"`{f.get('sha256', NOT_MEASURED)}` |")
+        add("")
     if acq.get("attribution_note"):
         add(f"> {acq['attribution_note']}")
         add("")
@@ -119,9 +131,9 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("| Question | Criterion | Verdict |")
     add("|---|---|---|")
     add("| Is `laendo.nrrd` the LA **cavity** target for this package? | A11 | "
-        "`[OWNER VERDICT REQUIRED — Bế Quốc Khánh]` cite the files and values that justify it |")
+        f"{_fmt(owner.get('a11_label_semantics', NOT_MEASURED + ' — owner verdict pending'))} |")
     add("| What is the **provenance** of any test labels present? | A12 · RA-H02 | "
-        "`[OWNER VERDICT REQUIRED — Bế Quốc Khánh]` file-level evidence required |")
+        f"{_fmt(owner.get('a12_test_label_provenance', NOT_MEASURED + ' — owner verdict pending'))} |")
     add("")
     add("> File presence is a machine reading. What an annotation **means** is not, and this")
     add("> audit does not pretend otherwise.")
@@ -199,11 +211,20 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     else:
         add(f"`{NOT_MEASURED} — no readable mask in this package`")
     add("")
-    add("**Mapping — `[OWNER VERDICT REQUIRED — Bế Quốc Khánh]`**")
-    add("")
-    add("| Value | Meaning |")
-    add("|---|---|")
-    add("| _(record)_ | _(background / LA cavity foreground — state it, do not assume it)_ |")
+    mapping = owner.get("a10_mapping")
+    if isinstance(mapping, dict) and "background" in mapping and "foreground" in mapping:
+        add("**Mapping — owner-recorded:**")
+        add("")
+        add("| Value | Meaning |")
+        add("|---|---|")
+        add(f"| `{mapping['background']}` | background |")
+        add(f"| `{mapping['foreground']}` | LA cavity foreground |")
+    else:
+        add("**Mapping — `[OWNER VERDICT REQUIRED — Bế Quốc Khánh]`**")
+        add("")
+        add("| Value | Meaning |")
+        add("|---|---|")
+        add("| _(record)_ | _(background / LA cavity foreground — state it, do not assume it)_ |")
     add("")
     add("> `06` §9 requires the mapping to be **recorded rather than assumed**. The value set above")
     add("> is measured; which value means foreground is a statement the owner makes.")
@@ -221,7 +242,8 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("")
     add("| Decision field | Status |")
     add("|---|---|")
-    add("| Path A vs Path B evidence and reasoning | `[OWNER VERDICT REQUIRED — Bế Quốc Khánh]` |")
+    add(f"| Path A vs Path B evidence and reasoning | "
+        f"{_fmt(owner.get('a13_split_evidence', NOT_MEASURED + ' — owner verdict pending'))} |")
     add("| Selected path | `[DR-002 — leader decision, not this audit]` |")
     add("| Exact manifest case IDs per partition | `[written once GATE-SPLIT-01 resolves]` |")
     add("")
@@ -269,6 +291,19 @@ def render(manifest: dict, results: list, summary: dict) -> str:
         add("> app metadata path.")
         add("")
 
+    sidecars = [f"`{c['case_id']}/{name}`" for c in cases
+                for name in (c.get("non_nrrd_sidecars") or [])]
+    add(f"**Non-NRRD sidecars in case directories: {len(sidecars)}**")
+    add("")
+    for item in sidecars[:40]:
+        add(f"- {item}")
+    if not sidecars:
+        add("- none")
+    add("")
+    add("**A17 owner disposition:** " + _fmt(owner.get(
+        "a17_sidecar_disposition", NOT_MEASURED + " — owner verdict pending")))
+    add("")
+
     # --- criteria table -----------------------------------------------------
     add("---")
     add("")
@@ -283,7 +318,8 @@ def render(manifest: dict, results: list, summary: dict) -> str:
         add(f"| {r.cid} | {r.title} | {mark} | {detail} |")
     add("")
     add(f"**{summary['pass']} pass · {summary['fail']} fail · {summary['not_run']} not run · "
-        f"{summary['owner_verdict_required']} awaiting the owner's verdict.**")
+        f"{summary['owner_verdicts_confirmed']} owner verdict confirmed · "
+        f"{summary['owner_verdicts_outstanding']} owner verdict outstanding.**")
     add("")
     add("> ### This document is not an acceptance")
     add(">")

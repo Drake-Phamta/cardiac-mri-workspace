@@ -26,6 +26,40 @@
         "acquired_by": { "type": "string" },
         "extraction_location": { "type": "string" },
         "license_terms_path": { "type": "string", "description": "Criterion A18" },
+        "license_files": {
+          "type": "array",
+          "description": "Externally preserved licence/data-use evidence for criterion A18.",
+          "items": {
+            "type": "object",
+            "required": ["name", "size_bytes", "sha256"],
+            "properties": {
+              "name": { "type": "string" },
+              "size_bytes": { "type": "integer", "minimum": 0 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+            }
+          }
+        },
+        "owner_verdicts": {
+          "type": "object",
+          "description": "HITL statements supplied by the Spike D owner; never inferred by the validator.",
+          "properties": {
+            "confirmed_by": { "type": "string" },
+            "confirmed_at": { "type": "string" },
+            "a10_mapping": {
+              "type": "object",
+              "required": ["background", "foreground"],
+              "properties": {
+                "background": {},
+                "foreground": {}
+              }
+            },
+            "a11_label_semantics": { "type": "string" },
+            "a12_test_label_provenance": { "type": "string" },
+            "a13_split_evidence": { "type": "string" },
+            "a17_sidecar_disposition": { "type": "string" },
+            "a18_terms": { "type": "string" }
+          }
+        },
         "attribution_note": { "type": "string" },
         "package_files": {
           "type": "array",

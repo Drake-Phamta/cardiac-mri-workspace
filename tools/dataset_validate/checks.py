@@ -442,10 +442,18 @@ def _a17_privacy(cases: list[dict]) -> Result:
 
 # --- summary ----------------------------------------------------------------
 
-def summarise(results: list[Result]) -> dict[str, Any]:
+def summarise(results: list[Result], owner_verdicts: dict[str, Any] | None = None) -> dict[str, Any]:
     counts = {PASS: 0, FAIL: 0, NOT_RUN: 0, OWNER: 0}
     for r in results:
         counts[r.status] = counts.get(r.status, 0) + 1
+    owner_verdicts = owner_verdicts or {}
+    required_owner_fields = (
+        "a11_label_semantics",
+        "a13_split_evidence",
+        "a18_terms",
+    )
+    confirmed = sum(bool(str(owner_verdicts.get(field, "")).strip())
+                    for field in required_owner_fields)
     return {
         "pass": counts[PASS],
         "fail": counts[FAIL],
@@ -456,7 +464,8 @@ def summarise(results: list[Result]) -> dict[str, Any]:
         # so it was structurally always False and carried no information.
         # What a script CAN state is the machine-checkable half.
         "machine_checks_clean": counts[FAIL] == 0 and counts[NOT_RUN] == 0,
-        "owner_verdicts_outstanding": counts[OWNER],
+        "owner_verdicts_confirmed": confirmed,
+        "owner_verdicts_outstanding": max(0, counts[OWNER] - confirmed),
         "note": "machine_checks_clean covers only what a script can decide. GATE-DATA-01 also "
                 "needs the owner verdicts (A11, A13, A18), the rendered audit (A19), and the "
                 "four-step acceptance workflow. No script closes that gate.",
