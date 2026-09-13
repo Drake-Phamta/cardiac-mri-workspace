@@ -41,7 +41,7 @@ usage() {
 Usage:
   sh android_toybox_harness.sh \
     --base http://10.x.x.x:8787 \
-    --path cellular-overlay|lan-diagnostic \
+    --path wifi-overlay|cellular-overlay|lan-diagnostic \
     --connection direct|relayed \
     --operator "Person who presses the phone" \
     --owner "Nguyen Gia Duc Trung" \
@@ -186,9 +186,11 @@ if [ -z "$BASE_URL" ] || [ -z "$MEASUREMENT_PATH" ] || [ -z "$CONNECTION" ] ||
   usage
   exit 2
 fi
-if [ "$MEASUREMENT_PATH" != "cellular-overlay" ] && [ "$MEASUREMENT_PATH" != "lan-diagnostic" ]; then
-  echo "--path must be cellular-overlay or lan-diagnostic" >&2; exit 2
-fi
+# DR-003b (2026-09-13): a Wi-Fi uplink is the canonical access path; cellular stays valid.
+case "$MEASUREMENT_PATH" in
+  wifi-overlay|cellular-overlay|lan-diagnostic) ;;
+  *) echo "--path must be wifi-overlay, cellular-overlay or lan-diagnostic" >&2; exit 2 ;;
+esac
 if [ "$CONNECTION" != "direct" ] && [ "$CONNECTION" != "relayed" ]; then
   echo "--connection must be direct or relayed" >&2; exit 2
 fi
@@ -217,7 +219,7 @@ captured_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 operator_json=$(json_escape "$OPERATOR")
 owner_json=$(json_escape "$OWNER")
 base_json=$(json_escape "$BASE_URL")
-if [ "$MEASUREMENT_PATH" = "cellular-overlay" ]; then
+if [ "$MEASUREMENT_PATH" = "wifi-overlay" ] || [ "$MEASUREMENT_PATH" = "cellular-overlay" ]; then
   acceptance_json=true
   warning_json=null
 else
