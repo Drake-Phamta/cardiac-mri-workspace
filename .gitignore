@@ -88,6 +88,12 @@ desktop.ini
 *.swp
 *~
 
+# --- SPIKE MESH ARTIFACTS -------------------------------------------------
+# DAY01_VU_HUNG_ANH.md: large mesh artifacts stay out of git; record the
+# checksum and the command that regenerates them instead. The JSON summaries
+# next to them ARE tracked - they are the diagnostic record.
+spikes/**/mesh/out/*.obj
+
 # --- SPIKE E PAYLOADS -----------------------------------------------------
 # Generated synthetic payloads: large and reproducible, so the generator is
 # tracked and the bytes are not. Regenerate with payloads/generate.py.
