@@ -1,0 +1,18 @@
+captured_at_local=2026-09-13T17:51:25+07:00
+wifi_on=0
+15: rmnet0    inet 215.61.85.225/24 brd 215.61.85.255 scope global rmnet0\       valid_lft forever preferred_lft forever
+17: rmnet2    inet 135.58.175.152/24 brd 135.58.175.255 scope global rmnet2\       valid_lft forever preferred_lft forever
+40: tun0    inet 10.64.193.140/24 scope global tun0\       valid_lft forever preferred_lft forever
+multicast 10.64.193.115 dev tun0 table 1040 src 10.64.193.140 uid 2000 
+    cache <mc> 
+mSignalStrength=SignalStrength:{mCdma=Invalid,mGsm=Invalid,mWcdma=Invalid,mTdscdma=Invalid,mLte=CellSignalStrengthLte: rssi=-97 rsrp=-97 rsrq=-10 rssnr=15 cqiTableIndex=2 cqi=8 ta=2147483647 level=4 parametersUseForLevel=0,mNr=CellSignalStrengthNr:{ csiRsrp = 2147483647 csiRsrq = 2147483647 csiCqiTableIndex = 1 csiCqiReport = [11, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647] ssRsrp = -89 ssRsrq = -10 ssSinr = 22 level = 2 par
+getRilDataRadioTechnology=14(LTE)
+nrState=**** rRplmn= isUsingCarrierAggregation=false isNonTerrestrialNetwork=TERRESTRIAL}
+nrState=**** rRplmn=45204 isUsingCarrierAggregation=false isNonTerrestrialNetwork=TERRESTRIAL}
+nrState=**** rRplmn=45204 isUsingCarrierAggregation=true isNonTerrestrialNetwork=TERRESTRIAL}]
+NetworkAgentInfo{network{204}  handle{879579025421}  ni{MOBILE[LTE] C
+Transports: CELLULAR
+LinkUpBandwidth>=1383Kbps
+LinkDnBandwidth>=1383Kbps
+Transports: CELLULAR|WIFI
+Transports: CELLULAR
