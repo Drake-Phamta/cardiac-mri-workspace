@@ -1,0 +1,202 @@
+{
+ "criterion": "A9 — cached slice-switch latency",
+ "target": "NFR-PERF-001: p95 <= 200 ms over a 30-step navigation test",
+ "captured_at": "20260911T140919+0700",
+ "label": "release build, USB cam nhung NOT_CHARGING (pin 80%), brightness manual 128, thermal status 0, 35.0C, refresh 60Hz",
+ "definitions": {
+  "ms_to_frame": "state change -> first frame after the image decoded. This is the one NFR-PERF-001 means by 'update the visible slice'.",
+  "ms_to_load": "state change -> image decode reported. Kept so the decode/paint split is visible.",
+  "percentile": "nearest-rank, no interpolation, no outlier removal"
+ },
+ "build_type": "RELEASE — npx expo run:android --variant release; APK 68,815,824 bytes; flags=0x0 (FLAG_DEBUGGABLE not set)",
+ "device_profile": "../../management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md",
+ "conditions": {
+  "thermal_status_start": "0 (THERMAL_STATUS_NONE)",
+  "thermal_status_end": "0 (THERMAL_STATUS_NONE) — no throttling during the run",
+  "battery_temp_start_c": 35.0,
+  "battery_temp_end_c": 35.2,
+  "power": "USB connected, battery status 4 = NOT_CHARGING (level 80 -> 79). Charging had already stopped, so no charge-heating during the run.",
+  "brightness": "manual, 128/255 (auto-brightness disabled before the run)",
+  "refresh_rate_hz": 60.0,
+  "refresh_note": "Panel supports [90, 60]; 60 was active throughout. Frame budget 16.7 ms.",
+  "background_load": "only the harness in foreground",
+  "network": "not exercised — fixture is local"
+ },
+ "summary_ms_to_frame": {
+  "n": 30,
+  "min": 33.01,
+  "p50": 34.21,
+  "p90": 48.9,
+  "p95": 65.31,
+  "p99": 65.41,
+  "max": 65.41
+ },
+ "summary_ms_to_load": {
+  "n": 30,
+  "min": 18.78,
+  "p50": 22.62,
+  "p90": 32.46,
+  "p95": 46.94,
+  "p99": 48.64,
+  "max": 48.64
+ },
+ "samples": [
+  {
+   "slice": 1,
+   "ms_to_load": 27.53,
+   "ms_to_frame": 41.55
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 23.99,
+   "ms_to_frame": 33.71
+  },
+  {
+   "slice": 3,
+   "ms_to_load": 46.94,
+   "ms_to_frame": 65.41
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 48.64,
+   "ms_to_frame": 65.31
+  },
+  {
+   "slice": 5,
+   "ms_to_load": 24.79,
+   "ms_to_frame": 33.01
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 32.46,
+   "ms_to_frame": 48.9
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 43.22,
+   "ms_to_frame": 50.57
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 31.84,
+   "ms_to_frame": 48.74
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 22.65,
+   "ms_to_frame": 35.01
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 21.53,
+   "ms_to_frame": 34.63
+  },
+  {
+   "slice": 5,
+   "ms_to_load": 18.78,
+   "ms_to_frame": 33.47
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 22.11,
+   "ms_to_frame": 34.12
+  },
+  {
+   "slice": 3,
+   "ms_to_load": 22.62,
+   "ms_to_frame": 34.38
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 22.62,
+   "ms_to_frame": 33.95
+  },
+  {
+   "slice": 1,
+   "ms_to_load": 22.04,
+   "ms_to_frame": 34.21
+  },
+  {
+   "slice": 0,
+   "ms_to_load": 22.57,
+   "ms_to_frame": 33.77
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 23.36,
+   "ms_to_frame": 33.54
+  },
+  {
+   "slice": 0,
+   "ms_to_load": 21.86,
+   "ms_to_frame": 34.74
+  },
+  {
+   "slice": 15,
+   "ms_to_load": 24.39,
+   "ms_to_frame": 33.88
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 23.08,
+   "ms_to_frame": 34.09
+  },
+  {
+   "slice": 11,
+   "ms_to_load": 22.17,
+   "ms_to_frame": 33.61
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 21.58,
+   "ms_to_frame": 34.43
+  },
+  {
+   "slice": 13,
+   "ms_to_load": 20.14,
+   "ms_to_frame": 34.08
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 22.18,
+   "ms_to_frame": 34.85
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 21.69,
+   "ms_to_frame": 35.74
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 19.76,
+   "ms_to_frame": 33.34
+  },
+  {
+   "slice": 9,
+   "ms_to_load": 21.17,
+   "ms_to_frame": 33.08
+  },
+  {
+   "slice": 10,
+   "ms_to_load": 25,
+   "ms_to_frame": 35.39
+  },
+  {
+   "slice": 11,
+   "ms_to_load": 21.59,
+   "ms_to_frame": 36.08
+  },
+  {
+   "slice": 12,
+   "ms_to_load": 24.31,
+   "ms_to_frame": 33.18
+  }
+ ],
+ "scope_limits": [
+  "Fixture slices are 64x64. Real LGE MRI in-plane dimensions are NOT YET KNOWN — Spike D criterion A6 records the cohort shape distribution. This measurement is therefore a LOWER BOUND on slice-switch cost, not a demonstration at realistic data size, and A9 must be re-run once A6 reports the real dimensions.",
+  "A9 has a second half — 'no full-volume transfer per gesture' — which is NOT MEASURED here because the fixture is bundled locally and no network path exists yet. That half belongs with Spike E.",
+  "Single run of 30 steps. The criterion asks for a 30-step test, so the sample count is as specified, but one run does not characterise run-to-run variation.",
+  "Images are decoded from pre-encoded PNGs held in memory. A real viewer decoding from storage or network on demand will differ."
+ ],
+ "observation_for_A12": "React Native Image applies bilinear filtering and exposes no nearest-neighbour option. On a 64x64 fixture scaled to ~1000 px the pixel grid is visibly smoothed, so displayed mask boundaries are smoother than the data. Not a factor in this timing measurement, but it matters for A5 and is a genuine mark against this candidate for a scientific viewer."
+}
