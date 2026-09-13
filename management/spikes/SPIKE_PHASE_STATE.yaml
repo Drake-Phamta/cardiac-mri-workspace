@@ -349,15 +349,16 @@ spikes:
     name: "Artifact transport over the canonical demo network"
     priority: P2
     owner: "Nguyen Gia Duc Trung"
-    reviewer: "Pham Tuan Anh"
+    device_operator: "Pham Tuan Anh - SOLE operator, DR-006a revision 2 (2026-09-13)"
+    reviewer: "Vu Hung Anh"      # was Pham Tuan Anh; recused - he operates the device (DR-006a rev 2, constraint a)
     status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: NOT_REQUESTED
-      reviewer: "Pham Tuan Anh"
-      priority_rank: 2          # behind SPIKE_B in Pham Tuan Anh's queue
-      queue_note: "May be reviewed ahead of B only while B is not EVIDENCE_READY."
+      reviewer: "Vu Hung Anh"
+      priority_rank: 3          # behind SPIKE_D and SPIKE_A in Vu Hung Anh's queue
+      queue_note: "Moved 2026-09-13 under DR-006a revision 2 - see review_serialization.reassignments."
     directory: management/spikes/SPIKE_E_TRANSPORT
     task: management/spikes/SPIKE_E_TRANSPORT/TASK.md
     evidence_template: management/spikes/SPIKE_E_TRANSPORT/EVIDENCE_TEMPLATE.md
@@ -507,6 +508,15 @@ wip_compliance:
         preferred_alternative: >
           A scheduled session in which the spike owner operates the device himself satisfies every
           criterion without invoking DR-006a. Take it where possible."
+        revision_2_2026_09_13: >
+          SPIKE_E ONLY. The leader is the sole device operator; Trung no longer touches the phone.
+          Constraints a, b, d apply in full. Constraint c (Trung reproduces a run ON THE DEVICE) is
+          impossible under that decision and is REPLACED: Trung runs the same harness end-to-end on a
+          diagnostic path (done 2026-09-13, AVD) AND independently re-runs aggregate.py on the
+          leader's raw device logs and reproduces the numbers. Cost recorded: on-device evidence has
+          one operator and no second-person device reproduction. SPIKE_B / SPIKE_F not decided here.
+          Record: management/readiness/OPEN_DECISIONS.md, "DR-006a - REVISION 2".
+        constraint_c_as_of_revision_2: "Trung reproduces the pipeline on a diagnostic path AND re-aggregates the leader's raw logs to the same numbers"
       see: device_measurement_queue
 
 review_serialization:
@@ -545,6 +555,18 @@ review_serialization:
         If a remote session is not possible for a given measurement and the leader operates the
         device himself, the recusal applies to THAT spike for THAT evidence. It is conditional on
         who actually operated, and the evidence file records the operator.
+    - date: "2026-09-13"
+      spike: SPIKE_E
+      from: "Pham Tuan Anh"
+      to: "Vu Hung Anh"
+      reason: "CONFLICT OF INTEREST, not scheduling - DR-006a revision 2"
+      basis: >
+        The leader decided to be the SOLE operator of every SPIKE_E device measurement. He produces
+        the evidence, so he cannot review it (constraint a). This time the premise is the leader's
+        own standing decision, not a model that might be replaced - so no revert is expected.
+      load_note: >
+        Vu Hung Anh now holds five review assignments (D, A, C0, C1, E) on top of owning SPIKE_B and
+        SPIKE_F. Serialization still applies: one REVIEWING at a time.
   commit_hygiene_note: >
     The rationale for the first reassignment was committed to the spike-b branch by mistake on
     2026-09-12 00:31 instead of to main, so for several hours main carried the reviewer change
@@ -552,8 +574,8 @@ review_serialization:
     Recorded rather than silently tidied.
   reviewers:
     "Vu Hung Anh":
-      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1]   # SPIKE_E added then REVERTED 2026-09-12; see reassignments
-      default_priority: [SPIKE_D, SPIKE_A]
+      reviews: [SPIKE_D, SPIKE_A, SPIKE_C0, SPIKE_C1, SPIKE_E]   # SPIKE_E added 2026-09-12, reverted, added again 2026-09-13 (DR-006a rev 2)
+      default_priority: [SPIKE_D, SPIKE_A, SPIKE_E]
       rationale: "SPIKE_D before SPIKE_A because SPIKE_D is P0."
       pre_emption_rule: >
         If SPIKE_A becomes EVIDENCE_READY while SPIKE_D is not ready, Vu MAY review SPIKE_A. However, once
@@ -561,7 +583,8 @@ review_serialization:
       currently_reviewing: null
       queued: []
     "Pham Tuan Anh":
-      reviews: [SPIKE_B, SPIKE_E, SPIKE_F]   # SPIKE_E removed then RESTORED 2026-09-12, DR-006a rev 1   # SPIKE_E removed then RESTORED 2026-09-12.
+      reviews: [SPIKE_B, SPIKE_F]   # SPIKE_E removed 2026-09-13, DR-006a rev 2 - he operates the device.
+                                   # History: removed and restored 2026-09-12 (rev 1).
                                          # DR-006a revision 1: the owner operates the device
                                          # REMOTELY over adb, so the leader does not produce that
                                          # evidence and constraint (a) does not bite. See
@@ -591,7 +614,7 @@ device_measurement_queue:
     - slot: 2
       spike: SPIKE_E
       owner: "Nguyen Gia Duc Trung"
-      operator: "Pham Tuan Anh (device owner) - DR-006a; prefer a session where the owner operates"
+      operator: "Pham Tuan Anh - SOLE operator (DR-006a revision 2, 2026-09-13); owner Nguyen Gia Duc Trung designs and interprets"
       status: NOT_STARTED
       measurements: ["time to first usable slice cold open", "uncached slice latency",
                      "continuous navigation with prefetch", "mask/mesh transport", "device memory",

@@ -1384,6 +1384,59 @@ which `00` §13 routes through exactly this kind of recorded decision.
 An evidence file whose operator field names someone who did not touch the device is a false record,
 and this amendment does not authorise one.
 
+## DR-006a · REVISION 2 — 2026-09-13
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-006a revision 1 |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-13 |
+| **Status** | ✅ **APPROVED** |
+
+**What happened.** Revision 1 made the owner the operator, remotely. The route was built and verified
+(`tools/remote_adb/`, 2026-09-13), but it still needs the leader's PC powered and the phone on USB while
+the owner works — and the leader and Nguyễn Gia Đức Trung are free at different hours. Every
+measurement window became a meeting that had to line up two calendars.
+
+**The decision, in the leader's words:** *"Tôi muốn chạy hết và Trung sẽ chẳng dính dáng gì đến điện
+thoại của tôi nữa"* — the leader runs every Spike E device measurement, and Trung no longer operates
+the phone at all.
+
+**So the fallback model becomes the only model for Spike E**: leader operates, owner designs and
+interprets. The first version's four constraints apply in full — and one of them cannot be met as
+written:
+
+| | Constraint (DR-006a, first version) | Under revision 2 |
+|---|---|---|
+| **a** | Leader withdraws as Spike E Secondary Reviewer | ✅ **applies.** Spike E review moves to **Vũ Hùng Anh** |
+| **b** | `E10` `E11` `E13` written by Nguyễn Gia Đức Trung | ✅ **applies.** Measurement design, interpretation and the recommendation stay his |
+| **c** | Trung personally reproduces at least one run **on the device** before `ACCEPTED` | ❌ **impossible** if he never touches the device — **replaced, below** |
+| **d** | Ownership does not move; evidence names operator **and** owner | ✅ **applies** |
+
+**Constraint (c), replaced.** Before Spike E can reach `ACCEPTED`, Trung must show he can run and debug
+the whole pipeline without the phone:
+
+1. run the **same client harness** end-to-end on a **diagnostic** path (AVD or LAN), labelled
+   diagnostic and never used as acceptance evidence — he did this on 2026-09-13, 8 endpoints,
+   `AVD_DIAGNOSTIC_20260913.md` on branch `docs/day4-avd-diagnostic`; and
+2. **independently re-run `analyze/aggregate.py` on the leader's raw device logs and reproduce the
+   reported numbers.**
+
+**Cost, stated plainly.** Spike E's on-device evidence will have **one operator and no second person
+reproducing it on the device.** That is weaker than the original constraint against `14` §6 (*"A block
+is not considered healthy if only one person can explain/run/debug it"*): the analysis and the
+pipeline are reproducible by a second person, the device run is not. The leader accepts that cost
+knowingly; it is recorded here rather than discovered later.
+
+**What does NOT change.** Every item in the first version's *"What does NOT change"* table stands —
+real Galaxy A17, real cellular, ZeroTier to the remote Mac mini, `E1` and `E12`, and every
+non-fabrication rule. An operator presses buttons; nobody invents a number.
+
+**Scope.** Spike E only. Spike B (`B10`, `B11`) and Spike F (`F7`) are not decided by this revision.
+
+**Remote adb** is no longer needed for Spike E. `tools/remote_adb/` stays in the repository; sharing is
+off.
+
 ---
 
 **Related documents:** `IMPLEMENTATION_READINESS_AUDIT.md` · `TECHNICAL_SPIKES_REQUIRED.md` ·

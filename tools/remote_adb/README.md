@@ -1,5 +1,9 @@
 # `tools/remote_adb` — let a spike owner operate the Galaxy A17 remotely
 
+> **Not used for Spike E since 2026-09-13.** `DR-006a` revision 2 makes the leader the sole device
+> operator for Spike E, so no remote session is opened for it. The scripts stay for any later decision
+> about Spike B or Spike F; sharing is OFF.
+
 `DR-006a` revision 1: the device is the leader's personal property and is **not handed over**.
 The owner of each spike still presses the keys himself — from his own machine, over ZeroTier,
 into the leader's adb server, down the USB cable to the phone.

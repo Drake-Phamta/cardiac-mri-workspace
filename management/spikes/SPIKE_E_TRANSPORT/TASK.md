@@ -192,6 +192,11 @@ demo. This spike reports **what that minimum would need to be**.
   > and the recommendation remains Nguyễn Gia Đức Trung, and `E10` `E11` `E13` are written by him.
   > Where a scheduled session lets Trung operate the device himself, that is the preferred path and
   > DR-006a is not invoked.
+  >
+  > **2026-09-13 — DR-006a revision 2:** Phạm Tuấn Anh is the **sole** device operator for this spike;
+  > Trung no longer operates the phone. Constraint (c) is replaced: before `ACCEPTED`, Trung runs the
+  > same harness on a diagnostic path **and** re-runs `aggregate.py` on the leader's raw logs to the
+  > same numbers. The leader is recused as reviewer; **Vũ Hùng Anh reviews Spike E.**
 - Completed device-profile block.
 - Recorded network conditions per run, including direct-vs-relayed status.
 - Owner's written strategy recommendation.
