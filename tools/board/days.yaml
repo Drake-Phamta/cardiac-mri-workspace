@@ -46,7 +46,7 @@ members:
 # with real data behind them; it is NOT the same as accepted, and the board
 # says so wherever it shows a bar.
 criteria:
-  SPIKE_D:  {total: 20, measured: 0,  label: "A1–A20"}
+  SPIKE_D:  {total: 20, measured: 0,  label: "A1–A20", in_pr: 19, in_pr_ref: "PR #25"}
   SPIKE_A:  {total: 12, measured: 3,  label: "A1–A12"}
   SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15"}
   SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13"}
@@ -56,6 +56,79 @@ criteria:
 
 # Spike A's three: A1 partial (n/total renders; exact-match unverified),
 # A9 measured twice, A12 partial (one candidate only).
+# `in_pr` counts criteria whose data sits in an OPEN pull request - submitted,
+# not on main, not reviewed. Spike D: PR #25 carries 16 PASS + 3 owner verdicts
+# (1 NOT_RUN). The board draws it as a hatched segment, never as measured.
+
+# Where each spike stands, in one line a member can act on. The status, owner,
+# reviewer, priority and "unblocks" list come from SPIKE_PHASE_STATE.yaml.
+spike_notes:
+  SPIKE_D:  "Audit đầy đủ ở **PR #25** (16 PASS · 0 FAIL · 1 NOT_RUN · 3 verdict) — chờ **Hùng Anh review**. `evidence_present` đổi khi lên `main`."
+  SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. Việc tiếp: chặng S4 zoom/pan bám fixture hình học chính thức."
+  SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`; đường thiết bị chờ leader quyết."
+  SPIKE_E:  "GATE 2 mở · 4 lượt đo thô trên nhánh bằng chứng (lượt 3–4 Wi-Fi `DIRECT`, 228/228 ok). Chờ Trung tổng hợp + payload `uint8` mới."
+  SPIKE_C0: "Chờ khai báo compute `C0-1` và bản sửa **PR #17** (4 lỗi chặn). Probe phải chạy trên hình dạng thật `uint8` 576/640 × 88."
+  SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
+  SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
+
+# The merge order Project Control follows. PRs not listed merge when ready.
+merge_order: [25, 23, 24, 17]
+
+# Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
+decision_notes:
+  DR-002:  "**Hôm nay.** Leader quyết ngay khi #25 merge. Bằng chứng nghiêng Path A (nhãn test 54/54, `A11` xác nhận LA cavity) — phân tích hai phương án trong packet leader."
+  DR-005:  "Chờ Spike F — chưa bắt đầu phần chính."
+  DR-008c: "Chờ Spike B đo trên thiết bị; trần ±1 slice không bao giờ nới."
+
+# Standing decisions still in force - the rules people work under today.
+policies:
+  - date: "14/09"
+    id: "Khối lượng"
+    text: "Thành viên **~8 h/ngày**, hạn **23:59**, **không cần khai báo giờ rảnh**. Leader không giới hạn giờ vì gánh review và chốt ngày. Mỗi packet: ~7 h chính + ~1 h thêm."
+  - date: "13/09"
+    id: "Nợ trước"
+    text: "Việc tồn của ngày trước đứng **đầu** packet trong khối 🔴 LÀM TRƯỚC; việc mới chỉ bắt đầu khi xong khối đó."
+  - date: "13/09"
+    id: "DR-003b"
+    text: "Đường nghiệm thu Spike E là **Wi-Fi + ZeroTier** (`wifi-overlay`). Cellular vẫn hợp lệ nhưng **không bao giờ gộp**. Ngày demo phải kiểm `DIRECT` tại hội trường."
+    ref: management/readiness/OPEN_DECISIONS.md
+  - date: "13/09"
+    id: "DR-006a rev 2"
+    text: "Leader là **operator duy nhất** của điện thoại cho Spike E; Trung thiết kế, tự tổng hợp số và viết `RESULT.md`. Reviewer Spike E → Vũ Hùng Anh."
+    ref: management/readiness/OPEN_DECISIONS.md
+  - date: "13/09"
+    id: "Recovery"
+    text: "**Giữ kế hoạch, không de-scope** — de-scope `COULD` không mua thêm ngày nào. Buffer 0, Day 30 cố định 09/10."
+  - date: "11/09"
+    id: "DR-003a"
+    text: "Overlay chuẩn là **ZeroTier**. Mạng hiện dùng: `b103a835d292ddb3` (tài khoản của leader)."
+
+# Short, current reading of the risks that moved this week. The ids and their
+# high/medium/closed grouping come from PROJECT_STATE.yaml; titles from the register.
+risk_notes:
+  RISK-DATA-01:     "đang giảm — audit đầy đủ ở PR #25, chờ review"
+  RISK-SPLIT-01:    "`DR-002` quyết hôm nay; câu hỏi một bệnh nhân nhiều scan phải trả lời trước `GATE-SPLIT-01`"
+  RISK-COMPUTE:     "probe `C0` chưa chạy — chờ `C0-1` và bản sửa PR #17"
+  RISK-MOBILE-RENDER: "chưa có app 3D chạy trên máy — `B1` hôm nay"
+  RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
+  RISK-CAP-01:      "3/4 người vắng Day 2–3; Day 4 hai người quay lại, Day 4 đạt 3/3"
+
+# Spike E: device and network facts as observed, with the commit that records them.
+device:
+  nodes:
+    - ["Laptop leader", "68efb4de07", "10.64.193.145", "operator, adb qua USB"]
+    - ["Mac mini M2 24 GB", "e202ffbfe4", "10.64.193.115", "stub `:8787` (PID 32227)"]
+    - ["Galaxy A17 5G", "078280bae8", "10.64.193.140", "ZeroTier Android 1.16.0"]
+  runs:
+    - ["1", "13/09 17:51", "5G · `cellular-overlay`", "RELAY", "57 mẫu: 30 ok · 27 lỗi connect", "no", "bd5e931"]
+    - ["2", "13/09 18:18", "5G · `cellular-overlay`", "RELAY", "dừng — file 58 MB tải vài KB/phút", "no", "0d4ad1e"]
+    - ["3", "13/09 19:09", "Wi-Fi · `wifi-overlay`", "DIRECT", "57/57 ok · volume trọn", "ok", "7c05c8c"]
+    - ["4", "13/09 19:12", "Wi-Fi · `wifi-overlay`", "DIRECT", "171/171 ok · volume trọn 3/3", "ok", "7c05c8c"]
+  findings:
+    - "**Kernel Android lưu đường đi theo từng CPU**: đường VPN chung ô với multicast → cpu4/cpu6 từ chối kết nối TCP trước cả SYN. Harness đếm và thử lại (`local_connect_rejections`)."
+    - "**ZeroTier Android không tự hồi phục khi đổi mạng** — phải tắt/bật network trong app. Rủi ro ngày demo."
+    - "**Payload đang giả định sai**: `int16` 58 MB; volume thật `uint8` ~29 MB (576²) và ~36 MB (640²). Số theo byte phải đo lại."
+    - "Lượt 3–4 **không phải LAN**: điện thoại ở `192.168.0.0/24`, Mac mini ở `10.170.75.0/24` — đường WAN thật."
 
 today:
   day: 5
@@ -79,6 +152,15 @@ today:
     - who: trung
       what: "Báo cáo tổng hợp lượt 4 + **payload `uint8` 576/640** → PR"
       why: "Lượt đo chuẩn cho Spike E"
+  # Who waits on whom today: [waiting member, their task, blocking member, what they must do first].
+  waits:
+    - [tuananh, "Quyết `DR-002`", hunganh, "review + merge **PR #25**"]
+    - [khanh, "Sửa theo review #25", hunganh, "gửi review **PR #25**"]
+    - [khanh, "Chạy split → manifest", tuananh, "quyết **`DR-002`**"]
+    - [khanh, "Review bản sửa #17 · probe `C0`", tuananh, "đẩy bản sửa **PR #17**"]
+    - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
+    - [tuananh, "Đo lại Spike E", trung, "PR payload `uint8` + kế hoạch đo"]
+    - [trung, "Review PR split", khanh, "mở PR script split"]
   tasks:
     khanh:
       load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"

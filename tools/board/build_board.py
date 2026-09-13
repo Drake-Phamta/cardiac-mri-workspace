@@ -49,8 +49,11 @@ DOCS = os.path.join(ROOT, "docs")
 ARCHIVE = os.path.join(DOCS, "archive")
 sys.path.insert(0, HERE)
 
+import re                     # noqa: E402
+
 import sections as S          # noqa: E402
 import sections2 as S2        # noqa: E402
+import sections3 as S3        # noqa: E402
 
 # The state file spells names without diacritics; days.yaml uses the real ones.
 PLAIN_TO_LOGIN = {
@@ -96,12 +99,16 @@ def gather(use_gh: bool) -> dict:
     for m in d["members"].values():
         m["reviews"] = reviews_by_login.get(m["github"], [])
 
-    prs, pr_note, contrib = [], None, {}
+    prs, pr_note, contrib, ci = [], None, {}, {}
     if use_gh:
         prs = _gh_json(["pr", "list", "--state", "open", "--limit", "50", "--json",
-                        "number,title,headRefName,createdAt,author,reviewRequests,reviews"], [])
+                        "number,title,headRefName,createdAt,author,reviewRequests,reviews,"
+                        "reviewDecision,additions,deletions,statusCheckRollup"], [])
         if not prs:
             pr_note = "Không lấy được danh sách PR lúc build; bảng có thể cũ."
+        runs = _gh_json(["run", "list", "--branch", "main", "--workflow", "guardrails",
+                         "--limit", "1", "--json", "conclusion,status,headSha,createdAt"], [])
+        ci = runs[0] if runs else {}
         # contribution counters, over EVERY pull request, open or closed
         allp = _gh_json(["pr", "list", "--state", "all", "--limit", "100", "--json",
                          "number,author,reviews"], [])
@@ -120,12 +127,77 @@ def gather(use_gh: bool) -> dict:
         for m in d["members"].values():
             contrib[m["github"]] = {"prs": 0, "reviews": 0}
 
+    # Per PR: each reviewer's latest decisive state. A later COMMENTED does not
+    # erase an earlier APPROVE or CHANGES_REQUESTED - GitHub reads it the same way.
+    review_asks, authored = {}, {}
+    for p in prs:
+        latest = {}
+        for r in sorted(p.get("reviews") or [], key=lambda r: r.get("submittedAt") or ""):
+            u, s = (r.get("author") or {}).get("login"), r.get("state")
+            if not u:
+                continue
+            if s == "COMMENTED" and latest.get(u) in ("APPROVED", "CHANGES_REQUESTED"):
+                continue
+            latest[u] = s
+        p["_latest"] = latest
+        p["_approved"] = p.get("reviewDecision") == "APPROVED"
+        for rq in p.get("reviewRequests") or []:
+            if rq.get("login"):
+                review_asks.setdefault(rq["login"], []).append(p["number"])
+        a = (p.get("author") or {}).get("login")
+        if a:
+            authored.setdefault(a, []).append(p["number"])
+
+    # plain state-file spelling -> the member's real name, for display only
+    by_login = {m["github"]: m["name"] for m in d["members"].values()}
+    names = {plain: by_login.get(login, plain) for plain, login in PLAIN_TO_LOGIN.items()}
+
     return {
-        "d": d, "proj": proj, "spk": spk, "spikes": spikes,
+        "d": d, "proj": proj, "spk": spk, "spikes": spikes, "names": names,
         "queue": spk.get("device_measurement_queue", {}) or {},
-        "prs": prs, "pr_note": pr_note, "contrib": contrib,
+        "prs": prs, "pr_note": pr_note, "contrib": contrib, "ci": ci,
+        "review_asks": review_asks, "authored": authored,
+        "spec": spec_check(), "risk_titles": risk_titles(),
         "built_at": dt.datetime.now().astimezone().strftime("%d/%m/%Y %H:%M"),
     }
+
+
+def spec_check():
+    """Re-hash the frozen spec at build time: (files matching, files listed).
+
+    Hashes the committed blob via `git show`, not the working copy, so a CRLF
+    checkout cannot make it pass or fail for a reason unrelated to the file.
+    """
+    import hashlib
+    base = os.path.join(ROOT, "docs", "specs", "v1.0")
+    try:
+        with open(os.path.join(base, "SPEC_MANIFEST_SHA256.txt"), encoding="utf-8") as f:
+            rows = [ln.split(None, 1) for ln in f if ln.strip()]
+    except OSError:
+        return (None, None)
+    ok = 0
+    for want, name in rows:
+        name = name.strip().lstrip("*")
+        blob = subprocess.run(["git", "show", f"HEAD:docs/specs/v1.0/{name}"],
+                              capture_output=True, cwd=ROOT).stdout
+        ok += hashlib.sha256(blob).hexdigest() == want.lower()
+    return (ok, len(rows))
+
+
+def risk_titles():
+    """RISK-ID -> title, from the '### RISK-X — title' headings of the register."""
+    import re
+    out = {}
+    try:
+        with open(os.path.join(ROOT, "management", "readiness", "RISK_REGISTER_INITIAL.md"),
+                  encoding="utf-8") as f:
+            for ln in f:
+                m = re.match(r"^#{2,4}\s+(RISK-[A-Z0-9-]+)\s+[—-]+\s+(.+?)\s*$", ln)
+                if m:
+                    out[m.group(1)] = m.group(2)
+    except OSError:
+        pass
+    return out
 
 
 def page(title, desc, body, depth=0):
@@ -157,19 +229,27 @@ def main() -> int:
             f.write(css)
 
     body = "\n".join([
-        S.nav("Hôm nay"),
-        S.header_block(g),
+        S.nav("Hôm nay", anchors=True),
+        S.header_block(g, S3.timeline(g)),
         S.section_today(g),
-        S.section_progress(g),
         S.section_people(g),
-        S.section_contrib(g),
+        S3.section_waits(g),
         S.section_reviews(g),
-        S2.section_device(g),
+        S3.section_path(g),
+        S3.section_spikes(g),
+        S3.section_decisions(g),
+        S3.section_device(g),
+        S3.section_risks(g),
+        S.section_contrib(g),
         S2.section_history(g),
         S2.section_incident(g),
         S2.section_stop(g),
         S2.footer_block(g),
     ])
+    # Number the section headings A, B, C... in page order (sections write a `§` placeholder).
+    letters = iter("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    body = re.sub(r'<span class="num">§</span>',
+                  lambda _m: f'<span class="num">{next(letters)}</span>', body)
     idx = page(f"DAY {t['day']} · EXECUTION · Cardiac MRI Workspace",
                f"Bảng điều phối Day {t['day']}, {t['date']}. Nhiệm vụ từng người, tiến độ "
                f"tiêu chí nghiệm thu, hàng đợi review, và lịch sử các ngày trước.",

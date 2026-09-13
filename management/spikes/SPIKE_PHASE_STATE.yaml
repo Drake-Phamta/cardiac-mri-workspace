@@ -284,7 +284,7 @@ spikes:
     latest_tested_commit: null
     environment: DEVICE_DEMO_01
     device_profile_prerequisite: true
-    device_measurement_slot: 2  # SECOND in the single-device measurement queue
+    device_measurement_slot: 3  # THIRD - queue amended to A -> E -> B on 2026-09-11 (device_measurement_queue.order_note); this field was not mirrored until 2026-09-14
     parallel_work_allowed: "harness and canonical fixture work may proceed while SPIKE_A is being prepared or measured"
     related_dr: [DR-006, DR-008a, DR-008b, DR-008c, DR-G05]
     related_condition: []
@@ -379,7 +379,7 @@ spikes:
     latest_tested_commit: null
     environment: [DEVICE_DEMO_01, SERVER_MACMINI_01, demo_network]
     device_profile_prerequisite: true
-    device_measurement_slot: 3  # THIRD in the single-device measurement queue
+    device_measurement_slot: 2  # SECOND - queue amended to A -> E -> B on 2026-09-11 (device_measurement_queue.order_note); this field was not mirrored until 2026-09-14
     parallel_work_allowed: >
       Owner must NOT wait idly for the phone. Before the device slot: Mac mini backend stub;
       ZeroTier/private-overlay connectivity verification; representative artifact payloads; transport
@@ -391,7 +391,7 @@ spikes:
     hard_constraint: "Acceptance evidence MUST be measured over real cellular + ZeroTier overlay. LAN measurements are diagnostic/control only."
     scope_firewall: "Fallback informs a demo-resilience measure only; must not become full offline mode, a second architecture, or backend-on-phone. PR-CACHE-01 stays SHOULD."
     linked_risk: [RISK-DEMO-NET-01, RA-H13]
-    next_action: "Stand up the Mac mini backend stub and instrumentation; verify overlay connectivity. Do not idle waiting for the phone; holds measurement slot 3."
+    next_action: "2026-09-14: stub up and GATE 2 open since 2026-09-13 12:35; four leader-operated runs are raw on spike-e/evidence-20260913 (runs 3-4 on the DR-003b Wi-Fi path, DIRECT). Next, owner: re-review PR #23, aggregate run 4 with aggregate.py, regenerate payloads for the real uint8 576/640 x 88 volumes (Spike D, PR #25), write the re-measurement plan; then the leader re-measures on the new payloads."
 
   - id: SPIKE_F
     name: "3D error representation"
@@ -692,12 +692,15 @@ device_measurement_queue:
       0 local rejections, client and server counts match path for path. Raw on
       spike-e/evidence-20260913 (7c05c8c). evidence_present stays false until the owner writes
       RESULT.md. Harness PR #22 and tooling PR #23 are unreviewed.
+      Update 2026-09-14: PR #22 merged on 2026-09-13; PR #23 was fixed in 2ed3c64 and waits on
+      Trung's re-review.
     stub_running: true            # 2026-09-13, started by Trung; 200 from the leader's peer at 12:35
     gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
-    still_needed_before_any_E_measurement:
-      - "ZeroTier installed on the Galaxy A17 and its node authorised on 3b19b3a71652c5f0"
-      - "an HTTP client on the phone - it has no Python, Termux, curl or wget"
-      - "remote control route for the owner - tools/remote_adb/, firewall step needs the leader as admin"
+    still_needed_before_any_E_measurement: []    # all three resolved on 2026-09-13, kept below for the record
+    resolved_2026_09_13:
+      - "ZeroTier on the Galaxy A17 - node 078280bae8 authorised on b103a835d292ddb3 (the old network's admin could not be found)"
+      - "an HTTP client on the phone - the Toybox harness (toybox nc over adb), PR #22 merged"
+      - "remote control route for the owner - superseded by DR-006a revision 2: the leader is the sole operator"
   note: >
     SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and
     therefore does not add contention in this wave.

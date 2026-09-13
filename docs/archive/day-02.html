@@ -32,23 +32,16 @@
 <section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong>Slice thật là <code>576×576</code></strong> (có case <code>640×640</code>), không phải 64×64 — 81 lần số pixel</li><li><strong>Mask mang giá trị <code>0</code> và <code>255</code></strong>, không phải <code>0</code>/<code>1</code> — code giả định <code>== 1</code> sẽ ra mask rỗng</li><li><strong>Testing Set CÓ nhãn</strong> — ảnh hưởng lựa chọn Path A/B của <code>DR-002</code></li></ul></section>
 
 <footer>
+  <div class="links"><div class="lg-g"><b>Hôm nay</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/day05/tasks">gói nhiệm vụ Day 5</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day04/DAY04_EOD_REVIEW.md">EOD Day 4</a></div><div class="lg-g"><b>State</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/PROJECT_STATE.yaml">PROJECT_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/spikes/SPIKE_PHASE_STATE.yaml">SPIKE_PHASE_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">OPEN_DECISIONS</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/RISK_REGISTER_INITIAL.md">Risk register</a></div><div class="lg-g"><b>Spike</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/spikes">TASK.md từng spike</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW">bằng chứng thô Spike E</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/tests/fixtures/geometry">fixture hình học</a></div><div class="lg-g"><b>GitHub</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/actions">CI (Actions)</a> · <a href="../archive/index.html">lịch sử ngày</a></div></div>
+  <p class="inv">Bất biến lúc build: spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>evidence_present = 0</code> · <code>SPIKE_C1</code> <code>BLOCKED</code> ·
+     sinh lúc 14/09/2026 06:37 bằng <code>tools/board/build_board.py</code>.</p>
   <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
-     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
-     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
-     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
-     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
-  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> ·
-     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> ·
-     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
-     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
-     <a href="../archive/index.html">lịch sử ngày</a></p>
-  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
-     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc 14/09/2026 06:17
-     bằng <code>tools/board/build_board.py</code>.</p>
-  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
-     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
-     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
-     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+     Trạng thái spike, gates, mốc, buffer, rủi ro, ma trận reviewer đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code>; PR, review và CI đọc từ
+     GitHub API; checksum spec tính lại lúc build. Nếu một con số ở đây sai thì state file sai — kiểu
+     hỏng dễ sửa hơn nhiều so với một đoạn văn cũ. Phần viết tay duy nhất là
+     <code>tools/board/days.yaml</code>: việc của từng người và chuyện gì đã xảy ra trong ngày.</p>
 </footer>
 </div>
 </body>

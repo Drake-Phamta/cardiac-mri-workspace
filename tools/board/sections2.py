@@ -1,80 +1,50 @@
-"""Board sections: device, history, incident, stop-list, footer, archive pages."""
+"""Board sections: history, incident, stop-list, footer, archive pages."""
 
 from __future__ import annotations
 
 import datetime as dt
 
-from sections import BADGE, e, md, nav
+from sections import e, md, nav
 
 STATUS_LABEL = {"partial": ("MỘT PHẦN", "wait"), "missed": ("TRƯỢT", "no"),
                 "open": ("ĐANG MỞ", "wait"), "good": ("ĐẠT", "ok")}
 
 
-def section_device(g):
-    q = g["queue"]
-    order = " → ".join(x["spike"].replace("SPIKE_", "") for x in q.get("order", []))
-    gs = q.get("gate_2_status", {}) or {}
-
-    def tick(v):
-        return ('<span class="st ok">RỒI</span>' if v is True
-                else '<span class="st no">CHƯA</span>')
-    rows = "".join(
-        f"<tr><td>{e(lbl)}</td><td>{tick(gs.get(k))}</td></tr>"
-        for k, lbl in [("overlay_up", "Overlay đã lên"),
-                       ("mac_mini_reachable", "Mac mini tới được"),
-                       ("stub_running", "Stub đang chạy (cổng 8787)"),
-                       ("zerotier_on_phone", "ZeroTier trên điện thoại")])
-    open_ = gs.get("gate_open")
-    return f"""<section>
-  <h2><span class="num">F</span> 📱 Galaxy A17 5G — và vì sao không ai phải chờ máy</h2>
-  <p class="lede">Thứ tự đo <code>{e(order)}</code>. Máy là <strong>tài sản cá nhân của leader và
-     không bàn giao</strong> — cả nhóm ở xa nhau.</p>
-
-  <div class="note go"><b>DR-006a revision 1 — chủ sở hữu tự bấm TỪ XA.</b>
-     Leader giữ máy cắm USB và mở adb server trên địa chỉ ZeroTier; chủ sở hữu điều khiển từ máy
-     mình. <strong>Kênh điều khiển đi USB</strong> nên Wi-Fi điện thoại tắt và traffic đo vẫn đi
-     cellular thật — đó là lý do nó không đi qua overlay, vì làm vậy sẽ nhiễm đúng đường
-     <code>E1</code> đang đo.<br><br>
-     Nghĩa là luật <em>"executed by chủ sở hữu"</em> <strong>giữ nguyên</strong>, và leader
-     <strong>không</strong> phải rút khỏi vai reviewer. Bản đầu của DR-006a ghi "buổi đo có mặt" là
-     đường ưu tiên — <strong>đường đó không tồn tại</strong> và đã được sửa.</div>
-
-  <h3>Cổng vào GATE 2 — Nguyễn Gia Đức Trung</h3>
-  <div class="tblwrap"><table>{rows}
-    <tr><td><strong>Cổng đã mở?</strong></td><td>{tick(open_)}</td></tr>
-  </table></div>
-  <p style="font-size:13px;color:var(--ink-3);margin-top:10px">Cổng vào là
-     <em>"stub <strong>tới được</strong>"</em>, không phải <em>"overlay đã lên"</em>. Overlay lên rồi
-     và Mac mini tới được, nhưng cổng 8787 vẫn đóng — nên việc mở cổng là <strong>chạy stub</strong>,
-     không phải chờ máy.</p>
-</section>"""
-
-
 def section_history(g):
     d = g["d"]
+    mem = d["members"]
+
+    def who(x):
+        k = x.get("who")
+        return f'<span class="who-s">{e(mem[k]["name"]) if k in mem else "Cả nhóm"}</span> '
+
     cards = []
-    for h in d["history"]:
+    for i, h in enumerate(d["history"]):
         lbl, cls = STATUS_LABEL.get(h["status"], ("?", "idle"))
         row = "missed" if h["status"] == "missed" else ""
-        done = "".join(f"<li>{md(x['what'])}"
+        done = "".join(f"<li>{who(x)}{md(x['what'])}"
                        + (f' <code>{e(x["ref"])}</code>' if x.get("ref") else "")
                        + "</li>" for x in (h.get("done") or []))
-        miss = "".join(f"<li>{md(x['what'])}</li>" for x in (h.get("missed") or []))
+        miss = "".join(f"<li>{who(x)}{md(x['what'])}</li>" for x in (h.get("missed") or []))
+        dec = "".join(f"<li>{md(x)}</li>" for x in (h.get("decisions") or []))
         dd = dt.date.fromisoformat(h["date"])
-        cards.append(f"""<div class="dayrow {row}">
-      <div class="hd"><span class="dn">DAY {h['day']}</span>
+        # The most recent day opens by default; older days fold so the page stays scannable.
+        cards.append(f"""<details class="dayrow {row}"{' open' if i == 0 else ''}>
+      <summary class="hd"><span class="dn">DAY {h['day']}</span>
         <span class="dd2">{e(dd.strftime('%d/%m/%Y'))}</span>
         <span class="st {cls}">{e(lbl)}</span>
-        <span style="font-weight:650">{e(h['title'])}</span></div>
+        <span style="font-weight:650">{e(h['title'])}</span>
+        <span class="dim cnt">{len(h.get('done') or [])} xong · {len(h.get('missed') or [])} tồn</span></summary>
       <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">{md(h['summary'])}</p>
       {'<h4>Đã xong</h4><ul>' + done + '</ul>' if done else ''}
       {'<h4>Còn tồn / trượt</h4><ul>' + miss + '</ul>' if miss else ''}
-      <p class="more"><a href="archive/day-{h['day']:02d}.html">→ xem chi tiết Day {h['day']}</a></p>
-    </div>""")
-    return f"""<section>
-  <h2><span class="num">G</span> Các ngày trước — ai xong gì, còn tồn gì</h2>
+      {'<h4>Quyết định</h4><ul>' + dec + '</ul>' if dec else ''}
+      <p class="more"><a href="archive/day-{h['day']:02d}.html">→ trang riêng của Day {h['day']}</a></p>
+    </details>""")
+    return f"""<section id="lichsu">
+  <h2><span class="num">§</span> Các ngày trước — ai xong gì, còn tồn gì</h2>
   <p class="lede">Ô "đã xong" chỉ được ghi khi có commit SHA, số PR, hoặc đường dẫn file đã commit.
-     <a href="archive/index.html">Xem toàn bộ lịch sử →</a></p>
+     Bấm vào một ngày để mở. <a href="archive/index.html">Toàn bộ lịch sử →</a></p>
   {''.join(cards)}
 </section>"""
 
@@ -82,7 +52,7 @@ def section_history(g):
 def section_incident(g):
     repo = g["d"]["repo"]
     return f"""<section>
-  <h2><span class="num">H</span> Sự kiện và bài học</h2>
+  <h2><span class="num">§</span> Sự kiện và bài học</h2>
 
   <h3><a href="{e(repo)}/blob/main/management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md">
       INC-001</a> — ngày execution đầu tiên trôi qua với một người làm việc</h3>
@@ -100,10 +70,12 @@ def section_incident(g):
      <code>15</code> §13 <em>"escalate blockers rather than hiding them until EOD"</em> ·
      <code>15</code> §5 — khả dụng của thành viên là <strong>trường bắt buộc</strong> của kế hoạch ngày.</p>
 
-  <h3>Ba luật từ Day 3</h3>
+  <h3>Luật làm việc đang áp dụng</h3>
   <ul>
-    <li><strong>Khai báo khả dụng trước 09:00.</strong> Một dòng là đủ.
-        <em>"Hôm nay tôi bận cả ngày"</em> là câu trả lời hợp lệ và hữu ích</li>
+    <li><strong>~8 giờ mỗi ngày, hạn 23:59.</strong> Không cần khai báo giờ rảnh — việc xong trước
+        nửa đêm là được <span class="dim">(leader, 14/09 — thay luật "khai báo trước 09:00" của Day 3)</span></li>
+    <li><strong>Nợ tồn làm trước.</strong> Việc của ngày trước còn dở đứng đầu packet và xong trước
+        khi bắt đầu việc mới <span class="dim">(leader, 13/09)</span></li>
     <li><strong>Blocker báo ngay khi gặp.</strong> Bị kẹt không phải lỗi; giấu chuyện bị kẹt mới là</li>
     <li><strong>Một ngày không commit thì phải nói tại sao.</strong> Im lặng bị đọc là không có tiến
         độ, vì không có cách nào khác để đọc nó</li>
@@ -134,46 +106,75 @@ def section_stop(g):
         "<code>±1 slice</code> SCQ-06 · tolerance fixture <strong>EXACT</strong>",
         "<strong>Không chạm <code>docs/specs/v1.0/**</code></strong> — CI sẽ chặn, và cần "
         "Decision Request <code>00</code> §13",
-        "<strong>Không commit dataset bytes</strong> — chỉ manifest được track",
+        "<strong>Không commit dataset bytes</strong> — chỉ manifest được track; CI chặn",
         "<strong>Không commit hay review dưới tài khoản người khác</strong> — chữ ký giả trong "
         "bản ghi công khai",
         "<strong>Không điền ô <code>[RECORD]</code> mang tên người vắng mặt</strong>",
-        "<strong>Không split theo slice</strong> — patient-level là INVARIANT, seed 2024",
-        "<strong>Không chọn Path A/B trong Spike D</strong> — đó là <code>DR-002</code>",
+        "<strong>Không split theo slice hay theo case</strong> — theo <strong>bệnh nhân</strong>, "
+        "seed <code>2024</code>, không đổi sau khi thấy kết quả test",
+        "<strong>Không chọn Path A/B trong Spike D</strong> — đó là <code>DR-002</code> của leader",
         "<strong>Không chốt <code>GATE-MOB-01</code> trên riêng Spike A</strong> — cần cả A và B",
         "<strong>Không chốt <code>GATE-ML-01</code> trên riêng C0</strong> — DR-007 cấm",
+        "<strong>Không làm gì với dữ liệu thật cho C1</strong> khi <code>SPIKE_C1</code> còn "
+        "<code>BLOCKED</code>",
         "<strong>Không ghi vào <code>tests/fixtures/geometry/</code></strong> nếu bạn không phải "
         "Vũ Hùng Anh",
-        "<strong>Không dùng số đo LAN làm bằng chứng Spike E</strong> — bằng chứng bị bác",
-        "<strong>Không tạo <code>RESULT.md</code> khi chưa có bằng chứng thật</strong>",
+        "<strong>Không gộp <code>wifi-overlay</code> với <code>cellular-overlay</code></strong>; số đo "
+        "LAN chỉ để chẩn đoán, không bao giờ là bằng chứng Spike E",
+        "<strong>Không ai ngoài Trung tính số liệu <code>E</code></strong> — <code>DR-006a</code> rev 2, "
+        "ràng buộc (c)",
+        "<strong>Không tạo <code>RESULT.md</code> khi chưa có bằng chứng thật</strong>; không tự đặt "
+        "<code>EVIDENCE_READY</code> hay <code>ACCEPTED</code>",
     ]
-    return ('<section class="stopsec"><h2><span class="num">I</span> KHÔNG LÀM</h2>'
+    return ('<section class="stopsec" id="khonglam"><h2><span class="num">§</span> KHÔNG LÀM</h2>'
             '<ul class="stoplist">' + "".join(f"<li>{x}</li>" for x in items) + "</ul></section>")
 
 
 def footer_block(g, depth=0):
-    repo = g["d"]["repo"]
+    d = g["d"]
+    repo = d["repo"]
     up = "../" * depth
+    day = d["today"]["day"]
+    pk = "/".join(d["members"]["khanh"]["packet"].split("/")[:-1])
+    last = d["history"][0]["day"] if d["history"] else None
+    blob = f"{repo}/blob/main"
+    spec = g.get("spec") or (None, None)
+    spec_txt = (f"<strong>{spec[0]}/{spec[1]} OK</strong>" if spec[1] and spec[0] == spec[1]
+                else f"<strong>{spec[0]}/{spec[1]} — LỆCH</strong>" if spec[1] else "không kiểm được")
+    acc = sum(1 for s in g["spikes"].values() if s.get("status") == "ACCEPTED")
+    evp = sum(1 for s in g["spikes"].values() if s.get("evidence_present"))
+    c1 = g["spikes"].get("SPIKE_C1", {}).get("status", "?")
+    groups = [
+        ("Hôm nay", [(f"{repo}/tree/main/{pk}", f"gói nhiệm vụ Day {day}"),
+                     (f"{blob}/management/DAY_LOG.md", "DAY_LOG"),
+                     (f"{blob}/management/day{last:02d}/DAY{last:02d}_EOD_REVIEW.md" if last is not None
+                      else f"{blob}/management/DAY_LOG.md", f"EOD Day {last}")]),
+        ("State", [(f"{blob}/management/PROJECT_STATE.yaml", "PROJECT_STATE.yaml"),
+                   (f"{blob}/management/spikes/SPIKE_PHASE_STATE.yaml", "SPIKE_PHASE_STATE.yaml"),
+                   (f"{blob}/management/readiness/OPEN_DECISIONS.md", "OPEN_DECISIONS"),
+                   (f"{blob}/management/readiness/RISK_REGISTER_INITIAL.md", "Risk register")]),
+        ("Spike", [(f"{repo}/tree/main/management/spikes", "TASK.md từng spike"),
+                   (f"{repo}/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW",
+                    "bằng chứng thô Spike E"),
+                   (f"{repo}/tree/main/tests/fixtures/geometry", "fixture hình học")]),
+        ("GitHub", [(repo, "Repository"), (f"{repo}/pulls", "PR đang mở"),
+                    (f"{repo}/actions", "CI (Actions)"), (f"{up}archive/index.html", "lịch sử ngày")]),
+    ]
+    links = "".join(
+        f'<div class="lg-g"><b>{e(t)}</b>' + " · ".join(f'<a href="{e(h)}">{e(l)}</a>' for h, l in items)
+        + "</div>" for t, items in groups)
     return f"""<footer>
+  <div class="links">{links}</div>
+  <p class="inv">Bất biến lúc build: spec đóng băng {spec_txt} · <code>ACCEPTED = {acc}</code> ·
+     <code>evidence_present = {evp}</code> · <code>SPIKE_C1</code> <code>{e(c1)}</code> ·
+     sinh lúc {e(g['built_at'])} bằng <code>tools/board/build_board.py</code>.</p>
   <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
-     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
-     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
-     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
-     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
-  <p><a href="{e(repo)}">Repository</a> ·
-     <a href="{e(repo)}/pulls">PR đang mở</a> ·
-     <a href="{e(repo)}/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
-     <a href="{e(repo)}/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
-     <a href="{up}archive/index.html">lịch sử ngày</a></p>
-  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
-     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc {e(g['built_at'])}
-     bằng <code>tools/board/build_board.py</code>.</p>
-  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
-     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
-     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
-     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+     Trạng thái spike, gates, mốc, buffer, rủi ro, ma trận reviewer đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code>; PR, review và CI đọc từ
+     GitHub API; checksum spec tính lại lúc build. Nếu một con số ở đây sai thì state file sai — kiểu
+     hỏng dễ sửa hơn nhiều so với một đoạn văn cũ. Phần viết tay duy nhất là
+     <code>tools/board/days.yaml</code>: việc của từng người và chuyện gì đã xảy ra trong ngày.</p>
 </footer>"""
-
 
 # --------------------------------------------------------------------------
 # archive
