@@ -287,7 +287,13 @@ spikes:
     negative_result_rule: >
       If no tested configuration satisfies BOTH NFR-PERF-002 and the +/-1 source-slice bound, record
       NEGATIVE_RESULT and escalate. Do not widen the tolerance.
-    next_action: "Build the canonical geometry fixture set against the DR-008a convention, then the 3D harness. Off-device work proceeds in parallel with Spike A; holds measurement slot 2."
+    next_action: >
+      2026-09-13: canonical geometry fixture PUBLISHED by the owner (PR #20, 50a5433,
+      tests/fixtures/geometry/, 33 points + 13 rays, b14_grouping contract). Harness fixes for
+      his three PR #15 findings pushed (2310330), re-review requested. Next: interpret B14 on
+      the contractual cohorts (note the ~3.6x leverage gap), then device B10/B11 when the phone
+      path for Spike B is decided - DR-006a revision 2 covers Spike E only.
+    canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0
     name: "Preliminary ML compute feasibility (synthetic / shape-matched data)"

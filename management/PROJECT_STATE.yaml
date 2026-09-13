@@ -24,6 +24,10 @@ meta:
 day: 4                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
 day_date: "2026-09-13"              # Day 3 closed SLIPPED; see day03/DAY03_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
+day_4_conditions_as_of_17_00:       # provisional; condition 1 stays open until 23:59
+  "1_khanh_spike_d_audit": NOT_MET
+  "2_trung_stub_gate_2": MET        # 12:35, management/day04/gate2_verification_20260913.md
+  "3_hung_anh_pr13_and_fixture": MET  # PR #13 approved 14:44 and merged; fixture PR #20 merged 50a5433
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md
@@ -68,9 +72,23 @@ recovery:
         threshold is defined anywhere in the frozen spec. Trigger 2 is therefore written
         against an undefined threshold. Recorded as a real gap, not papered over.
   next_action: >
-    Level 5 de-scope is the level that fits, and 15 section 414 makes it an explicit leader
-    decision. The candidate COULD/SHOULD inventory is prepared in day03/DAY03_EOD_REVIEW.md
-    section 11. Project Control does not declare it.
+    DECIDED 2026-09-13 - see decision_2026_09_13 below. Kept for the record: Level 5 was
+    prepared in day03/DAY03_EOD_REVIEW.md section 11, and that section showed it buys zero days.
+  decision_2026_09_13:
+    decided_by: "Pham Tuan Anh - Team Leader"
+    choice: "KEEP THE PLAN. No de-scope."
+    basis: >
+      Level 5 de-scope frees no critical-path time: PRD section 3.1 already places all 11
+      COULD/SHOULD items outside the acceptance floor (DAY03_EOD_REVIEW section 11). The
+      problem is availability, not scope. On Day 4 two of the three absent members came back
+      with real work (Trung and Vu Hung Anh); SPIKE_D remains the single stalled P0.
+    hard_deadline:
+      who: "Be Quoc Khanh"
+      what: "DATASET_AUDIT.md + dataset_manifest.json on main, committed by him"
+      by: "EOD Day 5 - 2026-09-14T23:59+07:00"
+      if_missed: "the leader escalates to the supervising lecturer"
+    ownership_transferred: false
+    no_one_does_it_for_him: "Leader instruction 2026-09-13: Khanh must complete his own work."
 cutover_record: management/day01/DAY01_CUTOVER_RECORD.md
 baseline_accepted: true             # MASTER_PLAN_30_DAYS.md section 14, 2026-09-10
 baseline_accepted_note: >
@@ -290,45 +308,40 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-12 23:50; PR #4 merged 2026-09-11 and was
-                                    # still listed here for two days
-  - number: 13
-    branch: spike/SPIKE_A
-    author: Drake-Phamta
-    reviewer: scalliontor
-    age_hours: 33
-    reviews_submitted: 0
-    note: "oldest in the queue; carries the A9 re-measurement at real slice size"
+open_prs:                           # as of 2026-09-13 17:03
   - number: 14
     branch: tools/spike-d-validation
     author: Drake-Phamta
-    reviewer: qkhanhbe
-    age_hours: 24
+    review_requested: [qkhanhbe, TrungNGD195]
+    age_hours: 42
     reviews_submitted: 0
+    note: "a1744e8 fixes the resampling defect Trung found; his review of the fix is requested"
   - number: 15
     branch: spike-b/harness-and-fixture-proposal
     author: Drake-Phamta
-    reviewer: scalliontor
-    age_hours: 24
-    reviews_submitted: 0
+    review_requested: [scalliontor]
+    age_hours: 42
+    reviews_submitted: 1               # scalliontor CHANGES_REQUESTED 2026-09-13, 3 findings
+    note: "2310330 fixes all three; re-review requested"
   - number: 17
     branch: spike-c0/compute-probe
     author: Drake-Phamta
-    reviewer: qkhanhbe
-    age_hours: 23
+    review_requested: [qkhanhbe]
+    age_hours: 41
     reviews_submitted: 0
   - number: 18
     branch: chore/ci-guardrails
     author: Drake-Phamta
-    reviewer: null
-    age_hours: 23
+    review_requested: [TrungNGD195]    # assigned 2026-09-13 - closes the 15 section 2.8 breach
+    age_hours: 41
     reviews_submitted: 0
-    defect: >
-      No reviewer assigned at all, which is itself a breach of 15 section 2.8 - every task has
-      an owner and a reviewer before work starts. Not self-merged: PRs 1, 3 and 5 already
-      merged without an APPROVED review and R2 is still unsatisfied because of it.
+merged_2026_09_13:
+  - {number: 13, commit: 2f3a51d, approved_by: scalliontor, merged_by: scalliontor}
+  - {number: 20, commit: 50a5433, author: scalliontor, approved_by: Drake-Phamta, note: "canonical geometry fixture, DR-013"}
+  - {number: 21, commit: f11da28, author: scalliontor, approved_by: Drake-Phamta, note: "PRACTICE Reviewer field"}
 open_prs_note: >
-  All six open PRs were authored by Pham Tuan Anh, so he can approve none of them - GitHub
+  2026-09-13: four remain, every one with a reviewer requested. Day 3 note kept below.
+  Day 3: All six open PRs were authored by Pham Tuan Anh, so he can approve none of them - GitHub
   forbids approving your own pull request, and SPIKE_PHASE_PLAN.md step 2 requires the
   reviewer to be a different actor from the owner. 15 section 7: "If review capacity is
   unavailable, Project Control must treat that as a planning constraint rather than allowing
@@ -358,7 +371,7 @@ technical_debt:
   - "No .github/ — no PR template, no CI skeleton (NFR-MAINT-001/002/003). Day-1 Integration/CI follow-up."
   - "delete_branch_on_merge is false on the repository."
   - "No branch protection on main; the merge-requires-approval rule is documented but not enforced."
-  - "PRACTICE_VU_HUNG_ANH.md on main lacks the Reviewer field required by practice/README.md."
+  - "RESOLVED 2026-09-13 by PR #21 - PRACTICE_VU_HUNG_ANH.md now carries the Reviewer field."
 
 # --- SMOKE ------------------------------------------------------------------
 last_canonical_smoke:

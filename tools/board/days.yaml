@@ -61,19 +61,19 @@ today:
   day: 4
   date: "2026-09-13"
   headline: >
-    Mọi bế tắc bên ngoài đã gỡ — dataset trên đĩa, dụng cụ đã sửa 4 lỗi chặn và chạy được
-    từ lệnh đầu, Mac mini tới được, bảng tự sinh từ state file. Critical path vẫn đứng yên
-    sang ngày thứ năm, buffer đã về 0, trạng thái RED.
+    Hai trên ba thành viên vắng đã quay lại với việc thật — GATE 2 mở, fixture chính thức lên
+    main, 3 PR merge, 4 review thật. Critical path (Spike D) vẫn đứng yên sang ngày thứ năm;
+    hạn cứng cho audit là 23:59 ngày 14/09. Chốt sơ bộ 17:00.
   conditions:
     - who: khanh
       what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, **do chính bạn commit**"
-      why: "P0, ngày thứ 5. Lệnh giờ chạy được từ lệnh đầu — 4 lỗi chặn đã sửa tối qua"
+      why: "P0, ngày thứ 5 — **chưa đạt lúc 17:00**, khung mở tới 23:59. Hạn cứng của leader: **23:59 ngày 14/09**"
     - who: trung
       what: "✅ Chạy stub trên Mac mini → cổng 8787 mở — **ĐẠT 12:35**"
       why: "`GATE 2` đã mở. Leader xác nhận từ peer của mình"
     - who: hunganh
-      what: "Review PR #13 *(mở từ trưa 11/09 — 33,7 giờ lúc chốt Day 3)* và quyết bộ geometry fixture"
-      why: "Leader là tác giả nên **không tự approve được**. Fixture chặn cả Spike A lẫn Spike F"
+      what: "✅ Review PR #13 và quyết bộ geometry fixture — **ĐẠT**: approve 14:44, fixture merge `50a5433`"
+      why: "Spike A lên `main`; Spike A và Spike F đã có hợp đồng hình học để bám"
   tasks:
     khanh:
       now:
@@ -94,40 +94,40 @@ today:
     trung:
       now:
         - "✅ ~~Chạy stub trên Mac mini~~ — **`GATE 2` MỞ**, leader xác nhận 12:35"
-        - "**Đăng lỗi resampling PR #14 thành review trên GitHub** — leader đã kiểm: lỗi thật"
-        - "Push 2 file tiến độ + diagnostic lên **nhánh riêng**, mở PR"
+        - "✅ ~~Lỗi resampling PR #14~~ — đã sửa `a1744e8`, **ghi công bạn**. Giờ **review bản sửa**"
+        - "**Mở PR** cho nhánh `docs/day4-avd-diagnostic` — đã push nhưng chưa ai review được"
       then:
-        - "Cài **ZeroTier lên điện thoại** cùng leader — `E12` đọc **node của điện thoại**, không phải node leader"
-        - "Buổi đo từ xa: `adb -H 10.134.129.145 -P 5037 devices` — `tools/remote_adb/` đã dựng"
+        - "Review **PR #18** (CI) — bạn là reviewer được giao"
+        - "**Không cần đụng điện thoại nữa** — `DR-006a` rev 2: leader đo, bạn thiết kế và diễn giải"
       later:
-        - "`E1`–`E9` `E12` trên đường cellular thật"
+        - "Sau buổi đo của leader: `aggregate.py` trên raw log · viết `E10` `E11` `E13`"
       debts: []
-      note: "Hôm qua bạn là người **duy nhất** có việc thật land: review PR #16 với ba phát hiện đúng, một cái luồng soi đối kháng đã bỏ sót, rồi tự sửa cả ba. Một lưu ý quy trình: lần sau nêu trong review và để tác giả sửa — `15` §191 cấm push vào nhánh người khác, và approve commit của chính mình thì nửa sau là tự review."
+      note: "**Harness Toybox của bạn chạy được trên máy thật** — leader đã kiểm `toybox nc` 0.8.12 có sẵn. Hôm qua bạn là người **duy nhất** có việc thật land: review PR #16 với ba phát hiện đúng, một cái luồng soi đối kháng đã bỏ sót, rồi tự sửa cả ba. Một lưu ý quy trình: lần sau nêu trong review và để tác giả sửa — `15` §191 cấm push vào nhánh người khác, và approve commit của chính mình thì nửa sau là tự review."
     hunganh:
       now:
-        - "**Khai báo khả dụng** — một dòng"
-        - "**Review PR #13** — mở từ **trưa 11/09**, chưa một review nào, và leader là tác giả nên không tự approve được"
+        - "✅ ~~Review PR #13~~ — approve + merge"
+        - "✅ ~~Bộ canonical geometry fixture + công bố format~~ — PR #20, `50a5433`"
+        - "✅ ~~Review PR #15~~ — 3 phát hiện đúng, cả 3 đã sửa `2310330`"
       then:
-        - "Quyết bộ **canonical geometry fixture**: nhận / sửa / thay bản đề xuất ở PR #15"
-        - "**Công bố format** — mốc mở khoá Spike A và Spike F"
+        - "**Re-review PR #15** — bản sửa theo đúng `b14_grouping` của bạn"
+        - "Diễn giải `B14` trên **nhóm hợp đồng** — đòn bẩy chênh **~3,6 lần**, đọc cột `slice/mm` trước"
       later:
-        - "Phán định nghĩa nhóm `B14` trên **số đã sửa** — bản cũ tôi báo sai, đã rút lại"
-        - "PR nhỏ thêm dòng `Reviewer:` vào `PRACTICE_VU_HUNG_ANH.md`"
-      debts:
-        - "4 suất review đang treo: PR #13 *(33,7 giờ lúc chốt Day 3)*, #15, và #14/#17 khi Khánh xong"
-        - "`PRACTICE_VU_HUNG_ANH.md` trên `main` vẫn thiếu dòng `Reviewer:` — nợ từ Day 0"
-      note: "Điều kiện vào `GATE 3` của bạn — ≥3 mức decimation và harness picking chạy desktop — **đã đủ** từ PR #15. Không có gì chặn bạn ngoài việc bắt đầu."
+        - "Bạn giờ cũng là **reviewer Spike E** (`DR-006a` rev 2 — leader đo nên phải rút)"
+      debts: []
+      note: "Nợ từ Day 0 (`Reviewer:`) đã đóng bằng PR #21. Bạn đã trả **hết** nợ Day 3 trong một buổi chiều."
     tuananh:
       now:
-        - "**Quyết recovery** — trigger 2 và 3 đều đã nổ. Đọc `DAY03_EOD_REVIEW` §11 trước: **de-scope `COULD` không mua thêm ngày nào**"
-        - "Gán reviewer cho **PR #18**, rồi merge có review"
+        - "✅ ~~Quyết recovery~~ — **giữ kế hoạch**, không de-scope, hạn Khánh 14/09 23:59"
+        - "✅ ~~Gán reviewer PR #18~~ — Trung · ✅ review + merge PR #20, #21"
+        - "✅ ~~Cài gì lên A17~~ — ZeroTier đã cài · HTTP client = harness Toybox của Trung"
+        - "**Auth node `078280bae8`** trên my.zerotier.com — **đang chặn toàn bộ phần đo Spike E**"
       then:
-        - "Liên lạc trực tiếp Khánh và Hùng Anh — gọi, không nhắn"
-        - "Quyết cài gì lên Galaxy A17: ZeroTier là **bắt buộc**, HTTP client thì chọn đường"
+        - "Buổi đo Spike E khi rảnh — anh là operator duy nhất (`DR-006a` rev 2)"
+        - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin"
       later:
-        - "Nếu năng lực thật là một người rưỡi thì **lập lại kế hoạch 30 ngày trên con số đó**"
+        - "Nhắc Khánh — không làm hộ"
       debts: []
-      note: "Sáu PR đều do anh viết nên anh **không approve được cái nào** — GitHub cấm tự approve. Hàng đợi review chỉ mở được từ phía ba người kia."
+      note: "Hôm qua hàng đợi là **5 PR, 0 review**. Hôm nay: **3 merge, 4 review thật, 4 PR còn lại đều đã có người được giao**. Anh vẫn không tự approve được PR của mình — nhưng giờ anh review được PR của Hùng Anh, và đã làm."
 
 history:
   - day: 3

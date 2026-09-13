@@ -44,46 +44,65 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 **Không đủ ba thì ngày này tính là trượt** — cùng luật đã áp cho Day 1 và Day 3.
 
-### Đã xong — trong ngày
+### Đã xong — trong ngày *(chốt sơ bộ 17:00)*
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| **Nguyễn Gia Đức Trung** | **Stub chạy trên Mac mini → `GATE 2` MỞ.** Leader xác nhận từ peer của anh ấy 12:35: `/health` 200, `/mesh/0.obj` 200 đúng kích thước manifest | `day04/gate2_verification_20260913.md` |
-| **Nguyễn Gia Đức Trung** | Phát hiện packet ghi sai `--host` — stub nhận `--bind` | packet đã đính chính |
-| Project Control | `tools/remote_adb/` — chặn cổng 5037 ngoài overlay rồi mới mở adb cho người vận hành từ xa | commit hôm nay |
+| **Vũ Hùng Anh** | **Review PR #13 → `APPROVED`**, rồi merge — Spike A lên `main` | review 14:44 · `2f3a51d` |
+| **Vũ Hùng Anh** | **Bộ geometry fixture chính thức** — nhận bản đề xuất, 33 điểm + 13 tia, khối `b14_grouping` định nghĩa nhóm B14 hợp đồng | PR #20 · `50a5433` |
+| **Vũ Hùng Anh** | **Review PR #15 → `CHANGES_REQUESTED`, 3 phát hiện đúng** — một lỗi cú pháp làm harness không chạy được, lệch 32/33 điểm, nhóm B14 lệch hợp đồng | review + comment 14:44–14:49 |
+| **Vũ Hùng Anh** | Dòng `Reviewer:` — nợ từ Day 0 | PR #21 · `f11da28` |
+| **Nguyễn Gia Đức Trung** | **Stub chạy trên Mac mini → `GATE 2` MỞ.** Leader xác nhận 12:35 | `day04/gate2_verification_20260913.md` |
+| **Nguyễn Gia Đức Trung** | **Harness Toybox** cho điện thoại không có HTTP client · diagnostic AVD 8 endpoint · bản ghi tiến độ | nhánh `docs/day4-avd-diagnostic` *(chưa có PR)* |
+| **Nguyễn Gia Đức Trung** | Phát hiện lỗi PR #14: phán quyết resample bỏ qua `origin` và hướng trục · phát hiện packet ghi sai `--host` | sửa tại `a1744e8`, ghi công Trung |
+| Phạm Tuấn Anh | **Quyết recovery**: giữ kế hoạch, không de-scope, hạn cứng cho Khánh | `PROJECT_STATE` `recovery.decision_2026_09_13` |
+| Phạm Tuấn Anh | **`DR-006a` revision 2** — leader là operator duy nhất của Spike E; Trung không đụng điện thoại; reviewer Spike E → Hùng Anh | `a6ef70e` |
+| Phạm Tuấn Anh | Review + merge PR #20 và #21 · gán reviewer #18 (Trung), #14 (Trung), re-review #15 (Hùng Anh) | API review |
+| Phạm Tuấn Anh | Cài ZeroTier lên Galaxy A17 — node `078280bae8`, v1.16.0 | **chưa Auth** |
+| Project Control | Sửa 3 phát hiện PR #15 · sửa lỗi PR #14 + selftest chứng minh bắt được lỗi cũ | `2310330` · `a1744e8` |
+| Project Control | `tools/remote_adb/` *(giờ không dùng cho Spike E)* · `tools/host_hardening/disable_sshd.ps1` *(chờ anh chạy admin)* | commit hôm nay |
 
-**Điều kiện 2 — ĐẠT**, do đúng người sở hữu.
+### Điều kiện ngày — chốt sơ bộ 17:00
 
-**Trung báo xong nhưng chưa có bằng chứng truy được** — nên **chưa** ghi vào bảng trên:
-`DAY04_TRUNG_PROGRESS_20260913.md` · `AVD_DIAGNOSTIC_20260913.md` *(chỉ nằm trên máy cậu ấy)* ·
-phát hiện lỗi resampling PR #14 *(leader đã kiểm là **lỗi thật**, nhưng chưa đăng thành review)*.
-Push lên nhánh riêng / đăng review là vào bảng.
+| # | Điều kiện | Kết quả |
+|---|---|---|
+| 1 | Audit Spike D, do Khánh commit | ❌ **CHƯA** — 0 hoạt động. **Khung còn mở tới 23:59** |
+| 2 | Stub → cổng 8787 | ✅ **ĐẠT** 12:35, do đúng người sở hữu |
+| 3 | Review PR #13 + quyết fixture | ✅ **ĐẠT** — approve 14:44, fixture merge |
 
-### Còn tồn — mang sang từ Day 3
+**2/3.** Nếu 23:59 điều kiện 1 vẫn chưa đạt, **Day 4 trượt** — ngày trượt thứ ba. Buffer đã là 0, nên
+mỗi ngày trượt từ đây là **buffer âm**.
+
+### Quyết định trong ngày
+
+- **Recovery — giữ kế hoạch, KHÔNG de-scope.** Lý do: `DAY03_EOD_REVIEW` §11 — de-scope mua 0 ngày.
+  **Hạn cứng: audit Spike D trước 23:59 ngày 14/09.** Trễ → leader báo giảng viên hướng dẫn. Không ai
+  làm hộ.
+- **`DR-006a` revision 2** — leader đo toàn bộ Spike E khi rảnh, không phải hẹn giờ trùng với Trung.
+  Ràng buộc (c) được thay công khai; cái giá ghi trong `OPEN_DECISIONS.md`.
+- **SSH trên laptop leader** — tắt, vì máy không phục vụ gì ngoài code. Script sẵn, **chờ chạy admin**.
+
+### Còn tồn
 
 | Ai | Việc | Ai đóng được |
 |---|---|---|
-| **Bế Quốc Khánh** | Audit `A1`–`A20` · verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` · **đĩa trống + NRRD trên máy cậu ấy** · compute `C0-1` · review một PR thật *(cột `B` từ Day 0)* | **chỉ cậu ấy** |
-| **Vũ Hùng Anh** | Bộ geometry fixture + **công bố format** · review PR #13 và #15 · phán nhóm `B14` · dòng `Reviewer:` *(nợ từ Day 0)* | **chỉ cậu ấy** |
-| **Nguyễn Gia Đức Trung** | Chạy stub → mở `GATE 2` · **ZeroTier trên điện thoại** *(vẫn bắt buộc)* · `E1`–`E9` `E12` | **chỉ cậu ấy** |
-| **Phạm Tuấn Anh** | **Quyết recovery** · gán reviewer cho PR #18 · quyết cài gì lên Galaxy A17 · liên lạc trực tiếp Khánh và Hùng Anh | leader |
+| **Bế Quốc Khánh** | Audit `A1`–`A20` · verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` · đĩa trống + NRRD · compute `C0-1` · review PR #14 và #17 *(dụng cụ của chính cậu ấy)* | **chỉ cậu ấy — hạn 14/09 23:59** |
+| **Nguyễn Gia Đức Trung** | **Mở PR** cho `docs/day4-avd-diagnostic` · review PR #14 (bản đã sửa) và #18 | chỉ cậu ấy |
+| **Vũ Hùng Anh** | Re-review PR #15 · diễn giải B14 trên nhóm hợp đồng | chỉ cậu ấy |
+| **Phạm Tuấn Anh** | **Auth node `078280bae8`** trên my.zerotier.com — **chặn toàn bộ phần đo Spike E** · chạy `disable_sshd.ps1` bằng quyền admin · buổi đo Spike E khi rảnh | leader |
 
-> **`INC-001` §5 — dòng phải nhắc lại mỗi ngày cho tới khi hết nợ:** *"làm thay không xoá nghĩa vụ."*
-> Ngoại lệ cho phép Project Control làm thay **đã hết hiệu lực lúc 00:00 ngày 2026-09-12** và
-> **không tự gia hạn** (§4.5). Không một dòng nào trong bảng trên được chuyển sang người khác.
+> **`INC-001` §5:** *"làm thay không xoá nghĩa vụ."* Ngoại lệ đã hết hiệu lực 00:00 ngày 12/09.
 
-### Hàng đợi review — **5 PR mở, 0 review**
+### Hàng đợi review — **4 PR mở, cả 4 đã có người được giao**
 
-| PR | Nhánh | Tuổi lúc chốt Day 3 | Review |
+| PR | Nhánh | Tuổi | Review |
 |---|---|---|---|
-| #13 | `spike/SPIKE_A` | 33,7 giờ | **0** |
-| #14 | `tools/spike-d-validation` | 24,6 giờ | **0** |
-| #15 | `spike-b/harness-and-fixture-proposal` | 24,4 giờ | **0** |
-| #17 | `spike-c0/compute-probe` | 24,0 giờ | **0** |
-| #18 | `chore/ci-guardrails` | 23,9 giờ | **0** |
+| #14 | `tools/spike-d-validation` | 42 giờ | chờ Trung *(bản sửa)* + Khánh |
+| #15 | `spike-b/harness-and-fixture-proposal` | 42 giờ | Hùng Anh `CHANGES_REQUESTED` → đã sửa, chờ re-review |
+| #17 | `spike-c0/compute-probe` | 41 giờ | chờ Khánh |
+| #18 | `chore/ci-guardrails` | 41 giờ | chờ Trung |
 
-**Cả 5 đều do leader viết** → GitHub cấm tự approve → hàng đợi này **chỉ mở được từ phía ba người
-kia**. `15` §7 gọi đúng tình trạng này là *"a large queue of unreviewed 'done' work"*.
+Hôm qua: **5 PR mở, 0 review**. Hôm nay: **3 PR merge, 4 review thật, 0 PR không người review.**
 
 ---
 
