@@ -9,3 +9,4 @@
 - **Current spike:** Spike B — kiểm chứng 3D linked interaction, picking và hiệu năng trên thiết bị thật.
 - **Spikes I review, in priority order:** Spike D trước, sau đó Spike A, rồi Spike C0/C1 khi đến lượt.
 - **A conflict between two frozen spec files — where I escalate, and what I must open:** Tôi dừng implementation, báo Phạm Tuấn Anh/Project Control và mở Decision Request; không tự chọn một spec để làm theo.
+- **Reviewer:** Phạm Tuấn Anh
