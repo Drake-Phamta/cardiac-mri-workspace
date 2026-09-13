@@ -1,0 +1,197 @@
+name: guardrails
+
+# Automates the invariants Project Control has been checking by hand since Day 0.
+#
+#   NFR-MAINT-001 / -002 / -003  -- the Integration/CI block
+#
+# Four independent jobs on purpose: when something breaks, the job name says
+# WHICH invariant broke without anyone reading a log.
+#
+# No third-party actions beyond actions/checkout and actions/setup-python. A
+# repository governed by `12` section 6 should not grow a supply-chain surface
+# to check its own checksums.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+
+  # --------------------------------------------------------------------------
+  spec-integrity:
+    name: "frozen spec checksums (19/19)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: verify every checksum AND the count
+        run: |
+          cd docs/specs/v1.0
+          # sha256sum -c exits 0 on a manifest that lists nothing, and on one
+          # that silently lost a line. Both would be a pass that means nothing,
+          # so the count is asserted too. 19 is the frozen size of spec v1.0.
+          sha256sum -c SPEC_MANIFEST_SHA256.txt | tee /tmp/spec.txt
+          ok=$(grep -c ': OK$' /tmp/spec.txt || true)
+          echo "checksums OK: $ok"
+          if [ "$ok" -ne 19 ]; then
+            echo "::error::expected 19 OK lines, got $ok - the manifest itself may have changed"
+            exit 1
+          fi
+
+  # --------------------------------------------------------------------------
+  spec-frozen:
+    name: "no PR touches docs/specs/v1.0"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: diff against the base and refuse spec edits
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "push build - comparing against the previous commit"
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+            HEAD=$(git rev-parse HEAD)
+          fi
+          echo "base $BASE"
+          echo "head $HEAD"
+          changed=$(git diff --name-only "$BASE" "$HEAD" -- 'docs/specs/v1.0/**' || true)
+          if [ -n "$changed" ]; then
+            echo "::error::this change touches the frozen specification:"
+            echo "$changed"
+            echo ""
+            echo "Specification v1.0 is frozen. `00` section 13 sets the only route:"
+            echo "  Problem -> Decision Request -> impact analysis -> leader approval"
+            echo "  -> specification update -> implementation"
+            echo ""
+            echo "An amendment to an APPROVED decision goes in"
+            echo "management/readiness/OPEN_DECISIONS.md Part 2b instead - see DR-001a,"
+            echo "DR-003a. That route needs no spec edit and keeps checksums at 19/19."
+            exit 1
+          fi
+          echo "no spec file touched"
+
+  # --------------------------------------------------------------------------
+  state-parses:
+    name: "central state files parse"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --quiet pyyaml
+
+      - name: parse the state files and re-assert the invariants
+        run: |
+          python - <<'PY'
+          import sys, yaml, pathlib
+
+          problems = []
+
+          def load(p):
+              path = pathlib.Path(p)
+              if not path.exists():
+                  problems.append(f"{p} is missing")
+                  return None
+              try:
+                  return yaml.safe_load(path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  problems.append(f"{p} does not parse: {exc}")
+                  return None
+
+          spikes = load("management/spikes/SPIKE_PHASE_STATE.yaml")
+          project = load("management/PROJECT_STATE.yaml")
+
+          if spikes:
+              by_id = {s["id"]: s for s in spikes.get("spikes", [])}
+
+              # A spike cannot be ACTIVE without a real started_at. The state
+              # file's own header forbids backdating, and a null start with an
+              # ACTIVE status is how that rule gets quietly broken.
+              for sid, s in by_id.items():
+                  if s.get("status") == "ACTIVE" and not s.get("started_at"):
+                      problems.append(f"{sid} is ACTIVE with no started_at")
+                  if s.get("status") == "ACCEPTED" and not s.get("evidence_present"):
+                      problems.append(f"{sid} is ACCEPTED with evidence_present false")
+
+              # SPIKE_C1 may not leave BLOCKED while SPIKE_D is unaccepted.
+              c1, d = by_id.get("SPIKE_C1"), by_id.get("SPIKE_D")
+              if c1 and d and c1.get("status") != "BLOCKED" and d.get("status") != "ACCEPTED":
+                  problems.append(
+                      f"SPIKE_C1 is {c1.get('status')} while SPIKE_D is {d.get('status')} "
+                      "- C1 is blocked by D until D is ACCEPTED")
+
+          if problems:
+              for p in problems:
+                  print(f"::error::{p}")
+              sys.exit(1)
+          print("state files parse and their invariants hold")
+          PY
+
+  # --------------------------------------------------------------------------
+  no-forbidden-bytes:
+    name: "no dataset / checkpoint / secret bytes"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: scan files added by this change
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+            HEAD=$(git rev-parse HEAD)
+          fi
+          added=$(git diff --name-only --diff-filter=AM "$BASE" "$HEAD" || true)
+          fail=0
+
+          # `12` section 3 / `06` section 5: dataset bytes are never committed.
+          bad=$(echo "$added" | grep -Ei '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::dataset bytes must never be committed (12 section 3, 06 section 5):"
+            echo "$bad"; fail=1
+          fi
+
+          # `08` section 10: checkpoints are referenced by id/checksum, not committed.
+          bad=$(echo "$added" | grep -Ei '\.(pt|pth|ckpt|safetensors|onnx)$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::model weights are referenced by id/checksum, not committed:"
+            echo "$bad"; fail=1
+          fi
+
+          # NFR-SEC-004: secrets are never committed.
+          bad=$(echo "$added" | grep -Ei '(^|/)\.env($|\.)|\.(pem|key|p12|keystore|jks)$' \
+                | grep -v '\.env\.example$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::secrets must not be committed (NFR-SEC-004, 12 section 6):"
+            echo "$bad"; fail=1
+          fi
+
+          # A large file is usually a dataset or a build artifact that slipped
+          # past .gitignore. Spike evidence is text; 10 MB is generous for it.
+          for f in $added; do
+            [ -f "$f" ] || continue
+            size=$(stat -c%s "$f")
+            if [ "$size" -gt 10485760 ]; then
+              echo "::error::$f is $((size / 1048576)) MB. Large artifacts stay out of git;"
+              echo "          record a checksum and the command that regenerates them."
+              fail=1
+            fi
+          done
+
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "no forbidden bytes in this change"
