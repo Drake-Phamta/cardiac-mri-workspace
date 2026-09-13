@@ -1,5 +1,17 @@
 # DAY 5 — Phạm Tuấn Anh · 2026-09-14
 
+## 🔴 LÀM TRƯỚC — nợ tồn từ Day 4
+
+> **Quy tắc của leader (13/09):** nợ tồn phải trả **trước**; nhiệm vụ Day 5 bên dưới chỉ bắt đầu sau khi xong khối này.
+
+| # | Nợ | Từ | Vì sao phải làm trước |
+|---|---|---|---|
+| **1** | **Sau 07:00: nhắn "đóng ngày"** — chốt Day 4 theo những gì có trên `main`, chuyển bảng sang Day 5 | Day 4 | bảng và `DAY_LOG` đang dừng ở "chốt sơ bộ 17:00" |
+| 2 | Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin | Day 4 | cổng SSH vẫn mở cho mạng Wi-Fi, đăng nhập bằng mật khẩu |
+| 3 | Kiểm Khánh — không có audit lúc 07:00 thì Day 4 trượt; không có lúc 23:59 thì báo giảng viên | Day 4 | quyết định của anh |
+
+---
+
 > ## Trạng thái vào ngày: 🔴 RED
 >
 > Hôm qua hàng đợi review thông: 3 PR merge, 4 review thật, mọi PR còn lại đều có người được giao. Hai
@@ -76,7 +88,11 @@ xong app 3D — hỏi cậu ấy muốn tự đo từ xa (`tools/remote_adb/` đ
 
 ### ④ Khánh — nhắc, không làm hộ
 
-Hạn cứng **23:59 hôm nay**. Trễ → anh báo giảng viên hướng dẫn, như đã quyết.
+Điều kiện 1 của Day 4 được gia hạn tới **07:00 sáng nay** (quyết định của anh tối 13/09). Hạn cứng
+**23:59 hôm nay** không đổi. Trễ → anh báo giảng viên hướng dẫn, như đã quyết.
+
+**Sáng nay sau 07:00:** nhắn *"đóng ngày"* để chốt Day 4 theo những gì có trên `main` và chuyển bảng sang
+Day 5.
 
 ### ⑤ Spike A — phần của chính anh
 

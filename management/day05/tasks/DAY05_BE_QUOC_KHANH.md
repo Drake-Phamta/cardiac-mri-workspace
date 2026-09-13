@@ -1,6 +1,26 @@
 # DAY 5 — Bế Quốc Khánh · 2026-09-14
 
+## 🔴 LÀM TRƯỚC — nợ tồn, theo thứ tự
+
+> **Quy tắc của leader (13/09):** nợ tồn phải trả **trước**; nhiệm vụ Day 5 bên dưới chỉ bắt đầu sau khi xong khối này.
+
+| # | Nợ | Từ | Vì sao phải làm trước |
+|---|---|---|---|
+| **1** | **Audit Spike D → `dataset_manifest.json` + `DATASET_AUDIT.md` trên `main`, commit dưới tài khoản bạn** | Day 2 | **P0, đầu critical path.** Điều kiện 1 của Day 4 — gia hạn tới **07:00 sáng 14/09**; hạn cứng **23:59 14/09** |
+| 2 | Phán `A17` (`desktop.ini` trong `CASE_0097`) · verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` | Day 2 | nằm trong chính bản audit |
+| 3 | Xác nhận đĩa trống + thư viện NRRD **trên máy bạn** | Day 0 | ô `NOT_CHECKED` từ Day 0 |
+| 4 | Khai báo compute `C0-1` | Day 0 | `ml_compute.declared` là ô `UNVERIFIED` cuối cùng |
+| 5 | Review **PR #17** | Day 0 *(cột `B`)* | chưa từng review PR thật nào của đồng đội |
+
+Không có nhiệm vụ Day 5 mới nào cho bạn cho tới khi 5 dòng trên xong.
+
+---
+
 > ## ⛔ Hạn cứng: 23:59 hôm nay
+>
+> **Gia hạn cho Day 4 (leader quyết 13/09 tối):** nếu audit lên `main` **trước 07:00 sáng 14/09**, điều kiện
+> 1 của Day 4 được tính là **đạt**. Sau 07:00, Day 4 chốt theo đúng những gì có trên `main`. Hạn cứng
+> 23:59 ngày 14/09 bên dưới **không đổi**.
 >
 > Leader đã quyết định ngày 13/09, ghi trong `PROJECT_STATE.yaml` → `recovery.decision_2026_09_13`:
 >
@@ -26,7 +46,7 @@
 | Verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` | Day 2 |
 | Đĩa trống + thư viện NRRD **trên máy bạn** | Day 0 |
 | Khai báo compute `C0-1` | Day 0 |
-| Review một PR thật — **PR #14 và #17 đang chờ đúng bạn** | Day 0 |
+| Review một PR thật — **PR #17 đang chờ đúng bạn** *(PR #14 đã merge nhờ Trung review)* | Day 0 |
 
 ---
 
@@ -45,7 +65,7 @@ PR #14, nhánh `tools/spike-d-validation`, giờ ở `a1744e8`:
 ## Làm theo thứ tự — cả buổi mất khoảng 2–3 giờ
 
 ```bash
-git fetch origin && git switch tools/spike-d-validation
+git pull origin main          # dung cu Spike D da len main (PR #14, 726e09f)
 pip install -r tools/dataset_validate/requirements.txt
 
 # 1 - chung minh harness chay: phai bao A9 FAIL va A14 FAIL (ca hai la bay cai san)
@@ -80,7 +100,8 @@ python tools/dataset_validate/validate.py --root "C:/cardiac-data/lasc2018/extra
 
 ## Sau audit
 
-1. Review **PR #14** (dụng cụ của chính bạn — bạn là người dùng nó, bạn review tốt nhất) và **PR #17**.
+1. Review **PR #17** (dụng cụ probe cho Spike C0 của chính bạn). *PR #14 đã merge tối 13/09 sau review của
+   Trung — dụng cụ Spike D giờ nằm trên `main`.*
 2. Khai báo compute `C0-1` rồi mới chạy probe — `probe.py` bắt buộc `--operator`.
 
 ---

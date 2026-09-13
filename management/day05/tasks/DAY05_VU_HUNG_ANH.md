@@ -1,5 +1,17 @@
 # DAY 5 — Vũ Hùng Anh · 2026-09-14
 
+## 🔴 LÀM TRƯỚC — việc tồn từ tối 13/09
+
+> **Quy tắc của leader (13/09):** nợ tồn phải trả **trước**; nhiệm vụ Day 5 bên dưới chỉ bắt đầu sau khi xong khối này.
+
+| # | Việc | Từ | Vì sao phải làm trước |
+|---|---|---|---|
+| **1** | **Review PR #24** (PR của Trung, gồm harness Toybox đã sửa) — bạn là reviewer Spike E | tối 13/09, leader chuyển sang Day 5 | harness này là thứ đã tạo ra dữ liệu Spike E; nó phải được review trước khi Spike E đi tiếp |
+
+Bạn **không có nợ Day 4** — mọi việc Day 4 của bạn đã xong. Xong dòng trên rồi mới sang nhiệm vụ Day 5.
+
+---
+
 > ## Hôm qua bạn trả hết nợ Day 3 trong một buổi chiều
 >
 > | | |
@@ -15,15 +27,15 @@
 
 ## PHẦN I — `NOW`
 
-### ① Re-review PR #15
+### ① Review PR #24 — bạn là reviewer Spike E
 
-`2310330` sửa cả ba phát hiện, và bám đúng `b14_grouping` của bạn:
+~~Re-review PR #15~~ ✅ bạn approve và merge lúc 19:47 tối 13/09 (`ee9ef60`).
 
-- `by_group` giờ theo **nhãn hợp đồng** `interior` / `surface_tangent`
-- `steep` / `grazing` tách sang `by_incidence_diagnostic` và một bảng in riêng — không trộn
-- cả ba công cụ mặc định đọc **fixture chính thức của bạn**; `fixtures_proposal/` đánh dấu SUPERSEDED
-
-Chạy trên fixture của bạn: conformance **33/33**, mọi mức decimation trong ±1 slice cho cả hai nhóm.
+**PR #24** là PR của Trung: tiến độ Day 4, diagnostic AVD *(chỉ chẩn đoán)*, và harness Toybox — đã gồm
+**PR #22** của leader (thử lại khi kernel từ chối kết nối tại chỗ, kiểm body bị cắt, nhãn `wifi-overlay`).
+Vì có code của leader trong đó nên **leader không review được**; bạn review với vai reviewer Spike E
+(`DR-006a` rev 2). Harness này đã chạy lượt 1–4 trên `spike-e/evidence-20260913` — lượt 4 là 171/171 trên
+Wi-Fi + ZeroTier `DIRECT`.
 
 ---
 

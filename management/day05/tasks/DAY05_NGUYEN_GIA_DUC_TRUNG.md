@@ -1,5 +1,17 @@
 # DAY 5 — Nguyễn Gia Đức Trung · 2026-09-14
 
+## 🔴 LÀM TRƯỚC — nợ tồn từ Day 4
+
+> **Quy tắc của leader (13/09):** nợ tồn phải trả **trước**; nhiệm vụ Day 5 bên dưới chỉ bắt đầu sau khi xong khối này.
+
+| # | Nợ | Từ | Vì sao phải làm trước |
+|---|---|---|---|
+| **1** | **Review lại PR #23** — tôi đã sửa đúng điểm bạn yêu cầu (`2ed3c64`) | tối 13/09 | công cụ `aggregate.py` phải nhận `wifi-overlay` **trước khi** bạn tổng hợp lượt 4 — nếu không, số Wi-Fi bị hạ thành "diagnostic" |
+
+Xong dòng này rồi mới sang nhiệm vụ Day 5: **tổng hợp lượt 4** và viết `E10` `E11` `E13`.
+
+---
+
 > ## Hôm qua: điều kiện của bạn ĐẠT, và hai phát hiện của bạn là lỗi thật
 >
 > | | |
@@ -32,10 +44,14 @@ Spike E** → **Vũ Hùng Anh review Spike E.**
 
 ## PHẦN I — `NOW`
 
-1. **Mở PR cho nhánh `docs/day4-avd-diagnostic`.** Đã push từ hôm qua nhưng chưa có PR, nên harness
+> **Tối 13/09 bạn đã làm xong phần lớn mục này:** mở **PR #24**, approve #14 · #18 · #22 (cả ba đã merge
+> — #18 đưa CI lên `main`), và yêu cầu sửa #23 — đúng, đã sửa ở `2ed3c64`.
+
+0. **Review lại PR #23** — việc duy nhất còn lại ở phần review.
+1. ~~**Mở PR cho nhánh `docs/day4-avd-diagnostic`.**~~ ✅ PR #24. Đã push từ hôm qua nhưng chưa có PR, nên harness
    Toybox chưa ai review được — mà leader sắp dùng nó để đo.
-2. **Review bản sửa PR #14** (`a1744e8`) — bạn tìm ra lỗi, bạn là người review hợp nhất.
-3. **Review PR #18** (CI guardrails) — bạn được giao hôm qua.
+2. ~~**Review bản sửa PR #14**~~ ✅ approve 22:56, đã merge `726e09f`.
+3. ~~**Review PR #18**~~ ✅ approve 22:56, đã merge `3077d46` — CI guardrails chạy xanh trên `main`.
 
 ## PHẦN II — `THEN`
 

@@ -75,11 +75,14 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | # | Điều kiện | Kết quả |
 |---|---|---|
-| 1 | Audit Spike D, do Khánh commit | ❌ **CHƯA** — 0 hoạt động. **Khung còn mở tới 23:59** |
+| 1 | Audit Spike D, do Khánh commit | ❌ **CHƯA** — 0 hoạt động. **Gia hạn tới 07:00 ngày 14/09** (quyết định của leader, 23:xx) |
 | 2 | Stub → cổng 8787 | ✅ **ĐẠT** 12:35, do đúng người sở hữu |
 | 3 | Review PR #13 + quyết fixture | ✅ **ĐẠT** — approve 14:44, fixture merge |
 
-**2/3.** Nếu 23:59 điều kiện 1 vẫn chưa đạt, **Day 4 trượt** — ngày trượt thứ ba. Buffer đã là 0, nên
+**Quyết định của leader tối 13/09:** PR #23, #24, #17 chuyển thành nhiệm vụ Day 5 · khung điều kiện 1
+gia hạn tới **07:00 ngày 14/09**; hạn cứng 23:59 ngày 14/09 không đổi.
+
+**2/3.** Nếu 07:00 ngày 14/09 điều kiện 1 vẫn chưa đạt, **Day 4 trượt** — ngày trượt thứ ba. Buffer đã là 0, nên
 mỗi ngày trượt từ đây là **buffer âm**.
 
 ### Quyết định trong ngày

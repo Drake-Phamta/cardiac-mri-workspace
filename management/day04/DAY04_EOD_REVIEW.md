@@ -5,7 +5,7 @@
 | **Ngày** | 2026-09-13 (Day 4 / 30) |
 | **Ghi bởi** | Project Control (leader vận hành) |
 | **Artifact bắt buộc bởi** | `15` §15 — 18 trường, đối chiếu ở §10 |
-| **Trạng thái bản này** | ⚠ **CHỐT SƠ BỘ 17:00.** Điều kiện 1 còn mở tới 23:59 — xem §1 |
+| **Trạng thái bản này** | ⚠ **CHỐT SƠ BỘ 17:00.** Điều kiện 1 **gia hạn tới 07:00 ngày 14/09** theo quyết định của leader — xem §1 |
 | **Màu trạng thái** | 🔴 **RED** — xem §12 |
 | **Kết quả ngày** | **2/3 lúc 17:00** · điều kiện 1 quyết định |
 

@@ -67,7 +67,7 @@ today:
   conditions:
     - who: khanh
       what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, **do chính bạn commit**"
-      why: "P0, ngày thứ 5 — **chưa đạt lúc 17:00**, khung mở tới 23:59. Hạn cứng của leader: **23:59 ngày 14/09**"
+      why: "P0, ngày thứ 5 — **chưa đạt**. Leader gia hạn khung tới **07:00 ngày 14/09**; hạn cứng **23:59 ngày 14/09** không đổi"
     - who: trung
       what: "✅ Chạy stub trên Mac mini → cổng 8787 mở — **ĐẠT 12:35**"
       why: "`GATE 2` đã mở. Leader xác nhận từ peer của mình"
