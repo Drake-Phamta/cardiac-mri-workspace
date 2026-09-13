@@ -1,110 +1,50 @@
 # DAY 5 — Bế Quốc Khánh · 2026-09-14
 
+**Khai báo khả dụng trước 09:00** (`15` §5) — một dòng trong nhóm: hôm nay bạn có mấy tiếng.
+
+**Khối lượng hôm nay:** phần chính **~4,5 h** · thêm ~1,5 h nếu còn thời gian.
+
+> **Đêm qua bạn đã làm cho Day 4 đạt.** PR #25 là audit Spike D đầy đủ — 16 PASS, 0 FAIL, 154 case — và chế độ
+> `--archive` bạn tự viết để đọc thẳng file zip khi máy không đủ 14,2 GiB là một lời giải tốt. Review của bạn
+> ở PR #17 có 4 lỗi chặn thật; đó là review thật đầu tiên của bạn và đóng cột `B` nợ từ Day 0.
+> Hạn cứng 23:59 hôm nay: phần của bạn **đã nộp**; audit lên `main` khi Hùng Anh review xong.
+
 ## 🔴 LÀM TRƯỚC — nợ tồn, theo thứ tự
 
-> **Quy tắc của leader (13/09):** nợ tồn phải trả **trước**; nhiệm vụ Day 5 bên dưới chỉ bắt đầu sau khi xong khối này.
+> **Quy tắc của leader:** nợ làm **trước**; việc Day 5 chỉ bắt đầu sau khi xong khối này.
 
-| # | Nợ | Từ | Vì sao phải làm trước |
+| # | Nợ | Giờ | Xong khi |
 |---|---|---|---|
-| **1** | **Audit Spike D → `dataset_manifest.json` + `DATASET_AUDIT.md` trên `main`, commit dưới tài khoản bạn** | Day 2 | **P0, đầu critical path.** Điều kiện 1 của Day 4 — gia hạn tới **07:00 sáng 14/09**; hạn cứng **23:59 14/09** |
-| 2 | Phán `A17` (`desktop.ini` trong `CASE_0097`) · verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` | Day 2 | nằm trong chính bản audit |
-| 3 | Xác nhận đĩa trống + thư viện NRRD **trên máy bạn** | Day 0 | ô `NOT_CHECKED` từ Day 0 |
-| 4 | Khai báo compute `C0-1` | Day 0 | `ml_compute.declared` là ô `UNVERIFIED` cuối cùng |
-| 5 | Review **PR #17** | Day 0 *(cột `B`)* | chưa từng review PR thật nào của đồng đội |
+| **1** | Khai báo compute **`C0-1`**: GPU (RTX 4050), VRAM, **driver NVIDIA**, bản CUDA/PyTorch, RAM, OS — đọc từ máy, không ước lượng | ~15 ph | một comment hoặc commit ghi đủ các trường |
+| **2** | Sửa theo review PR #25 khi Hùng Anh gửi | ~1 h | Hùng Anh `APPROVE` |
 
-Không có nhiệm vụ Day 5 mới nào cho bạn cho tới khi 5 dòng trên xong.
+## Việc Day 5
 
----
+| # | Việc | Giờ | Chờ ai | Xong khi |
+|---|---|---|---|---|
+| **3** | **Script split theo bệnh nhân, seed `2024` — viết cho CẢ Path A và Path B**, để chạy được ngay khi leader quyết `DR-002` | ~2,5 h | không — viết trước khi có quyết định | script + selftest trên dữ liệu giả, PR |
+| 4 | Chạy split theo path đã quyết → manifest split, commit dưới tài khoản bạn | ~30 ph | leader (`DR-002`) | manifest split trên nhánh của bạn — đầu vào `GATE-SPLIT-01` |
+| 5 | Review bản sửa **PR #17** khi leader đẩy lên | ~30 ph | leader | `APPROVE` hoặc yêu cầu sửa tiếp |
 
-> ## ⛔ Hạn cứng: 23:59 hôm nay
->
-> **Gia hạn cho Day 4 (leader quyết 13/09 tối):** nếu audit lên `main` **trước 07:00 sáng 14/09**, điều kiện
-> 1 của Day 4 được tính là **đạt**. Sau 07:00, Day 4 chốt theo đúng những gì có trên `main`. Hạn cứng
-> 23:59 ngày 14/09 bên dưới **không đổi**.
->
-> Leader đã quyết định ngày 13/09, ghi trong `PROJECT_STATE.yaml` → `recovery.decision_2026_09_13`:
->
-> | | |
-> |---|---|
-> | **Việc** | `DATASET_AUDIT.md` + `dataset_manifest.json` trên `main`, **commit dưới tài khoản bạn** |
-> | **Hạn** | **23:59 ngày 14/09** |
-> | **Nếu trễ** | **Leader báo giảng viên hướng dẫn** |
-> | **Làm hộ** | **Không.** Chỉ thị của leader: bạn phải tự hoàn thành |
->
-> Đây là **ngày thứ 6** Spike D — P0, đầu critical path — chưa có một commit nào. Hôm qua Trung và Hùng
-> Anh đều quay lại với việc thật; **bạn là chỗ tắc duy nhất còn lại trên critical path.**
->
-> `INC-001` §5: *"làm thay không xoá nghĩa vụ."* Mọi dòng nợ bên dưới vẫn là của bạn.
+**Hai phương án split theo `06` §6:**
 
----
+| | Path A | Path B |
+|---|---|---|
+| Phát triển | 100 case `Training Set`, chia 80/20 | 100 case `Training Set`, chia 70/15/15 |
+| Test | **54 case `Testing Set`, khoá cứng** | 15 case lấy từ 100 |
 
-## Nợ còn mở — tất cả của bạn
+**Một câu phải trả lời trước khi chạy, và ghi vào PR:** split theo **bệnh nhân**, không theo case. Nếu gói cho
+biết một bệnh nhân có nhiều scan (ví dụ trước và sau can thiệp) thì mọi scan của bệnh nhân đó phải cùng một
+phía. Nếu gói **không** cho biết điều đó, ghi rõ là không xác định được — đó là câu hỏi nguồn gốc mà
+`GATE-SPLIT-01` đòi giải quyết, và leader phải biết trước khi đóng gate.
 
-| Nợ | Từ |
-|---|---|
-| Audit `A1`–`A20` → manifest + `DATASET_AUDIT.md` | Day 2 |
-| Verdict `A11` `A13` `A18` · mapping `A10` · provenance `A12` | Day 2 |
-| Đĩa trống + thư viện NRRD **trên máy bạn** | Day 0 |
-| Khai báo compute `C0-1` | Day 0 |
-| Review một PR thật — **PR #17 đang chờ đúng bạn** *(PR #14 đã merge nhờ Trung review)* | Day 0 |
+**Bất biến:** seed `2024`; split **không đổi** sau khi đã thấy kết quả test (`06` §6).
+
+## Nếu còn thời gian
+
+- Chạy probe **C0** trên RTX 4050 khi PR #17 đã merge *(~1,5 h)*. Nhớ `--operator` là bắt buộc.
 
 ---
 
-## Dụng cụ đã sẵn — và hôm qua còn tốt hơn
-
-PR #14, nhánh `tools/spike-d-validation`, giờ ở `a1744e8`:
-
-- Hôm qua **Trung tìm ra một lỗi thật**: phán quyết resample (`A8`) chỉ xét shape và spacing, bỏ qua
-  origin và hướng trục. **Đã sửa** — ghi công Trung.
-- Selftest giờ có thêm hai ca đặt bẫy đúng lỗi đó, và **đã kiểm là nó thất bại với code cũ.**
-- Chạy lại trên gói thật: **15 PASS · 1 FAIL · 1 NOT_RUN · 3 OWNER_VERDICT** — không đổi. Cả 154 mask
-  cùng origin và cùng ma trận hướng với MRI.
-
----
-
-## Làm theo thứ tự — cả buổi mất khoảng 2–3 giờ
-
-```bash
-git pull origin main          # dung cu Spike D da len main (PR #14, 726e09f)
-pip install -r tools/dataset_validate/requirements.txt
-
-# 1 - chung minh harness chay: phai bao A9 FAIL va A14 FAIL (ca hai la bay cai san)
-python tools/dataset_validate/validate.py --selftest
-
-# 2 - xem truoc tren goi that, khong ghi gi
-python tools/dataset_validate/validate.py --root "C:/cardiac-data/lasc2018/extracted" \
-    --acquisition C:/cardiac-data/lasc2018/acquisition.json
-
-# 3 - sinh artifact, commit duoi tai khoan BAN
-python tools/dataset_validate/validate.py --root "C:/cardiac-data/lasc2018/extracted" \
-    --acquisition C:/cardiac-data/lasc2018/acquisition.json \
-    --write-manifest --write-audit
-```
-
-> ⚠ Đĩa: gói giải nén là **14,2 GiB** (`15 235 201 656` byte), **không phải 6 GB** như packet Day 3 ghi sai.
-
-**Rồi bốn việc chỉ bạn phán được:**
-
-| Tiêu chí | Việc |
-|---|---|
-| `A17` | **Sẽ FAIL** vì `Training Set/CMPXO4J23G58J53Q98SZ/desktop.ini` *(nhãn scanner `CASE_0097`)*. Loại trừ như artefact hệ điều hành **có lý do**, hoặc giải trình. **Đừng xoá file rồi chạy lại** |
-| `A11` | `laendo.nrrd` có đúng là LA **cavity** không — phán đoán về ý nghĩa nhãn |
-| `A13` | Bằng chứng Path A vs Path B cho `DR-002`. Dữ kiện quan trọng: **Testing Set CÓ nhãn** (54/54) |
-| `A18` | Gói **không có file licence** → lưu lại trang điều khoản Cardiac Atlas riêng |
-| `A10` · `A12` | Mapping foreground (**mask là `0`/`255`**, không phải `0`/`1`) · provenance nhãn test |
-
-`A19` **chưa đạt được** dù sinh file — hai trường `06` §9.1 chờ `DR-002`. Cứ sinh; nó là đầu vào cho
-`DR-002`.
-
----
-
-## Sau audit
-
-1. Review **PR #17** (dụng cụ probe cho Spike C0 của chính bạn). *PR #14 đã merge tối 13/09 sau review của
-   Trung — dụng cụ Spike D giờ nằm trên `main`.*
-2. Khai báo compute `C0-1` rồi mới chạy probe — `probe.py` bắt buộc `--operator`.
-
----
-
-**Chi tiết lệnh và bối cảnh:** [`../../day04/tasks/DAY04_BE_QUOC_KHANH.md`](../../day04/tasks/DAY04_BE_QUOC_KHANH.md) ·
-`tools/dataset_validate/README.md` · [`../../day04/DAY04_EOD_REVIEW.md`](../../day04/DAY04_EOD_REVIEW.md)
+**Liên quan:** PR #25 · PR #17 · [`../../spikes/SPIKE_D_DATASET/TASK.md`](../../spikes/SPIKE_D_DATASET/TASK.md) ·
+`OPEN_DECISIONS.md` → `DR-002` · [`../../day04/DAY04_EOD_REVIEW.md`](../../day04/DAY04_EOD_REVIEW.md)

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 4 · 2026-09-13 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 4: Hai người vắng quay lại; Spike D có bằng chứng lần đầu">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top amber">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 4</span> — 13/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st ok">ĐẠT</span> &nbsp; Hai người vắng quay lại; Spike D có bằng chứng lần đầu</div>
+  <p class="sub">Đạt 3/3 — ngày đầu tiên đạt kể từ Day 1. Điều kiện 1 đạt theo quyết định của leader: Khánh mở PR #25 lúc 03:10 trong khung gia hạn 07:00, chỉ còn chờ review. Buffer giữ 0.</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Vũ Hùng Anh</strong> — <strong>Fixture hình học chính thức</strong> (33 điểm, 13 tia, <code>b14_grouping</code>) · approve + merge <strong>PR #13</strong> <code>50a5433 · 2f3a51d</code></li><li><strong>Vũ Hùng Anh</strong> — Review <strong>PR #15</strong>: 3 phát hiện đều là lỗi thật → review lại, merge · trả nợ Day 0 (#21) <code>ee9ef60 · f11da28</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — Stub trên Mac mini → <strong>GATE 2 mở</strong> · viết <strong>harness Toybox</strong> dùng cho cả 4 lượt đo <code>gate2_verification · PR #24</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — Review có nội dung: approve #14 #18 #22, yêu cầu sửa #23 (đúng) · mở <strong>PR #24</strong> <code>API review 22:56</code></li><li><strong>Bế Quốc Khánh</strong> — <strong>PR #25 — audit Spike D đầy đủ</strong>: 16 PASS · 0 FAIL · 154 case · <code>uint8</code> · nhãn test 54/54 <code>PR #25 · CI 4/4</code></li><li><strong>Bế Quốc Khánh</strong> — Review <strong>PR #17</strong>: 4 lỗi chặn thật — review thật đầu tiên, đóng cột <code>B</code> <code>API review 02:59</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>Buổi đo Spike E đầu tiên</strong>: lượt 4 trên Wi-Fi <code>DIRECT</code> <strong>171/171</strong>, volume trọn 3/3 <code>7c05c8c</code></li><li><strong>Phạm Tuấn Anh</strong> — <code>DR-006a</code> rev 2 · <strong><code>DR-003b</code></strong> · quyết recovery · merge #14 #18 #20 #21 #22 · <strong>CI lên <code>main</code></strong> <code>a6ef70e · e697885 · 3077d46</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Bế Quốc Khánh</strong> — Audit không lên <code>main</code> trong ngày — đạt nhờ gia hạn tới 07:00 và PR đang chờ review</li><li><strong>Cả nhóm</strong> — Spike E qua 5G: <code>RELAY</code>, tải file lớn không nổi — dẫn tới <code>DR-003b</code></li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li><strong>Recovery: giữ kế hoạch, không de-scope</strong> · hạn cứng audit Spike D 23:59 ngày 14/09</li><li><strong><code>DR-006a</code> rev 2</strong>: leader là operator duy nhất của Spike E; reviewer Spike E → Hùng Anh</li><li><strong><code>DR-003b</code></strong>: đường nghiệm thu Spike E đổi từ 4G/5G sang <strong>Wi-Fi + ZeroTier</strong></li><li>Gia hạn điều kiện 1 tới 07:00 · tính đạt khi PR đã mở, chỉ còn chờ review</li></ul></section>
+<section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong>Kernel Android lưu đường đi theo từng CPU</strong>; đường VPN chung ô với multicast → cpu4/cpu6 từ chối 5/5 kết nối TCP</li><li><strong>ZeroTier trên Android không tự hồi phục khi đổi mạng</strong> — phải tắt/bật lại trong app</li><li><strong>Volume thật là <code>uint8</code></strong>, 576×576×88 (69) và 640×640×88 (85) — payload Spike E và probe C0 đang giả định sai</li><li><strong>Nhãn Testing Set có 54/54</strong> — <code>DR-002</code> quyết được</li></ul></section>
+
+<footer>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
+     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
+     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
+  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
+     <a href="../archive/index.html">lịch sử ngày</a></p>
+  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc 14/09/2026 06:08
+     bằng <code>tools/board/build_board.py</code>.</p>
+  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
+     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
+     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
+     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+</footer>
+</div>
+</body>
+</html>

@@ -225,7 +225,13 @@ spikes:
         exposes a blocking defect preventing GATE-DATA-01 acceptance, escalate RA-H01 to BLOCKER and open
         the dataset contingency process.
       forbidden: "silent substitution of another dataset"
-    next_action: "Owner begins acquisition; on starting, set status ACTIVE and record started_at. Follow TASK.md day-one ordering so the DR-001 trigger is evaluable on time."
+    next_action: >
+      2026-09-14 03:10: the owner submitted the full audit in PR #25 - dataset_manifest.json,
+      DATASET_AUDIT.md and RESULT.md; 16 PASS, 0 FAIL, 1 NOT_RUN, 3 owner verdicts. Next: review by
+      Vu Hung Anh (critical path), fixes if any, merge. evidence_present stays false until RESULT.md
+      is on main. Findings that change other spikes: volumes are uint8, 69 cases 576x576x88 and 85
+      cases 640x640x88 (A6); Testing Set carries labels in 54/54 (A12) - input to DR-002.
+    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh"}
 
   - id: SPIKE_A
     name: "2D scientific viewer / brush interaction"
@@ -676,6 +682,10 @@ device_measurement_queue:
       2026-09-13 17:51, one repeat, E12 RELAY. 57 samples: 30 ok, 27 client-side
       "Network is unreachable" on TCP connect, interleaved; ping was 30/30. Raw on branch
       spike-e/evidence-20260913 (bd5e931). Interpretation is the owner's.
+    payload_mismatch_2026_09_14: >
+      Spike D (PR #25) measured the real cohort as uint8, 576x576x88 and 640x640x88. The stub payloads
+      assume int16 576x576x88 (58 MB volume); the real volumes are about 29 MB and 36 MB. Runs 3-4 still
+      characterise the path; byte-dependent results must be re-measured on regenerated payloads.
     first_acceptance_path_runs: >
       2026-09-13 19:09 and 19:12 on the DR-003b path (Wi-Fi uplink, E12 DIRECT): run 3 one repeat
       57/57 ok, run 4 the documented three repeats 171/171 ok, whole volume complete every time,

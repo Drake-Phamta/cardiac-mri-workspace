@@ -21,14 +21,16 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 4                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-09-13"              # Day 3 closed SLIPPED; see day03/DAY03_EOD_REVIEW.md
+day: 5                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
+day_date: "2026-09-14"              # Day 4 closed MET 3/3; see day04/DAY04_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
-day_4_condition_1_window_extended_to: "2026-09-14T07:00:00+07:00"   # leader decision, night of 2026-09-13
-day_4_conditions_as_of_17_00:       # provisional; condition 1 open until the extended window closes
-  "1_khanh_spike_d_audit": NOT_MET
-  "2_trung_stub_gate_2": MET        # 12:35, management/day04/gate2_verification_20260913.md
-  "3_hung_anh_pr13_and_fixture": MET  # PR #13 approved 14:44 and merged; fixture PR #20 merged 50a5433
+day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
+day_4_verdict_basis: >
+  Condition 1 (Spike D audit on main, committed by Khanh) counted as MET by leader decision: Khanh
+  committed both artifacts and opened PR #25 at 2026-09-14T03:10, inside the window the leader had
+  extended to 07:00; the only missing step is Vu Hung Anh's review. Two exceptions to the letter of
+  the day rule, both leader decisions and both recorded: the window extension, and "on main" read as
+  "PR open, review pending". Buffer stays 0.
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md
@@ -88,6 +90,7 @@ recovery:
       what: "DATASET_AUDIT.md + dataset_manifest.json on main, committed by him"
       by: "EOD Day 5 - 2026-09-14T23:59+07:00"
       if_missed: "the leader escalates to the supervising lecturer"
+      status_2026_09_14: "deliverable submitted - PR #25 at 03:10; lands on main after review"
     ownership_transferred: false
     no_one_does_it_for_him: "Leader instruction 2026-09-13: Khanh must complete his own work."
 cutover_record: management/day01/DAY01_CUTOVER_RECORD.md
@@ -286,7 +289,11 @@ forecast:
   target_day: 30                    # Day 30 = 2026-10-09, FIXED by leader decision - does not slip
   current_completion_day: null      # still no accepted work to extrapolate from
   confidence: null
-  status_colour: RED                # was AMBER; see day03/DAY03_EOD_REVIEW.md section 12              # 15 section 16; reasoning in day02/DAY02_EOD_REVIEW.md section 12
+  status_colour: RED                # was AMBER; see day03/DAY03_EOD_REVIEW.md section 12
+  status_colour_note_2026_09_14: >
+    Kept RED at the Day-4 close: buffer is 0 and nothing is ACCEPTED. The critical path moved for the
+    first time (Spike D evidence in PR #25); the colour should be reconsidered once Spike D is
+    ACCEPTED and GATE-DATA-01 closes.              # 15 section 16; reasoning in day02/DAY02_EOD_REVIEW.md section 12
   remaining_buffer_days: 0          # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
   buffer_note: >
     Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
@@ -308,9 +315,10 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-13 23:10
-  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, review_requested: [qkhanhbe], reviews_submitted: 0}
-  - {number: 23, branch: spike-e/wifi-overlay-path, author: Drake-Phamta, review_requested: [TrungNGD195], note: "CHANGES_REQUESTED by Trung, fixed in 2ed3c64, re-review requested"}
+open_prs:                           # as of 2026-09-14 06:00
+  - {number: 25, branch: spike/SPIKE_D, author: qkhanhbe, review_requested: [scalliontor], note: "Spike D audit - CRITICAL PATH, review first"}
+  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, reviews: "qkhanhbe CHANGES_REQUESTED - 4 blocking findings"}
+  - {number: 23, branch: spike-e/wifi-overlay-path, author: Drake-Phamta, review_requested: [TrungNGD195], note: "fixed in 2ed3c64 after Trung's CHANGES_REQUESTED"}
   - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, review_requested: [scalliontor], note: "includes PR #22 (c913050)"}
 merged_2026_09_13:
   - {number: 14, commit: 726e09f, approved_by: TrungNGD195, note: "Spike D validator incl. the resampling fix Trung found"}

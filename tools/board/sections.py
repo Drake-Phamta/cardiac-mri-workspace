@@ -108,13 +108,16 @@ def section_progress(g):
         f'{"ok" if str(v).upper() == "CLOSED" else "no"}">{e(v)}</span></td></tr>'
         for k, v in gates.items())
 
-    steps = [("SPIKE_D", "gói ✅ · dụng cụ ✅ · audit ⬜", "now"),
-             ("GATE-DATA-01", "chờ audit", ""),
-             ("GATE-SPLIT-01", "DR-002 chưa quyết", ""),
-             ("SPIKE_C1", "BLOCKED bởi D", ""),
-             ("training", "6 run + 1 ablation", ""),
-             ("metrics", "RQ-A · RQ-B", ""),
-             ("Day 30", "09/10/2026", "")]
+    # The per-step wording changes day to day, so it lives in days.yaml (today.pipeline).
+    # The fallback is the Day-3/4 wording, kept only so an older days.yaml still builds.
+    steps = [tuple(s) for s in (g["d"]["today"].get("pipeline") or [])] or [
+        ("SPIKE_D", "gói ✅ · dụng cụ ✅ · audit ⬜", "now"),
+        ("GATE-DATA-01", "chờ audit", ""),
+        ("GATE-SPLIT-01", "DR-002 chưa quyết", ""),
+        ("SPIKE_C1", "BLOCKED bởi D", ""),
+        ("training", "6 run + 1 ablation", ""),
+        ("metrics", "RQ-A · RQ-B", ""),
+        ("Day 30", "09/10/2026", "")]
     pipe = "".join(
         f'<div class="step {st}"><span class="s1">{e(a)}</span>'
         f'<span class="s2">{e(b)}</span></div>' for a, b, st in steps)
@@ -174,16 +177,20 @@ def section_people(g):
 
         note = (f'<div class="note go" style="margin:0 0 9px">{md(tk["note"])}</div>'
                 if tk.get("note") else "")
+        # Leader rule (2026-09-14): each day's load is sized - a core of ~4-5 h plus optional stretch.
+        load = (f'<div class="role"><b>Khối lượng:</b> {md(tk["load"])}</div>'
+                if tk.get("load") else "")
         rv = ", ".join(x.replace("SPIKE_", "") for x in m.get("reviews", [])) or "—"
         link = f'{d["repo"]}/blob/main/{m["packet"]}'
+        # Leader rule (2026-09-13): carried-over debts are done FIRST, so they render first.
         cards.append(f"""<div class="card">
       <div class="who"><span class="nm"><a href="{e(link)}">{e(m['name'])}</a></span>{''.join(tags)}</div>
       <div class="role">{e(m['role'])} · review: <code>{e(rv)}</code></div>
-      {note}{prog}
+      {load}{note}{prog}
+      {blk('debt', '🔴 LÀM TRƯỚC — NỢ TỒN', tk.get('debts'), True)}
       {blk('now', 'NGAY BÂY GIỜ', tk.get('now'), True)}
       {blk('then', 'SAU ĐÓ', tk.get('then'), True)}
       {blk('later', 'NẾU CÒN THỜI GIAN', tk.get('later'))}
-      {blk('debt', 'NỢ CÒN MỞ', tk.get('debts'))}
       <p style="margin:0;font-size:13px"><a href="{e(link)}">→ mở gói nhiệm vụ đầy đủ</a></p>
     </div>""")
     return f"""<section>

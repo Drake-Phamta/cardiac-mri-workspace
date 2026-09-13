@@ -22,25 +22,25 @@ members:
     role: "ML training / evaluation"
     owns: [SPIKE_D, SPIKE_C0, SPIKE_C1]
     reviews: []            # filled from the state file
-    packet: management/day04/tasks/DAY04_BE_QUOC_KHANH.md
+    packet: management/day05/tasks/DAY05_BE_QUOC_KHANH.md
   trung:
     name: "Nguyễn Gia Đức Trung"
     github: TrungNGD195
     role: "Backend / persistence / ingestion"
     owns: [SPIKE_E]
-    packet: management/day04/tasks/DAY04_NGUYEN_GIA_DUC_TRUNG.md
+    packet: management/day05/tasks/DAY05_NGUYEN_GIA_DUC_TRUNG.md
   hunganh:
     name: "Vũ Hùng Anh"
     github: scalliontor
     role: "Geometry / 3D"
     owns: [SPIKE_B, SPIKE_F, "tests/fixtures/geometry"]
-    packet: management/day04/tasks/DAY04_VU_HUNG_ANH.md
+    packet: management/day05/tasks/DAY05_VU_HUNG_ANH.md
   tuananh:
     name: "Phạm Tuấn Anh"
     github: Drake-Phamta
     role: "Team Leader · Project Control · Integration/CI"
     owns: [SPIKE_A]
-    packet: management/day04/tasks/DAY04_PHAM_TUAN_ANH.md
+    packet: management/day05/tasks/DAY05_PHAM_TUAN_ANH.md
 
 # Acceptance criteria per spike, from each TASK.md. `measured` counts criteria
 # with real data behind them; it is NOT the same as accepted, and the board
@@ -58,78 +58,125 @@ criteria:
 # A9 measured twice, A12 partial (one candidate only).
 
 today:
-  day: 4
-  date: "2026-09-13"
-  headline: >
-    Hai trên ba thành viên vắng đã quay lại với việc thật — GATE 2 mở, fixture chính thức lên
-    main, 3 PR merge, 4 review thật. Critical path (Spike D) vẫn đứng yên sang ngày thứ năm;
-    hạn cứng cho audit là 23:59 ngày 14/09. Chốt sơ bộ 17:00.
+  day: 5
+  date: "2026-09-14"
+  headline: "Day 4 đạt 3/3. Spike D có bằng chứng đầy đủ ở PR #25 — hôm nay critical path có thể nhích ba nấc: review #25 → DR-002 → split theo bệnh nhân. Mỗi người: nợ trước, việc mới sau, phần chính ~4–5 giờ."
+  pipeline:
+    - ["SPIKE_D", "bằng chứng ✅ · review ⬜ (PR #25)", "now"]
+    - ["GATE-DATA-01", "đóng khi #25 merge", ""]
+    - ["GATE-SPLIT-01", "DR-002 quyết hôm nay", ""]
+    - ["SPIKE_C1", "BLOCKED bởi D", ""]
+    - ["training", "6 run + 1 ablation", ""]
+    - ["metrics", "RQ-A · RQ-B", ""]
+    - ["Day 30", "09/10/2026", ""]
   conditions:
-    - who: khanh
-      what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, **do chính bạn commit**"
-      why: "P0, ngày thứ 5 — **chưa đạt**. Leader gia hạn khung tới **07:00 ngày 14/09**; hạn cứng **23:59 ngày 14/09** không đổi"
-    - who: trung
-      what: "✅ Chạy stub trên Mac mini → cổng 8787 mở — **ĐẠT 12:35**"
-      why: "`GATE 2` đã mở. Leader xác nhận từ peer của mình"
     - who: hunganh
-      what: "✅ Review PR #13 và quyết bộ geometry fixture — **ĐẠT**: approve 14:44, fixture merge `50a5433`"
-      why: "Spike A lên `main`; Spike A và Spike F đã có hợp đồng hình học để bám"
+      what: "**PR #25** được review, Khánh sửa nếu cần, **merge**"
+      why: "Mở `GATE-DATA-01` — critical path"
+    - who: tuananh
+      what: "**`DR-002` quyết** (Path A / B), ghi vào `OPEN_DECISIONS.md`"
+      why: "Mở `GATE-SPLIT-01`"
+    - who: trung
+      what: "Báo cáo tổng hợp lượt 4 + **payload `uint8` 576/640** → PR"
+      why: "Lượt đo chuẩn cho Spike E"
   tasks:
     khanh:
-      now:
-        - "**Khai báo khả dụng** — một dòng. *\"Hôm nay tôi bận cả ngày\"* là câu trả lời hợp lệ"
-        - "Xác nhận **đĩa trống + thư viện NRRD trên máy bạn** — cần **14,2 GiB**, không phải 6 GB như packet cũ ghi sai"
-        - "`validate.py --selftest` — phải báo `A14 FAIL` trên volume oblique cài sẵn"
-      then:
-        - "Chạy validator trên gói thật → **manifest + `DATASET_AUDIT.md`**, commit dưới tài khoản bạn"
-        - "Viết 4 verdict script từ chối trả lời: `A11` `A13` `A18`, cộng mapping `A10` và provenance `A12`"
-        - "**`A17` sẽ báo FAIL** vì có `desktop.ini` trong `CASE_0097` — quyết loại trừ hay giải trình"
-      later:
-        - "Review PR #14 và #17 — dụng cụ dựng cho chính bạn"
-        - "Khai báo compute `C0-1`, rồi mới chạy probe"
+      load: "chính **~4,5 h** · thêm ~1,5 h"
       debts:
-        - "Cột `B` sign-off — chưa review PR thật nào của đồng đội, từ Day 0"
-        - "`ml_compute.declared` vẫn `UNVERIFIED` — ô cuối cùng còn lại trong state file"
-      note: "Tối qua đã sửa 4 lỗi sẽ chặn bạn ngay lệnh đầu: `--root` sai đường dẫn, UTF-8 BOM trong `acquisition.json`, một file licence không tồn tại, và `A17` không quét sidecar. Đã kiểm bằng cách chạy thật trên cả 154 case."
+        - "Khai báo compute **`C0-1`**: GPU, driver, CUDA, RAM *(~15 ph)*"
+        - "Sửa theo review PR #25 khi Hùng Anh gửi *(~1 h)*"
+      now:
+        - "**Script split theo bệnh nhân, seed `2024`**, viết cho **cả Path A và Path B**, để chạy ngay khi `DR-002` quyết *(~2,5 h)*"
+      then:
+        - "Chạy split theo path đã quyết → manifest split, commit *(~30 ph)*"
+        - "Review bản sửa **PR #17** khi leader đẩy lên *(~30 ph)*"
+      later:
+        - "Chạy probe **C0** trên RTX 4050 khi #17 merge *(~1,5 h)*"
+      note: "Đêm qua bạn nộp audit đầy đủ và một review có 4 lỗi thật — Day 4 **đạt** nhờ việc đó. Hôm nay bạn là người mở `GATE-SPLIT-01`."
     trung:
+      load: "chính **~4,5 h** · thêm ~1,5 h"
+      debts:
+        - "Review lại **PR #23** — `aggregate.py` phải nhận `wifi-overlay` trước khi bạn tổng hợp *(~20 ph)*"
       now:
-        - "✅ ~~Chạy stub trên Mac mini~~ — **`GATE 2` MỞ**, leader xác nhận 12:35"
-        - "✅ ~~Lỗi resampling PR #14~~ — đã sửa `a1744e8`, **ghi công bạn**. Giờ **review bản sửa**"
-        - "**Mở PR** cho nhánh `docs/day4-avd-diagnostic` — đã push nhưng chưa ai review được"
+        - "**`aggregate.py` trên lượt 4** → báo cáo tổng hợp (ràng buộc c của `DR-006a` rev 2) *(~1,5 h)*"
+        - "**Tái sinh payload** theo `uint8` và 2 kích thước thật 576/640 × 88 (manifest A6, PR #25) → PR *(~2 h)*"
       then:
-        - "Review **PR #18** (CI) — bạn là reviewer được giao"
-        - "**Không cần đụng điện thoại nữa** — `DR-006a` rev 2: leader đo, bạn thiết kế và diễn giải"
+        - "Kế hoạch đo lại cho leader: số lượt, giờ trong ngày để thấy dao động (`E8`) *(~30 ph)*"
       later:
-        - "Sau buổi đo của leader: `aggregate.py` trên raw log · viết `E10` `E11` `E13`"
-      debts: []
-      note: "**Harness Toybox của bạn chạy được trên máy thật** — leader đã kiểm `toybox nc` 0.8.12 có sẵn. Hôm qua bạn là người **duy nhất** có việc thật land: review PR #16 với ba phát hiện đúng, một cái luồng soi đối kháng đã bỏ sót, rồi tự sửa cả ba. Một lưu ý quy trình: lần sau nêu trong review và để tác giả sửa — `15` §191 cấm push vào nhánh người khác, và approve commit của chính mình thì nửa sau là tự review."
+        - "Nháp `RESULT.md` Spike E — khung `E10` `E11` `E13` *(~1,5 h)*"
+      note: "Payload hiện giả định `int16` 58 MB; volume thật ~29 và ~36 MB. Lượt 4 vẫn đúng cho đường truyền, số theo byte phải đo lại trên payload mới."
     hunganh:
+      load: "chính **~5 h** · thêm ~1 h"
+      debts:
+        - "**Review PR #25** — audit Spike D, **critical path**, làm đầu tiên *(~2 h)*"
+        - "Review **PR #24** — harness Toybox của Trung *(~1 h)*"
       now:
-        - "✅ ~~Review PR #13~~ — approve + merge"
-        - "✅ ~~Bộ canonical geometry fixture + công bố format~~ — PR #20, `50a5433`"
-        - "✅ ~~Review PR #15~~ — 3 phát hiện đúng, cả 3 đã sửa `2310330`"
-      then:
-        - "**Re-review PR #15** — bản sửa theo đúng `b14_grouping` của bạn"
-        - "Diễn giải `B14` trên **nhóm hợp đồng** — đòn bẩy chênh **~3,6 lần**, đọc cột `slice/mm` trước"
+        - "**Bắt đầu app 3D tối thiểu (`B1`)**: render mesh mức 0 trên Android/emulator, chọn thư viện *(~2 h)*"
+      then: []
       later:
-        - "Bạn giờ cũng là **reviewer Spike E** (`DR-006a` rev 2 — leader đo nên phải rút)"
-      debts: []
-      note: "Nợ từ Day 0 (`Reviewer:`) đã đóng bằng PR #21. Bạn đã trả **hết** nợ Day 3 trong một buổi chiều."
+        - "Diễn giải `B14` trên nhóm hợp đồng — đọc cột `slice/mm` trước *(~1 h)*"
+      note: "Review #25 của bạn là thứ mở `GATE-DATA-01` và `DR-002` cho cả nhóm hôm nay — **làm trước #24**."
     tuananh:
+      load: "Project Control ~2 h · quyết định + spike ~3 h"
+      debts:
+        - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin *(~5 ph)*"
       now:
-        - "✅ ~~Quyết recovery~~ — **giữ kế hoạch**, không de-scope, hạn Khánh 14/09 23:59"
-        - "✅ ~~Gán reviewer PR #18~~ — Trung · ✅ review + merge PR #20, #21"
-        - "✅ ~~Cài gì lên A17~~ — ZeroTier đã cài · HTTP client = harness Toybox của Trung"
-        - "✅ ~~Auth điện thoại~~ — network mới `b103a835d292ddb3`, cả 3 máy đã duyệt · lượt 1–2 qua 5G: RELAY · **DR-003b → Wi-Fi: lượt 4 đủ thiết kế 171/171 ok, DIRECT**"
+        - "**Quyết `DR-002`** ngay khi #25 merge — bản phân tích hai phương án có trong packet *(~30 ph)*"
+        - "**Sửa PR #17** theo 4 lỗi Khánh nêu *(~1,5 h, cùng Claude)*"
+        - "Merge theo thứ tự **#25 → #23 → #24** khi đủ review"
       then:
-        - "Buổi đo Spike E khi rảnh — anh là operator duy nhất (`DR-006a` rev 2)"
-        - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin"
+        - "Quyết đường thiết bị cho Spike B *(~15 ph)*"
+        - "Đo lại Spike E khi payload mới merge *(~30 ph)*"
       later:
-        - "Nhắc Khánh — không làm hộ"
-      debts: []
-      note: "Hôm qua hàng đợi là **5 PR, 0 review**. Hôm nay: **3 merge, 4 review thật, 4 PR còn lại đều đã có người được giao**. Anh vẫn không tự approve được PR của mình — nhưng giờ anh review được PR của Hùng Anh, và đã làm."
+        - "Spike A chặng S4 — zoom/pan *(~2 h)*"
+      note: "Hôm nay critical path có thể nhích **ba nấc**: #25 merge → `DR-002` → split. Hai nấc sau nằm ở anh và Khánh."
 
 history:
+  - day: 4
+    date: "2026-09-13"
+    status: good
+    title: "Hai người vắng quay lại; Spike D có bằng chứng lần đầu"
+    summary: "Đạt 3/3 — ngày đầu tiên đạt kể từ Day 1. Điều kiện 1 đạt theo quyết định của leader: Khánh mở PR #25 lúc 03:10 trong khung gia hạn 07:00, chỉ còn chờ review. Buffer giữ 0."
+    done:
+      - who: hunganh
+        what: "**Fixture hình học chính thức** (33 điểm, 13 tia, `b14_grouping`) · approve + merge **PR #13**"
+        ref: "50a5433 · 2f3a51d"
+      - who: hunganh
+        what: "Review **PR #15**: 3 phát hiện đều là lỗi thật → review lại, merge · trả nợ Day 0 (#21)"
+        ref: "ee9ef60 · f11da28"
+      - who: trung
+        what: "Stub trên Mac mini → **GATE 2 mở** · viết **harness Toybox** dùng cho cả 4 lượt đo"
+        ref: "gate2_verification · PR #24"
+      - who: trung
+        what: "Review có nội dung: approve #14 #18 #22, yêu cầu sửa #23 (đúng) · mở **PR #24**"
+        ref: "API review 22:56"
+      - who: khanh
+        what: "**PR #25 — audit Spike D đầy đủ**: 16 PASS · 0 FAIL · 154 case · `uint8` · nhãn test 54/54"
+        ref: "PR #25 · CI 4/4"
+      - who: khanh
+        what: "Review **PR #17**: 4 lỗi chặn thật — review thật đầu tiên, đóng cột `B`"
+        ref: "API review 02:59"
+      - who: tuananh
+        what: "**Buổi đo Spike E đầu tiên**: lượt 4 trên Wi-Fi `DIRECT` **171/171**, volume trọn 3/3"
+        ref: "7c05c8c"
+      - who: tuananh
+        what: "`DR-006a` rev 2 · **`DR-003b`** · quyết recovery · merge #14 #18 #20 #21 #22 · **CI lên `main`**"
+        ref: "a6ef70e · e697885 · 3077d46"
+    missed:
+      - who: khanh
+        what: "Audit không lên `main` trong ngày — đạt nhờ gia hạn tới 07:00 và PR đang chờ review"
+      - who: null
+        what: "Spike E qua 5G: `RELAY`, tải file lớn không nổi — dẫn tới `DR-003b`"
+    decisions:
+      - "**Recovery: giữ kế hoạch, không de-scope** · hạn cứng audit Spike D 23:59 ngày 14/09"
+      - "**`DR-006a` rev 2**: leader là operator duy nhất của Spike E; reviewer Spike E → Hùng Anh"
+      - "**`DR-003b`**: đường nghiệm thu Spike E đổi từ 4G/5G sang **Wi-Fi + ZeroTier**"
+      - "Gia hạn điều kiện 1 tới 07:00 · tính đạt khi PR đã mở, chỉ còn chờ review"
+    findings:
+      - "**Kernel Android lưu đường đi theo từng CPU**; đường VPN chung ô với multicast → cpu4/cpu6 từ chối 5/5 kết nối TCP"
+      - "**ZeroTier trên Android không tự hồi phục khi đổi mạng** — phải tắt/bật lại trong app"
+      - "**Volume thật là `uint8`**, 576×576×88 (69) và 640×640×88 (85) — payload Spike E và probe C0 đang giả định sai"
+      - "**Nhãn Testing Set có 54/54** — `DR-002` quyết được"
   - day: 3
     date: "2026-09-12"
     status: missed

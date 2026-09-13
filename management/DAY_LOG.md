@@ -13,9 +13,9 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 4 — 2026-09-13** |
-| Ngày còn lại tới Day 30 | **27** |
-| **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt)* |
+| Ngày hôm nay | **Day 5 — 2026-09-14** |
+| Ngày còn lại tới Day 30 | **26** |
+| **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt; Day 4 đạt)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
@@ -26,7 +26,42 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 4 — 2026-09-13 · `ĐANG MỞ`
+## DAY 5 — 2026-09-14 · `ĐANG MỞ`
+
+**Gói nhiệm vụ từng người:** [`day05/tasks/`](day05/tasks/)
+
+> **Hôm nay critical path có thể nhích ba nấc:** PR #25 merge → `DR-002` → split theo bệnh nhân. Mỗi packet mở
+> bằng khối **🔴 LÀM TRƯỚC** (quy tắc của leader 13/09) và ghi **giờ ước tính** — phần chính ~4–5 h mỗi người,
+> phần thêm tách riêng (quy tắc của leader 14/09).
+
+### Điều kiện để Day 5 KHÔNG trượt
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Vũ Hùng Anh** → Bế Quốc Khánh | **PR #25** được review, sửa nếu cần, **merge** | `GATE-DATA-01` |
+| 2 | **Phạm Tuấn Anh** | **`DR-002` quyết** (Path A / B), ghi vào `OPEN_DECISIONS.md` | `GATE-SPLIT-01` |
+| 3 | **Nguyễn Gia Đức Trung** | Báo cáo tổng hợp lượt 4 + **payload `uint8` 576/640** → PR | lượt đo chuẩn cho Spike E |
+
+**Không đủ ba thì ngày này tính là trượt.**
+
+### Khối lượng và thứ tự từng người
+
+| Người | 🔴 Làm trước | Việc chính Day 5 | Giờ chính · thêm |
+|---|---|---|---|
+| **Vũ Hùng Anh** | ① review **#25** *(critical path)* · ② review #24 | ③ app 3D tối thiểu `B1` | ~5 h · ~1 h |
+| **Bế Quốc Khánh** | ① khai báo `C0-1` · ② sửa theo review #25 | ③ script split **cả Path A và B**, seed 2024 · ④ chạy split khi `DR-002` xong · ⑤ review bản sửa #17 | ~4,5 h · ~1,5 h |
+| **Nguyễn Gia Đức Trung** | ① review lại **#23** | ② tổng hợp lượt 4 · ③ payload `uint8` 576/640 · ④ kế hoạch đo lại | ~4,5 h · ~1,5 h |
+| **Phạm Tuấn Anh** | ① `disable_sshd.ps1` | ② **quyết `DR-002`** · ③ sửa **#17** · ④ merge #25 → #23 → #24 · ⑤ đường thiết bị Spike B · ⑥ đo lại Spike E | PC ~2 h + ~3 h · ~2 h |
+
+### Đã xong — trong ngày
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| *(chưa có)* | | |
+
+---
+
+## DAY 4 — 2026-09-13 · **`ĐẠT` 3/3** — hai người vắng quay lại, Spike D có bằng chứng lần đầu
 
 **Gói nhiệm vụ từng người:** [`day04/tasks/`](day04/tasks/)
 
@@ -62,6 +97,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Project Control | Sửa 3 phát hiện PR #15 · sửa lỗi PR #14 + selftest chứng minh bắt được lỗi cũ | `2310330` · `a1744e8` |
 | Project Control | `tools/remote_adb/` *(giờ không dùng cho Spike E)* · `tools/host_hardening/disable_sshd.ps1` *(chờ anh chạy admin)* | commit hôm nay |
 | Phạm Tuấn Anh | **Chuyển overlay sang network mới `b103a835d292ddb3`** (tài khoản của anh) — không ai tìm được tài khoản quản trị mạng cũ. Laptop `10.64.193.145` · Mac mini `10.64.193.115` · **điện thoại `10.64.193.140` — lần đầu tới được Mac mini** | ZeroTier Central 17:42 |
+| **Bế Quốc Khánh** | **03:10 ngày 14/09 — PR #25: audit Spike D đầy đủ** (16 PASS · 0 FAIL · 1 NOT_RUN · 3 owner verdicts, 154 case, `uint8`, nhãn test 54/54) · tự thêm chế độ `--archive` đọc thẳng zip vì máy không đủ 14,2 GiB | PR #25 · CI 4/4 |
+| **Bế Quốc Khánh** | **02:59 — review PR #17 → `CHANGES_REQUESTED`, 4 lỗi chặn thật** — review thật đầu tiên, đóng cột `B` | API review |
 | **Nguyễn Gia Đức Trung** | **22:56 — review 4 PR có nội dung**: approve #14, #18, #22 (tự chạy thử harness trên AVD, 10/10) · **yêu cầu sửa #23** (docstring còn ghi cellular — đúng) · **mở PR #24** cho nhánh của mình | API review |
 | **Vũ Hùng Anh** | Review lại PR #15 → `APPROVED` 19:47, merge | `ee9ef60` |
 | Project Control | Merge #14 (`726e09f`), **#18 — CI guardrails lên `main`** (`3077d46`), #22 vào nhánh của Trung (`c913050`) · sửa #23 theo review của Trung (`2ed3c64`) · gán Hùng Anh review #24 | — |
@@ -71,19 +108,20 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Phạm Tuấn Anh *(operator)* | Lượt đo 2 (cellular, harness đã sửa) — **dừng** sau 2,2 MB/12 phút của file 58 MB qua `RELAY` | `spike-e/evidence-20260913` · `0d4ad1e` |
 | Phạm Tuấn Anh *(operator)* | **Lượt đo Spike E đầu tiên trên đường thật** — 5G Viettel → ZeroTier **RELAY** → Mac mini. 57 mẫu: 30 ok, **27 lỗi `Network is unreachable` phía điện thoại**, xen kẽ. Dữ liệu thô, chưa tổng hợp | nhánh `spike-e/evidence-20260913` · `bd5e931` |
 
-### Điều kiện ngày — chốt sơ bộ 17:00
+### Điều kiện ngày — chốt sáng 14/09
 
 | # | Điều kiện | Kết quả |
 |---|---|---|
-| 1 | Audit Spike D, do Khánh commit | ❌ **CHƯA** — 0 hoạt động. **Gia hạn tới 07:00 ngày 14/09** (quyết định của leader, 23:xx) |
+| 1 | Audit Spike D, do Khánh commit | ✅ **ĐẠT theo quyết định của leader** — PR #25 mở **03:10 ngày 14/09**, trong khung gia hạn 07:00; chỉ còn chờ review của Hùng Anh |
 | 2 | Stub → cổng 8787 | ✅ **ĐẠT** 12:35, do đúng người sở hữu |
 | 3 | Review PR #13 + quyết fixture | ✅ **ĐẠT** — approve 14:44, fixture merge |
 
 **Quyết định của leader tối 13/09:** PR #23, #24, #17 chuyển thành nhiệm vụ Day 5 · khung điều kiện 1
 gia hạn tới **07:00 ngày 14/09**; hạn cứng 23:59 ngày 14/09 không đổi.
 
-**2/3.** Nếu 07:00 ngày 14/09 điều kiện 1 vẫn chưa đạt, **Day 4 trượt** — ngày trượt thứ ba. Buffer đã là 0, nên
-mỗi ngày trượt từ đây là **buffer âm**.
+**3/3 — Day 4 ĐẠT**, ngày đầu tiên đạt kể từ Day 1. Buffer **giữ 0**. Hai ngoại lệ so với chữ của luật, cả hai
+là quyết định của leader và được ghi rõ: khung điều kiện 1 gia hạn tới 07:00, và "trên `main`" được tính
+khi PR đã mở vì chỉ còn thiếu review. Review PR #25 là **việc làm trước số 1** của Day 5.
 
 ### Quyết định trong ngày
 

@@ -5,22 +5,24 @@
 | **Ngày** | 2026-09-13 (Day 4 / 30) |
 | **Ghi bởi** | Project Control (leader vận hành) |
 | **Artifact bắt buộc bởi** | `15` §15 — 18 trường, đối chiếu ở §10 |
-| **Trạng thái bản này** | ⚠ **CHỐT SƠ BỘ 17:00.** Điều kiện 1 **gia hạn tới 07:00 ngày 14/09** theo quyết định của leader — xem §1 |
+| **Trạng thái bản này** | ✅ **CHỐT 14/09 sáng.** Thân bản là ảnh chụp 17:00, giữ nguyên; khi chốt chỉ §1 và §10 được cập nhật, còn việc sau 17:00 nằm ở **§14** |
 | **Màu trạng thái** | 🔴 **RED** — xem §12 |
-| **Kết quả ngày** | **2/3 lúc 17:00** · điều kiện 1 quyết định |
+| **Kết quả ngày** | ✅ **ĐẠT 3/3** — điều kiện 1 đạt **theo quyết định của leader**, xem §1 |
 
 ---
 
 ## 1 · Kết quả ngày
 
-| # | Điều kiện | Ai | Kết quả lúc 17:00 |
+| # | Điều kiện | Ai | Kết quả khi chốt |
 |---|---|---|---|
-| 1 | `DATASET_AUDIT.md` + `dataset_manifest.json` trên `main`, **do Khánh commit** | Bế Quốc Khánh | ❌ **CHƯA** — 0 commit, 0 review, 0 PR. **Khung mở tới 23:59** |
+| 1 | `DATASET_AUDIT.md` + `dataset_manifest.json` trên `main`, **do Khánh commit** | Bế Quốc Khánh | ✅ **ĐẠT — theo quyết định của leader.** Lúc 17:00: 0 hoạt động. Khung gia hạn tới 07:00 ngày 14/09; Khánh commit cả hai file và mở **PR #25 lúc 03:10**. Chưa lên `main` vì **còn chờ review** của Vũ Hùng Anh — leader quyết tính là đạt vì phần còn thiếu không thuộc về Khánh |
 | 2 | Stub → cổng 8787 → `GATE 2` | Nguyễn Gia Đức Trung | ✅ **ĐẠT** 12:35 |
 | 3 | Review PR #13 + quyết bộ geometry fixture | Vũ Hùng Anh | ✅ **ĐẠT** — approve 14:44, fixture merge `50a5433` |
 
-**Luật đã viết từ đầu ngày:** không đủ ba thì ngày trượt. Nếu 23:59 điều kiện 1 vẫn chưa đạt, Day 4 là
-**ngày trượt thứ ba** và buffer đi **từ 0 xuống âm**.
+**Luật đã viết từ đầu ngày:** không đủ ba thì ngày trượt. **Day 4 ĐẠT 3/3** — ngày đầu tiên đạt kể từ
+Day 1. Hai quyết định của leader làm nên kết quả đó, và được ghi lại vì chúng là ngoại lệ so với chữ của
+luật: khung điều kiện 1 **gia hạn tới 07:00** (tối 13/09), và điều kiện "trên `main`" **được tính khi PR đã
+mở** vì chỉ còn thiếu review (sáng 14/09). Buffer **giữ 0**, không xuống âm.
 
 **Khác biệt thật so với Day 3:** hai trên ba thành viên vắng mặt đã quay lại với việc thật. Chỗ tắc
 duy nhất còn lại trên critical path là một người.
@@ -147,18 +149,18 @@ còn lại chờ Khánh.
 | **Accepted** | **0** |
 | Needs-fix | 2 — PR #15 (3 phát hiện, đã sửa) · PR #14 (1 phát hiện, đã sửa) |
 | Blocked | 4 blocker, §6 |
-| **Critical-path status** | **ĐỨNG YÊN** — `SPIKE_D` ngày thứ 5 |
+| **Critical-path status** | **NHÍCH LẦN ĐẦU** *(cập nhật khi chốt)* — bằng chứng Spike D đầy đủ ở PR #25 (03:10 ngày 14/09), chờ review. Lúc 17:00: đứng yên ngày thứ 5 |
 | Integration status | `main` xanh; `ci_configured: false` *(PR #18 đã có reviewer)*; `branch_protection: false` |
 | Tests passed/failed | selftest Spike D đạt *(và **thất bại đúng chỗ** khi chạy với code cũ)*; conformance Spike B 33/33 |
 | Requirement completion | **0 / 39** `ACCEPTED` |
 | **New/changed risks** | **mới:** bằng chứng Spike E trên thiết bị chỉ một operator (`DR-006a` rev 2) · Hùng Anh gánh 5 suất review + 2 spike · **đóng:** harness Spike B không compile · resample bỏ qua origin |
 | **Technical debt introduced** | không. **Đã trả:** dòng `Reviewer:` (PR #21). Còn: không branch protection, CI chưa lên `main` |
-| Actual vs baseline | **chậm 4 ngày** so với baseline *(nếu Day 4 trượt)* |
+| Actual vs baseline | **chậm 3 ngày** so với baseline — Day 4 đạt, không cộng thêm |
 | **Proposed corrective actions** | §11 |
 | Next-day priorities | §13 |
 | **MUST / SHOULD accepted** | **MUST 0/28 · SHOULD 0/6 · COULD 0/5** |
-| **Critical-path blocker age** | **5 ngày** *(`SPIKE_D` từ 2026-09-09)* |
-| **Remaining buffer** | **0** → **−1** nếu Day 4 trượt |
+| **Critical-path blocker age** | **5 ngày** *(`SPIKE_D` từ 2026-09-09)* — bằng chứng nộp 14/09 03:10, blocker chuyển thành **chờ review** |
+| **Remaining buffer** | **0** — giữ nguyên, Day 4 đạt |
 | Open PR age | 4 PR, cũ nhất **42 giờ**, **tất cả đã có reviewer** |
 | Canonical smoke | `NOT_RUN` |
 
@@ -206,5 +208,26 @@ Giữ RED. Buffer = 0 và critical path đứng yên. Tín hiệu tốt hôm nay
 
 ---
 
-**Bản này là chốt sơ bộ lúc 17:00.** Khi ngày đóng, chỉ §1, §10 *(buffer, actual vs baseline)* và
-`DAY_LOG` được cập nhật theo điều kiện 1 — không trường nào khác.
+**Chốt sáng 14/09.** Như đã hứa lúc 17:00, chỉ §1 và §10 được sửa khi chốt (thêm dòng critical path và
+tuổi blocker, vì cả hai đổi nghĩa theo điều kiện 1). Mọi việc sau 17:00 nằm ở §14 bên dưới, không viết lại
+vào thân bản. §13 được thay bằng kế hoạch Day 5 — `management/day05/tasks/`.
+
+---
+
+## 14 · Sau 17:00 — việc land tới lúc chốt
+
+| Giờ | Ai | Việc | Bằng chứng |
+|---|---|---|---|
+| 17:42 | Phạm Tuấn Anh | Overlay chuyển sang network `b103a835d292ddb3` (tài khoản leader); điện thoại tới được Mac mini lần đầu | `c3361b7` |
+| 17:51 · 18:18 | Phạm Tuấn Anh *(operator)* | Lượt đo 1–2 qua 5G Viettel: `RELAY`; 27/57 lỗi kết nối tại chỗ; volume 58 MB không tải nổi | `spike-e/evidence-20260913` `bd5e931` `0d4ad1e` |
+| 18:15–19:00 | Project Control | Gốc lỗi `Network is unreachable`: bộ đệm đường đi theo từng CPU bị ghi đè bởi multicast (cpu4/cpu6 0/5) · harness thử lại + đếm · kiểm body bị cắt | PR #22 |
+| 18:57 | Phạm Tuấn Anh | **`DR-003b`** — đường nghiệm thu Spike E đổi sang Wi-Fi + ZeroTier | `e697885` |
+| 19:09 · 19:12 | Phạm Tuấn Anh *(operator)* | **Lượt 3–4 trên Wi-Fi, `DIRECT`: 57/57 và 171/171**, volume trọn cả 3 lần; client và server khớp từng đường dẫn | `7c05c8c` |
+| 19:47 | Vũ Hùng Anh | Review lại PR #15 → `APPROVED`, merge | `ee9ef60` |
+| 22:56 | Nguyễn Gia Đức Trung | Review có nội dung: approve #14 #18 #22, **yêu cầu sửa #23**; mở **PR #24** | API review |
+| 23:10 | Project Control | Merge #14 · **#18 — CI lên `main`** · #22; sửa #23 theo review của Trung | `726e09f` `3077d46` `c913050` `2ed3c64` |
+| 02:59 | **Bế Quốc Khánh** | **Review PR #17 → `CHANGES_REQUESTED`, 4 lỗi chặn thật** — review thật đầu tiên, đóng cột `B` nợ từ Day 0 | API review |
+| 03:10 | **Bế Quốc Khánh** | **PR #25 — audit Spike D đầy đủ**: 16 PASS · 0 FAIL · 1 NOT_RUN · 3 owner verdicts; 154 case; `uint8`; 576×576×88 (69) + 640×640×88 (85); nhãn test 54/54; thêm chế độ `--archive` đọc thẳng zip vì máy không đủ 14,2 GiB | PR #25 · CI 4/4 xanh |
+
+**Hai phát hiện của Khánh đổi Day 5:** nhãn test có 54/54 → `DR-002` quyết được; volume là `uint8` → payload
+Spike E và probe C0 đang giả định sai kiểu dữ liệu.

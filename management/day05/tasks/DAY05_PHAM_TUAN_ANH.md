@@ -1,106 +1,63 @@
 # DAY 5 — Phạm Tuấn Anh · 2026-09-14
 
-## 🔴 LÀM TRƯỚC — nợ tồn từ Day 4
+**Khối lượng hôm nay:** Project Control **~2 h** · quyết định + spike **~3 h** · thêm ~2 h nếu còn thời gian.
 
-> **Quy tắc của leader (13/09):** nợ tồn phải trả **trước**; nhiệm vụ Day 5 bên dưới chỉ bắt đầu sau khi xong khối này.
+> **Day 4 đạt 3/3** — lần đầu kể từ Day 1. Critical path nhích lần đầu: Spike D có bằng chứng đầy đủ ở PR #25.
+> Hôm nay nó có thể nhích **ba nấc**: #25 merge → **anh quyết `DR-002`** → Khánh chạy split.
 
-| # | Nợ | Từ | Vì sao phải làm trước |
-|---|---|---|---|
-| **1** | **Sau 07:00: nhắn "đóng ngày"** — chốt Day 4 theo những gì có trên `main`, chuyển bảng sang Day 5 | Day 4 | bảng và `DAY_LOG` đang dừng ở "chốt sơ bộ 17:00" |
-| 2 | Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin | Day 4 | cổng SSH vẫn mở cho mạng Wi-Fi, đăng nhập bằng mật khẩu |
-| 3 | Kiểm Khánh — không có audit lúc 07:00 thì Day 4 trượt; không có lúc 23:59 thì báo giảng viên | Day 4 | quyết định của anh |
+## 🔴 LÀM TRƯỚC — nợ tồn
 
----
+> **Quy tắc của anh:** nợ làm **trước**; việc Day 5 chỉ bắt đầu sau khi xong khối này.
 
-> ## Trạng thái vào ngày: 🔴 RED
->
-> Hôm qua hàng đợi review thông: 3 PR merge, 4 review thật, mọi PR còn lại đều có người được giao. Hai
-> trên ba thành viên vắng đã quay lại. **Critical path vẫn đứng yên — một người.**
+| # | Nợ | Giờ |
+|---|---|---|
+| **1** | Chạy `tools/host_hardening/disable_sshd.ps1` trong PowerShell **Run as administrator** — cổng SSH vẫn mở cho mạng Wi-Fi | ~5 ph |
 
----
+## Việc Day 5
 
-## PHẦN I — `NOW` · hai việc chỉ anh làm, cộng lại chưa tới 10 phút
+| # | Việc | Giờ | Chờ ai | Xong khi |
+|---|---|---|---|---|
+| **2** | **Quyết `DR-002`** ngay khi #25 merge — phân tích ở dưới | ~30 ph | Hùng Anh (#25) | quyết định ghi vào `OPEN_DECISIONS.md` |
+| **3** | **Sửa PR #17** theo 4 lỗi chặn Khánh nêu *(Claude viết, anh duyệt)* | ~1,5 h | không | Khánh `APPROVE` |
+| 4 | Merge theo thứ tự **#25 → #23 → #24** khi mỗi PR đủ review | Project Control | reviewer | CI xanh sau mỗi merge |
+| 5 | Quyết đường thiết bị cho Spike B: Hùng Anh tự đo qua `tools/remote_adb/` hay anh bấm theo thiết kế của cậu ấy | ~15 ph | không | một dòng quyết định |
+| 6 | Đo lại Spike E khi PR payload của Trung merge — theo kế hoạch đo của Trung | ~30 ph | Trung | dữ liệu thô lên `spike-e/evidence-*` |
 
-### ① ~~Auth node điện thoại~~ — ✅ XONG 13/09 17:42, trên network MỚI
+## Nếu còn thời gian
 
-Không ai tìm được tài khoản quản trị network cũ `3b19b3a71652c5f0`, nên anh đã tạo **`b103a835d292ddb3`**
-trong tài khoản của anh và duyệt cả ba máy. **Địa chỉ mới:** laptop `10.64.193.145` · Mac mini
-**`10.64.193.115`** · điện thoại `10.64.193.140`. Stub thứ hai chạy ở `10.64.193.115:8787`.
-
-**Lượt đo 1 (17:51) đã chạy** — E12 `RELAY`, 30/57 ok, 27 lỗi kết nối **phía điện thoại** dù ping 30/30.
-Dữ liệu thô: nhánh `spike-e/evidence-20260913`. Trước lượt đo đủ 3 lần, **chờ Trung chẩn đoán lỗi đó** —
-đo tiếp khi đường chưa ổn chỉ tốn data mà không ra số dùng được.
-
-### ② Tắt SSH server trên laptop
-
-```powershell
-# PowerShell -> Run as administrator
-powershell -ExecutionPolicy Bypass -File D:\cardiac-mri-workspace\tools\host_hardening\disable_sshd.ps1
-```
-
-Không ảnh hưởng việc anh SSH **ra** Mac mini. Đảo ngược: `Set-Service sshd -StartupType Automatic;
-Start-Service sshd`.
+- Spike A chặng S4 — zoom/pan, bám fixture hình học chính thức *(~2 h)*.
 
 ---
 
-## PHẦN II — `THEN` · buổi đo Spike E — anh là operator duy nhất
+## Phân tích `DR-002` — anh quyết, Project Control không quyết
 
-> **✅ Đã đo tối 13/09:** lượt 3 (1 lượt) và **lượt 4 (đủ 3 lượt, 171/171 ok)** trên Wi-Fi + ZeroTier
-> `DIRECT`. Chỉ đo thêm khi Trung yêu cầu — ví dụ để thấy dao động theo giờ trong ngày (`E8`).
+`06` §6: **Path A** (80/20 phát triển trên 100 case + **54 case test khoá cứng**) nếu nhãn test **có và đã xác
+minh nguồn gốc**; ngược lại **Path B** (70/15/15 trên 100 case).
 
-**Chờ kế hoạch đo của Trung** (packet của cậu ấy, mục 4) — anh chạy **đúng** thiết kế của chủ sở hữu.
-Nếu cậu ấy chưa kịp viết, tham số trong `ANDROID_TOYBOX_HARNESS.md` của cậu ấy là mặc định.
-
-**Trước khi đo — dừng nếu một mục sai:**
-
-| Kiểm | Phải thấy |
+| Bằng chứng từ PR #25 | |
 |---|---|
-| Wi-Fi điện thoại | **BẬT** — `DR-003b`: đường nghiệm thu giờ là **Wi-Fi + ZeroTier** |
-| Mạng Wi-Fi | **không phải** mạng LAN của Mac mini (`10.170.75.x`) — nếu là, lượt đo chỉ là `lan-diagnostic` |
-| Điểm phát Wi-Fi (hotspot) | **TẮT** |
-| `E12` | đọc trong bước kiểm — trên Wi-Fi nhà anh dự kiến **`DIRECT`**; nếu `RELAY` thì ghi đúng như vậy |
-| Interface ZeroTier trên điện thoại | `tun0 10.64.193.140` |
-| Route tới `10.64.193.115` | đi **`tun0`**, không phải `rmnet` / `wlan0` |
-| Ping Mac mini từ điện thoại | có phản hồi |
-| Stub | `/health` 200 |
+| `A12` | nhãn có ở **54/54** case `Testing Set` trong gói chính thức đã tải |
+| `A11` | Khánh xác nhận `laendo.nrrd` là LA cavity, dẫn mô tả chính thức của Cardiac Atlas |
+| `A10` · hình học | mask `{0, 255}`; hình học MRI–mask khớp cả 154 case |
+| Giới hạn Khánh tự ghi | đó là **bằng chứng mức file của gói phát hành** — **không** khẳng định nhãn có trong lúc chấm thi gốc. Nguồn chính thức mâu thuẫn ở điểm này (`DR-002`, [UNRESOLVED]) |
 
-**Trong buổi đo:**
+| | **Path A** | **Path B** |
+|---|---|---|
+| Tập test | **54 case** — lớn, chính là phân vùng phát hành | **15 case** |
+| Độ tin của so sánh RQ-A | cao hơn nhiều | thấp — 15 case |
+| Rủi ro | nếu sau này có người nói nhãn test "không chính thức", phải bảo vệ bằng mô tả phát hành hiện tại + bằng chứng file | an toàn về nguồn gốc, nhưng **bỏ phí 54 case có nhãn** |
+| Lùi được không | `06` §6: **không đổi sau khi thấy kết quả test** — quyết một lần | như trên |
 
-1. `E12` — đọc dòng `078280bae8` trong `zerotier-cli peers` trên Mac mini, ghi **nguyên văn**. **Không
-   cần sudo**: tài khoản `quant` có sẵn token, tôi đọc được qua SSH.
-2. Harness Toybox (PR #22), ghim SHA commit, `--operator "Pham Tuan Anh"` `--owner "Nguyen Gia Duc
-   Trung"` **`--path wifi-overlay`** `--connection` theo bước 1.
-3. Điều kiện mạng đọc từ máy (loại mạng, tín hiệu), giờ bắt đầu/kết thúc.
-4. `adb pull` → raw log + provenance lên nhánh `spike-e/evidence-<ngày>`. **Không tổng hợp, không
-   `RESULT.md`, không kết luận** — đó là của Trung.
+**Nhận định của Project Control:** bằng chứng nghiêng về **Path A** — nhãn có thật, đúng mục tiêu, do nguồn chính
+thức phát hành, và tập test lớn gấp 3,6 lần. Điều kiện đi kèm nếu anh chọn A: bản quyết định ghi rõ **cơ sở
+nguồn gốc** (mô tả phát hành hiện tại của Cardiac Atlas + bằng chứng file của PR #25 + trang chính sách đã lưu ở
+`A18`), và ghi rằng câu hỏi "nhãn có trong lúc chấm thi gốc hay không" **không** ảnh hưởng tính hợp lệ của tập
+test cho dự án này.
 
-Tôi chạy các lệnh trên máy anh theo lệnh anh; evidence ghi *operator: Phạm Tuấn Anh (thực thi qua Claude
-Code trên máy operator)*.
-
----
-
-## PHẦN III — `LATER`
-
-### ③ Quyết đường thiết bị cho Spike B
-
-`DR-006a` rev 2 chỉ phủ Spike E. `B10` `B11` `F7` cũng cần điện thoại. Quyết trước khi Hùng Anh dựng
-xong app 3D — hỏi cậu ấy muốn tự đo từ xa (`tools/remote_adb/` đã dựng và kiểm) hay để anh bấm.
-
-### ④ Khánh — nhắc, không làm hộ
-
-Điều kiện 1 của Day 4 được gia hạn tới **07:00 sáng nay** (quyết định của anh tối 13/09). Hạn cứng
-**23:59 hôm nay** không đổi. Trễ → anh báo giảng viên hướng dẫn, như đã quyết.
-
-**Sáng nay sau 07:00:** nhắn *"đóng ngày"* để chốt Day 4 theo những gì có trên `main` và chuyển bảng sang
-Day 5.
-
-### ⑤ Spike A — phần của chính anh
-
-`A2`–`A8` `A10` `A11` cần zoom/pan, brush, undo/redo, save/reload trong app — chặng S4–S7. Giờ đã có
-hợp đồng hình học chính thức (`tests/fixtures/geometry/`) để Spike A bám.
+**Một câu Khánh phải trả lời trước khi `GATE-SPLIT-01` đóng:** mỗi bệnh nhân có một hay nhiều scan. Split theo
+bệnh nhân là bất biến — packet của Khánh đã yêu cầu cậu ấy ghi rõ.
 
 ---
 
-**Liên quan:** [`../../day04/DAY04_EOD_REVIEW.md`](../../day04/DAY04_EOD_REVIEW.md) ·
-[`../../readiness/OPEN_DECISIONS.md`](../../readiness/OPEN_DECISIONS.md) *(DR-006a rev 2)* ·
-[`../../PROJECT_STATE.yaml`](../../PROJECT_STATE.yaml)
+**Liên quan:** PR #25 · PR #17 · [`../../day04/DAY04_EOD_REVIEW.md`](../../day04/DAY04_EOD_REVIEW.md) ·
+[`../../readiness/OPEN_DECISIONS.md`](../../readiness/OPEN_DECISIONS.md) → `DR-002`
