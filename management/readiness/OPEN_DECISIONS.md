@@ -52,7 +52,7 @@ the 30-day baseline, which is not authorised yet.
 | **DR-G03** | `GATE-ML-01` — **OPEN** | final matrix training | one frozen DINOv2 variant, decoder, threshold, loss, training policy → `ADR-ML-001` | Leader after research/compute spike | **Spike C1** (C0 evidence is insufficient), DR-011 ✅ |
 | **DR-G04** | `GATE-IMG-01` — **OPEN** | holdout post-processing evaluation | frozen morphology config from dev/validation evidence only | Leader after ablation setup | DR-G03 |
 | **DR-G05** | `GATE-MOB-01` — **OPEN** | production mobile architecture | framework selected on Spike A/B evidence → `TECH_STACK_ADR.md` | Leader | Spikes A/B, DR-006 |
-| **DR-G06** | `GATE-DEPLOY-01` — **✅ RESOLVED** | — | **`LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS** (DR-003 ✅). Artifact-transport strategy remains an `ADR-ART-001` matter informed by Spike E. | Leader / Architect | — |
+| **DR-G06** | `GATE-DEPLOY-01` — **✅ RESOLVED** | — | **`LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS** (DR-003 ✅) — **access amended to Wi-Fi by DR-003b, 2026-09-13**. Artifact-transport strategy remains an `ADR-ART-001` matter informed by Spike E. | Leader / Architect | — |
 
 **[SPEC]** `00` §11.1: "A gate resolution becomes part of project truth only when recorded in an
 approved ADR/Decision Log and linked from the relevant specification."
@@ -1177,6 +1177,75 @@ edited `SPIKE_PHASE_STATE.yaml` and `READINESS_REVIEW_RESOLUTION.md` directly. T
 and decision-record files that **only Project Control may write** (see the §D.3 override in
 `day01/DAY01_RUNBOOK.md` §4.2). **The content was accepted; the route was not.** Project Control applied
 the edits, and that branch is closed unmerged. The proposal itself was correct and is credited above.
+
+### DR-003b — Canonical access path is **Wi-Fi**, not cellular
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-003 ✅ and DR-003a ✅ — the **access** segment of the canonical topology only |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-13 |
+| **Status** | ✅ **APPROVED** |
+| **In the leader's words** | *"Đổi đi vì thực tế, zero tier không hỗ trợ 5G tốt qua điện thoại đâu"* |
+
+**Evidence that prompted it** — measured, not assumed (`spike-e/evidence-20260913`, runs 1 and 2):
+
+| Path | ZeroTier link (`E12`) | Observed |
+|---|---|---|
+| Galaxy A17 → **Viettel cellular** → ZeroTier → Mac mini | **`RELAY`**, every reading | small requests complete; the 58 MB volume arrived at a few KB per minute and was stopped at 2.2 MB after ~12 min |
+| Galaxy A17 → **home Wi-Fi** → ZeroTier → Mac mini | **`DIRECT`** (Mac mini `peers`, 2026-09-13 17:45) | — |
+| leader's laptop → home Wi-Fi → ZeroTier → Mac mini | **`DIRECT`** | — |
+
+The carrier's NAT does not let the phone and the Mac mini punch a direct path, and ZeroTier's public
+relays are bandwidth-limited. A direct cellular path would need the Mac mini's network to accept
+inbound UDP (port forward) or offer IPv6 — neither is under the team's control.
+
+**The change.**
+
+```text
+Samsung Galaxy A17 5G
+        |  Wi-Fi uplink to the Internet        <-- was: real 4G / 5G cellular
+        v
+Authenticated private overlay  (ZeroTier network b103a835d292ddb3)
+        v
+Remote Mac mini M2, 24 GB RAM
+```
+
+**`E1` is amended:** acceptance evidence is measured over **a Wi-Fi uplink + ZeroTier to the remote Mac
+mini** (`measurement_path: wifi-overlay`). A cellular run (`cellular-overlay`) remains valid evidence
+too, and the two are never merged into one summary.
+
+**What does NOT change:**
+
+| Unchanged |
+|---|
+| Profile is still `LOCAL_DEMO` — the trust boundary is **ZeroTier membership, not physical network membership** |
+| **Wi-Fi is an untrusted underlay, never a trust boundary.** The Mac mini is reached only through the overlay |
+| The backend stays **physically remote**; no public endpoint, no public auth surface, no dataset exposure |
+| **Same-LAN runs stay diagnostic** — the phone on the *Mac mini's own* network is `lan-diagnostic`, not `wifi-overlay` |
+| `E12` recorded for **every** run; a `RELAY` run is labelled as such |
+| DR-006a rev 2: leader operates, Trung designs and interprets; `E10` `E11` `E13` are his |
+
+**What this costs — stated so nobody discovers it later:**
+
+1. **The demo now depends on a Wi-Fi uplink.** DR-003 said venue Wi-Fi was *"NOT required"*; under this
+   amendment a Wi-Fi uplink **is** required. It is still untrusted. A venue network that blocks UDP or
+   forces `RELAY` would put the demo back on the slow path, so **the demo uplink must be checked for
+   `DIRECT` at the venue before the demo day**, or the team brings an uplink already known to give
+   `DIRECT`. `RISK-DEMO-NET-01` goes up accordingly.
+2. **Cellular is a known-bad path for this app on this phone**, recorded rather than measured away:
+   `RELAY` and unusable bulk transfer (runs 1–2). The demo must not fall back to cellular expecting it to
+   work.
+3. **Local connect rejections** (per-CPU route cache, PR #22) are a property of the phone's VPN routing,
+   not of the uplink, and apply on Wi-Fi too.
+
+**Why this is not a frozen-spec change.** `docs/specs/v1.0/**` never mentions cellular, 4G/5G or Wi-Fi.
+It requires only `LOCAL_DEMO` over a trusted network (`09`, `12` §8.1, `TC-SEC-002`); the cellular
+requirement lived in DR-003 and `SPIKE_E_TRANSPORT/TASK.md`. **Spec checksums remain 19/19 OK.**
+
+**Owner's right.** DR-003a was proposed by Nguyễn Gia Đức Trung. He may propose reverting to cellular at
+any time — for example if a direct cellular path becomes available — and that proposal needs only to be
+made.
 
 ---
 

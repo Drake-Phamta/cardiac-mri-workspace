@@ -186,6 +186,10 @@ demo. This spike reports **what that minimum would need to be**.
 ## Manual evidence required
 
 - **All network measurements over the real cellular + overlay path.**
+  > **AMENDED by DR-003b, 2026-09-13:** the acceptance access path is a **Wi-Fi uplink + ZeroTier to the
+  > remote Mac mini** (`measurement_path: wifi-overlay`). Cellular runs remain valid and are never merged
+  > with Wi-Fi runs. Runs 1–2 over Viettel cellular were `RELAY` with unusable bulk transfer — see
+  > `OPEN_DECISIONS.md` DR-003b. Same-LAN runs stay `lan-diagnostic`.
   > ~~*"executed by Nguyễn Gia Đức Trung"*~~ — **SUPERSEDED by DR-006a, 2026-09-12.** The original
   > sentence is kept, struck through, rather than deleted. Under DR-006a the **operator** may be
   > Phạm Tuấn Anh, who owns the physical device; the **owner** of the criteria, the interpretation

@@ -626,7 +626,11 @@ device_measurement_queue:
                      "continuous navigation with prefetch", "mask/mesh transport", "device memory",
                      "latency spread under cellular variation", "reconnect/retry"]
       parallel_before_slot: "backend stub, overlay verification, instrumentation and scripts proceed while A holds the phone"
-      acceptance_path_required: "Galaxy A17 5G -> actual 4G/5G cellular -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB"
+      acceptance_path_required: "Galaxy A17 5G -> Wi-Fi uplink -> authenticated ZeroTier overlay -> remote Mac mini M2 24 GB (DR-003b, 2026-09-13; was 4G/5G cellular)"
+      acceptance_path_note: >
+        wifi-overlay and cellular-overlay are both acceptance paths, never merged. Cellular measured
+        RELAY with unusable bulk transfer on 2026-09-13 (runs 1-2). The demo uplink must be checked for
+        DIRECT at the venue before the demo day.
       lan_results: "diagnostic only - never acceptance evidence"
       entry_gate: "backend stub reachable AND overlay up"
       entry_gate_state_2026_09_12: >
