@@ -15,6 +15,7 @@ Spike E acceptance evidence.
 | Start the Mac Mini backend stub | `server.py` is running as PID `60294`, bound to `10.134.129.115:8787`; `/health` returned `200` | **DONE locally** |
 | Formal `GATE 2` reachability check | Leader verified `/health` and `/mesh/0.obj` with `HTTP 200` from his laptop over ZeroTier at 12:35 | **DONE** |
 | Verify representative transport endpoints from the Mac Mini AVD | Eight endpoints returned `HTTP 200`; results are in [`../spikes/SPIKE_E_TRANSPORT/AVD_DIAGNOSTIC_20260913.md`](../spikes/SPIKE_E_TRANSPORT/AVD_DIAGNOSTIC_20260913.md) | **DONE as diagnostic only** |
+| Prepare a phone-side client without Python/curl/wget | Added `spikes/spike_e_transport/client/android_toybox_harness.sh`; smoke-tested it on the AVD and documented the physical-phone procedure | **DONE as preparation** |
 | Keep diagnostic output separate from acceptance evidence | No AVD output was added to `EVIDENCE_RAW`; no `RESULT.md` was created | **DONE** |
 
 The local health check and AVD run prove that the stub process and payloads are
