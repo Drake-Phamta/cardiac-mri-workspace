@@ -9,10 +9,15 @@
 
 ## PHẦN I — `NOW` · hai việc chỉ anh làm, cộng lại chưa tới 10 phút
 
-### ① Auth node điện thoại — đang chặn toàn bộ Spike E
+### ① ~~Auth node điện thoại~~ — ✅ XONG 13/09 17:42, trên network MỚI
 
-my.zerotier.com → network `3b19b3a71652c5f0` → **Members** → tick **Auth** cho **`078280bae8`**, đặt tên
-`Galaxy A17 - DEVICE_DEMO_01`. Không thấy network trong tài khoản → người tạo là người khác, gửi họ ID.
+Không ai tìm được tài khoản quản trị network cũ `3b19b3a71652c5f0`, nên anh đã tạo **`b103a835d292ddb3`**
+trong tài khoản của anh và duyệt cả ba máy. **Địa chỉ mới:** laptop `10.64.193.145` · Mac mini
+**`10.64.193.115`** · điện thoại `10.64.193.140`. Stub thứ hai chạy ở `10.64.193.115:8787`.
+
+**Lượt đo 1 (17:51) đã chạy** — E12 `RELAY`, 30/57 ok, 27 lỗi kết nối **phía điện thoại** dù ping 30/30.
+Dữ liệu thô: nhánh `spike-e/evidence-20260913`. Trước lượt đo đủ 3 lần, **chờ Trung chẩn đoán lỗi đó** —
+đo tiếp khi đường chưa ổn chỉ tốn data mà không ra số dùng được.
 
 ### ② Tắt SSH server trên laptop
 
@@ -37,15 +42,16 @@ Nếu cậu ấy chưa kịp viết, tham số trong `ANDROID_TOYBOX_HARNESS.md`
 |---|---|
 | Wi-Fi điện thoại | **TẮT** |
 | Điểm phát Wi-Fi (hotspot) | **TẮT** — hôm qua có lúc bật |
-| Interface ZeroTier trên điện thoại | có IP `10.134.129.x` |
-| Route tới `10.134.129.115` | đi **interface ZeroTier**, không phải `rmnet` / `wlan0` |
+| ZeroTier app → **"Allow mobile data"** | **BẬT** — nếu tắt, ZeroTier ngừng gửi ngay khi rời Wi-Fi |
+| Interface ZeroTier trên điện thoại | `tun0 10.64.193.140` |
+| Route tới `10.64.193.115` | đi **`tun0`**, không phải `rmnet` / `wlan0` |
 | Ping Mac mini từ điện thoại | có phản hồi |
 | Stub | `/health` 200 |
 
 **Trong buổi đo:**
 
-1. `E12` — anh chạy `sudo zerotier-cli peers` trên Mac mini, tìm dòng `078280bae8`, ghi **nguyên văn** —
-   cột cuối là `DIRECT` hay `RELAY`.
+1. `E12` — đọc dòng `078280bae8` trong `zerotier-cli peers` trên Mac mini, ghi **nguyên văn**. **Không
+   cần sudo**: tài khoản `quant` có sẵn token, tôi đọc được qua SSH.
 2. Harness Toybox của Trung, ghim SHA commit, `--operator "Pham Tuan Anh"` `--owner "Nguyen Gia Duc
    Trung"` `--path cellular-overlay` `--connection` theo bước 1.
 3. Điều kiện mạng đọc từ máy (loại mạng, tín hiệu), giờ bắt đầu/kết thúc.

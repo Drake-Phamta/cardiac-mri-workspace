@@ -660,7 +660,18 @@ device_measurement_queue:
   gate_2_status:
     overlay_up: true              # verified 2026-09-12 00:20, see management/day03/overlay_reachability_20260912.md
     mac_mini_reachable: true      # 10.134.129.115, ping 20/20, macOS port signature 22/3283/5900/5000
-    zerotier_on_phone: false      # still absent - phone reached the Mac mini with 100% loss (DR-006a rev 1)
+    zerotier_on_phone: true       # 2026-09-13 17:42 - node 078280bae8 authorised on the NEW network below
+    overlay_network_2026_09_13: >
+      MOVED to b103a835d292ddb3 (leader's own ZeroTier Central account). The admin account of
+      the old network 3b19b3a71652c5f0 could not be found, so the phone could not be authorised
+      there. Members: laptop 68efb4de07 = 10.64.193.145, Mac mini e202ffbfe4 = 10.64.193.115,
+      phone 078280bae8 = 10.64.193.140. The Mac mini remains on the old network as well.
+      A second stub instance serves 10.64.193.115:8787 (PID 32227); Trung's original on
+      10.134.129.115 is untouched.
+    first_cellular_run: >
+      2026-09-13 17:51, one repeat, E12 RELAY. 57 samples: 30 ok, 27 client-side
+      "Network is unreachable" on TCP connect, interleaved; ping was 30/30. Raw on branch
+      spike-e/evidence-20260913 (bd5e931). Interpretation is the owner's.
     stub_running: true            # 2026-09-13, started by Trung; 200 from the leader's peer at 12:35
     gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
     still_needed_before_any_E_measurement:

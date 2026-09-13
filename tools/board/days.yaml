@@ -120,7 +120,7 @@ today:
         - "✅ ~~Quyết recovery~~ — **giữ kế hoạch**, không de-scope, hạn Khánh 14/09 23:59"
         - "✅ ~~Gán reviewer PR #18~~ — Trung · ✅ review + merge PR #20, #21"
         - "✅ ~~Cài gì lên A17~~ — ZeroTier đã cài · HTTP client = harness Toybox của Trung"
-        - "**Auth node `078280bae8`** trên my.zerotier.com — **đang chặn toàn bộ phần đo Spike E**"
+        - "✅ ~~Auth điện thoại~~ — network mới `b103a835d292ddb3`, cả 3 máy đã duyệt · **lượt đo Spike E đầu tiên chạy 17:51** (RELAY, 30/57 ok)"
       then:
         - "Buổi đo Spike E khi rảnh — anh là operator duy nhất (`DR-006a` rev 2)"
         - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin"

@@ -61,6 +61,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Phạm Tuấn Anh | Cài ZeroTier lên Galaxy A17 — node `078280bae8`, v1.16.0 | **chưa Auth** |
 | Project Control | Sửa 3 phát hiện PR #15 · sửa lỗi PR #14 + selftest chứng minh bắt được lỗi cũ | `2310330` · `a1744e8` |
 | Project Control | `tools/remote_adb/` *(giờ không dùng cho Spike E)* · `tools/host_hardening/disable_sshd.ps1` *(chờ anh chạy admin)* | commit hôm nay |
+| Phạm Tuấn Anh | **Chuyển overlay sang network mới `b103a835d292ddb3`** (tài khoản của anh) — không ai tìm được tài khoản quản trị mạng cũ. Laptop `10.64.193.145` · Mac mini `10.64.193.115` · **điện thoại `10.64.193.140` — lần đầu tới được Mac mini** | ZeroTier Central 17:42 |
+| Phạm Tuấn Anh *(operator)* | **Lượt đo Spike E đầu tiên trên đường thật** — 5G Viettel → ZeroTier **RELAY** → Mac mini. 57 mẫu: 30 ok, **27 lỗi `Network is unreachable` phía điện thoại**, xen kẽ. Dữ liệu thô, chưa tổng hợp | nhánh `spike-e/evidence-20260913` · `bd5e931` |
 
 ### Điều kiện ngày — chốt sơ bộ 17:00
 

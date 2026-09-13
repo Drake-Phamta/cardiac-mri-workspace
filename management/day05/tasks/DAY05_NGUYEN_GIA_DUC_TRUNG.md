@@ -46,16 +46,30 @@ Spike E** → **Vũ Hùng Anh review Spike E.**
 
 ---
 
-## Trạng thái đường truyền
+## ⚠ Overlay đã ĐỔI sang network mới — và lượt đo đầu tiên đã chạy
+
+Không ai tìm được tài khoản quản trị network cũ `3b19b3a71652c5f0`, nên leader tạo **`b103a835d292ddb3`**:
 
 ```text
-✅ Stub 10.134.129.115:8787          /health 200, /mesh/0.obj 200 đúng 7 429 byte
-✅ ZeroTier trên điện thoại           đã cài · node 078280bae8 · v1.16.0
-❌ Node điện thoại                    CHƯA Auth - leader đang xử lý
+laptop leader   68efb4de07   10.64.193.145
+Mac mini        e202ffbfe4   10.64.193.115   <- stub thu hai chay o day, PID 32227, log rieng
+dien thoai      078280bae8   10.64.193.140
 ```
 
-`E12` đọc dòng **`078280bae8`** trong `sudo zerotier-cli peers` trên Mac mini — leader sẽ ghi lại
-nguyên văn trong buổi đo.
+Stub gốc của bạn (PID 60294, `10.134.129.115`) **vẫn chạy nguyên**, không ai đụng.
+
+**Lượt đo 1 — 17:51, 1 lượt, nhánh `spike-e/evidence-20260913` (`bd5e931`), đọc `PROVENANCE.md` trước:**
+
+| | |
+|---|---|
+| `E12` | **`RELAY`** trước và sau lượt đo |
+| Kết quả thô | 57 mẫu: **30 ok, 27 lỗi `nc: connect: Network is unreachable`**, xen kẽ suốt lượt |
+| Phía server | stub ghi đúng 30 request thành công — **27 request lỗi chưa rời điện thoại** |
+| Chẩn đoán kèm theo | ping 30/30 không mất gói; 20 lần `nc` liên tiếp lỗi 7/20, có hay không `-4` |
+
+**Đây là việc đầu tiên của bạn hôm nay:** lỗi nằm ở bước mở kết nối TCP qua VPN trên Android, không ở
+relay hay stub. Là chính sách retry của harness, là hành vi của ZeroTier trên Android, hay thứ khác —
+chủ sở hữu phán. Leader sẽ **không** chạy lượt 3 lần cho tới khi bạn có câu trả lời.
 
 ---
 
