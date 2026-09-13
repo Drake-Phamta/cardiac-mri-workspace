@@ -1,0 +1,417 @@
+﻿{
+ "probe": "DR-001 usability only - NOT the A1-A20 audit",
+ "cases": [
+  {
+   "partition": "Training Set",
+   "case": "K32FD6LRSUSSXGS1YUOX",
+   "files": [
+    "laendo.nrrd",
+    "lawall.nrrd",
+    "lgemri.nrrd"
+   ],
+   "laendo.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "unique_values_observed": [
+     0.0,
+     255.0
+    ],
+    "unique_count": 2
+   },
+   "lawall.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "lgemri.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  },
+  {
+   "partition": "Training Set",
+   "case": "8GYK8A9MBRC9TV0FVSRA",
+   "files": [
+    "laendo.nrrd",
+    "lawall.nrrd",
+    "lgemri.nrrd"
+   ],
+   "laendo.nrrd": {
+    "loaded": true,
+    "shape": [
+     640,
+     640,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "unique_values_observed": [
+     0.0,
+     255.0
+    ],
+    "unique_count": 2
+   },
+   "lawall.nrrd": {
+    "loaded": true,
+    "shape": [
+     640,
+     640,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "lgemri.nrrd": {
+    "loaded": true,
+    "shape": [
+     640,
+     640,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  },
+  {
+   "partition": "Training Set",
+   "case": "X18LU5AOBNNDMLTA0JZL",
+   "files": [
+    "laendo.nrrd",
+    "lawall.nrrd",
+    "lgemri.nrrd"
+   ],
+   "laendo.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "unique_values_observed": [
+     0.0,
+     255.0
+    ],
+    "unique_count": 2
+   },
+   "lawall.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "lgemri.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  },
+  {
+   "partition": "Testing Set",
+   "case": "PFORURSOR4MDVNQ6QFCZ",
+   "files": [
+    "laendo.nrrd",
+    "lawall.nrrd",
+    "lgemri.nrrd"
+   ],
+   "laendo.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "unique_values_observed": [
+     0.0,
+     255.0
+    ],
+    "unique_count": 2
+   },
+   "lawall.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "lgemri.nrrd": {
+    "loaded": true,
+    "shape": [
+     576,
+     576,
+     88
+    ],
+    "ndim": 3,
+    "is_3d": true,
+    "dtype": "uint8",
+    "space": "left-posterior-superior",
+    "space_directions": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  }
+ ],
+ "partition_counts": {
+  "Training Set": 100,
+  "Testing Set": 54
+ },
+ "volumes_opened": 12,
+ "volumes_loaded_ok": 12,
+ "all_loaded_are_3d": true,
+ "verdict_usable_package_present_locally": true
+}

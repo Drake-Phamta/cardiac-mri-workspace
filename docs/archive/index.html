@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lịch sử ngày · Cardiac MRI Workspace</title>
+<meta name="description" content="Mỗi ngày một trang: đã xong gì kèm bằng chứng, trượt gì, quyết định nào.">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace</p>
+  <h1>Lịch sử ngày</h1>
+  <p class="sub">Mỗi ngày một trang: đã xong gì <strong>kèm bằng chứng</strong>, trượt gì,
+     quyết định nào được ghi, và phát hiện nào đổi kế hoạch.</p>
+</header>
+
+<section><h2><span class="num">1</span> Tất cả các ngày</h2>
+  <div class="tblwrap"><table>
+    <tr><th>Ngày</th><th>Ngày tháng</th><th>Kết quả</th><th>Tóm tắt</th>
+        <th>Việc xong</th><th>Việc tồn</th></tr>
+    <tr><td><a href="day-03.html"><strong>Day 3</strong></a></td><td>12/09/2026</td><td><span class="st no">TRƯỢT</span></td><td>Bế tắc bên ngoài đã gỡ hết, critical path vẫn đứng yên</td><td>6</td><td>4</td></tr><tr><td><a href="day-02.html"><strong>Day 2</strong></a></td><td>11/09/2026</td><td><span class="st wait">MỘT PHẦN</span></td><td>Ngày execution đầu tiên</td><td>5</td><td>4</td></tr><tr><td><a href="day-01.html"><strong>Day 1</strong></a></td><td>10/09/2026</td><td><span class="st no">TRƯỢT</span></td><td>Trượt hoàn toàn</td><td>0</td><td>1</td></tr><tr><td><a href="day-00.html"><strong>Day 0</strong></a></td><td>09/09/2026</td><td><span class="st wait">MỘT PHẦN</span></td><td>Onboarding và sign-off</td><td>1</td><td>2</td></tr>
+  </table></div>
+</section>
+
+<section><h2><span class="num">2</span> Chi tiết</h2><div class="dayrow missed"><div class="hd"><span class="dn">DAY 3</span><span class="dd2">12/09/2026</span><span class="st no">TRƯỢT</span></div><p style="margin:0 0 8px;font-size:13.5px">Hai trên ba điều kiện không đạt. Dataset, dụng cụ và Mac mini giờ đều sẵn sàng, nên từ đây critical path không còn phụ thuộc vào công cụ hay dữ liệu nữa. Buffer về 0, trạng thái RED.
+</p><p class="more"><a href="day-03.html">→ chi tiết Day 3</a></p></div><div class="dayrow "><div class="hd"><span class="dn">DAY 2</span><span class="dd2">11/09/2026</span><span class="st wait">MỘT PHẦN</span></div><p style="margin:0 0 8px;font-size:13.5px">Gỡ được bế tắc bên ngoài lớn nhất của dự án, nhưng không tiêu chí nghiệm thu nào được đóng và ba trên bốn thành viên không có hoạt động nào sau cutover.
+</p><p class="more"><a href="day-02.html">→ chi tiết Day 2</a></p></div><div class="dayrow missed"><div class="hd"><span class="dn">DAY 1</span><span class="dd2">10/09/2026</span><span class="st no">TRƯỢT</span></div><p style="margin:0 0 8px;font-size:13.5px">Không cutover, không spike ACTIVE, không bằng chứng. Ngày này ăn mất 1 ngày buffer.
+</p><p class="more"><a href="day-01.html">→ chi tiết Day 1</a></p></div><div class="dayrow "><div class="hd"><span class="dn">DAY 0</span><span class="dd2">09/09/2026</span><span class="st wait">MỘT PHẦN</span></div><p style="margin:0 0 8px;font-size:13.5px">Sign-off đạt 4/4 ở cột K, nhưng bốn ô phần cứng không ai xác nhận và hai trong số đó còn mở tới tận Day 3.
+</p><p class="more"><a href="day-00.html">→ chi tiết Day 0</a></p></div></section>
+
+<footer>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
+     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
+     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
+  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
+     <a href="../archive/index.html">lịch sử ngày</a></p>
+  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc 13/09/2026 12:38
+     bằng <code>tools/board/build_board.py</code>.</p>
+  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
+     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
+     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
+     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 2 · 2026-09-11 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 2: Ngày execution đầu tiên">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top amber">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 2</span> — 11/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st wait">MỘT PHẦN</span> &nbsp; Ngày execution đầu tiên</div>
+  <p class="sub">Gỡ được bế tắc bên ngoài lớn nhất của dự án, nhưng không tiêu chí nghiệm thu nào được đóng và ba trên bốn thành viên không có hoạt động nào sau cutover.
+</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Phạm Tuấn Anh</strong> — Tuyên bố cutover 12:00 · profile thiết bị DR-006 · <strong><code>A9</code> p95 = 65,31 ms</strong> — phép đo hiệu năng đầu tiên của dự án <code>6d0ae77 · c9290b0</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>Thu thập gói LASC 2018</strong> — 2 200 962 438 byte, 100 + 54 case, verify 12/12 volume <code>day02/dr001_usability_probe.json</code></li><li><strong>Cả nhóm</strong> — <strong>Trigger DR-001 đánh giá 23:44 — KHÔNG nổ</strong>, trong hạn, lần thứ hai <code>day02/DAY02_EOD_REVIEW.md §4</code></li><li><strong>Cả nhóm</strong> — Dụng cụ cho cả bốn spike · CI guardrails · <code>INC-001</code> · bản EOD review đầu tiên được điền <code>PR #14 #15 #16 #17 #18</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — Review PR #4 của Khánh — <code>APPROVED</code> <em>(trước cutover)</em> <code>API review 03:13Z</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Bế Quốc Khánh</strong> — Audit Spike D — <strong>0 hoạt động sau cutover</strong></li><li><strong>Nguyễn Gia Đức Trung</strong> — Mac mini + ZeroTier — <strong>0 hoạt động sau cutover</strong></li><li><strong>Vũ Hùng Anh</strong> — Bộ geometry fixture — <strong>0 hoạt động cả ngày</strong></li><li><strong>Cả nhóm</strong> — 6 PR mở, <strong>0 review được submit</strong></li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li><strong>Trigger DR-001 không nổ</strong> — có gói chính thức dùng được trên máy lúc 23:41:51</li><li><strong><code>15</code> §18 recovery kích hoạt</strong> — Level 1 cho việc thu thập dataset, Level 5 de-scope kế hoạch ngày. Quyền sở hữu <strong>không chuyển</strong></li><li>Ranh giới đêm phục hồi: sinh <strong>dụng cụ</strong>, không sinh <strong>bằng chứng của người khác</strong></li></ul></section>
+<section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong>Slice thật là <code>576×576</code></strong> (có case <code>640×640</code>), không phải 64×64 — 81 lần số pixel</li><li><strong>Mask mang giá trị <code>0</code> và <code>255</code></strong>, không phải <code>0</code>/<code>1</code> — code giả định <code>== 1</code> sẽ ra mask rỗng</li><li><strong>Testing Set CÓ nhãn</strong> — ảnh hưởng lựa chọn Path A/B của <code>DR-002</code></li></ul></section>
+
+<footer>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Mọi con số — trạng thái spike, gates, buffer, tiêu chí, ma trận reviewer — đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code> lúc build. Nếu một con số
+     ở đây sai thì state file sai, và đó là kiểu hỏng dễ sửa hơn nhiều so với một đoạn văn cũ.
+     Phần duy nhất viết tay là <code>tools/board/days.yaml</code> — thứ không state file nào biết.</p>
+  <p><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/tasks/">gói nhiệm vụ</a> ·
+     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> ·
+     <a href="../archive/index.html">lịch sử ngày</a></p>
+  <p>Spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>SPIKE_C1</code> vẫn <code>BLOCKED</code> · sinh lúc 13/09/2026 12:38
+     bằng <code>tools/board/build_board.py</code>.</p>
+  <p><strong>Lưu ý về chính con số 19/19:</strong> trước 12/09 phép kiểm này <em>có thể pass vì lý do
+     không liên quan</em> tới file có đúng hay không — <code>core.autocrlf</code> đổi LF↔CRLF còn
+     <code>sha256sum -c</code> băm bản working copy. Đã sửa bằng <code>.gitattributes</code>.
+     CI trên Linux chưa bao giờ bị ảnh hưởng, và đó chính là lý do nó nằm im ba ngày.</p>
+</footer>
+</div>
+</body>
+</html>

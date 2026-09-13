@@ -276,7 +276,8 @@ REVIEW  — 1 slot REVIEWING mỗi người
    Luật chiếm quyền: cái ưu tiên cao lấy slot KẾ TIẾP khi nó EVIDENCE_READY
 
 THIẾT BỊ — MỘT máy Galaxy A17 5G
-   Thứ tự ĐO:  1. Spike A  →  2. Spike B  →  3. Spike E
+   Thứ tự ĐO:  1. Spike A  →  2. Spike E  →  3. Spike B
+   ⚠ TU CHÍNH 2026-09-11: đổi từ A → B → E. Xem day01/DAY01_RUNBOOK.md §4.3
    Việc dựng harness/fixture/instrumentation CHẠY SONG SONG
 ```
 

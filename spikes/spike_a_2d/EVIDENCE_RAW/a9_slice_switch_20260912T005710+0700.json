@@ -1,0 +1,233 @@
+{
+ "criterion": "A9 — cached slice-switch latency",
+ "target": "NFR-PERF-001: p95 <= 200 ms over a 30-step navigation test",
+ "captured_at": "20260912T005710+0700",
+ "label": "576x576 REAL slice size, release build, USB charging 19->20%, brightness manual 255, thermal 0 truoc va sau, 36.6->36.7C, refresh 60Hz",
+ "definitions": {
+  "ms_to_frame": "state change -> first frame after the image decoded. This is the one NFR-PERF-001 means by 'update the visible slice'.",
+  "ms_to_load": "state change -> image decode reported. Kept so the decode/paint split is visible.",
+  "percentile": "nearest-rank, no interpolation, no outlier removal"
+ },
+ "build_type": "RELEASE. Installed 2026-09-12 00:37:03, flags=0x0 (no FLAG_DEBUGGABLE), APK 82,888,384 bytes. Debug builds distort timings and are not acceptance evidence.",
+ "device_profile": "../../management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md",
+ "conditions": {
+  "operator": "Project Control, via adb input tap, on the leader's explicit instruction and with the device plugged in by him. Spike A's owner is Pham Tuan Anh; per DR-006a the operator and the owner are recorded separately. No value here was produced by Project Control - every number came off the device.",
+  "thermal_status_before": 0,
+  "thermal_status_after": 0,
+  "battery_before_pct": 19,
+  "battery_after_pct": 20,
+  "charging": "YES - status 2, USB powered",
+  "battery_temp_before_c": 36.6,
+  "battery_temp_after_c": 36.7,
+  "refresh_hz": 60,
+  "brightness_mode": "manual",
+  "brightness_value": 255,
+  "low_power": "off (global low_power = 0)",
+  "cpu_governor": "energy_aware",
+  "screen_stayon": "adb shell svc power stayon usb, so the screen could not lock mid-run"
+ },
+ "summary_ms_to_frame": {
+  "n": 30,
+  "min": 33.19,
+  "p50": 35.68,
+  "p90": 49.87,
+  "p95": 50.23,
+  "p99": 50.45,
+  "max": 50.45
+ },
+ "summary_ms_to_load": {
+  "n": 30,
+  "min": 20.98,
+  "p50": 26.23,
+  "p90": 42.97,
+  "p95": 44.17,
+  "p99": 44.42,
+  "max": 44.42
+ },
+ "samples": [
+  {
+   "slice": 1,
+   "ms_to_load": 26.95,
+   "ms_to_frame": 40.72
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 25,
+   "ms_to_frame": 35.02
+  },
+  {
+   "slice": 3,
+   "ms_to_load": 44.42,
+   "ms_to_frame": 50.23
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 26.96,
+   "ms_to_frame": 33.54
+  },
+  {
+   "slice": 5,
+   "ms_to_load": 22.11,
+   "ms_to_frame": 33.19
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 41.58,
+   "ms_to_frame": 50.45
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 26.23,
+   "ms_to_frame": 34.63
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 23.65,
+   "ms_to_frame": 33.99
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 20.98,
+   "ms_to_frame": 35.68
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 25.22,
+   "ms_to_frame": 35.77
+  },
+  {
+   "slice": 5,
+   "ms_to_load": 22.66,
+   "ms_to_frame": 36.51
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 26.36,
+   "ms_to_frame": 33.68
+  },
+  {
+   "slice": 3,
+   "ms_to_load": 23.24,
+   "ms_to_frame": 34.41
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 42.93,
+   "ms_to_frame": 49.55
+  },
+  {
+   "slice": 1,
+   "ms_to_load": 21.74,
+   "ms_to_frame": 33.46
+  },
+  {
+   "slice": 0,
+   "ms_to_load": 24.22,
+   "ms_to_frame": 34.24
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 21.6,
+   "ms_to_frame": 34.45
+  },
+  {
+   "slice": 0,
+   "ms_to_load": 21.54,
+   "ms_to_frame": 34.42
+  },
+  {
+   "slice": 15,
+   "ms_to_load": 43.14,
+   "ms_to_frame": 48.51
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 44.17,
+   "ms_to_frame": 49.99
+  },
+  {
+   "slice": 11,
+   "ms_to_load": 39.45,
+   "ms_to_frame": 48.22
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 39.58,
+   "ms_to_frame": 49.87
+  },
+  {
+   "slice": 13,
+   "ms_to_load": 42.89,
+   "ms_to_frame": 48.06
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 23.01,
+   "ms_to_frame": 34.98
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 42.97,
+   "ms_to_frame": 48.76
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 42.37,
+   "ms_to_frame": 49.27
+  },
+  {
+   "slice": 9,
+   "ms_to_load": 42.41,
+   "ms_to_frame": 49.44
+  },
+  {
+   "slice": 10,
+   "ms_to_load": 22.12,
+   "ms_to_frame": 34.94
+  },
+  {
+   "slice": 11,
+   "ms_to_load": 22.9,
+   "ms_to_frame": 35.51
+  },
+  {
+   "slice": 12,
+   "ms_to_load": 41.58,
+   "ms_to_frame": 49.14
+  }
+ ],
+ "fixture": {
+  "shape_xyz": [
+   576,
+   576,
+   16
+  ],
+  "why": "576x576 is the in-plane size observed in the real LASC 2018 package on 2026-09-11. Nz stays 16 so exactly ONE variable changed from the 64x64 run.",
+  "regenerate": "python spikes/spike_a_2d/fixtures/generate.py --nx 576 --ny 576",
+  "not_committed": "~6.8 MB per file; the generator plus that command reproduce it byte for byte."
+ },
+ "memory_after_run": {
+  "total_pss_kb": 186272,
+  "graphics_kb": 69994,
+  "dalvik_heap_kb": 12000,
+  "note": "Graphics went from 268 KB before the run to 69,994 KB after - the decoded bitmaps for 16 slices of volume plus 16 of mask overlay. That is ~4.4 MB per slice pair."
+ },
+ "comparison_with_64x64_run": {
+  "previous": {
+   "fixture": "64x64x16",
+   "p95_ms_to_frame": 65.31,
+   "captured": "2026-09-11T14:09"
+  },
+  "this_run": {
+   "fixture": "576x576x16",
+   "p95_ms_to_frame": 50.23
+  },
+  "pixels_ratio": 81,
+  "NOT_A_CONTROLLED_COMPARISON": [
+   "brightness 128 then, 255 now",
+   "battery 80% NOT_CHARGING then, 19% CHARGING now",
+   "battery temperature 35.0 C then, 36.6 C now",
+   "The direction of the difference (lower at 81x the pixels) is not explained by any of these, but their size is comparable to the difference, so this is one observation and not a controlled experiment."
+  ]
+ }
+}

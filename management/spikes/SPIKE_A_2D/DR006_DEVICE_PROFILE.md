@@ -11,7 +11,7 @@ suy diễn từ thông số công bố của nhà sản xuất, không emulator.
 | **Ngày giờ chụp** | **2026-09-11, ~12:30 +07:00** |
 | **Slot đo thiết bị** | **1 / 3** — thứ tự `A → E → B` (tu chính, cutover record §4.3) |
 | **Cách chụp** | Lệnh `adb` chạy trên máy tính của leader, với A17 cắm USB và đã `authorized`. Xem §10 |
-| **Trạng thái** | **HOÀN TẤT phần tĩnh.** Thermal cuối bài và cấu hình đo còn chờ lần chạy A9/A10 |
+| **Trạng thái** | **HOÀN TẤT.** Phần tĩnh chụp 12:30; thermal cuối bài và build type điền sau bài A9 lúc 14:09 |
 
 > **Profile này là tiền đề của CẢ Spike A, Spike B VÀ Spike E.** Ba spike đều đo trên đúng thiết bị này.
 
@@ -113,16 +113,16 @@ Có `GL_OES_texture_3D`, `GL_EXT_texture_buffer`, `GL_OES_texture_float_linear`,
 
 | Trường | Giá trị |
 |---|---|
-| Build type app đo | `NOT MEASURED — chưa có app; sẽ ghi ở lần chạy A9/A10, PHẢI là release` |
+| Build type app đo | **RELEASE** — `--variant release`, APK 68.815.824 byte, `flags=0x0` (không có `FLAG_DEBUGGABLE`) |
 | **Mức pin** | `33 %` |
 | **Đang cắm sạc?** | **CÓ — USB powered `true`**, AC `false`, status `2` (charging) |
 | **Power saving** (`low_power`) | **`0` — TẮT** |
-| **Brightness** | `149` / 255 · **`screen_brightness_mode = 1` → TỰ ĐỘNG** |
+| **Brightness** | lúc chụp profile: `149`, auto. **Trước khi đo A9 đã chuyển manual `128`** |
 | **Nhiệt độ pin lúc chụp** | **`35,5 °C`** (`temperature: 355`) |
 | **Thermal status lúc bắt đầu** | **`0`** — `THERMAL_STATUS_NONE`, không throttling |
 | Nhiệt từ thermal HAL | `NOT MEASURED — HAL 2.0 connected nhưng "Current temperatures from HAL" trả về rỗng` |
-| **Thermal status lúc kết thúc** | `[CAPTURE — điền sau khi chạy xong A9/A10]` |
-| **Có throttling không?** | `[CAPTURE — điền sau khi chạy xong A9/A10]` |
+| **Thermal status lúc kết thúc** | **`0`** — `THERMAL_STATUS_NONE`, đo sau bài A9 30 bước lúc 14:09 |
+| **Có throttling không?** | **KHÔNG** — thermal 0 cả trước và sau; pin 35,0 → 35,2 °C |
 | App nền đang chạy | `com.android.settings/.SubSettings` (chỉ Settings, máy rảnh) |
 | **Mạng** | Viettel · **`LTE`** · `mDataConnectionState=2` (connected) · airplane mode `0` |
 
@@ -164,10 +164,20 @@ Mọi giá trị trong tài liệu này được đọc TRỰC TIẾP từ Samsu
 serial R5CY931SQ…) đang cắm USB và ở trạng thái authorized, KHÔNG phải emulator, KHÔNG suy diễn
 từ thông số công bố của nhà sản xuất, và KHÔNG có giá trị nào được ước lượng.
 
-Trường không đọc được đã ghi NOT MEASURED kèm lý do — có 3 trường như vậy.
+Trường không đọc được đã ghi NOT MEASURED kèm lý do — có 2 trường như vậy.
 
-Xác nhận:  ☐ ĐÃ ĐỌC VÀ ĐỒNG Ý     Ngày: ______________     Giờ: ________
+Xác nhận:  ☑ ĐÃ ĐỌC VÀ ĐỒNG Ý     Ngày: 2026-09-12     Giờ: 00:25 +07:00
 ```
+
+> **Đường ký — ghi đúng như nó đã xảy ra.**
+>
+> Phạm Tuấn Anh xác nhận **bằng lời trong chat với Project Control**, và Project Control tick ô này
+> **theo chỉ đạo của anh**. Đây là **lời xác nhận của chủ sở hữu thiết bị**, không phải chữ ký điện tử
+> và không phải một hành động anh tự tay gõ vào file.
+>
+> Ghi như vậy theo đúng tiền lệ PR #5 (`day01/DAY01_STATUS.md`): một hành động do người khác thực
+> hiện được ghi **dưới tên người thực sự làm**, kèm mô tả trung thực việc người vắng mặt đã làm gì.
+> Ở đây leader có mặt và đã đọc; Project Control chỉ là người gõ.
 
 ---
 
@@ -178,9 +188,19 @@ Thiết bị do **Phạm Tuấn Anh** cắm và authorize trên máy tính của
 máy đó, theo yêu cầu của leader, và **toàn bộ output là dữ liệu thật trả về từ thiết bị** — không có giá
 trị nào do Project Control sinh ra.
 
-Ranh giới giữ nguyên: **mọi phép đo hiệu năng — `A9` p95 slice-switch, `A10` brush latency, `B10` FPS,
-`B11` stall, `E8` phân bố latency — vẫn do chủ sở hữu tự chạy trên máy thật.** Mục này chỉ là thuộc tính
-tĩnh của thiết bị.
+~~Ranh giới giữ nguyên: **mọi phép đo hiệu năng — `A9` p95 slice-switch, `A10` brush latency, `B10`
+FPS, `B11` stall, `E8` phân bố latency — vẫn do chủ sở hữu tự chạy trên máy thật.**~~
+
+> **Câu trên bị DR-006a đè, ngày 2026-09-12.** Giữ lại nguyên văn, gạch ngang, không xoá — nó là một
+> cam kết có thật đã được ghi ngày 2026-09-11 theo chỉ đạo của chính leader, và bị thay bởi cùng thẩm
+> quyền đó.
+>
+> Thay bằng: **operator** (người cầm máy bấm) và **owner** (người chịu trách nhiệm tiêu chí và diễn
+> giải) là hai vai tách rời, và **bản ghi bằng chứng phải nêu cả hai**. Xem
+> [`../../readiness/OPEN_DECISIONS.md`](../../readiness/OPEN_DECISIONS.md) DR-006a, kèm bốn ràng buộc
+> mà thiếu chúng thì tu chính vô hiệu.
+
+Mục này chỉ là thuộc tính tĩnh của thiết bị.
 
 ```bash
 export PATH="$PATH:$LOCALAPPDATA/Android/Sdk/platform-tools"

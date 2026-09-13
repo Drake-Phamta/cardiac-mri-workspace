@@ -52,6 +52,14 @@ spikes/**/build/
 spikes/**/.gradle/
 spikes/**/node_modules/
 
+# --- SPIKE SCAFFOLDING ----------------------------------------------------
+# expo prebuild regenerates spikes/**/android/ from app.json, so it is build
+# output rather than source. The spike is throwaway; the native project is
+# reproducible with `npx expo run:android`.
+spikes/**/android/
+spikes/**/.expo/
+spikes/**/ios/
+
 # --- PYTHON ---------------------------------------------------------------
 __pycache__/
 *.py[cod]
@@ -85,3 +93,20 @@ desktop.ini
 # checksum and the command that regenerates them instead. The JSON summaries
 # next to them ARE tracked - they are the diagnostic record.
 spikes/**/mesh/out/*.obj
+
+# --- SPIKE E PAYLOADS -----------------------------------------------------
+# Generated synthetic payloads: large and reproducible, so the generator is
+# tracked and the bytes are not. Regenerate with payloads/generate.py.
+spikes/**/payloads/out/
+spikes/**/payloads/out_*/
+
+# --- SPIKE A FIXTURE AT REAL SLICE SIZE -----------------------------------
+# The 64x64 fixture IS tracked - it is small and it anchors the conformance
+# checks. The 576x576 regeneration used to re-measure A9 at the real cohort
+# slice size is ~6.8 MB per file and is NOT committed: the generator plus the
+# exact command reproduce it byte for byte, and the run records the sha256.
+#
+#     python spikes/spike_a_2d/fixtures/generate.py --nx 576 --ny 576
+#
+# Guarded by size, not by name, so any oversized regeneration is caught.
+spikes/spike_a_2d/fixtures/*_576.json

@@ -185,7 +185,18 @@ demo. This spike reports **what that minimum would need to be**.
 
 ## Manual evidence required
 
-- **All network measurements over the real cellular + overlay path — executed by Nguyễn Gia Đức Trung.**
+- **All network measurements over the real cellular + overlay path.**
+  > ~~*"executed by Nguyễn Gia Đức Trung"*~~ — **SUPERSEDED by DR-006a, 2026-09-12.** The original
+  > sentence is kept, struck through, rather than deleted. Under DR-006a the **operator** may be
+  > Phạm Tuấn Anh, who owns the physical device; the **owner** of the criteria, the interpretation
+  > and the recommendation remains Nguyễn Gia Đức Trung, and `E10` `E11` `E13` are written by him.
+  > Where a scheduled session lets Trung operate the device himself, that is the preferred path and
+  > DR-006a is not invoked.
+  >
+  > **2026-09-13 — DR-006a revision 2:** Phạm Tuấn Anh is the **sole** device operator for this spike;
+  > Trung no longer operates the phone. Constraint (c) is replaced: before `ACCEPTED`, Trung runs the
+  > same harness on a diagnostic path **and** re-runs `aggregate.py` on the leader's raw logs to the
+  > same numbers. The leader is recused as reviewer; **Vũ Hùng Anh reviews Spike E.**
 - Completed device-profile block.
 - Recorded network conditions per run, including direct-vs-relayed status.
 - Owner's written strategy recommendation.
@@ -231,8 +242,14 @@ input to `TC-PERF-001` / `TC-PERF-004` test design
 > jitter, byte count over the wire, device memory figure, reconnect timing, cellular signal condition,
 > direct-vs-relay status, or any device hardware value.
 >
-> **All network and device measurements are executed by Nguyễn Gia Đức Trung over the real cellular +
-> overlay path.**
+> **All network and device measurements are taken over the real cellular + overlay path, and the
+> evidence record names BOTH the operator and the owner.**
+>
+> ~~*"All network and device measurements are executed by Nguyễn Gia Đức Trung"*~~ —
+> **SUPERSEDED by DR-006a, 2026-09-12.** Operator and owner are now separate roles and both are
+> recorded. What is NOT relaxed: nobody invents a number, an operator's hands do not make the
+> analysis someone else's, and an evidence file naming an operator who did not touch the device is
+> a false record.
 >
 > Claude **may**: write the backend stub, build the client harness and instrumentation, write the
 > aggregation scripts, prepare the result template, and analyse measurements the owner supplies.
