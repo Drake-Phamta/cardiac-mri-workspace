@@ -1,0 +1,26 @@
+{
+  "_criterion": "C0-9 - DR-011 normalization policy configured and documented",
+  "_status": "CONFIGURATION, not a measurement. Applies to C0 and carries into C1.",
+  "policy": "per-volume intensity normalization computed from the volume being processed",
+  "forbidden": [
+    "cohort-fitted statistics of any kind",
+    "mean or standard deviation computed across the training set and applied at inference",
+    "percentile clipping thresholds derived from the cohort",
+    "any statistic that sees the validation or test partition"
+  ],
+  "why": [
+    "A statistic fitted across the cohort leaks information between partitions and inflates",
+    "every metric that follows it. C1-7 asks for explicit confirmation that no cohort-fitted",
+    "statistic appears anywhere, which is only checkable if the policy is written down first."
+  ],
+  "implementation": {
+    "step_1": "clip to the per-volume [p_low, p_high] percentiles",
+    "p_low": 0.5,
+    "p_high": 99.5,
+    "step_2": "scale the clipped range to [0, 1]",
+    "step_3": "no mean subtraction, no division by a cohort standard deviation",
+    "note": "The percentile bounds are a configuration choice, not a measurement. They are recorded here so a reviewer can disagree with a specific number rather than with a vibe."
+  },
+  "applies_to": ["SPIKE_C0 synthetic probe", "SPIKE_C1 real-data runs"],
+  "verified_by": "C1-7 - DR-011 normalization conformance confirmed, no cohort-fitted statistics anywhere"
+}
