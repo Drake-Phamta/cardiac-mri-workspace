@@ -42,7 +42,10 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DEFAULT_FIXTURE = os.path.join(ROOT, "fixtures_proposal", "geometry_fixture_v0.json")
+# The canonical fixture belongs to Vu Hung Anh (DR-013); fixtures_proposal/ is
+# the superseded draft it was accepted from.
+DEFAULT_FIXTURE = os.path.join(os.path.dirname(os.path.dirname(ROOT)),
+                               "tests", "fixtures", "geometry", "geometry_fixture_v0.json")
 DEFAULT_OUT = os.path.join(ROOT, "mesh", "out")
 
 # The six cell faces, each as (neighbour offset, the four corner offsets in
@@ -158,7 +161,7 @@ def write_obj(path: str, verts_world: np.ndarray, tris: np.ndarray, header: str)
 
 
 def build(fixture_path: str, out_dir: str, cells) -> dict:
-    with open(fixture_path, encoding="utf-8") as f:
+    with open(fixture_path, encoding="utf-8-sig") as f:
         fixture = json.load(f)
     shape = fixture["shape_xyz"]
     spacing = fixture["spacing_xyz_mm"]

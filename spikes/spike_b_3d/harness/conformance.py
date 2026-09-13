@@ -43,7 +43,10 @@ import sys
 from typing import Callable
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_FIXTURE = os.path.join(os.path.dirname(HERE), "fixtures_proposal",
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+# The canonical fixture belongs to Vu Hung Anh (DR-013); fixtures_proposal/ is
+# the superseded draft it was accepted from.
+DEFAULT_FIXTURE = os.path.join(REPO, "tests", "fixtures", "geometry",
                                "geometry_fixture_v0.json")
 
 PASS, FAIL = "PASS", "FAIL"
@@ -198,7 +201,7 @@ def main() -> int:
     if not os.path.exists(args.fixture):
         print(f"fixture not found: {args.fixture}")
         return 2
-    with open(args.fixture, encoding="utf-8") as f:
+    with open(args.fixture, encoding="utf-8-sig") as f:
         fixture = json.load(f)
 
     status = fixture.get("_status")
@@ -208,6 +211,8 @@ def main() -> int:
     if status == "PROPOSAL":
         print(f"  STATUS    PROPOSAL - owner {fixture.get('_owner')}")
         print("            The canonical set is tests/fixtures/geometry/**, not this file.")
+    elif fixture.get("status"):
+        print(f"  STATUS    {fixture['status']} - owner {fixture.get('owner')}")
 
     findings = check_fixture(fixture, reference_impl(fixture))
 

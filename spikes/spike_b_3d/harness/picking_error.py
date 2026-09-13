@@ -37,10 +37,26 @@ in two ways that both produced numbers looking like results.
    group could not not lose, so the ~7x difference reported as a finding was
    arithmetic, not geometry. B14 was not being measured.
 
-   FIXED: the group is computed AT THE HIT, from the angle between the ray and
-   the true surface normal, and the per-ray slice-axis sensitivity is reported
-   alongside so the reader can see whether a group difference is geometry or
-   just leverage. Fixture labels are recorded but no longer drive anything.
+   FIXED: the incidence at the hit is computed from the angle between the ray
+   and the true surface normal, and the per-ray slice-axis sensitivity is
+   reported alongside so the reader can see whether a group difference is
+   geometry or just leverage.
+
+3. AMENDED 2026-09-13 - THE COHORTS ARE THE GEOMETRY OWNER'S CALL, NOT OURS.
+   The 2026-09-12 rewrite went further than the fix above: it grouped results
+   by steep/grazing and dropped the fixture labels. Vu Hung Anh owns the
+   geometry contract (DR-013) and his canonical fixture, published at
+   tests/fixtures/geometry/, states it in `b14_grouping`:
+
+       "picking_rays.group labels are interior and surface_tangent; report
+        these two cohorts separately"
+       "steep/grazing may be reported from incidence angle as an additional
+        diagnostic, never as a replacement for the contractual labels"
+
+   So `by_group` is keyed by the contractual label again, and steep/grazing
+   lives in its own `by_incidence_diagnostic` block. The incidence and
+   slices-per-mm columns stay, because they are what tells a reader whether a
+   cohort difference is geometry or leverage.
 
 WHY THE NORMAL, NOT THE SLICE PLANE
     What moves the resolved slice is displacement of the hit ALONG THE RAY
@@ -67,7 +83,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "mesh"))
 
-DEFAULT_FIXTURE = os.path.join(ROOT, "fixtures_proposal", "geometry_fixture_v0.json")
+REPO = os.path.dirname(os.path.dirname(ROOT))
+# The canonical fixture belongs to Vu Hung Anh (DR-013). fixtures_proposal/ is
+# the superseded draft it was accepted from.
+DEFAULT_FIXTURE = os.path.join(REPO, "tests", "fixtures", "geometry", "geometry_fixture_v0.json")
 DEFAULT_MESH = os.path.join(ROOT, "mesh", "out", "mesh_levels.json")
 
 EPS = 1e-9
@@ -196,9 +215,10 @@ def rotation(axis: str, deg: float) -> np.ndarray:
 def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
     from build_mesh import synthetic_mask                     # same mask the mesh came from
 
-    with open(fixture_path, encoding="utf-8") as f:
+    # utf-8-sig: a JSON saved on Windows by some editors carries a BOM.
+    with open(fixture_path, encoding="utf-8-sig") as f:
         fixture = json.load(f)
-    with open(mesh_path, encoding="utf-8") as f:
+    with open(mesh_path, encoding="utf-8-sig") as f:
         meshes = json.load(f)
 
     shape = fixture["shape_xyz"]
@@ -213,11 +233,12 @@ def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
     if "volume_centre_world" in fixture:
         centre = np.asarray(fixture["volume_centre_world"], dtype=np.float64)
     else:
+        # Two literal newlines inside these strings once made this whole file
+        # a SyntaxError; Vu Hung Anh caught it with py_compile on a clean
+        # checkout (PR #15 review, 2026-09-13).
         raise SystemExit(
-            "Fixture has no volume_centre_world. Regenerate it:
-"
-            "    python spikes/spike_b_3d/fixtures_proposal/generate.py
-"
+            "Fixture has no volume_centre_world. Use the canonical fixture:\n"
+            "    tests/fixtures/geometry/geometry_fixture_v0.json\n"
             "Computing a centre here is how the harness and the fixture drifted "
             "half a voxel apart the first time.")
 
@@ -263,19 +284,20 @@ def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
                 # ALONG the ray. This is the leverage that decides whether a group
                 # difference is geometry or just sensitivity.
                 "slices_per_mm_along_ray": round(abs(d_unit[2]) / spacing[2], 4),
-                "group": "steep" if cos_inc >= GRAZING_COS else "grazing",
-                "fixture_label": ray["group"],
+                # Contractual cohort (DR-013 owner) and the diagnostic one, kept apart.
+                "group": ray["group"],
+                "incidence_class": "steep" if cos_inc >= GRAZING_COS else "grazing",
             }
 
     per_level = []
     for level, data in sorted(levels.items()):
-        groups: dict[str, list[dict]] = {}
+        samples = []
         for (ray_id, orient), g in truth.items():
             hit = ray_mesh_first_hit(g["origin"], g["dir"], data["verts"], data["tris"])
             obs = slice_of_world(hit, spacing, origin, shape)
             rec = {
                 "ray": ray_id, "orientation": orient,
-                "group": g["group"], "fixture_label": g["fixture_label"],
+                "group": g["group"], "incidence_class": g["incidence_class"],
                 "incidence_deg": g["incidence_deg"],
                 "slices_per_mm_along_ray": g["slices_per_mm_along_ray"],
                 "expected_slice": g["slice_true"], "observed_slice": obs,
@@ -283,67 +305,67 @@ def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
             }
             if obs is None:
                 rec["note"] = "mesh produced no hit where the mask does"
-            groups.setdefault(g["group"], []).append(rec)
+            samples.append(rec)
 
-        stats = {}
-        for grp, samples in groups.items():
-            errs = [s["error_slices"] for s in samples if s["error_slices"] is not None]
-            no_hit = sum(1 for s in samples if s["error_slices"] is None)
-            stats[grp] = {
-                "samples": len(samples),
-                "no_hit": no_hit,
-                "max_error_slices": max(errs) if errs else None,
-                "mean_error_slices": round(sum(errs) / len(errs), 4) if errs else None,
-                "mean_incidence_deg": round(
-                    sum(s["incidence_deg"] for s in samples) / len(samples), 1),
-                "mean_slices_per_mm": round(
-                    sum(s["slices_per_mm_along_ray"] for s in samples) / len(samples), 4),
-                # A no-hit is the LARGEST possible picking error, not a missing
-                # sample. The first version excluded them and could therefore
-                # call a mesh that misses the volume "within bound".
-                "within_bound": (bool(errs) and max(errs) <= SCQ06_BOUND and no_hit == 0),
-                "error_histogram": {str(e): errs.count(e) for e in sorted(set(errs))},
-            }
-
+        by_group = _cohort_stats(samples, "group")
         per_level.append({
             "level": level,
             "cluster_cell_voxels": data["meta"]["cluster_cell_voxels"],
             "triangle_count": data["meta"]["triangle_count"],
             "reduction_vs_level_0": data["meta"]["reduction_vs_level_0"],
-            "no_hit_total": sum(s["no_hit"] for s in stats.values()),
-            "by_group": stats,
-            "samples": [s for g in groups.values() for s in g],
+            "no_hit_total": sum(s["no_hit"] for s in by_group.values()),
+            "by_group": by_group,
+            "by_incidence_diagnostic": _cohort_stats(samples, "incidence_class"),
+            "samples": samples,
         })
 
-    return {
+    payload = {
         "_status": "DIAGNOSTIC - synthetic mesh, desktop run. NOT acceptance evidence.",
         "_rewritten": "2026-09-12 - previous version had a tautological ground truth and "
                       "mislabelled ray groups; see the module docstring.",
+        "_amended": "2026-09-13 - cohorts follow the canonical fixture's b14_grouping "
+                    "(Vu Hung Anh, DR-013); see the module docstring, item 3.",
+        "fixture_id": fixture.get("fixture_id"),
         "bound_slices": SCQ06_BOUND,
         "bound_source": "SCQ-06, frozen before Spike B. Not negotiable by this harness.",
         "ground_truth": "DDA ray-march over the voxel mask. Touches no mesh.",
-        "grouping": f"computed at the hit: |n.d| >= {GRAZING_COS:.3f} (60 deg) is steep, "
-                    f"below is grazing. Fixture labels recorded but not used.",
+        "grouping": "by_group = the fixture's contractual picking_rays.group labels "
+                    "(interior / surface_tangent), reported separately. "
+                    f"by_incidence_diagnostic = |n.d| >= {GRAZING_COS:.3f} (60 deg) steep, "
+                    "below grazing - an additional diagnostic, never a replacement.",
+        "b14_grouping_from_fixture": fixture.get("b14_grouping"),
         "orientations_tested": [n for n, _ in orientations],
         "camera_zoom_note": "Zoom does not change which triangle a ray intersects, so it is "
                             "not simulated. Rotation is, because it does.",
         "ground_truth_rays": len(truth),
         "levels": per_level,
-    } if not out_path else _write(out_path, {
-        "_status": "DIAGNOSTIC - synthetic mesh, desktop run. NOT acceptance evidence.",
-        "_rewritten": "2026-09-12 - previous version had a tautological ground truth and "
-                      "mislabelled ray groups; see the module docstring.",
-        "bound_slices": SCQ06_BOUND,
-        "bound_source": "SCQ-06, frozen before Spike B. Not negotiable by this harness.",
-        "ground_truth": "DDA ray-march over the voxel mask. Touches no mesh.",
-        "grouping": f"computed at the hit: |n.d| >= {GRAZING_COS:.3f} (60 deg) is steep, "
-                    f"below is grazing. Fixture labels recorded but not used.",
-        "orientations_tested": [n for n, _ in orientations],
-        "camera_zoom_note": "Zoom does not change which triangle a ray intersects, so it is "
-                            "not simulated. Rotation is, because it does.",
-        "ground_truth_rays": len(truth),
-        "levels": per_level,
-    })
+    }
+    return _write(out_path, payload) if out_path else payload
+
+
+def _cohort_stats(samples: list[dict], key: str) -> dict:
+    cohorts: dict[str, list[dict]] = {}
+    for s in samples:
+        cohorts.setdefault(s[key], []).append(s)
+    stats = {}
+    for name, rows in cohorts.items():
+        errs = [s["error_slices"] for s in rows if s["error_slices"] is not None]
+        no_hit = sum(1 for s in rows if s["error_slices"] is None)
+        stats[name] = {
+            "samples": len(rows),
+            "no_hit": no_hit,
+            "max_error_slices": max(errs) if errs else None,
+            "mean_error_slices": round(sum(errs) / len(errs), 4) if errs else None,
+            "mean_incidence_deg": round(sum(s["incidence_deg"] for s in rows) / len(rows), 1),
+            "mean_slices_per_mm": round(
+                sum(s["slices_per_mm_along_ray"] for s in rows) / len(rows), 4),
+            # A no-hit is the LARGEST possible picking error, not a missing
+            # sample. The first version excluded them and could therefore
+            # call a mesh that misses the volume "within bound".
+            "within_bound": (bool(errs) and max(errs) <= SCQ06_BOUND and no_hit == 0),
+            "error_histogram": {str(e): errs.count(e) for e in sorted(set(errs))},
+        }
+    return stats
 
 
 def _write(path, payload):
@@ -360,6 +382,11 @@ def main() -> int:
     ap.add_argument("--out", default=os.path.join(ROOT, "mesh", "out", "picking_error.json"))
     args = ap.parse_args()
 
+    if not os.path.exists(args.fixture):
+        print(f"fixture not found: {args.fixture}\n"
+              "The canonical fixture lives at tests/fixtures/geometry/ (Vu Hung Anh, DR-013). "
+              "Pass --fixture to use another file.")
+        return 2
     if not os.path.exists(args.mesh):
         print(f"mesh summary not found: {args.mesh}\nRun mesh/build_mesh.py first.")
         return 2
@@ -373,7 +400,8 @@ def main() -> int:
     print(f"  orientations {', '.join(rep['orientations_tested'])}   <- criterion B6")
     print(f"  rays hitting the mask: {rep['ground_truth_rays']}")
     print()
-    head = (f"  {'lvl':>3} {'tris':>6} {'group':<9} {'n':>4} {'nohit':>5} "
+    print("  B14 cohorts - the fixture's contractual labels (DR-013):")
+    head = (f"  {'lvl':>3} {'tris':>6} {'group':<15} {'n':>4} {'nohit':>5} "
             f"{'incid':>6} {'sl/mm':>7} {'max':>4} {'mean':>7}  verdict")
     print(head)
     print("  " + "-" * (len(head) - 2))
@@ -385,7 +413,7 @@ def main() -> int:
             ok = st["within_bound"]
             if not ok:
                 breaches.append((lv["level"], g, st["max_error_slices"], st["no_hit"]))
-            print(f"  {lv['level']:>3} {lv['triangle_count']:>6} {g:<9} {st['samples']:>4} "
+            print(f"  {lv['level']:>3} {lv['triangle_count']:>6} {g:<15} {st['samples']:>4} "
                   f"{st['no_hit']:>5} {st['mean_incidence_deg']:>5.1f}d "
                   f"{st['mean_slices_per_mm']:>7.4f} {str(st['max_error_slices']):>4} "
                   f"{str(st['mean_error_slices']):>7}  "
@@ -395,6 +423,15 @@ def main() -> int:
     print("  Read the two middle columns before the two right ones: a group with 20x the")
     print("  slices-per-mm leverage will show more slice error for the same geometric")
     print("  displacement. That is sensitivity, not a property of the decimation.")
+    print()
+    print("  Diagnostic only - incidence at the hit (not the B14 cohorts):")
+    for lv in rep["levels"]:
+        for g in sorted(lv["by_incidence_diagnostic"]):
+            st = lv["by_incidence_diagnostic"][g]
+            print(f"  {lv['level']:>3} {lv['triangle_count']:>6} {g:<15} {st['samples']:>4} "
+                  f"{st['no_hit']:>5} {st['mean_incidence_deg']:>5.1f}d "
+                  f"{st['mean_slices_per_mm']:>7.4f} {str(st['max_error_slices']):>4} "
+                  f"{str(st['mean_error_slices']):>7}")
     print()
 
     usable = [lv for lv in rep["levels"]

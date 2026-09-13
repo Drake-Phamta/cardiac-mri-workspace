@@ -1,5 +1,17 @@
 # PROPOSED geometry fixture format — for Vũ Hùng Anh to adopt, amend or replace
 
+> ## ⛔ SUPERSEDED 2026-09-13
+>
+> Vũ Hùng Anh **nhận** bản đề xuất này và công bố fixture chính thức ở
+> **`tests/fixtures/geometry/`** (PR #20): hình học giống hệt từng giá trị, cộng quyền sở hữu,
+> trạng thái `CANONICAL` và khối `b14_grouping`. **Hợp đồng là `tests/fixtures/geometry/FORMAT.md`,
+> không phải file này.** Mọi công cụ trong `spikes/spike_b_3d/` giờ đọc fixture chính thức.
+>
+> File này giữ lại làm lịch sử. Ba con số đếm bên dưới đã được **sửa cho khớp JSON** — bản đầu ghi
+> 32 điểm và `half_voxel` 3, trong khi file JSON có **33** điểm và `half_voxel` **4** (Vũ Hùng Anh
+> phát hiện trong review PR #15). Nhóm B14 hợp đồng là nhãn `interior` / `surface_tangent`;
+> `steep` / `grazing` ở §6 chỉ là chẩn đoán phụ.
+
 > ## Đây là ĐỀ XUẤT, không phải deliverable
 >
 > Bộ canonical geometry fixture nằm ở **`tests/fixtures/geometry/**`** và thuộc về **Vũ Hùng Anh**
@@ -43,7 +55,7 @@
     "out_of_range":   "REJECT. Do not clamp into range."
   },
 
-  "points": [ /* 32 điểm, có nhóm */ ],
+  "points": [ /* 33 điểm, có nhóm */ ],
   "picking_rays": [ /* 13 tia, tách interior / surface_tangent */ ]
 }
 ```
@@ -68,7 +80,7 @@ một hợp đồng geometry **pass test rồi vẫn ship hỏng**. Ba trục ba
 | `face_centre` | 6 | lệch nửa voxel ở biên |
 | `interior` | 5 | ca dễ — nếu cái này hỏng thì hỏng cơ bản |
 | `slice_boundary` | 4 | off-by-one ở slice đầu và cuối |
-| `half_voxel` | 3 | **luật làm tròn** — xem §3 |
+| `half_voxel` | 4 | **luật làm tròn** — xem §3 |
 | `out_of_range` | 6 | **clamp thay vì reject** — xem §3 |
 
 Báo cáo theo nhóm vì một kết quả tốt ở `interior` **không được phép che** một thất bại ở `corner`.
@@ -140,7 +152,7 @@ Hàm `check_fixture(fixture, impl)` nhận một implementation bất kỳ dư�
 mobile mỗi bên đưa implementation của mình vào cùng hàm đó, cùng fixture đó — đúng thứ `TC-MAINT-002`
 khẳng định.
 
-**Kết quả hiện tại: 32/32 điểm exact, 0 finding.**
+**Kết quả hiện tại: 33/33 điểm exact, 0 finding** *(chạy lại 2026-09-13 trên fixture chính thức)*.
 
 ---
 

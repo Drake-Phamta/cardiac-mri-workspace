@@ -22,11 +22,12 @@
 ## Cấu trúc
 
 ```text
+tests/fixtures/geometry/          ★ FIXTURE CHÍNH THỨC — của Vũ Hùng Anh (DR-013), PR #20
 spikes/spike_b_3d/
-├── fixtures_proposal/
-│   ├── FORMAT.md                 ★ ĐỌC CÁI NÀY TRƯỚC — đề xuất format, và 1 phát hiện cần anh soi
-│   ├── generate.py               sinh fixture, deterministic, stdlib thuần
-│   └── geometry_fixture_v0.json  32 điểm test có nhóm + 13 tia picking
+├── fixtures_proposal/            SUPERSEDED — bản nháp mà fixture chính thức được nhận từ đó
+│   ├── FORMAT.md
+│   ├── generate.py
+│   └── geometry_fixture_v0.json  33 điểm test có nhóm + 13 tia picking
 ├── mesh/
 │   ├── build_mesh.py             voxel-face surface + 4 mức decimation
 │   └── out/                      .obj mỗi mức + mesh_levels.json + picking_error.json
@@ -35,17 +36,17 @@ spikes/spike_b_3d/
     └── picking_error.py          B5 B6 B12 B14 — sai số picking, 6 hướng camera
 ```
 
-> ⚠ **`fixtures_proposal/` KHÔNG phải `tests/fixtures/geometry/**`.** Bộ canonical là deliverable
-> của anh theo DR-013, vùng một-chủ-sở-hữu theo `15` §9, và **format là quyền anh quyết**. Bản này
-> nằm ngoài đường của anh có chủ ý. Chi tiết trong [`FORMAT.md`](fixtures_proposal/FORMAT.md).
+> **Cập nhật 2026-09-13.** Vũ Hùng Anh đã **nhận** bộ fixture và công bố nó ở
+> `tests/fixtures/geometry/` (PR #20): hình học giống bản đề xuất từng giá trị, cộng quyền sở hữu,
+> trạng thái `CANONICAL` và khối `b14_grouping`. **Cả ba công cụ giờ mặc định đọc fixture chính
+> thức.** `fixtures_proposal/` giữ lại làm lịch sử, không còn là nguồn.
 
 ---
 
 ## Chạy
 
 ```bash
-python spikes/spike_b_3d/fixtures_proposal/generate.py   # sinh lại fixture (chạy 2 lần ra checksum giống hệt)
-python spikes/spike_b_3d/harness/conformance.py          # 32 điểm, bound EXACT
+python spikes/spike_b_3d/harness/conformance.py          # 33 điểm, bound EXACT — fixture chính thức
 python spikes/spike_b_3d/mesh/build_mesh.py              # 4 mức decimation
 python spikes/spike_b_3d/harness/picking_error.py        # sai số picking × 6 hướng camera
 ```
@@ -58,13 +59,13 @@ Chỉ cần `numpy`. Không thêm dependency nào — chọn thư viện mesh ch
 
 | # | Tiêu chí | Bound | Trạng thái |
 |---|---|---|---|
-| **B2** | Slice plane tính từ source geometry | khớp fixture | **desktop — đạt** trên fixture đề xuất |
-| **B4** | Picking trên fixture ra **đúng** slice | **exact, zero tolerance** | **desktop — 32/32 điểm, 0 finding** |
+| **B2** | Slice plane tính từ source geometry | khớp fixture | **desktop — đạt** trên fixture chính thức |
+| **B4** | Picking trên fixture ra **đúng** slice | **exact, zero tolerance** | **desktop — 33/33 điểm, 0 finding** |
 | **B8** | Geometry đúng sau thao tác camera bất kỳ | fixture re-check | **desktop — 6 hướng camera, đạt** |
 | **B5** | Sai số picking trên **mesh thật** đã decimate | **≤ ±1 slice** | `DIAGNOSTIC` trên **mesh tổng hợp** — mesh thật cần Spike D |
 | **B6** | B4 và B5 giữ nguyên sau xoay/zoom camera | cùng bound | `DIAGNOSTIC` — 6 hướng xoay đã chạy |
 | **B12** | Bảng frontier ≥3 mức | bảng | **4 mức** có triangle count + sai số; **thiếu cột FPS** |
-| **B14** | Tách interior / surface-tangent | hai nhóm | **có** — và kết quả **ngược kỳ vọng**, xem `FORMAT.md` §6 |
+| **B14** | Tách interior / surface-tangent | hai nhóm | **có** — theo **nhãn hợp đồng** trong `b14_grouping` của fixture chính thức, kèm độ nhạy từng nhóm. Phán nhóm là của anh |
 | B1 B3 B7 B9 | render, picking, điều hướng 2D, chọn nền | — | `NOT MEASURED` — chưa dựng app |
 | **B10 B11** | **≥20 FPS median · không stall >500 ms** | | `NOT MEASURED` — **cần Galaxy A17 và cần chính anh** |
 | **B13** | Đề xuất DR-008c | | **chưa đủ dữ kiện** — xem dưới |
@@ -82,16 +83,17 @@ render 12 FPS là **trượt `B10`**.
 
 ---
 
-## Kết quả chạy đêm 2026-09-11 — `DIAGNOSTIC`, không phải bằng chứng nghiệm thu
+## Kết quả chạy 2026-09-13 trên fixture chính thức — `DIAGNOSTIC`, không phải bằng chứng nghiệm thu
 
-**Mesh, từ mask tổng hợp deterministic 48×40×24, 6855 voxel foreground:**
+**Mesh, từ mask tổng hợp deterministic 48×40×24, 6855 voxel foreground** *(số đỉnh và tam giác
+deterministic; thời gian decimate đổi theo từng lần chạy):*
 
 | Mức | cell | đỉnh | tam giác | giảm | decimate |
 |---:|---:|---:|---:|---:|---:|
-| 0 | 1 | 2825 | 5648 | — | 0,02 ms |
-| 1 | 2 | 721 | 1448 | 74,4% | 1,82 ms |
-| 2 | 3 | 317 | 632 | 88,8% | 1,43 ms |
-| 3 | 4 | 178 | 356 | 93,7% | 1,36 ms |
+| 0 | 1 | 2825 | 5648 | — | 0,025 ms |
+| 1 | 2 | 721 | 1448 | 74,4% | 1,942 ms |
+| 2 | 3 | 317 | 632 | 88,8% | 1,756 ms |
+| 3 | 4 | 178 | 356 | 93,7% | 1,961 ms |
 
 **Sai số picking — 13 tia × 6 hướng camera, 78 tia chạm mask:**
 
@@ -102,23 +104,43 @@ render 12 FPS là **trượt `B10`**.
 > `surface_tangent` đâm gần **vuông góc** với bề mặt và **kém nhạy 20 lần** theo trục z, nên chênh
 > lệch "7×" tôi báo là số học chứ không phải phát hiện. Chi tiết: [`FORMAT.md`](fixtures_proposal/FORMAT.md) §6.
 >
-> **Đã sửa:** ground truth là **DDA ray-march trên mask voxel**, không chạm mesh nào; nhóm **tính tại
-> điểm chạm** theo góc tia–pháp tuyến; và độ nhạy được báo cùng bảng.
+> **Đã sửa:** ground truth là **DDA ray-march trên mask voxel**, không chạm mesh nào; góc tới **tính
+> tại điểm chạm** theo góc tia–pháp tuyến; và độ nhạy được báo cùng bảng.
+>
+> **Sửa tiếp 2026-09-13 (review PR #15 của Vũ Hùng Anh):** bản 12/09 đã **bỏ luôn nhãn nhóm của
+> fixture** và nhóm theo `steep`/`grazing`. Sai: nhóm B14 là hợp đồng của chủ sở hữu hình học.
+> `by_group` giờ theo đúng nhãn `interior` / `surface_tangent`; `steep`/`grazing` chỉ còn là chẩn
+> đoán phụ, báo tách riêng.
 
-| Mức | tam giác | nhóm | góc tới TB | slice/mm | nohit | max | mean | trong bound |
-|---:|---:|---|---:|---:|---:|---:|---:|---|
-| 0 | 5648 | grazing | 76,3° | 0,432 | 0 | 0 | 0,000 | ✓ |
-| 0 | 5648 | steep | 26,4° | 0,375 | 0 | **1** | **0,016** | ✓ |
-| 1 | 1448 | grazing | 76,3° | 0,432 | 0 | 1 | 0,250 | ✓ |
-| 1 | 1448 | steep | 26,4° | 0,375 | 0 | 1 | 0,194 | ✓ |
-| 2 | 632 | grazing | 76,3° | 0,432 | 0 | 1 | 0,063 | ✓ |
-| 2 | 632 | steep | 26,4° | 0,375 | 0 | 1 | 0,194 | ✓ |
-| 3 | 356 | grazing | 76,3° | 0,432 | 0 | 1 | 0,125 | ✓ |
-| 3 | 356 | steep | 26,4° | 0,375 | 0 | 1 | 0,210 | ✓ |
+**Nhóm B14 — nhãn hợp đồng của fixture (`by_group`):**
 
-**Đọc hai cột giữa trước hai cột phải.** Một nhóm có đòn bẩy `slice/mm` lớn hơn sẽ ra sai số slice lớn
-hơn với cùng một độ dịch hình học — đó là độ nhạy, không phải tính chất của decimation. Lần này hai
-nhóm chỉ chênh 1,15 lần, nên so sánh có nghĩa.
+| Mức | tam giác | nhóm | n | góc tới TB | slice/mm | nohit | max | mean | trong bound |
+|---:|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 0 | 5648 | `interior` | 30 | 35,2° | 0,695 | 0 | 0 | 0,000 | ✓ |
+| 0 | 5648 | `surface_tangent` | 48 | 29,5° | 0,194 | 0 | 1 | 0,062 | ✓ |
+| 1 | 1448 | `interior` | 30 | 35,2° | 0,695 | 0 | 1 | 0,333 | ✓ |
+| 1 | 1448 | `surface_tangent` | 48 | 29,5° | 0,194 | 0 | 1 | 0,062 | ✓ |
+| 2 | 632 | `interior` | 30 | 35,2° | 0,695 | 0 | 1 | 0,200 | ✓ |
+| 2 | 632 | `surface_tangent` | 48 | 29,5° | 0,194 | 0 | 1 | 0,062 | ✓ |
+| 3 | 356 | `interior` | 30 | 35,2° | 0,695 | 0 | 1 | 0,300 | ✓ |
+| 3 | 356 | `surface_tangent` | 48 | 29,5° | 0,194 | 0 | 1 | 0,042 | ✓ |
+
+**Đọc cột `slice/mm` trước cột `mean`.** Trên fixture này hai nhóm hợp đồng có đòn bẩy **chênh ~3,6
+lần** (0,695 vs 0,194): cùng một độ dịch hình học, `interior` sẽ ra sai số slice lớn hơn. Chênh lệch
+`mean` giữa hai nhóm vì thế **không** tự nó là tính chất của decimation. Diễn giải là việc của anh.
+
+*Chẩn đoán phụ — góc tới tại điểm chạm (`by_incidence_diagnostic`), **không** phải nhóm B14:*
+
+| Mức | lớp | n | góc tới TB | slice/mm | mean |
+|---:|---|---:|---:|---:|---:|
+| 0 | grazing | 8 | 72,3° | 0,523 | 0,000 |
+| 0 | steep | 70 | 27,0° | 0,371 | 0,043 |
+| 1 | grazing | 8 | 72,3° | 0,523 | 0,250 |
+| 1 | steep | 70 | 27,0° | 0,371 | 0,157 |
+| 2 | grazing | 8 | 72,3° | 0,523 | 0,000 |
+| 2 | steep | 70 | 27,0° | 0,371 | 0,129 |
+| 3 | grazing | 8 | 72,3° | 0,523 | 0,125 |
+| 3 | steep | 70 | 27,0° | 0,371 | 0,143 |
 
 **Bốn giới hạn phạm vi — đọc trước khi dùng bảng trên:**
 
@@ -136,24 +158,21 @@ nhóm chỉ chênh 1,15 lần, nên so sánh có nghĩa.
   với nó**. Vượt bound là một kết quả; nới bound là vi phạm cần Decision Request (`00` §13).
 - **Fixture bound là EXACT, zero tolerance.** Không có "gần đủ".
 - **Generator và checker không dùng chung code.** Checker suy lại từ công thức trong fixture rồi so.
-- **Ground truth là mesh mức 0**, nơi mọi điểm bề mặt nằm đúng trên biên cell — nên slice của nó
-  không mơ hồ. So với một hình cầu giải tích sẽ trộn sai số của phương pháp trích bề mặt vào rồi đổ
-  lỗi cho decimation.
+- **Ground truth là DDA ray-march trên mask voxel** — không chạm mesh nào. *(Dòng này từng ghi
+  "ground truth là mesh mức 0"; đó chính là tautology đã sửa ngày 12/09.)*
 - **Mọi output mang nhãn `DIAGNOSTIC`** cho tới khi anh chạy trên máy thật.
 
 ---
 
 ## Việc tiếp theo — của anh
 
-1. Đọc [`FORMAT.md`](fixtures_proposal/FORMAT.md), đặc biệt **§6** — phát hiện `interior` sai nhiều
-   hơn `surface_tangent` gấp ~7 lần, ngược kỳ vọng của spec. Tôi **không** tự sửa nhãn nhóm; định
-   nghĩa nhóm là một phần hợp đồng fixture và là quyết định của anh.
-2. Nhận / sửa / thay bộ fixture → chuyển sang `tests/fixtures/geometry/**`, rồi **xoá
-   `fixtures_proposal/`**.
-3. Công bố format cho Phạm Tuấn Anh — Spike A đang dùng fixture tạm riêng và sẽ thay bằng bộ của anh.
-4. Thay mask tổng hợp bằng mask thật khi Spike D có dữ liệu, chạy lại `build_mesh.py`.
-5. Nhận Galaxy A17 (GATE 3), đo `B10` `B11`, điền cột FPS vào bảng frontier, rồi mới đề xuất
-   **DR-008c**.
+1. ~~Nhận / sửa / thay bộ fixture~~ ✅ **xong 13/09** — PR #20.
+2. ~~Công bố format~~ ✅ **xong 13/09** — `tests/fixtures/geometry/FORMAT.md`.
+3. Diễn giải nhóm B14 trên bảng trên — nhớ đọc cột `slice/mm`. *(Phát hiện "~7 lần" từng ghi ở đây
+   **đã rút lại** ngày 12/09; đừng thừa kế nó.)*
+4. Quyết có xoá `fixtures_proposal/` không — nó không còn là nguồn của công cụ nào.
+5. Thay mask tổng hợp bằng mask thật khi Spike D có dữ liệu, chạy lại `build_mesh.py`.
+6. `B10` `B11` trên Galaxy A17, điền cột FPS vào bảng frontier, rồi mới đề xuất **DR-008c**.
 
 **Liên quan:** [`../../management/spikes/SPIKE_B_3D/TASK.md`](../../management/spikes/SPIKE_B_3D/TASK.md) ·
 [`../../management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md`](../../management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md) ·
