@@ -73,6 +73,12 @@ Stub gốc của bạn (PID 60294, `10.134.129.115`) **vẫn chạy nguyên**, k
 > review. `DR-003b` ghi rõ **quyền của bạn đề xuất quay lại cellular** bất cứ lúc nào, và cái giá: hôm
 > demo cần một đường Wi-Fi đã kiểm là `DIRECT` tại chỗ.
 
+> **✅ Tối 13/09 đã có bộ dữ liệu đầu tiên chạy trọn trên đường nghiệm thu mới** — lượt 4, Wi-Fi +
+> ZeroTier `DIRECT`, **đúng thiết kế mặc định của bạn (88 slice, radius 2, 3 lượt lặp): 171/171 ok**, file
+> 58 MB tải trọn cả 3 lần. **Việc chính của bạn:** review PR #23 rồi **tự chạy `aggregate.py` trên
+> `20260913_run4/e_transport_20260913_run4.jsonl`** — đó là ràng buộc (c) của `DR-006a` rev 2 — và viết
+> `E10` `E11` `E13`. Leader không tính con số nào.
+
 **Đây là việc đầu tiên của bạn hôm nay:** lỗi nằm ở bước mở kết nối TCP qua VPN trên Android, không ở
 relay hay stub. Là chính sách retry của harness, là hành vi của ZeroTier trên Android, hay thứ khác —
 chủ sở hữu phán. Leader sẽ **không** chạy lượt 3 lần cho tới khi bạn có câu trả lời.

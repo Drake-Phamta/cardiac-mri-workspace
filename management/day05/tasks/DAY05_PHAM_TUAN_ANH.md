@@ -33,6 +33,9 @@ Start-Service sshd`.
 
 ## PHẦN II — `THEN` · buổi đo Spike E — anh là operator duy nhất
 
+> **✅ Đã đo tối 13/09:** lượt 3 (1 lượt) và **lượt 4 (đủ 3 lượt, 171/171 ok)** trên Wi-Fi + ZeroTier
+> `DIRECT`. Chỉ đo thêm khi Trung yêu cầu — ví dụ để thấy dao động theo giờ trong ngày (`E8`).
+
 **Chờ kế hoạch đo của Trung** (packet của cậu ấy, mục 4) — anh chạy **đúng** thiết kế của chủ sở hữu.
 Nếu cậu ấy chưa kịp viết, tham số trong `ANDROID_TOYBOX_HARNESS.md` của cậu ấy là mặc định.
 

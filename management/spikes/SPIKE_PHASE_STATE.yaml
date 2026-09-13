@@ -676,6 +676,12 @@ device_measurement_queue:
       2026-09-13 17:51, one repeat, E12 RELAY. 57 samples: 30 ok, 27 client-side
       "Network is unreachable" on TCP connect, interleaved; ping was 30/30. Raw on branch
       spike-e/evidence-20260913 (bd5e931). Interpretation is the owner's.
+    first_acceptance_path_runs: >
+      2026-09-13 19:09 and 19:12 on the DR-003b path (Wi-Fi uplink, E12 DIRECT): run 3 one repeat
+      57/57 ok, run 4 the documented three repeats 171/171 ok, whole volume complete every time,
+      0 local rejections, client and server counts match path for path. Raw on
+      spike-e/evidence-20260913 (7c05c8c). evidence_present stays false until the owner writes
+      RESULT.md. Harness PR #22 and tooling PR #23 are unreviewed.
     stub_running: true            # 2026-09-13, started by Trung; 200 from the leader's peer at 12:35
     gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
     still_needed_before_any_E_measurement:
