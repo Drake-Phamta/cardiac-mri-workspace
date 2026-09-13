@@ -1,0 +1,17 @@
+aborted_at=2026-09-13T18:30:32+0700
+partial_file_bytes=2201403
+partial_file_mtime=2026-09-13 18:30:31.349201303 +0700
+--- response headers as received ---
+HTTP/1.1 200 OK
+Server: SpikeEStub/0 Python/3.9.6
+Date: Sun, 13 Sep 2026 11:18:50 GMT
+Content-Type: application/octet-stream
+Content-Length: 58392576
+X-Server-Handling-Ms: 34.130
+X-Payload-Bytes: 58392576
+X-Strategy: s3
+Cache-Control: no-store
+
+--- processes ---
+13945 13943 sh
+14038 13945 toybox

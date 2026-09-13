@@ -1,0 +1,9 @@
+captured_at_local=2026-09-13T18:18:17+07:00
+wifi_on=0
+15: rmnet0    inet 215.61.85.225/24 brd 215.61.85.255 scope global rmnet0\       valid_lft forever preferred_lft forever
+17: rmnet2    inet 135.58.175.152/24 brd 135.58.175.255 scope global rmnet2\       valid_lft forever preferred_lft forever
+40: tun0    inet 10.64.193.140/24 scope global tun0\       valid_lft forever preferred_lft forever
+multicast 10.64.193.115 dev tun0 table 1040 src 10.64.193.140 uid 2000 
+    cache <mc> 
+mSignalStrength=SignalStrength:{mCdma=Invalid,mGsm=Invalid,mWcdma=Invalid,mTdscdma=Invalid,mLte=CellSignalStrengthLte: rssi=-93 rsrp=-92 rsrq=-12 rssnr=26 cqiTableIndex=2 cqi=15 ta=2147483647 level=4 parametersUseForLevel=0,mNr=Invalid,SignalBarInfo{ lteLevel=3 
+getRilDataRadioTechnology=14(LTE)
