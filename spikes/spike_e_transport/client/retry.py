@@ -58,7 +58,8 @@ def probe(url: str, timeout: float) -> tuple[bool, float, str | None]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
-    ap.add_argument("--path", required=True, choices=["cellular-overlay", "lan-diagnostic"])
+    ap.add_argument("--path", required=True,
+                    choices=["wifi-overlay", "cellular-overlay", "lan-diagnostic"])  # DR-003b
     ap.add_argument("--connection", required=True, choices=["direct", "relayed"])
     ap.add_argument("--operator", required=True,
                     help="device operator who physically ran this")
@@ -107,7 +108,7 @@ def main() -> int:
             "overlay_connection": args.connection, "backoff_policy_s": backoff,
             "probe_interval_s": args.interval, "probe_timeout_s": args.timeout,
             "conditions_note": args.note,
-            "is_acceptance_evidence": args.path == "cellular-overlay",
+            "is_acceptance_evidence": args.path in ("wifi-overlay", "cellular-overlay"),
             "criterion": "E9 - reconnect/retry behaviour",
         }, ensure_ascii=False) + "\n")
 
