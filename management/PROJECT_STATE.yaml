@@ -242,11 +242,10 @@ integration:
   branch_protection: false          # no protection configured on main
   production_modules_present: false
   contracts_frozen: false
-  ci_configured: false              # correct for main. The workflow exists on
-                                    # chore/ci-guardrails and was verified to go RED on a
-                                    # deliberate spec change, but PR #18 has no assigned
-                                    # reviewer and was not self-merged. Closes on merge with
-                                    # a review.
+  ci_configured: true               # 2026-09-13: PR #18 merged (3077d46) after an APPROVED
+                                    # review by Nguyen Gia Duc Trung. Four jobs: frozen-spec
+                                    # integrity, spec-touch guard, state parsing/invariants,
+                                    # forbidden bytes.
 
 # --- TESTS ------------------------------------------------------------------
 tests:
@@ -308,34 +307,15 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-13 17:03
-  - number: 14
-    branch: tools/spike-d-validation
-    author: Drake-Phamta
-    review_requested: [qkhanhbe, TrungNGD195]
-    age_hours: 42
-    reviews_submitted: 0
-    note: "a1744e8 fixes the resampling defect Trung found; his review of the fix is requested"
-  - number: 15
-    branch: spike-b/harness-and-fixture-proposal
-    author: Drake-Phamta
-    review_requested: [scalliontor]
-    age_hours: 42
-    reviews_submitted: 1               # scalliontor CHANGES_REQUESTED 2026-09-13, 3 findings
-    note: "2310330 fixes all three; re-review requested"
-  - number: 17
-    branch: spike-c0/compute-probe
-    author: Drake-Phamta
-    review_requested: [qkhanhbe]
-    age_hours: 41
-    reviews_submitted: 0
-  - number: 18
-    branch: chore/ci-guardrails
-    author: Drake-Phamta
-    review_requested: [TrungNGD195]    # assigned 2026-09-13 - closes the 15 section 2.8 breach
-    age_hours: 41
-    reviews_submitted: 0
+open_prs:                           # as of 2026-09-13 23:10
+  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, review_requested: [qkhanhbe], reviews_submitted: 0}
+  - {number: 23, branch: spike-e/wifi-overlay-path, author: Drake-Phamta, review_requested: [TrungNGD195], note: "CHANGES_REQUESTED by Trung, fixed in 2ed3c64, re-review requested"}
+  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, review_requested: [scalliontor], note: "includes PR #22 (c913050)"}
 merged_2026_09_13:
+  - {number: 14, commit: 726e09f, approved_by: TrungNGD195, note: "Spike D validator incl. the resampling fix Trung found"}
+  - {number: 15, commit: ee9ef60, approved_by: scalliontor, merged_by: scalliontor}
+  - {number: 18, commit: 3077d46, approved_by: TrungNGD195, note: "CI guardrails - ci_configured true"}
+  - {number: 22, commit: c913050, base: docs/day4-avd-diagnostic, approved_by: TrungNGD195}
   - {number: 13, commit: 2f3a51d, approved_by: scalliontor, merged_by: scalliontor}
   - {number: 20, commit: 50a5433, author: scalliontor, approved_by: Drake-Phamta, note: "canonical geometry fixture, DR-013"}
   - {number: 21, commit: f11da28, author: scalliontor, approved_by: Drake-Phamta, note: "PRACTICE Reviewer field"}

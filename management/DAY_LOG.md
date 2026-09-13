@@ -62,6 +62,9 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Project Control | Sửa 3 phát hiện PR #15 · sửa lỗi PR #14 + selftest chứng minh bắt được lỗi cũ | `2310330` · `a1744e8` |
 | Project Control | `tools/remote_adb/` *(giờ không dùng cho Spike E)* · `tools/host_hardening/disable_sshd.ps1` *(chờ anh chạy admin)* | commit hôm nay |
 | Phạm Tuấn Anh | **Chuyển overlay sang network mới `b103a835d292ddb3`** (tài khoản của anh) — không ai tìm được tài khoản quản trị mạng cũ. Laptop `10.64.193.145` · Mac mini `10.64.193.115` · **điện thoại `10.64.193.140` — lần đầu tới được Mac mini** | ZeroTier Central 17:42 |
+| **Nguyễn Gia Đức Trung** | **22:56 — review 4 PR có nội dung**: approve #14, #18, #22 (tự chạy thử harness trên AVD, 10/10) · **yêu cầu sửa #23** (docstring còn ghi cellular — đúng) · **mở PR #24** cho nhánh của mình | API review |
+| **Vũ Hùng Anh** | Review lại PR #15 → `APPROVED` 19:47, merge | `ee9ef60` |
+| Project Control | Merge #14 (`726e09f`), **#18 — CI guardrails lên `main`** (`3077d46`), #22 vào nhánh của Trung (`c913050`) · sửa #23 theo review của Trung (`2ed3c64`) · gán Hùng Anh review #24 | — |
 | Phạm Tuấn Anh *(operator)* | **Lượt đo 3 và 4 trên đường nghiệm thu mới (Wi-Fi, E12 `DIRECT`)** — lượt 3: 57/57 · **lượt 4, đủ thiết kế 3 lượt lặp: 171/171**, file 58 MB tải trọn cả 3 lần, 0 lần bị từ chối, client và server khớp từng đường dẫn. Dữ liệu thô, **chưa tổng hợp** | `spike-e/evidence-20260913` · `7c05c8c` |
 | Phạm Tuấn Anh | **`DR-003b` — đường nghiệm thu Spike E đổi từ 4G/5G sang Wi-Fi + ZeroTier** (cellular: `RELAY`, tải lớn không nổi; Wi-Fi nhà: `DIRECT`) · công cụ: PR #23, PR #22 | `e697885` |
 | Project Control | Tìm ra gốc lỗi `Network is unreachable` — bộ đệm đường đi theo từng nhân CPU bị ghi đè bởi multicast (cpu4/cpu6 lỗi 5/5, sáu nhân khác 5/5) · sửa harness thử lại + đếm · sửa lỗi ghi tải-dở thành `ok` | PR #22 |
