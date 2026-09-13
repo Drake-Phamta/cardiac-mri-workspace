@@ -1,6 +1,6 @@
 # Day 4 — Nguyễn Gia Đức Trung · progress snapshot
 
-**Snapshot:** 2026-09-13 12:59 (+07:00)  
+**Snapshot:** 2026-09-13 12:59 (+07:00)
 **Base revision:** `37877e8`  
 **Working branch:** `docs/day4-avd-diagnostic`
 
