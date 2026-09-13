@@ -1,0 +1,3 @@
+captured_at_local=2026-09-13T19:12:09+07:00
+Wifi is connected to "TP-Link_BC4C"
+WifiInfo: SSID: "TP-Link_BC4C", BSSID: 14:eb:b6:bc:bc:4c, MAC: 7e:4f:69:7c:69:fb, IP: /192.168.0.102, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11n, RSSI: -41, Link speed: 72Mbps, Tx Link speed: 72Mbps, Max Supported Tx

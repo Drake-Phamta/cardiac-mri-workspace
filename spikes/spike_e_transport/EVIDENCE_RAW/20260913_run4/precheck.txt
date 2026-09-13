@@ -1,0 +1,13 @@
+PRE-CHECK wifi-overlay  2026-09-13T19:12:04+07:00  - DIAGNOSTIC, not an E measurement
+OK   phone on USB                             R5CY931SQYZ	device
+OK   Wi-Fi ON (DR-003b)                       wifi_on=1
+OK   wlan0 has an IPv4 address                192.168.0.102/24
+OK   NOT on the Mac mini's LAN 10.170.75.0/24 otherwise the run is lan-diagnostic
+OK   hotspot off (no swlan0)                  none
+info wifi status: Wifi is connected to "TP-Link_BC4C" | WifiInfo: SSID: "TP-Link_BC4C", BSSID: 14:eb:b6:bc:bc:4c, MAC: 7e:4f:69:7c:69:fb, IP: /192.168.0.102, Security type: 2, Su
+OK   ZeroTier IP on phone                     tun0 10.64.193.140/24
+OK   route to 10.64.193.115 via tun0          10.64.193.115 dev tun0 table 1041 src 10.64.193.140 uid 2000      cache 
+OK   phone ping Mac mini                      5 packets transmitted, 5 received, 0% packet loss, time 4008ms rtt min/avg/max/mdev = 51.851/66.521/79.277/11.148 ms
+OK   phone HTTP /health over overlay          HTTP/1.1 200 OK 
+OK   E12 read on the Mac mini                 078280bae8 1.16.0 LEAF      40 DIRECT   475      435      171.224.180.45/19136
+info E12 link: DIRECT
