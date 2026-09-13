@@ -605,7 +605,13 @@ device_measurement_queue:
         00:20. The stub is NOT running - port 8787 closed at 16:20 and again at 23:05. The gate
         turns on the stub, not on the overlay, so it remains SHUT - and the work that opens it
         needs no phone.
-      tooling_ready: "spikes/spike_e_transport - stub, client harness, retry harness, aggregation (PR #16)"
+      entry_gate_state_2026_09_13: >
+        OPEN. Stub started on the Mac mini by Nguyen Gia Duc Trung; reachable from the leader's
+        peer at 12:35 (TCP over the ZeroTier interface, GET /health 200, /mesh/0.obj 200 at the
+        manifest's exact size). Observation, not measurement:
+        management/day04/gate2_verification_20260913.md. An open gate permits a measurement
+        window; it records no E criterion.
+      tooling_ready: "spikes/spike_e_transport - stub, client harness, retry harness, aggregation (merged, 6a36909)"
     - slot: 3
       spike: SPIKE_B
       owner: "Vu Hung Anh"
@@ -625,9 +631,13 @@ device_measurement_queue:
   gate_2_status:
     overlay_up: true              # verified 2026-09-12 00:20, see management/day03/overlay_reachability_20260912.md
     mac_mini_reachable: true      # 10.134.129.115, ping 20/20, macOS port signature 22/3283/5900/5000
-    zerotier_on_phone: false      # NOT CHECKED - not observable from the computer
-    stub_running: false           # port 8787 closed
-    gate_open: false              # entry needs the stub REACHABLE, not just the overlay up
+    zerotier_on_phone: false      # still absent - phone reached the Mac mini with 100% loss (DR-006a rev 1)
+    stub_running: true            # 2026-09-13, started by Trung; 200 from the leader's peer at 12:35
+    gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
+    still_needed_before_any_E_measurement:
+      - "ZeroTier installed on the Galaxy A17 and its node authorised on 3b19b3a71652c5f0"
+      - "an HTTP client on the phone - it has no Python, Termux, curl or wget"
+      - "remote control route for the owner - tools/remote_adb/, firewall step needs the leader as admin"
   note: >
     SPIKE_F also needs the device, but it is queued behind SPIKE_B as Vu Hung Anh's next primary spike and
     therefore does not add contention in this wave.

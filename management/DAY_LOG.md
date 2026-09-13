@@ -48,7 +48,16 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| *(chưa có)* | | |
+| **Nguyễn Gia Đức Trung** | **Stub chạy trên Mac mini → `GATE 2` MỞ.** Leader xác nhận từ peer của anh ấy 12:35: `/health` 200, `/mesh/0.obj` 200 đúng kích thước manifest | `day04/gate2_verification_20260913.md` |
+| **Nguyễn Gia Đức Trung** | Phát hiện packet ghi sai `--host` — stub nhận `--bind` | packet đã đính chính |
+| Project Control | `tools/remote_adb/` — chặn cổng 5037 ngoài overlay rồi mới mở adb cho người vận hành từ xa | commit hôm nay |
+
+**Điều kiện 2 — ĐẠT**, do đúng người sở hữu.
+
+**Trung báo xong nhưng chưa có bằng chứng truy được** — nên **chưa** ghi vào bảng trên:
+`DAY04_TRUNG_PROGRESS_20260913.md` · `AVD_DIAGNOSTIC_20260913.md` *(chỉ nằm trên máy cậu ấy)* ·
+phát hiện lỗi resampling PR #14 *(leader đã kiểm là **lỗi thật**, nhưng chưa đăng thành review)*.
+Push lên nhánh riêng / đăng review là vào bảng.
 
 ### Còn tồn — mang sang từ Day 3
 

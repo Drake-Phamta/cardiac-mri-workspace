@@ -1,5 +1,26 @@
 # DAY 4 — Nguyễn Gia Đức Trung · 2026-09-13
 
+> ## Cập nhật 13/09 trưa — **`GATE 2` ĐÃ MỞ**
+>
+> Bạn chạy stub, và leader xác nhận từ peer của anh ấy lúc **12:35**: TCP qua interface ZeroTier,
+> `GET /health` → **200**, `/mesh/0.obj` → **200, 7 429 byte, khớp đúng manifest** — tức bản sửa
+> `meshes: []` của bạn chạy trên stub thật, không chỉ trên diff.
+> Bản ghi: [`../gate2_verification_20260913.md`](../gate2_verification_20260913.md) *(DIAGNOSTIC, không
+> phải bằng chứng nghiệm thu)*.
+>
+> | Việc bạn báo | Trạng thái |
+> |---|---|
+> | Stub trên Mac mini | ✅ **leader đã xác nhận** — `GATE 2` mở |
+> | `--host` → `--bind` | ✅ bạn đúng, packet sai — **đã sửa** bên dưới |
+> | Lỗi resampling PR #14 | ✅ **leader đã kiểm: lỗi thật** — `_compare` bỏ qua `origin` và hướng. **Đăng nó thành review trên GitHub** để nó có tên bạn; tác giả sửa sau khi bạn đăng |
+> | `E12` | ⚠ **peer cần đọc là node của điện thoại**, không phải của leader — xem ② |
+> | Remote adb | ✅ **đã dựng xong** `tools/remote_adb/`. Leader chạy một lệnh admin một lần, sau đó bạn chỉ cần `adb -H 10.134.129.145 -P 5037 devices` |
+> | ZeroTier trên điện thoại | ☐ cần leader cầm máy — **việc tiếp theo** |
+>
+> **Việc còn thiếu:** push `DAY04_TRUNG_PROGRESS_20260913.md` và `AVD_DIAGNOSTIC_20260913.md` lên
+> **nhánh riêng của bạn** rồi mở PR. Hiện hai file đó chỉ nằm trên máy bạn, và luật của `DAY_LOG` là
+> *không có bằng chứng truy được thì chưa tính là xong.*
+
 > ## Ghi nhận trước: Day 3 bạn là người **duy nhất** có việc thật land
 >
 > Day 3 đóng với kết quả **TRƯỢT** ở mức toàn nhóm. Trong ngày đó, đúng một thành viên hoạt động:
@@ -63,8 +84,11 @@ Thứ duy nhất còn chặn nó là **stub chưa chạy** — và việc đó *
 
 ```bash
 git pull origin main                      # dung cu da len main
-python3 spikes/spike_e_transport/stub/server.py --host <dia-chi-ZT-cua-Mac-mini> --port 8787
+python3 spikes/spike_e_transport/stub/server.py --payloads <thu-muc-payload> --bind <dia-chi-ZT-cua-Mac-mini> --port 8787
 ```
+
+> **Đính chính 13/09:** bản đầu của packet này ghi `--host`. Stub nhận **`--bind`** (và bắt buộc
+> `--payloads`). Trung phát hiện và tự sửa lệnh của mình; dòng trên đã sửa theo.
 
 Bind **địa chỉ overlay**, không phải `127.0.0.1` — nếu bind loopback thì từ máy leader vẫn không tới
 được và cổng vẫn coi như đóng. Kiểm từ phía bạn trước:
@@ -81,8 +105,13 @@ curl -s http://<dia-chi-ZT>:8787/health
 sudo zerotier-cli peers        # tren Mac mini
 ```
 
-Tìm dòng của máy leader, xem cột cuối: **`DIRECT`** hay **`RELAY`**. Đó là câu trả lời cho `E12`, và
-nó quyết định con số p95 của bạn có nghĩa gì — relayed thì mọi số latency phải đọc kèm chú thích.
+> **Đính chính 13/09 — packet này chỉ sai peer.** Máy leader là node **`68efb4de07`**, nhưng peer đó
+> chỉ trả lời cho đường **điều khiển** (remote adb). `E12` hỏi về **đường được đo**: *điện thoại →
+> Mac mini*. Nên peer cần đọc là **node của Galaxy A17** — chưa tồn tại cho tới khi ZeroTier được cài
+> lên máy. `E12` **không đóng được trước bước ③**.
+
+Khi có node của điện thoại: tìm dòng có ID đó, xem cột cuối **`DIRECT`** hay **`RELAY`**. Relayed thì
+mọi số latency phải đọc kèm chú thích.
 
 ---
 
@@ -125,9 +154,15 @@ cellular thật.
 Nguyễn Gia Đức Trung** over the real cellular + overlay path.”* Nên trong repo hiện **không có một
 con số transport nào** — chúng là của bạn.
 
-> ⚠ **Cảnh báo, đã kiểm trên máy thật:** `adb` **không bind được một địa chỉ đơn** — nó trả
-> *“listening on specified hostname currently unsupported”*. Mở adb server cho bạn sẽ mở nó **rộng
-> hơn** mức mong muốn trên máy leader. Leader đang quyết cách xử lý. Nó **không chặn** việc ① và ②.
+> **Cập nhật 13/09 — đã xử lý.** `adb` không bind được một địa chỉ đơn, nên `tools/remote_adb/` chặn
+> cổng 5037 bằng firewall với **mọi địa chỉ ngoài overlay** trước khi mở. Phía bạn chỉ cần:
+>
+> ```bash
+> adb -H 10.134.129.145 -P 5037 devices -l
+> ```
+>
+> Dùng platform-tools gần bản của leader (`36.0.0`, adb `1.0.41`). Chi tiết:
+> `tools/remote_adb/README.md`.
 
 ### ⑤ `E1`–`E9` và `E12`
 

@@ -69,8 +69,8 @@ today:
       what: "`DATASET_AUDIT.md` + `dataset_manifest.json` land trên `main`, **do chính bạn commit**"
       why: "P0, ngày thứ 5. Lệnh giờ chạy được từ lệnh đầu — 4 lỗi chặn đã sửa tối qua"
     - who: trung
-      what: "Chạy stub trên Mac mini → cổng 8787 mở"
-      why: "Cổng vào `GATE 2`. Không cần điện thoại"
+      what: "✅ Chạy stub trên Mac mini → cổng 8787 mở — **ĐẠT 12:35**"
+      why: "`GATE 2` đã mở. Leader xác nhận từ peer của mình"
     - who: hunganh
       what: "Review PR #13 *(mở từ trưa 11/09 — 33,7 giờ lúc chốt Day 3)* và quyết bộ geometry fixture"
       why: "Leader là tác giả nên **không tự approve được**. Fixture chặn cả Spike A lẫn Spike F"
@@ -93,13 +93,14 @@ today:
       note: "Tối qua đã sửa 4 lỗi sẽ chặn bạn ngay lệnh đầu: `--root` sai đường dẫn, UTF-8 BOM trong `acquisition.json`, một file licence không tồn tại, và `A17` không quét sidecar. Đã kiểm bằng cách chạy thật trên cả 154 case."
     trung:
       now:
-        - "**Chạy stub trên Mac mini** bind địa chỉ overlay → cổng 8787 → **`GATE 2` mở**"
-        - "`sudo zerotier-cli peers` → direct hay relayed, trả lời `E12`"
+        - "✅ ~~Chạy stub trên Mac mini~~ — **`GATE 2` MỞ**, leader xác nhận 12:35"
+        - "**Đăng lỗi resampling PR #14 thành review trên GitHub** — leader đã kiểm: lỗi thật"
+        - "Push 2 file tiến độ + diagnostic lên **nhánh riêng**, mở PR"
       then:
-        - "Cài **ZeroTier lên điện thoại** *(vẫn bắt buộc — USB chỉ là kênh điều khiển)*"
-        - "Hẹn buổi đo từ xa với leader"
+        - "Cài **ZeroTier lên điện thoại** cùng leader — `E12` đọc **node của điện thoại**, không phải node leader"
+        - "Buổi đo từ xa: `adb -H 10.134.129.145 -P 5037 devices` — `tools/remote_adb/` đã dựng"
       later:
-        - "Review PR #14 hoặc #15 của đồng đội"
+        - "`E1`–`E9` `E12` trên đường cellular thật"
       debts: []
       note: "Hôm qua bạn là người **duy nhất** có việc thật land: review PR #16 với ba phát hiện đúng, một cái luồng soi đối kháng đã bỏ sót, rồi tự sửa cả ba. Một lưu ý quy trình: lần sau nêu trong review và để tác giả sửa — `15` §191 cấm push vào nhánh người khác, và approve commit của chính mình thì nửa sau là tự review."
     hunganh:
