@@ -114,8 +114,29 @@ request() {
   req_strategy=$(grep -ai '^X-Strategy:' "$TMP_FILE" 2>/dev/null |
     head -n 1 | tr -d '\r' | cut -d' ' -f2)
 
+  # Bytes actually received in the body, not the Content-Length the server
+  # promised. The first version reported the header value, so a transfer cut
+  # off after the headers arrived was recorded as ok:true with the full size.
+  req_total_bytes=$(wc -c < "$TMP_FILE" 2>/dev/null | tr -d ' ')
+  req_header_bytes=$(sed -n '1,/^\r*$/p' "$TMP_FILE" 2>/dev/null | wc -c | tr -d ' ')
+  req_body_bytes=$(( ${req_total_bytes:-0} - ${req_header_bytes:-0} ))
+  [ "$req_body_bytes" -lt 0 ] && req_body_bytes=0
+  if [ "$req_status" = "200" ] && [ -n "$req_payload" ] &&
+     [ "$req_body_bytes" -ne "$req_payload" ] 2>/dev/null; then
+    req_status_truncated=yes
+  else
+    req_status_truncated=no
+  fi
+
   case "$req_status" in
-    200) req_ok=true; req_error_json=null ;;
+    200)
+      if [ "$req_status_truncated" = yes ]; then
+        req_ok=false
+        req_error_json="\"$(json_escape "truncated body: received $req_body_bytes of $req_payload bytes (nc_rc=$req_nc_rc)")\""
+      else
+        req_ok=true; req_error_json=null
+      fi
+      ;;
     *)
       req_ok=false
       if [ -n "$req_status" ]; then
@@ -138,7 +159,7 @@ request() {
 
   req_url="$BASE_URL$req_path"
   req_url_json="$(json_escape "$req_url")"
-  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
+  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"bytes_received\":$req_body_bytes,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
   rm -f "$TMP_FILE" "$ERR_FILE"
 }
 

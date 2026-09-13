@@ -103,6 +103,19 @@ at once, pinned to a rotating CPU, up to 8 times. Every sample records:
 Tested on the phone: 20/20 `/health` requests ok, 9 of them after one local
 rejection each.
 
+## Truncated bodies were recorded as success — fixed
+
+`bytes` is the `Content-Length` the server promised. The first version took
+`ok` from the status line alone, so a transfer cut off after the headers
+arrived was recorded as `ok: true` with the full size. Found during run 2,
+where a 58 MB body was arriving at a few KB per minute over the relay.
+
+Each sample now carries **`bytes_received`** (body bytes actually on disk), and
+a `200` whose body is shorter than `Content-Length` is `ok: false` with
+`truncated body: received X of Y bytes`. Tested on the phone with a simulated
+complete response (ok), a simulated cut-off one (ok:false, 10 of 100), and a
+real `/health` (2710 of 2710).
+
 **This is not only a harness problem.** An app on this phone opening TCP
 connections to the Mac mini over ZeroTier will hit the same rejections, so the
 rate belongs in the owner's `E9` / demo-risk analysis rather than being
