@@ -249,7 +249,8 @@ def _a8_compatibility(cases: list[dict]) -> Result:
     if undetermined:
         detail += f"; {len(undetermined)} undetermined (no mask, or unreadable)"
     # Needing a transform is a finding, not a failure. Not knowing is a failure.
-    return Result("A8", "MRI/mask shape and spacing compatibility; resampling needed?",
+    return Result("A8", "MRI/mask shape, spacing, origin and direction compatibility; "
+                        "resampling needed?",
                   PASS if ok or need_resample else FAIL, detail)
 
 

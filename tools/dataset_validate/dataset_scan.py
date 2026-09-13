@@ -335,6 +335,7 @@ def scan_package(root: str, want_checksums: bool = True,
                 "shape_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
                 "spacing_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
                 "origin_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
+                "directions_equal": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
                 "resampling_required": NOT_MEASURED + f" - no {MASK_FILENAME} in this case",
             }
 
@@ -375,7 +376,16 @@ def scan_package(root: str, want_checksums: bool = True,
 
 
 def _compare(mri: dict, mask: dict) -> dict:
-    """A8 / A9 - shape, spacing and origin compatibility, and the resampling verdict."""
+    """A8 / A9 - shape, spacing, origin and direction compatibility, and the resampling verdict.
+
+    The first version decided `resampling_required` from shape and spacing
+    alone. Two volumes with the same shape and spacing but a different origin,
+    or an axis flipped in the direction matrix, share no voxel grid - and were
+    reported as needing no resampling. `spacing` is a positive length (see
+    _diagonal_spacing), so a flipped axis is invisible to it by construction;
+    the sign lives in `space_directions`. Found by Nguyen Gia Duc Trung in a
+    static review of PR #14, 2026-09-13.
+    """
     out: dict[str, Any] = {}
 
     def eq(a, b, key):
@@ -386,16 +396,24 @@ def _compare(mri: dict, mask: dict) -> dict:
     out["shape_equal"] = eq(mri.get("shape"), mask.get("shape"), "shape")
     out["spacing_equal"] = eq(mri.get("spacing"), mask.get("spacing"), "spacing")
     out["origin_equal"] = eq(mri.get("space_origin"), mask.get("space_origin"), "origin")
+    out["directions_equal"] = eq(mri.get("space_directions"), mask.get("space_directions"),
+                                 "space directions")
 
-    if out["shape_equal"] is True and out["spacing_equal"] is True:
-        out["resampling_required"] = False
-        out["basis"] = "shape and spacing identical"
-    elif out["shape_equal"] is False or out["spacing_equal"] is False:
+    parts = ("shape", "spacing", "origin", "directions")
+    verdicts = {p: out[f"{p}_equal"] for p in parts}
+    differ = [p for p, v in verdicts.items() if v is False]
+    unknown = [p for p, v in verdicts.items() if v is not True and v is not False]
+
+    if differ:
+        # Any one difference is enough: the two volumes are not on the same grid.
         out["resampling_required"] = True
-        out["basis"] = "shape or spacing differ - a transform is required before use"
-    else:
+        out["basis"] = (f"{', '.join(differ)} differ - a transform is required before use")
+    elif unknown:
         out["resampling_required"] = NOT_MEASURED + " - inputs incomplete"
-        out["basis"] = "could not determine"
+        out["basis"] = f"could not determine: {', '.join(unknown)} unavailable"
+    else:
+        out["resampling_required"] = False
+        out["basis"] = "shape, spacing, origin and direction matrix identical"
     return out
 
 

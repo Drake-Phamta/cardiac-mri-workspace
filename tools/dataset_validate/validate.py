@@ -88,7 +88,8 @@ def selftest() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = os.path.join(tmp, "SYNTHETIC_PACKAGE")
 
-        def write_case(partition, name, shape, with_mask=True, oblique=False):
+        def write_case(partition, name, shape, with_mask=True, oblique=False,
+                       mask_origin=None, mask_flip_x=False):
             d = os.path.join(root, partition, name)
             os.makedirs(d, exist_ok=True)
             nx, ny, nz = shape
@@ -105,11 +106,21 @@ def selftest() -> int:
             if with_mask:
                 mask = np.zeros(shape, dtype=np.uint8)
                 mask[nx // 4: nx // 2, ny // 4: ny // 2, nz // 4: nz // 2] = 1
-                nrrd.write(os.path.join(d, "laendo.nrrd"), mask, header)
+                # Same shape and same positive spacing as the MRI, on a
+                # different grid - the two cases the first _compare let through.
+                mask_header = {k: (list(map(list, v)) if k == "space directions" else v)
+                               for k, v in header.items()}
+                if mask_origin is not None:
+                    mask_header["space origin"] = mask_origin
+                if mask_flip_x:
+                    mask_header["space directions"][0][0] = -0.625
+                nrrd.write(os.path.join(d, "laendo.nrrd"), mask, mask_header)
 
         write_case("Training Set", "case-aaa", (32, 32, 8))
         write_case("Training Set", "case-bbb", (32, 32, 8))
         write_case("Training Set", "case-ccc", (40, 40, 8))      # makes in-plane dims vary
+        write_case("Training Set", "case-fff", (32, 32, 8), mask_origin=[0.625, 0.0, 0.0])
+        write_case("Training Set", "case-ggg", (32, 32, 8), mask_flip_x=True)
         write_case("Testing Set", "case-ddd", (32, 32, 8), with_mask=False)
         write_case("Testing Set", "case-eee", (32, 32, 8), with_mask=False, oblique=True)
 
@@ -132,6 +143,7 @@ def selftest() -> int:
             "A3": checks.PASS,     # every case has an MRI
             "A4": checks.PASS,     # everything loads and is 3D
             "A6": checks.PASS,     # shape distribution computed
+            "A9": checks.FAIL,     # case-fff's mask sits on a shifted origin
             "A10": checks.PASS,    # mask value sets recorded
             "A14": checks.FAIL,    # the oblique volume MUST be caught
             "A11": checks.OWNER,   # never answered by the script
@@ -150,8 +162,22 @@ def selftest() -> int:
         parts = manifest["partitions"]
         if parts["Testing Set"]["cases_with_mask"] != 0:
             problems.append("the unlabelled partition should show zero masks")
-        if parts["Training Set"]["case_count"] != 3:
-            problems.append("expected 3 training cases")
+        if parts["Training Set"]["case_count"] != 5:
+            problems.append("expected 5 training cases")
+
+        # Resampling must see origin and direction, not only shape and spacing.
+        by_name = {c["source_dir_name"]: c.get("mri_mask_compatibility") or {}
+                   for c in manifest["cases"]}
+        if by_name["case-aaa"].get("resampling_required") is not False:
+            problems.append("case-aaa (identical grids) should need no resampling")
+        for name, why in (("case-fff", "origin"), ("case-ggg", "directions")):
+            comp = by_name[name]
+            if comp.get("resampling_required") is not True:
+                problems.append(f"{name}: same shape and spacing but different {why} - "
+                                f"resampling_required should be True, got "
+                                f"{comp.get('resampling_required')!r}")
+            elif why not in comp.get("basis", ""):
+                problems.append(f"{name}: basis should name '{why}', got {comp.get('basis')!r}")
 
         # The renderer must survive a manifest with missing and failing fields.
         text = render(manifest, results, summary)
@@ -167,15 +193,17 @@ def selftest() -> int:
             print(f"\n  SELFTEST FAILED: {len(problems)} problem(s)\n")
             return 1
         print("  ok    oblique volume caught by A14")
+        print("  ok    mask on a shifted origin, and on a flipped axis, both need resampling")
         print("  ok    varying in-plane dimensions caught by A6")
         print("  ok    unlabelled partition reported, not treated as an error")
         print("  ok    A11 / A13 / A18 left to the owner, never auto-passed")
         print("  ok    audit renders from a manifest containing failures")
         print()
         print("  SELFTEST PASSED - the harness works. It has measured nothing real.")
-        print("  Exit code 0 means the SELFTEST passed. The A14 FAIL printed above is the")
-        print("  expected result on a deliberately planted oblique volume, not a run failure -")
-        print("  the documented 0/1 exit contract applies to --root runs, not to --selftest.")
+        print("  Exit code 0 means the SELFTEST passed. The A9 and A14 FAILs printed above")
+        print("  are the expected results on a deliberately shifted mask and a deliberately")
+        print("  oblique volume, not a run failure - the documented 0/1 exit contract applies")
+        print("  to --root runs, not to --selftest.")
         print()
         return 0
 

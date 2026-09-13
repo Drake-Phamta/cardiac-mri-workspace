@@ -87,6 +87,7 @@
             "description": "Criteria A8 and A9",
             "properties": {
               "shape_equal": {}, "spacing_equal": {}, "origin_equal": {},
+              "directions_equal": {},
               "resampling_required": {}, "basis": { "type": "string" }
             }
           }
