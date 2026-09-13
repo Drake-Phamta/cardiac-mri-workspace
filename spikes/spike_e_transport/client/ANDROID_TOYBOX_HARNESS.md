@@ -70,3 +70,41 @@ must decide whether this fallback is sufficient for the acceptance fields; if
 not, use a reviewed static client that can provide first-byte timing rather
 than filling the field with an estimate.
 
+## Local connect rejections — found on the real phone, 2026-09-13
+
+Run 1 on the real cellular path lost 27 of 57 requests to
+`nc: connect: Network is unreachable`. The cause is on the handset, not the
+relay or the stub, and was pinned down as follows:
+
+| Test | Result |
+|---|---|
+| connects to a public IP over cellular, not through ZeroTier | 15/15 ok |
+| `ping` to the Mac mini through ZeroTier | 30/30, 0 % loss |
+| `/proc/net/snmp` across 20 connects | `Icmp InDestUnreachs` unchanged; `Tcp ActiveOpens` rose only by the successes — **no SYN is sent** for a failure |
+| connects pinned to each CPU with `taskset` | **cpu4 and cpu6: 0/5**, every other CPU 5/5; `ip route get 10.64.193.115` on those two CPUs prints **`multicast`** |
+
+The VPN table holds `10.64.193.0/24 dev tun0` and `224.0.0.0/4 dev tun0` with
+identical attributes, so the kernel gives them one shared per-CPU output-route
+cache. A multicast send on a CPU leaves a multicast-flagged route there, and
+the kernel refuses a TCP connect over a multicast-flagged route with
+`ENETUNREACH`. ICMP is allowed on it, which is why ping stays clean.
+
+**What the harness does about it.** A failure that is instant, empty, and says
+`Network is unreachable` never reached the network, so the request is retried
+at once, pinned to a rotating CPU, up to 8 times. Every sample records:
+
+| Field | Meaning |
+|---|---|
+| `local_connect_rejections` | how many local rejections preceded this sample |
+| `ms_total` | the attempt that actually reached the network |
+| `ms_including_local_rejections` | wall time from the first attempt |
+| `pinned_cpu` | the CPU the final attempt was pinned to, or `null` |
+
+Tested on the phone: 20/20 `/health` requests ok, 9 of them after one local
+rejection each.
+
+**This is not only a harness problem.** An app on this phone opening TCP
+connections to the Mac mini over ZeroTier will hit the same rejections, so the
+rate belongs in the owner's `E9` / demo-risk analysis rather than being
+treated as noise.
+

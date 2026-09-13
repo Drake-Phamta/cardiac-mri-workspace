@@ -19,6 +19,23 @@ REPEATS=3
 TIMEOUT=60
 OUT_FILE=""
 
+# Local connect rejections - added 2026-09-13 after run 1 (see PROVENANCE.md of
+# EVIDENCE_RAW/20260913_run1). On this handset the kernel caches the output
+# route PER CPU, and the VPN's 10.64.193.0/24 and 224.0.0.0/4 routes share one
+# cache slot (identical attributes). A multicast send on a CPU leaves a
+# multicast-flagged route there, and every TCP connect to the Mac mini from that
+# CPU then fails instantly with "Network is unreachable" - before any SYN is
+# sent (Tcp ActiveOpens does not move). Proven by pinning: 2 of 8 CPUs failed
+# 5/5, the other 6 succeeded 5/5.
+#
+# Such a rejection never touches the network, so it is retried at once on
+# another CPU. It is NOT hidden: every sample records how many local
+# rejections preceded it, and ms_total times the attempt that actually
+# reached the network. The rejection rate is itself a demo risk for the owner.
+LOCAL_RETRY_MAX=8
+NCPU=$(grep -c '^processor' /proc/cpuinfo 2>/dev/null)
+[ -z "$NCPU" ] || [ "$NCPU" -lt 1 ] && NCPU=1
+
 usage() {
   cat >&2 <<'EOF'
 Usage:
@@ -55,16 +72,37 @@ request() {
   req_criterion="$2"
   req_path="$3"
   req_repeat="$4"
-  req_start=$(now_ms)
+  req_first_start=$(now_ms)
+  req_rejections=0
+  req_cpu_json=null
 
-  # HTTP/1.0 plus Connection: close makes the response boundary unambiguous
-  # for Toybox nc, including the 58 MB whole-volume response.
-  printf 'GET %s HTTP/1.0\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n' \
-    "$req_path" "$HOST" |
-    toybox nc -n -w "$TIMEOUT" "$HOST" "$PORT" > "$TMP_FILE"
-  req_nc_rc=$?
-  req_end=$(now_ms)
+  while :; do
+    req_start=$(now_ms)
+    req_pin=""
+    if [ "$req_rejections" -gt 0 ]; then
+      # Leave the CPU whose cached route rejected us: rotate through the CPUs.
+      req_cpu=$(( (req_rejections - 1) % NCPU ))
+      req_pin="taskset $(printf '%x' $((1 << req_cpu)))"
+      req_cpu_json=$req_cpu
+    fi
+    # HTTP/1.0 plus Connection: close makes the response boundary unambiguous
+    # for Toybox nc, including the 58 MB whole-volume response.
+    printf 'GET %s HTTP/1.0\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n' \
+      "$req_path" "$HOST" |
+      $req_pin toybox nc -n -w "$TIMEOUT" "$HOST" "$PORT" > "$TMP_FILE" 2> "$ERR_FILE"
+    req_nc_rc=$?
+    req_end=$(now_ms)
+    if [ "$req_nc_rc" -ne 0 ] && [ ! -s "$TMP_FILE" ] &&
+       grep -q 'Network is unreachable' "$ERR_FILE" 2>/dev/null &&
+       [ "$req_rejections" -lt "$LOCAL_RETRY_MAX" ]; then
+      req_rejections=$((req_rejections + 1))
+      continue
+    fi
+    break
+  done
   req_ms=$((req_end - req_start))
+  req_ms_with_rejections=$((req_end - req_first_start))
+  req_nc_err=$(head -n 1 "$ERR_FILE" 2>/dev/null)
 
   req_status_line=$(head -n 1 "$TMP_FILE" 2>/dev/null | tr -d '\r')
   req_status=$(printf '%s' "$req_status_line" |
@@ -83,7 +121,7 @@ request() {
       if [ -n "$req_status" ]; then
         req_error="HTTP $req_status (nc_rc=$req_nc_rc)"
       else
-        req_error="no HTTP status (nc_rc=$req_nc_rc)"
+        req_error="no HTTP status (nc_rc=$req_nc_rc${req_nc_err:+; $req_nc_err})"
       fi
       req_error_json="\"$(json_escape "$req_error")\""
       ;;
@@ -100,8 +138,8 @@ request() {
 
   req_url="$BASE_URL$req_path"
   req_url_json="$(json_escape "$req_url")"
-  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"ms_total\":$req_ms,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
-  rm -f "$TMP_FILE"
+  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
+  rm -f "$TMP_FILE" "$ERR_FILE"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -152,6 +190,7 @@ fi
 mkdir -p "$(dirname "$OUT_FILE")" || exit 1
 rm -f "$OUT_FILE"
 TMP_FILE="/data/local/tmp/spike_e_http_$$"
+ERR_FILE="/data/local/tmp/spike_e_err_$$"
 
 captured_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 operator_json=$(json_escape "$OPERATOR")
@@ -164,7 +203,7 @@ else
   acceptance_json=false
   warning_json="\"DIAGNOSTIC ONLY: LAN/AVD measurements are not Spike E acceptance evidence.\""
 fi
-emit "{\"record_type\":\"run_header\",\"captured_at\":\"$captured_at\",\"operator\":\"$operator_json\",\"owner\":\"$owner_json\",\"base\":\"$base_json\",\"measurement_path\":\"$MEASUREMENT_PATH\",\"overlay_connection\":\"$CONNECTION\",\"repeats\":$REPEATS,\"is_acceptance_evidence\":$acceptance_json,\"warning\":$warning_json,\"client\":\"android-toybox-nc\",\"note\":\"ms_to_first_byte is null in this fallback; total time and server handling are recorded.\"}"
+emit "{\"record_type\":\"run_header\",\"captured_at\":\"$captured_at\",\"operator\":\"$operator_json\",\"owner\":\"$owner_json\",\"base\":\"$base_json\",\"measurement_path\":\"$MEASUREMENT_PATH\",\"overlay_connection\":\"$CONNECTION\",\"repeats\":$REPEATS,\"is_acceptance_evidence\":$acceptance_json,\"warning\":$warning_json,\"client\":\"android-toybox-nc\",\"local_retry_policy\":\"on an instant local Network is unreachable (no SYN sent) retry up to $LOCAL_RETRY_MAX times on rotating CPUs; counted per sample in local_connect_rejections\",\"cpu_count\":$NCPU,\"note\":\"ms_to_first_byte is null in this fallback; total time and server handling are recorded.\"}"
 
 MID=$((SLICES / 2))
 STEP=$((SLICES / 12))
