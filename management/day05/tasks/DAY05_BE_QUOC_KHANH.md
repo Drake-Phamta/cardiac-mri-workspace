@@ -1,13 +1,11 @@
 # DAY 5 — Bế Quốc Khánh · 2026-09-14
 
-**Khai báo khả dụng trước 09:00** (`15` §5) — một dòng trong nhóm: hôm nay bạn có mấy tiếng.
-
-**Khối lượng hôm nay:** phần chính **~4,5 h** · thêm ~1,5 h nếu còn thời gian.
+**Khối lượng hôm nay:** phần chính **~7 h** · thêm ~1 h nếu còn thời gian · **hạn: 23:59 hôm nay**.
 
 > **Đêm qua bạn đã làm cho Day 4 đạt.** PR #25 là audit Spike D đầy đủ — 16 PASS, 0 FAIL, 154 case — và chế độ
 > `--archive` bạn tự viết để đọc thẳng file zip khi máy không đủ 14,2 GiB là một lời giải tốt. Review của bạn
 > ở PR #17 có 4 lỗi chặn thật; đó là review thật đầu tiên của bạn và đóng cột `B` nợ từ Day 0.
-> Hạn cứng 23:59 hôm nay: phần của bạn **đã nộp**; audit lên `main` khi Hùng Anh review xong.
+> Hạn cứng của audit: phần của bạn **đã nộp**; audit lên `main` khi Hùng Anh review xong.
 
 ## 🔴 LÀM TRƯỚC — nợ tồn, theo thứ tự
 
@@ -23,8 +21,11 @@
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
 | **3** | **Script split theo bệnh nhân, seed `2024` — viết cho CẢ Path A và Path B**, để chạy được ngay khi leader quyết `DR-002` | ~2,5 h | không — viết trước khi có quyết định | script + selftest trên dữ liệu giả, PR |
-| 4 | Chạy split theo path đã quyết → manifest split, commit dưới tài khoản bạn | ~30 ph | leader (`DR-002`) | manifest split trên nhánh của bạn — đầu vào `GATE-SPLIT-01` |
-| 5 | Review bản sửa **PR #17** khi leader đẩy lên | ~30 ph | leader | `APPROVE` hoặc yêu cầu sửa tiếp |
+| **4** | Chạy split theo path đã quyết → manifest split, commit dưới tài khoản bạn | ~30 ph | leader (`DR-002`) | manifest split — đầu vào `GATE-SPLIT-01` |
+| **5** | Review bản sửa **PR #17** khi leader đẩy lên | ~30 ph | leader | `APPROVE` hoặc yêu cầu sửa tiếp |
+| **6** | **Chạy probe `C0`** trên RTX 4050 với **hình dạng thật** của cohort (`uint8`, 576×576×88 và 640×640×88 — số đo của chính bạn ở PR #25). `--operator` là bắt buộc | ~2 h | #17 merge | log thô + bảng batch lớn nhất vừa VRAM, trên nhánh `spike-c0/...` |
+
+**Nếu #17 chưa sửa xong lúc bạn tới việc 6:** làm phần "nếu còn thời gian" trước, rồi quay lại việc 6.
 
 **Hai phương án split theo `06` §6:**
 
@@ -42,9 +43,11 @@ phía. Nếu gói **không** cho biết điều đó, ghi rõ là không xác đ
 
 ## Nếu còn thời gian
 
-- Chạy probe **C0** trên RTX 4050 khi PR #17 đã merge *(~1,5 h)*. Nhớ `--operator` là bắt buộc.
+- Dựng khung **pipeline C0 trên volume tổng hợp đúng hình dạng** (`next_action` của `SPIKE_C0`): đọc `uint8`
+  576/640 × 88, chuẩn hoá, đưa qua mô hình *(~1 h)*. **Không** đụng dữ liệu thật cho C1 — `SPIKE_C1` còn `BLOCKED`
+  tới khi Spike D được nghiệm thu.
 
 ---
 
 **Liên quan:** PR #25 · PR #17 · [`../../spikes/SPIKE_D_DATASET/TASK.md`](../../spikes/SPIKE_D_DATASET/TASK.md) ·
-`OPEN_DECISIONS.md` → `DR-002` · [`../../day04/DAY04_EOD_REVIEW.md`](../../day04/DAY04_EOD_REVIEW.md)
+[`../../spikes/SPIKE_C_ML/`](../../spikes/SPIKE_C_ML/) · `OPEN_DECISIONS.md` → `DR-002`

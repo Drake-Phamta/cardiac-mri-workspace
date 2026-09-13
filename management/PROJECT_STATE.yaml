@@ -25,6 +25,12 @@ day: 5                              # Day 2 = 2026-09-11 was the first execution
 day_date: "2026-09-14"              # Day 4 closed MET 3/3; see day04/DAY04_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
+capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
+  members_hours_per_day: 8          # Khanh, Trung, Vu Hung Anh
+  daily_deadline: "23:59 local"
+  availability_declaration: "not required - replaces INC-001 lesson 1 (declare by 09:00)"
+  leader: "open-ended - carries reviews and the daily close"
+  sizing_rule: "about 7 h core + about 1 h stretch per member; debts first"
 day_4_verdict_basis: >
   Condition 1 (Spike D audit on main, committed by Khanh) counted as MET by leader decision: Khanh
   committed both artifacts and opened PR #25 at 2026-09-14T03:10, inside the window the leader had

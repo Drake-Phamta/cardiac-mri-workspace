@@ -31,8 +31,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 **Gói nhiệm vụ từng người:** [`day05/tasks/`](day05/tasks/)
 
 > **Hôm nay critical path có thể nhích ba nấc:** PR #25 merge → `DR-002` → split theo bệnh nhân. Mỗi packet mở
-> bằng khối **🔴 LÀM TRƯỚC** (quy tắc của leader 13/09) và ghi **giờ ước tính** — phần chính ~4–5 h mỗi người,
-> phần thêm tách riêng (quy tắc của leader 14/09).
+> bằng khối **🔴 LÀM TRƯỚC** (quy tắc của leader 13/09) và ghi **giờ ước tính**. **Thành viên ~8 h/ngày, hạn
+> 23:59, không cần khai báo giờ rảnh; leader không giới hạn giờ** (quyết định của leader 14/09).
 
 ### Điều kiện để Day 5 KHÔNG trượt
 
@@ -48,10 +48,10 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Người | 🔴 Làm trước | Việc chính Day 5 | Giờ chính · thêm |
 |---|---|---|---|
-| **Vũ Hùng Anh** | ① review **#25** *(critical path)* · ② review #24 | ③ app 3D tối thiểu `B1` | ~5 h · ~1 h |
-| **Bế Quốc Khánh** | ① khai báo `C0-1` · ② sửa theo review #25 | ③ script split **cả Path A và B**, seed 2024 · ④ chạy split khi `DR-002` xong · ⑤ review bản sửa #17 | ~4,5 h · ~1,5 h |
-| **Nguyễn Gia Đức Trung** | ① review lại **#23** | ② tổng hợp lượt 4 · ③ payload `uint8` 576/640 · ④ kế hoạch đo lại | ~4,5 h · ~1,5 h |
-| **Phạm Tuấn Anh** | ① `disable_sshd.ps1` | ② **quyết `DR-002`** · ③ sửa **#17** · ④ merge #25 → #23 → #24 · ⑤ đường thiết bị Spike B · ⑥ đo lại Spike E | PC ~2 h + ~3 h · ~2 h |
+| **Vũ Hùng Anh** | ① review **#25** *(critical path)* · ② review #24 | ③ app 3D `B1` + camera · ④ diễn giải `B14` | ~7 h · ~1 h |
+| **Bế Quốc Khánh** | ① khai báo `C0-1` · ② sửa theo review #25 | ③ script split **cả Path A và B**, seed 2024 · ④ chạy split khi `DR-002` xong · ⑤ review bản sửa #17 · ⑥ chạy probe C0 hình dạng thật | ~7 h · ~1 h |
+| **Nguyễn Gia Đức Trung** | ① review lại **#23** | ② tổng hợp lượt 4 · ③ payload `uint8` 576/640 + stub · ④ kế hoạch đo lại · ⑤ nháp `RESULT.md` · ⑥ review split của Khánh | ~7 h · ~1 h |
+| **Phạm Tuấn Anh** | ① `disable_sshd.ps1` | ② **quyết `DR-002`** · ③ sửa **#17** · ④ merge #25 → #23 → #24 · ⑤ đường thiết bị Spike B · ⑥ đo lại Spike E | không giới hạn |
 
 ### Đã xong — trong ngày
 

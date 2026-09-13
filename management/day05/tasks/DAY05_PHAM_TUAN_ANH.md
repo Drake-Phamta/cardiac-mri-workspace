@@ -1,6 +1,7 @@
 # DAY 5 — Phạm Tuấn Anh · 2026-09-14
 
-**Khối lượng hôm nay:** Project Control **~2 h** · quyết định + spike **~3 h** · thêm ~2 h nếu còn thời gian.
+**Khối lượng hôm nay:** **không giới hạn giờ** — anh gánh thêm review và chốt tiến độ mỗi ngày (quyết định của
+anh 14/09). Thành viên: ~8 h/ngày, hạn **23:59**, không cần khai báo giờ rảnh.
 
 > **Day 4 đạt 3/3** — lần đầu kể từ Day 1. Critical path nhích lần đầu: Spike D có bằng chứng đầy đủ ở PR #25.
 > Hôm nay nó có thể nhích **ba nấc**: #25 merge → **anh quyết `DR-002`** → Khánh chạy split.

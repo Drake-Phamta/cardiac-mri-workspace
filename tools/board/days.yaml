@@ -60,7 +60,7 @@ criteria:
 today:
   day: 5
   date: "2026-09-14"
-  headline: "Day 4 đạt 3/3. Spike D có bằng chứng đầy đủ ở PR #25 — hôm nay critical path có thể nhích ba nấc: review #25 → DR-002 → split theo bệnh nhân. Mỗi người: nợ trước, việc mới sau, phần chính ~4–5 giờ."
+  headline: "Day 4 đạt 3/3. Spike D có bằng chứng đầy đủ ở PR #25 — hôm nay critical path có thể nhích ba nấc: review #25 → DR-002 → split theo bệnh nhân. Mỗi người: nợ trước, việc mới sau, ~8 giờ, hạn 23:59."
   pipeline:
     - ["SPIKE_D", "bằng chứng ✅ · review ⬜ (PR #25)", "now"]
     - ["GATE-DATA-01", "đóng khi #25 merge", ""]
@@ -81,43 +81,47 @@ today:
       why: "Lượt đo chuẩn cho Spike E"
   tasks:
     khanh:
-      load: "chính **~4,5 h** · thêm ~1,5 h"
+      load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
       debts:
         - "Khai báo compute **`C0-1`**: GPU, driver, CUDA, RAM *(~15 ph)*"
         - "Sửa theo review PR #25 khi Hùng Anh gửi *(~1 h)*"
       now:
-        - "**Script split theo bệnh nhân, seed `2024`**, viết cho **cả Path A và Path B**, để chạy ngay khi `DR-002` quyết *(~2,5 h)*"
+        - "**Script split theo bệnh nhân, seed `2024`**, cho **cả Path A và B** *(~2,5 h)*"
+        - "Chạy split khi `DR-002` quyết → manifest split *(~30 ph)*"
       then:
-        - "Chạy split theo path đã quyết → manifest split, commit *(~30 ph)*"
-        - "Review bản sửa **PR #17** khi leader đẩy lên *(~30 ph)*"
+        - "Review bản sửa **PR #17** *(~30 ph)*"
+        - "**Chạy probe `C0`** trên RTX 4050 với hình dạng thật `uint8` 576/640 × 88 *(~2 h)*"
       later:
-        - "Chạy probe **C0** trên RTX 4050 khi #17 merge *(~1,5 h)*"
+        - "Khung pipeline C0 trên volume tổng hợp đúng hình dạng *(~1 h)*"
       note: "Đêm qua bạn nộp audit đầy đủ và một review có 4 lỗi thật — Day 4 **đạt** nhờ việc đó. Hôm nay bạn là người mở `GATE-SPLIT-01`."
     trung:
-      load: "chính **~4,5 h** · thêm ~1,5 h"
+      load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
       debts:
-        - "Review lại **PR #23** — `aggregate.py` phải nhận `wifi-overlay` trước khi bạn tổng hợp *(~20 ph)*"
+        - "Review lại **PR #23** — `aggregate.py` phải nhận `wifi-overlay` trước *(~20 ph)*"
       now:
-        - "**`aggregate.py` trên lượt 4** → báo cáo tổng hợp (ràng buộc c của `DR-006a` rev 2) *(~1,5 h)*"
-        - "**Tái sinh payload** theo `uint8` và 2 kích thước thật 576/640 × 88 (manifest A6, PR #25) → PR *(~2 h)*"
+        - "**`aggregate.py` trên lượt 4** → báo cáo *(~1,5 h)*"
+        - "**Payload `uint8` 576/640 × 88 + stub phục vụ cả hai** → PR *(~2,5 h)*"
       then:
-        - "Kế hoạch đo lại cho leader: số lượt, giờ trong ngày để thấy dao động (`E8`) *(~30 ph)*"
+        - "Kế hoạch đo lại cho leader (`E8`) *(~30 ph)*"
+        - "Nháp **`RESULT.md`** Spike E — khung `E10` `E11` `E13` *(~1,5 h)*"
+        - "Review PR split của Khánh *(~30 ph)*"
       later:
-        - "Nháp `RESULT.md` Spike E — khung `E10` `E11` `E13` *(~1,5 h)*"
+        - "`retry.py` trên máy ảo — chuẩn bị `E9`, chỉ chẩn đoán *(~1 h)*"
       note: "Payload hiện giả định `int16` 58 MB; volume thật ~29 và ~36 MB. Lượt 4 vẫn đúng cho đường truyền, số theo byte phải đo lại trên payload mới."
     hunganh:
-      load: "chính **~5 h** · thêm ~1 h"
+      load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
       debts:
         - "**Review PR #25** — audit Spike D, **critical path**, làm đầu tiên *(~2 h)*"
         - "Review **PR #24** — harness Toybox của Trung *(~1 h)*"
       now:
-        - "**Bắt đầu app 3D tối thiểu (`B1`)**: render mesh mức 0 trên Android/emulator, chọn thư viện *(~2 h)*"
+        - "**App 3D tối thiểu (`B1`)**: render mesh mức 0 + camera xoay/zoom *(~3 h)*"
+        - "Diễn giải `B14` trên nhóm hợp đồng — đọc `slice/mm` trước *(~1 h)*"
       then: []
       later:
-        - "Diễn giải `B14` trên nhóm hợp đồng — đọc cột `slice/mm` trước *(~1 h)*"
+        - "Fixture tổng hợp TP/FP/FN cho Spike F *(~1 h)*"
       note: "Review #25 của bạn là thứ mở `GATE-DATA-01` và `DR-002` cho cả nhóm hôm nay — **làm trước #24**."
     tuananh:
-      load: "Project Control ~2 h · quyết định + spike ~3 h"
+      load: "**không giới hạn giờ** — review + chốt tiến độ mỗi ngày"
       debts:
         - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin *(~5 ph)*"
       now:
