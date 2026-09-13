@@ -1,0 +1,6 @@
+# Spike D dataset validator.
+# The exact version resolved here is recorded in every manifest, because
+# SPIKE_D_DATASET/TASK.md lists the NRRD library and version as a required
+# environment field.
+pynrrd>=1.0
+numpy>=1.24
