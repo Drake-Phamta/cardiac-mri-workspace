@@ -2,9 +2,9 @@
 
 **Status:** `DIAGNOSTIC_ONLY` — this record is not Spike E acceptance evidence.
 
-**Owner / interpretation:** Nguyễn Gia Đức Trung  
-**Command execution:** Codex, on behalf of Trung  
-**Device operator:** not applicable (no physical phone was used)  
+**Owner / interpretation:** Nguyễn Gia Đức Trung
+**Command execution:** Codex, on behalf of Trung
+**Device operator:** not applicable (no physical phone was used)
 **Repository revision:** `37877e8`
 
 ## Purpose
@@ -97,4 +97,3 @@ If the project intends for an AVD to replace the physical Galaxy A17 acceptance
 device, that is a new decision: the leader must record and approve a formal
 change to the frozen acceptance constraints before AVD results can be promoted
 to acceptance evidence.
-
