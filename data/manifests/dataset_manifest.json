@@ -1,6 +1,6 @@
 {
  "manifest_version": "1.0",
- "generated_at": "2026-09-14T03:06:08+07:00",
+ "generated_at": "2026-09-14T03:12:35+07:00",
  "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
  "package_root": "D:\\cardiac-mri-workspace-data\\lasc2018\\2018_UTAH_MICCAI.zip!/",
  "nrrd_library": "pynrrd 1.1.3",
@@ -42,6 +42,9 @@
    "a11_label_semantics": "Owner-confirmed: laendo.nrrd is the left-atrial cavity target. Evidence: the official Cardiac Atlas dataset description and the measured binary masks present alongside lgemri.nrrd in all 154 cases.",
    "a12_test_label_provenance": "File-level released-package evidence: laendo.nrrd is physically present in 54/54 directories under Testing Set in the obtained official archive. The official page wording is inconsistent, so this record does not claim that these labels were available during the original challenge evaluation.",
    "a13_split_evidence": "The measured package contains 154 labelled cases, including labels in 54/54 released Testing Set directories, so Path A is technically feasible from a data-presence perspective. Spike D does not select Path A or Path B; DR-002 and GATE-SPLIT-01 own that decision and the final patient-level seed-2024 split.",
+   "a17_excluded_files": [
+    "CASE_0097/desktop.ini"
+   ],
    "a17_sidecar_disposition": "Exclude CASE_0097/desktop.ini from ingestion and application metadata as an operating-system artifact. Preserve it untouched in the raw archive and record the exclusion; do not delete or silently accept it.",
    "a18_terms": "Two official Cardiac Atlas policy PDFs are archived externally with SHA-256 evidence. The ZIP contains no embedded licence file. Do not redistribute raw or derived data until the applicable DDA or permission has been confirmed by the responsible downloader/project lead."
   },
@@ -28216,8 +28219,8 @@
   {
    "criterion": "A17",
    "title": "Metadata audit against the privacy allowlist",
-   "status": "FAIL",
-   "detail": "1 non-NRRD sidecar file(s) inside case directories: CASE_0097/desktop.ini. `06` section 2 says a file outside the required pair is not a core target until its provenance and semantics are verified, and TASK.md:130 asks for identifiers in headers OR SIDECARS. Content was NOT read - the owner decides whether to exclude or clear each one."
+   "status": "PASS",
+   "detail": "1 non-NRRD sidecar file(s) reported and explicitly excluded from ingestion/app metadata: CASE_0097/desktop.ini. Raw archive remains untouched; sidecar content was not propagated."
   },
   {
    "criterion": "A18",
@@ -28239,8 +28242,8 @@
   }
  ],
  "summary": {
-  "pass": 15,
-  "fail": 1,
+  "pass": 16,
+  "fail": 0,
   "not_run": 1,
   "owner_verdict_required": 3,
   "machine_checks_clean": false,

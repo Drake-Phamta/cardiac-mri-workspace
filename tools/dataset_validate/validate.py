@@ -182,6 +182,21 @@ def selftest() -> int:
             if archive_manifest[field] != manifest[field]:
                 problems.append(f"archive scan disagrees with directory scan for {field}")
 
+        # A sidecar remains a failure until every discovered path has an
+        # explicit exclusion from the app-metadata path.
+        sidecar_case = {
+            "case_id": "CASE_TEST",
+            "mri": {"header_identifier_findings": []},
+            "mask": {"header_identifier_findings": []},
+            "companion_volumes": {},
+            "non_nrrd_sidecars": ["desktop.ini"],
+        }
+        if checks._a17_privacy([sidecar_case], []).status != checks.FAIL:
+            problems.append("A17 passed an unexcluded sidecar")
+        if checks._a17_privacy(
+                [sidecar_case], ["CASE_TEST/desktop.ini"]).status != checks.PASS:
+            problems.append("A17 did not accept an explicitly excluded sidecar")
+
         # Resampling must see origin and direction, not only shape and spacing.
         by_name = {c["source_dir_name"]: c.get("mri_mask_compatibility") or {}
                    for c in manifest["cases"]}
@@ -216,6 +231,7 @@ def selftest() -> int:
         print("  ok    A11 / A13 / A18 left to the owner, never auto-passed")
         print("  ok    audit renders from a manifest containing failures")
         print("  ok    archive streaming path matches the extracted-directory path")
+        print("  ok    A17 requires an explicit exclusion for every sidecar")
         print()
         print("  SELFTEST PASSED - the harness works. It has measured nothing real.")
         print("  Exit code 0 means the SELFTEST passed. The A9 and A14 FAILs printed above")

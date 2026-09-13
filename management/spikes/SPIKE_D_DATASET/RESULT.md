@@ -13,7 +13,7 @@ extended with a low-disk `--archive` input that extracts only one NRRD to a priv
 directory at a time and produces the same manifest schema as `--root`.
 
 ```text
-15 PASS · 1 FAIL · 1 NOT_RUN · 3 OWNER_VERDICT_REQUIRED
+16 PASS · 0 FAIL · 1 NOT_RUN · 3 OWNER_VERDICTS_CONFIRMED
 ```
 
 - 154 cases: 100 `Training Set`, 54 `Testing Set`.
@@ -24,8 +24,9 @@ directory at a time and produces the same manifest schema as `--root`.
 - Every mask contains exactly `{0, 255}`.
 - Testing labels are physically present in 54/54 released test cases.
 - No corruption, unreadable required volume, or direct-identifier header key was found.
-- `A17` correctly reports `FAIL` for the unexpected non-NRRD sidecar
-  `CASE_0097/desktop.ini`; the raw archive remains untouched.
+- `A17` reports the unexpected non-NRRD sidecar `CASE_0097/desktop.ini` and passes
+  only because the owner explicitly excludes it from ingestion/app metadata; the raw archive
+  remains untouched.
 
 ## Owner verdicts confirmed through HITL
 

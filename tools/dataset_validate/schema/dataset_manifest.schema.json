@@ -56,6 +56,11 @@
             "a11_label_semantics": { "type": "string" },
             "a12_test_label_provenance": { "type": "string" },
             "a13_split_evidence": { "type": "string" },
+            "a17_excluded_files": {
+              "type": "array",
+              "items": { "type": "string" },
+              "uniqueItems": true
+            },
             "a17_sidecar_disposition": { "type": "string" },
             "a18_terms": { "type": "string" }
           }

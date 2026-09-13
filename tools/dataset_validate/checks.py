@@ -70,6 +70,7 @@ EMPTY_MANIFEST_TITLES = [
 
 def run_checks(manifest: dict) -> list[Result]:
     cases = manifest.get("cases", [])
+    owner_verdicts = ((manifest.get("acquisition") or {}).get("owner_verdicts") or {})
 
     # An empty manifest must not produce a column of PASS. validate.py exits
     # before reaching here, but this function is the documented entry point for
@@ -103,7 +104,7 @@ def run_checks(manifest: dict) -> list[Result]:
     out.append(_a14_axis_aligned(cases))
     out.append(_a15_anomalies(cases))
     out.append(_a16_ids(cases))
-    out.append(_a17_privacy(cases))
+    out.append(_a17_privacy(cases, owner_verdicts.get("a17_excluded_files") or []))
     out.append(Result("A18", "Licence / data-use terms preserved and archived", OWNER,
                       "Confirmed by the person who performed the download, against the "
                       "acquisition directory. Not derivable from the package contents."))
@@ -384,7 +385,7 @@ def _a16_ids(cases: list[dict]) -> Result:
                   f"{len(ids)} unique CASE_NNNN IDs assigned deterministically by sorted source path")
 
 
-def _a17_privacy(cases: list[dict]) -> Result:
+def _a17_privacy(cases: list[dict], excluded_files: list[str] | None = None) -> Result:
     """A17 - metadata audit. `TASK.md:130` says "headers OR SIDECARS".
 
     The first version scanned only lgemri and laendo headers. This package
@@ -420,12 +421,18 @@ def _a17_privacy(cases: list[dict]) -> Result:
     # unreadable mask among many still printed PASS - breaking this module's own
     # rule 1 about never passing what it did not look at.
     if sidecars:
-        return Result("A17", title, FAIL,
-                      f"{len(sidecars)} non-NRRD sidecar file(s) inside case directories: "
-                      f"{', '.join(sidecars[:6])}. `06` section 2 says a file outside the required "
-                      f"pair is not a core target until its provenance and semantics are verified, "
-                      f"and TASK.md:130 asks for identifiers in headers OR SIDECARS. Content was "
-                      f"NOT read - the owner decides whether to exclude or clear each one.")
+        excluded = set(excluded_files or [])
+        not_excluded = [path for path in sidecars if path not in excluded]
+        if not_excluded:
+            return Result("A17", title, FAIL,
+                          f"{len(sidecars)} non-NRRD sidecar file(s) inside case directories; "
+                          f"{len(not_excluded)} lack an explicit app-metadata exclusion: "
+                          f"{', '.join(not_excluded[:6])}. Content was NOT read; exclude the whole "
+                          f"file or clear it before it can enter the app metadata path.")
+        return Result("A17", title, PASS,
+                      f"{len(sidecars)} non-NRRD sidecar file(s) reported and explicitly excluded "
+                      f"from ingestion/app metadata: {', '.join(sidecars[:6])}. Raw archive remains "
+                      f"untouched; sidecar content was not propagated.")
     if unchecked:
         return Result("A17", title, NOT_RUN,
                       f"{unchecked} volume(s) could not be opened, so their headers were never "
