@@ -40,9 +40,10 @@ Nếu cậu ấy chưa kịp viết, tham số trong `ANDROID_TOYBOX_HARNESS.md`
 
 | Kiểm | Phải thấy |
 |---|---|
-| Wi-Fi điện thoại | **TẮT** |
-| Điểm phát Wi-Fi (hotspot) | **TẮT** — hôm qua có lúc bật |
-| ZeroTier app → **"Allow mobile data"** | **BẬT** — nếu tắt, ZeroTier ngừng gửi ngay khi rời Wi-Fi |
+| Wi-Fi điện thoại | **BẬT** — `DR-003b`: đường nghiệm thu giờ là **Wi-Fi + ZeroTier** |
+| Mạng Wi-Fi | **không phải** mạng LAN của Mac mini (`10.170.75.x`) — nếu là, lượt đo chỉ là `lan-diagnostic` |
+| Điểm phát Wi-Fi (hotspot) | **TẮT** |
+| `E12` | đọc trong bước kiểm — trên Wi-Fi nhà anh dự kiến **`DIRECT`**; nếu `RELAY` thì ghi đúng như vậy |
 | Interface ZeroTier trên điện thoại | `tun0 10.64.193.140` |
 | Route tới `10.64.193.115` | đi **`tun0`**, không phải `rmnet` / `wlan0` |
 | Ping Mac mini từ điện thoại | có phản hồi |
@@ -52,8 +53,8 @@ Nếu cậu ấy chưa kịp viết, tham số trong `ANDROID_TOYBOX_HARNESS.md`
 
 1. `E12` — đọc dòng `078280bae8` trong `zerotier-cli peers` trên Mac mini, ghi **nguyên văn**. **Không
    cần sudo**: tài khoản `quant` có sẵn token, tôi đọc được qua SSH.
-2. Harness Toybox của Trung, ghim SHA commit, `--operator "Pham Tuan Anh"` `--owner "Nguyen Gia Duc
-   Trung"` `--path cellular-overlay` `--connection` theo bước 1.
+2. Harness Toybox (PR #22), ghim SHA commit, `--operator "Pham Tuan Anh"` `--owner "Nguyen Gia Duc
+   Trung"` **`--path wifi-overlay`** `--connection` theo bước 1.
 3. Điều kiện mạng đọc từ máy (loại mạng, tín hiệu), giờ bắt đầu/kết thúc.
 4. `adb pull` → raw log + provenance lên nhánh `spike-e/evidence-<ngày>`. **Không tổng hợp, không
    `RESULT.md`, không kết luận** — đó là của Trung.

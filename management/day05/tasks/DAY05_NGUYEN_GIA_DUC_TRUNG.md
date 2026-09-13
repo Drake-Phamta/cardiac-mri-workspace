@@ -67,6 +67,12 @@ Stub gốc của bạn (PID 60294, `10.134.129.115`) **vẫn chạy nguyên**, k
 | Phía server | stub ghi đúng 30 request thành công — **27 request lỗi chưa rời điện thoại** |
 | Chẩn đoán kèm theo | ping 30/30 không mất gói; 20 lần `nc` liên tiếp lỗi 7/20, có hay không `-4` |
 
+> **⚠ `DR-003b` (13/09, quyết định của leader): đường nghiệm thu đổi từ 4G/5G sang Wi-Fi + ZeroTier.**
+> Lý do là số đo của chính lượt 1–2: cellular Viettel chỉ `RELAY` và tải file lớn không nổi; Wi-Fi nhà
+> leader thì `DIRECT`. Nhãn mới `wifi-overlay` — **PR #23** (công cụ Python) và **PR #22** (Toybox) chờ bạn
+> review. `DR-003b` ghi rõ **quyền của bạn đề xuất quay lại cellular** bất cứ lúc nào, và cái giá: hôm
+> demo cần một đường Wi-Fi đã kiểm là `DIRECT` tại chỗ.
+
 **Đây là việc đầu tiên của bạn hôm nay:** lỗi nằm ở bước mở kết nối TCP qua VPN trên Android, không ở
 relay hay stub. Là chính sách retry của harness, là hành vi của ZeroTier trên Android, hay thứ khác —
 chủ sở hữu phán. Leader sẽ **không** chạy lượt 3 lần cho tới khi bạn có câu trả lời.

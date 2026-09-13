@@ -62,6 +62,9 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Project Control | Sửa 3 phát hiện PR #15 · sửa lỗi PR #14 + selftest chứng minh bắt được lỗi cũ | `2310330` · `a1744e8` |
 | Project Control | `tools/remote_adb/` *(giờ không dùng cho Spike E)* · `tools/host_hardening/disable_sshd.ps1` *(chờ anh chạy admin)* | commit hôm nay |
 | Phạm Tuấn Anh | **Chuyển overlay sang network mới `b103a835d292ddb3`** (tài khoản của anh) — không ai tìm được tài khoản quản trị mạng cũ. Laptop `10.64.193.145` · Mac mini `10.64.193.115` · **điện thoại `10.64.193.140` — lần đầu tới được Mac mini** | ZeroTier Central 17:42 |
+| Phạm Tuấn Anh | **`DR-003b` — đường nghiệm thu Spike E đổi từ 4G/5G sang Wi-Fi + ZeroTier** (cellular: `RELAY`, tải lớn không nổi; Wi-Fi nhà: `DIRECT`) · công cụ: PR #23, PR #22 | `e697885` |
+| Project Control | Tìm ra gốc lỗi `Network is unreachable` — bộ đệm đường đi theo từng nhân CPU bị ghi đè bởi multicast (cpu4/cpu6 lỗi 5/5, sáu nhân khác 5/5) · sửa harness thử lại + đếm · sửa lỗi ghi tải-dở thành `ok` | PR #22 |
+| Phạm Tuấn Anh *(operator)* | Lượt đo 2 (cellular, harness đã sửa) — **dừng** sau 2,2 MB/12 phút của file 58 MB qua `RELAY` | `spike-e/evidence-20260913` · `0d4ad1e` |
 | Phạm Tuấn Anh *(operator)* | **Lượt đo Spike E đầu tiên trên đường thật** — 5G Viettel → ZeroTier **RELAY** → Mac mini. 57 mẫu: 30 ok, **27 lỗi `Network is unreachable` phía điện thoại**, xen kẽ. Dữ liệu thô, chưa tổng hợp | nhánh `spike-e/evidence-20260913` · `bd5e931` |
 
 ### Điều kiện ngày — chốt sơ bộ 17:00
