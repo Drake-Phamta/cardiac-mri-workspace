@@ -41,7 +41,8 @@ Then run with `--patient-map path/to/map.json`. Source patient keys are used
 only for grouping and are not persisted; the manifest stores sequential
 `PATIENT_GROUP_NNNN` identifiers.
 
-The script refuses wrong cohort counts, missing labels, duplicate case IDs,
+The script refuses a source audit with machine failures or outstanding owner verdicts,
+wrong cohort counts, missing labels, duplicate case IDs,
 incomplete patient maps, a patient crossing the released Training/Testing
 boundary, and group sizes that cannot produce exact 80/20 or nested 20/40/80
 case counts. It creates evidence but never closes `GATE-SPLIT-01`.
