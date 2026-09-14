@@ -64,15 +64,15 @@ criteria:
 # reviewer, priority and "unblocks" list come from SPIKE_PHASE_STATE.yaml.
 spike_notes:
   SPIKE_D:  "Audit đầy đủ ở **PR #25** (16 PASS · 0 FAIL · 1 NOT_RUN · 3 verdict) — chờ **Hùng Anh review**. `evidence_present` đổi khi lên `main`."
-  SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. Việc tiếp: chặng S4 zoom/pan bám fixture hình học chính thức."
+  SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **Chặng S4 zoom/pan đã dựng** (PR nháp #27, kiểm offline 6/6) — chờ đo `A2` trên máy."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
-  SPIKE_E:  "GATE 2 mở · 4 lượt đo thô trên nhánh bằng chứng (lượt 3–4 Wi-Fi `DIRECT`, 228/228 ok). Chờ Trung tổng hợp + payload `uint8` mới."
+  SPIKE_E:  "**PR #26 của Trung**: tổng hợp lượt 4 (171/171), payload `uint8` 576/640, kế hoạch đo 6 lượt, nháp `RESULT.md`. PR #23 đã merge. Còn thiếu: chọn profile trong harness Toybox — rồi leader đo."
   SPIKE_C0: "**PR #17 đã sửa đủ 5 lỗi** (`542887e`, DINOv2 thật, CI 4/4) — chờ **Khánh review lại**. Còn thiếu khai báo `C0-1`; probe chạy trên hình dạng thật `uint8` 576/640 × 88."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
-merge_order: [25, 23, 24, 17]
+merge_order: [25, 24, 26, 17, 27]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
@@ -163,7 +163,8 @@ today:
     - [khanh, "Chạy split → manifest", tuananh, "quyết **`DR-002`**"]
     - [tuananh, "Merge **PR #17** → Khánh chạy probe `C0`", khanh, "review lại **PR #17** (bản sửa đã lên `542887e`)"]
     - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
-    - [tuananh, "Đo lại Spike E", trung, "PR payload `uint8` + kế hoạch đo"]
+    - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ)", trung, "thêm `--profile` cho harness Toybox (điện thoại không chạy được `harness.py`) — PR #26"]
+    - [trung, "Merge **PR #26**", hunganh, "review **PR #26** (sau #25, #24)"]
     - [trung, "Review PR split", khanh, "mở PR script split"]
   tasks:
     khanh:
