@@ -1,6 +1,6 @@
 # SPIKE_D — RESULT
 
-**Owner:** Bế Quốc Khánh  
+**Owner:** Bế Quốc Khánh
 **Secondary reviewer:** Vũ Hùng Anh
 **Execution date:** 2026-09-14
 **Evidence status:** Full-cohort measurements and owner verdicts complete; formal review pending.
