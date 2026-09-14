@@ -1506,6 +1506,72 @@ non-fabrication rule. An operator presses buttons; nobody invents a number.
 **Remote adb** is no longer needed for Spike E. `tools/remote_adb/` stays in the repository; sharing is
 off.
 
+## DR-006a · REVISION 3 — 2026-09-14 — Spike B follows the Spike E model
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-006a revision 2 — extends its operator model from Spike E to **Spike B** |
+| **Proposed by** | Project Control, in the leader's Day-5 plan |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-14 |
+| **Status** | ✅ **APPROVED** |
+
+**What was open.** Revision 2 decided Spike E only and said so: *"Spike B (`B10`, `B11`) and Spike F
+(`F7`) are not decided by this revision."* Spike B needs the phone for `B10` (median FPS), `B11` (no
+stall over 500 ms), the real-mesh picking error and a screen recording. Its slot is **third**, after
+A and E, and no app runs on the phone yet (`B1` is Vũ Hùng Anh's Day-5 work), so nothing is waiting on
+this today — but the route had to be chosen before it is needed, not on the day it is.
+
+The two routes were the same two revision 2 chose between:
+
+| | Owner operates remotely (revision 1) | Leader operates, owner designs and interprets (revision 2) |
+|---|---|---|
+| "Executed by the owner" | kept | overridden, in the open |
+| Leader as Spike B reviewer | kept | must withdraw |
+| Scheduling | two calendars must line up for every window — the problem revision 2 was made to solve | the leader measures when he is free |
+| Setup | `tools/remote_adb/` still targets the old overlay `10.134.129.x`; firewall re-run and the owner joining `b103a835d292ddb3` needed | none — the Spike E path is already in use |
+
+**The decision:** the leader operates the phone for Spike B, as for Spike E.
+
+**Constraints — the four of the first version, as revision 2 applied them:**
+
+| | Constraint | For Spike B |
+|---|---|---|
+| **a** | The leader withdraws as Secondary Reviewer | ✅ **applies.** Spike B review moves from Phạm Tuấn Anh to **Nguyễn Gia Đức Trung**. Not Bế Quốc Khánh — he carries the critical path (split, `C0`); not Vũ Hùng Anh — he owns Spike B. Trung holds no spike review today, so the one-review-slot rule is not strained |
+| **b** | The owner writes the criteria that are his to defend | ✅ **applies.** Vũ Hùng Anh designs every on-device measurement (scenario, repeats, decimation levels, the `B10` distribution, the `B11` stall rule, the picking protocol), **computes every B number**, writes `RESULT.md` and the **DR-008c** recommendation. The leader computes none |
+| **c** | The owner reproduces at least one run himself | **replaced, as in revision 2:** Vũ Hùng Anh runs the same app build and instrumentation end-to-end on a **diagnostic** path (Android emulator), labelled diagnostic and never acceptance evidence; **and** re-derives the reported numbers himself from the leader's raw device logs |
+| **d** | Ownership does not move; the evidence names operator **and** owner | ✅ **applies.** Every on-device run is committed with a `PROVENANCE.md` naming both, in the format of the Spike E runs of 2026-09-13 |
+
+**Overridden in the open, not by quiet editing** — two sentences in `SPIKE_B_3D/TASK.md`:
+
+- line 173 — *"On-device measurements for B10, B11 and the real-mesh picking error — **executed by Vũ Hùng
+  Anh**."*
+- line 223 — *"**All on-device measurements are executed by Vũ Hùng Anh.**"*
+
+Both now read: executed **on the device** by Phạm Tuấn Anh as operator, **designed, computed and
+interpreted** by Vũ Hùng Anh.
+
+**What does NOT change.** The real Galaxy A17 5G, never an emulator, for acceptance · windows never
+overlap, order `A → E → B` · fixture tolerance **EXACT** · **±1 slice (SCQ-06) is never widened** · the
+`NEGATIVE_RESULT` rules of `TASK.md` · `tests/fixtures/geometry/**` written only by Vũ Hùng Anh
+(DR-013) · every non-fabrication rule. An operator presses buttons; nobody invents a number.
+
+**Cost, stated plainly.** As for Spike E: Spike B's on-device evidence will have one operator and no
+second person reproducing it on the device. The owner's own work — the app, the instrumentation, the
+analysis — stays reproducible by him, which is the part `00` §14 asks him to defend.
+
+**The owner is told, not left to find out.** The leader asked for exactly that: *"phần tôi phối hợp đo
+hộ Hùng Anh thì bạn cũng note cho cậu ấy biết nhé. Đừng để việc tôi làm trong thầm lặng gây cản trở mọi
+người."* Vũ Hùng Anh's Day-5 packet carries a section on how the device measurements now work, Nguyễn Gia
+Đức Trung's carries a line on his new review, and both get a message the same day.
+
+**Vũ Hùng Anh keeps the right to reverse this.** He may propose operating remotely instead
+(revision 1's route) at any time; the proposal needs no new decision, only his word and the
+`tools/remote_adb/` update to the new overlay.
+
+**Scope.** Spike B only. Spike F (`F7`) is not decided; it follows Spike B and will be decided when its
+measurements are designed.
+
 ---
 
 **Related documents:** `IMPLEMENTATION_READINESS_AUDIT.md` · `TECHNICAL_SPIKES_REQUIRED.md` ·

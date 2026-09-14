@@ -65,9 +65,9 @@ criteria:
 spike_notes:
   SPIKE_D:  "Audit đầy đủ ở **PR #25** (16 PASS · 0 FAIL · 1 NOT_RUN · 3 verdict) — chờ **Hùng Anh review**. `evidence_present` đổi khi lên `main`."
   SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. Việc tiếp: chặng S4 zoom/pan bám fixture hình học chính thức."
-  SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`; đường thiết bị chờ leader quyết."
+  SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "GATE 2 mở · 4 lượt đo thô trên nhánh bằng chứng (lượt 3–4 Wi-Fi `DIRECT`, 228/228 ok). Chờ Trung tổng hợp + payload `uint8` mới."
-  SPIKE_C0: "Chờ khai báo compute `C0-1` và bản sửa **PR #17** (4 lỗi chặn). Probe phải chạy trên hình dạng thật `uint8` 576/640 × 88."
+  SPIKE_C0: "Chờ khai báo compute `C0-1` và bản sửa **PR #17** (5 lỗi chặn). Probe phải chạy trên hình dạng thật `uint8` 576/640 × 88."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
@@ -82,6 +82,10 @@ decision_notes:
 
 # Standing decisions still in force - the rules people work under today.
 policies:
+  - date: "14/09"
+    id: "DR-006a rev 3"
+    text: "**Spike B đo như Spike E**: leader cầm máy và bấm; **Hùng Anh thiết kế phép đo, tự tính mọi số B**, viết `RESULT.md` và khuyến nghị DR-008c. Reviewer Spike B → **Trung**. Hùng Anh có quyền đổi sang tự bấm từ xa bất cứ lúc nào."
+    ref: management/readiness/OPEN_DECISIONS.md
   - date: "14/09"
     id: "Khối lượng"
     text: "Thành viên **~8 h/ngày**, hạn **23:59**, **không cần khai báo giờ rảnh**. Leader không giới hạn giờ vì gánh review và chốt ngày. Mỗi packet: ~7 h chính + ~1 h thêm."
@@ -175,7 +179,7 @@ today:
         - "**Chạy probe `C0`** trên RTX 4050 với hình dạng thật `uint8` 576/640 × 88 *(~2 h)*"
       later:
         - "Khung pipeline C0 trên volume tổng hợp đúng hình dạng *(~1 h)*"
-      note: "Đêm qua bạn nộp audit đầy đủ và một review có 4 lỗi thật — Day 4 **đạt** nhờ việc đó. Hôm nay bạn là người mở `GATE-SPLIT-01`."
+      note: "Đêm qua bạn nộp audit đầy đủ và một review có 5 lỗi thật — Day 4 **đạt** nhờ việc đó. Hôm nay bạn là người mở `GATE-SPLIT-01`."
     trung:
       load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
       debts:
@@ -208,10 +212,10 @@ today:
         - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin *(~5 ph)*"
       now:
         - "**Quyết `DR-002`** ngay khi #25 merge — bản phân tích hai phương án có trong packet *(~30 ph)*"
-        - "**Sửa PR #17** theo 4 lỗi Khánh nêu *(~1,5 h, cùng Claude)*"
+        - "**Sửa PR #17** theo 5 lỗi Khánh nêu *(~3 h, cùng Claude)*"
         - "Merge theo thứ tự **#25 → #23 → #24** khi đủ review"
       then:
-        - "Quyết đường thiết bị cho Spike B *(~15 ph)*"
+        - "✅ Quyết đường thiết bị cho Spike B — anh bấm, Hùng Anh thiết kế (`DR-006a` rev 3)"
         - "Đo lại Spike E khi payload mới merge *(~30 ph)*"
       later:
         - "Spike A chặng S4 — zoom/pan *(~2 h)*"
@@ -240,7 +244,7 @@ history:
         what: "**PR #25 — audit Spike D đầy đủ**: 16 PASS · 0 FAIL · 154 case · `uint8` · nhãn test 54/54"
         ref: "PR #25 · CI 4/4"
       - who: khanh
-        what: "Review **PR #17**: 4 lỗi chặn thật — review thật đầu tiên, đóng cột `B`"
+        what: "Review **PR #17**: 5 lỗi chặn thật — review thật đầu tiên, đóng cột `B`"
         ref: "API review 02:59"
       - who: tuananh
         what: "**Buổi đo Spike E đầu tiên**: lượt 4 trên Wi-Fi `DIRECT` **171/171**, volume trọn 3/3"

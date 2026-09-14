@@ -29,6 +29,28 @@ Manifest 28 000 dòng là file sinh tự động — không cần đọc từng 
 - Chuẩn bị **fixture tổng hợp TP/FP/FN cho Spike F** — được phép theo `SPIKE_PHASE_STATE` (chỉ fixture, chưa làm
   phần chính khi Spike B còn `ACTIVE`) *(~1 h)*.
 
+## 📱 Đo trên điện thoại — leader đo hộ bạn *(quyết định mới, 14/09)*
+
+Leader đã quyết đường thiết bị cho Spike B (`DR-006a` **revision 3**, `OPEN_DECISIONS.md`): **giống Spike
+E**. Hôm nay **không** thêm việc nào cho bạn; đây là để bạn biết trước cách phép đo sẽ chạy khi app `B1`
+lên được máy.
+
+| | Ai làm |
+|---|---|
+| Cầm máy, cài bản build, bấm chạy, commit **dữ liệu thô nguyên byte** kèm `PROVENANCE.md` ghi ai bấm, lúc nào | **Leader** |
+| **Thiết kế phép đo**: kịch bản xoay/zoom, số lần lặp, các mức decimation, cách đo `B10` (phân bố FPS), quy tắc `B11` (khựng > 500 ms), giao thức picking | **Bạn** |
+| **Tính mọi con số B**, viết `RESULT.md`, khuyến nghị **DR-008c** | **Bạn** — leader không tính số nào của Spike B |
+| Chạy cùng bản build + instrumentation trên **emulator** (chỉ để chẩn đoán), và **tự tính lại** số từ log thô của leader | **Bạn** — thay cho việc tự bấm trên máy thật |
+
+**Bạn chỉ cần đưa leader:** bản build app (APK hoặc lệnh build) và kịch bản đo. Leader chạy khi rảnh,
+không cần hai người ngồi cùng giờ.
+
+**Reviewer Spike B đổi từ leader sang Nguyễn Gia Đức Trung**, vì người cầm máy tạo ra bằng chứng thì không
+được tự review bằng chứng đó. Không phải Khánh, vì Khánh đang gánh critical path.
+
+**Quyền của bạn:** nếu muốn tự bấm từ xa (qua `tools/remote_adb/`) thì chỉ cần nói, không cần quyết định
+mới. Hai câu *"executed by Vũ Hùng Anh"* trong `SPIKE_B_3D/TASK.md` đã được sửa công khai, có ghi lý do.
+
 ## Vì sao `B1` là việc lớn nhất hôm nay
 
 `B1` `B3` `B7` `B9` `B10` `B11` đều cần **app chạy được trên điện thoại** — chưa có. Đó cũng là phần `00` §14 gọi

@@ -4,7 +4,7 @@
 
 > **Đêm qua bạn đã làm cho Day 4 đạt.** PR #25 là audit Spike D đầy đủ — 16 PASS, 0 FAIL, 154 case — và chế độ
 > `--archive` bạn tự viết để đọc thẳng file zip khi máy không đủ 14,2 GiB là một lời giải tốt. Review của bạn
-> ở PR #17 có 4 lỗi chặn thật; đó là review thật đầu tiên của bạn và đóng cột `B` nợ từ Day 0.
+> ở PR #17 có **5** lỗi chặn thật *(bản đầu packet ghi nhầm là 4)*; đó là review thật đầu tiên của bạn và đóng cột `B` nợ từ Day 0.
 > Hạn cứng của audit: phần của bạn **đã nộp**; audit lên `main` khi Hùng Anh review xong.
 
 ## 🔴 LÀM TRƯỚC — nợ tồn, theo thứ tự

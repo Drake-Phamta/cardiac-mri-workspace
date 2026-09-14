@@ -24,6 +24,10 @@
 | **5** | **Nháp `RESULT.md` Spike E** — khung `E10` budget, `E11` fallback set, `E13` khuyến nghị; điền phần đã có từ lượt 4, để trống có ghi chú phần chờ lượt đo mới | ~1,5 h | file nháp trên nhánh của bạn — **chưa** đánh dấu `EVIDENCE_READY` |
 | **6** | Review PR split của Khánh khi có | ~30 ph | `APPROVE` hoặc yêu cầu sửa |
 
+> **Mới, 14/09 — bạn là reviewer Spike B** (`DR-006a` revision 3). Leader sẽ cầm máy đo Spike B cho Vũ Hùng
+> Anh như đang làm với Spike E, nên leader không được review Spike B nữa. **Hôm nay không có việc gì**:
+> Spike B chưa có bằng chứng. Khi Hùng Anh nộp, review đó chiếm một slot `REVIEWING` của bạn.
+
 **Lượt 4 vẫn có giá trị** cho đường truyền: độ trễ yêu cầu nhỏ, `E12`, độ ổn định. Chỉ những kết quả phụ thuộc
 kích thước byte mới phải đo lại trên payload mới — leader chạy ngay khi PR payload merge.
 

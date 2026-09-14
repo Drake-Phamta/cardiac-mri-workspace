@@ -226,7 +226,7 @@ vào thân bản. §13 được thay bằng kế hoạch Day 5 — `management/d
 | 19:47 | Vũ Hùng Anh | Review lại PR #15 → `APPROVED`, merge | `ee9ef60` |
 | 22:56 | Nguyễn Gia Đức Trung | Review có nội dung: approve #14 #18 #22, **yêu cầu sửa #23**; mở **PR #24** | API review |
 | 23:10 | Project Control | Merge #14 · **#18 — CI lên `main`** · #22; sửa #23 theo review của Trung | `726e09f` `3077d46` `c913050` `2ed3c64` |
-| 02:59 | **Bế Quốc Khánh** | **Review PR #17 → `CHANGES_REQUESTED`, 4 lỗi chặn thật** — review thật đầu tiên, đóng cột `B` nợ từ Day 0 | API review |
+| 02:59 | **Bế Quốc Khánh** | **Review PR #17 → `CHANGES_REQUESTED`, 5 lỗi chặn thật** *(ghi nhầm là 4 tới 14/09 — review có 5 điểm)* — review thật đầu tiên, đóng cột `B` nợ từ Day 0 | API review |
 | 03:10 | **Bế Quốc Khánh** | **PR #25 — audit Spike D đầy đủ**: 16 PASS · 0 FAIL · 1 NOT_RUN · 3 owner verdicts; 154 case; `uint8`; 576×576×88 (69) + 640×640×88 (85); nhãn test 54/54; thêm chế độ `--archive` đọc thẳng zip vì máy không đủ 14,2 GiB | PR #25 · CI 4/4 xanh |
 
 **Hai phát hiện của Khánh đổi Day 5:** nhãn test có 54/54 → `DR-002` quyết được; volume là `uint8` → payload

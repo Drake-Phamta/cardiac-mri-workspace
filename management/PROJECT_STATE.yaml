@@ -323,7 +323,7 @@ milestones:
 # --- PULL REQUESTS ----------------------------------------------------------
 open_prs:                           # as of 2026-09-14 06:00
   - {number: 25, branch: spike/SPIKE_D, author: qkhanhbe, review_requested: [scalliontor], note: "Spike D audit - CRITICAL PATH, review first"}
-  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, reviews: "qkhanhbe CHANGES_REQUESTED - 4 blocking findings"}
+  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, reviews: "qkhanhbe CHANGES_REQUESTED - 5 blocking findings (recorded as 4 until 2026-09-14)"}
   - {number: 23, branch: spike-e/wifi-overlay-path, author: Drake-Phamta, review_requested: [TrungNGD195], note: "fixed in 2ed3c64 after Trung's CHANGES_REQUESTED"}
   - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, review_requested: [scalliontor], note: "includes PR #22 (c913050)"}
 merged_2026_09_13:

@@ -265,17 +265,18 @@ spikes:
     name: "3D linked interaction"
     priority: P1
     owner: "Vu Hung Anh"
-    reviewer: "Pham Tuan Anh"
+    device_operator: "Pham Tuan Anh - operator for on-device measurements, DR-006a revision 3 (2026-09-14); the owner designs, computes and interprets"
+    reviewer: "Nguyen Gia Duc Trung"   # was Pham Tuan Anh until 2026-09-14 - DR-006a revision 3, constraint a
     status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: NOT_REQUESTED
-      reviewer: "Pham Tuan Anh"
-      priority_rank: 1          # ahead of SPIKE_E in Pham Tuan Anh's queue
+      reviewer: "Nguyen Gia Duc Trung"
+      priority_rank: 1          # Trung's only spike review
       queue_note: >
-        Pham Tuan Anh reviews SPIKE_B and SPIKE_E. Default priority: SPIKE_B before SPIKE_E because B is P1
-        and feeds GATE-MOB-01 and DR-008c directly, while E is P2.
+        Moved 2026-09-14 under DR-006a revision 3: the leader operates the device for SPIKE_B, so he
+        cannot review its evidence. Nguyen Gia Duc Trung holds no other spike review.
     directory: management/spikes/SPIKE_B_3D
     task: management/spikes/SPIKE_B_3D/TASK.md
     evidence_template: management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md
@@ -296,9 +297,10 @@ spikes:
     next_action: >
       2026-09-13: canonical geometry fixture PUBLISHED by the owner (PR #20, 50a5433,
       tests/fixtures/geometry/, 33 points + 13 rays, b14_grouping contract). Harness fixes for
-      his three PR #15 findings pushed (2310330), re-review requested. Next: interpret B14 on
-      the contractual cohorts (note the ~3.6x leverage gap), then device B10/B11 when the phone
-      path for Spike B is decided - DR-006a revision 2 covers Spike E only.
+      his three PR #15 findings pushed (2310330, merged ee9ef60). Next: the minimal 3D app (B1,
+      mesh level 0 + camera) and B14 on the contractual cohorts (note the ~3.6x leverage gap).
+      Device path decided 2026-09-14, DR-006a revision 3: the leader operates B10/B11 and the
+      picking runs on the phone once the app runs; the owner designs, computes and interprets.
     canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0
@@ -579,6 +581,19 @@ review_serialization:
       load_note: >
         Vu Hung Anh now holds five review assignments (D, A, C0, C1, E) on top of owning SPIKE_B and
         SPIKE_F. Serialization still applies: one REVIEWING at a time.
+    - date: "2026-09-14"
+      spike: SPIKE_B
+      from: "Pham Tuan Anh"
+      to: "Nguyen Gia Duc Trung"
+      reason: "CONFLICT OF INTEREST - DR-006a revision 3"
+      basis: >
+        The leader decided to operate the phone for SPIKE_B's on-device measurements (B10, B11, the
+        real-mesh picking error), as he does for SPIKE_E. He produces that evidence, so he cannot review
+        it (constraint a). Not Be Quoc Khanh - he carries the critical path (split, C0); not Vu Hung Anh -
+        he owns SPIKE_B. Nguyen Gia Duc Trung held no spike review.
+      informed: >
+        The leader asked that the owner be told explicitly, not left to find out. Vu Hung Anh's and
+        Nguyen Gia Duc Trung's Day-5 packets say so, and both get a message on 2026-09-14.
   commit_hygiene_note: >
     The rationale for the first reassignment was committed to the spike-b branch by mistake on
     2026-09-12 00:31 instead of to main, so for several hours main carried the reviewer change
@@ -594,20 +609,24 @@ review_serialization:
         SPIKE_D becomes EVIDENCE_READY, SPIKE_D receives priority for the next available review slot.
       currently_reviewing: null
       queued: []
+    "Nguyen Gia Duc Trung":
+      reviews: [SPIKE_B]   # added 2026-09-14, DR-006a revision 3
+      default_priority: [SPIKE_B]
+      rationale: "His only spike review. PR reviews for other members continue as assigned day by day."
+      currently_reviewing: null
+      queued: []
     "Pham Tuan Anh":
-      reviews: [SPIKE_B, SPIKE_F]   # SPIKE_E removed 2026-09-13, DR-006a rev 2 - he operates the device.
+      reviews: [SPIKE_F]   # SPIKE_B removed 2026-09-14, DR-006a rev 3 - he operates the device for it.
+                           # SPIKE_E removed 2026-09-13, DR-006a rev 2 - he operates the device.
                                    # History: removed and restored 2026-09-12 (rev 1).
                                          # DR-006a revision 1: the owner operates the device
                                          # REMOTELY over adb, so the leader does not produce that
                                          # evidence and constraint (a) does not bite. See
                                          # review_serialization.reassignments for both moves.
-      default_priority: [SPIKE_B, SPIKE_E]
+      default_priority: [SPIKE_F]
       rationale: >
-        SPIKE_B before SPIKE_E because SPIKE_B is P1 and feeds GATE-MOB-01 and DR-008c directly, while
-        SPIKE_E is P2.
-      pre_emption_rule: >
-        If SPIKE_E becomes EVIDENCE_READY while SPIKE_B is not ready, Pham MAY review SPIKE_E. Once SPIKE_B
-        becomes EVIDENCE_READY, SPIKE_B receives priority for the next available review slot.
+        Only SPIKE_F remains (2026-09-14). Its device measurement (F7) is not yet decided; if the leader
+        operates it too, the same recusal applies and SPIKE_F review moves as well.
       currently_reviewing: null
       queued: []
 
@@ -654,6 +673,7 @@ device_measurement_queue:
     - slot: 3
       spike: SPIKE_B
       owner: "Vu Hung Anh"
+      operator: "Pham Tuan Anh - DR-006a revision 3 (2026-09-14); owner Vu Hung Anh designs, computes and interprets"
       status: NOT_STARTED
       measurements: ["median FPS + stalls (NFR-PERF-002)", "picking error interior vs surface-tangent",
                      "decimation frontier across >=3 levels", "device memory"]

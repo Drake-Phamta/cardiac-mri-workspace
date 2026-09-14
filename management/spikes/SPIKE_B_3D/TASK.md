@@ -8,12 +8,13 @@
 | **Name** | 3D linked interaction |
 | **Priority** | P1 |
 | **Primary Owner** | **Vũ Hùng Anh** |
-| **Secondary Reviewer** | **Phạm Tuấn Anh** |
+| **Secondary Reviewer** | **Nguyễn Gia Đức Trung** — since 2026-09-14, `DR-006a` revision 3 (was Phạm Tuấn Anh, who now operates the device for this spike) |
+| **Device operator** | **Phạm Tuấn Anh** — `DR-006a` revision 3; the owner designs, computes and interprets every on-device measurement |
 | **Status** | **PREPARED** — authorised and assigned; **execution not started**. On starting: set `ACTIVE` and record the real `started_at` (never backdate). |
 | **Blocked by** | nothing (DR-006 ✅ device, DR-008a ✅ convention both resolved) |
 | **Lead Claude chat** | CHAT D — Implementation (support: CHAT B for `ADR-MOB-001` + DR-008c, CHAT C for geometry/mesh semantics) |
-| **Device measurement slot** | **2 of 3** — harness and fixture work proceeds **while Spike A holds the phone**; measurement windows must not overlap |
-| **Review** | Reviewed by Phạm Tuấn Anh, **priority 1** ahead of Spike E (P2). Serialized |
+| **Device measurement slot** | **3 of 3** — the queue was amended to `A → E → B` on 2026-09-11 (`DAY01_CUTOVER_RECORD.md` §4.3); this line said "2 of 3" until 2026-09-14. Harness, fixture and app work proceed before the slot; measurement windows must not overlap |
+| **Review** | Reviewed by **Nguyễn Gia Đức Trung** (`DR-006a` revision 3). Serialized — one review in `REVIEWING` at a time |
 
 ## Source requirement IDs
 
@@ -171,6 +172,10 @@ failure.
 ## Manual evidence required
 
 - **On-device measurements for B10, B11 and the real-mesh picking error — executed by Vũ Hùng Anh.**
+  **Amended 2026-09-14 by `DR-006a` revision 3:** executed on the device by **Phạm Tuấn Anh** as operator;
+  **designed, computed and interpreted by Vũ Hùng Anh**, who also runs the same build on an emulator
+  (diagnostic only) and re-derives every reported number from the raw logs. Each run is committed with a
+  `PROVENANCE.md` naming both.
 - Screen recording of picking after camera rotation.
 - Completed device-profile block.
 - Per-candidate development-cost note.
@@ -221,6 +226,8 @@ highest technical risk.
 > behaviour, or any device hardware value.
 >
 > **All on-device measurements are executed by Vũ Hùng Anh.**
+> *Amended 2026-09-14 (`DR-006a` revision 3): operated on the device by Phạm Tuấn Anh; designed, computed
+> and interpreted by Vũ Hùng Anh. The operator computes no B number.*
 >
 > Claude **may**: build the harness and fixture generator, write the conformance and picking-error tests,
 > write frame-rate instrumentation, prepare the result template, and analyse measurements the owner

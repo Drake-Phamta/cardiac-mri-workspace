@@ -98,7 +98,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Project Control | `tools/remote_adb/` *(giờ không dùng cho Spike E)* · `tools/host_hardening/disable_sshd.ps1` *(chờ anh chạy admin)* | commit hôm nay |
 | Phạm Tuấn Anh | **Chuyển overlay sang network mới `b103a835d292ddb3`** (tài khoản của anh) — không ai tìm được tài khoản quản trị mạng cũ. Laptop `10.64.193.145` · Mac mini `10.64.193.115` · **điện thoại `10.64.193.140` — lần đầu tới được Mac mini** | ZeroTier Central 17:42 |
 | **Bế Quốc Khánh** | **03:10 ngày 14/09 — PR #25: audit Spike D đầy đủ** (16 PASS · 0 FAIL · 1 NOT_RUN · 3 owner verdicts, 154 case, `uint8`, nhãn test 54/54) · tự thêm chế độ `--archive` đọc thẳng zip vì máy không đủ 14,2 GiB | PR #25 · CI 4/4 |
-| **Bế Quốc Khánh** | **02:59 — review PR #17 → `CHANGES_REQUESTED`, 4 lỗi chặn thật** — review thật đầu tiên, đóng cột `B` | API review |
+| **Bế Quốc Khánh** | **02:59 — review PR #17 → `CHANGES_REQUESTED`, 5 lỗi chặn thật** *(ghi nhầm là 4 tới 14/09 — review có 5 điểm)* — review thật đầu tiên, đóng cột `B` | API review |
 | **Nguyễn Gia Đức Trung** | **22:56 — review 4 PR có nội dung**: approve #14, #18, #22 (tự chạy thử harness trên AVD, 10/10) · **yêu cầu sửa #23** (docstring còn ghi cellular — đúng) · **mở PR #24** cho nhánh của mình | API review |
 | **Vũ Hùng Anh** | Review lại PR #15 → `APPROVED` 19:47, merge | `ee9ef60` |
 | Project Control | Merge #14 (`726e09f`), **#18 — CI guardrails lên `main`** (`3077d46`), #22 vào nhánh của Trung (`c913050`) · sửa #23 theo review của Trung (`2ed3c64`) · gán Hùng Anh review #24 | — |
