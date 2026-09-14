@@ -7,7 +7,7 @@
 > được đúng kế hoạch của bạn trên điện thoại. Hôm nay: dựng stub để leader đo **khung 15:00**, thiết kế `E9`, và bắt đầu
 > **hợp đồng ingestion (M3, Day 6–9)** — phần backend là của bạn.
 
-> ⚠ **06:40 — Mac mini không tới được từ laptop leader**: `10.64.193.115` và `10.134.129.115` đều không ping được,
+> ⚠ **06:10 và 06:14 — Mac mini không tới được từ laptop leader**: `10.64.193.115` và `10.134.129.115` đều không ping được,
 > cổng 22 và 8787 đóng; overlay phía leader vẫn chạy (điện thoại `10.64.193.140` ping được). Stub cũ PID 32227 **chưa
 > dừng được**. **Trước việc 2:** kiểm Mac mini còn bật, không ngủ, và ZeroTier trên đó đang chạy
 > (`zerotier-cli listnetworks` thấy `b103a835d292ddb3` `OK`). Nếu bạn vào được máy, tự dừng PID 32227 rồi dựng stub mới.
