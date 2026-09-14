@@ -62,6 +62,7 @@ import json
 import os
 import platform
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -170,7 +171,7 @@ def fetch_checkpoint(key: str, revision: str | None = None) -> dict:
                                  allow_patterns=["*.json", "pytorch_model.bin"])
         weights = sorted(glob.glob(os.path.join(path, "pytorch_model.bin")))
     if not weights:
-        raise SystemExit(f"No weights file found for {repo} at {path}")
+        raise RuntimeError(f"No weights file found for {repo} at {path}")
     h = hashlib.sha256()
     with open(weights[0], "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
@@ -597,20 +598,22 @@ def _fit_trial(build, b: int, img: int, device: str, precision: str,
                              f"{vram_bytes / 1024 ** 3:.2f} GB of VRAM - spilled to system "
                              f"memory, counted as NOT fitting")
         return (not spilled), rec
-    except (RuntimeError, MemoryError) as exc:   # torch.cuda.OutOfMemoryError is a RuntimeError
+    except (RuntimeError, MemoryError, OSError) as exc:
+        # torch.cuda.OutOfMemoryError is a RuntimeError; OSError covers a weights load that fails on
+        # memory, e.g. Windows "WinError 1455: the paging file is too small" (PR #17 re-review)
         return False, {"ran_without_error": False,
                        "error": f"{type(exc).__name__}: {str(exc)[:160]}",
                        "reason": f"batch {b} raised {type(exc).__name__}"}
     finally:
         model = opt = scaler = x = y = None
-        gc.collect()
-        reset_peak(device)
+        _cleanup(device)
 
 
-def largest_fitting_batch(build, img: int, device: str, start: int, cap: int,
+def largest_fitting_batch(fits, device: str, start: int, cap: int,
                           precision: str, vram_bytes: int | None) -> dict:
-    res = search_batch(lambda b: _fit_trial(build, b, img, device, precision, vram_bytes),
-                       start=start, cap=cap)
+    """C0-3 search. `fits(b) -> (bool, record)` runs one training step at batch b - in this
+    process, or in a worker process when the probe isolates CUDA work (the default on CUDA)."""
+    res = search_batch(fits, start=start, cap=cap)
     notes = []
     if vram_bytes is None and device == "cuda":
         notes.append("VRAM total unknown, so a silent spill could not be detected.")
@@ -644,7 +647,8 @@ def selftest() -> int:
         print(f"  {'ok  ' if ok else 'FAIL'} ceiling={ceiling:<3} start={start:<2} cap={cap} "
               f"-> {got:<3} (want {want}) tries={tries}")
     print(f"\n  search_batch selftest: {len(cases) - bad}/{len(cases)} passed\n")
-    return 1 if bad else 0
+    runner_bad = _selftest_runner()
+    return 1 if (bad or runner_bad) else 0
 
 
 # --- input: uint8 at the cohort's in-plane sizes, DR-011, explicit resize --------
@@ -769,6 +773,363 @@ def parse_variant(name: str) -> dict:
 
 # --- main ----------------------------------------------------------------------------
 
+VARIANT_ERRORS = (RuntimeError, ValueError, MemoryError, OSError)
+WORKER_TAG = "C0_WORKER_RESULT "
+
+
+class WorkerError(RuntimeError):
+    """A worker process reported a failure; its message already names the original error."""
+
+
+def _err(exc: BaseException) -> str:
+    return str(exc)[:400] if isinstance(exc, WorkerError) else f"{type(exc).__name__}: {str(exc)[:400]}"
+
+
+def _cleanup(device: str) -> str | None:
+    """Best-effort. Freeing memory after an OOM can itself raise: on a 4 GB card
+    torch.cuda.empty_cache() raised 'CUDA error: out of memory' right after a failed
+    trial, and an unguarded cleanup ended the probe with no JSON written. Cleanup
+    reports its error instead of raising it."""
+    try:
+        gc.collect()
+        reset_peak(device)
+        return None
+    except Exception as exc:  # noqa: BLE001 - cleanup must never end the probe
+        first = str(exc).strip().splitlines()[0][:200] if str(exc).strip() else ""
+        return f"{type(exc).__name__}: {first}"
+
+
+def cuda_usable(device: str) -> bool:
+    """After a CUDA error the context can be left unusable for the rest of the process."""
+    if device != "cuda":
+        return True
+    try:
+        t = torch.zeros(1, device="cuda")
+        float(t.sum().item())
+        torch.cuda.synchronize()
+        del t
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def measure_variant(build, p, x, y, device, steps, precision, checkpoint=None) -> dict:
+    """Build one candidate and time forward + training steps at batch x.shape[0]. Raises on failure."""
+    model = None
+    try:
+        model = build().to(device)
+        stride = float(model.output_stride())
+        total, trainable = _count(model)
+        fwd = time_steps(model, x, y, device, steps, train=False, precision=precision)
+        trn = time_steps(model, x, y, device, steps, train=True, precision=precision)
+        out = {
+            "batch": int(x.shape[0]),
+            "effective_output_stride": stride,
+            "stride_source": "model.output_stride(), not a hardcoded table",
+            "parameters_total": total,
+            "parameters_trainable": trainable,
+            "forward": fwd,
+            "train_step": trn,
+            "train_memory": trn["memory"],
+            "peak_memory_bytes_train": trn["memory"]["bytes"],
+        }
+        if p["family"] == "dinov2":
+            out.update({
+                "backbone": checkpoint["arch"],
+                "checkpoint": {k: v for k, v in checkpoint.items() if not k.startswith("_")},
+                "backbone_mode": p["mode"],
+                "decoder": p["decoder"],
+                "attn_implementation": getattr(model, "attn_implementation", "unknown"),
+            })
+        else:
+            out.update({"backbone": "none (trained from scratch)", "decoder": "UNet",
+                        "backbone_mode": "n/a"})
+        return out
+    finally:
+        model = None
+        _cleanup(device)
+
+
+def _spill_reason(measured: dict, vram_bytes: int | None) -> str | None:
+    """The same rule the batch search applies in _fit_trial, applied to a measurement."""
+    peak = measured.get("peak_memory_bytes_train")
+    if vram_bytes and peak and peak > vram_bytes:
+        return (f"VRAMSpill: batch {measured.get('batch')} allocated {peak / 1024 ** 3:.2f} GB against "
+                f"{vram_bytes / 1024 ** 3:.2f} GB of VRAM - it ran only by spilling to system memory, "
+                f"so its timing is not this variant's cost")
+    return None
+
+
+def run_variant(name, p, *, measure, fits, intended_batch, find_batch, batch_cap, device,
+                precision, vram_bytes, img, context_check=lambda: True, cleanup=lambda: None) -> dict:
+    """One candidate end to end. Never aborts the probe.
+
+    Revision 4 fixes the two runtime blockers of the owner's re-review on his RTX 4050
+    (PR #17, 2026-09-15):
+
+    1. The batch search used to sit in the same `try` as the intended-batch measurement, so it
+       was skipped exactly when C0-3 needs it. Now the intended measurement, the search and a
+       re-measurement at the discovered batch are separate steps, and the record keeps the
+       failed intended trial AND the search result.
+    2. An OSError while building or loading a candidate (WinError 1455 while loading DINOv2)
+       ended the process before any JSON was written. It is recorded against that candidate.
+
+    `measure(b)` and `fits(b)` run in worker processes by default on CUDA (see isolated_strategies):
+    on Windows a real driver OOM can leave the CUDA context unusable for the whole process, and a
+    search that shares that process can then never find a fit.
+    """
+    entry = {"variant": name, "family": p["family"], "input_size": img,
+             "intended_batch": intended_batch, "precision": precision}
+    intended_error = None
+    try:
+        measured = measure(intended_batch)
+        spill = _spill_reason(measured, vram_bytes)
+        if spill:
+            # It ran, but only because the driver spilled past VRAM into system memory. The
+            # timing is a performance cliff, not this variant's cost: keep it on the record,
+            # treat the intended batch as not fitting, and measure at the discovered batch.
+            intended_error = spill
+            entry["intended_batch_error"] = intended_error
+            entry["intended_batch_spilled_measurement"] = {
+                k: measured.get(k) for k in ("batch", "forward", "train_step", "peak_memory_bytes_train")}
+        else:
+            entry.update(measured)
+    except VARIANT_ERRORS as exc:
+        intended_error = _err(exc)
+        entry["intended_batch_error"] = intended_error
+        if not context_check():
+            entry["cuda_context_lost"] = True
+            entry["error"] = intended_error
+            entry["note"] = ("the CUDA context became unusable after this error in this process, so no "
+                             "batch search or re-measurement was possible. Run without --no-isolate, or "
+                             f"run this variant alone (--variants {name}) with a smaller --batch")
+            return entry
+
+    if find_batch:
+        try:
+            entry["batch_search"] = largest_fitting_batch(
+                fits, device, start=max(1, intended_batch), cap=batch_cap,
+                precision=precision, vram_bytes=vram_bytes)
+        except VARIANT_ERRORS as exc:
+            entry["batch_search"] = {"largest_fitting_batch": None, "error": _err(exc)}
+        cleanup_error = cleanup()
+        if cleanup_error:
+            entry["cleanup_error_after_search"] = cleanup_error
+        if not context_check():
+            entry["cuda_context_lost"] = True
+
+    if intended_error:
+        found = (entry.get("batch_search") or {}).get("largest_fitting_batch")
+        if found and 1 <= found < intended_batch and not entry.get("cuda_context_lost"):
+            try:
+                measured = measure(found)
+                entry.update(measured)
+                entry["measured_at"] = (f"discovered batch {found}; the intended batch {intended_batch} "
+                                        f"did not fit ({intended_error.split(':')[0]})")
+                spill = _spill_reason(measured, vram_bytes)
+                if spill:
+                    entry["discovered_batch_spill_warning"] = spill
+            except VARIANT_ERRORS as exc:
+                entry["discovered_batch_error"] = _err(exc)
+        if "train_step" not in entry:
+            entry["error"] = intended_error
+            entry["note"] = ("did not run at the intended batch"
+                             + (" and no smaller batch fitted" if find_batch
+                                else "; re-run with --find-batch to search for a batch that fits"))
+    return entry
+
+
+# --- worker processes ----------------------------------------------------------------
+
+def _worker_run(spec: dict) -> dict:
+    torch.manual_seed(2024)
+    kind = spec["kind"]
+    if kind == "describe":
+        return {"ok": True, "compute": describe_compute()}
+    if kind == "selftest-raise":
+        raise OSError("[WinError 1455] The paging file is too small (simulated in a worker)")
+    device, name = spec["device"], spec["variant"]
+    p = parse_variant(name)
+    ckpt = None
+    if p["family"] == "dinov2":
+        # pinned to the exact commit the parent resolved; HF_HUB_OFFLINE keeps it from the network
+        ckpt = fetch_checkpoint(p["backbone"], spec.get("revision"))
+        build = lambda: DinoSeg(ckpt, img=spec["img"], decoder=p["decoder"], mode=p["mode"])  # noqa: E731
+    else:
+        build = lambda: UNet2D(base=p["base"], depth=p["depth"])  # noqa: E731
+    if kind == "trial":
+        ok, rec = _fit_trial(build, spec["batch"], spec["img"], device, spec["precision"],
+                             spec.get("vram_bytes"))
+        return {"ok": True, "fitted": bool(ok), "record": rec}
+    if kind == "measure":
+        ns = argparse.Namespace(input_from=spec.get("input_from"), source_size=spec["source_size"],
+                                batch=spec["batch"], img=spec["img"])
+        x, y, _ = build_input(ns, device, load_dr011())
+        entry = measure_variant(build, p, x, y, device, spec["steps"], spec["precision"], ckpt)
+        return {"ok": True, "entry": entry}
+    raise ValueError(f"unknown worker kind {kind!r}")
+
+
+def _worker_main(spec_json: str) -> int:
+    try:
+        result = _worker_run(json.loads(spec_json))
+    except BaseException as exc:  # noqa: BLE001 - a worker reports; it never tracebacks
+        result = {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:400]}"}
+    sys.stdout.write(WORKER_TAG + json.dumps(result, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+    return 0
+
+
+def _spawn_worker(spec: dict, timeout_s: int) -> dict:
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["HF_HUB_OFFLINE"] = "1"
+    try:
+        out = subprocess.run([sys.executable, os.path.abspath(__file__), "--_worker", json.dumps(spec)],
+                             capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             timeout=timeout_s, env=env)
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"TimeoutExpired: worker exceeded {timeout_s} s"}
+    tagged = [ln for ln in out.stdout.splitlines() if ln.startswith(WORKER_TAG)]
+    if tagged:
+        return json.loads(tagged[-1][len(WORKER_TAG):])
+    tail = [ln for ln in (out.stderr or "").strip().splitlines() if ln.strip()][-1:]
+    return {"ok": False,
+            "error": f"WorkerCrashed: exit {out.returncode}; {tail[0][:300] if tail else 'no output'}"}
+
+
+def isolated_strategies(name, p, checkpoint, *, device, img, steps, precision, source_size,
+                        input_from, vram_bytes, timeout_s):
+    """measure(b) and fits(b) that each run in a fresh worker process."""
+    spec = {"device": device, "variant": name, "img": img, "steps": steps, "precision": precision,
+            "source_size": source_size, "input_from": input_from, "vram_bytes": vram_bytes,
+            "revision": checkpoint["revision_resolved"] if checkpoint else None}
+
+    def measure(b):
+        r = _spawn_worker(dict(spec, kind="measure", batch=b), timeout_s)
+        if not r.get("ok"):
+            raise WorkerError(r.get("error", "worker failed"))
+        return r["entry"]
+
+    def fits(b):
+        r = _spawn_worker(dict(spec, kind="trial", batch=b), timeout_s)
+        if not r.get("ok"):
+            err = r.get("error", "worker failed")
+            return False, {"ran_without_error": False, "error": err[:300],
+                           "reason": f"batch {b}: worker failed - {err[:120]}"}
+        return r["fitted"], r["record"]
+
+    return measure, fits
+
+
+class _SelftestNet(nn.Module):
+    """CPU stand-in that raises a simulated OOM above a batch size. Selftest only."""
+
+    def __init__(self, max_batch: int):
+        super().__init__()
+        self.max_batch = max_batch
+        self.conv = nn.Conv2d(1, 1, 3, padding=1)
+
+    def forward(self, x):
+        if x.shape[0] > self.max_batch:
+            raise RuntimeError(f"CUDA out of memory (simulated above batch {self.max_batch})")
+        return self.conv(x)
+
+    @staticmethod
+    def output_stride() -> float:
+        return 1.0
+
+
+def _selftest_runner() -> int:
+    """The runtime paths of the PR #17 re-review, on CPU: in-process fakes, then real workers."""
+    img = 16
+    x = torch.rand(8, 1, img, img)
+    y = (torch.rand(8, 1, img, img) > 0.5).float()
+    p = {"family": "unet"}
+
+    def strategies(build):
+        return dict(measure=lambda b: measure_variant(build, p, x[:b], y[:b], "cpu", 1, "fp32"),
+                    fits=lambda b: _fit_trial(build, b, img, "cpu", "fp32", None))
+
+    common = dict(intended_batch=8, batch_cap=16, device="cpu", precision="fp32", vram_bytes=None,
+                  img=img)
+
+    def oserror_build():
+        raise OSError("[WinError 1455] The paging file is too small (simulated)")
+
+    checks = []
+    e = run_variant("intended_fails_search_finds_3", p, find_batch=True,
+                    **strategies(lambda: _SelftestNet(3)), **common)
+    checks.append(("intended batch 8 fails -> search still runs -> measured at 3",
+                   e.get("batch_search", {}).get("largest_fitting_batch") == 3
+                   and e.get("batch") == 3 and "train_step" in e
+                   and "intended_batch_error" in e and "error" not in e))
+    e = run_variant("oserror_on_load", p, find_batch=True, **strategies(oserror_build), **common)
+    checks.append(("OSError while building -> recorded, probe continues",
+                   "OSError" in e.get("error", "")
+                   and e.get("batch_search", {}).get("largest_fitting_batch") == 0))
+    e = run_variant("intended_fails_no_search", p, find_batch=False,
+                    **strategies(lambda: _SelftestNet(3)), **common)
+    checks.append(("no --find-batch -> failure recorded with a hint",
+                   "error" in e and "--find-batch" in e.get("note", "") and "batch_search" not in e))
+    e = run_variant("fits", p, find_batch=False, **strategies(lambda: _SelftestNet(64)), **common)
+    checks.append(("intended batch fits -> measured at 8, no error",
+                   e.get("batch") == 8 and "train_step" in e and "error" not in e))
+
+    global reset_peak
+    real_reset = reset_peak
+
+    def raising_reset(_device):
+        raise RuntimeError("CUDA error: out of memory (simulated inside empty_cache)")
+
+    reset_peak = raising_reset
+    try:
+        reported = _cleanup("cpu")
+    except Exception:  # noqa: BLE001
+        reported = None
+    finally:
+        reset_peak = real_reset
+    checks.append(("a cleanup that raises is reported, never raised",
+                   bool(reported) and "CUDA error" in reported))
+    e = run_variant("cleanup_error_recorded", p, find_batch=True,
+                    cleanup=lambda: "RuntimeError: CUDA error (simulated)",
+                    **strategies(lambda: _SelftestNet(3)), **common)
+    checks.append(("a cleanup error after the search is recorded; the run completes",
+                   bool(e.get("cleanup_error_after_search")) and e.get("batch") == 3 and "train_step" in e))
+
+    def fake_measure(b):  # peak grows with batch; VRAM below is 3.5 kB so batch > 3 spills
+        return {"batch": b, "forward": {"ms_median": 1.0}, "train_step": {"ms_median": 10.0 * b},
+                "peak_memory_bytes_train": 1000 * b}
+
+    e = run_variant("intended_spills", p, measure=fake_measure,
+                    fits=lambda b: (b * 1000 <= 3500, {"peak_memory_bytes": b * 1000}),
+                    intended_batch=8, find_batch=True, batch_cap=16, device="cuda", precision="fp32",
+                    vram_bytes=3500, img=img)
+    checks.append(("intended batch that spills past VRAM -> not a fit -> measured at 3",
+                   e.get("batch") == 3 and "VRAMSpill" in e.get("intended_batch_error", "")
+                   and e.get("intended_batch_spilled_measurement", {}).get("batch") == 8
+                   and "error" not in e))
+
+    r = _spawn_worker({"kind": "selftest-raise"}, 300)
+    checks.append(("worker process: a failure is reported as data, not a traceback",
+                   r.get("ok") is False and "WinError 1455" in r.get("error", "")))
+    spec = {"device": "cpu", "variant": "unet_base16_depth4", "img": 32, "precision": "fp32",
+            "steps": 1, "source_size": 576, "input_from": None, "vram_bytes": None, "revision": None}
+    r = _spawn_worker(dict(spec, kind="trial", batch=2), 600)
+    checks.append(("worker process: a training-step trial returns a fit",
+                   r.get("ok") is True and r.get("fitted") is True))
+    r = _spawn_worker(dict(spec, kind="measure", batch=2), 900)
+    checks.append(("worker process: a measurement returns a timing",
+                   r.get("ok") is True and "train_step" in (r.get("entry") or {})))
+
+    bad = 0
+    for label, ok in checks:
+        bad += not ok
+        print(f"  {'ok  ' if ok else 'FAIL'} {label}")
+    print(f"\n  run_variant selftest: {len(checks) - bad}/{len(checks)} passed\n")
+    return bad
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--operator", help="who is running this, on their own compute (C0-1). Required")
@@ -800,9 +1161,17 @@ def main() -> int:
                     help="where the JSON record is written (default: EVIDENCE_RAW/)")
     ap.add_argument("--note", default="")
     ap.add_argument("--selftest", action="store_true",
-                    help="check the batch-search logic without a GPU, then exit")
+                    help="check the batch-search and runner logic without a GPU, then exit")
+    ap.add_argument("--no-isolate", action="store_true",
+                    help="run CUDA measurements in this process instead of one worker process per "
+                         "measurement and per batch-search attempt (isolation is the default on CUDA)")
+    ap.add_argument("--worker-timeout", type=int, default=900,
+                    help="seconds before a worker process is abandoned and recorded as failed")
+    ap.add_argument("--_worker", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
+    if args._worker:
+        return _worker_main(args._worker)
     if args.selftest:
         return selftest()
     backbones = [b.strip() for b in args.backbones.split(",") if b.strip()]
@@ -817,7 +1186,17 @@ def main() -> int:
     if not args.operator:
         ap.error("--operator is required: C0-1 asks what compute the OWNER has")
 
-    compute = describe_compute()
+    isolate = torch.cuda.is_available() and args.device in (None, "cuda") and not args.no_isolate
+    if isolate:
+        # The parent never initialises CUDA: a context costs VRAM on a 4-6 GB card and would skew
+        # every ceiling the workers measure, and a lost context must not outlive one attempt.
+        described = _spawn_worker({"kind": "describe"}, args.worker_timeout)
+        if not described.get("ok"):
+            raise SystemExit(f"Could not read the compute description in a worker: "
+                             f"{described.get('error')}")
+        compute = described["compute"]
+    else:
+        compute = describe_compute()
     device = args.device or compute["device_kind"]
     if device != compute.get("device_kind"):
         compute = dict(compute)
@@ -852,12 +1231,18 @@ def main() -> int:
         pins[k.strip()] = v.strip() or None
     parsed = [(n, parse_variant(n)) for n in names]
     needed = sorted({p["backbone"] for _, p in parsed if p["family"] == "dinov2"})
-    checkpoints = {}
+    checkpoints, checkpoint_errors = {}, {}
     for key in needed:
         print(f"  checkpoint {DINO_CHECKPOINTS[key]['repo']} ...", end="", flush=True)
-        checkpoints[key] = fetch_checkpoint(key, pins.get(key))
-        print(f" {checkpoints[key]['revision_resolved'][:12]}  "
-              f"{checkpoints[key]['weights_bytes'] / 1024 ** 2:.0f} MB")
+        try:
+            checkpoints[key] = fetch_checkpoint(key, pins.get(key))
+            print(f" {checkpoints[key]['revision_resolved'][:12]}  "
+                  f"{checkpoints[key]['weights_bytes'] / 1024 ** 2:.0f} MB")
+        except Exception as exc:  # network, cache, disk or permission - diagnose, never a traceback
+            checkpoint_errors[key] = f"{type(exc).__name__}: {str(exc)[:300]}"
+            print(" FAILED")
+            print(f"    {checkpoint_errors[key]}")
+            print(f"    Variants using {key} are skipped and recorded; the others still run.")
 
     def builder(p):
         if p["family"] == "unet":
@@ -866,7 +1251,9 @@ def main() -> int:
         return lambda: DinoSeg(ck, img=args.img, decoder=p["decoder"], mode=p["mode"])
 
     dr011 = load_dr011()
-    x, y, input_meta = build_input(args, device, dr011)
+    # Isolated: the parent builds the input on the CPU for its metadata only; each worker rebuilds
+    # the same deterministic input on the GPU.
+    x, y, input_meta = build_input(args, "cpu" if isolate else device, dr011)
 
     print()
     print(f"  operator   {args.operator}")
@@ -883,72 +1270,61 @@ def main() -> int:
     print("  " + "-" * (len(head) - 2))
 
     results = []
+    context_lost_by = None
     for name, p in parsed:
-        build = builder(p)
-        model = None
-        try:
-            model = build().to(device)
-            stride = float(model.output_stride())
-            total, trainable = _count(model)
-            fwd = time_steps(model, x, y, device, args.steps, train=False, precision=args.precision)
-            trn = time_steps(model, x, y, device, args.steps, train=True, precision=args.precision)
-            peak = trn["memory"]["bytes"]
-            entry = {
-                "variant": name,
-                "family": p["family"],
-                "input_size": args.img,
-                "batch": args.batch,
-                "precision": args.precision,
-                "effective_output_stride": stride,
-                "stride_source": "model.output_stride(), not a hardcoded table",
-                "parameters_total": total,
-                "parameters_trainable": trainable,
-                "forward": fwd,
-                "train_step": trn,
-                "train_memory": trn["memory"],
-                "peak_memory_bytes_train": peak,
-            }
-            if p["family"] == "dinov2":
-                ck = checkpoints[p["backbone"]]
-                entry.update({
-                    "backbone": ck["arch"],
-                    "checkpoint": {k: v for k, v in ck.items() if not k.startswith("_")},
-                    "backbone_mode": p["mode"],
-                    "decoder": p["decoder"],
-                    "attn_implementation": getattr(model, "attn_implementation", "unknown"),
-                })
-            else:
-                entry.update({"backbone": "none (trained from scratch)", "decoder": "UNet",
-                              "backbone_mode": "n/a"})
-            model = None
-            reset_peak(device)
-            if args.find_batch:
-                entry["batch_search"] = largest_fitting_batch(
-                    build, args.img, device, start=max(1, args.batch), cap=args.batch_cap,
-                    precision=args.precision, vram_bytes=compute.get("vram_total_bytes"))
-            results.append(entry)
-            lfb = (f"   max batch {entry['batch_search']['largest_fitting_batch']}"
-                   if args.find_batch else "")
-            print(f"  {name:<32} {stride:>6.2f} {trainable / 1e6:>8.2f} "
+        if context_lost_by:
+            results.append({"variant": name, "family": p["family"], "precision": args.precision,
+                            "error": f"not run - the CUDA context was lost during {context_lost_by}",
+                            "note": "run this variant in a fresh process with --variants"})
+            print(f"  {name:<32} {'—':>6} {'—':>8} {'—':>8} {'—':>9} {'—':>8} {'—':>9}   NOT RUN")
+            continue
+        if p["family"] == "dinov2" and p["backbone"] in checkpoint_errors:
+            results.append({"variant": name, "family": "dinov2", "precision": args.precision,
+                            "error": f"checkpoint unavailable - {checkpoint_errors[p['backbone']]}",
+                            "note": "skipped: its checkpoint could not be fetched or verified"})
+            print(f"  {name:<32} {'—':>6} {'—':>8} {'—':>8} {'—':>9} {'—':>8} {'—':>9}   SKIPPED")
+            continue
+        vram = compute.get("vram_total_bytes")
+        ckpt = checkpoints.get(p.get("backbone"))
+        if isolate:
+            measure, fits = isolated_strategies(
+                name, p, ckpt, device=device, img=args.img, steps=args.steps,
+                precision=args.precision, source_size=args.source_size, input_from=args.input_from,
+                vram_bytes=vram, timeout_s=args.worker_timeout)
+            context_check, cleanup = (lambda: True), (lambda: None)
+        else:
+            build = builder(p)
+            measure = (lambda b, build=build, p=p, ckpt=ckpt:
+                       measure_variant(build, p, x[:b], y[:b], device, args.steps, args.precision, ckpt))
+            fits = (lambda b, build=build: _fit_trial(build, b, args.img, device, args.precision, vram))
+            context_check, cleanup = (lambda: cuda_usable(device)), (lambda: _cleanup(device))
+        entry = run_variant(
+            name, p, measure=measure, fits=fits, intended_batch=args.batch,
+            find_batch=args.find_batch, batch_cap=args.batch_cap, device=device,
+            precision=args.precision, vram_bytes=vram, img=args.img,
+            context_check=context_check, cleanup=cleanup)
+        results.append(entry)
+        if entry.get("cuda_context_lost") and device == "cuda":
+            context_lost_by = name
+        if "train_step" in entry:
+            fwd, trn, peak = entry["forward"], entry["train_step"], entry["peak_memory_bytes_train"]
+            lfb = (f"   max batch {entry['batch_search'].get('largest_fitting_batch')}"
+                   if "batch_search" in entry else "")
+            at = f"   measured at batch {entry['batch']}" if entry.get("measured_at") else ""
+            print(f"  {name:<32} {entry['effective_output_stride']:>6.2f} "
+                  f"{entry['parameters_trainable'] / 1e6:>8.2f} "
                   f"{fwd['ms_median']:>8.1f} {trn['ms_median']:>9.1f} {trn['slices_per_s']:>8.2f} "
-                  f"{(peak / 1024 ** 2 if peak else float('nan')):>9.1f}{lfb}")
-        except (RuntimeError, ValueError, MemoryError) as exc:
-            reason = str(exc).strip().splitlines()[0][:90] if str(exc).strip() else type(exc).__name__
-            results.append({"variant": name, "precision": args.precision,
-                            "error": f"{type(exc).__name__}: {str(exc)[:400]}",
-                            "note": "did not fit or failed to run at this configuration"})
+                  f"{(peak / 1024 ** 2 if peak else float('nan')):>9.1f}{lfb}{at}")
+        else:
+            reason = entry["error"].splitlines()[0][:90]
             print(f"  {name:<32} {'—':>6} {'—':>8} {'—':>8} {'—':>9} {'—':>8} {'—':>9}   FAILED")
             print(f"  {'':<32} reason: {reason}")
-        finally:
-            model = None
-            gc.collect()
-            reset_peak(device)
 
     stamp = datetime.now(timezone.utc).astimezone().strftime("%Y%m%dT%H%M%S%z")
     os.makedirs(args.out_dir, exist_ok=True)
     out = os.path.join(args.out_dir, f"c0_probe_{stamp}.json")
     record = {
-        "harness": "spikes/spike_c_ml/harness/probe.py revision 3 (2026-09-14) - real DINOv2",
+        "harness": "spikes/spike_c_ml/harness/probe.py revision 4 (2026-09-15) - real DINOv2; batch search runs even when the intended batch fails; OSError recorded per candidate; CUDA work isolated per process",
         "criterion_coverage": ["C0-1", "C0-2", "C0-3" if args.find_batch else "C0-3 (not run)",
                                "C0-4", "C0-5", "C0-6"],
         "captured_at": stamp,
@@ -956,12 +1332,15 @@ def main() -> int:
         "conditions_note": args.note,
         "compute": compute,
         "device_used": device,
+        "isolation": ("one worker process per measurement and per batch-search attempt; the parent "
+                      "never initialises CUDA" if isolate else "in-process (--no-isolate or not CUDA)"),
         "precision": args.precision,
         "input_shape": [args.batch, 1, args.img, args.img],
         "input_is_synthetic": True,
         "input": input_meta,
         "checkpoints": {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")}
                         for k, v in checkpoints.items()},
+        "checkpoint_errors": checkpoint_errors,
         "c0_10_statement": ("C0 evidence does NOT close GATE-ML-01. DR-007 forbids closing it "
                             "on C0 alone. Convergence, achievable quality, and the interaction "
                             "between output stride and the real LA boundary thickness are C1."),

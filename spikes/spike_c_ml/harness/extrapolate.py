@@ -74,8 +74,8 @@ def main() -> int:
     ap.add_argument("probe_json", help="a c0_probe_*.json produced by harness/probe.py")
     ap.add_argument("--variant", help="which variant to extrapolate (default: each in turn)")
     ap.add_argument("--train-cases", type=int, default=80,
-                    help="cases in the training partition: 80 under Path A, 70 under Path B "
-                         "(DR-002 decides)")
+                    help="cases in the training partition: 80, because DR-002 was decided as "
+                         "Path A on 2026-09-14 (80 train / 20 validation / 54 locked holdout)")
     ap.add_argument("--slices-per-case", type=int, default=88,
                     help="88, measured by Spike D A6 for every case")
     ap.add_argument("--epochs", type=int, default=50,
@@ -199,7 +199,7 @@ def main() -> int:
     print()
     print("  ASSUMED (not measured — change these and the verdict changes)")
     print(f"    training cases                  {args.train_cases}"
-          f"      <- 80 Path A / 70 Path B; DR-002 decides")
+          f"      <- DR-002 = Path A, decided 2026-09-14")
     print(f"    slices per case                 {args.slices_per_case}"
           f"      <- Spike D A6 measured 88 for every case")
     print(f"    epochs to convergence           {args.epochs}"
@@ -262,7 +262,10 @@ def main() -> int:
     print("  ARITHMETIC")
     print(f"    slices_total    = {args.train_cases} cases x {args.slices_per_case} slices"
           f" = {slices_total:,}")
-    print(f"    steps_per_epoch = ceil({slices_total:,} / {batch}) = {steps_per_epoch:,}")
+    print(f"    steps_per_epoch = ceil({slices_total:,} / batch) = {steps_per_epoch:,} at the intended "
+          f"batch {batch}")
+    print("                      a variant the probe measured at a smaller DISCOVERED batch (the intended")
+    print("                      one did not fit) uses its own batch - its row says so")
     print()
 
     print("    h/epoch  = steps_per_epoch x ms/step / 3 600 000")
@@ -280,7 +283,11 @@ def main() -> int:
     rows = []
     for v in variants:
         ms = v["train_step"]["ms_median"] * scale
-        h_epoch = steps_per_epoch * ms / 1000.0 / 3600.0
+        # Probe revision 4 records the batch each variant was actually timed at: when the
+        # intended batch did not fit, the timing is at the largest batch the search found.
+        vb = int(v.get("batch") or batch)
+        spe = -(-slices_total // vb)
+        h_epoch = spe * ms / 1000.0 / 3600.0
         h_run = h_epoch * args.epochs * args.overhead_factor
         h_matrix = h_run * (args.runs + args.ablations)
         days = h_matrix / args.hours_per_day
@@ -290,6 +297,9 @@ def main() -> int:
         fits = h_matrix <= budget_h
         rows.append({
             "variant": v["variant"],
+            "batch": vb,
+            "steps_per_epoch": spe,
+            "measured_at": v.get("measured_at"),
             "precision": v.get("precision", precision),
             "measured_ms_per_train_step": round(v["train_step"]["ms_median"], 2),
             "ms_per_train_step_after_scaling": round(ms, 2),
@@ -305,7 +315,8 @@ def main() -> int:
         # 24 h right next to a days column computed at --gpu-hours-per-day.
         print(f"  {v['variant']:<32} {ms:>9.1f} {h_epoch:>9.2f} {h_run:>9.1f} "
               f"{h_matrix:>8.1f} h {days_r:>7.1f} {share * 100:>7.0f}%  "
-              f"{'FITS' if fits else 'DOES NOT FIT'}")
+              f"{'FITS' if fits else 'DOES NOT FIT'}"
+              f"{f'   (batch {vb}, intended {batch} did not fit)' if vb != batch else ''}")
 
     if failed:
         print()
@@ -380,9 +391,9 @@ def main() -> int:
             "variants_that_did_not_run": [
                 {"variant": r["variant"], "error": r.get("error")} for r in failed],
             "invalidated_by": ("C1-6 showing convergence needs a different epoch count, the "
-                               "owner's real GPU hours per day, DR-002 changing the training "
-                               "partition, or a probe re-run replacing the pixel-count scaling "
-                               "assumption with a measurement."),
+                               "owner's real GPU hours per day, or a probe re-run replacing the "
+                               "pixel-count scaling assumption with a measurement. The training "
+                               "partition is fixed: DR-002 = Path A, 80 training cases."),
         }
         with open(args.out, "w", encoding="utf-8", newline="\n") as f:
             json.dump(payload, f, indent=1, ensure_ascii=False)

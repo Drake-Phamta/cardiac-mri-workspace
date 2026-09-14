@@ -116,6 +116,35 @@ là tiêu chí `C1-5` và **cần giải phẫu thật**. C0 không trả lời 
 Thêm một lỗi tìm ra khi chạy thử bản sửa: sau chuẩn hoá DR-011, input thành `float64` và UNet từ chối
 chạy (DINOv2 tự ép kiểu nên không lộ). Đã ép về `float32`.
 
+## ❌ Bản thứ ba còn 2 lỗi runtime — Khánh review lại trên RTX 4050 (15/09 00:52). Đã sửa (revision 4).
+
+Hai lỗi này **chỉ lộ ra trên GPU 6 GB thật** — lần chạy thử trên máy leader không gặp:
+
+| # | Khánh chỉ ra | Đã sửa thế nào |
+|---|---|---|
+| 1 | `--find-batch` **bị bỏ qua đúng lúc cần**: đo ở batch dự định và tìm batch nằm chung một `try`, batch dự định OOM là không có `batch_search` | `run_variant()` tách **ba bước**: đo ở batch dự định → **luôn** tìm batch nếu có `--find-batch` → nếu batch dự định hỏng **hoặc chỉ chạy được nhờ tràn quá VRAM**, **đo lại ở batch tìm được**. Bản ghi giữ cả lỗi của batch dự định (`intended_batch_error`, và `intended_batch_spilled_measurement` nếu nó tràn) lẫn kết quả tìm và số đo (`batch`, `measured_at`). **Trên CUDA, mỗi phép đo và mỗi lần thử batch chạy trong một tiến trình con riêng** (`--no-isolate` để tắt): trên Windows, một lần hết bộ nhớ thật làm hỏng CUDA của cả tiến trình. `extrapolate.py` dùng đúng batch đã đo cho từng biến thể |
+| 2 | **`OSError` khi tải DINOv2** (`WinError 1455` — pagefile quá nhỏ) thoát khỏi mọi handler, **probe dừng mà không ghi JSON** | `OSError` được bắt khi dựng/tải từng biến thể và trong từng lần thử batch; ghi lỗi vào biến thể đó rồi **chạy tiếp**. Checkpoint tải lỗi trước vòng lặp → thông báo rõ, các biến thể dùng checkpoint đó ghi `SKIPPED`, biến thể khác vẫn chạy; lỗi nằm trong `checkpoint_errors` của file JSON |
+| + | `extrapolate.py` vẫn ghi "DR-002 decides" | `--train-cases 80` giờ ghi là giá trị **đã quyết** (`DR-002` = Path A) |
+
+**`--selftest` kiểm các đường này trên CPU, không cần GPU hay tải gì (10 kiểm):** batch dự định 8 hỏng → vẫn tìm → đo
+ở 3; batch dự định **tràn VRAM** → coi là không vừa → đo ở 3; `OSError` khi dựng → ghi lỗi, không dừng; không
+`--find-batch` → lỗi kèm gợi ý; bước dọn bộ nhớ ném lỗi → ghi lại, không dừng; và **tiến trình con thật**: báo lỗi
+dạng dữ liệu, trả kết quả thử batch, trả số đo.
+
+**Kiểm trên RTX 3050 Ti 4 GB của leader trước khi đẩy — tìm ra thêm 2 lỗi, đã sửa:**
+
+| Lỗi tìm thêm | Hiện ra thế nào | Sửa |
+|---|---|---|
+| Sau một lần hết bộ nhớ thật trên Windows, **CUDA hỏng cho cả tiến trình** | `torch.cuda.empty_cache()` ném `CUDA error: out of memory`; sau đó thử batch 1 cũng hỏng — việc tìm batch trong cùng tiến trình không bao giờ ra kết quả | mỗi phép đo và mỗi lần thử batch trong **tiến trình con riêng**; tiến trình chính không khởi tạo CUDA; bước dọn không bao giờ ném lỗi |
+| Batch dự định **chạy được nhờ tràn quá VRAM** được ghi như số đo thật | `unet_base16` batch 32 ở 560: đỉnh 12,06 GB trên card 4 GB, 21,7 s/bước — trong khi chính việc tìm batch cùng bản ghi đã đánh dấu batch 32 là không vừa (trần 10) | áp đúng quy tắc tràn VRAM của việc tìm batch cho phép đo; đo lại ở batch tìm được |
+
+Kết quả sau sửa, cùng máy: `unet_base32` batch 32 hết bộ nhớ → tìm `32✗ 1✓ 16✗ 8✗ 4✓ 6✗ 5✓` → **đo ở batch 5**.
+**Không số nào từ máy leader được commit** — C0 là của Khánh trên RTX 4050. Mỗi biến thể có `--find-batch` giờ mất vài
+phút vì mỗi lần thử là một tiến trình mới: chạy đủ 10 biến thể có thể mất 30–60 phút.
+
+> **Khánh — trên máy bạn:** nên bật pagefile (packet Day 6 việc 1). Probe giờ không chết vì `WinError 1455`, nhưng
+> biến thể nào tải hỏng sẽ **không có số** — bật pagefile để cả 10 biến thể đều đo được.
+
 ---
 
 ## ❌ Bản đầu có 15 lỗi — review độc lập tìm ra. Đã sửa. *(lịch sử, 11/09)*
