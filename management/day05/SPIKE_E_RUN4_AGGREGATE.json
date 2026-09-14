@@ -1,0 +1,38 @@
+{
+  "report_kind": "owner_aggregation",
+  "generated_by": "spikes/spike_e_transport/analyze/aggregate.py",
+  "generated_from_ref": "spike-e/evidence-20260913",
+  "generated_from_commit": "7c05c8cb859c11da9cc71992f4a2b2d8e14e2dde",
+  "aggregation_tool_ref": "spike-e/wifi-overlay-path",
+  "aggregation_tool_commit": "2ed3c643b7e03abb3f35a86ad864e1c66dbdd403",
+  "source_file": "spikes/spike_e_transport/EVIDENCE_RAW/20260913_run4/e_transport_20260913_run4.jsonl",
+  "measurement_path": "wifi-overlay",
+  "overlay_connection": "direct",
+  "is_acceptance_evidence": true,
+  "operator": "Pham Tuan Anh (executed via Claude Code on the operator machine)",
+  "owner": "Nguyen Gia Duc Trung",
+  "samples": 171,
+  "failed": 0,
+  "failure_rate": 0.0,
+  "percentile_definition": "nearest-rank, no interpolation, no outlier removal",
+  "scenarios": {
+    "E2:cold_open_s1": {"requests": 3, "failed": 0, "mean_payload_kb": 118.44, "p50_ms": 437, "p95_ms": 445, "max_ms": 445, "server_p50_ms": 0.55},
+    "E2:cold_open_s3": {"requests": 3, "failed": 0, "mean_payload_kb": 57024.0, "p50_ms": 74822, "p95_ms": 101698, "max_ms": 101698, "server_p50_ms": 17.11},
+    "E2:cold_open_s4": {"requests": 3, "failed": 0, "mean_payload_kb": 591.93, "p50_ms": 800, "p95_ms": 814, "max_ms": 814, "server_p50_ms": 2.04},
+    "E3:uncached_slice_s1": {"requests": 39, "failed": 0, "mean_payload_kb": 99.69, "p50_ms": 394, "p95_ms": 1040, "max_ms": 1206, "server_p50_ms": 0.59},
+    "E4:navigate_s1": {"requests": 60, "failed": 0, "mean_payload_kb": 113.63, "p50_ms": 369, "p95_ms": 504, "max_ms": 930, "server_p50_ms": 0.57},
+    "E4:navigate_s4": {"requests": 12, "failed": 0, "mean_payload_kb": 574.54, "p50_ms": 716, "p95_ms": 1318, "max_ms": 1318, "server_p50_ms": 1.80},
+    "E5:mask_s2": {"requests": 39, "failed": 0, "mean_payload_kb": 40.5, "p50_ms": 286, "p95_ms": 429, "max_ms": 609, "server_p50_ms": 0.52},
+    "E6:mesh_level_0": {"requests": 3, "failed": 0, "mean_payload_kb": 7.25, "p50_ms": 213, "p95_ms": 252, "max_ms": 252, "server_p50_ms": 0.53},
+    "E6:mesh_level_1": {"requests": 3, "failed": 0, "mean_payload_kb": 29.7, "p50_ms": 254, "p95_ms": 445, "max_ms": 445, "server_p50_ms": 0.44},
+    "E6:mesh_level_2": {"requests": 3, "failed": 0, "mean_payload_kb": 124.8, "p50_ms": 324, "p95_ms": 544, "max_ms": 544, "server_p50_ms": 0.45},
+    "E6:mesh_level_3": {"requests": 3, "failed": 0, "mean_payload_kb": 513.93, "p50_ms": 876, "p95_ms": 948, "max_ms": 948, "server_p50_ms": 0.98}
+  },
+  "nfr_perf_001": {
+    "target_ms": 200,
+    "navigate_s1_p95_ms": 504,
+    "navigate_s4_p95_ms": 1318,
+    "verdict": "EXCEEDS_TARGET"
+  },
+  "quality_note": "Run is complete and internally consistent (171/171, bytes_received matched Content-Length), but one Wi-Fi time window is not enough to close E8, and E7/E9 were not measured. This report is an input to the owner's draft, not an ACCEPTED verdict."
+}
