@@ -13,6 +13,7 @@
     "every metric that follows it. C1-7 asks for explicit confirmation that no cohort-fitted",
     "statistic appears anywhere, which is only checkable if the policy is written down first."
   ],
+  "input": "uint8 volumes, as Spike D A6 measured the cohort (PR #25)",
   "implementation": {
     "step_1": "clip to the per-volume [p_low, p_high] percentiles",
     "p_low": 0.5,
@@ -21,6 +22,15 @@
     "step_3": "no mean subtraction, no division by a cohort standard deviation",
     "note": "The percentile bounds are a configuration choice, not a measurement. They are recorded here so a reviewer can disagree with a specific number rather than with a vibe."
   },
+  "backbone_constants": {
+    "_why": "DR-011 allows 'fixed pretrained-model constants where the backbone requires them'. DINOv2 was pretrained on 3-channel ImageNet-normalised images.",
+    "applies_to": "the DINOv2 family only, AFTER steps 1-2",
+    "step_4": "replicate the single MRI channel to 3 channels",
+    "step_5": "subtract image_mean and divide by image_std, per channel",
+    "values": "read at run time from the checkpoint's own preprocessor_config.json and recorded in every probe output; for facebook/dinov2-small and -base they are the ImageNet constants mean [0.485, 0.456, 0.406], std [0.229, 0.224, 0.225]",
+    "not_a_cohort_statistic": "These numbers come from the pretraining corpus and are identical for every volume, every partition and every data fraction."
+  },
+  "unet_family": "receives the [0, 1] output of step 2 unchanged; no backbone constants",
   "applies_to": ["SPIKE_C0 synthetic probe", "SPIKE_C1 real-data runs"],
   "verified_by": "C1-7 - DR-011 normalization conformance confirmed, no cohort-fitted statistics anywhere"
 }

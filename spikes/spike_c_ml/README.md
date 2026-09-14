@@ -35,16 +35,23 @@ Gói dataset **đã tải xong** tối 2026-09-11, nên thời gian chờ đó *
 pip install -r spikes/spike_c_ml/requirements.txt
 # torch phải cài đúng build cho phần cứng CỦA BẠN — https://pytorch.org/get-started/locally/
 
+python spikes/spike_c_ml/harness/probe.py --selftest              # kiểm logic tìm batch, không cần GPU
 python spikes/spike_c_ml/harness/probe.py --operator "Bế Quốc Khánh" --img 560 --find-batch
-python spikes/spike_c_ml/harness/extrapolate.py spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_*.json
+python spikes/spike_c_ml/harness/probe.py --operator "Bế Quốc Khánh" --img 560 --find-batch --precision bf16
+python spikes/spike_c_ml/harness/extrapolate.py spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_*.json --gpu-hours-per-day 8
 ```
 
-**Kích thước ảnh phải chia hết cho cả 16 và 14** — UNet pool 4 lần, ViT chia ô 14×14. Dùng sai thì
-script báo rõ và gợi ý kích thước gần nhất chứ không fail mờ ám. Kích thước dùng được: **112, 224,
-336, 448, 560, 672**.
+Lần chạy đầu **tải checkpoint DINOv2** về cache Hugging Face: `facebook/dinov2-small` ~85 MB và
+`facebook/dinov2-base` ~330 MB. Các lần sau chạy được với `HF_HUB_OFFLINE=1`. Muốn chạy ít biến thể hơn:
+`--variants dinov2_s14_full_progressive,unet_base32_depth4` (xem đủ danh sách: `--list-variants`).
 
-`560` là lựa chọn hợp lý nhất hiện nay: slice thật đo được tối qua là **576×576** (và có case
-640×640), nên 560 là kích thước hợp lệ gần nhất.
+**Kích thước ảnh phải chia hết cho cả 16 và 14** — UNet pool 4 lần, DINOv2 chia ô 14×14. Dùng sai thì
+script báo rõ và gợi ý kích thước gần nhất. Kích thước dùng được: **112, 224, 336, 448, 560, 672**.
+
+**Đầu vào khớp cohort thật (Spike D `A6`, PR #25):** `uint8`, 69 case **576×576×88** và 85 case
+**640×640×88**. Không kích thước nào chia hết cho 14, nên probe **resize** cả hai về `--img` (mặc định
+560): MRI bilinear có antialias, mask nearest. Đây là **lựa chọn cấu hình**, được ghi vào mọi output
+(`input.resize_policy`). Phương án khác là pad lên bội số của 14 — C1 quyết định.
 
 ---
 
@@ -68,34 +75,50 @@ script báo rõ và gợi ý kích thước gần nhất chứ không fail mờ 
 
 ---
 
-## Bốn ứng viên, và vì sao là bốn
+## Mười ứng viên — DINOv2 thật, không còn bản thế chỗ
 
-| Variant | Output stride | Ý nghĩa |
-|---|---:|---|
-| `unet_base32_depth4` | **1** | UNet đầy đủ, skip connection khôi phục độ phân giải |
-| `unet_base16_depth4` | **1** | UNet nhẹ hơn, để thấy chi phí giảm bao nhiêu khi thu nhỏ |
-| `vit_s14_linear_decoder` | **14** | Một logit mỗi ô 14×14. Upsample sau đó **không thêm thông tin nào** |
-| `vit_s14_progressive_decoder` | **1,75** | Ba lần upsample học được (×8); 14 = 2×7 nên không stack luỹ thừa 2 nào rơi đúng kích thước ảnh, phần dư phải nội suy |
+Hai UNet, cộng **2 checkpoint × 2 chế độ backbone × 2 decoder** của DINOv2:
+
+| Thành phần | Lựa chọn | Ghi chú |
+|---|---|---|
+| UNet | `unet_base32_depth4`, `unet_base16_depth4` | train từ đầu, stride **1** |
+| Checkpoint DINOv2 | **ViT-S/14** `facebook/dinov2-small` (~22 M) · **ViT-B/14** `facebook/dinov2-base` (~86 M) | tải qua `transformers.Dinov2Model`; mỗi lượt thử ghi **repo, commit đã resolve, SHA-256 file trọng số** |
+| Chế độ backbone | `full` (fine-tune toàn bộ) · `frozen` (backbone chạy `no_grad`, chỉ decoder học) | `07` §2 bắt ADR-ML-001 ghi chế độ fine-tune; đây là thứ đổi peak memory nhiều nhất |
+| Decoder | `linear` — stride **14** · `progressive` — stride **1,75** | xem dưới |
+
+Tên biến thể: `dinov2_<s14|b14>_<full|frozen>_<linear|progressive>`. Đề xuất ứng viên là việc
+`TASK.md` cho phép Claude làm; **chọn** biến thể là việc của `GATE-ML-01`.
+
+**Đầu vào của DINOv2:** kênh MRI duy nhất (đã chuẩn hoá DR-011 về [0, 1]) được nhân lên 3 kênh rồi trừ
+`image_mean`/chia `image_std` **đọc từ `preprocessor_config.json` của chính checkpoint** — đó là hằng số
+cố định của mô hình pretrained mà DR-011 cho phép, không phải thống kê của cohort
+([`dr011_normalization.json`](dr011_normalization.json) → `backbone_constants`).
 
 **`C0-5` là câu hỏi thú vị nhất của C0:** *effective output stride do DECODER quyết định, không phải
-encoder.* Cùng một ViT-S/14, đổi decoder thì stride đi từ **14** xuống **1,75**.
+encoder.* Cùng một DINOv2 /14, đổi decoder thì stride đi từ **14** (một logit mỗi ô 14×14, upsample sau
+đó không thêm thông tin) xuống **1,75** (ba lần upsample học được ×8; 14 = 2×7 nên phần dư phải nội suy).
 
 Stride 14 có chấp nhận được hay không **phụ thuộc độ dày biên khoang nhĩ trái tính theo voxel** — đó
 là tiêu chí `C1-5` và **cần giải phẫu thật**. C0 không trả lời được, và không giả vờ trả lời.
 
-### ViT ở đây KHÔNG phải DINOv2 thật
+---
 
-Nó là **bản thế chỗ tương đương về hình dạng và chi phí tính toán** cho DINOv2 ViT-S/14: cùng patch
-size, cùng chiều embedding, cùng số tầng, cùng số head. Peak memory và thời gian mỗi bước phụ thuộc
-**hình dạng tensor và số tầng**, không phụ thuộc **giá trị trong trọng số** — nên với câu hỏi của C0,
-nó trả lời đúng. Với câu hỏi của **C1** (hội tụ, chất lượng) thì nó **hoàn toàn vô dụng**, và đó chính
-là lý do hai giai đoạn tách nhau.
+## ❌ Bản thứ hai có 5 lỗi chặn — review của Khánh (PR #17, 13/09). Đã sửa.
 
-Mọi file output đều ghi câu này.
+| # | Khánh chỉ ra | Đã sửa thế nào |
+|---|---|---|
+| 1 | Đo một `nn.TransformerEncoder` tự dựng, **không phải DINOv2** — `C0-2`, `C0-6` đòi đúng biến thể, nguồn checkpoint, decoder | Backbone là **DINOv2 thật** từ Hugging Face; mỗi lượt thử ghi repo, commit, SHA-256 trọng số, chế độ backbone, decoder, `attn_implementation`. Bỏ `ViTSegStandIn` và cờ `vit_is_stand_in` |
+| 2 | Tìm batch chỉ nhân đôi và dừng ở lần hỏng đầu tiên; batch khởi đầu hỏng thì không thử batch 1; không dọn tensor khi hỏng | `search_batch()`: nhân đôi để **kẹp khoảng**, rồi **chia đôi** tới biên chính xác; batch khởi đầu hỏng → thử 1; mỗi lần thử dọn model/optimizer/input trong `finally`. `--selftest` kiểm 8 tình huống, gồm đúng hai ví dụ trong review |
+| 3 | Thiếu **driver NVIDIA**; không ghi precision; không có throughput | Thêm driver (`nvidia-smi`), cuDNN, RAM máy, bản `transformers`; `--precision fp32/fp16/bf16` ghi theo **từng lượt thử**; thêm `steps_per_s` và `slices_per_s` kèm cách đo |
+| 4 | Sinh `int16`, nhãn hình dạng "unknown" trong khi Spike D đã đo `uint8`, 576/640 × 88 | `generate.py` sinh **`uint8`** ở **cả hai kích thước**, mask **{0, 255}** như cohort; probe đọc `uint8`, chuẩn hoá DR-011 đúng như file cấu hình (bỏ z-score cũ), ghi rõ **chính sách resize** |
+| 5 | Ngoại suy so với "dự án 30 ngày" chung chung và kết luận "kiến trúc quyết định lịch, không phải phần cứng" từ một máy | Ngân sách = **số ngày trong cửa sổ train × giờ GPU mỗi ngày**. Cửa sổ mặc định: sau `GATE-ML-01` (hết M4, Day 12) tới M6 (Day 22). Nhận `--remaining-days`, `--gpu-hours-per-day`, `--window-start`, `--deadline`; in phép tính; phán **VỪA / KHÔNG VỪA** cho từng biến thể; **bỏ** câu về kiến trúc với phần cứng |
+
+Thêm một lỗi tìm ra khi chạy thử bản sửa: sau chuẩn hoá DR-011, input thành `float64` và UNet từ chối
+chạy (DINOv2 tự ép kiểu nên không lộ). Đã ép về `float32`.
 
 ---
 
-## ❌ Bản đầu có 15 lỗi — review độc lập tìm ra. Đã sửa.
+## ❌ Bản đầu có 15 lỗi — review độc lập tìm ra. Đã sửa. *(lịch sử, 11/09)*
 
 Nghiêm trọng nhất, đúng loại "con số sai mà trông đúng":
 
@@ -105,7 +128,8 @@ Nghiêm trọng nhất, đúng loại "con số sai mà trông đúng":
 > card — rồi in thêm *"the true ceiling may be higher"*. Con số VRAM nằm ngay trong cùng bản ghi và
 > **chưa bao giờ được đọc**.
 
-**Sau khi sửa, đo lại trên chính máy đó (`--img 224`):**
+**Sau khi sửa, đo lại trên chính máy đó (`--img 224`)** — *bảng này đo **bản thế chỗ ViT** bằng cách tìm
+nhân đôi cũ, nên đã **lỗi thời** từ bản thứ ba; giữ lại làm hồ sơ, không dùng làm số:*
 
 | Variant | Trần cũ | **Trần mới** | Dừng vì |
 |---|---:|---:|---|
@@ -138,7 +162,13 @@ AdamW — hai bản sao fp32 nữa của toàn bộ tham số — trong khi `C0-
 Đêm 2026-09-11 toàn bộ chuỗi được chạy thử ở `112×112`, batch 1, trên một RTX 3050 Ti Laptop 4 GB.
 Cả bốn variant chạy được, `extrapolate.py` in ra bảng lịch đầy đủ.
 
-**Kết quả đó đã bị xoá.** `C0-1` hỏi *dự án này có compute gì*, mà một lần chạy trên máy người khác
+Sáng 2026-09-14, bản thứ ba được chạy thử trên **cùng RTX 3050 Ti đó (máy của leader)** với cả hai
+checkpoint DINOv2 thật: đủ 10 biến thể ở `224`, bốn biến thể ở `560` có tìm batch, cả `fp32`, `fp16` và
+`bf16`, đầu vào từ file `uint8` và từ bộ sinh trong bộ nhớ; `extrapolate.py` chạy với cửa sổ mặc định và
+với `--target-img native`. Việc tìm batch cho ra những trần không phải luỹ thừa của 2 — đúng thứ bản
+nhân đôi không bao giờ ra được — và bắt được một lần tràn VRAM âm thầm.
+
+**Số của cả hai lần đều không được giữ.** `C0-1` hỏi *dự án này có compute gì*, mà một lần chạy trên máy người khác
 trả lời về máy người khác. Giữ lại chỉ mời người ta đọc nhầm.
 
 Hai lỗi thật do smoke test phát hiện và đã sửa trước khi commit:
@@ -161,6 +191,17 @@ shown"*. Nó tách rõ hai nhóm:
 Số epoch **không đo được trên dữ liệu tổng hợp** — hội tụ là `C1-6`. Một ước lượng mà giả định của nó
 vô hình thì chỉ là phỏng đoán đeo con số.
 
+**Phán quyết là so với lịch còn lại, không phải một "dự án 30 ngày" chung chung:**
+
+```
+ngân sách giờ GPU = số ngày trong cửa sổ train × giờ GPU mỗi ngày
+cửa sổ mặc định   = từ max(hôm nay, Day 12 — hết M4, GATE-ML-01) tới Day 22 — hết M6, ma trận thí nghiệm xong
+```
+
+Mỗi biến thể được ghi **VỪA** hoặc **KHÔNG VỪA** và bao nhiêu % ngân sách. **Giờ GPU mỗi ngày là giả
+định của bạn**: 8 nếu máy chỉ chạy lúc bạn ngồi làm, tới 24 nếu để chạy qua đêm được. Kết luận chỉ nói về
+**máy này, lượt chạy này** — không suy ra gì cho phần cứng khác.
+
 **Script từ chối chạy nếu không có file probe.** `TASK.md` cấm đích danh việc bịa *"any calendar figure
 derived from unmeasured timings"*.
 
@@ -169,9 +210,11 @@ derived from unmeasured timings"*.
 ## Việc của bạn
 
 1. **Spike D trước.** C0 là việc lấp chỗ, không phải primary task thứ hai.
-2. Chạy probe với `--operator "Bế Quốc Khánh"` `--img 560` `--find-batch`, commit output dưới tài khoản
-   của bạn → đóng `C0-1` tới `C0-6`.
-3. Chạy `extrapolate.py`, chỉnh giả định cho khớp thực tế → `C0-7` `C0-8`.
+2. `--selftest`, rồi chạy probe với `--operator "Bế Quốc Khánh"` `--img 560` `--find-batch`, một lần
+   `fp32` và một lần `--precision bf16` (RTX 4050 hỗ trợ bf16), commit output dưới tài khoản của bạn →
+   `C0-1` tới `C0-6`.
+3. Chạy `extrapolate.py` với `--gpu-hours-per-day` đúng với cách bạn dùng máy, và `--train-cases` theo
+   `DR-002` (80 Path A / 70 Path B) → `C0-7` `C0-8`.
 4. Đọc và **phản biện** [`dr011_normalization.json`](dr011_normalization.json) — ngưỡng percentile
    0,5/99,5 là **lựa chọn cấu hình**, không phải phép đo. Ghi ra để bạn có thể không đồng ý với một con
    số cụ thể chứ không phải với một cảm giác.
