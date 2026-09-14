@@ -15,7 +15,8 @@ Rules this script will not bend:
   * Nearest-rank percentiles, no interpolation - the same definition Spike A's
     harness uses, so the two are comparable.
   * A run labelled lan-diagnostic is reported with that label on every line and
-    is never folded into an acceptance summary.
+    is never folded into an acceptance summary. wifi-overlay and cellular-overlay
+    are both acceptance paths (DR-003b) and are never merged with each other.
   * Mixing direct and relayed samples into one distribution is refused. E12
     requires the connection type recorded for every measurement, and averaging
     across it hides the thing it was recorded for.
@@ -127,7 +128,7 @@ def main() -> int:
 
     path_kind = paths.pop()
     connection = conns.pop()
-    acceptance = path_kind == "cellular-overlay"
+    acceptance = path_kind in ("wifi-overlay", "cellular-overlay")   # DR-003b
 
     groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for s in samples:
@@ -244,7 +245,8 @@ def main() -> int:
         print("  this spike.' Useful for isolating network cost from server cost. Not E1.")
     else:
         print("  Labelled as acceptance evidence. It is evidence only if the path really was")
-        print("  Galaxy A17 -> real cellular -> ZeroTier overlay -> remote Mac mini M2,")
+        print(f"  Galaxy A17 -> {'a Wi-Fi uplink' if path_kind == 'wifi-overlay' else 'real cellular'}"
+              " -> ZeroTier overlay -> remote Mac mini M2,")
         print("  and only the operator can attest to that.")
     print()
     print("  E10 (a proposed first-load budget) and E13 (the strategy recommendation) are")

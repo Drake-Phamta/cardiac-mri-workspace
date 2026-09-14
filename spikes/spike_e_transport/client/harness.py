@@ -14,31 +14,34 @@ just a summary. TASK.md requires exactly that:
 
 TWO FLAGS ARE MANDATORY, AND THE HARNESS REFUSES TO RUN WITHOUT THEM
 --------------------------------------------------------------------
---path         cellular-overlay | lan-diagnostic
+--path         wifi-overlay | cellular-overlay | lan-diagnostic
 --connection   direct | relayed
 
 Neither is discoverable from inside this process, and both are acceptance
 conditions:
 
-    E1   "All acceptance measurements taken over real cellular + overlay -
-          LAN runs labelled diagnostic only"
+    E1   acceptance measurements are taken over a Wi-Fi uplink + ZeroTier
+         overlay to the remote Mac mini (wifi-overlay) - the canonical path
+         since DR-003b, 2026-09-13. Real cellular + overlay (cellular-overlay)
+         remains valid. The two are never merged. Same-LAN runs - the phone on
+         the Mac mini's own network - are lan-diagnostic only.
     E12  "Direct-vs-relayed overlay connection recorded for EVERY measurement"
 
 Defaulting either one would let a LAN run wearing no label drift into the
 acceptance dataset. TASK.md is blunt about the consequence: "LAN measurements
 presented as acceptance evidence -> Evidence rejected".
 
-Find the connection type with:  zerotier-cli peers
+Find the connection type with:  zerotier-cli peers   (on the Mac mini)
 
 WHO RUNS IT
-    The operator named by --operator physically runs the Galaxy A17 over real
-    cellular against the Mac mini. The --owner is Nguyễn Gia Đức Trung: he
-    owns the criteria, interprets the run and writes E10/E13. If Trung runs
-    the phone himself, both fields may contain his name.
+    The operator named by --operator runs the Galaxy A17 on the path named by
+    --path against the Mac mini - under DR-006a revision 2 that is Pham Tuan
+    Anh. The --owner is Nguyễn Gia Đức Trung: he owns the criteria, designs
+    the run, interprets it and writes E10/E11/E13.
 
 Usage:
     python harness.py --base http://10.x.x.x:8787 \
-        --path cellular-overlay --connection direct \
+        --path wifi-overlay --connection direct \
         --operator "Pham Tuan Anh" --owner "Nguyen Gia Duc Trung" --slices 88
 """
 
@@ -52,6 +55,10 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+
+# DR-003b (2026-09-13): the canonical access path is a Wi-Fi uplink. Cellular stays valid.
+# Same-LAN runs (phone on the Mac mini's own network) remain lan-diagnostic.
+ACCEPTANCE_PATHS = ("wifi-overlay", "cellular-overlay")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -138,8 +145,9 @@ def scenarios(base: str, slices: int, window_radius: int) -> list[tuple[str, str
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True, help="stub base URL, e.g. http://10.x.x.x:8787")
-    ap.add_argument("--path", required=True, choices=["cellular-overlay", "lan-diagnostic"],
-                    help="E1: acceptance evidence requires cellular-overlay")
+    ap.add_argument("--path", required=True, choices=["wifi-overlay", "cellular-overlay", "lan-diagnostic"],
+                    help="E1 (amended by DR-003b): wifi-overlay or cellular-overlay are acceptance "
+                         "paths; lan-diagnostic is not")
     ap.add_argument("--connection", required=True, choices=["direct", "relayed"],
                     help="E12: required for EVERY measurement. Find it with: zerotier-cli peers")
     ap.add_argument("--operator", required=True, help="device operator who physically ran this")
@@ -149,7 +157,8 @@ def main() -> int:
     ap.add_argument("--window-radius", type=int, default=2)
     ap.add_argument("--repeats", type=int, default=3,
                     help="E8 wants a spread, not a median; one pass is not a distribution")
-    ap.add_argument("--note", default="", help="cellular signal conditions, location, time of day")
+    ap.add_argument("--note", default="",
+                    help="uplink conditions (Wi-Fi SSID/RSSI or cellular signal), location, time of day")
     args = ap.parse_args()
 
     plan = scenarios(args.base.rstrip("/"), args.slices, args.window_radius)
@@ -167,8 +176,8 @@ def main() -> int:
         "overlay_connection": args.connection,
         "repeats": args.repeats,
         "conditions_note": args.note,
-        "is_acceptance_evidence": args.path == "cellular-overlay",
-        "warning": (None if args.path == "cellular-overlay" else
+        "is_acceptance_evidence": args.path in ACCEPTANCE_PATHS,
+        "warning": (None if args.path in ACCEPTANCE_PATHS else
                     "DIAGNOSTIC ONLY. TASK.md: 'DO NOT use same-LAN measurements as the "
                     "acceptance evidence for this spike.' Presenting these as acceptance "
                     "evidence gets the evidence rejected."),
@@ -178,7 +187,7 @@ def main() -> int:
     print(f"  operator    {args.operator}")
     print(f"  owner       {args.owner}")
     print(f"  path        {args.path}"
-          + ("" if args.path == "cellular-overlay" else "   <-- DIAGNOSTIC ONLY"))
+          + ("" if args.path in ACCEPTANCE_PATHS else "   <-- DIAGNOSTIC ONLY"))
     print(f"  connection  {args.connection}    (E12)")
     print(f"  requests    {len(plan)} x {args.repeats} repeats")
     print()
@@ -218,7 +227,7 @@ def main() -> int:
         return 1
     print("  Summarise with:  python ../analyze/aggregate.py " +
           os.path.relpath(out_path, os.path.join(ROOT, "analyze")))
-    if args.path != "cellular-overlay":
+    if args.path not in ACCEPTANCE_PATHS:
         print()
         print("  REMINDER: this run is labelled lan-diagnostic. It is useful for isolating")
         print("  whether a bottleneck is the network or the server. It is NOT E1 evidence.")
