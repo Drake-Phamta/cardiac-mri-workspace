@@ -67,7 +67,7 @@ spike_notes:
   SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. Việc tiếp: chặng S4 zoom/pan bám fixture hình học chính thức."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "GATE 2 mở · 4 lượt đo thô trên nhánh bằng chứng (lượt 3–4 Wi-Fi `DIRECT`, 228/228 ok). Chờ Trung tổng hợp + payload `uint8` mới."
-  SPIKE_C0: "Chờ khai báo compute `C0-1` và bản sửa **PR #17** (5 lỗi chặn). Probe phải chạy trên hình dạng thật `uint8` 576/640 × 88."
+  SPIKE_C0: "**PR #17 đã sửa đủ 5 lỗi** (`542887e`, DINOv2 thật, CI 4/4) — chờ **Khánh review lại**. Còn thiếu khai báo `C0-1`; probe chạy trên hình dạng thật `uint8` 576/640 × 88."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
@@ -112,7 +112,7 @@ policies:
 risk_notes:
   RISK-DATA-01:     "đang giảm — audit đầy đủ ở PR #25, chờ review"
   RISK-SPLIT-01:    "`DR-002` quyết hôm nay; câu hỏi một bệnh nhân nhiều scan phải trả lời trước `GATE-SPLIT-01`"
-  RISK-COMPUTE:     "probe `C0` chưa chạy — chờ `C0-1` và bản sửa PR #17"
+  RISK-COMPUTE:     "probe `C0` chưa chạy — bản sửa PR #17 đã lên, chờ Khánh review và chạy trên RTX 4050"
   RISK-MOBILE-RENDER: "chưa có app 3D chạy trên máy — `B1` hôm nay"
   RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
   RISK-CAP-01:      "3/4 người vắng Day 2–3; Day 4 hai người quay lại, Day 4 đạt 3/3"
@@ -161,7 +161,7 @@ today:
     - [tuananh, "Quyết `DR-002`", hunganh, "review + merge **PR #25**"]
     - [khanh, "Sửa theo review #25", hunganh, "gửi review **PR #25**"]
     - [khanh, "Chạy split → manifest", tuananh, "quyết **`DR-002`**"]
-    - [khanh, "Review bản sửa #17 · probe `C0`", tuananh, "đẩy bản sửa **PR #17**"]
+    - [tuananh, "Merge **PR #17** → Khánh chạy probe `C0`", khanh, "review lại **PR #17** (bản sửa đã lên `542887e`)"]
     - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
     - [tuananh, "Đo lại Spike E", trung, "PR payload `uint8` + kế hoạch đo"]
     - [trung, "Review PR split", khanh, "mở PR script split"]
@@ -212,7 +212,7 @@ today:
         - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin *(~5 ph)*"
       now:
         - "**Quyết `DR-002`** ngay khi #25 merge — bản phân tích hai phương án có trong packet *(~30 ph)*"
-        - "**Sửa PR #17** theo 5 lỗi Khánh nêu *(~3 h, cùng Claude)*"
+        - "✅ **Sửa PR #17** — 5/5 lỗi, `542887e`, CI 4/4, đã nhờ Khánh review lại"
         - "Merge theo thứ tự **#25 → #23 → #24** khi đủ review"
       then:
         - "✅ Quyết đường thiết bị cho Spike B — anh bấm, Hùng Anh thiết kế (`DR-006a` rev 3)"
