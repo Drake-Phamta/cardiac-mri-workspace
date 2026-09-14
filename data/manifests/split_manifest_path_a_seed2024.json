@@ -1,7 +1,7 @@
 {
  "manifest_version": "1.0",
  "split_id": "path_a_seed2024_v1",
- "generated_at": "2026-09-15T00:57:21+07:00",
+ "generated_at": "2026-09-15T00:59:36+07:00",
  "generated_by": "tools/dataset_split/split.py",
  "operator": "Bế Quốc Khánh",
  "source_dataset_manifest": {

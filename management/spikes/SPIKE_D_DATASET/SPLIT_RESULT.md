@@ -43,7 +43,7 @@ multi-scan groups, and does not persist source patient identifiers.
 - Source dataset manifest SHA-256:
   `91bd617140103e7290580221e998995d61b0855afca48f6744461a2d4a8be0a6`
 - Selection algorithm: whole-group subset-sum after seed-2024 SHA-256 ranking.
-- Self-test: 8/8 checks pass, including deterministic output, exact 80/20/54 counts,
+- Self-test: 9/9 checks pass, including deterministic output, exact 80/20/54 counts,
   nested subsets, holdout identity, explicit unknown-linkage status, and paired-scan grouping.
 - JSON Schema validation: PASS.
 
