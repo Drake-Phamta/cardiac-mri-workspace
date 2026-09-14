@@ -159,11 +159,11 @@ today:
   # Who waits on whom today: [waiting member, their task, blocking member, what they must do first].
   waits:
     - [tuananh, "Quyết `DR-002`", hunganh, "review + merge **PR #25**"]
-    - [khanh, "Sửa theo review #25", hunganh, "gửi review **PR #25**"]
+    - [tuananh, "Merge **PR #25** → `DR-002`", khanh, "xoá **1 khoảng trắng cuối dòng 3** của `RESULT.md` (review #25 của Hùng Anh, 11:31) → Hùng Anh re-review"]
     - [khanh, "Chạy split → manifest", tuananh, "quyết **`DR-002`**"]
     - [tuananh, "Merge **PR #17** → Khánh chạy probe `C0`", khanh, "review lại **PR #17** (bản sửa đã lên `542887e`)"]
     - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
-    - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ)", trung, "thêm `--profile` cho harness Toybox (điện thoại không chạy được `harness.py`) — PR #26"]
+    - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ)", trung, "sửa 3 điểm review **PR #24** + thêm `--profile` vào harness Toybox (điện thoại không chạy được `harness.py`)"]
     - [trung, "Merge **PR #26**", hunganh, "review **PR #26** (sau #25, #24)"]
     - [trung, "Review PR split", khanh, "mở PR script split"]
   tasks:
