@@ -22,25 +22,25 @@ members:
     role: "ML training / evaluation"
     owns: [SPIKE_D, SPIKE_C0, SPIKE_C1]
     reviews: []            # filled from the state file
-    packet: management/day05/tasks/DAY05_BE_QUOC_KHANH.md
+    packet: management/day06/tasks/DAY06_BE_QUOC_KHANH.md
   trung:
     name: "Nguyễn Gia Đức Trung"
     github: TrungNGD195
     role: "Backend / persistence / ingestion"
     owns: [SPIKE_E]
-    packet: management/day05/tasks/DAY05_NGUYEN_GIA_DUC_TRUNG.md
+    packet: management/day06/tasks/DAY06_NGUYEN_GIA_DUC_TRUNG.md
   hunganh:
     name: "Vũ Hùng Anh"
     github: scalliontor
     role: "Geometry / 3D"
     owns: [SPIKE_B, SPIKE_F, "tests/fixtures/geometry"]
-    packet: management/day05/tasks/DAY05_VU_HUNG_ANH.md
+    packet: management/day06/tasks/DAY06_VU_HUNG_ANH.md
   tuananh:
     name: "Phạm Tuấn Anh"
     github: Drake-Phamta
     role: "Team Leader · Project Control · Integration/CI"
     owns: [SPIKE_A]
-    packet: management/day05/tasks/DAY05_PHAM_TUAN_ANH.md
+    packet: management/day06/tasks/DAY06_PHAM_TUAN_ANH.md
 
 # Acceptance criteria per spike, from each TASK.md. `measured` counts criteria
 # with real data behind them; it is NOT the same as accepted, and the board
@@ -49,8 +49,8 @@ criteria:
   SPIKE_D:  {total: 20, measured: 0,  label: "A1–A20", in_pr: 19, in_pr_ref: "PR #25"}
   SPIKE_A:  {total: 12, measured: 3,  label: "A1–A12", in_pr: 1, in_pr_ref: "PR #27"}
   SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15"}
-  SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13"}
-  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10"}
+  SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13", in_pr: 6, in_pr_ref: "PR #26"}
+  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10", in_pr: 1, in_pr_ref: "PR #17 (C0-1)"}
   SPIKE_C1: {total: 10, measured: 0,  label: "C1-1–C1-10"}
   SPIKE_F:  {total: 12, measured: 0,  label: "F1–F12"}
 
@@ -63,16 +63,16 @@ criteria:
 # Where each spike stands, in one line a member can act on. The status, owner,
 # reviewer, priority and "unblocks" list come from SPIKE_PHASE_STATE.yaml.
 spike_notes:
-  SPIKE_D:  "Audit đầy đủ ở **PR #25** (16 PASS · 0 FAIL · 1 NOT_RUN · 3 verdict) — chờ **Hùng Anh review**. `evidence_present` đổi khi lên `main`."
+  SPIKE_D:  "#25 **đã sửa** (00:44) — chờ **Hùng Anh review lại** → merge → **QA Red Team** → `ACCEPTED`. Manifest split Path A ở PR nháp #28; gói dữ liệu **không có** ánh xạ case↔bệnh nhân."
   SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR nháp #27."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
-  SPIKE_E:  "**PR #26 của Trung**: tổng hợp lượt 4 (171/171), payload `uint8` 576/640, kế hoạch đo 6 lượt, nháp `RESULT.md`. PR #23 đã merge. Còn thiếu: chọn profile trong harness Toybox — rồi leader đo."
-  SPIKE_C0: "**PR #17 đã sửa đủ 5 lỗi** (`542887e`, DINOv2 thật, CI 4/4) — chờ **Khánh review lại**. Còn thiếu khai báo `C0-1`; probe chạy trên hình dạng thật `uint8` 576/640 × 88."
+  SPIKE_E:  "PR #26 (tổng hợp lượt 4, payload 576/640, kế hoạch, nháp `RESULT.md`) chờ review · #24 đã sửa + `--profile`. Hôm nay: stub 2 profile → leader đo **khung 15:00 và 21:00** → Trung tổng hợp."
+  SPIKE_C0: "`C0-1` đã khai báo (RTX 4050 6 GB, không pagefile). #17: Khánh tìm **2 lỗi runtime** — leader sửa trước 12:00 → Khánh chạy probe fp32 + bf16. Khung pipeline trên dữ liệu tổng hợp hôm nay."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
-merge_order: [25, 24, 26, 17, 27]
+merge_order: [25, 28, 24, 26, 17, 27]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
@@ -81,6 +81,12 @@ decision_notes:
 
 # Standing decisions still in force - the rules people work under today.
 policies:
+  - date: "15/09"
+    id: "Chuẩn demo"
+    text: "**Sản phẩm cuối phải \"wow\"** — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi **trong phạm vi spec**, không thêm yêu cầu ngoài `00` §13."
+  - date: "15/09"
+    id: "Khối lượng ≥ 8 h"
+    text: "Mỗi thành viên **tối thiểu 8 giờ việc thật** + ~2 giờ **hàng đợi dự phòng**; việc bị chặn luôn có việc thay thế trong cùng packet. Xong việc nào đẩy việc đó để người khác dùng được trong ngày."
   - date: "14/09"
     id: "DR-002 = Path A"
     text: "**100 case Training Set chia 80/20 theo bệnh nhân, seed 2024; 54 case Testing Set khoá cứng** — không train, không tune, không nhìn trước đánh giá cuối. Quyết một lần, không đổi sau khi thấy kết quả test. `GATE-SPLIT-01` vẫn mở tới khi có manifest."
@@ -114,7 +120,7 @@ policies:
 # high/medium/closed grouping come from PROJECT_STATE.yaml; titles from the register.
 risk_notes:
   RISK-DATA-01:     "đang giảm — audit đầy đủ ở PR #25, chờ review"
-  RISK-SPLIT-01:    "**`DR-002` = Path A** (14/09) — giảm; đóng khi có manifest split và câu trả lời một bệnh nhân nhiều scan"
+  RISK-SPLIT-01:    "`DR-002` = Path A · manifest ở #28 · **gói không có ánh xạ case↔bệnh nhân** — Khánh đưa bằng chứng, leader quyết hôm nay"
   RISK-COMPUTE:     "probe `C0` chưa chạy — bản sửa PR #17 đã lên, chờ Khánh review và chạy trên RTX 4050"
   RISK-MOBILE-RENDER: "chưa có app 3D chạy trên máy — `B1` hôm nay"
   RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
@@ -138,92 +144,145 @@ device:
     - "Lượt 3–4 **không phải LAN**: điện thoại ở `192.168.0.0/24`, Mac mini ở `10.170.75.0/24` — đường WAN thật."
 
 today:
-  day: 5
-  date: "2026-09-14"
-  headline: "Day 4 đạt 3/3. Spike D có bằng chứng đầy đủ ở PR #25 — hôm nay critical path có thể nhích ba nấc: review #25 → DR-002 → split theo bệnh nhân. Mỗi người: nợ trước, việc mới sau, ~8 giờ, hạn 23:59."
+  day: 6
+  date: "2026-09-15"
+  headline: "Day 5 đạt 3/3 theo quyết định leader. Hôm nay critical path có thể đi xa nhất từ đầu dự án: #25 merge → QA Spike D → ACCEPTED → GATE-DATA-01 đóng. Mỗi người ≥ 8 giờ việc thật + hàng đợi dự phòng, hạn 23:59."
   pipeline:
-    - ["SPIKE_D", "bằng chứng ✅ · review ⬜ (PR #25)", "now"]
-    - ["GATE-DATA-01", "đóng khi #25 merge", ""]
-    - ["GATE-SPLIT-01", "DR-002 = Path A ✅ · chờ manifest split", ""]
+    - ["SPIKE_D", "#25 đã sửa · review lại → merge → QA", "now"]
+    - ["GATE-DATA-01", "đóng khi Spike D ACCEPTED", ""]
+    - ["GATE-SPLIT-01", "Path A ✅ · manifest #28 · chờ quyết nối bệnh nhân", ""]
     - ["SPIKE_C1", "BLOCKED bởi D", ""]
     - ["training", "6 run + 1 ablation", ""]
     - ["metrics", "RQ-A · RQ-B", ""]
     - ["Day 30", "09/10/2026", ""]
   conditions:
     - who: hunganh
-      what: "**PR #25** được review, Khánh sửa nếu cần, **merge**"
-      why: "Mở `GATE-DATA-01` — critical path"
-    - who: tuananh
-      what: "**`DR-002` quyết** (Path A / B), ghi vào `OPEN_DECISIONS.md`"
-      why: "Mở `GATE-SPLIT-01`"
+      what: "**PR #25 trên `main`** — Hùng Anh review lại (1 dòng) → leader merge"
+      why: "Mở bước QA Spike D → `GATE-DATA-01`"
+    - who: khanh
+      what: "**Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit"
+      why: "Leader quyết được `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật"
     - who: trung
-      what: "Báo cáo tổng hợp lượt 4 + **payload `uint8` 576/640** → PR"
-      why: "Lượt đo chuẩn cho Spike E"
-  # Who waits on whom today: [waiting member, their task, blocking member, what they must do first].
+      what: "**Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 14:00) + **review #28**"
+      why: "Leader đo lại Spike E khung 15:00 · split được review"
+    - who: hunganh
+      what: "**`B1`** — app 3D render mesh + camera xoay/zoom (PR nháp có ảnh)"
+      why: "Nợ Day 5 · nền cho `B3`–`B11` và `GATE-MOB-01`"
   waits:
-    - [tuananh, "Merge **PR #25** → `GATE-DATA-01`", khanh, "xoá **1 khoảng trắng cuối dòng 3** của `RESULT.md` (review #25 của Hùng Anh, 11:31) → Hùng Anh re-review"]
-    - [tuananh, "Merge **PR #17** → Khánh chạy probe `C0`", khanh, "review lại **PR #17** (bản sửa đã lên `542887e`)"]
-    - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
-    - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ) — Day 6", hunganh, "review lại **PR #24** (Trung đã sửa + thêm `--profile` 22:24) và review **PR #26**"]
-    - [trung, "Merge **PR #26**", hunganh, "review **PR #26** (sau #25, #24)"]
-    - [trung, "Review PR split", khanh, "mở PR script split"]
+    - [tuananh, "Merge **PR #25** → QA Spike D", hunganh, "review lại **#25** (1 dòng, `fdaf920`)"]
+    - [khanh, "Đổi base **#28** sang `main`", hunganh, "review lại #25 → leader merge"]
+    - [khanh, "Chạy probe `C0` trên RTX 4050", tuananh, "sửa **2 lỗi runtime #17** (trước 12:00)"]
+    - [tuananh, "Quyết nối case↔bệnh nhân (`GATE-SPLIT-01`)", khanh, "**bằng chứng nối bệnh nhân** (trước 18:00)"]
+    - [trung, "Dựng stub 2 profile trên Mac mini", tuananh, "dừng stub cũ PID 32227 (trước 13:30)"]
+    - [tuananh, "Đo lại Spike E khung 15:00 · 21:00", trung, "stub 2 profile đã kiểm (trước 14:00)"]
+    - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 15:00 / 21:00"]
+    - [tuananh, "Merge **#24** · **#26**", hunganh, "review lại #24 · review #26"]
   tasks:
     khanh:
-      load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~9 h) · dự phòng ~2 h · hạn **23:59**"
       debts:
-        - "Khai báo compute **`C0-1`**: GPU, driver, CUDA, RAM *(~15 ph)*"
-        - "Sửa theo review PR #25 khi Hùng Anh gửi *(~1 h)*"
+        - "Bật **pagefile** Windows (lỗi `WinError 1455` khi tải DINOv2) *(~15 ph)*"
+        - "Khi #25 merge: đổi base **#28** sang `main` *(~15 ph)*"
       now:
-        - "**Script split theo bệnh nhân, seed `2024`**, cho **cả Path A và B** *(~2,5 h)*"
-        - "Chạy split **Path A** (đã quyết 14/09) → manifest split *(~30 ph)*"
+        - "**Bằng chứng nối case↔bệnh nhân** — nguồn chính thức + sàng lọc cặp chỉ từ ảnh MRI → PR trước 18:00 *(~3 h)*"
+        - "**Chạy probe C0 trên RTX 4050** fp32 + bf16 + ngoại suy `--train-cases 80` *(~2,5 h)*"
       then:
-        - "Review bản sửa **PR #17** *(~30 ph)*"
-        - "**Chạy probe `C0`** trên RTX 4050 với hình dạng thật `uint8` 576/640 × 88 *(~2 h)*"
+        - "**Khung pipeline C0** trên dữ liệu tổng hợp: manifest #28, DR-011, 1 epoch DINOv2 + UNet, Dice, checkpoint *(~2 h)*"
+        - "Nháp **`RESULT.md` Spike C0** *(~1 h)*"
       later:
-        - "Khung pipeline C0 trên volume tổng hợp đúng hình dạng *(~1 h)*"
-      note: "📌 **`DR-002` = Path A** (14/09 tối): split 80/20 theo bệnh nhân, 54 case khoá cứng — script chỉ cần Path A, `extrapolate --train-cases 80`, C1 lấy từ 80 case train. **Gấp nhất: xoá khoảng trắng dòng 3 `RESULT.md` ở #25 trước 23:59.**"
+        - "Bản đồ bằng chứng Spike D cho bước QA *(~1 h)*"
+        - "Kiểm `A19`: audit phủ đủ `06` §9.1 *(~1 h)*"
+      note: "Đêm qua bạn làm tốt nhưng đẩy lên sau 23:59 — hạn cứng trượt, leader ghi nhận. **Hôm nay xong việc nào đẩy việc đó**, để người khác dùng được trong ngày."
     trung:
-      load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~8,5 h) · dự phòng ~2 h · hạn **23:59**"
       debts:
-        - "Review lại **PR #23** — `aggregate.py` phải nhận `wifi-overlay` trước *(~20 ph)*"
+        - "**Review PR #28** — split Path A của Khánh *(~1,5 h)*"
       now:
-        - "**`aggregate.py` trên lượt 4** → báo cáo *(~1,5 h)*"
-        - "**Payload `uint8` 576/640 × 88 + stub phục vụ cả hai** → PR *(~2,5 h)*"
+        - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 14:00 *(~1 h)*"
+        - "**`E9` reconnect/retry** trên harness Toybox + diễn tập AVD → PR *(~2,5 h)*"
       then:
-        - "Kế hoạch đo lại cho leader (`E8`) *(~30 ph)*"
-        - "Nháp **`RESULT.md`** Spike E — khung `E10` `E11` `E13` *(~1,5 h)*"
-        - "Review PR split của Khánh *(~30 ph)*"
+        - "Tổng hợp lượt đo khung 15:00 / 21:00, cập nhật nháp `RESULT.md` *(~1,5 h)*"
+        - "**M3 — hợp đồng ingestion 1** (dữ liệu thô) bản nháp v0 theo `DR-004` *(~2 h)*"
       later:
-        - "`retry.py` trên máy ảo — chuẩn bị `E9`, chỉ chẩn đoán *(~1 h)*"
-      note: "Payload hiện giả định `int16` 58 MB; volume thật ~29 và ~36 MB. Lượt 4 vẫn đúng cho đường truyền, số theo byte phải đo lại trên payload mới."
+        - "Hợp đồng ingestion 2 (artifact) khung schema v0 *(~1,5 h)*"
+        - "Kế hoạch đo `E7` bộ nhớ app *(~30 ph)*"
+      note: "22:24 hôm qua bạn thêm `--profile` — nhờ đó kế hoạch đo của bạn chạy được trên điện thoại. Hôm nay stub của bạn quyết định leader có đo được khung 15:00 không."
     hunganh:
-      load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~8,3 h) · dự phòng ~2 h · hạn **23:59**"
       debts:
-        - "**Review PR #25** — audit Spike D, **critical path**, làm đầu tiên *(~2 h)*"
-        - "Review **PR #24** — harness Toybox của Trung *(~1 h)*"
+        - "**Review lại #25** — critical path, 1 dòng *(~20 ph)*"
+        - "Review lại **#24** — Trung đã sửa *(~30 ph)*"
+        - "**`B1` app 3D** render mesh + camera *(nợ Day 5, ~3 h)*"
+        - "**`B14`** diễn giải *(nợ Day 5, ~1 h)*"
       now:
-        - "**App 3D tối thiểu (`B1`)**: render mesh mức 0 + camera xoay/zoom *(~3 h)*"
-        - "Diễn giải `B14` trên nhóm hợp đồng — đọc `slice/mm` trước *(~1 h)*"
-      then: []
-      later:
-        - "Fixture tổng hợp TP/FP/FN cho Spike F *(~1 h)*"
-      note: "Review #25 của bạn là thứ mở `GATE-DATA-01` và `DR-002` cho cả nhóm hôm nay — **làm trước #24**."
-    tuananh:
-      load: "**không giới hạn giờ** — review + chốt tiến độ mỗi ngày"
-      debts:
-        - "✅ Tắt sshd — `Running/Automatic` → `Stopped/Disabled`, cổng 22 đóng"
-      now:
-        - "✅ **Quyết `DR-002` = Path A** — 80/20 theo bệnh nhân + 54 case khoá cứng, ghi vào `OPEN_DECISIONS.md`"
-        - "✅ **Sửa PR #17** — 5/5 lỗi, `542887e`, CI 4/4, đã nhờ Khánh review lại"
-        - "Merge theo thứ tự **#25 → #23 → #24** khi đủ review"
+        - "**Review PR #26** — Spike E, tái chạy `aggregate.py` *(~2 h)*"
       then:
-        - "✅ Quyết đường thiết bị cho Spike B — anh bấm, Hùng Anh thiết kế (`DR-006a` rev 3)"
-        - "Đo lại Spike E khi payload mới merge *(~30 ph)*"
+        - "Picking trên fixture trong app (`B3`/`B4`, emulator) *(~1,5 h)*"
       later:
-        - "Spike A chặng S4 — zoom/pan *(~2 h)*"
-      note: "Hôm nay critical path có thể nhích **ba nấc**: #25 merge → `DR-002` → split. Hai nấc sau nằm ở anh và Khánh."
+        - "Review **#27** Spike A S4 *(~1 h)*"
+        - "M3 — hợp đồng hình học có số phiên bản *(~1 h)*"
+      note: "Bạn đang giữ việc của 3 người (#25, #24, #26) — **review trước**, app sau. `B1` và `B14` là nợ từ hôm qua."
+    tuananh:
+      load: "**không giới hạn giờ** — review, merge, quyết định, chốt ngày"
+      debts:
+        - "**Sửa #17** — 2 lỗi runtime Khánh tìm, trước 12:00 *(~1,5 h, cùng Claude)*"
+        - "Merge **#25** ngay khi Hùng Anh approve"
+        - "Dừng stub cũ PID 32227 cho Trung, trước 13:30"
+      now:
+        - "**QA Red Team Spike D** sau merge → `ACCEPTED` → `GATE-DATA-01` *(~2 h)*"
+        - "**Quyết nối case↔bệnh nhân** (`GATE-SPLIT-01`) sau bằng chứng của Khánh *(~30 ph)*"
+        - "**Đo lại Spike E** khung 15:00 và 21:00 *(~1,5 h)*"
+      then:
+        - "Merge #24 · #26 · nhờ review #27"
+        - "**Spike A S5 — brush** + kiểm offline `A3`–`A7`, 60 ca `A5` *(~3 h)*"
+        - "**Chuẩn demo \"wow\" v0** — 9 màn hình, 69 acceptance test, kịch bản demo *(~1 h, Claude soạn)*"
+      later:
+        - "Đo lại `A9` với cache ±3 slice *(~1,5 h)*"
+      note: "Nếu QA Spike D `PASS` hôm nay, `GATE-DATA-01` đóng và `SPIKE_C1` hết `BLOCKED` — lần đầu một gate critical path đóng."
 
 history:
+  - day: 5
+    date: "2026-09-14"
+    status: good
+    title: "DR-002 = Path A; Spike A đo A2 trên máy; Khánh nộp dồn sau nửa đêm"
+    summary: "Đạt 3/3 theo quyết định của leader — lúc 23:59 là 2/3: #25 đã review nhưng Khánh sửa lúc 00:44 và chưa merge. Hạn cứng của Khánh trượt 45 phút, leader ghi nhận không báo giảng viên. Buffer giữ 0."
+    done:
+      - who: trung
+        what: "Approve **#23** · **PR #26**: tổng hợp lượt 4, payload `uint8` 576/640, kế hoạch đo, nháp `RESULT.md`"
+        ref: "339021f"
+      - who: trung
+        what: "Sửa đủ 3 điểm review #24 **+ thêm `--profile`** vào harness Toybox (22:24)"
+        ref: "710090f"
+      - who: hunganh
+        what: "Review **#25** và **#24** — cả hai `CHANGES_REQUESTED`, lỗi chỉ ra đều đúng"
+        ref: "API review 11:31 · 11:34"
+      - who: tuananh
+        what: "**`DR-002` = Path A** · **`DR-006a` rev 3** · merge **#23** · tắt sshd"
+        ref: "b600085 · 04d8e97 · b4208d0 · 132e519"
+      - who: tuananh
+        what: "**Spike A S4 — `A2` đo trên máy: `OBSERVED`**, checksum mask 16/16 qua 3 lần kiểm"
+        ref: "fb006da · PR #27"
+      - who: tuananh
+        what: "Sửa **PR #17** — 5/5 lỗi Khánh nêu (DINOv2 thật, tìm batch chia đôi)"
+        ref: "542887e"
+      - who: khanh
+        what: "*Sau 23:59:* sửa #25 · review lại #17 trên RTX 4050 (2 lỗi runtime thật) · **PR #28 manifest split Path A** · khai báo `C0-1`"
+        ref: "fdaf920 · 772c786"
+    missed:
+      - who: khanh
+        what: "Hạn cứng audit Spike D trên `main` trước 23:59 — **trượt 45 phút**, #25 chưa merge · chưa chạy probe C0"
+      - who: hunganh
+        what: "`B1` app 3D và `B14` — không có commit"
+    decisions:
+      - "**`DR-002` = Path A** — 80/20 theo bệnh nhân, seed 2024, 54 case khoá cứng; quyết trước khi #25 merge"
+      - "**`DR-006a` rev 3** — leader bấm máy cho Spike B; reviewer Spike B → Trung"
+      - "Khối lượng: thành viên ~8 h/ngày, hạn 23:59 · quyết định đụng tới ai ghi thẳng vào tài liệu người đó"
+      - "Day 5 tính **đạt 3/3** theo quyết định leader · hạn cứng Khánh **ghi nhận, không báo giảng viên**"
+    findings:
+      - "**Gói dữ liệu không có ánh xạ case↔bệnh nhân** — `GATE-SPLIT-01` cần quyết định của leader"
+      - "Kế hoạch đo Spike E dùng `harness.py` — **điện thoại không chạy được**; đã sửa bằng `--profile` cho harness Toybox"
+      - "Máy Khánh **không có pagefile** — tải DINOv2 lỗi `WinError 1455`"
+      - "Bản sửa #17 còn **2 lỗi runtime** chỉ lộ ra trên GPU 6 GB thật"
   - day: 4
     date: "2026-09-13"
     status: good

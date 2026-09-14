@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 5 · 2026-09-14 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 5: DR-002 = Path A; Spike A đo A2 trên máy; Khánh nộp dồn sau nửa đêm">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top amber">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 5</span> — 14/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st ok">ĐẠT</span> &nbsp; DR-002 = Path A; Spike A đo A2 trên máy; Khánh nộp dồn sau nửa đêm</div>
+  <p class="sub">Đạt 3/3 theo quyết định của leader — lúc 23:59 là 2/3: #25 đã review nhưng Khánh sửa lúc 00:44 và chưa merge. Hạn cứng của Khánh trượt 45 phút, leader ghi nhận không báo giảng viên. Buffer giữ 0.</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Nguyễn Gia Đức Trung</strong> — Approve <strong>#23</strong> · <strong>PR #26</strong>: tổng hợp lượt 4, payload <code>uint8</code> 576/640, kế hoạch đo, nháp <code>RESULT.md</code> <code>339021f</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — Sửa đủ 3 điểm review #24 <strong>+ thêm <code>--profile</code></strong> vào harness Toybox (22:24) <code>710090f</code></li><li><strong>Vũ Hùng Anh</strong> — Review <strong>#25</strong> và <strong>#24</strong> — cả hai <code>CHANGES_REQUESTED</code>, lỗi chỉ ra đều đúng <code>API review 11:31 · 11:34</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong><code>DR-002</code> = Path A</strong> · <strong><code>DR-006a</code> rev 3</strong> · merge <strong>#23</strong> · tắt sshd <code>b600085 · 04d8e97 · b4208d0 · 132e519</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>Spike A S4 — <code>A2</code> đo trên máy: <code>OBSERVED</code></strong>, checksum mask 16/16 qua 3 lần kiểm <code>fb006da · PR #27</code></li><li><strong>Phạm Tuấn Anh</strong> — Sửa <strong>PR #17</strong> — 5/5 lỗi Khánh nêu (DINOv2 thật, tìm batch chia đôi) <code>542887e</code></li><li><strong>Bế Quốc Khánh</strong> — <em>Sau 23:59:</em> sửa #25 · review lại #17 trên RTX 4050 (2 lỗi runtime thật) · <strong>PR #28 manifest split Path A</strong> · khai báo <code>C0-1</code> <code>fdaf920 · 772c786</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Bế Quốc Khánh</strong> — Hạn cứng audit Spike D trên <code>main</code> trước 23:59 — <strong>trượt 45 phút</strong>, #25 chưa merge · chưa chạy probe C0</li><li><strong>Vũ Hùng Anh</strong> — <code>B1</code> app 3D và <code>B14</code> — không có commit</li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li><strong><code>DR-002</code> = Path A</strong> — 80/20 theo bệnh nhân, seed 2024, 54 case khoá cứng; quyết trước khi #25 merge</li><li><strong><code>DR-006a</code> rev 3</strong> — leader bấm máy cho Spike B; reviewer Spike B → Trung</li><li>Khối lượng: thành viên ~8 h/ngày, hạn 23:59 · quyết định đụng tới ai ghi thẳng vào tài liệu người đó</li><li>Day 5 tính <strong>đạt 3/3</strong> theo quyết định leader · hạn cứng Khánh <strong>ghi nhận, không báo giảng viên</strong></li></ul></section>
+<section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong>Gói dữ liệu không có ánh xạ case↔bệnh nhân</strong> — <code>GATE-SPLIT-01</code> cần quyết định của leader</li><li>Kế hoạch đo Spike E dùng <code>harness.py</code> — <strong>điện thoại không chạy được</strong>; đã sửa bằng <code>--profile</code> cho harness Toybox</li><li>Máy Khánh <strong>không có pagefile</strong> — tải DINOv2 lỗi <code>WinError 1455</code></li><li>Bản sửa #17 còn <strong>2 lỗi runtime</strong> chỉ lộ ra trên GPU 6 GB thật</li></ul></section>
+
+<footer>
+  <div class="links"><div class="lg-g"><b>Hôm nay</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/day06/tasks">gói nhiệm vụ Day 6</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day05/DAY05_EOD_REVIEW.md">EOD Day 5</a></div><div class="lg-g"><b>State</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/PROJECT_STATE.yaml">PROJECT_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/spikes/SPIKE_PHASE_STATE.yaml">SPIKE_PHASE_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">OPEN_DECISIONS</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/RISK_REGISTER_INITIAL.md">Risk register</a></div><div class="lg-g"><b>Spike</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/spikes">TASK.md từng spike</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW">bằng chứng thô Spike E</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/tests/fixtures/geometry">fixture hình học</a></div><div class="lg-g"><b>GitHub</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/actions">CI (Actions)</a> · <a href="../archive/index.html">lịch sử ngày</a></div></div>
+  <p class="inv">Bất biến lúc build: spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>evidence_present = 0</code> · <code>SPIKE_C1</code> <code>BLOCKED</code> ·
+     sinh lúc 15/09/2026 06:01 bằng <code>tools/board/build_board.py</code>.</p>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Trạng thái spike, gates, mốc, buffer, rủi ro, ma trận reviewer đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code>; PR, review và CI đọc từ
+     GitHub API; checksum spec tính lại lúc build. Nếu một con số ở đây sai thì state file sai — kiểu
+     hỏng dễ sửa hơn nhiều so với một đoạn văn cũ. Phần viết tay duy nhất là
+     <code>tools/board/days.yaml</code>: việc của từng người và chuyện gì đã xảy ra trong ngày.</p>
+</footer>
+</div>
+</body>
+</html>

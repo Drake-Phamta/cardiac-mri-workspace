@@ -13,8 +13,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 5 — 2026-09-14** *(đã chốt sáng 15/09 — kế hoạch Day 6 tiếp theo)* |
-| Ngày còn lại tới Day 30 | **26** |
+| Ngày hôm nay | **Day 6 — 2026-09-15** |
+| Ngày còn lại tới Day 30 | **25** |
 | **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt; Day 4 và Day 5 đạt)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
@@ -23,6 +23,48 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Ngưỡng leo thang | **đã vượt.** Mất thêm ngày nào từ đây là **buffer âm** — hạn Day 30 không lùi |
 | `15` §18 | ⚠ **trigger 2 ĐÃ NỔ** (buffer → 0) **chồng lên trigger 3 ĐÃ NỔ** từ Day 2, nay sống qua **chu kỳ EOD thứ ba** — xem [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
+
+---
+
+## DAY 6 — 2026-09-15 · `ĐANG MỞ`
+
+**Gói nhiệm vụ từng người:** [`day06/tasks/`](day06/tasks/)
+
+> **Hôm nay critical path có thể đi xa nhất từ đầu dự án:** #25 merge → **QA Spike D** → `ACCEPTED` → `GATE-DATA-01`
+> đóng → `SPIKE_C1` hết `BLOCKED`. Song song: bằng chứng nối case↔bệnh nhân → leader quyết `GATE-SPLIT-01`.
+> **Khối lượng (leader, 15/09): mỗi thành viên ≥ 8 h việc thật + ~2 h hàng đợi dự phòng**, hạn 23:59 — sau khi hôm
+> qua phần đẩy lên của một thành viên chỉ gói trong khoảng 17 phút sau nửa đêm. Việc nào bị chặn đều có việc
+> thay thế trong cùng packet.
+
+### Điều kiện để Day 6 KHÔNG trượt
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Vũ Hùng Anh** → Phạm Tuấn Anh | **PR #25 trên `main`** — review lại (1 dòng) → merge | bước QA Spike D → `GATE-DATA-01` |
+| 2 | **Bế Quốc Khánh** | **Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit | leader quyết `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật |
+| 3 | **Nguyễn Gia Đức Trung** | **Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 14:00) + **review #28** | leader đo lại Spike E khung 15:00 · split được review |
+| 4 | **Vũ Hùng Anh** | **`B1`** — app 3D render mesh + camera (PR nháp có ảnh) | nợ Day 5 · nền cho `B3`–`B11` |
+
+**Không đủ bốn thì ngày này tính là trượt.** Điều kiện 2 phần probe phụ thuộc leader sửa #17 **trước 12:00**.
+
+### Khối lượng và thứ tự từng người
+
+| Người | 🔴 Làm trước | Việc chính Day 6 | Dự phòng | Giờ chính |
+|---|---|---|---|---|
+| **Bế Quốc Khánh** | ① pagefile · ② đổi base #28 | ③ **bằng chứng nối bệnh nhân** · ④ **probe C0 RTX 4050** · ⑤ khung pipeline C0 tổng hợp · ⑥ nháp `RESULT.md` C0 | bản đồ bằng chứng QA · kiểm `A19` | **~9 h** |
+| **Nguyễn Gia Đức Trung** | ① **review #28** | ② **stub 2 profile** · ③ **`E9`** harness · ④ tổng hợp lượt mới · ⑤ **M3 hợp đồng ingestion 1** | hợp đồng ingestion 2 · kế hoạch `E7` | **~8,5 h** |
+| **Vũ Hùng Anh** | ① **review lại #25** · ② review lại #24 · ③ **`B1`** · ④ `B14` | ⑤ **review #26** · ⑥ picking fixture `B3`/`B4` | review #27 · hợp đồng hình học · kịch bản `B10`/`B11` | **~8,3 h** |
+| **Phạm Tuấn Anh** | ① **sửa #17** trước 12:00 · ② merge #25 · ③ dừng stub cũ | ④ **QA Spike D** · ⑤ **quyết nối bệnh nhân** · ⑥ **đo Spike E 15:00 + 21:00** · ⑦ merge #24 #26 · ⑧ Spike A S5 brush · ⑨ **chuẩn demo "wow" v0** · ⑩ chốt ngày | `A9` cache ±3 | không giới hạn |
+
+> **🎯 Chuẩn demo (leader, 15/09):** sản phẩm cuối phải "wow" — giao diện và mọi thứ giảng viên thấy, thử và đánh giá
+> được. Từ hôm nay mỗi packet có dòng 🎯 gắn việc của người đó với thứ sẽ hiện ra khi demo; `management/DEMO_STANDARD.md`
+> (bản nháp hôm nay) là chuẩn chung.
+
+### Đã xong — trong ngày
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| *(chưa có)* | | |
 
 ---
 
