@@ -867,7 +867,8 @@ Spike F and DR-005.
 |---|---:|---|
 | **✅ APPROVED** | **12** | DR-001, **DR-003**, DR-004, DR-006, DR-007, DR-008a, DR-009, DR-010, DR-011, DR-012, **DR-013**, DR-014 |
 | **FROZEN by clarification** | 1 | DR-008b — tolerance fixed by SCQ-06; Spike B validates conformance |
-| **OPEN — evidence-driven** | 3 | DR-002 *(Spike D)*, DR-005 *(Spike F)*, DR-008c *(Spike B)* |
+| **OPEN — evidence-driven** | ~~3~~ **2** | ~~DR-002 *(Spike D)*~~, DR-005 *(Spike F)*, DR-008c *(Spike B)* |
+| **✅ DECIDED during execution** | 1 | **DR-002 — Path A**, 2026-09-14, on Spike D evidence (PR #25 @ `f49be7b`) — `OPEN_DECISIONS.md` → DR-002 *Decided outcome*. `GATE-SPLIT-01` stays open until the split manifest exists |
 | **Controlled gates — spike-awaiting** | 5 | DR-G01, DR-G02, DR-G03 *(closes only after Spike C1)*, DR-G04, DR-G05 |
 | **Controlled gates — RESOLVED** | 1 | **DR-G06 / GATE-DEPLOY-01** (via DR-003) |
 | **⏸ PENDING LEADER CONFIRMATION** | **0** | — |
@@ -916,7 +917,7 @@ readiness blocker:
 
 | Item | Class | Unblocked by |
 |---|---|---|
-| **DR-002** — split path A vs B | **decision requiring dataset evidence** | Spike D |
+| **DR-002** — split path A vs B | ~~decision requiring dataset evidence~~ **✅ DECIDED 2026-09-14 — Path A** | Spike D evidence, PR #25 |
 | **DR-005** — 3D error pipeline (**RA-B01**, the only BLOCKER) | **decision requiring technical evidence** | Spike F |
 | **DR-008c** — mesh / decimation budget | **decision requiring technical evidence**, bounded at ≤ ±1 source slice | Spike B |
 | **DR-G01** — GATE-DATA-01 | **controlled gate awaiting a spike** | Spike D |

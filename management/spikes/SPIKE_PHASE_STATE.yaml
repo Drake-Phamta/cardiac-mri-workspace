@@ -231,7 +231,11 @@ spikes:
       Vu Hung Anh (critical path), fixes if any, merge. evidence_present stays false until RESULT.md
       is on main. Findings that change other spikes: volumes are uint8, 69 cases 576x576x88 and 85
       cases 640x640x88 (A6); Testing Set carries labels in 54/54 (A12) - input to DR-002.
-    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh"}
+      Update 2026-09-14 evening: Vu Hung Anh reviewed at 11:31 - CHANGES_REQUESTED for one trailing
+      space in RESULT.md, every content check passing. DR-002 DECIDED Path A by the leader on that
+      evidence (OPEN_DECISIONS.md). Next: the owner removes the trailing space, re-review, merge; then
+      the owner generates the patient-level Path A split manifest (80/20, seed 2024, 54 locked).
+    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only"}
 
   - id: SPIKE_A
     name: "2D scientific viewer / brush interaction"

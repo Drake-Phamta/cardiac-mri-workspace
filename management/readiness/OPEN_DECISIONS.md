@@ -8,6 +8,8 @@
 
 **Only three decisions remain OPEN, and every one is now evidence-driven rather than a free choice:**
 **DR-002** (needs Spike D), **DR-005** (needs Spike F), **DR-008c** (needs Spike B).
+**Update 2026-09-14: DR-002 is DECIDED — Path A**, on Spike D evidence (see its entry). Two remain open:
+DR-005 (Spike F) and DR-008c (Spike B).
 **Authoritative status table:** `READINESS_REVIEW_RESOLUTION.md` §10.
 
 ---
@@ -111,7 +113,12 @@ trigger. This costs nothing and removes the only unbounded external dependency f
 
 ### DR-002 — Split path selection (Path A vs Path B)
 
-> **OPEN** — explicitly kept open; requires dataset evidence from Spike D.
+> **✅ DECIDED 2026-09-14 — Path A**, by Phạm Tuấn Anh (Team Leader), on Spike D evidence: PR #25 at
+> `f49be7b`, whose content Vũ Hùng Anh's review of 2026-09-14 11:31 found sound (selftest, JSON Schema,
+> audit-vs-manifest and CI all pass; the one change requested is a trailing space in `RESULT.md`).
+> **`GATE-SPLIT-01` remains OPEN** until PR #25 is on `main`, the patient-level split manifest exists, and
+> the one-patient-many-scans question is answered. See **Decided outcome** at the end of this entry.
+> *(Was: OPEN — explicitly kept open; requires dataset evidence from Spike D.)*
 
 | Field | Content |
 |---|---|
@@ -152,6 +159,50 @@ interpretability of the RQ-A comparison (see DR-014).
 
 **Latest-safe resolution:** **before training starts.** `06` §6: "may not change after test results are
 observed."
+
+### Decided outcome — Path A: 80/20 development split + 54-case locked holdout
+
+| Field | Value |
+|---|---|
+| **Decided by** | Phạm Tuấn Anh — Team Leader (decision owner per the table above) |
+| **Date** | 2026-09-14, evening of Day 5 |
+| **Status** | ✅ **DECIDED** — binding; `06` §6 forbids changing it once test results are observed |
+| **Development** | the 100 `Training Set` cases, split **80 train / 20 validation**, **by patient**, seed **2024** |
+| **Holdout** | the 54 `Testing Set` cases, **locked**: no training, no tuning, no threshold, checkpoint or model selection, no look before the final evaluation |
+| **Evidence** | Spike D, PR #25 @ `f49be7b` (owner Bế Quốc Khánh, reviewed by Vũ Hùng Anh) |
+
+**Evidence relied on:** `A12` — LA-cavity labels present for **54/54** `Testing Set` cases in the obtained
+official package · `A11` — `laendo.nrrd` is the LA cavity target · `A10` — masks `{0, 255}`, `0` background,
+`255` foreground; MRI–mask geometry consistent on all 154 cases · `A13` — *"the measured label presence
+makes Path A technically feasible from a data-presence perspective; DR-002 and `GATE-SPLIT-01` still select
+the path and final split"* · `A18` — the two official policy PDFs preserved with their hashes.
+
+**The provenance condition, answered as far as the evidence reaches.** `06` §6 selects Path A when official
+test labels are *"present and provenance-verified"*. What is verified is **file-level provenance of the
+released package**: the labels ship in the official package the source distributes today and describe the
+target this project segments. What is **not** established — and Spike D states it itself (`A12`: *"it does
+not claim that labels were available during the original challenge evaluation"*) — is the labels' status
+during the original challenge. **The leader's judgement:** that historical question bears on comparison
+with the challenge leaderboard, which this project does not claim; it does not bear on the labels'
+validity as a held-out evaluation set for this project. The `[UNRESOLVED]` note above stays, scoped to that
+historical question.
+
+**Why A over B.** A 54-case holdout against 15 — 3.6× the test population — and the RQ-A comparison
+(DR-014) is far more interpretable on 54. Path B would leave 54 labelled cases unused.
+
+**Why decided before PR #25 merges.** The review of 11:31 had examined the evidence this decision rests on
+and found no content defect; what it holds back is one trailing space. Nothing here closes a gate:
+`GATE-DATA-01` closes when Spike D is accepted, `GATE-SPLIT-01` when the split manifest exists. If the merged
+audit were to change `A10`–`A13`, this decision is reopened before any split is run — no test result exists
+yet, so `06` §6 permits it.
+
+**What does NOT change.** Split by **patient**, never by slice or case · seed **2024** · no cohort-fitted
+statistic crosses a partition (DR-011) · the holdout case IDs are listed in the split manifest and
+nowhere in training code · raw or derived data are not redistributed (`A18`).
+
+**Consequences.** `GATE-SPLIT-01` → waits on the manifest (Bế Quốc Khánh) and the patient-grouping answer ·
+RISK-SPLIT-01 mitigated, closes with the manifest · `spikes/spike_c_ml/harness/extrapolate.py`
+`--train-cases 80` is now the decided value, not an assumption.
 
 ---
 
@@ -1268,7 +1319,7 @@ BEFORE ARCHITECTURE / API FREEZE
   DR-013  technical ownership matrix→  30-day task allocation
 
 BEFORE TRAINING
-  DR-G01 / DR-002  data + split     →  all experiments        [needs Spike D]
+  DR-G01 / DR-002  data + split     →  all experiments        [needs Spike D · DR-002 DECIDED Path A, 2026-09-14]
   DR-007 / DR-G03  compute + ML ADR →  experiment matrix      [needs Spike C]
   DR-011  normalization policy      →  experiment matrix
 

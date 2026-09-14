@@ -27,7 +27,13 @@
 
 **Nếu #17 chưa sửa xong lúc bạn tới việc 6:** làm phần "nếu còn thời gian" trước, rồi quay lại việc 6.
 
-**Hai phương án split theo `06` §6:**
+> **✅ Mới, 14/09 tối — leader đã quyết `DR-002` = PATH A** (`OPEN_DECISIONS.md` → DR-002, dựa trên bằng chứng
+> PR #25 của bạn mà Hùng Anh đã review nội dung). Việc 4 **không còn chờ ai**: 80/20 trên 100 case `Training
+> Set` theo bệnh nhân, seed `2024`, 54 case `Testing Set` khoá cứng. Script cho Path B không cần nữa.
+> `GATE-SPLIT-01` đóng khi manifest split của bạn có trên `main` và câu hỏi một bệnh nhân nhiều scan được trả
+> lời. **Việc gấp nhất vẫn là xoá khoảng trắng cuối dòng 3 `RESULT.md` ở #25** để audit lên `main`.
+
+**Hai phương án split theo `06` §6** *(Path A đã được chọn)*:
 
 | | Path A | Path B |
 |---|---|---|

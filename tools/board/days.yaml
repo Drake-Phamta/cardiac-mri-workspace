@@ -76,12 +76,15 @@ merge_order: [25, 24, 26, 17, 27]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
-  DR-002:  "**Hôm nay.** Leader quyết ngay khi #25 merge. Bằng chứng nghiêng Path A (nhãn test 54/54, `A11` xác nhận LA cavity) — phân tích hai phương án trong packet leader."
   DR-005:  "Chờ Spike F — chưa bắt đầu phần chính."
   DR-008c: "Chờ Spike B đo trên thiết bị; trần ±1 slice không bao giờ nới."
 
 # Standing decisions still in force - the rules people work under today.
 policies:
+  - date: "14/09"
+    id: "DR-002 = Path A"
+    text: "**100 case Training Set chia 80/20 theo bệnh nhân, seed 2024; 54 case Testing Set khoá cứng** — không train, không tune, không nhìn trước đánh giá cuối. Quyết một lần, không đổi sau khi thấy kết quả test. `GATE-SPLIT-01` vẫn mở tới khi có manifest."
+    ref: management/readiness/OPEN_DECISIONS.md
   - date: "14/09"
     id: "DR-006a rev 3"
     text: "**Spike B đo như Spike E**: leader cầm máy và bấm; **Hùng Anh thiết kế phép đo, tự tính mọi số B**, viết `RESULT.md` và khuyến nghị DR-008c. Reviewer Spike B → **Trung**. Hùng Anh có quyền đổi sang tự bấm từ xa bất cứ lúc nào."
@@ -111,7 +114,7 @@ policies:
 # high/medium/closed grouping come from PROJECT_STATE.yaml; titles from the register.
 risk_notes:
   RISK-DATA-01:     "đang giảm — audit đầy đủ ở PR #25, chờ review"
-  RISK-SPLIT-01:    "`DR-002` quyết hôm nay; câu hỏi một bệnh nhân nhiều scan phải trả lời trước `GATE-SPLIT-01`"
+  RISK-SPLIT-01:    "**`DR-002` = Path A** (14/09) — giảm; đóng khi có manifest split và câu trả lời một bệnh nhân nhiều scan"
   RISK-COMPUTE:     "probe `C0` chưa chạy — bản sửa PR #17 đã lên, chờ Khánh review và chạy trên RTX 4050"
   RISK-MOBILE-RENDER: "chưa có app 3D chạy trên máy — `B1` hôm nay"
   RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
@@ -141,7 +144,7 @@ today:
   pipeline:
     - ["SPIKE_D", "bằng chứng ✅ · review ⬜ (PR #25)", "now"]
     - ["GATE-DATA-01", "đóng khi #25 merge", ""]
-    - ["GATE-SPLIT-01", "DR-002 quyết hôm nay", ""]
+    - ["GATE-SPLIT-01", "DR-002 = Path A ✅ · chờ manifest split", ""]
     - ["SPIKE_C1", "BLOCKED bởi D", ""]
     - ["training", "6 run + 1 ablation", ""]
     - ["metrics", "RQ-A · RQ-B", ""]
@@ -158,9 +161,7 @@ today:
       why: "Lượt đo chuẩn cho Spike E"
   # Who waits on whom today: [waiting member, their task, blocking member, what they must do first].
   waits:
-    - [tuananh, "Quyết `DR-002`", hunganh, "review + merge **PR #25**"]
-    - [tuananh, "Merge **PR #25** → `DR-002`", khanh, "xoá **1 khoảng trắng cuối dòng 3** của `RESULT.md` (review #25 của Hùng Anh, 11:31) → Hùng Anh re-review"]
-    - [khanh, "Chạy split → manifest", tuananh, "quyết **`DR-002`**"]
+    - [tuananh, "Merge **PR #25** → `GATE-DATA-01`", khanh, "xoá **1 khoảng trắng cuối dòng 3** của `RESULT.md` (review #25 của Hùng Anh, 11:31) → Hùng Anh re-review"]
     - [tuananh, "Merge **PR #17** → Khánh chạy probe `C0`", khanh, "review lại **PR #17** (bản sửa đã lên `542887e`)"]
     - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
     - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ)", trung, "sửa 3 điểm review **PR #24** + thêm `--profile` vào harness Toybox (điện thoại không chạy được `harness.py`)"]
@@ -174,7 +175,7 @@ today:
         - "Sửa theo review PR #25 khi Hùng Anh gửi *(~1 h)*"
       now:
         - "**Script split theo bệnh nhân, seed `2024`**, cho **cả Path A và B** *(~2,5 h)*"
-        - "Chạy split khi `DR-002` quyết → manifest split *(~30 ph)*"
+        - "Chạy split **Path A** (đã quyết 14/09) → manifest split *(~30 ph)*"
       then:
         - "Review bản sửa **PR #17** *(~30 ph)*"
         - "**Chạy probe `C0`** trên RTX 4050 với hình dạng thật `uint8` 576/640 × 88 *(~2 h)*"
@@ -212,7 +213,7 @@ today:
       debts:
         - "✅ Tắt sshd — `Running/Automatic` → `Stopped/Disabled`, cổng 22 đóng"
       now:
-        - "**Quyết `DR-002`** ngay khi #25 merge — bản phân tích hai phương án có trong packet *(~30 ph)*"
+        - "✅ **Quyết `DR-002` = Path A** — 80/20 theo bệnh nhân + 54 case khoá cứng, ghi vào `OPEN_DECISIONS.md`"
         - "✅ **Sửa PR #17** — 5/5 lỗi, `542887e`, CI 4/4, đã nhờ Khánh review lại"
         - "Merge theo thứ tự **#25 → #23 → #24** khi đủ review"
       then:

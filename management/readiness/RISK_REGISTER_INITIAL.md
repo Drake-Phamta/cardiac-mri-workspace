@@ -92,6 +92,14 @@ the branch for unverifiable provenance, so no decision is needed beyond recordin
 
 **Owner.** ML owner; decision by Leader/spec owner.
 
+**Status update 2026-09-14 — mitigated, not closed.** Spike D (PR #25) found LA-cavity labels in **54/54**
+`Testing Set` cases of the obtained official package (`A12`) and confirmed the target (`A11`). The leader
+**decided DR-002 = Path A** the same day, with the provenance basis recorded in `OPEN_DECISIONS.md`: file-level
+provenance of the released package is verified; the labels' status during the original challenge is not,
+and the leader judged that it does not bear on the holdout's validity for this project. The early-warning
+signal did not fire — the files are clearly labelled. The risk **closes when the patient-level split manifest
+exists** (`GATE-SPLIT-01`); what remains is the one-patient-many-scans question.
+
 ---
 
 ### RISK-3D-GEOMETRY — 2D↔3D mapping and brush coordinate transforms fail or diverge

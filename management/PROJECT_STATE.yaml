@@ -351,12 +351,20 @@ merged_prs_note: >
 
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
-  - {id: DR-002,  waits_on: SPIKE_D, subject: "Path A vs Path B"}
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
   - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
 
+decisions_made_during_execution:
+  - id: DR-002
+    decided: "2026-09-14"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: "Path A - 100 Training Set cases split 80/20 by patient, seed 2024; the 54 Testing Set cases are a locked holdout"
+    evidence: "Spike D, PR #25 @ f49be7b; content found sound by Vu Hung Anh's review 2026-09-14 11:31 (one trailing space requested)"
+    gate_effect: "none yet - GATE-SPLIT-01 stays OPEN until PR #25 is on main, the split manifest exists and the patient-grouping question is answered"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-002, Decided outcome"
+
 not_frozen:
-  - "Path A / Path B"
+  - "the split manifest itself - Path A is decided (DR-002, 2026-09-14); the case lists are not yet generated"
   - "mobile framework"
   - "final DINOv2 recipe"
   - "mesh decimation budget"
