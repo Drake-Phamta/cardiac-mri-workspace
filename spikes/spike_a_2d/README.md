@@ -126,7 +126,7 @@ offline bằng `node harness/test_viewer_math.mjs` (F4).
 | **F4** | Toán transform của app (`viewerMath.js`) — SHA-256, base64, 60 ca ánh xạ, zoom quanh điểm | **ok** 6/6 |
 | A1 | Slice render đúng, hiện `n / total` | một phần — xem `RESULT.md` |
 | A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
-| A2 | zoom/pan không đổi checksum mask gốc | **đã dựng (S4, 14/09)** — chờ đo trên máy |
+| A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
 | A3 A4 A5 A6 A7 A8 | brush · undo/redo · save/reload · mapping sau zoom/pan | **chưa dựng** — chặng S5/S6 |
 | A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** |
 

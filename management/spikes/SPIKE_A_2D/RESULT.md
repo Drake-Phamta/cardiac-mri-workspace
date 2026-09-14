@@ -24,7 +24,7 @@
 | # | Tiêu chí | Trạng thái | Bằng chứng |
 |---|---|---|---|
 | **A1** | Slice render đúng, hiện `n / total` | **PASS một phần** | `n / total` hiển thị đúng, 16 slice điều hướng được, 30/30 lần load thành công. **Phần "exact match to fixture" CHƯA kiểm theo pixel** — xem ghi chú A1 |
-| A2 | Zoom/pan không đổi geometry mask nguồn | `NOT MEASURED` | chưa dựng zoom/pan — chặng S4 |
+| **A2** | **Zoom/pan không đổi geometry mask nguồn** | **ĐÃ ĐO — `OBSERVED`** (14/09, release) | checksum mask nguồn **16/16 khớp fixture** ở cả 3 lần kiểm: trước thao tác, sau **3 pinch + 1 kéo** thật, sau **13 bước zoom/pan tự động**. 0 lần khựng > 500 ms. Xem §Kết quả A2 |
 | A3 | Brush ADD chỉ sửa pixel đúng ý | `NOT MEASURED` | chưa dựng brush — chặng S5 |
 | A4 | Brush ERASE chỉ sửa pixel đúng ý | `NOT MEASURED` | chưa dựng brush — chặng S5 |
 | **A5** | **Brush mapping đúng pixel sau zoom/pan** | `NOT MEASURED` | **60 ca kiểm đã sẵn** trong `fixtures/brush_cases.json`, chưa chạy được vì chưa có brush |
@@ -36,7 +36,8 @@
 | A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | chặng S7 |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
 
-**3 tiêu chí có dữ liệu · 9 tiêu chí `NOT MEASURED`.** Không ô nào bỏ trống và không ô nào được đoán.
+**4 tiêu chí có dữ liệu · 8 tiêu chí `NOT MEASURED`.** Không ô nào bỏ trống và không ô nào được đoán.
+*(`A2` thêm ngày 14/09; bằng chứng nằm trên nhánh `spike-a/s4-zoom-pan`, PR #27, chưa review.)*
 
 ---
 
@@ -140,6 +141,43 @@ chính anh cắm và mở khoá. Chủ sở hữu Spike A là Phạm Tuấn Anh;
 
 ---
 
+## Kết quả A2 — zoom/pan không đổi mask nguồn *(chặng S4, 2026-09-14 21:24–21:25)*
+
+**Tiêu chí (`TASK.md` A2):** *"Pinch-zoom and pan work, and provably do not alter source-mask geometry —
+checksum of source mask unchanged."*
+
+**Cách đo.** Zoom/pan chỉ đổi transform hiển thị `{zoom, panX, panY}`; mask nguồn được giải mã một lần và
+không đoạn code transform nào nhận nó. Nút "kiểm A2" băm SHA-256 cả 16 slice mask nguồn **trên máy**;
+`harness/extract_a2.py` **tự tính lại** hash kỳ vọng từ fixture bằng `hashlib` và so từng slice — không tin
+con số "khớp" app tự báo.
+
+| Lần kiểm | Thời điểm | Thao tác trước đó | Checksum khớp fixture (tính lại độc lập) |
+|---|---|---|---|
+| 0 | 21:24:32 | **không có** — trước mọi thao tác | **16/16** |
+| 1 | 21:25:00 | **4 thao tác tay thật**: 1 kéo · 3 pinch (zoom ×1,00 → ×0,56 → ×0,96 → ×0,65) · kèm 4 lần chạm | **16/16** |
+| 2 | 21:25:04 | **13 bước zoom/pan tự động** qua nhiều slice, kết thúc ở fit | **16/16** |
+
+**Kết luận từ log thô: `OBSERVED`** — checksum mask nguồn không đổi qua zoom/pan thật và tự động.
+
+| Đo kèm | Kết quả |
+|---|---|
+| Ánh xạ chạm → pixel của app, trên máy | **60/60** ca `brush_cases.json` *(tiền đề cho `A5`, **chưa phải** `A5` — chưa có brush)* |
+| 4 lần chạm, kiểm tay một ca | chạm `(223,3; 279,1)`, zoom 3,128, pan `(75,5; 104,8)` → `floor((223,3−75,5)/3,128) = 47`, `floor((279,1−104,8)/3,128) = 55` → app báo **`[47, 55]`** ✓ |
+| Khoảng hở frame lớn nhất mỗi thao tác | 18,7 · 44,9 · 20,0 · 18,8 ms — **0 lần khựng > 500 ms** *(nhịp `requestAnimationFrame` phía JS, không phải trace compositor; 1 frame ở 60 Hz = 16,7 ms)* |
+
+**Điều kiện:** bản **release** từ `1b362e8`, SM-A176B Android 16, màn hình chạy 60 Hz, cắm USB đang sạc
+(pin 45 → 48 %), nhiệt độ pin 33,0 → 34,5 °C, thermal status 0. Người bấm: **Phạm Tuấn Anh**, chủ Spike A,
+trên máy của chính mình.
+
+**Bằng chứng:** `spikes/spike_a_2d/EVIDENCE_RAW/a2_zoom_pan_20260914T212552+0700.json` và
+`…_logcat.txt` (14 dòng logcat mang tag `SPIKE_A_`, nguyên byte).
+
+**Giới hạn, ghi rõ:** fixture 64×64 — mask nguồn là dữ liệu tổng hợp của Spike A, chưa phải cohort thật; một
+lượt đo; nhận xét cảm quan về độ mượt của người bấm **chưa ghi** (`operator_observation` còn để trống).
+`A2` là **đã đo**, chưa **nghiệm thu** — cần reviewer `APPROVE` → QA `PASS` → `ACCEPTED`.
+
+---
+
 ## Ghi chú A1
 
 `n / total` hiển thị đúng và 16 slice điều hướng được — phần đó đạt. Nhưng tiêu chí còn vế **"exact match
@@ -165,7 +203,8 @@ render đúng hướng** thì mới chỉ xác nhận bằng mắt, chưa bằng
 | Kích thước APK release | **68,8 MB** cho một viewer hiển thị ảnh 64×64 |
 | Viewer + instrumentation | thẳng thắn mà nói là **dễ** — JSX, state, `Image`, đo thời gian bằng `performance.now()` |
 | **Điểm trừ đã gặp** | **Không có nearest-neighbour** trên `Image`. Với viewer khoa học đây là vấn đề thật: biên mask hiển thị mượt hơn biên dữ liệu, người review sẽ thấy một đường biên không tồn tại |
-| Chưa đánh giá | brush latency, xử lý gesture, bộ nhớ ở kích thước slice thật |
+| **Xử lý gesture** *(14/09, chặng S4)* | `PanResponder` **có sẵn trong React Native đủ cho pinch + kéo + chạm** — không cần thêm thư viện gesture nào, nên không phải build lại phần native. Khoảng **120 dòng** trong `App.js`, toán transform tách ra `viewerMath.js` để test được bằng Node. Build release tăng dần **38 giây**. Điểm cần làm tay: phải tự tính toạ độ ngón tay theo trang (`pageX − gốc viewport`), vì `locationX` đổi theo phần tử con dưới ngón tay |
+| Chưa đánh giá | brush latency, tách gesture sửa/điều hướng (`A11`), bộ nhớ ở kích thước slice thật |
 
 **Chưa so sánh được với ứng viên nào khác** — mới dựng một ứng viên. Native Kotlin và Flutter chưa chạm
 tới; Flutter còn chưa cài trên máy.
@@ -185,7 +224,7 @@ tới; Flutter còn chưa cài trên máy.
 
 ## Việc tiếp theo
 
-1. **Zoom/pan** → `A2`, rồi **brush** → `A3` `A4` `A6` `A7` `A8` `A10`
+1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · tiếp: **brush** → `A3` `A4` `A6` `A7` `A8` `A10`
 2. **Chạy 60 ca `brush_cases.json`** → `A5`, xuất **phân bố sai số** và **đề xuất dung sai** — spec đóng
    băng không đặt dung sai cho brush mapping, spike này phải đề xuất
 3. **Đo lại `A9` ở kích thước slice thật** khi Spike D `A6` có kết quả

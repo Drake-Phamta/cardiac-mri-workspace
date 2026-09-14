@@ -1,0 +1,204 @@
+{
+ "criterion": "A2 — pinch-zoom and pan do not alter source-mask geometry",
+ "target": "checksum of the source mask unchanged (TASK.md A2)",
+ "captured_at": "20260914T212552+0700",
+ "label": "release build 1b362e8, USB charging, battery 45%, 33 C, SM-A176B Android 16",
+ "operator": "Pham Tuan Anh - Spike A owner, on his own device (no operator/owner split for Spike A)",
+ "build_type": "release - `npx expo run:android --variant release` from branch spike-a/s4-zoom-pan @ 1b362e8, installed 2026-09-14 21:22; the JS bundle is embedded (no Metro)",
+ "device_profile": "../../management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md",
+ "verdict_from_raw_log": "OBSERVED",
+ "verdict_reason": "check 0 before any gesture and check 1 after 3 pinch + 1 pan gestures both match the fixture on all 16 slices",
+ "method": "app hashes every source-mask slice (SHA-256, app/viewerMath.js) on demand; this script recomputes the fixture hashes with hashlib and compares the device's hashes one by one. Gestures are counted from the device's own SPIKE_A_GESTURE lines.",
+ "fixture_self_consistent": true,
+ "timeline": [
+  {
+   "check": 0,
+   "label": "manual",
+   "slices_matching_fixture_recomputed": 16,
+   "of": 16,
+   "device_reported_match": 16,
+   "real_gestures_before_this_check": 0,
+   "auto_steps_before_this_check": 0,
+   "pinches_and_pans_so_far": {
+    "pinch": 0,
+    "pan": 0
+   },
+   "transform": {
+    "zoom": 5.561,
+    "panX": 0.178,
+    "panY": 0
+   }
+  },
+  {
+   "check": 1,
+   "label": "auto-before",
+   "slices_matching_fixture_recomputed": 16,
+   "of": 16,
+   "device_reported_match": 16,
+   "real_gestures_before_this_check": 4,
+   "auto_steps_before_this_check": 0,
+   "pinches_and_pans_so_far": {
+    "pinch": 3,
+    "pan": 1
+   },
+   "transform": {
+    "zoom": 3.595,
+    "panX": 85.523,
+    "panY": 43.087
+   }
+  },
+  {
+   "marker": "SPIKE_A_A2_AUTO_START"
+  },
+  {
+   "check": 2,
+   "label": "auto-after",
+   "slices_matching_fixture_recomputed": 16,
+   "of": 16,
+   "device_reported_match": 16,
+   "real_gestures_before_this_check": 0,
+   "auto_steps_before_this_check": 13,
+   "pinches_and_pans_so_far": {
+    "pinch": 3,
+    "pan": 1
+   },
+   "transform": {
+    "zoom": 5.561,
+    "panX": 0.178,
+    "panY": 0
+   }
+  },
+  {
+   "marker": "SPIKE_A_A2_AUTO_END"
+  }
+ ],
+ "gestures": [
+  {
+   "n": 1,
+   "kind": "pan",
+   "fingers_max": 1,
+   "ms": 1199.5,
+   "moves": 73,
+   "frames": 71,
+   "max_frame_gap_ms": 18.7,
+   "stall_over_500ms": false,
+   "zoom_from": 5.561,
+   "zoom_to": 5.561
+  },
+  {
+   "n": 2,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 3116.8,
+   "moves": 187,
+   "frames": 184,
+   "max_frame_gap_ms": 44.9,
+   "stall_over_500ms": false,
+   "zoom_from": 5.561,
+   "zoom_to": 3.128
+  },
+  {
+   "n": 3,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 1266.1,
+   "moves": 76,
+   "frames": 75,
+   "max_frame_gap_ms": 20,
+   "stall_over_500ms": false,
+   "zoom_from": 3.128,
+   "zoom_to": 5.349
+  },
+  {
+   "n": 4,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 1349.2,
+   "moves": 81,
+   "frames": 80,
+   "max_frame_gap_ms": 18.8,
+   "stall_over_500ms": false,
+   "zoom_from": 5.349,
+   "zoom_to": 3.595
+  }
+ ],
+ "gesture_frame_gaps": {
+  "n": 4,
+  "max_frame_gap_ms_worst": 44.9,
+  "stalls_over_500ms": 0,
+  "note": "max frame gap per gesture, sampled with requestAnimationFrame (TASK.md: stall > 500 ms)"
+ },
+ "mapping_self_check": {
+  "pass": 60,
+  "of": 60
+ },
+ "taps": [
+  {
+   "u": 223.289,
+   "v": 279.111,
+   "src": [
+    47,
+    55
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 3.128,
+    "panX": 75.5,
+    "panY": 104.789
+   }
+  },
+  {
+   "u": 251.022,
+   "v": 137.956,
+   "src": [
+    56,
+    10
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 3.128,
+    "panX": 75.5,
+    "panY": 104.789
+   }
+  },
+  {
+   "u": 140.444,
+   "v": 264.889,
+   "src": [
+    20,
+    51
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 3.128,
+    "panX": 75.5,
+    "panY": 104.789
+   }
+  },
+  {
+   "u": 109.867,
+   "v": 145.067,
+   "src": [
+    11,
+    12
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 3.128,
+    "panX": 74.078,
+    "panY": 104.789
+   }
+  }
+ ],
+ "conditions": {
+  "device": "SM-A176B (Galaxy A17 5G), Android 16",
+  "power": "USB-connected to the leader's laptop, charging; battery 45% at 21:20 (before install), 48% at 21:26 (after the run)",
+  "battery_temperature_c": "33.0 at 21:20, 34.5 at 21:26 (dumpsys battery)",
+  "thermal_status": "0 = none (dumpsys thermalservice)",
+  "display": "1080x2340, active mode renders 60 Hz (peak mode 90 Hz available, not active)",
+  "read_at": "2026-09-14 21:25-21:27 +07:00"
+ },
+ "frame_gap_measure_note": "max_frame_gap_ms is the largest interval between successive JS requestAnimationFrame callbacks during a gesture - the JS frame cadence, not a compositor trace. At 60 Hz one frame is 16.7 ms.",
+ "operator_observation": "[RECORD - the operator's own words on visible stutter, if any]",
+ "raw_log": "a2_zoom_pan_20260914T212552+0700_logcat.txt - every logcat line carrying a SPIKE_A_ tag, byte-for-byte, in order"
+}
