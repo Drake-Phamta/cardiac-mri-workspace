@@ -13,7 +13,7 @@ việc thật + ~2 h dự phòng, hạn **23:59**.
 |---|---|---|---|---|
 | **1** | **Sửa PR #17 — 2 lỗi runtime Khánh tìm trên RTX 4050** + chữ `extrapolate.py` *(Claude viết, anh duyệt)*: chạy tìm batch **kể cả khi** batch dự định không vừa, rồi đo ở batch tìm được; bắt `OSError` khi dựng/tải DINOv2, ghi lỗi và **chạy tiếp** biến thể khác; lỗi tải checkpoint trước vòng lặp ra thông báo rõ thay vì traceback; `--train-cases 80` ghi là giá trị đã quyết | ~1,5 h | **Khánh** (việc 4) | push lên #17, CI xanh, trả lời trên PR — **trước 12:00** |
 | **2** | **Merge #25 ngay khi Hùng Anh `APPROVE`** → cập nhật state; packet Khánh đã ghi việc đổi base #28 | ~5 ph | Khánh, QA | #25 trên `main` |
-| **3** | **Dừng stub cũ PID 32227** trên Mac mini để Trung dựng stub 2 profile *(Project Control làm qua SSH khi anh đồng ý)* | ~5 ph | **Trung** (việc 2) | cổng 8787 trống — **trước 13:30** |
+| **3** | **Dừng stub cũ PID 32227** trên Mac mini để Trung dựng stub 2 profile *(anh đồng ý 15/09)*. ⚠ **06:40: Mac mini không tới được** — không ping được ở cả hai mạng ZeroTier, cổng 22 đóng; overlay phía laptop vẫn chạy (điện thoại ping được). Cần người ở phía Mac mini bật máy / đánh thức / khởi động lại ZeroTier; packet Trung đã ghi | ~5 ph | **Trung** (việc 2) | cổng 8787 trống — **trước 13:30** |
 
 ## Việc Day 6
 
