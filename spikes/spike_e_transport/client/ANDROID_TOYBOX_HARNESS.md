@@ -7,13 +7,14 @@ needed.
 
 This is still a Spike E client harness, not production code. It writes JSONL to
 the phone and keeps the required provenance fields (`operator`, `owner`,
-`measurement_path`, and `overlay_connection`).
+`measurement_path`, `overlay_connection`, and `payload_profile`).
 
 ## Before running on the physical phone
 
 1. The phone must be authorised on ZeroTier network `3b19b3a71652c5f0`.
-2. Wi-Fi must be disabled; the data path must be phone cellular → ZeroTier →
-   Mac Mini.
+2. The canonical path is **Wi-Fi uplink → ZeroTier → Mac Mini** (`wifi-overlay`,
+   DR-003b). A cellular run is a separate valid path (`cellular-overlay`); do
+   not merge it with Wi-Fi results.
 3. The leader must have remote ADB sharing enabled with
    `tools/remote_adb/share_on.ps1`.
 4. Check that the handset has the required applet:
@@ -29,17 +30,18 @@ the phone and keeps the required provenance fields (`operator`, `owner`,
 ## Run through remote ADB
 
 The script is streamed to the phone; it does not need to be installed as an
-APK. Use the real `cellular-overlay` path only after the phone is authorised
-and the Mac Mini peer row has been checked for `DIRECT` or `RELAY`:
+APK. The device operator is Pham Tuan Anh under DR-006a revision 2. Trung is
+the owner who designs and interprets the run.
 
 ```powershell
 $adb = 'C:\Users\Diep_PC\AppData\Local\Android\platform-tools\adb.exe'
 $args = @(
   '-H', '10.134.129.145', '-P', '5037', 'shell', 'sh', '-s', '--',
   '--base', 'http://10.134.129.115:8787',
-  '--path', 'cellular-overlay',
+  '--path', 'wifi-overlay',
   '--connection', 'direct',
-  '--operator', 'Nguyen Gia Duc Trung',
+  '--profile', '576x576x88',
+  '--operator', 'Pham Tuan Anh',
   '--owner', 'Nguyen Gia Duc Trung',
   '--slices', '88', '--window-radius', '2', '--repeats', '3',
   '--out', '/data/local/tmp/e_transport_android.jsonl'
@@ -47,6 +49,12 @@ $args = @(
 Get-Content -Raw -Encoding utf8 spikes/spike_e_transport/client/android_toybox_harness.sh |
   & $adb @args
 ```
+
+Use `--profile 640x640x88` for the second A6 payload profile. Keep the
+`--operator` and `--owner` values exactly as shown; swapping them creates false
+provenance. For a separate cellular run, change only `--path` to
+`cellular-overlay` and record the cellular conditions; never combine the two
+paths in one aggregate.
 
 Pull the JSONL after the run:
 
@@ -56,9 +64,9 @@ Pull the JSONL after the run:
 ```
 
 Keep the file outside `EVIDENCE_RAW` until the owner has checked the header,
-the phone's `DIRECT`/`RELAY` value, and the cellular conditions. A run with
-`--path lan-diagnostic` is explicitly diagnostic and must not be used for
-acceptance.
+the phone's `DIRECT`/`RELAY` value, the selected profile, and the uplink
+conditions. A run with `--path lan-diagnostic` is explicitly diagnostic and
+must not be used for acceptance.
 
 ## Deliberate limitation
 
@@ -120,4 +128,3 @@ real `/health` (2710 of 2710).
 connections to the Mac mini over ZeroTier will hit the same rejections, so the
 rate belongs in the owner's `E9` / demo-risk analysis rather than being
 treated as noise.
-

@@ -5,14 +5,16 @@
 # Toybox netcat is enough to issue the stub requests and write JSONL that can
 # later be pulled with adb. This is a fallback client, not production code.
 #
-# The caller must explicitly provide --path and --connection. A LAN run is
-# labelled diagnostic-only and cannot be mixed with cellular acceptance logs.
+# The caller must explicitly provide --path, --connection, and (when selecting
+# the A6 payload) --profile. A LAN run is labelled diagnostic-only and cannot
+# be mixed with acceptance logs from another measurement path.
 
 BASE_URL=""
 MEASUREMENT_PATH=""
 CONNECTION=""
 OPERATOR=""
 OWNER=""
+PROFILE=""
 SLICES=88
 WINDOW_RADIUS=2
 REPEATS=3
@@ -43,6 +45,7 @@ Usage:
     --base http://10.x.x.x:8787 \
     --path wifi-overlay|cellular-overlay|lan-diagnostic \
     --connection direct|relayed \
+    [--profile 576x576x88|640x640x88] \
     --operator "Person who presses the phone" \
     --owner "Nguyen Gia Duc Trung" \
     [--slices 88] [--window-radius 2] [--repeats 3] \
@@ -72,6 +75,13 @@ request() {
   req_criterion="$2"
   req_path="$3"
   req_repeat="$4"
+  req_path_with_profile="$req_path"
+  if [ -n "$PROFILE" ]; then
+    case "$req_path" in
+      *\?*) req_path_with_profile="$req_path&profile=$PROFILE" ;;
+      *) req_path_with_profile="$req_path?profile=$PROFILE" ;;
+    esac
+  fi
   req_first_start=$(now_ms)
   req_rejections=0
   req_cpu_json=null
@@ -88,7 +98,7 @@ request() {
     # HTTP/1.0 plus Connection: close makes the response boundary unambiguous
     # for Toybox nc, including the 58 MB whole-volume response.
     printf 'GET %s HTTP/1.0\r\nHost: %s\r\nAccept: */*\r\nConnection: close\r\n\r\n' \
-      "$req_path" "$HOST" |
+      "$req_path_with_profile" "$HOST" |
       $req_pin toybox nc -n -w "$TIMEOUT" "$HOST" "$PORT" > "$TMP_FILE" 2> "$ERR_FILE"
     req_nc_rc=$?
     req_end=$(now_ms)
@@ -157,9 +167,11 @@ request() {
     req_strategy_json=null
   fi
 
-  req_url="$BASE_URL$req_path"
+  req_url="$BASE_URL$req_path_with_profile"
   req_url_json="$(json_escape "$req_url")"
-  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"bytes_received\":$req_body_bytes,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
+  profile_json="null"
+  [ -n "$PROFILE" ] && profile_json="\"$(json_escape "$PROFILE")\""
+  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"bytes_received\":$req_body_bytes,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"payload_profile\":$profile_json,\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
   rm -f "$TMP_FILE" "$ERR_FILE"
 }
 
@@ -170,6 +182,7 @@ while [ "$#" -gt 0 ]; do
     --connection) CONNECTION="$2"; shift 2 ;;
     --operator) OPERATOR="$2"; shift 2 ;;
     --owner) OWNER="$2"; shift 2 ;;
+    --profile) PROFILE="$2"; shift 2 ;;
     --slices) SLICES="$2"; shift 2 ;;
     --window-radius) WINDOW_RADIUS="$2"; shift 2 ;;
     --repeats) REPEATS="$2"; shift 2 ;;
@@ -193,6 +206,9 @@ case "$MEASUREMENT_PATH" in
 esac
 if [ "$CONNECTION" != "direct" ] && [ "$CONNECTION" != "relayed" ]; then
   echo "--connection must be direct or relayed" >&2; exit 2
+fi
+if [ -n "$PROFILE" ] && [ "$PROFILE" != "576x576x88" ] && [ "$PROFILE" != "640x640x88" ]; then
+  echo "--profile must be 576x576x88 or 640x640x88" >&2; exit 2
 fi
 
 # Toybox nc is plain TCP, so this fallback intentionally accepts only http://.
@@ -219,6 +235,8 @@ captured_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 operator_json=$(json_escape "$OPERATOR")
 owner_json=$(json_escape "$OWNER")
 base_json=$(json_escape "$BASE_URL")
+profile_json="null"
+[ -n "$PROFILE" ] && profile_json="\"$(json_escape "$PROFILE")\""
 if [ "$MEASUREMENT_PATH" = "wifi-overlay" ] || [ "$MEASUREMENT_PATH" = "cellular-overlay" ]; then
   acceptance_json=true
   warning_json=null
@@ -226,7 +244,7 @@ else
   acceptance_json=false
   warning_json="\"DIAGNOSTIC ONLY: LAN/AVD measurements are not Spike E acceptance evidence.\""
 fi
-emit "{\"record_type\":\"run_header\",\"captured_at\":\"$captured_at\",\"operator\":\"$operator_json\",\"owner\":\"$owner_json\",\"base\":\"$base_json\",\"measurement_path\":\"$MEASUREMENT_PATH\",\"overlay_connection\":\"$CONNECTION\",\"repeats\":$REPEATS,\"is_acceptance_evidence\":$acceptance_json,\"warning\":$warning_json,\"client\":\"android-toybox-nc\",\"local_retry_policy\":\"on an instant local Network is unreachable (no SYN sent) retry up to $LOCAL_RETRY_MAX times on rotating CPUs; counted per sample in local_connect_rejections\",\"cpu_count\":$NCPU,\"note\":\"ms_to_first_byte is null in this fallback; total time and server handling are recorded.\"}"
+emit "{\"record_type\":\"run_header\",\"captured_at\":\"$captured_at\",\"operator\":\"$operator_json\",\"owner\":\"$owner_json\",\"base\":\"$base_json\",\"measurement_path\":\"$MEASUREMENT_PATH\",\"overlay_connection\":\"$CONNECTION\",\"payload_profile\":$profile_json,\"repeats\":$REPEATS,\"is_acceptance_evidence\":$acceptance_json,\"warning\":$warning_json,\"client\":\"android-toybox-nc\",\"local_retry_policy\":\"on an instant local Network is unreachable (no SYN sent) retry up to $LOCAL_RETRY_MAX times on rotating CPUs; counted per sample in local_connect_rejections\",\"cpu_count\":$NCPU,\"note\":\"ms_to_first_byte is null in this fallback; total time and server handling are recorded.\"}"
 
 MID=$((SLICES / 2))
 STEP=$((SLICES / 12))
@@ -234,7 +252,7 @@ STEP=$((SLICES / 12))
 WINDOW_STEP=$((WINDOW_RADIUS * 2 + 1))
 
 echo "Android Toybox fallback: $BASE_URL" >&2
-echo "path=$MEASUREMENT_PATH connection=$CONNECTION repeats=$REPEATS" >&2
+echo "path=$MEASUREMENT_PATH connection=$CONNECTION profile=\${PROFILE:-stub-default} repeats=$REPEATS" >&2
 echo "writing JSONL to $OUT_FILE" >&2
 
 rep=0
