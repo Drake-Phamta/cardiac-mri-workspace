@@ -24,6 +24,10 @@
 | **5** | **Nháp `RESULT.md` Spike E** — khung `E10` budget, `E11` fallback set, `E13` khuyến nghị; điền phần đã có từ lượt 4, để trống có ghi chú phần chờ lượt đo mới | ~1,5 h | file nháp trên nhánh của bạn — **chưa** đánh dấu `EVIDENCE_READY` |
 | **6** | Review PR split của Khánh khi có | ~30 ph | `APPROVE` hoặc yêu cầu sửa |
 
+> ✅ **22:24 — đã sửa đủ 3 điểm review #24 và thêm `--profile` vào harness Toybox** (`710090f`): operator/owner
+> đúng DR-006a rev 2, ví dụ chuẩn là `wifi-overlay`, hết dòng trống cuối file; `git diff --check` sạch, `sh -n`
+> đạt, CI 4/4. Chờ Hùng Anh review lại. Có `--profile` là leader đo được 2 profile theo kế hoạch của bạn.
+
 > **Mới, 14/09 tối — `DR-002` = Path A** (`OPEN_DECISIONS.md`). **Không đổi việc hôm nay của bạn.** Ghi để
 > biết trước cho phần backend: `DR-002` nói Path A quyết định *"precomputed-artifact volume, and the number of
 > Inference & Review Mode demo cases"* — tức artifact dự đoán mà backend phải nạp là của **54 case holdout**

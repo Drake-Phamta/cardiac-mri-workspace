@@ -25,6 +25,7 @@ day: 5                              # Day 2 = 2026-09-11 was the first execution
 day_date: "2026-09-14"              # Day 4 closed MET 3/3; see day04/DAY04_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
+day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
 capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
   members_hours_per_day: 8          # Khanh, Trung, Vu Hung Anh
   daily_deadline: "23:59 local"
@@ -37,6 +38,14 @@ day_4_verdict_basis: >
   extended to 07:00; the only missing step is Vu Hung Anh's review. Two exceptions to the letter of
   the day rule, both leader decisions and both recorded: the window extension, and "on main" read as
   "PR open, review pending". Buffer stays 0.
+day_5_verdict_basis: >
+  By the letter of the day rule Day 5 was 2 of 3 at 23:59: condition 1 (PR #25 reviewed, fixed if needed,
+  merged) was reviewed at 11:31 (one trailing space requested) but Khanh's fix landed at 2026-09-15T00:44
+  (fdaf920), 45 minutes after the deadline, and the PR was not merged at close. Conditions 2 (DR-002 =
+  Path A, b600085) and 3 (Trung's PR #26) were met in the day. Project Control proposed PARTIAL 2/3; the
+  leader decided MET 3/3. Recorded as an exception that differs from Day 4: no extension had been
+  announced, the member's part finished after the deadline, and it is the second consecutive exception
+  on the same deliverable. Buffer stays 0 - no critical-path day was lost.
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md
@@ -97,6 +106,10 @@ recovery:
       by: "EOD Day 5 - 2026-09-14T23:59+07:00"
       if_missed: "the leader escalates to the supervising lecturer"
       status_2026_09_14: "deliverable submitted - PR #25 at 03:10; lands on main after review"
+      status_2026_09_15: >
+        MISSED. At 23:59 on 2026-09-14 the audit was not on main: Vu Hung Anh's 11:31 review asked for one
+        trailing space, and Khanh's fix landed at 00:44 on 2026-09-15 (fdaf920); re-review requested 01:01.
+      leader_decision_2026_09_15: "RECORDED, NOT ESCALATED to the supervising lecturer - leader: 'tôi ghi nhận nhé'"
     ownership_transferred: false
     no_one_does_it_for_him: "Leader instruction 2026-09-13: Khanh must complete his own work."
 cutover_record: management/day01/DAY01_CUTOVER_RECORD.md
@@ -227,7 +240,9 @@ spikes:
 # --- GATES ------------------------------------------------------------------
 gates:
   GATE-DATA-01:   {status: OPEN,   closes_on: "Spike D evidence: DATASET_AUDIT.md + manifest"}
-  GATE-SPLIT-01:  {status: OPEN,   closes_on: "patient-level split, seed 2024, provenance resolved"}
+  GATE-SPLIT-01:  {status: OPEN,   closes_on: "patient-level split, seed 2024, provenance resolved",
+                   path: "A - DR-002 decided 2026-09-14",
+                   open_question: "The package has no case-to-patient mapping (PR #28, 2026-09-15). The draft manifest uses each case as its own group and records patient separation as NOT VERIFIABLE. The leader must accept that limitation on the record, or require source evidence, before this gate can close."}
   GATE-ML-01:     {status: OPEN,   closes_on: "SPIKE_C1 evidence — C0 is not sufficient"}
   GATE-IMG-01:    {status: OPEN,   closes_on: "morphology config on development/validation evidence only"}
   GATE-MOB-01:    {status: OPEN,   closes_on: "Spike A AND Spike B evidence, via TECH_STACK_ADR.md"}
@@ -300,6 +315,9 @@ forecast:
     Kept RED at the Day-4 close: buffer is 0 and nothing is ACCEPTED. The critical path moved for the
     first time (Spike D evidence in PR #25); the colour should be reconsidered once Spike D is
     ACCEPTED and GATE-DATA-01 closes.              # 15 section 16; reasoning in day02/DAY02_EOD_REVIEW.md section 12
+  status_colour_note_2026_09_15: >
+    Kept RED at the Day-5 close: buffer 0, ACCEPTED 0, PR #25 not yet merged. The critical path moved
+    (DR-002 decided, audit fixed, split manifest drafted in PR #28).
   remaining_buffer_days: 0          # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
   buffer_note: >
     Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
@@ -321,12 +339,13 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-14 11:40
-  - {number: 25, branch: spike/SPIKE_D, author: qkhanhbe, review_requested: [scalliontor], note: "Spike D audit - CRITICAL PATH, review first"}
-  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, review_requested: [qkhanhbe], note: "all 5 blocking findings addressed in 542887e (real DINOv2, bisected batch search, uint8 shapes, env fields, remaining-calendar budget); CI 4/4"}
-  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, review_requested: [scalliontor], note: "includes PR #22 (c913050)"}
-  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, review_requested: [scalliontor], note: "Day-5 Spike E: run-4 aggregate, uint8 576/640 payload profiles, measurement plan, RESULT.md draft (not EVIDENCE_READY)"}
-  - {number: 27, branch: spike-a/s4-zoom-pan, author: Drake-Phamta, draft: true, note: "Spike A S4 zoom/pan + on-device A2 check; review requested once device evidence exists"}
+open_prs:                           # as of 2026-09-15 05:45 (Day-5 close)
+  - {number: 25, branch: spike/SPIKE_D, author: qkhanhbe, waits_on: scalliontor, note: "Spike D audit - CRITICAL PATH. CHANGES_REQUESTED 2026-09-14 11:31 (one trailing space); fixed fdaf920 at 2026-09-15 00:44; re-review requested 01:01"}
+  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, waits_on: Drake-Phamta, note: "542887e fixed the first 5 findings; qkhanhbe re-reviewed on his RTX 4050 at 2026-09-15 00:52 - CHANGES_REQUESTED: --find-batch skipped when the intended batch fails; OSError on DINOv2 load aborts the probe; extrapolate wording still says DR-002 decides"}
+  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, waits_on: scalliontor, note: "CHANGES_REQUESTED 11:34 (3 points); all fixed 710090f at 22:24 plus --profile for the Toybox harness; includes PR #22 (c913050)"}
+  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Day-5 Spike E: run-4 aggregate, uint8 576/640 payload profiles, measurement plan, RESULT.md draft (not EVIDENCE_READY); not yet reviewed"}
+  - {number: 27, branch: spike-a/s4-zoom-pan, author: Drake-Phamta, draft: true, note: "Spike A S4 zoom/pan; A2 measured on the device 2026-09-14 21:25 OBSERVED (fb006da, 311eefe); review to be requested from scalliontor"}
+  - {number: 28, branch: codex/path-a-split, base: spike/SPIKE_D, author: qkhanhbe, draft: true, note: "Path A split manifest (80/20/54, seed 2024, nested 20/40/80), selftest 9/9; stacked on #25, retarget to main after it merges; patient linkage NOT VERIFIABLE - see gates.GATE-SPLIT-01; review planned: TrungNGD195"}
 merged_2026_09_14:
   - {number: 23, commit: b4208d0, author: Drake-Phamta, approved_by: TrungNGD195, method: merge-commit, note: "DR-003b wifi-overlay tooling; merged first so PR #26, which carries it as an ancestor, diffs cleanly"}
 merged_2026_09_13:

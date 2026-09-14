@@ -233,9 +233,13 @@ spikes:
       cases 640x640x88 (A6); Testing Set carries labels in 54/54 (A12) - input to DR-002.
       Update 2026-09-14 evening: Vu Hung Anh reviewed at 11:31 - CHANGES_REQUESTED for one trailing
       space in RESULT.md, every content check passing. DR-002 DECIDED Path A by the leader on that
-      evidence (OPEN_DECISIONS.md). Next: the owner removes the trailing space, re-review, merge; then
-      the owner generates the patient-level Path A split manifest (80/20, seed 2024, 54 locked).
-    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only"}
+      evidence (OPEN_DECISIONS.md).
+      Update 2026-09-15 (Day-5 close): the owner removed the trailing space at 00:44 (fdaf920) and
+      requested re-review at 01:01; not merged. He also opened draft PR #28, the Path A split manifest
+      (80/20/54, seed 2024), stacked on #25 - the package has no case-to-patient mapping, so patient
+      separation is recorded NOT VERIFIABLE (a GATE-SPLIT-01 question for the leader). Next: Vu Hung
+      Anh re-reviews #25, the leader merges, the owner retargets #28 to main.
+    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44, re-review requested"}
 
   - id: SPIKE_A
     name: "2D scientific viewer / brush interaction"
@@ -263,7 +267,7 @@ spikes:
     related_condition: []
     unblocks: [GATE-MOB-01]
     measurement_owner: "Pham Tuan Anh (physical device) - Claude must not fabricate touch/performance values"
-    next_action: "Capture the DR-006 device profile, then build the harness with synthetic fixtures. Holds measurement slot 1 on the single authorised device."
+    next_action: "2026-09-15: A9 measured twice (RESULT.md on main); stage S4 zoom/pan built and A2 measured on the device 2026-09-14 21:25 - OBSERVED, source-mask checksum 16/16 across three checks (draft PR #27, fb006da). Next: request review of #27 from Vu Hung Anh; stage S5 brush (A3 A4 A6 A7 A8 A10) and the 60 brush cases for A5. Holds measurement slot 1."
 
   - id: SPIKE_B
     name: "3D linked interaction"
@@ -305,6 +309,7 @@ spikes:
       mesh level 0 + camera) and B14 on the contractual cohorts (note the ~3.6x leverage gap).
       Device path decided 2026-09-14, DR-006a revision 3: the leader operates B10/B11 and the
       picking runs on the phone once the app runs; the owner designs, computes and interprets.
+      Day 5 (2026-09-14): the owner reviewed #25 and #24; no B1 or B14 commit - both carry to Day 6.
     canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0
@@ -334,7 +339,7 @@ spikes:
     related_condition: []
     unblocks: []
     may_close_gate_ml_01: false
-    next_action: "Declare the actual available compute; prepare pipeline bring-up on shape-matched synthetic volumes."
+    next_action: "2026-09-15: C0-1 declared by the owner at 01:00 (comment on PR #17) - RTX 4050 Laptop 6141 MiB, driver 595.79, RAM 15.25 GiB, PyTorch 2.11 + CUDA 12.8, no Windows pagefile configured. His 00:52 re-review of PR #17 on that GPU found two runtime blockers (batch search skipped when the intended batch fails; OSError on DINOv2 load aborts the probe). Next: the leader fixes #17; the owner reruns the same commands. started_at stays null until the owner starts measuring."
 
   - id: SPIKE_C1
     name: "Final real-data ML feasibility (small representative validated real subset)"
@@ -397,7 +402,7 @@ spikes:
     hard_constraint: "Acceptance evidence MUST be measured over real cellular + ZeroTier overlay. LAN measurements are diagnostic/control only."
     scope_firewall: "Fallback informs a demo-resilience measure only; must not become full offline mode, a second architecture, or backend-on-phone. PR-CACHE-01 stays SHOULD."
     linked_risk: [RISK-DEMO-NET-01, RA-H13]
-    next_action: "2026-09-14: stub up and GATE 2 open since 2026-09-13 12:35; four leader-operated runs are raw on spike-e/evidence-20260913 (runs 3-4 on the DR-003b Wi-Fi path, DIRECT). Next, owner: re-review PR #23, aggregate run 4 with aggregate.py, regenerate payloads for the real uint8 576/640 x 88 volumes (Spike D, PR #25), write the re-measurement plan; then the leader re-measures on the new payloads."
+    next_action: "2026-09-15: the owner approved #23 (merged b4208d0); PR #26 carries the run-4 aggregate, uint8 576/640 payload profiles, a 6-run measurement plan (2 profiles x 3 time windows) and a RESULT.md draft; PR #24 fixed per review and the Toybox harness gained --profile (710090f, 22:24). Next: Vu Hung Anh re-reviews #24 and reviews #26; the stub serving both profiles is started on the Mac mini; the leader runs the plan's windows on the phone. No run on 2026-09-14 - the 15:00 and 21:00 windows passed before --profile existed."
 
   - id: SPIKE_F
     name: "3D error representation"

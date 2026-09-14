@@ -22,7 +22,7 @@ anh 14/09). Thành viên: ~8 h/ngày, hạn **23:59**, không cần khai báo gi
 | **3** | **Sửa PR #17** theo **5** lỗi chặn Khánh nêu *(Claude viết, anh duyệt; packet ghi nhầm là 4)* | ~3 h | không | Khánh `APPROVE` |
 | 4 | Merge theo thứ tự **#25 → #23 → #24** khi mỗi PR đủ review | Project Control | reviewer | CI xanh sau mỗi merge |
 | 5 | ✅ **Đã quyết 14/09:** anh bấm cho Spike B như Spike E (`DR-006a` rev 3); reviewer Spike B → Trung; Hùng Anh và Trung được báo trong packet + tin nhắn | ~15 ph | không | `OPEN_DECISIONS.md` rev 3 |
-| 6 | Đo lại Spike E khi PR payload của Trung merge — theo kế hoạch đo của Trung | ~30 ph | Trung | dữ liệu thô lên `spike-e/evidence-*` |
+| 6 | Đo lại Spike E khi PR payload của Trung merge — theo kế hoạch đo của Trung. **22:24: harness Toybox đã có `--profile` (#24, `710090f`)**; còn chờ Hùng Anh review #24 + #26, rồi dựng stub mới trên Mac mini. Khung đo 15:00/21:00 hôm nay đã qua → **dời sang Day 6** (khung 09:00 sớm nhất) | ~1 h | Hùng Anh (review) | dữ liệu thô lên `spike-e/evidence-*` |
 
 ## Nếu còn thời gian
 

@@ -29,6 +29,14 @@ Manifest 28 000 dòng là file sinh tự động — không cần đọc từng 
 - Chuẩn bị **fixture tổng hợp TP/FP/FN cho Spike F** — được phép theo `SPIKE_PHASE_STATE` (chỉ fixture, chưa làm
   phần chính khi Spike B còn `ACTIVE`) *(~1 h)*.
 
+## 🔁 Chờ bạn review lại *(cập nhật 22:50)*
+
+| PR | Tình trạng | Việc của bạn |
+|---|---|---|
+| **#25** (Khánh) | ✅ **Khánh đã sửa lúc 00:44 ngày 15/09** (`fdaf920`), nhờ bạn review lại lúc 01:01 | review lại **đầu Day 6** — là critical path |
+| **#24** (Trung) | ✅ **Trung đã sửa đủ 3 điểm** lúc 22:24 (`710090f`) và thêm `--profile`; `git diff --check` sạch, CI 4/4 | review lại |
+| **#26** (Trung) | chưa review | review (Spike E, bạn là reviewer) |
+
 ## 📌 Quyết định mới, 14/09 tối — `DR-002` = Path A
 
 **Không đổi việc hôm nay của bạn** (`B1`, `B14`, review #25/#26 chạy trên fixture tổng hợp). Ghi để biết trước:

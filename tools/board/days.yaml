@@ -164,7 +164,7 @@ today:
     - [tuananh, "Merge **PR #25** → `GATE-DATA-01`", khanh, "xoá **1 khoảng trắng cuối dòng 3** của `RESULT.md` (review #25 của Hùng Anh, 11:31) → Hùng Anh re-review"]
     - [tuananh, "Merge **PR #17** → Khánh chạy probe `C0`", khanh, "review lại **PR #17** (bản sửa đã lên `542887e`)"]
     - [tuananh, "Merge **PR #24**", hunganh, "review **PR #24**"]
-    - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ)", trung, "sửa 3 điểm review **PR #24** + thêm `--profile` vào harness Toybox (điện thoại không chạy được `harness.py`)"]
+    - [tuananh, "Đo lại Spike E (6 lượt: 2 profile × 3 khung giờ) — Day 6", hunganh, "review lại **PR #24** (Trung đã sửa + thêm `--profile` 22:24) và review **PR #26**"]
     - [trung, "Merge **PR #26**", hunganh, "review **PR #26** (sau #25, #24)"]
     - [trung, "Review PR split", khanh, "mở PR script split"]
   tasks:

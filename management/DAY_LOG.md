@@ -13,9 +13,9 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 5 — 2026-09-14** |
+| Ngày hôm nay | **Day 5 — 2026-09-14** *(đã chốt sáng 15/09 — kế hoạch Day 6 tiếp theo)* |
 | Ngày còn lại tới Day 30 | **26** |
-| **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt; Day 4 đạt)* |
+| **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt; Day 4 và Day 5 đạt)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
@@ -26,7 +26,9 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 5 — 2026-09-14 · `ĐANG MỞ`
+## DAY 5 — 2026-09-14 · **`ĐẠT` 3/3 — theo quyết định của leader** — `DR-002` quyết, critical path nhích
+
+**Bản chốt đầy đủ:** [`day05/DAY05_EOD_REVIEW.md`](day05/DAY05_EOD_REVIEW.md)
 
 **Gói nhiệm vụ từng người:** [`day05/tasks/`](day05/tasks/)
 
@@ -57,7 +59,48 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| *(chưa có)* | | |
+| **Nguyễn Gia Đức Trung** | Review lại #23 → `APPROVED` (08:36) · **PR #26**: tổng hợp lượt 4, payload `uint8` 576/640, kế hoạch đo, nháp `RESULT.md` | `339021f` |
+| **Nguyễn Gia Đức Trung** | Sửa đủ 3 điểm review #24 **+ thêm `--profile`** vào harness Toybox (22:24) | `710090f` |
+| **Vũ Hùng Anh** | Review **#25** (11:31) và **#24** (11:34) — cả hai `CHANGES_REQUESTED`, lỗi chỉ ra đều đúng | API review |
+| **Phạm Tuấn Anh** | **`DR-002` = Path A** · **`DR-006a` rev 3** · merge **#23** · tắt sshd | `b600085` · `04d8e97` · `b4208d0` · `132e519` |
+| **Phạm Tuấn Anh** *(chủ Spike A)* | **Spike A S4 — `A2` đo trên máy: `OBSERVED`**, checksum mask 16/16 qua 3 lần kiểm, 0 lần khựng | `fb006da` · `311eefe` · PR #27 |
+| Project Control *(leader duyệt)* | **Sửa PR #17 — 5/5 lỗi** Khánh nêu · dựng lại bảng điều phối | `542887e` · `66a96b7` |
+| **Bế Quốc Khánh** — *sau 23:59* | Sửa #25 (00:44) · review lại #17 trên RTX 4050 (00:52, 2 lỗi runtime thật) · **PR #28 nháp: manifest split Path A** (00:59) · **khai báo `C0-1`** (01:00) | `fdaf920` · `772c786` · API review · comment #17 |
+
+### Điều kiện ngày — chốt sáng 15/09
+
+| # | Điều kiện | Kết quả |
+|---|---|---|
+| 1 | PR #25 review + sửa + merge | ✅ **theo quyết định của leader** — review 11:31; Khánh sửa **00:44** (sau hạn 45 phút); **chưa merge** |
+| 2 | `DR-002` quyết | ✅ Path A, 21:41 |
+| 3 | Báo cáo lượt 4 + payload `uint8` → PR | ✅ PR #26, 08:51 |
+
+**3/3 — Day 5 ĐẠT theo quyết định của leader.** Theo chữ của luật lúc 23:59 là 2/3; Project Control đề xuất
+"MỘT PHẦN", leader quyết tính đạt. **Đây là lần ngoại lệ thứ hai liên tiếp cho cùng sản phẩm (audit Spike D), và
+lần này không có gia hạn báo trước.** Buffer **giữ 0**.
+
+**Hạn cứng của Khánh** (audit trên `main` trước 23:59 14/09): **trượt.** Leader: *"tôi ghi nhận nhé"* — ghi nhận,
+**không báo giảng viên**.
+
+### Quyết định trong ngày
+
+- **Khối lượng:** thành viên ~8 h/ngày, hạn 23:59, không khai báo giờ rảnh; leader không giới hạn
+- **`DR-006a` rev 3:** leader bấm máy cho Spike B; Hùng Anh thiết kế + tính số; reviewer Spike B → Trung
+- **`DR-002` = Path A:** 80/20 theo bệnh nhân, seed 2024, 54 case khoá cứng — quyết trước khi #25 merge
+- **Báo tin qua tài liệu:** quyết định đụng tới ai thì ghi thẳng vào packet + bảng của người đó
+- **Kết quả Day 5** tính đạt · **hạn cứng Khánh** ghi nhận, không leo thang
+
+### Còn tồn — sang Day 6
+
+| Ai | Việc |
+|---|---|
+| **Vũ Hùng Anh** | Review lại **#25** *(critical path)* và **#24** · review **#26** · **`B1` app 3D + `B14`** — không có commit trong Day 5 |
+| **Phạm Tuấn Anh** | Merge #25 · **quyết giới hạn nối case↔bệnh nhân** cho `GATE-SPLIT-01` · sửa **2 lỗi runtime #17** · đo lại Spike E · nhờ review #27 |
+| **Bế Quốc Khánh** | Đổi base #28 sang `main` sau khi #25 merge · chạy lại C0 khi #17 sửa xong |
+| **Nguyễn Gia Đức Trung** | Review split #28 |
+
+> **Phát hiện đổi kế hoạch (PR #28):** gói dữ liệu **không có** ánh xạ case→bệnh nhân. Manifest dùng mỗi case làm
+> một nhóm và ghi `NOT VERIFIABLE` — `GATE-SPLIT-01` cần quyết định của leader, không chỉ một manifest.
 
 ---
 
