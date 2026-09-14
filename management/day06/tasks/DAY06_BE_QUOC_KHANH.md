@@ -19,6 +19,14 @@
 
 ## Việc Day 6
 
+> ✅ **06:42 — leader đã đẩy bản sửa #17 (`08d7166`) — việc 4 không còn chờ ai.** Sửa đủ 2 lỗi runtime bạn tìm:
+> `--find-batch` giờ **luôn chạy** kể cả khi batch dự định hỏng, rồi đo lại ở batch tìm được; `OSError` khi tải
+> DINOv2 được ghi lại và probe chạy tiếp. Kiểm trên máy leader còn tìm thêm 2 lỗi, đã sửa: sau một lần hết bộ nhớ thật
+> trên Windows **CUDA hỏng cho cả tiến trình** → trên CUDA mỗi lần đo và mỗi lần thử batch giờ chạy trong **tiến trình
+> con riêng**; batch **tràn quá VRAM** không còn được ghi như số đo thật. `--selftest` 8/8 + 10/10.
+> **Lưu ý thời gian:** mỗi lần thử là một tiến trình mới, nên chạy đủ 10 biến thể với `--find-batch` có thể mất
+> **30–60 phút** — bắt đầu sớm, làm việc 5 trong lúc chờ. Chi tiết trong comment trên #17; nhờ bạn review lại #17.
+
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
 | **3** | **Bằng chứng nối case ↔ bệnh nhân cho `GATE-SPLIT-01`** — xem chi tiết dưới. Đây là thứ **duy nhất** còn chặn gate split sau khi `DR-002` đã quyết | **~3 h** | không | `management/spikes/SPIKE_D_DATASET/PATIENT_LINKAGE_EVIDENCE.md` + script + selftest trên dữ liệu giả → PR, **trước 18:00** để leader quyết trong ngày |

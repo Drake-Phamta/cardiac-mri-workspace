@@ -67,7 +67,7 @@ spike_notes:
   SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR nháp #27."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). Việc tiếp: app 3D `B1` + camera, diễn giải `B14`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "PR #26 (tổng hợp lượt 4, payload 576/640, kế hoạch, nháp `RESULT.md`) chờ review · #24 đã sửa + `--profile`. Hôm nay: stub 2 profile → leader đo **khung 15:00 và 21:00** → Trung tổng hợp."
-  SPIKE_C0: "`C0-1` đã khai báo (RTX 4050 6 GB, không pagefile). #17: Khánh tìm **2 lỗi runtime** — leader sửa trước 12:00 → Khánh chạy probe fp32 + bf16. Khung pipeline trên dữ liệu tổng hợp hôm nay."
+  SPIKE_C0: "`C0-1` đã khai báo (RTX 4050 6 GB, không pagefile). #17: **đã sửa 2 lỗi runtime** (`08d7166`, 06:42; mỗi lần đo/thử batch chạy trong tiến trình con riêng) → Khánh review lại và chạy probe fp32 + bf16. Khung pipeline trên dữ liệu tổng hợp hôm nay."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
@@ -171,7 +171,7 @@ today:
   waits:
     - [tuananh, "Merge **PR #25** → QA Spike D", hunganh, "review lại **#25** (1 dòng, `fdaf920`)"]
     - [khanh, "Đổi base **#28** sang `main`", hunganh, "review lại #25 → leader merge"]
-    - [khanh, "Chạy probe `C0` trên RTX 4050", tuananh, "sửa **2 lỗi runtime #17** (trước 12:00)"]
+    - [tuananh, "Merge **#17**", khanh, "review lại **#17** (`08d7166`) — probe `C0` đã chạy được"]
     - [tuananh, "Quyết nối case↔bệnh nhân (`GATE-SPLIT-01`)", khanh, "**bằng chứng nối bệnh nhân** (trước 18:00)"]
     - [trung, "Dựng stub 2 profile trên Mac mini", tuananh, "dừng stub cũ PID 32227 (trước 13:30)"]
     - [tuananh, "Đo lại Spike E khung 15:00 · 21:00", trung, "stub 2 profile đã kiểm (trước 14:00)"]
@@ -225,7 +225,7 @@ today:
     tuananh:
       load: "**không giới hạn giờ** — review, merge, quyết định, chốt ngày"
       debts:
-        - "**Sửa #17** — 2 lỗi runtime Khánh tìm, trước 12:00 *(~1,5 h, cùng Claude)*"
+        - "✅ **Sửa #17** — 2 lỗi runtime Khánh tìm + 2 lỗi tìm thêm khi kiểm, đẩy `08d7166` lúc 06:42"
         - "Merge **#25** ngay khi Hùng Anh approve"
         - "Dừng stub cũ PID 32227 cho Trung, trước 13:30"
       now:
