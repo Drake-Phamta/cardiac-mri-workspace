@@ -164,6 +164,7 @@ con số "khớp" app tự báo.
 | Ánh xạ chạm → pixel của app, trên máy | **60/60** ca `brush_cases.json` *(tiền đề cho `A5`, **chưa phải** `A5` — chưa có brush)* |
 | 4 lần chạm, kiểm tay một ca | chạm `(223,3; 279,1)`, zoom 3,128, pan `(75,5; 104,8)` → `floor((223,3−75,5)/3,128) = 47`, `floor((279,1−104,8)/3,128) = 55` → app báo **`[47, 55]`** ✓ |
 | Khoảng hở frame lớn nhất mỗi thao tác | 18,7 · 44,9 · 20,0 · 18,8 ms — **0 lần khựng > 500 ms** *(nhịp `requestAnimationFrame` phía JS, không phải trace compositor; 1 frame ở 60 Hz = 16,7 ms)* |
+| Nhận xét cảm quan của người bấm (`TASK.md`) | **không thấy khựng** khi pinch hay kéo — nguyên văn: *"tôi không thấy khựng"* |
 
 **Điều kiện:** bản **release** từ `1b362e8`, SM-A176B Android 16, màn hình chạy 60 Hz, cắm USB đang sạc
 (pin 45 → 48 %), nhiệt độ pin 33,0 → 34,5 °C, thermal status 0. Người bấm: **Phạm Tuấn Anh**, chủ Spike A,
@@ -173,7 +174,7 @@ trên máy của chính mình.
 `…_logcat.txt` (14 dòng logcat mang tag `SPIKE_A_`, nguyên byte).
 
 **Giới hạn, ghi rõ:** fixture 64×64 — mask nguồn là dữ liệu tổng hợp của Spike A, chưa phải cohort thật; một
-lượt đo; nhận xét cảm quan về độ mượt của người bấm **chưa ghi** (`operator_observation` còn để trống).
+lượt đo; mới 1 lần kéo trong 4 thao tác tay (3 pinch).
 `A2` là **đã đo**, chưa **nghiệm thu** — cần reviewer `APPROVE` → QA `PASS` → `ACCEPTED`.
 
 ---

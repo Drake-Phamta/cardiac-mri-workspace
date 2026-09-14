@@ -199,6 +199,6 @@
   "read_at": "2026-09-14 21:25-21:27 +07:00"
  },
  "frame_gap_measure_note": "max_frame_gap_ms is the largest interval between successive JS requestAnimationFrame callbacks during a gesture - the JS frame cadence, not a compositor trace. At 60 Hz one frame is 16.7 ms.",
- "operator_observation": "[RECORD - the operator's own words on visible stutter, if any]",
+ "operator_observation": "No visible stutter during pinch or pan - operator Pham Tuan Anh, stated after the run on 2026-09-14, in his words: 'tôi không thấy khựng' (I did not see any stutter).",
  "raw_log": "a2_zoom_pan_20260914T212552+0700_logcat.txt - every logcat line carrying a SPIKE_A_ tag, byte-for-byte, in order"
 }
