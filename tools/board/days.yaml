@@ -181,7 +181,7 @@ today:
         - "**Chạy probe `C0`** trên RTX 4050 với hình dạng thật `uint8` 576/640 × 88 *(~2 h)*"
       later:
         - "Khung pipeline C0 trên volume tổng hợp đúng hình dạng *(~1 h)*"
-      note: "Đêm qua bạn nộp audit đầy đủ và một review có 5 lỗi thật — Day 4 **đạt** nhờ việc đó. Hôm nay bạn là người mở `GATE-SPLIT-01`."
+      note: "📌 **`DR-002` = Path A** (14/09 tối): split 80/20 theo bệnh nhân, 54 case khoá cứng — script chỉ cần Path A, `extrapolate --train-cases 80`, C1 lấy từ 80 case train. **Gấp nhất: xoá khoảng trắng dòng 3 `RESULT.md` ở #25 trước 23:59.**"
     trung:
       load: "chính **~7 h** · thêm ~1 h · hạn **23:59**"
       debts:

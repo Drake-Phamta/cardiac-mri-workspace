@@ -18,7 +18,7 @@ anh 14/09). Thành viên: ~8 h/ngày, hạn **23:59**, không cần khai báo gi
 
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
-| **2** | **Quyết `DR-002`** ngay khi #25 merge — phân tích ở dưới | ~30 ph | Hùng Anh (#25) | quyết định ghi vào `OPEN_DECISIONS.md` |
+| **2** | ✅ **Đã quyết 14/09 tối: `DR-002` = Path A** — không chờ #25 merge, vì nội dung bằng chứng đã qua review của Hùng Anh (chỉ còn 1 khoảng trắng). Ghi ở `OPEN_DECISIONS.md` (`b600085`); packet của Khánh, Trung, Hùng Anh và `SPIKE_C_ML/TASK.md` đã ghi phần ảnh hưởng tới từng người | ~30 ph | — | ✅ |
 | **3** | **Sửa PR #17** theo **5** lỗi chặn Khánh nêu *(Claude viết, anh duyệt; packet ghi nhầm là 4)* | ~3 h | không | Khánh `APPROVE` |
 | 4 | Merge theo thứ tự **#25 → #23 → #24** khi mỗi PR đủ review | Project Control | reviewer | CI xanh sau mỗi merge |
 | 5 | ✅ **Đã quyết 14/09:** anh bấm cho Spike B như Spike E (`DR-006a` rev 3); reviewer Spike B → Trung; Hùng Anh và Trung được báo trong packet + tin nhắn | ~15 ph | không | `OPEN_DECISIONS.md` rev 3 |

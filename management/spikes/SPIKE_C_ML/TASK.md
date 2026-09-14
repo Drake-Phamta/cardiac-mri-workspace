@@ -21,7 +21,9 @@
 `GATE-ML-01` · `ADR-ML-001` · `07` §2 · `07` §3 · `07` §10 · `08` §2 · `08` §4 · PR-EXP-01 · PR-EXP-03 ·
 NFR-REP-001 · RQ-A
 **Decisions:** **DR-007 ✅** (Spike C approved and split) · **DR-011 ✅** (normalization policy) ·
-DR-002 (OPEN — governs C1's subset) · DR-G03 (`GATE-ML-01`)
+**DR-002 ✅ Path A, 2026-09-14** (governs C1's subset: the C1 subset comes from the **80 training cases**
+only, never the 20 validation or the 54 locked holdout; usable once the split manifest closes
+`GATE-SPLIT-01`) · DR-G03 (`GATE-ML-01`)
 **Findings:** RA-H06 (this spike exists because of it) · RA-H16 (resolved by DR-011)
 
 ## Objective

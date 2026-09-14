@@ -32,6 +32,13 @@
 > Set` theo bệnh nhân, seed `2024`, 54 case `Testing Set` khoá cứng. Script cho Path B không cần nữa.
 > `GATE-SPLIT-01` đóng khi manifest split của bạn có trên `main` và câu hỏi một bệnh nhân nhiều scan được trả
 > lời. **Việc gấp nhất vẫn là xoá khoảng trắng cuối dòng 3 `RESULT.md` ở #25** để audit lên `main`.
+>
+> **Path A đổi gì cho các việc khác của bạn:**
+> - **C0 (`extrapolate.py`)**: `--train-cases 80` giờ là **giá trị đã quyết**, không còn là giả định.
+> - **C1**: tập con thử nghiệm lấy **chỉ từ 80 case train** — không bao giờ từ 20 case validation hay 54 case
+>   holdout (`SPIKE_C_ML/TASK.md` đã ghi). Vẫn `BLOCKED` tới khi Spike D `ACCEPTED`.
+> - **54 case `Testing Set`**: không dùng để train, tune, chọn ngưỡng hay chọn checkpoint — chỉ chạm vào ở
+>   lần đánh giá cuối.
 
 **Hai phương án split theo `06` §6** *(Path A đã được chọn)*:
 

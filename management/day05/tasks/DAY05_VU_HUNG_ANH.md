@@ -29,6 +29,13 @@ Manifest 28 000 dòng là file sinh tự động — không cần đọc từng 
 - Chuẩn bị **fixture tổng hợp TP/FP/FN cho Spike F** — được phép theo `SPIKE_PHASE_STATE` (chỉ fixture, chưa làm
   phần chính khi Spike B còn `ACTIVE`) *(~1 h)*.
 
+## 📌 Quyết định mới, 14/09 tối — `DR-002` = Path A
+
+**Không đổi việc hôm nay của bạn** (`B1`, `B14`, review #25/#26 chạy trên fixture tổng hợp). Ghi để biết trước:
+**54 case `Testing Set` giờ là tập holdout khoá cứng**. Khi Spike B/F cần giải phẫu thật (mesh thật cho
+`B10`/picking, hay đo `DR-008c`), **dùng case trong 100 case `Training Set`** — không dùng 54 case holdout cho bất
+cứ thứ gì phải chọn hay tinh chỉnh. Nếu có lý do cần một case holdout, hỏi leader trước.
+
 ## 📱 Đo trên điện thoại — leader đo hộ bạn *(quyết định mới, 14/09)*
 
 Leader đã quyết đường thiết bị cho Spike B (`DR-006a` **revision 3**, `OPEN_DECISIONS.md`): **giống Spike

@@ -24,6 +24,11 @@
 | **5** | **Nháp `RESULT.md` Spike E** — khung `E10` budget, `E11` fallback set, `E13` khuyến nghị; điền phần đã có từ lượt 4, để trống có ghi chú phần chờ lượt đo mới | ~1,5 h | file nháp trên nhánh của bạn — **chưa** đánh dấu `EVIDENCE_READY` |
 | **6** | Review PR split của Khánh khi có | ~30 ph | `APPROVE` hoặc yêu cầu sửa |
 
+> **Mới, 14/09 tối — `DR-002` = Path A** (`OPEN_DECISIONS.md`). **Không đổi việc hôm nay của bạn.** Ghi để
+> biết trước cho phần backend: `DR-002` nói Path A quyết định *"precomputed-artifact volume, and the number of
+> Inference & Review Mode demo cases"* — tức artifact dự đoán mà backend phải nạp là của **54 case holdout**
+> (so với 15 nếu là Path B). Spike E không bị ảnh hưởng: payload vẫn là dữ liệu tổng hợp theo hình dạng `A6`.
+
 > **Mới, 14/09 — bạn là reviewer Spike B** (`DR-006a` revision 3). Leader sẽ cầm máy đo Spike B cho Vũ Hùng
 > Anh như đang làm với Spike E, nên leader không được review Spike B nữa. **Hôm nay không có việc gì**:
 > Spike B chưa có bằng chứng. Khi Hùng Anh nộp, review đó chiếm một slot `REVIEWING` của bạn.
