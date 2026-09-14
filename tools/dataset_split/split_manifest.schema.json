@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Path A patient-group split manifest",
+  "type": "object",
+  "required": [
+    "manifest_version", "split_id", "generated_at", "operator",
+    "source_dataset_manifest", "decision", "randomization", "patient_grouping",
+    "partitions", "training_subsets", "invariants", "gate_split_01"
+  ],
+  "properties": {
+    "manifest_version": { "const": "1.0" },
+    "split_id": { "const": "path_a_seed2024_v1" },
+    "generated_at": { "type": "string" },
+    "operator": { "type": "string", "minLength": 1 },
+    "source_dataset_manifest": {
+      "type": "object",
+      "required": ["path", "sha256", "case_count"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "case_count": { "const": 154 }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["selected_path", "decision_id"],
+      "properties": {
+        "selected_path": { "const": "Path A" },
+        "decision_id": { "const": "DR-002" }
+      }
+    },
+    "randomization": {
+      "type": "object",
+      "required": ["seed", "algorithm"],
+      "properties": { "seed": { "const": 2024 }, "algorithm": { "type": "string" } }
+    },
+    "patient_grouping": {
+      "type": "object",
+      "required": ["mode", "patient_linkage_status", "group_count", "statement"],
+      "properties": {
+        "mode": { "enum": ["source_case_directory_as_patient_proxy", "explicit_case_to_patient_map"] },
+        "patient_linkage_status": {
+          "enum": ["NOT_DETERMINABLE_FROM_PACKAGE", "PROVIDED_BY_EXTERNAL_MAPPING"]
+        },
+        "group_count": { "type": "integer", "minimum": 1 },
+        "statement": { "type": "string", "minLength": 1 }
+      }
+    },
+    "partitions": {
+      "type": "object",
+      "required": ["train", "validation", "final_holdout"],
+      "properties": {
+        "train": { "$ref": "#/$defs/partition80" },
+        "validation": { "$ref": "#/$defs/partition20" },
+        "final_holdout": { "$ref": "#/$defs/partition54" }
+      }
+    },
+    "training_subsets": {
+      "type": "object",
+      "required": ["25_percent", "50_percent", "100_percent"],
+      "properties": {
+        "25_percent": { "$ref": "#/$defs/subset20" },
+        "50_percent": { "$ref": "#/$defs/subset40" },
+        "100_percent": { "$ref": "#/$defs/subset80" }
+      }
+    },
+    "invariants": { "type": "object" },
+    "gate_split_01": {
+      "type": "object",
+      "required": ["status", "closed_by_this_script"],
+      "properties": { "closed_by_this_script": { "const": false } }
+    }
+  },
+  "$defs": {
+    "caseIds": {
+      "type": "array", "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^CASE_[0-9]{4}$" }
+    },
+    "groupIds": {
+      "type": "array", "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^PATIENT_GROUP_[0-9]{4}$" }
+    },
+    "partition80": {
+      "type": "object", "required": ["case_count", "case_ids", "patient_group_ids"],
+      "properties": { "case_count": { "const": 80 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 80, "maxItems": 80 }, "patient_group_ids": { "$ref": "#/$defs/groupIds" } }
+    },
+    "partition20": {
+      "type": "object", "required": ["case_count", "case_ids", "patient_group_ids"],
+      "properties": { "case_count": { "const": 20 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 20, "maxItems": 20 }, "patient_group_ids": { "$ref": "#/$defs/groupIds" } }
+    },
+    "partition54": {
+      "type": "object", "required": ["case_count", "case_ids", "patient_group_ids"],
+      "properties": { "case_count": { "const": 54 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 54, "maxItems": 54 }, "patient_group_ids": { "$ref": "#/$defs/groupIds" } }
+    },
+    "subset20": {
+      "type": "object", "required": ["case_count", "case_ids"],
+      "properties": { "case_count": { "const": 20 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 20, "maxItems": 20 } }
+    },
+    "subset40": {
+      "type": "object", "required": ["case_count", "case_ids"],
+      "properties": { "case_count": { "const": 40 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 40, "maxItems": 40 } }
+    },
+    "subset80": {
+      "type": "object", "required": ["case_count", "case_ids"],
+      "properties": { "case_count": { "const": 80 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 80, "maxItems": 80 } }
+    }
+  }
+}
