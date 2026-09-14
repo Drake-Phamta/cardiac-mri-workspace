@@ -119,6 +119,14 @@ def read_patient_map(path: Path | None, case_ids: set[str]) -> tuple[dict[str, s
 def build_split(dataset: dict[str, Any], dataset_path: Path,
                 patient_map_path: Path | None, operator: str,
                 generated_at: str | None = None) -> dict[str, Any]:
+    summary = dataset.get("summary") or {}
+    if summary.get("fail") != 0 or summary.get("owner_verdicts_outstanding") != 0:
+        raise SplitError(
+            "source dataset audit is not evidence-ready: expected summary.fail=0 and "
+            "summary.owner_verdicts_outstanding=0; found "
+            f"fail={summary.get('fail')!r}, "
+            f"owner_verdicts_outstanding={summary.get('owner_verdicts_outstanding')!r}"
+        )
     cases = dataset.get("cases")
     if not isinstance(cases, list) or not cases:
         raise SplitError("dataset manifest has no cases")
@@ -313,6 +321,7 @@ def selftest() -> int:
         "manifest_version": "SELFTEST",
         "generated_at": "SELFTEST",
         "case_count_total": 154,
+        "summary": {"fail": 0, "owner_verdicts_outstanding": 0},
         "cases": ([case(i, "Training Set") for i in range(1, 101)]
                   + [case(i, "Testing Set") for i in range(101, 155)]),
     }
@@ -359,6 +368,13 @@ def selftest() -> int:
             checks["patient crossing released boundary is refused"] = False
         except SplitError:
             checks["patient crossing released boundary is refused"] = True
+
+        dirty_dataset = dict(dataset, summary={"fail": 1, "owner_verdicts_outstanding": 0})
+        try:
+            build_split(dirty_dataset, dataset_path, None, "SELFTEST", "SELFTEST")
+            checks["source audit with a machine failure is refused"] = False
+        except SplitError:
+            checks["source audit with a machine failure is refused"] = True
 
     bad = [name for name, passed in checks.items() if not passed]
     for name, passed in checks.items():
