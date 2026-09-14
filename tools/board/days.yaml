@@ -210,7 +210,7 @@ today:
     tuananh:
       load: "**không giới hạn giờ** — review + chốt tiến độ mỗi ngày"
       debts:
-        - "Chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin *(~5 ph)*"
+        - "✅ Tắt sshd — `Running/Automatic` → `Stopped/Disabled`, cổng 22 đóng"
       now:
         - "**Quyết `DR-002`** ngay khi #25 merge — bản phân tích hai phương án có trong packet *(~30 ph)*"
         - "✅ **Sửa PR #17** — 5/5 lỗi, `542887e`, CI 4/4, đã nhờ Khánh review lại"

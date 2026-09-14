@@ -12,7 +12,7 @@ anh 14/09). Thành viên: ~8 h/ngày, hạn **23:59**, không cần khai báo gi
 
 | # | Nợ | Giờ |
 |---|---|---|
-| **1** | Chạy `tools/host_hardening/disable_sshd.ps1` trong PowerShell **Run as administrator** — cổng SSH vẫn mở cho mạng Wi-Fi | ~5 ph |
+| **1** | ✅ **Xong 14/09 ~11:50** — anh chạy `tools/host_hardening/disable_sshd.ps1` bằng quyền admin. Trước: `Running / Automatic` → sau: `Stopped / Disabled`, cổng 22 không còn nghe (Project Control kiểm lại độc lập). Hoàn tác: `Set-Service sshd -StartupType Automatic; Start-Service sshd` | ~5 ph |
 
 ## Việc Day 5
 
