@@ -1,0 +1,1001 @@
+{
+ "_warning": "TEMPORARY Spike A fixture. See volume_synthetic.json.",
+ "purpose": "Stage S5 oracle for A3-A7: a scripted set of brush strokes given as SCREEN coordinates, with the pixels and SHA-256 every state must reach. Computed by the independent Python implementation in generate.py, not by the app.",
+ "shape_xyz": [64, 64, 16],
+ "source": "mask_synthetic.json - the working mask starts as an exact copy of it",
+ "source_slice_sha256": [
+  "22fdca82d77d36aa831360d289f05af813e3449cc37b0c1c9947b1597b9c0de7",
+  "b7f6c72a18c8f0fe511b4d2f74b3b0319240cc5d97a438aeebe5114d0cbc503f",
+  "a877510d375598d8473e5c3273cb84ade600d31ffccd8d1b2f49510f7fd27ff5",
+  "42221259ed9328514c57d0573bbf8cd8ae7e6b2e6db4504059d50704f5fa9328",
+  "22358235d421a6081874f577aa88b0c4e9e543806bc517b37ce65ca761f96d88",
+  "8149b60393f33be956c08404892469ba7a675844b75bc4398abe3d4b80673458",
+  "10bfa591eb3a6a39687ceae157d47a0b9456f83c3f597d2a9b2888e78de6abb4",
+  "c56b56725e7262bf8661ddaef70ad1d19044e0e022223432beb3ed6865d21529",
+  "cce395039adf0025c0848510bac3bed2ac45f304c53d5b2a6baf284ecb2bddfb",
+  "ad128ff58be05e560206b22879ab689ead06447f8d02e5fc157aca0e3fc12949",
+  "863c370c3e7b1198a0448d84e21e3b99049ff12c1f57ff21daf6725c7b5a982b",
+  "f7d8262e24c6b4a8a0533056e2e04a038a2fefd21dff4f7043e91a742b50cac7",
+  "294b3260985a475ecdf4496b30a53522c549eeccab5ea822837664ff64523c9b",
+  "85894d96f175bf03b695f7202e70641de09f9edb10d639f27c1a741ea3bd75ef",
+  "b9f828cfcd860d8100b4caa5526897b284acfc39be09f8ebd0967cee6fb5ca38",
+  "d7ad5ceea45a93061d18c7b25e10e09c6986bde89d1702b78d824c21053ec6e0"
+ ],
+ "contract": {
+  "centre_pixel": "the brush_cases.json transform with floor; a sample outside the image (null) paints nothing",
+  "footprint": "{(x, y) : (x-cx)^2 + (y-cy)^2 <= r^2, 0 <= x < Nx, 0 <= y < Ny} in SOURCE pixels, so zoom and pan cannot change what a stamp covers; r = 0 is the centre pixel only",
+  "radii": [0, 1, 2, 3, 5],
+  "stroke": "consecutive in-image samples are joined by an integer Bresenham line between their centre pixels, both ends included, and the footprint is stamped at every line pixel; a sample outside the image ends the segment - no line is drawn across the outside",
+  "line_ties": "every step of the major axis is visited once; the minor coordinate is the ideal value rounded half up in the direction of travel (the all-octant integer loop, err = dx - |dy|), so a tie depends on the sample order",
+  "values": "add writes 1, erase writes 0, on the stroke's slice of the WORKING mask only; the source mask is never written",
+  "history": "one committed stroke = one undo step holding slice, changed flat indices, old values and new values of pixels whose value actually changed; undo restores old values, redo re-applies new values, a new stroke clears redo; reset restores every slice from the source and clears history",
+  "flat_index": "y * Nx + x (row-major; x = column, y = row, DR-008a)",
+  "slice_sha256": "SHA-256 of the slice's Nx*Ny bytes, row-major, values 0/1",
+  "volume_sha256": "SHA-256 of all Nz working slices concatenated in z order"
+ },
+ "op_count": 14,
+ "ops": [
+  {
+   "id": "OP-01",
+   "slice": 8,
+   "tool": "add",
+   "radius": 0,
+   "transform": {
+    "geometry": "fit",
+    "zoom": 16.0,
+    "pan_x": 8.0,
+    "pan_y": 8.0
+   },
+   "samples": [
+    [720.0, 496.0],
+    [780.0, 500.0],
+    [848.0, 496.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [44, 30],
+     [48, 30],
+     [52, 30]
+    ],
+    "changed": 5,
+    "changed_indices": [1968, 1969, 1970, 1971, 1972],
+    "slice_sha256_before": "cce395039adf0025c0848510bac3bed2ac45f304c53d5b2a6baf284ecb2bddfb",
+    "slice_sha256_after": "9e94942e1d27d6814a32210fb8f398e7d135246ecc599b4021a15c615d42553c",
+    "volume_sha256_after": "148bc42e130f7444c38b1cb7e2574f03c8814b6dbddd4465c81190979f59436b"
+   }
+  },
+  {
+   "id": "OP-02",
+   "slice": 8,
+   "tool": "erase",
+   "radius": 2,
+   "transform": {
+    "geometry": "zoom_in_2x",
+    "zoom": 32.0,
+    "pan_x": -256.0,
+    "pan_y": -256.0
+   },
+   "samples": [
+    [208.0, 400.0],
+    [336.0, 528.0],
+    [400.0, 752.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [14, 20],
+     [18, 24],
+     [20, 31]
+    ],
+    "changed": 43,
+    "changed_indices": [1490, 1491, 1554, 1555, 1556, 1617, 1618, 1619, 1620, 1681, 1682, 1683, 1684, 1685, 1745, 1746, 1747, 1748, 1749, 1809, 1810, 1811, 1812, 1813, 1873, 1874, 1875, 1876, 1877, 1938, 1939, 1940, 1941, 1942, 2002, 2003, 2004, 2005, 2006, 2067, 2068, 2069, 2132],
+    "slice_sha256_before": "9e94942e1d27d6814a32210fb8f398e7d135246ecc599b4021a15c615d42553c",
+    "slice_sha256_after": "63cd2bf6de767019c4112f83d173223b8cca014ad9d1894ba73f07db9e6582fb",
+    "volume_sha256_after": "9fe3e3240e8703442879bbeef6cf652ff5e7c920abf65423a43d0a13a05b2254"
+   }
+  },
+  {
+   "id": "OP-03",
+   "slice": 8,
+   "tool": "add",
+   "radius": 5,
+   "transform": {
+    "geometry": "zoom_out_half",
+    "zoom": 8.0,
+    "pan_x": 300.0,
+    "pan_y": 400.0
+   },
+   "samples": [
+    [320.0, 428.0],
+    [302.0, 406.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [2, 3],
+     [0, 0]
+    ],
+    "changed": 57,
+    "changed_indices": [0, 1, 2, 3, 4, 5, 6, 64, 65, 66, 67, 68, 69, 70, 128, 129, 130, 131, 132, 133, 134, 192, 193, 194, 195, 196, 197, 198, 199, 256, 257, 258, 259, 260, 261, 262, 320, 321, 322, 323, 324, 325, 326, 384, 385, 386, 387, 388, 389, 390, 448, 449, 450, 451, 452, 453, 514],
+    "slice_sha256_before": "63cd2bf6de767019c4112f83d173223b8cca014ad9d1894ba73f07db9e6582fb",
+    "slice_sha256_after": "0ca3120e8f5e8f16bf8f02b8778c570652133a4d7ab8b3ba901be339d29867bb",
+    "volume_sha256_after": "cde1bcf475a44ed644b1ecb66388a3f3ce24728872658a2d89a1c27bb534be6b"
+   }
+  },
+  {
+   "id": "OP-04",
+   "slice": 8,
+   "tool": "add",
+   "radius": 1,
+   "transform": {
+    "geometry": "panned_corner",
+    "zoom": 24.0,
+    "pan_x": -100.0,
+    "pan_y": 620.0
+   },
+   "samples": [
+    [104.0, 656.0],
+    [104.0, 632.0],
+    [200.0, 584.0],
+    [296.0, 632.0],
+    [296.0, 656.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [8, 1],
+     [8, 0],
+     null,
+     [16, 0],
+     [16, 1]
+    ],
+    "changed": 14,
+    "changed_indices": [7, 8, 9, 15, 16, 17, 71, 72, 73, 79, 80, 81, 136, 144],
+    "slice_sha256_before": "0ca3120e8f5e8f16bf8f02b8778c570652133a4d7ab8b3ba901be339d29867bb",
+    "slice_sha256_after": "3dadc3c3264f3f785756c3968f6d6b7a51871e74308a57e8749bda18437141e0",
+    "volume_sha256_after": "6e6ff65a9bb8e694d4c5df0c067b1f03b7a361a542a80492d580e1fbd5f4b0d2"
+   }
+  },
+  {
+   "id": "OP-05",
+   "slice": 3,
+   "tool": "add",
+   "radius": 3,
+   "transform": {
+    "geometry": "fit",
+    "zoom": 16.0,
+    "pan_x": 8.0,
+    "pan_y": 8.0
+   },
+   "samples": [
+    [208.0, 528.0],
+    [296.0, 552.0],
+    [391.0, 599.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [12, 32],
+     [18, 34],
+     [23, 36]
+    ],
+    "changed": 40,
+    "changed_indices": [1868, 1869, 1930, 1931, 1932, 1933, 1934, 1935, 1994, 1995, 1996, 1997, 1998, 1999, 2057, 2058, 2059, 2060, 2061, 2062, 2063, 2122, 2123, 2124, 2125, 2126, 2127, 2186, 2187, 2188, 2189, 2190, 2191, 2252, 2253, 2254, 2255, 2318, 2319, 2320],
+    "slice_sha256_before": "42221259ed9328514c57d0573bbf8cd8ae7e6b2e6db4504059d50704f5fa9328",
+    "slice_sha256_after": "cf3bd1f3f4fed9c5ee76376f1d3e2599408eaebb91117d914e2f5fcb041a3df1",
+    "volume_sha256_after": "efdbb08c2564bf966eb194e7bb5eb1f5db261cd8fa59820bc39aa9210cb1acc9"
+   }
+  },
+  {
+   "id": "OP-06",
+   "slice": 3,
+   "tool": "erase",
+   "radius": 2,
+   "transform": {
+    "geometry": "zoom_in_4x",
+    "zoom": 64.0,
+    "pan_x": -900.0,
+    "pan_y": -700.0
+   },
+   "samples": [
+    [412.0, 932.0],
+    [876.0, 1300.0],
+    [988.0, 612.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [20, 25],
+     [27, 31],
+     [29, 20]
+    ],
+    "changed": 95,
+    "changed_indices": [1307, 1308, 1309, 1310, 1311, 1371, 1372, 1373, 1374, 1375, 1435, 1436, 1437, 1438, 1439, 1492, 1498, 1499, 1500, 1501, 1502, 1555, 1556, 1557, 1562, 1563, 1564, 1565, 1566, 1618, 1619, 1620, 1621, 1622, 1626, 1627, 1628, 1629, 1630, 1683, 1684, 1685, 1686, 1687, 1688, 1690, 1691, 1692, 1693, 1694, 1748, 1749, 1750, 1751, 1752, 1753, 1754, 1755, 1756, 1757, 1758, 1813, 1814, 1815, 1816, 1817, 1818, 1819, 1820, 1821, 1822, 1878, 1879, 1880, 1881, 1882, 1883, 1884, 1885, 1943, 1944, 1945, 1946, 1947, 1948, 1949, 2009, 2010, 2011, 2012, 2013, 2074, 2075, 2076, 2139],
+    "slice_sha256_before": "cf3bd1f3f4fed9c5ee76376f1d3e2599408eaebb91117d914e2f5fcb041a3df1",
+    "slice_sha256_after": "a4dfadaf8a6818b717bae5a779f57bfc455ef3a5fe9843adf01270f1ceb5ba64",
+    "volume_sha256_after": "7b981e53ab7a2c612eb4dedde41ef35041a53f56005e7f41260f09500738a122"
+   }
+  },
+  {
+   "id": "OP-07",
+   "slice": 3,
+   "tool": "erase",
+   "radius": 0,
+   "transform": {
+    "geometry": "zoom_in_2x",
+    "zoom": 32.0,
+    "pan_x": -256.0,
+    "pan_y": -256.0
+   },
+   "samples": [
+    [880.0, 976.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [35, 38]
+    ],
+    "changed": 1,
+    "changed_indices": [2467],
+    "slice_sha256_before": "a4dfadaf8a6818b717bae5a779f57bfc455ef3a5fe9843adf01270f1ceb5ba64",
+    "slice_sha256_after": "796af95d28e929f742c5e354c452167a40c73c04246beeb7716c661d21f3f589",
+    "volume_sha256_after": "0dbc25b01f33b3f08d6931487e3b9a191446b96e5b4ad3c7ae3646cdc73ee89b"
+   }
+  },
+  {
+   "id": "OP-08",
+   "slice": 3,
+   "tool": "add",
+   "radius": 5,
+   "transform": {
+    "geometry": "fit",
+    "zoom": 16.0,
+    "pan_x": 8.0,
+    "pan_y": 8.0
+   },
+   "samples": [
+    [1008.0, 992.0],
+    [1028.0, 1020.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [62, 61],
+     [63, 63]
+    ],
+    "changed": 43,
+    "changed_indices": [3646, 3707, 3708, 3709, 3710, 3711, 3770, 3771, 3772, 3773, 3774, 3775, 3834, 3835, 3836, 3837, 3838, 3839, 3898, 3899, 3900, 3901, 3902, 3903, 3961, 3962, 3963, 3964, 3965, 3966, 3967, 4026, 4027, 4028, 4029, 4030, 4031, 4090, 4091, 4092, 4093, 4094, 4095],
+    "slice_sha256_before": "796af95d28e929f742c5e354c452167a40c73c04246beeb7716c661d21f3f589",
+    "slice_sha256_after": "6eb4b69286b4cb56764e4a64ba10849f65a58277f2b9505216101b254b59765b",
+    "volume_sha256_after": "a72396c63d2193ff1ff65054cdb2bdeed723c9d815ceb43d7d6f8430599f6a8e"
+   }
+  },
+  {
+   "id": "OP-09",
+   "slice": 12,
+   "tool": "add",
+   "radius": 1,
+   "transform": {
+    "geometry": "zoom_out_half",
+    "zoom": 8.0,
+    "pan_x": 300.0,
+    "pan_y": 400.0
+   },
+   "samples": [
+    [624.0, 804.0],
+    [608.0, 756.0],
+    [592.0, 708.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [40, 50],
+     [38, 44],
+     [36, 38]
+    ],
+    "changed": 20,
+    "changed_indices": [2855, 2917, 2918, 2919, 2982, 2983, 2984, 3046, 3047, 3048, 3110, 3111, 3112, 3175, 3176, 3177, 3239, 3240, 3241, 3304],
+    "slice_sha256_before": "294b3260985a475ecdf4496b30a53522c549eeccab5ea822837664ff64523c9b",
+    "slice_sha256_after": "7fe1c76bd2b6e0a0b6fda47220f7a64812ec69eb0c1d8b40ba12b519a8df8bf0",
+    "volume_sha256_after": "e5ec476f69ca23d76e2f68c9ad8b6e06e5c25fa4b07ed009a7cba82ad55cb837"
+   }
+  },
+  {
+   "id": "OP-10",
+   "slice": 12,
+   "tool": "erase",
+   "radius": 3,
+   "transform": {
+    "geometry": "panned_corner",
+    "zoom": 24.0,
+    "pan_x": -100.0,
+    "pan_y": 620.0
+   },
+   "samples": [
+    [632.0, 968.0],
+    [728.0, 1208.0],
+    [968.0, 1160.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [30, 14],
+     [34, 24],
+     [44, 22]
+    ],
+    "changed": 97,
+    "changed_indices": [1248, 1249, 1250, 1251, 1309, 1310, 1311, 1312, 1313, 1314, 1315, 1317, 1318, 1319, 1320, 1374, 1375, 1376, 1377, 1378, 1379, 1380, 1381, 1382, 1383, 1384, 1385, 1386, 1438, 1439, 1440, 1441, 1442, 1443, 1444, 1445, 1446, 1447, 1448, 1449, 1450, 1451, 1503, 1504, 1505, 1506, 1507, 1508, 1509, 1510, 1511, 1512, 1513, 1514, 1515, 1516, 1567, 1568, 1569, 1570, 1571, 1572, 1573, 1574, 1575, 1576, 1577, 1578, 1579, 1580, 1581, 1632, 1633, 1634, 1635, 1636, 1637, 1638, 1639, 1640, 1641, 1642, 1643, 1644, 1696, 1697, 1698, 1699, 1700, 1701, 1702, 1703, 1704, 1705, 1762, 1763, 1764],
+    "slice_sha256_before": "7fe1c76bd2b6e0a0b6fda47220f7a64812ec69eb0c1d8b40ba12b519a8df8bf0",
+    "slice_sha256_after": "5b996ca6cd25bab213e92ed58bd36317e54c3b4a04d53610589b10fa18eac66c",
+    "volume_sha256_after": "fecd85bfb1a9a1c9a714d8fad3d0044f4e556d1294a3c8f0ec408117641b656c"
+   }
+  },
+  {
+   "id": "OP-11",
+   "slice": 12,
+   "tool": "erase",
+   "radius": 5,
+   "transform": {
+    "geometry": "zoom_in_2x",
+    "zoom": 32.0,
+    "pan_x": -256.0,
+    "pan_y": -256.0
+   },
+   "samples": [
+    [976.0, 1168.0],
+    [976.0, 1168.0],
+    [1064.0, 1272.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [38, 44],
+     [38, 44],
+     [41, 47]
+    ],
+    "changed": 59,
+    "changed_indices": [2534, 2595, 2596, 2597, 2598, 2599, 2600, 2601, 2658, 2659, 2660, 2661, 2662, 2663, 2664, 2665, 2666, 2722, 2723, 2724, 2725, 2726, 2727, 2728, 2729, 2730, 2786, 2787, 2788, 2789, 2790, 2791, 2792, 2849, 2850, 2851, 2852, 2853, 2854, 2855, 2917, 2918, 2919, 2982, 2983, 2984, 3046, 3047, 3048, 3110, 3111, 3112, 3175, 3176, 3177, 3239, 3240, 3241, 3304],
+    "slice_sha256_before": "5b996ca6cd25bab213e92ed58bd36317e54c3b4a04d53610589b10fa18eac66c",
+    "slice_sha256_after": "c9bee2fdbcea52032f830722058550974bc204553b77856e73f092fb2e561dc3",
+    "volume_sha256_after": "89e9c24425030abb79122ca1b0b1e0a69f1cc02da857249eb40b12c26121a2f1"
+   }
+  },
+  {
+   "id": "OP-12",
+   "slice": 12,
+   "tool": "add",
+   "radius": 0,
+   "transform": {
+    "geometry": "zoom_in_4x",
+    "zoom": 64.0,
+    "pan_x": -900.0,
+    "pan_y": -700.0
+   },
+   "samples": [
+    [1052.0, 1188.0],
+    [92.0, 1060.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [30, 29],
+     [15, 27]
+    ],
+    "changed": 8,
+    "changed_indices": [1743, 1744, 1745, 1746, 1811, 1812, 1813, 1814],
+    "slice_sha256_before": "c9bee2fdbcea52032f830722058550974bc204553b77856e73f092fb2e561dc3",
+    "slice_sha256_after": "c682893634c50fd466d9da68c1bfdddd89760e8814c7ef158b7f2de911b76f9a",
+    "volume_sha256_after": "d45e6dc451c9996b4768d44dd6d74057ca387eacc5fc23c0d893b4eb7b93cb16"
+   }
+  },
+  {
+   "id": "OP-13",
+   "slice": 0,
+   "tool": "add",
+   "radius": 2,
+   "transform": {
+    "geometry": "zoom_out_half",
+    "zoom": 8.0,
+    "pan_x": 300.0,
+    "pan_y": 400.0
+   },
+   "samples": [
+    [288.0, 644.0],
+    [312.0, 644.0],
+    [344.0, 668.0],
+    [282.0, 724.0],
+    [304.0, 756.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     null,
+     [1, 30],
+     [5, 33],
+     null,
+     [0, 44]
+    ],
+    "changed": 41,
+    "changed_indices": [1793, 1856, 1857, 1858, 1920, 1921, 1922, 1923, 1924, 1984, 1985, 1986, 1987, 1988, 1989, 2049, 2050, 2051, 2052, 2053, 2054, 2114, 2115, 2116, 2117, 2118, 2119, 2179, 2180, 2181, 2182, 2245, 2688, 2752, 2753, 2816, 2817, 2818, 2880, 2881, 2944],
+    "slice_sha256_before": "22fdca82d77d36aa831360d289f05af813e3449cc37b0c1c9947b1597b9c0de7",
+    "slice_sha256_after": "b7f41323da4da480455376ca19a0f8f6236d5d621ae0b8c1faeba3bc530deb17",
+    "volume_sha256_after": "d5820243699de9cf80d2da54cb5ac80fcd7f3fd373d3ce80b4e366b909357e23"
+   }
+  },
+  {
+   "id": "OP-14",
+   "slice": 8,
+   "tool": "erase",
+   "radius": 3,
+   "transform": {
+    "geometry": "zoom_in_4x",
+    "zoom": 64.0,
+    "pan_x": -900.0,
+    "pan_y": -700.0
+   },
+   "samples": [
+    [284.0, 868.0],
+    [668.0, 868.0]
+   ],
+   "expected": {
+    "centre_pixels": [
+     [18, 24],
+     [24, 24]
+    ],
+    "changed": 41,
+    "changed_indices": [1364, 1365, 1366, 1367, 1368, 1427, 1428, 1429, 1430, 1431, 1432, 1433, 1434, 1492, 1493, 1494, 1495, 1496, 1497, 1498, 1557, 1558, 1559, 1560, 1561, 1562, 1563, 1621, 1622, 1623, 1624, 1625, 1626, 1686, 1687, 1688, 1689, 1690, 1750, 1751, 1752],
+    "slice_sha256_before": "3dadc3c3264f3f785756c3968f6d6b7a51871e74308a57e8749bda18437141e0",
+    "slice_sha256_after": "4f05e0d07add1827e724b22c405786a0e3cd7321ad9de3884df4960a595703d5",
+    "volume_sha256_after": "6b5c116708368260814871111e1ea4fd82b8ec9f0e9ed5e398283396443f1ded"
+   }
+  }
+ ],
+ "undo_walk": [
+  {
+   "undo_of": "OP-14",
+   "slice": 8,
+   "changed": 41,
+   "slice_sha256": "3dadc3c3264f3f785756c3968f6d6b7a51871e74308a57e8749bda18437141e0",
+   "volume_sha256": "d5820243699de9cf80d2da54cb5ac80fcd7f3fd373d3ce80b4e366b909357e23"
+  },
+  {
+   "undo_of": "OP-13",
+   "slice": 0,
+   "changed": 41,
+   "slice_sha256": "22fdca82d77d36aa831360d289f05af813e3449cc37b0c1c9947b1597b9c0de7",
+   "volume_sha256": "d45e6dc451c9996b4768d44dd6d74057ca387eacc5fc23c0d893b4eb7b93cb16"
+  },
+  {
+   "undo_of": "OP-12",
+   "slice": 12,
+   "changed": 8,
+   "slice_sha256": "c9bee2fdbcea52032f830722058550974bc204553b77856e73f092fb2e561dc3",
+   "volume_sha256": "89e9c24425030abb79122ca1b0b1e0a69f1cc02da857249eb40b12c26121a2f1"
+  },
+  {
+   "undo_of": "OP-11",
+   "slice": 12,
+   "changed": 59,
+   "slice_sha256": "5b996ca6cd25bab213e92ed58bd36317e54c3b4a04d53610589b10fa18eac66c",
+   "volume_sha256": "fecd85bfb1a9a1c9a714d8fad3d0044f4e556d1294a3c8f0ec408117641b656c"
+  },
+  {
+   "undo_of": "OP-10",
+   "slice": 12,
+   "changed": 97,
+   "slice_sha256": "7fe1c76bd2b6e0a0b6fda47220f7a64812ec69eb0c1d8b40ba12b519a8df8bf0",
+   "volume_sha256": "e5ec476f69ca23d76e2f68c9ad8b6e06e5c25fa4b07ed009a7cba82ad55cb837"
+  },
+  {
+   "undo_of": "OP-09",
+   "slice": 12,
+   "changed": 20,
+   "slice_sha256": "294b3260985a475ecdf4496b30a53522c549eeccab5ea822837664ff64523c9b",
+   "volume_sha256": "a72396c63d2193ff1ff65054cdb2bdeed723c9d815ceb43d7d6f8430599f6a8e"
+  },
+  {
+   "undo_of": "OP-08",
+   "slice": 3,
+   "changed": 43,
+   "slice_sha256": "796af95d28e929f742c5e354c452167a40c73c04246beeb7716c661d21f3f589",
+   "volume_sha256": "0dbc25b01f33b3f08d6931487e3b9a191446b96e5b4ad3c7ae3646cdc73ee89b"
+  },
+  {
+   "undo_of": "OP-07",
+   "slice": 3,
+   "changed": 1,
+   "slice_sha256": "a4dfadaf8a6818b717bae5a779f57bfc455ef3a5fe9843adf01270f1ceb5ba64",
+   "volume_sha256": "7b981e53ab7a2c612eb4dedde41ef35041a53f56005e7f41260f09500738a122"
+  },
+  {
+   "undo_of": "OP-06",
+   "slice": 3,
+   "changed": 95,
+   "slice_sha256": "cf3bd1f3f4fed9c5ee76376f1d3e2599408eaebb91117d914e2f5fcb041a3df1",
+   "volume_sha256": "efdbb08c2564bf966eb194e7bb5eb1f5db261cd8fa59820bc39aa9210cb1acc9"
+  },
+  {
+   "undo_of": "OP-05",
+   "slice": 3,
+   "changed": 40,
+   "slice_sha256": "42221259ed9328514c57d0573bbf8cd8ae7e6b2e6db4504059d50704f5fa9328",
+   "volume_sha256": "6e6ff65a9bb8e694d4c5df0c067b1f03b7a361a542a80492d580e1fbd5f4b0d2"
+  },
+  {
+   "undo_of": "OP-04",
+   "slice": 8,
+   "changed": 14,
+   "slice_sha256": "0ca3120e8f5e8f16bf8f02b8778c570652133a4d7ab8b3ba901be339d29867bb",
+   "volume_sha256": "cde1bcf475a44ed644b1ecb66388a3f3ce24728872658a2d89a1c27bb534be6b"
+  },
+  {
+   "undo_of": "OP-03",
+   "slice": 8,
+   "changed": 57,
+   "slice_sha256": "63cd2bf6de767019c4112f83d173223b8cca014ad9d1894ba73f07db9e6582fb",
+   "volume_sha256": "9fe3e3240e8703442879bbeef6cf652ff5e7c920abf65423a43d0a13a05b2254"
+  },
+  {
+   "undo_of": "OP-02",
+   "slice": 8,
+   "changed": 43,
+   "slice_sha256": "9e94942e1d27d6814a32210fb8f398e7d135246ecc599b4021a15c615d42553c",
+   "volume_sha256": "148bc42e130f7444c38b1cb7e2574f03c8814b6dbddd4465c81190979f59436b"
+  },
+  {
+   "undo_of": "OP-01",
+   "slice": 8,
+   "changed": 5,
+   "slice_sha256": "cce395039adf0025c0848510bac3bed2ac45f304c53d5b2a6baf284ecb2bddfb",
+   "volume_sha256": "051762d3d80d3208fef774fcf20b55eb31dc975d35dbaef26ccabbc111ca06c9"
+  }
+ ],
+ "after_undo_all_slice_sha256": [
+  "22fdca82d77d36aa831360d289f05af813e3449cc37b0c1c9947b1597b9c0de7",
+  "b7f6c72a18c8f0fe511b4d2f74b3b0319240cc5d97a438aeebe5114d0cbc503f",
+  "a877510d375598d8473e5c3273cb84ade600d31ffccd8d1b2f49510f7fd27ff5",
+  "42221259ed9328514c57d0573bbf8cd8ae7e6b2e6db4504059d50704f5fa9328",
+  "22358235d421a6081874f577aa88b0c4e9e543806bc517b37ce65ca761f96d88",
+  "8149b60393f33be956c08404892469ba7a675844b75bc4398abe3d4b80673458",
+  "10bfa591eb3a6a39687ceae157d47a0b9456f83c3f597d2a9b2888e78de6abb4",
+  "c56b56725e7262bf8661ddaef70ad1d19044e0e022223432beb3ed6865d21529",
+  "cce395039adf0025c0848510bac3bed2ac45f304c53d5b2a6baf284ecb2bddfb",
+  "ad128ff58be05e560206b22879ab689ead06447f8d02e5fc157aca0e3fc12949",
+  "863c370c3e7b1198a0448d84e21e3b99049ff12c1f57ff21daf6725c7b5a982b",
+  "f7d8262e24c6b4a8a0533056e2e04a038a2fefd21dff4f7043e91a742b50cac7",
+  "294b3260985a475ecdf4496b30a53522c549eeccab5ea822837664ff64523c9b",
+  "85894d96f175bf03b695f7202e70641de09f9edb10d639f27c1a741ea3bd75ef",
+  "b9f828cfcd860d8100b4caa5526897b284acfc39be09f8ebd0967cee6fb5ca38",
+  "d7ad5ceea45a93061d18c7b25e10e09c6986bde89d1702b78d824c21053ec6e0"
+ ],
+ "redo_walk": [
+  {
+   "redo_of": "OP-01",
+   "slice": 8,
+   "changed": 5,
+   "slice_sha256": "9e94942e1d27d6814a32210fb8f398e7d135246ecc599b4021a15c615d42553c",
+   "volume_sha256": "148bc42e130f7444c38b1cb7e2574f03c8814b6dbddd4465c81190979f59436b"
+  },
+  {
+   "redo_of": "OP-02",
+   "slice": 8,
+   "changed": 43,
+   "slice_sha256": "63cd2bf6de767019c4112f83d173223b8cca014ad9d1894ba73f07db9e6582fb",
+   "volume_sha256": "9fe3e3240e8703442879bbeef6cf652ff5e7c920abf65423a43d0a13a05b2254"
+  },
+  {
+   "redo_of": "OP-03",
+   "slice": 8,
+   "changed": 57,
+   "slice_sha256": "0ca3120e8f5e8f16bf8f02b8778c570652133a4d7ab8b3ba901be339d29867bb",
+   "volume_sha256": "cde1bcf475a44ed644b1ecb66388a3f3ce24728872658a2d89a1c27bb534be6b"
+  },
+  {
+   "redo_of": "OP-04",
+   "slice": 8,
+   "changed": 14,
+   "slice_sha256": "3dadc3c3264f3f785756c3968f6d6b7a51871e74308a57e8749bda18437141e0",
+   "volume_sha256": "6e6ff65a9bb8e694d4c5df0c067b1f03b7a361a542a80492d580e1fbd5f4b0d2"
+  },
+  {
+   "redo_of": "OP-05",
+   "slice": 3,
+   "changed": 40,
+   "slice_sha256": "cf3bd1f3f4fed9c5ee76376f1d3e2599408eaebb91117d914e2f5fcb041a3df1",
+   "volume_sha256": "efdbb08c2564bf966eb194e7bb5eb1f5db261cd8fa59820bc39aa9210cb1acc9"
+  },
+  {
+   "redo_of": "OP-06",
+   "slice": 3,
+   "changed": 95,
+   "slice_sha256": "a4dfadaf8a6818b717bae5a779f57bfc455ef3a5fe9843adf01270f1ceb5ba64",
+   "volume_sha256": "7b981e53ab7a2c612eb4dedde41ef35041a53f56005e7f41260f09500738a122"
+  },
+  {
+   "redo_of": "OP-07",
+   "slice": 3,
+   "changed": 1,
+   "slice_sha256": "796af95d28e929f742c5e354c452167a40c73c04246beeb7716c661d21f3f589",
+   "volume_sha256": "0dbc25b01f33b3f08d6931487e3b9a191446b96e5b4ad3c7ae3646cdc73ee89b"
+  },
+  {
+   "redo_of": "OP-08",
+   "slice": 3,
+   "changed": 43,
+   "slice_sha256": "6eb4b69286b4cb56764e4a64ba10849f65a58277f2b9505216101b254b59765b",
+   "volume_sha256": "a72396c63d2193ff1ff65054cdb2bdeed723c9d815ceb43d7d6f8430599f6a8e"
+  },
+  {
+   "redo_of": "OP-09",
+   "slice": 12,
+   "changed": 20,
+   "slice_sha256": "7fe1c76bd2b6e0a0b6fda47220f7a64812ec69eb0c1d8b40ba12b519a8df8bf0",
+   "volume_sha256": "e5ec476f69ca23d76e2f68c9ad8b6e06e5c25fa4b07ed009a7cba82ad55cb837"
+  },
+  {
+   "redo_of": "OP-10",
+   "slice": 12,
+   "changed": 97,
+   "slice_sha256": "5b996ca6cd25bab213e92ed58bd36317e54c3b4a04d53610589b10fa18eac66c",
+   "volume_sha256": "fecd85bfb1a9a1c9a714d8fad3d0044f4e556d1294a3c8f0ec408117641b656c"
+  },
+  {
+   "redo_of": "OP-11",
+   "slice": 12,
+   "changed": 59,
+   "slice_sha256": "c9bee2fdbcea52032f830722058550974bc204553b77856e73f092fb2e561dc3",
+   "volume_sha256": "89e9c24425030abb79122ca1b0b1e0a69f1cc02da857249eb40b12c26121a2f1"
+  },
+  {
+   "redo_of": "OP-12",
+   "slice": 12,
+   "changed": 8,
+   "slice_sha256": "c682893634c50fd466d9da68c1bfdddd89760e8814c7ef158b7f2de911b76f9a",
+   "volume_sha256": "d45e6dc451c9996b4768d44dd6d74057ca387eacc5fc23c0d893b4eb7b93cb16"
+  },
+  {
+   "redo_of": "OP-13",
+   "slice": 0,
+   "changed": 41,
+   "slice_sha256": "b7f41323da4da480455376ca19a0f8f6236d5d621ae0b8c1faeba3bc530deb17",
+   "volume_sha256": "d5820243699de9cf80d2da54cb5ac80fcd7f3fd373d3ce80b4e366b909357e23"
+  },
+  {
+   "redo_of": "OP-14",
+   "slice": 8,
+   "changed": 41,
+   "slice_sha256": "4f05e0d07add1827e724b22c405786a0e3cd7321ad9de3884df4960a595703d5",
+   "volume_sha256": "6b5c116708368260814871111e1ea4fd82b8ec9f0e9ed5e398283396443f1ded"
+  }
+ ],
+ "after_redo_all_slice_sha256": [
+  "b7f41323da4da480455376ca19a0f8f6236d5d621ae0b8c1faeba3bc530deb17",
+  "b7f6c72a18c8f0fe511b4d2f74b3b0319240cc5d97a438aeebe5114d0cbc503f",
+  "a877510d375598d8473e5c3273cb84ade600d31ffccd8d1b2f49510f7fd27ff5",
+  "6eb4b69286b4cb56764e4a64ba10849f65a58277f2b9505216101b254b59765b",
+  "22358235d421a6081874f577aa88b0c4e9e543806bc517b37ce65ca761f96d88",
+  "8149b60393f33be956c08404892469ba7a675844b75bc4398abe3d4b80673458",
+  "10bfa591eb3a6a39687ceae157d47a0b9456f83c3f597d2a9b2888e78de6abb4",
+  "c56b56725e7262bf8661ddaef70ad1d19044e0e022223432beb3ed6865d21529",
+  "4f05e0d07add1827e724b22c405786a0e3cd7321ad9de3884df4960a595703d5",
+  "ad128ff58be05e560206b22879ab689ead06447f8d02e5fc157aca0e3fc12949",
+  "863c370c3e7b1198a0448d84e21e3b99049ff12c1f57ff21daf6725c7b5a982b",
+  "f7d8262e24c6b4a8a0533056e2e04a038a2fefd21dff4f7043e91a742b50cac7",
+  "c682893634c50fd466d9da68c1bfdddd89760e8814c7ef158b7f2de911b76f9a",
+  "85894d96f175bf03b695f7202e70641de09f9edb10d639f27c1a741ea3bd75ef",
+  "b9f828cfcd860d8100b4caa5526897b284acfc39be09f8ebd0967cee6fb5ca38",
+  "d7ad5ceea45a93061d18c7b25e10e09c6986bde89d1702b78d824c21053ec6e0"
+ ],
+ "after_reset_slice_sha256": [
+  "22fdca82d77d36aa831360d289f05af813e3449cc37b0c1c9947b1597b9c0de7",
+  "b7f6c72a18c8f0fe511b4d2f74b3b0319240cc5d97a438aeebe5114d0cbc503f",
+  "a877510d375598d8473e5c3273cb84ade600d31ffccd8d1b2f49510f7fd27ff5",
+  "42221259ed9328514c57d0573bbf8cd8ae7e6b2e6db4504059d50704f5fa9328",
+  "22358235d421a6081874f577aa88b0c4e9e543806bc517b37ce65ca761f96d88",
+  "8149b60393f33be956c08404892469ba7a675844b75bc4398abe3d4b80673458",
+  "10bfa591eb3a6a39687ceae157d47a0b9456f83c3f597d2a9b2888e78de6abb4",
+  "c56b56725e7262bf8661ddaef70ad1d19044e0e022223432beb3ed6865d21529",
+  "cce395039adf0025c0848510bac3bed2ac45f304c53d5b2a6baf284ecb2bddfb",
+  "ad128ff58be05e560206b22879ab689ead06447f8d02e5fc157aca0e3fc12949",
+  "863c370c3e7b1198a0448d84e21e3b99049ff12c1f57ff21daf6725c7b5a982b",
+  "f7d8262e24c6b4a8a0533056e2e04a038a2fefd21dff4f7043e91a742b50cac7",
+  "294b3260985a475ecdf4496b30a53522c549eeccab5ea822837664ff64523c9b",
+  "85894d96f175bf03b695f7202e70641de09f9edb10d639f27c1a741ea3bd75ef",
+  "b9f828cfcd860d8100b4caa5526897b284acfc39be09f8ebd0967cee6fb5ca38",
+  "d7ad5ceea45a93061d18c7b25e10e09c6986bde89d1702b78d824c21053ec6e0"
+ ],
+ "a5": {
+  "note": "Expected painted set of every brush_cases.json case when one ADD sample is stamped on a blank slice: painted_r0 is {expected_source_pixel}, painted_r2 the r = 2 footprint around it; [] where the touch is outside the image. The proposed A5 tolerance is 0 source pixels for these triples.",
+  "radii": [0, 2],
+  "cases": [
+   {
+    "id": "BC-000",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-001",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-002",
+    "painted_r0": [65],
+    "painted_r2": [0, 1, 2, 64, 65, 66, 67, 128, 129, 130, 193]
+   },
+   {
+    "id": "BC-003",
+    "painted_r0": [2015],
+    "painted_r2": [1887, 1950, 1951, 1952, 2013, 2014, 2015, 2016, 2017, 2078, 2079, 2080, 2143]
+   },
+   {
+    "id": "BC-004",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-005",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-006",
+    "painted_r0": [4032],
+    "painted_r2": [3904, 3968, 3969, 4032, 4033, 4034]
+   },
+   {
+    "id": "BC-007",
+    "painted_r0": [63],
+    "painted_r2": [61, 62, 63, 126, 127, 191]
+   },
+   {
+    "id": "BC-008",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-009",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-010",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-011",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-012",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-013",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-014",
+    "painted_r0": [65],
+    "painted_r2": [0, 1, 2, 64, 65, 66, 67, 128, 129, 130, 193]
+   },
+   {
+    "id": "BC-015",
+    "painted_r0": [2015],
+    "painted_r2": [1887, 1950, 1951, 1952, 2013, 2014, 2015, 2016, 2017, 2078, 2079, 2080, 2143]
+   },
+   {
+    "id": "BC-016",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-017",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-018",
+    "painted_r0": [4032],
+    "painted_r2": [3904, 3968, 3969, 4032, 4033, 4034]
+   },
+   {
+    "id": "BC-019",
+    "painted_r0": [63],
+    "painted_r2": [61, 62, 63, 126, 127, 191]
+   },
+   {
+    "id": "BC-020",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-021",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-022",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-023",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-024",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-025",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-026",
+    "painted_r0": [65],
+    "painted_r2": [0, 1, 2, 64, 65, 66, 67, 128, 129, 130, 193]
+   },
+   {
+    "id": "BC-027",
+    "painted_r0": [2015],
+    "painted_r2": [1887, 1950, 1951, 1952, 2013, 2014, 2015, 2016, 2017, 2078, 2079, 2080, 2143]
+   },
+   {
+    "id": "BC-028",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-029",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-030",
+    "painted_r0": [4032],
+    "painted_r2": [3904, 3968, 3969, 4032, 4033, 4034]
+   },
+   {
+    "id": "BC-031",
+    "painted_r0": [63],
+    "painted_r2": [61, 62, 63, 126, 127, 191]
+   },
+   {
+    "id": "BC-032",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-033",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-034",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-035",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-036",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-037",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-038",
+    "painted_r0": [65],
+    "painted_r2": [0, 1, 2, 64, 65, 66, 67, 128, 129, 130, 193]
+   },
+   {
+    "id": "BC-039",
+    "painted_r0": [2015],
+    "painted_r2": [1887, 1950, 1951, 1952, 2013, 2014, 2015, 2016, 2017, 2078, 2079, 2080, 2143]
+   },
+   {
+    "id": "BC-040",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-041",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-042",
+    "painted_r0": [4032],
+    "painted_r2": [3904, 3968, 3969, 4032, 4033, 4034]
+   },
+   {
+    "id": "BC-043",
+    "painted_r0": [63],
+    "painted_r2": [61, 62, 63, 126, 127, 191]
+   },
+   {
+    "id": "BC-044",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-045",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-046",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-047",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-048",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-049",
+    "painted_r0": [0],
+    "painted_r2": [0, 1, 2, 64, 65, 128]
+   },
+   {
+    "id": "BC-050",
+    "painted_r0": [65],
+    "painted_r2": [0, 1, 2, 64, 65, 66, 67, 128, 129, 130, 193]
+   },
+   {
+    "id": "BC-051",
+    "painted_r0": [2015],
+    "painted_r2": [1887, 1950, 1951, 1952, 2013, 2014, 2015, 2016, 2017, 2078, 2079, 2080, 2143]
+   },
+   {
+    "id": "BC-052",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-053",
+    "painted_r0": [4095],
+    "painted_r2": [3967, 4030, 4031, 4093, 4094, 4095]
+   },
+   {
+    "id": "BC-054",
+    "painted_r0": [4032],
+    "painted_r2": [3904, 3968, 3969, 4032, 4033, 4034]
+   },
+   {
+    "id": "BC-055",
+    "painted_r0": [63],
+    "painted_r2": [61, 62, 63, 126, 127, 191]
+   },
+   {
+    "id": "BC-056",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-057",
+    "painted_r0": [1040],
+    "painted_r2": [912, 975, 976, 977, 1038, 1039, 1040, 1041, 1042, 1103, 1104, 1105, 1168]
+   },
+   {
+    "id": "BC-058",
+    "painted_r0": [],
+    "painted_r2": []
+   },
+   {
+    "id": "BC-059",
+    "painted_r0": [],
+    "painted_r2": []
+   }
+  ]
+ }
+}
