@@ -43,7 +43,7 @@
         "dtype": "uint8",
         "checksum": {
           "algorithm": "sha256",
-          "value": "a9bd768ce32a3c4c10848be85a464e618879fcd2fff27c527e3f8519519c9b3a"
+          "value": "e59bf3e83b523547f711d453b710de91494e7ff8123cdec9e87458e9941aa4ca"
         },
         "geometry_validation_status": "VALIDATED_AXIS_ALIGNED"
       },
@@ -63,7 +63,7 @@
         "dtype": "uint8",
         "checksum": {
           "algorithm": "sha256",
-          "value": "f736d96ae8310150a4fba07c5e27dcc17c3cff6c4ed268dec8491eb9e20e278c"
+          "value": "bb288f9c3761917228941f2e843591bc36ef6f11ed531825834a30d6cceb08fa"
         },
         "geometry_validation_status": "VALIDATED_AXIS_ALIGNED",
         "label_semantics": "LA cavity",

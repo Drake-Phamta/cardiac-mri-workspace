@@ -37,6 +37,10 @@ The manifest is versioned and carries package provenance, exact case IDs, and
 the file paths relative to the package root. artifact_uri is the stable store
 address; source_path is only the path inside the acquired package.
 
+The canonical command is `python test_contract1.py`, which first materializes
+the tiny ignored NRRD fixtures and then runs all checks. After that command has
+run, the validator can also be invoked directly:
+
 ~~~text
 python validate_contract1.py \
   --manifest fixtures/valid_manifest.json \
@@ -46,9 +50,10 @@ python validate_contract1.py \
 Expected output is PASS: Contract 1 DRAFT v0 ....
 
 The validator uses only the Python standard library so the synthetic checks
-run without pynrrd. It parses the small ASCII NRRD fixtures to prove that the
-shape, spacing, axis alignment, label values, and checksums are not just
-unchecked JSON claims.
+run without pynrrd. The test creates tiny ASCII NRRD fixtures at runtime (no
+NRRD/dataset bytes are committed) and parses them to prove that the shape,
+spacing, axis alignment, label values, and checksums are not just unchecked
+JSON claims.
 
 ## Synthetic acceptance cases
 

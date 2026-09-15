@@ -14,6 +14,46 @@ from validate_contract1 import ContractError, validate_manifest
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
 
+SYNTHETIC_FIXTURES = {
+    "mri.nrrd": b"""NRRD0005
+type: uint8
+dimension: 3
+sizes: 2 2 1
+encoding: ascii
+space directions: (2,0,0) (0,3,0) (0,0,4)
+space origin: (10,20,30)
+
+1 2 3 4
+""",
+    "mask.nrrd": b"""NRRD0005
+type: uint8
+dimension: 3
+sizes: 2 2 1
+encoding: ascii
+space directions: (2,0,0) (0,3,0) (0,0,4)
+space origin: (10,20,30)
+
+0 255 0 255
+""",
+    "default_header.nrrd": b"""NRRD0005
+type: uint8
+dimension: 3
+sizes: 2 2 1
+encoding: ascii
+space directions: (1,0,0) (0,1,0) (0,0,1)
+space origin: (0,0,0)
+
+1 2 3 4
+""",
+}
+
+
+def ensure_synthetic_fixtures() -> None:
+    """Materialize tiny test-only NRRDs; no dataset bytes are committed."""
+    FIXTURES.mkdir(parents=True, exist_ok=True)
+    for name, content in SYNTHETIC_FIXTURES.items():
+        (FIXTURES / name).write_bytes(content)
+
 
 def load_valid() -> dict:
     return json.loads((FIXTURES / "valid_manifest.json").read_text(encoding="utf-8"))
@@ -35,6 +75,7 @@ def expect_error(
 
 
 def main() -> int:
+    ensure_synthetic_fixtures()
     schema = json.loads((HERE / "schema.json").read_text(encoding="utf-8"))
     assert schema["$schema"].endswith("draft/2020-12/schema")
     result = validate_manifest(load_valid(), FIXTURES)
