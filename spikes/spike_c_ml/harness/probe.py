@@ -66,6 +66,12 @@ import sys
 import time
 from datetime import datetime, timezone
 
+# Windows PowerShell may expose a legacy cp1252 stdout even when the operator's
+# real name is Unicode. Evidence capture must not fail before a measurement just
+# because the name contains Vietnamese characters.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 EVIDENCE = os.path.join(ROOT, "EVIDENCE_RAW")
@@ -87,8 +93,9 @@ COHORT = {
     "shapes": [{"shape_xyz": [576, 576, 88], "cases": 69},
                {"shape_xyz": [640, 640, 88], "cases": 85}],
     "mask_values": [0, 255],
-    "source": ("Spike D criterion A6, PR #25 by Be Quoc Khanh (submitted 2026-09-14, pending "
-               "review). Update here if the reviewed audit changes it."),
+    "source": ("Spike D criterion A6, PR #25 by Be Quoc Khanh (merged 2026-09-15). "
+               "QA-002 repair PR #34 keeps these measured dtype/shape counts unchanged; "
+               "its physical-geometry and duplicate-acquisition corrections are separate."),
 }
 
 # Candidate DINOv2 checkpoints. The key is what variant names use.
