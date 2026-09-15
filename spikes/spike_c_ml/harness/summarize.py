@@ -16,6 +16,19 @@ def load(path: Path) -> dict:
     return payload
 
 
+def load_calendar(path: Path, hours: float, source_probe: str) -> dict:
+    with path.open(encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    assumptions = payload.get("assumptions", {})
+    if payload.get("label") != "PRELIMINARY" or payload.get("criteria") != ["C0-7", "C0-8"]:
+        raise ValueError(f"{path}: expected a preliminary C0-7/C0-8 extrapolation")
+    if assumptions.get("gpu_hours_per_day") != hours:
+        raise ValueError(f"{path}: expected {hours:g} GPU hours/day")
+    if payload.get("source_probe") != source_probe or len(payload.get("by_variant", [])) != 10:
+        raise ValueError(f"{path}: source probe or variant count mismatch")
+    return payload
+
+
 def mib(value: int) -> float:
     return value / (1024 * 1024)
 
@@ -75,7 +88,7 @@ def svg_chart(items: list[dict], path: Path) -> None:
     path.write_text("\n".join(parts) + "\n", encoding="utf-8")
 
 
-def markdown(probes: list[dict], items: list[dict], chart_path: str) -> str:
+def markdown(probes: list[dict], items: list[dict], calendars: list[dict], chart_path: str) -> str:
     bf16 = {r["variant"]: r for r in items if r["precision"] == "bf16"}
     compute = probes[0]["compute"]
     checkpoints = probes[0]["checkpoints"]
@@ -84,8 +97,7 @@ def markdown(probes: list[dict], items: list[dict], chart_path: str) -> str:
         "",
         "**Owner/operator:** Bế Quốc Khánh",
         "**Execution:** 2026-09-16 on the owner's RTX 4050 Laptop GPU",
-        "**Status:** `PARTIAL_EVIDENCE` — C0-1…C0-6, C0-9 and C0-10 measured; "
-        "C0-7/C0-8 await the owner's real GPU-hours/day input.",
+        "**Status:** `EVIDENCE_READY` — all C0-1…C0-10 have measured or explicitly bounded preliminary evidence; independent review remains required.",
         "**Scope:** synthetic hardware/throughput probe only; **does not close `GATE-ML-01`**.",
         "",
         "## Environment and method",
@@ -130,10 +142,34 @@ def markdown(probes: list[dict], items: list[dict], chart_path: str) -> str:
         "",
         "## Calendar feasibility — C0-7/C0-8",
         "",
-        "`NOT MEASURED — owner has not yet supplied the number of real GPU hours available per day.` "
-        "No per-run/calendar verdict is emitted because doing so would invent an owner availability input. "
-        "Once supplied, run `extrapolate.py` against both raw JSON files with `--train-cases 80` and "
-        "`--gpu-hours-per-day <owner value>`; the result remains preliminary.",
+        "The owner reported approximately **4–5 unattended GPU hours/day** on 2026-09-16. "
+        "The planning verdict uses **4 h/day** conservatively; 5 h/day is shown as sensitivity, not guaranteed capacity.",
+        "",
+        "Both scenarios assume 80 train cases × 88 slices, 50 epochs, 1.35 overhead, and a matrix of "
+        "6 runs + 1 ablation in the 10-day window from 2026-09-21 to 2026-10-01. Epoch count and overhead "
+        "remain assumptions pending Spike C1.",
+        "",
+        "| BF16 variant | h/run | Matrix h | Days @4h | 4h verdict | Days @5h | 5h verdict |",
+        "|---|---:|---:|---:|---|---:|---|",
+    ]
+    by_hours = {c["assumptions"]["gpu_hours_per_day"]: {r["variant"]: r for r in c["by_variant"]}
+                for c in calendars}
+    for variant in by_hours[4.0]:
+        four, five = by_hours[4.0][variant], by_hours[5.0][variant]
+        lines.append(
+            f"| `{variant}` | {four['hours_per_run']:.2f} | {four['hours_full_matrix']:.2f} | "
+            f"{four['calendar_days_at_given_hours']:.2f} | "
+            f"{'FITS' if four['fits_remaining_calendar'] else 'DOES NOT FIT'} | "
+            f"{five['calendar_days_at_given_hours']:.2f} | "
+            f"{'FITS' if five['fits_remaining_calendar'] else 'DOES NOT FIT'} |"
+        )
+    fit4 = sum(r["fits_remaining_calendar"] for r in by_hours[4.0].values())
+    fit5 = sum(r["fits_remaining_calendar"] for r in by_hours[5.0].values())
+    lines += [
+        "",
+        f"**Preliminary C0-8 verdict:** {fit4}/10 variants fit the full matrix at the conservative "
+        f"4 h/day budget (40 GPU hours); {fit5}/10 fit at 5 h/day (50 GPU hours). "
+        "DINOv2-B/14 full linear and progressive do not fit either scenario. This is not a final recipe choice.",
         "",
         "## Acceptance coverage",
         "",
@@ -145,22 +181,24 @@ def markdown(probes: list[dict], items: list[dict], chart_path: str) -> str:
         "| C0-4 throughput | PASS — synchronized median, steps/s and slices/s |",
         "| C0-5 decoder stride | PASS — measured/model-reported |",
         "| C0-6 candidate costs | PASS — checkpoint revision/hash, mode, decoder, precision |",
-        "| C0-7 per-run extrapolation | NOT MEASURED — owner GPU-hours/day missing |",
-        "| C0-8 calendar verdict | NOT MEASURED — same blocker |",
+        "| C0-7 per-run extrapolation | PASS (preliminary) — arithmetic and assumptions recorded |",
+        "| C0-8 calendar verdict | PASS (preliminary) — conservative 4 h/day plus 5 h/day sensitivity |",
         "| C0-9 DR-011 | PASS — per-volume only plus fixed pretrained constants |",
         "| C0-10 gate statement | PASS — C0 does not close GATE-ML-01 |",
         "",
-        "**Overall:** 8/10 criteria evidenced; `PARTIAL_EVIDENCE`, not `EVIDENCE_READY`. "
+        "**Overall:** 10/10 C0 criteria evidenced; `EVIDENCE_READY`, awaiting independent review. "
         "No real dataset, validation, holdout, convergence run, or core matrix run was used.",
         "",
         "## Raw evidence",
         "",
         "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_20260916T004325+0700.json` — complete FP32 matrix.",
         "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_20260916T005659+0700.json` — complete BF16 matrix.",
+        "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_calendar_bf16_4h_20260916.json` — conservative calendar arithmetic.",
+        "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_calendar_bf16_5h_20260916.json` — sensitivity arithmetic.",
         "- `spikes/spike_c_ml/harness/probe.py` — measurement harness.",
-        "- `spikes/spike_c_ml/harness/extrapolate.py` — pending calendar arithmetic.",
+        "- `spikes/spike_c_ml/harness/extrapolate.py` — calendar arithmetic.",
         "",
-        "The raw logs contain one stale descriptive sentence saying PR #25 was pending review; #25 is merged "
+        "The raw probe logs contain one stale descriptive sentence saying PR #25 was pending review; #25 is merged "
         "and QA-002 repair PR #34 leaves the dtype/shape counts used here unchanged. The harness source is "
         "corrected for future runs; measured values were not edited after capture.",
         "",
@@ -172,17 +210,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("fp32", type=Path)
     parser.add_argument("bf16", type=Path)
+    parser.add_argument("--calendar-4h", type=Path, required=True)
+    parser.add_argument("--calendar-5h", type=Path, required=True)
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--chart", type=Path, required=True)
     args = parser.parse_args()
     probes = [load(args.fp32), load(args.bf16)]
     if [p["precision"] for p in probes] != ["fp32", "bf16"]:
         raise ValueError("inputs must be fp32 then bf16")
+    calendars = [load_calendar(args.calendar_4h, 4.0, args.bf16.name),
+                 load_calendar(args.calendar_5h, 5.0, args.bf16.name)]
     items = rows(probes)
     svg_chart(items, args.chart)
     args.result.parent.mkdir(parents=True, exist_ok=True)
     chart_rel = Path("../../../spikes/spike_c_ml") / args.chart.name
-    args.result.write_text(markdown(probes, items, chart_rel.as_posix()), encoding="utf-8")
+    args.result.write_text(markdown(probes, items, calendars, chart_rel.as_posix()), encoding="utf-8")
     print(f"wrote {args.result} and {args.chart} from {len(items)} measurements")
     return 0
 

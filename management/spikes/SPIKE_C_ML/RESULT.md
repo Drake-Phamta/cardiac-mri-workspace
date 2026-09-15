@@ -2,7 +2,7 @@
 
 **Owner/operator:** Bế Quốc Khánh
 **Execution:** 2026-09-16 on the owner's RTX 4050 Laptop GPU
-**Status:** `PARTIAL_EVIDENCE` — C0-1…C0-6, C0-9 and C0-10 measured; C0-7/C0-8 await the owner's real GPU-hours/day input.
+**Status:** `EVIDENCE_READY` — all C0-1…C0-10 have measured or explicitly bounded preliminary evidence; independent review remains required.
 **Scope:** synthetic hardware/throughput probe only; **does not close `GATE-ML-01`**.
 
 ## Environment and method
@@ -50,7 +50,24 @@ At batch 2, BF16 reduced memory and increased throughput for every measured full
 
 ## Calendar feasibility — C0-7/C0-8
 
-`NOT MEASURED — owner has not yet supplied the number of real GPU hours available per day.` No per-run/calendar verdict is emitted because doing so would invent an owner availability input. Once supplied, run `extrapolate.py` against both raw JSON files with `--train-cases 80` and `--gpu-hours-per-day <owner value>`; the result remains preliminary.
+The owner reported approximately **4–5 unattended GPU hours/day** on 2026-09-16. The planning verdict uses **4 h/day** conservatively; 5 h/day is shown as sensitivity, not guaranteed capacity.
+
+Both scenarios assume 80 train cases × 88 slices, 50 epochs, 1.35 overhead, and a matrix of 6 runs + 1 ablation in the 10-day window from 2026-09-21 to 2026-10-01. Epoch count and overhead remain assumptions pending Spike C1.
+
+| BF16 variant | h/run | Matrix h | Days @4h | 4h verdict | Days @5h | 5h verdict |
+|---|---:|---:|---:|---|---:|---|
+| `unet_base32_depth4` | 5.14 | 35.99 | 9.00 | FITS | 7.20 | FITS |
+| `unet_base16_depth4` | 2.49 | 17.40 | 4.35 | FITS | 3.48 | FITS |
+| `dinov2_s14_full_linear` | 5.63 | 39.41 | 9.85 | FITS | 7.88 | FITS |
+| `dinov2_s14_full_progressive` | 5.91 | 41.38 | 10.34 | DOES NOT FIT | 8.28 | FITS |
+| `dinov2_s14_frozen_linear` | 1.81 | 12.70 | 3.17 | FITS | 2.54 | FITS |
+| `dinov2_s14_frozen_progressive` | 1.82 | 12.73 | 3.18 | FITS | 2.55 | FITS |
+| `dinov2_b14_full_linear` | 14.64 | 102.46 | 25.62 | DOES NOT FIT | 20.49 | DOES NOT FIT |
+| `dinov2_b14_full_progressive` | 14.75 | 103.23 | 25.81 | DOES NOT FIT | 20.65 | DOES NOT FIT |
+| `dinov2_b14_frozen_linear` | 3.58 | 25.08 | 6.27 | FITS | 5.02 | FITS |
+| `dinov2_b14_frozen_progressive` | 3.72 | 26.03 | 6.51 | FITS | 5.21 | FITS |
+
+**Preliminary C0-8 verdict:** 7/10 variants fit the full matrix at the conservative 4 h/day budget (40 GPU hours); 8/10 fit at 5 h/day (50 GPU hours). DINOv2-B/14 full linear and progressive do not fit either scenario. This is not a final recipe choice.
 
 ## Acceptance coverage
 
@@ -62,18 +79,20 @@ At batch 2, BF16 reduced memory and increased throughput for every measured full
 | C0-4 throughput | PASS — synchronized median, steps/s and slices/s |
 | C0-5 decoder stride | PASS — measured/model-reported |
 | C0-6 candidate costs | PASS — checkpoint revision/hash, mode, decoder, precision |
-| C0-7 per-run extrapolation | NOT MEASURED — owner GPU-hours/day missing |
-| C0-8 calendar verdict | NOT MEASURED — same blocker |
+| C0-7 per-run extrapolation | PASS (preliminary) — arithmetic and assumptions recorded |
+| C0-8 calendar verdict | PASS (preliminary) — conservative 4 h/day plus 5 h/day sensitivity |
 | C0-9 DR-011 | PASS — per-volume only plus fixed pretrained constants |
 | C0-10 gate statement | PASS — C0 does not close GATE-ML-01 |
 
-**Overall:** 8/10 criteria evidenced; `PARTIAL_EVIDENCE`, not `EVIDENCE_READY`. No real dataset, validation, holdout, convergence run, or core matrix run was used.
+**Overall:** 10/10 C0 criteria evidenced; `EVIDENCE_READY`, awaiting independent review. No real dataset, validation, holdout, convergence run, or core matrix run was used.
 
 ## Raw evidence
 
 - `spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_20260916T004325+0700.json` — complete FP32 matrix.
 - `spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_20260916T005659+0700.json` — complete BF16 matrix.
+- `spikes/spike_c_ml/EVIDENCE_RAW/c0_calendar_bf16_4h_20260916.json` — conservative calendar arithmetic.
+- `spikes/spike_c_ml/EVIDENCE_RAW/c0_calendar_bf16_5h_20260916.json` — sensitivity arithmetic.
 - `spikes/spike_c_ml/harness/probe.py` — measurement harness.
-- `spikes/spike_c_ml/harness/extrapolate.py` — pending calendar arithmetic.
+- `spikes/spike_c_ml/harness/extrapolate.py` — calendar arithmetic.
 
-The raw logs contain one stale descriptive sentence saying PR #25 was pending review; #25 is merged and QA-002 repair PR #34 leaves the dtype/shape counts used here unchanged. The harness source is corrected for future runs; measured values were not edited after capture.
+The raw probe logs contain one stale descriptive sentence saying PR #25 was pending review; #25 is merged and QA-002 repair PR #34 leaves the dtype/shape counts used here unchanged. The harness source is corrected for future runs; measured values were not edited after capture.
