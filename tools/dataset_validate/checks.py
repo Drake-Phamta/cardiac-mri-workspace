@@ -70,6 +70,7 @@ EMPTY_MANIFEST_TITLES = [
 
 def run_checks(manifest: dict) -> list[Result]:
     cases = manifest.get("cases", [])
+    owner_verdicts = ((manifest.get("acquisition") or {}).get("owner_verdicts") or {})
 
     # An empty manifest must not produce a column of PASS. validate.py exits
     # before reaching here, but this function is the documented entry point for
@@ -103,7 +104,7 @@ def run_checks(manifest: dict) -> list[Result]:
     out.append(_a14_axis_aligned(cases))
     out.append(_a15_anomalies(cases))
     out.append(_a16_ids(cases))
-    out.append(_a17_privacy(cases))
+    out.append(_a17_privacy(cases, owner_verdicts.get("a17_excluded_files") or []))
     out.append(Result("A18", "Licence / data-use terms preserved and archived", OWNER,
                       "Confirmed by the person who performed the download, against the "
                       "acquisition directory. Not derivable from the package contents."))
@@ -384,7 +385,7 @@ def _a16_ids(cases: list[dict]) -> Result:
                   f"{len(ids)} unique CASE_NNNN IDs assigned deterministically by sorted source path")
 
 
-def _a17_privacy(cases: list[dict]) -> Result:
+def _a17_privacy(cases: list[dict], excluded_files: list[str] | None = None) -> Result:
     """A17 - metadata audit. `TASK.md:130` says "headers OR SIDECARS".
 
     The first version scanned only lgemri and laendo headers. This package
@@ -420,12 +421,18 @@ def _a17_privacy(cases: list[dict]) -> Result:
     # unreadable mask among many still printed PASS - breaking this module's own
     # rule 1 about never passing what it did not look at.
     if sidecars:
-        return Result("A17", title, FAIL,
-                      f"{len(sidecars)} non-NRRD sidecar file(s) inside case directories: "
-                      f"{', '.join(sidecars[:6])}. `06` section 2 says a file outside the required "
-                      f"pair is not a core target until its provenance and semantics are verified, "
-                      f"and TASK.md:130 asks for identifiers in headers OR SIDECARS. Content was "
-                      f"NOT read - the owner decides whether to exclude or clear each one.")
+        excluded = set(excluded_files or [])
+        not_excluded = [path for path in sidecars if path not in excluded]
+        if not_excluded:
+            return Result("A17", title, FAIL,
+                          f"{len(sidecars)} non-NRRD sidecar file(s) inside case directories; "
+                          f"{len(not_excluded)} lack an explicit app-metadata exclusion: "
+                          f"{', '.join(not_excluded[:6])}. Content was NOT read; exclude the whole "
+                          f"file or clear it before it can enter the app metadata path.")
+        return Result("A17", title, PASS,
+                      f"{len(sidecars)} non-NRRD sidecar file(s) reported and explicitly excluded "
+                      f"from ingestion/app metadata: {', '.join(sidecars[:6])}. Raw archive remains "
+                      f"untouched; sidecar content was not propagated.")
     if unchecked:
         return Result("A17", title, NOT_RUN,
                       f"{unchecked} volume(s) could not be opened, so their headers were never "
@@ -442,10 +449,18 @@ def _a17_privacy(cases: list[dict]) -> Result:
 
 # --- summary ----------------------------------------------------------------
 
-def summarise(results: list[Result]) -> dict[str, Any]:
+def summarise(results: list[Result], owner_verdicts: dict[str, Any] | None = None) -> dict[str, Any]:
     counts = {PASS: 0, FAIL: 0, NOT_RUN: 0, OWNER: 0}
     for r in results:
         counts[r.status] = counts.get(r.status, 0) + 1
+    owner_verdicts = owner_verdicts or {}
+    required_owner_fields = (
+        "a11_label_semantics",
+        "a13_split_evidence",
+        "a18_terms",
+    )
+    confirmed = sum(bool(str(owner_verdicts.get(field, "")).strip())
+                    for field in required_owner_fields)
     return {
         "pass": counts[PASS],
         "fail": counts[FAIL],
@@ -456,7 +471,8 @@ def summarise(results: list[Result]) -> dict[str, Any]:
         # so it was structurally always False and carried no information.
         # What a script CAN state is the machine-checkable half.
         "machine_checks_clean": counts[FAIL] == 0 and counts[NOT_RUN] == 0,
-        "owner_verdicts_outstanding": counts[OWNER],
+        "owner_verdicts_confirmed": confirmed,
+        "owner_verdicts_outstanding": max(0, counts[OWNER] - confirmed),
         "note": "machine_checks_clean covers only what a script can decide. GATE-DATA-01 also "
                 "needs the owner verdicts (A11, A13, A18), the rendered audit (A19), and the "
                 "four-step acceptance workflow. No script closes that gate.",

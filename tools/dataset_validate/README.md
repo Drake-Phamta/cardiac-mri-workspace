@@ -66,6 +66,17 @@ python tools/dataset_validate/validate.py \
     --write-manifest --write-audit
 ```
 
+If the 14.2 GiB extracted package does not fit, stream the official ZIP instead.
+The generated manifest and checks are identical; at most one NRRD is placed in
+a temporary directory at a time:
+
+```bash
+python tools/dataset_validate/validate.py \
+    --archive "D:/cardiac-mri-workspace-data/lasc2018/2018_UTAH_MICCAI.zip" \
+    --acquisition "D:/cardiac-mri-workspace-data/lasc2018/acquisition.json" \
+    --write-manifest --write-audit
+```
+
 Exit codes: `0` no `FAIL` · `1` at least one `FAIL` · `2` the run could not proceed.
 
 ### Start with `--selftest`

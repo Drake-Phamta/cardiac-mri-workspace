@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import checks                                    # noqa: E402
 from audit_report import render                  # noqa: E402
-from dataset_scan import scan_package            # noqa: E402
+from dataset_scan import scan_archive, scan_package  # noqa: E402
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "data", "manifests", "dataset_manifest.json")
@@ -62,8 +62,9 @@ def print_table(results: list[checks.Result], summary: dict) -> None:
     print(f"  {summary['pass']} pass · {summary['fail']} fail · "
           f"{summary['not_run']} not run · {summary['owner_verdict_required']} owner verdict")
     if summary["owner_verdict_required"]:
-        print("  Criteria marked 'own' need the owner's written verdict. A script cannot")
-        print("  decide what an annotation means or which split path to take.")
+        print(f"  Owner verdicts: {summary['owner_verdicts_confirmed']} confirmed · "
+              f"{summary['owner_verdicts_outstanding']} outstanding.")
+        print("  Criteria marked 'own' remain human statements; a script never promotes them to PASS.")
     if summary["not_run"]:
         print("  Criteria marked '--' were NOT checked. They are not passing.")
     print()
@@ -165,6 +166,37 @@ def selftest() -> int:
         if parts["Training Set"]["case_count"] != 5:
             problems.append("expected 5 training cases")
 
+        # The low-disk archive path must produce the same evidence structure as
+        # the extracted-directory path.  This catches ZIP discovery, temporary
+        # extraction and case-ordering regressions without needing real data.
+        import zipfile
+        archive_path = os.path.join(tmp, "synthetic.zip")
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for dirpath, _dirnames, filenames in os.walk(root):
+                for filename in filenames:
+                    path = os.path.join(dirpath, filename)
+                    zf.write(path, os.path.relpath(path, root).replace(os.sep, "/"))
+        archive_manifest = scan_archive(archive_path, want_checksums=True,
+                                        acquisition=manifest["acquisition"])
+        for field in ("case_count_total", "partitions", "shape_distribution"):
+            if archive_manifest[field] != manifest[field]:
+                problems.append(f"archive scan disagrees with directory scan for {field}")
+
+        # A sidecar remains a failure until every discovered path has an
+        # explicit exclusion from the app-metadata path.
+        sidecar_case = {
+            "case_id": "CASE_TEST",
+            "mri": {"header_identifier_findings": []},
+            "mask": {"header_identifier_findings": []},
+            "companion_volumes": {},
+            "non_nrrd_sidecars": ["desktop.ini"],
+        }
+        if checks._a17_privacy([sidecar_case], []).status != checks.FAIL:
+            problems.append("A17 passed an unexcluded sidecar")
+        if checks._a17_privacy(
+                [sidecar_case], ["CASE_TEST/desktop.ini"]).status != checks.PASS:
+            problems.append("A17 did not accept an explicitly excluded sidecar")
+
         # Resampling must see origin and direction, not only shape and spacing.
         by_name = {c["source_dir_name"]: c.get("mri_mask_compatibility") or {}
                    for c in manifest["cases"]}
@@ -198,6 +230,8 @@ def selftest() -> int:
         print("  ok    unlabelled partition reported, not treated as an error")
         print("  ok    A11 / A13 / A18 left to the owner, never auto-passed")
         print("  ok    audit renders from a manifest containing failures")
+        print("  ok    archive streaming path matches the extracted-directory path")
+        print("  ok    A17 requires an explicit exclusion for every sidecar")
         print()
         print("  SELFTEST PASSED - the harness works. It has measured nothing real.")
         print("  Exit code 0 means the SELFTEST passed. The A9 and A14 FAILs printed above")
@@ -212,6 +246,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", help="directory holding the extracted package")
+    ap.add_argument("--archive", help="ZIP package; streams one NRRD at a time when extraction will not fit")
     ap.add_argument("--acquisition", help="JSON file with the real acquisition record (A1)")
     ap.add_argument("--no-checksums", action="store_true",
                     help="skip per-file SHA-256 (faster; A1 then reports the gap)")
@@ -227,10 +262,13 @@ def main() -> int:
 
     if args.selftest:
         return selftest()
-    if not args.root:
-        ap.error("--root is required (or use --selftest)")
-    if not os.path.isdir(args.root):
+    if bool(args.root) == bool(args.archive):
+        ap.error("exactly one of --root or --archive is required (or use --selftest)")
+    if args.root and not os.path.isdir(args.root):
         print(f"not a directory: {args.root}")
+        return 2
+    if args.archive and not os.path.isfile(args.archive):
+        print(f"not a file: {args.archive}")
         return 2
 
     acquisition = None
@@ -243,17 +281,23 @@ def main() -> int:
         with open(args.acquisition, encoding="utf-8-sig") as f:
             acquisition = json.load(f)
 
-    manifest = scan_package(args.root, want_checksums=not args.no_checksums,
-                            acquisition=acquisition)
+    if args.archive:
+        manifest = scan_archive(args.archive, want_checksums=not args.no_checksums,
+                                acquisition=acquisition)
+    else:
+        manifest = scan_package(args.root, want_checksums=not args.no_checksums,
+                                acquisition=acquisition)
     if manifest["case_count_total"] == 0:
-        print(f"\n  No directory under {args.root} contains lgemri.nrrd.")
+        source = args.archive or args.root
+        print(f"\n  No case in {source} contains lgemri.nrrd.")
         print("  Nothing is written. An empty manifest is not a finding of zero cases —")
         print("  it means the package layout differs from what this scanner expects.")
         print("  Check the extraction path before recording anything.\n")
         return 2
 
     results = checks.run_checks(manifest)
-    summary = checks.summarise(results)
+    owner_verdicts = ((manifest.get("acquisition") or {}).get("owner_verdicts") or {})
+    summary = checks.summarise(results, owner_verdicts)
     print_table(results, summary)
 
     if args.write_manifest:
