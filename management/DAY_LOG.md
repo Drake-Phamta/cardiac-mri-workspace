@@ -42,7 +42,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 |---|---|---|---|
 | 1 | **Vũ Hùng Anh** → Phạm Tuấn Anh | ✅ **PR #25 trên `main`** — Hùng Anh approve 10:03:17 rồi tự merge 10:03:26 (`a92892c`) | bước QA Spike D → `GATE-DATA-01` |
 | 2 | **Bế Quốc Khánh** | **Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit | leader quyết `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật |
-| 3 | **Nguyễn Gia Đức Trung** | **Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 14:00) + **review PR split** *(#28 bị đóng tự động 10:03 — review PR mở lại)* | leader đo lại Spike E khung 15:00 · split được review |
+| 3 | **Nguyễn Gia Đức Trung** | **Stub 2 profile chạy trên Mac mini** (đã kiểm, **trước 20:30** — khung 15:00 huỷ vì leader chỉ có máy buổi tối) + **review PR split** *(#28 bị đóng tự động 10:03 — review PR mở lại)* | leader đo lại Spike E khung 21:00 · split được review |
 | 4 | **Vũ Hùng Anh** | ✅ **`B1`** — PR nháp #30 (10:21): viewer WebGL2 xoay/zoom + ảnh chụp *(mới chạy trên trình duyệt desktop)* | nợ Day 5 · nền cho `B3`–`B11` |
 
 **Không đủ bốn thì ngày này tính là trượt.** Điều kiện 2 phần probe phụ thuộc leader sửa #17 **trước 12:00**.

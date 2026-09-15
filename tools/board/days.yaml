@@ -66,7 +66,7 @@ spike_notes:
   SPIKE_D:  "#25 merge 10:03 → ❌ **QA Red Team `REJECT` 11:52** → `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng **`CASE_0056`/`CASE_0097` là một lần chụp bị xuất hai lần** (audit ghi 0 bất thường; split nháp đặt ở train và validation) · header không mang hình học vật lý · `A19` thiếu. Leader đã quyết Q1 (`DR-002a`: cặp trùng ghim vào train) và Q3; Q2 đang cân nhắc — `management/day06/QA_REVIEW_002_SPIKE_D.md`."
   SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR #27 — Hùng Anh soát 10:13: 4/4 kiểm đạt, góp ý `onPanResponderTerminate` đưa vào S5. S5 brush: **PR nháp #31** — F5 14/14 offline, chờ đo trên máy."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). ✅ `B14` diễn giải (#29) · ✅ `B1` viewer WebGL2 xoay/zoom có ảnh (#30 nháp, mới chạy trên trình duyệt desktop). Việc tiếp: picking `B3`/`B4`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
-  SPIKE_E:  "PR #26 **bị yêu cầu sửa 3 điểm** (10:09: JSON tổng hợp sinh từ bản script cũ · lệnh đo phải dùng Toybox · gộp lẫn profile) · #24 **còn 1 điểm** (ID mạng ZeroTier cũ). Hôm nay: stub 2 profile → leader đo **khung 15:00 và 21:00** → Trung tổng hợp."
+  SPIKE_E:  "PR #26 **bị yêu cầu sửa 3 điểm** (10:09: JSON tổng hợp sinh từ bản script cũ · lệnh đo phải dùng Toybox · gộp lẫn profile) · #24 **còn 1 điểm** (ID mạng ZeroTier cũ). Hôm nay: stub 2 profile → leader đo **khung 21:00** (15:00 huỷ — leader chỉ có máy buổi tối) → Trung tổng hợp."
   SPIKE_C0: "`C0-1` đã khai báo (RTX 4050 6 GB, không pagefile). #17: **đã sửa 2 lỗi runtime** (`08d7166`, 06:42; mỗi lần đo/thử batch chạy trong tiến trình con riêng) → Khánh review lại và chạy probe fp32 + bf16. Khung pipeline trên dữ liệu tổng hợp hôm nay."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
@@ -167,8 +167,8 @@ today:
       what: "**Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit"
       why: "Leader quyết được `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật"
     - who: trung
-      what: "**Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 14:00) + **review PR split của Khánh** (#28 bị đóng — review PR mở lại)"
-      why: "Leader đo lại Spike E khung 15:00 · split được review"
+      what: "**Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 20:30 — khung 15:00 huỷ) + **review PR split của Khánh** (#28 bị đóng — review PR mở lại)"
+      why: "Leader đo lại Spike E khung 21:00 · split được review"
     - who: hunganh
       what: "✅ **`B1`** — PR nháp #30 (10:21): viewer WebGL2 xoay/zoom + ảnh chụp; mới chạy trên trình duyệt desktop"
       why: "Nợ Day 5 · nền cho `B3`–`B11` và `GATE-MOB-01`"
@@ -179,8 +179,8 @@ today:
     - [hunganh, "Merge **#29** · **#30**", trung, "review #29 (`B14`) · #30 (`B1`) — reviewer Spike B"]
     - [tuananh, "Merge **#17**", khanh, "review lại **#17** (`08d7166`) — probe `C0` đã chạy được"]
     - [tuananh, "Quyết nối case↔bệnh nhân (`GATE-SPLIT-01`)", khanh, "**bằng chứng nối bệnh nhân** (trước 18:00)"]
-    - [tuananh, "Đo lại Spike E khung 15:00 · 21:00", trung, "stub 2 profile đã kiểm (trước 14:00)"]
-    - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 15:00 / 21:00"]
+    - [tuananh, "Đo lại Spike E khung 21:00 (15:00 huỷ) + đo S5 trên máy", trung, "stub 2 profile đã kiểm (trước 20:30)"]
+    - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 21:00"]
     - [tuananh, "Merge **#24** · **#26**", trung, "sửa #24 (1 điểm) · #26 (3 điểm) → Hùng Anh duyệt lại"]
   tasks:
     khanh:
@@ -206,15 +206,15 @@ today:
         - "**Review PR split của Khánh** khi mở lại (thay #28) — kiểm luật `DR-002a`: cặp trùng một nhóm ghim vào train *(~1,5 h)*"
         - "**Review #29** (`B14`) · **#30** (`B1`) — bạn là reviewer Spike B *(~1 h)*"
       now:
-        - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 14:00 *(~1 h)* · không còn chờ ai: stub cũ đã dừng 09:48"
+        - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 20:30 *(~1 h)* · khung 15:00 huỷ, leader đo khung 21:00"
         - "**`E9` reconnect/retry** trên harness Toybox + diễn tập AVD → PR *(~2,5 h)*"
       then:
-        - "Tổng hợp lượt đo khung 15:00 / 21:00, cập nhật nháp `RESULT.md` *(~1,5 h)*"
+        - "Tổng hợp lượt đo khung 21:00, cập nhật nháp `RESULT.md`; ghi thêm một khung ban ngày cho `E8` vào kế hoạch *(~1,5 h)*"
       later:
         - "M3 — hợp đồng ingestion 1 bản nháp v0: thêm phát hiện case trùng theo hash và header hình học mặc định ⇒ `GEOMETRY_NOT_VALIDATED` *(~2 h, xuống cuối hàng)*"
         - "Hợp đồng ingestion 2 (artifact) khung schema v0 *(~1,5 h)*"
         - "Kế hoạch đo `E7` bộ nhớ app *(~30 ph)*"
-      note: "22:24 hôm qua bạn thêm `--profile` — nhờ đó kế hoạch đo của bạn chạy được trên điện thoại. Hôm nay stub của bạn quyết định leader có đo được khung 15:00 không. Hùng Anh đã review #24 (còn 1 điểm) và #26 (3 điểm) — sửa sớm để merge trong ngày."
+      note: "22:24 hôm qua bạn thêm `--profile` — nhờ đó kế hoạch đo của bạn chạy được trên điện thoại. Leader chỉ có điện thoại buổi tối: khung 15:00 huỷ, stub cần sẵn trước 20:30 cho khung 21:00. Hùng Anh đã review #24 (còn 1 điểm) và #26 (3 điểm) — sửa sớm để merge trong ngày."
     hunganh:
       load: "chính **≥ 8 h** · khoảng 6 h đã xong trước 10:21 · còn ~4 h + dự phòng · hạn **23:59**"
       debts:
@@ -242,7 +242,7 @@ today:
       now:
         - "✅ **QA Red Team Spike D** — `REJECT` 11:52 (QA-002) · ✅ Q1 → `DR-002a` · ✅ Q3 bỏ đường dẫn tuyệt đối · **Q2 đang cân nhắc** (hoãn mục split của `A19`)"
         - "**Quyết nối case↔bệnh nhân** (`GATE-SPLIT-01`) sau bằng chứng của Khánh *(~30 ph)*"
-        - "**Đo lại Spike E** khung 15:00 và 21:00 *(~1,5 h)*"
+        - "**Buổi tối, khi cắm máy:** đo Spike E khung 21:00 + đo S5 trên máy (`A3`–`A7`, ~15 ph) *(~1,5 h)*"
       then:
         - "Merge #24 · #26 (chờ Trung sửa) · ✅ nhờ review #27 (10:51), Hùng Anh đã soát 10:13"
         - "✅ **Spike A S5 — brush**: PR nháp #31 (12:13) — F5 14/14, bundle sạch · đo `A3`–`A7` trên máy khi cắm điện thoại *(~15 ph)*"
