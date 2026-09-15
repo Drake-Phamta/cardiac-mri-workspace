@@ -228,7 +228,8 @@ members:
 # --- SPIKES -----------------------------------------------------------------
 # Mirrors management/spikes/SPIKE_PHASE_STATE.yaml, which remains the authority.
 spikes:
-  SPIKE_D:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P0}
+  SPIKE_D:  {status: EVIDENCE_READY, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P0,
+             review: APPROVED, evidence_commit: a92892c, next: "QA Red Team (step 3) since 2026-09-15 11:08"}
   SPIKE_A:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P1}
   SPIKE_B:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P1}
   SPIKE_E:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P2}
@@ -242,7 +243,7 @@ gates:
   GATE-DATA-01:   {status: OPEN,   closes_on: "Spike D evidence: DATASET_AUDIT.md + manifest"}
   GATE-SPLIT-01:  {status: OPEN,   closes_on: "patient-level split, seed 2024, provenance resolved",
                    path: "A - DR-002 decided 2026-09-14",
-                   open_question: "The package has no case-to-patient mapping (PR #28, 2026-09-15). The draft manifest uses each case as its own group and records patient separation as NOT VERIFIABLE. The leader must accept that limitation on the record, or require source evidence, before this gate can close."}
+                   open_question: "The package has no case-to-patient mapping (PR #28, 2026-09-15). The draft manifest uses each case as its own group and records patient separation as NOT VERIFIABLE. The leader must accept that limitation on the record, or require source evidence, before this gate can close. PR #28 was auto-closed on 2026-09-15 at 10:03 when its base branch was deleted on the #25 merge; the owner reopens it as a new PR against main."}
   GATE-ML-01:     {status: OPEN,   closes_on: "SPIKE_C1 evidence — C0 is not sufficient"}
   GATE-IMG-01:    {status: OPEN,   closes_on: "morphology config on development/validation evidence only"}
   GATE-MOB-01:    {status: OPEN,   closes_on: "Spike A AND Spike B evidence, via TECH_STACK_ADR.md"}
@@ -339,13 +340,16 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-15 05:45 (Day-5 close)
-  - {number: 25, branch: spike/SPIKE_D, author: qkhanhbe, waits_on: scalliontor, note: "Spike D audit - CRITICAL PATH. CHANGES_REQUESTED 2026-09-14 11:31 (one trailing space); fixed fdaf920 at 2026-09-15 00:44; re-review requested 01:01"}
-  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, waits_on: Drake-Phamta, note: "542887e fixed the first 5 findings; qkhanhbe re-reviewed on his RTX 4050 at 2026-09-15 00:52 - CHANGES_REQUESTED: --find-batch skipped when the intended batch fails; OSError on DINOv2 load aborts the probe; extrapolate wording still says DR-002 decides"}
-  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, waits_on: scalliontor, note: "CHANGES_REQUESTED 11:34 (3 points); all fixed 710090f at 22:24 plus --profile for the Toybox harness; includes PR #22 (c913050)"}
-  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Day-5 Spike E: run-4 aggregate, uint8 576/640 payload profiles, measurement plan, RESULT.md draft (not EVIDENCE_READY); not yet reviewed"}
-  - {number: 27, branch: spike-a/s4-zoom-pan, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S4 zoom/pan; A2 measured on the device 2026-09-14 21:25 OBSERVED (fb006da, 311eefe); marked ready and review requested from scalliontor 2026-09-15 10:51, queued behind #25, #24, #26"}
-  - {number: 28, branch: codex/path-a-split, base: spike/SPIKE_D, author: qkhanhbe, draft: true, note: "Path A split manifest (80/20/54, seed 2024, nested 20/40/80), selftest 9/9; stacked on #25, retarget to main after it merges; patient linkage NOT VERIFIABLE - see gates.GATE-SPLIT-01; review planned: TrungNGD195"}
+open_prs:                           # as of 2026-09-15 11:15 (Day 6)
+  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, waits_on: qkhanhbe, note: "542887e fixed the first 5 findings; qkhanhbe re-reviewed on his RTX 4050 at 2026-09-15 00:52 - CHANGES_REQUESTED: --find-batch skipped when the intended batch fails; OSError on DINOv2 load aborts the probe; extrapolate wording still says DR-002 decides. Fixed 08d7166 at 06:41 (plus CUDA worker isolation and the VRAM spill rule), CI green; auto-closed 06:01 by a commit keyword, reopened about 06:55; re-review requested from qkhanhbe"}
+  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, waits_on: TrungNGD195, note: "CHANGES_REQUESTED 2026-09-14 11:34 (3 points); fixed 710090f at 22:24 plus --profile. Re-review 2026-09-15 10:04 CHANGES_REQUESTED, one point: ANDROID_TOYBOX_HARNESS.md still names the old ZeroTier network 3b19b3a71652c5f0 instead of b103a835d292ddb3; the reviewer approves after that fix. Includes PR #22 (c913050)"}
+  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: TrungNGD195, note: "Day-5 Spike E: run-4 aggregate, uint8 576/640 payload profiles, measurement plan, RESULT.md draft (not EVIDENCE_READY). Reviewed 2026-09-15 10:09 CHANGES_REQUESTED: (1) the committed aggregate JSON comes from an older aggregate.py schema - regenerate it at the PR head; (2) the plan runs python client/harness.py, which cannot run on the phone - use the Toybox harness with --profile; (3) aggregate.py neither groups nor rejects mixed payload profiles"}
+  - {number: 27, branch: spike-a/s4-zoom-pan, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S4 zoom/pan; A2 measured on the device 2026-09-14 21:25 OBSERVED (fb006da, 311eefe). scalliontor COMMENTED 2026-09-15 10:13 - F1-F4 pass, 6/6, extract_a2 reproduces OBSERVED; follow-up: onPanResponderTerminate cleanup, taken into S5. Marked ready and review requested 10:51; leader replied 11:09"}
+  - {number: 28, branch: codex/path-a-split, author: qkhanhbe, state: CLOSED, note: "Path A split manifest (80/20/54, seed 2024, nested 20/40/80), selftest 9/9. Auto-closed 2026-09-15 10:03:28 when its base branch spike/SPIKE_D was deleted on the #25 merge - not merged, not rejected. The owner rebases codex/path-a-split onto main (dry run clean, 5 files) and opens a new PR; patient linkage NOT VERIFIABLE - see gates.GATE-SPLIT-01; review planned: TrungNGD195"}
+  - {number: 29, branch: hung-anh/day06-b14, author: scalliontor, waits_on: TrungNGD195, note: "Spike B B14 owner interpretation, README only; opened 2026-09-15 10:14; CI 4/4; Spike B reviewer is Trung (DR-006a rev 3)"}
+  - {number: 30, branch: hung-anh/day06-b1, author: scalliontor, draft: true, waits_on: TrungNGD195, note: "Spike B B1 minimal WebGL2 mesh viewer - orbit, wheel/two-finger zoom, diffuse shading - with a screenshot; checked in a desktop browser with Playwright, not yet on an emulator or the phone; opened 10:21; CI 4/4"}
+merged_2026_09_15:
+  - {number: 25, commit: a92892c, author: qkhanhbe, approved_by: scalliontor, merged_by: scalliontor, method: squash, note: "Spike D audit - CRITICAL PATH. APPROVED 10:03:17 and merged 10:03:26 +07:00 by the reviewer; branch spike/SPIKE_D deleted, which auto-closed #28. Acceptance continues with QA Red Team, then Project Control"}
 merged_2026_09_14:
   - {number: 23, commit: b4208d0, author: Drake-Phamta, approved_by: TrungNGD195, method: merge-commit, note: "DR-003b wifi-overlay tooling; merged first so PR #26, which carries it as an ancestor, diffs cleanly"}
 merged_2026_09_13:

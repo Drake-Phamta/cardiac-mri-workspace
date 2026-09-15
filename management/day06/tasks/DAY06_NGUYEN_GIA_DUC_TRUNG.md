@@ -13,12 +13,21 @@
 > bản sao từng lượt đã có trên nhánh `spike-e/evidence-20260913`. Repo trên Mac mini đang ở `37877e8` (13/09) — `git
 > fetch` rồi checkout nhánh của #26 (`chore/day5-trung`) trước khi sinh payload. *(Mac mini không tới được lúc 06:10 và
 > 06:14, tới được lại 09:38.)*
+>
+> ⚠ **10:04 và 10:09 — Hùng Anh đã review #24 và #26, cả hai `CHANGES_REQUESTED`.** #24 còn **1 điểm**:
+> `ANDROID_TOYBOX_HARNESS.md` vẫn ghi mạng ZeroTier cũ `3b19b3a71652c5f0` (nay là `b103a835d292ddb3`) — sửa xong là
+> Hùng Anh approve. #26 có **3 điểm** có nội dung (việc 1b). **#28 bị đóng tự động 10:03** khi #25 merge — bạn review
+> bản Khánh mở lại. Bạn là **reviewer Spike B**: Hùng Anh vừa mở **#29** (`B14`) và **#30** (`B1`).
+> **Thứ tự mới:** 1a (15 phút) → **việc 2 — stub, hạn 14:00** → 1b → 1d → 1c khi PR có → việc 3, 4.
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
-| **1** | **Review PR #28** — split Path A của Khánh *(việc 6 Day 5, PR chỉ có từ 00:58)*: chạy lại `split.py --selftest`, JSON Schema, đếm **80/20/54**, holdout **đúng** 54 case `Testing Set`, `20 ⊂ 40 ⊂ 80`, chạy hai lần ra **cùng** file, từ chối nguồn chưa sẵn. PR xếp chồng trên #25 nhưng review được ngay | ~1,5 h | không | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
+| **1a** | **Sửa #24** — đổi ID mạng ZeroTier cũ trong `spikes/spike_e_transport/client/ANDROID_TOYBOX_HARNESS.md` sang `b103a835d292ddb3`, hoặc trỏ tới nguồn chuẩn (`OPEN_DECISIONS.md` / `SPIKE_PHASE_STATE.yaml`) thay vì ghi cứng | ~15 ph | không | commit trên #24, trả lời review |
+| **1b** | **Sửa #26 — 3 điểm của Hùng Anh:** (1) tái sinh `SPIKE_E_RUN4_AGGREGATE.json` bằng `aggregate.py` ở PR head (ghi `run_quality` trước khi serialise), hoặc ghi rõ và commit đúng bản script đã sinh JSON cũ; (2) thay khối lệnh `python client/harness.py` trong kế hoạch đo bằng lệnh harness Toybox chính xác (có `--profile`), ghi rõ harness Python chỉ là công cụ chẩn đoán trên máy trạm; (3) đưa profile vào nhóm/báo cáo của `aggregate.py`, hoặc bắt buộc mỗi profile một lần chạy và từ chối trộn | ~2 h | không | commit trên #26, trả lời từng điểm |
+| **1c** | **Review PR split của Khánh** (thay #28): chạy lại `split.py --selftest`, JSON Schema, đếm **80/20/54**, holdout **đúng** 54 case `Testing Set`, `20 ⊂ 40 ⊂ 80`, chạy hai lần ra **cùng** file, từ chối nguồn chưa sẵn | ~1,5 h | Khánh mở PR mới | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
+| **1d** | **Review #29** (`B14`, chỉ README) và **#30** (`B1`, PR nháp: viewer WebGL2 + ảnh) — bạn là reviewer Spike B (`DR-006a` rev 3) | ~1 h | không | review có nội dung trên từng PR |
 
 ## Việc Day 6
 
@@ -27,9 +36,9 @@
 | **2** | **Dựng stub 2 profile trên Mac mini** — **trước 14:00** để kịp khung 15:00. Từ nhánh #26 (ghi commit): `payloads/generate.py` cả hai profile → `stub/server.py --payloads … --bind 10.64.193.115 --port 8787 --log <file>`. ✅ Leader đã dừng instance cũ PID 32227 lúc 09:48 — cổng trống. Kiểm **ngay trên Mac mini**: `/health` 200, `?profile=576x576x88` và `640x640x88` trả đúng `Content-Length` | ~1 h | không *(✅ 09:48)* | comment trên #26: commit, lệnh, output kiểm, đường dẫn log. Payload bytes **không commit** (`.gitignore`) |
 | **3** | **`E9` reconnect/retry trên harness Toybox**: kịch bản mất kết nối có kiểm soát giữa một lần tải slice và một lần tải mesh (vd. operator `adb shell svc wifi disable` → `enable`, hoặc tắt/bật network ZeroTier). Ghi: thời điểm mất, thời gian hồi phục, số lần thử lại, dữ liệu sau thử lại có trùng byte không, trạng thái lỗi. Diễn tập trên AVD (`lan-diagnostic`, chỉ chẩn đoán) | ~2,5 h | không | PR (nhánh mới từ `docs/day4-avd-diagnostic`) + hướng dẫn một trang để leader chạy trên máy thật |
 | **4** | **Tổng hợp các lượt đo mới trong ngày**: khi leader đẩy dữ liệu thô khung 15:00 và 21:00, chạy `aggregate.py` **riêng từng nhóm** path/profile/khung giờ; cập nhật nháp `RESULT.md` (`E2`–`E6`, `E8` độ trải theo khung giờ, `E12`) | ~1,5 h | leader (dữ liệu thô) | commit trên nhánh #26. *Chưa có dữ liệu thì làm việc 5* |
-| **5** | **M3 — Hợp đồng ingestion 1 (dữ liệu thô), bản nháp v0** theo bảng "Contract 1" của `DR-004`: schema manifest cho `MRICase` / `MRIVolume` / `GroundTruthMask`; các kiểm bắt buộc (NRRD mở được, shape + spacing khớp, label `{0, 255}` ghi rõ, **axis-aligned, không thì `GEOMETRY_NOT_VALIDATED`** — DR-012, allowlist metadata); idempotency (checksum đổi là lỗi, không ghi đè); bị chặn bởi `GATE-DATA-01`. Dựng trên `dataset_manifest.json` của Spike D (PR #25). **Chỉ tài liệu + JSON Schema + ca kiểm trên dữ liệu tổng hợp — không module production, không đóng băng API** | ~2 h | không | PR nháp `contracts/ingestion/contract1_raw_dataset/` — ghi rõ `DRAFT v0` |
+| **5** | *(xuống cuối hàng 11:15 — sau các việc trên)* **M3 — Hợp đồng ingestion 1 (dữ liệu thô), bản nháp v0** theo bảng "Contract 1" của `DR-004`: schema manifest cho `MRICase` / `MRIVolume` / `GroundTruthMask`; các kiểm bắt buộc (NRRD mở được, shape + spacing khớp, label `{0, 255}` ghi rõ, **axis-aligned, không thì `GEOMETRY_NOT_VALIDATED`** — DR-012, allowlist metadata); idempotency (checksum đổi là lỗi, không ghi đè); bị chặn bởi `GATE-DATA-01`. Dựng trên `dataset_manifest.json` của Spike D (trên `main` từ `a92892c`). **Chỉ tài liệu + JSON Schema + ca kiểm trên dữ liệu tổng hợp — không module production, không đóng băng API** | ~2 h | không | PR nháp `contracts/ingestion/contract1_raw_dataset/` — ghi rõ `DRAFT v0` |
 
-**Tổng phần chính: ~8,5 h** *(+ trả lời review #26 của Hùng Anh khi có, ~1 h)*.
+**Tổng phần chính: ~10 h** — gồm sửa #24 và #26 cùng 3 review mới; việc 5 (M3 hợp đồng ingestion 1) làm sau cùng.
 
 > **🎯 Chuẩn demo** *(leader, 15/09: sản phẩm cuối phải "wow")*: giảng viên sẽ cảm nhận Spike E qua **tốc độ mở ca và
 > lướt slice trên máy thật**. Việc 4 xuất **bảng + biểu đồ phân bố** (p50/p95/max theo khung giờ và profile) dùng
@@ -45,6 +54,6 @@
 
 ---
 
-**Nhắc lại:** bạn là **reviewer Spike B** (`DR-006a` rev 3) — hôm nay chưa có bằng chứng Spike B để review. Leader là
+**Nhắc lại:** bạn là **reviewer Spike B** (`DR-006a` rev 3) — hôm nay có #29 và #30 để review (việc 1d). Leader là
 operator duy nhất của điện thoại cho Spike E; mọi con số `E` do **bạn** tính. **Liên quan:** PR #24 · PR #26 · PR #28 ·
 [`../../day05/DAY05_EOD_REVIEW.md`](../../day05/DAY05_EOD_REVIEW.md) · `OPEN_DECISIONS.md` → `DR-004`, `DR-003b`, `DR-006a`

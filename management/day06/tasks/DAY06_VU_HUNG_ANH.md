@@ -7,24 +7,30 @@
 >
 > **Hôm nay bạn đang giữ việc của 3 người** (#25 cho Khánh và leader, #24 và #26 cho Trung). Làm **review trước** — mỗi
 > cái mở khoá cho người khác — rồi mới tới app. Mỗi việc xong là đẩy lên ngay.
+>
+> ✅ **Cập nhật 11:15 — buổi sáng rất hiệu quả:** approve + merge #25 (10:03), review lại #24 (10:04, còn 1 điểm),
+> review #26 (10:09, 3 điểm có nội dung — tái chạy `aggregate.py`), soát #27 (10:13, 4/4 kiểm đạt), #29 `B14` (10:14),
+> #30 `B1` (10:21). **Việc còn lại:** 6 picking, 7 duyệt lại #24/#26 khi Trung sửa, 8 review chính thức #27 và PR S5.
 
 ## 🔴 LÀM TRƯỚC — theo thứ tự
 
 | # | Việc | Giờ | Xong khi |
 |---|---|---|---|
-| **1** | **Review lại PR #25** — Khánh đã sửa đúng dòng bạn yêu cầu (`fdaf920`, diff 1 dòng). **Critical path** — merge xong thì Spike D sang bước QA và Khánh đổi base #28 | ~20 ph | `APPROVE` |
-| **2** | **Review lại PR #24** — Trung sửa đủ 3 điểm của bạn + thêm `--profile` (`710090f`); `diff --check` sạch, CI 4/4 | ~30 ph | `APPROVE` hoặc yêu cầu sửa |
-| **3** | **`B1` — app 3D tối thiểu** *(nợ Day 5)*: render `spikes/spike_b_3d/mesh/out/level_0_cell1.obj` + camera xoay/zoom. Emulator được cho `B1` (chẩn đoán); thư viện do bạn chọn | ~3 h | PR nháp + ảnh chụp mesh xoay được |
-| **4** | **`B14` — diễn giải** trên nhóm hợp đồng `interior` / `surface_tangent` *(nợ Day 5)* — đọc cột `slice/mm` trước, hai nhóm chênh đòn bẩy ~3,6 lần | ~1 h | một mục trong README Spike B hoặc comment trên PR |
+| **1** | ✅ **Review lại PR #25** — `APPROVE` 10:03:17 và merge 10:03:26 (`a92892c`). Spike D sang bước QA | ~20 ph | `APPROVE` |
+| **2** | ✅ **Review lại PR #24** — 10:04 `CHANGES_REQUESTED`, còn 1 điểm (ID mạng ZeroTier cũ trong hướng dẫn Toybox) | ~30 ph | `APPROVE` hoặc yêu cầu sửa |
+| **3** | ✅ **`B1` — app 3D tối thiểu** *(nợ Day 5)* — PR nháp #30 (10:21): WebGL2, xoay + zoom, ảnh chụp; mới kiểm trên trình duyệt desktop (Playwright) | ~3 h | PR nháp + ảnh chụp mesh xoay được |
+| **4** | ✅ **`B14` — diễn giải** *(nợ Day 5)* — PR #29 (10:14), mục trong README Spike B | ~1 h | một mục trong README Spike B hoặc comment trên PR |
 
 ## Việc Day 6
 
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
-| **5** | **Review PR #26** (Spike E, bạn là reviewer): tái chạy `aggregate.py` trên `20260913_run4` và so với báo cáo; payload đúng `A6` (`uint8`, 576/640 × 88); stub phục vụ cả hai profile; kế hoạch đo **chạy được trên điện thoại** (phải dùng harness Toybox, không phải `harness.py`); nháp `RESULT.md` không có số nào không truy được về dữ liệu thô | ~2 h | không | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
-| **6** | **Picking trên fixture chính thức trong app** (`B3`/`B4`, emulator): chạm → tia → điểm trên mesh, so với 13 tia `expected` của `geometry_fixture_v0.json` | ~1,5 h | việc 3 | bảng `B4` exact trên emulator *(chẩn đoán — `B5`/`B6` trên máy thật đo sau, leader bấm)* |
+| **5** | ✅ **Review PR #26** — 10:09 `CHANGES_REQUESTED`, 3 điểm có nội dung. Nội dung đã giao: tái chạy `aggregate.py` trên `20260913_run4` và so với báo cáo; payload đúng `A6` (`uint8`, 576/640 × 88); stub phục vụ cả hai profile; kế hoạch đo **chạy được trên điện thoại** (phải dùng harness Toybox, không phải `harness.py`); nháp `RESULT.md` không có số nào không truy được về dữ liệu thô | ~2 h | không | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
+| **6** | **Picking trên fixture chính thức trong app** (`B3`/`B4`, trên viewer #30 hoặc emulator): chạm → tia → điểm trên mesh, so với 13 tia `expected` của `geometry_fixture_v0.json` | ~1,5 h | việc 3 | bảng `B4` exact trên emulator *(chẩn đoán — `B5`/`B6` trên máy thật đo sau, leader bấm)* |
+| **7** | **Duyệt lại #24 và #26** khi Trung đẩy bản sửa | ~1 h | Trung | `APPROVE` hoặc yêu cầu sửa |
+| **8** | **Review chính thức #27** (đã soát 10:13 — approve hoặc yêu cầu sửa) · **review PR S5 brush** (`A3`–`A7`) khi leader đẩy lên | ~1,5 h | leader (S5) | review có nội dung |
 
-**Tổng phần chính: ~8,3 h.**
+**Tổng phần chính: ~8,3 h** ban đầu — khoảng 6 h đã xong trước 10:21; còn việc 6–8 (~4 h) + hàng dự phòng.
 
 > **🎯 Chuẩn demo** *(leader, 15/09: sản phẩm cuối phải "wow")*: app 3D là thứ giảng viên nhìn thấy **đầu tiên**.
 > Ngay từ `B1`: xoay/zoom mượt, **ánh sáng/shading đọc được hình khối** nhĩ trái, màu và nền nhất quán; kèm PR một
@@ -35,7 +41,7 @@
 
 | Việc | Giờ | Xong khi |
 |---|---|---|
-| **Review PR #27** — Spike A S4 zoom/pan của leader, `A2` đã đo trên máy (bạn là reviewer Spike A). *10:51: leader đã chuyển PR sang ready và gửi yêu cầu review cho bạn, kèm checklist 4 bước ngay trên PR. Vẫn làm **sau** #25, #24 và #26* | ~1 h | review có nội dung |
+| ✅ **Soát PR #27** — 10:13, 4/4 kiểm đạt; góp ý `onPanResponderTerminate` được đưa vào S5. 10:51 leader chuyển PR sang ready và gửi yêu cầu review; 11:09 leader trả lời — review chính thức ở việc 8 | ~1 h | review có nội dung |
 | **M3 — hợp đồng hình học**: nâng `tests/fixtures/geometry/FORMAT.md` thành hợp đồng có **số phiên bản**, quy tắc thay đổi, và mô tả contract test *(chỉ bạn được viết thư mục này — DR-013)* | ~1 h | PR |
 | **Kịch bản đo `B10`/`B11` cho leader bấm** (`DR-006a` rev 3) — chỉ khi app việc 3 chạy được | ~30 ph | file ngắn trong `spikes/spike_b_3d/` |
 

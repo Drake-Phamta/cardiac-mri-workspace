@@ -40,10 +40,10 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | # | Ai | Điều kiện | Mở khoá gì |
 |---|---|---|---|
-| 1 | **Vũ Hùng Anh** → Phạm Tuấn Anh | **PR #25 trên `main`** — review lại (1 dòng) → merge | bước QA Spike D → `GATE-DATA-01` |
+| 1 | **Vũ Hùng Anh** → Phạm Tuấn Anh | ✅ **PR #25 trên `main`** — Hùng Anh approve 10:03:17 rồi tự merge 10:03:26 (`a92892c`) | bước QA Spike D → `GATE-DATA-01` |
 | 2 | **Bế Quốc Khánh** | **Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit | leader quyết `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật |
-| 3 | **Nguyễn Gia Đức Trung** | **Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 14:00) + **review #28** | leader đo lại Spike E khung 15:00 · split được review |
-| 4 | **Vũ Hùng Anh** | **`B1`** — app 3D render mesh + camera (PR nháp có ảnh) | nợ Day 5 · nền cho `B3`–`B11` |
+| 3 | **Nguyễn Gia Đức Trung** | **Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 14:00) + **review PR split** *(#28 bị đóng tự động 10:03 — review PR mở lại)* | leader đo lại Spike E khung 15:00 · split được review |
+| 4 | **Vũ Hùng Anh** | ✅ **`B1`** — PR nháp #30 (10:21): viewer WebGL2 xoay/zoom + ảnh chụp *(mới chạy trên trình duyệt desktop)* | nợ Day 5 · nền cho `B3`–`B11` |
 
 **Không đủ bốn thì ngày này tính là trượt.** Điều kiện 2 phần probe phụ thuộc leader sửa #17 **trước 12:00**.
 
@@ -68,6 +68,11 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Phạm Tuấn Anh | Dừng stub cũ PID 32227 trên Mac mini lúc 09:48 — `10.64.193.115:8787` trống cho stub 2 profile của Trung | output kiểm ở [`day06/tasks/DAY06_PHAM_TUAN_ANH.md`](day06/tasks/DAY06_PHAM_TUAN_ANH.md) việc 3 |
 | Phạm Tuấn Anh | PR #27 (Spike A S4) chuyển ready, nhờ Hùng Anh review lúc 10:51, checklist 4 bước trên PR | PR #27 — comment `issuecomment-5674459831` |
 | Phạm Tuấn Anh *(Project Control soạn)* | Chuẩn demo v0 — **bản nháp, chờ leader duyệt** | [`DEMO_STANDARD.md`](DEMO_STANDARD.md) |
+| Vũ Hùng Anh | Review lại #25 → `APPROVE` 10:03 và merge | `a92892c` trên `main` |
+| Bế Quốc Khánh | Audit Spike D đầy đủ lên `main` sau review | `a92892c` — `management/DATASET_AUDIT.md` · `data/manifests/dataset_manifest.json` · `spikes/SPIKE_D_DATASET/RESULT.md` |
+| Vũ Hùng Anh | Review lại #24 (`CHANGES_REQUESTED`, 1 điểm) · review #26 (`CHANGES_REQUESTED`, 3 điểm) · soát #27 (4/4 kiểm đạt) | review trên PR #24 10:04 · #26 10:09 · #27 10:13 |
+| Vũ Hùng Anh | `B14` — diễn giải của chủ spike | PR #29 |
+| Vũ Hùng Anh | `B1` — viewer 3D WebGL2 xoay/zoom + ảnh chụp | PR nháp #30 |
 
 ---
 

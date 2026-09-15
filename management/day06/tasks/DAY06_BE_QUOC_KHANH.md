@@ -9,13 +9,17 @@
 >
 > **Hôm nay:** mỗi việc xong là **đẩy lên ngay** (commit/PR/comment). Trung, Hùng Anh và leader cần review hoặc
 > dùng kết quả của bạn **trong ngày** — việc đẩy lên sau nửa đêm thì không ai kịp dùng.
+>
+> ✅ **10:03 — audit Spike D của bạn đã lên `main`** (`a92892c`): Hùng Anh approve rồi merge. Bước 3 — **QA Red Team** —
+> chạy từ 11:08 bằng một phiên độc lập. File ZIP gốc chỉ có trên máy bạn, nên nếu QA cần bạn chạy lại một lệnh, yêu
+> cầu sẽ được ghi vào packet này.
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
 | **1** | **Bật pagefile Windows** trên máy của bạn (vd. System managed, hoặc ≥ 16 GB). Lý do: bạn đã ghi `WinError 1455` khi tải DINOv2 — probe C0 sẽ gặp lại lỗi này. Sau đó bổ sung một dòng vào comment `C0-1` trên #17 | ~15 ph | không | `Win32_PageFileUsage` trả về pagefile; comment bổ sung trên #17 |
-| **2** | **Khi #25 merge: đổi base PR #28 sang `main`**, CI 4/4 xanh | ~15 ph | Hùng Anh review lại #25 → leader merge | #28 nhắm `main`, CI xanh. *Chưa merge thì làm việc 3 trước* |
+| **2** | **Mở lại PR split về `main`.** #25 đã merge 10:03 (`a92892c`, squash); nhánh base `spike/SPIKE_D` bị xoá khi merge nên **GitHub tự đóng #28 lúc 10:03:28** — không ai quyết đóng. Làm: `git fetch origin` → `git switch codex/path-a-split` → `git rebase --onto origin/main fdaf920` → `git push --force-with-lease` → `gh pr create --base main --draft`, ghi "thay #28" trong mô tả. *Project Control đã thử rebase trên bản sao cục bộ: sạch, còn đúng 5 file split* | ~20 ph | không | PR mới nhắm `main`, CI 4/4 xanh |
 
 ## Việc Day 6
 

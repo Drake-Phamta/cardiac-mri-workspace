@@ -194,11 +194,11 @@ spikes:
     priority: P0
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
+    status: EVIDENCE_READY   # RESULT.md with real measurements is on main (a92892c); QA Red Team pending - NOT ACCEPTED
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
-      state: NOT_REQUESTED
+      state: APPROVED          # Vu Hung Anh APPROVED PR #25 at 2026-09-15 10:03:17 +07:00 and merged it (a92892c)
       reviewer: "Vu Hung Anh"
       priority_rank: 1          # ahead of SPIKE_A in Vu Hung Anh's queue - SPIKE_D is P0
       queue_note: >
@@ -212,8 +212,8 @@ spikes:
       - management/spikes/SPIKE_D_DATASET/RESULT.md
       - management/DATASET_AUDIT.md
       - data/manifests/dataset_manifest.*
-    evidence_present: false
-    latest_tested_commit: null
+    evidence_present: true     # RESULT.md is on main since a92892c - the rule stated in next_action
+    latest_tested_commit: a92892c
     environment: null
     related_dr: [DR-001, DR-002, DR-012, DR-G01, DR-G02]
     related_condition: [C1, C6]
@@ -239,7 +239,16 @@ spikes:
       (80/20/54, seed 2024), stacked on #25 - the package has no case-to-patient mapping, so patient
       separation is recorded NOT VERIFIABLE (a GATE-SPLIT-01 question for the leader). Next: Vu Hung
       Anh re-reviews #25, the leader merges, the owner retargets #28 to main.
-    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44, re-review requested"}
+      Update 2026-09-15 10:03: Vu Hung Anh APPROVED #25 (10:03:17) and merged it himself as squash commit
+      a92892c (the plan had the leader merging; the outcome is the same). RESULT.md, DATASET_AUDIT.md and
+      dataset_manifest.json are on main, so evidence_present is true and status is EVIDENCE_READY. The
+      merged branch spike/SPIKE_D was deleted, which auto-closed the stacked draft PR #28 at 10:03:28 - not
+      a decision. The owner rebases codex/path-a-split onto main and opens a new PR; a local rebase dry run
+      by Project Control applied cleanly (5 split files). QA Red Team (acceptance step 3) started about
+      11:08 as an independent session. The official archive is on the owner's machine, so QA re-runs what
+      it can here and records what it cannot. Not ACCEPTED; GATE-DATA-01 stays OPEN until QA PASS and the
+      Project Control transition.
+    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44; APPROVED 2026-09-15 10:03 and merged a92892c"}
 
   - id: SPIKE_A
     name: "2D scientific viewer / brush interaction"
