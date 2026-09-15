@@ -26,6 +26,7 @@ VALIDATION_COUNT = 20
 HOLDOUT_COUNT = 54
 SUBSET_25_COUNT = 20
 SUBSET_50_COUNT = 40
+KNOWN_DUPLICATE = ("CASE_0056", "CASE_0097")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATASET = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
@@ -77,14 +78,20 @@ def choose_exact(groups: dict[str, list[str]], target_cases: int, salt: str) -> 
 
 def read_patient_map(path: Path | None, case_ids: set[str]) -> tuple[dict[str, str], dict[str, Any]]:
     if path is None:
-        return ({case_id: case_id for case_id in case_ids}, {
-            "mode": "source_case_directory_as_patient_proxy",
+        proxy = {case_id: case_id for case_id in case_ids}
+        # DR-002a: byte-identical cavity labels and independently screened MRI
+        # establish one duplicated acquisition, even without patient IDs.
+        proxy[KNOWN_DUPLICATE[1]] = KNOWN_DUPLICATE[0]
+        return (proxy, {
+            "mode": "source_case_directory_proxy_with_known_duplicate_group",
             "patient_linkage_status": "NOT_DETERMINABLE_FROM_PACKAGE",
             "statement": (
-                "The obtained package exposes one opaque source directory per case but no "
-                "patient-linkage field or mapping. Multiple scans belonging to one patient "
-                "cannot be detected. Group separation is proven only for case-directory proxies, "
-                "not for biological patients. GATE-SPLIT-01 must review this limitation."
+                "CASE_0056 and CASE_0097 are one duplicated acquisition under DR-002a "
+                "and are grouped in training. Other case directories are only proxies: "
+                "the challenge benchmark reports 154 scans from 60 de-identified "
+                "patients, so additional repeat scans are expected but cannot be "
+                "linked from this package. "
+                "GATE-SPLIT-01 must review this limitation."
             ),
         })
 
@@ -164,7 +171,17 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
     if missing_labels:
         raise SplitError(f"Path A requires labels in all 154 obtained cases; missing: {missing_labels[:5]}")
 
+    left, right = (by_id[cid] for cid in KNOWN_DUPLICATE)
+    left_sha = (left.get("mask") or {}).get("sha256")
+    right_sha = (right.get("mask") or {}).get("sha256")
+    if not isinstance(left_sha, str) or len(left_sha) != 64 or left_sha != right_sha:
+        raise SplitError("DR-002a duplicate pair needs equal verified laendo SHA-256 values")
+    if not set(KNOWN_DUPLICATE) <= set(released_train):
+        raise SplitError("DR-002a duplicate pair must both be in released Training Set")
+
     case_to_patient, linkage = read_patient_map(patient_map_path, set(by_id))
+    if case_to_patient[KNOWN_DUPLICATE[0]] != case_to_patient[KNOWN_DUPLICATE[1]]:
+        raise SplitError("patient map separates the known DR-002a duplicate acquisition")
     raw_groups: dict[str, list[str]] = {}
     for case_id, patient_key in case_to_patient.items():
         raw_groups.setdefault(patient_key, []).append(case_id)
@@ -186,7 +203,10 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
     holdout_groups = {
         key: members for key, members in raw_groups.items() if set(members) <= test_set
     }
-    validation_keys = choose_exact(development_groups, VALIDATION_COUNT, "validation")
+    duplicate_key = case_to_patient[KNOWN_DUPLICATE[0]]
+    eligible_validation = {key: members for key, members in development_groups.items()
+                           if key != duplicate_key}
+    validation_keys = choose_exact(eligible_validation, VALIDATION_COUNT, "validation")
     train_keys = set(development_groups) - validation_keys
     train_groups = {key: development_groups[key] for key in train_keys}
     subset_50_keys = choose_exact(train_groups, SUBSET_50_COUNT, "subset-50")
@@ -218,6 +238,9 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
         raise SplitError("internal overlap error")
     if not set(subset_25_ids) < set(subset_50_ids) < set(train_ids):
         raise SplitError("nested subset invariant failed")
+    for ids in (train_ids, validation_ids, holdout_ids, subset_25_ids, subset_50_ids):
+        if len(set(ids) & set(KNOWN_DUPLICATE)) not in (0, 2):
+            raise SplitError("DR-002a duplicate acquisition was split")
 
     stamp = generated_at or datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     linkage_verified = linkage["patient_linkage_status"] == "PROVIDED_BY_EXTERNAL_MAPPING"
@@ -237,6 +260,8 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
         "decision": {
             "selected_path": "Path A",
             "decision_id": "DR-002",
+            "duplicate_acquisition_decision_id": "DR-002a",
+            "known_duplicate_case_ids": list(KNOWN_DUPLICATE),
             "decided_at": "2026-09-14",
             "policy": "80 development-train / 20 validation / 54 locked official holdout",
         },
@@ -252,12 +277,14 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
             **linkage,
             "group_count": len(raw_groups),
             "multiple_scan_group_count": sum(len(v) > 1 for v in raw_groups.values()),
+            "train_known_distinct_acquisitions": TRAIN_COUNT - 1,
             "source_patient_identifiers_persisted": False,
         },
         "partitions": {
             "train": {
                 "case_count": len(train_ids), "patient_group_count": len(train_keys),
                 "case_ids": train_ids, "patient_group_ids": group_ids(train_keys),
+                "known_distinct_acquisition_count": TRAIN_COUNT - 1,
                 "usage": "training and training-only data-fraction subsets",
             },
             "validation": {
@@ -296,15 +323,18 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
             "patient_level_no_overlap": True if linkage_verified else "NOT VERIFIABLE",
             "no_slice_level_randomization": True,
             "subsets_nested_25_in_50_in_100": True,
+            "known_duplicate_both_pinned_to_train": set(KNOWN_DUPLICATE) <= set(train_ids),
+            "known_duplicate_never_split_in_subsets": True,
             "holdout_membership_equals_released_testing_set": holdout_ids == released_test,
         },
         "gate_split_01": {
             "status": ("EVIDENCE_READY_FOR_REVIEW" if linkage_verified
-                       else "EVIDENCE_READY_WITH_PATIENT_LINKAGE_LIMITATION"),
+                       else "BLOCKED_PATIENT_LINKAGE"),
             "closed_by_this_script": False,
             "blocking_question": (None if linkage_verified else
-                "Does each opaque source case directory represent one unique patient? The package "
-                "does not expose enough metadata to answer or detect repeat scans."),
+                "Apart from the DR-002a known duplicate, do different opaque source "
+                "directories represent unique biological patients? The package "
+                "does not expose enough metadata to prove this."),
         },
     }
 
@@ -315,6 +345,7 @@ def selftest() -> int:
             "case_id": f"CASE_{index:04d}",
             "partition_as_released": partition,
             "files_present": {"lgemri.nrrd": True, "laendo.nrrd": True},
+            "mask": {"sha256": f"{56 if index == 97 else index:064x}"},
         }
 
     dataset = {
@@ -343,9 +374,16 @@ def selftest() -> int:
             ),
             "unknown patient linkage is not promoted to true":
                 first["invariants"]["patient_level_no_overlap"] == "NOT VERIFIABLE",
+            "DR-002a pair pinned to training":
+                set(KNOWN_DUPLICATE) <= set(first["partitions"]["train"]["case_ids"])
+                and first["partitions"]["train"]["known_distinct_acquisition_count"] == 79,
+            "DR-002a pair never split in nested subsets": all(
+                len(set(KNOWN_DUPLICATE) & set(block["case_ids"])) in (0, 2)
+                for block in first["training_subsets"].values()),
         }
         # Explicit pairs prove that whole multi-scan groups never split.
         mapping = {f"CASE_{i:04d}": f"P_{(i + 1) // 2:03d}" for i in range(1, 155)}
+        mapping[KNOWN_DUPLICATE[1]] = mapping[KNOWN_DUPLICATE[0]]
         map_path = Path(tmp) / "patient-map.json"
         map_path.write_text(json.dumps({"case_to_patient": mapping}), encoding="utf-8")
         grouped = build_split(dataset, dataset_path, map_path, "SELFTEST", "SELFTEST")
@@ -356,7 +394,7 @@ def selftest() -> int:
         checks["paired scans stay together"] = all(
             partition_by_case[f"CASE_{i:04d}"] == partition_by_case[f"CASE_{i + 1:04d}"]
             for i in range(1, 155, 2)
-        )
+        ) and partition_by_case[KNOWN_DUPLICATE[0]] == partition_by_case[KNOWN_DUPLICATE[1]]
         checks["explicit map makes patient overlap verifiable"] = \
             grouped["invariants"]["patient_level_no_overlap"] is True
 
