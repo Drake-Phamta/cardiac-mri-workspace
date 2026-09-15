@@ -38,13 +38,26 @@ thermal state, background load, and server commit in every packet.
 
 ## Commands
 
-```bash
-python client/harness.py --base http://<zerotier>:8787 \
-  --path wifi-overlay --connection direct \
-  --operator "Pham Tuan Anh" --owner "Nguyen Gia Duc Trung" \
-  --profile 576x576x88 --slices 88 --repeats 3 \
-  --note "window, location, signal, thermal"
+The physical Galaxy A17 has no Python, Termux, `curl`, or `wget`. Run the
+Toybox fallback through the leader's remote ADB endpoint; this is the exact
+command used for an acceptance run:
+
+```powershell
+$adb = 'C:\Users\Diep_PC\AppData\Local\Android\platform-tools\adb.exe'
+$args = @(
+  '-H', '10.134.129.145', '-P', '5037', 'shell', 'sh', '-s', '--',
+  '--base', 'http://10.134.129.115:8787',
+  '--path', 'wifi-overlay', '--connection', 'direct',
+  '--profile', '576x576x88',
+  '--operator', 'Pham Tuan Anh', '--owner', 'Nguyen Gia Duc Trung',
+  '--slices', '88', '--window-radius', '2', '--repeats', '3',
+  '--out', '/data/local/tmp/e_transport_android.jsonl'
+)
+Get-Content -Raw -Encoding utf8 spikes/spike_e_transport/client/android_toybox_harness.sh |
+  & $adb @args
 ```
 
-Use `--profile 640x640x88` for the second profile. Never hand-edit a raw JSONL
-record after capture.
+Use `--profile 640x640x88` for the second profile, preserving the same path,
+connection, operator, and owner fields. Pull the JSONL after each run and never
+hand-edit it. The Python `client/harness.py` command remains a workstation-only
+diagnostic alternative; it is not a valid command for the physical phone.

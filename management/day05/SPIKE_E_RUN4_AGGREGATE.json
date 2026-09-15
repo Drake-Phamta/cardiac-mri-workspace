@@ -1,38 +1,365 @@
 {
-  "report_kind": "owner_aggregation",
-  "generated_by": "spikes/spike_e_transport/analyze/aggregate.py",
-  "generated_from_ref": "spike-e/evidence-20260913",
-  "generated_from_commit": "7c05c8cb859c11da9cc71992f4a2b2d8e14e2dde",
-  "aggregation_tool_ref": "spike-e/wifi-overlay-path",
-  "aggregation_tool_commit": "2ed3c643b7e03abb3f35a86ad864e1c66dbdd403",
-  "source_file": "spikes/spike_e_transport/EVIDENCE_RAW/20260913_run4/e_transport_20260913_run4.jsonl",
-  "measurement_path": "wifi-overlay",
-  "overlay_connection": "direct",
-  "is_acceptance_evidence": true,
-  "operator": "Pham Tuan Anh (executed via Claude Code on the operator machine)",
-  "owner": "Nguyen Gia Duc Trung",
-  "samples": 171,
+ "measurement_path": "wifi-overlay",
+ "overlay_connection": "direct",
+ "payload_profiles": [
+  "legacy-unlabelled"
+ ],
+ "is_acceptance_evidence": true,
+ "percentile_definition": "nearest-rank, no interpolation, no outlier removal",
+ "source_files": [
+  "e_transport_20260913_run4.jsonl"
+ ],
+ "operators": [
+  "Pham Tuan Anh (executed via Claude Code on the operator machine)"
+ ],
+ "owners": [
+  "Nguyen Gia Duc Trung"
+ ],
+ "scenarios": {
+  "legacy-unlabelled:E2:cold_open_s1": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E2",
+   "scenario": "cold_open_s1",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 118.44,
+   "total_ms": {
+    "n": 3,
+    "min": 319,
+    "p50": 437,
+    "p90": 445,
+    "p95": 445,
+    "p99": 445,
+    "max": 445,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 0.53,
+    "p50": 0.55,
+    "p90": 0.97,
+    "p95": 0.97,
+    "p99": 0.97,
+    "max": 0.97
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E2:cold_open_s3": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E2",
+   "scenario": "cold_open_s3",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 57024.0,
+   "total_ms": {
+    "n": 3,
+    "min": 67458,
+    "p50": 74822,
+    "p90": 101698,
+    "p95": 101698,
+    "p99": 101698,
+    "max": 101698,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 16.11,
+    "p50": 17.11,
+    "p90": 18.73,
+    "p95": 18.73,
+    "p99": 18.73,
+    "max": 18.73
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E2:cold_open_s4": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E2",
+   "scenario": "cold_open_s4",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 591.93,
+   "total_ms": {
+    "n": 3,
+    "min": 740,
+    "p50": 800,
+    "p90": 814,
+    "p95": 814,
+    "p99": 814,
+    "max": 814,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 1.45,
+    "p50": 2.04,
+    "p90": 2.2,
+    "p95": 2.2,
+    "p99": 2.2,
+    "max": 2.2
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E3:uncached_slice_s1": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E3",
+   "scenario": "uncached_slice_s1",
+   "requests": 39,
+   "failed": 0,
+   "mean_payload_kb": 99.69,
+   "total_ms": {
+    "n": 39,
+    "min": 264,
+    "p50": 394,
+    "p90": 733,
+    "p95": 1040,
+    "p99": 1206,
+    "max": 1206,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 39,
+    "min": 0.28,
+    "p50": 0.59,
+    "p90": 0.87,
+    "p95": 0.94,
+    "p99": 0.96,
+    "max": 0.96
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E4:navigate_s1": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E4",
+   "scenario": "navigate_s1",
+   "requests": 60,
+   "failed": 0,
+   "mean_payload_kb": 113.63,
+   "total_ms": {
+    "n": 60,
+    "min": 277,
+    "p50": 369,
+    "p90": 472,
+    "p95": 504,
+    "p99": 930,
+    "max": 930,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 60,
+    "min": 0.31,
+    "p50": 0.57,
+    "p90": 0.83,
+    "p95": 0.92,
+    "p99": 1.11,
+    "max": 1.11
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E4:navigate_s4": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E4",
+   "scenario": "navigate_s4",
+   "requests": 12,
+   "failed": 0,
+   "mean_payload_kb": 574.54,
+   "total_ms": {
+    "n": 12,
+    "min": 561,
+    "p50": 716,
+    "p90": 1187,
+    "p95": 1318,
+    "p99": 1318,
+    "max": 1318,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 12,
+    "min": 0.84,
+    "p50": 1.8,
+    "p90": 2.27,
+    "p95": 2.38,
+    "p99": 2.38,
+    "max": 2.38
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E5:mask_s2": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E5",
+   "scenario": "mask_s2",
+   "requests": 39,
+   "failed": 0,
+   "mean_payload_kb": 40.5,
+   "total_ms": {
+    "n": 39,
+    "min": 208,
+    "p50": 286,
+    "p90": 408,
+    "p95": 429,
+    "p99": 609,
+    "max": 609,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 39,
+    "min": 0.33,
+    "p50": 0.52,
+    "p90": 0.7,
+    "p95": 0.76,
+    "p99": 0.89,
+    "max": 0.89
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E6:mesh_level_0": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E6",
+   "scenario": "mesh_level_0",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 7.25,
+   "total_ms": {
+    "n": 3,
+    "min": 207,
+    "p50": 213,
+    "p90": 252,
+    "p95": 252,
+    "p99": 252,
+    "max": 252,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 0.34,
+    "p50": 0.53,
+    "p90": 0.87,
+    "p95": 0.87,
+    "p99": 0.87,
+    "max": 0.87
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E6:mesh_level_1": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E6",
+   "scenario": "mesh_level_1",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 29.7,
+   "total_ms": {
+    "n": 3,
+    "min": 225,
+    "p50": 254,
+    "p90": 445,
+    "p95": 445,
+    "p99": 445,
+    "max": 445,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 0.43,
+    "p50": 0.44,
+    "p90": 0.81,
+    "p95": 0.81,
+    "p99": 0.81,
+    "max": 0.81
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E6:mesh_level_2": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E6",
+   "scenario": "mesh_level_2",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 124.8,
+   "total_ms": {
+    "n": 3,
+    "min": 289,
+    "p50": 324,
+    "p90": 544,
+    "p95": 544,
+    "p99": 544,
+    "max": 544,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 0.39,
+    "p50": 0.45,
+    "p90": 0.75,
+    "p95": 0.75,
+    "p99": 0.75,
+    "max": 0.75
+   },
+   "network_and_transfer_ms": null
+  },
+  "legacy-unlabelled:E6:mesh_level_3": {
+   "payload_profile": "legacy-unlabelled",
+   "criterion": "E6",
+   "scenario": "mesh_level_3",
+   "requests": 3,
+   "failed": 0,
+   "mean_payload_kb": 513.93,
+   "total_ms": {
+    "n": 3,
+    "min": 664,
+    "p50": 876,
+    "p90": 948,
+    "p95": 948,
+    "p99": 948,
+    "max": 948,
+    "failed": 0,
+    "failure_rate": 0.0,
+    "distribution_is_representative": true
+   },
+   "server_handling_ms": {
+    "n": 3,
+    "min": 0.75,
+    "p50": 0.98,
+    "p90": 1.1,
+    "p95": 1.1,
+    "p99": 1.1,
+    "max": 1.1
+   },
+   "network_and_transfer_ms": null
+  }
+ },
+ "nfr_perf_001": {
+  "target_ms": 200,
+  "by_scenario": {
+   "legacy-unlabelled:E4:navigate_s1": 504,
+   "legacy-unlabelled:E4:navigate_s4": 1318
+  }
+ },
+ "run_quality": {
+  "requests": 171,
   "failed": 0,
   "failure_rate": 0.0,
-  "percentile_definition": "nearest-rank, no interpolation, no outlier removal",
-  "scenarios": {
-    "E2:cold_open_s1": {"requests": 3, "failed": 0, "mean_payload_kb": 118.44, "p50_ms": 437, "p95_ms": 445, "max_ms": 445, "server_p50_ms": 0.55},
-    "E2:cold_open_s3": {"requests": 3, "failed": 0, "mean_payload_kb": 57024.0, "p50_ms": 74822, "p95_ms": 101698, "max_ms": 101698, "server_p50_ms": 17.11},
-    "E2:cold_open_s4": {"requests": 3, "failed": 0, "mean_payload_kb": 591.93, "p50_ms": 800, "p95_ms": 814, "max_ms": 814, "server_p50_ms": 2.04},
-    "E3:uncached_slice_s1": {"requests": 39, "failed": 0, "mean_payload_kb": 99.69, "p50_ms": 394, "p95_ms": 1040, "max_ms": 1206, "server_p50_ms": 0.59},
-    "E4:navigate_s1": {"requests": 60, "failed": 0, "mean_payload_kb": 113.63, "p50_ms": 369, "p95_ms": 504, "max_ms": 930, "server_p50_ms": 0.57},
-    "E4:navigate_s4": {"requests": 12, "failed": 0, "mean_payload_kb": 574.54, "p50_ms": 716, "p95_ms": 1318, "max_ms": 1318, "server_p50_ms": 1.80},
-    "E5:mask_s2": {"requests": 39, "failed": 0, "mean_payload_kb": 40.5, "p50_ms": 286, "p95_ms": 429, "max_ms": 609, "server_p50_ms": 0.52},
-    "E6:mesh_level_0": {"requests": 3, "failed": 0, "mean_payload_kb": 7.25, "p50_ms": 213, "p95_ms": 252, "max_ms": 252, "server_p50_ms": 0.53},
-    "E6:mesh_level_1": {"requests": 3, "failed": 0, "mean_payload_kb": 29.7, "p50_ms": 254, "p95_ms": 445, "max_ms": 445, "server_p50_ms": 0.44},
-    "E6:mesh_level_2": {"requests": 3, "failed": 0, "mean_payload_kb": 124.8, "p50_ms": 324, "p95_ms": 544, "max_ms": 544, "server_p50_ms": 0.45},
-    "E6:mesh_level_3": {"requests": 3, "failed": 0, "mean_payload_kb": 513.93, "p50_ms": 876, "p95_ms": 948, "max_ms": 948, "server_p50_ms": 0.98}
-  },
-  "nfr_perf_001": {
-    "target_ms": 200,
-    "navigate_s1_p95_ms": 504,
-    "navigate_s4_p95_ms": 1318,
-    "verdict": "EXCEEDS_TARGET"
-  },
-  "quality_note": "Run is complete and internally consistent (171/171, bytes_received matched Content-Length), but one Wi-Fi time window is not enough to close E8, and E7/E9 were not measured. This report is an input to the owner's draft, not an ACCEPTED verdict."
+  "scenarios_with_no_successful_request": [],
+  "scenarios_above_max_fail_rate": [],
+  "max_fail_rate_used": 0.05
+ }
 }
