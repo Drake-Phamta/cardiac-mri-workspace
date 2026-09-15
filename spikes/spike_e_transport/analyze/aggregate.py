@@ -106,6 +106,18 @@ def main() -> int:
         if not h.get("operator") or not h.get("owner"):
             print(f"  {path}: run header must name both operator and owner (DR-006a).")
             return 2
+        # Runs captured before A6 profile selection was added have no profile
+        # field. Keep them auditable without pretending that payload size
+        # identifies one of the new profiles.
+        header_profile = h.get("payload_profile") or "legacy-unlabelled"
+        h["payload_profile"] = header_profile
+        for rec in s:
+            sample_profile = rec.get("payload_profile") or header_profile
+            if sample_profile != header_profile:
+                print(f"  {path}: sample profile {sample_profile!r} does not match "
+                      f"run header profile {header_profile!r}. Refusing to aggregate.")
+                return 2
+            rec["payload_profile"] = sample_profile
         headers.append((path, h))
         samples.extend(s)
 
@@ -130,19 +142,21 @@ def main() -> int:
     connection = conns.pop()
     acceptance = path_kind in ("wifi-overlay", "cellular-overlay")   # DR-003b
 
-    groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    profiles = {h["payload_profile"] for _, h in headers}
+    groups: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
     for s in samples:
-        groups[(s["criterion"], s["scenario"])].append(s)
+        groups[(s["payload_profile"], s["criterion"], s["scenario"])].append(s)
 
     print()
     print(f"  path        {path_kind}" + ("" if acceptance else "   <-- DIAGNOSTIC ONLY"))
     print(f"  connection  {connection}")
+    print(f"  profiles    {', '.join(sorted(profiles))}")
     print(f"  operators   {', '.join(sorted({h['operator'] for _, h in headers}))}")
     print(f"  owners      {', '.join(sorted({h['owner'] for _, h in headers}))}")
     print(f"  runs        {len(headers)}   samples {len(samples)}")
     print()
 
-    head = (f"  {'crit':<5} {'scenario':<20} {'n':>4} {'fail':>4} {'KB':>8} "
+    head = (f"  {'profile':<18} {'crit':<5} {'scenario':<20} {'n':>4} {'fail':>4} {'KB':>8} "
             f"{'p50':>8} {'p95':>8} {'max':>8}  {'srv p50':>8}")
     print(head)
     print("  " + "-" * (len(head) - 2))
@@ -150,6 +164,7 @@ def main() -> int:
     report: dict = {
         "measurement_path": path_kind,
         "overlay_connection": connection,
+        "payload_profiles": sorted(profiles),
         "is_acceptance_evidence": acceptance,
         "percentile_definition": "nearest-rank, no interpolation, no outlier removal",
         "source_files": [os.path.basename(p) for p, _ in headers],
@@ -158,14 +173,15 @@ def main() -> int:
         "scenarios": {},
     }
 
-    for (criterion, scenario) in sorted(groups):
-        rows = groups[(criterion, scenario)]
+    for (profile, criterion, scenario) in sorted(groups):
+        rows = groups[(profile, criterion, scenario)]
         ok = [r for r in rows if r.get("ok")]
         fails = len(rows) - len(ok)
         if not ok:
-            print(f"  {criterion:<5} {scenario:<20} {len(rows):>4} {fails:>4} "
+            print(f"  {profile:<18} {criterion:<5} {scenario:<20} {len(rows):>4} {fails:>4} "
                   f"{'—':>8} {'—':>8} {'—':>8} {'—':>8}  {'—':>8}   all requests failed")
-            report["scenarios"][f"{criterion}:{scenario}"] = {
+            report["scenarios"][f"{profile}:{criterion}:{scenario}"] = {
+                "payload_profile": profile,
                 "criterion": criterion, "scenario": scenario,
                 "requests": len(rows), "failed": fails,
                 "total_ms": None,
@@ -193,11 +209,12 @@ def main() -> int:
 
         flag = "" if total["distribution_is_representative"] else \
             f"   <-- {fail_rate * 100:.0f}% FAILED, distribution not representative"
-        print(f"  {criterion:<5} {scenario:<20} {total['n']:>4} {fails:>4} {kb:>8.1f} "
+        print(f"  {profile:<18} {criterion:<5} {scenario:<20} {total['n']:>4} {fails:>4} {kb:>8.1f} "
               f"{total['p50']:>8.1f} {total['p95']:>8.1f} {total['max']:>8.1f}  "
               f"{(srv_s['p50'] if srv_s else float('nan')):>8.2f}{flag}")
 
-        report["scenarios"][f"{criterion}:{scenario}"] = {
+        report["scenarios"][f"{profile}:{criterion}:{scenario}"] = {
+            "payload_profile": profile,
             "criterion": criterion,
             "scenario": scenario,
             "requests": len(rows),
@@ -253,12 +270,6 @@ def main() -> int:
     print("  the owner's written conclusions. This script supplies their inputs; it does")
     print("  not draw them.")
 
-    if args.out:
-        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(report, f, indent=1, ensure_ascii=False)
-            f.write("\n")
-        print(f"\n  wrote  {args.out}")
-
     # #27: the first version returned 0 for a run that lost 46 of 57 requests.
     # A summary of a catastrophically incomplete run must not look like success
     # to whoever is reading the exit code.
@@ -275,6 +286,14 @@ def main() -> int:
         "scenarios_above_max_fail_rate": unrepresentative,
         "max_fail_rate_used": MAX_FAIL_RATE,
     }
+
+    # Serialize only after run_quality is complete. A report without this
+    # field cannot distinguish a clean distribution from a partial run.
+    if args.out:
+        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(report, f, indent=1, ensure_ascii=False)
+            f.write("\n")
+        print(f"\n  wrote  {args.out}")
     if dead or unrepresentative:
         print()
         print(f"  RUN QUALITY: {overall_fail} of {overall_n} requests failed "
