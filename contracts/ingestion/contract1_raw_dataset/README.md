@@ -18,7 +18,10 @@ ingestion module and it does not freeze an API.
   Contract 1. In inference-review mode the mask may be null and compatibility
   must also be null.
 - The MVP accepts axis-aligned geometry only. Any non-axis-aligned direction
-  matrix is rejected with GEOMETRY_NOT_VALIDATED (DR-012).
+  matrix is rejected with GEOMETRY_NOT_VALIDATED (DR-012). A header that merely
+  reports spacing `(1,1,1)`, origin `(0,0,0)`, and unit directions is also
+  rejected as GEOMETRY_NOT_VALIDATED: those defaults do not prove physical
+  geometry.
 - A ground-truth mask uses exactly {0, 255} and declares LA cavity and
   dataset annotation; the mapping is recorded, never inferred silently.
 - Only the metadata allowlist in the schema is copied to application records.
@@ -59,8 +62,10 @@ The test covers:
 2. an open GATE-DATA-01;
 3. a non-axis-aligned direction (GEOMETRY_NOT_VALIDATED);
 4. MRI/mask shape mismatch;
-5. a disallowed direct-identifier metadata key; and
-6. idempotency: same checksum is NO_OP, changed checksum is
-   CHECKSUM_CONFLICT.
+5. a disallowed direct-identifier metadata key;
+6. duplicate case detection by MRI/mask SHA-256; and
+7. idempotency: same checksum is NO_OP, changed checksum is
+   CHECKSUM_CONFLICT; and
+8. inference-review mode with a nullable ground-truth mask.
 
 All fixtures are synthetic and must not be cited as dataset evidence.

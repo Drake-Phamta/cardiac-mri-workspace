@@ -69,6 +69,14 @@ def main() -> int:
     existing_changed[changed["cases"][0]["mri_volume"]["artifact_uri"]] = "b" * 64
     expect_error(changed, "CHECKSUM_CONFLICT", existing_changed)
 
+    duplicate = load_valid()
+    duplicate_case = copy.deepcopy(duplicate["cases"][0])
+    duplicate_case["case_id"] = "CASE_0002"
+    duplicate_case["mri_volume"]["artifact_uri"] = "artifact://datasets/synthetic-contract1/CASE_0002/mri.nrrd"
+    duplicate_case["ground_truth_mask"]["artifact_uri"] = "artifact://datasets/synthetic-contract1/CASE_0002/mask.nrrd"
+    duplicate["cases"].append(duplicate_case)
+    expect_error(duplicate, "DUPLICATE_CASE_HASH")
+
     inference = load_valid()
     inference["manifest_id"] = "raw-synthetic-inference"
     inference["cases"][0]["mode_capability"] = "INFERENCE_REVIEW"

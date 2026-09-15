@@ -28,8 +28,8 @@
         "source_path": "mri.nrrd",
         "format": "NRRD",
         "shape_xyz": [2, 2, 1],
-        "spacing_xyz": [1, 1, 1],
-        "origin_xyz": [0, 0, 0],
+        "spacing_xyz": [2, 3, 4],
+        "origin_xyz": [10, 20, 30],
         "direction_or_orientation": [
           [1, 0, 0],
           [0, 1, 0],
@@ -38,7 +38,7 @@
         "dtype": "uint8",
         "checksum": {
           "algorithm": "sha256",
-          "value": "59f23df37373858a9c751d7dcaf79967d60be31b365e00fd23c4a6faf0391f39"
+          "value": "a9bd768ce32a3c4c10848be85a464e618879fcd2fff27c527e3f8519519c9b3a"
         },
         "geometry_validation_status": "VALIDATED_AXIS_ALIGNED"
       },
@@ -47,8 +47,8 @@
         "source_path": "mask.nrrd",
         "format": "NRRD",
         "shape_xyz": [2, 2, 1],
-        "spacing_xyz": [1, 1, 1],
-        "origin_xyz": [0, 0, 0],
+        "spacing_xyz": [2, 3, 4],
+        "origin_xyz": [10, 20, 30],
         "direction_or_orientation": [
           [1, 0, 0],
           [0, 1, 0],
@@ -57,7 +57,7 @@
         "dtype": "uint8",
         "checksum": {
           "algorithm": "sha256",
-          "value": "c6b387dddd96a2e98c64d9226a24d15eb1e4eae88d6650fc751667a5da63df27"
+          "value": "f736d96ae8310150a4fba07c5e27dcc17c3cff6c4ed268dec8491eb9e20e278c"
         },
         "geometry_validation_status": "VALIDATED_AXIS_ALIGNED",
         "label_semantics": "LA cavity",

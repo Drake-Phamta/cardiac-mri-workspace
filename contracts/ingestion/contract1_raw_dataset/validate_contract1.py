@@ -134,6 +134,19 @@ def _axis_aligned(matrix: list[list[float]]) -> bool:
     )
 
 
+def _is_default_physical_header(parsed: dict) -> bool:
+    """A unit spacing/origin header is not proof of physical geometry."""
+    return (
+        _equal_vector(parsed["spacing_xyz"], [1.0, 1.0, 1.0])
+        and _equal_vector(parsed["origin_xyz"], [0.0, 0.0, 0.0])
+        and _equal_matrix(parsed["direction_or_orientation"], [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ])
+    )
+
+
 def _checksum(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -207,8 +220,11 @@ def _validate_artifact(
         _fail("SCHEMA_INVALID", f"{kind}: checksum value is not lowercase SHA-256")
     if artifact["format"] != "NRRD":
         _fail("SCHEMA_INVALID", f"{kind}: format must be NRRD")
-    if artifact["geometry_validation_status"] != "VALIDATED_AXIS_ALIGNED":
-        _fail("GEOMETRY_NOT_VALIDATED", f"{kind}: geometry status is not VALIDATED_AXIS_ALIGNED")
+    if artifact["geometry_validation_status"] not in {
+        "VALIDATED_AXIS_ALIGNED",
+        "GEOMETRY_NOT_VALIDATED",
+    }:
+        _fail("SCHEMA_INVALID", f"{kind}: unknown geometry validation status")
     if not file_path.exists():
         _fail("NRRD_UNREADABLE", f"{kind}: file does not exist: {source_path}")
     measured_checksum = _checksum(file_path)
@@ -218,6 +234,15 @@ def _validate_artifact(
     parsed = _parse_nrrd(file_path)
     if parsed["dtype"] not in {"unsigned char", "uint8", "uchar"} and artifact["dtype"] == "uint8":
         _fail("NRRD_INVALID", f"{kind}: NRRD type {parsed['dtype']!r} does not match uint8")
+    if not _axis_aligned(parsed["direction_or_orientation"]):
+        _fail("GEOMETRY_NOT_VALIDATED", f"{kind}: direction matrix is not axis-aligned")
+    if artifact["geometry_validation_status"] != "VALIDATED_AXIS_ALIGNED":
+        _fail("GEOMETRY_NOT_VALIDATED", f"{kind}: geometry status is not VALIDATED_AXIS_ALIGNED")
+    if _is_default_physical_header(parsed):
+        _fail(
+            "GEOMETRY_NOT_VALIDATED",
+            f"{kind}: spacing=1/origin=0/unit direction is only a default header, not physical geometry",
+        )
     if not _axis_aligned(artifact["direction_or_orientation"]):
         _fail("GEOMETRY_NOT_VALIDATED", f"{kind}: direction matrix is not axis-aligned")
     for field in ("shape_xyz", "spacing_xyz", "origin_xyz", "direction_or_orientation"):
@@ -249,6 +274,7 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
 
     seen_cases: set[str] = set()
     seen_uris: set[str] = set()
+    seen_hashes: dict[tuple[str, str], str] = {}
     actions = []
     for case in cases:
         case_id = case.get("case_id")
@@ -271,6 +297,11 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
             mri, root=root, kind=f"{case_id}.mri_volume", existing=existing,
             seen_uris=seen_uris,
         )
+        mri_hash_key = ("mri_volume", mri["checksum"]["value"])
+        prior_case = seen_hashes.get(mri_hash_key)
+        if prior_case and prior_case != case_id:
+            _fail("DUPLICATE_CASE_HASH", f"{case_id}: MRI checksum duplicates {prior_case}")
+        seen_hashes[mri_hash_key] = case_id
         actions.append({"artifact_uri": mri["artifact_uri"], "action": mri_action})
         if mask is None:
             if case.get("mode_capability") != "INFERENCE_REVIEW" or case.get("compatibility") is not None:
@@ -282,12 +313,17 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
             mask, root=root, kind=f"{case_id}.ground_truth_mask", existing=existing,
             seen_uris=seen_uris,
         )
+        mask_hash_key = ("ground_truth_mask", mask["checksum"]["value"])
+        prior_case = seen_hashes.get(mask_hash_key)
+        if prior_case and prior_case != case_id:
+            _fail("DUPLICATE_CASE_HASH", f"{case_id}: mask checksum duplicates {prior_case}")
+        seen_hashes[mask_hash_key] = case_id
         if mask.get("label_semantics") != "LA cavity" or mask.get("source") != "dataset annotation":
             _fail("LABEL_SEMANTICS_INVALID", f"{case_id}: mask semantics/source are not declared")
         if mask.get("label_values") != [0, 255] or mask.get("foreground_value") != 255 or mask.get("background_value") != 0:
             _fail("LABEL_VALUES_INVALID", f"{case_id}: mask labels must be exactly {{0, 255}}")
-        actual_values = {int(value) for value in mask_info["values"]}
-        if actual_values != {0, 255}:
+        actual_values = set(mask_info["values"])
+        if actual_values != {0.0, 255.0}:
             _fail("LABEL_VALUES_INVALID", f"{case_id}: NRRD must contain both background 0 and foreground 255 only")
         compatibility = case.get("compatibility", {})
         if compatibility != {
