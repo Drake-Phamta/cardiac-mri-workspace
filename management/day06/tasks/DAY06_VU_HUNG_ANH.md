@@ -35,7 +35,7 @@
 
 | Việc | Giờ | Xong khi |
 |---|---|---|
-| **Review PR #27** — Spike A S4 zoom/pan của leader, `A2` đã đo trên máy (bạn là reviewer Spike A) | ~1 h | review có nội dung |
+| **Review PR #27** — Spike A S4 zoom/pan của leader, `A2` đã đo trên máy (bạn là reviewer Spike A). *10:51: leader đã chuyển PR sang ready và gửi yêu cầu review cho bạn, kèm checklist 4 bước ngay trên PR. Vẫn làm **sau** #25, #24 và #26* | ~1 h | review có nội dung |
 | **M3 — hợp đồng hình học**: nâng `tests/fixtures/geometry/FORMAT.md` thành hợp đồng có **số phiên bản**, quy tắc thay đổi, và mô tả contract test *(chỉ bạn được viết thư mục này — DR-013)* | ~1 h | PR |
 | **Kịch bản đo `B10`/`B11` cho leader bấm** (`DR-006a` rev 3) — chỉ khi app việc 3 chạy được | ~30 ph | file ngắn trong `spikes/spike_b_3d/` |
 

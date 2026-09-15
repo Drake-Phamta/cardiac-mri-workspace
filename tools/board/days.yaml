@@ -83,7 +83,7 @@ decision_notes:
 policies:
   - date: "15/09"
     id: "Chuẩn demo"
-    text: "**Sản phẩm cuối phải \"wow\"** — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi **trong phạm vi spec**, không thêm yêu cầu ngoài `00` §13."
+    text: "**Sản phẩm cuối phải \"wow\"** — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi **trong phạm vi spec**, không thêm yêu cầu ngoài `00` §13. Chuẩn chung: `management/DEMO_STANDARD.md` (v0, chờ leader duyệt)."
   - date: "15/09"
     id: "Khối lượng ≥ 8 h"
     text: "Mỗi thành viên **tối thiểu 8 giờ việc thật** + ~2 giờ **hàng đợi dự phòng**; việc bị chặn luôn có việc thay thế trong cùng packet. Xong việc nào đẩy việc đó để người khác dùng được trong ngày."
@@ -218,7 +218,7 @@ today:
       then:
         - "Picking trên fixture trong app (`B3`/`B4`, emulator) *(~1,5 h)*"
       later:
-        - "Review **#27** Spike A S4 *(~1 h)*"
+        - "Review **#27** Spike A S4 — leader gửi yêu cầu lúc 10:51, làm sau #25 · #24 · #26 *(~1 h)*"
         - "M3 — hợp đồng hình học có số phiên bản *(~1 h)*"
       note: "Bạn đang giữ việc của 3 người (#25, #24, #26) — **review trước**, app sau. `B1` và `B14` là nợ từ hôm qua."
     tuananh:
@@ -232,9 +232,9 @@ today:
         - "**Quyết nối case↔bệnh nhân** (`GATE-SPLIT-01`) sau bằng chứng của Khánh *(~30 ph)*"
         - "**Đo lại Spike E** khung 15:00 và 21:00 *(~1,5 h)*"
       then:
-        - "Merge #24 · #26 · nhờ review #27"
+        - "Merge #24 · #26 · ✅ đã nhờ review #27 (10:51)"
         - "**Spike A S5 — brush** + kiểm offline `A3`–`A7`, 60 ca `A5` *(~3 h)*"
-        - "**Chuẩn demo \"wow\" v0** — 9 màn hình, 69 acceptance test, kịch bản demo *(~1 h, Claude soạn)*"
+        - "✅ **Chuẩn demo \"wow\" v0** đã soạn — `management/DEMO_STANDARD.md`: luật D1–D7, kịch bản H1–H10, 9 màn hình, **70** acceptance test — chờ anh duyệt"
       later:
         - "Đo lại `A9` với cache ±3 slice *(~1,5 h)*"
       note: "Nếu QA Spike D `PASS` hôm nay, `GATE-DATA-01` đóng và `SPIKE_C1` hết `BLOCKED` — lần đầu một gate critical path đóng."
