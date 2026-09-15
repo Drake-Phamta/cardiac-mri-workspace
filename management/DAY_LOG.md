@@ -63,7 +63,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 > ❌ **11:52 — QA Red Team `REJECT` Spike D** ([`day06/QA_REVIEW_002_SPIKE_D.md`](day06/QA_REVIEW_002_SPIKE_D.md)) →
 > `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng `CASE_0056` và `CASE_0097` là một lần chụp bị xuất hai lần mà audit
 > không báo, và split nháp đã đặt hai bản ở train và validation. **`GATE-DATA-01` không đóng hôm nay.** Leader cần quyết
-> Q1 (cặp trùng trong split), Q2 (hoãn mục split của `A19`), Q3 (manifest trong repo public).
+> Q1 (cặp trùng trong split), Q2 (hoãn mục split của `A19`), Q3 (manifest trong repo public). **12:29 — leader quyết Q1 (a)
+> → `DR-002a` và Q3 như đề xuất; Q2 đang cân nhắc.**
 
 ### Đã xong — trong ngày
 

@@ -63,7 +63,7 @@ criteria:
 # Where each spike stands, in one line a member can act on. The status, owner,
 # reviewer, priority and "unblocks" list come from SPIKE_PHASE_STATE.yaml.
 spike_notes:
-  SPIKE_D:  "#25 merge 10:03 → ❌ **QA Red Team `REJECT` 11:52** → `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng **`CASE_0056`/`CASE_0097` là một lần chụp bị xuất hai lần** (audit ghi 0 bất thường; split nháp đặt ở train và validation) · header không mang hình học vật lý · `A19` thiếu. Leader quyết Q1–Q3 — `management/day06/QA_REVIEW_002_SPIKE_D.md`."
+  SPIKE_D:  "#25 merge 10:03 → ❌ **QA Red Team `REJECT` 11:52** → `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng **`CASE_0056`/`CASE_0097` là một lần chụp bị xuất hai lần** (audit ghi 0 bất thường; split nháp đặt ở train và validation) · header không mang hình học vật lý · `A19` thiếu. Leader đã quyết Q1 (`DR-002a`: cặp trùng ghim vào train) và Q3; Q2 đang cân nhắc — `management/day06/QA_REVIEW_002_SPIKE_D.md`."
   SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR #27 — Hùng Anh soát 10:13: 4/4 kiểm đạt, góp ý `onPanResponderTerminate` đưa vào S5. S5 brush: **PR nháp #31** — F5 14/14 offline, chờ đo trên máy."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). ✅ `B14` diễn giải (#29) · ✅ `B1` viewer WebGL2 xoay/zoom có ảnh (#30 nháp, mới chạy trên trình duyệt desktop). Việc tiếp: picking `B3`/`B4`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "PR #26 **bị yêu cầu sửa 3 điểm** (10:09: JSON tổng hợp sinh từ bản script cũ · lệnh đo phải dùng Toybox · gộp lẫn profile) · #24 **còn 1 điểm** (ID mạng ZeroTier cũ). Hôm nay: stub 2 profile → leader đo **khung 15:00 và 21:00** → Trung tổng hợp."
@@ -81,6 +81,10 @@ decision_notes:
 
 # Standing decisions still in force - the rules people work under today.
 policies:
+  - date: "15/09"
+    id: "DR-002a"
+    text: "**Cặp `CASE_0056`/`CASE_0097` (một lần chụp bị xuất hai lần — QA-002) là một nhóm, ghim vào train.** Giữ 80/20 và seed 2024; validation còn 20 lần chụp khác nhau; các tập con 25/50/100% chứa cả hai hoặc không case nào; train ghi rõ 79 lần chụp khác nhau."
+    ref: management/readiness/OPEN_DECISIONS.md
   - date: "15/09"
     id: "Chuẩn demo"
     text: "**Sản phẩm cuối phải \"wow\"** — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi **trong phạm vi spec**, không thêm yêu cầu ngoài `00` §13. Chuẩn chung: `management/DEMO_STANDARD.md` (v0, chờ leader duyệt)."
@@ -120,7 +124,7 @@ policies:
 # high/medium/closed grouping come from PROJECT_STATE.yaml; titles from the register.
 risk_notes:
   RISK-DATA-01:     "QA-002 `REJECT`: case trùng không được báo · header không mang hình học vật lý · `A19` thiếu — số đo tái lập đúng"
-  RISK-SPLIT-01:    "**đã xảy ra ở bản nháp**: cặp `CASE_0056`/`CASE_0097` (một lần chụp) bị đặt ở train và validation — bắt được trước khi train. Gói không có ánh xạ bệnh nhân; leader quyết Q1 cùng `GATE-SPLIT-01`"
+  RISK-SPLIT-01:    "**đã xảy ra ở bản nháp**: cặp `CASE_0056`/`CASE_0097` (một lần chụp) bị đặt ở train và validation — bắt được trước khi train. Gói không có ánh xạ bệnh nhân; `DR-002a` (15/09) ghim cặp vào train; chờ quyết nối bệnh nhân"
   RISK-COMPUTE:     "probe `C0` chưa chạy — bản sửa PR #17 đã lên, chờ Khánh review và chạy trên RTX 4050"
   RISK-MOBILE-RENDER: "chưa có app 3D chạy trên máy — `B1` hôm nay"
   RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
@@ -150,7 +154,7 @@ today:
   pipeline:
     - ["SPIKE_D", "QA REJECT 11:52 → NEEDS_FIX (Khánh sửa)", "now"]
     - ["GATE-DATA-01", "đóng khi Spike D ACCEPTED", ""]
-    - ["GATE-SPLIT-01", "Path A ✅ · cặp case trùng phải cùng phía (Q1) · chờ quyết nối bệnh nhân", ""]
+    - ["GATE-SPLIT-01", "Path A ✅ · DR-002a ✅ cặp trùng ghim train · chờ quyết nối bệnh nhân", ""]
     - ["SPIKE_C1", "BLOCKED bởi D", ""]
     - ["training", "6 run + 1 ablation", ""]
     - ["metrics", "RQ-A · RQ-B", ""]
@@ -170,7 +174,7 @@ today:
       why: "Nợ Day 5 · nền cho `B3`–`B11` và `GATE-MOB-01`"
   waits:
     - [tuananh, "Chuyển Spike D sang ACCEPTED", khanh, "sửa theo QA-002: F1–F5, F12, F13 → Hùng Anh duyệt lại → QA soi lại"]
-    - [khanh, "Mở lại PR split", tuananh, "quyết Q1: cặp `CASE_0056`/`CASE_0097` cùng một phía"]
+    - [khanh, "Bảng `A19` — mục split", tuananh, "quyết Q2: hoãn mục split sang `GATE-SPLIT-01` hay không"]
     - [trung, "Review PR split mới", khanh, "PR split đã xử lý cặp trùng (thay #28)"]
     - [hunganh, "Merge **#29** · **#30**", trung, "review #29 (`B14`) · #30 (`B1`) — reviewer Spike B"]
     - [tuananh, "Merge **#17**", khanh, "review lại **#17** (`08d7166`) — probe `C0` đã chạy được"]
@@ -180,11 +184,11 @@ today:
     - [tuananh, "Merge **#24** · **#26**", trung, "sửa #24 (1 điểm) · #26 (3 điểm) → Hùng Anh duyệt lại"]
   tasks:
     khanh:
-      load: "chính **≥ 8 h** (~10 h sau QA-002) · dự phòng ~3 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~10,5 h sau QA-002) · dự phòng ~3 h · hạn **23:59**"
       debts:
         - "❌ **Sửa Spike D theo QA-002** — critical path: case trùng vào `A15`/`A16` + manifest/audit · hình học §4 · bảng `A19` · verdict Q4 và `A11` · bỏ đường dẫn tuyệt đối · log validator *(~3,5 h)*"
         - "Bật **pagefile** Windows (lỗi `WinError 1455` khi tải DINOv2) *(~15 ph)*"
-        - "⏸ **Mở lại PR split** (#28 bị đóng tự động 10:03) — giữ tới khi leader quyết Q1: cặp `CASE_0056`/`CASE_0097` phải cùng một phía *(~20 ph + sửa split)*"
+        - "▶ **Mở lại PR split** theo `DR-002a`: cặp `CASE_0056`/`CASE_0097` một nhóm ghim vào train, 80/20 và seed giữ nguyên *(~1 h)*"
       now:
         - "**Bằng chứng nối case↔bệnh nhân** — nguồn chính thức + sàng lọc cặp chỉ từ ảnh MRI (phải tìm lại được cặp QA đã thấy) → PR trước 18:00 *(~3 h)*"
         - "**Chạy probe C0 trên RTX 4050** fp32 + bf16 + ngoại suy `--train-cases 80` — để GPU chạy trong lúc sửa Spike D *(~2,5 h)*"
@@ -199,7 +203,7 @@ today:
       debts:
         - "**Sửa #24** — ID mạng ZeroTier cũ trong `ANDROID_TOYBOX_HARNESS.md`; Hùng Anh approve sau đó *(~15 ph)*"
         - "**Sửa #26** — 3 điểm của Hùng Anh: tái sinh JSON tổng hợp bằng script ở PR head · lệnh đo dùng Toybox `--profile` · không trộn profile *(~2 h)*"
-        - "**Review PR split của Khánh** khi mở lại (thay #28) — kiểm cặp `CASE_0056`/`CASE_0097` cùng một phía *(~1,5 h)*"
+        - "**Review PR split của Khánh** khi mở lại (thay #28) — kiểm luật `DR-002a`: cặp trùng một nhóm ghim vào train *(~1,5 h)*"
         - "**Review #29** (`B14`) · **#30** (`B1`) — bạn là reviewer Spike B *(~1 h)*"
       now:
         - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 14:00 *(~1 h)* · không còn chờ ai: stub cũ đã dừng 09:48"
@@ -236,7 +240,7 @@ today:
         - "✅ **#25 trên `main`** 10:03 — Hùng Anh approve rồi tự merge (`a92892c`)"
         - "✅ **Dừng stub cũ PID 32227** lúc 09:48 — `:8787` trống cho Trung; stub 60294 của Trung không đụng"
       now:
-        - "✅ **QA Red Team Spike D** — `REJECT` 11:52 (QA-002) · **anh quyết Q1–Q3**: cặp case trùng trong split · hoãn mục split của `A19` · manifest trong repo public"
+        - "✅ **QA Red Team Spike D** — `REJECT` 11:52 (QA-002) · ✅ Q1 → `DR-002a` · ✅ Q3 bỏ đường dẫn tuyệt đối · **Q2 đang cân nhắc** (hoãn mục split của `A19`)"
         - "**Quyết nối case↔bệnh nhân** (`GATE-SPLIT-01`) sau bằng chứng của Khánh *(~30 ph)*"
         - "**Đo lại Spike E** khung 15:00 và 21:00 *(~1,5 h)*"
       then:
@@ -245,7 +249,7 @@ today:
         - "✅ **Chuẩn demo \"wow\" v0** đã soạn — `management/DEMO_STANDARD.md`: luật D1–D7, kịch bản H1–H10, 9 màn hình, **70** acceptance test — chờ anh duyệt"
       later:
         - "Đo lại `A9` với cache ±3 slice *(~1,5 h)*"
-      note: "QA Spike D `REJECT`: `GATE-DATA-01` không đóng hôm nay. Quyết Q1–Q3 sớm để Khánh sửa và mở lại split trong ngày."
+      note: "QA Spike D `REJECT`: `GATE-DATA-01` không đóng hôm nay. Q1 và Q3 đã quyết; Q2 quyết sớm để Khánh viết đúng bảng `A19`."
 
 history:
   - day: 5

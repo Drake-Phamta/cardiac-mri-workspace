@@ -10,6 +10,8 @@
 **DR-002** (needs Spike D), **DR-005** (needs Spike F), **DR-008c** (needs Spike B).
 **Update 2026-09-14: DR-002 is DECIDED — Path A**, on Spike D evidence (see its entry). Two remain open:
 DR-005 (Spike F) and DR-008c (Spike B).
+**Update 2026-09-15: DR-002a** (Part 2b) — the duplicated acquisition `CASE_0056`/`CASE_0097` found by QA-002 is
+one group pinned to train.
 **Authoritative status table:** `READINESS_REVIEW_RESOLUTION.md` §10.
 
 ---
@@ -203,6 +205,9 @@ nowhere in training code · raw or derived data are not redistributed (`A18`).
 **Consequences.** `GATE-SPLIT-01` → waits on the manifest (Bế Quốc Khánh) and the patient-grouping answer ·
 RISK-SPLIT-01 mitigated, closes with the manifest · `spikes/spike_c_ml/harness/extrapolate.py`
 `--train-cases 80` is now the decided value, not an assumption.
+
+**Amended 2026-09-15 by DR-002a** (Part 2b): `CASE_0056` and `CASE_0097`, one acquisition exported twice
+(QA-002 F1), form one group pinned to train. Counts and seed are unchanged.
 
 ---
 
@@ -1180,6 +1185,53 @@ project-control failure, not a dataset question, and it escalates on its own ter
 
 ---
 
+### DR-002a — A duplicated acquisition stays on one side of the split: **one group, pinned to train**
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-002 ✅ — split path selection (the Path A procedure) |
+| **Raised by** | QA Red Team, `management/day06/QA_REVIEW_002_SPIKE_D.md` — finding F1, question Q1 |
+| **Proposed by** | Project Control |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | 2026-09-15 |
+| **Status** | ✅ **DECIDED** — binding on every split manifest generated for `GATE-SPLIT-01` |
+
+**What was found.** `CASE_0056` and `CASE_0097`, both in the official `Training Set`, are one acquisition
+exported twice: their `laendo.nrrd` and `lawall.nrrd` are byte-identical (SHA-256 `685f964b…` and `ccd380f1…`)
+and their MRIs correlate at r = 0.9965. The audit reported no anomaly, and the draft split in the closed PR #28
+placed `CASE_0056` in train and `CASE_0097` in validation — leakage between train and validation, a P0 class
+defect under `13` §12. Project Control reproduced the check on 2026-09-15 at 11:58.
+
+**The decision.**
+
+1. The two cases form **one group** in every split manifest.
+2. The group is **pinned to the train partition**, so validation keeps 20 distinct acquisitions.
+3. **Counts and seed are unchanged:** 80 train / 20 validation cases, seed `2024`, the 54-case locked holdout.
+   The other 98 development cases are assigned 78 train / 20 validation by the seeded procedure.
+4. The nested training subsets (25 % ⊂ 50 % ⊂ 100 %) keep the pair together: a subset holds both cases or
+   neither.
+5. The split manifest records the group, the reason and this decision, and states that train holds
+   **79 distinct acquisitions** in its 80 cases. Every report that gives the train size says the same.
+
+**Why not drop one copy.** Dropping a copy leaves 99 development cases and changes the 80/20 counts written in
+`06` §6. That needs a Decision Request under `00` §13 and ripples into `--train-cases 80` and the subset sizes.
+Pinning the pair to train removes the leakage without touching a frozen number; its cost — one acquisition
+counted twice in training — is disclosed, not hidden.
+
+**What does NOT change.** Path A (DR-002) · patient-level split · seed `2024` · the locked 54-case holdout ·
+no cohort-fitted statistic crosses a partition (DR-011) · `GATE-SPLIT-01` still needs the patient-linkage
+ruling on Bế Quốc Khánh's evidence.
+
+**Scope.** This rule covers this pair. Any further duplicate — found by the owner's validator fix (QA-002 F1)
+or by the patient-linkage screen — comes back to the leader and is not grouped silently. QA-002 found no
+near-identical acquisition crossing into the holdout.
+
+**Consequences.** Bế Quốc Khánh regenerates the split with the group and reopens the split PR, replacing
+PR #28 · Nguyễn Gia Đức Trung's review checks the group, its pin and the subsets · Spike D's audit (the
+QA-002 F1 fix) records the pair as an anomaly and points to this decision.
+
+---
+
 ### DR-003a — Canonical private overlay is **ZeroTier**
 
 | Field | Value |
@@ -1319,7 +1371,7 @@ BEFORE ARCHITECTURE / API FREEZE
   DR-013  technical ownership matrix→  30-day task allocation
 
 BEFORE TRAINING
-  DR-G01 / DR-002  data + split     →  all experiments        [needs Spike D · DR-002 DECIDED Path A, 2026-09-14]
+  DR-G01 / DR-002  data + split     →  all experiments        [needs Spike D · DR-002 DECIDED Path A, 2026-09-14 · DR-002a 2026-09-15]
   DR-007 / DR-G03  compute + ML ADR →  experiment matrix      [needs Spike C]
   DR-011  normalization policy      →  experiment matrix
 

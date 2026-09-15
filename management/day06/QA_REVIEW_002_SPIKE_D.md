@@ -141,6 +141,10 @@ chính mình).
 | **Q2** | F3 — mục "split và ID manifest" của `06` §9.1 | hoãn sang `GATE-SPLIT-01` có ghi (training vẫn `BLOCKED`) · hoặc sinh lại audit sau khi manifest split merge | **hoãn có ghi** — tránh phụ thuộc vòng: split cần audit, audit lại cần split |
 | **Q3** | F5 — manifest trong repo public | giữ như siêu dữ liệu · hoặc hạn chế | **bỏ đường dẫn tuyệt đối ngay**; phán phần còn lại sau khi Khánh trích điều khoản CAP liên quan |
 
+**Leader đã quyết, 15/09 12:29:** **Q1 = (a)** → ghi thành [`DR-002a`](../readiness/OPEN_DECISIONS.md) · **Q3 như đề xuất** —
+bỏ đường dẫn tuyệt đối khỏi manifest ngay, phần còn lại chờ Khánh trích điều khoản CAP. **Q2 chưa quyết** — leader hỏi
+vì sao phải hoãn; Project Control giải thích trong phiên làm việc.
+
 ---
 
 ## 10 · Tái lập

@@ -260,6 +260,9 @@ spikes:
       duplicate check at 11:58 with the same result. Next: the owner fixes F1-F4, F12, F13 and strips the
       paths; the leader decides Q1 (the pair in the split), Q2 (A19 split-item deferral) and Q3 (F5); then
       reviewer re-review, QA re-check, Project Control.
+      Update 2026-09-15 12:29: the leader decided Q1 = DR-002a (the pair is one group pinned to train; 80/20
+      and seed unchanged) and Q3 as proposed (strip the absolute local paths from the manifest now; the rest
+      waits for the CAP terms the owner quotes). Q2 - deferring the A19 split item to GATE-SPLIT-01 - is open.
     evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44; APPROVED 2026-09-15 10:03 and merged a92892c; QA REJECT 11:52"}
 
   - id: SPIKE_A
