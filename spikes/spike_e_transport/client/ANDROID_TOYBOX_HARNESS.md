@@ -11,7 +11,9 @@ the phone and keeps the required provenance fields (`operator`, `owner`,
 
 ## Before running on the physical phone
 
-1. The phone must be authorised on ZeroTier network `3b19b3a71652c5f0`.
+1. The phone must be authorised on ZeroTier network `b103a835d292ddb3` (the
+   current network ID; verify it against `management/readiness/OPEN_DECISIONS.md`
+   before a run).
 2. The canonical path is **Wi-Fi uplink → ZeroTier → Mac Mini** (`wifi-overlay`,
    DR-003b). A cellular run is a separate valid path (`cellular-overlay`); do
    not merge it with Wi-Fi results.
