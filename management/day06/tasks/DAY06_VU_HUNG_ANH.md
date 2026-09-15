@@ -32,8 +32,8 @@
 |---|---|---|---|---|
 | **5** | ✅ **Review PR #26** — 10:09 `CHANGES_REQUESTED`, 3 điểm có nội dung. Nội dung đã giao: tái chạy `aggregate.py` trên `20260913_run4` và so với báo cáo; payload đúng `A6` (`uint8`, 576/640 × 88); stub phục vụ cả hai profile; kế hoạch đo **chạy được trên điện thoại** (phải dùng harness Toybox, không phải `harness.py`); nháp `RESULT.md` không có số nào không truy được về dữ liệu thô | ~2 h | không | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
 | **6** | **Picking trên fixture chính thức trong app** (`B3`/`B4`, trên viewer #30 hoặc emulator): chạm → tia → điểm trên mesh, so với 13 tia `expected` của `geometry_fixture_v0.json` | ~1,5 h | việc 3 | bảng `B4` exact trên emulator *(chẩn đoán — `B5`/`B6` trên máy thật đo sau, leader bấm)* |
-| **7** | **Duyệt lại #24 và #26** khi Trung đẩy bản sửa | ~1 h | Trung | `APPROVE` hoặc yêu cầu sửa |
-| **8** | **Review chính thức #27** (đã soát 10:13 — approve hoặc yêu cầu sửa) · **review PR #31** (S5 brush, nháp — logic `A3`–`A7` kiểm offline; phần đo trên máy làm sau) | ~1,5 h | leader (S5) | review có nội dung |
+| **7** | **Duyệt lại #24 và #26** — ✅ Trung đã đẩy bản sửa 21:21–21:22 (`be52d6f`, `a585907`), **làm được ngay** | ~1 h | không | `APPROVE` hoặc yêu cầu sửa |
+| **8** | **Review chính thức #27** (đã soát 10:13 — approve hoặc yêu cầu sửa) · **review PR #31** (S5 brush — logic kiểm offline và **bằng chứng đo trên máy 21:21, `OBSERVED`**; lệnh tái lập ở comment trên PR) | ~1,5 h | leader (S5) | review có nội dung |
 | **9** | **Duyệt lại Spike D** khi Khánh đẩy bản sửa theo QA-002 (F1–F5, F12, F13) — có thể dùng script ở [`../qa002/`](../qa002/) để kiểm lại cặp trùng | ~1 h | Khánh | `APPROVE` hoặc yêu cầu sửa |
 
 **Tổng phần chính: ~8,3 h** ban đầu — khoảng 6 h đã xong trước 10:21; còn việc 6–9 (~5 h) + hàng dự phòng.

@@ -65,6 +65,9 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 > không báo, và split nháp đã đặt hai bản ở train và validation. **`GATE-DATA-01` không đóng hôm nay.** Leader cần quyết
 > Q1 (cặp trùng trong split), Q2 (hoãn mục split của `A19`), Q3 (manifest trong repo public). **12:29 — leader quyết Q1 (a)
 > → `DR-002a` và Q3 như đề xuất; Q2 đang cân nhắc.**
+>
+> 🕘 **21:28 — stub 2 profile của Trung vẫn chưa chạy (cổng 8787 đóng) → chưa đo được Spike E khung 21:00.** Trung
+> hoạt động lại lúc 21:21 (đẩy bản sửa #24 và #26).
 
 ### Đã xong — trong ngày
 
@@ -81,6 +84,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Vũ Hùng Anh | `B1` — viewer 3D WebGL2 xoay/zoom + ảnh chụp | PR nháp #30 |
 | Phạm Tuấn Anh *(phiên QA độc lập; Project Control kiểm lại F1)* | **QA Red Team Spike D — `REJECT`**: 1 CRITICAL (cặp case trùng bị split nháp đặt ở train và validation), 4 HIGH; mọi con số khác tái lập đúng | [`day06/QA_REVIEW_002_SPIKE_D.md`](day06/QA_REVIEW_002_SPIKE_D.md) · script ở `day06/qa002/` |
 | Phạm Tuấn Anh *(Claude viết, leader duyệt)* | Spike A chặng S5 — brush thêm/xoá, hoàn tác/làm lại/đặt lại, tách cử chỉ, hook đo trên máy; kiểm offline F5 14/14, bundle Metro sạch — **chưa đo trên máy** | PR nháp #31 (`cf84802`) |
+| Phạm Tuấn Anh *(chủ Spike A, bấm trên máy)* | Đo S5 trên máy 21:13–21:21 — `A3`–`A7` `OBSERVED` (A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15); `A2` kiểm lại trên bản S5 `OBSERVED` | `1c62a00` trên PR #31 · `EVIDENCE_RAW/a3_a7_brush_20260915T212121+0700.json` |
+| Nguyễn Gia Đức Trung | Sửa #24 (ID mạng ZeroTier) · sửa #26 (tổng hợp theo profile, JSON sinh lại, kế hoạch đo) — **chưa trả lời review, chưa được duyệt lại** | `be52d6f` trên #24 · `a585907` trên #26 |
 
 ---
 
