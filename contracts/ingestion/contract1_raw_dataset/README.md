@@ -61,11 +61,12 @@ The test covers:
 1. a valid accepted manifest;
 2. an open GATE-DATA-01;
 3. a non-axis-aligned direction (GEOMETRY_NOT_VALIDATED);
-4. MRI/mask shape mismatch;
-5. a disallowed direct-identifier metadata key;
-6. duplicate case detection by MRI/mask SHA-256; and
-7. idempotency: same checksum is NO_OP, changed checksum is
+4. a default unit-spacing/unit-origin header (GEOMETRY_NOT_VALIDATED);
+5. MRI/mask shape mismatch;
+6. a disallowed direct-identifier metadata key;
+7. duplicate case detection by MRI/mask SHA-256;
+8. idempotency: same checksum is NO_OP, changed checksum is
    CHECKSUM_CONFLICT; and
-8. inference-review mode with a nullable ground-truth mask.
+9. inference-review mode with a nullable ground-truth mask.
 
 All fixtures are synthetic and must not be cited as dataset evidence.

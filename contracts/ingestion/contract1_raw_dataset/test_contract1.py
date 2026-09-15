@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,9 +19,14 @@ def load_valid() -> dict:
     return json.loads((FIXTURES / "valid_manifest.json").read_text(encoding="utf-8"))
 
 
-def expect_error(manifest: dict, code: str, existing: dict | None = None) -> None:
+def expect_error(
+    manifest: dict,
+    code: str,
+    existing: dict | None = None,
+    root: Path = FIXTURES,
+) -> None:
     try:
-        validate_manifest(manifest, FIXTURES, existing)
+        validate_manifest(manifest, root, existing)
     except ContractError as exc:
         assert exc.code == code, f"expected {code}, got {exc.code}: {exc}"
         print(f"PASS {code}")
@@ -80,6 +86,25 @@ def main() -> int:
     duplicate_case["ground_truth_mask"]["artifact_uri"] = "artifact://datasets/synthetic-contract1/CASE_0002/mask.nrrd"
     duplicate["cases"].append(duplicate_case)
     expect_error(duplicate, "DUPLICATE_CASE_HASH")
+
+    default_header = load_valid()
+    default_bytes = b"""NRRD0005
+type: uint8
+dimension: 3
+sizes: 2 2 1
+encoding: ascii
+space directions: (1,0,0) (0,1,0) (0,0,1)
+space origin: (0,0,0)
+
+1 2 3 4
+"""
+    default_path = FIXTURES / "default_header.nrrd"
+    default_artifact = default_header["cases"][0]["mri_volume"]
+    default_artifact["source_path"] = default_path.name
+    default_artifact["spacing_xyz"] = [1, 1, 1]
+    default_artifact["origin_xyz"] = [0, 0, 0]
+    default_artifact["checksum"]["value"] = hashlib.sha256(default_path.read_bytes()).hexdigest()
+    expect_error(default_header, "GEOMETRY_NOT_VALIDATED")
 
     inference = load_valid()
     inference["manifest_id"] = "raw-synthetic-inference"
