@@ -1,8 +1,8 @@
 {
  "manifest_version": "1.0",
- "generated_at": "2026-09-14T03:12:35+07:00",
+ "generated_at": "2026-09-16T00:11:36+07:00",
  "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
- "package_root": "D:\\cardiac-mri-workspace-data\\lasc2018\\2018_UTAH_MICCAI.zip!/",
+ "package_root": "EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files",
  "nrrd_library": "pynrrd 1.1.3",
  "acquisition": {
   "source_url": "https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/",
@@ -12,7 +12,7 @@
   "acquired_by": "Phạm Tuấn Anh",
   "operator": "Bế Quốc Khánh",
   "extraction_location": "NOT EXTRACTED - the 14.2 GiB package exceeds available disk; validated by streaming the official ZIP one NRRD at a time",
-  "license_terms_path": "D:/cardiac-mri-workspace-data/lasc2018/official_terms",
+  "license_terms_path": "EXTERNAL PRIVATE ARCHIVE - see license_files names and SHA-256",
   "license_files": [
    {
     "name": "CAPPolicyStatementParticipants.pdf",
@@ -219,7 +219,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/23G5K6IOGZGUOK7SJEUM/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -401,7 +401,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/4URSJYI2QUH1T5S5PP47/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -583,7 +583,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/6HDYMTGBRI27MN763XTS/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -765,7 +765,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/8E00BQQJ7T5TQSSGZVGE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -947,7 +947,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/8ISA3BO39HPSNJI0R8NH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1129,7 +1129,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/8NPX269KV6D4KOELNP9K/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1311,7 +1311,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/9A18LTR49JLKPEZ7JNT5/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1493,7 +1493,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/A878KB79QDIBFOTWB0T8/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1675,7 +1675,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/AY8LY0Z1KBIZ6LMDOAZO/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1857,7 +1857,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/BFZ0ZTFDZRFG9MCSV1GX/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2039,7 +2039,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/BP5NOS0LX7U5IXFES424/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2221,7 +2221,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/C26SF3UO4WM0Z4K04CIB/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2403,7 +2403,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/D27523DQLTWE8UXKOPLP/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2585,7 +2585,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/DD3MZ7M8J7MVQ38NZWBZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2767,7 +2767,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/DN9MLO9S6NWF7GYPC8ZD/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2949,7 +2949,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/DOCC2KQNQCEUHPZ9FAFF/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3131,7 +3131,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/EJ2SQFVAC1DLV39LYGPH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3313,7 +3313,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/EMBIHZTK2UAOEFFJKR6U/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3495,7 +3495,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/EYFKUIESSPFWI4NEHS9L/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3677,7 +3677,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/FNGIIDQMPBSHC7X69OP1/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3859,7 +3859,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/GCAGURFT38WSQCUVCBY0/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4041,7 +4041,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/GT8QWVDGJSPJ2HR7KHIV/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4223,7 +4223,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/HQTRB9LB3EVSJPJZDGGN/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4405,7 +4405,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/JBDRUBWZBRLRDYIE4W7Q/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4587,7 +4587,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/JG24TOFCDWAFMJ5O807R/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4769,7 +4769,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/LCEN6QGISJXG5JUUAS03/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4951,7 +4951,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/M2YZZ592ETSE09NBC233/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5133,7 +5133,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MKVZDR7UDH5HES9U96GW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5315,7 +5315,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MMLTFB33BGQJ7ONEI0VF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5497,7 +5497,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MS11OZHE0BROK9VKMOEV/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5679,7 +5679,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MY6ABW1UA1MR8MDHANWE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5861,7 +5861,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/N4NGBBT16Q282UZV4N8T/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6043,7 +6043,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/NDHTGYOM4FD148VWEWNZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6225,7 +6225,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/O2ZVEXE0D3QYA5B45XLH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6407,7 +6407,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/OKKIVTFXQIUPULV7MA6M/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6589,7 +6589,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/ONP2RGD9L4VKKV4TFG56/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6771,7 +6771,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/P1S3QI5UZLB08BQ9O36Z/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6953,7 +6953,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/PFORURSOR4MDVNQ6QFCZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7135,7 +7135,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/PVXH7YVTMKJ8TU7EQXYR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7317,7 +7317,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/S9HMB3CY6737UDPG6TN2/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7499,7 +7499,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/SXKQQ96IEXC5VZOFAYFN/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7681,7 +7681,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/TUU018TS5KUK40V4DRXT/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7863,7 +7863,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/UOTC6ZI12583GTMLHKAL/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8045,7 +8045,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/WFHG191DWLD2L8BD7CX6/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8227,7 +8227,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/WOUSH4GFU19S1UW1TZL1/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8409,7 +8409,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/WP01DLGNFGO38E0YVLSW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8591,7 +8591,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/X6X4WSG5012HCI1CRMX3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8773,7 +8773,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/X730E6GWUSAFPYEAH15H/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8955,7 +8955,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/X8T5SI3H0DZO6R9NQ9G3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9137,7 +9137,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/XN0S3BIZP80EK5U2LXV5/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9319,7 +9319,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/Y17SIT4UVACAM0WNBAWD/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9501,7 +9501,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/YM0P648I12HKMF5QY4JO/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9683,7 +9683,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/Z4WM2IZVVFPI4NNY9UKZ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9865,7 +9865,7 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/ZQR579BFRMYBFFBX3Q5M/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10047,7 +10047,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/06SR5RBREL16DQ6M8LWS/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10229,7 +10229,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/0RZDK210BSMWAA6467LU/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10411,7 +10411,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/1D7CUD1955YZPGK8XHJX/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10593,7 +10593,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/1GU15S0GJ6PFNARO469W/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10775,7 +10775,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/1MHBF3G6DCPWHSKG7XCP/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10957,7 +10957,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/23X6SY44VT9KFHR7S7OC/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11139,7 +11139,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/2XL5HSFSE93RMOJDRGR4/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11321,7 +11321,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/38CWS74285MFGZZXR09Z/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11503,7 +11503,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/3C2QTUNI0852XV7ZH4Q1/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11685,7 +11685,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/3DA0T2V6JJ2NLUAV6FWM/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11867,7 +11867,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/4498CA6DZWELOXCBRYRF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12049,7 +12049,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/45C45I6IXAFGNRO067W9/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12231,7 +12231,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/4CHFJGF6ZUM7CMZTNFQF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12413,7 +12413,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/4EPVTT1HPA8U60CDUKXE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12595,7 +12595,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/57SGAJMLCTCH92QUA0EE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12777,7 +12777,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5BHTH9RHH3PQT913I59W/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12959,7 +12959,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5FKQL4K14KCB72Y8YMC2/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13141,7 +13141,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5HH0WPWIY06DLAFOBQ4M/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13323,7 +13323,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5QFK2PMHNX7UALK52NNA/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13505,7 +13505,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5UB5KFD2PK38Z4LS6W80/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13687,7 +13687,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/6799D6LEBH3NSRV1KH27/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13869,7 +13869,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/78NJ5YFQF72BGC8RO51C/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14051,7 +14051,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/7FUCNXB39F78WTOP5K71/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14233,7 +14233,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8GYK8A9MBRC9TV0FVSRA/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14415,7 +14415,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8M99G0JLAXG9GLPV0O8G/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14597,7 +14597,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8RE90C8H5DKF4V6HO8UU/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14779,7 +14779,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8ZG2TRZ81MAWHZPN9KKG/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14961,7 +14961,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/9DCM2IB45SK6YKQNYUQY/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15143,7 +15143,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/9DHWWP5Y66VDMPXISZ13/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15325,7 +15325,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/9DQYTIU00I4JC0OEOKQQ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15507,7 +15507,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/A11O45O3NAXWM7T2H8CH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15689,7 +15689,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/A4R1S23KR0KU2WSYHK2X/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15871,7 +15871,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/A5RNNK0A891WUSC2V624/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16053,7 +16053,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/AT5CRO5JUDBWD4RUPXSQ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16235,7 +16235,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BNK95S2SJXEGSW7VAKYU/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16417,7 +16417,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BXJWOUYP2J3EN4U92517/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16599,7 +16599,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BYSRSI3H4YTWKMM3MADP/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16781,7 +16781,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BZUFJX66T0W6ZPVTL9DU/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16963,7 +16963,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CB5P5W7X310NIIVU7UZV/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17145,7 +17145,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CBIJFVZ5L9BS0LKWE8YL/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17327,7 +17327,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CCGAKN4EDT72KC8TTJ76/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17509,7 +17509,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CLXFYOBQDCVXQ9P7YC07/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17694,7 +17694,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CMPXO4J23G58J53Q98SZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17876,7 +17876,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CZPMV6KWZ4I7IJJP9FOK/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18058,7 +18058,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/DLKXBV73A55ZTSZ0QQI2/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18240,7 +18240,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/DQ5UYBGR5QP6L692QSG6/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18422,7 +18422,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/DYXSCIWHLSUOZIDDSZ40/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18604,7 +18604,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/E2ZMO66WGS74UKXTZPPQ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18786,7 +18786,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/EJ5V7SPR4961JWD6SS8V/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18968,7 +18968,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/FGM5NIWN3URY4HF4WNUW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19150,7 +19150,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/GSC9KNY0VEZXFSGWNF25/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19332,7 +19332,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/HVE7DR3CUA2IM3RC6OMA/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19514,7 +19514,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/HZZ4O0BRKF8S0YX3NNF7/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19696,7 +19696,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/I2VZ7N8H9QYNYT7ZZF1Y/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19878,7 +19878,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IDWWHGWJ5STOQXSDT6GU/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20060,7 +20060,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IIY6TYJMTJIZRIZLB9YW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20242,7 +20242,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IJJY51YW3W4YJJ7DTVTK/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20424,7 +20424,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IQYKPTWXVV9H0IHB8YXC/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20606,7 +20606,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/JEC6HJ7SQJXBKVREX03F/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20788,7 +20788,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/JGFOLWJF7YCYD8DPHQNH/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20970,7 +20970,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/K32FD6LRSUSSXGS1YUOX/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21152,7 +21152,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/KM5RYAMP4P4ZP6XWP3Q2/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21334,7 +21334,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/KSNYHUBHHUJTYJ14UQZR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21516,7 +21516,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/LH4FVU3TQDEC87YGN6FL/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21698,7 +21698,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/LJSDNMND9SHKM7Q4IRHJ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21880,7 +21880,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/MFTDVMBWFNQ3F5KHBRDR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22062,7 +22062,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/MJHV7F65TB2A76CQLOC3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22244,7 +22244,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/MVKIPGBKTNSENNP1S4HB/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22426,7 +22426,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/O5TSIKRD4AIB8K84WIR9/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22608,7 +22608,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/OIRDLE32TXZX942FVZMM/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22790,7 +22790,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/P1OTI3IWJUIB5NRLULLH/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22972,7 +22972,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/PVNXUK681N9BY14K4Z86/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23154,7 +23154,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Q0MEX9ZIKAGJORSPLQ3Y/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23336,7 +23336,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Q7J0WYM695R9MA285ZW0/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23518,7 +23518,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/QZC1W0FNR19KJFLOCFLH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23700,7 +23700,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/R8ER97O9UUN77C02VE2J/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23882,7 +23882,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/RSZY41MT2FGDKHWWL5L2/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24064,7 +24064,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/SN4LF8SGBSRQUPTDSX78/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24246,7 +24246,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/TDDI6L3Y0L9VVFP9MNFS/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24428,7 +24428,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/ULHWPWKKLTE921LQLH1P/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24610,7 +24610,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/UPT6DX9IQY9JAZ7HJKA7/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24792,7 +24792,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/UTBUJIWZMKP64E3N73YC/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24974,7 +24974,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/UZUZZT2W9IUSHL6ASOX3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25156,7 +25156,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/V0MZOWJ6MU3RMRCV9EXR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25338,7 +25338,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VDOF02M8ZHEAADFMS6NP/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25520,7 +25520,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VG4C826RAAKVMV9BQLVD/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25702,7 +25702,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VIXBEFTNVHZWKAKURJBN/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25884,7 +25884,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VQ2L3WM8KEVF6L44E6G9/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26066,7 +26066,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WBG9WYZ1B25WDT5WAT8T/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26248,7 +26248,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WMDG2EFA6L2SNDZXIRU0/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26430,7 +26430,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WNPKE0W404QE9AELX1LR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26612,7 +26612,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WSJB9P4JCXUVHBOYFVWL/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26794,7 +26794,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WW8F5CO4S4K5IM5Z7EXX/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26976,7 +26976,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/X18LU5AOBNNDMLTA0JZL/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27158,7 +27158,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/XYDLYJ5CS19FDBVLJIPI/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27340,7 +27340,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Y7ZU0B2APPF54WG6PDMF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27522,7 +27522,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/YDKD1HVHSME6NVMA8I39/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27704,7 +27704,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Z9GMG63CJLL0VW893BB1/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27886,7 +27886,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/ZIJLJAVQV3FJ6JSQOH1E/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -28068,7 +28068,7 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/ZQPMJ4XEC5A4BISD45P1/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT MEASURED - checksums disabled for this run",
+     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -28119,6 +28119,27 @@
    }
   }
  ],
+ "duplicate_evidence": [
+  {
+   "file": "laendo.nrrd",
+   "sha256": "685f964bc32639c9c3fd8ca961078cfce88515d70046691a4d396613eed5192e",
+   "case_ids": [
+    "CASE_0056",
+    "CASE_0097"
+   ],
+   "finding": "IDENTICAL_FILE_BYTES_ACROSS_CASES"
+  },
+  {
+   "file": "lawall.nrrd",
+   "sha256": "ccd380f1139809f2dbcbdda76cd43eb7983cfa21ae95e5367cf81261bd7c0f35",
+   "case_ids": [
+    "CASE_0056",
+    "CASE_0097"
+   ],
+   "finding": "IDENTICAL_FILE_BYTES_ACROSS_CASES"
+  }
+ ],
+ "companion_distinct_from_mask_count": 154,
  "criteria_results": [
   {
    "criterion": "A1",
@@ -28208,7 +28229,7 @@
    "criterion": "A15",
    "title": "Corrupted / missing / unreadable files listed",
    "status": "PASS",
-   "detail": "0 anomaly(ies): none"
+   "detail": "2 anomaly(ies): identical laendo.nrrd bytes: CASE_0056, CASE_0097; identical lawall.nrrd bytes: CASE_0056, CASE_0097 - exact cross-case duplicates are listed; grouping and acceptance remain human decisions"
   },
   {
    "criterion": "A16",

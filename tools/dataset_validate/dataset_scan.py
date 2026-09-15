@@ -64,6 +64,52 @@ def _sha256(path: str, chunk: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
+def _public_acquisition(acquisition: dict | None) -> dict:
+    """Keep the acquisition facts, not a machine-specific policy-file path."""
+    record = dict(acquisition or {
+        "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
+    })
+    if "license_terms_path" in record:
+        record["license_terms_path"] = (
+            "EXTERNAL PRIVATE ARCHIVE - see license_files names and SHA-256"
+        )
+    return record
+
+
+def _duplicate_evidence(cases: list[dict]) -> list[dict]:
+    """Report exact cross-case mask/companion matches without using patient IDs."""
+    by_hash: dict[tuple[str, str], list[str]] = {}
+    for case in cases:
+        candidates = {MASK_FILENAME: case.get("mask")}
+        candidates.update(case.get("companion_volumes") or {})
+        for name, volume in candidates.items():
+            sha = (volume or {}).get("sha256")
+            if isinstance(sha, str) and len(sha) == 64:
+                by_hash.setdefault((name.lower(), sha), []).append(case["case_id"])
+    groups = []
+    for (name, sha), ids in sorted(by_hash.items()):
+        if len(ids) > 1:
+            groups.append({"file": name, "sha256": sha, "case_ids": sorted(ids),
+                           "finding": "IDENTICAL_FILE_BYTES_ACROSS_CASES"})
+    return groups
+
+
+def _public_companion_summary(cases: list[dict]) -> int:
+    """Count a cavity/wall cross-check, then discard 154 new companion hashes."""
+    different = 0
+    for case in cases:
+        mask_sha = (case.get("mask") or {}).get("sha256")
+        companions = case.get("companion_volumes") or {}
+        wall_sha = (companions.get("lawall.nrrd") or {}).get("sha256")
+        if isinstance(mask_sha, str) and len(mask_sha) == 64 and \
+                isinstance(wall_sha, str) and len(wall_sha) == 64 and mask_sha != wall_sha:
+            different += 1
+        for volume in companions.values():
+            if "sha256" in volume:
+                volume["sha256"] = "NOT PUBLISHED - only cross-case duplicate findings retained"
+    return different
+
+
 def _load_nrrd():
     """Import the NRRD reader and report its exact version.
 
@@ -351,7 +397,7 @@ def scan_package(root: str, want_checksums: bool = True,
             if not name.lower().endswith(".nrrd"):
                 continue
             vol = _inspect_volume(os.path.join(found["abs_dir"], name), nrrd,
-                                  want_checksums=False)
+                                  want_checksums=want_checksums)
             vol.pop("_data", None)
             vol["path_relative"] = f"{found['source_dir_relative']}/{name}"
             vol["note"] = ("companion file, NOT a required target (`06` section 2). Header "
@@ -361,19 +407,21 @@ def scan_package(root: str, want_checksums: bool = True,
 
         cases.append(entry)
 
+    duplicate_evidence = _duplicate_evidence(cases)
+    companion_distinct_count = _public_companion_summary(cases)
     manifest = {
         "manifest_version": "1.0",
         "generated_at": started,
         "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
-        "package_root": os.path.abspath(root),
+        "package_root": "EXTERNAL PRIVATE PACKAGE - see acquisition.package_files",
         "nrrd_library": nrrd_version,
-        "acquisition": acquisition or {
-            "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
-        },
+        "acquisition": _public_acquisition(acquisition),
         "case_count_total": len(cases),
         "partitions": _partition_summary(cases),
         "shape_distribution": _shape_distribution(cases),
         "cases": cases,
+        "duplicate_evidence": duplicate_evidence,
+        "companion_distinct_from_mask_count": companion_distinct_count,
     }
     return manifest
 
@@ -465,7 +513,7 @@ def scan_archive(archive_path: str, want_checksums: bool = True,
                 if not name.lower().endswith(".nrrd"):
                     continue
                 _original, info = files[name.lower()]
-                vol = inspect(info, f"{index:04d}_companion.nrrd", False)
+                vol = inspect(info, f"{index:04d}_companion.nrrd", want_checksums)
                 vol.pop("_data", None)
                 vol["path_relative"] = f"{rel_dir}/{name}"
                 vol["note"] = ("companion file, NOT a required target (`06` section 2). Header "
@@ -474,19 +522,21 @@ def scan_archive(archive_path: str, want_checksums: bool = True,
             entry["companion_volumes"] = companions
             cases.append(entry)
 
+    duplicate_evidence = _duplicate_evidence(cases)
+    companion_distinct_count = _public_companion_summary(cases)
     return {
         "manifest_version": "1.0",
         "generated_at": started,
         "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
-        "package_root": archive_abs + "!/",
+        "package_root": "EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files",
         "nrrd_library": nrrd_version,
-        "acquisition": acquisition or {
-            "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
-        },
+        "acquisition": _public_acquisition(acquisition),
         "case_count_total": len(cases),
         "partitions": _partition_summary(cases),
         "shape_distribution": _shape_distribution(cases),
         "cases": cases,
+        "duplicate_evidence": duplicate_evidence,
+        "companion_distinct_from_mask_count": companion_distinct_count,
     }
 
 

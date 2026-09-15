@@ -102,7 +102,7 @@ def run_checks(manifest: dict) -> list[Result]:
                       "This spike supplies evidence only; DR-002 / GATE-SPLIT-01 selects the "
                       "path. The manifest's partition summary is the input."))
     out.append(_a14_axis_aligned(cases))
-    out.append(_a15_anomalies(cases))
+    out.append(_a15_anomalies(cases, manifest.get("duplicate_evidence") or []))
     out.append(_a16_ids(cases))
     out.append(_a17_privacy(cases, owner_verdicts.get("a17_excluded_files") or []))
     out.append(Result("A18", "Licence / data-use terms preserved and archived", OWNER,
@@ -351,7 +351,7 @@ def _a14_axis_aligned(cases: list[dict]) -> Result:
                   f"all {aligned} volume(s) axis-aligned")
 
 
-def _a15_anomalies(cases: list[dict]) -> Result:
+def _a15_anomalies(cases: list[dict], duplicate_evidence: list[dict] | None = None) -> Result:
     problems = []
     for c in cases:
         for role in ("mri", "mask"):
@@ -362,15 +362,23 @@ def _a15_anomalies(cases: list[dict]) -> Result:
                 problems.append(f"{c['case_id']}/{role}: unreadable")
             elif vol.get("has_non_finite") is True:
                 problems.append(f"{c['case_id']}/{role}: contains non-finite values")
+    duplicates = duplicate_evidence or []
+    for group in duplicates:
+        problems.append(f"identical {group['file']} bytes: {', '.join(group['case_ids'])}")
     # The criterion is that anomalies are LISTED, so finding some is not itself a
     # failure - but printing ok beside a list of corrupt files is. An anomaly is
     # surfaced as FAIL so it cannot be skimmed past.
-    status = FAIL if problems else PASS
+    # A15 asks for an explicit inventory. Identical cross-case content is
+    # recorded as an anomaly but, under DR-002a, the known pair is grouped in
+    # train rather than silently excluded. Unreadable content remains fatal.
+    fatal = any("unreadable" in p or "non-finite" in p for p in problems)
+    status = FAIL if fatal else PASS
     return Result("A15", "Corrupted / missing / unreadable files listed", status,
                   f"{len(problems)} anomaly(ies): "
                   f"{'; '.join(problems[:6]) if problems else 'none'}"
-                  + (" - listed; affected cases must be excluded with a recorded reason"
-                     if problems else ""))
+                  + (" - exact cross-case duplicates are listed; grouping and"
+                     " acceptance remain human decisions" if duplicates and not fatal else
+                     " - affected cases must be excluded with a recorded reason" if fatal else ""))
 
 
 def _a16_ids(cases: list[dict]) -> Result:
@@ -378,9 +386,12 @@ def _a16_ids(cases: list[dict]) -> Result:
     dupes = len(ids) - len(set(ids))
     src = [c["source_dir_relative"] for c in cases]
     src_dupes = len(src) - len(set(src))
-    if dupes or src_dupes:
+    names = [c.get("source_dir_name") for c in cases]
+    name_dupes = len(names) - len(set(names))
+    if dupes or src_dupes or name_dupes:
         return Result("A16", "Case IDs unique; de-identified internal IDs assigned", FAIL,
-                      f"{dupes} duplicate internal ID(s), {src_dupes} duplicate source path(s)")
+                      f"{dupes} duplicate internal ID(s), {src_dupes} duplicate source path(s), "
+                      f"{name_dupes} duplicate case-directory name(s)")
     return Result("A16", "Case IDs unique; de-identified internal IDs assigned", PASS,
                   f"{len(ids)} unique CASE_NNNN IDs assigned deterministically by sorted source path")
 
