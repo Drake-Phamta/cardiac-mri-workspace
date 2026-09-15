@@ -705,8 +705,11 @@ device_measurement_queue:
       the old network 3b19b3a71652c5f0 could not be found, so the phone could not be authorised
       there. Members: laptop 68efb4de07 = 10.64.193.145, Mac mini e202ffbfe4 = 10.64.193.115,
       phone 078280bae8 = 10.64.193.140. The Mac mini remains on the old network as well.
-      A second stub instance serves 10.64.193.115:8787 (PID 32227); Trung's original on
-      10.134.129.115 is untouched.
+      A second stub instance served 10.64.193.115:8787 (PID 32227) from 2026-09-13 17:43 until the
+      leader stopped it on 2026-09-15 09:48 +07:00 (SIGTERM, guarded on its command line), freeing the
+      port for Trung's two-profile stub. Its log stub-20260913-net-b103a835.jsonl is unchanged on the
+      Mac mini (66192 bytes, SHA-256 3004f87b...7a117c, last request 2026-09-13 19:19); per-run copies
+      are on spike-e/evidence-20260913. Trung's original on 10.134.129.115 (PID 60294) is untouched.
     first_cellular_run: >
       2026-09-13 17:51, one repeat, E12 RELAY. 57 samples: 30 ok, 27 client-side
       "Network is unreachable" on TCP connect, interleaved; ping was 30/30. Raw on branch

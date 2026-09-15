@@ -7,10 +7,12 @@
 > được đúng kế hoạch của bạn trên điện thoại. Hôm nay: dựng stub để leader đo **khung 15:00**, thiết kế `E9`, và bắt đầu
 > **hợp đồng ingestion (M3, Day 6–9)** — phần backend là của bạn.
 
-> ⚠ **06:10 và 06:14 — Mac mini không tới được từ laptop leader**: `10.64.193.115` và `10.134.129.115` đều không ping được,
-> cổng 22 và 8787 đóng; overlay phía leader vẫn chạy (điện thoại `10.64.193.140` ping được). Stub cũ PID 32227 **chưa
-> dừng được**. **Trước việc 2:** kiểm Mac mini còn bật, không ngủ, và ZeroTier trên đó đang chạy
-> (`zerotier-cli listnetworks` thấy `b103a835d292ddb3` `OK`). Nếu bạn vào được máy, tự dừng PID 32227 rồi dựng stub mới.
+> ✅ **09:48 — leader đã dừng stub cũ PID 32227**, cổng `10.64.193.115:8787` trống → **việc 2 không còn chờ ai**, làm
+> được ngay. Stub **60294 của bạn** trên `10.134.129.115:8787` vẫn chạy, không đụng tới. Log cũ
+> `spikes/spike_e_transport/logs/stub-20260913-net-b103a835.jsonl` giữ nguyên (66 192 byte, SHA-256 `3004f87b…7a117c`);
+> bản sao từng lượt đã có trên nhánh `spike-e/evidence-20260913`. Repo trên Mac mini đang ở `37877e8` (13/09) — `git
+> fetch` rồi checkout nhánh của #26 (`chore/day5-trung`) trước khi sinh payload. *(Mac mini không tới được lúc 06:10 và
+> 06:14, tới được lại 09:38.)*
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
@@ -22,7 +24,7 @@
 
 | # | Việc | Giờ | Chờ ai | Xong khi |
 |---|---|---|---|---|
-| **2** | **Dựng stub 2 profile trên Mac mini** — **trước 14:00** để kịp khung 15:00. Từ nhánh #26 (ghi commit): `payloads/generate.py` cả hai profile → `stub/server.py --payloads … --bind 10.64.193.115 --port 8787 --log <file>`. Leader dừng instance cũ (PID 32227) trước — xem packet leader. Kiểm **ngay trên Mac mini**: `/health` 200, `?profile=576x576x88` và `640x640x88` trả đúng `Content-Length` | ~1 h | leader dừng PID 32227 | comment trên #26: commit, lệnh, output kiểm, đường dẫn log. Payload bytes **không commit** (`.gitignore`) |
+| **2** | **Dựng stub 2 profile trên Mac mini** — **trước 14:00** để kịp khung 15:00. Từ nhánh #26 (ghi commit): `payloads/generate.py` cả hai profile → `stub/server.py --payloads … --bind 10.64.193.115 --port 8787 --log <file>`. ✅ Leader đã dừng instance cũ PID 32227 lúc 09:48 — cổng trống. Kiểm **ngay trên Mac mini**: `/health` 200, `?profile=576x576x88` và `640x640x88` trả đúng `Content-Length` | ~1 h | không *(✅ 09:48)* | comment trên #26: commit, lệnh, output kiểm, đường dẫn log. Payload bytes **không commit** (`.gitignore`) |
 | **3** | **`E9` reconnect/retry trên harness Toybox**: kịch bản mất kết nối có kiểm soát giữa một lần tải slice và một lần tải mesh (vd. operator `adb shell svc wifi disable` → `enable`, hoặc tắt/bật network ZeroTier). Ghi: thời điểm mất, thời gian hồi phục, số lần thử lại, dữ liệu sau thử lại có trùng byte không, trạng thái lỗi. Diễn tập trên AVD (`lan-diagnostic`, chỉ chẩn đoán) | ~2,5 h | không | PR (nhánh mới từ `docs/day4-avd-diagnostic`) + hướng dẫn một trang để leader chạy trên máy thật |
 | **4** | **Tổng hợp các lượt đo mới trong ngày**: khi leader đẩy dữ liệu thô khung 15:00 và 21:00, chạy `aggregate.py` **riêng từng nhóm** path/profile/khung giờ; cập nhật nháp `RESULT.md` (`E2`–`E6`, `E8` độ trải theo khung giờ, `E12`) | ~1,5 h | leader (dữ liệu thô) | commit trên nhánh #26. *Chưa có dữ liệu thì làm việc 5* |
 | **5** | **M3 — Hợp đồng ingestion 1 (dữ liệu thô), bản nháp v0** theo bảng "Contract 1" của `DR-004`: schema manifest cho `MRICase` / `MRIVolume` / `GroundTruthMask`; các kiểm bắt buộc (NRRD mở được, shape + spacing khớp, label `{0, 255}` ghi rõ, **axis-aligned, không thì `GEOMETRY_NOT_VALIDATED`** — DR-012, allowlist metadata); idempotency (checksum đổi là lỗi, không ghi đè); bị chặn bởi `GATE-DATA-01`. Dựng trên `dataset_manifest.json` của Spike D (PR #25). **Chỉ tài liệu + JSON Schema + ca kiểm trên dữ liệu tổng hợp — không module production, không đóng băng API** | ~2 h | không | PR nháp `contracts/ingestion/contract1_raw_dataset/` — ghi rõ `DRAFT v0` |

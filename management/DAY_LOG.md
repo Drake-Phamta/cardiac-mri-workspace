@@ -64,7 +64,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| *(chưa có)* | | |
+| Phạm Tuấn Anh *(Claude viết, leader duyệt)* | Sửa PR #17 — 2 lỗi runtime Khánh tìm trên RTX 4050, cộng 2 lỗi tìm thêm khi kiểm trên RTX 3050 Ti | `08d7166` trên #17 · CI xanh · trả lời trên PR 06:42 |
+| Phạm Tuấn Anh | Dừng stub cũ PID 32227 trên Mac mini lúc 09:48 — `10.64.193.115:8787` trống cho stub 2 profile của Trung | output kiểm ở [`day06/tasks/DAY06_PHAM_TUAN_ANH.md`](day06/tasks/DAY06_PHAM_TUAN_ANH.md) việc 3 |
 
 ---
 

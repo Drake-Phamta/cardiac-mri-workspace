@@ -130,7 +130,7 @@ risk_notes:
 device:
   nodes:
     - ["Laptop leader", "68efb4de07", "10.64.193.145", "operator, adb qua USB"]
-    - ["Mac mini M2 24 GB", "e202ffbfe4", "10.64.193.115", "stub `:8787` (PID 32227)"]
+    - ["Mac mini M2 24 GB", "e202ffbfe4", "10.64.193.115", "`:8787` trống — stub cũ PID 32227 dừng 15/09 09:48; chờ stub 2 profile của Trung"]
     - ["Galaxy A17 5G", "078280bae8", "10.64.193.140", "ZeroTier Android 1.16.0"]
   runs:
     - ["1", "13/09 17:51", "5G · `cellular-overlay`", "RELAY", "57 mẫu: 30 ok · 27 lỗi connect", "no", "bd5e931"]
@@ -173,7 +173,6 @@ today:
     - [khanh, "Đổi base **#28** sang `main`", hunganh, "review lại #25 → leader merge"]
     - [tuananh, "Merge **#17**", khanh, "review lại **#17** (`08d7166`) — probe `C0` đã chạy được"]
     - [tuananh, "Quyết nối case↔bệnh nhân (`GATE-SPLIT-01`)", khanh, "**bằng chứng nối bệnh nhân** (trước 18:00)"]
-    - [trung, "Dựng stub 2 profile trên Mac mini", tuananh, "dừng stub cũ PID 32227 (trước 13:30)"]
     - [tuananh, "Đo lại Spike E khung 15:00 · 21:00", trung, "stub 2 profile đã kiểm (trước 14:00)"]
     - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 15:00 / 21:00"]
     - [tuananh, "Merge **#24** · **#26**", hunganh, "review lại #24 · review #26"]
@@ -198,7 +197,7 @@ today:
       debts:
         - "**Review PR #28** — split Path A của Khánh *(~1,5 h)*"
       now:
-        - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 14:00 *(~1 h)*"
+        - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 14:00 *(~1 h)* · không còn chờ ai: stub cũ đã dừng 09:48"
         - "**`E9` reconnect/retry** trên harness Toybox + diễn tập AVD → PR *(~2,5 h)*"
       then:
         - "Tổng hợp lượt đo khung 15:00 / 21:00, cập nhật nháp `RESULT.md` *(~1,5 h)*"
@@ -227,7 +226,7 @@ today:
       debts:
         - "✅ **Sửa #17** — 2 lỗi runtime Khánh tìm + 2 lỗi tìm thêm khi kiểm, đẩy `08d7166` lúc 06:42"
         - "Merge **#25** ngay khi Hùng Anh approve"
-        - "Dừng stub cũ PID 32227 cho Trung, trước 13:30"
+        - "✅ **Dừng stub cũ PID 32227** lúc 09:48 — `:8787` trống cho Trung; stub 60294 của Trung không đụng"
       now:
         - "**QA Red Team Spike D** sau merge → `ACCEPTED` → `GATE-DATA-01` *(~2 h)*"
         - "**Quyết nối case↔bệnh nhân** (`GATE-SPLIT-01`) sau bằng chứng của Khánh *(~30 ph)*"
