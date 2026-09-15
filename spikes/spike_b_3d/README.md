@@ -173,7 +173,7 @@ lần** (0,695 vs 0,194): cùng một độ dịch hình học, `interior` sẽ 
 
 1. ~~Nhận / sửa / thay bộ fixture~~ ✅ **xong 13/09** — PR #20.
 2. ~~Công bố format~~ ✅ **xong 13/09** — `tests/fixtures/geometry/FORMAT.md`.
-3. ~~Diễn giải nhóm B14 trên bảng trên~~ ✅ **ghi chú owner Day 6** — nhớ đọc cột `slice/mm`.
+3. Diễn giải nhóm B14 trên bảng trên — **PR #29** ghi chú owner Day 6; nhớ đọc cột `slice/mm`.
 4. ~~Dựng app B1 tối thiểu~~ ✅ **WebGL2 viewer + screenshot diagnostic Day 6**.
 5. Quyết có xoá `fixtures_proposal/` không — nó không còn là nguồn của công cụ nào.
 6. Thay mask tổng hợp bằng mask thật khi Spike D có dữ liệu, chạy lại `build_mesh.py`.
