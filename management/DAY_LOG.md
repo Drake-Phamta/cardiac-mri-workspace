@@ -79,6 +79,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Vũ Hùng Anh | `B14` — diễn giải của chủ spike | PR #29 |
 | Vũ Hùng Anh | `B1` — viewer 3D WebGL2 xoay/zoom + ảnh chụp | PR nháp #30 |
 | Phạm Tuấn Anh *(phiên QA độc lập; Project Control kiểm lại F1)* | **QA Red Team Spike D — `REJECT`**: 1 CRITICAL (cặp case trùng bị split nháp đặt ở train và validation), 4 HIGH; mọi con số khác tái lập đúng | [`day06/QA_REVIEW_002_SPIKE_D.md`](day06/QA_REVIEW_002_SPIKE_D.md) · script ở `day06/qa002/` |
+| Phạm Tuấn Anh *(Claude viết, leader duyệt)* | Spike A chặng S5 — brush thêm/xoá, hoàn tác/làm lại/đặt lại, tách cử chỉ, hook đo trên máy; kiểm offline F5 14/14, bundle Metro sạch — **chưa đo trên máy** | PR nháp #31 (`cf84802`) |
 
 ---
 

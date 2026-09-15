@@ -64,7 +64,7 @@ criteria:
 # reviewer, priority and "unblocks" list come from SPIKE_PHASE_STATE.yaml.
 spike_notes:
   SPIKE_D:  "#25 merge 10:03 → ❌ **QA Red Team `REJECT` 11:52** → `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng **`CASE_0056`/`CASE_0097` là một lần chụp bị xuất hai lần** (audit ghi 0 bất thường; split nháp đặt ở train và validation) · header không mang hình học vật lý · `A19` thiếu. Leader quyết Q1–Q3 — `management/day06/QA_REVIEW_002_SPIKE_D.md`."
-  SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR #27 — Hùng Anh soát 10:13: 4/4 kiểm đạt, góp ý `onPanResponderTerminate` đưa vào S5. **S5 brush đang làm.**"
+  SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR #27 — Hùng Anh soát 10:13: 4/4 kiểm đạt, góp ý `onPanResponderTerminate` đưa vào S5. S5 brush: **PR nháp #31** — F5 14/14 offline, chờ đo trên máy."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). ✅ `B14` diễn giải (#29) · ✅ `B1` viewer WebGL2 xoay/zoom có ảnh (#30 nháp, mới chạy trên trình duyệt desktop). Việc tiếp: picking `B3`/`B4`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "PR #26 **bị yêu cầu sửa 3 điểm** (10:09: JSON tổng hợp sinh từ bản script cũ · lệnh đo phải dùng Toybox · gộp lẫn profile) · #24 **còn 1 điểm** (ID mạng ZeroTier cũ). Hôm nay: stub 2 profile → leader đo **khung 15:00 và 21:00** → Trung tổng hợp."
   SPIKE_C0: "`C0-1` đã khai báo (RTX 4050 6 GB, không pagefile). #17: **đã sửa 2 lỗi runtime** (`08d7166`, 06:42; mỗi lần đo/thử batch chạy trong tiến trình con riêng) → Khánh review lại và chạy probe fp32 + bf16. Khung pipeline trên dữ liệu tổng hợp hôm nay."
@@ -72,7 +72,7 @@ spike_notes:
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
-merge_order: [24, 26, 29, 30, 17, 27]
+merge_order: [24, 26, 29, 30, 17, 27, 31]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
@@ -223,7 +223,7 @@ today:
         - "**Picking trên fixture** (`B3`/`B4`) — trên viewer #30 hoặc emulator *(~1,5 h)*"
       then:
         - "**Duyệt lại #24 · #26** khi Trung sửa xong *(~1 h)*"
-        - "**Review chính thức #27** (đã soát 10:13) · review **PR S5 brush** khi lên *(~1,5 h)*"
+        - "**Review chính thức #27** (đã soát 10:13) · review **PR #31** (S5 brush, nháp) *(~1,5 h)*"
         - "**Duyệt lại Spike D** khi Khánh đẩy bản sửa theo QA-002 *(~1 h)*"
       later:
         - "M3 — hợp đồng hình học có số phiên bản *(~1 h)*"
@@ -241,7 +241,7 @@ today:
         - "**Đo lại Spike E** khung 15:00 và 21:00 *(~1,5 h)*"
       then:
         - "Merge #24 · #26 (chờ Trung sửa) · ✅ nhờ review #27 (10:51), Hùng Anh đã soát 10:13"
-        - "▶ **Spike A S5 — brush** đang làm (Claude, worktree riêng; anh duyệt trước khi đẩy) + kiểm offline `A3`–`A7`, 60 ca `A5` *(~3 h)*"
+        - "✅ **Spike A S5 — brush**: PR nháp #31 (12:13) — F5 14/14, bundle sạch · đo `A3`–`A7` trên máy khi cắm điện thoại *(~15 ph)*"
         - "✅ **Chuẩn demo \"wow\" v0** đã soạn — `management/DEMO_STANDARD.md`: luật D1–D7, kịch bản H1–H10, 9 màn hình, **70** acceptance test — chờ anh duyệt"
       later:
         - "Đo lại `A9` với cache ±3 slice *(~1,5 h)*"
