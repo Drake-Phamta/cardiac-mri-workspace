@@ -1,0 +1,84 @@
+{
+  "contract": "contract1_raw_dataset",
+  "contract_version": "DRAFT v0",
+  "manifest_id": "raw-synthetic-001",
+  "dataset": {
+    "dataset_id": "synthetic-contract1",
+    "name": "Contract 1 synthetic fixture",
+    "source_url": "https://example.invalid/synthetic-contract1",
+    "acquisition_tag": "test-2026-09-15",
+    "package_checksum": {
+      "algorithm": "sha256",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "license_usage_notes": "Synthetic bytes only; not a redistributable dataset."
+  },
+  "gate": {
+    "gate_data_01": "ACCEPTED",
+    "validated_manifest_uri": "artifact://manifests/raw-synthetic-001"
+  },
+  "cases": [
+    {
+      "case_id": "CASE_0001",
+      "dataset_id": "synthetic-contract1",
+      "source_case_key": "synthetic-case-1",
+      "mode_capability": "EVALUATION",
+      "mri_volume": {
+        "artifact_uri": "artifact://datasets/synthetic-contract1/CASE_0001/mri.nrrd",
+        "source_path": "mri.nrrd",
+        "format": "NRRD",
+        "shape_xyz": [2, 2, 1],
+        "spacing_xyz": [1, 1, 1],
+        "origin_xyz": [0, 0, 0],
+        "direction_or_orientation": [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1]
+        ],
+        "dtype": "uint8",
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "59f23df37373858a9c751d7dcaf79967d60be31b365e00fd23c4a6faf0391f39"
+        },
+        "geometry_validation_status": "VALIDATED_AXIS_ALIGNED"
+      },
+      "ground_truth_mask": {
+        "artifact_uri": "artifact://datasets/synthetic-contract1/CASE_0001/mask.nrrd",
+        "source_path": "mask.nrrd",
+        "format": "NRRD",
+        "shape_xyz": [2, 2, 1],
+        "spacing_xyz": [1, 1, 1],
+        "origin_xyz": [0, 0, 0],
+        "direction_or_orientation": [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1]
+        ],
+        "dtype": "uint8",
+        "checksum": {
+          "algorithm": "sha256",
+          "value": "c6b387dddd96a2e98c64d9226a24d15eb1e4eae88d6650fc751667a5da63df27"
+        },
+        "geometry_validation_status": "VALIDATED_AXIS_ALIGNED",
+        "label_semantics": "LA cavity",
+        "source": "dataset annotation",
+        "label_values": [0, 255],
+        "foreground_value": 255,
+        "background_value": 0
+      },
+      "compatibility": {
+        "shape_equal": true,
+        "spacing_equal": true,
+        "origin_equal": true,
+        "directions_equal": true,
+        "resampling_required": false
+      },
+      "metadata": {
+        "modality": "MR",
+        "space": "left-posterior-superior",
+        "encoding": "raw",
+        "source_partition": "Synthetic"
+      }
+    }
+  ]
+}
