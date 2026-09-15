@@ -1,0 +1,152 @@
+{
+  "status": "SYNTHETIC_PIPELINE_BRINGUP_PASS",
+  "operator": "Bế Quốc Khánh",
+  "captured_at": "2026-09-16T01:14:06+0700",
+  "device": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "framework": {
+    "python": "3.11.9",
+    "torch": "2.11.0+cu128"
+  },
+  "input": {
+    "manifest": "spikes/spike_c_ml/synthetic/split_manifest_8_cases.json",
+    "real_dataset_bytes_read": false,
+    "case_count": 8,
+    "cases": [
+      {
+        "case_id": "SYNTH_CASE_0001",
+        "source_shape_xyz": [
+          576,
+          576,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2024,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0002",
+        "source_shape_xyz": [
+          640,
+          640,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2025,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0003",
+        "source_shape_xyz": [
+          576,
+          576,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2026,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0004",
+        "source_shape_xyz": [
+          640,
+          640,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2027,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0005",
+        "source_shape_xyz": [
+          576,
+          576,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2028,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0006",
+        "source_shape_xyz": [
+          640,
+          640,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2029,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0007",
+        "source_shape_xyz": [
+          576,
+          576,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2030,
+        "slice_index": 44
+      },
+      {
+        "case_id": "SYNTH_CASE_0008",
+        "source_shape_xyz": [
+          640,
+          640,
+          88
+        ],
+        "dtype": "uint8",
+        "seed": 2031,
+        "slice_index": 44
+      }
+    ],
+    "normalization": "DR-011 per-volume p0.5/p99.5; no cohort-fitted statistic",
+    "resize": "MRI bilinear antialias and mask nearest-exact to 560x560"
+  },
+  "dinov2_checkpoint": {
+    "repo": "facebook/dinov2-small",
+    "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+  },
+  "results": [
+    {
+      "variant": "unet_base16_depth4",
+      "epoch": 1,
+      "train_steps": 6,
+      "mean_train_loss": 0.8164493242899576,
+      "synthetic_validation_dice": 0.22280152302169154,
+      "elapsed_seconds": 2.364682499999617,
+      "precision": "bf16",
+      "checkpoint": {
+        "filename": "unet_base16_depth4.pt",
+        "bytes": 13976472,
+        "sha256": "7075f0661fcf3f50e2b72a6873b3367260363a68afde039dbf1cc262f37f5a85",
+        "reload_verified": true,
+        "max_abs_output_difference": 0.0
+      }
+    },
+    {
+      "variant": "dinov2_s14_frozen_progressive",
+      "epoch": 1,
+      "train_steps": 6,
+      "mean_train_loss": 0.7275491754213969,
+      "synthetic_validation_dice": 0.2885488122754847,
+      "elapsed_seconds": 1.3376385000010487,
+      "precision": "bf16",
+      "checkpoint": {
+        "filename": "dinov2_s14_frozen_progressive.pt",
+        "bytes": 2882490,
+        "sha256": "d325138cfbeab415ab310bffa3363633d491691563ec4447c57d677177050110",
+        "reload_verified": true,
+        "max_abs_output_difference": 0.0
+      }
+    }
+  ],
+  "limitations": [
+    "Synthetic Dice is a plumbing signal only; it is not model-quality evidence.",
+    "This run cannot establish convergence or real LA boundary behavior.",
+    "This run does not close GATE-ML-01; Spike C1 remains required."
+  ]
+}
