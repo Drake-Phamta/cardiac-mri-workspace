@@ -125,6 +125,22 @@ deterministic; thời gian decimate đổi theo từng lần chạy):*
 | 3 | 356 | `interior` | 30 | 35,2° | 0,695 | 0 | 1 | 0,300 | ✓ |
 | 3 | 356 | `surface_tangent` | 48 | 29,5° | 0,194 | 0 | 1 | 0,042 | ✓ |
 
+### Diễn giải B14 — ghi chú của chủ sở hữu (Day 6)
+
+`slice/mm` là hệ số nhạy theo trục lát cắt, nên phải đọc trước các cột
+`mean` và `max`. Trên fixture tổng hợp này, nhóm `interior` có 0,695
+slice/mm còn `surface_tangent` có 0,194 slice/mm — chênh khoảng 3,6 lần.
+Vì vậy cùng một độ lệch hình học tính theo milimét sẽ làm sai số lát cắt của
+`interior` lớn hơn khoảng 3,6 lần. Chênh lệch `mean` giữa hai nhóm không thể
+được diễn giải riêng là mesh decimation tốt hơn hay xấu hơn.
+
+Hai nhãn `interior` và `surface_tangent` là nhóm hợp đồng của fixture và phải
+được giữ nguyên trong báo cáo; `steep`/`grazing` chỉ là chẩn đoán phụ. Khi
+đánh giá mức decimation, dùng `max`, `nohit` và bound ±1 slice cho từng nhóm,
+đồng thời giữ `slice/mm` cạnh số đo để tránh so sánh sai do độ nhạy khác nhau.
+Đây vẫn là kết quả trên mesh tổng hợp desktop; chưa đủ để chốt DR-008c hay
+ngoại suy sang mesh giải phẫu/FPS của Galaxy A17.
+
 **Đọc cột `slice/mm` trước cột `mean`.** Trên fixture này hai nhóm hợp đồng có đòn bẩy **chênh ~3,6
 lần** (0,695 vs 0,194): cùng một độ dịch hình học, `interior` sẽ ra sai số slice lớn hơn. Chênh lệch
 `mean` giữa hai nhóm vì thế **không** tự nó là tính chất của decimation. Diễn giải là việc của anh.
