@@ -34,11 +34,18 @@ spikes/spike_a_2d/
 │   ├── generate.py              sinh fixture, deterministic, stdlib thuần
 │   ├── volume_synthetic.json    64×64×16, giá trị voxel mã hoá toạ độ + marker định hướng
 │   ├── mask_synthetic.json      đĩa nhị phân, biên rõ, label mapping ghi tường minh
-│   └── brush_cases.json         60 ca (zoom, pan, touch) → pixel nguồn kỳ vọng
+│   ├── brush_cases.json         60 ca (zoom, pan, touch) → pixel nguồn kỳ vọng
+│   └── brush_ops.json           S5: 14 nét cọ kịch bản → pixel + SHA-256 kỳ vọng, undo/redo/reset, tập tô A5
 ├── app/                         Expo app — viewer + instrumentation
+│   ├── viewerMath.js            toán transform thuần (S4)
+│   └── brushMath.js             logic cọ thuần, không React (S5)
 ├── harness/
-│   ├── check_conformance.py     F1–F3 chạy được ngay; A2–A8 chờ app xuất mask
-│   └── extract_timings.py       logcat → phân bố → A9/A10
+│   ├── check_conformance.py     F1–F5 chạy được ngay; A2–A8 chờ đo trên máy
+│   ├── test_viewer_math.mjs     F4 — viewerMath.js với tham chiếu độc lập
+│   ├── test_brush.mjs           F5 — brushMath.js với brush_ops.json
+│   ├── extract_timings.py       logcat → phân bố → A9/A10
+│   ├── extract_a2.py            logcat → A2
+│   └── extract_brush.py         logcat → A3–A7 (+ dữ liệu thô cho A10/A11)
 └── EVIDENCE_RAW/                output thô từng lần chạy, có timestamp
 ```
 
@@ -97,6 +104,9 @@ cd ../harness && python extract_timings.py --label "release, sạc USB, 60Hz"
 
 # 5 · A2 (chặng S4) — trên máy: "kiểm A2" → pinch + kéo vài lần → "kiểm A2" → "A2 tự động"
 cd ../harness && python extract_a2.py --label "release, ..."
+
+# 6 · A3–A7 (chặng S5) — trên máy: "kiểm A5" → "A3–A7 tự động" → vài nét cọ thật ở chế độ "Sửa"
+cd ../harness && python extract_brush.py --label "release, ..."
 ```
 
 **Chặng S4 — zoom/pan (A2), 14/09.** Hai ngón = pinch-zoom quanh điểm giữa hai ngón; một ngón = kéo; chạm
@@ -116,6 +126,105 @@ offline bằng `node harness/test_viewer_math.mjs` (F4).
 
 ---
 
+## Chặng S5 — brush (A3–A7)
+
+**15/09.** Cọ chỉnh sửa trên **mask làm việc** — một bản chép theo từng slice của mask nguồn. Mask nguồn
+(`MASK_BYTES`) chỉ được **đọc**, nên "kiểm A2" vẫn băm đúng các byte gốc. Chưa có lưu (A8 là chặng S6):
+dòng trạng thái luôn ghi **"chưa lưu"**.
+
+**Đã dựng**
+
+- `app/brushMath.js` — toàn bộ logic cọ, **không import React**, test bằng node y như `viewerMath.js`:
+  footprint, Bresenham, áp nét, rollback, lịch sử undo/redo/reset, diff theo hàng để vẽ, và hai hàm cho nút
+  kiểm trên máy (`runA5`, `runOpsScript`).
+- `app/App.js` — chỉ nối cử chỉ và UI vào `brushMath.js`. Thanh công cụ theo SCR-06: **Xem / Sửa**,
+  **thêm / xoá**, **r 0 1 2 3 5**, **hoàn tác**, **làm lại**, **đặt lại…** (hỏi xác nhận trước). Chỗ mask làm
+  việc khác nguồn được vẽ theo từng dải hàng, cùng transform với ảnh, đè lên overlay mask nguồn của S4:
+  **xanh = thêm**, **đỏ = xoá**, chú giải "nguồn / thêm / xoá". Dòng trạng thái: chế độ, công cụ, cỡ, số nét,
+  độ sâu hoàn tác / làm lại, "chưa lưu". Mọi tag log và payload của S4 **giữ nguyên**. Phần nút bên dưới
+  viewport giờ cuộn được; viewport nằm ngoài ScrollView để tô và pinch không tranh với cuộn.
+- `fixtures/brush_ops.json` — oracle do `generate.py` tính bằng một cài đặt Python **độc lập** (không chung
+  code với app): 14 nét trên slice 0, 3, 8, 12, cả thêm và xoá, r = 0/1/2/3/5, cho bằng **toạ độ màn hình**
+  dưới cả 5 hình học của `brush_cases.json`; có nét cắt biên đĩa, stamp bị cắt ở mép ảnh, mẫu ra ngoài ảnh
+  rồi vào lại. Mỗi nét ghi pixel tâm, số và danh sách pixel đổi, SHA-256 slice trước/sau và SHA-256 cả khối;
+  kèm đường undo, đường redo, hash sau undo-all / redo-all / reset, và tập pixel tô kỳ vọng của 60 ca A5 ở
+  r = 0 và r = 2. Ba fixture cũ **giữ nguyên từng byte** — SHA-256 trước và sau khi sinh lại trùng nhau.
+- `harness/test_brush.mjs` (**F5**) và `harness/extract_brush.py`.
+
+**Quyết định thiết kế**
+
+```text
+pixel tâm     screenToSource (floor); null ngoài ảnh → mẫu đó không tô gì
+footprint     {(x,y) : (x−cx)² + (y−cy)² ≤ r², 0 ≤ x < Nx, 0 ≤ y < Ny}, tính bằng pixel NGUỒN
+              → zoom/pan không đổi được vùng một stamp phủ; r = 0 là đúng pixel tâm
+nét           mẫu trong ảnh liên tiếp nối bằng đường Bresenham nguyên giữa hai pixel tâm (tính cả hai đầu),
+              stamp footprint ở mọi pixel của đường; mẫu ngoài ảnh cắt đoạn — không nội suy qua vùng ngoài
+giá trị       thêm ghi 1, xoá ghi 0, chỉ trên slice của nét trong mask LÀM VIỆC; mask nguồn không bao giờ bị ghi
+lịch sử       một nét commit = một bước undo: slice, chỉ số pixel đã đổi, giá trị cũ, giá trị mới (chỉ pixel
+              thật sự đổi); undo trả giá trị cũ, redo ghi lại giá trị mới, nét mới xoá redo;
+              đặt lại chép lại mọi slice từ byte nguồn và xoá lịch sử
+tách cử chỉ   "Xem": giữ nguyên S4 — không chạm nào ghi mask làm việc
+              "Sửa": một ngón tô; hai ngón pinch/pan như S4 và không bao giờ tô;
+              ngón thứ hai chạm giữa nét → nét bị rollback chính xác, không vào lịch sử, log committed: false
+```
+
+Đường Bresenham có trường hợp **hoà** phụ thuộc chiều vẽ. App dùng vòng lặp số nguyên tám octant;
+`generate.py` viết cùng đường đó dưới dạng quy tắc làm tròn (trục chính đi từng bước, trục phụ làm tròn
+nửa-lên theo chiều đi). Thứ tự mẫu trong nét cố định chiều, nên kết quả tất định; F5 so hai cách viết trên
+625 đoạn.
+
+**Cử chỉ bị hệ thống cắt ngang — góp ý review PR #27 (Vũ Hùng Anh).** S4 không có `onPanResponderTerminate`:
+khi Android lấy mất cử chỉ, `gest.current` và vòng `requestAnimationFrame` sống sang cử chỉ sau và làm sai số
+đo khoảng hở frame. Giờ release và terminate cùng đi qua một chỗ — xoá bản ghi cử chỉ **và huỷ callback frame
+đang chờ**. Nét đang tô lúc bị terminate được rollback y như luật ngón thứ hai và log
+`"committed": false, "end": "terminated"` (hai cách kết thúc còn lại: `"release"`, `"second_finger"`). Cử chỉ
+bị cắt ngang không ghi `SPIKE_A_GESTURE` / `SPIKE_A_TAP`: bỏ nó ra chỉ làm số cử chỉ của A2 thận trọng hơn.
+F5 có kiểm riêng (`TRM`): rollback do terminate giữ nguyên mọi hash slice và độ sâu lịch sử.
+
+**Dung sai A5 đề xuất: 0 pixel nguồn cho các bộ ba fixture**, vì ánh xạ là một phép floor tất định — không
+có chỗ cho "gần đúng". Tỷ lệ trúng offline báo **chính xác**: F5 cho 60/60 ở r = 0 và 60/60 ở r = 2, phân bố
+(dx, dy) = (0,0) × 50, còn 10 ca ngoài ảnh không tô gì. Rung tay thật khi chạm là chuyện của **A10/A11**,
+không phải của dung sai ánh xạ.
+
+**Chạy F5** (không cần máy):
+
+```bash
+node harness/test_brush.mjs          # riêng F5, 14 kiểm
+python harness/check_conformance.py  # F1–F5 một lượt
+```
+
+F5 lấy kỳ vọng từ `brush_ops.json` và băm bằng `node:crypto`, không bao giờ bằng `sha256Hex` của app. Mỗi kiểm
+đã được chứng minh **có thể trượt**: 11 lỗi cố ý trên một bản sao `brushMath.js` (quy tắc hoà, biên footprint,
+vẽ qua vùng ngoài ảnh, không nối mẫu, nét mới giữ redo, reset giữ undo hoặc redo hoặc không chép gì, rollback
+/ undo / redo không làm gì) đều làm ít nhất một kiểm FAIL. F5 `ok` là **logic offline**, không phải A3–A7.
+
+**Chạy trên máy** (bản release, chủ Spike A cầm máy):
+
+1. Mở app, chờ cache nạp xong.
+2. **"kiểm A5"** — 60 ca brush chạy qua đúng `strokeSample` mà ngón tay dùng, trên slice nháp, ở r = 0 và
+   r = 2 → hai dòng `SPIKE_A_A5`.
+3. **"A3–A7 tự động"** — `brush_ops.json` chạy trên bản nháp chép từ mask nguồn → 45 dòng `SPIKE_A_OPS` giữa
+   `SPIKE_A_OPS_START` và `SPIKE_A_OPS_END`. Mask làm việc của người dùng không bị đụng.
+4. **"Sửa"**, tô vài nét thật — thêm và xoá, vài cỡ, có nét sau khi zoom/pan (quay màn hình ca này, TASK.md
+   đòi); đặt ngón thứ hai giữa một nét để thấy nét bị huỷ; thử hoàn tác / làm lại / đặt lại → các dòng
+   `SPIKE_A_BRUSH`.
+5. `python extract_brush.py --label "release, ..."` — script **tự tính lại** mọi kỳ vọng từ fixture bằng
+   `hashlib`, không tin số "pass" của app, rồi ghi `EVIDENCE_RAW/a3_a7_brush_<stamp>.json` với `OBSERVED` /
+   `INCOMPLETE` / `FAIL`. `operator` và `build_type` để dạng `[RECORD — …]`, điền tay.
+
+`OBSERVED` chỉ khi một lượt "A3–A7 tự động" **đầy đủ** khớp ở mọi bước (nét, undo, undo-all, redo, redo-all,
+reset) **và** "kiểm A5" khớp 60/60 ở cả r = 0 lẫn r = 2. Lệch một giá trị ở bất kỳ đâu là `FAIL`.
+
+> ### ⚠ `feedback_ms` là proxy phía JS, không phải độ trễ đầu-cuối
+>
+> Mỗi mẫu đo từ `performance.now()` lúc vào handler PanResponder tới callback `requestAnimationFrame` đầu tiên
+> sau khi overlay cập nhật. Thời gian hệ thống chuyển sự kiện chạm vào JS **không** nằm trong đó;
+> `nativeEvent.timestamp` ở **đồng hồ khác** nên không được trộn vào. `samples_received` chỉ đếm mẫu tới được
+> handler JS — mẫu bị gộp trước đó app không thấy. Các dòng `SPIKE_A_BRUSH` là dữ liệu thô cho A10/A11 sau
+> này; `extract_brush.py` **không** kết luận A10/A11.
+
+---
+
 ## Trạng thái tiêu chí
 
 | | Tiêu chí | Trạng thái |
@@ -124,11 +233,13 @@ offline bằng `node harness/test_viewer_math.mjs` (F4).
 | **F2** | Pixel kỳ vọng tính lại độc lập, 60/60 khớp | **ok** |
 | **F3** | Marker định hướng đúng bốn góc trên cả 16 slice | **ok** |
 | **F4** | Toán transform của app (`viewerMath.js`) — SHA-256, base64, 60 ca ánh xạ, zoom quanh điểm | **ok** 6/6 |
+| **F5** | Logic cọ của app (`brushMath.js`) — thêm/xoá đúng tập pixel, 60 ca A5 ở r = 0 và 2, undo, redo, reset, rollback | **ok** 14/14 |
 | A1 | Slice render đúng, hiện `n / total` | một phần — xem `RESULT.md` |
 | A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
 | A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
-| A3 A4 A5 A6 A7 A8 | brush · undo/redo · save/reload · mapping sau zoom/pan | **chưa dựng** — chặng S5/S6 |
-| A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** |
+| A3 A4 A5 A6 A7 | brush thêm/xoá · ánh xạ sau zoom/pan · undo/redo | **đã dựng kiểm offline (F5) và hook trên máy** — chạy trên máy **chưa**, chưa `OBSERVED` · chặng S5 |
+| A8 | save/reload | **chưa dựng** — chặng S6 |
+| A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** — S5 đã log dữ liệu thô cho A10/A11 |
 
 `F2` tồn tại vì `generate.py` và `check_conformance.py` **không dùng chung code**: generator ghi pixel kỳ
 vọng, checker suy ra lại từ công thức trong fixture rồi so. Một cài đặt tự kiểm chính nó thì không chứng
