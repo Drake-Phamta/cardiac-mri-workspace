@@ -116,6 +116,10 @@ def selftest() -> int:
                 if mask_flip_x:
                     mask_header["space directions"][0][0] = -0.625
                 nrrd.write(os.path.join(d, "laendo.nrrd"), mask, mask_header)
+                if name in {"case-aaa", "case-bbb"}:
+                    # QA-002 F1: a second identical annotation confirms that
+                    # cross-case exact files are surfaced in both scan modes.
+                    nrrd.write(os.path.join(d, "lawall.nrrd"), mask, mask_header)
 
         write_case("Training Set", "case-aaa", (32, 32, 8))
         write_case("Training Set", "case-bbb", (32, 32, 8))
@@ -165,6 +169,12 @@ def selftest() -> int:
             problems.append("the unlabelled partition should show zero masks")
         if parts["Training Set"]["case_count"] != 5:
             problems.append("expected 5 training cases")
+        duplicate_files = {g["file"] for g in manifest.get("duplicate_evidence") or []
+                           if set(g["case_ids"]) == {"CASE_0003", "CASE_0004"}}
+        if duplicate_files != {"laendo.nrrd", "lawall.nrrd"}:
+            problems.append(f"QA-002 F1 duplicate file evidence missing: {duplicate_files}")
+        if "identical lawall.nrrd" not in by_id["A15"].detail:
+            problems.append("A15 did not list the duplicate companion file")
 
         # The low-disk archive path must produce the same evidence structure as
         # the extracted-directory path.  This catches ZIP discovery, temporary
@@ -181,6 +191,8 @@ def selftest() -> int:
         for field in ("case_count_total", "partitions", "shape_distribution"):
             if archive_manifest[field] != manifest[field]:
                 problems.append(f"archive scan disagrees with directory scan for {field}")
+        if archive_manifest.get("duplicate_evidence") != manifest.get("duplicate_evidence"):
+            problems.append("archive scan disagrees on duplicate evidence")
 
         # A sidecar remains a failure until every discovered path has an
         # explicit exclusion from the app-metadata path.
@@ -258,10 +270,26 @@ def main() -> int:
     ap.add_argument("--audit-out", default=DEFAULT_AUDIT)
     ap.add_argument("--selftest", action="store_true",
                     help="run the pipeline on synthetic volumes and verify its behaviour")
+    ap.add_argument("--render-from-manifest",
+                    help="re-render the audit from an already scanned manifest (no ZIP read)")
     args = ap.parse_args()
 
     if args.selftest:
         return selftest()
+    if args.render_from_manifest:
+        if args.root or args.archive or args.write_manifest or not args.write_audit:
+            ap.error("--render-from-manifest needs --write-audit only, without --root/--archive")
+        with open(args.render_from_manifest, encoding="utf-8-sig") as f:
+            payload = json.load(f)
+        results = checks.run_checks(payload)
+        owner_verdicts = ((payload.get("acquisition") or {}).get("owner_verdicts") or {})
+        summary = checks.summarise(results, owner_verdicts)
+        print_table(results, summary)
+        os.makedirs(os.path.dirname(args.audit_out), exist_ok=True)
+        with open(args.audit_out, "w", encoding="utf-8", newline="\n") as f:
+            f.write(render(payload, results, summary))
+        print(f"  audit     -> {os.path.relpath(args.audit_out, REPO_ROOT)}")
+        return 1 if summary["fail"] else 0
     if bool(args.root) == bool(args.archive):
         ap.error("exactly one of --root or --archive is required (or use --selftest)")
     if args.root and not os.path.isdir(args.root):

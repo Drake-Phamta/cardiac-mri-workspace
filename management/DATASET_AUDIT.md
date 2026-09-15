@@ -12,9 +12,9 @@
 > Editing this file by hand makes it disagree with the manifest, and the manifest is
 > the artifact `GATE-DATA-01` accepts (`06` §9.1, criterion A20).
 
-**Generated at:** 2026-09-14T03:12:35+07:00
+**Generated at:** 2026-09-16T00:11:36+07:00
 **NRRD reader:** `pynrrd 1.1.3`
-**Package root:** `D:\cardiac-mri-workspace-data\lasc2018\2018_UTAH_MICCAI.zip!/`
+**Package reference:** `EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files` (absolute local paths are not published)
 
 ---
 
@@ -28,7 +28,7 @@
 | Download finished | 2026-09-11T23:41:51+07:00 |
 | Acquired by | Phạm Tuấn Anh |
 | Extraction location | NOT EXTRACTED - the 14.2 GiB package exceeds available disk; validated by streaming the official ZIP one NRRD at a time |
-| Licence / terms preserved at | D:/cardiac-mri-workspace-data/lasc2018/official_terms |
+| Licence / terms preserved at | EXTERNAL PRIVATE ARCHIVE - see license_files names and SHA-256 |
 | Owner verdicts confirmed by | Bế Quốc Khánh |
 | Owner verdicts confirmed at | 2026-09-14T02:50:39+07:00 |
 | A18 owner verdict | Two official Cardiac Atlas policy PDFs are archived externally with SHA-256 evidence. The ZIP contains no embedded licence file. Do not redistribute raw or derived data until the applicable DDA or permission has been confirmed by the responsible downloader/project lead. |
@@ -70,6 +70,8 @@
 > File presence is a machine reading. What an annotation **means** is not, and this
 > audit does not pretend otherwise.
 
+**A11 package cross-check:** `laendo.nrrd` and companion `lawall.nrrd` differ in file SHA-256 in 154/154 cases. QA-002 independently found that their foreground voxels do not overlap in 154/154 cases. This distinguishes cavity from wall on the actual package; the annotation meaning remains the owner's written verdict, not an inference from names alone.
+
 ## 4 · Geometry summary — `06` §9.1, criteria A6 · A7 · A8 · A9 · A14
 
 ### 4.1 Cohort shape distribution (A6)
@@ -90,9 +92,13 @@
 - Cases needing a transform: **0**
 - Undetermined (no mask, or unreadable): **0**
 
+**Header geometry:** 462/462 inspected NRRD headers report spacing `(1, 1, 1)`, origin `(0, 0, 0)`, identity direction. QA-002 independently observed no physical-units field in the 462 released headers; this validator does not record physical units. These are header-level values, not verified anatomical spacing. The official release page publishes original resolution `0.625 × 0.625 × 0.625 mm³`, but that value must **not** be applied to these defaulted NRRD headers without a validated mapping: https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/. Physical geometry is NOT VERIFIED; mm/mL measurements remain disabled (DR-012, TC-SCI-002).
+
 ### 4.3 Axis alignment — DR-012 boundary (A14)
 
 Every readable volume **and mask** is axis-aligned — compatible with DR-012.
+
+**A14 owner-facing verdict:** all 308 required MRI/cavity-mask headers were measured axis-aligned; companion headers also match the default geometry. This supports voxel-grid rendering only. It does **not** validate physical mm/mL geometry or clinical orientation. Owner confirmation of that bounded interpretation is still required for acceptance.
 
 ## 5 · Foreground label mapping — `06` §9.1, criterion A10
 
@@ -124,8 +130,10 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 | Decision field | Status |
 |---|---|
 | Path A vs Path B evidence and reasoning | The measured package contains 154 labelled cases, including labels in 54/54 released Testing Set directories, so Path A is technically feasible from a data-presence perspective. Spike D does not select Path A or Path B; DR-002 and GATE-SPLIT-01 own that decision and the final patient-level seed-2024 split. |
-| Selected path | `[DR-002 — leader decision, not this audit]` |
-| Exact manifest case IDs per partition | `[written once GATE-SPLIT-01 resolves]` |
+| Selected path | **DR-002 Path A**: 80 training / 20 validation / 54 locked released Testing Set, seed 2024 |
+| Duplicate-acquisition rule | **DR-002a**: CASE_0056 and CASE_0097 are one group, both pinned to training; training has 79 distinct acquisitions |
+| Exact manifest case IDs per partition | `data/manifests/split_manifest_path_a_seed2024.json` (proposed, not yet accepted by GATE-SPLIT-01) |
+| A19 split-evidence status | **PENDING**: exact IDs must be checked against the regenerated split manifest once its PR lands |
 
 > Split invariants that hold whichever path is chosen (`06` §6): **patient-level only,**
 > **no slice-level split**, no case crosses partitions, **seed 2024**, and split membership
@@ -133,9 +141,12 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 
 ## 7 · Exclusions, corruptions and privacy findings — `06` §9.1, criteria A15 · A17
 
-**Anomalies: 0**
+**Anomalies: 2**
 
-- none
+- identical bytes across cases: `laendo.nrrd` — `CASE_0056`, `CASE_0097`; SHA-256 `685f964bc32639c9c3fd8ca961078cfce88515d70046691a4d396613eed5192e`
+- identical bytes across cases: `lawall.nrrd` — `CASE_0056`, `CASE_0097`; SHA-256 `ccd380f1139809f2dbcbdda76cd43eb7983cfa21ae95e5367cf81261bd7c0f35`
+
+> CASE_0056/CASE_0097 is treated as one acquisition group under DR-002a and pinned to training. A matching label file alone does not prove patient identity; independent MRI screening is tracked for GATE-SPLIT-01.
 
 **Direct-identifier findings in headers: 0** — `NFR-SEC-005`, `12` §2
 
@@ -167,7 +178,7 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 | A12 | Are official test labels present, and what is their provenance? | **PASS** | Testing Set: 54/54 case(s) carry laendo.nrrd; Training Set: 100/100 case(s) carry laendo.nrrd. File-level presence is measured here; PROVENANCE remains the owner's written verdict (RA-H02). |
 | A13 | Path A vs Path B evidence and reasoning | `OWNER VERDICT` | This spike supplies evidence only; DR-002 / GATE-SPLIT-01 selects the path. The manifest's partition summary is the input. |
 | A14 | Axis-alignment verdict - DR-012 boundary | **PASS** | all 308 volume(s) axis-aligned |
-| A15 | Corrupted / missing / unreadable files listed | **PASS** | 0 anomaly(ies): none |
+| A15 | Corrupted / missing / unreadable files listed | **PASS** | 2 anomaly(ies): identical laendo.nrrd bytes: CASE_0056, CASE_0097; identical lawall.nrrd bytes: CASE_0056, CASE_0097 - exact cross-case duplicates are listed; grouping and acceptance remain human decisions |
 | A16 | Case IDs unique; de-identified internal IDs assigned | **PASS** | 154 unique CASE_NNNN IDs assigned deterministically by sorted source path |
 | A17 | Metadata audit against the privacy allowlist | **PASS** | 1 non-NRRD sidecar file(s) reported and explicitly excluded from ingestion/app metadata: CASE_0097/desktop.ini. Raw archive remains untouched; sidecar content was not propagated. |
 | A18 | Licence / data-use terms preserved and archived | `OWNER VERDICT` | Confirmed by the person who performed the download, against the acquisition directory. Not derivable from the package contents. |
