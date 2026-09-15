@@ -98,7 +98,7 @@
 
 Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 
-**A14 owner-facing verdict:** all 308 required MRI/cavity-mask headers were measured axis-aligned; companion headers also match the default geometry. This supports voxel-grid rendering only. It does **not** validate physical mm/mL geometry or clinical orientation. Owner confirmation of that bounded interpretation is still required for acceptance.
+**A14 owner-facing verdict:** all 308 required MRI/cavity-mask headers were measured axis-aligned; companion headers also match the default geometry. This supports voxel-grid rendering only. It does **not** validate physical mm/mL geometry or clinical orientation. Bế Quốc Khánh confirmed this bounded interpretation through HITL on 2026-09-16.
 
 ## 5 · Foreground label mapping — `06` §9.1, criterion A10
 

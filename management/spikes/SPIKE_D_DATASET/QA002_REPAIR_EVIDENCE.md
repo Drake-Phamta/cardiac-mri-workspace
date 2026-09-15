@@ -48,7 +48,7 @@ the newly bounded owner verdict remain open.
 | A10 | manifest mask unique values + existing owner mapping; audit §5 | `{0,255}` measured; mapping is human-confirmed |
 | A11–A12 | owner verdict, official challenge page, manifest labels, cavity-vs-wall SHA aggregate; audit §3 | 54 test labels present in released archive, not original challenge provenance |
 | A13 | `DR-002` Path A, manifest cohort and audit §6 | exact IDs pending regenerated split PR / `GATE-SPLIT-01` |
-| A14 | 308/308 required axis-aligned headers; audit §4.3 | physical mm/mL still disabled; owner must confirm bound |
+| A14 | 308/308 required axis-aligned headers; audit §4.3 | physical mm/mL still disabled; owner confirmed bound through HITL on 2026-09-16 |
 | A15–A16 | manifest `duplicate_evidence`, scanner cross-case SHA and ID/name checks; audit §7 | F1 known duplicated acquisition, grouped under `DR-002a` |
 | A17 | header/sidecar scanner + owner exclusion; audit §7 | no sidecar content propagated |
 | A18 | `POLICY_EVIDENCE.md`, archived PDF names/hashes | leader must decide public metadata scope |

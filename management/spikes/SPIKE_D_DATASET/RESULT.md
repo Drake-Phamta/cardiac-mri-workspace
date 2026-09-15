@@ -46,9 +46,9 @@ Khánh previously confirmed the A10/A11/A12/A13/A17/A18 verdicts on
   machine-specific paths. See `POLICY_EVIDENCE.md`; the leader must decide
   whether the remaining case-level fields may stay public.
 
-The owner must read and confirm these updated A11/A14/F5 bounds before they
-are treated as a current written owner verdict. A script or agent cannot sign
-that confirmation on Khánh's behalf.
+Khánh read and confirmed these updated A11/A14/F5 bounds through HITL on
+2026-09-16. This confirmation does not replace the leader's pending public
+metadata policy decision under A18/F5.
 
 `A19` remains `NOT_RUN` by construction in the scanner. The regenerated audit
 now names `DR-002`, `DR-002a`, and the proposed split manifest path; exact
