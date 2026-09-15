@@ -23,10 +23,12 @@
     },
     "decision": {
       "type": "object",
-      "required": ["selected_path", "decision_id"],
+      "required": ["selected_path", "decision_id", "duplicate_acquisition_decision_id", "known_duplicate_case_ids"],
       "properties": {
         "selected_path": { "const": "Path A" },
-        "decision_id": { "const": "DR-002" }
+        "decision_id": { "const": "DR-002" },
+        "duplicate_acquisition_decision_id": { "const": "DR-002a" },
+        "known_duplicate_case_ids": { "const": ["CASE_0056", "CASE_0097"] }
       }
     },
     "randomization": {
@@ -38,11 +40,12 @@
       "type": "object",
       "required": ["mode", "patient_linkage_status", "group_count", "statement"],
       "properties": {
-        "mode": { "enum": ["source_case_directory_as_patient_proxy", "explicit_case_to_patient_map"] },
+        "mode": { "enum": ["source_case_directory_proxy_with_known_duplicate_group", "explicit_case_to_patient_map"] },
         "patient_linkage_status": {
           "enum": ["NOT_DETERMINABLE_FROM_PACKAGE", "PROVIDED_BY_EXTERNAL_MAPPING"]
         },
         "group_count": { "type": "integer", "minimum": 1 },
+        "train_known_distinct_acquisitions": { "const": 79 },
         "statement": { "type": "string", "minLength": 1 }
       }
     },
