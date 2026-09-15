@@ -1,0 +1,16 @@
+# Spike C0 compute probe. The exact resolved versions are recorded in every
+# probe output, because SPIKE_C_ML/TASK.md lists the framework and version as a
+# required environment field.
+#
+# Install torch for YOUR hardware first - the right build depends on your CUDA
+# version, and the default wheel may be CPU-only:
+#     https://pytorch.org/get-started/locally/
+torch>=2.3              # torch.amp.GradScaler("cuda") for --precision fp16
+numpy>=1.24
+psutil>=5.9             # host RAM, and CPU peak-memory reading when no CUDA device is present
+transformers>=4.40      # Dinov2Model - the real DINOv2 backbone
+huggingface_hub>=0.23   # downloads the checkpoint and resolves its exact commit
+safetensors>=0.4
+#
+# First run downloads facebook/dinov2-small (~85 MB) and facebook/dinov2-base
+# (~330 MB) into the Hugging Face cache. Later runs can use HF_HUB_OFFLINE=1.
