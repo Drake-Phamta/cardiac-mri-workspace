@@ -72,6 +72,10 @@ def main() -> int:
     duplicate = load_valid()
     duplicate_case = copy.deepcopy(duplicate["cases"][0])
     duplicate_case["case_id"] = "CASE_0002"
+    duplicate_case["volume_id"] = "VOL_CASE_0002"
+    duplicate_case["ground_truth_mask_id"] = "MASK_CASE_0002"
+    duplicate_case["mri_volume"]["volume_id"] = "VOL_CASE_0002"
+    duplicate_case["ground_truth_mask"]["mask_id"] = "MASK_CASE_0002"
     duplicate_case["mri_volume"]["artifact_uri"] = "artifact://datasets/synthetic-contract1/CASE_0002/mri.nrrd"
     duplicate_case["ground_truth_mask"]["artifact_uri"] = "artifact://datasets/synthetic-contract1/CASE_0002/mask.nrrd"
     duplicate["cases"].append(duplicate_case)
@@ -81,6 +85,7 @@ def main() -> int:
     inference["manifest_id"] = "raw-synthetic-inference"
     inference["cases"][0]["mode_capability"] = "INFERENCE_REVIEW"
     inference["cases"][0]["ground_truth_mask"] = None
+    inference["cases"][0]["ground_truth_mask_id"] = None
     inference["cases"][0]["compatibility"] = None
     result = validate_manifest(inference, FIXTURES)
     assert [item["action"] for item in result["artifacts"]] == ["NEW"]

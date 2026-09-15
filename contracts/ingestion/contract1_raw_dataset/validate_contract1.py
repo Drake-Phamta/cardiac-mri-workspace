@@ -175,6 +175,10 @@ def _validate_artifact(
         "checksum",
         "geometry_validation_status",
     }
+    if kind.endswith("ground_truth_mask"):
+        required.add("mask_id")
+    else:
+        required.add("volume_id")
     missing = sorted(required - artifact.keys())
     if missing:
         _fail("SCHEMA_INVALID", f"{kind}: missing fields {missing}")
@@ -191,6 +195,12 @@ def _validate_artifact(
     if unexpected:
         _fail("SCHEMA_INVALID", f"{kind}: unexpected fields {unexpected}")
     uri = artifact["artifact_uri"]
+    id_field = "mask_id" if kind.endswith("ground_truth_mask") else "volume_id"
+    if not isinstance(artifact[id_field], str) or not re.fullmatch(
+        r"^MASK_[A-Za-z0-9._-]+$" if id_field == "mask_id" else r"^VOL_[A-Za-z0-9._-]+$",
+        artifact[id_field],
+    ):
+        _fail("SCHEMA_INVALID", f"{kind}: invalid {id_field}")
     if not isinstance(uri, str) or not re.fullmatch(r"artifact://[A-Za-z0-9][A-Za-z0-9._/-]*", uri):
         _fail("SCHEMA_INVALID", f"{kind}: invalid artifact_uri")
     if uri in seen_uris:
@@ -297,6 +307,8 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
             mri, root=root, kind=f"{case_id}.mri_volume", existing=existing,
             seen_uris=seen_uris,
         )
+        if case.get("volume_id") != mri.get("volume_id"):
+            _fail("SCHEMA_INVALID", f"{case_id}: volume_id does not match mri_volume")
         mri_hash_key = ("mri_volume", mri["checksum"]["value"])
         prior_case = seen_hashes.get(mri_hash_key)
         if prior_case and prior_case != case_id:
@@ -304,7 +316,11 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
         seen_hashes[mri_hash_key] = case_id
         actions.append({"artifact_uri": mri["artifact_uri"], "action": mri_action})
         if mask is None:
-            if case.get("mode_capability") != "INFERENCE_REVIEW" or case.get("compatibility") is not None:
+            if (
+                case.get("mode_capability") != "INFERENCE_REVIEW"
+                or case.get("compatibility") is not None
+                or case.get("ground_truth_mask_id") is not None
+            ):
                 _fail("SCHEMA_INVALID", f"{case_id}: a missing mask requires INFERENCE_REVIEW mode and compatibility=null")
             continue
         if not isinstance(mask, dict):
@@ -313,6 +329,8 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
             mask, root=root, kind=f"{case_id}.ground_truth_mask", existing=existing,
             seen_uris=seen_uris,
         )
+        if case.get("ground_truth_mask_id") != mask.get("mask_id"):
+            _fail("SCHEMA_INVALID", f"{case_id}: ground_truth_mask_id does not match ground_truth_mask")
         mask_hash_key = ("ground_truth_mask", mask["checksum"]["value"])
         prior_case = seen_hashes.get(mask_hash_key)
         if prior_case and prior_case != case_id:

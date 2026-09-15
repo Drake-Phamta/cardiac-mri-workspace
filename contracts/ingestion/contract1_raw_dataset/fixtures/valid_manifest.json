@@ -6,12 +6,14 @@
     "dataset_id": "synthetic-contract1",
     "name": "Contract 1 synthetic fixture",
     "source_url": "https://example.invalid/synthetic-contract1",
-    "acquisition_tag": "test-2026-09-15",
+    "dataset_version_or_acquisition_tag": "test-2026-09-15",
     "package_checksum": {
       "algorithm": "sha256",
       "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
-    "license_usage_notes": "Synthetic bytes only; not a redistributable dataset."
+    "license_usage_notes": "Synthetic bytes only; not a redistributable dataset.",
+    "geometry_validation_status": "VALIDATED_AXIS_ALIGNED",
+    "split_protocol_id": null
   },
   "gate": {
     "gate_data_01": "ACCEPTED",
@@ -23,7 +25,10 @@
       "dataset_id": "synthetic-contract1",
       "source_case_key": "synthetic-case-1",
       "mode_capability": "EVALUATION",
+      "volume_id": "VOL_CASE_0001",
+      "ground_truth_mask_id": "MASK_CASE_0001",
       "mri_volume": {
+        "volume_id": "VOL_CASE_0001",
         "artifact_uri": "artifact://datasets/synthetic-contract1/CASE_0001/mri.nrrd",
         "source_path": "mri.nrrd",
         "format": "NRRD",
@@ -43,6 +48,7 @@
         "geometry_validation_status": "VALIDATED_AXIS_ALIGNED"
       },
       "ground_truth_mask": {
+        "mask_id": "MASK_CASE_0001",
         "artifact_uri": "artifact://datasets/synthetic-contract1/CASE_0001/mask.nrrd",
         "source_path": "mask.nrrd",
         "format": "NRRD",

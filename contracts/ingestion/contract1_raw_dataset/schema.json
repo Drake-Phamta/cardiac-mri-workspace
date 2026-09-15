@@ -51,9 +51,11 @@
         "dataset_id",
         "name",
         "source_url",
-        "acquisition_tag",
+        "dataset_version_or_acquisition_tag",
         "package_checksum",
-        "license_usage_notes"
+        "license_usage_notes",
+        "geometry_validation_status",
+        "split_protocol_id"
       ],
       "properties": {
         "dataset_id": {
@@ -62,9 +64,16 @@
         },
         "name": { "type": "string", "minLength": 1 },
         "source_url": { "type": "string", "format": "uri" },
-        "acquisition_tag": { "type": "string", "minLength": 1 },
+        "dataset_version_or_acquisition_tag": { "type": "string", "minLength": 1 },
         "package_checksum": { "$ref": "#/$defs/sha256" },
-        "license_usage_notes": { "type": "string", "minLength": 1 }
+        "license_usage_notes": { "type": "string", "minLength": 1 },
+        "geometry_validation_status": {
+          "enum": ["VALIDATED_AXIS_ALIGNED", "GEOMETRY_NOT_VALIDATED"]
+        },
+        "split_protocol_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        }
       }
     },
     "geometry": {
@@ -147,6 +156,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "volume_id",
         "artifact_uri",
         "source_path",
         "format",
@@ -159,6 +169,10 @@
         "geometry_validation_status"
       ],
       "properties": {
+        "volume_id": {
+          "type": "string",
+          "pattern": "^VOL_[A-Za-z0-9._-]+$"
+        },
         "artifact_uri": {
           "type": "string",
           "pattern": "^artifact://[A-Za-z0-9][A-Za-z0-9._/-]*$"
@@ -239,6 +253,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "mask_id",
         "artifact_uri",
         "source_path",
         "format",
@@ -256,6 +271,10 @@
         "background_value"
       ],
       "properties": {
+        "mask_id": {
+          "type": "string",
+          "pattern": "^MASK_[A-Za-z0-9._-]+$"
+        },
         "artifact_uri": {
           "type": "string",
           "pattern": "^artifact://[A-Za-z0-9][A-Za-z0-9._/-]*$"
@@ -362,6 +381,8 @@
         "case_id",
         "dataset_id",
         "mode_capability",
+        "volume_id",
+        "ground_truth_mask_id",
         "mri_volume",
         "ground_truth_mask",
         "compatibility",
@@ -382,6 +403,19 @@
         },
         "mode_capability": {
           "enum": ["EVALUATION", "INFERENCE_REVIEW"]
+        },
+        "volume_id": {
+          "type": "string",
+          "pattern": "^VOL_[A-Za-z0-9._-]+$"
+        },
+        "ground_truth_mask_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^MASK_[A-Za-z0-9._-]+$"
+            },
+            { "type": "null" }
+          ]
         },
         "mri_volume": { "$ref": "#/$defs/artifact" },
         "ground_truth_mask": {
