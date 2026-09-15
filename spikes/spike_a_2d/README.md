@@ -237,9 +237,9 @@ reset) **và** "kiểm A5" khớp 60/60 ở cả r = 0 lẫn r = 2. Lệch một
 | A1 | Slice render đúng, hiện `n / total` | một phần — xem `RESULT.md` |
 | A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
 | A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
-| A3 A4 A5 A6 A7 | brush thêm/xoá · ánh xạ sau zoom/pan · undo/redo | **đã dựng kiểm offline (F5) và hook trên máy** — chạy trên máy **chưa**, chưa `OBSERVED` · chặng S5 |
+| A3 A4 A5 A6 A7 | brush thêm/xoá · ánh xạ sau zoom/pan · undo/redo | **đã đo 15/09, `OBSERVED`** — A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15 · bản release · `EVIDENCE_RAW/a3_a7_brush_*` |
 | A8 | save/reload | **chưa dựng** — chặng S6 |
-| A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** — S5 đã log dữ liệu thô cho A10/A11 |
+| A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** — có dữ liệu thô từ 25 nét tô thật (15/09), chưa kết luận |
 
 `F2` tồn tại vì `generate.py` và `check_conformance.py` **không dùng chung code**: generator ghi pixel kỳ
 vọng, checker suy ra lại từ công thức trong fixture rồi so. Một cài đặt tự kiểm chính nó thì không chứng
