@@ -1,0 +1,1371 @@
+{
+ "harness": "spikes/spike_c_ml/harness/probe.py revision 4 (2026-09-15) - real DINOv2; batch search runs even when the intended batch fails; OSError recorded per candidate; CUDA work isolated per process",
+ "criterion_coverage": [
+  "C0-1",
+  "C0-2",
+  "C0-3",
+  "C0-4",
+  "C0-5",
+  "C0-6"
+ ],
+ "captured_at": "20260916T004325+0700",
+ "operator": "Be Quoc Khanh",
+ "conditions_note": "Day6 C0 fp32 full candidate matrix on owner RTX 4050; cache on D",
+ "compute": {
+  "python": "3.11.9",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "cpu_logical_cores": 16,
+  "torch": "2.11.0+cu128",
+  "numpy": "2.4.6",
+  "transformers": "5.17.0",
+  "huggingface_hub": "1.31.0",
+  "cuda_available": true,
+  "mps_available": false,
+  "host_ram_bytes": 16369221632,
+  "host_ram_gb": 15.25,
+  "device_kind": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "vram_total_bytes": 6438780928,
+  "vram_total_gb": 6.0,
+  "nvidia_driver": "595.79",
+  "cuda_runtime_in_torch_build": "12.8",
+  "cudnn": 91900,
+  "capability": "8.9",
+  "bf16_supported": true
+ },
+ "device_used": "cuda",
+ "isolation": "one worker process per measurement and per batch-search attempt; the parent never initialises CUDA",
+ "precision": "fp32",
+ "input_shape": [
+  2,
+  1,
+  560,
+  560
+ ],
+ "input_is_synthetic": true,
+ "input": {
+  "model_input_shape": [
+   2,
+   1,
+   560,
+   560
+  ],
+  "source": "in-memory synthetic/generate.py volume [640, 640, 88], seed 2024",
+  "source_dtype": "uint8",
+  "source_shape_xyz": [
+   640,
+   640,
+   88
+  ],
+  "cohort_reference": {
+   "dtype": "uint8",
+   "shapes": [
+    {
+     "shape_xyz": [
+      576,
+      576,
+      88
+     ],
+     "cases": 69
+    },
+    {
+     "shape_xyz": [
+      640,
+      640,
+      88
+     ],
+     "cases": 85
+    }
+   ],
+   "mask_values": [
+    0,
+    255
+   ],
+   "source": "Spike D criterion A6, PR #25 by Be Quoc Khanh (submitted 2026-09-14, pending review). Update here if the reviewed audit changes it."
+  },
+  "resize_policy": {
+   "mri": "bilinear, antialias=True, align_corners=False, to --img x --img",
+   "mask": "nearest-exact, to --img x --img, then foreground = value > 0",
+   "why": "The DINOv2 family needs a multiple of the 14-pixel patch and the UNet a multiple of 16; neither 576 nor 640 is a multiple of 14. Resizing both cohort sizes to one --img keeps one model input shape for the whole cohort. It is a CONFIGURATION choice for C0 - the alternative, padding to a multiple of 14, is equally valid and C1 decides."
+  },
+  "normalization": {
+   "policy": "DR-011 per-volume percentile clip then scale to [0, 1]",
+   "config_file": "dr011_normalization.json",
+   "p_low": 0.5,
+   "p_high": 99.5,
+   "applied_to": "the whole source volume before slicing",
+   "dinov2_extra": "1 channel replicated to 3, then the checkpoint's fixed image_mean/image_std - pretrained-model constants, not cohort statistics (recorded per checkpoint)"
+  },
+  "labels": "synthetic mask, resized nearest, foreground = value > 0"
+ },
+ "checkpoints": {
+  "b14": {
+   "key": "b14",
+   "repo": "facebook/dinov2-base",
+   "arch": "ViT-B/14",
+   "revision_requested": "main",
+   "revision_resolved": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+   "weights_file": "model.safetensors",
+   "weights_bytes": 346345912,
+   "weights_sha256": "d73036b56966966d07975d696bde331762f37297e2f095de8cea0040c3aa0841",
+   "image_mean": [
+    0.485,
+    0.456,
+    0.406
+   ],
+   "image_std": [
+    0.229,
+    0.224,
+    0.225
+   ],
+   "mean_std_source": "preprocessor_config.json of this checkpoint"
+  },
+  "s14": {
+   "key": "s14",
+   "repo": "facebook/dinov2-small",
+   "arch": "ViT-S/14",
+   "revision_requested": "main",
+   "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+   "weights_file": "model.safetensors",
+   "weights_bytes": 88249960,
+   "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+   "image_mean": [
+    0.485,
+    0.456,
+    0.406
+   ],
+   "image_std": [
+    0.229,
+    0.224,
+    0.225
+   ],
+   "mean_std_source": "preprocessor_config.json of this checkpoint"
+  }
+ },
+ "checkpoint_errors": {},
+ "c0_10_statement": "C0 evidence does NOT close GATE-ML-01. DR-007 forbids closing it on C0 alone. Convergence, achievable quality, and the interaction between output stride and the real LA boundary thickness are C1.",
+ "results": [
+  {
+   "variant": "unet_base32_depth4",
+   "family": "unet",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 1.0,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 4619777,
+   "parameters_trainable": 4619777,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 45.94,
+    "ms_median": 47.77,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 53.77,
+    "steps_per_s": 20.935,
+    "slices_per_s": 41.87,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 577152000,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 138.14,
+    "ms_median": 139.11,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 148.21,
+    "steps_per_s": 7.189,
+    "slices_per_s": 14.378,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 1560759296,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 1560759296,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 1560759296,
+   "backbone": "none (trained from scratch)",
+   "decoder": "UNet",
+   "backbone_mode": "n/a",
+   "batch_search": {
+    "largest_fitting_batch": 7,
+    "first_failing_batch": 8,
+    "cap": 16,
+    "cap_reached": false,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1524197376,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 3022688256,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6652941312,
+      "exceeded_vram": true,
+      "reason": "batch 8 allocated 6.20 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 8,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 4512116736,
+      "exceeded_vram": false,
+      "batch": 6,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 5819744256,
+      "exceeded_vram": false,
+      "batch": 7,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "batch 8 allocated 6.20 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "unet_base16_depth4",
+   "family": "unet",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 1.0,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 1156609,
+   "parameters_trainable": 1156609,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 18.0,
+    "ms_median": 18.62,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 23.04,
+    "steps_per_s": 53.718,
+    "slices_per_s": 107.435,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 287314432,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 57.55,
+    "ms_median": 58.21,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 64.03,
+    "steps_per_s": 17.18,
+    "slices_per_s": 34.359,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 858284544,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 858284544,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 858284544,
+   "backbone": "none (trained from scratch)",
+   "decoder": "UNet",
+   "backbone_mode": "n/a",
+   "batch_search": {
+    "largest_fitting_batch": 15,
+    "first_failing_batch": 16,
+    "cap": 16,
+    "cap_reached": false,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 848935424,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1682089472,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 3345633792,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6669976064,
+      "exceeded_vram": true,
+      "reason": "batch 16 allocated 6.21 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 16,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 5004786176,
+      "exceeded_vram": false,
+      "batch": 12,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 5829960192,
+      "exceeded_vram": false,
+      "batch": 14,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6254518272,
+      "exceeded_vram": false,
+      "batch": 15,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "batch 16 allocated 6.21 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_s14_full_linear",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 14.0,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 22056961,
+   "parameters_trainable": 22056961,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 60.83,
+    "ms_median": 61.72,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 65.9,
+    "steps_per_s": 16.202,
+    "slices_per_s": 32.403,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 179972608,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 227.88,
+    "ms_median": 228.82,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 231.71,
+    "steps_per_s": 4.37,
+    "slices_per_s": 8.741,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 1402462208,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 1402462208,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 1402462208,
+   "backbone": "ViT-S/14",
+   "checkpoint": {
+    "key": "s14",
+    "repo": "facebook/dinov2-small",
+    "arch": "ViT-S/14",
+    "revision_requested": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 88249960,
+    "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "full",
+   "decoder": "linear",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 11,
+    "first_failing_batch": 12,
+    "cap": 16,
+    "cap_reached": false,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1222290432,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 2345128960,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 4566518784,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 9014176768,
+      "exceeded_vram": true,
+      "reason": "batch 16 allocated 8.40 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 16,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6747739136,
+      "exceeded_vram": true,
+      "reason": "batch 12 allocated 6.28 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 12,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 5716969472,
+      "exceeded_vram": false,
+      "batch": 10,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6242828288,
+      "exceeded_vram": false,
+      "batch": 11,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "batch 12 allocated 6.28 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_s14_full_progressive",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 1.75,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 22294849,
+   "parameters_trainable": 22294849,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 62.23,
+    "ms_median": 64.14,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 106.79,
+    "steps_per_s": 15.592,
+    "slices_per_s": 31.183,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 197242368,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 248.8,
+    "ms_median": 253.83,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 256.45,
+    "steps_per_s": 3.94,
+    "slices_per_s": 7.879,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 1525971456,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 1525971456,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 1525971456,
+   "backbone": "ViT-S/14",
+   "checkpoint": {
+    "key": "s14",
+    "repo": "facebook/dinov2-small",
+    "arch": "ViT-S/14",
+    "revision_requested": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 88249960,
+    "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "full",
+   "decoder": "progressive",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 10,
+    "first_failing_batch": 11,
+    "cap": 16,
+    "cap_reached": false,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1334935040,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 2577876480,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 5055860224,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 10024623616,
+      "exceeded_vram": true,
+      "reason": "batch 16 allocated 9.34 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 16,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 7499310592,
+      "exceeded_vram": true,
+      "reason": "batch 12 allocated 6.98 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 12,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6341029376,
+      "exceeded_vram": false,
+      "batch": 10,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6928936960,
+      "exceeded_vram": true,
+      "reason": "batch 11 allocated 6.45 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 11,
+      "fitted": false
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "batch 11 allocated 6.45 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_s14_frozen_linear",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 14.0,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 22056961,
+   "parameters_trainable": 385,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 61.07,
+    "ms_median": 62.04,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 65.07,
+    "steps_per_s": 16.12,
+    "slices_per_s": 32.24,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 179972608,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 60.99,
+    "ms_median": 62.42,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 63.3,
+    "steps_per_s": 16.021,
+    "slices_per_s": 32.043,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 188496384,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 188496384,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 188496384,
+   "backbone": "ViT-S/14",
+   "checkpoint": {
+    "key": "s14",
+    "repo": "facebook/dinov2-small",
+    "arch": "ViT-S/14",
+    "revision_requested": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 88249960,
+    "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "frozen",
+   "decoder": "linear",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 16,
+    "first_failing_batch": null,
+    "cap": 16,
+    "cap_reached": true,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 179204608,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 261654016,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 425453056,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 752903680,
+      "exceeded_vram": false,
+      "batch": 16,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "search capped at 16; the true ceiling may be higher",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_s14_frozen_progressive",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 1.75,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 22294849,
+   "parameters_trainable": 238273,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 61.2,
+    "ms_median": 61.83,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 66.79,
+    "steps_per_s": 16.173,
+    "slices_per_s": 32.346,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 197242368,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 81.03,
+    "ms_median": 82.06,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 94.52,
+    "steps_per_s": 12.186,
+    "slices_per_s": 24.371,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 262190592,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 262190592,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 262190592,
+   "backbone": "ViT-S/14",
+   "checkpoint": {
+    "key": "s14",
+    "repo": "facebook/dinov2-small",
+    "arch": "ViT-S/14",
+    "revision_requested": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 88249960,
+    "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "frozen",
+   "decoder": "progressive",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 16,
+    "first_failing_batch": null,
+    "cap": 16,
+    "cap_reached": true,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 258537984,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 413114880,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 726215168,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1354054144,
+      "exceeded_vram": false,
+      "batch": 16,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "search capped at 16; the true ceiling may be higher",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_b14_full_linear",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 14.0,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 86581249,
+   "parameters_trainable": 86581249,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 156.78,
+    "ms_median": 159.81,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 163.4,
+    "steps_per_s": 6.258,
+    "slices_per_s": 12.515,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 508573184,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 564.47,
+    "ms_median": 573.76,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 590.73,
+    "steps_per_s": 1.743,
+    "slices_per_s": 3.486,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 3291211264,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 3291211264,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 3291211264,
+   "backbone": "ViT-B/14",
+   "checkpoint": {
+    "key": "b14",
+    "repo": "facebook/dinov2-base",
+    "arch": "ViT-B/14",
+    "revision_requested": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "revision_resolved": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 346345912,
+    "weights_sha256": "d73036b56966966d07975d696bde331762f37297e2f095de8cea0040c3aa0841",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "full",
+   "decoder": "linear",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 5,
+    "first_failing_batch": 6,
+    "cap": 16,
+    "cap_reached": false,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 2595387904,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 4799422976,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 9216082432,
+      "exceeded_vram": true,
+      "reason": "batch 8 allocated 8.58 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 8,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6965182976,
+      "exceeded_vram": true,
+      "reason": "batch 6 allocated 6.49 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 6,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 5944573440,
+      "exceeded_vram": false,
+      "batch": 5,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "batch 6 allocated 6.49 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_b14_full_progressive",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 1.75,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 87015361,
+   "parameters_trainable": 87015361,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 159.94,
+    "ms_median": 165.91,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 180.16,
+    "steps_per_s": 6.027,
+    "slices_per_s": 12.055,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 510836736,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 592.82,
+    "ms_median": 599.65,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 652.0,
+    "steps_per_s": 1.668,
+    "slices_per_s": 3.335,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 3391811584,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 3391811584,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 3391811584,
+   "backbone": "ViT-B/14",
+   "checkpoint": {
+    "key": "b14",
+    "repo": "facebook/dinov2-base",
+    "arch": "ViT-B/14",
+    "revision_requested": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "revision_resolved": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 346345912,
+    "weights_sha256": "d73036b56966966d07975d696bde331762f37297e2f095de8cea0040c3aa0841",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "full",
+   "decoder": "progressive",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 5,
+    "first_failing_batch": 6,
+    "cap": 16,
+    "cap_reached": false,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 2681025536,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 4995217408,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 9643933696,
+      "exceeded_vram": true,
+      "reason": "batch 8 allocated 8.98 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 8,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 7280985088,
+      "exceeded_vram": true,
+      "reason": "batch 6 allocated 6.78 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+      "batch": 6,
+      "fitted": false
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 6199206912,
+      "exceeded_vram": false,
+      "batch": 5,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "batch 6 allocated 6.78 GB against 6.00 GB of VRAM - spilled to system memory, counted as NOT fitting",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_b14_frozen_linear",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 14.0,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 86581249,
+   "parameters_trainable": 769,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 156.79,
+    "ms_median": 158.45,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 162.46,
+    "steps_per_s": 6.311,
+    "slices_per_s": 12.622,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 508573184,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 156.26,
+    "ms_median": 157.49,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 166.96,
+    "steps_per_s": 6.35,
+    "slices_per_s": 12.699,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 517100032,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 517100032,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 517100032,
+   "backbone": "ViT-B/14",
+   "checkpoint": {
+    "key": "b14",
+    "repo": "facebook/dinov2-base",
+    "arch": "ViT-B/14",
+    "revision_requested": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "revision_resolved": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 346345912,
+    "weights_sha256": "d73036b56966966d07975d696bde331762f37297e2f095de8cea0040c3aa0841",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "frozen",
+   "decoder": "linear",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 16,
+    "first_failing_batch": null,
+    "cap": 16,
+    "cap_reached": true,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 507950592,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 659205632,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 960216576,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1566146048,
+      "exceeded_vram": false,
+      "batch": 16,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "search capped at 16; the true ceiling may be higher",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  },
+  {
+   "variant": "dinov2_b14_frozen_progressive",
+   "family": "dinov2",
+   "input_size": 560,
+   "intended_batch": 2,
+   "precision": "fp32",
+   "batch": 2,
+   "effective_output_stride": 1.75,
+   "stride_source": "model.output_stride(), not a hardcoded table",
+   "parameters_total": 87015361,
+   "parameters_trainable": 434881,
+   "forward": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 159.88,
+    "ms_median": 163.0,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 171.68,
+    "steps_per_s": 6.135,
+    "slices_per_s": 12.27,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 510836736,
+     "is_true_peak": true
+    }
+   },
+   "train_step": {
+    "steps": 10,
+    "warmup_steps": 2,
+    "ms_min": 179.89,
+    "ms_median": 183.25,
+    "median_definition": "nearest-rank p50, no interpolation",
+    "ms_max": 196.6,
+    "steps_per_s": 5.457,
+    "slices_per_s": 10.914,
+    "throughput_method": "median wall time of 10 timed steps after 2 warm-up steps, device synchronised after every step; slices/s = batch 2 x steps/s. Data loading is NOT included.",
+    "memory": {
+     "metric": "torch.cuda.max_memory_allocated",
+     "bytes": 528457728,
+     "is_true_peak": true
+    }
+   },
+   "train_memory": {
+    "metric": "torch.cuda.max_memory_allocated",
+    "bytes": 528457728,
+    "is_true_peak": true
+   },
+   "peak_memory_bytes_train": 528457728,
+   "backbone": "ViT-B/14",
+   "checkpoint": {
+    "key": "b14",
+    "repo": "facebook/dinov2-base",
+    "arch": "ViT-B/14",
+    "revision_requested": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "revision_resolved": "f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "weights_file": "model.safetensors",
+    "weights_bytes": 346345912,
+    "weights_sha256": "d73036b56966966d07975d696bde331762f37297e2f095de8cea0040c3aa0841",
+    "image_mean": [
+     0.485,
+     0.456,
+     0.406
+    ],
+    "image_std": [
+     0.229,
+     0.224,
+     0.225
+    ],
+    "mean_std_source": "preprocessor_config.json of this checkpoint"
+   },
+   "backbone_mode": "frozen",
+   "decoder": "progressive",
+   "attn_implementation": "sdpa",
+   "batch_search": {
+    "largest_fitting_batch": 16,
+    "first_failing_batch": null,
+    "cap": 16,
+    "cap_reached": true,
+    "attempts": [
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 522607616,
+      "exceeded_vram": false,
+      "batch": 2,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 683101184,
+      "exceeded_vram": false,
+      "batch": 4,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1005636608,
+      "exceeded_vram": false,
+      "batch": 8,
+      "fitted": true
+     },
+     {
+      "ran_without_error": true,
+      "peak_memory_bytes": 1654107136,
+      "exceeded_vram": false,
+      "batch": 16,
+      "fitted": true
+     }
+    ],
+    "method": "try the intended batch; if it fits, double to bracket the boundary, otherwise try batch 1; then bisect the bracket to the exact boundary",
+    "assumption": "fitting is monotone in batch size",
+    "stopped_because": "search capped at 16; the true ceiling may be higher",
+    "precision": "fp32",
+    "vram_total_bytes": 6438780928,
+    "note": null
+   }
+  }
+ ]
+}
