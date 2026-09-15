@@ -1,0 +1,455 @@
+{
+ "criterion": "A3-A7 — brush ADD/ERASE exact, mapping after zoom/pan, undo, redo (stage S5)",
+ "target": "exact against fixtures/brush_ops.json and brush_cases.json (TASK.md A3-A7); proposed A5 tolerance: 0 source pixels for the fixture triples",
+ "captured_at": "20260915T212121+0700",
+ "label": "release build 2026-09-15 21:03 (expo run:android --variant release, PR #31 @ cf84802); operator Pham Tuan Anh",
+ "operator": "Phạm Tuấn Anh — chủ Spike A, bấm trên máy của chính mình (DR-006a)",
+ "build_type": "release — expo run:android --variant release; APK 68,865,408 bytes built 2026-09-15 21:03:11, installed 21:03:28; PR #31 @ cf84802",
+ "device_profile": "../../management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md",
+ "verdict_from_raw_log": "OBSERVED",
+ "verdict_reason": "a complete 'A3–A7 tự động' run matches the fixture replay at every step (strokes, undo walk, undo-all, redo walk, redo-all, reset) and 'kiểm A5' matches 60/60 cases at r = 0 and r = 2",
+ "criteria": {
+  "A3": "OBSERVED",
+  "A4": "OBSERVED",
+  "A6": "OBSERVED",
+  "A7": "OBSERVED",
+  "reset": "OBSERVED",
+  "A5": "OBSERVED"
+ },
+ "method": "the app runs brush_ops.json and the 60 brush cases through app/brushMath.js strokeSample on scratch buffers and logs every resulting hash; this script replays brush_ops.json onto mask_synthetic.json from the stored changed pixels with hashlib, stamps each A5 case's expected set on a blank slice, and compares the device's values one by one.",
+ "fixture_self_consistent": true,
+ "fixture_problems": [],
+ "a5_lines": [
+  {
+   "radius": 0,
+   "cases_in_log": 60,
+   "cases_matching_fixture_recomputed": 60,
+   "of": 60,
+   "device_reported_pass": 60,
+   "dx_dy_distribution": {
+    "(0,0)": 50,
+    "outside the image, nothing painted": 10
+   },
+   "mismatches": [],
+   "status": "OBSERVED"
+  },
+  {
+   "radius": 2,
+   "cases_in_log": 60,
+   "cases_matching_fixture_recomputed": 60,
+   "of": 60,
+   "device_reported_pass": 60,
+   "dx_dy_distribution": {
+    "(0,0)": 50,
+    "outside the image, nothing painted": 10
+   },
+   "mismatches": [],
+   "status": "OBSERVED"
+  }
+ ],
+ "ops_runs": [
+  {
+   "started": true,
+   "ended": true,
+   "records": 45,
+   "groups": {
+    "A3": {
+     "expected": 8,
+     "seen": 8,
+     "matching": 8,
+     "status": "OBSERVED"
+    },
+    "A4": {
+     "expected": 6,
+     "seen": 6,
+     "matching": 6,
+     "status": "OBSERVED"
+    },
+    "A6": {
+     "expected": 15,
+     "seen": 15,
+     "matching": 15,
+     "status": "OBSERVED"
+    },
+    "A7": {
+     "expected": 15,
+     "seen": 15,
+     "matching": 15,
+     "status": "OBSERVED"
+    },
+    "reset": {
+     "expected": 1,
+     "seen": 1,
+     "matching": 1,
+     "status": "OBSERVED"
+    }
+   },
+   "mismatches": []
+  }
+ ],
+ "strokes": [
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 2,
+   "samples_received": 41,
+   "samples_applied": 41,
+   "samples_outside": 0,
+   "changed": 1,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.07,
+   "feedback_ms_max": 22.48
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 2,
+   "samples_received": 74,
+   "samples_applied": 74,
+   "samples_outside": 0,
+   "changed": 120,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.51,
+   "feedback_ms_max": 22.66
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 2,
+   "samples_received": 34,
+   "samples_applied": 34,
+   "samples_outside": 0,
+   "changed": 72,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.5,
+   "feedback_ms_max": 17.84
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 0,
+   "samples_received": 25,
+   "samples_applied": 25,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.16,
+   "feedback_ms_max": 17.48
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 0,
+   "samples_received": 32,
+   "samples_applied": 32,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.25,
+   "feedback_ms_max": 18.94
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 0,
+   "samples_received": 37,
+   "samples_applied": 37,
+   "samples_outside": 0,
+   "changed": 17,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.45,
+   "feedback_ms_max": 18.64
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 28,
+   "samples_applied": 28,
+   "samples_outside": 0,
+   "changed": 84,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.42,
+   "feedback_ms_max": 17.69
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 2,
+   "samples_applied": 2,
+   "samples_outside": 0,
+   "changed": 1,
+   "committed": false,
+   "end": "second_finger",
+   "feedback_ms_p50": 18.78,
+   "feedback_ms_max": 19.21
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 1,
+   "samples_applied": 1,
+   "samples_outside": 0,
+   "changed": 1,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 15.4,
+   "feedback_ms_max": 15.4
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 1,
+   "samples_applied": 1,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": false,
+   "end": "second_finger",
+   "feedback_ms_p50": 16.64,
+   "feedback_ms_max": 16.64
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 40,
+   "samples_applied": 40,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.33,
+   "feedback_ms_max": 17.16
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 33,
+   "samples_applied": 33,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.3,
+   "feedback_ms_max": 20.05
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 27,
+   "samples_applied": 27,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.32,
+   "feedback_ms_max": 16.78
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 29,
+   "samples_applied": 29,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.45,
+   "feedback_ms_max": 19.09
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 32,
+   "samples_applied": 30,
+   "samples_outside": 2,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.3,
+   "feedback_ms_max": 18.26
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 3,
+   "samples_applied": 3,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": false,
+   "end": "second_finger",
+   "feedback_ms_p50": 15.99,
+   "feedback_ms_max": 19.48
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 1,
+   "samples_applied": 1,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.3,
+   "feedback_ms_max": 16.3
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 28,
+   "samples_applied": 28,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.32,
+   "feedback_ms_max": 17.48
+  },
+  {
+   "slice": 0,
+   "mode": "erase",
+   "radius": 5,
+   "samples_received": 33,
+   "samples_applied": 33,
+   "samples_outside": 0,
+   "changed": 0,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.45,
+   "feedback_ms_max": 19.06
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 5,
+   "samples_received": 103,
+   "samples_applied": 103,
+   "samples_outside": 0,
+   "changed": 174,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.41,
+   "feedback_ms_max": 21.31
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 5,
+   "samples_received": 48,
+   "samples_applied": 48,
+   "samples_outside": 0,
+   "changed": 223,
+   "committed": false,
+   "end": "second_finger",
+   "feedback_ms_p50": 16.29,
+   "feedback_ms_max": 21.85
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 5,
+   "samples_received": 2,
+   "samples_applied": 2,
+   "samples_outside": 0,
+   "changed": 81,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 13.4,
+   "feedback_ms_max": 17.34
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 5,
+   "samples_received": 41,
+   "samples_applied": 41,
+   "samples_outside": 0,
+   "changed": 209,
+   "committed": false,
+   "end": "second_finger",
+   "feedback_ms_p50": 16.48,
+   "feedback_ms_max": 21.37
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 5,
+   "samples_received": 6,
+   "samples_applied": 6,
+   "samples_outside": 0,
+   "changed": 79,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 15.62,
+   "feedback_ms_max": 19.74
+  },
+  {
+   "slice": 0,
+   "mode": "add",
+   "radius": 5,
+   "samples_received": 29,
+   "samples_applied": 29,
+   "samples_outside": 0,
+   "changed": 256,
+   "committed": true,
+   "end": "release",
+   "feedback_ms_p50": 16.57,
+   "feedback_ms_max": 18.78
+  }
+ ],
+ "strokes_summary": {
+  "n": 25,
+  "committed": 20,
+  "rolled_back": {
+   "second_finger": 5
+  },
+  "committed_with_samples_unaccounted": 0,
+  "feedback_ms_max_worst": 22.66,
+  "note": "input for A10/A11 only - no verdict here. feedback_ms is a JS-side next-frame proxy (handler entry -> first requestAnimationFrame after the overlay update); native input delivery is not included. samples_received counts what reached the JS handler; samples coalesced before that are invisible to the app. Per-stroke p50s cannot be combined into an overall p50."
+ },
+ "history_actions": [
+  {
+   "slice": 0,
+   "changed": 79,
+   "undo_depth": 18,
+   "redo_depth": 1,
+   "action": "undo"
+  },
+  {
+   "slice": 0,
+   "changed": 81,
+   "undo_depth": 17,
+   "redo_depth": 2,
+   "action": "undo"
+  },
+  {
+   "slice": 0,
+   "changed": 174,
+   "undo_depth": 16,
+   "redo_depth": 3,
+   "action": "undo"
+  },
+  {
+   "undo_cleared": 17,
+   "redo_cleared": 0,
+   "action": "reset"
+  }
+ ]
+}
