@@ -19,6 +19,11 @@
 > Hùng Anh approve. #26 có **3 điểm** có nội dung (việc 1b). **#28 bị đóng tự động 10:03** khi #25 merge — bạn review
 > bản Khánh mở lại. Bạn là **reviewer Spike B**: Hùng Anh vừa mở **#29** (`B14`) và **#30** (`B1`).
 > **Thứ tự mới:** 1a (15 phút) → **việc 2 — stub, hạn 14:00** → 1b → 1d → 1c khi PR có → việc 3, 4.
+>
+> ❌ **11:52 — QA Red Team `REJECT` Spike D** ([`../QA_REVIEW_002_SPIKE_D.md`](../QA_REVIEW_002_SPIKE_D.md)). Hai chỗ chạm việc
+> của bạn: **1c** — khi review PR split mới, kiểm cặp `CASE_0056`/`CASE_0097` (một lần chụp bị xuất hai lần) **nằm cùng
+> một phía**; **việc 5** — hợp đồng ingestion 1 phải có phép phát hiện case trùng theo hash, và header hình học mặc
+> định (spacing 1, origin 0) ⇒ `GEOMETRY_NOT_VALIDATED` cho mọi đơn vị vật lý.
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
@@ -26,7 +31,7 @@
 |---|---|---|---|---|
 | **1a** | **Sửa #24** — đổi ID mạng ZeroTier cũ trong `spikes/spike_e_transport/client/ANDROID_TOYBOX_HARNESS.md` sang `b103a835d292ddb3`, hoặc trỏ tới nguồn chuẩn (`OPEN_DECISIONS.md` / `SPIKE_PHASE_STATE.yaml`) thay vì ghi cứng | ~15 ph | không | commit trên #24, trả lời review |
 | **1b** | **Sửa #26 — 3 điểm của Hùng Anh:** (1) tái sinh `SPIKE_E_RUN4_AGGREGATE.json` bằng `aggregate.py` ở PR head (ghi `run_quality` trước khi serialise), hoặc ghi rõ và commit đúng bản script đã sinh JSON cũ; (2) thay khối lệnh `python client/harness.py` trong kế hoạch đo bằng lệnh harness Toybox chính xác (có `--profile`), ghi rõ harness Python chỉ là công cụ chẩn đoán trên máy trạm; (3) đưa profile vào nhóm/báo cáo của `aggregate.py`, hoặc bắt buộc mỗi profile một lần chạy và từ chối trộn | ~2 h | không | commit trên #26, trả lời từng điểm |
-| **1c** | **Review PR split của Khánh** (thay #28): chạy lại `split.py --selftest`, JSON Schema, đếm **80/20/54**, holdout **đúng** 54 case `Testing Set`, `20 ⊂ 40 ⊂ 80`, chạy hai lần ra **cùng** file, từ chối nguồn chưa sẵn | ~1,5 h | Khánh mở PR mới | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
+| **1c** | **Review PR split của Khánh** (thay #28) — *thêm: cặp `CASE_0056`/`CASE_0097` phải nằm cùng một phía (QA-002 F1)*: chạy lại `split.py --selftest`, JSON Schema, đếm **80/20/54**, holdout **đúng** 54 case `Testing Set`, `20 ⊂ 40 ⊂ 80`, chạy hai lần ra **cùng** file, từ chối nguồn chưa sẵn | ~1,5 h | Khánh mở PR mới | `APPROVE` hoặc `CHANGES_REQUESTED` có nội dung |
 | **1d** | **Review #29** (`B14`, chỉ README) và **#30** (`B1`, PR nháp: viewer WebGL2 + ảnh) — bạn là reviewer Spike B (`DR-006a` rev 3) | ~1 h | không | review có nội dung trên từng PR |
 
 ## Việc Day 6

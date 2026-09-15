@@ -11,6 +11,11 @@
 > ✅ **Cập nhật 11:15 — buổi sáng rất hiệu quả:** approve + merge #25 (10:03), review lại #24 (10:04, còn 1 điểm),
 > review #26 (10:09, 3 điểm có nội dung — tái chạy `aggregate.py`), soát #27 (10:13, 4/4 kiểm đạt), #29 `B14` (10:14),
 > #30 `B1` (10:21). **Việc còn lại:** 6 picking, 7 duyệt lại #24/#26 khi Trung sửa, 8 review chính thức #27 và PR S5.
+>
+> ❌ **11:52 — QA Red Team `REJECT` Spike D** ([`../QA_REVIEW_002_SPIKE_D.md`](../QA_REVIEW_002_SPIKE_D.md)). Mọi con số bạn đã
+> kiểm đều tái lập đúng; QA tìm ra những gì audit **không báo**: một case bị trùng, header không mang hình học vật lý,
+> `A19` còn thiếu. Khi Khánh đẩy bản sửa, bạn **duyệt lại** (việc 9). Cho hợp đồng hình học: header LASC mang spacing 1
+> và origin 0 mặc định — toạ độ "thế giới" đọc từ header chỉ là chỉ số voxel, **không phải mm**.
 
 ## 🔴 LÀM TRƯỚC — theo thứ tự
 
@@ -29,8 +34,9 @@
 | **6** | **Picking trên fixture chính thức trong app** (`B3`/`B4`, trên viewer #30 hoặc emulator): chạm → tia → điểm trên mesh, so với 13 tia `expected` của `geometry_fixture_v0.json` | ~1,5 h | việc 3 | bảng `B4` exact trên emulator *(chẩn đoán — `B5`/`B6` trên máy thật đo sau, leader bấm)* |
 | **7** | **Duyệt lại #24 và #26** khi Trung đẩy bản sửa | ~1 h | Trung | `APPROVE` hoặc yêu cầu sửa |
 | **8** | **Review chính thức #27** (đã soát 10:13 — approve hoặc yêu cầu sửa) · **review PR S5 brush** (`A3`–`A7`) khi leader đẩy lên | ~1,5 h | leader (S5) | review có nội dung |
+| **9** | **Duyệt lại Spike D** khi Khánh đẩy bản sửa theo QA-002 (F1–F5, F12, F13) — có thể dùng script ở [`../qa002/`](../qa002/) để kiểm lại cặp trùng | ~1 h | Khánh | `APPROVE` hoặc yêu cầu sửa |
 
-**Tổng phần chính: ~8,3 h** ban đầu — khoảng 6 h đã xong trước 10:21; còn việc 6–8 (~4 h) + hàng dự phòng.
+**Tổng phần chính: ~8,3 h** ban đầu — khoảng 6 h đã xong trước 10:21; còn việc 6–9 (~5 h) + hàng dự phòng.
 
 > **🎯 Chuẩn demo** *(leader, 15/09: sản phẩm cuối phải "wow")*: app 3D là thứ giảng viên nhìn thấy **đầu tiên**.
 > Ngay từ `B1`: xoay/zoom mượt, **ánh sáng/shading đọc được hình khối** nhĩ trái, màu và nền nhất quán; kèm PR một

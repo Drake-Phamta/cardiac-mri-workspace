@@ -60,6 +60,11 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 > được. Từ hôm nay mỗi packet có dòng 🎯 gắn việc của người đó với thứ sẽ hiện ra khi demo; `management/DEMO_STANDARD.md`
 > (bản nháp hôm nay) là chuẩn chung.
 
+> ❌ **11:52 — QA Red Team `REJECT` Spike D** ([`day06/QA_REVIEW_002_SPIKE_D.md`](day06/QA_REVIEW_002_SPIKE_D.md)) →
+> `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng `CASE_0056` và `CASE_0097` là một lần chụp bị xuất hai lần mà audit
+> không báo, và split nháp đã đặt hai bản ở train và validation. **`GATE-DATA-01` không đóng hôm nay.** Leader cần quyết
+> Q1 (cặp trùng trong split), Q2 (hoãn mục split của `A19`), Q3 (manifest trong repo public).
+
 ### Đã xong — trong ngày
 
 | Ai | Việc | Bằng chứng |
@@ -73,6 +78,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Vũ Hùng Anh | Review lại #24 (`CHANGES_REQUESTED`, 1 điểm) · review #26 (`CHANGES_REQUESTED`, 3 điểm) · soát #27 (4/4 kiểm đạt) | review trên PR #24 10:04 · #26 10:09 · #27 10:13 |
 | Vũ Hùng Anh | `B14` — diễn giải của chủ spike | PR #29 |
 | Vũ Hùng Anh | `B1` — viewer 3D WebGL2 xoay/zoom + ảnh chụp | PR nháp #30 |
+| Phạm Tuấn Anh *(phiên QA độc lập; Project Control kiểm lại F1)* | **QA Red Team Spike D — `REJECT`**: 1 CRITICAL (cặp case trùng bị split nháp đặt ở train và validation), 4 HIGH; mọi con số khác tái lập đúng | [`day06/QA_REVIEW_002_SPIKE_D.md`](day06/QA_REVIEW_002_SPIKE_D.md) · script ở `day06/qa002/` |
 
 ---
 

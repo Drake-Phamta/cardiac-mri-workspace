@@ -194,11 +194,12 @@ spikes:
     priority: P0
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: EVIDENCE_READY   # RESULT.md with real measurements is on main (a92892c); QA Red Team pending - NOT ACCEPTED
+    status: NEEDS_FIX        # QA Red Team REJECT 2026-09-15 11:52 (management/day06/QA_REVIEW_002_SPIKE_D.md) - back to the owner
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
-      state: APPROVED          # Vu Hung Anh APPROVED PR #25 at 2026-09-15 10:03:17 +07:00 and merged it (a92892c)
+      state: APPROVED          # Vu Hung Anh APPROVED PR #25 at 2026-09-15 10:03:17 +07:00 and merged it (a92892c); the fixes need his re-review
+      qa: {verdict: REJECT, at: "2026-09-15T11:52+07:00", record: management/day06/QA_REVIEW_002_SPIKE_D.md, blocking: [F1, F2, F3, F4, F5]}
       reviewer: "Vu Hung Anh"
       priority_rank: 1          # ahead of SPIKE_A in Vu Hung Anh's queue - SPIKE_D is P0
       queue_note: >
@@ -248,7 +249,18 @@ spikes:
       11:08 as an independent session. The official archive is on the owner's machine, so QA re-runs what
       it can here and records what it cannot. Not ACCEPTED; GATE-DATA-01 stays OPEN until QA PASS and the
       Project Control transition.
-    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44; APPROVED 2026-09-15 10:03 and merged a92892c"}
+      Update 2026-09-15 11:52: QA Red Team REJECT (QA_REVIEW_002_SPIKE_D.md). CRITICAL F1: CASE_0056 and
+      CASE_0097 (both Training Set) are one acquisition exported twice - byte-identical laendo and lawall, MRI
+      r 0.9965 - while the audit reports 0 anomalies, and the closed draft split put one in train and one in
+      validation (leakage). HIGH: F2 every header carries default geometry (spacing 1, origin 0, identity
+      direction), so physical geometry is unverified and mm/mL stay disabled; F3 A19 does not cover 06 section
+      9.1; F4 the owner's Q4 verdict is missing and the A11 verdict is not package-specific; F5 the public
+      manifest carries absolute local paths and file-level metadata - leader ruling needed. Every numeric claim
+      was reproduced (scanner re-run on a byte-identical archive: 0 differences); Project Control re-ran the
+      duplicate check at 11:58 with the same result. Next: the owner fixes F1-F4, F12, F13 and strips the
+      paths; the leader decides Q1 (the pair in the split), Q2 (A19 split-item deferral) and Q3 (F5); then
+      reviewer re-review, QA re-check, Project Control.
+    evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44; APPROVED 2026-09-15 10:03 and merged a92892c; QA REJECT 11:52"}
 
   - id: SPIKE_A
     name: "2D scientific viewer / brush interaction"
