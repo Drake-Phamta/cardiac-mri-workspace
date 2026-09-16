@@ -19,6 +19,7 @@ python tools/dataset_validate/validate.py --selftest
 python tools/dataset_validate/validate.py `
   --archive <private path to 2018_UTAH_MICCAI.zip> `
   --acquisition <private path to acquisition.json> `
+  --restricted-manifest-out <private path to dataset_manifest_restricted.json> `
   --write-manifest --write-audit
 python tools/dataset_validate/validate.py `
   --render-from-manifest data/manifests/dataset_manifest.json --write-audit
@@ -34,8 +35,8 @@ A17: CASE_0097/desktop.ini listed and excluded from ingestion metadata
 16 PASS · 0 FAIL · 1 NOT_RUN (A19) · 3 owner fields previously confirmed
 ```
 
-The machine statuses are not `GATE-DATA-01` acceptance. QA-002 F5 policy and
-the newly bounded owner verdict remain open.
+The machine statuses are not `GATE-DATA-01` acceptance. The leader's narrow F5
+policy is implemented; reviewer approval, QA PASS and Project Control remain.
 
 ## A1–A20 evidence map
 
@@ -51,8 +52,8 @@ the newly bounded owner verdict remain open.
 | A14 | 308/308 required axis-aligned headers; audit §4.3 | physical mm/mL still disabled; owner confirmed bound through HITL on 2026-09-16 |
 | A15–A16 | manifest `duplicate_evidence`, scanner cross-case SHA and ID/name checks; audit §7 | F1 known duplicated acquisition, grouped under `DR-002a` |
 | A17 | header/sidecar scanner + owner exclusion; audit §7 | no sidecar content propagated |
-| A18 | `POLICY_EVIDENCE.md`, archived PDF names/hashes | leader must decide public metadata scope |
-| A19 | generated audit §§1–7 and proposed split manifest path | machine `NOT_RUN`; exact split IDs/Q2 decision pending |
+| A18 | `POLICY_EVIDENCE.md`, archived PDF names/hashes, public hash of external restricted manifest | narrow public scope decided 2026-09-16; gate acceptance remains human |
+| A19 | generated audit §§1–7 and proposed split manifest path | machine `NOT_RUN`; Q2 explicitly defers exact IDs to `GATE-SPLIT-01`, so training stays `BLOCKED` |
 | A20 | regenerated JSON manifest + schema validation | machine-readable artifact; no acceptance transition |
 
 ## Remaining QA follow-up (non-blocking for this repair PR)

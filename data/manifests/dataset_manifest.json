@@ -1,6 +1,6 @@
 {
  "manifest_version": "1.0",
- "generated_at": "2026-09-16T00:11:36+07:00",
+ "generated_at": "2026-09-17T00:04:38+07:00",
  "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
  "package_root": "EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files",
  "nrrd_library": "pynrrd 1.1.3",
@@ -103,7 +103,6 @@
    "mri": {
     "path_relative": "Testing Set/23G5K6IOGZGUOK7SJEUM/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d7d974049f1b8ed905c41697da066307ed9c2fa1de14d7afceebd87c9a899bc4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -153,7 +152,6 @@
    "mask": {
     "path_relative": "Testing Set/23G5K6IOGZGUOK7SJEUM/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "59d8a5f524340274a09da6e1b684d1f2616c77af6cbb76b3fa1cae8921131f33",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -219,7 +217,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/23G5K6IOGZGUOK7SJEUM/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -285,7 +282,6 @@
    "mri": {
     "path_relative": "Testing Set/4URSJYI2QUH1T5S5PP47/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "fadea7c6c534a80b656504be175000f80b20e3d7c4c75f0222d6496cb633015a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -335,7 +331,6 @@
    "mask": {
     "path_relative": "Testing Set/4URSJYI2QUH1T5S5PP47/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "69ed2180b25409ceecb0ca07ae9db2bd0c60fd6519ee586e07fbe579f257d3af",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -401,7 +396,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/4URSJYI2QUH1T5S5PP47/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -467,7 +461,6 @@
    "mri": {
     "path_relative": "Testing Set/6HDYMTGBRI27MN763XTS/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0a183152982709ae79e0ac7a25e072a4edce25e3439ddf9b7b3337d51510cea0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -517,7 +510,6 @@
    "mask": {
     "path_relative": "Testing Set/6HDYMTGBRI27MN763XTS/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f12687ca5f28371f474d2d5daaac124caecccaacb9332d11ac1e424c840b3100",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -583,7 +575,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/6HDYMTGBRI27MN763XTS/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -649,7 +640,6 @@
    "mri": {
     "path_relative": "Testing Set/8E00BQQJ7T5TQSSGZVGE/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d17da4305fcea4f6c1fb53782da412225c204eb54a76c9147900def988d1a460",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -699,7 +689,6 @@
    "mask": {
     "path_relative": "Testing Set/8E00BQQJ7T5TQSSGZVGE/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4e721ee4eb5a484a86b5e535ab911ddd4cf17220d09bde8c896d34cd9766d125",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -765,7 +754,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/8E00BQQJ7T5TQSSGZVGE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -831,7 +819,6 @@
    "mri": {
     "path_relative": "Testing Set/8ISA3BO39HPSNJI0R8NH/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "e9e5ba3bd4387c9f6553d200769eb63a78a632d12133f6e55758baa725e11155",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -881,7 +868,6 @@
    "mask": {
     "path_relative": "Testing Set/8ISA3BO39HPSNJI0R8NH/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "5a9fad461bc3c8612b1a6bd0ae7ad84ebaa8d4f315b008dae4db3cd72cf601b9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -947,7 +933,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/8ISA3BO39HPSNJI0R8NH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1013,7 +998,6 @@
    "mri": {
     "path_relative": "Testing Set/8NPX269KV6D4KOELNP9K/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "3a5aeca9057585bed380e04c4163f9e589dbb1a5e649a0862308bc830f16ea6e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1063,7 +1047,6 @@
    "mask": {
     "path_relative": "Testing Set/8NPX269KV6D4KOELNP9K/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b8710980aae73ada50ed5a9512f39b6785201647630deda907302245f03bb938",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1129,7 +1112,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/8NPX269KV6D4KOELNP9K/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1195,7 +1177,6 @@
    "mri": {
     "path_relative": "Testing Set/9A18LTR49JLKPEZ7JNT5/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "2744404da8de6355aea760530ba1d6676fddb54253acf3f335ababe9fd7cf10b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1245,7 +1226,6 @@
    "mask": {
     "path_relative": "Testing Set/9A18LTR49JLKPEZ7JNT5/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "aa9b70863f8cbc17d56839c146f55fedc38593e20f7d15d765bb251b535b1c1b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1311,7 +1291,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/9A18LTR49JLKPEZ7JNT5/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1377,7 +1356,6 @@
    "mri": {
     "path_relative": "Testing Set/A878KB79QDIBFOTWB0T8/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4c043914a0fdcb146db13a0ded0f3ff704ea4842fbf6f62cfce8823cae0446f8",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1427,7 +1405,6 @@
    "mask": {
     "path_relative": "Testing Set/A878KB79QDIBFOTWB0T8/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "91b93d40b485def63515ae78da013f4d3769567fc9d751bbb4b4b51930cd2fca",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1493,7 +1470,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/A878KB79QDIBFOTWB0T8/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1559,7 +1535,6 @@
    "mri": {
     "path_relative": "Testing Set/AY8LY0Z1KBIZ6LMDOAZO/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "2f070a96ab9f64e5a12cd2025867ed795a7b417a3b4c826402d4af0b74b93f5f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1609,7 +1584,6 @@
    "mask": {
     "path_relative": "Testing Set/AY8LY0Z1KBIZ6LMDOAZO/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b0db57abc4fef98c3b51d8b135ac522e26253bc36a619b615ba2b3aeeccddd75",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1675,7 +1649,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/AY8LY0Z1KBIZ6LMDOAZO/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1741,7 +1714,6 @@
    "mri": {
     "path_relative": "Testing Set/BFZ0ZTFDZRFG9MCSV1GX/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "79e33c89d914c8e65c9420db1d685a3107dedfa62a6fe30cd9c3639ab07eecff",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1791,7 +1763,6 @@
    "mask": {
     "path_relative": "Testing Set/BFZ0ZTFDZRFG9MCSV1GX/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "47ee74de211c59429a2250a8791d1a65d2a69f5f42d37b592fd60077211ac13b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1857,7 +1828,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/BFZ0ZTFDZRFG9MCSV1GX/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -1923,7 +1893,6 @@
    "mri": {
     "path_relative": "Testing Set/BP5NOS0LX7U5IXFES424/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "ddf159f466cc4deaf76e0214be099e2f4eedf56cef656bc99277210a5b529994",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -1973,7 +1942,6 @@
    "mask": {
     "path_relative": "Testing Set/BP5NOS0LX7U5IXFES424/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "c5d6ca1be4ac766302d3e1b7f57cb4a69e35a27952bcc29fef63113cdbb4ba44",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2039,7 +2007,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/BP5NOS0LX7U5IXFES424/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2105,7 +2072,6 @@
    "mri": {
     "path_relative": "Testing Set/C26SF3UO4WM0Z4K04CIB/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "4a624b248be3077abbd3cd2bd69b228a6111493ce5cec445818475916c74c35b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2155,7 +2121,6 @@
    "mask": {
     "path_relative": "Testing Set/C26SF3UO4WM0Z4K04CIB/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "c8fd0ae000697fc61773120de59bb0360c21da32fdc416c0596d5b085a9969b9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2221,7 +2186,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/C26SF3UO4WM0Z4K04CIB/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2287,7 +2251,6 @@
    "mri": {
     "path_relative": "Testing Set/D27523DQLTWE8UXKOPLP/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "37e18e74998718dca52c6996f7afae6a46737138cb809fa31833537e7f46c467",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2337,7 +2300,6 @@
    "mask": {
     "path_relative": "Testing Set/D27523DQLTWE8UXKOPLP/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0eb2e1a9baa2ee977140761dcda7c6d6dd5511d7e66a4bf22443bc4bf852af41",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2403,7 +2365,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/D27523DQLTWE8UXKOPLP/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2469,7 +2430,6 @@
    "mri": {
     "path_relative": "Testing Set/DD3MZ7M8J7MVQ38NZWBZ/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "4b76e75416ebf4ac3082c382fd80303cbc1ca4061bf8164adc2e01b41a99f135",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2519,7 +2479,6 @@
    "mask": {
     "path_relative": "Testing Set/DD3MZ7M8J7MVQ38NZWBZ/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "18f8d02f88743714bff666b219edac4ca2ea23a30a2cdaf972dae72b78f3aa05",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2585,7 +2544,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/DD3MZ7M8J7MVQ38NZWBZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2651,7 +2609,6 @@
    "mri": {
     "path_relative": "Testing Set/DN9MLO9S6NWF7GYPC8ZD/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "827a2ec33b74c3b3a77b0a350c49f003fd9d66ea9299c15ad7fa00fb0b6619ac",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2701,7 +2658,6 @@
    "mask": {
     "path_relative": "Testing Set/DN9MLO9S6NWF7GYPC8ZD/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e33a1fe79b1fd8540b38dd6164fa5cee8ae3b142ccf66598dd34c0580e2b12a3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2767,7 +2723,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/DN9MLO9S6NWF7GYPC8ZD/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -2833,7 +2788,6 @@
    "mri": {
     "path_relative": "Testing Set/DOCC2KQNQCEUHPZ9FAFF/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d6ff81f06c0c2cbaad8e42348dd35510e4b7940fe35027c79806a3cac2368f50",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2883,7 +2837,6 @@
    "mask": {
     "path_relative": "Testing Set/DOCC2KQNQCEUHPZ9FAFF/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "22f5b67334a45500882cf3f1410300d0c0b659cd2671ee7bdd6ed2b727b3b125",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -2949,7 +2902,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/DOCC2KQNQCEUHPZ9FAFF/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3015,7 +2967,6 @@
    "mri": {
     "path_relative": "Testing Set/EJ2SQFVAC1DLV39LYGPH/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "21be5d9a5a09a548305d2ba3b7327495f83d58db08b158f6cde56eafe106a414",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3065,7 +3016,6 @@
    "mask": {
     "path_relative": "Testing Set/EJ2SQFVAC1DLV39LYGPH/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ba1b51b637fb49b1ddf65d48071120deccd0da97baba955291cc3082cbdc5f6e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3131,7 +3081,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/EJ2SQFVAC1DLV39LYGPH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3197,7 +3146,6 @@
    "mri": {
     "path_relative": "Testing Set/EMBIHZTK2UAOEFFJKR6U/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "20c7c57dffc8902f4b56ee030216d01a609011802193e3615c8ad562018ba8e2",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3247,7 +3195,6 @@
    "mask": {
     "path_relative": "Testing Set/EMBIHZTK2UAOEFFJKR6U/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ca632dfafa3c982d88bed73187e502de62047b41184f7d775b2610bd41193fda",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3313,7 +3260,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/EMBIHZTK2UAOEFFJKR6U/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3379,7 +3325,6 @@
    "mri": {
     "path_relative": "Testing Set/EYFKUIESSPFWI4NEHS9L/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f9237af8f6f06ab1ef198ce9ba46cab1f457653f13f7bdd4aa6dfee706f4cde8",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3429,7 +3374,6 @@
    "mask": {
     "path_relative": "Testing Set/EYFKUIESSPFWI4NEHS9L/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6e4d8c8e076727f4e8af40d9fd4a5f028efa9d5e80d66ce362f969a2ae5cac02",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3495,7 +3439,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/EYFKUIESSPFWI4NEHS9L/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3561,7 +3504,6 @@
    "mri": {
     "path_relative": "Testing Set/FNGIIDQMPBSHC7X69OP1/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "83f8add5421127a41ef4478c0087fc381443c11c69b906341210302e05a7892f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3611,7 +3553,6 @@
    "mask": {
     "path_relative": "Testing Set/FNGIIDQMPBSHC7X69OP1/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "f4a58ca006fcbfaf95e8eb0c5ecf7cb419b55a2710e3e67fa288056d874fa1ae",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3677,7 +3618,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/FNGIIDQMPBSHC7X69OP1/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3743,7 +3683,6 @@
    "mri": {
     "path_relative": "Testing Set/GCAGURFT38WSQCUVCBY0/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "7de71dfe7d19dee273c0bbfe8821b81159f6386956735b70aeb0f55847ea0c4f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3793,7 +3732,6 @@
    "mask": {
     "path_relative": "Testing Set/GCAGURFT38WSQCUVCBY0/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1aaeec2841efc494a1175e42e5c250c4649c63401efa3a8560da22817fa4e530",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3859,7 +3797,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/GCAGURFT38WSQCUVCBY0/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -3925,7 +3862,6 @@
    "mri": {
     "path_relative": "Testing Set/GT8QWVDGJSPJ2HR7KHIV/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "087d9b7bd2c0df1c181e040ec49eae7d59e3b50fb96954fec3b77f5e10638da6",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -3975,7 +3911,6 @@
    "mask": {
     "path_relative": "Testing Set/GT8QWVDGJSPJ2HR7KHIV/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "81ae93b757a638ce0d7834afe0117b7c9a6d72ef7886e8671165519274dfa04f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4041,7 +3976,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/GT8QWVDGJSPJ2HR7KHIV/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4107,7 +4041,6 @@
    "mri": {
     "path_relative": "Testing Set/HQTRB9LB3EVSJPJZDGGN/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d76111d1cc6b82910094fc0ccc1aa9b243c74f3ef741fa0a81277f8b78560faf",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4157,7 +4090,6 @@
    "mask": {
     "path_relative": "Testing Set/HQTRB9LB3EVSJPJZDGGN/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "8943619a57f1c1151116b21bf8181e389635e4b88bd341df0ae4e9bbea5e624f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4223,7 +4155,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/HQTRB9LB3EVSJPJZDGGN/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4289,7 +4220,6 @@
    "mri": {
     "path_relative": "Testing Set/JBDRUBWZBRLRDYIE4W7Q/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e2e43bfba92ca9355ef59d44f0f959265a15e1d11480597d7d4698fd474674db",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4339,7 +4269,6 @@
    "mask": {
     "path_relative": "Testing Set/JBDRUBWZBRLRDYIE4W7Q/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "fff5d04c699a6023ac96743d07b7bc7bb6fcd73ab21f80dafb1bc42d6ae749ed",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4405,7 +4334,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/JBDRUBWZBRLRDYIE4W7Q/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4471,7 +4399,6 @@
    "mri": {
     "path_relative": "Testing Set/JG24TOFCDWAFMJ5O807R/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "7bfa03f4db2326929f0ac096081631cd9584ad6eded11b787855485dde381ac3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4521,7 +4448,6 @@
    "mask": {
     "path_relative": "Testing Set/JG24TOFCDWAFMJ5O807R/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "945e72e2245a0813ec945c7e743812450106147f8302adc2f398d0cb285a22f0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4587,7 +4513,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/JG24TOFCDWAFMJ5O807R/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4653,7 +4578,6 @@
    "mri": {
     "path_relative": "Testing Set/LCEN6QGISJXG5JUUAS03/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "c60ca252862d2bc3eb5a3b5c4aebcfc9e03bde623411290933efccc93b493c29",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4703,7 +4627,6 @@
    "mask": {
     "path_relative": "Testing Set/LCEN6QGISJXG5JUUAS03/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b31a6d914c8670d61bfc52fc3379a1dfd5447dc551f987373958784a38c83c8b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4769,7 +4692,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/LCEN6QGISJXG5JUUAS03/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -4835,7 +4757,6 @@
    "mri": {
     "path_relative": "Testing Set/M2YZZ592ETSE09NBC233/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ad870bc2f190d5df886739d63a8b8ebbe2e3d1fbf6365774eaf3f574202af3d3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4885,7 +4806,6 @@
    "mask": {
     "path_relative": "Testing Set/M2YZZ592ETSE09NBC233/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "10d0ad263fb64eabcf1cec7439656a5417efaf07253670e894e5b616bca1896c",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -4951,7 +4871,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/M2YZZ592ETSE09NBC233/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5017,7 +4936,6 @@
    "mri": {
     "path_relative": "Testing Set/MKVZDR7UDH5HES9U96GW/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "b85daf436157d3321ac69ebbf2017eba34ec1300404316b71d6e993e8446ed15",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5067,7 +4985,6 @@
    "mask": {
     "path_relative": "Testing Set/MKVZDR7UDH5HES9U96GW/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f0a55fa07dc057ebcbb6e82128ade60d9c7eb2b3fa8a47eb45cae6a2a0733c82",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5133,7 +5050,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MKVZDR7UDH5HES9U96GW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5199,7 +5115,6 @@
    "mri": {
     "path_relative": "Testing Set/MMLTFB33BGQJ7ONEI0VF/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d4e8bb7450bfc5aa91c2a5beaf2c63c5c9fdf1822afa02af8bce8144312b61e0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5249,7 +5164,6 @@
    "mask": {
     "path_relative": "Testing Set/MMLTFB33BGQJ7ONEI0VF/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "371c9b1a5dea3a77622c79f1e0d99521ab563ca5f5e3f9128f079a04d0d1cd02",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5315,7 +5229,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MMLTFB33BGQJ7ONEI0VF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5381,7 +5294,6 @@
    "mri": {
     "path_relative": "Testing Set/MS11OZHE0BROK9VKMOEV/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6f3fb0579f13fffd012c94c99080e84d014c230630650d5c282cf111d51bb1e0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5431,7 +5343,6 @@
    "mask": {
     "path_relative": "Testing Set/MS11OZHE0BROK9VKMOEV/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "b7d29e00c6d7cbecc50dee71018cf6a3a0f5c2515a9d56e10a04e42730688540",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5497,7 +5408,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MS11OZHE0BROK9VKMOEV/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5563,7 +5473,6 @@
    "mri": {
     "path_relative": "Testing Set/MY6ABW1UA1MR8MDHANWE/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "993a3d3a5d28cdc9a54e1804db09438f9f53968d4a06635cd27238227c9690f5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5613,7 +5522,6 @@
    "mask": {
     "path_relative": "Testing Set/MY6ABW1UA1MR8MDHANWE/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1cfbc1598b9eb900d36fd7f6b068f2e64ecb3b6be1e9fd6bca486f8dc2c056e9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5679,7 +5587,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/MY6ABW1UA1MR8MDHANWE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5745,7 +5652,6 @@
    "mri": {
     "path_relative": "Testing Set/N4NGBBT16Q282UZV4N8T/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d8b04c05e8ec5c4e93ffc1242f3b30158f0cdbe9472e29c8355b1be89875049a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5795,7 +5701,6 @@
    "mask": {
     "path_relative": "Testing Set/N4NGBBT16Q282UZV4N8T/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "4e40ab65703a088fcc413a0ec3cacc47ba15d2b64bfda046a0e38fc3064ed518",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5861,7 +5766,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/N4NGBBT16Q282UZV4N8T/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -5927,7 +5831,6 @@
    "mri": {
     "path_relative": "Testing Set/NDHTGYOM4FD148VWEWNZ/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "240aa801578fbef83945871143d15a4f229b7f9d8abd97bac77808d0d7b577a4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -5977,7 +5880,6 @@
    "mask": {
     "path_relative": "Testing Set/NDHTGYOM4FD148VWEWNZ/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "39da5087295173ab399305575a832dfc5646ea48056e50c4105bec60ff7b830a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6043,7 +5945,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/NDHTGYOM4FD148VWEWNZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6109,7 +6010,6 @@
    "mri": {
     "path_relative": "Testing Set/O2ZVEXE0D3QYA5B45XLH/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f8cc3f9d4ebd649e3b16d5643f60451749d199838d96af89e28c4bf40cbe4b78",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6159,7 +6059,6 @@
    "mask": {
     "path_relative": "Testing Set/O2ZVEXE0D3QYA5B45XLH/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a5d50e83c5bed3f1011e05751edbd565c6be953b40f19273b325338a92c36e24",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6225,7 +6124,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/O2ZVEXE0D3QYA5B45XLH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6291,7 +6189,6 @@
    "mri": {
     "path_relative": "Testing Set/OKKIVTFXQIUPULV7MA6M/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "58ec9b3ff4b942f4bae494828c7d219099696bbff4427fde8a48f2408975c8db",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6341,7 +6238,6 @@
    "mask": {
     "path_relative": "Testing Set/OKKIVTFXQIUPULV7MA6M/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "fccbe009b3f0936913c9b43cdce6d88c3cdb732f229c0cc9f16665e415f87221",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6407,7 +6303,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/OKKIVTFXQIUPULV7MA6M/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6473,7 +6368,6 @@
    "mri": {
     "path_relative": "Testing Set/ONP2RGD9L4VKKV4TFG56/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f1f47c564f0d6a07ecfa5dbe139b6b9b795b41f52bc9cd0fe587c2f77cd26de9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6523,7 +6417,6 @@
    "mask": {
     "path_relative": "Testing Set/ONP2RGD9L4VKKV4TFG56/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a984484158fe95ecf22e30fc33b413ef63c7cd8d8e1e470cca18073db905f03f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6589,7 +6482,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/ONP2RGD9L4VKKV4TFG56/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6655,7 +6547,6 @@
    "mri": {
     "path_relative": "Testing Set/P1S3QI5UZLB08BQ9O36Z/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "03ba08f41e7eb0634a28eca48526735ec7162d3486520e403b4f77ab18b91afe",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6705,7 +6596,6 @@
    "mask": {
     "path_relative": "Testing Set/P1S3QI5UZLB08BQ9O36Z/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d5f73545a0cc635e7aa49872b2577c94b8d4ed62992447b344587547f6197f08",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6771,7 +6661,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/P1S3QI5UZLB08BQ9O36Z/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -6837,7 +6726,6 @@
    "mri": {
     "path_relative": "Testing Set/PFORURSOR4MDVNQ6QFCZ/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d205659345f4bd6db114fc3d3a3a797d88fe8e24f8954f6c078b5a345aec524f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6887,7 +6775,6 @@
    "mask": {
     "path_relative": "Testing Set/PFORURSOR4MDVNQ6QFCZ/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e5a7eb21d22f6a6435d7b011fd9e3f51bb5185c42290b451c1421a62bc5847b4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -6953,7 +6840,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/PFORURSOR4MDVNQ6QFCZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7019,7 +6905,6 @@
    "mri": {
     "path_relative": "Testing Set/PVXH7YVTMKJ8TU7EQXYR/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1e6665d0bd62056229c61a4de0cdb11945739611a202cd92fdb7f2698623ab31",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7069,7 +6954,6 @@
    "mask": {
     "path_relative": "Testing Set/PVXH7YVTMKJ8TU7EQXYR/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "351c303a07b5c8e62e15bf77c495f92b7e5093983cba94d64de4d32dad96de76",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7135,7 +7019,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/PVXH7YVTMKJ8TU7EQXYR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7201,7 +7084,6 @@
    "mri": {
     "path_relative": "Testing Set/S9HMB3CY6737UDPG6TN2/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "bcdcc2b6ba1bd4d4ca8a96774956eaca43b0e6434e3f424c30f1e76fcd381268",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7251,7 +7133,6 @@
    "mask": {
     "path_relative": "Testing Set/S9HMB3CY6737UDPG6TN2/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "1a66a349c13aaf303934ffc0c9ea3ee313087f277982ee3a80b9562287b40450",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7317,7 +7198,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/S9HMB3CY6737UDPG6TN2/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7383,7 +7263,6 @@
    "mri": {
     "path_relative": "Testing Set/SXKQQ96IEXC5VZOFAYFN/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "8f94e3f1d237f1d97a62ac82faaebd5105e2f5ed3c0d3d91b56a1f159fb68b9d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7433,7 +7312,6 @@
    "mask": {
     "path_relative": "Testing Set/SXKQQ96IEXC5VZOFAYFN/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "c6675026dc7ddfa63edc995bab659577bd3a3524bfebeffc17d4e357273ab7b5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7499,7 +7377,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/SXKQQ96IEXC5VZOFAYFN/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7565,7 +7442,6 @@
    "mri": {
     "path_relative": "Testing Set/TUU018TS5KUK40V4DRXT/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f3096cd26bb9b7b1fbad54c4aea52f7f1d6f2b3311e61f3f9a796ddb76f358b8",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7615,7 +7491,6 @@
    "mask": {
     "path_relative": "Testing Set/TUU018TS5KUK40V4DRXT/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0d7f1c4967637f4962d905711df7231c9a73a389f47e41b69097ed9ce5fb61de",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7681,7 +7556,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/TUU018TS5KUK40V4DRXT/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7747,7 +7621,6 @@
    "mri": {
     "path_relative": "Testing Set/UOTC6ZI12583GTMLHKAL/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "47d1742950ff21019e7f35ca338b6c4a972391d0f63a972c5c50e55ec512d9e4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7797,7 +7670,6 @@
    "mask": {
     "path_relative": "Testing Set/UOTC6ZI12583GTMLHKAL/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "0dc56b78bf41ffab159705dec8179d0a9b43e91217238e72fdc27015f950e4bd",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7863,7 +7735,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/UOTC6ZI12583GTMLHKAL/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -7929,7 +7800,6 @@
    "mri": {
     "path_relative": "Testing Set/WFHG191DWLD2L8BD7CX6/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "17be3609cf67bd52d40c793765fedaddd54795f4aa5c89b8e5f783c023b2a59f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -7979,7 +7849,6 @@
    "mask": {
     "path_relative": "Testing Set/WFHG191DWLD2L8BD7CX6/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b54acde2ef7715ed2470c41fc4ff681880deecb29a272d58413282d137dadb04",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8045,7 +7914,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/WFHG191DWLD2L8BD7CX6/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8111,7 +7979,6 @@
    "mri": {
     "path_relative": "Testing Set/WOUSH4GFU19S1UW1TZL1/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "418704489f03111c77ac92691ff91f8165c157f244bca03ad32efe440bde6f41",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8161,7 +8028,6 @@
    "mask": {
     "path_relative": "Testing Set/WOUSH4GFU19S1UW1TZL1/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ef278501e309865260043be7babc6f4bf165401343e53241fe649aa5e67261e5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8227,7 +8093,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/WOUSH4GFU19S1UW1TZL1/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8293,7 +8158,6 @@
    "mri": {
     "path_relative": "Testing Set/WP01DLGNFGO38E0YVLSW/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f12b57c094d0af6d9a951689d8efe1a1c2492df3f680c81ba0810ae3ba803245",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8343,7 +8207,6 @@
    "mask": {
     "path_relative": "Testing Set/WP01DLGNFGO38E0YVLSW/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "66b73e44164c25e3b6eb3178d32ec798e3d577f6bdd1ce02a21e52d6b01c3e0a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8409,7 +8272,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/WP01DLGNFGO38E0YVLSW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8475,7 +8337,6 @@
    "mri": {
     "path_relative": "Testing Set/X6X4WSG5012HCI1CRMX3/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "e1db895a1efd60aefb7b2f10147f682dcd6a35d252a5a8a6e8b55d52c300db86",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8525,7 +8386,6 @@
    "mask": {
     "path_relative": "Testing Set/X6X4WSG5012HCI1CRMX3/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f1d4cffc17e6fa177965e996e331f2f56c0e0cfbd205405e1100d3779f917651",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8591,7 +8451,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/X6X4WSG5012HCI1CRMX3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8657,7 +8516,6 @@
    "mri": {
     "path_relative": "Testing Set/X730E6GWUSAFPYEAH15H/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "38e3aa355cd9a810f3fedb5185b39f9dad27f88c07b6be25656d263d2aa315be",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8707,7 +8565,6 @@
    "mask": {
     "path_relative": "Testing Set/X730E6GWUSAFPYEAH15H/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "cfef97d88cbc5d2bae41521cf1c2f03548f5cf5a9c19873517b259fbe76a004a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8773,7 +8630,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/X730E6GWUSAFPYEAH15H/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -8839,7 +8695,6 @@
    "mri": {
     "path_relative": "Testing Set/X8T5SI3H0DZO6R9NQ9G3/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6599f1fc77c3db34d6598fcd96758f3328359f408873bb3c3594d3ec66a71b9f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8889,7 +8744,6 @@
    "mask": {
     "path_relative": "Testing Set/X8T5SI3H0DZO6R9NQ9G3/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d16f521f9721992efd955160a01405a5a69eaefccd03c402ffecec2d25cadff7",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -8955,7 +8809,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/X8T5SI3H0DZO6R9NQ9G3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9021,7 +8874,6 @@
    "mri": {
     "path_relative": "Testing Set/XN0S3BIZP80EK5U2LXV5/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "fca32d8cf530aee8a12fe0096af0552dacb150121a01d998e46bc9a29f6ea98b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9071,7 +8923,6 @@
    "mask": {
     "path_relative": "Testing Set/XN0S3BIZP80EK5U2LXV5/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a6efa438822337a96a939ffc92e417e280915fc5897511024c00df9aafba2d4e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9137,7 +8988,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/XN0S3BIZP80EK5U2LXV5/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9203,7 +9053,6 @@
    "mri": {
     "path_relative": "Testing Set/Y17SIT4UVACAM0WNBAWD/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "e32fd22824c2a85c2634d43d1e36060ee12eee48c2af3ac44b44d1bc5808a50c",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9253,7 +9102,6 @@
    "mask": {
     "path_relative": "Testing Set/Y17SIT4UVACAM0WNBAWD/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c5b854809df14cbde33ffc3890176e19cbe9f997ade1c59478f5922ef0c68dab",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9319,7 +9167,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/Y17SIT4UVACAM0WNBAWD/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9385,7 +9232,6 @@
    "mri": {
     "path_relative": "Testing Set/YM0P648I12HKMF5QY4JO/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0f5c5c09f9a87fff5eb93a3cc4d912fa4cd1309b5eed43cf6dbb8ec16a7a6b85",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9435,7 +9281,6 @@
    "mask": {
     "path_relative": "Testing Set/YM0P648I12HKMF5QY4JO/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ade34cf6422d70de84946ba11f32c1c5d6e958371525beebee9b95c48311099f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9501,7 +9346,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/YM0P648I12HKMF5QY4JO/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9567,7 +9411,6 @@
    "mri": {
     "path_relative": "Testing Set/Z4WM2IZVVFPI4NNY9UKZ/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c7b93263b234ff4b1f5d9aa680a38f91b3f33c4c440da5efc8936b2559bc3185",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9617,7 +9460,6 @@
    "mask": {
     "path_relative": "Testing Set/Z4WM2IZVVFPI4NNY9UKZ/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c7e47cafb0021c3b283f6a93dfc859a263c2616ad8a0b84a29e6578a6a051c62",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9683,7 +9525,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/Z4WM2IZVVFPI4NNY9UKZ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9749,7 +9590,6 @@
    "mri": {
     "path_relative": "Testing Set/ZQR579BFRMYBFFBX3Q5M/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f1095fd1fdcc1445ee2321ae22ad3ca767a856b0aee06f998841eba212f11343",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9799,7 +9639,6 @@
    "mask": {
     "path_relative": "Testing Set/ZQR579BFRMYBFFBX3Q5M/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d79a1e43799b0bff6c413d3fd81f2f617e910004d5343ab1c0257257f1351c91",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9865,7 +9704,6 @@
     "lawall.nrrd": {
      "path_relative": "Testing Set/ZQR579BFRMYBFFBX3Q5M/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -9931,7 +9769,6 @@
    "mri": {
     "path_relative": "Training Set/06SR5RBREL16DQ6M8LWS/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "41944d474e735d41eb20fafe107dd125b59a3a838a4caf847b6da656050792e7",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -9981,7 +9818,6 @@
    "mask": {
     "path_relative": "Training Set/06SR5RBREL16DQ6M8LWS/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "df40473f19e5f883352ff74e56c245d3fbe8048c3f0523f3c2ffd99a005c8177",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10047,7 +9883,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/06SR5RBREL16DQ6M8LWS/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10113,7 +9948,6 @@
    "mri": {
     "path_relative": "Training Set/0RZDK210BSMWAA6467LU/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "35a4a473ddbeb827a0dc5cba60c5d02386781923c7318ce05b5773f9a0722e72",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10163,7 +9997,6 @@
    "mask": {
     "path_relative": "Training Set/0RZDK210BSMWAA6467LU/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "685f964bc32639c9c3fd8ca961078cfce88515d70046691a4d396613eed5192e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10229,7 +10062,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/0RZDK210BSMWAA6467LU/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10295,7 +10127,6 @@
    "mri": {
     "path_relative": "Training Set/1D7CUD1955YZPGK8XHJX/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1e098c01f12b98d4a2997a406a1f224de3f588c0b2b4ecb2d5d5410dbf19509a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10345,7 +10176,6 @@
    "mask": {
     "path_relative": "Training Set/1D7CUD1955YZPGK8XHJX/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "22a66544e1ead9797c86c6ff2a80f924956fecf95fd1e6476f5e7ed95292d7fb",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10411,7 +10241,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/1D7CUD1955YZPGK8XHJX/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10477,7 +10306,6 @@
    "mri": {
     "path_relative": "Training Set/1GU15S0GJ6PFNARO469W/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "814d386ec58a4df18f6e8122af731957ecdcf067a859e9533a8bfe6127a0ff80",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10527,7 +10355,6 @@
    "mask": {
     "path_relative": "Training Set/1GU15S0GJ6PFNARO469W/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a939deb560f7ecf343d2463fbb5eecbd838efa690df9232880b0e1e58207b51b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10593,7 +10420,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/1GU15S0GJ6PFNARO469W/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10659,7 +10485,6 @@
    "mri": {
     "path_relative": "Training Set/1MHBF3G6DCPWHSKG7XCP/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4976703c5c40616e68ba3dfe1cb32a115b1f3d195767fbbaac8c04a5ecc5e423",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10709,7 +10534,6 @@
    "mask": {
     "path_relative": "Training Set/1MHBF3G6DCPWHSKG7XCP/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "314dfd9530e88963aa6dc425f2f1a58c274036d65f70685f4a676f181e386292",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10775,7 +10599,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/1MHBF3G6DCPWHSKG7XCP/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -10841,7 +10664,6 @@
    "mri": {
     "path_relative": "Training Set/23X6SY44VT9KFHR7S7OC/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "f4334597516dc51719bc725aadc15f196ade44fee6a7be66008c4aa5a2d1eb1f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10891,7 +10713,6 @@
    "mask": {
     "path_relative": "Training Set/23X6SY44VT9KFHR7S7OC/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "c2b63d2eba47a397652b177774bf958162f47ecde01d8f125d849f54f6ad884b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -10957,7 +10778,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/23X6SY44VT9KFHR7S7OC/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11023,7 +10843,6 @@
    "mri": {
     "path_relative": "Training Set/2XL5HSFSE93RMOJDRGR4/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "4fc9a97e98dd231d6c898d64685e82edea7c821b982da3f483f6304fdcdfa3bc",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11073,7 +10892,6 @@
    "mask": {
     "path_relative": "Training Set/2XL5HSFSE93RMOJDRGR4/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "775686c242bc598c8c6fbd2d178570a7300e74f631dae02fcf77b48ebf41cb44",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11139,7 +10957,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/2XL5HSFSE93RMOJDRGR4/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11205,7 +11022,6 @@
    "mri": {
     "path_relative": "Training Set/38CWS74285MFGZZXR09Z/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "6dbc52e9767add8c3d1997d17b38d068a495844298f8dc6a3e74ff843e3d0f4b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11255,7 +11071,6 @@
    "mask": {
     "path_relative": "Training Set/38CWS74285MFGZZXR09Z/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "6c85be40bb921e16b570722192f368d3a3c5bea643f69e8973547aca6886dfde",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11321,7 +11136,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/38CWS74285MFGZZXR09Z/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11387,7 +11201,6 @@
    "mri": {
     "path_relative": "Training Set/3C2QTUNI0852XV7ZH4Q1/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "382f8b933858950d346dffbc5f4f69fe9789c9e0ce1ef70b16d3bc872a4abd58",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11437,7 +11250,6 @@
    "mask": {
     "path_relative": "Training Set/3C2QTUNI0852XV7ZH4Q1/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "63b40a6f0ac6bdfee60c931488fd69e7f0ecb084351988053c7f291625118659",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11503,7 +11315,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/3C2QTUNI0852XV7ZH4Q1/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11569,7 +11380,6 @@
    "mri": {
     "path_relative": "Training Set/3DA0T2V6JJ2NLUAV6FWM/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "152fd8dc60d77ffee7b5a2e968330eb143a9d91abe59b90117e2d579f6a5f0cf",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11619,7 +11429,6 @@
    "mask": {
     "path_relative": "Training Set/3DA0T2V6JJ2NLUAV6FWM/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "94fb1a524e83c9950138c410f8470520dd7926ebab464a4ab0e2bce62fdd689b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11685,7 +11494,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/3DA0T2V6JJ2NLUAV6FWM/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11751,7 +11559,6 @@
    "mri": {
     "path_relative": "Training Set/4498CA6DZWELOXCBRYRF/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "ced95f82d9f88fda512185d2c0db2d8395957ead92198761db9a9b2adbff5360",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11801,7 +11608,6 @@
    "mask": {
     "path_relative": "Training Set/4498CA6DZWELOXCBRYRF/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "adcb4b7399d5ed119b4304a3cdd9a3beb2d57b3441f323a2dbdde33c3c332cb4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11867,7 +11673,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/4498CA6DZWELOXCBRYRF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -11933,7 +11738,6 @@
    "mri": {
     "path_relative": "Training Set/45C45I6IXAFGNRO067W9/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4090466d68e11e95844c507b321070edd49f09e2bff2391a882fe0c67a14b41b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -11983,7 +11787,6 @@
    "mask": {
     "path_relative": "Training Set/45C45I6IXAFGNRO067W9/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4074e80ea860219abefffdb0d741d3ae7109eb0334c693fdf5048e79bf7bf037",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12049,7 +11852,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/45C45I6IXAFGNRO067W9/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12115,7 +11917,6 @@
    "mri": {
     "path_relative": "Training Set/4CHFJGF6ZUM7CMZTNFQF/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "8837355e01a4e290cf197023a70a4288cc210c3d035965ea3fa9e12db85935a8",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12165,7 +11966,6 @@
    "mask": {
     "path_relative": "Training Set/4CHFJGF6ZUM7CMZTNFQF/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d465b5e7ea1b7e9b7d1a4569fe4e19e676e4f3f74c2e07410cad07f488bd3606",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12231,7 +12031,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/4CHFJGF6ZUM7CMZTNFQF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12297,7 +12096,6 @@
    "mri": {
     "path_relative": "Training Set/4EPVTT1HPA8U60CDUKXE/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "18a3e0d08bf0d97551553d5602fa1281f937efd19e64239c0331425a672273ce",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12347,7 +12145,6 @@
    "mask": {
     "path_relative": "Training Set/4EPVTT1HPA8U60CDUKXE/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "aff9d978bc50b5a498e4ddffd174838aa5262f3412fbe7c2b409bd75682a018f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12413,7 +12210,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/4EPVTT1HPA8U60CDUKXE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12479,7 +12275,6 @@
    "mri": {
     "path_relative": "Training Set/57SGAJMLCTCH92QUA0EE/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d4c2f240b555b082c0967af1c43482b91ae0349819393a8380850c375794cd48",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12529,7 +12324,6 @@
    "mask": {
     "path_relative": "Training Set/57SGAJMLCTCH92QUA0EE/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "9f63950b7db94ecfdd0deaf295662f5bffc44f4d91f4cebb7b49e8d2172da7eb",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12595,7 +12389,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/57SGAJMLCTCH92QUA0EE/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12661,7 +12454,6 @@
    "mri": {
     "path_relative": "Training Set/5BHTH9RHH3PQT913I59W/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "8763b667c68eed8abb225b2df9cf008f0a5eac375107635800a4a09218a0ae50",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12711,7 +12503,6 @@
    "mask": {
     "path_relative": "Training Set/5BHTH9RHH3PQT913I59W/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "2b67ce2470147329bebec897a21d2e19efa95448a4c75184503571d5785d9aab",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12777,7 +12568,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5BHTH9RHH3PQT913I59W/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -12843,7 +12633,6 @@
    "mri": {
     "path_relative": "Training Set/5FKQL4K14KCB72Y8YMC2/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "6c0f4fe928acce6209328462d1cc93e604a6e93f1dcf92535a074eac478a9e83",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12893,7 +12682,6 @@
    "mask": {
     "path_relative": "Training Set/5FKQL4K14KCB72Y8YMC2/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "6e929b64fc6f37f6b54dda5746141c20b52839605d76a7099160315b7d81cec7",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -12959,7 +12747,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5FKQL4K14KCB72Y8YMC2/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13025,7 +12812,6 @@
    "mri": {
     "path_relative": "Training Set/5HH0WPWIY06DLAFOBQ4M/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c6735e370d913cad63f84bb6b8c002c40c6ab61f8bb3eb8889faa92034183e35",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13075,7 +12861,6 @@
    "mask": {
     "path_relative": "Training Set/5HH0WPWIY06DLAFOBQ4M/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "3e4684c908e0da838093cdff4626855b83fdf8b26c790e07e7e23e002c9d1c2b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13141,7 +12926,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5HH0WPWIY06DLAFOBQ4M/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13207,7 +12991,6 @@
    "mri": {
     "path_relative": "Training Set/5QFK2PMHNX7UALK52NNA/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "3d965dd394d22c29887d288349253dd4803726e4e47868f4de19a833232d8f66",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13257,7 +13040,6 @@
    "mask": {
     "path_relative": "Training Set/5QFK2PMHNX7UALK52NNA/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "2f4877981f6322cb431346e677feea88a8a240d6cf0cf7c3164339e84320a1b7",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13323,7 +13105,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5QFK2PMHNX7UALK52NNA/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13389,7 +13170,6 @@
    "mri": {
     "path_relative": "Training Set/5UB5KFD2PK38Z4LS6W80/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e2a340bde840ed4d5f45d20ff686555e1c1592cb21301e2a2ecdd9869ec494dd",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13439,7 +13219,6 @@
    "mask": {
     "path_relative": "Training Set/5UB5KFD2PK38Z4LS6W80/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "f705f1bdf85ab6a12da8d5d03d07e6c55d9cb59c538bd2b56713458e6d1ea343",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13505,7 +13284,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/5UB5KFD2PK38Z4LS6W80/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13571,7 +13349,6 @@
    "mri": {
     "path_relative": "Training Set/6799D6LEBH3NSRV1KH27/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b38c1dd761843bc64587553cbf068c3799d8785c455c2334b0025f436ad5f887",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13621,7 +13398,6 @@
    "mask": {
     "path_relative": "Training Set/6799D6LEBH3NSRV1KH27/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "1617b630d719336d9a957736a7ab3fecc59985f6e7eada562ceeb80978306376",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13687,7 +13463,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/6799D6LEBH3NSRV1KH27/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13753,7 +13528,6 @@
    "mri": {
     "path_relative": "Training Set/78NJ5YFQF72BGC8RO51C/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "8c0b2345dbdf1f82595ee7e0fa9cdb32663d08a79dee7ee797dfde702888a655",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13803,7 +13577,6 @@
    "mask": {
     "path_relative": "Training Set/78NJ5YFQF72BGC8RO51C/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b9684aed414027360c270201f7af2e5412b8b9ff9e5eefc749ebb4d667bedcec",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13869,7 +13642,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/78NJ5YFQF72BGC8RO51C/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -13935,7 +13707,6 @@
    "mri": {
     "path_relative": "Training Set/7FUCNXB39F78WTOP5K71/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "3394d9119a7317adc60f855f6f2430b869a5a50c62601b733ab958d76a404873",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -13985,7 +13756,6 @@
    "mask": {
     "path_relative": "Training Set/7FUCNXB39F78WTOP5K71/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "51b5697989a349fe9bbc33779c9a7d988ef99b07e91a765dffc721cf04141107",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14051,7 +13821,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/7FUCNXB39F78WTOP5K71/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14117,7 +13886,6 @@
    "mri": {
     "path_relative": "Training Set/8GYK8A9MBRC9TV0FVSRA/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "121dccf42e6c819a2c45054535d77b3ecd123512c5ed12b39360383740bab019",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14167,7 +13935,6 @@
    "mask": {
     "path_relative": "Training Set/8GYK8A9MBRC9TV0FVSRA/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d85b0db0dfee6ad3ee9931300a4dd61ecdf8d9bb46e68d54659d858eaad6fa5b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14233,7 +14000,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8GYK8A9MBRC9TV0FVSRA/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14299,7 +14065,6 @@
    "mri": {
     "path_relative": "Training Set/8M99G0JLAXG9GLPV0O8G/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "3ab925572b0ef117a745ff5baca7b1142a76c427827cf1d505b4c628efb7995e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14349,7 +14114,6 @@
    "mask": {
     "path_relative": "Training Set/8M99G0JLAXG9GLPV0O8G/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e7b13fdc4a6f64e5def0a63d62cda2d12b4793884647bf3ef6abd5ea4439b83b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14415,7 +14179,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8M99G0JLAXG9GLPV0O8G/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14481,7 +14244,6 @@
    "mri": {
     "path_relative": "Training Set/8RE90C8H5DKF4V6HO8UU/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c6d01b1ff829fac8311993beeb67aad08930a1de3ed4219ee75a6e3051f22800",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14531,7 +14293,6 @@
    "mask": {
     "path_relative": "Training Set/8RE90C8H5DKF4V6HO8UU/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "5f37e95356b7f7a829139267512c90144913214e727e0422056829834552f948",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14597,7 +14358,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8RE90C8H5DKF4V6HO8UU/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14663,7 +14423,6 @@
    "mri": {
     "path_relative": "Training Set/8ZG2TRZ81MAWHZPN9KKG/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "df80783201cdd7e1ff775a8bb1e7c21c76e31cdcbd611a0ec411ebd942233711",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14713,7 +14472,6 @@
    "mask": {
     "path_relative": "Training Set/8ZG2TRZ81MAWHZPN9KKG/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "0b8047404fc20ad1241d7eb23aae01a573af48e64506ad4ffd235dab53d8aad1",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14779,7 +14537,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/8ZG2TRZ81MAWHZPN9KKG/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -14845,7 +14602,6 @@
    "mri": {
     "path_relative": "Training Set/9DCM2IB45SK6YKQNYUQY/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "11583ec643a910400d7a3f2ef3b902be19e027261eb47be8f9a9662603ff8284",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14895,7 +14651,6 @@
    "mask": {
     "path_relative": "Training Set/9DCM2IB45SK6YKQNYUQY/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "5fc5821a591ef016de8c9bca3ad4b6e06cc7bbfa7d8b0657185d4dd9f0491bb3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -14961,7 +14716,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/9DCM2IB45SK6YKQNYUQY/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15027,7 +14781,6 @@
    "mri": {
     "path_relative": "Training Set/9DHWWP5Y66VDMPXISZ13/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6f514937fc4b5e2dfdebbe21a046f889383797321cca4d4435d25c8ab76d9a38",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15077,7 +14830,6 @@
    "mask": {
     "path_relative": "Training Set/9DHWWP5Y66VDMPXISZ13/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "5590b3d4576ee159ca152f6de6f82a5f892758da25742a654bfd1186c5f08367",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15143,7 +14895,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/9DHWWP5Y66VDMPXISZ13/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15209,7 +14960,6 @@
    "mri": {
     "path_relative": "Training Set/9DQYTIU00I4JC0OEOKQQ/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "7af3cb3277af808bb6f8f7031876daffe0ec7e0a7fc8cf2dffe4b378df720f9d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15259,7 +15009,6 @@
    "mask": {
     "path_relative": "Training Set/9DQYTIU00I4JC0OEOKQQ/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "85f171c21cf98f1da490f84428dab66b0a7d3925df8a27cd9f5135fcabb99168",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15325,7 +15074,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/9DQYTIU00I4JC0OEOKQQ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15391,7 +15139,6 @@
    "mri": {
     "path_relative": "Training Set/A11O45O3NAXWM7T2H8CH/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "70bb7869bfb737efd5556f11a54b1f79615f0181cd7b5b2ed442040cbdb04c37",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15441,7 +15188,6 @@
    "mask": {
     "path_relative": "Training Set/A11O45O3NAXWM7T2H8CH/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "45e9d0d8ca1a332d61e9a0014b7833f343299d4a94f4b4216b6e19367b21d30f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15507,7 +15253,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/A11O45O3NAXWM7T2H8CH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15573,7 +15318,6 @@
    "mri": {
     "path_relative": "Training Set/A4R1S23KR0KU2WSYHK2X/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "a5551f7f99af051ea072f580a8a5427405b3fcf557864a1364b13547ba0381df",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15623,7 +15367,6 @@
    "mask": {
     "path_relative": "Training Set/A4R1S23KR0KU2WSYHK2X/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "688db174be8468287a56abc8a7304c386be24b0e7136e64a9726d6d7ce9c8ad5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15689,7 +15432,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/A4R1S23KR0KU2WSYHK2X/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15755,7 +15497,6 @@
    "mri": {
     "path_relative": "Training Set/A5RNNK0A891WUSC2V624/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "56a98cf03c92f72ceb94bda36daa0e3dba354415f04c2305a5dfae5a9fc507fe",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15805,7 +15546,6 @@
    "mask": {
     "path_relative": "Training Set/A5RNNK0A891WUSC2V624/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "000c803b17afd1f12d72d544d1ea478860f81fad258b84d89aacf279116b5b00",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15871,7 +15611,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/A5RNNK0A891WUSC2V624/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -15937,7 +15676,6 @@
    "mri": {
     "path_relative": "Training Set/AT5CRO5JUDBWD4RUPXSQ/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "cf17cf45a02db9c71203c11100e3718cfff734f170ce2c1dc2eff214cef2cc07",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -15987,7 +15725,6 @@
    "mask": {
     "path_relative": "Training Set/AT5CRO5JUDBWD4RUPXSQ/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a248cffbd1e6a00096c734f8101bb199045e9fc6ad60c849feee267617211f0a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16053,7 +15790,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/AT5CRO5JUDBWD4RUPXSQ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16119,7 +15855,6 @@
    "mri": {
     "path_relative": "Training Set/BNK95S2SJXEGSW7VAKYU/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "7c87418cce97014c2a393a378b3c8a87e1ed1c95d2490db329c76c97e071cf57",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16169,7 +15904,6 @@
    "mask": {
     "path_relative": "Training Set/BNK95S2SJXEGSW7VAKYU/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "fcf74b16a79f5602d3cc1d9fb31eb37f600c1e0ad31fbb70d290da8890c65a62",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16235,7 +15969,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BNK95S2SJXEGSW7VAKYU/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16301,7 +16034,6 @@
    "mri": {
     "path_relative": "Training Set/BXJWOUYP2J3EN4U92517/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "163c92368a9bedc9d5578716d162a48412629e07de20c684607bfc245ac28442",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16351,7 +16083,6 @@
    "mask": {
     "path_relative": "Training Set/BXJWOUYP2J3EN4U92517/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "6bc780a2e46665748fb03ffcd9bed7574894d101e31f1187459d5eeca8b44896",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16417,7 +16148,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BXJWOUYP2J3EN4U92517/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16483,7 +16213,6 @@
    "mri": {
     "path_relative": "Training Set/BYSRSI3H4YTWKMM3MADP/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "0ea626fb7f629bf1438b4694c6e091c2c09042427792dc4fa6632aaf22a121d2",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16533,7 +16262,6 @@
    "mask": {
     "path_relative": "Training Set/BYSRSI3H4YTWKMM3MADP/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d8bff3844d37beff0f1ead841c8f3d0505d836c777073a656c25685e7c192c12",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16599,7 +16327,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BYSRSI3H4YTWKMM3MADP/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16665,7 +16392,6 @@
    "mri": {
     "path_relative": "Training Set/BZUFJX66T0W6ZPVTL9DU/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6ce20a1018851cda48f80e5b342a64b0cedf1aaf2b568e883a295407d6f82ba3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16715,7 +16441,6 @@
    "mask": {
     "path_relative": "Training Set/BZUFJX66T0W6ZPVTL9DU/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "27689160cfc5ab643adcc0389bf1a5f3f56ef35c1d54158f9ab489f2325f82ec",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16781,7 +16506,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/BZUFJX66T0W6ZPVTL9DU/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -16847,7 +16571,6 @@
    "mri": {
     "path_relative": "Training Set/CB5P5W7X310NIIVU7UZV/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d070e50a70095c029675e44677687bb02fd09027f2cf8d2b6b69c9289b42ea78",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16897,7 +16620,6 @@
    "mask": {
     "path_relative": "Training Set/CB5P5W7X310NIIVU7UZV/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "33c67ac0f97e293ec8dfbe0262725174434a8095d0757b7a263401d063c5262d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -16963,7 +16685,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CB5P5W7X310NIIVU7UZV/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17029,7 +16750,6 @@
    "mri": {
     "path_relative": "Training Set/CBIJFVZ5L9BS0LKWE8YL/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1011faa71b44886150adf0fa7a58269888614bed5a1e0b1745daa9327bcee430",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17079,7 +16799,6 @@
    "mask": {
     "path_relative": "Training Set/CBIJFVZ5L9BS0LKWE8YL/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "8e1cdb50faed2f5999bf4abcb6ee0189734295ded934e8965b7f2c6d140a165d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17145,7 +16864,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CBIJFVZ5L9BS0LKWE8YL/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17211,7 +16929,6 @@
    "mri": {
     "path_relative": "Training Set/CCGAKN4EDT72KC8TTJ76/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "50b8e7b7170279cffa5508ca9f04690071ec5a66010b0aba49bd01dcfa3c8934",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17261,7 +16978,6 @@
    "mask": {
     "path_relative": "Training Set/CCGAKN4EDT72KC8TTJ76/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "1d6b6c545af8627ba3d719997488cfe7bd604d29866a4abb020a784337ca8ebb",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17327,7 +17043,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CCGAKN4EDT72KC8TTJ76/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17393,7 +17108,6 @@
    "mri": {
     "path_relative": "Training Set/CLXFYOBQDCVXQ9P7YC07/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d8cf2ed379074029946ca9d0ffb3a130727878f470e932bd471b451ad5f321ae",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17443,7 +17157,6 @@
    "mask": {
     "path_relative": "Training Set/CLXFYOBQDCVXQ9P7YC07/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "2e53df705db5bf421bed7f1414a204c84310d193fe22fb4896dd0345c133c30d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17509,7 +17222,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CLXFYOBQDCVXQ9P7YC07/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17578,7 +17290,6 @@
    "mri": {
     "path_relative": "Training Set/CMPXO4J23G58J53Q98SZ/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "795c7e5c3fe44297ec175f930086e87cc3f5e6ca22262f79ea347923dd787280",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17628,7 +17339,6 @@
    "mask": {
     "path_relative": "Training Set/CMPXO4J23G58J53Q98SZ/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "685f964bc32639c9c3fd8ca961078cfce88515d70046691a4d396613eed5192e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17694,7 +17404,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CMPXO4J23G58J53Q98SZ/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17760,7 +17469,6 @@
    "mri": {
     "path_relative": "Training Set/CZPMV6KWZ4I7IJJP9FOK/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "e997a665fb467648ecb0e5ef1f8b2aec79c180f799584b9044d0cdd75996a216",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17810,7 +17518,6 @@
    "mask": {
     "path_relative": "Training Set/CZPMV6KWZ4I7IJJP9FOK/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "5b5b5937b659db683bda86689a01c2a6c85c85c88d6cbced5056e6c8eb0d2deb",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17876,7 +17583,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/CZPMV6KWZ4I7IJJP9FOK/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -17942,7 +17648,6 @@
    "mri": {
     "path_relative": "Training Set/DLKXBV73A55ZTSZ0QQI2/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "0f0d76895a95f519361ff0dbddb19cd8b1622aa55fb8fba651fdc92d8bcc3cd9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -17992,7 +17697,6 @@
    "mask": {
     "path_relative": "Training Set/DLKXBV73A55ZTSZ0QQI2/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "af21930482a33347663d05e1ed4a221fb171a2dae953c3e161af3edc9e006988",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18058,7 +17762,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/DLKXBV73A55ZTSZ0QQI2/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18124,7 +17827,6 @@
    "mri": {
     "path_relative": "Training Set/DQ5UYBGR5QP6L692QSG6/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "de72dfe95b395cef62a3a3694940dbe9b2d8781621173f69502b7e1a0e3b43f5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18174,7 +17876,6 @@
    "mask": {
     "path_relative": "Training Set/DQ5UYBGR5QP6L692QSG6/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c7d5854f10ea972ceac1ce44b88413aa2e97c048143d175aa251f7d0e5bd91fd",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18240,7 +17941,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/DQ5UYBGR5QP6L692QSG6/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18306,7 +18006,6 @@
    "mri": {
     "path_relative": "Training Set/DYXSCIWHLSUOZIDDSZ40/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a82d45bd12567b462c0b4ea142b2c42bce0612eb5160d0a855add2949808867b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18356,7 +18055,6 @@
    "mask": {
     "path_relative": "Training Set/DYXSCIWHLSUOZIDDSZ40/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "7f662ce63964ef19d6bba58d3222f5588153143e3d65cc75c22e59bbb6dc131e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18422,7 +18120,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/DYXSCIWHLSUOZIDDSZ40/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18488,7 +18185,6 @@
    "mri": {
     "path_relative": "Training Set/E2ZMO66WGS74UKXTZPPQ/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "bd8b99a1ad4251aa80ecc7c81fa2cf75e74a5643818fa1be5054c9b17f3bae43",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18538,7 +18234,6 @@
    "mask": {
     "path_relative": "Training Set/E2ZMO66WGS74UKXTZPPQ/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "e19a294e1f50dbdb7e4bc556e90e4d911530aecfa396d59ecadf7377c2d14f56",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18604,7 +18299,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/E2ZMO66WGS74UKXTZPPQ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18670,7 +18364,6 @@
    "mri": {
     "path_relative": "Training Set/EJ5V7SPR4961JWD6SS8V/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "72f045f691ef9fa9398e98b3647edc6b9d21cbcfab93c974c5d26b951657f7d9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18720,7 +18413,6 @@
    "mask": {
     "path_relative": "Training Set/EJ5V7SPR4961JWD6SS8V/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "100210c2d3dddbed44b6cfcb7c07abdc02cfc91a3fc56307cfd58af9876b652a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18786,7 +18478,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/EJ5V7SPR4961JWD6SS8V/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -18852,7 +18543,6 @@
    "mri": {
     "path_relative": "Training Set/FGM5NIWN3URY4HF4WNUW/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "198740aadc5ae69e81274df6e5f98cc355ccb81dcd8e15d56faa4d963b24dde5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18902,7 +18592,6 @@
    "mask": {
     "path_relative": "Training Set/FGM5NIWN3URY4HF4WNUW/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "2329ca7a19ce41cc73d1d609fd6ba98a93f61c5e52a93bd721123ab630a9ab56",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -18968,7 +18657,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/FGM5NIWN3URY4HF4WNUW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19034,7 +18722,6 @@
    "mri": {
     "path_relative": "Training Set/GSC9KNY0VEZXFSGWNF25/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6347ab263fbbb08ce1d4216cfef5699a4985f8f83ccc420188a7dc980b658a8e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19084,7 +18771,6 @@
    "mask": {
     "path_relative": "Training Set/GSC9KNY0VEZXFSGWNF25/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "33104954c314637dcfca6bf20eab001f9aa9b3f3a09fddda2fdfdc60b12d6bd0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19150,7 +18836,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/GSC9KNY0VEZXFSGWNF25/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19216,7 +18901,6 @@
    "mri": {
     "path_relative": "Training Set/HVE7DR3CUA2IM3RC6OMA/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "19695aea2d2660a264a2f1e28b8af2f49dd0073ec4dd84301decab93f9cdfc25",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19266,7 +18950,6 @@
    "mask": {
     "path_relative": "Training Set/HVE7DR3CUA2IM3RC6OMA/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e0fd658dc1de0892df13f1af41d525b00b7a76525fe93c01c55bcf8a07ad3751",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19332,7 +19015,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/HVE7DR3CUA2IM3RC6OMA/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19398,7 +19080,6 @@
    "mri": {
     "path_relative": "Training Set/HZZ4O0BRKF8S0YX3NNF7/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e0e459b56cb0e26c0a3f2eb3f0ae413778a306a649869c062177228664595cb5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19448,7 +19129,6 @@
    "mask": {
     "path_relative": "Training Set/HZZ4O0BRKF8S0YX3NNF7/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "949886d2b395cef30f81ec26cec67bff44bfbb8ef1bb26e0cd0d77624b9df190",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19514,7 +19194,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/HZZ4O0BRKF8S0YX3NNF7/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19580,7 +19259,6 @@
    "mri": {
     "path_relative": "Training Set/I2VZ7N8H9QYNYT7ZZF1Y/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "68e8d1705bca26b604eda603aa967529ebe400b6784cb269afee6eca343bb2f1",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19630,7 +19308,6 @@
    "mask": {
     "path_relative": "Training Set/I2VZ7N8H9QYNYT7ZZF1Y/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "a24834d897c9ba8fec6d20170d29c8015a53d3c4d8f48157253c953ac9c77b75",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19696,7 +19373,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/I2VZ7N8H9QYNYT7ZZF1Y/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19762,7 +19438,6 @@
    "mri": {
     "path_relative": "Training Set/IDWWHGWJ5STOQXSDT6GU/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "39ab669161b779e35be33f59257796596e16b7f4450a5a9be90404d45355b18d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19812,7 +19487,6 @@
    "mask": {
     "path_relative": "Training Set/IDWWHGWJ5STOQXSDT6GU/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "ee1e8aceb403e6a156f5bd5c3d386200528fbdbd3747c62c31067e1b18d936dc",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19878,7 +19552,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IDWWHGWJ5STOQXSDT6GU/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -19944,7 +19617,6 @@
    "mri": {
     "path_relative": "Training Set/IIY6TYJMTJIZRIZLB9YW/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "bcec043bce85e6ac46e92b557bc3f150121cc61ea503d3d66148cba5e08816ba",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -19994,7 +19666,6 @@
    "mask": {
     "path_relative": "Training Set/IIY6TYJMTJIZRIZLB9YW/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "dc479d58ab4c35e2f7e3c60dfe29684de408a68a6ca21d57ada5ccfefb291b55",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20060,7 +19731,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IIY6TYJMTJIZRIZLB9YW/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20126,7 +19796,6 @@
    "mri": {
     "path_relative": "Training Set/IJJY51YW3W4YJJ7DTVTK/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d9a2f2fe719f3f253bb2fb9308983a1a033773a208931d51a460cb97888abe24",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20176,7 +19845,6 @@
    "mask": {
     "path_relative": "Training Set/IJJY51YW3W4YJJ7DTVTK/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "76fc091be1ba7aa114aa561b637e0fab9dedeea123afb4fc942d7521e97397b0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20242,7 +19910,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IJJY51YW3W4YJJ7DTVTK/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20308,7 +19975,6 @@
    "mri": {
     "path_relative": "Training Set/IQYKPTWXVV9H0IHB8YXC/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c850f2cbd9e1e19ca01c2dacd8b27780c90255d26ec1a6cb49fb959a6915e4fe",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20358,7 +20024,6 @@
    "mask": {
     "path_relative": "Training Set/IQYKPTWXVV9H0IHB8YXC/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "5eece6c22687088121f4b7cbaab7ce2a95fd756388f9865b0af8a467fb2623d6",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20424,7 +20089,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/IQYKPTWXVV9H0IHB8YXC/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20490,7 +20154,6 @@
    "mri": {
     "path_relative": "Training Set/JEC6HJ7SQJXBKVREX03F/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e3ebafaaee25132a3d6c352336252e3c27ec3618ffcca898d01105faa6a06569",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20540,7 +20203,6 @@
    "mask": {
     "path_relative": "Training Set/JEC6HJ7SQJXBKVREX03F/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "dead5a793d609a4a500adac05d22a463d2e71c3b571f300fd3b55aa4869c0c7a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20606,7 +20268,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/JEC6HJ7SQJXBKVREX03F/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20672,7 +20333,6 @@
    "mri": {
     "path_relative": "Training Set/JGFOLWJF7YCYD8DPHQNH/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "4d7ac33a1ec9284631e0f6a25361dc422a079f3716057ae0daf4aee9909cd477",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20722,7 +20382,6 @@
    "mask": {
     "path_relative": "Training Set/JGFOLWJF7YCYD8DPHQNH/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b023170b24b75a1fcdcc71ccb00cf94abf44036816b8457172e27c68799b448e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20788,7 +20447,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/JGFOLWJF7YCYD8DPHQNH/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -20854,7 +20512,6 @@
    "mri": {
     "path_relative": "Training Set/K32FD6LRSUSSXGS1YUOX/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "93167259ca36588d14df89af917a8b1fefe819a8063c8d9817fae50699006f99",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20904,7 +20561,6 @@
    "mask": {
     "path_relative": "Training Set/K32FD6LRSUSSXGS1YUOX/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "968b0d3a7b60cabae129b687575f1177c391f8ce4e624017a1c13c8e1dd7c2a5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -20970,7 +20626,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/K32FD6LRSUSSXGS1YUOX/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21036,7 +20691,6 @@
    "mri": {
     "path_relative": "Training Set/KM5RYAMP4P4ZP6XWP3Q2/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f15f7c714736b55b69b012662c35da011642286a11146faf4a69325705c9bdc9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21086,7 +20740,6 @@
    "mask": {
     "path_relative": "Training Set/KM5RYAMP4P4ZP6XWP3Q2/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ececc55904a22a4c2121a8e30810164d58e6e69937c41d510002796be390595a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21152,7 +20805,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/KM5RYAMP4P4ZP6XWP3Q2/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21218,7 +20870,6 @@
    "mri": {
     "path_relative": "Training Set/KSNYHUBHHUJTYJ14UQZR/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "fb477df74f6e6c3530ddb02b3301af9142d051c932ffc157841a17b5930c617d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21268,7 +20919,6 @@
    "mask": {
     "path_relative": "Training Set/KSNYHUBHHUJTYJ14UQZR/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "ca9cc4244d8bfa956f4b26c0848436099ff8f025a33fc78cd3543fbf3c585ee5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21334,7 +20984,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/KSNYHUBHHUJTYJ14UQZR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21400,7 +21049,6 @@
    "mri": {
     "path_relative": "Training Set/LH4FVU3TQDEC87YGN6FL/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "187663ea5576fafed29f8b27adbe12a0563c66ff0df295505eb48cb412df8fc5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21450,7 +21098,6 @@
    "mask": {
     "path_relative": "Training Set/LH4FVU3TQDEC87YGN6FL/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4026b24fb41f7ac69a16d8e3e1c570c9356c5452cd840a6a20c00f37ec71a9a9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21516,7 +21163,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/LH4FVU3TQDEC87YGN6FL/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21582,7 +21228,6 @@
    "mri": {
     "path_relative": "Training Set/LJSDNMND9SHKM7Q4IRHJ/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4a2c488bb2eb2f9f3f73b839d92bfed6c25b61fe5f3772b763f8bc295c689251",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21632,7 +21277,6 @@
    "mask": {
     "path_relative": "Training Set/LJSDNMND9SHKM7Q4IRHJ/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f15bb9f52d3fdbaec216d6d62ba819d3dbfa53a8d6658cb9f48342fec0f03f28",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21698,7 +21342,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/LJSDNMND9SHKM7Q4IRHJ/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21764,7 +21407,6 @@
    "mri": {
     "path_relative": "Training Set/MFTDVMBWFNQ3F5KHBRDR/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1d593e14fe9f0874d1e9d970ae6a85a80c417409c4589ca1a798030d055a6f93",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21814,7 +21456,6 @@
    "mask": {
     "path_relative": "Training Set/MFTDVMBWFNQ3F5KHBRDR/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "6a8246ae6682149367e82b314f64d1631cc4f9750ee4647342b6c68c7a551ff2",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21880,7 +21521,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/MFTDVMBWFNQ3F5KHBRDR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -21946,7 +21586,6 @@
    "mri": {
     "path_relative": "Training Set/MJHV7F65TB2A76CQLOC3/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "29d202a0c10dda0b1f02db2687132a14382b9709e472ded3bbe4e430dcaa09e6",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -21996,7 +21635,6 @@
    "mask": {
     "path_relative": "Training Set/MJHV7F65TB2A76CQLOC3/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "b6a439c4367c46ea706977ae761a4c5857f9ff602d9f0cf36ffb86825085de8e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22062,7 +21700,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/MJHV7F65TB2A76CQLOC3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22128,7 +21765,6 @@
    "mri": {
     "path_relative": "Training Set/MVKIPGBKTNSENNP1S4HB/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d94fd7fa833ab9156bbaa86c820eb7fc57d7153e513a543650d2d116e6c94fbc",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22178,7 +21814,6 @@
    "mask": {
     "path_relative": "Training Set/MVKIPGBKTNSENNP1S4HB/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "e5e2e92e34bd82b88f440b7463190466f64e7a8024b65c8fa0f4faf2d9c4a9a0",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22244,7 +21879,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/MVKIPGBKTNSENNP1S4HB/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22310,7 +21944,6 @@
    "mri": {
     "path_relative": "Training Set/O5TSIKRD4AIB8K84WIR9/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "7232fa13b62bf65d333ac9d93d76d8cb1a1247e56aa29476e77d67cf0a73cdd7",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22360,7 +21993,6 @@
    "mask": {
     "path_relative": "Training Set/O5TSIKRD4AIB8K84WIR9/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "6ae1ed97ea2f4046a57bc428d1c21e9762b495d90ea041fc1fb559d8d7168345",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22426,7 +22058,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/O5TSIKRD4AIB8K84WIR9/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22492,7 +22123,6 @@
    "mri": {
     "path_relative": "Training Set/OIRDLE32TXZX942FVZMM/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "37a4823108e424cf58d202760ceb84f130a46641c22a242d7936c121f3adab1a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22542,7 +22172,6 @@
    "mask": {
     "path_relative": "Training Set/OIRDLE32TXZX942FVZMM/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c90f9161010490cb095a65280c168382adfaab82c745781fe4015f9f0d1fa58b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22608,7 +22237,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/OIRDLE32TXZX942FVZMM/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22674,7 +22302,6 @@
    "mri": {
     "path_relative": "Training Set/P1OTI3IWJUIB5NRLULLH/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e3ab9936b215be95acd9b3a0476bda5b3a2bada6f71cfc89ba0c1e0197a06305",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22724,7 +22351,6 @@
    "mask": {
     "path_relative": "Training Set/P1OTI3IWJUIB5NRLULLH/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "118ad6eabfccf0b0d52e8d04c5a911e2600d6a37e7d930bd9b8f3115b110f7ac",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22790,7 +22416,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/P1OTI3IWJUIB5NRLULLH/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -22856,7 +22481,6 @@
    "mri": {
     "path_relative": "Training Set/PVNXUK681N9BY14K4Z86/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "c8ebc0b7ac9fa1296ec551aa793c71eca4bd4b532ab6dad84ff48e33411cca41",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22906,7 +22530,6 @@
    "mask": {
     "path_relative": "Training Set/PVNXUK681N9BY14K4Z86/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "9beef6e28ac3a0a7e88ef55cbce94ddd8054005f850c6845fdce09b56ac07467",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -22972,7 +22595,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/PVNXUK681N9BY14K4Z86/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23038,7 +22660,6 @@
    "mri": {
     "path_relative": "Training Set/Q0MEX9ZIKAGJORSPLQ3Y/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "d216bf129dfeb6b31f7cf966d4996cb6ab33b6b33fc4c004f0722e4144fac979",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23088,7 +22709,6 @@
    "mask": {
     "path_relative": "Training Set/Q0MEX9ZIKAGJORSPLQ3Y/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1369f123bd2c40f90bf290ee4594e171d8d5c8549ede944d685e6bd38e1da3d9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23154,7 +22774,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Q0MEX9ZIKAGJORSPLQ3Y/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23220,7 +22839,6 @@
    "mri": {
     "path_relative": "Training Set/Q7J0WYM695R9MA285ZW0/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4f6c6abacba332ce4831f6408e4dbfb962959a702f233a8f26c45d66cae29e80",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23270,7 +22888,6 @@
    "mask": {
     "path_relative": "Training Set/Q7J0WYM695R9MA285ZW0/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "2a0ff42605097c83f193fdc268df6821468b179246089a3407c0db4052f3c94a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23336,7 +22953,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Q7J0WYM695R9MA285ZW0/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23402,7 +23018,6 @@
    "mri": {
     "path_relative": "Training Set/QZC1W0FNR19KJFLOCFLH/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "08765c7923a1e304900473f2e0f54bc7a93d190e6a7a303c6f59b89864d00ed8",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23452,7 +23067,6 @@
    "mask": {
     "path_relative": "Training Set/QZC1W0FNR19KJFLOCFLH/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "3635cf33e821876abb1f36d151c798deaaad953ecf759a6f71fe9f2788d210c4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23518,7 +23132,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/QZC1W0FNR19KJFLOCFLH/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23584,7 +23197,6 @@
    "mri": {
     "path_relative": "Training Set/R8ER97O9UUN77C02VE2J/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "9686a0ac29ac96808739147ac1fcfa5e666879b06a04b1f059ec435696063988",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23634,7 +23246,6 @@
    "mask": {
     "path_relative": "Training Set/R8ER97O9UUN77C02VE2J/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0ad22aaa9ea14828759c951b9560f209e2c605a59d28589be0f3f10b96947a22",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23700,7 +23311,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/R8ER97O9UUN77C02VE2J/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23766,7 +23376,6 @@
    "mri": {
     "path_relative": "Training Set/RSZY41MT2FGDKHWWL5L2/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "67f6e8dc9411c954dd5710dc03de60ef41e99b06220a90ffc4d53960d6824f6d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23816,7 +23425,6 @@
    "mask": {
     "path_relative": "Training Set/RSZY41MT2FGDKHWWL5L2/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0ed14f72bfc86a5ae162fa725ec4de3f7288f6c97b13be341714760960c781fe",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23882,7 +23490,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/RSZY41MT2FGDKHWWL5L2/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -23948,7 +23555,6 @@
    "mri": {
     "path_relative": "Training Set/SN4LF8SGBSRQUPTDSX78/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "2e6bc52d42f50ecfe775a2aa2911524500fc04dfb3be37e1f0fc60d6a52c3ef4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -23998,7 +23604,6 @@
    "mask": {
     "path_relative": "Training Set/SN4LF8SGBSRQUPTDSX78/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "f7ef174b42c2c318fee0fc181f6c96a58f19d5766b26f0a93f7affb5604ae39f",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24064,7 +23669,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/SN4LF8SGBSRQUPTDSX78/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24130,7 +23734,6 @@
    "mri": {
     "path_relative": "Training Set/TDDI6L3Y0L9VVFP9MNFS/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "3ab4027b615f79d0056241bfc0876b366e9d19988f6ca14907a7562e4b62c322",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24180,7 +23783,6 @@
    "mask": {
     "path_relative": "Training Set/TDDI6L3Y0L9VVFP9MNFS/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "aea6f06ad603c5a3a9235f533f3d72f6282f64cdc89a279d46f39943d39d8d37",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24246,7 +23848,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/TDDI6L3Y0L9VVFP9MNFS/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24312,7 +23913,6 @@
    "mri": {
     "path_relative": "Training Set/ULHWPWKKLTE921LQLH1P/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "28afce6176caab798412be7e10c0efadbc775c189b4aecb4e3f30190b19e01da",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24362,7 +23962,6 @@
    "mask": {
     "path_relative": "Training Set/ULHWPWKKLTE921LQLH1P/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "32acfd576a94b4a732217d2b3626a11b68d67b12d64a5bcb2d12e912f6d0bb74",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24428,7 +24027,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/ULHWPWKKLTE921LQLH1P/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24494,7 +24092,6 @@
    "mri": {
     "path_relative": "Training Set/UPT6DX9IQY9JAZ7HJKA7/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "1b423c7eccc83ca2b67c44d48f93cd182ecb322d19454b8a033689ca230a1187",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24544,7 +24141,6 @@
    "mask": {
     "path_relative": "Training Set/UPT6DX9IQY9JAZ7HJKA7/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "46ef494b7a2f975e033df25d8bcf4d7805358b8a7949195cf1b420b704910b51",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24610,7 +24206,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/UPT6DX9IQY9JAZ7HJKA7/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24676,7 +24271,6 @@
    "mri": {
     "path_relative": "Training Set/UTBUJIWZMKP64E3N73YC/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "425a8c9b130ba7b9f05a368d4dc067ff762cfbb0f2d76bc408bddb584931572d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24726,7 +24320,6 @@
    "mask": {
     "path_relative": "Training Set/UTBUJIWZMKP64E3N73YC/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "d404fcaee3c849bad38abe8034cef404c00c7cf7a70e4739f1951d63524a4827",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24792,7 +24385,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/UTBUJIWZMKP64E3N73YC/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -24858,7 +24450,6 @@
    "mri": {
     "path_relative": "Training Set/UZUZZT2W9IUSHL6ASOX3/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "7022e127c3db5bc90dfcbfc97197f22ef178e13acabc12b6c9b92f489fd7b132",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24908,7 +24499,6 @@
    "mask": {
     "path_relative": "Training Set/UZUZZT2W9IUSHL6ASOX3/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "88eaa2ecce0481635e8ad4ff8302b726785d0faa832bb2692098ad4271bc6cf8",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -24974,7 +24564,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/UZUZZT2W9IUSHL6ASOX3/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25040,7 +24629,6 @@
    "mri": {
     "path_relative": "Training Set/V0MZOWJ6MU3RMRCV9EXR/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "22adbcb974f2ffbaa39e6c34f534db8b1312222d32ec45fd20f321d54beaa47e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25090,7 +24678,6 @@
    "mask": {
     "path_relative": "Training Set/V0MZOWJ6MU3RMRCV9EXR/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "cf0ccbe4075fb2a219d514e1f5e454156e3ce8d08ba6896798d8bb28aeb9cb15",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25156,7 +24743,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/V0MZOWJ6MU3RMRCV9EXR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25222,7 +24808,6 @@
    "mri": {
     "path_relative": "Training Set/VDOF02M8ZHEAADFMS6NP/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "3e3c86f864b595f4d55a3a3eb9dcca4bac0348d4305c675172b85d58658472f3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25272,7 +24857,6 @@
    "mask": {
     "path_relative": "Training Set/VDOF02M8ZHEAADFMS6NP/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "666d2ac5f810a4c92e4ccd4b24dd559ff277a5e7db0ff55a6180e6981689c9a4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25338,7 +24922,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VDOF02M8ZHEAADFMS6NP/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25404,7 +24987,6 @@
    "mri": {
     "path_relative": "Training Set/VG4C826RAAKVMV9BQLVD/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "5b8ef6ae835de9523d1c2053090524eabaf742ca5de8e389e0e960cf50a2992d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25454,7 +25036,6 @@
    "mask": {
     "path_relative": "Training Set/VG4C826RAAKVMV9BQLVD/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "9256ef82f91116abaae414509226dc46bb035491b048edd1930bd1e58b756826",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25520,7 +25101,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VG4C826RAAKVMV9BQLVD/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25586,7 +25166,6 @@
    "mri": {
     "path_relative": "Training Set/VIXBEFTNVHZWKAKURJBN/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "3b2934d51f3dbb94606a5d55d2ac60b7f57133b443aed17fc4b78ae4f40de480",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25636,7 +25215,6 @@
    "mask": {
     "path_relative": "Training Set/VIXBEFTNVHZWKAKURJBN/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "f124edb0c887e148b7be511763f6239a6307f8df4daeccbae0b4bc47dd44ef5c",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25702,7 +25280,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VIXBEFTNVHZWKAKURJBN/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25768,7 +25345,6 @@
    "mri": {
     "path_relative": "Training Set/VQ2L3WM8KEVF6L44E6G9/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "621c9859dc81522e7eda5ab3313bb0095e27856e3c09c8b80b23ae998a036b5e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25818,7 +25394,6 @@
    "mask": {
     "path_relative": "Training Set/VQ2L3WM8KEVF6L44E6G9/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "4bfc7bf2f806ff472725ee21ae6ee53c1eb5c7c1b9df880407e5657b9e31eaff",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -25884,7 +25459,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/VQ2L3WM8KEVF6L44E6G9/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -25950,7 +25524,6 @@
    "mri": {
     "path_relative": "Training Set/WBG9WYZ1B25WDT5WAT8T/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "81d886700c0d3a9006a49f43d8b3a6212b90d43664eb0a1195aeb87bdc3ae74b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26000,7 +25573,6 @@
    "mask": {
     "path_relative": "Training Set/WBG9WYZ1B25WDT5WAT8T/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "cb26f1e1a08023ec9416454121311d6bd41c3f17855c4f6ee9fc6aca9486e18e",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26066,7 +25638,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WBG9WYZ1B25WDT5WAT8T/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26132,7 +25703,6 @@
    "mri": {
     "path_relative": "Training Set/WMDG2EFA6L2SNDZXIRU0/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "009a69a5700c74f9cb7933e156966817663960e9031ac79c2b08a09b1d5382a1",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26182,7 +25752,6 @@
    "mask": {
     "path_relative": "Training Set/WMDG2EFA6L2SNDZXIRU0/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "b58e7631afe6367571fd33b043ec8b49fb6afe3d5c4065945215ed612dcf64d3",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26248,7 +25817,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WMDG2EFA6L2SNDZXIRU0/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26314,7 +25882,6 @@
    "mri": {
     "path_relative": "Training Set/WNPKE0W404QE9AELX1LR/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0657d3879e0a45fe653e34dc944055cb55b7fe05d1fa14ce5d625334b853532d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26364,7 +25931,6 @@
    "mask": {
     "path_relative": "Training Set/WNPKE0W404QE9AELX1LR/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "8cf657cae4cb0f96ebb252e5cb86782fa895dbf518995c2b0fe701e5eb7374dd",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26430,7 +25996,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WNPKE0W404QE9AELX1LR/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26496,7 +26061,6 @@
    "mri": {
     "path_relative": "Training Set/WSJB9P4JCXUVHBOYFVWL/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "ba5f48be9939e30abf51c2e42cc1f600af646129f3c9fc91ba5a48073065c66d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26546,7 +26110,6 @@
    "mask": {
     "path_relative": "Training Set/WSJB9P4JCXUVHBOYFVWL/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "e95a3eeb1f2a13eeecf345dbe5e4cb5149cb3dad0a0e90881d101c2042d1bf08",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26612,7 +26175,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WSJB9P4JCXUVHBOYFVWL/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26678,7 +26240,6 @@
    "mri": {
     "path_relative": "Training Set/WW8F5CO4S4K5IM5Z7EXX/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "09eeb17aa0815457845d9aaa165b0ac29d0a8cff0772b091664ee31e1969279a",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26728,7 +26289,6 @@
    "mask": {
     "path_relative": "Training Set/WW8F5CO4S4K5IM5Z7EXX/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "484e8d2e8419e7c0cf414031d6a42d9a781db9ad1692cd08e50080eeb1c7058d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26794,7 +26354,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/WW8F5CO4S4K5IM5Z7EXX/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -26860,7 +26419,6 @@
    "mri": {
     "path_relative": "Training Set/X18LU5AOBNNDMLTA0JZL/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "aa65e7557d1cc09414ee45c16c6acfe562ef9b804f01007354c84f0efbe8afb6",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26910,7 +26468,6 @@
    "mask": {
     "path_relative": "Training Set/X18LU5AOBNNDMLTA0JZL/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "8e004277cfa30a65c1b2565622f26a5abf140f897d5bcd2988536b9393c2a7f4",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -26976,7 +26533,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/X18LU5AOBNNDMLTA0JZL/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27042,7 +26598,6 @@
    "mri": {
     "path_relative": "Training Set/XYDLYJ5CS19FDBVLJIPI/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "7688bc029dc8e58c8d6a1428730ba026fdfbdfae5437fcb4e1cde06e8d92c8d5",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27092,7 +26647,6 @@
    "mask": {
     "path_relative": "Training Set/XYDLYJ5CS19FDBVLJIPI/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "39211301fb28523cd6bfa2612ceac38f279f82f4d348d7e5829d4d2d35315126",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27158,7 +26712,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/XYDLYJ5CS19FDBVLJIPI/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27224,7 +26777,6 @@
    "mri": {
     "path_relative": "Training Set/Y7ZU0B2APPF54WG6PDMF/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "bdd2bac1faf7c22411c8a3cc9f4ec77d2a9dc7c828cf69e1704fb551b6001e30",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27274,7 +26826,6 @@
    "mask": {
     "path_relative": "Training Set/Y7ZU0B2APPF54WG6PDMF/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "bfe201a8be8a756850076efc770562743b34c9ef30d6eaae6d5ab03302d6e37b",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27340,7 +26891,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Y7ZU0B2APPF54WG6PDMF/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27406,7 +26956,6 @@
    "mri": {
     "path_relative": "Training Set/YDKD1HVHSME6NVMA8I39/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "72e90d9eaed4f6870b6459456cee8e3f370aefc46a77773f373c2ca8acd02d75",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27456,7 +27005,6 @@
    "mask": {
     "path_relative": "Training Set/YDKD1HVHSME6NVMA8I39/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "9331dc5bd93428234de3082a704d4cfb4790479d44c40f3ce5c0d4b9d96d6b84",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27522,7 +27070,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/YDKD1HVHSME6NVMA8I39/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27588,7 +27135,6 @@
    "mri": {
     "path_relative": "Training Set/Z9GMG63CJLL0VW893BB1/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "37dfbed8e5f26f5dbfa71b5032cda4369be14b7161c22041a07b0343596351bc",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27638,7 +27184,6 @@
    "mask": {
     "path_relative": "Training Set/Z9GMG63CJLL0VW893BB1/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "0292deb02f4ec2eb6f28d8511eb6b282487e9328afb2e4e28b03e55a154339b9",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27704,7 +27249,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/Z9GMG63CJLL0VW893BB1/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27770,7 +27314,6 @@
    "mri": {
     "path_relative": "Training Set/ZIJLJAVQV3FJ6JSQOH1E/lgemri.nrrd",
     "size_bytes": 29196579,
-    "sha256": "3039d0e7738d9c70c1105c2f6f887d006f490627f0f693c50e1b0a2662de37aa",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27820,7 +27363,6 @@
    "mask": {
     "path_relative": "Training Set/ZIJLJAVQV3FJ6JSQOH1E/laendo.nrrd",
     "size_bytes": 29196579,
-    "sha256": "96bb5099c0a9b094326b4748ae088fed8577630de78720db65e823ff7b6747ae",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -27886,7 +27428,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/ZIJLJAVQV3FJ6JSQOH1E/lawall.nrrd",
      "size_bytes": 29196579,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -27952,7 +27493,6 @@
    "mri": {
     "path_relative": "Training Set/ZQPMJ4XEC5A4BISD45P1/lgemri.nrrd",
     "size_bytes": 36045091,
-    "sha256": "da79288863e4d979acd6fe29f4b46b4d84c70ea0a4d96ed55cd77ca632785392",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -28002,7 +27542,6 @@
    "mask": {
     "path_relative": "Training Set/ZQPMJ4XEC5A4BISD45P1/laendo.nrrd",
     "size_bytes": 36045091,
-    "sha256": "8dcabc2ae5a91bc63ca8315aea9718179d817f4f737d8ca7b99120a26c436d2d",
     "read_ok": true,
     "dtype": "uint8",
     "shape": [
@@ -28068,7 +27607,6 @@
     "lawall.nrrd": {
      "path_relative": "Training Set/ZQPMJ4XEC5A4BISD45P1/lawall.nrrd",
      "size_bytes": 36045091,
-     "sha256": "NOT PUBLISHED - only cross-case duplicate findings retained",
      "read_ok": true,
      "dtype": "uint8",
      "shape": [
@@ -28122,7 +27660,6 @@
  "duplicate_evidence": [
   {
    "file": "laendo.nrrd",
-   "sha256": "685f964bc32639c9c3fd8ca961078cfce88515d70046691a4d396613eed5192e",
    "case_ids": [
     "CASE_0056",
     "CASE_0097"
@@ -28131,7 +27668,6 @@
   },
   {
    "file": "lawall.nrrd",
-   "sha256": "ccd380f1139809f2dbcbdda76cd43eb7983cfa21ae95e5367cf81261bd7c0f35",
    "case_ids": [
     "CASE_0056",
     "CASE_0097"
@@ -28140,6 +27676,13 @@
   }
  ],
  "companion_distinct_from_mask_count": 154,
+ "restricted_manifest": {
+  "classification": "RESTRICTED - stored outside the public repository",
+  "contains": "per-data-file SHA-256 table",
+  "sha256": "bde53efc650e6ee1dd6299a1db57706d32ec714a45c2832b41e77ba128858d86",
+  "regenerate": "python tools/dataset_validate/validate.py --archive <private ZIP path> --acquisition <private acquisition.json path> --write-manifest --write-audit",
+  "policy_decision": "F5 leader decision, 2026-09-16"
+ },
  "criteria_results": [
   {
    "criterion": "A1",

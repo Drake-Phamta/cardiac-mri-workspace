@@ -12,7 +12,7 @@
 > Editing this file by hand makes it disagree with the manifest, and the manifest is
 > the artifact `GATE-DATA-01` accepts (`06` §9.1, criterion A20).
 
-**Generated at:** 2026-09-16T00:11:36+07:00
+**Generated at:** 2026-09-17T00:04:38+07:00
 **NRRD reader:** `pynrrd 1.1.3`
 **Package reference:** `EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files` (absolute local paths are not published)
 
@@ -43,6 +43,15 @@
 | `CAPPolicyStatementUsers.pdf` | 81535 | `e0633f5b40d591c9769df65602e080b2d8859aeeb284fa54444daf19c67a1fe4` |
 
 > Package acquired by Phạm Tuấn Anh as the INC-001 recovery action. Full-cohort validation was executed for Spike D under Bế Quốc Khánh's authenticated workspace; owner verdicts were confirmed by Bế Quốc Khánh through HITL on 2026-09-14.
+
+### Restricted per-file checksum manifest (F5)
+
+The per-data-file SHA-256 table is stored outside this public repository. The public record keeps only its content hash and a regeneration command.
+
+- **Restricted artifact SHA-256:** `bde53efc650e6ee1dd6299a1db57706d32ec714a45c2832b41e77ba128858d86`
+- **Contains:** per-data-file SHA-256 table
+- **Regenerate:** `python tools/dataset_validate/validate.py --archive <private ZIP path> --acquisition <private acquisition.json path> --write-manifest --write-audit`
+- **Policy:** F5 leader decision, 2026-09-16
 
 ## 2 · Case counts by released partition — `06` §9.1
 
@@ -120,7 +129,7 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 
 ## 6 · Split path — `06` §9.1, criterion A13
 
-**This spike supplies evidence. It does not select the path** — `DR-002` / `GATE-SPLIT-01` does.
+**This spike supplies evidence. `DR-002`, `DR-002a` and `DR-002b` define the selected policy; `GATE-SPLIT-01` still owns acceptance of the exact IDs.**
 
 | Input | Measured value |
 |---|---|
@@ -133,18 +142,19 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 | Selected path | **DR-002 Path A**: 80 training / 20 validation / 54 locked released Testing Set, seed 2024 |
 | Duplicate-acquisition rule | **DR-002a**: CASE_0056 and CASE_0097 are one group, both pinned to training; training has 79 distinct acquisitions |
 | Exact manifest case IDs per partition | `data/manifests/split_manifest_path_a_seed2024.json` (proposed, not yet accepted by GATE-SPLIT-01) |
-| A19 split-evidence status | **PENDING**: exact IDs must be checked against the regenerated split manifest once its PR lands |
+| A19 split-evidence status | **DEFERRED / NOT PASSED** by the leader's 2026-09-16 Q2 decision: exact IDs move to `GATE-SPLIT-01`; training remains **BLOCKED** until that gate closes |
 
-> Split invariants that hold whichever path is chosen (`06` §6): **patient-level only,**
-> **no slice-level split**, no case crosses partitions, **seed 2024**, and split membership
-> may not change after test results are observed.
+> **Recorded DR-002b limitation:** patient-level separation is **NOT VERIFIABLE** for this
+> release. The implemented safeguard is case-level disjointness plus correlation-screen
+> grouping/exclusion under DR-002b. No slice-level split is allowed; seed 2024 and split
+> membership are frozen before training and may not change after test results are observed.
 
 ## 7 · Exclusions, corruptions and privacy findings — `06` §9.1, criteria A15 · A17
 
 **Anomalies: 2**
 
-- identical bytes across cases: `laendo.nrrd` — `CASE_0056`, `CASE_0097`; SHA-256 `685f964bc32639c9c3fd8ca961078cfce88515d70046691a4d396613eed5192e`
-- identical bytes across cases: `lawall.nrrd` — `CASE_0056`, `CASE_0097`; SHA-256 `ccd380f1139809f2dbcbdda76cd43eb7983cfa21ae95e5367cf81261bd7c0f35`
+- identical bytes across cases: `laendo.nrrd` — `CASE_0056`, `CASE_0097`; exact checksum retained in the restricted manifest
+- identical bytes across cases: `lawall.nrrd` — `CASE_0056`, `CASE_0097`; exact checksum retained in the restricted manifest
 
 > CASE_0056/CASE_0097 is treated as one acquisition group under DR-002a and pinned to training. A matching label file alone does not prove patient identity; independent MRI screening is tracked for GATE-SPLIT-01.
 

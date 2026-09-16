@@ -30,6 +30,7 @@ WHO RUNS THIS
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -39,11 +40,34 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import checks                                    # noqa: E402
 from audit_report import render                  # noqa: E402
-from dataset_scan import scan_archive, scan_package  # noqa: E402
+from dataset_scan import (make_public_manifest, restricted_manifest_bytes,
+                          scan_archive, scan_package)  # noqa: E402
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "data", "manifests", "dataset_manifest.json")
 DEFAULT_AUDIT = os.path.join(REPO_ROOT, "management", "DATASET_AUDIT.md")
+RESTRICTED_BASENAME = "dataset_manifest_restricted.json"
+
+
+def _is_inside_repo(path: str) -> bool:
+    try:
+        return os.path.commonpath([os.path.abspath(path), REPO_ROOT]) == REPO_ROOT
+    except ValueError:
+        return False
+
+
+def _restricted_output(args) -> str:
+    if args.restricted_manifest_out:
+        return os.path.abspath(args.restricted_manifest_out)
+    source = os.path.abspath(args.archive or args.root)
+    base = os.path.dirname(source) if args.archive else os.path.dirname(source.rstrip(os.sep))
+    return os.path.join(base, RESTRICTED_BASENAME)
+
+
+REGENERATION_COMMAND = (
+    "python tools/dataset_validate/validate.py --archive <private ZIP path> "
+    "--acquisition <private acquisition.json path> --write-manifest --write-audit"
+)
 
 MARK = {
     checks.PASS: "ok  ",
@@ -138,6 +162,11 @@ def selftest() -> int:
             "package_files": [{"name": "synthetic", "size_bytes": 0, "sha256": "0" * 64}],
             "attribution_note": "SELFTEST OUTPUT — fabricated volumes. Never dataset evidence.",
         })
+        restricted_a = restricted_manifest_bytes(manifest)
+        restricted_b = restricted_manifest_bytes(manifest)
+        restricted_sha = hashlib.sha256(restricted_a).hexdigest()
+        public_manifest = make_public_manifest(manifest, restricted_sha,
+                                               REGENERATION_COMMAND)
         results = checks.run_checks(manifest)
         summary = checks.summarise(results)
         print_table(results, summary)
@@ -175,6 +204,19 @@ def selftest() -> int:
             problems.append(f"QA-002 F1 duplicate file evidence missing: {duplicate_files}")
         if "identical lawall.nrrd" not in by_id["A15"].detail:
             problems.append("A15 did not list the duplicate companion file")
+        if restricted_a != restricted_b:
+            problems.append("restricted manifest serialization is not deterministic")
+        for case in public_manifest["cases"]:
+            for role in ("mri", "mask"):
+                if isinstance(case.get(role), dict) and "sha256" in case[role]:
+                    problems.append(f"public manifest leaked {case['case_id']}/{role} SHA-256")
+            if any("sha256" in volume for volume in
+                   (case.get("companion_volumes") or {}).values()):
+                problems.append(f"public manifest leaked {case['case_id']} companion SHA-256")
+        if any("sha256" in group for group in public_manifest["duplicate_evidence"]):
+            problems.append("public duplicate evidence leaked a per-file SHA-256")
+        if public_manifest["restricted_manifest"]["sha256"] != restricted_sha:
+            problems.append("public restricted-manifest reference hash mismatch")
 
         # The low-disk archive path must produce the same evidence structure as
         # the extracted-directory path.  This catches ZIP discovery, temporary
@@ -244,6 +286,7 @@ def selftest() -> int:
         print("  ok    audit renders from a manifest containing failures")
         print("  ok    archive streaming path matches the extracted-directory path")
         print("  ok    A17 requires an explicit exclusion for every sidecar")
+        print("  ok    F5 public manifest strips per-file hashes and references deterministic restricted bytes")
         print()
         print("  SELFTEST PASSED - the harness works. It has measured nothing real.")
         print("  Exit code 0 means the SELFTEST passed. The A9 and A14 FAILs printed above")
@@ -267,6 +310,9 @@ def main() -> int:
     ap.add_argument("--write-audit", action="store_true",
                     help=f"write {os.path.relpath(DEFAULT_AUDIT, REPO_ROOT)}")
     ap.add_argument("--manifest-out", default=DEFAULT_MANIFEST)
+    ap.add_argument("--restricted-manifest-out",
+                    help=("external path for the deterministic per-file checksum table; "
+                          "default: next to the private source package"))
     ap.add_argument("--audit-out", default=DEFAULT_AUDIT)
     ap.add_argument("--selftest", action="store_true",
                     help="run the pipeline on synthetic volumes and verify its behaviour")
@@ -292,6 +338,11 @@ def main() -> int:
         return 1 if summary["fail"] else 0
     if bool(args.root) == bool(args.archive):
         ap.error("exactly one of --root or --archive is required (or use --selftest)")
+    if args.write_manifest and args.no_checksums:
+        ap.error("--write-manifest requires checksums so the external restricted manifest is reproducible")
+    restricted_out = _restricted_output(args) if args.write_manifest else None
+    if restricted_out and _is_inside_repo(restricted_out):
+        ap.error("the restricted manifest must be outside the public repository")
     if args.root and not os.path.isdir(args.root):
         print(f"not a directory: {args.root}")
         return 2
@@ -323,25 +374,32 @@ def main() -> int:
         print("  Check the extraction path before recording anything.\n")
         return 2
 
-    results = checks.run_checks(manifest)
-    owner_verdicts = ((manifest.get("acquisition") or {}).get("owner_verdicts") or {})
+    restricted_payload = restricted_manifest_bytes(manifest)
+    restricted_sha = hashlib.sha256(restricted_payload).hexdigest()
+    public_manifest = make_public_manifest(manifest, restricted_sha, REGENERATION_COMMAND)
+    results = checks.run_checks(public_manifest)
+    owner_verdicts = ((public_manifest.get("acquisition") or {}).get("owner_verdicts") or {})
     summary = checks.summarise(results, owner_verdicts)
     print_table(results, summary)
 
     if args.write_manifest:
+        os.makedirs(os.path.dirname(restricted_out), exist_ok=True)
+        with open(restricted_out, "wb") as f:
+            f.write(restricted_payload)
         os.makedirs(os.path.dirname(args.manifest_out), exist_ok=True)
-        payload = dict(manifest)
+        payload = dict(public_manifest)
         payload["criteria_results"] = [r.as_dict() for r in results]
         payload["summary"] = summary
         with open(args.manifest_out, "w", encoding="utf-8", newline="\n") as f:
             json.dump(payload, f, indent=1, ensure_ascii=False, sort_keys=False)
             f.write("\n")
         print(f"  manifest  -> {os.path.relpath(args.manifest_out, REPO_ROOT)}")
+        print(f"  restricted manifest -> external file, SHA-256 {restricted_sha}")
 
     if args.write_audit:
         os.makedirs(os.path.dirname(args.audit_out), exist_ok=True)
         with open(args.audit_out, "w", encoding="utf-8", newline="\n") as f:
-            f.write(render(manifest, results, summary))
+            f.write(render(public_manifest, results, summary))
         print(f"  audit     -> {os.path.relpath(args.audit_out, REPO_ROOT)}")
 
     if args.write_manifest or args.write_audit:

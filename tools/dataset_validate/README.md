@@ -74,8 +74,15 @@ a temporary directory at a time:
 python tools/dataset_validate/validate.py \
     --archive "D:/cardiac-mri-workspace-data/lasc2018/2018_UTAH_MICCAI.zip" \
     --acquisition "D:/cardiac-mri-workspace-data/lasc2018/acquisition.json" \
+    --restricted-manifest-out "D:/cardiac-mri-workspace-data/lasc2018/dataset_manifest_restricted.json" \
     --write-manifest --write-audit
 ```
+
+The public manifest contains no per-data-file SHA-256. Those hashes are written
+to the deterministic restricted manifest outside the repository; only that
+artifact's SHA-256 and the regeneration command are public. If the explicit
+option is omitted, the restricted file is placed beside the private source.
+The command refuses a restricted output path inside the repository.
 
 Exit codes: `0` no `FAIL` · `1` at least one `FAIL` · `2` the run could not proceed.
 
@@ -122,10 +129,9 @@ Criterion `A1` needs the download record, which the scanner cannot read off the 
 
 Fields left out are reported as missing. They are never guessed.
 The generated **public** manifest replaces `package_root` and
-`license_terms_path` with external/private references, and publishes only
-the cross-case duplicate companion hashes rather than every `lawall.nrrd`
-hash. See `POLICY_EVIDENCE.md` for the unresolved leader decision about
-other case-level metadata.
+`license_terms_path` with external/private references. It contains no
+per-data-file checksum or pairwise linkage score. See `POLICY_EVIDENCE.md` for
+the leader's 2026-09-16 narrow-publication decision.
 
 Re-render a corrected audit from an already scanned manifest without reading
 the 2.2 GB ZIP again:
@@ -162,8 +168,11 @@ evidence → Secondary Reviewer `APPROVE` → CHAT E QA `PASS` → Project Contr
 for Spike D, QA must inspect **the actual recorded evidence**, not a summary. A script printing
 `PASS` closes nothing.
 
-**It cannot select the split.** Whichever path `DR-002` chooses, the invariants hold: patient
-level only, **never slice level**, no case crossing partitions, **seed 2024**.
+**It cannot accept the split.** `DR-002` selected Path A and `DR-002b` records
+that patient-level separation is **not verifiable** for this release. The split
+PR must implement case-level disjointness plus correlation-screen grouping and
+exclusion, never slice-level splitting, with seed 2024. `GATE-SPLIT-01` remains
+open and training remains blocked until those exact IDs are reviewed.
 
 **It must not be pointed at data under `data/`.** The raw package stays outside version control
 (`06` §5). `.gitignore` blocks `*.nrrd` and `data/**`, but the package belongs outside the

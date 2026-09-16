@@ -104,6 +104,18 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     if acq.get("attribution_note"):
         add(f"> {acq['attribution_note']}")
         add("")
+    restricted = manifest.get("restricted_manifest") or {}
+    if restricted:
+        add("### Restricted per-file checksum manifest (F5)")
+        add("")
+        add("The per-data-file SHA-256 table is stored outside this public repository. "
+            "The public record keeps only its content hash and a regeneration command.")
+        add("")
+        add(f"- **Restricted artifact SHA-256:** `{restricted.get('sha256', NOT_MEASURED)}`")
+        add(f"- **Contains:** {restricted.get('contains', NOT_MEASURED)}")
+        add(f"- **Regenerate:** `{restricted.get('regenerate', NOT_MEASURED)}`")
+        add(f"- **Policy:** {restricted.get('policy_decision', NOT_MEASURED)}")
+        add("")
 
     # --- field 3: case counts by partition ---------------------------------
     add("## 2 · Case counts by released partition — `06` §9.1")
@@ -270,7 +282,8 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     # --- field 7: selected split path --------------------------------------
     add("## 6 · Split path — `06` §9.1, criterion A13")
     add("")
-    add("**This spike supplies evidence. It does not select the path** — `DR-002` / `GATE-SPLIT-01` does.")
+    add("**This spike supplies evidence. `DR-002`, `DR-002a` and `DR-002b` define the "
+        "selected policy; `GATE-SPLIT-01` still owns acceptance of the exact IDs.**")
     add("")
     add("| Input | Measured value |")
     add("|---|---|")
@@ -289,12 +302,14 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("| Exact manifest case IDs per partition | `data/manifests/"
         "split_manifest_path_a_seed2024.json` (proposed, not yet accepted by "
         "GATE-SPLIT-01) |")
-    add("| A19 split-evidence status | **PENDING**: exact IDs must be checked "
-        "against the regenerated split manifest once its PR lands |")
+    add("| A19 split-evidence status | **DEFERRED / NOT PASSED** by the leader's "
+        "2026-09-16 Q2 decision: exact IDs move to `GATE-SPLIT-01`; training remains "
+        "**BLOCKED** until that gate closes |")
     add("")
-    add("> Split invariants that hold whichever path is chosen (`06` §6): **patient-level only,**")
-    add("> **no slice-level split**, no case crosses partitions, **seed 2024**, and split membership")
-    add("> may not change after test results are observed.")
+    add("> **Recorded DR-002b limitation:** patient-level separation is **NOT VERIFIABLE** for this")
+    add("> release. The implemented safeguard is case-level disjointness plus correlation-screen")
+    add("> grouping/exclusion under DR-002b. No slice-level split is allowed; seed 2024 and split")
+    add("> membership are frozen before training and may not change after test results are observed.")
     add("")
 
     # --- field 8: exclusions / corruptions ---------------------------------
@@ -319,7 +334,7 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     for group in manifest.get("duplicate_evidence") or []:
         anomalies.append("identical bytes across cases: `" + group["file"] + "` — "
                          + ", ".join("`" + cid + "`" for cid in group["case_ids"])
-                         + "; SHA-256 `" + group["sha256"] + "`")
+                         + "; exact checksum retained in the restricted manifest")
     add(f"**Anomalies: {len(anomalies)}**")
     add("")
     for a in anomalies[:40]:

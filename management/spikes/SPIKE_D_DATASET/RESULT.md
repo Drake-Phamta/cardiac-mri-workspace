@@ -42,23 +42,28 @@ Khánh previously confirmed the A10/A11/A12/A13/A17/A18 verdicts on
   QA-002 independently observed no cavity/wall foreground overlap.
 - `A14`: 308/308 required headers are axis-aligned, **but** that supports
   voxel-grid rendering only, not mm/mL geometry or clinical orientation.
-- `A18/F5`: the public metadata question is **not resolved** by stripping
-  machine-specific paths. See `POLICY_EVIDENCE.md`; the leader must decide
-  whether the remaining case-level fields may stay public.
+- `A18/F5`: the leader's 2026-09-16 decision is implemented: the public
+  manifest retains bounded case metadata and aggregate evidence; per-data-file
+  SHA-256 values are in a deterministic restricted manifest outside the repo.
+  Its content hash and regeneration command remain public.
 
 Khánh read and confirmed these updated A11/A14/F5 bounds through HITL on
-2026-09-16. This confirmation does not replace the leader's pending public
-metadata policy decision under A18/F5.
+2026-09-16. The leader subsequently selected the narrow F5 publication policy
+recorded in `POLICY_EVIDENCE.md`.
 
-`A19` remains `NOT_RUN` by construction in the scanner. The regenerated audit
-now names `DR-002`, `DR-002a`, and the proposed split manifest path; exact
-membership must be cross-checked when the replacement split PR lands. The
-leader's QA-002 Q2 choice about deferring this audit item is still pending.
+`A19` remains `NOT_RUN` by construction in the scanner. Under the leader's
+2026-09-16 Q2 decision, the exact split IDs are explicitly **deferred to
+`GATE-SPLIT-01` and not passed**. Training remains **BLOCKED** until that gate
+closes. The audit records `DR-002`, `DR-002a`, `DR-002b`, and the proposed split
+manifest path without implying that patient-level separation was verified.
 
 ## Evidence index
 
 - `management/DATASET_AUDIT.md` — generated readable audit.
 - `data/manifests/dataset_manifest.json` — generated machine manifest.
+- External `dataset_manifest_restricted.json` — deterministic per-data-file
+  checksum table; intentionally not tracked. Its SHA-256 is in the public
+  manifest.
 - `tools/dataset_validate/validate.py` — reproducible scanner.
 - `management/spikes/SPIKE_D_DATASET/QA002_REPAIR_EVIDENCE.md` — validator
   output, environment and A1–A20 mapping.
@@ -73,9 +78,10 @@ leader's QA-002 Q2 choice about deferring this audit item is still pending.
 python tools/dataset_validate/validate.py `
   --archive <private path to 2018_UTAH_MICCAI.zip> `
   --acquisition <private path to acquisition.json> `
+  --restricted-manifest-out <private path to dataset_manifest_restricted.json> `
   --write-manifest --write-audit
 ```
 
 This result does not close `GATE-DATA-01` or `GATE-SPLIT-01`. Acceptance still
-requires updated owner confirmation, reviewer approval, QA PASS, leader policy
-decision, and Project Control transition.
+requires reviewer approval, QA PASS, and Project Control transition. The exact
+split IDs remain deferred to `GATE-SPLIT-01`, which still blocks training.
