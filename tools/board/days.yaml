@@ -268,7 +268,7 @@ today:
         - "Stub (nếu chọn phương án A) trước 14:00 · **đo Spike E khung 21:00**, hai profile *(~2 h)*"
         - "Merge #24 → #26 · #29/#30 · #34 khi approve → **QA soi lại Spike D** → `ACCEPTED` nếu PASS *(~2 h)*"
       later:
-        - "Review **#32** — hợp đồng ingestion 1, khối Integration / cross-contract *(~1 h)*"
+        - "✅ **Soát kỹ thuật #32 xong** — 10/10 ca kiểm, 9/10 phép phá bị chặn đúng, **1 lỗi thật** (manifest tự mâu thuẫn vẫn PASS); chờ anh ra phán quyết `APPROVE`/`CHANGES_REQUESTED`"
         - "Đo lại `A9` với cache ±3 slice *(~1,5 h, cần máy)*"
       note: "Day 6 chốt chưa đạt 3/4, buffer −1 — bản chốt ở `day06/DAY06_EOD_REVIEW.md`. ✅ Bốn việc buổi sáng đã xong: merge #17 (02:19), `Q2` hoãn có ghi, stub theo phương án A, chuẩn demo duyệt thành v1 kèm đính chính số đếm. Còn lại trong ngày: **quyết nối bệnh nhân cho `GATE-SPLIT-01`** (bản Decision Request do Project Control soạn), **phán `F5`**, và buổi **đo Spike E khung 21:00**."
 

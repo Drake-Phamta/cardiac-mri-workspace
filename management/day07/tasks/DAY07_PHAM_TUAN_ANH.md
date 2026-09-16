@@ -40,8 +40,11 @@
 
 ## Hàng đợi dự phòng
 
-- **Review PR #32** — hợp đồng ingestion 1 của Trung; chưa ai được nhờ review và khối *Integration / cross-contract* là của
-  anh *(~1 h)*.
+- **Review PR #32** — ✅ *phần kỹ thuật đã chạy xong, chờ anh ra phán quyết*: `test_contract1.py` 10/10; soi đối kháng 10 phép
+  phá — 9 bị chặn đúng (`../` trong `source_path`, đường dẫn tuyệt đối, checksum lệch một ký tự, `md5`, trùng `case_id`,
+  nhãn `{0,1}` khai gian, `compatibility` khai gian, `EVALUATION` thiếu mask, `PatientName` trong metadata) — **1 lỗi thật**:
+  manifest tự mâu thuẫn vẫn PASS (dataset `NOT_VALIDATED` trong khi mọi artifact khai `VALIDATED_AXIS_ALIGNED`), đúng lớp
+  QA-002 `F15`. Kết quả đã gửi trên #32; anh chọn `APPROVE` *(nhận nợ sửa)* hay `CHANGES_REQUESTED` *(sửa trước)*.
 - **Spike A:** đo lại `A9` với **cache giới hạn ±3 slice** — từ phát hiện bộ nhớ 376 MB cho 88 slice *(~1,5 h, cần máy)*.
 
 ---
