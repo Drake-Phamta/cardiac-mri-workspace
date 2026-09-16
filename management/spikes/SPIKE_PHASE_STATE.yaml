@@ -285,7 +285,7 @@ spikes:
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
-      state: NOT_REQUESTED
+      state: APPROVED           # PR #27 (S4) approved by Vu Hung Anh 2026-09-16 17:14 +07 and merged 6ca1e21; PR #31 (S5) is open for review
       reviewer: "Vu Hung Anh"
       priority_rank: 2          # behind SPIKE_D in Vu Hung Anh's queue
       queue_note: "May be reviewed ahead of D only while D is not EVIDENCE_READY."
@@ -293,8 +293,8 @@ spikes:
     task: management/spikes/SPIKE_A_2D/TASK.md
     evidence_template: management/spikes/SPIKE_A_2D/EVIDENCE_TEMPLATE.md
     evidence_paths_expected: [management/spikes/SPIKE_A_2D/RESULT.md]
-    evidence_present: false
-    latest_tested_commit: null
+    evidence_present: true     # RESULT.md on main carries A9 and, since the #27 merge (6ca1e21), A2 OBSERVED. Measured is not ACCEPTED
+    latest_tested_commit: 6ca1e21
     environment: DEVICE_DEMO_01
     device_profile_prerequisite: true
     device_measurement_slot: 1  # FIRST in the single-device measurement queue
@@ -302,7 +302,7 @@ spikes:
     related_condition: []
     unblocks: [GATE-MOB-01]
     measurement_owner: "Pham Tuan Anh (physical device) - Claude must not fabricate touch/performance values"
-    next_action: "2026-09-16: A9 measured twice (RESULT.md on main). S4 zoom/pan: A2 OBSERVED on the device 2026-09-14 21:25, source-mask checksum 16/16 across three checks (PR #27, fb006da, review requested 2026-09-15 10:51). S5 brush: A3-A7 OBSERVED on the release build 2026-09-15 21:13-21:21 - A3 8/8, A4 6/6, A5 60/60 at r=0 and 60/60 at r=2, A6/A7 15/15, reset exact - and A2 re-checked OBSERVED on that build (PR #31, evidence 1c62a00). Measured, not accepted: both PRs wait on Vu Hung Anh and sit behind SPIKE_D in his queue. Next: his reviews; then A8, A10 and A11, completing A1 and A12, and the A9 re-measurement with a +/-3 slice cache. Holds measurement slot 1."
+    next_action: "2026-09-16 evening: PR #27 (S4 zoom/pan) APPROVED by Vu Hung Anh at 17:14 after he independently re-ran extract_a2.py and reproduced A2 OBSERVED (16/16 source-mask checksums, 3 pinches plus 1 pan, worst frame gap 44.9 ms), and merged as 6ca1e21 with the branch kept so the stacked S5 PR stays open. PR #31 (S5 brush, A3-A7 OBSERVED on the release build 2026-09-15 21:13-21:21; A5 60/60 at r=0 and r=2) was retargeted to main and marked ready for review; Vu Hung Anh requested. Measured is not ACCEPTED - no QA step has run on Spike A. Next: his review of #31; then A8, A10 and A11, completing A1 and A12, and the A9 re-measurement with a +/-3 slice cache. Holds measurement slot 1."
 
   - id: SPIKE_B
     name: "3D linked interaction"
@@ -348,8 +348,12 @@ spikes:
       Day 6 (2026-09-15): B14 interpretation in PR #29 (10:14) and a minimal WebGL2 viewer for B1 in draft PR
       #30 (10:21), checked in a desktop browser only. The reviewer requested changes on both at 21:38-21:39:
       #29 repeats one passage; #30 orbits and zooms but has no pan, while B1 requires rotate, zoom AND pan.
-      No owner activity after 10:26. Next: both fixes and a re-review, then B3/B4 picking on the canonical
-      fixture, then the B10/B11 script for the leader to operate.
+      No owner activity after 10:26. Update 2026-09-16: the owner fixed both - the duplicated passage removed
+      from #29 at 15:48, and pan added to the B1 viewer on desktop and touch at 17:10-17:13 with a refreshed
+      capture, taking #30 out of draft. Both wait on Nguyen Gia Duc Trung's re-review. The count erratum of the
+      same day showed why this mattered: PR-3D-02 (rotate, zoom AND pan on mobile) is one of five MUST
+      requirements that the old management counts had dropped. Next: B3/B4 picking on the canonical fixture,
+      then the B10/B11 script for the leader to operate.
     canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0
@@ -357,14 +361,14 @@ spikes:
     priority: P1
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: PREPARED
+    status: EVIDENCE_READY   # PR #36 merged 2026-09-16 (e6e3b0b): RESULT.md on main, reviewer APPROVED. PRELIMINARY; cannot close GATE-ML-01
     blocked_by: []
     wip_note: >
       QUEUED. May use otherwise-idle waiting time during dataset download, but MUST NOT become a second
       primary task competing with SPIKE_D. It occupies the "small preparation activity" slot of 15 section 7.
-    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    started_at: "2026-09-16T00:43:25+07:00"   # mirrored from the owner's own committed evidence (first probe file, c0_probe_20260916T004325+0700.json); his RESULT.md states execution on 2026-09-16. Not backdated, not inferred
     review:
-      state: QUEUED             # owner requested Vu Hung Anh on PR #36 at 2026-09-16 02:21 +07
+      state: APPROVED           # Vu Hung Anh 2026-09-16 17:17 +07 on PR #36: the summarizer regenerates RESULT.md and the chart byte-identically from the raw files; he states he could NOT run probe.py --selftest on his host, so no independent GPU rerun is claimed
       reviewer: "Vu Hung Anh"
       priority_rank: 3          # behind SPIKE_D and SPIKE_A
       queue_note: "Lowest of Vu Hung Anh's three; C0 evidence cannot close GATE-ML-01 in any case."
@@ -372,14 +376,14 @@ spikes:
     task: management/spikes/SPIKE_C_ML/TASK.md
     evidence_template: management/spikes/SPIKE_C_ML/EVIDENCE_TEMPLATE.md
     evidence_paths_expected: [management/spikes/SPIKE_C_ML/RESULT.md]
-    evidence_present: false
-    latest_tested_commit: null
+    evidence_present: true     # RESULT.md on main since e6e3b0b (2026-09-16)
+    latest_tested_commit: e6e3b0b
     environment: COMPUTE_ML_01
     related_dr: [DR-007, DR-011, DR-G03]
     related_condition: []
     unblocks: []
     may_close_gate_ml_01: false
-    next_action: "2026-09-16: the owner enabled a 15,610 MiB pagefile and APPROVED PR #17 at 00:29 - both runtime blockers gone in real execution (selftest 8/8 search + 10/10 runner; UNet at img 560 with --find-batch reported max batch 15; real facebook/dinov2-small loaded and both frozen variants measured). He then ran the full matrix on his RTX 4050: draft PR #36 (01:08) carries fp32 and bf16 for all 10 candidate variants, 20/20 measurements with no runtime errors, plus a RESULT.md table and an SVG cost chart generated from the raw JSON - C0-1 to C0-6, C0-9 and C0-10 evidenced, C0-7/C0-8 NOT MEASURED pending his real GPU-hours per day. Draft PR #37 (01:14) adds a synthetic pipeline bring-up: DR-011 normalization, 576/640 to 560 resize, one epoch each for UNet base16 and DINOv2-S/14 frozen + progressive, checkpoint save and reload PASS, no real dataset bytes. Both are stacked on #17 so neither has run CI. status stays PREPARED and started_at null until the OWNER declares the real start time (his first probe file is stamped 2026-09-16T00:43:25+07:00); PARTIAL_EVIDENCE, and C0 cannot close GATE-ML-01 in any case. Update 2026-09-16 02:19-02:21: the leader squash-merged #17 (8bf1a2f) without deleting the branch, so #36 and #37 survived; the owner rebased both onto main, added the calendar verdict at his real 4-5 unattended GPU hours per day (4 h conservative: 7/10 variants fit 6 runs + 1 ablation in the 10-day window; 5 h: 8/10; DINOv2-B/14 full fits neither), marked #36 ready with CI 4/4 and requested Vu Hung Anh. He declares C0-1 to C0-10 evidenced and the RESULT EVIDENCE_READY. Project Control transitions status and started_at when #36 merges after review - not from a PR body."
+    next_action: "2026-09-16: the owner enabled a 15,610 MiB pagefile and APPROVED PR #17 at 00:29 - both runtime blockers gone in real execution (selftest 8/8 search + 10/10 runner; UNet at img 560 with --find-batch reported max batch 15; real facebook/dinov2-small loaded and both frozen variants measured). He then ran the full matrix on his RTX 4050: draft PR #36 (01:08) carries fp32 and bf16 for all 10 candidate variants, 20/20 measurements with no runtime errors, plus a RESULT.md table and an SVG cost chart generated from the raw JSON - C0-1 to C0-6, C0-9 and C0-10 evidenced, C0-7/C0-8 NOT MEASURED pending his real GPU-hours per day. Draft PR #37 (01:14) adds a synthetic pipeline bring-up: DR-011 normalization, 576/640 to 560 resize, one epoch each for UNet base16 and DINOv2-S/14 frozen + progressive, checkpoint save and reload PASS, no real dataset bytes. Both are stacked on #17 so neither has run CI. status stays PREPARED and started_at null until the OWNER declares the real start time (his first probe file is stamped 2026-09-16T00:43:25+07:00); PARTIAL_EVIDENCE, and C0 cannot close GATE-ML-01 in any case. Update 2026-09-16 21:46: PR #36 was APPROVED by Vu Hung Anh at 17:17 and merged (squash e6e3b0b), so RESULT.md is on main and this spike is EVIDENCE_READY: 20 measurements over 10 variants in fp32 and bf16, plus the calendar verdict at the owner's 4-5 unattended GPU hours per day (4 h: 7/10 variants fit 6 runs + 1 ablation in the 10-day window; 5 h: 8/10; DINOv2-B/14 full fits neither). It stays PRELIMINARY and cannot close GATE-ML-01 (DR-007); no QA step has run on it. Earlier, 2026-09-16 02:19-02:21: the leader squash-merged #17 (8bf1a2f) without deleting the branch, so #36 and #37 survived; the owner rebased both onto main, added the calendar verdict at his real 4-5 unattended GPU hours per day (4 h conservative: 7/10 variants fit 6 runs + 1 ablation in the 10-day window; 5 h: 8/10; DINOv2-B/14 full fits neither), marked #36 ready with CI 4/4 and requested Vu Hung Anh. He declares C0-1 to C0-10 evidenced and the RESULT EVIDENCE_READY. Project Control transitions status and started_at when #36 merges after review - not from a PR body."
 
   - id: SPIKE_C1
     name: "Final real-data ML feasibility (small representative validated real subset)"
@@ -783,6 +787,14 @@ device_measurement_queue:
       the sha256_volume recorded in each payload manifest. Diagnostic only - every E number still has to be
       measured from the phone over the overlay by the owner's design. Side finding for the owner: the stub
       ignores HTTP Range and answers 200 with the whole body.
+    overlay_incident_2026_09_16: >
+      Between 13:34 and 21:33 the Mac mini LEFT ZeroTier network b103a835d292ddb3 on its own: zerotier-cli
+      listnetworks showed only the old network and 10.64.193.115 was gone from every interface, while the stub
+      process stayed alive and lsof still reported it LISTEN on that dead address. A process check therefore
+      said healthy while nothing could reach it. Project Control re-joined the network (address back in 10 s,
+      membership still authorised) and restarted the stub on it as PID 28976 at 21:33; both profiles verified
+      again. Recorded in RISK-DEMO-NET-01 and in DEMO_STANDARD section 8: health is the address plus an HTTP
+      200 from the phone plus a DIRECT peer path, never a live PID.
     gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
     still_needed_before_any_E_measurement: []    # all three resolved on 2026-09-13, kept below for the record
     resolved_2026_09_13:

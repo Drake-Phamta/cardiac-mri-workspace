@@ -169,6 +169,11 @@ module lands. The spike harnesses already follow the pattern (`check_conformance
   flow. It is a demo-resilience measure only — never an offline product mode or a second architecture.
 - **Pre-demo checklist, T−60 min.** Device charged; release build installed; overlay `DIRECT`; backend health OK;
   `DEMO_CASE_001` cached; fallback tried once; one full rehearsal; screen recording ready.
+- **How to check "backend health OK" — from the phone, not from the server.** On 2026-09-16 the Mac mini
+  silently left the overlay network: the stub process was still alive and still showed `LISTEN` on an address
+  that no longer existed on any interface, so a process check said healthy while nothing could reach it. The
+  check is therefore: the overlay address is present on an interface **and** an HTTP request from the demo
+  device returns 200 **and** `zerotier-cli peers` shows the device path as `DIRECT`. A live PID is not health.
 - **Before final acceptance.** Five consecutive successful runs of the canonical flow on the target device and
   build (TC-USAB-005), each logged with a timestamp.
 

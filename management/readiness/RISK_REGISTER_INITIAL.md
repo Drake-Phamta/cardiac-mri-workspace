@@ -556,6 +556,18 @@ promoted into the MUST floor through this route.
 
 **Owner.** Phạm Tuấn Anh (Integration / CI / cross-contract coordination).
 
+**Observed 2026-09-16 — the SERVER side drops off the overlay silently, and a live process proves nothing.**
+The Mac mini left ZeroTier network `b103a835d292ddb3` some time between 13:34 and 21:33 (`zerotier-cli
+listnetworks` showed only the old network; `10.64.193.115` was gone from every interface). The stub process
+stayed alive and `lsof` still reported it **LISTEN on 10.64.193.115:8787**, a socket bound to an address that
+no longer existed — so the check "is the process up?" returned yes while nothing on the network could reach
+it, including the phone. Re-joining restored the address in 10 s and the stub was restarted on it; the node
+was still authorised, so no action was needed in ZeroTier Central. Until then this risk was recorded only for
+the Android side (the phone not recovering after a network change). **Consequences now standing:** every
+pre-measurement and pre-demo check verifies **the address is on an interface and an HTTP request succeeds
+from the phone**, never that a PID exists (`DEMO_STANDARD.md` §8); and the same failure on demo day is a
+T−60 checklist item, not an improvisation.
+
 ---
 
 ### RISK-REPORT — DINOv2 does not outperform UNet
