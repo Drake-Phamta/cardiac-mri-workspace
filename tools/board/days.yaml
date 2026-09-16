@@ -68,7 +68,7 @@ spike_notes:
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). `B14` (#29) và `B1` (#30) **đều bị Trung yêu cầu sửa 21:38–21:39**: #29 lặp một đoạn diễn giải · #30 **thiếu pan** — `B1` trong TASK đòi xoay, zoom **và** pan. Hôm nay: sửa cả hai → picking `B3`/`B4` trên fixture. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "✅ **Stub 2 profile đã chạy 16/09 11:06** — PID 73790 trên `10.64.193.115:8787` (PC dựng bằng SSH của leader, phương án A; worktree `a585907`, payload ngoài repo): `/health` liệt kê cả hai profile, `HEAD` trả **29 196 288** và **36 044 800** đúng `X-Payload-Profile`. Còn: **Trung xác nhận trước 20:30** · **Hùng Anh duyệt lại #24 và #26** (#26 trước 14:00) · **leader đo khung 21:00** → Trung tổng hợp riêng từng profile. `E9` drill: #33 · hợp đồng ingestion 1: #32."
   SPIKE_C0: "**#17 đã merge 02:19** (`8bf1a2f`, squash, giữ nhánh) → Khánh rebase **#36** và **#37** lên `main`, CI 4/4 lần đầu. **#36 đã ready, chờ Hùng Anh review**: probe chạy trọn ma trận trên RTX 4050 — fp32 + bf16, 10 biến thể, **20/20 phép đo**, bảng + biểu đồ sinh từ JSON, và ngoại suy lịch theo **4 h/ngày** (7/10 biến thể vừa) và **5 h/ngày** (8/10) — `DINOv2-B/14 full` không vừa cả hai. Chủ spike khai `C0-1`–`C0-10` đều có số; **C0 không đóng `GATE-ML-01`**. Khung pipeline tổng hợp: #37 (còn nháp)."
-  SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` có quyết định — split đang bị chặn bởi nối bệnh nhân (154 lần chụp / 60 bệnh nhân, không có ánh xạ). Không chạm dữ liệu thật trước đó."
+  SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. **Luật nối bệnh nhân đã có** từ 16/09 (`DR-002b`, phương án (c) + (d)); gate đóng khi Khánh sinh lại split theo luật đó và Trung duyệt. Không chạm dữ liệu thật trước đó, holdout không đụng tới."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
@@ -76,12 +76,19 @@ merge_order: [24, 26, 34, 35, 33, 32, 29, 30, 27, 31, 36, 37]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
-  DR-002b: "**Bản thảo đã sẵn sàng, chờ leader quyết trong ngày.** 154 lần chụp từ 60 bệnh nhân, gói không có ánh xạ case↔bệnh nhân; sàng lọc chỉ từ ảnh MRI tìm lại được cặp trùng ở hạng 1 nhưng **không chứng minh được danh tính**. Bốn phương án trong `OPEN_DECISIONS.md` Part 2b; Project Control đề xuất **(c) + (d)**: gom nhóm theo ngưỡng **khai trước mọi lượt train**, **loại khỏi train** case nghi trùng bệnh nhân với holdout, ghi rõ giới hạn trong mọi báo cáo, kèm phân tích độ nhạy."
   DR-005:  "Chờ Spike F — chưa bắt đầu phần chính."
   DR-008c: "Chờ Spike B đo trên thiết bị; trần ±1 slice không bao giờ nới."
 
 # Standing decisions still in force - the rules people work under today.
 policies:
+  - date: "16/09"
+    id: "DR-002b — nối bệnh nhân"
+    text: "**Tách theo bệnh nhân KHÔNG kiểm chứng được** (154 lần chụp từ 60 bệnh nhân, gói không có ánh xạ) → leader quyết **phương án (c) + (d)**: gom nhóm mọi cặp trên **ngưỡng khai trước mọi lượt train** · **loại khỏi train** case nghi trùng bệnh nhân với một case holdout, có liệt kê · ghi rõ giới hạn ở **mọi chỗ có số đánh giá** · công bố thêm **phân tích độ nhạy**. `06` §6 ghi là **ngoại lệ có văn bản**, không phải đã đạt. Không liên hệ ban tổ chức khi leader chưa cho phép."
+    ref: management/readiness/OPEN_DECISIONS.md
+  - date: "16/09"
+    id: "F5 — siêu dữ liệu public"
+    text: "**Thu hẹp cho tới khi đọc được điều khoản bản phát hành/DDA**: public giữ **mã case · shape/dtype · thống kê tổng hợp · verdict `A1`–`A20`**; **bảng SHA-256 từng file và điểm sàng lọc từng cặp** chuyển sang **manifest hạn chế ngoài repo** — nhưng **hash của nó và lệnh sinh lại vẫn công khai**, nên không mất tính tái lập."
+    ref: management/day06/QA_REVIEW_002_SPIKE_D.md
   - date: "16/09"
     id: "Q2 — bảng `A19`"
     text: "**Mục \"split và ID manifest\" của `A19` hoãn sang `GATE-SPLIT-01`, có ghi rõ** — kèm câu training vẫn `BLOCKED` tới khi gate đóng. Tránh phụ thuộc vòng (audit cần ID split, split cần audit); **không ai được đọc chỗ hoãn thành \"split đã ổn\"**."
@@ -195,7 +202,7 @@ today:
     - [tuananh, "Đo Spike E khung 21:00", trung, "stub 2 profile đã kiểm — trước 20:30"]
     - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 21:00"]
     - [hunganh, "Merge **#36** (bằng chứng C0)", hunganh, "review #36 — đã ready, CI 4/4, xếp sau Spike D và Spike E"]
-    - [khanh, "Chốt split và bắt đầu `SPIKE_C1`", tuananh, "quyết cách xử lý nối bệnh nhân (`GATE-SPLIT-01`)"]
+    - [tuananh, "Đóng `GATE-SPLIT-01`", khanh, "sinh lại split theo `DR-002b`: ngưỡng khai trước, gom nhóm, loại case nghi trùng với holdout"]
     - [hunganh, "Merge **#29** · **#30**", trung, "review lại sau khi Hùng Anh sửa"]
   tasks:
     khanh:
@@ -207,7 +214,8 @@ today:
         - "**#35 — nhờ Trung review**, ghi cách tái lập cho người không có bản ZIP *(~30 ph)*"
       now:
         - "**Sửa lỗi validator `F6`–`F11`, `F14`, `F15`** kèm test hồi quy dựng từ kịch bản phá ở `day06/qa002/` — PR riêng *(~3 h)*"
-        - "Góp ý chuyên môn cho **Decision Request nối bệnh nhân** (Project Control soạn trước 12:00) *(~1 h)*"
+        - "▶ **Thực hiện `DR-002b`**: đề xuất **ngưỡng tương quan** từ phân bố 11 781 cặp, **khai trong manifest trước mọi lượt train**, gom nhóm, **loại khỏi train** case nghi trùng với holdout (liệt kê mã case + điểm), câu giới hạn dùng chung, chỗ cho phân tích độ nhạy *(~2 h)*"
+        - "▶ **Thực hiện `F5`**: chuyển bảng SHA-256 từng file + điểm sàng lọc sang manifest hạn chế ngoài repo; public giữ hash + lệnh sinh lại *(~45 ph, trong #34 hoặc PR ngay sau)*"
       then:
         - "**#35 sau khi #34 merge**: sinh lại split theo SHA manifest mới, chạy lại selftest, chuyển ready *(~1 h)*"
       later:
@@ -254,8 +262,8 @@ today:
         - "✅ **Stub Spike E = phương án A** — Project Control dựng bằng SSH của anh, Trung kiểm và giữ mọi số `E`"
         - "✅ **Chuẩn demo duyệt thành v1** + đính chính số đếm **44 / 33 / 70**; bảng hiệu năng để mở (cần DR nếu muốn)"
       now:
-        - "**Quyết `DR-002b`** — nối bệnh nhân cho `GATE-SPLIT-01`: bản thảo 4 phương án đã sẵn sàng, Project Control đề xuất **(c) + (d)** *(~30 ph)*"
-        - "**Phán `F5`** — đề xuất đã soạn: giữ public mã case + thống kê tổng hợp, chuyển bảng SHA-256 từng file và điểm sàng lọc sang kênh hạn chế (hash vẫn công khai, không mất tái lập) *(~15 ph)* · ✅ **recovery đã xác nhận**"
+        - "✅ **`DR-002b` = (c) + (d)** — gom nhóm theo ngưỡng khai trước · loại khỏi train case nghi trùng với holdout · ghi rõ giới hạn · thêm phân tích độ nhạy"
+        - "✅ **`F5` = thu hẹp** — public giữ mã case + thống kê tổng hợp; SHA-256 từng file và điểm sàng lọc sang manifest hạn chế, hash + lệnh sinh lại vẫn công khai · ✅ **recovery đã xác nhận**"
       then:
         - "Stub (nếu chọn phương án A) trước 14:00 · **đo Spike E khung 21:00**, hai profile *(~2 h)*"
         - "Merge #24 → #26 · #29/#30 · #34 khi approve → **QA soi lại Spike D** → `ACCEPTED` nếu PASS *(~2 h)*"

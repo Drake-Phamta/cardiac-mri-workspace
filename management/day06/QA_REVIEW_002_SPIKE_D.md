@@ -153,16 +153,25 @@ ID manifest split, mà split lại cần audit đã qua nghiệm thu; và `GATE-
 **không** đủ để khẳng định bản phát hành LASC 2018 cho phép công khai siêu dữ liệu từng case — cần điều khoản của chính bản
 phát hành/DDA.
 
-**Project Control đề xuất cho `F5` (16/09) — leader phán:** chọn **phương án hẹp hơn cho tới khi đọc được điều khoản của
-chính bản phát hành/DDA**, vì khi chưa rõ thì thu hẹp dễ sửa hơn là phát tán rồi rút lại.
+**Leader đã quyết `F5`, 16/09: thu hẹp.** Giữ phương án hẹp hơn cho tới khi đọc được điều khoản của chính bản phát
+hành/DDA — khi chưa rõ thì thu hẹp còn sửa lại được, phát tán rồi thì không.
 
 | Giữ trong repo public | Chuyển sang kênh hạn chế *(ngoài repo, có hash công khai)* |
 |---|---|
 | Mã case — vốn đã công khai trong bản phát hành · số lượng case, shape, dtype, thống kê tổng hợp · verdict `A1`–`A20` và lệnh tái lập | Bảng **SHA-256 từng file dữ liệu** · **điểm tương quan từng cặp case** của sàng lọc liên kết (#35 đang giữ ngoài repo) |
 
 Tái lập **không mất**: manifest hạn chế nằm ngoài repo, nhưng **hash của nó và lệnh sinh lại từ bản ZIP đều công khai** —
-người review có ZIP tự dựng lại rồi so hash. Nếu leader chọn **giữ nguyên** (công khai cả checksum từng file) thì phải ghi
-căn cứ ngay trong `POLICY_EVIDENCE.md` để người ngoài đọc được vì sao, chứ không để trống.
+người review có ZIP tự dựng lại rồi so hash.
+
+**Cách làm — Khánh, trong #34 hoặc một PR ngay sau đó, nhưng phải xong trước lượt QA soi lại:**
+
+1. Manifest public giữ **mã case · shape/dtype · thống kê tổng hợp · verdict `A1`–`A20`**.
+2. **Bảng SHA-256 từng file** và **điểm sàng lọc từng cặp** chuyển sang **manifest hạn chế nằm ngoài repo**.
+3. Manifest public ghi **hash của manifest hạn chế** và **lệnh sinh lại nó từ bản ZIP** — đó là thứ giữ tính tái lập.
+4. ⚠ `tools/dataset_split/split.py` đang đọc `dataset_manifest.json`: nếu nó dùng checksum từng case để từ chối nguồn
+   chưa sẵn sàng thì phải đổi sang đọc manifest hạn chế khi có, hoặc đối chiếu bằng hash tổng — ghi rõ cách chọn trong PR.
+5. Nếu làm trong #34 mà lỡ mốc **12:00** thì tách thành PR riêng; PR đó **phải merge trước khi Spike D được QA soi lại**,
+   vì `F5` là phát hiện chặn nghiệm thu.
 
 ---
 

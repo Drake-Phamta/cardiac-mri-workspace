@@ -1240,8 +1240,8 @@ QA-002 F1 fix) records the pair as an anomaly and points to this decision.
 | **Raised by** | `PATIENT_LINKAGE_EVIDENCE.md` from Bế Quốc Khánh (PR #35, 2026-09-16) and QA-002 finding F1 |
 | **Proposed by** | Project Control |
 | **Decided by** | Phạm Tuấn Anh — Team Leader |
-| **Date** | proposed 2026-09-16 |
-| **Status** | ⏸ **PENDING LEADER CONFIRMATION** — `GATE-SPLIT-01` stays `BLOCKED_PATIENT_LINKAGE` until this is decided. Nothing below is decided; do not act on any option as if it were |
+| **Date** | proposed and decided 2026-09-16 |
+| **Status** | ✅ **DECIDED — option (c) + (d)**. Binding on every split manifest generated for `GATE-SPLIT-01` |
 
 **What is established.**
 
@@ -1282,7 +1282,15 @@ unrecoverable (the holdout); and it states the limitation instead of implying a 
 (b) alone leaves the final number exposed. (a) alone stops the critical path on an external party while buffer is
 already at −1.
 
-**If (c) is chosen, the mechanics are fixed here:**
+**The decision — 2026-09-16, Phạm Tuấn Anh.** **(c) + (d).** Conservative grouping above a pre-declared
+threshold, development cases linked to a holdout case excluded from training, the limitation stated wherever an
+evaluation number appears, and a sensitivity analysis published beside the primary metric.
+
+**(a) is not pursued for now.** Nobody contacts the organizers or the Cardiac Atlas about this dataset without a
+new, explicit leader decision. If a trustworthy mapping ever arrives, it **replaces** the screen: groups are
+rebuilt from the mapping before the split is frozen, and this decision is amended rather than quietly widened.
+
+**The mechanics below are now binding:**
 
 1. **Bế Quốc Khánh proposes the threshold from the committed score distribution**, with the number of pairs it
    catches, and declares it in the split manifest **before any training run** — never after a metric is seen. It

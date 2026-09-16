@@ -406,7 +406,7 @@ spikes:
     unblocks: [GATE-ML-01]
     may_close_gate_ml_01: true
     subset_rule: "Drawn from the TRAINING partition only once GATE-SPLIT-01 resolves; never validation or holdout."
-    next_action: "Wait for Spike D acceptance AND a GATE-SPLIT-01 ruling: the owner's PR #35 reports BLOCKED_PATIENT_LINKAGE - the challenge benchmark describes 154 scans from 60 patients and the package carries no case-to-patient map, so biological patient separation is NOT VERIFIABLE until the leader obtains a grouping or records an exception. No work while BLOCKED."
+    next_action: "Wait for Spike D acceptance AND for GATE-SPLIT-01 to close. The linkage ruling exists since 2026-09-16 - DR-002b, option (c) + (d): grouping above a pre-declared similarity threshold, development cases linked to a holdout case excluded from training, the limitation disclosed, a sensitivity analysis published. The gate itself closes only when the owner regenerates the split manifest under that rule and the reviewer passes it. No work while BLOCKED, and the holdout stays untouched."
 
   - id: SPIKE_E
     name: "Artifact transport over the canonical demo network"
