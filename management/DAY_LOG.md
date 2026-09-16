@@ -13,20 +13,66 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 7 — 2026-09-16** |
-| Ngày còn lại tới Day 30 | **24** |
-| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì **Day 6 trượt**; Day 4 và Day 5 đạt)* |
+| Ngày hôm nay | **Day 8 — 2026-09-17** |
+| Ngày còn lại tới Day 30 | **23** |
+| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì Day 6 trượt; **Day 7 đạt nên không tiêu thêm**)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
 | Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
 | Ngưỡng leo thang | **đã vượt — buffer âm từ 16/09.** Hạn Day 30 không lùi: ngày mất thêm phải bù bằng thực thi |
-| `15` §18 | ⚠ **trigger 2 NỔ lần nữa** khi chốt Day 6 (buffer 0 → **−1**) · trigger 3 **theo dõi**: câu hỏi nối bệnh nhân của `GATE-SPLIT-01` sang chu kỳ EOD thứ hai — [`day06/DAY06_EOD_REVIEW.md`](day06/DAY06_EOD_REVIEW.md) §11 · [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
+| `15` §18 | ⚠ **trigger 2 vẫn nổ** (buffer −1, không đổi) · trigger 3 **theo dõi sát**: `GATE-DATA-01` sang **ngày thứ tám**; hết Day 8 mà #34 chưa được duyệt thì nổ thật — [`day07/DAY07_EOD_REVIEW.md`](day07/DAY07_EOD_REVIEW.md) §11 |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
+| Mốc đang chạy | **M3** (Day 6–9) — còn hôm nay và mai, 2/4 lối ra mới có bản nháp và **chưa cái nào lên `main`** · **M4** (Day 8–12) — bắt đầu hôm nay, `SPIKE_C1` còn `BLOCKED` |
 
 ---
 
-## DAY 7 — 2026-09-16 · `ĐANG MỞ`
+## DAY 8 — 2026-09-17 · `ĐANG MỞ`
+
+**Gói nhiệm vụ từng người:** [`day08/tasks/`](day08/tasks/)
+
+> **Day 7 đạt 4/4 theo nội dung → buffer giữ −1.** Hôm nay critical path chỉ còn thiếu **một lượt review**: #34
+> đã sẵn sàng từ 00:10 với nội dung đủ (7/7 phát hiện có câu trả lời, `A19` theo `Q2`, `F5` đã thực hiện) và
+> **chưa ai duyệt**. Song song, **M3 (Day 6–9) chỉ còn hôm nay và mai** mà `contracts/` chưa có gì trên `main`,
+> **hợp đồng API chưa ai bắt đầu**, và `geometry_contract_version` **chưa tồn tại trong repo** — trong khi
+> **M4 bắt đầu chính hôm nay**. **Khối lượng:** mỗi thành viên **≥ 8 h việc thật + ~2 h dự phòng**, hạn 23:59.
+
+### Điều kiện để Day 8 KHÔNG trượt
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Vũ Hùng Anh** *(nợ)* | **Duyệt lại #34 trước 12:00** — P0, việc đầu tiên trong ngày | merge → **QA soi lại** → `GATE-DATA-01` đóng → `SPIKE_C1` hết `BLOCKED` |
+| 2 | **Nguyễn Gia Đức Trung** *(nợ)* | **Duyệt lại #35** (`DR-002b`) + **sửa #32** (manifest tự mâu thuẫn vẫn PASS) | `GATE-SPLIT-01` · hợp đồng ingestion 1 của M3 |
+| 3 | **Bế Quốc Khánh** | **#40 hết nháp, base `main`** + **tuyên bố loại trừ `Unet.py`/`preprocess_data.py`** cho `A17` + **trả lời review #34 trong ngày** | validator sạch · Spike D không dừng ở vòng review |
+| 4 | **Trung + Vũ Hùng Anh** | **M3 đi một bước thật**: PR bản thảo **hợp đồng API v0** · **`geometry_contract_version`** | M3 chỉ còn hôm nay và mai |
+
+**Không đủ bốn thì ngày này tính là trượt.** Luật mới thay cho mốc đẩy 12:00/18:00 *(đã thử ở Day 7 và không có
+tác dụng)*: **việc đang chặn người khác phải làm trước việc của chính mình** — cụ thể, phần trả lời review của
+Khánh xếp trên mọi việc khác của cậu ấy.
+
+### Khối lượng và thứ tự từng người
+
+| Người | 🔴 Làm trước (nợ Day 7) | Việc chính Day 8 | Dự phòng | Giờ chính |
+|---|---|---|---|---|
+| **Bế Quốc Khánh** | ① #40 hết nháp + base `main` · ② tuyên bố loại trừ `A17` · ③ **trả lời review #34** | ④ #35 theo phán quyết `DR-002b` × `F5` · ⑤ **chuẩn bị `SPIKE_C1`** (chỉ thiết kế) · ⑥ #37 hết nháp · ⑦ gói bằng chứng `TC-TEAM-001` | `C0-3` tìm trần thật · `C0-9` | **~9 h** |
+| **Nguyễn Gia Đức Trung** | ① **duyệt lại #35** · ② **sửa #32** · ③ duyệt lại #29 #30 #38 | ④ **hợp đồng API `11` v0** *(lối ra M3)* · ⑤ nhờ review #39 #33 · ⑥ `E7` · ⑦ `E9` máy thật buổi tối | `E10` `E11` `E13` · khung ban ngày cho `E8` | **~8,75 h** |
+| **Vũ Hùng Anh** | ① **duyệt lại #34 trước 12:00** · ② duyệt lại #26 · ③ **picking `B3`/`B4`** | ④ **`geometry_contract_version`** *(lối ra M3)* · ⑤ **`RESULT.md` cho Spike B** *(chưa có file nào)* | `B10`/`B11` · fixture TP/FP/FN cho Spike F | **~8,25 h** |
+| **Phạm Tuấn Anh** | ① **phán `DR-002b` × `F5`** · ② merge #26 · ③ merge #34 → **QA soi lại Spike D** | ④ **Decision Request `NFR-PERF-001`** · ⑤ review #39 · ⑥ **đo `A9` cache ±3** buổi tối · ⑦ merge phần còn lại · ⑧ chốt ngày | `TC-TEAM-001` (V1) · khung trạng thái màn hình | không giới hạn |
+
+> **🎯 Chuẩn demo:** [`DEMO_STANDARD.md`](DEMO_STANDARD.md) **v1 đã duyệt** — mỗi packet có dòng 🎯 dẫn về luật
+> (D1–D7), bước demo (H1–H10) hoặc màn hình (SCR-01…09).
+
+### Đã xong — trong ngày
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| *(chưa có)* | | |
+
+---
+
+## DAY 7 — 2026-09-16 · **`ĐẠT` 4/4 theo nội dung** *(2/4 theo chữ của hạn giờ — quyết định của leader)*
+
+**Bản chốt đầy đủ:** [`day07/DAY07_EOD_REVIEW.md`](day07/DAY07_EOD_REVIEW.md)
 
 **Gói nhiệm vụ từng người:** [`day07/tasks/`](day07/tasks/)
 
