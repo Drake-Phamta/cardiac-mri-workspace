@@ -21,22 +21,34 @@ in vec3 aNormal;
 uniform mat4 uProjection;
 uniform mat4 uModel;
 out vec3 vNormal;
+out vec3 vWorld;
 void main() {
   vec4 world = uModel * vec4(aPosition, 1.0);
   vNormal = mat3(uModel) * aNormal;
+  vWorld = world.xyz;
   gl_Position = uProjection * world;
 }`;
 
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec3 vNormal;
+in vec3 vWorld;
 uniform vec3 uLight;
 uniform vec3 uColor;
 uniform bool uShading;
 out vec4 outColor;
 void main() {
-  float diffuse = uShading ? max(dot(normalize(vNormal), normalize(uLight)), 0.0) : 0.72;
-  vec3 color = uColor * (0.22 + 0.78 * diffuse);
+  vec3 normal = normalize(vNormal);
+  vec3 lightDir = normalize(uLight - vWorld);
+  vec3 viewDir = normalize(-vWorld);
+  float diffuse = uShading ? max(dot(normal, lightDir), 0.0) : 0.72;
+  float rim = uShading ? pow(1.0 - max(dot(normal, viewDir), 0.0), 2.3) : 0.0;
+  vec3 halfDir = normalize(lightDir + viewDir);
+  float specular = uShading ? pow(max(dot(normal, halfDir), 0.0), 28.0) : 0.0;
+  // Pale cyan and restrained highlights match a clinical segmentation viewer,
+  // while keeping surface contours readable against the dark MRI-style field.
+  vec3 color = uColor * (0.34 + 0.62 * diffuse + 0.18 * rim)
+             + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -158,7 +170,7 @@ function draw() {
   if (!renderer) return;
   resize();
   gl.enable(gl.DEPTH_TEST);
-  gl.clearColor(0.047, 0.075, 0.12, 1);
+  gl.clearColor(0.015, 0.033, 0.055, 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.useProgram(renderer.program);
   gl.bindVertexArray(renderer.vao);
@@ -166,8 +178,8 @@ function draw() {
   const model = modelMatrix(new Float32Array(16), yaw, pitch, distance, scale, center, pan);
   gl.uniformMatrix4fv(renderer.projection, false, projection);
   gl.uniformMatrix4fv(renderer.model, false, model);
-  gl.uniform3f(renderer.light, -0.45, 0.8, 0.65);
-  gl.uniform3f(renderer.color, 0.82, 0.36, 0.32);
+  gl.uniform3f(renderer.light, -1.8, 2.6, 3.2);
+  gl.uniform3f(renderer.color, 0.31, 0.77, 0.82);
   gl.uniform1i(renderer.shading, shading ? 1 : 0);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
