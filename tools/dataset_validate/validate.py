@@ -30,6 +30,7 @@ WHO RUNS THIS
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -132,6 +133,9 @@ def selftest() -> int:
             "download_finished": "SYNTHETIC",
             "acquired_by": "SYNTHETIC — selftest",
             "package_files": [{"name": "synthetic", "size_bytes": 0, "sha256": "0" * 64}],
+            "owner_verdicts": {
+                "a10_mapping": {"background": 0, "foreground": 1},
+            },
             "attribution_note": "SELFTEST OUTPUT — fabricated volumes. Never dataset evidence.",
         })
         results = checks.run_checks(manifest)
@@ -176,8 +180,14 @@ def selftest() -> int:
                 for filename in filenames:
                     path = os.path.join(dirpath, filename)
                     zf.write(path, os.path.relpath(path, root).replace(os.sep, "/"))
+        archive_acquisition = dict(manifest["acquisition"])
+        archive_acquisition["package_files"] = [{
+            "name": os.path.basename(archive_path),
+            "size_bytes": os.path.getsize(archive_path),
+            "sha256": hashlib.sha256(open(archive_path, "rb").read()).hexdigest(),
+        }]
         archive_manifest = scan_archive(archive_path, want_checksums=True,
-                                        acquisition=manifest["acquisition"])
+                                        acquisition=archive_acquisition)
         for field in ("case_count_total", "partitions", "shape_distribution"):
             if archive_manifest[field] != manifest[field]:
                 problems.append(f"archive scan disagrees with directory scan for {field}")
@@ -191,10 +201,10 @@ def selftest() -> int:
             "companion_volumes": {},
             "non_nrrd_sidecars": ["desktop.ini"],
         }
-        if checks._a17_privacy([sidecar_case], []).status != checks.FAIL:
+        if checks._a17_privacy([sidecar_case], [], []).status != checks.FAIL:
             problems.append("A17 passed an unexcluded sidecar")
         if checks._a17_privacy(
-                [sidecar_case], ["CASE_TEST/desktop.ini"]).status != checks.PASS:
+                [sidecar_case], ["CASE_TEST/desktop.ini"], []).status != checks.PASS:
             problems.append("A17 did not accept an explicitly excluded sidecar")
 
         # Resampling must see origin and direction, not only shape and spacing.
@@ -213,7 +223,7 @@ def selftest() -> int:
 
         # The renderer must survive a manifest with missing and failing fields.
         text = render(manifest, results, summary)
-        for needed in ("Acquisition", "Cohort shape distribution", "OWNER VERDICT REQUIRED",
+        for needed in ("Acquisition", "Cohort shape distribution", "owner verdict pending",
                        "Axis alignment", "A20"):
             if needed not in text:
                 problems.append(f"rendered audit is missing the section containing '{needed}'")
@@ -281,12 +291,16 @@ def main() -> int:
         with open(args.acquisition, encoding="utf-8-sig") as f:
             acquisition = json.load(f)
 
-    if args.archive:
-        manifest = scan_archive(args.archive, want_checksums=not args.no_checksums,
-                                acquisition=acquisition)
-    else:
-        manifest = scan_package(args.root, want_checksums=not args.no_checksums,
-                                acquisition=acquisition)
+    try:
+        if args.archive:
+            manifest = scan_archive(args.archive, want_checksums=not args.no_checksums,
+                                    acquisition=acquisition)
+        else:
+            manifest = scan_package(args.root, want_checksums=not args.no_checksums,
+                                    acquisition=acquisition)
+    except Exception as exc:
+        print(f"dataset scan refused: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
     if manifest["case_count_total"] == 0:
         source = args.archive or args.root
         print(f"\n  No case in {source} contains lgemri.nrrd.")
@@ -306,7 +320,8 @@ def main() -> int:
         payload["criteria_results"] = [r.as_dict() for r in results]
         payload["summary"] = summary
         with open(args.manifest_out, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(payload, f, indent=1, ensure_ascii=False, sort_keys=False)
+            json.dump(payload, f, indent=1, ensure_ascii=False, sort_keys=False,
+                      allow_nan=False)
             f.write("\n")
         print(f"  manifest  -> {os.path.relpath(args.manifest_out, REPO_ROOT)}")
 
