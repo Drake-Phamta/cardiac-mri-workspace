@@ -66,7 +66,7 @@ spike_notes:
   SPIKE_D:  "QA `REJECT` 15/09 → `NEEDS_FIX`. **Bản sửa: PR nháp #34** (00:19 16/09, CI 4/4) — kiểm hash chéo giữa các case tìm ra cặp trùng và ghi vào manifest + audit theo `DR-002a`; 462/462 header ghi rõ là hình học mặc định, mm/mL tắt; bỏ đường dẫn tuyệt đối; trích CAP §§6–7; cohort chính thức 16 PASS / 0 FAIL / `A19` NOT_RUN. Còn: **Khánh chuyển ready trước 12:00** · leader quyết `Q2` và `F5` · Hùng Anh duyệt lại · QA soi lại."
   SPIKE_A:  "✅ **`A2` đã lên `main`** — Hùng Anh approve #27 lúc 17:14 sau khi **tự chạy lại `extract_a2.py`** và tái lập `OBSERVED` (16/16 checksum, 3 pinch + 1 kéo, khựng lớn nhất 44,9 ms); merge `6ca1e21`, **giữ nhánh** nên #31 sống. **S5: `A3`–`A7` `OBSERVED` trên máy 15/09** (A5 60/60 ở r = 0 và r = 2) — **#31 đã đổi base sang `main` và chuyển ready 21:48**, chờ Hùng Anh. `A9` p95 65,31 ms · `A1` `A12` một phần. **Đo rồi ≠ nghiệm thu**: Spike A chưa qua bước QA nào."
   SPIKE_B:  "✅ **Đã sửa cả hai trong ngày**: #29 bỏ đoạn lặp (15:48) · **#30 thêm pan** desktop + touch, ảnh chụp mới, hết nháp (17:10–17:13) → `B1` giờ đủ theo TASK, và đính chính số đếm cùng ngày cho thấy pan là **`PR-3D-02`, một `MUST`**. Cả hai chờ **Trung duyệt lại**. Việc tiếp: picking `B3`/`B4` trên fixture. Đo trên máy: leader bấm, Hùng Anh thiết kế + tính số (`DR-006a` rev 3)."
-  SPIKE_E:  "✅ **Stub 2 profile đã chạy 16/09 11:06** — PID 73790 trên `10.64.193.115:8787` (PC dựng bằng SSH của leader, phương án A; worktree `a585907`, payload ngoài repo): `/health` liệt kê cả hai profile, `HEAD` trả **29 196 288** và **36 044 800** đúng `X-Payload-Profile`. Còn: **Trung xác nhận trước 20:30** · **Hùng Anh duyệt lại #24 và #26** (#26 trước 14:00) · **leader đo khung 21:00** → Trung tổng hợp riêng từng profile. `E9` drill: #33 · hợp đồng ingestion 1: #32."
+  SPIKE_E:  "✅ **ĐÃ ĐO TỐI 16/09 — hai profile, `DIRECT`**: `576` 21:50–22:14 · `640` 22:14–22:26, mỗi profile 3 lượt; **171/171 mẫu `ok`**, mọi status 200, 0 body bị cắt, 0 local-connect rejection, volume nhận đủ 29 196 288 / 36 044 800 byte. Dữ liệu thô + log server + `PROVENANCE.md` ở nhánh `spike-e/evidence-20260916` (`c3c2ab5`). **Số `E` do Trung tính** — chưa ai tính. Khung giờ lệch (kế hoạch 21:00 ± 15, thực tế 21:50) đã ghi đúng; `E8` vẫn thiếu một khung ban ngày. ✅ **Stub 2 profile chạy từ 16/09 11:06** — PID 73790 trên `10.64.193.115:8787` (PC dựng bằng SSH của leader, phương án A; worktree `a585907`, payload ngoài repo): `/health` liệt kê cả hai profile, `HEAD` trả **29 196 288** và **36 044 800** đúng `X-Payload-Profile`. Còn: **Trung xác nhận trước 20:30** · **Hùng Anh duyệt lại #24 và #26** (#26 trước 14:00) · **leader đo khung 21:00** → Trung tổng hợp riêng từng profile. `E9` drill: #33 · hợp đồng ingestion 1: #32."
   SPIKE_C0: "✅ **`EVIDENCE_READY` — #36 approve 17:17, merge `e6e3b0b`**: 20/20 phép đo fp32 + bf16 trên RTX 4050, `RESULT.md` và biểu đồ **sinh lại byte-identical** bởi người review, kèm ngoại suy lịch **4 h/ngày → 7/10 biến thể vừa**, **5 h/ngày → 8/10**, `DINOv2-B/14 full` không vừa cả hai. Người review ghi rõ **không chạy được selftest GPU** trên máy mình. **Vẫn là sơ bộ: C0 không đóng `GATE-ML-01`** (`DR-007`) và chưa qua bước QA. Khung pipeline: #37 (còn nháp)."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. **Luật nối bệnh nhân đã có** từ 16/09 (`DR-002b`, phương án (c) + (d)); gate đóng khi Khánh sinh lại split theo luật đó và Trung duyệt. Không chạm dữ liệu thật trước đó, holdout không đụng tới."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
@@ -158,12 +158,14 @@ device:
   nodes:
     - ["Laptop leader", "68efb4de07", "10.64.193.145", "operator, adb qua USB"]
     - ["Mac mini M2 24 GB", "e202ffbfe4", "10.64.193.115", "⚠ **rơi khỏi overlay trong khoảng 13:34–21:33** (địa chỉ biến mất, stub vẫn `LISTEN` trên địa chỉ chết) → join lại, **stub chạy lại 21:33, PID 28976**, hai profile kiểm lại đạt. Stub cũ PID 60294 trên `10.134.129.115:8787` giữ nguyên"]
-    - ["Galaxy A17 5G", "078280bae8", "10.64.193.140", "ZeroTier Android 1.16.0"]
+    - ["Galaxy A17 5G", "078280bae8", "10.64.193.140", "ZeroTier Android 1.16.0 · 16/09 21:50–22:26 chạy 2 lượt đo Spike E, `DIRECT`, pin 58 → 78 %, AP 38,2 → 45,2 °C, thermal 0"]
   runs:
     - ["1", "13/09 17:51", "5G · `cellular-overlay`", "RELAY", "57 mẫu: 30 ok · 27 lỗi connect", "no", "bd5e931"]
     - ["2", "13/09 18:18", "5G · `cellular-overlay`", "RELAY", "dừng — file 58 MB tải vài KB/phút", "no", "0d4ad1e"]
     - ["3", "13/09 19:09", "Wi-Fi · `wifi-overlay`", "DIRECT", "57/57 ok · volume trọn", "ok", "7c05c8c"]
     - ["4", "13/09 19:12", "Wi-Fi · `wifi-overlay`", "DIRECT", "171/171 ok · volume trọn 3/3", "ok", "7c05c8c"]
+    - ["5", "16/09 21:50", "Wi-Fi · `wifi-overlay` · profile 576", "DIRECT", "171/171 ok · volume trọn 3/3 · 0 lần bị từ chối cục bộ", "ok", "c3c2ab5"]
+    - ["6", "16/09 22:14", "Wi-Fi · `wifi-overlay` · profile 640", "DIRECT", "171/171 ok · volume trọn 3/3 · 0 lần bị từ chối cục bộ", "ok", "c3c2ab5"]
   findings:
     - "**Kernel Android lưu đường đi theo từng CPU**: đường VPN chung ô với multicast → cpu4/cpu6 từ chối kết nối TCP trước cả SYN. Harness đếm và thử lại (`local_connect_rejections`)."
     - "**ZeroTier Android không tự hồi phục khi đổi mạng** — phải tắt/bật network trong app. Rủi ro ngày demo."
@@ -200,7 +202,7 @@ today:
     - [trung, "Review **#35**", khanh, "nhờ review + ghi cách tái lập trên PR"]
     - [tuananh, "Merge **#24** · **#26**", hunganh, "duyệt lại #24 (`be52d6f`) và #26 (`a585907`)"]
     - [tuananh, "Đo Spike E khung 21:00", trung, "stub 2 profile đã kiểm — trước 20:30"]
-    - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 21:00"]
+    - [tuananh, "Merge **#24** → rồi **#26**", trung, "sửa một dòng ID mạng ZeroTier ở `ANDROID_TOYBOX_HARNESS.md:14`"]
     - [hunganh, "Merge **#36** (bằng chứng C0)", hunganh, "review #36 — đã ready, CI 4/4, xếp sau Spike D và Spike E"]
     - [tuananh, "Đóng `GATE-SPLIT-01`", khanh, "sinh lại split theo `DR-002b`: ngưỡng khai trước, gom nhóm, loại case nghi trùng với holdout"]
     - [hunganh, "Merge **#29** · **#30**", trung, "review lại sau khi Hùng Anh sửa"]
@@ -232,7 +234,7 @@ today:
         - "**Hợp đồng ingestion 2 (artifact thí nghiệm) — khung schema v0** *(nợ dự phòng Day 6)* → PR nháp *(~2,5 h)*"
         - "**`E9` trên máy thật** — bổ sung phần leader bấm vào `E9_RECONNECT_DRILL.md` (#33) *(~1 h)*"
       then:
-        - "**Tổng hợp lượt đo khung 21:00** riêng từng profile; cập nhật nháp `RESULT.md`, ghi rõ `E8` mới có một khung *(~1,5 h, buổi tối)*"
+        - "▶ **Dữ liệu đã có** (`spike-e/evidence-20260916`): tổng hợp **riêng từng profile**, cập nhật nháp `RESULT.md`, ghi rõ `E8` mới có một khung và khung thực tế là 21:50 chứ không phải 21:00 *(~1,5 h)*"
       later:
         - "Kế hoạch đo `E7` bộ nhớ app *(~30 ph)*"
         - "Đối chiếu schema hợp đồng 1 với `dataset_manifest.json` trên `main` — chỉ siêu dữ liệu *(~1 h)*"
@@ -265,7 +267,7 @@ today:
         - "✅ **`DR-002b` = (c) + (d)** — gom nhóm theo ngưỡng khai trước · loại khỏi train case nghi trùng với holdout · ghi rõ giới hạn · thêm phân tích độ nhạy"
         - "✅ **`F5` = thu hẹp** — public giữ mã case + thống kê tổng hợp; SHA-256 từng file và điểm sàng lọc sang manifest hạn chế, hash + lệnh sinh lại vẫn công khai · ✅ **recovery đã xác nhận**"
       then:
-        - "Stub (nếu chọn phương án A) trước 14:00 · **đo Spike E khung 21:00**, hai profile *(~2 h)*"
+        - "✅ **Đo Spike E xong tối nay** — hai profile, `DIRECT`, 171/171 mẫu `ok` mỗi profile; dữ liệu thô trên nhánh `spike-e/evidence-20260916`, đã báo Trung tổng hợp"
         - "Merge #24 → #26 · #29/#30 · #34 khi approve → **QA soi lại Spike D** → `ACCEPTED` nếu PASS *(~2 h)*"
       later:
         - "✅ **Soát kỹ thuật #32 xong** — 10/10 ca kiểm, 9/10 phép phá bị chặn đúng, **1 lỗi thật** (manifest tự mâu thuẫn vẫn PASS); chờ anh ra phán quyết `APPROVE`/`CHANGES_REQUESTED`"

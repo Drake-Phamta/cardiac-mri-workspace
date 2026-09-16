@@ -281,7 +281,8 @@ spikes:
   SPIKE_A:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P1,
              next: "A9 and A2 on main (#27 approved and merged 6ca1e21); A3-A7 in PR #31, ready for review. Measured, not ACCEPTED - no QA step yet"}
   SPIKE_B:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P1}
-  SPIKE_E:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P2}
+  SPIKE_E:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P2,
+             next: "measured 2026-09-16 evening on both A6 profiles over Wi-Fi + ZeroTier DIRECT; raw data on spike-e/evidence-20260916 (c3c2ab5), 171/171 ok per profile. The owner aggregates per profile and writes RESULT.md - no E figure is computed by anyone else. evidence_present turns true when his RESULT.md is on main"}
   SPIKE_C0: {status: EVIDENCE_READY, started_at: "2026-09-16T00:43:25+07:00", evidence_present: true, priority: P2,
              review: APPROVED, evidence_commit: e6e3b0b,
              next: "PR #36 approved by scalliontor 17:17 and merged; 20 measurements over 10 variants in fp32 and bf16 plus the 4-5 h/day calendar verdict are on main. PRELIMINARY: cannot close GATE-ML-01 (DR-007) and no QA step has run. #37 (synthetic pipeline bring-up) is still a draft"}
