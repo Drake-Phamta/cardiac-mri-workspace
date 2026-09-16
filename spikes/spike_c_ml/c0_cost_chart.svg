@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="570" viewBox="0 0 1100 570">
+<rect width="100%" height="100%" fill="#0f172a"/>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#e2e8f0}.small{font-size:13px}.axis{stroke:#475569;stroke-width:1}.speed{fill:#38bdf8}.mem{fill:#f59e0b}</style>
+<text x="36" y="35" font-size="22" font-weight="700">C0 BF16 cost on RTX 4050 Laptop GPU — synthetic 560×560</text>
+<text x="36" y="56" class="small">Blue: training throughput (slices/s) · orange: peak allocated memory (MiB), batch 2</text>
+<text x="36" y="81.0" class="small">unet_base32_depth4</text>
+<rect class="speed" x="345" y="68.0" width="243.4" height="12" rx="2"/>
+<rect class="mem" x="345" y="84.0" width="246.3" height="8" rx="2" opacity="0.9"/>
+<text x="595.4" y="79.0" class="small">25.68</text>
+<text x="598.3" y="93.0" class="small">902</text>
+<text x="36" y="122.0" class="small">unet_base16_depth4</text>
+<rect class="speed" x="345" y="109.0" width="503.4" height="12" rx="2"/>
+<rect class="mem" x="345" y="125.0" width="121.1" height="8" rx="2" opacity="0.9"/>
+<text x="855.4" y="120.0" class="small">53.09</text>
+<text x="473.1" y="134.0" class="small">444</text>
+<text x="36" y="163.0" class="small">dino_s14_full_linear</text>
+<rect class="speed" x="345" y="150.0" width="222.3" height="12" rx="2"/>
+<rect class="mem" x="345" y="166.0" width="265.9" height="8" rx="2" opacity="0.9"/>
+<text x="574.3" y="161.0" class="small">23.45</text>
+<text x="617.9" y="175.0" class="small">974</text>
+<text x="36" y="204.0" class="small">dino_s14_full_progressive</text>
+<rect class="speed" x="345" y="191.0" width="211.7" height="12" rx="2"/>
+<rect class="mem" x="345" y="207.0" width="280.8" height="8" rx="2" opacity="0.9"/>
+<text x="563.7" y="202.0" class="small">22.33</text>
+<text x="632.8" y="216.0" class="small">1029</text>
+<text x="36" y="245.0" class="small">dino_s14_frozen_linear</text>
+<rect class="speed" x="345" y="232.0" width="690.0" height="12" rx="2"/>
+<rect class="mem" x="345" y="248.0" width="44.1" height="8" rx="2" opacity="0.9"/>
+<text x="1042.0" y="243.0" class="small">72.78</text>
+<text x="396.1" y="257.0" class="small">162</text>
+<text x="36" y="286.0" class="small">dino_s14_frozen_progressive</text>
+<rect class="speed" x="345" y="273.0" width="688.0" height="12" rx="2"/>
+<rect class="mem" x="345" y="289.0" width="48.3" height="8" rx="2" opacity="0.9"/>
+<text x="1040.0" y="284.0" class="small">72.56</text>
+<text x="400.3" y="298.0" class="small">177</text>
+<text x="36" y="327.0" class="small">dino_b14_full_linear</text>
+<rect class="speed" x="345" y="314.0" width="85.5" height="12" rx="2"/>
+<rect class="mem" x="345" y="330.0" width="677.6" height="8" rx="2" opacity="0.9"/>
+<text x="437.5" y="325.0" class="small">9.02</text>
+<text x="1029.6" y="339.0" class="small">2482</text>
+<text x="36" y="368.0" class="small">dino_b14_full_progressive</text>
+<rect class="speed" x="345" y="355.0" width="84.9" height="12" rx="2"/>
+<rect class="mem" x="345" y="371.0" width="690.0" height="8" rx="2" opacity="0.9"/>
+<text x="436.9" y="366.0" class="small">8.95</text>
+<text x="1042.0" y="380.0" class="small">2528</text>
+<text x="36" y="409.0" class="small">dino_b14_frozen_linear</text>
+<rect class="speed" x="345" y="396.0" width="349.2" height="12" rx="2"/>
+<rect class="mem" x="345" y="412.0" width="123.9" height="8" rx="2" opacity="0.9"/>
+<text x="701.2" y="407.0" class="small">36.84</text>
+<text x="475.9" y="421.0" class="small">454</text>
+<text x="36" y="450.0" class="small">dino_b14_frozen_progressive</text>
+<rect class="speed" x="345" y="437.0" width="336.6" height="12" rx="2"/>
+<rect class="mem" x="345" y="453.0" width="123.5" height="8" rx="2" opacity="0.9"/>
+<text x="688.6" y="448.0" class="small">35.50</text>
+<text x="475.5" y="462.0" class="small">452</text>
+<line class="axis" x1="345" y1="57" x2="345" y2="479"/>
+<text x="36" y="535" class="small">C0 is a hardware/throughput probe only. It does not establish convergence or close GATE-ML-01.</text>
+</svg>
