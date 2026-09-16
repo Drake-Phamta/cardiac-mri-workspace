@@ -20,6 +20,8 @@ Three rules govern every function here.
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 PASS = "PASS"
@@ -93,7 +95,7 @@ def run_checks(manifest: dict) -> list[Result]:
     out.append(_a7_geometry_recorded(cases))
     out.append(_a8_compatibility(cases))
     out.append(_a9_alignment(cases))
-    out.append(_a10_mask_values(cases))
+    out.append(_a10_mask_values(cases, owner_verdicts.get("a10_mapping")))
     out.append(Result("A11", "laendo.nrrd verified as the LA cavity target", OWNER,
                       "Requires the owner's written verdict citing specific files and values. "
                       "A script cannot establish what an annotation means."))
@@ -102,17 +104,18 @@ def run_checks(manifest: dict) -> list[Result]:
                       "This spike supplies evidence only; DR-002 / GATE-SPLIT-01 selects the "
                       "path. The manifest's partition summary is the input."))
     out.append(_a14_axis_aligned(cases))
-    out.append(_a15_anomalies(cases, manifest.get("duplicate_evidence") or []))
+    package_findings = manifest.get("package_findings") or []
+    out.append(_a15_anomalies(cases, manifest.get("duplicate_evidence") or [],
+                              package_findings))
     out.append(_a16_ids(cases))
-    out.append(_a17_privacy(cases, owner_verdicts.get("a17_excluded_files") or []))
+    out.append(_a17_privacy(cases, owner_verdicts.get("a17_excluded_files") or [],
+                            package_findings))
     out.append(Result("A18", "Licence / data-use terms preserved and archived", OWNER,
                       "Confirmed by the person who performed the download, against the "
                       "acquisition directory. Not derivable from the package contents."))
     out.append(Result("A19", "management/DATASET_AUDIT.md exists, covers 06 section 9.1", NOT_RUN,
                       "Produced by audit_report.py from this manifest; verify after generating it."))
-    out.append(Result("A20", "data/manifests/dataset_manifest.* exists and is machine-readable",
-                      PASS if manifest.get("manifest_version") else FAIL,
-                      "This manifest is the artifact; it is generated, not hand-typed."))
+    out.append(_a20_manifest(manifest))
     return out
 
 
@@ -132,6 +135,23 @@ def _a1_acquisition(manifest: dict) -> Result:
     detail = f"{len(files)} package file(s) from {acq.get('source_url')}"
     if without_sum:
         detail += f"; no checksum for: {', '.join(map(str, without_sum))}"
+    observed = manifest.get("source_package_observation")
+    if isinstance(observed, dict):
+        candidates = [item for item in files if isinstance(item, dict)
+                      and item.get("name") == observed.get("name")]
+        if len(candidates) != 1:
+            return Result("A1", "Acquisition record: date, source URL, file names, checksums",
+                          FAIL, "archive was hashed during scanning but acquisition.package_files "
+                          "does not contain exactly one matching file name")
+        claimed = candidates[0]
+        mismatches = [field for field in ("size_bytes", "sha256")
+                      if str(claimed.get(field, "")).lower()
+                      != str(observed.get(field, "")).lower()]
+        if mismatches:
+            return Result("A1", "Acquisition record: date, source URL, file names, checksums",
+                          FAIL, "scanned archive disagrees with acquisition record for: "
+                          + ", ".join(mismatches))
+        detail += "; archive size and SHA-256 independently recomputed during scan"
     return Result("A1", "Acquisition record: date, source URL, file names, checksums",
                   PASS, detail)
 
@@ -269,26 +289,29 @@ def _a9_alignment(cases: list[dict]) -> Result:
 
     aligned, misaligned, undetermined = [], [], []
     for c in checked:
-        v = (c.get("mri_mask_compatibility") or {}).get("origin_equal")
-        (aligned if v is True else misaligned if v is False else undetermined).append(c["case_id"])
+        compatibility = c.get("mri_mask_compatibility") or {}
+        v = compatibility.get("resampling_required")
+        (misaligned if v is True else aligned if v is False else undetermined).append(c["case_id"])
 
     if undetermined:
         return Result("A9", title, NOT_RUN,
-                      f"{len(undetermined)} case(s) have no comparable origin "
-                      f"({', '.join(undetermined[:5])}) - undetermined is not aligned")
+                      f"{len(undetermined)} case(s) have incomplete shape/spacing/origin/"
+                      f"direction evidence ({', '.join(undetermined[:5])}) - undetermined "
+                      "is not aligned")
     if misaligned:
         # Not aligned is a real, recordable state - `06` section 4 asks whether
         # resampling is required - but it is not a PASS for a question asking
         # whether they ARE aligned.
         return Result("A9", title, FAIL,
                       f"{len(misaligned)} of {len(checked)} labelled case(s) do NOT share the "
-                      f"MRI origin: {', '.join(misaligned[:5])}. A transform is required "
+                      f"MRI voxel grid (shape, spacing, origin and directions): "
+                      f"{', '.join(misaligned[:5])}. A transform is required "
                       f"before use; see A8.")
     return Result("A9", title, PASS,
-                  f"all {len(aligned)} labelled case(s) share the MRI origin exactly")
+                  f"all {len(aligned)} labelled case(s) share the complete MRI voxel grid")
 
 
-def _a10_mask_values(cases: list[dict]) -> Result:
+def _a10_mask_values(cases: list[dict], mapping: dict | None) -> Result:
     sets: dict[str, int] = {}
     unreadable = 0
     for c in cases:
@@ -305,7 +328,25 @@ def _a10_mask_values(cases: list[dict]) -> Result:
                       "no readable mask in this package")
     detail = "; ".join(f"{k} in {v} case(s)" for k, v in sorted(sets.items(), key=lambda kv: -kv[1]))
     if unreadable:
-        detail += f"; {unreadable} unreadable"
+        return Result("A10", "Mask unique values recorded; foreground mapping stated", FAIL,
+                      detail + f"; {unreadable} unreadable or invalid mask value set(s)")
+    if not isinstance(mapping, dict) or "background" not in mapping or "foreground" not in mapping:
+        return Result("A10", "Mask unique values recorded; foreground mapping stated", NOT_RUN,
+                      detail + "; owner foreground/background mapping is missing")
+    expected = sorted([float(mapping["background"]), float(mapping["foreground"])])
+    bad = []
+    for c in cases:
+        mask = c.get("mask")
+        if mask is None:
+            continue
+        uv = mask.get("unique_values")
+        values = uv.get("values") if isinstance(uv, dict) else None
+        if not isinstance(values, list) or sorted(values) != expected:
+            bad.append(c["case_id"])
+    if bad:
+        return Result("A10", "Mask unique values recorded; foreground mapping stated", FAIL,
+                      detail + f"; {len(bad)} mask(s) do not contain exactly the owner mapping "
+                      f"{expected}: {', '.join(bad[:5])}")
     detail += ". The foreground/background MAPPING is the owner's written statement, not an inference."
     return Result("A10", "Mask unique values recorded; foreground mapping stated", PASS, detail)
 
@@ -351,7 +392,8 @@ def _a14_axis_aligned(cases: list[dict]) -> Result:
                   f"all {aligned} volume(s) axis-aligned")
 
 
-def _a15_anomalies(cases: list[dict], duplicate_evidence: list[dict] | None = None) -> Result:
+def _a15_anomalies(cases: list[dict], duplicate_evidence: list[dict] | None = None,
+                   package_findings: list[dict] | None = None) -> Result:
     problems = []
     for c in cases:
         for role in ("mri", "mask"):
@@ -365,13 +407,21 @@ def _a15_anomalies(cases: list[dict], duplicate_evidence: list[dict] | None = No
     duplicates = duplicate_evidence or []
     for group in duplicates:
         problems.append(f"identical {group['file']} bytes: {', '.join(group['case_ids'])}")
+    layout = package_findings or []
+    for finding in layout:
+        problems.append(f"{finding.get('kind')}: {finding.get('path_relative')}")
     # The criterion is that anomalies are LISTED, so finding some is not itself a
     # failure - but printing ok beside a list of corrupt files is. An anomaly is
     # surfaced as FAIL so it cannot be skimmed past.
     # A15 asks for an explicit inventory. Identical cross-case content is
     # recorded as an anomaly but, under DR-002a, the known pair is grouped in
     # train rather than silently excluded. Unreadable content remains fatal.
-    fatal = any("unreadable" in p or "non-finite" in p for p in problems)
+    fatal_layout = {
+        "ORPHAN_REQUIRED_FILE", "NESTED_CASE_DIRECTORY", "DUPLICATE_CASEFOLD_PATH",
+    }
+    fatal = any("unreadable" in p or "non-finite" in p for p in problems) or any(
+        finding.get("kind") in fatal_layout for finding in layout
+    )
     status = FAIL if fatal else PASS
     return Result("A15", "Corrupted / missing / unreadable files listed", status,
                   f"{len(problems)} anomaly(ies): "
@@ -388,15 +438,20 @@ def _a16_ids(cases: list[dict]) -> Result:
     src_dupes = len(src) - len(set(src))
     names = [c.get("source_dir_name") for c in cases]
     name_dupes = len(names) - len(set(names))
-    if dupes or src_dupes or name_dupes:
+    malformed = [case_id for case_id in ids if not re.fullmatch(r"CASE_[0-9]{4}", case_id)]
+    deterministic = ids == [f"CASE_{i:04d}" for i in range(1, len(ids) + 1)] \
+        and src == sorted(src)
+    if dupes or src_dupes or name_dupes or malformed or not deterministic:
         return Result("A16", "Case IDs unique; de-identified internal IDs assigned", FAIL,
                       f"{dupes} duplicate internal ID(s), {src_dupes} duplicate source path(s), "
-                      f"{name_dupes} duplicate case-directory name(s)")
+                      f"{name_dupes} duplicate case-directory name(s), {len(malformed)} malformed "
+                      f"ID(s), deterministic order={deterministic}")
     return Result("A16", "Case IDs unique; de-identified internal IDs assigned", PASS,
                   f"{len(ids)} unique CASE_NNNN IDs assigned deterministically by sorted source path")
 
 
-def _a17_privacy(cases: list[dict], excluded_files: list[str] | None = None) -> Result:
+def _a17_privacy(cases: list[dict], excluded_files: list[str] | None = None,
+                 package_findings: list[dict] | None = None) -> Result:
     """A17 - metadata audit. `TASK.md:130` says "headers OR SIDECARS".
 
     The first version scanned only lgemri and laendo headers. This package
@@ -431,24 +486,31 @@ def _a17_privacy(cases: list[dict], excluded_files: list[str] | None = None) -> 
     # version only said NOT_RUN when NO header at all was readable, so a single
     # unreadable mask among many still printed PASS - breaking this module's own
     # rule 1 about never passing what it did not look at.
-    if sidecars:
-        excluded = set(excluded_files or [])
-        not_excluded = [path for path in sidecars if path not in excluded]
-        if not_excluded:
-            return Result("A17", title, FAIL,
-                          f"{len(sidecars)} non-NRRD sidecar file(s) inside case directories; "
-                          f"{len(not_excluded)} lack an explicit app-metadata exclusion: "
-                          f"{', '.join(not_excluded[:6])}. Content was NOT read; exclude the whole "
-                          f"file or clear it before it can enter the app metadata path.")
-        return Result("A17", title, PASS,
-                      f"{len(sidecars)} non-NRRD sidecar file(s) reported and explicitly excluded "
-                      f"from ingestion/app metadata: {', '.join(sidecars[:6])}. Raw archive remains "
-                      f"untouched; sidecar content was not propagated.")
     if unchecked:
         return Result("A17", title, NOT_RUN,
                       f"{unchecked} volume(s) could not be opened, so their headers were never "
                       f"scanned. Nothing was found in the ones that were, but this audit does "
                       f"not cover the package.")
+    external_files = [item.get("path_relative") for item in (package_findings or [])
+                      if item.get("kind") in {
+                          "FILE_OUTSIDE_CASE_DIRECTORY", "ORPHAN_REQUIRED_FILE",
+                          "NESTED_FILE_IN_CASE_DIRECTORY", "NESTED_CASE_DIRECTORY",
+                          "DUPLICATE_CASEFOLD_PATH",
+                      }]
+    sidecars.extend(path for path in external_files if path not in sidecars)
+    if sidecars:
+        excluded = set(excluded_files or [])
+        not_excluded = [path for path in sidecars if path not in excluded]
+        if not_excluded:
+            return Result("A17", title, FAIL,
+                          f"{len(sidecars)} non-NRRD/layout file finding(s); "
+                          f"{len(not_excluded)} lack an explicit app-metadata exclusion: "
+                          f"{', '.join(not_excluded[:6])}. Content was NOT read; exclude the whole "
+                          f"file or clear it before it can enter the app metadata path.")
+        return Result("A17", title, PASS,
+                      f"{len(sidecars)} non-NRRD/layout file finding(s) reported and explicitly excluded "
+                      f"from ingestion/app metadata: {', '.join(sidecars[:6])}. Raw archive remains "
+                      f"untouched; sidecar content was not propagated.")
     if not any(isinstance((c.get(r) or {}).get("header_identifier_findings"), list)
                for c in cases for r in ("mri", "mask")):
         return Result("A17", title, NOT_RUN, "no header was scanned")
@@ -456,6 +518,33 @@ def _a17_privacy(cases: list[dict], excluded_files: list[str] | None = None) -> 
     return Result("A17", title, PASS,
                   f"every readable header scanned across required files and {n_comp} companion "
                   f"volume(s); no sidecars; none matched a direct-identifier pattern")
+
+
+def _a20_manifest(manifest: dict) -> Result:
+    title = "data/manifests/dataset_manifest.* exists and is machine-readable"
+    required = ("manifest_version", "generated_at", "generated_by", "package_root",
+                "nrrd_library", "acquisition", "case_count_total", "partitions",
+                "shape_distribution", "cases")
+    missing = [key for key in required if key not in manifest]
+    if missing:
+        return Result("A20", title, FAIL,
+                      "manifest is missing required fields: " + ", ".join(missing))
+    cases = manifest.get("cases")
+    if not isinstance(cases, list) or manifest.get("case_count_total") != len(cases):
+        return Result("A20", title, FAIL,
+                      "case_count_total does not equal the number of case records")
+    partition_total = sum(block.get("case_count", -1)
+                          for block in (manifest.get("partitions") or {}).values()
+                          if isinstance(block, dict))
+    if partition_total != len(cases):
+        return Result("A20", title, FAIL,
+                      "partition case counts do not sum to case_count_total")
+    try:
+        json.dumps(manifest, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        return Result("A20", title, FAIL, f"manifest is not strict JSON: {exc}")
+    return Result("A20", title, PASS,
+                  "required fields, cross-counts and strict JSON serialization validated")
 
 
 # --- summary ----------------------------------------------------------------

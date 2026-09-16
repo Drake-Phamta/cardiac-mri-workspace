@@ -95,6 +95,26 @@ It must report the expected synthetic `A9 FAIL` and `A14 FAIL`.
 
 The selftest writes nothing into the repository and measures nothing real.
 
+### QA-002 hardening regressions
+
+Run the eight reduced red-team scenarios for F6–F11, F14 and F15:
+
+```powershell
+python tools/dataset_validate/hardening_regression.py
+```
+
+They use only temporary synthetic NRRDs/ZIPs and cover complete-grid A9,
+strict mask mapping, header allowlisting, independently recomputed archive
+hashes, package-layout/ZIP-path inventory, invalid direction matrices,
+controlled corrupt-ZIP refusal, and fallible A16/A20 checks. Expected result:
+`hardening regression: 8/8 passed`.
+
+Archive mode now hashes the ZIP it actually read and compares name, size and
+SHA-256 with `acquisition.package_files`. It also refuses unsafe, duplicate or
+case-variant member paths. Files outside direct case directories are recorded
+in `package_findings`; every non-NRRD/layout path must be explicitly excluded
+from ingestion/app metadata before A17 can pass.
+
 > ### The package is already on disk; choose the operator's private path
 >
 > Khánh's machine has the official ZIP, not a full 14.2 GiB extraction.
