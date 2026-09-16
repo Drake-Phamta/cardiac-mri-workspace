@@ -60,6 +60,47 @@ outlier removal. There were 171 samples: 171 successful, 0 failed.
 strategies exceed it in this run; this is an honest failed target, not a reason
 to remove the tail or relabel the run.
 
+## 3A. 2026-09-16 evening capture (profile-separated)
+
+The raw packet is on `spike-e/evidence-20260916` at commit `c3c2ab5`.
+`aggregate.py` was run separately for each profile against its own JSONL; the
+profiles below are not pooled. Both files contain 171/171 successful samples,
+0 truncated bodies, 0 local-connect rejections, `wifi-overlay`,
+`overlay_connection: direct`, and the same operator/owner provenance. Payloads
+are synthetic A6-shaped bytes, so these are transport measurements only.
+
+### Profile `576x576x88` (29,196,288-byte volume)
+
+| Criterion / scenario | Requests | Mean KB | p50 ms | p95 ms | Max ms |
+|---|---:|---:|---:|---:|---:|
+| E2 cold open s1 | 3 | 183.62 | 1,126 | 3,103 | 3,103 |
+| E2 cold open s3 | 3 | 28,512.0 | 338,905 | 534,277 | 534,277 |
+| E2 cold open s4 | 3 | 917.16 | 5,933 | 14,123 | 14,123 |
+| E3 uncached slice s1 | 39 | 152.46 | 1,062 | 3,326 | 6,939 |
+| E4 navigation s1 | 60 | 175.22 | 1,001 | 2,864 | 5,222 |
+| E4 navigation s4 | 12 | 887.08 | 4,175 | 28,606 | 28,606 |
+| E5 mask s2 | 39 | 40.50 | 386 | 1,381 | 3,218 |
+| E6 mesh levels 0/1/2/3 | 12 | 7.25/29.70/124.80/513.93 | 261/240/414/2,629 | 323/571/1,104/6,792 | 323/571/1,104/6,792 |
+
+### Profile `640x640x88` (36,044,800-byte volume)
+
+| Criterion / scenario | Requests | Mean KB | p50 ms | p95 ms | Max ms |
+|---|---:|---:|---:|---:|---:|
+| E2 cold open s1 | 3 | 225.65 | 597 | 1,058 | 1,058 |
+| E2 cold open s3 | 3 | 35,200.0 | 121,447 | 203,697 | 203,697 |
+| E2 cold open s4 | 3 | 1,127.94 | 2,114 | 4,137 | 4,137 |
+| E3 uncached slice s1 | 39 | 187.84 | 683 | 2,646 | 5,137 |
+| E4 navigation s1 | 60 | 215.65 | 627 | 1,844 | 4,629 |
+| E4 navigation s4 | 12 | 1,091.51 | 2,485 | 6,181 | 6,181 |
+| E5 mask s2 | 39 | 50.00 | 311 | 812 | 1,147 |
+| E6 mesh levels 0/1/2/3 | 12 | 7.25/29.70/124.80/513.93 | 288/270/402/1,043 | 321/310/402/1,399 | 321/310/402/1,399 |
+
+For both profiles `NFR-PERF-001` (E4 p95 <= 200 ms) is exceeded: s1/s4 are
+2,864/28,606 ms and 1,844/6,181 ms respectively. E12 is observed as
+`DIRECT` from the phone to the Mac mini during the capture. E8 remains partial:
+this is one evening window (the run began at 21:50, outside the planned
+21:00 +/- 15-minute window), so no time-of-day spread claim is made.
+
 ## 4. Draft conclusions (not final acceptance)
 
 ### E10 — first-load budget
@@ -90,20 +131,23 @@ separate, explicitly sized artifact requests.
 | Criterion | Draft status | Reason |
 |---|---|---|
 | E1 | measured path confirmed | operator packet confirms Wi-Fi + ZeroTier DIRECT |
-| E2–E6, E12 | measured for run 4 | see aggregate table; s1/s4 navigation target fails |
+| E2-E6, E12 | measured for run 4 and the 2026-09-16 two-profile capture | profile-separated tables above; E4 target fails; E12 is DIRECT |
 | E7 | `NOT MEASURED` | no app peak-memory instrumentation |
-| E8 | partial | one Wi-Fi time window; more windows required |
+| E8 | partial | one evening Wi-Fi time window only; more windows required |
 | E9 | `NOT MEASURED` | physical link-loss/reconnect run still required |
 | E10/E11/E13 | draft | owner conclusions above, pending reruns and review |
 
 **Overall:** `NEEDS_FIX` / incomplete evidence. Constraints relaxed: **NONE**.
-Before `ACCEPTED`, the owner must supply the missing E7/E9/E8 evidence, rerun
-with both real `uint8` A6 payload profiles after the payload PR lands, and hand
-this draft to the designated reviewer and QA red team.
+The 2026-09-16 two-profile packet closes the requested E2-E6/E12 aggregation
+without mixing profiles, but it does not close E7, E9, or E8. Before
+`ACCEPTED`, the owner must supply app-memory and reconnect evidence, add more
+time windows for E8, and hand this draft to the designated reviewer and QA red
+team.
 
 ## Attachments
 
 - Raw run: `spike-e/evidence-20260913` → `EVIDENCE_RAW/20260913_run4/`
+- Raw run: `spike-e/evidence-20260916` @ `c3c2ab5` → `EVIDENCE_RAW/20260916_evening/`
 - Aggregation: `management/day05/SPIKE_E_RUN4_AGGREGATE.json`
 - Harness: `spike-e/harness-local-retry` @ `2229a740`
 - Stub/payload source: this branch under `spikes/spike_e_transport/`
