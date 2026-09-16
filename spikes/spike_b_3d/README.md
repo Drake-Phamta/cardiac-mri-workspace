@@ -141,10 +141,6 @@ Hai nhãn `interior` và `surface_tangent` là nhóm hợp đồng của fixture
 Đây vẫn là kết quả trên mesh tổng hợp desktop; chưa đủ để chốt DR-008c hay
 ngoại suy sang mesh giải phẫu/FPS của Galaxy A17.
 
-**Đọc cột `slice/mm` trước cột `mean`.** Trên fixture này hai nhóm hợp đồng có đòn bẩy **chênh ~3,6
-lần** (0,695 vs 0,194): cùng một độ dịch hình học, `interior` sẽ ra sai số slice lớn hơn. Chênh lệch
-`mean` giữa hai nhóm vì thế **không** tự nó là tính chất của decimation. Diễn giải là việc của anh.
-
 *Chẩn đoán phụ — góc tới tại điểm chạm (`by_incidence_diagnostic`), **không** phải nhóm B14:*
 
 | Mức | lớp | n | góc tới TB | slice/mm | mean |
