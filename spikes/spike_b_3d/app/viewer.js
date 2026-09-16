@@ -72,7 +72,7 @@ function perspective(out, fov, aspect, near, far) {
   return out;
 }
 
-function modelMatrix(out, yaw, pitch, distance, scale, center) {
+function modelMatrix(out, yaw, pitch, distance, scale, center, pan) {
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const cx = Math.cos(pitch), sx = Math.sin(pitch);
   // The array below is column-major (WebGL convention), so compute the
@@ -85,7 +85,7 @@ function modelMatrix(out, yaw, pitch, distance, scale, center) {
     cy * scale, sy * sx * scale, sy * cx * scale, 0,
     0, cx * scale, -sx * scale, 0,
     -sy * scale, cy * sx * scale, cy * cx * scale, 0,
-    -rx * scale, -ry * scale, -rz * scale - distance, 1,
+    -rx * scale + pan[0], -ry * scale + pan[1], -rz * scale - distance, 1,
   ]);
   return out;
 }
@@ -129,10 +129,19 @@ let pitch = 0.35;
 let distance = 2.8;
 let scale = 1;
 let center = [0, 0, 0];
+let pan = [0, 0];
 let shading = true;
-let dragging = false;
 let pointers = new Map();
-let pinchDistance = null;
+let dragMode = null;
+let pinchState = null;
+
+function panBy(dx, dy) {
+  // Move in screen coordinates. Scaling by camera distance keeps panning
+  // useful at both close and wide zoom levels.
+  const gain = (distance * 1.25) / Math.max(1, canvas.clientHeight);
+  pan[0] += dx * gain;
+  pan[1] -= dy * gain;
+}
 
 function resize() {
   const ratio = window.devicePixelRatio || 1;
@@ -154,7 +163,7 @@ function draw() {
   gl.useProgram(renderer.program);
   gl.bindVertexArray(renderer.vao);
   const projection = perspective(new Float32Array(16), Math.PI / 4, canvas.width / canvas.height, 0.01, 100);
-  const model = modelMatrix(new Float32Array(16), yaw, pitch, distance, scale, center);
+  const model = modelMatrix(new Float32Array(16), yaw, pitch, distance, scale, center, pan);
   gl.uniformMatrix4fv(renderer.projection, false, projection);
   gl.uniformMatrix4fv(renderer.model, false, model);
   gl.uniform3f(renderer.light, -0.45, 0.8, 0.65);
@@ -172,10 +181,16 @@ function setZoom(next) {
 canvas.addEventListener('pointerdown', (event) => {
   canvas.setPointerCapture(event.pointerId);
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-  if (pointers.size === 1) dragging = true;
+  if (pointers.size === 1) {
+    dragMode = event.button === 2 || event.shiftKey ? 'pan' : 'orbit';
+  }
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
-    pinchDistance = Math.hypot(a.x - b.x, a.y - b.y);
+    pinchState = {
+      distance: Math.hypot(a.x - b.x, a.y - b.y),
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    };
   }
 });
 canvas.addEventListener('pointermove', (event) => {
@@ -185,25 +200,32 @@ canvas.addEventListener('pointermove', (event) => {
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     const next = Math.hypot(a.x - b.x, a.y - b.y);
-    if (pinchDistance) setZoom(distance * (pinchDistance / Math.max(1, next)));
-    pinchDistance = next;
-  } else if (dragging) {
+    const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (pinchState) {
+      setZoom(distance * (pinchState.distance / Math.max(1, next)));
+      panBy(midpoint.x - pinchState.x, midpoint.y - pinchState.y);
+    }
+    pinchState = { distance: next, ...midpoint };
+  } else if (dragMode === 'orbit') {
     yaw += (event.clientX - previous.x) * 0.009;
     pitch = Math.max(-1.45, Math.min(1.45, pitch + (event.clientY - previous.y) * 0.009));
+  } else if (dragMode === 'pan') {
+    panBy(event.clientX - previous.x, event.clientY - previous.y);
   }
 });
 function releasePointer(event) {
   pointers.delete(event.pointerId);
-  if (pointers.size < 2) pinchDistance = null;
-  if (pointers.size === 0) dragging = false;
+  if (pointers.size < 2) pinchState = null;
+  if (pointers.size === 0) dragMode = null;
 }
 canvas.addEventListener('pointerup', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 canvas.addEventListener('wheel', (event) => {
   event.preventDefault();
   setZoom(distance * Math.exp(event.deltaY * 0.001));
 }, { passive: false });
-fitButton.addEventListener('click', () => { yaw = -0.55; pitch = 0.35; distance = 2.8; });
+fitButton.addEventListener('click', () => { yaw = -0.55; pitch = 0.35; distance = 2.8; pan = [0, 0]; });
 shadeButton.addEventListener('click', () => {
   shading = !shading;
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
