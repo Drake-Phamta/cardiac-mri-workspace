@@ -27,20 +27,20 @@ It never opens `laendo.nrrd`, `lawall.nrrd`, or a patient key.
 
 The independent QA-002 screen already found one strong candidate:
 `CASE_0056`/`CASE_0097` share byte-identical cavity and wall files and have
-full-resolution MRI Pearson r ≈ 0.9965. `DR-002a` groups them and pins both
-to training. The MRI-only screen is required to re-find this pair as a method
-sanity check. A high MRI score **does not prove patient identity**, while a
-low score cannot rule out pre/post-ablation scans of the same patient.
+near-perfect full-resolution MRI correlation. `DR-002a` groups them and pins
+both to training. The MRI-only screen is required to re-find this pair as a
+method sanity check. A high MRI score **does not prove patient identity**,
+while a low score cannot rule out pre/post-ablation scans of the same patient.
 
 **Executed on the private ZIP (2026-09-16):** 154 MRI volumes, 11,781 pairs;
 synthetic selftest 5/5 PASS. The MRI-only method ranked the known
-`CASE_0056`/`CASE_0097` pair **first** with sampled-feature Pearson
-`r=0.996141`, independently recovering QA-002's full-voxel `r≈0.9965`.
-The highest correlation spanning the released Training↔Testing boundary
-was `r=0.794344`; another proposed train↔validation crossing reached
-`r=0.781772`. These are **screening candidates**, not proven repeat patients.
+`CASE_0056`/`CASE_0097` pair **first** and above the declared threshold,
+independently recovering QA-002's duplicate finding. The upper tail also
+contained a released Training↔Testing crossing and another proposed
+train↔validation crossing. Exact per-pair scores are restricted under F5.
+These are **screening candidates**, not proven repeat patients.
 The complete ranked case-ID/score JSON is stored outside the repository in
-the operator's private dataset directory pending the F5 publication decision.
+the operator's private dataset directory under the leader's narrow F5 policy.
 
 ```powershell
 python tools/dataset_split/linkage_screen.py --selftest
@@ -52,12 +52,20 @@ python tools/dataset_split/linkage_screen.py `
 ```
 
 **Publication restraint:** the private screen output holds only case IDs,
-scores and method, never image bytes. Nevertheless those case-level
-similarity scores are dataset-derived metadata, and QA-002 F5's public
-publication question remains undecided. Do **not** commit that private JSON
-until the project lead confirms the release/DDA permits this scope or chooses
-a restricted manifest channel. Aggregate counts and the already disclosed
-known pair may be reviewed without copying raw data.
+scores and method, never image bytes. Under the leader's 2026-09-16 F5
+decision, pair scores stay outside the repository. The public split manifest
+records its SHA-256, regeneration command, threshold, aggregate counts and
+affected case IDs, but not exact pair scores.
+
+## DR-002b implementation
+
+The leader selected option (c) + (d). Before any real-data training, the split
+declares a fixed threshold of sampled-feature Pearson **`r >= 0.75`**, chosen at
+the upper-tail break after rank 5. It catches 5 pairs affecting 9 case IDs,
+including the known duplicate. Same-side connected components are kept whole;
+development cases connected to holdout are removed from effective training,
+with exclusion propagated to their complete group. `SPLIT_RESULT.md` records
+the public case-level actions and leaves a Spike C1 sensitivity-analysis slot.
 
 ## Gate conclusion and request
 
@@ -65,10 +73,12 @@ Conclusion category: **suspected repeated acquisition(s) and no trustworthy
 complete mapping**. The known pair is handled; other repeat patient scans
 cannot be mapped. The proposed 80/20/54 case membership therefore passes
 case-level disjointness but records biological patient overlap as
-`NOT VERIFIABLE`; `GATE-SPLIT-01` is `BLOCKED_PATIENT_LINKAGE`.
+`NOT VERIFIABLE`. Under the documented `DR-002b` exception, the generated
+manifest is `EVIDENCE_READY_FOR_REVIEW`; the gate remains open until review and
+Project Control transition.
 
-**Leader/organizer HITL:** obtain a trustworthy patient-level grouping for
-all 154 scans, or explicitly decide a documented exception/change to the
-patient-level requirement. Image correlation is a screening tool, not a
-substitute for ground-truth patient linkage. Do not start Spike C1, train on
-real cases, or use holdout labels while this gate remains open.
+**Recorded limitation:** Patient-level separation is **NOT VERIFIABLE** for
+this release; the implemented safeguard is case-level disjointness plus
+correlation-screen grouping and exclusion. Image correlation is a screening
+tool, not a substitute for ground-truth patient linkage. Do not start Spike C1
+or train on real cases until `GATE-SPLIT-01` is formally closed.
