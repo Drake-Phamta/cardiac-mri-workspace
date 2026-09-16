@@ -94,7 +94,19 @@ cd ../app && npx expo run:android --variant release
 
 # 4 · sau khi chạy bài 30 bước trong app, kéo số liệu về
 cd ../harness && python extract_timings.py --label "release, sạc USB, 60Hz"
+
+# 5 · A2 (chặng S4) — trên máy: "kiểm A2" → pinch + kéo vài lần → "kiểm A2" → "A2 tự động"
+cd ../harness && python extract_a2.py --label "release, ..."
 ```
+
+**Chặng S4 — zoom/pan (A2), 14/09.** Hai ngón = pinch-zoom quanh điểm giữa hai ngón; một ngón = kéo; chạm
+nhẹ = hiện pixel gốc dưới ngón tay. Zoom/pan chỉ đổi **transform hiển thị** `{zoom, panX, panY}`; mask gốc
+được giải mã một lần và **không đoạn code transform nào nhận nó**. Nút **"kiểm A2"** băm SHA-256 cả 16 slice
+mask gốc và so với `slice_sha256` của fixture; `extract_a2.py` **tự tính lại** hash kỳ vọng bằng `hashlib`
+chứ không tin con số "khớp" của app. A2 chỉ ghi `OBSERVED` khi có một lần kiểm **trước** mọi thao tác, ít
+nhất **một pinch và một lần kéo thật**, rồi một lần kiểm **sau** — đều khớp 16/16. Mỗi thao tác còn ghi
+**khoảng hở frame lớn nhất** (TASK.md: khựng > 500 ms). Toán transform nằm ở `app/viewerMath.js`, kiểm
+offline bằng `node harness/test_viewer_math.mjs` (F4).
 
 > ### ⚠ Phải là RELEASE BUILD
 >
@@ -111,9 +123,11 @@ cd ../harness && python extract_timings.py --label "release, sạc USB, 60Hz"
 | **F1** | Fixture toàn vẹn — shape, checksum, trường DR-008a | **ok** |
 | **F2** | Pixel kỳ vọng tính lại độc lập, 60/60 khớp | **ok** |
 | **F3** | Marker định hướng đúng bốn góc trên cả 16 slice | **ok** |
-| A1 | Slice render đúng, hiện `n / total` | app đã dựng, **chờ chạy trên máy** |
-| A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | instrumentation sẵn, **chờ đo** |
-| A2 A3 A4 A5 A6 A7 A8 | zoom/pan · brush · undo/redo · save/reload · mapping | **chưa dựng** — chặng S5/S6 |
+| **F4** | Toán transform của app (`viewerMath.js`) — SHA-256, base64, 60 ca ánh xạ, zoom quanh điểm | **ok** 6/6 |
+| A1 | Slice render đúng, hiện `n / total` | một phần — xem `RESULT.md` |
+| A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
+| A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
+| A3 A4 A5 A6 A7 A8 | brush · undo/redo · save/reload · mapping sau zoom/pan | **chưa dựng** — chặng S5/S6 |
 | A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** |
 
 `F2` tồn tại vì `generate.py` và `check_conformance.py` **không dùng chung code**: generator ghi pixel kỳ

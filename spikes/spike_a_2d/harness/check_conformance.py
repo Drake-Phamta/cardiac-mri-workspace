@@ -10,12 +10,13 @@ What this checks TODAY, without the device:
   F1  fixture integrity — shapes, per-slice checksums, DR-008a fields present
   F2  the stored expected_source_pixel values recomputed independently
   F3  orientation markers sit exactly where DR-008a says they should
+  F4  app/viewerMath.js (the code the phone runs) against independent references
 
 What it does NOT check yet is stated as NOT IMPLEMENTED rather than passing
 silently. A checker that reports PASS for something it never looked at is worse
 than no checker, because it produces evidence that is not evidence.
 
-  A2  zoom/pan leaves the source mask checksum unchanged   -> needs app export
+  A2  zoom/pan leaves the source mask checksum unchanged   -> on the device, extract_a2.py
   A3  brush ADD touches only the intended pixels           -> needs app export
   A4  brush ERASE touches only the intended pixels         -> needs app export
   A5  brush mapping error distribution after zoom/pan      -> needs app export
@@ -145,10 +146,32 @@ def check_orientation_markers(vol):
            f"all {nz} slices: 3x3 top-left, 2x2 top-right, 1px bottom-left, none bottom-right")
 
 
+# --- F4 ---------------------------------------------------------------------
+def check_app_math():
+    """
+    The phone runs app/viewerMath.js. harness/test_viewer_math.mjs checks that
+    exact file against independent references (node:crypto, Buffer, the fixture's
+    expected pixels). Run it from here so one command covers everything offline.
+    """
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        record("F4", "app viewer math (node)", SKIP, "node not on PATH")
+        return
+    out = subprocess.run([node, os.path.join(HERE, "test_viewer_math.mjs")],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace")
+    lines = [ln.strip() for ln in out.stdout.splitlines() if ln.strip().startswith(("ok", "FAIL"))]
+    record("F4", "app viewer math (node)", PASS if out.returncode == 0 else FAIL,
+           f"{sum(ln.startswith('ok') for ln in lines)}/{len(lines)} checks: sha256, base64, "
+           f"mask checksums, 60 mapping cases, zoom-about-point, A2 sequence")
+
+
 # --- device-dependent criteria ---------------------------------------------
 def declare_pending():
+    record("A2", "zoom/pan leaves source mask checksum unchanged", SKIP,
+           "measured ON THE DEVICE: app 'kiểm A2' + harness/extract_a2.py (stage S4)")
     for cid, name in [
-        ("A2", "zoom/pan leaves source mask checksum unchanged"),
         ("A3", "brush ADD modifies only intended pixels"),
         ("A4", "brush ERASE modifies only intended pixels"),
         ("A5", "brush mapping error distribution after zoom/pan"),
@@ -167,6 +190,7 @@ def main():
     check_fixture_integrity(vol, mask)
     check_expected_pixels(vol, brush)
     check_orientation_markers(vol)
+    check_app_math()
     declare_pending()
 
     width = max(len(n) for _, n, _, _ in results)
