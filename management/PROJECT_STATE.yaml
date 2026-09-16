@@ -384,8 +384,15 @@ forecast:
     (DR-002 decided, audit fixed, split manifest drafted in PR #28).
   status_colour_note_2026_09_17: >
     Kept RED at the Day-7 close. Buffer is still -1 and ACCEPTED is still 0; GATE-DATA-01 is open for an
-    eighth day with the repair ready but unreviewed; and the day produced the project's first measurement
-    that misses a specification ceiling - NFR-PERF-001, with E4 p95 at 2864 ms and 1844 ms against 200 ms.
+    eighth day with the repair ready but unreviewed; and the day produced the project's first failed spike
+    criterion - Spike E's own E4, where the candidate prefetch strategy s4 reached p95 28606 ms and 6181 ms,
+    slower than the per-slice s1 at 2864 ms and 1844 ms - together with the first measured evidence for
+    RA-H13: nothing in 04 bounds an uncached fetch, so E3's 3326/2646 ms p95 has no ceiling to be compared
+    against. Corrected 2026-09-17: the Day-7 close first recorded this as an NFR-PERF-001 miss, which is a
+    scope error by Project Control. NFR-PERF-001 bounds only already-cached on-device slice switching, and
+    the measurement in its scope is Spike A's A9 - 65.31 ms and 50.23 ms p95, which passes. What the E
+    numbers do show against NFR-PERF-001 is its second limb: strategy s3 downloads the whole volume
+    (p50 338.9 s and 121.4 s), exactly what the clause forbids per gesture.
     Reconsider when Spike D is ACCEPTED and GATE-DATA-01 closes.
   status_colour_note_2026_09_16: >
     Kept RED at the Day-6 close: buffer is now -1, ACCEPTED is still 0, Spike D was rejected at the QA step
@@ -419,7 +426,7 @@ milestones:
 
 # --- PULL REQUESTS ----------------------------------------------------------
 open_prs:                           # as of 2026-09-17 01:30 (Day-7 close)
-  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Spike E. Head eaa878f now carries the owner's profile-separated aggregation of the 2026-09-16 evening capture: E2-E6 and E12 per profile, E4 p95 2864 ms and 1844 ms against the 200 ms NFR-PERF-001 ceiling, E8 explicitly partial (one evening window, started 21:50). The reviewer's only remaining objection - that the plan invoked a harness introduced solely by #24 - was cleared when #24 merged at 22:37. Waiting on his re-review, then the merge that puts Spike E RESULT.md on main"}
+  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Spike E. Head eaa878f now carries the owner's profile-separated aggregation of the 2026-09-16 evening capture: E2-E6 and E12 per profile, E4 navigation p95 2864/1844 ms for s1 and 28606/6181 ms for the s4 prefetch window, E8 explicitly partial (one evening window, started 21:50). Project Control asked the owner on 2026-09-17 to relabel two sentences: those figures fail Spike E's own E4 criterion and feed RA-H13, but they are not an NFR-PERF-001 miss - E4 navigate_s1 issues the same uncached URL as E3, on the operator machine, over HTTP, while NFR-PERF-001 bounds cached on-device slice switching. The numbers themselves are not in question. The reviewer's only remaining objection - that the plan invoked a harness introduced solely by #24 - was cleared when #24 merged at 22:37. Waiting on his re-review, then the merge that puts Spike E RESULT.md on main"}
   - {number: 29, branch: hung-anh/day06-b14, author: scalliontor, waits_on: TrungNGD195, note: "Spike B B14 owner interpretation; duplicated passage removed d223cc4 at 15:48, re-review requested"}
   - {number: 30, branch: hung-anh/day06-b1, author: scalliontor, waits_on: TrungNGD195, note: "Spike B B1 WebGL2 viewer. Pan added on desktop and touch (0d079e8, 712fbe9) with a refreshed capture, then clinical segmentation styling (c5ecb4d); out of draft, re-review requested. This closes PR-3D-02, one of the five MUST requirements the old counts had dropped"}
   - {number: 31, branch: spike-a/s5-brush, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S5 brush, A3-A7 OBSERVED on the device (evidence 1c62a00). Retargeted to main after #27 merged. The reviewer asked only for a documentation fix - the title said 'device run pending' while the evidence showed a completed run - which was applied at 22:40; re-review requested"}
@@ -464,8 +471,7 @@ merged_prs_note: >
 
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
-  - {id: "DR-002b x F5 collision", waits_on: "Pham Tuan Anh", subject: "the reviewer asks for the excluded case ids AND their similarity scores; the same-day F5 ruling restricts those scores, so PR #35 prints RESTRICTED_BY_F5. One line settles it: scores stay in the restricted manifest with only its hash public, or the scores of the excluded cases specifically are published"}
-  - {id: "NFR-PERF-001 miss", waits_on: "Pham Tuan Anh", subject: "the first measurement that misses a specification ceiling: E4 p95 2864 ms and 1844 ms against 200 ms on the acceptance path. Project Control drafts a Decision Request on Day 8 - caching/prefetch (PR-CACHE-01), a smaller payload, or a re-defined measurement condition. The spec is frozen, so a Decision Request is the only route"}
+  - {id: "RA-H13 first-load budget", waits_on: "Pham Tuan Anh", subject: "no requirement bounds the first load of a case, an uncached slice fetch or mesh delivery, so Spike E's transport numbers have nothing to be judged against and ADR-ART-001 has no criterion to be justified by. Spike E has now measured the gap: E3 uncached p95 3326/2646 ms, E4 s4 prefetch 28606/6181 ms, whole-volume s3 p50 338.9/121.4 s. Project Control drafts the Decision Request on Day 8 - add a measurable first-load NFR with a matching acceptance test, decide the transport strategy for ADR-ART-001, or both. The spec is frozen, so a Decision Request is the only route. PR-CACHE-01 stays SHOULD behind its scope firewall and must not be raised to MUST through this DR"}
   - {id: "DEMO_STANDARD panel", waits_on: "Pham Tuan Anh", subject: "whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16"}
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
   - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
@@ -485,6 +491,13 @@ decisions_made_during_execution:
     evidence: "PATIENT_LINKAGE_EVIDENCE.md in PR #35 - 154 scans from 60 patients (Xiong et al. 2021), no case-to-patient map, MRI-only screen over 11,781 pairs recovering the known duplicate at rank 1"
     gate_effect: "GATE-SPLIT-01 closes on a split manifest that implements this, reviewed by Nguyen Gia Duc Trung; 06 section 6 patient-level separation is recorded as DEVIATED WITH A DOCUMENTED EXCEPTION, not satisfied"
     record: "management/readiness/OPEN_DECISIONS.md -> Part 2b, DR-002b"
+  - id: "DR-002b x F5 collision"
+    decided: "2026-09-17"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: "The per-pair similarity scores stay in the restricted manifest, consistent with F5. The public split manifest must carry everything else the reviewer needs to audit the decision without them: the threshold r >= 0.75 declared as a field, the ids of every excluded case and of every group, the resulting counts (20/38/78 subsets, 78 effective train), and the restricted manifest's hash plus the exact command that regenerates it. A reviewer holding the ZIP can then reproduce every score; a reader without it can still check that the rule was declared before training and applied uniformly"
+    evidence: "QA-002 F5 (2026-09-16, narrow) against DR-002b (c)+(d), which asks for the excluded ids with their scores; PR #35 printed RESTRICTED_BY_F5 at the collision point"
+    gate_effect: "unblocks the second review round on PR #35; GATE-SPLIT-01 still needs that review plus the regeneration after #34 merges"
+    record: "management/day06/QA_REVIEW_002_SPIKE_D.md section 9; management/readiness/OPEN_DECISIONS.md -> Part 2b, DR-002b"
   - id: "QA-002 F5"
     decided: "2026-09-16"
     decided_by: "Pham Tuan Anh - Team Leader"

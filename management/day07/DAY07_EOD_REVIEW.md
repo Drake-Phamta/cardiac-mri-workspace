@@ -110,9 +110,26 @@ ghi lại thay vì lặng lẽ đổi verdict. Trung bám đúng ba ràng buộc
 
 ## 5 · Kết quả âm (`NEGATIVE_RESULT`)
 
-Không có `NEGATIVE_RESULT` chính thức. Nhưng ngày này sinh ra **kết quả đo đầu tiên không đạt ngưỡng spec** —
-`NFR-PERF-001` — và nó được ghi đúng như nó là, xem §10 và §11. Đây là thứ Spike E sinh ra để tìm; tìm được ở
-Day 7 tốt hơn nhiều so với tìm được ở tuần demo.
+Không có `NEGATIVE_RESULT` chính thức. Nhưng ngày này sinh ra **kết quả đo đầu tiên không đạt một tiêu chí đã
+tuyên bố**: tiêu chí `E4` của chính Spike E — *"điều hướng liên tục với một chiến lược prefetch ứng viên"* —
+**trượt**, và trượt nặng nhất đúng ở chiến lược prefetch `s4` (p95 **28 606 ms** hồ sơ 576 và **6 181 ms** hồ sơ
+640, tức **chậm hơn** per-slice `s1` là 2 864 / 1 844 ms). Xem §10 và §11. Đây là thứ Spike E sinh ra để tìm;
+tìm được ở Day 7 tốt hơn nhiều so với tìm được ở tuần demo.
+
+> **⚠ Đính chính 17/09 — Project Control.** Bản Day-7 gốc của mục này ghi *"kết quả đo đầu tiên không đạt ngưỡng
+> spec — `NFR-PERF-001`"*. **Đó là lỗi phạm vi, và là lỗi của Project Control chứ không phải của chủ spike.**
+>
+> - `04:102` chỉ ràng buộc *"switching among **already available/cached** slices"* **trên máy demo**; `13:314`
+>   ghi rõ *"30-step **cached** slice navigation"*.
+> - `E4 navigate_s1` lại phát **đúng URL** của `E3 uncached_slice_s1` — `harness.py:128` và `:132`, cùng
+>   `{base}/s1/slice/{z}.png`: **không cache**, chạy **trên máy trạm**, đo **`ms_total` của một HTTP GET**, không
+>   phải thời gian slice hiện lên màn hình.
+> - Bằng chứng số học: `E4 s1` còn **nhanh hơn** `E3` uncached (2 864 vs 3 326 và 1 844 vs 2 646 ms) — cùng một
+>   phân phối, vì cùng một endpoint.
+> - Phép đo **đúng phạm vi** `NFR-PERF-001` là `A9` của Spike A: p95 **65,31 ms** và **50,23 ms**, release build,
+>   trên máy, slice đã cache, 30 bước — **đạt**.
+>
+> Số của Trung đúng và quý; chỉ chỗ gán nhãn là sai. Cách đọc đúng đã thay vào §10, §11, §12 và §13.
 
 ---
 
@@ -197,7 +214,7 @@ Day 7 tốt hơn nhiều so với tìm được ở tuần demo.
 | Integration status | `main` xanh · **4 merge** trong ngày · `ci_configured: true` · `branch_protection: false` · 12 PR mở |
 | Tests passed/failed | Không có test sản phẩm. Dụng cụ: `split.py --selftest` 11/11 và `linkage_screen.py` 5/5 *(Trung chạy lại)* · `test_contract1.py` 10/10 + **9/10 phép phá bị chặn** *(PC soi đối kháng)* · `hardening_regression.py` **8/8** *(#40)* · validator trên cohort chính thức 16 PASS / 0 FAIL / `A19` NOT_RUN · `extract_a2.py` tái lập `A2` `OBSERVED` *(Hùng Anh)* · `summarize.py` sinh lại `RESULT.md` C0 **byte-identical** *(Hùng Anh)* · đo Spike E **171/171 × 2 profile** |
 | Requirement completion | **0 / 44** `ACCEPTED` |
-| **New/changed risks** | **mới, lớn nhất trong ngày: `NFR-PERF-001` trượt trần trên đường truyền thật.** Số của chủ spike: `E4` p95 **2 864 ms** (profile 576) và **1 844 ms** (640) so với trần **200 ms**; tải trọn volume p50 **338,9 s** và **121,4 s**. Đây là đường `wifi-overlay` `DIRECT`, payload tổng hợp đúng hình dạng thật · **mới:** máy chủ tự rơi khỏi overlay mà tiến trình vẫn sống (`RISK-DEMO-NET-01`) · **mới:** gói chính thức có hai file lạ ở thư mục gốc (`A17`) · **giảm:** RISK-COMPUTE — `C0-1`…`C0-10` đã có số trên `main` |
+| **New/changed risks** | **mới, lớn nhất trong ngày — `RA-H13` chuyển từ rủi ro trên giấy sang rủi ro có số đo.** Số của chủ spike trên `wifi-overlay` `DIRECT`, payload tổng hợp đúng hình dạng thật: **tiêu chí `E4` trượt** — chiến lược prefetch `s4` p95 **28 606 ms** (576) và **6 181 ms** (640), *chậm hơn* per-slice `s1` (2 864 / 1 844 ms) · **limb 2 của `NFR-PERF-001` bị chiến lược `s3` vi phạm** — tải trọn volume p50 **338,9 s** và **121,4 s**, đúng thứ điều khoản cấm · slice **chưa cache** `E3` p95 **3 326** / **2 646 ms** **không có trần nào để đối chiếu** → đó là `RA-H13` (HIGH), và `ADR-ART-001` vẫn chưa tồn tại *(đính chính 17/09 — §5)* · **mới:** máy chủ tự rơi khỏi overlay mà tiến trình vẫn sống (`RISK-DEMO-NET-01`) · **mới:** gói chính thức có hai file lạ ở thư mục gốc (`A17`) · **giảm:** RISK-COMPUTE — `C0-1`…`C0-10` đã có số trên `main` |
 | **Technical debt introduced** | #40 xếp chồng trên #34 (bẫy đã đóng #28) · #38 xếp chồng trên #30 chưa merge · manifest trên `main` còn đường dẫn tuyệt đối · `PROJECT_STATE.sizing_rule` và hai câu trong `SPIKE_PHASE_STATE` còn lệch thực tế *(sửa khi chốt ngày này)*. **Đã trả:** 8 lỗi validator QA-002 có 8 test hồi quy (#40) · `F5` đã thực hiện · stub không còn phụ thuộc quyền truy cập |
 | Actual vs baseline | **M3 (Day 6–9) còn hôm nay và mai** mà `contracts/` chưa có gì trên `main`, hợp đồng API chưa bắt đầu · **M4 (Day 8–12) bắt đầu hôm nay** với `SPIKE_C1` còn `BLOCKED` |
 | **Proposed corrective actions** | §11 |
@@ -235,15 +252,19 @@ sang ngày thứ tám** — nếu hết Day 8 mà #34 vẫn chưa được duy�
 3. **Gỡ bẫy xếp chồng ngay**: #40 đổi base sang `main` trước khi #34 merge.
 4. **M3 phải đi một bước thật trong Day 8** (hợp đồng API v0 + `geometry_contract_version`), vì cửa sổ chỉ còn
    hôm nay và mai; nếu hết Day 9 vẫn chưa xong thì M3 trượt và M5 bắt đầu trên nền hợp đồng chưa chốt.
-5. **`NFR-PERF-001`**: Project Control soạn Decision Request trong Day 8, leader quyết trong ngày. Spec đóng
-   băng — Decision Request là đường duy nhất, và để càng lâu thì chiến lược tải của cả V1 lẫn Spike E càng trôi.
+5. **`RA-H13` — ngân sách first-load**: Project Control soạn Decision Request trong Day 8, leader quyết trong
+   ngày. `04` không đặt trần nào cho first-load, cho slice chưa cache, hay cho mesh, nên số Spike E vừa đo
+   **không có gì để đối chiếu**; mà `ADR-ART-001` thì phải được biện minh bằng một tiêu chí. Spec đóng băng —
+   Decision Request là đường duy nhất, và để càng lâu thì chiến lược tải của cả V1 lẫn Spike E càng trôi.
+   *(Đính chính 17/09: mục này bản gốc ghi là `NFR-PERF-001` — xem §5.)*
 
 ---
 
 ## 12 · Màu trạng thái — 🔴 RED
 
-Giữ RED. Buffer −1, `ACCEPTED = 0`, `GATE-DATA-01` sang ngày thứ tám, và ngày này thêm một kết quả đo **không
-đạt ngưỡng spec**. Xét lại màu khi Spike D `ACCEPTED` và `GATE-DATA-01` đóng.
+Giữ RED. Buffer −1, `ACCEPTED = 0`, `GATE-DATA-01` sang ngày thứ tám, và ngày này thêm một **tiêu chí spike
+trượt** (`E4`) cùng một **khoảng trống spec nay đã có số đo** (`RA-H13`). Xét lại màu khi Spike D `ACCEPTED` và
+`GATE-DATA-01` đóng.
 
 ---
 
@@ -256,7 +277,7 @@ Giữ RED. Buffer −1, `ACCEPTED = 0`, `GATE-DATA-01` sang ngày thứ tám, v�
 | 3 | **#40 hết nháp, base `main`** + **tuyên bố loại trừ `Unet.py`/`preprocess_data.py`** + trả lời review #34 | Bế Quốc Khánh |
 | 4 | **M3 đi một bước thật**: bản thảo **hợp đồng API v0** · **`geometry_contract_version`** | Trung · Vũ Hùng Anh |
 | 5 | **Phán `DR-002b` × `F5`** (điểm tương quan của case bị loại) | Phạm Tuấn Anh |
-| 6 | **Decision Request cho `NFR-PERF-001`** | Project Control → Phạm Tuấn Anh |
+| 6 | **Decision Request cho `RA-H13`** — ngân sách first-load + đầu vào `ADR-ART-001` | Project Control → Phạm Tuấn Anh |
 | 7 | **Picking `B3`/`B4`** trên fixture chính thức | Vũ Hùng Anh |
 | 8 | **Chuẩn bị `SPIKE_C1`** — chỉ thiết kế, không chạm dữ liệu thật | Bế Quốc Khánh |
 

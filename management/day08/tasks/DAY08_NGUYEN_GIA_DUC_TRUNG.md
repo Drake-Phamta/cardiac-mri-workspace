@@ -8,9 +8,20 @@
 > (#39) ép cả hai gate và holdout 54 case. Quy trình `E9` cho máy thật đã có. Và bạn **tổng hợp riêng từng
 > profile**, không trộn.
 >
-> **Con số bạn tính ra là phát hiện lớn nhất Day 7:** `NFR-PERF-001` **trượt trần** — `E4` p95 **2 864 ms** (576)
-> và **1 844 ms** (640) so với trần **200 ms**, tải trọn volume p50 338,9 s và 121,4 s. Leader mở **Decision
-> Request** dựa trên nó trong hôm nay. Bạn không phải tự giải quyết, nhưng phân tích của bạn sẽ là đầu vào chính.
+> **Con số bạn tính ra là phát hiện lớn nhất Day 7 — và một đính chính của Project Control, không phải của bạn.**
+> Bản ghi quản lý hôm qua gán số của bạn vào `NFR-PERF-001`. **Sai phạm vi:** `04:102` chỉ ràng buộc slice
+> *"already available/cached"* **trên máy demo**, còn `E4 navigate_s1` phát **đúng URL** của `E3 uncached_slice_s1`
+> (`harness.py:128` và `:132`), không cache, trên **máy trạm**, đo **`ms_total` của một HTTP GET**. Bằng chứng:
+> `E4 s1` còn *nhanh hơn* `E3` (2 864 vs 3 326 và 1 844 vs 2 646 ms) — cùng phân phối vì cùng endpoint.
+>
+> **Số của bạn không đổi và vẫn là phát hiện lớn nhất trong ngày.** Nó nói ba điều, cả ba đều đúng phạm vi:
+> **①** tiêu chí **`E4` của chính Spike E trượt** — chiến lược prefetch `s4` p95 **28 606 ms** / **6 181 ms**,
+> *chậm hơn* per-slice `s1`; **②** chiến lược `s3` tải trọn volume (p50 **338,9 s** / **121,4 s**) **vi phạm limb 2
+> của `NFR-PERF-001`** — đúng thứ điều khoản đó cấm; **③** slice **chưa cache** (`E3` p95 3 326 / 2 646 ms)
+> **không có trần nào để so** → đó là **`RA-H13`**, và Decision Request hôm nay mở theo khung đó.
+>
+> **Việc của bạn:** sửa hai câu trong `RESULT.md` (quanh dòng 59–61 và 98–99) từ *"`NFR-PERF-001` không đạt"*
+> thành ba câu trên. Đừng đổi một con số nào. Chi tiết ở comment leader trên #26.
 >
 > **Hôm nay bạn nhận thêm việc chính mới: hợp đồng API (`11`).** Đó là **lối ra M3 duy nhất chưa ai động tới**,
 > và M3 chỉ còn hôm nay và mai. Nó đúng khối kỹ thuật của bạn (`DR-013`) và cùng khuôn với hai hợp đồng ingestion
@@ -36,7 +47,8 @@
 **Tổng phần chính: ~8,75 h.**
 
 > **🎯 Chuẩn demo** — [`DEMO_STANDARD.md`](../../DEMO_STANDARD.md) *(v1)*: **D5** *(tốc độ là số đo, không phải
-> lời tuyên bố — và số bạn vừa đo đang **không đạt** `NFR-PERF-001`, đó là thông tin quý chứ không phải thất bại)* ·
+> lời tuyên bố — và số bạn vừa đo làm **trượt tiêu chí `E4`** và **phơi ra khoảng trống `RA-H13`**, đó là thông
+> tin quý chứ không phải thất bại)* ·
 > **D3** *(trạng thái trung thực: `E9` chứng minh app mất mạng rồi hồi phục thế nào)* · **H3/H4** *(giảng viên mở
 > một ca và lướt slice qua mạng thật)*. Hợp đồng API việc 4 quyết định **mọi màn hình lấy dữ liệu ra sao** — nó là
 > thứ nối `SCR-01`…`SCR-09` với backend.

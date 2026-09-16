@@ -57,7 +57,7 @@ Khánh xếp trên mọi việc khác của cậu ấy.
 | **Bế Quốc Khánh** | ① #40 hết nháp + base `main` · ② tuyên bố loại trừ `A17` · ③ **trả lời review #34** | ④ #35 theo phán quyết `DR-002b` × `F5` · ⑤ **chuẩn bị `SPIKE_C1`** (chỉ thiết kế) · ⑥ #37 hết nháp · ⑦ gói bằng chứng `TC-TEAM-001` | `C0-3` tìm trần thật · `C0-9` | **~9 h** |
 | **Nguyễn Gia Đức Trung** | ① **duyệt lại #35** · ② **sửa #32** · ③ duyệt lại #29 #30 #38 | ④ **hợp đồng API `11` v0** *(lối ra M3)* · ⑤ nhờ review #39 #33 · ⑥ `E7` · ⑦ `E9` máy thật buổi tối | `E10` `E11` `E13` · khung ban ngày cho `E8` | **~8,75 h** |
 | **Vũ Hùng Anh** | ① **duyệt lại #34 trước 12:00** · ② duyệt lại #26 · ③ **picking `B3`/`B4`** | ④ **`geometry_contract_version`** *(lối ra M3)* · ⑤ **`RESULT.md` cho Spike B** *(chưa có file nào)* | `B10`/`B11` · fixture TP/FP/FN cho Spike F | **~8,25 h** |
-| **Phạm Tuấn Anh** | ① **phán `DR-002b` × `F5`** · ② merge #26 · ③ merge #34 → **QA soi lại Spike D** | ④ **Decision Request `NFR-PERF-001`** · ⑤ review #39 · ⑥ **đo `A9` cache ±3** buổi tối · ⑦ merge phần còn lại · ⑧ chốt ngày | `TC-TEAM-001` (V1) · khung trạng thái màn hình | không giới hạn |
+| **Phạm Tuấn Anh** | ① **`DR-002b` × `F5` đã phán** → ghi QA-002 §9 + #35/#34 · ② **đính chính `NFR-PERF-001`** khắp bản ghi · ③ merge #26 · ④ merge #34 → **QA soi lại Spike D** | ⑤ **Decision Request `RA-H13`** · ⑥ review #39 · ⑦ **Spike A chặng `S6`** (dựng cache ±3 rồi đo hai chính sách) · ⑧ merge phần còn lại · ⑨ chốt ngày | `TC-TEAM-001` (V1) · khung trạng thái màn hình | không giới hạn |
 
 > **🎯 Chuẩn demo:** [`DEMO_STANDARD.md`](DEMO_STANDARD.md) **v1 đã duyệt** — mỗi packet có dòng 🎯 dẫn về luật
 > (D1–D7), bước demo (H1–H10) hoặc màn hình (SCR-01…09).

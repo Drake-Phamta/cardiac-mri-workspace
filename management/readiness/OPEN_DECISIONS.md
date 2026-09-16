@@ -1297,7 +1297,14 @@ rebuilt from the mapping before the split is frozen, and this decision is amende
    must catch the known duplicate (r ≈ 0.996).
 2. Groups are formed inside development and stay whole in every nested subset, exactly as DR-002a already requires.
 3. Development cases linked to a holdout case above the threshold are **excluded from training** and listed by
-   case id with their scores in `SPLIT_RESULT.md`.
+   case id in `SPLIT_RESULT.md`. **Amended 2026-09-17 to settle the collision with QA-002 `F5`:** the per-pair
+   **scores** live in the restricted manifest, not in the public one. In exchange the **public split manifest**
+   must carry, as fields rather than prose, (i) the threshold `r >= 0.75`, (ii) the case ids of every excluded
+   case and every group, (iii) the resulting counts - subsets 20/38/78 and 78 effective training cases - and
+   (iv) the restricted manifest's hash plus the exact command that regenerates it from the ZIP. A reviewer
+   holding the ZIP reproduces every score; a reader without it can still verify the two things that matter most
+   - that the rule was declared **before** training and applied **uniformly**. `F5` protects per-file values,
+   not the rule; the rule must stay public or (d) below is hollow.
 4. **Nguyễn Gia Đức Trung's review** checks that the threshold was declared before any run, that the rule was
    applied uniformly, and that the manifest counts match.
 5. Every report page and slide carrying an evaluation number carries one sentence: *patient-level separation is
@@ -1431,6 +1438,78 @@ requirement lived in DR-003 and `SPIKE_E_TRANSPORT/TASK.md`. **Spec checksums re
 **Owner's right.** DR-003a was proposed by Nguyễn Gia Đức Trung. He may propose reverting to cellular at
 any time — for example if a direct cellular path becomes available — and that proposal needs only to be
 made.
+
+---
+
+### DR-015 — No first-load or transport budget exists (`RA-H13`), and Spike E has now measured the gap
+
+| Field | Value |
+|---|---|
+| **Raised** | 2026-09-17 · Project Control, at the leader's instruction |
+| **Source** | `RA-H13` (**HIGH**), `IMPLEMENTATION_READINESS_AUDIT.md` §RA-H13; `SPIKE_E_TRANSPORT/TASK.md:32-35` |
+| **Status** | ⏳ **OPEN — awaiting the leader** |
+| **Affected requirement IDs** | `ADR-ART-001`, `NFR-PERF-001`, `NFR-PERF-004`, `PR-MRI-01`, `PR-CACHE-01`, `TC-PERF-001`, `TC-PERF-004`, `16` §2 hero flow |
+| **Blocks** | `ADR-ART-001` (cannot be justified without a criterion) · the V1 client's transport design · Spike E's `E10` |
+
+**Problem.** **[SPEC]** `04` NFR-PERF-001 bounds only *"switching among **already available/cached** slices"* at
+200 ms p95 on the target demo device, and forbids a full-volume transfer per gesture. NFR-PERF-004 bounds only
+*request creation* at 2 s. **[VERIFIED]** **Nothing bounds the first load of a case, the fetch of a slice that is
+not yet cached, or mesh delivery.** `09` §4 defers artifact strategy to `ADR-ART-001`, and `11` §2 permits large
+payloads "directly, by chunk/slice endpoint, or by versioned artifact URL according to `ADR-ART-001`" — but an
+ADR must be justified against a criterion, and there is none. The first action of the `16` §2 hero demo, opening
+a case, therefore has **no performance requirement at all**.
+
+**What is new: the gap now has numbers.** Spike E measured it on the acceptance path (`wifi-overlay`, `DIRECT`,
+two A6-shaped payload profiles, 171/171 successful samples each, owner's aggregation, PR #26):
+
+| Measurement | 576×576×88 | 640×640×88 | Is there a ceiling? |
+|---|---:|---:|---|
+| `E3` uncached slice fetch, p95 | **3 326 ms** | **2 646 ms** | ❌ **none exists** — this is `RA-H13` |
+| `E4` navigation, per-slice `s1`, p95 | 2 864 ms | 1 844 ms | ❌ none *(same endpoint as `E3`)* |
+| `E4` navigation, prefetch window `s4`, p95 | **28 606 ms** | **6 181 ms** | ❌ none — but it **fails `E4`'s own criterion**, and is *slower* than no prefetch |
+| `E2` cold open, whole volume `s3`, p50 | **338,9 s** | **121,4 s** | ✅ **violates `NFR-PERF-001` limb 2** — the per-gesture full-volume transfer the clause forbids |
+| `A9` cached slice switch on device, p95 *(Spike A, release build)* | **65,31 ms** | **50,23 ms** | ✅ **passes** `NFR-PERF-001` |
+
+> **⚠ Scope note, recorded because Project Control got it wrong first.** The Day-7 close recorded these as an
+> `NFR-PERF-001` miss. That is a category error: `E4 navigate_s1` issues the *same* URL as `E3 uncached_slice_s1`
+> (`harness.py:128` and `:132`), with no cache, on the operator machine, timing an HTTP `ms_total` — while
+> `NFR-PERF-001` and `TC-PERF-001` both say **cached**, on the **target demo device**. The numerical tell is that
+> `E4 s1` is *faster* than `E3` (2 864 vs 3 326; 1 844 vs 2 646): one distribution, one endpoint. Corrected
+> 2026-09-17 in `DAY07_EOD_REVIEW.md` §5, `PROJECT_STATE.yaml` and the board. The measurements are unchanged and
+> the owner's work is not in question; only the label was wrong.
+
+**Why it matters.** **[ASSUMPTION]** For a volume of this order the difference between per-slice fetch, a prefetch
+window and a whole-volume download is the difference between a usable and an unusable demo — and it is expensive
+to reverse after the client is built. Two results sharpen that: the whole-volume strategy is not merely slow but
+**forbidden** by the clause we already have; and the one *candidate prefetch strategy tested made things worse*,
+so "add caching" is not yet a known answer.
+
+**Options.**
+
+| # | Option | Consequence |
+|---|---|---|
+| **(a)** | Add a **first-load / uncached-fetch NFR** with a measurable target and a matching acceptance test | Makes the budget enforceable rather than advisory. `RA-H13`'s own recommendation. But a target with no strategy behind it is a number picked in the dark |
+| **(b)** | Decide the **transport strategy** for `ADR-ART-001` — per-slice vs prefetch window vs versioned artifact URL | Unblocks the client design. But without (a) there is no criterion the ADR is justified against, which is the original finding |
+| **(c)** | **Both** — the NFR fixes what "good" means, the ADR fixes how it is reached | ✅ **Project Control recommends this.** (a) without (b) means nobody knows what to measure; (b) without (a) repeats the gap that raised `RA-H13` |
+| **(d)** | Defer to `M5` | Every day of delay is a day the V1 client and Spike E drift on an unstated assumption, with buffer at **−1** |
+
+**Constraints that bind any option.**
+
+1. **Spec is frozen.** `docs/specs/v1.0/**` is not edited. A Decision Request is the only route, per `00` §13.
+2. ⛔ **`PR-CACHE-01` stays `SHOULD`.** Its scope firewall is repeated verbatim in five documents. Nothing in this
+   DR raises it to `MUST`, directly or by implication — a first-load NFR is a *budget*, not a mandate to build a
+   cache subsystem in V1.
+3. **`NFR-PERF-001` is not weakened or redefined.** `A9` already passes it. This DR adds a requirement where
+   there is none; it does not move an existing ceiling. `SPIKE_A_2D/TASK.md:174` and the Day-3 packet both record
+   that relaxing `NFR-PERF-001`/`-003` to obtain a pass is forbidden.
+4. **Evidence before freeze.** `RA-H13` says `ADR-ART-001` should not be frozen without the measurement — the
+   measurement now exists for two profiles at one time of day (`E8` is explicitly partial), so any target set
+   here is provisional until the time-of-day spread lands.
+5. **`E10`'s provisional proposal is an input, not the decision.** The owner proposed ≤ 1 000 ms p95 to the first
+   usable per-slice PNG; that was measured at 445 ms p95 on run-4 but 3 103 ms on the 2026-09-16 evening capture.
+
+**If deferred.** `ADR-ART-001` stays unjustifiable, Spike E cannot close `E10`, and the V1 client picks a
+transport strategy by default rather than by decision.
 
 ---
 
