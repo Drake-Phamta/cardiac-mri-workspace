@@ -142,8 +142,16 @@ chính mình).
 | **Q3** | F5 — manifest trong repo public | giữ như siêu dữ liệu · hoặc hạn chế | **bỏ đường dẫn tuyệt đối ngay**; phán phần còn lại sau khi Khánh trích điều khoản CAP liên quan |
 
 **Leader đã quyết, 15/09 12:29:** **Q1 = (a)** → ghi thành [`DR-002a`](../readiness/OPEN_DECISIONS.md) · **Q3 như đề xuất** —
-bỏ đường dẫn tuyệt đối khỏi manifest ngay, phần còn lại chờ Khánh trích điều khoản CAP. **Q2 chưa quyết** — leader hỏi
-vì sao phải hoãn; Project Control giải thích trong phiên làm việc.
+bỏ đường dẫn tuyệt đối khỏi manifest ngay, phần còn lại chờ Khánh trích điều khoản CAP.
+
+**Leader đã quyết, 16/09: `Q2` = hoãn có ghi.** Bảng `A19` ghi mục *"split và ID manifest"* của `06` §9.1 là **hoãn sang
+`GATE-SPLIT-01`**, kèm câu nói rõ **training vẫn `BLOCKED`** tới khi gate đó đóng. Lý do: tránh phụ thuộc vòng — audit cần
+ID manifest split, mà split lại cần audit đã qua nghiệm thu; và `GATE-SPLIT-01` đang có blocker riêng (nối bệnh nhân), nên
+**không ai được đọc chỗ hoãn này thành "split đã ổn"**. Khánh viết đúng câu đó vào `A19` trong PR #34.
+
+**Phần còn lại của F5 vẫn mở.** Khánh đã trích CAP §§6–7 trong `POLICY_EVIDENCE.md` (PR #34) và kết luận: hai PDF chính sách
+**không** đủ để khẳng định bản phát hành LASC 2018 cho phép công khai siêu dữ liệu từng case — cần điều khoản của chính bản
+phát hành/DDA. Leader phán trong Day 7; đề xuất của Project Control nằm trong packet leader.
 
 ---
 

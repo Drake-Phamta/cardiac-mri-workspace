@@ -95,7 +95,7 @@ Chi tiết ở §3.1 bên dưới.
 
 > ### ⚠ Đừng đọc `00`→`17` tuyến tính trước Day 1
 >
-> Bộ spec đóng băng **là nguồn chân lý** — nhưng nó có **39 product requirement, 79 FR/NFR, 17 use case, 69 acceptance test**. **Không ai** cần đọc hết trước Day 1.
+> Bộ spec đóng băng **là nguồn chân lý** — nhưng nó có **44 product requirement, 79 FR/NFR, 17 use case, 70 acceptance test** *(đính chính 16/09; bản cũ ghi 39 và 69 — [`ERRATUM_COUNTS_2026_09_16.md`](../readiness/ERRATUM_COUNTS_2026_09_16.md))*. **Không ai** cần đọc hết trước Day 1.
 >
 > Cách dùng đúng: đọc LEVEL 1–3, rồi **tra cứu** spec theo ID khi cần. Mọi tài liệu onboarding đều dẫn ID gốc (`07` §6, `PR-REV-02`, `DR-008a`, …) để bạn nhảy thẳng tới đúng chỗ.
 >

@@ -58,6 +58,7 @@ All checks below are reproducible read-only commands run against `docs/specs/v1.
 | Spec integrity | `sha256sum -c SPEC_MANIFEST_SHA256.txt` | **19/19 OK** — set intact, unmodified |
 | Product requirements defined in `03` | ID extraction, deduplicated | **39** (28 MUST / 6 SHOULD / 5 COULD) |
 | Prior report's claim (`SPEC_AUDIT_REPORT_v1_0.md` §2) | — | **44** (33 MUST / 6 SHOULD / 5 COULD) |
+| **ERRATUM 2026-09-16 — the prior report was RIGHT** | re-extraction allowing a digit inside a prefix and multi-segment prefixes; cross-checked referenced vs defined | **44** (33 MUST / 6 SHOULD / 5 COULD) and **70** acceptance tests. The `39` row above came from a pattern that skipped `PR-3D-01`…`PR-3D-05`, all five of them MUST. See [`ERRATUM_COUNTS_2026_09_16.md`](ERRATUM_COUNTS_2026_09_16.md) |
 | FR/NFR defined in `04` | ID extraction | **79** |
 | FR/NFR in `13` §10 coverage map | ID extraction | **79** |
 | FR/NFR coverage gaps | set difference, both directions | **zero** ✅ |
@@ -502,6 +503,7 @@ The rest of the cohort analytics vertical may proceed.
 | **Severity** | **HIGH** |
 | **Affected spec files** | `01`, `03`, `04`, `13`, `15` |
 | **Affected requirement IDs** | all 28 MUST product requirements; 75 MUST FR/NFR; 69 acceptance tests; `03` §5 scope firewall |
+| **Erratum 2026-09-16** | the floor is **33 MUST** product requirements and **70** acceptance tests ([`ERRATUM_COUNTS_2026_09_16.md`](ERRATUM_COUNTS_2026_09_16.md)). This risk is therefore larger than the row above states, not smaller |
 
 **Description.** **[VERIFIED]** The accepted MVP floor is **28 MUST product requirements**, **75 MUST
 functional/non-functional requirements**, and **69 acceptance tests**, for **4 students in 30 days**.

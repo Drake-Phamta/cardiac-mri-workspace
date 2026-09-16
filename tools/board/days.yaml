@@ -81,13 +81,28 @@ decision_notes:
 
 # Standing decisions still in force - the rules people work under today.
 policies:
+  - date: "16/09"
+    id: "Q2 — bảng `A19`"
+    text: "**Mục \"split và ID manifest\" của `A19` hoãn sang `GATE-SPLIT-01`, có ghi rõ** — kèm câu training vẫn `BLOCKED` tới khi gate đóng. Tránh phụ thuộc vòng (audit cần ID split, split cần audit); **không ai được đọc chỗ hoãn thành \"split đã ổn\"**."
+    ref: management/day06/QA_REVIEW_002_SPIKE_D.md
+  - date: "16/09"
+    id: "Stub Spike E — phương án A"
+    text: "**Project Control dựng stub trên Mac mini bằng SSH của leader**, chạy đúng lệnh chủ spike ghi trên #26. **Trung giữ thiết kế, phép kiểm và mọi con số `E`** — gỡ phụ thuộc quyền truy cập, không đổi quyền sở hữu (`DR-013`)."
+  - date: "16/09"
+    id: "Chuẩn demo v1"
+    text: "**`DEMO_STANDARD.md` được duyệt thành v1** — chuẩn lập kế hoạch từ Day 7, mọi dòng 🎯 dẫn về luật `D1`–`D7`, bước `H1`–`H10` hoặc màn hình `SCR`. **Đính chính số đếm: 44 yêu cầu / 33 `MUST` / 70 test** (bản cũ ghi 39/28/69). Bảng hiệu năng trên màn hình **chưa quyết** — muốn có phải qua Decision Request."
+    ref: management/DEMO_STANDARD.md
+  - date: "16/09"
+    id: "Recovery khi buffer −1"
+    text: "**Giữ kế hoạch, không de-scope**, cộng **5 hành động Level 1**: gỡ phụ thuộc quyền cho stub · thứ tự review của Hùng Anh (#24/#26 → #34 → #27/#31 → C0) · mốc đẩy 12:00 và 18:00 cho Khánh · Decision Request split quyết trong ngày · packet ghi rõ **việc cần quyền gì và ai đang có**."
+    ref: management/day06/DAY06_EOD_REVIEW.md
   - date: "15/09"
     id: "DR-002a"
     text: "**Cặp `CASE_0056`/`CASE_0097` (một lần chụp bị xuất hai lần — QA-002) là một nhóm, ghim vào train.** Giữ 80/20 và seed 2024; validation còn 20 lần chụp khác nhau; các tập con 25/50/100% chứa cả hai hoặc không case nào; train ghi rõ 79 lần chụp khác nhau."
     ref: management/readiness/OPEN_DECISIONS.md
   - date: "15/09"
     id: "Chuẩn demo"
-    text: "**Sản phẩm cuối phải \"wow\"** — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi **trong phạm vi spec**, không thêm yêu cầu ngoài `00` §13. Chuẩn chung: `management/DEMO_STANDARD.md` (v0, chờ leader duyệt)."
+    text: "**Sản phẩm cuối phải \"wow\"** — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi **trong phạm vi spec**, không thêm yêu cầu ngoài `00` §13. Chuẩn chung: `management/DEMO_STANDARD.md` — **v1, leader duyệt 16/09**."
   - date: "15/09"
     id: "Khối lượng ≥ 8 h"
     text: "Mỗi thành viên **tối thiểu 8 giờ việc thật** + ~2 giờ **hàng đợi dự phòng**; việc bị chặn luôn có việc thay thế trong cùng packet. Xong việc nào đẩy việc đó để người khác dùng được trong ngày."
@@ -115,7 +130,7 @@ policies:
     ref: management/readiness/OPEN_DECISIONS.md
   - date: "13/09"
     id: "Recovery"
-    text: "**Giữ kế hoạch, không de-scope** — de-scope `COULD` không mua thêm ngày nào. Lúc quyết buffer 0; **từ 16/09 buffer −1** nên leader xác nhận lại trong Day 7. Day 30 cố định 09/10, không lùi."
+    text: "**Giữ kế hoạch, không de-scope** — de-scope `COULD` không mua thêm ngày nào. Buffer lúc quyết: 0; **16/09 buffer −1, leader xác nhận lại: vẫn giữ kế hoạch, thêm 5 hành động Level 1**. Day 30 cố định 09/10, không lùi."
   - date: "11/09"
     id: "DR-003a"
     text: "Overlay chuẩn là **ZeroTier**. Mạng hiện dùng: `b103a835d292ddb3` (tài khoản của leader)."
@@ -173,8 +188,7 @@ today:
       what: "**`B1` đủ theo TASK** — thêm **pan** (desktop + touch) vào #30, bỏ đoạn lặp ở #29, nhờ Trung review lại"
       why: "`B1` trọn · nền cho picking `B3`/`B4`"
   waits:
-    - [khanh, "Bảng `A19` — mục split trong #34", tuananh, "quyết **`Q2`** (hẹn trước 10:00)"]
-    - [trung, "Dựng và kiểm stub 2 profile", tuananh, "chọn đường: Project Control dựng bằng SSH của leader, hay cấp quyền cho Trung (hẹn trước 10:00)"]
+    - [trung, "Xác nhận stub 2 profile (trước 20:30)", tuananh, "Project Control dựng stub bằng SSH của leader — phương án A, trước 14:00"]
     - [hunganh, "Duyệt lại Spike D", khanh, "**#34 chuyển ready** (hẹn 12:00)"]
     - [trung, "Review **#35**", khanh, "nhờ review + ghi cách tái lập trên PR"]
     - [tuananh, "Merge **#24** · **#26**", hunganh, "duyệt lại #24 (`be52d6f`) và #26 (`a585907`)"]
@@ -203,7 +217,7 @@ today:
     trung:
       load: "chính **≥ 8 h** (~9 h) · dự phòng ~1,5 h · hạn **23:59**"
       debts:
-        - "**Stub 2 profile theo đường leader chọn** — A: bạn ghi đúng lệnh lên #26 trước 11:00, Project Control dựng, bạn kiểm HEAD từng profile · B: leader cấp SSH, bạn tự dựng — **kiểm xong trước 20:30** *(~1,5 h)*"
+        - "✅ **Leader chọn phương án A**: Project Control dựng stub bằng SSH của leader; **bạn đối chiếu output với `PROFILE_MANIFEST.json`** (576 → 29 196 288 byte · 640 → 36 044 800) và **xác nhận trên #26 trước 20:30** *(~1 h)*"
         - "**Review #35** — split `DR-002a`: selftest, schema, 80/20/54, cặp trùng cùng ở train, tập con lồng nhau, chạy hai lần ra cùng file *(~2 h)*"
         - "Theo dõi #24/#26 · **đổi base #33 sang `main`** sau khi #24 merge *(~30 ph)*"
       now:
@@ -236,19 +250,19 @@ today:
       load: "**không giới hạn giờ** — quyết định, review, merge, buổi đo tối, chốt ngày"
       debts:
         - "✅ **Merge #17 xong 02:19** — squash `8bf1a2f`, **giữ nhánh** nên #36/#37 không bị đóng; Khánh đã rebase cả hai lên `main`"
-        - "**Quyết `Q2`** — hoãn mục split của bảng `A19` sang `GATE-SPLIT-01` có ghi (đề xuất QA) *(~10 ph)*"
-        - "**Chọn đường dựng stub Spike E** — Project Control dựng bằng SSH của anh (đề xuất) hay cấp SSH cho Trung *(~10 ph)*"
-        - "**Duyệt `DEMO_STANDARD.md` v0** + 4 điểm §11 (bảng hiệu năng cần DR? đính chính 39/28/69 → 44/33/70) *(~30 ph)*"
+        - "✅ **`Q2` = hoãn có ghi** — `A19` ghi mục split là hoãn sang `GATE-SPLIT-01`, training vẫn `BLOCKED`"
+        - "✅ **Stub Spike E = phương án A** — Project Control dựng bằng SSH của anh, Trung kiểm và giữ mọi số `E`"
+        - "✅ **Chuẩn demo duyệt thành v1** + đính chính số đếm **44 / 33 / 70**; bảng hiệu năng để mở (cần DR nếu muốn)"
       now:
         - "**Quyết cách xử lý nối bệnh nhân** cho `GATE-SPLIT-01` — Decision Request do Project Control soạn trước 12:00 *(~1 h)*"
-        - "**Phán phần còn lại `F5`** (siêu dữ liệu công khai) · **xác nhận recovery** khi buffer −1 *(~45 ph)*"
+        - "**Phán phần còn lại `F5`** — Khánh trích CAP §§6–7: hai PDF chính sách **không đủ** để khẳng định bản phát hành cho phép công khai siêu dữ liệu từng case *(~30 ph)* · ✅ **recovery đã xác nhận**: giữ kế hoạch + 5 hành động Level 1"
       then:
         - "Stub (nếu chọn phương án A) trước 14:00 · **đo Spike E khung 21:00**, hai profile *(~2 h)*"
         - "Merge #24 → #26 · #29/#30 · #34 khi approve → **QA soi lại Spike D** → `ACCEPTED` nếu PASS *(~2 h)*"
       later:
         - "Review **#32** — hợp đồng ingestion 1, khối Integration / cross-contract *(~1 h)*"
         - "Đo lại `A9` với cache ±3 slice *(~1,5 h, cần máy)*"
-      note: "Day 6 chốt chưa đạt 3/4, buffer −1 — bản chốt ở `day06/DAY06_EOD_REVIEW.md`. ✅ Merge #17 xong lúc 02:19 (squash, giữ nhánh — #36/#37 an toàn). Còn hai quyết định buổi sáng: **`Q2`** và **đường dựng stub**, cả hai đang giữ việc của thành viên — làm trước 10:00."
+      note: "Day 6 chốt chưa đạt 3/4, buffer −1 — bản chốt ở `day06/DAY06_EOD_REVIEW.md`. ✅ Bốn việc buổi sáng đã xong: merge #17 (02:19), `Q2` hoãn có ghi, stub theo phương án A, chuẩn demo duyệt thành v1 kèm đính chính số đếm. Còn lại trong ngày: **quyết nối bệnh nhân cho `GATE-SPLIT-01`** (bản Decision Request do Project Control soạn), **phán `F5`**, và buổi **đo Spike E khung 21:00**."
 
 history:
   - day: 6

@@ -193,6 +193,6 @@ Spike E ─────► ADR-ART-001 · ngân sách first-load (RA-H13) · fal
 | **Deployment** | `LOCAL_DEMO — PRIVATE OVERLAY / CELLULAR ACCESS` · trust = thành viên overlay, **KHÔNG** phải mạng vật lý · Wi-Fi hội trường **không tin cậy, không cần** · **không** endpoint/domain/port-forward/dataset công khai |
 | **Thiết bị** | **MỘT** Samsung Galaxy A17 5G · profile phần cứng phải **đọc từ máy**, **không suy diễn** |
 | **Ngày** | **Day 0 = 2026-09-09** (không thuộc baseline) · **Execution Day 1 = 2026-09-10** |
-| **Đếm đã kiểm chứng** | 39 product requirement (28 MUST) · 79 FR/NFR · 17 UC · 9 SCR · 69 TC |
+| **Đếm đã kiểm chứng** | **44** product requirement (**33** MUST) · 79 FR/NFR · 17 UC · 9 SCR · **70** TC *(đính chính 16/09 — bản cũ ghi 39/28/69: [`ERRATUM_COUNTS_2026_09_16.md`](../readiness/ERRATUM_COUNTS_2026_09_16.md))* |
 
 **Nguồn chân lý:** `docs/specs/v1.0/` (đóng băng, 19/19 checksum OK) · `../readiness/READINESS_REVIEW_RESOLUTION.md` **§10 và §11** · `../spikes/SPIKE_PHASE_STATE.yaml`

@@ -231,6 +231,9 @@ trong Day 7.
 7. **Chưa đề xuất Level 2/3:** ghép cặp không làm #34 nhanh hơn (phần còn lại là xác nhận của chủ spike) và không thay được
    quyết định của leader về split. Xét lại khi chốt Day 7 nếu Spike D chưa được duyệt lại.
 
+> ✅ **Leader xác nhận 16/09:** **giữ kế hoạch, không de-scope**, và **duyệt cả 5 hành động Level 1** ở trên; phương án stub
+> là **A** (Project Control dựng bằng SSH của leader). Ghi trong `PROJECT_STATE.recovery.decision_2026_09_16`.
+
 ---
 
 ## 12 · Màu trạng thái — 🔴 RED

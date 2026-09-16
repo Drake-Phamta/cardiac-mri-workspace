@@ -73,6 +73,11 @@ reporting artifacts:
 `13` §10 covers all 79 FR/NFR with zero gaps in either direction. Only the *report's* summary counts are
 wrong.
 
+> **Erratum 2026-09-16.** The count in the paragraph above is itself wrong: `03` defines **44** product
+> requirements (**33** MUST) and `13` defines **70** acceptance tests — `SPEC_AUDIT_REPORT_v1_0.md` had those
+> figures right. The 2026-09-08 extraction skipped `PR-3D-01`…`PR-3D-05` and `TC-MOBILE-STATE-001`. Record:
+> [`ERRATUM_COUNTS_2026_09_16.md`](ERRATUM_COUNTS_2026_09_16.md). The frozen spec remains unchanged and correct.
+
 This matters as a process signal rather than as a defect: the report describes an "automated consistency
 check" whose results are not reproducible. It is the reason `17` §5 Step 1 mandates an independent
 second audit, and that mandate was justified.
@@ -148,7 +153,7 @@ unaffected.
 | **Missing spikes** | RA-H05 (device circularity), RA-H06 (no ML compute spike), RA-H13 (no transport budget) | The specification demands evidence it defines no procedure to produce. |
 | **Under-modelled entities** | RA-H08 (Review lacks `revision`; no variant scope) | `05` cannot represent what `11` requires. |
 | **Undefined behaviour** | RA-H09 ("outlier" never defined), RA-H16 (normalization policy across fractions) | Two developers would build different things; RA-H16 additionally confounds RQ-A. |
-| **Scale** | RA-H10 (28 MUST PRs / 75 MUST FR-NFR / 69 tests in 30 days) | Shapes the baseline; raise now, not at day 20. |
+| **Scale** | RA-H10 (**33** MUST PRs / 75 MUST FR-NFR / **70** tests in 30 days — erratum 2026-09-16, [`ERRATUM_COUNTS_2026_09_16.md`](ERRATUM_COUNTS_2026_09_16.md)) | Shapes the baseline; raise now, not at day 20. |
 | **Governance** | RA-H17 (dataset redistribution under `REMOTE_DEMO`) | Conditional; closed entirely by choosing `LOCAL_DEMO`. |
 
 ### 4.4 Conditional and escalation-dependent findings

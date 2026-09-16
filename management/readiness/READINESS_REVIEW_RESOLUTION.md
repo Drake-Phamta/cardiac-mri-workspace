@@ -116,6 +116,7 @@ GATE-SPLIT-01/GATE-ML-01. **Two** acceptance tests are therefore required, not o
 | Item | Value |
 |---|---|
 | Product requirements | **39** (28 MUST / 6 SHOULD / 5 COULD) |
+| **Erratum 2026-09-16** | **44** (**33** MUST / 6 SHOULD / 5 COULD) · acceptance tests **70**, not 69 — [`ERRATUM_COUNTS_2026_09_16.md`](ERRATUM_COUNTS_2026_09_16.md) |
 | FR + NFR | **79** (75 MUST / 4 SHOULD) |
 | Use cases | **17** |
 | Screens | **9** |

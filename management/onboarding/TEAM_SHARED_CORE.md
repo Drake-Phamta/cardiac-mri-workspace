@@ -685,7 +685,7 @@ Mobile ──► 3D view / picking / error 3D
 | **Hai hợp đồng ingestion riêng** | **DR-004 ✅** |
 | Trigger leo thang dataset cuối ngày execution đầu tiên | **DR-001 ✅** |
 | `EXP-D-PP` là Experiment dẫn xuất hạng nhất | **SCQ-04** |
-| Trần MUST scope (28 MUST product requirement) | `03` §5 scope firewall |
+| Trần MUST scope (**33** MUST product requirement — đính chính 16/09, [erratum](../readiness/ERRATUM_COUNTS_2026_09_16.md)) | `03` §5 scope firewall |
 
 ## L.2 CHƯA ĐÓNG BĂNG — chờ bằng chứng
 

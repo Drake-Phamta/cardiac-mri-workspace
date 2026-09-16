@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | **DRAFT v0** — drafted by Project Control on 2026-09-15 (Day 6); **awaiting the leader's approval** |
+| **Status** | **APPROVED v1** — drafted by Project Control on 2026-09-15 (Day 6), **approved by the leader on 2026-09-16** as the planning reference from Day 7. Changes follow §11 |
 | **Owner** | Phạm Tuấn Anh — Team Leader |
 | **Why it exists** | The leader, 2026-09-15: the finished product must be impressive at the demo — the interface and everything the lecturer can see, try, test and evaluate — and every day's plan must build toward that |
 | **Scope** | Raises the **quality of execution inside frozen Spec v1.0**. It adds **no requirement**: anything new goes through `00` §13. Where this document and the spec disagree, the spec wins |
@@ -13,7 +13,8 @@
 > 5 COULD), 79 FR/NFR, 17 use cases, **9 screens**, **70 acceptance tests**. Earlier management documents say
 > 39 product requirements, 28 MUST and 69 tests: the ID patterns used on 2026-09-08 missed `PR-3D-01`…`PR-3D-05`
 > (a digit in the prefix) and `TC-MOBILE-STATE-001` (two hyphens). The frozen spec is unchanged and correct.
-> The erratum for the older documents is the leader's decision (§11).
+> **The leader approved the erratum on 2026-09-16**: `PROJECT_STATE.yaml` now carries 44 / 33 / 70, and
+> `management/readiness/ERRATUM_COUNTS_2026_09_16.md` records what was wrong, why, and how to re-verify it.
 
 ---
 
@@ -197,10 +198,20 @@ module lands. The spike harnesses already follow the pattern (`check_conformance
 
 ---
 
-## 11. Open points for the leader (v0 → v1)
+## 11. Decisions on this document
 
-1. Approve v0 as the planning reference from Day 7.
-2. Decide whether an on-screen performance panel is wanted in the final build; if yes, it needs a Decision Request.
-3. Decide the erratum for the counts in earlier management documents (39 product requirements / 28 MUST / 69 tests
-   → 44 / 33 MUST / 70).
-4. Confirm the defense format — total demo length and per-lens follow-ups — once the course schedule is known.
+**Decided 2026-09-16 by Phạm Tuấn Anh, Team Leader:**
+
+1. ✅ **v0 approved as v1** — the planning reference from Day 7. Every daily packet's 🎯 line cites a rule (D1–D7), a
+   hero step (H1–H10) or a screen (SCR-01…09) here. Later changes take the usual route: Project Control drafts, the
+   leader approves; this document never overrides the frozen spec.
+2. ✅ **Count erratum approved** — 39 product requirements / 28 MUST / 69 tests → **44 / 33 / 70**. Recorded in
+   `management/readiness/ERRATUM_COUNTS_2026_09_16.md` and corrected in `PROJECT_STATE.yaml`. Day records keep the
+   numbers they were written with; the erratum names them instead of rewriting history.
+
+**Still open:**
+
+3. **On-screen performance panel** — not decided, and nothing is being built toward it. `10` defines no such screen, so
+   it would need a Decision Request under `00` §13. Until then, measured numbers live in the report and on the defense
+   slides, each with its evidence path (§6).
+4. **Defense format** — total demo length and per-lens follow-ups; settled when the course schedule is known.

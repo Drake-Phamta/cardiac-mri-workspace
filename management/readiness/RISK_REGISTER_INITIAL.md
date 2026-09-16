@@ -320,6 +320,7 @@ already the spec's intent under PR-SCI-03.
 | **Category** | Schedule |
 | **Likelihood** | **M** | **Impact** | **H** | **Severity** | **HIGH** |
 | **Affected requirements** | all 28 MUST product requirements; `03` §5 scope firewall; `13` §13 |
+| **Erratum 2026-09-16** | **33** MUST product requirements and **70** acceptance tests ([`ERRATUM_COUNTS_2026_09_16.md`](ERRATUM_COUNTS_2026_09_16.md)) — the five `PR-3D-*` MUSTs were missing from every count in this register |
 | **Linked** | RA-H10, RA-M03 |
 
 **Description.** Carried forward from `SPEC_AUDIT_REPORT_v1_0.md` §5.6 and **quantified** by this audit:

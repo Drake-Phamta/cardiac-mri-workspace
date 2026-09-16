@@ -136,6 +136,26 @@ recovery:
       leader_decision_2026_09_15: "RECORDED, NOT ESCALATED to the supervising lecturer - leader: 'tôi ghi nhận nhé'"
     ownership_transferred: false
     no_one_does_it_for_him: "Leader instruction 2026-09-13: Khanh must complete his own work."
+  decision_2026_09_16:
+    decided_by: "Pham Tuan Anh - Team Leader"
+    choice: "KEEP THE PLAN and apply the five Level-1 corrective actions. No de-scope, no ownership change (DR-013)."
+    context: "Buffer went 0 -> -1 at the Day-6 close; 15 section 18 trigger 2 fired for the second time."
+    actions:
+      - "Spike E stub: Project Control deploys it on the Mac mini with the leader's SSH, running the commands the owner
+         writes on PR #26 (option A, decided 2026-09-16). The owner keeps the design, the verification and every E number;
+         this removes an access dependency, not his ownership."
+      - "Review order for Vu Hung Anh: #24 and #26 first - they unblock tonight is measurement - then #34 (P0), then #27
+         and #31, then C0 (#36, #37). One REVIEWING slot at a time; no reviewer is reassigned."
+      - "Mid-day push checkpoints for Be Quoc Khanh: 12:00 (#34 ready) and 18:00, after three consecutive days on which
+         his work landed after midnight."
+      - "GATE-SPLIT-01: Project Control drafts the Decision Request before 12:00 on Day 7 and the leader decides the same
+         day, so the question does not age into a third EOD cycle."
+      - "Planning rule for Project Control: every packet task that needs an account, key, device or dataset names the
+         access it needs and who holds it, checked before the task is assigned."
+    level_2_3: "Not invoked. Pairing would not speed up #34 - the remainder is the owner's own confirmation - and cannot
+                substitute for a leader decision on the split. Re-evaluated at the Day-7 close if Spike D has not been
+                re-reviewed."
+    record: management/day06/DAY06_EOD_REVIEW.md section 11
 cutover_record: management/day01/DAY01_CUTOVER_RECORD.md
 baseline_accepted: true             # MASTER_PLAN_30_DAYS.md section 14, 2026-09-10
 baseline_accepted_note: >
@@ -144,22 +164,26 @@ baseline_accepted_note: >
   re-read sections 7 and 8 line by line.
 
 # --- REQUIREMENTS -----------------------------------------------------------
-# Counts mechanically verified from the frozen specification, not from
-# SPEC_AUDIT_REPORT_v1_0.md (whose 44/33/70 figures are wrong and must not propagate).
+# Counts re-verified mechanically against the frozen specification on 2026-09-15 and CORRECTED
+# here on 2026-09-16 by leader decision. The 2026-09-08 extraction that produced 39/28/69 missed
+# PR-3D-01..PR-3D-05 (a digit inside the prefix) and TC-MOBILE-STATE-001 (two hyphens), so the
+# 44/33/70 of SPEC_AUDIT_REPORT_v1_0.md were right and the comment that used to sit here was wrong.
+# Full record: management/readiness/ERRATUM_COUNTS_2026_09_16.md.
 requirements:
   accepted: 0
   in_progress: 0
   blocked: 0
-  not_started: 39                   # product requirements: 28 MUST / 6 SHOULD / 5 COULD
+  not_started: 44                   # product requirements: 33 MUST / 6 SHOULD / 5 COULD
   inventory:
-    product_requirements: 39
-    must: 28
+    product_requirements: 44        # was 39 until 2026-09-16
+    must: 33                        # was 28
     should: 6
     could: 5
     fr_plus_nfr: 79                 # 75 MUST / 4 SHOULD
     use_cases: 17
     screens: 9
-    acceptance_tests: 69
+    acceptance_tests: 70            # was 69
+    corrected: "2026-09-16 by leader decision; see management/readiness/ERRATUM_COUNTS_2026_09_16.md"
 
 # --- CRITICAL PATH ----------------------------------------------------------
 critical_path:
@@ -417,11 +441,8 @@ merged_prs_note: >
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
   - {id: "GATE-SPLIT-01 linkage", waits_on: "Pham Tuan Anh", subject: "154 scans from 60 patients and no case-to-patient map: obtain a trustworthy grouping or record a documented exception to 06 section 6 through a Decision Request (PR #35)"}
-  - {id: "QA-002 Q2", waits_on: "Pham Tuan Anh", subject: "defer the A19 split/manifest-id item to GATE-SPLIT-01 with a recorded note, or regenerate the audit after the split manifest merges"}
   - {id: "QA-002 F5", waits_on: "Pham Tuan Anh", subject: "how much per-case metadata may sit in the public repository, and where the linkage-screen score JSON lives (CAP policy sections 6-7 quoted in PR #34)"}
-  - {id: "Recovery at buffer -1", waits_on: "Pham Tuan Anh", subject: "keep the 2026-09-13 plan or apply 15 section 18 Levels 1-3; proposal in day06/DAY06_EOD_REVIEW.md section 11"}
-  - {id: "DEMO_STANDARD v0", waits_on: "Pham Tuan Anh", subject: "approve v0 as the planning reference, decide the on-screen performance panel, the count erratum (39/28/69 -> 44/33/70) and the defense format"}
-  - {id: "Spike E stub access", waits_on: "Pham Tuan Anh", subject: "Project Control deploys the stub with the leader's SSH per the owner's commands, or the owner is given SSH access to the Mac mini"}
+  - {id: "DEMO_STANDARD panel", waits_on: "Pham Tuan Anh", subject: "whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16"}
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
   - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
 

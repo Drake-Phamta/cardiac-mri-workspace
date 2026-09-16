@@ -55,7 +55,7 @@ trước 10:00**; leader merge **#17** để hai PR bằng chứng C0 của Khá
 | **Bế Quốc Khánh** | ① **#34 ready trước 12:00** · ✅ ② #36 `C0-7`/`C0-8` *(02:19)* · ✅ ③ base #36/#37 sang `main`, CI 4/4 · ④ nhờ Trung review #35 | ⑤ sửa lỗi validator `F6`–`F11`, `F14`, `F15` kèm test hồi quy · ⑥ góp ý Decision Request nối bệnh nhân · ⑦ #35 sau khi #34 merge | tìm nguồn ánh xạ bệnh nhân · rà trường siêu dữ liệu cho `F5` | **~9,25 h** |
 | **Nguyễn Gia Đức Trung** | ① **stub 2 profile** theo đường leader chọn · ② **review #35** · ③ theo dõi #24/#26, đổi base #33 | ④ hợp đồng ingestion 2 v0 · ⑤ `E9` cho máy thật · ⑥ tổng hợp lượt đo khung 21:00 | kế hoạch `E7` · đối chiếu hợp đồng 1 với manifest thật | **~9 h** |
 | **Vũ Hùng Anh** | ① duyệt lại #24 · ② **duyệt lại #26 trước 14:00** · ③ #29 bỏ đoạn lặp · ④ **#30 thêm pan** | ⑤ **duyệt lại #34** · ⑥ picking `B3`/`B4` · ⑦ review #27 và #31 | review C0 #36/#37 · hợp đồng hình học · kịch bản `B10`/`B11` | **~8,9 h** |
-| **Phạm Tuấn Anh** | ✅ ① **merge #17** *(squash `8bf1a2f`, 02:19 — giữ nhánh nên #36/#37 không bị đóng)* · ② **quyết `Q2`** · ③ **chọn đường dựng stub** · ④ **duyệt chuẩn demo v0** | ⑤ quyết nối bệnh nhân (`GATE-SPLIT-01`) · ⑥ phán `F5` · ⑦ xác nhận recovery khi buffer −1 · ⑧ stub · ⑨ **đo Spike E khung 21:00** · ⑩ merge + QA soi lại · ⑪ chốt ngày | review #32 · `A9` cache ±3 | không giới hạn |
+| **Phạm Tuấn Anh** | ✅ ① **merge #17** *(squash `8bf1a2f`, 02:19)* · ✅ ② **`Q2` = hoãn có ghi** · ✅ ③ **stub = phương án A** · ✅ ④ **chuẩn demo duyệt thành v1 + đính chính 44/33/70** | ⑤ quyết nối bệnh nhân (`GATE-SPLIT-01`) · ⑥ phán `F5` · ⑦ xác nhận recovery khi buffer −1 · ⑧ stub · ⑨ **đo Spike E khung 21:00** · ⑩ merge + QA soi lại · ⑪ chốt ngày | review #32 · `A9` cache ±3 | không giới hạn |
 
 > **🎯 Chuẩn demo:** [`DEMO_STANDARD.md`](DEMO_STANDARD.md) v0 **chờ leader duyệt sáng nay**; mỗi packet có dòng 🎯 dẫn
 > tới luật (D1–D7), bước demo (H1–H10) hoặc màn hình (SCR-01…09) tương ứng.
@@ -66,6 +66,7 @@ trước 10:00**; leader merge **#17** để hai PR bằng chứng C0 của Khá
 |---|---|---|
 | Phạm Tuấn Anh | **Merge #17** lúc 02:19 (squash) — **không xoá nhánh**, nên #36 và #37 không bị đóng tự động | `8bf1a2f` |
 | Bế Quốc Khánh | Rebase #36 và #37 lên `main` (diff sạch, chỉ file C0) → **CI 4/4 lần đầu**; thêm ngoại suy lịch theo **4 h và 5 h GPU/ngày** → `C0-7`/`C0-8` có số; **#36 chuyển ready**, nhờ Hùng Anh review | `cb5585b` · PR #36 |
+| Phạm Tuấn Anh | **4 quyết định**: `Q2` hoãn có ghi · stub Spike E theo phương án A · `DEMO_STANDARD` duyệt thành **v1** + đính chính số đếm **44 / 33 / 70** · recovery khi buffer −1: **giữ kế hoạch + 5 hành động Level 1** | [QA-002 §9](day06/QA_REVIEW_002_SPIKE_D.md) · [`DEMO_STANDARD.md`](DEMO_STANDARD.md) · `PROJECT_STATE.recovery` |
 
 ---
 
