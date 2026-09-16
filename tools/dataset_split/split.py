@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -27,6 +28,12 @@ HOLDOUT_COUNT = 54
 SUBSET_25_COUNT = 20
 SUBSET_50_COUNT = 40
 KNOWN_DUPLICATE = ("CASE_0056", "CASE_0097")
+SIMILARITY_THRESHOLD = 0.75
+SIMILARITY_DECISION_DATE = "2026-09-17"
+LIMITATION = (
+    "Patient-level separation is NOT VERIFIABLE for this release; the implemented "
+    "safeguard is case-level disjointness plus correlation-screen grouping and exclusion."
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATASET = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
@@ -50,6 +57,106 @@ def display_path(path: Path) -> str:
         return path.resolve().relative_to(REPO_ROOT).as_posix()
     except ValueError:
         return path.resolve().as_posix()
+
+
+def inside_repo(path: Path) -> bool:
+    try:
+        path.resolve().relative_to(REPO_ROOT)
+        return True
+    except ValueError:
+        return False
+
+
+def package_sha256(dataset: dict[str, Any]) -> str:
+    files = ((dataset.get("acquisition") or {}).get("package_files") or [])
+    hashes = [item.get("sha256") for item in files
+              if isinstance(item, dict) and isinstance(item.get("sha256"), str)]
+    if len(hashes) != 1 or len(hashes[0]) != 64:
+        raise SplitError("dataset manifest must identify exactly one source package SHA-256")
+    return hashes[0].lower()
+
+
+def read_similarity_screen(path: Path | None, dataset: dict[str, Any],
+                           case_ids: set[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Read private pair scores and return only policy-safe derived evidence."""
+    if path is None:
+        raise SplitError("DR-002b requires --linkage-screen before generating the split")
+    if inside_repo(path):
+        raise SplitError("F5 requires the pairwise linkage screen to remain outside the repository")
+    with path.open(encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    expected_pairs = len(case_ids) * (len(case_ids) - 1) // 2
+    if payload.get("case_count") != len(case_ids) or payload.get("pair_count") != expected_pairs:
+        raise SplitError("linkage screen case/pair counts do not match the dataset manifest")
+    if str(payload.get("source_dataset_sha256", "")).lower() != package_sha256(dataset):
+        raise SplitError("linkage screen source package SHA-256 does not match the dataset manifest")
+    top = payload.get("top_all")
+    if not isinstance(top, list) or not top:
+        raise SplitError("linkage screen has no ranked top_all evidence")
+    parsed = []
+    previous = math.inf
+    seen: set[tuple[str, str]] = set()
+    for item in top:
+        ids = item.get("case_ids") if isinstance(item, dict) else None
+        score = item.get("pearson_r") if isinstance(item, dict) else None
+        if not isinstance(ids, list) or len(ids) != 2 or set(ids) - case_ids:
+            raise SplitError("linkage screen contains an invalid or unknown case pair")
+        if ids[0] == ids[1] or not isinstance(score, (int, float)) or not math.isfinite(score):
+            raise SplitError("linkage screen contains an invalid Pearson score")
+        pair = tuple(sorted(ids))
+        if pair in seen or score > previous:
+            raise SplitError("linkage screen top_all must be unique and sorted descending")
+        seen.add(pair)
+        previous = score
+        if score >= SIMILARITY_THRESHOLD:
+            parsed.append({"case_ids": list(pair), "pearson_r": float(score)})
+    if top[-1].get("pearson_r") >= SIMILARITY_THRESHOLD and len(top) < expected_pairs:
+        raise SplitError(
+            "linkage screen truncates while still above the declared threshold; "
+            "the complete above-threshold set cannot be proven"
+        )
+    if not any(set(item["case_ids"]) == set(KNOWN_DUPLICATE) for item in parsed):
+        raise SplitError("declared threshold does not recover the DR-002a known duplicate")
+    return parsed, {
+        "restricted_screen_sha256": sha256_file(path),
+        "source_package_sha256": package_sha256(dataset),
+        "pair_count_screened": expected_pairs,
+    }
+
+
+def similarity_proxy_map(case_ids: set[str], pairs: list[dict[str, Any]],
+                         released_train: set[str], released_test: set[str]) \
+        -> tuple[dict[str, str], list[dict[str, str]]]:
+    """Group same-side candidates and inventory development-to-holdout links."""
+    parent = {case_id: case_id for case_id in case_ids}
+
+    def find(case_id: str) -> str:
+        while parent[case_id] != case_id:
+            parent[case_id] = parent[parent[case_id]]
+            case_id = parent[case_id]
+        return case_id
+
+    def union(left: str, right: str) -> None:
+        a, b = find(left), find(right)
+        parent[max(a, b)] = min(a, b)
+
+    cross_links = []
+    for item in pairs:
+        left, right = item["case_ids"]
+        if {left, right} <= released_train or {left, right} <= released_test:
+            union(left, right)
+        else:
+            development = left if left in released_train else right
+            holdout = right if right in released_test else left
+            cross_links.append({
+                "development_case_id": development,
+                "holdout_case_id": holdout,
+                "score_relation": f"pearson_r >= {SIMILARITY_THRESHOLD}",
+                "exact_score": "RESTRICTED_BY_F5",
+            })
+    return ({case_id: find(case_id) for case_id in case_ids},
+            sorted(cross_links, key=lambda item: (
+                item["development_case_id"], item["holdout_case_id"])))
 
 
 def seeded_rank(group_key: str, salt: str) -> str:
@@ -78,22 +185,7 @@ def choose_exact(groups: dict[str, list[str]], target_cases: int, salt: str) -> 
 
 def read_patient_map(path: Path | None, case_ids: set[str]) -> tuple[dict[str, str], dict[str, Any]]:
     if path is None:
-        proxy = {case_id: case_id for case_id in case_ids}
-        # DR-002a: byte-identical cavity labels and independently screened MRI
-        # establish one duplicated acquisition, even without patient IDs.
-        proxy[KNOWN_DUPLICATE[1]] = KNOWN_DUPLICATE[0]
-        return (proxy, {
-            "mode": "source_case_directory_proxy_with_known_duplicate_group",
-            "patient_linkage_status": "NOT_DETERMINABLE_FROM_PACKAGE",
-            "statement": (
-                "CASE_0056 and CASE_0097 are one duplicated acquisition under DR-002a "
-                "and are grouped in training. Other case directories are only proxies: "
-                "the challenge benchmark reports 154 scans from 60 de-identified "
-                "patients, so additional repeat scans are expected but cannot be "
-                "linked from this package. "
-                "GATE-SPLIT-01 must review this limitation."
-            ),
-        })
+        raise SplitError("internal error: proxy grouping requires a DR-002b linkage screen")
 
     with path.open(encoding="utf-8-sig") as handle:
         payload = json.load(handle)
@@ -124,7 +216,8 @@ def read_patient_map(path: Path | None, case_ids: set[str]) -> tuple[dict[str, s
 
 
 def build_split(dataset: dict[str, Any], dataset_path: Path,
-                patient_map_path: Path | None, operator: str,
+                patient_map_path: Path | None, linkage_screen_path: Path | None,
+                operator: str,
                 generated_at: str | None = None) -> dict[str, Any]:
     summary = dataset.get("summary") or {}
     if summary.get("fail") != 0 or summary.get("owner_verdicts_outstanding") != 0:
@@ -171,15 +264,45 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
     if missing_labels:
         raise SplitError(f"Path A requires labels in all 154 obtained cases; missing: {missing_labels[:5]}")
 
+    duplicate_evidence = dataset.get("duplicate_evidence") or []
+    duplicate_recorded = any(
+        item.get("file") == "laendo.nrrd"
+        and set(item.get("case_ids") or []) == set(KNOWN_DUPLICATE)
+        for item in duplicate_evidence if isinstance(item, dict)
+    )
+    # Compatibility for the pre-F5 public manifest already on main: it carries
+    # equal per-file hashes.  Once #34 lands, those hashes disappear and the
+    # public duplicate_evidence inventory is the required proof instead.
     left, right = (by_id[cid] for cid in KNOWN_DUPLICATE)
     left_sha = (left.get("mask") or {}).get("sha256")
     right_sha = (right.get("mask") or {}).get("sha256")
-    if not isinstance(left_sha, str) or len(left_sha) != 64 or left_sha != right_sha:
-        raise SplitError("DR-002a duplicate pair needs equal verified laendo SHA-256 values")
+    legacy_hash_proof = (isinstance(left_sha, str) and len(left_sha) == 64
+                         and left_sha == right_sha)
+    if not (duplicate_recorded or legacy_hash_proof):
+        raise SplitError(
+            "DR-002a duplicate pair must be recorded in public duplicate evidence "
+            "(or the pre-F5 manifest's equal verified laendo SHA-256 values)"
+        )
     if not set(KNOWN_DUPLICATE) <= set(released_train):
         raise SplitError("DR-002a duplicate pair must both be in released Training Set")
 
-    case_to_patient, linkage = read_patient_map(patient_map_path, set(by_id))
+    screen_pairs: list[dict[str, Any]] = []
+    screen_meta: dict[str, Any] | None = None
+    cross_links: list[dict[str, str]] = []
+    if patient_map_path is None:
+        screen_pairs, screen_meta = read_similarity_screen(
+            linkage_screen_path, dataset, set(by_id))
+        case_to_patient, cross_links = similarity_proxy_map(
+            set(by_id), screen_pairs, set(released_train), set(released_test))
+        linkage = {
+            "mode": "correlation_screen_proxy_groups",
+            "patient_linkage_status": "NOT_VERIFIABLE_DOCUMENTED_EXCEPTION",
+            "statement": LIMITATION,
+        }
+    else:
+        if linkage_screen_path is not None:
+            raise SplitError("--patient-map replaces DR-002b screening; do not supply both inputs")
+        case_to_patient, linkage = read_patient_map(patient_map_path, set(by_id))
     if case_to_patient[KNOWN_DUPLICATE[0]] != case_to_patient[KNOWN_DUPLICATE[1]]:
         raise SplitError("patient map separates the known DR-002a duplicate acquisition")
     raw_groups: dict[str, list[str]] = {}
@@ -230,6 +353,29 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
     subset_50_ids = case_ids(subset_50_keys)
     subset_25_ids = case_ids(subset_25_keys)
 
+    directly_linked_development = {
+        item["development_case_id"] for item in cross_links
+    }
+    exclusion_group_keys = {
+        case_to_patient[case_id] for case_id in directly_linked_development
+        if case_to_patient[case_id] in train_keys
+    }
+    excluded_from_training = case_ids(exclusion_group_keys)
+    direct_exclusions = sorted(directly_linked_development & set(excluded_from_training))
+    propagated_exclusions = sorted(set(excluded_from_training) - set(direct_exclusions))
+
+    def effective_training_block(ids: list[str]) -> dict[str, Any]:
+        excluded = sorted(set(ids) & set(excluded_from_training))
+        effective = sorted(set(ids) - set(excluded))
+        return {
+            "case_count": len(ids),
+            "nominal_case_count": len(ids),
+            "case_ids": ids,
+            "excluded_case_ids": excluded,
+            "effective_case_count": len(effective),
+            "effective_case_ids": effective,
+        }
+
     if len(train_ids) != TRAIN_COUNT or len(validation_ids) != VALIDATION_COUNT \
             or len(holdout_ids) != HOLDOUT_COUNT:
         raise SplitError("internal count error after group-preserving allocation")
@@ -241,12 +387,58 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
     for ids in (train_ids, validation_ids, holdout_ids, subset_25_ids, subset_50_ids):
         if len(set(ids) & set(KNOWN_DUPLICATE)) not in (0, 2):
             raise SplitError("DR-002a duplicate acquisition was split")
+    for members in raw_groups.values():
+        group = set(members)
+        for ids in (train_ids, validation_ids, holdout_ids,
+                    subset_25_ids, subset_50_ids):
+            if len(group & set(ids)) not in (0, len(group)):
+                raise SplitError("a DR-002b similarity/patient group was split")
+
+    if patient_map_path is None and not excluded_from_training:
+        raise SplitError(
+            "DR-002b expected at least one holdout-linked development exclusion at the "
+            "declared threshold; review the private screen and deterministic allocation"
+        )
 
     stamp = generated_at or datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     linkage_verified = linkage["patient_linkage_status"] == "PROVIDED_BY_EXTERNAL_MAPPING"
+    similarity_groups = [
+        {"group_id": public_group[key], "case_ids": members}
+        for key, members in sorted(raw_groups.items())
+        if len(members) > 1
+    ]
+    similarity_screening = ({
+        "status": "APPLIED_UNDER_DOCUMENTED_EXCEPTION",
+        "decision_id": "DR-002b",
+        "decision_option": "(c) + (d)",
+        "threshold_metric": "Pearson correlation of sampled MRI features",
+        "threshold_operator": ">=",
+        "threshold": SIMILARITY_THRESHOLD,
+        "threshold_declared_at": SIMILARITY_DECISION_DATE,
+        "threshold_basis": (
+            "fixed before training at the upper-tail break after rank 5; exact ranked "
+            "pair scores remain in the restricted screen under F5"
+        ),
+        **(screen_meta or {}),
+        "pair_count_above_threshold": len(screen_pairs),
+        "affected_case_count": len({cid for item in screen_pairs for cid in item["case_ids"]}),
+        "affected_case_ids": sorted({cid for item in screen_pairs for cid in item["case_ids"]}),
+        "same_partition_groups": similarity_groups,
+        "development_to_holdout_links": cross_links,
+        "exact_pair_scores": "RESTRICTED_BY_F5",
+        "regenerate": (
+            "python tools/dataset_split/linkage_screen.py --archive <private ZIP> "
+            "--dataset-manifest data/manifests/dataset_manifest.json "
+            "--split-manifest data/manifests/split_manifest_path_a_seed2024.json "
+            "--out <private path outside repository>/linkage_screen.json"
+        ),
+    } if not linkage_verified else {
+        "status": "REPLACED_BY_AUTHORITATIVE_PATIENT_MAP",
+        "decision_id": "DR-002b",
+    })
     return {
         "manifest_version": "1.0",
-        "split_id": "path_a_seed2024_v1",
+        "split_id": "path_a_seed2024_dr002b_v1",
         "generated_at": stamp,
         "generated_by": "tools/dataset_split/split.py",
         "operator": operator,
@@ -261,6 +453,7 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
             "selected_path": "Path A",
             "decision_id": "DR-002",
             "duplicate_acquisition_decision_id": "DR-002a",
+            "patient_linkage_exception_decision_id": "DR-002b",
             "known_duplicate_case_ids": list(KNOWN_DUPLICATE),
             "decided_at": "2026-09-14",
             "policy": "80 development-train / 20 validation / 54 locked official holdout",
@@ -280,11 +473,16 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
             "train_known_distinct_acquisitions": TRAIN_COUNT - 1,
             "source_patient_identifiers_persisted": False,
         },
+        "similarity_screening": similarity_screening,
         "partitions": {
             "train": {
                 "case_count": len(train_ids), "patient_group_count": len(train_keys),
                 "case_ids": train_ids, "patient_group_ids": group_ids(train_keys),
                 "known_distinct_acquisition_count": TRAIN_COUNT - 1,
+                "training_exclusion_count": len(excluded_from_training),
+                "training_excluded_case_ids": excluded_from_training,
+                "effective_training_case_count": len(train_ids) - len(excluded_from_training),
+                "effective_training_case_ids": sorted(set(train_ids) - set(excluded_from_training)),
                 "usage": "training and training-only data-fraction subsets",
             },
             "validation": {
@@ -303,18 +501,35 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
             },
         },
         "training_subsets": {
-            "25_percent": {
-                "case_count": len(subset_25_ids), "case_ids": subset_25_ids,
-                "patient_group_ids": group_ids(subset_25_keys),
-            },
-            "50_percent": {
-                "case_count": len(subset_50_ids), "case_ids": subset_50_ids,
-                "patient_group_ids": group_ids(subset_50_keys),
-            },
-            "100_percent": {
-                "case_count": len(train_ids), "case_ids": train_ids,
-                "patient_group_ids": group_ids(train_keys),
-            },
+            "25_percent": {**effective_training_block(subset_25_ids),
+                           "patient_group_ids": group_ids(subset_25_keys)},
+            "50_percent": {**effective_training_block(subset_50_ids),
+                           "patient_group_ids": group_ids(subset_50_keys)},
+            "100_percent": {**effective_training_block(train_ids),
+                            "patient_group_ids": group_ids(train_keys)},
+        },
+        "training_exclusions": {
+            "policy": (
+                "Exclude every nominal-train development case directly linked to a "
+                "holdout case at or above the threshold, plus its complete similarity "
+                "group so no group is split by effective training."
+            ),
+            "direct_case_ids": direct_exclusions,
+            "group_propagated_case_ids": propagated_exclusions,
+            "all_excluded_case_ids": excluded_from_training,
+            "remaining_effective_train_count": len(train_ids) - len(excluded_from_training),
+            "exact_pair_scores": "RESTRICTED_BY_F5",
+        },
+        "sensitivity_analysis": {
+            "status": "PENDING_SPIKE_C1",
+            "primary_metric": "TO_BE_RECORDED_ON_ALL_54_LOCKED_HOLDOUT_CASES",
+            "sensitivity_metric": (
+                "TO_BE_RECORDED_AFTER_EXCLUDING_SUSPECTED_HOLDOUT_CASES"
+            ),
+            "suspected_holdout_case_ids": sorted({
+                item["holdout_case_id"] for item in cross_links
+            }),
+            "interpretation_required": True,
         },
         "invariants": {
             "all_154_cases_assigned_exactly_once": True,
@@ -325,16 +540,23 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
             "subsets_nested_25_in_50_in_100": True,
             "known_duplicate_both_pinned_to_train": set(KNOWN_DUPLICATE) <= set(train_ids),
             "known_duplicate_never_split_in_subsets": True,
+            "similarity_groups_never_split_in_partitions_or_subsets": True,
+            "training_exclusions_removed_from_every_effective_subset": all(
+                not (set(block["effective_case_ids"]) & set(excluded_from_training))
+                for block in (
+                    effective_training_block(subset_25_ids),
+                    effective_training_block(subset_50_ids),
+                    effective_training_block(train_ids),
+                )
+            ),
             "holdout_membership_equals_released_testing_set": holdout_ids == released_test,
+            "patient_linkage_limitation": LIMITATION,
         },
         "gate_split_01": {
-            "status": ("EVIDENCE_READY_FOR_REVIEW" if linkage_verified
-                       else "BLOCKED_PATIENT_LINKAGE"),
+            "status": "EVIDENCE_READY_FOR_REVIEW",
             "closed_by_this_script": False,
-            "blocking_question": (None if linkage_verified else
-                "Apart from the DR-002a known duplicate, do different opaque source "
-                "directories represent unique biological patients? The package "
-                "does not expose enough metadata to prove this."),
+            "documented_exception": None if linkage_verified else LIMITATION,
+            "closes_on": "review approval and Project Control transition",
         },
     }
 
@@ -352,15 +574,37 @@ def selftest() -> int:
         "manifest_version": "SELFTEST",
         "generated_at": "SELFTEST",
         "case_count_total": 154,
+        "acquisition": {"package_files": [{"sha256": "a" * 64}]},
         "summary": {"fail": 0, "owner_verdicts_outstanding": 0},
+        "duplicate_evidence": [{
+            "file": "laendo.nrrd", "case_ids": list(KNOWN_DUPLICATE),
+        }],
         "cases": ([case(i, "Training Set") for i in range(1, 101)]
                   + [case(i, "Testing Set") for i in range(101, 155)]),
     }
     with tempfile.TemporaryDirectory() as tmp:
         dataset_path = Path(tmp) / "dataset.json"
         dataset_path.write_text(json.dumps(dataset), encoding="utf-8")
-        first = build_split(dataset, dataset_path, None, "SELFTEST", "SELFTEST")
-        second = build_split(dataset, dataset_path, None, "SELFTEST", "SELFTEST")
+        screen_path = Path(tmp).parent / f"split-selftest-{Path(tmp).name}.json"
+        screen = {
+            "case_count": 154,
+            "pair_count": 11781,
+            "source_dataset_sha256": "a" * 64,
+            "top_all": [
+                {"case_ids": ["CASE_0056", "CASE_0097"], "pearson_r": 0.999999},
+                {"case_ids": ["CASE_0056", "CASE_0120"], "pearson_r": 0.9},
+                {"case_ids": ["CASE_0057", "CASE_0058"], "pearson_r": 0.8},
+                {"case_ids": ["CASE_0001", "CASE_0002"], "pearson_r": 0.7},
+            ],
+        }
+        screen_path.write_text(json.dumps(screen), encoding="utf-8")
+        try:
+            first = build_split(dataset, dataset_path, None, screen_path,
+                                "SELFTEST", "SELFTEST")
+            second = build_split(dataset, dataset_path, None, screen_path,
+                                 "SELFTEST", "SELFTEST")
+        finally:
+            screen_path.unlink(missing_ok=True)
         checks = {
             "deterministic output": first == second,
             "80/20/54 counts": [first["partitions"][k]["case_count"]
@@ -380,13 +624,35 @@ def selftest() -> int:
             "DR-002a pair never split in nested subsets": all(
                 len(set(KNOWN_DUPLICATE) & set(block["case_ids"])) in (0, 2)
                 for block in first["training_subsets"].values()),
+            "DR-002b threshold declared before training":
+                first["similarity_screening"]["threshold"] == SIMILARITY_THRESHOLD
+                and first["similarity_screening"]["threshold_declared_at"]
+                    == SIMILARITY_DECISION_DATE,
+            "holdout-linked case and full group excluded from effective train":
+                first["training_exclusions"]["direct_case_ids"] == ["CASE_0056"]
+                and first["training_exclusions"]["group_propagated_case_ids"]
+                    == ["CASE_0097"]
+                and first["training_exclusions"]["remaining_effective_train_count"] == 78,
+            "excluded group absent from every effective subset": all(
+                not (set(KNOWN_DUPLICATE) & set(block["effective_case_ids"]))
+                for block in first["training_subsets"].values()),
+            "exact pair scores remain restricted":
+                first["similarity_screening"]["exact_pair_scores"] == "RESTRICTED_BY_F5"
+                and all(item["exact_score"] == "RESTRICTED_BY_F5"
+                        for item in first["similarity_screening"]
+                        ["development_to_holdout_links"]),
+            "sensitivity placeholder names suspected holdout":
+                first["sensitivity_analysis"]["status"] == "PENDING_SPIKE_C1"
+                and first["sensitivity_analysis"]["suspected_holdout_case_ids"]
+                    == ["CASE_0120"],
         }
         # Explicit pairs prove that whole multi-scan groups never split.
         mapping = {f"CASE_{i:04d}": f"P_{(i + 1) // 2:03d}" for i in range(1, 155)}
         mapping[KNOWN_DUPLICATE[1]] = mapping[KNOWN_DUPLICATE[0]]
         map_path = Path(tmp) / "patient-map.json"
         map_path.write_text(json.dumps({"case_to_patient": mapping}), encoding="utf-8")
-        grouped = build_split(dataset, dataset_path, map_path, "SELFTEST", "SELFTEST")
+        grouped = build_split(dataset, dataset_path, map_path, None,
+                              "SELFTEST", "SELFTEST")
         partition_by_case = {
             case_id: name for name, block in grouped["partitions"].items()
             for case_id in block["case_ids"]
@@ -402,14 +668,16 @@ def selftest() -> int:
         crossing_map["CASE_0100"] = crossing_map["CASE_0101"] = "P_CROSS_BOUNDARY"
         map_path.write_text(json.dumps({"case_to_patient": crossing_map}), encoding="utf-8")
         try:
-            build_split(dataset, dataset_path, map_path, "SELFTEST", "SELFTEST")
+            build_split(dataset, dataset_path, map_path, None,
+                        "SELFTEST", "SELFTEST")
             checks["patient crossing released boundary is refused"] = False
         except SplitError:
             checks["patient crossing released boundary is refused"] = True
 
         dirty_dataset = dict(dataset, summary={"fail": 1, "owner_verdicts_outstanding": 0})
         try:
-            build_split(dirty_dataset, dataset_path, None, "SELFTEST", "SELFTEST")
+            build_split(dirty_dataset, dataset_path, None, None,
+                        "SELFTEST", "SELFTEST")
             checks["source audit with a machine failure is refused"] = False
         except SplitError:
             checks["source audit with a machine failure is refused"] = True
@@ -426,6 +694,11 @@ def main() -> int:
     parser.add_argument("--dataset-manifest", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--patient-map", type=Path,
                         help="JSON object containing case_to_patient for every case")
+    parser.add_argument(
+        "--linkage-screen", type=Path,
+        help=("private linkage_screen.py JSON outside the repository; required under "
+              "DR-002b unless --patient-map supplies an authoritative mapping"),
+    )
     parser.add_argument("--operator", help="human owner recorded in the generated artifact")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--selftest", action="store_true")
@@ -439,6 +712,7 @@ def main() -> int:
             dataset = json.load(handle)
         manifest = build_split(dataset, args.dataset_manifest.resolve(),
                                args.patient_map.resolve() if args.patient_map else None,
+                               args.linkage_screen.resolve() if args.linkage_screen else None,
                                args.operator)
     except (OSError, json.JSONDecodeError, SplitError) as exc:
         print(f"split refused: {exc}", file=sys.stderr)
@@ -451,6 +725,8 @@ def main() -> int:
           f"validation {counts['validation']['case_count']} · "
           f"locked holdout {counts['final_holdout']['case_count']}")
     print(f"patient linkage: {manifest['patient_grouping']['patient_linkage_status']}")
+    print(f"effective train after DR-002b exclusions: "
+          f"{manifest['partitions']['train']['effective_training_case_count']}")
     print(f"GATE-SPLIT-01: {manifest['gate_split_01']['status']} — this script closes no gate")
     return 0
 
