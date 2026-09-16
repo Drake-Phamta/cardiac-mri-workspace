@@ -2,6 +2,11 @@
 
 **Khối lượng hôm nay:** phần chính **≥ 8 h** · hàng đợi dự phòng ~2 h · **hạn: 23:59 hôm nay**.
 
+> 🔒 **Day 6 đã chốt lúc 16/09 ~01:45 — `CHƯA ĐẠT` 3/4** · buffer 0 → **−1** — [`DAY06_EOD_REVIEW.md`](../DAY06_EOD_REVIEW.md).
+> Điều kiện 1 và 4 của bạn **đạt** (merge #25 lúc 10:03 · `B1` ở #30 lúc 10:21). Việc 6–9 chưa làm — picking `B3`/`B4`,
+> duyệt lại #24/#26, review #27/#31, duyệt lại Spike D — chuyển sang packet Day 7, cộng hai bản sửa Trung yêu cầu ở
+> #29 và #30: [`../../day07/tasks/DAY07_VU_HUNG_ANH.md`](../../day07/tasks/DAY07_VU_HUNG_ANH.md).
+
 > **Hôm qua:** hai review buổi sáng rất tốt — #25 bạn bắt được khoảng trắng mà chính PR nói đã kiểm, #24 bạn bắt được
 > provenance sai. Nhưng **`B1` và `B14` không có commit nào**, nên cả hai thành **nợ** hôm nay.
 >

@@ -13,20 +13,64 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 6 — 2026-09-15** |
-| Ngày còn lại tới Day 30 | **25** |
-| **Buffer còn** | 🔴 **0 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, tiêu 1 vì Day 3 trượt; Day 4 và Day 5 đạt)* |
+| Ngày hôm nay | **Day 7 — 2026-09-16** |
+| Ngày còn lại tới Day 30 | **24** |
+| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì **Day 6 trượt**; Day 4 và Day 5 đạt)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
 | Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
-| Ngưỡng leo thang | **đã vượt.** Mất thêm ngày nào từ đây là **buffer âm** — hạn Day 30 không lùi |
-| `15` §18 | ⚠ **trigger 2 ĐÃ NỔ** (buffer → 0) **chồng lên trigger 3 ĐÃ NỔ** từ Day 2, nay sống qua **chu kỳ EOD thứ ba** — xem [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
+| Ngưỡng leo thang | **đã vượt — buffer âm từ 16/09.** Hạn Day 30 không lùi: ngày mất thêm phải bù bằng thực thi |
+| `15` §18 | ⚠ **trigger 2 NỔ lần nữa** khi chốt Day 6 (buffer 0 → **−1**) · trigger 3 **theo dõi**: câu hỏi nối bệnh nhân của `GATE-SPLIT-01` sang chu kỳ EOD thứ hai — [`day06/DAY06_EOD_REVIEW.md`](day06/DAY06_EOD_REVIEW.md) §11 · [`incidents/INC-001`](incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md) |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
 
 ---
 
-## DAY 6 — 2026-09-15 · `ĐANG MỞ`
+## DAY 7 — 2026-09-16 · `ĐANG MỞ`
+
+**Gói nhiệm vụ từng người:** [`day07/tasks/`](day07/tasks/)
+
+> **Day 6 chốt CHƯA ĐẠT 3/4 → buffer −1.** Hôm nay **việc tồn của Day 6 đứng đầu mọi packet**. Critical path: **#34**
+> (Khánh chuyển ready trước 12:00) → Hùng Anh duyệt lại → merge → **QA soi lại** → `ACCEPTED` → `GATE-DATA-01` đóng.
+> Song song: leader quyết cách xử lý **154 lần chụp từ 60 bệnh nhân** cho `GATE-SPLIT-01`, và stub Spike E dựng theo
+> đường leader chọn để đo khung 21:00. **Khối lượng giữ như Day 6:** mỗi thành viên **≥ 8 h việc thật + ~2 h hàng đợi
+> dự phòng**, hạn 23:59.
+
+### Điều kiện để Day 7 KHÔNG trượt
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Bế Quốc Khánh** | **PR #34 chuyển ready trước 12:00** — xác nhận HITL (`A11`/`A14`/F5), bảng `A19` theo `Q2`, trả lời từng phát hiện QA-002 · nhờ Trung review **#35** | Hùng Anh duyệt lại trong ngày → QA soi lại → `GATE-DATA-01` |
+| 2 | **Nguyễn Gia Đức Trung** *(nợ Day 6)* | **Review #35** có nội dung + **stub 2 profile đã kiểm trước 20:30**, trên đúng địa chỉ điện thoại dùng | split được review · leader đo Spike E khung 21:00 |
+| 3 | **Vũ Hùng Anh** *(nợ Day 6)* | **Duyệt lại #24 và #26** (Trung chờ từ 21:22 hôm qua) + **duyệt lại #34** khi Khánh chuyển ready | merge #24/#26 → buổi đo tối · Spike D sang bước QA |
+| 4 | **Vũ Hùng Anh** | **`B1` đủ theo TASK** — thêm **pan** (desktop + touch) vào #30, bỏ đoạn lặp ở #29, nhờ Trung review lại | `B1` trọn · nền cho picking `B3`/`B4` |
+
+**Không đủ bốn thì ngày này tính là trượt.** Điều kiện 1 và 2 phụ thuộc **leader quyết `Q2` và chọn đường dựng stub
+trước 10:00**; leader merge **#17** để hai PR bằng chứng C0 của Khánh có CI.
+
+### Khối lượng và thứ tự từng người
+
+| Người | 🔴 Làm trước (nợ Day 6) | Việc chính Day 7 | Dự phòng | Giờ chính |
+|---|---|---|---|---|
+| **Bế Quốc Khánh** | ① **#34 ready trước 12:00** · ② #36 `C0-7`/`C0-8` · ③ đổi base #36/#37 sau merge #17 · ④ nhờ Trung review #35 | ⑤ sửa lỗi validator `F6`–`F11`, `F14`, `F15` kèm test hồi quy · ⑥ góp ý Decision Request nối bệnh nhân · ⑦ #35 sau khi #34 merge | tìm nguồn ánh xạ bệnh nhân · rà trường siêu dữ liệu cho `F5` | **~9,25 h** |
+| **Nguyễn Gia Đức Trung** | ① **stub 2 profile** theo đường leader chọn · ② **review #35** · ③ theo dõi #24/#26, đổi base #33 | ④ hợp đồng ingestion 2 v0 · ⑤ `E9` cho máy thật · ⑥ tổng hợp lượt đo khung 21:00 | kế hoạch `E7` · đối chiếu hợp đồng 1 với manifest thật | **~9 h** |
+| **Vũ Hùng Anh** | ① duyệt lại #24 · ② **duyệt lại #26 trước 14:00** · ③ #29 bỏ đoạn lặp · ④ **#30 thêm pan** | ⑤ **duyệt lại #34** · ⑥ picking `B3`/`B4` · ⑦ review #27 và #31 | review C0 #36/#37 · hợp đồng hình học · kịch bản `B10`/`B11` | **~8,9 h** |
+| **Phạm Tuấn Anh** | ① **merge #17** *(merge commit, giữ nhánh)* · ② **quyết `Q2`** · ③ **chọn đường dựng stub** · ④ **duyệt chuẩn demo v0** | ⑤ quyết nối bệnh nhân (`GATE-SPLIT-01`) · ⑥ phán `F5` · ⑦ xác nhận recovery khi buffer −1 · ⑧ stub · ⑨ **đo Spike E khung 21:00** · ⑩ merge + QA soi lại · ⑪ chốt ngày | review #32 · `A9` cache ±3 | không giới hạn |
+
+> **🎯 Chuẩn demo:** [`DEMO_STANDARD.md`](DEMO_STANDARD.md) v0 **chờ leader duyệt sáng nay**; mỗi packet có dòng 🎯 dẫn
+> tới luật (D1–D7), bước demo (H1–H10) hoặc màn hình (SCR-01…09) tương ứng.
+
+### Đã xong — trong ngày
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| *(chưa có)* | | |
+
+---
+
+## DAY 6 — 2026-09-15 · **`CHƯA ĐẠT` 3/4** — Spike D lên `main` rồi bị QA bác; stub Spike E không dựng được
+
+**Bản chốt đầy đủ:** [`day06/DAY06_EOD_REVIEW.md`](day06/DAY06_EOD_REVIEW.md)
 
 **Gói nhiệm vụ từng người:** [`day06/tasks/`](day06/tasks/)
 
@@ -41,11 +85,11 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | # | Ai | Điều kiện | Mở khoá gì |
 |---|---|---|---|
 | 1 | **Vũ Hùng Anh** → Phạm Tuấn Anh | ✅ **PR #25 trên `main`** — Hùng Anh approve 10:03:17 rồi tự merge 10:03:26 (`a92892c`) | bước QA Spike D → `GATE-DATA-01` |
-| 2 | **Bế Quốc Khánh** | **Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit | leader quyết `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật |
-| 3 | **Nguyễn Gia Đức Trung** | **Stub 2 profile chạy trên Mac mini** (đã kiểm, **trước 20:30** — khung 15:00 huỷ vì leader chỉ có máy buổi tối) + **review PR split** *(#28 bị đóng tự động 10:03 — review PR mở lại)* | leader đo lại Spike E khung 21:00 · split được review |
-| 4 | **Vũ Hùng Anh** | ✅ **`B1`** — PR nháp #30 (10:21): viewer WebGL2 xoay/zoom + ảnh chụp *(mới chạy trên trình duyệt desktop)* | nợ Day 5 · nền cho `B3`–`B11` |
+| 2 | **Bế Quốc Khánh** | ✅ **ĐẠT MUỘN** *(leader cho qua)* — bằng chứng nối bệnh nhân ở PR #35 lúc **00:20**, probe C0 ở PR #36 lúc **01:08**; cả hai sau 23:59 | leader quyết `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật |
+| 3 | **Nguyễn Gia Đức Trung** | ❌ **TRƯỢT** — stub không dựng được: Trung **không có quyền SSH** vào Mac mini (Project Control giao việc mà không kiểm quyền) · PR split để review chỉ mở lúc **00:20** | leader đo lại Spike E khung 21:00 · split được review |
+| 4 | **Vũ Hùng Anh** | ✅ **`B1`** theo chữ của điều kiện — PR nháp #30 (10:21): viewer WebGL2 xoay/zoom + ảnh chụp *(review Trung 21:39: `B1` trong TASK đòi cả **pan** — chưa có)* | nợ Day 5 · nền cho `B3`–`B11` |
 
-**Không đủ bốn thì ngày này tính là trượt.** Điều kiện 2 phần probe phụ thuộc leader sửa #17 **trước 12:00**.
+**Không đủ bốn thì ngày này tính là trượt** → **kết quả: CHƯA ĐẠT 3/4**, leader chốt 16/09 ~01:00. Buffer 0 → **−1**.
 
 ### Khối lượng và thứ tự từng người
 
@@ -85,7 +129,11 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | Phạm Tuấn Anh *(phiên QA độc lập; Project Control kiểm lại F1)* | **QA Red Team Spike D — `REJECT`**: 1 CRITICAL (cặp case trùng bị split nháp đặt ở train và validation), 4 HIGH; mọi con số khác tái lập đúng | [`day06/QA_REVIEW_002_SPIKE_D.md`](day06/QA_REVIEW_002_SPIKE_D.md) · script ở `day06/qa002/` |
 | Phạm Tuấn Anh *(Claude viết, leader duyệt)* | Spike A chặng S5 — brush thêm/xoá, hoàn tác/làm lại/đặt lại, tách cử chỉ, hook đo trên máy; kiểm offline F5 14/14, bundle Metro sạch — **chưa đo trên máy** | PR nháp #31 (`cf84802`) |
 | Phạm Tuấn Anh *(chủ Spike A, bấm trên máy)* | Đo S5 trên máy 21:13–21:21 — `A3`–`A7` `OBSERVED` (A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15); `A2` kiểm lại trên bản S5 `OBSERVED` | `1c62a00` trên PR #31 · `EVIDENCE_RAW/a3_a7_brush_20260915T212121+0700.json` |
-| Nguyễn Gia Đức Trung | Sửa #24 (ID mạng ZeroTier) · sửa #26 (tổng hợp theo profile, JSON sinh lại, kế hoạch đo) — **chưa trả lời review, chưa được duyệt lại** | `be52d6f` trên #24 · `a585907` trên #26 |
+| Nguyễn Gia Đức Trung | Sửa #24 (ID mạng ZeroTier) · sửa #26 (tổng hợp theo profile, JSON sinh lại, kế hoạch đo) — đã trả lời review 22:08, chờ duyệt lại | `be52d6f` trên #24 · `a585907` trên #26 |
+| Nguyễn Gia Đức Trung | Review **#29** (`B14`, đoạn lặp) và **#30** (`B1`, **thiếu pan**) — cả hai `CHANGES_REQUESTED`, 21:38–21:39 | review trên PR #29 · #30 |
+| Nguyễn Gia Đức Trung | **`E9`** reconnect/retry drill cho harness Toybox (PR #33, xếp chồng trên #24) · **hợp đồng ingestion 1 v0** (PR #32, 9/9 ca kiểm tổng hợp) | `32ef07a` · `f97b78f` |
+| Nguyễn Gia Đức Trung | Kiểm HEAD tiến trình đang chạy 22:27: hai profile cùng `Content-Length` 58 392 576, không có `X-Payload-Profile` → stub 2 profile **chưa chạy** | comment trên #26 |
+| Bế Quốc Khánh *(sau 23:59 — leader cho qua)* | #34 sửa Spike D theo QA-002 (00:19) · #35 split `DR-002a` + bằng chứng nối bệnh nhân (00:20) · bật pagefile · **approve #17** (00:29) · #36 probe C0 20/20 (01:08) · #37 khung pipeline (01:14) | `b52d81d` · `d66925b` · `36789c0` · `06cff72` · [§14](day06/DAY06_EOD_REVIEW.md) |
 
 ---
 

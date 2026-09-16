@@ -263,7 +263,18 @@ spikes:
       Update 2026-09-15 12:29: the leader decided Q1 = DR-002a (the pair is one group pinned to train; 80/20
       and seed unchanged) and Q3 as proposed (strip the absolute local paths from the manifest now; the rest
       waits for the CAP terms the owner quotes). Q2 - deferring the A19 split item to GATE-SPLIT-01 - is open.
+      Update 2026-09-16 (Day-6 close): the owner opened draft PR #34 at 00:19 (b52d81d, CI 4/4) covering F1-F5,
+      F12 and F13. Exact cross-case cavity/wall hashing now finds CASE_0056 + CASE_0097 and the audit records
+      the pair with its DR-002a grouping; all 462 headers are reported as default, header-level geometry with
+      physical mm/mL disabled; absolute private paths are out of the generated manifest and audit; the CAP
+      policy sections 6-7 are quoted in POLICY_EVIDENCE.md; the official cohort re-runs 16 PASS, 0 FAIL, A19
+      NOT_RUN. Still a draft: the owner confirms the A11/A14/F5 wording and marks it ready (target 12:00 on
+      Day 7), the leader decides Q2 and the rest of F5, then Vu Hung Anh re-reviews and QA re-checks. The
+      manifest on main keeps its absolute paths until #34 merges.
     evidence_submitted: {pr: 25, at: "2026-09-14T03:10+07:00", reviewer_requested: "Vu Hung Anh", review: "CHANGES_REQUESTED 2026-09-14 11:31 - trailing space only; fixed fdaf920 2026-09-15 00:44; APPROVED 2026-09-15 10:03 and merged a92892c; QA REJECT 11:52"}
+    repair_submitted: {pr: 34, at: "2026-09-16T00:19+07:00", commit: b52d81d, state: draft,
+                       blocked_on: ["owner: A11/A14/F5 wording, mark ready", "leader: Q2 and the rest of F5"],
+                       then: "Vu Hung Anh re-review, independent QA re-check, Project Control transition"}
 
   - id: SPIKE_A
     name: "2D scientific viewer / brush interaction"
@@ -291,7 +302,7 @@ spikes:
     related_condition: []
     unblocks: [GATE-MOB-01]
     measurement_owner: "Pham Tuan Anh (physical device) - Claude must not fabricate touch/performance values"
-    next_action: "2026-09-15: A9 measured twice (RESULT.md on main); stage S4 zoom/pan built and A2 measured on the device 2026-09-14 21:25 - OBSERVED, source-mask checksum 16/16 across three checks (draft PR #27, fb006da). Next: request review of #27 from Vu Hung Anh; stage S5 brush (A3 A4 A6 A7 A8 A10) and the 60 brush cases for A5. Holds measurement slot 1."
+    next_action: "2026-09-16: A9 measured twice (RESULT.md on main). S4 zoom/pan: A2 OBSERVED on the device 2026-09-14 21:25, source-mask checksum 16/16 across three checks (PR #27, fb006da, review requested 2026-09-15 10:51). S5 brush: A3-A7 OBSERVED on the release build 2026-09-15 21:13-21:21 - A3 8/8, A4 6/6, A5 60/60 at r=0 and 60/60 at r=2, A6/A7 15/15, reset exact - and A2 re-checked OBSERVED on that build (PR #31, evidence 1c62a00). Measured, not accepted: both PRs wait on Vu Hung Anh and sit behind SPIKE_D in his queue. Next: his reviews; then A8, A10 and A11, completing A1 and A12, and the A9 re-measurement with a +/-3 slice cache. Holds measurement slot 1."
 
   - id: SPIKE_B
     name: "3D linked interaction"
@@ -334,6 +345,11 @@ spikes:
       Device path decided 2026-09-14, DR-006a revision 3: the leader operates B10/B11 and the
       picking runs on the phone once the app runs; the owner designs, computes and interprets.
       Day 5 (2026-09-14): the owner reviewed #25 and #24; no B1 or B14 commit - both carry to Day 6.
+      Day 6 (2026-09-15): B14 interpretation in PR #29 (10:14) and a minimal WebGL2 viewer for B1 in draft PR
+      #30 (10:21), checked in a desktop browser only. The reviewer requested changes on both at 21:38-21:39:
+      #29 repeats one passage; #30 orbits and zooms but has no pan, while B1 requires rotate, zoom AND pan.
+      No owner activity after 10:26. Next: both fixes and a re-review, then B3/B4 picking on the canonical
+      fixture, then the B10/B11 script for the leader to operate.
     canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0
@@ -363,7 +379,7 @@ spikes:
     related_condition: []
     unblocks: []
     may_close_gate_ml_01: false
-    next_action: "2026-09-15: C0-1 declared by the owner at 01:00 (comment on PR #17) - RTX 4050 Laptop 6141 MiB, driver 595.79, RAM 15.25 GiB, PyTorch 2.11 + CUDA 12.8, no Windows pagefile configured. His 00:52 re-review of PR #17 on that GPU found two runtime blockers (batch search skipped when the intended batch fails; OSError on DINOv2 load aborts the probe). Next: the leader fixes #17; the owner reruns the same commands. started_at stays null until the owner starts measuring."
+    next_action: "2026-09-16: the owner enabled a 15,610 MiB pagefile and APPROVED PR #17 at 00:29 - both runtime blockers gone in real execution (selftest 8/8 search + 10/10 runner; UNet at img 560 with --find-batch reported max batch 15; real facebook/dinov2-small loaded and both frozen variants measured). He then ran the full matrix on his RTX 4050: draft PR #36 (01:08) carries fp32 and bf16 for all 10 candidate variants, 20/20 measurements with no runtime errors, plus a RESULT.md table and an SVG cost chart generated from the raw JSON - C0-1 to C0-6, C0-9 and C0-10 evidenced, C0-7/C0-8 NOT MEASURED pending his real GPU-hours per day. Draft PR #37 (01:14) adds a synthetic pipeline bring-up: DR-011 normalization, 576/640 to 560 resize, one epoch each for UNet base16 and DINOv2-S/14 frozen + progressive, checkpoint save and reload PASS, no real dataset bytes. Both are stacked on #17 so neither has run CI. status stays PREPARED and started_at null until the OWNER declares the real start time (his first probe file is stamped 2026-09-16T00:43:25+07:00); PARTIAL_EVIDENCE, and C0 cannot close GATE-ML-01 in any case."
 
   - id: SPIKE_C1
     name: "Final real-data ML feasibility (small representative validated real subset)"
@@ -390,7 +406,7 @@ spikes:
     unblocks: [GATE-ML-01]
     may_close_gate_ml_01: true
     subset_rule: "Drawn from the TRAINING partition only once GATE-SPLIT-01 resolves; never validation or holdout."
-    next_action: "Wait for Spike D acceptance. No work while BLOCKED."
+    next_action: "Wait for Spike D acceptance AND a GATE-SPLIT-01 ruling: the owner's PR #35 reports BLOCKED_PATIENT_LINKAGE - the challenge benchmark describes 154 scans from 60 patients and the package carries no case-to-patient map, so biological patient separation is NOT VERIFIABLE until the leader obtains a grouping or records an exception. No work while BLOCKED."
 
   - id: SPIKE_E
     name: "Artifact transport over the canonical demo network"
@@ -426,7 +442,7 @@ spikes:
     hard_constraint: "Acceptance evidence MUST be measured over real cellular + ZeroTier overlay. LAN measurements are diagnostic/control only."
     scope_firewall: "Fallback informs a demo-resilience measure only; must not become full offline mode, a second architecture, or backend-on-phone. PR-CACHE-01 stays SHOULD."
     linked_risk: [RISK-DEMO-NET-01, RA-H13]
-    next_action: "2026-09-15: the owner approved #23 (merged b4208d0); PR #26 carries the run-4 aggregate, uint8 576/640 payload profiles, a 6-run measurement plan (2 profiles x 3 time windows) and a RESULT.md draft; PR #24 fixed per review and the Toybox harness gained --profile (710090f, 22:24). Next: Vu Hung Anh re-reviews #24 and reviews #26; the stub serving both profiles is started on the Mac mini; the leader runs the plan's windows on the phone. No run on 2026-09-14 - the 15:00 and 21:00 windows passed before --profile existed."
+    next_action: "2026-09-16: #24 (be52d6f) and #26 (a585907) were fixed on 2026-09-15 at 21:21-21:22 with a reply on each PR and wait on Vu Hung Anh's re-review. The owner also opened PR #33 (E9 controlled reconnect/retry drill, stacked on #24) and PR #32 (M3 Contract 1 ingestion draft). NO measurement on 2026-09-15: the two-profile stub was never started because the owner has no SSH access to the Mac mini - the Day-6 packet assigned the task without checking access, a Project Control planning error recorded in day06/DAY06_EOD_REVIEW.md section 1. His read-only HEAD check at 22:27 shows the process answering :8787 returning the same 58,392,576-byte payload for both profiles and no X-Payload-Profile, so PR #26's profile-aware server is not the one running. Next: the leader chooses the deployment path on Day 7 (Project Control deploys with the leader's SSH per the owner's written commands, or the owner is given access), the owner verifies both profiles before 20:30, then the leader measures the 21:00 window on the phone and the owner aggregates per profile."
 
   - id: SPIKE_F
     name: "3D error representation"
@@ -751,6 +767,12 @@ device_measurement_queue:
       Update 2026-09-14: PR #22 merged on 2026-09-13; PR #23 was fixed in 2ed3c64 and waits on
       Trung's re-review.
     stub_running: true            # 2026-09-13, started by Trung; 200 from the leader's peer at 12:35
+    stub_state_2026_09_16: >
+      The second instance on 10.64.193.115:8787 (PID 32227) was stopped by the leader on 2026-09-15 09:48 and
+      nothing replaced it: the port was still closed at 21:28. The original instance on 10.134.129.115:8787
+      answers, but the owner's HEAD check at 22:27 returned the same 58,392,576-byte payload for both profile
+      queries and no X-Payload-Profile - the profile-aware server from PR #26 is NOT running. Byte-dependent
+      measurements wait for it; the blocker is SSH access to the Mac mini, not the code.
     gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
     still_needed_before_any_E_measurement: []    # all three resolved on 2026-09-13, kept below for the record
     resolved_2026_09_13:

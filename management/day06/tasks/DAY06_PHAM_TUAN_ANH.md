@@ -3,6 +3,11 @@
 **Khối lượng hôm nay:** **không giới hạn giờ** — review, merge, quyết định và chốt ngày. Thành viên: **≥ 8 h**
 việc thật + ~2 h dự phòng, hạn **23:59**.
 
+> 🔒 **Day 6 đã chốt lúc 16/09 ~01:45 — `CHƯA ĐẠT` 3/4** · buffer 0 → **−1** — [`DAY06_EOD_REVIEW.md`](../DAY06_EOD_REVIEW.md).
+> Anh chốt kết quả ngày lúc ~01:00. Việc chưa xong — quyết `Q2`, quyết nối case↔bệnh nhân, đo Spike E khung 21:00,
+> merge #24/#26, duyệt `DEMO_STANDARD` v0 — chuyển sang packet Day 7, cộng merge #17 và xác nhận recovery khi buffer
+> −1: [`../../day07/tasks/DAY07_PHAM_TUAN_ANH.md`](../../day07/tasks/DAY07_PHAM_TUAN_ANH.md).
+
 > **Day 5 đạt 3/3 theo quyết định của anh.** Hôm nay critical path có thể đi **xa nhất từ đầu dự án**: #25 merge →
 > **QA Spike D** → `ACCEPTED` → `GATE-DATA-01` đóng → `SPIKE_C1` hết `BLOCKED`. Nấc song song: bằng chứng nối bệnh
 > nhân của Khánh → **anh quyết** → `GATE-SPLIT-01`.

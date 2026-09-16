@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 6 · 2026-09-15 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 6: Spike D lên `main` rồi bị QA bác; S5 brush đo trên máy; stub Spike E không dựng được">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top red">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 6</span> — 15/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st no">TRƯỢT</span> &nbsp; Spike D lên `main` rồi bị QA bác; S5 brush đo trên máy; stub Spike E không dựng được</div>
+  <p class="sub">Chưa đạt 3/4. Điều kiện 3 trượt: stub 2 profile không chạy vì Trung không có quyền SSH vào Mac mini — Project Control giao việc mà không kiểm quyền — và PR split để review chỉ mở lúc 00:20. Điều kiện 2 tính đạt muộn theo quyết định cho qua của leader. Buffer 0 → −1.</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Vũ Hùng Anh</strong> — Approve + <strong>merge #25</strong> — audit Spike D lên <code>main</code> lần đầu · review lại #24 · review #26 · soát #27 · <strong><code>B14</code></strong> (#29) · <strong><code>B1</code></strong> viewer WebGL2 (#30) <code>a92892c · PR #29 · PR #30</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>QA Red Team Spike D — <code>REJECT</code></strong>: cặp case trùng mà audit không báo, header không mang hình học vật lý · quyết <strong><code>DR-002a</code></strong> và <code>Q3</code> <code>f7455f8 · c0d33ce</code></li><li><strong>Phạm Tuấn Anh</strong> — Sửa <strong>#17</strong> (2 lỗi runtime Khánh tìm + 2 lỗi tìm thêm) · dừng stub cũ PID 32227 · <strong>chuẩn demo v0</strong> <em>(chờ duyệt)</em> <code>08d7166 · 1293854 · 3b126a4</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>Spike A S5 — <code>A3</code>–<code>A7</code> đo trên máy: <code>OBSERVED</code></strong> (A5 60/60 ở r = 0 và r = 2); <code>A2</code> kiểm lại <code>OBSERVED</code> <code>1c62a00 · PR #31</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — Sửa #24 và #26 · <strong>review #29 và #30</strong> — bắt được <code>B1</code> thiếu <strong>pan</strong> · <strong><code>E9</code></strong> drill (#33) · <strong>hợp đồng ingestion 1 v0</strong> (#32, 9/9) <code>be52d6f · a585907 · 32ef07a · f97b78f</code></li><li><strong>Bế Quốc Khánh</strong> — <em>Sau 23:59 (leader cho qua):</em> <strong>#34</strong> sửa Spike D theo QA-002 · <strong>#35</strong> split <code>DR-002a</code> + bằng chứng nối bệnh nhân · approve <strong>#17</strong> · <strong>#36</strong> probe C0 20/20 · <strong>#37</strong> khung pipeline <code>b52d81d · d66925b · 36789c0 · 06cff72</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Nguyễn Gia Đức Trung</strong> — Stub 2 profile trên Mac mini — <strong>không có quyền SSH</strong>; PR split để review chỉ mở lúc 00:20</li><li><strong>Vũ Hùng Anh</strong> — Duyệt lại #24/#26 · review #27/#31 · picking <code>B3</code>/<code>B4</code> — không có hoạt động sau 10:26</li><li><strong>Phạm Tuấn Anh</strong> — Đo Spike E khung 21:00 — không có stub · quyết nối bệnh nhân — bằng chứng đến lúc 00:20</li><li><strong>Bế Quốc Khánh</strong> — Toàn bộ phần việc lên <strong>sau 23:59</strong> (00:19–01:14) — ngày thứ ba liên tiếp</li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li><strong><code>DR-002a</code></strong> — cặp <code>CASE_0056</code>/<code>CASE_0097</code> là <strong>một nhóm ghim vào train</strong>; 80/20 và seed 2024 giữ nguyên</li><li><strong><code>Q3</code></strong> — bỏ đường dẫn tuyệt đối khỏi manifest ngay; phần còn lại chờ điều khoản CAP · <strong><code>Q2</code></strong> hoãn sang Day 7</li><li>Leader chỉ có điện thoại buổi tối → huỷ khung đo Spike E 15:00, stub hạn 20:30</li><li><strong>Khánh nộp muộn: cho qua</strong> · <strong>Day 6 chưa đạt</strong> · duyệt <code>DEMO_STANDARD</code> hoãn sang Day 7</li></ul></section>
+<section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong><code>CASE_0056</code> và <code>CASE_0097</code> là một lần chụp bị xuất hai lần</strong> — audit ghi 0 bất thường và review cũng không thấy; split nháp đã đặt hai bản ở train và validation</li><li><strong>Bài benchmark của challenge: 154 lần chụp từ 60 bệnh nhân</strong> — gói không có ánh xạ, <code>GATE-SPLIT-01</code> bị chặn cứng</li><li><strong>Cả 462 header mang hình học mặc định</strong> (spacing 1, origin 0) — mọi đơn vị mm/mL tắt tới khi kiểm được</li><li><strong>Tiến trình đang chạy trên Mac mini trả cùng một payload 58 MB cho cả hai profile</strong> — chưa đo được gì theo byte</li><li>Việc cần quyền truy cập mà packet không kiểm quyền thì trượt cả ngày — từ Day 7, packet ghi rõ <strong>cần quyền gì · ai đang có</strong></li></ul></section>
+
+<footer>
+  <div class="links"><div class="lg-g"><b>Hôm nay</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/day07/tasks">gói nhiệm vụ Day 7</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day06/DAY06_EOD_REVIEW.md">EOD Day 6</a></div><div class="lg-g"><b>State</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/PROJECT_STATE.yaml">PROJECT_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/spikes/SPIKE_PHASE_STATE.yaml">SPIKE_PHASE_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">OPEN_DECISIONS</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/RISK_REGISTER_INITIAL.md">Risk register</a></div><div class="lg-g"><b>Spike</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/spikes">TASK.md từng spike</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW">bằng chứng thô Spike E</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/tests/fixtures/geometry">fixture hình học</a></div><div class="lg-g"><b>GitHub</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/actions">CI (Actions)</a> · <a href="../archive/index.html">lịch sử ngày</a></div></div>
+  <p class="inv">Bất biến lúc build: spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>evidence_present = 1</code> · <code>SPIKE_C1</code> <code>BLOCKED</code> ·
+     sinh lúc 16/09/2026 10:19 bằng <code>tools/board/build_board.py</code>.</p>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Trạng thái spike, gates, mốc, buffer, rủi ro, ma trận reviewer đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code>; PR, review và CI đọc từ
+     GitHub API; checksum spec tính lại lúc build. Nếu một con số ở đây sai thì state file sai — kiểu
+     hỏng dễ sửa hơn nhiều so với một đoạn văn cũ. Phần viết tay duy nhất là
+     <code>tools/board/days.yaml</code>: việc của từng người và chuyện gì đã xảy ra trong ngày.</p>
+</footer>
+</div>
+</body>
+</html>

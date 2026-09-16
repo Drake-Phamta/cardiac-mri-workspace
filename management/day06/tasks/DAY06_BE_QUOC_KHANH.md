@@ -2,6 +2,11 @@
 
 **Khối lượng hôm nay:** phần chính **≥ 8 h** · hàng đợi dự phòng ~2 h · **hạn: 23:59 hôm nay**.
 
+> 🔒 **Day 6 đã chốt lúc 16/09 ~01:45 — `CHƯA ĐẠT` 3/4** · buffer 0 → **−1** — [`DAY06_EOD_REVIEW.md`](../DAY06_EOD_REVIEW.md).
+> Phần của bạn lên **sau 23:59** (#34 lúc 00:19 · #35 00:20 · approve #17 00:29 · #36 01:08 · #37 01:14) và leader
+> **cho qua**, nên điều kiện 2 tính là **đạt muộn**. Việc chưa xong chuyển lên đầu packet Day 7:
+> [`../../day07/tasks/DAY07_BE_QUOC_KHANH.md`](../../day07/tasks/DAY07_BE_QUOC_KHANH.md).
+
 > **Đêm qua bạn làm được nhiều thứ có chất lượng:** PR #28 (split Path A, selftest 9/9, tự tìm và sửa lỗ hổng
 > của chính mình), khai báo `C0-1`, và review lại #17 **trên chính RTX 4050** — tìm ra 2 lỗi runtime thật mà kiểm
 > offline bỏ sót. Nhưng tất cả được đẩy lên từ **00:44**, sau hạn 23:59; hạn cứng của audit Spike D đã trượt

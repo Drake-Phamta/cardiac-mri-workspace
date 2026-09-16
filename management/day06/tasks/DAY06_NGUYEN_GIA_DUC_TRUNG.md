@@ -2,6 +2,11 @@
 
 **Khối lượng hôm nay:** phần chính **≥ 8 h** · hàng đợi dự phòng ~2 h · **hạn: 23:59 hôm nay**.
 
+> 🔒 **Day 6 đã chốt lúc 16/09 ~01:45 — `CHƯA ĐẠT` 3/4** · buffer 0 → **−1** — [`DAY06_EOD_REVIEW.md`](../DAY06_EOD_REVIEW.md).
+> Điều kiện 3 (stub 2 profile + review PR split) **trượt**, và phần lớn là **lỗi lập kế hoạch của Project Control**:
+> packet giao bạn dựng stub mà không kiểm bạn có quyền SSH vào Mac mini hay không, còn PR split chỉ mở lúc 00:20.
+> Việc chuyển sang packet Day 7: [`../../day07/tasks/DAY07_NGUYEN_GIA_DUC_TRUNG.md`](../../day07/tasks/DAY07_NGUYEN_GIA_DUC_TRUNG.md).
+
 > **Hôm qua bạn xong đủ việc chính trong hạn:** PR #26 (tổng hợp lượt 4, payload 576/640, kế hoạch đo, nháp
 > `RESULT.md`) và lúc 22:24 sửa đủ 3 điểm review #24 **cộng thêm `--profile`** cho harness Toybox — nhờ đó leader đo
 > được đúng kế hoạch của bạn trên điện thoại. Hôm nay: dựng stub để leader đo **khung 21:00** *(khung 15:00 huỷ — xem ghi chú 13:07)*, thiết kế `E9`, và bắt đầu

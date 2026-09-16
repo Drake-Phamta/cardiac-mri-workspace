@@ -22,25 +22,25 @@ members:
     role: "ML training / evaluation"
     owns: [SPIKE_D, SPIKE_C0, SPIKE_C1]
     reviews: []            # filled from the state file
-    packet: management/day06/tasks/DAY06_BE_QUOC_KHANH.md
+    packet: management/day07/tasks/DAY07_BE_QUOC_KHANH.md
   trung:
     name: "Nguyễn Gia Đức Trung"
     github: TrungNGD195
     role: "Backend / persistence / ingestion"
     owns: [SPIKE_E]
-    packet: management/day06/tasks/DAY06_NGUYEN_GIA_DUC_TRUNG.md
+    packet: management/day07/tasks/DAY07_NGUYEN_GIA_DUC_TRUNG.md
   hunganh:
     name: "Vũ Hùng Anh"
     github: scalliontor
     role: "Geometry / 3D"
     owns: [SPIKE_B, SPIKE_F, "tests/fixtures/geometry"]
-    packet: management/day06/tasks/DAY06_VU_HUNG_ANH.md
+    packet: management/day07/tasks/DAY07_VU_HUNG_ANH.md
   tuananh:
     name: "Phạm Tuấn Anh"
     github: Drake-Phamta
     role: "Team Leader · Project Control · Integration/CI"
     owns: [SPIKE_A]
-    packet: management/day06/tasks/DAY06_PHAM_TUAN_ANH.md
+    packet: management/day07/tasks/DAY07_PHAM_TUAN_ANH.md
 
 # Acceptance criteria per spike, from each TASK.md. `measured` counts criteria
 # with real data behind them; it is NOT the same as accepted, and the board
@@ -50,7 +50,7 @@ criteria:
   SPIKE_A:  {total: 12, measured: 3,  label: "A1–A12", in_pr: 6, in_pr_ref: "PR #27 (A2) · PR #31 (A3–A7)"}
   SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15"}
   SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13", in_pr: 6, in_pr_ref: "PR #26"}
-  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10", in_pr: 1, in_pr_ref: "PR #17 (C0-1)"}
+  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10", in_pr: 8, in_pr_ref: "PR #36 (C0-1–C0-6 · C0-9 · C0-10)"}
   SPIKE_C1: {total: 10, measured: 0,  label: "C1-1–C1-10"}
   SPIKE_F:  {total: 12, measured: 0,  label: "F1–F12"}
 
@@ -63,16 +63,16 @@ criteria:
 # Where each spike stands, in one line a member can act on. The status, owner,
 # reviewer, priority and "unblocks" list come from SPIKE_PHASE_STATE.yaml.
 spike_notes:
-  SPIKE_D:  "#25 merge 10:03 → ❌ **QA Red Team `REJECT` 11:52** → `NEEDS_FIX`, trả Khánh. Số đo tái lập đúng, nhưng **`CASE_0056`/`CASE_0097` là một lần chụp bị xuất hai lần** (audit ghi 0 bất thường; split nháp đặt ở train và validation) · header không mang hình học vật lý · `A19` thiếu. Leader đã quyết Q1 (`DR-002a`: cặp trùng ghim vào train) và Q3; Q2 đang cân nhắc — `management/day06/QA_REVIEW_002_SPIKE_D.md`."
-  SPIKE_A:  "`A9` p95 65,31 ms đã đo · `A1` `A12` một phần. **`A2` đã đo trên máy 14/09 21:25 — `OBSERVED`**: checksum mask 16/16 qua 3 lần kiểm (trước, sau 3 pinch + 1 kéo, sau 13 bước tự động), 0 lần khựng. Bằng chứng ở PR #27 — Hùng Anh soát 10:13: 4/4 kiểm đạt, góp ý `onPanResponderTerminate` đưa vào S5. S5 brush: **PR #31** — **`A3`–`A7` đã đo trên máy 15/09 21:21, `OBSERVED`** (A5 60/60 ở r = 0 và r = 2)."
-  SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). ✅ `B14` diễn giải (#29) · ✅ `B1` viewer WebGL2 xoay/zoom có ảnh (#30 nháp, mới chạy trên trình duyệt desktop). Việc tiếp: picking `B3`/`B4`. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
-  SPIKE_E:  "PR #26 và #24 **đã có bản sửa 21:21** (`a585907`, `be52d6f`) — chờ Hùng Anh duyệt lại. Hôm nay: stub 2 profile → leader đo **khung 21:00** (15:00 huỷ — leader chỉ có máy buổi tối) → Trung tổng hợp."
-  SPIKE_C0: "`C0-1` đã khai báo (RTX 4050 6 GB, không pagefile). #17: **đã sửa 2 lỗi runtime** (`08d7166`, 06:42; mỗi lần đo/thử batch chạy trong tiến trình con riêng) → Khánh review lại và chạy probe fp32 + bf16. Khung pipeline trên dữ liệu tổng hợp hôm nay."
-  SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` đóng. Không làm gì trên dữ liệu thật trước đó."
+  SPIKE_D:  "QA `REJECT` 15/09 → `NEEDS_FIX`. **Bản sửa: PR nháp #34** (00:19 16/09, CI 4/4) — kiểm hash chéo giữa các case tìm ra cặp trùng và ghi vào manifest + audit theo `DR-002a`; 462/462 header ghi rõ là hình học mặc định, mm/mL tắt; bỏ đường dẫn tuyệt đối; trích CAP §§6–7; cohort chính thức 16 PASS / 0 FAIL / `A19` NOT_RUN. Còn: **Khánh chuyển ready trước 12:00** · leader quyết `Q2` và `F5` · Hùng Anh duyệt lại · QA soi lại."
+  SPIKE_A:  "`A9` p95 65,31 ms · `A1` `A12` một phần. **`A2` `OBSERVED`** (14/09 21:25, checksum mask 16/16 qua 3 lần kiểm) — PR #27. **S5 brush: `A3`–`A7` `OBSERVED` trên máy 15/09 21:13–21:21** — A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15 · reset đúng; `A2` kiểm lại trên bản S5 cũng `OBSERVED` — PR #31 (`1c62a00`). **Đo rồi, chưa nghiệm thu**: cả hai PR chờ Hùng Anh, xếp sau Spike D trong hàng của cậu ấy."
+  SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). `B14` (#29) và `B1` (#30) **đều bị Trung yêu cầu sửa 21:38–21:39**: #29 lặp một đoạn diễn giải · #30 **thiếu pan** — `B1` trong TASK đòi xoay, zoom **và** pan. Hôm nay: sửa cả hai → picking `B3`/`B4` trên fixture. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
+  SPIKE_E:  "#24 và #26 đã sửa 21:21–21:22 — **chờ Hùng Anh duyệt lại**. **15/09 không đo được**: stub 2 profile chưa bao giờ chạy vì Trung không có quyền SSH vào Mac mini; tiến trình đang chạy trả **cùng payload 58 MB cho cả hai profile** (Trung kiểm 22:27). Hôm nay: leader chọn đường dựng stub → Trung kiểm trước 20:30 → leader đo khung 21:00 → Trung tổng hợp. `E9` drill: #33 · hợp đồng ingestion 1: #32."
+  SPIKE_C0: "Khánh bật pagefile rồi **approve #17 lúc 00:29** (selftest 8/8 + 10/10, UNet 560 batch tối đa 15, DINOv2-S/14 tải được) → **probe chạy trọn ma trận trên RTX 4050: PR nháp #36** — fp32 + bf16, 10 biến thể, **20/20 phép đo**, bảng + biểu đồ sinh từ JSON; `C0-7`/`C0-8` chờ số giờ GPU/ngày. Khung pipeline tổng hợp: **#37**. Cả hai xếp chồng trên #17 nên **chưa có CI** — leader merge #17, Khánh đổi base."
+  SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` có quyết định — split đang bị chặn bởi nối bệnh nhân (154 lần chụp / 60 bệnh nhân, không có ánh xạ). Không chạm dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
-merge_order: [24, 26, 29, 30, 17, 27, 31]
+merge_order: [17, 24, 26, 34, 35, 33, 32, 29, 30, 27, 31, 36, 37]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
@@ -115,7 +115,7 @@ policies:
     ref: management/readiness/OPEN_DECISIONS.md
   - date: "13/09"
     id: "Recovery"
-    text: "**Giữ kế hoạch, không de-scope** — de-scope `COULD` không mua thêm ngày nào. Buffer 0, Day 30 cố định 09/10."
+    text: "**Giữ kế hoạch, không de-scope** — de-scope `COULD` không mua thêm ngày nào. Lúc quyết buffer 0; **từ 16/09 buffer −1** nên leader xác nhận lại trong Day 7. Day 30 cố định 09/10, không lùi."
   - date: "11/09"
     id: "DR-003a"
     text: "Overlay chuẩn là **ZeroTier**. Mạng hiện dùng: `b103a835d292ddb3` (tài khoản của leader)."
@@ -123,10 +123,10 @@ policies:
 # Short, current reading of the risks that moved this week. The ids and their
 # high/medium/closed grouping come from PROJECT_STATE.yaml; titles from the register.
 risk_notes:
-  RISK-DATA-01:     "QA-002 `REJECT`: case trùng không được báo · header không mang hình học vật lý · `A19` thiếu — số đo tái lập đúng"
-  RISK-SPLIT-01:    "**đã xảy ra ở bản nháp**: cặp `CASE_0056`/`CASE_0097` (một lần chụp) bị đặt ở train và validation — bắt được trước khi train. Gói không có ánh xạ bệnh nhân; `DR-002a` (15/09) ghim cặp vào train; chờ quyết nối bệnh nhân"
-  RISK-COMPUTE:     "probe `C0` chưa chạy — bản sửa PR #17 đã lên, chờ Khánh review và chạy trên RTX 4050"
-  RISK-MOBILE-RENDER: "chưa có app 3D chạy trên máy — `B1` hôm nay"
+  RISK-DATA-01:     "QA-002 `REJECT` → bản sửa ở PR nháp #34: cặp trùng đã được báo, header ghi rõ chỉ ở mức header (mm/mL tắt), bỏ đường dẫn tuyệt đối — chờ duyệt lại và QA soi lại"
+  RISK-SPLIT-01:    "**154 lần chụp từ 60 bệnh nhân** (bài benchmark của challenge) và gói **không có ánh xạ** → `GATE-SPLIT-01` `BLOCKED_PATIENT_LINKAGE` (#35). Cặp trùng đã gom theo `DR-002a`; sàng lọc chỉ từ ảnh MRI tìm lại được cặp đó ở hạng 1 nhưng **không chứng minh được danh tính** — leader quyết qua Decision Request"
+  RISK-COMPUTE:     "**giảm** — probe `C0` đã chạy trọn trên RTX 4050: 20/20 phép đo fp32 + bf16 (PR nháp #36); `C0-7`/`C0-8` chờ số giờ GPU/ngày thật"
+  RISK-MOBILE-RENDER: "viewer `B1` (#30) mới chạy trên trình duyệt desktop và **thiếu pan** — chưa có app 3D nào chạy trên điện thoại"
   RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
   RISK-CAP-01:      "3/4 người vắng Day 2–3; Day 4 hai người quay lại, Day 4 đạt 3/3"
 
@@ -134,7 +134,7 @@ risk_notes:
 device:
   nodes:
     - ["Laptop leader", "68efb4de07", "10.64.193.145", "operator, adb qua USB"]
-    - ["Mac mini M2 24 GB", "e202ffbfe4", "10.64.193.115", "`:8787` trống — stub cũ PID 32227 dừng 15/09 09:48; chờ stub 2 profile của Trung"]
+    - ["Mac mini M2 24 GB", "e202ffbfe4", "10.64.193.115", "`:8787` **đóng** từ 15/09 09:48 (stub cũ PID 32227 dừng) · tiến trình ở `10.134.129.115:8787` trả cùng payload 58 MB cho cả hai profile · **Trung không có SSH** — leader chọn đường dựng stub"]
     - ["Galaxy A17 5G", "078280bae8", "10.64.193.140", "ZeroTier Android 1.16.0"]
   runs:
     - ["1", "13/09 17:51", "5G · `cellular-overlay`", "RELAY", "57 mẫu: 30 ok · 27 lỗi connect", "no", "bd5e931"]
@@ -148,110 +148,153 @@ device:
     - "Lượt 3–4 **không phải LAN**: điện thoại ở `192.168.0.0/24`, Mac mini ở `10.170.75.0/24` — đường WAN thật."
 
 today:
-  day: 6
-  date: "2026-09-15"
-  headline: "#25 merge 10:03 → QA Red Team REJECT Spike D lúc 11:52: một case bị trùng mà audit không báo, và split nháp đã đặt hai bản ở train và validation. Spike D về NEEDS_FIX; GATE-DATA-01 chưa đóng hôm nay. Mỗi người ≥ 8 giờ việc thật, hạn 23:59."
+  day: 7
+  date: "2026-09-16"
+  headline: "Day 6 chưa đạt 3/4 → buffer −1. Việc tồn của Day 6 đứng đầu mọi packet: Khánh chuyển #34 (bản sửa Spike D) sang ready trước 12:00 để Hùng Anh duyệt lại trong ngày; leader quyết Q2, đường dựng stub và cách xử lý 154 lần chụp từ 60 bệnh nhân cho GATE-SPLIT-01; Spike E đo khung 21:00. Mỗi người ≥ 8 giờ việc thật, hạn 23:59."
   pipeline:
-    - ["SPIKE_D", "QA REJECT 11:52 → NEEDS_FIX (Khánh sửa)", "now"]
+    - ["SPIKE_D", "NEEDS_FIX → bản sửa #34 (nháp) → duyệt lại → QA soi lại", "now"]
     - ["GATE-DATA-01", "đóng khi Spike D ACCEPTED", ""]
-    - ["GATE-SPLIT-01", "Path A ✅ · DR-002a ✅ cặp trùng ghim train · chờ quyết nối bệnh nhân", ""]
-    - ["SPIKE_C1", "BLOCKED bởi D", ""]
+    - ["GATE-SPLIT-01", "Path A ✅ · DR-002a ✅ · chặn: 154 lần chụp / 60 bệnh nhân, không ánh xạ", ""]
+    - ["SPIKE_C1", "BLOCKED bởi D + split", ""]
     - ["training", "6 run + 1 ablation", ""]
     - ["metrics", "RQ-A · RQ-B", ""]
     - ["Day 30", "09/10/2026", ""]
   conditions:
-    - who: hunganh
-      what: "✅ **PR #25 trên `main`** — Hùng Anh approve 10:03 rồi merge (`a92892c`)"
-      why: "Mở bước QA Spike D → `GATE-DATA-01`"
     - who: khanh
-      what: "**Bằng chứng nối case↔bệnh nhân** (PR) + **lượt probe C0 trên RTX 4050** được commit"
-      why: "Leader quyết được `GATE-SPLIT-01` · `C0-2`…`C0-8` có số thật"
+      what: "**PR #34 chuyển ready trước 12:00** — xác nhận HITL (`A11`/`A14`/`F5`), bảng `A19` theo `Q2`, trả lời từng phát hiện QA-002 · nhờ Trung review **#35**"
+      why: "Hùng Anh duyệt lại trong ngày → QA soi lại → `GATE-DATA-01`"
     - who: trung
-      what: "**Stub 2 profile chạy trên Mac mini** (đã kiểm, trước 20:30 — khung 15:00 huỷ) + **review PR split của Khánh** (#28 bị đóng — review PR mở lại)"
-      why: "Leader đo lại Spike E khung 21:00 · split được review"
+      what: "*(nợ Day 6)* **Review #35** có nội dung + **stub 2 profile đã kiểm trước 20:30**, trên đúng địa chỉ điện thoại dùng"
+      why: "Split được review · leader đo Spike E khung 21:00"
     - who: hunganh
-      what: "✅ **`B1`** — PR nháp #30 (10:21): viewer WebGL2 xoay/zoom + ảnh chụp; mới chạy trên trình duyệt desktop"
-      why: "Nợ Day 5 · nền cho `B3`–`B11` và `GATE-MOB-01`"
+      what: "*(nợ Day 6)* **Duyệt lại #24 và #26** — Trung chờ từ 21:22 hôm qua — và **duyệt lại #34** khi Khánh chuyển ready"
+      why: "Merge #24/#26 → buổi đo tối · Spike D sang bước QA"
+    - who: hunganh
+      what: "**`B1` đủ theo TASK** — thêm **pan** (desktop + touch) vào #30, bỏ đoạn lặp ở #29, nhờ Trung review lại"
+      why: "`B1` trọn · nền cho picking `B3`/`B4`"
   waits:
-    - [tuananh, "Chuyển Spike D sang ACCEPTED", khanh, "sửa theo QA-002: F1–F5, F12, F13 → Hùng Anh duyệt lại → QA soi lại"]
-    - [khanh, "Bảng `A19` — mục split", tuananh, "quyết Q2: hoãn mục split sang `GATE-SPLIT-01` hay không"]
-    - [trung, "Review PR split mới", khanh, "PR split đã xử lý cặp trùng (thay #28)"]
-    - [hunganh, "Merge **#29** · **#30**", trung, "review #29 (`B14`) · #30 (`B1`) — reviewer Spike B"]
-    - [tuananh, "Merge **#17**", khanh, "review lại **#17** (`08d7166`) — probe `C0` đã chạy được"]
-    - [tuananh, "Quyết nối case↔bệnh nhân (`GATE-SPLIT-01`)", khanh, "**bằng chứng nối bệnh nhân** (trước 18:00)"]
-    - [tuananh, "Đo lại Spike E", trung, "stub 2 profile đã kiểm — trễ hạn 20:30"]
+    - [khanh, "Bảng `A19` — mục split trong #34", tuananh, "quyết **`Q2`** (hẹn trước 10:00)"]
+    - [trung, "Dựng và kiểm stub 2 profile", tuananh, "chọn đường: Project Control dựng bằng SSH của leader, hay cấp quyền cho Trung (hẹn trước 10:00)"]
+    - [hunganh, "Duyệt lại Spike D", khanh, "**#34 chuyển ready** (hẹn 12:00)"]
+    - [trung, "Review **#35**", khanh, "nhờ review + ghi cách tái lập trên PR"]
+    - [tuananh, "Merge **#24** · **#26**", hunganh, "duyệt lại #24 (`be52d6f`) và #26 (`a585907`)"]
+    - [tuananh, "Đo Spike E khung 21:00", trung, "stub 2 profile đã kiểm — trước 20:30"]
     - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 21:00"]
-    - [tuananh, "Merge **#24** · **#26**", hunganh, "duyệt lại #24 (`be52d6f`) · #26 (`a585907`) — Trung đã đẩy bản sửa 21:21"]
+    - [khanh, "Đổi base #36/#37 sang `main` để có CI", tuananh, "merge **#17** — Khánh đã approve 00:29"]
+    - [khanh, "Chốt split và bắt đầu `SPIKE_C1`", tuananh, "quyết cách xử lý nối bệnh nhân (`GATE-SPLIT-01`)"]
+    - [hunganh, "Merge **#29** · **#30**", trung, "review lại sau khi Hùng Anh sửa"]
   tasks:
     khanh:
-      load: "chính **≥ 8 h** (~10,5 h sau QA-002) · dự phòng ~3 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~9,25 h) · dự phòng ~2 h · hạn **23:59** · mốc đẩy **12:00** và **18:00**"
       debts:
-        - "❌ **Sửa Spike D theo QA-002** — critical path: case trùng vào `A15`/`A16` + manifest/audit · hình học §4 · bảng `A19` · verdict Q4 và `A11` · bỏ đường dẫn tuyệt đối · log validator *(~3,5 h)*"
-        - "Bật **pagefile** Windows (lỗi `WinError 1455` khi tải DINOv2) *(~15 ph)*"
-        - "▶ **Mở lại PR split** theo `DR-002a`: cặp `CASE_0056`/`CASE_0097` một nhóm ghim vào train, 80/20 và seed giữ nguyên *(~1 h)*"
+        - "**#34 → ready trước 12:00** — xác nhận lời lẽ `A11`/`A14`/`F5` · bảng `A19` theo `Q2` · trả lời từng phát hiện `F1`–`F5`, `F12`, `F13` · nhờ Hùng Anh duyệt lại *(~2 h)*"
+        - "**#36 — `C0-7`/`C0-8`**: số giờ GPU/ngày thật → chạy lại ngoại suy, sinh lại bảng + biểu đồ · khai `started_at` thật của C0 *(~1,5 h)*"
+        - "Sau khi leader merge #17: **đổi base #36 và #37 sang `main`** để CI chạy lần đầu *(~15 ph)*"
+        - "**#35 — nhờ Trung review**, ghi cách tái lập cho người không có bản ZIP *(~30 ph)*"
       now:
-        - "**Bằng chứng nối case↔bệnh nhân** — nguồn chính thức + sàng lọc cặp chỉ từ ảnh MRI (phải tìm lại được cặp QA đã thấy) → PR trước 18:00 *(~3 h)*"
-        - "**Chạy probe C0 trên RTX 4050** fp32 + bf16 + ngoại suy `--train-cases 80` — để GPU chạy trong lúc sửa Spike D *(~2,5 h)*"
+        - "**Sửa lỗi validator `F6`–`F11`, `F14`, `F15`** kèm test hồi quy dựng từ kịch bản phá ở `day06/qa002/` — PR riêng *(~3 h)*"
+        - "Góp ý chuyên môn cho **Decision Request nối bệnh nhân** (Project Control soạn trước 12:00) *(~1 h)*"
       then:
-        - "Bản đồ bằng chứng `A1`–`A20` trong PR sửa Spike D, để lượt QA soi lại chạy nhanh *(~1 h)*"
+        - "**#35 sau khi #34 merge**: sinh lại split theo SHA manifest mới, chạy lại selftest, chuyển ready *(~1 h)*"
       later:
-        - "Khung pipeline C0 trên dữ liệu tổng hợp *(~2 h — xuống dự phòng do việc sửa Spike D)*"
-        - "Nháp `RESULT.md` Spike C0 *(~1 h)*"
-      note: "Số đo audit của bạn **tái lập đúng từng con số** — QA bác vì những gì audit không báo. Sửa Spike D là việc đầu tiên; mỗi phần xong đẩy lên ngay."
+        - "Tìm nguồn công khai có ánh xạ lần chụp → bệnh nhân *(~1 h)*"
+        - "Rà trường siêu dữ liệu từng case: công khai hay hạn chế — đầu vào cho leader phán `F5` *(~1 h)*"
+      note: "Đêm qua bạn làm khối lượng lớn và đúng hướng (#34, #35, #36, #37, approve #17) — nhưng tất cả lên trong khoảng 00:19–01:14, ngày thứ ba liên tiếp sau nửa đêm. Hệ quả không nằm ở luật mà ở lịch: không ai kịp duyệt lại hay review trong ngày. Critical path hôm nay nằm ở #34 của bạn."
     trung:
-      load: "chính **≥ 8 h** (~10 h sau review mới) · dự phòng ~4 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~9 h) · dự phòng ~1,5 h · hạn **23:59**"
       debts:
-        - "✅ **Sửa #24** — `be52d6f` 21:22 (ID mạng ZeroTier)"
-        - "✅ **Sửa #26** — `a585907` 21:21 (tổng hợp theo profile, JSON sinh lại, kế hoạch đo) · trả lời từng điểm trên PR"
-        - "**Review PR split của Khánh** khi mở lại (thay #28) — kiểm luật `DR-002a`: cặp trùng một nhóm ghim vào train *(~1,5 h)*"
-        - "**Review #29** (`B14`) · **#30** (`B1`) — bạn là reviewer Spike B *(~1 h)*"
+        - "**Stub 2 profile theo đường leader chọn** — A: bạn ghi đúng lệnh lên #26 trước 11:00, Project Control dựng, bạn kiểm HEAD từng profile · B: leader cấp SSH, bạn tự dựng — **kiểm xong trước 20:30** *(~1,5 h)*"
+        - "**Review #35** — split `DR-002a`: selftest, schema, 80/20/54, cặp trùng cùng ở train, tập con lồng nhau, chạy hai lần ra cùng file *(~2 h)*"
+        - "Theo dõi #24/#26 · **đổi base #33 sang `main`** sau khi #24 merge *(~30 ph)*"
       now:
-        - "**Dựng stub 2 profile trên Mac mini**, kiểm `/health` + 2 profile — trước 20:30 *(~1 h)* · khung 15:00 huỷ, leader đo khung 21:00"
-        - "**`E9` reconnect/retry** trên harness Toybox + diễn tập AVD → PR *(~2,5 h)*"
+        - "**Hợp đồng ingestion 2 (artifact thí nghiệm) — khung schema v0** *(nợ dự phòng Day 6)* → PR nháp *(~2,5 h)*"
+        - "**`E9` trên máy thật** — bổ sung phần leader bấm vào `E9_RECONNECT_DRILL.md` (#33) *(~1 h)*"
       then:
-        - "Tổng hợp lượt đo khung 21:00, cập nhật nháp `RESULT.md`; ghi thêm một khung ban ngày cho `E8` vào kế hoạch *(~1,5 h)*"
+        - "**Tổng hợp lượt đo khung 21:00** riêng từng profile; cập nhật nháp `RESULT.md`, ghi rõ `E8` mới có một khung *(~1,5 h, buổi tối)*"
       later:
-        - "M3 — hợp đồng ingestion 1 bản nháp v0: thêm phát hiện case trùng theo hash và header hình học mặc định ⇒ `GEOMETRY_NOT_VALIDATED` *(~2 h, xuống cuối hàng)*"
-        - "Hợp đồng ingestion 2 (artifact) khung schema v0 *(~1,5 h)*"
         - "Kế hoạch đo `E7` bộ nhớ app *(~30 ph)*"
-      note: "22:24 hôm qua bạn thêm `--profile` — nhờ đó kế hoạch đo của bạn chạy được trên điện thoại. Leader chỉ có điện thoại buổi tối: khung 15:00 huỷ, stub cần sẵn trước 20:30 cho khung 21:00. Hùng Anh đã review #24 (còn 1 điểm) và #26 (3 điểm) — sửa sớm để merge trong ngày."
+        - "Đối chiếu schema hợp đồng 1 với `dataset_manifest.json` trên `main` — chỉ siêu dữ liệu *(~1 h)*"
+      note: "Điều kiện 3 hôm qua trượt vì Project Control giao việc dựng stub mà không kiểm bạn có quyền SSH vào Mac mini — lỗi lập kế hoạch, không phải của bạn. Tối qua bạn sửa #24 #26, review #29 #30 (bắt được `B1` thiếu pan), mở #33 và #32. Comment GitHub đang bị mất ký tự vì dấu backtick của PowerShell — dùng `--body-file`."
     hunganh:
-      load: "chính **≥ 8 h** · khoảng 6 h đã xong trước 10:21 · còn ~4 h + dự phòng · hạn **23:59**"
+      load: "chính **≥ 8 h** (~8,9 h) · dự phòng ~2 h · hạn **23:59**"
       debts:
-        - "✅ **Review lại #25** — approve 10:03 và merge (`a92892c`)"
-        - "✅ **Review lại #24** — 10:04, còn 1 điểm (ID mạng ZeroTier cũ)"
-        - "✅ **`B1`** — PR nháp #30 (10:21), viewer WebGL2 + ảnh"
-        - "✅ **`B14`** — PR #29 (10:14)"
+        - "**Duyệt lại #24** — một điểm, Trung đã sửa (`be52d6f`) *(~15 ph)*"
+        - "**Duyệt lại #26** (`a585907`) — tái chạy `aggregate.py` ở PR head, kế hoạch đo Toybox `--profile`, không trộn profile — **trước 14:00** *(~1,5 h)*"
+        - "**#29** bỏ đoạn diễn giải lặp *(~10 ph)*"
+        - "**#30 thêm pan** — desktop và touch, cập nhật ảnh/đoạn quay, nhờ Trung review lại *(~1,5 h)*"
       now:
-        - "✅ **Review #26** — 10:09, 3 điểm có nội dung (tái chạy `aggregate.py`)"
-        - "**Picking trên fixture** (`B3`/`B4`) — trên viewer #30 hoặc emulator *(~1,5 h)*"
+        - "**Duyệt lại Spike D — #34** khi Khánh chuyển ready; script kiểm lại cặp trùng ở `day06/qa002/` *(~2 h)*"
+        - "**Picking trên fixture chính thức** (`B3`/`B4`) trên viewer #30 — 13 tia `expected` *(~2 h)*"
       then:
-        - "**Duyệt lại #24 · #26** — Trung đã đẩy bản sửa 21:21 *(~1 h)*"
-        - "**Review chính thức #27** (đã soát 10:13) · review **PR #31** (S5 brush, đã có bằng chứng đo trên máy) *(~1,5 h)*"
-        - "**Duyệt lại Spike D** khi Khánh đẩy bản sửa theo QA-002 *(~1 h)*"
+        - "**Review #27 và #31** — Spike A S4/S5, `A2` và `A3`–`A7` đều `OBSERVED` trên máy *(~1,5 h)*"
       later:
-        - "M3 — hợp đồng hình học có số phiên bản *(~1 h)*"
+        - "Review **#36** và **#37** (bằng chứng C0) sau khi đổi base sang `main` *(~1,5 h)*"
+        - "Hợp đồng hình học có số phiên bản — ghi rõ header LASC mặc định: toạ độ chỉ là chỉ số voxel *(~1 h)*"
         - "Kịch bản đo `B10`/`B11` cho leader bấm *(~30 ph)*"
-      note: "Buổi sáng rất hiệu quả: 3 review có nội dung + `B1` + `B14` trước 10:21. Việc còn lại xoay quanh picking `B3`/`B4` và duyệt lại các bản sửa."
+      note: "Buổi sáng Day 6 rất hiệu quả (merge #25, 3 review, `B14`, `B1` trước 10:21) nhưng sau 10:26 không có hoạt động — bốn việc còn lại không ai làm, và Trung chờ bạn duyệt lại #24/#26 từ 21:22. Hôm nay làm review trước: mỗi cái mở khoá cho một người."
     tuananh:
-      load: "**không giới hạn giờ** — review, merge, quyết định, chốt ngày"
+      load: "**không giới hạn giờ** — quyết định, review, merge, buổi đo tối, chốt ngày"
       debts:
-        - "✅ **Sửa #17** — 2 lỗi runtime Khánh tìm + 2 lỗi tìm thêm khi kiểm, đẩy `08d7166` lúc 06:42"
-        - "✅ **#25 trên `main`** 10:03 — Hùng Anh approve rồi tự merge (`a92892c`)"
-        - "✅ **Dừng stub cũ PID 32227** lúc 09:48 — `:8787` trống cho Trung; stub 60294 của Trung không đụng"
+        - "**Merge #17** — Khánh approve 00:29, CI 4/4. **Merge commit, giữ nhánh**: #36/#37 xếp chồng, xoá nhánh là tự đóng cả hai *(~5 ph)*"
+        - "**Quyết `Q2`** — hoãn mục split của bảng `A19` sang `GATE-SPLIT-01` có ghi (đề xuất QA) *(~10 ph)*"
+        - "**Chọn đường dựng stub Spike E** — Project Control dựng bằng SSH của anh (đề xuất) hay cấp SSH cho Trung *(~10 ph)*"
+        - "**Duyệt `DEMO_STANDARD.md` v0** + 4 điểm §11 (bảng hiệu năng cần DR? đính chính 39/28/69 → 44/33/70) *(~30 ph)*"
       now:
-        - "✅ **QA Red Team Spike D** — `REJECT` 11:52 (QA-002) · ✅ Q1 → `DR-002a` · ✅ Q3 bỏ đường dẫn tuyệt đối · **Q2 đang cân nhắc** (hoãn mục split của `A19`)"
-        - "**Quyết nối case↔bệnh nhân** (`GATE-SPLIT-01`) sau bằng chứng của Khánh *(~30 ph)*"
-        - "✅ Đo S5 trên máy xong 21:21 · ⏳ Spike E khung 21:00 chưa đo được — stub của Trung chưa chạy"
+        - "**Quyết cách xử lý nối bệnh nhân** cho `GATE-SPLIT-01` — Decision Request do Project Control soạn trước 12:00 *(~1 h)*"
+        - "**Phán phần còn lại `F5`** (siêu dữ liệu công khai) · **xác nhận recovery** khi buffer −1 *(~45 ph)*"
       then:
-        - "Merge #24 · #26 (chờ Trung sửa) · ✅ nhờ review #27 (10:51), Hùng Anh đã soát 10:13"
-        - "✅ **Spike A S5 — brush**: PR #31 · ✅ **đo trên máy 21:21 — `A3`–`A7` `OBSERVED`** (bằng chứng `1c62a00`)"
-        - "✅ **Chuẩn demo \"wow\" v0** đã soạn — `management/DEMO_STANDARD.md`: luật D1–D7, kịch bản H1–H10, 9 màn hình, **70** acceptance test — chờ anh duyệt"
+        - "Stub (nếu chọn phương án A) trước 14:00 · **đo Spike E khung 21:00**, hai profile *(~2 h)*"
+        - "Merge #24 → #26 · #29/#30 · #34 khi approve → **QA soi lại Spike D** → `ACCEPTED` nếu PASS *(~2 h)*"
       later:
-        - "Đo lại `A9` với cache ±3 slice *(~1,5 h)*"
-      note: "QA Spike D `REJECT`: `GATE-DATA-01` không đóng hôm nay. Q1 và Q3 đã quyết; Q2 quyết sớm để Khánh viết đúng bảng `A19`."
+        - "Review **#32** — hợp đồng ingestion 1, khối Integration / cross-contract *(~1 h)*"
+        - "Đo lại `A9` với cache ±3 slice *(~1,5 h, cần máy)*"
+      note: "Day 6 chốt chưa đạt 3/4, buffer −1 — bản chốt ở `day06/DAY06_EOD_REVIEW.md`. Ba quyết định buổi sáng (merge #17, `Q2`, đường dựng stub) mở khoá cho cả ba thành viên: làm trước 10:00."
 
 history:
+  - day: 6
+    date: "2026-09-15"
+    status: missed
+    title: "Spike D lên `main` rồi bị QA bác; S5 brush đo trên máy; stub Spike E không dựng được"
+    summary: "Chưa đạt 3/4. Điều kiện 3 trượt: stub 2 profile không chạy vì Trung không có quyền SSH vào Mac mini — Project Control giao việc mà không kiểm quyền — và PR split để review chỉ mở lúc 00:20. Điều kiện 2 tính đạt muộn theo quyết định cho qua của leader. Buffer 0 → −1."
+    done:
+      - who: hunganh
+        what: "Approve + **merge #25** — audit Spike D lên `main` lần đầu · review lại #24 · review #26 · soát #27 · **`B14`** (#29) · **`B1`** viewer WebGL2 (#30)"
+        ref: "a92892c · PR #29 · PR #30"
+      - who: tuananh
+        what: "**QA Red Team Spike D — `REJECT`**: cặp case trùng mà audit không báo, header không mang hình học vật lý · quyết **`DR-002a`** và `Q3`"
+        ref: "f7455f8 · c0d33ce"
+      - who: tuananh
+        what: "Sửa **#17** (2 lỗi runtime Khánh tìm + 2 lỗi tìm thêm) · dừng stub cũ PID 32227 · **chuẩn demo v0** *(chờ duyệt)*"
+        ref: "08d7166 · 1293854 · 3b126a4"
+      - who: tuananh
+        what: "**Spike A S5 — `A3`–`A7` đo trên máy: `OBSERVED`** (A5 60/60 ở r = 0 và r = 2); `A2` kiểm lại `OBSERVED`"
+        ref: "1c62a00 · PR #31"
+      - who: trung
+        what: "Sửa #24 và #26 · **review #29 và #30** — bắt được `B1` thiếu **pan** · **`E9`** drill (#33) · **hợp đồng ingestion 1 v0** (#32, 9/9)"
+        ref: "be52d6f · a585907 · 32ef07a · f97b78f"
+      - who: khanh
+        what: "*Sau 23:59 (leader cho qua):* **#34** sửa Spike D theo QA-002 · **#35** split `DR-002a` + bằng chứng nối bệnh nhân · approve **#17** · **#36** probe C0 20/20 · **#37** khung pipeline"
+        ref: "b52d81d · d66925b · 36789c0 · 06cff72"
+    missed:
+      - who: trung
+        what: "Stub 2 profile trên Mac mini — **không có quyền SSH**; PR split để review chỉ mở lúc 00:20"
+      - who: hunganh
+        what: "Duyệt lại #24/#26 · review #27/#31 · picking `B3`/`B4` — không có hoạt động sau 10:26"
+      - who: tuananh
+        what: "Đo Spike E khung 21:00 — không có stub · quyết nối bệnh nhân — bằng chứng đến lúc 00:20"
+      - who: khanh
+        what: "Toàn bộ phần việc lên **sau 23:59** (00:19–01:14) — ngày thứ ba liên tiếp"
+    decisions:
+      - "**`DR-002a`** — cặp `CASE_0056`/`CASE_0097` là **một nhóm ghim vào train**; 80/20 và seed 2024 giữ nguyên"
+      - "**`Q3`** — bỏ đường dẫn tuyệt đối khỏi manifest ngay; phần còn lại chờ điều khoản CAP · **`Q2`** hoãn sang Day 7"
+      - "Leader chỉ có điện thoại buổi tối → huỷ khung đo Spike E 15:00, stub hạn 20:30"
+      - "**Khánh nộp muộn: cho qua** · **Day 6 chưa đạt** · duyệt `DEMO_STANDARD` hoãn sang Day 7"
+    findings:
+      - "**`CASE_0056` và `CASE_0097` là một lần chụp bị xuất hai lần** — audit ghi 0 bất thường và review cũng không thấy; split nháp đã đặt hai bản ở train và validation"
+      - "**Bài benchmark của challenge: 154 lần chụp từ 60 bệnh nhân** — gói không có ánh xạ, `GATE-SPLIT-01` bị chặn cứng"
+      - "**Cả 462 header mang hình học mặc định** (spacing 1, origin 0) — mọi đơn vị mm/mL tắt tới khi kiểm được"
+      - "**Tiến trình đang chạy trên Mac mini trả cùng một payload 58 MB cho cả hai profile** — chưa đo được gì theo byte"
+      - "Việc cần quyền truy cập mà packet không kiểm quyền thì trượt cả ngày — từ Day 7, packet ghi rõ **cần quyền gì · ai đang có**"
   - day: 5
     date: "2026-09-14"
     status: good

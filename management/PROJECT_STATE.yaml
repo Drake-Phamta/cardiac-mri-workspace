@@ -21,11 +21,12 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 6                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-09-15"              # Day 5 closed MET 3/3 by leader decision; see day05/DAY05_EOD_REVIEW.md
+day: 7                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
+day_date: "2026-09-16"              # Day 6 closed MISSED 3/4 by leader decision; see day06/DAY06_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
 day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
+day_6_verdict: MISSED               # 3 of 4 conditions; closed 2026-09-16 about 01:45 by leader decision; see day_6_verdict_basis
 capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
   members_hours_per_day: 8          # Khanh, Trung, Vu Hung Anh
   daily_deadline: "23:59 local"
@@ -46,6 +47,17 @@ day_5_verdict_basis: >
   leader decided MET 3/3. Recorded as an exception that differs from Day 4: no extension had been
   announced, the member's part finished after the deadline, and it is the second consecutive exception
   on the same deliverable. Buffer stays 0 - no critical-path day was lost.
+day_6_verdict_basis: >
+  Three of the four stated conditions held, so by the day rule Day 6 is MISSED; the leader decided that
+  wording himself at about 01:00 on 2026-09-16. Condition 1 (PR #25 on main) was met at 10:03. Condition 2
+  (patient-linkage evidence and a committed C0 probe run) landed only after the 23:59 deadline - #35 at 00:20
+  and #36 at 01:08 - and counts as met under the leader's 'let the late submission pass' ruling; the probe
+  push arrived after that ruling and Project Control applied the same ruling to it, which the leader can
+  overturn without changing the verdict. Condition 3 failed: the two-profile stub was never started because
+  the owner has no SSH access to the Mac mini - the Day-6 packet assigned the task without checking access,
+  a Project Control planning error - and the split PR to review only opened at 00:20. Condition 4 was met as
+  worded (draft PR #30 at 10:21), though the reviewer later showed B1 as defined in its TASK also needs pan.
+  Buffer 0 -> -1. Full record: management/day06/DAY06_EOD_REVIEW.md.
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md
@@ -89,12 +101,24 @@ recovery:
         MASTER_PLAN_30_DAYS.md plans for a buffer of at least 2 days, but NO numeric safety
         threshold is defined anywhere in the frozen spec. Trigger 2 is therefore written
         against an undefined threshold. Recorded as a real gap, not papered over.
+      state_2026_09_16: >
+        FIRES AGAIN at the Day-6 close: buffer 0 -> -1, the first negative value of the project.
+    - id: "trigger 3 - watch"
+      text: "a critical-path blocker survives two EOD cycles without credible resolution"
+      state: "WATCH, not declared fired. The GATE-SPLIT-01 patient-linkage question was recorded at the
+              Day-5 close and is still open at the Day-6 close - its second EOD cycle. A credible path
+              exists: Project Control drafts a Decision Request on Day 7 from the owner's
+              PATIENT_LINKAGE_EVIDENCE.md (PR #35) and the leader decides the same day."
   next_action: >
     DECIDED 2026-09-13 - see decision_2026_09_13 below. Kept for the record: Level 5 was
     prepared in day03/DAY03_EOD_REVIEW.md section 11, and that section showed it buys zero days.
   decision_2026_09_13:
     decided_by: "Pham Tuan Anh - Team Leader"
     choice: "KEEP THE PLAN. No de-scope."
+    status_2026_09_16: >
+      Buffer is now -1 (Day-6 close). The decision was taken when buffer was 0, so the leader re-confirms it
+      or changes it on Day 7. Project Control proposes Level 1 only, with no ownership change - see
+      management/day06/DAY06_EOD_REVIEW.md section 11.
     basis: >
       Level 5 de-scope frees no critical-path time: PRD section 3.1 already places all 11
       COULD/SHOULD items outside the acceptance floor (DAY03_EOD_REVIEW section 11). The
@@ -229,21 +253,22 @@ members:
 # Mirrors management/spikes/SPIKE_PHASE_STATE.yaml, which remains the authority.
 spikes:
   SPIKE_D:  {status: NEEDS_FIX, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P0,
-             review: APPROVED, qa: REJECT, evidence_commit: a92892c, next: "owner fixes QA-002 F1-F5, F12, F13; Q1 decided as DR-002a, Q3 decided (strip absolute paths now), Q2 open"}
+             review: APPROVED, qa: REJECT, evidence_commit: a92892c, next: "repair in draft PR #34 (2026-09-16 00:19): F1-F5, F12, F13 addressed; owner confirms the A11/A14/F5 wording and marks it ready, leader decides Q2 and the rest of F5, then Vu Hung Anh re-reviews and QA re-checks"}
   SPIKE_A:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P1}
   SPIKE_B:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P1}
   SPIKE_E:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P2}
-  SPIKE_C0: {status: PREPARED, started_at: null, evidence_present: false, priority: P2}
+  SPIKE_C0: {status: PREPARED, started_at: null, evidence_present: false, priority: P2,
+             next: "owner ran the full probe matrix on his RTX 4050 - draft PR #36 (2026-09-16 01:08), 20/20 measurements. started_at is the owner's to declare; Project Control mirrors it once he states the real time (first probe file stamped 2026-09-16T00:43:25+07:00)"}
   SPIKE_F:  {status: PREPARED, started_at: null, evidence_present: false, priority: P2}
   SPIKE_C1: {status: BLOCKED,  started_at: null, evidence_present: false, priority: P1,
              blocked_by: [SPIKE_D]}
 
 # --- GATES ------------------------------------------------------------------
 gates:
-  GATE-DATA-01:   {status: OPEN,   closes_on: "Spike D evidence: DATASET_AUDIT.md + manifest", note: "QA-002 REJECT 2026-09-15 11:52 - duplicate case unreported, default header geometry, A19 incomplete; management/day06/QA_REVIEW_002_SPIKE_D.md"}
+  GATE-DATA-01:   {status: OPEN,   closes_on: "Spike D evidence: DATASET_AUDIT.md + manifest", note: "QA-002 REJECT 2026-09-15 11:52 - duplicate case unreported, default header geometry, A19 incomplete; management/day06/QA_REVIEW_002_SPIKE_D.md. The owner's repair is in draft PR #34 since 2026-09-16 00:19; the gate stays OPEN until reviewer APPROVE, a QA re-check PASS and the Project Control transition"}
   GATE-SPLIT-01:  {status: OPEN,   closes_on: "patient-level split, seed 2024, provenance resolved",
                    path: "A - DR-002 decided 2026-09-14",
-                   open_question: "The package has no case-to-patient mapping (PR #28, 2026-09-15). The draft manifest uses each case as its own group and records patient separation as NOT VERIFIABLE. The leader must accept that limitation on the record, or require source evidence, before this gate can close. PR #28 was auto-closed on 2026-09-15 at 10:03 when its base branch was deleted on the #25 merge; the owner reopens it as a new PR against main. QA-002 (2026-09-15) found CASE_0056 and CASE_0097 to be one acquisition exported twice, and the closed draft split put them in train and validation; the split must keep the pair on one side, or drop one copy through a Decision Request - decided 2026-09-15 as DR-002a: one group pinned to train."}
+                   open_question: "The package has no case-to-patient mapping (PR #28, 2026-09-15). The draft manifest uses each case as its own group and records patient separation as NOT VERIFIABLE. The leader must accept that limitation on the record, or require source evidence, before this gate can close. PR #28 was auto-closed on 2026-09-15 at 10:03 when its base branch was deleted on the #25 merge; the owner reopens it as a new PR against main. QA-002 (2026-09-15) found CASE_0056 and CASE_0097 to be one acquisition exported twice, and the closed draft split put them in train and validation; the split must keep the pair on one side, or drop one copy through a Decision Request - decided 2026-09-15 as DR-002a: one group pinned to train. Update 2026-09-16: draft PR #35 replaces #28 and implements DR-002a. Its PATIENT_LINKAGE_EVIDENCE.md establishes that the challenge benchmark (Xiong et al., Medical Image Analysis 67, 2021) reports 154 scans from 60 de-identified patients, that the obtained package carries no case-to-patient map, and that an MRI-only screen over 11,781 pairs re-found the known duplicate at rank 1 while proving no other identity. Owner's conclusion: BLOCKED_PATIENT_LINKAGE. The leader must obtain a trustworthy patient grouping or record an explicit, documented exception to the patient-level requirement of 06 section 6 through a Decision Request - drafted by Project Control on Day 7."}
   GATE-ML-01:     {status: OPEN,   closes_on: "SPIKE_C1 evidence — C0 is not sufficient"}
   GATE-IMG-01:    {status: OPEN,   closes_on: "morphology config on development/validation evidence only"}
   GATE-MOB-01:    {status: OPEN,   closes_on: "Spike A AND Spike B evidence, via TECH_STACK_ADR.md"}
@@ -319,11 +344,19 @@ forecast:
   status_colour_note_2026_09_15: >
     Kept RED at the Day-5 close: buffer 0, ACCEPTED 0, PR #25 not yet merged. The critical path moved
     (DR-002 decided, audit fixed, split manifest drafted in PR #28).
-  remaining_buffer_days: 0          # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
+  status_colour_note_2026_09_16: >
+    Kept RED at the Day-6 close: buffer is now -1, ACCEPTED is still 0, Spike D was rejected at the QA step
+    hours after its evidence reached main, and GATE-SPLIT-01 gained a hard blocker (154 scans from 60
+    patients with no mapping). Reconsider the colour when Spike D is ACCEPTED and GATE-SPLIT-01 has a ruling.
+  remaining_buffer_days: -1         # Day 6 missed: condition 3 unmet (Spike E stub never started)    # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
   buffer_note: >
     Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
     Day 30 fixed, so the lost day is absorbed by buffer rather than pushing the deadline. One
     more lost day takes buffer to zero and fires 15 section 18 recovery trigger 2.
+  buffer_note_2026_09_16: >
+    Day 6 missed 1 of its 4 conditions, so buffer goes 0 -> -1: the fixed Day-30 date now carries one day of
+    debt that has to be repaid by execution, not by moving the deadline. Trigger 2 fires again; the leader
+    re-confirms or changes the 2026-09-13 recovery decision on Day 7.
   basis: "Baseline generated and accepted by the leader 2026-09-10. No execution data yet."
 
 # --- MILESTONES -------------------------------------------------------------
@@ -340,15 +373,22 @@ milestones:
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-15 12:15 (Day 6)
-  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, waits_on: qkhanhbe, note: "542887e fixed the first 5 findings; qkhanhbe re-reviewed on his RTX 4050 at 2026-09-15 00:52 - CHANGES_REQUESTED: --find-batch skipped when the intended batch fails; OSError on DINOv2 load aborts the probe; extrapolate wording still says DR-002 decides. Fixed 08d7166 at 06:41 (plus CUDA worker isolation and the VRAM spill rule), CI green; auto-closed 06:01 by a commit keyword, reopened about 06:55; re-review requested from qkhanhbe"}
-  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, waits_on: scalliontor, note: "Fix pushed be52d6f 2026-09-15 21:22 (network ID), awaiting re-review. CHANGES_REQUESTED 2026-09-14 11:34 (3 points); fixed 710090f at 22:24 plus --profile. Re-review 2026-09-15 10:04 CHANGES_REQUESTED, one point: ANDROID_TOYBOX_HARNESS.md still names the old ZeroTier network 3b19b3a71652c5f0 instead of b103a835d292ddb3; the reviewer approves after that fix. Includes PR #22 (c913050)"}
-  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Fixes pushed a585907 2026-09-15 21:21 (profile-aware aggregation, regenerated aggregate, measurement plan), awaiting the author's replies and re-review. Day-5 Spike E: run-4 aggregate, uint8 576/640 payload profiles, measurement plan, RESULT.md draft (not EVIDENCE_READY). Reviewed 2026-09-15 10:09 CHANGES_REQUESTED: (1) the committed aggregate JSON comes from an older aggregate.py schema - regenerate it at the PR head; (2) the plan runs python client/harness.py, which cannot run on the phone - use the Toybox harness with --profile; (3) aggregate.py neither groups nor rejects mixed payload profiles"}
-  - {number: 27, branch: spike-a/s4-zoom-pan, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S4 zoom/pan; A2 measured on the device 2026-09-14 21:25 OBSERVED (fb006da, 311eefe). scalliontor COMMENTED 2026-09-15 10:13 - F1-F4 pass, 6/6, extract_a2 reproduces OBSERVED; follow-up: onPanResponderTerminate cleanup, taken into S5. Marked ready and review requested 10:51; leader replied 11:09"}
-  - {number: 28, branch: codex/path-a-split, author: qkhanhbe, state: CLOSED, note: "Path A split manifest (80/20/54, seed 2024, nested 20/40/80), selftest 9/9. Auto-closed 2026-09-15 10:03:28 when its base branch spike/SPIKE_D was deleted on the #25 merge - not merged, not rejected. The owner rebases codex/path-a-split onto main (dry run clean, 5 files) and opens a new PR; patient linkage NOT VERIFIABLE - see gates.GATE-SPLIT-01; QA-002 found its duplicate pair CASE_0056/CASE_0097 split across train and validation - fix before reopening; the regenerated split follows DR-002a; review planned: TrungNGD195"}
-  - {number: 29, branch: hung-anh/day06-b14, author: scalliontor, waits_on: TrungNGD195, note: "Spike B B14 owner interpretation, README only; opened 2026-09-15 10:14; CI 4/4; Spike B reviewer is Trung (DR-006a rev 3)"}
-  - {number: 30, branch: hung-anh/day06-b1, author: scalliontor, draft: true, waits_on: TrungNGD195, note: "Spike B B1 minimal WebGL2 mesh viewer - orbit, wheel/two-finger zoom, diffuse shading - with a screenshot; checked in a desktop browser with Playwright, not yet on an emulator or the phone; opened 10:21; CI 4/4"}
-  - {number: 31, branch: spike-a/s5-brush, base: spike-a/s4-zoom-pan, author: Drake-Phamta, draft: true, waits_on: scalliontor, note: "Spike A S5 brush (A3-A7): add/erase, undo/redo/reset, gesture separation, on-device hooks; offline F5 14/14, F4 6/6, Metro bundle clean; device run 2026-09-15 21:13-21:21 on the release build: A3-A7 OBSERVED, A2 re-check OBSERVED (evidence 1c62a00); opened 12:13, stacked on #27"}
+open_prs:                           # as of 2026-09-16 01:25 (Day-6 close)
+  - {number: 17, branch: spike-c0/compute-probe, author: Drake-Phamta, waits_on: Drake-Phamta, note: "APPROVED by qkhanhbe 2026-09-16 00:29 +07 after he enabled a 15,610 MiB pagefile: both runtime blockers gone in real execution (selftest 8/8 search + 10/10 runner; UNet --img 560 --find-batch reported max batch 15; facebook/dinov2-small loaded and both frozen variants measured). CI 4/4, mergeable. MERGE WITH A MERGE COMMIT AND KEEP THE BRANCH - #36 and #37 are stacked on it; deleting the branch auto-closes them, as happened to #28. Non-blocking follow-up (cp1252 console rejects a Vietnamese --operator) is fixed in #36"}
+  - {number: 24, branch: docs/day4-avd-diagnostic, author: TrungNGD195, waits_on: scalliontor, note: "Fix be52d6f 2026-09-15 21:22 (canonical ZeroTier network ID) with the author's reply at 22:08; awaiting re-review. Includes PR #22 (c913050). #33 is stacked on this branch - keep the branch when merging"}
+  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Fixes a585907 2026-09-15 21:21 (profile-aware aggregation, regenerated aggregate, Toybox measurement plan) with replies at 22:08; awaiting re-review. Author's read-only HEAD check at 22:27: the process answering :8787 returns the same 58,392,576-byte payload for both profiles and no X-Payload-Profile, so the profile-aware stub from this PR is NOT running; he has no SSH access to the Mac mini"}
+  - {number: 27, branch: spike-a/s4-zoom-pan, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S4 zoom/pan; A2 measured on the device 2026-09-14 21:25 OBSERVED (fb006da, 311eefe). scalliontor COMMENTED 2026-09-15 10:13 - F1-F4 pass, 6/6, extract_a2 reproduces OBSERVED; onPanResponderTerminate follow-up taken into S5. Marked ready and review requested 10:51"}
+  - {number: 29, branch: hung-anh/day06-b14, author: scalliontor, waits_on: scalliontor, note: "Spike B B14 owner interpretation, README only. CHANGES_REQUESTED by TrungNGD195 2026-09-15 21:38 - the interpretation is right but the same passage appears twice; remove one copy and request re-review"}
+  - {number: 30, branch: hung-anh/day06-b1, author: scalliontor, draft: true, waits_on: scalliontor, note: "Spike B B1 minimal WebGL2 mesh viewer with a screenshot; checked in a desktop browser with Playwright. CHANGES_REQUESTED by TrungNGD195 2026-09-15 21:39 - build, tests and orbit/zoom pass, but B1 requires rotate, zoom AND pan, and pan is missing on desktop and touch"}
+  - {number: 31, branch: spike-a/s5-brush, base: spike-a/s4-zoom-pan, author: Drake-Phamta, draft: true, waits_on: scalliontor, note: "Spike A S5 brush (A3-A7): add/erase, undo/redo/reset, gesture separation, on-device hooks; offline F5 14/14, F4 6/6; device run 2026-09-15 21:13-21:21 on the release build: A3-A7 OBSERVED, A2 re-check OBSERVED (evidence 1c62a00). Stacked on #27"}
+  - {number: 32, branch: chore/day6-m3-ingestion, author: TrungNGD195, waits_on: Drake-Phamta, note: "M3 Contract 1 raw dataset ingestion, DRAFT v0: versioned manifest, Draft 2020-12 JSON Schema, offline stdlib validator, 9 synthetic acceptance cases including duplicate MRI/mask checksums and rejection of default geometry headers (QA-002 F1/F2). No production module, no API freeze; NRRD fixtures generated at run time, no bytes in git. Opened 2026-09-15 22:02, CI 4/4. NO reviewer requested - proposed: the leader (integration / cross-contract block)"}
+  - {number: 33, branch: chore/day6-e9-trung, base: docs/day4-avd-diagnostic, author: TrungNGD195, waits_on: scalliontor, note: "E9 controlled reconnect/retry drill for the Toybox harness: bounded --network-retries/--retry-delay, attempt and retry counts, optional body SHA-256, AVD-only procedure. Opened 22:03; stacked on #24 so no CI runs - retarget to main after #24 merges. Does not claim device or acceptance evidence"}
+  - {number: 34, branch: codex/day6-khanh, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "CRITICAL PATH - QA-002 repair for Spike D (F1-F5, F12, F13): exact cross-case cavity/wall hashes now find CASE_0056 + CASE_0097 and the audit records them with the DR-002a grouping; 462/462 default geometry headers reported as header-level only with physical mm/mL disabled; absolute private paths removed from the generated manifest and audit; CAP policy sections 6-7 quoted in POLICY_EVIDENCE.md; official cohort 16 PASS, 0 FAIL, A19 NOT_RUN; synthetic selftest and JSON Schema PASS. Opened 2026-09-16 00:19 (after the 23:59 deadline), CI 4/4. Draft/HITL: the owner confirms the A11/A14/F5 wording, the leader decides Q2 and the rest of F5; then Vu Hung Anh re-reviews and QA re-checks"}
+  - {number: 35, branch: codex/path-a-split, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "Replaces the auto-closed #28. Path A split 80/20/54, seed 2024, nested 20/40/80, implementing DR-002a: CASE_0056 and CASE_0097 pinned to train, every subset holds both or neither, train records 79 distinct acquisitions; selftest 11/11. PATIENT_LINKAGE_EVIDENCE.md: the challenge benchmark (Xiong et al., Medical Image Analysis 67, 2021) reports 154 scans from 60 patients, the package has no case-to-patient map, and an MRI-only screen over 11,781 pairs re-found the known pair at rank 1 (r=0.996141) - screening, not identity. Owner's conclusion: GATE-SPLIT-01 is BLOCKED_PATIENT_LINKAGE. Opened 00:20, CI 4/4. The case-level score JSON is kept outside the repository pending the F5 ruling; the split source SHA is regenerated after #34 merges; review planned: TrungNGD195"}
+  - {number: 36, branch: spike-c0/evidence-khanh, base: spike-c0/compute-probe, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "SPIKE_C0 evidence measured by the owner on his RTX 4050: fp32 and bf16 for all 10 candidate variants, 20/20 measurements with no runtime errors, a RESULT.md table and an SVG cost chart generated from the raw JSON, and a Windows console Unicode fix. C0-1..C0-6, C0-9, C0-10 evidenced; C0-7/C0-8 NOT MEASURED pending the owner's real GPU-hours per day; PARTIAL_EVIDENCE, does not close GATE-ML-01. Opened 2026-09-16 01:08; stacked on #17 so no CI has run; reviewer: scalliontor"}
+  - {number: 37, branch: spike-c0/pipeline-bringup, base: spike-c0/compute-probe, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "C0 synthetic pipeline bring-up on the owner's RTX 4050: an 8-case synthetic split fixture in the Path A shape, DR-011 per-volume normalization, 576/640 -> 560 resize, one epoch each for UNet base16 and real DINOv2-S/14 frozen + progressive, checkpoint save and reload PASS, selftest 5/5. Dice is plumbing-only; no real dataset bytes were read or committed; checkpoints stay outside the repository. Opened 01:14; stacked on #17"}
+closed_not_merged:
+  - {number: 28, branch: codex/path-a-split, author: qkhanhbe, closed: "2026-09-15T10:03:28+07:00", replaced_by: 35, note: "Auto-closed when its base branch spike/SPIKE_D was deleted on the #25 merge - not merged, not rejected, nobody's decision. Its content returns in #35 with the DR-002a grouping applied"}
 merged_2026_09_15:
   - {number: 25, commit: a92892c, author: qkhanhbe, approved_by: scalliontor, merged_by: scalliontor, method: squash, note: "Spike D audit - CRITICAL PATH. APPROVED 10:03:17 and merged 10:03:26 +07:00 by the reviewer; branch spike/SPIKE_D deleted, which auto-closed #28. QA Red Team REJECT 11:52 (QA_REVIEW_002) - Spike D back to NEEDS_FIX"}
 merged_2026_09_14:
@@ -375,6 +415,12 @@ merged_prs_note: >
 
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
+  - {id: "GATE-SPLIT-01 linkage", waits_on: "Pham Tuan Anh", subject: "154 scans from 60 patients and no case-to-patient map: obtain a trustworthy grouping or record a documented exception to 06 section 6 through a Decision Request (PR #35)"}
+  - {id: "QA-002 Q2", waits_on: "Pham Tuan Anh", subject: "defer the A19 split/manifest-id item to GATE-SPLIT-01 with a recorded note, or regenerate the audit after the split manifest merges"}
+  - {id: "QA-002 F5", waits_on: "Pham Tuan Anh", subject: "how much per-case metadata may sit in the public repository, and where the linkage-screen score JSON lives (CAP policy sections 6-7 quoted in PR #34)"}
+  - {id: "Recovery at buffer -1", waits_on: "Pham Tuan Anh", subject: "keep the 2026-09-13 plan or apply 15 section 18 Levels 1-3; proposal in day06/DAY06_EOD_REVIEW.md section 11"}
+  - {id: "DEMO_STANDARD v0", waits_on: "Pham Tuan Anh", subject: "approve v0 as the planning reference, decide the on-screen performance panel, the count erratum (39/28/69 -> 44/33/70) and the defense format"}
+  - {id: "Spike E stub access", waits_on: "Pham Tuan Anh", subject: "Project Control deploys the stub with the leader's SSH per the owner's commands, or the owner is given SSH access to the Mac mini"}
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
   - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
 
@@ -408,6 +454,9 @@ technical_debt:
   - "No .github/ — no PR template, no CI skeleton (NFR-MAINT-001/002/003). Day-1 Integration/CI follow-up."
   - "delete_branch_on_merge is false on the repository."
   - "No branch protection on main; the merge-requires-approval rule is documented but not enforced."
+  - "QA-002 validator defects F6-F11 and F14-F15 are unfixed; the owner turns them into regression tests on Day 7."
+  - "dataset_manifest.json on main still carries absolute local paths (QA-002 F5, Q3) until #34 merges."
+  - "Three stacked PRs: #31 on #27, #33 on #24, #36 and #37 on #17. Merge the base with a merge commit and keep the branch until the child retargets - #28 was auto-closed on 2026-09-15 when its base branch was deleted."
   - "RESOLVED 2026-09-13 by PR #21 - PRACTICE_VU_HUNG_ANH.md now carries the Reviewer field."
 
 # --- SMOKE ------------------------------------------------------------------
