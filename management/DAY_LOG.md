@@ -66,6 +66,7 @@ trước 10:00**; leader merge **#17** để hai PR bằng chứng C0 của Khá
 |---|---|---|
 | Phạm Tuấn Anh | **Merge #17** lúc 02:19 (squash) — **không xoá nhánh**, nên #36 và #37 không bị đóng tự động | `8bf1a2f` |
 | Bế Quốc Khánh | Rebase #36 và #37 lên `main` (diff sạch, chỉ file C0) → **CI 4/4 lần đầu**; thêm ngoại suy lịch theo **4 h và 5 h GPU/ngày** → `C0-7`/`C0-8` có số; **#36 chuyển ready**, nhờ Hùng Anh review | `cb5585b` · PR #36 |
+| Phạm Tuấn Anh *(Project Control chạy bằng SSH của leader)* | **Stub 2 profile Spike E đã chạy** 11:06 — `10.64.193.115:8787`, PID 73790, worktree riêng `a585907`, payload ngoài repo; `/health` 2 profile · `HEAD` 29 196 288 và 36 044 800 đúng `X-Payload-Profile`; stub cũ không bị đụng | comment trên PR #26 |
 | Phạm Tuấn Anh | **4 quyết định**: `Q2` hoãn có ghi · stub Spike E theo phương án A · `DEMO_STANDARD` duyệt thành **v1** + đính chính số đếm **44 / 33 / 70** · recovery khi buffer −1: **giữ kế hoạch + 5 hành động Level 1** | [QA-002 §9](day06/QA_REVIEW_002_SPIKE_D.md) · [`DEMO_STANDARD.md`](DEMO_STANDARD.md) · `PROJECT_STATE.recovery` |
 
 ---

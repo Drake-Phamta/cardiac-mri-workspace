@@ -442,7 +442,7 @@ spikes:
     hard_constraint: "Acceptance evidence MUST be measured over real cellular + ZeroTier overlay. LAN measurements are diagnostic/control only."
     scope_firewall: "Fallback informs a demo-resilience measure only; must not become full offline mode, a second architecture, or backend-on-phone. PR-CACHE-01 stays SHOULD."
     linked_risk: [RISK-DEMO-NET-01, RA-H13]
-    next_action: "2026-09-16: #24 (be52d6f) and #26 (a585907) were fixed on 2026-09-15 at 21:21-21:22 with a reply on each PR and wait on Vu Hung Anh's re-review. The owner also opened PR #33 (E9 controlled reconnect/retry drill, stacked on #24) and PR #32 (M3 Contract 1 ingestion draft). NO measurement on 2026-09-15: the two-profile stub was never started because the owner has no SSH access to the Mac mini - the Day-6 packet assigned the task without checking access, a Project Control planning error recorded in day06/DAY06_EOD_REVIEW.md section 1. His read-only HEAD check at 22:27 shows the process answering :8787 returning the same 58,392,576-byte payload for both profiles and no X-Payload-Profile, so PR #26's profile-aware server is not the one running. Next: the leader chooses the deployment path on Day 7 (Project Control deploys with the leader's SSH per the owner's written commands, or the owner is given access), the owner verifies both profiles before 20:30, then the leader measures the 21:00 window on the phone and the owner aggregates per profile."
+    next_action: "2026-09-16: #24 (be52d6f) and #26 (a585907) were fixed on 2026-09-15 at 21:21-21:22 with a reply on each PR and wait on Vu Hung Anh's re-review. The owner also opened PR #33 (E9 controlled reconnect/retry drill, stacked on #24) and PR #32 (M3 Contract 1 ingestion draft). NO measurement on 2026-09-15: the two-profile stub was never started because the owner has no SSH access to the Mac mini - the Day-6 packet assigned the task without checking access, a Project Control planning error recorded in day06/DAY06_EOD_REVIEW.md section 1. His read-only HEAD check at 22:27 shows the process answering :8787 returning the same 58,392,576-byte payload for both profiles and no X-Payload-Profile, so PR #26's profile-aware server is not the one running. Next: the leader chooses the deployment path on Day 7 (Project Control deploys with the leader's SSH per the owner's written commands, or the owner is given access), the owner verifies both profiles before 20:30, then the leader measures the 21:00 window on the phone and the owner aggregates per profile. Update 2026-09-16 11:06: the leader chose option A and Project Control deployed the stub with his SSH - PID 73790 on 10.64.193.115:8787 from a585907, both profiles verified on the host (see gate_2_status.stub_deployed_2026_09_16). Waiting on: the owner's confirmation on #26 before 20:30, Vu Hung Anh's re-review of #24 and #26, and the leader's 21:00 measurement window."
 
   - id: SPIKE_F
     name: "3D error representation"
@@ -773,6 +773,16 @@ device_measurement_queue:
       answers, but the owner's HEAD check at 22:27 returned the same 58,392,576-byte payload for both profile
       queries and no X-Payload-Profile - the profile-aware server from PR #26 is NOT running. Byte-dependent
       measurements wait for it; the blocker is SSH access to the Mac mini, not the code.
+    stub_deployed_2026_09_16: >
+      RESOLVED at 11:06 +07 under the leader's option-A decision: Project Control started the two-profile stub
+      with the leader's SSH, from a detached worktree at a585907 (PR #26 head), payloads generated outside the
+      repository. PID 73790 binds 10.64.193.115:8787 - the address the phone uses - and the old instance on
+      10.134.129.115:8787 (PID 60294) was left untouched. Verified on the host: /health lists both profiles with
+      576x576x88 as default; HEAD /s3/volume.raw?profile=576x576x88 returns Content-Length 29196288 and
+      ?profile=640x640x88 returns 36044800, each with the matching X-Payload-Profile; the bytes served hash to
+      the sha256_volume recorded in each payload manifest. Diagnostic only - every E number still has to be
+      measured from the phone over the overlay by the owner's design. Side finding for the owner: the stub
+      ignores HTTP Range and answers 200 with the whole body.
     gate_open: true               # 2026-09-13 12:35 - management/day04/gate2_verification_20260913.md
     still_needed_before_any_E_measurement: []    # all three resolved on 2026-09-13, kept below for the record
     resolved_2026_09_13:
