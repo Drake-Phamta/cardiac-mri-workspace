@@ -10,8 +10,37 @@
  *   origin top-left, +x right, +y down
  *
  * Covers so far: A1 (slice renders with n/total), the instrumentation A9
- * needs, and stage S4 — pinch-zoom and pan (A2). A3/A4/A5/A6/A7/A8/A10/A11 are
- * later stages.
+ * needs, stage S4 — pinch-zoom and pan (A2), stage S5 — brush, and stage S6 —
+ * the bounded cache window below. A8/A10/A11 are later stages.
+ *
+ * S6 (2026-09-17): CACHE POLICY IS NOW A MEASURED VARIABLE, not an assumption.
+ * Until today this harness prewarmed EVERY slice and never released one, which
+ * is why RESULT.md could only extrapolate: 4.3 MB/slice measured over 16 slices,
+ * multiplied by 88, giving 376 MB. Two things were needed to replace that
+ * multiplication with a measurement — a fixture with real depth (generate.py
+ * --nz) and a policy that actually bounds what stays resident. Both exist now.
+ *
+ *   policy 'all'     every slice mounted and held. The historical behaviour.
+ *   policy 'window'  only z +/- WINDOW_RADIUS mounted; the rest are UNMOUNTED,
+ *                    so the component drops its reference as z moves.
+ *
+ * WHAT THE WINDOW POLICY DOES AND DOES NOT PROVE. Unmounting releases the
+ * component's hold on the bitmap. It does not by itself force the platform image
+ * cache (Fresco on Android) to evict, and this spike deliberately does not reach
+ * into native to make it. So the measurement answers a real question rather than
+ * a rigged one: if graphics memory falls under 'window', a component-level bound
+ * is sufficient; if it does not fall, the finding is that a real viewer must
+ * bound the IMAGE CACHE too, not just its component tree. Either outcome is a
+ * result. Neither is assumed here.
+ *
+ * A9 SCOPE UNDER A BOUNDED CACHE — read this before quoting a p95. NFR-PERF-001
+ * bounds "switching among ALREADY AVAILABLE/CACHED slices". Under 'all' every
+ * step is such a switch. Under 'window' a jump beyond the window is a cache MISS
+ * and is NOT what the requirement governs. Every sample therefore records
+ * in_window, and extract_timings.py reports the in-window p95 (the one comparable
+ * to NFR-PERF-001) separately from the all-steps p95 (the one a user feels).
+ * Conflating those two is exactly the scope error the Day-7 record made with
+ * Spike E's E4, and it is not repeated here.
  *
  * S4 (2026-09-14): zoom and pan change ONLY a display transform
  * {zoom, panX, panY} (invariant 2 of `07` §8). The source mask is decoded once
@@ -44,9 +73,36 @@ const [NX, NY, NZ] = volume.shape_xyz;
 const SLICES = volume.slices_png_data_uri;
 const MASKS = maskFx.slices_png_data_uri;
 
-// The source mask, decoded once. Read by the A2 checksum only - never by any
-// zoom, pan or rendering code.
-const MASK_BYTES = maskFx.slices_b64.map(base64ToBytes);
+// --- S6: cache policy ------------------------------------------------------
+// The radius a real viewer would plausibly hold around the slice in view. 3 gives
+// a 7-slice window: the current slice, plus enough either side that a short
+// forward or backward run stays resident.
+const WINDOW_RADIUS = 3;
+const POLICY_ALL = 'all';
+const POLICY_WINDOW = 'window';
+
+// Which slices a policy keeps mounted when the viewer is at z.
+function residentSet(policy, z) {
+  if (policy === POLICY_ALL) return null;          // null = every slice
+  const lo = Math.max(0, z - WINDOW_RADIUS);
+  const hi = Math.min(NZ - 1, z + WINDOW_RADIUS);
+  const out = [];
+  for (let i = lo; i <= hi; i += 1) out.push(i);
+  return out;
+}
+const isResident = (policy, z, target) =>
+  policy === POLICY_ALL || Math.abs(target - z) <= WINDOW_RADIUS;
+
+// The source mask, decoded LAZILY. Read by the A2 checksum only - never by any
+// zoom, pan or rendering code. Lazy since S6: at 576x576x88 decoding every mask
+// slice at module scope costs ~29 MB of Uint8Array before the first frame, which
+// would land in the memory measurement without being part of the cache policy
+// under test. A2 is unchanged - it still hashes every slice, just on demand.
+let _maskBytes = null;
+function maskBytes() {
+  if (_maskBytes === null) _maskBytes = maskFx.slices_b64.map(base64ToBytes);
+  return _maskBytes;
+}
 
 // Log tags the harness scripts grep for. Keep them stable.
 const TAG = 'SPIKE_A_TIMING';
@@ -58,7 +114,7 @@ const now = () => (global.performance ? performance.now() : Date.now());
 const round = (v) => +v.toFixed(3);
 
 function hashAllMasks() {
-  const hashes = MASK_BYTES.map((b) => sha256Hex(b));
+  const hashes = maskBytes().map((b) => sha256Hex(b));
   const match = hashes.filter((h, z) => h === maskFx.slice_sha256[z]).length;
   return { hashes, match };
 }
@@ -79,13 +135,45 @@ function mappingSelfCheck() {
  * slices". The sequence is fixed rather than random so two runs are comparable:
  * forward run, backward run, then jumps, which is how a reader actually moves
  * through a stack.
+ *
+ * S6: the list below is written against a 16-slice stack and is generalised to any
+ * Nz by its MOVES, not by its positions. That distinction is the whole point.
+ *
+ * Scaling positions would be wrong. At Nz = 88 a scaled position list turns every
+ * step of the "forward run" into a ~6-slice jump, so a +/-3 window would miss on
+ * all 30 steps and the comparison would measure nothing but misses. What the test
+ * describes is a reader scrolling ONE slice at a time with occasional jumps across
+ * the stack, and that is a statement about moves.
+ *
+ * So: a move of +/-1 stays +/-1 at any depth, and a jump is scaled by (Nz-1)/15.
+ * At Nz = 16 the scale factor is 1 and the result is byte-identical to the list
+ * below, so every run recorded before 2026-09-17 stays directly comparable. At
+ * Nz = 88 the runs stay adjacent (cache hits under the window policy) and the 8
+ * jumps become genuine cross-stack moves (cache misses) - which is exactly the
+ * mix the policy is being asked about.
  */
-const NAV_SEQUENCE = [
+const NAV_SEQUENCE_16 = [
   1, 2, 3, 4, 5, 6, 7, 8,           // forward run
   7, 6, 5, 4, 3, 2, 1, 0,           // backward run
   8, 0, 15, 4, 11, 2, 13, 6,        // jumps
   7, 8, 9, 10, 11, 12,              // forward again
 ];
+
+function buildNavSequence(nz) {
+  const scale = (nz - 1) / 15;
+  const out = [];
+  let prev16 = 0;                   // the 16-slice list starts from slice 0
+  let pos = 0;
+  for (const target16 of NAV_SEQUENCE_16) {
+    const delta16 = target16 - prev16;
+    const delta = Math.abs(delta16) === 1 ? delta16 : Math.round(delta16 * scale);
+    pos = Math.max(0, Math.min(nz - 1, pos + delta));
+    out.push(pos);
+    prev16 = target16;
+  }
+  return out;
+}
+const NAV_SEQUENCE = buildNavSequence(NZ);
 
 /*
  * What "slice updated" means here, stated explicitly because the number is
@@ -102,24 +190,50 @@ export default function App() {
   const [samples, setSamples] = useState([]);
   const [running, setRunning] = useState(false);
   const [showMask, setShowMask] = useState(true);
+  const [policy, setPolicy] = useState(POLICY_ALL);
 
   const t0 = useRef(null);
   const pending = useRef(null);
+  const zRef = useRef(0);                    // z at the moment a step was issued
+  const wasResident = useRef(true);          // was that step a cache hit?
 
-  const allWarmed = warmed >= NZ;
+  // Under 'all' the gate is the whole volume; under 'window' it is the opening
+  // window, because the whole volume is never meant to be resident.
+  const warmTarget = policy === POLICY_ALL
+    ? NZ
+    : Math.min(NZ, WINDOW_RADIUS + 1);
+  const allWarmed = warmed >= warmTarget;
 
   // --- prewarm -------------------------------------------------------------
-  // A9 measures switching among CACHED slices, so every slice is decoded once
-  // before any measurement is allowed. Until that finishes the measure button
-  // stays disabled — measuring a cold cache would answer a different question.
+  // A9 measures switching among CACHED slices, so the slices a policy claims to
+  // hold are decoded once before any measurement is allowed. Until that finishes
+  // the measure button stays disabled — measuring a cold cache would answer a
+  // different question. Note the gate is per POLICY: 'window' never waits for
+  // slices it has no intention of keeping.
   const onWarm = useCallback(() => setWarmed((n) => n + 1), []);
+
+  // Switching policy invalidates every sample taken under the previous one, and
+  // it must re-warm. Mixing two policies in one record would be unreadable.
+  const changePolicy = useCallback((next) => {
+    if (next === policy) return;
+    setPolicy(next);
+    setWarmed(0);
+    setSamples([]);
+    setZ(0);
+    zRef.current = 0;
+    console.log(`${TAG}_POLICY ${JSON.stringify({ cache_policy: next, window_radius: WINDOW_RADIUS, nz: NZ })}`);
+  }, [policy]);
 
   const goTo = useCallback((target) => {
     if (target < 0 || target >= NZ) return;
+    // Recorded BEFORE z moves: whether the policy already held this slice is a
+    // property of the state the step started from.
+    wasResident.current = isResident(policy, zRef.current, target);
     t0.current = global.performance ? performance.now() : Date.now();
     pending.current = target;
+    zRef.current = target;
     setZ(target);
-  }, []);
+  }, [policy]);
 
   const onSliceLoad = useCallback(() => {
     if (t0.current == null || pending.current == null) return;
@@ -134,13 +248,19 @@ export default function App() {
         slice: target,
         ms_to_load: +(tLoad - from).toFixed(2),
         ms_to_frame: +(tFrame - from).toFixed(2),
+        cache_policy: policy,
+        // in_window = the slice was already held when the step was issued, i.e.
+        // this really is "switching among already available/cached slices".
+        // Always true under 'all'. Under 'window' a false here marks a MISS, and
+        // a miss is outside what NFR-PERF-001 governs.
+        in_window: wasResident.current,
       };
       setSamples((prev) => [...prev, s]);
       // Raw sample to logcat. extract_timings.py reads these; the on-screen
       // table is only a fallback for when logcat is not available.
       console.log(`${TAG} ${JSON.stringify(s)}`);
     });
-  }, []);
+  }, [policy]);
 
   // --- scripted 30-step run ------------------------------------------------
   useEffect(() => {
@@ -158,10 +278,22 @@ export default function App() {
       // Settle gap so each step is a distinct interaction rather than a burst.
       setTimeout(step, 350);
     };
-    console.log(`${TAG}_RUN_START steps=${NAV_SEQUENCE.length} nz=${NZ}`);
+    // __DEV__ is false in a release bundle. Emitting it removes the last
+    // hand-entered field from the evidence record: build_type used to be typed in
+    // by the operator, and a typed field is a field that can be wrong.
+    console.log(`${TAG}_RUN_START ${JSON.stringify({
+      steps: NAV_SEQUENCE.length,
+      nz: NZ,
+      nx: NX,
+      ny: NY,
+      cache_policy: policy,
+      window_radius: policy === POLICY_ALL ? null : WINDOW_RADIUS,
+      dev_bundle: typeof __DEV__ !== 'undefined' ? __DEV__ : null,
+      sequence: NAV_SEQUENCE,
+    })}`);
     step();
     return () => { cancelled = true; };
-  }, [running, goTo]);
+  }, [running, goTo, policy]);
 
   // --- S4: display transform, pinch-zoom and pan --------------------------------
   const [view, setView] = useState(null);          // {w, h} of the viewport, from onLayout
@@ -356,17 +488,29 @@ export default function App() {
       <Text style={s.h1}>SPIKE_A · 2D viewer harness</Text>
       <Text style={s.sub}>React Native / Expo candidate · fixture {NX}×{NY}×{NZ}</Text>
 
-      {/* prewarm: decode every slice once, offscreen */}
+      {/* S6 — the cache itself. Under 'all' this mounts every slice once and
+          never unmounts one. Under 'window' it mounts z +/- WINDOW_RADIUS and
+          STAYS mounted for the whole session, so that as z moves the slices
+          leaving the window are unmounted and the component drops them. */}
       {!allWarmed && (
         <View style={s.warm}>
-          <Text style={s.warmT}>Đang nạp cache slice… {warmed}/{NZ}</Text>
-          <View style={s.hidden}>
-            {SLICES.map((uri, i) => (
-              <Image key={i} source={{ uri }} style={s.tiny} onLoad={onWarm} onError={onWarm} />
-            ))}
-          </View>
+          <Text style={s.warmT}>
+            Đang nạp cache slice… {warmed}/{warmTarget}
+            {policy === POLICY_WINDOW ? `  ·  cửa sổ ±${WINDOW_RADIUS}` : '  ·  toàn bộ volume'}
+          </Text>
         </View>
       )}
+      <View style={s.hidden} pointerEvents="none">
+        {(residentSet(policy, z) || SLICES.map((_, i) => i)).map((i) => (
+          <Image
+            key={`${policy}-${i}`}
+            source={{ uri: SLICES[i] }}
+            style={s.tiny}
+            onLoad={onWarm}
+            onError={onWarm}
+          />
+        ))}
+      </View>
 
       {/* A1 — slice renders with n/total · S4 — pinch-zoom (2 fingers), pan (1 finger), tap = which pixel */}
       <View style={s.viewport} ref={viewRef} onLayout={onViewportLayout} {...responder.panHandlers}>
@@ -417,6 +561,23 @@ export default function App() {
         )}
       </View>
 
+      {/* S6 — the variable under test. One build, two policies, so the only
+          thing that differs between the two runs is this switch. */}
+      <View style={s.row}>
+        <Btn
+          label={`cache: toàn bộ (${NZ})`}
+          onPress={() => changePolicy(POLICY_ALL)}
+          disabled={running}
+          primary={policy === POLICY_ALL}
+        />
+        <Btn
+          label={`cache: cửa sổ ±${WINDOW_RADIUS}`}
+          onPress={() => changePolicy(POLICY_WINDOW)}
+          disabled={running}
+          primary={policy === POLICY_WINDOW}
+        />
+      </View>
+
       <View style={s.row}>
         <Btn
           label={running ? 'đang chạy…' : `chạy ${NAV_SEQUENCE.length} bước (A9)`}
@@ -438,8 +599,11 @@ export default function App() {
             min {stats.load.min}  ·  p50 {stats.load.p50}  ·  p95 {stats.load.p95}  ·  max {stats.load.max}
           </Text>
           <Text style={s.note}>
-            NFR-PERF-001 đòi p95 ≤ 200 ms. Con số này CHƯA phải bằng chứng nghiệm thu
-            nếu build không phải release — debug build làm lệch timing.
+            NFR-PERF-001 đòi p95 ≤ 200 ms cho slice ĐÃ CACHE. Con số này CHƯA phải bằng
+            chứng nghiệm thu nếu build không phải release — debug build làm lệch timing.
+            {policy === POLICY_WINDOW
+              ? `  ⚠ Đang chạy cửa sổ ±${WINDOW_RADIUS}: bước nhảy ra ngoài cửa sổ là cache MISS, không thuộc phạm vi NFR-PERF-001. extract_timings.py tách riêng p95 trong cửa sổ.`
+              : ''}
           </Text>
         </View>
       )}
