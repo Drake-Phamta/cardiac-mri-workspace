@@ -45,7 +45,7 @@
 
 | Việc | Giờ | Xong khi |
 |---|---|---|
-| **Review #36 và #37** (bằng chứng C0 và khung pipeline của Khánh) — chỉ sau khi Khánh đổi base sang `main` và CI chạy; bạn là reviewer `SPIKE_C0` | ~1,5 h | review có nội dung |
+| **Review #36** *(và #37 khi hết nháp)* — **đã sẵn sàng từ 02:21**: base `main`, CI 4/4, Khánh nhờ bạn review; `C0-1`–`C0-10` đều có số, kèm ngoại suy lịch 4 h và 5 h GPU/ngày. Bạn là reviewer `SPIKE_C0`, xếp **sau** Spike D và Spike E trong hàng của bạn | ~1,5 h | review có nội dung |
 | **M3 — hợp đồng hình học có số phiên bản**: nâng `tests/fixtures/geometry/FORMAT.md` thành hợp đồng có phiên bản, quy tắc thay đổi, mô tả contract test. Ghi rõ phát hiện QA-002: header LASC mang spacing 1 / origin 0 mặc định ⇒ toạ độ "thế giới" đọc từ header **chỉ là chỉ số voxel, không phải mm** *(chỉ bạn được viết thư mục này — `DR-013`)* | ~1 h | PR |
 | **Kịch bản đo `B10`/`B11` cho leader bấm** (`DR-006a` rev 3) — khi app việc 4 chạy được | ~30 ph | file ngắn trong `spikes/spike_b_3d/` |
 

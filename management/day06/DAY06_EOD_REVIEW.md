@@ -245,7 +245,7 @@ Giữ RED. Buffer −1, `ACCEPTED = 0`, Spike D bị QA bác, `GATE-SPLIT-01` b�
 | # | Việc | Ai |
 |---|---|---|
 | 1 | **#34 ready trước 12:00** → duyệt lại → merge → **QA soi lại** Spike D | Bế Quốc Khánh → Vũ Hùng Anh → Phạm Tuấn Anh |
-| 2 | **Merge #17 · quyết Q2 · chọn đường dựng stub** trước 10:00 · duyệt `DEMO_STANDARD` v0 | Phạm Tuấn Anh |
+| 2 | **Merge #17** *(đã xong 02:19 — `8bf1a2f`, squash, giữ nhánh)* · **quyết Q2 · chọn đường dựng stub** trước 10:00 · duyệt `DEMO_STANDARD` v0 | Phạm Tuấn Anh |
 | 3 | **Decision Request nối bệnh nhân** — soạn trước 12:00, quyết trong ngày | Project Control → Phạm Tuấn Anh |
 | 4 | Duyệt lại **#24 · #26** → merge → stub 2 profile đã kiểm trước 20:30 → **đo Spike E khung 21:00** | Vũ Hùng Anh → Phạm Tuấn Anh → Nguyễn Gia Đức Trung → Phạm Tuấn Anh |
 | 5 | **Review #35** | Nguyễn Gia Đức Trung |

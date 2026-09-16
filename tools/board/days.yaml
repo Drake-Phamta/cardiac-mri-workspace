@@ -50,7 +50,7 @@ criteria:
   SPIKE_A:  {total: 12, measured: 3,  label: "A1–A12", in_pr: 6, in_pr_ref: "PR #27 (A2) · PR #31 (A3–A7)"}
   SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15"}
   SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13", in_pr: 6, in_pr_ref: "PR #26"}
-  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10", in_pr: 8, in_pr_ref: "PR #36 (C0-1–C0-6 · C0-9 · C0-10)"}
+  SPIKE_C0: {total: 10, measured: 0,  label: "C0-1–C0-10", in_pr: 10, in_pr_ref: "PR #36 (C0-1–C0-10)"}
   SPIKE_C1: {total: 10, measured: 0,  label: "C1-1–C1-10"}
   SPIKE_F:  {total: 12, measured: 0,  label: "F1–F12"}
 
@@ -67,12 +67,12 @@ spike_notes:
   SPIKE_A:  "`A9` p95 65,31 ms · `A1` `A12` một phần. **`A2` `OBSERVED`** (14/09 21:25, checksum mask 16/16 qua 3 lần kiểm) — PR #27. **S5 brush: `A3`–`A7` `OBSERVED` trên máy 15/09 21:13–21:21** — A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15 · reset đúng; `A2` kiểm lại trên bản S5 cũng `OBSERVED` — PR #31 (`1c62a00`). **Đo rồi, chưa nghiệm thu**: cả hai PR chờ Hùng Anh, xếp sau Spike D trong hàng của cậu ấy."
   SPIKE_B:  "Fixture hình học chính thức đã merge (`50a5433`). `B14` (#29) và `B1` (#30) **đều bị Trung yêu cầu sửa 21:38–21:39**: #29 lặp một đoạn diễn giải · #30 **thiếu pan** — `B1` trong TASK đòi xoay, zoom **và** pan. Hôm nay: sửa cả hai → picking `B3`/`B4` trên fixture. Đo trên máy: **leader bấm, Hùng Anh thiết kế + tính số** (`DR-006a` rev 3); reviewer → Trung."
   SPIKE_E:  "#24 và #26 đã sửa 21:21–21:22 — **chờ Hùng Anh duyệt lại**. **15/09 không đo được**: stub 2 profile chưa bao giờ chạy vì Trung không có quyền SSH vào Mac mini; tiến trình đang chạy trả **cùng payload 58 MB cho cả hai profile** (Trung kiểm 22:27). Hôm nay: leader chọn đường dựng stub → Trung kiểm trước 20:30 → leader đo khung 21:00 → Trung tổng hợp. `E9` drill: #33 · hợp đồng ingestion 1: #32."
-  SPIKE_C0: "Khánh bật pagefile rồi **approve #17 lúc 00:29** (selftest 8/8 + 10/10, UNet 560 batch tối đa 15, DINOv2-S/14 tải được) → **probe chạy trọn ma trận trên RTX 4050: PR nháp #36** — fp32 + bf16, 10 biến thể, **20/20 phép đo**, bảng + biểu đồ sinh từ JSON; `C0-7`/`C0-8` chờ số giờ GPU/ngày. Khung pipeline tổng hợp: **#37**. Cả hai xếp chồng trên #17 nên **chưa có CI** — leader merge #17, Khánh đổi base."
+  SPIKE_C0: "**#17 đã merge 02:19** (`8bf1a2f`, squash, giữ nhánh) → Khánh rebase **#36** và **#37** lên `main`, CI 4/4 lần đầu. **#36 đã ready, chờ Hùng Anh review**: probe chạy trọn ma trận trên RTX 4050 — fp32 + bf16, 10 biến thể, **20/20 phép đo**, bảng + biểu đồ sinh từ JSON, và ngoại suy lịch theo **4 h/ngày** (7/10 biến thể vừa) và **5 h/ngày** (8/10) — `DINOv2-B/14 full` không vừa cả hai. Chủ spike khai `C0-1`–`C0-10` đều có số; **C0 không đóng `GATE-ML-01`**. Khung pipeline tổng hợp: #37 (còn nháp)."
   SPIKE_C1: "`BLOCKED` tới khi Spike D **ACCEPTED** và `GATE-SPLIT-01` có quyết định — split đang bị chặn bởi nối bệnh nhân (154 lần chụp / 60 bệnh nhân, không có ánh xạ). Không chạm dữ liệu thật trước đó."
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
-merge_order: [17, 24, 26, 34, 35, 33, 32, 29, 30, 27, 31, 36, 37]
+merge_order: [24, 26, 34, 35, 33, 32, 29, 30, 27, 31, 36, 37]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
@@ -125,7 +125,7 @@ policies:
 risk_notes:
   RISK-DATA-01:     "QA-002 `REJECT` → bản sửa ở PR nháp #34: cặp trùng đã được báo, header ghi rõ chỉ ở mức header (mm/mL tắt), bỏ đường dẫn tuyệt đối — chờ duyệt lại và QA soi lại"
   RISK-SPLIT-01:    "**154 lần chụp từ 60 bệnh nhân** (bài benchmark của challenge) và gói **không có ánh xạ** → `GATE-SPLIT-01` `BLOCKED_PATIENT_LINKAGE` (#35). Cặp trùng đã gom theo `DR-002a`; sàng lọc chỉ từ ảnh MRI tìm lại được cặp đó ở hạng 1 nhưng **không chứng minh được danh tính** — leader quyết qua Decision Request"
-  RISK-COMPUTE:     "**giảm** — probe `C0` đã chạy trọn trên RTX 4050: 20/20 phép đo fp32 + bf16 (PR nháp #36); `C0-7`/`C0-8` chờ số giờ GPU/ngày thật"
+  RISK-COMPUTE:     "**giảm rõ** — 20/20 phép đo fp32 + bf16 trên RTX 4050 và ngoại suy lịch có số (PR #36, chờ review): với **4 h GPU/ngày** thì 7/10 biến thể vừa 6 lượt + 1 ablation trong cửa sổ 10 ngày, **5 h/ngày** thì 8/10; `DINOv2-B/14 full` không vừa — dữ kiện cho `GATE-ML-01` sau này"
   RISK-MOBILE-RENDER: "viewer `B1` (#30) mới chạy trên trình duyệt desktop và **thiếu pan** — chưa có app 3D nào chạy trên điện thoại"
   RISK-DEMO-NET-01: "5G qua ZeroTier bị `RELAY`, tải file lớn không nổi → `DR-003b` chuyển sang Wi-Fi"
   RISK-CAP-01:      "3/4 người vắng Day 2–3; Day 4 hai người quay lại, Day 4 đạt 3/3"
@@ -150,7 +150,7 @@ device:
 today:
   day: 7
   date: "2026-09-16"
-  headline: "Day 6 chưa đạt 3/4 → buffer −1. Việc tồn của Day 6 đứng đầu mọi packet: Khánh chuyển #34 (bản sửa Spike D) sang ready trước 12:00 để Hùng Anh duyệt lại trong ngày; leader quyết Q2, đường dựng stub và cách xử lý 154 lần chụp từ 60 bệnh nhân cho GATE-SPLIT-01; Spike E đo khung 21:00. Mỗi người ≥ 8 giờ việc thật, hạn 23:59."
+  headline: "Day 6 chưa đạt 3/4 → buffer −1. Việc tồn của Day 6 đứng đầu mọi packet: Khánh chuyển #34 (bản sửa Spike D) sang ready trước 12:00 để Hùng Anh duyệt lại trong ngày; leader quyết Q2, đường dựng stub và cách xử lý 154 lần chụp từ 60 bệnh nhân cho GATE-SPLIT-01; Spike E đo khung 21:00. Đã xong sớm: #17 merge lúc 02:19 và bằng chứng C0 của Khánh (#36) chuyển ready với CI 4/4. Mỗi người ≥ 8 giờ việc thật, hạn 23:59."
   pipeline:
     - ["SPIKE_D", "NEEDS_FIX → bản sửa #34 (nháp) → duyệt lại → QA soi lại", "now"]
     - ["GATE-DATA-01", "đóng khi Spike D ACCEPTED", ""]
@@ -180,7 +180,7 @@ today:
     - [tuananh, "Merge **#24** · **#26**", hunganh, "duyệt lại #24 (`be52d6f`) và #26 (`a585907`)"]
     - [tuananh, "Đo Spike E khung 21:00", trung, "stub 2 profile đã kiểm — trước 20:30"]
     - [trung, "Tổng hợp lượt đo mới", tuananh, "dữ liệu thô khung 21:00"]
-    - [khanh, "Đổi base #36/#37 sang `main` để có CI", tuananh, "merge **#17** — Khánh đã approve 00:29"]
+    - [hunganh, "Merge **#36** (bằng chứng C0)", hunganh, "review #36 — đã ready, CI 4/4, xếp sau Spike D và Spike E"]
     - [khanh, "Chốt split và bắt đầu `SPIKE_C1`", tuananh, "quyết cách xử lý nối bệnh nhân (`GATE-SPLIT-01`)"]
     - [hunganh, "Merge **#29** · **#30**", trung, "review lại sau khi Hùng Anh sửa"]
   tasks:
@@ -188,8 +188,8 @@ today:
       load: "chính **≥ 8 h** (~9,25 h) · dự phòng ~2 h · hạn **23:59** · mốc đẩy **12:00** và **18:00**"
       debts:
         - "**#34 → ready trước 12:00** — xác nhận lời lẽ `A11`/`A14`/`F5` · bảng `A19` theo `Q2` · trả lời từng phát hiện `F1`–`F5`, `F12`, `F13` · nhờ Hùng Anh duyệt lại *(~2 h)*"
-        - "**#36 — `C0-7`/`C0-8`**: số giờ GPU/ngày thật → chạy lại ngoại suy, sinh lại bảng + biểu đồ · khai `started_at` thật của C0 *(~1,5 h)*"
-        - "Sau khi leader merge #17: **đổi base #36 và #37 sang `main`** để CI chạy lần đầu *(~15 ph)*"
+        - "✅ **#36 — `C0-7`/`C0-8` xong 02:19**: ngoại suy theo 4 h/ngày (7/10 biến thể vừa) và 5 h/ngày (8/10), #36 chuyển ready · **còn:** khai `started_at` thật của C0 trong một comment"
+        - "✅ **Base #36/#37 đã sang `main`** 02:20–02:21 sau khi leader merge #17 — CI 4/4 lần đầu"
         - "**#35 — nhờ Trung review**, ghi cách tái lập cho người không có bản ZIP *(~30 ph)*"
       now:
         - "**Sửa lỗi validator `F6`–`F11`, `F14`, `F15`** kèm test hồi quy dựng từ kịch bản phá ở `day06/qa002/` — PR riêng *(~3 h)*"
@@ -199,7 +199,7 @@ today:
       later:
         - "Tìm nguồn công khai có ánh xạ lần chụp → bệnh nhân *(~1 h)*"
         - "Rà trường siêu dữ liệu từng case: công khai hay hạn chế — đầu vào cho leader phán `F5` *(~1 h)*"
-      note: "Đêm qua bạn làm khối lượng lớn và đúng hướng (#34, #35, #36, #37, approve #17) — nhưng tất cả lên trong khoảng 00:19–01:14, ngày thứ ba liên tiếp sau nửa đêm. Hệ quả không nằm ở luật mà ở lịch: không ai kịp duyệt lại hay review trong ngày. Critical path hôm nay nằm ở #34 của bạn."
+      note: "Từ 02:19 bạn đã xong hai nợ: ngoại suy lịch C0 (4 h và 5 h GPU/ngày) và rebase #36/#37 lên `main`, CI 4/4 — **#36 đang chờ Hùng Anh review**. Đêm qua bạn làm khối lượng lớn và đúng hướng (#34, #35, #36, #37, approve #17) — nhưng tất cả lên trong khoảng 00:19–01:14, ngày thứ ba liên tiếp sau nửa đêm. Hệ quả không nằm ở luật mà ở lịch: không ai kịp duyệt lại hay review trong ngày. Critical path hôm nay nằm ở #34 của bạn."
     trung:
       load: "chính **≥ 8 h** (~9 h) · dự phòng ~1,5 h · hạn **23:59**"
       debts:
@@ -235,7 +235,7 @@ today:
     tuananh:
       load: "**không giới hạn giờ** — quyết định, review, merge, buổi đo tối, chốt ngày"
       debts:
-        - "**Merge #17** — Khánh approve 00:29, CI 4/4. **Merge commit, giữ nhánh**: #36/#37 xếp chồng, xoá nhánh là tự đóng cả hai *(~5 ph)*"
+        - "✅ **Merge #17 xong 02:19** — squash `8bf1a2f`, **giữ nhánh** nên #36/#37 không bị đóng; Khánh đã rebase cả hai lên `main`"
         - "**Quyết `Q2`** — hoãn mục split của bảng `A19` sang `GATE-SPLIT-01` có ghi (đề xuất QA) *(~10 ph)*"
         - "**Chọn đường dựng stub Spike E** — Project Control dựng bằng SSH của anh (đề xuất) hay cấp SSH cho Trung *(~10 ph)*"
         - "**Duyệt `DEMO_STANDARD.md` v0** + 4 điểm §11 (bảng hiệu năng cần DR? đính chính 39/28/69 → 44/33/70) *(~30 ph)*"
@@ -248,7 +248,7 @@ today:
       later:
         - "Review **#32** — hợp đồng ingestion 1, khối Integration / cross-contract *(~1 h)*"
         - "Đo lại `A9` với cache ±3 slice *(~1,5 h, cần máy)*"
-      note: "Day 6 chốt chưa đạt 3/4, buffer −1 — bản chốt ở `day06/DAY06_EOD_REVIEW.md`. Ba quyết định buổi sáng (merge #17, `Q2`, đường dựng stub) mở khoá cho cả ba thành viên: làm trước 10:00."
+      note: "Day 6 chốt chưa đạt 3/4, buffer −1 — bản chốt ở `day06/DAY06_EOD_REVIEW.md`. ✅ Merge #17 xong lúc 02:19 (squash, giữ nhánh — #36/#37 an toàn). Còn hai quyết định buổi sáng: **`Q2`** và **đường dựng stub**, cả hai đang giữ việc của thành viên — làm trước 10:00."
 
 history:
   - day: 6
