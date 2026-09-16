@@ -76,6 +76,7 @@ merge_order: [24, 26, 34, 35, 33, 32, 29, 30, 27, 31, 36, 37]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
+  DR-002b: "**Bản thảo đã sẵn sàng, chờ leader quyết trong ngày.** 154 lần chụp từ 60 bệnh nhân, gói không có ánh xạ case↔bệnh nhân; sàng lọc chỉ từ ảnh MRI tìm lại được cặp trùng ở hạng 1 nhưng **không chứng minh được danh tính**. Bốn phương án trong `OPEN_DECISIONS.md` Part 2b; Project Control đề xuất **(c) + (d)**: gom nhóm theo ngưỡng **khai trước mọi lượt train**, **loại khỏi train** case nghi trùng bệnh nhân với holdout, ghi rõ giới hạn trong mọi báo cáo, kèm phân tích độ nhạy."
   DR-005:  "Chờ Spike F — chưa bắt đầu phần chính."
   DR-008c: "Chờ Spike B đo trên thiết bị; trần ±1 slice không bao giờ nới."
 
@@ -253,8 +254,8 @@ today:
         - "✅ **Stub Spike E = phương án A** — Project Control dựng bằng SSH của anh, Trung kiểm và giữ mọi số `E`"
         - "✅ **Chuẩn demo duyệt thành v1** + đính chính số đếm **44 / 33 / 70**; bảng hiệu năng để mở (cần DR nếu muốn)"
       now:
-        - "**Quyết cách xử lý nối bệnh nhân** cho `GATE-SPLIT-01` — Decision Request do Project Control soạn trước 12:00 *(~1 h)*"
-        - "**Phán phần còn lại `F5`** — Khánh trích CAP §§6–7: hai PDF chính sách **không đủ** để khẳng định bản phát hành cho phép công khai siêu dữ liệu từng case *(~30 ph)* · ✅ **recovery đã xác nhận**: giữ kế hoạch + 5 hành động Level 1"
+        - "**Quyết `DR-002b`** — nối bệnh nhân cho `GATE-SPLIT-01`: bản thảo 4 phương án đã sẵn sàng, Project Control đề xuất **(c) + (d)** *(~30 ph)*"
+        - "**Phán `F5`** — đề xuất đã soạn: giữ public mã case + thống kê tổng hợp, chuyển bảng SHA-256 từng file và điểm sàng lọc sang kênh hạn chế (hash vẫn công khai, không mất tái lập) *(~15 ph)* · ✅ **recovery đã xác nhận**"
       then:
         - "Stub (nếu chọn phương án A) trước 14:00 · **đo Spike E khung 21:00**, hai profile *(~2 h)*"
         - "Merge #24 → #26 · #29/#30 · #34 khi approve → **QA soi lại Spike D** → `ACCEPTED` nếu PASS *(~2 h)*"

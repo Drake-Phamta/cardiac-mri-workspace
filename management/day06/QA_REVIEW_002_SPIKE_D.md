@@ -151,7 +151,18 @@ ID manifest split, mà split lại cần audit đã qua nghiệm thu; và `GATE-
 
 **Phần còn lại của F5 vẫn mở.** Khánh đã trích CAP §§6–7 trong `POLICY_EVIDENCE.md` (PR #34) và kết luận: hai PDF chính sách
 **không** đủ để khẳng định bản phát hành LASC 2018 cho phép công khai siêu dữ liệu từng case — cần điều khoản của chính bản
-phát hành/DDA. Leader phán trong Day 7; đề xuất của Project Control nằm trong packet leader.
+phát hành/DDA.
+
+**Project Control đề xuất cho `F5` (16/09) — leader phán:** chọn **phương án hẹp hơn cho tới khi đọc được điều khoản của
+chính bản phát hành/DDA**, vì khi chưa rõ thì thu hẹp dễ sửa hơn là phát tán rồi rút lại.
+
+| Giữ trong repo public | Chuyển sang kênh hạn chế *(ngoài repo, có hash công khai)* |
+|---|---|
+| Mã case — vốn đã công khai trong bản phát hành · số lượng case, shape, dtype, thống kê tổng hợp · verdict `A1`–`A20` và lệnh tái lập | Bảng **SHA-256 từng file dữ liệu** · **điểm tương quan từng cặp case** của sàng lọc liên kết (#35 đang giữ ngoài repo) |
+
+Tái lập **không mất**: manifest hạn chế nằm ngoài repo, nhưng **hash của nó và lệnh sinh lại từ bản ZIP đều công khai** —
+người review có ZIP tự dựng lại rồi so hash. Nếu leader chọn **giữ nguyên** (công khai cả checksum từng file) thì phải ghi
+căn cứ ngay trong `POLICY_EVIDENCE.md` để người ngoài đọc được vì sao, chứ không để trống.
 
 ---
 

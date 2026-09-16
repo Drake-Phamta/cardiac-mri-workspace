@@ -1232,6 +1232,80 @@ QA-002 F1 fix) records the pair as an anomaly and points to this decision.
 
 ---
 
+### DR-002b — Patient linkage is not verifiable: how the split handles 154 scans from 60 patients
+
+| Field | Value |
+|---|---|
+| **Amends** | DR-002 ✅ and DR-002a ✅ — the Path A split procedure |
+| **Raised by** | `PATIENT_LINKAGE_EVIDENCE.md` from Bế Quốc Khánh (PR #35, 2026-09-16) and QA-002 finding F1 |
+| **Proposed by** | Project Control |
+| **Decided by** | Phạm Tuấn Anh — Team Leader |
+| **Date** | proposed 2026-09-16 |
+| **Status** | ⏸ **PENDING LEADER CONFIRMATION** — `GATE-SPLIT-01` stays `BLOCKED_PATIENT_LINKAGE` until this is decided. Nothing below is decided; do not act on any option as if it were |
+
+**What is established.**
+
+1. The challenge's own benchmark paper reports **154 independently acquired 3D LGE-MRIs from 60 de-identified
+   patients** (Xiong et al., *Medical Image Analysis* 67, 2021, §2.1) and describes scans taken before and after
+   ablation. Several acquisitions per patient are a **documented property** of this dataset, not a hypothesis.
+2. The obtained package carries **no case → patient map**, and the release page's wording does not establish one
+   distinct patient per case.
+3. One duplicated acquisition (`CASE_0056` / `CASE_0097`) was found by QA-002 and is already handled by DR-002a.
+4. The owner's MRI-only screen read all 154 volumes and scored 11,781 pairs without opening a single label. It
+   recovered the known duplicate at **rank 1** (sampled Pearson r = 0.996141). The strongest correlation crossing
+   the released Training ↔ Testing boundary was **r = 0.794344**; a proposed train ↔ validation crossing reached
+   **r = 0.781772**. These are **screening candidates**: a high score does not prove patient identity, and a low
+   score does not rule out pre/post-ablation scans of the same patient.
+5. `06` §6 requires a **patient-level** split and forbids changing the split once results are observed.
+   `13` TC-EXP-008 and `04` NFR-REP-002 rest on the same property.
+
+**Why this needs a decision.** Case-level disjointness is provable and holds. Biological patient separation is
+**NOT VERIFIABLE** with what the project has. Two consequences follow, and they are not equally serious:
+
+- **Inside development** (train ↔ validation): a same-patient pair makes validation optimistic. It biases model
+  *selection*.
+- **Across the released boundary** (development ↔ the 54-case holdout): a same-patient pair makes the **final
+  evaluation** optimistic — the number the report, the defense and `13` §13 all rest on.
+
+**Options.**
+
+| # | Option | Cost |
+|---|---|---|
+| **(a)** | **Obtain a real patient grouping** — ask the organizers / Cardiac Atlas for the scan → patient mapping | The only option that satisfies `06` §6 literally. External dependency with unknown turnaround; `GATE-SPLIT-01`, `SPIKE_C1` and milestone M4 (Days 8–12) wait on someone outside the team. Contacting them is outward-facing and needs the leader's explicit approval |
+| **(b)** | **Documented exception with conservative grouping** — keep the case-level split, group any pair scoring above a threshold **declared before any training run**, and record patient separation as NOT VERIFIABLE with the method and threshold in the manifest, the report and the defense | A recorded deviation from `06` §6 under `00` §13. Residual risk: same-patient scans **below** the threshold still cross partitions |
+| **(c)** | **(b) plus holdout protection** — additionally exclude from training any development case whose similarity to a holdout case exceeds the declared threshold, listing each exclusion | Spends a few training cases to defend the final number. The 54-case holdout itself is never modified |
+| **(d)** | **Sensitivity analysis on top** — publish the primary metric and a second metric computed with the suspected-linked cases removed | A little extra compute and one more table; shows the reader how much the ambiguity could be worth |
+
+**Project Control recommends (c) + (d), with (a) pursued in parallel only if the leader approves the contact.**
+It unblocks the critical path today without touching a frozen number; it spends its cost where an error would be
+unrecoverable (the holdout); and it states the limitation instead of implying a guarantee the data cannot give.
+(b) alone leaves the final number exposed. (a) alone stops the critical path on an external party while buffer is
+already at −1.
+
+**If (c) is chosen, the mechanics are fixed here:**
+
+1. **Bế Quốc Khánh proposes the threshold from the committed score distribution**, with the number of pairs it
+   catches, and declares it in the split manifest **before any training run** — never after a metric is seen. It
+   must catch the known duplicate (r ≈ 0.996).
+2. Groups are formed inside development and stay whole in every nested subset, exactly as DR-002a already requires.
+3. Development cases linked to a holdout case above the threshold are **excluded from training** and listed by
+   case id with their scores in `SPLIT_RESULT.md`.
+4. **Nguyễn Gia Đức Trung's review** checks that the threshold was declared before any run, that the rule was
+   applied uniformly, and that the manifest counts match.
+5. Every report page and slide carrying an evaluation number carries one sentence: *patient-level separation is
+   NOT VERIFIABLE for this release; what was done is case-level disjointness plus similarity-screen grouping.*
+6. `GATE-SPLIT-01` closes on that basis, and `06` §6's patient-level requirement is recorded as **deviated with a
+   documented exception** — not as satisfied.
+
+**What does NOT change under any option.** Path A (DR-002) · the 80/20/54 counts and seed `2024` · DR-002a's
+pinned pair · no cohort-fitted statistic crossing a partition (DR-011) · the holdout stays locked · the split is
+never changed after results are observed.
+
+**If the decision is deferred.** `GATE-SPLIT-01` stays blocked, `SPIKE_C1` stays `BLOCKED`, and M4 (Days 8–12)
+loses a day for every day of delay — with buffer already at **−1**.
+
+---
+
 ### DR-003a — Canonical private overlay is **ZeroTier**
 
 | Field | Value |
