@@ -1,0 +1,113 @@
+{
+  "record": "pr33_review_reconnect_drill",
+  "captured_at": "2026-09-18T01:33:56+0700",
+  "not_evidence": "Review exercise on the handset's own loopback. Not Spike E acceptance evidence, not an E number.",
+  "loss_window_seconds": 15.06,
+  "harness_flags": {
+    "network_retries": "2",
+    "retry_delay": 1,
+    "pause_before_mesh": 5,
+    "body_hash": true
+  },
+  "sample_count": 57,
+  "mesh_samples": [
+    {
+      "scenario": "mesh_level_0",
+      "ok": false,
+      "status": null,
+      "bytes": null,
+      "bytes_received": 0,
+      "attempts": 3,
+      "network_retries": 2,
+      "body_sha256": null,
+      "ms_total": 81,
+      "ms_including_local_rejections": 2561,
+      "error": "no HTTP status (nc_rc=1; nc: connect: Connection refused)"
+    },
+    {
+      "scenario": "mesh_level_1",
+      "ok": false,
+      "status": null,
+      "bytes": null,
+      "bytes_received": 0,
+      "attempts": 3,
+      "network_retries": 2,
+      "body_sha256": null,
+      "ms_total": 95,
+      "ms_including_local_rejections": 2617,
+      "error": "no HTTP status (nc_rc=1; nc: connect: Connection refused)"
+    },
+    {
+      "scenario": "mesh_level_2",
+      "ok": false,
+      "status": null,
+      "bytes": null,
+      "bytes_received": 0,
+      "attempts": 3,
+      "network_retries": 2,
+      "body_sha256": null,
+      "ms_total": 79,
+      "ms_including_local_rejections": 2534,
+      "error": "no HTTP status (nc_rc=1; nc: connect: Connection refused)"
+    },
+    {
+      "scenario": "mesh_level_3",
+      "ok": true,
+      "status": 200,
+      "bytes": 19,
+      "bytes_received": 19,
+      "attempts": 2,
+      "network_retries": 1,
+      "body_sha256": "2086f095f229d60c37ef41dbac9fdbe46a56cde897a9953b78aaf9a65f988ccb",
+      "ms_total": 122,
+      "ms_including_local_rejections": 1355,
+      "error": null
+    }
+  ],
+  "retried_samples": [
+    {
+      "scenario": "mesh_level_0",
+      "ok": false,
+      "attempts": 3,
+      "network_retries": 2,
+      "error": "no HTTP status (nc_rc=1; nc: connect: Connection refused)"
+    },
+    {
+      "scenario": "mesh_level_1",
+      "ok": false,
+      "attempts": 3,
+      "network_retries": 2,
+      "error": "no HTTP status (nc_rc=1; nc: connect: Connection refused)"
+    },
+    {
+      "scenario": "mesh_level_2",
+      "ok": false,
+      "attempts": 3,
+      "network_retries": 2,
+      "error": "no HTTP status (nc_rc=1; nc: connect: Connection refused)"
+    },
+    {
+      "scenario": "mesh_level_3",
+      "ok": true,
+      "attempts": 2,
+      "network_retries": 1,
+      "error": null
+    }
+  ],
+  "stderr": [
+    "Android Toybox fallback: http://127.0.0.1:8799",
+    "path=lan-diagnostic connection=direct profile=stub-default retries=2 repeats=1",
+    "writing JSONL to /data/local/tmp/pr33_reconnect_1789669967.jsonl",
+    "RECONNECT_WINDOW: pause 5 seconds before first mesh request; toggle the AVD link now",
+    "network retry 1/2 for mesh_level_0",
+    "network retry 2/2 for mesh_level_0",
+    "network retry 1/2 for mesh_level_1",
+    "network retry 2/2 for mesh_level_1",
+    "network retry 1/2 for mesh_level_2",
+    "network retry 2/2 for mesh_level_2",
+    "network retry 1/2 for mesh_level_3",
+    "repeat 1/1 complete",
+    "JSONL ready: /data/local/tmp/pr33_reconnect_1789669967.jsonl",
+    "Pull it with: adb pull /data/local/tmp/pr33_reconnect_1789669967.jsonl ."
+  ]
+}

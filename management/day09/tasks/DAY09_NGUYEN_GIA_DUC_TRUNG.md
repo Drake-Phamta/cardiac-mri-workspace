@@ -24,7 +24,8 @@
 |---|---|---|---|---|
 | **1** | **#45: đổi `geometry_contract.version` thành `dr008a-dr012/v1.0.0`**, và đổi phép kiểm tiền tố `GEOM_` thành **so khớp chính xác** với phiên bản geometry đã công bố. Chuỗi `GEOM_` (chỉ tiền tố) hiện vẫn qua validator | ~45 ph | Hùng Anh xác nhận chuỗi (việc 2 của anh ấy). Chưa xác nhận thì dùng chuỗi đang có trong #43 và ghi chú lại | Chuỗi của #43 được #45 **chấp nhận** |
 | **2** | **Phản hồi lượt duyệt lại #45 và #39 của leader** (bản sửa 22:14–22:15 của bạn). Những điểm review đã nêu: `null` làm sập bằng `AttributeError` (cả `dataset: null` ở hợp đồng ingestion 1 đã merge, sửa cùng một cách cho cả ba), luật suy từ đường dẫn (`{slice_index}` → `SLICE_OUT_OF_RANGE`, `{case_id}` → `CASE_NOT_FOUND`, `geometry_response` → `GEOMETRY_NOT_VALIDATED`, request ghi mask phải mang `geometry_contract_version`), khoá `method`. Sửa và đẩy **trong ngày** | ~1,5 h | leader duyệt lại (buổi sáng). Chưa có thì làm việc 4 trước | #45 và #39 `APPROVED` |
-| **3** | **Duyệt #44** (device probe Spike B). Bạn là reviewer Spike B (`DR-006a` rev 3). Soát theo hướng mới: protocol phải chạy được **trong WebView của app**, mọi số do script bắt | ~45 ph | không | review có nội dung |
+| **3** | **Duyệt #44** (device probe Spike B). Bạn là reviewer Spike B (`DR-006a` rev 3). Soát theo hướng mới: protocol phải chạy được **trong WebView của app**, mọi số do script bắt. Nền tảng đã được kiểm giúp bạn đêm qua: WebView của A17 cho **WebGL2 thật**, renderer `Mali-G68` (PR nháp #46), nên bạn chỉ soát protocol | ~45 ph | không | review có nội dung |
+| **3b** | **Sửa #33 theo [review 01:38](https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/33)** — `CHANGES_REQUESTED`, **mã shell không phải sửa gì**, chỉ tài liệu. Leader đã chạy thật bộ harness của bạn trên A17 và cả bốn điều kiện đều đúng như bạn mô tả (mặc định `attempts 1`; lỗi HTTP không thử lại; phục hồi `attempts 4 · network_retries 3 · ok true`; cạn lượt dừng đúng ở `attempts 3`). Hai chỗ chặn: ① **cả hai khối lệnh thoát mã 2**: qua `adb shell`, `--operator 'Pham Tuan Anh'` bị tách thành hai tham số — dạng chạy được là gộp cờ và giá trị vào **một** phần tử, có nháy cho shell trên máy · ② **mốc thời gian tự mâu thuẫn**: mất 3 s rồi khôi phục **trong** cửa sổ chờ 15 s thì yêu cầu mesh gặp đường đã sống lại, cho `network_retries 0`, trong khi dòng nghiệm thu đòi `> 0`. Kèm 5 góp ý không chặn (tên trường `ms_including_local_rejections` nay gồm cả thời gian chờ thử lại, địa chỉ Mac mini ở khối AVD khác khối máy thật, đường dẫn `adb` cứng theo máy bạn) | ~45 ph | không | #33 `APPROVED` |
 
 ## Việc Day 9
 
@@ -35,7 +36,8 @@
 | **6** | **Đề xuất `E10`** theo **5 điều kiện của `DR-015`**: ① sự kiện bắt đầu/kết thúc đồng hồ + máy + đường truyền + hồ sơ payload · ② thống kê kèm p50 · ③ không gộp hai hồ sơ · ④ kèm acceptance test dạng `TC-` · ⑤ ghi rõ giới hạn khung giờ. Nếu leader đo được **`E8` ban ngày lúc 14:00** thì dùng số đó; nếu không thì ghi giới hạn. Mã đã đặt: `PERF-FIRSTLOAD-01` / `TC-PERF-FIRSTLOAD-01` | ~1,5 h | leader vận hành `E8` lúc 14:00 (tuỳ chọn) | Mục `E10` trong `RESULT.md` Spike E đủ 5 điều kiện |
 | **7** | **Gói `TC-TEAM-001` V4** theo `10` §10 cho **SCR-06, SCR-08** (UC-13…15): 6 hạng mục. Nguyên liệu: hai hợp đồng ingestion, hợp đồng API (endpoint review/working mask/commit/findings) | ~1 h | không | File `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md`, PR |
 
-**Tổng phần chính: ~8,5 h.**
+**Tổng phần chính: ~9,25 h** *(đã gồm việc 3b mới nhận)*. **Nếu chạm trần thời gian:** việc 7 (gói `TC-TEAM-001` V4,
+~1 h) được lùi sang đầu Day 10, miễn là bạn **báo trước 18:00**. Việc chặn người khác thì không được lùi.
 
 > **🎯 Chuẩn demo** — [`DEMO_STANDARD.md`](../../DEMO_STANDARD.md): **H8–H9 / SCR-06**: lưu mask đã sửa thành **phiên bản
 > bất biến mới**, prediction gốc giữ nguyên, checksum nguồn không đổi. `STALE_REVISION` và mọi lỗi hiện ra **đọc được**
