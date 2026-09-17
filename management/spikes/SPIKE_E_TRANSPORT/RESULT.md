@@ -101,6 +101,37 @@ For both profiles `NFR-PERF-001` (E4 p95 <= 200 ms) is exceeded: s1/s4 are
 this is one evening window (the run began at 21:50, outside the planned
 21:00 +/- 15-minute window), so no time-of-day spread claim is made.
 
+## 3B. E7 app-memory measurement plan (not measured by this transport run)
+
+`E7` requires the real Spike A/B application on Galaxy A17; the Toybox
+transport harness and the synthetic stub do not measure app memory. When the
+leader has the release build, run each strategy/profile separately and retain
+raw command output:
+
+```powershell
+$package = '<reviewed.application.id>'
+& $adb shell dumpsys meminfo -d $package > e7-baseline.txt
+# open one case, load the first slice, navigate 10 slices, open the mask/mesh,
+# wait 30 s idle, then repeat the same sequence five times
+& $adb shell dumpsys meminfo -d $package > e7-after-<strategy>-<profile>.txt
+& $adb shell pidof $package
+```
+
+Record at baseline, after first load, after navigation, after mask/mesh, after
+30 seconds idle, and after the fifth repetition: total PSS, native/graphics
+PSS, Java heap, the device-reported memory class/limit, process restarts, OOM
+or low-memory events, and the app build/profile. Repeat for per-slice (`s1`),
+prefetch (`s4`), whole-volume (`s3`, if exercised), and mesh paths; do not
+pool profiles.
+
+Provisional triage thresholds (not an acceptance verdict) are: **critical** if
+the app is killed/OOMs or the total PSS reaches 85% of the device-reported
+memory class; **warning** at 70%, or when post-idle PSS remains more than 20%
+above baseline after five repetitions. These thresholds are deliberately
+reported with the device limit and raw PSS because Java memory class is not a
+substitute for native/graphics accounting. E7 remains `NOT MEASURED` until a
+real app run supplies the evidence and the owner/leader accepts the threshold.
+
 ## 4. Draft conclusions (not final acceptance)
 
 ### E10 — first-load budget
