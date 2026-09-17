@@ -30,6 +30,10 @@ ingestion module and it does not freeze an API.
 - Each artifact is immutable and addressed by its URI plus SHA-256 checksum.
   Re-ingesting the same checksum is a no-op; a changed checksum is an error,
   never an overwrite.
+- `dataset.geometry_validation_status` must agree with the status on every MRI
+  and mask artifact. `package_checksum` is declared for provenance, but is
+  **not checked against an archive in Contract 1 DRAFT v0**; archive-level
+  verification is a separate QA responsibility.
 
 ## Manifest and CLI
 
@@ -72,6 +76,7 @@ The test covers:
 7. duplicate case detection by MRI/mask SHA-256;
 8. idempotency: same checksum is NO_OP, changed checksum is
    CHECKSUM_CONFLICT; and
-9. inference-review mode with a nullable ground-truth mask.
+9. dataset/artifact geometry-status inconsistency;
+10. inference-review mode with a nullable ground-truth mask.
 
 All fixtures are synthetic and must not be cited as dataset evidence.

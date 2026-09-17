@@ -278,6 +278,9 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
     dataset_id = manifest.get("dataset", {}).get("dataset_id")
     if not dataset_id:
         _fail("SCHEMA_INVALID", "dataset.dataset_id is required")
+    dataset_geometry_status = manifest.get("dataset", {}).get("geometry_validation_status")
+    if dataset_geometry_status not in {"VALIDATED_AXIS_ALIGNED", "GEOMETRY_NOT_VALIDATED"}:
+        _fail("SCHEMA_INVALID", "dataset.geometry_validation_status is invalid")
     cases = manifest.get("cases")
     if not isinstance(cases, list) or not cases:
         _fail("SCHEMA_INVALID", "cases must be a non-empty array")
@@ -303,6 +306,12 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
         mask = case.get("ground_truth_mask")
         if not isinstance(mri, dict):
             _fail("SCHEMA_INVALID", f"{case_id}: mri_volume is required as an object")
+        if mri.get("geometry_validation_status") != dataset_geometry_status:
+            _fail(
+                "GEOMETRY_STATUS_INCONSISTENT",
+                f"{case_id}: dataset geometry status {dataset_geometry_status!r} "
+                f"differs from mri artifact status {mri.get('geometry_validation_status')!r}",
+            )
         mri_info, mri_action = _validate_artifact(
             mri, root=root, kind=f"{case_id}.mri_volume", existing=existing,
             seen_uris=seen_uris,
@@ -325,6 +334,12 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
             continue
         if not isinstance(mask, dict):
             _fail("SCHEMA_INVALID", f"{case_id}: ground_truth_mask must be an object or null")
+        if mask.get("geometry_validation_status") != dataset_geometry_status:
+            _fail(
+                "GEOMETRY_STATUS_INCONSISTENT",
+                f"{case_id}: dataset geometry status {dataset_geometry_status!r} "
+                f"differs from mask artifact status {mask.get('geometry_validation_status')!r}",
+            )
         mask_info, mask_action = _validate_artifact(
             mask, root=root, kind=f"{case_id}.ground_truth_mask", existing=existing,
             seen_uris=seen_uris,

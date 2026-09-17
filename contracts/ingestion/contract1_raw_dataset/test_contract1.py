@@ -95,6 +95,10 @@ def main() -> int:
     shape["cases"][0]["ground_truth_mask"]["shape_xyz"] = [2, 1, 1]
     expect_error(shape, "GEOMETRY_MISMATCH")
 
+    inconsistent_status = load_valid()
+    inconsistent_status["dataset"]["geometry_validation_status"] = "GEOMETRY_NOT_VALIDATED"
+    expect_error(inconsistent_status, "GEOMETRY_STATUS_INCONSISTENT")
+
     metadata = load_valid()
     metadata["cases"][0]["metadata"]["patient_name"] = "must-not-enter-app"
     expect_error(metadata, "METADATA_NOT_ALLOWED")
