@@ -491,6 +491,22 @@ decisions_made_during_execution:
     evidence: "PATIENT_LINKAGE_EVIDENCE.md in PR #35 - 154 scans from 60 patients (Xiong et al. 2021), no case-to-patient map, MRI-only screen over 11,781 pairs recovering the known duplicate at rank 1"
     gate_effect: "GATE-SPLIT-01 closes on a split manifest that implements this, reviewed by Nguyen Gia Duc Trung; 06 section 6 patient-level separation is recorded as DEVIATED WITH A DOCUMENTED EXCEPTION, not satisfied"
     record: "management/readiness/OPEN_DECISIONS.md -> Part 2b, DR-002b"
+  - id: "stale CHANGES_REQUESTED while the reviewer is absent"
+    decided: "2026-09-17"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: >
+      A pull request may be merged over an outstanding CHANGES_REQUESTED when three things hold together:
+      the objection was specific, it has been addressed on the artifact and VERIFIED by someone other than
+      the author rather than accepted on the commit message, and a reviewer named for that block by DR-013
+      has approved. The reason goes in the merge commit - what the objection was, how it was checked, who
+      approved and under which clause - so the decision is auditable rather than implicit. This does not
+      dismiss the assigned reviewer, whose later review is still welcome, and it does not move ownership:
+      DR-013's binding anti-bottleneck rule forbids transferring ownership, not reviewing, and positions the
+      stronger members as reviewers and safety nets precisely so work does not queue behind one person.
+      First applied to PR #29, and it applies to #30 and #38 on the same terms.
+    evidence: "Nguyen Gia Duc Trung had no activity for twelve hours on Day 8 while named reviewer on four open PRs (#29, #30, #33, #38); his #29 objection - a duplicated passage - was fixed by d223cc4a and confirmed by grep returning 1"
+    gate_effect: "none. It is an operating rule for review flow, not a gate or an acceptance step, and it does not touch the four-step acceptance workflow"
+    record: "merge commit of PR #29"
   - id: DR-015
     decided: "2026-09-17"
     decided_by: "Pham Tuan Anh - Team Leader"
