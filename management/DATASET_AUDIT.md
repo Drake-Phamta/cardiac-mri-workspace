@@ -12,7 +12,7 @@
 > Editing this file by hand makes it disagree with the manifest, and the manifest is
 > the artifact `GATE-DATA-01` accepts (`06` §9.1, criterion A20).
 
-**Generated at:** 2026-09-17T11:15:34+07:00
+**Generated at:** 2026-09-17T11:34:34+07:00
 **NRRD reader:** `pynrrd 1.1.3`
 **Package reference:** `EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files` (absolute local paths are not published)
 
@@ -170,7 +170,7 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 - `Unet.py`
 - `preprocess_data.py`
 
-**A17 owner disposition:** Exclude CASE_0097/desktop.ini from ingestion and application metadata as an operating-system artifact. Preserve it untouched in the raw archive and record the exclusion; do not delete or silently accept it.
+**A17 owner disposition:** Exclude CASE_0097/desktop.ini from ingestion and application metadata as an operating-system artifact. Exclude root-level Unet.py and preprocess_data.py from ingestion and application metadata because independent content inspection identifies them as model/training and NRRD-preprocessing source code, not case images, labels, or patient metadata. Preserve all three files untouched in the raw archive; do not execute, delete, or silently accept them.
 
 ---
 
@@ -194,12 +194,12 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 | A14 | Axis-alignment verdict - DR-012 boundary | **PASS** | all 308 volume(s) axis-aligned |
 | A15 | Corrupted / missing / unreadable files listed | **PASS** | 4 anomaly(ies): identical laendo.nrrd bytes: CASE_0056, CASE_0097; identical lawall.nrrd bytes: CASE_0056, CASE_0097; FILE_OUTSIDE_CASE_DIRECTORY: Unet.py; FILE_OUTSIDE_CASE_DIRECTORY: preprocess_data.py - exact cross-case duplicates are listed; grouping and acceptance remain human decisions |
 | A16 | Case IDs unique; de-identified internal IDs assigned | **PASS** | 154 unique CASE_NNNN IDs assigned deterministically by sorted source path |
-| A17 | Metadata audit against the privacy allowlist | **FAIL** | 3 non-NRRD/layout file finding(s); 2 lack an explicit app-metadata exclusion: Unet.py, preprocess_data.py. Content was NOT read; exclude the whole file or clear it before it can enter the app metadata path. |
+| A17 | Metadata audit against the privacy allowlist | **PASS** | 3 non-NRRD/layout file finding(s) reported and explicitly excluded from ingestion/app metadata: CASE_0097/desktop.ini, Unet.py, preprocess_data.py. Raw archive remains untouched; sidecar content was not propagated. |
 | A18 | Licence / data-use terms preserved and archived | `OWNER VERDICT` | Confirmed by the person who performed the download, against the acquisition directory. Not derivable from the package contents. |
 | A19 | management/DATASET_AUDIT.md exists, covers 06 section 9.1 | `NOT RUN` | Produced by audit_report.py from this manifest; verify after generating it. |
 | A20 | data/manifests/dataset_manifest.* exists and is machine-readable | **PASS** | required fields, cross-counts and strict JSON serialization validated |
 
-**15 pass · 1 fail · 1 not run · 3 owner verdict confirmed · 0 owner verdict outstanding.**
+**16 pass · 0 fail · 1 not run · 3 owner verdict confirmed · 0 owner verdict outstanding.**
 
 > ### This document is not an acceptance
 >

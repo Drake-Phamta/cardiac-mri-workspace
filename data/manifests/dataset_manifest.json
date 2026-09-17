@@ -1,6 +1,6 @@
 {
  "manifest_version": "1.0",
- "generated_at": "2026-09-17T11:15:34+07:00",
+ "generated_at": "2026-09-17T11:34:34+07:00",
  "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
  "package_root": "EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files",
  "nrrd_library": "pynrrd 1.1.3",
@@ -43,9 +43,12 @@
    "a12_test_label_provenance": "File-level released-package evidence: laendo.nrrd is physically present in 54/54 directories under Testing Set in the obtained official archive. The official page wording is inconsistent, so this record does not claim that these labels were available during the original challenge evaluation.",
    "a13_split_evidence": "The measured package contains 154 labelled cases, including labels in 54/54 released Testing Set directories, so Path A is technically feasible from a data-presence perspective. Spike D does not select Path A or Path B; DR-002 and GATE-SPLIT-01 own that decision and the final patient-level seed-2024 split.",
    "a17_excluded_files": [
-    "CASE_0097/desktop.ini"
+    "CASE_0097/desktop.ini",
+    "Unet.py",
+    "preprocess_data.py"
    ],
-   "a17_sidecar_disposition": "Exclude CASE_0097/desktop.ini from ingestion and application metadata as an operating-system artifact. Preserve it untouched in the raw archive and record the exclusion; do not delete or silently accept it.",
+   "a17_confirmed_at": "2026-09-17T11:34:22+07:00",
+   "a17_sidecar_disposition": "Exclude CASE_0097/desktop.ini from ingestion and application metadata as an operating-system artifact. Exclude root-level Unet.py and preprocess_data.py from ingestion and application metadata because independent content inspection identifies them as model/training and NRRD-preprocessing source code, not case images, labels, or patient metadata. Preserve all three files untouched in the raw archive; do not execute, delete, or silently accept them.",
    "a18_terms": "Two official Cardiac Atlas policy PDFs are archived externally with SHA-256 evidence. The ZIP contains no embedded licence file. Do not redistribute raw or derived data until the applicable DDA or permission has been confirmed by the responsible downloader/project lead."
   },
   "attribution_note": "Package acquired by Phạm Tuấn Anh as the INC-001 recovery action. Full-cohort validation was executed for Spike D under Bế Quốc Khánh's authenticated workspace; owner verdicts were confirmed by Bế Quốc Khánh through HITL on 2026-09-14."
@@ -27798,8 +27801,8 @@
   {
    "criterion": "A17",
    "title": "Metadata audit against the privacy allowlist",
-   "status": "FAIL",
-   "detail": "3 non-NRRD/layout file finding(s); 2 lack an explicit app-metadata exclusion: Unet.py, preprocess_data.py. Content was NOT read; exclude the whole file or clear it before it can enter the app metadata path."
+   "status": "PASS",
+   "detail": "3 non-NRRD/layout file finding(s) reported and explicitly excluded from ingestion/app metadata: CASE_0097/desktop.ini, Unet.py, preprocess_data.py. Raw archive remains untouched; sidecar content was not propagated."
   },
   {
    "criterion": "A18",
@@ -27821,8 +27824,8 @@
   }
  ],
  "summary": {
-  "pass": 15,
-  "fail": 1,
+  "pass": 16,
+  "fail": 0,
   "not_run": 1,
   "owner_verdict_required": 3,
   "machine_checks_clean": false,

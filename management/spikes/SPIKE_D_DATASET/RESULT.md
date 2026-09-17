@@ -13,7 +13,7 @@ The official `2018_UTAH_MICCAI.zip` was read directly from the ZIP, one NRRD at
 a time. The expanded 14.2 GiB package was **not** extracted on this machine.
 
 ```text
-15 PASS · 1 FAIL (A17) · 1 NOT_RUN (A19) · 3 previous owner verdicts recorded
+16 PASS · 0 FAIL · 1 NOT_RUN (A19) · 3 owner verdicts confirmed
 ```
 
 - 154 cases: 100 released `Training Set`, 54 released `Testing Set`.
@@ -34,9 +34,9 @@ a time. The expanded 14.2 GiB package was **not** extracted on this machine.
   raw archive is unchanged.
 - Package-wide inventory now also finds `Unet.py` and `preprocess_data.py` at
   the ZIP root. Independent inspection identifies both as Python source code,
-  not case images, masks or metadata, but **A17 remains FAIL** until the owner
-  explicitly records their exclusion from ingestion/app metadata. They remain
-  unchanged in the raw archive.
+  not case images, masks or metadata. Khánh explicitly excluded both from
+  ingestion/app metadata on 2026-09-17; they remain unchanged in the raw
+  archive and are not executed.
 
 ## Owner verdicts and remaining human review
 
@@ -56,9 +56,9 @@ Khánh read and confirmed these updated A11/A14/F5 bounds through HITL on
 2026-09-16. The leader subsequently selected the narrow F5 publication policy
 recorded in `POLICY_EVIDENCE.md`.
 
-The prior A17 verdict covered `CASE_0097/desktop.ini` only. It does not
-authorize the two newly inventoried root scripts; their disposition is a new,
-open owner decision and is not silently inherited from the earlier verdict.
+The prior A17 verdict covered `CASE_0097/desktop.ini` only. The two newly
+inventoried root scripts received a separate explicit owner disposition on
+2026-09-17; the earlier verdict was not silently broadened.
 
 `A19` remains `NOT_RUN` by construction in the scanner. Under the leader's
 2026-09-16 Q2 decision, the exact split IDs are explicitly **deferred to

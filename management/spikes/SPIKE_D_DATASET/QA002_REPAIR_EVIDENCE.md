@@ -32,9 +32,9 @@ official cohort: 154 = 100 Training Set + 54 Testing Set
 A15: 4 listed anomalies: identical laendo.nrrd bytes CASE_0056/CASE_0097;
      identical lawall.nrrd bytes CASE_0056/CASE_0097; root Unet.py and
      preprocess_data.py inventoried outside case directories
-A17: FAIL — CASE_0097/desktop.ini is excluded; the two root scripts still need
-     an explicit owner disposition
-15 PASS · 1 FAIL · 1 NOT_RUN (A19) · 3 owner fields previously confirmed
+A17: PASS — CASE_0097/desktop.ini, Unet.py and preprocess_data.py are reported
+     and explicitly excluded from ingestion/app metadata; raw ZIP unchanged
+16 PASS · 0 FAIL · 1 NOT_RUN (A19) · 3 owner fields confirmed
 ```
 
 The machine statuses are not `GATE-DATA-01` acceptance. The leader's narrow F5
@@ -53,7 +53,7 @@ policy is implemented; reviewer approval, QA PASS and Project Control remain.
 | A13 | `DR-002` Path A, manifest cohort and audit §6 | exact IDs pending regenerated split PR / `GATE-SPLIT-01` |
 | A14 | 308/308 required axis-aligned headers; audit §4.3 | physical mm/mL still disabled; owner confirmed bound through HITL on 2026-09-16 |
 | A15–A16 | manifest `duplicate_evidence`, scanner cross-case SHA and ID/name checks; audit §7 | F1 known duplicated acquisition, grouped under `DR-002a` |
-| A17 | full-package inventory + header/sidecar scanner + explicit owner exclusions; audit §7 | `FAIL`: two root scripts are inventoried but not yet dispositioned; no sidecar/script content propagated to app metadata |
+| A17 | full-package inventory + header/sidecar scanner + explicit owner exclusions; audit §7 | `PASS`: all three non-NRRD/layout findings are reported and explicitly excluded; no sidecar/script content propagated to app metadata |
 | A18 | `POLICY_EVIDENCE.md`, archived PDF names/hashes, public hash of external restricted manifest | narrow public scope decided 2026-09-16; gate acceptance remains human |
 | A19 | generated audit §§1–7 and proposed split manifest path | machine `NOT_RUN`; Q2 explicitly defers exact IDs to `GATE-SPLIT-01`, so training stays `BLOCKED` |
 | A20 | regenerated JSON manifest + schema validation | machine-readable artifact; no acceptance transition |
@@ -61,6 +61,6 @@ policy is implemented; reviewer approval, QA PASS and Project Control remain.
 ## Remaining QA follow-up
 
 QA-002 F6–F11 and F14–F15 are now implemented in this PR and covered by
-`hardening_regression.py` (**8/8 PASS**). The remaining blocker is the A17
-owner disposition for the two root scripts; reviewer approval and independent
-QA still follow after that evidence is regenerated.
+`hardening_regression.py` (**8/8 PASS**). A17 was regenerated after the explicit
+2026-09-17 owner disposition and now passes. Reviewer approval and independent
+QA remain required; no script changes acceptance state.

@@ -38,8 +38,7 @@ and audit while keeping the restricted checksum table outside Git:
 - two previously invisible top-level files were inventoried: `Unet.py` and
   `preprocess_data.py`.
 
-Those two scripts are not images or labels. A17 intentionally remains `FAIL`
-until the owner records that both are excluded from ingestion/app metadata.
-The requested owner wording is: “Exclude `Unet.py` and `preprocess_data.py`
-from ingestion and application metadata; preserve them unchanged in the raw
-archive.”
+Those two scripts are not images or labels. On 2026-09-17 the owner explicitly
+excluded both from ingestion and application metadata while preserving them
+unchanged in the raw archive. The regenerated package-wide run reports A17
+`PASS`; neither script is executed or propagated to app metadata.
