@@ -22,9 +22,9 @@ Commands, run from `spikes/spike_c_ml` at the PR head:
 
 ```text
 python harness/pipeline_bringup.py --operator "<label>" --img 560 --precision bf16 --device cuda \
-    --checkpoint-dir <scratch> --output runs/rerun1_unmodified.json             # and rerun2_…
+    --checkpoint-dir <scratch> --output rerun_json/rerun1_unmodified.json             # and rerun2_…
 python forkrng_driver.py <spike_c_ml> --operator "<label>" --img 560 --precision bf16 --device cuda \
-    --checkpoint-dir <scratch> --output runs/rerun3_forkrng.json
+    --checkpoint-dir <scratch> --output rerun_json/rerun3_forkrng.json
 ```
 
 | Run | UNet loss | UNet Dice | DINOv2 loss | DINOv2 Dice |
@@ -80,4 +80,4 @@ Result: the control loads, and **8/8** attacks behaved as expected. `--selftest`
 
 - It does not reproduce the RTX 4050 environment. Only the reported numbers and the rerun-3 counterfactual stand in for it.
 - It says nothing about model quality. Synthetic Dice is a plumbing signal, as the PR's own `limitations` state.
-- No checkpoint bytes are committed here. The `runs/*.json` files carry checkpoint hashes only.
+- No checkpoint bytes are committed here. The `rerun_json/*.json` files carry checkpoint hashes only.
