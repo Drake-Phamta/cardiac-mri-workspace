@@ -48,7 +48,7 @@ members:
 criteria:
   SPIKE_D:  {total: 20, measured: 19, label: "A1–A20"}
   SPIKE_A:  {total: 12, measured: 4,  label: "A1–A12", in_pr: 5, in_pr_ref: "PR #31 (A3–A7)"}
-  SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15"}
+  SPIKE_B:  {total: 15, measured: 0,  label: "B1–B15", in_pr: 6, in_pr_ref: "PR #43 (B1 B2 B3 B4 B8 B14, desktop DIAGNOSTIC)"}
   SPIKE_E:  {total: 13, measured: 0,  label: "E1–E13", in_pr: 7, in_pr_ref: "PR #26 (E1–E6 · E12)"}
   SPIKE_C0: {total: 10, measured: 10, label: "C0-1–C0-10"}
   SPIKE_C1: {total: 10, measured: 0,  label: "C1-1–C1-10"}
@@ -72,7 +72,7 @@ spike_notes:
   SPIKE_F:  "Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn `ACTIVE`."
 
 # The merge order Project Control follows. PRs not listed merge when ready.
-merge_order: [34, 26, 35, 29, 30, 38, 32, 39, 33, 31, 40, 37]
+merge_order: [34, 43, 45, 39, 35, 26, 37, 42, 41, 31, 33, 44]
 
 # Pending decisions: id, subject and waits_on come from PROJECT_STATE.yaml.
 decision_notes:
@@ -173,102 +173,105 @@ device:
     - "Lượt 3–4 **không phải LAN**: điện thoại ở `192.168.0.0/24`, Mac mini ở `10.170.75.0/24` — đường WAN thật."
 
 today:
-  day: 8
-  date: "2026-09-17"
-  headline: "Day 7 đạt 4/4 theo nội dung (2/4 theo chữ của hạn giờ) → buffer giữ −1. Hôm nay critical path chỉ còn thiếu MỘT lượt review: #34 đã sẵn sàng từ 00:10 với nội dung đủ, chưa ai duyệt. Song song, M3 chỉ còn hôm nay và mai mà hợp đồng API chưa ai bắt đầu và geometry_contract_version chưa tồn tại trong repo. Mỗi người ≥ 8 giờ việc thật, hạn 23:59."
+  day: 9
+  date: "2026-09-18"
+  headline: "Day 8 đạt 4/4 đúng hạn → buffer giữ −1, nhưng critical path dừng ở lượt duyệt lại #34 (ngày thứ hai liên tiếp). Hôm nay ba mốc chồng nhau: M3 hết hạn, M4 cần đóng GATE-DATA-01 và GATE-SPLIT-01, M5 bắt đầu khi GATE-MOB-01 còn mở. Leader quyết: đo B10/B11 trong WebView của app RN, #34 đóng băng, SCR-04 giao cho V1. Mỗi người ≥ 8 giờ việc thật, nợ tồn làm trước, hạn 23:59."
   pipeline:
-    - ["SPIKE_D", "#34 ready — chờ duyệt lại → merge → QA soi lại", "now"]
-    - ["GATE-DATA-01", "đóng khi Spike D ACCEPTED — sang ngày thứ 8", ""]
-    - ["GATE-SPLIT-01", "DR-002b đã thực hiện ở #35 — chờ Trung duyệt lại", ""]
-    - ["SPIKE_C1", "BLOCKED · M4 bắt đầu hôm nay", ""]
+    - ["SPIKE_D", "#34 đóng băng ở f118491 — duyệt lại trước 11:00", "now"]
+    - ["GATE-DATA-01", "merge → QA-003 chốt → ACCEPTED — ngày thứ 9", "now"]
+    - ["GATE-SPLIT-01", "#35 approved · nhóm bắc cầu · sinh lại sau #34", ""]
+    - ["SPIKE_C1", "BLOCKED · preflight đang dựng", ""]
     - ["training", "6 run + 1 ablation", ""]
     - ["metrics", "RQ-A · RQ-B", ""]
     - ["Day 30", "09/10/2026", ""]
   conditions:
     - who: hunganh
-      what: "*(nợ)* **Duyệt lại #34 trước 12:00** — P0, việc đầu tiên trong ngày; nội dung đã đủ để soát"
-      why: "merge → QA soi lại → `GATE-DATA-01` đóng → `SPIKE_C1` hết `BLOCKED`"
+      what: "*(nợ)* **Duyệt lại #34 trước 11:00** → leader merge → QA-003 chốt → Spike D `ACCEPTED` → **`GATE-DATA-01` đóng**"
+      why: "hai ngày liền critical path dừng đúng ở bước duyệt lại; hẹn 11:00 để còn thời gian cho điều kiện 3"
     - who: trung
-      what: "*(nợ)* **Duyệt lại #35** (`DR-002b`) + **sửa #32** (manifest tự mâu thuẫn vẫn PASS)"
-      why: "`GATE-SPLIT-01` · hợp đồng ingestion 1 của M3"
+      what: "**M3 đóng**: #43, #45, #39 **merge** với **một** chuỗi `dr008a-dr012/v1.0.0`; test của cả bốn hợp đồng chạy trong CI"
+      why: "M3 hết hạn hôm nay; M5 bắt đầu hôm nay và phải dựng trên hợp đồng đã chốt"
     - who: khanh
-      what: "**#40 hết nháp, base `main`** + **tuyên bố loại trừ `Unet.py`/`preprocess_data.py`** cho `A17` + **trả lời review #34 trong ngày**"
-      why: "validator sạch · Spike D không dừng lại ở vòng review"
-    - who: trung
-      what: "**M3 đi một bước thật**: PR bản thảo **hợp đồng API v0** (Trung) và **`geometry_contract_version`** (Hùng Anh)"
-      why: "M3 chỉ còn hôm nay và mai; hết Day 9 mà chưa xong thì M5 khởi động trên nền hợp đồng chưa chốt"
+      what: "**`GATE-SPLIT-01` đóng**: nhóm bắc cầu, sinh lại split trên manifest mới, Trung duyệt lại, merge #35"
+      why: "cùng `GATE-DATA-01`, đây là thứ cuối cùng giữ `SPIKE_C1`"
+    - who: hunganh
+      what: "**`B10`/`B11` đo trên A17 trong WebView của app RN** — Hùng Anh đóng gói viewer (hẹn 18:00), leader bấm (~20:00), chủ Spike B diễn giải"
+      why: "chưa ứng viên nào có bằng chứng cho cả brush lẫn 3D như `09` §7 đòi"
   waits:
-    - [tuananh, "Merge **#34** → **QA soi lại Spike D**", hunganh, "duyệt lại #34 — P0, hẹn **trước 12:00**"]
-    - [tuananh, "Merge **#26** → Spike E có `RESULT.md` trên `main`", hunganh, "duyệt lại #26 — head mới có phần tổng hợp"]
-    - [khanh, "Sinh lại #35 và bỏ nháp", tuananh, "phán **`DR-002b` × `F5`**: điểm tương quan của case bị loại"]
-    - [khanh, "Bắt đầu `SPIKE_C1` trên dữ liệu thật", tuananh, "QA soi lại Spike D `PASS` → `GATE-DATA-01` đóng"]
-    - [hunganh, "Merge **#29** · **#30** · **#38**", trung, "duyệt lại ba PR Spike B"]
-    - [tuananh, "Merge **#32** · **#33** · **#39**", trung, "sửa #32 · nhờ người review #33 và #39"]
-    - [hunganh, "Review **#40** (vá validator)", khanh, "#40 hết nháp và đổi base sang `main`"]
+    - [tuananh, "Merge **#34** → **QA-003 chốt** → đóng `GATE-DATA-01`", hunganh, "duyệt lại #34 ở `f118491` — hẹn **trước 11:00**"]
+    - [khanh, "Sinh lại split + PR follow-up #34", tuananh, "merge #34"]
+    - [tuananh, "Merge **#35** → đóng `GATE-SPLIT-01`", trung, "duyệt lại #35 sau khi Khánh sinh lại"]
+    - [trung, "Chốt #45 với chuỗi phiên bản geometry", hunganh, "xác nhận `dr008a-dr012/v1.0.0` trên #45"]
+    - [trung, "Sửa tiếp #45 và #39", tuananh, "duyệt lại bản sửa 22:14–22:15 — buổi sáng"]
+    - [tuananh, "Merge **#43** → M3", hunganh, "sửa `relpath` + tính lại `picking_rays`"]
+    - [tuananh, "Phiên đo `B10`/`B11` ~20:00", hunganh, "viewer + protocol trong WebView — hẹn 18:00"]
+    - [hunganh, "Diễn giải `B10`/`B11`", tuananh, "bấm đo trên máy (~20:00)"]
+    - [khanh, "Merge #37 (tiên quyết preflight C1)", tuananh, "review #37 — buổi sáng"]
+    - [tuananh, "Merge **#26** → Spike E có `RESULT.md` trên `main`", hunganh, "duyệt lại #26"]
   tasks:
-    khanh:
-      load: "chính **≥ 8 h** (~9 h) · dự phòng ~2 h · hạn **23:59** · **việc chặn người khác đi trước việc của mình**"
-      debts:
-        - "**#40 hết nháp + đổi base sang `main`** — đang xếp chồng trên #34, đúng bẫy đã đóng #28 — rồi nhờ Hùng Anh review *(~30 ph)*"
-        - "**`A17`**: viết **tuyên bố loại trừ** cho `Unet.py` và `preprocess_data.py` (chúng là gì, vì sao không phải dữ liệu ca bệnh), thêm luật loại trừ vào validator + một ca kiểm *(~1 h)*"
-        - "**Trả lời review #34 ngay trong ngày** — đây là việc đang chặn cả critical path, xếp trên mọi việc khác của bạn *(~1,5 h)*"
-      now:
-        - "**#35**: áp phán quyết `DR-002b` × `F5` của leader về điểm tương quan; sau khi #34 merge thì sinh lại theo SHA manifest mới và bỏ nháp *(~1,5 h)*"
-        - "**Chuẩn bị `SPIKE_C1` — chỉ thiết kế, không chạm dữ liệu thật** *(M4 bắt đầu hôm nay)*: kế hoạch đo `C1-1`…`C1-10`, lấy subset từ split 20/38/78 kèm case bị loại, tái dùng `pipeline_bringup.py` của #37, mỗi tiêu chí cần bằng chứng gì *(~2,5 h)*"
-      then:
-        - "**#37 hết nháp + nhờ review** *(~30 ph)*"
-        - "**Gói bằng chứng cá nhân `TC-TEAM-001`** (vertical V3) — 6 hạng mục theo `10` §10; đây là một trong sáu test của sàn nghiệm thu cuối `13` §13 và **chưa ai trong nhóm bắt đầu** *(~1,5 h)*"
-      later:
-        - "`C0-3` đang ghi *16 (cap)* là **chặn dưới**, không phải trần — chạy lại tìm batch với cap cao hơn *(~1 h)*"
-        - "Đào sâu `C0-9` phản biện `DR-011`"
-      note: "Đêm qua bạn làm đúng và làm nhiều: `F5` thực hiện xong, #34 trả lời đủ 7 phát hiện kèm file:dòng, `DR-002b` vào code, 8 lỗi validator có 8 test hồi quy — và bạn **tự phơi ra một phát hiện bất lợi cho chính mình** (hai file lạ làm `A17` FAIL) thay vì giấu. Vấn đề còn lại thuần tuý là **thời điểm**: bốn ngày liên tiếp phần việc lên sau nửa đêm, nên hôm qua Hùng Anh không có gì để duyệt. Hôm nay đảo thứ tự: việc chặn người khác làm trước."
-    trung:
-      load: "chính **≥ 8 h** (~8,75 h) · dự phòng ~1,5 h · hạn **23:59**"
-      debts:
-        - "**Duyệt lại #35** — ba phép kiểm `DR-002b`: ngưỡng khai **trước** mọi lượt train (kiểm bằng lịch sử commit), luật gom nhóm và loại case áp đồng đều, số đếm khớp danh sách *(~1 h)*"
-        - "**Sửa #32** — thêm phép kiểm nhất quán `dataset.geometry_validation_status` ↔ từng artifact (mã lỗi riêng) + một ca kiểm tổng hợp; ghi rõ `package_checksum` **chưa kiểm ở v0** *(~1,5 h)*"
-        - "**Duyệt lại #29, #30, #38** — ba PR của Hùng Anh đang chờ bạn *(~1,5 h)*"
-      now:
-        - "**Hợp đồng API `11` — bản thảo v0** *(lối ra M3, leader giao)*: endpoint §3–§9, **15 mã lỗi** §10, mọi phản hồi có hình học mang `geometry_contract_version` + trạng thái validate, luật chống ghi đè cũ, **mock/fixture sinh từ schema chứ không viết tay** (`11` §11) *(~3 h)*"
-        - "**Nhờ review #39 và #33** — hai PR đang không ai được giao *(~15 ph)*"
-      then:
-        - "**`E7` kế hoạch đo bộ nhớ app** vào nháp `RESULT.md` *(~30 ph)*"
-        - "**`E9` chạy thật buổi tối** cùng leader, theo đúng quy trình bạn vừa viết ở #33 *(~1 h)*"
-      later:
-        - "`E10` `E11` `E13` — `DR-006a` rev 2 bắt buộc **chính bạn** viết"
-        - "Khung giờ ban ngày cho `E8`"
-      note: "Tối qua bạn làm bốn việc trong 12 phút và review #35 bám đúng ba ràng buộc `DR-002b` thay vì duyệt cho xong. Số bạn tính ra là phát hiện lớn nhất trong ngày — leader mở Decision Request dựa trên nó. **Một đính chính, và lỗi là của Project Control:** hôm qua bản ghi quản lý gán số của bạn vào `NFR-PERF-001`; điều khoản đó chỉ quản slice **đã cache trên máy demo**, còn `E4 navigate_s1` phát đúng URL uncached của `E3`, trên máy trạm, qua HTTP. Số của bạn **không đổi và vẫn là phát hiện lớn nhất** — nó làm `E4` trượt, cho thấy `s3` vi phạm limb 2, và biến `RA-H13` thành rủi ro có số đo. Xem comment trên #26. Hôm nay bạn nhận thêm **hợp đồng API**: đúng khối kỹ thuật của bạn, và là lối ra M3 duy nhất chưa ai động tới."
     hunganh:
-      load: "chính **≥ 8 h** (~8,25 h) · dự phòng ~2 h · hạn **23:59**"
+      load: "chính **≥ 8 h** (~8,5 h) · dự phòng ~2,5 h · hạn **23:59** · review #37/#42/#33 **chuyển sang leader**"
       debts:
-        - "**Duyệt lại #34 — trước 12:00**, P0. Script QA ở `day06/qa002/` dùng lại được: cặp trùng (`F1`), §4 hình học (`F2`), bảng `A19` (`F3`), verdict `A11`/`A14` (`F4`), manifest hẹp (`F5`), log validator (`F12`) *(~2 h)*"
-        - "**Duyệt lại #26** — head mới `eaa878f` có phần tổng hợp hai profile *(~45 ph)*"
-        - "**Picking `B3`/`B4` trên fixture chính thức** — chạm → tia → điểm trên mesh, so với **13 tia `expected`**; viewer hiện **chưa có dòng code picking nào** *(~2 h)*"
+        - "**Duyệt lại #34 ở `f118491`, trước 11:00** — `package_findings`, `A17` đủ ba đường dẫn, manifest không còn hash từng file, chạy lại `validate.py --selftest` *(~1,5 h)*"
+        - "**Sửa #43**: bọc `os.path.relpath` (sập khi khác ổ đĩa) · thêm `slice_of_ray` và **tính lại** `picking_rays` · xác nhận chuỗi `dr008a-dr012/v1.0.0` với Trung *(~2 h)*"
+        - "**Duyệt lại #26** — Trung đã sửa nhãn `NFR-PERF-001` lúc 22:19 *(~30 ph)*"
       now:
-        - "**`geometry_contract_version` — lối ra M3**: chuỗi phiên bản gắn `DR-008a` + `DR-012`, quy tắc đổi phiên bản, nâng `harness/conformance.py` thành checker dùng lại được cho `TC-MAINT-002` và đưa vào CI, ghi caveat QA-002 `F2` vào `FORMAT.md` *(~2,5 h)*"
+        - "**Đóng gói viewer Spike B để chạy trong WebView của app RN**: URL vào cố định, probe gửi kết quả qua `postMessage`, viết lại `MEASUREMENT_B10_B11.md` cho lượt chạy trong app — **hẹn 18:00** để leader đo tối *(~2,5 h)*"
       then:
-        - "**`RESULT.md` cho Spike B** — spike này **chưa có file nào**; ghi `B1`/`B2`/`B4`/`B8`/`B12`/`B14` kèm nhãn `DIAGNOSTIC`, nói rõ `B12` thiếu cột FPS nên `DR-008c` chưa khuyến nghị được *(~1 h)*"
+        - "**Diễn giải `B10`/`B11`** sau phiên đo của leader → `RESULT.md` Spike B; số là của bạn *(~1 h)*"
+        - "**Gói `TC-TEAM-001` V2** cho SCR-05 (UC-06…09) *(~1 h)*"
       later:
-        - "Kịch bản `B10`/`B11` cho leader bấm (slot thiết bị 3)"
-        - "**Fixture TP/FP/FN tổng hợp** ở `tests/fixtures/error_masks/` — `13` §11 đòi bộ này độc lập với Spike F, và `TASK.md` cho phép làm ngay"
-        - "Gói bằng chứng `TC-TEAM-001` (V2)"
-      note: "Hôm qua là ngày mạnh nhất nhóm: 6 review + 3 sản phẩm, và bạn **tự đính chính công khai** khi phát hiện mình tra nhầm đường dẫn ở #24 — đúng cách một dự án cần. Hôm nay #34 là việc số một: nó đã sẵn sàng từ 00:10 và cả critical path đang đứng sau một lượt review của bạn."
+        - "Duyệt **#41** (Spike A `S6`) + duyệt lại **#31** — đường `GATE-MOB-01` *(~1,5 h)*"
+        - "Fixture **TP/FP/FN error-mask** ở `tests/fixtures/error_masks/` (`13` §11) *(~1 h)*"
+      note: "Hôm qua bạn duyệt #34 đúng hạn và tìm ra một lỗi chặn mà chính lượt QA bỏ sót, rồi xong picking `B3`/`B4` và `geometry_contract_version`. Chỗ critical path dừng là lượt duyệt lại sau 12:00. Hôm nay nó là việc số một, hẹn 11:00, và leader nhận bớt ba lượt review của bạn để bạn làm được."
+    trung:
+      load: "chính **≥ 8 h** (~8,5 h) · dự phòng ~2,5 h · hạn **23:59** · **không cần Mac mini hay điện thoại**"
+      debts:
+        - "**#45: đổi phiên bản geometry thành `dr008a-dr012/v1.0.0`**, so khớp chính xác thay vì tiền tố `GEOM_` *(~45 ph)*"
+        - "**Phản hồi lượt duyệt lại #45/#39 của leader** trong ngày: `null` làm sập, luật theo endpoint, khoá `method` *(~1,5 h)*"
+        - "**Duyệt #44** theo hướng đo trong WebView *(~45 ph)*"
+      now:
+        - "**Lối ra M3 \"contract tests run\"**: đưa `test_contract1/2` và `test_api_contract` vào `guardrails.yml` — PR cho leader duyệt *(~1,5 h)*"
+        - "**Mock/fixture sinh từ schema API đã chấp nhận** cho V1/V4 (`11` §11.4) — sau khi #45 merge *(~1,5 h)*"
+      then:
+        - "**Đề xuất `E10`** theo 5 điều kiện của `DR-015` (dùng `E8` ban ngày 14:00 nếu leader đo được) *(~1,5 h)*"
+        - "**Gói `TC-TEAM-001` V4** cho SCR-06/SCR-08 *(~1 h)*"
+      later:
+        - "Bản thảo `ADR-ART-001` sau `E10`"
+        - "Ma trận trạng thái màn hình SCR-06/SCR-08"
+      note: "Từ 17:26 hôm qua bạn gỡ hết bốn PR đang chờ mình, sửa #32 (đã merge — lối ra M3 đầu tiên lên `main`), mở hợp đồng API và sửa thêm ba PR tới 22:19. Điều cần đổi là giờ bắt đầu: tới 17:26 không có hoạt động nào. M3 hết hạn hôm nay và hai lối ra còn lại là của bạn."
+    khanh:
+      load: "chính **≥ 8 h** (~8,25 h) · dự phòng ~2,5 h · hạn **23:59** · **#34 đóng băng — không đẩy thêm**"
+      debts:
+        - "**Nhóm phải bắc cầu**: trả lời \"4 nhóm hay 3 thành phần liên thông\" trên #35, thống nhất định nghĩa trong manifest và `SPLIT_RESULT.md` *(~1 h)*"
+        - "**#35 hết nháp → sinh lại split trên manifest mới** sau khi #34 merge, nhờ Trung duyệt lại *(~1,5 h)*"
+        - "**#42 hết nháp**, nhờ leader review *(~15 ph)*"
+        - "**PR follow-up #34** sau merge: `anomalies` + `package_findings` vào `summary`, lệnh sinh lại thật *(~1 h)*"
+      now:
+        - "**`c1_preflight.py`** — sinh `c1_preflight_<ts>.json`, **phải từ chối khi gate còn mở**; chạy trên RTX 4050 của bạn, không Mac mini *(~2 h)*"
+      then:
+        - "**Thiết kế SCR-01 / SCR-07** (trung lập công nghệ): ma trận trạng thái, bảng kèm N, nhãn \"không so được\" *(~2 h)*"
+        - "**Phản hồi review #37** của leader *(~30 ph)*"
+      later:
+        - "**Nếu cả hai cổng đóng trong ngày:** preflight thật + bắt đầu `C1-1` *(~1,5 h)*"
+        - "`C0-3` tìm trần batch thật *(~1 h)*"
+      note: "Day 8 là ngày đầu tiên sau bốn ngày mà phần việc của bạn land sớm: tất cả trong 11:01–11:40. Và QA độc lập xác nhận công việc từ byte: 85/69 case khớp manifest, 0 trường định danh tuỳ biến, tập loại trừ `DR-002b` và train hiệu dụng 78 được tính lại và khớp. Hôm nay #34 đóng băng để Hùng Anh duyệt lại đúng một lần."
     tuananh:
-      load: "**không giới hạn giờ** — quyết định, review, merge, QA soi lại, chốt ngày"
+      load: "**không giới hạn giờ** — duyệt, merge, QA chốt, đóng cổng, hai phiên đo trên máy, V1 (+SCR-04), chốt ngày"
       debts:
-        - "**`DR-002b` × `F5` — ĐÃ PHÁN 17/09**: điểm từng cặp ở **manifest hạn chế**; manifest public phải mang **ngưỡng `r ≥ 0.75`** khai thành trường, **mã mọi case bị loại và mọi nhóm**, **số đếm** (20/38/78, train hiệu dụng 78), và **hash + lệnh sinh lại** bản hạn chế. Còn lại: ghi vào QA-002 §9, comment #35/#34 *(~15 ph)*"
-        - "**Merge #26** khi Hùng Anh approve → Spike E có `RESULT.md` trên `main`"
-        - "**Merge #34** khi approve → **chạy QA soi lại Spike D** (phiên độc lập) → `PASS` thì chuyển `ACCEPTED`, **đóng `GATE-DATA-01`**, gỡ `BLOCKED` cho `SPIKE_C1` *(~2,5 h)*"
+        - "**Duyệt lại #45 và #39** (bản sửa 22:14–22:15 của Trung) — trước 10:00"
+        - "**Review #37, #42, #33** — nhận từ Hùng Anh để gỡ nút thắt"
+        - "**Merge #34** khi Hùng Anh approve → **QA-003 chốt** trên head đã merge → Spike D `ACCEPTED` (đủ 4 bước) → **đóng `GATE-DATA-01`**"
+        - "**Merge #43, #45, #39** → **M3 đóng** · merge #26 khi Hùng Anh approve · merge #35 → **đóng `GATE-SPLIT-01`**"
       now:
-        - "**`DR-015` (`RA-H13`) — ĐÃ QUYẾT 17/09 lúc 10:15: phương án (c), cả hai vế, tạm thời có điều kiện xác nhận.** ① Ngân sách first-load **sẽ** là mục tiêu ràng buộc có acceptance test (`PERF-FIRSTLOAD-01`) — nhưng **con số là của Trung**, `E10` là sản phẩm của chủ spike, kèm **năm điều kiện** để được duyệt. ② `ADR-ART-001`: **loại** tải trọn volume *(p50 338,9 s, và vi phạm limb 2 của `NFR-PERF-001` — hai lý do độc lập)* · **per-slice là hướng V1** · **bác bản prefetch `s4` đã thử** *(28 606 / 6 181 ms, chậm hơn không prefetch)* · **artifact URL để mở**. Đóng băng khi `E8` có khung giờ và `E10` về. `PR-CACHE-01` **giữ `SHOULD`**; `NFR-PERF-001` không đụng tới. Còn lại: ghi vào packet + báo Trung *(~20 ph)*"
-        - "**Review #39** (Contract 2 — khối Integration/cross-contract của anh) *(~1 h)*"
+        - "**14:00 ±15 — đo `E8` ban ngày** cho Trung (tuỳ chọn; SSH Mac mini + điện thoại)"
+        - "**Project Control dựng container WebView** trong app Spike A, build release **trước 16:00** — anh duyệt"
       then:
-        - "**Spike A chặng `S6` buổi tối, máy đã cắm**: hiện `App.js` prewarm **toàn bộ** slice, **không có cửa sổ, không có eviction**, fixture hardcode `NZ = 16`, và hai số bộ nhớ trong evidence là **gõ tay** — nên đây là một chặng **dựng rồi mới đo**: cửa sổ cache ±3 có giải phóng bitmap · `generate.py --nz` để có fixture **88 slice thật** · script bắt `dumpsys meminfo` · trường `cache_policy` trong bản ghi · build release · leader bấm đo **hai chính sách** (prewarm toàn bộ vs ±3) để **376 MB ngoại suy thành số đo thật** *(~3–4 h)*"
-        - "Merge #29/#30/#38/#33 khi Trung duyệt xong · **chốt Day 8**"
+        - "**~20:00 — phiên đo `B10`/`B11` trong WebView**; JSON thô chuyển Hùng Anh diễn giải"
+        - "**V1: gói `TC-TEAM-001`** cho SCR-03 và **SCR-04 mới nhận** + ma trận trạng thái · **chốt Day 9**"
       later:
-        - "Gói bằng chứng `TC-TEAM-001` (V1)"
-        - "Khung trạng thái màn hình `PR-MOBILE-02`/`TC-MOBILE-STATE-001` — thuần thiết kế, không vi phạm `GATE-MOB-01`"
-      note: "Day 7 anh chốt ĐẠT 4/4 theo nội dung. Hôm nay ba quyết định và hai lượt merge của anh nằm trên đường tới `GATE-DATA-01`; QA soi lại Spike D là bước cuối cùng trước khi `SPIKE_C1` được mở khoá."
+        - "Duyệt lại #31 · chặn **chính cache ảnh** cho Spike A (`S6` chứng minh cửa sổ component không đủ)"
+      note: "Ba quyết định anh đưa ra trước khi lập kế hoạch nằm cả trên đường tới ba mốc hôm nay: #34 đóng băng để lượt duyệt lại không bị đổi mục tiêu, hướng đo WebView để `GATE-MOB-01` có một ứng viên đủ bằng chứng, và SCR-04 có chủ trước khi M5 bắt đầu."
 
 history:
   - day: 8

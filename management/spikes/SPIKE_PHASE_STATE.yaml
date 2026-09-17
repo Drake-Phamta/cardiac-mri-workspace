@@ -376,6 +376,12 @@ spikes:
       expected rays of geometry_fixture_v0.json have never been exercised from the app. Two further gaps for the
       owner: this spike still has NO RESULT.md at all, and the M3 exit item geometry_contract_version has no
       value defined anywhere in the repository although 11 sections 2 and 4, 05 and TC-REL-003 all reference it.
+      Update 2026-09-18 (Day-9 plan): the 2026-09-17 statement above that B3/B4 picking "still has no code anywhere"
+      is SUPERSEDED. The owner committed picking at 9e839ef (2026-09-17 11:14) and #30 merged as e0a9d61, followed by
+      #38 (d7557ae). geometry_contract_version now exists as dr008a-dr012/v1.0.0 in #43, and a RESULT.md for this spike
+      exists on the #43 branch (desktop, synthetic, no device numbers). Leader decision 2026-09-18: B10/B11 are measured
+      inside a WebView of the Spike A React Native app rather than in Chrome, so one candidate carries evidence for both
+      the brush and 3D; the owner packages the viewer and rewrites the protocol, the leader operates the phone.
     canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0

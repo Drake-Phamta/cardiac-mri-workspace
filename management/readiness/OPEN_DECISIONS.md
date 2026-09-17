@@ -1032,7 +1032,7 @@ least one mobile function end-to-end for the university course (`00` §3, PR-MOB
 
 | Vertical | Scope | Primary Owner | Secondary Reviewer |
 |---|---|---|---|
-| **V1** | Case Explorer / 2D MRI | **Phạm Tuấn Anh** | Vũ Hùng Anh |
+| **V1** | Case Explorer / 2D MRI — **plus SCR-04 Error Inspector** since `DR-013a`, 2026-09-18 | **Phạm Tuấn Anh** | Vũ Hùng Anh |
 | **V2** | 3D / Spatial Error Investigation | **Vũ Hùng Anh** | Phạm Tuấn Anh |
 | **V3** | Experiment / Cohort Analysis | **Bế Quốc Khánh** | Vũ Hùng Anh |
 | **V4** | Review / Findings | **Nguyễn Gia Đức Trung** | Phạm Tuấn Anh |
@@ -1583,6 +1583,45 @@ accepts.
 `E10` needs the time-of-day spread that `E8` still lacks, so it is **not** forced into Day 8. It enters
 Trung's reserve queue today and is a **Day-9 primary candidate**; the `ADR-ART-001` draft follows `E10`.
 Neither is added to a packet that already totals ≈ 8,75 h.
+
+---
+
+### DR-013a — SCR-04 Error Inspector joins V1
+
+| Field | Value |
+|---|---|
+| **Decided** | ✅ 2026-09-18 · Phạm Tuấn Anh, while planning Day 9 |
+| **Affects** | `SCR-04`, `UC-05`, `TC-ERR-001`…`003`; `DR-013` Axis A |
+
+**Problem.** `SCR-04` had no owner. `14` §3 leaves the member mapping to the 30-day plan, and `DEMO_STANDARD.md`
+recorded that *"its owner is fixed in planning, not here"*. A screen nobody owns is a screen nobody builds.
+
+**Decision.** `SCR-04` joins **V1**, owned by **Phạm Tuấn Anh** with **Vũ Hùng Anh** as secondary reviewer. It is a
+2D slice screen that shares the `SCR-03` viewer and the `A9` slice-switching evidence; the 3D error map stays with
+V2. V2's owner is also the heaviest reviewer in the team, so adding a screen there would deepen the bottleneck the
+Day-8 close recorded.
+
+---
+
+### GATE-MOB-01 — measurement direction: React Native shell with WebGL2 in a WebView
+
+| Field | Value |
+|---|---|
+| **Decided** | ✅ 2026-09-18 · Phạm Tuấn Anh, while planning Day 9 |
+| **Status of the gate** | ⏳ **still OPEN** — this is how the evidence is gathered, **not** an ADR |
+
+**Problem.** `09` §7 requires the mobile spikes to prove pixel-accurate brush under zoom/pan **and** stable 3D with
+3D→slice mapping on the same candidate. Spike A measured the brush on **React Native/Expo**; Spike B measured 3D in
+**browser WebGL2** on desktop, and its `B10`/`B11` protocol (#44) targets **Chrome** on the phone. No single candidate
+had evidence for both.
+
+**Decision.** Measure `B10`/`B11` on the Galaxy A17 **inside a WebView of the Spike A app**, reusing the Spike B
+viewer. Vũ Hùng Anh packages the viewer and rewrites the protocol for the in-app run; Project Control builds the
+WebView container in the Spike A app; the leader operates the phone; the Spike B owner interprets the numbers.
+
+**What this does not do.** It does not write `TECH_STACK_ADR.md`, does not close `GATE-MOB-01`, and does not relax any
+`NFR-PERF` target. The gate closes only when Spike A and Spike B are both `ACCEPTED` through the four-step workflow.
+If the in-app numbers fail `B10`/`B11`, that is a result, and a native GL path becomes the next candidate.
 
 ---
 
