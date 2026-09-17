@@ -637,6 +637,7 @@
     {
       "id": "RAY_001",
       "group": "interior",
+      "expected_slice_index": 4,
       "origin_world": [
         2.5,
         22.25,
@@ -652,6 +653,7 @@
     {
       "id": "RAY_002",
       "group": "interior",
+      "expected_slice_index": 4,
       "origin_world": [
         -6.5,
         22.25,
@@ -667,6 +669,7 @@
     {
       "id": "RAY_003",
       "group": "interior",
+      "expected_slice_index": 4,
       "origin_world": [
         2.5,
         13.25,
@@ -682,6 +685,7 @@
     {
       "id": "RAY_004",
       "group": "interior",
+      "expected_slice_index": 5,
       "origin_world": [
         14.5,
         16.25,
@@ -697,6 +701,7 @@
     {
       "id": "RAY_005",
       "group": "interior",
+      "expected_slice_index": 5,
       "origin_world": [
         -3.5,
         37.25,
@@ -712,6 +717,7 @@
     {
       "id": "RAY_006",
       "group": "surface_tangent",
+      "expected_slice_index": 11,
       "origin_world": [
         -57.5,
         4.25,
@@ -727,6 +733,7 @@
     {
       "id": "RAY_007",
       "group": "surface_tangent",
+      "expected_slice_index": 12,
       "origin_world": [
         -57.5,
         4.25,
@@ -742,6 +749,7 @@
     {
       "id": "RAY_008",
       "group": "surface_tangent",
+      "expected_slice_index": 11,
       "origin_world": [
         -57.5,
         4.25,
@@ -757,6 +765,7 @@
     {
       "id": "RAY_009",
       "group": "surface_tangent",
+      "expected_slice_index": 12,
       "origin_world": [
         -57.5,
         4.25,
@@ -772,6 +781,7 @@
     {
       "id": "RAY_010",
       "group": "surface_tangent",
+      "expected_slice_index": 11,
       "origin_world": [
         -57.5,
         4.25,
@@ -787,6 +797,7 @@
     {
       "id": "RAY_011",
       "group": "surface_tangent",
+      "expected_slice_index": 11,
       "origin_world": [
         -9.5,
         -37.75,
@@ -802,6 +813,7 @@
     {
       "id": "RAY_012",
       "group": "surface_tangent",
+      "expected_slice_index": 12,
       "origin_world": [
         -9.5,
         -37.75,
@@ -817,6 +829,7 @@
     {
       "id": "RAY_013",
       "group": "surface_tangent",
+      "expected_slice_index": 11,
       "origin_world": [
         -9.5,
         -37.75,
@@ -839,5 +852,4 @@
     "diagnostic_grouping": "steep/grazing may be reported from incidence angle as an additional diagnostic, never as a replacement for the contractual labels"
   }
 }
-
 

@@ -53,7 +53,11 @@ must not share generator logic with the implementation under test.
 
 ## Picking rays and B14
 
-The fixture contains 13 deterministic picking rays. Their
+The fixture contains 13 deterministic picking rays. Each ray carries an
+`expected_slice_index` for the canonical level-0 voxel-face mesh; an app test
+must resolve that exact slice without tolerance. The expected value was derived
+from the fixture's synthetic mask by an independent voxel ray march, rather
+than by comparing the level-0 mesh to itself. Their
 picking_rays[].group labels are the contractual B14 cohorts:
 interior and surface_tangent. Evidence must report those cohorts
 separately.
@@ -69,5 +73,4 @@ The conformance run is a reusable fixture check, not device evidence. A passing
 run proves only that an implementation follows this coordinate contract. Real
 mesh picking, FPS, stall time and memory still require the physical Galaxy A17
 measurement procedure in management/spikes/SPIKE_B_3D/TASK.md.
-
 
