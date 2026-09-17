@@ -39,6 +39,32 @@ REQUIRED_ENDPOINTS = {
     "reviewed_masks_list", "reviewed_mask_slice_get", "finding_create", "findings_list",
     "finding_patch",
 }
+EXPECTED_GEOMETRY_VERSION = "dr008a-dr012/v1.0.0"
+
+
+def _default_schema() -> dict:
+    try:
+        return json.loads(Path(__file__).with_name("schema.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        _fail("SCHEMA_INVALID", f"cannot load formal API schema: {exc}")
+
+
+def _validate_against_schema(contract: object, schema: dict) -> None:
+    if not isinstance(contract, dict):
+        _fail("SCHEMA_INVALID", "contract must be a JSON object")
+    try:
+        import jsonschema
+    except ImportError:
+        _fail("SCHEMA_VALIDATION_UNAVAILABLE", "jsonschema is required to validate API Contract 11")
+    try:
+        validator = jsonschema.Draft202012Validator(schema)
+        errors = sorted(validator.iter_errors(contract), key=lambda error: list(error.path))
+    except Exception as exc:
+        _fail("SCHEMA_INVALID", f"formal schema could not be applied: {exc}")
+    if errors:
+        error = errors[0]
+        location = ".".join(str(part) for part in error.path) or "contract"
+        _fail("SCHEMA_INVALID", f"{location}: {error.message}")
 
 
 def _unique(values: list[str], label: str) -> None:
@@ -46,7 +72,8 @@ def _unique(values: list[str], label: str) -> None:
         _fail("SCHEMA_INVALID", f"{label} contains duplicates")
 
 
-def validate_contract(contract: dict) -> dict:
+def validate_contract(contract: dict, schema: dict | None = None) -> dict:
+    _validate_against_schema(contract, schema if schema is not None else _default_schema())
     if contract.get("contract") != "api_contract_11" or contract.get("contract_version") != "DRAFT v0":
         _fail("SCHEMA_INVALID", "contract must be api_contract_11 DRAFT v0")
     if contract.get("base_path") != "/api/v1":
@@ -55,8 +82,8 @@ def validate_contract(contract: dict) -> dict:
     geometry = contract.get("geometry_contract")
     if not isinstance(geometry, dict):
         _fail("GEOMETRY_CONTRACT_MISSING", "geometry contract is required")
-    if geometry.get("version", "").startswith("GEOM_") is False:
-        _fail("GEOMETRY_CONTRACT_MISSING", "geometry contract version is required")
+    if geometry.get("version") != EXPECTED_GEOMETRY_VERSION:
+        _fail("GEOMETRY_CONTRACT_MISSING", f"geometry contract version must be {EXPECTED_GEOMETRY_VERSION}")
     if geometry.get("validation_status_field") != "geometry_validation_status":
         _fail("GEOMETRY_CONTRACT_MISSING", "geometry validation status field is missing")
     if set(geometry.get("required_response_fields", [])) != GEOMETRY_FIELDS:
@@ -118,7 +145,31 @@ def validate_contract(contract: dict) -> dict:
             if "IMMUTABLE_ARTIFACT" not in endpoint_errors and endpoint.get("immutability") == "NEW_VERSION":
                 _fail("IMMUTABLE_POLICY_INVALID", f"{endpoint_id}: immutable artifact error is missing")
 
-    artifact_rules = contract.get("artifact_rules", {})
+        required_method = {
+            "case_get": "GET",
+            "mri_slice_get": "GET",
+            "geometry_get": "GET",
+            "analysis_run_create": "POST",
+            "working_mask_put": "PUT",
+        }.get(endpoint_id)
+        if required_method and endpoint.get("method") != required_method:
+            _fail("ENDPOINT_RULE_MISSING", f"{endpoint_id}: method must be {required_method}")
+        path = endpoint.get("path", "")
+        if "{case_id}" in path and "CASE_NOT_FOUND" not in endpoint_errors:
+            _fail("ENDPOINT_RULE_MISSING", f"{endpoint_id}: case-scoped endpoint must expose CASE_NOT_FOUND")
+        if "{slice_index}" in path and "SLICE_OUT_OF_RANGE" not in endpoint_errors:
+            _fail("ENDPOINT_RULE_MISSING", f"{endpoint_id}: slice endpoint must expose SLICE_OUT_OF_RANGE")
+        if endpoint.get("geometry_response") and "GEOMETRY_NOT_VALIDATED" not in endpoint_errors:
+            _fail("ENDPOINT_RULE_MISSING", f"{endpoint_id}: geometry response must expose GEOMETRY_NOT_VALIDATED")
+        if endpoint_id == "working_mask_put":
+            request_fields = set(endpoint.get("request_fields", []))
+            required_geometry_request = {"geometry_contract_version", "geometry_validation_status"}
+            if not required_geometry_request <= request_fields:
+                _fail("ENDPOINT_RULE_MISSING", "working_mask_put: request must carry geometry version and validation status")
+
+    artifact_rules = contract.get("artifact_rules")
+    if not isinstance(artifact_rules, dict):
+        _fail("IMMUTABLE_POLICY_INVALID", "artifact_rules must be an object")
     if artifact_rules.get("ground_truth_missing_behavior") != "GROUND_TRUTH_UNAVAILABLE":
         _fail("GROUND_TRUTH_RULE", "artifact rule must use GROUND_TRUTH_UNAVAILABLE")
     if artifact_rules.get("raw_prediction_kind") in artifact_rules.get("never_overwrite_kinds", []):
@@ -155,10 +206,12 @@ def validate_contract(contract: dict) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate API Contract 11 DRAFT v0")
-    parser.add_argument("--contract", "--schema", dest="contract", type=Path, required=True)
+    parser.add_argument("--contract", dest="contract", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        result = validate_contract(json.loads(args.contract.read_text(encoding="utf-8")))
+        contract = json.loads(args.contract.read_text(encoding="utf-8"))
+        schema = json.loads(args.contract.with_name("schema.json").read_text(encoding="utf-8"))
+        result = validate_contract(contract, schema)
     except (OSError, json.JSONDecodeError) as exc:
         print(f"FAIL [INPUT_INVALID] {exc}")
         return 2

@@ -45,7 +45,8 @@ the same source IDs, variant, geometry, and availability semantics.
 
 ## Stable errors
 
-The schema contains the 15 error codes from §10. Each error has a machine code,
+The schema contains exactly the 15 error codes from §10 for this frozen DRAFT v0.
+Adding or changing a code requires a new contract version/ADR. Each error has a machine code,
 safe message template, and HTTP status. The standard envelope is:
 
 ```json
@@ -77,7 +78,8 @@ records in that fixture are read from the schema; no handwritten mock endpoint
 catalog is accepted. No clinical image, mask, mesh, or patient-derived byte is
 committed.
 
-The validator is standard-library only:
+The validator applies the formal Draft 2020-12 schema before semantic checks and
+requires the `jsonschema` package (the same dependency used by repository QA):
 
 ```powershell
 python validate_api_contract.py --contract contract.json

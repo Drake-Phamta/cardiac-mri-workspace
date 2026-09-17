@@ -38,7 +38,7 @@
         "invalid_geometry_error"
       ],
       "properties": {
-        "version": { "type": "string", "pattern": "^GEOM_[A-Z0-9._-]+$" },
+        "version": { "const": "dr008a-dr012/v1.0.0" },
         "validation_status_field": { "const": "geometry_validation_status" },
         "required_response_fields": {
           "type": "array",

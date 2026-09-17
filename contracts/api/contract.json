@@ -4,7 +4,7 @@
   "contract_version": "DRAFT v0",
   "base_path": "/api/v1",
   "geometry_contract": {
-    "version": "GEOM_CANONICAL_V1",
+    "version": "dr008a-dr012/v1.0.0",
     "validation_status_field": "geometry_validation_status",
     "required_response_fields": ["geometry_contract_version", "geometry_validation_status", "shape", "index_convention", "spacing", "origin", "direction"],
     "invalid_geometry_error": "GEOMETRY_NOT_VALIDATED"
