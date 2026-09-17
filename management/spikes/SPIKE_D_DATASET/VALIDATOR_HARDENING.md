@@ -26,9 +26,10 @@ python tools/dataset_validate/hardening_regression.py
 
 Observed on 2026-09-17: base self-test PASS; hardening regression **8/8 PASS**.
 
-## Read-only run on the official ZIP
+## Official-ZIP rerun
 
-The hardened scanner re-read all 154 cases without writing artifacts:
+The hardened scanner re-read all 154 cases and regenerated the public manifest
+and audit while keeping the restricted checksum table outside Git:
 
 - A1 independently recomputed and matched the 2.2 GB archive SHA-256;
 - A9 passed complete-grid equality for 154/154 labelled cases;

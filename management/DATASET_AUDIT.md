@@ -12,7 +12,7 @@
 > Editing this file by hand makes it disagree with the manifest, and the manifest is
 > the artifact `GATE-DATA-01` accepts (`06` §9.1, criterion A20).
 
-**Generated at:** 2026-09-17T00:04:38+07:00
+**Generated at:** 2026-09-17T11:15:34+07:00
 **NRRD reader:** `pynrrd 1.1.3`
 **Package reference:** `EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files` (absolute local paths are not published)
 
@@ -151,10 +151,12 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 
 ## 7 · Exclusions, corruptions and privacy findings — `06` §9.1, criteria A15 · A17
 
-**Anomalies: 2**
+**Anomalies: 4**
 
 - identical bytes across cases: `laendo.nrrd` — `CASE_0056`, `CASE_0097`; exact checksum retained in the restricted manifest
 - identical bytes across cases: `lawall.nrrd` — `CASE_0056`, `CASE_0097`; exact checksum retained in the restricted manifest
+- package layout `FILE_OUTSIDE_CASE_DIRECTORY` — `Unet.py`
+- package layout `FILE_OUTSIDE_CASE_DIRECTORY` — `preprocess_data.py`
 
 > CASE_0056/CASE_0097 is treated as one acquisition group under DR-002a and pinned to training. A matching label file alone does not prove patient identity; independent MRI screening is tracked for GATE-SPLIT-01.
 
@@ -162,9 +164,11 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 
 - none
 
-**Non-NRRD sidecars in case directories: 1**
+**Non-NRRD / package-layout findings: 3**
 
 - `CASE_0097/desktop.ini`
+- `Unet.py`
+- `preprocess_data.py`
 
 **A17 owner disposition:** Exclude CASE_0097/desktop.ini from ingestion and application metadata as an operating-system artifact. Preserve it untouched in the raw archive and record the exclusion; do not delete or silently accept it.
 
@@ -174,7 +178,7 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 
 | # | Criterion | Status | Detail |
 |---|---|---|---|
-| A1 | Acquisition record: date, source URL, file names, checksums | **PASS** | 1 package file(s) from https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/ |
+| A1 | Acquisition record: date, source URL, file names, checksums | **PASS** | 1 package file(s) from https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/; archive size and SHA-256 independently recomputed during scan |
 | A2 | Case count by released partition | **PASS** | total 154 - Testing Set: 54; Training Set: 100 |
 | A3 | Per-case presence of lgemri.nrrd and laendo.nrrd | **PASS** | 154 case(s) discovered by the presence of lgemri.nrrd; 154 also carry laendo.nrrd. A case directory lacking lgemri.nrrd is not discovered at all and therefore cannot be reported here - a package whose layout differs is caught by A2. |
 | A4 | Every NRRD loads; MRI is 3D; mask is 3D | **PASS** | all volumes across 154 cases loaded and are 3D |
@@ -182,20 +186,20 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 | A6 | Cohort shape distribution; do in-plane dimensions vary? | **PASS** | 2 distinct shape(s); in-plane dimensions vary: True; in-plane sizes seen: [[576, 576], [640, 640]] |
 | A7 | Spacing, origin and direction recorded per case | **PASS** | all three fields present for 154 cases |
 | A8 | MRI/mask shape, spacing, origin and direction compatibility; resampling needed? | **PASS** | 154 case(s) need no resampling |
-| A9 | Are masks already spatially aligned with the MRI? | **PASS** | all 154 labelled case(s) share the MRI origin exactly |
+| A9 | Are masks already spatially aligned with the MRI? | **PASS** | all 154 labelled case(s) share the complete MRI voxel grid |
 | A10 | Mask unique values recorded; foreground mapping stated | **PASS** | [0.0, 255.0] in 154 case(s). The foreground/background MAPPING is the owner's written statement, not an inference. |
 | A11 | laendo.nrrd verified as the LA cavity target | `OWNER VERDICT` | Requires the owner's written verdict citing specific files and values. A script cannot establish what an annotation means. |
 | A12 | Are official test labels present, and what is their provenance? | **PASS** | Testing Set: 54/54 case(s) carry laendo.nrrd; Training Set: 100/100 case(s) carry laendo.nrrd. File-level presence is measured here; PROVENANCE remains the owner's written verdict (RA-H02). |
 | A13 | Path A vs Path B evidence and reasoning | `OWNER VERDICT` | This spike supplies evidence only; DR-002 / GATE-SPLIT-01 selects the path. The manifest's partition summary is the input. |
 | A14 | Axis-alignment verdict - DR-012 boundary | **PASS** | all 308 volume(s) axis-aligned |
-| A15 | Corrupted / missing / unreadable files listed | **PASS** | 2 anomaly(ies): identical laendo.nrrd bytes: CASE_0056, CASE_0097; identical lawall.nrrd bytes: CASE_0056, CASE_0097 - exact cross-case duplicates are listed; grouping and acceptance remain human decisions |
+| A15 | Corrupted / missing / unreadable files listed | **PASS** | 4 anomaly(ies): identical laendo.nrrd bytes: CASE_0056, CASE_0097; identical lawall.nrrd bytes: CASE_0056, CASE_0097; FILE_OUTSIDE_CASE_DIRECTORY: Unet.py; FILE_OUTSIDE_CASE_DIRECTORY: preprocess_data.py - exact cross-case duplicates are listed; grouping and acceptance remain human decisions |
 | A16 | Case IDs unique; de-identified internal IDs assigned | **PASS** | 154 unique CASE_NNNN IDs assigned deterministically by sorted source path |
-| A17 | Metadata audit against the privacy allowlist | **PASS** | 1 non-NRRD sidecar file(s) reported and explicitly excluded from ingestion/app metadata: CASE_0097/desktop.ini. Raw archive remains untouched; sidecar content was not propagated. |
+| A17 | Metadata audit against the privacy allowlist | **FAIL** | 3 non-NRRD/layout file finding(s); 2 lack an explicit app-metadata exclusion: Unet.py, preprocess_data.py. Content was NOT read; exclude the whole file or clear it before it can enter the app metadata path. |
 | A18 | Licence / data-use terms preserved and archived | `OWNER VERDICT` | Confirmed by the person who performed the download, against the acquisition directory. Not derivable from the package contents. |
 | A19 | management/DATASET_AUDIT.md exists, covers 06 section 9.1 | `NOT RUN` | Produced by audit_report.py from this manifest; verify after generating it. |
-| A20 | data/manifests/dataset_manifest.* exists and is machine-readable | **PASS** | This manifest is the artifact; it is generated, not hand-typed. |
+| A20 | data/manifests/dataset_manifest.* exists and is machine-readable | **PASS** | required fields, cross-counts and strict JSON serialization validated |
 
-**16 pass · 0 fail · 1 not run · 3 owner verdict confirmed · 0 owner verdict outstanding.**
+**15 pass · 1 fail · 1 not run · 3 owner verdict confirmed · 0 owner verdict outstanding.**
 
 > ### This document is not an acceptance
 >
