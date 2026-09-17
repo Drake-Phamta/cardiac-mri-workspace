@@ -9,6 +9,7 @@
 
 import { parseObj } from './obj.js';
 import { invertMat4, multiplyMat4, rayMeshFirstHit, screenRayFromNdc, worldToSlice } from './picking.js';
+import { DEFAULT_MEASURE_MS, DEFAULT_WARMUP_MS, FrameProbe } from './performance.js';
 
 const canvas = document.querySelector('#gl');
 const status = document.querySelector('#status');
@@ -16,6 +17,9 @@ const trianglesLabel = document.querySelector('#triangles');
 const fitButton = document.querySelector('#fit');
 const shadeButton = document.querySelector('#shade');
 const pickLabel = document.querySelector('#pick');
+const perfRunButton = document.querySelector('#perf-run');
+const perfDownloadButton = document.querySelector('#perf-download');
+const performanceLabel = document.querySelector('#performance');
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
@@ -24,12 +28,10 @@ uniform mat4 uProjection;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vWorld;
-out float vSourceZ;
 void main() {
   vec4 world = uModel * vec4(aPosition, 1.0);
   vNormal = mat3(uModel) * aNormal;
   vWorld = world.xyz;
-  vSourceZ = aPosition.z;
   gl_Position = uProjection * world;
 }`;
 
@@ -37,12 +39,9 @@ const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec3 vNormal;
 in vec3 vWorld;
-in float vSourceZ;
 uniform vec3 uLight;
 uniform vec3 uColor;
 uniform bool uShading;
-uniform float uSliceZ;
-uniform bool uSliceActive;
 out vec4 outColor;
 void main() {
   vec3 normal = normalize(vNormal);
@@ -56,10 +55,6 @@ void main() {
   // while keeping surface contours readable against the dark MRI-style field.
   vec3 color = uColor * (0.34 + 0.62 * diffuse + 0.18 * rim)
              + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
-  // A narrow band marks the physical axial plane selected in the linked MPR
-  // panes. It is a surface-intersection cue, never a fabricated contour.
-  float planeBand = 1.0 - smoothstep(0.0, 1.6, abs(vSourceZ - uSliceZ));
-  if (uSliceActive) color = mix(color, vec3(1.0, 0.72, 0.16), planeBand * 0.92);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -137,9 +132,7 @@ function setup(gl, mesh) {
     model: gl.getUniformLocation(program, 'uModel'),
     light: gl.getUniformLocation(program, 'uLight'),
     color: gl.getUniformLocation(program, 'uColor'),
-    shading: gl.getUniformLocation(program, 'uShading'),
-    sliceZ: gl.getUniformLocation(program, 'uSliceZ'),
-    sliceActive: gl.getUniformLocation(program, 'uSliceActive') };
+    shading: gl.getUniformLocation(program, 'uShading') };
 }
 
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
@@ -162,7 +155,8 @@ let pinchState = null;
 let geometry = null;
 let tapCandidate = false;
 let interactionMoved = false;
-let sliceWorldZ = null;
+let activeFrameProbe = null;
+let lastFrameProbeRecord = null;
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -183,7 +177,35 @@ function resize() {
   gl.viewport(0, 0, width, height);
 }
 
-function draw() {
+function performanceMetadata() {
+  return {
+    recorded_at_utc: new Date().toISOString(),
+    user_agent: navigator.userAgent,
+    viewport_css_px: [canvas.clientWidth, canvas.clientHeight],
+    canvas_backing_px: [canvas.width, canvas.height],
+    device_pixel_ratio: window.devicePixelRatio || 1,
+    triangles: renderer ? renderer.count / 3 : null,
+    interaction_protocol: 'operator performs orbit, pan and pinch-zoom during the 30 s window',
+    evidence_scope: 'diagnostic only until physical target-device provenance is recorded',
+  };
+}
+
+function setPerformanceText(text) {
+  if (performanceLabel) performanceLabel.textContent = text;
+}
+
+function completeFrameProbe(result) {
+  lastFrameProbeRecord = { ...result, device: performanceMetadata() };
+  if (perfRunButton) perfRunButton.disabled = false;
+  if (perfDownloadButton) perfDownloadButton.disabled = !result.median_fps;
+  if (result.median_fps) {
+    setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · download raw JSON`);
+  } else {
+    setPerformanceText('probe failed: no usable animation frames; keep the viewer visible and retry');
+  }
+}
+
+function draw(frameAt) {
   if (!renderer) return;
   resize();
   gl.enable(gl.DEPTH_TEST);
@@ -198,10 +220,15 @@ function draw() {
   gl.uniform3f(renderer.light, -1.8, 2.6, 3.2);
   gl.uniform3f(renderer.color, 0.31, 0.77, 0.82);
   gl.uniform1i(renderer.shading, shading ? 1 : 0);
-  gl.uniform1f(renderer.sliceZ, sliceWorldZ || 0);
-  gl.uniform1i(renderer.sliceActive, sliceWorldZ === null ? 0 : 1);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
+  if (activeFrameProbe) {
+    const result = activeFrameProbe.record(frameAt);
+    if (result) {
+      activeFrameProbe = null;
+      completeFrameProbe(result);
+    }
+  }
   requestAnimationFrame(draw);
 }
 
@@ -301,11 +328,35 @@ shadeButton.addEventListener('click', () => {
   shading = !shading;
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
 });
-window.addEventListener('message', (event) => {
-  const data = event.data;
-  if (!data || data.type !== 'set-slice-world-z' || !Number.isFinite(data.z)) return;
-  sliceWorldZ = data.z;
-});
+if (perfRunButton) {
+  perfRunButton.addEventListener('click', () => {
+    if (!renderer) {
+      setPerformanceText('probe unavailable: wait for mesh to load');
+      return;
+    }
+    activeFrameProbe = new FrameProbe({
+      startedAt: performance.now(),
+      warmupMs: DEFAULT_WARMUP_MS,
+      measureMs: DEFAULT_MEASURE_MS,
+    });
+    lastFrameProbeRecord = null;
+    perfRunButton.disabled = true;
+    if (perfDownloadButton) perfDownloadButton.disabled = true;
+    setPerformanceText('probe: 3 s warm-up, then 30 s measurement — orbit, pan and pinch-zoom now');
+  });
+}
+if (perfDownloadButton) {
+  perfDownloadButton.addEventListener('click', () => {
+    if (!lastFrameProbeRecord) return;
+    const blob = new Blob([`${JSON.stringify(lastFrameProbeRecord, null, 2)}\n`], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `spike-b-frame-probe-${new Date().toISOString().replaceAll(':', '-')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
 Promise.all([
   fetch('../mesh/out/level_0_cell1.obj').then((response) => {
