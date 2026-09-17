@@ -18,6 +18,7 @@
       .clinical-label b { display: block; color: #e3fbff; font-size: .72rem; }
       .hint { position: absolute; left: .75rem; bottom: .6rem; color: #91a4b8; font-size: .7rem; pointer-events: none; }
       .controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .65rem; color: #91a4b8; font-size: .72rem; }
+      #pick { flex-basis: 100%; min-height: 1em; color: #9eeaf0; }
       button { border: 1px solid #38516d; border-radius: 5px; background: #162538; color: #dce6f2; padding: .4rem .65rem; font: inherit; cursor: pointer; }
       button:hover { background: #203751; }
       .badge { margin-left: auto; color: #73d6a5; }
@@ -28,14 +29,15 @@
       <header><h1>SPIKE_B · B1 minimal 3D viewer</h1><div id="status">loading level_0_cell1.obj…</div></header>
       <div class="stage">
         <canvas id="gl" aria-label="Interactive 3D mesh"></canvas>
-        <div class="clinical-label"><b>SEGMENTATION SURFACE</b>MRI · LEFT ATRIUM · 3D</div>
-        <div class="hint">drag = orbit · right-click/Shift-drag = pan · wheel = zoom · two fingers = pan + pinch zoom</div>
+        <div class="clinical-label"><b>SEGMENTATION SURFACE</b>CANONICAL FIXTURE · 3D</div>
+        <div class="hint">drag = orbit · click/tap = pick slice · right-click/Shift-drag = pan · wheel = zoom · two fingers = pan + pinch zoom</div>
       </div>
       <div class="controls">
         <button id="fit" type="button">fit camera</button>
         <button id="shade" type="button">shading: on</button>
         <span>WebGL diagnostic · synthetic mesh · not acceptance evidence</span>
         <span class="badge" id="triangles">— triangles</span>
+        <span id="pick">pick: click or tap a surface</span>
       </div>
     </main>
     <script type="module" src="./viewer.js"></script>

@@ -19,8 +19,11 @@ Open <http://127.0.0.1:8765/app/> in a WebGL2-capable browser. The OBJ files
 are intentionally ignored by git; the first command regenerates
 `mesh/out/level_0_cell1.obj` from the canonical geometry fixture.
 
-Drag on the canvas to orbit; right-click or hold Shift while dragging to pan.
+Drag on the canvas to orbit; click or tap a surface to resolve its canonical
+voxel and Z slice; right-click or hold Shift while dragging to pan.
 On touch, move two fingers together to pan and change their separation to zoom.
 Use the wheel to zoom and **fit camera** to restore the demo view. The displayed mesh is synthetic
-and diagnostic only; B10/B11 and real-mesh B3/B4 evidence still require the
-declared Galaxy A17 run.
+and diagnostic only. `node app/test_picking.mjs` casts the 13 canonical fixture
+rays into this level-0 mesh and requires the exact expected slice for each.
+That verifies B3/B4's desktop fixture path only; B5/B6 on a real mesh and
+B10/B11 still require the declared Galaxy A17 run.

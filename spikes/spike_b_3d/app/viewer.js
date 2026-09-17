@@ -8,12 +8,14 @@
  */
 
 import { parseObj } from './obj.js';
+import { invertMat4, multiplyMat4, rayMeshFirstHit, screenRayFromNdc, worldToSlice } from './picking.js';
 
 const canvas = document.querySelector('#gl');
 const status = document.querySelector('#status');
 const trianglesLabel = document.querySelector('#triangles');
 const fitButton = document.querySelector('#fit');
 const shadeButton = document.querySelector('#shade');
+const pickLabel = document.querySelector('#pick');
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
@@ -121,7 +123,7 @@ function setup(gl, mesh) {
   gl.enableVertexAttribArray(aNormal);
   gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
-  return { program, vao, count: mesh.positions.length / 3,
+  return { program, vao, count: mesh.positions.length / 3, positions: mesh.positions,
     projection: gl.getUniformLocation(program, 'uProjection'),
     model: gl.getUniformLocation(program, 'uModel'),
     light: gl.getUniformLocation(program, 'uLight'),
@@ -146,6 +148,9 @@ let shading = true;
 let pointers = new Map();
 let dragMode = null;
 let pinchState = null;
+let geometry = null;
+let tapCandidate = false;
+let interactionMoved = false;
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -186,17 +191,50 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
+function currentCameraMatrices() {
+  const projection = perspective(new Float32Array(16), Math.PI / 4, canvas.width / canvas.height, 0.01, 100);
+  const model = modelMatrix(new Float32Array(16), yaw, pitch, distance, scale, center, pan);
+  return { projection, model };
+}
+
+function pickSurface(event) {
+  if (!renderer || !geometry) {
+    pickLabel.textContent = 'pick unavailable: canonical geometry not loaded';
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = 1 - ((event.clientY - rect.top) / rect.height) * 2;
+  const { projection, model } = currentCameraMatrices();
+  const projectionModel = multiplyMat4(new Float32Array(16), projection, model);
+  const inverse = invertMat4(new Float32Array(16), projectionModel);
+  const ray = inverse && screenRayFromNdc(ndcX, ndcY, inverse);
+  const hit = ray && rayMeshFirstHit(ray.origin, ray.direction, renderer.positions);
+  const resolved = worldToSlice(hit?.point, geometry);
+  if (!hit) {
+    pickLabel.textContent = 'pick: no surface hit';
+  } else if (!resolved) {
+    pickLabel.textContent = 'pick: surface is outside canonical volume';
+  } else {
+    const [x, y, z] = resolved.voxel;
+    pickLabel.textContent = `pick: voxel ${x}, ${y}, ${z} · slice ${resolved.sliceIndex}`;
+  }
+}
+
 function setZoom(next) {
   distance = Math.min(8, Math.max(1.05, next));
 }
 
 canvas.addEventListener('pointerdown', (event) => {
   canvas.setPointerCapture(event.pointerId);
-  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY });
   if (pointers.size === 1) {
     dragMode = event.button === 2 || event.shiftKey ? 'pan' : 'orbit';
+    tapCandidate = event.button === 0 && !event.shiftKey;
+    interactionMoved = false;
   }
   if (pointers.size === 2) {
+    tapCandidate = false;
     const [a, b] = [...pointers.values()];
     pinchState = {
       distance: Math.hypot(a.x - b.x, a.y - b.y),
@@ -208,7 +246,8 @@ canvas.addEventListener('pointerdown', (event) => {
 canvas.addEventListener('pointermove', (event) => {
   if (!pointers.has(event.pointerId)) return;
   const previous = pointers.get(event.pointerId);
-  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY) > 5) interactionMoved = true;
+  pointers.set(event.pointerId, { ...previous, x: event.clientX, y: event.clientY });
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     const next = Math.hypot(a.x - b.x, a.y - b.y);
@@ -226,9 +265,15 @@ canvas.addEventListener('pointermove', (event) => {
   }
 });
 function releasePointer(event) {
+  const shouldPick = event.type === 'pointerup' && pointers.size === 1 && dragMode === 'orbit'
+    && tapCandidate && !interactionMoved;
+  if (shouldPick) pickSurface(event);
   pointers.delete(event.pointerId);
   if (pointers.size < 2) pinchState = null;
-  if (pointers.size === 0) dragMode = null;
+  if (pointers.size === 0) {
+    dragMode = null;
+    tapCandidate = false;
+  }
 }
 canvas.addEventListener('pointerup', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
@@ -243,13 +288,23 @@ shadeButton.addEventListener('click', () => {
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
 });
 
-fetch('../mesh/out/level_0_cell1.obj')
-  .then((response) => {
+Promise.all([
+  fetch('../mesh/out/level_0_cell1.obj').then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
     return response.text();
-  })
-  .then((text) => {
+  }),
+  fetch('../mesh/out/mesh_levels.json').then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
+    return response.json();
+  }),
+])
+  .then(([text, summary]) => {
     const mesh = parseObj(text);
+    geometry = {
+      shape_xyz: summary.shape_xyz,
+      spacing_xyz_mm: summary.spacing_xyz_mm,
+      origin_world_mm: summary.origin_world_mm,
+    };
     renderer = setup(gl, mesh);
     // Centre/normalise from the loaded OBJ so the same camera works for any
     // spacing/origin in the canonical fixture.
