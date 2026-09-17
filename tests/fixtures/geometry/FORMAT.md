@@ -1,21 +1,68 @@
-# Canonical geometry fixture format
+# Canonical geometry contract — `dr008a-dr012/v1.0.0`
 
-**Owner:** Vũ Hùng Anh · **Contract:** DR-008a · **Geometry boundary:** DR-012
+**Owner:** Vũ Hùng Anh · **Indexing:** DR-008a · **Support boundary:** DR-012
 
-This directory is the shared geometry contract for Spike A, Spike B, Spike F and
-the later TC-MAINT-002 test. Consumers must use the fixture fields and must
-not replace them with a library-specific memory order.
+This directory is the one shared geometry contract for Spike A, Spike B, Spike
+F, backend, and mobile. It is the fixture set required by `TC-MAINT-002`.
+Consumers use these fields; a library memory layout must never replace them.
 
-## File
+## Contract identity and version check
 
-- geometry_fixture_v0.json — deterministic canonical fixture.
-- shape_xyz is [Nx, Ny, Nz].
-- A logical source slice has shape [Ny, Nx].
-- x is the source-image column, y is the source-image row, and z is the source slice index.
-- The origin is top-left; +x points right and +y points down.
+The current exact, opaque version string is:
+
+```text
+dr008a-dr012/v1.0.0
+```
+
+Every geometry-bearing artifact or API response must carry it in
+`geometry_contract_version`. A consumer compares the whole string for equality
+with the version it was built/configured to accept. A missing, unknown, or
+different value is rejected before coordinates are used; it is not coerced to a
+nearest compatible version. This is the version-mismatch behaviour required by
+`TC-REL-003`.
+
+The fixture declares the version itself. The reusable checker takes the
+consumer's expected version explicitly:
+
+```bash
+python spikes/spike_b_3d/harness/conformance.py \
+  --fixture tests/fixtures/geometry/geometry_fixture_v0.json \
+  --expect-contract-version dr008a-dr012/v1.0.0
+```
+
+`check_fixture(fixture, implementation, expected_contract_version=...)` is the
+library entry point. Backend and mobile adapters each supply their own
+`voxel_to_world`, `world_to_voxel`, and `slice_of_world` functions to that same
+checker and run this same fixture. The CI job checks the canonical fixture and
+reference adapter on every PR; it is not evidence that a future backend or
+mobile implementation has passed until that implementation's adapter is added
+to its own build.
+
+## Version changes
+
+Versions use the `vMAJOR.MINOR.PATCH` suffix. Do not alter an already-published
+fixture in place when a change changes its contract meaning.
+
+| Change | Version action | Required work |
+|---|---|---|
+| Documentation, comments, or a diagnostic-only field with no consumer meaning | PATCH | Keep all contract values and expected results unchanged; rerun conformance. |
+| Add an optional field or additional deterministic case while preserving every existing transform, expected result, and reject rule | MINOR | Keep the prior fixture runnable; add regression coverage and update paired consumers atomically. |
+| Change axes/order, units, origin/spacing/direction semantics, slice mapping, rounding, out-of-range behaviour, supported geometry profile, any existing expected coordinate/slice, or remove/rename a required field | MAJOR | Publish a new fixture/version, run a compatibility impact review, update backend/mobile together, and retain the old fixture for regression. |
+
+Even a compatible MINOR change is an exact-version mismatch until a consumer is
+deliberately updated. Do not rely on a semantic-version range for clinical
+geometry. A release changes the response version and both consumer expectations
+in the same reviewed change; CI must run the old fixture where it remains
+supported and the new fixture for the new implementation.
+
+## Canonical fields and transform
+
+- `geometry_fixture_v0.json` is the deterministic canonical fixture for the
+  current version.
+- `shape_xyz` is `[Nx, Ny, Nz]`; a logical source slice is `[Ny, Nx]`.
+- `x` is source-image column, `y` source-image row, `z` source slice index.
+- Image origin is top-left; `+x` points right and `+y` points down.
 - Only validated axis-aligned geometry is supported.
-
-## Transform contract
 
 ~~~text
 voxel_to_world: world[i] = origin[i] + voxel[i] * spacing[i]
@@ -25,52 +72,35 @@ rounding:       floor
 out_of_range:   REJECT (never clamp)
 ~~~
 
-A voxel coordinate z = 7.5 resolves to slice 7 because the voxel cells
-are half-open intervals: [7, 8). The half_voxel cases make a
-round-to-nearest implementation fail visibly. The out_of_range cases ensure
-that a consumer cannot silently navigate to the nearest valid slice.
+A voxel coordinate `z = 7.5` resolves to slice 7 because voxel cells are
+half-open intervals `[7, 8)`. The half-voxel cases expose round-to-nearest.
+Out-of-range cases prohibit silent navigation to a nearest valid slice.
 
-The fixture deliberately uses anisotropic spacing
-[0.625, 0.75, 1.25] and a non-zero origin
-[-12.5, 7.25, -30.0] so axis, spacing and origin mistakes cannot hide behind
-the common spacing = 1, origin = 0 case.
+The fixture intentionally uses anisotropic spacing `[0.625, 0.75, 1.25]` and
+non-zero origin `[-12.5, 7.25, -30.0]`; axis, spacing, and origin mistakes
+therefore cannot hide behind the common all-ones/all-zeros case.
 
-## Conformance points
+## Conformance data
 
-There are **33 points**, not 32:
+There are 33 coordinate points: 8 corner, 6 face-centre, 5 interior, 4
+slice-boundary, 4 half-voxel, and 6 out-of-range. Expected values come from the
+fixture; implementations must not share generator logic with the checker.
 
-| Group | Count | Purpose |
-|---|---:|---|
-| corner | 8 | detect flipped or transposed axes |
-| face_centre | 6 | detect boundary and half-voxel errors |
-| interior | 5 | basic in-volume mapping |
-| slice_boundary | 4 | first/last-slice off-by-one |
-| half_voxel | 4 | floor versus round-to-nearest |
-| out_of_range | 6 | reject instead of clamp |
+There are also 13 deterministic `picking_rays`. Their contractual B14 cohorts
+are `interior` and `surface_tangent`; report them separately. Incidence-based
+`steep`/`grazing` labels may supplement them but may not replace or mix them.
 
-The checker must derive expected values from the transform in the fixture; it
-must not share generator logic with the implementation under test.
+The canonical fixture bound is **EXACT**. Conformance proves coordinate
+semantics only. Real mesh picking, FPS, stalls, memory, and device interaction
+still require the physical Galaxy A17 procedure in `SPIKE_B_3D/TASK.md`.
 
-## Picking rays and B14
+## QA-002 physical-coordinate caveat
 
-The fixture contains 13 deterministic picking rays. Each ray carries an
-`expected_slice_index` for the canonical level-0 voxel-face mesh; an app test
-must resolve that exact slice without tolerance. The expected value was derived
-from the fixture's synthetic mask by an independent voxel ray march, rather
-than by comparing the level-0 mesh to itself. Their
-picking_rays[].group labels are the contractual B14 cohorts:
-interior and surface_tangent. Evidence must report those cohorts
-separately.
-
-The harness may additionally report steep and grazing, computed from the
-ray/surface-normal incidence angle, as diagnostic information. Those diagnostic
-groups must not replace the contractual B14 labels or be silently mixed with
-them.
-
-## Acceptance boundary
-
-The conformance run is a reusable fixture check, not device evidence. A passing
-run proves only that an implementation follows this coordinate contract. Real
-mesh picking, FPS, stall time and memory still require the physical Galaxy A17
-measurement procedure in management/spikes/SPIKE_B_3D/TASK.md.
-
+QA-002 F2 found that all **462/462** LASC headers inspected carried default
+spacing `1` and origin `0`. For that source, header-derived “world” coordinates
+are voxel indices expressed through a default affine, **not validated physical
+millimetres**. They must not support a distance, area, volume, or mL claim.
+The canonical fixture uses synthetic physical geometry only to test the
+DR-008a transform; it does not validate physical geometry for that dataset.
+Until source geometry is independently validated, expose no mm/mL measurement
+from those headers and keep `geometry_status` out of `VALIDATED`.

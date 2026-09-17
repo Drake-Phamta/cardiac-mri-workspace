@@ -29,8 +29,10 @@ Bound for fixture points is EXACT. `SPIKE_B_3D/TASK.md` freezes it:
     "DO NOT loosen the tolerance merely to obtain a passing framework."
 
 Usage:
-    python conformance.py                       # check the proposal fixture
+    python conformance.py                       # check the canonical fixture
     python conformance.py --fixture <path.json>
+    python conformance.py --expect-contract-version <exact-version>
+    python conformance.py --json
 """
 
 from __future__ import annotations
@@ -60,6 +62,65 @@ class Finding:
 
     def __str__(self) -> str:
         return f"{self.point_id} [{self.group}] {self.kind}: {self.detail}"
+
+    def as_dict(self) -> dict[str, str]:
+        return {"point_id": self.point_id, "group": self.group,
+                "kind": self.kind, "detail": self.detail}
+
+
+def validate_fixture_contract(fixture: dict,
+                              expected_contract_version: str | None = None) -> list[Finding]:
+    """Check the fixture envelope before any implementation consumes it.
+
+    ``expected_contract_version`` comes from the consuming backend/mobile
+    build.  Comparing it here makes a version mismatch an ordinary, visible
+    conformance failure instead of letting an implementation accidentally use
+    coordinates under a different contract.
+    """
+    findings: list[Finding] = []
+    version = fixture.get("geometry_contract_version")
+    if not isinstance(version, str) or not version:
+        findings.append(Finding("-", "fixture", "contract_version",
+                                "geometry_contract_version is missing or not a non-empty string"))
+    elif expected_contract_version and version != expected_contract_version:
+        findings.append(Finding(
+            "-", "fixture", "contract_version_mismatch",
+            f"fixture is {version!r}; consumer expects {expected_contract_version!r}. "
+            "Reject before using geometry (TC-REL-003)."))
+
+    if fixture.get("contract") != "DR-008a":
+        findings.append(Finding("-", "fixture", "contract_identity",
+                                f"contract is {fixture.get('contract')!r}, expected 'DR-008a'"))
+
+    points = fixture.get("points")
+    if not isinstance(points, list) or not points:
+        findings.append(Finding("-", "fixture", "points",
+                                "fixture must contain a non-empty points list"))
+    elif fixture.get("point_count") != len(points):
+        findings.append(Finding("-", "fixture", "point_count",
+                                f"point_count is {fixture.get('point_count')!r}, actual list has {len(points)}"))
+    elif any(not isinstance(point, dict) or "group" not in point for point in points):
+        findings.append(Finding("-", "fixture", "points",
+                                "each coordinate point must be an object with a group"))
+
+    shape = fixture.get("shape_xyz")
+    rays = fixture.get("picking_rays")
+    if not isinstance(rays, list) or not rays:
+        findings.append(Finding("-", "fixture", "picking_rays",
+                                "fixture must contain deterministic picking_rays"))
+    elif isinstance(shape, list) and len(shape) == 3:
+        for ray in rays:
+            rid = ray.get("id", "-") if isinstance(ray, dict) else "-"
+            if not isinstance(ray, dict) or ray.get("group") not in {"interior", "surface_tangent"}:
+                findings.append(Finding(rid, "fixture", "picking_group",
+                                        "picking rays must use the contractual interior/surface_tangent groups"))
+                continue
+            expected = ray.get("expected_slice_index")
+            if not isinstance(expected, int) or expected < 0 or expected >= shape[2]:
+                findings.append(Finding(
+                    rid, "fixture", "picking_expected_slice",
+                    f"expected_slice_index must be an in-range integer 0..{shape[2] - 1}; got {expected!r}"))
+    return findings
 
 
 # --- the reference implementation under test --------------------------------
@@ -112,14 +173,19 @@ def reference_impl(fixture: dict) -> dict[str, Callable]:
 # --- the reusable check -----------------------------------------------------
 
 def check_fixture(fixture: dict, impl: dict[str, Callable],
-                  tol_mm: float = 1e-6, tol_voxel: float = 1e-6) -> list[Finding]:
+                  tol_mm: float = 1e-6, tol_voxel: float = 1e-6,
+                  expected_contract_version: str | None = None) -> list[Finding]:
     """Run every fixture point against one implementation.
 
     `impl` is a mapping with `voxel_to_world`, `world_to_voxel` and
     `slice_of_world`. Any language's implementation can be wrapped to this shape,
-    which is the point: one fixture, one check, many implementations.
+    which is the point: one fixture, one check, many implementations. Pass the
+    consumer's configured ``expected_contract_version`` to make a mismatch fail
+    before any coordinate is resolved.
     """
-    findings: list[Finding] = []
+    findings = validate_fixture_contract(fixture, expected_contract_version)
+    if findings:
+        return findings
     shape = fixture["shape_xyz"]
 
     for p in fixture["points"]:
@@ -196,6 +262,12 @@ def check_fixture(fixture: dict, impl: dict[str, Callable],
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixture", default=DEFAULT_FIXTURE)
+    ap.add_argument("--expect-contract-version", metavar="VERSION",
+                    help="exact version configured by the implementation being checked")
+    ap.add_argument("--implementation-name", default="reference",
+                    help="label emitted in text/JSON output for the implementation under test")
+    ap.add_argument("--json", action="store_true",
+                    help="emit a machine-readable conformance summary")
     args = ap.parse_args()
 
     if not os.path.exists(args.fixture):
@@ -205,16 +277,41 @@ def main() -> int:
         fixture = json.load(f)
 
     status = fixture.get("_status")
-    print()
-    print(f"  fixture   {os.path.relpath(args.fixture, os.getcwd())}")
-    print(f"  id        {fixture.get('fixture_id')}  contract {fixture.get('contract')}")
-    if status == "PROPOSAL":
-        print(f"  STATUS    PROPOSAL - owner {fixture.get('_owner')}")
-        print("            The canonical set is tests/fixtures/geometry/**, not this file.")
-    elif fixture.get("status"):
-        print(f"  STATUS    {fixture['status']} - owner {fixture.get('owner')}")
+    if not args.json:
+        print()
+        print(f"  fixture   {os.path.relpath(args.fixture, os.getcwd())}")
+        print(f"  id        {fixture.get('fixture_id')}  contract {fixture.get('contract')}")
+        print(f"  version   {fixture.get('geometry_contract_version')}")
+        if args.expect_contract_version:
+            print(f"  expects   {args.expect_contract_version}")
+        print(f"  adapter   {args.implementation_name}")
+        if status == "PROPOSAL":
+            print(f"  STATUS    PROPOSAL - owner {fixture.get('_owner')}")
+            print("            The canonical set is tests/fixtures/geometry/**, not this file.")
+        elif fixture.get("status"):
+            print(f"  STATUS    {fixture['status']} - owner {fixture.get('owner')}")
 
-    findings = check_fixture(fixture, reference_impl(fixture))
+    try:
+        implementation = reference_impl(fixture)
+    except (KeyError, TypeError, SystemExit) as exc:
+        findings = [Finding("-", "fixture", "implementation_setup", str(exc))]
+    else:
+        findings = check_fixture(
+            fixture, implementation,
+            expected_contract_version=args.expect_contract_version)
+
+    if args.json:
+        print(json.dumps({
+            "fixture_id": fixture.get("fixture_id"),
+            "geometry_contract_version": fixture.get("geometry_contract_version"),
+            "expected_contract_version": args.expect_contract_version,
+            "implementation": args.implementation_name,
+            "point_count": len(fixture.get("points", [])),
+            "finding_count": len(findings),
+            "status": PASS if not findings else FAIL,
+            "findings": [f.as_dict() for f in findings],
+        }, sort_keys=True))
+        return 0 if not findings else 1
 
     by_group: dict[str, list[Finding]] = {}
     for f in findings:
@@ -253,8 +350,8 @@ def main() -> int:
 
     print()
     print(f"  {len(fixture['points'])} points conform exactly. 0 findings.")
-    print("  This checks the REFERENCE implementation. TC-MAINT-002 is satisfied only when")
-    print("  the backend and the mobile implementations pass this same function.")
+    print(f"  This checks the {args.implementation_name.upper()} implementation. TC-MAINT-002 is")
+    print("  satisfied only when backend and mobile each pass this same fixture/checker.")
     print()
     return 0
 
