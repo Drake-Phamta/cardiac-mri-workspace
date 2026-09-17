@@ -277,5 +277,86 @@ manifest. Đó là việc còn lại trước khi QA-003 chuyển từ **sơ b�
 
 ---
 
+## 9 · CẬP NHẬT 12:15 — `F1` tái lập được trở lại, và `DR-002b` được kiểm chứng độc lập
+
+> ⚠ **Ranh giới `F5` áp cho chính mục này.** Điểm tương quan từng cặp là dữ liệu **hạn chế** theo phán quyết
+> `F5` và ruling `DR-002b` × `F5` ngày 17/09. Mục này ghi **mã case bị loại, ngưỡng và số đếm** — đúng những
+> thứ ruling cho công khai — và **không ghi một điểm số nào**. Số nằm trong output của lượt chạy, giữ ngoài
+> repo cùng chỗ với manifest hạn chế.
+
+### 9.1 · `duplicate_mask_pair.py` chạy lại được sau khi băm từ ZIP
+
+Script gốc chết ở `KeyError: 'sha256'` (§3). Bản QA-003 **băm lại 308 volume bắt buộc thẳng từ archive**
+trong **36,4 giây**, không thiếu member nào. Đây không phải cách lách: `F1` vốn đứng trên **byte**, còn hash
+trong manifest chỉ là bản sao đệm. Băm lại **bỏ hẳn bản đệm khỏi chuỗi bằng chứng**.
+
+Kết quả: **đúng một nhóm** volume bắt buộc trùng byte trên toàn bộ 154 case — **`CASE_0056` / `CASE_0097`,
+vai `mask`**. Đúng `F1`, tái lập từ byte thô.
+
+Và nó trả lời được câu `F1` đặt ra mà manifest không trả lời được — *hai case này là **cùng một lần chụp**,
+hay hai lần chụp khác nhau dùng chung một file nhãn?*
+
+| Quan sát | Kết quả |
+|---|---|
+| `laendo.nrrd` trùng byte | **có** |
+| `lawall.nrrd` trùng byte | **có** |
+| `lgemri.nrrd` trùng byte | **không** |
+| nhãn chung khớp thành `lawall` của **cả hai** case | **khớp như nhau**, và ở mức của **cặp cùng case** |
+| so với hiệu chỉnh cặp chéo trên các case khác cùng shape | mức cặp chéo **thấp hơn một bậc độ lớn** |
+
+> Nhãn dùng chung ôm vừa thành tim của **cả hai** case ở mức mà một case bình thường ôm vừa nhãn **của chính
+> nó**, trong khi ghép chéo giữa các case khác thì kém hẳn một bậc. Cộng với `lgemri` **khác byte**: đây là
+> **cùng một lần chụp được xuất hai lần với tiền xử lý khác nhau**, không phải hai lần chụp chia nhau nhãn.
+>
+> Đó chính xác là tiền đề `DR-002a` dựa vào khi ghim cặp này thành một nhóm. **Tiền đề đó nay được xác nhận
+> độc lập từ byte**, không phải từ lời của manifest.
+
+### 9.2 · `DR-002b` — tập loại trừ và số đếm **tái lập được**
+
+`verify_dr002b.py` tính lại **mọi** cặp cùng shape và liệt kê **tất cả** cặp ≥ ngưỡng `r ≥ 0.75` *(không
+phải top-N như `near_duplicates`)*, rồi gom thành **thành phần liên thông** — tức grouping **bắc cầu**.
+
+| Điều `DR-002b` khai | QA-003 tính lại độc lập |
+|---|---|
+| ngưỡng `r ≥ 0.75` khai trước mọi lượt train | dùng đúng ngưỡng đó |
+| `CASE_0133` bị loại khỏi train | ✅ **đúng** — nó nối với một case **holdout** trên ngưỡng |
+| `CASE_0117` bị kéo theo cùng nhóm | ✅ **đúng** — nối với `CASE_0133` trên ngưỡng, nên cùng thành phần |
+| tập loại trừ | ✅ **đúng hai case**, không hơn không kém |
+| train hiệu dụng **78** | ✅ **đúng** |
+
+**`DR-002b` được thực hiện đúng như đã quyết.** Đây là kết luận quan trọng nhất của §9: quyết định khoa học
+của leader được kiểm chứng từ byte, không phải từ tuyên bố.
+
+### 9.3 · Một lỗi QA tự mắc, ghi lại để không ai lặp
+
+Lần tính đầu tôi so tập loại trừ với **100 case Training Set** và ra "train hiệu dụng 98", tưởng là lệch với
+con số 78. **Sai baseline.** `DR-002` Path A chia 100 case phát triển đó thành **80 train / 20 validation**;
+ngân sách `DR-002b` tiêu là **80**, không phải 100. **80 − 2 = 78.** Con số của chủ spike đúng ngay từ đầu.
+
+Câu này đã được viết thẳng vào script để lượt QA sau không mắc lại.
+
+### 9.4 · Một câu hỏi còn lại cho chủ spike — **hỏi, không phải cáo buộc**
+
+Bản ghi nói **4 nhóm**. Cách tính này tìm ra **4 cặp** trên ngưỡng, nhưng chúng gộp thành **3 thành phần liên
+thông**, vì một case xuất hiện trong hai cặp.
+
+Hai khả năng, **cả hai đều chính đáng**:
+
+- phương pháp sàng lọc của chủ spike tìm ra **một cặp thứ tư** mà cách này không thấy — rất có thể, vì
+  `near_duplicates` dùng thumbnail stride `z4/y8/x8` và z-score, còn phương pháp của chủ spike có thể khác;
+- hoặc chữ **"nhóm"** đang được đếm **theo cặp** ở một chỗ và **theo thành phần liên thông** ở chỗ kia.
+
+Chỉ cần hai chỗ dùng **cùng một định nghĩa**. Điều này quan trọng vì `DR-002b` yêu cầu nhóm **giữ nguyên qua
+mọi tập con** — mà "giữ nguyên" chỉ có nghĩa nếu nhóm là **bắc cầu**: nếu `A~B` và `B~C` thì tách `A` khỏi
+`C` vẫn là rò rỉ.
+
+### 9.5 · Giới hạn của phương pháp, giữ nguyên từ QA-002
+
+Cách này tìm **cùng một lần chụp được xuất hai lần**. Nó **không** phát hiện được **cùng một bệnh nhân chụp ở
+lần khám khác**, vì giải phẫu thay đổi giữa hai lần. Đó chính là lý do `06` §6 được ghi là **lệch có văn bản**
+chứ không phải **đã thoả mãn**, và §9 này **không** làm yếu câu đó.
+
+---
+
 **Tái lập:** worktree `aaccae6`, `6fcc087` và `ed9c6c0`; bản sao script ở scratchpad `qa003/` và `qa003_40/`, khác bản
 gốc `management/day06/qa002/` **chỉ ở hằng số đường dẫn** — bản gốc là hồ sơ QA-002 và không bị sửa.
