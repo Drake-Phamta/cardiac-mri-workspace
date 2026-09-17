@@ -3,7 +3,7 @@
 
 This is an offline review/acceptance tool, not a production ingestion module.
 It verifies provenance, gates, checksums and immutable re-ingestion semantics
-using only the Python standard library.
+using the repository's Draft 2020-12 JSON Schema validator plus Python checks.
 """
 
 from __future__ import annotations
@@ -23,6 +23,31 @@ class ContractError(Exception):
 
 def _fail(code: str, message: str) -> None:
     raise ContractError(code, message)
+
+
+def _default_schema() -> dict:
+    try:
+        return json.loads(Path(__file__).with_name("schema.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        _fail("SCHEMA_INVALID", f"cannot load Contract 2 schema: {exc}")
+
+
+def _validate_against_schema(manifest: object, schema: dict) -> None:
+    if not isinstance(manifest, dict):
+        _fail("SCHEMA_INVALID", "manifest must be a JSON object")
+    try:
+        import jsonschema
+    except ImportError:
+        _fail("SCHEMA_VALIDATION_UNAVAILABLE", "jsonschema is required to validate Contract 2")
+    try:
+        validator = jsonschema.Draft202012Validator(schema)
+        errors = sorted(validator.iter_errors(manifest), key=lambda error: list(error.path))
+    except Exception as exc:
+        _fail("SCHEMA_INVALID", f"formal schema could not be applied: {exc}")
+    if errors:
+        error = errors[0]
+        location = ".".join(str(part) for part in error.path) or "manifest"
+        _fail("SCHEMA_INVALID", f"{location}: {error.message}")
 
 
 def _sha256(path: Path) -> str:
@@ -118,7 +143,11 @@ def _validate_artifact(
         _fail("DUPLICATE_ARTIFACT", f"artifact_id is repeated: {artifact_id}")
     seen_ids.add(artifact_id)
     uri = artifact["artifact_uri"]
-    if not isinstance(uri, str) or not re.fullmatch(r"artifact://[A-Za-z0-9][A-Za-z0-9._/-]*", uri):
+    if (
+        not isinstance(uri, str)
+        or not re.fullmatch(r"artifact://[A-Za-z0-9][A-Za-z0-9._/-]*", uri)
+        or ".." in uri.removeprefix("artifact://").split("/")
+    ):
         _fail("SCHEMA_INVALID", f"{artifact_id}: artifact_uri is invalid")
     if uri in seen_uris:
         _fail("DUPLICATE_ARTIFACT", f"artifact_uri is repeated: {uri}")
@@ -135,7 +164,13 @@ def _validate_artifact(
     return artifact_id, action
 
 
-def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | None = None) -> dict:
+def validate_manifest(
+    manifest: dict,
+    root: Path,
+    existing: dict[str, str] | None = None,
+    schema: dict | None = None,
+) -> dict:
+    _validate_against_schema(manifest, schema if schema is not None else _default_schema())
     existing = existing or {}
     if manifest.get("contract") != "contract2_experiment_artifact" or manifest.get("contract_version") != "DRAFT v0":
         _fail("SCHEMA_INVALID", "contract must be contract2_experiment_artifact DRAFT v0")
@@ -260,7 +295,11 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
                 _fail("PROVENANCE_INVALID", f"{run_id}: processed_prediction_mask_id is invalid")
             if processed.get("source_artifact_id") != raw["artifact_id"]:
                 _fail("PROVENANCE_INVALID", f"{run_id}: processed mask does not derive from this raw mask")
-        for metric_id in run.get("metric_set_ids", []):
+        metric_ids = run.get("metric_set_ids")
+        reconstruction_ids = run.get("reconstruction_ids")
+        if not isinstance(metric_ids, list) or not isinstance(reconstruction_ids, list):
+            _fail("SCHEMA_INVALID", f"{run_id}: metric_set_ids and reconstruction_ids must be arrays")
+        for metric_id in metric_ids:
             metric = artifact_by_id.get(metric_id)
             if not metric or metric["kind"] != "METRIC_SET":
                 _fail("PROVENANCE_INVALID", f"{run_id}: metric_set_ids contains an invalid artifact")
@@ -269,7 +308,7 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
                 allowed_predictions.add(processed_id)
             if metric.get("prediction_mask_id") not in allowed_predictions:
                 _fail("PROVENANCE_INVALID", f"{run_id}: metric is not tied to this run's prediction")
-        for reconstruction_id in run.get("reconstruction_ids", []):
+        for reconstruction_id in reconstruction_ids:
             reconstruction = artifact_by_id.get(reconstruction_id)
             if not reconstruction or reconstruction["kind"] != "RECONSTRUCTION_3D":
                 _fail("PROVENANCE_INVALID", f"{run_id}: reconstruction_ids contains an invalid artifact")
@@ -294,7 +333,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
         existing = json.loads(args.existing_index.read_text(encoding="utf-8")) if args.existing_index else {}
-        result = validate_manifest(manifest, args.root, existing)
+        schema = json.loads((Path(__file__).with_name("schema.json")).read_text(encoding="utf-8"))
+        result = validate_manifest(manifest, args.root, existing, schema)
     except (OSError, json.JSONDecodeError) as exc:
         print(f"FAIL [INPUT_INVALID] {exc}")
         return 2

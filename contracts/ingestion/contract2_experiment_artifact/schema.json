@@ -148,7 +148,7 @@
         },
         "artifact_uri": {
           "type": "string",
-          "pattern": "^artifact://[A-Za-z0-9][A-Za-z0-9._/-]*$"
+          "pattern": "^artifact://(?!.*\\/\\.\\.(?:\\/|$))[A-Za-z0-9][A-Za-z0-9._/-]*$"
         },
         "source_path": {
           "type": "string",

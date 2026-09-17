@@ -189,10 +189,10 @@ def main() -> None:
         expect_error(changed, root, "GATE_SPLIT_01_NOT_ACCEPTED")
         changed = copy.deepcopy(manifest)
         changed["precomputed"] = False
-        expect_error(changed, root, "PRECOMPUTED_FLAG_REQUIRED")
+        expect_error(changed, root, "SCHEMA_INVALID")
         changed = copy.deepcopy(manifest)
         changed["experiment"]["num_test_cases"] = 53
-        expect_error(changed, root, "EVALUATION_POPULATION_INVALID")
+        expect_error(changed, root, "SCHEMA_INVALID")
         changed = copy.deepcopy(manifest)
         changed["artifacts"][2]["reference_mask_id"] = None
         expect_error(changed, root, "METRIC_REFERENCE_REQUIRED")

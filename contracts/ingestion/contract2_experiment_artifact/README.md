@@ -17,6 +17,11 @@ The `split_manifest`, `training_subset_manifest`, and holdout manifest are
 separate references so that a later consumer cannot silently substitute a
 different split or subset.
 
+The gates and the holdout count are explicit manifest assertions in this DRAFT
+v0. The validator does not query an external gate registry or parse the
+holdout file to recount cases; a future production ingestion service must
+cross-check those claims before acceptance.
+
 ## Required experiment record
 
 The `experiment` object records model family/variant, decoder, training
@@ -51,9 +56,9 @@ python test_contract2.py
 The test exercises a valid 54-case holdout manifest, both gate failures,
 precomputed enforcement, checksum conflicts, missing metric references,
 provenance failures, path traversal rejection, and idempotent re-ingestion.
-Use `schema.json` with a Draft 2020-12 JSON Schema validator when integrating
-with another review tool. The Python validator is intentionally standard
-library only:
+The Python validator applies `schema.json` with a Draft 2020-12 JSON Schema
+validator before its semantic checks, then verifies checksums and provenance.
+It requires the repository's `jsonschema` package:
 
 ```powershell
 python validate_contract2.py --manifest <manifest.json> --root <artifact-root>
