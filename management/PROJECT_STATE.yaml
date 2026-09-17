@@ -28,6 +28,8 @@ day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
 day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
 day_6_verdict: MISSED               # 3 of 4 conditions; closed 2026-09-16 about 01:45 by leader decision; see day_6_verdict_basis
 day_7_verdict: MET                  # 4/4 ON SUBSTANCE, 2/4 on the letter of the deadlines; leader decision 2026-09-17; see day_7_verdict_basis
+day_8_verdict: MET                  # 4/4 on the letter AND inside every deadline; closed 2026-09-17 ~23:55; critical path still not through - see day_8_verdict_basis
+day_8_closed: true                  # Day 9 is NOT planned yet, by leader instruction; carry-overs listed in day08/DAY08_EOD_REVIEW.md section 13
 capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
   members_hours_per_day: 8          # Khanh, Trung, Vu Hung Anh
   daily_deadline: "23:59 local"
@@ -69,6 +71,20 @@ day_7_verdict_basis: >
   landed after midnight on four consecutive days (Day 4 03:10, Day 5 00:44, Day 6 00:19, Day 7 00:08-00:36),
   so the 12:00/18:00 push checkpoints introduced on 2026-09-16 have had no effect and are replaced on Day 8
   by a dependency-ordering rule rather than a tighter clock. Buffer stays -1: a met day spends no buffer.
+day_8_verdict_basis: >
+  All four conditions were met with evidence and inside their deadlines, so unlike Day 5 and Day 7 no
+  exception on timing was needed. Vu Hung Anh reviewed #34 at 11:07 against a 12:00 target and found a
+  release-blocking issue the QA pass had not: scan_package and scan_archive only read direct case
+  directories, so A17's PASS was not a package-wide audit. Be Quoc Khanh took #40 out of draft and onto main
+  (merged 11:37), recorded the A17 exclusion with package_findings, and answered the review three times, all
+  between 11:01 and 11:40 - which ends a run of four consecutive days on which his work landed after midnight.
+  Nguyen Gia Duc Trung approved #35 and fixed #32 (merged) at 17:26-17:37. The M3 step exists as #43
+  (geometry_contract_version, 11:25) and #45 (API Contract 11, 17:38).
+  Recorded plainly because the conditions were chosen to unlock a chain and the chain did not complete: #34
+  was reviewed but not RE-reviewed after the fix, so it did not merge, the QA re-check could not become a
+  verdict, GATE-DATA-01 stays open into its ninth day and SPIKE_C1 stays BLOCKED on the first day of M4.
+  Both M3 PRs are CHANGES_REQUESTED and contradict each other on the geometry version string. Buffer stays
+  -1: a met day spends no buffer.
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md

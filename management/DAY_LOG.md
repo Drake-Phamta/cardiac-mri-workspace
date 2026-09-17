@@ -15,21 +15,26 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 |---|---|
 | Ngày hôm nay | **Day 8 — 2026-09-17** |
 | Ngày còn lại tới Day 30 | **23** |
-| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì Day 6 trượt; **Day 7 đạt nên không tiêu thêm**)* |
+| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì Day 6 trượt; **Day 7 và Day 8 đạt nên không tiêu thêm**)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
 | Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
 | Ngưỡng leo thang | **đã vượt — buffer âm từ 16/09.** Hạn Day 30 không lùi: ngày mất thêm phải bù bằng thực thi |
-| `15` §18 | ⚠ **trigger 2 vẫn nổ** (buffer −1, không đổi) · trigger 3 **theo dõi sát**: `GATE-DATA-01` sang **ngày thứ tám**; hết Day 8 mà #34 chưa được duyệt thì nổ thật — [`day07/DAY07_EOD_REVIEW.md`](day07/DAY07_EOD_REVIEW.md) §11 |
+| `15` §18 | ⚠ **trigger 2 vẫn nổ** (buffer −1, không đổi) · trigger 3: **không nổ theo chữ** — #34 **đã được duyệt** lúc 11:07 — nhưng **chưa được duyệt lại** sau khi Khánh sửa lúc 11:40, nên `GATE-DATA-01` mở sang **ngày thứ chín** — [`day08/DAY08_EOD_REVIEW.md`](day08/DAY08_EOD_REVIEW.md) §1, §11 |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
-| Mốc đang chạy | **M3** (Day 6–9) — còn hôm nay và mai, 2/4 lối ra mới có bản nháp và **chưa cái nào lên `main`** · **M4** (Day 8–12) — bắt đầu hôm nay, `SPIKE_C1` còn `BLOCKED` |
+| Mốc đang chạy | **M3** (Day 6–9) — **còn Day 9**: hợp đồng ingestion 1 **đã lên `main`** (#32); ingestion 2 (#39), API (#45), geometry (#43) **có PR nhưng chưa merge**, và #43/#45 **mâu thuẫn chuỗi phiên bản geometry** · **M4** (Day 8–12) — ngày đầu trôi qua với `SPIKE_C1` còn `BLOCKED` |
 
 ---
 
-## DAY 8 — 2026-09-17 · `ĐANG MỞ`
+## DAY 8 — 2026-09-17 · ✅ **`ĐẠT` 4/4 — theo chữ và đúng hạn** · critical path **chưa qua**
 
-**Gói nhiệm vụ từng người:** [`day08/tasks/`](day08/tasks/)
+**Bản chốt đầy đủ:** [`day08/DAY08_EOD_REVIEW.md`](day08/DAY08_EOD_REVIEW.md) · **Gói nhiệm vụ:** [`day08/tasks/`](day08/tasks/)
+
+> **Chốt 17/09 ~23:55.** Cả bốn điều kiện đạt trong hạn, **không cần ngoại lệ về giờ** như Day 5 và Day 7. Nhưng
+> điều kiện 1 được đặt ra để mở khoá chuỗi *duyệt #34 → merge → QA → `GATE-DATA-01`*, và chuỗi đó **dừng ở lượt
+> duyệt lại**. Buffer **giữ −1**. Chuỗi *phần việc của Khánh land sau nửa đêm* (Day 4–7) **đã dừng**. Tồn đọng đưa
+> lên đầu Day 9 ở §13 của bản chốt — **chưa lập kế hoạch Day 9**.
 
 > **Day 7 đạt 4/4 theo nội dung → buffer giữ −1.** Hôm nay critical path chỉ còn thiếu **một lượt review**: #34
 > đã sẵn sàng từ 00:10 với nội dung đủ (7/7 phát hiện có câu trả lời, `A19` theo `Q2`, `F5` đã thực hiện) và
@@ -66,7 +71,20 @@ Khánh xếp trên mọi việc khác của cậu ấy.
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| *(chưa có)* | | |
+| **Vũ Hùng Anh** | **Duyệt #34 trước 12:00**, kèm phát hiện chặn: `A17 PASS` không phải audit toàn gói | review 11:07 |
+| **Vũ Hùng Anh** | Picking `B3`/`B4` *(nợ Day 7)* · **`geometry_contract_version`** + checker trong CI · approve #40 · device probe | `9e839ef` · #43 · #44 |
+| **Bế Quốc Khánh** | **#40 hết nháp, base `main`, merged** · **tuyên bố loại trừ `A17`** + `package_findings` · trả lời review #34 ×3 | `133f1a0` · `6fcc087` · `98dc4fa` |
+| **Bế Quốc Khánh** | Kế hoạch đo `SPIKE_C1` (chỉ thiết kế) + gói `TC-TEAM-001` V3 · #37 hết nháp | #42 |
+| **Nguyễn Gia Đức Trung** | **Duyệt lại #35** (`APPROVED`) · **sửa #32**, merged · approve #29 #30 #38 | `dfa9ef6` · `c44ee31` |
+| **Nguyễn Gia Đức Trung** | **Hợp đồng API `11` v0** · `E7` trên app thật · `E10`/`E13` theo `DR-015` · sửa phạm vi `NFR-PERF-001` ở #26 · sửa #39, #45 theo review | #45 · `097fdee` · `f6dc950` · `fdec7bb` |
+| **Phạm Tuấn Anh** | `DR-002b` × `F5` · **`DR-015`** · luật merge đè `CHANGES_REQUESTED` cũ · đính chính `NFR-PERF-001` | `7cde4eb` · `99575df` · `0c6039f` |
+| **Phạm Tuấn Anh** | **Spike A `S6`**: `A9` ở `576×576×88` — 98,72 / 50,84 ms, 376 MB → 135,90 MB thực đo | #41 · `6f1d09b` |
+| **Phạm Tuấn Anh** | **QA-003 sơ bộ** trên 3 head của #34 · review #39 #43 #45 #29 #32 · **merge #40 #29 #30 #38 #32** · gỡ chồng nhánh #30 | `53f3325` … `10eaacb` · `44fa56a` |
+
+### Còn tồn — chuyển sang Day 9
+
+Xem [`day08/DAY08_EOD_REVIEW.md`](day08/DAY08_EOD_REVIEW.md) §13. Nhiều nhất và quan trọng nhất: **Vũ Hùng Anh duyệt lại
+#34** — đó là mắt xích duy nhất còn giữ `GATE-DATA-01`.
 
 ---
 

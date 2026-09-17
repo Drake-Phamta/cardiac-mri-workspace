@@ -271,6 +271,46 @@ today:
       note: "Day 7 anh chốt ĐẠT 4/4 theo nội dung. Hôm nay ba quyết định và hai lượt merge của anh nằm trên đường tới `GATE-DATA-01`; QA soi lại Spike D là bước cuối cùng trước khi `SPIKE_C1` được mở khoá."
 
 history:
+  - day: 8
+    date: "2026-09-17"
+    status: good
+    title: "Bốn điều kiện đạt đúng hạn, năm PR merge, A9 đo ở kích thước thật — và critical path dừng ở một lượt duyệt lại"
+    summary: "Đạt 4/4 theo chữ và đúng hạn, không cần ngoại lệ về giờ. Nhưng chuỗi duyệt #34 → merge → QA → GATE-DATA-01 dừng ở lượt duyệt lại, nên cổng mở sang ngày thứ chín. Chuỗi bốn ngày phần việc của Khánh land sau nửa đêm đã dừng. Buffer giữ −1."
+    done:
+      - who: hunganh
+        what: "**Duyệt #34 lúc 11:07**, kèm phát hiện chặn sắc hơn cả QA · **picking `B3`/`B4`** · **`geometry_contract_version`** + checker trong CI · approve #40 · device probe"
+        ref: "9e839ef · #43 · #44"
+      - who: khanh
+        what: "**#40 hết nháp, base `main`, merged** · **tuyên bố loại trừ `A17`** + `package_findings` · trả lời review #34 ba lần — **tất cả trước 12:00** · kế hoạch C1 + `TC-TEAM-001` V3"
+        ref: "133f1a0 · 6fcc087 · #42"
+      - who: trung
+        what: "**Approve #35** · **sửa #32 (merged)** · approve #29 #30 #38 · **hợp đồng API `11` v0** · sửa nhãn `NFR-PERF-001` ở #26 · sửa #39 và #45 theo review"
+        ref: "dfa9ef6 · #45 · 097fdee"
+      - who: tuananh
+        what: "**`DR-002b`×`F5`** · **`DR-015`** · đính chính `NFR-PERF-001` · **Spike A `S6`**: `A9` 98,72 / 50,84 ms ở `576×576×88`, 376 MB → **135,90 MB** thực đo"
+        ref: "7cde4eb · 99575df · #41"
+      - who: tuananh
+        what: "**QA-003 sơ bộ**: 36 DEFECT + zip-slip → 6 DEFECT · 0 trường định danh tuỳ biến trên 462 header · `DR-002b` kiểm chứng độc lập · **5 merge**: #40 #29 #30 #38 #32 · review #39 #43 #45"
+        ref: "53f3325 · 10eaacb · c44ee31"
+    missed:
+      - who: hunganh
+        what: "**Chưa duyệt lại #34** sau bản sửa 11:40 — mắt xích duy nhất còn giữ `GATE-DATA-01` · chưa duyệt lại #26 · #43 còn 2 lỗi · không hoạt động sau 12:00"
+      - who: trung
+        what: "Không hoạt động tới **17:26** · #45 và #43 **mâu thuẫn chuỗi phiên bản geometry** · #44 chưa duyệt"
+      - who: khanh
+        what: "**#35 đã được approve nhưng vẫn là draft** · `summary` chưa mang số anomaly · lệnh sinh lại còn `<private ZIP path>`"
+      - who: tuananh
+        what: "Chưa duyệt lại #39 và #45 sau bản sửa 22:14–22:15 · QA-003 chưa thành verdict vì #34 chưa merge"
+    decisions:
+      - "**`DR-002b` × `F5`**: điểm từng cặp ở manifest hạn chế; manifest công khai mang ngưỡng, mã case bị loại, số đếm, hash + lệnh sinh lại"
+      - "**`DR-015` = (c)**: ngân sách first-load sẽ ràng buộc nhưng **con số là của chủ Spike E** · loại tải trọn volume · per-slice là hướng V1 · bác bản prefetch `s4` đã thử"
+      - "**Merge đè `CHANGES_REQUESTED` cũ** khi phản đối cụ thể đã được xử lý và kiểm chứng, có approve của reviewer theo `DR-013` — không chuyển quyền sở hữu"
+    findings:
+      - "**Hai hợp đồng M3 mâu thuẫn**: #45 khai `GEOM_CANONICAL_V1` và bắt buộc tiền tố `GEOM_`, #43 khai `dr008a-dr012/v1.0.0` — chuỗi của #43 **bị #45 từ chối**"
+      - "**Cửa sổ cache ±3 không chặn được bộ nhớ**: Fresco giữ mọi bitmap đã decode — phải chặn chính cache ảnh"
+      - "**Không tiêu chí nào trong `A1`–`A20` trượt vì trùng nội dung**, kể cả MRI trùng byte vắt qua Training/Testing"
+      - "**`summary` của manifest không đổi một chữ số** khi số anomaly đi 0 → 2 → 4"
+      - "**Project Control tự đính chính sáu lần trong ngày**, gồm hai lần nói sai với người duyệt về `A17` — tất cả ghi công khai"
   - day: 7
     date: "2026-09-16"
     status: good

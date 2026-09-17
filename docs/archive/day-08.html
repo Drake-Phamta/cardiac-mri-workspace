@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 8 · 2026-09-17 · Cardiac MRI Workspace</title>
+<meta name="description" content="Lưu trữ Day 8: Bốn điều kiện đạt đúng hạn, năm PR merge, A9 đo ở kích thước thật — và critical path dừng ở một lượt duyệt lại">
+<link rel="stylesheet" href="../board.css">
+</head>
+<body>
+<div class="wrap">
+<nav class="nav">
+<a href="../index.html">Hôm nay</a>
+<a href="index.html" class="on">Các ngày trước</a>
+</nav>
+<header class="top amber">
+  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · lưu trữ</p>
+  <h1><span class="day">DAY 8</span> — 17/09/2026</h1>
+  <div class="phase" style="background:var(--panel-2);color:var(--ink-2);border-color:var(--line)">
+    <span class="st ok">ĐẠT</span> &nbsp; Bốn điều kiện đạt đúng hạn, năm PR merge, A9 đo ở kích thước thật — và critical path dừng ở một lượt duyệt lại</div>
+  <p class="sub">Đạt 4/4 theo chữ và đúng hạn, không cần ngoại lệ về giờ. Nhưng chuỗi duyệt #34 → merge → QA → GATE-DATA-01 dừng ở lượt duyệt lại, nên cổng mở sang ngày thứ chín. Chuỗi bốn ngày phần việc của Khánh land sau nửa đêm đã dừng. Buffer giữ −1.</p>
+</header>
+
+<section><h2><span class="num">1</span> Đã xong — có bằng chứng truy được</h2>
+  <ul><li><strong>Vũ Hùng Anh</strong> — <strong>Duyệt #34 lúc 11:07</strong>, kèm phát hiện chặn sắc hơn cả QA · <strong>picking <code>B3</code>/<code>B4</code></strong> · <strong><code>geometry_contract_version</code></strong> + checker trong CI · approve #40 · device probe <code>9e839ef · #43 · #44</code></li><li><strong>Bế Quốc Khánh</strong> — <strong>#40 hết nháp, base <code>main</code>, merged</strong> · <strong>tuyên bố loại trừ <code>A17</code></strong> + <code>package_findings</code> · trả lời review #34 ba lần — <strong>tất cả trước 12:00</strong> · kế hoạch C1 + <code>TC-TEAM-001</code> V3 <code>133f1a0 · 6fcc087 · #42</code></li><li><strong>Nguyễn Gia Đức Trung</strong> — <strong>Approve #35</strong> · <strong>sửa #32 (merged)</strong> · approve #29 #30 #38 · <strong>hợp đồng API <code>11</code> v0</strong> · sửa nhãn <code>NFR-PERF-001</code> ở #26 · sửa #39 và #45 theo review <code>dfa9ef6 · #45 · 097fdee</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong><code>DR-002b</code>×<code>F5</code></strong> · <strong><code>DR-015</code></strong> · đính chính <code>NFR-PERF-001</code> · <strong>Spike A <code>S6</code></strong>: <code>A9</code> 98,72 / 50,84 ms ở <code>576×576×88</code>, 376 MB → <strong>135,90 MB</strong> thực đo <code>7cde4eb · 99575df · #41</code></li><li><strong>Phạm Tuấn Anh</strong> — <strong>QA-003 sơ bộ</strong>: 36 DEFECT + zip-slip → 6 DEFECT · 0 trường định danh tuỳ biến trên 462 header · <code>DR-002b</code> kiểm chứng độc lập · <strong>5 merge</strong>: #40 #29 #30 #38 #32 · review #39 #43 #45 <code>53f3325 · 10eaacb · c44ee31</code></li></ul></section>
+
+<section><h2><span class="num">2</span> Còn tồn hoặc trượt</h2>
+  <ul><li><strong>Vũ Hùng Anh</strong> — <strong>Chưa duyệt lại #34</strong> sau bản sửa 11:40 — mắt xích duy nhất còn giữ <code>GATE-DATA-01</code> · chưa duyệt lại #26 · #43 còn 2 lỗi · không hoạt động sau 12:00</li><li><strong>Nguyễn Gia Đức Trung</strong> — Không hoạt động tới <strong>17:26</strong> · #45 và #43 <strong>mâu thuẫn chuỗi phiên bản geometry</strong> · #44 chưa duyệt</li><li><strong>Bế Quốc Khánh</strong> — <strong>#35 đã được approve nhưng vẫn là draft</strong> · <code>summary</code> chưa mang số anomaly · lệnh sinh lại còn <code>&lt;private ZIP path&gt;</code></li><li><strong>Phạm Tuấn Anh</strong> — Chưa duyệt lại #39 và #45 sau bản sửa 22:14–22:15 · QA-003 chưa thành verdict vì #34 chưa merge</li></ul></section>
+
+<section><h2><span class="num">3</span> Quyết định ghi trong ngày</h2><ul><li><strong><code>DR-002b</code> × <code>F5</code></strong>: điểm từng cặp ở manifest hạn chế; manifest công khai mang ngưỡng, mã case bị loại, số đếm, hash + lệnh sinh lại</li><li><strong><code>DR-015</code> = (c)</strong>: ngân sách first-load sẽ ràng buộc nhưng <strong>con số là của chủ Spike E</strong> · loại tải trọn volume · per-slice là hướng V1 · bác bản prefetch <code>s4</code> đã thử</li><li><strong>Merge đè <code>CHANGES_REQUESTED</code> cũ</strong> khi phản đối cụ thể đã được xử lý và kiểm chứng, có approve của reviewer theo <code>DR-013</code> — không chuyển quyền sở hữu</li></ul></section>
+<section><h2><span class="num">4</span> Phát hiện đổi kế hoạch</h2><ul><li><strong>Hai hợp đồng M3 mâu thuẫn</strong>: #45 khai <code>GEOM_CANONICAL_V1</code> và bắt buộc tiền tố <code>GEOM_</code>, #43 khai <code>dr008a-dr012/v1.0.0</code> — chuỗi của #43 <strong>bị #45 từ chối</strong></li><li><strong>Cửa sổ cache ±3 không chặn được bộ nhớ</strong>: Fresco giữ mọi bitmap đã decode — phải chặn chính cache ảnh</li><li><strong>Không tiêu chí nào trong <code>A1</code>–<code>A20</code> trượt vì trùng nội dung</strong>, kể cả MRI trùng byte vắt qua Training/Testing</li><li><strong><code>summary</code> của manifest không đổi một chữ số</strong> khi số anomaly đi 0 → 2 → 4</li><li><strong>Project Control tự đính chính sáu lần trong ngày</strong>, gồm hai lần nói sai với người duyệt về <code>A17</code> — tất cả ghi công khai</li></ul></section>
+
+<footer>
+  <div class="links"><div class="lg-g"><b>Hôm nay</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/day08/tasks">gói nhiệm vụ Day 8</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/DAY08_EOD_REVIEW.md">EOD Day 8</a></div><div class="lg-g"><b>State</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/PROJECT_STATE.yaml">PROJECT_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/spikes/SPIKE_PHASE_STATE.yaml">SPIKE_PHASE_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">OPEN_DECISIONS</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/RISK_REGISTER_INITIAL.md">Risk register</a></div><div class="lg-g"><b>Spike</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/spikes">TASK.md từng spike</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW">bằng chứng thô Spike E</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/tests/fixtures/geometry">fixture hình học</a></div><div class="lg-g"><b>GitHub</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/actions">CI (Actions)</a> · <a href="../archive/index.html">lịch sử ngày</a></div></div>
+  <p class="inv">Bất biến lúc build: spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 0</code> ·
+     <code>evidence_present = 3</code> · <code>SPIKE_C1</code> <code>BLOCKED</code> ·
+     sinh lúc 17/09/2026 23:50 bằng <code>tools/board/build_board.py</code>.</p>
+  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
+     Trạng thái spike, gates, mốc, buffer, rủi ro, ma trận reviewer đọc thẳng từ
+     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code>; PR, review và CI đọc từ
+     GitHub API; checksum spec tính lại lúc build. Nếu một con số ở đây sai thì state file sai — kiểu
+     hỏng dễ sửa hơn nhiều so với một đoạn văn cũ. Phần viết tay duy nhất là
+     <code>tools/board/days.yaml</code>: việc của từng người và chuyện gì đã xảy ra trong ngày.</p>
+</footer>
+</div>
+</body>
+</html>
