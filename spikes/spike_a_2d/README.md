@@ -84,7 +84,8 @@ Floor vì pixel `(x,y)` phủ `[x, x+1) × [y, y+1)` dưới gốc trên-trái. 
 
 ```bash
 # 1 · sinh lại fixture (chạy hai lần phải ra checksum giống hệt)
-cd fixtures && python generate.py
+cd fixtures && python generate.py                        # mặc định 64×64×16
+cd fixtures && python generate.py --nx 576 --ny 576 --nz 88   # chặng S6: kích thước thật
 
 # 2 · kiểm conformance không cần máy
 cd ../harness && python check_conformance.py
@@ -98,6 +99,50 @@ cd ../harness && python extract_timings.py --label "release, sạc USB, 60Hz"
 # 5 · A2 (chặng S4) — trên máy: "kiểm A2" → pinch + kéo vài lần → "kiểm A2" → "A2 tự động"
 cd ../harness && python extract_a2.py --label "release, ..."
 ```
+
+### Chặng S6 — đo hai chính sách cache (quy trình đầy đủ)
+
+Một build, **hai lượt đo**, chỉ khác đúng một biến: nút chính sách cache trong app.
+
+```bash
+# trước mỗi lượt: xoá buffer để hai lượt không trộn mẫu
+python harness/extract_timings.py --clear
+
+# app đang mở → chọn chính sách → chờ "Đang nạp cache slice…" biến mất
+python harness/capture_conditions.py --phase before --out run_all_before.json
+
+#   ↳ trên máy: bấm "chạy 30 bước (A9)", đợi chạy xong (~11 giây)
+
+python harness/capture_conditions.py --phase after  --out run_all_after.json
+python harness/extract_timings.py \
+    --label "release, 576x576x88, cache=toàn bộ, sạc USB" \
+    --meminfo-before run_all_before.json \
+    --meminfo-after  run_all_after.json
+
+# lặp lại y hệt với nút "cache: cửa sổ ±3"
+```
+
+**Vì sao phải `--clear` giữa hai lượt.** `extract_timings.py` đã tự giới hạn vào lượt cuối trong buffer, và
+nó in ra khi thấy buffer chứa nhiều lượt. `--clear` là lớp phòng thứ hai, rẻ hơn là phải đọc lại bản ghi.
+
+**Đọc kết quả thế nào.** Bản ghi tách **hai** p95, và tách có lý do:
+
+| Trường | Nghĩa |
+|---|---|
+| `summary_ms_to_frame` | **mọi** bước — con số người dùng thật sự cảm thấy |
+| `scope.summary_ms_to_frame_in_window` | chỉ những bước mà slice **đã nằm trong cache** — **đây mới là con số đối chiếu được với `NFR-PERF-001`** |
+| `scope.summary_ms_to_frame_missed` | các bước nhảy ra ngoài cửa sổ — cache **miss**, *không* thuộc phạm vi `NFR-PERF-001` |
+
+Với chính sách *toàn bộ* thì mọi bước đều in-window nên hai con số trùng nhau. Với *cửa sổ ±3* thì bài 30
+bước có **22 hit và 8 miss** theo thiết kế: chuỗi điều hướng suy theo **bước di chuyển**, nên đoạn cuộn liền
+kề vẫn nằm trong cửa sổ còn tám cú nhảy thì ra ngoài — đúng kiểu một người đọc lướt stack rồi nhảy.
+
+⚠ **Gộp hai con số đó lại là sai phạm vi**, đúng loại lỗi bản ghi Day 7 mắc với `E4` của Spike E. Bản ghi để
+chúng tách nhau và ghi rõ cái nào so được với cái gì.
+
+**Không còn trường nào phải gõ tay.** `build_type` suy từ `__DEV__` do chính app báo; `conditions` và bộ nhớ
+do `capture_conditions.py` đọc thẳng từ máy; chính sách cache, `nx/ny/nz` và chuỗi bước đọc từ dòng
+`SPIKE_A_TIMING_RUN_START` của app. Một con số gõ tay là một con số có thể sai mà không ai kiểm được.
 
 **Chặng S4 — zoom/pan (A2), 14/09.** Hai ngón = pinch-zoom quanh điểm giữa hai ngón; một ngón = kéo; chạm
 nhẹ = hiện pixel gốc dưới ngón tay. Zoom/pan chỉ đổi **transform hiển thị** `{zoom, panX, panY}`; mask gốc
@@ -122,13 +167,14 @@ offline bằng `node harness/test_viewer_math.mjs` (F4).
 |---|---|---|
 | **F1** | Fixture toàn vẹn — shape, checksum, trường DR-008a | **ok** |
 | **F2** | Pixel kỳ vọng tính lại độc lập, 60/60 khớp | **ok** |
-| **F3** | Marker định hướng đúng bốn góc trên cả 16 slice | **ok** |
+| **F3** | Marker định hướng đúng bốn góc trên **mọi** slice | **ok** |
 | **F4** | Toán transform của app (`viewerMath.js`) — SHA-256, base64, 60 ca ánh xạ, zoom quanh điểm | **ok** 6/6 |
 | A1 | Slice render đúng, hiện `n / total` | một phần — xem `RESULT.md` |
 | A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
 | A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
 | A3 A4 A5 A6 A7 A8 | brush · undo/redo · save/reload · mapping sau zoom/pan | **chưa dựng** — chặng S5/S6 |
 | A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** |
+| **S6** | Cache có giới hạn — `A9` ở **độ sâu thật** với hai chính sách | **dụng cụ đã dựng 17/09** — xem §Chặng S6 |
 
 `F2` tồn tại vì `generate.py` và `check_conformance.py` **không dùng chung code**: generator ghi pixel kỳ
 vọng, checker suy ra lại từ công thức trong fixture rồi so. Một cài đặt tự kiểm chính nó thì không chứng

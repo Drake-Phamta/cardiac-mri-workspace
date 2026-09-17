@@ -39,20 +39,33 @@ import zlib
 # zoom/pan are meaningful. Nz = 16 gives a 30-step navigation test real
 # back-and-forth movement rather than a trivial loop.
 NX, NY, NZ = 64, 64, 16
+NZ_DEFAULT = NZ                  # the depth the historical A9 runs used
 SEED = 2024                      # same seed the project uses for splits
 
-# Nx and Ny are overridable from the command line so A9 can be re-measured at the
-# REAL cohort slice size. Spike D's package, opened 2026-09-11, shows 576x576 and
-# 640x640 in-plane - between 81x and 100x the pixels of the 64x64 default, which
-# is why the first A9 result carries a scope limit saying it must be redone.
+# Nx, Ny and Nz are overridable from the command line so A9 can be re-measured at
+# the REAL cohort dimensions. Spike D's package, opened 2026-09-11, shows 576x576
+# and 640x640 in-plane - between 81x and 100x the pixels of the 64x64 default, and
+# 88 slices deep against this default's 16.
 #
-# Nz stays 16. The A9 navigation sequence indexes slices 0..15, and changing two
-# variables at once would make the two runs incomparable. One variable moves.
+#     python generate.py --nx 576 --ny 576              # stage S4/S5: in-plane only
+#     python generate.py --nx 576 --ny 576 --nz 88      # stage S6: real depth too
 #
-#     python generate.py --nx 576 --ny 576
+# WHY --nz WAS ADDED (2026-09-17, stage S6). The rule used to be "Nz stays 16, one
+# variable moves", because changing two at once makes two runs incomparable. That
+# rule was right for S4/S5 and it still holds WITHIN a comparison. S6 compares two
+# CACHE POLICIES against each other - whole-volume prewarm versus a bounded window -
+# and both sides of that comparison run on the same fixture, so exactly one variable
+# still moves. Depth has to be real for the comparison to mean anything: the 376 MB
+# figure in RESULT.md is 4.3 MB/slice MEASURED over 16 slices and then MULTIPLIED by
+# 88. S6 exists to replace that multiplication with a measurement.
 #
-# A 576x576 fixture is roughly 7 MB of JSON and is NOT committed: .gitignore
-# excludes it, and the run records the sha256 plus this command instead.
+# The A9 navigation sequence is no longer a literal 0..15 list. App.js derives it
+# from Nz and the derivation is the identity when Nz = 16, so the historical runs
+# stay directly comparable.
+#
+# A 576x576x16 fixture is roughly 7 MB of JSON; 576x576x88 is roughly 38 MB. Neither
+# is committed: .gitignore excludes them and the run records the sha256 plus the
+# exact command instead.
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -257,16 +270,34 @@ def build_brush_cases():
 
 
 def main():
-    global NX, NY
+    global NX, NY, NZ
     import argparse
     ap = argparse.ArgumentParser(description="Generate the Spike A fixture set.")
     ap.add_argument("--nx", type=int, default=NX, help="in-plane width  (default 64)")
     ap.add_argument("--ny", type=int, default=NY, help="in-plane height (default 64)")
+    ap.add_argument("--nz", type=int, default=NZ,
+                    help="slice count (default 16; the cohort is 88 - see stage S6)")
     args = ap.parse_args()
+
+    if args.nz < 2:
+        ap.error("--nz must be at least 2; a navigation test needs somewhere to navigate")
 
     if (args.nx, args.ny) != (NX, NY):
         NX, NY = args.nx, args.ny
-        print(f"  in-plane size overridden to {NX}x{NY} (Nz stays {NZ})")
+        print(f"  in-plane size overridden to {NX}x{NY}")
+    if args.nz != NZ:
+        NZ = args.nz
+        print(f"  slice count overridden to Nz={NZ} (default {NZ_DEFAULT})")
+        print(f"  NOTE: App.js derives the 30-step A9 sequence from Nz. The derivation is")
+        print(f"        the identity at Nz={NZ_DEFAULT}, so earlier runs stay comparable.")
+
+    est = NX * NY * NZ * 2 * 4 // 3        # 2 volumes (data+mask), base64 ~4/3
+    if est > 20_000_000:
+        print(f"  WARNING: this fixture will be roughly {est/1e6:.0f} MB of JSON.")
+        print(f"           It is bundled into the JS bundle by a static import, so the")
+        print(f"           app carries it in memory before a single bitmap is decoded.")
+        print(f"           That cost is part of what stage S6 is measuring - but if the")
+        print(f"           build or the launch fails, this is the first thing to suspect.")
 
     vol_b64, vol_digests, vol_png = build_volume()
     mask_b64, mask_digests, mask_png = build_mask()

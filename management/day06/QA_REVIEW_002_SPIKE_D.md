@@ -173,6 +173,32 @@ người review có ZIP tự dựng lại rồi so hash.
 5. Nếu làm trong #34 mà lỡ mốc **12:00** thì tách thành PR riêng; PR đó **phải merge trước khi Spike D được QA soi lại**,
    vì `F5` là phát hiện chặn nghiệm thu.
 
+### 9.1 · `DR-002b` × `F5` — leader phán 17/09
+
+Hai quyết định cùng ngày 16/09 va nhau đúng một chỗ. `DR-002b` **(c)+(d)** buộc công bố **danh sách case bị loại
+kèm điểm tương quan** — đó là căn cứ của một quyết định khoa học. `F5` **thu hẹp** lại đẩy **điểm từng cặp** sang
+manifest hạn chế. Nên #35 in `RESTRICTED_BY_F5` ở đúng cột điểm, và Trung không duyệt tiếp được.
+
+**Phán quyết: điểm từng cặp nằm ở manifest hạn chế** — nhất quán với `F5`, vì khi chưa đọc được điều khoản của
+chính bản phát hành thì thu hẹp còn sửa lại được, phát tán rồi thì không.
+
+**Đổi lại, manifest public phải mang đủ phần còn lại để _audit được quyết định mà không cần điểm_:**
+
+| Trường bắt buộc trong manifest public | Vì sao |
+|---|---|
+| **Ngưỡng `r ≥ 0.75` khai thành một trường**, không phải một câu trong tài liệu | `DR-002b` (c) đòi ngưỡng **khai trước mọi lượt train**; ở trong manifest thì lịch sử commit chứng minh được điều đó, ở trong văn xuôi thì không |
+| **Mã của mọi case bị loại** và **mã của mọi nhóm** *(4 nhóm; `CASE_0133` kéo theo `CASE_0117`)* | người đọc kiểm được luật áp **đồng đều**, không có ngoại lệ lặng lẽ |
+| **Số đếm**: tập con **20 / 38 / 78**, **train hiệu dụng 78** | khớp chéo với danh sách loại — sai lệch một case là lộ ra ngay |
+| **Hash manifest hạn chế** + **lệnh sinh lại** nó từ bản ZIP | người có ZIP dựng lại **từng điểm số** rồi so hash ⇒ tính tái lập không mất |
+
+**Cách đọc:** người review có ZIP thì kiểm được **mọi con số**; người không có ZIP vẫn kiểm được hai điều quan
+trọng nhất — luật đã **khai trước** khi train, và đã áp **đồng đều**. Điều `F5` bảo vệ là *giá trị từng file*,
+không phải *quy tắc*; quy tắc thì phải công khai, nếu không thì `DR-002b` (d) — công bố giới hạn — thành rỗng.
+
+**Việc của Khánh:** thêm bốn nhóm trường trên vào split manifest public trong #35. **Việc của Trung:** ba phép
+kiểm khi duyệt lại — ngưỡng khai trước *(kiểm bằng lịch sử commit, không bằng lời trong file)*, luật áp đồng đều,
+số đếm khớp danh sách loại — và **không giữ PR chỉ vì cột điểm in `RESTRICTED_BY_F5`**.
+
 ---
 
 ## 10 · Tái lập
