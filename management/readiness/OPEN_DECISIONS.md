@@ -1447,7 +1447,7 @@ made.
 |---|---|
 | **Raised** | 2026-09-17 · Project Control, at the leader's instruction |
 | **Source** | `RA-H13` (**HIGH**), `IMPLEMENTATION_READINESS_AUDIT.md` §RA-H13; `SPIKE_E_TRANSPORT/TASK.md:32-35` |
-| **Status** | ⏳ **OPEN — awaiting the leader** |
+| **Status** | ✅ **DECIDED — option (c), 2026-09-17, Phạm Tuấn Anh** |
 | **Affected requirement IDs** | `ADR-ART-001`, `NFR-PERF-001`, `NFR-PERF-004`, `PR-MRI-01`, `PR-CACHE-01`, `TC-PERF-001`, `TC-PERF-004`, `16` §2 hero flow |
 | **Blocks** | `ADR-ART-001` (cannot be justified without a criterion) · the V1 client's transport design · Spike E's `E10` |
 
@@ -1510,6 +1510,79 @@ so "add caching" is not yet a known answer.
 
 **If deferred.** `ADR-ART-001` stays unjustifiable, Spike E cannot close `E10`, and the V1 client picks a
 transport strategy by default rather than by decision.
+
+### Decided outcome — 2026-09-17, Phạm Tuấn Anh: **(c), both limbs**
+
+A target with no strategy is a number picked in the dark; a strategy with no target repeats the gap that
+raised `RA-H13`. Both limbs are decided together, and both are **provisional with named confirmation
+conditions** rather than frozen, because `E8` is explicitly partial — one evening window, started 21:50.
+
+#### Limb 1 — a first-load budget will exist. **The leader does not write the number.**
+
+The leader decides that an uncached-fetch / first-load budget **becomes a binding project target with a
+matching acceptance test**, recorded here under `00` §13. The spec stays frozen; this is not an edit to
+`04`.
+
+**Who sets the number: Nguyễn Gia Đức Trung, not Project Control and not the leader.** `SPIKE_E/TASK.md`
+§161 makes `E10` — *"a proposed first-load performance budget with a measurable target, suitable to become
+an NFR + acceptance test via `00` §13"* — a deliverable of the spike, and §196 states that `E10`, `E11`
+and `E13` **are written by him**. The leader decides **on** his proposal. Anyone else authoring the figure
+would be computing another owner's spike result.
+
+His published provisional proposal — **≤ 1 000 ms p95 to the first usable per-slice PNG on `wifi-overlay`**
+— is the **starting point, not the decision**, and it is already in tension with his own later data: the
+run-4 cold open measured 445 ms p95, the 2026-09-16 evening capture measured **3 103 ms** on the 576
+profile and 1 058 ms on the 640 profile. A budget set from the faster of two captures would not survive
+the demo.
+
+**Conditions the `E10` proposal must meet to be accepted:**
+
+| # | Condition | Why |
+|---|---|---|
+| 1 | The clock's **start and stop events** are named — what counts as "first usable" — plus the device, the path, and the payload profile | `NFR-PERF-001` is enforceable because it says *cached*, *target demo device*, *30-step test*. A budget without those words is advisory |
+| 2 | States a **statistic**, and reports p50 beside it | `DEMO_STANDARD` D5: never the best run |
+| 3 | The two payload profiles are **not pooled** — a budget per profile, or one budget justified against the worse | Pooling hid nothing yet only because he separated them; keep it that way |
+| 4 | Comes with the **acceptance test** that checks it, in `TC-` form | `RA-H13` asks for "a matching acceptance test", otherwise the budget is advisory |
+| 5 | Names the **time-of-day spread** it still lacks (`E8` partial) as a stated limitation | The 445 vs 3 103 ms gap above is exactly this risk |
+
+**Identifier.** Recorded as **`PERF-FIRSTLOAD-01`** with acceptance test **`TC-PERF-FIRSTLOAD-01`**,
+deliberately outside the `NFR-PERF-00x` / `TC-PERF-00x` ranges so nobody mistakes it for a frozen-spec
+requirement. If `docs/specs/v1.1/**` is ever opened, it is the candidate to become `NFR-PERF-005`.
+
+#### Limb 2 — `ADR-ART-001` direction, decided on the measurement
+
+| Strategy | Ruling | Evidence |
+|---|---|---|
+| **Whole-volume transfer** (`s3`) | ❌ **EXCLUDED** — and not only on speed | p50 **338,9 s** / **121,4 s**; and per-gesture full-volume traffic is precisely what **`NFR-PERF-001` limb 2 forbids**. Two independent reasons, so this does not reopen if the network improves |
+| **Per-slice endpoint** (`s1`) | ✅ **The V1 direction** | Best measured on the acceptance path: `E4` navigation p95 2 864 / 1 844 ms, cold open 445 ms (run-4) |
+| **Prefetch window** (`s4`) | ⚠ **The idea is not excluded; the tested implementation is REJECTED** | p95 **28 606** / **6 181 ms** — *slower than no prefetch at all*. **No V1 code may depend on a prefetch window until a re-measured candidate beats `s1` on the same path** |
+| **Versioned artifact URL** | ◻ **Still open** — Spike E did not measure it | `11` §2 permits it; no data either way |
+
+**Provisional, not frozen.** `09` §1.1: production implementation must not lock a conflicting architecture
+before its dependent ADR is accepted. `RA-H13`: `ADR-ART-001` should not be frozen without the
+measurement. The measurement now exists but is one time window. **The ADR is frozen when `E8` has the
+time-of-day spread and `E10` has landed** — until then this ruling is what V1 designs against, and it is
+enough to stop the client picking a strategy by default.
+
+**Who drafts it.** `ADR-ART-001` sits in **Backend / Persistence / Ingestion**, which `DR-013` Axis B
+assigns to **Nguyễn Gia Đức Trung** with **Phạm Tuấn Anh** as secondary reviewer. Trung drafts, the leader
+accepts.
+
+#### What this decision explicitly does NOT do
+
+1. ⛔ **`PR-CACHE-01` stays `SHOULD`.** Its scope firewall appears verbatim in five documents. A first-load
+   *budget* is not a mandate to build a cache subsystem in V1, and nothing here raises it to `MUST` by
+   implication.
+2. **`NFR-PERF-001` is untouched.** `A9` already passes it at 65,31 / 50,23 ms p95. This DR adds a
+   requirement where none existed; it does not move an existing ceiling. `SPIKE_A_2D/TASK.md:174` forbids
+   weakening `NFR-PERF-001`/`-003` to obtain a pass, and that stands.
+3. **No spec file is edited.** `docs/specs/v1.0/**` stays frozen; 19/19 checksums unchanged.
+
+#### Sequencing
+
+`E10` needs the time-of-day spread that `E8` still lacks, so it is **not** forced into Day 8. It enters
+Trung's reserve queue today and is a **Day-9 primary candidate**; the `ADR-ART-001` draft follows `E10`.
+Neither is added to a packet that already totals ≈ 8,75 h.
 
 ---
 

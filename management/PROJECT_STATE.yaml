@@ -471,7 +471,7 @@ merged_prs_note: >
 
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
-  - {id: "RA-H13 first-load budget", waits_on: "Pham Tuan Anh", subject: "no requirement bounds the first load of a case, an uncached slice fetch or mesh delivery, so Spike E's transport numbers have nothing to be judged against and ADR-ART-001 has no criterion to be justified by. Spike E has now measured the gap: E3 uncached p95 3326/2646 ms, E4 s4 prefetch 28606/6181 ms, whole-volume s3 p50 338.9/121.4 s. Project Control drafts the Decision Request on Day 8 - add a measurable first-load NFR with a matching acceptance test, decide the transport strategy for ADR-ART-001, or both. The spec is frozen, so a Decision Request is the only route. PR-CACHE-01 stays SHOULD behind its scope firewall and must not be raised to MUST through this DR"}
+  - {id: "E10 first-load budget figure", waits_on: "Nguyen Gia Duc Trung", subject: "DR-015 decided that a first-load budget becomes binding, but SPIKE_E/TASK.md 161 and 196 make E10 the spike owner's deliverable, so the figure is his to propose and the leader's to accept. His provisional 1000 ms p95 is already in tension with his own data - 445 ms p95 in run-4 against 3103 ms in the 2026-09-16 evening capture on the 576 profile - so it needs the time-of-day spread E8 still lacks. Five stated conditions in OPEN_DECISIONS DR-015 limb 1. Reserve queue today, Day-9 primary candidate"}
   - {id: "DEMO_STANDARD panel", waits_on: "Pham Tuan Anh", subject: "whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16"}
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
   - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
@@ -491,6 +491,27 @@ decisions_made_during_execution:
     evidence: "PATIENT_LINKAGE_EVIDENCE.md in PR #35 - 154 scans from 60 patients (Xiong et al. 2021), no case-to-patient map, MRI-only screen over 11,781 pairs recovering the known duplicate at rank 1"
     gate_effect: "GATE-SPLIT-01 closes on a split manifest that implements this, reviewed by Nguyen Gia Duc Trung; 06 section 6 patient-level separation is recorded as DEVIATED WITH A DOCUMENTED EXCEPTION, not satisfied"
     record: "management/readiness/OPEN_DECISIONS.md -> Part 2b, DR-002b"
+  - id: DR-015
+    decided: "2026-09-17"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: >
+      Option (c), both limbs, provisional with named confirmation conditions because E8 is one evening
+      window. Limb 1: an uncached-fetch/first-load budget becomes a binding project target with a matching
+      acceptance test, recorded as PERF-FIRSTLOAD-01 and TC-PERF-FIRSTLOAD-01 - deliberately outside the
+      NFR-PERF-00x range so it is not mistaken for frozen spec. The FIGURE is not the leader's to write:
+      E10 is the spike owner's deliverable, so Nguyen Gia Duc Trung proposes it against five stated
+      conditions and the leader accepts or returns it. Limb 2 (ADR-ART-001 direction): whole-volume
+      transfer is EXCLUDED on two independent grounds - p50 338.9/121.4 s, and per-gesture full-volume
+      traffic is what NFR-PERF-001 limb 2 forbids; the per-slice endpoint is the V1 direction; the
+      prefetch window is not excluded as an idea but the tested s4 implementation is rejected at
+      28606/6181 ms p95, slower than no prefetch, and no V1 code may depend on a prefetch window until a
+      re-measured candidate beats s1; the versioned artifact URL stays open because Spike E did not
+      measure it. The ADR freezes when E8 has the time-of-day spread and E10 has landed. Trung drafts it
+      under DR-013 Axis B, the leader accepts. PR-CACHE-01 stays SHOULD and is not raised to MUST by
+      implication; NFR-PERF-001 is untouched and A9 already passes it; no spec file is edited.
+    evidence: "Spike E 2026-09-16 evening capture, two profiles, 171/171 each, PR #26; Spike A A9 65.31 and 50.23 ms p95 release on device; RA-H13 in IMPLEMENTATION_READINESS_AUDIT.md"
+    gate_effect: "none directly. Unblocks the V1 client's transport design and gives ADR-ART-001 the criterion RA-H13 said it lacked"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-015, Decided outcome"
   - id: "DR-002b x F5 collision"
     decided: "2026-09-17"
     decided_by: "Pham Tuan Anh - Team Leader"

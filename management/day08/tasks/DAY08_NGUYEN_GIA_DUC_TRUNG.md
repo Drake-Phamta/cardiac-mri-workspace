@@ -57,7 +57,8 @@
 
 | Việc | Giờ | Xong khi |
 |---|---|---|
-| **`E10`, `E11`, `E13`** — `DR-006a` rev 2 bắt buộc **chính bạn** viết: ngân sách first-load (`E10`, đóng `RA-H13`), bộ artifact fallback tối thiểu + số MB trên máy (`E11`), khuyến nghị `ADR-ART-001` (`E13`) | ~1,5 h | ba mục trong nháp `RESULT.md` |
+| **`E10`, `E11`, `E13`** — `DR-006a` rev 2 và `SPIKE_E/TASK.md:196` bắt buộc **chính bạn** viết. ⭐ **Leader vừa quyết `DR-015` (c) lúc 10:15: ngân sách first-load sẽ là mục tiêu ràng buộc có acceptance test — nhưng _con số là của bạn_, leader không viết hộ.** Đề xuất tạm của bạn (≤ 1 000 ms p95) đang **mâu thuẫn với chính dữ liệu của bạn**: run-4 đo 445 ms p95, còn buổi tối 16/09 đo **3 103 ms** trên hồ sơ 576. **Năm điều kiện để `E10` được duyệt** *(đủ ở `OPEN_DECISIONS` → `DR-015` limb 1)*: ① nêu rõ **sự kiện bắt đầu và kết thúc** đồng hồ + máy + đường truyền + hồ sơ payload · ② nêu **thống kê**, kèm p50 · ③ **không gộp hai hồ sơ** · ④ kèm **acceptance test** dạng `TC-` · ⑤ ghi rõ còn thiếu **khung giờ ban ngày** (`E8`). Mã đã đặt sẵn: `PERF-FIRSTLOAD-01` / `TC-PERF-FIRSTLOAD-01`. **`E13` giờ đã có khung**: `DR-015` limb 2 đã loại **tải trọn volume** (hai lý do độc lập), chọn **per-slice là hướng V1**, **bác bản prefetch `s4` đã thử** (28 606 / 6 181 ms — chậm hơn không prefetch), và để mở **artifact URL** vì chưa ai đo | ~1,5 h | ba mục trong nháp `RESULT.md` |
+| ⚠ **`E10` không ép vào hôm nay** — nó cần khung giờ mà `E8` còn thiếu, và packet của bạn đã ~8,75 h. Đây là **ứng viên việc chính Day 9**; bản thảo `ADR-ART-001` *(khối của bạn theo `DR-013` Axis B, leader là secondary)* đi sau `E10` | — | — |
 | **Khung giờ ban ngày cho `E8`** — hiện mới có một khung tối, và khung đó lại bắt đầu 21:50 chứ không phải 21:00 | ~30 ph | ghi vào kế hoạch đo |
 
 ---
