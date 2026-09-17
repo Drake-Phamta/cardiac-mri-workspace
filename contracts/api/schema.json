@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cardiac-mri-workspace.local/contracts/api-contract-11-draft-v0.schema.json",
+  "title": "Backend/mobile API Contract 11 (DRAFT v0)",
+  "description": "Schema-first semantic/API contract; not a production server implementation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract", "contract_version", "base_path", "geometry_contract",
+    "errors", "endpoints", "artifact_rules", "revision_rules", "fixture_rules"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "contract": { "const": "api_contract_11" },
+    "contract_version": { "const": "DRAFT v0" },
+    "base_path": { "const": "/api/v1" },
+    "geometry_contract": { "$ref": "#/$defs/geometry_contract" },
+    "errors": {
+      "type": "array",
+      "minItems": 15,
+      "items": { "$ref": "#/$defs/error_definition" }
+    },
+    "endpoints": {
+      "type": "array",
+      "minItems": 27,
+      "items": { "$ref": "#/$defs/endpoint" }
+    },
+    "artifact_rules": { "$ref": "#/$defs/artifact_rules" },
+    "revision_rules": { "$ref": "#/$defs/revision_rules" },
+    "fixture_rules": { "$ref": "#/$defs/fixture_rules" }
+  },
+  "$defs": {
+    "geometry_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "validation_status_field", "required_response_fields",
+        "invalid_geometry_error"
+      ],
+      "properties": {
+        "version": { "type": "string", "pattern": "^GEOM_[A-Z0-9._-]+$" },
+        "validation_status_field": { "const": "geometry_validation_status" },
+        "required_response_fields": {
+          "type": "array",
+          "const": [
+            "geometry_contract_version", "geometry_validation_status",
+            "shape", "index_convention", "spacing", "origin", "direction"
+          ],
+          "items": { "type": "string" }
+        },
+        "invalid_geometry_error": { "const": "GEOMETRY_NOT_VALIDATED" }
+      }
+    },
+    "error_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "http_status", "message_template"],
+      "properties": {
+        "code": {
+          "enum": [
+            "CASE_NOT_FOUND", "SLICE_OUT_OF_RANGE", "ARTIFACT_NOT_FOUND",
+            "GROUND_TRUTH_UNAVAILABLE", "INVALID_REVIEW_TRANSITION",
+            "STALE_REVISION", "IMMUTABLE_ARTIFACT", "GEOMETRY_NOT_VALIDATED",
+            "GEOMETRY_MISMATCH", "RUN_NOT_DEPLOYABLE", "RUN_NOT_SUCCEEDED",
+            "NON_COMPARABLE_EXPERIMENTS", "ANALYSIS_FAILED", "VALIDATION_ERROR",
+            "UNAUTHORIZED"
+          ]
+        },
+        "http_status": { "type": "integer", "minimum": 400, "maximum": 599 },
+        "message_template": { "type": "string", "minLength": 1 }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "method", "path", "semantic", "response_kind", "response_fields",
+        "errors", "geometry_response", "revision_required", "artifact_write",
+        "ground_truth_behavior", "notes"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH"] },
+        "path": { "type": "string", "pattern": "^/api/v1/[a-zA-Z0-9_{}?=&./-]+$" },
+        "semantic": { "type": "string", "minLength": 1 },
+        "response_kind": { "enum": ["JSON", "BINARY", "ARTIFACT_REFERENCE", "ERROR_OR_JSON"] },
+        "request_fields": { "type": "array", "items": { "type": "string" } },
+        "response_fields": { "type": "array", "items": { "type": "string" } },
+        "errors": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "geometry_response": { "type": "boolean" },
+        "revision_required": { "type": "boolean" },
+        "artifact_write": { "type": "boolean" },
+        "ground_truth_behavior": {
+          "enum": ["NOT_APPLICABLE", "REQUIRED", "ERROR_IF_ABSENT", "AVAILABILITY_DECLARED"]
+        },
+        "immutability": {
+          "enum": ["NOT_APPLICABLE", "READ_ONLY", "WORKING_ONLY", "NEW_VERSION"]
+        },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifact_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "immutable_kinds", "never_overwrite_kinds", "raw_prediction_kind",
+        "processed_prediction_kind", "reviewed_mask_kind", "ground_truth_missing_behavior"
+      ],
+      "properties": {
+        "immutable_kinds": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "never_overwrite_kinds": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "raw_prediction_kind": { "const": "RAW_PREDICTION_MASK" },
+        "processed_prediction_kind": { "const": "PROCESSED_PREDICTION_MASK" },
+        "reviewed_mask_kind": { "const": "REVIEWED_MASK" },
+        "ground_truth_missing_behavior": { "const": "GROUND_TRUTH_UNAVAILABLE" }
+      }
+    },
+    "revision_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_revision_field", "etag_header", "stale_error_code",
+        "mutating_methods", "last_write_wins_allowed"
+      ],
+      "properties": {
+        "expected_revision_field": { "const": "expected_revision" },
+        "etag_header": { "const": "ETag" },
+        "stale_error_code": { "const": "STALE_REVISION" },
+        "mutating_methods": {
+          "type": "array", "const": ["PATCH", "PUT", "POST_COMMIT"],
+          "items": { "type": "string" }
+        },
+        "last_write_wins_allowed": { "const": false }
+      }
+    },
+    "fixture_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generated_from_schema", "handwritten_fixtures_allowed", "generator"],
+      "properties": {
+        "generated_from_schema": { "const": true },
+        "handwritten_fixtures_allowed": { "const": false },
+        "generator": { "const": "generate_fixture.py" }
+      }
+    }
+  }
+}
