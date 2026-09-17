@@ -140,7 +140,13 @@ real app run supplies the evidence and the owner/leader accepts the threshold.
 PNG on `wifi-overlay`, subject to confirmation over several times of day and
 both A6 payload profiles. The run measured s1 at 445 ms p95 for the cold-open
 sample; the whole-volume strategy is not viable for first load (101,698 ms p95).
-This target is a proposal, not a frozen NFR.
+This target is a proposal, not a frozen NFR. **It is withdrawn as an
+acceptance threshold pending DR-015.** Run-4 measured 445 ms p95, while the
+2026-09-16 evening capture measured 3,103 ms (`576x576x88`) and 1,058 ms
+(`640x640x88`) for cold-open s1. The eventual `TC-PERF-FIRSTLOAD-01` must
+declare the clock start/end event, device/build/uplink/profile, p50 and p95,
+keep the two profiles separate, and state the missing daytime E8 window. No
+number here is a frozen NFR or acceptance verdict.
 
 ### E11 — minimal connectivity fallback
 
@@ -152,10 +158,14 @@ full offline mode or backend-on-phone.
 
 ### E13 — strategy recommendation
 
-Prefer per-slice PNG on demand (s1) as the baseline transport. Do not transfer
-the whole volume per gesture. Treat prefetch s4 as optional only after another
-design/measurement pass; its run-4 p95 was 1,318 ms. Keep mask and mesh as
-separate, explicitly sized artifact requests.
+Prefer per-slice PNG on demand (s1) as the V1 baseline. DR-015 rejects
+whole-volume transfer (`s3`) for first load because its evening p50 was
+338,905 ms and 121,447 ms across the two profiles, and it independently
+violates limb 2 of `NFR-PERF-001`. The measured prefetch window (`s4`) is also
+rejected for V1: its evening p95 was 28,606 ms and 6,181 ms, slower than the
+corresponding uncached per-slice path. Keep mask and mesh as separate,
+explicitly sized artifact requests. A versioned artifact URL remains open for
+a future implementation because it has not been measured here.
 
 ## 5. Criteria status
 
