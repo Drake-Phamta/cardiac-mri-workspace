@@ -60,6 +60,7 @@ import {
   Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { WebView } from 'react-native-webview';
 
 import volume from '../fixtures/volume_synthetic.json';
 import maskFx from '../fixtures/mask_synthetic.json';
@@ -103,6 +104,73 @@ function maskBytes() {
   if (_maskBytes === null) _maskBytes = maskFx.slices_b64.map(base64ToBytes);
   return _maskBytes;
 }
+
+// --- S7: WebView container for Spike B (GATE-MOB-01 measurement direction) ---
+// Leader decision 2026-09-18: B10/B11 are measured INSIDE this React Native app
+// rather than in Chrome, so one candidate carries evidence for both the brush
+// (Spike A) and 3D (Spike B), as 09 section 7 requires.
+//
+// This container is TRANSPORT ONLY. It loads Vu Hung Anh's Spike B viewer over
+// `adb reverse tcp:8765 tcp:8765` and forwards whatever the page posts to
+// logcat under TAG_WEBVIEW. It computes no B number: B10/B11 come from the
+// owner's own probe, and he interprets them.
+//
+// The environment probe below answers one question before anyone builds on this
+// direction: does the system WebView on the A17 give a real, hardware WebGL2
+// context, or a software fallback that would make every frame-time meaningless?
+const WEBVIEW_URL = 'http://127.0.0.1:8765/app/';
+const TAG_WEBVIEW = 'SPIKE_B_WEBVIEW';
+
+// Installed before the page's own scripts run, so load-time errors are caught.
+const WEBVIEW_BEFORE_LOAD_JS = `
+(function () {
+  function post(obj) {
+    try { window.ReactNativeWebView.postMessage(JSON.stringify(obj)); } catch (e) {}
+  }
+  window.addEventListener('error', function (ev) {
+    post({ kind: 'webview_error', message: String(ev.message), source: ev.filename || null, line: ev.lineno || null });
+  });
+  window.addEventListener('unhandledrejection', function (ev) {
+    post({ kind: 'webview_rejection', reason: String(ev.reason) });
+  });
+  ['log', 'warn', 'error'].forEach(function (level) {
+    var orig = console[level];
+    console[level] = function () {
+      post({ kind: 'webview_console', level: level, args: [].slice.call(arguments).map(String) });
+      if (orig) { orig.apply(console, arguments); }
+    };
+  });
+})();
+true;
+`;
+
+// Runs after load: reports what kind of GL context this WebView really provides.
+const WEBVIEW_ENV_JS = `
+(function () {
+  var out = {
+    kind: 'webview_env', ts: Date.now(), url: location.href, ua: navigator.userAgent,
+    viewport: [window.innerWidth, window.innerHeight], dpr: window.devicePixelRatio,
+    canvases_on_page: document.querySelectorAll('canvas').length
+  };
+  try {
+    var c = document.createElement('canvas');
+    var gl = c.getContext('webgl2');
+    out.webgl2 = !!gl;
+    if (gl) {
+      out.gl_version = gl.getParameter(gl.VERSION);
+      out.glsl_version = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+      var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      out.renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+      out.vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+      out.max_texture_size = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+      var attrs = gl.getContextAttributes();
+      out.antialias = attrs ? attrs.antialias : null;
+    }
+  } catch (e) { out.error = String(e); }
+  window.ReactNativeWebView.postMessage(JSON.stringify(out));
+})();
+true;
+`;
 
 // Log tags the harness scripts grep for. Keep them stable.
 const TAG = 'SPIKE_A_TIMING';
@@ -191,6 +259,7 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [showMask, setShowMask] = useState(true);
   const [policy, setPolicy] = useState(POLICY_ALL);
+  const [showWebView, setShowWebView] = useState(false);
 
   const t0 = useRef(null);
   const pending = useRef(null);
@@ -482,11 +551,56 @@ export default function App() {
 
   const reset = () => { setSamples([]); console.log(`${TAG}_RESET`); };
 
+  // S7: the WebView REPLACES the 2D harness while open, so the 2D screen - its
+  // cached bitmaps, its timers - is unmounted and cannot run underneath a 3D
+  // frame-time measurement.
+  if (showWebView) {
+    return (
+      <View style={s.wvRoot}>
+        <StatusBar style="light" />
+        <View style={s.wvBar}>
+          <TouchableOpacity
+            style={s.wvBack}
+            onPress={() => { console.log(`${TAG_WEBVIEW}_CLOSE`); setShowWebView(false); }}
+          >
+            <Text style={s.wvBackT}>◀ 2D</Text>
+          </TouchableOpacity>
+          <Text style={s.wvTitle} numberOfLines={1}>Spike B · WebView · {WEBVIEW_URL}</Text>
+        </View>
+        <WebView
+          style={s.wvView}
+          source={{ uri: WEBVIEW_URL }}
+          originWhitelist={['*']}
+          javaScriptEnabled
+          domStorageEnabled
+          mixedContentMode="always"
+          androidLayerType="hardware"
+          setSupportMultipleWindows={false}
+          injectedJavaScriptBeforeContentLoaded={WEBVIEW_BEFORE_LOAD_JS}
+          injectedJavaScript={WEBVIEW_ENV_JS}
+          onLoadEnd={(e) => console.log(`${TAG_WEBVIEW}_LOADED ${JSON.stringify({ url: e.nativeEvent.url, loading: e.nativeEvent.loading })}`)}
+          onError={(e) => console.log(`${TAG_WEBVIEW}_ERROR ${JSON.stringify(e.nativeEvent)}`)}
+          onHttpError={(e) => console.log(`${TAG_WEBVIEW}_HTTP_ERROR ${JSON.stringify({ url: e.nativeEvent.url, status: e.nativeEvent.statusCode })}`)}
+          onMessage={(e) => console.log(`${TAG_WEBVIEW} ${e.nativeEvent.data}`)}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={s.root}>
       <StatusBar style="light" />
       <Text style={s.h1}>SPIKE_A · 2D viewer harness</Text>
       <Text style={s.sub}>React Native / Expo candidate · fixture {NX}×{NY}×{NZ}</Text>
+
+      {/* S7 — opens the Spike B viewer inside this app (GATE-MOB-01 direction). */}
+      <View style={s.row}>
+        <Btn
+          label="3D · WebView (B10/B11)"
+          onPress={() => { console.log(`${TAG_WEBVIEW}_OPEN ${JSON.stringify({ url: WEBVIEW_URL })}`); setShowWebView(true); }}
+          disabled={running}
+        />
+      </View>
 
       {/* S6 — the cache itself. Under 'all' this mounts every slice once and
           never unmounts one. Under 'window' it mounts z +/- WINDOW_RADIUS and
@@ -635,6 +749,12 @@ function Btn({ label, onPress, disabled, primary }) {
 }
 
 const s = StyleSheet.create({
+  wvRoot: { flex: 1, backgroundColor: '#000', paddingTop: 40 },
+  wvBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#0e1116' },
+  wvBack: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#1c2430', marginRight: 10 },
+  wvBackT: { color: '#e8eaed', fontSize: 14, fontWeight: '600' },
+  wvTitle: { color: '#8b939b', fontSize: 11, fontFamily: 'monospace', flex: 1 },
+  wvView: { flex: 1, backgroundColor: '#000' },
   root: { flex: 1, backgroundColor: '#0e1116', paddingTop: 48, paddingHorizontal: 14 },
   h1: { color: '#e8eaed', fontSize: 18, fontWeight: '700' },
   sub: { color: '#8b939b', fontSize: 12, marginBottom: 10, fontFamily: 'monospace' },
