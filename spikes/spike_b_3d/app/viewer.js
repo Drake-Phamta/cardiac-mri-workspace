@@ -24,10 +24,12 @@ uniform mat4 uProjection;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vWorld;
+out float vSourceZ;
 void main() {
   vec4 world = uModel * vec4(aPosition, 1.0);
   vNormal = mat3(uModel) * aNormal;
   vWorld = world.xyz;
+  vSourceZ = aPosition.z;
   gl_Position = uProjection * world;
 }`;
 
@@ -35,9 +37,12 @@ const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec3 vNormal;
 in vec3 vWorld;
+in float vSourceZ;
 uniform vec3 uLight;
 uniform vec3 uColor;
 uniform bool uShading;
+uniform float uSliceZ;
+uniform bool uSliceActive;
 out vec4 outColor;
 void main() {
   vec3 normal = normalize(vNormal);
@@ -51,6 +56,10 @@ void main() {
   // while keeping surface contours readable against the dark MRI-style field.
   vec3 color = uColor * (0.34 + 0.62 * diffuse + 0.18 * rim)
              + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
+  // A narrow band marks the physical axial plane selected in the linked MPR
+  // panes. It is a surface-intersection cue, never a fabricated contour.
+  float planeBand = 1.0 - smoothstep(0.0, 1.6, abs(vSourceZ - uSliceZ));
+  if (uSliceActive) color = mix(color, vec3(1.0, 0.72, 0.16), planeBand * 0.92);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -128,7 +137,9 @@ function setup(gl, mesh) {
     model: gl.getUniformLocation(program, 'uModel'),
     light: gl.getUniformLocation(program, 'uLight'),
     color: gl.getUniformLocation(program, 'uColor'),
-    shading: gl.getUniformLocation(program, 'uShading') };
+    shading: gl.getUniformLocation(program, 'uShading'),
+    sliceZ: gl.getUniformLocation(program, 'uSliceZ'),
+    sliceActive: gl.getUniformLocation(program, 'uSliceActive') };
 }
 
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
@@ -151,6 +162,7 @@ let pinchState = null;
 let geometry = null;
 let tapCandidate = false;
 let interactionMoved = false;
+let sliceWorldZ = null;
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -186,6 +198,8 @@ function draw() {
   gl.uniform3f(renderer.light, -1.8, 2.6, 3.2);
   gl.uniform3f(renderer.color, 0.31, 0.77, 0.82);
   gl.uniform1i(renderer.shading, shading ? 1 : 0);
+  gl.uniform1f(renderer.sliceZ, sliceWorldZ || 0);
+  gl.uniform1i(renderer.sliceActive, sliceWorldZ === null ? 0 : 1);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
   requestAnimationFrame(draw);
@@ -286,6 +300,11 @@ fitButton.addEventListener('click', () => { yaw = -0.55; pitch = 0.35; distance 
 shadeButton.addEventListener('click', () => {
   shading = !shading;
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
+});
+window.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data || data.type !== 'set-slice-world-z' || !Number.isFinite(data.z)) return;
+  sliceWorldZ = data.z;
 });
 
 Promise.all([
