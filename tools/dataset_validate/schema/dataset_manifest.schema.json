@@ -81,6 +81,28 @@
       }
     },
     "case_count_total": { "type": "integer", "minimum": 0, "description": "Criterion A2" },
+    "source_package_observation": {
+      "type": "object",
+      "description": "Archive size and SHA-256 recomputed by --archive rather than trusted from acquisition JSON.",
+      "required": ["name", "size_bytes", "sha256"],
+      "properties": {
+        "name": { "type": "string" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "package_findings": {
+      "type": "array",
+      "description": "Files/layout anomalies outside the direct case-file inventory.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path_relative"],
+        "properties": {
+          "kind": { "enum": ["NESTED_CASE_DIRECTORY", "NESTED_FILE_IN_CASE_DIRECTORY", "ORPHAN_REQUIRED_FILE", "FILE_OUTSIDE_CASE_DIRECTORY", "DUPLICATE_CASEFOLD_PATH"] },
+          "path_relative": { "type": "string" }
+        }
+      }
+    },
     "partitions": {
       "type": "object",
       "description": "Criterion A2 and A12. Keyed by the partition directory name as released.",

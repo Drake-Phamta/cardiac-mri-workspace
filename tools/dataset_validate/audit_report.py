@@ -271,6 +271,15 @@ def render(manifest: dict, results: list, summary: dict) -> str:
                 for item in f:
                     privacy.append(f"`{c['case_id']}` / {role} — header key `{item['key']}` "
                                    f"matched `{item['matched_pattern']}`")
+    for group in manifest.get("duplicate_evidence") or []:
+        anomalies.append("identical bytes across cases: `" + group["file"] + "` — "
+                         + ", ".join("`" + cid + "`" for cid in group["case_ids"])
+                         + "; exact checksum retained in the restricted manifest")
+    for finding in manifest.get("package_findings") or []:
+        anomalies.append(
+            f"package layout `{finding.get('kind')}` — "
+            f"`{finding.get('path_relative')}`"
+        )
     add(f"**Anomalies: {len(anomalies)}**")
     add("")
     for a in anomalies[:40]:
@@ -293,7 +302,9 @@ def render(manifest: dict, results: list, summary: dict) -> str:
 
     sidecars = [f"`{c['case_id']}/{name}`" for c in cases
                 for name in (c.get("non_nrrd_sidecars") or [])]
-    add(f"**Non-NRRD sidecars in case directories: {len(sidecars)}**")
+    sidecars += [f"`{item.get('path_relative')}`" for item in
+                 (manifest.get("package_findings") or [])]
+    add(f"**Non-NRRD / package-layout findings: {len(sidecars)}**")
     add("")
     for item in sidecars[:40]:
         add(f"- {item}")
