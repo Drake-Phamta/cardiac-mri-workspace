@@ -56,9 +56,12 @@ outlier removal. There were 171 samples: 171 successful, 0 failed.
 | E6 mesh level 2 | 3 | 124.80 | 324 | 544 | 544 |
 | E6 mesh level 3 | 3 | 513.93 | 876 | 948 | 948 |
 
-`NFR-PERF-001` is 200 ms p95 for navigation. Both measured navigation
-strategies exceed it in this run; this is an honest failed target, not a reason
-to remove the tail or relabel the run.
+These E4 values are uncached workstation HTTP measurements, not the cached
+slice-switching test on the target demo device required by `NFR-PERF-001`, so
+they do not establish an `NFR-PERF-001` pass/fail. E4 itself does fail for the
+candidate prefetch strategy: s4 p95 is 1,318 ms versus 504 ms for per-slice
+s1. Keep the tail and label the finding honestly; do not relabel it as an NFR
+result.
 
 ## 3A. 2026-09-16 evening capture (profile-separated)
 
@@ -95,9 +98,14 @@ are synthetic A6-shaped bytes, so these are transport measurements only.
 | E5 mask s2 | 39 | 50.00 | 311 | 812 | 1,147 |
 | E6 mesh levels 0/1/2/3 | 12 | 7.25/29.70/124.80/513.93 | 288/270/402/1,043 | 321/310/402/1,399 | 321/310/402/1,399 |
 
-For both profiles `NFR-PERF-001` (E4 p95 <= 200 ms) is exceeded: s1/s4 are
-2,864/28,606 ms and 1,844/6,181 ms respectively. E12 is observed as
-`DIRECT` from the phone to the Mac mini during the capture. E8 remains partial:
+For both profiles, E4's candidate prefetch strategy fails its own comparison:
+s4 is slower than the corresponding uncached per-slice s1 (p95 **28,606** vs
+**2,864** ms for 576 and **6,181** vs **1,844** ms for 640). These are uncached
+workstation HTTP measurements, so they do not establish an `NFR-PERF-001`
+pass/fail; that frozen requirement covers cached target-device navigation.
+Whole-volume s3 independently violates limb 2 of `NFR-PERF-001`, while the
+uncached first-load path has no bound and remains `RA-H13` / `DR-015`. E12 is
+observed as `DIRECT` from the phone to the Mac mini during the capture. E8 remains partial:
 this is one evening window (the run began at 21:50, outside the planned
 21:00 +/- 15-minute window), so no time-of-day spread claim is made.
 
