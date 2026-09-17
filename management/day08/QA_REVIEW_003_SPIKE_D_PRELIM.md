@@ -195,5 +195,87 @@ bao phủ của bộ tiêu chí, không phải lỗi cài đặt — và nó là
 
 ---
 
+## 8 · CẬP NHẬT 11:55 — hai script cần ZIP đã chạy. Đối chứng độc lập **khớp**.
+
+`independent_census.py` đọc thẳng 2,2 GB archive: **không qua `pynrrd`, không qua validator**, tự stream và
+tự phân tích header. 462 NRRD trong **233 giây**.
+
+### 8.1 · Điều tra bản thân gói — sạch
+
+| Kiểm | Kết quả |
+|---|---|
+| dung lượng giải nén | **14,19 GiB** · 465 entry: 462 `.nrrd` · 2 `.py` · 1 `.ini` |
+| **tên đáng ngờ** (tuyệt đối, `..`, backslash, ổ đĩa) | **`[]` — không có** |
+| tên trùng · tên trùng khi bỏ qua hoa thường | **`[]` · `[]`** |
+| entry mã hoá | **0** |
+| thư mục case lồng trong thư mục case khác | **`[]`** |
+| **file KHÔNG nằm trong thư mục case** | **đúng hai**: `preprocess_data.py` (5 076 B) · `Unet.py` (6 456 B) |
+| thư mục case | **154** — `Testing Set` **54** · `Training Set` **100** |
+| bộ tên file mỗi case | 153 case `{laendo, lawall, lgemri}` · **1 case** thêm `desktop.ini` |
+
+> Hai điều đáng chú ý. **Một:** archive thật **không có** entry traversal nào — nên lỗ `S28` mà QA-003 tìm ra
+> là **rủi ro tiềm năng**, không phải thứ đang xảy ra với gói này; nó vẫn phải vá, và đã vá. **Hai:** "đúng
+> hai file ngoài thư mục case" nay được xác nhận **độc lập**, khớp chính xác `package_findings` của manifest.
+
+`desktop.ini` — 66 byte, `[.ShellClassInfo]`, đúng một khoá `LocalizedResourceName`, **không có đường dẫn
+ổ đĩa, không có SID**. Có ký tự `@`, gần như chắc chắn là tham chiếu tài nguyên kiểu
+`@%SystemRoot%\system32\shell32.dll,-21787` chứ không phải email — **nhưng chủ spike nên xác nhận bằng mắt**,
+vì đây là thứ duy nhất trong gói có hình dạng giống một chuỗi định danh.
+
+### 8.2 · Điều tra header — không có định danh ẩn nào
+
+Đếm trên **toàn bộ 462 file**:
+
+| Trường | Giá trị | Số file |
+|---|---|---:|
+| magic | `NRRD0004` | 462 |
+| `type` | `unsigned char` | 462 |
+| `dimension` | `3` | 462 |
+| `space` | `left-posterior-superior` | 462 |
+| `space directions` | **`(1,0,0) (0,1,0) (0,0,1)`** | 462 |
+| `space origin` | **`(0,0,0)`** | 462 |
+| `sizes` | `640 640 88` · `576 576 88` | **255** · **207** |
+| **`key:=value` tuỳ biến** | **không có trường nào** | **0** |
+| comment | chỉ `standard teem comment` | 924 |
+
+> **`key:=value` = 0 là kết quả có ý nghĩa nhất ở đây.** NRRD cho phép trường tuỳ biến, và đó chính là chỗ
+> một định danh bệnh nhân sẽ nằm nếu có. **Không file nào có một trường nào.** Đây là bằng chứng độc lập cho
+> `A17`, mạnh hơn phép kiểm allowlist vì nó **đếm toàn bộ**, không dựa vào danh sách cấm.
+
+### 8.3 · Đối chiếu với manifest — khớp chính xác
+
+| | manifest khai | census độc lập |
+|---|---|---|
+| `[640, 640, 88]` | **85** case | 255 file ÷ 3 = **85** |
+| `[576, 576, 88]` | **69** case | 207 file ÷ 3 = **69** |
+| tổng | 154 | **154** |
+| căn trục | `A14` `PASS` 308/308 | **462/462 ma trận đơn vị** |
+| dtype | `A5` `uint8` ×154 | **`unsigned char` ×462** |
+| gốc toạ độ | `A9` "cùng gốc" 154 | **`(0,0,0)` ×462** |
+
+`A5`, `A6`, `A9`, `A14` và toàn bộ điều tra case đều **được xác nhận độc lập**, tính từ byte thô chứ không
+đọc lại manifest.
+
+### 8.4 · `F5` chặn script thứ ba
+
+`Z5` — bước duy nhất của `independent_census` cần đối chiếu hash — dừng đúng chỗ:
+
+```text
+File "independent_census.py", line 192
+    if r["sha256"] == v["sha256"]:
+KeyError: 'sha256'
+```
+
+Vậy là **ba** script QA (`recompute_manifest`, `duplicate_mask_pair`, `independent_census`) đều không chạy
+hết trên artifact công khai. Mọi lượt QA sau này phải dùng ZIP hoặc manifest hạn chế. **Đây là hệ quả đúng
+của `F5`, không phải lỗi** — nhưng nó đáng được ghi vào chính `F5` để lần sau không ai mất thời gian.
+
+### 8.5 · Còn lại
+
+`near_duplicates.py` và `duplicate_mask_pair.py` cần sửa để **băm lại từ ZIP** thay vì đọc `sha256` của
+manifest. Đó là việc còn lại trước khi QA-003 chuyển từ **sơ bộ** sang **verdict**.
+
+---
+
 **Tái lập:** worktree `aaccae6`, `6fcc087` và `ed9c6c0`; bản sao script ở scratchpad `qa003/` và `qa003_40/`, khác bản
 gốc `management/day06/qa002/` **chỉ ở hằng số đường dẫn** — bản gốc là hồ sơ QA-002 và không bị sửa.
