@@ -1,7 +1,8 @@
 # QA-003 — Spike D, lượt soi lại độc lập · **SƠ BỘ** · 2026-09-17
 
-**Người chạy:** Project Control cho Phạm Tuấn Anh · **Bắt đầu:** 11:14 · **Đối tượng:** PR #34 `aaccae6`,
-đối chiếu với `main` `a92892c` và với PR #40 `ed9c6c0`.
+**Người chạy:** Project Control cho Phạm Tuấn Anh · **Bắt đầu:** 11:14 · **Đối tượng:** PR #34 — chạy lần đầu trên `aaccae6`,
+chạy lại trên `6fcc087` sau khi tác giả đẩy ba commit lúc 11:12–11:20 — đối chiếu với `main` `a92892c`
+và PR #40 `ed9c6c0`. **§1 đã được giải quyết; xem §7.**
 
 > ### ⚠ ĐÂY LÀ BẢN SƠ BỘ, KHÔNG PHẢI VERDICT
 >
@@ -133,5 +134,66 @@ chạy. Cũng chưa thấy `--restricted-manifest-out` trong lệnh công bố d
 
 ---
 
-**Tái lập:** worktree `aaccae6` và `ed9c6c0`; bản sao script ở scratchpad `qa003/` và `qa003_40/`, khác bản
+## 7 · CẬP NHẬT 11:45 — #34 đã nhảy sang `6fcc087`, và phần lớn §1 không còn áp dụng
+
+Trong lúc lượt này chạy, Vũ Hùng Anh gửi review lúc **11:07** và Bế Quốc Khánh đẩy **ba commit**:
+`5d2ecbf` *(đưa phần hardening vào #34)* · `98dc4fa` *(sinh lại audit toàn gói)* · `6fcc087` *(ghi tuyên bố
+loại trừ `A17`)*. Leader merge **#40** lúc **11:37**. Chạy lại đúng bộ 33 kịch bản trên head mới:
+
+| | `main` `a92892c` | #34 cũ `aaccae6` | **#34 mới `6fcc087`** | #40 `ed9c6c0` |
+|---|---:|---:|---:|---:|
+| **DEFECT** | — | 36 | **6** | 6 |
+| **ZIPSLIP** | — | 1 | **0** | 0 |
+| OK | — | 22 | **52** | 52 |
+
+> **§1 đã được giải quyết.** Head mới của #34 sạch ngang #40: hết zip-slip, ZIP hỏng CRC cho `rc=2` thay vì
+> sập, `A1` kiểm checksum gói thật *(`source_package_observation.sha256 = bee5ee5b…`, khớp ZIP
+> 2 200 962 438 byte)*, `A20` bắt được manifest gõ tay. Khuyến nghị *"#34 và #40 về cùng nhau"* **đã được
+> thực hiện theo cách tốt hơn**: #40 rebase thẳng lên `main` và merge độc lập, còn #34 lấy phần hardening vào.
+
+### Phát hiện chặn của reviewer đã được xử lý
+
+Vũ Hùng Anh nêu: *"`scan_package` và `scan_archive` chỉ thu file trong thư mục case trực tiếp… manifest không
+có `package_findings`… `A17 PASS` không phải một lượt audit toàn gói."* Head mới có:
+
+- hai trường mới ở cấp cao nhất: **`package_findings`** và **`source_package_observation`**;
+- `package_findings` liệt kê `Unet.py` và `preprocess_data.py` với `kind: FILE_OUTSIDE_CASE_DIRECTORY`;
+- **`A17`** đổi tiêu đề thành *"Metadata audit against the privacy allowlist"* và liệt kê **cả ba** đường dẫn
+  kèm xử trí: *"explicitly excluded from ingestion/app metadata. Raw archive remains untouched."*;
+- **`A15`** lên **4 anomaly**, thêm hai `FILE_OUTSIDE_CASE_DIRECTORY`.
+
+`A17` giờ là `PASS` chứ không phải `FAIL` như review yêu cầu — nhưng review nói *"retain `A17` as `FAIL`
+**until each unexpected path has an explicit, policy-compliant disposition**"*, và xử trí đó **nay đã có**.
+**Đây là quyết định của reviewer, không phải của QA.**
+
+### 🔴 Một phát hiện của §2 vừa được củng cố từ nghi ngờ thành bằng chứng ba điểm
+
+| bản | số anomaly `A15` | khối `summary` |
+|---|---:|---|
+| `main` `a92892c` | **0** | `pass 16 · fail 0 · not_run 1 · machine_checks_clean false` |
+| #34 cũ `aaccae6` | **2** | **giống hệt** |
+| #34 mới `6fcc087` | **4** | **giống hệt** |
+
+> Số bất thường đi **0 → 2 → 4** — bao gồm một phát hiện `CRITICAL` (`F1`) và hai file lạ ở gốc gói — mà
+> **khối `summary` không đổi một chữ số nào**. Một người đọc, hoặc một cổng, chỉ đọc `pass/fail` thì không
+> phân biệt được ba bản này.
+>
+> **Đề nghị cụ thể, rẻ:** thêm `anomalies: 4` *(và `package_findings: 2`)* vào `summary`. Hiện
+> `machine_checks_clean` là `false` ở **cả ba bản** nên nó không phân biệt được gì.
+
+### Hai defect vẫn sống sót, không đổi
+
+`S23` *(mask byte-identical giữa hai case — mô phỏng đúng `CASE_0056`/`CASE_0097`)* và `S24` *(MRI
+byte-identical vắt qua Training/Testing — rò rỉ train/test)* vẫn cho `A15 PASS`, `A16 PASS` trên **cả** head
+mới **và** #40. **Không tiêu chí nào trong `A1`–`A20` trượt vì hai case trùng nội dung.** Đây là khoảng trống
+bao phủ của bộ tiêu chí, không phải lỗi cài đặt — và nó là thứ `GATE-SPLIT-01` sinh ra để chặn.
+
+### Còn lại không đổi
+
+`F5` vẫn cắt đứt khả năng tái lập `F1` từ artifact công khai *(§3)*; lệnh sinh lại vẫn còn chỗ trống
+`<private …>` *(§4)*; ba script cần ZIP vẫn chưa chạy *(§6)*.
+
+---
+
+**Tái lập:** worktree `aaccae6`, `6fcc087` và `ed9c6c0`; bản sao script ở scratchpad `qa003/` và `qa003_40/`, khác bản
 gốc `management/day06/qa002/` **chỉ ở hằng số đường dẫn** — bản gốc là hồ sơ QA-002 và không bị sửa.
