@@ -31,7 +31,7 @@
 | A6 | Undo tái lập trạng thái trước | `NOT MEASURED` | chặng S5 |
 | A7 | Redo tái lập trạng thái đã undo | `NOT MEASURED` | chặng S5 |
 | A8 | Save/reload tái lập đúng nét sửa | `NOT MEASURED` | chặng S5 |
-| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO HAI LẦN — đạt ngưỡng ở cả hai** | `64×64`: **65,31 ms** · **`576×576` (thật): 50,23 ms**. Kèm phát hiện bộ nhớ **376 MB ngoại suy** cho 88 slice. Xem §Kết quả A9 |
+| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO NĂM LẦN — đạt ngưỡng ở cả năm** | `64×64×16`: **65,31 ms** · `576×576×16`: **50,23 ms** · **`576×576×88` (kích thước cohort thật, 17/09):** cache toàn bộ **98,72 ms**, cửa sổ ±3 **50,84 ms** trong cửa sổ / **102,73 ms** khi miss. Xem §Kết quả A9 và §Chặng S6 |
 | A10 | Phản hồi brush ≤ 100 ms, 0 nét mất | `NOT MEASURED` | chưa dựng brush — chặng S5 |
 | A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | chặng S7 |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
@@ -95,22 +95,25 @@ Nếu đúng thì đây là dữ kiện có giá trị cho `GATE-MOB-01`: với 
 
 **≈ 4,3 MB graphics mỗi slice** (volume + mask overlay, đã decode sang bitmap).
 
-**Ngoại suy tới độ sâu THẬT của cohort — 88 slice:**
+**Ngoại suy tới độ sâu THẬT của cohort — 88 slice, ghi ngày 12/09:**
 
 ```text
 4,3 MB/slice × 88 slice  ≈  376 MB graphics memory
 ```
 
-> **Chiến lược "prewarm toàn bộ volume" KHÔNG co giãn tới dữ liệu thật.** 376 MB là con số đáng lo
-> ngay cả khi graphics memory nằm ngoài heap Java 256 MB mà profile DR-006 đã cảnh báo.
+> ### ❌ Con số 376 MB này SAI. Đã thay bằng số đo thật ngày 17/09 — xem §Chặng S6.
 >
-> Điều này **không làm hỏng con số `A9`** — `A9` hỏi về slice *đã cache*, và với 16 slice thì chúng
-> đã cache thật. Nhưng nó nói rằng **một viewer thật không thể cache cả volume**, nên nó sẽ phải
-> decode theo yêu cầu — và lúc đó `A9` **sẽ** nhạy với kích thước slice theo cách lần đo này không
-> thấy được.
+> Thực đo ở `576×576×88`: **135,90 MB bitmap** cho cả volume, tức **1,54 MB/slice**, không phải
+> 4,3 MB/slice. Ngoại suy lệch **2,8 lần**. Đoạn trên giữ nguyên để thấy bản ghi đã nói gì và sai
+> ở đâu, không xoá dấu vết.
 >
-> **Đây là việc tiếp theo của Spike A, và nó quan trọng hơn phần brush:** đo `A9` với một cache có
-> giới hạn (ví dụ cửa sổ ±3 slice) thay vì cache toàn bộ. Đó mới là hành vi của ứng dụng thật.
+> Hai nguyên nhân của sai số, cả hai đều là **lỗi phương pháp chứ không phải lỗi thiết bị**:
+> ① lần đo 12/09 lấy `Graphics` thô, mà `Graphics` **còn tính cả surface cửa sổ** của màn hình
+> 1080×2340 — ngày 17/09 đo được nền đó là **23,03 MB** khi app chưa nạp slice nào, và phải trừ đi;
+> ② nhân một chi phí đo ở 16 slice lên 88 slice giả định chi phí mỗi slice không đổi, mà nó có đổi.
+>
+> Điều phần trên nói **đúng** và vẫn đứng: *một viewer thật không thể prewarm cả volume*. Chỉ là lý
+> do đúng hơn không phải "376 MB quá lớn" — xem §Chặng S6 để biết lý do thật.
 
 ### Định nghĩa đang đo là gì
 
@@ -138,6 +141,116 @@ chính anh cắm và mở khoá. Chủ sở hữu Spike A là Phạm Tuấn Anh;
    tả được biến động giữa các lần.
 3. **`Nz = 16`, độ sâu thật là 88.** Giữ cố định có chủ ý để cô lập biến kích thước slice — nhưng nó
    chính là lý do con số bộ nhớ ở trên phải **ngoại suy** thay vì đo trực tiếp.
+
+---
+
+## Chặng S6 — cache có giới hạn, đo ở kích thước cohort thật *(17/09, 10:22–10:41)*
+
+`576×576×88` — **lần đầu `A9` được đo ở cả kích thước trong mặt phẳng lẫn độ sâu thật.** Một build
+release, ba lượt đo, **chỉ một biến đổi giữa các lượt**: chính sách cache. Mọi trường trong bản ghi đều
+do máy sinh: `build_type` suy từ `__DEV__` **do chính app báo**, bộ nhớ và điều kiện do
+`harness/capture_conditions.py` đọc thẳng từ máy, chính sách và `nx/ny/nz` đọc từ dòng
+`SPIKE_A_TIMING_RUN_START` của app. **Không trường nào gõ tay.**
+
+| Lượt | Chính sách | Cache lúc bắt đầu | p95 mọi bước | p50 | **p95 trong cửa sổ** | p95 khi **miss** | graphics sau | TOTAL PSS sau |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| 1 | `toàn bộ` (88) | nguội *(app vừa khởi động)* | **98,72 ms** | 50,45 | 98,72 *(30/30)* | — | 158,93 MB | 507,32 MB |
+| 2 | `cửa sổ ±3` | ⚠ **ấm** — lượt 1 đã nạp cả 88 | 115,21 ms | 34,79 | 51,05 *(22/30)* | 115,26 *(8/30)* | 101,34 MB | 408,39 MB |
+| 3 | `cửa sổ ±3` | **nguội thật** | 100,74 ms | 49,40 | **50,84** *(22/30)* | **102,73** *(8/30)* | 107,72 MB | 411,19 MB |
+
+Nền so sánh: app vừa mở, **chưa chọn chính sách, chưa nạp slice nào** — `Graphics` **23,03 MB**,
+`TOTAL PSS` **239,82 MB**. Đó là surface cửa sổ + UI, phải trừ khỏi mọi con số `Graphics`.
+
+### `A9` đạt ở kích thước thật, cả hai chính sách
+
+98,72 ms và 50,84 ms so với trần **200 ms**. Trước hôm nay `A9` mới chỉ đo ở **16** slice, nên câu hỏi
+"có đạt khi stack sâu thật không" chưa ai trả lời được.
+
+**Độ lặp lại tốt:** p95 trong cửa sổ của lượt 2 và lượt 3 — hai lần chạy độc lập, khởi đầu khác hẳn nhau
+— lệch **0,21 ms** (51,05 và 50,84).
+
+### Chi phí bitmap thật, và vì sao 376 MB sai
+
+| | `Graphics` sau | trừ nền 23,03 | số slice thực nạp | **MB/slice** |
+|---|---:|---:|---:|---:|
+| cửa sổ ±3, vừa nạp xong *(z=0 → 4 slice)* | 30,42 MB | **7,39 MB** | 4 | **1,85** |
+| toàn bộ volume | 158,93 MB | **135,90 MB** | 88 | **1,54** |
+
+Hai phép đo **độc lập** đồng ý nhau quanh **1,5–1,9 MB/slice**, và khớp mức lý thuyết của một bitmap
+`576×576` ARGB_8888 (**1,27 MB**) cộng phần phụ. Con số **4,3 MB/slice** của bản ghi 12/09 cao gấp hơn ba
+lần mức lý thuyết — dấu hiệu rõ là nó đã tính cả surface cửa sổ vào.
+
+### 🔴 Phát hiện chính, và nó ngược với điều tôi kết luận vội sau lượt 2
+
+> **Cửa sổ ±3 KHÔNG chặn được bộ nhớ.**
+
+Lượt 3 nói điều đó không thể chối: bắt đầu **nguội**, cửa sổ chỉ giữ **4 slice** (7,39 MB bitmap). Sau
+bài 30 bước, bitmap lên **84,69 MB** — tương đương **~46 slice**, trong khi cửa sổ **chưa bao giờ giữ quá
+7**. Fresco giữ lại **mọi** bitmap nó từng decode, bất kể React đã unmount component hay chưa.
+
+> **⚠ Đính chính trong ngày.** Sau lượt 2 tôi ghi *"cửa sổ ±3 nhả thật, chỉ nhả muộn"*, vì graphics tụt
+> 158,93 → 101,34 MB trong lúc chạy. **Sai.** Đó không phải chính sách cửa sổ nhả — đó là Fresco **tự
+> hạ** từ mức 158,93 MB mà lượt prewarm-toàn-bộ đã tích lại. Bằng chứng: lượt 3 đi **ngược chiều**, từ
+> 29,71 MB **lên** 107,72 MB. Hai lượt cửa sổ hội tụ về **101–108 MB dù xuất phát trái ngược nhau** —
+> đó là điểm cân bằng của cache Fresco, không phải tác dụng của chính sách.
+
+**Cửa sổ ±3 mua được gì:**
+
+| | toàn bộ | cửa sổ ±3 | chênh |
+|---|---:|---:|---:|
+| bitmap | 135,90 MB | 84,69 MB | **−38%** |
+| TOTAL PSS | 507,32 MB | 411,19 MB | **−19%** |
+| p50 | 50,45 ms | 49,40 ms | ≈ 0 |
+
+**Và không mua được gì:** một cận trên cho bộ nhớ. Bộ nhớ vẫn tăng theo **số slice khác nhau đã đi qua**.
+Người dùng lướt đủ lâu thì nó vẫn tiến về mức của cache toàn bộ.
+
+### Chi phí cache miss là thật nhưng nhỏ — và cảnh báo của tôi hoá ra không đổi con số
+
+Lượt 2 chạy trên cache Fresco đang ấm, nên 8 "miss" của nó có thể được phục vụ lại chứ không decode lại;
+tôi đã ghi rõ **115,26 ms là cận dưới, không phải chi phí thật**, và dựng lại app để đo cho sạch.
+
+Kết quả: miss **thật sự nguội** là **102,73 ms** — **thấp hơn** con số bị nghi là lạc quan. Nêu cảnh báo
+là đúng phương pháp; câu trả lời là nó **không đổi kết luận nào**. Và cả hai đều **dưới trần 200 ms**,
+dù `NFR-PERF-001` vốn không quản bước miss.
+
+### Hệ quả cho V1 và cho `GATE-MOB-01`
+
+1. **Cửa sổ ở tầng component là cần nhưng CHƯA ĐỦ.** Muốn chặn bộ nhớ thì phải chặn **chính cache ảnh**
+   — cấu hình bitmap cache của Fresco, hoặc một thư viện ảnh có chính sách cache tường minh
+   *(ví dụ `expo-image` với `cachePolicy` và `recyclingKey`)*. Đây là dữ kiện trực tiếp cho
+   `GATE-MOB-01`, và **không** phải lý do nới `NFR-PERF-001`.
+2. **Prewarm toàn bộ volume ở kích thước thật tốn 507 MB `TOTAL PSS`** — sống được vì bitmap nằm ngoài
+   heap Java, nhưng gấp đôi trần `heapgrowthlimit = 256 MB` của máy.
+3. ⛔ **Không kết luận nào ở đây nâng `PR-CACHE-01` từ `SHOULD` lên `MUST`.** Đây là số đo của một spike,
+   không phải một yêu cầu mới.
+
+### Giới hạn phạm vi của chặng S6
+
+- Payload là fixture **tổng hợp** đúng hình dạng, không phải ảnh MRI thật — kích thước và số slice thật,
+  nội dung thì không. Ảnh thật nén khác, nhưng **bitmap sau decode thì cùng kích thước**, nên con số bộ
+  nhớ không phụ thuộc nội dung; con số thời gian **decode** thì có thể.
+- Một máy, một phiên, một lượt mỗi chính sách. Pin **80% `NOT_CHARGING`** cả ba lượt *(máy tự ngắt sạc
+  để bảo vệ pin)*, nhiệt `NONE`, 32,2–32,9 °C. Chưa có khoảng tin cậy.
+- Fixture nạp bằng `import` tĩnh nên **78 MB JSON nằm trong bundle** — riêng nó đã tốn ~91 MB native
+  heap lúc app mở, trước khi decode slice nào. Ứng dụng thật sẽ tải qua mạng, nên phần này **không** áp
+  thẳng sang V1; nó là chi phí của giàn đo.
+- `mask` chỉ decode cho slice đang xem, không prewarm. Một viewer bật overlay liên tục sẽ tốn hơn.
+
+### Tái lập
+
+```bash
+cd spikes/spike_a_2d
+python fixtures/generate.py --nx 576 --ny 576 --nz 88   # 78 MB, .gitignore không theo dõi
+python harness/check_conformance.py                      # F1–F4
+cd app && npx expo run:android --variant release
+cd .. && python harness/measure_a9.py --policy all
+      && python harness/measure_a9.py --policy window
+```
+
+Bằng chứng: `EVIDENCE_RAW/a9_slice_switch_20260917T*_{all,window}.json` và ba thư mục
+`EVIDENCE_RAW/a9_conditions_*` kèm **bản `dumpsys meminfo` nguyên văn**, để ai muốn thì tự phân tích lại
+thay vì tin bộ phân tích của tôi.
 
 ---
 

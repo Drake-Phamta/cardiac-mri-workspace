@@ -309,6 +309,32 @@ spikes:
     evidence_paths_expected: [management/spikes/SPIKE_A_2D/RESULT.md]
     evidence_present: true     # RESULT.md on main carries A9 and, since the #27 merge (6ca1e21), A2 OBSERVED. Measured is not ACCEPTED
     latest_tested_commit: 6ca1e21
+    stage_s6_2026_09_17: >
+      A9 measured for the first time at the real cohort size, 576x576x88, on a release build: one build,
+      three runs, the cache policy the only variable. PASSES under both policies - 98.72 ms p95 with the
+      whole volume resident, 50.84 ms p95 in-window with a +/-3 window, against the 200 ms ceiling. The
+      two independent window runs agree to 0.21 ms at p95.
+      TWO CORRECTIONS TO THIS SPIKE'S OWN EARLIER RECORD, both method errors rather than device errors.
+      First, the 376 MB graphics extrapolation of 2026-09-12 is wrong by 2.8x: the measured cost of the
+      whole volume is 135.90 MB of bitmaps, 1.54 MB/slice, because the old figure read raw Graphics -
+      which also counts the 1080x2340 window surfaces, measured at 23.03 MB with nothing warmed - and
+      then multiplied a 16-slice cost by 88. Second, the claim made after the second run that the window
+      policy releases memory is withdrawn: the third run starts cold at 7.39 MB of bitmaps and GROWS to
+      84.69 MB over 30 steps, about 46 slices' worth, although the window never holds more than 7. Fresco
+      retains every bitmap it decodes regardless of unmount, and the two window runs converge on
+      101-108 MB from opposite directions, which is the image cache's equilibrium and not the policy's
+      doing.
+      HEADLINE FOR GATE-MOB-01: a component-level cache window is necessary but NOT sufficient. It buys
+      -38% bitmaps and -19% PSS against whole-volume prewarm, but it does not bound memory, which still
+      grows with the number of distinct slices visited. Bounding it requires bounding the IMAGE CACHE -
+      Fresco configuration, or a library with an explicit cache policy. Nothing here raises PR-CACHE-01
+      from SHOULD to MUST, and nothing here weakens NFR-PERF-001.
+      A true cold cache miss costs 102.73 ms p95, lower than the 115.26 ms measured when Fresco was warm,
+      so the confound that was flagged and then removed by a rebuild changed no conclusion.
+      Evidence: EVIDENCE_RAW/a9_slice_switch_20260917T*_{all,window}.json plus three a9_conditions_*
+      directories carrying verbatim dumpsys meminfo. Every field is machine-derived: build_type from
+      __DEV__ as the app reported it, memory and conditions from harness/capture_conditions.py, policy
+      and nx/ny/nz from the app's own run header. No field is typed in.
     environment: DEVICE_DEMO_01
     device_profile_prerequisite: true
     device_measurement_slot: 1  # FIRST in the single-device measurement queue

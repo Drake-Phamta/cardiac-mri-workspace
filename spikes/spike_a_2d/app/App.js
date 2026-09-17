@@ -33,6 +33,21 @@
  * bound the IMAGE CACHE too, not just its component tree. Either outcome is a
  * result. Neither is assumed here.
  *
+ * S6 REVISION, same day, after the first two runs. The app used to start in
+ * policy 'all' and prewarm the whole volume immediately, so by the time an
+ * operator selected 'window' the platform image cache already held every slice.
+ * The 8 "misses" in that run were therefore served by Fresco rather than decoded
+ * from scratch, and the 115 ms p95 they produced is a LOWER BOUND on the real
+ * cost of a miss, not the cost. Measured 2026-09-17 10:30; the confound was
+ * visible in the record rather than hidden, but a lower bound is not the number
+ * the V1 decision needs.
+ *
+ * The app now starts with NO policy selected and prewarms NOTHING. Whichever
+ * policy is chosen first gets a genuinely cold cache, so 'window' can be measured
+ * without 'all' having warmed the volume underneath it - and 'all' is unaffected,
+ * since selecting it on a fresh start is exactly what it did before. Fixing the
+ * start state rather than flipping a default is what makes both sides clean.
+ *
  * A9 SCOPE UNDER A BOUNDED CACHE — read this before quoting a p95. NFR-PERF-001
  * bounds "switching among ALREADY AVAILABLE/CACHED slices". Under 'all' every
  * step is such a switch. Under 'window' a jump beyond the window is a cache MISS
@@ -78,11 +93,15 @@ const MASKS = maskFx.slices_png_data_uri;
 // a 7-slice window: the current slice, plus enough either side that a short
 // forward or backward run stays resident.
 const WINDOW_RADIUS = 3;
+const POLICY_NONE = 'none';        // start state: nothing warmed, nothing held
 const POLICY_ALL = 'all';
 const POLICY_WINDOW = 'window';
 
 // Which slices a policy keeps mounted when the viewer is at z.
+// POLICY_NONE is the start state: nothing is mounted and nothing is prewarmed, so
+// the first policy an operator selects starts from a cold image cache.
 function residentSet(policy, z) {
+  if (policy === POLICY_NONE) return [];           // [] = mount nothing
   if (policy === POLICY_ALL) return null;          // null = every slice
   const lo = Math.max(0, z - WINDOW_RADIUS);
   const hi = Math.min(NZ - 1, z + WINDOW_RADIUS);
@@ -90,8 +109,11 @@ function residentSet(policy, z) {
   for (let i = lo; i <= hi; i += 1) out.push(i);
   return out;
 }
-const isResident = (policy, z, target) =>
-  policy === POLICY_ALL || Math.abs(target - z) <= WINDOW_RADIUS;
+const isResident = (policy, z, target) => {
+  if (policy === POLICY_NONE) return false;
+  if (policy === POLICY_ALL) return true;
+  return Math.abs(target - z) <= WINDOW_RADIUS;
+};
 
 // The source mask, decoded LAZILY. Read by the A2 checksum only - never by any
 // zoom, pan or rendering code. Lazy since S6: at 576x576x88 decoding every mask
@@ -190,7 +212,7 @@ export default function App() {
   const [samples, setSamples] = useState([]);
   const [running, setRunning] = useState(false);
   const [showMask, setShowMask] = useState(true);
-  const [policy, setPolicy] = useState(POLICY_ALL);
+  const [policy, setPolicy] = useState(POLICY_NONE);
 
   const t0 = useRef(null);
   const pending = useRef(null);
@@ -198,11 +220,13 @@ export default function App() {
   const wasResident = useRef(true);          // was that step a cache hit?
 
   // Under 'all' the gate is the whole volume; under 'window' it is the opening
-  // window, because the whole volume is never meant to be resident.
+  // window, because the whole volume is never meant to be resident. Under
+  // POLICY_NONE there is no gate to pass: no policy has been chosen, so measuring
+  // would answer no question at all.
   const warmTarget = policy === POLICY_ALL
     ? NZ
     : Math.min(NZ, WINDOW_RADIUS + 1);
-  const allWarmed = warmed >= warmTarget;
+  const allWarmed = policy !== POLICY_NONE && warmed >= warmTarget;
 
   // --- prewarm -------------------------------------------------------------
   // A9 measures switching among CACHED slices, so the slices a policy claims to
@@ -495,8 +519,10 @@ export default function App() {
       {!allWarmed && (
         <View style={s.warm}>
           <Text style={s.warmT}>
-            Đang nạp cache slice… {warmed}/{warmTarget}
-            {policy === POLICY_WINDOW ? `  ·  cửa sổ ±${WINDOW_RADIUS}` : '  ·  toàn bộ volume'}
+            {policy === POLICY_NONE
+              ? `Chưa chọn chính sách cache — chưa nạp slice nào. Chọn một chính sách để bắt đầu (cache nguội).`
+              : `Đang nạp cache slice… ${warmed}/${warmTarget}` +
+                (policy === POLICY_WINDOW ? `  ·  cửa sổ ±${WINDOW_RADIUS}` : '  ·  toàn bộ volume')}
           </Text>
         </View>
       )}

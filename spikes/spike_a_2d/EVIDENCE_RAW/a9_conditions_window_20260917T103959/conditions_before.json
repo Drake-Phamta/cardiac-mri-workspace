@@ -1,0 +1,51 @@
+{
+ "_what": "Device conditions and memory footprint captured by harness/capture_conditions.py. Every value below was read from the device; none was typed in.",
+ "phase": "before",
+ "captured_at": "20260917T104000+0700",
+ "serial": "R5CY931SQYZ",
+ "package": "com.cardiacmri.spikea2d",
+ "note": "before A9 run, policy=window. release, 576x576x88, COLD START (no prior prewarm), USB 80%, thermal NONE",
+ "device": {
+  "model": "SM-A176B",
+  "android_release": "16",
+  "heapgrowthlimit": "256m",
+  "heapsize": "512m"
+ },
+ "memory": {
+  "java_heap_kb": 7200,
+  "native_heap_kb": 98084,
+  "graphics_kb": 30418,
+  "code_kb": 104732,
+  "stack_kb": 860,
+  "system_kb": 7281,
+  "total_pss_kb": 258567,
+  "java_heap_mb": 7.03,
+  "native_heap_mb": 95.79,
+  "graphics_mb": 29.71,
+  "code_mb": 102.28,
+  "stack_mb": 0.84,
+  "system_mb": 7.11,
+  "total_pss_mb": 252.51
+ },
+ "battery": {
+  "level_pct": 80,
+  "status_code": 4,
+  "status": "NOT_CHARGING",
+  "usb_powered": "true",
+  "ac_powered": "false",
+  "temperature_c": 32.9
+ },
+ "thermal": {
+  "thermal_status": 0,
+  "thermal_status_name": "NONE"
+ },
+ "display": {
+  "refresh_rate_hz": 90.0,
+  "brightness_mode": "manual",
+  "brightness_raw": "255"
+ },
+ "raw": {
+  "_why": "Kept verbatim so a reader can re-parse rather than trust the parser above.",
+  "meminfo": "Applications Memory Usage (in Kilobytes):\nUptime: 751232824 Realtime: 1224442097\n\n** MEMINFO in pid 28411 [com.cardiacmri.spikea2d] **\n                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap\n                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free\n                ------   ------   ------   ------   ------   ------   ------   ------\n  Native Heap    98116    98084        4       34    99352   110344   108048     2295\n  Dalvik Heap     7222     2536     4360       16     8892    28387     3811    24576\n Dalvik Other     1200     1164       24        0     1792                           \n        Stack      860      860        0        0      868                           \n       Ashmem        9        0        0        0      536                           \n    Other dev       28        4       24        0      376                           \n     .so mmap     5178      148     1728       16    33556                           \n    .jar mmap     2167        0      648        0    26720                           \n    .apk mmap    87789      372    87100        0    89376                           \n    .ttf mmap      476        0      256        0      980                           \n    .dex mmap    14311       20    14284        0    15024                           \n    .oat mmap      582        0      160        0     9404                           \n    .art mmap     5596     3244     1420       77    20672                           \n   Other mmap       33        4        0        0      876                           \n   EGL mtrack    13354    13354        0        0    13354                           \n    GL mtrack    17064    17064        0        0    17064                           \n      Unknown     4434     4312      112        5     5100                           \n        TOTAL   258567   141166   110120      148   343942   138731   111859    26871\n \n App Summary\n                       Pss(KB)                        Rss(KB)\n                        ------                         ------\n           Java Heap:     7200                          29564\n         Native Heap:    98084                          99352\n                Code:   104732                         175076\n               Stack:      860                            868\n            Graphics:    30418                          30418\n       Private Other:     9992\n              System:     7281\n             Unknown:                                    8664\n \n           TOTAL PSS:   258567            TOTAL RSS:   343942       TOTAL SWAP PSS:      148\n \n Objects\n               Views:       45         ViewRootImpl:        1\n         AppContexts:        5           Activities:        1\n              Assets:       39        AssetManagers:        0\n       Local Binders:       16        Proxy Binders:       61\n       Parcel memory:       13         Parcel count:       46\n    Death Recipients:        0             WebViews:        0\n \n Native Allocations\n                         Count                       Total(kB)\n                        ------                         ------\n    Other (malloced):      649                             60\n Other (nonmalloced):       89                             66\n   Bitmap (malloced):       10                           6480\n \n SQL\n         MEMORY_USED:        0\n  PAGECACHE_OVERFLOW:        0          MALLOC_SIZE:        0\n \n \n"
+ }
+}
