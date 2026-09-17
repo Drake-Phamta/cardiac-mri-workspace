@@ -10,6 +10,22 @@ Thành viên: **≥ 8 h** việc thật + ~2 h dự phòng, hạn **23:59**.
 > **M4** cần đóng `GATE-DATA-01` và `GATE-SPLIT-01` để `SPIKE_C1` được chạy · **M5 bắt đầu** trong khi `GATE-MOB-01`
 > chưa thể đóng.
 
+## ✅ Đã xong trong đêm 00:48 → 02:05, trong lúc anh ngủ
+
+Chi tiết đầy đủ: [`../NIGHT_LOG.md`](../NIGHT_LOG.md). Tóm tắt để anh không phải đọc lại:
+
+| Việc trong bảng dưới | Trạng thái |
+|---|---|
+| **Việc 7 — container WebView** *(hạn 16:00)* | **xong lúc 01:16**, sớm 15 tiếng. `webgl2: true`, renderer **`Mali-G68`** (GPU thật), viewer nạp 964 ms, mesh 5 648 tam giác, xoay và chạm chọn đều chạy. PR nháp **#46** |
+| **Việc 2 — review #37, #42, #33** | **xong cả ba.** #37 và #33 `CHANGES_REQUESTED` có số liệu chạy lại thật; #42 còn nháp nên gửi ghi chú đọc trước |
+| **Việc 9 — gói `TC-TEAM-001` V1** | **xong**, gồm SCR-03, SCR-04 và ma trận trạng thái: `management/evidence/TC_TEAM_001_PHAM_TUAN_ANH.md` |
+| **QA-003 chạy trước** (chuẩn bị cho việc 3) | **xong trên `f118491`**, khớp từng số với bản ghi 17/09. Sau khi merge chỉ còn **một lượt** xác nhận |
+| **Việc 6 — `E8` 14:00** | **kiểm sức khoẻ sớm lúc 02:02: cả ba tiêu chí xanh.** Đo bằng **một lệnh**: `python management/day09/e8_capture/capture_e8.py --out <thư mục ngoài repo>` |
+| **Việc 8 — `B10`/`B11` tối** | khung phiên đã dựng và diễn tập xong: `management/day09/b10_b11_session/`. Còn chờ protocol của Hùng Anh lúc 18:00 |
+
+**Còn lại của anh hôm nay:** việc 1 (đã xong đêm qua — #45 và #39 đã merge), việc 3, 4, 5 *(đều chờ người khác)*,
+việc 6 lúc 14:00, việc 8 lúc ~20:00, việc 10 chốt ngày. **Hai lần em chệch ranh giới** được ghi ở `NIGHT_LOG.md` §3.
+
 ## 📌 Ba quyết định anh đưa ra trước khi lập kế hoạch
 
 | Quyết định | Ghi ở | Ai bị ảnh hưởng |
