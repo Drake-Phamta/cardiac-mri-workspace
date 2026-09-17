@@ -34,9 +34,12 @@
 |---|---|---|---|---|
 | **5** | **`c1_preflight.py`** theo §preflight trong `C1_MEASUREMENT_PLAN.md`: sinh `c1_preflight_<ts>.json` kiểm Spike D `ACCEPTED`, `GATE-DATA-01` và `GATE-SPLIT-01` đã đóng, manifest trên `main`, hash (manifest, màn sàng lọc hạn chế, code, preprocessing), subset **20/38/78**, `CASE_0117`/`CASE_0133` đã bị loại, không case validation/holdout nào với tới được. **Phải từ chối chạy khi gate còn mở**: kiểm bằng chính trạng thái hiện tại, ca kiểm đó phải `FAIL` | ~2 h | **máy RTX 4050 của bạn**, ZIP local. **Không cần Mac mini** | Script + ca kiểm `FAIL` khi gate mở, trên PR |
 | **6** | **Thiết kế SCR-01 và SCR-07** (trung lập công nghệ, không vi phạm `GATE-MOB-01`): ma trận trạng thái theo `10` §8 (loading / không khả dụng / đang xử lý / lỗi thử lại được / dữ liệu hỏng); bảng so sánh UNet vs DINOv2 × 25/50/100 % **kèm N**; nhãn **"không so được"** cho run không cùng quần thể đánh giá, khớp endpoint `experiment_compare` của hợp đồng API (#45) | ~2 h | không | Artifact thiết kế, gộp vào gói V3 |
-| **7** | **Phản hồi review #37** của leader (khung pipeline tổng hợp). #37 là điều kiện tiên quyết trong preflight C1 (*"`pipeline_bringup.py` merged or pinned"*) | ~30 ph | leader review (buổi sáng) | #37 `APPROVED` |
+| **7** | **Phản hồi [review #37](https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/37) — đã có lúc 01:05, `CHANGES_REQUESTED`, hai việc bắt buộc.** ① Trong `probe.DinoSeg.__init__`, nạp backbone **bên trong `torch.random.fork_rng(devices=[])`** (hoặc seed lại ngay trước khi dựng decoder): `Dinov2Model.from_pretrained` **tiêu RNG toàn cục** ở `transformers` 4.51.3, nên trọng số khởi tạo của decoder đổi theo phiên bản thư viện. Chạy lại độc lập trên GPU khác cho `loss 0,6431 · dice 0,2250` thay vì `0,7275 · 0,2885` của bạn; bọc `fork_rng` thì ra `0,7275 · 0,2884`, tức khớp lại. UNet tái lập bình thường, nên đây là đường DINOv2 · ② ghi `transformers`, `huggingface_hub` (và cuDNN khi chạy CUDA) vào `framework`, rồi **sinh lại** `EVIDENCE_RAW/c0_pipeline_bringup_20260916.json`. Không chặn merge: `selftest` in chuỗi cứng `5/5 PASS`. Trên máy bạn số **không được đổi** quá ~1e-5; đó chính là phép kiểm | ~45 ph | không (review đã có) | #37 `APPROVED` sau khi đẩy bản sửa |
 
-**Tổng phần chính: ~8,25 h.**
+**Tổng phần chính: ~8,5 h.**
+
+> Bộ đòn của lượt review, ba JSON chạy lại và cách tái lập: [`../review037/`](../review037/). QA sẽ chạy lại đúng bộ này
+> trên máy khác trước khi bất cứ thứ gì thành `ACCEPTED`, nên sửa xong là qua.
 
 > **🎯 Chuẩn demo** — [`DEMO_STANDARD.md`](../../DEMO_STANDARD.md): **H1, H2, H10 / SCR-01, SCR-07**: mọi con số trên màn
 > hình có **N** và truy được về artifact sinh ra nó (**D2**); run không so được thì **hiện nhãn**, không lặng lẽ ẩn đi.

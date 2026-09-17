@@ -19,6 +19,21 @@
 | **Review #37, #42, #33 chuyển sang leader** | Bạn bớt ba lượt review để tập trung vào #34 và #43 |
 | **SCR-04 (Error Inspector) giao cho V1** | V2 của bạn giữ nguyên SCR-05; bản đồ lỗi 3D vẫn là của bạn |
 
+## 🟢 Có sẵn trước khi bạn mở máy — container WebView đã kiểm khói xong (01:16, PR nháp [#46](https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/46))
+
+Project Control dựng container trong app Spike A và đo thử ngay trong đêm, **trước hạn 16:00**. Bốn điều bạn cần biết:
+
+| Điều | Đo được gì |
+|---|---|
+| **WebView của A17 có WebGL2 thật** | `webgl2: true`, `WebGL 2.0 (OpenGL ES 3.0 Chromium)`, `UNMASKED_RENDERER_WEBGL` = **`Mali-G68`** (ARM), `MAX_TEXTURE_SIZE` 8192. **Không phải SwiftShader**, nên frame time trong WebView là số có nghĩa |
+| **Viewer của bạn chạy nguyên trạng** | nạp xong sau **964 ms**; `level_0_cell1.obj`, 5.648 tam giác; xoay bằng `input swipe` và chạm chọn đều phản hồi (`pick: voxel 34, 24, 18 · slice 18`) |
+| **Đường vào** | `http://127.0.0.1:8765/app/` qua `adb reverse tcp:8765 tcp:8765`. Đổi URL chỉ ở một chỗ: hằng `WEBVIEW_URL` trong `App.js` |
+| **Cách gửi số ra** | **`window.ReactNativeWebView.postMessage(JSON.stringify(...))`** → logcat, tag cố định `SPIKE_B_WEBVIEW`. Nút *tải JSON* **không dùng được** trong WebView. `console.log/warn/error`, lỗi window và unhandled rejection cũng đã được chuyển tiếp sẵn |
+
+Nghĩa là việc 4 của bạn **không còn rủi ro nền tảng**: chỉ còn viết protocol và probe. Màn WebView **thay thế hẳn** màn 2D
+khi mở, nên cache ảnh và timer của Spike A không chạy dưới nền lúc đo 3D. Bằng chứng thô:
+`spikes/spike_a_2d/EVIDENCE_RAW/s7_webview_env_20260918T011618+0700.*` (JSON + logcat + hai ảnh chụp).
+
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai / cần quyền gì | Xong khi |
@@ -31,7 +46,7 @@
 
 | # | Việc | Giờ | Chờ ai / cần quyền gì | Xong khi |
 |---|---|---|---|---|
-| **4** | **Đóng gói viewer Spike B để chạy trong WebView của app RN**, phục vụ hướng `GATE-MOB-01` leader vừa chọn. Cần: một **URL vào cố định** (tham số mesh, mức decimate); probe `performance.js` **gửi kết quả qua `window.ReactNativeWebView.postMessage`**, có dự phòng gửi HTTP về máy trạm; **viết lại `MEASUREMENT_B10_B11.md`** cho lượt chạy **trong app** (không phải Chrome). Viết protocol **giả định bạn không ở cạnh máy**: người khác đọc file là chạy được, mọi số do script bắt. Khuôn dùng lại được: `spikes/spike_a_2d/harness/measure_a9.py` và `capture_conditions.py`. **Hẹn 18:00** để leader đo lúc ~20:00 | ~2,5 h | **không cần máy**: leader là operator duy nhất (`DR-006a`). Project Control dựng container WebView trong app Spike A trước 16:00 | Viewer + protocol trên PR; leader chạy được mà không cần hỏi lại |
+| **4** | **Đóng gói viewer Spike B để chạy trong WebView của app RN**, phục vụ hướng `GATE-MOB-01` leader vừa chọn. Cần: một **URL vào cố định** (tham số mesh, mức decimate); probe `performance.js` **gửi kết quả qua `window.ReactNativeWebView.postMessage`**, có dự phòng gửi HTTP về máy trạm; **viết lại `MEASUREMENT_B10_B11.md`** cho lượt chạy **trong app** (không phải Chrome). Viết protocol **giả định bạn không ở cạnh máy**: người khác đọc file là chạy được, mọi số do script bắt. Khuôn dùng lại được: `spikes/spike_a_2d/harness/measure_a9.py` và `capture_conditions.py`. **Hẹn 18:00** để leader đo lúc ~20:00 | ~2,5 h | **không cần máy**: leader là operator duy nhất (`DR-006a`). Container WebView **đã xong lúc 01:16**, PR nháp #46 — xem mục 🟢 ở trên | Viewer + protocol trên PR; leader chạy được mà không cần hỏi lại |
 | **5** | **Diễn giải `B10`/`B11`** sau phiên đo tối của leader. Cập nhật `RESULT.md` Spike B: số, điều kiện, nhãn `OBSERVED` / `NOT MEASURED`. **Số là của bạn**, không ai tính hộ | ~1 h | leader đo (~20:00). Nếu trễ, làm việc 6 trước | Mục `B10`/`B11` trong `RESULT.md` kèm JSON thô |
 | **6** | **Gói `TC-TEAM-001` V2** theo `10` §10 (6 hạng mục) cho **SCR-05** (UC-06…09): yêu cầu/UC → artifact thiết kế UI → kiến trúc/API/dữ liệu → PR và commit → bằng chứng test → ghi chú demo và bảo vệ. Nguyên liệu có sẵn: #30, #38, #43, `B14`. Đây là **một trong sáu test sàn nghiệm thu cuối** (`13` §13) | ~1 h | không | File `management/evidence/TC_TEAM_001_VU_HUNG_ANH.md`, PR |
 
