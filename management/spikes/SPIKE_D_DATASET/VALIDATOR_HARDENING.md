@@ -26,9 +26,10 @@ python tools/dataset_validate/hardening_regression.py
 
 Observed on 2026-09-17: base self-test PASS; hardening regression **8/8 PASS**.
 
-## Read-only run on the official ZIP
+## Official-ZIP rerun
 
-The hardened scanner re-read all 154 cases without writing artifacts:
+The hardened scanner re-read all 154 cases and regenerated the public manifest
+and audit while keeping the restricted checksum table outside Git:
 
 - A1 independently recomputed and matched the 2.2 GB archive SHA-256;
 - A9 passed complete-grid equality for 154/154 labelled cases;
@@ -37,8 +38,7 @@ The hardened scanner re-read all 154 cases without writing artifacts:
 - two previously invisible top-level files were inventoried: `Unet.py` and
   `preprocess_data.py`.
 
-Those two scripts are not images or labels. A17 intentionally remains `FAIL`
-until the owner records that both are excluded from ingestion/app metadata.
-The requested owner wording is: “Exclude `Unet.py` and `preprocess_data.py`
-from ingestion and application metadata; preserve them unchanged in the raw
-archive.”
+Those two scripts are not images or labels. On 2026-09-17 the owner explicitly
+excluded both from ingestion and application metadata while preserving them
+unchanged in the raw archive. The regenerated package-wide run reports A17
+`PASS`; neither script is executed or propagated to app metadata.

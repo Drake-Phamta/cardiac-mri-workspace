@@ -63,7 +63,7 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("")
     add(f"**Generated at:** {manifest.get('generated_at')}")
     add(f"**NRRD reader:** `{manifest.get('nrrd_library')}`")
-    add(f"**Package root:** `{manifest.get('package_root')}`")
+    add(f"**Package reference:** `{manifest.get('package_root')}` (absolute local paths are not published)")
     add("")
     add("---")
     add("")
@@ -104,6 +104,18 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     if acq.get("attribution_note"):
         add(f"> {acq['attribution_note']}")
         add("")
+    restricted = manifest.get("restricted_manifest") or {}
+    if restricted:
+        add("### Restricted per-file checksum manifest (F5)")
+        add("")
+        add("The per-data-file SHA-256 table is stored outside this public repository. "
+            "The public record keeps only its content hash and a regeneration command.")
+        add("")
+        add(f"- **Restricted artifact SHA-256:** `{restricted.get('sha256', NOT_MEASURED)}`")
+        add(f"- **Contains:** {restricted.get('contains', NOT_MEASURED)}")
+        add(f"- **Regenerate:** `{restricted.get('regenerate', NOT_MEASURED)}`")
+        add(f"- **Policy:** {restricted.get('policy_decision', NOT_MEASURED)}")
+        add("")
 
     # --- field 3: case counts by partition ---------------------------------
     add("## 2 · Case counts by released partition — `06` §9.1")
@@ -138,6 +150,15 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("> File presence is a machine reading. What an annotation **means** is not, and this")
     add("> audit does not pretend otherwise.")
     add("")
+    differing_companion_hashes = manifest.get("companion_distinct_from_mask_count",
+                                              NOT_MEASURED)
+    add(f"**A11 package cross-check:** `laendo.nrrd` and companion "
+        f"`lawall.nrrd` differ in file SHA-256 in {differing_companion_hashes}/"
+        f"{len(cases)} cases. QA-002 independently found that their foreground "
+        "voxels do not overlap in 154/154 cases. This distinguishes cavity "
+        "from wall on the actual package; the annotation meaning remains "
+        "the owner's written verdict, not an inference from names alone.")
+    add("")
 
     # --- field 5: geometry summary and anomalies ---------------------------
     add("## 4 · Geometry summary — `06` §9.1, criteria A6 · A7 · A8 · A9 · A14")
@@ -168,6 +189,28 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add(f"- Undetermined (no mask, or unreadable): "
         f"**{len(cases) - resample - no_resample}**")
     add("")
+    volumes = [(c.get(role) or {}) for c in cases for role in ("mri", "mask")
+               if c.get(role)]
+    volumes += [v for c in cases for v in (c.get("companion_volumes") or {}).values()]
+    default_geometry = sum(
+        v.get("spacing") == [1.0, 1.0, 1.0]
+        and v.get("space_origin") == [0.0, 0.0, 0.0]
+        and v.get("space_directions") == [[1.0, 0.0, 0.0],
+                                          [0.0, 1.0, 0.0],
+                                          [0.0, 0.0, 1.0]]
+        for v in volumes)
+    add(f"**Header geometry:** {default_geometry}/{len(volumes)} inspected "
+        "NRRD headers report spacing `(1, 1, 1)`, origin `(0, 0, 0)`, "
+        "identity direction. QA-002 independently observed no physical-units "
+        "field in the 462 released headers; this validator does not record "
+        "physical units. These are header-level values, not verified anatomical "
+        "spacing. The official release page publishes original resolution "
+        "`0.625 × 0.625 × 0.625 mm³`, but that value must **not** be applied "
+        "to these defaulted NRRD headers without a validated mapping: "
+        "https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/. "
+        "Physical geometry is NOT VERIFIED; mm/mL measurements remain disabled "
+        "(DR-012, TC-SCI-002).")
+    add("")
     add("### 4.3 Axis alignment — DR-012 boundary (A14)")
     add("")
     # Masks were skipped here while checks.py A14 examined both, so the same
@@ -190,6 +233,12 @@ def render(manifest: dict, results: list, summary: dict) -> str:
         add("> Unchecked is not aligned. DR-012 needs *validated* axis-aligned geometry.")
     else:
         add("Every readable volume **and mask** is axis-aligned — compatible with DR-012.")
+    add("")
+    add("**A14 owner-facing verdict:** all 308 required MRI/cavity-mask headers were "
+        "measured axis-aligned; companion headers also match the default geometry. "
+        "This supports voxel-grid rendering only. It does **not** validate physical "
+        "mm/mL geometry or clinical orientation. Bế Quốc Khánh confirmed this "
+        "bounded interpretation through HITL on 2026-09-16.")
     add("")
 
     # --- field 6: foreground label mapping ---------------------------------
@@ -233,7 +282,8 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     # --- field 7: selected split path --------------------------------------
     add("## 6 · Split path — `06` §9.1, criterion A13")
     add("")
-    add("**This spike supplies evidence. It does not select the path** — `DR-002` / `GATE-SPLIT-01` does.")
+    add("**This spike supplies evidence. `DR-002`, `DR-002a` and `DR-002b` define the "
+        "selected policy; `GATE-SPLIT-01` still owns acceptance of the exact IDs.**")
     add("")
     add("| Input | Measured value |")
     add("|---|---|")
@@ -244,12 +294,22 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("|---|---|")
     add(f"| Path A vs Path B evidence and reasoning | "
         f"{_fmt(owner.get('a13_split_evidence', NOT_MEASURED + ' — owner verdict pending'))} |")
-    add("| Selected path | `[DR-002 — leader decision, not this audit]` |")
-    add("| Exact manifest case IDs per partition | `[written once GATE-SPLIT-01 resolves]` |")
+    add("| Selected path | **DR-002 Path A**: 80 training / 20 validation / 54 "
+        "locked released Testing Set, seed 2024 |")
+    add("| Duplicate-acquisition rule | **DR-002a**: CASE_0056 and CASE_0097 "
+        "are one group, both pinned to training; training has 79 distinct "
+        "acquisitions |")
+    add("| Exact manifest case IDs per partition | `data/manifests/"
+        "split_manifest_path_a_seed2024.json` (proposed, not yet accepted by "
+        "GATE-SPLIT-01) |")
+    add("| A19 split-evidence status | **DEFERRED / NOT PASSED** by the leader's "
+        "2026-09-16 Q2 decision: exact IDs move to `GATE-SPLIT-01`; training remains "
+        "**BLOCKED** until that gate closes |")
     add("")
-    add("> Split invariants that hold whichever path is chosen (`06` §6): **patient-level only,**")
-    add("> **no slice-level split**, no case crosses partitions, **seed 2024**, and split membership")
-    add("> may not change after test results are observed.")
+    add("> **Recorded DR-002b limitation:** patient-level separation is **NOT VERIFIABLE** for this")
+    add("> release. The implemented safeguard is case-level disjointness plus correlation-screen")
+    add("> grouping/exclusion under DR-002b. No slice-level split is allowed; seed 2024 and split")
+    add("> membership are frozen before training and may not change after test results are observed.")
     add("")
 
     # --- field 8: exclusions / corruptions ---------------------------------
@@ -286,6 +346,12 @@ def render(manifest: dict, results: list, summary: dict) -> str:
         add(f"- {a}")
     if not anomalies:
         add("- none")
+    else:
+        add("")
+        add("> CASE_0056/CASE_0097 is treated as one acquisition group under "
+            "DR-002a and pinned to training. A matching label file alone does "
+            "not prove patient identity; independent MRI screening is tracked "
+            "for GATE-SPLIT-01.")
     add("")
     add(f"**Direct-identifier findings in headers: {len(privacy)}** — `NFR-SEC-005`, `12` §2")
     add("")

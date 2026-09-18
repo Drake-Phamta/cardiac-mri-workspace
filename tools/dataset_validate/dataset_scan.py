@@ -18,7 +18,9 @@ stay reviewable.
 
 from __future__ import annotations
 
+import copy
 import hashlib
+import json
 import math
 import os
 import re
@@ -73,6 +75,18 @@ def _sha256(path: str, chunk: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
+def _public_acquisition(acquisition: dict | None) -> dict:
+    """Keep the acquisition facts, not a machine-specific policy-file path."""
+    record = dict(acquisition or {
+        "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
+    })
+    if "license_terms_path" in record:
+        record["license_terms_path"] = (
+            "EXTERNAL PRIVATE ARCHIVE - see license_files names and SHA-256"
+        )
+    return record
+
+
 def _duplicate_evidence(cases: list[dict]) -> list[dict]:
     """Report exact cross-case mask/companion matches without using patient IDs."""
     by_hash: dict[tuple[str, str], list[str]] = {}
@@ -86,27 +100,94 @@ def _duplicate_evidence(cases: list[dict]) -> list[dict]:
     groups = []
     for (name, sha), ids in sorted(by_hash.items()):
         if len(ids) > 1:
-            groups.append({
-                "file": name,
-                "sha256": sha,
-                "case_ids": sorted(ids),
-                "finding": "IDENTICAL_FILE_BYTES_ACROSS_CASES",
-            })
+            groups.append({"file": name, "sha256": sha, "case_ids": sorted(ids),
+                           "finding": "IDENTICAL_FILE_BYTES_ACROSS_CASES"})
     return groups
 
 
 def _companion_distinct_count(cases: list[dict]) -> int:
-    """Count cases whose cavity and wall files have distinct byte hashes."""
+    """Count a cavity/wall cross-check without mutating the private evidence."""
     different = 0
     for case in cases:
         mask_sha = (case.get("mask") or {}).get("sha256")
         companions = case.get("companion_volumes") or {}
         wall_sha = (companions.get("lawall.nrrd") or {}).get("sha256")
-        if (isinstance(mask_sha, str) and len(mask_sha) == 64
-                and isinstance(wall_sha, str) and len(wall_sha) == 64
-                and mask_sha != wall_sha):
+        if isinstance(mask_sha, str) and len(mask_sha) == 64 and \
+                isinstance(wall_sha, str) and len(wall_sha) == 64 and mask_sha != wall_sha:
             different += 1
     return different
+
+
+def make_restricted_manifest(manifest: dict) -> dict:
+    """Return the deterministic per-data-file checksum table kept outside Git.
+
+    ``generated_at`` and machine paths are deliberately absent so a reviewer
+    with the same ZIP can regenerate byte-identical JSON and compare its public
+    SHA-256.  The package-level checksum remains public under A1; this artifact
+    holds the per-NRRD table restricted by the leader's 2026-09-16 F5 decision.
+    """
+    cases = []
+    for case in sorted(manifest.get("cases") or [], key=lambda item: item["case_id"]):
+        files = []
+        for role in ("mri", "mask"):
+            volume = case.get(role)
+            sha = (volume or {}).get("sha256")
+            if isinstance(sha, str) and len(sha) == 64:
+                files.append({
+                    "role": role,
+                    "path_relative": volume.get("path_relative"),
+                    "sha256": sha,
+                })
+        for name, volume in sorted((case.get("companion_volumes") or {}).items()):
+            sha = (volume or {}).get("sha256")
+            if isinstance(sha, str) and len(sha) == 64:
+                files.append({
+                    "role": "companion",
+                    "path_relative": volume.get("path_relative") or name,
+                    "sha256": sha,
+                })
+        cases.append({"case_id": case["case_id"], "files": files})
+    acquisition = manifest.get("acquisition") or {}
+    package_files = [
+        {key: item.get(key) for key in ("name", "size_bytes", "sha256")}
+        for item in acquisition.get("package_files") or []
+    ]
+    return {
+        "restricted_manifest_version": "1.0",
+        "classification": "RESTRICTED - DO NOT COMMIT OR REDISTRIBUTE",
+        "source_package_files": package_files,
+        "case_count_total": manifest.get("case_count_total"),
+        "cases": cases,
+    }
+
+
+def restricted_manifest_bytes(manifest: dict) -> bytes:
+    """Canonical bytes used both for writing and the public reference hash."""
+    return (json.dumps(make_restricted_manifest(manifest), indent=1,
+                       ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+
+
+def make_public_manifest(manifest: dict, restricted_sha256: str,
+                         regeneration_command: str) -> dict:
+    """Remove per-data-file hashes while retaining reproducible public facts."""
+    public = copy.deepcopy(manifest)
+    for case in public.get("cases") or []:
+        for role in ("mri", "mask"):
+            volume = case.get(role)
+            if isinstance(volume, dict):
+                volume.pop("sha256", None)
+        for volume in (case.get("companion_volumes") or {}).values():
+            volume.pop("sha256", None)
+    for group in public.get("duplicate_evidence") or []:
+        group.pop("sha256", None)
+    public["restricted_manifest"] = {
+        "classification": "RESTRICTED - stored outside the public repository",
+        "contains": "per-data-file SHA-256 table",
+        "sha256": restricted_sha256,
+        "regenerate": regeneration_command,
+        "policy_decision": "F5 leader decision, 2026-09-16",
+    }
+    return public
 
 
 def _load_nrrd():
@@ -527,11 +608,9 @@ def scan_package(root: str, want_checksums: bool = True,
         "manifest_version": "1.0",
         "generated_at": started,
         "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
-        "package_root": os.path.abspath(root),
+        "package_root": "EXTERNAL PRIVATE PACKAGE - see acquisition.package_files",
         "nrrd_library": nrrd_version,
-        "acquisition": acquisition or {
-            "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
-        },
+        "acquisition": _public_acquisition(acquisition),
         "case_count_total": len(cases),
         "partitions": _partition_summary(cases),
         "shape_distribution": _shape_distribution(cases),
@@ -658,11 +737,9 @@ def scan_archive(archive_path: str, want_checksums: bool = True,
         "manifest_version": "1.0",
         "generated_at": started,
         "generated_by": "tools/dataset_validate - generated, not hand-typed (A20)",
-        "package_root": archive_abs + "!/",
+        "package_root": "EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files",
         "nrrd_library": nrrd_version,
-        "acquisition": acquisition or {
-            "note": NOT_MEASURED + " - pass --acquisition <json> to embed the acquisition record"
-        },
+        "acquisition": _public_acquisition(acquisition),
         "case_count_total": len(cases),
         "partitions": _partition_summary(cases),
         "shape_distribution": _shape_distribution(cases),

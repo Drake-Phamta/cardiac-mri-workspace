@@ -7,7 +7,7 @@
   "required": [
     "manifest_version", "generated_at", "generated_by", "package_root",
     "nrrd_library", "acquisition", "case_count_total", "partitions",
-    "shape_distribution", "cases"
+    "shape_distribution", "cases", "restricted_manifest"
   ],
   "properties": {
     "manifest_version": { "type": "string" },
@@ -15,6 +15,18 @@
     "generated_by": { "type": "string" },
     "package_root": { "type": "string" },
     "nrrd_library": { "type": "string", "description": "library name and exact version" },
+    "restricted_manifest": {
+      "type": "object",
+      "description": "Public reference to the deterministic per-data-file checksum table stored outside the repository under the F5 decision.",
+      "required": ["classification", "contains", "sha256", "regenerate", "policy_decision"],
+      "properties": {
+        "classification": { "type": "string" },
+        "contains": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "regenerate": { "type": "string" },
+        "policy_decision": { "type": "string" }
+      }
+    },
     "acquisition": {
       "type": "object",
       "description": "Criterion A1. Supplied by the person who performed the download; not derivable from the package.",

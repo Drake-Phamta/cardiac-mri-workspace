@@ -426,8 +426,9 @@ def _a15_anomalies(cases: list[dict], duplicate_evidence: list[dict] | None = No
     return Result("A15", "Corrupted / missing / unreadable files listed", status,
                   f"{len(problems)} anomaly(ies): "
                   f"{'; '.join(problems[:6]) if problems else 'none'}"
-                  + (" - listed; affected cases must be excluded with a recorded reason"
-                     if problems else ""))
+                  + (" - exact cross-case duplicates are listed; grouping and"
+                     " acceptance remain human decisions" if duplicates and not fatal else
+                     " - affected cases must be excluded with a recorded reason" if fatal else ""))
 
 
 def _a16_ids(cases: list[dict]) -> Result:
@@ -444,7 +445,7 @@ def _a16_ids(cases: list[dict]) -> Result:
         return Result("A16", "Case IDs unique; de-identified internal IDs assigned", FAIL,
                       f"{dupes} duplicate internal ID(s), {src_dupes} duplicate source path(s), "
                       f"{name_dupes} duplicate case-directory name(s), {len(malformed)} malformed "
-                       f"ID(s), deterministic order={deterministic}")
+                      f"ID(s), deterministic order={deterministic}")
     return Result("A16", "Case IDs unique; de-identified internal IDs assigned", PASS,
                   f"{len(ids)} unique CASE_NNNN IDs assigned deterministically by sorted source path")
 

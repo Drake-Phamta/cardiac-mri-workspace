@@ -74,17 +74,24 @@ a temporary directory at a time:
 python tools/dataset_validate/validate.py \
     --archive "D:/cardiac-mri-workspace-data/lasc2018/2018_UTAH_MICCAI.zip" \
     --acquisition "D:/cardiac-mri-workspace-data/lasc2018/acquisition.json" \
+    --restricted-manifest-out "D:/cardiac-mri-workspace-data/lasc2018/dataset_manifest_restricted.json" \
     --write-manifest --write-audit
 ```
+
+The public manifest contains no per-data-file SHA-256. Those hashes are written
+to the deterministic restricted manifest outside the repository; only that
+artifact's SHA-256 and the regeneration command are public. If the explicit
+option is omitted, the restricted file is placed beside the private source.
+The command refuses a restricted output path inside the repository.
 
 Exit codes: `0` no `FAIL` · `1` at least one `FAIL` · `2` the run could not proceed.
 
 ### Start with `--selftest`
 
-It builds five synthetic cases in a temp directory — two partitions, one unlabelled, one
-volume with a deliberately oblique direction matrix — runs the whole pipeline, and asserts the
-checker's behaviour. It must report **`A14 FAIL`**. A checker that has only ever seen clean
-input has not been tested.
+It builds seven synthetic cases in a temp directory — two partitions, two
+unlabelled, one oblique, two with identical cavity and wall files — and
+asserts that both `--root` and `--archive` detect the cross-case duplicates.
+It must report the expected synthetic `A9 FAIL` and `A14 FAIL`.
 
 The selftest writes nothing into the repository and measures nothing real.
 
@@ -110,8 +117,8 @@ from ingestion/app metadata before A17 can pass.
 
 > ### The package is already on disk; choose the operator's private path
 >
-> `C:/cardiac-data/lasc2018/extracted` — **154 cases**, 100 under `Training Set` and 54 under
-> `Testing Set`, **14.2 GiB** extracted. `acquisition.json` sits next to it, already filled in.
+> Khánh's machine has the official ZIP, not a full 14.2 GiB extraction.
+> Use `--archive` and a private `acquisition.json`; no expanded package is needed.
 >
 > The first two versions of this README pointed `--root` at
 > `C:/cardiac-data/lasc2018/2018_UTAH_MICCAI`, **a directory that does not exist** — copy-pasting it
@@ -141,6 +148,18 @@ Criterion `A1` needs the download record, which the scanner cannot read off the 
 ```
 
 Fields left out are reported as missing. They are never guessed.
+The generated **public** manifest replaces `package_root` and
+`license_terms_path` with external/private references. It contains no
+per-data-file checksum or pairwise linkage score. See `POLICY_EVIDENCE.md` for
+the leader's 2026-09-16 narrow-publication decision.
+
+Re-render a corrected audit from an already scanned manifest without reading
+the 2.2 GB ZIP again:
+
+```powershell
+python tools/dataset_validate/validate.py `
+  --render-from-manifest data/manifests/dataset_manifest.json --write-audit
+```
 
 ---
 
@@ -169,8 +188,11 @@ evidence → Secondary Reviewer `APPROVE` → CHAT E QA `PASS` → Project Contr
 for Spike D, QA must inspect **the actual recorded evidence**, not a summary. A script printing
 `PASS` closes nothing.
 
-**It cannot select the split.** Whichever path `DR-002` chooses, the invariants hold: patient
-level only, **never slice level**, no case crossing partitions, **seed 2024**.
+**It cannot accept the split.** `DR-002` selected Path A and `DR-002b` records
+that patient-level separation is **not verifiable** for this release. The split
+PR must implement case-level disjointness plus correlation-screen grouping and
+exclusion, never slice-level splitting, with seed 2024. `GATE-SPLIT-01` remains
+open and training remains blocked until those exact IDs are reviewed.
 
 **It must not be pointed at data under `data/`.** The raw package stays outside version control
 (`06` §5). `.gitignore` blocks `*.nrrd` and `data/**`, but the package belongs outside the
