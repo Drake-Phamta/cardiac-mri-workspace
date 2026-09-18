@@ -32,8 +32,9 @@ python spikes/spike_b_3d/harness/conformance.py \
 
 `check_fixture(fixture, implementation, expected_contract_version=...)` is the
 library entry point. Backend and mobile adapters each supply their own
-`voxel_to_world`, `world_to_voxel`, and `slice_of_world` functions to that same
-checker and run this same fixture. The CI job checks the canonical fixture and
+`voxel_to_world`, `world_to_voxel`, `slice_of_world`, and
+`slice_of_ray(origin_world, direction_world)` functions to that same checker and
+run this same fixture. The CI job checks the canonical fixture and
 reference adapter on every PR; it is not evidence that a future backend or
 mobile implementation has passed until that implementation's adapter is added
 to its own build.
