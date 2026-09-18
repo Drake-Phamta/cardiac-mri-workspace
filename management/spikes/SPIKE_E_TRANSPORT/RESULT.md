@@ -105,11 +105,47 @@ workstation HTTP measurements, so they do not establish an `NFR-PERF-001`
 pass/fail; that frozen requirement covers cached target-device navigation.
 Whole-volume s3 independently violates limb 2 of `NFR-PERF-001`, while the
 uncached first-load path has no bound and remains `RA-H13` / `DR-015`. E12 is
-observed as `DIRECT` from the phone to the Mac mini during the capture. E8 remains partial:
-this is one evening window (the run began at 21:50, outside the planned
-21:00 +/- 15-minute window), so no time-of-day spread claim is made.
+observed as `DIRECT` from the phone to the Mac mini during the capture. E8 is
+still partial: two profile-separated windows now exist (afternoon and evening),
+but this is not a complete time-of-day sweep.
 
-## 3B. E7 app-memory measurement plan (not measured by this transport run)
+## 3B. 2026-09-18 afternoon capture (profile-separated)
+
+The second E8 packet is on `spike-e/evidence-20260918` at commit `8ff6a3a`.
+The provenance records a 16:16-16:27 +07:00 home-Wi-Fi to ZeroTier DIRECT
+capture from the physical Galaxy A17, with Pham Tuan Anh operating and Trung
+as owner. Each profile has 171/171 successful samples and three repeats per
+scenario. The A6-shaped payload is synthetic, so these remain transport
+measurements rather than a real application performance verdict. Aggregation
+was run separately for each profile; profiles were not pooled.
+
+### Profile `576x576x88` (29,196,288-byte volume)
+
+| Criterion / scenario | Requests | p50 ms | p95 ms | Max ms |
+|---|---:|---:|---:|---:|
+| E2 cold open s1 | 3 | 338 | 557 | 557 |
+| E2 cold open s3 | 3 | 38,784 | 44,091 | 44,091 |
+| E2 cold open s4 | 3 | 1,116 | 1,559 | 1,559 |
+| E3 uncached slice s1 | 3 | 376 | 1,072 | 1,150 |
+| E4 navigate s1 | 3 | 362 | 1,098 | 1,442 |
+| E4 navigate s4 | 3 | 988 | 1,785 | 1,785 |
+| E5 mask s2 | 3 | 246 | 309 | 699 |
+| E6 mesh levels 0/1/2/3 | 12 | 176/208/553/554 | 219/221/680/781 | 219/221/680/781 |
+
+### Profile `640x640x88` (36,044,800-byte volume)
+
+| Criterion / scenario | Requests | p50 ms | p95 ms | Max ms |
+|---|---:|---:|---:|---:|
+| E2 cold open s1 | 3 | 471 | 539 | 539 |
+| E2 cold open s3 | 3 | 49,895 | 50,407 | 50,407 |
+| E2 cold open s4 | 3 | 1,264 | 2,394 | 2,394 |
+| E3 uncached slice s1 | 3 | 390 | 1,002 | 1,016 |
+| E4 navigate s1 | 3 | 425 | 1,031 | 1,461 |
+| E4 navigate s4 | 3 | 1,234 | 2,683 | 2,683 |
+| E5 mask s2 | 3 | 259 | 368 | 410 |
+| E6 mesh levels 0/1/2/3 | 12 | 166/216/465/1,164 | 168/848/931/1,568 | 168/848/931/1,568 |
+
+## 3C. E7 app-memory measurement plan (not measured by this transport run)
 
 `E7` requires the real Spike A/B application on Galaxy A17; the Toybox
 transport harness and the synthetic stub do not measure app memory. When the
@@ -160,9 +196,12 @@ UI decode/render time is a separate later measurement. The report must include
 sample count, nearest-rank p50 and p95, device/build/uplink, stub/payload
 commit, and raw evidence for each profile. The current evening measurements
 are p50/p95 **1,126/3,103 ms** for `576x576x88` and **597/1,058 ms** for
-`640x640x88`; they are not pooled. E8 still has no daytime window, so this
-proposal remains `PROVISIONAL` until that window is captured and the leader
-accepts or returns the number.
+`640x640x88`; they are not pooled. The afternoon window adds p50/p95
+**338/557 ms** and **471/539 ms**, respectively, also not pooled. Two E8
+windows now exist, but `TC-PERF-FIRSTLOAD-01` still needs a separate loop of
+at least 20 cold opens per profile before the proposal can be treated as an
+acceptance result. Until that loop and the leader decision, this remains
+`PROVISIONAL`.
 
 ### E11 — minimal connectivity fallback
 
@@ -188,24 +227,26 @@ a future implementation because it has not been measured here.
 | Criterion | Draft status | Reason |
 |---|---|---|
 | E1 | measured path confirmed | operator packet confirms Wi-Fi + ZeroTier DIRECT |
-| E2-E6, E12 | measured for run 4 and the 2026-09-16 two-profile capture | profile-separated tables above; E4 target fails; E12 is DIRECT |
+| E2-E6, E12 | measured for run 4 and the 2026-09-16 evening plus 2026-09-18 afternoon captures | profile-separated tables above; E4 target fails; E12 is DIRECT |
 | E7 | `NOT MEASURED` | no app peak-memory instrumentation |
-| E8 | partial | one evening Wi-Fi time window only; more windows required |
+| E8 | partial | two profile-separated Wi-Fi windows (afternoon and evening); a full time-of-day sweep is still required |
 | E9 | `NOT MEASURED` | physical link-loss/reconnect run still required |
-| E10 | `PROVISIONAL` | 3,500 ms p95 proposal and `TC-PERF-FIRSTLOAD-01` drafted; daytime E8 and leader decision pending |
+| E10 | `PROVISIONAL` | 3,500 ms p95 proposal; two E8 windows exist, but >=20 cold opens/profile and leader decision remain pending |
 | E11/E13 | draft | owner conclusions above, pending reruns and review |
 
 **Overall:** `NEEDS_FIX` / incomplete evidence. Constraints relaxed: **NONE**.
-The 2026-09-16 two-profile packet closes the requested E2-E6/E12 aggregation
-without mixing profiles, but it does not close E7, E9, or E8. Before
-`ACCEPTED`, the owner must supply app-memory and reconnect evidence, add more
-time windows for E8, and hand this draft to the designated reviewer and QA red
+The two profile-separated packets close the requested E2-E6/E12 aggregation
+without mixing profiles and provide a second E8 window, but they do not close
+E7, E9, or a full E8 time-of-day characterization. Before `ACCEPTED`, the
+owner must supply app-memory and reconnect evidence, complete the >=20 cold-open
+E10 loop per profile, and hand this draft to the designated reviewer and QA red
 team.
 
 ## Attachments
 
 - Raw run: `spike-e/evidence-20260913` → `EVIDENCE_RAW/20260913_run4/`
 - Raw run: `spike-e/evidence-20260916` @ `c3c2ab5` → `EVIDENCE_RAW/20260916_evening/`
+- Raw run: `spike-e/evidence-20260918` @ `8ff6a3a` → `EVIDENCE_RAW/20260918_afternoon/`
 - Aggregation: `management/day05/SPIKE_E_RUN4_AGGREGATE.json`
 - Harness: `spike-e/harness-local-retry` @ `2229a740`
 - Stub/payload source: this branch under `spikes/spike_e_transport/`
