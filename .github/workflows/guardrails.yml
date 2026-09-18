@@ -212,3 +212,119 @@ jobs:
 
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "no forbidden bytes in this change"
+
+  # --------------------------------------------------------------------------
+  app-core:
+    name: "app/core tests (10 scripts)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ubuntu-latest ships node; no setup-node action, for the same
+      # supply-chain reason the header gives. The version is printed so a
+      # failure that turns out to be a runtime difference is diagnosable.
+      - name: record the runtime
+        run: node --version
+
+      # The bundle is generated, never committed (fixture_rules
+      # .handwritten_fixtures_allowed = false), so CI builds it from the
+      # contract with the project's own generator before the tests run.
+      - name: generate the fixture bundle from the contract
+        run: |
+          mkdir -p app/core/fixtures/.generated
+          python - <<'PY'
+          import json, sys
+          sys.path.insert(0, "contracts/api")
+          from generate_fixture import generate_fixture
+          with open("contracts/api/contract.json", encoding="utf-8") as fh:
+              contract = json.load(fh)
+          bundle = generate_fixture(contract)
+          with open("app/core/fixtures/.generated/api_bundle.json", "w", encoding="utf-8") as fh:
+              json.dump(bundle, fh, indent=2)
+          print(f"generated {len(bundle['endpoints'])} endpoints, "
+                f"{len(bundle.get('scenarios', {}))} with scenarios")
+          PY
+
+      - name: run every app/core test script
+        run: node app/core/tests/run_all.mjs
+
+  # --------------------------------------------------------------------------
+  app-framework-neutral:
+    name: "app/core stays framework-neutral (GATE-MOB-01)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GATE-MOB-01 is still open: Spike A and Spike B are not both ACCEPTED,
+      # so TECH_STACK_ADR does not exist and no framework has been chosen.
+      # app/core is written so the four verticals can start anyway. This job
+      # is what stops that neutrality from decaying the first time someone is
+      # in a hurry - by then three verticals would depend on the choice.
+      #
+      # Delete this job when the ADR lands AND the team decides core may bind
+      # to the chosen framework. Deleting it silently is the failure mode.
+      - name: refuse framework imports, npm dependencies and spike imports
+        run: |
+          fail=0
+          files=$(find app -name '*.mjs' -o -name '*.js' | sort)
+          echo "scanning:"; echo "$files" | sed 's/^/  /'
+
+          bad=$(grep -REn "from ['\"](react|react-native|react-dom|expo|flutter|@react-native|vue|svelte|next)" \
+                  --include='*.mjs' --include='*.js' app/core || true)
+          if [ -n "$bad" ]; then
+            echo "::error::app/core must not import a UI framework while GATE-MOB-01 is open:"
+            echo "$bad"; fail=1
+          fi
+
+          # Any bare specifier is an npm dependency, because app/ has no
+          # package.json to resolve one. node: builtins are allowed, and only
+          # under app/core/node/.
+          bad=$(grep -REn "^\s*import .* from ['\"][^./]" --include='*.mjs' --include='*.js' app \
+                  | grep -v "from ['\"]node:" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::app/ has no package.json; every import must be relative:"
+            echo "$bad"; fail=1
+          fi
+
+          bad=$(grep -REn "from ['\"]node:" --include='*.mjs' app/core \
+                  | grep -v '^app/core/node/' | grep -v '^app/core/tests/' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::node: builtins belong in app/core/node/ only - a device bundle has no node:fs:"
+            echo "$bad"; fail=1
+          fi
+
+          # Spike code is labelled throwaway and lives behind its own boundary.
+          # Reuse is by copy with a provenance header (see app/core/viewMath.mjs).
+          bad=$(grep -REn "spikes/" --include='*.mjs' --include='*.js' app/core \
+                  | grep -E "^[^:]+:[0-9]+:\s*(import|export)" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::app/core must not import from spikes/ - copy with provenance instead:"
+            echo "$bad"; fail=1
+          fi
+
+          bad=$(find app -name package.json -o -name 'package-lock.json' -o -name 'metro.config.js' \
+                  -o -name 'vite.config.*' -o -name 'webpack.config.*' -o -name 'pubspec.yaml' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::a manifest or bundler config under app/ pre-empts the ADR:"
+            echo "$bad"; fail=1
+          fi
+
+          # DR-010 gave worst-slice ranking to the API: "the API returns the
+          # selection; the client never re-derives it."
+          #
+          # Anchored so it cannot match its own documentation: selection.mjs
+          # says in a comment that it contains no `.sort(`, and a naive grep
+          # fails on that line. The authoritative check is P1 in
+          # app/core/tests/test_readers.mjs, which strips comments properly;
+          # this is the cheap second net at the boundary.
+          bad=$(grep -nE '^[^*/]*\.sort\(' app/core/selection.mjs || true)
+          if [ -n "$bad" ]; then
+            echo "::error::selection.mjs must not rank slices (DR-010):"
+            echo "$bad"; fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "app/core is framework-neutral, dependency-free and does not re-derive the selection"

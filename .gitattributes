@@ -44,6 +44,7 @@ data/manifests/**           -text
 # stay readable across the team's machines.
 *.py      text eol=lf
 *.js      text eol=lf
+*.mjs     text eol=lf
 *.json    text eol=lf
 *.yaml    text eol=lf
 *.yml     text eol=lf
