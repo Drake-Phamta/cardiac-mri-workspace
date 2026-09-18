@@ -1,0 +1,419 @@
+{
+ "criterion": "A9 — cached slice-switch latency",
+ "target": "NFR-PERF-001: p95 <= 200 ms over a 30-step navigation test, among ALREADY AVAILABLE/CACHED slices, on the target demo device",
+ "captured_at": "20260917T104053+0700",
+ "label": "release, 576x576x88, COLD START (no prior prewarm), USB 80%, thermal NONE · cache=window",
+ "definitions": {
+  "ms_to_frame": "state change -> first frame after the image decoded. This is the one NFR-PERF-001 means by 'update the visible slice'.",
+  "ms_to_load": "state change -> image decode reported. Kept so the decode/paint split is visible.",
+  "percentile": "nearest-rank, no interpolation, no outlier removal",
+  "in_window": "the slice was already held by the cache policy when the step was issued. Always true under policy 'all'."
+ },
+ "run": {
+  "_source": "read from the app's own SPIKE_A_TIMING_RUN_START line, not typed in",
+  "cache_policy": "window",
+  "window_radius": 3,
+  "fixture_nx": 576,
+  "fixture_ny": 576,
+  "fixture_nz": 88,
+  "steps_planned": 30,
+  "sequence": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   7,
+   6,
+   5,
+   4,
+   3,
+   2,
+   1,
+   0,
+   46,
+   0,
+   87,
+   23,
+   64,
+   12,
+   76,
+   35,
+   36,
+   37,
+   38,
+   39,
+   40,
+   41
+  ]
+ },
+ "build_type": "release (the app reported __DEV__ === false)",
+ "device_profile": "../../management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md",
+ "conditions": {
+  "_source": "harness/capture_conditions.py read these off the device; none was typed in",
+  "before": {
+   "_what": "Device conditions and memory footprint captured by harness/capture_conditions.py. Every value below was read from the device; none was typed in.",
+   "phase": "before",
+   "captured_at": "20260917T104000+0700",
+   "serial": "R5CY931SQYZ",
+   "package": "com.cardiacmri.spikea2d",
+   "note": "before A9 run, policy=window. release, 576x576x88, COLD START (no prior prewarm), USB 80%, thermal NONE",
+   "device": {
+    "model": "SM-A176B",
+    "android_release": "16",
+    "heapgrowthlimit": "256m",
+    "heapsize": "512m"
+   },
+   "memory": {
+    "java_heap_kb": 7200,
+    "native_heap_kb": 98084,
+    "graphics_kb": 30418,
+    "code_kb": 104732,
+    "stack_kb": 860,
+    "system_kb": 7281,
+    "total_pss_kb": 258567,
+    "java_heap_mb": 7.03,
+    "native_heap_mb": 95.79,
+    "graphics_mb": 29.71,
+    "code_mb": 102.28,
+    "stack_mb": 0.84,
+    "system_mb": 7.11,
+    "total_pss_mb": 252.51
+   },
+   "battery": {
+    "level_pct": 80,
+    "status_code": 4,
+    "status": "NOT_CHARGING",
+    "usb_powered": "true",
+    "ac_powered": "false",
+    "temperature_c": 32.9
+   },
+   "thermal": {
+    "thermal_status": 0,
+    "thermal_status_name": "NONE"
+   },
+   "display": {
+    "refresh_rate_hz": 90.0,
+    "brightness_mode": "manual",
+    "brightness_raw": "255"
+   }
+  },
+  "after": {
+   "_what": "Device conditions and memory footprint captured by harness/capture_conditions.py. Every value below was read from the device; none was typed in.",
+   "phase": "after",
+   "captured_at": "20260917T104053+0700",
+   "serial": "R5CY931SQYZ",
+   "package": "com.cardiacmri.spikea2d",
+   "note": "after A9 run, policy=window. release, 576x576x88, COLD START (no prior prewarm), USB 80%, thermal NONE",
+   "device": {
+    "model": "SM-A176B",
+    "android_release": "16",
+    "heapgrowthlimit": "256m",
+    "heapsize": "512m"
+   },
+   "memory": {
+    "java_heap_kb": 17576,
+    "native_heap_kb": 166600,
+    "graphics_kb": 110310,
+    "code_kb": 104784,
+    "stack_kb": 948,
+    "system_kb": 7247,
+    "total_pss_kb": 421057,
+    "java_heap_mb": 17.16,
+    "native_heap_mb": 162.7,
+    "graphics_mb": 107.72,
+    "code_mb": 102.33,
+    "stack_mb": 0.93,
+    "system_mb": 7.08,
+    "total_pss_mb": 411.19
+   },
+   "battery": {
+    "level_pct": 80,
+    "status_code": 4,
+    "status": "NOT_CHARGING",
+    "usb_powered": "true",
+    "ac_powered": "false",
+    "temperature_c": 33.0
+   },
+   "thermal": {
+    "thermal_status": 0,
+    "thermal_status_name": "NONE"
+   },
+   "display": {
+    "refresh_rate_hz": 90.0,
+    "brightness_mode": "manual",
+    "brightness_raw": "255"
+   }
+  },
+  "_missing": null
+ },
+ "memory_delta": {
+  "_why": "The cache question in one row: what did holding these slices cost?",
+  "graphics_mb_before": 29.71,
+  "graphics_mb_after": 107.72,
+  "graphics_mb_delta": 78.01,
+  "total_pss_mb_before": 252.51,
+  "total_pss_mb_after": 411.19,
+  "java_heap_mb_after": 17.16,
+  "heapgrowthlimit": "256m"
+ },
+ "scope": {
+  "_why": "NFR-PERF-001 bounds switching among ALREADY CACHED slices. Under a bounded cache a step beyond the window is a miss and is NOT in that scope. The two are reported separately and never pooled.",
+  "steps_total": 30,
+  "steps_in_window": 22,
+  "steps_missed": 8,
+  "summary_ms_to_frame_in_window": {
+   "n": 22,
+   "min": 31.18,
+   "p50": 36.32,
+   "p90": 50.01,
+   "p95": 50.84,
+   "p99": 50.86,
+   "max": 50.86
+  },
+  "summary_ms_to_frame_missed": {
+   "n": 8,
+   "min": 32.92,
+   "p50": 84.22,
+   "p90": 102.73,
+   "p95": 102.73,
+   "p99": 102.73,
+   "max": 102.73
+  },
+  "comparable_to_NFR_PERF_001": "summary_ms_to_frame_in_window",
+  "felt_by_a_user": "summary_ms_to_frame (all steps)"
+ },
+ "summary_ms_to_frame": {
+  "n": 30,
+  "min": 31.18,
+  "p50": 49.4,
+  "p90": 97.97,
+  "p95": 100.74,
+  "p99": 102.73,
+  "max": 102.73
+ },
+ "summary_ms_to_load": {
+  "n": 30,
+  "min": 18.17,
+  "p50": 36.71,
+  "p90": 81.8,
+  "p95": 82.4,
+  "p99": 85.64,
+  "max": 85.64
+ },
+ "samples": [
+  {
+   "slice": 1,
+   "ms_to_load": 32.64,
+   "ms_to_frame": 45.79,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 18.17,
+   "ms_to_frame": 33.84,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 3,
+   "ms_to_load": 19.24,
+   "ms_to_frame": 36.32,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 39.12,
+   "ms_to_frame": 50.84,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 5,
+   "ms_to_load": 20.56,
+   "ms_to_frame": 32.3,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 21.75,
+   "ms_to_frame": 33.01,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 41.8,
+   "ms_to_frame": 49.92,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 8,
+   "ms_to_load": 23.01,
+   "ms_to_frame": 34.17,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 7,
+   "ms_to_load": 21.01,
+   "ms_to_frame": 34.48,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 6,
+   "ms_to_load": 20.53,
+   "ms_to_frame": 32.7,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 5,
+   "ms_to_load": 38.83,
+   "ms_to_frame": 49.51,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 4,
+   "ms_to_load": 22.3,
+   "ms_to_frame": 33.32,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 3,
+   "ms_to_load": 21.39,
+   "ms_to_frame": 34.56,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 2,
+   "ms_to_load": 36.68,
+   "ms_to_frame": 49.4,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 1,
+   "ms_to_load": 37.3,
+   "ms_to_frame": 49.62,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 0,
+   "ms_to_load": 36.71,
+   "ms_to_frame": 50.86,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 46,
+   "ms_to_load": 81.89,
+   "ms_to_frame": 98.21,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 0,
+   "ms_to_load": 21.77,
+   "ms_to_frame": 32.92,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 87,
+   "ms_to_load": 82.4,
+   "ms_to_frame": 97.97,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 23,
+   "ms_to_load": 81.8,
+   "ms_to_frame": 100.74,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 64,
+   "ms_to_load": 65.61,
+   "ms_to_frame": 81.48,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 12,
+   "ms_to_load": 76.54,
+   "ms_to_frame": 84.22,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 76,
+   "ms_to_load": 85.64,
+   "ms_to_frame": 102.73,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 35,
+   "ms_to_load": 65.53,
+   "ms_to_frame": 82.88,
+   "cache_policy": "window",
+   "in_window": false
+  },
+  {
+   "slice": 36,
+   "ms_to_load": 42.93,
+   "ms_to_frame": 48.28,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 37,
+   "ms_to_load": 38.06,
+   "ms_to_frame": 49.86,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 38,
+   "ms_to_load": 24.12,
+   "ms_to_frame": 33.8,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 39,
+   "ms_to_load": 42.2,
+   "ms_to_frame": 49.73,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 40,
+   "ms_to_load": 20.71,
+   "ms_to_frame": 31.18,
+   "cache_policy": "window",
+   "in_window": true
+  },
+  {
+   "slice": 41,
+   "ms_to_load": 44.33,
+   "ms_to_frame": 50.01,
+   "cache_policy": "window",
+   "in_window": true
+  }
+ ]
+}
