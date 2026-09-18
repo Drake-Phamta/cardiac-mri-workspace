@@ -135,6 +135,41 @@ def start(args) -> int:
     return 0
 
 
+def parse_webview_lines(lines):
+    """Parse tagged logcat lines into payloads.
+
+    Short messages arrive whole: `SPIKE_B_WEBVIEW {json}`. Messages longer than one logcat
+    line arrive as numbered chunks (container PR #46, after the 2026-09-18 session lost every
+    frame probe to logcat's ~4 KB line limit): `SPIKE_B_WEBVIEW_CHUNK <id> <i>/<n> <slice>`.
+    Returns (payloads, chunk groups, incomplete chunk groups).
+    """
+    payloads = []
+    for line in lines:
+        m = re.search(rf"{TAG} (\{{.*\}})\s*$", line)
+        if m:
+            try:
+                payloads.append(json.loads(m.group(1)))
+            except json.JSONDecodeError:
+                payloads.append({"unparsed": m.group(1)})
+    chunks: dict = {}
+    for line in lines:
+        m = re.search(rf"{TAG}_CHUNK (\S+) (\d+)/(\d+) (.*)$", line)
+        if m:
+            cid, idx, count, part = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
+            chunks.setdefault(cid, {"count": count, "parts": {}})["parts"][idx] = part
+    incomplete = []
+    for cid, c in sorted(chunks.items()):
+        if len(c["parts"]) != c["count"]:
+            incomplete.append({"chunk_id": cid, "received": len(c["parts"]), "expected": c["count"]})
+            continue
+        text = "".join(c["parts"][i] for i in range(1, c["count"] + 1))
+        try:
+            payloads.append(json.loads(text))
+        except json.JSONDecodeError:
+            payloads.append({"unparsed_chunked": cid, "length": len(text)})
+    return payloads, chunks, incomplete
+
+
 def finish(args) -> int:
     state_path = args.out / "session_state.json"
     if not state_path.exists():
@@ -148,20 +183,16 @@ def finish(args) -> int:
     log_file = args.out / "webview_logcat.txt"
     log_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    payloads = []
-    for line in lines:
-        m = re.search(rf"{TAG} (\{{.*\}})\s*$", line)
-        if m:
-            try:
-                payloads.append(json.loads(m.group(1)))
-            except json.JSONDecodeError:
-                payloads.append({"unparsed": m.group(1)})
+    payloads, chunks, incomplete = parse_webview_lines(lines)
+    if incomplete:
+        print(f"WARNING: {len(incomplete)} chunked message(s) incomplete: {incomplete}")
     payload_file = args.out / "webview_payloads.json"
     payload_file.write_text(json.dumps(payloads, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     state["ended"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     state["conditions_after"] = conditions("after", args.out, "B10/B11 session, after the runs")
     state["logcat"] = {"file": log_file.name, "lines": len(lines), "sha256": sha256(log_file)}
+    state["chunked_messages"] = {"complete": len(chunks) - len(incomplete), "incomplete": incomplete}
     state["payloads"] = {"file": payload_file.name, "count": len(payloads), "sha256": sha256(payload_file),
                          "kinds": sorted({str(p.get("kind", "unknown")) for p in payloads})}
     state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
