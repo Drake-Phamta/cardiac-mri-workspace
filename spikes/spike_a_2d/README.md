@@ -104,6 +104,10 @@ cd ../harness && python extract_a2.py --label "release, ..."
 
 Một build, **hai lượt đo**, chỉ khác đúng một biến: nút chính sách cache trong app.
 
+> **Điều kiện để câu trên đúng** *(bài học 17/09, review của Vũ Hùng Anh trên #41)*: cả hai lượt phải chạy trên
+> **cùng một bản build**, mỗi lượt bắt đầu từ **một lần khởi động mới** của app, và ghi lại **commit của bản build**
+> cùng file điều kiện. Build lại giữa hai lượt, dù chỉ để đổi mặc định, là thêm một biến thứ hai.
+
 ```bash
 # trước mỗi lượt: xoá buffer để hai lượt không trộn mẫu
 python harness/extract_timings.py --clear

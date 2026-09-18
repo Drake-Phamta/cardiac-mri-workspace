@@ -146,8 +146,18 @@ chính anh cắm và mở khoá. Chủ sở hữu Spike A là Phạm Tuấn Anh;
 
 ## Chặng S6 — cache có giới hạn, đo ở kích thước cohort thật *(17/09, 10:22–10:41)*
 
-`576×576×88` — **lần đầu `A9` được đo ở cả kích thước trong mặt phẳng lẫn độ sâu thật.** Một build
-release, ba lượt đo, **chỉ một biến đổi giữa các lượt**: chính sách cache. Mọi trường trong bản ghi đều
+`576×576×88` — **lần đầu `A9` được đo ở cả kích thước trong mặt phẳng lẫn độ sâu thật.** Ba lượt đo trên
+**hai bản build release**: lượt 1 và lượt 2 chạy trên cùng một build; lượt 3 chạy sau khi app được sửa để khởi
+động **không chọn chính sách** (`POLICY_NONE`) và **build lại**, để có một lần khởi đầu nguội thật.
+
+> **⚠ Đính chính 18/09, theo review của Vũ Hùng Anh trên #41.** Bản trước ghi *"một build release, chỉ một biến
+> đổi giữa các lượt: chính sách cache"*. **Sai.** Giữa lượt 1 và lượt 3 có **hai** biến: chính sách cache **và** bản
+> build cùng trạng thái khởi động. Vì vậy mọi so sánh trực tiếp giữa hai chính sách dưới đây là **quan sát trên hai
+> build khác nhau**, không phải hiệu quả đã được cô lập của chính sách cache. Commit của từng build **không được ghi
+> lại** lúc đo; đó là một khoảng trống của bản ghi này. Từng số `A9` riêng lẻ vẫn đúng — reviewer đã tính lại độc lập
+> cả ba p95 (98,72 · 51,05 · 50,84 ms).
+
+Mọi trường trong bản ghi đều
 do máy sinh: `build_type` suy từ `__DEV__` **do chính app báo**, bộ nhớ và điều kiện do
 `harness/capture_conditions.py` đọc thẳng từ máy, chính sách và `nx/ny/nz` đọc từ dòng
 `SPIKE_A_TIMING_RUN_START` của app. **Không trường nào gõ tay.**
@@ -166,8 +176,8 @@ Nền so sánh: app vừa mở, **chưa chọn chính sách, chưa nạp slice n
 98,72 ms và 50,84 ms so với trần **200 ms**. Trước hôm nay `A9` mới chỉ đo ở **16** slice, nên câu hỏi
 "có đạt khi stack sâu thật không" chưa ai trả lời được.
 
-**Độ lặp lại tốt:** p95 trong cửa sổ của lượt 2 và lượt 3 — hai lần chạy độc lập, khởi đầu khác hẳn nhau
-— lệch **0,21 ms** (51,05 và 50,84).
+**Độ lặp lại tốt:** p95 trong cửa sổ của lượt 2 và lượt 3 — hai lần chạy độc lập, khởi đầu khác hẳn nhau,
+và **trên hai build khác nhau** — lệch **0,21 ms** (51,05 và 50,84).
 
 ### Chi phí bitmap thật, và vì sao 376 MB sai
 
@@ -194,7 +204,8 @@ bài 30 bước, bitmap lên **84,69 MB** — tương đương **~46 slice**, tr
 > 29,71 MB **lên** 107,72 MB. Hai lượt cửa sổ hội tụ về **101–108 MB dù xuất phát trái ngược nhau** —
 > đó là điểm cân bằng của cache Fresco, không phải tác dụng của chính sách.
 
-**Cửa sổ ±3 mua được gì:**
+**Cửa sổ ±3 mua được gì** — *quan sát giữa lượt 1 và lượt 3, tức giữa hai build; không phải hiệu quả đã cô lập
+của chính sách (xem đính chính ở đầu chặng S6):*
 
 | | toàn bộ | cửa sổ ±3 | chênh |
 |---|---:|---:|---:|
