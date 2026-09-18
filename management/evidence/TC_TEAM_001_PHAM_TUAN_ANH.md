@@ -182,7 +182,7 @@ Measured on the declared demo device: Galaxy A17 5G (`SM-A176B`), Android 16, re
 
 | Test | State | Evidence | What is still missing |
 |---|---|---|---|
-| `TC-PERF-001` / `NFR-PERF-001` | **measured, threshold met, half the criterion open** | `A9` at `576×576×88`, three release runs, one variable between them: whole cache p95 **98,72 ms** (30/30 hits); window ±3 from a truly cold start p95 **50,84 ms** in window (22/30) and **102,73 ms** on the 8 misses. Ceiling is 200 ms. Two independent window runs agree to **0,21 ms**. Fields machine-generated, PR #41 | the second half of `A9` — *no full-volume request per gesture* — is `NOT MEASURED`: the spike reads a local fixture and has no transport |
+| `TC-PERF-001` / `NFR-PERF-001` | **measured, threshold met, half the criterion open** | `A9` at `576×576×88`, three release runs **on two builds** (run 3 followed a rebuild for a cold start; corrected 2026-09-18 after Vu Hung Anh's review of #41): whole cache p95 **98,72 ms** (30/30 hits); window ±3 from a truly cold start p95 **50,84 ms** in window (22/30) and **102,73 ms** on the 8 misses. Ceiling is 200 ms. Two independent window runs agree to **0,21 ms**. Fields machine-generated, PR #41 | the second half of `A9` — *no full-volume request per gesture* — is `NOT MEASURED`: the spike reads a local fixture and has no transport |
 | `TC-MASK-001` overlay alignment | **partial** | `A2` `OBSERVED` 14/09: source-mask checksums **16/16** unchanged before any gesture, after 4 real gestures, and after 13 automated zoom/pan steps, recomputed independently from the fixture; touch→pixel mapping **60/60** fixture cases | this proves the source geometry survives the view transform. Overlay *rendering* alignment against the geometry contract fixtures is untested |
 | `TC-MRI-001` slice correctness | **partial** | `n / total` correct, 16 slices navigable | exact pixel match untested: the spike's image widget interpolates bilinearly and exposes no nearest-neighbour option, so the comparison must happen at the data layer |
 | `TC-MRI-002` navigation and gestures | **partial** | the 30-step navigation is driven deterministically by the harness; pinch, pan and tap coexist without a gesture library | gesture-mode separation during brush editing (`A11`) is `NOT MEASURED` |
@@ -195,7 +195,7 @@ Measured on the declared demo device: Galaxy A17 5G (`SM-A176B`), Android 16, re
 
 ### The memory finding this vertical must design around
 
-`S6` measured what a bounded cache actually buys on the target device:
+`S6` observed the following between run 1 and run 3. Those runs came from **two different builds**, so this is an observation, not an isolated effect of the cache policy:
 
 | | whole volume (88) | window ±3 | difference |
 |---|---:|---:|---:|
@@ -236,8 +236,7 @@ in V1.
 | `H4` | navigate to the problematic slice | slice switching feels instant — the measured basis is `A9` **50,84 ms** p95 in window, **98,72 ms** whole cache, both against a 200 ms ceiling — and *jump to worst* lands on the right slice |
 | `H5` | compare prediction, ground truth and error | overlays stay aligned **through zoom and pan**, and the legend explains every error class without relying on colour |
 
-Defensible answers already earned: the slice-switch numbers come from a release build with a single variable between
-runs and every field machine-generated; the memory figure is a measurement that **replaced** an earlier wrong
+Defensible answers already earned: the slice-switch numbers come from release builds with every field machine-generated, and each p95 was recomputed independently by the reviewer; the record says openly that the policy comparison crosses two builds; the memory figure is a measurement that **replaced** an earlier wrong
 extrapolation, and the record says so; and the honest gap — no transport, so *no full-volume request per gesture* is
 unproven — is written here rather than left for a question.
 
