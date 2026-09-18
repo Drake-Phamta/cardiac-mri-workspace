@@ -58,6 +58,8 @@
         "status": { "enum": ["APPLIED_UNDER_DOCUMENTED_EXCEPTION", "REPLACED_BY_AUTHORITATIVE_PATIENT_MAP"] },
         "decision_id": { "const": "DR-002b" },
         "threshold_metric": { "type": "string" },
+        "screen_method": { "type": "string", "minLength": 1 },
+        "group_semantics": { "type": "string", "minLength": 1 },
         "threshold_operator": { "const": ">=" },
         "threshold": { "const": 0.75 },
         "threshold_declared_at": { "const": "2026-09-17" },

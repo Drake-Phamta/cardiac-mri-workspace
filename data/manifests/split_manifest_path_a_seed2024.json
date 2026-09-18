@@ -46,6 +46,8 @@
   "decision_id": "DR-002b",
   "decision_option": "(c) + (d)",
   "threshold_metric": "Pearson correlation of sampled MRI features",
+  "screen_method": "MRI-only; per-volume z-score; fixed normalized-grid (24,24,22) sample; sampled-vector re-centering and L2 normalization; all unordered case pairs",
+  "group_semantics": "transitive connected components of same-released-partition pairs at or above threshold; cross-partition pairs are holdout links, not extra same-partition groups",
   "threshold_operator": ">=",
   "threshold": 0.75,
   "threshold_declared_at": "2026-09-17",

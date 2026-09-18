@@ -412,6 +412,15 @@ def build_split(dataset: dict[str, Any], dataset_path: Path,
         "decision_id": "DR-002b",
         "decision_option": "(c) + (d)",
         "threshold_metric": "Pearson correlation of sampled MRI features",
+        "screen_method": (
+            "MRI-only; per-volume z-score; fixed normalized-grid (24,24,22) sample; "
+            "sampled-vector re-centering and L2 normalization; all unordered case pairs"
+        ),
+        "group_semantics": (
+            "transitive connected components of same-released-partition pairs at or "
+            "above threshold; cross-partition pairs are holdout links, not extra "
+            "same-partition groups"
+        ),
         "threshold_operator": ">=",
         "threshold": SIMILARITY_THRESHOLD,
         "threshold_declared_at": SIMILARITY_DECISION_DATE,
@@ -628,6 +637,15 @@ def selftest() -> int:
                 first["similarity_screening"]["threshold"] == SIMILARITY_THRESHOLD
                 and first["similarity_screening"]["threshold_declared_at"]
                     == SIMILARITY_DECISION_DATE,
+            "same-side correlation grouping is transitive": (
+                lambda grouped: grouped["CASE_0001"] == grouped["CASE_0002"]
+                == grouped["CASE_0003"] and grouped["CASE_0001"] != grouped["CASE_0101"]
+            )(similarity_proxy_map(
+                {"CASE_0001", "CASE_0002", "CASE_0003", "CASE_0101"},
+                [{"case_ids": ["CASE_0001", "CASE_0002"]},
+                 {"case_ids": ["CASE_0002", "CASE_0003"]}],
+                {"CASE_0001", "CASE_0002", "CASE_0003"}, {"CASE_0101"}
+            )[0]),
             "holdout-linked case and full group excluded from effective train":
                 first["training_exclusions"]["direct_case_ids"] == ["CASE_0056"]
                 and first["training_exclusions"]["group_propagated_case_ids"]

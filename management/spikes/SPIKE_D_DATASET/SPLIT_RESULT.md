@@ -36,6 +36,22 @@ chosen at the upper-tail break after rank 5 in the 11,781-pair private screen.
 At this threshold there are **5 pairs affecting 9 case IDs**, including the
 known `CASE_0056`/`CASE_0097` duplicate at rank 1.
 
+These counts use the **owner's declared MRI-only screen**: per-volume z-score,
+fixed normalized-grid `(24,24,22)` sample, sampled-vector re-centering and L2
+normalization, and all unordered case pairs. The **four groups below** are
+transitive connected components of *same-released-partition* above-threshold
+pairs. The fifth pair crosses the released development/holdout boundary; it is
+reported as a holdout link, not as a fifth same-partition group. The public
+manifest now names this method and group semantics explicitly.
+
+QA-003's independent `verify_dr002b.py` uses a different thumbnail-stride
+sampling method and screens same-shape pairs only. It finds four threshold
+pairs in three connected components when the cross-boundary link is included
+in the graph. Those counts are not a rerun of the declared owner screen and
+must not be silently substituted for its five-pair/four-same-side-group
+counts. Both methods identify the holdout-linked development exclusion; the
+screen-method discrepancy remains visible for reviewer adjudication.
+
 Same-side candidate groups kept whole in every nominal partition/subset:
 
 - `CASE_0056` + `CASE_0097`
