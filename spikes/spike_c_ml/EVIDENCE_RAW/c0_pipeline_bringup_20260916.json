@@ -1,11 +1,14 @@
 {
   "status": "SYNTHETIC_PIPELINE_BRINGUP_PASS",
   "operator": "Bế Quốc Khánh",
-  "captured_at": "2026-09-16T01:14:06+0700",
+  "captured_at": "2026-09-18T11:39:50+0700",
   "device": "NVIDIA GeForce RTX 4050 Laptop GPU",
   "framework": {
     "python": "3.11.9",
-    "torch": "2.11.0+cu128"
+    "torch": "2.11.0+cu128",
+    "transformers": "5.17.0",
+    "huggingface_hub": "1.31.0",
+    "cudnn": 91900
   },
   "input": {
     "manifest": "spikes/spike_c_ml/synthetic/split_manifest_8_cases.json",
@@ -117,7 +120,7 @@
       "train_steps": 6,
       "mean_train_loss": 0.8164493242899576,
       "synthetic_validation_dice": 0.22280152302169154,
-      "elapsed_seconds": 2.364682499999617,
+      "elapsed_seconds": 1.615577900000062,
       "precision": "bf16",
       "checkpoint": {
         "filename": "unet_base16_depth4.pt",
@@ -133,7 +136,7 @@
       "train_steps": 6,
       "mean_train_loss": 0.7275491754213969,
       "synthetic_validation_dice": 0.2885488122754847,
-      "elapsed_seconds": 1.3376385000010487,
+      "elapsed_seconds": 0.5173103000006449,
       "precision": "bf16",
       "checkpoint": {
         "filename": "dinov2_s14_frozen_progressive.pt",

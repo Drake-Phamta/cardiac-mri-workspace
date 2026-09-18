@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from importlib.metadata import version
 import contextlib
 import gc
 import hashlib
@@ -220,7 +221,7 @@ def selftest() -> int:
     norm = probe.dr011_normalize(sample, 0.5, 99.5)
     assert norm.dtype == np.float32 and 0 <= norm.min() <= norm.max() <= 1
     assert abs(dice(torch.tensor([[[[10.0, -10.0]]]]), torch.tensor([[[[1.0, 0.0]]]])) - 1) < 1e-6
-    print("pipeline bring-up selftest: 5/5 PASS")
+    print("pipeline bring-up selftest: PASS")
     return 0
 
 
@@ -268,7 +269,13 @@ def main() -> int:
         "operator": args.operator,
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "device": torch.cuda.get_device_name(0) if args.device == "cuda" else "CPU",
-        "framework": {"python": sys.version.split()[0], "torch": torch.__version__},
+        "framework": {
+            "python": sys.version.split()[0],
+            "torch": torch.__version__,
+            "transformers": version("transformers"),
+            "huggingface_hub": version("huggingface_hub"),
+            "cudnn": torch.backends.cudnn.version() if args.device == "cuda" else None,
+        },
         "input": {
             "manifest": str(args.manifest.relative_to(REPO)).replace(os.sep, "/"),
             "real_dataset_bytes_read": False,
