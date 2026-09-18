@@ -22,7 +22,7 @@ $args = @(
   '--base', 'http://10.64.193.115:8787',
   '--path', 'lan-diagnostic', '--connection', 'direct',
   '--profile', '576x576x88',
-  '--operator', 'AVD operator', '--owner', 'Nguyen Gia Duc Trung',
+  '--operator "AVD operator"', '--owner "Nguyen Gia Duc Trung"',
   '--slices', '88', '--window-radius', '2', '--repeats', '1',
   '--timeout', '3', '--network-retries', '8', '--retry-delay', '1',
   '--pause-before-mesh', '15', '--body-hash',
@@ -34,12 +34,15 @@ Get-Content -Raw -Encoding utf8 spikes/spike_e_transport/client/android_toybox_h
 
 3. Wait for the stderr marker
    RECONNECT_WINDOW: pause 15 seconds before first mesh request.
-   Immediately disable the AVD network, record the time, wait about three
-   seconds, then restore it and record the time:
+   Immediately disable the AVD network and record the time. Keep it disabled
+   for at least nineteen seconds, then restore it and record the time. The
+   outage must extend past the harness's 15-second pause and the first
+   3-second request timeout; restoring inside the pause produces a healthy
+   first mesh request with `network_retries: 0` instead of exercising retry:
 
 ~~~powershell
 & $adb shell svc wifi disable
-# record loss time; wait about 3 seconds
+# record loss time; keep the link disabled for at least 19 seconds
 & $adb shell svc wifi enable
 ~~~
 
@@ -103,7 +106,7 @@ $args = @(
   '--base', 'http://10.134.129.115:8787',
   '--path', 'wifi-overlay', '--connection', 'direct',
   '--profile', '576x576x88',
-  '--operator', 'Pham Tuan Anh', '--owner', 'Nguyen Gia Duc Trung',
+  '--operator "Pham Tuan Anh"', '--owner "Nguyen Gia Duc Trung"',
   '--slices', '88', '--window-radius', '2', '--repeats', '1',
   '--timeout', '3', '--network-retries', '8', '--retry-delay', '1',
   '--pause-before-mesh', '15', '--body-hash',
@@ -113,14 +116,17 @@ Get-Content -Raw -Encoding utf8 spikes/spike_e_transport/client/android_toybox_h
   & $adb @args
 ~~~
 
-When stderr prints `RECONNECT_WINDOW`, the leader records the timestamp,
-briefly disables the **phone's actual Wi-Fi uplink**, waits about three
-seconds, then restores it. Prefer the leader's local/USB ADB for these two
-commands; with remote ADB use the reviewed out-of-band control channel:
+When stderr prints `RECONNECT_WINDOW`, the leader records the timestamp and
+briefly disables the **phone's actual Wi-Fi uplink**. Keep it disabled for at
+least nineteen seconds (past the 15-second pause and the first 3-second
+request timeout), then restore it. A three-second outage entirely inside the
+pause is not a retry test because the first mesh request sees a healthy route.
+Prefer the leader's local/USB ADB for these two commands; with remote ADB use
+the reviewed out-of-band control channel:
 
 ~~~powershell
 & $adb shell svc wifi disable   # record loss_start immediately
-# wait about 3 seconds; record restore_start
+# keep disabled at least 19 seconds; record restore_start before enabling
 & $adb shell svc wifi enable
 ~~~
 
