@@ -21,28 +21,39 @@ run; it is not converted into an assumption.
 - [ ] Spike D has status `ACCEPTED`, with `DATASET_AUDIT.md` and its public manifest on `main`.
 - [ ] `GATE-DATA-01` is closed by the leader after independent QA.
 - [ ] `GATE-SPLIT-01` is closed and the Path A split manifest is on `main`.
-- [ ] The manifest records Pearson threshold `r >= 0.75`, all four correlation groups, effective train
-      count 78, and effective nested subset counts 20 / 38 / 78.
+- [ ] The merged manifest records Pearson threshold `r >= 0.75`, effective train count 78, and
+      effective nested subset counts 20 / 38 / 78. Read the correlation-group count from that manifest;
+      recompute **transitive connected components** from the restricted screen's above-threshold pairs
+      using the manifest's same-released-partition semantics, and prove no such component is split
+      across partitions or nested subsets. Do not hard-code a group count or publish pair scores.
 - [ ] `CASE_0133` and grouped `CASE_0117` are absent from every effective training subset.
 - [ ] The selected C1 cases are members of the effective **training** partition only.
-- [ ] No validation case and none of the 54 locked holdout cases is mounted or addressable by the C1 job.
-- [ ] The public manifest hash, restricted linkage-screen hash, code commit, checkpoint revision and
-      preprocessing version are captured before execution.
+- [ ] Mount an allowlisted training-only data root. Attempt to resolve every validation and holdout ID
+      beneath that root without opening files; all attempts must fail and the record must report
+      `validation_paths_resolved: 0` and `holdout_paths_resolved: 0`.
+- [ ] Record the merged #35 commit on `main`, public dataset/split manifest hashes, restricted
+      linkage-screen hash, C1 code commit, checkpoint revision/weights hash, preprocessing version,
+      and Python/torch/transformers/huggingface_hub/CUDA/cuDNN versions before execution.
 - [ ] `pipeline_bringup.py` from PR #37 has landed or its exact reviewed commit is pinned.
 - [ ] The run directory is outside Git; no dataset or checkpoint bytes can be staged.
 
 The preflight record will be saved as `c1_preflight_<timestamp>.json`. It must contain the gate state, source
-commit, split-manifest SHA-256, selected case IDs, partition proof and an explicit `holdout_case_count: 0`.
+commit, split-manifest SHA-256, selected case IDs, partition proof, data-root path, resolution-attempt
+results and explicit `holdout_case_count: 0`, `holdout_paths_resolved: 0` fields. The preflight must
+refuse a broad data root that resolves even one non-training case; a software filter alone is not proof.
 
 ## 2. Subset rule
 
-The split declared in PR #35 (`dc26b35`) defines nominal nested training subsets of 20 / 40 / 80 and
-effective subsets of **20 / 38 / 78** after `DR-002b` exclusions. Spike C1 will use the smallest effective
+The final merged #35 commit on `main` is the source of truth; the preflight pins its commit and
+split-manifest SHA-256 rather than a draft PR head. The current reviewed proposal defines nominal
+nested training subsets of 20 / 40 / 80 and effective subsets of **20 / 38 / 78** after
+`DR-002b` exclusions. Spike C1 will use the smallest effective
 subset that can represent both released source-shape strata while keeping complete correlation groups.
 
 Selection is deterministic:
 
-1. read only `partitions.training.effective_subsets` from the final merged split manifest;
+1. read only `training_subsets["25_percent"].effective_case_ids` (and the 50/100% entries only
+   for consistency checks) from the final merged split manifest;
 2. begin with the effective 20-case subset;
 3. verify that every selected case is training-only and that correlation groups are not split;
 4. verify representation of the measured 576×576×88 and 640×640×88 strata;
@@ -67,6 +78,13 @@ the synthetic loader with a manifest-gated real-data loader, but it must preserv
 
 New C1 code must reject a selected ID that is not in the effective training subset and reject manifests whose
 source hash, threshold declaration or exclusion list does not match the preflight record.
+
+Before the first measured C1 run, pin a **reproduction tolerance** for the same frozen input/configuration:
+absolute difference at most `5e-5` for mean training loss and `5e-4` for synthetic/plumbing Dice across
+machines, based on the Day-9 #37 cross-machine reruns. These tolerances diagnose reruns; they do **not**
+define a clinical-quality threshold or permit comparing different datasets. Same-machine differences
+should be smaller; any larger difference pauses acceptance for investigation. Record exact library and
+cuDNN versions alongside the comparison so the tolerance cannot mask a version-driven change.
 
 ## 4. Criterion-to-evidence matrix
 
@@ -103,7 +121,8 @@ Spike C1 itself does **not** evaluate the locked 54-case holdout. It only prepar
 schema with two immutable slots:
 
 - `primary_all_holdout`: metric over all 54 locked holdout cases;
-- `sensitivity_without_suspected_linkage`: the same frozen predictions and metric code, excluding only
+- `sensitivity_without_suspected_linkage`: the same frozen predictions, metric definition **and metric-code
+  commit**, excluding only
   `CASE_0027`, whose threshold relation is public while its exact pair score remains restricted by F5.
 
 These slots stay `NOT_RUN` during C1. The shared limitation must accompany every later number:
