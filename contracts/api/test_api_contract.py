@@ -47,6 +47,8 @@ def main() -> None:
     assert {item["id"] for item in fixture["endpoints"]} == {item["id"] for item in contract["endpoints"]}
     assert {item["code"] for item in fixture["errors"]} == {item["code"] for item in contract["errors"]}
     assert fixture["geometry"]["geometry_contract_version"] == "dr008a-dr012/v1.0.0"
+    committed_fixture = json.loads((HERE / "fixtures" / "contract11_draft_v0.json").read_text(encoding="utf-8"))
+    assert committed_fixture == fixture, "committed fixture must be regenerated from contract.json"
     print("PASS valid contract and schema-derived fixture")
 
     broken = copy.deepcopy(contract)
