@@ -39,6 +39,13 @@ khi mở, nên cache ảnh và timer của Spike A không chạy dưới nền l
 > khác ổ đĩa không còn sập — **lối ra geometry của M3 đã lên `main`**. Còn của bạn: **#41** và **#31** của leader đang
 > chờ phản hồi của leader (không phải của bạn); **#44** đang chờ Trung duyệt.
 
+> **📌 Mới 21:55 — phiên `B10`/`B11` đầu tiên ĐÃ ĐO theo protocol của bạn.** 3 lượt `status: complete`, mỗi lượt
+> 1.800 khoảng frame, đúng URL cố định, mesh synthetic level 0, trên A17, một bản build, một lần tải trang. Dữ liệu thô
+> trên nhánh **`spike-b/evidence-20260918`** (`EVIDENCE_RAW/b10_b11_20260918/`, kèm `PROVENANCE.md`). **Việc 5 của bạn
+> mở khoá: diễn giải `B10`/`B11` vào `RESULT.md` — chưa ai đọc số.** Hai lưu ý: bản qua cầu nối RN bị logcat cắt ở
+> 4.095 ký tự (lỗi container #46, leader sửa), nên **bản HTTP là bản đầy đủ**; và cây được phục vụ là bản gộp local
+> `main` + `c34d753` vì head #44 chưa có #43 — merge `main` vào #44 để tái lập được từ GitHub.
+
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai / cần quyền gì | Xong khi |
