@@ -29,8 +29,10 @@ Bound for fixture points is EXACT. `SPIKE_B_3D/TASK.md` freezes it:
     "DO NOT loosen the tolerance merely to obtain a passing framework."
 
 Usage:
-    python conformance.py                       # check the proposal fixture
+    python conformance.py                       # check the canonical fixture
     python conformance.py --fixture <path.json>
+    python conformance.py --expect-contract-version <exact-version>
+    python conformance.py --json
 """
 
 from __future__ import annotations
@@ -60,6 +62,80 @@ class Finding:
 
     def __str__(self) -> str:
         return f"{self.point_id} [{self.group}] {self.kind}: {self.detail}"
+
+    def as_dict(self) -> dict[str, str]:
+        return {"point_id": self.point_id, "group": self.group,
+                "kind": self.kind, "detail": self.detail}
+
+
+def validate_fixture_contract(fixture: dict,
+                              expected_contract_version: str | None = None) -> list[Finding]:
+    """Check the fixture envelope before any implementation consumes it.
+
+    ``expected_contract_version`` comes from the consuming backend/mobile
+    build.  Comparing it here makes a version mismatch an ordinary, visible
+    conformance failure instead of letting an implementation accidentally use
+    coordinates under a different contract.
+    """
+    findings: list[Finding] = []
+    version = fixture.get("geometry_contract_version")
+    if not isinstance(version, str) or not version:
+        findings.append(Finding("-", "fixture", "contract_version",
+                                "geometry_contract_version is missing or not a non-empty string"))
+    elif expected_contract_version and version != expected_contract_version:
+        findings.append(Finding(
+            "-", "fixture", "contract_version_mismatch",
+            f"fixture is {version!r}; consumer expects {expected_contract_version!r}. "
+            "Reject before using geometry (TC-REL-003)."))
+
+    if fixture.get("contract") != "DR-008a":
+        findings.append(Finding("-", "fixture", "contract_identity",
+                                f"contract is {fixture.get('contract')!r}, expected 'DR-008a'"))
+
+    points = fixture.get("points")
+    if not isinstance(points, list) or not points:
+        findings.append(Finding("-", "fixture", "points",
+                                "fixture must contain a non-empty points list"))
+    elif fixture.get("point_count") != len(points):
+        findings.append(Finding("-", "fixture", "point_count",
+                                f"point_count is {fixture.get('point_count')!r}, actual list has {len(points)}"))
+    elif any(not isinstance(point, dict) or "group" not in point for point in points):
+        findings.append(Finding("-", "fixture", "points",
+                                "each coordinate point must be an object with a group"))
+
+    shape = fixture.get("shape_xyz")
+    rays = fixture.get("picking_rays")
+    if not isinstance(rays, list) or not rays:
+        findings.append(Finding("-", "fixture", "picking_rays",
+                                "fixture must contain deterministic picking_rays"))
+    elif isinstance(shape, list) and len(shape) == 3:
+        for ray in rays:
+            rid = ray.get("id", "-") if isinstance(ray, dict) else "-"
+            if not isinstance(ray, dict) or ray.get("group") not in {"interior", "surface_tangent"}:
+                findings.append(Finding(rid, "fixture", "picking_group",
+                                        "picking rays must use the contractual interior/surface_tangent groups"))
+                continue
+            expected = ray.get("expected_slice_index")
+            if not isinstance(expected, int) or expected < 0 or expected >= shape[2]:
+                findings.append(Finding(
+                    rid, "fixture", "picking_expected_slice",
+                    f"expected_slice_index must be an in-range integer 0..{shape[2] - 1}; got {expected!r}"))
+            for field in ("origin_world", "direction_world"):
+                value = ray.get(field)
+                if (not isinstance(value, list) or len(value) != 3
+                        or any(not isinstance(axis, (int, float)) or not math.isfinite(axis)
+                               for axis in value)):
+                    findings.append(Finding(
+                        rid, "fixture", "picking_ray_geometry",
+                        f"{field} must be three finite numeric world coordinates"))
+            direction = ray.get("direction_world")
+            if (isinstance(direction, list) and len(direction) == 3
+                    and all(isinstance(axis, (int, float)) and math.isfinite(axis)
+                            for axis in direction)
+                    and not any(direction)):
+                findings.append(Finding(rid, "fixture", "picking_ray_geometry",
+                                        "direction_world must not be the zero vector"))
+    return findings
 
 
 # --- the reference implementation under test --------------------------------
@@ -106,20 +182,114 @@ def reference_impl(fixture: dict) -> dict[str, Callable]:
                 return None
         return idx[2]
 
-    return {"voxel_to_world": v2w, "world_to_voxel": w2v, "slice_of_world": slice_of}
+    def synthetic_blob_cell(cell):
+        """Independent occupancy definition for the diagnostic picking surface.
+
+        The canonical rays target the deterministic synthetic blob that feeds
+        the throwaway Spike B mesh.  This implementation deliberately does not
+        import ``mesh/build_mesh.py``: generator and checker must not share
+        code.  It re-derives the two implicit surfaces directly and is used
+        only by the reference adapter.  A backend/mobile adapter supplies its
+        own ``slice_of_ray`` implementation over the mesh it renders.
+        """
+        x, y, z = cell
+        nx, ny, nz = shape
+        if not (0 <= x < nx and 0 <= y < ny and 0 <= z < nz):
+            return False
+        cx, cy, cz = nx / 2.0, ny / 2.0, nz / 2.0
+        main = (((x - cx) / (nx * 0.32)) ** 2
+                + ((y - cy) / (ny * 0.30)) ** 2
+                + ((z - cz) / (nz * 0.34)) ** 2) <= 1.0
+        lobe = (((x - cx * 1.45) / (nx * 0.16)) ** 2
+                + ((y - cy * 0.72) / (ny * 0.17)) ** 2
+                + ((z - cz * 1.20) / (nz * 0.22)) ** 2) <= 1.0
+        return main or lobe
+
+    def slice_of_ray(origin_world, direction_world):
+        """Return the first occupied synthetic cell's source slice via 3-D DDA.
+
+        The traversal takes world-space input and converts it to the declared
+        affine voxel grid.  It therefore catches an adapter that maps a ray to
+        the wrong slice even when the expected index remains within range.
+        """
+        point = w2v(origin_world)
+        direction = [direction_world[i] / spacing[i] for i in range(3)]
+        if not any(abs(axis) > 1e-12 for axis in direction):
+            return None
+
+        start, end = 0.0, float("inf")
+        for axis, limit in enumerate(shape):
+            velocity = direction[axis]
+            if abs(velocity) <= 1e-12:
+                if point[axis] < 0 or point[axis] >= limit:
+                    return None
+                continue
+            left, right = (0.0 - point[axis]) / velocity, (limit - point[axis]) / velocity
+            if left > right:
+                left, right = right, left
+            start, end = max(start, left), min(end, right)
+        if end < start:
+            return None
+
+        # Move an infinitesimal amount along the ray so a face hit belongs to
+        # the voxel entered by the ray, matching the half-open floor rule.
+        t = start + 1e-9
+        at = [point[i] + direction[i] * t for i in range(3)]
+        cell = [math.floor(value) for value in at]
+        step = [1 if value > 0 else -1 if value < 0 else 0 for value in direction]
+        next_boundary, delta = [], []
+        for axis, velocity in enumerate(direction):
+            if step[axis] == 0:
+                next_boundary.append(float("inf"))
+                delta.append(float("inf"))
+                continue
+            boundary = cell[axis] + (1 if step[axis] > 0 else 0)
+            next_boundary.append(t + (boundary - at[axis]) / velocity)
+            delta.append(abs(1.0 / velocity))
+
+        while all(0 <= cell[axis] < shape[axis] for axis in range(3)) and t <= end + 1e-9:
+            if synthetic_blob_cell(cell):
+                return cell[2]
+            next_t = min(next_boundary)
+            # Step tied boundaries together: a ray through a grid edge/corner
+            # must not inspect cells it never enters.
+            for axis in range(3):
+                if abs(next_boundary[axis] - next_t) <= 1e-12:
+                    cell[axis] += step[axis]
+                    next_boundary[axis] += delta[axis]
+            t = next_t
+        return None
+
+    return {
+        "voxel_to_world": v2w,
+        "world_to_voxel": w2v,
+        "slice_of_world": slice_of,
+        "slice_of_ray": slice_of_ray,
+    }
 
 
 # --- the reusable check -----------------------------------------------------
 
 def check_fixture(fixture: dict, impl: dict[str, Callable],
-                  tol_mm: float = 1e-6, tol_voxel: float = 1e-6) -> list[Finding]:
+                  tol_mm: float = 1e-6, tol_voxel: float = 1e-6,
+                  expected_contract_version: str | None = None) -> list[Finding]:
     """Run every fixture point against one implementation.
 
-    `impl` is a mapping with `voxel_to_world`, `world_to_voxel` and
-    `slice_of_world`. Any language's implementation can be wrapped to this shape,
-    which is the point: one fixture, one check, many implementations.
+    `impl` is a mapping with `voxel_to_world`, `world_to_voxel`,
+    `slice_of_world` and `slice_of_ray(origin_world, direction_world)`. Any
+    language's implementation can be wrapped to this shape, which is the point:
+    one fixture, one check, many implementations. Pass the consumer's configured
+    ``expected_contract_version`` to make a mismatch fail before any coordinate
+    is resolved.
     """
-    findings: list[Finding] = []
+    findings = validate_fixture_contract(fixture, expected_contract_version)
+    if findings:
+        return findings
+    required = {"voxel_to_world", "world_to_voxel", "slice_of_world", "slice_of_ray"}
+    missing = sorted(name for name in required if not callable(impl.get(name)))
+    if missing:
+        return [Finding("-", "implementation", "interface",
+                        "missing callable implementation member(s): " + ", ".join(missing))]
     shape = fixture["shape_xyz"]
 
     for p in fixture["points"]:
@@ -161,7 +331,24 @@ def check_fixture(fixture: dict, impl: dict[str, Callable],
                 f"got {resolved}, fixture says {expected}. Bound is EXACT - "
                 f"zero tolerance on canonical fixtures."))
 
-    # 4 - the fixture's own declarations must be self-consistent
+    # 4 - each ray must resolve to its exact expected source slice.  This is a
+    # separate contract from envelope validation above: a ray index that remains
+    # in range but changes by one must still fail.
+    for ray in fixture["picking_rays"]:
+        rid, group = ray["id"], ray["group"]
+        try:
+            resolved = impl["slice_of_ray"](ray["origin_world"], ray["direction_world"])
+        except Exception as exc:
+            findings.append(Finding(rid, group, "ray_resolution",
+                                    f"slice_of_ray raised {type(exc).__name__}: {exc}"))
+            continue
+        if resolved != ray["expected_slice_index"]:
+            findings.append(Finding(
+                rid, group, "ray_slice_exact",
+                f"got {resolved!r}, fixture says {ray['expected_slice_index']!r}. Bound is EXACT - "
+                "zero tolerance on canonical picking rays."))
+
+    # 5 - the fixture's own declarations must be self-consistent
     if fixture.get("slice_shape_yx") != [shape[1], shape[0]]:
         findings.append(Finding("-", "fixture", "self_consistency",
                                 f"slice_shape_yx {fixture.get('slice_shape_yx')} is not "
@@ -196,6 +383,12 @@ def check_fixture(fixture: dict, impl: dict[str, Callable],
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixture", default=DEFAULT_FIXTURE)
+    ap.add_argument("--expect-contract-version", metavar="VERSION",
+                    help="exact version configured by the implementation being checked")
+    ap.add_argument("--implementation-name", default="reference",
+                    help="label emitted in text/JSON output for the implementation under test")
+    ap.add_argument("--json", action="store_true",
+                    help="emit a machine-readable conformance summary")
     args = ap.parse_args()
 
     if not os.path.exists(args.fixture):
@@ -205,16 +398,51 @@ def main() -> int:
         fixture = json.load(f)
 
     status = fixture.get("_status")
-    print()
-    print(f"  fixture   {os.path.relpath(args.fixture, os.getcwd())}")
-    print(f"  id        {fixture.get('fixture_id')}  contract {fixture.get('contract')}")
-    if status == "PROPOSAL":
-        print(f"  STATUS    PROPOSAL - owner {fixture.get('_owner')}")
-        print("            The canonical set is tests/fixtures/geometry/**, not this file.")
-    elif fixture.get("status"):
-        print(f"  STATUS    {fixture['status']} - owner {fixture.get('owner')}")
+    if not args.json:
+        print()
+        try:
+            display_fixture = os.path.relpath(args.fixture, os.getcwd())
+        except ValueError:
+            # Windows refuses relpath across drive letters.  The test itself is
+            # still valid, so print the absolute/original path instead of
+            # converting a successful conformance run into a traceback.
+            display_fixture = args.fixture
+        print(f"  fixture   {display_fixture}")
+        print(f"  id        {fixture.get('fixture_id')}  contract {fixture.get('contract')}")
+        print(f"  version   {fixture.get('geometry_contract_version')}")
+        if args.expect_contract_version:
+            print(f"  expects   {args.expect_contract_version}")
+        else:
+            print("  WARNING   no expected contract version supplied; version equality was not checked")
+        print(f"  adapter   {args.implementation_name}")
+        if status == "PROPOSAL":
+            print(f"  STATUS    PROPOSAL - owner {fixture.get('_owner')}")
+            print("            The canonical set is tests/fixtures/geometry/**, not this file.")
+        elif fixture.get("status"):
+            print(f"  STATUS    {fixture['status']} - owner {fixture.get('owner')}")
 
-    findings = check_fixture(fixture, reference_impl(fixture))
+    try:
+        implementation = reference_impl(fixture)
+    except (KeyError, TypeError, SystemExit) as exc:
+        findings = [Finding("-", "fixture", "implementation_setup", str(exc))]
+    else:
+        findings = check_fixture(
+            fixture, implementation,
+            expected_contract_version=args.expect_contract_version)
+
+    if args.json:
+        print(json.dumps({
+            "fixture_id": fixture.get("fixture_id"),
+            "geometry_contract_version": fixture.get("geometry_contract_version"),
+            "expected_contract_version": args.expect_contract_version,
+            "implementation": args.implementation_name,
+            "point_count": len(fixture.get("points", [])),
+            "picking_ray_count": len(fixture.get("picking_rays", [])),
+            "finding_count": len(findings),
+            "status": PASS if not findings else FAIL,
+            "findings": [f.as_dict() for f in findings],
+        }, sort_keys=True))
+        return 0 if not findings else 1
 
     by_group: dict[str, list[Finding]] = {}
     for f in findings:
@@ -252,9 +480,9 @@ def main() -> int:
         return 1
 
     print()
-    print(f"  {len(fixture['points'])} points conform exactly. 0 findings.")
-    print("  This checks the REFERENCE implementation. TC-MAINT-002 is satisfied only when")
-    print("  the backend and the mobile implementations pass this same function.")
+    print(f"  {len(fixture['points'])} points and {len(fixture['picking_rays'])} picking rays conform exactly. 0 findings.")
+    print(f"  This checks the {args.implementation_name.upper()} implementation. TC-MAINT-002 is")
+    print("  satisfied only when backend and mobile each pass this same fixture/checker.")
     print()
     return 0
 

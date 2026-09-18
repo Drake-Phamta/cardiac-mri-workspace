@@ -139,6 +139,23 @@ jobs:
           PY
 
   # --------------------------------------------------------------------------
+  geometry-contract:
+    name: "canonical geometry contract (TC-MAINT-002)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: verify canonical fixture and exact contract version
+        run: |
+          python spikes/spike_b_3d/harness/conformance.py \
+            --fixture tests/fixtures/geometry/geometry_fixture_v0.json \
+            --expect-contract-version dr008a-dr012/v1.0.0 \
+            --implementation-name reference
+
+  # --------------------------------------------------------------------------
   no-forbidden-bytes:
     name: "no dataset / checkpoint / secret bytes"
     runs-on: ubuntu-latest

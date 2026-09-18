@@ -1,6 +1,7 @@
 {
   "fixture_id": "GEOM_CANONICAL_V1",
   "contract": "DR-008a",
+  "geometry_contract_version": "dr008a-dr012/v1.0.0",
   "geometry_profile": "axis-aligned only (DR-012)",
   "indexing": {
     "x": "COLUMN of the source image",
@@ -852,4 +853,3 @@
     "diagnostic_grouping": "steep/grazing may be reported from incidence angle as an additional diagnostic, never as a replacement for the contractual labels"
   }
 }
-
