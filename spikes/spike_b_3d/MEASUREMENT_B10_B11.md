@@ -1,59 +1,108 @@
-# B10/B11 — protocol đo trên thiết bị
+# B10/B11 — protocol trong React Native WebView
 
-Đây là protocol cho **Spike B diagnostic**. Frame probe trong app chỉ ghi raw
-`requestAnimationFrame` intervals; nó không tự biến một lần chạy thành bằng
-chứng nghiệm thu.
+Đây là protocol cho **SPIKE_B diagnostic viewer** chạy bên trong container
+React Native của Spike A. Nó tạo raw evidence; không tự đưa ra kết luận thay
+cho chủ Spike B.
 
-## Khi nào số đo có giá trị
+## Phạm vi và URL cố định
 
-Chỉ nhận kết quả cho B10/B11 khi tất cả điều kiện sau được ghi cùng file JSON:
+Chỉ nhận lượt đo trên **Samsung Galaxy A17 5G vật lý**, bản release của app có
+container WebView (PR #46 hoặc commit đã merge), và source commit đã chứa PR
+#43 để fixture mang `geometry_contract_version`. Không dùng Chrome hay Android
+Studio emulator: chúng chỉ phù hợp để kiểm URL, thao tác và lỗi WebGL.
 
-- thiết bị vật lý là **Samsung Galaxy A17 5G** (không phải Android Studio AVD);
-- đã ghi model, Android version, Chrome version, trạng thái pin/nhiệt và kích
-  thước màn hình; JSON đã chứa user agent, viewport, backing canvas và số tam
-  giác;
-- mesh là artifact được build ở lần chạy đó, với số tam giác ghi lại;
-- viewer được giữ foreground, màn hình bật, trong cả lượt đo;
-- operator thực hiện đúng chuỗi thao tác bên dưới và lưu raw JSON kèm notes.
+URL của lượt `B10`/`B11` đầu tiên là cố định:
 
-Pixel/Android Studio emulator chỉ dùng để kiểm tra cài đặt, URL, thao tác chạm
-và lỗi WebGL. Nó có GPU, refresh rate và compositor khác A17 nên không dùng
-median FPS hay stall của emulator để quyết B10/B11 hoặc DR-008c.
+```text
+http://127.0.0.1:8765/app/?mesh=synthetic&level=0&probe_sink=/probe
+```
 
-## Cách chạy
+- `mesh=synthetic` là artifact chẩn đoán hiện có, không phải mask bệnh nhân;
+- `level=0` là mesh không decimate, 5.648 triangles ở artifact hiện tại;
+- `probe_sink=/probe` bắt buộc để một payload được lưu độc lập ở máy trạm, bên
+  cạnh payload qua React Native bridge/logcat.
 
-1. Trên máy phục vụ file, vào `spikes/spike_b_3d` và chạy:
+Hằng `WEBVIEW_URL` ở `spikes/spike_a_2d/app/App.js` phải là đúng URL trên khi
+build app cho phiên này. Nếu chỉ đổi `level`, chỉ đổi một chữ số trong URL và
+build lại; không trộn các level trong cùng một file evidence.
 
-   ```bash
-   python mesh/build_mesh.py
-   python -m http.server 8765
-   ```
+## Chuẩn bị phiên
 
-2. Cắm A17 qua USB, bật USB debugging, xác nhận serial rồi map cổng local:
+Làm trên máy trạm ở root repository, với thư mục evidence nằm **ngoài** Git:
 
-   ```bash
-   adb devices -l
-   adb -s <A17_SERIAL> reverse tcp:8765 tcp:8765
-   ```
+```bash
+OUT="$HOME/cardiac-mri-evidence/b10-b11-$(date +%Y%m%dT%H%M%S)"
+mkdir -p "$OUT"
+git rev-parse HEAD > "$OUT/repository_commit.txt"
+python3 spikes/spike_b_3d/mesh/build_mesh.py
+python3 spikes/spike_b_3d/harness/serve_viewer.py --out "$OUT"
+```
 
-3. Mở Chrome trên A17 tới `http://127.0.0.1:8765/app/`. Xác nhận mesh thấy
-   được, số triangles hiển thị và picking phản hồi trước khi bấm đo.
-4. Bấm **run 30 s device probe**. Ba giây đầu là warm-up. Trong 30 giây đo:
-   - giây 0–10: orbit liên tục bằng một ngón;
-   - giây 10–20: pan bằng hai ngón;
-   - giây 20–30: pinch zoom in/out, rồi chạm một lần vào mesh để kiểm tra pick.
-5. Bấm **download raw frame JSON**, lưu file dưới `evidence/` cùng note thiết
-   bị/browser/pin/nhiệt. Lặp tối thiểu ba lượt, ưu tiên cùng trạng thái thiết bị.
+Giữ tiến trình `serve_viewer.py` mở ở terminal thứ nhất. Nó chỉ bind loopback,
+phục vụ viewer và nhận `POST /probe`; điện thoại chỉ thấy nó qua `adb reverse`.
+Lệnh từ chối `--out` trong repository để raw evidence không lẫn với source.
 
-## Cách đọc raw JSON
+Ở terminal thứ hai, chạy:
 
-- `median_fps` dùng cho B10, pass khi **≥20 FPS**.
-- `longest_stall_ms` và `frames_over_500ms` dùng cho B11, pass khi **không có
-  interval nào >500 ms**.
-- Percentile được tính nearest-rank trên `raw_frame_intervals_ms`; rule này có
-  trong `app/performance.js` để kiểm tra lại được bằng script/spreadsheet.
-- `status: insufficient_samples`, màn hình đen, mesh không render, app bị nền,
-  hoặc thiếu provenance đều là lượt **invalid**, không suy diễn pass/fail.
+```bash
+python3 management/day09/b10_b11_session/session.py start --out "$OUT"
+```
 
-B5/B6 là lượt đo khác: cần mask/mesh bệnh nhân thật từ Spike D và picking error
-sau xoay/zoom. Frame probe này không thay thế các phép đo đó.
+Script kiểm thiết bị, màn hình, lock screen, USB, release app, server `200` và
+`adb reverse tcp:8765`. Nó tự thêm reverse khi đó là thiếu sót duy nhất, xóa
+logcat cũ, rồi lưu điều kiện trước phiên. Nếu in `NOT READY`, dừng ở đó và giữ
+`session_NOT_READY.json`; không bấm đo trong điều kiện đó.
+
+## Thao tác trong app
+
+1. Trên A17 mở Spike A, chạm **3D · WebView (B10/B11)** và đợi trạng thái
+   `level_0_cell1.obj · loaded` cùng triangle count hiện ra.
+2. Chạm **run 30 s device probe**. Ba giây đầu là warm-up, không được tính.
+3. Trong 30 giây tiếp theo, làm liên tục và theo thứ tự: 0–10 s orbit một
+   ngón; 10–20 s pan hai ngón; 20–30 s pinch zoom in/out, rồi chạm một điểm
+   trên mesh để kiểm picking. Giữ viewer foreground và màn hình bật.
+4. Chờ nhãn `raw evidence: RN + HTTP`. Nếu chỉ có một đường gửi, ghi lại đúng
+   trạng thái đó; nếu không có collector, lượt đo invalid.
+5. Lặp lại **ba lượt** với cùng URL, mesh level, app build và điều kiện thiết
+   bị. Nút download JSON chỉ là dự phòng browser; WebView dùng bridge và HTTP.
+
+Hai ngón và pinch phải do operator thực hiện. `adb input` chỉ tạo được một
+pointer nên không thể thay những thao tác này.
+
+## Kết thúc và handoff
+
+Sau lượt cuối, chạy ở terminal thứ hai rồi dừng server bằng `Ctrl-C`:
+
+```bash
+python3 management/day09/b10_b11_session/session.py finish --out "$OUT"
+shasum -a 256 "$OUT/webview_probe_payloads.jsonl" > "$OUT/webview_probe_payloads.jsonl.sha256"
+```
+
+Một phiên hợp lệ có những file sau:
+
+| File | Nguồn | Mục đích |
+|---|---|---|
+| `conditions_before.json`, `conditions_after.json` | session script | nhiệt, pin, màn hình và trạng thái thiết bị |
+| `webview_logcat.txt`, `webview_payloads.json` | React Native bridge | bản gốc các payload `SPIKE_B_WEBVIEW` |
+| `webview_probe_payloads.jsonl` | HTTP `/probe` | bản gốc dự phòng của từng frame probe |
+| `session_state.json` | session script | preflight, số payload và hash các file session |
+| `repository_commit.txt` | Git | commit source đã đo |
+
+Phải có ba `kind: "spike_b_frame_probe"` trong `webview_payloads.json` và ba
+record tương ứng trong JSONL HTTP. Mỗi payload phải có URL cố định, `mesh_id`
+`synthetic`, `mesh_level` `0`, triangle count, geometry contract version,
+`median_fps`, `longest_stall_ms`, `frames_over_500ms` và raw frame intervals.
+Thiếu bất kỳ trường nào, mismatch URL/level, viewer bị background, hoặc thiếu
+conditions trước/sau làm cả lượt **invalid**.
+
+Chủ Spike B mới diễn giải các byte này trong `RESULT.md`:
+
+- **B10 PASS** khi `median_fps ≥ 20` ở từng lượt hợp lệ;
+- **B11 PASS** khi `longest_stall_ms ≤ 500` và `frames_over_500ms = 0` ở từng
+  lượt hợp lệ;
+- `status: insufficient_samples`, lỗi render hoặc evidence thiếu provenance là
+  `NOT MEASURED`, không suy ra PASS hay FAIL.
+
+`B5`/`B6` và quyết định frontier `B12`/`B13` là lượt khác: chúng cần mesh/mask
+bệnh nhân thật và picking error. Synthetic level 0 ở đây chỉ xác thực đường đo
+`GATE-MOB-01` trong app.

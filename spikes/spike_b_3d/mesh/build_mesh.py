@@ -166,6 +166,9 @@ def build(fixture_path: str, out_dir: str, cells) -> dict:
     shape = fixture["shape_xyz"]
     spacing = fixture["spacing_xyz_mm"]
     origin = fixture["origin_world_mm"]
+    contract_version = fixture.get("geometry_contract_version")
+    if contract_version is not None and (not isinstance(contract_version, str) or not contract_version):
+        raise ValueError("geometry_contract_version must be a non-empty string when declared")
 
     os.makedirs(out_dir, exist_ok=True)
     mask = synthetic_mask(shape)
@@ -202,6 +205,7 @@ def build(fixture_path: str, out_dir: str, cells) -> dict:
         "_note": ("Real-mesh numbers require a mask from Spike D and on-device runs by "
                   "Vu Hung Anh. Criteria B10, B11 and the real-mesh picking error are his."),
         "fixture": os.path.relpath(fixture_path, ROOT).replace(os.sep, "/"),
+        "geometry_contract_version": contract_version,
         "shape_xyz": shape,
         "spacing_xyz_mm": spacing,
         "origin_world_mm": origin,
