@@ -125,7 +125,34 @@ def preflight(args) -> dict:
     if not checks["stub_bound_here"]:
         checks["failures"].append(f"no stub bound to {args.host}")
 
-    # 2. the phone's node must be a DIRECT peer, not relayed (E12)
+    # 2. HTTP 200 from the phone. This runs BEFORE the peer check on purpose: an
+    # idle ZeroTier peer drops out of `zerotier-cli peers`, so checking peers first
+    # refused a healthy path (2026-09-18 13:55 and 15:58).
+    status, size, raw = http_from_phone(args.host, args.port, "/health")
+    checks["health_status_from_phone"] = status
+    checks["health_bytes"] = size
+    if status != 200:
+        checks["failures"].append(f"/health from the phone returned {status}")
+
+    # 3. one REAL artifact per profile, from the phone, with its full length.
+    # /health answers from memory: on 2026-09-18 the payload directory had been
+    # removed, /health still said 200, and all 342 samples of the capture came back
+    # 404. A health endpoint is not evidence that the bytes exist.
+    checks["artifact_from_phone"] = {}
+    for profile in args.profiles:
+        path = f"/s1/slice/44.png?profile={profile}"
+        a_status, a_size, a_raw = http_from_phone(args.host, args.port, path, timeout=20)
+        m = re.search(r"Content-Length:\s*(\d+)", a_raw, re.I)
+        declared = int(m.group(1)) if m else None
+        complete = bool(declared) and a_size >= declared
+        checks["artifact_from_phone"][profile] = {"path": path, "status": a_status,
+                                                  "bytes_received": a_size, "content_length": declared,
+                                                  "complete": complete}
+        if a_status != 200 or not complete:
+            checks["failures"].append(f"{path} from the phone: status {a_status}, "
+                                      f"{a_size} bytes received of {declared}")
+
+    # 4. the phone's node must be a DIRECT peer, not relayed (E12); traffic above woke it
     peers = ssh(f"{ZT} peers")
     checks["peers_raw"] = peers.splitlines()[:12]
     node = args.phone_node
@@ -133,16 +160,6 @@ def preflight(args) -> dict:
     checks["phone_peer_row"] = row
     if not row or "DIRECT" not in row:
         checks["failures"].append(f"phone node {node} is not a DIRECT peer")
-
-    # 3. HTTP 200 from the phone, and both profiles offered
-    status, size, raw = http_from_phone(args.host, args.port, "/health")
-    checks["health_status_from_phone"] = status
-    checks["health_bytes"] = size
-    if status != 200:
-        checks["failures"].append(f"/health from the phone returned {status}")
-    # The phone prints only the first 400 bytes of /health, so a profile missing
-    # from that head is a prompt to look, not a failure on its own.
-    checks["profiles_seen_in_health_head"] = {profile: profile in raw for profile in args.profiles}
     return checks
 
 
@@ -221,7 +238,8 @@ def main() -> int:
     print("preflight ...", flush=True)
     checks = preflight(args)
     session["preflight"] = checks
-    for line in ("address_on_macmini", "stub_bound_here", "phone_peer_row", "health_status_from_phone"):
+    for line in ("address_on_macmini", "stub_bound_here", "health_status_from_phone",
+                 "artifact_from_phone", "phone_peer_row"):
         print(f"  {line}: {checks.get(line)}")
     if checks["failures"]:
         print("REFUSING TO CAPTURE:")
