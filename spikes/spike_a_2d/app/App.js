@@ -123,6 +123,29 @@ function maskBytes() {
 const WEBVIEW_URL = 'http://127.0.0.1:8765/app/?mesh=synthetic&level=0&probe_sink=/probe';
 const TAG_WEBVIEW = 'SPIKE_B_WEBVIEW';
 
+// Android's logcat cuts every line at about 4 KB, so the first B10/B11 session (2026-09-18)
+// received each 100 KB frame probe on this path truncated at 4,095 characters. Messages
+// longer than one safe line are therefore split into numbered chunks that
+// management/day09/b10_b11_session/session.py reassembles:
+//   SPIKE_B_WEBVIEW_CHUNK <id> <index>/<count> <slice>
+// Short messages keep the original single-line form, so earlier parsers still work.
+const WEBVIEW_CHUNK_CHARS = 3000;
+let webviewChunkSeq = 0;
+function logWebViewMessage(data) {
+  const text = String(data);
+  if (text.length <= WEBVIEW_CHUNK_CHARS) {
+    console.log(`${TAG_WEBVIEW} ${text}`);
+    return;
+  }
+  webviewChunkSeq += 1;
+  const id = `${Date.now()}-${webviewChunkSeq}`;
+  const count = Math.ceil(text.length / WEBVIEW_CHUNK_CHARS);
+  for (let i = 0; i < count; i += 1) {
+    const slice = text.slice(i * WEBVIEW_CHUNK_CHARS, (i + 1) * WEBVIEW_CHUNK_CHARS);
+    console.log(`${TAG_WEBVIEW}_CHUNK ${id} ${i + 1}/${count} ${slice}`);
+  }
+}
+
 // Installed before the page's own scripts run, so load-time errors are caught.
 const WEBVIEW_BEFORE_LOAD_JS = `
 (function () {
@@ -583,7 +606,7 @@ export default function App() {
           onLoadEnd={(e) => console.log(`${TAG_WEBVIEW}_LOADED ${JSON.stringify({ url: e.nativeEvent.url, loading: e.nativeEvent.loading })}`)}
           onError={(e) => console.log(`${TAG_WEBVIEW}_ERROR ${JSON.stringify(e.nativeEvent)}`)}
           onHttpError={(e) => console.log(`${TAG_WEBVIEW}_HTTP_ERROR ${JSON.stringify({ url: e.nativeEvent.url, status: e.nativeEvent.statusCode })}`)}
-          onMessage={(e) => console.log(`${TAG_WEBVIEW} ${e.nativeEvent.data}`)}
+          onMessage={(e) => logWebViewMessage(e.nativeEvent.data)}
         />
       </View>
     );
