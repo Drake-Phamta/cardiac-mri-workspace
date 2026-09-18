@@ -24,6 +24,13 @@
 > *"`pipeline_bringup.py` merged"* giờ đã đúng. Còn lại của bạn: việc 5 `c1_preflight.py`; #35 chờ #34 merge rồi
 > sinh lại và nhờ Trung duyệt lại.
 
+> **📌 Mới 21:40 — `GATE-DATA-01` ĐÃ ĐÓNG, Spike D `ACCEPTED`.** #34 merge lúc 21:30 (`7d49df4`), QA-003 chạy lại trên
+> `main` và **`PASS`**: cả năm lỗi chặn F1–F5 của QA-002 đã được kiểm chứng trên `main`
+> ([`../QA_REVIEW_003_SPIKE_D_FINAL.md`](../QA_REVIEW_003_SPIKE_D_FINAL.md)). **Việc của bạn mở khoá ngay:** ① **sinh lại
+> split #35** trên manifest `main` rồi nhờ Trung duyệt lại — `GATE-SPLIT-01` đóng trên PR này · ② **PR follow-up #34**
+> (việc 4): `anomalies` + `package_findings` vào `summary` (F13), lệnh sinh lại thật (F12), và QA đề nghị thêm phép đo
+> *`laendo` không chồng `lawall`* vào verdict `A11` thay cho chỉ so SHA.
+
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai / cần quyền gì | Xong khi |

@@ -194,12 +194,12 @@ spikes:
     priority: P0
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: NEEDS_FIX        # QA Red Team REJECT 2026-09-15 11:52 (management/day06/QA_REVIEW_002_SPIKE_D.md) - back to the owner
+    status: ACCEPTED         # 2026-09-18 21:40 after all four steps: owner evidence, reviewer APPROVE (Vu Hung Anh, #34 at f118491, 14:50), QA-003 PASS on main 7d49df4, Project Control transition. GATE-DATA-01 CLOSED
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: APPROVED          # Vu Hung Anh APPROVED PR #25 at 2026-09-15 10:03:17 +07:00 and merged it (a92892c); the fixes need his re-review
-      qa: {verdict: REJECT, at: "2026-09-15T11:52+07:00", record: management/day06/QA_REVIEW_002_SPIKE_D.md, blocking: [F1, F2, F3, F4, F5]}
+      qa: {verdict: PASS, at: "2026-09-18T21:37+07:00", record: management/day09/QA_REVIEW_003_SPIKE_D_FINAL.md, resolved: [F1, F2, F3, F4, F5], previous: {verdict: REJECT, at: "2026-09-15T11:52+07:00", record: management/day06/QA_REVIEW_002_SPIKE_D.md}}
       reviewer: "Vu Hung Anh"
       priority_rank: 1          # ahead of SPIKE_A in Vu Hung Anh's queue - SPIKE_D is P0
       queue_note: >
@@ -214,7 +214,7 @@ spikes:
       - management/DATASET_AUDIT.md
       - data/manifests/dataset_manifest.*
     evidence_present: true     # RESULT.md is on main since a92892c - the rule stated in next_action
-    latest_tested_commit: a92892c
+    latest_tested_commit: 7d49df4   # QA-003 final ran on main after the #34 merge
     environment: null
     related_dr: [DR-001, DR-002, DR-012, DR-G01, DR-G02]
     related_condition: [C1, C6]

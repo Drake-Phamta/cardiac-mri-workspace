@@ -34,6 +34,11 @@ Nghĩa là việc 4 của bạn **không còn rủi ro nền tảng**: chỉ cò
 khi mở, nên cache ảnh và timer của Spike A không chạy dưới nền lúc đo 3D. Bằng chứng thô:
 `spikes/spike_a_2d/EVIDENCE_RAW/s7_webview_env_20260918T011618+0700.*` (JSON + logcat + hai ảnh chụp).
 
+> **📌 Mới 21:40 — hai việc chặn của bạn đã đi hết đường.** Approve #34 của bạn lúc 14:50 → leader merge → QA-003
+> `PASS` → **`GATE-DATA-01` ĐÃ ĐÓNG**. **#43 đã approve và merge** (`f2e78bb`): 0/14 đòn lọt, ray lệch 1 bị từ chối, chạy
+> khác ổ đĩa không còn sập — **lối ra geometry của M3 đã lên `main`**. Còn của bạn: **#41** và **#31** của leader đang
+> chờ phản hồi của leader (không phải của bạn); **#44** đang chờ Trung duyệt.
+
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai / cần quyền gì | Xong khi |
