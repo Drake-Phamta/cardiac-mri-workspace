@@ -78,6 +78,16 @@ records in that fixture are read from the schema; no handwritten mock endpoint
 catalog is accepted. No clinical image, mask, mesh, or patient-derived byte is
 committed.
 
+The review fixture used by the V1 and V4 verticals is regenerated from the
+accepted contract instance with:
+
+```powershell
+python generate_fixture.py --contract contract.json --output fixtures/contract11_draft_v0.json
+```
+
+`test_api_contract.py` compares the committed file with a fresh generation so
+manual edits cannot silently drift from the contract.
+
 The validator applies the formal Draft 2020-12 schema before semantic checks and
 requires the `jsonschema` package (the same dependency used by repository QA):
 

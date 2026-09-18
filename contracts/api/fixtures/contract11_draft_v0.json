@@ -1,0 +1,241 @@
+{
+  "contract": "api_contract_11",
+  "contract_version": "DRAFT v0",
+  "base_path": "/api/v1",
+  "endpoints": [
+    {
+      "id": "study_get",
+      "method": "GET",
+      "path": "/api/v1/studies/{study_id}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "case_list",
+      "method": "GET",
+      "path": "/api/v1/studies/{study_id}/cases",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "case_get",
+      "method": "GET",
+      "path": "/api/v1/cases/{case_id}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "mri_slice_get",
+      "method": "GET",
+      "path": "/api/v1/cases/{case_id}/slices/{slice_index}/mri",
+      "response_kind": "BINARY"
+    },
+    {
+      "id": "ground_truth_slice_get",
+      "method": "GET",
+      "path": "/api/v1/cases/{case_id}/slices/{slice_index}/ground-truth",
+      "response_kind": "ERROR_OR_JSON"
+    },
+    {
+      "id": "geometry_get",
+      "method": "GET",
+      "path": "/api/v1/cases/{case_id}/geometry",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "experiment_list",
+      "method": "GET",
+      "path": "/api/v1/experiments",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "experiment_get",
+      "method": "GET",
+      "path": "/api/v1/experiments/{experiment_id}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "experiment_metrics",
+      "method": "GET",
+      "path": "/api/v1/experiments/{experiment_id}/metrics",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "experiment_cases",
+      "method": "GET",
+      "path": "/api/v1/experiments/{experiment_id}/cases",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "experiment_compare",
+      "method": "GET",
+      "path": "/api/v1/experiments/compare?ids={experiment_ids}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "analysis_run_create",
+      "method": "POST",
+      "path": "/api/v1/cases/{case_id}/analysis-runs",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "analysis_run_get",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "analysis_run_metrics",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}/metrics?prediction_variant={variant}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "analysis_slice_metrics",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}/slices/{slice_index}/metrics?prediction_variant={variant}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "analysis_slice_error",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}/slices/{slice_index}/error?prediction_variant={variant}",
+      "response_kind": "ARTIFACT_REFERENCE"
+    },
+    {
+      "id": "prediction_slice_get",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}/slices/{slice_index}/prediction?variant={variant}",
+      "response_kind": "BINARY"
+    },
+    {
+      "id": "reconstruction_get",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}/reconstruction?source_mask_id={mask_id}",
+      "response_kind": "ARTIFACT_REFERENCE"
+    },
+    {
+      "id": "error_reconstruction_get",
+      "method": "GET",
+      "path": "/api/v1/analysis-runs/{run_id}/error-reconstruction?prediction_variant={variant}",
+      "response_kind": "ARTIFACT_REFERENCE"
+    },
+    {
+      "id": "review_create",
+      "method": "POST",
+      "path": "/api/v1/analysis-runs/{run_id}/reviews",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "review_patch",
+      "method": "PATCH",
+      "path": "/api/v1/reviews/{review_id}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "working_mask_put",
+      "method": "PUT",
+      "path": "/api/v1/reviews/{review_id}/working-mask/slices/{slice_index}",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "review_commit",
+      "method": "POST",
+      "path": "/api/v1/reviews/{review_id}/commit",
+      "response_kind": "ARTIFACT_REFERENCE"
+    },
+    {
+      "id": "reviewed_masks_list",
+      "method": "GET",
+      "path": "/api/v1/reviews/{review_id}/reviewed-masks",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "reviewed_mask_slice_get",
+      "method": "GET",
+      "path": "/api/v1/reviewed-masks/{reviewed_mask_id}/slices/{slice_index}",
+      "response_kind": "BINARY"
+    },
+    {
+      "id": "finding_create",
+      "method": "POST",
+      "path": "/api/v1/findings",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "findings_list",
+      "method": "GET",
+      "path": "/api/v1/findings",
+      "response_kind": "JSON"
+    },
+    {
+      "id": "finding_patch",
+      "method": "PATCH",
+      "path": "/api/v1/findings/{finding_id}",
+      "response_kind": "JSON"
+    }
+  ],
+  "errors": [
+    {
+      "code": "CASE_NOT_FOUND",
+      "http_status": 404
+    },
+    {
+      "code": "SLICE_OUT_OF_RANGE",
+      "http_status": 422
+    },
+    {
+      "code": "ARTIFACT_NOT_FOUND",
+      "http_status": 404
+    },
+    {
+      "code": "GROUND_TRUTH_UNAVAILABLE",
+      "http_status": 404
+    },
+    {
+      "code": "INVALID_REVIEW_TRANSITION",
+      "http_status": 409
+    },
+    {
+      "code": "STALE_REVISION",
+      "http_status": 409
+    },
+    {
+      "code": "IMMUTABLE_ARTIFACT",
+      "http_status": 409
+    },
+    {
+      "code": "GEOMETRY_NOT_VALIDATED",
+      "http_status": 422
+    },
+    {
+      "code": "GEOMETRY_MISMATCH",
+      "http_status": 422
+    },
+    {
+      "code": "RUN_NOT_DEPLOYABLE",
+      "http_status": 409
+    },
+    {
+      "code": "RUN_NOT_SUCCEEDED",
+      "http_status": 409
+    },
+    {
+      "code": "NON_COMPARABLE_EXPERIMENTS",
+      "http_status": 422
+    },
+    {
+      "code": "ANALYSIS_FAILED",
+      "http_status": 422
+    },
+    {
+      "code": "VALIDATION_ERROR",
+      "http_status": 422
+    },
+    {
+      "code": "UNAUTHORIZED",
+      "http_status": 401
+    }
+  ],
+  "geometry": {
+    "geometry_contract_version": "dr008a-dr012/v1.0.0",
+    "geometry_validation_status": "VALIDATED"
+  }
+}
