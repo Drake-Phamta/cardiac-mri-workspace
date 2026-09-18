@@ -19,6 +19,11 @@
 | **Review #37 và #42 chuyển sang leader** | Không còn chờ Hùng Anh; leader duyệt trong buổi sáng |
 | **SCR-04 giao cho V1** | V3 của bạn giữ SCR-01, SCR-07 |
 
+> **📌 Mới 14:05 — #37 và #42 đã merge** (`fae2b0b`, `abb45af`). Leader chạy lại #37 trên máy mình: bản bạn đẩy
+> lúc 11:40 **khớp tới từng chữ số** với kết quả dự đoán, cách RTX 4050 của bạn 2,1e-5. Dòng preflight
+> *"`pipeline_bringup.py` merged"* giờ đã đúng. Còn lại của bạn: việc 5 `c1_preflight.py`; #35 chờ #34 merge rồi
+> sinh lại và nhờ Trung duyệt lại.
+
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
 | # | Việc | Giờ | Chờ ai / cần quyền gì | Xong khi |
