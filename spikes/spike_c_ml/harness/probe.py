@@ -230,11 +230,14 @@ class DinoSeg(nn.Module):
     def __init__(self, ckpt: dict, img: int, decoder: str, mode: str):
         super().__init__()
         from transformers import Dinov2Model
-        try:
-            self.backbone = Dinov2Model.from_pretrained(
-                ckpt["_path"], local_files_only=True, attn_implementation="sdpa")
-        except (ValueError, TypeError, ImportError):
-            self.backbone = Dinov2Model.from_pretrained(ckpt["_path"], local_files_only=True)
+        # transformers versions differ in whether loading consumes the global RNG.
+        # Keep decoder initialization independent of that implementation detail.
+        with torch.random.fork_rng(devices=[]):
+            try:
+                self.backbone = Dinov2Model.from_pretrained(
+                    ckpt["_path"], local_files_only=True, attn_implementation="sdpa")
+            except (ValueError, TypeError, ImportError):
+                self.backbone = Dinov2Model.from_pretrained(ckpt["_path"], local_files_only=True)
         cfg = self.backbone.config
         self.attn_implementation = getattr(cfg, "_attn_implementation", "unknown")
         self.patch = int(cfg.patch_size)
