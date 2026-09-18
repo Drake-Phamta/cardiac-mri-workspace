@@ -27,7 +27,19 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 9 — 2026-09-18 · `ĐANG MỞ`
+## DAY 9 — 2026-09-18 · ❌ **`TRƯỢT` 1,5/4** — nhưng `GATE-DATA-01` **ĐÓNG** và Spike D `ACCEPTED`
+
+**Chốt muộn 2026-09-19 ~02:30** · bản đầy đủ: [`day09/DAY09_EOD_REVIEW.md`](day09/DAY09_EOD_REVIEW.md)
+
+| Điều kiện | Kết quả |
+|---|---|
+| 1 · `GATE-DATA-01` | ✅ **đóng 21:40** — #34 merge 21:30, QA-003 `PASS` trên `main`, Spike D `ACCEPTED` qua đủ 4 bước. Lượt duyệt lại về 14:50, trễ hạn 11:00 |
+| 2 · M3 | ❌ bốn hợp đồng đã lên `main`, nhưng job CI **không có PR** cho tới khi leader mở #47 lúc 02:2x ngày 19 |
+| 3 · `GATE-SPLIT-01` | ❌ định nghĩa nhóm bắc cầu đã thống nhất, nhưng split chưa sinh lại; #35 còn nháp |
+| 4 · `B10`/`B11` | ⚠ **nửa** — 3 lượt đo hợp lệ trong WebView (thô trên `spike-b/evidence-20260918`), thiếu diễn giải của chủ Spike B |
+
+**Ngày này có:** 6 PR merge · `ACCEPTED` đầu tiên của dự án · khung `E8` thứ hai (342/342 mẫu `ok`) · phiên `B10`/`B11` đầu tiên · quyết định `E10` `PROVISIONAL`. **Buffer −1 → −2.**
+
 
 **Gói nhiệm vụ từng người:** [`day09/tasks/`](day09/tasks/)
 
