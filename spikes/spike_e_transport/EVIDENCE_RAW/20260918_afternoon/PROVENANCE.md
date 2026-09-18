@@ -65,7 +65,7 @@ The payloads were regenerated at the same commit and compared field by field aga
 | `e_transport_20260918T161633+0700_576x576x88.jsonl` | 114,414 | `c914c07c30c1465e502509d1f0ca4aa8096396941a5b911e5b5fd91deba980b2` | 172 (1 header + 171 samples, 171 `ok`) |
 | `e_transport_20260918T162132+0700_640x640x88.jsonl` | 114,465 | `1062e2e5e7e0311f6a02b526ce1ced60967723bddbb606795157fffdfcfa287d` | 172 (1 header + 171 samples, 171 `ok`) |
 | `stub-20260918-net-b103a835.jsonl` | 70,543 | `a2b32100dc7407470a6b0c50be30c29a4b6e67bb59bcee3c8ebe587ddfa5ecef` | 355 |
-| `e8_session_20260918T162715.json` | 5,926 | `d4716ebfd35212611096a8b9a21d7a5046bcdece1dd3242be9323f97654449e1` | — |
+| `e8_session_20260918T162715.json` | 5,794 | `7c852865d727f516544d017329e5e97c6b8ab75e7db9f252278314fbfc724cdc` | — (as committed: the driver wrote it with CRLF on Windows, 5,926 B, and git normalised it to LF; the three JSONL files were already LF and are byte-identical to the capture) |
 
 Each JSONL carries exactly one `payload_profile`, `measurement_path: "wifi-overlay"`, `is_acceptance_evidence: true`, and the operator and owner above.
 
