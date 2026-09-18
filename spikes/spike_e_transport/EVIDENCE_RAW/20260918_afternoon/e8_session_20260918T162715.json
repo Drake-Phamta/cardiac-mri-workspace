@@ -1,0 +1,132 @@
+{
+  "record": "spike_e_e8_daytime_capture",
+  "not_computed_here": "No E number. Raw data only; the spike owner computes every figure.",
+  "operator": "Pham Tuan Anh",
+  "owner": "Nguyen Gia Duc Trung",
+  "command_shape": "--base http://HOST:PORT --path wifi-overlay --connection direct --profile P --operator ... --owner ... --repeats N --timeout 60",
+  "started": "2026-09-18T16:16:30+0700",
+  "preflight": {
+    "at": "2026-09-18T16:16:30+0700",
+    "failures": [],
+    "device_serial": "R5CY931SQYZ",
+    "harness_present": true,
+    "address_on_macmini": "1",
+    "stub_processes": [
+      "quant            60294   0.0  0.0 411725728   4064   ??  SN   Sun08AM   1:05.70 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python -u spikes/spike_e_transport/stub/server.py --payloads spikes/spike_e_transport/payloads/out --bind 10.134.129.115 --port 8787 --log spikes/spike_e_transport/logs/stub-20260913.jsonl",
+      "quant            15162   0.0  0.3 411469776  81952   ??  S     4:15PM   0:00.12 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python spikes/spike_e_transport/stub/server.py --payloads /Users/quant/pc_spike_e_payloads_20260918_uvsphere --bind 10.64.193.115 --port 8787 --log /Users/quant/pc-spike-e-20260918/logs/stub-20260918-net-b103a835.jsonl"
+    ],
+    "stub_bound_here": true,
+    "health_status_from_phone": 200,
+    "health_bytes": 5994,
+    "artifact_from_phone": {
+      "576x576x88": {
+        "path": "/s1/slice/44.png?profile=576x576x88",
+        "status": 200,
+        "bytes_received": 188295,
+        "content_length": 188029,
+        "complete": true
+      },
+      "640x640x88": {
+        "path": "/s1/slice/44.png?profile=640x640x88",
+        "status": 200,
+        "bytes_received": 231332,
+        "content_length": 231066,
+        "complete": true
+      }
+    },
+    "peers_raw": [
+      "200 peers",
+      "<ztaddr>   <ver>  <role> <lat> <link>   <lastTX> <lastRX> <path>",
+      "078280bae8 1.16.0 LEAF      60 DIRECT   595      548      171.224.180.45/49598",
+      "3b19b3a716 1.16.2 LEAF     260 DIRECT   8451     8193     35.208.225.59/60007",
+      "409d72267b 1.16.2 LEAF      -1 RELAY",
+      "68efb4de07 1.16.2 LEAF      32 DIRECT   22       2342     171.224.180.45/60318",
+      "778cde7190 -      PLANET   273 DIRECT   41770    183272   103.195.103.66/9993",
+      "b103a835d2 1.16.2 LEAF     319 DIRECT   8451     8189     35.208.175.206/33995",
+      "cafe04eba9 -      PLANET   217 DIRECT   41770    51713    84.17.53.155/9993",
+      "cafe80ed74 -      PLANET   306 DIRECT   41770    51621    185.152.67.145/9993",
+      "cafefd6717 -      PLANET    95 DIRECT   1324     992      79.127.159.187/9993"
+    ],
+    "phone_peer_row": "078280bae8 1.16.0 LEAF      60 DIRECT   595      548      171.224.180.45/49598"
+  },
+  "conditions_before": {
+    "label": "before",
+    "at": "2026-09-18T16:16:33+0700",
+    "battery_level": "80",
+    "battery_temperature_decic": "321",
+    "usb_powered": "true",
+    "thermal_status": "Unknown command: get-current-status",
+    "screen_state": "mScreenState=ON",
+    "tun0": "inet 10.64.193.140/24 scope global tun0",
+    "wlan0": "inet 192.168.0.100/24 brd 192.168.0.255 scope global dynamic wlan0"
+  },
+  "runs": [
+    {
+      "profile": "576x576x88",
+      "started": "2026-09-18T16:16:33+0700",
+      "ended": "2026-09-18T16:21:32+0700",
+      "remote_path": "/data/local/tmp/e8_576x576x88_20260918T161633+0700.jsonl",
+      "local_file": "e_transport_20260918T161633+0700_576x576x88.jsonl",
+      "exit_code": 0,
+      "stderr_tail": [
+        "writing JSONL to /data/local/tmp/e8_576x576x88_20260918T161633+0700.jsonl",
+        "repeat 1/3 complete",
+        "repeat 2/3 complete",
+        "repeat 3/3 complete",
+        "JSONL ready: /data/local/tmp/e8_576x576x88_20260918T161633+0700.jsonl",
+        "Pull it with: adb pull /data/local/tmp/e8_576x576x88_20260918T161633+0700.jsonl ."
+      ],
+      "bytes": 114414,
+      "sha256": "c914c07c30c1465e502509d1f0ca4aa8096396941a5b911e5b5fd91deba980b2",
+      "records": 172,
+      "samples": 171,
+      "samples_ok": 171,
+      "repeats_seen": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "profile": "640x640x88",
+      "started": "2026-09-18T16:21:32+0700",
+      "ended": "2026-09-18T16:27:14+0700",
+      "remote_path": "/data/local/tmp/e8_640x640x88_20260918T162132+0700.jsonl",
+      "local_file": "e_transport_20260918T162132+0700_640x640x88.jsonl",
+      "exit_code": 0,
+      "stderr_tail": [
+        "writing JSONL to /data/local/tmp/e8_640x640x88_20260918T162132+0700.jsonl",
+        "repeat 1/3 complete",
+        "repeat 2/3 complete",
+        "repeat 3/3 complete",
+        "JSONL ready: /data/local/tmp/e8_640x640x88_20260918T162132+0700.jsonl",
+        "Pull it with: adb pull /data/local/tmp/e8_640x640x88_20260918T162132+0700.jsonl ."
+      ],
+      "bytes": 114465,
+      "sha256": "1062e2e5e7e0311f6a02b526ce1ced60967723bddbb606795157fffdfcfa287d",
+      "records": 172,
+      "samples": 171,
+      "samples_ok": 171,
+      "repeats_seen": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "conditions_after": {
+    "label": "after",
+    "at": "2026-09-18T16:27:14+0700",
+    "battery_level": "80",
+    "battery_temperature_decic": "326",
+    "usb_powered": "true",
+    "thermal_status": "Unknown command: get-current-status",
+    "screen_state": "mScreenState=ON",
+    "tun0": "inet 10.64.193.140/24 scope global tun0",
+    "wlan0": "inet 192.168.0.100/24 brd 192.168.0.255 scope global dynamic wlan0"
+  },
+  "peers_after": [
+    "078280bae8 1.16.0 LEAF      40 DIRECT   771      771      171.224.180.45/49598"
+  ],
+  "ended": "2026-09-18T16:27:15+0700"
+}
