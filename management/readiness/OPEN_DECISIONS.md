@@ -1549,6 +1549,18 @@ the demo.
 deliberately outside the `NFR-PERF-00x` / `TC-PERF-00x` ranges so nobody mistakes it for a frozen-spec
 requirement. If `docs/specs/v1.1/**` is ever opened, it is the candidate to become `NFR-PERF-005`.
 
+**Leader decision on the owner's proposal — 2026-09-18, Phạm Tuấn Anh: `PROVISIONAL`, with two amendments.**
+The owner proposed **p95 ≤ 3 500 ms per profile**, measured from dispatch of the first `s1` request to a complete,
+length/checksum-valid body on `wifi-overlay`; decode and render remain a separate later measurement (PR #26,
+`3b8b410`). Conditions 1, 2, 3 and 5 above are met. Condition 4 is met in form only, because the test names no
+sample count, and the evidence behind the number is **3 `cold_open_s1` samples per profile**, so its nearest-rank
+p95 is the single worst observation. Amendments that make the budget binding:
+
+1. `TC-PERF-FIRSTLOAD-01` runs a dedicated cold-open loop, cache cleared each time, **≥ 20 samples per profile**.
+2. The number is revisited after the evening `E8` capture of 2026-09-18. The daytime window was refused at 13:55
+   because the handset, the Mac mini and the workstation shared the lab Wi-Fi, so the overlay ran over a LAN rather
+   than the acceptance path; `E10` keeps stating that a daytime window is missing.
+
 #### Limb 2 — `ADR-ART-001` direction, decided on the measurement
 
 | Strategy | Ruling | Evidence |
