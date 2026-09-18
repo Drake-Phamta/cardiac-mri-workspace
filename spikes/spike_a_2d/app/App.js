@@ -118,7 +118,9 @@ function maskBytes() {
 // The environment probe below answers one question before anyone builds on this
 // direction: does the system WebView on the A17 give a real, hardware WebGL2
 // context, or a software fallback that would make every frame-time meaningless?
-const WEBVIEW_URL = 'http://127.0.0.1:8765/app/';
+// Fixed by spikes/spike_b_3d/MEASUREMENT_B10_B11.md (PR #44) for the first B10/B11 session:
+// synthetic mesh, level 0, and a second evidence path to the workstation through POST /probe.
+const WEBVIEW_URL = 'http://127.0.0.1:8765/app/?mesh=synthetic&level=0&probe_sink=/probe';
 const TAG_WEBVIEW = 'SPIKE_B_WEBVIEW';
 
 // Installed before the page's own scripts run, so load-time errors are caught.
