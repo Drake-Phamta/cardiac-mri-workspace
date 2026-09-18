@@ -10,6 +10,7 @@
 import { parseObj } from './obj.js';
 import { invertMat4, multiplyMat4, rayMeshFirstHit, screenRayFromNdc, worldToSlice } from './picking.js';
 import { DEFAULT_MEASURE_MS, DEFAULT_WARMUP_MS, FrameProbe } from './performance.js';
+import { deliverFrameProbe, frameProbePayload, localProbeSink, selectMeshLevel } from './webview_probe.js';
 
 const canvas = document.querySelector('#gl');
 const status = document.querySelector('#status');
@@ -28,10 +29,12 @@ uniform mat4 uProjection;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vWorld;
+out float vSourceZ;
 void main() {
   vec4 world = uModel * vec4(aPosition, 1.0);
   vNormal = mat3(uModel) * aNormal;
   vWorld = world.xyz;
+  vSourceZ = aPosition.z;
   gl_Position = uProjection * world;
 }`;
 
@@ -39,9 +42,12 @@ const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec3 vNormal;
 in vec3 vWorld;
+in float vSourceZ;
 uniform vec3 uLight;
 uniform vec3 uColor;
 uniform bool uShading;
+uniform float uSliceZ;
+uniform bool uSliceActive;
 out vec4 outColor;
 void main() {
   vec3 normal = normalize(vNormal);
@@ -55,6 +61,10 @@ void main() {
   // while keeping surface contours readable against the dark MRI-style field.
   vec3 color = uColor * (0.34 + 0.62 * diffuse + 0.18 * rim)
              + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
+  // This is the physical axial plane selected by the linked 2D viewer.
+  // It is a surface-intersection cue, not a fabricated contour.
+  float planeBand = 1.0 - smoothstep(0.0, 1.6, abs(vSourceZ - uSliceZ));
+  if (uSliceActive) color = mix(color, vec3(1.0, 0.72, 0.16), planeBand * 0.92);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -132,7 +142,9 @@ function setup(gl, mesh) {
     model: gl.getUniformLocation(program, 'uModel'),
     light: gl.getUniformLocation(program, 'uLight'),
     color: gl.getUniformLocation(program, 'uColor'),
-    shading: gl.getUniformLocation(program, 'uShading') };
+    shading: gl.getUniformLocation(program, 'uShading'),
+    sliceZ: gl.getUniformLocation(program, 'uSliceZ'),
+    sliceActive: gl.getUniformLocation(program, 'uSliceActive') };
 }
 
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
@@ -157,6 +169,9 @@ let tapCandidate = false;
 let interactionMoved = false;
 let activeFrameProbe = null;
 let lastFrameProbeRecord = null;
+let selectedMesh = null;
+let probeSinkUrl = null;
+let sliceWorldZ = null;
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -179,12 +194,17 @@ function resize() {
 
 function performanceMetadata() {
   return {
-    recorded_at_utc: new Date().toISOString(),
     user_agent: navigator.userAgent,
+    page_url: window.location.href,
     viewport_css_px: [canvas.clientWidth, canvas.clientHeight],
     canvas_backing_px: [canvas.width, canvas.height],
     device_pixel_ratio: window.devicePixelRatio || 1,
     triangles: renderer ? renderer.count / 3 : null,
+    mesh_id: selectedMesh?.meshId ?? null,
+    mesh_level: selectedMesh?.level ?? null,
+    geometry_contract_version: geometry?.geometry_contract_version ?? null,
+    react_native_webview_bridge: typeof window.ReactNativeWebView?.postMessage === 'function',
+    local_probe_sink: probeSinkUrl,
     interaction_protocol: 'operator performs orbit, pan and pinch-zoom during the 30 s window',
     evidence_scope: 'diagnostic only until physical target-device provenance is recorded',
   };
@@ -195,11 +215,20 @@ function setPerformanceText(text) {
 }
 
 function completeFrameProbe(result) {
-  lastFrameProbeRecord = { ...result, device: performanceMetadata() };
+  lastFrameProbeRecord = frameProbePayload(result, performanceMetadata());
   if (perfRunButton) perfRunButton.disabled = false;
   if (perfDownloadButton) perfDownloadButton.disabled = !result.median_fps;
   if (result.median_fps) {
-    setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · download raw JSON`);
+    setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · sending raw evidence…`);
+    void deliverFrameProbe(lastFrameProbeRecord, {
+      nativePostMessage: window.ReactNativeWebView?.postMessage?.bind(window.ReactNativeWebView),
+      fetchImpl: window.fetch.bind(window),
+      sinkUrl: probeSinkUrl,
+    }).then((outcome) => {
+      const sent = [outcome.native === 'posted' ? 'RN' : null, outcome.http === 'posted' ? 'HTTP' : null]
+        .filter(Boolean).join(' + ') || 'no collector';
+      setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · raw evidence: ${sent}`);
+    });
   } else {
     setPerformanceText('probe failed: no usable animation frames; keep the viewer visible and retry');
   }
@@ -220,6 +249,8 @@ function draw(frameAt) {
   gl.uniform3f(renderer.light, -1.8, 2.6, 3.2);
   gl.uniform3f(renderer.color, 0.31, 0.77, 0.82);
   gl.uniform1i(renderer.shading, shading ? 1 : 0);
+  gl.uniform1f(renderer.sliceZ, sliceWorldZ || 0);
+  gl.uniform1i(renderer.sliceActive, sliceWorldZ === null ? 0 : 1);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
   if (activeFrameProbe) {
@@ -328,6 +359,11 @@ shadeButton.addEventListener('click', () => {
   shading = !shading;
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
 });
+window.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data || data.type !== 'set-slice-world-z' || !Number.isFinite(data.z)) return;
+  sliceWorldZ = data.z;
+});
 if (perfRunButton) {
   perfRunButton.addEventListener('click', () => {
     if (!renderer) {
@@ -358,22 +394,26 @@ if (perfDownloadButton) {
   });
 }
 
-Promise.all([
-  fetch('../mesh/out/level_0_cell1.obj').then((response) => {
-    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
-    return response.text();
-  }),
-  fetch('../mesh/out/mesh_levels.json').then((response) => {
+fetch('../mesh/out/mesh_levels.json')
+  .then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
     return response.json();
-  }),
-])
-  .then(([text, summary]) => {
+  })
+  .then(async (summary) => {
+    selectedMesh = selectMeshLevel(window.location.search, summary.levels || []);
+    probeSinkUrl = localProbeSink(window.location.search, window.location.href);
+    const objUrl = new URL(`../${selectedMesh.selected.obj}`, import.meta.url);
+    const response = await fetch(objUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
+    return { text: await response.text(), summary };
+  })
+  .then(({ text, summary }) => {
     const mesh = parseObj(text);
     geometry = {
       shape_xyz: summary.shape_xyz,
       spacing_xyz_mm: summary.spacing_xyz_mm,
       origin_world_mm: summary.origin_world_mm,
+      geometry_contract_version: summary.geometry_contract_version || null,
     };
     renderer = setup(gl, mesh);
     // Centre/normalise from the loaded OBJ so the same camera works for any
@@ -393,8 +433,8 @@ Promise.all([
       maxRadius = Math.max(maxRadius, Math.hypot(values[i] - center[0], values[i + 1] - center[1], values[i + 2] - center[2]));
     }
     scale = maxRadius ? 1 / maxRadius : 1;
-    trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles`;
-    status.textContent = 'level_0_cell1.obj · loaded';
+    trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · level ${selectedMesh.level}`;
+    status.textContent = `${selectedMesh.selected.obj.split('/').at(-1)} · loaded`;
     draw();
   })
   .catch((error) => {
