@@ -27,6 +27,35 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
+## DAY 10 — 2026-09-19 · `ĐANG MỞ` — ngày `app/` ra đời
+
+**Gói nhiệm vụ từng người:** [`day10/tasks/`](day10/tasks/)
+
+> **Day 9 trượt 1,5/4, buffer −2**, nhưng `GATE-DATA-01` đã đóng và Spike D là `ACCEPTED` đầu tiên. **Bức tranh 21 ngày
+> còn lại:** hết 9/30 ngày mà **`app/` chưa tồn tại**, `MUST` vẫn 0/33, và **M2 quá hạn từ Day 6** vì `GATE-MOB-01` còn
+> mở. Vì vậy Day 10 nhắm đúng ba nút: đóng nốt M3, đóng `GATE-SPLIT-01` để `SPIKE_C1` chạy được, và **nghiệm thu Spike A
+> + Spike B để viết `TECH_STACK_ADR`** — thứ mở khoá cho cả bốn vertical cùng lúc.
+
+### Điều kiện để Day 10 KHÔNG trượt
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Trung → leader** | **M3 đóng**: #47 duyệt và merge, CI chạy test cả bốn hợp đồng | M3 hết quá hạn |
+| 2 | **Khánh → Trung → leader** | **`GATE-SPLIT-01` đóng**: #35 sinh lại trên manifest mới, duyệt lại, merge | `SPIKE_C1` chạy được → M4 |
+| 3 | **Hùng Anh · Trung · leader** | **`GATE-MOB-01` đóng**: Spike A và Spike B `ACCEPTED` đủ 4 bước → leader viết `TECH_STACK_ADR` | M2 đóng; bốn vertical có nền tảng đã quyết |
+| 4 | **cả nhóm** | **M5 có mã thật**: bộ khung `app/` trên `main` + fixture sinh từ hợp đồng + **ba PR vertical** (V1, V2, V4) chạy trên fixture | sản phẩm bắt đầu tồn tại |
+
+### Khối lượng
+
+| Người | Phần chính | Dự phòng | Việc chặn người khác, làm trước |
+|---|---|---|---|
+| **Vũ Hùng Anh** | 8 h | 1,75 h | diễn giải `B10`/`B11` · merge `main` vào #44 · duyệt lại #41 · duyệt #31 |
+| **Nguyễn Gia Đức Trung** | 8 h | 2,25 h | **duyệt #47** (M3 treo trên đúng lượt này) · duyệt #44 · duyệt lại #35 · fixture cho cả ba vertical |
+| **Bế Quốc Khánh** | 8 h | 2 h | **sinh lại split #35** (chặn cổng, chặn `SPIKE_C1`) |
+| **Phạm Tuấn Anh** | không giới hạn | — | **dựng `app/` trước 11:00** · merge · QA hai spike · `TECH_STACK_ADR` |
+
+---
+
 ## DAY 9 — 2026-09-18 · ❌ **`TRƯỢT` 1,5/4** — nhưng `GATE-DATA-01` **ĐÓNG** và Spike D `ACCEPTED`
 
 **Chốt muộn 2026-09-19 ~02:30** · bản đầy đủ: [`day09/DAY09_EOD_REVIEW.md`](day09/DAY09_EOD_REVIEW.md)
