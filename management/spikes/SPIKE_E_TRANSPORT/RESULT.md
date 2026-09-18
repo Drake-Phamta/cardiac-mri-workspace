@@ -144,17 +144,25 @@ real app run supplies the evidence and the owner/leader accepts the threshold.
 
 ### E10 — first-load budget
 
-**Provisional proposal:** target ≤1,000 ms p95 to the first usable per-slice
-PNG on `wifi-overlay`, subject to confirmation over several times of day and
-both A6 payload profiles. The run measured s1 at 445 ms p95 for the cold-open
-sample; the whole-volume strategy is not viable for first load (101,698 ms p95).
-This target is a proposal, not a frozen NFR. **It is withdrawn as an
-acceptance threshold pending DR-015.** Run-4 measured 445 ms p95, while the
-2026-09-16 evening capture measured 3,103 ms (`576x576x88`) and 1,058 ms
-(`640x640x88`) for cold-open s1. The eventual `TC-PERF-FIRSTLOAD-01` must
-declare the clock start/end event, device/build/uplink/profile, p50 and p95,
-keep the two profiles separate, and state the missing daytime E8 window. No
-number here is a frozen NFR or acceptance verdict.
+**Proposed project target (not yet accepted): p95 ≤3,500 ms** from dispatching
+the first per-slice request to receiving a complete, checksum/length-valid PNG
+on `wifi-overlay`. This replaces the withdrawn 1,000 ms proposal: the worst
+observed evening p95 is 3,103 ms, so 3,500 ms leaves modest headroom without
+pretending that the faster 445 ms run represents every time of day. The target
+is deliberately outside the frozen `NFR-PERF-00x` range and becomes binding
+only after the leader accepts this E10 proposal under DR-015.
+
+`TC-PERF-FIRSTLOAD-01` will run the Galaxy A17 release build against each
+profile separately, with the client cache cleared before each cold open. The
+clock starts when the client dispatches the first `s1` request and stops when
+the full response body has arrived and its declared length/checksum is valid;
+UI decode/render time is a separate later measurement. The report must include
+sample count, nearest-rank p50 and p95, device/build/uplink, stub/payload
+commit, and raw evidence for each profile. The current evening measurements
+are p50/p95 **1,126/3,103 ms** for `576x576x88` and **597/1,058 ms** for
+`640x640x88`; they are not pooled. E8 still has no daytime window, so this
+proposal remains `PROVISIONAL` until that window is captured and the leader
+accepts or returns the number.
 
 ### E11 — minimal connectivity fallback
 
@@ -184,7 +192,8 @@ a future implementation because it has not been measured here.
 | E7 | `NOT MEASURED` | no app peak-memory instrumentation |
 | E8 | partial | one evening Wi-Fi time window only; more windows required |
 | E9 | `NOT MEASURED` | physical link-loss/reconnect run still required |
-| E10/E11/E13 | draft | owner conclusions above, pending reruns and review |
+| E10 | `PROVISIONAL` | 3,500 ms p95 proposal and `TC-PERF-FIRSTLOAD-01` drafted; daytime E8 and leader decision pending |
+| E11/E13 | draft | owner conclusions above, pending reruns and review |
 
 **Overall:** `NEEDS_FIX` / incomplete evidence. Constraints relaxed: **NONE**.
 The 2026-09-16 two-profile packet closes the requested E2-E6/E12 aggregation
