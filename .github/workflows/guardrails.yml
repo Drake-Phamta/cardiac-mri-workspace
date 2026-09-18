@@ -22,6 +22,31 @@ permissions:
 jobs:
 
   # --------------------------------------------------------------------------
+  contract-tests:
+    name: "contract tests (ingestion 1/2 + API 11)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: install schema validator
+        run: python -m pip install --quiet jsonschema
+
+      - name: Contract 1 synthetic checks
+        working-directory: contracts/ingestion/contract1_raw_dataset
+        run: python test_contract1.py
+
+      - name: Contract 2 synthetic checks
+        working-directory: contracts/ingestion/contract2_experiment_artifact
+        run: python test_contract2.py
+
+      - name: API Contract 11 synthetic checks
+        working-directory: contracts/api
+        run: python test_api_contract.py
+
+  # --------------------------------------------------------------------------
   spec-integrity:
     name: "frozen spec checksums (19/19)"
     runs-on: ubuntu-latest
