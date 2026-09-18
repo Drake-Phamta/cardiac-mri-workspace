@@ -32,6 +32,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import zlib
 
 # --- fixture parameters -----------------------------------------------------
@@ -269,6 +270,203 @@ def build_brush_cases():
     return cases
 
 
+# --- brush oracle (stage S5: A3-A7) -----------------------------------------
+# An independent Python statement of the brush contract. app/brushMath.js is the
+# code the phone runs; harness/test_brush.mjs replays the script below through
+# it and must land on exactly these pixels and hashes. The two share no code, and
+# the line is not even computed the same way: the app walks Bresenham's
+# incremental error term, this file evaluates the rounding rule that loop is
+# equivalent to. Agreement is therefore evidence, not an echo.
+
+BRUSH_ADD, BRUSH_ERASE = "add", "erase"
+
+
+def brush_footprint(cx, cy, r):
+    """Source pixels at Euclidean distance <= r from (cx, cy), clipped to the image."""
+    pts = []
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            x, y = cx + dx, cy + dy
+            if dx * dx + dy * dy <= r * r and 0 <= x < NX and 0 <= y < NY:
+                pts.append((x, y))
+    return pts
+
+
+def brush_line(x0, y0, x1, y1):
+    """
+    Integer Bresenham line, both endpoints included, written as a rounding rule:
+    every step of the major axis is visited once, and the minor coordinate is its
+    ideal value rounded half UP in the direction of travel. That is what the
+    all-octant integer loop (err = dx - |dy|) produces, ties included - and ties
+    depend on direction, which the order of the stroke's samples fixes.
+    """
+    a, b = abs(x1 - x0), abs(y1 - y0)
+    sx = 1 if x1 >= x0 else -1
+    sy = 1 if y1 >= y0 else -1
+    if a == 0 and b == 0:
+        return [(x0, y0)]
+    if a >= b:
+        return [(x0 + sx * i, y0 + sy * ((2 * i * b + a) // (2 * a))) for i in range(a + 1)]
+    return [(x0 + sx * ((2 * j * a + b) // (2 * b)), y0 + sy * j) for j in range(b + 1)]
+
+
+def brush_apply(slices, op):
+    """
+    Apply one stroke to slices[op["slice"]] in place. Returns (centres, changes),
+    where changes lists (flat_index, old, new) for pixels whose value actually
+    changed - the same content one undo step stores.
+    """
+    buf = slices[op["slice"]]
+    value = 1 if op["tool"] == BRUSH_ADD else 0
+    t = op["transform"]
+    centres, changes, prev = [], [], None
+    for u, v in op["samples"]:
+        c = expected_source_pixel(u, v, t["zoom"], t["pan_x"], t["pan_y"])
+        centres.append(c)
+        if c is None:
+            prev = None                        # leaving the image ends the segment
+            continue
+        path = [tuple(c)] if prev is None else brush_line(prev[0], prev[1], c[0], c[1])
+        for lx, ly in path:
+            for x, y in brush_footprint(lx, ly, op["radius"]):
+                i = y * NX + x
+                if buf[i] != value:
+                    changes.append((i, buf[i], value))
+                    buf[i] = value
+        prev = c
+    return centres, changes
+
+
+def _require(ok, message):
+    if not ok:
+        raise SystemExit(f"brush oracle inconsistent: {message}")
+
+
+# The scripted strokes, written in SOURCE coordinates so the intent is readable,
+# then converted to SCREEN coordinates under a brush_cases geometry - the app only
+# ever sees the screen point. Positions are pixel centres, exact pixel
+# boundaries (18.0) and exact binary fractions (23.9375), so every conversion is
+# exact in floating point and no case depends on rounding noise.
+# Disc edges for reference (build_mask): z=0 centre (25.6, 32) r 10;
+# z=3 (28, 32) r 12.25; z=8 (32, 32) r 16; z=12 (35.2, 32) r 13.
+BRUSH_SCRIPT = [
+    # id      slice tool   r  geometry         samples (source x, y); outside the image where x or y < 0
+    ("OP-01", 8, "add",   0, "fit",           [(44.5, 30.5), (48.25, 30.75), (52.5, 30.5)]),   # crosses the disc edge
+    ("OP-02", 8, "erase", 2, "zoom_in_2x",    [(14.5, 20.5), (18.5, 24.5), (20.5, 31.5)]),     # enters the disc, steep last segment
+    ("OP-03", 8, "add",   5, "zoom_out_half", [(2.5, 3.5), (0.25, 0.75)]),                     # stamps clipped at the top-left edge
+    ("OP-04", 8, "add",   1, "panned_corner", [(8.5, 1.5), (8.5, 0.5), (12.5, -1.5),           # leaves the image across the top
+                                               (16.5, 0.5), (16.5, 1.5)]),                     # and re-enters: no line across the gap
+    ("OP-05", 3, "add",   3, "fit",           [(12.5, 32.5), (18.0, 34.0), (23.9375, 36.9375)]),  # pixel boundary, binary fraction
+    ("OP-06", 3, "erase", 2, "zoom_in_4x",    [(20.5, 25.5), (27.75, 31.25), (29.5, 20.5)]),   # inside to the edge and back up
+    ("OP-07", 3, "erase", 0, "zoom_in_2x",    [(35.5, 38.5)]),                                 # a single-sample tap
+    ("OP-08", 3, "add",   5, "fit",           [(62.5, 61.5), (63.75, 63.25)]),                 # clipped at the bottom-right edge
+    ("OP-09", 12, "add",  1, "zoom_out_half", [(40.5, 50.5), (38.5, 44.5), (36.5, 38.5)]),     # steep, towards -x and -y, crosses the edge
+    ("OP-10", 12, "erase", 3, "panned_corner", [(30.5, 14.5), (34.5, 24.5), (44.5, 22.5)]),    # across the top of the disc
+    ("OP-11", 12, "erase", 5, "zoom_in_2x",   [(38.5, 44.5), (38.5, 44.5), (41.25, 47.75)]),   # repeated sample, erases OP-09 pixels
+    ("OP-12", 12, "add",  0, "zoom_in_4x",    [(30.5, 29.5), (15.5, 27.5)]),                   # shallow, towards -x, leaves the disc
+    ("OP-13", 0, "add",   2, "zoom_out_half", [(-1.5, 30.5), (1.5, 30.5), (5.5, 33.5),         # starts outside the image,
+                                               (-2.25, 40.5), (0.5, 44.5)]),                   # leaves again, one stamp at x = 0
+    ("OP-14", 8, "erase", 3, "zoom_in_4x",    [(18.5, 24.5), (24.5, 24.5)]),                   # overlaps OP-02: only real changes count
+]
+
+
+def build_brush_ops(mask_b64, mask_digests, cases):
+    """Run BRUSH_SCRIPT, then undo all, redo all and reset, recording every state."""
+    geometry = {}
+    for c in cases:
+        geometry.setdefault(c["geometry"], {"geometry": c["geometry"], "zoom": c["zoom"],
+                                            "pan_x": c["pan_x"], "pan_y": c["pan_y"]})
+    source = [base64.b64decode(b) for b in mask_b64]
+    working = [bytearray(s) for s in source]
+
+    def slice_hash(z):
+        return hashlib.sha256(bytes(working[z])).hexdigest()
+
+    def volume_hash():
+        return hashlib.sha256(b"".join(bytes(w) for w in working)).hexdigest()
+
+    ops, steps = [], []
+    for oid, z, tool, r, gname, pts in BRUSH_SCRIPT:
+        g = geometry[gname]
+        op = {
+            "id": oid, "slice": z, "tool": tool, "radius": r, "transform": g,
+            "samples": [[g["pan_x"] + sx * g["zoom"], g["pan_y"] + sy * g["zoom"]] for sx, sy in pts],
+        }
+        before = slice_hash(z)
+        centres, changes = brush_apply(working, op)
+        for (sx, sy), c in zip(pts, centres):
+            inside = 0 <= sx < NX and 0 <= sy < NY
+            _require((c is not None) == inside, f"{oid}: sample ({sx}, {sy}) inside={inside}, centre {c}")
+            _require(c is None or c == [int(sx), int(sy)], f"{oid}: centre {c} for ({sx}, {sy})")
+        _require(changes, f"{oid} changes nothing - a stroke that changes nothing proves nothing")
+        op["expected"] = {
+            "centre_pixels": centres,
+            "changed": len(changes),
+            "changed_indices": sorted(i for i, _, _ in changes),
+            "slice_sha256_before": before,
+            "slice_sha256_after": slice_hash(z),
+            "volume_sha256_after": volume_hash(),
+        }
+        ops.append(op)
+        steps.append((op, changes))
+
+    final_slices = [slice_hash(z) for z in range(NZ)]
+
+    undo_walk = []
+    for op, changes in reversed(steps):
+        for i, old, _ in changes:
+            working[op["slice"]][i] = old
+        h = slice_hash(op["slice"])
+        _require(h == op["expected"]["slice_sha256_before"], f"undo of {op['id']} does not restore its before-hash")
+        undo_walk.append({"undo_of": op["id"], "slice": op["slice"], "changed": len(changes),
+                          "slice_sha256": h, "volume_sha256": volume_hash()})
+    after_undo_all = [slice_hash(z) for z in range(NZ)]
+    _require(after_undo_all == mask_digests, "undo-all does not return to the source mask")
+
+    redo_walk = []
+    for op, changes in steps:
+        for i, _, new in changes:
+            working[op["slice"]][i] = new
+        h = slice_hash(op["slice"])
+        _require(h == op["expected"]["slice_sha256_after"], f"redo of {op['id']} does not restore its after-hash")
+        redo_walk.append({"redo_of": op["id"], "slice": op["slice"], "changed": len(changes),
+                          "slice_sha256": h, "volume_sha256": volume_hash()})
+    after_redo_all = [slice_hash(z) for z in range(NZ)]
+    _require(after_redo_all == final_slices, "redo-all does not return to the state after the script")
+
+    working = [bytearray(s) for s in source]
+    after_reset = [slice_hash(z) for z in range(NZ)]
+    _require(after_reset == mask_digests, "reset does not restore the source mask")
+
+    a5_cases = []
+    for c in cases:
+        centre = expected_source_pixel(c["touch_u"], c["touch_v"], c["zoom"], c["pan_x"], c["pan_y"])
+        _require(centre == c["expected_source_pixel"], f"{c['id']}: stored touch point no longer maps to its pixel")
+        painted = {}
+        for r in (0, 2):
+            painted[f"painted_r{r}"] = ([] if centre is None else
+                                        sorted(y * NX + x for x, y in brush_footprint(centre[0], centre[1], r)))
+        a5_cases.append({"id": c["id"], **painted})
+
+    return {
+        "ops": ops,
+        "undo_walk": undo_walk,
+        "after_undo_all": after_undo_all,
+        "redo_walk": redo_walk,
+        "after_redo_all": after_redo_all,
+        "after_reset": after_reset,
+        "a5_cases": a5_cases,
+    }
+
+
+def dump_compact(obj):
+    """indent=1 like the other fixtures, but an array of plain numbers sits on one line."""
+    text = json.dumps(obj, indent=1, sort_keys=False, ensure_ascii=False)
+    num = r"(?:-?\d+(?:\.\d+)?|null)"
+    return re.sub(r"\[\n\s*(" + num + r"(?:,\n\s*" + num + r")*)\n\s*\]",
+                  lambda m: "[" + ", ".join(p.strip() for p in m.group(1).split(",")) + "]", text)
+
+
 def main():
     global NX, NY, NZ
     import argparse
@@ -378,6 +576,69 @@ def main():
         with open(path, "rb") as f:
             digest = hashlib.sha256(f.read()).hexdigest()
         print(f"  {name:26s} {os.path.getsize(path):>9,d} bytes  sha256 {digest[:16]}…")
+
+    # brush_ops.json is a NEW file. The three above are written exactly as before
+    # and must stay byte-identical; the stroke script only exists at 64x64.
+    run = None
+    if (NX, NY) != (64, 64):
+        print("  brush_ops.json             not written - its stroke script is defined on the 64x64 fixture")
+    else:
+        run = build_brush_ops(mask_b64, mask_digests, cases)
+        brush_ops = {
+            "_warning": "TEMPORARY Spike A fixture. See volume_synthetic.json.",
+            "purpose": "Stage S5 oracle for A3-A7: a scripted set of brush strokes given as SCREEN "
+                       "coordinates, with the pixels and SHA-256 every state must reach. Computed by "
+                       "the independent Python implementation in generate.py, not by the app.",
+            "shape_xyz": [NX, NY, NZ],
+            "source": "mask_synthetic.json - the working mask starts as an exact copy of it",
+            "source_slice_sha256": mask_digests,
+            "contract": {
+                "centre_pixel": "the brush_cases.json transform with floor; a sample outside the image "
+                                "(null) paints nothing",
+                "footprint": "{(x, y) : (x-cx)^2 + (y-cy)^2 <= r^2, 0 <= x < Nx, 0 <= y < Ny} in SOURCE "
+                             "pixels, so zoom and pan cannot change what a stamp covers; r = 0 is the "
+                             "centre pixel only",
+                "radii": [0, 1, 2, 3, 5],
+                "stroke": "consecutive in-image samples are joined by an integer Bresenham line between "
+                          "their centre pixels, both ends included, and the footprint is stamped at every "
+                          "line pixel; a sample outside the image ends the segment - no line is drawn "
+                          "across the outside",
+                "line_ties": "every step of the major axis is visited once; the minor coordinate is the "
+                             "ideal value rounded half up in the direction of travel (the all-octant "
+                             "integer loop, err = dx - |dy|), so a tie depends on the sample order",
+                "values": "add writes 1, erase writes 0, on the stroke's slice of the WORKING mask only; "
+                          "the source mask is never written",
+                "history": "one committed stroke = one undo step holding slice, changed flat indices, old "
+                           "values and new values of pixels whose value actually changed; undo restores "
+                           "old values, redo re-applies new values, a new stroke clears redo; reset "
+                           "restores every slice from the source and clears history",
+                "flat_index": "y * Nx + x (row-major; x = column, y = row, DR-008a)",
+                "slice_sha256": "SHA-256 of the slice's Nx*Ny bytes, row-major, values 0/1",
+                "volume_sha256": "SHA-256 of all Nz working slices concatenated in z order",
+            },
+            "op_count": len(run["ops"]),
+            "ops": run["ops"],
+            "undo_walk": run["undo_walk"],
+            "after_undo_all_slice_sha256": run["after_undo_all"],
+            "redo_walk": run["redo_walk"],
+            "after_redo_all_slice_sha256": run["after_redo_all"],
+            "after_reset_slice_sha256": run["after_reset"],
+            "a5": {
+                "note": "Expected painted set of every brush_cases.json case when one ADD sample is "
+                        "stamped on a blank slice: painted_r0 is {expected_source_pixel}, painted_r2 the "
+                        "r = 2 footprint around it; [] where the touch is outside the image. The "
+                        "proposed A5 tolerance is 0 source pixels for these triples.",
+                "radii": [0, 2],
+                "cases": run["a5_cases"],
+            },
+        }
+        path = os.path.join(HERE, "brush_ops.json")
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(dump_compact(brush_ops))
+            f.write("\n")
+        with open(path, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        print(f"  {'brush_ops.json':26s} {os.path.getsize(path):>9,d} bytes  sha256 {digest[:16]}…")
 
     print(f"\n  volume  {NX}x{NY}x{NZ}, seed {SEED}")
     print(f"  brush   {len(cases)} cases across {len(set(c['geometry'] for c in cases))} geometries, "

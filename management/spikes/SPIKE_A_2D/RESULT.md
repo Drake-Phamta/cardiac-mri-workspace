@@ -2,7 +2,8 @@
 
 > **`RESULT.md` ≠ `ACCEPTED`.** File này là bản ghi công việc của chủ sở hữu. Nghiệm thu cần đủ bốn bước:
 > owner → `EVIDENCE_READY` → reviewer `APPROVE` → CHAT E QA `PASS` → CHAT A chuyển trạng thái → `ACCEPTED`.
-> Hiện tại spike đang ở **`ACTIVE`**, chưa yêu cầu review.
+> Hiện tại spike đang ở **`ACTIVE`**. Review đã được yêu cầu cho từng chặng — #27 (S4, `A2`) và #31 (S5, `A3`–`A7`) —
+> chưa chặng nào được `APPROVE`.
 
 | Mục | Giá trị |
 |---|---|
@@ -25,19 +26,19 @@
 |---|---|---|---|
 | **A1** | Slice render đúng, hiện `n / total` | **PASS một phần** | `n / total` hiển thị đúng, 16 slice điều hướng được, 30/30 lần load thành công. **Phần "exact match to fixture" CHƯA kiểm theo pixel** — xem ghi chú A1 |
 | **A2** | **Zoom/pan không đổi geometry mask nguồn** | **ĐÃ ĐO — `OBSERVED`** (14/09, release) | checksum mask nguồn **16/16 khớp fixture** ở cả 3 lần kiểm: trước thao tác, sau **3 pinch + 1 kéo** thật, sau **13 bước zoom/pan tự động**. 0 lần khựng > 500 ms. Xem §Kết quả A2 |
-| A3 | Brush ADD chỉ sửa pixel đúng ý | `NOT MEASURED` | chưa dựng brush — chặng S5 |
-| A4 | Brush ERASE chỉ sửa pixel đúng ý | `NOT MEASURED` | chưa dựng brush — chặng S5 |
-| **A5** | **Brush mapping đúng pixel sau zoom/pan** | `NOT MEASURED` | **60 ca kiểm đã sẵn** trong `fixtures/brush_cases.json`, chưa chạy được vì chưa có brush |
-| A6 | Undo tái lập trạng thái trước | `NOT MEASURED` | chặng S5 |
-| A7 | Redo tái lập trạng thái đã undo | `NOT MEASURED` | chặng S5 |
-| A8 | Save/reload tái lập đúng nét sửa | `NOT MEASURED` | chặng S5 |
+| **A3** | Brush ADD chỉ sửa pixel đúng ý | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **8/8** nét thêm khớp oracle độc lập, từng pixel và từng hash slice. Xem §Kết quả A3–A7 |
+| **A4** | Brush ERASE chỉ sửa pixel đúng ý | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **6/6** nét xoá khớp oracle |
+| **A5** | **Brush mapping đúng pixel sau zoom/pan** | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **60/60** ca ở r = 0 và **60/60** ở r = 2; (dx, dy) = (0, 0) ở cả 50 ca trong ảnh, 10 ca ngoài ảnh không tô gì. **Dung sai đề xuất: 0 pixel nguồn** |
+| **A6** | Undo tái lập trạng thái trước | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi undo khớp hash trước từng nét |
+| **A7** | Redo tái lập trạng thái đã undo | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi redo khớp hash sau từng nét |
+| A8 | Save/reload tái lập đúng nét sửa | `NOT MEASURED` | chặng S6 — app chưa lưu mask |
 | **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO HAI LẦN — đạt ngưỡng ở cả hai** | `64×64`: **65,31 ms** · **`576×576` (thật): 50,23 ms**. Kèm phát hiện bộ nhớ **376 MB ngoại suy** cho 88 slice. Xem §Kết quả A9 |
-| A10 | Phản hồi brush ≤ 100 ms, 0 nét mất | `NOT MEASURED` | chưa dựng brush — chặng S5 |
-| A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | chặng S7 |
+| A10 | Phản hồi brush ≤ 100 ms, 0 nét mất | `NOT MEASURED` | **có dữ liệu thô, chưa kết luận:** 25 nét thật, 0 mẫu không tính được trong 20 nét commit; proxy JS tới frame kế tiếp lớn nhất 22,66 ms — không gồm độ trễ chuyển chạm từ native nên chưa phải con số `A10` |
+| A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | **có dữ liệu thô:** 5 nét bị huỷ đúng lúc ngón thứ hai chạm; chưa có lượt kiểm theo kịch bản cho "0 sửa nhầm" |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
 
-**4 tiêu chí có dữ liệu · 8 tiêu chí `NOT MEASURED`.** Không ô nào bỏ trống và không ô nào được đoán.
-*(`A2` thêm ngày 14/09; bằng chứng nằm trên nhánh `spike-a/s4-zoom-pan`, PR #27, chưa review.)*
+**9 tiêu chí có dữ liệu · 3 tiêu chí `NOT MEASURED`** (`A8`, `A10`, `A11`). Không ô nào bỏ trống và không ô nào được
+đoán. *(`A2` thêm 14/09 — PR #27; `A3`–`A7` thêm 15/09 — PR #31. Cả hai PR chưa được `APPROVE`.)*
 
 ---
 
@@ -179,6 +180,52 @@ lượt đo; mới 1 lần kéo trong 4 thao tác tay (3 pinch).
 
 ---
 
+## Kết quả A3–A7 — brush trên máy *(chặng S5, 2026-09-15 21:13–21:21)*
+
+**Cách đo.** Mọi mẫu chạm đi qua đúng một hàm, `strokeSample` trong `app/brushMath.js`. Nút **"kiểm A5"** chạy 60 ca
+`brush_cases.json` qua hàm đó trên slice nháp, ở r = 0 và r = 2. Nút **"A3–A7 tự động"** chạy 14 nét kịch bản của
+`brush_ops.json` trên bản nháp chép từ mask nguồn — thêm, xoá, undo lùi hết, redo tiến hết, đặt lại — và log hash
+từng bước. `harness/extract_brush.py` **tự tính lại** mọi kỳ vọng bằng `hashlib` từ fixture (oracle Python độc lập
+trong `generate.py`), không tin số "pass" của app.
+
+| Tiêu chí | Kết quả trên máy (tính lại độc lập) |
+|---|---|
+| `A3` thêm | **8/8** nét khớp — đúng tập pixel, đúng hash slice và hash cả khối |
+| `A4` xoá | **6/6** nét khớp |
+| `A5` ánh xạ sau transform | r = 0: **60/60** · r = 2: **60/60** · (dx, dy) = (0, 0) ở 50 ca trong ảnh · 10 ca ngoài ảnh không tô gì |
+| `A6` undo | **15/15** bản ghi khớp (14 bước lùi và trạng thái undo-all = mask nguồn) |
+| `A7` redo | **15/15** bản ghi khớp (14 bước tiến và trạng thái redo-all) |
+| đặt lại | **1/1** — cả 16 slice về đúng hash mask nguồn |
+
+**Kết luận từ log thô: `OBSERVED`** cho `A3`, `A4`, `A5`, `A6`, `A7`.
+
+**Nét tô thật** *(dữ liệu thô cho `A10`/`A11`, chưa kết luận)*: 25 nét — 20 commit, **5 bị huỷ vì ngón thứ hai
+chạm** (đúng thiết kế: hai ngón là điều hướng); **0** mẫu không tính được trong các nét commit; `feedback_ms` lớn
+nhất **22,66 ms** — đo từ lúc vào handler JS tới frame kế tiếp, **không** gồm thời gian hệ thống chuyển sự kiện chạm
+vào JS.
+
+**Kiểm lại `A2` trên bản S5:** `OBSERVED` — lần kiểm trước mọi thao tác và lần kiểm sau **6 pinch + 1 kéo** đều khớp
+16/16 slice mask nguồn; khoảng hở frame lớn nhất 36,4 ms, 0 lần khựng > 500 ms. Cọ sửa mask **làm việc**, không đụng
+mask nguồn.
+
+**Dung sai `A5` đề xuất: 0 pixel nguồn** cho các bộ ba fixture — ánh xạ là phép floor tất định, và cả offline (F5)
+lẫn trên máy đều trúng 100%. Rung tay khi chạm thật là câu hỏi của `A10`/`A11`, không phải của dung sai ánh xạ.
+
+**Điều kiện:** bản **release** từ PR #31 @ `cf84802` (`expo run:android --variant release`, APK 68 865 408 byte, cài
+21:03:28), SM-A176B Android 16, cắm USB đang sạc (pin 54 % lúc 21:19 theo ảnh chụp). Người bấm: **Phạm Tuấn Anh**,
+chủ Spike A, trên máy của chính mình. Log lấy từ mốc giờ điện thoại đặt trước phiên — chỉ đọc, không xoá log trên máy.
+
+**Bằng chứng** (nhánh `spike-a/s5-brush`, PR #31): `spikes/spike_a_2d/EVIDENCE_RAW/a3_a7_brush_20260915T212121+0700.json`
+· `…/a2_zoom_pan_20260915T212121+0700.json` · `…/s5_device_session_20260915T212121+0700_logcat.txt` (99 dòng
+`SPIKE_A_*`, nguyên văn) · `…/s5_brush_after_zoom_20260915T211941+0700.jpg` (nét thêm xanh, xoá đỏ trên overlay mask
+nguồn, sau pinch và kéo — zoom ×0,83, ảnh lệch khỏi vị trí fit).
+
+**Giới hạn, ghi rõ:** fixture 64×64 tổng hợp, chưa phải cohort thật; một lượt đo; nét tô thật không có kỳ vọng pixel
+nên chỉ là dữ liệu thô; `A8` (lưu/tải lại) chưa dựng. Đã đo, **chưa nghiệm thu** — cần reviewer `APPROVE` → QA
+`PASS` → `ACCEPTED`.
+
+---
+
 ## Ghi chú A1
 
 `n / total` hiển thị đúng và 16 slice điều hướng được — phần đó đạt. Nhưng tiêu chí còn vế **"exact match
@@ -216,18 +263,19 @@ tới; Flutter còn chưa cài trên máy.
 
 | Điều kiện | Trạng thái |
 |---|---|
-| `A5` sai mapping sau transform → ứng viên **không dùng được** | chưa đo |
+| `A5` sai mapping sau transform → ứng viên **không dùng được** | **không kích hoạt** — 60/60 ở r = 0 và r = 2 trên máy (15/09) |
 | `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **`A9` đạt** ở kích thước fixture · `A10` chưa đo |
-| Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | chưa đo |
+| Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | chưa kết luận — dữ liệu thô: 0 mẫu không tính được trong 20 nét commit; bài đo `A10` theo kịch bản chưa chạy |
 | Không ứng viên nào đạt → `NEGATIVE_RESULT`, leo thang | chưa tới bước đó |
 
 ---
 
 ## Việc tiếp theo
 
-1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · tiếp: **brush** → `A3` `A4` `A6` `A7` `A8` `A10`
-2. **Chạy 60 ca `brush_cases.json`** → `A5`, xuất **phân bố sai số** và **đề xuất dung sai** — spec đóng
-   băng không đặt dung sai cho brush mapping, spike này phải đề xuất
+1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · ~~**brush** → `A3` `A4` `A5` `A6` `A7`~~ ✅ 15/09 · tiếp: **lưu/tải lại** →
+   `A8` (chặng S6) và bài đo theo kịch bản cho `A10`/`A11`
+2. ~~**Chạy 60 ca `brush_cases.json`** → `A5`~~ ✅ 15/09 — sai số toàn (0, 0), **dung sai đề xuất 0 pixel nguồn**;
+   đưa vào hợp đồng hình học khi Vũ Hùng Anh nâng phiên bản (`DR-013`)
 3. **Đo lại `A9` ở kích thước slice thật** khi Spike D `A6` có kết quả
 4. Dựng ứng viên thứ hai để `A12` so sánh được
 5. Nhả Galaxy A17 cho Nguyễn Gia Đức Trung — profile DR-006 và baseline `A9` đã xong, phần còn lại là
