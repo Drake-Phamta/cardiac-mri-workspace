@@ -17,6 +17,32 @@
 | **Day 9 chốt `TRƯỢT` 1,5/4**, buffer **−2** | M3 trượt vì lối ra CI; việc 1 hôm nay đóng nó lại trong 15 phút |
 | **`E10` giữ `PROVISIONAL`** | Ngưỡng 3 500 ms chỉ thành ràng buộc khi `TC-PERF-FIRSTLOAD-01` có vòng cold-open riêng **≥ 20 mẫu/profile**. Hiện mỗi khung vẫn 3 mẫu |
 | **M5 bắt đầu bằng mã thật hôm nay** | Việc 6 và 7: fixture sinh từ hợp đồng, rồi PR hiện thực đầu tiên của V4 |
+| 🆕 **Định dạng bundle fixture đã được viết sẵn cho bạn trong đêm** | **`app/core/fixtures/FORMAT.md`** — đọc nó **trước việc 6**. Nó quyết định việc 6 của bạn là "thêm một khối" hay "đoán xem bên kia đọc gì" |
+
+### 🆕 `FORMAT.md` — thứ phải đọc trước việc 6
+
+[`app/core/fixtures/FORMAT.md`](https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/feat/day10-app-core/app/core/fixtures/FORMAT.md)
+(trên PR #48). Tóm tắt để bạn khỏi mất công:
+
+- **`contract`, `contract_version`, `base_path`, `endpoints`, `errors`, `geometry` giữ nguyên** — đúng thứ
+  `generate_fixture(schema)` trên `main` đang trả. **Đừng đổi.**
+- Cái phải thêm là **một khối `scenarios`**, khoá theo **id endpoint thật**, mỗi cái có `request.params` và
+  `response`. Mọi giá trị đều suy được từ `contract["endpoints"][*]`, nên generator vẫn là generator.
+- **Sáu luật** loader cưỡng chế (danh tính hợp đồng · id endpoint thật · `200` phải đủ **mọi**
+  `response_fields`, với luật hàng cho `items` · mã lỗi phải thuộc **endpoint đó** và đúng `http_status` của
+  nó · 7 trường geometry đúng phiên bản · đủ mọi `{token}`). Lệch là **hỏng trong một giây**, không phải màn
+  hình trắng lúc 20:00.
+- Bundle ra `app/core/fixtures/.generated/api_bundle.json` — **gitignored**, CI sinh lại mỗi lần chạy.
+- **Ba scenario bạn cần trước nhất cho V4:** `stale_revision` trên `review_patch`, `working_mask_put`,
+  `review_commit`. Không có ba cái đó thì `SCR-06` không demo được trạng thái quan trọng nhất của nó.
+- **Kiểm ngay output của bạn:** `node app/core/tests/run_all.mjs`. Test `D2` chạy **chính
+  `generate_fixture.py` của bạn** trong tiến trình rồi nạp kết quả — nên một thay đổi làm hỏng giao kèo sẽ
+  trượt trong CI của bạn, không phải trong màn hình của ba người khác.
+
+**Vertical của bạn:** [`app/verticals/v4_review_and_findings/README.md`](https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/feat/day10-app-core/app/verticals/v4_review_and_findings/README.md)
+— V4 là vertical **duy nhất ghi dữ liệu**. Hai luật không được phá: mọi write phải mang `expected_revision`
+(core chặn trước khi gửi), và **`STALE_REVISION` không bao giờ mời RETRY** — gửi lại một write cũ *chính là*
+last-write-wins, thứ `revision_rules` cấm. **Rẽ nhánh từ `feat/day10-app-core`, đừng chờ merge.**
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
