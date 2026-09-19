@@ -9,6 +9,8 @@
 
 import { parseObj } from './obj.js';
 import { invertMat4, multiplyMat4, rayMeshFirstHit, screenRayFromNdc, worldToSlice } from './picking.js';
+import { DEFAULT_MEASURE_MS, DEFAULT_WARMUP_MS, FrameProbe } from './performance.js';
+import { deliverFrameProbe, frameProbePayload, localProbeSink, selectMeshLevel } from './webview_probe.js';
 
 const canvas = document.querySelector('#gl');
 const status = document.querySelector('#status');
@@ -16,6 +18,9 @@ const trianglesLabel = document.querySelector('#triangles');
 const fitButton = document.querySelector('#fit');
 const shadeButton = document.querySelector('#shade');
 const pickLabel = document.querySelector('#pick');
+const perfRunButton = document.querySelector('#perf-run');
+const perfDownloadButton = document.querySelector('#perf-download');
+const performanceLabel = document.querySelector('#performance');
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
@@ -56,8 +61,8 @@ void main() {
   // while keeping surface contours readable against the dark MRI-style field.
   vec3 color = uColor * (0.34 + 0.62 * diffuse + 0.18 * rim)
              + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
-  // A narrow band marks the physical axial plane selected in the linked MPR
-  // panes. It is a surface-intersection cue, never a fabricated contour.
+  // This is the physical axial plane selected by the linked 2D viewer.
+  // It is a surface-intersection cue, not a fabricated contour.
   float planeBand = 1.0 - smoothstep(0.0, 1.6, abs(vSourceZ - uSliceZ));
   if (uSliceActive) color = mix(color, vec3(1.0, 0.72, 0.16), planeBand * 0.92);
   outColor = vec4(color, 1.0);
@@ -162,6 +167,10 @@ let pinchState = null;
 let geometry = null;
 let tapCandidate = false;
 let interactionMoved = false;
+let activeFrameProbe = null;
+let lastFrameProbeRecord = null;
+let selectedMesh = null;
+let probeSinkUrl = null;
 let sliceWorldZ = null;
 
 function panBy(dx, dy) {
@@ -183,7 +192,49 @@ function resize() {
   gl.viewport(0, 0, width, height);
 }
 
-function draw() {
+function performanceMetadata() {
+  return {
+    user_agent: navigator.userAgent,
+    page_url: window.location.href,
+    viewport_css_px: [canvas.clientWidth, canvas.clientHeight],
+    canvas_backing_px: [canvas.width, canvas.height],
+    device_pixel_ratio: window.devicePixelRatio || 1,
+    triangles: renderer ? renderer.count / 3 : null,
+    mesh_id: selectedMesh?.meshId ?? null,
+    mesh_level: selectedMesh?.level ?? null,
+    geometry_contract_version: geometry?.geometry_contract_version ?? null,
+    react_native_webview_bridge: typeof window.ReactNativeWebView?.postMessage === 'function',
+    local_probe_sink: probeSinkUrl,
+    interaction_protocol: 'operator performs orbit, pan and pinch-zoom during the 30 s window',
+    evidence_scope: 'diagnostic only until physical target-device provenance is recorded',
+  };
+}
+
+function setPerformanceText(text) {
+  if (performanceLabel) performanceLabel.textContent = text;
+}
+
+function completeFrameProbe(result) {
+  lastFrameProbeRecord = frameProbePayload(result, performanceMetadata());
+  if (perfRunButton) perfRunButton.disabled = false;
+  if (perfDownloadButton) perfDownloadButton.disabled = !result.median_fps;
+  if (result.median_fps) {
+    setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · sending raw evidence…`);
+    void deliverFrameProbe(lastFrameProbeRecord, {
+      nativePostMessage: window.ReactNativeWebView?.postMessage?.bind(window.ReactNativeWebView),
+      fetchImpl: window.fetch.bind(window),
+      sinkUrl: probeSinkUrl,
+    }).then((outcome) => {
+      const sent = [outcome.native === 'posted' ? 'RN' : null, outcome.http === 'posted' ? 'HTTP' : null]
+        .filter(Boolean).join(' + ') || 'no collector';
+      setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · raw evidence: ${sent}`);
+    });
+  } else {
+    setPerformanceText('probe failed: no usable animation frames; keep the viewer visible and retry');
+  }
+}
+
+function draw(frameAt) {
   if (!renderer) return;
   resize();
   gl.enable(gl.DEPTH_TEST);
@@ -202,6 +253,13 @@ function draw() {
   gl.uniform1i(renderer.sliceActive, sliceWorldZ === null ? 0 : 1);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
+  if (activeFrameProbe) {
+    const result = activeFrameProbe.record(frameAt);
+    if (result) {
+      activeFrameProbe = null;
+      completeFrameProbe(result);
+    }
+  }
   requestAnimationFrame(draw);
 }
 
@@ -306,23 +364,56 @@ window.addEventListener('message', (event) => {
   if (!data || data.type !== 'set-slice-world-z' || !Number.isFinite(data.z)) return;
   sliceWorldZ = data.z;
 });
+if (perfRunButton) {
+  perfRunButton.addEventListener('click', () => {
+    if (!renderer) {
+      setPerformanceText('probe unavailable: wait for mesh to load');
+      return;
+    }
+    activeFrameProbe = new FrameProbe({
+      startedAt: performance.now(),
+      warmupMs: DEFAULT_WARMUP_MS,
+      measureMs: DEFAULT_MEASURE_MS,
+    });
+    lastFrameProbeRecord = null;
+    perfRunButton.disabled = true;
+    if (perfDownloadButton) perfDownloadButton.disabled = true;
+    setPerformanceText('probe: 3 s warm-up, then 30 s measurement — orbit, pan and pinch-zoom now');
+  });
+}
+if (perfDownloadButton) {
+  perfDownloadButton.addEventListener('click', () => {
+    if (!lastFrameProbeRecord) return;
+    const blob = new Blob([`${JSON.stringify(lastFrameProbeRecord, null, 2)}\n`], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `spike-b-frame-probe-${new Date().toISOString().replaceAll(':', '-')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
-Promise.all([
-  fetch('../mesh/out/level_0_cell1.obj').then((response) => {
-    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
-    return response.text();
-  }),
-  fetch('../mesh/out/mesh_levels.json').then((response) => {
+fetch('../mesh/out/mesh_levels.json')
+  .then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
     return response.json();
-  }),
-])
-  .then(([text, summary]) => {
+  })
+  .then(async (summary) => {
+    selectedMesh = selectMeshLevel(window.location.search, summary.levels || []);
+    probeSinkUrl = localProbeSink(window.location.search, window.location.href);
+    const objUrl = new URL(`../${selectedMesh.selected.obj}`, import.meta.url);
+    const response = await fetch(objUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
+    return { text: await response.text(), summary };
+  })
+  .then(({ text, summary }) => {
     const mesh = parseObj(text);
     geometry = {
       shape_xyz: summary.shape_xyz,
       spacing_xyz_mm: summary.spacing_xyz_mm,
       origin_world_mm: summary.origin_world_mm,
+      geometry_contract_version: summary.geometry_contract_version || null,
     };
     renderer = setup(gl, mesh);
     // Centre/normalise from the loaded OBJ so the same camera works for any
@@ -342,8 +433,8 @@ Promise.all([
       maxRadius = Math.max(maxRadius, Math.hypot(values[i] - center[0], values[i + 1] - center[1], values[i + 2] - center[2]));
     }
     scale = maxRadius ? 1 / maxRadius : 1;
-    trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles`;
-    status.textContent = 'level_0_cell1.obj · loaded';
+    trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · level ${selectedMesh.level}`;
+    status.textContent = `${selectedMesh.selected.obj.split('/').at(-1)} · loaded`;
     draw();
   })
   .catch((error) => {

@@ -34,6 +34,8 @@ spikes/spike_b_3d/
 ├── app/                          B1 WebGL2 viewer (OBJ + shading + orbit/zoom)
 │   ├── index.html
 │   ├── viewer.js
+│   ├── performance.js            raw requestAnimationFrame probe for physical-device runs
+│   ├── test_performance.mjs
 │   └── B1_SCREENSHOT.png         ảnh chụp diagnostic
 └── harness/
     ├── conformance.py            B2 B4 B8 — thư viện tái dùng được cho TC-MAINT-002
@@ -53,6 +55,7 @@ spikes/spike_b_3d/
 python spikes/spike_b_3d/harness/conformance.py          # 33 điểm, bound EXACT — fixture chính thức
 python spikes/spike_b_3d/mesh/build_mesh.py              # 4 mức decimation
 python spikes/spike_b_3d/harness/picking_error.py        # sai số picking × 6 hướng camera
+node spikes/spike_b_3d/app/test_performance.mjs           # kiểm tra thống kê raw frame probe
 ```
 
 Chỉ cần `numpy`. Không thêm dependency nào — chọn thư viện mesh cho Spike B là việc của anh.
@@ -190,6 +193,12 @@ ngoại suy sang mesh giải phẫu/FPS của Galaxy A17.
 5. Quyết có xoá `fixtures_proposal/` không — nó không còn là nguồn của công cụ nào.
 6. Thay mask tổng hợp bằng mask thật khi Spike D có dữ liệu, chạy lại `build_mesh.py`.
 7. `B10` `B11` trên Galaxy A17, điền cột FPS vào bảng frontier, rồi mới đề xuất **DR-008c**.
+
+`app/` đã có nút **run 30 s device probe** để ghi raw frame intervals và tải
+JSON, giảm việc bấm giờ/tính tay. Xem
+[`MEASUREMENT_B10_B11.md`](MEASUREMENT_B10_B11.md) cho chuỗi thao tác và
+provenance bắt buộc. Android Studio AVD chỉ là debug environment, không thay
+Galaxy A17 cho B10/B11.
 
 **Liên quan:** [`../../management/spikes/SPIKE_B_3D/TASK.md`](../../management/spikes/SPIKE_B_3D/TASK.md) ·
 [`../../management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md`](../../management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md) ·
