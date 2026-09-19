@@ -32,8 +32,6 @@ import json
 import os
 from collections import defaultdict
 
-NFR_PERF_001_MS = 200      # p95 target for slice navigation
-
 # Above this share of failed requests a distribution stops describing the link
 # and starts describing the subset that happened to survive. Not a spec number;
 # a harness guard, stated so it can be argued with.
@@ -228,14 +226,14 @@ def main() -> int:
                 "ms_network_and_transfer" in r for r in ok) else None,
         }
 
-    # E4 / NFR-PERF-001 - the one threshold this spike can check directly.
+    # E4's transport comparison. This harness records uncached workstation
+    # HTTP requests, not the target-device cached slice switching governed by
+    # NFR-PERF-001. It can compare E4 strategies, but cannot label a result as
+    # an NFR pass or miss.
     print()
-    # #26: this section used to vanish silently when every E4 request failed -
-    # precisely when the target is most violated. An E4 scenario that produced
-    # no successful request is now REPORTED as unanswerable rather than omitted.
     all_e4 = {k: v for k, v in report["scenarios"].items() if v["criterion"] == "E4"}
     if all_e4:
-        print(f"  NFR-PERF-001 — p95 <= {NFR_PERF_001_MS} ms for slice navigation (E4):")
+        print("  E4 navigation transport observations — not an NFR-PERF-001 verdict:")
         by_scenario = {}
         for name, v in sorted(all_e4.items()):
             t = v.get("total_ms")
@@ -244,16 +242,18 @@ def main() -> int:
                 by_scenario[name] = None
                 continue
             p95 = t["p95"]
-            verdict = "within target" if p95 <= NFR_PERF_001_MS else "EXCEEDS TARGET"
+            verdict = "observed"
             if not t["distribution_is_representative"]:
                 verdict += (f"  (but {t['failure_rate'] * 100:.0f}% of requests failed - "
                             f"this p95 describes the survivors, not the link)")
             print(f"    {name:<20} p95 {p95:>8.1f} ms   {verdict}")
             by_scenario[name] = p95
-        report["nfr_perf_001"] = {"target_ms": NFR_PERF_001_MS, "by_scenario": by_scenario}
+        report["e4_transport_observation"] = {
+            "scope": "uncached transport; not NFR-PERF-001 cached target-device navigation",
+            "by_scenario": by_scenario,
+        }
     else:
-        print("  NFR-PERF-001 — no E4 navigation scenario in this run, so the 200 ms target")
-        print("  was not exercised at all.")
+        print("  E4 navigation transport observation — no E4 scenario in this run.")
 
     print()
     if not acceptance:
