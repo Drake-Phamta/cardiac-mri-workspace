@@ -21,11 +21,25 @@ python harness/check_conformance.py    # F1–F5
 
 Cả năm phải xanh **trước** khi đo. Một phiên đo trên mã chưa qua kiểm offline là một phiên phải đo lại.
 
-APK release đã dựng sẵn đêm 19/09:
+APK release:
 
 ```
 spikes/spike_a_2d/app/android/app/build/outputs/apk/release/app-release.apk
 ```
+
+> ### ⚠ Kiểm APK có MỚI HƠN mã nguồn không — đã dính một lần, 19/09 11:57
+>
+> APK dựng lúc 03:44:34; `App.js` sửa lần cuối 03:48:32 vì phần ghi kết cục nét lên bản ghi cử chỉ (thứ
+> `A11` cần) được thêm **sau** khi build. Bản trên máy có `A8` nhưng không có phần đó, nên sau **25 nét tô
+> thật** `extract_a10_a11.py` vẫn trả `A11 INCOMPLETE` — và cả phần 1 phải làm lại, vì ghép phần 1 của build
+> cũ với phần 2 của build mới đúng là lỗi *"một build, một biến"* của `#41`.
+>
+> ```powershell
+> $apk = Get-Item app\android\app\build\outputs\apk\release\app-release.apk
+> Get-ChildItem app\*.js | Where-Object { $_.LastWriteTime -gt $apk.LastWriteTime }
+> ```
+>
+> **In ra bất cứ file nào là phải dựng lại.** Mất 3 phút build, rẻ hơn 15 phút tô lại.
 
 Nếu cần dựng lại:
 
@@ -42,10 +56,18 @@ cd android; .\gradlew.bat assembleRelease
 ```powershell
 cd D:\cardiac-mri-workspace\spikes\spike_a_2d
 adb devices                              # phải thấy đúng một thiết bị
-python harness/capture_conditions.py --label "S8 trước — release, A17"
+python harness/capture_conditions.py --phase before --out "EVIDENCE_RAW\conditions_s8_before_<stamp>.json"
 adb install -r app\android\app\build\outputs\apk\release\app-release.apk
 adb logcat -c                            # log sạch: mỗi phiên một log
 ```
+
+> ⚠ **`adb install -r` có thể treo vài phút** chờ một hộp thoại trên máy (xác nhận cài đè, hoặc cảnh báo
+> Play Protect với APK ký bằng khoá debug-release cục bộ). Nhìn màn hình điện thoại, đừng ngồi đợi terminal.
+> Xác nhận đã cài đúng bản mới bằng `lastUpdateTime`:
+>
+> ```powershell
+> adb shell dumpsys package com.cardiacmri.spikea2d | findstr "versionName lastUpdateTime flags="
+> ```
 
 **Điều kiện ghi bằng script, không gõ tay.** Pin, nhiệt độ, chế độ tiết kiệm pin và thiết bị đều do
 `capture_conditions.py` đọc từ máy.
@@ -60,7 +82,7 @@ Mở ứng dụng. **Chưa bấm gì về lưu.**
 |---|---|---|
 | 2.1 | `Sửa` · `thêm` · `r = 2`, tô **10 nét** trên ít nhất 3 slice khác nhau | `A10`: mỗi nét in một `feedback_ms_p50` / `_max` thật |
 | 2.2 | `xoá` · `r = 1`, tô thêm **5 nét** | nhánh xoá phải có mẫu riêng, không suy ra từ nhánh thêm |
-| 2.3 | `r = 0`, **5 nét** | bán kính nhỏ nhất là trường hợp tệ nhất về số mẫu trên một nét |
+| 2.3 | **`r = 5`** và `r = 3`, mỗi cỡ **5 nét** | bán kính lớn tô nhiều pixel hơn mỗi mẫu → đây mới là chỗ nặng. *(Bản đầu ghi `r = 0` là "nặng nhất" — sai; phiên 19/09 đo được `r5` worst 19,41 ms còn `r1` worst 30,48 ms, tức chi phí không do footprint quyết định.)* |
 | 2.4 | **Trong lúc đang tô, đặt ngón thứ hai xuống** — làm **5 lần** | `A11`: nét phải **cuộn lại đúng** (`end: second_finger`), hai ngón chuyển sang pinch/pan và **không tô** |
 | 2.5 | Zoom vào ~4× rồi tô tiếp **5 nét** | `A11` + `A5`: ánh xạ chạm→pixel phải giữ nguyên sau zoom |
 | 2.6 | Bấm **`kiểm A2 (checksum)`** | mask **nguồn** phải vẫn khớp fixture sau tất cả những thao tác trên |
@@ -90,7 +112,7 @@ sửa sống sót qua việc ứng dụng bị tắt — nên nó **không** đ�
 |---|---|---|
 | 3.2.1 | Tô thêm vài nét (để bản lưu **có chỉnh sửa thật**) | dòng trạng thái tăng số nét |
 | 3.2.2 | Bấm **`lưu`** | `A8 lưu: … KB (…% của … MB thô) · … ms` — **chép lại `volume_sha256` trong log** |
-| 3.2.3 | `adb shell am force-stop com.anonymous.app` *(xem tên gói bằng `adb shell pm list packages \| findstr anonymous`)* | ứng dụng tắt hẳn, không phải chỉ về màn hình chính |
+| 3.2.3 | `adb shell am force-stop com.cardiacmri.spikea2d` | ứng dụng tắt hẳn, không phải chỉ về màn hình chính |
 | 3.2.4 | Mở lại ứng dụng từ biểu tượng | dòng trạng thái: **`có bản lưu từ lần chạy trước (… KB)`** |
 | 3.2.5 | Bấm **`nạp lại`** | **`A8 nạp lại (NGUỘI — tệp từ lần chạy trước)`** · `88/88 slice khớp checksum` · `hash khối khớp` |
 | 3.2.6 | Lặp lại 3.2.1–3.2.5 **một lần nữa** | hai vòng nguội độc lập, không phải một |
