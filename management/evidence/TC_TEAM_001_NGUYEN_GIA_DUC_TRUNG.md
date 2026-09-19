@@ -7,8 +7,8 @@
 | Technical block | Backend, persistence, ingestion and artifact provenance |
 | Use cases | UC-13 review prediction · UC-14 correct mask · UC-15 create finding |
 | Screens | SCR-06 Review / Correction · SCR-08 Findings |
-| Prepared | 2026-09-18 (Day 9) |
-| Package status | **IN PROGRESS — design and contract evidence; no V1 implementation yet** |
+| Prepared | 2026-09-18; updated 2026-09-19 (Day 10) |
+| Package status | **IN PROGRESS — contract-derived fixture and framework-neutral SCR-06 model exist; no mobile/backend production implementation** |
 
 This package records the boundary between the mobile brush UI and the backend
 that persists review state, immutable mask versions and findings. It does not
@@ -103,8 +103,10 @@ The accepted API Contract 11 endpoints used by V4 are:
 | Update finding | `PATCH /api/v1/findings/{finding_id}` | note/status plus `expected_revision`; evidence immutable |
 
 The exact endpoint definitions are in `contracts/api/contract.json`; the
-generated catalog used by V1 and V4 is
-`contracts/api/fixtures/contract11_draft_v0.json`. Contract 1 validates the
+generated bundle used by V1-V4 is produced by
+`contracts/api/generate_fixture.py` at
+`app/core/fixtures/.generated/api_bundle.json` and is intentionally not
+committed. Contract 1 validates the
 raw dataset package and Contract 2 validates precomputed experiment artifacts;
 neither contract permits the review layer to rewrite its source artifact.
 
@@ -115,9 +117,9 @@ neither contract permits the review layer to rewrite its source artifact.
 | Contract 1 raw ingestion | PR #32, merge `c44ee31` | merged; geometry status consistency regression covered |
 | Contract 2 experiment ingestion | PR #39, merge `7363a6a` | merged; gates, 54-case holdout, checksum/provenance rules |
 | API Contract 11 | PR #45, merge `dd5a569` | merged; 28 endpoints, 15 errors, revision and immutability rules |
-| Schema-generated API fixture | `contracts/api/fixtures/contract11_draft_v0.json` | generated in the Day 9 CI PR; test compares it with a fresh generation |
-| E9 reconnect procedure | PR #33, commit `4b4ac1c` | documentation updated; reviewer/merge still pending |
-| V4 production implementation | — | **not started; M5 design/contract stage** |
+| Schema-generated API fixture | `feat/day10-api-fixtures-trung`, commit `c731ab4` | all 28 endpoint scenario groups, endpoint-bound error cases, and V4 stale-revision cases; generated output remains ignored |
+| E9 reconnect procedure | PR #33, commit `bf86a74` | physical-device base now uses the verified reachable stub address; reviewer/merge still pending |
+| V4 Review / Correction model | `feat/day10-v4-review-trung`, commit `aa121c9` | fixture-only SCR-06 model; opens by case/run, exposes revision, requires `expected_revision`, and locks stale writes to Refresh |
 
 ## 5. Test and evidence record
 
@@ -128,13 +130,15 @@ The following checks are reproducible without clinical data:
 | Contract 1 synthetic validator | PASS — all regression cases |
 | Contract 2 synthetic validator | PASS — 9 cases |
 | API Contract 11 validator/schema/fixture | PASS — 12 cases, 28 endpoints, 15 errors |
-| CI job | Added in the Day 9 branch; runs all three checks with `jsonschema` |
+| App/core fixture handshake | PASS — fresh Python generation loads 28 scenario groups and all three V4 stale-revision scenarios |
+| V4 Review / Correction model | PASS — open by case/run, show revision, revision-carrying working-mask write, stale write locks and offers Refresh only |
+| CI job | Day 9 contract job and Day 10 app-core job run the contract and fixture checks with `jsonschema` |
 
 The following remain unmeasured and must not be claimed as passing:
 
 - brush latency/zero lost samples (`TC-PERF-003`);
 - exact undo/redo/reset behavior and source checksum preservation;
-- integrated SCR-06/SCR-08 state transitions;
+- a rendered/mobile SCR-06 or SCR-08 screen and an end-to-end correction flow;
 - production API authorization and persistence integration;
 - `TC-FIND-001/002` on a real V4 implementation.
 
@@ -150,7 +154,7 @@ For SCR-08, opening a finding must return to the exact case/run/slice and
 region reference. If ground truth is unavailable, the UI says so and does not
 invent Dice, error classes or a zero mask.
 
-**Current conclusion:** the V4 contract, provenance rules, generated fixture
-and synthetic checks are ready for implementation. The evidence package is not
-an acceptance claim until the V1 backend/mobile implementation and the listed
-tests exist.
+**Current conclusion:** the V4 contract, provenance rules, generated fixture,
+and the first framework-neutral SCR-06 state model are ready for a mobile
+renderer. This package is not an acceptance claim until the V1 backend/mobile
+implementation and the listed tests exist.
