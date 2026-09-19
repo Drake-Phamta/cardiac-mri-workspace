@@ -249,7 +249,9 @@ jobs:
           PY
 
       - name: run every app/core test script
-        run: node app/core/tests/run_all.mjs
+        run: |
+          node app/core/tests/run_all.mjs
+          node app/verticals/v4_review_and_findings/test_review_correction.mjs
 
   # --------------------------------------------------------------------------
   app-framework-neutral:
