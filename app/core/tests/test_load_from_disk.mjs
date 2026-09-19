@@ -52,8 +52,11 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
       (problems.length ? ` — ${problems.slice(0, 3).join('; ')}` : ''));
 
     const bundle = createBundle(contract, generated);
-    check('D2', bundle.hasScenarios === false,
-      'and has no scenarios yet, which is the state FORMAT.md describes');
+    check('D2', bundle.hasScenarios && Object.keys(bundle.scenarios).length === 28,
+      'and has one generated scenario group for every endpoint');
+    check('D2', ['review_patch', 'working_mask_put', 'review_commit'].every(
+      (id) => bundle.scenarios[id]?.stale_revision,
+    ), 'and includes the three V4 stale-revision scenarios');
   }
 }
 
