@@ -47,6 +47,9 @@ def main() -> None:
     assert {item["id"] for item in fixture["endpoints"]} == {item["id"] for item in contract["endpoints"]}
     assert {item["code"] for item in fixture["errors"]} == {item["code"] for item in contract["errors"]}
     assert fixture["geometry"]["geometry_contract_version"] == "dr008a-dr012/v1.0.0"
+    assert set(fixture["scenarios"]) == {item["id"] for item in contract["endpoints"]}
+    for endpoint_id in ("review_patch", "working_mask_put", "review_commit"):
+        assert "stale_revision" in fixture["scenarios"][endpoint_id]
     print("PASS valid contract and schema-derived fixture")
 
     broken = copy.deepcopy(contract)
