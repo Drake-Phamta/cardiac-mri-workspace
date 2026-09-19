@@ -342,9 +342,17 @@ kẽ, bắt đầu bằng 1, một pixel ở mỗi đầu, rỗng), tài liệu 
 | A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
 | A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
 | A3 A4 A5 A6 A7 | brush thêm/xoá · ánh xạ sau zoom/pan · undo/redo | **đã đo 15/09, `OBSERVED`** — A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15 · bản release · `EVIDENCE_RAW/a3_a7_brush_*` |
-| A8 | save/reload | **chưa đo** — dụng cụ đã dựng 19/09 (chặng `S8`), chờ phiên đo trên máy · xem [`SESSION_S8.md`](SESSION_S8.md) |
-| A10 A11 | brush latency · tách gesture | **chưa** — có dữ liệu thô từ 25 nét tô thật (15/09), chưa kết luận; đo lại trong phiên `S8` |
+| A8 | save/reload | **đã đo 19/09, `OBSERVED`** — **2 vòng NGUỘI** sau `am force-stop`, 16/16 checksum slice + hash khối trùng bản đã lưu, trên **hai tệp khác nhau**; thêm 5 vòng nóng 5/5 · `EVIDENCE_RAW/a8_save_reload_20260919T121906+0700.json` |
+| A10 | brush feedback ≤ 100 ms, 0 mẫu commit mất | **đã đo 19/09, `OBSERVED`** — worst **30,48 ms**, 123 nét có commit, 0 mẫu mất · `EVIDENCE_RAW/a10_a11_brush_feedback_20260919T121906+0700.json` |
+| A11 | tách cử chỉ, 0 sửa nhầm | **đã đo 19/09, `OBSERVED`** — 12 lần ngón thứ hai đều cuộn lại, 0 nét commit trong cử chỉ nhiều ngón · cùng tệp |
 | A12 | chi phí phát triển | **chưa** — là số giờ, lấy từ nhật ký công việc, không phải từ một phiên đo |
+
+**Phiên `S8`, 19/09 11:50–12:19** — bản ghi đầy đủ kèm điều kiện, giới hạn và **hai sai sót của Project
+Control** trong phiên: [`EVIDENCE_RAW/SESSION_S8_RECORD.md`](EVIDENCE_RAW/SESSION_S8_RECORD.md).
+
+> ⚠ **Fixture của mọi số trên là 64×64×16, không phải 576×576×88.** Tính *đúng từng byte* của `A8` không phụ
+> thuộc kích thước; **dung lượng tệp và thời gian thì có**. Mọi phát biểu về hai thứ đó ở độ sâu thật là
+> `NOT MEASURED`.
 | **S6** | Cache có giới hạn — `A9` ở **độ sâu thật** với hai chính sách | **dụng cụ đã dựng 17/09** — xem §Chặng S6 |
 
 `F2` tồn tại vì `generate.py` và `check_conformance.py` **không dùng chung code**: generator ghi pixel kỳ
