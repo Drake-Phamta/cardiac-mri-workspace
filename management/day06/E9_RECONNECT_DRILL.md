@@ -103,7 +103,7 @@ if both profiles are required. Keep the operator/owner fields unchanged.
 ~~~powershell
 $args = @(
   '-H', '10.134.129.145', '-P', '5037', 'shell', 'sh', '-s', '--',
-  '--base', 'http://10.134.129.115:8787',
+  '--base', 'http://10.64.193.115:8787',
   '--path', 'wifi-overlay', '--connection', 'direct',
   '--profile', '576x576x88',
   "--operator 'Pham Tuan Anh'", "--owner 'Nguyen Gia Duc Trung'",
