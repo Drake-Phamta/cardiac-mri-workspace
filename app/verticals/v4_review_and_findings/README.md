@@ -70,3 +70,21 @@ node app/core/tests/run_all.mjs
 
 Test `D2` runs your generator in-process and loads its output, so a change that breaks the handshake fails in
 your own CI run rather than in three other people's screens.
+
+## Day-10 implementation surface
+
+`index.mjs` is the framework-neutral Review/Correction model. It opens a
+review from `caseId` + `runId`, exposes its current `revision`, lists immutable
+reviewed-mask versions, and sends all writes through `app/core` with
+`expected_revision`. Its renderable snapshot always exposes the core screen
+state, so a UI can render loading, a retryable transport failure, or invalid
+fixture data without a traceback.
+
+After `STALE_REVISION`, `canWrite` becomes false and the only recovery action
+is `REFRESH`; the model refuses to resend a stale commit. Run its fixture-only
+check after generating the ignored bundle:
+
+```powershell
+python contracts/api/generate_fixture.py --contract contracts/api/contract.json --output app/core/fixtures/.generated/api_bundle.json
+node app/verticals/v4_review_and_findings/test_review_correction.mjs
+```
