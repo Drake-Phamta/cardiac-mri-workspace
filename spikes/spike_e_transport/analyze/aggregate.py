@@ -32,8 +32,6 @@ import json
 import os
 from collections import defaultdict
 
-NFR_PERF_001_MS = 200      # p95 target for slice navigation
-
 # Above this share of failed requests a distribution stops describing the link
 # and starts describing the subset that happened to survive. Not a spec number;
 # a harness guard, stated so it can be argued with.
@@ -106,6 +104,18 @@ def main() -> int:
         if not h.get("operator") or not h.get("owner"):
             print(f"  {path}: run header must name both operator and owner (DR-006a).")
             return 2
+        # Runs captured before A6 profile selection was added have no profile
+        # field. Keep them auditable without pretending that payload size
+        # identifies one of the new profiles.
+        header_profile = h.get("payload_profile") or "legacy-unlabelled"
+        h["payload_profile"] = header_profile
+        for rec in s:
+            sample_profile = rec.get("payload_profile") or header_profile
+            if sample_profile != header_profile:
+                print(f"  {path}: sample profile {sample_profile!r} does not match "
+                      f"run header profile {header_profile!r}. Refusing to aggregate.")
+                return 2
+            rec["payload_profile"] = sample_profile
         headers.append((path, h))
         samples.extend(s)
 
@@ -130,19 +140,21 @@ def main() -> int:
     connection = conns.pop()
     acceptance = path_kind in ("wifi-overlay", "cellular-overlay")   # DR-003b
 
-    groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    profiles = {h["payload_profile"] for _, h in headers}
+    groups: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
     for s in samples:
-        groups[(s["criterion"], s["scenario"])].append(s)
+        groups[(s["payload_profile"], s["criterion"], s["scenario"])].append(s)
 
     print()
     print(f"  path        {path_kind}" + ("" if acceptance else "   <-- DIAGNOSTIC ONLY"))
     print(f"  connection  {connection}")
+    print(f"  profiles    {', '.join(sorted(profiles))}")
     print(f"  operators   {', '.join(sorted({h['operator'] for _, h in headers}))}")
     print(f"  owners      {', '.join(sorted({h['owner'] for _, h in headers}))}")
     print(f"  runs        {len(headers)}   samples {len(samples)}")
     print()
 
-    head = (f"  {'crit':<5} {'scenario':<20} {'n':>4} {'fail':>4} {'KB':>8} "
+    head = (f"  {'profile':<18} {'crit':<5} {'scenario':<20} {'n':>4} {'fail':>4} {'KB':>8} "
             f"{'p50':>8} {'p95':>8} {'max':>8}  {'srv p50':>8}")
     print(head)
     print("  " + "-" * (len(head) - 2))
@@ -150,6 +162,7 @@ def main() -> int:
     report: dict = {
         "measurement_path": path_kind,
         "overlay_connection": connection,
+        "payload_profiles": sorted(profiles),
         "is_acceptance_evidence": acceptance,
         "percentile_definition": "nearest-rank, no interpolation, no outlier removal",
         "source_files": [os.path.basename(p) for p, _ in headers],
@@ -158,14 +171,15 @@ def main() -> int:
         "scenarios": {},
     }
 
-    for (criterion, scenario) in sorted(groups):
-        rows = groups[(criterion, scenario)]
+    for (profile, criterion, scenario) in sorted(groups):
+        rows = groups[(profile, criterion, scenario)]
         ok = [r for r in rows if r.get("ok")]
         fails = len(rows) - len(ok)
         if not ok:
-            print(f"  {criterion:<5} {scenario:<20} {len(rows):>4} {fails:>4} "
+            print(f"  {profile:<18} {criterion:<5} {scenario:<20} {len(rows):>4} {fails:>4} "
                   f"{'—':>8} {'—':>8} {'—':>8} {'—':>8}  {'—':>8}   all requests failed")
-            report["scenarios"][f"{criterion}:{scenario}"] = {
+            report["scenarios"][f"{profile}:{criterion}:{scenario}"] = {
+                "payload_profile": profile,
                 "criterion": criterion, "scenario": scenario,
                 "requests": len(rows), "failed": fails,
                 "total_ms": None,
@@ -193,11 +207,12 @@ def main() -> int:
 
         flag = "" if total["distribution_is_representative"] else \
             f"   <-- {fail_rate * 100:.0f}% FAILED, distribution not representative"
-        print(f"  {criterion:<5} {scenario:<20} {total['n']:>4} {fails:>4} {kb:>8.1f} "
+        print(f"  {profile:<18} {criterion:<5} {scenario:<20} {total['n']:>4} {fails:>4} {kb:>8.1f} "
               f"{total['p50']:>8.1f} {total['p95']:>8.1f} {total['max']:>8.1f}  "
               f"{(srv_s['p50'] if srv_s else float('nan')):>8.2f}{flag}")
 
-        report["scenarios"][f"{criterion}:{scenario}"] = {
+        report["scenarios"][f"{profile}:{criterion}:{scenario}"] = {
+            "payload_profile": profile,
             "criterion": criterion,
             "scenario": scenario,
             "requests": len(rows),
@@ -211,14 +226,14 @@ def main() -> int:
                 "ms_network_and_transfer" in r for r in ok) else None,
         }
 
-    # E4 / NFR-PERF-001 - the one threshold this spike can check directly.
+    # E4's transport comparison. This harness records uncached workstation
+    # HTTP requests, not the target-device cached slice switching governed by
+    # NFR-PERF-001. It can compare E4 strategies, but cannot label a result as
+    # an NFR pass or miss.
     print()
-    # #26: this section used to vanish silently when every E4 request failed -
-    # precisely when the target is most violated. An E4 scenario that produced
-    # no successful request is now REPORTED as unanswerable rather than omitted.
     all_e4 = {k: v for k, v in report["scenarios"].items() if v["criterion"] == "E4"}
     if all_e4:
-        print(f"  NFR-PERF-001 — p95 <= {NFR_PERF_001_MS} ms for slice navigation (E4):")
+        print("  E4 navigation transport observations — not an NFR-PERF-001 verdict:")
         by_scenario = {}
         for name, v in sorted(all_e4.items()):
             t = v.get("total_ms")
@@ -227,16 +242,18 @@ def main() -> int:
                 by_scenario[name] = None
                 continue
             p95 = t["p95"]
-            verdict = "within target" if p95 <= NFR_PERF_001_MS else "EXCEEDS TARGET"
+            verdict = "observed"
             if not t["distribution_is_representative"]:
                 verdict += (f"  (but {t['failure_rate'] * 100:.0f}% of requests failed - "
                             f"this p95 describes the survivors, not the link)")
             print(f"    {name:<20} p95 {p95:>8.1f} ms   {verdict}")
             by_scenario[name] = p95
-        report["nfr_perf_001"] = {"target_ms": NFR_PERF_001_MS, "by_scenario": by_scenario}
+        report["e4_transport_observation"] = {
+            "scope": "uncached transport; not NFR-PERF-001 cached target-device navigation",
+            "by_scenario": by_scenario,
+        }
     else:
-        print("  NFR-PERF-001 — no E4 navigation scenario in this run, so the 200 ms target")
-        print("  was not exercised at all.")
+        print("  E4 navigation transport observation — no E4 scenario in this run.")
 
     print()
     if not acceptance:
@@ -252,12 +269,6 @@ def main() -> int:
     print("  E10 (a proposed first-load budget) and E13 (the strategy recommendation) are")
     print("  the owner's written conclusions. This script supplies their inputs; it does")
     print("  not draw them.")
-
-    if args.out:
-        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(report, f, indent=1, ensure_ascii=False)
-            f.write("\n")
-        print(f"\n  wrote  {args.out}")
 
     # #27: the first version returned 0 for a run that lost 46 of 57 requests.
     # A summary of a catastrophically incomplete run must not look like success
@@ -275,6 +286,14 @@ def main() -> int:
         "scenarios_above_max_fail_rate": unrepresentative,
         "max_fail_rate_used": MAX_FAIL_RATE,
     }
+
+    # Serialize only after run_quality is complete. A report without this
+    # field cannot distinguish a clean distribution from a partial run.
+    if args.out:
+        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(report, f, indent=1, ensure_ascii=False)
+            f.write("\n")
+        print(f"\n  wrote  {args.out}")
     if dead or unrepresentative:
         print()
         print(f"  RUN QUALITY: {overall_fail} of {overall_n} requests failed "
