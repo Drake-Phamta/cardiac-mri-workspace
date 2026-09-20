@@ -251,6 +251,13 @@ jobs:
       - name: run every app/core test script
         run: node app/core/tests/run_all.mjs
 
+      # run_all.mjs globs app/core/tests/ only, so a vertical's test is never
+      # picked up automatically. Each vertical adds ONE line here, in its own
+      # step, so two verticals landing on the same day cannot conflict on the
+      # same line - #51 adds V4's next to this one.
+      - name: V1 case explorer
+        run: node app/verticals/v1_case_explorer/test_case_explorer.mjs
+
   # --------------------------------------------------------------------------
   app-framework-neutral:
     name: "app/core stays framework-neutral (GATE-MOB-01)"
