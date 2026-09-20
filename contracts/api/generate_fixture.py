@@ -107,6 +107,9 @@ def generate_fixture(contract: dict) -> dict:
         endpoint_id = endpoint["id"]
         request = request_for(endpoint, contract)
         default_data = success_data(endpoint, contract)
+        if endpoint_id == "analysis_run_get":
+            # A successful read of an existing run is not a review in progress.
+            default_data["status"] = "SUCCEEDED"
         endpoint_scenarios = {
             "default": {"request": request, "response": {"status": 200, "data": default_data}},
             "error_case": {
@@ -118,6 +121,11 @@ def generate_fixture(contract: dict) -> dict:
             endpoint_scenarios["ground_truth_unavailable"] = {
                 "request": request,
                 "response": error_response("GROUND_TRUTH_UNAVAILABLE", errors_by_code),
+            }
+        if endpoint_id in {"prediction_slice_get", "analysis_slice_metrics"}:
+            endpoint_scenarios["run_not_succeeded"] = {
+                "request": request,
+                "response": error_response("RUN_NOT_SUCCEEDED", errors_by_code),
             }
         if endpoint_id in {"review_patch", "working_mask_put", "review_commit"}:
             endpoint_scenarios["stale_revision"] = {

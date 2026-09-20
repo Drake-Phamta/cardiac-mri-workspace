@@ -57,6 +57,11 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
     check('D2', ['review_patch', 'working_mask_put', 'review_commit'].every(
       (id) => bundle.scenarios[id]?.stale_revision,
     ), 'and includes the three V4 stale-revision scenarios');
+    check('D2', bundle.scenarios.analysis_run_get?.default?.response?.data?.status === 'SUCCEEDED',
+      'and supplies a successful analysis-run state for result screens');
+    check('D2', ['prediction_slice_get', 'analysis_slice_metrics'].every(
+      (id) => bundle.scenarios[id]?.run_not_succeeded?.response?.error?.code === 'RUN_NOT_SUCCEEDED',
+    ), 'and supplies the V1 processing-state scenarios');
   }
 }
 

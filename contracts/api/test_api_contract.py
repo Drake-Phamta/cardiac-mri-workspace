@@ -50,6 +50,11 @@ def main() -> None:
     assert set(fixture["scenarios"]) == {item["id"] for item in contract["endpoints"]}
     for endpoint_id in ("review_patch", "working_mask_put", "review_commit"):
         assert "stale_revision" in fixture["scenarios"][endpoint_id]
+    assert fixture["scenarios"]["analysis_run_get"]["default"]["response"]["data"]["status"] == "SUCCEEDED"
+    for endpoint_id in ("prediction_slice_get", "analysis_slice_metrics"):
+        response = fixture["scenarios"][endpoint_id]["run_not_succeeded"]["response"]
+        assert response["status"] == 409
+        assert response["error"]["code"] == "RUN_NOT_SUCCEEDED"
     print("PASS valid contract and schema-derived fixture")
 
     broken = copy.deepcopy(contract)
