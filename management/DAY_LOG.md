@@ -13,21 +13,59 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 9 — 2026-09-18** |
-| Ngày còn lại tới Day 30 | **22** |
-| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì Day 6 trượt; **Day 7 và Day 8 đạt nên không tiêu thêm**)* |
+| Ngày hôm nay | **Day 11 — 2026-09-20** |
+| Ngày còn lại tới Day 30 | **20** |
+| **Buffer còn** | 🔴 **−3 ngày** *(dự trù 2 — tiêu 1 vì Day 1, 1 vì Day 3, 1 vì Day 6, 1 vì Day 9, 1 vì Day 10)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
 | Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
 | Ngưỡng leo thang | **đã vượt — buffer âm từ 16/09.** Hạn Day 30 không lùi: ngày mất thêm phải bù bằng thực thi |
-| `15` §18 | ⚠ **trigger 2 vẫn nổ** (buffer −1, không đổi) · trigger 3: **không nổ theo chữ** — #34 **đã được duyệt** lúc 11:07 — nhưng **chưa được duyệt lại** sau khi Khánh sửa lúc 11:40, nên `GATE-DATA-01` mở sang **ngày thứ chín** — [`day08/DAY08_EOD_REVIEW.md`](day08/DAY08_EOD_REVIEW.md) §1, §11 |
+| `15` §18 | 🔴 **ĐÃ NỔ, 3/5 điều kiện** — buffer −3 · `GATE-SPLIT-01` sống qua **hai** chu kỳ EOD với chủ sở hữu **không hoạt động** · 10/30 ngày hết mà `MUST` **0/33**. Mức áp dụng là **quyết định của leader**, đang `PENDING` — [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) §11 |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
-| Mốc đang chạy | **M3** (Day 6–9) — **HẾT HẠN HÔM NAY**: hợp đồng ingestion 1 **đã lên `main`** (#32); ingestion 2 (#39), API (#45), geometry (#43) **có PR nhưng chưa merge**, và #43/#45 **mâu thuẫn chuỗi phiên bản geometry** · **M4** (Day 8–12) — ngày đầu trôi qua với `SPIKE_C1` còn `BLOCKED` · **M5** (Day 9–20) — **bắt đầu hôm nay**, `GATE-MOB-01` còn mở nên chỉ thiết kế, fixture, gói `TC-TEAM-001` |
+| Mốc đang chạy | ✅ **M3 (Day 6–9) ĐÓNG** 20/09 17:18 (`40498e5`), muộn 1 ngày · **M2 (Day 4–6) quá hạn 5 ngày** — `GATE-MOB-01` còn mở · **M4** (Day 8–12) — `GATE-SPLIT-01` chưa động, sang ngày thứ 4 · **M5** (Day 9–20) — có `app/` nhưng **chưa lên `main`** |
 
 ---
 
-## DAY 10 — 2026-09-19 · `ĐANG MỞ` — ngày `app/` ra đời
+## DAY 10 — 2026-09-19 · ❌ **`TRƯỢT` 1,25/4** — `app/` ra đời nhưng **không lên được `main`**
+
+**Bản chốt:** [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) *(chốt muộn 17 h 20 ph, 20/09 ~17:20)*
+
+### Đã xong — có bằng chứng truy được
+
+| Việc | Ai | Bằng chứng |
+|---|---|---|
+| Merge #31 — ba xung đột thật trong `App.js` giải bằng tay | leader | `11000f1` |
+| **`app/core`** — tầng trung lập nền tảng, 10 script test, **137 kiểm**, 2 job CI mới | leader | **#48**, CI 7/7 · *chưa merge* |
+| **Chặng `S8`** — lưu/nạp lại (`A8`) + 2 script kết luận `A10`/`A11` | leader | **#49** · *chưa merge* |
+| **Phiên đo `S8` trên A17** — `A8`, `A10`, `A11` đều `OBSERVED` | leader (bấm máy) | `EVIDENCE_RAW/SESSION_S8_RECORD.md` · `a8_save_reload_*.json` · `a10_a11_brush_feedback_*.json` |
+| Bộ **QA-004** cho Spike A | leader | `2da85b5` |
+| **`DR-010a`** mở — không endpoint nào trả "lát cắt tệ nhất" | leader | `b7a3e1d` |
+| **Duyệt #47** → mở khoá M3 | **Trung** | `APPROVED` 21:40 |
+| **Fixture sinh từ hợp đồng** — scenario cho **28/28** endpoint + 3 `stale_revision` | **Trung** | **#50**, CI 7/7 · *chưa merge* |
+| **Mô hình V4** review/correction, test 4/4 | **Trung** | **#51**, CI 7/7 · *chưa merge* |
+| Gói bằng chứng `TC-TEAM-001` | **Trung** | **#52**, CI 7/7 · *chưa merge* |
+| `CHANGES_REQUESTED` trên #44 | **Trung** | review 21:40 |
+
+### Còn tồn
+
+| Việc | Ai | Vì sao |
+|---|---|---|
+| `GATE-SPLIT-01` — #35 vẫn DRAFT từ 15/09 | **Khánh** | **0 commit, 0 review, 0 comment cả ngày** |
+| Duyệt #48 → mở khoá cả chồng #50/#51/#52 | **Khánh** | như trên |
+| Diễn giải `B10`/`B11` → `GATE-MOB-01` | **Hùng Anh** | **0 commit, 0 review, 0 comment cả ngày** |
+| Duyệt lại #41 · duyệt #49 · sửa #44 | **Hùng Anh** | như trên |
+| Merge #47 | leader | làm muộn, **20/09 17:18** |
+| Quyết `DR-010a` | leader | chưa |
+
+> **Sự thật quyết định ngày này: hai trên bốn thành viên không chạm vào repo.** Commit cuối của Hùng Anh
+> 18/09 15:12, của Khánh 18/09 11:44 — tới lúc chốt bản này là **gần hai ngày**. **Năm trên bảy blocker**
+> nằm ở hai người đó. Ngày có tiến bộ kỹ thuật thật, nhưng **mọi đường lên `main` đều đi qua một lượt duyệt
+> không xảy ra**. `15` §18 đã nổ; xem [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) §11.
+
+---
+
+## DAY 10 — kế hoạch đã đặt ra lúc đầu ngày
 
 **Gói nhiệm vụ từng người:** [`day10/tasks/`](day10/tasks/)
 

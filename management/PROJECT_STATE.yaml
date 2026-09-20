@@ -21,8 +21,8 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 10                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-09-19"              # Day 8 closed MET 4/4 inside every deadline; see day08/DAY08_EOD_REVIEW.md
+day: 11                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
+day_date: "2026-09-20"              # Day 10 closed MISSED 1.25/4, very late; see day10/DAY10_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
 day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
@@ -30,6 +30,16 @@ day_6_verdict: MISSED               # 3 of 4 conditions; closed 2026-09-16 about
 day_7_verdict: MET                  # 4/4 ON SUBSTANCE, 2/4 on the letter of the deadlines; leader decision 2026-09-17; see day_7_verdict_basis
 day_8_verdict: MET                  # 4/4 on the letter AND inside every deadline; closed 2026-09-17 ~23:55; critical path still not through - see day_8_verdict_basis
 day_9_verdict: MISSED               # 1.5 of 4: GATE-DATA-01 closed (condition 1), B10/B11 measured but not yet interpreted by the Spike B owner (condition 4, half). M3 and GATE-SPLIT-01 unmet. Closed late, 2026-09-19 ~02:30; see day09/DAY09_EOD_REVIEW.md
+day_10_verdict: MISSED              # 1.25 of 4. Condition 1 half: Trung approved #47 at 21:40 inside the day, CI green and MERGEABLE, but the leader's own merge did not happen until 2026-09-20 17:18. Condition 4 quarter: of four verticals only V4 has running code, and it is stacked behind #48 which nobody reviewed. Conditions 2 and 3 unmet. Closed very late, 2026-09-20 ~17:20; see day10/DAY10_EOD_REVIEW.md
+day_10_closed: true                 # Day 11 NOT planned at close
+day_10_verdict_basis: >             # the fact that decides this day, recorded so a later reader does not look for a technical cause
+  Two of four members had NO activity for the whole of Day 10 - no commit, no review, no comment.
+  Vu Hung Anh's last commit was 2026-09-18 15:12 and Be Quoc Khanh's 2026-09-18 11:44; by the time
+  this review was written (2026-09-20 17:20) that is close to two days. Five of the seven blockers
+  in day10/DAY10_EOD_REVIEW.md section 6 sit with those two people. The day produced real technical
+  progress - app/ exists for the first time, Spike A reached 11 of 12 criteria OBSERVED with A8, A10
+  and A11 measured on the A17 - but almost none of it reached main, because every path to main ran
+  through a review that did not happen. This triggers 15 section 18; see section 11 of the review.
 day_9_closed: true                  # Day 10 not planned yet at close; carry-overs in day09/DAY09_EOD_REVIEW.md section 13
 day_8_closed: true                  # Day 9 planned 2026-09-18 after the close, carry-overs first; see day09/tasks/
 capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
@@ -105,6 +115,24 @@ dr_001_trigger:
   audit_still_owned_by: "Be Quoc Khanh - criteria A2-A20 are unchanged and unstarted"
 recovery:
   active: false                     # EXPIRED at the start of Day 3, as written
+  # A trigger being met is a FACT; applying a level is a LEADER DECISION (15 section 18).
+  # Those are kept apart here so the record cannot later be read as Project Control
+  # having reassigned anyone's work on its own.
+  triggered_2026_09_20:
+    triggered: true
+    conditions_met:                 # 3 of the 5 in 15 section 18
+      - "remaining buffer below the safety threshold: buffer is -3 after Day 10"
+      - "a critical-path blocker survived two EOD cycles without credible resolution:
+         GATE-SPLIT-01 was unmet at the Day-9 close and again at the Day-10 close, and its
+         owner had no repository activity on either day"
+      - "forecast exceeds Day 30: 10 of 30 days are gone with MUST accepted at 0 of 33"
+    proposed_levels: "Level 1 (reallocate) twice - the #35 split regeneration, and the #48
+      review that is blocking three of Trung's PRs. Both are proposals in
+      day10/DAY10_EOD_REVIEW.md section 11, NOT applied."
+    decision: PENDING_LEADER
+    precondition_before_any_reallocation: "ask the two members first. They have had no
+      activity for close to two days and have not said why. INC-001's first lesson is to ask
+      before inferring; reallocating without asking pushes someone out of their own work."
   previous_invocation:
     active_on: "2026-09-11"
     record: management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md
@@ -432,7 +460,9 @@ milestones:
   M0: {days: "Day 0",  status: IN_PROGRESS, exit: "DAY0_SIGNOFF 4/4 signed + readiness gate passed + cutover recorded"}
   M1: {days: "1-4",    status: NOT_STARTED, exit: "four spikes EVIDENCE_READY; DR-001 trigger evaluated on Day 1"}
   M2: {days: "4-6",    status: NOT_STARTED, exit: "GATE-MOB-01 closed on A+B; DR-002/005/008c decided or deferred with reason"}
-  M3: {days: "6-9",    status: IN_PROGRESS, exit: "API + both ingestion contracts + geometry contract versioned, contract tests run",
+  M3: {days: "6-9",    status: DONE, closed_at: "2026-09-20T17:18+07:00",
+       exit: "API + both ingestion contracts + geometry contract versioned, contract tests run",
+       state_2026_09_20: "CLOSED, one day past its window. The fourth and last exit landed with PR #47 (40498e5): guardrails now runs the ingestion 1/2 and API 11 contract test suites, and the rebase kept the geometry-contract job that the original branch - cut before #43 merged - would have deleted. Trung approved at 21:40 on 2026-09-19, INSIDE Day 10; the merge happened 2026-09-20 17:18, outside it. Day 10 condition 1 is recorded as half for that reason: every part belonging to someone else was finished on time and the missing act was the leader's own merge",
        state_2026_09_17: "2 of 4 exits have a draft and NEITHER is on main: Contract 1 in PR #32 (changes requested) and Contract 2 in PR #39 (no reviewer). The API contract of spec 11 has NOT been started by anyone, and geometry_contract_version - referenced by 11 sections 2 and 4, by 05 and by TC-REL-003 - has no value defined anywhere in the repository. Two days of the window remain",
        state_2026_09_18: "LAST DAY OF THE WINDOW. All four contracts are on main: Contract 1 (#32, c44ee31), Contract 2 (#39, 7363a6a), API Contract 11 (#45, dd5a569) and the geometry contract dr008a-dr012/v1.0.0 with its checker in CI (#43, f2e78bb, merged 21:34 after 0 of 14 adversarial attacks landed). The only exit still missing is contract tests running in CI for the other three: Trung pushed branch ci/day9-contract-tests-trung (d7db4fe, 14:02) but had opened no PR by 21:40"}
   M4: {days: "8-12",   status: IN_PROGRESS, exit: "SPIKE_C1 accepted; GATE-ML-01 and GATE-SPLIT-01 closed",
