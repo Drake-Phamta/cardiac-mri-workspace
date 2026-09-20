@@ -27,9 +27,36 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
+## DAY 11 — 2026-09-20 · `ĐANG MỞ` — ngày mở van
+
+**Kế hoạch:** [`day11/DAY11_PLAN.md`](day11/DAY11_PLAN.md) · **Gói từng người:** [`day11/tasks/`](day11/tasks/)
+
+> **Lập lúc 17:50, và bản kế hoạch nói thẳng điều đó** — còn ~6 giờ, nên nó không giả vờ là kế hoạch một
+> ngày đầy đủ. Hôm nay **không thêm việc mới**: mục tiêu duy nhất là đưa thứ **đã làm xong từ hôm qua** lên
+> `main`. Năm PR CI xanh đang chờ **đúng hai lượt duyệt**; chồng `#48 → #50 → #51 → #52` tuyến tính và
+> `merge-tree` báo gộp sạch, nên **một lượt duyệt của Khánh mở khoá bốn PR**.
+
+| # | Điều kiện | Loại |
+|---|---|---|
+| 1 | **M5 có mã thật trên `main`** — #48 + #50 + #51 + #52 merged | 🔒 cam kết |
+| 2 | **Spike A `EVIDENCE_READY`** — #41 và #49 merged | 🔒 cam kết |
+| 3 | **Spike A `ACCEPTED`** đủ 4 bước, **bước 3 do Trung chạy** | 🎯 cố gắng |
+| 4 | **`GATE-SPLIT-01` `CLOSED`** | 🎯 cố gắng |
+| 5 | `GATE-MOB-01` `CLOSED` | ⏭ chuyển Day 12 |
+
+**Đã làm trước khi kế hoạch viết xong** *(17:44 → 17:55)*: gắn reviewer cho **#41, #50, #51, #52** — bốn PR
+này **không có người duyệt nào**, tức vô hình trong hàng đợi của mọi người · cập nhật **`RESULT.md` Spike A**
+(`a970167`) với kết quả `S8`, vì nó còn ghi `A8`/`A10`/`A11` là `NOT MEASURED` và Hùng Anh sẽ **không có gì
+để duyệt**.
+
+---
+
 ## DAY 10 — 2026-09-19 · ❌ **`TRƯỢT` 1,25/4** — `app/` ra đời nhưng **không lên được `main`**
 
-**Bản chốt:** [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) *(chốt muộn 17 h 20 ph, 20/09 ~17:20)*
+**Bản chốt:** [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) *(chốt muộn 17 h 20 ph, 20/09 ~17:20)* ·
+**Nguyên nhân:** [`incidents/INC-002_DAY10_TEAM_INCIDENT.md`](incidents/INC-002_DAY10_TEAM_INCIDENT.md) —
+cả nhóm gặp sự cố. **Verdict `TRƯỢT` giữ nguyên** (verdict đo kết quả, không đo nỗ lực; ngày mất vẫn ăn
+buffer), nhưng nguyên nhân được ghi để không ai đọc thành hai người bỏ việc.
 
 ### Đã xong — có bằng chứng truy được
 

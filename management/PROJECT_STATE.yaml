@@ -40,6 +40,11 @@ day_10_verdict_basis: >             # the fact that decides this day, recorded s
   progress - app/ exists for the first time, Spike A reached 11 of 12 criteria OBSERVED with A8, A10
   and A11 measured on the A17 - but almost none of it reached main, because every path to main ran
   through a review that did not happen. This triggers 15 section 18; see section 11 of the review.
+  CAUSE ADDED 2026-09-20, see management/incidents/INC-002_DAY10_TEAM_INCIDENT.md: the leader
+  reported that the team hit an incident that day. The MISSED verdict is NOT revised - a verdict
+  measures outcome, not effort, and a lost day still costs buffer whatever its cause - but the cause
+  is recorded so a later reader sees "missed because of a team-wide incident" rather than "two people
+  stopped working", which is a very different story about the same data.
 day_9_closed: true                  # Day 10 not planned yet at close; carry-overs in day09/DAY09_EOD_REVIEW.md section 13
 day_8_closed: true                  # Day 9 planned 2026-09-18 after the close, carry-overs first; see day09/tasks/
 capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
@@ -129,10 +134,16 @@ recovery:
     proposed_levels: "Level 1 (reallocate) twice - the #35 split regeneration, and the #48
       review that is blocking three of Trung's PRs. Both are proposals in
       day10/DAY10_EOD_REVIEW.md section 11, NOT applied."
-    decision: PENDING_LEADER
-    precondition_before_any_reallocation: "ask the two members first. They have had no
-      activity for close to two days and have not said why. INC-001's first lesson is to ask
-      before inferring; reallocating without asking pushes someone out of their own work."
+    decision: LEVEL_1_AUTHORISED_2026_09_20
+    decision_note: "The leader authorised Level 1 (reallocate) on 2026-09-20, for REVIEW TURNS
+      ONLY. Ownership does not move - DR-013's anti-bottleneck rule forbids transferring it for
+      speed, and INC-001 section 4.4 held that line. Every use must be appended to
+      SPIKE_PHASE_STATE.yaml review_serialization.reassignments with date/spike/from/to/reason/basis,
+      reason = 'recovery Level 1', never 'for speed'. Recorded in
+      management/incidents/INC-002_DAY10_TEAM_INCIDENT.md section 5."
+    precondition_before_any_reallocation: "ask the members first - satisfied. The leader reported
+      the team incident on 2026-09-20 BEFORE any reallocation happened, which is what INC-001's
+      first lesson asks for: ask before inferring."
   previous_invocation:
     active_on: "2026-09-11"
     record: management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md
