@@ -215,7 +215,7 @@ jobs:
 
   # --------------------------------------------------------------------------
   app-core:
-    name: "app/core tests (10 scripts)"
+    name: "app/core tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
