@@ -108,11 +108,11 @@ multi-scan groups, and does not persist source patient identifiers.
 ## Reproducibility
 
 - Source dataset manifest SHA-256:
-  `91bd617140103e7290580221e998995d61b0855afca48f6744461a2d4a8be0a6`
+  `f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9`
 - Selection algorithm: whole-group subset-sum after seed-2024 SHA-256 ranking.
 - Restricted screen SHA-256:
   `bf8d99f20eca3c93d2bf3c1af65071f8696fc5953d58c895f031187ffc3d8022`.
-- Self-test: 16/16 checks pass, including threshold declaration, grouping,
+- Self-test: 17/17 checks pass, including threshold declaration, transitive grouping,
   holdout exclusion, F5 score restriction and the sensitivity placeholder.
 - JSON Schema validation: PASS.
 
@@ -125,6 +125,7 @@ python tools/dataset_split/split.py `
   --linkage-screen <private path outside repository>/linkage_screen_private_20260916.json
 ```
 
-The source manifest hash above is the current `main` input. After PR #34
-merges, this artifact must be regenerated once so the source hash references
-the narrowed public manifest before `GATE-SPLIT-01` can close.
+Regenerated on 2026-09-21 after PR #34 merged, using the narrowed public
+dataset manifest from `main`. The source hash above and the source hash in
+the split manifest now match that input. This is evidence ready for reviewer
+re-check; regeneration does **not** close `GATE-SPLIT-01` by itself.

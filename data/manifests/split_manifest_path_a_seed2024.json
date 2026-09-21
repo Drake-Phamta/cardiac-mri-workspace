@@ -1,14 +1,14 @@
 {
  "manifest_version": "1.0",
  "split_id": "path_a_seed2024_dr002b_v1",
- "generated_at": "2026-09-17T00:18:55+07:00",
+ "generated_at": "2026-09-21T08:35:11+07:00",
  "generated_by": "tools/dataset_split/split.py",
  "operator": "Bế Quốc Khánh",
  "source_dataset_manifest": {
   "path": "data/manifests/dataset_manifest.json",
-  "sha256": "91bd617140103e7290580221e998995d61b0855afca48f6744461a2d4a8be0a6",
+  "sha256": "f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9",
   "manifest_version": "1.0",
-  "dataset_generated_at": "2026-09-14T03:12:35+07:00",
+  "dataset_generated_at": "2026-09-17T11:34:34+07:00",
   "case_count": 154
  },
  "decision": {
