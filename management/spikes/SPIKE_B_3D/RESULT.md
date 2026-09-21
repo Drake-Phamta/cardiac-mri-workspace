@@ -2,11 +2,11 @@
 
 **Status:** `ACTIVE` · **evidence_present:** `false` · **Owner:** Vũ Hùng Anh
 
-This is a status result, not an acceptance-evidence record. Every number below
-comes from deterministic desktop code over the canonical fixture or synthetic
-mesh. No physical Galaxy A17 measurement, real-mesh measurement, FPS/stall
-measurement, device profile, or reviewer verdict is present. Those remain
-required by `TASK.md` and `EVIDENCE_TEMPLATE.md`.
+This is a status result, not an acceptance-evidence record. `B10` and `B11`
+below are owner-interpreted, on-device observations; all other numbers are
+deterministic desktop diagnostics over the canonical fixture or synthetic mesh.
+The result still lacks real-mesh measurements and a reviewer verdict, so it
+does not make the spike evidence-ready.
 
 ## What was run
 
@@ -38,12 +38,63 @@ or real-anatomy run.
 | B7 | `NOT MEASURED` | No completed device evidence that a 2D production viewer navigates to the picked slice. |
 | B8 | `DIAGNOSTIC PASS` | Synthetic offline geometry check ran six orientations; 33/33 coordinate conformance remains exact. This is not arbitrary device manipulation evidence. |
 | B9 | `NOT MEASURED` | No device test record for background/invalid selection and zero false navigation. |
-| B10 | `NOT MEASURED` | Median FPS must be measured on the physical Galaxy A17. |
-| B11 | `NOT MEASURED` | Longest interaction stall must be measured on the physical Galaxy A17. |
+| B10 | `OBSERVED PASS` | Three complete physical Galaxy A17 runs on the same synthetic level-0 mesh each have median 59.88 FPS, above the 20 FPS bound. The narrow scope is recorded below. |
+| B11 | `OBSERVED PASS` | The same three runs have 16.80 ms, 16.80 ms and 16.90 ms longest stalls, with 0 frames over 500 ms in every run. |
 | B12 | `DIAGNOSTIC PARTIAL` | Four synthetic levels have triangle counts and generation times below; the required FPS column is absent. |
 | B13 | `NOT MEASURED` | No `DR-008c` recommendation: without FPS and real-mesh error there is no eligible optimisation frontier. |
 | B14 | `DIAGNOSTIC PASS` | Current app test has 5 `interior` and 8 `surface_tangent` exact rays, reported separately. Offline synthetic run has 30/48 samples per cohort across six orientations. |
 | B15 | `NOT MEASURED` | No owner-authored development-cost observation for a candidate stack. |
+
+## B10/B11 — Galaxy A17 observation, 2026-09-18
+
+I re-derived every number below from the 5,400 raw intervals in
+[`webview_probe_payloads.jsonl`](../../../spikes/spike_b_3d/EVIDENCE_RAW/b10_b11_20260918/webview_probe_payloads.jsonl).
+Its SHA-256 is
+`125417809c9a2e747aa1a3622a66a1dfb642571e01aa82ed75dab9f25b86508e`;
+the [provenance record](../../../spikes/spike_b_3d/EVIDENCE_RAW/b10_b11_20260918/PROVENANCE.md)
+identifies the operator, build, source parents and capture paths. The raw
+intervals reproduce the stored nearest-rank median, p95 and maximum values for
+each run.
+
+| Run | Complete samples | Median FPS | p05 FPS | Longest stall | Frames >500 ms | B10 | B11 |
+|---:|---:|---:|---:|---:|---:|---|---|
+| 1 | 1,800 | 59.88 | 59.52 | 16.80 ms | 0 | PASS | PASS |
+| 2 | 1,800 | 59.88 | 59.52 | 16.80 ms | 0 | PASS | PASS |
+| 3 | 1,800 | 59.88 | 59.52 | 16.90 ms | 0 | PASS | PASS |
+
+`B10` is `OBSERVED PASS`: every valid run is at least 20 FPS median.
+`B11` is `OBSERVED PASS`: every valid run has a longest stall at most 500 ms
+and zero intervals above 500 ms. This is the owner's interpretation of the
+raw bytes, as required by `DR-006a` revision 3; it is not a reviewer approval.
+
+### Conditions and scope
+
+- Physical Samsung Galaxy A17 5G, model `SM-A176B`, Android 16, serial
+  `R5CY931SQYZ`; release Spike A WebView build from `bfbf2fe`.
+- One page load and one fixed URL; synthetic mesh level 0 with 5,648 triangles,
+  `geometry_contract_version` `dr008a-dr012/v1.0.0`. The three measurements
+  were 30 s after a 3 s warm-up and used orbit, pan, pinch and picking.
+- Before / after: 90 Hz manual brightness 255; USB charging; battery 71% / 72%;
+  35.0 C / 34.6 C; thermal state `NONE`; total PSS 87.05 MB / 219.26 MB.
+- The evidence is one session, one device, one synthetic level. It establishes
+  the in-app frame-probe path only; it does not establish real-mesh performance
+  or a decimation frontier.
+- HTTP captured all three complete payloads. The React Native logcat copy was
+  truncated at 4,095 characters, so it is not used to calculate B10/B11. This
+  container transport defect was subsequently fixed separately; it was not
+  remeasured here.
+
+### Source reconciliation after the #44 review request
+
+The capture used a clean local merge of `49227e4` and the original #44 head
+`c34d753`; its unpushed commit object is identified in the provenance. I
+reconstructed that merge tree with `git merge-tree --write-tree`; it is
+`1affb617940f7b9cbb9017abffb6b4da3311f321`. After rebasing #44 onto current
+`main`, `git diff` found no change between that reconstructed tree and the
+rebased probe source, canonical geometry fixture or Spike B result. Therefore
+the code that produced these bytes is reproducible from this PR and its
+GitHub-visible parents. This check confirms source equivalence; it does not
+claim a new on-device measurement was run.
 
 ## B12 synthetic decimation data
 
@@ -72,13 +123,13 @@ real-mesh error data.
 | Canonical fixture accuracy | Exact only; 13/13 current app rays and 33/33 coordinate points have zero findings. |
 | Real decimated-mesh accuracy | Still fixed at ±1 source slice; not measured. |
 | `geometry_contract_version` | `dr008a-dr012/v1.0.0`, checked for exact equality in CI. |
-| Performance bounds | Unchanged: median ≥20 FPS and no stall >500 ms; both unmeasured. |
+| Performance bounds | Unchanged: median ≥20 FPS and no stall >500 ms. `B10` and `B11` are `OBSERVED PASS` only for the one synthetic level-0 session above. |
 
 ## Next required evidence
 
-1. Run the four levels on the physical Galaxy A17 with the declared interaction
-   script and record a frame-time distribution, median FPS, longest stall,
-   device profile, thermal state, and raw log.
+1. Run the remaining three levels on the physical Galaxy A17 with the declared
+   interaction script and record a frame-time distribution, median FPS,
+   longest stall, device profile, thermal state, and raw log.
 2. Use a real authorised segmentation mesh, measure B5/B6 separately for
    `interior` and `surface_tangent`, and retain the per-point table.
 3. Demonstrate B7 and B9 on the target 2D viewer, then have Nguyễn Gia Đức
