@@ -53,9 +53,9 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("> Produced by `tools/dataset_validate/` from `data/manifests/dataset_manifest.json`.")
     add("> Regenerate with:")
     add(">")
-    add("> ```bash")
-    add("> python tools/dataset_validate/validate.py --root <extracted package> \\")
-    add(">        --acquisition <acquisition.json> --write-manifest --write-audit")
+    add("> ```powershell")
+    command = (manifest.get("restricted_manifest") or {}).get("regenerate")
+    add(f"> {command or 'NOT MEASURED - no regeneration command recorded'}")
     add("> ```")
     add(">")
     add("> Editing this file by hand makes it disagree with the manifest, and the manifest is")
@@ -340,6 +340,8 @@ def render(manifest: dict, results: list, summary: dict) -> str:
             f"package layout `{finding.get('kind')}` — "
             f"`{finding.get('path_relative')}`"
         )
+    if "anomalies" in summary and summary["anomalies"] != len(anomalies):
+        raise ValueError("summary anomaly count disagrees with rendered audit")
     add(f"**Anomalies: {len(anomalies)}**")
     add("")
     for a in anomalies[:40]:
