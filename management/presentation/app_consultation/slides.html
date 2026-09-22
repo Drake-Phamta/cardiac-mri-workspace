@@ -131,20 +131,22 @@
 </section>
 
 <!-- 4 ───────────────────────────────────────────────────────── -->
-<section class="slide" data-sn="Trung · ~1,5 phút, Hùng Anh xen 20 giây cho dòng 3D. Nhấn cột trạng thái. Nói rõ: framework CHƯA chốt, chọn theo số đo. Topology: Wi-Fi và ZeroTier — KHÔNG nói Tailscale, KHÔNG nói 4G/5G.">
-  <p class="kicker">Công nghệ dự kiến</p>
-  <h1>Cái đã chốt — và cái còn chờ bằng chứng</h1>
+<section class="slide" data-sn="Trung · ~1,5 phút, Hùng Anh xen 20 giây cho dòng 3D. Đọc TÊN công nghệ, đừng đọc trạng thái — cột phải chỉ để trả lời khi thầy hỏi. Ba chỗ nói rõ 'chưa chốt': framework mobile, backend, thư viện 3D. Topology: Wi-Fi + ZeroTier — KHÔNG nói Tailscale, KHÔNG nói 4G/5G.">
+  <p class="kicker">Công nghệ</p>
+  <h1>Ngăn xếp công nghệ dự kiến</h1>
   <table>
-    <tr><th style="width:21%">Mảng</th><th style="width:44%">Dự kiến</th><th>Trạng thái</th></tr>
-    <tr><td>Ứng dụng di động</td><td>Android; đang dựng thử React Native / Expo</td><td class="pending">chưa chốt — chọn theo số đo</td></tr>
-    <tr><td>ML</td><td>Python + PyTorch · UNet baseline + DINOv2-based</td><td class="pending">cấu hình DINOv2 chưa chốt</td></tr>
-    <tr><td>Ảnh y tế</td><td>NRRD (<code>pynrrd</code>)</td><td class="ok">đã chốt · đo mm/mL tắt</td></tr>
-    <tr><td>Hệ toạ độ 2D/3D</td><td>x = cột, y = hàng, z = slice</td><td class="ok">đã chốt · có CI kiểm</td></tr>
-    <tr><td>Viewer 2D</td><td>zoom / pan / cọ</td><td class="pending">đã đo trên máy thật, chưa nghiệm thu</td></tr>
-    <tr><td>3D</td><td>dựng mesh + WebGL2</td><td class="pending">ngân sách mesh chưa chốt</td></tr>
-    <tr><td>Backend / API</td><td>28 endpoint · 15 mã lỗi</td><td class="pending">bản nháp</td></tr>
-    <tr><td>Lưu trữ dữ liệu</td><td>CLI offline + manifest có phiên bản</td><td class="ok">đã chốt</td></tr>
-    <tr><td>Git / CI</td><td>GitHub Actions — 5 job tự kiểm</td><td class="ok">đang chạy</td></tr>
+    <tr><th style="width:20%">Mảng</th><th style="width:56%">Công nghệ</th><th>Trạng thái</th></tr>
+    <tr><td>Ứng dụng di động</td><td><strong>Android</strong> · React Native + Expo</td><td class="pending">đang đánh giá</td></tr>
+    <tr><td>ML / huấn luyện</td><td><strong>Python</strong> · <strong>PyTorch</strong> · NumPy</td><td class="ok">đang dùng</td></tr>
+    <tr><td>Mô hình phân vùng</td><td><strong>UNet</strong> · <strong>DINOv2</strong> (Hugging Face <code>transformers</code>)</td><td class="ok">hướng nghiên cứu chính</td></tr>
+    <tr><td>Ảnh y tế</td><td><strong>NRRD</strong> · <code>pynrrd</code></td><td class="ok">đang dùng</td></tr>
+    <tr><td>Hiển thị 2D</td><td>React Native + JavaScript thuần — zoom, pan, cọ tự viết</td><td class="pending">đang đánh giá</td></tr>
+    <tr><td>Hiển thị 3D</td><td><strong>WebGL2</strong> thuần, không thư viện · mesh <strong>OBJ</strong></td><td class="pending">đang đánh giá</td></tr>
+    <tr><td>Backend</td><td><strong>chưa chốt framework</strong> — hiện là hợp đồng API + CLI Python</td><td class="pending">chưa chốt</td></tr>
+    <tr><td>Lưu trữ</td><td><strong>JSON manifest</strong> có phiên bản — chưa dùng cơ sở dữ liệu</td><td class="ok">đang dùng</td></tr>
+    <tr><td>Mạng riêng</td><td><strong>ZeroTier</strong> qua Wi-Fi</td><td class="ok">đã duyệt</td></tr>
+    <tr><td>Máy chủ</td><td><strong>Mac mini M2 · 24 GB</strong></td><td class="ok">đã duyệt</td></tr>
+    <tr><td>Git / CI</td><td><strong>GitHub</strong> · <strong>GitHub Actions</strong></td><td class="ok">đang dùng</td></tr>
   </table>
   <div class="arch">Samsung Galaxy A17 5G  ──Wi-Fi──▶  ZeroTier (mạng riêng có xác thực)  ──▶  Mac mini M2 · 24 GB
                                                             (backend · lưu trữ · KHÔNG huấn luyện)</div>

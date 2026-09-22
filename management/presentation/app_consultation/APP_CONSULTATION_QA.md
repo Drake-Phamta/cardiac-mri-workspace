@@ -80,9 +80,31 @@ số đánh giá**, không giấu.
 
 ### 11. App di động sẽ dùng công nghệ gì? **[T]**
 
-Nhắm nền tảng **Android**. Ứng viên đang dựng thử là **React Native / Expo**, và nhóm em đã đo thật trên
-máy Samsung Galaxy A17 5G. Nhưng **framework cuối cùng chưa được chọn** — sẽ chốt sau khi có đủ bằng chứng
-từ hai phần đo: thao tác cọ trên 2D và hiệu năng 3D.
+Nhắm nền tảng **Android**. Ứng viên đang dựng thử là **React Native + Expo**, đã chạy thật trên máy
+Samsung Galaxy A17 5G. Phần hiển thị 2D — zoom, kéo, cọ vẽ — nhóm em **tự viết bằng JavaScript thuần**
+thay vì dùng thư viện, vì cần kiểm soát chính xác việc chạm nào rơi vào pixel nguồn nào. **Framework cuối
+cùng chưa được chọn**, sẽ chốt sau khi có đủ số đo của phần 2D và phần 3D.
+
+### 11b. Backend dùng framework gì? **[T]**
+
+**Nhóm em chưa chọn framework backend.** Hiện có hai thứ đã tồn tại: một **hợp đồng API** viết bằng JSON
+Schema, và các **công cụ dòng lệnh bằng Python** để nạp dữ liệu và kiểm tính hợp lệ. Việc chọn framework
+web để lại tới khi bắt đầu hiện thực hoá API — chọn sớm mà chưa biết hình dạng dữ liệu thì dễ phải làm
+lại.
+
+### 11c. Lưu trữ bằng cơ sở dữ liệu gì? **[T]**
+
+Hiện tại **chưa dùng cơ sở dữ liệu**. Dữ liệu và kết quả mô hình được mô tả bằng **các tệp JSON manifest
+có đánh phiên bản**, mỗi tệp ghi nguồn gốc và mã băm của thứ nó trỏ tới. Với quy mô 154 ca và một số ít
+lần chạy thí nghiệm thì cách này đủ và dễ kiểm chứng hơn. Nếu sau này cần truy vấn phức tạp thì mới thêm
+cơ sở dữ liệu.
+
+### 11d. Phần 3D dùng thư viện gì — Three.js? **[HA]**
+
+**Không dùng thư viện 3D nào.** Hiện là **WebGL2 viết tay**, mesh xuất ra định dạng **OBJ**. Lý do là
+spike cần đo chính xác chi phí vẽ và độ chính xác khi chạm vào mesh — một thư viện sẽ thêm một tầng mà
+nhóm em không kiểm soát được, làm số đo khó quy trách nhiệm. **Có dùng thư viện hay không thì chưa chốt**;
+nếu về sau cần tính năng phức tạp hơn thì cân nhắc lại.
 
 ### 12. Vì sao chưa chọn xong framework? **[T]**
 

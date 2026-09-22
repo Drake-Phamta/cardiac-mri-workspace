@@ -28,19 +28,24 @@ Dữ liệu **LASC 2018**, 154 ca (100 phát triển / **54 khoá lại**)
 
 ---
 
-**CÔNG NGHỆ**
+**CÔNG NGHỆ** *(đọc tên công nghệ, không đọc cột trạng thái)*
 
-| Mảng | Dự kiến | Trạng thái |
+| Mảng | Công nghệ | |
 |---|---|---|
-| Mobile | Android; đang dựng **React Native / Expo** | 🔶 **chưa chốt** |
-| ML | **Python + PyTorch** · UNet + DINOv2-based | 🔶 cấu hình DINOv2 **chưa chốt** |
-| Ảnh y tế | **NRRD** (`pynrrd`) | ✅ · đo mm/mL **tắt** |
-| Hệ toạ độ 2D/3D | `x=cột, y=hàng, z=slice` | ✅ có CI kiểm |
-| 3D | mesh + **WebGL2** | 🔶 ngân sách mesh **chưa chốt** |
-| API | **28 endpoint · 15 mã lỗi** | 🔶 **`DRAFT v0`** |
-| Lưu trữ | CLI offline + manifest có phiên bản | ✅ |
-| Triển khai | **Galaxy A17 5G → Wi-Fi → ZeroTier → Mac mini M2 24 GB** | ✅ |
-| CI | GitHub Actions, 5 job | ✅ |
+| Ứng dụng di động | **Android** · React Native + Expo | đang đánh giá |
+| ML / huấn luyện | **Python** · **PyTorch** · NumPy | đang dùng |
+| Mô hình phân vùng | **UNet** · **DINOv2** (Hugging Face `transformers`) | hướng NC chính |
+| Ảnh y tế | **NRRD** · `pynrrd` | đang dùng |
+| Hiển thị 2D | React Native + JS thuần, zoom/pan/cọ tự viết | đang đánh giá |
+| Hiển thị 3D | **WebGL2** thuần, không thư viện · mesh **OBJ** | đang đánh giá |
+| Backend | **chưa chốt framework** — hợp đồng API + CLI Python | chưa chốt |
+| Lưu trữ | **JSON manifest** có phiên bản, chưa dùng CSDL | đang dùng |
+| Mạng riêng | **ZeroTier** qua Wi-Fi | đã duyệt |
+| Máy chủ | **Mac mini M2 · 24 GB** | đã duyệt |
+| Git / CI | **GitHub** · **GitHub Actions** | đang dùng |
+
+**Ba chỗ phải nói rõ "chưa chốt":** framework di động · framework backend · thư viện 3D.
+**Triển khai:** Galaxy A17 5G → Wi-Fi → ZeroTier → Mac mini M2 24 GB *(không huấn luyện trên Mac mini)*
 
 ---
 

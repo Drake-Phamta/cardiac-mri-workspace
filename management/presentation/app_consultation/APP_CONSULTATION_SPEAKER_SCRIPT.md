@@ -93,23 +93,28 @@ slide 1 và 6**.
 
 > Em chào thầy. Em phụ trách backend, lưu trữ và phần review.
 >
-> Về công nghệ, em xin chia làm hai loại: **cái đã chốt** và **cái còn đang đánh giá** — nhóm em cố ý
-> không chốt sớm những thứ cần đo mới biết.
+> Em xin đi theo bảng, từ trên xuống.
 >
-> **Đã chốt:**
-> - Phía ML: **Python và PyTorch**, một UNet baseline và một mô hình dựa trên DINOv2.
-> - Ảnh y tế ở định dạng **NRRD**, đọc bằng thư viện `pynrrd`.
-> - Hệ toạ độ dùng chung giữa 2D và 3D đã cố định, và có kiểm tra tự động trong CI để không ai đổi nhầm.
-> - Hợp đồng API giữa app và backend: **28 endpoint, 15 mã lỗi**, hiện là bản nháp nhưng đã có schema và
->   test.
-> - Dữ liệu và kết quả mô hình nạp vào hệ thống qua **CLI offline kèm manifest có phiên bản**, để mọi con
->   số đều truy được về nguồn.
+> - **Ứng dụng di động**: nhắm **Android**. Nhóm em đang dựng thử bằng **React Native và Expo**, đã chạy
+>   được trên máy thật.
+> - **Phía học máy**: **Python** và **PyTorch**, cộng **NumPy** cho phần xử lý mảng.
+> - **Mô hình phân vùng**: một **UNet** làm baseline, và một mô hình dựa trên **DINOv2** — nhóm em lấy
+>   backbone DINOv2 từ thư viện **`transformers` của Hugging Face**.
+> - **Ảnh y tế**: định dạng **NRRD**, đọc bằng thư viện **`pynrrd`**.
+> - **Hiển thị 2D**: React Native cộng **JavaScript thuần** — phần zoom, kéo và cọ vẽ nhóm em **tự viết**,
+>   vì cần kiểm soát chính xác việc chạm nào rơi vào pixel nào.
+> - **Hiển thị 3D**: **WebGL2 thuần, không dùng thư viện 3D nào** — không Three.js. Mesh xuất ra định dạng
+>   **OBJ**.
+> - **Lưu trữ**: hiện tại là **các tệp JSON manifest có đánh phiên bản**. Nhóm em **chưa dùng cơ sở dữ
+>   liệu** — khi nào lượng dữ liệu đòi hỏi thì mới thêm.
+> - **Mạng và máy chủ**: **ZeroTier** qua Wi-Fi tới một **Mac mini M2 24 GB**.
+> - **Quản lý mã và kiểm thử tự động**: **GitHub** và **GitHub Actions**.
 >
-> **Chưa chốt, và em xin nói rõ là chưa:**
-> - **Framework cho app di động.** Nhóm em đang dựng thử **React Native / Expo** trên máy thật để đo, nhưng
->   **chưa chọn**. Việc chọn phải dựa trên số đo của hai spike — phần 2D và phần 3D — chứ không dựa trên
->   quen tay.
-> - **Cấu hình cụ thể của DINOv2** cũng chưa chốt, đang chờ đo khả thi trên dữ liệu thật.
+> Có **ba chỗ nhóm em chưa chốt**, và em xin nói thẳng chứ không để thầy tự đoán:
+> - **Framework cho app di động** — React Native/Expo mới là ứng viên đang đo, chưa phải lựa chọn cuối.
+> - **Framework backend** — hiện mới có hợp đồng API và công cụ dòng lệnh bằng Python; chưa chọn
+>   framework web.
+> - **Thư viện 3D** — hiện là WebGL2 viết tay; chưa quyết có dùng thư viện hay không.
 >
 > Về triển khai *(chỉ sơ đồ)*: app chạy trên một máy **Samsung Galaxy A17 5G** thật, nối qua **Wi-Fi** vào
 > một **mạng riêng có xác thực dùng ZeroTier**, đi tới một **Mac mini M2 24 GB** đặt ở xa làm backend. Máy

@@ -3,6 +3,16 @@
 Chữ trên slide phải **ngắn**. Slide là chỗ bám, không phải chỗ đọc. Mỗi mục dưới đây ghi rõ **cái gì KHÔNG
 được đưa lên** — phần đó quan trọng ngang phần nội dung.
 
+## Sáu slide trả lời đúng ba câu thầy hỏi
+
+| Câu hỏi của thầy | Slide |
+|---|---|
+| **1 · Xây ứng dụng gì?** | **1–2** |
+| **2 · Dự kiến dùng công nghệ gì?** | **3–4** — slide 3 nói thành phần nghiên cứu ngắn gọn, **slide 4 nêu tên công nghệ cụ thể** |
+| **3 · Tham chiếu sản phẩm nào, khác gì?** | **5–6** |
+
+Không slide nào được để chuyện quản trị dự án lấn át nội dung.
+
 | Slide | Nội dung | Ai | Phút |
 |---|---|---|---|
 | 1 | Vấn đề và mục đích | Tuấn Anh | 1,5 |
@@ -92,36 +102,47 @@ thể nhóm tái lập nó, sơ đồ kiến trúc UNet/ViT, chữ "state-of-the
 
 ---
 
-## Slide 4 — Công nghệ dự kiến và triển khai
+## Slide 4 — Công nghệ
 
-**Tiêu đề:** Công nghệ dự kiến — và cái gì còn đang chờ bằng chứng
+**Tiêu đề:** Ngăn xếp công nghệ dự kiến
 
-**Bảng (cột thứ ba là cột quan trọng nhất):**
+> **Slide này trả lời thẳng câu hỏi số 2 của thầy.** Thầy nhìn 10 giây phải nắm được **tên công nghệ**,
+> không phải tình trạng nội bộ của nhóm. Cột trạng thái chỉ có ba giá trị và **để trả lời khi bị hỏi**,
+> không phải nội dung chính.
 
-| Mảng | Dự kiến | Trạng thái |
+**Bảng — cột giữa là cột quan trọng nhất:**
+
+| Mảng | Công nghệ | Trạng thái |
 |---|---|---|
-| Ứng dụng di động | Android; đang dựng thử **React Native / Expo** | **chưa chốt** — chọn sau khi có bằng chứng spike 2D và 3D |
-| ML | **Python + PyTorch**; **UNet** baseline + **DINOv2-based** | hai họ mô hình đã cố định; **cấu hình DINOv2 chưa chốt** |
-| Ảnh y tế | **NRRD** (`pynrrd`) | đã chốt · đo mm/mL **tắt** vì hình học vật lý chưa kiểm chứng |
-| Viewer 2D | zoom / pan / cọ trên máy thật | **đã đo trên Galaxy A17, chưa nghiệm thu** |
-| 3D | dựng mesh + **WebGL2** | **chưa chốt** ngân sách mesh |
-| Backend / API | hợp đồng **28 endpoint**, **15 mã lỗi** | **bản nháp `DRAFT v0`** |
-| Lưu trữ / nạp dữ liệu | CLI offline + manifest có phiên bản | cơ chế đã chốt |
-| Git / CI | GitHub Actions, **5 job** tự kiểm | đang chạy |
+| Ứng dụng di động | **Android** · React Native + Expo | đang đánh giá |
+| ML / huấn luyện | **Python** · **PyTorch** · NumPy | đang dùng |
+| Mô hình phân vùng | **UNet** · **DINOv2** (Hugging Face `transformers`) | hướng nghiên cứu chính |
+| Ảnh y tế | **NRRD** · `pynrrd` | đang dùng |
+| Hiển thị 2D | React Native + JavaScript thuần — zoom, pan, cọ tự viết | đang đánh giá |
+| Hiển thị 3D | **WebGL2** thuần, không thư viện · mesh **OBJ** | đang đánh giá |
+| Backend | **chưa chốt framework** — hiện là hợp đồng API + CLI Python | chưa chốt |
+| Lưu trữ | **JSON manifest** có phiên bản — chưa dùng cơ sở dữ liệu | đang dùng |
+| Mạng riêng | **ZeroTier** qua Wi-Fi | đã duyệt |
+| Máy chủ | **Mac mini M2 · 24 GB** | đã duyệt |
+| Git / CI | **GitHub** · **GitHub Actions** | đang dùng |
 
-**Sơ đồ triển khai (Hình C), vẽ ngang:**
+**Sơ đồ triển khai (Hình C), vẽ ngang dưới bảng:**
 ```
 Galaxy A17 5G  ──Wi-Fi──▶  ZeroTier (mạng riêng có xác thực)  ──▶  Mac mini M2 24 GB
 ```
 
+**Ba chỗ phải nói "chưa chốt" bằng miệng, không để thầy tự suy ra:**
+framework di động · framework backend · thư viện 3D.
+
 **KHÔNG đưa lên slide:**
-- ❌ **"Tailscale"** — đã đổi sang ZeroTier từ 11/09
-- ❌ **"4G/5G"** làm đường truyền chính — đường chuẩn là **Wi-Fi**; cellular đo ra chậm không dùng được
+- ❌ **"Tailscale"** — đã đổi sang ZeroTier; ❌ **"4G/5G"** làm đường chính — đường chuẩn là **Wi-Fi**
+- ❌ số lượng endpoint, số mã lỗi, số job CI — đó là chi tiết nội bộ, không phải tên công nghệ
+- ❌ nhãn `DRAFT`, tên cổng, tên quyết định, tên spike, trạng thái nghiệm thu
+- ❌ tình trạng đo mm/mL, chi tiết acceptance test
 - ❌ bất kỳ câu nào kiểu "nhóm đã chọn framework X"
-- ❌ tên cổng (`GATE-MOB-01`…), tên quyết định (`DR-003a`…) — chỉ nói khi bị hỏi
 - ❌ sơ đồ kiến trúc nhiều tầng
 
-**Thời lượng:** 2–2,5 phút. Trung nói cả bảng; **Hùng Anh xen 20 giây** cho dòng 3D.
+**Thời lượng:** 2–2,5 phút. Trung đọc **tên công nghệ theo hàng**; **Hùng Anh xen 20 giây** cho dòng 3D.
 
 ---
 
