@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTL APP — Tư vấn đề tài</title>
+<!--
+  Bộ slide tư vấn BTL môn APP — họp 09:00, 2026-09-23.
+
+  Tự chứa hoàn toàn: không font ngoài, không CDN, không ảnh ngoài. Mở được cả khi
+  mất mạng, vì buổi họp phụ thuộc vào nó.
+
+  Dùng: mở bằng trình duyệt → F11 (toàn màn hình) → share tab trên Google Meet.
+  Điều hướng: ← → hoặc Space, phím 1-6 nhảy thẳng, phím S bật/tắt ghi chú người nói.
+
+  Nội dung khớp APP_CONSULTATION_SLIDE_OUTLINE.md. Sửa nội dung thì sửa cả hai.
+-->
+<style>
+  :root{
+    --bg:#ffffff; --ink:#111418; --muted:#5b6672; --line:#d7dde4;
+    --accent:#1c4f8b; --ok:#0f7a4a; --pending:#b45309; --soft:#f4f7fa;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14171c; --ink:#eef2f6; --muted:#9aa6b4; --line:#2b323b;
+      --accent:#7fb2ee; --ok:#4ade80; --pending:#fbbf24; --soft:#1b1f26;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{height:100%;display:flex;align-items:center;justify-content:center;padding:2.2rem 2.6rem}
+  .slide{display:none;width:100%;max-width:1120px}
+  .slide.on{display:block;animation:in .18s ease-out}
+  @keyframes in{from{opacity:.4}to{opacity:1}}
+
+  .kicker{font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 .5rem}
+  h1{font-size:2.05rem;line-height:1.18;margin:0 0 1.1rem;letter-spacing:-.015em}
+  h2{font-size:1.02rem;margin:1.3rem 0 .5rem;color:var(--accent);letter-spacing:.01em}
+  ul{margin:.4rem 0 0;padding-left:1.15rem}
+  li{margin:.42rem 0}
+  strong{font-weight:650}
+  .lead{font-size:1.32rem;line-height:1.42;margin:1.3rem 0;padding:1.05rem 1.3rem;
+        background:var(--soft);border-left:4px solid var(--accent);border-radius:0 8px 8px 0}
+  .lead em{font-style:italic;color:var(--ink)}
+  .note{color:var(--muted);font-size:.86rem;margin-top:1rem}
+
+  table{border-collapse:collapse;width:100%;margin:.7rem 0;font-size:.93rem}
+  th,td{border:1px solid var(--line);padding:.44rem .6rem;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-weight:620}
+  td.ok{color:var(--ok);font-weight:600;white-space:nowrap}
+  td.pending{color:var(--pending);font-weight:600}
+  .mine{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:1rem 0;font-size:.95rem}
+  .flow span{border:1px solid var(--line);background:var(--soft);border-radius:7px;padding:.36rem .6rem;white-space:nowrap}
+  .flow span.hot{border-color:var(--accent);color:var(--accent);font-weight:650}
+  .flow i{color:var(--muted);font-style:normal}
+
+  .arch{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92rem;
+        background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.85rem 1rem;margin:.8rem 0;white-space:pre-wrap}
+
+  .feat{display:grid;grid-template-columns:auto 1fr;gap:.35rem .75rem;margin-top:.6rem;font-size:.95rem}
+  .feat b{color:var(--accent)}
+
+  footer{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;
+         padding:.5rem 1.1rem;font-size:.76rem;color:var(--muted);border-top:1px solid var(--line);background:var(--bg)}
+  .dots{display:flex;gap:.34rem;align-items:center}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .dot.on{background:var(--accent)}
+  #sn{display:none;position:fixed;left:0;right:0;bottom:2.1rem;max-height:34vh;overflow:auto;
+      padding:.8rem 1.1rem;background:var(--soft);border-top:2px solid var(--accent);font-size:.88rem}
+  #sn.on{display:block}
+  @media (max-width:760px){ h1{font-size:1.5rem} .deck{padding:1.1rem} table{font-size:.82rem} }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 1 ───────────────────────────────────────────────────────── -->
+<section class="slide on" data-sn="Tuấn Anh · 1,5 phút — Mở bằng vấn đề, không mở bằng tính năng. Nhấn: một con số Dice không nói mô hình sai ở đâu. Nói rõ ngay hai điều: người dùng là nhà nghiên cứu, và đây KHÔNG phải phần mềm chẩn đoán.">
+  <p class="kicker">Bài tập lớn môn APP · Tư vấn đề tài</p>
+  <h1>AI-assisted Cardiac MRI Research Workspace</h1>
+  <ul>
+    <li>Một chỉ số <strong>Dice trung bình không cho biết mô hình sai ở đâu</strong></li>
+    <li>Workspace <strong>nghiên cứu / học tập</strong> để điều tra hành vi mô hình phân vùng tâm nhĩ trái trên ảnh LGE MRI</li>
+    <li>Người dùng: <strong>nhà nghiên cứu / sinh viên nghiên cứu</strong> — không giả định là bác sĩ</li>
+    <li><strong>Không phải phần mềm chẩn đoán y tế</strong></li>
+  </ul>
+  <div class="lead"><em>“Why did the AI fail on this MRI, and what can the researcher do about it?”</em></div>
+</section>
+
+<!-- 2 ───────────────────────────────────────────────────────── -->
+<section class="slide" data-sn="Tuấn Anh · 1,5 phút — Đi theo chuỗi mũi tên bằng lời, rồi đọc lướt 5 nhóm. Nhấn: 3D để phân tích, không để trang trí. Không đọc mã màn hình.">
+  <p class="kicker">Luồng làm việc</p>
+  <h1>Từ kết quả thí nghiệm xuống tới từng pixel — rồi quay lại</h1>
+  <div class="flow">
+    <span>Experiment</span><i>→</i><span>Cohort</span><i>→</i><span>Case</span><i>→</i>
+    <span>Slice</span><i>→</i><span class="hot">Error region</span><i>⇄</i><span class="hot">3D</span>
+    <i>→</i><span class="hot">Review</span>
+  </div>
+  <h2>Năm nhóm tính năng</h2>
+  <div class="feat">
+    <b>1</b><div><strong>Experiment &amp; Cohort</strong> — so sánh UNet vs DINOv2, xem phân bố, lần xuống ca kém nhất</div>
+    <b>2</b><div><strong>2D MRI Case Explorer</strong> — lật slice, overlay dự đoán / nhãn thật / lỗi, zoom–pan</div>
+    <b>3</b><div><strong>2D ⇄ 3D liên kết</strong> — dựng 3D; chọn vùng trên 3D → về <strong>đúng lát cắt nguồn</strong></div>
+    <b>4</b><div><strong>Review / Correction</strong> — chấp nhận · gắn cờ · <strong>sửa bằng cọ</strong>; dự đoán gốc giữ nguyên</div>
+    <b>5</b><div><strong>Findings</strong> — ghi quan sát, gắn với thí nghiệm–case–slice–vùng</div>
+  </div>
+</section>
+
+<!-- 3 ───────────────────────────────────────────────────────── -->
+<section class="slide" data-sn="Khánh · 1,5–2 phút — Giải thích vì sao câu hỏi đáng hỏi: nhãn y tế rất đắt. Nhấn mạnh subset lồng nhau. KẾT: kết quả âm vẫn hợp lệ, đặc tả cấm ép DINOv2 thắng. Không đọc con số Dice nào — chưa huấn luyện lần nào.">
+  <p class="kicker">Thành phần nghiên cứu</p>
+  <h1>Khi ít nhãn đi, mô hình nào trụ tốt hơn?</h1>
+  <div class="lead">DINOv2-based <strong>suy giảm ít hơn</strong> hay nhiều hơn UNet khi <strong>giảm dữ liệu có nhãn</strong>?</div>
+  <table>
+    <tr><th style="width:30%">6 lần huấn luyện</th><th>25%</th><th>50%</th><th>100%</th></tr>
+    <tr><td><strong>UNet</strong> (baseline)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><strong>DINOv2-based</strong></td><td>✓</td><td>✓</td><td>✓</td></tr>
+  </table>
+  <ul>
+    <li>Subset <strong>lồng nhau</strong>, cùng seed, hai mô hình dùng <strong>đúng cùng một tập</strong> → khác biệt đến từ lượng nhãn</li>
+    <li>Dữ liệu <strong>LASC 2018</strong> (Cardiac Atlas Project) — <strong>154 ca</strong>, tập test 54 ca <strong>khoá lại</strong></li>
+    <li><strong>Kết quả âm là kết quả hợp lệ</strong> — nhóm không đặt mục tiêu DINOv2 phải thắng</li>
+  </ul>
+</section>
+
+<!-- 4 ───────────────────────────────────────────────────────── -->
+<section class="slide" data-sn="Trung · ~1,5 phút, Hùng Anh xen 20 giây cho dòng 3D. Nhấn cột trạng thái. Nói rõ: framework CHƯA chốt, chọn theo số đo. Topology: Wi-Fi và ZeroTier — KHÔNG nói Tailscale, KHÔNG nói 4G/5G.">
+  <p class="kicker">Công nghệ dự kiến</p>
+  <h1>Cái đã chốt — và cái còn chờ bằng chứng</h1>
+  <table>
+    <tr><th style="width:21%">Mảng</th><th style="width:44%">Dự kiến</th><th>Trạng thái</th></tr>
+    <tr><td>Ứng dụng di động</td><td>Android; đang dựng thử React Native / Expo</td><td class="pending">chưa chốt — chọn theo số đo</td></tr>
+    <tr><td>ML</td><td>Python + PyTorch · UNet baseline + DINOv2-based</td><td class="pending">cấu hình DINOv2 chưa chốt</td></tr>
+    <tr><td>Ảnh y tế</td><td>NRRD (<code>pynrrd</code>)</td><td class="ok">đã chốt · đo mm/mL tắt</td></tr>
+    <tr><td>Hệ toạ độ 2D/3D</td><td>x = cột, y = hàng, z = slice</td><td class="ok">đã chốt · có CI kiểm</td></tr>
+    <tr><td>Viewer 2D</td><td>zoom / pan / cọ</td><td class="pending">đã đo trên máy thật, chưa nghiệm thu</td></tr>
+    <tr><td>3D</td><td>dựng mesh + WebGL2</td><td class="pending">ngân sách mesh chưa chốt</td></tr>
+    <tr><td>Backend / API</td><td>28 endpoint · 15 mã lỗi</td><td class="pending">bản nháp</td></tr>
+    <tr><td>Lưu trữ dữ liệu</td><td>CLI offline + manifest có phiên bản</td><td class="ok">đã chốt</td></tr>
+    <tr><td>Git / CI</td><td>GitHub Actions — 5 job tự kiểm</td><td class="ok">đang chạy</td></tr>
+  </table>
+  <div class="arch">Samsung Galaxy A17 5G  ──Wi-Fi──▶  ZeroTier (mạng riêng có xác thực)  ──▶  Mac mini M2 · 24 GB
+                                                            (backend · lưu trữ · KHÔNG huấn luyện)</div>
+</section>
+
+<!-- 5 ───────────────────────────────────────────────────────── -->
+<section class="slide" data-sn="Hùng Anh · 1,5 phút — Đọc cột của mình CUỐI CÙNG. Không nói câu nào so sánh chất lượng, không nói họ thiếu tính năng. Nhấn: 3D Slicer cũng không được duyệt cho lâm sàng — cùng hạng mục với nhóm.">
+  <p class="kicker">Sản phẩm tham chiếu</p>
+  <h1>Nhóm học từ đâu</h1>
+  <table>
+    <tr><th style="width:16%"></th><th>3D Slicer</th><th>cvi42</th><th class="mine">Dự án của nhóm</th></tr>
+    <tr><td><strong>Là gì</strong></td><td>nền tảng mã nguồn mở xem &amp; phân tích ảnh y sinh</td><td>phần mềm đọc và báo cáo ảnh tim mạch</td><td class="mine">workspace nghiên cứu <strong>điều tra lỗi AI</strong></td></tr>
+    <tr><td><strong>Nền tảng</strong></td><td>desktop</td><td>máy trạm desktop + web viewer</td><td class="mine"><strong>mobile-first — Android</strong></td></tr>
+    <tr><td><strong>Hạng mục</strong></td><td><strong>không được duyệt cho lâm sàng</strong>, dùng cho nghiên cứu</td><td><strong>thiết bị y tế được quản lý</strong>, dùng theo kê đơn</td><td class="mine">nghiên cứu / học tập, <strong>không lâm sàng</strong></td></tr>
+    <tr><td><strong>Học gì</strong></td><td>quy trình phân vùng · liên kết 2D–3D · trực quan hoá khoa học</td><td><strong>tổ chức thông tin</strong> · overlay cạnh ảnh gốc · vị trí bảng số</td><td class="mine">—</td></tr>
+  </table>
+  <p class="note">Nhóm học <strong>cách tổ chức thông tin và quy trình</strong> — không sao chép giao diện, không dùng thương hiệu, và không tuyên bố năng lực tương đương.</p>
+</section>
+
+<!-- 6 ───────────────────────────────────────────────────────── -->
+<section class="slide" data-sn="Tuấn Anh · 1,5 phút — Mở bằng câu nhượng bộ: từng năng lực đã tồn tại ở nơi khác. Rồi mới nói cái ghép lại. Kết bằng phạm vi thực tế rồi mời thầy góp ý.">
+  <p class="kicker">Khác biệt</p>
+  <h1>Khác biệt nằm ở <em>luồng tích hợp</em>, không ở từng tính năng</h1>
+  <ul>
+    <li>Từng năng lực riêng lẻ <strong>có thể đã tồn tại</strong> ở sản phẩm khác — nhóm không tuyên bố ngược lại</li>
+    <li>Cái nhóm đặt ra là <strong>ghép chúng thành một chuỗi liền mạch trên điện thoại</strong>:</li>
+  </ul>
+  <div class="flow">
+    <span>Experiment</span><i>→</i><span>Cohort</span><i>→</i><span>Case</span><i>→</i>
+    <span>Slice</span><i>→</i><span class="hot">Error region</span><i>⇄</i><span class="hot">3D</span>
+    <i>→</i><span class="hot">Review</span>
+  </div>
+  <ul>
+    <li>đi từ <strong>bảng kết quả xuống tận bằng chứng ảnh</strong>, không dừng ở biểu đồ</li>
+    <li>trọng tâm là <strong>điều tra lỗi của AI</strong>, không phải trình bày dự đoán</li>
+    <li>liên kết 2D ⇄ 3D <strong>xác định</strong> — chọn trên 3D ra đúng lát cắt nguồn</li>
+    <li><strong>sửa tay không ghi đè dự đoán gốc</strong> — mỗi lần lưu tạo phiên bản mới, truy vết được</li>
+    <li>thí nghiệm khan hiếm dữ liệu <strong>nằm trong cùng workspace</strong></li>
+  </ul>
+  <p class="note">Phạm vi môn học: MVP trên <strong>một</strong> thiết bị đã khai báo · dữ liệu công khai · không tích hợp PACS · không quy trình bệnh nhân · không chẩn đoán.</p>
+</section>
+
+</div>
+
+<div id="sn"></div>
+<footer>
+  <span id="who"></span>
+  <span class="dots" id="dots"></span>
+  <span>← →  chuyển · S  ghi chú</span>
+</footer>
+
+<script>
+  var slides = [].slice.call(document.querySelectorAll('.slide'));
+  var who = ['Tuấn Anh · 1,5′','Tuấn Anh · 1,5′','Khánh · 1,5–2′','Trung + Hùng Anh · 2–2,5′','Hùng Anh · 1,5′','Tuấn Anh · 1,5′'];
+  var at = 0, notesOn = false;
+  var dots = document.getElementById('dots');
+  slides.forEach(function(_, i){ var d = document.createElement('i'); d.className = 'dot'; dots.appendChild(d); });
+
+  function show(n){
+    at = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function(s, i){ s.classList.toggle('on', i === at); });
+    [].slice.call(dots.children).forEach(function(d, i){ d.classList.toggle('on', i === at); });
+    document.getElementById('who').textContent = (at + 1) + ' / ' + slides.length + '  ·  ' + who[at];
+    document.getElementById('sn').textContent = slides[at].dataset.sn || '';
+  }
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown'){ e.preventDefault(); show(at + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); show(at - 1); }
+    else if (e.key === 'Home'){ show(0); }
+    else if (e.key === 'End'){ show(slides.length - 1); }
+    else if (e.key === 's' || e.key === 'S'){ notesOn = !notesOn; document.getElementById('sn').classList.toggle('on', notesOn); }
+    else if (e.key >= '1' && e.key <= '6'){ show(parseInt(e.key, 10) - 1); }
+  });
+  // Chạm: nửa phải tiến, nửa trái lùi — để dùng được cả trên tablet.
+  document.addEventListener('click', function(e){
+    if (e.target.closest('footer') || e.target.closest('#sn')) return;
+    show(e.clientX > window.innerWidth / 2 ? at + 1 : at - 1);
+  });
+  show(0);
+</script>
+</body>
+</html>
