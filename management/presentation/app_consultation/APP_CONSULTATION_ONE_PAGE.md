@@ -23,7 +23,7 @@ kết quả thí nghiệm xuống tới từng pixel, rồi cho sửa lại.
 
 **NGHIÊN CỨU (`RQ-A`)** · DINOv2-based **suy giảm ít hơn** UNet khi giảm dữ liệu có nhãn?
 6 lần chạy: UNet và DINOv2 × **25% / 50% / 100%** · subset lồng nhau, cùng seed
-Dữ liệu **LASC 2018**, 154 ca (100 phát triển / **54 khoá lại**)
+Dữ liệu **LASC 2018**, **154 ca** · giao thức chia chống rò rỉ **đang hoàn tất**
 **Kết quả âm là hợp lệ** — đặc tả cấm ép DINOv2 phải thắng
 
 ---
@@ -71,7 +71,7 @@ từ **kết quả thí nghiệm** → **vùng lỗi trên lát cắt** → **3D
 ---
 
 **HIỆN TRẠNG** *(chỉ nói khi được hỏi, 30–60 giây)* · Đặc tả và hợp đồng dùng chung đã xong, có CI kiểm ·
-**cổng dữ liệu đã nghiệm thu**, 154 ca kiểm từng file, split chống rò rỉ đã quyết · spike 2D/3D trên máy
+**cổng dữ liệu đã nghiệm thu**, 154 ca kiểm từng file, nguyên tắc chống rò rỉ đã quyết · spike 2D/3D trên máy
 thật đang chạy, sắp tới điểm quyết định nền tảng · mã vertical đang tích hợp · **bước tới: khả thi ML và
 cổng huấn luyện**.
 

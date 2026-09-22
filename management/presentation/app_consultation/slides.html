@@ -76,6 +76,24 @@
       padding:.8rem 1.1rem;background:var(--soft);border-top:2px solid var(--accent);font-size:.88rem}
   #sn.on{display:block}
   @media (max-width:760px){ h1{font-size:1.5rem} .deck{padding:1.1rem} table{font-size:.82rem} }
+
+  /* In / xuất PDF: bỏ điều hướng, hiện CẢ SÁU slide, mỗi slide một trang ngang.
+     Không có khối này thì Ctrl+P chỉ ra đúng slide đang mở, vì năm slide kia
+     đang display:none. */
+  @media print{
+    @page{ size:A4 landscape; margin:12mm; }
+    :root{ --bg:#fff; --ink:#111418; --muted:#444; --line:#bbb; --accent:#1c4f8b;
+           --ok:#0a6b3f; --pending:#8a5300; --soft:#f2f5f8; }
+    body{ background:#fff; color:#111418; }
+    .deck{ display:block; height:auto; padding:0; }
+    .slide{ display:block !important; max-width:none; page-break-after:always;
+            break-after:page; animation:none; padding-top:2mm; }
+    .slide:last-child{ page-break-after:auto; break-after:auto; }
+    footer,#sn{ display:none !important; }
+    h1{ font-size:1.6rem; } .lead{ font-size:1.1rem; }
+    table{ font-size:.8rem; } .feat{ font-size:.85rem; } .arch{ font-size:.78rem; }
+    tr,li,.flow{ break-inside:avoid; }
+  }
 </style>
 </head>
 <body>
@@ -125,27 +143,24 @@
   </table>
   <ul>
     <li>Subset <strong>lồng nhau</strong>, cùng seed, hai mô hình dùng <strong>đúng cùng một tập</strong> → khác biệt đến từ lượng nhãn</li>
-    <li>Dữ liệu <strong>LASC 2018</strong> (Cardiac Atlas Project) — <strong>154 ca</strong>, tập test 54 ca <strong>khoá lại</strong></li>
+    <li>Dữ liệu <strong>LASC 2018</strong> (Cardiac Atlas Project) — <strong>154 ca</strong>; giao thức chia dữ liệu chống rò rỉ <strong>đang hoàn tất</strong></li>
     <li><strong>Kết quả âm là kết quả hợp lệ</strong> — nhóm không đặt mục tiêu DINOv2 phải thắng</li>
   </ul>
 </section>
 
 <!-- 4 ───────────────────────────────────────────────────────── -->
-<section class="slide" data-sn="Trung · ~1,5 phút, Hùng Anh xen 20 giây cho dòng 3D. Đọc TÊN công nghệ, đừng đọc trạng thái — cột phải chỉ để trả lời khi thầy hỏi. Ba chỗ nói rõ 'chưa chốt': framework mobile, backend, thư viện 3D. Topology: Wi-Fi + ZeroTier — KHÔNG nói Tailscale, KHÔNG nói 4G/5G.">
+<section class="slide" data-sn="Trung · ~90 giây, Hùng Anh xen 20 giây cho dòng 3D. Đọc TÊN công nghệ theo nhóm, KHÔNG đọc từng thư viện — chi tiết để dành cho Q&A. Ba chỗ nói rõ 'chưa chốt': framework mobile, backend, thư viện 3D. Topology: Wi-Fi + ZeroTier — KHÔNG nói Tailscale, KHÔNG nói 4G/5G. Chi tiết nếu bị hỏi: NumPy, Hugging Face transformers, mesh OBJ, chưa dùng cơ sở dữ liệu.">
   <p class="kicker">Công nghệ</p>
   <h1>Ngăn xếp công nghệ dự kiến</h1>
   <table>
-    <tr><th style="width:20%">Mảng</th><th style="width:56%">Công nghệ</th><th>Trạng thái</th></tr>
+    <tr><th style="width:22%">Mảng</th><th style="width:54%">Công nghệ</th><th>Trạng thái</th></tr>
     <tr><td>Ứng dụng di động</td><td><strong>Android</strong> · React Native + Expo</td><td class="pending">đang đánh giá</td></tr>
-    <tr><td>ML / huấn luyện</td><td><strong>Python</strong> · <strong>PyTorch</strong> · NumPy</td><td class="ok">đang dùng</td></tr>
-    <tr><td>Mô hình phân vùng</td><td><strong>UNet</strong> · <strong>DINOv2</strong> (Hugging Face <code>transformers</code>)</td><td class="ok">hướng nghiên cứu chính</td></tr>
+    <tr><td>ML &amp; mô hình</td><td><strong>Python</strong> · <strong>PyTorch</strong> · <strong>UNet</strong> · <strong>DINOv2</strong></td><td class="ok">đang dùng</td></tr>
     <tr><td>Ảnh y tế</td><td><strong>NRRD</strong> · <code>pynrrd</code></td><td class="ok">đang dùng</td></tr>
-    <tr><td>Hiển thị 2D</td><td>React Native + JavaScript thuần — zoom, pan, cọ tự viết</td><td class="pending">đang đánh giá</td></tr>
-    <tr><td>Hiển thị 3D</td><td><strong>WebGL2</strong> thuần, không thư viện · mesh <strong>OBJ</strong></td><td class="pending">đang đánh giá</td></tr>
-    <tr><td>Backend</td><td><strong>chưa chốt framework</strong> — hiện là hợp đồng API + CLI Python</td><td class="pending">chưa chốt</td></tr>
-    <tr><td>Lưu trữ</td><td><strong>JSON manifest</strong> có phiên bản — chưa dùng cơ sở dữ liệu</td><td class="ok">đang dùng</td></tr>
-    <tr><td>Mạng riêng</td><td><strong>ZeroTier</strong> qua Wi-Fi</td><td class="ok">đã duyệt</td></tr>
-    <tr><td>Máy chủ</td><td><strong>Mac mini M2 · 24 GB</strong></td><td class="ok">đã duyệt</td></tr>
+    <tr><td>Hiển thị 2D</td><td>React Native + JavaScript thuần</td><td class="pending">đang đánh giá</td></tr>
+    <tr><td>Hiển thị 3D</td><td><strong>WebGL2</strong> — không thư viện</td><td class="pending">đang đánh giá</td></tr>
+    <tr><td>Backend &amp; lưu trữ</td><td>hợp đồng API + CLI <strong>Python</strong> · <strong>JSON manifest</strong></td><td class="pending">chưa chốt framework</td></tr>
+    <tr><td>Hạ tầng</td><td><strong>Mac mini M2 24 GB</strong> · <strong>ZeroTier</strong> qua Wi-Fi</td><td class="ok">đã duyệt</td></tr>
     <tr><td>Git / CI</td><td><strong>GitHub</strong> · <strong>GitHub Actions</strong></td><td class="ok">đang dùng</td></tr>
   </table>
   <div class="arch">Samsung Galaxy A17 5G  ──Wi-Fi──▶  ZeroTier (mạng riêng có xác thực)  ──▶  Mac mini M2 · 24 GB

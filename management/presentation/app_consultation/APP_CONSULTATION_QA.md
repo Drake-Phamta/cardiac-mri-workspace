@@ -71,7 +71,8 @@ lại mã băm của gói, và kiểm từng file trước khi dùng. Dữ liệ
 
 ### 10. Làm sao chống rò rỉ dữ liệu giữa train và test? **[K]**
 
-Ba lớp. Một, **54 ca của tập test chính thức được khoá lại**, không dùng để chọn mô hình. Hai, nhóm em
+Ba lớp, **nguyên tắc đã quyết, bản chia cuối cùng đang chờ nghiệm thu**. Một, **tập test chính thức được
+khoá lại**, không dùng để chọn mô hình. Hai, nhóm em
 phát hiện **hai ca thực chất là cùng một lần chụp xuất ra hai lần** — nhãn trùng nhau từng byte — nên gộp
 làm một nhóm và ghim cả hai vào phía huấn luyện. Ba, gói dữ liệu **không có bảng ánh xạ ca sang bệnh
 nhân**, nên nhóm em không thể khẳng định tách theo bệnh nhân; thay vào đó chạy sàng lọc tương đồng ảnh và

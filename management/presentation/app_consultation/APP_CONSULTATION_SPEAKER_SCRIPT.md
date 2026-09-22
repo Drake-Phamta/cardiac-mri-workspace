@@ -74,9 +74,10 @@ slide 1 và 6**.
 > **hai mô hình dùng đúng cùng một tập**. Như vậy khác biệt đo được là do **lượng nhãn**, không phải do
 > chia dữ liệu may rủi.
 >
-> Dữ liệu là bộ **LASC 2018** từ Cardiac Atlas Project — **154 ca**, nhóm em đã tải và kiểm từng file. 100
-> ca dùng để phát triển, chia 80 huấn luyện / 20 kiểm định; **54 ca còn lại khoá lại**, không đụng tới cho
-> tới cuối.
+> Dữ liệu là bộ **LASC 2018** từ Cardiac Atlas Project — **154 ca**, nhóm em đã tải và kiểm từng file.
+> Giao thức chia dữ liệu **đang được hoàn tất**: nguyên tắc đã quyết là giữ một phần dữ liệu **khoá lại**
+> không đụng tới cho tới cuối, và loại bỏ những ca trùng lặp để không rò rỉ giữa hai phía — bản chia cuối
+> cùng đang chờ nghiệm thu.
 >
 > Một điểm em xin nói thẳng: **nhóm em không đặt mục tiêu DINOv2 phải thắng.** Trong đặc tả của nhóm có một
 > yêu cầu bắt buộc ghi rằng kết quả âm — tức DINOv2 không tốt hơn — **vẫn là kết quả hợp lệ**, miễn là giao
@@ -89,40 +90,32 @@ slide 1 và 6**.
 
 ---
 
-## 🎤 Nguyễn Gia Đức Trung — slide 4, phần chính *(~1,5 phút)*
+## 🎤 Nguyễn Gia Đức Trung — slide 4, phần chính *(~90 giây)*
+
+> **Đọc tên công nghệ theo nhóm, đừng đọc từng thư viện.** Chi tiết — NumPy, Hugging Face `transformers`,
+> mesh OBJ, `pynrrd`, chưa dùng cơ sở dữ liệu — để dành trả lời khi thầy hỏi, có sẵn trong `QA` mục 11b–11d.
 
 > Em chào thầy. Em phụ trách backend, lưu trữ và phần review.
 >
-> Em xin đi theo bảng, từ trên xuống.
+> Em xin điểm nhanh theo nhóm.
 >
-> - **Ứng dụng di động**: nhắm **Android**. Nhóm em đang dựng thử bằng **React Native và Expo**, đã chạy
->   được trên máy thật.
-> - **Phía học máy**: **Python** và **PyTorch**, cộng **NumPy** cho phần xử lý mảng.
-> - **Mô hình phân vùng**: một **UNet** làm baseline, và một mô hình dựa trên **DINOv2** — nhóm em lấy
->   backbone DINOv2 từ thư viện **`transformers` của Hugging Face**.
-> - **Ảnh y tế**: định dạng **NRRD**, đọc bằng thư viện **`pynrrd`**.
-> - **Hiển thị 2D**: React Native cộng **JavaScript thuần** — phần zoom, kéo và cọ vẽ nhóm em **tự viết**,
->   vì cần kiểm soát chính xác việc chạm nào rơi vào pixel nào.
-> - **Hiển thị 3D**: **WebGL2 thuần, không dùng thư viện 3D nào** — không Three.js. Mesh xuất ra định dạng
->   **OBJ**.
-> - **Lưu trữ**: hiện tại là **các tệp JSON manifest có đánh phiên bản**. Nhóm em **chưa dùng cơ sở dữ
->   liệu** — khi nào lượng dữ liệu đòi hỏi thì mới thêm.
-> - **Mạng và máy chủ**: **ZeroTier** qua Wi-Fi tới một **Mac mini M2 24 GB**.
-> - **Quản lý mã và kiểm thử tự động**: **GitHub** và **GitHub Actions**.
+> **Ứng dụng** nhắm **Android**, đang dựng thử bằng **React Native và Expo**, đã chạy trên máy thật.
 >
-> Có **ba chỗ nhóm em chưa chốt**, và em xin nói thẳng chứ không để thầy tự đoán:
-> - **Framework cho app di động** — React Native/Expo mới là ứng viên đang đo, chưa phải lựa chọn cuối.
-> - **Framework backend** — hiện mới có hợp đồng API và công cụ dòng lệnh bằng Python; chưa chọn
->   framework web.
-> - **Thư viện 3D** — hiện là WebGL2 viết tay; chưa quyết có dùng thư viện hay không.
+> **Phía học máy** là **Python** và **PyTorch** — một **UNet** làm baseline và một mô hình dựa trên
+> **DINOv2**. Ảnh y tế ở định dạng **NRRD**.
 >
-> Về triển khai *(chỉ sơ đồ)*: app chạy trên một máy **Samsung Galaxy A17 5G** thật, nối qua **Wi-Fi** vào
-> một **mạng riêng có xác thực dùng ZeroTier**, đi tới một **Mac mini M2 24 GB** đặt ở xa làm backend. Máy
-> chủ đó phục vụ ảnh, mask và số liệu; **không huấn luyện trên đó**.
+> **Hiển thị**: phần 2D viết bằng **JavaScript thuần** trong React Native — zoom, kéo và cọ vẽ nhóm em tự
+> viết, vì cần kiểm soát chính xác chạm nào rơi vào pixel nào. Phần 3D dùng **WebGL2, không thư viện**.
 >
-> Còn phần review: khi người dùng sửa bằng cọ, **dự đoán gốc của mô hình không bị ghi đè**. Mỗi lần lưu tạo
-> ra **một phiên bản mới**, có nguồn gốc rõ ràng — để sau này vẫn so được mô hình nói gì và con người sửa
-> gì.
+> **Hạ tầng**: một **Mac mini M2 24 GB** làm máy chủ, điện thoại nối vào qua **Wi-Fi** và mạng riêng
+> **ZeroTier**. Mã nguồn và kiểm thử tự động trên **GitHub** và **GitHub Actions**.
+>
+> Có **ba chỗ nhóm em chưa chốt**, em xin nói thẳng chứ không để thầy tự đoán: **framework di động**,
+> **framework backend** — hiện mới có hợp đồng API và công cụ dòng lệnh Python — và **thư viện 3D**.
+> Cả ba sẽ chốt khi có đủ số đo, không chốt theo cảm tính.
+>
+> Cuối cùng, phần review em phụ trách: khi người dùng sửa bằng cọ, **dự đoán gốc của mô hình không bị ghi
+> đè** — mỗi lần lưu tạo một phiên bản mới, truy vết được.
 
 ## 🎤 Vũ Hùng Anh — xen vào slide 4, phần 3D *(~20 giây)*
 
@@ -143,8 +136,9 @@ slide 1 và 6**.
 > **3D Slicer** là nền tảng mã nguồn mở để xem và phân tích ảnh y sinh, chạy trên desktop. Nhóm em học ở
 > đây **quy trình phân vùng** và **cách liên kết 2D với 3D** — người dùng làm việc trên lát cắt nhưng vẫn
 > thấy được hình khối. Một điểm đáng chú ý: chính tài liệu của 3D Slicer ghi rằng phần mềm **không được
-> duyệt cho sử dụng lâm sàng và dành cho mục đích nghiên cứu**. Sản phẩm của nhóm em cũng nằm đúng hạng
-> mục đó.
+> duyệt cho sử dụng lâm sàng và dành cho mục đích nghiên cứu**. Sản phẩm của nhóm em cũng được giới hạn ở
+> nghiên cứu/học tập, nhưng nhóm không coi hai sản phẩm là tương đương về phạm vi, mức độ trưởng thành hay
+> validation.
 >
 > **cvi42** thì khác hẳn: đó là phần mềm thương mại để đọc và báo cáo ảnh tim mạch, và nó là **thiết bị y
 > tế được cơ quan quản lý cấp phép**, dùng theo kê đơn. Nhóm em **không** so mình với nó về năng lực y

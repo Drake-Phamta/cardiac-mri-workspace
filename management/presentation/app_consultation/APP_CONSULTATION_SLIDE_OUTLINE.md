@@ -83,7 +83,7 @@ Experiment → Cohort → Case → Slice → Error region ⇄ 3D → Review
 - Ma trận **6 lần huấn luyện**: `UNet` và `DINOv2` × **25% / 50% / 100%**
 - Cùng seed, cùng subset, subset nhỏ **lồng trong** subset lớn → khác biệt đến từ **lượng nhãn**, không
   phải từ việc chia dữ liệu
-- Dữ liệu: **LASC 2018** (Cardiac Atlas Project) — **154 case**, tập test 54 case **khoá lại**
+- Dữ liệu: **LASC 2018** (Cardiac Atlas Project) — **154 ca**; giao thức chia dữ liệu chống rò rỉ **đang hoàn tất**
 - **Kết quả âm là kết quả hợp lệ.** Nhóm không đặt mục tiêu DINOv2 phải thắng
 
 **Bảng nhỏ (nếu còn chỗ):**
@@ -110,21 +110,21 @@ thể nhóm tái lập nó, sơ đồ kiến trúc UNet/ViT, chữ "state-of-the
 > không phải tình trạng nội bộ của nhóm. Cột trạng thái chỉ có ba giá trị và **để trả lời khi bị hỏi**,
 > không phải nội dung chính.
 
-**Bảng — cột giữa là cột quan trọng nhất:**
+**Bảng — 8 hàng, đọc được trên Google Meet. Cột giữa là cột quan trọng nhất:**
 
 | Mảng | Công nghệ | Trạng thái |
 |---|---|---|
 | Ứng dụng di động | **Android** · React Native + Expo | đang đánh giá |
-| ML / huấn luyện | **Python** · **PyTorch** · NumPy | đang dùng |
-| Mô hình phân vùng | **UNet** · **DINOv2** (Hugging Face `transformers`) | hướng nghiên cứu chính |
+| ML & mô hình | **Python** · **PyTorch** · **UNet** · **DINOv2** | đang dùng |
 | Ảnh y tế | **NRRD** · `pynrrd` | đang dùng |
-| Hiển thị 2D | React Native + JavaScript thuần — zoom, pan, cọ tự viết | đang đánh giá |
-| Hiển thị 3D | **WebGL2** thuần, không thư viện · mesh **OBJ** | đang đánh giá |
-| Backend | **chưa chốt framework** — hiện là hợp đồng API + CLI Python | chưa chốt |
-| Lưu trữ | **JSON manifest** có phiên bản — chưa dùng cơ sở dữ liệu | đang dùng |
-| Mạng riêng | **ZeroTier** qua Wi-Fi | đã duyệt |
-| Máy chủ | **Mac mini M2 · 24 GB** | đã duyệt |
+| Hiển thị 2D | React Native + JavaScript thuần | đang đánh giá |
+| Hiển thị 3D | **WebGL2** — không thư viện | đang đánh giá |
+| Backend & lưu trữ | hợp đồng API + CLI **Python** · **JSON manifest** | chưa chốt framework |
+| Hạ tầng | **Mac mini M2 24 GB** · **ZeroTier** qua Wi-Fi | đã duyệt |
 | Git / CI | **GitHub** · **GitHub Actions** | đang dùng |
+
+**Chi tiết KHÔNG lên slide, để dành cho Q&A:** NumPy · Hugging Face `transformers` cho backbone DINOv2 ·
+mesh định dạng OBJ · zoom/pan/cọ 2D tự viết · chưa dùng cơ sở dữ liệu. Đều có trong `QA` mục 11–11d.
 
 **Sơ đồ triển khai (Hình C), vẽ ngang dưới bảng:**
 ```
@@ -142,7 +142,7 @@ framework di động · framework backend · thư viện 3D.
 - ❌ bất kỳ câu nào kiểu "nhóm đã chọn framework X"
 - ❌ sơ đồ kiến trúc nhiều tầng
 
-**Thời lượng:** 2–2,5 phút. Trung đọc **tên công nghệ theo hàng**; **Hùng Anh xen 20 giây** cho dòng 3D.
+**Thời lượng:** ~2 phút — Trung **90 giây** đọc tên công nghệ theo nhóm, **Hùng Anh xen 20 giây** cho dòng 3D.
 
 ---
 
