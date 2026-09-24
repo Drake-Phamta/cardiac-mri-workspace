@@ -152,6 +152,11 @@ The generated **public** manifest replaces `package_root` and
 `license_terms_path` with external/private references. It contains no
 per-data-file checksum or pairwise linkage score. See `POLICY_EVIDENCE.md` for
 the leader's 2026-09-16 narrow-publication decision.
+The public `summary` separately counts anomalies, exact-duplicate evidence
+groups and package-layout findings. These are inventory counts, not additional
+`FAIL` verdicts or a gate transition. The `regenerate` command captures the
+paths and flags of the real run; another machine must substitute its own private
+archive location without committing restricted bytes.
 
 Re-render a corrected audit from an already scanned manifest without reading
 the 2.2 GB ZIP again:
