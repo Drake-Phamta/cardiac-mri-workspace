@@ -1,0 +1,389 @@
+{
+  "label": "C1_PREP/NON-AUTHORITATIVE_DRY_RUN",
+  "is_spike_c1_evidence": false,
+  "generated_by": "spikes/spike_c_ml/c1/preflight.py",
+  "captured_at": "2026-09-24T14:12:34.576816+07:00",
+  "operator": "Pham Tuan Anh (Day15 recovery support, NOT the spike owner)",
+  "gate_state_declared": {
+    "GATE-DATA-01": "CLOSED",
+    "GATE-SPLIT-01": "OPEN"
+  },
+  "split_manifest": {
+    "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\d--cardiac-mri-workspace\\faa5a3e8-92ac-4536-aa1f-b1f535bd5777\\scratchpad\\split_candidate.json",
+    "sha256": "ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0",
+    "split_id": "path_a_seed2024_dr002b_v1",
+    "generated_at": "2026-09-21T08:35:11+07:00"
+  },
+  "dataset_manifest": {
+    "path": "D:\\cardiac-mri-workspace\\.claude\\worktrees\\agent-a96ecfbbea28d01fd\\data\\manifests\\dataset_manifest.json",
+    "sha256": "f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9"
+  },
+  "data_root": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\d--cardiac-mri-workspace\\faa5a3e8-92ac-4536-aa1f-b1f535bd5777\\scratchpad\\c1_train_only_root",
+  "repo_commit": "454c526a19d44e417c7e0f3a7354d163eeba9798",
+  "environment": {
+    "python": "3.12.6",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "hostname": "302WNS3",
+    "captured_at": "2026-09-24T14:12:34.734431+07:00",
+    "torch": "2.5.1+cu121",
+    "numpy": "2.2.6",
+    "transformers": "4.51.3",
+    "huggingface_hub": "0.36.2",
+    "nrrd": "1.1.3",
+    "cuda_available": true,
+    "cuda_version": "12.1",
+    "cudnn_version": 90100,
+    "gpu_name": "NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+    "gpu_total_memory_bytes": 4294443008,
+    "bf16_supported": true,
+    "mps_available": false
+  },
+  "selected_case_ids": [
+    "CASE_0055",
+    "CASE_0056",
+    "CASE_0057",
+    "CASE_0058",
+    "CASE_0059",
+    "CASE_0060",
+    "CASE_0062",
+    "CASE_0064",
+    "CASE_0067",
+    "CASE_0068",
+    "CASE_0069",
+    "CASE_0070",
+    "CASE_0071",
+    "CASE_0075",
+    "CASE_0077",
+    "CASE_0078",
+    "CASE_0079",
+    "CASE_0080",
+    "CASE_0081",
+    "CASE_0082",
+    "CASE_0083",
+    "CASE_0084",
+    "CASE_0085",
+    "CASE_0086",
+    "CASE_0087",
+    "CASE_0088",
+    "CASE_0089",
+    "CASE_0090",
+    "CASE_0092",
+    "CASE_0093",
+    "CASE_0095",
+    "CASE_0096",
+    "CASE_0097",
+    "CASE_0098",
+    "CASE_0099",
+    "CASE_0100",
+    "CASE_0101",
+    "CASE_0102",
+    "CASE_0103",
+    "CASE_0105",
+    "CASE_0107",
+    "CASE_0110",
+    "CASE_0111",
+    "CASE_0112",
+    "CASE_0114",
+    "CASE_0115",
+    "CASE_0116",
+    "CASE_0118",
+    "CASE_0120",
+    "CASE_0121",
+    "CASE_0123",
+    "CASE_0124",
+    "CASE_0125",
+    "CASE_0127",
+    "CASE_0128",
+    "CASE_0129",
+    "CASE_0130",
+    "CASE_0131",
+    "CASE_0132",
+    "CASE_0134",
+    "CASE_0136",
+    "CASE_0137",
+    "CASE_0138",
+    "CASE_0139",
+    "CASE_0140",
+    "CASE_0141",
+    "CASE_0142",
+    "CASE_0143",
+    "CASE_0144",
+    "CASE_0145",
+    "CASE_0146",
+    "CASE_0148",
+    "CASE_0149",
+    "CASE_0150",
+    "CASE_0151",
+    "CASE_0152",
+    "CASE_0153",
+    "CASE_0154"
+  ],
+  "selected_case_ids_pointer": "$.training_subsets.100_percent.effective_case_ids",
+  "holdout_case_count": 0,
+  "holdout_paths_resolved": 0,
+  "validation_paths_resolved": 0,
+  "checks": [
+    {
+      "check_id": "GATE-STATE",
+      "description": "GATE-DATA-01 and GATE-SPLIT-01 both declared CLOSED by the operator",
+      "passed": false,
+      "detail": {
+        "gate_data_01": "CLOSED",
+        "gate_split_01": "OPEN"
+      }
+    },
+    {
+      "check_id": "DATASET-MANIFEST-HASH",
+      "description": "split manifest's declared source dataset-manifest sha256 matches the file supplied",
+      "passed": true,
+      "detail": {
+        "declared": "f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9",
+        "actual": "f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9"
+      }
+    },
+    {
+      "check_id": "SUBSET/NEST-EFF-25-IN-50",
+      "description": "effective 25% subset is a SUBSET of the effective 50% subset",
+      "passed": true,
+      "detail": {
+        "missing_from_50": []
+      }
+    },
+    {
+      "check_id": "SUBSET/NEST-EFF-50-IN-100",
+      "description": "effective 50% subset is a SUBSET of the effective 100% subset",
+      "passed": true,
+      "detail": {
+        "missing_from_100": []
+      }
+    },
+    {
+      "check_id": "SUBSET/NEST-EFF-25-IN-100",
+      "description": "effective 25% subset is a SUBSET of the effective 100% subset (transitive, checked directly)",
+      "passed": true,
+      "detail": {
+        "missing_from_100": []
+      }
+    },
+    {
+      "check_id": "SUBSET/NEST-NOM-25-IN-50",
+      "description": "nominal 25% subset is a SUBSET of the nominal 50% subset",
+      "passed": true,
+      "detail": {
+        "missing_from_50": []
+      }
+    },
+    {
+      "check_id": "SUBSET/NEST-NOM-50-IN-100",
+      "description": "nominal 50% subset is a SUBSET of the nominal 100% subset",
+      "passed": true,
+      "detail": {
+        "missing_from_100": []
+      }
+    },
+    {
+      "check_id": "SUBSET/TRAIN-ONLY-100",
+      "description": "every effective-100% case is a member of the train partition",
+      "passed": true,
+      "detail": {
+        "outside_train": []
+      }
+    },
+    {
+      "check_id": "SUBSET/NO-VALIDATION-LEAK",
+      "description": "no effective training subset intersects the validation partition",
+      "passed": true,
+      "detail": {
+        "in_25": [],
+        "in_50": [],
+        "in_100": []
+      }
+    },
+    {
+      "check_id": "SUBSET/NO-HOLDOUT-LEAK",
+      "description": "no effective training subset intersects the locked final holdout",
+      "passed": true,
+      "detail": {
+        "in_25": [],
+        "in_50": [],
+        "in_100": []
+      }
+    },
+    {
+      "check_id": "SUBSET/PARTITIONS-DISJOINT",
+      "description": "train / validation / final_holdout are pairwise disjoint",
+      "passed": true,
+      "detail": {
+        "train_n_validation": [],
+        "train_n_holdout": [],
+        "validation_n_holdout": []
+      }
+    },
+    {
+      "check_id": "SUBSET/EXCL-ABSENT-EVERYWHERE",
+      "description": "every DR-002b training exclusion is absent from EVERY effective subset",
+      "passed": true,
+      "detail": {
+        "excluded": [
+          "CASE_0117",
+          "CASE_0133"
+        ],
+        "leaked_into_25": [],
+        "leaked_into_50": [],
+        "leaked_into_100": []
+      }
+    },
+    {
+      "check_id": "SUBSET/EXCL-DERIVES-EFFECTIVE-TRAIN",
+      "description": "effective train == train partition minus the exclusion set (recomputed, not trusted)",
+      "passed": true,
+      "detail": {
+        "unexpected_present": [],
+        "unexpected_absent": []
+      }
+    },
+    {
+      "check_id": "SUBSET/EFF-100-EQUALS-EFF-TRAIN",
+      "description": "the effective 100% subset is exactly the effective train partition",
+      "passed": true,
+      "detail": {
+        "only_in_subset": [],
+        "only_in_train": []
+      }
+    },
+    {
+      "check_id": "SUBSET/GROUPS-WHOLE-IN-PARTITION",
+      "description": "no correlation group is split across train / validation / holdout",
+      "passed": true,
+      "detail": {
+        "violations": []
+      }
+    },
+    {
+      "check_id": "SUBSET/GROUPS-WHOLE-IN-SUBSET",
+      "description": "no correlation group is partially present in a nested subset (exclusions aside)",
+      "passed": true,
+      "detail": {
+        "violations": []
+      }
+    },
+    {
+      "check_id": "SUBSET/GROUPS-TRANSITIVE",
+      "description": "declared same-partition groups equal the recomputed transitive components",
+      "passed": true,
+      "detail": {
+        "declared_component_count": 4,
+        "recomputed_component_count": 4,
+        "declared_only": [],
+        "recomputed_only": []
+      }
+    },
+    {
+      "check_id": "SUBSET/CENSUS-EXACTLY-ONCE",
+      "description": "the three partitions together cover every declared case exactly once",
+      "passed": true,
+      "detail": {
+        "union_size": 154,
+        "sum_of_partitions": 154,
+        "declared_case_count": 154
+      }
+    },
+    {
+      "check_id": "SUBSET/COUNTS-MATCH-LISTS",
+      "description": "stated effective_case_count matches the length of the corresponding id list",
+      "passed": true,
+      "detail": {
+        "stated": {
+          "25_percent": 20,
+          "50_percent": 38,
+          "100_percent": 78
+        },
+        "actual": {
+          "25_percent": 20,
+          "50_percent": 38,
+          "100_percent": 78
+        }
+      }
+    },
+    {
+      "check_id": "SUBSET/THRESHOLD-DECLARED",
+      "description": "DR-002b threshold, operator and declaration date are present as fields",
+      "passed": true,
+      "detail": {
+        "threshold": 0.75,
+        "operator": ">=",
+        "declared_at": "2026-09-17"
+      }
+    },
+    {
+      "check_id": "EXCLUSIONS-NAMED",
+      "description": "CASE_0133 (direct link) and CASE_0117 (group-propagated) are in the exclusion set",
+      "passed": true,
+      "detail": {
+        "exclusion_set": [
+          "CASE_0117",
+          "CASE_0133"
+        ]
+      }
+    },
+    {
+      "check_id": "EXCLUSIONS-ABSENT",
+      "description": "no excluded case appears in any effective training subset",
+      "passed": true,
+      "detail": {
+        "25_percent": [],
+        "50_percent": [],
+        "100_percent": []
+      }
+    },
+    {
+      "check_id": "ROOT-EXISTS",
+      "description": "the declared training-only data root exists",
+      "passed": true,
+      "detail": {
+        "root": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\d--cardiac-mri-workspace\\faa5a3e8-92ac-4536-aa1f-b1f535bd5777\\scratchpad\\c1_train_only_root"
+      }
+    },
+    {
+      "check_id": "VALIDATION-UNREACHABLE",
+      "description": "no validation case directory resolves beneath the data root",
+      "passed": true,
+      "detail": {
+        "validation_paths_resolved": 0,
+        "hits": []
+      }
+    },
+    {
+      "check_id": "HOLDOUT-UNREACHABLE",
+      "description": "no holdout case directory resolves beneath the data root",
+      "passed": true,
+      "detail": {
+        "holdout_case_count": 0,
+        "holdout_paths_resolved": 0,
+        "hits": []
+      }
+    },
+    {
+      "check_id": "TRAINING-REACHABLE",
+      "description": "every effective training case resolves beneath the data root",
+      "passed": true,
+      "detail": {
+        "expected": 78,
+        "resolved": 78,
+        "unresolved": []
+      }
+    },
+    {
+      "check_id": "ROOT-IS-ALLOWLIST-ONLY",
+      "description": "the data root contains the effective training cases and nothing else",
+      "passed": true,
+      "detail": {
+        "unexpected_entries": [],
+        "entry_count": 78
+      }
+    }
+  ],
+  "all_checks_passed": false,
+  "runnable": false
+}
