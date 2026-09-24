@@ -30,6 +30,7 @@ spikes/spike_b_3d/
 │   └── geometry_fixture_v0.json  33 điểm test có nhóm + 13 tia picking
 ├── mesh/
 │   ├── build_mesh.py             voxel-face surface + 4 mức decimation
+│   ├── build_marching_cubes_preview.py  preview mượt từ cùng mask (optional)
 │   └── out/                      .obj mỗi mức + mesh_levels.json + picking_error.json
 ├── app/                          B1 WebGL2 viewer (OBJ + shading + orbit/zoom)
 │   ├── index.html
@@ -56,6 +57,13 @@ python spikes/spike_b_3d/harness/picking_error.py        # sai số picking × 6
 ```
 
 Chỉ cần `numpy`. Không thêm dependency nào — chọn thư viện mesh cho Spike B là việc của anh.
+
+### Preview Marching Cubes để so hình dáng
+
+`build_marching_cubes_preview.py` là một thử nghiệm visual tách biệt: nó dùng
+`scikit-image`, đọc **cùng mask tổng hợp** và xuất OBJ mượt hơn ở ngưỡng 0,5.
+Nó không thay mesh voxel-face trong picking harness vì bề mặt được nội suy giữa
+voxel. Cách chạy và URL xem nằm ở `app/README.md`.
 
 ---
 

@@ -9,6 +9,7 @@
 
 import { parseObj } from './obj.js';
 import { invertMat4, multiplyMat4, rayMeshFirstHit, screenRayFromNdc, worldToSlice } from './picking.js';
+import { selectMeshSource } from './mesh_source.js';
 
 const canvas = document.querySelector('#gl');
 const status = document.querySelector('#status');
@@ -163,6 +164,7 @@ let geometry = null;
 let tapCandidate = false;
 let interactionMoved = false;
 let sliceWorldZ = null;
+const meshSource = selectMeshSource(window.location.search);
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -308,8 +310,8 @@ window.addEventListener('message', (event) => {
 });
 
 Promise.all([
-  fetch('../mesh/out/level_0_cell1.obj').then((response) => {
-    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
+  fetch(`../mesh/out/${meshSource.file}`).then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status} — generate ${meshSource.file} first`);
     return response.text();
   }),
   fetch('../mesh/out/mesh_levels.json').then((response) => {
@@ -318,7 +320,7 @@ Promise.all([
   }),
 ])
   .then(([text, summary]) => {
-    const mesh = parseObj(text);
+    const mesh = parseObj(text, { smoothNormals: meshSource.smoothNormals });
     geometry = {
       shape_xyz: summary.shape_xyz,
       spacing_xyz_mm: summary.spacing_xyz_mm,
@@ -343,7 +345,7 @@ Promise.all([
     }
     scale = maxRadius ? 1 / maxRadius : 1;
     trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles`;
-    status.textContent = 'level_0_cell1.obj · loaded';
+    status.textContent = `${meshSource.label} · loaded`;
     draw();
   })
   .catch((error) => {
