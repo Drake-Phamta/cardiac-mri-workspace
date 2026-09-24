@@ -2,8 +2,13 @@
 
 > **`RESULT.md` ≠ `ACCEPTED`.** File này là bản ghi công việc của chủ sở hữu. Nghiệm thu cần đủ bốn bước:
 > owner → `EVIDENCE_READY` → reviewer `APPROVE` → CHAT E QA `PASS` → CHAT A chuyển trạng thái → `ACCEPTED`.
-> Hiện tại spike đang ở **`ACTIVE`**. Review đã được yêu cầu cho từng chặng — #27 (S4, `A2`) và #31 (S5, `A3`–`A7`) —
-> chưa chặng nào được `APPROVE`.
+> **Cập nhật 2026-09-20:** spike đề nghị chuyển sang **`EVIDENCE_READY`**. Phiên `S8` ngày 19/09 đã đo nốt
+> `A8`, `A10`, `A11`, nên **11/12 tiêu chí có dữ liệu** và không còn ô `NOT MEASURED` nào. `A1` và `A12` còn
+> **một phần**, lý do kỹ thuật ghi ở §Ghi chú A1 và §A12 — người nghiệm thu phải quyết nhận kèm hai hạn chế
+> đó hay không, chứ chúng không được lặng lẽ tính là đạt.
+>
+> Chặng đã merge: #31 (S5, `A3`–`A7`) tại `11000f1`. Chặng chờ `APPROVE`: **#41** (S6, `A9` ở 576×576×88) và
+> **#49** (S8, `A8`/`A10`/`A11`).
 
 | Mục | Giá trị |
 |---|---|
@@ -31,14 +36,16 @@
 | **A5** | **Brush mapping đúng pixel sau zoom/pan** | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **60/60** ca ở r = 0 và **60/60** ở r = 2; (dx, dy) = (0, 0) ở cả 50 ca trong ảnh, 10 ca ngoài ảnh không tô gì. **Dung sai đề xuất: 0 pixel nguồn** |
 | **A6** | Undo tái lập trạng thái trước | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi undo khớp hash trước từng nét |
 | **A7** | Redo tái lập trạng thái đã undo | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi redo khớp hash sau từng nét |
-| A8 | Save/reload tái lập đúng nét sửa | `NOT MEASURED` | chặng S6 — app chưa lưu mask |
+| **A8** | **Save/reload tái lập đúng nét sửa** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | **2 vòng NGUỘI** sau `am force-stop`, trên **hai tệp khác nhau**: mỗi vòng **16/16** checksum slice khớp và hash khối trùng đúng bản đã lưu. Thêm 5 vòng nóng, 5/5 đúng từng byte. Xem §Kết quả A8 |
 | **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO HAI LẦN — đạt ngưỡng ở cả hai** | `64×64`: **65,31 ms** · **`576×576` (thật): 50,23 ms**. Kèm phát hiện bộ nhớ **376 MB ngoại suy** cho 88 slice. Xem §Kết quả A9 |
-| A10 | Phản hồi brush ≤ 100 ms, 0 nét mất | `NOT MEASURED` | **có dữ liệu thô, chưa kết luận:** 25 nét thật, 0 mẫu không tính được trong 20 nét commit; proxy JS tới frame kế tiếp lớn nhất 22,66 ms — không gồm độ trễ chuyển chạm từ native nên chưa phải con số `A10` |
-| A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | **có dữ liệu thô:** 5 nét bị huỷ đúng lúc ngón thứ hai chạm; chưa có lượt kiểm theo kịch bản cho "0 sửa nhầm" |
+| **A10** | **Phản hồi brush ≤ 100 ms, 0 nét mất** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | worst per-stroke **30,48 ms** trên **123 nét có commit** · p50 16,48 · p95 24,66 · **0 mẫu commit bị mất**. **Đọc trên `max`, không phải p95** — xem §Kết quả A10/A11 |
+| **A11** | **Tách gesture sửa vs điều hướng** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | **12** lần ngón thứ hai chạm giữa nét, **tất cả cuộn lại** · **0** nét commit trong cử chỉ nhiều ngón · **0** nét commit mà không nhả tay sạch · 20/20 bản ghi cử chỉ mang kết cục nét |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
 
-**9 tiêu chí có dữ liệu · 3 tiêu chí `NOT MEASURED`** (`A8`, `A10`, `A11`). Không ô nào bỏ trống và không ô nào được
-đoán. *(`A2` thêm 14/09 — PR #27; `A3`–`A7` thêm 15/09 — PR #31. Cả hai PR chưa được `APPROVE`.)*
+**11 tiêu chí có dữ liệu · 0 tiêu chí `NOT MEASURED`** — `A1` và `A12` còn **một phần**, lý do ghi ở §Ghi chú A1
+và §A12. Không ô nào bỏ trống và không ô nào được đoán.
+*(`A2` thêm 14/09 — PR #27 · `A3`–`A7` thêm 15/09 — PR #31, **đã merge `11000f1`** · `A8`/`A10`/`A11` thêm 19/09 —
+PR #49, chờ `APPROVE`.)*
 
 ---
 
@@ -226,6 +233,81 @@ nên chỉ là dữ liệu thô; `A8` (lưu/tải lại) chưa dựng. Đã đo,
 
 ---
 
+## Kết quả A8 — lưu và nạp lại *(chặng S8, 2026-09-19 11:50–12:19)*
+
+Bản ghi phiên đầy đủ: [`EVIDENCE_RAW/SESSION_S8_RECORD.md`](../../../spikes/spike_a_2d/EVIDENCE_RAW/SESSION_S8_RECORD.md) ·
+thô: `a8_save_reload_20260919T121906+0700.json`.
+
+**`A8` là "đúng mask đó quay lại", không phải "đã ghi được một tệp".** Một vòng làm mất đúng một voxel đã
+sửa trông y hệt một lần thành công, nên mọi slice được băm lại đối chiếu checksum mà bản lưu đã ghi.
+
+| Vòng | Loại | Slice khớp checksum | Hash khối | Thời gian |
+|---|---|---|---|---|
+| 1–5 | **nóng** (cùng tiến trình) | 16/16 mỗi vòng | khớp | lưu 43,3–76,9 ms · nạp 19,0–20,7 ms |
+| **6** | **NGUỘI** — sau `am force-stop`, mở lại | **16/16** | **khớp** `8b43fc60…` | nạp **25,1 ms** |
+| **7** | **NGUỘI** — tệp thứ hai, nội dung khác | **16/16** | **khớp** `1283fcbc…` | nạp **22,4 ms** |
+
+**Chỉ hai vòng nguội mới kết luận được `A8`.** Năm vòng nóng chạy trong cùng một tiến trình: chúng chứng
+minh codec và tệp, **không** chứng minh bản sửa sống sót khi ứng dụng bị giết. `extract_a8.py` từ chối trả
+`OBSERVED` nếu không có vòng nguội, nếu vòng nguội không khớp lần `lưu` nào trong cùng log, hoặc nếu bản
+lưu tương ứng là mask **chưa sửa** — round-trip mask nguồn sẽ pass mà không chạm tới một chỉnh sửa nào.
+Tám kịch bản từ chối đó đã chạy thử bằng log tổng hợp **trước** phiên đo.
+
+Tệp 5 147 / 5 435 byte = **7,85% / 8,29%** của 65 536 byte thô, nhờ mã hoá run-length.
+
+**Thời gian được báo cáo, không được phán xét:** không yêu cầu đóng băng nào ràng buộc `save_ms` hay
+`reload_ms`. Đặt ra một ngưỡng ở đây là bịa ra một tiêu chí.
+
+---
+
+## Kết quả A10 / A11 — phản hồi cọ và tách cử chỉ *(cùng phiên S8)*
+
+Thô: `a10_a11_brush_feedback_20260919T121906+0700.json` · **123 nét có commit** trên **3 slice**, bán kính
+**r1 / r2 / r3 / r5**, cả `thêm` lẫn `xoá`, **12** lần ngón thứ hai chạm giữa nét.
+
+| | Ràng buộc `TASK.md` | Đo được |
+|---|---|---|
+| `A10` | *"visible feedback ≤ 100 ms; zero committed stroke samples lost"* | worst **30,48 ms** · p50 16,48 · p95 24,66 · **0 mẫu mất** |
+| `A11` | *"zero accidental edits"* | 12/12 lần bị ngón thứ hai chặn đều **cuộn lại**; **0** nét commit trong cử chỉ nhiều ngón; **0** nét commit mà không nhả tay sạch |
+
+### Hai cách đọc được nêu ra để phản biện, không ngầm định
+
+**1 · `A10` lấy verdict trên `max`, không phải `p95`.** `A9` nêu rõ phân vị; `A10` **không nêu**, và bảng
+"Measurements required" đòi *"p50 **and worst case**"*. Cách đọc thẳng là ràng buộc áp cho mọi mẫu. Với số
+hiện tại (30,48 so với 100) hai cách đọc cùng kết quả, nhưng ở một phiên tệ hơn thì khác — nên cách đọc
+được ghi ra, và nếu `p95` mới đúng thì đó là một **Decision Request**, không phải một lần sửa script.
+
+**2 · `feedback_ms` là proxy phía JS.** Đo từ `performance.now()` lúc vào handler `PanResponder` tới
+callback `requestAnimationFrame` đầu tiên sau khi overlay cập nhật. **Không gồm** khâu hệ thống chuyển sự
+kiện chạm vào JS, và `nativeEvent.timestamp` ở đồng hồ khác nên không được trộn vào. Độ trễ đầu-cuối thật
+**lớn hơn** con số này. `A10` đạt là **đạt trên cận dưới**, và đó là giới hạn của harness chứ không phải
+thứ để giấu.
+
+### Một quan sát ngược với giả định của chính chúng tôi
+
+**Bán kính lớn không phải chỗ chậm nhất:** `r5` worst **19,41 ms**, `r1` worst **30,48 ms**. Kịch bản phiên
+ban đầu ghi `r 0` là "trường hợp nặng nhất về số mẫu trên một nét" — sai cả lý do (số mẫu chạm không phụ
+thuộc bán kính; chi phí *mỗi* mẫu mới phụ thuộc) lẫn số (chi phí không do footprint quyết định). Đã sửa
+kịch bản và nêu câu hỏi cho reviewer.
+
+### Giới hạn, ghi rõ
+
+Fixture **64×64×16**, **không phải** 576×576×88. Tính *đúng từng byte* của `A8` **không** phụ thuộc kích
+thước; **dung lượng tệp và thời gian thì có** — 5 147 byte / 7,85% của 65 KB **không nói gì** về 29,2 MB
+thô. Mọi phát biểu về hai thứ đó ở độ sâu thật là `NOT MEASURED`. Một thiết bị, một phiên; hai vòng nguội
+không phải một con số độ tin cậy. Ngưỡng cỡ mẫu (20 nét, 5 lần ngón thứ hai) là thuộc tính của harness,
+**không phải** yêu cầu đóng băng.
+
+### Hai sai sót của Project Control trong phiên
+
+Ghi đầy đủ ở [`SESSION_S8_RECORD.md`](../../../spikes/spike_a_2d/EVIDENCE_RAW/SESSION_S8_RECORD.md) §"Hai sai
+sót": APK dựng **trước** một lần sửa mã nên 25 nét đầu của trưởng nhóm phải bỏ và tô lại trên một build
+duy nhất; và một tệp log bị xoá khi chưa được xác nhận, khiến sha256 đã ghi của nó **vĩnh viễn không kiểm
+lại được** (đánh dấu `UNVERIFIABLE`). Không mất bằng chứng — bản lọc đã commit giữ mọi dòng `SPIKE_A_` và
+cả hai script chạy lại trên chính nó cho verdict giống hệt.
+
+---
+
 ## Ghi chú A1
 
 `n / total` hiển thị đúng và 16 slice điều hướng được — phần đó đạt. Nhưng tiêu chí còn vế **"exact match
@@ -264,22 +346,39 @@ tới; Flutter còn chưa cài trên máy.
 | Điều kiện | Trạng thái |
 |---|---|
 | `A5` sai mapping sau transform → ứng viên **không dùng được** | **không kích hoạt** — 60/60 ở r = 0 và r = 2 trên máy (15/09) |
-| `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **`A9` đạt** ở kích thước fixture · `A10` chưa đo |
-| Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | chưa kết luận — dữ liệu thô: 0 mẫu không tính được trong 20 nét commit; bài đo `A10` theo kịch bản chưa chạy |
+| `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **không kích hoạt** — `A9` p95 50,23 ms / 200 · `A10` worst 30,48 ms / 100 (19/09) |
+| Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | **không kích hoạt** — **0 mẫu commit bị mất** trên 123 nét (19/09) |
 | Không ứng viên nào đạt → `NEGATIVE_RESULT`, leo thang | chưa tới bước đó |
 
 ---
 
 ## Việc tiếp theo
 
-1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · ~~**brush** → `A3` `A4` `A5` `A6` `A7`~~ ✅ 15/09 · tiếp: **lưu/tải lại** →
-   `A8` (chặng S6) và bài đo theo kịch bản cho `A10`/`A11`
+1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · ~~**brush** → `A3`–`A7`~~ ✅ 15/09 · ~~**lưu/tải lại** → `A8`, và bài đo
+   theo kịch bản cho `A10`/`A11`~~ ✅ **19/09, chặng S8**
 2. ~~**Chạy 60 ca `brush_cases.json`** → `A5`~~ ✅ 15/09 — sai số toàn (0, 0), **dung sai đề xuất 0 pixel nguồn**;
    đưa vào hợp đồng hình học khi Vũ Hùng Anh nâng phiên bản (`DR-013`)
-3. **Đo lại `A9` ở kích thước slice thật** khi Spike D `A6` có kết quả
-4. Dựng ứng viên thứ hai để `A12` so sánh được
-5. Nhả Galaxy A17 cho Nguyễn Gia Đức Trung — profile DR-006 và baseline `A9` đã xong, phần còn lại là
+3. ~~**Đo lại `A9` ở kích thước slice thật**~~ ✅ 12/09 — 576×576, p95 50,23 ms
+4. **Nghiệm thu** — đường còn lại, theo đúng `acceptance_workflow`: reviewer `APPROVE` **#41** và **#49**
+   → QA chạy `management/day10/qa004_spike_a/run_qa004.py` và ký verdict → Project Control chuyển
+   `SPIKE_A: ACCEPTED`. **Người chạy QA không nên là chủ spike** — xem ghi chú xung đột vai bên dưới
+5. **Đo `A8` ở độ sâu thật** (576×576×88) nếu muốn phát biểu về dung lượng và thời gian lưu — hôm nay chỉ
+   có ở 64×64×16
+6. Dựng ứng viên thứ hai để `A12` so sánh được — đây là hạn chế lớn nhất còn lại của cả spike
+7. Nhả Galaxy A17 cho Nguyễn Gia Đức Trung — profile DR-006 và baseline `A9` đã xong, phần còn lại là
    việc desktop
+
+> ### ⚠ Xung đột vai ở bước 3 và 4, nêu ra chứ không đi vòng
+>
+> Chủ sở hữu Spike A là **Phạm Tuấn Anh**, và anh cũng là **Project Control**. `acceptance_workflow`
+> (`SPIKE_PHASE_STATE.yaml` dòng 836) **không có điều khoản hồi tị** cho bước 3 (QA) hay bước 4. Spike D
+> không vướng vì chủ (Bế Quốc Khánh) và reviewer (Vũ Hùng Anh) là hai người khác nhau, còn Project Control
+> chỉ đeo thêm vai QA.
+>
+> Ở đây, nếu chủ spike tự chạy QA thì `ACCEPTED` có chữ ký một người đeo **ba vai**. Đề xuất: **Nguyễn Gia
+> Đức Trung chạy bước 3** (bộ QA-004 đã script hoá, phần nặng là máy làm), Project Control chỉ làm bước 4.
+> Đây là một **khoảng trống trong đặc tả**, được ghi lại như `INC-001` §4.1 đã làm với khoảng trống của nó,
+> chứ không dán một cái nhãn cho vừa.
 
 **Liên quan:** [`TASK.md`](TASK.md) · [`DR006_DEVICE_PROFILE.md`](DR006_DEVICE_PROFILE.md) ·
 [`EVIDENCE_TEMPLATE.md`](EVIDENCE_TEMPLATE.md) · [`../../../spikes/spike_a_2d/`](../../../spikes/spike_a_2d/)
