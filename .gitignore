@@ -100,6 +100,13 @@ spikes/**/mesh/out/*.obj
 spikes/**/payloads/out/
 spikes/**/payloads/out_*/
 
+# --- GENERATED FIXTURE BUNDLE ---------------------------------------------
+# contract.json says fixture_rules.handwritten_fixtures_allowed = false, so a
+# committed bundle would be a fixture nobody can prove was generated. CI
+# regenerates it from the contract on every run; app/core/fixtures/FORMAT.md
+# is the tracked artifact, the bundle is not.
+app/core/fixtures/.generated/
+
 # --- SPIKE A FIXTURE AT REAL SLICE SIZE -----------------------------------
 # The 64x64 fixture IS tracked - it is small and it anchors the conformance
 # checks. The 576x576 regeneration used to re-measure A9 at the real cohort
