@@ -1,0 +1,57 @@
+{
+  "record": "spike_a_s7_webview_container_smoke_test",
+  "purpose": "Does the system WebView inside the React Native candidate give a real hardware WebGL2 context for the Spike B viewer? This is a transport and capability check for the GATE-MOB-01 measurement direction. It contains no B10/B11 number.",
+  "captured_at": "2026-09-18T01:17:58+0700",
+  "operator": "Pham Tuan Anh (leader workstation, Project Control at the keyboard)",
+  "device": {
+    "serial": "R5CY931SQYZ",
+    "model": "SM-A176B",
+    "android_release": "16",
+    "build_id": "BP4A.251205.006.A176BXXS6CZG7"
+  },
+  "app": {
+    "package": "com.cardiacmri.spikea2d",
+    "variant": "release",
+    "version_name": "1.0.0",
+    "installed_at": "2026-09-18 01:04:27"
+  },
+  "transport": {
+    "url": "http://127.0.0.1:8765/app/",
+    "path": "adb reverse tcp:8765 tcp:8765 -> python -m http.server on the workstation, serving spikes/spike_b_3d",
+    "cleartext": "android:usesCleartextTraffic=true via expo-build-properties, spike app only"
+  },
+  "webview_env_probe": {
+    "kind": "webview_env",
+    "ts": 1789668979470,
+    "url": "http://127.0.0.1:8765/app/",
+    "ua": "Mozilla/5.0 (Linux; Android 16; SM-A176B Build/BP4A.251205.006; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/152.0.7977.64 Mobile Safari/537.36",
+    "viewport": [
+      384,
+      744
+    ],
+    "dpr": 2.8125,
+    "canvases_on_page": 1,
+    "webgl2": true,
+    "gl_version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+    "glsl_version": "WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)",
+    "renderer": "Mali-G68",
+    "vendor": "ARM",
+    "max_texture_size": 8192,
+    "antialias": true
+  },
+  "interaction_checks": {
+    "mesh_rendered": "level_0_cell1.obj loaded, 5,648 triangles, screenshot shot_02",
+    "orbit": "adb shell input swipe 400 1150 -> 750 1000: camera moved, screenshot shot_03",
+    "pick": "adb shell input tap 560 1150: viewer reported pick: voxel 34, 24, 18, slice 18"
+  },
+  "limitations": [
+    "Capability and transport only. No frame time, no B10/B11 value.",
+    "The mesh is the synthetic Spike B fixture, not anatomy.",
+    "Single run, one handset, screen on and charging."
+  ],
+  "logcat_lines": [
+    "09-18 01:16:18.508 I/ReactNativeJS(23598): SPIKE_B_WEBVIEW_OPEN {\"url\":\"http://127.0.0.1:8765/app/\"}",
+    "09-18 01:16:19.472 I/ReactNativeJS(23598): SPIKE_B_WEBVIEW_LOADED {\"url\":\"http://127.0.0.1:8765/app/\",\"loading\":false}",
+    "09-18 01:16:19.526 I/ReactNativeJS(23598): SPIKE_B_WEBVIEW {\"kind\":\"webview_env\",\"ts\":1789668979470,\"url\":\"http://127.0.0.1:8765/app/\",\"ua\":\"Mozilla/5.0 (Linux; Android 16; SM-A176B Build/BP4A.251205.006; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/152.0.7977.64 Mobile Safari/537.36\",\"viewport\":[384,744],\"dpr\":2.8125,\"canvases_on_page\":1,\"webgl2\":true,\"gl_version\":\"WebGL 2.0 (OpenGL ES 3.0 Chromium)\",\"glsl_version\":\"WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)\",\"renderer\":\"Mali-G68\",\"vendor\":\"ARM\",\"max_texture_size\":8192,\"antialias\":true}"
+  ]
+}
