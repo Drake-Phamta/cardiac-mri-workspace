@@ -451,20 +451,20 @@ spikes:
     priority: P1
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: PREPARED            # 2026-10-01: both blockers cleared (SPIKE_D ACCEPTED; GATE-SPLIT-01 CLOSED at 11:16). ACTIVE only when the run really starts
+    status: EVIDENCE_READY      # 2026-10-01 13:23: run 2 complete (C1-1..C1-10 with machine evidence, RESULT_C1.md); CHAT E QA pending, then GATE-ML-01 under override §4
     blocked_by: []
     blocked_reason: null        # was: "Requires an ACCEPTED Spike D and a validated representative real subset (readiness condition C1)."
-    started_at: null            # owner sets the REAL date/time on starting; never backdate
+    started_at: "2026-10-01T11:58:19+07:00"   # the smoke run, the first real-data access (operator: the leader's session under the Day 22 override)
     review:
-      state: NOT_REQUESTED
+      state: NOT_REQUESTED      # under the Day 22 override the CHAT E QA replaces the human review; Vu Hung Anh revalidates on Day 23
       reviewer: "Vu Hung Anh"
-      priority_rank: null       # not queued while BLOCKED
+      priority_rank: null
     directory: management/spikes/SPIKE_C_ML
     task: management/spikes/SPIKE_C_ML/TASK.md
     evidence_template: management/spikes/SPIKE_C_ML/EVIDENCE_TEMPLATE.md
-    evidence_paths_expected: [management/spikes/SPIKE_C_ML/RESULT.md]
-    evidence_present: false
-    latest_tested_commit: null
+    evidence_paths_expected: [management/spikes/SPIKE_C_ML/RESULT_C1.md]   # RESULT.md holds Spike C0
+    evidence_present: true
+    latest_tested_commit: 58cbd5e   # origin/spike-c1/day22-run-integration: main + #59 + #60 + the runner commits
     environment: COMPUTE_ML_01
     related_dr: [DR-007, DR-011, DR-002, DR-G03]
     related_condition: [C1]

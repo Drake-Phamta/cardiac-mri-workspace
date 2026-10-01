@@ -1641,7 +1641,8 @@ If the in-app numbers fail `B10`/`B11`, that is a result, and a native GL path b
 
 | Field | Value |
 |---|---|
-| **Raised** | ⏳ **OPEN** · 2026-09-19 · Project Control, while building `app/core` |
+| **Raised** | 2026-09-19 · Project Control, while building `app/core` |
+| **Status** | ✅ **DECIDED 2026-10-01 — option (b)**, by Phạm Tuấn Anh under `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4. Implemented in API contract v1.0 (PR #62): a `worst_slice_selection` block in `analysis_run_metrics`, `selection_version` `dr010-worst-slice/v1`; the backend ranks server-side from the stored per-slice rows, the client only reads |
 | **Decides** | Phạm Tuấn Anh |
 | **Amends** | `DR-010` ("worst slice") |
 | **Affects** | `contracts/api/contract.json`, `SCR-04`, `FR-ERR-003`, `TC-ERR-003`, `UC-05`, V1 |
@@ -1686,6 +1687,31 @@ returning a summary of data it has, not answering a new question.
 
 **What this does not do.** It does not reopen the ranking itself: the keys, their order and the exclusions
 stay exactly as `DR-010` approved them. Only the transport is in question.
+
+---
+
+### DR-016 — Two compute hosts for the six core runs
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-01** by Phạm Tuấn Anh (recorded in `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4) |
+| **Amends** | `DR-007` / `DR-G03` compute plan (Spike C0 assumed one host: the RTX 4050 laptop, 4–5 h a day) |
+| **Affects** | Spike C1, `ADR-ML-001`, the run calendar (C1-9), the six core runs, run manifests |
+
+**Decision.** The leader's PC (RTX 3050 Ti Laptop, 4 GiB) becomes a second ML host. It ran Spike C1 on
+2026-10-01 and runs the **DINOv2 family** (EXP-D-025/050/100) from that day. Bế Quốc Khánh's RTX 4050 Laptop
+(6 GiB) runs the **UNet family** (EXP-U-025/050/100) from Day 23.
+
+**Why.** Days 16–21 were lost; one 4–5 h/day host cannot finish six runs before the evaluation window. Two hosts
+running unattended can.
+
+**What stays fixed.** One frozen recipe, batch and epoch count for all six runs (`ADR-ML-001`), the same code
+commit, the same data and seed. The host is recorded in every run manifest. The 4 GiB card is not used for UNet at
+batch 8 (C1 measured it near the memory limit, with the driver spilling into system memory); if the RTX 4050 is
+unavailable, the leader decides — the recipe does not change to fit a host.
+
+**What it does not claim.** Bit-identical results across hosts (CUDA kernels are not deterministic here). Families
+are compared within one recipe, not within one host; the host is a recorded covariate.
 
 ---
 

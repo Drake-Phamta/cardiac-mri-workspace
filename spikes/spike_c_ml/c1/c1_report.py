@@ -103,7 +103,7 @@ def main() -> int:
         "queue_end": {f: queue_end(f, max(chosen, 1)).isoformat() for f in speed},
     }
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    (args.out_dir / f"c1_calendar_{m['stamp']}.json").write_text(json.dumps(calendar, indent=2), encoding="utf-8")
+    (args.out_dir / f"c1_calendar_{m['stamp']}.json").write_text(json.dumps(calendar, indent=2), encoding="utf-8", newline="\n")
 
     t = m["convergence_C1_6"]
     rows = [
@@ -133,7 +133,7 @@ def main() -> int:
     ]
     md = ["| Criterion | What | Evidence (generated from JSON) |", "|---|---|---|"]
     md += [f"| `{c}` | {w} | {e} |" for c, w, e in rows]
-    (args.out_dir / "c1_result_table.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+    (args.out_dir / "c1_result_table.md").write_text("\n".join(md) + "\n", encoding="utf-8", newline="\n")
 
     # Aggregate evidence for git (C1 plan §7): no per-case values, no per-file hashes, no paths.
     def agg(values):
@@ -177,7 +177,7 @@ def main() -> int:
         "recipe": m["recipe"],
     }
     (args.out_dir / f"c1_summary_{m['stamp']}.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
     print(json.dumps({"epochs_E": chosen, "verdict": verdict, "hours_per_run_at_E": per_run}, indent=2))
     return 0
 
