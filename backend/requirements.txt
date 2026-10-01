@@ -1,0 +1,12 @@
+# Runtime dependencies. Pinned to versions that publish Python 3.9 wheels for
+# macOS arm64 (the Mac mini runs the system Python 3.9), checked on 2026-10-01
+# with: pip download --platform macosx_11_0_arm64 --python-version 3.9
+#       --implementation cp --only-binary=:all: -r backend/requirements.txt
+fastapi==0.115.6
+starlette==0.41.3
+uvicorn==0.32.1
+pydantic==2.10.4
+numpy==1.26.4
+pynrrd==1.1.1
+pillow==11.0.0
+jsonschema==4.23.0
