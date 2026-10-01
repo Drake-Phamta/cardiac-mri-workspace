@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  API_BASE_URL_ENV, ConfigError, DEFAULT_STUDY_ID, MODE, describeConfig, normalizeBaseUrl, parseEnvFile, resolveConfig,
+  API_BASE_URL_ENV, ConfigError, DEFAULT_STUDY_ID, MODE, describeConfig, maskBaseUrl, normalizeBaseUrl, parseEnvFile,
+  resolveConfig,
 } from '../src/config.mjs';
 
 const HOST = 'http://backend.invalid:8000'; // RFC 2606 reserved name - no real host in git
@@ -65,7 +66,7 @@ test('C8 timeouts outside 1..120 s are refused', () => {
 });
 
 test('C9 the banner text names the mode and, for live, the backend', () => {
-  assert.equal(describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: HOST })), `LIVE · ${HOST} · study STUDY_DEMO`);
+  assert.equal(describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: HOST })), 'LIVE · backend http://<configured> · study STUDY_DEMO');
   assert.match(describeConfig(resolveConfig({})), /^FIXTURE · generated contract fixtures/);
 });
 
@@ -86,4 +87,18 @@ test('C11 .env.local parsing: comments, blanks, quotes and export are handled', 
     '=no-key',
   ].join('\r\n'));
   assert.deepEqual(env, { [API_BASE_URL_ENV]: HOST, CMW_STUDY_ID: 'STUDY_DEMO' });
+});
+
+test('C12 fixture mode drops a backend address completely, even when one is supplied (N-4)', () => {
+  const c = resolveConfig({ mode: 'fixture', apiBaseUrl: HOST });
+  assert.equal(c.apiBaseUrl, null);
+  assert.equal(resolveConfig({ mode: 'fixture', apiBaseUrl: 'http://<mac-mini-overlay-ip>:8000' }).apiBaseUrl, null,
+    'not even validated - it is not used');
+});
+
+test('C13 maskBaseUrl keeps the scheme and hides host and port', () => {
+  assert.equal(maskBaseUrl('http://10.1.2.3:8000'), 'http://<configured>');
+  assert.equal(maskBaseUrl('HTTPS://backend.invalid'), 'https://<configured>');
+  assert.equal(maskBaseUrl(null), '<not configured>');
+  assert.ok(!describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: HOST })).includes('backend.invalid'));
 });

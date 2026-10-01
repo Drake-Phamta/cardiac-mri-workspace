@@ -79,6 +79,27 @@ export function validateRoute(screenId, params) {
 }
 
 /*
+ * Leave guards (N-2). A screen with something to lose - V4's unsaved brush
+ * edits on SCR-06, say - registers one with nav.setLeaveGuard(fn). Every
+ * action that would take the user OFF that screen asks it first: pop (Back,
+ * the Android back button), push (a new screen COVERS it - and a covered
+ * screen UNMOUNTS in this navigator, its React state is gone), replace, and
+ * reset (every tab press). The guard gets { type, screenId, params } and
+ * answers true to leave, false to stay - or a Promise of either, e.g. after
+ * a confirmation dialog. Anything but `true` stays. A guard belongs to the
+ * stack entry that set it and disappears with it.
+ */
+export function createGuards() {
+  const map = new Map();
+  return Object.freeze({
+    get: (key) => map.get(key) || null,
+    set(key, fn) { if (typeof fn === 'function') map.set(key, fn); else map.delete(key); },
+    prune(keys) { for (const k of [...map.keys()]) if (!keys.includes(k)) map.delete(k); },
+    get size() { return map.size; },
+  });
+}
+
+/*
  * The object a screen receives as `nav`. Bound to a dispatch so a screen can
  * call nav.push('SCR-03', { caseId }) without knowing the reducer exists.
  *
@@ -86,23 +107,49 @@ export function validateRoute(screenId, params) {
  * the reducer inside a React render. It returns false and reports through
  * `onError` instead of throwing out of a tap handler: in a release build an
  * uncaught throw there is a crash, and a crash is not an honest state.
+ *
+ * Return value of every action: `true` / `false` when it was decided at once
+ * (no guard on the current screen), or a Promise of true / false when the
+ * current screen's leave guard had to be asked.
  */
-export function bindNav(dispatch, state, onError = null) {
-  const guarded = (type, screenId, params) => {
+export function bindNav(dispatch, state, onError = null, guards = null) {
+  const current = top(state);
+  // Read at action time, not bind time: a screen usually sets its guard in an
+  // effect, after the nav object it was rendered with already exists.
+  const guardNow = () => (guards ? guards.get(current.key) : null);
+
+  const leave = (action) => {
+    const guard = guardNow();
+    if (!guard) { dispatch(action); return true; }
+    return Promise.resolve()
+      .then(() => guard({ type: action.type, screenId: action.screenId ?? null, params: action.params ?? null }))
+      .then((ok) => {
+        if (ok !== true) return false;
+        dispatch(action);
+        return true;
+      }, (err) => {
+        if (onError) onError(err);
+        return false;
+      });
+  };
+
+  const routed = (type, screenId, params) => {
     try {
       validateRoute(screenId, params);
     } catch (err) {
       if (onError) onError(err);
       return false;
     }
-    dispatch({ type, screenId, params });
-    return true;
+    return leave({ type, screenId, params });
   };
+
   return Object.freeze({
-    push: (screenId, params) => guarded(NAV.PUSH, screenId, params),
-    replace: (screenId, params) => guarded(NAV.REPLACE, screenId, params),
-    reset: (screenId, params) => guarded(NAV.RESET, screenId, params),
-    pop: () => { if (!canGoBack(state)) return false; dispatch({ type: NAV.POP }); return true; },
+    push: (screenId, params) => routed(NAV.PUSH, screenId, params),
+    replace: (screenId, params) => routed(NAV.REPLACE, screenId, params),
+    reset: (screenId, params) => routed(NAV.RESET, screenId, params),
+    pop: () => (canGoBack(state) ? leave({ type: NAV.POP }) : false),
+    setLeaveGuard: (fn) => { if (guards) guards.set(current.key, fn); },
+    hasLeaveGuard: () => Boolean(guardNow()),
     canGoBack: canGoBack(state),
     depth: state.stack.length,
   });

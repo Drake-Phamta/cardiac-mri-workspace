@@ -6,6 +6,11 @@
  * Each screen is wrapped in an error boundary. Four verticals land code in
  * this app; one of them throwing must block ITS screen with a visible
  * FATAL_INVALID, not take the other three down with a white crash.
+ *
+ * Only the TOP screen is mounted. A screen that is covered by a push, popped,
+ * replaced or reset away UNMOUNTS - its React state is gone, and it re-reads
+ * what it needs when it is shown again. A screen with something to lose
+ * registers nav.setLeaveGuard(fn) (see navigator.mjs) and is asked first.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
@@ -17,7 +22,7 @@ import { componentFor } from '../registry';
 import { StatePanel } from '../ui/StateView';
 import { color, font, MIN_TOUCH, space } from '../ui/theme';
 import FixtureScenarioPanel from '../ui/FixtureScenarioPanel';
-import { bindNav, initialNavState, navReducer, top } from './navigator.mjs';
+import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
 import { screenMeta, TABS } from './screens.mjs';
 
 class ScreenBoundary extends React.Component {
@@ -56,16 +61,34 @@ export default function NavigatorView({ runtime, initialScreenId }) {
   const [navError, setNavError] = useState(null);
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [epoch, setEpoch] = useState(0);
+  const guards = useMemo(() => createGuards(), []);
 
-  const nav = useMemo(() => bindNav(dispatch, state, (err) => setNavError(err.message)), [state]);
+  const nav = useMemo(
+    () => bindNav(dispatch, state, (err) => setNavError(String((err && err.message) || err)), guards),
+    [state, guards],
+  );
   const current = top(state);
   const meta = screenMeta(current.screenId);
   const Screen = componentFor(current.screenId);
 
+  // A guard lives exactly as long as its stack entry.
+  useEffect(() => { guards.prune(state.stack.map((e) => e.key)); }, [state, guards]);
+
+  // Android back: pop (asking the current screen's leave guard, if any). At
+  // the root with no guard the system default applies (the app goes to the
+  // background); at the root WITH a guard, the guard decides first.
   useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => nav.pop());
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (nav.canGoBack) { nav.pop(); return true; }
+      const guard = guards.get(current.key);
+      if (!guard) return false;
+      Promise.resolve()
+        .then(() => guard({ type: 'EXIT', screenId: null, params: null }))
+        .then((ok) => { if (ok === true) BackHandler.exitApp(); }, () => {});
+      return true;
+    });
     return () => sub.remove();
-  }, [nav]);
+  }, [nav, guards, current.key]);
 
   useEffect(() => {
     if (!navError) return undefined;

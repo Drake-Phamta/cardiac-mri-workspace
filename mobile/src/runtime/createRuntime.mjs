@@ -16,26 +16,11 @@ import {
 } from '../../../app/core/index.mjs';
 import { MODE } from '../config.mjs';
 import { createImageStore } from '../imaging/imageStore.mjs';
-import { createMaskStore, fetchBytesWith } from '../imaging/maskStore.mjs';
+import { createMaskStore } from '../imaging/maskStore.mjs';
+import { bytesOrThrow, createContent } from './content.mjs';
 import { createHttpTransport } from './httpTransport.mjs';
 import { createNetLog } from './netLog.mjs';
 import { createSliceCache } from './sliceCache.mjs';
-
-// An artifact fetcher that reports each download to the gesture log, by kind
-// ('artifact:mri', 'artifact:mask') and size - never by URL.
-function countedFetch(fetchBytes, netLog, endpoint, now) {
-  return async (url) => {
-    const t0 = now();
-    try {
-      const bytes = await fetchBytes(url);
-      netLog.record({ endpoint, bytes: bytes.length, ms: now() - t0, status: 200 });
-      return bytes;
-    } catch (err) {
-      netLog.record({ endpoint, bytes: null, ms: now() - t0, status: 'error' });
-      throw err;
-    }
-  };
-}
 
 export class RuntimeError extends Error {
   constructor(code, message, detail = {}) {
@@ -109,9 +94,12 @@ export function createRuntime({
       // endpoint's answer at any moment, and a cache would keep showing the
       // old one. Fixture answers are local and instant anyway.
       sliceClient: client,
-      // No bytes exist behind any fixture URL, so nothing to fetch or decode,
-      // and no network to account for: no gesture log either (a fixture
-      // "0 bytes" line would read as a measured cache hit).
+      // No bytes exist behind any fixture URL: content.bytes answers
+      // EMPTY_UNAVAILABLE FIXTURE_NO_BYTES, content.uri null, nothing is
+      // fetched or decoded, and there is no network to account for - no
+      // gesture log either (a fixture "0 bytes" line would read as a measured
+      // cache hit).
+      content: createContent({ contract, mode: MODE.FIXTURE }),
       maskStore: null,
       imageStore: null,
       netLog: null,
@@ -138,7 +126,10 @@ export function createRuntime({
     },
   });
   const client = createClient(contract, transport);
-  const artifactFetch = fetchBytesWith(doFetch, { timeoutMs: config.timeoutMs });
+  // The ONE binary path (N-1): timeout, error mapping, checksum, netLog.
+  const content = createContent({
+    contract, mode: MODE.LIVE, baseUrl: config.apiBaseUrl, fetchImpl: doFetch, timeoutMs: config.timeoutMs, netLog, now,
+  });
   return Object.freeze({
     mode: MODE.LIVE,
     config,
@@ -149,14 +140,19 @@ export function createRuntime({
     // screen for the life of the app, so a slice seen once is a cache hit
     // wherever it is seen again.
     sliceClient: createSliceCache(client),
+    content,
     // MRI slice bytes -> data URI, cached per content-addressed URL; fetched
-    // in JS so every byte is counted per gesture.
-    imageStore: createImageStore({ fetchBytes: countedFetch(artifactFetch, netLog, 'artifact:mri', now), now }),
-    // Decoded mask paths, keyed by the content-addressed URL. The decoder is
-    // injected (maskPng.js over fast-png, from loadRuntime.js) so this file and
-    // its tests need no node_modules.
+    // through content.bytes so every byte is checked and counted per gesture.
+    imageStore: createImageStore({
+      fetchBytes: (url, opts) => bytesOrThrow(content, url, { ...opts, kind: 'mri' }), now,
+    }),
+    // Decoded mask paths, keyed by content_url. The decoder is injected
+    // (maskPng.js over fast-png, from loadRuntime.js) so this file and its
+    // tests need no node_modules.
     maskStore: decodeMask
-      ? createMaskStore({ fetchBytes: countedFetch(artifactFetch, netLog, 'artifact:mask', now), decode: decodeMask, now })
+      ? createMaskStore({
+        fetchBytes: (url, opts) => bytesOrThrow(content, url, { ...opts, kind: 'mask' }), decode: decodeMask, now,
+      })
       : null,
     netLog,
     fixtureScenarios: null,

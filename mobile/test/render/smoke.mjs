@@ -14,6 +14,7 @@
  * the A17 (mobile/S1_L4_SCRIPT.md).
  */
 
+import { createHash } from 'node:crypto';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 
@@ -125,6 +126,7 @@ const bundleJson = generatedBundleJson();
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
   const predPng = encodePng(W, H, 0, ellipseMask(W, H, 310, 262, 66, 58));
   const mriPng = encodePng(W, H, 0, Uint8Array.from({ length: W * H }, (_, i) => (i * 7) & 0xff), { zopts: { level: 9 } });
+  const sum = (b) => `sha256:${createHash('sha256').update(b).digest('hex')}`;
   const json = (status, body) => {
     const text = JSON.stringify(body);
     return {
@@ -140,15 +142,15 @@ const bundleJson = generatedBundleJson();
     const path = url.replace('http://backend.invalid:8000', '');
     if (path.startsWith('/api/v1/artifacts/')) {
       const bytes = path.includes('gt-') ? gtPng : (path.includes('pred-') ? predPng : mriPng);
-      return { status: 200, headers: { get: () => 'image/png' }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+      return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
     }
     if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: 'EVALUATION', ground_truth_available: true, available_run_ids: ['RUN_A'] });
     if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: 'RUN_A', case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
     if (/\/experiments\/[^/]+$/.test(path)) return json(200, { ...gen('experiment_get'), model_family: 'UNet2D' });
     const z = (path.match(/slices\/(\d+)/) || [])[1];
-    if (path.endsWith('/mri')) return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${z}.png`, media_type: 'image/png' });
-    if (path.includes('/prediction?')) return json(200, { ...gen('prediction_slice_get'), prediction_variant: 'RAW', content_url: `/api/v1/artifacts/pred-${z}.png`, media_type: 'image/png' });
-    if (path.endsWith('/ground-truth')) return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png' });
+    if (path.endsWith('/mri')) return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${z}.png`, media_type: 'image/png', checksum: sum(mriPng) });
+    if (path.includes('/prediction?')) return json(200, { ...gen('prediction_slice_get'), prediction_variant: 'RAW', content_url: `/api/v1/artifacts/pred-${z}.png`, media_type: 'image/png', checksum: sum(predPng) });
+    if (path.endsWith('/ground-truth')) return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
     if (path.includes('/metrics?')) return json(200, { ...gen('analysis_slice_metrics'), metric_state: 'COMPUTED', metric_value: 0.8731, metric_version: 'm1' });
     return json(404, { error: { code: 'ARTIFACT_NOT_FOUND' } });
   };

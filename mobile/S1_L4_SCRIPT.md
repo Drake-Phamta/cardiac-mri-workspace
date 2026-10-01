@@ -17,8 +17,16 @@ $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 ## 0 · Before you start (T−10 min)
 
 1. **The APK is the right one.** Open the `.apk.build.txt` next to the APK in `mobile\release\` and check:
-   `mode live` · `api_base_url` is the Mac mini overlay address · `git_sha` is the PR head you expect ·
-   `built_at` is **after** the last code change · `source_tree staging copy of committed HEAD`.
+   `mode live` · `git_sha` is the PR head you expect · `built_at` is **after** the last code change ·
+   `source_tree staging copy of committed HEAD` · `api_base_url` is a `sha256:` hash, never the address (the
+   sidecar may be committed to the public repo). To confirm the hash is the Mac mini's URL, hash the URL from
+   your untracked `mobile\.env.local` and compare:
+
+   ```powershell
+   $u = "<the EXPO_PUBLIC_API_BASE_URL value from mobile\.env.local>"
+   "sha256:" + ((([System.Security.Cryptography.SHA256]::Create()).ComputeHash([Text.Encoding]::UTF8.GetBytes($u)) | ForEach-Object { $_.ToString('x2') }) -join '')
+   ```
+
    Note the APK file name and its `apk_sha256` in your session notes.
 2. **The backend answers.** On the Mac mini, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
    phone-side check is step 2.3 below: the case list loads.)
@@ -76,7 +84,9 @@ $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 2. Copy the backend's request log for the same window from the Mac mini: `requests.jsonl` from the backend data
    directory (`<data-dir>/var/`, added by A3 for this session), and the `uvicorn.log` next to it.
 3. Keep, side by side: the logcat file, the APK `.build.txt`, `requests.jsonl`, `uvicorn.log`, the network path
-   (`DIRECT`), device and Android version, and the time window.
+   (`DIRECT`), device and Android version, and the time window. **Before committing any of it**, replace the
+   backend's host/IP with `<configured>` in `requests.jsonl` / `uvicorn.log` and in screenshots (the app's own
+   lines never contain it).
 
 ## 4 · Verdict (on the laptop)
 

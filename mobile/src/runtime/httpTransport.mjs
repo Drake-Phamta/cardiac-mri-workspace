@@ -122,12 +122,25 @@ export function createHttpTransport({
       // revision_rules.etag_header is ETag; a write may also carry If-Match.
       if (options.ifMatch) headers['If-Match'] = String(options.ifMatch);
 
+      // One AbortController per request, fired by the timeout OR by the
+      // caller's options.signal (useCall aborts on unmount / param change).
+      const callerSignal = options.signal || null;
+      if (callerSignal && callerSignal.aborted) {
+        throw new TransportError('ABORTED', `request to ${resolved.endpointId} was cancelled before it started`, { url });
+      }
       let timer = null;
       let controller = null;
-      if (AbortControllerImpl && timeoutMs > 0) {
+      let timedOut = false;
+      let unlink = null;
+      if (AbortControllerImpl) {
         controller = new AbortControllerImpl();
         init.signal = controller.signal;
-        timer = setTimeout(() => controller.abort(), timeoutMs);
+        if (timeoutMs > 0) timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+        if (callerSignal && typeof callerSignal.addEventListener === 'function') {
+          const onAbort = () => controller.abort();
+          callerSignal.addEventListener('abort', onAbort);
+          unlink = () => callerSignal.removeEventListener('abort', onAbort);
+        }
       }
 
       const t0 = now();
@@ -136,6 +149,9 @@ export function createHttpTransport({
         response = await fetchImpl(url, init);
       } catch (err) {
         const aborted = err && (err.name === 'AbortError' || (controller && controller.signal.aborted));
+        if (aborted && !timedOut && callerSignal && callerSignal.aborted) {
+          throw new TransportError('ABORTED', `request to ${resolved.endpointId} was cancelled`, { url });
+        }
         throw new TransportError(
           aborted ? 'TIMEOUT' : 'NETWORK',
           aborted ? `no response from ${url} within ${timeoutMs} ms` : `request to ${url} failed: ${err?.message || err}`,
@@ -143,6 +159,7 @@ export function createHttpTransport({
         );
       } finally {
         if (timer) clearTimeout(timer);
+        if (unlink) unlink();
       }
 
       const status = response.status;

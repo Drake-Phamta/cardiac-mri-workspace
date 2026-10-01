@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  MAX_DEPTH, NAV, NavError, bindNav, canGoBack, initialNavState, navReducer, top, validateRoute,
+  MAX_DEPTH, NAV, NavError, bindNav, canGoBack, createGuards, initialNavState, navReducer, top, validateRoute,
 } from '../src/nav/navigator.mjs';
 import { ROOT_SCREEN_ID, SCREEN_IDS, TABS, missingParams, screenMeta } from '../src/nav/screens.mjs';
 
@@ -88,4 +88,56 @@ test('N9 the stack is bounded', () => {
 test('N10 states and params are frozen - a screen cannot mutate the route it was given', () => {
   const s = navReducer(initialNavState(), { type: NAV.PUSH, screenId: 'SCR-03', params: { caseId: 'C' } });
   assert.ok(Object.isFrozen(s) && Object.isFrozen(s.stack) && Object.isFrozen(top(s).params));
+});
+
+test('N11 a leave guard is asked before every way off the screen, and false stays', async () => {
+  const dispatched = [];
+  const guards = createGuards();
+  let s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-06', params: { runId: 'R' } });
+  const nav = bindNav((a) => dispatched.push(a.type), s, null, guards);
+  const asked = [];
+  // Set AFTER the nav object exists, as a screen's effect would.
+  nav.setLeaveGuard((intent) => { asked.push(intent.type); return false; });
+  assert.equal(nav.hasLeaveGuard(), true);
+  assert.equal(await nav.pop(), false);
+  assert.equal(await nav.push('SCR-03', { caseId: 'C' }), false);
+  assert.equal(await nav.replace('SCR-08', {}), false);
+  assert.equal(await nav.reset('SCR-01', {}), false);
+  assert.deepEqual(asked, [NAV.POP, NAV.PUSH, NAV.REPLACE, NAV.RESET]);
+  assert.deepEqual(dispatched, [], 'nothing moved');
+});
+
+test('N12 a guard that answers true (or a Promise of true) lets the action through', async () => {
+  const dispatched = [];
+  const guards = createGuards();
+  const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-06', params: { runId: 'R' } });
+  const nav = bindNav((a) => dispatched.push(a), s, null, guards);
+  nav.setLeaveGuard(() => new Promise((r) => setTimeout(() => r(true), 5)));
+  const result = nav.pop();
+  assert.ok(result instanceof Promise, 'a guarded action answers later');
+  assert.equal(await result, true);
+  assert.deepEqual(dispatched, [{ type: NAV.POP }]);
+});
+
+test('N13 no guard: actions answer at once; a throwing guard stays and reports', async () => {
+  const errors = [];
+  const guards = createGuards();
+  const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-03', params: { caseId: 'C' } });
+  const plain = bindNav(() => {}, s, null, guards);
+  assert.equal(plain.pop(), true, 'synchronous when nobody guards');
+  const nav = bindNav(() => { throw new Error('should not dispatch'); }, s, (e) => errors.push(e.message), guards);
+  nav.setLeaveGuard(() => { throw new Error('dialog failed'); });
+  assert.equal(await nav.pop(), false);
+  assert.deepEqual(errors, ['dialog failed']);
+  nav.setLeaveGuard(null);
+  assert.equal(nav.hasLeaveGuard(), false, 'a guard can be removed');
+});
+
+test('N14 a guard belongs to its stack entry and is pruned with it', () => {
+  const guards = createGuards();
+  const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-06', params: { runId: 'R' } });
+  bindNav(() => {}, s, null, guards).setLeaveGuard(() => false);
+  assert.equal(guards.size, 1);
+  guards.prune(navReducer(s, { type: NAV.POP }).stack.map((e) => e.key));
+  assert.equal(guards.size, 0);
 });

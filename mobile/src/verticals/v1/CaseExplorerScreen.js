@@ -48,7 +48,7 @@ import SliceViewport from './SliceViewport';
 import useMaskOverlay from './useMaskOverlay';
 import { capabilityOf } from './capability.mjs';
 import {
-  buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, resolveContentUrl, runText, sliceLabel,
+  buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel,
   VARIANT_TEXT, variantOptions,
 } from './explorer.mjs';
 import { createSerialRunner } from './serialRunner.mjs';
@@ -294,30 +294,33 @@ function Explorer({
     return () => { alive = false; };
   }, [runtime, runId]);
 
-  // Where a snapshot's bytes are. The V1 model carries content_url on its
-  // refs; for a ref without one, the response the model just fetched is read
-  // back from the slice cache (no request).
+  // Where a snapshot's bytes are: each ref's content_url and checksum, as the
+  // server stated them. runtime.content resolves and verifies them when the
+  // stores fetch; a ref without a content_url is read back from the response
+  // the model just fetched (slice cache, no request).
   const urlsFor = useCallback((snap) => {
-    if (!snap) return { mri: null, pred: null, gt: null };
+    const none = { mri: null, pred: null, gt: null, sums: { mri: null, pred: null, gt: null } };
+    if (!snap) return none;
     const z = snap.sliceIndex;
     const peek = (endpointId, p) => {
       const v = client.peek ? client.peek(endpointId, p) : null;
       return v && v.state === STATE.SUCCESS ? v.data : null;
     };
-    const mriRaw = snap.imageRef
-      ? (snap.imageRef.contentUrl ?? peek('mri_slice_get', { case_id: caseId, slice_index: z })?.content_url ?? null)
-      : null;
-    const predRaw = snap.predictionRef
-      ? (snap.predictionRef.contentUrl
-        ?? peek('prediction_slice_get', { run_id: runId, slice_index: z, variant: snap.variant })?.content_url ?? null)
-      : null;
-    const gtRaw = snap.groundTruthRef ? (snap.groundTruthRef.contentUrl ?? null) : null;
+    const mriData = snap.imageRef && !snap.imageRef.contentUrl ? peek('mri_slice_get', { case_id: caseId, slice_index: z }) : null;
+    const predData = snap.predictionRef && !snap.predictionRef.contentUrl
+      ? peek('prediction_slice_get', { run_id: runId, slice_index: z, variant: snap.variant }) : null;
+    const pick = (ref, data) => (ref ? (ref.contentUrl ?? (data && data.content_url) ?? null) : null);
     return {
-      mri: resolveContentUrl(mriRaw, runtime.config),
-      pred: resolveContentUrl(predRaw, runtime.config),
-      gt: resolveContentUrl(gtRaw, runtime.config),
+      mri: pick(snap.imageRef, mriData),
+      pred: pick(snap.predictionRef, predData),
+      gt: pick(snap.groundTruthRef, null),
+      sums: {
+        mri: snap.imageRef ? snap.imageRef.checksum ?? null : null,
+        pred: snap.predictionRef ? snap.predictionRef.checksum ?? null : null,
+        gt: snap.groundTruthRef ? snap.groundTruthRef.checksum ?? null : null,
+      },
     };
-  }, [client, caseId, runId, runtime.config]);
+  }, [client, caseId, runId]);
 
   // Bring `shown`'s bytes in, then display it - image, masks and labels at once.
   useEffect(() => {
@@ -326,14 +329,16 @@ function Explorer({
     const u = urlsFor(shown);
     const jobs = [];
     if (u.mri && runtime.imageStore) {
-      jobs.push(runtime.imageStore.load(u.mri).then(
+      jobs.push(runtime.imageStore.load(u.mri, { checksum: u.sums.mri }).then(
         () => ({ ok: true }),
         (err) => ({ ok: false, mri: true, message: String(err && err.message) }),
       ));
     }
-    if (u.pred && runtime.maskStore && size) jobs.push(runtime.maskStore.load(u.pred, size).catch(() => null));
+    if (u.pred && runtime.maskStore && size) {
+      jobs.push(runtime.maskStore.load(u.pred, size, { checksum: u.sums.pred }).catch(() => null));
+    }
     if (u.gt && runtime.maskStore && size && overlaysRef.current && overlaysRef.current[LAYER.GROUND_TRUTH]) {
-      jobs.push(runtime.maskStore.load(u.gt, size).catch(() => null));
+      jobs.push(runtime.maskStore.load(u.gt, size, { checksum: u.sums.gt }).catch(() => null));
     }
     Promise.all(jobs).then((results) => {
       if (!alive) return;
@@ -405,8 +410,8 @@ function Explorer({
 
   const overlays = current.overlays || {};
   const gtOn = overlays[LAYER.GROUND_TRUTH] === true;
-  const pred = useMaskOverlay(runtime.maskStore, u.pred, size);
-  const gt = useMaskOverlay(runtime.maskStore, gtOn ? u.gt : null, size);
+  const pred = useMaskOverlay(runtime.maskStore, u.pred, size, u.sums.pred);
+  const gt = useMaskOverlay(runtime.maskStore, gtOn ? u.gt : null, size, u.sums.gt);
   const predAvailable = ok && displayed.layersAvailable[LAYER.PREDICTION] === true;
   const gtAvailable = ok && displayed.layersAvailable[LAYER.GROUND_TRUTH] === true && displayed.groundTruthRef !== null;
   const layers = [

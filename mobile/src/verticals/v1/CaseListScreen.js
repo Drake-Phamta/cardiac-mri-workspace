@@ -16,10 +16,11 @@
  * page as the whole study.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { loading, RECOVERY } from '../../../../app/core/index.mjs';
+import { RECOVERY } from '../../../../app/core/index.mjs';
+import useCall from '../../runtime/useCall';
 import StateView from '../../ui/StateView';
 import { color, font, MIN_TOUCH, space } from '../../ui/theme';
 import CapabilityBadge from './CapabilityBadge';
@@ -34,16 +35,11 @@ const MODES = [
 const CASE_ID_SHAPE = /^[A-Za-z0-9_.-]{1,64}$/;
 
 export default function CaseListScreen({ runtime, nav }) {
-  const [view, setView] = useState(loading());
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('ALL');
 
-  const load = useCallback(async () => {
-    setView(loading());
-    setView(await runtime.client.call('case_list', { study_id: runtime.config.studyId }));
-  }, [runtime]);
-
-  useEffect(() => { load(); }, [load]);
+  // useCall: latest wins, LOADING on refetch, aborted when the screen goes.
+  const { view, refetch: load } = useCall(runtime.client, 'case_list', { study_id: runtime.config.studyId });
 
   const onAction = useCallback((id) => {
     if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) load();

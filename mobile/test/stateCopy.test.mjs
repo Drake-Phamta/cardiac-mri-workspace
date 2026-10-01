@@ -39,7 +39,8 @@ test('S3 an unreachable backend offers Retry and names the backend it tried', ()
   const d = describeState(stateForError(contract, 'TRANSPORT_UNREACHABLE'), { apiBaseUrl: 'http://backend.invalid:8000' });
   assert.equal(d.tone, TONE.WARN);
   assert.deepEqual(d.actions.map((a) => a.id), [RECOVERY.RETRY]);
-  assert.ok(d.details.includes('backend http://backend.invalid:8000'));
+  assert.ok(d.details.includes('backend http://<configured>'), 'the backend is named, never addressed (N-4)');
+  assert.ok(!d.details.some((l) => l.includes('backend.invalid')), 'no host in a panel that may be screenshotted');
 });
 
 test('S4 FATAL_INVALID blocks, shows the code and problems, and never offers Retry', () => {

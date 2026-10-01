@@ -97,7 +97,10 @@ export function resolveConfig(input = {}) {
     throw new ConfigError(`timeoutMs must be 1000..120000, got: ${src.timeoutMs}`);
   }
 
-  const hasUrl = typeof src.apiBaseUrl === 'string' && src.apiBaseUrl.trim() !== '';
+  // Fixture mode drops the backend address completely: a fixture build has no
+  // use for one, and an address that is not there cannot leak into a log,
+  // a sidecar or a screenshot.
+  const hasUrl = mode === MODE.LIVE && typeof src.apiBaseUrl === 'string' && src.apiBaseUrl.trim() !== '';
   const apiBaseUrl = hasUrl ? normalizeBaseUrl(src.apiBaseUrl) : null;
   const problem = mode === MODE.LIVE && !apiBaseUrl
     ? Object.freeze({
@@ -122,11 +125,24 @@ export function resolveConfig(input = {}) {
   });
 }
 
-// One line for a banner or a log record. Never contains patient data.
+/*
+ * Evidence redaction (N-4): the repository is public, and screenshots, logs
+ * and build sidecars get committed as evidence. Anything the app SHOWS or
+ * LOGS names the backend as scheme + "<configured>", never its host or port;
+ * build-release.ps1 records only a SHA-256 of the URL.
+ */
+export function maskBaseUrl(url) {
+  if (typeof url !== 'string' || url === '') return '<not configured>';
+  const m = /^(https?):\/\//i.exec(url);
+  return m ? `${m[1].toLowerCase()}://<configured>` : '<configured>';
+}
+
+// One line for a banner or a log record. Never contains patient data or the
+// backend address.
 export function describeConfig(config) {
   if (config.mode === MODE.LIVE) {
     return config.apiBaseUrl
-      ? `LIVE · ${config.apiBaseUrl} · study ${config.studyId}`
+      ? `LIVE · backend ${maskBaseUrl(config.apiBaseUrl)} · study ${config.studyId}`
       : `LIVE · no backend URL configured · study ${config.studyId}`;
   }
   return `FIXTURE · generated contract fixtures · study ${config.studyId}`;
