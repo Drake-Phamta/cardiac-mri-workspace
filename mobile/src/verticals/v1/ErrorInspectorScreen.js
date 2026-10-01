@@ -135,9 +135,22 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
   const start = Number.isInteger(initialSlice) ? initialSlice : (Number.isInteger(total) ? Math.floor(total / 2) : 0);
   useEffect(() => {
+    // Same cache rules as SCR-03 (#77 QA N-1/N-2): a fresh open does not trust
+    // a cached "unavailable" answer; a Retry forgets only the slice it retries.
+    if (client.clearNegative) client.clearNegative();
     if (net) net.begin({ caseId, from: null, to: start, kind: 'open' });
     runner.run(() => model.open({ caseId, runId, sliceIndex: start }));
-  }, [runner, model, net, caseId, runId, start]);
+  }, [runner, model, net, client, caseId, runId, start]);
+
+  const retrySlice = useCallback(() => {
+    const zz = model.current.sliceIndex;
+    if (client.clearNegative) client.clearNegative();
+    if (client.clearWhere && Number.isInteger(zz)) {
+      client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || p.run_id === runId));
+    }
+    if (net && Number.isInteger(zz)) net.begin({ caseId, from: zz, to: zz, kind: 'refresh' });
+    runner.run(() => model.refresh());
+  }, [caseId, client, model, net, runId, runner]);
 
   const goTo = useCallback((n) => {
     if (!Number.isInteger(n) || !Number.isInteger(total)) return;
@@ -172,10 +185,14 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const ok = displayed !== null;
   const state = current.view.state;
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
+  // As in SCR-03 (#77 QA B-3): while the viewer shows a state, nothing of the
+  // slice displayed before - classes, counts, comparison, ids, metric - stays
+  // on screen as if it were this one.
+  const showing = ok && !blocking;
   const z = ok ? displayed.sliceIndex : null;
   const peekMask = (r) => (r && r.contentUrl && runtime.maskStore && size ? runtime.maskStore.peek(r.contentUrl, size) : null);
-  const predMask = ok ? peekMask(displayed.predictionRef) : null;
-  const gtMask = ok ? peekMask(displayed.groundTruthRef) : null;
+  const predMask = showing ? peekMask(displayed.predictionRef) : null;
+  const gtMask = showing ? peekMask(displayed.groundTruthRef) : null;
   const mriImage = ok && displayed.imageRef && displayed.imageRef.contentUrl && runtime.imageStore
     ? runtime.imageStore.peek(displayed.imageRef.contentUrl) : null;
 
@@ -192,7 +209,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const layers = classes && classes.paths
     ? CLASS_ORDER.map((k) => ({ key: k, path: classes.paths[k], color: ERROR_CLASS[k].color, opacity, visible: visible[k] }))
     : [];
-  const serverCell = ok && profile.cells.length ? profile.cells[z] : null;
+  const serverCell = showing && profile.cells.length ? profile.cells[z] : null;
   const check = classes && classes.counts ? compareWithServer(serverCell, classes.counts) : null;
 
   let pixelNote = null;
@@ -201,7 +218,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   else if (ok && (!predMask || !gtMask)) pixelNote = 'A mask for this slice could not be fetched or decoded; the classes are not drawn.';
   else if (classes && classes.error) pixelNote = `The two masks cannot be compared: ${classes.error}`;
 
-  const metricsLine = ok ? metricsText(displayed.metrics, displayed.variant) : { text: 'Slice Dice: -', tone: 'neutral' };
+  const metricsLine = showing ? metricsText(displayed.metrics, displayed.variant) : { text: 'Slice Dice: -', tone: 'neutral' };
 
   return (
     <View style={s.root}>
@@ -216,7 +233,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
       <View style={s.viewerBox}>
         {blocking ? (
           <View style={s.blocked}>
-            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={(id) => { if (id === RECOVERY.BACK) { nav.pop(); return; } if (client.clear) client.clear(); runner.run(() => model.refresh()); }} />
+            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={(id) => { if (id === RECOVERY.BACK) nav.pop(); else retrySlice(); }} />
           </View>
         ) : (
           <SliceViewport
@@ -235,7 +252,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
         {pixelNote && !blocking ? <Text style={s.dim}>{pixelNote}</Text> : null}
 
         <View style={s.card}>
-          <Text style={s.cardH}>Legend - this slice ({ok ? `z ${z}` : '-'})</Text>
+          <Text style={s.cardH}>Legend - this slice ({showing ? `z ${z}` : '-'})</Text>
           {CLASS_ORDER.map((k) => (
             <TouchableOpacity
               key={k}
@@ -264,7 +281,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           </View>
           <Text style={s.dim}>Counted from the two masks drawn here; tap a class to hide or show it.</Text>
           {check && check.checked && <Text style={check.consistent ? s.ok : s.warn}>{check.text}</Text>}
-          <Text style={s.mono}>reference {short(ok && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · prediction {short(ok && displayed.predictionRef ? displayed.predictionRef.artifactId : null)}</Text>
+          <Text style={s.mono}>reference {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · prediction {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)}</Text>
           <Text style={[s.metric, metricsLine.tone === 'ok' && s.ok]}>{metricsLine.text}</Text>
         </View>
 
@@ -298,7 +315,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
         <View style={s.card}>
           <Text style={s.cardH}>Error profile across the volume (server: FP + FN per eligible slice)</Text>
-          <ProfileChart profile={profile} current={z} total={total} onPick={goTo} available={selection.available} />
+          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={goTo} available={selection.available} />
           <Text style={s.dim}>Bar = FP + FN pixels the server counted on that slice. No bar = not eligible (no ground truth there) - not zero. Tap to open a slice.</Text>
           {profile.problems.map((p) => <Text key={p} style={s.warn}>{p}</Text>)}
         </View>
@@ -313,11 +330,14 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
         )}
 
         <TouchableOpacity
-          style={s.entry}
+          style={[s.entry, blocking && s.entryOff]}
           onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z ?? start, variant, view: 'error' })}
+          disabled={blocking}
           accessibilityRole="button"
+          accessibilityState={{ disabled: blocking }}
         >
           <Text style={s.entryT}>3D error view (SCR-05)</Text>
+          {blocking ? <Text style={s.dim}>this slice did not load</Text> : null}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -399,6 +419,7 @@ const s = StyleSheet.create({
     minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg,
     paddingHorizontal: space.m, justifyContent: 'center',
   },
+  entryOff: { opacity: 0.5 },
   entryT: { color: color.accent, fontSize: font.body, fontWeight: '700' },
   ok: { color: color.ok, fontSize: font.small },
   warn: { color: color.warn, fontSize: font.small },

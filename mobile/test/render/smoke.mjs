@@ -479,6 +479,27 @@ function noRunBackend() {
   await press(r, '3D error view');
   check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52 && pushes[0][1].view === 'error',
     `entry to the 3D error view with the slice: ${JSON.stringify(pushes[0] || null)}`);
+
+  // #77 QA B-3, applied to SCR-04: a slice that fails shows nothing of the slice displayed before.
+  evalBackend.setFailSlice(53);
+  await press(r, '▶');
+  await tick(400);
+  const entry3d = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('3D error view'))[0];
+  check('E4k', has(r, /could not be reached/) && has(r, /^Legend - this slice \(-\)$/) && has(r, /^reference - · prediction -$/)
+    && has(r, /^Slice Dice: -$/) && paths().length === 0 && !has(r, /· \d+ px/),
+    'slice 54 fails: no classes, counts, ids or Dice from slice 53 stay on screen');
+  check('E4k', entry3d() && entry3d().props.disabled === true && textOf(entry3d()).includes('this slice did not load'),
+    'and the SCR-05 entry is disabled with the reason');
+  evalBackend.setFailSlice(null);
+  const before = evalBackend.requests.length;
+  await press(r, 'Retry');
+  await tick(400);
+  await layout(r); // the viewport was unmounted while the state panel showed; a new one lays out
+  await tick(100);
+  const retried = evalBackend.requests.slice(before).map((u) => u.replace('http://backend.invalid:8000', ''));
+  check('E4l', has(r, /^Legend - this slice \(z 53\)$/) && paths().length >= 1
+    && retried.length > 0 && retried.every((u) => u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/')),
+    `Retry brings slice 54 back and asks only for it (${retried.length} requests; ${texts(r).find((t) => t.startsWith('Legend')) || '-'}; paths ${paths().length}${retried.some((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))) ? `; other: ${retried.filter((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))).join(' ')}` : ''})`);
   await act(async () => { r.unmount(); });
 }
 
