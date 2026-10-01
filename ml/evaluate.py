@@ -49,6 +49,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import uuid
 from collections.abc import Callable, Iterable
@@ -69,7 +70,7 @@ BOOTSTRAP = {"method": "percentile bootstrap of the mean over cases",
              "resamples": 10000, "seed": 2024, "level": 0.95,
              "quantiles": "numpy.quantile default (linear)"}
 WORST_SLICE_RULE_ID = "DR-010"
-WORST_SLICE_SELECTION_VERSION = "dr010-worst-slice/1.0.0"
+WORST_SLICE_SELECTION_VERSION = "dr010-worst-slice/v1"          # the API contract's literal
 WORST_SLICE_RULE = ("slices with non-empty ground truth only; per-slice Dice ascending, "
                     "then FP+FN voxels descending, then slice_index ascending")
 OUTLIER_RULE_ID = "DR-010-outlier"
@@ -163,20 +164,27 @@ def per_slice_metrics(pred, ref) -> list[dict]:
 
 
 def worst_slice_selection(slice_rows: Iterable[dict], limit: int | None = None) -> dict:
-    """DR-010 worst-slice ranking in the DR-010a option (b) shape."""
-    eligible = [r for r in slice_rows if r["ref_voxels"] > 0]
+    """DR-010 worst-slice ranking, exactly the API contract block (DR-010a option (b)):
+    {rule_id, selection_version, slices: [{slice_index, dice, false_positives, false_negatives}]},
+    worst first, over every eligible slice (an empty list is never padded)."""
+    rows = list(slice_rows)
+    eligible = [r for r in rows if r["ref_voxels"] > 0]
     ranked = sorted(eligible, key=lambda r: (r["dice"], -(r["fp"] + r["fn"]), r["slice_index"]))
     if limit is not None:
         ranked = ranked[:limit]
     return {
         "rule_id": WORST_SLICE_RULE_ID,
         "selection_version": WORST_SLICE_SELECTION_VERSION,
-        "metric_version": EVALUATION_METRIC_VERSION,
-        "rule": WORST_SLICE_RULE,
-        "eligible_slice_count": len(eligible),
         "slices": [{"slice_index": r["slice_index"], "dice": r["dice"],
                     "false_positives": r["fp"], "false_negatives": r["fn"]} for r in ranked],
     }
+
+
+def worst_slice_selection_meta(slice_rows: Iterable[dict]) -> dict:
+    """What the contract block does not carry: the rule text, metric version and eligible count."""
+    rows = list(slice_rows)
+    return {"rule": WORST_SLICE_RULE, "metric_version": EVALUATION_METRIC_VERSION,
+            "eligible_slice_count": sum(r["ref_voxels"] > 0 for r in rows), "count_unit": "pixels of the slice"}
 
 
 def problematic_fp_slices(slice_rows: Iterable[dict]) -> dict:
@@ -218,20 +226,46 @@ def evaluate_case(case_id: str, pred, ref) -> dict:
         "worst_slice_index": selection["slices"][0]["slice_index"] if selection["slices"] else None,
     }
     return {"record": record, "slices": rows, "worst_slice_selection": selection,
+            "worst_slice_selection_meta": worst_slice_selection_meta(rows),
             "problematic_fp_slices": problematic_fp_slices(rows)}
 
 
 # --- failed-case protocol -----------------------------------------------------------
 
+def path_scrubber(replacements: dict[str, str]) -> Callable[[str], str]:
+    """A function that replaces absolute path prefixes in a message with placeholders.
+
+    Failure reasons are written into artifacts that may be shared; they must name files
+    relative to the run directory or the package root, never by a machine's absolute path.
+    Both separator styles and case are handled (Windows paths).
+    """
+    import re as _re
+    pats = []
+    for prefix, placeholder in sorted(replacements.items(), key=lambda kv: -len(kv[0])):
+        if not prefix:
+            continue
+        variants = {prefix, prefix.replace("\\", "/"), prefix.replace("/", "\\")}
+        for v in sorted(variants, key=len, reverse=True):
+            pats.append((_re.compile(_re.escape(v), _re.IGNORECASE), placeholder))
+
+    def scrub(message: str) -> str:
+        for pat, placeholder in pats:
+            message = pat.sub(placeholder, message)
+        return message
+    return scrub
+
+
 def evaluate_population(intended_case_ids: Iterable[str],
                         load_pair: Callable[[str], tuple],
                         *, population: dict, prediction_variant: str,
-                        reference_mask_kind: str = REFERENCE_MASK_KIND, log=None) -> dict:
+                        reference_mask_kind: str = REFERENCE_MASK_KIND, log=None,
+                        scrub: Callable[[str], str] = lambda m: m) -> dict:
     """Score every intended case; failures are recorded with a reason, never dropped.
 
     load_pair(case_id) -> (pred [Z,H,W], ref [Z,H,W], provenance dict). Any exception it
     raises becomes a failure record, EXCEPT a data-access refusal (DataAccessError), which
-    is a protocol violation and propagates.
+    is a protocol violation and propagates. Failure reasons pass through `scrub` (see
+    path_scrubber) so no absolute path is recorded.
     """
     if prediction_variant not in PREDICTION_VARIANTS:
         raise ValueError(f"prediction_variant must be explicit: one of {PREDICTION_VARIANTS}")
@@ -240,7 +274,7 @@ def evaluate_population(intended_case_ids: Iterable[str],
         raise ValueError("intended case ids must be non-empty and unique")
     if sorted(population.get("case_ids", ids)) != sorted(ids):
         raise ValueError("intended case ids differ from the declared population")
-    cases, slices, selections, fp_slices, provenance, failures = [], {}, {}, {}, {}, []
+    cases, slices, selections, metas, fp_slices, provenance, failures = [], {}, {}, {}, {}, {}, []
     for n, cid in enumerate(ids, 1):
         try:
             pred, ref, prov = load_pair(cid)
@@ -248,14 +282,16 @@ def evaluate_population(intended_case_ids: Iterable[str],
         except D.DataAccessError:
             raise
         except CaseEvaluationError as exc:
-            failures.append({"case_id": cid, "reason_code": exc.reason_code, "reason": str(exc)})
+            failures.append({"case_id": cid, "reason_code": exc.reason_code, "reason": scrub(str(exc))})
         except Exception as exc:  # noqa: BLE001 - every failure is recorded with its reason
             code = getattr(exc, "reason_code", "EVALUATION_ERROR")
-            failures.append({"case_id": cid, "reason_code": code, "reason": f"{type(exc).__name__}: {exc}"})
+            failures.append({"case_id": cid, "reason_code": code,
+                             "reason": scrub(f"{type(exc).__name__}: {exc}")})
         else:
             cases.append(out["record"])
             slices[cid] = out["slices"]
             selections[cid] = out["worst_slice_selection"]
+            metas[cid] = out["worst_slice_selection_meta"]
             fp_slices[cid] = out["problematic_fp_slices"]
             provenance[cid] = prov
         if log:
@@ -274,6 +310,7 @@ def evaluate_population(intended_case_ids: Iterable[str],
         "cases": cases,
         "per_slice": slices,
         "worst_slice_selections": selections,
+        "worst_slice_selection_meta": metas,
         "problematic_fp_slices": fp_slices,
         "provenance": provenance,
     }
@@ -472,22 +509,36 @@ def _rel_new(path: Path, root: Path) -> str:
     return Path(os.path.abspath(path)).relative_to(Path(os.path.abspath(root))).as_posix()
 
 
-def load_run_split(run_dir: str | Path, partition: str) -> tuple[dict, str]:
-    """The run's own copy of the split manifest, as the predictions manifest references it."""
+def load_run_split(run_dir: str | Path, partition: str, *,
+                   frozen_split: str | Path = D.DEFAULT_SPLIT_MANIFEST) -> tuple[dict, str]:
+    """The run's copy of the split manifest - accepted only when it is byte-identical to the
+    FROZEN split (the repository's split manifest unless another file is named explicitly).
+
+    The holdout lock must not trust a file that lives in the run directory it protects: a
+    split copy that moves a holdout case into validation, with every in-run sha256 updated,
+    would otherwise get that case scored without any flag (QA probe H9).
+    """
     run_dir = Path(run_dir)
+    frozen_sha = D.sha256_file(frozen_split)
     pm = D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition))
     ref = pm["split_manifest"]
     path = run_dir / ref["path"]
     digest = D.sha256_file(path)
     if digest != ref["sha256"]:
-        raise ValueError(f"{path}: sha256 {digest} != predictions manifest {ref['sha256']}")
+        raise MF.SplitMismatchError(f"{ref['path']}: sha256 {digest} != predictions manifest {ref['sha256']}")
+    if digest != frozen_sha:
+        raise MF.SplitMismatchError(f"the run's split copy (sha256 {digest}) is not the frozen split manifest "
+                                    f"(sha256 {frozen_sha}); refusing to evaluate")
     return D.load_split_manifest(path), digest
 
 
 def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict | None = None,
                  package_root: str | Path = D.DEFAULT_PACKAGE_ROOT, allow_holdout: bool = False,
-                 log=print) -> Path:
-    """Score <run>/predictions/<partition>/ against the reference masks; write <run>/evaluation/<partition>/."""
+                 split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST, log=print) -> Path:
+    """Score <run>/predictions/<partition>/ against the reference masks; write <run>/evaluation/<partition>/.
+
+    split_manifest is the FROZEN split the run must have used (default: the repository's).
+    """
     run_dir = Path(run_dir)
     if partition not in ("validation", D.HOLDOUT_PARTITION):
         raise ValueError("partition must be 'validation' or 'final_holdout'")
@@ -498,7 +549,7 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     pm = D.load_json(pm_path)
     if pm.get("format") != PREDICTIONS_FORMAT or pm.get("population", {}).get("partition") != partition:
         raise ValueError(f"{pm_path}: not a {PREDICTIONS_FORMAT} manifest for {partition}")
-    split, split_sha = load_run_split(run_dir, partition)
+    split, split_sha = load_run_split(run_dir, partition, frozen_split=split_manifest)
     if partition == D.HOLDOUT_PARTITION:
         if allow_holdout is not True:
             raise D.HoldoutAccessError("evaluating the final holdout needs allow_holdout=True")
@@ -512,6 +563,9 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     if D.sha256_file(pop_path) != pop_ref["sha256"]:
         raise ValueError(f"{pop_path}: population manifest sha256 differs from the predictions manifest")
     pop = D.load_json(pop_path)
+    if pop.get("role") != MF.ROLES[partition] or pop.get("partition") != partition:
+        raise ValueError(f"population manifest declares role {pop.get('role')!r} / partition "
+                         f"{pop.get('partition')!r}, expected {MF.ROLES[partition]!r} / {partition!r}")
     if pop.get("source_split_manifest_sha256") != split_sha or sorted(pop["case_ids"]) != sorted(allow.case_ids):
         raise ValueError("population manifest does not match the run's split manifest partition")
     intended = list(pm["intended_case_ids"])
@@ -521,6 +575,9 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     paths = D.case_paths(dataset_manifest, package_root, allowlist=allow)
     pred_dir = pm_path.parent
     by_case = {c["case_id"]: c for c in pm["cases"]}
+    scrub = path_scrubber({str(run_dir.resolve()): "<run>", str(run_dir): "<run>",
+                           str(Path(package_root).resolve()): "<package_root>",
+                           str(package_root): "<package_root>"})
 
     def load_pair(cid: str):
         entry = by_case.get(cid)
@@ -528,7 +585,11 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
             raise PredictionUnavailable("NO_PREDICTION_RECORD", f"{cid}: no entry in the predictions manifest")
         if entry.get("status") != "SUCCEEDED":
             raise PredictionUnavailable("INFERENCE_FAILED", f"{cid}: {entry.get('failure_reason')}")
-        pred, pred_header, digest = D.read_nrrd_zyx(pred_dir / entry["file"])
+        pred_file = pred_dir / entry["file"]
+        if not pred_file.is_file():
+            raise PredictionUnavailable("PREDICTION_FILE_MISSING",
+                                        f"{cid}: {_rel_new(pred_file, run_dir)} is missing")
+        pred, pred_header, digest = D.read_nrrd_zyx(pred_file)
         if digest != entry["sha256"]:
             raise CaseEvaluationError("PREDICTION_CHECKSUM_MISMATCH", f"{cid}: prediction file changed")
         ref, ref_header, ref_sha = D.load_mask(cid, paths)
@@ -544,7 +605,7 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     population = {"role": pop["role"], "partition": partition, "manifest_id": pop["manifest_id"],
                   "path": pop_ref["path"], "sha256": pop_ref["sha256"], "case_ids": intended}
     result = evaluate_population(intended, load_pair, population=population,
-                                 prediction_variant=pm["prediction_variant"], log=log)
+                                 prediction_variant=pm["prediction_variant"], log=log, scrub=scrub)
     return write_evaluation(run_dir, partition, result, experiment_id=pm["experiment_id"],
                             predictions_manifest=pm, predictions_manifest_path=pm_path, split=split)
 
@@ -555,12 +616,26 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_
 
     The rename is the commit point: evaluation/<partition>/ either does not exist or is
     complete, so an interrupted evaluation can simply be run again. Recorded paths are the
-    final ones.
+    final ones. On any failure before the rename the temporary directory is removed.
     """
     final_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=partition)
-    final_rel = _rel_new(final_dir, run_dir)
-    tmp_dir = final_dir.with_name(f".{final_dir.name}.tmp-{os.getpid()}-{uuid.uuid4().hex[:12]}")
+    tmp_dir = final_dir.with_name(f".{final_dir.name}.{uuid.uuid4().hex[:8]}.tmp")
     tmp_dir.mkdir(parents=True, exist_ok=False)
+    try:
+        _write_evaluation_files(run_dir, tmp_dir, final_dir, partition, result, experiment_id=experiment_id,
+                                predictions_manifest=predictions_manifest,
+                                predictions_manifest_path=predictions_manifest_path, split=split)
+        os.rename(tmp_dir, final_dir)          # commit point; fails if final_dir appeared meanwhile
+    except BaseException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    return final_dir
+
+
+def _write_evaluation_files(run_dir: Path, tmp_dir: Path, final_dir: Path, partition: str, result: dict, *,
+                            experiment_id: str, predictions_manifest: dict, predictions_manifest_path: Path,
+                            split: dict) -> None:
+    final_rel = _rel_new(final_dir, run_dir)
     exp = experiment_id
     header = {k: result[k] for k in ("evaluation_metric_version", "population", "prediction_variant",
                                      "reference_mask_kind", "geometry_policy", "volume_unit",
@@ -590,6 +665,7 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_
                                  "sha256": prov["reference_sha256"]},
               "metrics": rec,
               "worst_slice_selection": result["worst_slice_selections"][cid],
+              "worst_slice_selection_meta": result["worst_slice_selection_meta"][cid],
               "problematic_fp_slices": result["problematic_fp_slices"][cid]}
         metric_sets[cid] = MF.write_json_new(tmp_dir / "metric_sets" / f"{cid}.json", ms)
 
@@ -616,8 +692,6 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_
         "created_at": MF.now_iso(),
     }
     MF.write_json_new(tmp_dir / "evaluation_manifest.json", manifest)
-    os.rename(tmp_dir, final_dir)              # commit point; fails if final_dir appeared meanwhile
-    return final_dir
 
 
 def load_evaluation(run_dir: str | Path, partition: str) -> dict:
@@ -639,6 +713,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="required (with recorded holdout authorization) to score final_holdout")
     r.add_argument("--dataset-manifest", type=Path, default=D.DEFAULT_DATASET_MANIFEST)
     r.add_argument("--package-root", type=Path, default=D.DEFAULT_PACKAGE_ROOT)
+    r.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
+                   help="the FROZEN split the run must have used (default: the repository's)")
     c = sub.add_parser("compare", help="paired comparison of two recorded evaluations")
     c.add_argument("--run-a", required=True, type=Path)
     c.add_argument("--run-b", required=True, type=Path)
@@ -646,30 +722,46 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--metric", default="dice_3d")
     c.add_argument("--allow-variant-mismatch", action="store_true",
                    help="for the raw-vs-processed ablation (EXP-D-PP) only")
+    c.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
+                   help="the FROZEN split both runs must have used (default: the repository's)")
     c.add_argument("--out", type=Path, help="write the comparison to this NEW JSON file")
     args = ap.parse_args(argv)
     if args.cmd == "run":
         out = evaluate_run(args.run_dir, args.population,
                            dataset_manifest=D.load_dataset_manifest(args.dataset_manifest),
-                           package_root=args.package_root, allow_holdout=args.allow_holdout)
+                           package_root=args.package_root, allow_holdout=args.allow_holdout,
+                           split_manifest=args.split_manifest)
         print(f"wrote {out}")
         return 0
-    a, b = load_evaluation(args.run_a, args.population), load_evaluation(args.run_b, args.population)
-    same = not args.allow_variant_mismatch
-    if args.population == D.HOLDOUT_PARTITION:
-        split, _ = load_run_split(args.run_a, args.population)
-        report = paired_holdout_report(a, b, split, metric=args.metric, same_prediction_variant=same)
-    else:
-        report = paired_comparison(a, b, metric=args.metric, same_prediction_variant=same)
-    report = {"format": "ml-paired-comparison/1", "run_a": a.get("experiment_id"),
-              "run_b": b.get("experiment_id"), "population": args.population, "bootstrap": BOOTSTRAP,
-              "report": report}
+    report = compare_runs(args.run_a, args.run_b, args.population, metric=args.metric,
+                          same_prediction_variant=not args.allow_variant_mismatch,
+                          split_manifest=args.split_manifest)
     if args.out:
         MF.write_json_new(args.out, report)
         print(f"wrote {args.out}")
     else:
         print(json.dumps(report, indent=1))
     return 0
+
+
+def compare_runs(run_a: str | Path, run_b: str | Path, population: str, *, metric: str = "dice_3d",
+                 same_prediction_variant: bool = True,
+                 split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST) -> dict:
+    """Paired comparison of two recorded evaluations of the same population.
+
+    Both runs must have used the FROZEN split (load_run_split); the holdout population also
+    reports the two holdout slots.
+    """
+    split, _ = load_run_split(run_a, population, frozen_split=split_manifest)
+    load_run_split(run_b, population, frozen_split=split_manifest)
+    a, b = load_evaluation(run_a, population), load_evaluation(run_b, population)
+    if population == D.HOLDOUT_PARTITION:
+        report = paired_holdout_report(a, b, split, metric=metric, same_prediction_variant=same_prediction_variant)
+    else:
+        report = paired_comparison(a, b, metric=metric, same_prediction_variant=same_prediction_variant)
+    return {"format": "ml-paired-comparison/1", "run_a": a.get("experiment_id"),
+            "run_b": b.get("experiment_id"), "population": population, "bootstrap": BOOTSTRAP,
+            "report": report}
 
 
 if __name__ == "__main__":

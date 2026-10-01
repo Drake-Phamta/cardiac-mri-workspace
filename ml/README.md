@@ -112,7 +112,7 @@ manifests/population_<partition>.json             validation or final_holdout ca
 predictions/<partition>/<case>.nrrd + predictions_manifest.json      (never overwritten)
 evaluation/<partition>/per_case_metrics.json, per_slice_metrics.json, metrics_summary.json,
                        metric_sets/<case>.json, evaluation_manifest.json   (never overwritten)
-contract2/<manifest_id>.json
+contract2/<manifest_id>.json + <manifest_id>.export.json (export record)
 ```
 
 ```
@@ -122,12 +122,25 @@ python -m ml.evaluate compare --run-a <run> --run-b <run> --population final_hol
 python -m ml.export_contract2 --run-dir <run> --gate-split-01 <STATE> --gate-ml-01 <STATE> --validate
 ```
 
+**The split is checked against the frozen file, not against the run directory.** Evaluation,
+comparison and export accept a run only when its split copy is byte-identical to the frozen
+split manifest: the repository's `data/manifests/split_manifest_path_a_seed2024.json`, or
+another file named explicitly with `--split-manifest`. A run directory cannot vouch for itself.
+A split copy that moves a holdout case into validation, even with every in-run sha256
+updated, is refused (`SplitMismatchError`, regression test H9).
+
 Scoring the final holdout needs `--allow-holdout` **and** a `holdout_authorization`
 record in the predictions manifest (written by inference only under GATE-IMG-01). A
 comparison between runs that fail the `08` §7 comparable-run gate is labelled
 `NON_COMPARABLE` and carries no delta. Contract 2 DRAFT v0 cannot represent a failed
 case (every analysis run needs a raw mask), so the exporter refuses a run with failures
-rather than drop them.
+rather than drop them. The exporter also refuses code versions that are not clean
+commits (`+dirty`, `MIXED:`, `UNKNOWN`) unless `--allow-dirty-code` is given; that choice
+is written to `<manifest_id>.export.json`, because the Contract 2 schema admits no extra
+fields. Failure reasons name files relative to the run directory or the package root,
+never by absolute path. The worst-slice block is exactly the API contract's
+`{rule_id, selection_version: "dr010-worst-slice/v1", slices}`; the rule text and eligible
+count are stored next to it as `worst_slice_selection_meta`.
 
 ## Running the tests
 

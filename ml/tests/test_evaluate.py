@@ -105,9 +105,12 @@ def test_non_binary_and_mismatched_masks_are_refused():
 
 def test_worst_slice_selection_known_answer():
     pred, ref = known_pair()
-    sel = E.evaluate_case("CASE_9001", pred, ref)["worst_slice_selection"]
-    assert set(sel) >= {"rule_id", "selection_version", "slices"}
-    assert sel["rule_id"] == "DR-010" and sel["eligible_slice_count"] == 2
+    out = E.evaluate_case("CASE_9001", pred, ref)
+    sel = out["worst_slice_selection"]
+    # exactly the API contract block (DR-010a option (b)), with the contract's literal version
+    assert set(sel) == {"rule_id", "selection_version", "slices"}
+    assert sel["rule_id"] == "DR-010" and sel["selection_version"] == "dr010-worst-slice/v1"
+    assert out["worst_slice_selection_meta"]["eligible_slice_count"] == 2
     # slice 3 (FP-only) and slice 0 (both empty) are not anatomical candidates
     assert sel["slices"] == [
         {"slice_index": 2, "dice": 0.0, "false_positives": 0, "false_negatives": 4},
@@ -163,6 +166,23 @@ def test_failed_cases_are_reported_never_dropped():
     assert s["metrics"]["dice_3d"]["n"] == 1
     assert s["metrics"]["dice_3d"]["mean"] == pytest.approx(4 / 15)
     assert s["metrics"]["dice_3d"]["mean_with_failures_as_zero"] == pytest.approx(4 / 15 / 3)
+
+
+def test_failure_reasons_never_record_absolute_paths():
+    # a fictional Windows run directory, assembled at run time so no drive-letter path is in the source
+    drive = "C" + ":"
+    run = "\\".join([drive, "Users", "someone", "runs", "EXP-U-025"])
+    scrub = E.path_scrubber({run: "<run>", "/data/pkg": "<package_root>"})
+    assert scrub("FileNotFoundError: " + run.replace("\\", "/") + "/predictions/x.nrrd") == \
+        "FileNotFoundError: <run>/predictions/x.nrrd"
+    assert scrub("OSError: " + run.lower().replace("someone", "SOMEONE") + "\\a.nrrd") == "OSError: <run>\\a.nrrd"
+    assert scrub("no path here") == "no path here"
+
+    def load_pair(cid):
+        raise OSError("[Errno 2] cannot read " + run + "\\predictions\\x.nrrd")
+    res = E.evaluate_population(["CASE_0001"], load_pair, population=_population(["CASE_0001"]),
+                                prediction_variant="RAW_PREDICTION", scrub=scrub)
+    assert res["failures"][0]["reason"] == "OSError: [Errno 2] cannot read <run>\\predictions\\x.nrrd"
 
 
 def test_data_access_refusal_propagates():
@@ -303,10 +323,16 @@ def cpkg(tmp_path_factory):
     return synth.make_contract_package(tmp_path_factory.mktemp("cpkg"))
 
 
+def run_eval(run, partition, cpkg, **kw):
+    """evaluate_run against the synthetic package, naming its split as the FROZEN one."""
+    kw.setdefault("split_manifest", cpkg["split_manifest_path"])
+    return E.evaluate_run(run, partition, dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
+                          log=None, **kw)
+
+
 def test_evaluate_run_validation_writes_immutable_outputs(cpkg, tmp_path):
     run = runfixture.make_run_dir(tmp_path / "EXP-U-025", cpkg, partition="validation")
-    out = E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
-                         package_root=cpkg["package_root"], log=None)
+    out = run_eval(run, "validation", cpkg)
     per_case = json.loads((out / "per_case_metrics.json").read_text(encoding="utf-8"))
     assert per_case["intended_n"] == per_case["successful_n"] == len(synth.C_VALIDATION)
     assert per_case["evaluation_metric_version"] == E.EVALUATION_METRIC_VERSION
@@ -322,10 +348,54 @@ def test_evaluate_run_validation_writes_immutable_outputs(cpkg, tmp_path):
     for item in list(manifest["outputs"].values()) + list(manifest["metric_sets"].values()):
         assert D.sha256_file(run / item["path"]) == item["sha256"]
     ms = json.loads((run / manifest["metric_sets"][cid]["path"]).read_text(encoding="utf-8"))
-    assert ms["worst_slice_selection"]["rule_id"] == "DR-010"
+    assert set(ms["worst_slice_selection"]) == {"rule_id", "selection_version", "slices"}
+    assert ms["worst_slice_selection_meta"]["metric_version"] == E.EVALUATION_METRIC_VERSION
     with pytest.raises(FileExistsError):
-        E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
-                       package_root=cpkg["package_root"], log=None)
+        run_eval(run, "validation", cpkg)
+
+
+def test_the_frozen_split_defaults_to_the_repository_manifest(cpkg, tmp_path):
+    run = runfixture.make_run_dir(tmp_path / "EXP-U-025", cpkg, partition="validation")
+    if D.DEFAULT_SPLIT_MANIFEST.exists():          # the synthetic split is not the frozen one
+        with pytest.raises(E.MF.SplitMismatchError):
+            E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
+                           package_root=cpkg["package_root"], log=None)
+    assert not (run / "evaluation").exists()
+
+
+def test_h9_a_run_split_copy_that_moves_a_holdout_case_is_refused(cpkg, tmp_path):
+    """QA probe H9: a run directory whose split copy moves a holdout case into validation,
+    with every in-run sha256 updated, must not get that case scored."""
+    moved = synth.C_HOLDOUT[0]
+    forged = json.loads(json.dumps(cpkg["split"]))
+    forged["partitions"]["final_holdout"]["case_ids"].remove(moved)
+    forged["partitions"]["validation"]["case_ids"].append(moved)
+    forged_path = tmp_path / "forged_split.json"
+    forged_path.write_text(json.dumps(forged, indent=1) + "\n", encoding="utf-8")
+    forged_pkg = dict(cpkg, split=forged, split_manifest_path=forged_path)
+    run = runfixture.make_run_dir(tmp_path / "EXP-H9", forged_pkg, experiment_id="EXP-H9",
+                                  partition="validation")
+    pm = json.loads((run / "predictions" / "validation" / "predictions_manifest.json").read_text(encoding="utf-8"))
+    assert moved in pm["intended_case_ids"]                                  # the forgery is self-consistent
+    with pytest.raises(E.MF.SplitMismatchError):
+        run_eval(run, "validation", cpkg)                                     # frozen = the real synthetic split
+    with pytest.raises(E.MF.SplitMismatchError):
+        E.compare_runs(run, run, "validation", split_manifest=cpkg["split_manifest_path"])
+    assert not (run / "evaluation").exists()
+
+
+def test_population_manifest_role_must_match_the_partition(cpkg, tmp_path):
+    run = runfixture.make_run_dir(tmp_path / "EXP-N2", cpkg, experiment_id="EXP-N2", partition="validation")
+    pop_path = run / "manifests" / "population_validation.json"
+    pop = json.loads(pop_path.read_text(encoding="utf-8"))
+    pop["role"] = "FINAL_HOLDOUT"
+    pop_path.write_bytes(E.MF.json_bytes(pop))
+    pm_path = run / "predictions" / "validation" / "predictions_manifest.json"
+    pm = json.loads(pm_path.read_text(encoding="utf-8"))
+    pm["population"]["sha256"] = D.sha256_file(pop_path)                      # keep the sha chain intact
+    pm_path.write_bytes(E.MF.json_bytes(pm))
+    with pytest.raises(ValueError, match="role"):
+        run_eval(run, "validation", cpkg)
 
 
 def test_interrupted_evaluation_leaves_nothing_recorded(cpkg, tmp_path, monkeypatch):
@@ -336,28 +406,25 @@ def test_interrupted_evaluation_leaves_nothing_recorded(cpkg, tmp_path, monkeypa
         raise RuntimeError("simulated crash before the commit point")
     monkeypatch.setattr(E.MF, "code_version", boom)
     with pytest.raises(RuntimeError):
-        E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
-                       package_root=cpkg["package_root"], log=None)
+        run_eval(run, "validation", cpkg)
     assert not (run / "evaluation" / "validation").exists()
+    assert list((run / "evaluation").iterdir()) == []                         # temp dir removed too
     monkeypatch.undo()
-    out = E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
-                         package_root=cpkg["package_root"], log=None)
+    out = run_eval(run, "validation", cpkg)
     manifest = json.loads((out / "evaluation_manifest.json").read_text(encoding="utf-8"))
     assert manifest["outputs"]["per_case_metrics"]["path"] == "evaluation/validation/per_case_metrics.json"
+    assert [p.name for p in (run / "evaluation").iterdir()] == ["validation"]
 
 
 def test_evaluate_run_holdout_needs_explicit_permission(cpkg, tmp_path):
     run = runfixture.make_run_dir(tmp_path / "EXP-U-025", cpkg)
     with pytest.raises(D.HoldoutAccessError):
-        E.evaluate_run(run, "final_holdout", dataset_manifest=cpkg["dataset"],
-                       package_root=cpkg["package_root"], log=None)
+        run_eval(run, "final_holdout", cpkg)
     run2 = runfixture.make_run_dir(tmp_path / "EXP-U-050", cpkg, experiment_id="EXP-U-050",
                                    holdout_authorization=False)
     with pytest.raises(D.HoldoutAccessError):
-        E.evaluate_run(run2, "final_holdout", dataset_manifest=cpkg["dataset"],
-                       package_root=cpkg["package_root"], allow_holdout=True, log=None)
-    out = E.evaluate_run(run, "final_holdout", dataset_manifest=cpkg["dataset"],
-                         package_root=cpkg["package_root"], allow_holdout=True, log=None)
+        run_eval(run2, "final_holdout", cpkg, allow_holdout=True)
+    out = run_eval(run, "final_holdout", cpkg, allow_holdout=True)
     summary = json.loads((out / "metrics_summary.json").read_text(encoding="utf-8"))
     slots = summary["holdout_slots"]
     assert slots["primary_all_holdout"]["intended_n"] == 54
@@ -368,8 +435,7 @@ def test_evaluate_run_records_inference_failures(cpkg, tmp_path):
     cid = synth.C_VALIDATION[1]
     run = runfixture.make_run_dir(tmp_path / "EXP-D-025", cpkg, experiment_id="EXP-D-025",
                                   partition="validation", fail_cases=(cid,))
-    out = E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
-                         package_root=cpkg["package_root"], log=None)
+    out = run_eval(run, "validation", cpkg)
     per_case = json.loads((out / "per_case_metrics.json").read_text(encoding="utf-8"))
     assert per_case["successful_n"] == 1 and per_case["failures"][0]["case_id"] == cid
     assert per_case["failures"][0]["reason_code"] == "INFERENCE_FAILED"
@@ -381,8 +447,21 @@ def test_evaluate_run_detects_a_changed_prediction(cpkg, tmp_path):
     cid = synth.C_VALIDATION[0]
     pred_path = run / "predictions" / "validation" / f"{cid}.nrrd"
     pred_path.write_bytes(pred_path.read_bytes().replace(b"pynrrd", b"PYNRRD"))
-    out = E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
-                         package_root=cpkg["package_root"], log=None)
+    out = run_eval(run, "validation", cpkg)
     per_case = json.loads((out / "per_case_metrics.json").read_text(encoding="utf-8"))
     assert per_case["failures"] == [{"case_id": cid, "reason_code": "PREDICTION_CHECKSUM_MISMATCH",
                                      "reason": f"{cid}: prediction file changed"}]
+
+
+def test_a_missing_prediction_is_recorded_with_a_run_relative_path(cpkg, tmp_path):
+    run = runfixture.make_run_dir(tmp_path / "EXP-N8", cpkg, experiment_id="EXP-N8", partition="validation")
+    cid = synth.C_VALIDATION[0]
+    pred_path = run / "predictions" / "validation" / f"{cid}.nrrd"
+    pred_path.replace(pred_path.with_name(f"{cid}.nrrd.moved"))
+    out = run_eval(run, "validation", cpkg)
+    per_case = json.loads((out / "per_case_metrics.json").read_text(encoding="utf-8"))
+    failure = per_case["failures"][0]
+    assert failure["reason_code"] == "PREDICTION_FILE_MISSING"
+    assert f"predictions/validation/{cid}.nrrd" in failure["reason"]
+    text = (out / "per_case_metrics.json").read_text(encoding="utf-8")
+    assert str(tmp_path) not in text and tmp_path.as_posix() not in text

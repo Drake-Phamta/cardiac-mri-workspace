@@ -17,8 +17,18 @@ import os
 import subprocess
 from pathlib import Path
 
-from ml.data import (HOLDOUT_PARTITION, REPO_ROOT, partition_case_ids, subset_case_ids,
+from ml.data import (HOLDOUT_PARTITION, REPO_ROOT, DataAccessError, partition_case_ids, subset_case_ids,
                      training_excluded_case_ids)
+
+
+class SplitMismatchError(DataAccessError):
+    """A run's split manifest copy is not the frozen split manifest (the holdout lock refuses it)."""
+
+
+def is_clean_code_version(version: str | None) -> bool:
+    """True for "git:<commit>" from a clean tree; False for +dirty, MIXED:..., UNKNOWN or missing."""
+    return (isinstance(version, str) and version.startswith("git:") and "+dirty" not in version
+            and not version.startswith("MIXED:"))
 
 POPULATION_FORMAT = "ml-population/1"
 SUBSET_FORMAT = "ml-training-subset/1"

@@ -15,6 +15,12 @@ Reads
     evaluation/final_holdout/evaluation_manifest.json     + per-case, per-slice, summary, metric sets
 Writes
     contract2/<manifest_id>.json                          (refuses to overwrite)
+    contract2/<manifest_id>.export.json                   export record: frozen split sha256,
+                                                          code versions, allow_dirty_code
+
+The run's split copy and every recorded split sha256 must equal the FROZEN split manifest
+(--split-manifest, default the repository's), and the training, inference and evaluation
+code versions must be clean commits unless --allow-dirty-code is passed (and recorded).
 
 Gate states are explicit inputs with no default: the manifest records what the operator
 asserts, and contracts/ingestion/contract2_experiment_artifact/validate_contract2.py refuses
@@ -71,9 +77,27 @@ def default_manifest_id(experiment_id: str, prediction_variant: str) -> str:
     return f"exp-{stem}-{variant}-holdout"
 
 
+def code_versions(rm: dict, pm: dict, em: dict) -> dict:
+    """Every code version that produced this export (training, inference when recorded, evaluation)."""
+    out = {"training_code_version": rm.get("training_code_version"),
+           "evaluation_code_version": em.get("evaluation_code_version")}
+    inference = (pm.get("inference") or {}).get("code_version")
+    if inference is not None:
+        out["inference_code_version"] = inference
+    return out
+
+
 def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
-                   manifest_id: str | None = None, generated_at: str | None = None) -> dict:
-    """The Contract 2 manifest for <run>'s final_holdout evaluation (not written to disk)."""
+                   manifest_id: str | None = None, generated_at: str | None = None,
+                   split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
+                   allow_dirty_code: bool = False) -> dict:
+    """The Contract 2 manifest for <run>'s final_holdout evaluation (not written to disk).
+
+    split_manifest is the FROZEN split (default: the repository's); the run's copy and every
+    recorded split sha256 must equal it. A training / inference / evaluation code version
+    that is not a clean commit ("+dirty", "MIXED:...", "UNKNOWN") is refused unless
+    allow_dirty_code=True, which export() records next to the manifest.
+    """
     run_dir = Path(run_dir)
     for name, state in (("gate_split_01", gate_split_01), ("gate_ml_01", gate_ml_01)):
         if state not in GATE_STATES:
@@ -95,11 +119,19 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     if em["predictions_manifest"]["path"] != pm_rel:
         raise ExportError("the evaluation scored a different predictions manifest")
     _checksum(run_dir, pm_rel, em["predictions_manifest"]["sha256"], "predictions manifest")
+    frozen_sha = D.sha256_file(split_manifest)
+    for what, sha in (("run manifest", rm["split_manifest"]["sha256"]),
+                      ("predictions manifest", pm["split_manifest"]["sha256"]),
+                      ("run split copy", D.sha256_file(run_dir / rm["split_manifest"]["path"]))):
+        if sha != frozen_sha:
+            raise ExportError(f"{what} split sha256 {sha} is not the frozen split manifest {frozen_sha}")
+    dirty = {k: v for k, v in code_versions(rm, pm, em).items() if not MF.is_clean_code_version(v)}
+    if dirty and not allow_dirty_code:
+        raise ExportError(f"code versions are not clean commits: {dirty}; re-run from a committed tree, "
+                          f"or pass allow_dirty_code / --allow-dirty-code (recorded with the export)")
     ckpt = rm["checkpoint"]
     if pm["checkpoint"]["sha256"] != ckpt["sha256"]:
         raise ExportError("holdout predictions were not made with the run's recorded checkpoint")
-    if pm["split_manifest"]["sha256"] != rm["split_manifest"]["sha256"]:
-        raise ExportError("holdout predictions used a different split manifest than training")
     if pm["prediction_variant"] != em["prediction_variant"]:
         raise ExportError("prediction variant differs between predictions and evaluation")
     failed = [c["case_id"] for c in pm["cases"] if c.get("status") != "SUCCEEDED"]
@@ -218,11 +250,30 @@ def validate(manifest: dict, run_dir: str | Path) -> dict:
 
 
 def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
-           manifest_id: str | None = None) -> Path:
+           manifest_id: str | None = None, split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
+           allow_dirty_code: bool = False) -> Path:
+    """Write contract2/<manifest_id>.json and, next to it, <manifest_id>.export.json: the
+    export record (frozen split sha256, code versions, and whether dirty code was allowed).
+    The Contract 2 schema admits no extra fields, so the record is a separate file."""
+    run_dir = Path(run_dir)
     manifest = build_manifest(run_dir, gate_split_01=gate_split_01, gate_ml_01=gate_ml_01,
-                              manifest_id=manifest_id)
-    out = Path(run_dir) / MF.RUN_LAYOUT["contract2"] / f"{manifest['manifest_id']}.json"
-    return MF.write_json_new(out, manifest)
+                              manifest_id=manifest_id, split_manifest=split_manifest,
+                              allow_dirty_code=allow_dirty_code)
+    out_dir = run_dir / MF.RUN_LAYOUT["contract2"]
+    rm = D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"])
+    pm = D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION))
+    em = D.load_json(run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) / "evaluation_manifest.json")
+    versions = code_versions(rm, pm, em)
+    record = {"format": "ml-contract2-export/1", "manifest_id": manifest["manifest_id"],
+              "frozen_split_sha256": D.sha256_file(split_manifest),
+              "code_versions": versions,
+              "dirty_code_versions": {k: v for k, v in versions.items() if not MF.is_clean_code_version(v)},
+              "allow_dirty_code": bool(allow_dirty_code),
+              "gates_as_asserted": manifest["gates"],
+              "exported_at": MF.now_iso()}
+    path = MF.write_json_new(out_dir / f"{manifest['manifest_id']}.json", manifest)
+    MF.write_json_new(out_dir / f"{manifest['manifest_id']}.export.json", record)
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -235,13 +286,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gate-ml-01", required=True, choices=GATE_STATES,
                     help="the recorded state of GATE-ML-01 (no default, never assumed)")
     ap.add_argument("--manifest-id", default=None)
+    ap.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
+                    help="the FROZEN split the run must have used (default: the repository's)")
+    ap.add_argument("--allow-dirty-code", action="store_true",
+                    help="export although a code version is not a clean commit (recorded in the export record)")
     ap.add_argument("--validate", action="store_true", help="run validate_contract2.py on the result")
     args = ap.parse_args(argv)
     try:
         path = export(args.run_dir, gate_split_01=args.gate_split_01, gate_ml_01=args.gate_ml_01,
-                      manifest_id=args.manifest_id)
-    except ExportError as exc:
-        print(f"EXPORT REFUSED: {exc}")
+                      manifest_id=args.manifest_id, split_manifest=args.split_manifest,
+                      allow_dirty_code=args.allow_dirty_code)
+    except (ExportError, KeyError, FileNotFoundError, ValueError) as exc:
+        print(f"EXPORT REFUSED: {type(exc).__name__}: {exc}")
         return 2
     print(f"wrote {path}")
     if args.validate:
