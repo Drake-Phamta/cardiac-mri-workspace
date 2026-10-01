@@ -328,6 +328,24 @@ def test_evaluate_run_validation_writes_immutable_outputs(cpkg, tmp_path):
                        package_root=cpkg["package_root"], log=None)
 
 
+def test_interrupted_evaluation_leaves_nothing_recorded(cpkg, tmp_path, monkeypatch):
+    run = runfixture.make_run_dir(tmp_path / "EXP-D-100", cpkg, experiment_id="EXP-D-100",
+                                  partition="validation")
+
+    def boom():
+        raise RuntimeError("simulated crash before the commit point")
+    monkeypatch.setattr(E.MF, "code_version", boom)
+    with pytest.raises(RuntimeError):
+        E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
+                       package_root=cpkg["package_root"], log=None)
+    assert not (run / "evaluation" / "validation").exists()
+    monkeypatch.undo()
+    out = E.evaluate_run(run, "validation", dataset_manifest=cpkg["dataset"],
+                         package_root=cpkg["package_root"], log=None)
+    manifest = json.loads((out / "evaluation_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["outputs"]["per_case_metrics"]["path"] == "evaluation/validation/per_case_metrics.json"
+
+
 def test_evaluate_run_holdout_needs_explicit_permission(cpkg, tmp_path):
     run = runfixture.make_run_dir(tmp_path / "EXP-U-025", cpkg)
     with pytest.raises(D.HoldoutAccessError):

@@ -83,6 +83,7 @@ def make_run_dir(run_dir: Path, pkg: dict, *, experiment_id: str = "EXP-U-025",
     pm = {
         "format": MF.PREDICTIONS_FORMAT,
         "experiment_id": experiment_id,
+        "split_manifest": {"manifest_id": split["split_id"], "path": split_rel, "sha256": split_sha},
         "population": {"partition": partition, "role": pop_doc["role"], "manifest_id": pop_doc["manifest_id"],
                        "path": pop_rel, "sha256": D.sha256_file(run_dir / pop_rel),
                        "case_count": pop_doc["case_count"]},

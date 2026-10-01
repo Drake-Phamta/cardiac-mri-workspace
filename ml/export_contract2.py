@@ -98,6 +98,8 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     ckpt = rm["checkpoint"]
     if pm["checkpoint"]["sha256"] != ckpt["sha256"]:
         raise ExportError("holdout predictions were not made with the run's recorded checkpoint")
+    if pm["split_manifest"]["sha256"] != rm["split_manifest"]["sha256"]:
+        raise ExportError("holdout predictions used a different split manifest than training")
     if pm["prediction_variant"] != em["prediction_variant"]:
         raise ExportError("prediction variant differs between predictions and evaluation")
     failed = [c["case_id"] for c in pm["cases"] if c.get("status") != "SUCCEEDED"]

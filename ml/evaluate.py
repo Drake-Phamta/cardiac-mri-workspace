@@ -48,7 +48,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import uuid
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -465,14 +467,20 @@ def _rel(path: Path, root: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()
 
 
-def load_run_split(run_dir: Path) -> tuple[dict, str]:
-    """The run's own copy of the split manifest, checked against run_manifest.json."""
-    run_manifest = D.load_json(run_dir / "run_manifest.json")
-    ref = run_manifest["split_manifest"]
+def _rel_new(path: Path, root: Path) -> str:
+    """Like _rel for a path that may not exist yet."""
+    return Path(os.path.abspath(path)).relative_to(Path(os.path.abspath(root))).as_posix()
+
+
+def load_run_split(run_dir: str | Path, partition: str) -> tuple[dict, str]:
+    """The run's own copy of the split manifest, as the predictions manifest references it."""
+    run_dir = Path(run_dir)
+    pm = D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition))
+    ref = pm["split_manifest"]
     path = run_dir / ref["path"]
     digest = D.sha256_file(path)
     if digest != ref["sha256"]:
-        raise ValueError(f"{path}: sha256 {digest} != run manifest {ref['sha256']}")
+        raise ValueError(f"{path}: sha256 {digest} != predictions manifest {ref['sha256']}")
     return D.load_split_manifest(path), digest
 
 
@@ -483,15 +491,14 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     run_dir = Path(run_dir)
     if partition not in ("validation", D.HOLDOUT_PARTITION):
         raise ValueError("partition must be 'validation' or 'final_holdout'")
-    out_dir = run_dir / "evaluation" / partition
+    out_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=partition)
     if out_dir.exists():
         raise FileExistsError(f"{out_dir} exists; recorded evaluations are immutable")
-    split, split_sha = load_run_split(run_dir)
-    run_manifest = D.load_json(run_dir / "run_manifest.json")
-    pm_path = run_dir / "predictions" / partition / "predictions_manifest.json"
+    pm_path = run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)
     pm = D.load_json(pm_path)
     if pm.get("format") != PREDICTIONS_FORMAT or pm.get("population", {}).get("partition") != partition:
         raise ValueError(f"{pm_path}: not a {PREDICTIONS_FORMAT} manifest for {partition}")
+    split, split_sha = load_run_split(run_dir, partition)
     if partition == D.HOLDOUT_PARTITION:
         if allow_holdout is not True:
             raise D.HoldoutAccessError("evaluating the final holdout needs allow_holdout=True")
@@ -538,30 +545,38 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
                   "path": pop_ref["path"], "sha256": pop_ref["sha256"], "case_ids": intended}
     result = evaluate_population(intended, load_pair, population=population,
                                  prediction_variant=pm["prediction_variant"], log=log)
-    return write_evaluation(run_dir, partition, result, run_manifest=run_manifest,
+    return write_evaluation(run_dir, partition, result, experiment_id=pm["experiment_id"],
                             predictions_manifest=pm, predictions_manifest_path=pm_path, split=split)
 
 
-def write_evaluation(run_dir: Path, partition: str, result: dict, *, run_manifest: dict,
+def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_id: str,
                      predictions_manifest: dict, predictions_manifest_path: Path, split: dict) -> Path:
-    out_dir = run_dir / "evaluation" / partition
-    out_dir.mkdir(parents=True, exist_ok=False)
-    exp = run_manifest["experiment_id"]
+    """Write every evaluation file into a temporary directory, then rename it into place.
+
+    The rename is the commit point: evaluation/<partition>/ either does not exist or is
+    complete, so an interrupted evaluation can simply be run again. Recorded paths are the
+    final ones.
+    """
+    final_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=partition)
+    final_rel = _rel_new(final_dir, run_dir)
+    tmp_dir = final_dir.with_name(f".{final_dir.name}.tmp-{os.getpid()}-{uuid.uuid4().hex[:12]}")
+    tmp_dir.mkdir(parents=True, exist_ok=False)
+    exp = experiment_id
     header = {k: result[k] for k in ("evaluation_metric_version", "population", "prediction_variant",
                                      "reference_mask_kind", "geometry_policy", "volume_unit",
                                      "intended_n", "successful_n", "failed_n", "failures")}
     header["experiment_id"] = exp
     files = {}
     per_case = dict(header, format="ml-per-case-metrics/1", cases=result["cases"])
-    files["per_case_metrics"] = MF.write_json_new(out_dir / "per_case_metrics.json", per_case)
+    files["per_case_metrics"] = MF.write_json_new(tmp_dir / "per_case_metrics.json", per_case)
     per_slice = dict(header, format="ml-per-slice-metrics/1", empty_slice_rule=EMPTY_SLICE_RULE,
                      cases=result["per_slice"])
-    files["per_slice_metrics"] = MF.write_json_new(out_dir / "per_slice_metrics.json", per_slice)
+    files["per_slice_metrics"] = MF.write_json_new(tmp_dir / "per_slice_metrics.json", per_slice)
     summary = dict(header, format="ml-metrics-summary/1", bootstrap=BOOTSTRAP,
                    cohort=cohort_summary(result))
     if partition == D.HOLDOUT_PARTITION:
         summary["holdout_slots"] = holdout_report(result, split)
-    files["metrics_summary"] = MF.write_json_new(out_dir / "metrics_summary.json", summary)
+    files["metrics_summary"] = MF.write_json_new(tmp_dir / "metrics_summary.json", summary)
     metric_sets = {}
     for rec in result["cases"]:
         cid = rec["case_id"]
@@ -576,7 +591,11 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, run_manifes
               "metrics": rec,
               "worst_slice_selection": result["worst_slice_selections"][cid],
               "problematic_fp_slices": result["problematic_fp_slices"][cid]}
-        metric_sets[cid] = MF.write_json_new(out_dir / "metric_sets" / f"{cid}.json", ms)
+        metric_sets[cid] = MF.write_json_new(tmp_dir / "metric_sets" / f"{cid}.json", ms)
+
+    def recorded(p: Path) -> dict:            # the FINAL path, the hash of the bytes written
+        return {"path": f"{final_rel}/{p.relative_to(tmp_dir).as_posix()}", "sha256": D.sha256_file(p)}
+
     cv = MF.code_version()
     manifest = {
         "format": "ml-evaluation/1",
@@ -592,13 +611,13 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, run_manifes
                                  "sha256": D.sha256_file(predictions_manifest_path)},
         "intended_n": result["intended_n"], "successful_n": result["successful_n"],
         "failed_n": result["failed_n"],
-        "outputs": {k: {"path": _rel(p, run_dir), "sha256": D.sha256_file(p)} for k, p in files.items()},
-        "metric_sets": {cid: {"path": _rel(p, run_dir), "sha256": D.sha256_file(p)}
-                        for cid, p in metric_sets.items()},
+        "outputs": {k: recorded(p) for k, p in files.items()},
+        "metric_sets": {cid: recorded(p) for cid, p in metric_sets.items()},
         "created_at": MF.now_iso(),
     }
-    MF.write_json_new(out_dir / "evaluation_manifest.json", manifest)
-    return out_dir
+    MF.write_json_new(tmp_dir / "evaluation_manifest.json", manifest)
+    os.rename(tmp_dir, final_dir)              # commit point; fails if final_dir appeared meanwhile
+    return final_dir
 
 
 def load_evaluation(run_dir: str | Path, partition: str) -> dict:
@@ -638,7 +657,7 @@ def main(argv: list[str] | None = None) -> int:
     a, b = load_evaluation(args.run_a, args.population), load_evaluation(args.run_b, args.population)
     same = not args.allow_variant_mismatch
     if args.population == D.HOLDOUT_PARTITION:
-        split, _ = load_run_split(args.run_a)
+        split, _ = load_run_split(args.run_a, args.population)
         report = paired_holdout_report(a, b, split, metric=args.metric, same_prediction_variant=same)
     else:
         report = paired_comparison(a, b, metric=args.metric, same_prediction_variant=same)
