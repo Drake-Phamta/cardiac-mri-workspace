@@ -7,8 +7,8 @@
 > **một phần**, lý do kỹ thuật ghi ở §Ghi chú A1 và §A12 — người nghiệm thu phải quyết nhận kèm hai hạn chế
 > đó hay không, chứ chúng không được lặng lẽ tính là đạt.
 >
-> Chặng đã merge: #31 (S5, `A3`–`A7`) tại `11000f1`. Chặng chờ `APPROVE`: **#41** (S6, `A9` ở 576×576×88) và
-> **#49** (S8, `A8`/`A10`/`A11`).
+> Chặng đã merge: #31 (S5, `A3`–`A7`) tại `11000f1`; **#49** (S8, `A8`/`A10`/`A11`) tại `34f5097` (01/10).
+> **#41** (S6, `A9` ở 576×576×88) vào `main` dưới override Day 22, sau QA của CHAT E.
 
 | Mục | Giá trị |
 |---|---|
@@ -470,7 +470,7 @@ tới; Flutter còn chưa cài trên máy.
 | Điều kiện | Trạng thái |
 |---|---|
 | `A5` sai mapping sau transform → ứng viên **không dùng được** | **không kích hoạt** — 60/60 ở r = 0 và r = 2 trên máy (15/09) |
-| `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **không kích hoạt** — `A9` p95 50,23 ms / 200 · `A10` worst 30,48 ms / 100 (19/09) |
+| `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **không kích hoạt** — `A9` ở 576×576×88: p95 98,72 ms (cache toàn bộ) · 50,84 ms trong cửa sổ · 102,73 ms khi miss / 200 (17/09) · `A10` worst 30,48 ms / 100 (19/09) |
 | Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | **không kích hoạt** — **0 mẫu commit bị mất** trên 123 nét (19/09) |
 | Không ứng viên nào đạt → `NEGATIVE_RESULT`, leo thang | chưa tới bước đó |
 
@@ -482,7 +482,8 @@ tới; Flutter còn chưa cài trên máy.
    theo kịch bản cho `A10`/`A11`~~ ✅ **19/09, chặng S8**
 2. ~~**Chạy 60 ca `brush_cases.json`** → `A5`~~ ✅ 15/09 — sai số toàn (0, 0), **dung sai đề xuất 0 pixel nguồn**;
    đưa vào hợp đồng hình học khi Vũ Hùng Anh nâng phiên bản (`DR-013`)
-3. ~~**Đo lại `A9` ở kích thước slice thật**~~ ✅ 12/09 — 576×576, p95 50,23 ms
+3. ~~**Đo lại `A9` ở kích thước slice thật**~~ ✅ 12/09 — 576×576×16, p95 50,23 ms; ở độ sâu thật 576×576×88
+   ✅ 17/09 (chặng S6) — p95 98,72 ms cache toàn bộ, 50,84 ms trong cửa sổ ±3, 102,73 ms khi miss
 4. **Nghiệm thu** — đường còn lại, theo đúng `acceptance_workflow`: reviewer `APPROVE` **#41** và **#49**
    → QA chạy `management/day10/qa004_spike_a/run_qa004.py` và ký verdict → Project Control chuyển
    `SPIKE_A: ACCEPTED`. **Người chạy QA không nên là chủ spike** — xem ghi chú xung đột vai bên dưới

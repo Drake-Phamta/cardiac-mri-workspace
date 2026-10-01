@@ -1174,8 +1174,9 @@ export default function App() {
           )}
         </View>
 
-        {/* S6 — the variable under test. One build, two policies, so the only
-            thing that differs between the two runs is this switch. */}
+        {/* S6 — the variable under test. The recorded runs used two builds (run 3
+            after a rebuild to POLICY_NONE), so all-vs-window is an observation
+            across builds, not an isolated effect of this switch. */}
         <View style={s.row}>
           <Btn
             label={`cache: toàn bộ (${NZ})`}
