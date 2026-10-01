@@ -80,10 +80,12 @@ models have not already decided.
 | `StripChart.js` | draws `stripLayout` with `react-native-svg`; a tap selects the nearest dot (`pointAt`) and the screen shows its case with an "Open case" link, so a dense strip cannot navigate by accident |
 | `v3View.mjs` | **every** string, tone and route both screens show — pure, so `node --test` checks what the user reads |
 | `V3Parts.js`, `useSnapshot.js` | shared cards, chips and links; the hook that shows LOADING on every request and drops a late answer to an older one |
-| `mobile/test/v3_screens.test.mjs` | 9 tests: the copy and routes over the generated bundle through a real fixture runtime (including the FIXTURE panel's `not_comparable` and `error_case`), and the typed path |
+| `mobile/test/v3_screens.test.mjs` | 11 tests: the copy and routes over the generated bundle through a real fixture runtime (including the FIXTURE panel's `not_comparable` and `error_case`), the typed path, the #61 QA refusals (B-1 to B-4) in words, and `SCR-01` with every matrix experiment listed |
+| `mobile/test/render/smoke.mjs` § 5 | render smoke (not in CI, needs `node_modules`): `SCR-01` and `SCR-07` through the real navigator under the FIXTURE badge, and a tapped strip dot opening `SCR-03` |
 
 ```powershell
 node --test mobile/test/*.test.mjs        # the mobile suite, V3 included
+cd mobile; npm ci; npm run test:render    # the render smoke, V1 and V3
 cd mobile; npm ci; npm run export:android # the JS bundle builds (no Gradle)
 ```
 

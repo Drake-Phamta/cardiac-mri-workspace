@@ -40,9 +40,15 @@ const REASON = Object.freeze({
   OUTLIERS_NOT_RETURNED: 'the server returned no DR-010 outlier selection',
   OUTLIERS_UNREADABLE: 'the outlier selection is not in a readable form - not shown',
   OUTLIERS_UNDER_ANOTHER_RULE: 'the selection cites another rule than DR-010 - not shown',
+  // #61 QA B-2: DR-010 is pinned to the contract's selection version, metric and cardinality.
+  OUTLIERS_UNDER_ANOTHER_VERSION: 'the selection was made under another DR-010 selection version - not shown',
+  OUTLIERS_FOR_ANOTHER_METRIC: 'the selection ranks another metric than DR-010 pins - not shown',
+  OUTLIERS_OVER_CARDINALITY: 'the selection lists more cases than DR-010 selects - not shown',
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'the selection does not name its experiment and variant - not shown',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'the selection belongs to another experiment - not shown',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'the selection was made for another variant - not shown',
+  // #61 QA B-4: refused whole - dropping the entry would re-derive DR-010 here.
+  OUTLIERS_NAME_INELIGIBLE_CASE: 'the selection names a case that was not successfully evaluated - the whole selection is refused',
   NO_ELIGIBLE_CASES: 'no successfully evaluated case to select from',
   ARTIFACT_NOT_FOUND: 'the server has no such artifact',
   GROUND_TRUTH_UNAVAILABLE: 'ground truth unavailable - metrics cannot exist, not zero',
@@ -165,9 +171,21 @@ export function familyRows(cards) {
   })));
 }
 
+/*
+ * SCR-07 passes the model's comparison (comparability + presentation); SCR-01
+ * passes its headline row, the same answer flattened (verdict, fair, reason).
+ * Both are read here the same way.
+ */
+const verdictOf = (c) => (c.comparability ? c.comparability.verdict : c.verdict);
+const fairOf = (c) => Boolean(c.presentation ? c.presentation.mayLabelFair : c.fair);
+const reasonOf = (c) => (c.presentation ? c.presentation.reason : c.reason) || null;
+// The model can keep a verdict and withhold its numbers (#61 QA B-3): RQ-B
+// mixes RAW and PROCESSED, which the contract cannot compare yet.
+const withheldOf = (c) => (c.numbersWithheld ? c.numbersWithheld.reason : null);
+
 export function verdictText(c) {
   if (!c.requested) return 'not requested';
-  switch (c.comparability.verdict) {
+  switch (verdictOf(c)) {
     case 'COMPARABLE': return 'comparable (server verdict)';
     case 'NOT_COMPARABLE': return 'NOT comparable (server verdict)';
     default: return 'undecided - treated as not comparable';
@@ -175,9 +193,9 @@ export function verdictText(c) {
 }
 
 export function comparisonRow(c) {
-  const fair = c.requested && c.presentation.mayLabelFair;
+  const fair = c.requested && fairOf(c);
   let tone = TONE.NEUTRAL;
-  if (c.requested && c.comparability.verdict === 'NOT_COMPARABLE') tone = TONE.WARN;
+  if (c.requested && verdictOf(c) === 'NOT_COMPARABLE') tone = TONE.WARN;
   else if (c.requested && !fair) tone = TONE.WARN;
   return Object.freeze({
     id: c.id,
@@ -186,7 +204,7 @@ export function comparisonRow(c) {
     verdictText: verdictText(c),
     fair,
     tone,
-    reason: c.requested ? c.presentation.reason : c.notRequestedReason,
+    reason: c.requested ? (reasonOf(c) || withheldOf(c)) : c.notRequestedReason,
     populationText: c.population && c.population.available ? `common population ${c.population.label}` : null,
     route: c.requested
       ? route('SCR-07', { experimentIds: [...c.experimentIds] })
@@ -327,14 +345,17 @@ export function caseTable(cell) {
     });
   }
   const c = cell.cases.counts;
+  // #61 QA B-1: a value served on a row that did not succeed is dropped by the
+  // model and flagged, so the drift stays visible instead of silently gone.
+  const ignored = c.servedValueIgnored ? `; ${c.servedValueIgnored} value(s) served on rows that did not succeed - ignored` : '';
   return Object.freeze({
     id: cell.id,
     title: cellTitle(cell),
-    text: c.total === 0 ? reasonLabel('NO_CASE_RESULTS') : `${c.total} row(s) returned, ${c.plotted} plotted`,
+    text: c.total === 0 ? reasonLabel('NO_CASE_RESULTS') : `${c.total} row(s) returned, ${c.plotted} plotted${ignored}`,
     rows: Object.freeze(cell.cases.rows.map((r) => Object.freeze({
       key: `${r.index}`,
       caseId: r.caseId || 'case id not returned',
-      statusText: rowStatusText(r),
+      statusText: `${rowStatusText(r)}${r.servedValueIgnored ? ' - its served value is ignored' : ''}`,
       reason: r.reason,
       valueText: r.value !== null ? fmt(r.value) : null,
       route: routeForIntent(r.intent),
@@ -344,6 +365,8 @@ export function caseTable(cell) {
 
 function deltaText(c, metricName, stat) {
   if (c.kind === 'TREND' || !c.requested) return null;
+  // Never "pick a metric" for numbers the model will not release.
+  if (withheldOf(c)) return `no difference shown: ${withheldOf(c)}`;
   if (!c.presentation.mayShowDelta) return `no difference shown: ${c.presentation.reason || 'not comparable'}`;
   if (!metricName || !stat) return 'pick a metric and a statistic to see the difference';
   const d = deltaFor(c, { metricName, stat });

@@ -16,7 +16,7 @@ import { join } from 'node:path';
 
 import { readComparability, presentation, success } from '../../app/core/index.mjs';
 import {
-  COMPARISONS, MATRIX, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
+  COMPARISONS, MATRIX, UNAVAILABLE, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
   matrixEntry, notListedCell, stripLayout, pointAt,
 } from '../../app/verticals/v3_study_and_compare/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
@@ -24,7 +24,7 @@ import { validateRoute } from '../src/nav/navigator.mjs';
 import { createRuntime } from '../src/runtime/createRuntime.mjs';
 import { TONE } from '../src/ui/stateCopy.mjs';
 import {
-  caseTable, comparisonView, overviewView, pointDetail, routeForIntent,
+  caseTable, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
 } from '../src/verticals/v3/v3View.mjs';
 import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
 
@@ -121,11 +121,19 @@ test('V3S3 SCR-07 on the generated bundle: typed values as served, identity and 
   assert.equal(up.summaryText, 'dice: median 0.500 · mean 0.500 · std 0.500 · q1 0.500 · q3 0.500 (server summary)');
   assert.equal(up.pointsText, '4 cases plotted');
 
-  const verdict = (id) => v.comparisons.find((c) => c.id === id).verdictText;
-  assert.equal(verdict('RQ-A-100'), 'comparable (server verdict)');
-  assert.equal(verdict('RQ-B'), 'comparable (server verdict)');
-  assert.equal(verdict('RQ-A-025'), 'not requested');
-  assert.match(v.comparisons.find((c) => c.id === 'RQ-A-100').deltaText, /pick a metric and a statistic/);
+  // Main's model (#61 QA B-3) uses a compare body only when it is about THESE
+  // runs. The generated body's summary covers the generator's own ids, so the
+  // RQ-A-100 verdict is unconfirmed; RQ-B mixes RAW and PROCESSED, so its
+  // verdict stands and its numbers are withheld.
+  const row = (id) => v.comparisons.find((c) => c.id === id);
+  assert.equal(row('RQ-A-100').verdictText, 'undecided - treated as not comparable');
+  assert.equal(row('RQ-A-100').tone, TONE.WARN);
+  assert.match(row('RQ-A-100').reason, /without a summary for EXP-U-100, EXP-D-100/);
+  assert.match(row('RQ-A-100').deltaText, /^no difference shown: /);
+  assert.equal(row('RQ-B').verdictText, 'comparable (server verdict)');
+  assert.match(row('RQ-B').reason, /RAW with PROCESSED.*withheld/);
+  assert.match(row('RQ-B').deltaText, /^no difference shown: .*withheld/, 'no "pick a metric" for numbers that are withheld');
+  assert.equal(row('RQ-A-025').verdictText, 'not requested');
 });
 
 test('V3S4 the FIXTURE panel\'s not_comparable scenario reaches SCR-07: labelled, reason shown, no difference', async () => {
@@ -191,7 +199,8 @@ const ROWS = [
   { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0101', metric_values: { dice: 0.91 } },
   { case_id: 'CASE_0102', status: 'FAILED', reason: 'INFERENCE_OOM', analysis_run_id: 'RUN_0102', metric_values: null },
 ];
-const typedCell = (expected, median) => buildCell(expected, {
+// `items` and `selection` replace the per-case rows and patch the DR-010 block.
+const typedCell = (expected, median, { items = ROWS, selection = {} } = {}) => buildCell(expected, {
   identityView: success({
     experiment_id: expected.id, model_family: expected.family === 'UNET' ? 'unet' : 'dinov2',
     training_fraction: expected.fractionPct / 100, prediction_variant: 'RAW',
@@ -201,11 +210,12 @@ const typedCell = (expected, median) => buildCell(expected, {
     metric_summary: { dice: { median, mean: 0.6933, std: 0.15 } },
   }),
   casesView: success({
-    items: ROWS, metric_version: 'mv1', prediction_variant: 'RAW',
+    items, metric_version: 'mv1', prediction_variant: 'RAW',
     outlier_selection: {
       rule_id: 'DR-010', selection_version: 'dr010-outlier/v1', experiment_id: expected.id,
       prediction_variant: 'RAW', metric_name: 'dice',
       cases: [{ case_id: 'CASE_0101', analysis_run_id: 'RUN_0101', metric_value: 0.91, false_positives: 3, false_negatives: 4 }],
+      ...selection,
     },
   }),
   population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
@@ -259,6 +269,7 @@ test('V3S7 typed path: D2 context, server summary, and a difference / trend line
   const noStat = comparisonView(typedSnapshot({ comparable: true }));
   assert.deepEqual([...noStat.trend], [], 'no statistic picked, no trend drawn');
   assert.ok(noStat.trendText);
+  assert.equal(noStat.comparisons.find((c) => c.id === 'RQ-A-025').deltaText, 'pick a metric and a statistic to see the difference');
 });
 
 test('V3S8 a tapped strip point names its case and opens SCR-03 with case, run and variant', () => {
@@ -288,4 +299,57 @@ test('V3S9 the V3 screens use the shared models and rank nothing; React stays ou
     assert.match(src, /app\/verticals\/v3_study_and_compare\/index\.mjs/, `${f} must render the shared V3 model, not re-implement it`);
     assert.match(src, /import StateView from '\.\.\/\.\.\/ui\/StateView'/, `${f} renders its states with the shared StateView`);
   }
+});
+
+// --- the #61 QA fixes of the model on main (B-1 ... B-4) ---------------------
+
+test('V3S10 the #61 QA refusals reach the screen as words: pinned DR-010, ineligible outlier cases, values off failed rows', () => {
+  for (const code of Object.keys(UNAVAILABLE).filter((k) => k.startsWith('OUTLIERS_'))) {
+    assert.notEqual(reasonLabel(code), code, `${code} is shown as a code, not in words`);
+  }
+  // B-2: DR-010 is pinned to the contract's selection version.
+  const v0 = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, { selection: { selection_version: 'dr010-outlier/v0' } }).outliers);
+  assert.equal(v0.available, false);
+  assert.equal(v0.text, 'the selection was made under another DR-010 selection version - not shown (server sent "dr010-outlier/v0")');
+  // B-4: a selection that names the FAILED case is refused whole, and the case is named.
+  const failedPick = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, {
+    selection: { cases: [{ case_id: 'CASE_0102', analysis_run_id: 'RUN_0102', metric_value: 0.12, false_positives: 9, false_negatives: 9 }] },
+  }).outliers);
+  assert.equal(failedPick.available, false);
+  assert.match(failedPick.text, /not successfully evaluated - the whole selection is refused \(server sent "CASE_0102"\)$/);
+  assert.deepEqual([...failedPick.rows], [], 'no outlier link is left to follow');
+  // B-1: a value served on a FAILED row is never shown, and the table says it was ignored.
+  const drift = caseTable(typedCell(matrixEntry('EXP-U-050'), 0.8, { items: [ROWS[0], { ...ROWS[1], metric_values: { dice: 0.2 } }] }));
+  assert.equal(drift.rows[1].valueText, null);
+  assert.equal(drift.rows[1].statusText, 'failed - its served value is ignored');
+  assert.equal(drift.text, '2 row(s) returned, 1 plotted; 1 value(s) served on rows that did not succeed - ignored');
+});
+
+test('V3S11 SCR-01 with all seven matrix experiments listed: requested comparisons show the server verdict and link to SCR-07', async () => {
+  const runtime = newRuntime();
+  // The generated list names one matrix experiment. A live server that lists
+  // all seven makes every SCR-01 comparison a requested one - the headline row
+  // shape the generated bundle alone never reaches.
+  const listAll = success({
+    evaluation_population: 'evaluation_population_fixture',
+    items: MATRIX.map((e) => ({ experiment_id: e.id, prediction_variant: e.lane })),
+  });
+  const client = {
+    ...runtime.client,
+    call: (id, params, options) => (id === 'experiment_list' ? Promise.resolve(listAll) : runtime.client.call(id, params, options)),
+  };
+  const v = overviewView(await createStudyOverview(client).open({ studyId: runtime.config.studyId }));
+  assert.equal(v.experiments.text, '7 of 7 matrix experiments listed by the server');
+  assert.equal(v.headline.length, COMPARISONS.length);
+  const h = (id) => v.headline.find((x) => x.id === id);
+  assert.equal(h('RQ-A-100').verdictText, 'undecided - treated as not comparable');
+  assert.match(h('RQ-A-100').reason, /without a summary for EXP-U-100, EXP-D-100/);
+  assert.equal(h('RQ-B').verdictText, 'comparable (server verdict)');
+  assert.match(h('RQ-B').reason, /RAW with PROCESSED.*withheld/);
+  for (const x of v.headline) {
+    assert.notEqual(x.verdictText, 'not requested', x.id);
+    assertNavigable(x.route);
+    assert.equal(x.route.screenId, 'SCR-07');
+  }
+  assert.deepEqual([...h('RQ-B').route.params.experimentIds], [...COMPARISONS.find((c) => c.id === 'RQ-B').experimentIds]);
 });

@@ -2,7 +2,7 @@
  * Render-smoke harness, part 2: the checks.  npm run test:render  (from mobile/)
  *
  * TEST-ONLY and NOT IN CI (it needs node_modules: react-test-renderer is a
- * devDependency, deprecated upstream). It renders the real shell and V1
+ * devDependency, deprecated upstream). It renders the real shell, V1 and V3
  * screens in Node with host-string React Native stand-ins (hooks.mjs), a real
  * app/core runtime, and either the generated fixture bundle or a fake live
  * backend whose PNGs are encoded here with node:zlib.
@@ -56,6 +56,7 @@ const { createRuntime } = await imp('src/runtime/createRuntime.mjs');
 const { RuntimeProvider } = await imp('src/runtime/RuntimeContext.js');
 const NavigatorView = (await imp('src/nav/NavigatorView.js')).default;
 const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
+const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
 const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
@@ -387,6 +388,60 @@ function noRunBackend() {
   check('T1', stepTimers.length === 30 && globalThis.__alerts.some((a) => a[0] === 'L4 finished') && timeouts === 0
     && verdict.verdict === 'PASS',
     `stale step timers fired during L4 15 + 15: ${stepTimers.length} steps armed, CMW_STEP_TIMEOUT ${timeouts}, l4-report ${verdict.verdict}`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 5. V3: SCR-01 and SCR-07 on the fixture runtime (#69) ------------------
+// Both screens through the real navigator, under the FIXTURE badge, each
+// drawing its model's answer rather than a state panel; then SCR-07 opened for
+// one experiment, where a tapped strip dot opens SCR-03 with case, run, variant.
+{
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-01' })), nodeMock);
+  });
+  await tick(60);
+  check('V3R1', has(r, /SCR-01 · V3/) && has(r, /^FIXTURE$/), 'SCR-01 renders under the FIXTURE badge');
+  check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^1 of 7 matrix experiments listed by the server$/)
+    && has(r, /^Outliers \(DR-010\)$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
+  await press(r, 'Open the comparison (SCR-07)');
+  await tick(60);
+  check('V3R2', has(r, /SCR-07 · V3/) && has(r, /^FIXTURE$/), 'SCR-07 opened from SCR-01, under the FIXTURE badge');
+  check('V3R2', has(r, /filled from the server's experiment list$/) && has(r, /^Comparisons \(server verdicts\)$/),
+    'SCR-07 draws its model: the matrix and the server verdicts');
+  // The generated list names one matrix experiment (EXP-D-PP, refused), so no
+  // summary names a metric: no chip is offered, and the screen says why.
+  check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/), 'no metric to pick, and it says so');
+  await layout(r);
+  await tick(30);
+  check('V3R2', r.root.findAll((n) => n.type === 'Svg').length === 1, 'the strip plot is drawn, empty');
+  await act(async () => { r.unmount(); });
+}
+{
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const pushed = [];
+  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ['EXP-U-100'] } })), nodeMock);
+  });
+  await tick(60);
+  await press(r, 'dice');
+  await layout(r);
+  await tick(30);
+  const dots = r.root.findAll((n) => n.type === 'Circle');
+  check('V3R3', dots.length === 4, `EXP-U-100 strip: ${dots.length} dots, one per successful case (4)`);
+  const strip = r.root.findAll((n) => n.type === 'Pressable')[0];
+  if (strip && dots.length) {
+    await act(async () => { strip.props.onPress({ nativeEvent: { locationX: dots[0].props.cx, locationY: dots[0].props.cy } }); });
+  }
+  if (has(r, /^Open this case \(SCR-03\)$/)) await press(r, 'Open this case (SCR-03)');
+  const [screenId, p] = pushed[0] || [];
+  check('V3R3', pushed.length === 1 && screenId === 'SCR-03' && p.caseId && p.runId && p.variant === 'RAW' && p.experimentId === 'EXP-U-100',
+    `a tapped dot opens SCR-03 with case, run and variant: ${JSON.stringify(pushed[0] || null)}`);
   await act(async () => { r.unmount(); });
 }
 
