@@ -309,18 +309,14 @@ jobs:
         run: node app/core/tests/run_all.mjs
 
       # run_all.mjs globs app/core/tests/ only, so a vertical's tests are never
-      # picked up automatically. V4 (SCR-06 review/correction, SCR-08 findings)
-      # owns this one step, the same convention as the V1 step (#53).
+      # picked up automatically. Each vertical runs as its own step, so two
+      # verticals landing on the same day cannot conflict on one line.
       - name: V4 review and findings
         run: |
           node app/verticals/v4_review_and_findings/test_review_correction.mjs
           node app/verticals/v4_review_and_findings/test_brush.mjs
           node app/verticals/v4_review_and_findings/test_findings.mjs
 
-      # run_all.mjs globs app/core/tests/ only, so a vertical's test is never
-      # picked up automatically. V1 runs as its own step so that two verticals
-      # landing on the same day cannot conflict on one line; V4's test (#51)
-      # went into the step above instead.
       - name: V1 case explorer
         run: node app/verticals/v1_case_explorer/test_case_explorer.mjs
 
