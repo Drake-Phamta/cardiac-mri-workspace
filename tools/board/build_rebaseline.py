@@ -228,10 +228,11 @@ def decorate(body: str) -> str:
 # shared page parts
 # --------------------------------------------------------------------------
 
-def day_strip() -> str:
+def day_strip(today: int = 20) -> str:
+    """The 30-day strip. Phases follow the Day 20 recovery plan (R1 D20-22, R2 D23-25, R3 D26-28, R4 D29-30)."""
     cells = []
     for d in range(1, 31):
-        if d < 20:
+        if d < today:
             cls, tip = "past", "đã qua"
         elif d <= 22:
             cls, tip = "r1", "R1 gỡ critical path"
@@ -241,10 +242,10 @@ def day_strip() -> str:
             cls, tip = "r3", "R3 hội tụ"
         else:
             cls, tip = "r4", "R4 ổn định"
-        if d == 20:
+        if d == today:
             cls += " today"
             tip = "hôm nay, " + tip
-        label = str(d) if d in (1, 5, 10, 15, 20, 25, 30) else ""
+        label = str(d) if d in (1, 5, 10, 15, 20, 25, 30) or d == today else ""
         cells.append(f'<li class="{cls}" title="Day {d}: {tip}"><span>{label}</span></li>')
     return "".join(cells)
 
@@ -454,8 +455,8 @@ def page(lang, title, description, nav, body):
 
 def topnav(prefix: str, on: str) -> str:
     items = [
-        ("index.html", "Day 20 · hôm nay", "index"),
-        ("rebaseline/day-20.html", "Bản rà soát đầy đủ", "report"),
+        ("index.html", "Hôm nay", "index"),
+        ("rebaseline/day-20.html", "Bản rà soát Day 20", "report"),
         ("archive/day-09.html", "Bảng Day 9 (lưu trữ)", "day9"),
         ("archive/index.html", "Các ngày trước", "archive"),
     ]
@@ -593,13 +594,20 @@ def build_index() -> str:
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description="Build the Day 20 rebaseline report page")
+    ap.add_argument("--landing", action="store_true",
+                    help="also write the Day 20 landing to docs/index.html (historical; the current "
+                         "landing is built by tools/board/build_day.py)")
+    args = ap.parse_args()
     md = SRC.read_text(encoding="utf-8")
     report, nsec = build_report(md)
     OUT_REPORT.parent.mkdir(parents=True, exist_ok=True)
     OUT_REPORT.write_text(report, encoding="utf-8", newline="\n")
-    OUT_INDEX.write_text(build_index(), encoding="utf-8", newline="\n")
     print(f"{OUT_REPORT.relative_to(ROOT)}: {OUT_REPORT.stat().st_size:,} bytes, {nsec} sections")
-    print(f"{OUT_INDEX.relative_to(ROOT)}: {OUT_INDEX.stat().st_size:,} bytes")
+    if args.landing:
+        OUT_INDEX.write_text(build_index(), encoding="utf-8", newline="\n")
+        print(f"{OUT_INDEX.relative_to(ROOT)}: {OUT_INDEX.stat().st_size:,} bytes")
 
 
 if __name__ == "__main__":

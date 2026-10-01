@@ -124,9 +124,9 @@ contract2/<manifest_id>.json + <manifest_id>.export.json (export record)
 python -m ml.train --config <experiment.json> [--epochs E] [--batch B]   # trains, resumes, or skips if COMPLETE
 python -m ml.queue --queue <queue.json> --epochs E --batch B --dry-run  # then without --dry-run
 python -m ml.infer --run-dir <run>                         # validation population, best.pt
-python -m ml.infer --run-dir <run> --population holdout --confirm-frozen-morphology <sha256>
+python -m ml.infer --run-dir <run> --population holdout --holdout-authorization <record.json>
 python -m ml.evaluate run --run-dir <run> --population validation
-python -m ml.evaluate run --run-dir <run> --population final_holdout --allow-holdout
+python -m ml.evaluate run --run-dir <run> --population final_holdout --allow-holdout --holdout-authorization <record.json>
 python -m ml.evaluate compare --run-a <run> --run-b <run> --population final_holdout --out <new.json>
 python -m ml.export_contract2 --run-dir <run> --gate-split-01 <STATE> --gate-ml-01 <STATE> --validate
 ```
@@ -137,10 +137,23 @@ split with another sha256. That covers a config path, a `--split-manifest` argum
 local edit of `data/manifests/split_manifest_path_a_seed2024.json` alike. The refusal
 happens before anything is written (regression test P1).
 
-The only way past it is the **test-only** switch: `allow_unfrozen_split` in a training
-config, or `--allow-unfrozen-split` on the CLIs. The switch is recorded:
+**No CLI can override the pin (#64 R-1).** `ml.infer`, `ml.evaluate` and
+`ml.export_contract2` have no `--allow-unfrozen-split` flag, so `--split-manifest` can only
+name a byte-identical copy of the frozen split. A file inside the run directory is refused
+outright, because a run cannot vouch for its own split (QA probes H9b and C6).
+
+The **test-only** switch survives in two places only, and both are recorded:
+- `allow_unfrozen_split` in a training config, which `ml/train.py` reads;
+- the `allow_unfrozen_split=` parameter of the Python API, used by the synthetic tests.
+
+It applies to **validation only**: `final_holdout` prediction, evaluation, comparison and
+export refuse it (`HoldoutSplitError`). Tests that exercise the holdout path pin the
+synthetic split as the frozen one with a monkeypatch (`ml/tests/runfixture.pin_frozen_split`);
+no production switch exists for that.
+
+Where the switch is recorded:
 - in `recipe_deviations_from_adr_ml_001`;
-- as `frozen_split` in the run and predictions manifests;
+- as `frozen_split` in the run, predictions and evaluation manifests;
 - in the Contract 2 export record.
 
 A run's split copy must also be byte-identical to that split. A run directory cannot vouch
@@ -224,9 +237,76 @@ background voxel. Run, predictions and evaluation manifests are checked against 
 lists (`ml.manifests.validate_*`), so a missing key is a clear refusal (`EXPORT REFUSED`),
 never a `KeyError`.
 
-Scoring the final holdout needs `--allow-holdout` **and** a `holdout_authorization`
-record in the predictions manifest (written by inference only under GATE-IMG-01). A
-comparison between runs that fail the `08` §7 comparable-run gate is labelled
+### The holdout lock: the GATE-IMG-01 authorization record (#64 N-1)
+
+Predicting or scoring the final holdout needs a **structured authorization record**, a
+JSON file committed with the GATE-IMG-01 decision. Presence alone is not enough. The tools
+verify its content before any holdout case is read or anything is written:
+- `ml.infer --population holdout --holdout-authorization <record.json>`
+- `ml.evaluate run --population final_holdout --allow-holdout --holdout-authorization <record.json>`
+
+The checking code is `ml/holdout.py`. Format `ml-holdout-authorization/1`:
+
+```json
+{
+  "format": "ml-holdout-authorization/1",
+  "gate": "GATE-IMG-01",
+  "gate_status": "CLOSED",
+  "closed_at": "2026-10-03T09:00:00+07:00",
+  "decision_ref": "management/<day>/<GATE-IMG-01 decision record>.md",
+  "split_sha256": "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d",
+  "postprocessing_config_sha256": null,
+  "authorized_runs": [
+    {"experiment_id": "EXP-D-100", "checkpoint_sha256": "<sha256 of that run's checkpoints/best.pt>"}
+  ],
+  "authorized_by": "<a person's name>",
+  "authorized_at": "2026-10-03T09:30:00+07:00"
+}
+```
+
+| Field | Rule |
+|---|---|
+| `format` | exactly `ml-holdout-authorization/1` |
+| `gate` / `gate_status` | exactly `GATE-IMG-01` / `CLOSED` |
+| `closed_at`, `authorized_at` | ISO 8601 with a UTC offset; `authorized_at` is not before `closed_at` |
+| `decision_ref` | repository-relative path (forward slashes, no `..`); the file must exist in the checkout the tool runs from |
+| `split_sha256` | must equal `ml.data.FROZEN_SPLIT_SHA256`; the run's split copy must equal it too |
+| `postprocessing_config_sha256` | the frozen morphology config's sha256, or `null` for a RAW-only authorization. A `PROCESSED_PREDICTION` run needs it non-null and equal to its predictions manifest's value. `ml.infer --morphology-config <file>` checks the file against it |
+| `authorized_runs` | non-empty list of exactly `{experiment_id, checkpoint_sha256}`; no experiment listed twice |
+| `authorized_by` | a person's name (non-empty string) |
+| `notes` | optional string; **no other key is accepted** |
+
+**What is refused** (`HoldoutAuthorizationError`, CLI exit 2 with `REFUSED: ...`):
+- a record that is not valid JSON: a bare `yes`, an empty or truncated file, UTF-16, a
+  duplicate key or `NaN` (a UTF-8 BOM is tolerated);
+- a record that is not an object, or has a missing field, an unknown field or a wrong type;
+- a gate that is not `CLOSED`;
+- a `split_sha256` that is not the frozen split;
+- a run whose `experiment_id`, paired with the sha256 of its **`checkpoints/best.pt`**, is
+  not in `authorized_runs`. A replaced `best.pt` fails this check too, and holdout
+  inference uses `best.pt` only;
+- a `decision_ref` that is not in the checkout.
+
+**How the record travels.** Inference embeds the verified record and its file sha256 in the
+predictions manifest, as `holdout_authorization: {record_sha256, record, verified_at}`.
+Evaluation re-verifies the record file and then requires the predictions to have been made
+under the **same** record (same sha256, same content). A presence-only value such as `"yes"`
+or the old `{"confirm_frozen_morphology_sha256": ...}` is refused. The evaluation manifest
+records `holdout_authorization` and `frozen_split`.
+
+The exporter has no record file. It re-verifies the embedded record against the run:
+frozen split, experiment, `best.pt` sha256 and `decision_ref`. It also requires the
+evaluation manifest to name the same `record_sha256`, and writes that sha256 to
+`<manifest_id>.export.json`.
+
+Population roles are checked against the partition (N-2):
+- the predictions manifest's `population.role` must be `VALIDATION` / `FINAL_HOLDOUT`;
+- the population manifest's `role` must match as well;
+- the exporter also checks the evaluation manifest's role.
+
+### Comparisons, failures and the export
+
+A comparison between runs that fail the `08` §7 comparable-run gate is labelled
 `NON_COMPARABLE` and carries no delta. Contract 2 DRAFT v0 cannot represent a failed
 case (every analysis run needs a raw mask), so the exporter refuses a run with failures
 rather than drop them. The exporter also refuses code versions that are not clean

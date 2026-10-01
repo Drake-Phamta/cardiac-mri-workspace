@@ -97,7 +97,7 @@ both windows.
 
    It must equal `api_base_url` in the `.build.txt` (compare on screen; do not copy the hash into notes). Note the
    APK file name and its `apk_sha256` in your session notes. Tonight's APK:
-   `cardiac-mri-workspace-live-20261001-141939.apk`, `git_sha 0bfaba3`, apk_sha256 `3f72f04cd938…4b935c`.
+   `cardiac-mri-workspace-live-20261001-194641.apk`, `git_sha ffbf763`, apk_sha256 `4a66a5284aee…fe100d5a`. The first APK of the evening (`…-141939.apk`, `0bfaba3`) crashed at start on Hermes (`RangeError: Unknown encoding: latin1`, from fast-png); `ffbf763` adds the latin1 shim, and L4 was measured on that build (`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`).
 2. **The backend answers.** On the Mac mini, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
    phone-side check is step 2.3 below: the case list loads.) Then, **on the laptop, from the checkout the APK was
    built from** (same `mobile\.env.local`), run the preflight — it drives the backend with the app's own code
@@ -167,7 +167,7 @@ Rerun **only** for one of these reasons:
 - the run was disturbed: you touched the screen, a call or notification came in, or the screen locked;
 - **"L4 finished" has not appeared about 2 minutes after the long-press** and the controls are still locked. This is
   a known, rare hang (#77 QA re-check R-3): a stale step timer drops the waiter. It can only ever produce a FAIL,
-  never a PASS. It is fixed in `458219d`; tonight's APK (`0bfaba3`) predates the fix, so §2b applies to it and to
+  never a PASS. It is fixed in `458219d`, which the measured APK (`ffbf763`) contains; §2b still applies to
   any build older than `458219d`.
 
 If the report says `L4 FAIL`, write down **which rule** failed (R1–R8), not just the verdict. A failure on R6 (a

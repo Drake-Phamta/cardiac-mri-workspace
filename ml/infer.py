@@ -1,14 +1,17 @@
 """Predict raw masks for one population with a run's checkpoint.
 
     python -m ml.infer --run-dir <run>                       validation population, best.pt
-    python -m ml.infer --run-dir <run> --population holdout --confirm-frozen-morphology <sha256>
+    python -m ml.infer --run-dir <run> --population holdout --holdout-authorization <record.json>
 
 The validation population is the default. The locked final holdout is refused unless BOTH
---population holdout AND --confirm-frozen-morphology <sha256> are given (GATE-IMG-01: the
-post-processing configuration is frozen before any holdout prediction exists). The
-confirmation is recorded in the predictions manifest; ml.evaluate refuses holdout
-predictions without it. --morphology-config <file> additionally checks that the file's
-sha256 is the confirmed one.
+--population holdout AND --holdout-authorization <record.json> are given. The record is the
+GATE-IMG-01 authorization (ml.holdout, format ml-holdout-authorization/1): the gate is CLOSED,
+the post-processing configuration is frozen, and this run's experiment_id + checkpoints/best.pt
+sha256 is authorized. It is verified before anything is read or written. The verified record
+(and its sha256) is embedded in the predictions manifest; ml.evaluate refuses holdout
+predictions made under any other record. --morphology-config <file> additionally checks
+that the file's sha256 is the record's postprocessing_config_sha256. Only the frozen split
+is accepted (#64 R-1).
 
 Writes <run>/predictions/<partition>/:
     <case>.nrrd                 uint8 {0, 1}, NRRD axis order, the SOURCE MRI header geometry
@@ -28,7 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+import os
 import sys
 import time
 from pathlib import Path
@@ -38,6 +41,7 @@ import torch
 
 from ml import data as D
 from ml import evaluate as E
+from ml import holdout as H
 from ml import manifests as MF
 from ml import models as M
 
@@ -45,7 +49,6 @@ THRESHOLD = 0.5
 PREDICTION_VARIANT = "RAW_PREDICTION"
 POSTPROCESSING_VERSION = "none"
 POPULATIONS = {"validation": "validation", "holdout": D.HOLDOUT_PARTITION}
-SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class PredictionFailures(RuntimeError):
@@ -151,26 +154,21 @@ def resolve_checkpoint(run_dir: Path, which: str) -> tuple[Path, str]:
     return path, digest
 
 
-def _check_authorization(partition: str, holdout_authorization: dict | None,
-                         morphology_config: Path | None) -> dict | None:
-    if partition != D.HOLDOUT_PARTITION:
-        if holdout_authorization:
-            raise ValueError("a holdout authorization was given for a non-holdout population")
-        return None
-    if not holdout_authorization:
-        raise D.HoldoutAccessError("final_holdout prediction needs --population holdout and "
-                                   "--confirm-frozen-morphology <sha256> (GATE-IMG-01)")
-    sha = holdout_authorization.get("confirm_frozen_morphology_sha256")
-    if not isinstance(sha, str) or not SHA256_RE.match(sha):
-        raise D.HoldoutAccessError("--confirm-frozen-morphology must be a lowercase 64-hex sha256")
-    record = {"confirm_frozen_morphology_sha256": sha, "gate": "GATE-IMG-01",
-              "confirmed_at": MF.now_iso()}
+def _check_authorization(loaded: tuple[dict, str], morphology_config: Path | None, *, split_sha: str,
+                         experiment_id: str, checkpoint_sha256: str) -> dict:
+    """The GATE-IMG-01 record (#64 N-1; loaded by ml.holdout.load_record), verified for THIS run;
+    the block the predictions manifest carries."""
+    block = H.verified_block(*loaded, split_sha256=split_sha, experiment_id=experiment_id,
+                             checkpoint_sha256=checkpoint_sha256, prediction_variant=PREDICTION_VARIANT)
     if morphology_config is not None:
+        frozen = block["record"]["postprocessing_config_sha256"]
         actual = D.sha256_file(morphology_config)
-        if actual != sha:
-            raise D.HoldoutAccessError(f"{morphology_config} has sha256 {actual}, not the confirmed {sha}")
-        record["morphology_config_verified"] = True
-    return record
+        if frozen is None or actual != frozen:
+            raise H.HoldoutAuthorizationError(f"{Path(morphology_config).name} has sha256 {actual}; "
+                                              f"the record freezes {frozen}")
+        block["morphology_config_verified"] = True
+    block["verified_at"] = MF.now_iso()
+    return block
 
 
 def resolve_runtime(device, precision: str | None, config: dict) -> tuple[str, str]:
@@ -205,7 +203,8 @@ def _append(path: Path, obj: dict) -> None:
 
 def predict_population(run_dir: str | Path, partition: str = "validation", *, checkpoint: str = "best",
                        device: str | None = None, precision: str | None = None, batch: int | None = None,
-                       holdout_authorization: dict | None = None, morphology_config: Path | None = None,
+                       holdout_authorization: str | os.PathLike | None = None,
+                       morphology_config: Path | None = None,
                        dataset_manifest: dict | None = None, package_root: str | Path | None = None,
                        skip_if_complete: bool = False, accept_failures: bool = False,
                        split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
@@ -223,12 +222,34 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
 
     split_manifest is the FROZEN split (default: the repository's); the run's split copy
     must be byte-identical to it. Failure reasons never carry absolute paths.
+
+    final_holdout needs holdout_authorization, the path of the GATE-IMG-01 record (ml.holdout),
+    which must authorize this run's experiment_id with the sha256 of its checkpoints/best.pt;
+    it uses best.pt only and never accepts the TEST-ONLY allow_unfrozen_split.
     """
     run_dir = Path(run_dir)
     if partition not in ("validation", D.HOLDOUT_PARTITION):
         raise ValueError("partition must be 'validation' or 'final_holdout'")
-    authorization = _check_authorization(partition, holdout_authorization, morphology_config)
+    holdout = partition == D.HOLDOUT_PARTITION
+    loaded = None
+    if holdout:
+        H.refuse_unfrozen_split(partition, allow_unfrozen_split)
+        if holdout_authorization is None:
+            raise H.HoldoutAuthorizationError("final_holdout prediction needs --population holdout and "
+                                              "--holdout-authorization <record.json> (GATE-IMG-01)")
+        if checkpoint != "best":
+            raise H.HoldoutAuthorizationError("final_holdout predictions use checkpoints/best.pt only "
+                                              "(the checkpoint the authorization names)")
+        loaded = H.load_record(holdout_authorization)    # JSON + structure first; run checks below
+    elif holdout_authorization is not None:
+        raise ValueError("a holdout authorization was given for a non-holdout population")
+    H.refuse_split_inside_run(split_manifest, run_dir)
     config, split, split_sha = _run_identity(run_dir, split_manifest, allow_unfrozen_split)
+    authorization, resolved = None, None
+    if holdout:                             # verified before anything is read or written
+        resolved = resolve_checkpoint(run_dir, checkpoint)
+        authorization = _check_authorization(loaded, morphology_config, split_sha=split_sha,
+                                             experiment_id=config["experiment_id"], checkpoint_sha256=resolved[1])
     pred_dir = run_dir / MF.RUN_LAYOUT["predictions"].format(partition=partition)
     manifest_path = run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)
     if manifest_path.exists():
@@ -240,7 +261,7 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
     else:
         allow = D.CaseAllowlist.for_validation(split)
     population = ensure_population_manifest(run_dir, split, partition, split_sha)
-    ckpt_path, ckpt_sha = resolve_checkpoint(run_dir, checkpoint)
+    ckpt_path, ckpt_sha = resolved or resolve_checkpoint(run_dir, checkpoint)
     paths_cfg = config.get("paths") or {}
     dataset_manifest = dataset_manifest or D.load_dataset_manifest(
         _resolve(paths_cfg.get("dataset_manifest"), D.DEFAULT_DATASET_MANIFEST))
@@ -358,10 +379,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Predict raw masks with a run's checkpoint")
     ap.add_argument("--run-dir", required=True, type=Path)
     ap.add_argument("--population", choices=sorted(POPULATIONS), default="validation")
-    ap.add_argument("--confirm-frozen-morphology", metavar="SHA256", default=None,
-                    help="required with --population holdout (GATE-IMG-01)")
+    ap.add_argument("--holdout-authorization", type=Path, default=None, metavar="RECORD_JSON",
+                    help="required with --population holdout: the GATE-IMG-01 authorization record "
+                         "(format ml-holdout-authorization/1, ml/README.md)")
     ap.add_argument("--morphology-config", type=Path, default=None,
-                    help="optional: the frozen morphology file; its sha256 must be the confirmed one")
+                    help="optional: the frozen morphology file; its sha256 must be the record's "
+                         "postprocessing_config_sha256")
     ap.add_argument("--checkpoint", choices=["best", "last"], default="best")
     ap.add_argument("--device", choices=["cuda", "cpu"], default=None)
     ap.add_argument("--precision", choices=["fp32", "bf16"], default=None)
@@ -369,25 +392,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--accept-failures", action="store_true",
                     help="write the manifest even if cases failed, recording them as FAILED")
     ap.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
-                    help="the FROZEN split the run must have used (default: the repository's)")
-    ap.add_argument("--allow-unfrozen-split", action="store_true",
-                    help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split (recorded)")
+                    help="the FROZEN split (default: the repository's); any other sha256 is refused")
     args = ap.parse_args(argv)
     partition = POPULATIONS[args.population]
-    if partition == D.HOLDOUT_PARTITION and not args.confirm_frozen_morphology:
-        print("REFUSED: --population holdout needs --confirm-frozen-morphology <sha256> (GATE-IMG-01)")
+    if partition == D.HOLDOUT_PARTITION and args.holdout_authorization is None:
+        print("REFUSED: --population holdout needs --holdout-authorization <record.json> (GATE-IMG-01)")
         return 2
-    if partition != D.HOLDOUT_PARTITION and args.confirm_frozen_morphology:
-        print("REFUSED: --confirm-frozen-morphology only applies to --population holdout")
+    if partition != D.HOLDOUT_PARTITION and args.holdout_authorization is not None:
+        print("REFUSED: --holdout-authorization only applies to --population holdout")
         return 2
-    auth = ({"confirm_frozen_morphology_sha256": args.confirm_frozen_morphology}
-            if args.confirm_frozen_morphology else None)
     try:
         out = predict_population(args.run_dir, partition, checkpoint=args.checkpoint, device=args.device,
-                                 precision=args.precision, batch=args.batch, holdout_authorization=auth,
+                                 precision=args.precision, batch=args.batch,
+                                 holdout_authorization=args.holdout_authorization,
                                  morphology_config=args.morphology_config,
-                                 accept_failures=args.accept_failures, split_manifest=args.split_manifest,
-                                 allow_unfrozen_split=args.allow_unfrozen_split)
+                                 accept_failures=args.accept_failures, split_manifest=args.split_manifest)
     except (D.DataAccessError, FileExistsError, MF.ManifestError) as exc:
         print(f"REFUSED: {type(exc).__name__}: {exc}")
         return 2

@@ -21,8 +21,10 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 11                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-09-20"              # Day 10 closed MISSED 1.25/4, very late; see day10/DAY10_EOD_REVIEW.md
+day: 23                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
+day_date: "2026-10-02"              # Day 22 was the one-day recovery override; see day22/RECOVERY_OVERRIDE_DAY22.md and day23/DAY23_PLAN.md
+day_11_to_21_verdict: MISSED        # Day 11 0/4 (closed on paper on 2026-10-01); Days 12-19 and 21 no delivery; Day 20 was the full rebaseline (AT RISK); see DAY_LOG.md
+day_22_verdict: RECOVERY_OVERRIDE   # 28 PRs merged on independent LLM QA (CHAT E) + CI; GATE-SPLIT-01 and GATE-ML-01 closed; GATE-MOB-01 evidence complete (L4 PASS in the product app, Spike B L0) and waiting for the leader's L5 decision (#82); owners revalidate on Day 23
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
 day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
@@ -373,7 +375,10 @@ gates:
                    closes_on: "SPIKE_C1 evidence — C0 is not sufficient",
                    closure: "Spike C1 run 2 (code 58cbd5e, the leader's PC per DR-016): C1-1..C1-10 backed by machine evidence; the result table, calendar and summary in management/spikes/SPIKE_C_ML/c1_evidence re-derive byte-identically; both families converge (no NaN/Inf, checkpoint reload delta 0.0). QA PASS WITH NOTES (CHAT E, an LLM QA under the leader's account, not a second human), no blocking finding: management/day22/QA_REVIEW_C1_GATE_ML_01.md. ADR-ML-001 ACCEPTED: 560x560, batch 8, E = 50, the override section 4 recipe unchanged. The DINOv2 queue started 14:30 from main c7a37e0; the UNet queue runs on the RTX 4050 from Day 23 behind the DR-016a tripwire. Findings N-1..N-8 were handled in PR #79 or assigned for Day 23 (QA record section 5)"}
   GATE-IMG-01:    {status: OPEN,   closes_on: "morphology config on development/validation evidence only"}
-  GATE-MOB-01:    {status: OPEN,   closes_on: "Spike A AND Spike B evidence, via TECH_STACK_ADR.md"}
+  GATE-MOB-01:    {status: CLOSED, closed_at: "2026-10-01T21:17+07:00",
+                   closed_by: "Pham Tuan Anh, explicit leader decision (the Spike A rule of RECOVERY_OVERRIDE_DAY22 section 4 did not hold as written: QA-004 L4, L5)",
+                   closes_on: "Spike A AND Spike B evidence, via TECH_STACK_ADR.md",
+                   closure: "Spike A ACCEPTED-WITH-LIMITATIONS L1-L3, L5 (L5 accepted by the leader; L4 measured PASS in the product app on the A17 at 20:58, spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/). Spike B framework evidence on record (#44; B1-B4, B8, B14). TECH_STACK_ADR.md ACCEPTED (QA-004, QA-ADR and its delta, CHAT E LLM QA). Early close before Spike B is ACCEPTED: the 3D module stays conditional (ADR section 8). S-1 Spike B result: only L0 passes B6 on the device (DR-008c = L0 under the pre-declared rule, PR #73)"}
   GATE-DEPLOY-01: {status: CLOSED, closed_by: "DR-003 — LOCAL_DEMO / PRIVATE OVERLAY / CELLULAR ACCESS"}
 
 # --- READINESS CONDITIONS ---------------------------------------------------
