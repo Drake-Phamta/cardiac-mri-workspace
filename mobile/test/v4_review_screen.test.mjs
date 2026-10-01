@@ -244,6 +244,26 @@ test('RS12 live mode without the PNG decoder says so, keeps the review controls,
   assert.equal(t.review.status, 'FLAGGED');
 });
 
+test('RS14 with unsaved slices SCR-06 does not offer to leave by itself (no leave guard in the shell yet)', async () => {
+  const ctl = await readyScreen();
+  assert.equal(ctl.getState().canLeave, true, 'nothing to lose yet');
+  ctl.touch.grant([at(380, 276)]);
+  ctl.touch.release();
+  let s = ctl.getState();
+  assert.equal(s.canLeave, false);
+  assert.match(s.leaveBlockedReason, /slice 44/);
+  ctl.undo();
+  assert.equal(ctl.getState().canLeave, true, 'undone back to the source: nothing to lose');
+  ctl.redo();
+  s = await ctl.save();
+  assert.equal(s.canLeave, true, 'saved: nothing to lose');
+  ctl.touch.grant([at(450, 300)]);
+  ctl.touch.release();
+  assert.equal(ctl.getState().canLeave, false);
+  ctl.cancel();
+  assert.equal(ctl.getState().canLeave, true, 'cancelled back to the save');
+});
+
 test('RS13 live pixels: verified against the checksum, decoded by the injected adapter, refused on drift', async () => {
   const fx = fixtureRuntime();
   const nx = 576;

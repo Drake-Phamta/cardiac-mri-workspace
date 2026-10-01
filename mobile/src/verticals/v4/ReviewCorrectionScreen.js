@@ -171,8 +171,13 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
   const st = ctl.getState();
 
   const onAction = useCallback((id) => {
-    if (id === RECOVERY.BACK) nav.pop();
-    else if (id === RECOVERY.REFRESH || id === RECOVERY.RETRY) ctl.refresh();
+    if (id === RECOVERY.BACK) {
+      // Never leave by ourselves with unsaved slices: the navigator would
+      // unmount this screen and drop them (no leave guard in the shell yet).
+      const now = ctl.getState();
+      if (now.canLeave) nav.pop();
+      else Alert.alert('Unsaved edits', now.leaveBlockedReason);
+    } else if (id === RECOVERY.REFRESH || id === RECOVERY.RETRY) ctl.refresh();
   }, [ctl, nav]);
 
   if (st.phase === PHASE.CHOOSE_VARIANT) {
@@ -276,9 +281,10 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
           <Btn label="Cancel edits" disabled={!editable || b.unsavedSlices.length === 0}
             onPress={() => confirm('Discard unsaved edits?', 'The working mask goes back to the last save (or the source).', () => ctl.cancel())} />
           <Btn label={st.busy === 'saving' ? 'Saving…' : 'Save'} active disabled={!st.canSave} onPress={askSave} testID="save" />
-          <Btn label="New finding here"
+          <Btn label="New finding here" disabled={!st.canLeave}
             onPress={() => nav.push('SCR-08', { caseId: st.target.caseId, runId: st.target.runId, sliceIndex: st.slice.index })} />
         </View>
+        {!st.canLeave && <Text style={s.hint}>{st.leaveBlockedReason}</Text>}
       </ScrollView>
     </View>
   );

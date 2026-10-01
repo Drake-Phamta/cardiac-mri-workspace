@@ -362,6 +362,13 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       canEdit: editable(),
       canSave: phase === PHASE.READY && review.current.canWrite && !busy && Boolean(brush)
         && brush.unsavedSlices.length > 0,
+      // The navigator unmounts a covered screen, so leaving with unsaved
+      // slices would drop them silently. Until the shell has a leave guard,
+      // SCR-06 never navigates away by itself while any slice is UNSAVED.
+      canLeave: !(brush && brush.unsavedSlices.length > 0),
+      leaveBlockedReason: brush && brush.unsavedSlices.length > 0
+        ? `Save or cancel the unsaved edits on slice ${brush.unsavedSlices.join(', ')} first - leaving would lose them.`
+        : null,
     });
   }
 
