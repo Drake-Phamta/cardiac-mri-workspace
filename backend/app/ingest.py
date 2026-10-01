@@ -55,6 +55,9 @@ EXCLUDED_FROM_INT12 = "CASE_0027"
 DEFAULT_PACKAGE_ROOT = Path(os.environ.get("CARDIAC_PACKAGE_ROOT", r"D:\02_Research\cardiac-data\lasc2018\extracted"))
 DEFAULT_DATASET_MANIFEST = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
 DEFAULT_SPLIT_MANIFEST = REPO_ROOT / "data" / "manifests" / "split_manifest_path_a_seed2024.json"
+# sha256 of the committed split blob (split_id path_a_seed2024_dr002b_v1, PR #35 at 7b72ce8). A cache is
+# built from exactly this split; another split needs a deliberate --split-sha256 and a fresh cache.
+PINNED_SPLIT_SHA256 = "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d"
 
 
 class IngestError(Exception):
@@ -124,6 +127,23 @@ def _render_slices(volume_zyx: np.ndarray, directory: Path, cache_root: Path, bl
     return checksums
 
 
+def _read(path: Path, case_id: str):
+    """Every NRRD failure becomes an ingest code, never a traceback."""
+    try:
+        return imaging.read_nrrd(path)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise IngestError("NRRD_UNREADABLE", f"{case_id}: {path.name}: {type(exc).__name__}: {exc}")
+    except Exception as exc:  # pynrrd raises its own NRRDError
+        raise IngestError("NRRD_INVALID", f"{case_id}: {path.name}: {type(exc).__name__}: {exc}")
+
+
+def _geometry(header: dict, case_id: str) -> dict:
+    try:
+        return imaging.geometry_from_header(header)
+    except (ValueError, TypeError) as exc:
+        raise IngestError("GEOMETRY_NOT_VALIDATED", f"{case_id}: {exc}")
+
+
 def ingest_case(selection: Dict[str, str], dataset_case: dict, package_root: Path, out: Path,
                 blobs: Dict[str, str]) -> dict:
     case_id = selection["case_id"]
@@ -146,13 +166,13 @@ def ingest_case(selection: Dict[str, str], dataset_case: dict, package_root: Pat
         prior["ingest_action"] = "NO_OP"
         return prior
 
-    data, header = imaging.read_nrrd(mri_path)
+    data, header = _read(mri_path, case_id)
     if data.dtype != np.uint8:
         raise IngestError("NRRD_INVALID", f"{case_id}: MRI dtype {data.dtype} is not uint8; the identity render needs uint8")
     shape_xyz = [int(v) for v in data.shape]
     if shape_xyz != list(dataset_case["mri"]["shape"]):
         raise IngestError("GEOMETRY_MISMATCH", f"{case_id}: MRI shape {shape_xyz} differs from the dataset manifest")
-    geometry = imaging.geometry_from_header(header)
+    geometry = _geometry(header, case_id)
     if not geometry["axis_aligned"]:
         raise IngestError("GEOMETRY_NOT_VALIDATED", f"{case_id}: non-axis-aligned direction (DR-012)")
     mri_zyx = imaging.to_zyx(data)
@@ -165,10 +185,10 @@ def ingest_case(selection: Dict[str, str], dataset_case: dict, package_root: Pat
         if not mask_path.is_file():
             raise IngestError("NRRD_UNREADABLE", f"{case_id}: mask file not found under the package root")
         mask_sha = imaging.sha256_file(mask_path)
-        mask_data, mask_header = imaging.read_nrrd(mask_path)
+        mask_data, mask_header = _read(mask_path, case_id)
         if [int(v) for v in mask_data.shape] != shape_xyz:
             raise IngestError("GEOMETRY_MISMATCH", f"{case_id}: MRI/mask shape differs")
-        mask_geometry = imaging.geometry_from_header(mask_header)
+        mask_geometry = _geometry(mask_header, case_id)
         for field in ("spacing", "origin", "direction"):
             if not np.allclose(mask_geometry[field], geometry[field]):
                 raise IngestError("GEOMETRY_MISMATCH", f"{case_id}: MRI/mask {field} differs")
@@ -249,16 +269,30 @@ def _contract1_record(dataset_manifest: dict, records: List[dict]) -> dict:
 
 
 def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_path: Path, out: Path,
-               only: Optional[List[str]] = None) -> dict:
+               only: Optional[List[str]] = None, expected_split_sha256: str = PINNED_SPLIT_SHA256) -> dict:
     dataset_bytes = Path(dataset_manifest_path).read_bytes()
     dataset_manifest = json.loads(dataset_bytes.decode("utf-8"))
-    split = json.loads(Path(split_manifest_path).read_text(encoding="utf-8"))
+    split_bytes = Path(split_manifest_path).read_bytes()
+    split_sha = imaging.sha256_bytes(split_bytes)
+    if split_sha != expected_split_sha256:
+        raise IngestError("PROVENANCE_INVALID", f"split manifest sha256 {split_sha[:12]} is not the pinned "
+                                                f"{expected_split_sha256[:12]} (hash the committed blob bytes)")
+    split = json.loads(split_bytes.decode("utf-8"))
     pinned = (split.get("source_dataset_manifest") or {}).get("sha256")
     dataset_sha = imaging.sha256_bytes(dataset_bytes)
     if pinned and pinned != dataset_sha:
         raise IngestError("PROVENANCE_INVALID", f"split pins dataset manifest {pinned[:12]}, got {dataset_sha[:12]}")
     out = Path(out).resolve()
     _refuse_output_inside_git(out)
+    previous_path = out / "index.json"
+    if previous_path.exists():
+        previous_index = json.loads(previous_path.read_text(encoding="utf-8"))
+        identity = {"split_id": split.get("split_id"), "split_sha256": split_sha, "dataset_manifest_sha256": dataset_sha}
+        clash = {key: previous_index.get(key) for key, value in identity.items()
+                 if (key in previous_index or key != "split_sha256") and previous_index.get(key) != value}
+        if clash:
+            raise IngestError("INDEX_CONFLICT", f"{out} was built from another split or dataset ({clash}); "
+                                                f"use a fresh cache directory - caches are never merged across splits")
     out.mkdir(parents=True, exist_ok=True)
     by_id = {case["case_id"]: case for case in dataset_manifest["cases"]}
     selection = rule_based_selection(split)
@@ -279,11 +313,16 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
     cases = sorted(set(previous.get("cases", [])) | {record["case_id"] for record in records}, key=_case_number)
     merged_blobs = dict(previous.get("blobs", {}))
     merged_blobs.update(blobs)
+    full_selection = rule_based_selection(split)
     index = {
         "ingest_version": INGEST_VERSION,
         "generated_at": _now(),
         "split_id": split.get("split_id"),
+        "split_sha256": split_sha,
         "dataset_manifest_sha256": dataset_sha,
+        # The INT-12 designation, recorded by rule even when --only skipped the case,
+        # so experiment-level endpoints can withhold its per-case values.
+        "inference_only_case_ids": [item["case_id"] for item in full_selection if item["mode"] == "INFERENCE_REVIEW"],
         "selection_rules": {
             "INTEGRATION_CASE_001": "lowest-numbered validation case",
             "VALIDATION": "all validation cases",
@@ -307,6 +346,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--out", type=Path, default=None,
                         help=f"cache directory outside any git work tree (default: ${DATA_ROOT_ENV}/data_cache)")
     parser.add_argument("--only", nargs="*", help="ingest only these selected case ids (debugging)")
+    parser.add_argument("--split-sha256", default=PINNED_SPLIT_SHA256,
+                        help="sha256 of the split manifest blob (default: the pinned path_a_seed2024_dr002b_v1)")
     args = parser.parse_args(argv)
     if args.out is None:
         root = data_root_from_env()
@@ -315,7 +356,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 2
         args.out = root / "data_cache"
     try:
-        index = run_ingest(args.package_root, args.dataset_manifest, args.split_manifest, args.out, args.only)
+        index = run_ingest(args.package_root, args.dataset_manifest, args.split_manifest, args.out, args.only,
+                           expected_split_sha256=args.split_sha256)
     except IngestError as exc:
         print(f"FAIL [{exc.code}] {exc}", file=sys.stderr)
         return 2

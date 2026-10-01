@@ -117,6 +117,11 @@ if ($shipWheels) {
     python -m pip download --quiet --disable-pip-version-check --platform macosx_11_0_arm64 --python-version 3.9 `
       --implementation cp --only-binary=:all: -r (Join-Path $repo "backend\requirements.txt") -d $wheels
   }
+  # pip evaluated markers on THIS interpreter; prove the set installs on the host's CPython 3.9.6.
+  Invoke-Native "wheel closure check" {
+    python (Join-Path $repo "backend\scripts\check_wheel_closure.py") --wheels $wheels `
+      --requirements (Join-Path $repo "backend\requirements.txt")
+  }
   $wheelTar = Join-Path $stage "wheels.tar.gz"
   Invoke-Native "tar (wheels)" { tar -czf $wheelTar -C $stage wheels }
   $uploads += $wheelTar

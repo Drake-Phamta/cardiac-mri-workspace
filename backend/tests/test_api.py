@@ -396,7 +396,7 @@ def test_no_response_carries_a_physical_unit(api):
 
 def test_ingest_is_idempotent_and_refuses_changed_bytes(environment, tmp_path):
     again = ingest.run_ingest(environment["package"], environment["dataset_manifest"], environment["split_manifest"],
-                              environment["cache"])
+                              environment["cache"], expected_split_sha256=environment["split_sha256"])
     assert again["cases"] == ["CASE_0031", "CASE_9001", "CASE_9003"]
     import shutil
 
@@ -410,8 +410,91 @@ def test_ingest_is_idempotent_and_refuses_changed_bytes(environment, tmp_path):
     data[0, 0, 0] = (int(data[0, 0, 0]) + 1) % 256
     nrrd.write(str(mri), data, header)
     with pytest.raises(ingest.IngestError) as raised:
-        ingest.run_ingest(changed, environment["dataset_manifest"], environment["split_manifest"], environment["cache"])
+        ingest.run_ingest(changed, environment["dataset_manifest"], environment["split_manifest"], environment["cache"],
+                          expected_split_sha256=environment["split_sha256"])
     assert raised.value.code == "CHECKSUM_CONFLICT"
+
+
+def test_ingest_pins_the_split_and_never_merges_caches(environment, tmp_path):
+    """#68 QA N-1: the split blob hash is pinned, and a cache is never a union of two splits."""
+    with pytest.raises(ingest.IngestError) as raised:  # the synthetic split is not the pinned real one
+        ingest.run_ingest(environment["package"], environment["dataset_manifest"], environment["split_manifest"],
+                          tmp_path / "cache")
+    assert raised.value.code == "PROVENANCE_INVALID"
+    other = json.loads(environment["split_manifest"].read_text(encoding="utf-8"))
+    other["split_id"] = "another_split"
+    other_path = tmp_path / "other_split.json"
+    other_path.write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(ingest.IngestError) as raised:
+        ingest.run_ingest(environment["package"], environment["dataset_manifest"], other_path, environment["cache"],
+                          expected_split_sha256=hashlib.sha256(other_path.read_bytes()).hexdigest())
+    assert raised.value.code == "INDEX_CONFLICT"
+    assert ingest.PINNED_SPLIT_SHA256 == "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d"
+
+
+def test_case_store_refuses_a_holdout_case_with_ground_truth(environment, tmp_path):
+    """#68 QA N-1: at most one final_holdout case, and only without its ground truth."""
+    import shutil
+
+    from backend.app.cases import CaseStore
+
+    cache = tmp_path / "cache"
+    shutil.copytree(environment["cache"], cache)
+    case_path = cache / "cases" / "CASE_9001" / "case.json"
+    record = json.loads(case_path.read_text(encoding="utf-8"))
+    record["split_partition"] = "final_holdout"  # a holdout case served WITH ground truth
+    case_path.write_text(json.dumps(record), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="final_holdout"):
+        CaseStore(cache)
+
+
+def test_replace_cannot_overwrite_an_immutable_row(api):
+    """#68 QA N-2: REPLACE / INSERT OR REPLACE would bypass UPDATE triggers; recursive triggers stop it."""
+    rid = _new_review(api).json()["review_id"]
+    mask = np.zeros((synthetic.NY, synthetic.NX), dtype=np.uint8)
+    api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/1", "working_mask_put", 200,
+             json_body=_working_body("ART_RUN_9001_RAW", 1, 1, mask))
+    api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201, json_body={"expected_revision": 2})
+    storage = api.app.state.backend.storage
+    version = storage.reviewed_masks(rid)[0]
+    for sql in (
+        f"REPLACE INTO reviewed_masks SELECT * FROM reviewed_masks WHERE reviewed_mask_id = '{version['reviewed_mask_id']}'",
+        "INSERT OR REPLACE INTO reviewed_mask_slices SELECT * FROM reviewed_mask_slices LIMIT 1",
+        "INSERT OR REPLACE INTO review_history SELECT * FROM review_history LIMIT 1",
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
+            storage.raw_execute(sql)
+    assert storage.reviewed_masks(rid)[0]["checksum"] == version["checksum"]
+
+
+def test_request_log_records_route_case_slice_and_bytes_without_the_client(api):
+    """L4 (NFR-PERF-001 limb 2): one JSON line per request, artifact fetches attributed to their slice."""
+    meta = api.call("GET", f"{B}/cases/CASE_9001/slices/3/mri", "mri_slice_get", 200).json()
+    png = api.client.get(meta["content_url"])
+    log_path = api.app.state.backend.settings.request_log
+    lines = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    slice_line, artifact_line = lines[-2], lines[-1]
+    assert slice_line["route"] == "/api/v1/cases/{case_id}/slices/{slice_index}/mri"
+    assert (slice_line["case_id"], slice_line["slice_index"], slice_line["status"]) == ("CASE_9001", 3, 200)
+    assert artifact_line["route"] == "/api/v1/artifacts/{name}" and artifact_line["bytes"] == len(png.content)
+    assert (artifact_line["kind"], artifact_line["case_id"], artifact_line["slice_index"]) == ("mri", "CASE_9001", 3)
+    for line in lines:
+        assert not {"client", "ip", "host", "headers", "user_agent"} & set(line)
+
+
+def test_transport_hygiene(api):
+    """#68 QA N-3/N-4/N-5: no CORS by default, 1 MiB body cap, envelopes for 405, docs off."""
+    response = api.client.get(f"{B}/cases/CASE_9001", headers={"Origin": "http://evil.example"})
+    assert "access-control-allow-origin" not in {key.lower() for key in response.headers}
+    big = api.client.post(f"{B}/findings", content=b"{" + b" " * (1024 * 1024 + 10) + b"}",
+                          headers={"Content-Type": "application/json"})
+    assert big.status_code == 413 and big.json()["error"]["code"] == "VALIDATION_ERROR"
+    wrong_method = api.client.delete(f"{B}/cases/CASE_9001")
+    assert wrong_method.status_code == 405 and wrong_method.json()["error"]["code"] == "VALIDATION_ERROR"
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert api.client.get(path).status_code == 404
+    newline = api.client.get(f"{B}/cases/CASE_9001/slices/3%0A/mri")
+    assert newline.status_code == 422 and newline.json()["error"]["code"] == "SLICE_OUT_OF_RANGE"
 
 
 def test_derived_data_never_lives_inside_a_git_work_tree(environment, monkeypatch):
@@ -419,15 +502,17 @@ def test_derived_data_never_lives_inside_a_git_work_tree(environment, monkeypatc
 
     inside = REPO_ROOT / "backend" / "never_created"
     with pytest.raises(ingest.IngestError) as raised:
-        ingest.run_ingest(environment["package"], environment["dataset_manifest"], environment["split_manifest"], inside)
+        ingest.run_ingest(environment["package"], environment["dataset_manifest"], environment["split_manifest"], inside,
+                          expected_split_sha256=environment["split_sha256"])
     assert raised.value.code == "OUTPUT_INSIDE_GIT_WORKTREE" and not inside.exists()
     paths = {"data_cache": environment["cache"], "experiments_root": environment["experiments"],
-             "db_path": environment["root"] / "db.sqlite3", "render_cache": environment["root"] / "render_cache"}
+             "db_path": environment["root"] / "db.sqlite3", "render_cache": environment["root"] / "render_cache",
+             "request_log": environment["root"] / "logs" / "requests.jsonl"}
     for name in paths:
         with pytest.raises(RuntimeError, match="inside a git work tree"):
             Settings.from_env(dict(paths, **{name: inside / name}))
     for variable in ("CARDIAC_BACKEND_DATA", "CARDIAC_DATA_CACHE", "CARDIAC_DB", "CARDIAC_EXPERIMENTS_ROOT",
-                     "CARDIAC_RENDER_CACHE"):
+                     "CARDIAC_RENDER_CACHE", "CARDIAC_REQUEST_LOG"):
         monkeypatch.delenv(variable, raising=False)
     with pytest.raises(RuntimeError, match="CARDIAC_BACKEND_DATA"):
         Settings.from_env()  # no in-repository default exists

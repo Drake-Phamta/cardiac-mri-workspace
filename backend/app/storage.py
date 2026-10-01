@@ -159,6 +159,10 @@ class Storage:
         self._conn = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
+        # REPLACE / INSERT OR REPLACE deletes the conflicting row first; with
+        # recursive triggers that implicit delete fires the BEFORE DELETE
+        # immutability triggers, so a REPLACE cannot overwrite a version either.
+        self._conn.execute("PRAGMA recursive_triggers = ON")
         self._conn.executescript(SCHEMA)
 
     def close(self) -> None:
@@ -346,6 +350,13 @@ class Storage:
     def blob(self, digest: str) -> Optional[bytes]:
         rows = self._read("SELECT png FROM reviewed_mask_slices WHERE sha256 = ? LIMIT 1", (digest,))
         return bytes(rows[0]["png"]) if rows else None
+
+    def locate_blob(self, digest: str) -> Optional[Tuple[str, str, int]]:
+        """(reviewed_mask_id, case_id, slice_index) of a reviewed-mask slice, for the request log."""
+        rows = self._read(
+            "SELECT s.reviewed_mask_id AS id, m.case_id AS case_id, s.slice_index AS z FROM reviewed_mask_slices s"
+            " JOIN reviewed_masks m ON m.reviewed_mask_id = s.reviewed_mask_id WHERE s.sha256 = ? LIMIT 1", (digest,))
+        return (rows[0]["id"], rows[0]["case_id"], int(rows[0]["z"])) if rows else None
 
     # -- findings ------------------------------------------------------------
     def create_finding(self, values: Dict[str, Any]) -> sqlite3.Row:

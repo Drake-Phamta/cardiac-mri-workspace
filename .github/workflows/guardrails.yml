@@ -200,6 +200,17 @@ jobs:
       - name: backend test suite
         run: python -m pytest backend/tests -q -p no:cacheprovider
 
+      # The deploy installs the Mac mini OFFLINE from the wheels the operator PC
+      # downloads; pip evaluates markers on the host interpreter, so prove the
+      # set closes over the TARGET (CPython 3.9.6, darwin, arm64).
+      - name: offline wheel set closes over CPython 3.9.6 darwin arm64
+        run: |
+          python -m pip install --quiet packaging
+          python -m pip download --quiet --platform macosx_11_0_arm64 --python-version 3.9 \
+            --implementation cp --only-binary=:all: -r backend/requirements.txt -d /tmp/wheels-backend-host
+          python backend/scripts/check_wheel_closure.py --wheels /tmp/wheels-backend-host \
+            --requirements backend/requirements.txt
+
   # --------------------------------------------------------------------------
 
   no-forbidden-bytes:

@@ -14,6 +14,7 @@ from __future__ import annotations
 import functools
 import json
 import re
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import Body, FastAPI, Query, Request
@@ -21,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match
 
 from . import __version__, imaging
 from .cases import CaseRecord, CaseStore
@@ -28,11 +30,13 @@ from .config import Settings
 from .contract import ApiError, Contract
 from .experiments import SOURCE_KIND, ExperimentStore, Package, RunRecord
 from .metrics import MetricsService
+from .middleware import BodyLimitMiddleware, RequestLogMiddleware
 from .storage import Storage, etag, now
 
-SLICE = re.compile(r"^[0-9]{1,6}$")
-REVIEWER = re.compile(r"^[A-Za-z0-9_.@-]{1,64}$")
-ARTIFACT_NAME = re.compile(r"^([0-9a-f]{64})\.png$")
+# Whole-string patterns only (fullmatch): `$` would also accept a trailing newline.
+SLICE = re.compile(r"[0-9]{1,6}")
+REVIEWER = re.compile(r"[A-Za-z0-9_.@-]{1,64}")
+ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.png")
 C2_VARIANT = {"RAW_PREDICTION": "RAW", "PROCESSED_PREDICTION": "PROCESSED"}
 MAX_NOTE = 4000
 
@@ -62,11 +66,60 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     base = contract.base_path
     enums = contract.enums
 
+    docs = {} if settings.enable_docs else {"docs_url": None, "redoc_url": None, "openapi_url": None}
     app = FastAPI(title="Cardiac MRI workspace API", version=contract.version,
-                  description="API Contract 11 v1.0.0 - hero-flow backend")
+                  description="API Contract 11 - hero-flow backend", **docs)
     app.state.backend = backend
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
-                       allow_headers=["*"], expose_headers=["ETag"])
+    if settings.cors_origins:  # the React Native app needs no CORS; a browser client must be allowlisted
+        app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
+                           allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+                           allow_headers=["Content-Type", settings.reviewer_header], expose_headers=["ETag"])
+    app.add_middleware(BodyLimitMiddleware, limit=settings.max_body_bytes, envelope=lambda: contract.error_body(
+        "VALIDATION_ERROR", {"reason": f"request body above {settings.max_body_bytes} bytes"}))
+
+    def describe(scope: dict) -> Dict[str, Any]:
+        """Route template + case/slice for the request log; never the client address."""
+        info: Dict[str, Any] = {"route": None}
+        params: Dict[str, Any] = {}
+        for route in app.router.routes:
+            matched, child = route.matches(scope)
+            if matched == Match.FULL:
+                info["route"] = getattr(route, "path", None)
+                params = child.get("path_params", {})
+                break
+        for key in ("case_id", "run_id", "review_id", "reviewed_mask_id", "experiment_id"):
+            if key in params:
+                info[key] = params[key]
+        if "slice_index" in params:
+            raw = str(params["slice_index"])
+            info["slice_index"] = int(raw) if SLICE.fullmatch(raw) else raw
+        if info["route"] == f"{base}/artifacts/{{name}}":
+            info.update(describe_artifact(str(params.get("name", ""))))
+        query = scope.get("query_string", b"").decode("latin-1")
+        if query:
+            info["query"] = query
+        return info
+
+    def describe_artifact(name: str) -> Dict[str, Any]:
+        match = ARTIFACT_NAME.fullmatch(name)
+        if not match:
+            return {}
+        digest = match.group(1)
+        path = cases.blobs.get(digest)
+        if path is not None:
+            parts = path.relative_to(cases.root).parts  # cases/<case>/<mri|gt>/<z>.png
+            return {"kind": parts[2], "case_id": parts[1], "slice_index": int(Path(parts[3]).stem)}
+        path = experiments.render_blobs.get(digest)
+        if path is not None:
+            artifact = experiments.artifact(path.parent.name) or {}
+            return {"kind": "prediction", "artifact_id": path.parent.name, "case_id": artifact.get("case_id"),
+                    "slice_index": int(path.stem)}
+        located = storage.locate_blob(digest)
+        if located is not None:
+            return {"kind": "reviewed", "reviewed_mask_id": located[0], "case_id": located[1], "slice_index": located[2]}
+        return {"kind": None}
+
+    app.add_middleware(RequestLogMiddleware, path=settings.request_log, describe=describe)
 
     # -- plumbing --------------------------------------------------------------
     def error(code: str, details: Optional[Dict[str, Any]] = None) -> JSONResponse:
@@ -95,7 +148,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def _no_route(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         if exc.status_code == 404:
             return error("ARTIFACT_NOT_FOUND", {"reason": "no such route"})
-        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+        # 400 / 405 / ...: still the contract envelope, at the HTTP status that happened.
+        body = contract.error_body("VALIDATION_ERROR", {"reason": str(exc.detail), "http_status": exc.status_code})
+        return JSONResponse(body, status_code=exc.status_code)
 
     def ok(payload: Dict[str, Any], status: int = 200, tag: Optional[str] = None) -> JSONResponse:
         headers = {"ETag": tag} if tag else None
@@ -108,7 +163,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return case
 
     def parse_slice(case: CaseRecord, raw: str) -> int:
-        if not SLICE.match(raw or "") or int(raw) >= case.nz:
+        if not SLICE.fullmatch(raw or "") or int(raw) >= case.nz:
             raise ApiError("SLICE_OUT_OF_RANGE", {"slice_index": raw, "valid": [0, case.nz - 1]})
         return int(raw)
 
@@ -156,7 +211,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     def reviewer_of(request: Request) -> Optional[str]:
         value = request.headers.get(settings.reviewer_header)
-        return value if value and REVIEWER.match(value) else None
+        return value if value and REVIEWER.fullmatch(value) else None
 
     def url(digest: str) -> str:
         return f"{base}/artifacts/{digest}.png"
@@ -201,7 +256,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     @app.get(f"{base}/artifacts/{{name}}")
     def artifact(name: str) -> Response:
-        match = ARTIFACT_NAME.match(name)
+        match = ARTIFACT_NAME.fullmatch(name)
         if not match:
             return error("ARTIFACT_NOT_FOUND", {"artifact": name})
         digest = match.group(1)
@@ -216,7 +271,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if payload is None or imaging.sha256_bytes(payload) != digest:
             return error("ARTIFACT_NOT_FOUND", {"artifact": name})
         return Response(payload, media_type=contract.media_type, headers={
-            "ETag": f'"sha256:{digest}"', "Cache-Control": "public, max-age=31536000, immutable",
+            "ETag": f'"sha256:{digest}"', "Cache-Control": "private, max-age=31536000, immutable",
         })
 
     # -- study and cases -------------------------------------------------------
@@ -259,12 +314,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise ApiError("VALIDATION_ERROR", {"field": "mode", "allowed": enums["case_mode"]})
         size = 100
         if limit is not None:
-            if not SLICE.match(limit) or not 1 <= int(limit) <= 500:
+            if not SLICE.fullmatch(limit) or not 1 <= int(limit) <= 500:
                 raise ApiError("VALIDATION_ERROR", {"field": "limit", "allowed": [1, 500]})
             size = int(limit)
         offset = 0
         if page is not None:
-            if not SLICE.match(page):
+            if not SLICE.fullmatch(page):
                 raise ApiError("VALIDATION_ERROR", {"field": "page"})
             offset = int(page)
         needle = (q or "").strip().upper()
