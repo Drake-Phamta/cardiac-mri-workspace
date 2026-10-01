@@ -30,10 +30,10 @@ JSON.
   "bundle": "api_contract_11_fixture_bundle",
   "bundle_version": "v0",
   "contract": "api_contract_11",
-  "contract_version": "DRAFT v0",
+  "contract_version": "1.1.0",
   "base_path": "/api/v1",
   "geometry": { "geometry_contract_version": "dr008a-dr012/v1.0.0",
-                "geometry_validation_status": "VALIDATED" },
+                "geometry_validation_status": "GEOMETRY_NOT_VALIDATED" },
   "generated_by": "contracts/api/generate_fixture.py",
   "generated_command": "python contracts/api/generate_fixture.py --contract contracts/api/contract.json --output <path>",
   "endpoints": [ { "id": "...", "method": "...", "path": "...", "response_kind": "..." } ],
@@ -60,9 +60,13 @@ JSON.
 
 1. `contract`, `contract_version`, `base_path` and the geometry version must equal the contract's.
 2. Every `scenarios` key must be a real endpoint id.
-3. A `200` response must carry **every** name in that endpoint's `response_fields`. For list endpoints
-   (`case_list`, `experiment_cases`, `reviewed_masks_list`, `findings_list`) a name counts as present if it is at
-   the top level **or** on every element of `items` — those names are row fields.
+3. A `200` response must carry **every** name in that endpoint's `response_fields`. The five list endpoints
+   (`case_list`, `experiment_list`, `experiment_cases`, `reviewed_masks_list`, `findings_list`) declare
+   `row_fields` in contract v1.0.0: those names must be on **every** element of `items`, and every other name
+   (minus `items`) must be on the top-level object. An empty page, `items: []`, is therefore valid — the row
+   fields are vacuously present — while an empty page that drops a top-level field (`next_page`, say) is not.
+   For a contract without `row_fields` the pre-v1.0 rule applies: a name counts as present if it is at the top
+   level or on every element of a non-empty `items`.
 4. An error response's `code` must appear in **that endpoint's** `errors` list, and its `status` must equal the
    `http_status` the contract gives that code. A fixture cannot invent `STALE_REVISION` on `mri_slice_get`.
 5. An endpoint with `geometry_response: true` must carry all seven geometry fields with the exact version string.
@@ -73,8 +77,12 @@ JSON.
 | Endpoint | Scenarios |
 |---|---|
 | every endpoint a vertical calls | `default` |
-| `ground_truth_slice_get`, `analysis_slice_metrics` | `ground_truth_unavailable` |
+| the five list endpoints | `empty` (`items: []`, top-level fields present) |
+| `case_get` | `inference_review` (INT-12: `mode: INFERENCE_REVIEW`, `ground_truth_available: false`) |
+| `ground_truth_slice_get`, `analysis_slice_metrics`, `analysis_run_metrics` | `ground_truth_unavailable` |
+| `analysis_run_metrics` | `no_eligible_slices` (an empty `worst_slice_selection.slices`) |
 | `review_patch`, `working_mask_put`, `review_commit` | `stale_revision` |
+| `review_patch` | `invalid_transition` |
 | `analysis_run_get` | `run_running`, `run_failed` |
 | `reconstruction_get` | `geometry_mismatch` |
 | `experiment_compare` | `not_comparable` |

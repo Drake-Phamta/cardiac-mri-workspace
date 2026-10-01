@@ -182,6 +182,36 @@ jobs:
         run: python test_api_contract.py
 
   # --------------------------------------------------------------------------
+  # The backend runs on the Mac mini's system Python 3.9 (DR-003), so its
+  # suite runs on 3.9 here: compatibility is tested, not assumed. Synthetic
+  # data only; every JSON response is validated against Contract 11 v1.0.0.
+  backend-tests:
+    name: "backend tests (Python 3.9, Contract 11 v1.0.0)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: install the pinned backend requirements
+        run: python -m pip install --quiet -r backend/requirements-dev.txt
+
+      - name: backend test suite
+        run: python -m pytest backend/tests -q -p no:cacheprovider
+
+      # The deploy installs the Mac mini OFFLINE from the wheels the operator PC
+      # downloads; pip evaluates markers on the host interpreter, so prove the
+      # set closes over the TARGET (CPython 3.9.6, darwin, arm64).
+      - name: offline wheel set closes over CPython 3.9.6 darwin arm64
+        run: |
+          python -m pip install --quiet packaging
+          python -m pip download --quiet --platform macosx_11_0_arm64 --python-version 3.9 \
+            --implementation cp --only-binary=:all: -r backend/requirements.txt -d /tmp/wheels-backend-host
+          python backend/scripts/check_wheel_closure.py --wheels /tmp/wheels-backend-host \
+            --requirements backend/requirements.txt
+
+  # --------------------------------------------------------------------------
 
   no-forbidden-bytes:
     name: "no dataset / checkpoint / secret bytes"
@@ -279,6 +309,17 @@ jobs:
         run: |
           node app/core/tests/run_all.mjs
           node app/verticals/v4_review_and_findings/test_review_correction.mjs
+
+      # run_all.mjs globs app/core/tests/ only, so a vertical's test is never
+      # picked up automatically. V1 runs as its own step so that two verticals
+      # landing on the same day cannot conflict on one line; V4's test (#51)
+      # went into the step above instead.
+      - name: V1 case explorer
+        run: node app/verticals/v1_case_explorer/test_case_explorer.mjs
+
+      # V3 - SCR-01 / SCR-07 state models, against the bundle generated above.
+      - name: V3 study and compare
+        run: node app/verticals/v3_study_and_compare/test_study_and_compare.mjs
 
   # --------------------------------------------------------------------------
   app-framework-neutral:

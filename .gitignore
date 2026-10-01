@@ -12,6 +12,13 @@
 data/**
 !data/manifests/
 !data/manifests/**
+
+# backend/ derived data: slice PNGs and masks rendered from patient images,
+# Contract 2 experiment packages (predictions), the review database and its
+# reviewed masks. All derived from patient images; none is ever committed.
+backend/data_cache/
+backend/experiments/
+backend/var/
 *.nrrd
 *.nii
 *.nii.gz
@@ -30,6 +37,16 @@ data/**
 checkpoints/
 runs/
 wandb/
+
+# --- ML PIPELINE DERIVED ARRAYS (ml/) -------------------------------------
+# The slice cache, run directories and predictions live OUTSIDE git
+# (<CARDIAC_DATA_ROOT>\cache\<split_id>\img<img>\ and the run directories; see
+# ml/README.md "Data locations"); ml/data.py refuses a cache directory inside a work
+# tree. These lines catch a mistaken path: a resized patient array is still dataset bytes.
+*.npy
+*.npz
+ml/**/cache/
+ml/**/predictions/
 
 # --- SECRETS --------------------------------------------------------------
 # NFR-SEC-004: "Secrets/config credentials shall not be committed."

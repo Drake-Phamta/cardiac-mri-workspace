@@ -89,10 +89,28 @@ export function createBundle(contract, json) {
 
       // Rule 3 - every response_field, with the items row rule for lists.
       const isList = (endpoint.response_fields || []).includes('items');
-      for (const field of endpoint.response_fields || []) {
-        if (field in data) continue;
-        if (isList && rowFieldsPresent(data.items, field)) continue;
-        problems.push(`${at} is missing response field ${field}`);
+      const rowFields = Array.isArray(endpoint.row_fields) ? endpoint.row_fields : null;
+      if (isList && rowFields) {
+        // v1.0.0: top-level fields on the object, row fields on every row; an
+        // empty page satisfies the row fields vacuously.
+        if (!Array.isArray(data.items)) problems.push(`${at} is missing response field items`);
+        for (const field of endpoint.response_fields) {
+          if (field === 'items' || rowFields.includes(field)) continue;
+          if (!(field in data)) problems.push(`${at} is missing response field ${field}`);
+        }
+        (Array.isArray(data.items) ? data.items : []).forEach((row, i) => {
+          for (const field of rowFields) {
+            if (!row || typeof row !== 'object' || !(field in row)) {
+              problems.push(`${at} is missing response field ${field} on items[${i}]`);
+            }
+          }
+        });
+      } else {
+        for (const field of endpoint.response_fields || []) {
+          if (field in data) continue;
+          if (isList && rowFieldsPresent(data.items, field)) continue;
+          problems.push(`${at} is missing response field ${field}`);
+        }
       }
 
       // Rule 5 - geometry endpoints carry all seven fields, exact version.

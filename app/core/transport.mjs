@@ -37,11 +37,30 @@ export function validateResponse(contract, resolved, response) {
   }
 
   const isList = resolved.responseFields.includes('items');
-  for (const field of resolved.responseFields) {
-    if (field in data) continue;
-    if (isList && Array.isArray(data.items) && data.items.length > 0
-      && data.items.every((row) => row && typeof row === 'object' && field in row)) continue;
-    problems.push(`${resolved.endpointId} response is missing ${field}`);
+  if (isList && resolved.rowFields) {
+    // Contract v1.0.0 list rule: top-level fields = response_fields minus
+    // row_fields minus items, present on the object; every row carries every
+    // row field, which an empty page (items: []) satisfies vacuously.
+    if (!Array.isArray(data.items)) problems.push(`${resolved.endpointId} response is missing items`);
+    for (const field of resolved.responseFields) {
+      if (field === 'items' || resolved.rowFields.includes(field)) continue;
+      if (!(field in data)) problems.push(`${resolved.endpointId} response is missing ${field}`);
+    }
+    (Array.isArray(data.items) ? data.items : []).forEach((row, i) => {
+      for (const field of resolved.rowFields) {
+        if (!row || typeof row !== 'object' || !(field in row)) {
+          problems.push(`${resolved.endpointId} items[${i}] is missing ${field}`);
+        }
+      }
+    });
+  } else {
+    // A contract without row_fields: the pre-v1.0 rule, kept for it alone.
+    for (const field of resolved.responseFields) {
+      if (field in data) continue;
+      if (isList && Array.isArray(data.items) && data.items.length > 0
+        && data.items.every((row) => row && typeof row === 'object' && field in row)) continue;
+      problems.push(`${resolved.endpointId} response is missing ${field}`);
+    }
   }
 
   if (resolved.geometryResponse) {
