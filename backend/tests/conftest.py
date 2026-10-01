@@ -7,6 +7,7 @@ Contract 11 v1.0.0 by ``contracts/api/validate_api_contract.validate_response``
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -35,7 +36,10 @@ def environment(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Any]:
     root = tmp_path_factory.mktemp("backend-env")
     built = synthetic.build_package(root)
     cache = root / "data_cache"
-    ingest.run_ingest(built["package"], built["dataset_manifest"], built["split_manifest"], cache)
+    split_sha = hashlib.sha256(built["split_manifest"].read_bytes()).hexdigest()
+    ingest.run_ingest(built["package"], built["dataset_manifest"], built["split_manifest"], cache,
+                      expected_split_sha256=split_sha)
+    built["split_sha256"] = split_sha
     experiments = root / "experiments"
     accepted = synthetic.build_contract2(experiments / "exp-u-025", "EXP-U-025")
     synthetic.build_contract2(experiments / "exp-d-025-blocked", "EXP-D-025", gates_accepted=False, prefix="B")
@@ -71,6 +75,7 @@ def api(environment: Dict[str, Any], tmp_path: Path) -> Api:
         "experiments_root": environment["experiments"],
         "db_path": tmp_path / "backend.sqlite3",
         "render_cache": environment["root"] / "render_cache",
+        "request_log": tmp_path / "logs" / "requests.jsonl",
     })
     app = create_app(settings)
     with TestClient(app) as client:

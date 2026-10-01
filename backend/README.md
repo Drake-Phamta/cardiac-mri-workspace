@@ -124,6 +124,37 @@ either side.
 Phone base URL: `http://<overlay-address>:8000/api/v1` · health: `http://<overlay-address>:8000/health`.
 If the host answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
 
+## Request log and the L4 measurement
+
+Every HTTP request appends one JSON line to `$CARDIAC_BACKEND_DATA/logs/requests.jsonl`: UTC time, method, path
+**template**, `case_id` / `slice_index` / `run_id` from the path, `query`, status, response **bytes** actually
+sent and duration. A `GET /api/v1/artifacts/<sha256>.png` is attributed to its case, slice and kind
+(`mri`, `gt`, `prediction`, `reviewed`). No client address, header or body is recorded.
+
+L4 of NFR-PERF-001 ("no full-volume transfer per slice gesture") is read from it after the phone session:
+
+```powershell
+python backend\scripts\summarize_request_log.py --log <data>\logs\requests.jsonl --data-cache <data>\data_cache --since <session start, ISO UTC>
+```
+
+It groups consecutive requests of one `(case_id, slice_index)` into a slice switch and prints bytes per switch
+(p50 / p95 / max), the largest single response, and the largest switch as a percentage of that case's raw
+volume. The API has no volume endpoint, so a switch is bounded by one slice's metadata plus its PNG(s).
+
+## Transport hygiene
+
+- CORS is **off** unless `CARDIAC_CORS_ORIGINS` lists allowed origins (the React Native app needs none).
+- OpenAPI/docs routes are off unless `CARDIAC_ENABLE_DOCS=1`.
+- Request bodies above 1 MiB answer 413 with the contract envelope; 400/405 also answer the envelope.
+- Artifact bytes are `Cache-Control: private, immutable`.
+- The offline wheel set is checked with `backend/scripts/check_wheel_closure.py` for CPython 3.9.6 / darwin /
+  arm64, in CI and inside the deploy (pip evaluates markers on the host interpreter, which once dropped
+  `exceptiongroup`).
+- `PRAGMA recursive_triggers = ON`: a `REPLACE` cannot overwrite an immutable row either.
+- The ingest pins the split blob sha256 (`c5c65a09…396d`), refuses to extend a cache built from another split or
+  dataset manifest, and the service refuses a cache with more than one `final_holdout` case or a holdout case
+  served with ground truth.
+
 ## Known gaps (Day 22)
 
 - Metrics, worst-slice selection and cohort endpoints answer the unavailable state until saved Contract 2 metric

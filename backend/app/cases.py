@@ -59,6 +59,8 @@ class CaseStore:
         self.cases: Dict[str, CaseRecord] = {}
         self.blobs: Dict[str, Path] = {}
         self.index: dict = {}
+        self.inference_only_ids: set = set()
+        self.modes_known = False
         index_path = self.root / "index.json"
         if not index_path.exists():
             return
@@ -70,6 +72,20 @@ class CaseStore:
                 self.cases[case_id] = record
         for digest, relative in self.index.get("blobs", {}).items():
             self.blobs[digest] = self.root / Path(*relative.split("/"))
+        self._refuse_unsafe_holdout()
+        # INT-12: the cases whose ground-truth-derived values are never served.
+        self.inference_only_ids = set(self.index.get("inference_only_case_ids", [])) | {
+            case_id for case_id, record in self.cases.items() if record.mode == "INFERENCE_REVIEW"}
+        self.modes_known = "inference_only_case_ids" in self.index
+
+    def _refuse_unsafe_holdout(self) -> None:
+        """At most one final_holdout case (the INT-12 case), and never with its ground truth."""
+        holdout = [record for record in self.cases.values() if record.data.get("split_partition") == "final_holdout"]
+        if len(holdout) > 1:
+            raise RuntimeError(f"data cache serves {len(holdout)} final_holdout cases; at most one (INT-12) is allowed")
+        for record in holdout:
+            if record.ground_truth_available or record.data.get("slices", {}).get("gt") or record.mode != "INFERENCE_REVIEW":
+                raise RuntimeError(f"{record.case_id} is a final_holdout case served with ground truth; refusing to start")
 
     def get(self, case_id: str) -> Optional[CaseRecord]:
         return self.cases.get(case_id)

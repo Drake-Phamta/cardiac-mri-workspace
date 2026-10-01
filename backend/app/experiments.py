@@ -199,9 +199,12 @@ class ExperimentStore:
                 digest = imaging.sha256_bytes(payload)
                 (directory / f"{index:04d}.png").write_bytes(payload)
                 checksums.append(digest)
-            index_path.write_text(json.dumps({"artifact_id": mask_id, "source_checksum": artifact["checksum"]["value"],
-                                              "render_version": imaging.MASK_RENDER_VERSION, "slices": checksums}),
-                                  encoding="utf-8")
+            # Written last and atomically: an index exists only for a complete render.
+            temporary = index_path.with_name(index_path.name + ".tmp")
+            temporary.write_text(json.dumps({"artifact_id": mask_id, "source_checksum": artifact["checksum"]["value"],
+                                             "render_version": imaging.MASK_RENDER_VERSION, "slices": checksums}),
+                                 encoding="utf-8")
+            temporary.replace(index_path)
             with self._lock:
                 for index, digest in enumerate(checksums):
                     self.render_blobs[digest] = directory / f"{index:04d}.png"
