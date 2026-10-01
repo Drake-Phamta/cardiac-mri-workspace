@@ -391,7 +391,12 @@ function Explorer({
 
   const onStateAction = useCallback((id) => {
     if (id === RECOVERY.BACK) nav.pop();
-    else if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) runner.run(() => model.refresh());
+    else if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) {
+      // A user refresh sees the server as it is now: unavailable answers cached
+      // for scrolling (sliceCache) are dropped first.
+      if (client.clear) client.clear();
+      runner.run(() => model.refresh());
+    }
     else if (id === RECOVERY.VIEW_FAILURE) {
       const f = current.runFailure || (runInfo && runInfo.run) || {};
       Alert.alert('Analysis failed', `code ${f.code || f.failureCode || 'not stated'}\n${f.reason || f.failureReason || 'no reason recorded'}`);

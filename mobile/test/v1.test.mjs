@@ -147,7 +147,7 @@ test('V1m the 30-step sequence is Spike A\'s: 30 steps, +/-1 moves kept, all in 
   assert.deepEqual(s88.slice(0, 8), [1, 2, 3, 4, 5, 6, 7, 8], 'the forward run stays one slice at a time');
 });
 
-test('V1n slice cache: a revisit is answered from memory; variants never share; errors never cached', async () => {
+test('V1n slice cache: a revisit is answered from memory; variants never share; non-slice calls never cached', async () => {
   let sent = 0;
   const base = createClient(contract, {
     kind: 'count',
@@ -167,11 +167,39 @@ test('V1n slice cache: a revisit is answered from memory; variants never share; 
   await cached.call('case_get', { case_id: 'CASE_0043' });
   await cached.call('case_get', { case_id: 'CASE_0043' });
   assert.equal(sent, 4, 'non-slice endpoints are never cached');
-  const e1 = await cached.call('ground_truth_slice_get', { case_id: 'C', slice_index: 1 }, { scenario: 'ground_truth_unavailable' });
-  await cached.call('ground_truth_slice_get', { case_id: 'C', slice_index: 1 }, { scenario: 'ground_truth_unavailable' });
-  assert.equal(e1.state, STATE.EMPTY_UNAVAILABLE);
-  assert.equal(sent, 6, 'an unavailable answer is asked again next time');
   assert.equal(cached.stats().hits, 1);
+});
+
+test('V1n2 slice cache: an UNAVAILABLE slice answer is kept for scrolling (TTL), an error never; clear() forgets', async () => {
+  let sent = 0;
+  let t = 1000;
+  let answer = 'unavailable';
+  const base = createClient(contract, {
+    kind: 'count',
+    async send(resolved, options) {
+      sent += 1;
+      if (answer === 'down') throw new Error('network');
+      return createFixtureTransport(bundle).send(resolved, { ...options, scenario: 'ground_truth_unavailable' });
+    },
+  });
+  const cached = createSliceCache(base, { unavailableTtlMs: 60000, now: () => t });
+  const p = { case_id: 'C', slice_index: 1 };
+  const e1 = await cached.call('ground_truth_slice_get', p);
+  assert.equal(e1.state, STATE.EMPTY_UNAVAILABLE);
+  await cached.call('ground_truth_slice_get', p);
+  assert.equal(sent, 1, 'scrolling back over the slice asks nothing (L4: revisits are free)');
+  t += 60001;
+  await cached.call('ground_truth_slice_get', p);
+  assert.equal(sent, 2, 'after the TTL the server is asked again');
+  cached.clear();
+  await cached.call('ground_truth_slice_get', p);
+  assert.equal(sent, 3, 'a user refresh (clear) asks again at once');
+  answer = 'down';
+  const q = { case_id: 'C', slice_index: 2 };
+  const r1 = await cached.call('ground_truth_slice_get', q);
+  await cached.call('ground_truth_slice_get', q);
+  assert.equal(r1.state, STATE.RECOVERABLE_ERROR);
+  assert.equal(sent, 5, 'an error is never cached - a retry reaches the server');
 });
 
 test('V1o2 slice cache: an unnamed read finds what the model fetched with scenario "default"', async () => {
@@ -270,4 +298,18 @@ test('V1s capability labels match between the list and the case screen (TC-CASE-
     assert.equal(listRow.groundTruthUsable, caseScreen.groundTruthUsable);
   }
   assert.equal(CAPABILITY.EVALUATION.short, 'EVAL');
+});
+
+test('V1c2 contract 1.1.0 rows: `mode_capability` is the row mode (top-level `mode` is the list filter)', () => {
+  const r = readCaseRows({
+    items: [
+      { case_id: 'CASE_0031', mode_capability: 'INFERENCE_REVIEW', ground_truth_available: false },
+      { case_id: 'CASE_9001', mode_capability: 'EVALUATION', ground_truth_available: true },
+    ],
+    next_page: null,
+    mode: null,
+  });
+  assert.deepEqual(r.rows.map((x) => x.capability.key), ['INFERENCE_REVIEW', 'EVALUATION']);
+  assert.ok(r.rows.every((x) => x.capability.consistent));
+  assert.deepEqual({ ...r.counts }, { total: 2, EVALUATION: 1, INFERENCE_REVIEW: 1, UNKNOWN: 0 });
 });
