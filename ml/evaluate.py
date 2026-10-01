@@ -36,12 +36,15 @@ SEMANTICS - evaluation_metric_version "ml-eval-1.0.0" (`07` section 6, `08` sect
 RUN-DIRECTORY DRIVER
     python -m ml.evaluate run --run-dir <run> --population validation
     python -m ml.evaluate run --run-dir <run> --population final_holdout --allow-holdout
+                              --holdout-authorization <record.json>
         reads  <run>/predictions/<population>/predictions_manifest.json (+ the NRRD masks)
                <run>/manifests/split_manifest.json, the reference masks via ml.data
         writes <run>/evaluation/<population>/ (refuses to overwrite):
                per_case_metrics.json, per_slice_metrics.json, metrics_summary.json,
                metric_sets/<case>.json, evaluation_manifest.json
     python -m ml.evaluate compare --run-a <run> --run-b <run> --population final_holdout
+    The split is the FROZEN one only (ml.holdout, #64 R-1); final_holdout also needs the
+    GATE-IMG-01 authorization record, verified before any case is read (#64 N-1).
 """
 
 from __future__ import annotations
@@ -58,6 +61,7 @@ from pathlib import Path
 import numpy as np
 
 from ml import data as D
+from ml import holdout as H
 from ml import manifests as MF
 
 EVALUATION_METRIC_VERSION = "ml-eval-1.0.0"
@@ -535,32 +539,68 @@ def load_run_split(run_dir: str | Path, partition: str, *,
     return D.load_split_manifest(path), digest
 
 
+def _authorize_holdout(run_dir: Path, pm: dict, split_sha: str, loaded: tuple[dict, str]) -> dict:
+    """Verify the GATE-IMG-01 record (loaded by ml.holdout.load_record) for this run (#64 N-1)
+    before any holdout case is read: it must authorize this experiment_id with the sha256 of THIS
+    run's checkpoints/best.pt, the predictions must have been made with that checkpoint, under the
+    very same record."""
+    if pm["checkpoint"].get("path") != H.BEST_CHECKPOINT:
+        raise H.HoldoutAuthorizationError(f"holdout predictions must come from {H.BEST_CHECKPOINT}, "
+                                          f"not {pm['checkpoint'].get('path')!r}")
+    best = run_dir / H.BEST_CHECKPOINT
+    if not best.is_file():
+        raise H.HoldoutAuthorizationError(f"{H.BEST_CHECKPOINT} is missing; the authorization cannot be verified")
+    best_sha = D.sha256_file(best)
+    block = H.verified_block(*loaded, split_sha256=split_sha, experiment_id=pm["experiment_id"],
+                             checkpoint_sha256=best_sha, prediction_variant=pm["prediction_variant"],
+                             postprocessing_config_sha256=pm.get("postprocessing_config_sha256"))
+    if pm["checkpoint"]["sha256"] != best_sha:
+        raise H.HoldoutAuthorizationError(f"the holdout predictions were made with checkpoint sha256 "
+                                          f"{pm['checkpoint']['sha256']}, not this run's {H.BEST_CHECKPOINT}")
+    H.require_same_record(pm["holdout_authorization"], block)
+    return block
+
+
 def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict | None = None,
                  package_root: str | Path = D.DEFAULT_PACKAGE_ROOT, allow_holdout: bool = False,
                  split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST, allow_unfrozen_split: bool = False,
-                 log=print) -> Path:
+                 holdout_authorization: str | os.PathLike | None = None, log=print) -> Path:
     """Score <run>/predictions/<partition>/ against the reference masks; write <run>/evaluation/<partition>/.
 
     split_manifest is the FROZEN split the run must have used (default: the repository's).
+    final_holdout needs allow_holdout=True AND holdout_authorization, the path of the GATE-IMG-01
+    record (ml.holdout); it never accepts the TEST-ONLY allow_unfrozen_split.
     """
     run_dir = Path(run_dir)
     if partition not in ("validation", D.HOLDOUT_PARTITION):
         raise ValueError("partition must be 'validation' or 'final_holdout'")
+    holdout = partition == D.HOLDOUT_PARTITION
+    loaded = None
+    if holdout:
+        if allow_holdout is not True:
+            raise D.HoldoutAccessError("evaluating the final holdout needs allow_holdout=True")
+        H.refuse_unfrozen_split(partition, allow_unfrozen_split)
+        if holdout_authorization is None:
+            raise H.HoldoutAuthorizationError("evaluating the final holdout needs the GATE-IMG-01 authorization "
+                                              "record (holdout_authorization / --holdout-authorization)")
+        loaded = H.load_record(holdout_authorization)    # JSON + structure first; run checks below
+    elif holdout_authorization is not None:
+        raise ValueError("a holdout authorization was given for the validation population")
+    H.refuse_split_inside_run(split_manifest, run_dir)
     out_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=partition)
     if out_dir.exists():
         raise FileExistsError(f"{out_dir} exists; recorded evaluations are immutable")
     pm_path = run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)
     pm = MF.validate_predictions_manifest(D.load_json(pm_path))
-    if pm["population"]["partition"] != partition:
-        raise ValueError(f"{MF.RUN_LAYOUT['predictions_manifest'].format(partition=partition)}: "
-                         f"population is {pm['population']['partition']!r}, not {partition!r}")
+    if pm["population"]["partition"] != partition or pm["population"]["role"] != MF.ROLES[partition]:
+        raise ValueError(f"{MF.RUN_LAYOUT['predictions_manifest'].format(partition=partition)}: population is "
+                         f"{pm['population']['partition']!r} / role {pm['population']['role']!r}, not "
+                         f"{partition!r} / {MF.ROLES[partition]!r}")
     split, split_sha = load_run_split(run_dir, partition, frozen_split=split_manifest,
                                       allow_unfrozen_split=allow_unfrozen_split)
-    if partition == D.HOLDOUT_PARTITION:
-        if allow_holdout is not True:
-            raise D.HoldoutAccessError("evaluating the final holdout needs allow_holdout=True")
-        if not pm.get("holdout_authorization"):
-            raise D.HoldoutAccessError("holdout predictions without a holdout_authorization record")
+    authorization = None
+    if holdout:
+        authorization = _authorize_holdout(run_dir, pm, split_sha, loaded)
         allow = D.CaseAllowlist.for_holdout(split, allow_holdout=True)
     else:
         allow = D.CaseAllowlist.for_validation(split)
@@ -612,17 +652,24 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
                   "path": pop_ref["path"], "sha256": pop_ref["sha256"], "case_ids": intended}
     result = evaluate_population(intended, load_pair, population=population,
                                  prediction_variant=pm["prediction_variant"], log=log, scrub=scrub)
+    recorded = {"frozen_split": {"pinned_sha256": D.FROZEN_SPLIT_SHA256, "split_sha256": split_sha,
+                                 "is_frozen": split_sha == D.FROZEN_SPLIT_SHA256,
+                                 "allow_unfrozen_split": bool(allow_unfrozen_split)},
+                "holdout_authorization": authorization}
     return write_evaluation(run_dir, partition, result, experiment_id=pm["experiment_id"],
-                            predictions_manifest=pm, predictions_manifest_path=pm_path, split=split)
+                            predictions_manifest=pm, predictions_manifest_path=pm_path, split=split,
+                            manifest_extra=recorded)
 
 
 def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_id: str,
-                     predictions_manifest: dict, predictions_manifest_path: Path, split: dict) -> Path:
+                     predictions_manifest: dict, predictions_manifest_path: Path, split: dict,
+                     manifest_extra: dict | None = None) -> Path:
     """Write every evaluation file into a temporary directory, then rename it into place.
 
     The rename is the commit point: evaluation/<partition>/ either does not exist or is
     complete, so an interrupted evaluation can simply be run again. Recorded paths are the
     final ones. On any failure before the rename the temporary directory is removed.
+    manifest_extra (frozen split facts, the holdout authorization) goes into the evaluation manifest.
     """
     final_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=partition)
     tmp_dir = final_dir.with_name(f".{final_dir.name}.{uuid.uuid4().hex[:8]}.tmp")
@@ -630,7 +677,8 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_
     try:
         _write_evaluation_files(run_dir, tmp_dir, final_dir, partition, result, experiment_id=experiment_id,
                                 predictions_manifest=predictions_manifest,
-                                predictions_manifest_path=predictions_manifest_path, split=split)
+                                predictions_manifest_path=predictions_manifest_path, split=split,
+                                manifest_extra=manifest_extra or {})
         os.rename(tmp_dir, final_dir)          # commit point; fails if final_dir appeared meanwhile
     except BaseException:
         shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -640,7 +688,7 @@ def write_evaluation(run_dir: Path, partition: str, result: dict, *, experiment_
 
 def _write_evaluation_files(run_dir: Path, tmp_dir: Path, final_dir: Path, partition: str, result: dict, *,
                             experiment_id: str, predictions_manifest: dict, predictions_manifest_path: Path,
-                            split: dict) -> None:
+                            split: dict, manifest_extra: dict) -> None:
     final_rel = _rel_new(final_dir, run_dir)
     exp = experiment_id
     header = {k: result[k] for k in ("evaluation_metric_version", "population", "prediction_variant",
@@ -695,6 +743,7 @@ def _write_evaluation_files(run_dir: Path, tmp_dir: Path, final_dir: Path, parti
         "failed_n": result["failed_n"],
         "outputs": {k: recorded(p) for k, p in files.items()},
         "metric_sets": {cid: recorded(p) for cid, p in metric_sets.items()},
+        **manifest_extra,
         "created_at": MF.now_iso(),
     }
     MF.write_json_new(tmp_dir / "evaluation_manifest.json", manifest)
@@ -716,13 +765,13 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--run-dir", required=True, type=Path)
     r.add_argument("--population", required=True, choices=["validation", D.HOLDOUT_PARTITION])
     r.add_argument("--allow-holdout", action="store_true",
-                   help="required (with recorded holdout authorization) to score final_holdout")
+                   help="required, with --holdout-authorization, to score final_holdout")
+    r.add_argument("--holdout-authorization", type=Path, default=None, metavar="RECORD_JSON",
+                   help="the GATE-IMG-01 authorization record (format ml-holdout-authorization/1, ml/README.md)")
     r.add_argument("--dataset-manifest", type=Path, default=D.DEFAULT_DATASET_MANIFEST)
     r.add_argument("--package-root", type=Path, default=D.DEFAULT_PACKAGE_ROOT)
     r.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
-                   help="the FROZEN split the run must have used (default: the repository's)")
-    r.add_argument("--allow-unfrozen-split", action="store_true",
-                   help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split")
+                   help="the FROZEN split (default: the repository's); any other sha256 is refused")
     c = sub.add_parser("compare", help="paired comparison of two recorded evaluations")
     c.add_argument("--run-a", required=True, type=Path)
     c.add_argument("--run-b", required=True, type=Path)
@@ -731,21 +780,26 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--allow-variant-mismatch", action="store_true",
                    help="for the raw-vs-processed ablation (EXP-D-PP) only")
     c.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
-                   help="the FROZEN split both runs must have used (default: the repository's)")
-    c.add_argument("--allow-unfrozen-split", action="store_true",
-                   help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split")
+                   help="the FROZEN split (default: the repository's); any other sha256 is refused")
     c.add_argument("--out", type=Path, help="write the comparison to this NEW JSON file")
     args = ap.parse_args(argv)
-    if args.cmd == "run":
-        out = evaluate_run(args.run_dir, args.population,
-                           dataset_manifest=D.load_dataset_manifest(args.dataset_manifest),
-                           package_root=args.package_root, allow_holdout=args.allow_holdout,
-                           split_manifest=args.split_manifest, allow_unfrozen_split=args.allow_unfrozen_split)
-        print(f"wrote {out}")
-        return 0
-    report = compare_runs(args.run_a, args.run_b, args.population, metric=args.metric,
-                          same_prediction_variant=not args.allow_variant_mismatch,
-                          split_manifest=args.split_manifest, allow_unfrozen_split=args.allow_unfrozen_split)
+    try:
+        if args.cmd == "run":
+            if args.holdout_authorization is not None and args.population != D.HOLDOUT_PARTITION:
+                raise ValueError("--holdout-authorization only applies to --population final_holdout")
+            out = evaluate_run(args.run_dir, args.population,
+                               dataset_manifest=D.load_dataset_manifest(args.dataset_manifest),
+                               package_root=args.package_root, allow_holdout=args.allow_holdout,
+                               split_manifest=args.split_manifest,
+                               holdout_authorization=args.holdout_authorization)
+            print(f"wrote {out}")
+            return 0
+        report = compare_runs(args.run_a, args.run_b, args.population, metric=args.metric,
+                              same_prediction_variant=not args.allow_variant_mismatch,
+                              split_manifest=args.split_manifest)
+    except (D.DataAccessError, FileExistsError, FileNotFoundError, ValueError) as exc:
+        print(f"REFUSED: {type(exc).__name__}: {exc}")
+        return 2
     if args.out:
         MF.write_json_new(args.out, report)
         print(f"wrote {args.out}")
@@ -761,8 +815,11 @@ def compare_runs(run_a: str | Path, run_b: str | Path, population: str, *, metri
     """Paired comparison of two recorded evaluations of the same population.
 
     Both runs must have used the FROZEN split (load_run_split); the holdout population also
-    reports the two holdout slots.
+    reports the two holdout slots and never accepts the TEST-ONLY allow_unfrozen_split.
     """
+    H.refuse_unfrozen_split(population, allow_unfrozen_split)
+    for run in (run_a, run_b):
+        H.refuse_split_inside_run(split_manifest, run)
     split, _ = load_run_split(run_a, population, frozen_split=split_manifest,
                               allow_unfrozen_split=allow_unfrozen_split)
     load_run_split(run_b, population, frozen_split=split_manifest, allow_unfrozen_split=allow_unfrozen_split)
