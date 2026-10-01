@@ -101,6 +101,11 @@ DEFAULT_EVIDENCE = os.path.join(ROOT, "EVIDENCE_RAW", "20261001_real_mesh",
                                 "real_mesh_frontier.json")
 CONTRACT_VERSION = "dr008a-dr012/v1.0.0"
 
+# Memory guard (2026-10-01): the first default, cpu_count() - 2 = 18 workers on the shared
+# workstation, each with its own copy of the 640x640x88 mask and its dilation, exhausted RAM
+# during a QA run and killed a GPU training job. Four workers keep the pool near 0.5 GB and
+# the run at a few minutes; --workers overrides it.
+DEFAULT_WORKERS = min(4, os.cpu_count() or 1)
 GRID_OFFSETS = (0.37, 0.61)       # fractions of one grid pitch; keep rays off voxel edges
 BOX_MARGIN = 2                    # voxels around the foreground bounding box
 EDT_MARGIN = 12                   # voxels of context for clearance / depth measurements
@@ -397,7 +402,11 @@ def main() -> int:
     ap.add_argument("--grid-pitch", type=float, default=3.0)
     ap.add_argument("--mesh-out", help="default: mesh/out_real/<case_id> (gitignored)")
     ap.add_argument("--evidence", default=DEFAULT_EVIDENCE)
-    ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2))
+    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
+                    help=f"ground-truth worker processes (default min(4, cpu_count) = {DEFAULT_WORKERS}). "
+                         "Each worker holds its own copy of the full mask and its dilation "
+                         "(~130 MB with the interpreter), so the pool costs ~0.13 GB per worker. "
+                         "Raise it only on an idle machine; the shared PC trains models.")
     ap.add_argument("--check-rays", type=int, default=300,
                     help="rays per level re-run without acceleration as an equivalence check")
     args = ap.parse_args()

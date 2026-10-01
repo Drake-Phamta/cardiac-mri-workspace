@@ -120,6 +120,12 @@ python spikes/spike_b_3d/harness/real_mesh_frontier.py              # case, leve
 python spikes/spike_b_3d/harness/test_real_mesh_frontier.py         # data-free, 25 checks
 ```
 
+**Memory:** the ground truth runs in a process pool, `--workers` (default `min(4, cpu_count)`). Each
+worker holds its own copy of the mask and its dilation, about 0.13 GB. The run that produced this JSON
+used the first default (`cpu_count − 2` = 18 workers); that default exhausted the shared workstation's RAM
+in a later QA re-run and was lowered — use `--workers 2` while a GPU job is training. The worker count
+does not change any result, only the run time.
+
 Needs the private LASC package at `CARDIAC_DATA_ROOT` (default
 `D:\02_Research\cardiac-data\lasc2018\extracted`). Meshes and the per-ray table are written to
 the gitignored `spikes/spike_b_3d/mesh/out_real/CASE_0059/`.
