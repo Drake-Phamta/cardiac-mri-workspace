@@ -38,6 +38,10 @@ export const CELL_UNAVAILABLE = Object.freeze({
   // result yet. A legitimate absence (`10` section 8), said as such - an empty
   // strip with no words would read as "no cases failed".
   NO_CASE_RESULTS: 'NO_CASE_RESULTS',
+  // experiment_cases says its rows are for another variant than the metrics
+  // were served for (or says none): the rows stay listed, nothing is drawn or
+  // linked - the same silent-substitution rule as VARIANT_MISMATCH.
+  CASES_FOR_ANOTHER_VARIANT: 'CASES_FOR_ANOTHER_VARIANT',
 });
 
 function statusFromView(view) {
@@ -128,23 +132,32 @@ export function buildCell(expected, {
   // experiment by; `confirmedLane` is the one the server served. Only the
   // second is ever handed to SCR-03.
   const confirmedLane = status === CELL_STATUS.LOADED ? servedVariant.lane : null;
-  const cases = casesView && casesView.state === STATE.SUCCESS
-    ? readCaseRows(casesView.data, { metricName, variant: confirmedLane, experimentId: expected.id })
-    : null;
   const loaded = status === CELL_STATUS.LOADED;
-  const points = loaded && cases ? Object.freeze(cases.rows.filter((r) => r.plotted)) : Object.freeze([]);
+  const casesOk = Boolean(casesView && casesView.state === STATE.SUCCESS);
+  // Rows count as this cell's only if experiment_cases states the same variant.
+  const casesMatch = loaded && casesOk && readVariant(casesView.data.prediction_variant).lane === confirmedLane;
+  const cases = casesOk
+    ? readCaseRows(casesView.data, { metricName, variant: casesMatch ? confirmedLane : null, experimentId: expected.id })
+    : null;
+  const points = casesMatch ? Object.freeze(cases.rows.filter((r) => r.plotted)) : Object.freeze([]);
   let pointsWithheld = null;
   if (!loaded) pointsWithheld = CELL_UNAVAILABLE.CELL_NOT_LOADED;
   else if (!cases) pointsWithheld = casesView ? (casesView.reason ?? 'CASES_NOT_LOADED') : 'CASES_NOT_REQUESTED';
+  else if (!casesMatch) pointsWithheld = CELL_UNAVAILABLE.CASES_FOR_ANOTHER_VARIANT;
   else if (cases.rows.length === 0) pointsWithheld = CELL_UNAVAILABLE.NO_CASE_RESULTS;
   else if (!metricName) pointsWithheld = 'NO_METRIC_SELECTED';
 
   let outliers;
-  if (loaded && casesView && casesView.state === STATE.SUCCESS) {
+  if (casesMatch) {
+    // contract selection_rules.outlier_selection: the server's DR-010 block,
+    // read as served - never computed here.
     outliers = readOutlierSelection(casesView.data.outlier_selection, { experimentId: expected.id, variant: confirmedLane });
   } else {
     outliers = Object.freeze({
-      available: false, reason: CELL_UNAVAILABLE.CELL_NOT_LOADED, ruleId: OUTLIER_RULE.id, cases: Object.freeze([]),
+      available: false,
+      reason: loaded && casesOk ? CELL_UNAVAILABLE.CASES_FOR_ANOTHER_VARIANT : CELL_UNAVAILABLE.CELL_NOT_LOADED,
+      ruleId: OUTLIER_RULE.id,
+      cases: Object.freeze([]),
     });
   }
 
