@@ -247,7 +247,7 @@ def convergence(variant: str, img: int, batch: int, train_ds, fold_val: dict, st
     it = iter(loader(train_ds, batch, True, g))
     t_start = time.perf_counter()
     finite = True
-    with open(log_path, "w", encoding="utf-8") as log:
+    with open(log_path, "w", encoding="utf-8", buffering=1) as log:  # line-buffered: progress visible, survives a kill
         for step in range(1, steps + 1):
             model.train()
             try:

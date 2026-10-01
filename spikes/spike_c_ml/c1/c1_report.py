@@ -134,6 +134,50 @@ def main() -> int:
     md = ["| Criterion | What | Evidence (generated from JSON) |", "|---|---|---|"]
     md += [f"| `{c}` | {w} | {e} |" for c, w, e in rows]
     (args.out_dir / "c1_result_table.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+    # Aggregate evidence for git (C1 plan §7): no per-case values, no per-file hashes, no paths.
+    def agg(values):
+        v = sorted(x for x in values if x is not None)
+        return {"n": len(v), "min": v[0], "median": v[len(v) // 2], "max": v[-1]} if v else {"n": 0}
+
+    dr = m["dr011_runtime_C1_7"]["per_case_records"]
+    summary = {
+        "spike": "SPIKE_C1", "stamp": m["stamp"], "code_commit": m["code_commit"],
+        "operator": m["operator"], "owner": m["owner"], "compute_host_decision": m["compute_host_decision"],
+        "environment": m["environment"],
+        "provenance_C1_8": {k: m["provenance_C1_8"][k] for k in
+                            ("preflight_label", "split_manifest_sha256", "dataset_manifest_sha256",
+                             "selected_pointer", "selected_case_ids", "internal_fold", "data_access",
+                             "validation_partition_loaded", "holdout_loaded", "source_shape_strata")
+                            if k in m["provenance_C1_8"]},
+        "one_case_verification": {k: v for k, v in m["one_case_verification"].items() if k != "mask_voxels"},
+        "preprocessing": m["preprocessing"],
+        "dr011_runtime_C1_7": {"policy_file": m["dr011_runtime_C1_7"]["policy_file"],
+                               "cohort_statistics_used": m["dr011_runtime_C1_7"]["cohort_statistics_used"],
+                               "cases": len(dr),
+                               "volume_lo": agg([r["volume_lo"] for r in dr.values()]),
+                               "volume_hi": agg([r["volume_hi"] for r in dr.values()])},
+        "grid_C1_1_C1_2_C1_3": m["grid_C1_1_C1_2_C1_3"],
+        "practical_point": pp,
+        "convergence_C1_6": {
+            f: {**{k: v for k, v in r.items() if k not in ("fold_val_curve", "decoder_panel", "checkpoint")},
+                "checkpoint": {k: r["checkpoint"][k] for k in ("bytes", "sha256", "reload_max_abs_diff")},
+                "fold_val_dice_mean_by_step": [{"step": c["step"], "dice_mean": c["fold_val_dice_mean"]}
+                                               for c in r["fold_val_curve"]],
+                "decoder_panel_C1_4": {
+                    tag: {"slices": sum(1 for p in r["decoder_panel"] if p.get("panel") == tag),
+                          "dice": agg([p["dice"] for p in r["decoder_panel"] if p.get("panel") == tag])}
+                    for tag in ("largest", "median", "smallest")} | {
+                    "empty_gt_slices": sum(p["count"] for p in r["decoder_panel"] if p.get("panel") == "empty_gt_slices"),
+                    "empty_gt_slices_with_false_positive": sum(p["slices_with_false_positive"] for p in r["decoder_panel"]
+                                                               if p.get("panel") == "empty_gt_slices")}}
+            for f, r in t.items()},
+        "boundary_C1_5": {k: v for k, v in b.items() if k != "per_case"},
+        "calendar_C1_9": calendar,
+        "recipe": m["recipe"],
+    }
+    (args.out_dir / f"c1_summary_{m['stamp']}.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({"epochs_E": chosen, "verdict": verdict, "hours_per_run_at_E": per_run}, indent=2))
     return 0
 
