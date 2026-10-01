@@ -13,7 +13,10 @@ with a provenance header (source path + commit `896c11a`).
 |---|---|
 | `ml/data.py` | Manifests, fail-closed case allowlists, NRRD loading in `[z, y, x]`, DR-011 normalization, the resized slice cache (`build_cache`), the memory-mapped `SliceDataset`, `resize_logits_back` / `logits_to_mask`, and `write_mask_nrrd` (prediction back on the source voxel grid, never overwritten). |
 | `ml/models.py` | `UNet2D`, `DinoSeg`, pinned DINOv2 checkpoints from the local Hugging Face cache (`fetch_checkpoint`), `build_model(variant, img)`, `model_card(model)`, `autocast_for`, `PeakTracker`. |
-| `ml/tests/` | pytest suite on a synthetic NRRD package (`ml/tests/synth.py`); CPU only, no real data. |
+| `ml/evaluate.py` | Metrics (`evaluation_metric_version` `ml-eval-1.0.0`): case-level 3D Dice/IoU at native resolution, per-slice Dice with the `07` §6 empty-slice rule, FP/FN voxels, relative volume error in voxels, the failed-case protocol (intended/successful N, reasons), cohort summary with bootstrap 95% CIs (DR-014), the comparable-run gate and paired differences, the holdout slots `primary_all_holdout` / `sensitivity_without_suspected_linkage`, and the DR-010 worst-slice (DR-010a option (b) shape) and outlier selections. CLI `python -m ml.evaluate run|compare`. |
+| `ml/export_contract2.py` | Builds a Contract 2 DRAFT v0 experiment-artifact manifest from a run directory and runs `contracts/ingestion/contract2_experiment_artifact/validate_contract2.py` on it. Gate states are explicit CLI inputs with no default. |
+| `ml/manifests.py` | The shared run-directory layout (`RUN_LAYOUT`), population and training-subset manifests copied from the split manifest, `code_version()` (git commit + dirty flag), JSON writers that refuse to overwrite. |
+| `ml/tests/` | pytest suite on a synthetic NRRD package (`ml/tests/synth.py`) and a synthetic run directory (`ml/tests/runfixture.py`); CPU only, no real data. |
 
 ## Rules the code enforces
 
@@ -94,6 +97,51 @@ torch.manual_seed(2024)
 model = M.build_model("unet_base32_depth4", 560)
 ```
 
+## Run directory and evaluation
+
+A run directory (`<CARDIAC_RUNS_ROOT>\<experiment_id>\`, outside git; `CARDIAC_RUNS_ROOT`
+is the environment variable, else `cardiac-runs` next to the main checkout) is also the
+Contract 2 artifact root: every path a manifest records is relative to it, with forward
+slashes.
+
+```
+config.json  run_manifest.json  train_log.jsonl  checkpoints/{last,best}.pt
+manifests/split_manifest.json                     byte copy of the split manifest
+manifests/training_subset_<subset>.json           effective training cases
+manifests/population_<partition>.json             validation or final_holdout case list
+predictions/<partition>/<case>.nrrd + predictions_manifest.json      (never overwritten)
+evaluation/<partition>/per_case_metrics.json, per_slice_metrics.json, metrics_summary.json,
+                       metric_sets/<case>.json, evaluation_manifest.json   (never overwritten)
+contract2/<manifest_id>.json + <manifest_id>.export.json (export record)
+```
+
+```
+python -m ml.evaluate run --run-dir <run> --population validation
+python -m ml.evaluate run --run-dir <run> --population final_holdout --allow-holdout
+python -m ml.evaluate compare --run-a <run> --run-b <run> --population final_holdout --out <new.json>
+python -m ml.export_contract2 --run-dir <run> --gate-split-01 <STATE> --gate-ml-01 <STATE> --validate
+```
+
+**The split is checked against the frozen file, not against the run directory.** Evaluation,
+comparison and export accept a run only when its split copy is byte-identical to the frozen
+split manifest: the repository's `data/manifests/split_manifest_path_a_seed2024.json`, or
+another file named explicitly with `--split-manifest`. A run directory cannot vouch for itself.
+A split copy that moves a holdout case into validation, even with every in-run sha256
+updated, is refused (`SplitMismatchError`, regression test H9).
+
+Scoring the final holdout needs `--allow-holdout` **and** a `holdout_authorization`
+record in the predictions manifest (written by inference only under GATE-IMG-01). A
+comparison between runs that fail the `08` §7 comparable-run gate is labelled
+`NON_COMPARABLE` and carries no delta. Contract 2 DRAFT v0 cannot represent a failed
+case (every analysis run needs a raw mask), so the exporter refuses a run with failures
+rather than drop them. The exporter also refuses code versions that are not clean
+commits (`+dirty`, `MIXED:`, `UNKNOWN`) unless `--allow-dirty-code` is given; that choice
+is written to `<manifest_id>.export.json`, because the Contract 2 schema admits no extra
+fields. Failure reasons name files relative to the run directory or the package root,
+never by absolute path. The worst-slice block is exactly the API contract's
+`{rule_id, selection_version: "dr010-worst-slice/v1", slices}`; the rule text and eligible
+count are stored next to it as `worst_slice_selection_meta`.
+
 ## Running the tests
 
 From the repository root (Python 3.12, torch 2.5.1, numpy, pynrrd, transformers 4.51.3,
@@ -105,5 +153,6 @@ python -m pytest ml/tests -q
 
 The DINOv2 tests are skipped, not failed, on a machine without the pinned checkpoints in
 the local Hugging Face cache. `test_real_split_manifest_when_present` checks the real split
-manifest (its sha256, 54 holdout cases, subsets 20/38/78, `CASE_0117`/`CASE_0133` refused);
-it is skipped only on a branch that does not contain the manifest.
+manifest (its sha256, 54 holdout cases, subsets 20/38/78, `CASE_0117`/`CASE_0133` refused)
+and `test_real_split_suspected_linkage_is_case_0027` its suspected holdout linkage; both are
+skipped only on a branch that does not contain the manifest.
