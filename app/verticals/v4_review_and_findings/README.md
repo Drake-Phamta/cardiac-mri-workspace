@@ -175,13 +175,33 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 - **The generator has no `stale_revision` scenario for `finding_patch`**, so the FIXTURE panel cannot show a stale
   finding edit; test `F10` injects the generator's own STALE_REVISION envelope instead.
 
+### The screens (`mobile/src/verticals/v4/`)
+
+| File | What |
+|---|---|
+| `ReviewCorrectionScreen.js` | SCR-06: renders `reviewController.mjs` — header (source variant + id, review status, slice n/total), canvas (source / saved / unsaved layers + a text badge), toolbar, review transitions, Save / Cancel / New finding here |
+| `reviewController.mjs` | variant (route or an explicit RAW / PROCESSED choice) → `analysis_run_get` (must be SUCCEEDED) → the scoped review → pixels → brush → save; node-tested in `mobile/test/v4_review_screen.test.mjs` |
+| `gesture.mjs` | Spike A's A11 rules as a pure controller: one finger paints, a second finger or a system termination rolls the stroke back, two fingers pinch/pan, Pan mode |
+| `syntheticSource.mjs` | **fixture mode only**: the labelled SYNTHETIC stand-in the brush edits, because the bundle carries no pixels |
+| `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list with evidence, Open evidence (SCR-03 / SCR-07), Review / correct (SCR-06), create only from a case/slice context; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
+
+Demo path while SCR-03 is still a placeholder: **Findings** tab → a finding → **Review / correct** → SCR-06 asks
+RAW or PROCESSED → brush → **Save** (names the source first) → the review is CORRECTED → **New finding here**.
+In the FIXTURE panel, `working_mask_put` / `review_commit` → `stale_revision` shows the Refresh-only path.
+
 ### TODO for Trung (from Day 23)
 
 - **Device measurements on the product screen, not the spike:** `TC-PERF-003` (brush feedback ≤ 100 ms, zero
   lost committed samples; Spike A's A10 had worst 30.48 ms) and `TC-REV-003` (brush lands on the right source
   pixel after zoom/pan, on the phone). Also time `loadSlice` on the A17: it hashes each 576×576 source slice
-  once, which a slice switch in SCR-06 pays.
+  once, which a slice switch in SCR-06 pays. Every render re-scans the slice for the diff layers and the mask
+  states — if the stroke feedback misses 100 ms on the A17, start there (track dirty rows instead).
+- **Live pixels:** wire the shell's PNG adapter (`mobile/src/imaging/maskPng.js`, `decodeMaskPng`) into
+  `ReviewCorrectionScreen.js` (it passes `decodeMaskPng: null` today, so live mode says "PNG decoder pending"), and
+  draw the MRI slice (`mri_slice_get` → `content_url`) under the masks. Ask the backend whether a slice's
+  `prediction_mask_id` is the run's `raw/processed_prediction_artifact_id`; the screen shows both and checks neither.
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
-  `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
+  `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals; SCR-08 OPEN ↔ RESOLVED once
+  `finding_patch` exists.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
   tests and your own defense notes.
