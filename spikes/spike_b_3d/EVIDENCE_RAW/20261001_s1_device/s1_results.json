@@ -1,0 +1,809 @@
+{
+ "record": "spike_b_s1_results",
+ "schema_version": 2,
+ "computed_at": "2026-10-01T19:55:23+07:00",
+ "computed_by": "s1_extract.py (Claude agent A4, Day 22 override); owner Vu Hung Anh re-derives on Day 23",
+ "extractor_commit": "259b1e7eb4a1e860fdc378bcd70dbb1bb9d8027b",
+ "extractor_tree_clean": true,
+ "session_dir": "s1_20261001_1900",
+ "evidence_status": "physical device session",
+ "device": {
+  "serial": "<A17_SERIAL>",
+  "model": "SM-A176B",
+  "android": "16",
+  "is_emulator": false
+ },
+ "installed_apk": {
+  "sha256": "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978",
+  "build_record_apk_sha256": "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978",
+  "matches_build_record": true
+ },
+ "evidence_paths": {
+  "primary": "logcat",
+  "primary_keyed": 5678,
+  "secondary_keyed": 5678,
+  "in_both_identical": 5678,
+  "in_both_different": 0,
+  "only_in_primary": 0,
+  "only_in_secondary": 0,
+  "segments_primary": 5,
+  "segments_secondary": 5,
+  "secondary_repeats_reported_not_used": 0,
+  "primary_duplicate_displays": 0,
+  "logcat_file": "logcat_stream.txt",
+  "logcat_tagged_lines": {
+   "logcat_stream.txt": 5873,
+   "logcat_dump.txt": 5873,
+   "used": "logcat_stream.txt",
+   "lines_only_in_the_other_source": 0
+  },
+  "logcat_incomplete_chunks": 0
+ },
+ "segments": [
+  {
+   "segment": "s1-1790856061272@329833795.001925",
+   "level": 0,
+   "opened_at_utc": null,
+   "opened_at_device_logcat": "10-01 19:01:28.723",
+   "ordinal": 1
+  },
+  {
+   "segment": "s1-1790856061272@330208143.922812",
+   "level": 1,
+   "opened_at_utc": null,
+   "opened_at_device_logcat": "10-01 19:07:43.071",
+   "ordinal": 2
+  },
+  {
+   "segment": "s1-1790856061272@330362541.231663",
+   "level": 2,
+   "opened_at_utc": null,
+   "opened_at_device_logcat": "10-01 19:10:17.468",
+   "ordinal": 3
+  },
+  {
+   "segment": "s1-1790856061272@330576678.070702",
+   "level": 3,
+   "opened_at_utc": null,
+   "opened_at_device_logcat": "10-01 19:13:51.605",
+   "ordinal": 4
+  },
+  {
+   "segment": "s1-1790856061272@330785232.497822",
+   "level": 4,
+   "opened_at_utc": null,
+   "opened_at_device_logcat": "10-01 19:17:20.160",
+   "ordinal": 5
+  }
+ ],
+ "excluded_suites": [],
+ "truth": "exact walk of the real mask along the ray each pick logged (real_mesh_frontier.exact_first_voxel)",
+ "bounds": {
+  "fps_median_min": 20.0,
+  "stall_max_ms": 500.0,
+  "slice_error_max": 1,
+  "complete_valid_runs_min": 3
+ },
+ "levels": [
+  {
+   "level": 0,
+   "mesh": {
+    "cluster_cell_voxels": 1,
+    "triangle_count": 61424,
+    "obj_sha256": "870ca76d46ccddf503e6f16687f0dd869953a40cfda893e7487ba8ad2aa1b1b8"
+   },
+   "page_loads": 1,
+   "device_loaded": {
+    "triangles_parsed": 61424,
+    "triangles_expected": 61424,
+    "gl": {
+     "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+     "renderer": "Mali-G68",
+     "vendor": "ARM",
+     "antialias": true
+    }
+   },
+   "b10_b11": {
+    "runs": [
+     {
+      "status": "complete",
+      "samples": 1799,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 16.90000000000873,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33000.00000003577,
+      "device_reported_matches": true,
+      "segment": 1,
+      "suite": 1,
+      "run_index": 1,
+      "recorded_at_utc": "2026-10-01T12:02:50.311Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 16.90000000000873,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33010.10000003576,
+      "device_reported_matches": true,
+      "segment": 1,
+      "suite": 1,
+      "run_index": 2,
+      "recorded_at_utc": "2026-10-01T12:03:24.837Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.699999999982538,
+      "median_fps": 59.8802395210207,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33006.90000002383,
+      "device_reported_matches": true,
+      "segment": 1,
+      "suite": 1,
+      "run_index": 3,
+      "recorded_at_utc": "2026-10-01T12:03:59.351Z"
+     }
+    ],
+    "complete_valid_runs": 3,
+    "min_runs_required": 3,
+    "B10": "PASS",
+    "B11": "PASS",
+    "median_fps_level": 59.880239520968516,
+    "longest_stall_max_over_runs": 17
+   },
+   "b6": {
+    "picks": 599,
+    "picks_meeting_mask": 327,
+    "max_error": 1,
+    "no_hit": 0,
+    "histogram": {
+     "0": 264,
+     "1": 63
+    },
+    "by_phase": {
+     "auto_grid": {
+      "picks": 360,
+      "meet_mask": 103,
+      "max_error": 1,
+      "no_hit": 0,
+      "histogram": {
+       "0": 80,
+       "1": 23
+      }
+     },
+     "auto_target": {
+      "picks": 190,
+      "meet_mask": 190,
+      "max_error": 1,
+      "no_hit": 0,
+      "histogram": {
+       "0": 158,
+       "1": 32
+      }
+     },
+     "tap": {
+      "picks": 24,
+      "meet_mask": 9,
+      "max_error": 0,
+      "no_hit": 0,
+      "histogram": {
+       "0": 9
+      }
+     },
+     "target_at_current_camera": {
+      "picks": 25,
+      "meet_mask": 25,
+      "max_error": 1,
+      "no_hit": 0,
+      "histogram": {
+       "0": 17,
+       "1": 8
+      }
+     }
+    },
+    "target_picks_landed": 84,
+    "target_max_error_vs_expected": 1,
+    "device_vs_workstation_same_ray_mismatches": 0,
+    "verdict": "PASS"
+   },
+   "b7": {
+    "navigation_requests": 327,
+    "displayed_correctly": 327,
+    "failure_count": 0,
+    "failures": [],
+    "orphan_displays": 0,
+    "duplicate_displays_anomaly": 0,
+    "latency_ms_median": 41.761,
+    "latency_ms_max": 82.311,
+    "verdict": "PASS"
+   },
+   "b9": {
+    "picks_resolving_nothing_that_navigated": 0,
+    "rays_meeting_no_mask_voxel": 272,
+    "of_which_navigated": 0,
+    "nav_slice_distance_max": null,
+    "operator_background_taps": 9,
+    "operator_background_taps_navigated": 9,
+    "verdict": "PASS"
+   }
+  },
+  {
+   "level": 1,
+   "mesh": {
+    "cluster_cell_voxels": 1.25,
+    "triangle_count": 39384,
+    "obj_sha256": "1de69dbab58c66bdc35d242b823b94c9044d53e0031eb890cc74723a7d545744"
+   },
+   "page_loads": 1,
+   "device_loaded": {
+    "triangles_parsed": 39384,
+    "triangles_expected": 39384,
+    "gl": {
+     "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+     "renderer": "Mali-G68",
+     "vendor": "ARM",
+     "antialias": true
+    }
+   },
+   "b10_b11": {
+    "runs": [
+     {
+      "status": "complete",
+      "samples": 1799,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523812105,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33001.00000001192,
+      "device_reported_matches": true,
+      "segment": 2,
+      "suite": 1,
+      "run_index": 1,
+      "recorded_at_utc": "2026-10-01T12:08:39.001Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 16.90000000000873,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33007.399999999994,
+      "device_reported_matches": true,
+      "segment": 2,
+      "suite": 1,
+      "run_index": 2,
+      "recorded_at_utc": "2026-10-01T12:09:13.516Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 16.90000000000873,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33009.200000035766,
+      "device_reported_matches": true,
+      "segment": 2,
+      "suite": 1,
+      "run_index": 3,
+      "recorded_at_utc": "2026-10-01T12:09:48.033Z"
+     }
+    ],
+    "complete_valid_runs": 3,
+    "min_runs_required": 3,
+    "B10": "PASS",
+    "B11": "PASS",
+    "median_fps_level": 59.880239520968516,
+    "longest_stall_max_over_runs": 17
+   },
+   "b6": {
+    "picks": 549,
+    "picks_meeting_mask": 292,
+    "max_error": 5,
+    "no_hit": 5,
+    "histogram": {
+     "0": 214,
+     "1": 69,
+     "2": 2,
+     "4": 1,
+     "5": 1
+    },
+    "by_phase": {
+     "auto_grid": {
+      "picks": 360,
+      "meet_mask": 103,
+      "max_error": 5,
+      "no_hit": 0,
+      "histogram": {
+       "0": 71,
+       "1": 31,
+       "5": 1
+      }
+     },
+     "auto_target": {
+      "picks": 189,
+      "meet_mask": 189,
+      "max_error": 4,
+      "no_hit": 5,
+      "histogram": {
+       "0": 143,
+       "1": 38,
+       "2": 2,
+       "4": 1
+      }
+     }
+    },
+    "target_picks_landed": 67,
+    "target_max_error_vs_expected": 1,
+    "device_vs_workstation_same_ray_mismatches": 0,
+    "verdict": "FAIL"
+   },
+   "b7": {
+    "navigation_requests": 288,
+    "displayed_correctly": 288,
+    "failure_count": 0,
+    "failures": [],
+    "orphan_displays": 0,
+    "duplicate_displays_anomaly": 0,
+    "latency_ms_median": 41.018,
+    "latency_ms_max": 81.445,
+    "verdict": "PASS"
+   },
+   "b9": {
+    "picks_resolving_nothing_that_navigated": 0,
+    "rays_meeting_no_mask_voxel": 257,
+    "of_which_navigated": 1,
+    "nav_slice_distance_max": 1,
+    "operator_background_taps": 0,
+    "operator_background_taps_navigated": 0,
+    "verdict": "FAIL"
+   }
+  },
+  {
+   "level": 2,
+   "mesh": {
+    "cluster_cell_voxels": 2,
+    "triangle_count": 15412,
+    "obj_sha256": "dcc8e49e8c05fd656c25031b3aeaafd1d09f279c86bc6e805a9a5ce84e48e5df"
+   },
+   "page_loads": 1,
+   "device_loaded": {
+    "triangles_parsed": 15412,
+    "triangles_expected": 15412,
+    "gl": {
+     "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+     "renderer": "Mali-G68",
+     "vendor": "ARM",
+     "antialias": true
+    }
+   },
+   "b10_b11": {
+    "runs": [
+     {
+      "status": "complete",
+      "samples": 1799,
+      "median_interval_ms": 16.69999999999891,
+      "median_fps": 59.880239520962,
+      "p05_fps": 59.523809523812105,
+      "longest_stall_ms": 16.900000000001455,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33001.19999998808,
+      "device_reported_matches": true,
+      "segment": 3,
+      "suite": 1,
+      "run_index": 1,
+      "recorded_at_utc": "2026-10-01T12:10:54.129Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33006.19999996424,
+      "device_reported_matches": true,
+      "segment": 3,
+      "suite": 1,
+      "run_index": 2,
+      "recorded_at_utc": "2026-10-01T12:11:28.650Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33006.600000000006,
+      "device_reported_matches": true,
+      "segment": 3,
+      "suite": 1,
+      "run_index": 3,
+      "recorded_at_utc": "2026-10-01T12:12:03.166Z"
+     }
+    ],
+    "complete_valid_runs": 3,
+    "min_runs_required": 3,
+    "B10": "PASS",
+    "B11": "PASS",
+    "median_fps_level": 59.880239520962,
+    "longest_stall_max_over_runs": 17
+   },
+   "b6": {
+    "picks": 549,
+    "picks_meeting_mask": 292,
+    "max_error": 13,
+    "no_hit": 6,
+    "histogram": {
+     "0": 213,
+     "1": 69,
+     "2": 1,
+     "5": 1,
+     "6": 1,
+     "13": 1
+    },
+    "by_phase": {
+     "auto_grid": {
+      "picks": 360,
+      "meet_mask": 103,
+      "max_error": 1,
+      "no_hit": 3,
+      "histogram": {
+       "0": 74,
+       "1": 26
+      }
+     },
+     "auto_target": {
+      "picks": 189,
+      "meet_mask": 189,
+      "max_error": 13,
+      "no_hit": 3,
+      "histogram": {
+       "0": 139,
+       "1": 43,
+       "2": 1,
+       "5": 1,
+       "6": 1,
+       "13": 1
+      }
+     }
+    },
+    "target_picks_landed": 73,
+    "target_max_error_vs_expected": 1,
+    "device_vs_workstation_same_ray_mismatches": 0,
+    "verdict": "FAIL"
+   },
+   "b7": {
+    "navigation_requests": 286,
+    "displayed_correctly": 286,
+    "failure_count": 0,
+    "failures": [],
+    "orphan_displays": 0,
+    "duplicate_displays_anomaly": 0,
+    "latency_ms_median": 41.027,
+    "latency_ms_max": 84.236,
+    "verdict": "PASS"
+   },
+   "b9": {
+    "picks_resolving_nothing_that_navigated": 0,
+    "rays_meeting_no_mask_voxel": 257,
+    "of_which_navigated": 0,
+    "nav_slice_distance_max": null,
+    "operator_background_taps": 0,
+    "operator_background_taps_navigated": 0,
+    "verdict": "PASS"
+   }
+  },
+  {
+   "level": 3,
+   "mesh": {
+    "cluster_cell_voxels": 4,
+    "triangle_count": 3884,
+    "obj_sha256": "0387a8324bb2d73a4a502c57f594b0dd08ef7504e7a31dfe7175ed8cd7777d3b"
+   },
+   "page_loads": 1,
+   "device_loaded": {
+    "triangles_parsed": 3884,
+    "triangles_expected": 3884,
+    "gl": {
+     "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+     "renderer": "Mali-G68",
+     "vendor": "ARM",
+     "antialias": true
+    }
+   },
+   "b10_b11": {
+    "runs": [
+     {
+      "status": "complete",
+      "samples": 1799,
+      "median_interval_ms": 16.69999999999891,
+      "median_fps": 59.880239520962,
+      "p05_fps": 59.523809523812105,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33000.899999988076,
+      "device_reported_matches": true,
+      "segment": 4,
+      "suite": 1,
+      "run_index": 1,
+      "recorded_at_utc": "2026-10-01T12:14:25.749Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33007.89999997616,
+      "device_reported_matches": true,
+      "segment": 4,
+      "suite": 1,
+      "run_index": 2,
+      "recorded_at_utc": "2026-10-01T12:15:00.271Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33006.19999996424,
+      "device_reported_matches": true,
+      "segment": 4,
+      "suite": 1,
+      "run_index": 3,
+      "recorded_at_utc": "2026-10-01T12:15:34.786Z"
+     }
+    ],
+    "complete_valid_runs": 3,
+    "min_runs_required": 3,
+    "B10": "PASS",
+    "B11": "PASS",
+    "median_fps_level": 59.880239520962,
+    "longest_stall_max_over_runs": 17
+   },
+   "b6": {
+    "picks": 549,
+    "picks_meeting_mask": 293,
+    "max_error": 11,
+    "no_hit": 20,
+    "histogram": {
+     "0": 208,
+     "1": 52,
+     "2": 8,
+     "5": 2,
+     "8": 2,
+     "11": 1
+    },
+    "by_phase": {
+     "auto_grid": {
+      "picks": 360,
+      "meet_mask": 104,
+      "max_error": 8,
+      "no_hit": 5,
+      "histogram": {
+       "0": 74,
+       "1": 22,
+       "2": 2,
+       "8": 1
+      }
+     },
+     "auto_target": {
+      "picks": 189,
+      "meet_mask": 189,
+      "max_error": 11,
+      "no_hit": 15,
+      "histogram": {
+       "0": 134,
+       "1": 30,
+       "2": 6,
+       "5": 2,
+       "8": 1,
+       "11": 1
+      }
+     }
+    },
+    "target_picks_landed": 51,
+    "target_max_error_vs_expected": 1,
+    "device_vs_workstation_same_ray_mismatches": 0,
+    "verdict": "FAIL"
+   },
+   "b7": {
+    "navigation_requests": 273,
+    "displayed_correctly": 273,
+    "failure_count": 0,
+    "failures": [],
+    "orphan_displays": 0,
+    "duplicate_displays_anomaly": 0,
+    "latency_ms_median": 42.267,
+    "latency_ms_max": 436.688,
+    "verdict": "PASS"
+   },
+   "b9": {
+    "picks_resolving_nothing_that_navigated": 0,
+    "rays_meeting_no_mask_voxel": 256,
+    "of_which_navigated": 0,
+    "nav_slice_distance_max": null,
+    "operator_background_taps": 0,
+    "operator_background_taps_navigated": 0,
+    "verdict": "PASS"
+   }
+  },
+  {
+   "level": 4,
+   "mesh": {
+    "cluster_cell_voxels": 8,
+    "triangle_count": 968,
+    "obj_sha256": "df59a63ba00d7355353e972f38ef784598d1d3d64dbb0c39ed9ffb77b7ec6020"
+   },
+   "page_loads": 1,
+   "device_loaded": {
+    "triangles_parsed": 968,
+    "triangles_expected": 968,
+    "gl": {
+     "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+     "renderer": "Mali-G68",
+     "vendor": "ARM",
+     "antialias": true
+    }
+   },
+   "b10_b11": {
+    "runs": [
+     {
+      "status": "complete",
+      "samples": 1799,
+      "median_interval_ms": 16.69999999999891,
+      "median_fps": 59.880239520962,
+      "p05_fps": 59.523809523812105,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33000.8,
+      "device_reported_matches": true,
+      "segment": 5,
+      "suite": 1,
+      "run_index": 1,
+      "recorded_at_utc": "2026-10-01T12:17:53.958Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 16.900000000001455,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33004.2,
+      "device_reported_matches": true,
+      "segment": 5,
+      "suite": 1,
+      "run_index": 2,
+      "recorded_at_utc": "2026-10-01T12:18:28.469Z"
+     },
+     {
+      "status": "complete",
+      "samples": 1800,
+      "median_interval_ms": 16.69999999999709,
+      "median_fps": 59.880239520968516,
+      "p05_fps": 59.523809523799216,
+      "longest_stall_ms": 17,
+      "frames_over_500ms": 0,
+      "observed_elapsed_ms": 33011.10000003576,
+      "device_reported_matches": true,
+      "segment": 5,
+      "suite": 1,
+      "run_index": 3,
+      "recorded_at_utc": "2026-10-01T12:19:02.990Z"
+     }
+    ],
+    "complete_valid_runs": 3,
+    "min_runs_required": 3,
+    "B10": "PASS",
+    "B11": "PASS",
+    "median_fps_level": 59.880239520962,
+    "longest_stall_max_over_runs": 17
+   },
+   "b6": {
+    "picks": 549,
+    "picks_meeting_mask": 294,
+    "max_error": 16,
+    "no_hit": 34,
+    "histogram": {
+     "0": 163,
+     "1": 65,
+     "2": 13,
+     "3": 7,
+     "4": 4,
+     "5": 2,
+     "7": 1,
+     "8": 1,
+     "9": 2,
+     "10": 1,
+     "16": 1
+    },
+    "by_phase": {
+     "auto_grid": {
+      "picks": 360,
+      "meet_mask": 105,
+      "max_error": 9,
+      "no_hit": 9,
+      "histogram": {
+       "0": 68,
+       "1": 18,
+       "2": 3,
+       "3": 3,
+       "4": 1,
+       "5": 1,
+       "7": 1,
+       "9": 1
+      }
+     },
+     "auto_target": {
+      "picks": 189,
+      "meet_mask": 189,
+      "max_error": 16,
+      "no_hit": 25,
+      "histogram": {
+       "0": 95,
+       "1": 47,
+       "2": 10,
+       "3": 4,
+       "4": 3,
+       "5": 1,
+       "8": 1,
+       "9": 1,
+       "10": 1,
+       "16": 1
+      }
+     }
+    },
+    "target_picks_landed": 29,
+    "target_max_error_vs_expected": 1,
+    "device_vs_workstation_same_ray_mismatches": 0,
+    "verdict": "FAIL"
+   },
+   "b7": {
+    "navigation_requests": 260,
+    "displayed_correctly": 260,
+    "failure_count": 0,
+    "failures": [],
+    "orphan_displays": 0,
+    "duplicate_displays_anomaly": 0,
+    "latency_ms_median": 41.55,
+    "latency_ms_max": 75.796,
+    "verdict": "PASS"
+   },
+   "b9": {
+    "picks_resolving_nothing_that_navigated": 0,
+    "rays_meeting_no_mask_voxel": 255,
+    "of_which_navigated": 0,
+    "nav_slice_distance_max": null,
+    "operator_background_taps": 0,
+    "operator_background_taps_navigated": 0,
+    "verdict": "PASS"
+   }
+  }
+ ],
+ "per_pick_table": {
+  "path": "s1_per_pick.csv",
+  "rows": 2795
+ }
+}

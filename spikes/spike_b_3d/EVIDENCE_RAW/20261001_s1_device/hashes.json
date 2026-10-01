@@ -1,0 +1,61 @@
+{
+ "copied": {
+  "conditions_after.json": {
+   "sha256": "4da182b96bc7717443bf84a0e003f61144879000d5004cfffe7ccaa3da6ce97d",
+   "bytes": 4809
+  },
+  "conditions_before.json": {
+   "sha256": "4b23b7946bf9ff191639b6acbb69cc55a4cc1159f985653f6552dc855ee53a88",
+   "bytes": 4741
+  },
+  "frame_probes.jsonl": {
+   "sha256": "e230367e4318b0eb543945c06c639fcfe1bd4349be6c9d60b8a5dd0213ea5d34",
+   "bytes": 539205
+  },
+  "repository_commit.txt": {
+   "sha256": "cd3b750be403432934b4600e67228c6e7e92c232d5f87460206ff899839b6930",
+   "bytes": 41
+  },
+  "s1_per_pick.csv": {
+   "sha256": "f878d160da19b0275498316ec746820a9fe9ce61e7de1f53379bd326ddfb4aa0",
+   "bytes": 202540
+  },
+  "s1_results.json": {
+   "sha256": "f4fd3c53da580d9f5a369804e51a6fd2e306cc36afe77730e8541d1d1ed94b97",
+   "bytes": 19719
+  },
+  "session_state.json": {
+   "sha256": "a3ac9505135720b78c2dc42cd5b8fd961d94291aaa078b4e252a19d4141f2e43",
+   "bytes": 3827
+  }
+ },
+ "unredacted_originals": {
+  "session_state.json": "07491378d54c120380a07becac8936cd8f8e9bac6ce8e26f6bd5e1624a89160c",
+  "conditions_before.json": "577951f00c482e58ab6c2c6d2444c011d204f97f2b4c22eebc948dff6b5af2b8",
+  "conditions_after.json": "1c8c2efe958ef23e0731fbdb4fe26bd474547dc126b4d2ac77abdbdc8c289351"
+ },
+ "kept_outside_git": {
+  "s1_collector.jsonl": {
+   "sha256": "b3fda924aa0b64d9e9986d0775b1d32a9cb63054a33efcbf0caf81416d56d0d9",
+   "bytes": 4073953
+  },
+  "logcat_stream.txt": {
+   "sha256": "8665c3e69429e6f6e8f9654a84f63b688c683cc0203912a023a7a576d65c9088",
+   "bytes": 3596893
+  },
+  "logcat_dump.txt": {
+   "sha256": "8665c3e69429e6f6e8f9654a84f63b688c683cc0203912a023a7a576d65c9088",
+   "bytes": 3596893
+  },
+  "s1_logcat_payloads.json": {
+   "sha256": "482b7104eac1c26882d28728f9d5f7934af0130271a29b0488ecdba384fe0e95",
+   "bytes": 4561592
+  },
+  "installed_base.apk": {
+   "sha256": "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978",
+   "bytes": 42904441
+  }
+ },
+ "serial_redacted_as": "<A17_SERIAL>",
+ "frame_probe_records": 15
+}
