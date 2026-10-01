@@ -78,7 +78,10 @@ with `/api/v1`, so a base URL ending in `/api/v1` is refused, and so is the READ
 
 **Redaction rule:** no backend address in anything committed — the app shows and logs it as `http://<configured>`,
 the `.build.txt` sidecar records only `sha256:` of the URL, fixture builds carry no address at all, and evidence
-copied from the server (logs, screenshots) is redacted to `<configured>` before it is committed.
+copied from the server (logs, screenshots) is redacted to `<configured>` before it is committed. **The URL hash is
+for a local comparison only — never publish it** (PR text, committed sidecar): an unsalted SHA-256 of an overlay
+address can be reversed by hashing every candidate address (#77 QA N-6). Before committing a `.build.txt`, replace
+its `api_base_url` value with `<redacted>`.
 
 A live build **without** a URL does not guess one: `prepare.mjs` warns, and the app opens on a
 **CONFIGURATION ERROR** screen that says what to set (`CONFIG_LIVE_URL_MISSING`) and requests nothing.
@@ -104,7 +107,8 @@ It sets `JAVA_HOME` (JDK 17 — the default `java` on this machine is 1.8) and `
 **commit before you build**, uncommitted edits are not in it (the script warns). Everything the build writes, prunes
 or regenerates (`-Clean`) stays inside the staging directory; the script never deletes anything outside it. The
 APK is copied to `mobile/release/cardiac-mri-workspace-<mode>-<yyyyMMdd-HHmmss>.apk` with `<apk>.build.txt` next to
-it: build time, mode, backend URL, git sha, APK sha256 and the `adb install -r` line. `release/`, `android/` and every
+it: build time, mode, contract version, the backend URL's sha256 (not the URL), git sha, APK sha256 and the
+`adb install -r` line. `release/`, `android/` and every
 `*.apk` are gitignored. The APK is signed with the template debug keystore — installable for device tests,
 not a store build.
 

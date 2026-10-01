@@ -79,9 +79,11 @@ both windows.
 ## 0 · Before you start (T−10 min)
 
 1. **The APK is the right one.** Open the `.apk.build.txt` next to the APK in `$MOBILE\release\` and check:
-   `mode live` · `git_sha` is the PR head you expect · `built_at` is **after** the last code change ·
-   `source_tree staging copy of committed HEAD` · `api_base_url` is a `sha256:` hash, never the address (the
-   sidecar may be committed to the public repo). To confirm the hash is the Mac mini's URL, hash the value in
+   `mode live` · `contract 1.1.0` · `git_sha` is the commit you expect · `built_at` is **after** that commit ·
+   `source_tree staging copy of committed HEAD` · `api_base_url` is a `sha256:` hash, never the address. **Do
+   not publish that hash** (session notes in the repo, PR text): an unsalted SHA-256 of an overlay address can be
+   reversed by trying every candidate address (#77 QA N-6) — before committing the sidecar, replace its
+   `api_base_url` value with `<redacted>`. To confirm the hash is the Mac mini's URL, hash the value in
    your untracked `mobile\.env.local` **normalised the way the build normalises it** (quotes and spaces
    trimmed, trailing `/` removed) — the block reads the file itself, so the address is never typed or shown:
 
@@ -93,8 +95,9 @@ both windows.
    }
    ```
 
-   It must equal `api_base_url` in the `.build.txt`. Note the APK file name and its `apk_sha256` in your session
-   notes.
+   It must equal `api_base_url` in the `.build.txt` (compare on screen; do not copy the hash into notes). Note the
+   APK file name and its `apk_sha256` in your session notes. Tonight's APK:
+   `cardiac-mri-workspace-live-20261001-141939.apk`, `git_sha 0bfaba3`, apk_sha256 `3f72f04cd938…4b935c`.
 2. **The backend answers.** On the Mac mini, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
    phone-side check is step 2.3 below: the case list loads.) Then, **on the laptop, from the checkout the APK was
    built from** (same `mobile\.env.local`), run the preflight — it drives the backend with the app's own code
