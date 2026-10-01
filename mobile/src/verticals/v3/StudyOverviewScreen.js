@@ -64,6 +64,7 @@ function Overview({ v, go, blocked }) {
       <Card title={v.study.idText} testID="scr01-study">
         <Line tone={TONE.WARN} small>{v.study.idWarning}</Line>
         <Line>{`Dataset: ${v.study.datasetText}`}</Line>
+        <Line dim small>{v.study.summaryText}</Line>
         {v.study.counts.map((c) => <Line key={c.key}>{`Cases (${c.key}): ${c.text}`}</Line>)}
         <Line dim>{v.study.countsText}</Line>
         {v.study.capabilities.length > 0 && (
@@ -115,8 +116,14 @@ function Overview({ v, go, blocked }) {
       <Card title="Outliers (DR-010)" testID="scr01-outliers">
         <Line dim small>{v.outliers.rule}</Line>
         <Line>{v.outliers.text}</Line>
-        {v.outliers.rows.map((o) => (
-          <LinkButton key={o.key} label={`${o.caseId} · ${o.valueText}`} route={o.route} onGo={go} />
+        {v.outliers.groups.map((g) => (
+          <View key={g.experimentId} style={s.family}>
+            <Text style={s.familyLabel}>{`${g.title} · ${g.experimentId}`}</Text>
+            <Line dim small>{g.view.text}</Line>
+            {g.view.rows.map((o) => (
+              <LinkButton key={o.key} label={`${o.caseId} · ${o.valueText}`} route={o.route} onGo={go} />
+            ))}
+          </View>
         ))}
       </Card>
 

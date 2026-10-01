@@ -46,24 +46,30 @@ test('V3S1 SCR-01 on the generated bundle: study, cases, experiments, outliers a
 
   assert.equal(v.study.idText, 'Study STUDY_DEMO');
   assert.match(v.study.idWarning, /STUDY_ID_0043/, 'the served study id is shown, not relabelled');
-  assert.equal(v.study.datasetText, 'dataset_fixture');
-  assert.deepEqual(v.study.counts.map((c) => [c.key, c.text]), [['total', '1']]);
+  // contract 1.1.0 field_shapes: dataset object, case_counts by mode, experiment_summary.
+  assert.equal(v.study.datasetText, 'fixture dataset · version fixture (DATASET_FIXTURE)');
+  assert.deepEqual(v.study.counts.map((c) => [c.key, c.text]), [['total', '2'], ['EVALUATION', '1'], ['INFERENCE_REVIEW', '1']]);
+  assert.equal(v.study.summaryText, 'experiment summary UNAVAILABLE: FIXTURE');
 
-  assert.equal(v.experiments.text, '0 of 7 matrix experiments listed by the server');
-  assert.ok(v.experiments.notes.some((n) => /carry no experiment_id/.test(n)), v.experiments.notes.join(' | '));
+  assert.equal(v.experiments.text, '1 of 7 matrix experiments listed by the server');
+  assert.ok(v.experiments.notes.some((n) => /outside the 08 §2 matrix: EXP_DEMO/.test(n)), v.experiments.notes.join(' | '));
   assert.deepEqual(v.experiments.rows.map((r) => [r.label, r.cells.length]), [['UNet', 3], ['DINOv2', 4]]);
   for (const row of v.experiments.rows) {
     for (const cell of row.cells) {
-      assert.equal(cell.statusText, 'not listed by the server', cell.id);
+      const expected = cell.id === 'EXP-D-PP' ? 'variant mismatch - refused' : 'not listed by the server';
+      assert.equal(cell.statusText, expected, cell.id);
       assert.equal(cell.nText, null, `${cell.id} shows no N rather than N 0`);
     }
   }
 
   assert.ok(v.headline.every((h) => h.verdictText === 'not requested' && h.route.ok === false && h.reason),
-    'no comparison was requested, so none is labelled comparable and none links');
-  assert.equal(v.outliers.available, false);
-  assert.match(v.outliers.text, /no DR-010 outlier selection/);
+    'no comparison has all its members listed, so none is labelled comparable and none links');
+  // DR-010: one group per listed matrix experiment, each with its own reason.
+  assert.deepEqual(v.outliers.groups.map((g) => g.experimentId), ['EXP-D-PP']);
+  assert.equal(v.outliers.groups[0].view.available, false);
+  assert.equal(v.outliers.groups[0].view.text, 'no metrics loaded for this experiment');
   assert.equal(v.findings.text, '1 finding returned');
+  assert.deepEqual([...v.findings.byStatus], ['OPEN 1']);
 
   assertNavigable(v.routes.cases);
   assert.equal(v.routes.cases.screenId, 'SCR-02');
@@ -83,7 +89,7 @@ test('V3S2 SCR-01 never prints a per-experiment metric value - that belongs on S
   }
 });
 
-test('V3S3 SCR-07 on the generated bundle: placeholders read as unavailable, identity and variant problems are shown', async () => {
+test('V3S3 SCR-07 on the generated bundle: typed values as served, identity and variant problems shown', async () => {
   const runtime = newRuntime();
   const model = createExperimentComparison(runtime.client);
   const snap = await model.open({ experimentIds: ['EXP-U-100', 'EXP-D-100', 'EXP-D-PP'] });
@@ -93,10 +99,10 @@ test('V3S3 SCR-07 on the generated bundle: placeholders read as unavailable, ide
   const u = card('EXP-U-100');
   assert.equal(u.statusText, 'loaded - identity unconfirmed');
   assert.equal(u.tone, TONE.WARN);
-  assert.equal(u.nText, 'N intended unavailable · N successful unavailable');
-  assert.match(u.summaryText, /^summary unavailable: .*"metric_summary_fixture"/);
-  assert.ok(u.warnings.some((w) => /EXPERIMENT_ID_0043/.test(w)), u.warnings.join(' | '));
-  assert.ok(u.contextMissing.includes('nIntended') && u.contextMissing.includes('nSuccessful'));
+  assert.equal(u.nText, 'N intended 6 · N successful 4');
+  assert.equal(u.summaryText, 'summary has dice, iou, false_positives, false_negatives, relative_volume_error - pick one');
+  assert.ok(u.warnings.some((w) => /EXP_DEMO/.test(w)), u.warnings.join(' | '));
+  assert.deepEqual([...u.contextMissing], []);
 
   const pp = card('EXP-D-PP');
   assert.equal(pp.statusText, 'variant mismatch - refused');
@@ -104,9 +110,16 @@ test('V3S3 SCR-07 on the generated bundle: placeholders read as unavailable, ide
   assert.equal(pp.nText, null);
   assert.equal(pp.summaryText, null);
 
-  assert.ok(v.metric.emptyText, 'no metric chip is invented when the summaries name none');
+  // The chips are the server's metric names; none is pre-selected.
+  assert.equal(v.metric.emptyText, null);
+  assert.deepEqual([...v.metric.choices], ['dice', 'iou', 'false_positives', 'false_negatives', 'relative_volume_error']);
   assert.equal(v.metric.selected, null);
   assert.ok(v.stripNotes.length === 7 && v.stripNotes.every((n) => /: \S/.test(n)), 'every empty strip says why');
+
+  const picked = comparisonView(model.selectMetric('dice'));
+  const up = picked.rows[0].cells.find((c) => c.id === 'EXP-U-100');
+  assert.equal(up.summaryText, 'dice: median 0.500 · mean 0.500 · std 0.500 · q1 0.500 · q3 0.500 (server summary)');
+  assert.equal(up.pointsText, '4 cases plotted');
 
   const verdict = (id) => v.comparisons.find((c) => c.id === id).verdictText;
   assert.equal(verdict('RQ-A-100'), 'comparable (server verdict)');
@@ -147,14 +160,20 @@ test('V3S5 absent metrics (generated error_case) are unavailable with a reason -
   }
 });
 
-test('V3S6 case links: a row without a run id is disabled with its reason; a complete intent is a valid SCR-03 route', async () => {
+test('V3S6 case links: every generated row is listed with a valid SCR-03 route; a missing run id disables one', async () => {
   const runtime = newRuntime();
-  const snap = await createExperimentComparison(runtime.client).open({ experimentIds: ['EXP-U-100'] });
+  const snap = await createExperimentComparison(runtime.client).open({ experimentIds: ['EXP-U-100'], metricName: 'dice' });
   const table = caseTable(snap.cells.find((c) => c.id === 'EXP-U-100'));
-  assert.equal(table.rows.length, 1, 'the one generated row is listed, not dropped');
-  assert.equal(table.rows[0].statusText, 'status "IN_PROGRESS" not recognised');
-  assert.equal(table.rows[0].route.ok, false);
-  assert.match(table.rows[0].route.reason, /analysis_run_id/);
+  assert.equal(table.rows.length, 6, 'all six generated rows are listed, none dropped');
+  assert.equal(table.text, '6 row(s) returned, 4 plotted');
+  const failed = table.rows.find((r) => r.statusText === 'failed');
+  const withheld = table.rows.find((r) => r.statusText.startsWith('withheld'));
+  assert.ok(failed && failed.reason && failed.valueText === null, 'a FAILED row keeps its reason and has no value');
+  assert.ok(withheld && /INT-12/.test(withheld.reason) && withheld.valueText === null, 'a WITHHELD row is listed, never with a value');
+  for (const r of table.rows) assertNavigable(r.route);
+  const noRun = routeForIntent(caseIntent({ caseId: 'CASE_0101', runId: null, variant: 'RAW', experimentId: 'EXP-U-100' }));
+  assert.equal(noRun.ok, false);
+  assert.match(noRun.reason, /analysis_run_id/);
 
   const route = routeForIntent(caseIntent({ caseId: 'CASE_0101', runId: 'RUN_0101', variant: 'RAW', experimentId: 'EXP-U-100' }));
   assertNavigable(route);
@@ -169,27 +188,28 @@ const aggregation = aggregationFor((() => {
   return r.contract;
 })());
 const ROWS = [
-  { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0101', metrics: { dice_3d: 0.91 } },
-  { case_id: 'CASE_0102', status: 'FAILED', reason: 'INFERENCE_OOM', analysis_run_id: 'RUN_0102', metrics: {} },
+  { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0101', metric_values: { dice: 0.91 } },
+  { case_id: 'CASE_0102', status: 'FAILED', reason: 'INFERENCE_OOM', analysis_run_id: 'RUN_0102', metric_values: null },
 ];
 const typedCell = (expected, median) => buildCell(expected, {
   identityView: success({
     experiment_id: expected.id, model_family: expected.family === 'UNET' ? 'unet' : 'dinov2',
-    training_fraction: expected.fractionPct / 100, prediction_variant: 'RAW_PREDICTION',
+    training_fraction: expected.fractionPct / 100, prediction_variant: 'RAW',
   }),
   metricsView: success({
-    evaluation_n: 6, successful_n: 4, prediction_variant: 'RAW_PREDICTION', metric_version: 'mv1',
-    metric_summary: { dice_3d: { median, mean: 0.6933, std: 0.15 } },
+    evaluation_n: 6, successful_n: 4, prediction_variant: 'RAW', metric_version: 'mv1',
+    metric_summary: { dice: { median, mean: 0.6933, std: 0.15 } },
   }),
   casesView: success({
-    items: ROWS, metric_version: 'mv1',
+    items: ROWS, metric_version: 'mv1', prediction_variant: 'RAW',
     outlier_selection: {
-      rule_id: 'DR-010', experiment_id: expected.id, prediction_variant: 'RAW', metric_name: 'dice_3d',
-      cases: [{ case_id: 'CASE_0101', analysis_run_id: 'RUN_0101', metric_value: 0.91 }],
+      rule_id: 'DR-010', selection_version: 'dr010-outlier/v1', experiment_id: expected.id,
+      prediction_variant: 'RAW', metric_name: 'dice',
+      cases: [{ case_id: 'CASE_0101', analysis_run_id: 'RUN_0101', metric_value: 0.91, false_positives: 3, false_negatives: 4 }],
     },
   }),
   population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
-  metricName: 'dice_3d',
+  metricName: 'dice',
   aggregation,
 });
 const verdicts = (body) => COMPARISONS.map((c) => {
@@ -198,7 +218,7 @@ const verdicts = (body) => COMPARISONS.map((c) => {
     ...c, requested: true, notRequestedReason: null, comparability, presentation: presentation(comparability),
     population: { available: true, label: 'FINAL_HOLDOUT · N 54', n: 54 },
     summaries: Object.fromEntries(c.experimentIds.map((id) => [id, {
-      available: true, metrics: [{ name: 'dice_3d', available: true, stats: { median: id.startsWith('EXP-D') ? 0.85 : 0.8 } }],
+      available: true, metrics: [{ name: 'dice', available: true, stats: { median: id.startsWith('EXP-D') ? 0.85 : 0.8 } }],
     }])),
   };
 });
@@ -206,7 +226,7 @@ const typedSnapshot = (body) => {
   const cells = MATRIX.map((e) => (e.question === 'RQ-A' ? typedCell(e, e.family === 'UNET' ? 0.8 : 0.85) : notListedCell(e)));
   return {
     mode: 'MATRIX', requested: cells.filter((c) => c.status === 'LOADED').map((c) => c.id), outsideMatrix: [],
-    metricName: 'dice_3d', metricNames: ['dice_3d'], list: null, cells, comparisons: verdicts(body),
+    metricName: 'dice', metricNames: ['dice'], list: null, cells, comparisons: verdicts(body),
   };
 };
 
@@ -214,8 +234,8 @@ test('V3S7 typed path: D2 context, server summary, and a difference / trend line
   const fair = comparisonView(typedSnapshot({ comparable: true, compatibility_reason: 'same holdout, mv1' }), { stat: 'median', selectedCellId: 'EXP-U-025' });
   const u = fair.rows[0].cells.find((c) => c.id === 'EXP-U-025');
   assert.equal(u.statusText, 'loaded');
-  assert.equal(u.summaryText, 'dice_3d: median 0.800 · mean 0.693 · std 0.150 (server summary)');
-  assert.match(u.contextText, /EXP-U-025 · model unet · variant RAW_PREDICTION · COHORT level · population FINAL_HOLDOUT · N intended 6 · N successful 4/);
+  assert.equal(u.summaryText, 'dice: median 0.800 · mean 0.693 · std 0.150 (server summary)');
+  assert.match(u.contextText, /EXP-U-025 · model unet · variant RAW · COHORT level · population FINAL_HOLDOUT · N intended 6 · N successful 4/);
   assert.deepEqual([...u.contextMissing], []);
   assert.equal(u.pointsText, '1 case plotted');
 
@@ -248,11 +268,11 @@ test('V3S8 a tapped strip point names its case and opens SCR-03 with case, run a
   }], { width: 360, height: 240 });
   const p = layout.columns[0].points[0];
   const hit = pointAt(layout, p.x + 1, p.y + 1);
-  const d = pointDetail(hit, 'dice_3d');
-  assert.equal(d.text, 'CASE_0101 · dice_3d 0.910 · EXP-D-050 · DR-010 outlier (server)');
+  const d = pointDetail(hit, 'dice');
+  assert.equal(d.text, 'CASE_0101 · dice 0.910 · EXP-D-050 · DR-010 outlier (server)');
   assertNavigable(d.route);
   assert.deepEqual({ ...d.route.params }, { caseId: 'CASE_0101', runId: 'RUN_0101', variant: 'RAW', experimentId: 'EXP-D-050' });
-  assert.equal(pointDetail(null, 'dice_3d'), null);
+  assert.equal(pointDetail(null, 'dice'), null);
 });
 
 test('V3S9 the V3 screens use the shared models and rank nothing; React stays out of the .mjs logic', () => {

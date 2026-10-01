@@ -32,6 +32,7 @@ const REASON = Object.freeze({
   NO_READABLE_STATISTIC: 'no readable statistic in the server summary',
   CELL_NOT_LOADED: 'no metrics loaded for this experiment',
   NO_CASE_RESULTS: 'no per-case result yet',
+  CASES_FOR_ANOTHER_VARIANT: 'the per-case rows were served for another variant - listed, not drawn',
   NO_METRIC_SELECTED: 'pick a metric to plot',
   CASES_NOT_REQUESTED: 'per-case rows not requested',
   CASES_NOT_LOADED: 'per-case rows did not load',
@@ -246,9 +247,29 @@ export function overviewView(snap) {
     key, text: count.available ? String(count.value) : `unavailable${served(count.served)}`,
   })) : [];
 
+  const summary = snap.experimentSummary;
+  let summaryText = null;
+  if (summary) {
+    summaryText = summary.available
+      ? `experiment summary: ${summary.experimentIds.length} experiment(s) available`
+      : `experiment summary ${summary.status || 'unreadable'}${summary.reason ? `: ${summary.reason}` : ''}`;
+  }
+
+  // DR-010 makes the experiment an explicit input: one group per listed
+  // matrix experiment, each the server's own selection or its reason.
+  const outlierGroups = snap.outliers.map((o) => {
+    const expected = MATRIX.find((e) => e.id === o.experimentId);
+    return Object.freeze({
+      experimentId: o.experimentId,
+      title: expected ? `${FAMILY_LABEL[expected.family]} ${expected.fractionPct} %${expected.lane === 'PROCESSED' ? ' post-processed' : ''}` : o.experimentId,
+      view: outlierView(o.selection),
+    });
+  });
+
   return Object.freeze({
     study: Object.freeze({
       idText: `Study ${snap.studyId}`,
+      summaryText,
       idWarning: snap.idConfirmed === false
         ? `the server answered for ${snap.servedStudyId || 'no study_id'} - shown, not relabelled`
         : null,
@@ -267,7 +288,11 @@ export function overviewView(snap) {
       }, { withValues: false })) : []),
     }),
     headline: Object.freeze(snap.headline.map(comparisonRow)),
-    outliers: outlierView(snap.outliers),
+    outliers: Object.freeze({
+      rule: OUTLIER_RULE.text,
+      text: outlierGroups.length ? null : 'no listed experiment, so no DR-010 selection to show',
+      groups: Object.freeze(outlierGroups),
+    }),
     findings: findingsView(snap.findings),
     routes: Object.freeze({
       cases: route('SCR-02', { studyId: snap.studyId }),
@@ -282,6 +307,7 @@ function rowStatusText(row) {
     case 'PLOTTED': return 'plotted';
     case 'FAILED': return 'failed';
     case 'EXCLUDED': return 'excluded';
+    case 'WITHHELD': return 'withheld - inference-review case, no value (INT-12)';
     case 'VALUE_NOT_RETURNED': return 'succeeded, value not returned';
     case 'NO_METRIC_SELECTED': return row.status === 'SUCCEEDED' ? 'succeeded - pick a metric' : String(row.status);
     case 'NO_CASE_ID': return 'no case id';
