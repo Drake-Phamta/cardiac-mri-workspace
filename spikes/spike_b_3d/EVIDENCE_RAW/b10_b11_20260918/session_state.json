@@ -1,0 +1,47 @@
+{
+  "record": "spike_b_b10_b11_session",
+  "not_computed_here": "No B number. The Spike B owner interprets these bytes.",
+  "started": "2026-09-18T21:47:58+0700",
+  "preflight": {
+    "at": "2026-09-18T21:47:57+0700",
+    "failures": [],
+    "serial": "R5CY931SQYZ",
+    "screen_on": true,
+    "keyguard_showing": false,
+    "battery_level": 71,
+    "usb_powered": true,
+    "app_last_update": "lastUpdateTime=2026-09-18 21:47:46",
+    "viewer_http_status": 200,
+    "adb_reverse": [
+      "UsbFfs tcp:8081 tcp:8081",
+      "UsbFfs tcp:8765 tcp:8765"
+    ],
+    "adb_reverse_added": true
+  },
+  "conditions_before": {
+    "file": "conditions_before.json",
+    "sha256": "f2dd431d1a5547c0ab8bf9e38ab4b3871db263e327d72c4cd63046db28ff8491",
+    "bytes": 4720
+  },
+  "viewer_url": "http://127.0.0.1:8765/app/",
+  "log_tag": "SPIKE_B_WEBVIEW",
+  "ended": "2026-09-18T21:53:01+0700",
+  "conditions_after": {
+    "file": "conditions_after.json",
+    "sha256": "7bbac4d992ca87c0670123fa7abc0ddff1bc9b903c9b1eb2bc96a09ac4d4c7b4",
+    "bytes": 4727
+  },
+  "logcat": {
+    "file": "webview_logcat.txt",
+    "lines": 6,
+    "sha256": "ae589b95d770081ebbfe9e1f3fa0439e222e36bdebb0b8bf22beb10e45900b26"
+  },
+  "payloads": {
+    "file": "webview_payloads.json",
+    "count": 1,
+    "sha256": "98f4aa700d6394304435e9a3c2e822638b0783532464d8d4782c010f1050eeb2",
+    "kinds": [
+      "webview_env"
+    ]
+  }
+}
