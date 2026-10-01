@@ -9,7 +9,7 @@ leader merge.
 | Việc | Khi nào |
 |---|---|
 | **Đã xong tối qua:** GATE-MOB-01 đóng 21:17 (anh nhận L5); DR-016a xác nhận 21:17; merge #82, #77, #78, #73 (squash), #69; #65 đóng vì #77 thay thế | — |
-| **Kiểm hàng đợi DINOv2 lúc 08:00.** Hàng đợi bị một Ctrl+C dừng lúc khoảng 20:59 trong epoch 12 của EXP-D-100; chạy lại lúc 21:30 từ `last.pt` (epoch 11), lần này tách khỏi mọi console. EXP-D-100 dự kiến xong khoảng **04:00**, EXP-D-050 khoảng **08:00–09:00** sáng 02/10. Nếu dừng lần nữa, chạy lại đúng lệnh cũ; nó tự tiếp tục từ `last.pt`. Trên 4050 của Khánh: UNet bắt đầu 09:00 | 08:00, trưa, tối |
+| **Kiểm hàng đợi DINOv2 lúc 08:00.** Hàng đợi bị một Ctrl+C dừng lúc khoảng 20:59 trong epoch 12 của EXP-D-100; chạy lại lúc 21:30 từ `last.pt` (epoch 11), lần này tách khỏi mọi console. EXP-D-100 dự kiến xong khoảng **04:00**, EXP-D-050 khoảng **08:00–09:00** sáng 02/10. Nếu dừng lần nữa, chạy lại đúng lệnh cũ; nó tự tiếp tục từ `last.pt`. **Không `git pull` hay checkout trong thư mục repo chính trên PC cho tới khi EXP-D-050 xong**: hàng đợi chạy mã `c7a37e0` từ thư mục đó (DR-016a), còn `ml/` trên `main` đã đổi (#81). Trên 4050 của Khánh: UNet bắt đầu 09:00 | 08:00, trưa, tối |
 | **Đồng hồ PC lệch:** sau khi khởi động lại, đồng hồ PC chậm khoảng 66 phút vì dịch vụ Windows Time không chạy. Bật lại cần quyền admin: `w32tm /resync` sau khi bật dịch vụ. Trước khi sửa, dấu giờ do PC ghi trong log đều lệch | sáng |
 | Khung duyệt **12:00** và **20:00**, như thường lệ | — |
 
