@@ -31,7 +31,7 @@ import {
   STATE, RECOVERY, loading, success, emptyUnavailable, stateForError,
 } from '../../core/index.mjs';
 import {
-  MATRIX, MATRIX_IDS, UNAVAILABLE, matrixEntry, readIdRows, readPopulation, readVariant,
+  MATRIX, MATRIX_IDS, UNAVAILABLE, matrixEntry, readExperimentRows, readPopulation,
 } from './readers.mjs';
 import {
   CELL_STATUS, aggregationFor, buildCell, notListedCell, requestCell, requestComparisons,
@@ -101,7 +101,7 @@ export function createExperimentComparison(client) {
       return set(listView, { mode, cells: MATRIX.map((e) => notListedCell(e, CELL_STATUS.NOT_REQUESTED)) });
     }
 
-    const rows = listView.state === STATE.SUCCESS ? readIdRows(listView.data, 'experiment_id') : null;
+    const rows = listView.state === STATE.SUCCESS ? readExperimentRows(listView.data) : null;
     const listed = new Set(rows ? rows.ids : []);
     const list = Object.freeze({
       view: listView,
@@ -109,8 +109,12 @@ export function createExperimentComparison(client) {
       // null when the list call failed: an unknown count is not 0.
       totalRows: rows ? rows.total : null,
       unreadableRows: rows ? rows.unreadable : null,
+      // contract 1.1.0: one population shared by every listed experiment, or
+      // null when they do not share one - shown as unavailable, never guessed.
       population: listView.state === STATE.SUCCESS ? readPopulation(listView.data.evaluation_population) : null,
-      variant: listView.state === STATE.SUCCESS ? readVariant(listView.data.prediction_variant) : null,
+      // Each row's own prediction_variant, and any row that contradicts `08` §2.
+      variants: rows ? rows.variants : Object.freeze({}),
+      variantProblems: rows ? rows.problems : Object.freeze([]),
     });
 
     // `10` section 8 "empty/unavailable": the server lists no experiment yet

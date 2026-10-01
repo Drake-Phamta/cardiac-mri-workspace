@@ -8,10 +8,13 @@
 //        python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
 //               --output app/core/fixtures/.generated/api_bundle.json
 //
-//      Today the generator gives the V3 endpoints name-only placeholders
-//      ("evaluation_n_fixture", one empty experiment_list row). So the
-//      honest outcome on the bundle is "unavailable, and here is why" - which
-//      is exactly what these checks assert.
+//      Since API contract 1.1.0 the generator gives the V3 endpoints TYPED
+//      values (N 6 / 4, a metric_summary, six case rows including FAILED and
+//      WITHHELD, a DR-010 outlier_selection) for one experiment, EXP_DEMO,
+//      plus EXP-D-PP in the list. The fixture transport answers the same
+//      body whatever id is asked, so for a matrix id the checks also prove
+//      that a served identity that differs is REPORTED, and a selection made
+//      for another experiment is REFUSED - not relabelled.
 //
 //   2. Inline TYPED inputs to the pure readers (V3-8..V3-12), the way
 //      app/core/tests/test_readers.mjs P3/P7 test selection.mjs and
@@ -61,28 +64,46 @@ const check = (id, ok, detail) => {
   const s = await m.open({ studyId: STUDY });
   check('V3-1', s.view.state === STATE.SUCCESS && s.source === 'fixture',
     `open -> ${s.view.state}, source ${s.source} (the screen must say these are fixture values)`);
-  check('V3-1', s.dataset.available && s.dataset.label === generated('study_get').response.data.dataset,
-    `dataset as served: ${s.dataset.label}`);
-  check('V3-1', s.caseCounts.total.available && s.caseCounts.total.value === 1,
-    `case count read from case_counts.total: ${s.caseCounts.total.value}`);
+  const servedStudy = generated('study_get').response.data;
+  // contract field_shapes.dataset: { dataset_id, name, version }, shown as served.
+  check('V3-1', s.dataset.available && s.dataset.datasetId === servedStudy.dataset.dataset_id
+    && s.dataset.name === servedStudy.dataset.name && s.dataset.label.includes(servedStudy.dataset.version),
+    `dataset object read as served: ${s.dataset.label}`);
+  // contract field_shapes.case_counts: total plus one count per case mode.
+  check('V3-1', s.caseCounts.total.available && s.caseCounts.total.value === servedStudy.case_counts.total
+    && s.caseCounts.counts.map((c) => c.key).join(',') === 'total,EVALUATION,INFERENCE_REVIEW',
+    `case_counts.total ${s.caseCounts.total.value}, by mode: ${s.caseCounts.counts.map((c) => `${c.key} ${c.count.value}`).join(', ')}`);
+  check('V3-1', s.capabilities.names.includes('ground_truth_evaluation') && !s.capabilities.names.includes('live_analysis'),
+    `capabilities on only when === true: ${s.capabilities.names.join(', ')}`);
+  check('V3-1', s.experimentSummary.status === 'UNAVAILABLE' && !s.experimentSummary.available
+    && s.experimentSummary.reason === servedStudy.experiment_summary.reason,
+    `experiment_summary ${s.experimentSummary.status} with its reason "${s.experimentSummary.reason}" - not an invented summary`);
   // The generator answers study_id STUDY_ID_0043 whatever is asked. Shown,
   // and flagged - not quietly relabelled with the requested id.
   check('V3-1', s.idConfirmed === false && s.servedStudyId === 'STUDY_ID_0043',
     `asked ${s.studyId}, served ${s.servedStudyId} -> idConfirmed ${s.idConfirmed}`);
-  check('V3-1', s.experiments.listedIds.length === 0 && s.experiments.unreadableRows === 1,
-    `experiment_list: ${s.experiments.totalRows} row, ${s.experiments.unreadableRows} without an experiment_id`);
-  check('V3-1', s.experiments.matrix.length === 7
-    && s.experiments.matrix.every((r) => r.status === CELL_STATUS.NOT_LISTED && r.n === null),
-    'all 7 cells of the 08 section 2 matrix are NOT_LISTED, with no N - not N 0');
+  // contract 1.1.0: experiment_list rows carry experiment_id and their own variant.
+  check('V3-1', s.experiments.listedIds.join(',') === 'EXP_DEMO,EXP-D-PP' && s.experiments.unreadableRows === 0
+    && s.experiments.outsideMatrix.join(',') === 'EXP_DEMO' && s.experiments.variantProblems.length === 0,
+    `listed ${s.experiments.listedIds.join(', ')}; outside the 08 section 2 matrix: ${s.experiments.outsideMatrix.join(', ')}`);
+  const pp = s.experiments.matrix.find((r) => r.id === 'EXP-D-PP');
+  check('V3-1', pp.status === CELL_STATUS.VARIANT_MISMATCH && pp.n === null,
+    `EXP-D-PP is listed; its metrics are served as RAW -> ${pp.status}, no N`);
+  check('V3-1', s.experiments.matrix.filter((r) => r.id !== 'EXP-D-PP')
+    .every((r) => r.status === CELL_STATUS.NOT_LISTED && r.n === null),
+    'the 6 unlisted cells are NOT_LISTED, with no N - not N 0');
   check('V3-1', s.headline.every((h) => !h.requested && h.verdict === VERDICT.UNDECIDED && h.summaries === null),
-    'no comparison requested, so no headline metric and no "comparable" label');
-  check('V3-1', !s.outliers.available && s.outliers.reason === UNAVAILABLE.OUTLIERS_NOT_RETURNED,
-    `outlier entry points -> ${s.outliers.reason} (DR-010 selection not in Contract 11 DRAFT v0)`);
-  check('V3-1', s.findings.returned === 1 && s.findings.byStatus[0]?.status === 'IN_PROGRESS',
+    'no comparison has all its members listed, so no headline metric and no "comparable" label');
+  check('V3-1', s.outliers.length === 1 && s.outliers[0].experimentId === 'EXP-D-PP'
+    && !s.outliers[0].selection.available && s.outliers[0].selection.reason === CELL_UNAVAILABLE.CELL_NOT_LOADED,
+    `outlier entry points per listed experiment: EXP-D-PP -> ${s.outliers[0].selection.reason}`);
+  check('V3-1', s.findings.returned === 1 && s.findings.byStatus[0]?.status === 'OPEN',
     `findings summary as returned: ${JSON.stringify(s.findings.byStatus)}`);
-  const o = m.openOutlier(0);
-  check('V3-1', o.enabled === false && o.reason === UNAVAILABLE.OUTLIERS_NOT_RETURNED,
-    'an outlier entry with no selection is a disabled intent with its reason');
+  const o = m.openOutlier('EXP-D-PP', 0);
+  check('V3-1', o.enabled === false && o.reason === CELL_UNAVAILABLE.CELL_NOT_LOADED,
+    'an outlier entry with no usable selection is a disabled intent with its reason');
+  check('V3-1', m.openOutlier('EXP-U-025', 0).enabled === false,
+    'an experiment that is not listed has no outlier entry');
   check('V3-1', m.openCases().screen === 'SCR-02' && m.openExperiments().screen === 'SCR-07'
     && m.openFindings().screen === 'SCR-08', 'SCR-01 actions: open cases, experiments, findings');
 }
@@ -117,48 +138,60 @@ const check = (id, ok, detail) => {
   const m = createExperimentComparison(newClient());
   const s = await m.open({});
   check('V3-3', s.view.state === STATE.SUCCESS && s.cells.length === 7
-    && s.cells.every((c) => c.status === CELL_STATUS.NOT_LISTED),
-    'nothing listed -> 7 NOT_LISTED cells, in 08 section 2 order');
+    && s.cells.filter((c) => c.id !== 'EXP-D-PP').every((c) => c.status === CELL_STATUS.NOT_LISTED),
+    'the list names EXP-D-PP only from the matrix -> the other 6 cells are NOT_LISTED');
+  check('V3-3', s.cells.find((c) => c.id === 'EXP-D-PP').status === CELL_STATUS.VARIANT_MISMATCH
+    && s.list.variants['EXP-D-PP'].lane === 'PROCESSED',
+    'EXP-D-PP is listed as PROCESSED, but its metrics come back RAW -> refused');
+  check('V3-3', s.outsideMatrix.join(',') === 'EXP_DEMO',
+    'EXP_DEMO is listed but outside 08 section 2: shown by id, never dropped');
   check('V3-3', s.cells.map((c) => c.id).join(',') === MATRIX_IDS.join(','),
     'cell order is the spec\'s matrix order, never a ranking');
-  check('V3-3', s.comparisons.every((c) => !c.requested), 'no comparison is requested for unlisted runs');
+  check('V3-3', s.comparisons.every((c) => !c.requested), 'no comparison has every member listed, so none is requested');
   const cols = m.stripColumns();
-  check('V3-3', cols.every((c) => c.points.length === 0 && c.withheld === CELL_STATUS.NOT_LISTED),
-    'every strip column is empty AND says why');
+  check('V3-3', cols.every((c) => c.points.length === 0 && c.withheld),
+    `every strip column is empty AND says why (${[...new Set(cols.map((c) => c.withheld))].join(', ')})`);
 
   const e = await m.open({ scenarios: { experiment_list: 'error_case' } });
   check('V3-3', e.view.state === STATE.EMPTY_UNAVAILABLE && e.view.reason === 'ARTIFACT_NOT_FOUND',
     `experiment_list ARTIFACT_NOT_FOUND -> ${e.view.state}`);
 }
 
-// V3-4 - SCR-07 explicit pair on the generated bundle: placeholders are
-// unavailable, never zero, and N intended and N successful stay two numbers.
+// V3-4 - SCR-07 explicit pair on the generated bundle: the typed contract
+// 1.1.0 values come through as served - N intended and N successful as two
+// numbers, every row kept, points only for SUCCEEDED rows with a value.
 {
   const m = createExperimentComparison(newClient());
-  await m.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice_3d' });
+  await m.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice' });
   const u = m.cell('EXP-U-100');
   const served = generated('experiment_metrics').response.data;
+  const servedRows = generated('experiment_cases').response.data.items;
   check('V3-4', u.status === CELL_STATUS.LOADED && u.servedVariant.declared === served.prediction_variant,
     `EXP-U-100 metrics served for ${u.servedVariant.declared} -> ${u.status}`);
-  check('V3-4', !u.n.intended.available && u.n.intended.value === null && u.n.intended.served === served.evaluation_n,
-    `N intended: unavailable (served "${u.n.intended.served}"), value null - not 0`);
-  check('V3-4', !u.n.successful.available && u.n.successful.value === null
-    && u.n.text === 'N intended unavailable · N successful unavailable',
-    `both N shown separately: "${u.n.text}"`);
-  check('V3-4', !u.summary.available && u.summary.reason === UNAVAILABLE.WRONG_TYPE,
-    `metric_summary "${u.summary.served}" -> unavailable ${u.summary.reason}`);
-  check('V3-4', u.context.complete === false && u.context.missing.includes('nIntended')
-    && u.context.missing.includes('nSuccessful'),
-    `D2 context names what is missing: ${u.context.missing.join(', ')}`);
-  check('V3-4', u.identityConfirmed === false && u.identity.problems[0].includes('EXPERIMENT_ID_0043'),
-    `identity mismatch reported: ${u.identity.problems[0]}`);
-  check('V3-4', u.points.length === 0 && u.cases.rows.length === 1
-    && u.cases.rows[0].plotState === 'UNKNOWN_STATUS',
-    `the generated row (status "${u.cases.rows[0].status}") stays visible as UNKNOWN_STATUS and is not plotted`);
-  check('V3-4', u.cases.rows[0].intent.enabled === false && u.cases.rows[0].intent.reason.includes('analysis_run_id'),
-    `its intent is disabled: ${u.cases.rows[0].intent.reason}`);
-  check('V3-4', !u.outliers.available && u.outliers.reason === UNAVAILABLE.OUTLIERS_NOT_RETURNED,
-    `outliers -> ${u.outliers.reason}`);
+  check('V3-4', u.n.intended.value === served.evaluation_n && u.n.successful.value === served.successful_n
+    && u.n.text === `N intended ${served.evaluation_n} · N successful ${served.successful_n}` && u.n.consistency === 'CONSISTENT',
+    `both N shown separately, as served: "${u.n.text}"`);
+  check('V3-4', u.summary.available && summaryStat(u.summary, 'dice', 'median') === served.metric_summary.dice.median
+    && summaryStat(u.summary, 'dice', 'n') === served.metric_summary.dice.n,
+    `metric_summary read per statistic (metric_rules.summary_statistics): dice median ${summaryStat(u.summary, 'dice', 'median')}, n ${summaryStat(u.summary, 'dice', 'n')}`);
+  check('V3-4', u.context.complete && u.context.text.includes(`N intended ${served.evaluation_n}`),
+    `D2 context: ${u.context.text}`);
+  check('V3-4', u.identityConfirmed === false && u.identity.problems[0].includes('EXP_DEMO'),
+    `identity mismatch reported, not repaired: ${u.identity.problems[0]}`);
+  const plotted = servedRows.filter((r) => r.status === 'SUCCEEDED' && r.metric_values && typeof r.metric_values.dice === 'number');
+  check('V3-4', u.cases.rows.length === servedRows.length && u.points.length === plotted.length
+    && u.points.map((p) => p.caseId).join(',') === plotted.map((r) => r.case_id).join(','),
+    `${u.cases.rows.length} rows kept, ${u.points.length} plotted (SUCCEEDED with a dice value), in served order`);
+  const failed = u.cases.rows.find((r) => r.status === 'FAILED');
+  const withheld = u.cases.rows.find((r) => r.status === 'WITHHELD');
+  check('V3-4', failed.plotState === 'FAILED' && failed.value === null && failed.reason
+    && withheld.plotState === 'WITHHELD' && withheld.value === null && /INT-12/.test(withheld.reason),
+    `FAILED and WITHHELD rows stay visible with their reason, value null - "${withheld.reason}"`);
+  check('V3-4', u.points.every((p) => p.intent.enabled && p.intent.variant === 'RAW' && p.intent.runId),
+    `every point opens SCR-03 with case, run and variant: ${u.points[0].intent.text}`);
+  check('V3-4', !u.outliers.available && u.outliers.reason === UNAVAILABLE.OUTLIERS_FOR_ANOTHER_EXPERIMENT
+    && u.outliers.served === 'EXP_DEMO',
+    `the served DR-010 selection is for ${u.outliers.served} -> refused for EXP-U-100, not relabelled`);
 
   // Picking the plotted metric is a view change: it must not re-fetch.
   let sends = 0;
@@ -167,19 +200,22 @@ const check = (id, ok, detail) => {
   const cm = createExperimentComparison(counting);
   const opened = await cm.open({ experimentIds: ['EXP-U-100'] });
   const before = sends;
-  const picked = cm.selectMetric('iou_3d');
+  const picked = cm.selectMetric('iou');
   check('V3-4', opened.metricName === null
     && opened.cells.find((c) => c.id === 'EXP-U-100').pointsWithheld === 'NO_METRIC_SELECTED',
     'no metric is plotted until one is picked - there is no default metric');
-  check('V3-4', sends === before && picked.metricName === 'iou_3d' && picked.cells.length === 7,
+  check('V3-4', sends === before && picked.metricName === 'iou' && picked.cells.length === 7
+    && picked.cells.find((c) => c.id === 'EXP-U-100').points.length === plotted.length,
     `selectMetric re-reads the cached states: ${sends - before} extra calls`);
+  check('V3-4', opened.metricNames.join(',') === 'dice,iou,false_positives,false_negatives,relative_volume_error',
+    `the chips are the server's metric names (metric_rules.case_metric_fields): ${opened.metricNames.join(', ')}`);
 }
 
 // V3-5 - the variant guard. The generated bundle serves RAW for every
 // experiment; EXP-D-PP is defined on PROCESSED. Refused, not relabelled.
 {
   const m = createExperimentComparison(newClient());
-  await m.open({ experimentIds: ['EXP-D-100', 'EXP-D-PP'], metricName: 'dice_3d' });
+  await m.open({ experimentIds: ['EXP-D-100', 'EXP-D-PP'], metricName: 'dice' });
   const pp = m.cell('EXP-D-PP');
   check('V3-5', pp.status === CELL_STATUS.VARIANT_MISMATCH && pp.n === null && pp.summary === null,
     `EXP-D-PP served RAW -> ${pp.status}, no N and no summary shown`);
@@ -189,13 +225,22 @@ const check = (id, ok, detail) => {
     'no point, no metric context, no confirmed lane to hand to SCR-03');
   check('V3-5', m.cell('EXP-D-100').status === CELL_STATUS.LOADED,
     'EXP-D-100 (defined on RAW) is unaffected');
+
+  // The generator's PROCESSED identity for EXP-D-PP confirms the id; the
+  // metrics are still RAW, so the cell stays refused. Identity does not
+  // launder a variant.
+  await m.open({ experimentIds: ['EXP-D-PP'], scenarios: { experiment_get: 'processed_variant' } });
+  const pp2 = m.cell('EXP-D-PP');
+  check('V3-5', pp2.identity.idConfirmed && pp2.identity.variant.lane === 'PROCESSED'
+    && pp2.status === CELL_STATUS.VARIANT_MISMATCH,
+    `processed_variant: id ${pp2.identity.servedId} confirmed, metrics still RAW -> ${pp2.status}`);
 }
 
 // V3-6 - non-comparable runs are labelled, from the server's answer.
 {
   const m = createExperimentComparison(newClient());
   await m.open({
-    experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice_3d',
+    experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice',
     scenarios: { experiment_compare: 'not_comparable' },
   });
   const [label] = m.labelsFor('EXP-U-100');
@@ -210,7 +255,7 @@ const check = (id, ok, detail) => {
     'the numbers stay visible side by side; the delta does not');
   check('V3-6', m.delta('RQ-A-100', { stat: 'median' }).allowed === false, 'deltaFor refuses');
 
-  await m.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice_3d' });
+  await m.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice' });
   const ok = m.comparison('RQ-A-100');
   check('V3-6', ok.comparability.verdict === VERDICT.COMPARABLE
     && ok.presentation.reason === generated('experiment_compare').response.data.compatibility_reason,
@@ -220,7 +265,7 @@ const check = (id, ok, detail) => {
     'a comparison that was not asked is UNDECIDED, never comparable by default');
 
   await m.open({
-    experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice_3d',
+    experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice',
     scenarios: { experiment_compare: 'error_case' },
   });
   check('V3-6', m.comparison('RQ-A-100').comparability.verdict === VERDICT.UNDECIDED
@@ -237,8 +282,9 @@ const check = (id, ok, detail) => {
     `metrics ARTIFACT_NOT_FOUND -> cell ${c.status} (${c.statusReason})`);
   check('V3-7', c.n === null && c.summary === null && c.points.length === 0 && c.context === null,
     'no N, no summary, no point - nothing drawn that could read as 0');
-  check('V3-7', c.cases?.rows.length === 1 && c.cases.rows[0].intent.enabled === false,
-    'the per-case rows that did arrive stay visible, with disabled intents (variant unconfirmed)');
+  check('V3-7', c.cases?.rows.length === generated('experiment_cases').response.data.items.length
+    && c.cases.rows.every((r) => r.intent.enabled === false),
+    `the ${c.cases?.rows.length} per-case rows that did arrive stay visible, with disabled intents (variant unconfirmed)`);
 
   const dead = createClient(contract, { kind: 'test', async send() { throw new Error('econnrefused'); } });
   const d = await createExperimentComparison(dead).open({});
@@ -247,8 +293,8 @@ const check = (id, ok, detail) => {
 }
 
 // ---------------------------------------------------------------------------
-// Typed inputs from here on. Field names are the contract's; the inner
-// shapes are PROPOSED_SHAPES (README section "Where Contract 11 stops").
+// Typed inputs from here on, in the contract 1.1.0 shapes (metric_values,
+// case_result_status, selection_rules.outlier_selection, summary_statistics).
 
 // V3-8 - counts and N.
 {
@@ -263,9 +309,10 @@ const check = (id, ok, detail) => {
     `"${n.text}"`);
   check('V3-8', readCohortN({ evaluation_n: 50, successful_n: 54 }).consistency === 'SUCCESSFUL_EXCEEDS_INTENDED',
     'successful > intended is flagged, not clipped');
-  const fromBundle = readCohortN(generated('experiment_metrics').response.data);
-  check('V3-8', !fromBundle.intended.available && !fromBundle.successful.available,
-    'the generated experiment_metrics default reads as unavailable on both counts');
+  const servedMetrics = generated('experiment_metrics').response.data;
+  const fromBundle = readCohortN(servedMetrics);
+  check('V3-8', fromBundle.intended.value === servedMetrics.evaluation_n && fromBundle.successful.value === servedMetrics.successful_n,
+    `the generated experiment_metrics default (typed since 1.1.0) reads as "${fromBundle.text}"`);
   check('V3-8', readVariant('RAW_PREDICTION').lane === 'RAW' && readVariant('processed').lane === 'PROCESSED'
     && readVariant('BEST').lane === null && readVariant(undefined).lane === null,
     'variant spellings map to two lanes; anything else is undeclared');
@@ -278,43 +325,51 @@ const check = (id, ok, detail) => {
 // A LOADED cell from typed inputs, used by V3-9..V3-11.
 const aggregation = aggregationFor(contract);
 const ROWS = [
-  { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0101', metrics: { dice_3d: 0.91 } },
-  { case_id: 'CASE_0102', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0102', metrics: { dice_3d: 0.62 } },
-  { case_id: 'CASE_0103', status: 'FAILED', reason: 'INFERENCE_OOM', analysis_run_id: 'RUN_U100_0103', metrics: { dice_3d: null } },
-  { case_id: 'CASE_0104', status: 'EXCLUDED', reason: 'DR-002b correlated group', analysis_run_id: null, metrics: {} },
-  { case_id: 'CASE_0105', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0105', metrics: {} },
-  { case_id: 'CASE_0106', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0106', metrics: { dice_3d: 0.55 } },
+  { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0101', metric_values: { dice: 0.91 } },
+  { case_id: 'CASE_0102', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0102', metric_values: { dice: 0.62 } },
+  { case_id: 'CASE_0103', status: 'FAILED', reason: 'INFERENCE_OOM', analysis_run_id: 'RUN_U100_0103', metric_values: null },
+  { case_id: 'CASE_0104', status: 'EXCLUDED', reason: 'DR-002b correlated group', analysis_run_id: null, metric_values: null },
+  { case_id: 'CASE_0105', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0105', metric_values: {} },
+  { case_id: 'CASE_0106', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_U100_0106', metric_values: { dice: 0.55 } },
+  { case_id: 'CASE_0107', status: 'WITHHELD', reason: 'INFERENCE_REVIEW case (INT-12)', analysis_run_id: 'RUN_U100_0107', metric_values: null },
 ];
-const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, summary } = {}) => buildCell(expected, {
+const typedCell = (expected, {
+  variant = 'RAW', casesVariant = expected.lane, outlierSelection, summary,
+} = {}) => buildCell(expected, {
   identityView: success({
     experiment_id: expected.id,
     model_family: expected.family === 'UNET' ? 'unet' : 'dinov2',
     training_fraction: expected.fractionPct / 100,
-    prediction_variant: expected.lane === 'RAW' ? 'RAW_PREDICTION' : 'PROCESSED_PREDICTION',
+    prediction_variant: expected.lane,
     split_manifest_id: 'split-pathA', subset_manifest_id: 'subset', preprocessing_version: 'pre-v1',
     postprocessing_version: 'none', checkpoint: 'ckpt', evaluation_version: 'eval-v1',
   }),
   metricsView: success({
     evaluation_n: 6, successful_n: 4, prediction_variant: variant, metric_version: 'mv1',
-    metric_summary: summary ?? { dice_3d: { mean: 0.6933, median: 0.62, std: 0.15 } },
+    metric_summary: summary ?? { dice: { mean: 0.6933, median: 0.62, std: 0.15 } },
   }),
-  casesView: success({ items: ROWS, metric_version: 'mv1', outlier_selection: outlierSelection }),
+  casesView: success({ items: ROWS, metric_version: 'mv1', prediction_variant: casesVariant, outlier_selection: outlierSelection }),
   population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
-  metricName: 'dice_3d',
+  metricName: 'dice',
   aggregation,
 });
 
 // V3-9 - the lit path: N, rows, points, D2 context, intents, outliers.
+const base0 = () => ({
+  rule_id: 'DR-010', selection_version: 'dr010-outlier/v1', experiment_id: 'EXP-U-100',
+  prediction_variant: 'RAW', metric_name: 'dice', cases: [{ case_id: 'CASE_0102' }],
+});
 {
   const expected = matrixEntry('EXP-U-100');
   const cell = typedCell(expected, {
     // Deliberately NOT in value order: the server's order is the order.
     outlierSelection: {
-      rule_id: 'DR-010', experiment_id: 'EXP-U-100', prediction_variant: 'RAW_PREDICTION', metric_name: 'dice_3d',
+      rule_id: 'DR-010', selection_version: 'dr010-outlier/v1', experiment_id: 'EXP-U-100',
+      prediction_variant: 'RAW', metric_name: 'dice',
       cases: [
-        { case_id: 'CASE_0102', analysis_run_id: 'RUN_U100_0102', metric_value: 0.62 },
-        { case_id: 'CASE_0106', analysis_run_id: 'RUN_U100_0106', metric_value: 0.55 },
-        { case_id: 'CASE_0101', analysis_run_id: 'RUN_U100_0101', metric_value: 0.91 },
+        { case_id: 'CASE_0102', analysis_run_id: 'RUN_U100_0102', metric_value: 0.62, false_positives: 40, false_negatives: 10 },
+        { case_id: 'CASE_0106', analysis_run_id: 'RUN_U100_0106', metric_value: 0.55, false_positives: 5, false_negatives: 5 },
+        { case_id: 'CASE_0101', analysis_run_id: 'RUN_U100_0101', metric_value: 0.91, false_positives: 1, false_negatives: 2 },
       ],
     },
   });
@@ -327,6 +382,9 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
   check('V3-9', byCase.CASE_0103.plotState === 'FAILED' && byCase.CASE_0103.reason === 'INFERENCE_OOM'
     && byCase.CASE_0104.plotState === 'EXCLUDED',
     'FAILED and EXCLUDED rows stay visible with their reason (08 section 8.1)');
+  check('V3-9', byCase.CASE_0107.plotState === 'WITHHELD' && byCase.CASE_0107.value === null
+    && byCase.CASE_0107.reason.includes('INT-12'),
+    'a WITHHELD row (INFERENCE_REVIEW, INT-12) stays visible, never with a value');
   check('V3-9', byCase.CASE_0105.plotState === 'VALUE_NOT_RETURNED' && byCase.CASE_0105.value === null,
     'a SUCCEEDED row with no value is VALUE_NOT_RETURNED, not a point at 0');
   check('V3-9', cell.context.complete && cell.context.text.includes('N intended 6')
@@ -344,6 +402,19 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
     'DR-010 outliers kept in the SERVER\'s order - not re-ranked by value');
   check('V3-9', cell.outliers.cases[1].intent.enabled && cell.outliers.cases[1].intent.runId === 'RUN_U100_0106',
     'one tap from an outlier to its case: the intent is complete');
+  check('V3-9', cell.outliers.selectionVersion === 'dr010-outlier/v1'
+    && cell.outliers.cases[0].falsePositives.value === 40 && cell.outliers.cases[0].falseNegatives.value === 10,
+    'the selection version and the FP/FN tie-break values are read as served');
+
+  // contract 1.1.0: experiment_cases states its own prediction_variant. Rows
+  // for another variant than the metrics stay listed but are not drawn,
+  // linked or used for outliers.
+  const otherRows = typedCell(expected, { casesVariant: 'PROCESSED', outlierSelection: { ...base0() } });
+  check('V3-9', otherRows.status === CELL_STATUS.LOADED && otherRows.points.length === 0
+    && otherRows.pointsWithheld === CELL_UNAVAILABLE.CASES_FOR_ANOTHER_VARIANT
+    && otherRows.cases.rows.length === ROWS.length && otherRows.cases.rows.every((r) => !r.intent.enabled)
+    && !otherRows.outliers.available,
+    `rows served for PROCESSED under RAW metrics -> ${otherRows.pointsWithheld}: listed, not drawn, not linked`);
 
   // Refusals. Each would put a selection on screen that is not DR-010's for
   // THIS experiment and variant.
@@ -363,7 +434,7 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
   }
   check('V3-9', OUTLIER_RULE.id === 'DR-010', `the cited rule is ${OUTLIER_RULE.id}`);
 
-  const mismatch = typedCell(expected, { variant: 'PROCESSED_PREDICTION' });
+  const mismatch = typedCell(expected, { variant: 'PROCESSED' });
   check('V3-9', mismatch.status === CELL_STATUS.VARIANT_MISMATCH && mismatch.points.length === 0,
     'the same rows served for PROCESSED on a RAW experiment draw nothing');
 
@@ -407,13 +478,13 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
     return { ...c, requested: true, notRequestedReason: null, comparability, presentation: presentation(comparability) };
   });
   const fair = buildTrend(unet, comparableOf({ comparable: true, compatibility_reason: 'same holdout, mv1' }),
-    { metricName: 'dice_3d', stat: 'median' });
+    { metricName: 'dice', stat: 'median' });
   const u = fair.find((t) => t.family === 'UNET');
   check('V3-11', u.connected && u.points.map((p) => p.fractionPct).join(',') === '25,50,100'
     && u.points.every((p) => p.value === 0.62),
     'UNet 25 -> 50 -> 100 joined into a line under a COMPARABLE verdict');
   const unfair = buildTrend(unet, comparableOf({ comparable: false, compatibility_reason: 'different metric_version' }),
-    { metricName: 'dice_3d', stat: 'median' });
+    { metricName: 'dice', stat: 'median' });
   check('V3-11', !unfair.find((t) => t.family === 'UNET').connected
     && unfair.find((t) => t.family === 'UNET').reason === 'different metric_version',
     'the same points stay unjoined under NOT_COMPARABLE, with the server\'s reason');
@@ -427,19 +498,19 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
       summaries: { 'EXP-U-100': readMetricSummary(summary['EXP-U-100']), 'EXP-D-100': readMetricSummary(summary['EXP-D-100']) },
     };
   };
-  const common = { 'EXP-U-100': { dice_3d: { median: 0.80 } }, 'EXP-D-100': { dice_3d: { median: 0.85 } } };
-  const d = deltaFor(pairOf({ comparable: true }, common), { metricName: 'dice_3d', stat: 'median' });
+  const common = { 'EXP-U-100': { dice: { median: 0.80 } }, 'EXP-D-100': { dice: { median: 0.85 } } };
+  const d = deltaFor(pairOf({ comparable: true }, common), { metricName: 'dice', stat: 'median' });
   check('V3-11', d.allowed && Math.abs(d.delta - 0.05) < 1e-12,
     `comparable pair: delta ${d.delta?.toFixed(2)} from the server's common-population summaries`);
   const nd = deltaFor(pairOf({ comparable: false, compatibility_reason: 'different split' }, common),
-    { metricName: 'dice_3d', stat: 'median' });
+    { metricName: 'dice', stat: 'median' });
   check('V3-11', !nd.allowed && nd.reason === 'different split', 'non-comparable pair: no delta, the reason instead');
-  const ud = deltaFor(pairOf({}, common), { metricName: 'dice_3d', stat: 'median' });
+  const ud = deltaFor(pairOf({}, common), { metricName: 'dice', stat: 'median' });
   check('V3-11', !ud.allowed, 'undecided pair: no delta');
-  const sparse = deltaFor(pairOf({ comparable: true }, { 'EXP-U-100': { dice_3d: { mean: 0.8 } }, 'EXP-D-100': {} }),
-    { metricName: 'dice_3d', stat: 'median' });
+  const sparse = deltaFor(pairOf({ comparable: true }, { 'EXP-U-100': { dice: { mean: 0.8 } }, 'EXP-D-100': {} }),
+    { metricName: 'dice', stat: 'median' });
   check('V3-11', !sparse.allowed, 'a missing statistic is not a delta of 0');
-  const ms = readMetricSummary({ dice_3d: { mean: 0.8, median: 'n/a' }, note: 'x' });
+  const ms = readMetricSummary({ dice: { mean: 0.8, median: 'n/a' }, note: 'x' });
   check('V3-11', ms.metrics[0].stats.median === null && ms.metrics[0].stats.mean === 0.8 && ms.ignored[0] === 'note',
     'one unreadable statistic does not hide the others, and nothing is dropped silently');
 }
@@ -452,9 +523,9 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
     metricsView: success({
       evaluation_n: 54, successful_n: 0, prediction_variant: 'RAW_PREDICTION', metric_version: 'mv1', metric_summary: {},
     }),
-    casesView: success({ items: [], metric_version: 'mv1' }),
+    casesView: success({ items: [], metric_version: 'mv1', prediction_variant: 'RAW' }),
     population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
-    metricName: 'dice_3d',
+    metricName: 'dice',
     aggregation,
   });
   check('V3-13', cell.status === CELL_STATUS.LOADED && cell.points.length === 0
@@ -463,7 +534,7 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
   check('V3-13', cell.n.text === 'N intended 54 · N successful 0',
     `the server's own counts are shown as served: "${cell.n.text}"`);
   check('V3-13', !cell.summary.available && cell.summary.reason === UNAVAILABLE.NO_READABLE_STATISTIC
-    && summaryStat(cell.summary, 'dice_3d', 'median') === null,
+    && summaryStat(cell.summary, 'dice', 'median') === null,
     'an empty summary has no statistic - not a median of 0');
 }
 
@@ -490,7 +561,7 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
   }
   if (generated('experiment_cases', 'empty')) {
     const m = createExperimentComparison(newClient());
-    await m.open({ experimentIds: ['EXP-U-025'], metricName: 'dice_3d', scenarios: { experiment_cases: 'empty' } });
+    await m.open({ experimentIds: ['EXP-U-025'], metricName: 'dice', scenarios: { experiment_cases: 'empty' } });
     const c = m.cell('EXP-U-025');
     check('V3-14', c.casesView.state === STATE.SUCCESS && c.cases.rows.length === 0,
       `experiment_cases with no rows -> ${c.casesView.state}, not CONTRACT_DRIFT`);

@@ -16,7 +16,7 @@
 | `cohort.mjs` | one matrix **cell** from the core states of `experiment_get` / `_metrics` / `_cases`; the server's comparability verdicts; trend and delta, gated by those verdicts; the D2 metric context |
 | `readers.mjs` | pure readers: counts, N, variant, family, fraction, population, metric summary, per-case rows, the DR-010 outlier selection, navigation intents. `MATRIX` (`08` §2) and `COMPARISONS` |
 | `strip.mjs` | strip-plot geometry and `pointAt` — a tap on any point resolves to its case |
-| `test_study_and_compare.mjs` | 113 checks, plus V3-14, which prints `NOT RUN` until the bundle has `empty` scenarios; CI step **V3 study and compare** |
+| `test_study_and_compare.mjs` | 129 checks against the contract 1.1.0 bundle, the `empty` scenarios included (V3-14); CI step **V3 study and compare** |
 
 ```bash
 python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
@@ -32,12 +32,12 @@ screen must say so.
 ```js
 const overview = createStudyOverview(client);
 await overview.open({ studyId });                 // no default study
-overview.openOutlier(0);                          // -> { screen: 'SCR-03', caseId, runId, variant, enabled, reason }
+overview.openOutlier('EXP-U-100', 0);             // -> { screen: 'SCR-03', caseId, runId, variant, enabled, reason }
 
 const compare = createExperimentComparison(client);
 await compare.open({});                           // MATRIX: the 7 cells of 08 §2, filled from experiment_list
 await compare.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'] });   // EXPLICIT: e.g. one pair from SCR-01
-compare.selectMetric('dice_3d');                  // the per-case metric the strip plots - no default
+compare.selectMetric('dice');                     // the per-case metric the strip plots - no default
 compare.labelsFor('EXP-U-100');                   // the server's verdicts that involve this cell
 compare.trend({ stat: 'median' });                // joined into a line only under a COMPARABLE verdict
 compare.delta('RQ-A-100', { stat: 'median' });    // only where core's presentation().mayShowDelta
@@ -55,56 +55,53 @@ stripLayout(compare.stripColumns(), { width, height });   // + pointAt(layout, x
 | No delta and no trend line without a `COMPARABLE` verdict; a delta uses the server's **common-population** summaries | `deltaFor`, `buildTrend` | V3-6, V3-11 |
 | A metric served for another variant than `08` §2 defines the experiment by is **refused, not relabelled** (`11` §6) | `buildCell` | V3-5, V3-9 |
 | A served `experiment_id` / `study_id` that differs from the one asked is **reported**, not repaired | `readExperimentIdentity`, SCR-01 `idConfirmed` | V3-1, V3-4 |
-| Failed and excluded cases stay visible with their reason; only `SUCCEEDED` rows with a value are points | `readCaseRows` | V3-9 |
+| Failed, excluded and withheld (INFERENCE_REVIEW) cases stay visible with their reason; only `SUCCEEDED` rows with a value are points, and only when `experiment_cases` states the same variant as the metrics | `readCaseRows`, `buildCell` | V3-4, V3-9 |
 | An empty list is a **legitimate absence**, said as such: no experiment listed → `SCR-07` is `EMPTY_UNAVAILABLE` / `NO_EXPERIMENTS_LISTED` with REFRESH; no case rows → the cell's strip says `NO_CASE_RESULTS`. An unknown row count is `null`, not 0 | `experimentCompare.mjs`, `buildCell` | V3-13, V3-14 |
-| Outliers are the server's DR-010 selection, **in the order served** — refused if it cites another rule, names no experiment/variant, or belongs to another one | `readOutlierSelection` | V3-9 |
+| Outliers are the server's DR-010 `outlier_selection`, **in the order served**, never computed — refused if it cites another rule, names no experiment/variant, or belongs to another one | `readOutlierSelection` | V3-4, V3-9 |
 | Nothing in this vertical sorts (`.sort(` is refused outside comments) and nothing imports outside `app/` | — | V3-12 |
 | An intent to `SCR-03` is enabled only when the server named case, run **and** variant | `caseIntent` | V3-4, V3-9, V3-10 |
 | A distribution is a **strip**, not a box: Tukey whiskers would be a second definition of "outlier" next to DR-010 | `strip.mjs` | V3-10 |
 | Per-experiment metric values are **not** on `SCR-01`: two numbers side by side read as a comparison, and there they would carry no comparability label. `SCR-01` shows N and status per cell, and common-population numbers only under the server's `COMPARABLE` | `studyOverview.mjs` | V3-1 |
 
-## What today's generated bundle can and cannot show
+## What today's generated bundle shows (contract 1.1.0)
 
-`generate_fixture.py` derives values from **field names only**, so the V3 endpoints get placeholders:
-`evaluation_n: "evaluation_n_fixture"`, `metric_summary: "metric_summary_fixture"`, one `experiment_list`
-row with **no `experiment_id`**, one `experiment_cases` row with status `"IN_PROGRESS"` and no run id, and an
-`experiment_get` that answers `EXPERIMENT_ID_0043` whatever is asked. On that bundle the honest screens are:
+Since contract 1.1.0 the generator gives the V3 endpoints **typed** values for one experiment, `EXP_DEMO`:
+N intended 6 / successful 4, a `metric_summary` for the five case metrics, six case rows (four `SUCCEEDED`
+with `metric_values`, one `FAILED`, one `WITHHELD` INFERENCE_REVIEW case) and a DR-010 `outlier_selection`.
+The list also names `EXP-D-PP` as `PROCESSED`. The fixture transport answers the same body whatever id is
+asked, so on the bundle:
 
-- `SCR-01`: study, dataset, case count and findings as served; **0 of 7** matrix experiments listed; no
-  outlier selection;
-- `SCR-07` in MATRIX mode: 7 `NOT_LISTED` cells; in EXPLICIT mode: N **unavailable** (not 0), summary
-  unavailable, identity mismatch reported, `EXP-D-PP` refused because every experiment is served as `RAW`,
-  and the comparability label exactly as the `default` / `not_comparable` scenario says.
+- `SCR-01`: dataset object, case counts by mode, capabilities and `experiment_summary` (`UNAVAILABLE`, with
+  its reason) as served; `EXP-D-PP` is the one listed matrix experiment; `EXP_DEMO` is listed outside the
+  `08` §2 matrix and shown by id; findings `OPEN`;
+- `SCR-07` for a matrix id (e.g. `EXP-U-100`): N 6 / 4, the summary, 4 plotted cases with working SCR-03
+  links, the `FAILED` and `WITHHELD` rows listed with their reasons — and the identity mismatch (`EXP_DEMO`
+  answered) **reported**, and the outlier selection (made for `EXP_DEMO`) **refused, not relabelled**;
+- `EXP-D-PP` stays `VARIANT_MISMATCH`: the generator has a `PROCESSED` identity (`experiment_get`
+  `processed_variant`) but serves its metrics as `RAW`, and identity does not launder a variant (V3-5).
 
-That is correct behaviour, not a gap in the screens. The typed path — real N, points, outliers, intents,
-trend, delta — is exercised by V3-8…V3-11 and V3-13 with inline reader inputs, the way `app/core`'s
+The empty lists of #62 run end to end (V3-14: `NO_EXPERIMENTS_LISTED`, `NO_CASE_RESULTS`). The typed paths the
+bundle cannot reach — outliers for a matrix id, trend and delta under `COMPARABLE` — are exercised by
+V3-8…V3-11 and V3-13 with inline reader inputs in the contract's shapes, the way `app/core`'s
 `test_readers.mjs` tests `selection.mjs` and `comparability.mjs`. No screen renders those inputs.
 
-**Pending dependency — empty lists.** `app/core/transport.mjs` currently refuses a list response with
-`items: []` as `CONTRACT_DRIFT` when the endpoint has row fields (`experiment_cases`), so "this experiment has
-no per-case result yet" would block the screen instead of saying so. The contract v1.0 PR (A3, Day 22) fixes
-that in core (explicit `row_fields`, per-item checks) and adds generated `empty` scenarios for
-`experiment_list` / `experiment_cases`. V3 already handles both (V3-13); V3-14 drives them end to end through
-the transport and runs as soon as the regenerated bundle has them. V3 does not patch core.
+## The shapes are the contract's (API contract 1.1.0)
 
-## Where Contract 11 (DRAFT v0) stops — decisions needed
+There is no V3-side assumption left; the `PROPOSED_SHAPES` of the first skeleton were adopted by contract
+1.1.0 (#71) and removed here. What each reader follows:
 
-`contract.json` names the V3 fields but not what is inside four of them, and returns no outlier selection at
-all (the same gap `app/core/selection.mjs` records for the worst slice). `readers.mjs` `PROPOSED_SHAPES` is
-the **one** place this vertical assumes a shape; if the v1.0 freeze (INT-11) picks other names, that block
-and the reader that uses it change, nothing else:
+| Field | Contract 1.1.0 | Reader |
+|---|---|---|
+| `study_get.dataset` / `case_counts` / `capabilities` / `experiment_summary` | `field_shapes` | `readDataset`, `readCaseCounts`, `readCapabilities`, `readExperimentSummary` |
+| `experiment_list` rows | `row_fields`: `experiment_id`, `prediction_variant`; `evaluation_population` top-level (null when not shared) | `readExperimentRows` |
+| `experiment_metrics.metric_summary` | `metric_rules.summary_rule`: every case metric → `summary_statistics` (`n`, `mean`, `std`, `median`, `q1`, `q3`, `min`, `max`, `ci95_low`, `ci95_high`), each a number or null | `readMetricSummary` |
+| `experiment_compare.summary` | per compared `experiment_id`, a `metric_summary` over the common population | `requestComparisons`, `deltaFor` |
+| `experiment_cases` rows | `row_fields` + `field_shapes.metric_values`; `status` ∈ `case_result_status` (`SUCCEEDED`, `FAILED`, `EXCLUDED`, `WITHHELD`); top-level `prediction_variant` | `readCaseRows`, `buildCell` |
+| `experiment_cases.outlier_selection` | `selection_rules.outlier_selection` (DR-010, cardinality 3, served ranked) | `readOutlierSelection` |
 
-| Field | Proposed shape |
-|---|---|
-| `experiment_metrics.metric_summary` | `{ "<metric_name>": { mean, median, std, q1, q3, min, max, ci95_low, ci95_high } }` |
-| `experiment_compare.summary` | `{ "<experiment_id>": <metric_summary shape> }` over the common population |
-| `experiment_cases.items[*]` | `+ analysis_run_id`, `+ metrics: { "<metric_name>": number \| null }`; `status` ∈ `SUCCEEDED \| FAILED \| EXCLUDED` |
-| `experiment_list.items[*]` | `+ experiment_id` |
-| `experiment_cases.outlier_selection`, `study_get.experiment_summary.outlier_selection` | `{ rule_id: "DR-010", experiment_id, prediction_variant, metric_name, cases: [{ case_id, analysis_run_id, metric_value }] }`, server order |
-
-Two generator notes for Trung, same class as the `slice_index` coincidence in the #50 review:
-`param_value("experiment_id")` is `EXP_DEMO` but `field_value("experiment_id")` is `EXPERIMENT_ID_0043`, and
-every V3 `prediction_variant` is `RAW`, so `EXP-D-PP` can never be shown from the bundle.
+`SCR-01` shows the outlier entry points **per listed matrix experiment**, from that experiment's
+`experiment_cases.outlier_selection`: DR-010 makes the experiment and variant explicit inputs, so there is no
+single study-wide outlier list (and contract 1.1.0 puts none in `experiment_summary`).
 
 ## Endpoints this vertical calls
 
@@ -112,7 +109,7 @@ every V3 `prediction_variant` is `RAW`, so `EXP-D-PP` can never be shown from th
 |---|---|---|
 | `SCR-01` | `study_get` | `case_counts`, `capabilities`, `experiment_summary` |
 | `SCR-01` | `case_list` | **not called by V3**: `openCases()` routes to `SCR-02`, which is V1's (DR-013a, Day 20 rebaseline) |
-| `SCR-01` | `experiment_list`, `experiment_metrics`, `experiment_compare`, `findings_list` | listed matrix cells (N and status only), the server's verdicts, the findings summary |
+| `SCR-01` | `experiment_list`, `experiment_metrics`, `experiment_cases`, `experiment_compare`, `findings_list` | listed matrix cells (N and status only), each listed experiment's DR-010 `outlier_selection`, the server's verdicts, the findings summary |
 | `SCR-07` | `experiment_list` | list endpoint |
 | `SCR-07` | `experiment_get` | the full provenance row: split manifest, preprocessing/postprocessing, checkpoint, evaluation version |
 | `SCR-07` | `experiment_metrics` | `evaluation_n` **and** `successful_n` — they are not the same number |
@@ -165,9 +162,9 @@ can do about it, and offering a retry would suggest otherwise.
 1. **Switch to real Contract 2 artifacts once ingested** (DEP-07 → backend). No model change is needed: the
    same `client.call()` reads the HTTP transport. Re-run this test, then check `SCR-01`/`SCR-07` show real N
    with `source !== 'fixture'`.
-2. **Settle the shapes** in [the table above](#where-contract-11-draft-v0-stops--decisions-needed) with Trung
-   in the contract v1.0 freeze, including where the DR-010 outlier selection lives; regenerate the bundle and
-   adjust `PROPOSED_SHAPES` + its reader only.
+2. **Contract 1.1.0 is adopted** (the readers follow [its shapes](#the-shapes-are-the-contracts-api-contract-110)).
+   Left with Trung: a generator scenario that serves `EXP-D-PP` metrics and cases as `PROCESSED`, so the
+   ablation cell can be shown from the bundle (today it is correctly refused, V3-5).
 3. **RQ-A / RQ-B views**: the data-scarcity trend (`trend()`), the head-to-head per fraction
    (`COMPARISONS` `RQ-A-025/050/100`) and the raw-vs-processed ablation (`RQ-B`, EXP-D-100 vs EXP-D-PP) are
    modelled; the report-ready views (`08` §9 winners/losers, paired case-level comparison, `08` §7) are not.

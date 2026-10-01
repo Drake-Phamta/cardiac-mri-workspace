@@ -19,8 +19,8 @@ export {
 } from './cohort.mjs';
 export { stripLayout, pointAt } from './strip.mjs';
 export {
-  PROPOSED_SHAPES, FAMILY, LANE, MATRIX, MATRIX_IDS, COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE,
+  FAMILY, LANE, MATRIX, MATRIX_IDS, COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE,
   matrixEntry, readCount, readNumber, readCohortN, readVariant, readFamily, readFraction, readPopulation,
   readExperimentIdentity, readMetricSummary, summaryStat, caseIntent, readCaseRows, readOutlierSelection,
-  readDataset, readCaseCounts, readCapabilities, readIdRows,
+  readDataset, readCaseCounts, readCapabilities, readExperimentSummary, readIdRows, readExperimentRows,
 } from './readers.mjs';

@@ -10,8 +10,12 @@
  *   high-level comparable      experiment_compare: the server's verdict per
  *   metrics                    comparison, and its common-population summary
  *                              ONLY where the server said COMPARABLE
- *   outlier entry points       study_get.experiment_summary.outlier_selection,
- *                              the server's DR-010 selection (PROPOSED_SHAPES)
+ *   outlier entry points       experiment_cases.outlier_selection of each
+ *                              listed matrix experiment - the server's DR-010
+ *                              selection for THAT experiment and variant
+ *                              (contract 1.1.0 selection_rules), never computed
+ *   experiment summary         study_get.experiment_summary: AVAILABLE or
+ *                              UNAVAILABLE with a reason
  *   findings summary           findings_list, counted as returned
  *
  * Per-experiment metric VALUES are deliberately not on this screen. Two
@@ -26,8 +30,8 @@
 
 import { STATE, loading, success } from '../../core/index.mjs';
 import {
-  MATRIX, UNAVAILABLE, matrixEntry, readIdRows, readPopulation, readDataset, readCaseCounts, readCapabilities,
-  readOutlierSelection,
+  MATRIX, UNAVAILABLE, matrixEntry, readExperimentRows, readPopulation, readDataset, readCaseCounts, readCapabilities,
+  readExperimentSummary,
 } from './readers.mjs';
 import {
   CELL_STATUS, aggregationFor, buildCell, notListedCell, requestCell, requestComparisons,
@@ -45,9 +49,13 @@ function snapshot(view, f) {
     dataset: f.dataset ?? null,
     caseCounts: f.caseCounts ?? null,
     capabilities: f.capabilities ?? null,
+    experimentSummary: f.experimentSummary ?? null,
     experiments: f.experiments ?? null,
     headline: Object.freeze([...(f.headline ?? [])]),
-    outliers: f.outliers ?? null,
+    // One DR-010 selection per listed matrix experiment, in matrix order:
+    // [{ experimentId, selection }]. DR-010 makes the experiment an explicit
+    // input, so there is no single "study outlier list" to show.
+    outliers: Object.freeze([...(f.outliers ?? [])]),
     findings: f.findings ?? null,
   });
 }
@@ -111,17 +119,20 @@ export function createStudyOverview(client) {
       client.call('findings_list', {}, { scenario: pick(scenarios, 'findings_list') }),
     ]);
 
-    const rows = listView.state === STATE.SUCCESS ? readIdRows(listView.data, 'experiment_id') : null;
+    const rows = listView.state === STATE.SUCCESS ? readExperimentRows(listView.data) : null;
     const listed = new Set(rows ? rows.ids : []);
     const population = listView.state === STATE.SUCCESS ? readPopulation(listView.data.evaluation_population) : null;
     const listedMatrix = MATRIX.filter((e) => listed.has(e.id));
 
-    const metrics = new Map();
+    // Metrics (N and status) and cases (only for the server's DR-010
+    // selection) of each listed matrix experiment. No identity call: this
+    // screen shows no provenance.
+    const fetched = new Map();
     await Promise.all(listedMatrix.map(async (e) => {
-      metrics.set(e.id, await requestCell(client, e, { scenarios, withIdentity: false, withCases: false }));
+      fetched.set(e.id, await requestCell(client, e, { scenarios, withIdentity: false, withCases: true }));
     }));
     const cells = MATRIX.map((e) => (listed.has(e.id)
-      ? buildCell(e, { ...metrics.get(e.id), population, aggregation })
+      ? buildCell(e, { ...fetched.get(e.id), population, aggregation })
       : notListedCell(e, listView.state === STATE.SUCCESS ? CELL_STATUS.NOT_LISTED : CELL_STATUS.NOT_REQUESTED)));
 
     const comparisons = await requestComparisons(client, listed, { scenarios });
@@ -150,6 +161,7 @@ export function createStudyOverview(client) {
       dataset: readDataset(study.data.dataset),
       caseCounts: readCaseCounts(study.data.case_counts),
       capabilities: readCapabilities(study.data.capabilities),
+      experimentSummary: readExperimentSummary(study.data.experiment_summary),
       experiments: Object.freeze({
         view: listView,
         // A list that answered with no rows is a legitimate absence ("no
@@ -159,11 +171,14 @@ export function createStudyOverview(client) {
         totalRows: rows ? rows.total : null,
         unreadableRows: rows ? rows.unreadable : null,
         outsideMatrix: Object.freeze((rows ? rows.ids : []).filter((id) => matrixEntry(id) === null)),
+        variantProblems: rows ? rows.problems : Object.freeze([]),
         population,
         matrix: Object.freeze(cells.map(overviewRow)),
       }),
       headline,
-      outliers: readOutlierSelection(study.data.experiment_summary?.outlier_selection),
+      outliers: cells
+        .filter((c) => listed.has(c.id))
+        .map((c) => Object.freeze({ experimentId: c.id, selection: c.outliers })),
       findings: readFindings(findingsView),
     });
   }
@@ -185,10 +200,15 @@ export function createStudyOverview(client) {
         reason: h ? h.notRequestedReason : `unknown comparison ${comparisonId}`,
       });
     },
-    openOutlier(rank) {
-      const o = current.outliers;
-      if (!o?.available) {
-        return Object.freeze({ screen: 'SCR-03', enabled: false, reason: o?.reason ?? 'no outlier selection' });
+    /* DR-010: the experiment is an explicit input; the rank is the server's. */
+    openOutlier(experimentId, rank) {
+      const entry = current.outliers.find((o) => o.experimentId === experimentId);
+      const o = entry ? entry.selection : null;
+      if (!o || !o.available) {
+        return Object.freeze({
+          screen: 'SCR-03', enabled: false,
+          reason: o ? o.reason : `no outlier selection for ${experimentId}`,
+        });
       }
       return o.cases[rank]?.intent ?? Object.freeze({ screen: 'SCR-03', enabled: false, reason: `no outlier at rank ${rank}` });
     },

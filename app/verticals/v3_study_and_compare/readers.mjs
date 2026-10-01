@@ -13,24 +13,25 @@
  *     UNAVAILABLE with a reason and the value that was served. It is never 0,
  *     never NaN, never a blank that a chart would draw as 0 (`10` section 7).
  *
- * WHERE CONTRACT 11 (DRAFT v0) STOPS
+ * THE SHAPES ARE THE CONTRACT'S (API contract 1.1.0)
  *
- * contract.json names the V3 response fields but not what is inside four of
- * them: `metric_summary`, `experiment_compare.summary`, the per-case metric
- * values on `experiment_cases` rows, and the DR-010 outlier selection (no
- * endpoint returns one yet - the same gap selection.mjs records for the worst
- * slice). PROPOSED_SHAPES below is the one place this vertical assumes a
- * shape. If the contract freeze (INT-11) lands on different names, this block
- * and the reader that uses each name change, and nothing else does.
+ * Every inner shape read here is defined by contracts/api/contract.json -
+ * there is no V3-side assumption left. The section each reader follows:
+ *
+ *   study_get.dataset / case_counts /    field_shapes.dataset, .case_counts,
+ *     capabilities / experiment_summary    .capabilities, .experiment_summary
+ *   experiment_list rows                 row_fields: experiment_id, prediction_variant;
+ *                                        evaluation_population top-level
+ *   experiment_metrics.metric_summary    metric_rules.summary_rule / summary_statistics
+ *   experiment_compare.summary           metric_rules.summary_rule (per compared id,
+ *                                        over the common evaluation population)
+ *   experiment_cases rows                row_fields + field_shapes.metric_values;
+ *                                        status is domain_enums.case_result_status
+ *   experiment_cases.outlier_selection   selection_rules.outlier_selection (DR-010)
+ *
+ * If a later contract renames one of these, the reader that uses it changes,
+ * and nothing else does.
  */
-
-export const PROPOSED_SHAPES = Object.freeze({
-  metric_summary: '{ "<metric_name>": { "mean", "median", "std", "q1", "q3", "min", "max", "ci95_low", "ci95_high" } } - numbers; any stat may be absent',
-  experiment_compare_summary: '{ "<experiment_id>": <metric_summary shape> } - over the common evaluation population',
-  experiment_cases_row: '{ case_id, status: SUCCEEDED|FAILED|EXCLUDED, reason, analysis_run_id, metrics: { "<metric_name>": number|null } }',
-  experiment_list_row: '{ experiment_id, ... }',
-  outlier_selection: '{ rule_id: "DR-010", experiment_id, prediction_variant, metric_name, cases: [{ case_id, analysis_run_id, metric_value }] } on experiment_cases, and on study_get.experiment_summary',
-});
 
 export const FAMILY = Object.freeze({ UNET: 'UNET', DINOV2: 'DINOV2' });
 
@@ -91,9 +92,13 @@ export const OUTLIER_RULE = Object.freeze({
     + 'selected experiment and prediction variant; ties: higher FP+FN voxel count first, then case_id',
 });
 
-// Per-case row statuses. `08` section 8.1: failed and excluded cases are never
-// dropped, so every row is kept; only SUCCEEDED rows with a value are plotted.
-export const ROW_STATUS = Object.freeze({ SUCCEEDED: 'SUCCEEDED', FAILED: 'FAILED', EXCLUDED: 'EXCLUDED' });
+// Per-case row statuses - contract domain_enums.case_result_status. `08`
+// section 8.1: failed and excluded cases are never dropped, so every row is
+// kept; only SUCCEEDED rows with a value are plotted. WITHHELD is an
+// INFERENCE_REVIEW case (INT-12): visible, with its reason, never a value.
+export const ROW_STATUS = Object.freeze({
+  SUCCEEDED: 'SUCCEEDED', FAILED: 'FAILED', EXCLUDED: 'EXCLUDED', WITHHELD: 'WITHHELD',
+});
 
 export const UNAVAILABLE = Object.freeze({
   NOT_RETURNED: 'NOT_RETURNED',
@@ -266,7 +271,9 @@ export function readExperimentIdentity(data, expected) {
   });
 }
 
-const SUMMARY_STATS = Object.freeze(['mean', 'median', 'std', 'q1', 'q3', 'min', 'max', 'ci95_low', 'ci95_high']);
+// contract metric_rules.summary_statistics, each a number or null (null = not
+// computed). Read one by one: a null std does not hide a present median.
+const SUMMARY_STATS = Object.freeze(['n', 'mean', 'median', 'std', 'q1', 'q3', 'min', 'max', 'ci95_low', 'ci95_high']);
 
 /*
  * A metric summary as served (PROPOSED_SHAPES.metric_summary). Each statistic
@@ -336,24 +343,27 @@ export function caseIntent({ caseId, runId, variant, experimentId, from }) {
 }
 
 /*
- * experiment_cases rows (PROPOSED_SHAPES.experiment_cases_row). Every row is
- * kept, in the order served. `plotState` says why a row is or is not a point:
- * a FAILED or EXCLUDED case stays visible with its reason (`08` section 8.1),
- * and a SUCCEEDED row with no value is "not returned", not a point at 0.
+ * experiment_cases rows (contract row_fields + field_shapes.metric_values).
+ * Every row is kept, in the order served. `plotState` says why a row is or is
+ * not a point: a FAILED, EXCLUDED or WITHHELD case stays visible with its
+ * reason (`08` section 8.1, INT-12), and a SUCCEEDED row with no value is
+ * "not returned", not a point at 0. `servedVariant` is the variant the server
+ * says these rows are for (top-level prediction_variant).
  */
 export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
   const items = Array.isArray(data?.items) ? data.items : null;
+  const servedVariant = readVariant(data?.prediction_variant);
   if (!items) {
     return Object.freeze({
       available: false, reason: UNAVAILABLE.NOT_RETURNED, rows: Object.freeze([]),
-      counts: Object.freeze({ total: 0, plotted: 0 }), metricVersion: data?.metric_version ?? null,
+      counts: Object.freeze({ total: 0, plotted: 0 }), metricVersion: data?.metric_version ?? null, servedVariant,
     });
   }
   const rows = items.map((r, index) => {
     const caseId = typeof r?.case_id === 'string' && r.case_id ? r.case_id : null;
     const status = typeof r?.status === 'string' ? r.status : null;
     const runId = typeof r?.analysis_run_id === 'string' && r.analysis_run_id ? r.analysis_run_id : null;
-    const metrics = isObject(r?.metrics) ? r.metrics : null;
+    const metrics = isObject(r?.metric_values) ? r.metric_values : null;
     const raw = metricName && metrics ? metrics[metricName] : undefined;
     const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
 
@@ -390,6 +400,7 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
     counts: Object.freeze(counts),
     metricName: metricName ?? null,
     metricVersion: data?.metric_version ?? null,
+    servedVariant,
   });
 }
 
@@ -436,6 +447,9 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
       caseId,
       runId,
       value: readNumber(c?.metric_value),
+      // The tie-break the server applied (DR-010): FP+FN, shown, never re-ranked.
+      falsePositives: readCount(c?.false_positives),
+      falseNegatives: readCount(c?.false_negatives),
       intent: caseIntent({
         caseId, runId, variant: servedVariant.lane, experimentId: servedExperiment, from: 'outlier_selection',
       }),
@@ -446,6 +460,7 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
     reason: null,
     ruleId: block.rule_id ?? null,
     ruleCited: block.rule_id === OUTLIER_RULE.id,
+    selectionVersion: block.selection_version ?? null,
     experimentId: servedExperiment,
     variant: servedVariant,
     metricName: block.metric_name ?? null,
@@ -453,20 +468,39 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
   });
 }
 
-/* study_get.dataset - a label or an identity object; shown as served. */
+/* study_get.dataset - contract field_shapes.dataset { dataset_id, name, version }; shown as served. */
 export function readDataset(v) {
-  if (typeof v === 'string' && v) return Object.freeze({ available: true, label: v, name: v, version: null, acquisitionTag: null });
-  if (isObject(v)) {
-    const name = v.name ?? v.dataset_id ?? v.id ?? null;
-    const version = v.version ?? null;
-    const acquisitionTag = v.acquisition_tag ?? null;
-    return Object.freeze({
-      available: name !== null,
-      label: [name, version, acquisitionTag].filter((x) => !absent(x)).join(' · ') || null,
-      name, version, acquisitionTag,
-    });
+  if (!isObject(v)) {
+    return Object.freeze({ available: false, label: null, datasetId: null, name: null, version: null, served: servedForDisplay(v) });
   }
-  return Object.freeze({ available: false, label: null, name: null, version: null, acquisitionTag: null, served: servedForDisplay(v) });
+  const datasetId = typeof v.dataset_id === 'string' && v.dataset_id ? v.dataset_id : null;
+  const name = typeof v.name === 'string' && v.name ? v.name : null;
+  const version = absent(v.version) ? null : String(v.version);
+  const head = name ?? datasetId;
+  return Object.freeze({
+    available: head !== null,
+    label: head === null ? null
+      : `${head}${version ? ` · version ${version}` : ''}${name && datasetId ? ` (${datasetId})` : ''}`,
+    datasetId, name, version,
+  });
+}
+
+/*
+ * study_get.experiment_summary - contract field_shapes.experiment_summary
+ * { status: AVAILABLE | UNAVAILABLE, experiment_ids, reason }. UNAVAILABLE is
+ * a legitimate answer with a reason, never an invented summary.
+ */
+export function readExperimentSummary(v) {
+  if (!isObject(v)) {
+    return Object.freeze({ available: false, status: null, reason: absent(v) ? UNAVAILABLE.NOT_RETURNED : UNAVAILABLE.WRONG_TYPE, experimentIds: Object.freeze([]) });
+  }
+  const ids = Array.isArray(v.experiment_ids) ? v.experiment_ids.filter((x) => typeof x === 'string' && x) : [];
+  return Object.freeze({
+    available: v.status === 'AVAILABLE',
+    status: typeof v.status === 'string' ? v.status : null,
+    reason: absent(v.reason) ? null : String(v.reason),
+    experimentIds: Object.freeze(ids),
+  });
 }
 
 /* study_get.case_counts - every key the server sent, each read as a count. */
@@ -505,4 +539,26 @@ export function readIdRows(data, idField) {
     else unreadable += 1;
   }
   return Object.freeze({ ids: Object.freeze(ids), total: items.length, unreadable });
+}
+
+/*
+ * experiment_list rows (contract 1.1.0: each row states its own
+ * prediction_variant). A matrix experiment listed under another variant than
+ * `08` section 2 defines it by is reported here - never re-filed.
+ */
+export function readExperimentRows(data) {
+  const base = readIdRows(data, 'experiment_id');
+  const variants = {};
+  const problems = [];
+  for (const row of Array.isArray(data?.items) ? data.items : []) {
+    const id = typeof row?.experiment_id === 'string' && row.experiment_id ? row.experiment_id : null;
+    if (!id) continue;
+    const variant = readVariant(row.prediction_variant);
+    variants[id] = variant;
+    const expected = matrixEntry(id);
+    if (expected && variant.lane !== expected.lane) {
+      problems.push(`08 section 2 defines ${id} on ${expected.lane}; the list states ${servedForDisplay(variant.declared) ?? 'no variant'}`);
+    }
+  }
+  return Object.freeze({ ...base, variants: Object.freeze(variants), problems: Object.freeze(problems) });
 }
