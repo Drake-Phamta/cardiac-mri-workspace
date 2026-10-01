@@ -549,7 +549,26 @@ def _a20_manifest(manifest: dict) -> Result:
 
 # --- summary ----------------------------------------------------------------
 
-def summarise(results: list[Result], owner_verdicts: dict[str, Any] | None = None) -> dict[str, Any]:
+def anomaly_counts(manifest: dict[str, Any]) -> dict[str, int]:
+    """Count the same anomaly classes inventoried by A15 and the audit renderer."""
+    unreadable_or_non_finite = sum(
+        1 for case in manifest.get("cases") or []
+        for role in ("mri", "mask")
+        for volume in [case.get(role)]
+        if isinstance(volume, dict) and
+        (not volume.get("read_ok") or volume.get("has_non_finite") is True)
+    )
+    duplicates = len(manifest.get("duplicate_evidence") or [])
+    package_findings = len(manifest.get("package_findings") or [])
+    return {
+        "anomalies": unreadable_or_non_finite + duplicates + package_findings,
+        "duplicate_evidence_groups": duplicates,
+        "package_findings": package_findings,
+    }
+
+
+def summarise(results: list[Result], owner_verdicts: dict[str, Any] | None = None,
+              manifest: dict[str, Any] | None = None) -> dict[str, Any]:
     counts = {PASS: 0, FAIL: 0, NOT_RUN: 0, OWNER: 0}
     for r in results:
         counts[r.status] = counts.get(r.status, 0) + 1
@@ -562,6 +581,7 @@ def summarise(results: list[Result], owner_verdicts: dict[str, Any] | None = Non
     confirmed = sum(bool(str(owner_verdicts.get(field, "")).strip())
                     for field in required_owner_fields)
     return {
+        **(anomaly_counts(manifest) if manifest is not None else {}),
         "pass": counts[PASS],
         "fail": counts[FAIL],
         "not_run": counts[NOT_RUN],
