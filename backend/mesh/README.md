@@ -100,6 +100,14 @@ vertex-diagonal; the synthetic blob and four random masks). A ray that starts
 inside the foreground reports the face it leaves through (the DDA would report
 the start cell); that case is not part of the contract.
 
+**On a real mask (Day 22, offline, A4):** on the `CASE_0059` left-atrium mask, level-0
+picks through `face_source_slice` matched an exact traversal of the mask on **3,399 of
+3,399** rays that meet it (six directions from the PR #66 ray set: top-down, bottom-up,
+60 degrees, two near-tangent, one oblique), with no miss and no navigation on a mask-free
+ray. The floor rule on the same hit points was one slice off on 1,524 of them, all where a
+ray comes down onto a +z cap. At level 2 both rules exceed ±1 slice (holes), as #66 found.
+The rays and slices are not committed (derived from a patient mask); only these counts.
+
 ## Levels and DR-008c (not decided)
 
 | Level | 0 | 1 | 2 | 3 | 4 |
@@ -107,7 +115,7 @@ the start cell); that case is not part of the contract.
 | Clustering cell (voxels) | 1 (exact) | 1.25 | 2 | 4 | 8 |
 
 These are the five levels of today's (Day 22) offline Spike B real-mask
-frontier run. Level numbers follow that run, not the older
+frontier run (PR #66, `spikes/spike_b_3d/EVIDENCE_RAW/20261001_real_mesh/`). Level numbers follow that run, not the older
 `spikes/spike_b_3d/mesh/out/mesh_levels.json` numbering (cells 1, 2, 3, 4).
 
 **DR-008c is not decided.** Its rule (Day 22 override): DR-008c = the fastest
