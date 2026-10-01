@@ -64,6 +64,21 @@ const good = buildBundle(contract);
     'a field present on only some rows is refused');
 }
 
+// F3c — v1.0.0 row_fields: an empty page loads (row fields are vacuously
+// present), while an empty page that lost a top-level field does not.
+{
+  const b = clone(good);
+  b.scenarios.findings_list.empty = { request: { params: {}, body: null }, response: { status: 200, data: { items: [] } } };
+  b.scenarios.case_list.empty = {
+    request: b.scenarios.case_list.default.request,
+    response: { status: 200, data: { items: [], next_page: null, mode: null } },
+  };
+  check('F3c', problemsOf(b).length === 0, 'an empty page on a list endpoint loads clean');
+  const c = clone(b); delete c.scenarios.case_list.empty.response.data.next_page;
+  check('F3c', problemsOf(c).some((p) => p.includes('case_list.empty is missing response field next_page')),
+    'an empty page missing a top-level field is refused');
+}
+
 // F4 — an error code that belongs to a different endpoint. This is the one a
 // human reviewer misses, because the code is real.
 {

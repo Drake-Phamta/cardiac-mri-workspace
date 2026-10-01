@@ -23,7 +23,7 @@ string.
 | `analysis_run_metrics` returns `worst_slice_selection`: `rule_id` (`DR-010`), `selection_version` (`dr010-worst-slice/v1`), `slices[{slice_index, dice, false_positives, false_negatives}]`, ranked by the server, worst first | **DR-010a option (b)**, leader 2026-10-01; ranking unchanged from DR-010 | `selection_rules.worst_slice_selection` |
 | Review states `NOT_REVIEWED`, `ACCEPTED`, `FLAGGED`, `CORRECTED` with the `05` §6 transitions; `CORRECTED` needs a persisted reviewed mask; a commit leaves the review `CORRECTED` | **FR-REV-001 / V4-06**, leader 2026-10-01 | `domain_enums.review_status`, `domain_enums.review_status_transitions`, `review_rules` |
 | Finding statuses `OPEN`, `RESOLVED`; finding types from `05` | `05` Finding, FR-FIND-003 | `domain_enums` |
-| Case capability is explicit: `mode` is `EVALUATION` or `INFERENCE_REVIEW`; every ground-truth-dependent endpoint answers `GROUND_TRUTH_UNAVAILABLE` for an `INFERENCE_REVIEW` case; `case_list` rows carry `case_id`, `mode`, `ground_truth_available` | **INT-12 / PR-MODE-01**, leader 2026-10-01 | `case_capability` |
+| Case capability is explicit: `mode` is `EVALUATION` or `INFERENCE_REVIEW`; every ground-truth-dependent endpoint answers `GROUND_TRUTH_UNAVAILABLE` for an `INFERENCE_REVIEW` case; `case_list` rows carry `case_id`, `mode_capability`, `ground_truth_available` | **INT-12 / PR-MODE-01**, leader 2026-10-01 | `case_capability` |
 | Every endpoint carries `hero_flow`; 23 of 28 are `true` — the subset the backend implements first | **DEP-04 / INT-11**, leader 2026-10-01 | `hero_flow`, `endpoints[*].hero_flow` |
 | `review_create` carries `source_mask_id` and `prediction_variant`: a review is scoped to one source mask and one variant | **DR-009** (approved) | `review_rules.scope_fields` |
 
@@ -40,13 +40,20 @@ without them (additive fields only):
   source mask, case, run, time, reviewer when available, version).
 - `revision` on `finding_create` and `findings_list` rows (and `finding_type`,
   `note` on rows), so `finding_patch`'s `expected_revision` is knowable.
+- `row_fields` on all five list endpoints (`case_list`, `experiment_list`,
+  `experiment_cases`, `reviewed_masks_list`, `findings_list`): the fields on
+  each item are named, every other response field is top-level, and an empty
+  page (`items: []`) is valid. `case_list` keeps `next_page` and `mode` (the
+  echo of the mode filter, `null` when none) at the top level;
+  `experiment_list` rows gain `experiment_id`.
 - `geometry_contract.index_convention` (`x=column,y=row,z=slice`) and
   `geometry_contract.unvalidated_geometry_rule` (see below).
 - `domain_enums` + `enum_bindings`, `field_shapes` + `shape_bindings`: the
   values and object keys a response may carry, checked by
   `validate_response()`.
 
-`experiment_cases` and `analysis_run_create` are deliberately unchanged.
+`experiment_cases` (apart from naming its row fields) and `analysis_run_create`
+are deliberately unchanged.
 
 ### The inference-only case (INT-12)
 
@@ -132,6 +139,6 @@ node ../../app/core/tests/run_all.mjs
 
 The output is intentionally ignored by Git. Values in the bundle are synthetic
 placeholders (`data_policy`), typed by `domain_enums`/`field_shapes`; they are
-never measurements. Notable scenarios: `case_get.inference_review`,
+never measurements. Notable scenarios: `empty` on every list endpoint, `case_get.inference_review`,
 `analysis_run_metrics.{ground_truth_unavailable,no_eligible_slices}`,
 `review_patch.{stale_revision,invalid_transition}`.

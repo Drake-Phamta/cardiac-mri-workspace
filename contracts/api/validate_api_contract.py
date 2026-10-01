@@ -83,7 +83,7 @@ REQUIRED_ENUM_BINDINGS = {
         "finding_create.status", "findings_list.status",
         "finding_patch.status", "finding_patch.request.status",
     },
-    "case_mode": {"case_get.mode", "case_list.mode"},
+    "case_mode": {"case_get.mode", "case_list.mode_capability"},
 }
 CHECKSUM = re.compile(r"^sha256:[0-9a-f]{64}$")
 # Any key that names a physical unit. While geometry is not validated the API
@@ -238,12 +238,17 @@ def validate_contract(contract: dict, schema: Optional[dict] = None) -> dict:
             required_geometry_request = {"geometry_contract_version", "geometry_validation_status"}
             if not required_geometry_request <= request_fields:
                 _fail("ENDPOINT_RULE_MISSING", "working_mask_put: request must carry geometry version and validation status")
+        # List endpoints say which fields live on each item; the rest are
+        # top-level. An empty page (items: []) is then valid, because row
+        # fields are vacuously present and top-level fields are still checked.
         row_fields = endpoint.get("row_fields")
+        if "items" in fields and not row_fields:
+            _fail("LIST_CONTRACT_INVALID", f"{endpoint_id}: a list endpoint must declare row_fields")
         if row_fields is not None:
             if "items" not in fields:
-                _fail("ENDPOINT_RULE_MISSING", f"{endpoint_id}: row_fields on an endpoint without items")
+                _fail("LIST_CONTRACT_INVALID", f"{endpoint_id}: row_fields on an endpoint without items")
             if not set(row_fields) <= fields - {"items"}:
-                _fail("ENDPOINT_RULE_MISSING", f"{endpoint_id}: row_fields must be declared response_fields")
+                _fail("LIST_CONTRACT_INVALID", f"{endpoint_id}: row_fields must be declared response_fields")
 
     _validate_v1_rules(contract, endpoints_by_id)
 
@@ -332,10 +337,10 @@ def _validate_v1_rules(contract: dict, endpoints_by_id: Dict[str, dict]) -> None
     for endpoint_id in gt_dependent:
         if "GROUND_TRUTH_UNAVAILABLE" not in endpoints_by_id[endpoint_id]["errors"]:
             _fail("CASE_CAPABILITY_INVALID", f"{endpoint_id} must expose GROUND_TRUTH_UNAVAILABLE for INFERENCE_REVIEW cases")
-    for endpoint_id in ("case_get", "case_list"):
-        fields = set(endpoints_by_id[endpoint_id]["response_fields"])
-        if not {"mode", "ground_truth_available"} <= fields:
-            _fail("CASE_CAPABILITY_INVALID", f"{endpoint_id} must state mode and ground_truth_available per case")
+    if not {"mode", "ground_truth_available"} <= set(endpoints_by_id["case_get"]["response_fields"]):
+        _fail("CASE_CAPABILITY_INVALID", "case_get must state mode and ground_truth_available")
+    if not {"case_id", "mode_capability", "ground_truth_available"} <= set(endpoints_by_id["case_list"].get("row_fields", [])):
+        _fail("CASE_CAPABILITY_INVALID", "case_list rows must state case_id, mode_capability and ground_truth_available")
     if set(capability["modes"]) != set(enums["case_mode"]):
         _fail("CASE_CAPABILITY_INVALID", "case_capability.modes must cover exactly domain_enums.case_mode")
 
@@ -403,15 +408,10 @@ def _walk_keys(value: Any, prefix: str = "") -> Iterable[str]:
 
 
 def _field_values(body: dict, field: str, row_fields: Set[str]) -> List[Any]:
-    """Every value of a response field: top level, or each row for row fields."""
-    values = []
-    if field in body:
-        values.append(body[field])
-    if field in row_fields or (field not in body and isinstance(body.get("items"), list)):
-        for row in body.get("items") or []:
-            if isinstance(row, dict) and field in row:
-                values.append(row[field])
-    return values
+    """Every value of a response field: each row for row fields, else top level."""
+    if field in row_fields:
+        return [row[field] for row in body.get("items") or [] if isinstance(row, dict) and field in row]
+    return [body[field]] if field in body else []
 
 
 def _check_geometry(contract: dict, at: str, data: dict, problems: List[str]) -> None:
@@ -505,18 +505,14 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
     is_list = "items" in fields
     if is_list and not isinstance(body.get("items"), list):
         problems.append(f"{at}: items must be a list")
+    # Top-level fields must be present at the top level; row fields on every
+    # row, which an empty page satisfies vacuously.
     for field in fields:
-        if field == "items":
+        if field == "items" or field in row_fields:
             continue
-        if field in body:
-            continue
-        rows = body.get("items") if is_list else None
-        if isinstance(rows, list) and rows and all(isinstance(row, dict) and field in row for row in rows):
-            continue
-        if field in row_fields and isinstance(rows, list) and not rows:
-            continue  # an empty page has no rows to carry row fields
-        problems.append(f"{at}: missing response field {field}")
-    if row_fields and isinstance(body.get("items"), list):
+        if field not in body:
+            problems.append(f"{at}: missing response field {field}")
+    if is_list and isinstance(body.get("items"), list):
         for position, row in enumerate(body["items"]):
             missing = sorted(row_fields - set(row)) if isinstance(row, dict) else sorted(row_fields)
             if missing:
