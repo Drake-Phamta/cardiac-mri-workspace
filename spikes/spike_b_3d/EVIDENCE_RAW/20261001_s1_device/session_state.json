@@ -1,0 +1,129 @@
+{
+  "record": "spike_b_s1_session",
+  "evidence_status": "physical device session",
+  "not_computed_here": "No B number. harness/s1_extract.py computes them from these files.",
+  "owner": "Vu Hung Anh (Spike B)",
+  "operator": "Pham Tuan Anh (DR-006a)",
+  "started": "2026-10-01T19:01:08+0700",
+  "preflight": {
+    "at": "2026-10-01T19:01:05+0700",
+    "serial": "<A17_SERIAL>",
+    "failures": [],
+    "model": "SM-A176B",
+    "android": "16",
+    "is_emulator": false,
+    "screen_on": true,
+    "keyguard_showing": false,
+    "battery_level": 64,
+    "usb_powered": true,
+    "app_last_update": "2026-10-01 19:00:56",
+    "app_running_pid": "28827",
+    "collector": {
+      "ok": true,
+      "records": 1,
+      "rejected": 0,
+      "file": "s1_collector.jsonl"
+    },
+    "adb_reverse": [
+      "UsbFfs tcp:8766 tcp:8766"
+    ]
+  },
+  "installed_apk": {
+    "device_path": "base.apk",
+    "sha256": "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978",
+    "build_record": "build_record.json",
+    "build_record_apk_sha256": "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978",
+    "matches_build_record": true
+  },
+  "logcat_stream": {
+    "file": "logcat_stream.txt",
+    "pid": 25860,
+    "buffer_requested": "16M"
+  },
+  "conditions_before": {
+    "file": "conditions_before.json",
+    "sha256": "577951f00c482e58ab6c2c6d2444c011d204f97f2b4c22eebc948dff6b5af2b8",
+    "bytes": 4660
+  },
+  "collector_health_url": "http://127.0.0.1:8766/health",
+  "log_tag": "SPIKE_B_S1",
+  "ended": "2026-10-01T19:23:17+0700",
+  "conditions_after": {
+    "file": "conditions_after.json",
+    "sha256": "1c8c2efe958ef23e0731fbdb4fe26bd474547dc126b4d2ac77abdbdc8c289351",
+    "bytes": 4728
+  },
+  "logcat": {
+    "stream_lines_tagged": 5873,
+    "dump_lines_tagged": 5873,
+    "parsed_from": "stream",
+    "chunked_messages": 15,
+    "incomplete_chunks": [],
+    "payloads": 5708,
+    "kinds": {
+      "s1_frame_probe": 15,
+      "s1_loaded": 5,
+      "s1_nav_request": 1434,
+      "s1_pick": 2795,
+      "s1_rn_nav_displayed": 1434,
+      "s1_rn_open_level": 5,
+      "s1_rn_webview_loaded": 5,
+      "s1_suite_done": 5,
+      "s1_suite_start": 5,
+      "s1_tap_label": 3,
+      "s1_target_test_done": 2
+    }
+  },
+  "collector": {
+    "file": "s1_collector.jsonl",
+    "records": 5709,
+    "kinds": {
+      "s1_frame_probe": 15,
+      "s1_loaded": 5,
+      "s1_nav_request": 1434,
+      "s1_pick": 2795,
+      "s1_rn_app_start": 1,
+      "s1_rn_nav_displayed": 1434,
+      "s1_rn_open_level": 5,
+      "s1_rn_webview_loaded": 5,
+      "s1_suite_done": 5,
+      "s1_suite_start": 5,
+      "s1_tap_label": 3,
+      "s1_target_test_done": 2
+    }
+  },
+  "files": {
+    "conditions_after.json": {
+      "sha256": "1c8c2efe958ef23e0731fbdb4fe26bd474547dc126b4d2ac77abdbdc8c289351",
+      "bytes": 4728
+    },
+    "conditions_before.json": {
+      "sha256": "577951f00c482e58ab6c2c6d2444c011d204f97f2b4c22eebc948dff6b5af2b8",
+      "bytes": 4660
+    },
+    "installed_base.apk": {
+      "sha256": "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978",
+      "bytes": 42904441
+    },
+    "logcat_dump.txt": {
+      "sha256": "8665c3e69429e6f6e8f9654a84f63b688c683cc0203912a023a7a576d65c9088",
+      "bytes": 3596893
+    },
+    "logcat_stream.txt": {
+      "sha256": "8665c3e69429e6f6e8f9654a84f63b688c683cc0203912a023a7a576d65c9088",
+      "bytes": 3596893
+    },
+    "repository_commit.txt": {
+      "sha256": "8a9c56e5231d7c6a58c68b1ac41de88431e3262c22e737f11f101462cffb05e8",
+      "bytes": 42
+    },
+    "s1_collector.jsonl": {
+      "sha256": "b3fda924aa0b64d9e9986d0775b1d32a9cb63054a33efcbf0caf81416d56d0d9",
+      "bytes": 4073953
+    },
+    "s1_logcat_payloads.json": {
+      "sha256": "482b7104eac1c26882d28728f9d5f7934af0130271a29b0488ecdba384fe0e95",
+      "bytes": 4561592
+    }
+  }
+}
