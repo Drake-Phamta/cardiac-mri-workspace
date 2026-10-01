@@ -1,5 +1,24 @@
 # Contract 2 — experiment artifacts (DRAFT v0)
 
+## Status: frozen as v1.0 on 2026-10-01 (INT-11)
+
+This contract is **frozen at v1.0** together with API Contract 11 v1.0.0 and
+Contract 1 (Day 22 recovery override). After the freeze, changes are additive
+only, by a PR from the contract owner reviewed by the leader, with the exporter
+(`ml/export_contract2.py`) updated in the same change.
+
+- The manifest wire literal `contract_version: "DRAFT v0"` is **kept unchanged**
+  as the identifier of this frozen revision, so exporters written against it
+  today stay valid; changing the literal is itself a breaking change.
+- **The inference-only case (INT-12) requires no change here.** The evaluation
+  population stays the 54-case `FINAL_HOLDOUT`, including the inference-only
+  case (`CASE_0001` under split `path_a_seed2024_dr002b_v1`), and its metrics are
+  computed against its ground truth like every other case. Withholding is a
+  product configuration applied by the API (API Contract 11
+  `case_capability`): cohort summaries keep the case, while its per-case and
+  per-slice ground-truth-derived values, worst-slice selection and error data
+  are never served.
+
 This directory contains an offline contract for precomputed experiment outputs.
 It is a review artifact, not a production ingestion module or API implementation.
 No clinical images, masks, weights, or other generated data are committed here.

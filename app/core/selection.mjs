@@ -10,13 +10,14 @@
  * So this module sorts nothing. There is deliberately no `.sort(` in this
  * file, and the app-framework-neutral CI job greps for one.
  *
- * OPEN ISSUE, recorded here because this is where someone will look for it:
- * no endpoint in contract.json returns a worst-slice selection today. The
- * fields exist nowhere - not on analysis_run_get, not on analysis_run_metrics.
- * A Decision Request is open (Day 10) while the contract is still DRAFT v0.
- * Until it resolves, readSelection returns `available: false` and SCR-04 shows
- * EMPTY_UNAVAILABLE, which is honest. It must NOT be worked around by ranking
- * analysis_slice_metrics client-side - that is exactly what DR-010 forbids.
+ * TRANSPORT, decided 2026-10-01 (DR-010a option b, contract v1.0.0):
+ * analysis_run_metrics returns a `worst_slice_selection` block - rule_id,
+ * selection_version, slices[{slice_index, dice, false_positives,
+ * false_negatives}] - ranked by the server, worst first. It is the only
+ * endpoint that carries one. A response without the block still reads as
+ * `available: false`, and SCR-04 shows EMPTY_UNAVAILABLE. It must NOT be
+ * worked around by ranking analysis_slice_metrics client-side - that is
+ * exactly what DR-010 forbids.
  */
 
 export const RULE_ID = 'DR-010';
@@ -35,8 +36,8 @@ function unavailable(reason) {
 
 /*
  * Reads a selection the server returned. `data` is a validated response body.
- * The field names are the ones the Decision Request proposes; if the decision
- * lands on different names, this function changes and nothing else does.
+ * The field names are the ones contract v1.0.0 freezes in
+ * selection_rules.worst_slice_selection.
  */
 export function readSelection(data) {
   if (!data || typeof data !== 'object') return unavailable(UNAVAILABLE_REASON.NOT_RETURNED);

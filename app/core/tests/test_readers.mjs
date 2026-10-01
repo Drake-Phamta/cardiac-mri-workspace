@@ -26,15 +26,17 @@ const { check, done } = createChecker();
   check('P1', RULE_ID === 'DR-010', `the frozen rule is cited as ${RULE_ID}`);
 }
 
-// P2 — the honest answer today. No endpoint in the contract returns a
-// selection, so a response that has none must be unavailable, never an empty
-// list rendered as "no bad slices".
+// P2 — DR-010a option (b), contract v1.0.0: exactly one endpoint carries the
+// selection, analysis_run_metrics, under the field name this reader reads. A
+// response that has none must still be unavailable, never an empty list
+// rendered as "no bad slices".
 {
   const contract = createContract(loadContractJson());
   const carriers = [...contract.endpointsById.values()].filter((e) =>
     (e.response_fields || []).some((f) => f.includes('worst_slice') || f === 'slice_selection'));
-  check('P2', carriers.length === 0,
-    'confirmed against the contract: no endpoint returns a worst-slice selection (Decision Request open)');
+  check('P2', carriers.length === 1 && carriers[0].id === 'analysis_run_metrics'
+    && carriers[0].response_fields.includes('worst_slice_selection'),
+    `confirmed against the contract: the selection is served by ${carriers.map((e) => e.id).join(', ')}`);
 
   const s = readSelection({ run_id: 'R1', status: 'SUCCEEDED' });
   check('P2', s.available === false && s.reason === UNAVAILABLE_REASON.NOT_RETURNED && worstSlice(s) === null,

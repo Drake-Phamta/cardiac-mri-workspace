@@ -161,6 +161,17 @@ space origin: (0,0,0)
     assert [item["action"] for item in result["artifacts"]] == ["NEW"]
     print("PASS inference-review manifest without ground-truth mask")
 
+    # v1.0 / INT-12: the package has a mask, the product withholds it.
+    withheld = copy.deepcopy(inference)
+    withheld["cases"][0]["ground_truth_withheld"] = True
+    result = validate_manifest(withheld, FIXTURES)
+    assert [item["action"] for item in result["artifacts"]] == ["NEW"]
+    print("PASS INT-12 withheld ground truth on an inference-review case")
+
+    withheld_with_mask = load_valid()
+    withheld_with_mask["cases"][0]["ground_truth_withheld"] = True
+    expect_error(withheld_with_mask, "SCHEMA_INVALID")
+
     print("All Contract 1 synthetic checks passed")
     return 0
 
