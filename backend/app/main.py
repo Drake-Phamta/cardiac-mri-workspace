@@ -41,6 +41,7 @@ class Backend:
     """Everything a request needs, built once per process."""
 
     def __init__(self, settings: Settings):
+        settings.refuse_data_inside_git()
         self.settings = settings
         self.contract = Contract.load(settings.contract_path)
         self.cases = CaseStore(settings.data_cache)
