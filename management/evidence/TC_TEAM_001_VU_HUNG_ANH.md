@@ -7,6 +7,7 @@
 | Technical block | Imaging, reconstruction and canonical 2D↔3D geometry |
 | Secondary reviewer | Phạm Tuấn Anh for V2; Nguyễn Gia Đức Trung reviews Spike B |
 | Prepared | 2026-09-18 (Day 9) |
+| Updated | 2026-10-01 (Day 22): the B10/B11 rows are synced with `management/spikes/SPIKE_B_3D/RESULT.md` under the Day 22 recovery override, after QA (CHAT E) found the package contradicted it. Edited by the leader's session, not the owner; the owner confirms or corrects this on Day 23 |
 | Package status | **IN PROGRESS — not a TC-TEAM-001 PASS** |
 
 This package indexes the six evidence items required by `10` §10 for V2. It
@@ -117,12 +118,12 @@ package therefore remains `IN PROGRESS`.
 |---|---|---|
 | `TC-MAINT-002` | `conformance.py` recomputes canonical points and all 13 rays; CI is green on #43 | contract ready; #43 still awaits disposition |
 | `TC-3D-001` | `mesh_levels.json` records fixture geometry/version and OBJ level | synthetic only; no validated patient mask |
-| `TC-3D-002` | viewer has orbit/pan/zoom; A17 WebView smoke reports hardware WebGL2/Mali-G68 | `TC-PERF-002` **NOT MEASURED** |
+| `TC-3D-002` | viewer has orbit/pan/zoom; A17 WebView smoke reports hardware WebGL2/Mali-G68 | `TC-PERF-002` **partial**: observed on the spike viewer (B10/B11 below, synthetic level 0); the SCR-05 product screen is **NOT MEASURED** |
 | `TC-3D-003` | `set-slice-world-z` changes source-coordinate plane band | POC, no integrated SCR-03 test |
 | `TC-3D-004` | canonical point/picking tests resolve fixture slice exactly | viewer displays a slice; product navigation is absent |
 | `TC-3D-005` | — | **NOT STARTED**; needs TP/FP/FN fixture, Spike F and DR-005 |
 | B14 diagnostic | four synthetic levels and DDA-vs-mesh ray checks retain contract groups | desktop/synthetic; cannot decide DR-008c |
-| B10/B11 | WebView protocol and capture paths prepared | **NOT MEASURED**; operator must execute raw runs |
+| B10/B11 | Three A17 WebView probe runs on 2026-09-18; raw `webview_probe_payloads.jsonl` sha256 `125417809c…508e`; QA re-derived every summary field from all 5,400 frame intervals (median 59.88 FPS, longest stall 16.90 ms) | **OBSERVED PASS** — owner interpretation in `RESULT.md`; one A17 session; synthetic level 0 only; an embedded 360×225 CSS px panel; requestAnimationFrame at 60 Hz on a 90 Hz display, so 59.88 FPS is the ceiling. Not reviewer-approved when written. Levels 1–3 and a real mesh are **NOT MEASURED** |
 
 Before V2 acceptance: build a real reconstruction from a validated mask; test
 both linkage directions in one mobile build after rotate/zoom; run
@@ -141,7 +142,7 @@ transform and canonical test, not visual resemblance. A background pick stays
 put; an inference-only case says error data is unavailable.
 
 Open risks remain explicit: a real mask can change decimation/picking results;
-there is no B10/B11 number; the V2 product screen is unimplemented; and
+B10/B11 cover synthetic level 0 only; the V2 product screen is unimplemented; and
 `DR-005`, `DR-008c`, `ADR-ART-001` and the final mobile stack stay open.
 
 ## Completion checklist
@@ -155,7 +156,7 @@ there is no B10/B11 number; the V2 product screen is unimplemented; and
 - [ ] Integrated V2 mobile implementation
 - [ ] Real-mask provenance and two-way mobile linkage tests
 - [ ] `TC-3D-005` 3D error implementation/test
-- [ ] A17 `TC-PERF-002` raw evidence and interpretation
+- [ ] A17 `TC-PERF-002` raw evidence and interpretation — partial: spike-viewer B10/B11 at synthetic level 0 observed (PR #44); the product screen and levels 1–3 are not measured
 - [ ] Secondary reviewer approval
 
 **Related:** `management/onboarding/member_briefs/VU_HUNG_ANH.md` ·
