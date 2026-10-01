@@ -158,6 +158,17 @@ CREATE TRIGGER IF NOT EXISTS findings_no_replace BEFORE INSERT ON findings
   BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
 """
 
+# Contract 1.1.0: a finding anchor records the prediction variant it was made
+# on. Added as a column (an existing database is migrated in place) and made
+# immutable like the rest of the evidence.
+MIGRATIONS = [
+    ("findings", "prediction_variant", "ALTER TABLE findings ADD COLUMN prediction_variant TEXT"),
+]
+POST_MIGRATION = """
+CREATE TRIGGER IF NOT EXISTS findings_variant_immutable BEFORE UPDATE OF prediction_variant ON findings
+  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
+"""
+
 # A commit's volume builder: (review row, working slices {z: (Ny, Nx)}, base or None)
 # -> (volume (z, y, x) uint8 {0, 255}, source checksum "sha256:<hex>").
 VolumeBuilder = Callable[[sqlite3.Row, Dict[int, np.ndarray], Optional[np.ndarray]], Tuple[np.ndarray, str]]
@@ -186,6 +197,11 @@ class Storage:
         # immutability triggers, so a REPLACE cannot overwrite a version either.
         self._conn.execute("PRAGMA recursive_triggers = ON")
         self._conn.executescript(SCHEMA)
+        for table, column, statement in MIGRATIONS:
+            existing = {row["name"] for row in self._conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                self._conn.execute(statement)
+        self._conn.executescript(POST_MIGRATION)
 
     def close(self) -> None:
         with self._lock:
@@ -389,11 +405,11 @@ class Storage:
         stamp = now()
         with self._tx() as conn:
             conn.execute(
-                "INSERT INTO findings (finding_id, study_id, experiment_id, case_id, analysis_run_id, slice_index,"
-                " region_reference, finding_type, note, status, revision, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', 1, ?, ?)",
+                "INSERT INTO findings (finding_id, study_id, experiment_id, case_id, analysis_run_id,"
+                " prediction_variant, slice_index, region_reference, finding_type, note, status, revision,"
+                " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', 1, ?, ?)",
                 (finding_id, values["study_id"], values.get("experiment_id"), values.get("case_id"),
-                 values.get("analysis_run_id"), values.get("slice_index"),
+                 values.get("analysis_run_id"), values.get("prediction_variant"), values.get("slice_index"),
                  None if values.get("region_reference") is None else json.dumps(values["region_reference"]),
                  values["finding_type"], values["note"], stamp, stamp),
             )

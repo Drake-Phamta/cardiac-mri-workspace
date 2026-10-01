@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cardiac-mri-workspace.local/contracts/api-contract-11-v1.0.0.schema.json",
-  "title": "Backend/mobile API Contract 11 (v1.0.0)",
-  "description": "Schema-first semantic/API contract, frozen at v1.0.0 on 2026-10-01 (INT-11).",
+  "$id": "https://cardiac-mri-workspace.local/contracts/api-contract-11-v1.1.0.schema.json",
+  "title": "Backend/mobile API Contract 11 (v1.1.0)",
+  "description": "Schema-first semantic/API contract, frozen at v1.0.0 on 2026-10-01 (INT-11); v1.1.0 adds the V3/V4 freeze follow-ups additively.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,7 @@
   "properties": {
     "$schema": { "type": "string" },
     "contract": { "const": "api_contract_11" },
-    "contract_version": { "const": "1.0.0" },
+    "contract_version": { "const": "1.1.0" },
     "base_path": { "const": "/api/v1" },
     "geometry_contract": { "$ref": "#/$defs/geometry_contract" },
     "domain_enums": { "$ref": "#/$defs/domain_enums" },
@@ -102,7 +102,7 @@
       "additionalProperties": { "$ref": "#/$defs/string_list" },
       "required": [
         "review_status", "review_status_transitions", "finding_status", "finding_type",
-        "case_mode", "run_status", "prediction_variant", "metric_state",
+        "case_mode", "case_result_status", "run_status", "prediction_variant", "metric_state",
         "geometry_validation_status", "source_mask_kind", "mask_payload_encoding"
       ],
       "properties": {
@@ -122,6 +122,7 @@
           ]
         },
         "case_mode": { "const": ["EVALUATION", "INFERENCE_REVIEW"] },
+        "case_result_status": { "const": ["SUCCEEDED", "FAILED", "EXCLUDED", "WITHHELD"] },
         "run_status": { "const": ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED"] },
         "prediction_variant": { "const": ["RAW", "PROCESSED"] },
         "metric_state": { "const": ["COMPUTED", "NOT_APPLICABLE"] },
@@ -204,8 +205,40 @@
     "selection_rules": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["worst_slice_selection"],
+      "required": ["worst_slice_selection", "outlier_selection"],
       "properties": {
+        "outlier_selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision", "endpoint", "field", "rule_id", "selection_version", "block_fields",
+            "case_fields", "metric_name", "cardinality", "eligibility", "ranking", "order"
+          ],
+          "properties": {
+            "decision": { "type": "string", "minLength": 1 },
+            "endpoint": { "const": "experiment_cases" },
+            "field": { "const": "outlier_selection" },
+            "rule_id": { "const": "DR-010" },
+            "selection_version": { "const": "dr010-outlier/v1" },
+            "block_fields": {
+              "const": ["rule_id", "selection_version", "experiment_id", "prediction_variant", "metric_name", "cases"]
+            },
+            "case_fields": {
+              "const": ["case_id", "analysis_run_id", "metric_value", "false_positives", "false_negatives"]
+            },
+            "metric_name": { "const": "dice" },
+            "cardinality": { "const": 3 },
+            "eligibility": { "type": "string", "minLength": 1 },
+            "ranking": {
+              "const": [
+                "metric_value ascending",
+                "false_positives + false_negatives descending",
+                "case_id ascending"
+              ]
+            },
+            "order": { "type": "string", "minLength": 1 }
+          }
+        },
         "worst_slice_selection": {
           "type": "object",
           "additionalProperties": false,
@@ -241,7 +274,7 @@
       "additionalProperties": false,
       "required": [
         "case_metric_fields", "count_unit", "relative_volume_error_unit", "slice_metric_value",
-        "empty_slice_rule", "summary_statistics",
+        "empty_slice_rule", "summary_statistics", "summary_rule",
         "physical_metrics_blocked_while_geometry_not_validated", "unavailable_rule"
       ],
       "properties": {
@@ -252,7 +285,10 @@
         "relative_volume_error_unit": { "type": "string", "minLength": 1 },
         "slice_metric_value": { "type": "string", "minLength": 1 },
         "empty_slice_rule": { "type": "string", "minLength": 1 },
-        "summary_statistics": { "const": ["n", "mean", "std", "median", "min", "max"] },
+        "summary_statistics": {
+          "const": ["n", "mean", "std", "median", "q1", "q3", "min", "max", "ci95_low", "ci95_high"]
+        },
+        "summary_rule": { "type": "string", "minLength": 1 },
         "physical_metrics_blocked_while_geometry_not_validated": { "$ref": "#/$defs/string_list" },
         "unavailable_rule": { "type": "string", "minLength": 1 }
       }

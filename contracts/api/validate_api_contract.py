@@ -32,7 +32,7 @@ def _fail(code: str, message: str) -> None:
     raise ContractError(code, message)
 
 
-EXPECTED_VERSION = "1.0.0"
+EXPECTED_VERSION = "1.1.0"
 EXPECTED_ERRORS = {
     "CASE_NOT_FOUND", "SLICE_OUT_OF_RANGE", "ARTIFACT_NOT_FOUND",
     "GROUND_TRUTH_UNAVAILABLE", "INVALID_REVIEW_TRANSITION", "STALE_REVISION",
@@ -84,6 +84,7 @@ REQUIRED_ENUM_BINDINGS = {
         "finding_patch.status", "finding_patch.request.status",
     },
     "case_mode": {"case_get.mode", "case_list.mode_capability"},
+    "case_result_status": {"experiment_cases.status"},
 }
 CHECKSUM = re.compile(r"^sha256:[0-9a-f]{64}$")
 # Any key that names a physical unit. While geometry is not validated the API
@@ -355,6 +356,17 @@ def _validate_v1_rules(contract: dict, endpoints_by_id: Dict[str, dict]) -> None
     if carriers != [selection["endpoint"]]:
         _fail("SELECTION_CONTRACT_MISSING", f"exactly one endpoint carries worst_slice_selection; got {carriers}")
 
+    outliers = contract["selection_rules"]["outlier_selection"]
+    outlier_carriers = [
+        endpoint_id for endpoint_id, item in endpoints_by_id.items()
+        if "outlier_selection" in item.get("response_fields", [])
+    ]
+    if outlier_carriers != [outliers["endpoint"]] or "outlier_selection" in endpoints_by_id[outliers["endpoint"]].get("row_fields", []):
+        _fail("SELECTION_CONTRACT_MISSING", f"experiment_cases alone carries a top-level outlier_selection (DR-010); got {outlier_carriers}")
+    finding_request = endpoints_by_id["finding_create"].get("request_fields", [])
+    if "prediction_variant" not in finding_request or "prediction_variant" not in contract["field_shapes"]["evidence"]:
+        _fail("ENUM_INVALID", "a finding anchor carries an optional prediction_variant (request and evidence)")
+
     metric_fields = contract["metric_rules"]["case_metric_fields"]
     if contract["field_shapes"].get("metric_values") != metric_fields:
         _fail("METRIC_CONTRACT_INVALID", "field_shapes.metric_values must equal metric_rules.case_metric_fields")
@@ -475,6 +487,75 @@ def _check_worst_slice(contract: dict, at: str, block: Any, problems: List[str])
         problems.append(f"{at}: worst_slice_selection lists a slice twice")
 
 
+def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], problems: List[str]) -> None:
+    rule = contract["selection_rules"]["outlier_selection"]
+    if not isinstance(block, dict) or set(block) != set(rule["block_fields"]):
+        problems.append(f"{at}: outlier_selection must have exactly {rule['block_fields']}")
+        return
+    if block["rule_id"] != rule["rule_id"] or block["selection_version"] != rule["selection_version"]:
+        problems.append(f"{at}: outlier_selection must be {rule['rule_id']} {rule['selection_version']}")
+    if block["metric_name"] != rule["metric_name"]:
+        problems.append(f"{at}: outlier_selection.metric_name must be {rule['metric_name']}")
+    if block["prediction_variant"] not in contract["domain_enums"]["prediction_variant"]:
+        problems.append(f"{at}: outlier_selection.prediction_variant is not a prediction variant")
+    cases = block["cases"]
+    if not isinstance(cases, list) or len(cases) > rule["cardinality"]:
+        problems.append(f"{at}: outlier_selection.cases must be a list of at most {rule['cardinality']}")
+        return
+    succeeded = {row.get("case_id") for row in rows if isinstance(row, dict) and row.get("status") == "SUCCEEDED"}
+    keys = []
+    for position, item in enumerate(cases):
+        where = f"{at}: outlier_selection.cases[{position}]"
+        if not isinstance(item, dict) or set(item) != set(rule["case_fields"]):
+            problems.append(f"{where} must have exactly {rule['case_fields']}")
+            return
+        if not (_is_number(item["metric_value"]) and 0.0 <= item["metric_value"] <= 1.0):
+            problems.append(f"{where}.metric_value must be a Dice in [0, 1]")
+            return
+        if not all(_is_int(item[field]) and item[field] >= 0 for field in ("false_positives", "false_negatives")):
+            problems.append(f"{where} false_positives/false_negatives must be non-negative counts")
+            return
+        if rows and item["case_id"] not in succeeded:
+            problems.append(f"{where}: {item['case_id']} is not a SUCCEEDED row (WITHHELD, FAILED and EXCLUDED never qualify)")
+        keys.append((item["metric_value"], -(item["false_positives"] + item["false_negatives"]), str(item["case_id"])))
+    if keys != sorted(keys):
+        problems.append(f"{at}: outlier_selection.cases are not in DR-010 order")
+
+
+def _check_metric_values(at: str, value: Any, problems: List[str]) -> None:
+    if not isinstance(value, dict):
+        problems.append(f"{at}: metric_values must be an object")
+        return
+    for key in ("dice", "iou"):
+        number = value.get(key)
+        if not (_is_number(number) and 0.0 <= number <= 1.0):
+            problems.append(f"{at}: metric_values.{key} must be a number in [0, 1]")
+    for key in ("false_positives", "false_negatives"):
+        count = value.get(key)
+        if not (_is_int(count) and count >= 0):
+            problems.append(f"{at}: metric_values.{key} must be a non-negative voxel count")
+    rve = value.get("relative_volume_error")
+    if rve is not None and not _is_number(rve):
+        problems.append(f"{at}: metric_values.relative_volume_error must be a number or null")
+
+
+def _check_summary(contract: dict, at: str, summary: Any, problems: List[str]) -> None:
+    metrics = contract["metric_rules"]["case_metric_fields"]
+    statistics = contract["metric_rules"]["summary_statistics"]
+    if not isinstance(summary, dict) or set(summary) != set(metrics):
+        problems.append(f"{at}: a metric summary maps exactly {metrics}")
+        return
+    for metric, stats in summary.items():
+        if not isinstance(stats, dict) or set(stats) != set(statistics):
+            problems.append(f"{at}: summary of {metric} must have exactly {statistics}")
+            continue
+        bad = [key for key, number in stats.items() if number is not None and not _is_number(number)]
+        if bad:
+            problems.append(f"{at}: summary of {metric} has non-numeric {bad}")
+        if stats["n"] is not None and not (_is_int(stats["n"]) and stats["n"] >= 0):
+            problems.append(f"{at}: summary of {metric}.n must be a count")
+
+
 def validate_response(contract: dict, endpoint_id: str, http_status: int, body: Any) -> List[str]:
     """Return every way one response breaks the contract (empty list = valid)."""
     endpoints = {item["id"]: item for item in contract["endpoints"]}
@@ -541,6 +622,8 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
             if owner != endpoint_id or rest.startswith("request."):
                 continue
             for value in _field_values(body, rest, row_fields):
+                if value is None and endpoint_id == "experiment_cases":
+                    continue  # a row without values (FAILED / EXCLUDED / WITHHELD) is checked below
                 if not isinstance(value, dict):
                     problems.append(f"{at}: {rest} must be an object with {keys}")
                     continue
@@ -577,19 +660,35 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
                 problems.append(f"{at}: NOT_APPLICABLE must carry metric_value null, never a number (07 section 6)")
             if state == "COMPUTED" and not (_is_number(value) and 0.0 <= value <= 1.0):
                 problems.append(f"{at}: COMPUTED must carry a metric_value in [0, 1]")
-    if "metric_values" in body and isinstance(body["metric_values"], dict):
-        metric_values = body["metric_values"]
-        for key in ("dice", "iou"):
-            value = metric_values.get(key)
-            if not (_is_number(value) and 0.0 <= value <= 1.0):
-                problems.append(f"{at}: metric_values.{key} must be a number in [0, 1]")
-        for key in ("false_positives", "false_negatives"):
-            value = metric_values.get(key)
-            if not (_is_int(value) and value >= 0):
-                problems.append(f"{at}: metric_values.{key} must be a non-negative voxel count")
-        rve = metric_values.get("relative_volume_error")
-        if rve is not None and not _is_number(rve):
-            problems.append(f"{at}: metric_values.relative_volume_error must be a number or null")
+    if "metric_values" in body:
+        _check_metric_values(at, body["metric_values"], problems)
+    if endpoint_id == "experiment_cases" and isinstance(body.get("items"), list):
+        for position, row in enumerate(body["items"]):
+            if not isinstance(row, dict):
+                continue
+            where = f"{at}: items[{position}]"
+            if row.get("status") == "SUCCEEDED":
+                _check_metric_values(where, row.get("metric_values"), problems)
+            elif row.get("metric_values") is not None:
+                problems.append(f"{where}: a {row.get('status')} row carries metric_values null, never numbers")
+        if "outlier_selection" in body:
+            _check_outliers(contract, at, body["outlier_selection"], body["items"], problems)
+    if endpoint_id == "experiment_metrics" and "metric_summary" in body:
+        _check_summary(contract, f"{at}: metric_summary", body["metric_summary"], problems)
+    if endpoint_id == "experiment_compare" and "summary" in body:
+        summary = body["summary"]
+        if not isinstance(summary, dict) or not summary:
+            problems.append(f"{at}: summary maps each compared experiment_id to a metric summary")
+        else:
+            for experiment_id, per_experiment in summary.items():
+                _check_summary(contract, f"{at}: summary[{experiment_id}]", per_experiment, problems)
+    for value in _field_values(body, "evidence", row_fields):
+        if isinstance(value, dict):
+            variant = value.get("prediction_variant")
+            if value.get("analysis_run_id") is not None and variant not in contract["domain_enums"]["prediction_variant"]:
+                problems.append(f"{at}: evidence with an analysis_run_id needs its prediction_variant")
+            if value.get("analysis_run_id") is None and variant is not None:
+                problems.append(f"{at}: evidence without an analysis_run_id carries prediction_variant null")
     if "worst_slice_selection" in fields and "worst_slice_selection" in body:
         _check_worst_slice(contract, at, body["worst_slice_selection"], problems)
 
