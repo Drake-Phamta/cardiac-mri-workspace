@@ -137,9 +137,11 @@ const bundleJson = generatedBundleJson();
     };
   };
   const requests = [];
+  let failSlice = null; // a slice whose every request fails like a dropped network
   const fetchImpl = async (url) => {
     requests.push(url);
     const path = url.replace('http://backend.invalid:8000', '');
+    if (failSlice !== null && path.includes(`/slices/${failSlice}/`)) throw new TypeError('fetch failed');
     if (path.startsWith('/api/v1/artifacts/')) {
       const bytes = path.includes('gt-') ? gtPng : (path.includes('pred-') ? predPng : mriPng);
       return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
@@ -208,6 +210,42 @@ const bundleJson = generatedBundleJson();
   await tick(30);
   check('L7', has(r, /575x576 but the case geometry says 576x576/), 'an MRI of the wrong size blocks the overlays and says why');
   check('L7', r.root.findAll((n) => n.type === 'Path').length === 0, 'and no overlay is drawn over it');
+
+  // #77 QA B-3: a slice that fails shows nothing of the slice displayed before.
+  const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  check('L8', has(r, /^MRI .+ · .+/) && !has(r, /^MRI - · -$/) && entry('Error inspector').props.disabled === false,
+    'before: provenance and the SCR-04 entry belong to the displayed slice');
+  failSlice = 43;
+  await press(r, '◀');
+  await tick(350);
+  check('L8', has(r, /could not be reached/) && has(r, /^Slice Dice: -$/) && !has(r, /0\.873/),
+    'slice 44 fails: the state panel shows and the metric reads "-", not the previous slice\'s Dice');
+  check('L8', has(r, /^MRI - · -$/) && has(r, /^Prediction - - · -$/) && has(r, /^Ground truth - · -$/),
+    'provenance reads "-" for every layer');
+  const off = ['Error inspector (SCR-04)', '3D (SCR-05)', 'Review / correct (SCR-06)'].map((l) => entry(l));
+  check('L8', off.every((e) => e && e.props.disabled === true && textOf(e).includes('this slice did not load')),
+    'SCR-04/05/06 entries disabled with the reason');
+  failSlice = null;
+  let mark = requests.length;
+  await press(r, 'Retry');
+  await tick(400);
+  const retried = requests.slice(mark).map((u) => u.replace('http://backend.invalid:8000', ''));
+  check('L9', has(r, /slice 44 \/ 88/) && has(r, /Slice Dice \(RAW\): 0\.873/) && entry('Error inspector').props.disabled === false,
+    'Retry brings slice 44 back with its own metric and entries');
+  check('L9', retried.length > 0 && retried.every((u) => u.includes('/slices/43/') || u.startsWith('/api/v1/artifacts/')),
+    `Retry asked only for that slice: ${retried.length} requests`);
+  mark = requests.length;
+  await press(r, '▶');
+  await tick(350);
+  check('L9', requests.length === mark && has(r, /slice 45 \/ 88/), 'and the slice next to it is still cached (N-2: no clear-all)');
+  mark = requests.length;
+  await press(r, 'Refresh this slice');
+  await tick(400);
+  const refreshed = requests.slice(mark).map((u) => u.replace('http://backend.invalid:8000', ''));
+  const rg = gestures().filter((g) => g.kind === 'refresh').pop();
+  check('L9', refreshed.length > 0 && refreshed.every((u) => u.includes('/slices/44/') || u.startsWith('/api/v1/artifacts/'))
+    && rg && rg.to === 44 && rg.outcome === 'shown',
+    `"Refresh this slice" re-asks for z 44 only, logged as a refresh gesture (${refreshed.length} requests)`);
   await act(async () => { r.unmount(); });
 }
 

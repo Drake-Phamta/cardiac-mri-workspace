@@ -84,8 +84,8 @@ A live build **without** a URL does not guess one: `prepare.mjs` warns, and the 
 **CONFIGURATION ERROR** screen that says what to set (`CONFIG_LIVE_URL_MISSING`) and requests nothing.
 `build-release.ps1` refuses to build a live APK without a URL at all. Fixture mode needs nothing configured.
 
-There is **no fallback** from live to fixture: an unreachable backend is `RECOVERABLE_ERROR` with Retry and the URL
-it tried. Release builds allow cleartext HTTP (`plugins/withCleartextLocalDemo.js`) because the overlay is the
+There is **no fallback** from live to fixture: an unreachable backend is `RECOVERABLE_ERROR` with Retry; the panel
+says `backend http://<configured>` (the address is never shown or logged). Release builds allow cleartext HTTP (`plugins/withCleartextLocalDemo.js`) because the overlay is the
 encrypted transport in the `09` §10 `LOCAL_DEMO` profile; a `REMOTE_DEMO` deployment removes the plugin and serves
 HTTPS. Live HTTP timings go to logcat as `CMW_HTTP {"endpointId", "status", "ms"}` — never a payload (TC-SEC-003).
 
@@ -153,7 +153,7 @@ it with `node --test`; keep React Native imports in `.js` files.
 | `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
 | `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
 | `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |
-| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode) |
+| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode). Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 calls it on open and on Retry) and `clearWhere(fn)` (one slice's keys, for **Refresh this slice**) — never a clear-all mid-session, so a Retry cannot turn cached revisits into traffic |
 | `src/verticals/v1/SliceViewport.js` | the slice viewport: image + overlays + pinch/pan (provenance: Spike A S4 gestures) |
 
 ## V1 screens (SCR-02, SCR-03)
@@ -165,12 +165,17 @@ it with `node --test`; keep React Native imports in `.js` files.
   variant on first use (no default), then keeps it on screen; opens on the middle slice; slider + step buttons;
   pinch-zoom and pan; prediction (orange) and ground-truth (cyan) overlays with an opacity control, each toggle
   labelled in words; the per-slice Dice exactly as the server sent it; a run line with run, model family,
-  experiment and precomputed flag; entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason.
+  experiment and precomputed flag; entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. While the
+  viewer shows a state instead of a slice, the metric and provenance read "-" and the entries are disabled ("this
+  slice did not load") — nothing of the previously displayed slice stays on screen. **Refresh this slice** re-asks
+  the server for the current slice only.
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
   line when the slice is on screen. No URL, host or payload is logged. Judge a capture on the laptop with
-  `node mobile/scripts/l4-report.mjs <logcat.txt>`; the step-by-step session is **`mobile/S1_L4_SCRIPT.md`**.
+  `node mobile/scripts/l4-report.mjs <logcat.txt>` (rules R1–R8, `PASS` / `FAIL` / `CANNOT_JUDGE`; bytes per
+  switch as n / p50 / p95 / max); the step-by-step session, with the rule table at the top, is
+  **`mobile/S1_L4_SCRIPT.md`**.
   Before the session, `node mobile/scripts/preflight-live.mjs --case CASE_0061` checks the live backend from the
   laptop with the app's own code: same `contract_version` as this checkout, the case, checksum-verified bytes,
   masks through `maskPng.js`, and a one-slice rehearsal of the L4 rules. The address is never printed.

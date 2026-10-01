@@ -261,9 +261,12 @@ function Explorer({
   useEffect(() => () => runner.dispose(), [runner]);
 
   useEffect(() => {
+    // #77 QA N-1: an "unavailable" answer cached on an earlier visit is not
+    // trusted by a fresh open - the artifact may have been ingested since.
+    if (client.clearNegative) client.clearNegative();
     if (net) net.begin({ caseId, from: null, to: initialSlice, kind: 'open' });
     runner.run(() => model.open({ caseId, runId, sliceIndex: initialSlice }));
-  }, [runner, model, net, caseId, runId, initialSlice]);
+  }, [runner, model, net, client, caseId, runId, initialSlice]);
 
   // The run line: run, model family, experiment, precomputed. Read once.
   useEffect(() => {
@@ -389,19 +392,31 @@ function Explorer({
     if (c.view.state === STATE.SUCCESS) setShown(c);
   }, [model]);
 
+  // Forget what the cache holds for one slice, plus every cached "unavailable"
+  // answer (#77 QA N-2). The other slices' answers stay, so a Retry in the
+  // middle of a session never turns an L4 revisit pass into network traffic.
+  const forgetSlice = useCallback((zz) => {
+    if (client.clearNegative) client.clearNegative();
+    if (client.clearWhere && Number.isInteger(zz)) {
+      client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || p.run_id === runId));
+    }
+  }, [client, caseId, runId]);
+
+  const refreshSlice = useCallback(() => {
+    const zz = model.current.sliceIndex;
+    forgetSlice(zz);
+    if (net && Number.isInteger(zz)) net.begin({ caseId, from: zz, to: zz, kind: 'refresh' });
+    runner.run(() => model.refresh());
+  }, [caseId, forgetSlice, model, net, runner]);
+
   const onStateAction = useCallback((id) => {
     if (id === RECOVERY.BACK) nav.pop();
-    else if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) {
-      // A user refresh sees the server as it is now: unavailable answers cached
-      // for scrolling (sliceCache) are dropped first.
-      if (client.clear) client.clear();
-      runner.run(() => model.refresh());
-    }
+    else if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) refreshSlice();
     else if (id === RECOVERY.VIEW_FAILURE) {
       const f = current.runFailure || (runInfo && runInfo.run) || {};
       Alert.alert('Analysis failed', `code ${f.code || f.failureCode || 'not stated'}\n${f.reason || f.failureReason || 'no reason recorded'}`);
     }
-  }, [current, model, nav, runInfo, runner]);
+  }, [current, nav, refreshSlice, runInfo]);
 
   // ----- what is on screen: everything from `displayed` ---------------------
   const ok = displayed !== null;
@@ -537,8 +552,15 @@ function Explorer({
 
   // ----- render ---------------------------------------------------------------
   const run = runInfo ? runInfo.run : { runId };
-  const metrics = ok && !switching ? metricsText(displayed.metrics, displayed.variant)
-    : { text: switching ? `Slice Dice: switching to ${targetVariant}…` : 'Slice Dice: -', tone: 'neutral' };
+  // #77 QA B-3: while the viewer shows a state instead of a slice, nothing of
+  // the slice that was displayed before may stay on screen as if it were this
+  // one - no metric, no provenance, no entry that would carry its index.
+  const showing = ok && !blocking;
+  const notLoaded = 'this slice did not load';
+  let metrics;
+  if (blocking) metrics = { text: 'Slice Dice: -', tone: 'neutral' };
+  else if (ok && !switching) metrics = metricsText(displayed.metrics, displayed.variant);
+  else metrics = { text: switching ? `Slice Dice: switching to ${targetVariant}…` : 'Slice Dice: -', tone: 'neutral' };
   const scrubIndex = blocking ? current.sliceIndex : (ok ? displayed.sliceIndex : current.sliceIndex);
   const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
     ? 'Geometry not validated: index space only - no millimetre values are shown.' : null;
@@ -546,10 +568,16 @@ function Explorer({
   if (runtime.mode === 'fixture') pixelNote = 'Fixture mode: no pixels behind any URL. The grid is the source slice; gestures and states are real.';
   else if (ok && !u.mri) pixelNote = 'This response carries no content_url: no pixels to draw for this slice.';
   else if (imageError) pixelNote = `MRI slice could not be fetched: ${imageError.message}`;
-  const errorEntry = !capability.groundTruthUsable ? 'no ground truth for this case (Inference & review)'
-    : (!ok ? 'waiting for the slice' : null);
-  const threeDEntry = ok && displayed.canEnter3D ? null : 'needs a succeeded run with a reconstruction';
-  const reviewEntry = ok && predAvailable ? null : 'needs this slice\'s prediction';
+  let errorEntry = null;
+  if (!capability.groundTruthUsable) errorEntry = 'no ground truth for this case (Inference & review)';
+  else if (blocking) errorEntry = notLoaded;
+  else if (!ok) errorEntry = 'waiting for the slice';
+  let threeDEntry = null;
+  if (blocking) threeDEntry = notLoaded;
+  else if (!(ok && displayed.canEnter3D)) threeDEntry = 'needs a succeeded run with a reconstruction';
+  let reviewEntry = null;
+  if (blocking) reviewEntry = notLoaded;
+  else if (!(ok && predAvailable)) reviewEntry = 'needs this slice\'s prediction';
 
   return (
     <View style={s.root}>
@@ -659,6 +687,14 @@ function Explorer({
 
         <View style={s.card}>
           <Text style={[s.metric, metrics.tone === 'ok' && s.ok, metrics.tone === 'warn' && s.warnT]}>{metrics.text}</Text>
+          <TouchableOpacity
+            style={[s.smallBtn, navRun && s.toggleOff]}
+            onPress={refreshSlice}
+            disabled={Boolean(navRun)}
+            accessibilityRole="button"
+          >
+            <Text style={s.smallBtnT}>Refresh this slice</Text>
+          </TouchableOpacity>
           {tap && (
             <Text style={s.dim}>
               Tap → source pixel {tap.src ? `(x ${tap.src[0]}, y ${tap.src[1]})` : 'outside the image'} on {sliceLabel(tap.slice, total)} · zoom ×{tap.zoom.toFixed(1)}
@@ -669,10 +705,10 @@ function Explorer({
 
         <View style={s.card}>
           <Text style={s.cardH}>Provenance (this slice)</Text>
-          <Text style={s.mono}>MRI {short(ok && displayed.imageRef ? displayed.imageRef.artifactId : null)} · {short(ok && displayed.imageRef ? displayed.imageRef.checksum : null)}</Text>
-          <Text style={s.mono}>Prediction {ok ? displayed.variant : '-'} {short(ok && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(ok && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</Text>
+          <Text style={s.mono}>MRI {short(showing && displayed.imageRef ? displayed.imageRef.artifactId : null)} · {short(showing && displayed.imageRef ? displayed.imageRef.checksum : null)}</Text>
+          <Text style={s.mono}>Prediction {showing ? displayed.variant : '-'} {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(showing && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</Text>
           {capability.groundTruthUsable && (
-            <Text style={s.mono}>Ground truth {short(ok && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · {short(ok && displayed.groundTruthRef ? displayed.groundTruthRef.checksum : null)}</Text>
+            <Text style={s.mono}>Ground truth {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.checksum : null)}</Text>
           )}
         </View>
 
