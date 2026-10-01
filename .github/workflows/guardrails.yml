@@ -320,6 +320,10 @@ jobs:
       - name: V1 case explorer
         run: node app/verticals/v1_case_explorer/test_case_explorer.mjs
 
+      # V3 - SCR-01 / SCR-07 state models, against the bundle generated above.
+      - name: V3 study and compare
+        run: node app/verticals/v3_study_and_compare/test_study_and_compare.mjs
+
   # --------------------------------------------------------------------------
   app-framework-neutral:
     name: "app/core stays framework-neutral (GATE-MOB-01)"
