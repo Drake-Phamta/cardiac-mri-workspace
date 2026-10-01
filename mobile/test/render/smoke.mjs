@@ -59,6 +59,7 @@ const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js'))
 const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
+const { judge, parseLog } = await imp('scripts/l4-report.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -246,6 +247,86 @@ const bundleJson = generatedBundleJson();
   check('L9', refreshed.length > 0 && refreshed.every((u) => u.includes('/slices/44/') || u.startsWith('/api/v1/artifacts/'))
     && rg && rg.to === 44 && rg.outcome === 'shown',
     `"Refresh this slice" re-asks for z 44 only, logged as a refresh gesture (${refreshed.length} requests)`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 3. a case with no analysis run: MRI + ground truth only, and L4 on it ---
+// Decision (b), Day 22: tonight's backend has no run, so SCR-03 opens a case
+// before its first run straight into the viewer; the L4 15 + 15 run then
+// measures the real MRI + GT per-slice transfers, judged by l4-report.mjs.
+{
+  const W = 576; const H = 576;
+  const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
+  const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
+  const mriPng = encodePng(W, H, 0, Uint8Array.from({ length: W * H }, (_, i) => (i * 5) & 0xff), { zopts: { level: 9 } });
+  const sum = (b) => `sha256:${createHash('sha256').update(b).digest('hex')}`;
+  const json = (status, body) => {
+    const text = JSON.stringify(body);
+    return {
+      status,
+      headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null },
+      text: async () => text,
+      json: async () => body,
+    };
+  };
+  const requests = [];
+  const fetchImpl = async (url) => {
+    const path = url.replace('http://backend.invalid:8000', '');
+    requests.push(path);
+    if (path.startsWith('/api/v1/artifacts/')) {
+      const bytes = path.includes('gt-') ? gtPng : mriPng;
+      return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+    }
+    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: 'EVALUATION', ground_truth_available: true, available_run_ids: [] });
+    const z = (path.match(/slices\/(\d+)/) || [])[1];
+    if (path.endsWith('/mri')) return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${z}.png`, media_type: 'image/png', checksum: sum(mriPng) });
+    if (path.endsWith('/ground-truth')) return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
+    return json(404, { error: { code: 'ARTIFACT_NOT_FOUND' } });
+  };
+  const runtime = createRuntime({
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
+  });
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const logStart = logs.length;
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061' } })), nodeMock);
+  });
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  const runData = () => requests.filter((p) => p.includes('/analysis-runs') || p.includes('/experiments'));
+  check('N1', has(r, /slice 45 \/ 88/) && has(r, /^No analysis run for this case - MRI and ground truth only/) && !has(r, /No default/),
+    'no run: opens straight into the viewer on the middle slice, run line says there is no run');
+  const img = () => r.root.findAll((n) => n.type === 'Image')[0];
+  check('N2', img() && img().props.source.uri.startsWith('data:image/png;base64,') && runData().length === 0,
+    `MRI drawn from its bytes; run requests: ${runData().length}`);
+  const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  check('N3', has(r, /^none - no analysis run for this case$/) && !has(r, /^Prediction \((RAW|PROCESSED)\)/)
+    && ['Error inspector (SCR-04)', '3D (SCR-05)', 'Review / correct (SCR-06)'].every((l) => entry(l) && entry(l).props.disabled === true && textOf(entry(l)).includes('needs an analysis run')),
+    'no prediction chips or toggle; SCR-04/05/06 disabled with "needs an analysis run"');
+  check('N4', has(r, /^Slice Dice: - \(no analysis run for this case\)$/), 'the slice metric says why it is empty');
+  await press(r, 'Ground truth: OFF');
+  await tick(300);
+  check('N5', r.root.findAll((n) => n.type === 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
+
+  // The L4 15 + 15 run, started the way the leader starts it: long-press the slice label.
+  const label = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.onLongPress === 'function')[0];
+  globalThis.__alerts = [];
+  await act(async () => { label.props.onLongPress(); });
+  const menu = globalThis.__alerts.find((a) => a[0] === 'Scripted slice navigation');
+  const l4 = menu && menu[2].find((b) => b.text === 'L4 15 + 15');
+  if (l4) await act(async () => { l4.onPress(); });
+  for (let i = 0; i < 120 && !globalThis.__alerts.some((a) => a[0] === 'L4 finished'); i += 1) await tick(250);
+  const verdict = judge(parseLog(logs.slice(logStart).join('\n')));
+  check('N6', globalThis.__alerts.some((a) => a[0] === 'L4 finished') && verdict.verdict === 'PASS',
+    `L4 15 + 15 on a no-run case: l4-report ${verdict.verdict}${verdict.problems.length ? ` - ${verdict.problems[0]}` : ''}`);
+  check('N6', verdict.scope && verdict.scope.has_run === false && verdict.scope.required.includes('ground_truth_slice_get')
+    && verdict.scope.required.includes('artifact:mask') && /predictions are not part of this L4/.test(verdict.scope.text),
+    `scope: ${verdict.scope ? verdict.scope.text : '-'}`);
+  check('N6', runData().length === 0, `no run data asked during the whole session (${runData().length})`);
   await act(async () => { r.unmount(); });
 }
 

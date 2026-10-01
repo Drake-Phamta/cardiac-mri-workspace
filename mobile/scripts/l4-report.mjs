@@ -18,9 +18,15 @@
  *      same endpoint in this capture (and above 32 KB): a mask "volume" of
  *      88 x 2 KB fits under R2/R3 but not under this;
  *   R5 measured - every new-15 gesture went to the network (cache_hit false),
- *      ended "shown", and carries mri_slice_get and artifact:mri with more than
- *      0 bytes: a pass in which nothing was fetched or the MRI never arrived
- *      measured nothing and cannot pass;
+ *      ended "shown", and carries every endpoint of the run's SCOPE with more
+ *      than 0 bytes: always mri_slice_get + artifact:mri; ground_truth_slice_get
+ *      when the case declares ground truth (+ artifact:mask when the GT overlay
+ *      was on); prediction_slice_get only when the case HAS an analysis run.
+ *      The scope comes from the run's CMW_RUN_START (has_run, gt_declared,
+ *      gt_overlay) and is printed: a case with no run is judged on MRI + GT and
+ *      the report says predictions were not part of it. A build that does not
+ *      log the scope is judged on the MRI only, and the report says so. A pass
+ *      in which nothing was fetched or the MRI never arrived cannot pass;
  *   R6 undisturbed - inside the L4 passes: no superseded gesture, no
  *      CMW_STEP_TIMEOUT, only slice gestures, each ending "shown";
  *   R7 revisits free - every revisit-15 gesture is a cache hit with 0 bytes;
@@ -75,6 +81,33 @@ export function byteStats(values) {
   return { n: v.length, p50: kb(nearestRank(v, 50)), p95: kb(nearestRank(v, 95)), max: kb(Math.max(...v)) };
 }
 
+// What every new slice of the L4 run must carry, from the run's CMW_RUN_START.
+export function scopeOf(start) {
+  const s = start || {};
+  const known = typeof s.has_run === 'boolean' && typeof s.gt_declared === 'boolean';
+  const required = ['mri_slice_get', 'artifact:mri'];
+  if (!known) {
+    return Object.freeze({
+      known: false, has_run: null, gt_declared: null, gt_overlay: null, required: Object.freeze(required),
+      text: 'MRI only - this build does not log the run scope (has_run / gt_declared)',
+    });
+  }
+  const gtMask = s.gt_declared && s.gt_overlay === true;
+  if (s.has_run) required.push('prediction_slice_get');
+  if (s.gt_declared) required.push('ground_truth_slice_get');
+  if (gtMask) required.push('artifact:mask');
+  const parts = ['MRI'];
+  if (s.has_run) parts.push('prediction');
+  if (s.gt_declared) parts.push(gtMask ? 'ground truth (+ mask bytes)' : 'ground truth (overlay off: mask bytes not measured)');
+  const text = s.has_run
+    ? parts.join(' + ')
+    : `${parts.join(' + ')} - no analysis run for this case: predictions are not part of this L4`;
+  return Object.freeze({
+    known: true, has_run: s.has_run, gt_declared: s.gt_declared, gt_overlay: s.gt_overlay === true,
+    required: Object.freeze(required), text,
+  });
+}
+
 export function judge(events, {
   maxGestureKb = 500, maxRequestKb = 2048, relativeLimit = 10, relativeFloorKb = 32,
 } = {}) {
@@ -84,11 +117,16 @@ export function judge(events, {
   let pass = null;
   let markers = 0;
   let nz = null;
+  let l4start = null;
   for (const e of events) {
     if (e.unparsable) { problems.push(`unparsable line: ${String(e.raw).slice(0, 120)}`); continue; }
     if (e.tag === 'CMW_RUN_START') {
       pass = e.run === 'L4' ? e.pass : null;
-      if (e.run === 'L4') { markers += 1; if (Number.isInteger(e.nz)) nz = e.nz; }
+      if (e.run === 'L4') {
+        markers += 1;
+        if (Number.isInteger(e.nz)) nz = e.nz;
+        if (e.pass === 'new-15') l4start = e;
+      }
       continue;
     }
     if (e.tag === 'CMW_RUN_END') { pass = null; continue; }
@@ -131,14 +169,18 @@ export function judge(events, {
   }
 
   const manual = markers === 0;
+  const scope = scopeOf(l4start);
   if (!manual) {
-    // R5 - the new-15 pass measured something real
+    // R5 - the new-15 pass measured something real, for everything in scope
     for (const g of fresh) {
       const reqs = g.requests || [];
       const got = (endpoint) => reqs.some((q) => q.endpoint === endpoint && q.bytes > 0);
-      const missing = ['mri_slice_get', 'artifact:mri'].filter((endpoint) => !got(endpoint));
+      const missing = scope.required.filter((endpoint) => !got(endpoint));
       if (g.cache_hit !== false) problems.push(`R5 new-15 ${tag(g)} asked the network nothing - a new slice cannot be a cache hit`);
-      if (missing.length) problems.push(`R5 new-15 ${tag(g)} has no ${missing.join(' / ')} with bytes - the MRI never arrived`);
+      if (missing.length) {
+        const why = missing.includes('artifact:mri') || missing.includes('mri_slice_get') ? 'the MRI never arrived' : `required by the scope "${scope.text}"`;
+        problems.push(`R5 new-15 ${tag(g)} has no ${missing.join(' / ')} with bytes - ${why}`);
+      }
     }
     // R6 - undisturbed
     for (const g of inL4) {
@@ -163,6 +205,7 @@ export function judge(events, {
     note: manual
       ? 'manual: cannot judge - no L4 run markers, so new slices and revisits cannot be told apart (R5-R8 not judged). Rerun with the long-press "L4 15 + 15".'
       : null,
+    scope: manual ? null : scope,
     problems,
     counts: {
       gestures: gestures.length,
@@ -207,6 +250,7 @@ function main(argv) {
   if (!events.length) { console.error(`no CMW_GESTURE or CMW_RUN_* line in ${file} - wrong capture?`); return 2; }
   const r = judge(events, opts);
   console.log(JSON.stringify(r, null, 2));
+  if (r.scope) console.log(`scope: ${r.scope.text}; required per new slice: ${r.scope.required.join(', ')}`);
   const s = r.bytes_per_switch_kb.new_15;
   if (s) console.log(`bytes per new slice switch (KB, nearest-rank): n ${s.n} | p50 ${s.p50} | p95 ${s.p95} | max ${s.max}`);
   const ref = r.full_volume_reference;

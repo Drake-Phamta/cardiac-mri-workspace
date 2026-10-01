@@ -10,13 +10,13 @@ import { nearestRank, parseSlices, summarize } from '../scripts/slice-timing-rep
 // markers, prefixed like `adb logcat -s ReactNativeJS:V` prints them.
 function capture({
   freshRequests, revisitRequests = () => [], freshCount = 15, markers = true,
-  freshOutcome = () => 'shown', supersedeAt = null, timeoutAt = null,
+  freshOutcome = () => 'shown', supersedeAt = null, timeoutAt = null, scope = {},
 }) {
   const lines = [];
   const prefix = '10-01 19:03:11.123  4321  4400 I ReactNativeJS: ';
   const log = createNetLog({ log: (l) => lines.push(prefix + l) });
   const mark = (l) => { if (markers) lines.push(prefix + l); };
-  mark('CMW_RUN_START {"run":"L4","pass":"new-15","steps":15,"nz":88}');
+  mark(`CMW_RUN_START ${JSON.stringify({ run: 'L4', pass: 'new-15', steps: 15, nz: 88, ...scope })}`);
   for (let i = 0; i < freshCount; i += 1) {
     log.begin({ caseId: 'CASE_0061', from: 44 + i, to: 45 + i });
     for (const q of freshRequests(i)) log.record(q);
@@ -109,6 +109,46 @@ test('L4l a manual capture (no run markers) is CANNOT_JUDGE, never PASS; a volum
     markers: false,
   })));
   assert.equal(bad.verdict, 'FAIL');
+});
+
+const noRunRequests = () => [
+  { endpoint: 'mri_slice_get', bytes: 880, ms: 40, status: 200 },
+  { endpoint: 'ground_truth_slice_get', bytes: 900, ms: 39, status: 200 },
+  { endpoint: 'artifact:mri', bytes: 180000, ms: 120, status: 200 },
+  { endpoint: 'artifact:mask', bytes: 2500, ms: 20, status: 200 },
+];
+
+test('L4n a case with no analysis run is judged on MRI + ground truth, and the report says predictions were not part of it', () => {
+  const r = judge(parseLog(capture({
+    freshRequests: noRunRequests, scope: { has_run: false, gt_declared: true, gt_overlay: true, run_id: null },
+  })));
+  assert.equal(r.verdict, 'PASS', r.problems.join('\n'));
+  assert.deepEqual([...r.scope.required], ['mri_slice_get', 'artifact:mri', 'ground_truth_slice_get', 'artifact:mask']);
+  assert.match(r.scope.text, /no analysis run for this case: predictions are not part of this L4/);
+  const noGt = judge(parseLog(capture({
+    freshRequests: (i) => (i === 5 ? noRunRequests().filter((q) => q.endpoint !== 'ground_truth_slice_get') : noRunRequests()),
+    scope: { has_run: false, gt_declared: true, gt_overlay: true },
+  })));
+  assert.equal(noGt.verdict, 'FAIL');
+  assert.ok(noGt.problems.some((p) => /^R5 .* has no ground_truth_slice_get with bytes - required by the scope/.test(p)), noGt.problems.join('\n'));
+  const off = judge(parseLog(capture({
+    freshRequests: () => noRunRequests().filter((q) => q.endpoint !== 'artifact:mask'),
+    scope: { has_run: false, gt_declared: true, gt_overlay: false },
+  })));
+  assert.equal(off.verdict, 'PASS', off.problems.join('\n'));
+  assert.match(off.scope.text, /overlay off: mask bytes not measured/);
+});
+
+test('L4o with a run, every new slice must carry its prediction; without a logged scope only the MRI is required, and that is said', () => {
+  const withRun = judge(parseLog(capture({
+    freshRequests: noRunRequests, scope: { has_run: true, gt_declared: true, gt_overlay: false },
+  })));
+  assert.equal(withRun.verdict, 'FAIL');
+  assert.ok(withRun.problems.some((p) => /has no prediction_slice_get with bytes/.test(p)));
+  const unknown = judge(parseLog(capture({ freshRequests: sliceRequests })));
+  assert.equal(unknown.scope.known, false);
+  assert.deepEqual([...unknown.scope.required], ['mri_slice_get', 'artifact:mri']);
+  assert.match(unknown.scope.text, /does not log the run scope/);
 });
 
 test('L4m bytes per switch: n / p50 / p95 / max, nearest-rank', () => {

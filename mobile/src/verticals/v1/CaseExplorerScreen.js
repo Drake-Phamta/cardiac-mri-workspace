@@ -8,7 +8,10 @@
  *                                  full-volume transfer per gesture)
  *   slice n / total                SliceScrubber, from the case's shape[2]
  *   active run / model, precomputed  the header line, from analysis_run_get +
- *                                  experiment_get; always visible
+ *                                  experiment_get; always visible. A case with
+ *                                  no run yet (available_run_ids empty) says so
+ *                                  and opens MRI + ground truth only: no run,
+ *                                  prediction, metric or error request is made
  *   active prediction variant      the header switch; never defaulted (asked
  *                                  on first use), never switched silently - a
  *                                  switch hides the old mask until the new
@@ -95,7 +98,12 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   const shape = Array.isArray(kase.shape) ? kase.shape : null;
   const total = shape ? shape[2] : null;
 
-  if (!choice.runId || !variant) {
+  // A case with no analysis run yet (available_run_ids empty) opens straight
+  // into the viewer with MRI + ground truth only: nothing to choose, and no
+  // prediction, metric or error layer (the V1 model answers them
+  // UNAVAILABLE NO_ANALYSIS_RUN and asks for no run data).
+  const noRun = choice.reason === 'no-runs';
+  if (!noRun && (!choice.runId || !variant)) {
     return (
       <Chooser
         runtime={runtime}
@@ -114,15 +122,15 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
 
   return (
     <Explorer
-      key={`${caseId}|${choice.runId}`}
+      key={`${caseId}|${choice.runId || 'no-run'}`}
       runtime={runtime}
       nav={nav}
       caseId={caseId}
       kase={kase}
       capability={capability}
-      runId={choice.runId}
+      runId={noRun ? null : choice.runId}
       runReason={choice.reason}
-      initialVariant={variant}
+      initialVariant={noRun ? null : variant}
       initialSlice={initialSlice}
       onVariantChosen={rememberVariant}
       onChangeRun={choice.choices.length > 1 ? () => setRunId(null) : null}
@@ -203,12 +211,14 @@ function Explorer({
 }) {
   const client = runtime.sliceClient || runtime.client;
   const net = runtime.netLog || null;
+  const hasRun = typeof runId === 'string' && runId !== '';
   const shape = Array.isArray(kase.shape) ? kase.shape : null;
   const total = shape ? shape[2] : null;
   const width = shape ? shape[0] : null;
   const height = shape ? shape[1] : null;
   const size = useMemo(() => (width && height ? { width, height } : null), [width, height]);
   const options = variantOptions(runtime.contract);
+  const noRunText = 'no analysis run for this case';
 
   const model = useMemo(() => createCaseExplorer(client, { variant: initialVariant }), [client, initialVariant]);
   const [current, setCurrent] = useState(model.current);
@@ -268,8 +278,10 @@ function Explorer({
     runner.run(() => model.open({ caseId, runId, sliceIndex: initialSlice }));
   }, [runner, model, net, client, caseId, runId, initialSlice]);
 
-  // The run line: run, model family, experiment, precomputed. Read once.
+  // The run line: run, model family, experiment, precomputed. Read once - and
+  // never with no run: a case before its first run asks for no run data.
   useEffect(() => {
+    if (!hasRun) { setRunInfo(null); return undefined; }
     let alive = true;
     (async () => {
       const r = await runtime.client.call('analysis_run_get', { run_id: runId });
@@ -295,7 +307,7 @@ function Explorer({
       });
     })();
     return () => { alive = false; };
-  }, [runtime, runId]);
+  }, [runtime, runId, hasRun]);
 
   // Where a snapshot's bytes are: each ref's content_url and checksum, as the
   // server stated them. runtime.content resolves and verifies them when the
@@ -377,13 +389,13 @@ function Explorer({
   }, [client, caseId, model, net, runner, total]);
 
   const switchVariant = useCallback((v) => {
-    if (v === targetVariant) return;
+    if (!hasRun || v === targetVariant) return;
     onVariantChosen(v);
     setTargetVariant(v);
     const z = displayedRef.current ? displayedRef.current.sliceIndex : null;
     if (net) net.begin({ caseId, from: z, to: z, kind: 'variant' });
     runner.run(() => model.setVariant(v));
-  }, [caseId, model, net, onVariantChosen, runner, targetVariant]);
+  }, [caseId, hasRun, model, net, onVariantChosen, runner, targetVariant]);
 
   const setOverlay = useCallback((layer, on) => {
     const c = model.setOverlay(layer, on);
@@ -398,9 +410,9 @@ function Explorer({
   const forgetSlice = useCallback((zz) => {
     if (client.clearNegative) client.clearNegative();
     if (client.clearWhere && Number.isInteger(zz)) {
-      client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || p.run_id === runId));
+      client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || (hasRun && p.run_id === runId)));
     }
-  }, [client, caseId, runId]);
+  }, [client, caseId, hasRun, runId]);
 
   const refreshSlice = useCallback(() => {
     const zz = model.current.sliceIndex;
@@ -422,7 +434,7 @@ function Explorer({
   const ok = displayed !== null;
   const state = current.view.state;
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
-  const switching = ok && targetVariant !== displayed.variant;
+  const switching = hasRun && ok && targetVariant !== displayed.variant;
   const z = ok ? displayed.sliceIndex : null;
   const u = urlsFor(displayed);
   const mriImage = u.mri && runtime.imageStore ? runtime.imageStore.peek(u.mri) : null;
@@ -508,9 +520,16 @@ function Explorer({
     for (const pass of passes) {
       setNavRun(`${name} ${pass.label}`);
       passRef.current = `${name}:${pass.label}`;
+      // has_run / gt_declared / gt_overlay tell the laptop-side judge what every
+      // new slice must carry (l4-report.mjs R5): a case with no run is judged
+      // on MRI + ground truth and the report says predictions were not in it.
+      const ov = overlaysRef.current || {};
       console.log(`CMW_RUN_START ${JSON.stringify({
         run: name, pass: pass.label, steps: pass.steps.length, sequence: pass.steps, nz: total, case_id: caseId,
-        run_id: runId, variant: targetVariant, dev: isDev(), mode: runtime.mode,
+        run_id: hasRun ? runId : null, variant: hasRun ? targetVariant : null,
+        has_run: hasRun, gt_declared: capability.groundTruthUsable, gt_overlay: ov[LAYER.GROUND_TRUTH] === true,
+        prediction_overlay: hasRun && ov[LAYER.PREDICTION] === true,
+        dev: isDev(), mode: runtime.mode,
       })}`);
       for (const n of pass.steps) {
         await stepTo(n);
@@ -521,7 +540,7 @@ function Explorer({
     passRef.current = null;
     setNavRun(null);
     Alert.alert(`${name} finished`, 'The steps were logged to logcat (CMW_GESTURE, CMW_SLICE, CMW_RUN_*). Nothing is computed on the phone.');
-  }, [caseId, navRun, runId, runtime.mode, stepTo, targetVariant, total]);
+  }, [capability, caseId, hasRun, navRun, runId, runtime.mode, stepTo, targetVariant, total]);
 
   // L4 (S-1 tonight): 15 slices never seen, then the same 15 back - revisits.
   const runL4 = useCallback(() => {
@@ -559,6 +578,7 @@ function Explorer({
   const notLoaded = 'this slice did not load';
   let metrics;
   if (blocking) metrics = { text: 'Slice Dice: -', tone: 'neutral' };
+  else if (!hasRun) metrics = { text: `Slice Dice: - (${noRunText})`, tone: 'neutral' };
   else if (ok && !switching) metrics = metricsText(displayed.metrics, displayed.variant);
   else metrics = { text: switching ? `Slice Dice: switching to ${targetVariant}…` : 'Slice Dice: -', tone: 'neutral' };
   const scrubIndex = blocking ? current.sliceIndex : (ok ? displayed.sliceIndex : current.sliceIndex);
@@ -568,15 +588,19 @@ function Explorer({
   if (runtime.mode === 'fixture') pixelNote = 'Fixture mode: no pixels behind any URL. The grid is the source slice; gestures and states are real.';
   else if (ok && !u.mri) pixelNote = 'This response carries no content_url: no pixels to draw for this slice.';
   else if (imageError) pixelNote = `MRI slice could not be fetched: ${imageError.message}`;
+  const needsRun = `needs an analysis run - ${noRunText}`;
   let errorEntry = null;
   if (!capability.groundTruthUsable) errorEntry = 'no ground truth for this case (Inference & review)';
+  else if (!hasRun) errorEntry = needsRun;
   else if (blocking) errorEntry = notLoaded;
   else if (!ok) errorEntry = 'waiting for the slice';
   let threeDEntry = null;
-  if (blocking) threeDEntry = notLoaded;
+  if (!hasRun) threeDEntry = needsRun;
+  else if (blocking) threeDEntry = notLoaded;
   else if (!(ok && displayed.canEnter3D)) threeDEntry = 'needs a succeeded run with a reconstruction';
   let reviewEntry = null;
-  if (blocking) reviewEntry = notLoaded;
+  if (!hasRun) reviewEntry = needsRun;
+  else if (blocking) reviewEntry = notLoaded;
   else if (!(ok && predAvailable)) reviewEntry = 'needs this slice\'s prediction';
 
   return (
@@ -587,12 +611,13 @@ function Explorer({
           <CapabilityBadge capability={capability} />
         </View>
         <Text style={s.runLine} numberOfLines={2}>
-          {runText(run, runInfo ? runInfo.modelFamily : null)}
+          {hasRun ? runText(run, runInfo ? runInfo.modelFamily : null) : 'No analysis run for this case - MRI and ground truth only'}
           {runReason === 'only-run' ? ' · only run' : ''}
         </Text>
         <View style={s.variantRow}>
           <Text style={s.variantLabel}>Prediction</Text>
-          {options.map((v) => (
+          {!hasRun && <Text style={s.dim}>none - {noRunText}</Text>}
+          {hasRun && options.map((v) => (
             <TouchableOpacity
               key={v}
               style={[s.variant, targetVariant === v && s.variantOn]}
@@ -652,14 +677,18 @@ function Explorer({
 
         <View style={s.card}>
           <Text style={s.cardH}>Overlays</Text>
-          <LayerToggle
-            label={`Prediction (${ok ? displayed.variant : targetVariant})`}
-            swatch={OVERLAY_COLOR.PREDICTION}
-            on={overlays[LAYER.PREDICTION] === true}
-            available={predAvailable && !switching}
-            why={switching ? `switching to ${targetVariant}…` : (pred.status === 'error' ? pred.error : (ok && !predAvailable ? 'not available for this slice' : null))}
-            onToggle={(on) => setOverlay(LAYER.PREDICTION, on)}
-          />
+          {hasRun ? (
+            <LayerToggle
+              label={`Prediction (${ok ? displayed.variant : targetVariant})`}
+              swatch={OVERLAY_COLOR.PREDICTION}
+              on={overlays[LAYER.PREDICTION] === true}
+              available={predAvailable && !switching}
+              why={switching ? `switching to ${targetVariant}…` : (pred.status === 'error' ? pred.error : (ok && !predAvailable ? 'not available for this slice' : null))}
+              onToggle={(on) => setOverlay(LAYER.PREDICTION, on)}
+            />
+          ) : (
+            <Text style={s.dim}>Prediction: none - {noRunText} (no prediction, metric or error layer).</Text>
+          )}
           {capability.groundTruthUsable ? (
             <LayerToggle
               label="Ground truth"
@@ -706,7 +735,11 @@ function Explorer({
         <View style={s.card}>
           <Text style={s.cardH}>Provenance (this slice)</Text>
           <Text style={s.mono}>MRI {short(showing && displayed.imageRef ? displayed.imageRef.artifactId : null)} · {short(showing && displayed.imageRef ? displayed.imageRef.checksum : null)}</Text>
-          <Text style={s.mono}>Prediction {showing ? displayed.variant : '-'} {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(showing && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</Text>
+          {hasRun ? (
+            <Text style={s.mono}>Prediction {showing ? displayed.variant : '-'} {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(showing && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</Text>
+          ) : (
+            <Text style={s.mono}>Prediction - ({noRunText})</Text>
+          )}
           {capability.groundTruthUsable && (
             <Text style={s.mono}>Ground truth {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.checksum : null)}</Text>
           )}

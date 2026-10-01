@@ -17,10 +17,11 @@
  *   P1  /health answers, and the backend's contract_version equals the
  *       contract this checkout bundles (a mismatch = CONTRACT_DRIFT in the app)
  *   P2  study_get and case_list answer, and the rows carry a known mode
- *   P3  the case exists with usable ground truth and at least one run
+ *   P3  the case exists, its mode is consistent, and which run it has - a case
+ *       with no run yet is opened with MRI + ground truth only, as SCR-03 does
  *   P4  the V1 model opens the case at its middle slice
- *   P5  the MRI, prediction and ground-truth bytes arrive and hash to their
- *       checksums; both masks decode under maskPng.js's contract rules
+ *   P5  the MRI, prediction (when there is a run) and ground-truth bytes arrive
+ *       and hash to their checksums; the masks decode under maskPng.js's rules
  *   P6  the next slice costs per-slice requests only; going back costs none
  * Exit 0 = PASS, 1 = FAIL, 2 = not configured (no URL, or one that is not a
  * usable http(s) base URL). Nothing is written anywhere.
@@ -125,17 +126,18 @@ async function main() {
   const kase = await c.call('case_get', { case_id: opts.caseId });
   if (!check('P3', kase.state === STATE.SUCCESS, `case_get ${opts.caseId} -> ${kase.state} ${kase.reason || ''}`)) return 1;
   const cap = capabilityOf(kase.data.mode, kase.data.ground_truth_available);
-  const runId = Array.isArray(kase.data.available_run_ids) ? kase.data.available_run_ids[0] : null;
+  // A case before its first run opens with MRI + ground truth only, exactly as
+  // SCR-03 does (decision (b), Day 22): no run, prediction or metric request.
+  const runId = Array.isArray(kase.data.available_run_ids) && kase.data.available_run_ids[0] ? kase.data.available_run_ids[0] : null;
   const gtNote = cap.groundTruthUsable ? '' : ' | no ground truth: ground-truth checks skipped';
-  check('P3', cap.consistent && runId,
-    `${cap.label}${cap.consistent ? '' : ` (${cap.problem})`} | run ${runId || 'none'} | shape ${JSON.stringify(kase.data.shape)}${gtNote}`);
-  if (!runId) return 1;
+  check('P3', cap.consistent,
+    `${cap.label}${cap.consistent ? '' : ` (${cap.problem})`} | run ${runId || 'none - MRI + ground truth only'} | shape ${JSON.stringify(kase.data.shape)}${gtNote}`);
 
   // P4 - open like SCR-03
   const total = kase.data.shape[2];
   const z0 = Math.floor(total / 2);
   const size = { width: kase.data.shape[0], height: kase.data.shape[1] };
-  const model = createCaseExplorer(runtime.sliceClient, { variant: opts.variant });
+  const model = createCaseExplorer(runtime.sliceClient, { variant: runId ? opts.variant : null });
   runtime.netLog.begin({ caseId: opts.caseId, to: z0, kind: 'open' });
   const s = await model.open({ caseId: opts.caseId, runId, sliceIndex: z0 });
   if (!check('P4', s.view.state === STATE.SUCCESS,
@@ -149,11 +151,13 @@ async function main() {
       ? runtime.maskStore.load(ref.contentUrl, size, { checksum: ref.checksum }).catch((e) => ({ error: e.message }))
       : Promise.resolve({ error: 'no ref' }));
     const [pred, gt] = await Promise.all([
-      load(s.predictionRef), cap.groundTruthUsable ? load(s.groundTruthRef) : Promise.resolve({ skipped: true }),
+      runId ? load(s.predictionRef) : Promise.resolve({ skipped: true }),
+      cap.groundTruthUsable ? load(s.groundTruthRef) : Promise.resolve({ skipped: true }),
     ]);
     const gtText = gt.skipped ? 'not served (no ground truth)' : (gt.error || `${gt.pixels} px`);
-    check('P5', !pred.error && !gt.error, `masks: prediction ${pred.error || `${pred.pixels} px`} | ground truth ${gtText}`);
-    if (!pred.error && !gt.error && !gt.skipped) {
+    const predText = pred.skipped ? 'none (no analysis run)' : (pred.error || `${pred.pixels} px`);
+    check('P5', !pred.error && !gt.error, `masks: prediction ${predText} | ground truth ${gtText}`);
+    if (!pred.error && !gt.error && !gt.skipped && !pred.skipped) {
       const d = disagreementRuns(gt.mask, pred.mask).counts;
       console.log(`       slice ${z0}: TP ${d.tp} | FP ${d.fp} | FN ${d.fn} px (drawn by SCR-04)`);
     }
