@@ -503,11 +503,16 @@ function Explorer({
   }, [ok, imageUri, imageError, z, displayed, finishSample]);
 
   // ----- scripted runs: logcat evidence, nothing computed on the phone --------
+  // The timeout belongs to THIS step's waiter, compared by identity: the revisit
+  // pass steps back over slices the new pass showed, so an earlier step's timer
+  // must never time out a later step that waits on the same slice (#77 QA R-3).
   const stepTo = useCallback((n) => new Promise((resolve) => {
-    stepWaiter.current = { slice: n, resolve };
+    let timer = null;
+    const waiter = { slice: n, resolve: (v) => { clearTimeout(timer); resolve(v); } };
+    stepWaiter.current = waiter;
     goTo(n);
-    setTimeout(() => {
-      if (stepWaiter.current && stepWaiter.current.slice === n) {
+    timer = setTimeout(() => {
+      if (stepWaiter.current === waiter) {
         stepWaiter.current = null;
         console.log(`CMW_STEP_TIMEOUT ${JSON.stringify({ slice: n, waited_ms: 6000 })}`);
         resolve(null);
@@ -611,7 +616,8 @@ function Explorer({
           <CapabilityBadge capability={capability} />
         </View>
         <Text style={s.runLine} numberOfLines={2}>
-          {hasRun ? runText(run, runInfo ? runInfo.modelFamily : null) : 'No analysis run for this case - MRI and ground truth only'}
+          {hasRun ? runText(run, runInfo ? runInfo.modelFamily : null)
+            : `No analysis run for this case - MRI${capability.groundTruthUsable ? ' and ground truth' : ''} only`}
           {runReason === 'only-run' ? ' · only run' : ''}
         </Text>
         <View style={s.variantRow}>

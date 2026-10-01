@@ -250,11 +250,9 @@ const bundleJson = generatedBundleJson();
   await act(async () => { r.unmount(); });
 }
 
-// ---- 3. a case with no analysis run: MRI + ground truth only, and L4 on it ---
-// Decision (b), Day 22: tonight's backend has no run, so SCR-03 opens a case
-// before its first run straight into the viewer; the L4 15 + 15 run then
-// measures the real MRI + GT per-slice transfers, judged by l4-report.mjs.
-{
+// A fake live backend with one case before its first run: MRI + ground truth per
+// slice, no analysis run. Used by sections 3 and 4.
+function noRunBackend() {
   const W = 576; const H = 576;
   const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
@@ -283,6 +281,15 @@ const bundleJson = generatedBundleJson();
     if (path.endsWith('/ground-truth')) return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
     return json(404, { error: { code: 'ARTIFACT_NOT_FOUND' } });
   };
+  return { requests, fetchImpl };
+}
+
+// ---- 3. a case with no analysis run: MRI + ground truth only, and L4 on it ---
+// Decision (b), Day 22: tonight's backend has no run, so SCR-03 opens a case
+// before its first run straight into the viewer; the L4 15 + 15 run then
+// measures the real MRI + GT per-slice transfers, judged by l4-report.mjs.
+{
+  const { requests, fetchImpl } = noRunBackend();
   const runtime = createRuntime({
     config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
     contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
@@ -327,6 +334,59 @@ const bundleJson = generatedBundleJson();
     && verdict.scope.required.includes('artifact:mask') && /predictions are not part of this L4/.test(verdict.scope.text),
     `scope: ${verdict.scope ? verdict.scope.text : '-'}`);
   check('N6', runData().length === 0, `no run data asked during the whole session (${runData().length})`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 4. a stale step timer cannot hang the scripted run (#77 QA R-3) -------
+// Every scripted step arms a 6 s timeout, and the revisit pass steps back over
+// the slices the new pass showed. Here no step timer is ever scheduled; instead,
+// each time a step arms its own, every earlier step's timer fires at once, the
+// worst timing a phone can produce. Each must find its own waiter gone and do
+// nothing: the run ends with "L4 finished", no CMW_STEP_TIMEOUT and an
+// l4-report PASS.
+{
+  const { fetchImpl } = noRunBackend();
+  const runtime = createRuntime({
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
+  });
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061' } })), nodeMock);
+  });
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  await press(r, 'Ground truth: OFF');
+  await tick(300);
+  const logStart = logs.length;
+  const realSetTimeout = globalThis.setTimeout;
+  const stepTimers = [];
+  globalThis.setTimeout = (cb, ms, ...rest) => {
+    if (ms !== 6000) return realSetTimeout(cb, ms, ...rest);
+    for (const fire of stepTimers) fire();
+    stepTimers.push(cb);
+    return 0;
+  };
+  try {
+    const label = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.onLongPress === 'function')[0];
+    globalThis.__alerts = [];
+    await act(async () => { label.props.onLongPress(); });
+    const menu = globalThis.__alerts.find((a) => a[0] === 'Scripted slice navigation');
+    const l4 = menu && menu[2].find((b) => b.text === 'L4 15 + 15');
+    if (l4) await act(async () => { l4.onPress(); });
+    for (let i = 0; i < 120 && !globalThis.__alerts.some((a) => a[0] === 'L4 finished'); i += 1) await tick(250);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
+  const mine = logs.slice(logStart);
+  const verdict = judge(parseLog(mine.join('\n')));
+  const timeouts = mine.filter((l) => l.startsWith('CMW_STEP_TIMEOUT')).length;
+  check('T1', stepTimers.length === 30 && globalThis.__alerts.some((a) => a[0] === 'L4 finished') && timeouts === 0
+    && verdict.verdict === 'PASS',
+    `stale step timers fired during L4 15 + 15: ${stepTimers.length} steps armed, CMW_STEP_TIMEOUT ${timeouts}, l4-report ${verdict.verdict}`);
   await act(async () => { r.unmount(); });
 }
 
