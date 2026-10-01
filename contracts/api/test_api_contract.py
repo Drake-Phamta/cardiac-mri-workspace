@@ -173,10 +173,25 @@ def main() -> None:
     def summary_without_ci(data):
         del data["metric_summary"]["dice"]["ci95_low"]
 
+    def row_without_variant(data):  # #62 QA B1
+        del data["items"][0]["prediction_variant"]
+
+    def commit_not_corrected(data):  # #62 QA B2
+        data["status"] = "FLAGGED"
+
+    def inference_with_ground_truth(data):  # N1
+        data["mode"] = "INFERENCE_REVIEW"
+
+    def ground_truth_source(data):  # N2
+        data["provenance"]["source_mask_kind"] = "GROUND_TRUTH"
+
     for endpoint_id, change in (
         ("experiment_cases", withheld_numbers), ("experiment_cases", outlier_withheld),
         ("experiment_cases", outlier_unordered), ("finding_create", evidence_without_variant),
-        ("experiment_metrics", summary_without_ci),
+        ("experiment_metrics", summary_without_ci), ("experiment_list", row_without_variant),
+        ("review_commit", commit_not_corrected), ("case_get", inference_with_ground_truth),
+        ("review_commit", ground_truth_source), ("reviewed_masks_list", lambda d: d["items"][0]["provenance"].update(
+            source_mask_kind="GROUND_TRUTH")),
     ):
         assert mutated(endpoint_id, change), (endpoint_id, change.__name__)
     print("PASS v1.1.0: echoed experiment id, PROCESSED experiment, new commit id, per-case rows, "
@@ -271,9 +286,18 @@ def main() -> None:
     endpoint(broken, "review_create")["request_fields"].remove("source_mask_id")
     expect_error(broken, "REVIEW_STATE_INVALID", schema)
 
-    broken = copy.deepcopy(contract)
-    endpoint(broken, "review_commit")["errors"].remove("INVALID_REVIEW_TRANSITION")
+    broken = copy.deepcopy(contract)  # #62 QA B2: the commit performs ->CORRECTED from every state
+    endpoint(broken, "review_commit")["errors"].append("INVALID_REVIEW_TRANSITION")
     expect_error(broken, "REVIEW_STATE_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "review_commit")["response_fields"].remove("status")
+    expect_error(broken, "ENUM_INVALID", schema)  # the enum binding names a field that is gone
+
+    broken = copy.deepcopy(contract)  # #62 QA B1: every experiment row states its variant
+    endpoint(broken, "experiment_list")["row_fields"].remove("prediction_variant")
+    broken["enum_bindings"]["prediction_variant"].remove("experiment_list.prediction_variant")
+    expect_error(broken, "ENUM_INVALID", schema)
 
     broken = copy.deepcopy(contract)
     endpoint(broken, "analysis_run_metrics")["hero_flow"] = False
@@ -311,7 +335,7 @@ def main() -> None:
         output = Path(temp) / "generated_fixture.json"
         output.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
         assert json.loads(output.read_text(encoding="utf-8"))["base_path"] == "/api/v1"
-    print("api_contract_checks=PASS cases=31")
+    print("api_contract_checks=PASS cases=34")
 
 
 if __name__ == "__main__":
