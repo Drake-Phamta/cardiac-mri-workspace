@@ -2,9 +2,10 @@
 
 **Owner: Bế Quốc Khánh** (`PROJECT_STATE.yaml`, `DEMO_STANDARD.md` §3). Secondary reviewer: Vũ Hùng Anh.
 
-> **Day 22 skeleton.** The state models below were built under the Day 22 recovery override
-> (PR-MOBILE-03: the core flow, cleanly, with what is left written down). Khánh reviews, completes and
-> defends them from Day 23 — see [TODO for Khánh](#todo-for-khánh).
+> **Day 22 skeleton.** The state models below and the two screens that render them
+> (`mobile/src/verticals/v3/`, see [The screens](#the-screens--mobilesrcverticalsv3)) were built under the Day 22
+> recovery override (PR-MOBILE-03: the core flow, cleanly, with what is left written down). Khánh reviews,
+> completes and defends them from Day 23 — see [TODO for Khánh](#todo-for-khánh).
 
 ## What is here
 
@@ -66,6 +67,30 @@ stripLayout(compare.stripColumns(), { width, height });   // + pointAt(layout, x
 | An intent to `SCR-03` is enabled only when the server named case, run **and** variant | `caseIntent` | V3-4, V3-9, V3-10 |
 | A distribution is a **strip**, not a box: Tukey whiskers would be a second definition of "outlier" next to DR-010 | `strip.mjs` | V3-10 |
 | Per-experiment metric values are **not** on `SCR-01`: two numbers side by side read as a comparison, and there they would carry no comparability label. `SCR-01` shows N and status per cell, and common-population numbers only under the server's `COMPARABLE` | `studyOverview.mjs` | V3-1 |
+
+## The screens — `mobile/src/verticals/v3/`
+
+The React Native screens of the Expo app (`TECH_STACK_ADR`) render these models; they decide nothing the
+models have not already decided.
+
+| File | What it does |
+|---|---|
+| `StudyOverviewScreen.js` | `SCR-01`: study, dataset, case counts by mode, capabilities, experiment summary; the matrix with **N and status only**; the server's comparability verdicts; each listed experiment's DR-010 outliers (one tap → `SCR-03`); findings; links to `SCR-02` / `SCR-07` / `SCR-08` |
+| `ExperimentComparisonScreen.js` | `SCR-07`: metric and statistic chips (**no default**); the UNet / DINOv2 × 25 / 50 / 100 % cards with N, the server summary, the D2 context and the server's labels; the strip plot; comparisons with a difference only under `COMPARABLE`; the RQ-A trend; the per-case table of the tapped experiment, failed and excluded rows included. `params.experimentIds` opens one pair or group |
+| `StripChart.js` | draws `stripLayout` with `react-native-svg`; a tap selects the nearest dot (`pointAt`) and the screen shows its case with an "Open case" link, so a dense strip cannot navigate by accident |
+| `v3View.mjs` | **every** string, tone and route both screens show — pure, so `node --test` checks what the user reads |
+| `V3Parts.js`, `useSnapshot.js` | shared cards, chips and links; the hook that shows LOADING on every request and drops a late answer to an older one |
+| `mobile/test/v3_screens.test.mjs` | 9 tests: the copy and routes over the generated bundle through a real fixture runtime (including the FIXTURE panel's `not_comparable` and `error_case`), and the typed path |
+
+```powershell
+node --test mobile/test/*.test.mjs        # the mobile suite, V3 included
+cd mobile; npm ci; npm run export:android # the JS bundle builds (no Gradle)
+```
+
+Every non-success state is drawn by the shell's `StateView`, so the `10` §8 states look the same as in
+V1/V2/V4. In fixture mode, tap **FIXTURE** in the header to switch `experiment_compare` to `not_comparable`,
+`experiment_metrics` / `experiment_list` / `study_get` to `error_case`, and watch the labels and states change
+with no code edit.
 
 ## What today's generated bundle shows (contract 1.1.0)
 
@@ -163,9 +188,9 @@ can do about it, and offering a retry would suggest otherwise.
 
 ## TODO for Khánh
 
-1. **Switch to real Contract 2 artifacts once ingested** (DEP-07 → backend). No model change is needed: the
-   same `client.call()` reads the HTTP transport. Re-run this test, then check `SCR-01`/`SCR-07` show real N
-   with `source !== 'fixture'`.
+1. **Switch to real Contract 2 artifacts once ingested** (DEP-07 → backend). No model or screen change is
+   needed: the same `client.call()` reads the HTTP transport. Build a live app (`mobile/README.md`, "Live
+   mode"), re-run both test suites, then check `SCR-01`/`SCR-07` show real N with the **LIVE** badge.
 2. **Contract 1.1.0 is adopted** (the readers follow [its shapes](#the-shapes-are-the-contracts-api-contract-110)).
    Left with Trung: a generator scenario that serves `EXP-D-PP` metrics and cases as `PROCESSED`, so the
    ablation cell can be shown from the bundle (today it is correctly refused, V3-5).
@@ -185,3 +210,11 @@ can do about it, and offering a retry would suggest otherwise.
    not on Dice's [0, 1]); N-6 show the evaluation population only for the listed ids it covers; N-7 raise the
    remaining contract gaps with Trung (a mixed RAW/PROCESSED compare for RQ-B; a PROCESSED fixture for
    `EXP-D-PP` metrics and cases); N-9 list a strip column's `offAxis` values under the chart.
+8. **Device evidence — `NOT MEASURED`.** The screens were checked by `node --test` and by a JS bundle export
+   only, never on the Galaxy A17. Owed: a release build on the A17 (portrait), the touch-target check
+   (TC-USAB-004), the seven states via the FIXTURE panel (TC-MOBILE-STATE-001), and a short recording for the
+   PR (D7). Landscape is not designed; `10` §9.1 and your design note allow chart and table side by side.
+9. **Accessibility**: the strip's dots are not individually focusable; the per-case table of the tapped
+   experiment is the accessible path to the same cases. Decide whether that is enough.
+10. **UI vs design**: compare the screens with your design in `TC_TEAM_001_BE_QUOC_KHANH.md` §2 (the skeleton
+    keeps its order: population and N before performance) and record the differences there.
