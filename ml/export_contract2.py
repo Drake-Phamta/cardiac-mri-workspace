@@ -102,17 +102,20 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     for name, state in (("gate_split_01", gate_split_01), ("gate_ml_01", gate_ml_01)):
         if state not in GATE_STATES:
             raise ExportError(f"{name} must be one of {GATE_STATES}, got {state!r}")
-    rm = D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"])
-    if rm.get("format") != MF.RUN_MANIFEST_FORMAT:
-        raise ExportError(f"run_manifest.json is not {MF.RUN_MANIFEST_FORMAT}")
-    exp = rm["experiment_id"]
     pm_rel = MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION)
     em_rel = MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) + "/evaluation_manifest.json"
-    pm = D.load_json(run_dir / pm_rel)
-    em = D.load_json(run_dir / em_rel)
-    if pm.get("format") != MF.PREDICTIONS_FORMAT or pm["population"]["partition"] != PARTITION:
+    try:
+        rm = MF.validate_run_manifest(D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"]))
+        pm = MF.validate_predictions_manifest(D.load_json(run_dir / pm_rel))
+        em = MF.validate_evaluation_manifest(D.load_json(run_dir / em_rel))
+    except FileNotFoundError as exc:
+        raise ExportError(f"missing manifest: {Path(exc.filename or '').name or exc}") from exc
+    except MF.ManifestError as exc:
+        raise ExportError(str(exc)) from exc
+    exp = rm["experiment_id"]
+    if pm["population"]["partition"] != PARTITION:
         raise ExportError("predictions manifest is not a final_holdout ml-predictions/1 manifest")
-    if em.get("format") != "ml-evaluation/1" or em.get("partition") != PARTITION:
+    if em["partition"] != PARTITION:
         raise ExportError("evaluation manifest is not a final_holdout ml-evaluation/1 manifest")
     if not (exp == pm.get("experiment_id") == em.get("experiment_id")):
         raise ExportError("run, predictions and evaluation name different experiments")
@@ -260,9 +263,11 @@ def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
                               manifest_id=manifest_id, split_manifest=split_manifest,
                               allow_dirty_code=allow_dirty_code)
     out_dir = run_dir / MF.RUN_LAYOUT["contract2"]
-    rm = D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"])
-    pm = D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION))
-    em = D.load_json(run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) / "evaluation_manifest.json")
+    rm = MF.validate_run_manifest(D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"]))
+    pm = MF.validate_predictions_manifest(
+        D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION)))
+    em = MF.validate_evaluation_manifest(
+        D.load_json(run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) / "evaluation_manifest.json"))
     versions = code_versions(rm, pm, em)
     record = {"format": "ml-contract2-export/1", "manifest_id": manifest["manifest_id"],
               "frozen_split_sha256": D.sha256_file(split_manifest),

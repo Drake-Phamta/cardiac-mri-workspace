@@ -1,12 +1,21 @@
 """Run a list of experiment configs one after another: skip completed runs, resume partial
 ones, log every transition.
 
-    python -m ml.queue --queue <queue.json> [--log <queue_log.jsonl>] [--dry-run]
+    python -m ml.queue --queue <queue.json> [--epochs E] [--batch B] [--log <queue_log.jsonl>] [--dry-run]
 
 queue.json
     [ {<ml.train config>}, "relative/or/absolute/config.json", ... ]        queue_id = file stem
-    or {"queue_id": "matrix-v1", "experiments": [ ...same entries... ]}
-    (ml/configs/matrix_queue.template.json is the six-run template; set E and the batch first)
+    or {"queue_id": "matrix-v1", "experiments": [ ...same entries... ],
+        "compare": [["EXP-U-025", "EXP-D-025"], ...]}
+    (ml/configs/matrix_queue.template.json is the six-run template; set E and the batch first,
+    or pass --epochs / --batch, which apply the same values to every run and are recorded in
+    each run's config.json)
+
+Per experiment: train -> predict the validation population with best.pt -> evaluate it
+(ml.train's post-training step). After all runs: for each "compare" pair whose two runs are
+COMPLETE, a paired VALIDATION comparison (ml.evaluate.compare_runs) written once to
+<runs_root>/_queue/<queue_id>/comparisons/<a>__vs__<b>.validation.json. The holdout is
+never touched by the queue.
 
 Run it as a module from the repository root. Running ml/queue.py as a file would put ml/ on
 sys.path and shadow the standard-library `queue` module that torch's DataLoader imports.
@@ -47,13 +56,15 @@ def _log(path: Path, obj: dict) -> None:
         f.write(json.dumps(dict(obj, time=MF.now_iso()), ensure_ascii=False) + "\n")
 
 
-def load_queue(path: Path) -> tuple[str, list[dict]]:
+def load_queue(path: Path, *, epochs: int | None = None,
+               batch: int | None = None) -> tuple[str, list[dict], list[tuple[str, str]]]:
+    """(queue_id, configs with --epochs/--batch applied, comparison pairs). Validates everything."""
     q = D.load_json(path)
     if isinstance(q, list):                      # a bare JSON list of configs / paths
         q = {"queue_id": Path(path).stem, "experiments": q}
     if not isinstance(q, dict) or not isinstance(q.get("experiments"), list) or not q["experiments"]:
         raise ValueError("queue must be a JSON list of configs, or "
-                         "{\"queue_id\": ..., \"experiments\": [config | path, ...]}")
+                         "{\"queue_id\": ..., \"experiments\": [config | path, ...], \"compare\": [[a, b], ...]}")
     queue_id = q.get("queue_id") or Path(path).stem
     if not T._ID_RE.match(queue_id):
         raise ValueError("queue_id must match [A-Za-z0-9][A-Za-z0-9._-]*")
@@ -67,17 +78,59 @@ def load_queue(path: Path) -> tuple[str, list[dict]]:
             configs.append(item)
         else:
             raise ValueError(f"queue entries are config objects or paths, got {type(item).__name__}")
+    configs = [T.apply_overrides(c, epochs=epochs, batch=batch) for c in configs]
     ids = [c.get("experiment_id") for c in configs]
     if len(ids) != len(set(ids)):
         raise ValueError(f"experiment_id repeated in the queue: {ids}")
     for c in configs:
         T.validate_config(c)                     # fail before the first run, not hours later
-    return queue_id, configs
+    pairs = []
+    for pair in q.get("compare") or []:
+        if not (isinstance(pair, list) and len(pair) == 2 and all(p in ids for p in pair) and pair[0] != pair[1]):
+            raise ValueError(f"compare entries are [experiment_a, experiment_b] from this queue, got {pair!r}")
+        pairs.append((pair[0], pair[1]))
+    return queue_id, configs, pairs
+
+
+def run_comparisons(pairs: list[tuple[str, str]], configs: list[dict], queue_dir: Path, log_path: Path,
+                    *, dry_run: bool = False, echo=print) -> list[dict]:
+    """Paired VALIDATION comparison (ml.evaluate.compare_runs) for each pair whose two runs are
+    COMPLETE; written once to <queue_dir>/comparisons/<a>__vs__<b>.validation.json."""
+    from ml import evaluate as E
+    by_id = {c["experiment_id"]: T.validate_config(c) for c in configs}
+    results = []
+    for a, b in pairs:
+        ca, cb = by_id[a], by_id[b]
+        run_a, run_b = T.run_dir_for(ca), T.run_dir_for(cb)
+        out = queue_dir / "comparisons" / f"{a}__vs__{b}.validation.json"
+        entry = {"event": "compare", "run_a": a, "run_b": b, "population": "validation", "out": str(out)}
+        if dry_run:
+            results.append(dict(entry, outcome="planned"))
+            continue
+        if out.exists():
+            results.append(dict(entry, outcome="exists"))
+        elif T.run_status(run_a) != "COMPLETE" or T.run_status(run_b) != "COMPLETE":
+            results.append(dict(entry, outcome="skipped", reason="both runs must be COMPLETE"))
+        else:
+            try:
+                report = E.compare_runs(run_a, run_b, "validation",
+                                        split_manifest=T._path(ca, "split_manifest", D.DEFAULT_SPLIT_MANIFEST))
+                report["note"] = ("VALIDATION population: a pipeline / model-selection check, not a result; "
+                                  "the locked holdout is evaluated only after GATE-IMG-01")
+                MF.write_json_new(out, report)
+                results.append(dict(entry, outcome="compared",
+                                    comparable=report["report"]["comparability"]["label"]))
+            except Exception as exc:  # noqa: BLE001 - logged, the queue result says it failed
+                results.append(dict(entry, outcome="failed", error=f"{type(exc).__name__}: {exc}"[:300]))
+        _log(log_path, results[-1])
+        echo(f"    compare {a} vs {b}: {results[-1]['outcome']}")
+    return results
 
 
 def run_queue(queue_path: Path, *, log_path: Path | None = None, dry_run: bool = False,
-              python: str = sys.executable, env: dict | None = None, echo=print) -> dict:
-    queue_id, configs = load_queue(queue_path)
+              python: str = sys.executable, env: dict | None = None, echo=print,
+              epochs: int | None = None, batch: int | None = None) -> dict:
+    queue_id, configs, pairs = load_queue(queue_path, epochs=epochs, batch=batch)
     first = T.validate_config(configs[0])
     queue_dir = T._path(first, "runs_root", T.DEFAULT_RUNS_ROOT) / "_queue" / queue_id
     if D.inside_git_worktree(queue_dir):
@@ -114,9 +167,12 @@ def run_queue(queue_path: Path, *, log_path: Path | None = None, dry_run: bool =
                             wall_time_s=elapsed))
         echo(f"    {outcome} (exit {proc.returncode}, {elapsed}s, now {after})")
         results.append(dict(entry, outcome=outcome, exit_code=proc.returncode, status_after=after))
+    comparisons = run_comparisons(pairs, configs, queue_dir, log_path, dry_run=dry_run, echo=echo)
     failed = [r["experiment_id"] for r in results if r["outcome"] == "failed"]
+    failed += [f"compare:{c['run_a']}__vs__{c['run_b']}" for c in comparisons if c["outcome"] == "failed"]
     _log(log_path, {"event": "queue_end", "queue_id": queue_id, "failed": failed})
-    return {"queue_id": queue_id, "log": str(log_path), "results": results, "failed": failed}
+    return {"queue_id": queue_id, "log": str(log_path), "results": results, "comparisons": comparisons,
+            "failed": failed}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -126,8 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--queue", required=True, type=Path)
     ap.add_argument("--log", type=Path, default=None)
     ap.add_argument("--dry-run", action="store_true", help="show what would run; launch nothing")
+    ap.add_argument("--epochs", type=int, default=None, help="the one E for every run (recorded per run)")
+    ap.add_argument("--batch", type=int, default=None, help="the one batch for every run (recorded per run)")
     args = ap.parse_args(argv)
-    result = run_queue(args.queue, log_path=args.log, dry_run=args.dry_run)
+    result = run_queue(args.queue, log_path=args.log, dry_run=args.dry_run, epochs=args.epochs, batch=args.batch)
     print(f"queue log: {result['log']}")
     return 1 if result["failed"] else 0
 

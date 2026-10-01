@@ -37,6 +37,7 @@ import numpy as np
 import torch
 
 from ml import data as D
+from ml import evaluate as E
 from ml import manifests as MF
 from ml import models as M
 
@@ -51,6 +52,10 @@ class PredictionFailures(RuntimeError):
     """Some cases failed; the predictions manifest was not written (re-run retries them)."""
 
 
+class NonFiniteLogitsError(FloatingPointError):
+    """The model produced NaN or Inf logits; thresholding them would silently give 0 (N-7)."""
+
+
 # --- prediction --------------------------------------------------------------------------
 
 @torch.no_grad()
@@ -60,6 +65,8 @@ def predict_native_mask(model: torch.nn.Module, image_resized: np.ndarray, nativ
 
     Logits are resized back to native resolution BEFORE thresholding, a batch of slices
     at a time (slices are independent 2D images, so batching does not change the result).
+    Non-finite logits raise NonFiniteLogitsError: sigmoid(NaN) >= 0.5 is False, so a NaN
+    would otherwise become a silent background prediction.
     """
     was_training = model.training
     model.eval()
@@ -70,7 +77,11 @@ def predict_native_mask(model: torch.nn.Module, image_resized: np.ndarray, nativ
         x = torch.from_numpy(np.asarray(image_resized[start:stop], dtype=np.float32))[:, None].to(device)
         with M.autocast_for(device, precision):
             logits = model(x)
-        native = D.resize_logits_back(logits[:, 0].float(), native_hw)
+        logits = logits[:, 0].float()
+        if not bool(torch.isfinite(logits).all()):
+            bad = int((~torch.isfinite(logits)).sum())
+            raise NonFiniteLogitsError(f"{bad} non-finite logit(s) in slices {start}..{stop - 1}")
+        native = D.resize_logits_back(logits, native_hw)
         out[start:stop] = D.logits_to_mask(native, threshold).cpu().numpy()
     if was_training:
         model.train()
@@ -89,10 +100,16 @@ def model_from_checkpoint(payload: dict, device: str) -> torch.nn.Module:
 
 # --- run-directory helpers ---------------------------------------------------------------
 
-def _run_identity(run_dir: Path) -> tuple[dict, dict, str]:
+def _run_identity(run_dir: Path, frozen_split: str | Path) -> tuple[dict, dict, str]:
+    """(config, split, split sha256). The run's split copy must be byte-identical to the
+    FROZEN split manifest - a run directory cannot vouch for its own split (QA B-1 / H9)."""
     config = D.load_json(run_dir / MF.RUN_LAYOUT["config"])
     split_path = run_dir / MF.RUN_LAYOUT["split_manifest_copy"]
     split_sha = D.sha256_file(split_path)
+    frozen_sha = D.sha256_file(frozen_split)
+    if split_sha != frozen_sha:
+        raise MF.SplitMismatchError(f"the run's split copy (sha256 {split_sha}) is not the frozen split "
+                                    f"manifest (sha256 {frozen_sha}); refusing to predict")
     return config, D.load_split_manifest(split_path), split_sha
 
 
@@ -126,7 +143,7 @@ def resolve_checkpoint(run_dir: Path, which: str) -> tuple[Path, str]:
             raise ValueError(f"{rel}: sha256 {digest} != recorded {recorded}")
     manifest_path = run_dir / MF.RUN_LAYOUT["run_manifest"]
     if which == "best" and manifest_path.exists():
-        recorded = D.load_json(manifest_path)["checkpoint"]["sha256"]
+        recorded = MF.validate_run_manifest(D.load_json(manifest_path))["checkpoint"]["sha256"]
         if recorded != digest:
             raise ValueError(f"{rel}: sha256 {digest} != run manifest {recorded}")
     return path, digest
@@ -188,7 +205,8 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
                        device: str | None = None, precision: str | None = None, batch: int | None = None,
                        holdout_authorization: dict | None = None, morphology_config: Path | None = None,
                        dataset_manifest: dict | None = None, package_root: str | Path | None = None,
-                       skip_if_complete: bool = False, accept_failures: bool = False, log=print) -> Path:
+                       skip_if_complete: bool = False, accept_failures: bool = False,
+                       split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST, log=print) -> Path:
     """Predict every case of `partition`; return the predictions directory.
 
     Resumable: cases recorded as SUCCEEDED in progress.jsonl (and whose file still has the
@@ -199,12 +217,15 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
     When a case fails, the manifest is NOT written and PredictionFailures is raised, so a
     re-run retries it. accept_failures=True (CLI --accept-failures) records the failures in
     the manifest instead - a deliberate decision, since the manifest is final.
+
+    split_manifest is the FROZEN split (default: the repository's); the run's split copy
+    must be byte-identical to it. Failure reasons never carry absolute paths.
     """
     run_dir = Path(run_dir)
     if partition not in ("validation", D.HOLDOUT_PARTITION):
         raise ValueError("partition must be 'validation' or 'final_holdout'")
     authorization = _check_authorization(partition, holdout_authorization, morphology_config)
-    config, split, split_sha = _run_identity(run_dir)
+    config, split, split_sha = _run_identity(run_dir, split_manifest)
     pred_dir = run_dir / MF.RUN_LAYOUT["predictions"].format(partition=partition)
     manifest_path = run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)
     if manifest_path.exists():
@@ -247,6 +268,8 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
     if payload.get("experiment_id") != config["experiment_id"]:
         raise ValueError("the checkpoint belongs to a different experiment")
     model = model_from_checkpoint(payload, device)
+    scrub = E.path_scrubber({str(run_dir.resolve()): "<run>", str(run_dir): "<run>",
+                             str(package_root.resolve()): "<package_root>", str(package_root): "<package_root>"})
     cv = MF.code_version()
     _append(progress_path, {"event": "start", "time": MF.now_iso(), "checkpoint_sha256": ckpt_sha,
                             "device": device, "precision": precision, "batch": batch,
@@ -272,7 +295,7 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
             raise
         except Exception as exc:  # noqa: BLE001 - recorded with its reason, never dropped
             rec = {"event": "case", "case_id": cid, "status": "FAILED",
-                   "failure_reason": f"{type(exc).__name__}: {str(exc)[:300]}"}
+                   "failure_reason": scrub(f"{type(exc).__name__}: {exc}")[:300]}
         _append(progress_path, rec)
         if log:
             log(f"  [{n}/{len(allow)}] {cid} {rec['status']}")
@@ -312,7 +335,7 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
         "cases": cases,
         "created_at": MF.now_iso(),
     }
-    MF.write_json_new(manifest_path, manifest)
+    MF.write_json_new(manifest_path, MF.validate_predictions_manifest(manifest))
     return pred_dir
 
 
@@ -339,6 +362,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--batch", type=int, default=None)
     ap.add_argument("--accept-failures", action="store_true",
                     help="write the manifest even if cases failed, recording them as FAILED")
+    ap.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
+                    help="the FROZEN split the run must have used (default: the repository's)")
     args = ap.parse_args(argv)
     partition = POPULATIONS[args.population]
     if partition == D.HOLDOUT_PARTITION and not args.confirm_frozen_morphology:
@@ -353,9 +378,9 @@ def main(argv: list[str] | None = None) -> int:
         out = predict_population(args.run_dir, partition, checkpoint=args.checkpoint, device=args.device,
                                  precision=args.precision, batch=args.batch, holdout_authorization=auth,
                                  morphology_config=args.morphology_config,
-                                 accept_failures=args.accept_failures)
-    except (D.HoldoutAccessError, FileExistsError) as exc:
-        print(f"REFUSED: {exc}")
+                                 accept_failures=args.accept_failures, split_manifest=args.split_manifest)
+    except (D.DataAccessError, FileExistsError, MF.ManifestError) as exc:
+        print(f"REFUSED: {type(exc).__name__}: {exc}")
         return 2
     except PredictionFailures as exc:
         print(f"INCOMPLETE: {exc}")

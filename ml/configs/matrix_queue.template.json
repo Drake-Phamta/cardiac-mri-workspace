@@ -1,6 +1,7 @@
 {
  "queue_id": "matrix-template-DO-NOT-RUN",
- "_note": "Template of the six core runs (08 section 2). EXP-D-PP is derived from EXP-D-100 raw predictions, not trained. Copy this file, set epochs (the same E for every run), batch (8, 4 or 2) and queue_id, then: python -m ml.queue --queue <copy> --dry-run. ml.train refuses the placeholders, so this template cannot start a run by accident.",
+ "_note": "Template of the six core runs (08 section 2). EXP-D-PP is derived from EXP-D-100 raw predictions, not trained. Copy this file, set queue_id, and either set epochs (the same E for every run) and batch (8, 4 or 2) here or pass --epochs E --batch B to ml.queue; then python -m ml.queue --queue <copy> --epochs E --batch B --dry-run. ml.train refuses the placeholders, so this template cannot start a run by accident. Each run trains, predicts and evaluates the VALIDATION population; the compare pairs below are paired validation comparisons, not results.",
+ "compare": [["EXP-U-025", "EXP-D-025"], ["EXP-U-050", "EXP-D-050"], ["EXP-U-100", "EXP-D-100"]],
  "experiments": [
   {"experiment_id": "EXP-U-025", "variant": "unet_base32_depth4", "subset": "25_percent",
    "epochs": "SET_E", "batch": "SET_BATCH", "lr": 0.0001, "img": 560, "seed": 2024,

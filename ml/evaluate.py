@@ -520,7 +520,8 @@ def load_run_split(run_dir: str | Path, partition: str, *,
     """
     run_dir = Path(run_dir)
     frozen_sha = D.sha256_file(frozen_split)
-    pm = D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition))
+    pm = MF.validate_predictions_manifest(
+        D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)))
     ref = pm["split_manifest"]
     path = run_dir / ref["path"]
     digest = D.sha256_file(path)
@@ -546,9 +547,10 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     if out_dir.exists():
         raise FileExistsError(f"{out_dir} exists; recorded evaluations are immutable")
     pm_path = run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)
-    pm = D.load_json(pm_path)
-    if pm.get("format") != PREDICTIONS_FORMAT or pm.get("population", {}).get("partition") != partition:
-        raise ValueError(f"{pm_path}: not a {PREDICTIONS_FORMAT} manifest for {partition}")
+    pm = MF.validate_predictions_manifest(D.load_json(pm_path))
+    if pm["population"]["partition"] != partition:
+        raise ValueError(f"{MF.RUN_LAYOUT['predictions_manifest'].format(partition=partition)}: "
+                         f"population is {pm['population']['partition']!r}, not {partition!r}")
     split, split_sha = load_run_split(run_dir, partition, frozen_split=split_manifest)
     if partition == D.HOLDOUT_PARTITION:
         if allow_holdout is not True:

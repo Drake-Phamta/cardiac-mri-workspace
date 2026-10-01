@@ -209,47 +209,91 @@ def test_training_code_never_names_holdout_access():
         assert not re.search(r"allow_holdout\s*=\s*True|for_holdout\(|HOLDOUT_PARTITION", src), name
 
 
+# --- recipe exactness (ADR-ML-001) ---------------------------------------------------------------
+
+def test_soft_dice_is_per_sample_and_averaged_over_the_batch():
+    logits = torch.tensor([[[[20.0, 20.0], [-20.0, -20.0]]], [[[-20.0, -20.0], [-20.0, -20.0]]]])
+    target = torch.tensor([[[[1.0, 1.0], [0.0, 0.0]]], [[[0.0, 0.0], [0.0, 0.0]]]])
+    # sample 0: perfect overlap -> dice (2*2+1)/(2+2+1) = 1; sample 1: both empty -> (0+1)/(0+0+1) = 1
+    assert float(T.soft_dice_loss(logits, target)) == pytest.approx(0.0, abs=1e-6)
+    wrong = torch.tensor([[[[-20.0, -20.0], [-20.0, -20.0]]], [[[-20.0, -20.0], [-20.0, -20.0]]]])
+    # sample 0 misses both pixels: dice (0+1)/(0+2+1) = 1/3; sample 1 still 1 -> loss 1 - mean(1/3, 1)
+    assert float(T.soft_dice_loss(wrong, target)) == pytest.approx(1 - (1 / 3 + 1) / 2, abs=1e-6)
+    loss = T.recipe_loss(wrong, target)
+    bce = torch.nn.functional.binary_cross_entropy_with_logits(wrong, target)
+    assert float(loss) == pytest.approx(float(0.5 * bce + 0.5 * T.soft_dice_loss(wrong, target)))
+
+
+def test_epochs_and_batch_overrides_are_recorded(pkg, tmp_path):
+    cfg = make_config(pkg, tmp_path, experiment_id="EXP-T-OVR", epochs=7, batch=8, post_train_validation=False)
+    cfg_file = tmp_path / "cfg.json"
+    cfg_file.write_text(json.dumps(cfg), encoding="utf-8")
+    merged = T.apply_overrides(json.loads(cfg_file.read_text(encoding="utf-8")), epochs=1, batch=4)
+    assert (merged["epochs"], merged["batch"]) == (1, 4)
+    assert T.main(["--config", str(cfg_file), "--epochs", "1", "--batch", "4"]) == 0
+    stored = json.loads((T.run_dir_for(T.validate_config(merged)) / "config.json").read_text(encoding="utf-8"))
+    assert (stored["epochs"], stored["batch"]) == (1, 4)
+
+
 # --- inference --------------------------------------------------------------------------------
 
-def test_infer_refuses_holdout_without_the_flag(trained, capsys):
+def predict(run, partition, pkg, **kw):
+    """predict_population naming the synthetic split as the FROZEN one."""
+    kw.setdefault("split_manifest", pkg["split_manifest_path"])
+    kw.setdefault("log", None)
+    return I.predict_population(run, partition, **kw)
+
+
+def test_infer_refuses_holdout_without_the_flag(trained, pkg, capsys):
     run = trained["run_dir"]
-    assert I.main(["--run-dir", str(run), "--population", "holdout"]) == 2
+    split = ["--split-manifest", str(pkg["split_manifest_path"])]
+    assert I.main(["--run-dir", str(run), "--population", "holdout", *split]) == 2
     assert "REFUSED" in capsys.readouterr().out
     with pytest.raises(D.HoldoutAccessError):
-        I.predict_population(run, "final_holdout", log=None)
+        predict(run, "final_holdout", pkg)
     with pytest.raises(D.HoldoutAccessError):
-        I.predict_population(run, "final_holdout", holdout_authorization={"confirm_frozen_morphology_sha256":
-                                                                          "not-a-sha"}, log=None)
+        predict(run, "final_holdout", pkg, holdout_authorization={"confirm_frozen_morphology_sha256": "not-a-sha"})
     assert not (run / "predictions" / "final_holdout").exists()
-    assert I.main(["--run-dir", str(run), "--confirm-frozen-morphology", "a" * 64]) == 2   # validation + flag
+    assert I.main(["--run-dir", str(run), "--confirm-frozen-morphology", "a" * 64, *split]) == 2  # validation + flag
 
 
-def test_infer_checks_the_morphology_file(trained, tmp_path):
+def test_infer_checks_the_morphology_file(trained, pkg, tmp_path):
     cfg_file = tmp_path / "morphology.json"
     cfg_file.write_text('{"ops": []}\n', encoding="utf-8")
     with pytest.raises(D.HoldoutAccessError):
-        I.predict_population(trained["run_dir"], "final_holdout",
-                             holdout_authorization={"confirm_frozen_morphology_sha256": "b" * 64},
-                             morphology_config=cfg_file, log=None)
+        predict(trained["run_dir"], "final_holdout", pkg,
+                holdout_authorization={"confirm_frozen_morphology_sha256": "b" * 64}, morphology_config=cfg_file)
 
 
-def test_infer_refuses_to_overwrite(trained, capsys):
+def test_infer_refuses_to_overwrite(trained, pkg, capsys):
     run = trained["run_dir"]
     with pytest.raises(FileExistsError):
-        I.predict_population(run, "validation", log=None)
-    assert I.main(["--run-dir", str(run)]) == 2
+        predict(run, "validation", pkg)
+    assert I.main(["--run-dir", str(run), "--split-manifest", str(pkg["split_manifest_path"])]) == 2
     assert "REFUSED" in capsys.readouterr().out
-    assert I.predict_population(run, "validation", skip_if_complete=True, log=None).name == "validation"
+    assert predict(run, "validation", pkg, skip_if_complete=True).name == "validation"
 
 
-def test_infer_refuses_unrecorded_files(trained):
+def test_infer_refuses_a_split_other_than_the_frozen_one(trained, pkg, tmp_path):
+    """QA B-1 for inference: the run's split copy is checked against the FROZEN split, not trusted."""
+    forged = json.loads(json.dumps(pkg["split"]))
+    forged["partitions"]["validation"]["case_ids"].append(forged["partitions"]["final_holdout"]["case_ids"].pop())
+    forged_path = tmp_path / "forged.json"
+    forged_path.write_text(json.dumps(forged), encoding="utf-8")
+    with pytest.raises(I.MF.SplitMismatchError):
+        predict(trained["run_dir"], "validation", pkg, split_manifest=forged_path)
+    if D.DEFAULT_SPLIT_MANIFEST.exists():                   # default frozen split = the repository's
+        with pytest.raises(I.MF.SplitMismatchError):
+            I.predict_population(trained["run_dir"], "validation", log=None)
+
+
+def test_infer_refuses_unrecorded_files(trained, pkg):
     run = trained["run_dir"]
     stray_dir = run / "predictions" / "final_holdout"
     stray_dir.mkdir(parents=True)
     (stray_dir / f"{synth.HOLDOUT[0]}.nrrd").write_bytes(b"not ours")
     with pytest.raises(FileExistsError):
-        I.predict_population(run, "final_holdout", holdout_authorization={
-            "confirm_frozen_morphology_sha256": "c" * 64}, log=None)
+        predict(run, "final_holdout", pkg, holdout_authorization={"confirm_frozen_morphology_sha256": "c" * 64})
     assert (stray_dir / f"{synth.HOLDOUT[0]}.nrrd").read_bytes() == b"not ours"
 
 
@@ -262,42 +306,96 @@ def test_infer_failure_is_retried_or_explicitly_accepted(pkg, tmp_path, monkeypa
 
     def flaky(cid, paths):
         if cid == victim:
-            raise OSError("simulated read error")
+            raise OSError(f"simulated read error in {paths[cid].mri}")      # an absolute path on purpose
         return real(cid, paths)
     monkeypatch.setattr(D, "load_image", flaky)
     with pytest.raises(I.PredictionFailures):
-        I.predict_population(run, "validation", log=None)
+        predict(run, "validation", pkg)
     assert not (run / "predictions" / "validation" / "predictions_manifest.json").exists()
     monkeypatch.setattr(D, "load_image", real)
-    I.predict_population(run, "validation", log=None)                  # retries only the failed case
+    predict(run, "validation", pkg)                                          # retries only the failed case
     pm = json.loads((run / "predictions" / "validation" / "predictions_manifest.json").read_text(encoding="utf-8"))
     assert pm["succeeded_n"] == 2 and pm["failed_n"] == 0
     progress = [json.loads(x) for x in (run / "predictions" / "validation" / "progress.jsonl")
                 .read_text(encoding="utf-8").splitlines()]
     assert [(p["case_id"], p["status"]) for p in progress if p["event"] == "case"] == [
         (synth.VALIDATION[0], "SUCCEEDED"), (victim, "FAILED"), (victim, "SUCCEEDED")]
+    failed = [p for p in progress if p.get("status") == "FAILED"][0]["failure_reason"]
+    assert "<package_root>" in failed and str(pkg["package_root"]) not in failed     # N-8a
 
     cfg2 = make_config(pkg, tmp_path, experiment_id="EXP-T-FAIL2", post_train_validation=False)
     T.run_experiment(cfg2, log=None)
     run2 = T.run_dir_for(T.validate_config(cfg2))
     monkeypatch.setattr(D, "load_image", flaky)
-    I.predict_population(run2, "validation", accept_failures=True, log=None)
+    predict(run2, "validation", pkg, accept_failures=True)
     pm2 = json.loads((run2 / "predictions" / "validation" / "predictions_manifest.json").read_text(encoding="utf-8"))
     assert pm2["failed_n"] == 1 and pm2["cases"][1]["failure_reason"].startswith("OSError")
 
 
+def test_non_finite_logits_are_a_failed_case_not_a_background_prediction(pkg, tmp_path, monkeypatch):
+    """N-7: sigmoid(NaN) >= 0.5 is False, so a NaN would silently become background."""
+    cfg = make_config(pkg, tmp_path, experiment_id="EXP-T-NAN", post_train_validation=False)
+    T.run_experiment(cfg, log=None)
+    run = T.run_dir_for(T.validate_config(cfg))
+    real_build = I.model_from_checkpoint
+
+    def nan_model(payload, device):
+        model = real_build(payload, device)
+        model.register_forward_hook(lambda mod, inp, out: out * float("nan"))
+        return model
+    monkeypatch.setattr(I, "model_from_checkpoint", nan_model)
+    predict(run, "validation", pkg, accept_failures=True)
+    pm = json.loads((run / "predictions" / "validation" / "predictions_manifest.json").read_text(encoding="utf-8"))
+    assert pm["failed_n"] == 2
+    assert all(c["failure_reason"].startswith("NonFiniteLogitsError") for c in pm["cases"])
+    model = real_build(I.load_checkpoint_payload(run / "checkpoints" / "best.pt"), "cpu")
+    model.register_forward_hook(lambda mod, inp, out: out * float("inf"))
+    with pytest.raises(I.NonFiniteLogitsError):                   # training validation fails loudly too
+        I.predict_native_mask(model, np.zeros((2, IMG, IMG), np.float32), (8, 8), device="cpu",
+                              precision="fp32", batch=2)
+
+
+def test_missing_manifest_keys_are_refused_not_key_errors(trained, pkg, tmp_path, capsys):
+    """N-4: a manifest missing a required key gives a clear refusal (X3-style), not a KeyError."""
+    with pytest.raises(I.MF.ManifestError):
+        I.MF.validate_run_manifest({"format": "ml-run-manifest/1"})
+    pm = json.loads((trained["run_dir"] / "predictions" / "validation" / "predictions_manifest.json")
+                    .read_text(encoding="utf-8"))
+    I.MF.validate_predictions_manifest(pm)
+    broken = json.loads(json.dumps(pm))
+    del broken["cases"][0]["sha256"]
+    with pytest.raises(I.MF.ManifestError, match="cases\\[0\\].sha256"):
+        I.MF.validate_predictions_manifest(broken)
+    # the exporter on a run whose run manifest lost a key: EXPORT REFUSED, exit 2
+    cpkg = synth.make_contract_package(tmp_path / "cpkg")
+    from ml.tests import runfixture
+    run = runfixture.make_run_dir(tmp_path / "EXP-X3", cpkg, experiment_id="EXP-X3")
+    rm_path = run / "run_manifest.json"
+    rm = json.loads(rm_path.read_text(encoding="utf-8"))
+    del rm["checkpoint"]["sha256"]
+    rm_path.write_text(json.dumps(rm), encoding="utf-8")
+    with pytest.raises(X.ExportError, match="checkpoint.sha256"):
+        X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
+                         split_manifest=cpkg["split_manifest_path"])
+    assert X.main(["--run-dir", str(run), "--gate-split-01", "ACCEPTED", "--gate-ml-01", "ACCEPTED",
+                   "--split-manifest", str(cpkg["split_manifest_path"])]) == 2
+    assert "EXPORT REFUSED" in capsys.readouterr().out
+
+
 # --- the whole chain on a Contract-2-shaped package --------------------------------------------
 
-def test_train_infer_evaluate_export_chain(tmp_path):
+def test_train_infer_evaluate_export_chain(tmp_path, monkeypatch):
+    clean = {"commit": "c" * 40, "dirty": False, "version": "git:" + "c" * 40}
+    monkeypatch.setattr(I.MF, "code_version", lambda *a, **k: dict(clean))       # deterministic code versions
     cpkg = synth.make_contract_package(tmp_path / "cpkg")
     cfg = make_config(cpkg, tmp_path, experiment_id="EXP-U-025", subset="25_percent")
     assert T.run_experiment(cfg, log=None)["status"] == "COMPLETED"
     run = T.run_dir_for(T.validate_config(cfg))
-    I.predict_population(run, "final_holdout", holdout_authorization={
-        "confirm_frozen_morphology_sha256": "d" * 64}, log=None)
+    predict(run, "final_holdout", cpkg, holdout_authorization={"confirm_frozen_morphology_sha256": "d" * 64})
     E.evaluate_run(run, "final_holdout", dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
-                   allow_holdout=True, log=None)
-    manifest = X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED")
+                   allow_holdout=True, split_manifest=cpkg["split_manifest_path"], log=None)
+    manifest = X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
+                                split_manifest=cpkg["split_manifest_path"])
     result = X.validate(manifest, run)
     assert result["status"] == "PASS", result
     assert manifest["experiment"]["checkpoint"]["checksum"]["value"] == D.sha256_file(run / "checkpoints" / "best.pt")
@@ -307,40 +405,52 @@ def test_train_infer_evaluate_export_chain(tmp_path):
 
 # --- queue ------------------------------------------------------------------------------------
 
-def test_queue_skips_complete_runs_new_and_survives_a_failure(trained, pkg, tmp_path):
+def test_queue_runs_trains_evaluates_compares_and_survives_a_failure(trained, pkg, tmp_path):
     new = make_config(pkg, trained["root"], experiment_id="EXP-T-QUEUE")
     broken = make_config(pkg, trained["root"], experiment_id="EXP-T-BROKEN")
     broken["paths"] = dict(broken["paths"], split_manifest=str(tmp_path / "missing.json"))
     queue_file = tmp_path / "queue.json"
-    queue_file.write_text(json.dumps({"queue_id": "q-test", "experiments": [trained["cfg"], broken, new]}),
-                          encoding="utf-8")
+    queue_file.write_text(json.dumps({"queue_id": "q-test", "experiments": [trained["cfg"], broken, new],
+                                      "compare": [["EXP-T-001", "EXP-T-QUEUE"]]}), encoding="utf-8")
     dry = Q.run_queue(queue_file, dry_run=True, echo=lambda *a: None)
     assert [r["action"] for r in dry["results"]] == ["skip", "start", "start"]
+    assert [c["outcome"] for c in dry["comparisons"]] == ["planned"]
     env = dict(os.environ, CUDA_VISIBLE_DEVICES="-1", HF_HUB_OFFLINE="1")      # never touch the GPU
     out = Q.run_queue(queue_file, env=env, python=sys.executable, echo=lambda *a: None)
     assert [r["outcome"] for r in out["results"]] == ["skipped", "failed", "completed"]
     assert out["failed"] == ["EXP-T-BROKEN"]
+    # train -> infer (validation) -> evaluate (validation) -> compare (validation)
+    new_run = T.run_dir_for(T.validate_config(new))
+    assert T.run_status(new_run) == "COMPLETE"
+    assert (new_run / "predictions" / "validation" / "predictions_manifest.json").exists()
+    assert (new_run / "evaluation" / "validation" / "evaluation_manifest.json").exists()
+    assert not (new_run / "predictions" / "final_holdout").exists()
+    assert [c["outcome"] for c in out["comparisons"]] == ["compared"]
+    comparison = json.loads(open(out["comparisons"][0]["out"], encoding="utf-8").read())
+    assert comparison["population"] == "validation" and "not a result" in comparison["note"]
+    assert comparison["report"]["comparability"]["label"] == "COMPARABLE"
     events = [json.loads(x)["event"] for x in open(out["log"], encoding="utf-8")]
-    assert events[0] == "queue_start" and events[-1] == "queue_end" and "launch" in events
-    assert T.run_status(T.run_dir_for(T.validate_config(new))) == "COMPLETE"
+    assert events[0] == "queue_start" and events[-1] == "queue_end" and "launch" in events and "compare" in events
     again = Q.run_queue(queue_file, env=env, python=sys.executable, echo=lambda *a: None)
     assert [r["outcome"] for r in again["results"]][::2] == ["skipped", "skipped"]
+    assert [c["outcome"] for c in again["comparisons"]] == ["exists"]
 
 
 def test_matrix_template_cannot_run_but_is_otherwise_the_adr_recipe(tmp_path):
     template = D.REPO_ROOT / "ml" / "configs" / "matrix_queue.template.json"
     with pytest.raises(T.ConfigError):
         Q.load_queue(template)                                          # placeholders are refused
-    q = json.loads(template.read_text(encoding="utf-8"))
-    filled = [dict(c, epochs=10, batch=4) for c in q["experiments"]]
-    assert [c["experiment_id"] for c in filled] == ["EXP-U-025", "EXP-U-050", "EXP-U-100",
-                                                    "EXP-D-025", "EXP-D-050", "EXP-D-100"]
-    for c in filled:
+    queue_id, configs, pairs = Q.load_queue(template, epochs=10, batch=4)    # --epochs / --batch fill them
+    assert [c["experiment_id"] for c in configs] == ["EXP-U-025", "EXP-U-050", "EXP-U-100",
+                                                     "EXP-D-025", "EXP-D-050", "EXP-D-100"]
+    assert {(c["epochs"], c["batch"]) for c in configs} == {(10, 4)}
+    for c in configs:
         assert T.recipe_deviations(T.validate_config(c)) == []
+    assert pairs == [("EXP-U-025", "EXP-D-025"), ("EXP-U-050", "EXP-D-050"), ("EXP-U-100", "EXP-D-100")]
     path = tmp_path / "filled.json"
-    path.write_text(json.dumps(filled), encoding="utf-8")               # bare-list form
-    queue_id, configs = Q.load_queue(path)
-    assert queue_id == "filled" and len(configs) == 6
+    path.write_text(json.dumps(configs), encoding="utf-8")               # bare-list form
+    queue_id, configs, pairs = Q.load_queue(path)
+    assert queue_id == "filled" and len(configs) == 6 and pairs == []
 
 
 def test_queue_validates_every_config_before_running(pkg, tmp_path):
@@ -351,3 +461,7 @@ def test_queue_validates_every_config_before_running(pkg, tmp_path):
     with pytest.raises(T.ConfigError):
         Q.run_queue(queue_file, echo=lambda *a: None)
     assert not (tmp_path / "runs").exists()
+    queue_file.write_text(json.dumps({"queue_id": "q-bad", "experiments": [make_config(pkg, tmp_path)],
+                                      "compare": [["EXP-T-001", "EXP-NOT-QUEUED"]]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="compare"):
+        Q.run_queue(queue_file, echo=lambda *a: None)

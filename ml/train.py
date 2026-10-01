@@ -1,6 +1,9 @@
 """Train one experiment from a JSON config. Resumable.
 
-    python -m ml.train --config <experiment.json>
+    python -m ml.train --config <experiment.json> [--epochs E] [--batch B]
+
+--epochs / --batch, when given, replace the config's values before anything else and are
+recorded in the run's config.json (E comes from the calendar rule at launch time).
 
 CONFIG (JSON; unknown keys are refused so a typo cannot silently change a run)
     experiment_id   run directory name, e.g. "EXP-U-025"                       required
@@ -23,8 +26,10 @@ WHAT IT DOES (the ADR-ML-001 recipe, declared before any result)
     * trains on the subset's effective_case_ids only, through the slice cache (ml.data);
       the allowlists come from CaseAllowlist.for_training / for_validation - this module
       never requests holdout access, and a test checks that it cannot;
-    * loss 0.5 * BCEWithLogits + 0.5 * soft Dice (batch-global, smoothing 1), AdamW at a
-      constant lr, autocast in the configured precision, no augmentation, all slices;
+    * loss 0.5 * BCEWithLogits (mean over pixels) + 0.5 * soft Dice on sigmoid probabilities
+      (per sample, smoothing 1.0, mean over the batch); AdamW at a constant lr with torch's
+      default betas / weight decay; bf16 autocast on CUDA; no augmentation; all slices,
+      reshuffled every epoch by ONE generator seeded with `seed` and reused across epochs;
     * every epoch: mean validation 3D Dice over the validation cases, scored at NATIVE
       resolution (logits resized back, then thresholded at 0.5) - the same rule ml.evaluate
       and ml.infer apply;
@@ -33,8 +38,9 @@ WHAT IT DOES (the ADR-ML-001 recipe, declared before any result)
       epoch), each with its SHA-256 in run_state.json and in the log;
     * train_log.jsonl: per epoch train loss, validation Dice (mean and per case), wall
       times, peak memory;
-    * resumes from last.pt (the config must be byte-for-byte the same; the shuffle order of
-      an epoch depends only on seed and epoch, so a resumed run trains the same batches);
+    * resumes from last.pt (the config must be byte-for-byte the same; last.pt carries the
+      shuffle generator's state, so a resumed run trains the same batches as an
+      uninterrupted one);
     * when all epochs are done: optional validation predictions + evaluation, then
       run_manifest.json with the `08` section 10 fields. Its presence means COMPLETE.
 
@@ -78,14 +84,18 @@ BATCH_CHOICES = (8, 4, 2)
 ADR_ML_001 = {"img": 560, "lr": 1e-4, "seed": 2024, "precision": "bf16", "device": "cuda",
               "variants": tuple(M.ADR_ML_001_FAMILIES.values())}
 RECIPE = {
-    "loss": "0.5 * BCEWithLogits + 0.5 * soft Dice (sigmoid; batch-global; smoothing 1.0); loss in fp32",
+    "loss": ("0.5 * BCEWithLogits (mean over all pixels) + 0.5 * soft Dice on sigmoid probabilities "
+             "(per sample, smoothing 1.0, mean over the batch); computed in fp32"),
     "optimizer": "AdamW (torch defaults: betas 0.9/0.999, eps 1e-8, weight_decay 0.01), trainable params only",
     "lr_policy": "constant",
+    "precision": "bf16 autocast on CUDA (fp32 on CPU)",
     "augmentation": "none",
-    "slices": "all slices of every training case, shuffled per epoch (generator seeded by seed and epoch)",
+    "slices": ("all slices of every training case, reshuffled every epoch by ONE torch.Generator seeded "
+               "with the seed and reused across epochs; its state is saved in last.pt and restored on resume"),
     "threshold": "sigmoid >= 0.5 after resizing logits back to native resolution",
     "checkpoint_selection": ("best mean validation 3D Dice over the validation partition, evaluated every "
-                             "epoch at native resolution; strictly greater replaces, ties keep the earlier epoch"),
+                             "epoch at NATIVE resolution (logits resized back, then thresholded); strictly "
+                             "greater replaces, ties keep the earlier epoch"),
     "normalization": "DR-011 per-volume (ml.data)",
 }
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -197,12 +207,16 @@ def run_status(run_dir: Path) -> str:
 # --- loss and validation ------------------------------------------------------------------------
 
 def soft_dice_loss(logits: torch.Tensor, target: torch.Tensor, smooth: float = 1.0) -> torch.Tensor:
-    p = torch.sigmoid(logits)
-    inter = (p * target).sum()
-    return 1.0 - (2.0 * inter + smooth) / (p.sum() + target.sum() + smooth)
+    """1 - soft Dice on sigmoid probabilities, computed per sample (over its pixels) with
+    smoothing 1.0, then averaged over the batch."""
+    p = torch.sigmoid(logits).flatten(1)
+    t = target.flatten(1)
+    dice = (2.0 * (p * t).sum(dim=1) + smooth) / (p.sum(dim=1) + t.sum(dim=1) + smooth)
+    return 1.0 - dice.mean()
 
 
 def recipe_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """ADR-ML-001: 0.5 * BCEWithLogits (mean over all pixels) + 0.5 * soft Dice (mean over the batch), fp32."""
     logits = logits.float()
     return 0.5 * F.binary_cross_entropy_with_logits(logits, target) + 0.5 * soft_dice_loss(logits, target)
 
@@ -236,7 +250,7 @@ def _cpu_copy(state_dict: dict) -> dict:
     return {k: v.detach().to("cpu", copy=True) for k, v in state_dict.items()}
 
 
-def _last_payload(cfg, model, optimizer, epoch, best, best_state, config_sha) -> dict:
+def _last_payload(cfg, model, optimizer, epoch, best, best_state, config_sha, shuffle_gen) -> dict:
     """last.pt: everything needed to resume, INCLUDING the best weights so far.
 
     last.pt is the single commit point of an epoch: best.pt is always re-derivable from it,
@@ -255,6 +269,7 @@ def _last_payload(cfg, model, optimizer, epoch, best, best_state, config_sha) ->
         "best_model_state": best_state,
         "config_sha256": config_sha,
         "backbone_checkpoint": getattr(model, "checkpoint_ref", None),
+        "shuffle_generator_state": shuffle_gen.get_state(),
         "torch_rng_state": torch.get_rng_state(),
         "cuda_rng_states": torch.cuda.get_rng_state_all() if cfg["device"] == "cuda" else [],
     }
@@ -366,11 +381,15 @@ def run_experiment(raw_config: dict, *, log=print) -> dict:
 def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path, *, log) -> dict:
     _ensure_file(run_dir / MF.RUN_LAYOUT["config"], config_bytes, "config.json")
     config_sha = D.sha256_file(run_dir / MF.RUN_LAYOUT["config"])
+    # The FROZEN split: the repository's manifest unless the config names another file. The
+    # run's copy is written from it and must stay byte-identical (QA B-1).
     split_src = _path(cfg, "split_manifest", D.DEFAULT_SPLIT_MANIFEST)
     split_bytes = split_src.read_bytes()
     _ensure_file(run_dir / MF.RUN_LAYOUT["split_manifest_copy"], split_bytes, "split manifest copy")
     split = D.load_split_manifest(run_dir / MF.RUN_LAYOUT["split_manifest_copy"])
     split_sha = D.sha256_file(run_dir / MF.RUN_LAYOUT["split_manifest_copy"])
+    if split_sha != D.sha256_file(split_src):
+        raise MF.SplitMismatchError("the run's split copy is not byte-identical to the frozen split manifest")
     subset_rel = MF.RUN_LAYOUT["training_subset_manifest"].format(subset=cfg["subset"])
     _ensure_file(run_dir / subset_rel,
                  MF.json_bytes(MF.training_subset_manifest(split, cfg["subset"], split_sha)), "subset manifest")
@@ -408,6 +427,7 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
     start_epoch = 1
     last_path, best_path = ckpt_dir / "last.pt", ckpt_dir / "best.pt"
     backbone = getattr(model, "checkpoint_ref", None)
+    shuffle_gen = torch.Generator().manual_seed(cfg["seed"])     # ONE generator, reused across epochs
     if last_path.exists():
         digest = D.sha256_file(last_path)
         payload = torch.load(last_path, map_location="cpu", weights_only=True)
@@ -420,6 +440,7 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
         best = dict(payload["best"])
         best_state = payload["best_model_state"]
         start_epoch = int(payload["epoch"]) + 1
+        shuffle_gen.set_state(payload["shuffle_generator_state"])
         torch.set_rng_state(payload["torch_rng_state"])
         if device == "cuda" and payload.get("cuda_rng_states"):
             torch.cuda.set_rng_state_all(payload["cuda_rng_states"])
@@ -452,12 +473,11 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
     MF.write_json_replace(state_path, state)
 
     model.train()
+    loader = torch.utils.data.DataLoader(train_ds, batch_size=cfg["batch"], shuffle=True, generator=shuffle_gen,
+                                         num_workers=cfg["num_workers"], drop_last=False,
+                                         pin_memory=(device == "cuda"))
     for epoch in range(start_epoch, cfg["epochs"] + 1):
         t_epoch = time.perf_counter()
-        gen = torch.Generator().manual_seed(cfg["seed"] * 100003 + epoch)
-        loader = torch.utils.data.DataLoader(train_ds, batch_size=cfg["batch"], shuffle=True, generator=gen,
-                                             num_workers=cfg["num_workers"], drop_last=False,
-                                             pin_memory=(device == "cuda"))
         tracker = M.PeakTracker(device)
         tracker.start()
         loss_sum, steps, seen = 0.0, 0, 0
@@ -486,7 +506,7 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
             best = {"epoch": epoch, "val_mean_dice_3d": val["val_mean_dice_3d"]}
             best_state = _cpu_copy(model.state_dict())
         state["last_sha256"] = _save_atomic(                       # commit point of the epoch
-            _last_payload(cfg, model, optimizer, epoch, best, best_state, config_sha), last_path)
+            _last_payload(cfg, model, optimizer, epoch, best, best_state, config_sha, shuffle_gen), last_path)
         if is_best:
             state["best_sha256"] = _save_atomic(_best_payload(cfg, best, best_state, config_sha, backbone),
                                                 best_path)
@@ -516,12 +536,13 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
     if cfg["post_train_validation"]:
         I.predict_population(run_dir, "validation", checkpoint="best", device=device, precision=precision,
                              batch=cfg["val_batch"], dataset_manifest=dataset_manifest,
-                             package_root=package_root, skip_if_complete=True, log=log)
+                             package_root=package_root, skip_if_complete=True, split_manifest=split_src,
+                             log=log)
         eval_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition="validation")
         if not eval_dir.exists():
             E.evaluate_run(run_dir, "validation", dataset_manifest=dataset_manifest,
-                           package_root=package_root, log=log)
-        em = D.load_json(eval_dir / "evaluation_manifest.json")
+                           package_root=package_root, split_manifest=split_src, log=log)
+        em = MF.validate_evaluation_manifest(D.load_json(eval_dir / "evaluation_manifest.json"))
         eval_refs = {k: em["outputs"][k] for k in eval_refs}
         evaluation_code_version = em["evaluation_code_version"]
     return _write_run_manifest(cfg, run_dir, state, split, split_sha, subset_rel, population, model,
@@ -588,7 +609,7 @@ def _write_run_manifest(cfg, run_dir, state, split, split_sha, subset_rel, popul
         "environment": environment(cfg["device"]),
         "created_at": MF.now_iso(),
     }
-    MF.write_json_new(run_dir / MF.RUN_LAYOUT["run_manifest"], manifest)
+    MF.write_json_new(run_dir / MF.RUN_LAYOUT["run_manifest"], MF.validate_run_manifest(manifest))
     state["status"] = "COMPLETE"
     MF.write_json_replace(run_dir / "run_state.json", state)
     return {"status": "COMPLETED", "run_dir": str(run_dir), "best_epoch": state["best_epoch"],
@@ -600,11 +621,23 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Train one experiment from a JSON config (resumable)")
     ap.add_argument("--config", required=True, type=Path)
+    ap.add_argument("--epochs", type=int, default=None, help="replaces the config's epochs (recorded)")
+    ap.add_argument("--batch", type=int, default=None, help="replaces the config's batch: 8, 4 or 2 (recorded)")
     args = ap.parse_args(argv)
-    raw = D.load_json(args.config)
+    raw = apply_overrides(D.load_json(args.config), epochs=args.epochs, batch=args.batch)
     result = run_experiment(raw)
     print(json.dumps(result))
     return 0
+
+
+def apply_overrides(raw: dict, *, epochs: int | None = None, batch: int | None = None) -> dict:
+    """The config with --epochs / --batch applied. The result is what config.json records."""
+    out = dict(raw)
+    if epochs is not None:
+        out["epochs"] = int(epochs)
+    if batch is not None:
+        out["batch"] = int(batch)
+    return out
 
 
 if __name__ == "__main__":

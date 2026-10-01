@@ -55,6 +55,88 @@ ROLES = {"train": "TRAIN", "validation": "VALIDATION", HOLDOUT_PARTITION: "FINAL
 SUBSET_FRACTIONS = {"25_percent": 0.25, "50_percent": 0.5, "100_percent": 1.0}
 
 
+# --- required keys (N-4): a missing key is a clear refusal, never a KeyError deep inside ---
+
+class ManifestError(ValueError):
+    """A run / predictions / evaluation manifest is missing required keys or has the wrong format."""
+
+
+_REF = {"manifest_id": None, "path": None, "sha256": None}
+_FILE = {"path": None, "sha256": None}
+RUN_MANIFEST_REQUIRED = {
+    "format": None, "status": None, "experiment_id": None, "model_family": None, "model_variant": None,
+    "decoder": None, "training_fraction": None, "training_subset": None, "split_manifest": _REF,
+    "training_subset_manifest": _REF, "seed": None, "preprocessing_version": None,
+    "postprocessing_version": None, "prediction_variant": None,
+    "evaluation_population_manifest": dict(_REF, role=None, case_count=None),
+    "evaluation_metric_version": None, "training_code_version": None,
+    "checkpoint": {"checkpoint_id": None, "path": None, "sha256": None},
+    "evaluation_code_version": None, "num_test_cases": None,
+}
+PREDICTIONS_REQUIRED = {
+    "format": None, "experiment_id": None, "split_manifest": _REF,
+    "population": dict(_REF, partition=None, role=None, case_count=None),
+    "intended_case_ids": None, "prediction_variant": None, "postprocessing_version": None,
+    "threshold": None, "checkpoint": {"checkpoint_id": None, "path": None, "sha256": None},
+    "holdout_authorization": None, "cases": None,
+}
+EVALUATION_REQUIRED = {
+    "format": None, "experiment_id": None, "partition": None, "evaluation_metric_version": None,
+    "evaluation_code_version": None, "population": dict(_REF, role=None, case_count=None),
+    "prediction_variant": None, "postprocessing_version": None, "predictions_manifest": _FILE,
+    "intended_n": None, "successful_n": None, "failed_n": None,
+    "outputs": {"per_case_metrics": _FILE, "per_slice_metrics": _FILE, "metrics_summary": _FILE},
+    "metric_sets": None,
+}
+
+
+def _missing(doc, spec: dict, where: str) -> list[str]:
+    if not isinstance(doc, dict):
+        return [f"{where} is not an object"]
+    out = []
+    for key, sub in spec.items():
+        if key not in doc:
+            out.append(f"{where}.{key}")
+        elif sub is not None:
+            out.extend(_missing(doc[key], sub, f"{where}.{key}"))
+    return out
+
+
+def _validate(doc, spec: dict, fmt: str | None, what: str) -> dict:
+    problems = _missing(doc, spec, what)
+    if not problems and fmt is not None and doc.get("format") != fmt:
+        problems.append(f"{what}.format is {doc.get('format')!r}, expected {fmt!r}")
+    if problems:
+        raise ManifestError(f"{what}: missing or invalid {problems}")
+    return doc
+
+
+def validate_run_manifest(doc) -> dict:
+    """The `08` section 10 run manifest written by ml.train (format ml-run-manifest/1)."""
+    return _validate(doc, RUN_MANIFEST_REQUIRED, RUN_MANIFEST_FORMAT, "run_manifest")
+
+
+def validate_predictions_manifest(doc) -> dict:
+    """The predictions manifest written by ml.infer (format ml-predictions/1), case entries included."""
+    _validate(doc, PREDICTIONS_REQUIRED, PREDICTIONS_FORMAT, "predictions_manifest")
+    problems = []
+    for n, case in enumerate(doc["cases"]):
+        need = {"case_id": None, "status": None}
+        if isinstance(case, dict) and case.get("status") == "SUCCEEDED":
+            need.update(file=None, sha256=None)
+        elif isinstance(case, dict):
+            need.update(failure_reason=None)
+        problems.extend(_missing(case, need, f"predictions_manifest.cases[{n}]"))
+    if problems:
+        raise ManifestError(f"predictions_manifest: missing or invalid {problems}")
+    return doc
+
+
+def validate_evaluation_manifest(doc) -> dict:
+    """The evaluation manifest written by ml.evaluate (format ml-evaluation/1)."""
+    return _validate(doc, EVALUATION_REQUIRED, "ml-evaluation/1", "evaluation_manifest")
+
+
 def now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).astimezone().isoformat(timespec="seconds")
 

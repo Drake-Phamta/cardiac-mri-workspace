@@ -121,8 +121,8 @@ contract2/<manifest_id>.json + <manifest_id>.export.json (export record)
 ```
 
 ```
-python -m ml.train --config <experiment.json>              # trains, or resumes, or skips if COMPLETE
-python -m ml.queue --queue <queue.json> --dry-run          # then without --dry-run
+python -m ml.train --config <experiment.json> [--epochs E] [--batch B]   # trains, resumes, or skips if COMPLETE
+python -m ml.queue --queue <queue.json> --epochs E --batch B --dry-run  # then without --dry-run
 python -m ml.infer --run-dir <run>                         # validation population, best.pt
 python -m ml.infer --run-dir <run> --population holdout --confirm-frozen-morphology <sha256>
 python -m ml.evaluate run --run-dir <run> --population validation
@@ -142,15 +142,39 @@ Always run the modules with `python -m ml.<module>` from the repository root: ru
 file under `ml/` directly puts `ml/` on `sys.path`, where `ml/queue.py` would shadow the
 standard-library `queue` module.
 
-Training details (`ml/train.py` docstring has the full list): unknown config keys are
-refused; `batch` must be 8, 4 or 2; departures from the ADR-ML-001 values (img 560, lr 1e-4,
-seed 2024, bf16, CUDA, the two declared families) are recorded in the run manifest as
-`recipe_deviations_from_adr_ml_001`, not refused. `last.pt` is the commit point of an
-epoch and also stores the best weights, so `best.pt` can always be re-derived after an
-interruption. An epoch's shuffle order depends only on the seed and the epoch, so a resumed
-run trains the same batches as an uninterrupted one (tested bit-for-bit on CPU). Training
-code builds only training and validation allowlists; a test fails if `ml/train.py` or
-`ml/queue.py` ever names holdout access.
+### Training: the ADR-ML-001 recipe
+
+| Item | Implementation in `ml/train.py` |
+|---|---|
+| Loss | 0.5·BCEWithLogits (mean over pixels) + 0.5·soft Dice on sigmoid probabilities, per sample with smoothing 1.0, mean over the batch; fp32 |
+| Optimizer | AdamW, constant lr (1e-4), torch default betas / eps / weight decay |
+| Precision | bf16 autocast on CUDA; the device is exactly `cuda` or `cpu` (`cuda:0` is refused, never reinterpreted) |
+| Seed / shuffle | `torch.manual_seed(seed)` before the model is built; **one** `torch.Generator` seeded with `seed`, reused across epochs, its state saved in `last.pt` |
+| Augmentation | none |
+| Validation | mean 3D Dice over the 20 validation cases **every epoch**, at **native resolution** (logits resized back, thresholded at 0.5) |
+| Checkpoint | `best.pt` = best mean validation Dice (ties keep the earlier epoch); `last.pt` every epoch |
+| Epochs / batch | required config values; `--epochs` / `--batch` on `ml.train` or `ml.queue` replace them and are recorded in `config.json` |
+
+Other training rules. Unknown config keys are refused, and `batch` must be 8, 4 or 2.
+Departures from the ADR-ML-001 values (img 560, lr 1e-4, seed 2024, bf16, CUDA, the two
+declared families) are recorded in the run manifest as `recipe_deviations_from_adr_ml_001`,
+not refused. `last.pt` is the commit point of an epoch and also stores the best weights, so
+`best.pt` can always be re-derived after an interruption. A resumed run trains the same
+batches as an uninterrupted one; this is tested bit for bit on CPU. Training code builds
+only training and validation allowlists, and a test fails if `ml/train.py` or `ml/queue.py`
+ever names holdout access. The run's split copy is written from the frozen split and must
+stay byte-identical.
+
+Each queued experiment runs train → infer (validation) → evaluate (validation). The
+queue's `compare` pairs then produce paired **validation** comparisons in
+`<runs_root>\_queue\<queue_id>\comparisons\`. Those comparisons are a pipeline and
+model-selection check, not a result. The queue never touches the holdout.
+
+Inference refuses non-finite logits: `NonFiniteLogitsError` records the case as FAILED.
+Without the check, `sigmoid(NaN) >= 0.5` is False and the NaN would silently become a
+background voxel. Run, predictions and evaluation manifests are checked against required-key
+lists (`ml.manifests.validate_*`), so a missing key is a clear refusal (`EXPORT REFUSED`),
+never a `KeyError`.
 
 Scoring the final holdout needs `--allow-holdout` **and** a `holdout_authorization`
 record in the predictions manifest (written by inference only under GATE-IMG-01). A
