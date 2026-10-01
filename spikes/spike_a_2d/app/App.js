@@ -10,8 +10,30 @@
  *   origin top-left, +x right, +y down
  *
  * Covers so far: A1 (slice renders with n/total), the instrumentation A9
- * needs, stage S4 — pinch-zoom and pan (A2), stage S5 — brush, and stage S6 —
- * the bounded cache window below. A8/A10/A11 are later stages.
+ * needs, stage S4 — pinch-zoom and pan (A2), stage S5 — brush, stage S6 —
+ * the bounded cache window below, and stage S8 — save and reload (A8).
+ *
+ * S8 (2026-09-19): A8 IS "THE SAME MASK CAME BACK", NOT "A FILE WAS WRITTEN".
+ * The corrected working mask is run-length coded (app/persist.js), written to
+ * a real file with expo-file-system, read back, decoded, and every slice is
+ * re-hashed against the checksum the saver stored. A round trip that quietly
+ * loses one corrected voxel would otherwise look exactly like a success, and
+ * a reviewed mask in `11` is an artifact WITH a checksum for that reason.
+ *
+ * Two things the automated check deliberately cannot answer, so the session
+ * script does them by hand:
+ *   - persistence ACROSS PROCESS DEATH. The loop below saves and reloads in
+ *     one process, which proves the codec and the file, not that the file
+ *     survives the app being killed. The operator force-stops the app,
+ *     relaunches, presses "Nạp lại" and compares volume_sha256 with the one
+ *     the save printed. That comparison is the real A8.
+ *   - whether the timing is release-build timing. A debug build skews it, and
+ *     nothing in here can detect that.
+ *
+ * Why run-length and not raw bytes: 576x576x88 is 29.2 MB of one-byte voxels,
+ * ~39 MB once base64 has padded it into a text file. Writing that would
+ * measure JSON, not persistence. The mask is binary and spatially coherent,
+ * so runs are what any real implementation would store.
  *
  * S6 (2026-09-17): CACHE POLICY IS NOW A MEASURED VARIABLE, not an assumption.
  * Until today this harness prewarmed EVERY slice and never released one, which
@@ -69,6 +91,7 @@ import {
   Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { File, Paths } from 'expo-file-system';
 
 import volume from '../fixtures/volume_synthetic.json';
 import maskFx from '../fixtures/mask_synthetic.json';
@@ -83,6 +106,9 @@ import {
   createHistory, diffRuns, endStroke, redo, resetWorking, runA5, runOpsScript,
   strokeSample, undo,
 } from './brushMath';
+import {
+  FORMAT, decodeRuns, editedSlices, encodeRuns, hashSlices, verifySlices, volumeHash,
+} from './persist';
 
 const [NX, NY, NZ] = volume.shape_xyz;
 const SLICES = volume.slices_png_data_uri;
@@ -128,6 +154,15 @@ const TAG_MAP = 'SPIKE_A_MAP';
 const TAG_BRUSH = 'SPIKE_A_BRUSH';
 const TAG_A5 = 'SPIKE_A_A5';
 const TAG_OPS = 'SPIKE_A_OPS';
+const TAG_A8 = 'SPIKE_A_A8';
+
+// --- S8: where a saved working mask lives ----------------------------------
+// Paths.document, not Paths.cache: the cache directory is exactly the one the
+// system may delete under storage pressure, and "the file was gone" would be
+// an A8 failure caused by the harness rather than by the candidate.
+const SAVE_NAME = 'spike_a_working_mask_v1.json';
+const saveFile = () => new File(Paths.document, SAVE_NAME);
+const A8_CYCLES = 5;
 const now = () => (global.performance ? performance.now() : Date.now());
 const round = (v) => +v.toFixed(3);
 
@@ -404,6 +439,17 @@ export default function App() {
   const [a5, setA5] = useState(null);
   const [opsRunning, setOpsRunning] = useState(false);
   const [opsResult, setOpsResult] = useState(null);
+
+  // --- S8: save / reload (A8) -------------------------------------------------
+  const [saved, setSaved] = useState(null);      // what the last save in THIS process wrote
+  const [a8, setA8] = useState(null);            // last save, reload or A8 loop result
+  const [a8Busy, setA8Busy] = useState(false);
+  const [onDisk, setOnDisk] = useState(null);    // a file found at startup, from a previous process
+  // A ref, not the `saved` state: the A8 loop calls doSave and doReload inside
+  // one synchronous pass, where a state update has not landed yet, and reading
+  // it there would label every cycle "cold" and make the loop look like proof
+  // of exactly the thing it cannot prove.
+  const savedThisProcess = useRef(false);
   const stroke = useRef(null);                      // the stroke in progress, if any
   const committed = useRef(0);
   const overlayBump = useRef(null);                 // set by BrushOverlay: re-render only that layer
@@ -457,6 +503,14 @@ export default function App() {
     if (!st) return;
     stroke.current = null;
     st.result = endStroke(history.current, st, working.current[st.slice], end);
+    // S8: record the outcome ON THE GESTURE, so A11 ("zero accidental edits")
+    // is readable from one record instead of inferred by correlating two log
+    // streams on timestamps. A verdict that rests on a correlation is a
+    // verdict that can be wrong quietly.
+    if (gest.current) {
+      gest.current.strokeEnd = st.result.end;
+      gest.current.strokeCommitted = st.result.committed;
+    }
     if (st.result.committed) committed.current += 1;
     else if (overlayBump.current) overlayBump.current();
     refreshHist();
@@ -585,6 +639,12 @@ export default function App() {
         ms: +ms.toFixed(1), moves: cur.moves, frames: cur.frames,
         max_frame_gap_ms: +cur.maxGap.toFixed(1), stall_over_500ms: cur.maxGap > 500,
         zoom_from: cur.zoomStart && round(cur.zoomStart), zoom_to: round(xfRef.current.zoom),
+        // S8, for A11: did this gesture start a stroke, and did that stroke
+        // commit? A committed stroke in a gesture that reached two fingers
+        // would be an accidental edit, which A11 bounds at zero.
+        stroke_started: cur.stroke === true,
+        stroke_end: cur.strokeEnd ?? null,
+        stroke_committed: cur.strokeCommitted ?? null,
       };
       console.log(`${TAG_GESTURE} ${JSON.stringify(rec)}`);
     },
@@ -716,6 +776,186 @@ export default function App() {
     return () => { cancelled = true; };
   }, [opsRunning]);
 
+  // --- S8: save, reload and the A8 loop ---------------------------------------
+  /*
+   * Phases are timed separately because a single "save took N ms" cannot be
+   * acted on. Run-length coding, checksumming, JSON and the write itself scale
+   * differently, and the decision GATE-MOB-01 has to make is whether the
+   * CANDIDATE is slow, not whether JSON is.
+   *
+   * Every timing is measured around synchronous calls (File.write,
+   * File.textSync), so no scheduler gap is counted as work.
+   */
+  const doSave = useCallback(() => {
+    const slices = working.current;
+    const t0 = now();
+    const runs = encodeRuns(slices);
+    const t1 = now();
+    const sha256 = hashSlices(slices);
+    const t2 = now();
+    const volume_sha256 = volumeHash(slices);
+    const t3 = now();
+    const json = JSON.stringify({ format: FORMAT, nx: NX, ny: NY, nz: NZ, runs, sha256, volume_sha256 });
+    const t4 = now();
+    const f = saveFile();
+    f.write(json);
+    const t5 = now();
+
+    const rec = {
+      phase: 'save',
+      nx: NX, ny: NY, nz: NZ,
+      edited_slices: editedSlices(slices, maskBytes()).length,
+      strokes: committed.current,
+      rle_ms: round(t1 - t0),
+      sha_ms: round(t2 - t1),
+      volume_sha_ms: round(t3 - t2),
+      json_ms: round(t4 - t3),
+      write_ms: round(t5 - t4),
+      save_ms: round(t5 - t0),
+      bytes: json.length,
+      raw_bytes: NX * NY * NZ,
+      ratio: +(json.length / (NX * NY * NZ)).toFixed(4),
+      volume_sha256,
+      uri: f.uri,
+    };
+    console.log(`${TAG_A8} ${JSON.stringify(rec)}`);
+    savedThisProcess.current = true;
+    setSaved({ at: Date.now(), bytes: json.length, volume_sha256 });
+    setOnDisk(null);
+    return rec;
+  }, []);
+
+  /*
+   * Reload REPLACES the live working mask with what came off disk. Anything
+   * weaker would be checking a decoder, not a reload: the claim A8 makes is
+   * that the reviewer gets their corrections back, in the buffer the screen
+   * draws from.
+   *
+   * `cold` is the field that matters. false means a save happened in this
+   * process, so the file may owe its contents to memory that is still warm;
+   * true means this process never saved, so the file is genuinely from a
+   * previous run of the app. Only a cold reload settles A8.
+   */
+  const doReload = useCallback(() => {
+    const f = saveFile();
+    if (!f.exists) {
+      setA8({ phase: 'reload', error: 'không có tệp đã lưu' });
+      console.log(`${TAG_A8} ${JSON.stringify({ phase: 'reload', error: 'no_file', uri: f.uri })}`);
+      return null;
+    }
+    const cold = savedThisProcess.current === false;
+    const t0 = now();
+    const text = f.textSync();
+    const t1 = now();
+    const doc = JSON.parse(text);
+    const t2 = now();
+    const slices = decodeRuns(doc);
+    const t3 = now();
+    const mismatches = verifySlices(slices, doc.sha256);
+    const t4 = now();
+    for (let i = 0; i < slices.length; i++) working.current[i].set(slices[i]);
+    const t5 = now();
+    const after = volumeHash(working.current);
+    const t6 = now();
+
+    // Reloading discards the undo history: the strokes it holds refer to
+    // pixel values that are no longer the ones in the buffer, and replaying
+    // one would write a stale value back into the reviewed mask.
+    history.current.undo.length = 0;
+    history.current.redo.length = 0;
+    committed.current = 0;
+    if (overlayBump.current) overlayBump.current();
+    refreshHist();
+
+    const rec = {
+      phase: 'reload',
+      cold,
+      nz: doc.nz,
+      read_ms: round(t1 - t0),
+      parse_ms: round(t2 - t1),
+      rle_decode_ms: round(t3 - t2),
+      verify_ms: round(t4 - t3),
+      restore_ms: round(t5 - t4),
+      volume_sha_ms: round(t6 - t5),
+      reload_ms: round(t5 - t0),
+      bytes: text.length,
+      verified: doc.nz - mismatches.length,
+      mismatches: mismatches.slice(0, 16),
+      mismatches_total: mismatches.length,
+      volume_sha256_file: doc.volume_sha256,
+      volume_sha256_after: after,
+      volume_sha256_match: doc.volume_sha256 === after,
+    };
+    console.log(`${TAG_A8} ${JSON.stringify(rec)}`);
+    setA8(rec);
+    return rec;
+  }, [refreshHist]);
+
+  const onSave = useCallback(() => {
+    if (stroke.current || a8Busy) return;
+    setA8Busy(true);
+    try { setA8(doSave()); } finally { setA8Busy(false); }
+  }, [a8Busy, doSave]);
+
+  const onReload = useCallback(() => {
+    if (stroke.current || a8Busy) return;
+    // Reloading overwrites uncommitted work, so it asks first (`10` §9).
+    const go = () => { setA8Busy(true); try { doReload(); } finally { setA8Busy(false); } };
+    if (hist.strokes === 0 && hist.undo === 0) { go(); return; }
+    Alert.alert(
+      'Nạp lại bản đã lưu?',
+      `${hist.strokes} nét tô và lịch sử hoàn tác hiện tại sẽ bị thay bằng nội dung tệp đã lưu.`,
+      [{ text: 'Huỷ', style: 'cancel' }, { text: 'Nạp lại', style: 'destructive', onPress: go }],
+    );
+  }, [a8Busy, doReload, hist.strokes, hist.undo]);
+
+  /*
+   * "A8 tự động": A8_CYCLES save+reload round trips back to back. This is the
+   * distribution, not the verdict - every cycle here is warm and in one
+   * process. The verdict needs the cold reload the session script describes.
+   */
+  const runA8Check = useCallback(() => {
+    if (stroke.current || a8Busy) return;
+    setA8Busy(true);
+    const results = [];
+    try {
+      for (let i = 0; i < A8_CYCLES; i++) {
+        const before = volumeHash(working.current);
+        const sv = doSave();
+        const rl = doReload();
+        if (!rl) break;
+        results.push({
+          cycle: i + 1,
+          save_ms: sv.save_ms,
+          reload_ms: rl.reload_ms,
+          bytes: sv.bytes,
+          verified: rl.verified,
+          of: NZ,
+          round_trip_exact: before === rl.volume_sha256_after && rl.mismatches_total === 0,
+        });
+        console.log(`${TAG_A8}_CYCLE ${JSON.stringify(results[results.length - 1])}`);
+      }
+    } finally {
+      setA8Busy(false);
+    }
+    const exact = results.filter((r) => r.round_trip_exact).length;
+    console.log(`${TAG_A8}_SUMMARY ${JSON.stringify({ cycles: results.length, exact, of: results.length })}`);
+    setA8({ phase: 'loop', cycles: results.length, exact, results });
+  }, [a8Busy, doReload, doSave]);
+
+  // At startup, report whether a file from a PREVIOUS process is on disk. The
+  // operator needs to know that before deciding whether a reload is cold.
+  useEffect(() => {
+    const f = saveFile();
+    if (f.exists) {
+      const info = { bytes: f.size, uri: f.uri };
+      setOnDisk(info);
+      console.log(`${TAG_A8}_STARTUP ${JSON.stringify({ found: true, ...info })}`);
+    } else {
+      console.log(`${TAG_A8}_STARTUP ${JSON.stringify({ found: false, uri: f.uri })}`);
+    }
+  }, []);
+
   const imgStyle = xf
     ? { position: 'absolute', left: xf.panX, top: xf.panY, width: NX * xf.zoom, height: NY * xf.zoom }
     : s.img;
@@ -734,7 +974,7 @@ export default function App() {
   }, [samples]);
 
   const reset = () => { setSamples([]); console.log(`${TAG}_RESET`); };
-  const checksBusy = running || autoRunning || opsRunning;
+  const checksBusy = running || autoRunning || opsRunning || a8Busy;
 
   return (
     <View style={s.root}>
@@ -822,9 +1062,51 @@ export default function App() {
             <Text style={s.legendT}>xoá</Text>
           </View>
           <Text style={[s.statL, edit && s.bold]}>
-            {edit ? 'Sửa' : 'Xem'} · {tool === 'add' ? 'thêm' : 'xoá'} · r = {radius} · {hist.strokes} nét · hoàn tác {hist.undo} / làm lại {hist.redo} · chưa lưu
+            {edit ? 'Sửa' : 'Xem'} · {tool === 'add' ? 'thêm' : 'xoá'} · r = {radius} · {hist.strokes} nét · hoàn tác {hist.undo} / làm lại {hist.redo} ·{' '}
+            {saved
+              ? `đã lưu ${(saved.bytes / 1024).toFixed(0)} KB`
+              : (onDisk ? `có bản lưu từ lần chạy trước (${(onDisk.bytes / 1024).toFixed(0)} KB)` : 'chưa lưu')}
           </Text>
         </View>
+
+        {/* S8 — A8. "Nạp lại" right after a fresh launch is the COLD one, the
+            only reload that proves the file outlived the process. */}
+        <View style={s.row}>
+          <Btn label="lưu" onPress={onSave} disabled={checksBusy} />
+          <Btn label="nạp lại" onPress={onReload} disabled={checksBusy || (!saved && !onDisk)} />
+          <Btn label={a8Busy ? 'đang chạy A8…' : `A8 tự động (${A8_CYCLES})`} onPress={runA8Check} disabled={checksBusy} />
+        </View>
+
+        {a8 && (
+          <View style={s.a2box}>
+            {a8.error && <Text style={[s.statL, s.bad]}>A8: {a8.error}</Text>}
+            {a8.phase === 'save' && (
+              <Text style={s.statL}>
+                A8 lưu: {(a8.bytes / 1024).toFixed(0)} KB ({(a8.ratio * 100).toFixed(1)}% của {(a8.raw_bytes / 1048576).toFixed(1)} MB thô)
+                {' '}· {a8.save_ms} ms (rle {a8.rle_ms} · sha {a8.sha_ms} · json {a8.json_ms} · ghi {a8.write_ms})
+                {' '}· {a8.edited_slices}/{NZ} slice đã sửa
+              </Text>
+            )}
+            {a8.phase === 'reload' && !a8.error && (
+              <Text style={[s.statL, a8.mismatches_total === 0 && a8.volume_sha256_match ? s.bold : s.bad]}>
+                A8 nạp lại{a8.cold ? ' (NGUỘI — tệp từ lần chạy trước)' : ' (nóng — cùng phiên)'}:
+                {' '}{a8.verified}/{a8.nz} slice khớp checksum · hash khối {a8.volume_sha256_match ? 'khớp' : 'LỆCH'}
+                {' '}· {a8.reload_ms} ms (đọc {a8.read_ms} · parse {a8.parse_ms} · giải rle {a8.rle_decode_ms} · kiểm {a8.verify_ms} · khôi phục {a8.restore_ms})
+              </Text>
+            )}
+            {a8.phase === 'loop' && (
+              <Text style={[s.statL, a8.exact === a8.cycles ? s.bold : s.bad]}>
+                A8 tự động: {a8.exact}/{a8.cycles} vòng lưu→nạp lại đúng từng byte
+                {' '}· lưu {a8.results.map((r) => r.save_ms).join(' / ')} ms
+                {' '}· nạp {a8.results.map((r) => r.reload_ms).join(' / ')} ms
+              </Text>
+            )}
+            <Text style={s.note}>
+              Vòng tự động chạy trong CÙNG tiến trình nên chỉ chứng minh mã hoá và tệp.
+              A8 thật cần: lưu → force-stop ứng dụng → mở lại → "nạp lại" (khi đó ghi NGUỘI) → hash khối khớp.
+            </Text>
+          </View>
+        )}
 
         <View style={s.row}>
           <Btn label="◀ prev" onPress={() => goTo(z - 1)} disabled={running || autoRunning || z === 0} />

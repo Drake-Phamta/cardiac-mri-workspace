@@ -38,14 +38,18 @@ spikes/spike_a_2d/
 │   └── brush_ops.json           S5: 14 nét cọ kịch bản → pixel + SHA-256 kỳ vọng, undo/redo/reset, tập tô A5
 ├── app/                         Expo app — viewer + instrumentation
 │   ├── viewerMath.js            toán transform thuần (S4)
-│   └── brushMath.js             logic cọ thuần, không React (S5)
+│   ├── brushMath.js             logic cọ thuần, không React (S5)
+│   └── persist.js               mã hoá run-length + checksum mask làm việc (S8)
 ├── harness/
 │   ├── check_conformance.py     F1–F5 chạy được ngay; A2–A8 chờ đo trên máy
 │   ├── test_viewer_math.mjs     F4 — viewerMath.js với tham chiếu độc lập
 │   ├── test_brush.mjs           F5 — brushMath.js với brush_ops.json
+│   ├── test_persist.mjs         F6 — persist.js, round-trip + bộ giải mã thứ hai (S8)
 │   ├── extract_timings.py       logcat → phân bố → A9/A10
 │   ├── extract_a2.py            logcat → A2
-│   └── extract_brush.py         logcat → A3–A7 (+ dữ liệu thô cho A10/A11)
+│   ├── extract_brush.py         logcat → A3–A7 (+ dữ liệu thô cho A10/A11)
+│   └── extract_a8.py            logcat → A8, từ chối kết luận nếu không có vòng nạp lại NGUỘI
+├── SESSION_S8.md                kịch bản phiên đo A8/A10/A11 — thứ tự bấm, lệnh, nơi ghi bằng chứng
 └── EVIDENCE_RAW/                output thô từng lần chạy, có timestamp
 ```
 
@@ -174,8 +178,8 @@ offline bằng `node harness/test_viewer_math.mjs` (F4).
 ## Chặng S5 — brush (A3–A7)
 
 **15/09.** Cọ chỉnh sửa trên **mask làm việc** — một bản chép theo từng slice của mask nguồn. Mask nguồn
-(`MASK_BYTES`) chỉ được **đọc**, nên "kiểm A2" vẫn băm đúng các byte gốc. Chưa có lưu (A8 là chặng S6):
-dòng trạng thái luôn ghi **"chưa lưu"**.
+(`MASK_BYTES`) chỉ được **đọc**, nên "kiểm A2" vẫn băm đúng các byte gốc. Ở S5 chưa có lưu, dòng trạng
+thái luôn ghi **"chưa lưu"**; lưu/nạp lại là **chặng S8** bên dưới.
 
 **Đã dựng**
 
@@ -270,6 +274,60 @@ reset) **và** "kiểm A5" khớp 60/60 ở cả r = 0 lẫn r = 2. Lệch một
 
 ---
 
+## Chặng S8 — lưu và nạp lại (A8)
+
+**19/09.** `A8` là **"đúng mask đó quay lại"**, không phải "đã ghi được một tệp". Một vòng lưu→nạp lại làm
+mất đúng một voxel đã sửa trông y hệt một lần thành công, và `11` cho reviewed mask một **checksum** chính
+vì thế.
+
+**Đã dựng**
+
+- `app/persist.js` — mã hoá **run-length** mask làm việc kèm SHA-256 từng slice và hash cả khối. Không
+  React, không filesystem: App.js làm I/O, file này chỉ biến mask thành byte và ngược lại.
+- `app/App.js` — ba nút **`lưu`** · **`nạp lại`** · **`A8 tự động (5)`**, và một dòng khởi động báo có tệp
+  từ lần chạy trước hay không. Ghi bằng `expo-file-system` vào `Paths.document` — **không** `Paths.cache`,
+  vì cache là đúng thư mục hệ thống được phép xoá, và "tệp biến mất" sẽ là lỗi của harness chứ không phải
+  của ứng viên.
+- `harness/test_persist.mjs` (**F6**) và `harness/extract_a8.py`.
+- [`SESSION_S8.md`](SESSION_S8.md) — kịch bản phiên đo, thứ tự bấm, lệnh, nơi ghi bằng chứng.
+
+**Vì sao run-length chứ không phải byte thô.** 576×576×88 là **29,2 MB** voxel một byte, ~39 MB sau khi
+base64 độn vào tệp văn bản. Ghi ngần ấy là đo JSON, không phải đo lưu trữ. Mask là nhị phân và liền vùng,
+nên run là thứ **mọi cài đặt thật** sẽ lưu. F6 báo tỷ lệ nén thực trên fixture; phiên đo ghi tỷ lệ ở kích
+thước thật.
+
+> ### ⚠ Vòng "A8 tự động" KHÔNG kết luận được A8
+>
+> Năm vòng ấy chạy **trong cùng một tiến trình**: chúng chứng minh codec đúng và tệp đọc/ghi được, chứ
+> không chứng minh bản sửa sống sót khi ứng dụng bị giết. `A8` thật cần một lần nạp lại **NGUỘI** —
+> lưu → `adb shell am force-stop` → mở lại → `nạp lại`. Màn hình phải hiện chữ **`NGUỘI`**.
+>
+> `extract_a8.py` cưỡng chế đúng điều đó. Nó trả `INCOMPLETE` khi: không có vòng nguội nào · có vòng nguội
+> nhưng log không chứa lần `lưu` nào ghi đúng `volume_sha256` ấy · bản lưu tương ứng là mask **chưa sửa**
+> (round-trip mask nguồn sẽ pass mà không hề chạm tới một chỉnh sửa nào). Và trả `FAIL` khi bất kỳ vòng nào
+> lệch checksum slice hoặc lệch hash khối — kể cả vòng nóng. Tám kịch bản này đã được kiểm bằng log tổng
+> hợp trước phiên đo, chứ không phát hiện lúc đang cầm máy.
+
+**Thời gian được báo cáo, không được phán xét.** Không yêu cầu đóng băng nào ràng buộc `save_ms` /
+`reload_ms`, nên script in phân bố và để `RESULT.md` diễn giải; đặt ra một ngưỡng ở đây là bịa ra một
+tiêu chí.
+
+**Nạp lại xoá lịch sử hoàn tác.** Các nét trong lịch sử trỏ tới giá trị pixel không còn nằm trong buffer
+nữa; replay một nét cũ sẽ ghi một giá trị cũ ngược vào reviewed mask.
+
+**Chạy F6** (không cần máy):
+
+```bash
+node harness/test_persist.mjs
+```
+
+F6 so `persist.js` với **bộ giải mã thứ hai** viết ngay trong test (bung từng pixel) và với `node:crypto`,
+không bao giờ với `sha256Hex` của app: round-trip 16 slice fixture, 7 hình dạng biên (toàn 0, toàn 1, xen
+kẽ, bắt đầu bằng 1, một pixel ở mỗi đầu, rỗng), tài liệu bị cắt cụt phải bị **từ chối**, checksum hỏng phải
+được **báo cáo chứ không ném lỗi**, và format lạ phải bị ném lỗi.
+
+---
+
 ## Trạng thái tiêu chí
 
 | | Tiêu chí | Trạng thái |
@@ -279,12 +337,22 @@ reset) **và** "kiểm A5" khớp 60/60 ở cả r = 0 lẫn r = 2. Lệch một
 | **F3** | Marker định hướng đúng bốn góc trên **mọi** slice | **ok** |
 | **F4** | Toán transform của app (`viewerMath.js`) — SHA-256, base64, 60 ca ánh xạ, zoom quanh điểm | **ok** 6/6 |
 | **F5** | Logic cọ của app (`brushMath.js`) — thêm/xoá đúng tập pixel, 60 ca A5 ở r = 0 và 2, undo, redo, reset, rollback | **ok** 14/14 |
+| **F6** | Mã hoá lưu trữ của app (`persist.js`) — round-trip, bộ giải mã thứ hai, biên, tài liệu cắt cụt, checksum hỏng | **ok** 12/12 |
 | A1 | Slice render đúng, hiện `n / total` | một phần — xem `RESULT.md` |
 | A9 | Slice-switch đã cache, 30 bước, p95 ≤ 200 ms | **đã đo hai lần** — xem `RESULT.md` |
 | A2 | zoom/pan không đổi checksum mask gốc | **đã đo 14/09, `OBSERVED`** — 16/16 qua 3 lần kiểm, bản release · `EVIDENCE_RAW/a2_zoom_pan_*` |
 | A3 A4 A5 A6 A7 | brush thêm/xoá · ánh xạ sau zoom/pan · undo/redo | **đã đo 15/09, `OBSERVED`** — A3 8/8 · A4 6/6 · A5 60/60 ở r = 0 và r = 2 · A6/A7 15/15 · bản release · `EVIDENCE_RAW/a3_a7_brush_*` |
-| A8 | save/reload | **chưa đo** — chặng `S8`, phiên đo 19/09 |
-| A10 A11 A12 | brush latency · tách gesture · chi phí phát triển | **chưa** — có dữ liệu thô từ 25 nét tô thật (15/09), chưa kết luận |
+| A8 | save/reload | **đã đo 19/09, `OBSERVED`** — **2 vòng NGUỘI** sau `am force-stop`, 16/16 checksum slice + hash khối trùng bản đã lưu, trên **hai tệp khác nhau**; thêm 5 vòng nóng 5/5 · `EVIDENCE_RAW/a8_save_reload_20260919T121906+0700.json` |
+| A10 | brush feedback ≤ 100 ms, 0 mẫu commit mất | **đã đo 19/09, `OBSERVED`** — worst **30,48 ms**, 123 nét có commit, 0 mẫu mất · `EVIDENCE_RAW/a10_a11_brush_feedback_20260919T121906+0700.json` |
+| A11 | tách cử chỉ, 0 sửa nhầm | **đã đo 19/09, `OBSERVED`** — 12 lần ngón thứ hai đều cuộn lại, 0 nét commit trong cử chỉ nhiều ngón · cùng tệp |
+| A12 | chi phí phát triển | **chưa** — là số giờ, lấy từ nhật ký công việc, không phải từ một phiên đo |
+
+**Phiên `S8`, 19/09 11:50–12:19** — bản ghi đầy đủ kèm điều kiện, giới hạn và **hai sai sót của Project
+Control** trong phiên: [`EVIDENCE_RAW/SESSION_S8_RECORD.md`](EVIDENCE_RAW/SESSION_S8_RECORD.md).
+
+> ⚠ **Fixture của mọi số trên là 64×64×16, không phải 576×576×88.** Tính *đúng từng byte* của `A8` không phụ
+> thuộc kích thước; **dung lượng tệp và thời gian thì có**. Mọi phát biểu về hai thứ đó ở độ sâu thật là
+> `NOT MEASURED`.
 | **S6** | Cache có giới hạn — `A9` ở **độ sâu thật** với hai chính sách | **dụng cụ đã dựng 17/09** — xem §Chặng S6 |
 
 `F2` tồn tại vì `generate.py` và `check_conformance.py` **không dùng chung code**: generator ghi pixel kỳ
