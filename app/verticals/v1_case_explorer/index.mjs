@@ -27,10 +27,19 @@
  * checksum - there is no backend and nothing in app/core decodes an image. So
  * `slice.imageRef` is an identity (id + checksum + cache key) that a renderer
  * will later resolve, and this model says so rather than pretending.
+ *
+ * Three rules the QA pass of 2026-10-01 made explicit, and every path below
+ * keeps:
+ *   - only a SUCCESS snapshot carries a slice, prediction, ground-truth or
+ *     metrics identity. Any other state - LOADING included - carries none, so
+ *     nothing from an earlier slice or variant can sit under a new label;
+ *   - a response that lands after a newer action started is dropped, whatever
+ *     order the network returns them in;
+ *   - a layer or an entry is offered only when its own data came back.
  */
 
 import {
-  STATE, RECOVERY, loading, processing, success, stateForError,
+  STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError,
   screenToSource, fitTransform, clampZoom, zoomAbout, panBy,
   sliceCacheKey,
 } from '../../core/index.mjs';
@@ -44,17 +53,77 @@ export const LAYER = Object.freeze({
 });
 
 // `11` section 6 forbids a silent variant substitution, so these are the only
-// accepted values and there is no default anywhere in this file.
-export const VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED', REVIEWED: 'REVIEWED' });
+// accepted values and there is no default anywhere in this file. They are the
+// variants prediction_slice_get serves. `10` section 3's "reviewed" is not one:
+// a reviewed mask is its own artifact (reviewed_mask_slice_get) and its own
+// layer, LAYER.REVIEWED_MASK, so asking prediction_slice_get for it is refused.
+export const VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
 
-const RUN_IN_FLIGHT = new Set(['QUEUED', 'RUNNING']);
+// `11` section 6 freezes the run vocabulary. A status outside it is not a
+// state this screen can render honestly, so it is drift, not a guess.
+export const RUN_STATUS = Object.freeze({
+  QUEUED: 'QUEUED', RUNNING: 'RUNNING', SUCCEEDED: 'SUCCEEDED', FAILED: 'FAILED',
+});
+
+const RUN_IN_FLIGHT = new Set([RUN_STATUS.QUEUED, RUN_STATUS.RUNNING]);
+
+const isVariant = (v) => Object.values(VARIANT).includes(v);
+const idsIn = (v) => (Array.isArray(v) ? v.filter((id) => typeof id === 'string' && id !== '') : []);
+
+function assertVariant(variant, who) {
+  if (isVariant(variant)) return;
+  if (variant === 'REVIEWED') {
+    throw new Error(`${who}: REVIEWED is not a prediction variant - a reviewed mask is the ${LAYER.REVIEWED_MASK} layer`);
+  }
+  throw new Error(`${who} needs an explicit prediction variant, one of ${Object.keys(VARIANT).join('/')}`);
+}
+
+/*
+ * Inference-only is the contract's to define, not this screen's. A contract
+ * that declares case_capability (v1.0) says which modes have no ground truth;
+ * one that does not (DRAFT v0) says nothing, and nothing is filled in.
+ */
+function inferenceOnlyFor(contract, mode) {
+  const modes = contract?.raw?.case_capability?.modes;
+  if (!modes || typeof mode !== 'string' || !Object.prototype.hasOwnProperty.call(modes, mode)) return null;
+  const declared = modes[mode]?.ground_truth_available;
+  return typeof declared === 'boolean' ? !declared : null;
+}
+
+// A response this screen cannot render honestly. Same code the transport uses
+// for a response that does not match the contract, so the UI has one path.
+const drift = (safeMessage, detail) => fatalInvalid({ code: 'CONTRACT_DRIFT', safeMessage, detail });
+
+/*
+ * `11` section 6 and section 11 rule 6: the server states the variant it
+ * served. A different one is not relabelled, and a missing one is not filled
+ * in from what was asked for. Not VALIDATION_ERROR - prediction_slice_get
+ * does not list it, and no server sent this; the client noticed.
+ */
+function variantMismatch(requested, served) {
+  return fatalInvalid({
+    code: 'PREDICTION_VARIANT_MISMATCH',
+    safeMessage: served === null
+      ? `Asked for ${requested}; the server did not state which variant it served, so it is not shown.`
+      : `Asked for ${requested}, served ${served}; a substituted variant is not shown.`,
+    detail: { requested, served },
+  });
+}
 
 function snapshot(view, f) {
   const shape = f.shape ?? null;
+  const reconstructionIds = f.reconstructionIds ?? [];
   return Object.freeze({
     view,
     caseId: f.caseId ?? null,
     runId: f.runId ?? null,
+    // The always-visible run / model / variant / mode line. Whatever the
+    // server did not state stays null; nothing here is defaulted.
+    caseMode: f.caseMode ?? null,
+    inferenceOnly: f.inferenceOnly ?? null,
+    availableRunIds: Object.freeze([...(f.availableRunIds ?? [])]),
+    experimentId: f.experimentId ?? null,
+    attemptNo: f.attemptNo ?? null,
     // `n / total`. z is the slice axis under index_convention x=column,y=row,z=slice.
     sliceIndex: f.sliceIndex ?? null,
     sliceTotal: Array.isArray(shape) ? shape[2] : null,
@@ -71,12 +140,20 @@ function snapshot(view, f) {
     groundTruthAvailable: f.groundTruthAvailable === true,
     runStatus: f.runStatus ?? null,
     precomputed: f.precomputed ?? null,
+    // `11` section 6: "safe failure code/reason when failed". Set only for a
+    // FAILED run, next to the ANALYSIS_FAILED view rather than inside it.
+    runFailure: f.runFailure ?? null,
+    reconstructionIds: Object.freeze([...reconstructionIds]),
     metrics: f.metrics ?? null,
     imageRef: f.imageRef ?? null,
-    // The prediction overlay's identity, carrying the variant in its cache
-    // key so RAW and PROCESSED can never share one.
+    // The prediction overlay's identity, carrying the SERVED variant in its
+    // cache key so RAW and PROCESSED can never share one.
     predictionRef: f.predictionRef ?? null,
-    canEnter3D: f.canEnter3D === true,
+    groundTruthRef: f.groundTruthRef ?? null,
+    // 3D needs a mesh, and only a run that SUCCEEDED and names its
+    // reconstructions has one. Derived from the fields above, so the flag
+    // cannot outlive its data.
+    canEnter3D: f.runStatus === RUN_STATUS.SUCCEEDED && reconstructionIds.length > 0,
     canEnterError: f.canEnterError === true,
   });
 }
@@ -87,9 +164,7 @@ function snapshot(view, f) {
  * shows the wrong mask.
  */
 export function createCaseExplorer(client, { variant, viewport } = {}) {
-  if (!variant || !VARIANT[variant]) {
-    throw new Error(`createCaseExplorer needs an explicit variant, one of ${Object.keys(VARIANT).join('/')}`);
-  }
+  assertVariant(variant, 'createCaseExplorer');
   const view0 = viewport ?? { width: 1080, height: 1440 };
 
   let current = snapshot(loading(), {
@@ -97,24 +172,51 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
     overlays: { [LAYER.PREDICTION]: true, [LAYER.GROUND_TRUTH]: false, [LAYER.ERROR]: false, [LAYER.REVIEWED_MASK]: false },
   });
 
-  const set = (v, patch = {}) => { current = snapshot(v, { ...current, ...patch }); return current; };
+  // Bumped by every action that fetches. A response is applied only while its
+  // action is still the latest one - slow slice 10 never lands on top of
+  // fast slice 11.
+  let seq = 0;
 
-  function imageRefFor(data, { kind, caseId, runId, sliceIndex }) {
+  /*
+   * Every transition goes through here. Outside SUCCESS the per-slice
+   * identities and the layers they enable are cleared: a FATAL_INVALID at
+   * slice 45 must not carry slice 44's mask, and a LOADING for PROCESSED must
+   * not carry the RAW one (`10` section 8, "block misleading visualization").
+   */
+  const set = (v, patch = {}) => {
+    const next = { ...current, ...patch };
+    if (v.state !== STATE.SUCCESS) {
+      Object.assign(next, {
+        imageRef: null, predictionRef: null, groundTruthRef: null, metrics: null,
+        layersAvailable: { ...next.layersAvailable, [LAYER.PREDICTION]: false, [LAYER.GROUND_TRUTH]: false },
+      });
+    }
+    current = snapshot(v, next);
+    return current;
+  };
+
+  function refFor(data, { kind, caseId, runId = null, sliceIndex, variant: served = null }) {
     return Object.freeze({
       kind,
       artifactId: data.source_volume_id ?? data.prediction_mask_id ?? data.reference_mask_id ?? null,
       checksum: data.checksum ?? null,
+      // Where the bytes are, when the contract has binary delivery fields
+      // (content_url, media_type). DRAFT v0 has none, so these are null and a
+      // renderer says "no pixels" rather than guessing a URL.
+      contentUrl: data.content_url ?? null,
+      mediaType: data.media_type ?? null,
       // Built from the screen's own identity: cacheKeyFromResponse would throw
       // here, because prediction_slice_get's response has no run_id and
-      // mri_slice_get's has no case_id.
+      // mri_slice_get's has no case_id. The variant is the one the server
+      // SERVED, never the one requested.
       cacheKey: sliceCacheKey({
         kind, caseId, runId, sliceIndex,
-        variant: kind === 'PREDICTION' ? current.variant : null,
+        variant: served,
         sourceVersion: data.source_version ?? null,
         checksum: data.checksum ?? null,
         geometryContractVersion: data.geometry_contract_version,
       }),
-      note: 'metadata identity only - no pixels exist in the fixture bundle',
+      note: data.content_url ? null : 'metadata identity only - no pixels exist in the fixture bundle',
     });
   }
 
@@ -129,41 +231,86 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
   const pick = (scenarios, endpointId) => (scenarios && scenarios[endpointId]) || 'default';
 
   /*
-   * Open a case at a slice. Four calls, and the first failure wins: a screen
-   * that renders partial truth is worse than one that says it cannot.
+   * Open a case at a slice. Case, then run, then the slice, and the first
+   * failure wins: a screen that renders partial truth is worse than one that
+   * says it cannot. Nothing from a previous case survives into this one; only
+   * the variant and the overlay switches - the user's choices - carry over.
    */
   async function open({ caseId, runId, sliceIndex = 0, scenarios }) {
-    set(loading(), { caseId, runId, sliceIndex });
+    const mine = ++seq;
+    current = snapshot(loading(), {
+      caseId, runId, sliceIndex, variant: current.variant, overlays: current.overlays,
+    });
 
     const kase = await client.call('case_get', { case_id: caseId },
       { scenario: pick(scenarios, 'case_get') });
+    if (mine !== seq) return current;
     if (kase.state !== STATE.SUCCESS) return set(kase);
 
     const shape = kase.data.shape;
-    const layersAvailable = {
-      [LAYER.PREDICTION]: true,
-      [LAYER.GROUND_TRUTH]: kase.data.ground_truth_available === true,
-      [LAYER.ERROR]: kase.data.ground_truth_available === true,
-      [LAYER.REVIEWED_MASK]: true,
-    };
-    set(kase, {
+    const groundTruthAvailable = kase.data.ground_truth_available === true;
+    set(loading(), {
       shape,
-      groundTruthAvailable: kase.data.ground_truth_available === true,
-      layersAvailable,
+      groundTruthAvailable,
+      caseMode: kase.data.mode ?? null,
+      inferenceOnly: inferenceOnlyFor(client.contract, kase.data.mode),
+      availableRunIds: idsIn(kase.data.available_run_ids),
+      // PREDICTION and GROUND_TRUTH turn on per slice, when their data comes
+      // back. Nothing fetches error data or a reviewed mask yet, so those two
+      // are not offered - a switch for a layer that cannot draw is a lie.
+      layersAvailable: {
+        [LAYER.PREDICTION]: false,
+        [LAYER.GROUND_TRUTH]: false,
+        [LAYER.ERROR]: false,
+        [LAYER.REVIEWED_MASK]: false,
+      },
       transform: fitTransform(view0.width, view0.height, shape[0], shape[1]),
     });
 
     const run = await client.call('analysis_run_get', { run_id: runId },
       { scenario: pick(scenarios, 'analysis_run_get') });
+    if (mine !== seq) return current;
     if (run.state !== STATE.SUCCESS) return set(run);
+    const r = run.data;
 
-    const runStatus = run.data.status;
-    // `10` section 8: a run still in flight is PROCESSING and the screen stays
-    // interactive. It is not an error and it is not empty.
-    if (RUN_IN_FLIGHT.has(runStatus)) {
-      return set(processing(null, []), { runStatus, precomputed: run.data.precomputed });
+    /*
+     * The run must belong to the case on screen, or its masks are drawn over
+     * another case's MRI. Compared with the case_id that case_get SERVED, not
+     * the id requested: the generator fills every *_id from the field name
+     * (CASE_ID_0043), not from the request (CASE_0043), so a request-side
+     * check would block every generated scenario.
+     */
+    const servedCase = kase.data.case_id;
+    if (typeof r.case_id !== 'string' || r.case_id === '' || r.case_id !== servedCase) {
+      return set(drift(`Run ${runId} belongs to case ${r.case_id}, not to the open case ${servedCase}.`,
+        { runCaseId: r.case_id ?? null, caseId: servedCase ?? null }));
     }
-    set(run, { runStatus, precomputed: run.data.precomputed });
+
+    const runFields = {
+      experimentId: r.experiment_id ?? null,
+      attemptNo: Number.isInteger(r.attempt_no) ? r.attempt_no : null,
+      precomputed: r.precomputed,
+    };
+    // `10` section 8: a run still in flight is PROCESSING and the screen stays
+    // interactive. It is not an error and it is not empty. REFRESH re-reads
+    // the run (see reload), it never fetches slices of an unfinished one.
+    if (RUN_IN_FLIGHT.has(r.status)) {
+      return set(processing(null, [RECOVERY.REFRESH]), { ...runFields, runStatus: r.status });
+    }
+    if (r.status === RUN_STATUS.FAILED) {
+      return set(stateForError(client.contract, 'ANALYSIS_FAILED'), {
+        ...runFields,
+        runStatus: r.status,
+        runFailure: Object.freeze({ code: r.failure_code ?? null, reason: r.failure_reason ?? null }),
+      });
+    }
+    if (r.status !== RUN_STATUS.SUCCEEDED) {
+      return set(drift(`Run ${runId} has status ${r.status}, which is not one of `
+        + `${Object.values(RUN_STATUS).join('|')}.`, { status: r.status ?? null }));
+    }
+    set(loading(), {
+      ...runFields, runStatus: r.status, reconstructionIds: idsIn(r.reconstruction_ids),
+    });
 
     return loadSlice(sliceIndex, { scenarios });
   }
@@ -173,86 +320,121 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
    * this screen already knows `total` - and it reports it with the contract's
    * own SLICE_OUT_OF_RANGE so the UI has one code path whether the client or
    * the server noticed. core maps it to FATAL_INVALID with no RETRY.
+   *
+   * The per-slice requests go out together; the supersede check runs once,
+   * after all of them, so a stale answer is dropped whole and never mixed
+   * with a fresh one.
    */
   async function loadSlice(sliceIndex, { scenarios } = {}) {
+    const mine = ++seq;
+    const { caseId, runId, groundTruthAvailable } = current;
+    // Captured now: what this request is checked against cannot move if the
+    // variant is switched while it is in flight.
+    const requested = current.variant;
+
     const total = current.sliceTotal;
     if (total !== null && (!Number.isInteger(sliceIndex) || sliceIndex < 0 || sliceIndex >= total)) {
       return set(stateForError(client.contract, 'SLICE_OUT_OF_RANGE'), { sliceIndex });
     }
-
-    const mri = await client.call('mri_slice_get',
-      { case_id: current.caseId, slice_index: sliceIndex },
-      { scenario: pick(scenarios, 'mri_slice_get') });
-    if (mri.state !== STATE.SUCCESS) return set(mri, { sliceIndex });
-
-    const imageRef = imageRefFor(mri.data, {
-      kind: 'MRI', caseId: current.caseId, runId: current.runId, sliceIndex,
-    });
+    set(loading(), { sliceIndex });
 
     /*
      * The prediction overlay is the point of this screen, and it is the one
-     * request that carries the variant. Fetched whenever that layer is on,
-     * and its absence disables the layer rather than drawing nothing under a
-     * switch that says "on" (`10` section 7).
+     * request that carries the variant. Fetched whatever the switch says, so
+     * that turning the overlay back on never needs a fetch (setOverlay is
+     * display only) and the variant check always runs.
+     *
+     * Ground truth, and the metrics derived from it, are asked for only when
+     * the case declares ground truth (`10` section 7). A case without it gets
+     * neither request, and no NOT_APPLICABLE that would read as "measured,
+     * and empty".
      */
+    const [mri, pred, gt, metrics] = await Promise.all([
+      client.call('mri_slice_get', { case_id: caseId, slice_index: sliceIndex },
+        { scenario: pick(scenarios, 'mri_slice_get') }),
+      client.call('prediction_slice_get', { run_id: runId, slice_index: sliceIndex, variant: requested },
+        { scenario: pick(scenarios, 'prediction_slice_get') }),
+      groundTruthAvailable
+        ? client.call('ground_truth_slice_get', { case_id: caseId, slice_index: sliceIndex },
+          { scenario: pick(scenarios, 'ground_truth_slice_get') })
+        : null,
+      groundTruthAvailable
+        ? client.call('analysis_slice_metrics', { run_id: runId, slice_index: sliceIndex, variant: requested },
+          { scenario: pick(scenarios, 'analysis_slice_metrics'), context: { runStatus: current.runStatus } })
+        : null,
+    ]);
+    if (mine !== seq) return current;
+
+    // No MRI, no screen.
+    if (mri.state !== STATE.SUCCESS) return set(mri, { sliceIndex });
+    const imageRef = refFor(mri.data, { kind: 'MRI', caseId, runId, sliceIndex });
+
+    // A prediction that did not come back disables its layer rather than
+    // drawing nothing under a switch that says "on" (`10` section 7).
     let predictionRef = null;
-    let predictionAvailable = false;
-    if (current.overlays[LAYER.PREDICTION]) {
-      const pred = await client.call('prediction_slice_get',
-        { run_id: current.runId, slice_index: sliceIndex, variant: current.variant },
-        { scenario: pick(scenarios, 'prediction_slice_get') });
-      if (pred.state === STATE.SUCCESS) {
-        predictionAvailable = true;
-        predictionRef = imageRefFor(pred.data, {
-          kind: 'PREDICTION', caseId: current.caseId, runId: current.runId, sliceIndex,
-        });
-        // `11` section 6: the server states which variant it served. If that
-        // disagrees with what was asked for, something substituted silently
-        // and the screen must not relabel it.
-        if (pred.data.prediction_variant && pred.data.prediction_variant !== current.variant) {
-          return set(stateForError(client.contract, 'VALIDATION_ERROR'), {
-            sliceIndex,
-            metrics: Object.freeze({
-              state: 'UNAVAILABLE', value: null,
-              reason: `asked for ${current.variant}, served ${pred.data.prediction_variant}`,
-            }),
-          });
-        }
-      }
+    if (pred.state === STATE.SUCCESS) {
+      const served = pred.data.prediction_variant ?? null;
+      if (served !== requested) return set(variantMismatch(requested, served), { sliceIndex });
+      predictionRef = refFor(pred.data, { kind: 'PREDICTION', caseId, runId, sliceIndex, variant: served });
     }
 
-    const metrics = await client.call('analysis_slice_metrics',
-      { run_id: current.runId, slice_index: sliceIndex, variant: current.variant },
-      { scenario: pick(scenarios, 'analysis_slice_metrics'), context: { runStatus: current.runStatus } });
+    const groundTruthRef = gt && gt.state === STATE.SUCCESS
+      ? refFor(gt.data, { kind: 'GROUND_TRUTH', caseId, sliceIndex })
+      : null;
 
     // Metrics being unavailable does not break the viewer: the slice still
-    // renders, the metrics panel says unavailable. `10` section 7.
-    const metricsValue = metrics.state === STATE.SUCCESS
-      ? Object.freeze({
+    // renders, the metrics panel says unavailable and why. `10` section 7.
+    let metricsValue;
+    if (!groundTruthAvailable) {
+      metricsValue = Object.freeze({ state: 'UNAVAILABLE', value: null, reason: 'GROUND_TRUTH_UNAVAILABLE' });
+    } else if (metrics.state === STATE.SUCCESS) {
+      metricsValue = Object.freeze({
         state: metrics.data.metric_state, value: metrics.data.metric_value,
         version: metrics.data.metric_version,
-      })
-      : Object.freeze({ state: 'UNAVAILABLE', value: null, reason: metrics.reason ?? null });
+      });
+    } else {
+      metricsValue = Object.freeze({ state: 'UNAVAILABLE', value: null, reason: metrics.reason ?? null });
+    }
 
-    return set(success({ slice: imageRef, prediction: predictionRef, metrics: metricsValue }), {
-      sliceIndex, imageRef, predictionRef, metrics: metricsValue,
-      layersAvailable: { ...current.layersAvailable, [LAYER.PREDICTION]: predictionAvailable },
-      canEnter3D: true,
-      canEnterError: current.groundTruthAvailable,
+    return set(success({
+      slice: imageRef, prediction: predictionRef, groundTruth: groundTruthRef, metrics: metricsValue,
+    }), {
+      sliceIndex, imageRef, predictionRef, groundTruthRef, metrics: metricsValue,
+      layersAvailable: {
+        ...current.layersAvailable,
+        [LAYER.PREDICTION]: predictionRef !== null,
+        [LAYER.GROUND_TRUTH]: groundTruthRef !== null,
+      },
+      canEnterError: groundTruthAvailable,
     });
+  }
+
+  /*
+   * Every action after open() comes through here. A slice is fetched only for
+   * a case that loaded and a run that SUCCEEDED. Otherwise - PROCESSING, or a
+   * case or run that failed - the case and run are read again, so REFRESH on
+   * a running analysis asks whether it finished instead of drawing slices of
+   * a run that has not.
+   */
+  async function reload(sliceIndex, opts = {}) {
+    if (current.caseId === null) return current;
+    if (current.runStatus === RUN_STATUS.SUCCEEDED && current.shape) return loadSlice(sliceIndex, opts);
+    return open({ caseId: current.caseId, runId: current.runId, sliceIndex, scenarios: opts.scenarios });
   }
 
   return Object.freeze({
     get current() { return current; },
     open,
-    goToSlice: (n, opts) => loadSlice(n, opts),
-    refresh: (opts) => loadSlice(current.sliceIndex, opts),
+    goToSlice: (n, opts) => reload(n, opts),
+    refresh: (opts) => reload(current.sliceIndex, opts),
 
     /* Switching variant re-fetches; it never relabels what is already drawn. */
     async setVariant(next, opts) {
-      if (!VARIANT[next]) throw new Error(`unknown prediction variant ${next}`);
-      set(current.view, { variant: next });
-      return loadSlice(current.sliceIndex, opts);
+      assertVariant(next, 'setVariant');
+      // LOADING carries no refs (see set), so between the switch and the
+      // answer nothing fetched under the old variant sits under the new one.
+      set(loading(), { variant: next });
+      return reload(current.sliceIndex, opts);
     },
 
     /* Pure display state. Never re-fetches, never touches mask data. */
