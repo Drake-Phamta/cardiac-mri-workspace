@@ -10,6 +10,7 @@
  */
 
 import { resolveConfig, MODE } from '../config.mjs';
+import { decodeMaskPng } from '../imaging/maskPng';
 import { createRuntime } from './createRuntime.mjs';
 
 const contractJson = require('../../../contracts/api/contract.json');
@@ -29,6 +30,9 @@ export function loadRuntime() {
       contractJson,
       bundleJson: config.mode === MODE.FIXTURE ? bundleJson : null,
       fetchImpl: global.fetch,
+      // The app's one mask PNG decoder (fast-png adapter), injected so the
+      // runtime's own logic stays testable without node_modules.
+      decodeMask: decodeMaskPng,
       // Live HTTP timings go to logcat under a fixed tag, without payload
       // bytes (TC-SEC-003), so device evidence can be extracted later.
       onTiming: (t) => console.log(`CMW_HTTP ${JSON.stringify({ ...t, ms: Math.round(t.ms) })}`),

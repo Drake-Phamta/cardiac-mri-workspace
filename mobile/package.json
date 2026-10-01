@@ -8,7 +8,8 @@
     "start": "node scripts/prepare.mjs && expo start",
     "android": "node scripts/prepare.mjs && expo run:android",
     "export:android": "node scripts/prepare.mjs && expo export --platform android --output-dir dist",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:render": "node --import ./test/render/hooks.mjs test/render/smoke.mjs"
   },
   "dependencies": {
     "expo": "~57.0.21",
@@ -18,5 +19,8 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
     "react-native-webview": "13.16.1"
+  },
+  "devDependencies": {
+    "react-test-renderer": "19.2.3"
   }
 }

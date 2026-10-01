@@ -150,13 +150,35 @@ test('T11 STALE_REVISION from the server is STALE_MISMATCH with REFRESH and no R
   assert.deepEqual([...view.actions], [RECOVERY.REFRESH]);
 });
 
-test('T12 the timing hook sees endpoint, status and ms - never the payload', async () => {
+test('T12 the timing hook sees endpoint, status, ms and size - never the payload', async () => {
   const seen = [];
   const fetchImpl = fakeFetch(() => json(200, caseGetData()));
   let t = 1000;
   const transport = createHttpTransport({ baseUrl: BASE, fetchImpl, onTiming: (x) => seen.push(x), now: () => (t += 7) });
   await createClient(contract, transport).call('case_get', { case_id: 'CASE_0043' });
-  assert.deepEqual(seen, [{ endpointId: 'case_get', url: '/api/v1/cases/CASE_0043', status: 200, ms: 7 }]);
+  // This fake has neither Content-Length nor text(): the size is unknown, and says so.
+  assert.deepEqual(seen, [{ endpointId: 'case_get', url: '/api/v1/cases/CASE_0043', status: 200, ms: 7, bytes: null }]);
+});
+
+test('T14 the body size is Content-Length when sent, else the counted UTF-8 body', async () => {
+  const body = caseGetData();
+  const text = JSON.stringify(body);
+  const make = (headers) => async () => ({
+    status: 200,
+    headers: { get: (k) => headers[k.toLowerCase()] ?? null },
+    text: async () => text,
+  });
+  for (const [name, headers, expected] of [
+    ['declared', { 'content-type': 'application/json', 'content-length': '4321' }, 4321],
+    ['counted', { 'content-type': 'application/json; charset=utf-8' }, Buffer.byteLength(text)],
+  ]) {
+    const seen = [];
+    const transport = createHttpTransport({ baseUrl: BASE, fetchImpl: make(headers), onTiming: (x) => seen.push(x) });
+    const view = await createClient(contract, transport).call('case_get', { case_id: 'CASE_0043' });
+    assert.equal(view.state, STATE.SUCCESS, name);
+    assert.equal(view.data.case_id, 'CASE_0043', `${name}: the body still parses`);
+    assert.equal(seen[0].bytes, expected, name);
+  }
 });
 
 test('T13 construction refuses a missing base URL or fetch', () => {
