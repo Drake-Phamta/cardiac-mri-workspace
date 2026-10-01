@@ -45,7 +45,7 @@ only on a **release** build whose timestamp post-dates the last code change.
 |---|---|
 | B1–B4, B8, B14 | Diagnostic PASS on desktop: orbiting viewer with pan; canonical picking 13/13 rays to the exact slice; linked MPR proof of concept |
 | **B10/B11 inside the React Native WebView on the A17** | **median 59.88 FPS, longest stall ≤ 16.9 ms**, synthetic level-0 mesh (PR #44) |
-| S7 smoke test on the A17 (2026-09-18) | `webgl2: true`, renderer Mali-G68, viewer loaded in 964 ms, 5,648-triangle mesh rendered, orbit and pick responded |
+| S7 smoke test on the A17 (2026-09-18) | `webgl2: true`, renderer Mali-G68, viewer loaded in 964 ms, 5,648-triangle mesh rendered, orbit and pick responded. Recorded on PR #46, still a draft; this evidence is not on `main` yet |
 | B5/B6/B7/B9/B12/B13 | Measured on the real mesh tonight (S-1) as V2 acceptance conditions — see Residuals |
 
 ## 4 · Decision criteria (`09` §7) and how each is met
@@ -79,8 +79,14 @@ only on a **release** build whose timestamp post-dates the last code change.
 - The 256 MB heap forces per-slice loading and bounded caches. S6 found that a component-level window does not bound image-cache memory, so the cache policy is part of V1 acceptance.
 - 3D runs in a WebView. Memory, first-load time and message latency are measured on release builds, with the refresh rate recorded.
 - Residual Spike B criteria are V2 acceptance conditions. A `NEGATIVE_RESULT` on B5 reopens only the 3D module choice.
-- Dependencies under `mobile/` are added only by the integration owner (one `package.json`, one lockfile).
+- Dependencies under `mobile/` are added only by the integration owner (one `package.json`, one lockfile). Each one is
+  pinned and listed with its licence in `mobile/README.md`.
 
 ## 8 · Gate effect
 
 `GATE-MOB-01` → **CLOSED** on 2026-10-01, once Spike A is ACCEPTED under the pre-declared rule. Production mobile modules may now be created under `mobile/`.
+
+This is an **early close, and a documented deviation.** `SPIKE_PHASE_STATE.yaml` (`gates_that_must_not_close_early`) requires both Spike A and Spike B to be ACCEPTED, but Spike B is still ACTIVE. The leader authorised the deviation in advance (`RECOVERY_OVERRIDE_DAY22.md` §4), and it is scoped as follows:
+- **Final now:** the framework (React Native / Expo), the 2D viewer and brush, the shared `app/core` and the backend stack.
+- **Conditional on Spike B:** the 3D module (WebGL2 in `react-native-webview`), until Spike B is ACCEPTED.
+- **If B5 fails at every level:** only that module is reopened.
