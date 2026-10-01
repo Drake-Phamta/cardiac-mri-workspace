@@ -324,6 +324,17 @@ def validate_manifest(manifest: dict, root: Path, existing: dict[str, str] | Non
             _fail("DUPLICATE_CASE_HASH", f"{case_id}: MRI checksum duplicates {prior_case}")
         seen_hashes[mri_hash_key] = case_id
         actions.append({"artifact_uri": mri["artifact_uri"], "action": mri_action})
+        # INT-12 (v1.0): a case whose package carries a reference mask may be
+        # ingested WITHOUT it, as an inference-review case. The flag records
+        # that the absence is product configuration, not a dataset fact.
+        withheld = case.get("ground_truth_withheld", False)
+        if not isinstance(withheld, bool):
+            _fail("SCHEMA_INVALID", f"{case_id}: ground_truth_withheld must be a boolean")
+        if withheld and (mask is not None or case.get("mode_capability") != "INFERENCE_REVIEW"):
+            _fail(
+                "SCHEMA_INVALID",
+                f"{case_id}: a withheld ground truth requires INFERENCE_REVIEW mode and no ingested mask",
+            )
         if mask is None:
             if (
                 case.get("mode_capability") != "INFERENCE_REVIEW"

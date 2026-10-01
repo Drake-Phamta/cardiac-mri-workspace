@@ -107,7 +107,7 @@ const client = createClient(contract, createFixtureTransport(bundle));
     kind: 'test',
     async send() { sent += 1; return { status: 200, data: {} }; },
   });
-  const view = await counting.call('review_patch', { review_id: 'RV1' }, { body: { status: 'APPROVED' } });
+  const view = await counting.call('review_patch', { review_id: 'RV1' }, { body: { status: 'FLAGGED' } });
   check('T8', sent === 0 && view.error?.code === 'MISSING_EXPECTED_REVISION',
     `a write with no expected_revision is refused (${view.error?.code})`);
 }
