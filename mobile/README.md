@@ -160,7 +160,7 @@ it with `node --test`; keep React Native imports in `.js` files.
 | `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode). Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 calls it on open and on Retry) and `clearWhere(fn)` (one slice's keys, for **Refresh this slice**) — never a clear-all mid-session, so a Retry cannot turn cached revisits into traffic |
 | `src/verticals/v1/SliceViewport.js` | the slice viewport: image + overlays + pinch/pan (provenance: Spike A S4 gestures) |
 
-## V1 screens (SCR-02, SCR-03)
+## V1 screens (SCR-02, SCR-03, SCR-04)
 
 - **SCR-02 Case List** — `case_list` for the configured study; de-identified ids; the mode badge (*Evaluation* /
   *Inference & review*) is the same component and derivation SCR-03 uses (TC-CASE-002); search by id and mode
@@ -175,6 +175,17 @@ it with `node --test`; keep React Native imports in `.js` files.
   the server for the current slice only. A case with **no analysis run yet** (`available_run_ids` empty) opens
   straight into the viewer with MRI + ground truth only: the run line says so, no run / prediction / metric / error
   request is made, and SCR-04/05/06 are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
+- **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case (or a run whose metrics answer
+  `GROUND_TRUTH_UNAVAILABLE`) gets a clear unavailable state, never an empty chart. TP / FP / FN are drawn from the
+  two masks the server served for the slice, each class with a colour **and** a name, a pixel count and a show/hide
+  switch; the counts are compared with the server's FP / FN for that slice. The worst slice is the **server's**
+  `worst_slice_selection` (DR-010a option b), first entry first — nothing is ranked on the phone (test V4x). The
+  per-slice profile places the server's entries by slice index; slices the server did not list are absent, not 0.
+  Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to the 3D error view (SCR-05).
+  Two gates come first (#78 QA B-2, B-3). A block is listed only under the `rule_id` and `selection_version` the
+  loaded contract pins; otherwise `SELECTION_RULE_UNSUPPORTED` / `SELECTION_VERSION_UNSUPPORTED` names the served
+  value, with nothing listed, jumpable or profiled. Run metrics for another `prediction_variant` than the one asked
+  for get the V1 model's variant-mismatch state, with no case metric, worst slice, profile or server comparison.
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`

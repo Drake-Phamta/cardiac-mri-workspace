@@ -105,9 +105,10 @@ const drift = (safeMessage, detail) => fatalInvalid({ code: 'CONTRACT_DRIFT', sa
  * `11` section 6 and section 11 rule 6: the server states the variant it
  * served. A different one is not relabelled, and a missing one is not filled
  * in from what was asked for. Not VALIDATION_ERROR - prediction_slice_get
- * does not list it, and no server sent this; the client noticed.
+ * does not list it, and no server sent this; the client noticed. Exported so
+ * SCR-04 gives a substituted analysis_run_metrics answer this same state.
  */
-function variantMismatch(requested, served) {
+export function variantMismatch(requested, served) {
   return fatalInvalid({
     code: 'PREDICTION_VARIANT_MISMATCH',
     safeMessage: served === null
