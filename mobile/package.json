@@ -1,0 +1,22 @@
+{
+  "name": "cardiac-mri-workspace-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "prepare-app": "node scripts/prepare.mjs",
+    "start": "node scripts/prepare.mjs && expo start",
+    "android": "node scripts/prepare.mjs && expo run:android",
+    "export:android": "node scripts/prepare.mjs && expo export --platform android --output-dir dist",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "expo": "~57.0.21",
+    "fast-png": "8.0.0",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-webview": "13.16.1"
+  }
+}
