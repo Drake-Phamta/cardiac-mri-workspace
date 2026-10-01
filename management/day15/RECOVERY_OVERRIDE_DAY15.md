@@ -1,6 +1,6 @@
 # RECOVERY OVERRIDE — DAY 15
 
-**Status:** ACTIVE
+**Status:** EXPIRED at 2026-09-24 23:59 +07:00 — closed on the record 2026-10-01 (see §9)
 **Effective:** 2026-09-24 14:00 +07:00
 **Expires:** automatically at 23:59 +07:00 on 2026-09-24 (end of Day 15). No renewal by silence.
 **Authorised by:** Phạm Tuấn Anh — Team Leader
@@ -134,3 +134,16 @@ The highest-priority revalidation item is **PR #53**, because its author is the 
 > I authorise this one-day recovery override for Day 15, 2026-09-24, on the terms recorded above. It expires at the end of today. Ownership under `DR-013` is unchanged and returns in full on Day 16.
 >
 > — Phạm Tuấn Anh, Team Leader
+
+---
+
+## 9 · Closure (recorded 2026-10-01)
+
+- The override expired at 23:59 on 2026-09-24 as written. The status line said ACTIVE until today because nobody
+  mirrored the expiry — the same state-hygiene failure as INC-001's recovery flag.
+- **No merge and no gate transition happened under it.** The §6 table therefore has only its first row, and
+  `POST_RECOVERY_REVALIDATION_DAY16.md` was never needed.
+- The Spike B go/no-go of §5 was never recorded.
+- The only output was a local, unpushed Spike C1 preparation commit (`8501906`: preflight, subset verifier,
+  calendar forecast). It is brought in through a normal PR on Day 22, adopted by its owner on Day 23.
+- Days 16–21 had no repository activity at all. The next exception is `management/day22/RECOVERY_OVERRIDE_DAY22.md`.
