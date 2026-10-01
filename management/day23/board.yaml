@@ -5,20 +5,20 @@ description: "Bảng điều phối Day 23: kết quả Day 22, điều kiện c
 verdict:
   label: "Bắt kịp phần lớn"
   tone: "amber"
-  text: "Hai cổng đã đóng; cổng mobile đủ bằng chứng và chờ một quyết định của leader. Train đang chạy qua đêm. Hôm nay mỗi người nhận lại khối của mình"
+  text: "Cả ba cổng đã đóng; Spike A và Spike B ACCEPTED; app mobile đã lên main. Ma trận ML chậm khoảng một ngày. Hôm nay mỗi người nhận lại khối của mình"
 facts:
-  - {label: "Cổng đã đóng", value: "2 / 3", small: "SPLIT 11:16 · ML 14:30 · MOB chờ leader (#82)"}
-  - {label: "PR merge ngày 01/10", value: "28", small: "qua QA độc lập bằng LLM (CHAT E), không phải duyệt của người thứ hai"}
-  - {label: "Train", value: "EXP-D-025 xong · EXP-D-100 đang chạy", small: "E = 50, batch 8, 560×560 (ADR-ML-001)"}
+  - {label: "Cổng đã đóng", value: "3 / 3", small: "SPLIT 11:16 · ML 14:30 · MOB 21:17 (leader nhận L5)"}
+  - {label: "PR merge ngày 01/10", value: "34", small: "qua QA độc lập bằng LLM (CHAT E), không phải duyệt của người thứ hai"}
+  - {label: "Train", value: "EXP-D-025 xong · EXP-D-100 đang chạy", small: "xong khoảng 04:00, rồi EXP-D-050; E = 50, batch 8, 560×560"}
   - {label: "Backend Mac mini", value: "contract 1.1.0 · 21 case", small: "0 run; chưa có gói Contract 2 thật (chặn dữ liệu N-1)"}
 conditions:
   title: "Điều kiện của Day 23"
   items:
     - "🔒 Bốn người **duyệt lại và nhận** phần làm thay trong khối mình, ghi vào bảng revalidation trước 12:00"
     - "🔒 Hàng đợi **UNet** chạy trên RTX 4050 từ 09:00 và qua **tripwire DR-016a** ở epoch 1; hàng đợi DINOv2 vẫn sống"
-    - "Nếu GATE-MOB-01 đóng: merge #82 → #77 → #78 → #69, mỗi PR đúng SHA đã QA, rồi đóng #65. Mỗi chủ khối đo màn hình của mình trên A17"
-    - "🎯 #61, #69, #74 lên `main` sau khi chủ khối duyệt lại; Mac mini đã có metrics"
-    - "🎯 **Spike B**: chủ spike viết B15 và đề xuất DR-008c từ kết quả S-1"
+    - "🔒 **Spike B** (đã ACCEPTED): chủ spike viết **B15 trước 10:00** và xác nhận DR-008c = L0"
+    - "🎯 Chuẩn bị GATE-IMG-01 trên dự đoán validation của EXP-D-100; leader chốt N-a, Trung sửa INT-12 trong số liệu cohort"
+    - "🎯 Mỗi chủ khối đo màn hình của mình trên A17; #72 (V4) thôi nháp; V2 SCR-05 bắt đầu trên mesh L0"
 yesterday:
   title: "Day 22 (01/10) đã làm được gì — override một ngày"
   items:
@@ -30,9 +30,9 @@ yesterday:
     - {text: "API contract 1.1.0 và backend FastAPI + SQLite chạy trên Mac mini, kèm metrics", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/75"}
     - {text: "Mô hình V1 (SCR-03, case chưa có run), V3 (so sánh thí nghiệm), V4 (review, brush, findings)", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/61"}
     - {text: "Spike B: frontier mesh thật (chỉ L0 nằm trong ±1 lát); pipeline mesh trong backend", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/66"}
-    - {text: "Phiên S-1 trên A17: Spike B 5 mức × 3 lượt, chỉ L0 đạt pick trên máy → **DR-008c = L0**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/73"}
-    - {text: "**L4 PASS** trên app sản phẩm: mỗi lát mới tối đa 155,1 KB (1,1 % một khối), quay lại 0 byte", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/82"}
-    - {text: "Màn V1/V3 và shell đã qua QA, chờ GATE-MOB-01; APK hết văng trên Hermes", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/77"}
+    - {text: "Phiên S-1 trên A17: chỉ L0 đạt pick trên máy → **Spike B ACCEPTED, DR-008c = L0**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/73"}
+    - {text: "**L4 PASS** trên app sản phẩm (mỗi lát mới tối đa 155,1 KB, quay lại 0 byte) → **GATE-MOB-01 đóng** 21:17", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/82"}
+    - {text: "Shell + V1 SCR-02/03/04 và V3 SCR-01/07 đã lên `main`; APK hết văng trên Hermes", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/77"}
 people_title: "Việc của từng người"
 people_note: "Việc 1 của mọi người là duyệt lại phần agent đã làm thay trong khối mình. Gói đầy đủ ở link cuối mỗi thẻ."
 people:
@@ -42,32 +42,32 @@ people:
     tasks:
       - "Duyệt lại #59 #60 #64 #70 #79; viết ghi chú C1-4 cho cả hai họ"
       - "**09:00** chạy hàng đợi UNet trên 4050; kiểm `ml/train.py`, `data.py`, `models.py` không đổi từ `c7a37e0`; **tripwire** ở epoch 1"
-      - "#61 duyệt lại phần sửa B-1…B-4; N-10, N-11, N-13; #69 sau GATE-MOB-01"
+      - "Duyệt lại #61 (B-1…B-4) và #69 (đã merge); N-10, N-11, N-13; QA-069 N-1…N-6"
   - name: "Nguyễn Gia Đức Trung"
     role: "Contract, backend, V4"
     packet: "management/day23/tasks/DAY23_NGUYEN_GIA_DUC_TRUNG.md"
     tasks:
-      - "Duyệt lại #62 #68 #71 #63 #75 (+ #50); vận hành Mac mini"
+      - "Duyệt lại #62 #68 #71 #63 #75 (+ #50); reviewer thứ hai TECH_STACK_ADR và reviewer Spike B"
       - "QA-063 N-1…N-5 (N-4 trước khi #72 thôi là nháp); QA-075 N-2…N-8"
-      - "Sửa INT-12 trong số liệu cohort khi leader chốt N-a, trước khi có gói Contract 2 thật"
+      - "Sửa INT-12 trong số liệu cohort khi leader chốt N-a; #72 (V4) thôi nháp, đo SCR-06 trên A17"
   - name: "Vũ Hùng Anh"
     role: "V2 / 3D, Spike B; reviewer Spike A và C1"
     packet: "management/day23/tasks/DAY23_VU_HUNG_ANH.md"
     tasks:
       - "APPROVE hoặc REJECT Spike C1 (#79); duyệt lại #66, #41, #44"
-      - "Spike B: đọc kết quả S-1, viết **B15**, đề xuất **DR-008c**"
-      - "#74 (`backend/mesh`); V2 SCR-05"
+      - "Spike B đã ACCEPTED: viết **B15 trước 10:00**, xác nhận DR-008c = L0 và chuỗi tap S-1"
+      - "#74 (`backend/mesh`) N-2, N-4, N-5; V2 SCR-05 trên mesh L0"
   - name: "Phạm Tuấn Anh"
     role: "Leader, V1, tích hợp"
     packet: "management/day23/tasks/DAY23_PHAM_TUAN_ANH.md"
     tasks:
-      - "Quyết **GATE-MOB-01** (nhận L5), rồi merge #82 → #77 → #78 → #69"
-      - "Xác nhận DR-016a; quyết N-a (INT-12 trong số liệu cohort); duyệt lại #53, #80"
+      - "Duyệt lại #53, #80; nhận #77, #78 (V1, agent làm thay); QA-078 N-4…N-10"
+      - "Quyết **N-a** (INT-12 trong số liệu cohort); 08:00 kiểm hàng đợi DINOv2"
       - "Theo dõi hai hàng đợi train; khung duyệt 12:00 và 20:00"
 decisions:
   title: "Quyết định đang chờ leader"
   items:
-    - "Xác nhận **DR-016a**: 4050 không chạy được UNet thì lịch trễ, công thức không đổi"
+    - "Số serial A17 và địa chỉ overlay đã công khai trên `main` từ trước: dọn từ giờ, dọn cả lịch sử, hay giữ"
     - "**N-a**: case WITHHELD (INT-12) có nằm trong `successful_n` / `metric_summary` hay không. Chặn mọi gói Contract 2 thật cho tới khi chốt"
     - "Xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân (danh sách trên máy leader)"
     - "Các quyết định QA nêu: QA-005 N-2, N-7 · contract N4, N10 · #65 N-3, N-5, N-12b · A2 (checksum, `useCall`, hash URL)"

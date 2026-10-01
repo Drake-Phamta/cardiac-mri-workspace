@@ -357,11 +357,11 @@ spikes:
     owner: "Vu Hung Anh"
     device_operator: "Pham Tuan Anh - operator for on-device measurements, DR-006a revision 3 (2026-09-14); the owner designs, computes and interprets"
     reviewer: "Nguyen Gia Duc Trung"   # was Pham Tuan Anh until 2026-09-14 - DR-006a revision 3, constraint a
-    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
+    status: ACCEPTED         # 2026-10-01 21:22 under the pre-declared rule of RECOVERY_OVERRIDE_DAY22 section 4 (row "Spike B ACCEPTED + DR-008c"): CHAT E final QA of #73 MERGE; DR-008c = L0; B15 is a recorded exception due from the owner by Day 23 10:00; Vu Hung Anh adopts and Nguyen Gia Duc Trung revalidates on Day 23
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
-      state: NOT_REQUESTED
+      state: NOT_REQUESTED      # the CHAT E QA (an LLM) stood in for the reviewer under the Day 22 override; Nguyen Gia Duc Trung revalidates on Day 23
       reviewer: "Nguyen Gia Duc Trung"
       priority_rank: 1          # Trung's only spike review
       queue_note: >
@@ -371,8 +371,8 @@ spikes:
     task: management/spikes/SPIKE_B_3D/TASK.md
     evidence_template: management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md
     evidence_paths_expected: [management/spikes/SPIKE_B_3D/RESULT.md]
-    evidence_present: false
-    latest_tested_commit: null
+    evidence_present: true     # RESULT.md S-1 section + spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/ (#73, squash 40b1316)
+    latest_tested_commit: 40b1316
     environment: DEVICE_DEMO_01
     device_profile_prerequisite: true
     device_measurement_slot: 3  # THIRD - queue amended to A -> E -> B on 2026-09-11 (device_measurement_queue.order_note); this field was not mirrored until 2026-09-14

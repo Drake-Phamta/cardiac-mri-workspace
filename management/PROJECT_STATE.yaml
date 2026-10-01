@@ -24,7 +24,7 @@ meta:
 day: 23                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
 day_date: "2026-10-02"              # Day 22 was the one-day recovery override; see day22/RECOVERY_OVERRIDE_DAY22.md and day23/DAY23_PLAN.md
 day_11_to_21_verdict: MISSED        # Day 11 0/4 (closed on paper on 2026-10-01); Days 12-19 and 21 no delivery; Day 20 was the full rebaseline (AT RISK); see DAY_LOG.md
-day_22_verdict: RECOVERY_OVERRIDE   # 28 PRs merged on independent LLM QA (CHAT E) + CI; GATE-SPLIT-01 and GATE-ML-01 closed; GATE-MOB-01 evidence complete (L4 PASS in the product app, Spike B L0) and waiting for the leader's L5 decision (#82); owners revalidate on Day 23
+day_22_verdict: RECOVERY_OVERRIDE   # 28 PRs merged on independent LLM QA (CHAT E) + CI; GATE-SPLIT-01 and GATE-ML-01 closed; GATE-MOB-01 CLOSED 21:17 by the leader's explicit decision (L5 accepted; #82); Spike A and Spike B ACCEPTED; mobile shell + V1 + V3 screens merged (#77, #78, #69); owners revalidate on Day 23
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
 day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
@@ -348,9 +348,10 @@ members:
 spikes:
   SPIKE_D:  {status: NEEDS_FIX, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P0,
              review: APPROVED, qa: REJECT, evidence_commit: a92892c, next: "repair in draft PR #34 (2026-09-16 00:19): F1-F5, F12, F13 addressed; owner confirms the A11/A14/F5 wording and marks it ready, leader decides Q2 and the rest of F5, then Vu Hung Anh re-reviews and QA re-checks"}
-  SPIKE_A:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P1,
-             next: "A9 and A2 on main (#27 approved and merged 6ca1e21); A3-A7 in PR #31, ready for review. Measured, not ACCEPTED - no QA step yet"}
-  SPIKE_B:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P1}
+  SPIKE_A:  {status: ACCEPTED, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P1,
+             next: "ACCEPTED-WITH-LIMITATIONS L1-L3, L5 on 2026-10-01 21:17 by the leader's explicit decision (QA-004 section 7); L4 measured PASS in the product app; Vu Hung Anh revalidates on Day 23"}
+  SPIKE_B:  {status: ACCEPTED, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P1,
+             next: "ACCEPTED 2026-10-01 under the pre-declared rule (CHAT E final QA of #73); DR-008c = L0; B15 due from Vu Hung Anh by Day 23 10:00"}
   SPIKE_E:  {status: ACTIVE, started_at: "2026-09-11T12:00:00+07:00", evidence_present: false, priority: P2,
              next: "measured 2026-09-16 evening on both A6 profiles over Wi-Fi + ZeroTier DIRECT; raw data on spike-e/evidence-20260916 (c3c2ab5), 171/171 ok per profile. The owner aggregates per profile and writes RESULT.md - no E figure is computed by anyone else. evidence_present turns true when his RESULT.md is on main"}
   SPIKE_C0: {status: EVIDENCE_READY, started_at: "2026-09-16T00:43:25+07:00", evidence_present: true, priority: P2,
@@ -558,9 +559,22 @@ decisions_pending:
   - {id: "E10 first-load budget figure", waits_on: "Nguyen Gia Duc Trung", subject: "DR-015 decided that a first-load budget becomes binding, but SPIKE_E/TASK.md 161 and 196 make E10 the spike owner's deliverable, so the figure is his to propose and the leader's to accept. His provisional 1000 ms p95 is already in tension with his own data - 445 ms p95 in run-4 against 3103 ms in the 2026-09-16 evening capture on the 576 profile - so it needs the time-of-day spread E8 still lacks. Five stated conditions in OPEN_DECISIONS DR-015 limb 1. Reserve queue today, Day-9 primary candidate"}
   - {id: "DEMO_STANDARD panel", waits_on: "Pham Tuan Anh", subject: "whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16"}
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
-  - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
 
 decisions_made_during_execution:
+  - id: DR-008c
+    decided: "2026-10-01"
+    decided_by: "pre-declared rule of management/day22/RECOVERY_OVERRIDE_DAY22.md section 4 (authorised by Pham Tuan Anh - Team Leader); Vu Hung Anh confirms on Day 23"
+    outcome: "L0, the undecimated voxel-face surface (61,424 triangles on CASE_0059): the only level whose pick error holds +/-1 slice (#66, offline) and B6 on the A17 (S-1, #73); L0 also passes B7, B9, B10 (59.88 FPS) and B11 (17 ms)"
+    evidence: "management/spikes/SPIKE_B_3D/RESULT.md (S-1 section); spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/; CHAT E final QA of #73 (management/day22/qa/QA_PR73_FINAL.md)"
+    gate_effect: "Spike B ACCEPTED (B15 a recorded exception due Day 23 10:00); the V2 3D module may use L0 meshes from backend/mesh"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-008c"
+  - id: DR-016a
+    decided: "2026-10-01"
+    decided_by: "Pham Tuan Anh - Team Leader (confirmed in session at 21:17)"
+    outcome: "E = 50 for all six runs of the ADR-ML-001 matrix; if the second GPU fails, the schedule slips and the recipe does not change"
+    evidence: "management/spikes/SPIKE_C_ML/RESULT_C1.md; management/adr/ADR_ML_001.md"
+    gate_effect: "none; GATE-ML-01 already closed 14:30"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-016a"
   - id: "GATE-MOB-01 measurement direction"
     decided: "2026-09-18"
     decided_by: "Pham Tuan Anh - Team Leader"

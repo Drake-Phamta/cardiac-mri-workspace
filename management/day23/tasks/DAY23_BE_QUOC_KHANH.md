@@ -10,7 +10,7 @@ nhận nó.
 | Quyết định | Ảnh hưởng |
 |---|---|
 | **DR-016**: hai máy tính toán | Họ **DINOv2** chạy trên PC leader (RTX 3050 Ti), bắt đầu 14:30 ngày 01/10. Họ **UNet** chạy trên **RTX 4050 của bạn**, bắt đầu **09:00 hôm nay**. Công thức giữ nguyên trên cả hai máy; máy chạy được ghi lại trong manifest của từng run |
-| **DR-016a** (ghi sau C1, leader xác nhận hôm nay) | Có **tripwire** ở epoch 1 của EXP-U-025 (xem việc 2). Nếu 4050 không chạy được trước 12:00 hôm nay, hoặc trượt tripwire, thì **lịch trễ, công thức không đổi**: UNet vẫn E = 50, batch 8 |
+| **DR-016a** (ghi sau C1, leader **đã xác nhận** 21:17 ngày 01/10) | Có **tripwire** ở epoch 1 của EXP-U-025 (xem việc 2). Nếu 4050 không chạy được trước 12:00 hôm nay, hoặc trượt tripwire, thì **lịch trễ, công thức không đổi**: UNet vẫn E = 50, batch 8 |
 | **ADR-ML-001 ACCEPTED**, **GATE-ML-01 ĐÃ ĐÓNG** (14:30 ngày 01/10, C1 QA PASS WITH NOTES, `management/day22/QA_REVIEW_C1_GATE_ML_01.md`) | 560×560, batch 8, **E = 50**, loss 0,5·BCE + 0,5·softDice, AdamW 1e-4, bf16, seed 2024, ngưỡng 0,5. Chọn checkpoint theo Dice validation tính mỗi epoch. **Không đổi dòng nào khi đã bắt đầu run.** SPIKE_C1 ACCEPTED theo override; Vũ Hùng Anh duyệt lại |
 | **GATE-SPLIT-01 đóng** (QA-005) | 06 §6 được ghi là **lệch, có ngoại lệ theo DR-002b**, không phải "đạt" |
 | **DR-010a = (b)** | `worst_slice_selection` nằm trong `analysis_run_metrics`; backend tự xếp hạng |
@@ -66,7 +66,7 @@ Mỗi PR dưới đây được merge dưới override, sau khi QA đạt. Với
 
 Họ DINOv2 trên PC leader: EXP-D-025 → EXP-D-100 → EXP-D-050, EXP-D-025 xong 17:15. Epoch 1 của EXP-D-100: 0,59 s mỗi bước, ngưỡng hoà vốn 1,89 s. Sáng nay kiểm cả ba run đều COMPLETE. Nếu bị ngắt thì chạy lại đúng lệnh cũ, cùng E và B; nó tự tiếp tục.
 
-## Việc 3 — V3: sửa và merge #61, rồi #69 *(chiều)*
+## Việc 3 — V3: duyệt lại #61 và #69, rồi sửa các điểm QA *(chiều)*
 
 - **#61 (mô hình V3) đã merge** tối 01/10 → `d6441bc`, sau ba vòng QA (QA-61 → 61b → 61c MERGE).
   - B-1, B-2, B-3 đã sửa ở `478002e`. QA-61b xác nhận cả ba, bằng probe hỏng ở head cũ và đúng ở head mới.
@@ -79,7 +79,7 @@ Họ DINOv2 trên PC leader: EXP-D-025 → EXP-D-100 → EXP-D-050, EXP-D-025 xo
     - **N-14:** đã ghi trong README TODO 7;
     - **N-15:** từ chối selection có `case_id` trùng; hàng trùng `case_id` là drift.
   - **N-12 (liên khối):** `ml/evaluate.py` đang xuất khối outlier với `rule_id` và `selection_version` khác contract. Phải xuất đúng nguyên văn `selection_rules.outlier_selection`. Trung làm phần ingestion.
-- **#69** (màn SCR-01/SCR-07): QA-069 (cùng phần delta) cho **MERGE sau #77 và GATE-MOB-01**, tại `1272dd1`. Chờ GATE-MOB-01.
+- **#69** (màn SCR-01/SCR-07) **đã merge** tối 01/10 → `f5d5384`, sau QA-069 delta MERGE tại `1272dd1`. Commit merge chỉ giải xung đột `mobile/test/render/smoke.mjs` với #78 (giữ cả hai phần: V3 là mục 5, SCR-04 là mục 6). Bạn duyệt lại (K11).
   - Đã restack lên `main` + #77, nhận model V3 trên `main`.
   - Đã sửa: một lỗi crash SCR-01 khi server trả comparison; QA-069 B-1 (bảng case của cell bị từ chối variant từng in số).
   - Bundle Android biên dịch được (781 module).

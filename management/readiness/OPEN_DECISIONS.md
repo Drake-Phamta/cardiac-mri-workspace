@@ -609,6 +609,8 @@ sizes the training tasks for the 30-day baseline.
 > decimated real-mesh picking error is **at most ±1 source slice**. Spike B **validates conformance**; it
 > does not re-derive the value, and it **must not be silently relaxed**.
 >
+> **DR-008c — DECIDED 2026-10-01: L0, the undecimated voxel-face surface** (61,424 triangles on CASE_0059), under the pre-declared rule of `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4: the fastest level whose B5 ≤ ±1 slice; only L0 holds it (#66), and on the A17 L0 passes B10/B11 (59.88 FPS, 17 ms) and B6/B7/B9 (S-1, #73; CHAT E final QA). Vũ Hùng Anh confirms on Day 23 with B15; the previous text follows.
+>
 > **DR-008c (mesh / decimation budget): OPEN.** Spike B must determine the mesh and decimation budget
 > **while respecting the fixed maximum real-mesh picking error of ±1 source slice**. A decimation level
 > that exceeds ±1 slice is not acceptable regardless of its frame rate.
@@ -1725,7 +1727,7 @@ are compared within one recipe, not within one host; the host is a recorded cova
 
 | Field | Value |
 |---|---|
-| **Status** | ✅ **RECORDED 2026-10-01** by the leader's session under the Day 22 delegation. It was written after the C1 QA (14:29) and after the DINOv2 queue started (14:30), and answers QA findings N-1 and N-2 (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`). **Phạm Tuấn Anh confirms it on Day 23** |
+| **Status** | ✅ **CONFIRMED by Phạm Tuấn Anh on 2026-10-01 at about 21:17** (in session). Recorded 2026-10-01 by the leader's session under the Day 22 delegation. It was written after the C1 QA (14:29) and after the DINOv2 queue started (14:30), and answers QA findings N-1 and N-2 (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`). **Phạm Tuấn Anh confirms it on Day 23** |
 | **Amends** | `DR-016`, the fallback clause only |
 | **Reason** | `RESULT_C1.md` §3.1. At 560 / batch 8 the UNet runs on the 4 GiB card only through driver memory spill: 2.18 s per step sustained in the C1 trial. E = 50 allows at most 1.13 s per step for a UNet queue that starts Day 23 09:00 and ends by 2026-10-03 12:00 |
 | **Affects** | the UNet queue (EXP-U-025/050/100), the run calendar, the UNet holdout evaluation date |
