@@ -166,7 +166,12 @@ the mask, B7, B9, cross-check of the HTTP and logcat copies, and of the device h
 re-intersection of the same ray) and `$S1\s1_per_pick.csv`. It needs the private LASC package and the
 gitignored meshes in `spikes/spike_b_3d/mesh/out_real/CASE_0059/`.
 
-**What goes into git afterwards** (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/`):
+```powershell
+python spikes\spike_b_3d\harness\s1_export_evidence.py --session $S1 --out spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device
+```
+
+**What goes into git afterwards** (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/`, written by the
+command above, which also refuses to finish if the serial survives anywhere):
 `PROVENANCE.md` (from the template below), `session_state.json`, `conditions_before.json`,
 `conditions_after.json`, `repository_commit.txt`, the frame-probe records only (timings, no anatomy), and
 `s1_results.json` with the per-pick table reduced to slice indices and errors. **Not** committed: the APK,
