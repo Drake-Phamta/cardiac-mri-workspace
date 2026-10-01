@@ -1,0 +1,206 @@
+# backend/ — API Contract 11 service (FastAPI + SQLite)
+
+**Block owner: Nguyễn Gia Đức Trung** (backend / persistence / ingestion). The first version was written on
+2026-10-01 under the Day 22 recovery override as recovery support; the owner reviews and adopts it on Day 23.
+
+The product backend of `DEP-04`: Python + FastAPI + SQLite on the Mac mini M2 (DR-003 host, `TECH_STACK_ADR`),
+reached by the phone over the ZeroTier overlay. It serves **exactly** the version of `contracts/api/contract.json`
+pinned in `app/contract.py` (`EXPECTED_VERSION`, currently 1.1.0) and refuses to start on any other.
+
+**Derived patient data never lives in the repository.** Slice PNGs, masks, the review database, rendered
+predictions and Contract 2 packages all live under `CARDIAC_BACKEND_DATA` (a directory outside any git work
+tree); the service and the ingest CLI refuse a path inside a work tree, ignored or not (the rule of
+`ml/data.py`'s `inside_git_worktree`). Host names and addresses are parameters, never committed.
+
+## What it serves
+
+All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented against real data first.
+
+| Area | Endpoints | Source |
+|---|---|---|
+| Study, cases, geometry | `study_get`, `case_list`, `case_get`, `geometry_get` | derived data cache (Contract 1 ingest) |
+| Slices | `mri_slice_get`, `ground_truth_slice_get` | 8-bit PNG per slice at native resolution, content-addressed |
+| Runs, predictions per variant | `analysis_run_get`, `prediction_slice_get` | Contract 2 packages under `backend/experiments/` |
+| Reviews, reviewed masks | `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `reviewed_masks_list`, `reviewed_mask_slice_get` | SQLite |
+| Findings | `finding_create`, `findings_list`, `finding_patch` | SQLite |
+| Metrics, worst slice, cohort | `analysis_run_metrics`, `analysis_slice_metrics`, `experiment_metrics`, `experiment_cases`, … | **unavailable state** (`ARTIFACT_NOT_FOUND`, reason `METRICS_NOT_INGESTED`) until saved Contract 2 metric artifacts are ingested — never an invented number |
+| Mesh | `reconstruction_get`, `error_reconstruction_get` | Contract 2 `RECONSTRUCTION_3D` references; error mesh unavailable (DR-005 open) |
+| Not deployable | `analysis_run_create` | `RUN_NOT_DEPLOYABLE` — precomputed runs only (PR-AN-01 is SHOULD) |
+
+Plus `GET /health` and `GET /api/v1/artifacts/<sha256>.png` (the immutable `content_url` of every slice; its
+bytes hash to the response `checksum`, `ETag` = that checksum).
+
+### Rules the service enforces
+
+- **Error codes**: every route answers only the codes its contract endpoint lists, in the standard envelope
+  `{error: {code, message, request_id, details}}` at the contract's HTTP status.
+- **Ground truth / inference-only (INT-12, PR-MODE-01)**: the INT-12 case is ingested in `INFERENCE_REVIEW`
+  mode and its ground-truth file is **never opened**; every ground-truth-dependent endpoint answers
+  `GROUND_TRUTH_UNAVAILABLE` for it. Predictions, reviews and findings stay available.
+- **Physical units**: LASC headers are the default affine (QA-002 F2), so every geometry response says
+  `GEOMETRY_NOT_VALIDATED`, spacing/origin/direction are the header's voxel-index affine, and **no response
+  carries an mm or mL value**.
+- **Review states (FR-REV-001)**: `NOT_REVIEWED → ACCEPTED | FLAGGED | CORRECTED`, `FLAGGED → CORRECTED`,
+  `ACCEPTED → FLAGGED | CORRECTED`; anything else is `INVALID_REVIEW_TRANSITION`. `CORRECTED` needs a persisted
+  reviewed mask; a **commit leaves the review `CORRECTED`** (do not PATCH it afterwards). One review per
+  run + source mask + variant (DR-009); `review_create` must send `source_mask_id` and `prediction_variant`.
+- **Revisions**: every write carries `expected_revision`; a stale one is `STALE_REVISION`. The review revision is a
+  single counter advanced by every status change, working-slice upload and commit.
+- **Immutability**: a commit writes a new `ReviewedMask` version (`RM_<review>_V<n>`, parent = previous version,
+  checksum = sha256 of the uint8 `(z, y, x)` {0, 255} volume bytes) with FR-REV-010 provenance (source mask, case,
+  run, time, reviewer from the optional `X-Reviewer-Id` header). SQLite **triggers refuse UPDATE/DELETE and
+  REPLACE** on reviewed masks, their slices and both history tables; finding evidence columns cannot be updated. The source
+  prediction file is never written (its checksum is re-verified when loaded).
+- **Working-mask payload**: `{encoding, data}` with `BITPACK_BASE64` (Ny·Nx bits, row-major, MSB first) or
+  `PNG_BASE64` (8-bit Ny×Nx PNG, values {0, 255}); `geometry_contract_version` and `geometry_validation_status`
+  must equal the case's (`GEOMETRY_NOT_VALIDATED` for the real data) or the answer is `GEOMETRY_MISMATCH`.
+
+## Data: Contract 1 ingestion of the rule-selected cases
+
+```powershell
+$env:CARDIAC_BACKEND_DATA = "<data-root>"   # outside the repository
+python -m backend.app.ingest --package-root "<LASC extracted root>"   # or set CARDIAC_PACKAGE_ROOT
+```
+
+Selection is by rule from `data/manifests/split_manifest_path_a_seed2024.json` (blob sha256 pinned): **INTEGRATION_CASE_001 = CASE_0061** (lowest validation id), all **20 validation cases**
+(EVALUATION), and the **INT-12 case = CASE_0001** (lowest `final_holdout` id other than CASE_0027,
+INFERENCE_REVIEW, ground truth withheld). The split's pinned dataset-manifest sha256 is checked.
+
+Output goes to `$CARDIAC_BACKEND_DATA/data_cache/` (or `--out`); a path inside a git work tree is refused. Re-running is idempotent: identical bytes are a NO_OP, changed
+source bytes are `CHECKSUM_CONFLICT`, never an overwrite. ~21 cases × 88 slices; MRI intensities are uint8 in the
+package and are copied unchanged (`png8-identity/1`), masks are {0, 255}.
+
+Contract 2 packages (experiment manifests + prediction NRRDs, as `ml/` exports them) go under
+`$CARDIAC_BACKEND_DATA/experiments/<package>/`. Each is validated with
+`contracts/ingestion/contract2_experiment_artifact/validate_contract2.py` before anything is served; a rejected
+package is listed by code in `/health` and never partially served.
+
+## Run locally
+
+```powershell
+pip install -r backend/requirements-dev.txt          # runtime pins + httpx/pytest
+powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot "<data-root>"
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/api/v1/cases/CASE_0061/slices/44/mri
+```
+
+Environment: `CARDIAC_BACKEND_DATA` (required; layout `data_cache/`, `experiments/`, `var/backend.sqlite3`,
+`var/render_cache/`), per-path overrides `CARDIAC_DATA_CACHE`, `CARDIAC_EXPERIMENTS_ROOT`, `CARDIAC_DB`,
+`CARDIAC_RENDER_CACHE`, plus `CARDIAC_STUDY_ID` (default `STUDY_LA_001`) and `CARDIAC_API_CONTRACT`.
+
+## Tests
+
+```powershell
+python -m pytest backend/tests -q
+```
+
+TestClient on a synthetic package (generated NRRDs with the real package's header, a synthetic split with
+CASE_0027 in the holdout, a synthetic Contract 2 package with RAW + PROCESSED predictions and a FAILED run, and a
+second package that the validator rejects). **Every JSON response is validated** with
+`contracts/api/validate_api_contract.validate_response` — the same function the contract test applies to the
+generated fixtures. Covered: routes for all 28 endpoints, the INT-12 selection rule, slice pixels equal to the
+source (rows = y, columns = x), ground truth served only in EVALUATION mode and never derived for INT-12, every
+transition and refusal of the review state machine, stale revisions, working-mask geometry checks, two committed
+versions with parent links, unchanged v1 and source checksums, database-level immutability (REPLACE included, on a
+second connection), finding evidence immutability, no physical-unit field anywhere, ingest idempotency and
+`CHECKSUM_CONFLICT`, and the request log: exact bytes, slice switches across an empty slice shared by two cases,
+id-to-case resolution, the query allowlist.
+
+## Deploy to the Mac mini (run by the leader)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1 -SshHost <ssh-alias> -BindHost <overlay-address> `
+    -DataCache "<data-root>\data_cache"
+```
+
+`-SshHost` / `-BindHost` may instead come from the untracked environment variables `CARDIAC_DEPLOY_SSH_HOST` /
+`CARDIAC_DEPLOY_BIND_HOST`; binding `0.0.0.0` needs the explicit `-BindAll`. The script packs code + contract
+files + the derived data cache (never raw NRRD) into a fixed stage directory under `%TEMP%`, downloads the pinned
+requirements as Python 3.9 macOS-arm64 wheels, copies the code to `~/cardiac-backend` and the data to
+`~/cardiac-backend-data` over ssh, creates a venv from `/usr/bin/python3` (3.9.6 on the Mac mini), installs
+offline from the wheels, restarts uvicorn on `<overlay-address>:8000` in the background (pid file and log under
+`~/cardiac-backend-data/var/`), and curls `/health` on the host and then from the PC. Nothing is deleted on
+either side.
+
+Phone base URL: `http://<overlay-address>:8000/api/v1` · health: `http://<overlay-address>:8000/health`.
+If the host answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
+
+## Metrics from Contract 2 experiment artifacts
+
+Packages live under `$CARDIAC_BACKEND_DATA/experiments/`. Three layouts are discovered (a manifest is any `*.json`
+whose `contract` is `contract2_experiment_artifact`): `<pkg>/<manifest>.json`, a manifest at the top, and the
+exporter's own `<run>/contract2/<manifest>.json` with **the run directory as artifact root** (`ml/export_contract2.py`
+output, copied as a whole run directory). Every package is checked with `validate_contract2.py` first (both gates
+`ACCEPTED`; checksums of every artifact, the manifests **and the checkpoint** — so the run copy must include the
+checkpoint file); a rejected package is listed by code in `/health` and never partially served.
+
+Served from the saved files (`ml/evaluate.py`, `ml-eval-1.0.0` formats), never recomputed from images:
+
+| Endpoint | Source | Notes |
+|---|---|---|
+| `analysis_run_metrics` | the run's `METRIC_SET` (`ml-metric-set/1`) + `PER_SLICE_METRICS` | `metric_values` via one explicit field map (`METRIC_SOURCES`: `dice_3d→dice`, `iou_3d→iou`, `fp_voxels→false_positives`, `fn_voxels→false_negatives`, `relative_volume_error_percent→relative_volume_error`, percent of the GT voxel count); `worst_slice_selection` re-ranked here by DR-010 over every eligible slice, served with the contract literals (`DR-010`, `dr010-worst-slice/v1`) and cross-checked against the saved order |
+| `analysis_slice_metrics` | `PER_SLICE_METRICS` | `NOT_APPLICABLE` with `null` for a both-empty slice (`07` §6) |
+| `experiment_metrics` | `METRICS_SUMMARY` cohort | `n/mean/std/median/q1/q3/min/max` + the saved bootstrap CI as `ci95_low/high` |
+| `experiment_cases` | `PER_CASE_METRICS` | `SUCCEEDED / FAILED / EXCLUDED / WITHHELD` rows; the INT-12 case is `WITHHELD` (no values); DR-010 `outlier_selection` ranked here over `SUCCEEDED` rows only |
+| `experiment_compare` | per-case records of each package | comparable = same population, split, metric version and variant; summaries over the common population (CIs `null`, not computed here) |
+
+Provenance checks per request: the metric set scored exactly the run's prediction bytes (C2 checksum) and exactly
+the reference file this backend ingested (sha256 of the mask NRRD bytes); the per-slice rows cover the volume;
+formats and `evaluation_metric_version` agree across files. Any mismatch answers `ARTIFACT_NOT_FOUND` with a reason
+(`METRICS_PROVENANCE_MISMATCH`, `METRICS_FORMAT_UNSUPPORTED`, `NO_METRICS_FOR_VARIANT`, ...). Run-level metrics need
+the case in the data cache; experiment-level rows do not (holdout cases are not ingested). Real Contract 2 packages
+are FINAL_HOLDOUT only, so real metrics arrive after GATE-IMG-01 (D24+); until then the endpoints answer the
+unavailable state on real data. The prediction NRRDs of a 54-case run are ~2 GB; copy them with the run directory
+when prediction overlays are wanted on the host.
+
+## Request log and the L4 measurement
+
+Every HTTP request appends one JSON line to `$CARDIAC_BACKEND_DATA/logs/requests.jsonl`: UTC time, method, path
+**template**, `case_id` / `slice_index` from the path (run, review and reviewed-mask ids are resolved to their
+case), status, response **bytes** actually sent and duration. A slice view (`view` = `mri`, `gt`, `prediction`,
+`reviewed`) records the `digest` its `content_url` names; a `GET /api/v1/artifacts/<sha256>.png` records the
+`digest` it served and only the kind / case / slice that **every** owner of that digest shares. Identical bytes
+share one digest (on the real cache the empty ground-truth slice belongs to 360 slices of 20 cases), so such a
+fetch is marked `shared` with its number of `owners` and never attributed to one of them. Only allowlisted query
+keys are recorded (never the free-text case search `q`), with values limited to identifier characters. No client
+address, header or request body is recorded.
+
+L4 of NFR-PERF-001 ("no full-volume transfer per slice gesture") is read from it after the phone session:
+
+```powershell
+python backend\scripts\summarize_request_log.py --log <data>\logs\requests.jsonl --data-cache <data>\data_cache --since <session start, ISO UTC>
+```
+
+A slice switch starts at a slice-view request whose `(case_id, slice_index)` differs from the current switch;
+other requests of the same slice (metrics, error map) join it; an artifact fetch joins the most recent switch
+that announced its digest (by sequence only when none did). It prints bytes per switch (p50 / p95 / max), the
+largest single response, how the artifact fetches were attached, and the largest switch as a percentage of that
+case's raw volume. The API has no volume endpoint, so a switch is bounded by one slice's metadata plus its PNG(s).
+
+## Transport hygiene
+
+- CORS is **off** unless `CARDIAC_CORS_ORIGINS` lists allowed origins (the React Native app needs none).
+- OpenAPI/docs routes are off unless `CARDIAC_ENABLE_DOCS=1`.
+- Request bodies above 1 MiB answer 413 with the contract envelope; 400/405 also answer the envelope.
+- Artifact bytes are `Cache-Control: private, immutable`.
+- The offline wheel set is checked with `backend/scripts/check_wheel_closure.py` for CPython 3.9.6 / darwin /
+  arm64, in CI and inside the deploy (pip evaluates markers on the host interpreter, which once dropped
+  `exceptiongroup`).
+- A `REPLACE` / `INSERT OR REPLACE` cannot overwrite an immutable row either: `BEFORE INSERT` triggers on
+  reviewed masks, their slices, both history tables and findings abort on an existing key on **any** connection,
+  and the service's own connection also sets `PRAGMA recursive_triggers = ON`.
+- The ingest pins the split blob sha256 (`c5c65a09…396d`), refuses to extend a cache built from another split or
+  dataset manifest, and the service refuses a cache with more than one `final_holdout` case or a holdout case
+  served with ground truth.
+
+## Known gaps (Day 22)
+
+- Metrics, worst-slice selection and cohort endpoints answer the unavailable state until saved Contract 2 metric
+  artifacts exist (no training run has produced one yet).
+- No Contract 2 package exists yet, so on real data there are no runs, predictions or reviews; the review flow is
+  proven on the synthetic package only.
+- The mesh frame of `RECONSTRUCTION_3D` artifacts is not declared by Contract 2; `mesh_to_world_transform` is the
+  identity in the source mask's voxel-index frame. To be confirmed with the mesh pipeline (V2 / `backend/mesh/`).
+- No authentication (LOCAL_DEMO overlay, DR-003); `UNAUTHORIZED` is never answered. Plain HTTP on the overlay.
+- Python 3.9 compatibility is by construction and pinned wheels; the suite itself runs on the development
+  Python (3.12).

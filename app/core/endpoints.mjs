@@ -90,6 +90,9 @@ export function resolveEndpoint(contract, endpointId, params = {}) {
     groundTruthBehavior: endpoint.ground_truth_behavior,
     allowedErrors: new Set(endpoint.errors),
     responseFields: Object.freeze([...(endpoint.response_fields || [])]),
+    // List endpoints (contract v1.0.0) say which fields live on each item;
+    // null for an endpoint without row_fields.
+    rowFields: Array.isArray(endpoint.row_fields) ? Object.freeze([...endpoint.row_fields]) : null,
   });
 }
 

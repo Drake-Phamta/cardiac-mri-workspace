@@ -12,32 +12,34 @@ WHAT IS REUSED, UNCHANGED
 -------------------------
 - mesh/build_mesh.py: extract_surface (exact voxel-face surface — deliberately NOT
   marching cubes, see its docstring), decimate (vertex clustering), to_world, write_obj.
-- harness/picking_error.py: march_mask (ground truth = ray-march over the VOXEL MASK,
-  touching no mesh — the 2026-09-12 tautology fix), ray_mesh_first_hit (Moller-Trumbore),
-  slice_of_world (floor, never clamp), load_obj, and its cohort rule: a ray that hits
-  the mask but not the mesh is a NO-HIT, which is the largest possible picking error and
-  makes the cohort NOT within bound.
+- harness/picking_error.py: ray_mesh_first_hit (Moller-Trumbore), slice_of_world (floor,
+  never clamp), load_obj, and its cohort rule: a ray that meets the mask but not the mesh
+  is a NO-HIT, the largest possible picking error, and makes the cohort NOT within bound.
+  Its march_mask is no longer the ground truth (next section); it is kept as a reference
+  column only.
 
-The new machinery is (1) a real-mask loader, (2) a deterministic ray set sized for a
-real anatomy instead of the 13 fixture rays, (3) an EXACT grid traversal of the mask as
-ground truth (below), and (4) two speed-ups that do not change any result: a
-conservative pre-filter before march_mask, and per-ray candidate triangles for
-ray_mesh_first_hit. Both speed-ups are checked against the unaccelerated path on every
-run (`acceleration_checks` in the output) — a speed-up that changed one answer would be a
-defect, not an optimisation.
+WHAT IS NEW
+-----------
+(1) a real-mask loader; (2) a deterministic ray set sized for real anatomy instead of the
+13 fixture rays; (3) an EXACT cell-by-cell traversal of the mask as ground truth, and the
+same walk for every along-ray measurement (depth of a missed ray, clearance of a background
+ray, the classification of out-of-bound picks); (4) per-ray candidate triangles for
+ray_mesh_first_hit — a speed-up whose answers are checked against the brute-force path on
+EVERY out-of-bound ray and every background navigation, plus a random sample, on every run
+(`acceleration_checks`). A speed-up that changed one answer would be a defect.
 
-WHY THE GROUND TRUTH IS AN EXACT TRAVERSAL, NOT march_mask (found on this run)
-------------------------------------------------------------------------------
-The first run scored the exact level-0 surface (every triangle IS a voxel face) at up to
-13 slices of error and 41 "navigations where the mask has no surface". A voxel-face surface
-cannot do that. Every one of those rays met the mesh EARLIER along the ray than march_mask
-reported its first voxel: march_mask samples the ray every 0.25 voxel and so skips a voxel
-the ray crosses for less than that (a corner clip on thin anatomy - the synthetic blob never
-had one). The truth is now `exact_first_voxel`, a cell-by-cell traversal in the style of
-conformance.py's reference slice_of_ray. Still mask-only, still no mesh - the 2026-09-12
-principle is unchanged - and the march_mask scores are kept next to it
-(`scored_against_march_mask_step_0p25`, `ground_truth_vs_march_mask`) so the change is
-visible rather than silent.
+WHY THE GROUND TRUTH IS AN EXACT TRAVERSAL, NOT march_mask
+----------------------------------------------------------
+The first run scored the exact level-0 surface (every triangle IS a voxel face) at up to 17
+slices of error and 86 "navigations where the mask has no surface". A voxel-face surface
+cannot do that: march_mask samples the ray every 0.25 voxel and skips a voxel the ray only
+clips. `exact_first_voxel` walks every voxel the ray enters - the same Amanatides-Woo walk
+as conformance.py's reference `slice_of_ray`, a separate implementation that shares no code
+with this file (test_real_mesh_frontier.py compares the two on 2,000 random rays). Still
+mask-only, still no mesh. march_mask scores stay in the output (`scored_against_march_mask`)
+so the change is visible; march_mask is run only on rays the exact walk finds a voxel for,
+because it samples only points of voxels the ray passes through and so cannot find one where
+the walk finds none (re-checked each run on the nearest misses: `march_on_nearest_misses`).
 
 THE RAY SET (stated, because B5 is only as meaningful as the rays it is measured on)
 -----------------------------------------------------------------------------------
@@ -55,15 +57,25 @@ them — by the angle between the ray and the SLICE PLANE:
 
 Every direction is a camera orientation, so the set also covers "after rotate" (B6) the
 way picking_error.py's six rotations do; zoom does not change which triangle a world-space
-ray meets and is therefore not simulated offline (the device run tonight covers it).
+ray meets and is therefore not simulated offline (the device run covers it).
 
-B9 OFFLINE
-----------
-Rays whose mask ray-march finds nothing are background rays. For each level the harness
-counts how many of them the decimated mesh would still resolve to a slice (a navigation
-where the mask has no surface along the ray), bucketed by how far the ray passes from the
-mask, and for those the slice distance to the nearest foreground voxel. It does not decide
-which of those count as "misleading": it reports them all.
+OUT-OF-BOUND PICKS, CLASSIFIED (rays that meet the mask, error > 1 or no hit)
+---------------------------------------------------------------------------
+Along each such ray the exact walk gives the runs of consecutive foreground voxels; the first
+run is [t_in, t_out]. With t_hit the distance to the mesh hit:
+    no_hit           the mesh is not hit at all (depth = exact max EDT along the ray)
+    inflated         t_hit < t_in: the mesh is hit in front of the mask
+    local            t_in <= t_hit <= t_out: the hit lies on the first run, displaced
+    cross_structure  t_hit > t_out: the first run is not on the mesh (a clipped corner or
+                     a collapsed 1-voxel-thin structure); the hit lands on a later surface,
+                     and the error is the slice distance to that next surface along the ray
+B9 OFFLINE: rays whose exact walk meets no mask voxel are background rays; every one the
+mesh resolves to a slice is reported as a navigation where the mask has no surface,
+bucketed by the exact clearance (min EDT to the mask along the walk). Nothing is excused.
+
+RESOURCES: the ground truth runs in a process pool (--workers, default min(4, cpu_count));
+each worker holds its own copy of the mask plus two cropped distance fields (~0.13 GB with
+the interpreter). Use --workers 2 while a GPU job trains on the shared workstation.
 """
 
 from __future__ import annotations
@@ -92,24 +104,24 @@ from build_mesh import decimate, extract_surface, to_world, write_obj  # noqa: E
 from picking_error import (SCQ06_BOUND, GRAZING_COS, load_obj, march_mask,  # noqa: E402
                            ray_mesh_first_hit, slice_of_world)
 
-DEFAULT_DATA_ROOT = os.environ.get("CARDIAC_DATA_ROOT",
-                                   r"D:\02_Research\cardiac-data\lasc2018\extracted")
+# No absolute default: the private package location comes from the environment or the
+# command line (public repository).
+DEFAULT_DATA_ROOT = os.environ.get("CARDIAC_DATA_ROOT")
 DEFAULT_DATASET_MANIFEST = os.path.join(REPO, "data", "manifests", "dataset_manifest.json")
 DEFAULT_SPLIT_MANIFEST = os.path.join(REPO, "data", "manifests", "split_manifest_path_a_seed2024.json")
-DEFAULT_MESH_OUT = os.path.join(ROOT, "mesh", "out_real")          # gitignored
+DEFAULT_MESH_OUT = os.path.join(ROOT, "mesh", "out_real")          # gitignored; + /<case_id>
 DEFAULT_EVIDENCE = os.path.join(ROOT, "EVIDENCE_RAW", "20261001_real_mesh",
                                 "real_mesh_frontier.json")
 CONTRACT_VERSION = "dr008a-dr012/v1.0.0"
 
-# Memory guard (2026-10-01): the first default, cpu_count() - 2 = 18 workers on the shared
-# workstation, each with its own copy of the 640x640x88 mask and its dilation, exhausted RAM
-# during a QA run and killed a GPU training job. Four workers keep the pool near 0.5 GB and
-# the run at a few minutes; --workers overrides it.
+# Memory guard (2026-10-01): the first default, cpu_count() - 2 = 18 workers, each with its
+# own copy of the 640x640x88 mask, exhausted the shared workstation's RAM in a QA re-run and
+# killed a GPU training job. Four keeps the pool near 0.5 GB; --workers overrides it.
 DEFAULT_WORKERS = min(4, os.cpu_count() or 1)
 GRID_OFFSETS = (0.37, 0.61)       # fractions of one grid pitch; keep rays off voxel edges
 BOX_MARGIN = 2                    # voxels around the foreground bounding box
 EDT_MARGIN = 12                   # voxels of context for clearance / depth measurements
-PREFILTER_STEP = 0.5              # voxels; see _prefilter for why this is conservative
+NEAREST_MISS_CHECK = 300          # exact-None rays re-marched with march_mask each run
 
 
 # --- case selection ------------------------------------------------------------------
@@ -220,47 +232,9 @@ def ray_bundle(d, box_lo_w, box_hi_w, pitch):
     return rays, frame
 
 
-# --- ground truth (picking_error.march_mask), with a conservative pre-filter -----------
+# --- exact traversal of the mask ---------------------------------------------------------
 
-_W: dict = {}
-
-
-def _init_worker(mask, dilated, spacing, origin):
-    _W["mask"], _W["dilated"] = mask, dilated
-    _W["spacing"], _W["origin"] = spacing, origin
-
-
-def _prefilter(o, d, length):
-    """True if the ray MIGHT meet the mask; False only when march_mask cannot.
-
-    A march_mask sample q (step 0.25) lies within 0.25 voxel of a sample p of this
-    0.5-step walk, so floor(q + 1e-9) is within one voxel of floor(p) on every axis. If
-    no p lands in the mask dilated by one voxel (3x3x3), no q can land in the mask.
-    """
-    mask_d, sp, org = _W["dilated"], np.asarray(_W["spacing"]), np.asarray(_W["origin"])
-    ts = np.arange(0.0, length + PREFILTER_STEP, PREFILTER_STEP)
-    pts = (o[None, :] + ts[:, None] * d[None, :] - org) / sp
-    idx = np.floor(pts).astype(np.int64)
-    shape = np.array(mask_d.shape)
-    ok = np.all((idx >= 0) & (idx < shape), axis=1)
-    idx = idx[ok]
-    return bool(idx.size and mask_d[idx[:, 0], idx[:, 1], idx[:, 2]].any())
-
-
-def exact_first_voxel(o_w, d_w, mask, spacing, origin, box_lo, box_hi):
-    """First occupied voxel the ray ENTERS, by exact grid traversal (Amanatides-Woo).
-
-    Same contract as march_mask - (slice_index, entry_axis, abs_cos_incidence) or None -
-    but it visits every voxel the ray passes through instead of sampling every 0.25 voxel.
-    The sampling skips a voxel the ray crosses for less than 0.25 voxel (a corner clip);
-    on the exact level-0 surface that showed up as level-0 "errors" of up to 13 slices,
-    which a voxel-face surface cannot produce. conformance.py's reference slice_of_ray
-    walks the grid the same way: start an infinitesimal step inside, step tied
-    boundaries together so a ray through an edge never inspects cells it never enters.
-
-    box_lo / box_hi (voxel indices, inclusive / exclusive) bound the search; nothing
-    outside the foreground bounding box can be occupied, so clipping to it is exact.
-    """
+def _walk_setup(o_w, d_w, spacing, origin, box_lo, box_hi):
     sp = np.asarray(spacing, dtype=np.float64)
     d_w = np.asarray(d_w, dtype=np.float64)
     d_w = d_w / np.linalg.norm(d_w)
@@ -280,6 +254,20 @@ def exact_first_voxel(o_w, d_w, mask, spacing, origin, box_lo, box_hi):
         t_out = min(t_out, t2)
     if t_out < t_in:
         return None
+    return d_w, p, v, t_in, t_out, in_axis
+
+
+def exact_walk(o_w, d_w, spacing, origin, box_lo, box_hi):
+    """Every voxel the ray passes through inside [box_lo, box_hi), in order (Amanatides-Woo).
+
+    Yields (cell, t_enter, t_exit, entry_axis); t is the world distance along the normalised
+    direction. Start an infinitesimal step inside; step tied boundaries together, so a ray
+    through an edge or corner never visits a cell it does not enter.
+    """
+    setup = _walk_setup(o_w, d_w, spacing, origin, box_lo, box_hi)
+    if setup is None:
+        return
+    _d, p, v, t_in, t_out, in_axis = setup
     t = t_in + 1e-9
     at = p + v * t
     cell = [int(math.floor(x)) for x in at]
@@ -293,27 +281,88 @@ def exact_first_voxel(o_w, d_w, mask, spacing, origin, box_lo, box_hi):
             boundary = cell[a] + (1 if step[a] > 0 else 0)
             t_max.append(t + (boundary - at[a]) / v[a])
             t_delta.append(abs(1.0 / v[a]))
-    entry_axis = in_axis
+    entry_axis, t_enter = in_axis, t_in
     while all(box_lo[a] <= cell[a] < box_hi[a] for a in range(3)) and t <= t_out + 1e-9:
-        if mask[cell[0], cell[1], cell[2]]:
-            return cell[2], entry_axis, abs(float(d_w[entry_axis]))
         nxt = min(t_max)
+        yield (cell[0], cell[1], cell[2]), t_enter, min(nxt, t_out), entry_axis
         for a in range(3):
             if abs(t_max[a] - nxt) <= 1e-12:
                 cell[a] += step[a]
                 t_max[a] += t_delta[a]
                 entry_axis = a
-        t = nxt
+        t_enter = t = nxt
+
+
+def exact_first_voxel(o_w, d_w, mask, spacing, origin, box_lo, box_hi):
+    """First occupied voxel the ray ENTERS: (slice_index, entry_axis, abs_cos_incidence) or None.
+
+    Same contract as picking_error.march_mask, but exact (the walk above) instead of sampled
+    every 0.25 voxel. box_lo / box_hi (voxel indices, inclusive / exclusive) bound the search;
+    nothing outside the foreground bounding box can be occupied, so clipping to it is exact.
+    """
+    d_w = np.asarray(d_w, dtype=np.float64)
+    d_w = d_w / np.linalg.norm(d_w)
+    for cell, _t0, _t1, axis in exact_walk(o_w, d_w, spacing, origin, box_lo, box_hi):
+        if mask[cell[0], cell[1], cell[2]]:
+            return cell[2], axis, abs(float(d_w[axis]))
     return None
 
 
+def foreground_runs(o_w, d_w, mask, spacing, origin, box_lo, box_hi):
+    """[(t_in, t_out, z_first)] for each run of consecutive foreground voxels along the ray."""
+    runs, current = [], None
+    for cell, t0, t1, _axis in exact_walk(o_w, d_w, spacing, origin, box_lo, box_hi):
+        if mask[cell[0], cell[1], cell[2]]:
+            if current is None:
+                current = [t0, t1, cell[2]]
+            else:
+                current[1] = t1
+        elif current is not None:
+            runs.append(tuple(current))
+            current = None
+    if current is not None:
+        runs.append(tuple(current))
+    return runs
+
+
+def classify_out_of_bound(t_hit, runs, tol=1e-6):
+    """no_hit / inflated / local / cross_structure (see the module docstring)."""
+    if t_hit is None:
+        return "no_hit"
+    t_in, t_out, _z = runs[0]
+    if t_hit < t_in - tol:
+        return "inflated"
+    if t_hit <= t_out + tol:
+        return "local"
+    return "cross_structure"
+
+
+# --- ground truth workers ----------------------------------------------------------------
+
+_W: dict = {}
+
+
+def _init_worker(mask, spacing, origin, inside, outside, clo, chi):
+    _W.update(mask=mask, spacing=spacing, origin=origin, inside=inside, outside=outside,
+              clo=[int(x) for x in clo], chi=[int(x) for x in chi])
+
+
 def _truth_job(args):
-    ray_index, o, d, length, box_lo, box_hi = args
-    exact = exact_first_voxel(o, d, _W["mask"], _W["spacing"], _W["origin"], box_lo, box_hi)
-    if not _prefilter(o, d, length):
-        return ray_index, exact, None, False
-    g = march_mask(o, d, _W["mask"], _W["spacing"], _W["origin"])
-    return ray_index, exact, g, True
+    """Exact truth, march_mask reference, and the exact depth (hit) or clearance (miss)."""
+    ray_index, o, d, search_lo, search_hi = args
+    mask, sp, org = _W["mask"], _W["spacing"], _W["origin"]
+    clo, chi = _W["clo"], _W["chi"]
+    exact = exact_first_voxel(o, d, mask, sp, org, search_lo, search_hi)
+    if exact is not None:
+        depth = 0.0
+        for cell, _t0, _t1, _a in exact_walk(o, d, sp, org, search_lo, search_hi):
+            if mask[cell[0], cell[1], cell[2]]:
+                depth = max(depth, float(_W["inside"][cell[0] - clo[0], cell[1] - clo[1], cell[2] - clo[2]]))
+        return ray_index, exact, march_mask(o, d, mask, sp, org), depth, None
+    clearance = float(EDT_MARGIN)
+    for cell, _t0, _t1, _a in exact_walk(o, d, sp, org, clo, chi):
+        clearance = min(clearance, float(_W["outside"][cell[0] - clo[0], cell[1] - clo[1], cell[2] - clo[2]]))
+    return ray_index, None, None, None, clearance
 
 
 def _march_only_job(args):
@@ -362,11 +411,24 @@ def cohort_stats(rows, level):
         "share_exact": round(hist.get("0", 0) / len(rows), 4) if rows else None,
         "error_histogram": dict(sorted(hist.items(), key=lambda kv: int(kv[0]))),
         "mean_incidence_deg": round(sum(r["incidence_deg"] for r in rows) / len(rows), 1) if rows else None,
-        "mean_slices_per_mm": round(sum(r["slices_per_mm"] for r in rows) / len(rows), 4) if rows else None,
+        # Slices crossed per unit of along-ray displacement. The header affine is the QA-002
+        # default, so the unit is a voxel, not a millimetre.
+        "mean_slices_per_voxel_unit": round(
+            sum(r["slices_per_voxel_unit"] for r in rows) / len(rows), 4) if rows else None,
         # picking_error._cohort_stats rule, unchanged: no-hit is the largest error.
         "within_bound": bool(errs) and max(errs) <= SCQ06_BOUND and no_hit == 0,
         "within_bound_ignoring_no_hit": bool(errs) and max(errs) <= SCQ06_BOUND,
     }
+
+
+def bucket(v, edges):
+    """'0' for exactly zero, then (lo, hi] buckets, then '>last'."""
+    if v == 0:
+        return "0"
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        if lo < v <= hi:
+            return f"({lo},{hi}]"
+    return f">{edges[-1]}"
 
 
 def _environment() -> dict:
@@ -383,20 +445,14 @@ def _environment() -> dict:
             "platform": platform.platform(), "logical_cpus": os.cpu_count()}
 
 
-def bucket(v, edges):
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        if lo < v <= hi:
-            return f"({lo},{hi}]"
-    return f">{edges[-1]}"
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("--case-id", help="default: lowest-numbered effective 25%% training case")
     ap.add_argument("--split-manifest", default=DEFAULT_SPLIT_MANIFEST,
                     help="Path A split manifest (PR #35, on main since f5aa763)")
     ap.add_argument("--dataset-manifest", default=DEFAULT_DATASET_MANIFEST)
-    ap.add_argument("--data-root", default=DEFAULT_DATA_ROOT)
+    ap.add_argument("--data-root", default=DEFAULT_DATA_ROOT,
+                    help="extracted LASC package (default: $CARDIAC_DATA_ROOT; no built-in path)")
     ap.add_argument("--cells", default="1,1.25,2,4,8",
                     help="lossless, near-lossless (max vertex move < 1 voxel), then aggressive")
     ap.add_argument("--grid-pitch", type=float, default=3.0)
@@ -404,12 +460,14 @@ def main() -> int:
     ap.add_argument("--evidence", default=DEFAULT_EVIDENCE)
     ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
                     help=f"ground-truth worker processes (default min(4, cpu_count) = {DEFAULT_WORKERS}). "
-                         "Each worker holds its own copy of the full mask and its dilation "
-                         "(~130 MB with the interpreter), so the pool costs ~0.13 GB per worker. "
-                         "Raise it only on an idle machine; the shared PC trains models.")
+                         "Each worker holds its own copy of the mask and two cropped distance "
+                         "fields (~0.13 GB with the interpreter). Use 2 while a GPU job trains.")
     ap.add_argument("--check-rays", type=int, default=300,
-                    help="rays per level re-run without acceleration as an equivalence check")
+                    help="random rays per level re-run without acceleration, on top of every "
+                         "out-of-bound ray and every background navigation")
     args = ap.parse_args()
+    if not args.data_root:
+        raise SystemExit("set CARDIAC_DATA_ROOT or pass --data-root <extracted LASC package>")
 
     started = dt.datetime.now(dt.timezone(dt.timedelta(hours=7)))
 
@@ -447,6 +505,15 @@ def main() -> int:
     fg = np.argwhere(mask > 0)
     lo, hi = fg.min(0), fg.max(0)
     print(f"case {case_id}  mask {shape}  fg {len(fg)}  bbox {lo.tolist()}..{hi.tolist()}")
+
+    # F5 (2026-09-16): no per-data-file SHA-256 in the public repository. The mask's hash
+    # goes to a gitignored sidecar next to the meshes.
+    with open(os.path.join(mesh_out, "data_file_hashes.json"), "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"case_id": case_id, "mask_path_relative": mask_rel,
+                   "mask_file_sha256": sha256_file(mask_path),
+                   "note": "kept out of the repository under F5; cite this sidecar, not the hash"},
+                  fh, indent=1)
+        fh.write("\n")
 
     # --- B12: surface + decimation levels -------------------------------------------
     cells = [float(c) if "." in c else int(c) for c in args.cells.split(",")]
@@ -502,7 +569,7 @@ def main() -> int:
     rays = []
     bundles = []
     for cohort, dirs in cohort_directions().items():
-        for di, (label, d) in enumerate(dirs):
+        for label, d in dirs:
             bundle, frame = ray_bundle(d, box_lo_w, box_hi_w, args.grid_pitch)
             b_index = len(bundles)
             bundles.append({"cohort": cohort, "label": label, "d": d, "frame": frame,
@@ -513,93 +580,65 @@ def main() -> int:
                              "bundle": b_index, "k": k, "j": j, "o": o, "d": d})
     print(f"ray set: {len(rays)} rays in {len(bundles)} bundles")
 
-    # --- ground truth -----------------------------------------------------------------
+    # --- ground truth, exact depth / clearance ------------------------------------------
     from scipy import ndimage
 
-    dilated = ndimage.binary_dilation(mask > 0, structure=np.ones((3, 3, 3), bool)).astype(np.uint8)
-    t = time.perf_counter()
     search_lo = [int(x) for x in (lo - 1)]
     search_hi = [int(x) for x in (hi + 2)]
-    jobs = [(i, r["o"], r["d"], bundles[r["bundle"]]["frame"]["length"], search_lo, search_hi)
-            for i, r in enumerate(rays)]
-    prefilter_positive = 0
-    with ProcessPoolExecutor(max_workers=args.workers, initializer=_init_worker,
-                             initargs=(mask, dilated, spacing, origin)) as pool:
-        for i, exact, g, marched in pool.map(_truth_job, jobs, chunksize=64):
-            rays[i]["truth"] = exact
-            rays[i]["march"] = g
-            rays[i]["marched"] = marched
-            prefilter_positive += int(marched)
-    truth_s = time.perf_counter() - t
-    n_hit = sum(1 for r in rays if r["truth"] is not None)
-    print(f"ground truth: {n_hit} rays meet the mask, {len(rays) - n_hit} background "
-          f"({prefilter_positive} also marched) in {truth_s:.1f} s")
-
-    # How the exact traversal and picking_error.march_mask disagree, ray by ray.
-    agree = {"same_slice": 0, "different_slice": 0, "exact_hit_march_none": 0,
-             "march_hit_exact_none": 0, "both_none": 0}
-    march_deeper = 0
-    for r in rays:
-        e, g = r["truth"], r["march"]
-        if e is None and g is None:
-            agree["both_none"] += 1
-        elif e is None:
-            agree["march_hit_exact_none"] += 1
-        elif g is None:
-            agree["exact_hit_march_none"] += 1
-        elif e[0] == g[0]:
-            agree["same_slice"] += 1
-        else:
-            agree["different_slice"] += 1
-            march_deeper += 1
-    print(f"exact vs march_mask: {agree}")
-
-    # Pre-filter equivalence check: march a sample of pre-filtered-out rays anyway.
-    rng = np.random.default_rng(20261001)
-    skipped = [i for i, r in enumerate(rays) if not r["marched"]]
-    sample = sorted(rng.choice(len(skipped), size=min(args.check_rays, len(skipped)),
-                               replace=False).tolist()) if skipped else []
-    with ProcessPoolExecutor(max_workers=args.workers, initializer=_init_worker,
-                             initargs=(mask, dilated, spacing, origin)) as pool:
-        pre_check = list(pool.map(_march_only_job,
-                                  [(skipped[s], rays[skipped[s]]["o"], rays[skipped[s]]["d"])
-                                   for s in sample], chunksize=8))
-    prefilter_disagreements = [rays[i]["id"] for i, g in pre_check if g is not None]
-
-    # Distance fields for B9 clearance and no-hit depth (diagnostic context only).
     clo = np.maximum(lo - EDT_MARGIN, 0)
     chi = np.minimum(hi + 1 + EDT_MARGIN, np.array(shape))
     sub = mask[clo[0]:chi[0], clo[1]:chi[1], clo[2]:chi[2]] > 0
     outside_dist, nearest = ndimage.distance_transform_edt(~sub, return_indices=True)
     inside_dist = ndimage.distance_transform_edt(sub)
 
-    def field_along(r, field, default):
-        ts = np.arange(0.0, bundles[r["bundle"]]["frame"]["length"] + 0.25, 0.25)
-        pts = (r["o"][None, :] + ts[:, None] * r["d"][None, :] - org) / sp
-        idx = np.floor(pts).astype(np.int64) - clo
-        ok = np.all((idx >= 0) & (idx < (chi - clo)), axis=1)
-        idx = idx[ok]
-        return idx, (field[idx[:, 0], idx[:, 1], idx[:, 2]] if idx.size else np.array([default]))
+    t = time.perf_counter()
+    jobs = [(i, r["o"], r["d"], search_lo, search_hi) for i, r in enumerate(rays)]
+    init = (mask, spacing, origin, inside_dist, outside_dist, clo, chi)
+    with ProcessPoolExecutor(max_workers=args.workers, initializer=_init_worker, initargs=init) as pool:
+        for i, exact, g, depth, clearance in pool.map(_truth_job, jobs, chunksize=64):
+            r = rays[i]
+            r["truth"], r["march"], r["depth"], r["clearance"] = exact, g, depth, clearance
+    truth_s = time.perf_counter() - t
+    n_hit = sum(1 for r in rays if r["truth"] is not None)
+    print(f"ground truth: {n_hit} rays meet the mask, {len(rays) - n_hit} background, {truth_s:.1f} s")
+
+    agree = {"same_slice": 0, "different_slice": 0, "exact_hit_march_none": 0}
+    for r in rays:
+        e, g = r["truth"], r["march"]
+        if e is None:
+            continue
+        if g is None:
+            agree["exact_hit_march_none"] += 1
+        elif e[0] == g[0]:
+            agree["same_slice"] += 1
+        else:
+            agree["different_slice"] += 1
+    print(f"exact vs march_mask on the {n_hit} mask rays: {agree}")
+
+    # march_mask cannot find a voxel where the exact walk finds none; re-checked on the
+    # nearest misses (smallest clearance) every run.
+    misses = sorted((i for i, r in enumerate(rays) if r["truth"] is None),
+                    key=lambda i: (rays[i]["clearance"], i))[:NEAREST_MISS_CHECK]
+    with ProcessPoolExecutor(max_workers=args.workers, initializer=_init_worker, initargs=init) as pool:
+        nearest_check = list(pool.map(_march_only_job, [(i, rays[i]["o"], rays[i]["d"]) for i in misses],
+                                      chunksize=8))
+    march_found = [rays[i]["id"] for i, g in nearest_check if g is not None]
 
     for r in rays:
-        if r["truth"] is None:
-            _idx, vals = field_along(r, outside_dist, EDT_MARGIN)
-            r["clearance"] = float(vals.min()) if vals.size else float(EDT_MARGIN)
-        else:
+        if r["truth"] is not None:
             sl, axis, cos_inc = r["truth"]
             r["slice_true"] = sl
             r["incidence_deg"] = round(math.degrees(math.acos(min(1.0, cos_inc))), 1)
             r["incidence_class"] = "steep" if cos_inc >= GRAZING_COS else "grazing"
-            r["slices_per_mm"] = round(abs(r["d"][2]) / spacing[2], 4)
-            _idx, vals = field_along(r, inside_dist, 0.0)
-            r["depth"] = float(vals.max()) if vals.size else 0.0
+            r["slices_per_voxel_unit"] = round(abs(r["d"][2]) / spacing[2], 4)
         r["err"], r["obs"], r["nav"], r["hit"] = {}, {}, {}, {}
 
     # --- per level: mesh hits ------------------------------------------------------------
-    accel_checks = []
+    rng = np.random.default_rng(20261001)
     for lv in levels:
         t = time.perf_counter()
         V, T = lv["_verts"], lv["_tris"]
+        L = lv["level"]
         for b in bundles:
             cands = candidate_lists(V, T, b["frame"])
             for ri in b["ray_indices"]:
@@ -607,36 +646,26 @@ def main() -> int:
                 c = cands.get((r["k"], r["j"]))
                 hit = ray_mesh_first_hit(r["o"], r["d"], V, T[c]) if c else None
                 obs = slice_of_world(hit, spacing, origin, shape)
-                L = lv["level"]
                 r["obs"][L] = obs
-                r["hit"][L] = None if hit is None else hit
+                r["hit"][L] = hit
                 if r["truth"] is not None:
                     r["err"][L] = None if obs is None else abs(obs - r["slice_true"])
                 else:
                     r["nav"][L] = obs is not None
         lv["picking_s"] = round(time.perf_counter() - t, 2)
-        # Equivalence: brute-force ray_mesh_first_hit over ALL triangles for a sample.
-        picks = rng.choice(len(rays), size=min(args.check_rays, len(rays)), replace=False)
-        mismatches = 0
-        for ri in picks:
-            r = rays[int(ri)]
-            full = slice_of_world(ray_mesh_first_hit(r["o"], r["d"], V, T), spacing, origin, shape)
-            if full != r["obs"][lv["level"]]:
-                mismatches += 1
-        accel_checks.append({"level": lv["level"], "rays_checked": int(len(picks)),
-                             "mismatches_vs_all_triangles": mismatches})
-        print(f"  level {lv['level']}: picking {lv['picking_s']} s, accel mismatches {mismatches}")
 
     # --- statistics ------------------------------------------------------------------------
     hit_rays = [r for r in rays if r["truth"] is not None]
     bg_rays = [r for r in rays if r["truth"] is None]
+    depth_edges = [0, 1, 2, 4]
     clearance_edges = [0, 1, 2, 4, 8]
     worst_cap = 15
+    accel_checks = []
     for lv in levels:
         L = lv["level"]
-        by_group = {}
-        for cohort in ("interior", "surface_tangent", "oblique"):
-            by_group[cohort] = cohort_stats([r for r in hit_rays if r["cohort"] == cohort], L)
+        V, T = lv["_verts"], lv["_tris"]
+        by_group = {c: cohort_stats([r for r in hit_rays if r["cohort"] == c], L)
+                    for c in ("interior", "surface_tangent", "oblique")}
         lv["b5"] = {
             "by_group": by_group,
             "all_cohorts": cohort_stats(hit_rays, L),
@@ -648,23 +677,41 @@ def main() -> int:
         # that those two are reported separately. So the verdict is over all rays.
         lv["b5"]["verdict"] = ("WITHIN_BOUND" if lv["b5"]["all_cohorts"]["within_bound"]
                                else "NOT_WITHIN_BOUND")
-        # Continuity: the same observations scored against picking_error.march_mask.
-        march_rows = [r for r in rays if r["march"] is not None]
+        march_rows = [r for r in hit_rays if r["march"] is not None]
         m_errs = [abs(r["obs"][L] - r["march"][0]) for r in march_rows if r["obs"][L] is not None]
-        m_nohit = sum(1 for r in march_rows if r["obs"][L] is None)
-        lv["b5"]["scored_against_march_mask_step_0p25"] = {
-            "samples": len(march_rows), "no_hit": m_nohit,
-            "max_error_slices": max(m_errs) if m_errs else None,
-            "within_bound": bool(m_errs) and max(m_errs) <= SCQ06_BOUND and m_nohit == 0,
+        m_nohit = sum(1 for r in hit_rays if r["obs"][L] is None)
+        lv["b5"]["scored_against_march_mask"] = {
+            "samples": len(hit_rays), "march_found_a_voxel": len(march_rows),
+            "no_hit": m_nohit, "max_error_slices": max(m_errs) if m_errs else None,
             "error_histogram": {str(e): m_errs.count(e) for e in sorted(set(m_errs))},
-            "note": "reference only - march_mask skips voxels crossed for < 0.25 voxel",
+            "note": "reference only - march_mask skips voxels a ray crosses for < 0.25 voxel",
         }
-        nohits = [r for r in hit_rays if r["err"][L] is None]
-        depth_hist: dict[str, int] = {}
-        for r in nohits:
-            key = bucket(r["depth"], [0, 1, 2, 4])
-            depth_hist[key] = depth_hist.get(key, 0) + 1
-        lv["b5"]["no_hit_max_inside_depth_voxels"] = dict(sorted(depth_hist.items()))
+
+        # Out-of-bound picks, classified along the exact walk.
+        oob = [r for r in hit_rays if r["err"][L] is None or r["err"][L] > SCQ06_BOUND]
+        classes: dict[str, dict] = {c: {"count": 0, "error_histogram": {}}
+                                    for c in ("no_hit", "inflated", "local", "cross_structure")}
+        nohit_depth: dict[str, int] = {}
+        for r in oob:
+            hp = r["hit"][L]
+            t_hit = None if hp is None else float(np.dot(np.asarray(hp) - r["o"], r["d"] / np.linalg.norm(r["d"])))
+            if r["obs"][L] is None and hp is not None:
+                t_hit = None             # hit outside the volume: treated as no hit
+            runs = foreground_runs(r["o"], r["d"], mask, spacing, origin, search_lo, search_hi)
+            cls = classify_out_of_bound(t_hit, runs)
+            r.setdefault("class", {})[L] = cls
+            classes[cls]["count"] += 1
+            if cls == "no_hit":
+                key = bucket(r["depth"], depth_edges)
+                nohit_depth[key] = nohit_depth.get(key, 0) + 1
+            else:
+                e = str(r["err"][L])
+                classes[cls]["error_histogram"][e] = classes[cls]["error_histogram"].get(e, 0) + 1
+        for c in classes.values():
+            c["error_histogram"] = dict(sorted(c["error_histogram"].items(), key=lambda kv: int(kv[0])))
+        lv["b5"]["out_of_bound_classes"] = classes
+        lv["b5"]["out_of_bound_total"] = len(oob)
+        lv["b5"]["no_hit_exact_max_edt_along_ray"] = dict(sorted(nohit_depth.items()))
 
         navs = [r for r in bg_rays if r["nav"][L]]
         nav_by_clearance: dict[str, int] = {}
@@ -676,29 +723,43 @@ def main() -> int:
         for r in navs:
             key = bucket(r["clearance"], clearance_edges)
             nav_by_clearance[key] = nav_by_clearance.get(key, 0) + 1
-            hp = r["hit"][L]
-            vox = np.floor((np.asarray(hp) - org) / sp + 1e-9).astype(np.int64) - clo
+            vox = np.floor((np.asarray(r["hit"][L]) - org) / sp + 1e-9).astype(np.int64) - clo
             vox = np.clip(vox, 0, np.array(sub.shape) - 1)
             nz = int(nearest[2][vox[0], vox[1], vox[2]]) + int(clo[2])
             deviations.append(abs(r["obs"][L] - nz))
         lv["b9"] = {
             "background_rays": len(bg_rays),
-            "background_rays_by_clearance_voxels": dict(sorted(all_by_clearance.items())),
+            "background_rays_by_exact_clearance_voxels": dict(sorted(all_by_clearance.items())),
             "navigations_where_mask_has_no_surface": len(navs),
-            "navigations_by_clearance_voxels": dict(sorted(nav_by_clearance.items())),
+            "navigations_by_exact_clearance_voxels": dict(sorted(nav_by_clearance.items())),
             "nav_slice_distance_to_nearest_mask_voxel_max": max(deviations) if deviations else None,
-            "nav_slice_distance_histogram": {str(k): deviations.count(k)
-                                             for k in sorted(set(deviations))},
+            "nav_slice_distance_histogram": {str(k): deviations.count(k) for k in sorted(set(deviations))},
         }
-        worst = sorted([r for r in hit_rays if r["err"][L] is None or r["err"][L] > SCQ06_BOUND],
-                       key=lambda r: (-(99 if r["err"][L] is None else r["err"][L]), r["id"]))
+
+        # Acceleration check: brute force over ALL triangles for every out-of-bound ray, every
+        # background navigation, and a random sample.
+        check = {id(r): r for r in oob + navs}
+        for ri in rng.choice(len(rays), size=min(args.check_rays, len(rays)), replace=False):
+            check.setdefault(id(rays[int(ri)]), rays[int(ri)])
+        mismatches = 0
+        for r in check.values():
+            full = slice_of_world(ray_mesh_first_hit(r["o"], r["d"], V, T), spacing, origin, shape)
+            mismatches += int(full != r["obs"][L])
+        accel_checks.append({"level": L, "rays_checked": len(check),
+                             "of_which_out_of_bound_or_background_navigation": len(oob) + len(navs),
+                             "mismatches_vs_all_triangles": mismatches})
+
+        worst = sorted(oob, key=lambda r: (-(99 if r["err"][L] is None else r["err"][L]), r["id"]))
         lv["examples_outside_bound"] = [{
             "ray": r["id"], "origin_world": [round(float(x), 4) for x in r["o"]],
             "direction_world": [round(float(x), 6) for x in r["d"]],
             "expected_slice": r["slice_true"], "observed_slice": r["obs"][L],
-            "error_slices": r["err"][L], "inside_depth_voxels": round(r["depth"], 3),
+            "error_slices": r["err"][L], "class": r["class"][L],
+            "exact_max_edt_along_ray": round(r["depth"], 3),
             "incidence_deg": r["incidence_deg"]} for r in worst[:worst_cap]]
         lv["examples_outside_bound_total"] = len(worst)
+        print(f"  level {L}: oob {len(oob)} {{{', '.join(f'{k}: {v['count']}' for k, v in classes.items())}}}, "
+              f"bg nav {len(navs)}, accel mismatches {mismatches}/{len(check)}")
 
     # --- per-ray table, gitignored (derived from the real mask) ---------------------------
     table = os.path.join(mesh_out, "per_ray_table.csv")
@@ -715,6 +776,7 @@ def main() -> int:
     frontier = []
     for lv in levels:
         g = lv["b5"]["by_group"]
+        cl = lv["b5"]["out_of_bound_classes"]
         frontier.append({
             "level": lv["level"], "cluster_cell_voxels": lv["cluster_cell_voxels"],
             "vertices": lv["vertex_count"], "triangles": lv["triangle_count"],
@@ -725,6 +787,7 @@ def main() -> int:
             "b5_max_error_surface_tangent": g["surface_tangent"]["max_error_slices"],
             "b5_no_hit_surface_tangent": g["surface_tangent"]["no_hit"],
             "b5_verdict": lv["b5"]["verdict"],
+            "out_of_bound": {k: v["count"] for k, v in cl.items()},
             "b9_navigations_where_mask_has_no_surface": lv["b9"]["navigations_where_mask_has_no_surface"],
         })
     for lv in levels:
@@ -737,7 +800,7 @@ def main() -> int:
                     "recovery override; Spike B owner Vu Hung Anh confirms or rejects on Day 23. "
                     "No frame rate, no device: median_fps / longest_stall_ms are NOT MEASURED."),
         "record": "spike_b_real_mesh_frontier",
-        "schema_version": 1,
+        "schema_version": 2,
         "computed_at": started.isoformat(timespec="seconds"),
         "repository_commit": subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD"],
                                             capture_output=True, text=True).stdout.strip(),
@@ -745,6 +808,7 @@ def main() -> int:
             ["git", "-C", REPO, "diff", "--quiet", "HEAD", "--",
              "spikes/spike_b_3d/harness", "spikes/spike_b_3d/mesh/build_mesh.py"]).returncode == 0,
         "environment": _environment(),
+        "workers": args.workers,
         "command": "python " + " ".join([rel(__file__)]
                                         + [a if " " not in a else f'"{a}"' for a in sys.argv[1:]]),
         "geometry_contract_version": CONTRACT_VERSION,
@@ -761,7 +825,8 @@ def main() -> int:
             "dataset_manifest": {"path": "data/manifests/dataset_manifest.json",
                                  "sha256": hashlib.sha256(dm_bytes).hexdigest()},
             "mask_path_relative": mask_rel,
-            "mask_file_sha256": sha256_file(mask_path),
+            "mask_file_hash": ("not published (F5); kept in the gitignored sidecar "
+                               "spikes/spike_b_3d/mesh/out_real/<case_id>/data_file_hashes.json"),
             "mask_read_ms": round(read_ms, 3),
             "shape_xyz": shape,
             "nrrd_axis_order": "x, y, z (pynrrd index_order F); slices along z (DR-008a)",
@@ -776,10 +841,11 @@ def main() -> int:
             "surface": "build_mesh.extract_surface - exact voxel faces (not marching cubes)",
             "decimation": "build_mesh.decimate - vertex clustering on a cell grid, mean representative",
             "surface_extraction_ms": round(extract_ms, 3),
-            "ground_truth": ("exact_first_voxel - exact grid traversal over the VOXEL MASK, no mesh "
-                             "(the picking_error.py principle; march_mask's 0.25-voxel sampling "
-                             "is kept as a reference column because it skips corner clips)"),
-            "ground_truth_vs_march_mask": {**agree, "rays": len(rays)},
+            "ground_truth": ("exact_first_voxel - exact cell-by-cell walk over the VOXEL MASK, no "
+                             "mesh; depth, clearance and the out-of-bound classes use the same walk"),
+            "ground_truth_vs_march_mask": {**agree, "mask_rays": n_hit,
+                                           "march_on_nearest_misses": {
+                                               "rays": len(misses), "march_found_a_voxel": len(march_found)}},
             "observed": ("picking_error.ray_mesh_first_hit on the OBJ read back from disk, then "
                          "picking_error.slice_of_world (floor, reject out-of-range, never clamp)"),
             "bound_slices": SCQ06_BOUND,
@@ -789,10 +855,11 @@ def main() -> int:
             "b5_verdict_rule": ("WITHIN_BOUND iff every ray of every cohort is within_bound "
                                 "(B5 bounds all real picks; B14 only asks that interior and "
                                 "surface_tangent are reported separately)"),
-            "level_0_note": ("A ray that meets a +z voxel face from above lands exactly on z = k+1; "
-                             "floor gives k+1 while the mask gives k. Level 0 can therefore show "
-                             "error 1 - the cost of the voxel-face surface, measured, not a defect "
-                             "of the harness (spikes/spike_b_3d/README.md)."),
+            "out_of_bound_classes": ("no_hit / inflated (t_hit < first run) / local (on the first "
+                                     "run) / cross_structure (beyond the first run) - module docstring"),
+            "level_0_note": ("Level 0 passes by construction: its surface IS the mask boundary. A ray "
+                             "that meets a +z voxel face from above lands on z = k+1, where floor "
+                             "gives k+1 while the mask gives k - the error 1 of level 0."),
         },
         "ray_set": {
             "kind": "orthographic bundles, one per direction",
@@ -811,19 +878,15 @@ def main() -> int:
             "background_rays": len(bg_rays),
             "b6_offline_note": ("every direction is a camera orientation, so the set covers "
                                 "'after rotate'; zoom does not change a world-space ray and is "
-                                "covered on the device tonight"),
+                                "covered on the device"),
         },
-        "acceleration_checks": {
-            "prefilter_rays_marched_anyway": len(sample),
-            "prefilter_disagreements": prefilter_disagreements,
-            "candidate_triangles_vs_all_triangles": accel_checks,
-        },
+        "acceleration_checks": {"candidate_triangles_vs_all_triangles": accel_checks},
         "levels": levels,
         "frontier_b12": frontier,
         "not_measured_here": ["B10 median FPS", "B11 longest stall", "B6 on device",
                               "B7", "B9 on device", "B13 (needs FPS)", "B15 (owner's note)"],
-        "per_ray_table": {"path": rel(table),
-                          "gitignored": True, "rows": len(rays), "sha256": sha256_file(table)},
+        "per_ray_table": {"path": rel(table), "gitignored": True, "rows": len(rays),
+                          "sha256": sha256_file(table)},
         "runtime_s": {"ground_truth": round(truth_s, 1),
                       "picking_per_level": {lv["level"]: lv["picking_s"] for lv in levels}},
     }
@@ -832,7 +895,6 @@ def main() -> int:
         json.dump(payload, fh, indent=1, ensure_ascii=False)
         fh.write("\n")
 
-    # mesh index for the device build (gitignored, next to the meshes)
     with open(os.path.join(mesh_out, "mesh_levels_real.json"), "w", encoding="utf-8",
               newline="\n") as fh:
         json.dump({"case_id": case_id, "shape_xyz": shape, "spacing_xyz_mm": spacing,
@@ -843,16 +905,17 @@ def main() -> int:
         fh.write("\n")
 
     print()
-    print(f"  {'lvl':>3} {'cell':>4} {'tris':>7} {'gen ms':>8}  "
-          f"{'int max':>7} {'int nohit':>9} {'tan max':>7} {'tan nohit':>9}  {'B5':<17} {'B9 nav':>6}")
+    print(f"  {'lvl':>3} {'cell':>4} {'tris':>7} {'gen ms':>8}  {'max':>4} {'nohit':>5} {'local':>5} "
+          f"{'cross':>5} {'infl':>4}  {'B5':<17} {'B9 nav':>6}")
     for f in frontier:
+        ob = f["out_of_bound"]
+        mx = max(x for x in (f["b5_max_error_interior"], f["b5_max_error_surface_tangent"]) if x is not None)
         print(f"  {f['level']:>3} {str(f['cluster_cell_voxels']):>4} {f['triangles']:>7} "
-              f"{f['generation_ms']:>8.1f}  {str(f['b5_max_error_interior']):>7} "
-              f"{f['b5_no_hit_interior']:>9} {str(f['b5_max_error_surface_tangent']):>7} "
-              f"{f['b5_no_hit_surface_tangent']:>9}  {f['b5_verdict']:<17} "
+              f"{f['generation_ms']:>8.1f}  {mx:>4} {ob['no_hit']:>5} {ob['local']:>5} "
+              f"{ob['cross_structure']:>5} {ob['inflated']:>4}  {f['b5_verdict']:<17} "
               f"{f['b9_navigations_where_mask_has_no_surface']:>6}")
     print(f"\n  wrote {rel(args.evidence)}")
-    print(f"  meshes + per-ray table in {mesh_out} (gitignored)")
+    print(f"  meshes, per-ray table and the data-file hash sidecar in {mesh_out} (gitignored)")
     return 0
 
 
