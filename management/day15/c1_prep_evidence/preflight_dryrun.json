@@ -9,22 +9,22 @@
     "GATE-SPLIT-01": "OPEN"
   },
   "split_manifest": {
-    "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\d--cardiac-mri-workspace\\faa5a3e8-92ac-4536-aa1f-b1f535bd5777\\scratchpad\\split_candidate.json",
+    "path": "<scratch>\\split_candidate.json",
     "sha256": "ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0",
     "split_id": "path_a_seed2024_dr002b_v1",
     "generated_at": "2026-09-21T08:35:11+07:00"
   },
   "dataset_manifest": {
-    "path": "D:\\cardiac-mri-workspace\\.claude\\worktrees\\agent-a96ecfbbea28d01fd\\data\\manifests\\dataset_manifest.json",
+    "path": "<worktree>\\data\\manifests\\dataset_manifest.json",
     "sha256": "f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9"
   },
-  "data_root": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\d--cardiac-mri-workspace\\faa5a3e8-92ac-4536-aa1f-b1f535bd5777\\scratchpad\\c1_train_only_root",
+  "data_root": "<scratch>\\c1_train_only_root",
   "repo_commit": "454c526a19d44e417c7e0f3a7354d163eeba9798",
   "environment": {
     "python": "3.12.6",
     "platform": "Windows-11-10.0.26200-SP0",
     "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
-    "hostname": "302WNS3",
+    "hostname": "<leader-pc>",
     "captured_at": "2026-09-24T14:12:34.734431+07:00",
     "torch": "2.5.1+cu121",
     "numpy": "2.2.6",
@@ -342,7 +342,7 @@
       "description": "the declared training-only data root exists",
       "passed": true,
       "detail": {
-        "root": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\d--cardiac-mri-workspace\\faa5a3e8-92ac-4536-aa1f-b1f535bd5777\\scratchpad\\c1_train_only_root"
+        "root": "<scratch>\\c1_train_only_root"
       }
     },
     {

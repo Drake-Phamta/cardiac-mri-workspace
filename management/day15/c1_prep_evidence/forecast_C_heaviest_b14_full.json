@@ -2,7 +2,7 @@
   "label": "C1_PREP/NON-AUTHORITATIVE_DRY_RUN",
   "generated_by": "spikes/spike_c_ml/c1/forecast_matrix.py",
   "throughput_provenance": {
-    "source_file": "D:\\cardiac-mri-workspace\\.claude\\worktrees\\agent-a96ecfbbea28d01fd\\spikes\\spike_c_ml\\EVIDENCE_RAW\\c0_probe_20260916T005659+0700.json",
+    "source_file": "<worktree>\\spikes\\spike_c_ml\\EVIDENCE_RAW\\c0_probe_20260916T005659+0700.json",
     "captured_at": "20260916T005659+0700",
     "operator": "Be Quoc Khanh",
     "compute": "NVIDIA GeForce RTX 4050 Laptop GPU",

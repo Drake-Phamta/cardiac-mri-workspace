@@ -12,8 +12,11 @@
 > **Scope warning, stated once and binding on every figure below.**
 > This document contains **no Spike C1 evidence**. Every measured number it reports was either
 > (a) measured by Bế Quốc Khánh during **Spike C0 on synthetic data**, or (b) a structural
-> property of a **candidate** split manifest that is not yet on `main`. Nothing here can close
+> property of a **candidate** split manifest that was not yet on `main` on Day 15. Nothing here can close
 > `GATE-ML-01`, and `DR-007` forbids anyone from claiming otherwise.
+>
+> **Update 2026-10-01:** #35 merged at `f5aa763` on 2026-10-01. The merged blob is byte-identical to the
+> candidate (`c5c65a09…396d`). Section 11 records the Day 22 QA fixes to the harness.
 
 ---
 
@@ -81,7 +84,7 @@ because the host was not reachable.**
 
 | Field | Value |
 |---|---|
-| Hostname | `302WNS3` (the leader's PC) |
+| Hostname | `<leader-pc>` (the leader's PC; redacted 2026-10-01, public repo) |
 | OS | Windows 11, build 10.0.26200 |
 | Python | 3.12.6 |
 | PyTorch | 2.5.1+cu121 |
@@ -99,7 +102,7 @@ These two environments are **not the same** and their measurements are **not int
 |---|---|---|
 | **RTX 4050 (approved ML host)** | **NONE DOCUMENTED.** Physical/interactive use by the owner only. | Bế Quốc Khánh, personally |
 | Mac mini M2 (backend/demo, **not ML**) | `ssh -o BatchMode=yes macmini` | Leader only. Irrelevant to training. |
-| Leader's PC `302WNS3` | Local | Leader. **Not an approved ML host.** |
+| Leader's PC `<leader-pc>` | Local | Leader. **Not an approved ML host.** |
 
 ### (e) Expected throughput, and where the number comes from
 
@@ -130,10 +133,10 @@ unrecorded fact turned up during this bring-up:
 > **The leader's own PC has the complete real dataset, a working CUDA PyTorch stack, both pinned
 > DINOv2 checkpoints already cached at the exact revisions C0 used — and a 4 GiB GPU.**
 
-| Asset | Status on `302WNS3` | Evidence |
+| Asset | Status on `<leader-pc>` | Evidence |
 |---|---|---|
-| Real dataset, all 154 cases | **PRESENT** at `D:\cardiac-data\lasc2018\extracted` — `Training Set/` 100 case dirs, `Testing Set/` 54 case dirs, 14.2 GB, matching `dataset_manifest.json` `case_count: 154` | directory census, section 5 |
-| Source archive | `D:\cardiac-data\2018_UTAH_MICCAI.zip`, 2,200,962,438 bytes | directory listing |
+| Real dataset, all 154 cases | **PRESENT** at `<package-root>` (a local directory outside Git) — `Training Set/` 100 case dirs, `Testing Set/` 54 case dirs, 14.2 GB, matching `dataset_manifest.json` `case_count: 154` | directory census, section 5 |
+| Source archive | `<data-dir>\2018_UTAH_MICCAI.zip`, 2,200,962,438 bytes | directory listing |
 | PyTorch + CUDA | working, `cuda_available: true`, bf16 supported | `preflight.py` env block |
 | `facebook/dinov2-small` | cached at revision `ed25f3a31f01632728cabb09d1542f84ab7b0056` — **exactly the revision pinned in C0** | HF cache census |
 | `facebook/dinov2-base` | cached at revision `f9e44c814b77203eaa57a6bdbbd535f21ede1415` — **exactly the revision pinned in C0** | HF cache census |
@@ -161,7 +164,7 @@ unrecorded fact turned up during this bring-up:
 
 1. **Get Khánh's RTX 4050 online today** — the approved host, zero governance cost, but it depends
    on a person who is not scheduled today; or
-2. **Record a Decision Request adding a second ML compute host** (the leader's `302WNS3`,
+2. **Record a Decision Request adding a second ML compute host** (the leader's `<leader-pc>`,
    RTX 3050 Ti 4 GiB) with its own re-measured throughput and its own calendar basis. This is an
    architecture addition and needs the leader's signature, not mine; or
 3. **Accept that no C1 run happens today**, and that `GATE-ML-01` cannot close on Day 15.
@@ -219,6 +222,8 @@ established, with 20 measurements over 10 variants in fp32 and bf16:
 "2026-09-18T21:40+07:00" ... "SPIKE_C1 remains BLOCKED on GATE-SPLIT-01"}`.
 
 **The real and only remaining blocker for Spike C1 is `GATE-SPLIT-01`, which closes when PR #35 lands.**
+*(Update 2026-10-01: #35 merged at `f5aa763` on 2026-10-01. Recording the gate transition is the
+leader's action, not this document's.)*
 
 Merge readiness of PR #35, checked today from the fetched branch:
 
@@ -247,12 +252,19 @@ case-ID lists with `set.issubset`. `len(a) <= len(b)` is never used as a proof o
 
 It also recomputes the **transitive connected components** of the declared correlation groups with
 a union-find, rather than trusting the declared group count — which is the exact QA-003 open
-question recorded against PR #35.
+question recorded against PR #35. *(Corrected 2026-10-01: that union-find runs over the **declared**
+groups, so it is not independent of them — it can show two declared groups sharing a case, never a
+pair the manifest omits. The independent support is the screen's own counts: 5 pairs above threshold
+= 4 two-case groups + 1 link, and 9 affected cases. Since Day 22 the script also runs the union-find
+over groups **plus** links and derives the exclusions; see section 11.)*
 
 ### 4.2 `preflight.py` — fail-closed gate, subset and data-root proof
 
 Implements section 1 of `C1_MEASUREMENT_PLAN.md`. It reads **no voxels**; it resolves paths and
-calls `Path.exists()` and never opens an NRRD.
+calls `Path.exists()` and never opens an NRRD. *(Day 22: `check` now also verifies every link target
+and file identity, using stat calls only, and `make-root` defaults to a hard-link layout. See section 11.
+The Day 15 `check` verified entry **names** only. QA showed that this let it certify roots whose links
+pointed at validation data or at the package parent.)*
 
 Two properties worth stating explicitly:
 
@@ -278,6 +290,10 @@ NOT MEASURED and skipped.
 
 ```powershell
 # candidate manifest, extracted from the PR #35 branch (NOT from main)
+# !! CORRECTION 2026-10-01: this PowerShell 5.1 `>` redirect re-encoded the bytes (UTF-8 BOM + CRLF).
+# !! It produced the ff1517d0... hash pinned in section 5. The committed blob's SHA-256 is
+# !! c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d. Never hash a redirected copy;
+# !! hash the blob bytes in Python (section 8, step 2).
 git -C <worktree> show origin/codex/path-a-split:data/manifests/split_manifest_path_a_seed2024.json `
   > <scratch>\split_candidate.json
 
@@ -291,7 +307,7 @@ python spikes\spike_c_ml\c1\verify_subsets.py `
 python spikes\spike_c_ml\c1\preflight.py check `
   --split-manifest <scratch>\split_candidate.json `
   --dataset-manifest data\manifests\dataset_manifest.json `
-  --data-root "D:\cardiac-data\lasc2018\extracted" `
+  --data-root "<package-root>" `
   --gate-data-01 CLOSED --gate-split-01 OPEN --allow-open-gates `
   --label "C1_PREP/NON-AUTHORITATIVE_DRY_RUN/NEGATIVE_CONTROL" `
   --json-out <scratch>\preflight_negative_control.json
@@ -300,7 +316,7 @@ python spikes\spike_c_ml\c1\preflight.py check `
 python spikes\spike_c_ml\c1\preflight.py make-root `
   --split-manifest <scratch>\split_candidate.json `
   --dataset-manifest data\manifests\dataset_manifest.json `
-  --package-root "D:\cardiac-data\lasc2018\extracted" `
+  --package-root "<package-root>" `
   --out-root <scratch>\c1_train_only_root
 
 # POSITIVE CONTROL - containment proof against the allowlisted root
@@ -342,9 +358,9 @@ python spikes\spike_c_ml\c1\forecast_matrix.py `
 
 | Field | Value |
 |---|---|
-| Source | `origin/codex/path-a-split` @ `7b72ce83fe09520aefad4eb6f746ed665b9179f1` (**PR #35, not on `main`** — the PR was marked ready for review on 2026-09-21; "draft" in the first version of this record was wrong) |
+| Source | `origin/codex/path-a-split` @ `7b72ce83fe09520aefad4eb6f746ed665b9179f1` (PR #35 — **not on `main` on Day 15**; the PR was marked ready for review on 2026-09-21, so "draft" in the first version of this record was wrong. **#35 merged at `f5aa763` on 2026-10-01**, and the merged blob is unchanged) |
 | File | `data/manifests/split_manifest_path_a_seed2024.json` |
-| **Candidate SHA-256** | `ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0` — **CORRECTION (2026-10-01): this is the hash of a CRLF + UTF-8-BOM copy written by a PowerShell 5.1 `>` redirect, not of the committed file. The committed blob's SHA-256 is `c5c65a09…396d`.** The structural checks below are unaffected (they parse the JSON); only the pin was wrong. Re-pin against the committed file, never against a redirected copy |
+| **Candidate SHA-256** | `ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0` — **CORRECTION (2026-10-01): this is the hash of a CRLF + UTF-8-BOM copy written by a PowerShell 5.1 `>` redirect (section 4.4), not of the committed file. The committed blob's SHA-256 is `c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d`, at `7b72ce8` and on `main` alike.** Re-encoding the blob as BOM + CRLF reproduces `ff1517d0…` exactly (`test_preflight.py` asserts this). The structural checks below are unaffected, because they parse the JSON; only the pin was wrong. Re-pin from the **blob bytes** (section 8, step 2), never from a redirected copy or the working-tree file |
 | `split_id` | `path_a_seed2024_dr002b_v1`, generated 2026-09-21T08:35:11+07:00 |
 | Dataset manifest cross-check | manifest's declared source SHA-256 `f64d461f…5ea9` **matches** the `dataset_manifest.json` on `main` — PASS |
 
@@ -367,17 +383,21 @@ python spikes\spike_c_ml\c1\forecast_matrix.py `
 | `EFF-100-EQUALS-EFF-TRAIN` | set equality, both directions | **PASS** |
 | `GROUPS-WHOLE-IN-PARTITION` | no correlation group split across partitions | **PASS** |
 | `GROUPS-WHOLE-IN-SUBSET` | no group partially present in a nested subset | **PASS** |
-| `GROUPS-TRANSITIVE` | union-find recomputation == declared groups | **PASS** — 4 declared, 4 recomputed |
+| `GROUPS-TRANSITIVE` | union-find over the **declared** groups == declared groups (not independent of them; see below) | **PASS** — 4 declared, 4 recomputed |
 | `CENSUS-EXACTLY-ONCE` | 80 + 20 + 54 = 154 = union size = declared count | **PASS** |
 | `COUNTS-MATCH-LISTS` | stated `effective_case_count` == `len(effective_case_ids)` | **PASS** |
 | `THRESHOLD-DECLARED` | `r >= 0.75`, operator `>=`, declared 2026-09-17 | **PASS** |
 
 **On the QA-003 open question.** QA-003 recorded that "four groups [were] recorded, while an
 independent recomputation finds four pairs forming three transitive components". Against the
-**regenerated** 2026-09-21 manifest, my independent union-find recomputation finds the declared
-four groups **are** the transitive components: `{0056,0097}`, `{0057,0128}`, `{0081,0095}`,
-`{0117,0133}` — four disjoint pairs, four components. The concern appears **resolved by the
-regeneration**, on this candidate.
+**regenerated** 2026-09-21 manifest, a union-find over the declared groups finds that the declared
+four groups **are** their own transitive components: `{0056,0097}`, `{0057,0128}`, `{0081,0095}`,
+`{0117,0133}` — four disjoint pairs, four components. *(Corrected 2026-10-01: an earlier version
+called this union-find "independent". It is not, because it runs over the declared groups. The
+independent support is the screen's counts. Four disjoint pairs plus the one link give exactly the
+declared 5 pairs above threshold and 9 affected cases. Four pairs forming three components would
+cover only 7 cases from the groups. `SCREEN-COUNTS-CONSISTENT`, added on Day 22, checks this.)*
+The concern appears **resolved by the regeneration**, on this candidate.
 
 **On the fifth above-threshold pair.** The screen reports 5 pairs above `r >= 0.75` and 9 affected
 cases. Four pairs are same-partition (the groups above, 8 cases); the fifth is the cross-partition
@@ -391,7 +411,7 @@ internally consistent; this is a design choice correctly implemented, not a defe
 
 | Run | Data root | `validation_paths_resolved` | `holdout_paths_resolved` | Verdict |
 |---|---|---:|---:|---|
-| **Negative control** | `D:\cardiac-data\lasc2018\extracted` (naive package root) | **20** | **54** | **REFUSED**, as designed |
+| **Negative control** | `<package-root>` (naive package root) | **20** | **54** | **REFUSED**, as designed |
 | **Positive control** | allowlisted training-only link root, 78 entries | **0** | **0** | containment PASS |
 
 The negative control is the point: pointing the loader at the obvious root makes **every one of the
@@ -401,7 +421,9 @@ plan's rule that "a software filter alone is not proof".
 
 The positive-control run still reports `RUNNABLE AS SPIKE C1: False` and
 `is_spike_c1_evidence: false`, because `GATE-SPLIT-01` is declared `OPEN`. **The one FAIL in that
-run is `GATE-STATE`, and it is a correct FAIL.**
+run is `GATE-STATE`, and it is a correct FAIL.** *(Day 22 note: the Day 15 containment PASS
+checked entry names only, and QA showed that is not enough. The Day 22 `check` verifies link
+targets and file identities. See section 11.)*
 
 ### 5.3 Evidence files
 
@@ -410,7 +432,7 @@ Committed under `management/day15/c1_prep_evidence/`:
 | File | Contents |
 |---|---|
 | `c1prep_subset_verify.json` | the 18 containment checks, with the candidate manifest SHA-256 |
-| `preflight_negative_control.json` | the refusal, with all 74 resolved validation/holdout paths |
+| `preflight_negative_control.json` | the refusal: the counts of resolved validation/holdout paths (20 + 54 = 74) and the first 10 hits of each (20 paths stored, not 74) |
 | `preflight_dryrun.json` | the containment proof, the measured environment block, the 78 selected case IDs and their JSON pointer |
 | `forecast_*.json` | the calendar arithmetic, machine-generated, with assumptions separated from measurements |
 
@@ -572,7 +594,8 @@ evaluated against real LA boundaries.** That is `C1-3` and `C1-5`. **NOT MEASURE
 ## 8 · PHASE 2 / PHASE 3 — NOT ENTERED, AND WHY
 
 **Phase 2 was not entered.** It requires the leader to confirm `GATE-SPLIT-01` is CLOSED. As of
-writing, PR #35 has not landed and the gate is OPEN. No training run was started.
+writing, PR #35 has not landed and the gate is OPEN. No training run was started. *(Update
+2026-10-01: #35 merged at `f5aa763` on 2026-10-01.)*
 
 **Phase 3 was not entered, and could not have been.** `GATE-ML-01` stays OPEN.
 
@@ -604,13 +627,27 @@ Not started. Listed so that it can start within minutes of the two blockers clea
 
 1. **Preconditions:** leader confirms `GATE-SPLIT-01` CLOSED and #35 on `main`; a compute host is
    named and available.
-2. **Re-pin:** hash the split manifest **as committed on `main`** (the file in the working tree —
-   `data/manifests/**` is `-text` in `.gitattributes`, so it is byte-identical to the blob) and compare
-   against the committed candidate blob `c5c65a09…396d` (corrected 2026-10-01; the earlier
-   `ff1517d0…` was a redirected copy). **If it differs, every figure in section 5 and section 6
-   is void and re-runs.**
+2. **Re-pin from the blob bytes, never from the working-tree file.** *(Corrected 2026-10-01.
+   The earlier text said "`data/manifests/**` is `-text`, so the working-tree file is byte-identical
+   to the blob". That is wrong. `.gitattributes` line 40 sets `data/manifests/** -text`, but line 48,
+   `*.json text eol=lf`, comes later and wins for every JSON file. `git check-attr` reports
+   `text: set`, `eol: lf`. A fresh checkout is LF and matches the blob. A copy re-saved with CRLF
+   hashes differently, and `git diff` still shows nothing, because git normalises line endings
+   before comparing.)* Hash the bytes git returns, in Python:
+   ```python
+   import hashlib, subprocess
+   blob = subprocess.run(["git", "cat-file", "blob",
+                          "main:data/manifests/split_manifest_path_a_seed2024.json"],
+                         capture_output=True, check=True).stdout
+   print(hashlib.sha256(blob).hexdigest())
+   ```
+   Compare the result with `c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d`, the
+   committed candidate blob. The earlier `ff1517d0…` was the hash of a redirected copy. Pass it to
+   `preflight.py check --expect-split-sha256`. Never pipe the blob through a PowerShell `>`
+   redirect. **If the hash differs, every figure in section 5 and section 6 is void and must be re-run.**
 3. **Re-run preflight** with `--gate-split-01 CLOSED` and **without** `--allow-open-gates`, against
-   a freshly built training-only root. It must report `runnable: true`,
+   a freshly built training-only root (Day 22: `make-root --layout hardlink`, and `check` with the
+   now-required `--package-root`; section 11). It must report `runnable: true`,
    `validation_paths_resolved: 0`, `holdout_paths_resolved: 0`.
 4. **Then, and only then,** the leader may transition `SPIKE_C1` to `ACTIVE` — that is his
    transition, not mine.
@@ -636,7 +673,7 @@ today and `DR-013` ownership returns in full. Everything below is his to accept,
 | **H1** | `spikes/spike_c_ml/c1/verify_subsets.py` | Set-containment verifier for the split manifest | **Review and adopt or replace.** Written by recovery support, not by the owner. |
 | **H2** | `spikes/spike_c_ml/c1/preflight.py` | Fail-closed gate/subset/data-root preflight, with `make-root` | **Review and adopt.** He must re-run it himself on the frozen manifest — the `C1-8` provenance record must be produced by the owner on the real compute. |
 | **H3** | `spikes/spike_c_ml/c1/forecast_matrix.py` | Fraction-weighted calendar arithmetic | **Review the arithmetic and challenge it.** Then decide whether it supersedes or complements `harness/extrapolate.py`. |
-| **H4** | The candidate-manifest dry run (section 5) | 18/18 structural checks on PR #35's branch head | **Void on manifest change.** Re-run against `main` once #35 lands and compare SHA-256 to `ff1517d0…3ce0`. |
+| **H4** | The candidate-manifest dry run (section 5) | 18/18 structural checks on PR #35's branch head | **Void on manifest change.** Re-run against `main` once #35 lands. Compare the **blob** SHA-256 with `c5c65a09…396d` (section 8, step 2). *(Corrected 2026-10-01: this row first said `ff1517d0…3ce0`, which is the redirected copy's hash.)* |
 | **H5** | The C0 calendar correction (section 6) | B/14 full was declared "DOES NOT FIT" on flat 80-case pricing; fraction-weighted it is 12.05 days at 4 h/day | **Confirm or refute.** If confirmed, `SPIKE_C_ML/RESULT.md`'s calendar table needs an owner-authored correction. **I did not edit `RESULT.md`.** |
 | **H6** | The compute-host question (section 1) | Approved host is his RTX 4050; it was unavailable today | **His availability declaration is the input nobody else can supply.** If a second host is added, he must re-measure memory and throughput on it. |
 | **H7** | The `C1-6` convergence trial | Not started | **Owner work on real compute.** `TASK.md`: "All hardware and timing measurements are executed by Bế Quốc Khánh on the real compute." |
@@ -663,9 +700,137 @@ today and `DR-013` ownership returns in full. Everything below is his to accept,
 1. **P0 — name a compute host** (section 1(f)). Nothing in M6 can start until this is answered.
    Three options are laid out; I have not chosen among them.
 2. **Land PR #35 and close `GATE-SPLIT-01`.** It merges cleanly into current `main`, 6 ahead /
-   4 behind, no conflicts. QA remains mandatory for it under the override.
+   4 behind, no conflicts. QA remains mandatory for it under the override. *(Update 2026-10-01:
+   #35 merged at `f5aa763` on 2026-10-01.)*
 3. **Correct `SPIKE_C1.blocked_by`** from `[SPIKE_D]` to `[GATE-SPLIT-01]`.
 4. **Decide the frozen-vs-full DINOv2 question before `GATE-ML-01`**, on scientific grounds, and
    record it (section 6, PR-SCI-03 warning).
 5. **Accept that `GATE-ML-01` does not close on Day 15.** Zero of ten C1 criteria are measured.
    The override waives review, not evidence.
+
+---
+
+## 11 · DAY 22 ADDENDUM — QA FIXES (CHAT E), 2026-10-01
+
+Made under the **Day 22 recovery override**. The block owner is **Bế Quốc Khánh**, who takes it back
+on D23. An independent QA review (CHAT E) reproduced three BLOCKING defects in the harness. There is
+also a new requirement: a hard-link root that `ml/data.py` can use. Sections 1–10 above remain the
+Day 15 record, annotated where they were wrong.
+
+### 11.1 BLOCKING 1 — `check` trusted entry names, not link targets
+
+QA built roots in which every entry name was allowlisted but one link pointed at a validation case
+directory, or at the package parent (holdout reachable at `root/CASE_0055/Testing Set/…`). Both were
+certified `runnable: true`. `check` now requires `--package-root`, uses stat calls only, and
+verifies every top-level entry:
+
+| Entry | Accepted only if |
+|---|---|
+| any | its name is an effective-training case id |
+| symlink / junction | it resolves to **exactly** `package_root/source_dir_relative` of that case, and that directory holds only regular files the dataset manifest declares for the case |
+| real directory (hard-link layout) | it holds **exactly** the MRI and the mask, both regular files with no subdirectory and nothing else, each `os.path.samefile` with the package file |
+| anything else | never: a top-level file, a nested link, any other reparse point |
+
+It also requires the following. No entry may resolve to, inside, or above a validation or
+final_holdout case directory. No file under the root may be the same file (`st_dev`, `st_ino`) as
+any validation or holdout MRI, mask or companion volume. The root must not be equal to, inside, or a
+parent of the package root, and must not sit inside a git work tree. `validation_paths_resolved` and
+`holdout_paths_resolved` now count a case as reachable through any of these routes, not only through
+the Day 15 name probes.
+
+### 11.2 The hard-link layout (`make-root --layout hardlink`, now the default)
+
+`ml/data.py` (PR #60) requires each resolved file to stay inside the root it is given, and a
+junction resolves back into the package. For each of the 78 ids in
+`training_subsets.100_percent.effective_case_ids`, `make-root` therefore creates
+`root/<CASE_ID>/lgemri.nrrd` and `root/<CASE_ID>/laendo.nrrd` as `os.link`s to the package files. It
+links nothing else; companion volumes are left out. It refuses an out-root inside a git work tree,
+an out-root equal to, inside, or above the package root, and an out-root on another volume (hard
+links cannot cross volumes). It never overwrites or deletes anything. `--layout junction`, the
+Day 15 layout, still works and passes the same `check`.
+
+### 11.3 BLOCKING 2 — the stated mechanism of the hash correction
+
+The mechanism is now stated correctly in section 8, step 2. `*.json text eol=lf` overrides
+`data/manifests/** -text`, so re-pin from the git **blob bytes** hashed in Python. Section 4.4 is
+annotated: the `> split_candidate.json` redirect produced `ff1517d0…`, and the blob hashes to
+`c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d`.
+
+### 11.4 BLOCKING 3 — the leakage chain is recomputed
+
+`verify_subsets.py` now runs a union-find over the declared groups **plus**
+`development_to_holdout_links`. It fails if any effective training case, in any subset, shares a
+component with a validation or final_holdout case (`LEAKAGE-CHAIN-CLEAN`). It **derives** the
+exclusions as the group closure of the linked development cases and compares them with
+`training_exclusions` and with each subset's `excluded_case_ids` (`EXCL-DERIVED-FROM-LINKS`,
+`SUBSET-EXCLUSIONS-DERIVED`). It checks `pair_count_above_threshold` and `affected_case_ids` against
+the groups and links (`SCREEN-COUNTS-CONSISTENT`: 5 pairs = 4 groups + 1 link; 9 affected cases).
+With the dataset manifest supplied, as `preflight.py` always does, it also checks the census by **set
+equality** (`CENSUS-SET-EQUALS-DATASET`), so an invented id cannot hide behind a correct count.
+`preflight.py` no longer hard-codes the exclusions. Its named `CASE_0133` / `CASE_0117` check is now
+only a cross-check against DR-002b, run on the derived set. On the merged manifest every check
+passes. The component `{CASE_0027, CASE_0117, CASE_0133}` is wholly out of training.
+
+### 11.5 Exit codes, and the self-test
+
+`check` exits 0 when the root is runnable. It exits 1 when it refuses: any check other than the gate
+state failed, or a gate is OPEN and `--allow-open-gates` was not passed. It exits 2 for a labelled
+**dry run**: a gate is OPEN, `--allow-open-gates` was passed, and every other check passed. Before
+Day 22, `--allow-open-gates` had no effect.
+
+`python spikes/spike_c_ml/c1/test_preflight.py` reads no dataset bytes. It uses the committed
+manifests, read as git blob bytes, and a synthetic package of placeholder files in a temp dir. It
+asserts the following:
+
+- A hard-link root and a junction root are both runnable.
+- These are all refused:
+  - a junction under an allowlisted name pointing at a validation case directory;
+  - a junction pointing at the package root or at its parent;
+  - a hard link of a holdout file under an allowlisted name;
+  - an extra file in a case directory;
+  - a missing case;
+  - the naive package root.
+- The pin `ff1517d0…` fails and `c5c65a09…` passes.
+- A new dev→holdout link on a case still in training fails `verify_subsets`.
+- An invented id in the census fails.
+- The `make-root` refusals hold.
+
+It prints a summary and exits non-zero on any failure.
+
+### 11.6 The Day 22 commands for the real run (outputs outside Git)
+
+```powershell
+python spikes\spike_c_ml\c1\test_preflight.py
+
+python spikes\spike_c_ml\c1\preflight.py make-root --layout hardlink `
+  --split-manifest data\manifests\split_manifest_path_a_seed2024.json `
+  --dataset-manifest data\manifests\dataset_manifest.json `
+  --package-root <package-root> --out-root <data-dir>\c1\root_hardlink
+
+python spikes\spike_c_ml\c1\preflight.py check `
+  --split-manifest data\manifests\split_manifest_path_a_seed2024.json `
+  --dataset-manifest data\manifests\dataset_manifest.json `
+  --data-root <data-dir>\c1\root_hardlink --package-root <package-root> `
+  --gate-data-01 CLOSED --gate-split-01 CLOSED `
+  --expect-split-sha256 c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d `
+  --operator "Day 22 recovery override (leader account)" --label C1-PREFLIGHT-DAY22 `
+  --json-out <data-dir>\c1\preflight_day22.json
+```
+
+`GATE-SPLIT-01` closes on QA-005 PASS of the merged split. The leader's session records that
+transition; this document does not.
+
+### 11.7 Day 22 real-data acceptance, 2026-10-01 11:47 +07:00 (stat and `os.link` only)
+
+The code was at commit `1f6ff5b` (`repo_c1_code_dirty: false`). The gates were **declared** by the
+operator as instructed for the Day 22 run. Both JSON files are outside Git. The paths below are
+written as placeholders.
+
+| Run | Data root | Result | `validation_paths_resolved` | `holdout_paths_resolved` | JSON (SHA-256 of the file) |
+|---|---|---|---:|---:|---|
+| `make-root --layout hardlink` | `<data-dir>\c1\root_hardlink` | 78 linked, 0 failed. 78 case dirs, 156 hard links (MRI + mask), no companion volumes | — | — | — |
+| `check`, `C1-PREFLIGHT-DAY22` | that root | **RUNNABLE**, exit 0. 41/41 checks pass. `is_spike_c1_evidence: true`. Split pin `c5c65a09…396d` matches. Derived exclusions `CASE_0117`, `CASE_0133` | **0** | **0** | `<data-dir>\c1\preflight_day22.json` (`aa0c85ba…8f93`) |
+| `check`, negative control | `<package-root>` (naive) | **REFUSED**, exit 1. Failing checks: `ROOT-NOT-PACKAGE`, `ROOT-IS-ALLOWLIST-ONLY`, `ENTRY-TARGETS-VERIFIED`, `NO-FILE-IS-VALIDATION-OR-HOLDOUT`, `VALIDATION-UNREACHABLE`, `HOLDOUT-UNREACHABLE`, `TRAINING-COMPLETE` | **20** | **54** | `<data-dir>\c1\preflight_day22_negative_control.json` (`6810a632…d38f`) |
+
+The preflight is runnable. That is **not** a C1 result. Zero of the ten C1 criteria are measured by
+it, and `GATE-ML-01` stays OPEN.
