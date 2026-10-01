@@ -1637,6 +1637,58 @@ If the in-app numbers fail `B10`/`B11`, that is a result, and a native GL path b
 
 ---
 
+### DR-010a — `DR-010` gives the worst-slice ranking to the API, but **no endpoint returns it**
+
+| Field | Value |
+|---|---|
+| **Raised** | ⏳ **OPEN** · 2026-09-19 · Project Control, while building `app/core` |
+| **Decides** | Phạm Tuấn Anh |
+| **Amends** | `DR-010` ("worst slice") |
+| **Affects** | `contracts/api/contract.json`, `SCR-04`, `FR-ERR-003`, `TC-ERR-003`, `UC-05`, V1 |
+| **Latest-safe** | **before `contract.json` leaves `DRAFT v0`.** After that this becomes an ADR-versioned change |
+
+**Problem.** `DR-010` froze the ranking *and* froze who applies it:
+
+> *the API returns the selection; the client never re-derives it*
+
+The ranking is settled. The **transport is not**: none of the 28 endpoints in `contract.json` returns a
+selection. Not `analysis_run_get`, not `analysis_run_metrics`, not `analysis_slice_metrics` — checked field
+by field, and `app/core/tests/test_readers.mjs` check `P2` asserts the absence against the contract so this
+cannot quietly stop being true.
+
+**The one near-miss, so nobody raises it as a counterexample.** `experiment_cases` is described as *"per-case
+metric/status rows for outlier drill-down"*. That is **`DR-010`'s other half** — the operational *"outlier"*,
+ranked over **cases** within an experiment. `SCR-04` needs the worst **slice** within one case's run. Two
+different rankings over two different populations; the endpoint that serves one does not serve the other.
+
+So `SCR-04`, whose entire purpose is to open on the worst slice, has a rule it may not apply and no endpoint
+to ask. `app/core/selection.mjs` is written as a **reader only** — there is no `.sort(` in the file and two
+checks keep it that way — and `readSelection()` currently returns `available: false`, so the screen shows
+`EMPTY_UNAVAILABLE`. That is honest and it is not a solution.
+
+**Why this is not urgent today but is urgent this week.** `SCR-04` is not among the four vertical PRs of
+Day 10, so nothing is blocked right now. But the contract is `DRAFT v0`; changing it today costs a field and
+a test, and changing it after it is baselined costs an ADR version plus a migration for whatever is already
+built on it.
+
+**Options.**
+
+| | Option | Cost | Consequence |
+|---|---|---|---|
+| **(a)** | New endpoint, e.g. `GET /api/v1/analysis-runs/{run_id}/worst-slices?prediction_variant={variant}` | 29th endpoint; `EXPECTED.endpointCount` and the contract tests move from 28 to 29 | Cleanest separation; one extra round trip before `SCR-04` can draw anything |
+| **(b)** *(recommended)* | Extend `analysis_run_metrics` with a `worst_slice_selection` block: `rule_id`, `selection_version`, `slices[{slice_index, dice, false_positives, false_negatives}]` | one `response_fields` entry; endpoint count unchanged | `SCR-04` gets the ranking in the call it already makes. `app/core/selection.mjs` reads exactly this shape today — only the field names would need confirming |
+| **(c)** | Leave it out of v1.0 | none now | Guts `SCR-04`: the screen exists to open on the worst slice. `FR-ERR-003` and `TC-ERR-003` would have to be re-scoped, and those are in the **frozen** spec |
+| **(d)** | Let the client rank from `analysis_slice_metrics` | none | **Rejected on the record.** It is exactly what `DR-010` forbids: two clients ranking independently give two answers to one clinical question, and the one on the phone is the one a reviewer acts on |
+
+**Recommendation: (b).** It keeps the endpoint count and the round-trip count where they are, and the
+per-slice metrics the ranking is computed from already live on that endpoint's family — so the server is
+returning a summary of data it has, not answering a new question.
+
+**What this does not do.** It does not reopen the ranking itself: the keys, their order and the exclusions
+stay exactly as `DR-010` approved them. Only the transport is in question.
+
+---
+
 ## Part 3 — Decision dependency order
 
 Ordered by what each unblocks, not by calendar.

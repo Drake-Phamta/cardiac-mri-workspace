@@ -3,459 +3,252 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DAY 9 · EXECUTION · Cardiac MRI Workspace</title>
-<meta name="description" content="Bảng điều phối Day 9, 2026-09-18. Nhiệm vụ từng người, tiến độ tiêu chí nghiệm thu, hàng đợi review, và lịch sử các ngày trước.">
-<link rel="stylesheet" href="board.css">
+<title>Day 20 · Cardiac MRI Workspace</title>
+<meta name="description" content="Bảng điều phối Day 20, 29/09/2026: kết luận rà soát, việc từng người tối nay và ngày mai, quyết định leader cần chốt.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: masthead summary, then a sticky section index beside one long report column; tables scroll in their own frames. */
+:root {
+  --bg: #F4F6F9; --surface: #FFFFFF; --fg: #17202B; --muted: #596574; --rule: #D6DCE4;
+  --accent: #22598C; --accent-soft: #E2ECF6; --code-bg: #ECEFF4;
+  --red: #B42318; --red-soft: #FCE7E4; --amber: #93560A; --amber-soft: #FDF0D5;
+  --green: #1F7547; --green-soft: #DFF2E6; --neutral-soft: #E7EAEF;
+  --ph-past: #CBD2DC; --ph1: #22598C; --ph2: #4F83B5; --ph3: #B7791F; --ph4: #2E8B57;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F141A; --surface: #161C24; --fg: #E2E7EE; --muted: #9AA6B5; --rule: #2B343F;
+    --accent: #8DB9E6; --accent-soft: #1B2C3E; --code-bg: #1C2430;
+    --red: #FF8F84; --red-soft: #3B1E1B; --amber: #F2BE5C; --amber-soft: #392B12;
+    --green: #7FD2A1; --green-soft: #15301F; --neutral-soft: #242C36;
+    --ph-past: #2E3844; --ph1: #6FA3D8; --ph2: #4B7BAA; --ph3: #C99035; --ph4: #4FAE78;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15.5px; line-height: 1.55; }
+.page { max-width: 1360px; margin: 0 auto; padding-inline: 20px; padding-block: 12px 72px; }
+.topnav { display: flex; flex-wrap: wrap; gap: 4px 6px; padding-block: 10px; margin-bottom: 18px; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.topnav a { color: var(--fg); text-decoration: none; padding: 4px 10px; border-radius: 4px; }
+.topnav a:hover { background: var(--accent-soft); color: var(--accent); }
+.topnav a.on { background: var(--fg); color: var(--bg); }
+.topnav .sep { flex: 1; }
+.masthead { display: grid; gap: 18px; padding-bottom: 28px; border-bottom: 1px solid var(--rule); margin-bottom: 28px; }
+.eyebrow { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; letter-spacing: -.01em; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 16px; }
+.verdict-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.verdict-row p { margin: 0; color: var(--muted); max-width: 72ch; }
+.days ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; }
+.days li { height: 28px; border-radius: 3px; display: flex; align-items: flex-end; justify-content: center; }
+.days li span { font-family: var(--font-mono); font-size: 10px; line-height: 1; color: var(--muted); transform: translateY(16px); }
+.days .past { background: var(--ph-past); }
+.days .r1 { background: var(--ph1); }
+.days .r2 { background: var(--ph2); }
+.days .r3 { background: var(--ph3); }
+.days .r4 { background: var(--ph4); }
+.days .today { outline: 2px solid var(--fg); outline-offset: 2px; }
+.days .today span { color: var(--fg); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.facts div { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; min-width: 0; }
+.facts dt { font-size: 13px; color: var(--muted); }
+.facts dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: 28px; font-variant-numeric: tabular-nums; }
+.facts dd small { font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--muted); }
+.gate { background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--red); border-radius: 6px; padding: 14px 18px; }
+.gate .gate-title { display: block; font-family: var(--font-display); font-weight: 600; font-size: 17px; margin-bottom: 6px; }
+.gate ol { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 40px; }
+nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; }
+nav.toc p { margin: 0 0 8px; font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+nav.toc a { display: flex; gap: 8px; padding: 4px 8px; border-radius: 4px; color: var(--fg); text-decoration: none; font-size: 14px; }
+nav.toc a b { font-family: var(--font-mono); font-weight: 400; font-size: 12px; color: var(--muted); min-width: 22px; padding-top: 2px; }
+nav.toc a:hover, nav.toc a.active { background: var(--accent-soft); color: var(--accent); }
+main { min-width: 0; }
+section { padding-top: 18px; margin-bottom: 36px; scroll-margin-top: 12px; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 25px; line-height: 1.2; letter-spacing: .01em; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--fg); display: flex; gap: 12px; align-items: baseline; text-wrap: balance; }
+.secnum { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin: 24px 0 8px; }
+p, ul, ol, blockquote { max-width: 80ch; }
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 8px 0; }
+li { margin: 3px 0; }
+a { color: var(--accent); }
+blockquote { margin: 12px 0; padding: 10px 16px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; }
+blockquote p { margin: 0; }
+code { font-family: var(--font-mono); font-size: .84em; background: var(--code-bg); padding: .08em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+pre { margin: 12px 0; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+pre.prompt { white-space: pre-wrap; max-height: 520px; overflow-y: auto; }
+.tablewrap { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+.tablewrap.mid table { min-width: 1080px; }
+.tablewrap.wide table { min-width: 1900px; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; line-height: 1.45; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+th { font-family: var(--font-display); font-weight: 600; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--code-bg); white-space: nowrap; }
+td { font-variant-numeric: tabular-nums; }
+tbody tr:hover td { background: var(--accent-soft); }
+.pill { display: inline-block; font-family: var(--font-display); font-weight: 600; font-size: 12.5px; letter-spacing: .05em; line-height: 1.5; padding: 0 8px; border-radius: 999px; white-space: nowrap; }
+.pill.red, .pill.p0 { background: var(--red-soft); color: var(--red); }
+.pill.amber, .pill.p1 { background: var(--amber-soft); color: var(--amber); }
+.pill.green { background: var(--green-soft); color: var(--green); }
+.pill.p2 { background: var(--accent-soft); color: var(--accent); }
+.pill.p3, .pill.neutral { background: var(--neutral-soft); color: var(--muted); }
+.pill.big { font-size: 15px; padding: 4px 14px; letter-spacing: .07em; }
+.brief { border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); margin: 16px 0; }
+.brief-bar { display: flex; justify-content: flex-end; padding: 8px 10px 0; }
+.brief-body { padding: 0 18px 14px; }
+.brief-body h3 { margin-top: 0; }
+.codeblock { position: relative; }
+.codeblock .copy { position: absolute; top: 8px; right: 10px; }
+button.copy { font: 600 13px var(--font-body); color: var(--accent); background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+button.copy:hover { border-color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#verdict h2 { border-bottom-color: var(--red); }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.card h3 { margin: 0; font-size: 18px; }
+.card .role { margin: 0; font-size: 13px; color: var(--muted); }
+.card ul { margin: 0; }
+.card .more { margin: 4px 0 0; font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 8px 0 0; max-width: none; }
+.chips a { display: inline-block; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); text-decoration: none; font-size: 14px; }
+.note { font-size: 14px; color: var(--muted); }
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  nav.toc { position: static; max-height: none; }
+  nav.toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+  nav.toc a { border: 1px solid var(--rule); background: var(--surface); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .days ol { gap: 2px; }
+  .days li { height: 22px; }
+  .facts dd { font-size: 23px; }
+  h2 { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
 </head>
 <body>
-<div class="wrap">
-<nav class="nav">
-<a href="index.html" class="on">Hôm nay</a>
-<a href="archive/index.html">Các ngày trước</a>
-<span class="sep"></span>
-<a class="jump" href="#nguoi">Từng người</a>
-<a class="jump" href="#cho">Ai chờ ai</a>
-<a class="jump" href="#pr">PR</a>
-<a class="jump" href="#path">Critical path</a>
-<a class="jump" href="#spike">Spike</a>
-<a class="jump" href="#quyet">Quyết định</a>
-<a class="jump" href="#thietbi">Spike E</a>
-<a class="jump" href="#ruiro">Rủi ro</a>
-<a class="jump" href="#lichsu">Lịch sử</a>
-</nav>
-<header class="top red" id="homnay">
-  <p class="eyebrow">AI-assisted Cardiac MRI Research Workspace · bảng điều phối</p>
-  <h1><span class="day">DAY 9</span> — 18/09/2026</h1>
-  <div class="phase">EXECUTION · cutover 11/09 12:00 · hạn mỗi ngày 23:59</div>
-  <p class="sub">Day 8 đạt 4/4 đúng hạn → buffer giữ −1, nhưng critical path dừng ở lượt duyệt lại #34 (ngày thứ hai liên tiếp). Hôm nay ba mốc chồng nhau: M3 hết hạn, M4 cần đóng GATE-DATA-01 và GATE-SPLIT-01, M5 bắt đầu khi GATE-MOB-01 còn mở. Leader quyết: đo B10/B11 trong WebView của app RN, #34 đóng băng, SCR-04 giao cho V1. Mỗi người ≥ 8 giờ việc thật, nợ tồn làm trước, hạn 23:59.</p>
-  <div class="metrics"><div class="m "><span class="k">Ngày</span><span class="v">9 / 30</span><span class="s">18/09/2026</span></div><div class="m "><span class="k">Còn tới Day 30</span><span class="v">21 ngày</span><span class="s">09/10/2026</span></div><div class="m bad"><span class="k">Buffer</span><span class="v">-2 ngày</span></div><div class="m bad"><span class="k">Trạng thái</span><span class="v">RED</span></div><div class="m ok"><span class="k">Spike ACCEPTED</span><span class="v">1 / 7</span></div><div class="m warn"><span class="k">Tiêu chí có số đo</span><span class="v">33 / 92</span><span class="s">+18 trong PR chờ review</span></div><div class="m warn"><span class="k">Gates đóng</span><span class="v">2 / 6</span></div><div class="m warn"><span class="k">PR đang mở</span><span class="v">8</span><span class="s">6 chưa được approve</span></div><div class="m bad"><span class="k">Yêu cầu ACCEPTED</span><span class="v">0 / 44</span></div><div class="m ok"><span class="k">CI trên main</span><span class="v">XANH</span><span class="s">spec 19/19 ✓</span></div></div>
-  <h3 class="tl-h">30 ngày — kết quả từng ngày và cửa sổ các mốc</h3>
-  <div class="tlwrap"><div class="tl"><div class="tl-d part" style="grid-column:1" title="Day 0 · 09/09 · một phần"><b>0</b><span>09/09</span></div><div class="tl-d miss" style="grid-column:2" title="Day 1 · 10/09 · trượt"><b>1</b><span>10/09</span></div><div class="tl-d part" style="grid-column:3" title="Day 2 · 11/09 · một phần"><b>2</b><span>11/09</span></div><div class="tl-d miss" style="grid-column:4" title="Day 3 · 12/09 · trượt"><b>3</b><span>12/09</span></div><div class="tl-d good" style="grid-column:5" title="Day 4 · 13/09 · đạt"><b>4</b><span>13/09</span></div><div class="tl-d good" style="grid-column:6" title="Day 5 · 14/09 · đạt"><b>5</b><span>14/09</span></div><div class="tl-d miss" style="grid-column:7" title="Day 6 · 15/09 · trượt"><b>6</b><span>15/09</span></div><div class="tl-d good" style="grid-column:8" title="Day 7 · 16/09 · đạt"><b>7</b><span>16/09</span></div><div class="tl-d good" style="grid-column:9" title="Day 8 · 17/09 · đạt"><b>8</b><span>17/09</span></div><div class="tl-d now" style="grid-column:10" title="Day 9 · 18/09 · hôm nay"><b>9</b><span>18/09</span></div><div class="tl-d " style="grid-column:11" title="Day 10 · 19/09 · chưa tới"><b>10</b><span>19/09</span></div><div class="tl-d " style="grid-column:12" title="Day 11 · 20/09 · chưa tới"><b>11</b><span>20/09</span></div><div class="tl-d " style="grid-column:13" title="Day 12 · 21/09 · chưa tới"><b>12</b><span>21/09</span></div><div class="tl-d " style="grid-column:14" title="Day 13 · 22/09 · chưa tới"><b>13</b><span>22/09</span></div><div class="tl-d " style="grid-column:15" title="Day 14 · 23/09 · chưa tới"><b>14</b><span>23/09</span></div><div class="tl-d " style="grid-column:16" title="Day 15 · 24/09 · chưa tới"><b>15</b><span>24/09</span></div><div class="tl-d " style="grid-column:17" title="Day 16 · 25/09 · chưa tới"><b>16</b><span>25/09</span></div><div class="tl-d " style="grid-column:18" title="Day 17 · 26/09 · chưa tới"><b>17</b><span>26/09</span></div><div class="tl-d " style="grid-column:19" title="Day 18 · 27/09 · chưa tới"><b>18</b><span>27/09</span></div><div class="tl-d " style="grid-column:20" title="Day 19 · 28/09 · chưa tới"><b>19</b><span>28/09</span></div><div class="tl-d " style="grid-column:21" title="Day 20 · 29/09 · chưa tới"><b>20</b><span>29/09</span></div><div class="tl-d " style="grid-column:22" title="Day 21 · 30/09 · chưa tới"><b>21</b><span>30/09</span></div><div class="tl-d " style="grid-column:23" title="Day 22 · 01/10 · chưa tới"><b>22</b><span>01/10</span></div><div class="tl-d " style="grid-column:24" title="Day 23 · 02/10 · chưa tới"><b>23</b><span>02/10</span></div><div class="tl-d " style="grid-column:25" title="Day 24 · 03/10 · chưa tới"><b>24</b><span>03/10</span></div><div class="tl-d " style="grid-column:26" title="Day 25 · 04/10 · chưa tới"><b>25</b><span>04/10</span></div><div class="tl-d " style="grid-column:27" title="Day 26 · 05/10 · chưa tới"><b>26</b><span>05/10</span></div><div class="tl-d " style="grid-column:28" title="Day 27 · 06/10 · chưa tới"><b>27</b><span>06/10</span></div><div class="tl-d " style="grid-column:29" title="Day 28 · 07/10 · chưa tới"><b>28</b><span>07/10</span></div><div class="tl-d " style="grid-column:30" title="Day 29 · 08/10 · chưa tới"><b>29</b><span>08/10</span></div><div class="tl-d " style="grid-column:31" title="Day 30 · 09/10 · chưa tới"><b>30</b><span>09/10</span></div><div class="tl-m late" style="grid-column:1 / 2" title="M0 · Day Day 0 · IN_PROGRESS">M0</div><div class="tl-m late" style="grid-column:2 / 6" title="M1 · Day 1-4 · NOT_STARTED">M1</div><div class="tl-m late" style="grid-column:5 / 8" title="M2 · Day 4-6 · NOT_STARTED">M2</div><div class="tl-m live" style="grid-column:7 / 11" title="M3 · Day 6-9 · IN_PROGRESS">M3</div><div class="tl-m live" style="grid-column:9 / 14" title="M4 · Day 8-12 · IN_PROGRESS">M4</div><div class="tl-m live" style="grid-column:10 / 22" title="M5 · Day 9-20 · IN_PROGRESS">M5</div><div class="tl-m " style="grid-column:13 / 24" title="M6 · Day 12-22 · NOT_STARTED">M6</div><div class="tl-m " style="grid-column:21 / 27" title="M7 · Day 20-25 · NOT_STARTED">M7</div><div class="tl-m " style="grid-column:26 / 30" title="M8 · Day 25-28 · NOT_STARTED">M8</div><div class="tl-m " style="grid-column:29 / 32" title="M9 · Day 28-30 · NOT_STARTED">M9</div></div></div>
-  <div class="legend"><span><i class="lg good"></i>đạt</span><span><i class="lg part"></i>một phần</span>
-    <span><i class="lg miss"></i>trượt</span><span><i class="lg now"></i>hôm nay</span>
-    <span><i class="lg late"></i>mốc quá cửa sổ</span><span><i class="lg live"></i>mốc đang trong cửa sổ</span></div>
-</header>
-<section>
-  <h2><span class="num">A</span> Điều kiện để hôm nay KHÔNG trượt <span class="st no">HẠN 23:59</span></h2>
-  <p class="lede">4 việc. Thiếu một là ngày này tính trượt, bất kể làm được gì khác.</p>
-  <div class="tblwrap"><table>
-    <tr><th></th><th>Ai</th><th>Việc</th><th>Vì sao là điều kiện</th></tr>
-    <tr><td><span class="big">1</span></td><td><strong>Vũ Hùng Anh</strong></td><td><em>(nợ)</em> <strong>Duyệt lại #34 trước 11:00</strong> → leader merge → QA-003 chốt → Spike D <code>ACCEPTED</code> → <strong><code>GATE-DATA-01</code> đóng</strong></td><td class="dim">hai ngày liền critical path dừng đúng ở bước duyệt lại; hẹn 11:00 để còn thời gian cho điều kiện 3</td></tr><tr><td><span class="big">2</span></td><td><strong>Nguyễn Gia Đức Trung</strong></td><td><strong>M3 đóng</strong>: #43, #45, #39 <strong>merge</strong> với <strong>một</strong> chuỗi <code>dr008a-dr012/v1.0.0</code>; test của cả bốn hợp đồng chạy trong CI</td><td class="dim">M3 hết hạn hôm nay; M5 bắt đầu hôm nay và phải dựng trên hợp đồng đã chốt</td></tr><tr><td><span class="big">3</span></td><td><strong>Bế Quốc Khánh</strong></td><td><strong><code>GATE-SPLIT-01</code> đóng</strong>: nhóm bắc cầu, sinh lại split trên manifest mới, Trung duyệt lại, merge #35</td><td class="dim">cùng <code>GATE-DATA-01</code>, đây là thứ cuối cùng giữ <code>SPIKE_C1</code></td></tr><tr><td><span class="big">4</span></td><td><strong>Vũ Hùng Anh</strong></td><td><strong><code>B10</code>/<code>B11</code> đo trên A17 trong WebView của app RN</strong> — Hùng Anh đóng gói viewer (hẹn 18:00), leader bấm (~20:00), chủ Spike B diễn giải</td><td class="dim">chưa ứng viên nào có bằng chứng cho cả brush lẫn 3D như <code>09</code> §7 đòi</td></tr>
-  </table></div>
-</section>
-<section id="nguoi">
-  <h2><span class="num">B</span> Việc của từng người hôm nay</h2>
-  <p class="lede">Thành viên <strong>~8 h</strong>, hạn <strong>23:59</strong>, không cần khai báo giờ rảnh.
-     Làm theo thứ tự: <span class="k-debt">nợ tồn</span> → <span class="k-now">ngay bây giờ</span> →
-     <span class="k-then">sau đó</span>. Số giờ "ước tính" do bảng cộng từ các dòng việc. Bấm tên để mở gói đầy đủ.</p>
-  <div class="cards"><div class="card">
-      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_BE_QUOC_KHANH.md">Bế Quốc Khánh</a></span><span class="tag p0">D</span><span class="tag">C0</span><span class="tag">C1</span></div>
-      <div class="role">ML training / evaluation · review spike: <code>—</code> · GitHub <code>qkhanhbe</code></div>
-      <div class="role"><b>Khối lượng:</b> chính <strong>≥ 8 h</strong> (~8,25 h) · dự phòng ~2,5 h · hạn <strong>23:59</strong> · <strong>#34 đóng băng — không đẩy thêm</strong> <span class="hrs">ước tính <b>8,2 h</b> chính + 2,5 h thêm</span></div><div class="pills"> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/35">#35 của bạn</a></div><div class="note go" style="margin:0 0 9px">Day 8 là ngày đầu tiên sau bốn ngày mà phần việc của bạn land sớm: tất cả trong 11:01–11:40. Và QA độc lập xác nhận công việc từ byte: 85/69 case khớp manifest, 0 trường định danh tuỳ biến, tập loại trừ <code>DR-002b</code> và train hiệu dụng 78 được tính lại và khớp. Hôm nay #34 đóng băng để Hùng Anh duyệt lại đúng một lần.</div><div class="prog"><span class="nm">D</span><span class="bar "><i class="" style="width:95%"></i></span><span class="n">19/20</span></div><div class="prog"><span class="nm">C0</span><span class="bar "><i class="" style="width:100%"></i></span><span class="n">10/10</span></div><div class="prog"><span class="nm">C1</span><span class="bar "><i class="zero" style="width:0%"></i></span><span class="n">0/10</span></div>
-      <div class="blk debt"><b>🔴 LÀM TRƯỚC — NỢ TỒN</b><ol><li><strong>Nhóm phải bắc cầu</strong>: trả lời &quot;4 nhóm hay 3 thành phần liên thông&quot; trên #35, thống nhất định nghĩa trong manifest và <code>SPLIT_RESULT.md</code> <em>(~1 h)</em></li><li><strong>#35 hết nháp → sinh lại split trên manifest mới</strong> sau khi #34 merge, nhờ Trung duyệt lại <em>(~1,5 h)</em></li><li><strong>#42 hết nháp</strong>, nhờ leader review <em>(~15 ph)</em></li><li><strong>PR follow-up #34</strong> sau merge: <code>anomalies</code> + <code>package_findings</code> vào <code>summary</code>, lệnh sinh lại thật <em>(~1 h)</em></li></ol></div>
-      <div class="blk now"><b>NGAY BÂY GIỜ</b><ol><li><strong><code>c1_preflight.py</code></strong> — sinh <code>c1_preflight_&lt;ts&gt;.json</code>, <strong>phải từ chối khi gate còn mở</strong>; chạy trên RTX 4050 của bạn, không Mac mini <em>(~2 h)</em></li></ol></div>
-      <div class="blk then"><b>SAU ĐÓ</b><ol><li><strong>Thiết kế SCR-01 / SCR-07</strong> (trung lập công nghệ): ma trận trạng thái, bảng kèm N, nhãn &quot;không so được&quot; <em>(~2 h)</em></li><li><strong>Phản hồi review #37</strong> của leader <em>(~30 ph)</em></li></ol></div>
-      <div class="blk later"><b>NẾU CÒN THỜI GIAN</b><ul><li><strong>Nếu cả hai cổng đóng trong ngày:</strong> preflight thật + bắt đầu <code>C1-1</code> <em>(~1,5 h)</em></li><li><code>C0-3</code> tìm trần batch thật <em>(~1 h)</em></li></ul></div>
-      <p style="margin:0;font-size:13px"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_BE_QUOC_KHANH.md">→ mở gói nhiệm vụ đầy đủ</a></p>
-    </div><div class="card">
-      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_NGUYEN_GIA_DUC_TRUNG.md">Nguyễn Gia Đức Trung</a></span><span class="tag">E</span></div>
-      <div class="role">Backend / persistence / ingestion · review spike: <code>B</code> · GitHub <code>TrungNGD195</code></div>
-      <div class="role"><b>Khối lượng:</b> chính <strong>≥ 8 h</strong> (~8,5 h) · dự phòng ~2,5 h · hạn <strong>23:59</strong> · <strong>không cần Mac mini hay điện thoại</strong> <span class="hrs">ước tính <b>8,5 h</b> chính</span></div><div class="pills"><a class="pill hot" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/44">#44 chờ bạn review</a> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/33">#33 của bạn</a> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/26">#26 của bạn</a></div><div class="note go" style="margin:0 0 9px">Từ 17:26 hôm qua bạn gỡ hết bốn PR đang chờ mình, sửa #32 (đã merge — lối ra M3 đầu tiên lên <code>main</code>), mở hợp đồng API và sửa thêm ba PR tới 22:19. Điều cần đổi là giờ bắt đầu: tới 17:26 không có hoạt động nào. M3 hết hạn hôm nay và hai lối ra còn lại là của bạn.</div><div class="prog"><span class="nm">E</span><span class="bar two"><i class="sm" style="width:0%"></i><i class="sp" style="width:53%"></i></span><span class="n">0/13 +7</span></div>
-      <div class="blk debt"><b>🔴 LÀM TRƯỚC — NỢ TỒN</b><ol><li><strong>#45: đổi phiên bản geometry thành <code>dr008a-dr012/v1.0.0</code></strong>, so khớp chính xác thay vì tiền tố <code>GEOM_</code> <em>(~45 ph)</em></li><li><strong>Phản hồi lượt duyệt lại #45/#39 của leader</strong> trong ngày: <code>null</code> làm sập, luật theo endpoint, khoá <code>method</code> <em>(~1,5 h)</em></li><li><strong>Duyệt #44</strong> theo hướng đo trong WebView <em>(~45 ph)</em></li></ol></div>
-      <div class="blk now"><b>NGAY BÂY GIỜ</b><ol><li><strong>Lối ra M3 &quot;contract tests run&quot;</strong>: đưa <code>test_contract1/2</code> và <code>test_api_contract</code> vào <code>guardrails.yml</code> — PR cho leader duyệt <em>(~1,5 h)</em></li><li><strong>Mock/fixture sinh từ schema API đã chấp nhận</strong> cho V1/V4 (<code>11</code> §11.4) — sau khi #45 merge <em>(~1,5 h)</em></li></ol></div>
-      <div class="blk then"><b>SAU ĐÓ</b><ol><li><strong>Đề xuất <code>E10</code></strong> theo 5 điều kiện của <code>DR-015</code> (dùng <code>E8</code> ban ngày 14:00 nếu leader đo được) <em>(~1,5 h)</em></li><li><strong>Gói <code>TC-TEAM-001</code> V4</strong> cho SCR-06/SCR-08 <em>(~1 h)</em></li></ol></div>
-      <div class="blk later"><b>NẾU CÒN THỜI GIAN</b><ul><li>Bản thảo <code>ADR-ART-001</code> sau <code>E10</code></li><li>Ma trận trạng thái màn hình SCR-06/SCR-08</li></ul></div>
-      <p style="margin:0;font-size:13px"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_NGUYEN_GIA_DUC_TRUNG.md">→ mở gói nhiệm vụ đầy đủ</a></p>
-    </div><div class="card">
-      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_VU_HUNG_ANH.md">Vũ Hùng Anh</a></span><span class="tag">B</span><span class="tag">F</span></div>
-      <div class="role">Geometry / 3D · review spike: <code>D, A, C0, C1, E</code> · GitHub <code>scalliontor</code></div>
-      <div class="role"><b>Khối lượng:</b> chính <strong>≥ 8 h</strong> (~8,5 h) · dự phòng ~2,5 h · hạn <strong>23:59</strong> · review #37/#42/#33 <strong>chuyển sang leader</strong> <span class="hrs">ước tính <b>8,5 h</b> chính + 2,5 h thêm</span></div><div class="pills"><a class="pill hot" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/33">#33 chờ bạn review</a> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/44">#44 của bạn</a></div><div class="note go" style="margin:0 0 9px">Hôm qua bạn duyệt #34 đúng hạn và tìm ra một lỗi chặn mà chính lượt QA bỏ sót, rồi xong picking <code>B3</code>/<code>B4</code> và <code>geometry_contract_version</code>. Chỗ critical path dừng là lượt duyệt lại sau 12:00. Hôm nay nó là việc số một, hẹn 11:00, và leader nhận bớt ba lượt review của bạn để bạn làm được.</div><div class="prog"><span class="nm">B</span><span class="bar two"><i class="sm" style="width:0%"></i><i class="sp" style="width:40%"></i></span><span class="n">0/15 +6</span></div><div class="prog"><span class="nm">F</span><span class="bar "><i class="zero" style="width:0%"></i></span><span class="n">0/12</span></div>
-      <div class="blk debt"><b>🔴 LÀM TRƯỚC — NỢ TỒN</b><ol><li><strong>Duyệt lại #34 ở <code>f118491</code>, trước 11:00</strong> — <code>package_findings</code>, <code>A17</code> đủ ba đường dẫn, manifest không còn hash từng file, chạy lại <code>validate.py --selftest</code> <em>(~1,5 h)</em></li><li><strong>Sửa #43</strong>: bọc <code>os.path.relpath</code> (sập khi khác ổ đĩa) · thêm <code>slice_of_ray</code> và <strong>tính lại</strong> <code>picking_rays</code> · xác nhận chuỗi <code>dr008a-dr012/v1.0.0</code> với Trung <em>(~2 h)</em></li><li><strong>Duyệt lại #26</strong> — Trung đã sửa nhãn <code>NFR-PERF-001</code> lúc 22:19 <em>(~30 ph)</em></li></ol></div>
-      <div class="blk now"><b>NGAY BÂY GIỜ</b><ol><li><strong>Đóng gói viewer Spike B để chạy trong WebView của app RN</strong>: URL vào cố định, probe gửi kết quả qua <code>postMessage</code>, viết lại <code>MEASUREMENT_B10_B11.md</code> cho lượt chạy trong app — <strong>hẹn 18:00</strong> để leader đo tối <em>(~2,5 h)</em></li></ol></div>
-      <div class="blk then"><b>SAU ĐÓ</b><ol><li><strong>Diễn giải <code>B10</code>/<code>B11</code></strong> sau phiên đo của leader → <code>RESULT.md</code> Spike B; số là của bạn <em>(~1 h)</em></li><li><strong>Gói <code>TC-TEAM-001</code> V2</strong> cho SCR-05 (UC-06…09) <em>(~1 h)</em></li></ol></div>
-      <div class="blk later"><b>NẾU CÒN THỜI GIAN</b><ul><li>Duyệt <strong>#41</strong> (Spike A <code>S6</code>) + duyệt lại <strong>#31</strong> — đường <code>GATE-MOB-01</code> <em>(~1,5 h)</em></li><li>Fixture <strong>TP/FP/FN error-mask</strong> ở <code>tests/fixtures/error_masks/</code> (<code>13</code> §11) <em>(~1 h)</em></li></ul></div>
-      <p style="margin:0;font-size:13px"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_VU_HUNG_ANH.md">→ mở gói nhiệm vụ đầy đủ</a></p>
-    </div><div class="card">
-      <div class="who"><span class="nm"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_PHAM_TUAN_ANH.md">Phạm Tuấn Anh</a></span><span class="tag lead">LEADER</span><span class="tag">A</span></div>
-      <div class="role">Team Leader · Project Control · Integration/CI · review spike: <code>F</code> · GitHub <code>Drake-Phamta</code></div>
-      <div class="role"><b>Khối lượng:</b> <strong>không giới hạn giờ</strong> — duyệt, merge, QA chốt, đóng cổng, hai phiên đo trên máy, V1 (+SCR-04), chốt ngày </div><div class="pills"> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/47">#47 của bạn</a> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/46">#46 của bạn</a> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/41">#41 của bạn</a> <a class="pill" href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/31">#31 của bạn</a></div><div class="note go" style="margin:0 0 9px">Ba quyết định anh đưa ra trước khi lập kế hoạch nằm cả trên đường tới ba mốc hôm nay: #34 đóng băng để lượt duyệt lại không bị đổi mục tiêu, hướng đo WebView để <code>GATE-MOB-01</code> có một ứng viên đủ bằng chứng, và SCR-04 có chủ trước khi M5 bắt đầu.</div><div class="prog"><span class="nm">A</span><span class="bar two"><i class="sm" style="width:33%"></i><i class="sp" style="width:41%"></i></span><span class="n">4/12 +5</span></div>
-      <div class="blk debt"><b>🔴 LÀM TRƯỚC — NỢ TỒN</b><ol><li><strong>Duyệt lại #45 và #39</strong> (bản sửa 22:14–22:15 của Trung) — trước 10:00</li><li><strong>Review #37, #42, #33</strong> — nhận từ Hùng Anh để gỡ nút thắt</li><li><strong>Merge #34</strong> khi Hùng Anh approve → <strong>QA-003 chốt</strong> trên head đã merge → Spike D <code>ACCEPTED</code> (đủ 4 bước) → <strong>đóng <code>GATE-DATA-01</code></strong></li><li><strong>Merge #43, #45, #39</strong> → <strong>M3 đóng</strong> · merge #26 khi Hùng Anh approve · merge #35 → <strong>đóng <code>GATE-SPLIT-01</code></strong></li></ol></div>
-      <div class="blk now"><b>NGAY BÂY GIỜ</b><ol><li><strong>14:00 ±15 — đo <code>E8</code> ban ngày</strong> cho Trung (tuỳ chọn; SSH Mac mini + điện thoại)</li><li><strong>Project Control dựng container WebView</strong> trong app Spike A, build release <strong>trước 16:00</strong> — anh duyệt</li></ol></div>
-      <div class="blk then"><b>SAU ĐÓ</b><ol><li><strong>~20:00 — phiên đo <code>B10</code>/<code>B11</code> trong WebView</strong>; JSON thô chuyển Hùng Anh diễn giải</li><li><strong>V1: gói <code>TC-TEAM-001</code></strong> cho SCR-03 và <strong>SCR-04 mới nhận</strong> + ma trận trạng thái · <strong>chốt Day 9</strong></li></ol></div>
-      <div class="blk later"><b>NẾU CÒN THỜI GIAN</b><ul><li>Duyệt lại #31 · chặn <strong>chính cache ảnh</strong> cho Spike A (<code>S6</code> chứng minh cửa sổ component không đủ)</li></ul></div>
-      <p style="margin:0;font-size:13px"><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/tasks/DAY08_PHAM_TUAN_ANH.md">→ mở gói nhiệm vụ đầy đủ</a></p>
-    </div></div>
-</section>
-<section id="cho">
-  <h2><span class="num">C</span> Ai đang chờ ai</h2>
-  <p class="lede">Việc bên trái <strong>không bắt đầu được</strong> cho tới khi người bên phải xong
-     phần của mình. Làm việc đang giữ người khác <strong>trước</strong> việc của riêng mình.</p>
-  <div class="chips"><span class="chip hot"><strong>Vũ Hùng Anh</strong> giữ <b>5</b> việc của người khác</span><span class="chip hot"><strong>Phạm Tuấn Anh</strong> giữ <b>4</b> việc của người khác</span><span class="chip "><strong>Nguyễn Gia Đức Trung</strong> giữ <b>1</b> việc của người khác</span></div>
-  <div class="tblwrap"><table>
-    <tr><th>Người chờ</th><th>Việc bị chặn</th><th></th><th>Chờ</th><th>Phải xong trước</th></tr>
-    <tr><td><strong>Phạm Tuấn Anh</strong></td><td>Merge <strong>#34</strong> → <strong>QA-003 chốt</strong> → đóng <code>GATE-DATA-01</code></td><td class="arrow">⟵</td><td><strong>Vũ Hùng Anh</strong></td><td>duyệt lại #34 ở <code>f118491</code> — hẹn <strong>trước 11:00</strong></td></tr><tr><td><strong>Bế Quốc Khánh</strong></td><td>Sinh lại split + PR follow-up #34</td><td class="arrow">⟵</td><td><strong>Phạm Tuấn Anh</strong></td><td>merge #34</td></tr><tr><td><strong>Phạm Tuấn Anh</strong></td><td>Merge <strong>#35</strong> → đóng <code>GATE-SPLIT-01</code></td><td class="arrow">⟵</td><td><strong>Nguyễn Gia Đức Trung</strong></td><td>duyệt lại #35 sau khi Khánh sinh lại</td></tr><tr><td><strong>Nguyễn Gia Đức Trung</strong></td><td>Chốt #45 với chuỗi phiên bản geometry</td><td class="arrow">⟵</td><td><strong>Vũ Hùng Anh</strong></td><td>xác nhận <code>dr008a-dr012/v1.0.0</code> trên #45</td></tr><tr><td><strong>Nguyễn Gia Đức Trung</strong></td><td>Sửa tiếp #45 và #39</td><td class="arrow">⟵</td><td><strong>Phạm Tuấn Anh</strong></td><td>duyệt lại bản sửa 22:14–22:15 — buổi sáng</td></tr><tr><td><strong>Phạm Tuấn Anh</strong></td><td>Merge <strong>#43</strong> → M3</td><td class="arrow">⟵</td><td><strong>Vũ Hùng Anh</strong></td><td>sửa <code>relpath</code> + tính lại <code>picking_rays</code></td></tr><tr><td><strong>Phạm Tuấn Anh</strong></td><td>Phiên đo <code>B10</code>/<code>B11</code> ~20:00</td><td class="arrow">⟵</td><td><strong>Vũ Hùng Anh</strong></td><td>viewer + protocol trong WebView — hẹn 18:00</td></tr><tr><td><strong>Vũ Hùng Anh</strong></td><td>Diễn giải <code>B10</code>/<code>B11</code></td><td class="arrow">⟵</td><td><strong>Phạm Tuấn Anh</strong></td><td>bấm đo trên máy (~20:00)</td></tr><tr><td><strong>Bế Quốc Khánh</strong></td><td>Merge #37 (tiên quyết preflight C1)</td><td class="arrow">⟵</td><td><strong>Phạm Tuấn Anh</strong></td><td>review #37 — buổi sáng</td></tr><tr><td><strong>Phạm Tuấn Anh</strong></td><td>Merge <strong>#26</strong> → Spike E có <code>RESULT.md</code> trên <code>main</code></td><td class="arrow">⟵</td><td><strong>Vũ Hùng Anh</strong></td><td>duyệt lại #26</td></tr>
-  </table></div>
-</section>
-<section id="pr">
-  <h2><span class="num">D</span> PR và hàng đợi review</h2>
-  <p class="lede">Sắp theo <strong>thứ tự merge</strong> Project Control sẽ đi. <code>15</code> §11 —
-     <em>im lặng KHÔNG phải là chấp thuận.</em> Kết quả review là một trong ba: <code>APPROVE</code>,
-     <code>NEEDS_FIX</code>, <code>BLOCKED/DECISION_REQUIRED</code>. Tác giả không tự review PR của mình.</p>
-  <div class="tblwrap"><table><tr><th>Thứ tự merge</th><th>PR</th><th>Nội dung</th><th>Tác giả</th><th>Đang chờ review từ</th><th>Review mới nhất</th><th>CI</th><th>Tuổi</th></tr><tr class=""><td><span class="ord">5</span></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/35"><strong>#35</strong></a></td><td>fix(split): Path A DR-002a duplicate grouping and linkage evidence<br><span class="dim" style="font-size:12px"><code>codex/path-a-split</code> · +2407 / −0</span></td><td><span class="login">qkhanhbe</span></td><td><span class=login>—</span></td><td><span class="st ok">TrungNGD195: APPROVE</span></td><td><span class="st ok">4/4</span></td><td><span class="st no">74 giờ</span></td></tr><tr class=""><td><span class="ord">6</span></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/26"><strong>#26</strong></a></td><td>feat(spike-e): complete Day5 profiles, aggregation, and draft<br><span class="dim" style="font-size:12px"><code>chore/day5-trung</code> · +1032 / −255</span></td><td><span class="login">TrungNGD195</span></td><td><span class=dim>— chờ tác giả sửa</span></td><td><span class="st no">scalliontor: YÊU CẦU SỬA</span></td><td><span class="st ok">5/5</span></td><td><span class="st no">113 giờ</span></td></tr><tr class=""><td><span class="ord">9</span></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/41"><strong>#41</strong></a></td><td>SPIKE_A S6: A9 at the real cohort size 576x576x88, and two corrections to this spike<br><span class="dim" style="font-size:12px"><code>spike-a/s6-bounded-cache</code> · +1803 / −17</span></td><td><span class="login">Drake-Phamta</span></td><td><span class=dim>— chờ tác giả sửa</span></td><td><span class="st no">scalliontor: YÊU CẦU SỬA</span></td><td><span class="st ok">5/5</span></td><td><span class="st no">39 giờ</span></td></tr><tr class=""><td><span class="ord">10</span></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/31"><strong>#31</strong></a></td><td>SPIKE_A S5: brush on a working mask - A3-A7 OBSERVED on the device (measured, not AC<br><span class="dim" style="font-size:12px"><code>spike-a/s5-brush</code> · +3709 / −96</span></td><td><span class="login">Drake-Phamta</span></td><td><span class=login>—</span></td><td><span class="st ok">scalliontor: APPROVE</span></td><td><span class="st ok">4/4</span></td><td><span class="st no">86 giờ</span></td></tr><tr class=""><td><span class="ord">11</span></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/33"><strong>#33</strong></a></td><td>feat(day6): add controlled E9 reconnect/retry drill<br><span class="dim" style="font-size:12px"><code>chore/day6-e9-trung</code> · +223 / −4</span></td><td><span class="login">TrungNGD195</span></td><td><span class=login>scalliontor</span></td><td><span class="st no">Drake-Phamta: YÊU CẦU SỬA</span></td><td><span class="st ok">5/5</span></td><td><span class="st no">76 giờ</span></td></tr><tr class=""><td><span class="ord">12</span></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/44"><strong>#44</strong></a></td><td>feat(spike-b): prepare WebView B10/B11 evidence<br><span class="dim" style="font-size:12px"><code>hung-anh/day08-perf-probe</code> · +764 / −16</span></td><td><span class="login">scalliontor</span></td><td><span class=login>TrungNGD195</span></td><td><span class="st no">CHƯA AI</span></td><td><span class="st ok">4/4</span></td><td><span class="st no">38 giờ</span></td></tr><tr class=""><td></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/46"><strong>#46</strong></a></td><td>SPIKE_A S7: WebView container so Spike B is measured inside the RN candidate<br><span class="dim" style="font-size:12px"><code>spike-a/s7-webview-container</code> · +250 / −3</span></td><td><span class="login">Drake-Phamta</span></td><td><span class=login>—</span></td><td><span class="st no">CHƯA AI</span></td><td><span class="st ok">5/5</span></td><td><span class="st no">25 giờ</span></td></tr><tr class=""><td></td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/47"><strong>#47</strong></a></td><td>M3 exit: run the ingestion and API contract tests in CI<br><span class="dim" style="font-size:12px"><code>ci/day9-contract-tests</code> · +27 / −0</span></td><td><span class="login">Drake-Phamta</span></td><td><span class=login>—</span></td><td><span class="st no">CHƯA AI</span></td><td><span class="st ok">6/6</span></td><td><span class="st idle">0 giờ</span></td></tr></table></div>
-</section>
-<section id="path">
-  <h2><span class="num">E</span> Critical path, gates và mốc</h2>
-  <p class="lede">Critical path quyết định Day 30. Mọi thứ khác có buffer riêng; cái này thì
-     <strong>buffer = -2</strong>.</p>
-  <div class="pipe"><div class="step now"><span class="s1">SPIKE_D</span><span class="s2">#34 đóng băng ở f118491 — duyệt lại trước 11:00</span></div><span class="parr">→</span><div class="step now"><span class="s1">GATE-DATA-01</span><span class="s2">merge → QA-003 chốt → ACCEPTED — ngày thứ 9</span></div><span class="parr">→</span><div class="step "><span class="s1">GATE-SPLIT-01</span><span class="s2">#35 approved · nhóm bắc cầu · sinh lại sau #34</span></div><span class="parr">→</span><div class="step "><span class="s1">SPIKE_C1</span><span class="s2">BLOCKED · preflight đang dựng</span></div><span class="parr">→</span><div class="step "><span class="s1">training</span><span class="s2">6 run + 1 ablation</span></div><span class="parr">→</span><div class="step "><span class="s1">metrics</span><span class="s2">RQ-A · RQ-B</span></div><span class="parr">→</span><div class="step "><span class="s1">Day 30</span><span class="s2">09/10/2026</span></div></div>
-
-  <h3>Điều kiện readiness — 5/8 đã đóng</h3>
-  <div class="conds"><span class="st no" title="chờ SPIKE_D">C1 · mở — chờ Spike D</span> <span class="st ok" title="DR-004">C2 · đóng</span> <span class="st ok" title="DR-003">C3 · đóng</span> <span class="st no" title="chờ SPIKE_F">C4 · mở — chờ Spike F</span> <span class="st ok" title="DR-008a">C5 · đóng</span> <span class="st wait" title="chờ SPIKE_D">C6 · một phần — chờ Spike D</span> <span class="st ok" title="DR-013">C7 · đóng</span> <span class="st ok" title="chờ ">C8 · đóng</span> </div>
-  <p class="dim" style="font-size:12.5px;margin:6px 0 0">Mốc <code>M0</code> chỉ xong khi readiness
-     qua: còn <strong>3</strong> điều kiện chưa đóng, chờ
-     Spike D, Spike F.</p>
-
-  <h3>Gates — 2/6 đã đóng</h3>
-  <div class="tblwrap"><table><tr><th>Gate</th><th>Trạng thái</th><th>Đóng khi</th></tr><tr><td><code>GATE-DATA-01</code></td><td><span class="st ok">CLOSED</span></td><td>Spike D evidence: DATASET_AUDIT.md + manifest</td></tr><tr><td><code>GATE-SPLIT-01</code></td><td><span class="st no">OPEN</span></td><td>patient-level split, seed 2024, provenance resolved</td></tr><tr><td><code>GATE-ML-01</code></td><td><span class="st no">OPEN</span></td><td>SPIKE_C1 evidence — C0 is not sufficient · cần: SPIKE_C1</td></tr><tr><td><code>GATE-IMG-01</code></td><td><span class="st no">OPEN</span></td><td>morphology config on development/validation evidence only</td></tr><tr><td><code>GATE-MOB-01</code></td><td><span class="st no">OPEN</span></td><td>Spike A AND Spike B evidence, via TECH_STACK_ADR.md · cần: SPIKE_A, SPIKE_B</td></tr><tr><td><code>GATE-DEPLOY-01</code></td><td><span class="st ok">CLOSED</span></td><td>DR-003 — LOCAL_DEMO / PRIVATE OVERLAY / CELLULAR ACCESS</td></tr></table></div>
-
-  <h3>Mốc M0–M9</h3>
-  <div class="tblwrap"><table><tr><th>Mốc</th><th>Cửa sổ</th><th>State file</th><th>So với Day 9</th>
-    <th>Điều kiện ra</th></tr><tr><td><strong>M0</strong></td><td>Day 0<br><span class="dim">09/09–09/09</span></td><td><code>IN_PROGRESS</code></td><td><span class="st no">QUÁ CỬA SỔ</span></td><td>DAY0_SIGNOFF 4/4 signed + readiness gate passed + cutover recorded</td></tr><tr><td><strong>M1</strong></td><td>1-4<br><span class="dim">10/09–13/09</span></td><td><code>NOT_STARTED</code></td><td><span class="st no">QUÁ CỬA SỔ</span></td><td>four spikes EVIDENCE_READY; DR-001 trigger evaluated on Day 1</td></tr><tr><td><strong>M2</strong></td><td>4-6<br><span class="dim">13/09–15/09</span></td><td><code>NOT_STARTED</code></td><td><span class="st no">QUÁ CỬA SỔ</span></td><td>GATE-MOB-01 closed on A+B; DR-002/005/008c decided or deferred with reason</td></tr><tr><td><strong>M3</strong></td><td>6-9<br><span class="dim">15/09–18/09</span></td><td><code>IN_PROGRESS</code></td><td><span class="st wait">ĐANG TRONG CỬA SỔ</span></td><td>API + both ingestion contracts + geometry contract versioned, contract tests run</td></tr><tr><td><strong>M4</strong></td><td>8-12<br><span class="dim">17/09–21/09</span></td><td><code>IN_PROGRESS</code></td><td><span class="st wait">ĐANG TRONG CỬA SỔ</span></td><td>SPIKE_C1 accepted; GATE-ML-01 and GATE-SPLIT-01 closed</td></tr><tr><td><strong>M5</strong></td><td>9-20<br><span class="dim">18/09–29/09</span></td><td><code>IN_PROGRESS</code></td><td><span class="st wait">ĐANG TRONG CỬA SỔ</span></td><td>V1-V4 each pass their acceptance tests</td></tr><tr><td><strong>M6</strong></td><td>12-22<br><span class="dim">21/09–01/10</span></td><td><code>NOT_STARTED</code></td><td><span class="st idle">SẮP TỚI</span></td><td>experiment matrix complete; RQ-A and RQ-B answerable; GATE-IMG-01 closed</td></tr><tr><td><strong>M7</strong></td><td>20-25<br><span class="dim">29/09–04/10</span></td><td><code>NOT_STARTED</code></td><td><span class="st idle">SẮP TỚI</span></td><td>TC-E2E-001 green; canonical smoke stable</td></tr><tr><td><strong>M8</strong></td><td>25-28<br><span class="dim">04/10–07/10</span></td><td><code>NOT_STARTED</code></td><td><span class="st idle">SẮP TỚI</span></td><td>zero open P0/P1; all MUST acceptance tests green</td></tr><tr><td><strong>M9</strong></td><td>28-30<br><span class="dim">07/10–09/10</span></td><td><code>NOT_STARTED</code></td><td><span class="st idle">SẮP TỚI</span></td><td>demo + report + defense mapping; &gt;=2 buffer days unspent</td></tr></table></div>
-  <p class="dim" style="font-size:12.5px;margin-top:8px">Cột "State file" đọc nguyên văn từ
-     <code>PROJECT_STATE.yaml</code>; cột so sánh do bảng tính từ cửa sổ ngày. Một mốc quá cửa sổ mà
-     chưa đạt là trễ thật, không phải lỗi hiển thị.</p>
-</section>
-<section id="spike">
-  <h2><span class="num">F</span> Bảy spike — mỗi cái đang ở bước nào</h2>
-  <p class="lede">Một spike chỉ tính là xong khi đi hết <strong>bốn bước nghiệm thu</strong>: chủ sở hữu nộp
-     bằng chứng → reviewer <code>APPROVE</code> → QA <code>PASS</code> → Project Control
-     <code>ACCEPTED</code>. Thanh: <span class="key sm"></span> đã đo trên <code>main</code> ·
-     <span class="key sp"></span> số đo nằm trong PR chưa review.</p>
-  <div class="spks"><div class="spk ">
-    <div class="spk-hd"><span class="sid">D</span>
-      <span class="snm">Dataset acquisition / validation / provenance</span>
-      <span class="tag p0">P0</span>
-      <span class="st ok">ACCEPTED</span></div>
-    <div class="spk-meta">Chủ: <strong>Bế Quốc Khánh</strong> ·
-      Review: <strong>Vũ Hùng Anh</strong>
-      · Bằng chứng: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/25">PR #25</a></div>
-    <div class="track"><span class="stg done">Chuẩn bị</span><span class="stg done">Đang làm</span><span class="stg done">Nộp bằng chứng</span><span class="stg done">Reviewer APPROVE</span><span class="stg done">QA PASS</span><span class="stg done">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:95%"></i><i class="sp" style="width:0%"></i></span><span class="n"><b>19</b>/20 đã đo <span class="lbl">A1–A20</span></span></div>
-    <p class="spk-note"><strong>#34 đã sẵn sàng từ 00:10 và nội dung đã đủ — chỉ thiếu một lượt review.</strong> 7/7 phát hiện có câu trả lời riêng kèm file:dòng và lệnh kiểm lại · <code>A19</code> ghi <code>DEFERRED / NOT PASSED</code> theo <code>Q2</code> · <code>F5</code> đã thực hiện (manifest công khai rút 473 dòng, bảng checksum sang manifest hạn chế ngoài repo). Phát hiện mới từ #40: gói chính thức có <code>Unet.py</code> và <code>preprocess_data.py</code> ở thư mục gốc → <code>A17</code> để <code>FAIL</code> chờ chủ spike tuyên bố loại trừ. <em>(Bản cũ: PR nháp #34</em> (00:19 16/09, CI 4/4) — kiểm hash chéo giữa các case tìm ra cặp trùng và ghi vào manifest + audit theo <code>DR-002a</code>; 462/462 header ghi rõ là hình học mặc định, mm/mL tắt; bỏ đường dẫn tuyệt đối; trích CAP §§6–7; cohort chính thức 16 PASS / 0 FAIL / <code>A19</code> NOT_RUN. Còn: <strong>Khánh chuyển ready trước 12:00</strong> · leader quyết <code>Q2</code> và <code>F5</code> · Hùng Anh duyệt lại · QA soi lại.</p>
-    <div class="spk-unb">Mở khoá: <code>GATE-DATA-01</code> <code>GATE-SPLIT-01</code> <code>SPIKE_C1</code> <code>C1</code> <code>C6</code> </div>
-  </div><div class="spk ">
-    <div class="spk-hd"><span class="sid">A</span>
-      <span class="snm">2D scientific viewer / brush interaction</span>
-      <span class="tag ">P1</span>
-      <span class="st wait">ACTIVE</span></div>
-    <div class="spk-meta">Chủ: <strong>Phạm Tuấn Anh</strong> ·
-      Review: <strong>Vũ Hùng Anh</strong>
-      · Bằng chứng: — · slot máy #1</div>
-    <div class="track"><span class="stg done">Chuẩn bị</span><span class="stg done">Đang làm</span><span class="stg done">Nộp bằng chứng</span><span class="stg done">Reviewer APPROVE</span><span class="stg now">QA PASS</span><span class="stg ">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:33%"></i><i class="sp" style="width:41%"></i></span><span class="n"><b>4</b>/12 đã đo · <b>+5</b> trong PR #31 (A3–A7) <span class="lbl">A1–A12</span></span></div>
-    <p class="spk-note">✅ <strong><code>A2</code> đã lên <code>main</code></strong> — Hùng Anh approve #27 lúc 17:14 sau khi <strong>tự chạy lại <code>extract_a2.py</code></strong> và tái lập <code>OBSERVED</code> (16/16 checksum, 3 pinch + 1 kéo, khựng lớn nhất 44,9 ms); merge <code>6ca1e21</code>, <strong>giữ nhánh</strong> nên #31 sống. <strong>S5: <code>A3</code>–<code>A7</code> <code>OBSERVED</code> trên máy 15/09</strong> (A5 60/60 ở r = 0 và r = 2) — <strong>#31 đã đổi base sang <code>main</code> và chuyển ready 21:48</strong>, chờ Hùng Anh. <code>A9</code> p95 65,31 ms · <code>A1</code> <code>A12</code> một phần. <strong>Đo rồi ≠ nghiệm thu</strong>: Spike A chưa qua bước QA nào.</p>
-    <div class="spk-unb">Mở khoá: <code>GATE-MOB-01</code> </div>
-  </div><div class="spk ">
-    <div class="spk-hd"><span class="sid">B</span>
-      <span class="snm">3D linked interaction</span>
-      <span class="tag ">P1</span>
-      <span class="st wait">ACTIVE</span></div>
-    <div class="spk-meta">Chủ: <strong>Vũ Hùng Anh</strong> ·
-      Review: <strong>Nguyễn Gia Đức Trung</strong>
-      · Bằng chứng: — · slot máy #3</div>
-    <div class="track"><span class="stg done">Chuẩn bị</span><span class="stg now">Đang làm</span><span class="stg ">Nộp bằng chứng</span><span class="stg ">Reviewer APPROVE</span><span class="stg ">QA PASS</span><span class="stg ">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:0%"></i><i class="sp" style="width:40%"></i></span><span class="n"><b>0</b>/15 đã đo · <b>+6</b> trong PR #43 (B1 B2 B3 B4 B8 B14, desktop DIAGNOSTIC) <span class="lbl">B1–B15</span></span></div>
-    <p class="spk-note">✅ <strong>Đã sửa cả hai trong ngày</strong>: #29 bỏ đoạn lặp (15:48) · <strong>#30 thêm pan</strong> desktop + touch, ảnh chụp mới, hết nháp (17:10–17:13) → <code>B1</code> giờ đủ theo TASK, và đính chính số đếm cùng ngày cho thấy pan là <strong><code>PR-3D-02</code>, một <code>MUST</code></strong>. Cả hai chờ <strong>Trung duyệt lại</strong>. Việc tiếp: picking <code>B3</code>/<code>B4</code> trên fixture. Đo trên máy: leader bấm, Hùng Anh thiết kế + tính số (<code>DR-006a</code> rev 3).</p>
-    <div class="spk-unb">Mở khoá: <code>GATE-MOB-01</code> <code>DR-008c</code> </div>
-  </div><div class="spk ">
-    <div class="spk-hd"><span class="sid">E</span>
-      <span class="snm">Artifact transport over the canonical demo network</span>
-      <span class="tag ">P2</span>
-      <span class="st wait">ACTIVE</span></div>
-    <div class="spk-meta">Chủ: <strong>Nguyễn Gia Đức Trung</strong> ·
-      Review: <strong>Vũ Hùng Anh</strong>
-      · Bằng chứng: — · slot máy #2</div>
-    <div class="track"><span class="stg done">Chuẩn bị</span><span class="stg now">Đang làm</span><span class="stg ">Nộp bằng chứng</span><span class="stg ">Reviewer APPROVE</span><span class="stg ">QA PASS</span><span class="stg ">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:0%"></i><i class="sp" style="width:53%"></i></span><span class="n"><b>0</b>/13 đã đo · <b>+7</b> trong PR #26 (E1–E6 · E12) <span class="lbl">E1–E13</span></span></div>
-    <p class="spk-note">✅ <strong>ĐÃ ĐO TỐI 16/09 — hai profile, <code>DIRECT</code></strong>: <code>576</code> 21:50–22:14 · <code>640</code> 22:14–22:26, mỗi profile 3 lượt; <strong>171/171 mẫu <code>ok</code></strong>, mọi status 200, 0 body bị cắt, 0 local-connect rejection, volume nhận đủ 29 196 288 / 36 044 800 byte. Dữ liệu thô + log server + <code>PROVENANCE.md</code> ở nhánh <code>spike-e/evidence-20260916</code> (<code>c3c2ab5</code>). <strong>Số <code>E</code> do Trung tính</strong> — chưa ai tính. Khung giờ lệch (kế hoạch 21:00 ± 15, thực tế 21:50) đã ghi đúng; <code>E8</code> vẫn thiếu một khung ban ngày. ✅ <strong>Stub 2 profile chạy từ 16/09 11:06</strong> — PID 73790 trên <code>10.64.193.115:8787</code> (PC dựng bằng SSH của leader, phương án A; worktree <code>a585907</code>, payload ngoài repo): <code>/health</code> liệt kê cả hai profile, <code>HEAD</code> trả <strong>29 196 288</strong> và <strong>36 044 800</strong> đúng <code>X-Payload-Profile</code>. Còn: <strong>Trung xác nhận trước 20:30</strong> · <strong>Hùng Anh duyệt lại #24 và #26</strong> (#26 trước 14:00) · <strong>leader đo khung 21:00</strong> → Trung tổng hợp riêng từng profile. <code>E9</code> drill: #33 · hợp đồng ingestion 1: #32.</p>
-    <div class="spk-unb">Mở khoá: <code>ADR-ART-001</code> <code>first-load performance budget (RA-H13)</code> <code>canonical-demo connectivity fallback</code> </div>
-  </div><div class="spk ">
-    <div class="spk-hd"><span class="sid">C0</span>
-      <span class="snm">Preliminary ML compute feasibility (synthetic / shape-matched data)</span>
-      <span class="tag ">P1</span>
-      <span class="st idle">EVIDENCE_READY</span></div>
-    <div class="spk-meta">Chủ: <strong>Bế Quốc Khánh</strong> ·
-      Review: <strong>Vũ Hùng Anh</strong>
-      · Bằng chứng: —</div>
-    <div class="track"><span class="stg done">Chuẩn bị</span><span class="stg done">Đang làm</span><span class="stg done">Nộp bằng chứng</span><span class="stg done">Reviewer APPROVE</span><span class="stg now">QA PASS</span><span class="stg ">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:100%"></i><i class="sp" style="width:0%"></i></span><span class="n"><b>10</b>/10 đã đo <span class="lbl">C0-1–C0-10</span></span></div>
-    <p class="spk-note">✅ <strong><code>EVIDENCE_READY</code> — #36 approve 17:17, merge <code>e6e3b0b</code></strong>: 20/20 phép đo fp32 + bf16 trên RTX 4050, <code>RESULT.md</code> và biểu đồ <strong>sinh lại byte-identical</strong> bởi người review, kèm ngoại suy lịch <strong>4 h/ngày → 7/10 biến thể vừa</strong>, <strong>5 h/ngày → 8/10</strong>, <code>DINOv2-B/14 full</code> không vừa cả hai. Người review ghi rõ <strong>không chạy được selftest GPU</strong> trên máy mình. <strong>Vẫn là sơ bộ: C0 không đóng <code>GATE-ML-01</code></strong> (<code>DR-007</code>) và chưa qua bước QA. Khung pipeline: #37 (còn nháp).</p>
-    
-  </div><div class="spk blocked">
-    <div class="spk-hd"><span class="sid">C1</span>
-      <span class="snm">Final real-data ML feasibility (small representative validated real subset)</span>
-      <span class="tag ">P1</span>
-      <span class="st no">BLOCKED</span></div>
-    <div class="spk-meta">Chủ: <strong>Bế Quốc Khánh</strong> ·
-      Review: <strong>Vũ Hùng Anh</strong>
-      · Bằng chứng: —</div>
-    <div class="track"><span class="stg blk">Chuẩn bị</span><span class="stg ">Đang làm</span><span class="stg ">Nộp bằng chứng</span><span class="stg ">Reviewer APPROVE</span><span class="stg ">QA PASS</span><span class="stg ">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:0%"></i><i class="sp" style="width:0%"></i></span><span class="n"><b>0</b>/10 đã đo <span class="lbl">C1-1–C1-10</span></span></div>
-    <p class="spk-note"><code>BLOCKED</code> tới khi Spike D <strong>ACCEPTED</strong> và <code>GATE-SPLIT-01</code> đóng. <strong>Luật nối bệnh nhân đã có</strong> từ 16/09 (<code>DR-002b</code>, phương án (c) + (d)); gate đóng khi Khánh sinh lại split theo luật đó và Trung duyệt. Không chạm dữ liệu thật trước đó, holdout không đụng tới.</p>
-    <div class="spk-unb">Mở khoá: <code>GATE-ML-01</code> </div>
-  </div><div class="spk ">
-    <div class="spk-hd"><span class="sid">F</span>
-      <span class="snm">3D error representation</span>
-      <span class="tag ">P1</span>
-      <span class="st idle">PREPARED</span></div>
-    <div class="spk-meta">Chủ: <strong>Vũ Hùng Anh</strong> ·
-      Review: <strong>Phạm Tuấn Anh</strong>
-      · Bằng chứng: —</div>
-    <div class="track"><span class="stg now">Chuẩn bị</span><span class="stg ">Đang làm</span><span class="stg ">Nộp bằng chứng</span><span class="stg ">Reviewer APPROVE</span><span class="stg ">QA PASS</span><span class="stg ">ACCEPTED</span></div>
-    <div class="spk-bar"><span class="bar two"><i class="sm" style="width:0%"></i><i class="sp" style="width:0%"></i></span><span class="n"><b>0</b>/12 đã đo <span class="lbl">F1–F12</span></span></div>
-    <p class="spk-note">Chỉ được làm fixture tổng hợp TP/FP/FN khi Spike B còn <code>ACTIVE</code>.</p>
-    <div class="spk-unb">Mở khoá: <code>DR-005</code> <code>C4</code> <code>PR-ERR-03</code> <code>PR-3D-05</code> </div>
-  </div></div>
-</section>
-<section id="quyet">
-  <h2><span class="num">G</span> Quyết định</h2>
-  <p class="lede">Bên trái là việc còn chờ quyết; bên dưới là luật đang có hiệu lực — mọi người làm
-     việc theo đúng những dòng này.</p>
-  <div class="decs"><div class="dec pend"><div class="dec-hd"><code>E10 first-load budget figure</code><span class="st wait">CHỜ Nguyen Gia Duc Trung</span></div><div class="dec-sub">DR-015 decided that a first-load budget becomes binding, but SPIKE_E/TASK.md 161 and 196 make E10 the spike owner&#x27;s deliverable, so the figure is his to propose and the leader&#x27;s to accept. His provisional 1000 ms p95 is already in tension with his own data - 445 ms p95 in run-4 against 3103 ms in the 2026-09-16 evening capture on the 576 profile - so it needs the time-of-day spread E8 still lacks. Five stated conditions in OPEN_DECISIONS DR-015 limb 1. Reserve queue today, Day-9 primary candidate</div><p></p></div><div class="dec pend"><div class="dec-hd"><code>DEMO_STANDARD panel</code><span class="st wait">CHỜ Pham Tuan Anh</span></div><div class="dec-sub">whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16</div><p></p></div><div class="dec pend"><div class="dec-hd"><code>DR-005</code><span class="st wait">CHỜ Spike F</span></div><div class="dec-sub">3D error representation</div><p>Chờ Spike F — chưa bắt đầu phần chính.</p></div><div class="dec pend"><div class="dec-hd"><code>DR-008c</code><span class="st wait">CHỜ Spike B</span></div><div class="dec-sub">mesh decimation budget, within the +/-1 slice ceiling</div><p>Chờ Spike B đo trên thiết bị; trần ±1 slice không bao giờ nới.</p></div></div>
-  <h3>Đang có hiệu lực</h3>
-  <div class="tblwrap"><table><tr><th>Ngày</th><th>Quyết định</th><th>Nội dung</th></tr><tr><td class="dim">16/09</td><td><strong>DR-002b — nối bệnh nhân</strong></td><td><strong>Tách theo bệnh nhân KHÔNG kiểm chứng được</strong> (154 lần chụp từ 60 bệnh nhân, gói không có ánh xạ) → leader quyết <strong>phương án (c) + (d)</strong>: gom nhóm mọi cặp trên <strong>ngưỡng khai trước mọi lượt train</strong> · <strong>loại khỏi train</strong> case nghi trùng bệnh nhân với một case holdout, có liệt kê · ghi rõ giới hạn ở <strong>mọi chỗ có số đánh giá</strong> · công bố thêm <strong>phân tích độ nhạy</strong>. <code>06</code> §6 ghi là <strong>ngoại lệ có văn bản</strong>, không phải đã đạt. Không liên hệ ban tổ chức khi leader chưa cho phép. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">→</a></td></tr><tr><td class="dim">16/09</td><td><strong>F5 — siêu dữ liệu public</strong></td><td><strong>Thu hẹp cho tới khi đọc được điều khoản bản phát hành/DDA</strong>: public giữ <strong>mã case · shape/dtype · thống kê tổng hợp · verdict <code>A1</code>–<code>A20</code></strong>; <strong>bảng SHA-256 từng file và điểm sàng lọc từng cặp</strong> chuyển sang <strong>manifest hạn chế ngoài repo</strong> — nhưng <strong>hash của nó và lệnh sinh lại vẫn công khai</strong>, nên không mất tính tái lập. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day06/QA_REVIEW_002_SPIKE_D.md">→</a></td></tr><tr><td class="dim">16/09</td><td><strong>Q2 — bảng `A19`</strong></td><td><strong>Mục &quot;split và ID manifest&quot; của <code>A19</code> hoãn sang <code>GATE-SPLIT-01</code>, có ghi rõ</strong> — kèm câu training vẫn <code>BLOCKED</code> tới khi gate đóng. Tránh phụ thuộc vòng (audit cần ID split, split cần audit); <strong>không ai được đọc chỗ hoãn thành &quot;split đã ổn&quot;</strong>. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day06/QA_REVIEW_002_SPIKE_D.md">→</a></td></tr><tr><td class="dim">16/09</td><td><strong>Stub Spike E — phương án A</strong></td><td><strong>Project Control dựng stub trên Mac mini bằng SSH của leader</strong>, chạy đúng lệnh chủ spike ghi trên #26. <strong>Trung giữ thiết kế, phép kiểm và mọi con số <code>E</code></strong> — gỡ phụ thuộc quyền truy cập, không đổi quyền sở hữu (<code>DR-013</code>).</td></tr><tr><td class="dim">16/09</td><td><strong>Chuẩn demo v1</strong></td><td><strong><code>DEMO_STANDARD.md</code> được duyệt thành v1</strong> — chuẩn lập kế hoạch từ Day 7, mọi dòng 🎯 dẫn về luật <code>D1</code>–<code>D7</code>, bước <code>H1</code>–<code>H10</code> hoặc màn hình <code>SCR</code>. <strong>Đính chính số đếm: 44 yêu cầu / 33 <code>MUST</code> / 70 test</strong> (bản cũ ghi 39/28/69). Bảng hiệu năng trên màn hình <strong>chưa quyết</strong> — muốn có phải qua Decision Request. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DEMO_STANDARD.md">→</a></td></tr><tr><td class="dim">16/09</td><td><strong>Recovery khi buffer −1</strong></td><td><strong>Giữ kế hoạch, không de-scope</strong>, cộng <strong>5 hành động Level 1</strong>: gỡ phụ thuộc quyền cho stub · thứ tự review của Hùng Anh (#24/#26 → #34 → #27/#31 → C0) · mốc đẩy 12:00 và 18:00 cho Khánh · Decision Request split quyết trong ngày · packet ghi rõ <strong>việc cần quyền gì và ai đang có</strong>. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day06/DAY06_EOD_REVIEW.md">→</a></td></tr><tr><td class="dim">15/09</td><td><strong>DR-002a</strong></td><td><strong>Cặp <code>CASE_0056</code>/<code>CASE_0097</code> (một lần chụp bị xuất hai lần — QA-002) là một nhóm, ghim vào train.</strong> Giữ 80/20 và seed 2024; validation còn 20 lần chụp khác nhau; các tập con 25/50/100% chứa cả hai hoặc không case nào; train ghi rõ 79 lần chụp khác nhau. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">→</a></td></tr><tr><td class="dim">15/09</td><td><strong>Chuẩn demo</strong></td><td><strong>Sản phẩm cuối phải &quot;wow&quot;</strong> — giao diện và mọi thứ giảng viên thấy, thử, đánh giá được khi demo. Kế hoạch mỗi ngày đều tính tới tiêu chí này (dòng 🎯 trong packet). Nâng chất lượng thực thi <strong>trong phạm vi spec</strong>, không thêm yêu cầu ngoài <code>00</code> §13. Chuẩn chung: <code>management/DEMO_STANDARD.md</code> — <strong>v1, leader duyệt 16/09</strong>.</td></tr><tr><td class="dim">15/09</td><td><strong>Khối lượng ≥ 8 h</strong></td><td>Mỗi thành viên <strong>tối thiểu 8 giờ việc thật</strong> + ~2 giờ <strong>hàng đợi dự phòng</strong>; việc bị chặn luôn có việc thay thế trong cùng packet. Xong việc nào đẩy việc đó để người khác dùng được trong ngày.</td></tr><tr><td class="dim">14/09</td><td><strong>DR-002 = Path A</strong></td><td><strong>100 case Training Set chia 80/20 theo bệnh nhân, seed 2024; 54 case Testing Set khoá cứng</strong> — không train, không tune, không nhìn trước đánh giá cuối. Quyết một lần, không đổi sau khi thấy kết quả test. <code>GATE-SPLIT-01</code> vẫn mở tới khi có manifest. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">→</a></td></tr><tr><td class="dim">14/09</td><td><strong>DR-006a rev 3</strong></td><td><strong>Spike B đo như Spike E</strong>: leader cầm máy và bấm; <strong>Hùng Anh thiết kế phép đo, tự tính mọi số B</strong>, viết <code>RESULT.md</code> và khuyến nghị DR-008c. Reviewer Spike B → <strong>Trung</strong>. Hùng Anh có quyền đổi sang tự bấm từ xa bất cứ lúc nào. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">→</a></td></tr><tr><td class="dim">14/09</td><td><strong>Khối lượng</strong></td><td>Thành viên <strong>~8 h/ngày</strong>, hạn <strong>23:59</strong>, <strong>không cần khai báo giờ rảnh</strong>. Leader không giới hạn giờ vì gánh review và chốt ngày. Mỗi packet: ~7 h chính + ~1 h thêm.</td></tr><tr><td class="dim">13/09</td><td><strong>Nợ trước</strong></td><td>Việc tồn của ngày trước đứng <strong>đầu</strong> packet trong khối 🔴 LÀM TRƯỚC; việc mới chỉ bắt đầu khi xong khối đó.</td></tr><tr><td class="dim">13/09</td><td><strong>DR-003b</strong></td><td>Đường nghiệm thu Spike E là <strong>Wi-Fi + ZeroTier</strong> (<code>wifi-overlay</code>). Cellular vẫn hợp lệ nhưng <strong>không bao giờ gộp</strong>. Ngày demo phải kiểm <code>DIRECT</code> tại hội trường. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">→</a></td></tr><tr><td class="dim">13/09</td><td><strong>DR-006a rev 2</strong></td><td>Leader là <strong>operator duy nhất</strong> của điện thoại cho Spike E; Trung thiết kế, tự tổng hợp số và viết <code>RESULT.md</code>. Reviewer Spike E → Vũ Hùng Anh. <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">→</a></td></tr><tr><td class="dim">13/09</td><td><strong>Recovery</strong></td><td><strong>Giữ kế hoạch, không de-scope</strong> — de-scope <code>COULD</code> không mua thêm ngày nào. Buffer lúc quyết: 0; <strong>16/09 buffer −1, leader xác nhận lại: vẫn giữ kế hoạch, thêm 5 hành động Level 1</strong>. Day 30 cố định 09/10, không lùi.</td></tr><tr><td class="dim">11/09</td><td><strong>DR-003a</strong></td><td>Overlay chuẩn là <strong>ZeroTier</strong>. Mạng hiện dùng: <code>b103a835d292ddb3</code> (tài khoản của leader).</td></tr></table></div>
-</section>
-<section id="thietbi">
-  <h2><span class="num">H</span> 📱 Spike E — điện thoại, mạng và các lượt đo</h2>
-  <p class="lede">Một máy duy nhất được phép đo: <strong>Samsung Galaxy A17 5G</strong>,
-     tài sản cá nhân của leader, không bàn giao.</p>
-  <div class="note go"><b>Mô hình đang dùng — DR-006a rev 2 + DR-003b (13/09).</b>
-     Leader là <strong>operator duy nhất</strong>: cắm máy, chạy harness, commit dữ liệu thô nguyên byte.
-     Trung <strong>thiết kế</strong> phép đo, <strong>tự tổng hợp</strong> số bằng <code>aggregate.py</code>
-     và viết <code>RESULT.md</code>; không ai khác tính số liệu <code>E</code>. Đường nghiệm thu là
-     <strong>Wi-Fi → Internet → ZeroTier → Mac mini</strong> (<code>wifi-overlay</code>); cellular hợp lệ
-     nhưng <strong>không gộp</strong>, LAN chỉ để chẩn đoán.</div>
-
-  <div class="two">
-    <div><h3>GATE 2</h3><div class="tblwrap"><table><tr><td>Overlay ZeroTier lên</td><td><span class="st ok">RỒI</span></td></tr><tr><td>Mac mini tới được</td><td><span class="st ok">RỒI</span></td></tr><tr><td>Stub chạy (cổng 8787)</td><td><span class="st ok">RỒI</span></td></tr><tr><td>ZeroTier trên điện thoại</td><td><span class="st ok">RỒI</span></td></tr><tr><td>GATE 2 mở</td><td><span class="st ok">RỒI</span></td></tr></table></div></div>
-    <div><h3>Hàng đợi thiết bị</h3><div class="tblwrap"><table>
-      <tr><th>Slot</th><th>Spike</th><th>Chủ</th><th>Trạng thái</th></tr><tr><td>#1</td><td><code>A</code></td><td>Phạm Tuấn Anh</td><td><code>NOT_STARTED</code></td></tr><tr><td>#2</td><td><code>E</code></td><td>Nguyễn Gia Đức Trung</td><td><code>NOT_STARTED</code></td></tr><tr><td>#3</td><td><code>B</code></td><td>Vũ Hùng Anh</td><td><code>NOT_STARTED</code></td></tr></table></div></div>
+<div class="page">
+<nav class="topnav" aria-label="Trang"><a href="index.html" class="on">Day 20 · hôm nay</a><a href="rebaseline/day-20.html">Bản rà soát đầy đủ</a><a href="archive/day-09.html">Bảng Day 9 (lưu trữ)</a><a href="archive/index.html">Các ngày trước</a><span class="sep"></span><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">GitHub</a><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a></nav>
+<header class="masthead">
+  <p class="eyebrow">Cardiac MRI Workspace · bảng điều phối</p>
+  <h1>Day 20 — rà soát lại toàn dự án</h1>
+  <p class="sub">Thứ Ba 29/09/2026 · còn 10 ngày tới Day 30 (thứ Sáu 09/10/2026, không lùi)</p>
+  
+  <div class="verdict-row">
+    <span class="pill red big">DAY30 OUTCOME AT RISK</span>
+    <p>Rủi ro không kịp Day 30. Có một đường đi tới Day 30 nhưng không còn ngày dự phòng nào. Tái dựng chỉ-đọc từ git, GitHub API và hồ sơ quản lý, không merge hay sửa gì trong lúc làm.</p>
+  </div>
+  <div class="days" aria-label="Lịch 30 ngày thực thi">
+    <ol><li class="past" title="Day 1: đã qua"><span>1</span></li><li class="past" title="Day 2: đã qua"><span></span></li><li class="past" title="Day 3: đã qua"><span></span></li><li class="past" title="Day 4: đã qua"><span></span></li><li class="past" title="Day 5: đã qua"><span>5</span></li><li class="past" title="Day 6: đã qua"><span></span></li><li class="past" title="Day 7: đã qua"><span></span></li><li class="past" title="Day 8: đã qua"><span></span></li><li class="past" title="Day 9: đã qua"><span></span></li><li class="past" title="Day 10: đã qua"><span>10</span></li><li class="past" title="Day 11: đã qua"><span></span></li><li class="past" title="Day 12: đã qua"><span></span></li><li class="past" title="Day 13: đã qua"><span></span></li><li class="past" title="Day 14: đã qua"><span></span></li><li class="past" title="Day 15: đã qua"><span>15</span></li><li class="past" title="Day 16: đã qua"><span></span></li><li class="past" title="Day 17: đã qua"><span></span></li><li class="past" title="Day 18: đã qua"><span></span></li><li class="past" title="Day 19: đã qua"><span></span></li><li class="r1 today" title="Day 20: hôm nay, R1 gỡ critical path"><span>20</span></li><li class="r1" title="Day 21: R1 gỡ critical path"><span></span></li><li class="r1" title="Day 22: R1 gỡ critical path"><span></span></li><li class="r2" title="Day 23: R2 làm song song sản phẩm và ML"><span></span></li><li class="r2" title="Day 24: R2 làm song song sản phẩm và ML"><span></span></li><li class="r2" title="Day 25: R2 làm song song sản phẩm và ML"><span>25</span></li><li class="r3" title="Day 26: R3 hội tụ"><span></span></li><li class="r3" title="Day 27: R3 hội tụ"><span></span></li><li class="r3" title="Day 28: R3 hội tụ"><span></span></li><li class="r4" title="Day 29: R4 ổn định"><span></span></li><li class="r4" title="Day 30: R4 ổn định"><span>30</span></li></ol>
+    <ul class="legend">
+      <li><i style="background:var(--ph-past)"></i>Day 1–19 đã qua</li>
+      <li><i style="background:var(--ph1)"></i>R1 gỡ critical path, D20–22</li>
+      <li><i style="background:var(--ph2)"></i>R2 làm song song, D23–25</li>
+      <li><i style="background:var(--ph3)"></i>R3 hội tụ, D26–28</li>
+      <li><i style="background:var(--ph4)"></i>R4 ổn định, D29–30</li>
+    </ul>
+  </div>
+  <dl class="facts">
+    <div><dt>MUST đã nghiệm thu</dt><dd>0 <small>trên 33</small></dd></div>
+    <div><dt>Lượt train thật đã chạy</dt><dd>0 <small>trên 6 + ablation</small></dd></div>
+    <div><dt>PR đang mở</dt><dd>15 <small>3 PR sẵn sàng merge</small></dd></div>
+    <div><dt>Giờ làm tập trung D20–28</dt><dd>203 <small>cần · 175 có</small></dd></div>
+  </dl>
+  <div class="gate">
+    <span class="gate-title">Chỉ chuyển sang RECOVERABLE nếu tới 17:00 thứ Tư 30/09:</span>
+    <ol>
+      <li>GATE-SPLIT-01 đã đóng (#35 được duyệt lại đúng head, QA đạt, đã merge).</li>
+      <li>Một job GPU của Spike C1 đang chạy trên máy được duyệt.</li>
+      <li>Spike A được ACCEPTED và #48–#53 đã lên <code>main</code>.</li>
+      <li>Cả bốn người đều hoạt động và đã khai báo giờ làm tới Day 30.</li>
+      <li>Backend trả lời <code>/health</code> khi gọi từ điện thoại.</li>
+    </ol>
   </div>
 
-  <h3>Mạng ZeroTier <code>b103a835d292ddb3</code></h3>
-  <div class="tblwrap"><table><tr><th>Máy</th><th>Node</th><th>Địa chỉ</th><th>Vai trò</th></tr><tr><td><strong>Laptop leader</strong></td><td><code>68efb4de07</code></td><td><code>10.64.193.145</code></td><td>operator, adb qua USB</td></tr><tr><td><strong>Mac mini M2 24 GB</strong></td><td><code>e202ffbfe4</code></td><td><code>10.64.193.115</code></td><td>⚠ <strong>rơi khỏi overlay trong khoảng 13:34–21:33</strong> (địa chỉ biến mất, stub vẫn <code>LISTEN</code> trên địa chỉ chết) → join lại, <strong>stub chạy lại 21:33, PID 28976</strong>, hai profile kiểm lại đạt. Stub cũ PID 60294 trên <code>10.134.129.115:8787</code> giữ nguyên</td></tr><tr><td><strong>Galaxy A17 5G</strong></td><td><code>078280bae8</code></td><td><code>10.64.193.140</code></td><td>ZeroTier Android 1.16.0 · 16/09 21:50–22:26 chạy 2 lượt đo Spike E, <code>DIRECT</code>, pin 58 → 78 %, AP 38,2 → 45,2 °C, thermal 0</td></tr></table></div>
-
-  <h3>Bốn lượt đo ngày 13/09 — dữ liệu thô, chưa tổng hợp</h3>
-  <div class="tblwrap"><table><tr><th>Lượt</th><th>Giờ</th><th>Đường</th><th>E12</th><th>Kết quả (đếm, không thống kê)</th>
-    <th>Commit</th></tr><tr><td><strong>1</strong></td><td>13/09 17:51</td><td>5G · <code>cellular-overlay</code></td><td><span class="st wait">RELAY</span></td><td><span class="st no">✗</span> 57 mẫu: 30 ok · 27 lỗi connect</td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/commit/bd5e931"><code>bd5e931</code></a></td></tr><tr><td><strong>2</strong></td><td>13/09 18:18</td><td>5G · <code>cellular-overlay</code></td><td><span class="st wait">RELAY</span></td><td><span class="st no">✗</span> dừng — file 58 MB tải vài KB/phút</td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/commit/0d4ad1e"><code>0d4ad1e</code></a></td></tr><tr><td><strong>3</strong></td><td>13/09 19:09</td><td>Wi-Fi · <code>wifi-overlay</code></td><td><span class="st ok">DIRECT</span></td><td><span class="st ok">✓</span> 57/57 ok · volume trọn</td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/commit/7c05c8c"><code>7c05c8c</code></a></td></tr><tr><td><strong>4</strong></td><td>13/09 19:12</td><td>Wi-Fi · <code>wifi-overlay</code></td><td><span class="st ok">DIRECT</span></td><td><span class="st ok">✓</span> 171/171 ok · volume trọn 3/3</td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/commit/7c05c8c"><code>7c05c8c</code></a></td></tr><tr><td><strong>5</strong></td><td>16/09 21:50</td><td>Wi-Fi · <code>wifi-overlay</code> · profile 576</td><td><span class="st ok">DIRECT</span></td><td><span class="st ok">✓</span> 171/171 ok · volume trọn 3/3 · 0 lần bị từ chối cục bộ</td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/commit/c3c2ab5"><code>c3c2ab5</code></a></td></tr><tr><td><strong>6</strong></td><td>16/09 22:14</td><td>Wi-Fi · <code>wifi-overlay</code> · profile 640</td><td><span class="st ok">DIRECT</span></td><td><span class="st ok">✓</span> 171/171 ok · volume trọn 3/3 · 0 lần bị từ chối cục bộ</td><td><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/commit/c3c2ab5"><code>c3c2ab5</code></a></td></tr></table></div>
-  <p class="dim" style="font-size:12.5px;margin-top:8px">Nhánh bằng chứng:
-     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW">
-     <code>spike-e/evidence-20260913</code></a> — mỗi lượt có <code>PROVENANCE.md</code>, JSONL từ máy, log
-     của stub. Không con số độ trễ nào được tính ở đây: đó là việc của Trung.</p>
-
-  <h3>Phát hiện đổi cách đo</h3>
-  <ul><li><strong>Kernel Android lưu đường đi theo từng CPU</strong>: đường VPN chung ô với multicast → cpu4/cpu6 từ chối kết nối TCP trước cả SYN. Harness đếm và thử lại (<code>local_connect_rejections</code>).</li><li><strong>ZeroTier Android không tự hồi phục khi đổi mạng</strong> — phải tắt/bật network trong app. Rủi ro ngày demo.</li><li><strong>Payload đang giả định sai</strong>: <code>int16</code> 58 MB; volume thật <code>uint8</code> ~29 MB (576²) và ~36 MB (640²). Số theo byte phải đo lại.</li><li>Lượt 3–4 <strong>không phải LAN</strong>: điện thoại ở <code>192.168.0.0/24</code>, Mac mini ở <code>10.170.75.0/24</code> — đường WAN thật.</li></ul>
+</header>
+<main>
+<section id="viec">
+  <h2>Việc của từng người: tối nay → 17:00 mai</h2>
+  <p>Duyệt chặn người khác thì làm <strong>trước</strong> việc của mình. Duyệt chỉ tính trên đúng SHA head. Khai báo giờ làm trước 09:00 mỗi ngày.</p>
+  <div class="cards"><article class="card"><h3>Phạm Tuấn Anh</h3><p class="role">V1 Case Explorer · Tích hợp/CI · Điều phối</p><ul><li>Tối nay: merge #49 → #48 → #26 (đã có duyệt hợp lệ đúng head); đẩy commit C1-prep thành PR cho Khánh; sửa conflict <code>RESULT.md</code> của #41.</li><li>20:30 QA #35 cùng CHAT E, merge và đóng GATE-SPLIT-01 nếu đạt.</li><li>Chốt tối nay: DR-016 (máy train), CP-07 (tác giả tự merge), quyền Mac mini cho Trung, giữ #54.</li><li>D21: quyết DR-010a và case chỉ-suy-luận trước 10:00; soạn TECH_STACK_ADR; cầm máy Galaxy slot S-1 lúc 18:00.</li></ul><p class="more"><a href="rebaseline/day-20.html#brief-1">Mở brief đầy đủ →</a></p></article><article class="card"><h3>Vũ Hùng Anh</h3><p class="role">V2 3D / lỗi không gian · Hình ảnh / Hình học</p><ul><li>Tối nay: duyệt lại #41 sau rebase; duyệt PR C1-prep; dựng mesh GT thật ở 3 mức decimation (code #55).</li><li>D21: hoàn tất Spike B — B5, B6, B7, B9, B12, B13 (đề xuất DR-008c), B15; thiết kế phiên máy S-1 lúc 18:00.</li><li>Duyệt #53 (09:00) và loader C1 của Khánh (13:00–15:00).</li><li>Không bao giờ nới ngưỡng ±1 lát; B5 trượt mọi mức thì ghi NEGATIVE_RESULT và báo ngay.</li></ul><p class="more"><a href="rebaseline/day-20.html#brief-2">Mở brief đầy đủ →</a></p></article><article class="card"><h3>Bế Quốc Khánh</h3><p class="role">V3 Experiment / Cohort · Huấn luyện / Đánh giá ML</p><ul><li>Tối nay: xác nhận head #35 là cuối; <strong>khai báo RTX 4050</strong> (chạy qua đêm D21–D24 được không); ghi môi trường; bắt đầu loader dữ liệu thật.</li><li>D21: C1 đầy đủ — preflight trên <code>main</code> (băm đúng blob git), <code>run_feasibility</code>, thử hội tụ cho cả hai họ; job GPU chạy trước 14:00; RESULT trước 22:00.</li><li>D22: ADR-ML-001 trước 10:00 (frozen hay full DINOv2 theo PR-SCI-03) để leader đóng GATE-ML-01 lúc 12:00.</li><li>Không chạm holdout trước khi checkpoint và morphology đã đóng băng; không merge #54 ở dạng hiện tại.</li></ul><p class="more"><a href="rebaseline/day-20.html#brief-3">Mở brief đầy đủ →</a></p></article><article class="card"><h3>Nguyễn Gia Đức Trung</h3><p class="role">V4 Review / Findings · Backend / Lưu trữ / Nạp dữ liệu</p><ul><li>Tối nay 19:00–20:30: <strong>duyệt lại #35 ở head <code>7b72ce8</code></strong> (chạy <code>verify_subsets</code> + <code>preflight</code> trên blob). Sau đó chạy QA-004 cho Spike A nếu #41 và #49 đã merge.</li><li>D21 10:00: duyệt lại #44 (Spike B B10/B11).</li><li>D21: contract v1.0 (DR-010a + enum review NOT_REVIEWED/ACCEPTED/FLAGGED/CORRECTED + cờ case chỉ-suy-luận).</li><li>D21: backend Python trên Mac mini, <code>/health</code> gọi được từ điện thoại trước cuối ngày.</li></ul><p class="more"><a href="rebaseline/day-20.html#brief-4">Mở brief đầy đủ →</a></p></article></div>
 </section>
-<section id="ruiro">
-  <h2><span class="num">I</span> Rủi ro và phạm vi sản phẩm</h2>
-  <p class="lede">Nhóm rủi ro đọc từ <code>PROJECT_STATE.yaml</code>, tên từ
-     <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/RISK_REGISTER_INITIAL.md">RISK_REGISTER_INITIAL.md</a>;
-     dòng ↳ là tình hình tuần này.</p>
-  <div class="rks"><div class="rk high"><h4>CAO · 7</h4><ul><li><code>RISK-DATA-01</code> Dataset acquisition or validation does not complete early<div class="rn">↳ QA-002 <code>REJECT</code> → bản sửa ở PR nháp #34: cặp trùng đã được báo, header ghi rõ chỉ ở mức header (mm/mL tắt), bỏ đường dẫn tuyệt đối — chờ duyệt lại và QA soi lại</div></li><li><code>RISK-3D-GEOMETRY</code> 2D↔3D mapping and brush coordinate transforms fail or diverge</li><li><code>RISK-3DERR-01</code> The 3D error feature proves infeasible as specified</li><li><code>RISK-MOBILE-RENDER</code> The chosen framework fails 3D and editing performance on the demo device<div class="rn">↳ viewer <code>B1</code> (#30) <strong>đã có pan</strong> (16/09 17:13) nhưng vẫn mới chạy trên trình duyệt desktop — chưa app 3D nào chạy trên điện thoại</div></li><li><code>RISK-INGEST-01</code> No path exists to load precomputed results into the backend</li><li><code>RISK-COMPUTE</code> DINOv2 training exceeds available compute or calendar<div class="rn">↳ <strong>giảm rõ</strong> — 20/20 phép đo fp32 + bf16 trên RTX 4050 và ngoại suy lịch có số (PR #36, chờ review): với <strong>4 h GPU/ngày</strong> thì 7/10 biến thể vừa 6 lượt + 1 ablation trong cửa sổ 10 ngày, <strong>5 h/ngày</strong> thì 8/10; <code>DINOv2-B/14 full</code> không vừa — dữ kiện cho <code>GATE-ML-01</code> sau này</div></li><li><code>RISK-SCOPE-01</code> MUST scope does not fit the 30-day window</li></ul></div><div class="rk med"><h4>TRUNG BÌNH · 7</h4><ul><li><code>RISK-SPLIT-01</code> Label provenance ambiguity forces late split decisions<div class="rn">↳ <strong>154 lần chụp từ 60 bệnh nhân</strong> (bài benchmark của challenge) và gói <strong>không có ánh xạ</strong> → <code>GATE-SPLIT-01</code> <code>BLOCKED_PATIENT_LINKAGE</code> (#35). Cặp trùng đã gom theo <code>DR-002a</code>; sàng lọc chỉ từ ảnh MRI tìm lại được cặp đó ở hạng 1 nhưng <strong>không chứng minh được danh tính</strong> — leader quyết qua Decision Request</div></li><li><code>RISK-CONFOUND-01</code> RQ-A is confounded by an unspecified preprocessing choice</li><li><code>RISK-STATS-01</code> Results are inconclusive and reported as if conclusive</li><li><code>RISK-CAP-01</code> Reduced leader capacity<div class="rn">↳ 3/4 người vắng Day 2–3; Day 4 hai người quay lại, Day 4 đạt 3/3</div></li><li><code>RISK-INTEGRATION</code> Contracts drift between mobile, backend and ML</li><li><code>RISK-SEQ-01</code> The baseline serialises work behind the ADRs</li><li><code>RISK-DEMO-NET-01</code> Canonical demo depends on cellular + private-overlay connectivity<div class="rn">↳ ⚠ <strong>16/09: đường nghiệm thu đã có số, và số cho thấy một khoảng trống spec</strong> — tiêu chí <code>E4</code> của Spike E <strong>trượt</strong>: chiến lược prefetch <code>s4</code> p95 <strong>28 606 ms</strong> (576) / <strong>6 181 ms</strong> (640), <em>chậm hơn</em> per-slice <code>s1</code> (2 864 / 1 844 ms); tải trọn volume <code>s3</code> p50 <strong>338,9 s</strong> / <strong>121,4 s</strong> — đúng thứ limb 2 của <code>NFR-PERF-001</code> cấm; còn slice <strong>chưa cache</strong> (<code>E3</code> p95 3 326 / 2 646 ms) thì <strong>không có trần nào để so</strong> → <code>RA-H13</code>. Số của chủ spike, PR #26. Leader mở Decision Request khung <code>RA-H13</code> trong Day 8. <em>(Đính chính 17/09: bản trước ghi là <code>NFR-PERF-001</code> trượt trần — sai phạm vi; điều khoản đó chỉ quản slice <strong>đã cache trên máy</strong>, và phép đo đúng phạm vi là <code>A9</code> = 65,31 / 50,23 ms, <strong>đạt</strong>.)</em> Trước đó: 5G qua ZeroTier bị <code>RELAY</code> → <code>DR-003b</code> chuyển sang Wi-Fi. <strong>16/09: chính máy chủ rơi khỏi overlay</strong> trong khoảng 13:34–21:33 — tiến trình stub vẫn sống và vẫn <code>LISTEN</code> trên một địa chỉ đã biến mất, nên phép kiểm &quot;tiến trình còn chạy&quot; báo khoẻ trong khi không ai tới được. Từ nay kiểm <strong>địa chỉ + HTTP 200 từ điện thoại + peer <code>DIRECT</code></strong>, không kiểm PID</div></li></ul></div><div class="rk closed"><h4>ĐÃ ĐÓNG · 2</h4><ul><li><code>RISK-DEPLOY-01</code> Late deployment-profile choice forces a breaking API change</li><li><code>RISK-OWNER-01</code> Non-mobile technical blocks have no named owner</li></ul></div></div>
-
-  <h3>Phạm vi phải giao ở Day 30</h3>
-  <div class="metrics inv"><div class="m"><span class="k">Yêu cầu sản phẩm</span><span class="v">44</span></div><div class="m"><span class="k">MUST</span><span class="v">33</span></div><div class="m"><span class="k">SHOULD</span><span class="v">6</span></div><div class="m"><span class="k">COULD</span><span class="v">5</span></div><div class="m"><span class="k">FR + NFR</span><span class="v">79</span></div><div class="m"><span class="k">Use case</span><span class="v">17</span></div><div class="m"><span class="k">Màn hình</span><span class="v">9</span></div><div class="m"><span class="k">Acceptance test</span><span class="v">70</span></div></div>
-  <div class="note stop"><b>Yêu cầu ACCEPTED: 0 / 44
-     · test sản phẩm pass: 0.</b>
-     Chưa có harness test sản phẩm — dụng cụ của spike cố ý không được đếm vào đây. Sàn nghiệm thu là
-     <strong>33 MUST</strong>; <code>COULD</code>/<code>SHOULD</code> nằm ngoài sàn (PRD §3.1).</div>
+<section id="quyet">
+  <h2>Leader cần chốt tối nay</h2>
+  <ol>
+    <li><strong>DR-016 — máy train:</strong> RTX 4050 của Khánh là máy chính; có thêm PC của leader (RTX 3050 Ti 4 GiB) làm máy thứ hai sau khi đo lại bộ nhớ hay không.</li>
+    <li><strong>Merge:</strong> merge ngay #49, #48, #26; áp CP-07 (tác giả tự merge khi có duyệt hợp lệ đúng head + CI xanh; PR split / C1 / ADR-ML / gate do leader merge sau QA).</li>
+    <li><strong>GATE-SPLIT-01:</strong> Trung duyệt lại #35 → CHAT E QA → merge → ghi cổng đóng.</li>
+    <li><strong>Hồ sơ phục hồi:</strong> đóng override Day 15, ghi quyết định §18 (Level 1–4, không đổi MUST), hỏi từng người trước khi ghi INC-003 cho Day 16–19.</li>
+    <li><strong>Giữ #54:</strong> nó đổi hash <code>dataset_manifest.json</code> mà #35 đang ghim; đóng băng manifest ở <code>f64d461f</code> tới Day 30.</li>
+  </ol>
+  <p class="more"><a href="rebaseline/day-20.html#s18">Đủ 10 quyết định trong bản rà soát →</a></p>
 </section>
-<section id="donggop">
-  <h2><span class="num">J</span> Đóng góp — và cách đọc bảng này cho đúng</h2>
-  <p class="lede">Cột đầu là thứ duy nhất thực sự đo tiến độ dự án. Ba cột sau là
-     <strong>hoạt động</strong>, không phải năng suất.</p>
-  <div class="tblwrap"><table>
-    <tr><th>Người</th><th>Tiêu chí có số đo</th><th>Tiêu chí ACCEPTED</th>
-        <th>Review đã submit</th><th>PR đã mở</th><th>Nợ tồn hôm nay</th></tr>
-    <tr><td><strong>Bế Quốc Khánh</strong><br><span class="dim" style="font-size:12px">ML training / evaluation</span></td><td><span class="st wait">29 / 40</span></td><td><span class="st no">0</span></td><td>3</td><td>9</td><td><span class="st no">4</span></td></tr><tr><td><strong>Nguyễn Gia Đức Trung</strong><br><span class="dim" style="font-size:12px">Backend / persistence / ingestion</span></td><td><span class="st no">0 / 13</span> <span class=dim>+7 trong PR</span></td><td><span class="st no">0</span></td><td>15</td><td>8</td><td><span class="st no">3</span></td></tr><tr><td><strong>Vũ Hùng Anh</strong><br><span class="dim" style="font-size:12px">Geometry / 3D</span></td><td><span class="st no">0 / 27</span> <span class=dim>+6 trong PR</span></td><td><span class="st no">0</span></td><td>24</td><td>9</td><td><span class="st no">3</span></td></tr><tr><td><strong>Phạm Tuấn Anh</strong><br><span class="dim" style="font-size:12px">Team Leader · Project Control · Integration/CI</span></td><td><span class="st wait">4 / 12</span> <span class=dim>+5 trong PR</span></td><td><span class="st no">0</span></td><td>20</td><td>21</td><td><span class="st no">4</span></td></tr>
-  </table></div>
-  <div class="note"><b>⚠ Đừng đọc bảng này như bảng xếp hạng.</b>
-     <code>15</code> §271 và <code>13</code> <code>TC-AUDIT-002</code> nói rõ: <strong>chỉ công việc
-     <code>ACCEPTED</code> mới tính vào tiến độ</strong> — và cột đó đang là <strong>0 cho tất cả
-     mọi người</strong>, kể cả leader.
-     Số PR và số review <strong>không</strong> đo năng suất: một PR dụng cụ 400 dòng dễ hơn nhiều so
-     với một verdict <code>A11</code> ba câu cần đọc hết gói dữ liệu. Bảng này dùng để thấy
-     <strong>ai đang bị chặn và ai đang chặn người khác</strong>, không phải để so ai hơn ai.</div>
+<section id="doc">
+  <h2>Đọc bản rà soát đầy đủ</h2>
+  <p>Báo cáo viết bằng tiếng Anh; brief từng người (§16) bằng tiếng Việt, có nút chép để dán vào nhóm chat.</p>
+  <ul class="chips"><li><a href="rebaseline/day-20.html#context">Bối cảnh</a></li><li><a href="rebaseline/day-20.html#s1">Ảnh chụp Day 20</a></li><li><a href="rebaseline/day-20.html#s2">Đã thay đổi gì</a></li><li><a href="rebaseline/day-20.html#s3">Sổ backlog</a></li><li><a href="rebaseline/day-20.html#s4">Khoảng trống MUST</a></li><li><a href="rebaseline/day-20.html#s5">Critical path</a></li><li><a href="rebaseline/day-20.html#s6">Khả thi Day 30</a></li><li><a href="rebaseline/day-20.html#s7">Kế hoạch phục hồi</a></li><li><a href="rebaseline/day-20.html#s8">Phân việc từng ngày</a></li><li><a href="rebaseline/day-20.html#s9">Ma trận review</a></li><li><a href="rebaseline/day-20.html#s10">ML và compute</a></li><li><a href="rebaseline/day-20.html#s11">Lịch máy Galaxy</a></li><li><a href="rebaseline/day-20.html#s12">Kế hoạch merge</a></li><li><a href="rebaseline/day-20.html#s13">Phân loại scope</a></li><li><a href="rebaseline/day-20.html#s14">Trigger phục hồi</a></li><li><a href="rebaseline/day-20.html#s15">24 giờ tới</a></li><li><a href="rebaseline/day-20.html#s16">Brief từng người</a></li><li><a href="rebaseline/day-20.html#s17">Prompt chat B–E</a></li><li><a href="rebaseline/day-20.html#s18">Quyết định leader</a></li><li><a href="rebaseline/day-20.html#verdict">Kết luận</a></li></ul>
 </section>
-<section id="lichsu">
-  <h2><span class="num">K</span> Các ngày trước — ai xong gì, còn tồn gì</h2>
-  <p class="lede">Ô "đã xong" chỉ được ghi khi có commit SHA, số PR, hoặc đường dẫn file đã commit.
-     Bấm vào một ngày để mở. <a href="archive/index.html">Toàn bộ lịch sử →</a></p>
-  <details class="dayrow " open>
-      <summary class="hd"><span class="dn">DAY 8</span>
-        <span class="dd2">17/09/2026</span>
-        <span class="st ok">ĐẠT</span>
-        <span style="font-weight:650">Bốn điều kiện đạt đúng hạn, năm PR merge, A9 đo ở kích thước thật — và critical path dừng ở một lượt duyệt lại</span>
-        <span class="dim cnt">5 xong · 4 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Đạt 4/4 theo chữ và đúng hạn, không cần ngoại lệ về giờ. Nhưng chuỗi duyệt #34 → merge → QA → GATE-DATA-01 dừng ở lượt duyệt lại, nên cổng mở sang ngày thứ chín. Chuỗi bốn ngày phần việc của Khánh land sau nửa đêm đã dừng. Buffer giữ −1.</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Vũ Hùng Anh</span> <strong>Duyệt #34 lúc 11:07</strong>, kèm phát hiện chặn sắc hơn cả QA · <strong>picking <code>B3</code>/<code>B4</code></strong> · <strong><code>geometry_contract_version</code></strong> + checker trong CI · approve #40 · device probe <code>9e839ef · #43 · #44</code></li><li><span class="who-s">Bế Quốc Khánh</span> <strong>#40 hết nháp, base <code>main</code>, merged</strong> · <strong>tuyên bố loại trừ <code>A17</code></strong> + <code>package_findings</code> · trả lời review #34 ba lần — <strong>tất cả trước 12:00</strong> · kế hoạch C1 + <code>TC-TEAM-001</code> V3 <code>133f1a0 · 6fcc087 · #42</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> <strong>Approve #35</strong> · <strong>sửa #32 (merged)</strong> · approve #29 #30 #38 · <strong>hợp đồng API <code>11</code> v0</strong> · sửa nhãn <code>NFR-PERF-001</code> ở #26 · sửa #39 và #45 theo review <code>dfa9ef6 · #45 · 097fdee</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong><code>DR-002b</code>×<code>F5</code></strong> · <strong><code>DR-015</code></strong> · đính chính <code>NFR-PERF-001</code> · <strong>Spike A <code>S6</code></strong>: <code>A9</code> 98,72 / 50,84 ms ở <code>576×576×88</code>, 376 MB → <strong>135,90 MB</strong> thực đo <code>7cde4eb · 99575df · #41</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>QA-003 sơ bộ</strong>: 36 DEFECT + zip-slip → 6 DEFECT · 0 trường định danh tuỳ biến trên 462 header · <code>DR-002b</code> kiểm chứng độc lập · <strong>5 merge</strong>: #40 #29 #30 #38 #32 · review #39 #43 #45 <code>53f3325 · 10eaacb · c44ee31</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Vũ Hùng Anh</span> <strong>Chưa duyệt lại #34</strong> sau bản sửa 11:40 — mắt xích duy nhất còn giữ <code>GATE-DATA-01</code> · chưa duyệt lại #26 · #43 còn 2 lỗi · không hoạt động sau 12:00</li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Không hoạt động tới <strong>17:26</strong> · #45 và #43 <strong>mâu thuẫn chuỗi phiên bản geometry</strong> · #44 chưa duyệt</li><li><span class="who-s">Bế Quốc Khánh</span> <strong>#35 đã được approve nhưng vẫn là draft</strong> · <code>summary</code> chưa mang số anomaly · lệnh sinh lại còn <code>&lt;private ZIP path&gt;</code></li><li><span class="who-s">Phạm Tuấn Anh</span> Chưa duyệt lại #39 và #45 sau bản sửa 22:14–22:15 · QA-003 chưa thành verdict vì #34 chưa merge</li></ul>
-      <h4>Quyết định</h4><ul><li><strong><code>DR-002b</code> × <code>F5</code></strong>: điểm từng cặp ở manifest hạn chế; manifest công khai mang ngưỡng, mã case bị loại, số đếm, hash + lệnh sinh lại</li><li><strong><code>DR-015</code> = (c)</strong>: ngân sách first-load sẽ ràng buộc nhưng <strong>con số là của chủ Spike E</strong> · loại tải trọn volume · per-slice là hướng V1 · bác bản prefetch <code>s4</code> đã thử</li><li><strong>Merge đè <code>CHANGES_REQUESTED</code> cũ</strong> khi phản đối cụ thể đã được xử lý và kiểm chứng, có approve của reviewer theo <code>DR-013</code> — không chuyển quyền sở hữu</li></ul>
-      <p class="more"><a href="archive/day-08.html">→ trang riêng của Day 8</a></p>
-    </details><details class="dayrow ">
-      <summary class="hd"><span class="dn">DAY 7</span>
-        <span class="dd2">16/09/2026</span>
-        <span class="st ok">ĐẠT</span>
-        <span style="font-weight:650">Sáu quyết định, bốn PR merge, Spike E đo thật — và bản sửa Spike D chỉ thiếu một lượt review</span>
-        <span class="dim cnt">6 xong · 4 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Đạt 4/4 theo nội dung, 2/4 theo chữ của hạn giờ: #34 ready lúc 00:10 hôm sau, xác nhận stub 23:02, review #35 22:48. Leader quyết ĐẠT và yêu cầu ghi cả hai cách đọc. Buffer giữ −1. Ngày này cũng cho tiêu chí spike đầu tiên bị trượt (E4) và số đo đầu tiên cho khoảng trống RA-H13.</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Vũ Hùng Anh</span> <strong>6 review</strong>: approve #24 <em>(kèm tự đính chính công khai)</em>, #27, #36 · yêu cầu sửa #26, #31 · <strong>3 sản phẩm</strong>: #29 sửa, <strong>#30 thêm pan</strong>, <strong>#38 linked MPR + POC 3D</strong> <code>d223cc4 · 0d079e8 · 712fbe9 · 99e03ce</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>Sáu quyết định</strong>: <code>Q2</code> · stub phương án A · <code>DEMO_STANDARD</code> <strong>v1</strong> + đính chính đếm <strong>44/33/70</strong> · recovery buffer −1 · <strong><code>DR-002b</code> = (c)+(d)</strong> · <strong><code>F5</code> = thu hẹp</strong> <code>1ef7ef6 · 3454a11 · a16ee78</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>Dựng stub 2 profile</strong> (gỡ phụ thuộc quyền) rồi <strong>đo Spike E hai profile</strong>: 171/171 mẫu <code>ok</code> mỗi profile, <code>DIRECT</code>, 0 body bị cắt · <strong>4 merge</strong>: #17, #27, #36, #24 <code>3526355 · c3c2ab5 · 6ca1e21 · e6e3b0b · ff6431e</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> <strong>Review #35</strong> bám đúng ba ràng buộc <code>DR-002b</code> · <strong>#39 hợp đồng ingestion 2 v0</strong> · <code>E9</code> quy trình máy thật · <strong>tổng hợp dữ liệu đo riêng từng profile</strong> <code>541c54c · fdf6d48 · eaa878f</code></li><li><span class="who-s">Bế Quốc Khánh</span> <em>Sau 23:59:</em> thực hiện <strong><code>F5</code></strong> (manifest công khai rút 473 dòng) · <strong>#34 ready</strong> với 7/7 phát hiện có câu trả lời · <strong><code>DR-002b</code></strong> vào code (ngưỡng <code>r ≥ 0.75</code>, train hiệu dụng 78) · <strong>#40 vá 8 lỗi validator, 8/8 test hồi quy</strong> <code>aaccae6 · dc26b35 · ed9c6c0</code></li><li><span class="who-s">Cả nhóm</span> <strong>Đính chính số đếm spec</strong> 39/28/69 → <strong>44/33/70</strong> kèm tool đếm lại bằng một lệnh; sàn <code>MUST</code> thật là <strong>33</strong> <code>ERRATUM_COUNTS_2026_09_16.md</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Vũ Hùng Anh</span> <strong>Picking <code>B3</code>/<code>B4</code></strong> — không ai làm; viewer vẫn chưa có dòng code picking nào · duyệt lại #34 (không kịp: #34 ready lúc 00:10)</li><li><span class="who-s">Bế Quốc Khánh</span> Toàn bộ phần việc land <strong>sau nửa đêm</strong> (00:08–00:36) — <strong>ngày thứ tư liên tiếp</strong>; mốc đẩy 12:00/18:00 chưa có tác dụng</li><li><span class="who-s">Nguyễn Gia Đức Trung</span> <strong>#32 chưa sửa</strong> sau khi có review · #33 và #39 chưa nhờ ai review</li><li><span class="who-s">Phạm Tuấn Anh</span> QA soi lại Spike D chưa chạy → <code>GATE-DATA-01</code> sang ngày thứ tám · <code>A9</code> cache ±3 chưa đo</li></ul>
-      <h4>Quyết định</h4><ul><li><strong><code>DR-002b</code> = (c) + (d)</strong> — gom nhóm theo ngưỡng <strong>khai trước mọi lượt train</strong>, loại khỏi train case nghi trùng bệnh nhân với holdout, ghi rõ giới hạn, thêm phân tích độ nhạy; <code>06</code> §6 ghi là <strong>ngoại lệ có văn bản</strong></li><li><strong><code>F5</code> = thu hẹp</strong> · <strong><code>Q2</code> = hoãn có ghi</strong> · <strong>stub = phương án A</strong> (Project Control dựng bằng SSH của leader)</li><li><strong><code>DEMO_STANDARD</code> duyệt thành v1</strong> + đính chính số đếm <strong>44 / 33 / 70</strong></li><li><strong>Recovery khi buffer −1</strong>: giữ kế hoạch, không de-scope, cộng 5 hành động Level 1 · <strong>Day 7 tính ĐẠT 4/4 theo nội dung</strong></li></ul>
-      <p class="more"><a href="archive/day-07.html">→ trang riêng của Day 7</a></p>
-    </details><details class="dayrow missed">
-      <summary class="hd"><span class="dn">DAY 6</span>
-        <span class="dd2">15/09/2026</span>
-        <span class="st no">TRƯỢT</span>
-        <span style="font-weight:650">Spike D lên `main` rồi bị QA bác; S5 brush đo trên máy; stub Spike E không dựng được</span>
-        <span class="dim cnt">6 xong · 4 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Chưa đạt 3/4. Điều kiện 3 trượt: stub 2 profile không chạy vì Trung không có quyền SSH vào Mac mini — Project Control giao việc mà không kiểm quyền — và PR split để review chỉ mở lúc 00:20. Điều kiện 2 tính đạt muộn theo quyết định cho qua của leader. Buffer 0 → −1.</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Vũ Hùng Anh</span> Approve + <strong>merge #25</strong> — audit Spike D lên <code>main</code> lần đầu · review lại #24 · review #26 · soát #27 · <strong><code>B14</code></strong> (#29) · <strong><code>B1</code></strong> viewer WebGL2 (#30) <code>a92892c · PR #29 · PR #30</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>QA Red Team Spike D — <code>REJECT</code></strong>: cặp case trùng mà audit không báo, header không mang hình học vật lý · quyết <strong><code>DR-002a</code></strong> và <code>Q3</code> <code>f7455f8 · c0d33ce</code></li><li><span class="who-s">Phạm Tuấn Anh</span> Sửa <strong>#17</strong> (2 lỗi runtime Khánh tìm + 2 lỗi tìm thêm) · dừng stub cũ PID 32227 · <strong>chuẩn demo v0</strong> <em>(chờ duyệt)</em> <code>08d7166 · 1293854 · 3b126a4</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>Spike A S5 — <code>A3</code>–<code>A7</code> đo trên máy: <code>OBSERVED</code></strong> (A5 60/60 ở r = 0 và r = 2); <code>A2</code> kiểm lại <code>OBSERVED</code> <code>1c62a00 · PR #31</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Sửa #24 và #26 · <strong>review #29 và #30</strong> — bắt được <code>B1</code> thiếu <strong>pan</strong> · <strong><code>E9</code></strong> drill (#33) · <strong>hợp đồng ingestion 1 v0</strong> (#32, 9/9) <code>be52d6f · a585907 · 32ef07a · f97b78f</code></li><li><span class="who-s">Bế Quốc Khánh</span> <em>Sau 23:59 (leader cho qua):</em> <strong>#34</strong> sửa Spike D theo QA-002 · <strong>#35</strong> split <code>DR-002a</code> + bằng chứng nối bệnh nhân · approve <strong>#17</strong> · <strong>#36</strong> probe C0 20/20 · <strong>#37</strong> khung pipeline <code>b52d81d · d66925b · 36789c0 · 06cff72</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Nguyễn Gia Đức Trung</span> Stub 2 profile trên Mac mini — <strong>không có quyền SSH</strong>; PR split để review chỉ mở lúc 00:20</li><li><span class="who-s">Vũ Hùng Anh</span> Duyệt lại #24/#26 · review #27/#31 · picking <code>B3</code>/<code>B4</code> — không có hoạt động sau 10:26</li><li><span class="who-s">Phạm Tuấn Anh</span> Đo Spike E khung 21:00 — không có stub · quyết nối bệnh nhân — bằng chứng đến lúc 00:20</li><li><span class="who-s">Bế Quốc Khánh</span> Toàn bộ phần việc lên <strong>sau 23:59</strong> (00:19–01:14) — ngày thứ ba liên tiếp</li></ul>
-      <h4>Quyết định</h4><ul><li><strong><code>DR-002a</code></strong> — cặp <code>CASE_0056</code>/<code>CASE_0097</code> là <strong>một nhóm ghim vào train</strong>; 80/20 và seed 2024 giữ nguyên</li><li><strong><code>Q3</code></strong> — bỏ đường dẫn tuyệt đối khỏi manifest ngay; phần còn lại chờ điều khoản CAP · <strong><code>Q2</code></strong> hoãn sang Day 7</li><li>Leader chỉ có điện thoại buổi tối → huỷ khung đo Spike E 15:00, stub hạn 20:30</li><li><strong>Khánh nộp muộn: cho qua</strong> · <strong>Day 6 chưa đạt</strong> · duyệt <code>DEMO_STANDARD</code> hoãn sang Day 7</li></ul>
-      <p class="more"><a href="archive/day-06.html">→ trang riêng của Day 6</a></p>
-    </details><details class="dayrow ">
-      <summary class="hd"><span class="dn">DAY 5</span>
-        <span class="dd2">14/09/2026</span>
-        <span class="st ok">ĐẠT</span>
-        <span style="font-weight:650">DR-002 = Path A; Spike A đo A2 trên máy; Khánh nộp dồn sau nửa đêm</span>
-        <span class="dim cnt">7 xong · 2 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Đạt 3/3 theo quyết định của leader — lúc 23:59 là 2/3: #25 đã review nhưng Khánh sửa lúc 00:44 và chưa merge. Hạn cứng của Khánh trượt 45 phút, leader ghi nhận không báo giảng viên. Buffer giữ 0.</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Nguyễn Gia Đức Trung</span> Approve <strong>#23</strong> · <strong>PR #26</strong>: tổng hợp lượt 4, payload <code>uint8</code> 576/640, kế hoạch đo, nháp <code>RESULT.md</code> <code>339021f</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Sửa đủ 3 điểm review #24 <strong>+ thêm <code>--profile</code></strong> vào harness Toybox (22:24) <code>710090f</code></li><li><span class="who-s">Vũ Hùng Anh</span> Review <strong>#25</strong> và <strong>#24</strong> — cả hai <code>CHANGES_REQUESTED</code>, lỗi chỉ ra đều đúng <code>API review 11:31 · 11:34</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong><code>DR-002</code> = Path A</strong> · <strong><code>DR-006a</code> rev 3</strong> · merge <strong>#23</strong> · tắt sshd <code>b600085 · 04d8e97 · b4208d0 · 132e519</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>Spike A S4 — <code>A2</code> đo trên máy: <code>OBSERVED</code></strong>, checksum mask 16/16 qua 3 lần kiểm <code>fb006da · PR #27</code></li><li><span class="who-s">Phạm Tuấn Anh</span> Sửa <strong>PR #17</strong> — 5/5 lỗi Khánh nêu (DINOv2 thật, tìm batch chia đôi) <code>542887e</code></li><li><span class="who-s">Bế Quốc Khánh</span> <em>Sau 23:59:</em> sửa #25 · review lại #17 trên RTX 4050 (2 lỗi runtime thật) · <strong>PR #28 manifest split Path A</strong> · khai báo <code>C0-1</code> <code>fdaf920 · 772c786</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Bế Quốc Khánh</span> Hạn cứng audit Spike D trên <code>main</code> trước 23:59 — <strong>trượt 45 phút</strong>, #25 chưa merge · chưa chạy probe C0</li><li><span class="who-s">Vũ Hùng Anh</span> <code>B1</code> app 3D và <code>B14</code> — không có commit</li></ul>
-      <h4>Quyết định</h4><ul><li><strong><code>DR-002</code> = Path A</strong> — 80/20 theo bệnh nhân, seed 2024, 54 case khoá cứng; quyết trước khi #25 merge</li><li><strong><code>DR-006a</code> rev 3</strong> — leader bấm máy cho Spike B; reviewer Spike B → Trung</li><li>Khối lượng: thành viên ~8 h/ngày, hạn 23:59 · quyết định đụng tới ai ghi thẳng vào tài liệu người đó</li><li>Day 5 tính <strong>đạt 3/3</strong> theo quyết định leader · hạn cứng Khánh <strong>ghi nhận, không báo giảng viên</strong></li></ul>
-      <p class="more"><a href="archive/day-05.html">→ trang riêng của Day 5</a></p>
-    </details><details class="dayrow ">
-      <summary class="hd"><span class="dn">DAY 4</span>
-        <span class="dd2">13/09/2026</span>
-        <span class="st ok">ĐẠT</span>
-        <span style="font-weight:650">Hai người vắng quay lại; Spike D có bằng chứng lần đầu</span>
-        <span class="dim cnt">8 xong · 2 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Đạt 3/3 — ngày đầu tiên đạt kể từ Day 1. Điều kiện 1 đạt theo quyết định của leader: Khánh mở PR #25 lúc 03:10 trong khung gia hạn 07:00, chỉ còn chờ review. Buffer giữ 0.</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Vũ Hùng Anh</span> <strong>Fixture hình học chính thức</strong> (33 điểm, 13 tia, <code>b14_grouping</code>) · approve + merge <strong>PR #13</strong> <code>50a5433 · 2f3a51d</code></li><li><span class="who-s">Vũ Hùng Anh</span> Review <strong>PR #15</strong>: 3 phát hiện đều là lỗi thật → review lại, merge · trả nợ Day 0 (#21) <code>ee9ef60 · f11da28</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Stub trên Mac mini → <strong>GATE 2 mở</strong> · viết <strong>harness Toybox</strong> dùng cho cả 4 lượt đo <code>gate2_verification · PR #24</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Review có nội dung: approve #14 #18 #22, yêu cầu sửa #23 (đúng) · mở <strong>PR #24</strong> <code>API review 22:56</code></li><li><span class="who-s">Bế Quốc Khánh</span> <strong>PR #25 — audit Spike D đầy đủ</strong>: 16 PASS · 0 FAIL · 154 case · <code>uint8</code> · nhãn test 54/54 <code>PR #25 · CI 4/4</code></li><li><span class="who-s">Bế Quốc Khánh</span> Review <strong>PR #17</strong>: 5 lỗi chặn thật — review thật đầu tiên, đóng cột <code>B</code> <code>API review 02:59</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>Buổi đo Spike E đầu tiên</strong>: lượt 4 trên Wi-Fi <code>DIRECT</code> <strong>171/171</strong>, volume trọn 3/3 <code>7c05c8c</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <code>DR-006a</code> rev 2 · <strong><code>DR-003b</code></strong> · quyết recovery · merge #14 #18 #20 #21 #22 · <strong>CI lên <code>main</code></strong> <code>a6ef70e · e697885 · 3077d46</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Bế Quốc Khánh</span> Audit không lên <code>main</code> trong ngày — đạt nhờ gia hạn tới 07:00 và PR đang chờ review</li><li><span class="who-s">Cả nhóm</span> Spike E qua 5G: <code>RELAY</code>, tải file lớn không nổi — dẫn tới <code>DR-003b</code></li></ul>
-      <h4>Quyết định</h4><ul><li><strong>Recovery: giữ kế hoạch, không de-scope</strong> · hạn cứng audit Spike D 23:59 ngày 14/09</li><li><strong><code>DR-006a</code> rev 2</strong>: leader là operator duy nhất của Spike E; reviewer Spike E → Hùng Anh</li><li><strong><code>DR-003b</code></strong>: đường nghiệm thu Spike E đổi từ 4G/5G sang <strong>Wi-Fi + ZeroTier</strong></li><li>Gia hạn điều kiện 1 tới 07:00 · tính đạt khi PR đã mở, chỉ còn chờ review</li></ul>
-      <p class="more"><a href="archive/day-04.html">→ trang riêng của Day 4</a></p>
-    </details><details class="dayrow missed">
-      <summary class="hd"><span class="dn">DAY 3</span>
-        <span class="dd2">12/09/2026</span>
-        <span class="st no">TRƯỢT</span>
-        <span style="font-weight:650">Bế tắc bên ngoài đã gỡ hết, critical path vẫn đứng yên</span>
-        <span class="dim cnt">6 xong · 4 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Hai trên ba điều kiện không đạt. Dataset, dụng cụ và Mac mini giờ đều sẵn sàng, nên từ đây critical path không còn phụ thuộc vào công cụ hay dữ liệu nữa. Buffer về 0, trạng thái RED.
-</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Nguyễn Gia Đức Trung</span> <strong>Review PR #16 thật</strong> — <code>CHANGES_REQUESTED</code> → <code>APPROVED</code>, <strong>ba phát hiện đúng</strong>, một cái luồng soi đối kháng đã bỏ sót <code>API review 09:54Z, 10:10Z</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> <code>03147e3</code> — 141 dòng / 6 file, tự sửa cả ba phát hiện của mình <code>03147e3</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>4 lỗi chặn trong dụng cụ Spike D</strong> — <code>--root</code> sai, <strong>UTF-8 BOM</strong>, licence bịa, <code>A17</code> không quét sidecar. Kiểm bằng chạy thật trên 154 case <code>3bf2a80</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong><code>DR-006a</code> revision 1</strong> — đính chính: USB là kênh điều khiển, <strong>ZeroTier trên điện thoại VẪN bắt buộc</strong> <code>91bd052</code></li><li><span class="who-s">Phạm Tuấn Anh</span> Bảng <strong>sinh tự động từ state file</strong> + kho lưu trữ theo ngày <code>888c4e1</code></li><li><span class="who-s">Cả nhóm</span> <strong>9 mục state hygiene</strong> — gồm 7 trường device profile <code>UNVERIFIED</code> đang <strong>chặn nghiệm thu A/B/E/F</strong> <code>2ba21cc</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Bế Quốc Khánh</span> Audit <code>A1</code>–<code>A20</code> — <strong>0 hoạt động ngày thứ 4</strong>, dù gói và dụng cụ đều sẵn</li><li><span class="who-s">Vũ Hùng Anh</span> Bộ geometry fixture · review PR #13 <em>(33,7 giờ)</em> và #15 — <strong>0 hoạt động ngày thứ 4</strong></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Stub trên Mac mini — cổng 8787 vẫn đóng, <code>GATE 2</code> vẫn chưa mở</li><li><span class="who-s">Cả nhóm</span> <strong>1/6 PR có review.</strong> Cả sáu đều do leader viết nên anh không approve được cái nào</li></ul>
-      <h4>Quyết định</h4><ul><li><strong>Trigger 2 và 3 của <code>15</code> §18 đều đã nổ</strong> — buffer 1 → 0, và trigger 3 sống qua chu kỳ EOD <strong>thứ ba</strong></li><li><strong>Level 5 de-scope chưa tuyên bố</strong> — <code>15</code> §414 nói đó là quyết định của leader</li><li>Merge PR #16 <strong>kèm bản ghi</strong> rằng commit đi vào nhánh người khác và <code>APPROVED</code> xác nhận commit của chính người approve</li><li>Ngoại lệ <code>INC-001</code> <strong>đã hết hiệu lực</strong> lúc 00:00; state file ghi <code>recovery.active: true</code> suốt cả ngày là một lỗi, đã sửa</li></ul>
-      <p class="more"><a href="archive/day-03.html">→ trang riêng của Day 3</a></p>
-    </details><details class="dayrow ">
-      <summary class="hd"><span class="dn">DAY 2</span>
-        <span class="dd2">11/09/2026</span>
-        <span class="st wait">MỘT PHẦN</span>
-        <span style="font-weight:650">Ngày execution đầu tiên</span>
-        <span class="dim cnt">5 xong · 4 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Gỡ được bế tắc bên ngoài lớn nhất của dự án, nhưng không tiêu chí nghiệm thu nào được đóng và ba trên bốn thành viên không có hoạt động nào sau cutover.
-</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Phạm Tuấn Anh</span> Tuyên bố cutover 12:00 · profile thiết bị DR-006 · <strong><code>A9</code> p95 = 65,31 ms</strong> — phép đo hiệu năng đầu tiên của dự án <code>6d0ae77 · c9290b0</code></li><li><span class="who-s">Phạm Tuấn Anh</span> <strong>Thu thập gói LASC 2018</strong> — 2 200 962 438 byte, 100 + 54 case, verify 12/12 volume <code>day02/dr001_usability_probe.json</code></li><li><span class="who-s">Cả nhóm</span> <strong>Trigger DR-001 đánh giá 23:44 — KHÔNG nổ</strong>, trong hạn, lần thứ hai <code>day02/DAY02_EOD_REVIEW.md §4</code></li><li><span class="who-s">Cả nhóm</span> Dụng cụ cho cả bốn spike · CI guardrails · <code>INC-001</code> · bản EOD review đầu tiên được điền <code>PR #14 #15 #16 #17 #18</code></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Review PR #4 của Khánh — <code>APPROVED</code> <em>(trước cutover)</em> <code>API review 03:13Z</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Bế Quốc Khánh</span> Audit Spike D — <strong>0 hoạt động sau cutover</strong></li><li><span class="who-s">Nguyễn Gia Đức Trung</span> Mac mini + ZeroTier — <strong>0 hoạt động sau cutover</strong></li><li><span class="who-s">Vũ Hùng Anh</span> Bộ geometry fixture — <strong>0 hoạt động cả ngày</strong></li><li><span class="who-s">Cả nhóm</span> 6 PR mở, <strong>0 review được submit</strong></li></ul>
-      <h4>Quyết định</h4><ul><li><strong>Trigger DR-001 không nổ</strong> — có gói chính thức dùng được trên máy lúc 23:41:51</li><li><strong><code>15</code> §18 recovery kích hoạt</strong> — Level 1 cho việc thu thập dataset, Level 5 de-scope kế hoạch ngày. Quyền sở hữu <strong>không chuyển</strong></li><li>Ranh giới đêm phục hồi: sinh <strong>dụng cụ</strong>, không sinh <strong>bằng chứng của người khác</strong></li></ul>
-      <p class="more"><a href="archive/day-02.html">→ trang riêng của Day 2</a></p>
-    </details><details class="dayrow missed">
-      <summary class="hd"><span class="dn">DAY 1</span>
-        <span class="dd2">10/09/2026</span>
-        <span class="st no">TRƯỢT</span>
-        <span style="font-weight:650">Trượt hoàn toàn</span>
-        <span class="dim cnt">0 xong · 1 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Không cutover, không spike ACTIVE, không bằng chứng. Ngày này ăn mất 1 ngày buffer.
-</p>
-      
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Cả nhóm</span> Không có cutover, <code>started_at</code> null trên cả bảy spike, đồng hồ DR-001 chưa chạy</li></ul>
-      <h4>Quyết định</h4><ul><li><strong>DR-001a</strong> — dời đánh giá trigger sang cuối Day 2, nội dung và ngưỡng <strong>không đổi</strong></li><li><strong>DR-003a</strong> — overlay chuẩn là <strong>ZeroTier</strong> (Trung đề xuất, leader duyệt)</li></ul>
-      <p class="more"><a href="archive/day-01.html">→ trang riêng của Day 1</a></p>
-    </details><details class="dayrow ">
-      <summary class="hd"><span class="dn">DAY 0</span>
-        <span class="dd2">09/09/2026</span>
-        <span class="st wait">MỘT PHẦN</span>
-        <span style="font-weight:650">Onboarding và sign-off</span>
-        <span class="dim cnt">1 xong · 2 tồn</span></summary>
-      <p style="margin:0 0 6px;color:var(--ink-2);font-size:13.5px">Sign-off đạt 4/4 ở cột K, nhưng bốn ô phần cứng không ai xác nhận và hai trong số đó còn mở tới tận Day 3.
-</p>
-      <h4>Đã xong</h4><ul><li><span class="who-s">Cả nhóm</span> Sign-off Day 0 — cả bốn thành viên <code>PASS</code> cột <code>K</code> <code>management/onboarding/DAY0_SIGNOFF.md</code></li></ul>
-      <h4>Còn tồn / trượt</h4><ul><li><span class="who-s">Bế Quốc Khánh</span> Cột <code>B</code> — chưa review PR thật nào</li><li><span class="who-s">Cả nhóm</span> Bốn ô phần cứng <code>NOT_CHECKED</code></li></ul>
-      <h4>Quyết định</h4><ul><li>Bỏ luật <code>NEEDS_FIX</code> dàn dựng sau sự cố PR #1 cấy lỗi</li></ul>
-      <p class="more"><a href="archive/day-00.html">→ trang riêng của Day 0</a></p>
-    </details>
+<section id="bang">
+  <h2>Về bảng điều phối</h2>
+  <p class="note">Bảng tự động (<code>tools/board/build_board.py</code>) dừng ở Day 9, vì <code>PROJECT_STATE.yaml</code> chưa cập nhật từ Day 11. Để bảng không nói sai với repository, trang này thay trang "hôm nay" cho tới khi các file trạng thái được cập nhật. Bảng Day 9 được giữ nguyên ở <a href="archive/day-09.html">archive/day-09.html</a>. Nguồn của trang này: <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day20/DAY20_REBASELINE.md">management/day20/DAY20_REBASELINE.md</a>, dựng bằng <code>tools/board/build_rebaseline.py</code>.</p>
 </section>
-<section>
-  <h2><span class="num">L</span> Sự kiện và bài học</h2>
-
-  <h3><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md">
-      INC-001</a> — ngày execution đầu tiên trôi qua với một người làm việc</h3>
-  <div class="tblwrap"><table>
-    <tr><th>Người</th><th>Spike</th><th>Hoạt động SAU cutover 12:00</th><th>Event cuối trong ngày</th></tr>
-    <tr><td>Phạm Tuấn Anh</td><td><code>SPIKE_A</code></td><td><strong>19</strong></td><td>14:12</td></tr>
-    <tr><td>Bế Quốc Khánh</td><td><code>SPIKE_D</code> · P0</td><td><span class="st no">0</span></td>
-        <td>11:34 — 25 phút <em>trước</em> cutover</td></tr>
-    <tr><td>Nguyễn Gia Đức Trung</td><td><code>SPIKE_E</code></td><td><span class="st no">0</span></td>
-        <td>11:35 — 25 phút <em>trước</em> cutover</td></tr>
-    <tr><td>Vũ Hùng Anh</td><td><code>SPIKE_B</code></td><td><span class="st no">0</span></td>
-        <td>không có event nào cả ngày</td></tr>
-  </table></div>
-  <p style="font-size:13.5px;margin-top:10px">Điều khoản không được áp dụng:
-     <code>15</code> §13 <em>"escalate blockers rather than hiding them until EOD"</em> ·
-     <code>15</code> §5 — khả dụng của thành viên là <strong>trường bắt buộc</strong> của kế hoạch ngày.</p>
-
-  <h3>Luật làm việc đang áp dụng</h3>
-  <ul>
-    <li><strong>~8 giờ mỗi ngày, hạn 23:59.</strong> Không cần khai báo giờ rảnh — việc xong trước
-        nửa đêm là được <span class="dim">(leader, 14/09 — thay luật "khai báo trước 09:00" của Day 3)</span></li>
-    <li><strong>Nợ tồn làm trước.</strong> Việc của ngày trước còn dở đứng đầu packet và xong trước
-        khi bắt đầu việc mới <span class="dim">(leader, 13/09)</span></li>
-    <li><strong>Blocker báo ngay khi gặp.</strong> Bị kẹt không phải lỗi; giấu chuyện bị kẹt mới là</li>
-    <li><strong>Một ngày không commit thì phải nói tại sao.</strong> Im lặng bị đọc là không có tiến
-        độ, vì không có cách nào khác để đọc nó</li>
-  </ul>
-
-  <h3><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day03/QA_REVIEW_001.md">QA-REVIEW-001</a> —
-      49 lỗi trong chính dụng cụ Project Control dựng</h3>
-  <p style="font-size:13.5px">Bốn gói dụng cụ do một người viết trong một đêm được giao cho một luồng
-     độc lập với đúng một nhiệm vụ: <strong>phá</strong>. Nó <strong>chạy thật</strong> trên input
-     hỏng cố ý. Kết quả: <strong>49 lỗi, 8 CRITICAL</strong>, không gói nào sạch. Tất cả đã sửa, mỗi
-     bản sửa kiểm lại bằng chính trigger của người review.</p>
-  <div class="note stop"><b>⚠ Bài học quan trọng nhất, và nó áp cho cả nhóm:</b>
-     <strong>một dòng comment khẳng định sự trung thực là một lời hứa phải kiểm được.</strong>
-     Bảy trong 49 lỗi nằm đúng ở những chỗ tài liệu khoe rằng nó trung thực —
-     <em>"a check that could not be performed never reports PASS"</em> rồi PASS;
-     <em>"a p95 over only the successes is a lie with a decimal point"</em> rồi in đúng con số đó;
-     một kiểm tra "tính đúng đắn" so mesh với <strong>chính nó</strong>.
-     <strong>Viết ra rồi không kiểm còn tệ hơn không viết</strong>, vì người đọc sau sẽ tin nó thay
-     vì tự soi.<br><br>
-     Trong đó có một "phát hiện" Project Control <strong>đã báo cho Vũ Hùng Anh</strong> và hoá ra là
-     tạo tác từ chính cách dựng tia. Đã rút lại công khai ở cả bốn nơi từng nói sai.</div>
-</section>
-<section class="stopsec" id="khonglam"><h2><span class="num">M</span> KHÔNG LÀM</h2><ul class="stoplist"><li><strong>Không nới ngưỡng đã đóng băng</strong> — <code>NFR-PERF-001</code> 200 ms · <code>±1 slice</code> SCQ-06 · tolerance fixture <strong>EXACT</strong></li><li><strong>Không chạm <code>docs/specs/v1.0/**</code></strong> — CI sẽ chặn, và cần Decision Request <code>00</code> §13</li><li><strong>Không commit dataset bytes</strong> — chỉ manifest được track; CI chặn</li><li><strong>Không commit hay review dưới tài khoản người khác</strong> — chữ ký giả trong bản ghi công khai</li><li><strong>Không điền ô <code>[RECORD]</code> mang tên người vắng mặt</strong></li><li><strong>Không split theo slice hay theo case</strong> — theo <strong>bệnh nhân</strong>, seed <code>2024</code>, không đổi sau khi thấy kết quả test</li><li><strong>Không chọn Path A/B trong Spike D</strong> — đó là <code>DR-002</code> của leader</li><li><strong>Không chốt <code>GATE-MOB-01</code> trên riêng Spike A</strong> — cần cả A và B</li><li><strong>Không chốt <code>GATE-ML-01</code> trên riêng C0</strong> — DR-007 cấm</li><li><strong>Không làm gì với dữ liệu thật cho C1</strong> khi <code>SPIKE_C1</code> còn <code>BLOCKED</code></li><li><strong>Không ghi vào <code>tests/fixtures/geometry/</code></strong> nếu bạn không phải Vũ Hùng Anh</li><li><strong>Không gộp <code>wifi-overlay</code> với <code>cellular-overlay</code></strong>; số đo LAN chỉ để chẩn đoán, không bao giờ là bằng chứng Spike E</li><li><strong>Không ai ngoài Trung tính số liệu <code>E</code></strong> — <code>DR-006a</code> rev 2, ràng buộc (c)</li><li><strong>Không tạo <code>RESULT.md</code> khi chưa có bằng chứng thật</strong>; không tự đặt <code>EVIDENCE_READY</code> hay <code>ACCEPTED</code></li></ul></section>
-<footer>
-  <div class="links"><div class="lg-g"><b>Hôm nay</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/day08/tasks">gói nhiệm vụ Day 9</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/DAY_LOG.md">DAY_LOG</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day08/DAY08_EOD_REVIEW.md">EOD Day 8</a></div><div class="lg-g"><b>State</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/PROJECT_STATE.yaml">PROJECT_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/spikes/SPIKE_PHASE_STATE.yaml">SPIKE_PHASE_STATE.yaml</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/OPEN_DECISIONS.md">OPEN_DECISIONS</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/readiness/RISK_REGISTER_INITIAL.md">Risk register</a></div><div class="lg-g"><b>Spike</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/management/spikes">TASK.md từng spike</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/spike-e/evidence-20260913/spikes/spike_e_transport/EVIDENCE_RAW">bằng chứng thô Spike E</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/tree/main/tests/fixtures/geometry">fixture hình học</a></div><div class="lg-g"><b>GitHub</b><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">Repository</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls">PR đang mở</a> · <a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/actions">CI (Actions)</a> · <a href="archive/index.html">lịch sử ngày</a></div></div>
-  <p class="inv">Bất biến lúc build: spec đóng băng <strong>19/19 OK</strong> · <code>ACCEPTED = 1</code> ·
-     <code>evidence_present = 3</code> · <code>SPIKE_C1</code> <code>BLOCKED</code> ·
-     sinh lúc 19/09/2026 02:31 bằng <code>tools/board/build_board.py</code>.</p>
-  <p class="disc"><strong>Bảng này được SINH RA từ state file của repo, không viết tay.</strong>
-     Trạng thái spike, gates, mốc, buffer, rủi ro, ma trận reviewer đọc thẳng từ
-     <code>PROJECT_STATE.yaml</code> và <code>SPIKE_PHASE_STATE.yaml</code>; PR, review và CI đọc từ
-     GitHub API; checksum spec tính lại lúc build. Nếu một con số ở đây sai thì state file sai — kiểu
-     hỏng dễ sửa hơn nhiều so với một đoạn văn cũ. Phần viết tay duy nhất là
-     <code>tools/board/days.yaml</code>: việc của từng người và chuyện gì đã xảy ra trong ngày.</p>
-</footer>
+</main>
 </div>
+<script>
+(function () {
+  function reset(btn, ms) { setTimeout(function () { btn.textContent = btn.dataset.label; }, ms); }
+  function selectNode(node, btn) {
+    var range = document.createRange();
+    range.selectNodeContents(node);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    btn.textContent = "Đã chọn, nhấn Ctrl+C";
+    reset(btn, 2600);
+  }
+  document.querySelectorAll("button.copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var holder = btn.closest(".brief") || btn.closest(".codeblock");
+      var node = holder.querySelector(".brief-body") || holder.querySelector("pre");
+      var text = node.innerText.trim();
+      try {
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = "Đã chép";
+          reset(btn, 1600);
+        }, function () { selectNode(node, btn); });
+      } catch (e) {
+        selectNode(node, btn);
+      }
+    });
+  });
+  var links = {};
+  document.querySelectorAll("nav.toc a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  if ("IntersectionObserver" in window && Object.keys(links).length) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && links[e.target.id]) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
+          links[e.target.id].classList.add("active");
+        }
+      });
+    }, { rootMargin: "0px 0px -75% 0px" });
+    document.querySelectorAll("main section").forEach(function (s) { obs.observe(s); });
+  }
+})();
+</script>
 </body>
 </html>

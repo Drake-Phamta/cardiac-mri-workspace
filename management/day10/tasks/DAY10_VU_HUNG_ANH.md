@@ -17,6 +17,37 @@
 | **Day 9 chốt `TRƯỢT` 1,5/4**, buffer **−2** | Điều kiện 4 ghi "nửa" vì số `B10`/`B11` đã đo nhưng chưa ai diễn giải. Việc 1 hôm nay khép nó lại |
 | **`GATE-MOB-01` là mục tiêu ngày**: A + B `ACCEPTED` → leader viết `TECH_STACK_ADR` | Sau đó cả bốn vertical mới được dựng trên một nền tảng đã quyết, thay vì dựng trên giả định |
 | **M5 bắt đầu bằng mã thật hôm nay** | Việc 5: PR hiện thực đầu tiên của V2, chạy trên fixture sinh từ hợp đồng API |
+| 🆕 **#31 đã merge trong đêm** (`11000f1`) | Việc 4 dưới đây **không còn cần** — xung đột đã giải bằng tay, kiểm offline trước khi đẩy. Xem ghi chú dưới |
+| 🆕 **Chặng `S8` của Spike A đã dựng — PR #49, leader nhờ bạn duyệt** | `A8` trước nay **chưa có cài đặt nào**. PR có **ba câu hỏi dành riêng cho bạn**, một trong số đó là cách đọc ràng buộc `A10` |
+| 🆕 **`A10` đã `OBSERVED`** từ log 15/09 sẵn có | worst-case **22,66 ms** / ngưỡng 100 ms, 20 nét có commit, 0 mẫu mất. Không đo lại — chỉ là **chưa ai từng kết luận nó** |
+
+### 🆕 #31 đã merge — những gì leader quyết trong lúc giải xung đột
+
+Bạn đã approve ở head cũ, nên đây là những chỗ **leader chọn thay bạn** và bạn có quyền phản đối:
+
+- Comment đầu file lấy bản `S6` của `main` (đã nhắc `S5`);
+- Mask nguồn giữ **`maskBytes()` lười** của `S6`: giải mã mọi slice mask ở module scope tốn ~29 MB ở
+  576×576×88 và sẽ **rơi vào phép đo bộ nhớ** mà không thuộc chính sách cache đang đo. Sáu chỗ gọi của `S5`
+  được viết lại theo accessor lười;
+- Cây render lấy `ScrollView` + thanh cọ của `S5`, **chèn lại** hai mảnh chỉ có ở `S6`;
+- README: `A8` đổi nhãn từ "chặng `S6`" sang **chặng `S8`**.
+
+Kiểm offline trước khi merge: fixture sinh lại **byte-identical**, `check_conformance.py` 5 pass 0 fail,
+`test_viewer_math.mjs` và `test_brush.mjs` thoát 0, `App.js` parse được như JSX.
+
+### 🆕 PR #49 — ba câu hỏi cần bạn
+
+| # | Câu hỏi | Vì sao hỏi bạn |
+|---|---|---|
+| 1 | **`expo-file-system` là dependency mới** của app spike — chấp nhận được không? | Không có filesystem trong RN nếu thiếu nó; nó nằm trong ranh giới spike vốn đã dán nhãn throwaway |
+| 2 | **`A10` lấy verdict trên `max`, không phải `p95`** | `A9` nêu rõ `p95`; `A10` **không nêu phân vị** và **đòi worst case**. Cách đọc nghiêm hơn. Với số hiện tại (22,66 vs 100) không đổi kết quả, nhưng sẽ đổi ở một phiên tệ hơn |
+| 3 | **Ngưỡng cỡ mẫu** 20 nét / 5 lần ngón thứ hai | Là thuộc tính của harness, **không phải yêu cầu đóng băng** — ghi rõ trong file để đổi có chủ đích |
+
+**Vertical của bạn:** [`app/verticals/v2_3d_inspector/README.md`](https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/feat/day10-app-core/app/verticals/v2_3d_inspector/README.md)
+(PR #48) — có một điểm đúng chuyên môn của bạn: một payload đi qua cầu WebView **không phải** một response
+hợp đồng, nên `validateResponse()` được export riêng để bạn kiểm nó trước khi tin. Và nhớ giới hạn ~4 095 ký
+tự của logcat tìm ra hôm 18/09: payload dài về **theo mảnh**, và JSON bị cắt thì parse ra rác chứ không báo
+lỗi. **Rẽ nhánh từ `feat/day10-app-core`, đừng chờ merge.**
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 
@@ -25,7 +56,8 @@
 | **1** | **Diễn giải `B10`/`B11` vào `RESULT.md` Spike B.** Dữ liệu thô: nhánh `spike-b/evidence-20260918`, `EVIDENCE_RAW/b10_b11_20260918/` — **3 lượt `status: complete`**, mỗi lượt 1 800 khoảng frame, cùng một build, một lần tải trang, kèm `PROVENANCE.md`. Ghi số của bạn, kèm nhãn `OBSERVED` / `NOT MEASURED`, điều kiện thiết bị, và **giới hạn**: mesh synthetic level 0, một phiên. Theo protocol của chính bạn: `B10` đạt khi `median_fps ≥ 20` từng lượt, `B11` đạt khi `longest_stall_ms ≤ 500` và `frames_over_500ms = 0`. **Không ai tính hộ số này** | ~1 h | không | Mục `B10`/`B11` trong `RESULT.md` + JSON thô dẫn được |
 | **2** | **Merge `main` vào #44** rồi nhờ Trung duyệt. Lý do: head #44 chưa chứa #43, nên phiên đo hôm qua phải phục vụ từ **bản gộp chỉ có ở local** — provenance chưa tái lập được từ GitHub | ~30 ph | Trung duyệt (việc 2 của cậu ấy) | #44 `APPROVED`, merge được |
 | **3** | **Duyệt lại #41** (`741f826`). Leader đã lấy **lựa chọn 2** của bạn: `RESULT.md`, README và PR body nay ghi **ba lượt trên hai build**, bảng so sánh hai chính sách được dán nhãn *quan sát*, và commit của từng build được ghi nhận là **khoảng trống**. Soát xem lời văn đã khớp dữ liệu chưa | ~30 ph | không | `APPROVE` hoặc nêu chỗ còn sai |
-| **4** | **Duyệt #31 sau khi leader rebase** (bạn đã approve ở head cũ; rebase xong cần một lượt xác nhận ngắn) | ~30 ph | leader rebase (sáng) | `APPROVE` |
+| ~~**4**~~ | ~~Duyệt #31 sau khi leader rebase~~ → **#31 đã merge trong đêm** (`11000f1`). Thay bằng: **đọc mục "#31 đã merge" ở trên** (~10 ph) và nói nếu không đồng ý với chỗ nào | ~10 ph | — | ✅ hoặc một phản hồi |
+| **4b** | 🆕 **Duyệt PR #49 — chặng `S8` của Spike A.** Đây là thứ **chặn phiên đo chiều**: `A8` cần build này. Ba câu hỏi ở mục trên | ~45 ph | không | `APPROVE` → leader merge trước 13:00 |
 
 ## Việc Day 10
 

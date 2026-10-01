@@ -53,6 +53,7 @@ import os
 import ssl
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -105,7 +106,8 @@ def _get(url: str, timeout: float = 60.0) -> dict:
     return record
 
 
-def scenarios(base: str, slices: int, window_radius: int) -> list[tuple[str, str, str]]:
+def scenarios(base: str, slices: int, window_radius: int,
+              profile: str | None = None) -> list[tuple[str, str, str]]:
     """(scenario, criterion, url) triples.
 
     Named after the criteria they feed, so a record can never be attributed to
@@ -139,6 +141,11 @@ def scenarios(base: str, slices: int, window_radius: int) -> list[tuple[str, str
     for level in range(4):
         out.append((f"mesh_level_{level}", "E6", f"{base}/mesh/{level}.obj"))
 
+    if profile:
+        encoded = urllib.parse.quote(profile, safe="")
+        out = [(scenario, criterion,
+                url + ("&" if "?" in url else "?") + f"profile={encoded}")
+               for scenario, criterion, url in out]
     return out
 
 
@@ -153,6 +160,8 @@ def main() -> int:
     ap.add_argument("--operator", required=True, help="device operator who physically ran this")
     ap.add_argument("--owner", required=True,
                     help="owner who designed and interprets the measurement (DR-006a)")
+    ap.add_argument("--profile", choices=["576x576x88", "640x640x88"],
+                    help="A6 payload profile served by the stub (default profile if omitted)")
     ap.add_argument("--slices", type=int, default=88)
     ap.add_argument("--window-radius", type=int, default=2)
     ap.add_argument("--repeats", type=int, default=3,
@@ -161,7 +170,7 @@ def main() -> int:
                     help="uplink conditions (Wi-Fi SSID/RSSI or cellular signal), location, time of day")
     args = ap.parse_args()
 
-    plan = scenarios(args.base.rstrip("/"), args.slices, args.window_radius)
+    plan = scenarios(args.base.rstrip("/"), args.slices, args.window_radius, args.profile)
     stamp = datetime.now(timezone.utc).astimezone().strftime("%Y%m%dT%H%M%S%z")
     os.makedirs(EVIDENCE, exist_ok=True)
     out_path = os.path.join(EVIDENCE, f"e_transport_{stamp}.jsonl")
@@ -175,6 +184,7 @@ def main() -> int:
         "measurement_path": args.path,
         "overlay_connection": args.connection,
         "repeats": args.repeats,
+        "payload_profile": args.profile or "stub-default",
         "conditions_note": args.note,
         "is_acceptance_evidence": args.path in ACCEPTANCE_PATHS,
         "warning": (None if args.path in ACCEPTANCE_PATHS else
@@ -189,6 +199,7 @@ def main() -> int:
     print(f"  path        {args.path}"
           + ("" if args.path in ACCEPTANCE_PATHS else "   <-- DIAGNOSTIC ONLY"))
     print(f"  connection  {args.connection}    (E12)")
+    print(f"  profile     {args.profile or 'stub-default'}")
     print(f"  requests    {len(plan)} x {args.repeats} repeats")
     print()
 
@@ -205,6 +216,7 @@ def main() -> int:
                     "criterion": criterion,
                     "measurement_path": args.path,
                     "overlay_connection": args.connection,
+                    "payload_profile": args.profile or "stub-default",
                     "operator": args.operator,
                     "owner": args.owner,
                 })

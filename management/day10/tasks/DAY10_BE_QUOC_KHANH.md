@@ -17,6 +17,20 @@
 | **Day 9 chốt `TRƯỢT` 1,5/4**, buffer **−2** | Điều kiện 3 trượt chỉ vì split chưa sinh lại. Đó là việc 1 hôm nay |
 | **Spike D `ACCEPTED`, `GATE-DATA-01` `CLOSED`** | Preflight C1 của bạn nay kiểm được điều kiện đó **thật** thay vì mô phỏng |
 | **M5 bắt đầu bằng mã thật hôm nay** | Việc 5: PR hiện thực đầu tiên của V3 trên fixture sinh từ hợp đồng |
+| 🆕 **Bộ khung `app/core` đã dựng xong trong đêm — PR #48, và leader nhờ bạn duyệt** | Hàng đợi sáng của bạn nhẹ nhất, và leader **không tự duyệt PR của mình**. Xem mục dưới |
+| 🆕 **Điều kiện 4 của Day 10 sửa từ "ba vertical" thành "bốn"** | `SCR-01` của bạn **là V3**. Bản kế hoạch gốc bỏ sót; `app/core` đã được viết để phục vụ cả nhóm endpoint experiment mà `SCR-07` cần |
+
+### 🆕 `app/core` — đường ray cho `SCR-01` và `SCR-07` của bạn
+
+**Đọc trước khi viết dòng nào:** [`app/verticals/v3_study_and_compare/README.md`](https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/feat/day10-app-core/app/verticals/v3_study_and_compare/README.md)
+— nó liệt kê đúng 7 endpoint hai màn của bạn gọi, các mã lỗi phải xử lý, và hàm nào trong core đã làm sẵn.
+
+| Việc | Ghi chú |
+|---|---|
+| **Duyệt PR #48** (~30 ph) | Trong PR có **hai câu hỏi dành riêng cho bạn**: README vertical của bạn có nói đúng thứ bạn cần không, và luật *"trường của hàng phải có trên **mọi** phần tử `items`"* có quá chặt với danh sách phân trang không |
+| **Rẽ nhánh từ `feat/day10-app-core`**, **đừng chờ merge** | Ba vertical kia cũng vậy. Chờ merge là mất buổi sáng |
+| Cái dễ sai nhất ở `SCR-07` | `experiment_compare` là `?ids={experiment_ids}` — **tên tham số khác tên placeholder**. Gọi `client.call('experiment_compare', { experiment_ids: [...] })`, core tự nối và escape. **Đừng tự dựng URL** |
+| Luật không được phá | `11` §5: **client không được gắn nhãn "công bằng" khi hợp đồng nói `false`**. Dùng `readComparability()` + `presentation()`; cờ `comparable` **thiếu hoặc không phải boolean** là `UNDECIDED`, **không bao giờ** là comparable |
 
 ## 🔴 LÀM TRƯỚC — nợ tồn
 

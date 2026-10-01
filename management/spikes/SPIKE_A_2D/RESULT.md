@@ -2,8 +2,13 @@
 
 > **`RESULT.md` ≠ `ACCEPTED`.** File này là bản ghi công việc của chủ sở hữu. Nghiệm thu cần đủ bốn bước:
 > owner → `EVIDENCE_READY` → reviewer `APPROVE` → CHAT E QA `PASS` → CHAT A chuyển trạng thái → `ACCEPTED`.
-> Hiện tại spike đang ở **`ACTIVE`**. Review đã được yêu cầu cho từng chặng — #27 (S4, `A2`) và #31 (S5, `A3`–`A7`) —
-> chưa chặng nào được `APPROVE`.
+> **Cập nhật 2026-09-20:** spike đề nghị chuyển sang **`EVIDENCE_READY`**. Phiên `S8` ngày 19/09 đã đo nốt
+> `A8`, `A10`, `A11`, nên **11/12 tiêu chí có dữ liệu** và không còn ô `NOT MEASURED` nào. `A1` và `A12` còn
+> **một phần**, lý do kỹ thuật ghi ở §Ghi chú A1 và §A12 — người nghiệm thu phải quyết nhận kèm hai hạn chế
+> đó hay không, chứ chúng không được lặng lẽ tính là đạt.
+>
+> Chặng đã merge: #31 (S5, `A3`–`A7`) tại `11000f1`; **#49** (S8, `A8`/`A10`/`A11`) tại `34f5097` (01/10).
+> **#41** (S6, `A9` ở 576×576×88) vào `main` dưới override Day 22, sau QA của CHAT E.
 
 | Mục | Giá trị |
 |---|---|
@@ -31,14 +36,16 @@
 | **A5** | **Brush mapping đúng pixel sau zoom/pan** | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **60/60** ca ở r = 0 và **60/60** ở r = 2; (dx, dy) = (0, 0) ở cả 50 ca trong ảnh, 10 ca ngoài ảnh không tô gì. **Dung sai đề xuất: 0 pixel nguồn** |
 | **A6** | Undo tái lập trạng thái trước | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi undo khớp hash trước từng nét |
 | **A7** | Redo tái lập trạng thái đã undo | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi redo khớp hash sau từng nét |
-| A8 | Save/reload tái lập đúng nét sửa | `NOT MEASURED` | chặng S6 — app chưa lưu mask |
-| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO HAI LẦN — đạt ngưỡng ở cả hai** | `64×64`: **65,31 ms** · **`576×576` (thật): 50,23 ms**. Kèm phát hiện bộ nhớ **376 MB ngoại suy** cho 88 slice. Xem §Kết quả A9 |
-| A10 | Phản hồi brush ≤ 100 ms, 0 nét mất | `NOT MEASURED` | **có dữ liệu thô, chưa kết luận:** 25 nét thật, 0 mẫu không tính được trong 20 nét commit; proxy JS tới frame kế tiếp lớn nhất 22,66 ms — không gồm độ trễ chuyển chạm từ native nên chưa phải con số `A10` |
-| A11 | Tách gesture sửa vs điều hướng | `NOT MEASURED` | **có dữ liệu thô:** 5 nét bị huỷ đúng lúc ngón thứ hai chạm; chưa có lượt kiểm theo kịch bản cho "0 sửa nhầm" |
+| **A8** | **Save/reload tái lập đúng nét sửa** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | **2 vòng NGUỘI** sau `am force-stop`, trên **hai tệp khác nhau**: mỗi vòng **16/16** checksum slice khớp và hash khối trùng đúng bản đã lưu. Thêm 5 vòng nóng, 5/5 đúng từng byte. Xem §Kết quả A8 |
+| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO NĂM LẦN — đạt ngưỡng ở cả năm** | `64×64×16`: **65,31 ms** · `576×576×16`: **50,23 ms** · **`576×576×88` (kích thước cohort thật, 17/09):** cache toàn bộ **98,72 ms**, cửa sổ ±3 **50,84 ms** trong cửa sổ / **102,73 ms** khi miss. Xem §Kết quả A9 và §Chặng S6 |
+| **A10** | **Phản hồi brush ≤ 100 ms, 0 nét mất** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | worst per-stroke **30,48 ms** trên **123 nét có commit** · p50 16,48 · p95 24,66 · **0 mẫu commit bị mất**. **Đọc trên `max`, không phải p95** — xem §Kết quả A10/A11 |
+| **A11** | **Tách gesture sửa vs điều hướng** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | **12** lần ngón thứ hai chạm giữa nét, **tất cả cuộn lại** · **0** nét commit trong cử chỉ nhiều ngón · **0** nét commit mà không nhả tay sạch · 20/20 bản ghi cử chỉ mang kết cục nét |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
 
-**9 tiêu chí có dữ liệu · 3 tiêu chí `NOT MEASURED`** (`A8`, `A10`, `A11`). Không ô nào bỏ trống và không ô nào được
-đoán. *(`A2` thêm 14/09 — PR #27; `A3`–`A7` thêm 15/09 — PR #31. Cả hai PR chưa được `APPROVE`.)*
+**11 tiêu chí có dữ liệu · 0 tiêu chí `NOT MEASURED`** — `A1` và `A12` còn **một phần**, lý do ghi ở §Ghi chú A1
+và §A12. Không ô nào bỏ trống và không ô nào được đoán.
+*(`A2` thêm 14/09 — PR #27 · `A3`–`A7` thêm 15/09 — PR #31, **đã merge `11000f1`** · `A8`/`A10`/`A11` thêm 19/09 —
+PR #49, chờ `APPROVE`.)*
 
 ---
 
@@ -96,22 +103,25 @@ Nếu đúng thì đây là dữ kiện có giá trị cho `GATE-MOB-01`: với 
 
 **≈ 4,3 MB graphics mỗi slice** (volume + mask overlay, đã decode sang bitmap).
 
-**Ngoại suy tới độ sâu THẬT của cohort — 88 slice:**
+**Ngoại suy tới độ sâu THẬT của cohort — 88 slice, ghi ngày 12/09:**
 
 ```text
 4,3 MB/slice × 88 slice  ≈  376 MB graphics memory
 ```
 
-> **Chiến lược "prewarm toàn bộ volume" KHÔNG co giãn tới dữ liệu thật.** 376 MB là con số đáng lo
-> ngay cả khi graphics memory nằm ngoài heap Java 256 MB mà profile DR-006 đã cảnh báo.
+> ### ❌ Con số 376 MB này SAI. Đã thay bằng số đo thật ngày 17/09 — xem §Chặng S6.
 >
-> Điều này **không làm hỏng con số `A9`** — `A9` hỏi về slice *đã cache*, và với 16 slice thì chúng
-> đã cache thật. Nhưng nó nói rằng **một viewer thật không thể cache cả volume**, nên nó sẽ phải
-> decode theo yêu cầu — và lúc đó `A9` **sẽ** nhạy với kích thước slice theo cách lần đo này không
-> thấy được.
+> Thực đo ở `576×576×88`: **135,90 MB bitmap** cho cả volume, tức **1,54 MB/slice**, không phải
+> 4,3 MB/slice. Ngoại suy lệch **2,8 lần**. Đoạn trên giữ nguyên để thấy bản ghi đã nói gì và sai
+> ở đâu, không xoá dấu vết.
 >
-> **Đây là việc tiếp theo của Spike A, và nó quan trọng hơn phần brush:** đo `A9` với một cache có
-> giới hạn (ví dụ cửa sổ ±3 slice) thay vì cache toàn bộ. Đó mới là hành vi của ứng dụng thật.
+> Hai nguyên nhân của sai số, cả hai đều là **lỗi phương pháp chứ không phải lỗi thiết bị**:
+> ① lần đo 12/09 lấy `Graphics` thô, mà `Graphics` **còn tính cả surface cửa sổ** của màn hình
+> 1080×2340 — ngày 17/09 đo được nền đó là **23,03 MB** khi app chưa nạp slice nào, và phải trừ đi;
+> ② nhân một chi phí đo ở 16 slice lên 88 slice giả định chi phí mỗi slice không đổi, mà nó có đổi.
+>
+> Điều phần trên nói **đúng** và vẫn đứng: *một viewer thật không thể prewarm cả volume*. Chỉ là lý
+> do đúng hơn không phải "376 MB quá lớn" — xem §Chặng S6 để biết lý do thật.
 
 ### Định nghĩa đang đo là gì
 
@@ -139,6 +149,127 @@ chính anh cắm và mở khoá. Chủ sở hữu Spike A là Phạm Tuấn Anh;
    tả được biến động giữa các lần.
 3. **`Nz = 16`, độ sâu thật là 88.** Giữ cố định có chủ ý để cô lập biến kích thước slice — nhưng nó
    chính là lý do con số bộ nhớ ở trên phải **ngoại suy** thay vì đo trực tiếp.
+
+---
+
+## Chặng S6 — cache có giới hạn, đo ở kích thước cohort thật *(17/09, 10:22–10:41)*
+
+`576×576×88` — **lần đầu `A9` được đo ở cả kích thước trong mặt phẳng lẫn độ sâu thật.** Ba lượt đo trên
+**hai bản build release**: lượt 1 và lượt 2 chạy trên cùng một build; lượt 3 chạy sau khi app được sửa để khởi
+động **không chọn chính sách** (`POLICY_NONE`) và **build lại**, để có một lần khởi đầu nguội thật.
+
+> **⚠ Đính chính 18/09, theo review của Vũ Hùng Anh trên #41.** Bản trước ghi *"một build release, chỉ một biến
+> đổi giữa các lượt: chính sách cache"*. **Sai.** Giữa lượt 1 và lượt 3 có **hai** biến: chính sách cache **và** bản
+> build cùng trạng thái khởi động. Vì vậy mọi so sánh trực tiếp giữa hai chính sách dưới đây là **quan sát trên hai
+> build khác nhau**, không phải hiệu quả đã được cô lập của chính sách cache. Commit của từng build **không được ghi
+> lại** lúc đo; đó là một khoảng trống của bản ghi này. Từng số `A9` riêng lẻ vẫn đúng — reviewer đã tính lại độc lập
+> cả ba p95 (98,72 · 51,05 · 50,84 ms).
+
+Mọi trường trong bản ghi đều
+do máy sinh: `build_type` suy từ `__DEV__` **do chính app báo**, bộ nhớ và điều kiện do
+`harness/capture_conditions.py` đọc thẳng từ máy, chính sách và `nx/ny/nz` đọc từ dòng
+`SPIKE_A_TIMING_RUN_START` của app. **Không trường nào gõ tay.**
+
+| Lượt | Chính sách | Cache lúc bắt đầu | p95 mọi bước | p50 | **p95 trong cửa sổ** | p95 khi **miss** | graphics sau | TOTAL PSS sau |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| 1 | `toàn bộ` (88) | nguội *(app vừa khởi động)* | **98,72 ms** | 50,45 | 98,72 *(30/30)* | — | 158,93 MB | 507,32 MB |
+| 2 | `cửa sổ ±3` | ⚠ **ấm** — lượt 1 đã nạp cả 88 | 115,21 ms | 34,79 | 51,05 *(22/30)* | 115,26 *(8/30)* | 101,34 MB | 408,39 MB |
+| 3 | `cửa sổ ±3` | **nguội thật** | 100,74 ms | 49,40 | **50,84** *(22/30)* | **102,73** *(8/30)* | 107,72 MB | 411,19 MB |
+
+Nền so sánh: app vừa mở, **chưa chọn chính sách, chưa nạp slice nào** — `Graphics` **23,03 MB**,
+`TOTAL PSS` **239,82 MB**. Đó là surface cửa sổ + UI, phải trừ khỏi mọi con số `Graphics`.
+
+### `A9` đạt ở kích thước thật, cả hai chính sách
+
+98,72 ms và 50,84 ms so với trần **200 ms**. Trước hôm nay `A9` mới chỉ đo ở **16** slice, nên câu hỏi
+"có đạt khi stack sâu thật không" chưa ai trả lời được.
+
+**Độ lặp lại tốt:** p95 trong cửa sổ của lượt 2 và lượt 3 — hai lần chạy độc lập, khởi đầu khác hẳn nhau,
+và **trên hai build khác nhau** — lệch **0,21 ms** (51,05 và 50,84).
+
+### Chi phí bitmap thật, và vì sao 376 MB sai
+
+| | `Graphics` sau | trừ nền 23,03 | số slice thực nạp | **MB/slice** |
+|---|---:|---:|---:|---:|
+| cửa sổ ±3, vừa nạp xong *(z=0 → 4 slice)* | 30,42 MB | **7,39 MB** | 4 | **1,85** |
+| toàn bộ volume | 158,93 MB | **135,90 MB** | 88 | **1,54** |
+
+Hai phép đo **độc lập** đồng ý nhau quanh **1,5–1,9 MB/slice**, và khớp mức lý thuyết của một bitmap
+`576×576` ARGB_8888 (**1,27 MB**) cộng phần phụ. Con số **4,3 MB/slice** của bản ghi 12/09 cao gấp hơn ba
+lần mức lý thuyết — dấu hiệu rõ là nó đã tính cả surface cửa sổ vào.
+
+### 🔴 Phát hiện chính, và nó ngược với điều tôi kết luận vội sau lượt 2
+
+> **Cửa sổ ±3 KHÔNG chặn được bộ nhớ.**
+
+Lượt 3 nói điều đó không thể chối: bắt đầu **nguội**, cửa sổ chỉ giữ **4 slice** (7,39 MB bitmap). Sau
+bài 30 bước, bitmap lên **84,69 MB** — tương đương **~46 slice**, trong khi cửa sổ **chưa bao giờ giữ quá
+7**. Fresco giữ lại **mọi** bitmap nó từng decode, bất kể React đã unmount component hay chưa.
+
+> **⚠ Đính chính trong ngày.** Sau lượt 2 tôi ghi *"cửa sổ ±3 nhả thật, chỉ nhả muộn"*, vì graphics tụt
+> 158,93 → 101,34 MB trong lúc chạy. **Sai.** Đó không phải chính sách cửa sổ nhả — đó là Fresco **tự
+> hạ** từ mức 158,93 MB mà lượt prewarm-toàn-bộ đã tích lại. Bằng chứng: lượt 3 đi **ngược chiều**, từ
+> 29,71 MB **lên** 107,72 MB. Hai lượt cửa sổ hội tụ về **101–108 MB dù xuất phát trái ngược nhau** —
+> đó là điểm cân bằng của cache Fresco, không phải tác dụng của chính sách.
+
+**Cửa sổ ±3 mua được gì** — *quan sát giữa lượt 1 và lượt 3, tức giữa hai build; không phải hiệu quả đã cô lập
+của chính sách (xem đính chính ở đầu chặng S6):*
+
+| | toàn bộ | cửa sổ ±3 | chênh |
+|---|---:|---:|---:|
+| bitmap | 135,90 MB | 84,69 MB | **−38%** |
+| TOTAL PSS | 507,32 MB | 411,19 MB | **−19%** |
+| p50 | 50,45 ms | 49,40 ms | ≈ 0 |
+
+**Và không mua được gì:** một cận trên cho bộ nhớ. Bộ nhớ vẫn tăng theo **số slice khác nhau đã đi qua**.
+Người dùng lướt đủ lâu thì nó vẫn tiến về mức của cache toàn bộ.
+
+### Chi phí cache miss là thật nhưng nhỏ — và cảnh báo của tôi hoá ra không đổi con số
+
+Lượt 2 chạy trên cache Fresco đang ấm, nên 8 "miss" của nó có thể được phục vụ lại chứ không decode lại;
+tôi đã ghi rõ **115,26 ms là cận dưới, không phải chi phí thật**, và dựng lại app để đo cho sạch.
+
+Kết quả: miss **thật sự nguội** là **102,73 ms** — **thấp hơn** con số bị nghi là lạc quan. Nêu cảnh báo
+là đúng phương pháp; câu trả lời là nó **không đổi kết luận nào**. Và cả hai đều **dưới trần 200 ms**,
+dù `NFR-PERF-001` vốn không quản bước miss.
+
+### Hệ quả cho V1 và cho `GATE-MOB-01`
+
+1. **Cửa sổ ở tầng component là cần nhưng CHƯA ĐỦ.** Muốn chặn bộ nhớ thì phải chặn **chính cache ảnh**
+   — cấu hình bitmap cache của Fresco, hoặc một thư viện ảnh có chính sách cache tường minh
+   *(ví dụ `expo-image` với `cachePolicy` và `recyclingKey`)*. Đây là dữ kiện trực tiếp cho
+   `GATE-MOB-01`, và **không** phải lý do nới `NFR-PERF-001`.
+2. **Prewarm toàn bộ volume ở kích thước thật tốn 507 MB `TOTAL PSS`** — sống được vì bitmap nằm ngoài
+   heap Java, nhưng gấp đôi trần `heapgrowthlimit = 256 MB` của máy.
+3. ⛔ **Không kết luận nào ở đây nâng `PR-CACHE-01` từ `SHOULD` lên `MUST`.** Đây là số đo của một spike,
+   không phải một yêu cầu mới.
+
+### Giới hạn phạm vi của chặng S6
+
+- Payload là fixture **tổng hợp** đúng hình dạng, không phải ảnh MRI thật — kích thước và số slice thật,
+  nội dung thì không. Ảnh thật nén khác, nhưng **bitmap sau decode thì cùng kích thước**, nên con số bộ
+  nhớ không phụ thuộc nội dung; con số thời gian **decode** thì có thể.
+- Một máy, một phiên, một lượt mỗi chính sách. Pin **80% `NOT_CHARGING`** cả ba lượt *(máy tự ngắt sạc
+  để bảo vệ pin)*, nhiệt `NONE`, 32,2–32,9 °C. Chưa có khoảng tin cậy.
+- Fixture nạp bằng `import` tĩnh nên **78 MB JSON nằm trong bundle** — riêng nó đã tốn ~91 MB native
+  heap lúc app mở, trước khi decode slice nào. Ứng dụng thật sẽ tải qua mạng, nên phần này **không** áp
+  thẳng sang V1; nó là chi phí của giàn đo.
+- `mask` chỉ decode cho slice đang xem, không prewarm. Một viewer bật overlay liên tục sẽ tốn hơn.
+
+### Tái lập
+
+```bash
+cd spikes/spike_a_2d
+python fixtures/generate.py --nx 576 --ny 576 --nz 88   # 78 MB, .gitignore không theo dõi
+python harness/check_conformance.py                      # F1–F4
+cd app && npx expo run:android --variant release
+cd .. && python harness/measure_a9.py --policy all
+      && python harness/measure_a9.py --policy window
+```
+
+Bằng chứng: `EVIDENCE_RAW/a9_slice_switch_20260917T*_{all,window}.json` và ba thư mục
+`EVIDENCE_RAW/a9_conditions_*` kèm **bản `dumpsys meminfo` nguyên văn**, để ai muốn thì tự phân tích lại
+thay vì tin bộ phân tích của tôi.
 
 ---
 
@@ -226,6 +357,81 @@ nên chỉ là dữ liệu thô; `A8` (lưu/tải lại) chưa dựng. Đã đo,
 
 ---
 
+## Kết quả A8 — lưu và nạp lại *(chặng S8, 2026-09-19 11:50–12:19)*
+
+Bản ghi phiên đầy đủ: [`EVIDENCE_RAW/SESSION_S8_RECORD.md`](../../../spikes/spike_a_2d/EVIDENCE_RAW/SESSION_S8_RECORD.md) ·
+thô: `a8_save_reload_20260919T121906+0700.json`.
+
+**`A8` là "đúng mask đó quay lại", không phải "đã ghi được một tệp".** Một vòng làm mất đúng một voxel đã
+sửa trông y hệt một lần thành công, nên mọi slice được băm lại đối chiếu checksum mà bản lưu đã ghi.
+
+| Vòng | Loại | Slice khớp checksum | Hash khối | Thời gian |
+|---|---|---|---|---|
+| 1–5 | **nóng** (cùng tiến trình) | 16/16 mỗi vòng | khớp | lưu 43,3–76,9 ms · nạp 19,0–20,7 ms |
+| **6** | **NGUỘI** — sau `am force-stop`, mở lại | **16/16** | **khớp** `8b43fc60…` | nạp **25,1 ms** |
+| **7** | **NGUỘI** — tệp thứ hai, nội dung khác | **16/16** | **khớp** `1283fcbc…` | nạp **22,4 ms** |
+
+**Chỉ hai vòng nguội mới kết luận được `A8`.** Năm vòng nóng chạy trong cùng một tiến trình: chúng chứng
+minh codec và tệp, **không** chứng minh bản sửa sống sót khi ứng dụng bị giết. `extract_a8.py` từ chối trả
+`OBSERVED` nếu không có vòng nguội, nếu vòng nguội không khớp lần `lưu` nào trong cùng log, hoặc nếu bản
+lưu tương ứng là mask **chưa sửa** — round-trip mask nguồn sẽ pass mà không chạm tới một chỉnh sửa nào.
+Tám kịch bản từ chối đó đã chạy thử bằng log tổng hợp **trước** phiên đo.
+
+Tệp 5 147 / 5 435 byte = **7,85% / 8,29%** của 65 536 byte thô, nhờ mã hoá run-length.
+
+**Thời gian được báo cáo, không được phán xét:** không yêu cầu đóng băng nào ràng buộc `save_ms` hay
+`reload_ms`. Đặt ra một ngưỡng ở đây là bịa ra một tiêu chí.
+
+---
+
+## Kết quả A10 / A11 — phản hồi cọ và tách cử chỉ *(cùng phiên S8)*
+
+Thô: `a10_a11_brush_feedback_20260919T121906+0700.json` · **123 nét có commit** trên **3 slice**, bán kính
+**r1 / r2 / r3 / r5**, cả `thêm` lẫn `xoá`, **12** lần ngón thứ hai chạm giữa nét.
+
+| | Ràng buộc `TASK.md` | Đo được |
+|---|---|---|
+| `A10` | *"visible feedback ≤ 100 ms; zero committed stroke samples lost"* | worst **30,48 ms** · p50 16,48 · p95 24,66 · **0 mẫu mất** |
+| `A11` | *"zero accidental edits"* | 12/12 lần bị ngón thứ hai chặn đều **cuộn lại**; **0** nét commit trong cử chỉ nhiều ngón; **0** nét commit mà không nhả tay sạch |
+
+### Hai cách đọc được nêu ra để phản biện, không ngầm định
+
+**1 · `A10` lấy verdict trên `max`, không phải `p95`.** `A9` nêu rõ phân vị; `A10` **không nêu**, và bảng
+"Measurements required" đòi *"p50 **and worst case**"*. Cách đọc thẳng là ràng buộc áp cho mọi mẫu. Với số
+hiện tại (30,48 so với 100) hai cách đọc cùng kết quả, nhưng ở một phiên tệ hơn thì khác — nên cách đọc
+được ghi ra, và nếu `p95` mới đúng thì đó là một **Decision Request**, không phải một lần sửa script.
+
+**2 · `feedback_ms` là proxy phía JS.** Đo từ `performance.now()` lúc vào handler `PanResponder` tới
+callback `requestAnimationFrame` đầu tiên sau khi overlay cập nhật. **Không gồm** khâu hệ thống chuyển sự
+kiện chạm vào JS, và `nativeEvent.timestamp` ở đồng hồ khác nên không được trộn vào. Độ trễ đầu-cuối thật
+**lớn hơn** con số này. `A10` đạt là **đạt trên cận dưới**, và đó là giới hạn của harness chứ không phải
+thứ để giấu.
+
+### Một quan sát ngược với giả định của chính chúng tôi
+
+**Bán kính lớn không phải chỗ chậm nhất:** `r5` worst **19,41 ms**, `r1` worst **30,48 ms**. Kịch bản phiên
+ban đầu ghi `r 0` là "trường hợp nặng nhất về số mẫu trên một nét" — sai cả lý do (số mẫu chạm không phụ
+thuộc bán kính; chi phí *mỗi* mẫu mới phụ thuộc) lẫn số (chi phí không do footprint quyết định). Đã sửa
+kịch bản và nêu câu hỏi cho reviewer.
+
+### Giới hạn, ghi rõ
+
+Fixture **64×64×16**, **không phải** 576×576×88. Tính *đúng từng byte* của `A8` **không** phụ thuộc kích
+thước; **dung lượng tệp và thời gian thì có** — 5 147 byte / 7,85% của 65 KB **không nói gì** về 29,2 MB
+thô. Mọi phát biểu về hai thứ đó ở độ sâu thật là `NOT MEASURED`. Một thiết bị, một phiên; hai vòng nguội
+không phải một con số độ tin cậy. Ngưỡng cỡ mẫu (20 nét, 5 lần ngón thứ hai) là thuộc tính của harness,
+**không phải** yêu cầu đóng băng.
+
+### Hai sai sót của Project Control trong phiên
+
+Ghi đầy đủ ở [`SESSION_S8_RECORD.md`](../../../spikes/spike_a_2d/EVIDENCE_RAW/SESSION_S8_RECORD.md) §"Hai sai
+sót": APK dựng **trước** một lần sửa mã nên 25 nét đầu của trưởng nhóm phải bỏ và tô lại trên một build
+duy nhất; và một tệp log bị xoá khi chưa được xác nhận, khiến sha256 đã ghi của nó **vĩnh viễn không kiểm
+lại được** (đánh dấu `UNVERIFIABLE`). Không mất bằng chứng — bản lọc đã commit giữ mọi dòng `SPIKE_A_` và
+cả hai script chạy lại trên chính nó cho verdict giống hệt.
+
+---
+
 ## Ghi chú A1
 
 `n / total` hiển thị đúng và 16 slice điều hướng được — phần đó đạt. Nhưng tiêu chí còn vế **"exact match
@@ -264,22 +470,40 @@ tới; Flutter còn chưa cài trên máy.
 | Điều kiện | Trạng thái |
 |---|---|
 | `A5` sai mapping sau transform → ứng viên **không dùng được** | **không kích hoạt** — 60/60 ở r = 0 và r = 2 trên máy (15/09) |
-| `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **`A9` đạt** ở kích thước fixture · `A10` chưa đo |
-| Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | chưa kết luận — dữ liệu thô: 0 mẫu không tính được trong 20 nét commit; bài đo `A10` theo kịch bản chưa chạy |
+| `A9` hoặc `A10` trượt trên thiết bị đã khai báo → không dùng được | **không kích hoạt** — `A9` ở 576×576×88: p95 98,72 ms (cache toàn bộ) · 50,84 ms trong cửa sổ · 102,73 ms khi miss / 200 (17/09) · `A10` worst 30,48 ms / 100 (19/09) |
+| Mất nét committed → không dùng được (`NFR-PERF-003` cấm) | **không kích hoạt** — **0 mẫu commit bị mất** trên 123 nét (19/09) |
 | Không ứng viên nào đạt → `NEGATIVE_RESULT`, leo thang | chưa tới bước đó |
 
 ---
 
 ## Việc tiếp theo
 
-1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · ~~**brush** → `A3` `A4` `A5` `A6` `A7`~~ ✅ 15/09 · tiếp: **lưu/tải lại** →
-   `A8` (chặng S6) và bài đo theo kịch bản cho `A10`/`A11`
+1. ~~**Zoom/pan** → `A2`~~ ✅ 14/09 · ~~**brush** → `A3`–`A7`~~ ✅ 15/09 · ~~**lưu/tải lại** → `A8`, và bài đo
+   theo kịch bản cho `A10`/`A11`~~ ✅ **19/09, chặng S8**
 2. ~~**Chạy 60 ca `brush_cases.json`** → `A5`~~ ✅ 15/09 — sai số toàn (0, 0), **dung sai đề xuất 0 pixel nguồn**;
    đưa vào hợp đồng hình học khi Vũ Hùng Anh nâng phiên bản (`DR-013`)
-3. **Đo lại `A9` ở kích thước slice thật** khi Spike D `A6` có kết quả
-4. Dựng ứng viên thứ hai để `A12` so sánh được
-5. Nhả Galaxy A17 cho Nguyễn Gia Đức Trung — profile DR-006 và baseline `A9` đã xong, phần còn lại là
+3. ~~**Đo lại `A9` ở kích thước slice thật**~~ ✅ 12/09 — 576×576×16, p95 50,23 ms; ở độ sâu thật 576×576×88
+   ✅ 17/09 (chặng S6) — p95 98,72 ms cache toàn bộ, 50,84 ms trong cửa sổ ±3, 102,73 ms khi miss
+4. **Nghiệm thu** — đường còn lại, theo đúng `acceptance_workflow`: reviewer `APPROVE` **#41** và **#49**
+   → QA chạy `management/day10/qa004_spike_a/run_qa004.py` và ký verdict → Project Control chuyển
+   `SPIKE_A: ACCEPTED`. **Người chạy QA không nên là chủ spike** — xem ghi chú xung đột vai bên dưới
+5. **Đo `A8` ở độ sâu thật** (576×576×88) nếu muốn phát biểu về dung lượng và thời gian lưu — hôm nay chỉ
+   có ở 64×64×16
+6. Dựng ứng viên thứ hai để `A12` so sánh được — đây là hạn chế lớn nhất còn lại của cả spike
+7. Nhả Galaxy A17 cho Nguyễn Gia Đức Trung — profile DR-006 và baseline `A9` đã xong, phần còn lại là
    việc desktop
+
+> ### ⚠ Xung đột vai ở bước 3 và 4, nêu ra chứ không đi vòng
+>
+> Chủ sở hữu Spike A là **Phạm Tuấn Anh**, và anh cũng là **Project Control**. `acceptance_workflow`
+> (`SPIKE_PHASE_STATE.yaml` dòng 836) **không có điều khoản hồi tị** cho bước 3 (QA) hay bước 4. Spike D
+> không vướng vì chủ (Bế Quốc Khánh) và reviewer (Vũ Hùng Anh) là hai người khác nhau, còn Project Control
+> chỉ đeo thêm vai QA.
+>
+> Ở đây, nếu chủ spike tự chạy QA thì `ACCEPTED` có chữ ký một người đeo **ba vai**. Đề xuất: **Nguyễn Gia
+> Đức Trung chạy bước 3** (bộ QA-004 đã script hoá, phần nặng là máy làm), Project Control chỉ làm bước 4.
+> Đây là một **khoảng trống trong đặc tả**, được ghi lại như `INC-001` §4.1 đã làm với khoảng trống của nó,
+> chứ không dán một cái nhãn cho vừa.
 
 **Liên quan:** [`TASK.md`](TASK.md) · [`DR006_DEVICE_PROFILE.md`](DR006_DEVICE_PROFILE.md) ·
 [`EVIDENCE_TEMPLATE.md`](EVIDENCE_TEMPLATE.md) · [`../../../spikes/spike_a_2d/`](../../../spikes/spike_a_2d/)
