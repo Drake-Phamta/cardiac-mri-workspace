@@ -14,7 +14,7 @@ import {
   STATE, getEndpoint, readComparability, presentation, VERDICT,
 } from '../../core/index.mjs';
 import {
-  COMPARISONS, OUTLIER_RULE, matrixEntry,
+  COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE, matrixEntry,
   readExperimentIdentity, readCohortN, readMetricSummary, readVariant, readCaseRows,
   readOutlierSelection, readPopulation, summaryStat,
 } from './readers.mjs';
@@ -152,6 +152,26 @@ export function buildCell(expected, {
     // contract selection_rules.outlier_selection: the server's DR-010 block,
     // read as served - never computed here.
     outliers = readOutlierSelection(casesView.data.outlier_selection, { experimentId: expected.id, variant: confirmedLane });
+    // Every case the selection names must be a SUCCEEDED row of this same
+    // answer: FAILED, EXCLUDED and WITHHELD rows are never candidates
+    // (outlier_selection.eligibility), and the INT-12 case never shows a value.
+    // The WHOLE selection is refused - dropping an entry would re-derive the
+    // selection on the client, which DR-010 forbids (#61 QA B-4). While
+    // experiment_cases is not paged, "not a SUCCEEDED row here" is exact; once
+    // it is paged, this must test "a non-SUCCEEDED row here" or move server-side.
+    if (outliers.available) {
+      const succeeded = new Set(cases.rows.filter((r) => r.status === ROW_STATUS.SUCCEEDED && r.caseId).map((r) => r.caseId));
+      const ineligible = outliers.cases.filter((c) => !succeeded.has(c.caseId)).map((c) => c.caseId ?? '?');
+      if (ineligible.length) {
+        outliers = Object.freeze({
+          available: false,
+          reason: UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE,
+          ruleId: OUTLIER_RULE.id,
+          cases: Object.freeze([]),
+          served: ineligible.join(', '),
+        });
+      }
+    }
   } else {
     outliers = Object.freeze({
       available: false,

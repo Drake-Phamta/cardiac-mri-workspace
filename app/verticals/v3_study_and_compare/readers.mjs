@@ -123,6 +123,11 @@ export const UNAVAILABLE = Object.freeze({
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'OUTLIERS_FOR_ANOTHER_EXPERIMENT',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'OUTLIERS_FOR_ANOTHER_VARIANT',
+  // The selection names a case that the same experiment_cases answer does not
+  // list as SUCCEEDED (a FAILED, EXCLUDED or WITHHELD row, or no row at all).
+  // DR-010 selects only among successfully evaluated cases, and an
+  // INFERENCE_REVIEW case (INT-12) never has a per-case value.
+  OUTLIERS_NAME_INELIGIBLE_CASE: 'OUTLIERS_NAME_INELIGIBLE_CASE',
   NO_ELIGIBLE_CASES: 'NO_ELIGIBLE_CASES',
   // experiment_list answered with no rows: no experiment is listed yet.
   NO_EXPERIMENTS_LISTED: 'NO_EXPERIMENTS_LISTED',

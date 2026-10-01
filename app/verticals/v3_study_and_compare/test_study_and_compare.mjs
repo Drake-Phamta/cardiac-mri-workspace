@@ -410,6 +410,33 @@ const base0 = () => ({
     && cell.outliers.cases[0].falsePositives.value === 40 && cell.outliers.cases[0].falseNegatives.value === 10,
     'the selection version and the FP/FN tie-break values are read as served');
 
+  // B-4 (QA): a selection that names a case this same answer does not list as
+  // SUCCEEDED is refused whole - the WITHHELD INT-12 case never gets a number
+  // through the outlier path, a FAILED case never reads as 0, and no entry is
+  // dropped to make the rest fit (that would re-derive DR-010 on the client).
+  const named = (entries) => typedCell(expected, {
+    outlierSelection: { ...base0(), cases: entries },
+  }).outliers;
+  const viaWithheld = named([
+    { case_id: 'CASE_0107', analysis_run_id: 'RUN_U100_0107', metric_value: 0.42, false_positives: 31, false_negatives: 12 },
+    { case_id: 'CASE_0106', analysis_run_id: 'RUN_U100_0106', metric_value: 0.55 },
+  ]);
+  check('V3-9', !viaWithheld.available && viaWithheld.reason === UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE
+    && viaWithheld.served === 'CASE_0107' && viaWithheld.cases.length === 0,
+    `a selection naming the WITHHELD case (INT-12) with dice 0.42 -> ${viaWithheld.reason} (${viaWithheld.served}), no entry kept`);
+  const viaFailed = named([{ case_id: 'CASE_0103', analysis_run_id: 'RUN_U100_0103', metric_value: 0 }]);
+  check('V3-9', !viaFailed.available && viaFailed.reason === UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE
+    && viaFailed.served === 'CASE_0103',
+    'a selection naming a FAILED case with dice 0 is refused - a failed case never reads as 0');
+  const viaAbsent = named([
+    { case_id: 'CASE_0999', analysis_run_id: 'RUN_X', metric_value: 0.1 },
+    { case_id: 'CASE_0104', analysis_run_id: null, metric_value: 0.2 },
+  ]);
+  check('V3-9', !viaAbsent.available && viaAbsent.served === 'CASE_0999, CASE_0104',
+    `a case missing from the rows and an EXCLUDED case are both named in the refusal: ${viaAbsent.served}`);
+  check('V3-9', named([{ case_id: 'CASE_0102', analysis_run_id: 'RUN_U100_0102', metric_value: 0.62 }]).available,
+    'the same block naming only SUCCEEDED rows is accepted');
+
   // contract 1.1.0: experiment_cases states its own prediction_variant. Rows
   // for another variant than the metrics stay listed but are not drawn,
   // linked or used for outliers.
@@ -696,6 +723,51 @@ const base0 = () => ({
   check('V3-16', readVariant('constructor').lane === null && readVariant('__proto__').lane === null
     && caseIntent({ caseId: 'C', runId: 'R', variant: 'toString' }).enabled === false,
     'variant and lane lookups ignore prototype keys');
+}
+
+// V3-9 (B-4) on SCR-01: a listed experiment whose served selection names the
+// generated bundle's WITHHELD case (CASE_0001, INT-12) shows an outlier entry
+// that is unavailable with its reason - not CASE_0001 with a number.
+{
+  const fixture = createFixtureTransport(bundle);
+  const list = generated('experiment_list').response.data;
+  const metrics = generated('experiment_metrics').response.data;
+  const served = generated('experiment_cases').response.data;
+  const withheldId = served.items.find((r) => r.status === 'WITHHELD').case_id;
+  const client = createClient(contract, {
+    kind: 'fixture',
+    async send(resolved, options) {
+      switch (resolved.endpointId) {
+        case 'experiment_list':
+          return { status: 200, data: { ...list, items: [{ ...list.items[0], experiment_id: 'EXP-U-100', prediction_variant: 'RAW' }] } };
+        case 'experiment_metrics':
+          return { status: 200, data: { ...metrics, prediction_variant: 'RAW' } };
+        case 'experiment_cases':
+          return {
+            status: 200,
+            data: {
+              ...served,
+              prediction_variant: 'RAW',
+              outlier_selection: {
+                ...base0(),
+                cases: [{ case_id: withheldId, analysis_run_id: 'RUN_0001', metric_value: 0.42, false_positives: 31, false_negatives: 12 }],
+              },
+            },
+          };
+        default:
+          return fixture.send(resolved, options);
+      }
+    },
+  });
+  const m = createStudyOverview(client);
+  const s = await m.open({ studyId: STUDY });
+  const entry = s.outliers.find((o) => o.experimentId === 'EXP-U-100');
+  check('V3-9', entry && !entry.selection.available
+    && entry.selection.reason === UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE && entry.selection.served === withheldId,
+    `SCR-01: the outlier entry for EXP-U-100 naming ${withheldId} -> ${entry ? entry.selection.reason : 'no entry'}`);
+  const o = m.openOutlier('EXP-U-100', 0);
+  check('V3-9', o.enabled === false && o.reason === UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE,
+    'SCR-01: tapping it is a disabled intent with the same reason');
 }
 
 // V3-12 - nothing in this vertical ranks or sorts, and nothing a device
