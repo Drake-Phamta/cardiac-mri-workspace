@@ -365,15 +365,28 @@ def model_card(model: nn.Module) -> dict:
 
 # --- runtime helpers (copied from probe.py) ---------------------------------------
 
-def autocast_for(device: str, precision: str):
+def _device_kind(device) -> str:
+    """'cuda' for "cuda", "cuda:0", torch.device("cuda", 0) ...; 'cpu' for "cpu"; etc.
+
+    A plain string comparison is wrong here: torch.device("cuda") == "cuda" is False and
+    "cuda:0" != "cuda", so a CUDA run would silently fall back to the CPU branch.
+    """
+    return torch.device(device).type
+
+
+def autocast_for(device, precision: str):
     """fp32 runs plain; fp16/bf16 use CUDA autocast.
 
-    CHANGED vs probe.py: on a non-CUDA device this is always a no-op (fp32), so CPU tests
-    never enter a CUDA autocast region. An unknown precision raises.
+    CHANGED vs probe.py:
+      * the device is normalised with torch.device(device).type, so "cuda:0" and
+        torch.device("cuda", 0) take the CUDA path (probe.py compared strings);
+      * on a non-CUDA device this is always a no-op (fp32), so CPU tests never enter a
+        CUDA autocast region;
+      * an unknown precision raises.
     """
     if precision not in ("fp32", "fp16", "bf16"):
         raise ValueError(f"unknown precision {precision!r}")
-    if precision == "fp32" or device != "cuda":
+    if precision == "fp32" or _device_kind(device) != "cuda":
         return contextlib.nullcontext()
     return torch.autocast(device_type="cuda",
                           dtype=torch.float16 if precision == "fp16" else torch.bfloat16)
@@ -395,11 +408,13 @@ class PeakTracker:
     during the run - labelled rss_delta and never called "peak", because the
     allocator does not hand memory back promptly.
 
-    (copied from probe.py, unchanged)
+    (copied from probe.py; CHANGED: the device is normalised with torch.device(device).type,
+    so "cuda:0" and torch.device("cuda", 0) report the true CUDA peak - probe.py compared
+    strings)
     """
 
-    def __init__(self, device: str):
-        self.device = device
+    def __init__(self, device):
+        self.device = _device_kind(device)
         self.baseline = None
         self.max_rss = 0
 
