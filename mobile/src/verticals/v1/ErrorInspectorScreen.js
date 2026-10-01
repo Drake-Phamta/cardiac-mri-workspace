@@ -1,6 +1,6 @@
 /*
  * SCR-04 - Error Inspector (V1, Phạm Tuấn Anh, DR-013a; built under the Day 22
- * override, revalidated by the owner on D23).
+ * override, to be revalidated by the owner on Day 23).
  *
  * `10` §3 / §7 and the DEMO_STANDARD §4 bar:
  *   available only with ground truth   an INFERENCE_REVIEW case (or a run whose
@@ -17,7 +17,12 @@
  *                                      slice, as a profile across the volume
  *   jump to the worst slice            the server's worst_slice_selection
  *                                      (analysis_run_metrics, DR-010a option b),
- *                                      first entry first - never ranked here
+ *                                      first entry first - never ranked here;
+ *                                      only under the rule_id and
+ *                                      selection_version the contract pins
+ *   run-level numbers                  only for the variant asked for: a
+ *                                      substituted one is the V1 model's
+ *                                      variant-mismatch state (`11` §6)
  *   entry to 3D error view             SCR-05 with the slice and variant
  *
  * Slice data comes from the same V1 model as SCR-03; bytes from
@@ -29,7 +34,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 
-import { emptyUnavailable, RECOVERY, readSelection, STATE } from '../../../../app/core/index.mjs';
+import { emptyUnavailable, RECOVERY, STATE } from '../../../../app/core/index.mjs';
 import { createCaseExplorer } from '../../../../app/verticals/v1_case_explorer/index.mjs';
 import { disagreementRuns, runsToPath } from '../../imaging/maskPaths.mjs';
 import useCall from '../../runtime/useCall';
@@ -40,8 +45,8 @@ import SliceScrubber from './SliceScrubber';
 import SliceViewport from './SliceViewport';
 import { capabilityOf } from './capability.mjs';
 import {
-  CLASS_ORDER, ERROR_CLASS, compareWithServer, fmt, profileFromSelection, profileIndexAt, readRunMetrics,
-  topEntries, worstLabel,
+  CLASS_ORDER, ERROR_CLASS, compareWithServer, fmt, pinnedSelection, profileIndexAt, profileNote, runLevel,
+  selectionNote, worstLabel,
 } from './errorInspector.mjs';
 import { metricsText } from './explorer.mjs';
 import { createSerialRunner } from './serialRunner.mjs';
@@ -101,15 +106,18 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const height = shape ? shape[1] : null;
   const size = useMemo(() => (width && height ? { width, height } : null), [width, height]);
 
-  // Run level: case metrics and the server's worst-slice selection.
+  // Run level: case metrics and the server's worst-slice selection, through the
+  // two gates (#78 QA B-2, B-3): the variant asked for, and the rule and
+  // selection version the loaded contract pins. Nothing below reads the
+  // response any other way.
   const metricsCall = useCall(runtime.client, 'analysis_run_metrics', { run_id: runId, variant });
-  const runMetrics = metricsCall.view.state === STATE.SUCCESS ? readRunMetrics(metricsCall.view.data) : null;
-  const selection = useMemo(
-    () => readSelection(metricsCall.view.state === STATE.SUCCESS ? metricsCall.view.data : null),
-    [metricsCall.view],
+  const pinned = useMemo(() => pinnedSelection(runtime.contract), [runtime.contract]);
+  const run = useMemo(
+    () => runLevel(metricsCall.view, { variant, pinned, total }),
+    [metricsCall.view, variant, pinned, total],
   );
-  const profile = useMemo(() => profileFromSelection(selection, total), [selection, total]);
-  const worst = topEntries(selection, 5);
+  const { metrics: runMetrics, selection, profile, worst } = run;
+  const selNote = selectionNote(selection);
 
   // Slice level: the V1 model, one action at a time, newest slice wins.
   const model = useMemo(() => createCaseExplorer(client, { variant }), [client, variant]);
@@ -286,18 +294,14 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
         </View>
 
         <View style={s.card}>
-          <Text style={s.cardH}>Worst slices (server, DR-010)</Text>
-          {metricsCall.view.state !== STATE.SUCCESS ? (
-            <StatePanel view={metricsCall.view} what="the run metrics" compact onAction={(id) => (id === RECOVERY.BACK ? nav.pop() : metricsCall.refetch())} />
+          <Text style={s.cardH}>Worst slices (server, {pinned.ruleId || 'no rule pinned by the contract'})</Text>
+          {run.view.state !== STATE.SUCCESS ? (
+            <StatePanel view={run.view} what="the run metrics" compact onAction={(id) => (id === RECOVERY.BACK ? nav.pop() : metricsCall.refetch())} />
           ) : !selection.available ? (
-            <Text style={s.dim}>
-              {selection.reason === 'SELECTION_NO_ELIGIBLE_SLICES'
-                ? 'No slice has non-empty ground truth, so there is no worst slice to rank.'
-                : 'The server did not return a worst-slice selection for this run.'}
-            </Text>
+            <Text style={selNote.tone === 'warn' ? s.warn : s.dim}>{selNote.text}</Text>
           ) : (
             <>
-              <Text style={s.dim}>{selection.ruleId} · {selection.selectionVersion || 'version not stated'} · in the order the server ranked them</Text>
+              <Text style={s.dim}>{selection.ruleId} · {selection.selectionVersion} · in the order the server ranked them</Text>
               {worst.map((e, i) => (
                 <TouchableOpacity
                   key={e.sliceIndex}
@@ -315,7 +319,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
         <View style={s.card}>
           <Text style={s.cardH}>Error profile across the volume (server: FP + FN per eligible slice)</Text>
-          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={goTo} available={selection.available} />
+          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={goTo} note={profileNote(run)} />
           <Text style={s.dim}>Bar = FP + FN pixels the server counted on that slice. No bar = not eligible (no ground truth there) - not zero. Tap to open a slice.</Text>
           {profile.problems.map((p) => <Text key={p} style={s.warn}>{p}</Text>)}
         </View>
@@ -325,7 +329,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             <Text style={s.cardH}>Case metrics (server, {runMetrics.aggregation || 'aggregation not stated'})</Text>
             <Text style={s.metric}>Dice {fmt(runMetrics.dice)} · IoU {fmt(runMetrics.iou)}</Text>
             <Text style={s.metric}>FP {fmt(runMetrics.falsePositives)} · FN {fmt(runMetrics.falseNegatives)} voxels · RVE {fmt(runMetrics.relativeVolumeError, 1)} %</Text>
-            <Text style={s.dim}>{runMetrics.variant || variant} · metric {runMetrics.version || 'not stated'} · state {runMetrics.state || 'not stated'}</Text>
+            <Text style={s.dim}>{runMetrics.variant} · metric {runMetrics.version || 'not stated'} · state {runMetrics.state || 'not stated'}</Text>
           </View>
         )}
 
@@ -344,11 +348,13 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   );
 }
 
-function ProfileChart({ profile, current, total, onPick, available }) {
+function ProfileChart({ profile, current, total, onPick, note }) {
   const [w, setW] = useState(0);
   const H = 64;
-  if (!available || !Number.isInteger(total) || total <= 0) {
-    return <Text style={s.dim}>No profile: the server returned no per-slice selection for this run.</Text>;
+  // Same gate as the worst-slice list: no selection shown, no profile drawn.
+  if (note) return <Text style={s.dim}>{note}</Text>;
+  if (!Number.isInteger(total) || total <= 0) {
+    return <Text style={s.dim}>No profile: the case states no slice count.</Text>;
   }
   const max = profile.maxError > 0 ? profile.maxError : 1;
   const bw = w > 0 ? w / total : 0;

@@ -59,7 +59,7 @@ const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js'))
 const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
-const { judge, parseLog } = await imp('scripts/l4-report.mjs');
+const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -120,10 +120,24 @@ const bundleJson = generatedBundleJson();
   await act(async () => { r.unmount(); });
 }
 
+// The worst-slice block the fake backend serves. Deliberately NOT in DR-010
+// order (#78 QA N-1): DR-010 would rank z 44 (Dice 0.31) before z 52 (Dice
+// 0.62), so a phone that re-ranked would show z 44 first.
+const SERVED_WORST = Object.freeze({
+  rule_id: 'DR-010', selection_version: 'dr010-worst-slice/v1',
+  slices: [
+    { slice_index: 52, dice: 0.62, false_positives: 120, false_negatives: 340 },
+    { slice_index: 44, dice: 0.31, false_positives: 7, false_negatives: 9 },
+    { slice_index: 30, dice: 0.7, false_positives: 3, false_negatives: 4 },
+  ],
+});
+
 // A fake live backend: every JSON body is the GENERATED scenario's, with only
 // the fields a check is about overridden; every PNG is encoded here by
-// node:zlib and served with its real sha256 checksum and ETag.
-function fakeBackend({ caseMode = 'EVALUATION' } = {}) {
+// node:zlib and served with its real sha256 checksum and ETag. Predictions and
+// run metrics answer the variant asked for, unless `metricsVariant` names the
+// one the run metrics should answer instead (#78 QA B-3).
+function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST } = {}) {
   const W = 576; const H = 576;
   const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
@@ -155,22 +169,16 @@ function fakeBackend({ caseMode = 'EVALUATION' } = {}) {
     if (/\/experiments\/[^/]+$/.test(path)) return json(200, { ...gen('experiment_get'), model_family: 'UNet2D' });
     if (/\/analysis-runs\/[^/]+\/metrics\?/.test(path)) {
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
+      const asked = (path.match(/[?&]prediction_variant=([A-Z_]+)/) || [])[1] || null;
       return json(200, {
-        ...gen('analysis_run_metrics'), prediction_variant: 'RAW', metric_state: 'COMPUTED', metric_version: 'm1',
+        ...gen('analysis_run_metrics'), prediction_variant: metricsVariant ?? asked, metric_state: 'COMPUTED', metric_version: 'm1',
         metric_values: { dice: 0.81, iou: 0.68, false_positives: 1200, false_negatives: 900, relative_volume_error: -4.2 },
-        worst_slice_selection: {
-          rule_id: 'DR-010', selection_version: 'dr010-worst-slice/v1',
-          slices: [
-            { slice_index: 52, dice: 0.31, false_positives: 120, false_negatives: 340 },
-            { slice_index: 44, dice: 0.62, false_positives: 7, false_negatives: 9 },
-            { slice_index: 30, dice: 0.7, false_positives: 3, false_negatives: 4 },
-          ],
-        },
+        worst_slice_selection: selection,
       });
     }
     const z = (path.match(/slices\/(\d+)/) || [])[1];
     if (path.endsWith('/mri')) return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${z}.png`, media_type: 'image/png', checksum: sum(mriPng) });
-    if (path.includes('/prediction?')) return json(200, { ...gen('prediction_slice_get'), prediction_variant: 'RAW', content_url: `/api/v1/artifacts/pred-${z}.png`, media_type: 'image/png', checksum: sum(predPng) });
+    if (path.includes('/prediction?')) return json(200, { ...gen('prediction_slice_get'), prediction_variant: (path.match(/[?&]variant=([A-Z_]+)/) || [])[1] || null, content_url: `/api/v1/artifacts/pred-${z}.png`, media_type: 'image/png', checksum: sum(predPng) });
     if (path.endsWith('/ground-truth')) {
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
       return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
@@ -465,14 +473,33 @@ function noRunBackend() {
     'legend: every class named in words with its pixel count');
   check('E4d', has(r, /Differs from the server for this slice|Matches the server for this slice/),
     'masks on screen compared with the server\'s FP / FN for the slice');
-  check('E4e', has(r, /Jump to worst · z 52 \(slice 53\) · Dice 0\.310 · FP 120 · FN 340/), 'worst slice = the server\'s first entry');
-  check('E4e', has(r, /#2 · z 44/) && has(r, /#3 · z 30/), 'the rest in the server\'s order');
+  check('E4e', has(r, /Jump to worst · z 52 \(slice 53\) · Dice 0\.620 · FP 120 · FN 340/),
+    'worst slice = the server\'s first entry, though DR-010 would rank z 44 (Dice 0.310) first (N-1)');
+  const listed = texts(r).filter((t) => /^(Jump to worst|#\d) · z \d+ /.test(t)).map((t) => Number(t.match(/· z (\d+) /)[1]));
+  check('E4e', has(r, /#2 · z 44/) && has(r, /#3 · z 30/) && listed.join(',') === '52,44,30',
+    `the list in the server's order, never re-ranked: z ${listed.join(', ')}`);
   check('E4f', has(r, /Dice 0\.810 · IoU 0\.680/) && has(r, /RVE -4\.2 %/), 'case metrics as the server sent them');
-  const rects = r.root.findAll((n) => n.type === 'Rect' && n.props.fill !== 'none');
-  check('E4g', rects.length === 3, `profile: one bar per eligible slice, none for the rest (${rects.length})`);
+  const bars = () => r.root.findAll((n) => n.type === 'Rect' && n.props.fill !== 'none').length;
+  check('E4g', bars() === 3, `profile: one bar per eligible slice, none for the rest (${bars()})`);
+  const reqMark = evalBackend.requests.length;
+  const gestureMark = gestures().length;
   await press(r, 'Jump to worst');
   await tick(400);
   check('E4h', has(r, /slice 53 \/ 88 {2}\(z = 52\)/), 'jump lands on the server\'s worst slice');
+
+  // #78 QA N-3 (L4, NFR-PERF-001 limb 2): the jump and a ◀ / ▶ step ask for those slices and nothing else.
+  await press(r, '◀');
+  await tick(400);
+  await press(r, '▶');
+  await tick(400);
+  const sinceJump = evalBackend.requests.slice(reqMark).map((u) => u.replace('http://backend.invalid:8000', ''));
+  const outOfScope = sinceJump.filter((u) => !(/\/slices\/(51|52)\//.test(u) || u.startsWith('/api/v1/artifacts/')));
+  check('E4m', has(r, /slice 53 \/ 88 {2}\(z = 52\)/) && sinceJump.length > 0 && outOfScope.length === 0,
+    `jump, ◀, ▶: ${sinceJump.length} requests, each /slices/<z>/ of z 52 or 51 or an artifact${outOfScope.length ? `; other: ${outOfScope.join(' ')}` : ''}`);
+  const lines = gestures().slice(gestureMark);
+  const seen = [...new Set(lines.flatMap((g) => g.requests.map((q) => q.endpoint)))].sort();
+  check('E4m', lines.length === 3 && lines.every((g) => g.kind === 'slice' && g.requests.every((q) => PER_SLICE_ENDPOINTS.includes(q.endpoint))),
+    `${lines.length} CMW_GESTURE lines, only per-slice endpoints: ${seen.join(', ')}`);
   await press(r, 'FP - over-segmentation');
   await tick(30);
   check('E4i', paths().length === 2 && has(r, /FP - over-segmentation .*\(hidden\)/), 'a class can be isolated: FP hidden, named as hidden');
@@ -500,6 +527,52 @@ function noRunBackend() {
   check('E4l', has(r, /^Legend - this slice \(z 53\)$/) && paths().length >= 1
     && retried.length > 0 && retried.every((u) => u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/')),
     `Retry brings slice 54 back and asks only for it (${retried.length} requests; ${texts(r).find((t) => t.startsWith('Legend')) || '-'}; paths ${paths().length}${retried.some((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))) ? `; other: ${retried.filter((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))).join(' ')}` : ''})`);
+
+  // #78 QA N-2, as SCR-03's L9: Retry forgot only the slice it retried, so the slice before it is still cached.
+  const afterRetry = evalBackend.requests.length;
+  await press(r, '◀');
+  await tick(400);
+  const stepBack = gestures().filter((g) => g.kind === 'slice').pop();
+  check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 53 \/ 88 {2}\(z = 52\)/)
+    && stepBack && stepBack.to === 52 && stepBack.cache_hit === true,
+    `back to z 52 after Retry: ${evalBackend.requests.length - afterRetry} requests of any kind, cache hit ${stepBack ? stepBack.cache_hit : '-'} (no clear-all)`);
+  await act(async () => { r.unmount(); });
+
+  // #78 QA B-2: a block of another selection version is not shown as DR-010's.
+  const v2 = fakeBackend({ selection: { ...SERVED_WORST, selection_version: 'dr010-worst-slice/v2' } });
+  r = await mount(liveRuntime(v2.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  check('E4o', has(r, /^SELECTION_VERSION_UNSUPPORTED: the server sent selection_version "dr010-worst-slice\/v2"; this build shows only "dr010-worst-slice\/v1"\./)
+    && !has(r, /Jump to worst|^#\d · z/) && bars() === 0 && has(r, /^No profile: .*not one this build shows/),
+    'selection_version v2: unavailable, the reason and the served version named; nothing listed, jumpable or profiled');
+  check('E4o', has(r, /^Legend - this slice \(z 44\)$/) && paths().length === 3 && !has(r, /(Matches|Differs from) the server for this slice/),
+    'the slice is drawn, and not compared with a selection that is not shown');
+  await act(async () => { r.unmount(); });
+
+  // #78 QA B-3: SCR-04 asks for PROCESSED; the run metrics answer RAW. The slices answer PROCESSED,
+  // so the viewer draws the slice and only the run-level gate can hide the RAW numbers.
+  const swapped = fakeBackend({ metricsVariant: 'RAW' });
+  r = await mount(liveRuntime(swapped.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'PROCESSED', sliceIndex: 44 });
+  check('E4p', has(r, /Asked for PROCESSED, served RAW; a substituted variant is not shown\./) && has(r, /Cannot show this safely/),
+    'run metrics for RAW under a PROCESSED request: the V1 model\'s variant-mismatch state, in its words');
+  check('E4p', !has(r, /Jump to worst|^#\d · z/) && bars() === 0 && !has(r, /Case metrics|Dice 0\.810|IoU 0\.680/)
+    && has(r, /^No profile without the run metrics/),
+    'no worst-slice list, no profile, no case metrics');
+  check('E4p', has(r, /^Legend - this slice \(z 44\)$/) && paths().length === 3 && !has(r, /(Matches|Differs from) the server for this slice/)
+    && swapped.requests.some((u) => u.includes('/prediction?variant=PROCESSED')),
+    'the PROCESSED slice is drawn, with no comparison against the RAW numbers');
+  await act(async () => { r.unmount(); });
+
+  // #78 QA B-3 in fixture mode: the generated bundle answers RAW to every run-metrics request.
+  const fixtureAt = (variant) => mount(createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson }),
+    { caseId: 'CASE_0043', runId: 'RUN_0043', variant, sliceIndex: 44 });
+  r = await fixtureAt('PROCESSED');
+  const refusals = texts(r).filter((t) => /Asked for PROCESSED, served RAW; a substituted variant is not shown\./.test(t)).length;
+  check('E4q', refusals === 2 && !has(r, /Jump to worst|^#\d · z/) && !has(r, /Case metrics/) && has(r, /^No profile without the run metrics/),
+    `fixture, PROCESSED: the slice AND the run metrics refuse RAW (${refusals} refusals); no list, case metrics or profile`);
+  await act(async () => { r.unmount(); });
+  r = await fixtureAt('RAW');
+  check('E4q', has(r, /Jump to worst · z 44 \(slice 45\)/) && has(r, /Dice 0\.500 · IoU 0\.250/) && !has(r, /Asked for/),
+    'fixture, RAW: the generated DR-010 v1 block and the case metrics are shown');
   await act(async () => { r.unmount(); });
 }
 

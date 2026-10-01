@@ -182,6 +182,10 @@ it with `node --test`; keep React Native imports in `.js` files.
   `worst_slice_selection` (DR-010a option b), first entry first — nothing is ranked on the phone (test V4x). The
   per-slice profile places the server's entries by slice index; slices the server did not list are absent, not 0.
   Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to the 3D error view (SCR-05).
+  Two gates come first (#78 QA B-2, B-3). A block is listed only under the `rule_id` and `selection_version` the
+  loaded contract pins; otherwise `SELECTION_RULE_UNSUPPORTED` / `SELECTION_VERSION_UNSUPPORTED` names the served
+  value, with nothing listed, jumpable or profiled. Run metrics for another `prediction_variant` than the one asked
+  for get the V1 model's variant-mismatch state, with no case metric, worst slice, profile or server comparison.
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
