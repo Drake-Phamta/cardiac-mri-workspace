@@ -326,6 +326,7 @@ def cpkg(tmp_path_factory):
 def run_eval(run, partition, cpkg, **kw):
     """evaluate_run against the synthetic package, naming its split as the FROZEN one."""
     kw.setdefault("split_manifest", cpkg["split_manifest_path"])
+    kw.setdefault("allow_unfrozen_split", True)
     return E.evaluate_run(run, partition, dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
                           log=None, **kw)
 
@@ -380,7 +381,7 @@ def test_h9_a_run_split_copy_that_moves_a_holdout_case_is_refused(cpkg, tmp_path
     with pytest.raises(E.MF.SplitMismatchError):
         run_eval(run, "validation", cpkg)                                     # frozen = the real synthetic split
     with pytest.raises(E.MF.SplitMismatchError):
-        E.compare_runs(run, run, "validation", split_manifest=cpkg["split_manifest_path"])
+        E.compare_runs(run, run, "validation", split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
     assert not (run / "evaluation").exists()
 
 

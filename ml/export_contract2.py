@@ -90,36 +90,43 @@ def code_versions(rm: dict, pm: dict, em: dict) -> dict:
 def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
                    manifest_id: str | None = None, generated_at: str | None = None,
                    split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
-                   allow_dirty_code: bool = False) -> dict:
+                   allow_dirty_code: bool = False, allow_unfrozen_split: bool = False) -> dict:
     """The Contract 2 manifest for <run>'s final_holdout evaluation (not written to disk).
 
-    split_manifest is the FROZEN split (default: the repository's); the run's copy and every
-    recorded split sha256 must equal it. A training / inference / evaluation code version
-    that is not a clean commit ("+dirty", "MIXED:...", "UNKNOWN") is refused unless
-    allow_dirty_code=True, which export() records next to the manifest.
+    split_manifest is the FROZEN split (default: the repository's) and must have the pinned
+    sha256 ml.data.FROZEN_SPLIT_SHA256 (allow_unfrozen_split is a TEST-ONLY switch); the
+    run's copy and every recorded split sha256 must equal it. A training / inference /
+    evaluation code version that is not a clean commit ("+dirty", "MIXED:...", "UNKNOWN") is
+    refused unless allow_dirty_code=True, which export() records next to the manifest.
     """
     run_dir = Path(run_dir)
     for name, state in (("gate_split_01", gate_split_01), ("gate_ml_01", gate_ml_01)):
         if state not in GATE_STATES:
             raise ExportError(f"{name} must be one of {GATE_STATES}, got {state!r}")
-    rm = D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"])
-    if rm.get("format") != MF.RUN_MANIFEST_FORMAT:
-        raise ExportError(f"run_manifest.json is not {MF.RUN_MANIFEST_FORMAT}")
-    exp = rm["experiment_id"]
     pm_rel = MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION)
     em_rel = MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) + "/evaluation_manifest.json"
-    pm = D.load_json(run_dir / pm_rel)
-    em = D.load_json(run_dir / em_rel)
-    if pm.get("format") != MF.PREDICTIONS_FORMAT or pm["population"]["partition"] != PARTITION:
+    try:
+        rm = MF.validate_run_manifest(D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"]))
+        pm = MF.validate_predictions_manifest(D.load_json(run_dir / pm_rel))
+        em = MF.validate_evaluation_manifest(D.load_json(run_dir / em_rel))
+    except FileNotFoundError as exc:
+        raise ExportError(f"missing manifest: {Path(exc.filename or '').name or exc}") from exc
+    except MF.ManifestError as exc:
+        raise ExportError(str(exc)) from exc
+    exp = rm["experiment_id"]
+    if pm["population"]["partition"] != PARTITION:
         raise ExportError("predictions manifest is not a final_holdout ml-predictions/1 manifest")
-    if em.get("format") != "ml-evaluation/1" or em.get("partition") != PARTITION:
+    if em["partition"] != PARTITION:
         raise ExportError("evaluation manifest is not a final_holdout ml-evaluation/1 manifest")
     if not (exp == pm.get("experiment_id") == em.get("experiment_id")):
         raise ExportError("run, predictions and evaluation name different experiments")
     if em["predictions_manifest"]["path"] != pm_rel:
         raise ExportError("the evaluation scored a different predictions manifest")
     _checksum(run_dir, pm_rel, em["predictions_manifest"]["sha256"], "predictions manifest")
-    frozen_sha = D.sha256_file(split_manifest)
+    try:
+        frozen_sha = MF.require_frozen_split(split_manifest, allow_unfrozen_split=allow_unfrozen_split)
+    except MF.SplitMismatchError as exc:
+        raise ExportError(f"the named split is not the frozen split: {exc}") from exc
     for what, sha in (("run manifest", rm["split_manifest"]["sha256"]),
                       ("predictions manifest", pm["split_manifest"]["sha256"]),
                       ("run split copy", D.sha256_file(run_dir / rm["split_manifest"]["path"]))):
@@ -251,24 +258,29 @@ def validate(manifest: dict, run_dir: str | Path) -> dict:
 
 def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
            manifest_id: str | None = None, split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
-           allow_dirty_code: bool = False) -> Path:
+           allow_dirty_code: bool = False, allow_unfrozen_split: bool = False) -> Path:
     """Write contract2/<manifest_id>.json and, next to it, <manifest_id>.export.json: the
-    export record (frozen split sha256, code versions, and whether dirty code was allowed).
-    The Contract 2 schema admits no extra fields, so the record is a separate file."""
+    export record (frozen split sha256, code versions, and whether dirty code or an unfrozen
+    split was allowed). The Contract 2 schema admits no extra fields, so the record is a
+    separate file."""
     run_dir = Path(run_dir)
     manifest = build_manifest(run_dir, gate_split_01=gate_split_01, gate_ml_01=gate_ml_01,
                               manifest_id=manifest_id, split_manifest=split_manifest,
-                              allow_dirty_code=allow_dirty_code)
+                              allow_dirty_code=allow_dirty_code, allow_unfrozen_split=allow_unfrozen_split)
     out_dir = run_dir / MF.RUN_LAYOUT["contract2"]
-    rm = D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"])
-    pm = D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION))
-    em = D.load_json(run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) / "evaluation_manifest.json")
+    rm = MF.validate_run_manifest(D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"]))
+    pm = MF.validate_predictions_manifest(
+        D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=PARTITION)))
+    em = MF.validate_evaluation_manifest(
+        D.load_json(run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) / "evaluation_manifest.json"))
     versions = code_versions(rm, pm, em)
     record = {"format": "ml-contract2-export/1", "manifest_id": manifest["manifest_id"],
               "frozen_split_sha256": D.sha256_file(split_manifest),
               "code_versions": versions,
               "dirty_code_versions": {k: v for k, v in versions.items() if not MF.is_clean_code_version(v)},
               "allow_dirty_code": bool(allow_dirty_code),
+              "frozen_split_pinned_sha256": D.FROZEN_SPLIT_SHA256,
+              "allow_unfrozen_split": bool(allow_unfrozen_split),
               "gates_as_asserted": manifest["gates"],
               "exported_at": MF.now_iso()}
     path = MF.write_json_new(out_dir / f"{manifest['manifest_id']}.json", manifest)
@@ -290,12 +302,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="the FROZEN split the run must have used (default: the repository's)")
     ap.add_argument("--allow-dirty-code", action="store_true",
                     help="export although a code version is not a clean commit (recorded in the export record)")
+    ap.add_argument("--allow-unfrozen-split", action="store_true",
+                    help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split (recorded)")
     ap.add_argument("--validate", action="store_true", help="run validate_contract2.py on the result")
     args = ap.parse_args(argv)
     try:
         path = export(args.run_dir, gate_split_01=args.gate_split_01, gate_ml_01=args.gate_ml_01,
                       manifest_id=args.manifest_id, split_manifest=args.split_manifest,
-                      allow_dirty_code=args.allow_dirty_code)
+                      allow_dirty_code=args.allow_dirty_code, allow_unfrozen_split=args.allow_unfrozen_split)
     except (ExportError, KeyError, FileNotFoundError, ValueError) as exc:
         print(f"EXPORT REFUSED: {type(exc).__name__}: {exc}")
         return 2

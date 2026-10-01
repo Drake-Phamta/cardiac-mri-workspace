@@ -44,8 +44,13 @@ def make_run_dir(run_dir: Path, pkg: dict, *, experiment_id: str = "EXP-U-025",
     (run_dir / ckpt_rel).parent.mkdir(parents=True, exist_ok=True)
     (run_dir / ckpt_rel).write_bytes(b"synthetic checkpoint bytes - not a model")
     ckpt_sha = D.sha256_file(run_dir / ckpt_rel)
-    run_manifest = {
+    val_rel = MF.RUN_LAYOUT["population_manifest"].format(partition="validation")
+    if not (run_dir / val_rel).exists():
+        MF.write_json_new(run_dir / val_rel, MF.population_manifest(split, "validation", split_sha))
+    val_doc = json.loads((run_dir / val_rel).read_text(encoding="utf-8"))
+    run_manifest = {            # the ml-run-manifest/1 fields ml.train writes (`08` section 10)
         "format": MF.RUN_MANIFEST_FORMAT,
+        "status": "COMPLETE",
         "experiment_id": experiment_id,
         "model_family": "unet",
         "model_variant": "unet_base32_depth4",
@@ -57,8 +62,16 @@ def make_run_dir(run_dir: Path, pkg: dict, *, experiment_id: str = "EXP-U-025",
                                      "sha256": D.sha256_file(run_dir / subset_rel)},
         "seed": 2024,
         "preprocessing_version": D.PREPROCESSING_VERSION,
+        "postprocessing_version": "none",
+        "prediction_variant": "RAW_PREDICTION",
+        "evaluation_population_manifest": {"manifest_id": val_doc["manifest_id"], "path": val_rel,
+                                           "sha256": D.sha256_file(run_dir / val_rel), "role": "VALIDATION",
+                                           "case_count": val_doc["case_count"]},
+        "evaluation_metric_version": "ml-eval-1.0.0",
         "training_code_version": "git:synthetic-fixture",
         "checkpoint": {"checkpoint_id": f"{experiment_id}/best", "path": ckpt_rel, "sha256": ckpt_sha},
+        "evaluation_code_version": "git:synthetic-fixture",
+        "num_test_cases": val_doc["case_count"],
     }
     MF.write_json_new(run_dir / MF.RUN_LAYOUT["run_manifest"], run_manifest)
 
