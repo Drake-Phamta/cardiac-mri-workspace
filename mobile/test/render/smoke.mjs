@@ -37,7 +37,7 @@ const texts = (r) => r.root.findAll((n) => n.type === 'Text').map(textOf);
 const has = (r, re) => texts(r).some((t) => re.test(t));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
-  const views = r.root.findAll((n) => n.type === 'View' && typeof n.props.onLayout === 'function');
+  const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
   await act(async () => { for (const v of views) v.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } } }); });
 }
 async function press(r, label) {
@@ -120,8 +120,10 @@ const bundleJson = generatedBundleJson();
   await act(async () => { r.unmount(); });
 }
 
-// ---- 2. live runtime with a fake backend: bytes, overlays, gesture log ------
-{
+// A fake live backend: every JSON body is the GENERATED scenario's, with only
+// the fields a check is about overridden; every PNG is encoded here by
+// node:zlib and served with its real sha256 checksum and ETag.
+function fakeBackend({ caseMode = 'EVALUATION' } = {}) {
   const W = 576; const H = 576;
   const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
@@ -137,6 +139,7 @@ const bundleJson = generatedBundleJson();
       json: async () => body,
     };
   };
+  const gtAvailable = caseMode === 'EVALUATION';
   const requests = [];
   let failSlice = null; // a slice whose every request fails like a dropped network
   const fetchImpl = async (url) => {
@@ -147,20 +150,46 @@ const bundleJson = generatedBundleJson();
       const bytes = path.includes('gt-') ? gtPng : (path.includes('pred-') ? predPng : mriPng);
       return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
     }
-    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: 'EVALUATION', ground_truth_available: true, available_run_ids: ['RUN_A'] });
+    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: caseMode, ground_truth_available: gtAvailable, available_run_ids: ['RUN_A'] });
     if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: 'RUN_A', case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
     if (/\/experiments\/[^/]+$/.test(path)) return json(200, { ...gen('experiment_get'), model_family: 'UNet2D' });
+    if (/\/analysis-runs\/[^/]+\/metrics\?/.test(path)) {
+      if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
+      return json(200, {
+        ...gen('analysis_run_metrics'), prediction_variant: 'RAW', metric_state: 'COMPUTED', metric_version: 'm1',
+        metric_values: { dice: 0.81, iou: 0.68, false_positives: 1200, false_negatives: 900, relative_volume_error: -4.2 },
+        worst_slice_selection: {
+          rule_id: 'DR-010', selection_version: 'dr010-worst-slice/v1',
+          slices: [
+            { slice_index: 52, dice: 0.31, false_positives: 120, false_negatives: 340 },
+            { slice_index: 44, dice: 0.62, false_positives: 7, false_negatives: 9 },
+            { slice_index: 30, dice: 0.7, false_positives: 3, false_negatives: 4 },
+          ],
+        },
+      });
+    }
     const z = (path.match(/slices\/(\d+)/) || [])[1];
     if (path.endsWith('/mri')) return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${z}.png`, media_type: 'image/png', checksum: sum(mriPng) });
     if (path.includes('/prediction?')) return json(200, { ...gen('prediction_slice_get'), prediction_variant: 'RAW', content_url: `/api/v1/artifacts/pred-${z}.png`, media_type: 'image/png', checksum: sum(predPng) });
-    if (path.endsWith('/ground-truth')) return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
+    if (path.endsWith('/ground-truth')) {
+      if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
+      return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
+    }
     if (path.includes('/metrics?')) return json(200, { ...gen('analysis_slice_metrics'), metric_state: 'COMPUTED', metric_value: 0.8731, metric_version: 'm1' });
     return json(404, { error: { code: 'ARTIFACT_NOT_FOUND' } });
   };
-  const runtime = createRuntime({
-    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
-    contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
-  });
+  return { fetchImpl, requests, mriPng, predPng, gtPng, setFailSlice: (z) => { failSlice = z; } };
+}
+
+const liveRuntime = (fetchImpl) => createRuntime({
+  config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+  contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
+});
+
+// ---- 2. live runtime with a fake backend: bytes, overlays, gesture log ------
+{
+  const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend();
+  const runtime = liveRuntime(fetchImpl);
   const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
   let r;
   await act(async () => {
@@ -216,7 +245,7 @@ const bundleJson = generatedBundleJson();
   const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
   check('L8', has(r, /^MRI .+ · .+/) && !has(r, /^MRI - · -$/) && entry('Error inspector').props.disabled === false,
     'before: provenance and the SCR-04 entry belong to the displayed slice');
-  failSlice = 43;
+  setFailSlice(43);
   await press(r, '◀');
   await tick(350);
   check('L8', has(r, /could not be reached/) && has(r, /^Slice Dice: -$/) && !has(r, /0\.873/),
@@ -226,7 +255,7 @@ const bundleJson = generatedBundleJson();
   const off = ['Error inspector (SCR-04)', '3D (SCR-05)', 'Review / correct (SCR-06)'].map((l) => entry(l));
   check('L8', off.every((e) => e && e.props.disabled === true && textOf(e).includes('this slice did not load')),
     'SCR-04/05/06 entries disabled with the reason');
-  failSlice = null;
+  setFailSlice(null);
   let mark = requests.length;
   await press(r, 'Retry');
   await tick(400);
@@ -327,6 +356,69 @@ const bundleJson = generatedBundleJson();
     && verdict.scope.required.includes('artifact:mask') && /predictions are not part of this L4/.test(verdict.scope.text),
     `scope: ${verdict.scope ? verdict.scope.text : '-'}`);
   check('N6', runData().length === 0, `no run data asked during the whole session (${runData().length})`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 4. SCR-04 Error Inspector -------------------------------------------------
+{
+  const ErrorInspectorScreen = (await imp('src/verticals/v1/ErrorInspectorScreen.js')).default;
+  const pushes = [];
+  const nav = { push: (id, p) => { pushes.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const mount = async (runtime, params) => {
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(ErrorInspectorScreen, { runtime, nav, params })), nodeMock);
+    });
+    await tick(300);
+    await layout(r);
+    await tick(250);
+    return r;
+  };
+
+  // Fixture: a case without usable ground truth -> unavailable, never an empty chart. Contract v1.0+
+  // generates an explicit `inference_review` case_get scenario; DRAFT v0's placeholder booleans are
+  // not usable ground truth either. Either way the screen must say so.
+  const fixtureRuntime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  if (fixtureRuntime.fixtureScenarios.scenariosFor('case_get').includes('inference_review')) {
+    fixtureRuntime.fixtureScenarios.set('case_get', 'inference_review');
+  }
+  let r = await mount(fixtureRuntime, { caseId: 'CASE_0043', runId: 'RUN_0043', variant: 'RAW', sliceIndex: 44 });
+  check('E4a', has(r, /UNAVAILABLE/) && has(r, /no disagreement, metric or worst slice to show - not zero/),
+    'no usable ground truth -> a clear unavailable state (PR-MODE-01)');
+  await act(async () => { r.unmount(); });
+
+  // Live, INFERENCE_REVIEW: the same, from the server's capability.
+  const inference = fakeBackend({ caseMode: 'INFERENCE_REVIEW' });
+  r = await mount(liveRuntime(inference.fetchImpl), { caseId: 'CASE_0001', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  check('E4b', has(r, /Inference & review/) && has(r, /Ground-truth-dependent|no ground-truth mask|not zero/),
+    'INFERENCE_REVIEW case -> unavailable, says why');
+  check('E4b', !inference.requests.some((u) => /metrics|ground-truth/.test(u)), 'and asks the server for no GT-dependent data');
+  await act(async () => { r.unmount(); });
+
+  // Live, EVALUATION: classes, legend, server selection, profile, jump.
+  const evalBackend = fakeBackend();
+  r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  const paths = () => r.root.findAll((n) => n.type === 'Path');
+  check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
+  check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
+    'legend: every class named in words with its pixel count');
+  check('E4d', has(r, /Differs from the server for this slice|Matches the server for this slice/),
+    'masks on screen compared with the server\'s FP / FN for the slice');
+  check('E4e', has(r, /Jump to worst · z 52 \(slice 53\) · Dice 0\.310 · FP 120 · FN 340/), 'worst slice = the server\'s first entry');
+  check('E4e', has(r, /#2 · z 44/) && has(r, /#3 · z 30/), 'the rest in the server\'s order');
+  check('E4f', has(r, /Dice 0\.810 · IoU 0\.680/) && has(r, /RVE -4\.2 %/), 'case metrics as the server sent them');
+  const rects = r.root.findAll((n) => n.type === 'Rect' && n.props.fill !== 'none');
+  check('E4g', rects.length === 3, `profile: one bar per eligible slice, none for the rest (${rects.length})`);
+  await press(r, 'Jump to worst');
+  await tick(400);
+  check('E4h', has(r, /slice 53 \/ 88 {2}\(z = 52\)/), 'jump lands on the server\'s worst slice');
+  await press(r, 'FP - over-segmentation');
+  await tick(30);
+  check('E4i', paths().length === 2 && has(r, /FP - over-segmentation .*\(hidden\)/), 'a class can be isolated: FP hidden, named as hidden');
+  await press(r, '3D error view');
+  check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52 && pushes[0][1].view === 'error',
+    `entry to the 3D error view with the slice: ${JSON.stringify(pushes[0] || null)}`);
   await act(async () => { r.unmount(); });
 }
 
