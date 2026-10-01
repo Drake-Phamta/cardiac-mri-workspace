@@ -50,20 +50,35 @@ camera (B6 after real gestures), tap the surface (B6/B7) and tap empty backgroun
 - A run is **invalid** (re-run it, never discard silently) if the screen turned off, the app went to the
   background, the phone was touched during a hands-off phase, or the status shows an error.
 
-## 0 · Before 19:00 — workstation (two PowerShell windows, repository root)
+## 0 · Before 19:00 — workstation (two PowerShell windows)
+
+**Repository root** in this script means the **A4 worktree** whose path is in the PR #73 description
+(branch `spike-b/day22-s1-device-session`) — **not** the main clone. Only that worktree holds the
+gitignored meshes the extractor needs. Every command below runs from it.
+
+**Block A — paste into BOTH windows** (fill the three `<…>` from the PR #73 description; `$S1` must be a
+folder that does not exist yet, outside the repository):
 
 ```powershell
+$WT  = "<A4 worktree path - PR #73 description>"
+$APK = "<APK path - PR #73 description>"
+$S1  = "<NEW folder outside the repository, e.g. ...\s1_sessions\s1_20261001_1900>"
+Set-Location $WT
+if ((git branch --show-current) -ne "spike-b/day22-s1-device-session") { throw "STOP: not the A4 worktree on spike-b/day22-s1-device-session" }
 $ADB = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
-$S1  = "D:\02_Research\s1_sessions\s1_20261001"                 # OUTSIDE the repository
-$APK = "<path from the PR description>"                         # spike_b_s1_<stamp>.apk
-$REC = "<same folder>\build_record.json"
-New-Item -ItemType Directory -Force $S1 | Out-Null
-git rev-parse HEAD | Out-File -Encoding ascii "$S1\repository_commit.txt"
+$REC = Join-Path (Split-Path $APK) "build_record.json"
+foreach ($p in @($ADB, $APK, $REC)) { if (-not (Test-Path $p)) { throw "STOP: missing $p" } }
+if ([IO.Path]::GetFullPath($S1).StartsWith([IO.Path]::GetFullPath($WT))) { throw "STOP: `$S1 must be outside the repository" }
+"OK  worktree $WT  apk $(Split-Path -Leaf $APK)  session folder $S1"
 ```
 
-Window 1 — the collector (leave it running all session; it prints a line every 100 records):
+**Block B — window 1 only** (creates the session folder, then runs the collector for the whole session;
+it prints a line every 100 records):
 
 ```powershell
+if (Test-Path $S1) { throw "STOP: $S1 already exists - choose a NEW folder" }
+New-Item -ItemType Directory $S1 | Out-Null
+git rev-parse HEAD | Out-File -Encoding ascii "$S1\repository_commit.txt"
 python spikes\spike_b_3d\harness\s1_collector.py --out $S1
 ```
 
@@ -73,19 +88,22 @@ python spikes\spike_b_3d\harness\s1_collector.py --out $S1
 2. **Developer options → Stay awake: ON** (the screen must not time out during a 33-s hands-off run).
    Turn it OFF again after the session. Do not change brightness / refresh rate during the session.
 3. Close other apps. Portrait orientation, auto-rotate off.
-4. Window 2:
+4. **Block C — window 2 only** (the serial is derived, never typed, and never committed):
 
 ```powershell
-& $ADB devices -l                                   # the SM-A176B must be listed as "device", alone
-$SERIAL = "<serial printed for model:SM_A176B>"     # copy it from the line above; keep it out of git
-& $ADB -s $SERIAL install -r $APK                   # prints "Success"
+$found = @(& $ADB devices -l | Select-String "model:SM_A176B" | Where-Object { $_.Line -match "\sdevice\s" })
+if ($found.Count -ne 1) { throw "STOP: need exactly one authorised SM-A176B on adb; found $($found.Count)" }
+$SERIAL = ($found[0].Line -split "\s+")[0]
+& $ADB -s $SERIAL install -r $APK                                   # prints "Success"
 & $ADB -s $SERIAL reverse tcp:8766 tcp:8766
-& $ADB -s $SERIAL shell monkey -p com.cardiacmri.spikebs1 1    # or tap the "Spike B S-1" icon
+& $ADB -s $SERIAL shell monkey -p com.cardiacmri.spikebs1 1         # or tap the "Spike B S-1" icon
 python spikes\spike_b_3d\harness\s1_session.py start --out $S1 --serial $SERIAL --build-record $REC
 ```
 
-`start` must print **`READY`** and `matches build record: True`. If it prints `NOT READY`, fix the listed
-item and run `start` again (it keeps `session_NOT_READY.json`). Do not start measuring before `READY`.
+`start` must print **`READY`** and `matches build record: True`. Then read the app's bottom line: it must
+show **`POST ok ≥ 1 · POST fail 0`** (the app's first record reached the collector). If `start` prints
+`NOT READY`, fix the listed item and run `start` again — it only keeps `session_NOT_READY.json`.
+**Never re-run `start` after `READY`**: if the session has to be restarted, use a new `$S1` (Block A + B).
 
 ## 2 · The levels — phone time ≤ 45 min in total
 
@@ -99,25 +117,37 @@ Budget (suite durations measured on a diagnostic emulator; the phone may be up t
 | Finish | `finish` | ~1 min |
 | **Total** | | **~31 min** — the rest is margin for one re-run |
 
-Only if fewer than 35 minutes have passed after L4: repeat steps c–g on **L2** as well. Otherwise stop.
-
 | Step | Operator does | Wait for (status line at the top of the app) | Proves |
 |---|---|---|---|
 | a | Tap **L*n*** | `Ln loaded · N triangles (expected N)` — the two numbers must be equal | right mesh in the APK |
 | b | Tap **RUN SUITE**, then **hands off** (≈ 1 min 45 s of scripted runs, then 1–3 min of automatic picks; L0 is the slowest) | `Ln · B10/B11 run 1 … 2 … 3 complete`, then `Ln SUITE DONE` | B10/B11 ×3, B6/B7/B9 automated |
 | c | *(L0 only)* Rotate with one finger and pinch-zoom with two to a **new** view (~10 s). Tap **TARGETS @ CAMERA**, hands off (~30 s) | `target test at your camera done` | B6 after real gestures |
 | d | *(L0 only)* Repeat c once from a clearly different view (e.g. zoomed in from below) | same | B6 |
-| e | *(L0 only)* The button reads **TAP: SURFACE**. Tap 5 different points ON the mesh (still taps) | the 2D panel changes slice for each tap | B6/B7 by finger |
-| f | *(L0 only)* Tap the button so it reads **TAP: BACKGROUND**. Tap 5 points of EMPTY background (corners, gaps between lobes) | the 2D panel does NOT change; `no-nav` counter rises | B9 by finger |
+| e | *(L0 only)* The button reads **TAP: SURFACE**. Tap 5 different points ON the mesh (still taps). **Wait until the slice changes before the next tap** | the 2D panel changes slice for each tap | B6/B7 by finger |
+| f | *(L0 only)* Tap the button so it reads **TAP: BACKGROUND**. Tap 5 points of EMPTY background (corners, gaps between lobes). **A background tap that changes the slice hit the mesh: note it, then tap a corner instead** | the 2D panel does NOT change; `no-nav` counter rises | B9 by finger |
 | g | *(L0 only)* Tap it back to **TAP: SURFACE** | — | — |
 
-Order: **L0 (a–g), L1 (a–b), L2 (a–b), L3 (a–b), L4 (a–b)**. Write down anything unusual with the time
-(a stutter, a wrong slice, a crash). If a level shows an error, tap the level button again and redo its
-rows once; say so in PROVENANCE. If the app disappears (killed), relaunch it with the `monkey` line of
-section 1 and continue with the same level — every record carries its level and time.
+Order: **L0 (a–g), L1 (a–b), L2 (a–b), L3 (a–b), L4 (a–b)**. On L1–L4, **ignore the app's manual-step
+prompt** after `SUITE DONE` (`now rotate/zoom by hand…`) and go straight to the next level.
 
-The window-1 collector should keep counting (≈ 600–900 records per level). If it stops while the app keeps
-running, logcat is the second copy — continue, and note the time.
+**Note the clock time of ANY level re-open, app relaunch, re-run or anomaly** (a stutter, a wrong slice, a
+crash). The extractor needs those times to tell repeated records apart. To redo an invalid run, press
+**RUN SUITE again on the level that is already loaded** (do not re-open the level unless the stop rules say so).
+
+### If you see → do (stop rules)
+
+| If you see | Do |
+|---|---|
+| `start` says `matches build record: False` | **STOP.** Wrong APK installed. Do not measure. |
+| `Ln loaded` shows the wrong triangle count, or loading takes > 30 s | Tap **L*n*** once more (note the time). Still wrong → skip that level; if it is **L0 → STOP**. |
+| A second `ERROR:` status on the same level | Skip the level (note the time); if it is **L0 → STOP**. |
+| Phone very hot, or `conditions` / the workstation reports thermal status ≥ 2 | Wait 5 min with the screen on; then `finish` (section 3) with what you have. |
+| USB disconnected | Reconnect, run `& $ADB -s $SERIAL reverse tcp:8766 tcp:8766` again, continue; note the time. |
+| Window 1 stopped counting AND the app's `POST fail` keeps rising | Finish the current level (logcat is the second copy), then `finish`. |
+| 45 minutes of phone time reached | Stop after the current level and `finish`. |
+| Anything else unexpected (app gone, black WebView, `webview_error`, `level disagreement`, `WebGL2 unavailable`, `load … status`) | **Stop** and note the time; tell the main session before continuing. |
+
+The window-1 collector should keep counting (≈ 600–900 records per level).
 
 ## 3 · After L4 (operator, then hand off)
 
@@ -125,10 +155,11 @@ running, logcat is the second copy — continue, and note the time.
 python spikes\spike_b_3d\harness\s1_session.py finish --out $S1
 ```
 
-Then Ctrl-C in window 1. Turn **Stay awake OFF**. Send the folder `$S1` to the main session.
-`finish` prints the payload counts per kind; expect for each level: `s1_loaded`, `s1_suite_start`,
-3 × `s1_frame_probe`, `s1_suite_done`, hundreds of `s1_pick`, matching `s1_nav_request` /
-`s1_rn_nav_displayed`; and for L0 also 2 × `s1_target_test_done` and 10 `s1_pick` with phase `tap`.
+Then Ctrl-C in window 1. Turn **Stay awake OFF**. Send the folder `$S1` and your list of noted times to
+the main session. `finish` prints the payload counts per kind; expect for each level: `s1_loaded`,
+`s1_suite_start`, 3 × `s1_frame_probe`, `s1_suite_done`, hundreds of `s1_pick`, matching
+`s1_nav_request` / `s1_rn_nav_displayed`; and for L0 also 2 × `s1_target_test_done` and 10 `s1_pick`
+with phase `tap`.
 
 **Dry run (diagnostic, not evidence).** The same APK pipeline was run on an Android 14 emulator on
 2026-10-01 (L0 and L4 suites, the manual target test, labelled taps): every navigation was displayed as
