@@ -94,10 +94,13 @@ it from Day 23 (PR-MOBILE-03). Every file is framework-neutral: no React / React
   `open({ caseId, runId, sourceMaskId, predictionVariant })`. `open` reads `case_get` first, because every
   working-mask PUT must echo the **case's** `geometry_contract_version` and `geometry_validation_status`
   (`GEOMETRY_NOT_VALIDATED` on the real data) — never an assumed `VALIDATED`.
-- **A successful commit leaves the review `CORRECTED` by itself** (`review_rules.commit_result_state`); on a review
-  already `CORRECTED` it adds a version without a transition. No PATCH follows a commit (`CORRECTED → CORRECTED` is
-  not a transition).
-- A PATCH to `CORRECTED` needs at least one saved reviewed mask (`CORRECTION_NOT_SAVED` otherwise).
+- **Only a commit enters `CORRECTED`** (contract 1.1.0 `review_rules.corrected_only_via`): it leaves the review
+  `CORRECTED` atomically with a new reviewed mask, and on a review already `CORRECTED` it adds a version without a
+  transition. A PATCH to `CORRECTED` is refused before sending (`CORRECTED_BY_COMMIT_ONLY`) — the server would answer
+  `INVALID_REVIEW_TRANSITION` — and no PATCH ever follows a commit.
+- The review's status after a commit is **read from the commit answer**, and that answer must name a **new**
+  `reviewed_mask_id`: one already in the version list would be an overwrite of an immutable version (PR-PROV-01),
+  so it is refused as `CONTRACT_DRIFT` with Refresh, nothing appended and the session left UNSAVED.
 - Leaving `ACCEPTED` — by a PATCH or by saving a correction — is a confirmed action in the client
   (`{ confirmed: true }`, else `CONFIRMATION_REQUIRED`); the server allows it because it keeps the history.
 - A refused action is a `rejection` on the snapshot: **nothing is sent** and the view, status and revision are
@@ -126,7 +129,11 @@ an `ACCEPTED` review.
 
 ### Findings (`findings.mjs`)
 
-`normalizeFinding()` refuses an unknown type or status always, and a missing case / slice when creating.
+`normalizeFinding()` refuses an unknown type or status always, and a missing case / slice when creating. A finding
+that names a run also records the prediction variant that was on screen (`RAW` / `PROCESSED`; contract 1.1.0 sends
+it as `finding_create.prediction_variant`, null without a run), so opening it can restore the same overlay.
+`patch(findingId, { status, note })` is `finding_patch` with the finding's own revision as `expected_revision`;
+`STALE_REVISION` changes nothing and offers Refresh.
 `evidenceLocation()` opens `SCR-03` at the case and slice (with the region only if one was recorded), `SCR-07` for
 an experiment-only record, and otherwise says `NO_EVIDENCE_IDENTIFIERS` instead of guessing.
 
@@ -154,19 +161,19 @@ CI runs the same three in the `V4 review and findings` step of `guardrails.yml`.
 6. **A finding's region is `POINT` / `BOX` in source pixels**, a proposal for the free-form `region_reference`.
 7. **A created finding keeps the anchor it was created from**; the fixture echoes placeholder ids.
 
-Settled by contract v1.0 on Day 22 (no longer decisions): a commit makes the review `CORRECTED`; `review_create`
-carries the scope; the PUT echoes the case geometry; masks travel as `{ encoding, data }`.
+Settled by contract v1.0 / 1.1.0 on Day 22 (no longer decisions): only a commit makes the review `CORRECTED`, and
+it answers a new version id and the status; `review_create` carries the scope; the PUT echoes the case geometry;
+masks travel as `{ encoding, data }`; a finding with a run records its prediction variant; findings carry a revision.
 
 ### Known limits (owned outside V4 today)
 
-- **Contract v1.0 (#62) must be on main** for the fixture bundle to carry FR-REV-001 statuses, the v1.0 scope and
-  geometry fields, finding revisions and the `empty` list scenarios. Until then the review and findings tests fail.
-- **`finding_patch` (OPEN ↔ RESOLVED, note) is not implemented yet.** Contract v1.0 gives every finding row its
-  `revision`, so it can be — after #62 merges.
-- **A finding records no prediction variant**, while SCR-03 refuses to default one (`11` §6), so opening a finding
-  cannot restore the variant. Queued for a follow-up contract PR.
-- **The fixture's `review_commit` returns the reviewed-mask id already listed.** With a real backend, refuse a
-  commit that returns an existing version id (it would be an overwrite, PR-PROV-01). Queued with the above.
+- **This branch is stacked on #71 (contract 1.1.0, over #62 and #68).** The fixture bundle needs that contract for
+  the FR-REV-001 statuses, the scope and geometry fields, finding revisions and variants, and the `empty` scenarios.
+- **The fixture answers every commit with the same new id** (`..._R2`). A second save in one session therefore gets
+  an id that is already a version and is refused as drift (test `V4-8`); Refresh reloads the server's list and the
+  save goes through. A real backend answers a new id per commit.
+- **The generator has no `stale_revision` scenario for `finding_patch`**, so the FIXTURE panel cannot show a stale
+  finding edit; test `F10` injects the generator's own STALE_REVISION envelope instead.
 
 ### TODO for Trung (from Day 23)
 
@@ -178,6 +185,3 @@ carries the scope; the PUT echoes the case geometry; masks travel as `{ encoding
   `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
   tests and your own defense notes.
-- **After contract v1.0 (#62) merges:** delete the `TEMPORARY` fallback in `V4-0` / `F0`, add a test that opens a
-  fresh review on the generated `empty` `reviewed_masks_list` and lists an empty `findings_list`, and implement
-  `finding_patch` with `expected_revision`.

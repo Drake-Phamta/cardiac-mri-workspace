@@ -21,7 +21,7 @@
  *     prediction is never sent anywhere as a write (FR-REV-009).
  */
 
-import { STATE, loading, fatalInvalid } from '../../core/index.mjs';
+import { STATE, RECOVERY, loading, fatalInvalid } from '../../core/index.mjs';
 
 export const REVIEW_STATUS = Object.freeze({
   NOT_REVIEWED: 'NOT_REVIEWED',
@@ -47,6 +47,10 @@ export const REVIEW_RULES = Object.freeze({
   initialState: REVIEW_STATUS.NOT_REVIEWED,
   commitResultState: REVIEW_STATUS.CORRECTED,
   terminalStates: Object.freeze([REVIEW_STATUS.CORRECTED]),
+  // Contract 1.1.0: the edges into CORRECTED are taken only by review_commit,
+  // atomically with a new reviewed mask; a review_patch to CORRECTED is
+  // INVALID_REVIEW_TRANSITION.
+  correctedOnlyVia: 'review_commit',
 });
 
 // domain_enums.prediction_variant - the variants a review can be scoped to.
@@ -65,30 +69,31 @@ function refusal(code, reason) {
  * button with the same rule the model enforces.
  *   - only the transitions of `05` §6 (a repeat of the current state is not
  *     one - review_rules.notes);
- *   - CORRECTED needs at least one persisted ReviewedMask
- *     (review_rules.corrected_requires_reviewed_mask);
+ *   - never to CORRECTED: that edge belongs to review_commit alone
+ *     (review_rules.corrected_only_via), so CORRECTED always has a persisted
+ *     reviewed mask - saving a correction is how a review gets there;
  *   - leaving ACCEPTED is allowed because the server appends every transition
  *     to an immutable history; the client still makes it a confirmed action,
  *     so `confirm` is true and patchStatus wants { confirmed: true } (`10` §9).
  */
-export function checkTransition(from, to, { hasReviewedMask = false } = {}) {
+export function checkTransition(from, to) {
   if (!isReviewStatus(from)) return refusal('REVIEW_STATUS_UNKNOWN', `${from} is not a review state`);
   if (!isReviewStatus(to)) return refusal('REVIEW_STATUS_UNKNOWN', `${to} is not a review state`);
   if (!REVIEW_TRANSITIONS[from].includes(to)) {
     return refusal('INVALID_REVIEW_TRANSITION', `${from} -> ${to} is not a transition of 05 section 6`);
   }
-  if (to === REVIEW_STATUS.CORRECTED && !hasReviewedMask) {
-    return refusal('CORRECTION_NOT_SAVED', 'CORRECTED needs a saved reviewed mask first');
+  if (to === REVIEW_STATUS.CORRECTED) {
+    return refusal('CORRECTED_BY_COMMIT_ONLY', 'CORRECTED is reached only by saving a correction');
   }
   return Object.freeze({ ok: true, code: null, reason: null, confirm: from === REVIEW_STATUS.ACCEPTED });
 }
 
 // Every other state, each with whether it may be chosen now and why not.
-export function transitionsFrom(status, options) {
+export function transitionsFrom(status) {
   if (!isReviewStatus(status)) return Object.freeze([]);
   return Object.freeze(Object.keys(REVIEW_STATUS)
     .filter((to) => to !== status)
-    .map((to) => Object.freeze({ to, ...checkTransition(status, to, options) })));
+    .map((to) => Object.freeze({ to, ...checkTransition(status, to) })));
 }
 
 function snapshot(view, fields) {
@@ -110,7 +115,7 @@ function snapshot(view, fields) {
     // Immutable versions only. A working (unsaved) mask never appears here.
     reviewedMasks,
     lastCommit: fields.lastCommit ?? null,
-    transitions: transitionsFrom(status, { hasReviewedMask: reviewedMasks.length > 0 }),
+    transitions: transitionsFrom(status),
     // A write the model refused before sending: { code, reason, ... }. The
     // view is untouched by it - nothing reached the server.
     rejection: fields.rejection ?? null,
@@ -241,7 +246,7 @@ export function createReviewCorrection(client) {
   async function patchStatus(to, { scenario = 'default', confirmed = false } = {}) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;
-    const check = checkTransition(current.status, to, { hasReviewedMask: current.reviewedMasks.length > 0 });
+    const check = checkTransition(current.status, to);
     if (!check.ok) return reject(check.code, check.reason, { from: current.status, to });
     if (check.confirm && confirmed !== true) {
       return reject('CONFIRMATION_REQUIRED',
@@ -298,6 +303,25 @@ export function createReviewCorrection(client) {
     });
     if (view.state !== STATE.SUCCESS) return set(view);
     const d = view.data;
+    // Contract 1.1.0: a commit answers a NEW version id and the review's
+    // status. An id already in the list would be an overwrite of an immutable
+    // version (PR-PROV-01) - nothing is appended, the session is not marked
+    // saved, and only a refresh shows what the server holds.
+    const problems = [];
+    if (current.reviewedMasks.some((v) => v.reviewed_mask_id === d.reviewed_mask_id)) {
+      problems.push(`reviewed_mask_id ${d.reviewed_mask_id} is already a version of this review`);
+    }
+    // `status` is read from the response; a contract before 1.1.0 did not
+    // send it, and then the commit's defined result state stands in.
+    const status = d.status ?? REVIEW_RULES.commitResultState;
+    if (!isReviewStatus(status)) problems.push(`status ${status} is not one of ${Object.keys(REVIEW_STATUS).join('/')}`);
+    if (problems.length) {
+      return set(fatalInvalid({
+        code: 'CONTRACT_DRIFT',
+        safeMessage: 'The commit answer does not match the API contract; refresh to see what the server holds.',
+        detail: { endpointId: 'review_commit', problems },
+      }, [RECOVERY.REFRESH, RECOVERY.BACK]));
+    }
     const version = Object.freeze({
       reviewed_mask_id: d.reviewed_mask_id,
       source_mask_id: d.source_mask_id,
@@ -307,7 +331,7 @@ export function createReviewCorrection(client) {
       provenance: d.provenance ? Object.freeze({ ...d.provenance }) : null,
     });
     return set(view, {
-      status: REVIEW_RULES.commitResultState,
+      status,
       revision: revisionFrom(d, current.revision),
       lastCommit: version,
       reviewedMasks: [...current.reviewedMasks, version],

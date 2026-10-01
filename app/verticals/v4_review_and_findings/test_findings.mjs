@@ -6,9 +6,9 @@
 // "nothing was sent" is checked, not assumed.
 
 import { readFileSync } from 'node:fs';
-import { createContract, createBundle, createClient, createFixtureTransport, STATE, RECOVERY } from '../../core/index.mjs';
+import { createContract, createBundle, createClient, createFixtureTransport, getScenario, STATE, RECOVERY } from '../../core/index.mjs';
 import {
-  FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND,
+  FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND, PREDICTION_VARIANT,
   normalizeFinding, evidenceLocation, fieldsFromRecord, createFindings,
 } from './findings.mjs';
 
@@ -43,7 +43,7 @@ const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]
 
 const SHAPE = [576, 576, 88];
 const DRAFT = {
-  experimentId: 'EXP_DEMO', runId: 'RUN_0043', caseId: 'CASE_0043', sliceIndex: 44,
+  experimentId: 'EXP_DEMO', runId: 'RUN_0043', variant: 'RAW', caseId: 'CASE_0043', sliceIndex: 44,
   region: { kind: REGION_KIND.POINT, x: 301, y: 288 }, type: FINDING_TYPE.UNDER_SEGMENTATION,
   note: 'Prediction misses the inferior wall here.',
 };
@@ -51,15 +51,14 @@ const DRAFT = {
 // F0: the closed sets are the domain's own.
 {
   const enums = contract.raw.domain_enums;
-  // TEMPORARY until contract v1.0 (#62) is on main: the Day-22 decision.
-  const status = enums?.finding_status ?? ['OPEN', 'RESOLVED'];
-  const types = enums?.finding_type
-    ?? ['UNDER_SEGMENTATION', 'OVER_SEGMENTATION', 'BOUNDARY_DISAGREEMENT', 'DISCONNECTED_ARTIFACT', 'OTHER'];
-  const where = enums ? 'contract.json domain_enums' : 'the Day-22 decision (contract v1.0 not merged yet)';
-  check('F0', sameList(sorted(Object.keys(FINDING_STATUS)), sorted(status)) && Object.entries(FINDING_STATUS).every(([k, v]) => k === v),
+  const where = `contract.json ${contract.contractVersion} domain_enums`;
+  check('F0', sameList(sorted(Object.keys(FINDING_STATUS)), sorted(enums.finding_status)) && Object.entries(FINDING_STATUS).every(([k, v]) => k === v),
     `finding status OPEN/RESOLVED equals ${where}`);
-  check('F0', sameList(sorted(Object.keys(FINDING_TYPE)), sorted(types)) && Object.entries(FINDING_TYPE).every(([k, v]) => k === v),
+  check('F0', sameList(sorted(Object.keys(FINDING_TYPE)), sorted(enums.finding_type)) && Object.entries(FINDING_TYPE).every(([k, v]) => k === v),
     `the five finding types (05 §2, FR-FIND-003) equal ${where}`);
+  check('F0', sameList(sorted(Object.keys(PREDICTION_VARIANT)), sorted(enums.prediction_variant))
+    && contract.raw.enum_bindings.prediction_variant.includes('finding_create.request.prediction_variant'),
+  'a finding\'s prediction variant is the contract\'s enum, bound to finding_create');
 }
 
 // F1: a complete draft is valid, frozen, and opens at its exact evidence (TC-FIND-001).
@@ -95,6 +94,9 @@ const DRAFT = {
     ['box corners unordered', { ...DRAFT, region: { kind: 'BOX', x0: 10, y0: 10, x1: 5, y1: 20 } }, 'not ordered'],
     ['unknown region kind', { ...DRAFT, region: { kind: 'CIRCLE', x: 1, y: 1 } }, 'region kind CIRCLE'],
     ['note not text', { ...DRAFT, note: 42 }, 'note must be text'],
+    ['a run without its variant', { ...DRAFT, variant: undefined }, 'variant is required with a run'],
+    ['a variant without a run', { ...DRAFT, runId: undefined }, 'only recorded together with a run'],
+    ['an unknown variant', { ...DRAFT, variant: 'REVIEWED' }, 'variant REVIEWED'],
   ];
   const wrong = cases.filter(([, input, needle]) => {
     const r = normalizeFinding(input, { shape: SHAPE });
@@ -139,9 +141,10 @@ const DRAFT = {
     `findings_list -> ${s.view.state}, ${s.items.length} row`);
   check('F4', row?.ok && row.finding.status === 'OPEN' && row.finding.revision === 1 && row.finding.type !== null
     && row.location.available && row.location.screen === 'SCR-03' && row.location.caseId === row.finding.evidence.case_id
-    && row.location.sliceIndex === row.finding.evidence.slice_index,
-  `the generated row (evidence ${row?.finding.evidence?.case_id} slice ${row?.finding.evidence?.slice_index}, revision ` +
-    `${row?.finding.revision}) opens SCR-03 exactly there`);
+    && row.location.sliceIndex === row.finding.evidence.slice_index
+    && row.location.variant === row.finding.evidence.prediction_variant,
+  `the generated row (evidence ${row?.finding.evidence?.case_id} slice ${row?.finding.evidence?.slice_index}, ` +
+    `${row?.finding.evidence?.prediction_variant}, revision ${row?.finding.revision}) opens SCR-03 exactly there, with its variant`);
 }
 
 // F5: create from a case/slice context, then open it back (TC-FIND-001).
@@ -154,8 +157,8 @@ const DRAFT = {
   check('F5', s.view.state === STATE.SUCCESS && sent[sent.length - 1].endpointId === 'finding_create'
     && body.study_id === 'STUDY_DEMO' && body.case_id === 'CASE_0043' && body.analysis_run_id === 'RUN_0043'
     && body.slice_index === 44 && body.experiment_id === 'EXP_DEMO' && body.finding_type === 'UNDER_SEGMENTATION'
-    && body.region_reference.x === 301 && body.note === DRAFT.note,
-  'finding_create carries study/experiment/case/run/slice/type/note/region in the contract\'s field names');
+    && body.region_reference.x === 301 && body.note === DRAFT.note && body.prediction_variant === 'RAW',
+  'finding_create carries study/experiment/case/run/variant/slice/type/note/region in the contract\'s field names');
   const created = s.lastCreated;
   check('F5', Boolean(created?.finding.findingId) && created.finding.status === 'OPEN' && created.finding.caseId === 'CASE_0043'
     && created.finding.revision === 1 && created.finding.evidence !== null && s.items.length === 2 && s.items[0] === created,
@@ -202,6 +205,48 @@ const DRAFT = {
   const s = await createFindings(client, { studyId: 'STUDY_DEMO' }).create(DRAFT);
   check('F8', threw && s.view.state === STATE.FATAL_INVALID && s.view.error.code === 'CONTRACT_DRIFT',
     'no study id -> refused at construction; a created finding answering IN_PROGRESS -> CONTRACT_DRIFT');
+}
+
+// F9: an empty list is a list, not drift (row_fields, the generated `empty`).
+{
+  const { client } = recorder();
+  const s = await createFindings(client, { studyId: 'STUDY_DEMO' }).list({ scenario: 'empty' });
+  check('F9', s.view.state === STATE.SUCCESS && s.items.length === 0, 'findings_list `empty` -> SUCCESS with 0 findings');
+}
+
+// F10: OPEN <-> RESOLVED through finding_patch with expected_revision (TC-FIND-002).
+{
+  const { client, sent } = recorder();
+  const model = createFindings(client, { studyId: 'STUDY_DEMO' });
+  const listed = await model.list();
+  const f = listed.items[0].finding;
+  const n = sent.length;
+  const refusals = [
+    await model.patch('NO_SUCH_FINDING', { status: 'RESOLVED' }),
+    await model.patch(f.findingId, { status: 'CLOSED' }),
+    await model.patch(f.findingId, {}),
+  ].map((r) => r.rejection?.code);
+  check('F10', sameList(refusals, ['FINDING_NOT_LISTED', 'VALIDATION_ERROR', 'NOTHING_TO_CHANGE']) && sent.length === n,
+    `an unlisted finding, a status outside OPEN/RESOLVED and an empty change are refused locally (${refusals.join(', ')}), nothing sent`);
+  const patched = await model.patch(f.findingId, { status: 'RESOLVED' });
+  const body = sent[sent.length - 1].body;
+  const after = patched.items[0].finding;
+  check('F10', patched.view.state === STATE.SUCCESS && body.status === 'RESOLVED' && body.expected_revision === f.revision
+    && body.note === f.note && after.status === 'RESOLVED' && after.caseId === f.caseId && after.sliceIndex === f.sliceIndex,
+  `RESOLVED sent with expected_revision ${body.expected_revision}; the entry is RESOLVED and keeps its evidence anchor`);
+  // The generator has no stale scenario for finding_patch, so the stale answer
+  // is the generator's own STALE_REVISION envelope from review_patch - a
+  // contract-derived error this endpoint lists - injected for one call.
+  const staleAnswer = getScenario(bundle, 'review_patch', 'stale_revision').response;
+  const { client: staleClient } = recorder((resolved, response) => (resolved.endpointId === 'finding_patch' ? staleAnswer : response));
+  const sm = createFindings(staleClient, { studyId: 'STUDY_DEMO' });
+  await sm.list();
+  const before = sm.current.items[0].finding;
+  const stale = await sm.patch(before.findingId, { status: 'RESOLVED' });
+  check('F10', stale.view.state === STATE.STALE_MISMATCH && stale.view.actions.includes(RECOVERY.REFRESH)
+    && !stale.view.actions.includes(RECOVERY.RETRY) && stale.items[0].finding.status === before.status
+    && stale.items[0].finding.revision === before.revision,
+  'STALE_REVISION -> STALE_MISMATCH with REFRESH only; the finding is unchanged');
 }
 
 console.log(`${failures === 0 ? 'PASS' : 'FAIL'} V4 findings — ${count - failures}/${count}`);

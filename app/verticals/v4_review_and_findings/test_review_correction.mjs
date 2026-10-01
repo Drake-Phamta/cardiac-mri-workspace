@@ -66,32 +66,21 @@ const unpack = (payload) => {
 
 // V4-0: the model's states, transitions and rules ARE the contract's.
 {
-  const enums = contract.raw.domain_enums;
-  const rules = contract.raw.review_rules;
-  // TEMPORARY, until contract v1.0 (#62) is on main: the values the leader
-  // fixed on Day 22 for these keys. Delete once the keys are on main, so the
-  // contract is the only reference.
-  const DECIDED = {
-    review_status: ['NOT_REVIEWED', 'ACCEPTED', 'FLAGGED', 'CORRECTED'],
-    review_status_transitions: { NOT_REVIEWED: ['ACCEPTED', 'FLAGGED', 'CORRECTED'], FLAGGED: ['CORRECTED'], ACCEPTED: ['FLAGGED', 'CORRECTED'] },
-    prediction_variant: ['RAW', 'PROCESSED'],
-    source_mask_kind: ['RAW_PREDICTION', 'PROCESSED_PREDICTION', 'GROUND_TRUTH', 'REVIEWED'],
-  };
-  const DECIDED_RULES = { initial_state: 'NOT_REVIEWED', commit_result_state: 'CORRECTED', terminal_states: ['CORRECTED'] };
-  const ref = enums ?? DECIDED;
-  const r = rules ?? DECIDED_RULES;
+  const ref = contract.raw.domain_enums;
+  const r = contract.raw.review_rules;
   const statusOk = sameList(sorted(Object.keys(REVIEW_STATUS)), sorted(ref.review_status))
     && Object.entries(REVIEW_STATUS).every(([k, v]) => k === v);
   const keysOk = Object.keys(ref.review_status_transitions).every((k) => ref.review_status.includes(k));
   const transOk = ref.review_status.every((s) => sameList(sorted(REVIEW_TRANSITIONS[s] ?? []), sorted(ref.review_status_transitions[s] ?? [])));
   const rulesOk = REVIEW_RULES.initialState === r.initial_state && REVIEW_RULES.commitResultState === r.commit_result_state
-    && sameList(sorted(REVIEW_RULES.terminalStates), sorted(r.terminal_states));
+    && sameList(sorted(REVIEW_RULES.terminalStates), sorted(r.terminal_states))
+    && REVIEW_RULES.correctedOnlyVia === r.corrected_only_via;
   const variantOk = sameList(sorted(Object.keys(PREDICTION_VARIANT)), sorted(ref.prediction_variant));
   const kindsOk = sameList(sorted(Object.keys(SOURCE_KIND)), sorted(ref.source_mask_kind.filter((k) => k !== 'GROUND_TRUTH')));
   check('V4-0', statusOk && keysOk && transOk && rulesOk && variantOk && kindsOk,
     `4 states, ${Object.values(REVIEW_TRANSITIONS).flat().length} transitions, review_rules (initial / commit result / ` +
-    `terminal), prediction variants and editable source kinds equal ` +
-    `${enums ? 'contract.json domain_enums + review_rules' : 'the Day-22 decision (contract v1.0 not merged yet)'}`);
+    `terminal / corrected only via ${r.corrected_only_via}), prediction variants and editable source kinds equal ` +
+    `contract.json ${contract.contractVersion}`);
 }
 
 // V4-1: SCR-06 opens by scope, NOT_REVIEWED, with the case geometry and the revision.
@@ -111,26 +100,29 @@ const unpack = (payload) => {
     `${screen.reviewedMasks.length} immutable reviewed-mask version`);
 }
 
-// V4-2: the transition table is `05` §6, pair by pair (TC-REV-001).
+// V4-2: the transition table is `05` §6, pair by pair (TC-REV-001), and the
+// edges into CORRECTED belong to the commit alone (corrected_only_via).
 {
   const S = Object.keys(REVIEW_STATUS);
-  const allowed = new Set(['NOT_REVIEWED>ACCEPTED', 'NOT_REVIEWED>FLAGGED', 'NOT_REVIEWED>CORRECTED',
-    'FLAGGED>CORRECTED', 'ACCEPTED>FLAGGED', 'ACCEPTED>CORRECTED']);
+  const patchable = new Set(['NOT_REVIEWED>ACCEPTED', 'NOT_REVIEWED>FLAGGED', 'ACCEPTED>FLAGGED']);
+  const byCommit = new Set(['NOT_REVIEWED>CORRECTED', 'FLAGGED>CORRECTED', 'ACCEPTED>CORRECTED']);
   const wrong = [];
   for (const from of S) {
     for (const to of S) {
-      const got = checkTransition(from, to, { hasReviewedMask: true });
-      if (got.ok !== allowed.has(`${from}>${to}`)) wrong.push(`${from}>${to}`);
-      if (got.ok && got.confirm !== (from === 'ACCEPTED')) wrong.push(`${from}>${to} confirm`);
+      const got = checkTransition(from, to);
+      const key = `${from}>${to}`;
+      if (got.ok !== patchable.has(key)) wrong.push(key);
+      if (byCommit.has(key) && got.code !== 'CORRECTED_BY_COMMIT_ONLY') wrong.push(`${key} code ${got.code}`);
+      if (!got.ok && !byCommit.has(key) && got.code !== 'INVALID_REVIEW_TRANSITION') wrong.push(`${key} code ${got.code}`);
+      if (got.ok && got.confirm !== (from === 'ACCEPTED')) wrong.push(`${key} confirm`);
     }
   }
-  const needsMask = ['NOT_REVIEWED', 'FLAGGED', 'ACCEPTED'].every((from) => checkTransition(from, 'CORRECTED').code === 'CORRECTION_NOT_SAVED');
   const unknown = checkTransition('NOT_REVIEWED', 'APPROVED').code === 'REVIEW_STATUS_UNKNOWN'
     && checkTransition('IN_PROGRESS', 'FLAGGED').code === 'REVIEW_STATUS_UNKNOWN'
     && checkTransition('NOT_REVIEWED', 'toString').code === 'REVIEW_STATUS_UNKNOWN';
-  check('V4-2', wrong.length === 0 && needsMask && unknown,
-    `16/16 pairs as in 05 §6 (6 allowed, a repeat is not one, leaving ACCEPTED needs confirmation); PATCH to ` +
-    `CORRECTED refused without a saved reviewed mask; APPROVED / IN_PROGRESS are not states` +
+  check('V4-2', wrong.length === 0 && unknown,
+    `16/16 pairs: 3 can be PATCHed (leaving ACCEPTED needs confirmation), the 3 edges into CORRECTED are the ` +
+    `commit's alone, a repeat is not a transition; APPROVED / IN_PROGRESS are not states` +
     (wrong.length ? ` — wrong: ${wrong.join(', ')}` : ''));
 }
 
@@ -153,9 +145,10 @@ const unpack = (payload) => {
 
   const n1 = sent.length;
   const back = await model.patchStatus(REVIEW_STATUS.ACCEPTED);
-  check('V4-3', back.rejection?.code === 'INVALID_REVIEW_TRANSITION' && back.status === 'FLAGGED'
-    && back.revision === flagged.revision && sent.length === n1,
-  'FLAGGED -> ACCEPTED refused before sending; status and revision unchanged');
+  const corrected = await model.patchStatus(REVIEW_STATUS.CORRECTED);
+  check('V4-3', back.rejection?.code === 'INVALID_REVIEW_TRANSITION' && corrected.rejection?.code === 'CORRECTED_BY_COMMIT_ONLY'
+    && corrected.status === 'FLAGGED' && corrected.revision === flagged.revision && sent.length === n1,
+  'FLAGGED -> ACCEPTED and a PATCH to CORRECTED are refused before sending; status and revision unchanged');
 }
 
 // V4-4: leaving ACCEPTED is a confirmed action, for a PATCH and for a save.
@@ -264,16 +257,27 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
   `a new frozen version appended (${before.length} -> ${saved.reviewedMasks.length}); the earlier one is the same object, untouched`);
   check('V4-8', s.state().maskState === MASK_STATE.SAVED && s.sourceIntact().ok && calls.every((c) => WRITES.has(c.endpointId)),
     'the session reads SAVED; source copies intact; no request other than review writes was made');
-  // A second save on a CORRECTED review adds a version without a transition.
+  const commitAnswer = getScenario(bundle, 'review_commit', 'default').response.data;
+  check('V4-8', saved.status === commitAnswer.status && saved.lastCommit.reviewed_mask_id === commitAnswer.reviewed_mask_id
+    && !before.some((v) => v.reviewed_mask_id === commitAnswer.reviewed_mask_id),
+  `the status is read from the commit answer (${commitAnswer.status}), and the version id ${commitAnswer.reviewed_mask_id} is new`);
+  // The fixture answers every commit with the same id, so a second save in
+  // the same session gets back an id that is already a version: that would
+  // be an overwrite, and it is refused - nothing appended, nothing marked saved.
   s.setTool(TOOL.ERASE);
   s.beginStroke(45);
   s.sample(305.5, 282.5, { zoom: 1, panX: 0, panY: 0 });
   s.endStroke();
   const m = sent.length;
   const second = await model.saveCorrection(s);
-  check('V4-8', second.status === 'CORRECTED' && second.reviewedMasks.length === before.length + 2
-    && !sent.slice(m).some((c) => c.endpointId === 'review_patch'),
-  'saving again on a CORRECTED review adds another version and stays CORRECTED, no PATCH');
+  check('V4-8', second.view.state === STATE.FATAL_INVALID && second.view.error.code === 'CONTRACT_DRIFT'
+    && second.view.actions.includes(RECOVERY.REFRESH) && second.reviewedMasks.length === before.length + 1
+    && s.state().maskState === MASK_STATE.UNSAVED && !sent.slice(m).some((c) => c.endpointId === 'review_patch'),
+  'a commit that answers an existing version id is refused as drift: nothing appended, the edit stays UNSAVED, REFRESH offered');
+  await model.refresh();
+  const third = await model.saveCorrection(s);
+  check('V4-8', third.view.state === STATE.SUCCESS && third.status === 'CORRECTED' && s.state().maskState === MASK_STATE.SAVED,
+    'after REFRESH (the server list again) the same edit saves as a new version on the CORRECTED review, no PATCH');
 }
 
 // V4-9: STALE during the PUT - nothing is committed, the edits survive, REFRESH, save again.
@@ -341,6 +345,20 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
   const confirmed = await accepted.saveCorrection(editedSession(), { confirmed: true });
   check('V4-11', confirmed.view.state === STATE.SUCCESS && confirmed.status === 'CORRECTED',
     'the same ACCEPTED review saves once confirmed, and the commit makes it CORRECTED');
+}
+
+// V4-13: a fresh review has no reviewed mask - an empty list is a list, not
+// drift (contract v1.0 row_fields, the generated `empty` scenario).
+{
+  const { model } = fresh();
+  const opened = await model.open({ ...OPEN, scenarios: { reviewed_masks_list: 'empty' } });
+  const corrected = opened.transitions.find((t) => t.to === 'CORRECTED');
+  check('V4-13', opened.view.state === STATE.SUCCESS && opened.reviewedMasks.length === 0 && opened.canWrite
+    && corrected && !corrected.ok && corrected.code === 'CORRECTED_BY_COMMIT_ONLY',
+  `a review with no reviewed mask opens (${opened.reviewedMasks.length} versions); CORRECTED is offered only through a save`);
+  const saved = await model.saveCorrection(editedSession());
+  check('V4-13', saved.view.state === STATE.SUCCESS && saved.status === 'CORRECTED' && saved.reviewedMasks.length === 1,
+    'its first save creates the first version, and the review is CORRECTED');
 }
 
 // V4-12: every write any test above made carried expected_revision.

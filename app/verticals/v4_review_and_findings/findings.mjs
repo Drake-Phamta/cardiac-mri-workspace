@@ -13,9 +13,9 @@
  * metric artifact (FR-FIND-004).
  *
  * Built on Day 22 under the recovery override for Nguyễn Gia Đức Trung, who
- * owns it. Status changes (finding_patch) are not here yet - see the README:
- * the contract gives a finding no revision before its first patch, and a
- * patch without one would be the last-write-wins the contract forbids.
+ * owns it. Status and note changes go through finding_patch with the
+ * finding's own revision as expected_revision (contract v1.0+ gives every
+ * finding row one); STALE_REVISION changes nothing and offers REFRESH.
  */
 
 import { STATE, loading, fatalInvalid } from '../../core/index.mjs';
@@ -46,6 +46,11 @@ export const EVIDENCE_SCREEN = Object.freeze({
   CASE_EXPLORER: 'SCR-03',
   EXPERIMENT_COMPARISON: 'SCR-07',
 });
+
+// domain_enums.prediction_variant. Contract 1.1.0: finding_create carries the
+// variant whenever it names a run ("required when analysis_run_id is given and
+// null otherwise"), so opening the finding can restore exactly what was seen.
+export const PREDICTION_VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
 
 const own = (table, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);
 const isIndex = (v) => Number.isInteger(v) && v >= 0;
@@ -91,6 +96,7 @@ export function normalizeFinding(input = {}, { requireAnchor = true, shape = nul
     studyId: input.studyId ?? null,
     experimentId: input.experimentId ?? null,
     runId: input.runId ?? null,
+    variant: input.variant ?? null,
     caseId: input.caseId ?? null,
     sliceIndex: input.sliceIndex ?? null,
     region: input.region ?? null,
@@ -108,6 +114,14 @@ export function normalizeFinding(input = {}, { requireAnchor = true, shape = nul
 
   for (const key of ['findingId', 'studyId', 'experimentId', 'runId']) {
     if (!isOptionalId(f[key])) problems.push(`${key} must be a non-empty string or null`);
+  }
+
+  if (f.variant !== null && !own(PREDICTION_VARIANT, f.variant)) {
+    problems.push(`variant ${f.variant} is not RAW or PROCESSED`);
+  } else if (requireAnchor && f.runId !== null && f.variant === null) {
+    problems.push('variant is required with a run: which prediction was seen (RAW or PROCESSED)?');
+  } else if (requireAnchor && f.runId === null && f.variant !== null) {
+    problems.push('variant is only recorded together with a run');
   }
 
   if (f.caseId === null) {
@@ -156,6 +170,9 @@ export function evidenceLocation(finding) {
       caseId: finding.caseId,
       sliceIndex: finding.sliceIndex,
       runId: finding.runId ?? null,
+      // The prediction variant that was on screen (contract 1.1.0), so SCR-03
+      // can show the same overlay instead of asking - or guessing.
+      variant: finding.variant ?? null,
       experimentId: finding.experimentId ?? null,
       region: finding.region ?? null,
       reason: null,
@@ -169,6 +186,7 @@ export function evidenceLocation(finding) {
       caseId: null,
       sliceIndex: null,
       runId: null,
+      variant: null,
       experimentId: finding.experimentId,
       region: null,
       reason: null,
@@ -181,6 +199,7 @@ export function evidenceLocation(finding) {
     caseId: null,
     sliceIndex: null,
     runId: null,
+    variant: null,
     experimentId: null,
     region: null,
     reason: 'NO_EVIDENCE_IDENTIFIERS',
@@ -194,6 +213,7 @@ export function createRequestBody(finding) {
     experiment_id: finding.experimentId,
     case_id: finding.caseId,
     analysis_run_id: finding.runId,
+    prediction_variant: finding.variant,
     slice_index: finding.sliceIndex,
     finding_type: finding.type,
     note: finding.note,
@@ -215,6 +235,7 @@ export function fieldsFromRecord(row) {
     studyId: read('study_id') ?? null,
     experimentId: read('experiment_id') ?? null,
     runId: read('analysis_run_id') ?? null,
+    variant: read('prediction_variant') ?? null,
     caseId: read('case_id') ?? null,
     sliceIndex: read('slice_index') ?? null,
     region: read('region_reference') ?? null,
@@ -304,10 +325,52 @@ export function createFindings(client, { studyId } = {}) {
     return entry ? entry.location : evidenceLocation(null);
   }
 
+  const reject = (code, reason) => set(current.view, { rejection: Object.freeze({ code, reason }) });
+
+  /*
+   * finding_patch: only status (OPEN | RESOLVED) and note may change; the
+   * evidence and the anchor never do (FR-FIND-004). The finding's own revision
+   * goes as expected_revision - no revision, no write (last-write-wins is
+   * forbidden). On success the entry takes the server's status, note and
+   * revision; on STALE_REVISION nothing changes and the view offers REFRESH.
+   */
+  async function patch(findingId, { status, note } = {}, { scenario = 'default' } = {}) {
+    const index = current.items.findIndex((e) => e.finding.findingId === findingId);
+    if (index === -1) return reject('FINDING_NOT_LISTED', `${findingId} is not in this list`);
+    const f = current.items[index].finding;
+    if (status === undefined && note === undefined) return reject('NOTHING_TO_CHANGE', 'Give a status or a note.');
+    if (status !== undefined && !own(FINDING_STATUS, status)) {
+      return reject('VALIDATION_ERROR', `status ${status} is not one of ${Object.keys(FINDING_STATUS).join('/')}`);
+    }
+    if (note !== undefined && typeof note !== 'string') return reject('VALIDATION_ERROR', 'note must be text');
+    if (!(Number.isInteger(f.revision) && f.revision >= 1)) {
+      return reject('FINDING_REVISION_UNKNOWN', 'This finding carries no revision, so it cannot be changed safely.');
+    }
+    const view = await client.call('finding_patch', { finding_id: findingId }, {
+      body: { note: note ?? f.note, status: status ?? f.status, expected_revision: f.revision }, scenario,
+    });
+    if (view.state !== STATE.SUCCESS) return set(view);
+    const d = view.data;
+    if (!own(FINDING_STATUS, d.status)) {
+      return set(fatalInvalid({
+        code: 'CONTRACT_DRIFT',
+        safeMessage: `The finding status ${d.status} is not one of ${Object.keys(FINDING_STATUS).join(', ')}.`,
+        detail: { endpointId: 'finding_patch', field: 'status', value: d.status },
+      }));
+    }
+    const updated = entryFor(normalizeFinding({
+      ...f, status: d.status, note: d.note ?? f.note, revision: d.revision ?? f.revision,
+    }, { requireAnchor: false }));
+    const items = current.items.slice();
+    items[index] = updated;
+    return set(view, { items });
+  }
+
   return Object.freeze({
     get current() { return current; },
     list,
     create,
     open,
+    patch,
   });
 }
