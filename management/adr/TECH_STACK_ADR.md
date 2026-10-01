@@ -6,7 +6,7 @@
 | **Resolves** | `GATE-MOB-01` (DR-G05) — spec `00` §11, `09` §7 |
 | **Decided by** | Phạm Tuấn Anh — Team Leader, by explicit decision (pending). QA: CHAT E, an LLM red-team session, not a human reviewer (QA-004; QA-ADR) |
 | **Inputs** | Spike A (`management/spikes/SPIKE_A_2D/RESULT.md`); Spike B (`management/spikes/SPIKE_B_3D/RESULT.md`, PR #44); real-mesh frontier PR #66 (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_real_mesh/`); S7 WebView container (PR #46, draft, not on `main`); DR-006 device profile; DR-003 / DR-003a deployment profile; DR-015 transport direction; QA-004 (`management/day22/QA_REVIEW_004_SPIKE_A.md`) |
-| **Residuals** | Spike B B6, B7, device B9, B10/B11 at the real level and B13 are **V2 acceptance conditions**, measured on the device on 2026-10-01 evening (slot S-1). The reopen trigger for the 3D module is in §8 |
+| **Residuals** | Spike B B5/B6/B7/B9/B12/B13 are **V2 acceptance conditions** (override §4). #66 measured B5, B9 and the B12 geometry columns offline on a real mask. Still to come on the device on 2026-10-01 evening (slot S-1):<br>• B6, B7 and device B9;<br>• FPS and stall per level, for B10/B11 and B12 (≥ 3 levels);<br>• the on-device check of B5's picks;<br>• B13.<br>The reopen trigger for the 3D module is in §8 |
 
 ## 1 · Target demo device (restated from DR-006; the release-build rule is DAY20_REBASELINE's; this ADR originates neither)
 
@@ -48,8 +48,8 @@ Measurements count only on a **release** build whose timestamp post-dates the la
 | B1–B4, B8, B14 | Diagnostic PASS on desktop: an orbiting viewer with pan; canonical picking, 13/13 rays to the exact slice. Also a linked MPR proof of concept (`spikes/spike_b_3d/clinical_poc/`, a local-only diagnostic, not a B criterion) |
 | **B10/B11 inside the React Native WebView on the A17** | **Median 59.88 FPS, longest stall ≤ 16.9 ms**, on a synthetic level-0 mesh (PR #44). This does not carry over to the real level-0 mesh, which has 61,424 triangles, about 11× more (#66) |
 | S7 smoke test on the A17 (2026-09-18) | `webgl2: true`, renderer Mali-G68, viewer loaded in 964 ms, 5,648-triangle mesh rendered, orbit and pick responded. Recorded on PR #46, still a draft; this evidence is not on `main` yet |
-| B5/B9/B12 offline on a real mask (#66) | Only level 0, the undecimated surface (61,424 triangles), keeps every pick within ±1 slice, with 0 no-hits and 0 background navigations. Every vertex-clustering level fails, with errors up to 29–40 slices. FPS and stall per level: NOT MEASURED |
-| B6, B7, device B9, B10/B11 at the real level, B13 | Measured tonight (S-1) as V2 acceptance conditions; see Residuals |
+| B5/B9/B12 offline on a real mask (#66) | Only level 0, the undecimated surface (61,424 triangles), keeps every pick within ±1 slice, with 0 no-hits and 0 background navigations. Every vertex-clustering level fails, with errors up to 29–40 slices. FPS and stall per level: NOT MEASURED. Computed offline under the override; the Spike B owner confirms or rejects on Day 23 |
+| B6, B7 and device B9; FPS and stall per level for B10/B11 and B12 (≥ 3 levels); the on-device check of B5's picks; B13 | Measured on the device on 2026-10-01 evening (S-1) as V2 acceptance conditions; see Residuals |
 
 ## 4 · Decision criteria (`09` §7): status of each
 
@@ -82,11 +82,11 @@ Measurements count only on a **release** build whose timestamp post-dates the la
 - **Heap and image cache.** The 256 MB Java heap rules out holding a volume in JS/Java memory. Decoded bitmaps live off-heap (S6: 507 MB PSS with the whole volume resident), and a component-level window does not bound them. Image-cache memory is therefore measured on the A17 in V1's TC-PERF-001 runs (`dumpsys meminfo`). This adds no requirement: PR-CACHE-01 stays SHOULD (DR-015).
 - **3D in a WebView.** Memory, first-load time and message latency are measured on release builds, with the refresh rate recorded.
 - **Residual Spike B criteria** are V2 acceptance conditions. The reopen trigger for the 3D module is in §8.
-- **Dependencies.** Under `mobile/` they are added only by the integration owner (one `package.json`, one lockfile). Each is listed in `mobile/README.md` with its version range, its lockfile-resolved version and its licence (PR #77, not yet merged).
+- **Dependencies.** Under `mobile/` they are added only by the integration owner (one `package.json`, one lockfile). Each is listed in `mobile/README.md` with its version or version range and its licence; `package-lock.json` pins the resolved versions (PR #77, not yet merged).
 
 ## 8 · Gate effect
 
-`GATE-MOB-01` stays **OPEN** until the leader decides on Spike A (QA-004 L4, L5) after tonight's L4 measurement. While the gate is open, this ADR locks no production mobile architecture (`09` §1.1). `mobile/` work continues as override skeletons (`RECOVERY_OVERRIDE_DAY22.md` §2).
+`GATE-MOB-01` stays **OPEN** until the leader decides on Spike A (QA-004 L4, L5) after tonight's L4 measurement. While the gate is open, this ADR locks no production mobile architecture (`09` §1.1). `mobile/` work (PR #77) continues under the override and is listed for Day 23 revalidation; V2/V3/V4 stay working skeletons (`RECOVERY_OVERRIDE_DAY22.md` §2).
 
 If the gate closes, it is an **early close, and a documented deviation.** `SPIKE_PHASE_STATE.yaml` (`gates_that_must_not_close_early`) requires both Spike A and Spike B to be ACCEPTED, and Spike B is still ACTIVE. The leader pre-authorised the Spike B part of this deviation (`RECOVERY_OVERRIDE_DAY22.md` §4). It applies only once Spike A is ACCEPTED, and the Spike A decision is the leader's explicit one (QA-004). The proposed scope:
 - **Final once the gate closes:**
@@ -97,5 +97,5 @@ If the gate closes, it is an **early close, and a documented deviation.** `SPIKE
   The backend stack (Python + FastAPI + SQLite on the Mac mini M2, #68) is recorded here as the ADR-BE-001 choice by the leader's decision, outside GATE-MOB-01's rule. The transport row is ADR-ART-001's direction from DR-015 limb 2 and stays provisional until E8/E10.
 - **Conditional on Spike B:** the 3D module (WebGL2 in `react-native-webview`), until Spike B is ACCEPTED.
 - **Reopen trigger:** if Spike B ends `NEGATIVE_RESULT`, only the 3D-module part of this ADR is reopened; the React Native choice for 2D stands. `NEGATIVE_RESULT` means no decimation level meets both B5 ≤ ±1 slice and B10/B11 on the A17 (`SPIKE_PHASE_STATE.yaml` `negative_result_rule`).
-  - Override §4 names the case "B5 fails at every level". On #66's evidence B5 holds only at level 0, so tonight's deciding test is B10/B11 for level 0 (61,424 triangles).
+  - Override §4 names the case "B5 fails at every level". On #66's evidence B5 holds only at level 0, so the deciding test (S-1, 2026-10-01 evening) is B10/B11 for level 0 (61,424 triangles).
   - This trigger reopens in more cases than the override's literal wording, and never in fewer.
