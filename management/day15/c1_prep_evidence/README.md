@@ -10,9 +10,15 @@ Read `management/day15/C1_BRINGUP.md` for the interpretation.
 3. It CANNOT close `GATE-ML-01`. DR-007 requires real-data C1 evidence.
 4. It is VOID and must be re-run if the split manifest changes when the split is frozen.
 
-Input was the CANDIDATE manifest from PR #35 (draft), branch `codex/path-a-split`
+Input was the CANDIDATE manifest from PR #35, branch `codex/path-a-split`
 @ `7b72ce83fe09520aefad4eb6f746ed665b9179f1`, NOT from `main`.
-Candidate SHA-256: `ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0`.
+Candidate SHA-256 recorded on Day 15: `ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0`.
+
+**Correction, 2026-10-01:** that value is the hash of a CRLF + UTF-8-BOM copy written by a PowerShell 5.1
+`>` redirect, not of the committed file. The committed blob hashes to `c5c65a09…396d`. The JSON files below
+keep the value as recorded on the day; the structural checks are unaffected because they parse the JSON.
+Any re-pin must hash the committed bytes (on `main`, `data/manifests/**` is `-text`, so the working-tree file
+is byte-identical to the blob).
 
 No model was executed. No voxel was read. No training run was started.
 

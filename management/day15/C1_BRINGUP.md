@@ -342,9 +342,9 @@ python spikes\spike_c_ml\c1\forecast_matrix.py `
 
 | Field | Value |
 |---|---|
-| Source | `origin/codex/path-a-split` @ `7b72ce83fe09520aefad4eb6f746ed665b9179f1` (**PR #35, draft, not on `main`**) |
+| Source | `origin/codex/path-a-split` @ `7b72ce83fe09520aefad4eb6f746ed665b9179f1` (**PR #35, not on `main`** — the PR was marked ready for review on 2026-09-21; "draft" in the first version of this record was wrong) |
 | File | `data/manifests/split_manifest_path_a_seed2024.json` |
-| **Candidate SHA-256** | `ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0` |
+| **Candidate SHA-256** | `ff1517d00b8da4808e87bf6ab1325148fa3543031c0b5453d2dda11e0bbe3ce0` — **CORRECTION (2026-10-01): this is the hash of a CRLF + UTF-8-BOM copy written by a PowerShell 5.1 `>` redirect, not of the committed file. The committed blob's SHA-256 is `c5c65a09…396d`.** The structural checks below are unaffected (they parse the JSON); only the pin was wrong. Re-pin against the committed file, never against a redirected copy |
 | `split_id` | `path_a_seed2024_dr002b_v1`, generated 2026-09-21T08:35:11+07:00 |
 | Dataset manifest cross-check | manifest's declared source SHA-256 `f64d461f…5ea9` **matches** the `dataset_manifest.json` on `main` — PASS |
 
@@ -604,8 +604,10 @@ Not started. Listed so that it can start within minutes of the two blockers clea
 
 1. **Preconditions:** leader confirms `GATE-SPLIT-01` CLOSED and #35 on `main`; a compute host is
    named and available.
-2. **Re-pin:** re-extract the split manifest **from `main`**, recompute its SHA-256, and compare
-   against the candidate `ff1517d0…3ce0`. **If it differs, every figure in section 5 and section 6
+2. **Re-pin:** hash the split manifest **as committed on `main`** (the file in the working tree —
+   `data/manifests/**` is `-text` in `.gitattributes`, so it is byte-identical to the blob) and compare
+   against the committed candidate blob `c5c65a09…396d` (corrected 2026-10-01; the earlier
+   `ff1517d0…` was a redirected copy). **If it differs, every figure in section 5 and section 6
    is void and re-runs.**
 3. **Re-run preflight** with `--gate-split-01 CLOSED` and **without** `--allow-open-gates`, against
    a freshly built training-only root. It must report `runnable: true`,
