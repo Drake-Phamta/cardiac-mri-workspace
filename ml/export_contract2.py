@@ -19,8 +19,11 @@ Writes
                                                           code versions, allow_dirty_code
 
 The run's split copy and every recorded split sha256 must equal the FROZEN split manifest
-(--split-manifest, default the repository's), and the training, inference and evaluation
-code versions must be clean commits unless --allow-dirty-code is passed (and recorded).
+(--split-manifest, default the repository's; no override, #64 R-1), and the training,
+inference and evaluation code versions must be clean commits unless --allow-dirty-code is
+passed (and recorded). The predictions manifest must carry a GATE-IMG-01 authorization
+record (ml.holdout, #64 N-1) that authorizes this run's experiment_id + checkpoints/best.pt
+sha256, and the evaluation must have been made under the same record.
 
 Gate states are explicit inputs with no default: the manifest records what the operator
 asserts, and contracts/ingestion/contract2_experiment_artifact/validate_contract2.py refuses
@@ -38,9 +41,10 @@ import sys
 from pathlib import Path
 
 from ml import data as D
+from ml import holdout as H
 from ml import manifests as MF
 
-CONTRACT = "contract2_experiment_artifact"
+CONTRACT ="contract2_experiment_artifact"
 CONTRACT_VERSION = "DRAFT v0"
 GATE_STATES = ("ACCEPTED", "BLOCKED", "OPEN")
 VALIDATOR = D.REPO_ROOT / "contracts" / "ingestion" / "contract2_experiment_artifact" / "validate_contract2.py"
@@ -94,12 +98,19 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     """The Contract 2 manifest for <run>'s final_holdout evaluation (not written to disk).
 
     split_manifest is the FROZEN split (default: the repository's) and must have the pinned
-    sha256 ml.data.FROZEN_SPLIT_SHA256 (allow_unfrozen_split is a TEST-ONLY switch); the
-    run's copy and every recorded split sha256 must equal it. A training / inference /
-    evaluation code version that is not a clean commit ("+dirty", "MIXED:...", "UNKNOWN") is
-    refused unless allow_dirty_code=True, which export() records next to the manifest.
+    sha256 ml.data.FROZEN_SPLIT_SHA256; the run's copy and every recorded split sha256 must
+    equal it. This exporter handles final_holdout only, so the TEST-ONLY allow_unfrozen_split
+    is refused. A training / inference / evaluation code version that is not a clean commit
+    ("+dirty", "MIXED:...", "UNKNOWN") is refused unless allow_dirty_code=True, which export()
+    records next to the manifest. The holdout authorization embedded in the predictions
+    manifest must authorize this run, and the evaluation must name the same record.
     """
     run_dir = Path(run_dir)
+    try:
+        H.refuse_unfrozen_split(PARTITION, allow_unfrozen_split)
+        H.refuse_split_inside_run(split_manifest, run_dir)
+    except MF.SplitMismatchError as exc:
+        raise ExportError(str(exc)) from exc
     for name, state in (("gate_split_01", gate_split_01), ("gate_ml_01", gate_ml_01)):
         if state not in GATE_STATES:
             raise ExportError(f"{name} must be one of {GATE_STATES}, got {state!r}")
@@ -114,10 +125,10 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     except MF.ManifestError as exc:
         raise ExportError(str(exc)) from exc
     exp = rm["experiment_id"]
-    if pm["population"]["partition"] != PARTITION:
-        raise ExportError("predictions manifest is not a final_holdout ml-predictions/1 manifest")
-    if em["partition"] != PARTITION:
-        raise ExportError("evaluation manifest is not a final_holdout ml-evaluation/1 manifest")
+    if pm["population"]["partition"] != PARTITION or pm["population"]["role"] != MF.ROLES[PARTITION]:
+        raise ExportError("predictions manifest is not a final_holdout / FINAL_HOLDOUT ml-predictions/1 manifest")
+    if em["partition"] != PARTITION or em["population"]["role"] != MF.ROLES[PARTITION]:
+        raise ExportError("evaluation manifest is not a final_holdout / FINAL_HOLDOUT ml-evaluation/1 manifest")
     if not (exp == pm.get("experiment_id") == em.get("experiment_id")):
         raise ExportError("run, predictions and evaluation name different experiments")
     if em["predictions_manifest"]["path"] != pm_rel:
@@ -139,6 +150,17 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     ckpt = rm["checkpoint"]
     if pm["checkpoint"]["sha256"] != ckpt["sha256"]:
         raise ExportError("holdout predictions were not made with the run's recorded checkpoint")
+    if ckpt["path"] != H.BEST_CHECKPOINT:
+        raise ExportError(f"the run's checkpoint is {ckpt['path']!r}; holdout authorization covers {H.BEST_CHECKPOINT}")
+    best_sha = _checksum(run_dir, ckpt["path"], ckpt["sha256"], "checkpoint")["value"]
+    try:
+        H.verify_embedded(pm["holdout_authorization"], split_sha256=frozen_sha, experiment_id=exp,
+                          checkpoint_sha256=best_sha, prediction_variant=pm["prediction_variant"],
+                          postprocessing_config_sha256=pm.get("postprocessing_config_sha256"))
+    except D.DataAccessError as exc:
+        raise ExportError(f"holdout authorization: {exc}") from exc
+    if (em.get("holdout_authorization") or {}).get("record_sha256") != pm["holdout_authorization"]["record_sha256"]:
+        raise ExportError("the evaluation was not made under the predictions' holdout authorization record")
     if pm["prediction_variant"] != em["prediction_variant"]:
         raise ExportError("prediction variant differs between predictions and evaluation")
     failed = [c["case_id"] for c in pm["cases"] if c.get("status") != "SUCCEEDED"]
@@ -154,7 +176,8 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
 
     pop = em["population"]
     pop_doc = D.load_json(run_dir / pop["path"])
-    if pop_doc.get("role") != "FINAL_HOLDOUT" or sorted(pop_doc["case_ids"]) != sorted(intended):
+    if (pop_doc.get("role") != "FINAL_HOLDOUT" or pop_doc.get("partition") != PARTITION
+            or sorted(pop_doc["case_ids"]) != sorted(intended)):
         raise ExportError("population manifest is not the predicted final_holdout population")
     split_ref, subset_ref = rm["split_manifest"], rm["training_subset_manifest"]
     if pop_doc.get("source_split_manifest_sha256") != split_ref["sha256"]:
@@ -281,6 +304,7 @@ def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
               "allow_dirty_code": bool(allow_dirty_code),
               "frozen_split_pinned_sha256": D.FROZEN_SPLIT_SHA256,
               "allow_unfrozen_split": bool(allow_unfrozen_split),
+              "holdout_authorization_record_sha256": pm["holdout_authorization"]["record_sha256"],
               "gates_as_asserted": manifest["gates"],
               "exported_at": MF.now_iso()}
     path = MF.write_json_new(out_dir / f"{manifest['manifest_id']}.json", manifest)
@@ -299,17 +323,15 @@ def main(argv: list[str] | None = None) -> int:
                     help="the recorded state of GATE-ML-01 (no default, never assumed)")
     ap.add_argument("--manifest-id", default=None)
     ap.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
-                    help="the FROZEN split the run must have used (default: the repository's)")
+                    help="the FROZEN split (default: the repository's); any other sha256 is refused")
     ap.add_argument("--allow-dirty-code", action="store_true",
                     help="export although a code version is not a clean commit (recorded in the export record)")
-    ap.add_argument("--allow-unfrozen-split", action="store_true",
-                    help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split (recorded)")
     ap.add_argument("--validate", action="store_true", help="run validate_contract2.py on the result")
     args = ap.parse_args(argv)
     try:
         path = export(args.run_dir, gate_split_01=args.gate_split_01, gate_ml_01=args.gate_ml_01,
                       manifest_id=args.manifest_id, split_manifest=args.split_manifest,
-                      allow_dirty_code=args.allow_dirty_code, allow_unfrozen_split=args.allow_unfrozen_split)
+                      allow_dirty_code=args.allow_dirty_code)
     except (ExportError, KeyError, FileNotFoundError, ValueError) as exc:
         print(f"EXPORT REFUSED: {type(exc).__name__}: {exc}")
         return 2

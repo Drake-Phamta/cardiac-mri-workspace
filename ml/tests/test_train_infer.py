@@ -21,7 +21,7 @@ from ml import export_contract2 as X
 from ml import infer as I
 from ml import queue as Q
 from ml import train as T
-from ml.tests import synth
+from ml.tests import runfixture, synth
 
 IMG = 112
 
@@ -327,40 +327,81 @@ def test_epochs_and_batch_overrides_are_recorded(pkg, tmp_path):
 # --- inference --------------------------------------------------------------------------------
 
 def predict(run, partition, pkg, **kw):
-    """predict_population naming the synthetic split as the FROZEN one."""
+    """predict_population naming the synthetic split as the FROZEN one. Validation uses the
+    TEST-ONLY switch; final_holdout refuses it, so holdout tests pin the synthetic split instead."""
     kw.setdefault("split_manifest", pkg["split_manifest_path"])
-    kw.setdefault("allow_unfrozen_split", True)
+    if partition == "validation":
+        kw.setdefault("allow_unfrozen_split", True)
     kw.setdefault("log", None)
     return I.predict_population(run, partition, **kw)
 
 
-def test_infer_refuses_holdout_without_the_flag(trained, pkg, capsys):
+def authorize_trained(run, pkg, tmp_path, monkeypatch, **over):
+    """Pin the synthetic split, and write a valid GATE-IMG-01 record for this run's best.pt."""
+    split_sha = runfixture.pin_frozen_split(monkeypatch, pkg, tmp_path / "repo")
+    experiment_id = json.loads((run / "config.json").read_text(encoding="utf-8"))["experiment_id"]
+    record = runfixture.authorization_record(
+        split_sha, [(experiment_id, D.sha256_file(run / "checkpoints" / "best.pt"))], **over)
+    return runfixture.write_authorization(tmp_path / "authorization.json", record)
+
+
+def test_infer_refuses_holdout_without_the_flag(trained, pkg, tmp_path, monkeypatch, capsys):
     run = trained["run_dir"]
-    split = ["--split-manifest", str(pkg["split_manifest_path"]), "--allow-unfrozen-split"]
+    split = ["--split-manifest", str(pkg["split_manifest_path"])]
     assert I.main(["--run-dir", str(run), "--population", "holdout", *split]) == 2
     assert "REFUSED" in capsys.readouterr().out
     with pytest.raises(D.HoldoutAccessError):
-        predict(run, "final_holdout", pkg)
-    with pytest.raises(D.HoldoutAccessError):
-        predict(run, "final_holdout", pkg, holdout_authorization={"confirm_frozen_morphology_sha256": "not-a-sha"})
+        predict(run, "final_holdout", pkg)                                              # no record
+    with pytest.raises(D.HoldoutAccessError):                                           # the old presence-only form
+        predict(run, "final_holdout", pkg, holdout_authorization={"confirm_frozen_morphology_sha256": "a" * 64})
+    with pytest.raises(D.HoldoutAccessError):                                           # never the test switch
+        predict(run, "final_holdout", pkg, holdout_authorization=tmp_path / "any.json", allow_unfrozen_split=True)
+    auth = authorize_trained(run, pkg, tmp_path, monkeypatch)
+    with pytest.raises(D.HoldoutAccessError):                                           # best.pt only
+        predict(run, "final_holdout", pkg, holdout_authorization=auth, checkpoint="last")
     assert not (run / "predictions" / "final_holdout").exists()
-    assert I.main(["--run-dir", str(run), "--confirm-frozen-morphology", "a" * 64, *split]) == 2  # validation + flag
+    assert I.main(["--run-dir", str(run), "--holdout-authorization", str(auth), *split]) == 2  # validation + record
+    with pytest.raises(SystemExit):                                     # the old flags are gone (#64 R-1, N-1)
+        I.main(["--run-dir", str(run), "--population", "holdout", "--confirm-frozen-morphology", "a" * 64, *split])
+    with pytest.raises(SystemExit):
+        I.main(["--run-dir", str(run), *split, "--allow-unfrozen-split"])
 
 
-def test_infer_checks_the_morphology_file(trained, pkg, tmp_path):
+def test_infer_refuses_a_record_that_does_not_authorize_this_run(trained, pkg, tmp_path, monkeypatch, capsys):
+    run = trained["run_dir"]
+    wrong_ckpt = authorize_trained(run, pkg, tmp_path, monkeypatch)
+    record = json.loads(wrong_ckpt.read_text(encoding="utf-8"))
+    record["authorized_runs"][0]["checkpoint_sha256"] = "e" * 64                      # another best.pt
+    wrong_ckpt.write_text(json.dumps(record), encoding="utf-8")
+    with pytest.raises(D.HoldoutAccessError, match="authorized_runs"):
+        predict(run, "final_holdout", pkg, holdout_authorization=wrong_ckpt)
+    open_gate = runfixture.write_authorization(tmp_path / "open.json", dict(record, gate_status="OPEN"))
+    assert I.main(["--run-dir", str(run), "--population", "holdout", "--holdout-authorization", str(open_gate),
+                   "--split-manifest", str(pkg["split_manifest_path"])]) == 2
+    assert "not CLOSED" in capsys.readouterr().out
+    assert not (run / "predictions" / "final_holdout").exists()
+    assert not (run / "manifests" / "population_final_holdout.json").exists()        # nothing written
+
+
+def test_infer_checks_the_morphology_file(trained, pkg, tmp_path, monkeypatch):
     cfg_file = tmp_path / "morphology.json"
     cfg_file.write_text('{"ops": []}\n', encoding="utf-8")
-    with pytest.raises(D.HoldoutAccessError):
-        predict(trained["run_dir"], "final_holdout", pkg,
-                holdout_authorization={"confirm_frozen_morphology_sha256": "b" * 64}, morphology_config=cfg_file)
+    auth = authorize_trained(trained["run_dir"], pkg, tmp_path, monkeypatch, postprocessing_config_sha256="b" * 64)
+    with pytest.raises(D.HoldoutAccessError, match="freezes"):
+        predict(trained["run_dir"], "final_holdout", pkg, holdout_authorization=auth, morphology_config=cfg_file)
+    raw_only = runfixture.write_authorization(tmp_path / "raw_only.json", dict(
+        json.loads(auth.read_text(encoding="utf-8")), postprocessing_config_sha256=None))
+    with pytest.raises(D.HoldoutAccessError, match="freezes None"):
+        predict(trained["run_dir"], "final_holdout", pkg, holdout_authorization=raw_only, morphology_config=cfg_file)
 
 
-def test_infer_refuses_to_overwrite(trained, pkg, capsys):
+def test_infer_refuses_to_overwrite(trained, pkg, tmp_path, monkeypatch, capsys):
     run = trained["run_dir"]
     with pytest.raises(FileExistsError):
         predict(run, "validation", pkg)
-    assert I.main(["--run-dir", str(run), "--split-manifest", str(pkg["split_manifest_path"]), "--allow-unfrozen-split"]) == 2
-    assert "REFUSED" in capsys.readouterr().out
+    runfixture.pin_frozen_split(monkeypatch, pkg, tmp_path / "repo")                   # the CLI has no switch
+    assert I.main(["--run-dir", str(run), "--split-manifest", str(pkg["split_manifest_path"])]) == 2
+    assert "REFUSED: FileExistsError" in capsys.readouterr().out
     assert predict(run, "validation", pkg, skip_if_complete=True).name == "validation"
 
 
@@ -377,13 +418,14 @@ def test_infer_refuses_a_split_other_than_the_frozen_one(trained, pkg, tmp_path)
             I.predict_population(trained["run_dir"], "validation", log=None)
 
 
-def test_infer_refuses_unrecorded_files(trained, pkg):
+def test_infer_refuses_unrecorded_files(trained, pkg, tmp_path, monkeypatch):
     run = trained["run_dir"]
     stray_dir = run / "predictions" / "final_holdout"
     stray_dir.mkdir(parents=True)
     (stray_dir / f"{synth.HOLDOUT[0]}.nrrd").write_bytes(b"not ours")
+    auth = authorize_trained(run, pkg, tmp_path, monkeypatch)
     with pytest.raises(FileExistsError):
-        predict(run, "final_holdout", pkg, holdout_authorization={"confirm_frozen_morphology_sha256": "c" * 64})
+        predict(run, "final_holdout", pkg, holdout_authorization=auth)
     assert (stray_dir / f"{synth.HOLDOUT[0]}.nrrd").read_bytes() == b"not ours"
 
 
@@ -466,9 +508,9 @@ def test_missing_manifest_keys_are_refused_not_key_errors(trained, pkg, tmp_path
     rm_path.write_text(json.dumps(rm), encoding="utf-8")
     with pytest.raises(X.ExportError, match="checkpoint.sha256"):
         X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                         split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
+                         split_manifest=cpkg["split_manifest_path"])
     assert X.main(["--run-dir", str(run), "--gate-split-01", "ACCEPTED", "--gate-ml-01", "ACCEPTED",
-                   "--split-manifest", str(cpkg["split_manifest_path"]), "--allow-unfrozen-split"]) == 2
+                   "--split-manifest", str(cpkg["split_manifest_path"])]) == 2
     assert "EXPORT REFUSED" in capsys.readouterr().out
 
 
@@ -481,11 +523,20 @@ def test_train_infer_evaluate_export_chain(tmp_path, monkeypatch):
     cfg = make_config(cpkg, tmp_path, experiment_id="EXP-U-025", subset="25_percent")
     assert T.run_experiment(cfg, log=None)["status"] == "COMPLETED"
     run = T.run_dir_for(T.validate_config(cfg))
-    predict(run, "final_holdout", cpkg, holdout_authorization={"confirm_frozen_morphology_sha256": "d" * 64})
+    # the holdout steps: the synthetic split is pinned as THE frozen split, and the run is authorized
+    auth = authorize_trained(run, cpkg, tmp_path, monkeypatch)
+    predict(run, "final_holdout", cpkg, holdout_authorization=auth)
+    pm = json.loads((run / "predictions" / "final_holdout" / "predictions_manifest.json").read_text(encoding="utf-8"))
+    assert pm["holdout_authorization"]["record_sha256"] == D.sha256_file(auth)
+    assert pm["holdout_authorization"]["record"] == json.loads(auth.read_text(encoding="utf-8"))
     E.evaluate_run(run, "final_holdout", dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
-                   allow_holdout=True, split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, log=None)
+                   allow_holdout=True, holdout_authorization=auth, split_manifest=cpkg["split_manifest_path"],
+                   log=None)
+    em = json.loads((run / "evaluation" / "final_holdout" / "evaluation_manifest.json").read_text(encoding="utf-8"))
+    assert em["holdout_authorization"]["record_sha256"] == D.sha256_file(auth)
+    assert em["frozen_split"]["is_frozen"] is True and em["frozen_split"]["allow_unfrozen_split"] is False
     manifest = X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                                split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
+                                split_manifest=cpkg["split_manifest_path"])
     result = X.validate(manifest, run)
     assert result["status"] == "PASS", result
     assert manifest["experiment"]["checkpoint"]["checksum"]["value"] == D.sha256_file(run / "checkpoints" / "best.pt")

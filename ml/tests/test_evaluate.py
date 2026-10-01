@@ -324,9 +324,12 @@ def cpkg(tmp_path_factory):
 
 
 def run_eval(run, partition, cpkg, **kw):
-    """evaluate_run against the synthetic package, naming its split as the FROZEN one."""
+    """evaluate_run against the synthetic package, naming its split as the FROZEN one. Validation
+    uses the TEST-ONLY switch; final_holdout refuses it, so holdout tests pin the synthetic split
+    (runfixture.pin_frozen_split) instead."""
     kw.setdefault("split_manifest", cpkg["split_manifest_path"])
-    kw.setdefault("allow_unfrozen_split", True)
+    if partition == "validation":
+        kw.setdefault("allow_unfrozen_split", True)
     return E.evaluate_run(run, partition, dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
                           log=None, **kw)
 
@@ -417,15 +420,19 @@ def test_interrupted_evaluation_leaves_nothing_recorded(cpkg, tmp_path, monkeypa
     assert [p.name for p in (run / "evaluation").iterdir()] == ["validation"]
 
 
-def test_evaluate_run_holdout_needs_explicit_permission(cpkg, tmp_path):
-    run = runfixture.make_run_dir(tmp_path / "EXP-U-025", cpkg)
+def test_evaluate_run_holdout_needs_explicit_permission(cpkg, tmp_path, monkeypatch):
+    split_sha = runfixture.pin_frozen_split(monkeypatch, cpkg, tmp_path / "repo")
+    auth = runfixture.write_authorization(tmp_path / "auth.json", runfixture.authorization_record(
+        split_sha, [("EXP-U-025", runfixture.CHECKPOINT_SHA256)]))
+    run = runfixture.make_run_dir(tmp_path / "EXP-U-025", cpkg, holdout_authorization=auth)
     with pytest.raises(D.HoldoutAccessError):
-        run_eval(run, "final_holdout", cpkg)
-    run2 = runfixture.make_run_dir(tmp_path / "EXP-U-050", cpkg, experiment_id="EXP-U-050",
-                                   holdout_authorization=False)
+        run_eval(run, "final_holdout", cpkg, holdout_authorization=auth)               # no allow_holdout
     with pytest.raises(D.HoldoutAccessError):
-        run_eval(run2, "final_holdout", cpkg, allow_holdout=True)
-    out = run_eval(run, "final_holdout", cpkg, allow_holdout=True)
+        run_eval(run, "final_holdout", cpkg, allow_holdout=True)                       # no record
+    run2 = runfixture.make_run_dir(tmp_path / "EXP-U-050", cpkg, experiment_id="EXP-U-050")
+    with pytest.raises(D.HoldoutAccessError):
+        run_eval(run2, "final_holdout", cpkg, allow_holdout=True, holdout_authorization=auth)
+    out = run_eval(run, "final_holdout", cpkg, allow_holdout=True, holdout_authorization=auth)
     summary = json.loads((out / "metrics_summary.json").read_text(encoding="utf-8"))
     slots = summary["holdout_slots"]
     assert slots["primary_all_holdout"]["intended_n"] == 54
