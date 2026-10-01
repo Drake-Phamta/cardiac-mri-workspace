@@ -73,10 +73,21 @@ python test_api_contract.py
 ```
 
 The test loads `schema.json`, validates the contract rules, and creates a
-temporary mock fixture through `generate_fixture.py`. Endpoint and error
-records in that fixture are read from the schema; no handwritten mock endpoint
-catalog is accepted. No clinical image, mask, mesh, or patient-derived byte is
-committed.
+temporary fixture bundle through `generate_fixture.py`. Endpoint, error, and
+scenario records in that bundle are derived from the accepted contract; no
+handwritten mock catalog is accepted. No clinical image, mask, mesh, or
+patient-derived byte is committed.
+
+Generate the bundle consumed by `app/core` and all four verticals with:
+
+```powershell
+python generate_fixture.py --contract contract.json --output ../../app/core/fixtures/.generated/api_bundle.json
+node ../../app/core/tests/run_all.mjs
+```
+
+The output is intentionally ignored by Git. The loader validates endpoint
+identity, tokens, error codes/statuses, response fields, and exact geometry
+version before any screen sees it.
 
 The validator applies the formal Draft 2020-12 schema before semantic checks and
 requires the `jsonschema` package (the same dependency used by repository QA):
