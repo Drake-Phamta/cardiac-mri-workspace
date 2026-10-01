@@ -98,18 +98,17 @@ const check = (id, ok, detail) => {
 // empty chart and never a zero mask (`10` §7).
 {
   const m = createCaseExplorer(newClient(), { variant: 'RAW' });
-  await m.open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
+  await m.open({ caseId: CASE, runId: RUN, sliceIndex: 44, scenarios: { case_get: 'inference_review' } });
   const gt = await newClient().call('ground_truth_slice_get',
     { case_id: CASE, slice_index: 44 }, { scenario: 'ground_truth_unavailable' });
   check('V1-3', gt.state === STATE.EMPTY_UNAVAILABLE, `GT unavailable -> ${gt.state}`);
   check('V1-3', !gt.actions.includes(RECOVERY.RETRY), `offers ${gt.actions.join('/') || 'nothing'}, not RETRY`);
 
-  // And the screen does not offer a layer whose data is not there. The fixture
-  // gives ground_truth_available as a placeholder STRING, which is truthy -
-  // comparing === true is what keeps this honest.
+  // And the screen does not offer a layer whose data is not there: contract
+  // v1.0's inference_review case declares ground_truth_available false.
   const s = m.current;
   check('V1-3', s.groundTruthAvailable === false && s.layersAvailable[LAYER.GROUND_TRUTH] === false,
-    'a truthy placeholder does not enable the ground-truth layer');
+    'an INFERENCE_REVIEW case does not enable the ground-truth layer');
   const after = m.setOverlay(LAYER.GROUND_TRUTH, true);
   check('V1-3', after.overlays[LAYER.GROUND_TRUTH] === false, 'and the layer cannot be switched on');
 }
@@ -446,8 +445,8 @@ const check = (id, ok, detail) => {
   check('V1-19', s.experimentId === runData.experiment_id && s.caseMode === caseData.mode
     && s.availableRunIds.join(',') === caseData.available_run_ids.join(','),
     `experiment ${s.experimentId}, mode ${s.caseMode}, runs ${s.availableRunIds.join(',')}`);
-  check('V1-19', s.attemptNo === null && s.inferenceOnly === null,
-    'a placeholder attempt_no is not shown as a number; DRAFT v0 declares no case capability, so no inference-only guess');
+  check('V1-19', s.attemptNo === runData.attempt_no && s.inferenceOnly === (caseData.mode === 'INFERENCE_REVIEW'),
+    `attempt ${s.attemptNo} and inference-only ${s.inferenceOnly} read from the typed v1.0 response`);
 
   // A contract that declares case_capability (as v1.0 does) defines
   // inference-only, and the screen reads it from there.
@@ -471,7 +470,7 @@ const check = (id, ok, detail) => {
 {
   const log = [];
   const s = await createCaseExplorer(stubbedClient({}, { log }), { variant: 'RAW' })
-    .open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
+    .open({ caseId: CASE, runId: RUN, sliceIndex: 44, scenarios: { case_get: 'inference_review' } });
   check('V1-20', !log.includes('ground_truth_slice_get') && !log.includes('analysis_slice_metrics'),
     'no ground truth declared -> neither ground truth nor metrics is requested');
   check('V1-20', s.groundTruthRef === null && s.metrics?.state === 'UNAVAILABLE'
@@ -498,9 +497,10 @@ const check = (id, ok, detail) => {
 // when the response carries them; DRAFT v0 does not, and no URL is invented.
 {
   const s = await createCaseExplorer(newClient(), { variant: 'RAW' }).open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
-  check('V1-21', s.imageRef.contentUrl === null && s.imageRef.mediaType === null
-    && s.predictionRef.contentUrl === null,
-    'no binary delivery fields in the response -> contentUrl and mediaType are null');
+  const served = bundle.scenarios.mri_slice_get.default.response.data;
+  check('V1-21', s.imageRef.contentUrl === served.content_url && s.imageRef.mediaType === served.media_type
+    && typeof s.predictionRef.contentUrl === 'string',
+    'v1.0 binary delivery: contentUrl and mediaType come from the response, never invented');
 
   const delivered = (name) => withData({ content_url: `/api/v1/artifacts/${name}`, media_type: 'image/png' });
   const c = stubbedClient({

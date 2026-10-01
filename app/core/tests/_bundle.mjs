@@ -56,14 +56,17 @@ export function buildBundle(contract, { endpointIds = null } = {}) {
     const data = {};
     if (isList) {
       // Row fields go on every element of items, top-level fields stay on top.
+      // The contract names the row fields (v1.0.0 row_fields); the list below
+      // is the fallback for a contract that does not.
+      const declared = Array.isArray(endpoint.row_fields) ? endpoint.row_fields : null;
       const row = {};
       for (const f of fields) {
         if (f === 'items') continue;
-        if (['next_page', 'mode', 'metric_version', 'prediction_variant', 'evaluation_population'].includes(f)) {
-          data[f] = fieldValue(f, contract);
-        } else {
-          row[f] = fieldValue(f, contract);
-        }
+        const isRow = declared
+          ? declared.includes(f)
+          : !['next_page', 'mode', 'metric_version', 'prediction_variant', 'evaluation_population'].includes(f);
+        if (isRow) row[f] = fieldValue(f, contract);
+        else data[f] = fieldValue(f, contract);
       }
       data.items = [row, { ...row }];
     } else {

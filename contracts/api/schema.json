@@ -1,20 +1,61 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cardiac-mri-workspace.local/contracts/api-contract-11-draft-v0.schema.json",
-  "title": "Backend/mobile API Contract 11 (DRAFT v0)",
-  "description": "Schema-first semantic/API contract; not a production server implementation.",
+  "$id": "https://cardiac-mri-workspace.local/contracts/api-contract-11-v1.0.0.schema.json",
+  "title": "Backend/mobile API Contract 11 (v1.0.0)",
+  "description": "Schema-first semantic/API contract, frozen at v1.0.0 on 2026-10-01 (INT-11).",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "contract", "contract_version", "base_path", "geometry_contract",
+    "domain_enums", "enum_bindings", "review_rules", "case_capability",
+    "selection_rules", "metric_rules", "field_shapes", "shape_bindings",
+    "binary_delivery", "hero_flow",
     "errors", "endpoints", "artifact_rules", "revision_rules", "fixture_rules"
   ],
   "properties": {
     "$schema": { "type": "string" },
     "contract": { "const": "api_contract_11" },
-    "contract_version": { "const": "DRAFT v0" },
+    "contract_version": { "const": "1.0.0" },
     "base_path": { "const": "/api/v1" },
     "geometry_contract": { "$ref": "#/$defs/geometry_contract" },
+    "domain_enums": { "$ref": "#/$defs/domain_enums" },
+    "enum_bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array", "minItems": 1,
+        "items": { "type": "string", "pattern": "^(\\*|[a-z][a-z0-9_]+)\\.((request|param)\\.)?[a-z_][a-z0-9_]*$" }
+      }
+    },
+    "review_rules": { "$ref": "#/$defs/review_rules" },
+    "case_capability": { "$ref": "#/$defs/case_capability" },
+    "selection_rules": { "$ref": "#/$defs/selection_rules" },
+    "metric_rules": { "$ref": "#/$defs/metric_rules" },
+    "field_shapes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array", "minItems": 1, "items": { "type": "string" }
+      }
+    },
+    "shape_bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array", "minItems": 1,
+        "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]+\\.(request\\.)?[a-z_][a-z0-9_]*$" }
+      }
+    },
+    "binary_delivery": { "$ref": "#/$defs/binary_delivery" },
+    "hero_flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "picking"],
+      "properties": {
+        "decision": { "type": "string", "minLength": 1 },
+        "picking": { "type": "string", "minLength": 1 }
+      }
+    },
     "errors": {
       "type": "array",
       "minItems": 15,
@@ -22,7 +63,7 @@
     },
     "endpoints": {
       "type": "array",
-      "minItems": 27,
+      "minItems": 28,
       "items": { "$ref": "#/$defs/endpoint" }
     },
     "artifact_rules": { "$ref": "#/$defs/artifact_rules" },
@@ -30,12 +71,15 @@
     "fixture_rules": { "$ref": "#/$defs/fixture_rules" }
   },
   "$defs": {
+    "string_list": {
+      "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }
+    },
     "geometry_contract": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "version", "validation_status_field", "required_response_fields",
-        "invalid_geometry_error"
+        "invalid_geometry_error", "index_convention", "unvalidated_geometry_rule"
       ],
       "properties": {
         "version": { "const": "dr008a-dr012/v1.0.0" },
@@ -48,7 +92,187 @@
           ],
           "items": { "type": "string" }
         },
-        "invalid_geometry_error": { "const": "GEOMETRY_NOT_VALIDATED" }
+        "invalid_geometry_error": { "const": "GEOMETRY_NOT_VALIDATED" },
+        "index_convention": { "const": "x=column,y=row,z=slice" },
+        "unvalidated_geometry_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "domain_enums": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/string_list" },
+      "required": [
+        "review_status", "review_status_transitions", "finding_status", "finding_type",
+        "case_mode", "run_status", "prediction_variant", "metric_state",
+        "geometry_validation_status", "source_mask_kind", "mask_payload_encoding"
+      ],
+      "properties": {
+        "review_status": { "const": ["NOT_REVIEWED", "ACCEPTED", "FLAGGED", "CORRECTED"] },
+        "review_status_transitions": {
+          "const": {
+            "NOT_REVIEWED": ["ACCEPTED", "FLAGGED", "CORRECTED"],
+            "FLAGGED": ["CORRECTED"],
+            "ACCEPTED": ["FLAGGED", "CORRECTED"]
+          }
+        },
+        "finding_status": { "const": ["OPEN", "RESOLVED"] },
+        "finding_type": {
+          "const": [
+            "UNDER_SEGMENTATION", "OVER_SEGMENTATION", "BOUNDARY_DISAGREEMENT",
+            "DISCONNECTED_ARTIFACT", "OTHER"
+          ]
+        },
+        "case_mode": { "const": ["EVALUATION", "INFERENCE_REVIEW"] },
+        "run_status": { "const": ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED"] },
+        "prediction_variant": { "const": ["RAW", "PROCESSED"] },
+        "metric_state": { "const": ["COMPUTED", "NOT_APPLICABLE"] },
+        "geometry_validation_status": { "const": ["VALIDATED_AXIS_ALIGNED", "GEOMETRY_NOT_VALIDATED"] },
+        "source_mask_kind": {
+          "const": ["RAW_PREDICTION", "PROCESSED_PREDICTION", "GROUND_TRUTH", "REVIEWED"]
+        },
+        "mask_payload_encoding": { "const": ["PNG_BASE64", "BITPACK_BASE64"] }
+      }
+    },
+    "review_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision", "state_enum", "transition_map", "initial_state", "create_allowed_states",
+        "terminal_states", "corrected_requires_reviewed_mask", "commit_result_state",
+        "invalid_transition_error", "audit_history_required", "scope_fields",
+        "absent_review_means", "notes"
+      ],
+      "properties": {
+        "decision": { "type": "string", "minLength": 1 },
+        "state_enum": { "const": "review_status" },
+        "transition_map": { "const": "review_status_transitions" },
+        "initial_state": { "const": "NOT_REVIEWED" },
+        "create_allowed_states": { "const": ["NOT_REVIEWED", "ACCEPTED", "FLAGGED"] },
+        "terminal_states": { "const": ["CORRECTED"] },
+        "corrected_requires_reviewed_mask": { "const": true },
+        "commit_result_state": { "const": "CORRECTED" },
+        "invalid_transition_error": { "const": "INVALID_REVIEW_TRANSITION" },
+        "audit_history_required": { "const": true },
+        "scope_fields": { "const": ["run_id", "source_mask_id", "prediction_variant"] },
+        "absent_review_means": { "const": "NOT_REVIEWED" },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "case_capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision", "mode_field", "mode_enum", "ground_truth_field", "modes",
+        "ground_truth_dependent_endpoints", "unavailable_error",
+        "withheld_ground_truth_rule", "case_level_scope"
+      ],
+      "properties": {
+        "decision": { "type": "string", "minLength": 1 },
+        "mode_field": { "const": "mode" },
+        "mode_enum": { "const": "case_mode" },
+        "ground_truth_field": { "const": "ground_truth_available" },
+        "modes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["EVALUATION", "INFERENCE_REVIEW"],
+          "properties": {
+            "EVALUATION": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ground_truth_available", "ground_truth_dependent_data"],
+              "properties": {
+                "ground_truth_available": { "const": true },
+                "ground_truth_dependent_data": { "const": "SERVED" }
+              }
+            },
+            "INFERENCE_REVIEW": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ground_truth_available", "ground_truth_dependent_data"],
+              "properties": {
+                "ground_truth_available": { "const": false },
+                "ground_truth_dependent_data": { "const": "GROUND_TRUTH_UNAVAILABLE" }
+              }
+            }
+          }
+        },
+        "ground_truth_dependent_endpoints": { "$ref": "#/$defs/string_list" },
+        "unavailable_error": { "const": "GROUND_TRUTH_UNAVAILABLE" },
+        "withheld_ground_truth_rule": { "type": "string", "minLength": 1 },
+        "case_level_scope": { "type": "string", "minLength": 1 }
+      }
+    },
+    "selection_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worst_slice_selection"],
+      "properties": {
+        "worst_slice_selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision", "endpoint", "field", "rule_id", "selection_version", "block_fields",
+            "slice_fields", "eligibility", "ranking", "order", "empty_rule", "count_unit"
+          ],
+          "properties": {
+            "decision": { "type": "string", "minLength": 1 },
+            "endpoint": { "const": "analysis_run_metrics" },
+            "field": { "const": "worst_slice_selection" },
+            "rule_id": { "const": "DR-010" },
+            "selection_version": { "const": "dr010-worst-slice/v1" },
+            "block_fields": { "const": ["rule_id", "selection_version", "slices"] },
+            "slice_fields": { "const": ["slice_index", "dice", "false_positives", "false_negatives"] },
+            "eligibility": { "type": "string", "minLength": 1 },
+            "ranking": {
+              "const": [
+                "dice ascending",
+                "false_positives + false_negatives descending",
+                "slice_index ascending"
+              ]
+            },
+            "order": { "type": "string", "minLength": 1 },
+            "empty_rule": { "type": "string", "minLength": 1 },
+            "count_unit": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "metric_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_metric_fields", "count_unit", "relative_volume_error_unit", "slice_metric_value",
+        "empty_slice_rule", "summary_statistics",
+        "physical_metrics_blocked_while_geometry_not_validated", "unavailable_rule"
+      ],
+      "properties": {
+        "case_metric_fields": {
+          "const": ["dice", "iou", "false_positives", "false_negatives", "relative_volume_error"]
+        },
+        "count_unit": { "const": "voxels" },
+        "relative_volume_error_unit": { "type": "string", "minLength": 1 },
+        "slice_metric_value": { "type": "string", "minLength": 1 },
+        "empty_slice_rule": { "type": "string", "minLength": 1 },
+        "summary_statistics": { "const": ["n", "mean", "std", "median", "min", "max"] },
+        "physical_metrics_blocked_while_geometry_not_validated": { "$ref": "#/$defs/string_list" },
+        "unavailable_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "binary_delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision", "applies_to", "metadata_rule", "content_url_rule", "media_type",
+        "slice_layout", "mask_values", "mask_payload_rule"
+      ],
+      "properties": {
+        "decision": { "type": "string", "minLength": 1 },
+        "applies_to": { "$ref": "#/$defs/string_list" },
+        "metadata_rule": { "type": "string", "minLength": 1 },
+        "content_url_rule": { "type": "string", "minLength": 1 },
+        "media_type": { "const": "image/png" },
+        "slice_layout": { "type": "string", "minLength": 1 },
+        "mask_values": { "type": "string", "minLength": 1 },
+        "mask_payload_rule": { "type": "string", "minLength": 1 }
       }
     },
     "error_definition": {
@@ -76,7 +300,7 @@
       "required": [
         "id", "method", "path", "semantic", "response_kind", "response_fields",
         "errors", "geometry_response", "revision_required", "artifact_write",
-        "ground_truth_behavior", "notes"
+        "ground_truth_behavior", "hero_flow", "notes"
       ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
@@ -86,6 +310,7 @@
         "response_kind": { "enum": ["JSON", "BINARY", "ARTIFACT_REFERENCE", "ERROR_OR_JSON"] },
         "request_fields": { "type": "array", "items": { "type": "string" } },
         "response_fields": { "type": "array", "items": { "type": "string" } },
+        "row_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
         "errors": {
           "type": "array", "minItems": 1,
           "items": { "type": "string" }
@@ -99,8 +324,15 @@
         "immutability": {
           "enum": ["NOT_APPLICABLE", "READ_ONLY", "WORKING_ONLY", "NEW_VERSION"]
         },
+        "hero_flow": { "type": "boolean" },
         "notes": { "type": "string", "minLength": 1 }
-      }
+      },
+      "if": {
+        "required": ["response_fields"],
+        "properties": { "response_fields": { "contains": { "const": "items" } } }
+      },
+      "then": { "required": ["row_fields"] },
+      "else": { "not": { "required": ["row_fields"] } }
     },
     "artifact_rules": {
       "type": "object",
