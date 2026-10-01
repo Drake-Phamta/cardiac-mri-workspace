@@ -307,8 +307,8 @@ spikes:
     task: management/spikes/SPIKE_A_2D/TASK.md
     evidence_template: management/spikes/SPIKE_A_2D/EVIDENCE_TEMPLATE.md
     evidence_paths_expected: [management/spikes/SPIKE_A_2D/RESULT.md]
-    evidence_present: true     # RESULT.md on main carries A9 and, since the #27 merge (6ca1e21), A2 OBSERVED. Measured is not ACCEPTED
-    latest_tested_commit: 6ca1e21
+    evidence_present: true     # RESULT.md on main carries A2-A11; QA-004 re-derived every record from the raw logs on main 8a94172
+    latest_tested_commit: 8a94172   # QA-004's subject (2026-10-01); was 6ca1e21 (QA-004 housekeeping item 3)
     stage_s6_2026_09_17: >
       A9 measured for the first time at the real cohort size, 576x576x88: three runs on TWO release
       builds. Runs 1 and 2 used one build; run 3 came after the app was changed to start with no policy

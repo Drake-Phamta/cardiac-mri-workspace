@@ -9,6 +9,20 @@
 >
 > Chặng đã merge: #31 (S5, `A3`–`A7`) tại `11000f1`; **#49** (S8, `A8`/`A10`/`A11`) tại `34f5097` (01/10).
 > **#41** (S6, `A9` ở 576×576×88) vào `main` dưới override Day 22, sau QA của CHAT E.
+>
+> **Cập nhật 2026-10-01 tối (Day 22, sau QA-004).** QA-004 (`management/day22/QA_REVIEW_004_SPIKE_A.md`) chỉ ra hai
+> giới hạn ngoài danh sách khai trước:
+> - **L4:** nửa sau của `A9` (*"không full-volume transfer mỗi gesture"*, `NFR-PERF-001` nhánh 2) **không đo được trong
+>   Spike A**, vì fixture nằm local. Câu "không còn ô `NOT MEASURED` nào" ở trên vì thế là **sai** với nhánh này.
+> - **L5:** `A2`–`A7` cũng chỉ đo trên fixture 64×64×16.
+>
+> **Tối 01/10 đã đo L4 trên app sản phẩm** (V1 SCR-03, PR #77), trên A17, với backend thật. Kết quả: **L4 PASS** (`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`).
+> - Phạm vi: MRI + ground truth của CASE_0061. Chưa có run, nên dự đoán chưa được đo.
+> - 15 lát mới: trung vị 153,5 KB mỗi lần chuyển, lớn nhất 155,1 KB, tức 1,1 % một khối.
+> - 15 lần quay lại: 0 byte.
+> - Log của server khớp.
+>
+> Quyết định của leader về L5 và về GATE-MOB-01: **đang chờ**. Leader quyết có nhận L5 làm giới hạn hay không; L4 không còn là giới hạn.
 
 | Mục | Giá trị |
 |---|---|
@@ -37,13 +51,16 @@
 | **A6** | Undo tái lập trạng thái trước | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi undo khớp hash trước từng nét |
 | **A7** | Redo tái lập trạng thái đã undo | **ĐÃ ĐO — `OBSERVED`** (15/09, release) | **15/15** bản ghi redo khớp hash sau từng nét |
 | **A8** | **Save/reload tái lập đúng nét sửa** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | **2 vòng NGUỘI** sau `am force-stop`, trên **hai tệp khác nhau**: mỗi vòng **16/16** checksum slice khớp và hash khối trùng đúng bản đã lưu. Thêm 5 vòng nóng, 5/5 đúng từng byte. Xem §Kết quả A8 |
-| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO NĂM LẦN — đạt ngưỡng ở cả năm** | `64×64×16`: **65,31 ms** · `576×576×16`: **50,23 ms** · **`576×576×88` (kích thước cohort thật, 17/09):** cache toàn bộ **98,72 ms**, cửa sổ ±3 **50,84 ms** trong cửa sổ / **102,73 ms** khi miss. Xem §Kết quả A9 và §Chặng S6 |
+| **A9** | **Slice-switch đã cache, 30 bước, p95 ≤ 200 ms** | **ĐÃ ĐO NĂM LẦN — đạt ngưỡng ở cả năm** | `64×64×16`: **65,31 ms** · `576×576×16`: **50,23 ms** · **`576×576×88` (kích thước cohort thật, 17/09):** cache toàn bộ **98,72 ms**, cửa sổ ±3 **50,84 ms** trong cửa sổ / **102,73 ms** khi miss. Xem §Kết quả A9 và §Chặng S6. **Nhánh 2** (*không full-volume transfer mỗi gesture*): không đo được trong Spike A (L4); **đo được trên app sản phẩm tối 01/10: L4 PASS**, mỗi lần chuyển lát mới tối đa 155,1 KB, tức 1,1 % một khối; quay lại lát cũ 0 byte (`EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`) |
 | **A10** | **Phản hồi brush ≤ 100 ms, 0 nét mất** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | worst per-stroke **30,48 ms** trên **123 nét có commit** · p50 16,48 · p95 24,66 · **0 mẫu commit bị mất**. **Đọc trên `max`, không phải p95** — xem §Kết quả A10/A11 |
 | **A11** | **Tách gesture sửa vs điều hướng** | **ĐÃ ĐO — `OBSERVED`** (19/09, release) | **12** lần ngón thứ hai chạm giữa nét, **tất cả cuộn lại** · **0** nét commit trong cử chỉ nhiều ngón · **0** nét commit mà không nhả tay sạch · 20/20 bản ghi cử chỉ mang kết cục nét |
 | A12 | Chi phí phát triển mỗi ứng viên | **một phần** | Xem §A12 |
 
-**11 tiêu chí có dữ liệu · 0 tiêu chí `NOT MEASURED`** — `A1` và `A12` còn **một phần**, lý do ghi ở §Ghi chú A1
-và §A12. Không ô nào bỏ trống và không ô nào được đoán.
+**11 tiêu chí có dữ liệu.**
+- `A1` và `A12` còn **một phần**, lý do ghi ở §Ghi chú A1 và §A12.
+- `A9` nhánh 2 không đo được trong Spike A (L4, QA-004); **đo được trên app sản phẩm tối 01/10: L4 PASS**, mỗi lần chuyển lát mới tối đa 155,1 KB, tức 1,1 % một khối; quay lại lát cũ 0 byte (`EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`).
+
+Không ô nào bỏ trống và không ô nào được đoán.
 *(`A2` thêm 14/09 — PR #27 · `A3`–`A7` thêm 15/09 — PR #31, **đã merge `11000f1`** · `A8`/`A10`/`A11` thêm 19/09 —
 PR #49, chờ `APPROVE`.)*
 
@@ -144,7 +161,7 @@ chính anh cắm và mở khoá. Chủ sở hữu Spike A là Phạm Tuấn Anh;
 ### Ba giới hạn phạm vi còn lại
 
 1. **Nửa sau của `A9` — *"không full-volume transfer mỗi gesture"* — vẫn `NOT MEASURED`.** Fixture
-   nằm local, chưa có đường mạng nào. Nửa đó thuộc Spike E.
+   nằm local, chưa có đường mạng nào. Nửa đó thuộc Spike E. *(Cập nhật 01/10: **đo được trên app sản phẩm tối 01/10: L4 PASS**, mỗi lần chuyển lát mới tối đa 155,1 KB, tức 1,1 % một khối; quay lại lát cũ 0 byte (`EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`).)*
 2. **Mỗi kích thước chạy một lần.** Chuỗi 30 bước đúng yêu cầu tiêu chí, nhưng một lần chạy không mô
    tả được biến động giữa các lần.
 3. **`Nz = 16`, độ sâu thật là 88.** Giữ cố định có chủ ý để cô lập biến kích thước slice — nhưng nó
@@ -458,7 +475,7 @@ render đúng hướng** thì mới chỉ xác nhận bằng mắt, chưa bằng
 | Viewer + instrumentation | thẳng thắn mà nói là **dễ** — JSX, state, `Image`, đo thời gian bằng `performance.now()` |
 | **Điểm trừ đã gặp** | **Không có nearest-neighbour** trên `Image`. Với viewer khoa học đây là vấn đề thật: biên mask hiển thị mượt hơn biên dữ liệu, người review sẽ thấy một đường biên không tồn tại |
 | **Xử lý gesture** *(14/09, chặng S4)* | `PanResponder` **có sẵn trong React Native đủ cho pinch + kéo + chạm** — không cần thêm thư viện gesture nào, nên không phải build lại phần native. Khoảng **120 dòng** trong `App.js`, toán transform tách ra `viewerMath.js` để test được bằng Node. Build release tăng dần **38 giây**. Điểm cần làm tay: phải tự tính toạ độ ngón tay theo trang (`pageX − gốc viewport`), vì `locationX` đổi theo phần tử con dưới ngón tay |
-| Chưa đánh giá | brush latency, tách gesture sửa/điều hướng (`A11`), bộ nhớ ở kích thước slice thật |
+| Đánh giá sau | brush latency và tách gesture sửa/điều hướng (`A10`/`A11`) đo ở S8 (19/09); bộ nhớ ở kích thước slice thật đo ở S6 (17/09). Chi phí phát triển của các phần đó không được ghi riêng |
 
 **Chưa so sánh được với ứng viên nào khác** — mới dựng một ứng viên. Native Kotlin và Flutter chưa chạm
 tới; Flutter còn chưa cài trên máy.

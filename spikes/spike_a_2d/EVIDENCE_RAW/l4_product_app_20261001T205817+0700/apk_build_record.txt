@@ -1,0 +1,15 @@
+apk              cardiac-mri-workspace-live-20261001-194641.apk
+built_at         2026-10-01T19:46:41+07:00
+build_seconds    266
+build_type       release (Hermes, signed with the template debug keystore - not a store build)
+mode             live
+api_base_url     <redacted>
+study_id         STUDY_LA_001
+contract         1.1.0
+abis             arm64-v8a
+git_sha          ffbf7637279673c4781e3a5f947bdf552a411052
+git_branch       feat/day22-v1-case-explorer-screens
+source_tree      staging copy of committed HEAD (uncommitted changes excluded)
+apk_sha256       4a66a5284aee713f826628fce663674a7c05abcaf676da5e644f4937fe100d5a
+apk_size_mb      27.2
+install          adb install -r "mobile\release\cardiac-mri-workspace-live-20261001-194641.apk"   (from the repository root)
