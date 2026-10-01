@@ -15,7 +15,27 @@ import {
   createContract, createBundle, createClient, createFixtureTransport, listScenarios,
 } from '../../../app/core/index.mjs';
 import { MODE } from '../config.mjs';
+import { createImageStore } from '../imaging/imageStore.mjs';
+import { createMaskStore, fetchBytesWith } from '../imaging/maskStore.mjs';
 import { createHttpTransport } from './httpTransport.mjs';
+import { createNetLog } from './netLog.mjs';
+import { createSliceCache } from './sliceCache.mjs';
+
+// An artifact fetcher that reports each download to the gesture log, by kind
+// ('artifact:mri', 'artifact:mask') and size - never by URL.
+function countedFetch(fetchBytes, netLog, endpoint, now) {
+  return async (url) => {
+    const t0 = now();
+    try {
+      const bytes = await fetchBytes(url);
+      netLog.record({ endpoint, bytes: bytes.length, ms: now() - t0, status: 200 });
+      return bytes;
+    } catch (err) {
+      netLog.record({ endpoint, bytes: null, ms: now() - t0, status: 'error' });
+      throw err;
+    }
+  };
+}
 
 export class RuntimeError extends Error {
   constructor(code, message, detail = {}) {
@@ -56,7 +76,10 @@ function createScenarioOverrides(bundle) {
   });
 }
 
-export function createRuntime({ config, contractJson, bundleJson = null, fetchImpl, onTiming = null }) {
+export function createRuntime({
+  config, contractJson, bundleJson = null, fetchImpl, onTiming = null, decodeMask = null,
+  log = (line) => console.log(line), now = () => Date.now(),
+}) {
   if (!config || !config.mode) throw new RuntimeError('NO_CONFIG', 'createRuntime needs a resolved config');
 
   const contract = createContract(contractJson); // throws CoreError CONTRACT_INVALID on drift
@@ -75,12 +98,23 @@ export function createRuntime({ config, contractJson, bundleJson = null, fetchIm
         ...options, scenario: overrides.pick(resolved.endpointId, options.scenario),
       }),
     });
+    const client = createClient(contract, transport);
     return Object.freeze({
       mode: MODE.FIXTURE,
       config,
       contract,
       bundle,
-      client: createClient(contract, transport),
+      client,
+      // No slice cache in fixture mode: the scenario picker can change an
+      // endpoint's answer at any moment, and a cache would keep showing the
+      // old one. Fixture answers are local and instant anyway.
+      sliceClient: client,
+      // No bytes exist behind any fixture URL, so nothing to fetch or decode,
+      // and no network to account for: no gesture log either (a fixture
+      // "0 bytes" line would read as a measured cache hit).
+      maskStore: null,
+      imageStore: null,
+      netLog: null,
       fixtureScenarios: overrides,
     });
   }
@@ -89,18 +123,42 @@ export function createRuntime({ config, contractJson, bundleJson = null, fetchIm
   // as such (App.js), never a client pointed at a guessed host.
   if (config.problem) throw new RuntimeError(config.problem.code, config.problem.message);
 
+  const doFetch = fetchImpl ?? globalThis.fetch;
+  // Every live request - JSON API calls and artifact bytes - is reported to
+  // the gesture log (L4: per-slice transfers only, revisits free).
+  const netLog = createNetLog({ log, now });
   const transport = createHttpTransport({
     baseUrl: config.apiBaseUrl,
-    fetchImpl: fetchImpl ?? globalThis.fetch,
+    fetchImpl: doFetch,
     timeoutMs: config.timeoutMs,
-    onTiming,
+    now,
+    onTiming: (t) => {
+      netLog.record({ endpoint: t.endpointId, bytes: t.bytes, ms: t.ms, status: t.status });
+      if (onTiming) onTiming(t);
+    },
   });
+  const client = createClient(contract, transport);
+  const artifactFetch = fetchBytesWith(doFetch, { timeoutMs: config.timeoutMs });
   return Object.freeze({
     mode: MODE.LIVE,
     config,
     contract,
     bundle: null,
-    client: createClient(contract, transport),
+    client,
+    // Per-slice response cache (PR-CACHE-01 / DR-015), shared by every
+    // screen for the life of the app, so a slice seen once is a cache hit
+    // wherever it is seen again.
+    sliceClient: createSliceCache(client),
+    // MRI slice bytes -> data URI, cached per content-addressed URL; fetched
+    // in JS so every byte is counted per gesture.
+    imageStore: createImageStore({ fetchBytes: countedFetch(artifactFetch, netLog, 'artifact:mri', now), now }),
+    // Decoded mask paths, keyed by the content-addressed URL. The decoder is
+    // injected (maskPng.js over fast-png, from loadRuntime.js) so this file and
+    // its tests need no node_modules.
+    maskStore: decodeMask
+      ? createMaskStore({ fetchBytes: countedFetch(artifactFetch, netLog, 'artifact:mask', now), decode: decodeMask, now })
+      : null,
+    netLog,
     fixtureScenarios: null,
   });
 }

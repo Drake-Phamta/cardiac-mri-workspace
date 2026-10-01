@@ -43,7 +43,8 @@
   Live backend, scheme://host:port with no /api/v1. See the URL rule above.
 
 .PARAMETER StudyId
-  De-identified study id the app opens. Default STUDY_DEMO.
+  De-identified study id the app opens. Else CMW_STUDY_ID from the
+  environment or mobile/.env.local; else STUDY_DEMO (the fixture's).
 
 .PARAMETER Abis
   Native ABIs to compile. Default arm64-v8a (the Galaxy A17 5G); building one
@@ -103,14 +104,19 @@ function Read-EnvFile([string] $path) {
   return $values
 }
 
-# --- 0. live URL, before anything is built -------------------------------------
+# --- 0. live URL and study, before anything is built -------------------------
+# mobile/.env.local is untracked, so it is not in the staging copy: what the
+# build needs from it is read here and passed on explicitly.
+$envLocal = Read-EnvFile (Join-Path $mobileRoot '.env.local')
 if ($Mode -eq 'live') {
   if (-not $ApiBaseUrl) { $ApiBaseUrl = $env:EXPO_PUBLIC_API_BASE_URL }
-  if (-not $ApiBaseUrl) { $ApiBaseUrl = (Read-EnvFile (Join-Path $mobileRoot '.env.local'))['EXPO_PUBLIC_API_BASE_URL'] }
+  if (-not $ApiBaseUrl) { $ApiBaseUrl = $envLocal['EXPO_PUBLIC_API_BASE_URL'] }
   if (-not $ApiBaseUrl) {
     throw 'live mode needs the backend URL: pass -ApiBaseUrl, set EXPO_PUBLIC_API_BASE_URL, or put EXPO_PUBLIC_API_BASE_URL=http://<backend-host>:8000 in mobile\.env.local (untracked). Nothing was built.'
   }
 }
+if (-not $StudyId) { $StudyId = $env:CMW_STUDY_ID }
+if (-not $StudyId) { $StudyId = $envLocal['CMW_STUDY_ID'] }
 
 # --- 1. toolchain -----------------------------------------------------------
 Step 'toolchain'

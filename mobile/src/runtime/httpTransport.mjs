@@ -26,6 +26,7 @@
  */
 
 import { parseErrorEnvelope } from '../../../app/core/index.mjs';
+import { utf8Length } from './netLog.mjs';
 
 export class TransportError extends Error {
   constructor(code, message, detail = {}) {
@@ -65,13 +66,35 @@ function headerOf(response, name) {
 }
 
 /*
+ * The JSON body and how many bytes it was on the wire: Content-Length when
+ * the server sends it, else the UTF-8 length of the body text. The byte
+ * count feeds the per-gesture network log (netLog.mjs, L4); the body itself
+ * is never logged.
+ */
+async function readJsonBody(response, contentType) {
+  const declaredRaw = headerOf(response, 'content-length');
+  const declared = declaredRaw === null || declaredRaw === undefined ? NaN : Number(declaredRaw);
+  const known = Number.isFinite(declared) && declared >= 0 ? declared : null;
+  if (!isJson(contentType)) return { json: null, bytes: known };
+  if (typeof response.text === 'function') {
+    let text = null;
+    try { text = await response.text(); } catch (_err) { text = null; }
+    let json = null;
+    if (text !== null) { try { json = JSON.parse(text); } catch (_err) { json = null; } }
+    return { json, bytes: known !== null ? known : (text !== null ? utf8Length(text) : null) };
+  }
+  return { json: await readJson(response), bytes: known };
+}
+
+/*
  * options:
  *   baseUrl         scheme://host[:port] - config.mjs has already normalised it
  *   fetchImpl       defaults to globalThis.fetch
  *   timeoutMs       per request; a timeout is a TRANSPORT_UNREACHABLE
  *   AbortControllerImpl  injectable for tests; defaults to the global
- *   onTiming        optional ({ endpointId, url, status, ms }) => void, for
- *                   performance evidence. Called with no payload bytes.
+ *   onTiming        optional ({ endpointId, url, status, ms, bytes }) => void,
+ *                   for performance evidence: `bytes` is the body size, never
+ *                   the body. Called once per response, after the body is read.
  */
 export function createHttpTransport({
   baseUrl,
@@ -124,12 +147,14 @@ export function createHttpTransport({
 
       const status = response.status;
       const contentType = headerOf(response, 'content-type');
+      const { json: body, bytes } = await readJsonBody(response, contentType);
       if (onTiming) {
-        try { onTiming({ endpointId: resolved.endpointId, url: resolved.url, status, ms: now() - t0 }); } catch (_e) { /* evidence hook must never break a call */ }
+        try {
+          onTiming({ endpointId: resolved.endpointId, url: resolved.url, status, ms: now() - t0, bytes });
+        } catch (_e) { /* evidence hook must never break a call */ }
       }
 
       if (status >= 400) {
-        const body = isJson(contentType) ? await readJson(response) : null;
         const envelope = parseErrorEnvelope(body, status);
         if (!envelope.code && status >= 500) {
           throw new TransportError('SERVER_ERROR', `${url} answered ${status} without a contract error code`, { url, status });
@@ -153,8 +178,7 @@ export function createHttpTransport({
       // The body is passed through untouched. In particular the ETag header is
       // NOT copied into `data`: response_fields list `etag` as a body field,
       // and filling it from a header would hide exactly that drift.
-      const data = await readJson(response);
-      return { status, data, contentType };
+      return { status, data: body, contentType };
     },
   });
 }

@@ -22,6 +22,7 @@ Runtime dependencies are exactly these; anything else is a request to the shell 
 | `react-native-webview` | `13.16.1` | MIT | the 3D module (WebGL2 inside a WebView, measured on the A17) — V2 |
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
+| `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, not in CI, never bundled |
 | `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — **V4 SCR-06 owns the adapter in `src/verticals/v4/`**. Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
 ## Run it
@@ -61,8 +62,9 @@ generator emits scenarios, every call is `EMPTY_UNAVAILABLE / FIXTURE_SCENARIO_M
 `mobile/.env.local` (gitignored by `.env*.local`), or in the environment variable of the same name:
 
 ```powershell
-# mobile/.env.local  - one line, not committed
+# mobile/.env.local  - not committed
 EXPO_PUBLIC_API_BASE_URL=http://<mac-mini-overlay-ip>:8000
+CMW_STUDY_ID=STUDY_LA_001        # the backend's study id (its CARDIAC_STUDY_ID); fixture mode uses STUDY_DEMO
 ```
 
 ```powershell
@@ -132,6 +134,57 @@ Render every non-success state with `src/ui/StateView.js` (`<StateView view={vie
 so the `10` §8 state model looks and behaves the same in V1–V4. Put pure logic in `.mjs` next to the screen and test
 it with `node --test`; keep React Native imports in `.js` files.
 
+### Shared pieces a vertical can use (owned by the shell / V1 — import, do not edit)
+
+| Module | What |
+|---|---|
+| `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
+| `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
+| `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |
+| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode) |
+| `src/verticals/v1/SliceViewport.js` | the slice viewport: image + overlays + pinch/pan (provenance: Spike A S4 gestures) |
+
+## V1 screens (SCR-02, SCR-03)
+
+- **SCR-02 Case List** — `case_list` for the configured study; de-identified ids; the mode badge (*Evaluation* /
+  *Inference & review*) is the same component and derivation SCR-03 uses (TC-CASE-002); search by id and mode
+  filter; a typed id that is not on the page can be opened directly (the case screen checks it with the server).
+- **SCR-03 Case Explorer** — built on the V1 model (`app/verticals/v1_case_explorer`). Asks for the prediction
+  variant on first use (no default), then keeps it on screen; opens on the middle slice; slider + step buttons;
+  pinch-zoom and pan; prediction (orange) and ground-truth (cyan) overlays with an opacity control, each toggle
+  labelled in words; the per-slice Dice exactly as the server sent it; a run line with run, model family,
+  experiment and precomputed flag; entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason.
+- **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
+  path Spike A measured), so every byte is counted: each slice switch writes one
+  `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
+  line when the slice is on screen. No URL, host or payload is logged. Judge a capture on the laptop with
+  `node mobile/scripts/l4-report.mjs <logcat.txt>`; the step-by-step session is **`mobile/S1_L4_SCRIPT.md`**.
+- **Timing evidence (TC-PERF-001)** — every slice switch also logs
+  `CMW_SLICE {"slice","ms_to_data","ms_to_image","ms_to_frame","meta_cached","image_seen_before","how","pass","dev","mode"}`.
+  **Long-press the slice label** for the scripted runs: **L4 15 + 15** (15 new slices, then the same 15 revisited)
+  and **A9 30-step** (Spike A's TC-PERF-001 sequence, a warm pass then a measured pass). The phone computes
+  nothing: `node mobile/scripts/slice-timing-report.mjs <logcat.txt>` prints n / p50 / p95 per pass
+  (nearest-rank, Spike A's definition), and keeps DEV-build samples apart.
+
+## Render-smoke harness (test-only)
+
+```powershell
+cd mobile
+npm ci
+npm run test:render        # node --import ./test/render/hooks.mjs test/render/smoke.mjs
+```
+
+Renders the real shell and V1 screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
+**devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg and
+safe-area-context (`test/render/mocks/`); screens get a real app/core runtime — the generated fixture bundle, or a
+fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
+
+- **Not in CI** — CI runs without `node_modules`; run it locally before pushing screen changes. V2/V3/V4 may use it
+  for their own screens (add checks next to the V1 ones).
+- **Evidence of logic only, never device evidence.** No frame, gesture, decode time or network on a phone is
+  measured by it; that evidence is logcat from the A17.
+
 ## Layout
 
 ```text
@@ -140,13 +193,17 @@ mobile/
   plugins/withCleartextLocalDemo.js    release cleartext for LOCAL_DEMO (overlay HTTP)
   scripts/prepare.mjs                  generated inputs: fixture bundle + build config
   scripts/build-release.ps1            release APK + timestamp file
+  scripts/l4-report.mjs                laptop-side L4 verdict from a logcat capture (CMW_GESTURE)
+  scripts/slice-timing-report.mjs      laptop-side TC-PERF-001 percentiles from a logcat capture (CMW_SLICE)
+  S1_L4_SCRIPT.md                      the S-1 phone session for L4, step by step
   src/config.mjs                       mode / base URL / study id  (pure, tested)
   src/runtime/                         createRuntime.mjs + httpTransport.mjs (pure, tested), loadRuntime.js, RuntimeContext.js
   src/nav/                             screens.mjs + navigator.mjs (pure, tested), NavigatorView.js
   src/registry.js                      SCR-01..SCR-08 -> component
   src/ui/                              StateView.js + stateCopy.mjs (7 states), NotBuiltYet.js, FixtureScenarioPanel.js, theme.js
   src/verticals/v1 v2 v3 v4/           the screens
-  test/*.test.mjs                      node --test
+  test/*.test.mjs                      node --test (CI)
+  test/render/                         render-smoke harness (local only, devDependency)
 ```
 
 Rules carried over from `app/README.md`: product code never imports `spikes/**` (copy with a provenance header —
