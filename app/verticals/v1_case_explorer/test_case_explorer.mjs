@@ -16,7 +16,7 @@ import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
   STATE, RECOVERY, screenToSource, sliceCacheKey,
 } from '../../core/index.mjs';
-import { createCaseExplorer, LAYER } from './index.mjs';
+import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN } from './index.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
 const readJson = (p) => JSON.parse(readFileSync(new URL(p, ROOT), 'utf8'));
@@ -75,9 +75,15 @@ const check = (id, ok, detail) => {
 // REVIEWED is not a prediction variant at all: a reviewed mask is its own
 // layer, and prediction_slice_get?variant=REVIEWED asks for nothing real.
 {
+  // A case with no run needs no variant, so construction allows none; opening
+  // a RUN without one is refused before a single request goes out.
   let threw = false;
   try { createCaseExplorer(newClient(), {}); } catch { threw = true; }
-  check('V1-2', threw, 'a missing variant is refused at construction');
+  const sentNone = [];
+  const refusedRun = await createCaseExplorer(stubbedClient({}, { log: sentNone }), {})
+    .open({ caseId: CASE, runId: RUN, sliceIndex: 44 }).then(() => false, () => true);
+  check('V1-2', !threw && refusedRun && sentNone.length === 0,
+    'no variant: allowed at construction, refused when a run is opened - before any request');
   let threw2 = false;
   try { createCaseExplorer(newClient(), { variant: 'BEST' }); } catch { threw2 = true; }
   check('V1-2', threw2, 'an unknown variant is refused');
@@ -532,6 +538,123 @@ const check = (id, ok, detail) => {
   const s = await createCaseExplorer(c, { variant: 'RAW' }).open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
   check('V1-22', s.view.state === STATE.SUCCESS && peak === 4,
     `MRI, prediction, ground truth and metrics were in flight together (peak ${peak})`);
+}
+
+// V1-24 — a case that lists no analysis run still opens: the deployed backend
+// serves real cases before any training. MRI and, where the case declares it,
+// ground truth are shown; prediction, error and metrics are unavailable for
+// one stated reason; and no run is ever asked for.
+{
+  const log = [];
+  const noRuns = stubbedClient({ case_get: withData({ available_run_ids: [] }) }, { log });
+  const s = await createCaseExplorer(noRuns, { variant: 'RAW' }).open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
+  check('V1-24', s.view.state === STATE.SUCCESS && s.imageRef !== null && s.runId === null
+    && s.noRunReason === NO_ANALYSIS_RUN && s.canEnter3D === false,
+    `no run listed -> ${s.view.state}: MRI shown, run ${s.runId} (${s.noRunReason}), no 3D`);
+  check('V1-24', s.caseMode === 'EVALUATION' && s.groundTruthRef !== null
+    && s.layersAvailable[LAYER.GROUND_TRUTH] === true,
+    `${s.caseMode} declares ground truth -> the ground-truth layer is offered`);
+  check('V1-24', s.predictionRef === null && s.layersAvailable[LAYER.PREDICTION] === false
+    && s.layerReasons[LAYER.PREDICTION] === NO_ANALYSIS_RUN && s.layerReasons[LAYER.ERROR] === NO_ANALYSIS_RUN
+    && s.metrics?.state === 'UNAVAILABLE' && s.metrics.reason === NO_ANALYSIS_RUN && s.canEnterError === false,
+    `prediction, error and metrics unavailable: ${s.metrics?.reason}`);
+  check('V1-24', ['analysis_run_get', 'prediction_slice_get', 'analysis_slice_metrics'].every((id) => !log.includes(id)),
+    `0 run requests; asked only ${[...new Set(log)].join(', ')}`);
+
+  const s2 = await createCaseExplorer(newClient(), { variant: 'RAW' }).open({ caseId: CASE, sliceIndex: 44 });
+  check('V1-24', s2.view.state === STATE.SUCCESS && s2.runId === null && s2.noRunReason === NO_ANALYSIS_RUN,
+    'no run requested -> the same no-run slice view, whatever the case lists');
+}
+
+// V1-25 — no run on an INFERENCE_REVIEW case: the MRI only. Its ground truth
+// is withheld, so it is not even asked for.
+{
+  const log = [];
+  const c = stubbedClient({ case_get: withData({ available_run_ids: [] }) }, { log });
+  const s = await createCaseExplorer(c, { variant: 'RAW' })
+    .open({ caseId: CASE, runId: RUN, sliceIndex: 44, scenarios: { case_get: 'inference_review' } });
+  check('V1-25', s.view.state === STATE.SUCCESS && s.caseMode === 'INFERENCE_REVIEW' && s.imageRef !== null
+    && s.groundTruthRef === null && s.layersAvailable[LAYER.GROUND_TRUTH] === false && s.predictionRef === null,
+    `${s.caseMode}, no run -> ${s.view.state} with the MRI only`);
+  check('V1-25', ['ground_truth_slice_get', 'analysis_run_get', 'prediction_slice_get', 'analysis_slice_metrics']
+    .every((id) => !log.includes(id)),
+    `no ground-truth and no run request; asked only ${[...new Set(log)].join(', ')}`);
+}
+
+// V1-26 — with no run, navigation works as with one. Through a per-slice cache
+// in front of the client (the app has one), a new slice asks for slice data
+// only and a revisit asks the network nothing; a superseded answer is still
+// dropped; an error still carries no ref.
+{
+  const SLICE = new Set(['mri_slice_get', 'prediction_slice_get', 'ground_truth_slice_get', 'analysis_slice_metrics']);
+  const net = [];
+  const base = stubbedClient({
+    case_get: withData({ available_run_ids: [] }),
+    mri_slice_get: async (r, q) => { if (q.url.includes('/slices/10/')) await sleep(40); return r; },
+  }, { log: net });
+  const store = new Map();
+  const cached = {
+    ...base,
+    async call(endpointId, params, options = {}) {
+      const key = SLICE.has(endpointId) ? `${endpointId}|${base.resolve(endpointId, params).url}` : null;
+      if (key && store.has(key)) return store.get(key);
+      const view = await base.call(endpointId, params, options);
+      if (key && view.state === STATE.SUCCESS) store.set(key, view);
+      return view;
+    },
+  };
+  const m = createCaseExplorer(cached, { variant: 'RAW' });
+  const first = await m.open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
+  const at45 = net.length;
+  const s45 = await m.goToSlice(45);
+  const asked = net.slice(at45);
+  check('V1-26', s45.view.state === STATE.SUCCESS && s45.sliceIndex === 45
+    && asked.length > 0 && asked.every((id) => SLICE.has(id)),
+    `a new slice asks for slice data only: ${asked.join(', ')}`);
+  const at44 = net.length;
+  const back = await m.goToSlice(44);
+  check('V1-26', back.view.state === STATE.SUCCESS && back.imageRef.cacheKey === first.imageRef.cacheKey
+    && net.length === at44,
+    `the revisit to slice 44 is a cache hit: ${net.length - at44} network requests`);
+
+  await Promise.all([m.goToSlice(10), m.goToSlice(11)]);
+  check('V1-26', m.current.sliceIndex === 11 && m.current.imageRef.cacheKey.includes('|11|'),
+    `slow 10 then fast 11 with no run -> ends on slice ${m.current.sliceIndex}`);
+
+  const err = await m.goToSlice(46, { scenarios: { mri_slice_get: 'error_case' } });
+  check('V1-26', err.view.state === STATE.FATAL_INVALID && err.imageRef === null && err.groundTruthRef === null
+    && err.metrics === null && err.noRunReason === NO_ANALYSIS_RUN,
+    `an error with no run -> ${err.view.state}, no ref kept, and still no run`);
+}
+
+// V1-27 — the no-run interface SCR-03 is built on: no variant needed, a
+// variant switch is a recorded no-op that sends nothing, and the ground-truth
+// overlay and refresh work as with a run.
+{
+  const log = [];
+  const m = createCaseExplorer(stubbedClient({}, { log }), { variant: null });
+  const s = await m.open({ caseId: CASE, runId: null, sliceIndex: 44 });
+  check('V1-27', s.view.state === STATE.SUCCESS && s.variant === null && s.runId === null
+    && s.imageRef !== null && s.groundTruthRef !== null && s.predictionRef === null
+    && s.layersAvailable[LAYER.PREDICTION] === false && s.metrics?.state === 'UNAVAILABLE'
+    && s.metrics.reason === NO_ANALYSIS_RUN && s.canEnter3D === false && s.refused === null,
+    `variant null, runId null -> ${s.view.state}: MRI + ground truth, prediction unavailable (${s.metrics?.reason})`);
+
+  const sent = log.length;
+  const r = await m.setVariant('PROCESSED');
+  check('V1-27', r === m.current && r.refused?.action === 'setVariant' && r.refused.reason === NO_ANALYSIS_RUN
+    && r.variant === null && r.view.state === STATE.SUCCESS && r.imageRef === s.imageRef && log.length === sent,
+    `setVariant with no run -> no-op, refused ${JSON.stringify(r.refused)}, ${log.length - sent} requests`);
+
+  const on = m.setOverlay(LAYER.GROUND_TRUTH, true);
+  check('V1-27', on.overlays[LAYER.GROUND_TRUTH] === true && on.refused === null,
+    'the ground-truth overlay switches on; the next transition clears the refusal');
+
+  const again = await m.refresh();
+  const after = log.slice(sent);
+  check('V1-27', again.view.state === STATE.SUCCESS && again.sliceIndex === 44 && after.length > 0
+    && after.every((id) => id === 'mri_slice_get' || id === 'ground_truth_slice_get'),
+    `refresh reloads the slice with slice requests only: ${after.join(', ')}`);
 }
 
 // V1-23 — the README states how many checks this file makes. A count that
