@@ -1641,7 +1641,8 @@ If the in-app numbers fail `B10`/`B11`, that is a result, and a native GL path b
 
 | Field | Value |
 |---|---|
-| **Raised** | ⏳ **OPEN** · 2026-09-19 · Project Control, while building `app/core` |
+| **Raised** | 2026-09-19 · Project Control, while building `app/core` |
+| **Status** | ✅ **DECIDED 2026-10-01 — option (b)**, by Phạm Tuấn Anh under `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4. Implemented in API contract v1.0 (PR #62): a `worst_slice_selection` block in `analysis_run_metrics`, `selection_version` `dr010-worst-slice/v1`; the backend ranks server-side from the stored per-slice rows, the client only reads |
 | **Decides** | Phạm Tuấn Anh |
 | **Amends** | `DR-010` ("worst slice") |
 | **Affects** | `contracts/api/contract.json`, `SCR-04`, `FR-ERR-003`, `TC-ERR-003`, `UC-05`, V1 |
@@ -1686,6 +1687,71 @@ returning a summary of data it has, not answering a new question.
 
 **What this does not do.** It does not reopen the ranking itself: the keys, their order and the exclusions
 stay exactly as `DR-010` approved them. Only the transport is in question.
+
+---
+
+### DR-016 — Two compute hosts for the six core runs
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-01 ~10:30** by Phạm Tuấn Anh, **before Spike C1 ran**. Recorded in `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4. The fallback clause is amended after C1 by **DR-016a** (below) |
+| **Amends** | `DR-007` / `DR-G03` compute plan (Spike C0 assumed one host: the RTX 4050 laptop, 4–5 h a day) |
+| **Affects** | Spike C1, `ADR-ML-001`, the run calendar (C1-9), the six core runs, run manifests |
+
+**Decision, as written in override §4 before C1:**
+
+> ML compute: the leader's PC (RTX 3050 Ti Laptop, 4 GiB) is an approved compute host from today, alongside Bế
+> Quốc Khánh's RTX 4050 Laptop (6 GiB). Each model family trains entirely on one host: the DINOv2 family on the
+> leader's PC from tonight; the UNet family on the RTX 4050 from Day 23 (if the RTX 4050 is not running by Day 23
+> 12:00, the UNet family follows on the leader's PC). Library versions are recorded per host; the cross-machine
+> tolerance pinned in the C1 plan applies.
+
+**Why.** Days 16–21 were lost; one 4–5 h/day host cannot finish six runs before the evaluation window. Two hosts
+running unattended can.
+
+**What stays fixed.** All six runs share:
+- one frozen recipe, batch and epoch count (`ADR-ML-001`);
+- the same training code;
+- the same data and seed.
+
+The host and the code commit are recorded in every run manifest.
+
+**What it does not claim.** Bit-identical results across hosts (CUDA kernels are not deterministic here). Families
+are compared within one recipe, not within one host; the host is a recorded covariate.
+
+---
+
+### DR-016a — After C1: a tripwire for the UNet host, and what happens if the RTX 4050 cannot run it
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **RECORDED 2026-10-01** by the leader's session under the Day 22 delegation. It was written after the C1 QA (14:29) and after the DINOv2 queue started (14:30), and answers QA findings N-1 and N-2 (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`). **Phạm Tuấn Anh confirms it on Day 23** |
+| **Amends** | `DR-016`, the fallback clause only |
+| **Reason** | `RESULT_C1.md` §3.1. At 560 / batch 8 the UNet runs on the 4 GiB card only through driver memory spill: 2.18 s per step sustained in the C1 trial. E = 50 allows at most 1.13 s per step for a UNet queue that starts Day 23 09:00 and ends by 2026-10-03 12:00 |
+| **Affects** | the UNet queue (EXP-U-025/050/100), the run calendar, the UNet holdout evaluation date |
+
+**What C1 changed.** DR-016's fallback was written before C1: "the UNet family follows on the leader's PC". At the
+sustained rate C1 measured on that card, the UNet queue at E = 50 would take about 51 h there. E cannot be lowered
+to make up for it: one E binds all six runs, and the DINOv2 queue started at E = 50 at 14:30. Changing E would
+invalidate those runs (`ADR-ML-001` §3).
+
+**Decision.**
+1. **E stays 50 and the batch stays 8 for all six runs.** Nothing in `ADR-ML-001` changes to fit a host.
+2. **The UNet queue on the RTX 4050 has a tripwire** (QA N-1), checked on EXP-U-025's first epoch:
+   - the mean training step is **≤ 1.13 s**;
+   - peak reserved memory is **below the free VRAM** recorded at the start.
+
+   If either check fails, the queue keeps running and the leader decides at once.
+3. **If the RTX 4050 is not running the UNet queue by Day 23 12:00, or it fails the tripwire, the calendar slips,
+   not the recipe.** The UNet family still runs at E = 50 / batch 8: on the RTX 4050 if it recovers, otherwise on the
+   leader's PC once the DINOv2 queue has finished. The UNet results then arrive after 2026-10-03 12:00. `GATE-IMG-01`
+   needs only EXP-D-100's validation predictions and does not wait for them.
+4. As in DR-016, the host and the code commit are recorded in every run manifest. The UNet queue starts only if
+   `ml/train.py`, `ml/data.py` and `ml/models.py` are unchanged since `c7a37e0`, the commit the DINOv2 queue started
+   from.
+
+**What it does not claim.** That the RTX 4050 runs batch 8 without spill. The tripwire measures that on Day 23; it is
+not assumed.
 
 ---
 
