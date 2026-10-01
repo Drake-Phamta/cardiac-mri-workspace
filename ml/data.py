@@ -631,6 +631,13 @@ def resize_image_stack(image_zyx: np.ndarray, img: int) -> np.ndarray:
     return out[:, 0].numpy()
 
 
+def model_input_stack(image_zyx: np.ndarray, img: int) -> np.ndarray:
+    """The exact model input for a DR-011 image: resized, rounded to float16 (the cache dtype),
+    returned as float32. Training reads these values from the cache; inference computes them
+    with this function, so both see bit-identical inputs."""
+    return resize_image_stack(image_zyx, img).astype(np.float16).astype(np.float32)
+
+
 def resize_mask_stack(mask_zyx: np.ndarray, img: int) -> np.ndarray:
     """[Z, H, W] {0, 1} -> [Z, img, img] uint8 {0, 1}, nearest-exact (no new label values)."""
     t = torch.from_numpy(np.ascontiguousarray(mask_zyx > 0, dtype=np.float32))[:, None]

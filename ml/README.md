@@ -16,7 +16,11 @@ with a provenance header (source path + commit `896c11a`).
 | `ml/evaluate.py` | Metrics (`evaluation_metric_version` `ml-eval-1.0.0`): case-level 3D Dice/IoU at native resolution, per-slice Dice with the `07` §6 empty-slice rule, FP/FN voxels, relative volume error in voxels, the failed-case protocol (intended/successful N, reasons), cohort summary with bootstrap 95% CIs (DR-014), the comparable-run gate and paired differences, the holdout slots `primary_all_holdout` / `sensitivity_without_suspected_linkage`, and the DR-010 worst-slice (DR-010a option (b) shape) and outlier selections. CLI `python -m ml.evaluate run|compare`. |
 | `ml/export_contract2.py` | Builds a Contract 2 DRAFT v0 experiment-artifact manifest from a run directory and runs `contracts/ingestion/contract2_experiment_artifact/validate_contract2.py` on it. Gate states are explicit CLI inputs with no default. |
 | `ml/manifests.py` | The shared run-directory layout (`RUN_LAYOUT`), population and training-subset manifests copied from the split manifest, `code_version()` (git commit + dirty flag), JSON writers that refuse to overwrite. |
-| `ml/tests/` | pytest suite on a synthetic NRRD package (`ml/tests/synth.py`) and a synthetic run directory (`ml/tests/runfixture.py`); CPU only, no real data. |
+| `ml/train.py` | One experiment from a JSON config: the ADR-ML-001 recipe on the subset's effective cases via the cache, validation 3D Dice (native resolution) every epoch, `last.pt` / `best.pt` with SHA-256, `train_log.jsonl`, resume from `last.pt`, then validation predictions + evaluation and `run_manifest.json` (`08` §10). |
+| `ml/queue.py` | Runs a list of configs one after another, each in its own process: skips COMPLETE runs, resumes partial ones, logs every transition, keeps going after a failure. |
+| `ml/infer.py` | Raw prediction masks for a population with a run's checkpoint; validation by default, final holdout only with `--population holdout --confirm-frozen-morphology <sha256>` (GATE-IMG-01); NRRD in the source geometry, `predictions_manifest.json` with per-file SHA-256, resumable, never overwrites. |
+| `ml/configs/matrix_queue.template.json` | The six core runs (`EXP-U/D-025/050/100`) with the ADR-ML-001 values; `epochs` and `batch` are placeholders the validator refuses until set. |
+| `ml/tests/` | pytest suite on a synthetic NRRD package (`ml/tests/synth.py`) and a synthetic run directory (`ml/tests/runfixture.py`); CPU only (`conftest.py` hides the GPU), no real data. |
 
 ## Rules the code enforces
 
@@ -105,17 +109,22 @@ Contract 2 artifact root: every path a manifest records is relative to it, with 
 slashes.
 
 ```
-config.json  run_manifest.json  train_log.jsonl  checkpoints/{last,best}.pt
+config.json  run_manifest.json (written last = COMPLETE)  run_state.json  train_log.jsonl
+checkpoints/last.pt (resume state + best weights)  checkpoints/best.pt (selected weights)
 manifests/split_manifest.json                     byte copy of the split manifest
 manifests/training_subset_<subset>.json           effective training cases
 manifests/population_<partition>.json             validation or final_holdout case list
-predictions/<partition>/<case>.nrrd + predictions_manifest.json      (never overwritten)
+predictions/<partition>/<case>.nrrd + progress.jsonl + predictions_manifest.json (never overwritten)
 evaluation/<partition>/per_case_metrics.json, per_slice_metrics.json, metrics_summary.json,
                        metric_sets/<case>.json, evaluation_manifest.json   (never overwritten)
 contract2/<manifest_id>.json + <manifest_id>.export.json (export record)
 ```
 
 ```
+python -m ml.train --config <experiment.json>              # trains, or resumes, or skips if COMPLETE
+python -m ml.queue --queue <queue.json> --dry-run          # then without --dry-run
+python -m ml.infer --run-dir <run>                         # validation population, best.pt
+python -m ml.infer --run-dir <run> --population holdout --confirm-frozen-morphology <sha256>
 python -m ml.evaluate run --run-dir <run> --population validation
 python -m ml.evaluate run --run-dir <run> --population final_holdout --allow-holdout
 python -m ml.evaluate compare --run-a <run> --run-b <run> --population final_holdout --out <new.json>
@@ -128,6 +137,20 @@ split manifest: the repository's `data/manifests/split_manifest_path_a_seed2024.
 another file named explicitly with `--split-manifest`. A run directory cannot vouch for itself.
 A split copy that moves a holdout case into validation, even with every in-run sha256
 updated, is refused (`SplitMismatchError`, regression test H9).
+
+Always run the modules with `python -m ml.<module>` from the repository root: running a
+file under `ml/` directly puts `ml/` on `sys.path`, where `ml/queue.py` would shadow the
+standard-library `queue` module.
+
+Training details (`ml/train.py` docstring has the full list): unknown config keys are
+refused; `batch` must be 8, 4 or 2; departures from the ADR-ML-001 values (img 560, lr 1e-4,
+seed 2024, bf16, CUDA, the two declared families) are recorded in the run manifest as
+`recipe_deviations_from_adr_ml_001`, not refused. `last.pt` is the commit point of an
+epoch and also stores the best weights, so `best.pt` can always be re-derived after an
+interruption. An epoch's shuffle order depends only on the seed and the epoch, so a resumed
+run trains the same batches as an uninterrupted one (tested bit-for-bit on CPU). Training
+code builds only training and validation allowlists; a test fails if `ml/train.py` or
+`ml/queue.py` ever names holdout access.
 
 Scoring the final holdout needs `--allow-holdout` **and** a `holdout_authorization`
 record in the predictions manifest (written by inference only under GATE-IMG-01). A
@@ -155,4 +178,7 @@ The DINOv2 tests are skipped, not failed, on a machine without the pinned checkp
 the local Hugging Face cache. `test_real_split_manifest_when_present` checks the real split
 manifest (its sha256, 54 holdout cases, subsets 20/38/78, `CASE_0117`/`CASE_0133` refused)
 and `test_real_split_suspected_linkage_is_case_0027` its suspected holdout linkage; both are
-skipped only on a branch that does not contain the manifest.
+skipped only on a branch that does not contain the manifest. `ml/tests/conftest.py` hides
+every GPU (`CUDA_VISIBLE_DEVICES=-1`), so the suite never touches a GPU a training job is
+using; the end-to-end tests train a UNet for one or two epochs at img=112 on synthetic cases
+on CPU.
