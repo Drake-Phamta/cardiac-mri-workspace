@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Slot | **S-1**, Day 22 (2026-10-01) 19:00, 90 min |
-| Device | Samsung Galaxy A17 5G `SM-A176B`, serial `R5CY931SQYZ` (the 09-18 B10/B11 handset) |
+| Device | Samsung Galaxy A17 5G `SM-A176B` (the 09-18 B10/B11 handset). Its serial is read from `adb devices -l` at the session and is **not written into committed files** (public repository) |
 | Operator | **Phạm Tuấn Anh** — DR-006a: the only person who touches the phone. Computes no B number. |
 | Owner | **Vũ Hùng Anh** — Spike B. Designs, computes and interprets; confirms this session on Day 23. |
 | Prepared by | Claude agent A4 under the Day 22 recovery override (leader's account) |
@@ -76,11 +76,12 @@ python spikes\spike_b_3d\harness\s1_collector.py --out $S1
 4. Window 2:
 
 ```powershell
-& $ADB devices -l                                   # R5CY931SQYZ must be listed as "device"
-& $ADB -s R5CY931SQYZ install -r $APK              # prints "Success"
-& $ADB -s R5CY931SQYZ reverse tcp:8766 tcp:8766
-& $ADB -s R5CY931SQYZ shell monkey -p com.cardiacmri.spikebs1 1    # or tap the "Spike B S-1" icon
-python spikes\spike_b_3d\harness\s1_session.py start --out $S1 --serial R5CY931SQYZ --build-record $REC
+& $ADB devices -l                                   # the SM-A176B must be listed as "device", alone
+$SERIAL = "<serial printed for model:SM_A176B>"     # copy it from the line above; keep it out of git
+& $ADB -s $SERIAL install -r $APK                   # prints "Success"
+& $ADB -s $SERIAL reverse tcp:8766 tcp:8766
+& $ADB -s $SERIAL shell monkey -p com.cardiacmri.spikebs1 1    # or tap the "Spike B S-1" icon
+python spikes\spike_b_3d\harness\s1_session.py start --out $S1 --serial $SERIAL --build-record $REC
 ```
 
 `start` must print **`READY`** and `matches build record: True`. If it prints `NOT READY`, fix the listed
@@ -171,6 +172,8 @@ gitignored meshes in `spikes/spike_b_3d/mesh/out_real/CASE_0059/`.
 `s1_results.json` with the per-pick table reduced to slice indices and errors. **Not** committed: the APK,
 the meshes, `installed_base.apk`, and the raw pick records / logcat, which contain surface coordinates of
 the patient's anatomy — their SHA-256 are in `session_state.json`, the files stay in `$S1`.
+`session_state.json` and `conditions_*.json` carry the handset serial: replace it with `<A17_SERIAL>` in the
+committed copies (the repository is public) and record the SHA-256 of the unredacted originals.
 
 ## 6 · PROVENANCE template (fill in, commit with the evidence)
 
@@ -186,7 +189,7 @@ the patient's anatomy — their SHA-256 are in `session_state.json`, the files s
 
 | Field | Value |
 |---|---|
-| Device | Galaxy A17 5G SM-A176B, serial R5CY931SQYZ, Android <x> (session_state.json preflight) |
+| Device | Galaxy A17 5G SM-A176B, Android <x> (session_state.json preflight; serial redacted) |
 | APK | <file name>, SHA-256 <…>, built <time> from repository commit <…> (build_record.json) |
 | Installed APK | SHA-256 <…> — matches the build record: <yes/no> (pulled from the phone by `start`) |
 | Assets | build_id <…>; meshes = PR #66 levels, SHA-256 per level in real_mesh_frontier.json |
