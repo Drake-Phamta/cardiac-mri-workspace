@@ -100,13 +100,15 @@ def model_from_checkpoint(payload: dict, device: str) -> torch.nn.Module:
 
 # --- run-directory helpers ---------------------------------------------------------------
 
-def _run_identity(run_dir: Path, frozen_split: str | Path) -> tuple[dict, dict, str]:
-    """(config, split, split sha256). The run's split copy must be byte-identical to the
-    FROZEN split manifest - a run directory cannot vouch for its own split (QA B-1 / H9)."""
+def _run_identity(run_dir: Path, frozen_split: str | Path,
+                  allow_unfrozen_split: bool = False) -> tuple[dict, dict, str]:
+    """(config, split, split sha256). The named split must be the FROZEN one (sha256 pinned in
+    ml.data, unless the TEST-ONLY switch is set) and the run's split copy must be byte-identical
+    to it - a run directory cannot vouch for its own split (QA B-1 / B-2 / H9)."""
+    frozen_sha = MF.require_frozen_split(frozen_split, allow_unfrozen_split=allow_unfrozen_split)
     config = D.load_json(run_dir / MF.RUN_LAYOUT["config"])
     split_path = run_dir / MF.RUN_LAYOUT["split_manifest_copy"]
     split_sha = D.sha256_file(split_path)
-    frozen_sha = D.sha256_file(frozen_split)
     if split_sha != frozen_sha:
         raise MF.SplitMismatchError(f"the run's split copy (sha256 {split_sha}) is not the frozen split "
                                     f"manifest (sha256 {frozen_sha}); refusing to predict")
@@ -206,7 +208,8 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
                        holdout_authorization: dict | None = None, morphology_config: Path | None = None,
                        dataset_manifest: dict | None = None, package_root: str | Path | None = None,
                        skip_if_complete: bool = False, accept_failures: bool = False,
-                       split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST, log=print) -> Path:
+                       split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
+                       allow_unfrozen_split: bool = False, log=print) -> Path:
     """Predict every case of `partition`; return the predictions directory.
 
     Resumable: cases recorded as SUCCEEDED in progress.jsonl (and whose file still has the
@@ -225,7 +228,7 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
     if partition not in ("validation", D.HOLDOUT_PARTITION):
         raise ValueError("partition must be 'validation' or 'final_holdout'")
     authorization = _check_authorization(partition, holdout_authorization, morphology_config)
-    config, split, split_sha = _run_identity(run_dir, split_manifest)
+    config, split, split_sha = _run_identity(run_dir, split_manifest, allow_unfrozen_split)
     pred_dir = run_dir / MF.RUN_LAYOUT["predictions"].format(partition=partition)
     manifest_path = run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)
     if manifest_path.exists():
@@ -326,6 +329,9 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
         "model_variant": payload["model_variant"],
         "img": img,
         "preprocessing_version": D.PREPROCESSING_VERSION,
+        "frozen_split": {"expected_sha256": D.FROZEN_SPLIT_SHA256, "actual_sha256": split_sha,
+                         "is_frozen": split_sha == D.FROZEN_SPLIT_SHA256,
+                         "allow_unfrozen_split": allow_unfrozen_split},
         "holdout_authorization": authorization,
         "inference": {"device": device, "precision": precision, "batch": batch,
                       "code_version": cv["version"], "code_dirty": cv["dirty"],
@@ -364,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="write the manifest even if cases failed, recording them as FAILED")
     ap.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
                     help="the FROZEN split the run must have used (default: the repository's)")
+    ap.add_argument("--allow-unfrozen-split", action="store_true",
+                    help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split (recorded)")
     args = ap.parse_args(argv)
     partition = POPULATIONS[args.population]
     if partition == D.HOLDOUT_PARTITION and not args.confirm_frozen_morphology:
@@ -378,7 +386,8 @@ def main(argv: list[str] | None = None) -> int:
         out = predict_population(args.run_dir, partition, checkpoint=args.checkpoint, device=args.device,
                                  precision=args.precision, batch=args.batch, holdout_authorization=auth,
                                  morphology_config=args.morphology_config,
-                                 accept_failures=args.accept_failures, split_manifest=args.split_manifest)
+                                 accept_failures=args.accept_failures, split_manifest=args.split_manifest,
+                                 allow_unfrozen_split=args.allow_unfrozen_split)
     except (D.DataAccessError, FileExistsError, MF.ManifestError) as exc:
         print(f"REFUSED: {type(exc).__name__}: {exc}")
         return 2

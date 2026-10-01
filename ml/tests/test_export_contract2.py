@@ -39,14 +39,14 @@ def evaluated_run(cpkg, tmp_path, clean_code):
                                   subset="50_percent")
     E.evaluate_run(run, D.HOLDOUT_PARTITION, dataset_manifest=cpkg["dataset"],
                    package_root=cpkg["package_root"], allow_holdout=True,
-                   split_manifest=cpkg["split_manifest_path"], log=None)
+                   split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, log=None)
     return run
 
 
 def build(run, cpkg, **kw):
     kw.setdefault("gate_split_01", "ACCEPTED")
     kw.setdefault("gate_ml_01", "ACCEPTED")
-    return X.build_manifest(run, split_manifest=cpkg["split_manifest_path"], **kw)
+    return X.build_manifest(run, split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, **kw)
 
 
 def test_export_passes_the_contract2_validator(evaluated_run, cpkg):
@@ -66,7 +66,7 @@ def test_export_passes_the_contract2_validator(evaluated_run, cpkg):
 
 def test_written_manifest_passes_the_validator_cli(evaluated_run, cpkg):
     path = X.export(evaluated_run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                    split_manifest=cpkg["split_manifest_path"])
+                    split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
     proc = subprocess.run([sys.executable, str(X.VALIDATOR), "--manifest", str(path),
                            "--root", str(evaluated_run)], capture_output=True, text=True,
                           encoding="utf-8")
@@ -77,7 +77,7 @@ def test_written_manifest_passes_the_validator_cli(evaluated_run, cpkg):
     assert record["frozen_split_sha256"] == D.sha256_file(cpkg["split_manifest_path"])
     with pytest.raises(FileExistsError):
         X.export(evaluated_run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                 split_manifest=cpkg["split_manifest_path"])
+                 split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
 
 
 def test_open_gates_are_recorded_and_refused_by_the_validator(evaluated_run, cpkg):
@@ -93,7 +93,7 @@ def test_cli_requires_explicit_gates(evaluated_run, cpkg, capsys):
     with pytest.raises(SystemExit):
         X.main(["--run-dir", str(evaluated_run)])
     assert X.main(["--run-dir", str(evaluated_run), "--gate-split-01", "OPEN", "--gate-ml-01", "OPEN",
-                   "--split-manifest", str(cpkg["split_manifest_path"]), "--validate"]) == 2
+                   "--split-manifest", str(cpkg["split_manifest_path"]), "--allow-unfrozen-split", "--validate"]) == 2
     assert "GATE_SPLIT_01_NOT_ACCEPTED" in capsys.readouterr().out
 
 
@@ -115,7 +115,7 @@ def test_export_refuses_a_split_other_than_the_frozen_one(evaluated_run, cpkg, t
     with pytest.raises(X.ExportError, match="frozen split"):
         build(evaluated_run, cpkg)
     assert X.main(["--run-dir", str(evaluated_run), "--gate-split-01", "ACCEPTED", "--gate-ml-01",
-                   "ACCEPTED", "--split-manifest", str(cpkg["split_manifest_path"])]) == 2
+                   "ACCEPTED", "--split-manifest", str(cpkg["split_manifest_path"]), "--allow-unfrozen-split"]) == 2
     assert "EXPORT REFUSED" in capsys.readouterr().out
 
 
@@ -124,11 +124,11 @@ def test_dirty_code_is_refused_unless_explicitly_allowed_and_recorded(cpkg, tmp_
                                                              "version": "git:" + "b" * 40 + "+dirty"})
     run = runfixture.make_run_dir(tmp_path / "EXP-D-025", cpkg, experiment_id="EXP-D-025")
     E.evaluate_run(run, D.HOLDOUT_PARTITION, dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
-                   allow_holdout=True, split_manifest=cpkg["split_manifest_path"], log=None)
+                   allow_holdout=True, split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, log=None)
     with pytest.raises(X.ExportError, match="clean commits"):
         build(run, cpkg)
     path = X.export(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                    split_manifest=cpkg["split_manifest_path"], allow_dirty_code=True)
+                    split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, allow_dirty_code=True)
     record = json.loads(path.with_name(path.stem + ".export.json").read_text(encoding="utf-8"))
     assert record["allow_dirty_code"] is True
     assert record["dirty_code_versions"] == {"evaluation_code_version": "git:" + "b" * 40 + "+dirty"}
@@ -147,7 +147,7 @@ def test_failed_cases_block_the_export(cpkg, tmp_path, clean_code):
                                   subset="100_percent", fail_cases=(synth.C_HOLDOUT[3],))
     E.evaluate_run(run, D.HOLDOUT_PARTITION, dataset_manifest=cpkg["dataset"],
                    package_root=cpkg["package_root"], allow_holdout=True,
-                   split_manifest=cpkg["split_manifest_path"], log=None)
+                   split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, log=None)
     with pytest.raises(X.ExportError, match="FAILED"):
         build(run, cpkg)
 

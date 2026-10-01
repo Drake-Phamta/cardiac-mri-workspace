@@ -510,7 +510,8 @@ def _rel_new(path: Path, root: Path) -> str:
 
 
 def load_run_split(run_dir: str | Path, partition: str, *,
-                   frozen_split: str | Path = D.DEFAULT_SPLIT_MANIFEST) -> tuple[dict, str]:
+                   frozen_split: str | Path = D.DEFAULT_SPLIT_MANIFEST,
+                   allow_unfrozen_split: bool = False) -> tuple[dict, str]:
     """The run's copy of the split manifest - accepted only when it is byte-identical to the
     FROZEN split (the repository's split manifest unless another file is named explicitly).
 
@@ -519,7 +520,8 @@ def load_run_split(run_dir: str | Path, partition: str, *,
     would otherwise get that case scored without any flag (QA probe H9).
     """
     run_dir = Path(run_dir)
-    frozen_sha = D.sha256_file(frozen_split)
+    # the named split must itself be the FROZEN one, pinned by sha256 in ml.data (QA B-2, #64 R-1)
+    frozen_sha = MF.require_frozen_split(frozen_split, allow_unfrozen_split=allow_unfrozen_split)
     pm = MF.validate_predictions_manifest(
         D.load_json(run_dir / MF.RUN_LAYOUT["predictions_manifest"].format(partition=partition)))
     ref = pm["split_manifest"]
@@ -535,7 +537,8 @@ def load_run_split(run_dir: str | Path, partition: str, *,
 
 def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict | None = None,
                  package_root: str | Path = D.DEFAULT_PACKAGE_ROOT, allow_holdout: bool = False,
-                 split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST, log=print) -> Path:
+                 split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST, allow_unfrozen_split: bool = False,
+                 log=print) -> Path:
     """Score <run>/predictions/<partition>/ against the reference masks; write <run>/evaluation/<partition>/.
 
     split_manifest is the FROZEN split the run must have used (default: the repository's).
@@ -551,7 +554,8 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
     if pm["population"]["partition"] != partition:
         raise ValueError(f"{MF.RUN_LAYOUT['predictions_manifest'].format(partition=partition)}: "
                          f"population is {pm['population']['partition']!r}, not {partition!r}")
-    split, split_sha = load_run_split(run_dir, partition, frozen_split=split_manifest)
+    split, split_sha = load_run_split(run_dir, partition, frozen_split=split_manifest,
+                                      allow_unfrozen_split=allow_unfrozen_split)
     if partition == D.HOLDOUT_PARTITION:
         if allow_holdout is not True:
             raise D.HoldoutAccessError("evaluating the final holdout needs allow_holdout=True")
@@ -717,6 +721,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--package-root", type=Path, default=D.DEFAULT_PACKAGE_ROOT)
     r.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
                    help="the FROZEN split the run must have used (default: the repository's)")
+    r.add_argument("--allow-unfrozen-split", action="store_true",
+                   help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split")
     c = sub.add_parser("compare", help="paired comparison of two recorded evaluations")
     c.add_argument("--run-a", required=True, type=Path)
     c.add_argument("--run-b", required=True, type=Path)
@@ -726,18 +732,20 @@ def main(argv: list[str] | None = None) -> int:
                    help="for the raw-vs-processed ablation (EXP-D-PP) only")
     c.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
                    help="the FROZEN split both runs must have used (default: the repository's)")
+    c.add_argument("--allow-unfrozen-split", action="store_true",
+                   help="TEST ONLY: accept a split whose sha256 is not the pinned frozen split")
     c.add_argument("--out", type=Path, help="write the comparison to this NEW JSON file")
     args = ap.parse_args(argv)
     if args.cmd == "run":
         out = evaluate_run(args.run_dir, args.population,
                            dataset_manifest=D.load_dataset_manifest(args.dataset_manifest),
                            package_root=args.package_root, allow_holdout=args.allow_holdout,
-                           split_manifest=args.split_manifest)
+                           split_manifest=args.split_manifest, allow_unfrozen_split=args.allow_unfrozen_split)
         print(f"wrote {out}")
         return 0
     report = compare_runs(args.run_a, args.run_b, args.population, metric=args.metric,
                           same_prediction_variant=not args.allow_variant_mismatch,
-                          split_manifest=args.split_manifest)
+                          split_manifest=args.split_manifest, allow_unfrozen_split=args.allow_unfrozen_split)
     if args.out:
         MF.write_json_new(args.out, report)
         print(f"wrote {args.out}")
@@ -748,14 +756,16 @@ def main(argv: list[str] | None = None) -> int:
 
 def compare_runs(run_a: str | Path, run_b: str | Path, population: str, *, metric: str = "dice_3d",
                  same_prediction_variant: bool = True,
-                 split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST) -> dict:
+                 split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
+                 allow_unfrozen_split: bool = False) -> dict:
     """Paired comparison of two recorded evaluations of the same population.
 
     Both runs must have used the FROZEN split (load_run_split); the holdout population also
     reports the two holdout slots.
     """
-    split, _ = load_run_split(run_a, population, frozen_split=split_manifest)
-    load_run_split(run_b, population, frozen_split=split_manifest)
+    split, _ = load_run_split(run_a, population, frozen_split=split_manifest,
+                              allow_unfrozen_split=allow_unfrozen_split)
+    load_run_split(run_b, population, frozen_split=split_manifest, allow_unfrozen_split=allow_unfrozen_split)
     a, b = load_evaluation(run_a, population), load_evaluation(run_b, population)
     if population == D.HOLDOUT_PARTITION:
         report = paired_holdout_report(a, b, split, metric=metric, same_prediction_variant=same_prediction_variant)

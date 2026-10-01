@@ -25,6 +25,21 @@ class SplitMismatchError(DataAccessError):
     """A run's split manifest copy is not the frozen split manifest (the holdout lock refuses it)."""
 
 
+def require_frozen_split(path, *, allow_unfrozen_split: bool = False) -> str:
+    """sha256 of the split manifest at `path`, which must be the FROZEN split (ml.data.FROZEN_SPLIT_SHA256).
+
+    allow_unfrozen_split=True is a TEST-ONLY switch (synthetic splits); every caller records it.
+    """
+    from ml.data import FROZEN_SPLIT_SHA256, sha256_file
+    if type(allow_unfrozen_split) is not bool:
+        raise TypeError("allow_unfrozen_split must be literally True or False")
+    sha = sha256_file(path)
+    if sha != FROZEN_SPLIT_SHA256 and not allow_unfrozen_split:
+        raise SplitMismatchError(f"split manifest sha256 {sha} is not the frozen split {FROZEN_SPLIT_SHA256}; "
+                                 f"refusing (only tests may pass allow_unfrozen_split)")
+    return sha
+
+
 def is_clean_code_version(version: str | None) -> bool:
     """True for "git:<commit>" from a clean tree; False for +dirty, MIXED:..., UNKNOWN or missing."""
     return (isinstance(version, str) and version.startswith("git:") and "+dirty" not in version

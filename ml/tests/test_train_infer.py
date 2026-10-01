@@ -27,9 +27,10 @@ IMG = 112
 
 
 def make_config(pkg, root, **over):
+    # synthetic splits are not the pinned frozen split: tests set the TEST-ONLY switch
     cfg = {"experiment_id": "EXP-T-001", "variant": "unet_base16_depth4", "subset": "50_percent",
            "epochs": 1, "batch": 4, "lr": 1e-4, "img": IMG, "seed": 2024, "precision": "fp32",
-           "device": "cpu",
+           "device": "cpu", "allow_unfrozen_split": True,
            "paths": {"split_manifest": str(pkg["split_manifest_path"]),
                      "dataset_manifest": str(pkg["dataset_manifest_path"]),
                      "package_root": str(pkg["package_root"]),
@@ -86,8 +87,8 @@ def test_one_epoch_end_to_end(trained):
     assert rm["training_code_version"].startswith("git:")
     assert "img 112 != ADR-ML-001 560" in rm["recipe_deviations_from_adr_ml_001"]
     log = read_log(run)
-    assert [e["event"] for e in log] == ["start", "epoch"]
-    ep = log[1]
+    assert [e["event"] for e in log] == ["start", "first_step", "epoch"]
+    ep = log[2]
     assert np.isfinite(ep["train_loss_mean"]) and 0.0 <= ep["val_mean_dice_3d"] <= 1.0
     assert ep["train_slices"] == sum(synth.SHAPES[c][2] for c in synth.SUBSETS["50_percent"])
     assert set(ep["val_dice_per_case"]) == set(synth.VALIDATION)
@@ -170,8 +171,9 @@ def test_resume_after_interruption_matches_an_uninterrupted_run(pkg, tmp_path, m
     monkeypatch.setattr(T, "_after_epoch_hook", None)
     assert T.run_experiment(cfg, log=None)["status"] == "COMPLETED"
     log = read_log(run)
-    assert [e["event"] for e in log] == ["start", "epoch", "resume", "epoch"]
-    assert log[2]["from_epoch"] == 2 and [e["epoch"] for e in log if e["event"] == "epoch"] == [1, 2]
+    assert [e["event"] for e in log] == ["start", "first_step", "epoch", "resume", "first_step", "epoch"]
+    resume = next(e for e in log if e["event"] == "resume")
+    assert resume["from_epoch"] == 2 and [e["epoch"] for e in log if e["event"] == "epoch"] == [1, 2]
 
     straight = make_config(pkg, tmp_path, experiment_id="EXP-T-STRAIGHT", epochs=2)
     T.run_experiment(straight, log=None)
@@ -201,6 +203,93 @@ def test_interruption_between_last_and_best_rederives_best(pkg, tmp_path, monkey
     last = torch.load(run / "checkpoints" / "last.pt", weights_only=True)
     assert best["epoch"] == last["best"]["epoch"] == rm["checkpoint"]["epoch"]
     assert all(torch.equal(best["model_state"][k], last["best_model_state"][k]) for k in best["model_state"])
+
+
+def test_the_frozen_split_is_pinned_to_the_repository_manifest():
+    if not D.DEFAULT_SPLIT_MANIFEST.exists():
+        pytest.skip("split manifest not on this branch")
+    assert D.sha256_file(D.DEFAULT_SPLIT_MANIFEST) == D.FROZEN_SPLIT_SHA256
+    assert I.MF.require_frozen_split(D.DEFAULT_SPLIT_MANIFEST) == D.FROZEN_SPLIT_SHA256
+
+
+def test_p1_a_forged_split_is_refused_before_anything_is_written(pkg, tmp_path):
+    """QA probe P1: a config naming a split that swaps a holdout case into train must be refused
+    BEFORE any run directory, cache entry or queue file exists - by ml.train and by ml.queue."""
+    forged = json.loads(json.dumps(pkg["split"]))
+    moved = forged["partitions"]["final_holdout"]["case_ids"].pop()
+    forged["partitions"]["train"]["case_ids"].append(moved)
+    for sub in forged["training_subsets"].values():
+        sub["effective_case_ids"].append(moved)
+    forged_path = tmp_path / "forged_split.json"
+    forged_path.write_text(json.dumps(forged), encoding="utf-8")
+    cfg = make_config(pkg, tmp_path, experiment_id="EXP-T-P1")
+    cfg.pop("allow_unfrozen_split")                                   # a real config: no test switch
+    cfg["paths"] = dict(cfg["paths"], split_manifest=str(forged_path))
+    with pytest.raises(I.MF.SplitMismatchError):
+        T.run_experiment(cfg, log=None)
+    assert not (tmp_path / "runs").exists() and not (tmp_path / "cache").exists()
+    queue_file = tmp_path / "queue.json"
+    queue_file.write_text(json.dumps({"queue_id": "q-p1", "experiments": [cfg]}), encoding="utf-8")
+    with pytest.raises(I.MF.SplitMismatchError):
+        Q.run_queue(queue_file, echo=lambda *a: None)
+    assert not (tmp_path / "runs").exists() and not (tmp_path / "cache").exists()
+    # the same synthetic split WITHOUT the forgery is still refused without the test switch
+    honest = dict(cfg, paths=dict(cfg["paths"], split_manifest=str(pkg["split_manifest_path"])))
+    with pytest.raises(I.MF.SplitMismatchError):
+        T.run_experiment(honest, log=None)
+    assert not (tmp_path / "runs").exists()
+
+
+def test_the_test_switch_is_recorded_as_a_deviation(trained):
+    rm = json.loads((trained["run_dir"] / "run_manifest.json").read_text(encoding="utf-8"))
+    assert "allow_unfrozen_split=true (TEST-ONLY switch)" in rm["recipe_deviations_from_adr_ml_001"]
+    assert any("is NOT the frozen split" in d for d in rm["recipe_deviations_from_adr_ml_001"])
+    assert rm["frozen_split"] == {"expected_sha256": D.FROZEN_SPLIT_SHA256,
+                                  "actual_sha256": D.sha256_file(trained["cfg"]["paths"]["split_manifest"]),
+                                  "is_frozen": False, "allow_unfrozen_split": True}
+    pm = json.loads((trained["run_dir"] / "predictions" / "validation" / "predictions_manifest.json")
+                    .read_text(encoding="utf-8"))
+    assert pm["frozen_split"]["allow_unfrozen_split"] is True and pm["frozen_split"]["is_frozen"] is False
+
+
+def test_first_step_records_the_precision_in_effect(trained):
+    events = read_log(trained["run_dir"])
+    first = [e for e in events if e["event"] == "first_step"]
+    assert len(first) == 1 and first[0]["logits_dtype"] == "torch.float32"
+    assert first[0]["precision_configured"] == "fp32" and first[0]["cuda_bf16_supported"] is None
+    rm = json.loads((trained["run_dir"] / "run_manifest.json").read_text(encoding="utf-8"))
+    assert rm["precision_evidence"]["logits_dtype"] == "torch.float32"
+
+
+def test_the_run_lock_records_pid_and_create_time(trained):
+    lock = json.loads((trained["run_dir"] / ".lock.json").read_text(encoding="utf-8"))
+    assert lock["state"] == "released"
+    run = trained["run_dir"].parent / "EXP-T-LOCK"
+    run.mkdir(parents=True)
+    path = T._acquire_lock(run)
+    held = json.loads(path.read_text(encoding="utf-8"))
+    import psutil
+    assert held["pid"] == os.getpid() and held["create_time"] == psutil.Process(os.getpid()).create_time()
+    T._release_lock(path)
+
+
+def test_queue_refuses_to_start_without_psutil(pkg, tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "psutil", None)                 # import psutil -> ImportError
+    queue_file = tmp_path / "queue.json"
+    queue_file.write_text(json.dumps({"queue_id": "q-ps", "experiments": [make_config(pkg, tmp_path)]}),
+                          encoding="utf-8")
+    with pytest.raises(RuntimeError, match="psutil"):
+        Q.run_queue(queue_file, echo=lambda *a: None)
+    assert not (tmp_path / "runs").exists()
+
+
+def test_queue_reports_a_complete_run_with_another_config_as_failed(trained, tmp_path):
+    changed = dict(trained["cfg"], lr=3e-4)                            # same experiment id, other config
+    queue_file = tmp_path / "queue.json"
+    queue_file.write_text(json.dumps({"queue_id": "q-n3", "experiments": [changed]}), encoding="utf-8")
+    out = Q.run_queue(queue_file, echo=lambda *a: None)
+    assert out["results"][0]["outcome"] == "failed" and "config.json" in out["results"][0]["reason"]
+    assert out["failed"] == [trained["cfg"]["experiment_id"]]
 
 
 def test_training_code_never_names_holdout_access():
@@ -240,13 +329,14 @@ def test_epochs_and_batch_overrides_are_recorded(pkg, tmp_path):
 def predict(run, partition, pkg, **kw):
     """predict_population naming the synthetic split as the FROZEN one."""
     kw.setdefault("split_manifest", pkg["split_manifest_path"])
+    kw.setdefault("allow_unfrozen_split", True)
     kw.setdefault("log", None)
     return I.predict_population(run, partition, **kw)
 
 
 def test_infer_refuses_holdout_without_the_flag(trained, pkg, capsys):
     run = trained["run_dir"]
-    split = ["--split-manifest", str(pkg["split_manifest_path"])]
+    split = ["--split-manifest", str(pkg["split_manifest_path"]), "--allow-unfrozen-split"]
     assert I.main(["--run-dir", str(run), "--population", "holdout", *split]) == 2
     assert "REFUSED" in capsys.readouterr().out
     with pytest.raises(D.HoldoutAccessError):
@@ -269,7 +359,7 @@ def test_infer_refuses_to_overwrite(trained, pkg, capsys):
     run = trained["run_dir"]
     with pytest.raises(FileExistsError):
         predict(run, "validation", pkg)
-    assert I.main(["--run-dir", str(run), "--split-manifest", str(pkg["split_manifest_path"])]) == 2
+    assert I.main(["--run-dir", str(run), "--split-manifest", str(pkg["split_manifest_path"]), "--allow-unfrozen-split"]) == 2
     assert "REFUSED" in capsys.readouterr().out
     assert predict(run, "validation", pkg, skip_if_complete=True).name == "validation"
 
@@ -376,9 +466,9 @@ def test_missing_manifest_keys_are_refused_not_key_errors(trained, pkg, tmp_path
     rm_path.write_text(json.dumps(rm), encoding="utf-8")
     with pytest.raises(X.ExportError, match="checkpoint.sha256"):
         X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                         split_manifest=cpkg["split_manifest_path"])
+                         split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
     assert X.main(["--run-dir", str(run), "--gate-split-01", "ACCEPTED", "--gate-ml-01", "ACCEPTED",
-                   "--split-manifest", str(cpkg["split_manifest_path"])]) == 2
+                   "--split-manifest", str(cpkg["split_manifest_path"]), "--allow-unfrozen-split"]) == 2
     assert "EXPORT REFUSED" in capsys.readouterr().out
 
 
@@ -393,9 +483,9 @@ def test_train_infer_evaluate_export_chain(tmp_path, monkeypatch):
     run = T.run_dir_for(T.validate_config(cfg))
     predict(run, "final_holdout", cpkg, holdout_authorization={"confirm_frozen_morphology_sha256": "d" * 64})
     E.evaluate_run(run, "final_holdout", dataset_manifest=cpkg["dataset"], package_root=cpkg["package_root"],
-                   allow_holdout=True, split_manifest=cpkg["split_manifest_path"], log=None)
+                   allow_holdout=True, split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True, log=None)
     manifest = X.build_manifest(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED",
-                                split_manifest=cpkg["split_manifest_path"])
+                                split_manifest=cpkg["split_manifest_path"], allow_unfrozen_split=True)
     result = X.validate(manifest, run)
     assert result["status"] == "PASS", result
     assert manifest["experiment"]["checkpoint"]["checksum"]["value"] == D.sha256_file(run / "checkpoints" / "best.pt")
@@ -408,7 +498,8 @@ def test_train_infer_evaluate_export_chain(tmp_path, monkeypatch):
 def test_queue_runs_trains_evaluates_compares_and_survives_a_failure(trained, pkg, tmp_path):
     new = make_config(pkg, trained["root"], experiment_id="EXP-T-QUEUE")
     broken = make_config(pkg, trained["root"], experiment_id="EXP-T-BROKEN")
-    broken["paths"] = dict(broken["paths"], split_manifest=str(tmp_path / "missing.json"))
+    # fails at RUN time (a missing split would now be refused before the queue starts)
+    broken["paths"] = dict(broken["paths"], dataset_manifest=str(tmp_path / "missing.json"))
     queue_file = tmp_path / "queue.json"
     queue_file.write_text(json.dumps({"queue_id": "q-test", "experiments": [trained["cfg"], broken, new],
                                       "compare": [["EXP-T-001", "EXP-T-QUEUE"]]}), encoding="utf-8")

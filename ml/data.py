@@ -73,6 +73,11 @@ import torch.nn.functional as F
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET_MANIFEST = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
 DEFAULT_SPLIT_MANIFEST = REPO_ROOT / "data" / "manifests" / "split_manifest_path_a_seed2024.json"
+# The FROZEN Path A split (GATE-SPLIT-01, merged with PR #35). Pinned in code so that neither
+# a config, a command-line path nor a local edit of the manifest file can substitute another
+# split: training, inference, evaluation, comparison and export refuse any other sha256
+# unless an explicit TEST-ONLY switch is set, and that switch is always recorded.
+FROZEN_SPLIT_SHA256 = "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d"
 
 
 def main_checkout_root(repo_root: Path = REPO_ROOT) -> Path:

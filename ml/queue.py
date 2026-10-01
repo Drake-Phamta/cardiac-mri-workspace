@@ -12,7 +12,11 @@ queue.json
     each run's config.json)
 
 Per experiment: train -> predict the validation population with best.pt -> evaluate it
-(ml.train's post-training step). After all runs: for each "compare" pair whose two runs are
+(ml.train's post-training step). Children run unbuffered (python -u), so the per-run stdout
+log is live; monitor <run>/train_log.jsonl and _queue/<queue_id>/queue_log.jsonl. Every
+config's split must be the pinned frozen split before the first run starts, and a COMPLETE
+run whose config.json differs from its queue entry is reported as failed, not skipped.
+The queue refuses to start without psutil (the run lock checks pid and create_time). After all runs: for each "compare" pair whose two runs are
 COMPLETE, a paired VALIDATION comparison (ml.evaluate.compare_runs) written once to
 <runs_root>/_queue/<queue_id>/comparisons/<a>__vs__<b>.validation.json. The holdout is
 never touched by the queue.
@@ -82,8 +86,8 @@ def load_queue(path: Path, *, epochs: int | None = None,
     ids = [c.get("experiment_id") for c in configs]
     if len(ids) != len(set(ids)):
         raise ValueError(f"experiment_id repeated in the queue: {ids}")
-    for c in configs:
-        T.validate_config(c)                     # fail before the first run, not hours later
+    for c in configs:                            # fail before the first run, not hours later
+        T.check_frozen_split(T.validate_config(c))       # the pinned frozen split (QA B-2)
     pairs = []
     for pair in q.get("compare") or []:
         if not (isinstance(pair, list) and len(pair) == 2 and all(p in ids for p in pair) and pair[0] != pair[1]):
@@ -114,7 +118,8 @@ def run_comparisons(pairs: list[tuple[str, str]], configs: list[dict], queue_dir
         else:
             try:
                 report = E.compare_runs(run_a, run_b, "validation",
-                                        split_manifest=T._path(ca, "split_manifest", D.DEFAULT_SPLIT_MANIFEST))
+                                        split_manifest=T._path(ca, "split_manifest", D.DEFAULT_SPLIT_MANIFEST),
+                                        allow_unfrozen_split=ca["allow_unfrozen_split"])
                 report["note"] = ("VALIDATION population: a pipeline / model-selection check, not a result; "
                                   "the locked holdout is evaluated only after GATE-IMG-01")
                 MF.write_json_new(out, report)
@@ -127,9 +132,19 @@ def run_comparisons(pairs: list[tuple[str, str]], configs: list[dict], queue_dir
     return results
 
 
+def require_psutil() -> None:
+    """The run lock identifies a live trainer by pid AND create_time; without psutil it cannot."""
+    try:
+        import psutil  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError("ml.queue needs psutil (the run lock checks pid and create_time); "
+                           "pip install psutil") from exc
+
+
 def run_queue(queue_path: Path, *, log_path: Path | None = None, dry_run: bool = False,
               python: str = sys.executable, env: dict | None = None, echo=print,
               epochs: int | None = None, batch: int | None = None) -> dict:
+    require_psutil()
     queue_id, configs, pairs = load_queue(queue_path, epochs=epochs, batch=batch)
     first = T.validate_config(configs[0])
     queue_dir = T._path(first, "runs_root", T.DEFAULT_RUNS_ROOT) / "_queue" / queue_id
@@ -147,6 +162,15 @@ def run_queue(queue_path: Path, *, log_path: Path | None = None, dry_run: bool =
         entry = {"experiment_id": cfg["experiment_id"], "run_dir": str(run_dir), "status_before": status,
                  "action": action}
         echo(f"[{n}/{len(configs)}] {cfg['experiment_id']}: {status} -> {action}")
+        if action == "skip":
+            # a COMPLETE run is only "skipped" when it was trained with exactly this config
+            recorded = (run_dir / MF.RUN_LAYOUT["config"]).read_bytes()
+            if recorded != MF.json_bytes(raw):
+                reason = "COMPLETE run has a different config.json than this queue entry"
+                _log(log_path, dict(entry, event="failed", reason=reason))
+                results.append(dict(entry, outcome="failed", reason=reason))
+                echo(f"    failed: {reason}")
+                continue
         if action == "skip" or dry_run:
             _log(log_path, dict(entry, event="planned" if dry_run else "skipped"))
             results.append(dict(entry, outcome="skipped" if action == "skip" else "planned"))
@@ -157,9 +181,10 @@ def run_queue(queue_path: Path, *, log_path: Path | None = None, dry_run: bool =
         stdout_path.parent.mkdir(parents=True, exist_ok=True)
         _log(log_path, dict(entry, event="launch", config_file=str(cfg_file), stdout=str(stdout_path)))
         t0 = time.perf_counter()
+        child_env = dict(env or os.environ, PYTHONUNBUFFERED="1")         # live per-run stdout log
         with open(stdout_path, "ab") as out:
-            proc = subprocess.run([python, "-m", "ml.train", "--config", str(cfg_file)], cwd=str(D.REPO_ROOT),
-                                  stdout=out, stderr=subprocess.STDOUT, env=env or dict(os.environ))
+            proc = subprocess.run([python, "-u", "-m", "ml.train", "--config", str(cfg_file)],
+                                  cwd=str(D.REPO_ROOT), stdout=out, stderr=subprocess.STDOUT, env=child_env)
         elapsed = round(time.perf_counter() - t0, 1)
         after = T.run_status(run_dir)
         outcome = "completed" if proc.returncode == 0 and after == "COMPLETE" else "failed"

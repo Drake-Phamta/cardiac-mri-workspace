@@ -131,12 +131,21 @@ python -m ml.evaluate compare --run-a <run> --run-b <run> --population final_hol
 python -m ml.export_contract2 --run-dir <run> --gate-split-01 <STATE> --gate-ml-01 <STATE> --validate
 ```
 
-**The split is checked against the frozen file, not against the run directory.** Evaluation,
-comparison and export accept a run only when its split copy is byte-identical to the frozen
-split manifest: the repository's `data/manifests/split_manifest_path_a_seed2024.json`, or
-another file named explicitly with `--split-manifest`. A run directory cannot vouch for itself.
-A split copy that moves a holdout case into validation, even with every in-run sha256
-updated, is refused (`SplitMismatchError`, regression test H9).
+**The split is pinned.** `ml.data.FROZEN_SPLIT_SHA256` is the sha256 of the frozen Path A
+split, `c5c65a09…396d`. Training, inference, evaluation, comparison and export refuse any
+split with another sha256. That covers a config path, a `--split-manifest` argument and a
+local edit of `data/manifests/split_manifest_path_a_seed2024.json` alike. The refusal
+happens before anything is written (regression test P1).
+
+The only way past it is the **test-only** switch: `allow_unfrozen_split` in a training
+config, or `--allow-unfrozen-split` on the CLIs. The switch is recorded:
+- in `recipe_deviations_from_adr_ml_001`;
+- as `frozen_split` in the run and predictions manifests;
+- in the Contract 2 export record.
+
+A run's split copy must also be byte-identical to that split. A run directory cannot vouch
+for itself: a split copy that moves a holdout case into validation is refused even with
+every in-run sha256 updated (`SplitMismatchError`, regression test H9).
 
 Always run the modules with `python -m ml.<module>` from the repository root: running a
 file under `ml/` directly puts `ml/` on `sys.path`, where `ml/queue.py` would shadow the
@@ -169,6 +178,45 @@ Each queued experiment runs train → infer (validation) → evaluate (validatio
 queue's `compare` pairs then produce paired **validation** comparisons in
 `<runs_root>\_queue\<queue_id>\comparisons\`. Those comparisons are a pipeline and
 model-selection check, not a result. The queue never touches the holdout.
+
+More queue behaviour:
+- It refuses to start without psutil; the run lock stores pid and `create_time`.
+- A COMPLETE run whose `config.json` differs from its queue entry is reported as failed,
+  not skipped.
+- Training processes run unbuffered, so the per-run stdout log is live.
+- **To monitor a run, watch `<run>\train_log.jsonl` and `<runs_root>\_queue\<queue_id>\queue_log.jsonl`.**
+- The `first_step` event in `train_log.jsonl` records the logits dtype actually produced,
+  plus whether the GPU supports bf16. This is runtime evidence that bf16 autocast is in
+  effect.
+
+### Day 22 night queue (DINOv2, this PC)
+
+The queue file stays outside git, at `<CARDIAC_RUNS_ROOT>\_queue_configs\d22-dinov2.json`.
+Its content:
+
+```json
+{"queue_id": "d22-dinov2",
+ "experiments": [
+  {"experiment_id": "EXP-D-025", "variant": "dinov2_s14_full_progressive", "subset": "25_percent",
+   "epochs": "SET_E", "batch": "SET_BATCH", "lr": 0.0001, "img": 560, "seed": 2024,
+   "precision": "bf16", "device": "cuda", "num_workers": 0, "require_clean_code": true},
+  {"experiment_id": "EXP-D-100", "...": "same, subset 100_percent"},
+  {"experiment_id": "EXP-D-050", "...": "same, subset 50_percent"}],
+ "compare": [["EXP-D-025", "EXP-D-100"], ["EXP-D-050", "EXP-D-100"], ["EXP-D-025", "EXP-D-050"]]}
+```
+
+The three runs go in the order EXP-D-025 → EXP-D-100 → EXP-D-050. The comparisons are
+D-vs-D on the **validation** population and are **not results**. E and the batch come from
+the C1 calendar.
+
+Run the dry run first, from the repository root of a clean checkout:
+
+```
+python -m ml.queue --queue <CARDIAC_RUNS_ROOT>\_queue_configs\d22-dinov2.json --epochs <E> --batch <B> --dry-run
+python -m ml.queue --queue <CARDIAC_RUNS_ROOT>\_queue_configs\d22-dinov2.json --epochs <E> --batch <B>
+```
+
+To resume after an interruption, run the same command again with the same E and B.
 
 Inference refuses non-finite logits: `NonFiniteLogitsError` records the case as FAILED.
 Without the check, `sigmoid(NaN) >= 0.5` is False and the NaN would silently become a

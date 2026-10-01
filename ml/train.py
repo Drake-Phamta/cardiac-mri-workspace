@@ -18,6 +18,9 @@ CONFIG (JSON; unknown keys are refused so a typo cannot silently change a run)
     post_train_validation   predict + evaluate the validation population with best.pt
                             (ml.infer + ml.evaluate)        default true
     require_clean_code      refuse to start from a modified ml/ tree   default false
+    allow_unfrozen_split    TEST ONLY: accept a split whose sha256 is not ml.data.FROZEN_SPLIT_SHA256
+                            (synthetic test splits); recorded as a deviation   default false.
+                            Without it, any other split is refused before anything is written.
     paths           {split_manifest, dataset_manifest, package_root, cache_root, runs_root}
                     optional; relative paths resolve against the repository root
     notes           free text, recorded
@@ -78,7 +81,8 @@ TRAIN_CODE_VERSION = "ml-train-1.0.0"
 REQUIRED = {"experiment_id": str, "variant": str, "subset": str, "epochs": int, "batch": int,
             "lr": float, "img": int, "seed": int}
 OPTIONAL = {"precision": str, "device": str, "num_workers": int, "val_batch": int,
-            "post_train_validation": bool, "require_clean_code": bool, "paths": dict, "notes": str}
+            "post_train_validation": bool, "require_clean_code": bool, "paths": dict, "notes": str,
+            "allow_unfrozen_split": bool}
 PATH_KEYS = {"split_manifest", "dataset_manifest", "package_root", "cache_root", "runs_root"}
 BATCH_CHOICES = (8, 4, 2)
 ADR_ML_001 = {"img": 560, "lr": 1e-4, "seed": 2024, "precision": "bf16", "device": "cuda",
@@ -162,6 +166,7 @@ def validate_config(cfg: dict) -> dict:
     out.setdefault("val_batch", out["batch"])
     out.setdefault("post_train_validation", True)
     out.setdefault("require_clean_code", False)
+    out.setdefault("allow_unfrozen_split", False)          # TEST-ONLY; recorded as a deviation
     paths = dict(out.get("paths") or {})
     bad = sorted(set(paths) - PATH_KEYS)
     if bad:
@@ -170,7 +175,7 @@ def validate_config(cfg: dict) -> dict:
     return out
 
 
-def recipe_deviations(cfg: dict) -> list[str]:
+def recipe_deviations(cfg: dict, split_sha256: str | None = None) -> list[str]:
     """Where this config departs from the ADR-ML-001 declared values (recorded, not refused)."""
     dev = []
     for key in ("img", "lr", "seed", "precision", "device"):
@@ -178,7 +183,20 @@ def recipe_deviations(cfg: dict) -> list[str]:
             dev.append(f"{key} {cfg[key]!r} != ADR-ML-001 {ADR_ML_001[key]!r}")
     if cfg["variant"] not in ADR_ML_001["variants"]:
         dev.append(f"variant {cfg['variant']!r} is not an ADR-ML-001 family {list(ADR_ML_001['variants'])}")
+    if cfg.get("allow_unfrozen_split"):
+        dev.append("allow_unfrozen_split=true (TEST-ONLY switch)")
+    if split_sha256 is not None and split_sha256 != D.FROZEN_SPLIT_SHA256:
+        dev.append(f"split manifest sha256 {split_sha256} is NOT the frozen split {D.FROZEN_SPLIT_SHA256}")
     return dev
+
+
+def check_frozen_split(cfg: dict) -> tuple[Path, str]:
+    """(path, sha256) of the split the config names. Anything but the FROZEN split
+    (ml.data.FROZEN_SPLIT_SHA256) is refused unless the config sets the TEST-ONLY switch
+    allow_unfrozen_split, which recipe_deviations() and the run manifest record. Called
+    before anything is written (QA B-2 / probe P1)."""
+    path = _path(cfg, "split_manifest", D.DEFAULT_SPLIT_MANIFEST)
+    return path, MF.require_frozen_split(path, allow_unfrozen_split=cfg["allow_unfrozen_split"])
 
 
 def _path(cfg: dict, key: str, default) -> Path:
@@ -293,21 +311,31 @@ def _best_payload(cfg, best, best_state, config_sha, backbone) -> dict:
 
 # --- the lock ------------------------------------------------------------------------------------
 
+def _create_time(pid: int) -> float | None:
+    import psutil                                    # required: the queue refuses to start without it
+    try:
+        return psutil.Process(pid).create_time()
+    except psutil.Error:
+        return None
+
+
 def _acquire_lock(run_dir: Path) -> Path:
-    """One trainer per run directory. A lock left by a dead process is taken over."""
+    """One trainer per run directory. A lock left by a dead process is taken over.
+
+    The lock records the pid AND that process's create_time, so a recycled pid is not taken
+    for the original trainer.
+    """
     lock = run_dir / ".lock.json"
     if lock.exists():
         held = D.load_json(lock)
         if held.get("state") == "held" and held.get("host") == socket.gethostname():
-            try:
-                import psutil
-                alive = psutil.pid_exists(int(held.get("pid", -1)))
-            except ImportError:
-                alive = True
-            if alive and int(held.get("pid", -1)) != os.getpid():
-                raise RuntimeError(f"{run_dir} is being trained by pid {held.get('pid')}")
-    MF.write_json_replace(lock, {"state": "held", "pid": os.getpid(), "host": socket.gethostname(),
-                                 "since": MF.now_iso()})
+            pid = int(held.get("pid", -1))
+            alive = pid != os.getpid() and _create_time(pid) is not None and \
+                (held.get("create_time") is None or _create_time(pid) == held.get("create_time"))
+            if alive:
+                raise RuntimeError(f"{run_dir} is being trained by pid {pid}")
+    MF.write_json_replace(lock, {"state": "held", "pid": os.getpid(), "create_time": _create_time(os.getpid()),
+                                 "host": socket.gethostname(), "since": MF.now_iso()})
     return lock
 
 
@@ -362,6 +390,7 @@ def run_experiment(raw_config: dict, *, log=print) -> dict:
     """Train (or resume, or skip) one experiment. Returns {"status", "run_dir", ...}."""
     log = log or (lambda *args, **kwargs: None)
     cfg = validate_config(raw_config)
+    check_frozen_split(cfg)                      # before ANYTHING is written (QA B-2 / probe P1)
     run_dir = run_dir_for(cfg)
     if D.inside_git_worktree(run_dir):
         raise ConfigError(f"run directory {run_dir} is inside a git work tree; runs stay outside git")
@@ -381,14 +410,14 @@ def run_experiment(raw_config: dict, *, log=print) -> dict:
 def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path, *, log) -> dict:
     _ensure_file(run_dir / MF.RUN_LAYOUT["config"], config_bytes, "config.json")
     config_sha = D.sha256_file(run_dir / MF.RUN_LAYOUT["config"])
-    # The FROZEN split: the repository's manifest unless the config names another file. The
-    # run's copy is written from it and must stay byte-identical (QA B-1).
-    split_src = _path(cfg, "split_manifest", D.DEFAULT_SPLIT_MANIFEST)
+    # The split must be the FROZEN one (sha256 pinned in ml.data) unless the TEST-ONLY switch is
+    # set; the run's copy is written from it and must stay byte-identical (QA B-1 / B-2).
+    split_src, src_sha = check_frozen_split(cfg)
     split_bytes = split_src.read_bytes()
     _ensure_file(run_dir / MF.RUN_LAYOUT["split_manifest_copy"], split_bytes, "split manifest copy")
     split = D.load_split_manifest(run_dir / MF.RUN_LAYOUT["split_manifest_copy"])
     split_sha = D.sha256_file(run_dir / MF.RUN_LAYOUT["split_manifest_copy"])
-    if split_sha != D.sha256_file(split_src):
+    if split_sha != src_sha:
         raise MF.SplitMismatchError("the run's split copy is not byte-identical to the frozen split manifest")
     subset_rel = MF.RUN_LAYOUT["training_subset_manifest"].format(subset=cfg["subset"])
     _ensure_file(run_dir / subset_rel,
@@ -473,6 +502,7 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
     MF.write_json_replace(state_path, state)
 
     model.train()
+    first_step_logged = False
     loader = torch.utils.data.DataLoader(train_ds, batch_size=cfg["batch"], shuffle=True, generator=shuffle_gen,
                                          num_workers=cfg["num_workers"], drop_last=False,
                                          pin_memory=(device == "cuda"))
@@ -486,6 +516,16 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
             optimizer.zero_grad(set_to_none=True)
             with M.autocast_for(device, precision):
                 logits = model(x)
+            if not first_step_logged:            # runtime evidence of the precision actually in effect
+                evidence = {"event": "first_step", "time": MF.now_iso(), "epoch": epoch,
+                            "logits_dtype": str(logits.dtype), "precision_configured": precision,
+                            "device": device,
+                            "cuda_bf16_supported": (bool(torch.cuda.is_bf16_supported())
+                                                    if M._device_kind(device) == "cuda" else None)}
+                _log(log_path, evidence)
+                state["first_step_evidence"] = {k: evidence[k] for k in
+                                                ("logits_dtype", "precision_configured", "cuda_bf16_supported")}
+                first_step_logged = True
             loss = recipe_loss(logits, y)
             if not torch.isfinite(loss):
                 raise FloatingPointError(f"non-finite loss at epoch {epoch}, step {steps + 1}")
@@ -537,11 +577,12 @@ def _run_locked(cfg: dict, raw_config: dict, config_bytes: bytes, run_dir: Path,
         I.predict_population(run_dir, "validation", checkpoint="best", device=device, precision=precision,
                              batch=cfg["val_batch"], dataset_manifest=dataset_manifest,
                              package_root=package_root, skip_if_complete=True, split_manifest=split_src,
-                             log=log)
+                             allow_unfrozen_split=cfg["allow_unfrozen_split"], log=log)
         eval_dir = run_dir / MF.RUN_LAYOUT["evaluation"].format(partition="validation")
         if not eval_dir.exists():
             E.evaluate_run(run_dir, "validation", dataset_manifest=dataset_manifest,
-                           package_root=package_root, split_manifest=split_src, log=log)
+                           package_root=package_root, split_manifest=split_src,
+                           allow_unfrozen_split=cfg["allow_unfrozen_split"], log=log)
         em = MF.validate_evaluation_manifest(D.load_json(eval_dir / "evaluation_manifest.json"))
         eval_refs = {k: em["outputs"][k] for k in eval_refs}
         evaluation_code_version = em["evaluation_code_version"]
@@ -599,7 +640,11 @@ def _write_run_manifest(cfg, run_dir, state, split, split_sha, subset_rel, popul
         "epochs": cfg["epochs"],
         "recipe": RECIPE,
         "recipe_values": {k: cfg[k] for k in ("img", "batch", "lr", "seed", "precision", "device")},
-        "recipe_deviations_from_adr_ml_001": recipe_deviations(cfg),
+        "recipe_deviations_from_adr_ml_001": recipe_deviations(cfg, split_sha),
+        "frozen_split": {"expected_sha256": D.FROZEN_SPLIT_SHA256, "actual_sha256": split_sha,
+                         "is_frozen": split_sha == D.FROZEN_SPLIT_SHA256,
+                         "allow_unfrozen_split": cfg["allow_unfrozen_split"]},
+        "precision_evidence": state.get("first_step_evidence"),
         "model_card": M.model_card(model),
         "config": {"path": MF.RUN_LAYOUT["config"], "sha256": config_sha},
         "train_log": {"path": MF.RUN_LAYOUT["train_log"], "epoch_lines": len(epoch_lines)},
