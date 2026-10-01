@@ -33,6 +33,7 @@ DATA_POLICY = (
 STATUS_BY_ENDPOINT = {
     "review_create": "NOT_REVIEWED",
     "review_patch": "FLAGGED",
+    "review_commit": "CORRECTED",  # the commit itself performs the move to CORRECTED, atomically
     "finding_create": "OPEN",
     "findings_list": "OPEN",
     "finding_patch": "RESOLVED",
@@ -260,6 +261,9 @@ def generate_fixture(contract: dict) -> dict:
             default_data["items"].append(inference_row)
         if endpoint_id == "analysis_run_metrics":
             default_data["metric_state"] = "COMPUTED"
+        if endpoint_id == "experiment_list":
+            # 08 section 2: RAW experiments and the PROCESSED ablation share one list.
+            default_data["items"].append({"experiment_id": "EXP-D-PP", "prediction_variant": "PROCESSED"})
         if endpoint_id == "experiment_cases":
             rows = experiment_case_rows()
             default_data = {"items": rows, "metric_version": field_value("metric_version", contract, endpoint_id),
