@@ -129,6 +129,7 @@ export default function FindingsScreen({ runtime, nav, params }) {
       <StateView view={st.view} what="the findings" onAction={onAction}>
         {() => (
           <FlatList
+            style={s.flex}
             data={st.items}
             keyExtractor={(item, i) => `${item.finding.findingId || 'finding'}#${i}`}
             renderItem={renderItem}
@@ -147,6 +148,7 @@ export default function FindingsScreen({ runtime, nav, params }) {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
+  flex: { flex: 1 },
   list: { padding: space.m, gap: space.m },
   card: {
     backgroundColor: color.surface, borderColor: color.border, borderWidth: 1, borderRadius: 10, padding: space.m,

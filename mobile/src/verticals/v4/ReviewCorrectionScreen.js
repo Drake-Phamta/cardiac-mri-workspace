@@ -117,7 +117,7 @@ function Canvas({ ctl, st }) {
   const px = st.slice && st.slice.pixels;
   const badge = st.slice && st.slice.maskState ? STATE_BADGE[st.slice.maskState] : null;
   return (
-    <View style={s.canvas} ref={ref} onLayout={onLayout} {...responder.panHandlers}>
+    <View style={s.canvas} ref={ref} collapsable={false} onLayout={onLayout} {...responder.panHandlers}>
       {t && (
         <Svg width="100%" height="100%" pointerEvents="none">
           <G transform={`translate(${t.panX} ${t.panY}) scale(${t.zoom})`}>
