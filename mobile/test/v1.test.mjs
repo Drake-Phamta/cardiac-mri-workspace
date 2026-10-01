@@ -202,6 +202,29 @@ test('V1n2 slice cache: an UNAVAILABLE slice answer is kept for scrolling (TTL),
   assert.equal(sent, 5, 'an error is never cached - a retry reaches the server');
 });
 
+test('V1n3 slice cache: only ARTIFACT_NOT_FOUND / GROUND_TRUTH_UNAVAILABLE are kept; clearNegative and clearWhere forget only what they name', async () => {
+  let sent = 0;
+  const answers = { 1: { state: 'SUCCESS', data: {} }, 2: { state: 'EMPTY_UNAVAILABLE', reason: 'ARTIFACT_NOT_FOUND' }, 3: { state: 'EMPTY_UNAVAILABLE', reason: 'GROUND_TRUTH_UNAVAILABLE' }, 4: { state: 'EMPTY_UNAVAILABLE', reason: 'SOMETHING_ELSE' } };
+  const stub = {
+    resolve: (id, p) => ({ url: `/s/${id}/${p.case_id}/${p.slice_index}` }),
+    async call(id, p) { sent += 1; return answers[p.slice_index]; },
+  };
+  const cached = createSliceCache(stub);
+  const ask = (z, id = 'mri_slice_get') => cached.call(id, { case_id: 'C', slice_index: z });
+  for (const z of [1, 2, 3, 4]) await ask(z);
+  for (const z of [1, 2, 3, 4]) await ask(z);
+  assert.equal(sent, 5, 'SUCCESS and the two named reasons are kept; any other unavailable reason is asked again');
+  await ask(1, 'analysis_slice_metrics');
+  assert.equal(cached.clearNegative(), 2, 'the two unavailable entries go');
+  sent = 0;
+  await ask(1); await ask(2); await ask(3);
+  assert.equal(sent, 2, 'clearNegative kept the SUCCESS entry, dropped the unavailable ones');
+  assert.equal(cached.clearWhere((id, p) => p.slice_index === 1), 2, 'both endpoints of slice 1 go');
+  sent = 0;
+  await ask(1); await ask(2);
+  assert.equal(sent, 1, 'clearWhere dropped slice 1 only');
+});
+
 test('V1o2 slice cache: an unnamed read finds what the model fetched with scenario "default"', async () => {
   const cached = createSliceCache(fixtureClient());
   const p = { case_id: 'C', slice_index: 7 };

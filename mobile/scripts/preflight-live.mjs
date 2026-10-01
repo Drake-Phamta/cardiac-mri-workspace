@@ -92,7 +92,7 @@ async function main() {
   const c = runtime.client;
   let failures = 0;
   const check = (id, ok, detail) => { if (!ok) failures += 1; console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); return ok; };
-  console.log(`preflight: backend ${maskBaseUrl(config.apiBaseUrl)} · study ${config.studyId} · case ${opts.caseId} · ${opts.variant}`);
+  console.log(`preflight: backend ${maskBaseUrl(config.apiBaseUrl)} | study ${config.studyId} | case ${opts.caseId} | ${opts.variant}`);
 
   // P1 - reachable, same contract
   let res;
@@ -119,16 +119,16 @@ async function main() {
   const list = await c.call('case_list', { study_id: config.studyId });
   const rows = list.state === STATE.SUCCESS ? readCaseRows(list.data) : null;
   check('P2', rows && rows.rows.length > 0 && rows.counts.UNKNOWN === 0,
-    `case_list -> ${list.state} ${list.reason || ''}${rows ? ` · ${rows.counts.total} rows · ${rows.counts.EVALUATION} evaluation · ${rows.counts.INFERENCE_REVIEW} inference & review` : ''}`);
+    `case_list -> ${list.state} ${list.reason || ''}${rows ? ` | ${rows.counts.total} rows | ${rows.counts.EVALUATION} evaluation | ${rows.counts.INFERENCE_REVIEW} inference & review` : ''}`);
 
   // P3 - the case
   const kase = await c.call('case_get', { case_id: opts.caseId });
   if (!check('P3', kase.state === STATE.SUCCESS, `case_get ${opts.caseId} -> ${kase.state} ${kase.reason || ''}`)) return 1;
   const cap = capabilityOf(kase.data.mode, kase.data.ground_truth_available);
   const runId = Array.isArray(kase.data.available_run_ids) ? kase.data.available_run_ids[0] : null;
-  const gtNote = cap.groundTruthUsable ? '' : ' · no ground truth: ground-truth checks skipped';
+  const gtNote = cap.groundTruthUsable ? '' : ' | no ground truth: ground-truth checks skipped';
   check('P3', cap.consistent && runId,
-    `${cap.label}${cap.consistent ? '' : ` (${cap.problem})`} · run ${runId || 'none'} · shape ${JSON.stringify(kase.data.shape)}${gtNote}`);
+    `${cap.label}${cap.consistent ? '' : ` (${cap.problem})`} | run ${runId || 'none'} | shape ${JSON.stringify(kase.data.shape)}${gtNote}`);
   if (!runId) return 1;
 
   // P4 - open like SCR-03
@@ -152,10 +152,10 @@ async function main() {
       load(s.predictionRef), cap.groundTruthUsable ? load(s.groundTruthRef) : Promise.resolve({ skipped: true }),
     ]);
     const gtText = gt.skipped ? 'not served (no ground truth)' : (gt.error || `${gt.pixels} px`);
-    check('P5', !pred.error && !gt.error, `masks: prediction ${pred.error || `${pred.pixels} px`} · ground truth ${gtText}`);
+    check('P5', !pred.error && !gt.error, `masks: prediction ${pred.error || `${pred.pixels} px`} | ground truth ${gtText}`);
     if (!pred.error && !gt.error && !gt.skipped) {
       const d = disagreementRuns(gt.mask, pred.mask).counts;
-      console.log(`       slice ${z0}: TP ${d.tp} · FP ${d.fp} · FN ${d.fn} px (drawn by SCR-04)`);
+      console.log(`       slice ${z0}: TP ${d.tp} | FP ${d.fp} | FN ${d.fn} px (drawn by SCR-04)`);
     }
   }
   runtime.netLog.end();

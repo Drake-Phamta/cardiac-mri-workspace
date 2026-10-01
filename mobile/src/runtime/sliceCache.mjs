@@ -18,16 +18,24 @@
  *     entry (`11` §6: no silent variant substitution, and a cache that mixed
  *     them would be one with a longer lifetime);
  *   - errors are never cached (a retry must reach the server);
- *   - a LEGITIMATELY UNAVAILABLE answer (EMPTY_UNAVAILABLE - e.g. metrics not
- *     ingested yet, ARTIFACT_NOT_FOUND) is cached for `unavailableTtlMs`
- *     (default 5 min): scrolling back over a slice whose metrics do not exist
- *     must not ask again on every pass - that is a network request per
- *     revisit, which L4 forbids and the user gains nothing from. A user
- *     Refresh / Retry clears the cache first (clear()), so an artifact that
- *     has since appeared is seen at once.
+ *   - a LEGITIMATELY UNAVAILABLE answer is cached for `unavailableTtlMs`
+ *     (default 5 min) - only EMPTY_UNAVAILABLE with a reason in
+ *     NEGATIVE_CACHE_REASONS (ARTIFACT_NOT_FOUND: metrics not ingested yet;
+ *     GROUND_TRUTH_UNAVAILABLE: an inference-only case). Scrolling back over a
+ *     slice whose metrics do not exist must not ask again on every pass - that
+ *     is a network request per revisit, which L4 forbids and the user gains
+ *     nothing from. Any other unavailable reason is not kept.
+ *
+ * Forgetting (#77 QA N-1/N-2): clearNegative() drops only those unavailable
+ * entries (the Explorer calls it when it mounts, and Retry / Refresh do);
+ * clearWhere(fn) drops the entries whose (endpointId, params) match - "refresh
+ * this slice" clears one slice's keys and nothing else, so a Retry never turns
+ * the cached slices of an L4 revisit pass back into network traffic.
  *
  * Bounded LRU; a stale-run screen must call clear() rather than trust it.
  */
+
+export const NEGATIVE_CACHE_REASONS = Object.freeze(['ARTIFACT_NOT_FOUND', 'GROUND_TRUTH_UNAVAILABLE']);
 
 export const CACHEABLE_ENDPOINTS = Object.freeze([
   'mri_slice_get',
@@ -39,11 +47,20 @@ export const CACHEABLE_ENDPOINTS = Object.freeze([
 
 export function createSliceCache(client, {
   maxEntries = 600, endpoints = CACHEABLE_ENDPOINTS, unavailableTtlMs = 5 * 60 * 1000, now = () => Date.now(),
+  negativeReasons = NEGATIVE_CACHE_REASONS,
 } = {}) {
   const allowed = new Set(endpoints);
+  const negative = new Set(negativeReasons);
   const store = new Map();       // key -> view
   const expires = new Map();     // key -> time an UNAVAILABLE entry stops counting
+  const about = new Map();       // key -> { endpointId, params } for clearWhere
   const stats = { hits: 0, misses: 0, evictions: 0 };
+
+  function drop(key) {
+    store.delete(key);
+    expires.delete(key);
+    about.delete(key);
+  }
 
   function keyFor(endpointId, params, options) {
     let url;
@@ -63,8 +80,7 @@ export function createSliceCache(client, {
     if (!store.has(key)) return false;
     const until = expires.get(key);
     if (until !== undefined && now() >= until) {
-      store.delete(key);
-      expires.delete(key);
+      drop(key);
       return false;
     }
     return true;
@@ -84,14 +100,13 @@ export function createSliceCache(client, {
     if (key) {
       stats.misses += 1;
       const success = view && view.state === 'SUCCESS';
-      const unavailable = view && view.state === 'EMPTY_UNAVAILABLE' && unavailableTtlMs > 0;
+      const unavailable = view && view.state === 'EMPTY_UNAVAILABLE' && unavailableTtlMs > 0 && negative.has(view.reason);
       if (success || unavailable) {
         store.set(key, view);
+        about.set(key, { endpointId, params: { ...params } });
         if (unavailable) expires.set(key, now() + unavailableTtlMs); else expires.delete(key);
         while (store.size > maxEntries) {
-          const oldest = store.keys().next().value;
-          store.delete(oldest);
-          expires.delete(oldest);
+          drop(store.keys().next().value);
           stats.evictions += 1;
         }
       }
@@ -115,8 +130,20 @@ export function createSliceCache(client, {
       const key = keyFor(endpointId, params, options);
       return key !== null && fresh(key) ? store.get(key) : null;
     },
-    // Called by a user Refresh / Retry, so it sees the server as it is now.
-    clear() { store.clear(); expires.clear(); },
+    // Everything - a stale run, or a test.
+    clear() { store.clear(); expires.clear(); about.clear(); },
+    // Only the cached "legitimately unavailable" answers; returns how many.
+    clearNegative() {
+      const keys = [...expires.keys()];
+      keys.forEach(drop);
+      return keys.length;
+    },
+    // The entries whose request matches fn(endpointId, params); returns how many.
+    clearWhere(fn) {
+      const keys = [...about.entries()].filter(([, a]) => fn(a.endpointId, a.params)).map(([k]) => k);
+      keys.forEach(drop);
+      return keys.length;
+    },
     get size() { return store.size; },
     stats: () => ({ ...stats, size: store.size }),
   });
