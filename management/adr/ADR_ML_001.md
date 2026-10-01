@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | PROPOSED — frozen when the CHAT E QA of Spike C1 passes, under the GATE-ML-01 rule of `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4 |
+| **Status** | **ACCEPTED 2026-10-01 14:30 (+07)**, frozen from that time. The CHAT E QA of Spike C1 returned PASS WITH NOTES (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`), under the GATE-ML-01 rule of `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4 |
 | **Resolves** | `GATE-ML-01` (spec `07` §2; `06` §4) |
 | **Decided by** | Phạm Tuấn Anh — Team Leader, under the rule written in `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4 **before any C1 result existed**; QA by CHAT E (an LLM red-team session, not a second human) |
 | **Evidence** | Spike C1 — `management/spikes/SPIKE_C_ML/RESULT_C1.md`; aggregate machine evidence in `management/spikes/SPIKE_C_ML/c1_evidence/` (`c1_summary_20261001T121428.json`, `c1_calendar_20261001T121428.json`, `c1_result_table.md`); raw measurements, loss logs and checkpoints are kept outside the repository |
@@ -20,12 +20,12 @@
 | Input size / channel conversion | 560×560, every slice of every case (88 per case), axis `[z, y, x]`. DR-011 per-volume clip to p0.5/p99.5 and scale to [0, 1]. DINOv2 only: replicate to 3 channels, then the checkpoint's fixed image mean/std inside `DinoSeg.forward`. Image resize bilinear + antialias; mask nearest-exact. No augmentation | `ml/data.py` `PREPROCESSING` (`ml-preproc-1.0.0`); C1-3, C1-7 |
 | Loss | 0.5 · BCE-with-logits + 0.5 · soft Dice (smooth 1.0), on logits at the model input resolution | `spikes/spike_c_ml/c1/run_feasibility.py` `loss_fn`; `ml/train.py` |
 | Optimizer and learning-rate policy | AdamW, lr 1e-4, constant (no schedule); default betas and weight decay | same |
-| Batch size | **8** — the largest of {8, 4, 2} at which **both** families fit on the 4 GiB host (C1-3) | measurements JSON `practical_point` |
+| Batch size | **8**: the largest of {8, 4, 2} at which **both** families ran without OOM on the 4 GiB host (C1-3). The UNet ran through driver memory spill (RESULT_C1 §3.1) | measurements JSON `practical_point` |
 | Epoch / early-stopping policy | **E = 50 epochs** for all six runs, from the pre-declared rule E = min(50, the largest E for which the queues on the two DR-016 hosts finish by 2026-10-03 12:00). No early stopping: validation Dice is computed every epoch and the checkpoint with the best validation Dice is kept | calendar JSON `epochs_E`; `ml/train.py` |
 | Threshold / binarization | Logits resized back to the native slice size (bilinear), then sigmoid ≥ 0.5. Scoring only at native resolution | `ml/data.py` `resize_logits_back`, `logits_to_mask`; `ml/evaluate.py` |
-| Precision and seed | bf16 autocast on CUDA; seed 2024 (weights, loader order) | run manifests |
-| Compute / memory feasibility | Both families fit 560 / batch 8 on the 4 GiB card (peak 3,387 MiB UNet, 3,159 MiB DINOv2); measured 1,010.67 / 485.95 ms per training step. The UNet figure is inflated by driver memory spill at this card's limit (RESULT_C1 §3.1), so the UNet family runs on the 6 GiB RTX 4050. Calendar: E = 50 fits, about 12.4 h for the DINOv2 queue and 24.3 h for the UNet queue, both before 2026-10-03 12:00 | C1-1, C1-2, C1-3, C1-9 |
-| Scientific fairness against UNet | Same data and subsets, same preprocessing, same loss, optimizer, learning rate, batch, epochs, seed, threshold and checkpoint rule; both families fully trained (`PR-SCI-03`). A `NEGATIVE_RESULT` for either family is a valid result; nothing is tuned after seeing results | this table |
+| Precision and seed | bf16 autocast on CUDA; seed 2024 (weights, loader order) | `ml/train.py` `ADR_ML_001`, `RECIPE`; `c1_summary` `recipe`; each run's `train_log.jsonl` (`start`, `first_step`) |
+| Compute / memory feasibility | Both families ran 560 / batch 8 without OOM on the 4 GiB card. Peak allocated was 3,387 MiB for the UNet and 3,159 MiB for DINOv2. Peak reserved was 3,968 and 3,440 MiB against 3,288 MiB free at the start, so the UNet ran through driver memory spill. Measured 1,010.67 / 485.95 ms per training step. The UNet figure is inflated by that spill (RESULT_C1 §3.1), so the UNet family runs on the 6 GiB RTX 4050. Using this card's C1-2 UNet rate for the 4050 is conservative if the 4050 runs batch 8 without driver spill. It is not an upper bound on this card's own sustained rate: 2.18 s per step in the convergence trial. Tripwire and contingency: DR-016a. Calendar: E = 50 fits, 12.35 h for the DINOv2 queue and 24.33 h for the UNet queue, both before 2026-10-03 12:00 | C1-1, C1-2, C1-3, C1-9 |
+| Scientific fairness against UNet | Same data and subsets, same preprocessing, same loss, optimizer, learning rate, batch, epochs, seed, threshold and checkpoint rule; both families fully trained (`PR-SCI-03`). A `NEGATIVE_RESULT` for either family is a valid result; nothing is tuned after seeing results | `c1_summary` `recipe` and the equal `convergence_C1_6.*.{img, batch, steps_done}`; `ml/train.py` `ADR_ML_001`, `RECIPE` |
 
 ## 2 · Measured basis (generated from the C1 JSON; not typed)
 
@@ -50,4 +50,6 @@
 
 ## 4 · Gate effect
 
-`GATE-ML-01` → **CLOSED once the CHAT E QA of Spike C1 passes (this ADR then reads ACCEPTED)**. The six core runs may start on the DR-016 hosts: DINOv2 family on the leader's PC (RTX 3050 Ti) from today, UNet family on the RTX 4050 from Day 23.
+`GATE-ML-01` → **CLOSED 2026-10-01 14:30 (+07)** on the CHAT E QA of Spike C1 (PASS WITH NOTES). The six core runs use the DR-016 hosts:
+- the DINOv2 family on the leader's PC (RTX 3050 Ti), started at 14:30 with E = 50 and batch 8;
+- the UNet family on the RTX 4050 from Day 23, behind the DR-016a tripwire.

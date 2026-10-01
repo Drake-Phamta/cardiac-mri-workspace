@@ -5,7 +5,7 @@
 | **Owner** | Bế Quốc Khánh (adopts this result on Day 23) |
 | **Operator** | the leader's session, under `management/day22/RECOVERY_OVERRIDE_DAY22.md` (recovery support, not a transfer of ownership) |
 | **Executed** | 2026-10-01: smoke 11:58, run 1 11:59 (stopped, see §3), **run 2 12:14 → 13:23 (+07)**, on the leader's PC — RTX 3050 Ti Laptop, 4 GiB (compute host per DR-016) |
-| **Status** | `EVIDENCE_READY` — CHAT E QA pending. This file alone does not close `GATE-ML-01` |
+| **Status** | **`ACCEPTED`** 2026-10-01 14:30 (+07) under the Day 22 override. CHAT E QA returned **PASS WITH NOTES** with no blocking finding (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`), standing in for the reviewer's APPROVE (override §2 item 2); Vũ Hùng Anh revalidates on Day 23. **`GATE-ML-01` CLOSED** (§6) |
 | **Plan followed** | `C1_MEASUREMENT_PLAN.md` (criteria C1-1…C1-10, run order §5) and the training recipe written into the Day 22 override §4 **before** this run |
 | **Code** | `origin/spike-c1/day22-run-integration` @ `58cbd5e` = `main` + #59 (preflight, now on `main`) + #60 (`ml/`, now on `main`) + the runner commits of this PR |
 | **Data access** | preflight `C1-PREFLIGHT-DAY22`: runnable, **0 validation and 0 holdout paths resolvable** under a hardlink root holding only the 78 effective-training cases. The loader (`ml.data`, fail-closed `CaseAllowlist`) read only `training_subsets.25_percent.effective_case_ids` (20 cases), split 16/4 into an internal fold with seed 2024. **The validation partition and the locked holdout were never loaded.** Split manifest sha256 `c5c65a09…396d` |
@@ -35,35 +35,58 @@ grid runs.
   or divergence, and each checkpoint reloads with a maximum absolute difference of 0.0. That is the plan's pass
   boundary for C1-6, so neither family is a `NEGATIVE_RESULT` at this stage.
 - **They do not learn alike at this budget.** Over the same 1,500 steps (8.5 epochs of the 16-case fold), the UNet's
-  fold-validation Dice climbs to the value in the table; the DINOv2 model's peaks at step 750 and then falls back,
-  and it predicts some foreground on almost every empty-ground-truth slice of the panel (`c1_summary`,
-  `convergence_C1_6.*.decoder_panel_C1_4`). This is a decoder-behaviour finding for C1-4, recorded as found. It is
-  **not** a reason to change the frozen recipe: E = 50 epochs is six times this budget, and `PR-SCI-03` does not
-  require DINOv2 to win.
+  fold-validation Dice climbs to the value in the table. The DINOv2 model's peaks at 0.429 at step 750, then falls
+  back to the value in the table. On the fixed C1-4 panel:
+  - DINOv2 is below Dice 0.5 on 1/4 largest-area, 2/4 median-area and 4/4 small-area slices; the UNet on 0/4, 0/4
+    and 3/4. The generated row shows the small-area panel only.
+  - Both families predict some foreground on empty-ground-truth slices: DINOv2 on 147 of 148, the UNet on 104 of 148.
+
+  The fold Dice curve and the empty-slice counts are in `c1_summary` (`convergence_C1_6.*.fold_val_dice_mean_by_step`,
+  `.decoder_panel_C1_4`). The per-panel counts below 0.5 come from the outside-git measurements JSON
+  (`convergence_C1_6.*.decoder_panel`); `c1_summary` keeps only their aggregates, and its "median" of four values is the
+  upper middle one. This is a decoder-behaviour finding for C1-4, recorded as found. It is **not** a reason to change the frozen recipe: E = 50
+  epochs is six times this budget, and `PR-SCI-03` does not require DINOv2 to win.
 - **The decoder resolves the thin structures (C1-5).** At the model input, the thinnest 1 % of the left-atrium mask's
   skeleton is about 3.5 px thick; the UNet (stride 1) and the progressive DINOv2 decoder (stride 1.75) are finer than
   every measured structure, while a linear DINOv2 head (stride 14) would be coarser than about a fifth of it. This
   supports the progressive decoder written into ADR-ML-001.
 - **The calendar fits (C1-9): E = 50, the cap.** With the measured step times, 20/38/78 training cases × 88 slices,
-  20 validation cases each epoch and a 1.10 overhead (ASSUMPTION), the DINOv2 queue on this PC takes about 12.4 h
-  (EXP-D-025 2.05 h, EXP-D-050 3.52 h, EXP-D-100 6.78 h) and the UNet queue about 24.3 h. Starting 2026-10-01 15:30 and
-  2026-10-02 09:00, both end before the 2026-10-03 12:00 deadline (`c1_calendar`). DR-007 (fall back to 448) is not
-  needed.
+  20 validation cases each epoch and a 1.10 overhead (ASSUMPTION), the DINOv2 queue on this PC takes 12.35 h
+  (EXP-D-025 2.05 h, EXP-D-050 3.52 h, EXP-D-100 6.78 h). The UNet queue takes 24.33 h at this card's C1-2 UNet rate;
+  §3.1 says when that rate holds for the RTX 4050. Starting 2026-10-01 15:30 and 2026-10-02 09:00, both end before the
+  2026-10-03 12:00 deadline (`c1_calendar`). DR-007 (fall back to 448) is not needed.
 
 ## 3 · Observations the pre-declared rule did not anticipate
 
-1. **UNet at 560 / batch 8 is at the edge of the 4 GiB card.** It ran without OOM (so it "fits" under the rule),
-   but its step time was 4–6× its batch-4 step time (about 3× slower per sample), consistent with the Windows driver
-   spilling GPU memory into system RAM; during the convergence trial it averaged about 2.2 s per step. The rule was
-   applied as written (batch 8 for both families). Consequences: the UNet family must train on the RTX 4050 (6 GiB),
-   as DR-016 already plans, and the calendar's use of this card's UNet speed for the 4050 is pessimistic, not
-   optimistic. If the 4050 is unavailable, the leader decides — the recipe does not change to fit a host.
-2. **Run 1 was lost to host memory, not to C1.** Another job on the same PC (an 18-process QA pool plus a build)
-   exhausted commit memory at 12:11 and the shell carrying run 1 died at UNet trial step 281. The grid from run 1 had
-   already been saved. Run 2 repeated everything from the same commit, with logs written directly to files.
-3. **The two grids replicate.** Peak memory is identical in every cell; step times differ by 0.86–1.86× between runs
-   because other jobs were loading the workstation (largest differences in the small-batch DINOv2 cells). The practical
-   point is the same in both. The calendar uses run 2's measured times.
+1. **UNet at 560 / batch 8 is at the edge of the 4 GiB card.** "Fit" in the rule means *ran without OOM* (the plan's
+   C1-1 boundary), not *fits in VRAM*. This display GPU had 3,288 MiB free at the start, and peak reserved memory
+   reached 3,968 MiB for the UNet and 3,440 MiB for DINOv2 (`c1_summary`). The UNet ran without OOM through driver
+   memory spill:
+   - its batch-8 step took 4.24× its batch-4 step, so it was 2.1× slower per sample (5.63× and 2.8× in run 1, from
+     run 1's outside-git JSON);
+   - over the 1,500-step convergence trial it averaged 2.18 s per step, 2.15× its C1-2 median.
+
+   DINOv2 shows no spill penalty: 60.7 ms per sample at batch 8 against 78.7 ms at batch 4. The rule was applied as
+   written: batch 8 for both families. Consequences:
+   - The UNet family trains on the RTX 4050 (6 GiB), as DR-016 plans.
+   - The calendar uses this card's C1-2 UNet rate for the 4050. That is **conservative if the 4050 runs batch 8
+     without driver spill. It is not an upper bound on this card's own sustained rate.** The calendar JSON's
+     `unet_host_speed` label ("an upper bound") overstates this. The file is left byte-identical to the one the QA
+     re-derived.
+   - A tripwire checks the assumption when the UNet queue starts. DR-016a records what happens if the 4050 is
+     unavailable or fails it. The recipe does not change to fit a host.
+2. **Run 1 was lost to host memory, not to C1.** Commit memory on this PC ran out at 12:11, and the shell carrying
+   run 1 died at UNet trial step 281; the time and the step match run 1's loss log. By the operator's account, the
+   cause was other jobs on the same PC: an 18-process QA test pool plus a build. That cause is not separately
+   evidenced. The grid from run 1 had already been saved. Run 2 repeated everything from the same commit, with logs
+   written directly to files.
+3. **The two grids replicate.** Peak memory is identical in every cell. Step times differ between runs because other
+   jobs were loading the workstation, most in the small-batch DINOv2 cells:
+   - training steps by 0.86–1.86×;
+   - validation steps by 1.01–1.97×.
+
+   Both ranges compare run 1's outside-git JSON with run 2. The practical point is the same in both runs. The calendar
+   uses run 2's measured times.
 
 ## 4 · Limitations
 
@@ -72,9 +95,19 @@ grid runs.
   resolution (560×560), not with `ml/evaluate.py` at native resolution.
 - Timings come from a shared workstation with other agents' jobs running; two grid runs are recorded (§3) so the
   spread is visible.
-- The UNet family will train on the RTX 4050, whose speed was not measured here (calendar ASSUMPTION, §3.1).
+- The UNet family will train on the RTX 4050, whose speed was not measured here (calendar ASSUMPTION, §3.1). The
+  DR-016a tripwire checks it when that queue starts.
 - C1-4 owner notes on the decoder panel are owed by Bế Quốc Khánh (Day 23); only machine aggregates are here.
 - The holdout slots of `C1_MEASUREMENT_PLAN.md` §6 stay `NOT_RUN`.
+- **Recorded deviations from `C1_MEASUREMENT_PLAN.md`** (QA N-6):
+  - C1-1 keeps one peak per grid cell, not per-step memory samples.
+  - An `nvidia-smi` snapshot exists for run 1 only.
+  - C1-4 keeps aggregates only; the panel's raw logits and masks were not kept.
+  - The plan's C1-9 variants for 4 h and 5 h daily windows are absent; the override's two-host rule replaced them.
+    EXP-D-PP has no calendar entry because it trains nothing.
+  - C1-2 was timed with the C1 runner's loop, not with `ml/train.py`. The 1.10 overhead ASSUMPTION is all that covers
+    per-epoch validation at native resolution, `last.pt` saves and post-training inference. The first epoch of each
+    queue is therefore timed against the calendar; §6 has the DINOv2 one.
 
 ## 5 · Evidence
 
@@ -94,5 +127,11 @@ python spikes/spike_c_ml/c1/c1_report.py --measurements <c1>/run/c1_measurements
 
 ## 6 · Gate effect
 
-On a CHAT E QA PASS, the pre-declared rule closes **`GATE-ML-01`** and freezes **`ADR-ML-001`**: C1-1…C1-10 have
-machine evidence and both families converge. The six core runs may then start on the DR-016 hosts.
+CHAT E's QA returned **PASS WITH NOTES** at 14:29 (+07) on 2026-10-01, with no blocking finding
+(`management/day22/QA_REVIEW_C1_GATE_ML_01.md`). C1-1…C1-10 have machine evidence and both families converge, so under
+the pre-declared rule **`GATE-ML-01` is CLOSED** and **`ADR-ML-001` is ACCEPTED**.
+
+- The DINOv2 queue (EXP-D-025 → EXP-D-100 → EXP-D-050, E = 50, batch 8) started at 14:30 on the leader's PC from
+  `main` `c7a37e0`. Its first epoch averaged 0.44 s per training step against the calendar's break-even of 1.89 s
+  (run log, outside the repository).
+- The UNet queue starts on the RTX 4050 on Day 23, behind the DR-016a tripwire.
