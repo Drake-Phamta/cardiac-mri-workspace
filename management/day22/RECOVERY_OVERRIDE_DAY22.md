@@ -112,6 +112,15 @@ Filled in as the day proceeds. Every row is carried into `POST_RECOVERY_REVALIDA
 | 10:47 | #48 app/core | Normal merge (approval by TrungNGD195 on head `6afe4ab`) | `ad908a4` | none | — |
 | 10:47 | #49 Spike A S8 | Normal merge (approval by TrungNGD195 on head `a970167`) | `34f5097` | none | — |
 | 10:47 | #26 Spike E | Normal merge (approval by scalliontor on head `373dea1`) | `21b3e87` | none | — |
+| 10:50 | #58 this record | **Override merge**: the leader's own docs PR, merged without a second review | `18a9931` | secondary review | Nguyễn Gia Đức Trung (reads §1–§5 on D23) |
+| 10:51 | #50 API fixture scenarios | **Override merge**: leader approval on head `22876b0`, but the PR's CI did not re-run after the retarget to `main`; main's CI after the merge was the regression gate (8/8 green) | `8782517` | pre-merge CI on the final base | Nguyễn Gia Đức Trung |
+| 10:51 | #51 V4 review model | Normal merge (leader approval on head `8350ab7`; the author is Trung) | `4699467` | none | — |
+| 10:51 | #52 V4 TC-TEAM-001 draft | Normal merge (leader approval on head `9c50ff3`, a pure rebase of the approved `f30afd6`) | `665b5b0` | none | — |
+| 10:52 | #33 E9 drill | Normal merge (scalliontor and the leader both approved head `bf86a74`) | `771ddb3` | none | — |
+| 11:16 | #35 Path A split | **Override merge**: Trung's approval was on `dc26b35`, before the rebase; QA-005 PASS on head `7b72ce8` replaced the re-review | `f5aa763`; `management/day22/QA_REVIEW_005_SPLIT.md` | secondary re-review after the rebase | Nguyễn Gia Đức Trung (re-review), Bế Quốc Khánh (N-1, N-3–N-6) |
+| 11:16 | GATE-SPLIT-01 | **CLOSED** under the pre-declared rule of §4: QA-005 PASS, source hash `f64d461f` equals `main`, DR-002/2a/2b fields present, no per-pair score in the PR's tree. 06 §6 is deviated with the documented exception of DR-002b | `PROJECT_STATE.yaml` gates; QA-005 | reviewer-led gate review | Phạm Tuấn Anh (N-2, N-7 decisions) |
+| 11:31 | #41 Spike A S6 | **Override merge**: approvals were on `741f826`; the merge with `main` (`f853b59`) and a text fix (`d0225d1`) came after. CHAT E checked the conflict resolution byte for byte and re-verified the fix | `a524b25` | re-review after the merge and the fix | Vũ Hùng Anh |
+| 11:31 | #44 Spike B B10/B11 | **Override merge**: Trung's CHANGES_REQUESTED was addressed but never re-reviewed. CHAT E re-derived all 5,400 frame intervals; its one blocker, the owner's stale TC-TEAM-001 rows, was fixed by the leader's session in `b0ae3e5` | `8a94172` | secondary re-review; owner-authored evidence (edited by the leader) | Nguyễn Gia Đức Trung (re-review), Vũ Hùng Anh (confirms the TC-TEAM-001 edit) |
 
 ## 7 · Post-recovery validation
 

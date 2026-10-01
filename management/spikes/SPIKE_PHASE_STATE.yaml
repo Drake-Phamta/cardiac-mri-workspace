@@ -451,9 +451,9 @@ spikes:
     priority: P1
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: BLOCKED
-    blocked_by: [SPIKE_D]
-    blocked_reason: "Requires an ACCEPTED Spike D and a validated representative real subset (readiness condition C1)."
+    status: PREPARED            # 2026-10-01: both blockers cleared (SPIKE_D ACCEPTED; GATE-SPLIT-01 CLOSED at 11:16). ACTIVE only when the run really starts
+    blocked_by: []
+    blocked_reason: null        # was: "Requires an ACCEPTED Spike D and a validated representative real subset (readiness condition C1)."
     started_at: null            # owner sets the REAL date/time on starting; never backdate
     review:
       state: NOT_REQUESTED
@@ -471,7 +471,7 @@ spikes:
     unblocks: [GATE-ML-01]
     may_close_gate_ml_01: true
     subset_rule: "Drawn from the TRAINING partition only once GATE-SPLIT-01 resolves; never validation or holdout."
-    next_action: "Wait for Spike D acceptance AND for GATE-SPLIT-01 to close. The linkage ruling exists since 2026-09-16 - DR-002b, option (c) + (d): grouping above a pre-declared similarity threshold, development cases linked to a holdout case excluded from training, the limitation disclosed, a sensitivity analysis published. The gate itself closes only when the owner regenerates the split manifest under that rule and the reviewer passes it. Update 2026-09-17: the owner implemented DR-002b in PR #35 (dc26b35) - a similarity threshold of r >= 0.75 declared IN the manifest before any training run, four groups held whole across the nested subsets, and CASE_0133 with its grouped CASE_0117 excluded from training, leaving an effective train set of 78 and subsets of 20/38/78. One collision needs a leader ruling: the reviewer asked for the excluded case ids AND their scores, while the same day F5 restricted those scores, so the manifest prints RESTRICTED_BY_F5. All ten C1 criteria remain unmeasured and no real-data work may start. Design-only preparation of the C1 measurement plan IS allowed and is scheduled for Day 8."
+    next_action: "Wait for Spike D acceptance AND for GATE-SPLIT-01 to close. The linkage ruling exists since 2026-09-16 - DR-002b, option (c) + (d): grouping above a pre-declared similarity threshold, development cases linked to a holdout case excluded from training, the limitation disclosed, a sensitivity analysis published. The gate itself closes only when the owner regenerates the split manifest under that rule and the reviewer passes it. Update 2026-09-17: the owner implemented DR-002b in PR #35 (dc26b35) - a similarity threshold of r >= 0.75 declared IN the manifest before any training run, four groups held whole across the nested subsets, and CASE_0133 with its grouped CASE_0117 excluded from training, leaving an effective train set of 78 and subsets of 20/38/78. One collision needs a leader ruling: the reviewer asked for the excluded case ids AND their scores, while the same day F5 restricted those scores, so the manifest prints RESTRICTED_BY_F5. All ten C1 criteria remain unmeasured and no real-data work may start. Design-only preparation of the C1 measurement plan IS allowed and is scheduled for Day 8. Update 2026-10-01 (Day 22, recovery override): GATE-SPLIT-01 CLOSED at 11:16 - PR #35 merged f5aa763 after QA-005 PASS (management/day22/QA_REVIEW_005_SPLIT.md); the split manifest blob is c5c65a09...396d. C1 runs today on the leader's PC (DR-016) under the override, operated by the leader's session, on training_subsets.25_percent.effective_case_ids only, after ml/ data and models (PR #60) and the preflight fixes (PR #59) pass QA. The owner adopts it on Day 23."
 
   - id: SPIKE_E
     name: "Artifact transport over the canonical demo network"
