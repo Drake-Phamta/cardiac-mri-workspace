@@ -67,6 +67,8 @@ PROVENANCE -- the face table and the decimation rule are a COPY, not an import.
     commit : origin/main f5aa763; file last changed in ee9ef60
              "SPIKE_B tooling: merge picking harness and fixture proposal"
     blob   : 32d5b14f97b5b554dac83fb5c302609c5396a4f9
+             (re-checked at origin/main 44350d4, blob 7e26a3a: ba492ae changed
+             only build(); the copied functions are unchanged)
     copied : 2026-10-01. _FACES character-for-character. extract_surface
              rewritten with numpy shifts per axis, keeping the spike's emission
              order (voxels in C order, faces -x +x -y +y -z +z) and its

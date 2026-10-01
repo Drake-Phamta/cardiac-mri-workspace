@@ -207,7 +207,9 @@ error components). Tests: `pytest` (8.3 used). Nothing else.
 The face table and the decimation rule are a **copy, not an import**, of
 `spikes/spike_b_3d/mesh/build_mesh.py` (`_FACES`, `extract_surface`,
 `decimate`, `to_world`) at **origin/main `f5aa763`** (file last changed in
-`ee9ef60`, blob `32d5b14f97b5b554dac83fb5c302609c5396a4f9`), copied 2026-10-01.
+`ee9ef60`, blob `32d5b14f97b5b554dac83fb5c302609c5396a4f9`), copied 2026-10-01;
+re-checked at origin/main `44350d4` (blob `7e26a3a`), where `ba492ae` changed
+only `build()` and the copied functions are unchanged.
 `_FACES` is character-for-character; `extract_surface` is rewritten
 vectorised with the spike's emission order and first-encounter vertex order;
 `decimate` keeps its rule with an order-preserving scalar key instead of
