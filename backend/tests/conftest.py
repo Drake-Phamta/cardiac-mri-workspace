@@ -41,9 +41,11 @@ def environment(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Any]:
                       expected_split_sha256=split_sha)
     built["split_sha256"] = split_sha
     experiments = root / "experiments"
-    accepted = synthetic.build_contract2(experiments / "exp-u-025", "EXP-U-025")
-    synthetic.build_contract2(experiments / "exp-d-025-blocked", "EXP-D-025", gates_accepted=False, prefix="B")
-    return {"root": root, "cache": cache, "experiments": experiments, "accepted": accepted, **built}
+    # The exporter's layout: <run>/contract2/<manifest>.json with the run directory as artifact root.
+    accepted = synthetic.build_contract2(experiments / "run-exp-u-025", built, "EXP-U-025")
+    second = synthetic.build_contract2(experiments / "run-exp-u-050", built, "EXP-U-050", prefix="C")
+    synthetic.build_contract2(experiments / "run-exp-d-025", built, "EXP-D-025", gates_accepted=False, prefix="B")
+    return {"root": root, "cache": cache, "experiments": experiments, "accepted": accepted, "second": second, **built}
 
 
 class Api:

@@ -125,6 +125,34 @@ either side.
 Phone base URL: `http://<overlay-address>:8000/api/v1` · health: `http://<overlay-address>:8000/health`.
 If the host answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
 
+## Metrics from Contract 2 experiment artifacts
+
+Packages live under `$CARDIAC_BACKEND_DATA/experiments/`. Three layouts are discovered (a manifest is any `*.json`
+whose `contract` is `contract2_experiment_artifact`): `<pkg>/<manifest>.json`, a manifest at the top, and the
+exporter's own `<run>/contract2/<manifest>.json` with **the run directory as artifact root** (`ml/export_contract2.py`
+output, copied as a whole run directory). Every package is checked with `validate_contract2.py` first (both gates
+`ACCEPTED`; checksums of every artifact, the manifests **and the checkpoint** — so the run copy must include the
+checkpoint file); a rejected package is listed by code in `/health` and never partially served.
+
+Served from the saved files (`ml/evaluate.py`, `ml-eval-1.0.0` formats), never recomputed from images:
+
+| Endpoint | Source | Notes |
+|---|---|---|
+| `analysis_run_metrics` | the run's `METRIC_SET` (`ml-metric-set/1`) + `PER_SLICE_METRICS` | `metric_values` via one explicit field map (`METRIC_SOURCES`: `dice_3d→dice`, `iou_3d→iou`, `fp_voxels→false_positives`, `fn_voxels→false_negatives`, `relative_volume_error_percent→relative_volume_error`, percent of the GT voxel count); `worst_slice_selection` re-ranked here by DR-010 over every eligible slice, served with the contract literals (`DR-010`, `dr010-worst-slice/v1`) and cross-checked against the saved order |
+| `analysis_slice_metrics` | `PER_SLICE_METRICS` | `NOT_APPLICABLE` with `null` for a both-empty slice (`07` §6) |
+| `experiment_metrics` | `METRICS_SUMMARY` cohort | `n/mean/std/median/q1/q3/min/max` + the saved bootstrap CI as `ci95_low/high` |
+| `experiment_cases` | `PER_CASE_METRICS` | `SUCCEEDED / FAILED / EXCLUDED / WITHHELD` rows; the INT-12 case is `WITHHELD` (no values); DR-010 `outlier_selection` ranked here over `SUCCEEDED` rows only |
+| `experiment_compare` | per-case records of each package | comparable = same population, split, metric version and variant; summaries over the common population (CIs `null`, not computed here) |
+
+Provenance checks per request: the metric set scored exactly the run's prediction bytes (C2 checksum) and exactly
+the reference file this backend ingested (sha256 of the mask NRRD bytes); the per-slice rows cover the volume;
+formats and `evaluation_metric_version` agree across files. Any mismatch answers `ARTIFACT_NOT_FOUND` with a reason
+(`METRICS_PROVENANCE_MISMATCH`, `METRICS_FORMAT_UNSUPPORTED`, `NO_METRICS_FOR_VARIANT`, ...). Run-level metrics need
+the case in the data cache; experiment-level rows do not (holdout cases are not ingested). Real Contract 2 packages
+are FINAL_HOLDOUT only, so real metrics arrive after GATE-IMG-01 (D24+); until then the endpoints answer the
+unavailable state on real data. The prediction NRRDs of a 54-case run are ~2 GB; copy them with the run directory
+when prediction overlays are wanted on the host.
+
 ## Request log and the L4 measurement
 
 Every HTTP request appends one JSON line to `$CARDIAC_BACKEND_DATA/logs/requests.jsonl`: UTC time, method, path
