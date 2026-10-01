@@ -480,6 +480,9 @@ if (!haveOracle) {
     'SAVED/SAVED/SAVED', 'UNSAVED/SAVED/UNSAVED', 'SAVED/SAVED/SAVED', 'UNSAVED/SAVED/UNSAVED',
   ];
   check('B11', sameList(states, want), `mask state walk ${states.join(' -> ')}`);
+  check('B11', s.savedSlice(0) !== null && sha(s.savedSlice(0)) === sha(prepared.snapshot.get(0))
+    && s.savedSlice(0) !== s.workingSlice(0),
+  'savedSlice() exposes exactly what the save committed, as its own buffer');
   check('B11', sameList(firstUpload, [0]) && prepared.entries.length === 1 && sameList(afterReset, [0])
     && s.state().lastSave.reviewedMaskId === 'RM_1' && sameList(s.state().lastSave.slices, [0]),
   'a save uploads the slices that differ from the source, keeps re-sending a slice the server already holds ' +

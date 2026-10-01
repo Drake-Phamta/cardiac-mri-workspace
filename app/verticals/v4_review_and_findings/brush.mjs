@@ -521,6 +521,9 @@ export function createBrushSession({ nx, ny, source } = {}) {
     // Read-only views for drawing. Callers must not write into them.
     workingSlice: (z) => { requireLoaded(z); return working[z]; },
     sourceSlice: (z) => { requireLoaded(z); return src[z]; },
+    // What the last successful save committed for this slice, or null before
+    // any save - so a screen can draw saved and unsaved edits differently.
+    savedSlice: (z) => { requireLoaded(z); return saved[z] ?? null; },
     diffRuns: (z) => { requireLoaded(z); return diffRuns(working[z], src[z], nx, ny); },
     sourceIntact,
     slicesToUpload,
