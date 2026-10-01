@@ -103,7 +103,7 @@
       "required": [
         "review_status", "review_status_transitions", "finding_status", "finding_type",
         "case_mode", "case_result_status", "run_status", "prediction_variant", "metric_state",
-        "geometry_validation_status", "source_mask_kind", "mask_payload_encoding"
+        "geometry_validation_status", "source_mask_kind", "review_source_mask_kind", "mask_payload_encoding"
       ],
       "properties": {
         "review_status": { "const": ["NOT_REVIEWED", "ACCEPTED", "FLAGGED", "CORRECTED"] },
@@ -130,6 +130,7 @@
         "source_mask_kind": {
           "const": ["RAW_PREDICTION", "PROCESSED_PREDICTION", "GROUND_TRUTH", "REVIEWED"]
         },
+        "review_source_mask_kind": { "const": ["RAW_PREDICTION", "PROCESSED_PREDICTION"] },
         "mask_payload_encoding": { "const": ["PNG_BASE64", "BITPACK_BASE64"] }
       }
     },
@@ -139,6 +140,7 @@
       "required": [
         "decision", "state_enum", "transition_map", "initial_state", "create_allowed_states",
         "terminal_states", "corrected_requires_reviewed_mask", "commit_result_state",
+        "corrected_only_via", "commit_atomicity",
         "invalid_transition_error", "audit_history_required", "scope_fields",
         "absent_review_means", "notes"
       ],
@@ -151,6 +153,8 @@
         "terminal_states": { "const": ["CORRECTED"] },
         "corrected_requires_reviewed_mask": { "const": true },
         "commit_result_state": { "const": "CORRECTED" },
+        "corrected_only_via": { "const": "review_commit" },
+        "commit_atomicity": { "type": "string", "minLength": 1 },
         "invalid_transition_error": { "const": "INVALID_REVIEW_TRANSITION" },
         "audit_history_required": { "const": true },
         "scope_fields": { "const": ["run_id", "source_mask_id", "prediction_variant"] },

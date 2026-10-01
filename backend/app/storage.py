@@ -264,13 +264,14 @@ class Storage:
     def patch_review(self, review_id: str, status: str, expected_revision: int, reviewer: Optional[str]) -> sqlite3.Row:
         with self._tx() as conn:
             row = self._locked_review(conn, review_id, expected_revision)
-            allowed = self.transitions.get(row["status"], [])
+            allowed = [state for state in self.transitions.get(row["status"], []) if state != "CORRECTED"]
+            if status == "CORRECTED":
+                raise ApiError("INVALID_REVIEW_TRANSITION", {
+                    "from": row["status"], "to": status,
+                    "reason": "CORRECTED is reached only through review_commit, atomically with a new reviewed mask",
+                })
             if status not in allowed:
                 raise ApiError("INVALID_REVIEW_TRANSITION", {"from": row["status"], "to": status, "allowed": allowed})
-            if status == "CORRECTED" and self._count_versions(conn, review_id) == 0:
-                raise ApiError("INVALID_REVIEW_TRANSITION", {
-                    "from": row["status"], "to": status, "reason": "CORRECTED requires a persisted reviewed mask",
-                })
             revision = row["revision"] + 1
             conn.execute("UPDATE reviews SET status = ?, revision = ?, updated_at = ? WHERE review_id = ?",
                          (status, revision, now(), review_id))
@@ -298,11 +299,15 @@ class Storage:
 
     def commit(self, review_id: str, expected_revision: int, build: VolumeBuilder,
                reviewer: Optional[str]) -> sqlite3.Row:
-        """Working edits -> a new immutable reviewed-mask version, atomically."""
+        """Working edits -> a new immutable reviewed-mask version, atomically.
+
+        One transaction: the version, its slices, the move to CORRECTED and
+        exactly one revision step are committed together or rolled back
+        together. Valid from every review state (05 section 6 edges into
+        CORRECTED, or a further version of a CORRECTED review).
+        """
         with self._tx() as conn:
             row = self._locked_review(conn, review_id, expected_revision)
-            if row["status"] != "CORRECTED" and "CORRECTED" not in self.transitions.get(row["status"], []):
-                raise ApiError("INVALID_REVIEW_TRANSITION", {"from": row["status"], "to": "CORRECTED"})
             working = {
                 item["slice_index"]: imaging.decode_png(item["png"])
                 for item in conn.execute("SELECT slice_index, png FROM working_slices WHERE review_id = ?", (review_id,))

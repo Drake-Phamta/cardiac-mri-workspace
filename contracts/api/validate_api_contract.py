@@ -77,8 +77,10 @@ FINDING_STATES = ["OPEN", "RESOLVED"]
 REQUIRED_ENUM_BINDINGS = {
     "review_status": {
         "review_create.status", "review_create.request.status",
-        "review_patch.status", "review_patch.request.status",
+        "review_patch.status", "review_patch.request.status", "review_commit.status",
     },
+    "review_source_mask_kind": {"review_commit.source_mask_kind"},
+    "prediction_variant": {"experiment_list.prediction_variant"},
     "finding_status": {
         "finding_create.status", "findings_list.status",
         "finding_patch.status", "finding_patch.request.status",
@@ -316,10 +318,14 @@ def _validate_v1_rules(contract: dict, endpoints_by_id: Dict[str, dict]) -> None
             _fail("ENUM_INVALID", f"{enum_name} must be enforced on {sorted(missing)}")
 
     review = contract["review_rules"]
-    review_endpoints = ("review_create", "review_patch", "review_commit")
-    for endpoint_id in review_endpoints:
+    for endpoint_id in ("review_create", "review_patch"):
         if review["invalid_transition_error"] not in endpoints_by_id[endpoint_id]["errors"]:
             _fail("REVIEW_STATE_INVALID", f"{endpoint_id} must expose INVALID_REVIEW_TRANSITION")
+    # The edges into CORRECTED belong to review_commit, which is valid from every
+    # state and therefore never answers INVALID_REVIEW_TRANSITION (#62 QA B2).
+    commit = endpoints_by_id[review["corrected_only_via"]]
+    if review["invalid_transition_error"] in commit["errors"] or "status" not in commit["response_fields"]:
+        _fail("REVIEW_STATE_INVALID", "review_commit answers status and never INVALID_REVIEW_TRANSITION")
     if not set(review["create_allowed_states"]) <= set(REVIEW_STATES):
         _fail("REVIEW_STATE_INVALID", "create_allowed_states leaves the review state set")
     if review["commit_result_state"] in enums["review_status_transitions"]:
@@ -682,6 +688,23 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
         else:
             for experiment_id, per_experiment in summary.items():
                 _check_summary(contract, f"{at}: summary[{experiment_id}]", per_experiment, problems)
+    # Case capability is consistent: INFERENCE_REVIEW exactly when ground truth is unavailable.
+    modes = contract["case_capability"]["modes"]
+    if endpoint_id == "case_get" and body.get("mode") in modes and "ground_truth_available" in body:
+        if body["ground_truth_available"] is not modes[body["mode"]]["ground_truth_available"]:
+            problems.append(f"{at}: mode {body['mode']} contradicts ground_truth_available")
+    if endpoint_id == "case_list" and isinstance(body.get("items"), list):
+        for position, row in enumerate(body["items"]):
+            if isinstance(row, dict) and row.get("mode_capability") in modes and \
+                    row.get("ground_truth_available") is not modes[row["mode_capability"]]["ground_truth_available"]:
+                problems.append(f"{at}: items[{position}] mode_capability contradicts ground_truth_available")
+    if endpoint_id == contract["review_rules"]["corrected_only_via"] and "status" in body:
+        if body["status"] != contract["review_rules"]["commit_result_state"]:
+            problems.append(f"{at}: a commit answers status {contract['review_rules']['commit_result_state']}")
+    allowed_sources = contract["domain_enums"]["review_source_mask_kind"]
+    for value in _field_values(body, "provenance", row_fields):
+        if isinstance(value, dict) and "source_mask_kind" in value and value["source_mask_kind"] not in allowed_sources:
+            problems.append(f"{at}: a reviewed mask derives from a prediction, never {value['source_mask_kind']}")
     for value in _field_values(body, "evidence", row_fields):
         if isinstance(value, dict):
             variant = value.get("prediction_variant")

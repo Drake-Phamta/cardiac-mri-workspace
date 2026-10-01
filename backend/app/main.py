@@ -392,11 +392,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         packages = [experiments.experiments[key] for key in experiments.experiment_ids()]
         if prediction_variant is not None:
             packages = [package for package in packages if experiment_variant(package) == prediction_variant]
-        variants = {experiment_variant(package) for package in packages}
         populations = {package.experiment["evaluation_population_manifest"]["manifest_id"] for package in packages}
         return ok({
-            "items": [{"experiment_id": package.experiment["experiment_id"]} for package in packages],
-            "prediction_variant": prediction_variant or (variants.pop() if len(variants) == 1 else None),
+            "items": [{"experiment_id": package.experiment["experiment_id"],
+                       "prediction_variant": experiment_variant(package)} for package in packages],
+            # The population every listed experiment shares, or null when they do not share one.
             "evaluation_population": populations.pop() if len(populations) == 1 else None,
         })
 
@@ -674,7 +674,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         row = storage.commit(review_id, expected_revision, build, reviewer_of(request))
         data = {
             "reviewed_mask_id": row["reviewed_mask_id"], "checksum": row["checksum"],
-            "revision": row["review_revision"], "source_mask_id": row["source_mask_id"],
+            "revision": row["review_revision"], "status": contract.review_rules["commit_result_state"],
+            "source_mask_id": row["source_mask_id"],
             "source_mask_kind": row["source_mask_kind"], "provenance": provenance(row),
         }
         data.update(case.geometry())
