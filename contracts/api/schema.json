@@ -326,7 +326,13 @@
         },
         "hero_flow": { "type": "boolean" },
         "notes": { "type": "string", "minLength": 1 }
-      }
+      },
+      "if": {
+        "required": ["response_fields"],
+        "properties": { "response_fields": { "contains": { "const": "items" } } }
+      },
+      "then": { "required": ["row_fields"] },
+      "else": { "not": { "required": ["row_fields"] } }
     },
     "artifact_rules": {
       "type": "object",

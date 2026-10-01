@@ -121,6 +121,22 @@ def main() -> None:
         assert validate_response(contract, endpoint_id, status, body), (endpoint_id, status, body)
     print(f"PASS the response validator rejects all {len(rejected)} contract violations")
 
+    # List endpoints: an empty page is valid, a missing top-level field is not,
+    # and neither is a row that lacks a row field.
+    list_ids = [item["id"] for item in contract["endpoints"] if "items" in item["response_fields"]]
+    assert sorted(list_ids) == sorted(
+        ["case_list", "experiment_list", "experiment_cases", "reviewed_masks_list", "findings_list"]
+    )
+    for endpoint_id in list_ids:
+        empty = fixture["scenarios"][endpoint_id]["empty"]["response"]["data"]
+        assert empty["items"] == [] and not validate_response(contract, endpoint_id, 200, empty), endpoint_id
+    assert not validate_response(contract, "findings_list", 200, {"items": []})
+    assert validate_response(contract, "case_list", 200, {"items": [], "mode": None})  # next_page missing
+    row_missing = json.loads(json.dumps(fixture["scenarios"]["reviewed_masks_list"]["default"]["response"]["data"]))
+    del row_missing["items"][0]["checksum"]
+    assert validate_response(contract, "reviewed_masks_list", 200, row_missing)
+    print(f"PASS empty pages validate on all {len(list_ids)} list endpoints; missing top-level and row fields do not")
+
     broken = copy.deepcopy(contract)
     broken["errors"] = [item for item in broken["errors"] if item["code"] != "GROUND_TRUTH_UNAVAILABLE"]
     expect_error(broken, "SCHEMA_INVALID", schema)
@@ -222,11 +238,19 @@ def main() -> None:
     endpoint(broken, "mri_slice_get")["response_fields"].remove("content_url")
     expect_error(broken, "BINARY_DELIVERY_INVALID", schema)
 
+    broken = copy.deepcopy(contract)
+    del endpoint(broken, "findings_list")["row_fields"]
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "case_list")["row_fields"].append("no_such_field")
+    expect_error(broken, "LIST_CONTRACT_INVALID", schema)
+
     with tempfile.TemporaryDirectory(prefix="api-contract-") as temp:
         output = Path(temp) / "generated_fixture.json"
         output.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
         assert json.loads(output.read_text(encoding="utf-8"))["base_path"] == "/api/v1"
-    print("api_contract_checks=PASS cases=25")
+    print("api_contract_checks=PASS cases=27")
 
 
 if __name__ == "__main__":

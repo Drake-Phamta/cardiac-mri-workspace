@@ -67,6 +67,8 @@ def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
     checksum = fixture_checksum(endpoint_id or field)
     if field == "status" and endpoint_id in STATUS_BY_ENDPOINT:
         return STATUS_BY_ENDPOINT[endpoint_id]
+    if field == "mode" and endpoint_id == "case_list":
+        return None  # the echo of the mode filter; the fixture request applies none
     if field == "provenance" and endpoint_id in SHAPED_ENDPOINTS["provenance"]:
         return {
             "review_id": "REVIEW_0043", "case_id": "CASE_0043", "run_id": "RUN_0043",
@@ -86,7 +88,7 @@ def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
         "media_type": contract["binary_delivery"]["media_type"],
         "prediction_variant": "RAW", "comparable": True, "metric_state": "NOT_APPLICABLE",
         "metric_value": None, "items": [], "next_page": None,
-        "mode": "EVALUATION", "ground_truth_available": True,
+        "mode": "EVALUATION", "mode_capability": "EVALUATION", "ground_truth_available": True,
         "aggregation_level": "CASE_3D", "precomputed": True, "attempt_no": 1,
         "failure_code": None, "failure_reason": None,
         "source_mask_id": "RAW_PREDICTION_ARTIFACT_ID_0043", "source_mask_kind": "RAW_PREDICTION",
@@ -191,7 +193,9 @@ def generate_fixture(contract: dict) -> dict:
         if endpoint_id == "case_list":
             # One row per mode, so a list screen meets both from day one.
             inference_row = dict(default_data["items"][0])
-            inference_row.update({"case_id": "CASE_0044", "mode": "INFERENCE_REVIEW", "ground_truth_available": False})
+            inference_row.update({
+                "case_id": "CASE_0044", "mode_capability": "INFERENCE_REVIEW", "ground_truth_available": False,
+            })
             default_data["items"].append(inference_row)
         if endpoint_id == "analysis_run_metrics":
             default_data["metric_state"] = "COMPUTED"
@@ -202,6 +206,12 @@ def generate_fixture(contract: dict) -> dict:
                 "response": error_response(endpoint["errors"][0], errors_by_code),
             },
         }
+        if "items" in endpoint.get("response_fields", []):
+            # A real backend answers an empty page (no findings yet, a filter
+            # that matches nothing): top-level fields present, items empty.
+            empty = {key: value for key, value in default_data.items() if key != "items"}
+            empty["items"] = []
+            endpoint_scenarios["empty"] = {"request": request, "response": {"status": 200, "data": empty}}
         if endpoint_id in {"ground_truth_slice_get", "analysis_slice_metrics", "analysis_run_metrics"}:
             endpoint_scenarios["ground_truth_unavailable"] = {
                 "request": request,

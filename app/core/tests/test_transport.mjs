@@ -112,6 +112,31 @@ const client = createClient(contract, createFixtureTransport(bundle));
     `a write with no expected_revision is refused (${view.error?.code})`);
 }
 
+// T8b — an empty page is a valid answer. A real backend returns items: [] for
+// "no findings yet" or a filter that matches nothing; that is SUCCESS with no
+// rows, not CONTRACT_DRIFT. A missing top-level field is still drift, and so
+// is a row that lacks a row field.
+{
+  const answering = (data) => createClient(contract, {
+    kind: 'test',
+    async send() { return { status: 200, data }; },
+  });
+  const empty = await answering({ items: [] }).call('findings_list', {});
+  check('T8b', empty.state === STATE.SUCCESS && Array.isArray(empty.data.items) && empty.data.items.length === 0,
+    `findings_list with items: [] -> ${empty.state}`);
+  const emptyCases = await answering({ items: [], next_page: null, mode: null })
+    .call('case_list', { study_id: 'S1' });
+  check('T8b', emptyCases.state === STATE.SUCCESS, `case_list empty page with its top-level fields -> ${emptyCases.state}`);
+  const noTop = await answering({ items: [], mode: null }).call('case_list', { study_id: 'S1' });
+  check('T8b', noTop.state === STATE.FATAL_INVALID
+    && noTop.error.detail.problems.some((p) => p.includes('next_page')),
+  'an empty page missing a top-level field (next_page) is still CONTRACT_DRIFT');
+  const shortRow = await answering({ items: [{ finding_id: 'F1', status: 'OPEN' }] }).call('findings_list', {});
+  check('T8b', shortRow.state === STATE.FATAL_INVALID
+    && shortRow.error.detail.problems.some((p) => p.includes('items[0] is missing evidence')),
+  'a row missing a row field is still CONTRACT_DRIFT');
+}
+
 // T9 — validateResponse is usable on its own, for a screen holding a payload
 // that did not come through the client (a WebView bridge message, say).
 {
