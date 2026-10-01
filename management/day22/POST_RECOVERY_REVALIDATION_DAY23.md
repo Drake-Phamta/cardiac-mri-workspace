@@ -20,6 +20,7 @@
 | K7 | #35 → `f5aa763` (split) | QA-005 thay cho duyệt lại sau rebase | N-1, N-3…N-6 của QA-005 | |
 | K8 🔴 | #61 → `d6441bc` | mô hình V3 trên contract 1.1.0; B-1…B-3 do agent A6 sửa, B-4 do phiên leader sửa | `node app/verticals/v3_study_and_compare/test_study_and_compare.mjs` (155); đọc QA-61, 61b, 61c | |
 | K9 🔴 | #81 → `d907240` | khoá chặn holdout: chỉ nhận split đóng băng, bản ghi GATE-IMG-01 có cấu trúc | `pytest ml/tests -q` (207) với `CUDA_VISIBLE_DEVICES=-1`; đọc QA-081; NB-2(a) trước hàng đợi UNet | |
+| K11 🔴 | #69 → `f5d5384` | màn V3 SCR-01/SCR-07 (agent A6, restack A6b, sửa B-1 bởi phiên leader) | ``npm test`` trong `mobile/`; đọc QA-069 N-1…N-7 | |
 | K10 | thử end-to-end | `ml/evaluate` → Contract 2 → backend trên dự đoán validation của EXP-D-025 (chạy local, ngoài git) | đọc `day22/qa/E2E_PROOF_EXP_D_025.md` | |
 
 
@@ -35,6 +36,8 @@
 | T6 | #35 (split) | duyệt lại sau rebase (approval cũ ở `dc26b35`) | đọc `QA_REVIEW_005_SPLIT.md` | |
 | T7 | #44 (Spike B B10/B11) | CHANGES_REQUESTED của bạn đã được sửa, nhưng chưa ai duyệt lại | duyệt lại `b0ae3e5` | |
 | T8 | #58, #67 | biên bản override, bản ghi GATE-SPLIT-01 | đọc §1–§5 | |
+| T13 | #82 TECH_STACK_ADR | ADR-MOB-001 ACCEPTED | đọc ADR §4–§8 với vai người duyệt thứ hai | |
+| T14 | Spike B (reviewer) | ACCEPTED dưới override, QA LLM đứng thay bạn | APPROVE hoặc REJECT + lý do | |
 | T9 | #53, #80 (V1) | người duyệt thứ hai cho khối V1 của leader | đọc diff, chạy `test_case_explorer.mjs` | |
 | T10 🔴 | #63 → `254044a` | mô hình V4: review, brush, findings | ba file test V4 (33, 22, 25); đọc QA-063 N-1…N-7 | |
 | T11 🔴 | #75 → `985c9c3` | metrics và ingest gói thử nghiệm; **chặn dữ liệu N-1** (INT-12) | `pytest backend/tests -q` (50); đọc QA-075 | |
@@ -51,16 +54,17 @@
 | H4 | #44 → `8a94172` | leader sửa dòng B10/B11 trong TC-TEAM-001 của bạn (`b0ae3e5`) | xác nhận hoặc sửa | |
 | H5 | phiên S-1 tối 01/10 | leader cầm máy; agent chuẩn bị gói và trích xuất | đọc `PROVENANCE.md`, kết quả trích xuất; viết B15 | |
 | H6 🔴 | #74 → `be86cb1` | `backend/mesh` (agent A4) | `pytest backend/mesh/tests -q` (131); đọc QA-074; N-2, N-4, N-5 trước khi có endpoint | |
-| H7 🔴 | #73, phiên S-1 và RESULT Spike B | leader cầm máy; agent trích xuất, xuất bằng chứng và viết RESULT | đọc `PROVENANCE.md` và RESULT; xác nhận DR-008c = L0; **viết B15 trước 10:00** | |
+| H7 🔴 | #73 → `40b1316`: **Spike B ACCEPTED, DR-008c = L0** | leader cầm máy; agent trích xuất, xuất bằng chứng và viết RESULT | đọc RESULT và `PROVENANCE.md`; xác nhận chuỗi tap với leader (nhãn bị đảo); **viết B15 trước 10:00**; tự tính lại B6 từ mask | |
 
 ## Phạm Tuấn Anh — V1, tích hợp
 
 | # | Mục | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
 | P1 | #53 → `6b52628`, #80 → `c7a37e0` | mô hình SCR-03; mở case không có run | 88 test V1; #80 N1, N3 trước khi run thật tới SCR-03 | |
-| P2 | DR-016a | ghi sau C1, sau khi hàng đợi DINOv2 đã chạy | xác nhận hoặc đổi | |
+| P2 | DR-016a | ghi sau C1, sau khi hàng đợi DINOv2 đã chạy | **anh đã xác nhận 21:17 ngày 01/10** | nhận (Phạm Tuấn Anh, 21:17 01/10) |
 | P3 | quyết định do QA nêu | danh sách trong gói Day 23 của anh | quyết từng mục | |
-| P4 🔴 | **GATE-MOB-01** (#82) | ADR, QA-004, QA-ADR và bằng chứng L4 đã sẵn | quyết có nhận L5 không | |
+| P4 | **GATE-MOB-01** (#82 → `f06cf6d`) | đã đóng 21:17 theo quyết định của anh (nhận L5) | đọc lại TECH_STACK_ADR §8 | |
+| P7 🔴 | #77 → `cab847a`, #78 → `92a59ff` | shell + V1 SCR-02/03/04 + công cụ L4 (agent A2/A2b) | ``npm test`` trong `mobile/` (177), render smoke; QA-078 N-4…N-10; #77 NB-1 (import shim trong `maskPng.js`) | |
 | P5 | phiên L4 tối 01/10 | đo trên APK `ffbf763`; phiên Claude điều khiển máy qua adb theo yêu cầu của anh | đọc `PROVENANCE.md` của L4 | |
 | P6 | #77 `ffbf763` | shim `latin1` cho Hermes (app văng khi khởi động) | đọc commit và test TD1/TD2 | |
 

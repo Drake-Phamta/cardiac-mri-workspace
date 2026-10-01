@@ -30,7 +30,7 @@ can pick up in the morning.
 
 ## 2 · Rules waived, for Day 22 only
 
-1. Owner-only execution boundaries: the leader (with Claude agents operating under his account) may implement,
+1. Owner-only execution boundaries: the leader (with Claude agents operating under the leader's account) may implement,
    fix, rebase, resolve conflicts, run measurements and write evidence inside **any** technical block.
 2. Mandatory human secondary review before merge: replaced by an **independent QA pass** (CHAT E — an LLM
    red-team session under the leader's account, recorded as such, not as a human reviewer) plus CI.
@@ -148,8 +148,16 @@ Filled in as the day proceeds. Every row is carried into `POST_RECOVERY_REVALIDA
 | 19:26 | L4 attempt 1 | The live APK (`0bfaba3`) crashed at start on Hermes: `RangeError: Unknown encoding: latin1` from fast-png. Not measured | crash log outside git | — | Phạm Tuấn Anh |
 | ~20:42 | Workstation restart | The DINOv2 queue stopped during EXP-D-100 epoch 11; resumed from `last.pt` at ~20:46 as a detached process. The workstation clock ran ~66 minutes slow afterwards (time service off); evening evidence uses phone/server time | queue logs outside git | — | Bế Quốc Khánh |
 | ~20:50 | #77 `ffbf763` | latin1 TextDecoder shim (first import) + tests; release APK rebuilt from it | `ffbf763` | the leader's own block | Phạm Tuấn Anh |
-| 20:58 | **L4 measured PASS** | On the A17 in V1 SCR-03, phone driven via adb by the leader's session at his request: p50 153.5 KB, max 155.1 KB per new slice (1.1 % of a volume), revisits 0 bytes; the server log agrees | `spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/` (PR #82) | — | Vũ Hùng Anh (reviewer of Spike A) |
+| 20:58 | **L4 measured PASS** | On the A17 in V1 SCR-03, phone driven via adb by the leader's session at the leader's request: p50 153.5 KB, max 155.1 KB per new slice (1.1 % of a volume), revisits 0 bytes; the server log agrees | `spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/` (PR #82) | — | Vũ Hùng Anh (reviewer of Spike A) |
 | ~21:15 | #82 opened | GATE-MOB-01 record: TECH_STACK_ADR (QA-ADR fixes, PROPOSED), QA-004, L4 evidence. **Not merged: waits for the leader's explicit decision on L5** | PR #82 | — | Phạm Tuấn Anh |
+| 21:17 | **GATE-MOB-01 CLOSED** | The leader's explicit decision after L4 PASS: L5 accepted; Spike A ACCEPTED-WITH-LIMITATIONS L1–L3, L5; TECH_STACK_ADR ACCEPTED (QA-ADR + delta). The 3D module stays conditional on Spike B | `PROJECT_STATE.yaml` gates; QA-004 §7 | not pre-authorised (QA-004): leader decision | Vũ Hùng Anh (Spike A reviewer), Nguyễn Gia Đức Trung (ADR) |
+| 21:17 | DR-016a | Confirmed by the leader in session | `OPEN_DECISIONS.md` | — | — |
+| 21:19 | #82 GATE-MOB-01 record | **Override merge** of the leader's own record PR | `f06cf6d` | secondary review | Nguyễn Gia Đức Trung |
+| 21:19 | #77 shell + V1 SCR-02/03 + L4 tooling | **Override merge** at `edd3c93`: CHAT E MERGE AFTER GATE-MOB-01 (three deltas, incl. the Hermes latin1 shim found on the device) | `cab847a` | secondary review | Phạm Tuấn Anh (owner); Nguyễn Gia Đức Trung (re-review) |
+| 21:19 | #65 shell | Closed as superseded by #77 (patch-identical commit); branch kept | — | — | Phạm Tuấn Anh |
+| 21:20 | #78 V1 SCR-04 | **Override merge** at `969d946`: CHAT E QA-078 delta MERGE AFTER #77 AND GATE-MOB-01 | `92a59ff` | secondary review | Phạm Tuấn Anh |
+| 21:22 | #73 Spike B S-1 package | **Override squash** at `8fb577d`: CHAT E final QA MERGE; **Spike B ACCEPTED, DR-008c = L0** under the pre-declared rule; B15 a recorded exception | `40b1316` | reviewer APPROVE (Spike B) | Vũ Hùng Anh (B15, adopts); Nguyễn Gia Đức Trung (reviewer) |
+| 21:25 | #69 V3 SCR-01/SCR-07 | **Override merge** after a conflict-only merge with main (smoke.mjs sections kept; 177/177 unit, 85/85 render): CHAT E QA-069 delta MERGE at `1272dd1` | `f5d5384` | secondary review | Bế Quốc Khánh |
 
 ## 7 · Post-recovery validation
 

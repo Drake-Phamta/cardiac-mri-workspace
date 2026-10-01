@@ -27,7 +27,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 22 — 2026-10-01 · **`OVERRIDE MỘT NGÀY`** — **bắt kịp phần lớn**: 2/3 cổng đóng, cổng thứ ba đủ bằng chứng
+## DAY 22 — 2026-10-01 · **`OVERRIDE MỘT NGÀY`** — **bắt kịp phần lớn**: cả 3 cổng đóng, Spike A và Spike B ACCEPTED, 34 PR merge
 
 Leader dùng override một ngày ([`day22/RECOVERY_OVERRIDE_DAY22.md`](day22/RECOVERY_OVERRIDE_DAY22.md)).
 - Agent của leader làm thay trong mọi khối.
@@ -37,16 +37,17 @@ Leader dùng override một ngày ([`day22/RECOVERY_OVERRIDE_DAY22.md`](day22/RE
 
 | Mảng | Kết quả | Bằng chứng |
 |---|---|---|
-| **Cổng** | `GATE-SPLIT-01` **CLOSED** 11:16 (QA-005) · `GATE-ML-01` **CLOSED** 14:30 (C1 QA PASS WITH NOTES) · `GATE-MOB-01` đủ bằng chứng (L4 PASS, Spike B L0), chờ leader nhận L5 (#82) | `f5aa763`, `44350d4`, `3c02fd2` |
+| **Cổng** | `GATE-SPLIT-01` **CLOSED** 11:16 (QA-005) · `GATE-ML-01` **CLOSED** 14:30 (C1 QA PASS WITH NOTES) · `GATE-MOB-01` **CLOSED** 21:17 theo quyết định rõ của leader (nhận L5; L4 PASS trên app sản phẩm) | `f5aa763`, `44350d4`, `3c02fd2`, `f06cf6d` |
 | **Spike C1** | Chạy trên dữ liệu thật, 12:14–13:23. C1-1…C1-10 có bằng chứng máy; cả hai họ hội tụ. **ADR-ML-001 ACCEPTED**: 560×560, batch 8, E = 50 | #79 → `3c02fd2` |
 | **Train** | Hàng đợi DINOv2 chạy từ 14:30 trên PC leader (DR-016). **EXP-D-025 xong lúc 17:15**: 50 epoch, epoch tốt nhất 32. Trên **validation** (20 case, độ phân giải gốc, `ml-eval-1.0.0`): Dice 3D trung bình 0,570, trung vị 0,600, 0 case lỗi. Đây là số để chọn mô hình, **không phải kết quả**. PC khởi động lại lúc khoảng 20:42 (giờ thật), làm dừng EXP-D-100 ở epoch 10. Hàng đợi chạy tiếp từ `last.pt` lúc khoảng 20:46. Từ lúc đó đồng hồ PC chậm khoảng 66 phút, nên giờ trong log train sau đó bị lệch | ngoài git |
 | **Thử end-to-end** | Chuỗi `ml/evaluate` → gói Contract 2 → backend → API chạy được trên dự đoán thật của EXP-D-025, khi nới luật quần thể trong bộ nhớ: 7/7 endpoint hợp lệ với contract 1.1.0; 20/20 run `COMPUTED`; worst-slice đúng luật đã ghim. Chặn còn lại: gói thật chỉ có thể là FINAL_HOLDOUT (sau GATE-IMG-01), và backend chưa có 54 case holdout | `day22/qa/E2E_PROOF_EXP_D_025.md` |
 | **ML pipeline** | data/models (#60), eval + export Contract 2 (#64), train/queue/infer (#70) | `b606295`, `440dab1`, `2f62923` |
 | **Contract + backend** | API contract v1.0 → 1.1.0 (#62, #71); backend FastAPI + SQLite (#68); metrics (#75). Deploy Mac mini 12:59, redeploy 15:07 | `dbee96d`, `9ba01e8`, `a7b4950`, `985c9c3` |
 | **Mô hình vertical** | V1 SCR-03 (#53, #80) · V3 (#61, sau 3 vòng QA) · V4 (#63) | `6b52628`, `c7a37e0`, `d6441bc`, `254044a` |
-| **Spike A** | S6 (#41), S8 đã có; QA-004: chưa ACCEPTED theo luật nguyên văn (L4, L5). Tối nay L4 đo PASS trên app; L5 chờ leader (#82) | `a524b25`, QA-004 |
-| **Spike B** | B10/B11 trong WebView của app RN (#44); frontier mesh thật B5/B9/B12 offline (#66); phiên S-1 tối nay: Spike B: 5 mức × 3 lượt đều 59,9 FPS, nhưng chỉ **L0** đạt B6 trên máy, nên **DR-008c = L0** (#73). L4 trên app: **PASS** | `8a94172`, `e5ccd38` |
-| **Mobile** | Shell + V1 SCR-02/03/04 (#77, #78) và V3 SCR-01/07 (#69) **đã qua QA, chờ GATE-MOB-01**. APK live chạy trên A17 sau khi sửa lỗi văng `latin1` trên Hermes (`ffbf763`) | |
+| **Spike A** | S6 (#41), S8 đã có; QA-004: chưa ACCEPTED theo luật nguyên văn (L4, L5). L4 đo PASS trên app lúc 20:58; leader nhận L5 lúc 21:17 → **ACCEPTED-WITH-LIMITATIONS L1–L3, L5** | `a524b25`, QA-004 §7, #82 → `f06cf6d` |
+| **Spike B** | B10/B11 trong WebView của app RN (#44); frontier mesh thật B5/B9/B12 offline (#66); phiên S-1 tối nay: Spike B: 5 mức × 3 lượt đều 59,9 FPS, nhưng chỉ **L0** đạt B6 trên máy, nên **DR-008c = L0**. **Spike B ACCEPTED** 21:22 theo luật khai trước, sau QA final của CHAT E; B15 là ngoại lệ được ghi, chủ spike viết trước 10:00 ngày 02/10 | `8a94172`, `e5ccd38`, #73 → `40b1316` |
+| **Mobile** | Shell + V1 SCR-02/03/04 (#77, #78) và V3 SCR-01/07 (#69) **merge sau khi cổng đóng**; #65 đóng vì #77 thay thế. APK live chạy trên A17 sau khi sửa lỗi văng `latin1` trên Hermes (`ffbf763`) | `cab847a`, `92a59ff`, `f5d5384` |
+| **Quyết định của leader (21:17)** | GATE-MOB-01: nhận L5, đóng cổng · DR-016a: xác nhận (E = 50 cho cả 6 run; 4050 hỏng thì lịch trễ, công thức không đổi) | `OPEN_DECISIONS.md` |
 
 **Ghi đúng như thấy:**
 - Run C1 lần 1 chết lúc 12:11 vì cạn bộ nhớ commit trên PC dùng chung. Luật tài nguyên cho agent được đặt ngay sau đó.
@@ -57,7 +58,11 @@ Leader dùng override một ngày ([`day22/RECOVERY_OVERRIDE_DAY22.md`](day22/RE
   - #70: split chưa ghim, train được trên một case holdout;
   - #61 B-4: case INT-12 có số qua đường outlier;
   - #77: một judge L4 có thể PASS mà không đo gì.
-- DR-016a được ghi **sau** khi hàng đợi DINOv2 đã chạy, không trước như QA khuyên.
+- DR-016a được ghi **sau** khi hàng đợi DINOv2 đã chạy, không trước như QA khuyên. Leader xác nhận lúc 21:17.
+- PC leader khởi động lại lúc khoảng 20:42; hàng đợi chạy lại từ `last.pt`. Sau đó đồng hồ PC chậm khoảng 66 phút (dịch vụ Windows Time tắt), nên bằng chứng buổi tối dùng giờ điện thoại và máy chủ.
+- Hàng đợi bị một Ctrl+C dừng lúc khoảng 20:59 trong epoch 12 của EXP-D-100; chạy lại lúc 21:30 từ `last.pt` (epoch 11), lần này tách khỏi mọi console. EXP-D-100 dự kiến xong khoảng **04:00**, EXP-D-050 khoảng **08:00–09:00** sáng 02/10.
+- APK live đầu tiên (`0bfaba3`) văng khi khởi động trên Hermes; L4 chỉ đo được sau bản sửa `ffbf763`.
+- Phiên L4 do phiên Claude của leader điều khiển điện thoại qua adb, theo yêu cầu của leader; ghi trong `PROVENANCE.md`.
 
 ---
 

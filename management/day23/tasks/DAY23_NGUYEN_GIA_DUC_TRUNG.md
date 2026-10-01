@@ -23,7 +23,9 @@ Ghi **"nhận"** hoặc **"cần sửa: …"** cho từng mục vào `management
 | #68 → `9ba01e8` | backend FastAPI + SQLite, deploy offline cp39 | `pytest backend/tests -q`, chạy dưới Python 3.9 nếu có |
 | #71 → `a7b4950` | contract 1.1.0 | đọc README "Deviations"; xác nhận `METRIC_SOURCES` chỉ có trong #75 |
 | #50, #51, #52 (merge sáng 01/10) | fixture V1–V4, mô hình V4, bằng chứng TC-TEAM-001 V4 | duyệt lại #50 (CI không chạy lại sau khi đổi base) |
-| #63 *(còn mở, chưa QA)* | mô hình V4 trên 1.1.0 (`d801606`) | QA bị giới hạn phiên ngắt ngang; xem việc 2 |
+| #63 → `254044a`, #75 → `985c9c3` | mô hình V4 trên 1.1.0; metrics backend | xem việc 2 |
+| #82 → `f06cf6d` (TECH_STACK_ADR) | bạn là **người duyệt thứ hai** của ADR-MOB-001, đã ACCEPTED dưới override | đọc ADR §4–§8; APPROVE hoặc ghi "cần sửa" (T13) |
+| Spike B (#73 → `40b1316`) | bạn là **reviewer của Spike B**; ACCEPTED dưới override, QA bằng LLM đứng thay | đọc RESULT phần S-1; APPROVE hoặc REJECT + lý do (T14) |
 
 ## 🔴 Việc 2 — V4 và metrics *(trước 15:00)*
 
@@ -46,7 +48,7 @@ Ghi **"nhận"** hoặc **"cần sửa: …"** cho từng mục vào `management
     - N-6: test tie-break DR-010;
     - N-7: WITHHELD được ưu tiên trước FAILED;
     - N-8: phiên bản và nhãn.
-- **#72** (màn SCR-06/SCR-08, nháp): chờ **GATE-MOB-01**. Đã nối với API shell của #77 (`runtime.content`, `maskPng.js`, `setLeaveGuard`).
+- **#72** (màn SCR-06/SCR-08, nháp): GATE-MOB-01 **đã đóng** và #77 đã lên `main`. Chốt N-4, rebase lên `main`, thôi nháp và xin duyệt thường (CP-07). Đã nối với API shell của #77 (`runtime.content`, `maskPng.js`, `setLeaveGuard`).
 
 ## Việc 3 — nợ kỹ thuật đã ghi *(chiều; ưu tiên theo thứ tự)*
 
@@ -70,7 +72,7 @@ Ghi **"nhận"** hoặc **"cần sửa: …"** cho từng mục vào `management
    - echo id case/run đã yêu cầu (guard V1 cần);
    - metrics của EXP-D-PP ở dạng PROCESSED.
 
-## Việc 4 — thiết bị *(khi GATE-MOB-01 đóng)*
+## Việc 4 — thiết bị *(cổng đã đóng; sau khi #72 merge)*
 
 Đo TC-PERF-003 và TC-REV-003 cho SCR-06 trên A17. Bổ sung TC-TEAM-001 của bạn.
 
