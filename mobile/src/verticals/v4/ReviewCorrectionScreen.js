@@ -274,15 +274,17 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
             <Btn key={t.to} label={TRANSITION_LABEL[t.to] || t.to} disabled={!writable || !t.ok} onPress={() => askStatus(t)} />
           ))}
         </View>
-        {r.transitions.some((t) => !t.ok && t.code === 'CORRECTION_NOT_SAVED') && (
-          <Text style={s.hint}>Mark corrected needs a saved correction — saving one makes the review CORRECTED.</Text>
+        {r.transitions.some((t) => t.code === 'CORRECTED_BY_COMMIT_ONLY') && (
+          <Text style={s.hint}>CORRECTED is reached only by saving a correction (Save), never by a status change.</Text>
         )}
         <View style={s.row}>
           <Btn label="Cancel edits" disabled={!editable || b.unsavedSlices.length === 0}
             onPress={() => confirm('Discard unsaved edits?', 'The working mask goes back to the last save (or the source).', () => ctl.cancel())} />
           <Btn label={st.busy === 'saving' ? 'Saving…' : 'Save'} active disabled={!st.canSave} onPress={askSave} testID="save" />
           <Btn label="New finding here" disabled={!st.canLeave}
-            onPress={() => nav.push('SCR-08', { caseId: st.target.caseId, runId: st.target.runId, sliceIndex: st.slice.index })} />
+            onPress={() => nav.push('SCR-08', {
+              caseId: st.target.caseId, runId: st.target.runId, variant: st.target.variant, sliceIndex: st.slice.index,
+            })} />
         </View>
         {!st.canLeave && <Text style={s.hint}>{st.leaveBlockedReason}</Text>}
       </ScrollView>

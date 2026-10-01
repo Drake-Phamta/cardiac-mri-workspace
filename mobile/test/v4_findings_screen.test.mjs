@@ -29,13 +29,16 @@ test('FS1 the tab lists findings with their evidence, and each opens exactly the
   const route = ctl.routeTo(id);
   assert.deepEqual({ ...route, params: { ...route.params } }, {
     screenId: 'SCR-03',
-    params: { caseId: ROW.evidence.case_id, sliceIndex: ROW.evidence.slice_index, runId: ROW.evidence.analysis_run_id, experimentId: ROW.evidence.experiment_id },
+    params: {
+      caseId: ROW.evidence.case_id, sliceIndex: ROW.evidence.slice_index, runId: ROW.evidence.analysis_run_id,
+      variant: ROW.evidence.prediction_variant, experimentId: ROW.evidence.experiment_id,
+    },
   });
   validateRoute(route.screenId, route.params); // the navigator accepts it
   const review = ctl.reviewRouteTo(id);
   assert.equal(review.screenId, 'SCR-06');
   assert.equal(review.params.runId, ROW.evidence.analysis_run_id);
-  assert.equal(review.params.variant, undefined, 'a finding records no variant, so SCR-06 must ask - never a default');
+  assert.equal(review.params.variant, ROW.evidence.prediction_variant, 'the recorded variant goes along (contract 1.1.0), so SCR-06 opens without asking');
   validateRoute(review.screenId, review.params);
 });
 
@@ -48,7 +51,7 @@ test('FS2 an empty list is an empty list, not drift (contract v1.0 row_fields, g
 });
 
 test('FS3 create from a case/slice context: the form, its validation, and the finding opening back there', async () => {
-  const params = { caseId: 'CASE_0043', sliceIndex: 44, runId: 'RUN_0043', experimentId: 'EXP_DEMO' };
+  const params = { caseId: 'CASE_0043', sliceIndex: 44, runId: 'RUN_0043', variant: 'RAW', experimentId: 'EXP_DEMO' };
   const ctl = createFindingsScreen({ runtime: fixtureRuntime(), params });
   await ctl.load();
   let s = ctl.getState();
@@ -66,6 +69,7 @@ test('FS3 create from a case/slice context: the form, its validation, and the fi
   assert.equal(created.sliceIndex, 44);
   assert.equal(created.type, 'UNDER_SEGMENTATION');
   assert.equal(created.revision, 1);
+  assert.equal(created.variant, 'RAW', 'the variant SCR-06 passed is recorded with the run');
   const route = ctl.routeTo(created.findingId);
   assert.equal(route.screenId, 'SCR-03');
   assert.equal(route.params.caseId, 'CASE_0043');
@@ -80,7 +84,7 @@ test('FS4 a server refusal is a state, and the list survives it', async () => {
   runtime.fixtureScenarios.set('finding_create', 'error_case');
   ctl.setType('OTHER');
   const s = await ctl.submit();
-  assert.ok(s.createView && s.createView.state !== STATE.SUCCESS, 'the failed create is its own state');
+  assert.ok(s.actionView && s.actionView.state !== STATE.SUCCESS, 'the failed create is its own state');
   assert.equal(s.view.state, STATE.SUCCESS, 'the list it failed over is still valid and still shown');
   assert.equal(s.items.length, 1);
 });
@@ -94,4 +98,31 @@ test('FS5 routes are built only from what a finding holds', () => {
   const noRun = { available: true, screen: 'SCR-03', caseId: 'CASE_1', sliceIndex: 2, runId: null, experimentId: null, region: null };
   assert.deepEqual({ ...routeFor(noRun).params }, { caseId: 'CASE_1', sliceIndex: 2 });
   assert.equal(reviewRouteFor(noRun), null, 'no run, no review: SCR-06 is scoped to a run');
+});
+
+test('FS6 Resolve / Reopen goes through finding_patch with the finding\'s revision', async () => {
+  const ctl = createFindingsScreen({ runtime: fixtureRuntime(), params: {} });
+  await ctl.load();
+  const id = ctl.getState().items[0].finding.findingId;
+  let s = await ctl.setStatus(id, 'RESOLVED');
+  assert.equal(s.notice.kind, 'status', JSON.stringify(s.notice));
+  assert.equal(s.items[0].finding.status, 'RESOLVED');
+  assert.equal(s.view.state, STATE.SUCCESS, 'the list stays');
+  s = await ctl.setStatus(id, 'CLOSED');
+  assert.equal(s.notice.kind, 'refused', 'only OPEN / RESOLVED');
+});
+
+test('FS7 a route with a run but no variant makes the form ask for it before creating', async () => {
+  const ctl = createFindingsScreen({ runtime: fixtureRuntime(), params: { caseId: 'CASE_0043', sliceIndex: 44, runId: 'RUN_0043' } });
+  await ctl.load();
+  ctl.setType('OTHER');
+  let s = ctl.getState();
+  assert.equal(s.needsVariant, true);
+  assert.equal(s.canSubmit, false, 'no variant yet');
+  ctl.setVariant('PROCESSED');
+  s = ctl.getState();
+  assert.equal(s.canSubmit, true);
+  s = await ctl.submit();
+  assert.equal(s.notice.kind, 'created', JSON.stringify(s.notice));
+  assert.equal(s.items[0].finding.variant, 'PROCESSED');
 });

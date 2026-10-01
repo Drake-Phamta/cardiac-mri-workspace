@@ -188,7 +188,7 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 | `reviewController.mjs` | variant (route or an explicit RAW / PROCESSED choice) → `analysis_run_get` (must be SUCCEEDED) → the scoped review → pixels → brush → save; node-tested in `mobile/test/v4_review_screen.test.mjs` |
 | `gesture.mjs` | Spike A's A11 rules as a pure controller: one finger paints, a second finger or a system termination rolls the stroke back, two fingers pinch/pan, Pan mode |
 | `syntheticSource.mjs` | **fixture mode only**: the labelled SYNTHETIC stand-in the brush edits, because the bundle carries no pixels |
-| `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list with evidence, Open evidence (SCR-03 / SCR-07), Review / correct (SCR-06), create only from a case/slice context; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
+| `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list with evidence (variant included), Open evidence (SCR-03 / SCR-07, with the recorded variant), Review / correct (SCR-06), Resolve / Reopen (`finding_patch`), create only from a case/slice context - SCR-06 passes its variant, a bare run makes the form ask; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
 
 Demo path while SCR-03 is still a placeholder: **Findings** tab → a finding → **Review / correct** → SCR-06 asks
 RAW or PROCESSED → brush → **Save** (names the source first) → the review is CORRECTED → **New finding here**.
@@ -211,7 +211,6 @@ In the FIXTURE panel, `working_mask_put` / `review_commit` → `stale_revision` 
 - **Leave guard:** when the shell adds `nav.setLeaveGuard(fn)`, register one in SCR-06 that asks before leaving
   with UNSAVED slices (tab tap and Android back included), and re-enable "New finding here" through it.
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
-  `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals; SCR-08 OPEN ↔ RESOLVED once
-  `finding_patch` exists.
+  `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
   tests and your own defense notes.

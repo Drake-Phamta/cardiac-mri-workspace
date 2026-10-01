@@ -24,7 +24,7 @@ import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'r
 import { RECOVERY } from '../../../../app/core/index.mjs';
 import StateView, { StatePanel } from '../../ui/StateView';
 import { color, font, MIN_TOUCH, space } from '../../ui/theme';
-import { createFindingsScreen, FINDING_TYPE } from './findingsController.mjs';
+import { createFindingsScreen, FINDING_TYPE, PREDICTION_VARIANT } from './findingsController.mjs';
 
 const TYPE_LABEL = Object.freeze({
   UNDER_SEGMENTATION: 'Under-segmentation',
@@ -53,6 +53,7 @@ function evidenceLine(f) {
   if (f.caseId) parts.push(f.caseId);
   if (Number.isInteger(f.sliceIndex)) parts.push(`slice ${f.sliceIndex}`);
   if (f.runId) parts.push(`run ${f.runId}`);
+  if (f.variant) parts.push(f.variant);
   if (f.experimentId) parts.push(`exp ${f.experimentId}`);
   if (f.region && f.region.kind === 'POINT') parts.push(`point (${f.region.x}, ${f.region.y})`);
   if (f.region && f.region.kind === 'BOX') parts.push(`box (${f.region.x0}, ${f.region.y0})-(${f.region.x1}, ${f.region.y1})`);
@@ -64,7 +65,17 @@ function CreateForm({ ctl, st }) {
   return (
     <View style={s.card}>
       <Text style={s.h2}>New finding</Text>
-      <Text style={s.mono}>{c.caseId} · slice {c.sliceIndex}{c.runId ? ` · run ${c.runId}` : ''}</Text>
+      <Text style={s.mono}>
+        {c.caseId} · slice {c.sliceIndex}{c.runId ? ` · run ${c.runId}` : ''}{st.form.variant ? ` · ${st.form.variant}` : ''}
+      </Text>
+      {st.needsVariant && (
+        <View style={s.row}>
+          <Text style={s.hint}>Which prediction was on screen?</Text>
+          {Object.keys(PREDICTION_VARIANT).map((v) => (
+            <Btn key={v} label={v} active={st.form.variant === v} onPress={() => ctl.setVariant(v)} />
+          ))}
+        </View>
+      )}
       <View style={s.row}>
         {Object.keys(FINDING_TYPE).map((t) => (
           <Btn key={t} label={TYPE_LABEL[t]} active={st.form.type === t} onPress={() => ctl.setType(t)} />
@@ -81,6 +92,7 @@ function CreateForm({ ctl, st }) {
       />
       <Btn label={st.busy === 'create' ? 'Saving…' : 'Create finding'} active disabled={!st.canSubmit} onPress={() => ctl.submit()} />
       {!st.form.type && <Text style={s.hint}>Choose a type first.</Text>}
+      {st.needsVariant && !st.form.variant && <Text style={s.hint}>Choose the prediction variant (the finding names a run).</Text>}
     </View>
   );
 }
@@ -112,6 +124,8 @@ export default function FindingsScreen({ runtime, nav, params }) {
         {!item.ok && item.problems.map((p) => <Text key={p} style={s.problem}>{p}</Text>)}
         <View style={s.row}>
           <Btn label="Open evidence" disabled={!open} onPress={() => nav.push(open.screenId, open.params)} />
+          <Btn label={f.status === 'RESOLVED' ? 'Reopen' : 'Resolve'} disabled={!f.revision || Boolean(st.busy)}
+            onPress={() => ctl.setStatus(f.findingId, f.status === 'RESOLVED' ? 'OPEN' : 'RESOLVED')} />
           {review && <Btn label="Review / correct" onPress={() => nav.push(review.screenId, review.params)} />}
         </View>
         {!open && <Text style={s.hint}>This finding records no case and slice, so there is no evidence location to open.</Text>}
@@ -122,8 +136,8 @@ export default function FindingsScreen({ runtime, nav, params }) {
   return (
     <View style={s.root}>
       {st.notice && <Text style={[s.notice, st.notice.kind === 'refused' && s.noticeWarn]}>{st.notice.text}</Text>}
-      {st.createView && (
-        <View style={s.banner}><StatePanel view={st.createView} what="the new finding" onAction={onAction} compact /></View>
+      {st.actionView && (
+        <View style={s.banner}><StatePanel view={st.actionView} what="the finding" onAction={onAction} compact /></View>
       )}
       {st.form && <CreateForm ctl={ctl} st={st} />}
       <StateView view={st.view} what="the findings" onAction={onAction}>
