@@ -106,6 +106,8 @@ export const UNAVAILABLE = Object.freeze({
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'OUTLIERS_FOR_ANOTHER_EXPERIMENT',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'OUTLIERS_FOR_ANOTHER_VARIANT',
   NO_ELIGIBLE_CASES: 'NO_ELIGIBLE_CASES',
+  // experiment_list answered with no rows: no experiment is listed yet.
+  NO_EXPERIMENTS_LISTED: 'NO_EXPERIMENTS_LISTED',
 });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

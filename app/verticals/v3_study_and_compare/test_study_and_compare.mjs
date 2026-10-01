@@ -27,10 +27,10 @@ import {
   STATE, RECOVERY, VERDICT, success, readComparability, presentation,
 } from '../../core/index.mjs';
 import {
-  createStudyOverview, createExperimentComparison, CELL_STATUS, MATRIX, MATRIX_IDS, COMPARISONS,
+  createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
   buildCell, buildTrend, deltaFor, aggregationFor, stripLayout, pointAt, matrixEntry,
   readCount, readCohortN, readVariant, readFraction, readFamily, readMetricSummary, readOutlierSelection,
-  readCaseRows, caseIntent, UNAVAILABLE, OUTLIER_RULE,
+  readCaseRows, caseIntent, summaryStat, UNAVAILABLE, OUTLIER_RULE,
 } from './index.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
@@ -442,6 +442,63 @@ const typedCell = (expected, { variant = 'RAW_PREDICTION', outlierSelection, sum
   const ms = readMetricSummary({ dice_3d: { mean: 0.8, median: 'n/a' }, note: 'x' });
   check('V3-11', ms.metrics[0].stats.median === null && ms.metrics[0].stats.mean === 0.8 && ms.ignored[0] === 'note',
     'one unreadable statistic does not hide the others, and nothing is dropped silently');
+}
+
+// V3-13 - an experiment with no per-case result yet: the server answers with
+// an empty list. Legitimately unavailable, said as such - not an empty strip
+// that reads as "nothing failed", and no metric of 0.
+{
+  const cell = buildCell(matrixEntry('EXP-D-025'), {
+    metricsView: success({
+      evaluation_n: 54, successful_n: 0, prediction_variant: 'RAW_PREDICTION', metric_version: 'mv1', metric_summary: {},
+    }),
+    casesView: success({ items: [], metric_version: 'mv1' }),
+    population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
+    metricName: 'dice_3d',
+    aggregation,
+  });
+  check('V3-13', cell.status === CELL_STATUS.LOADED && cell.points.length === 0
+    && cell.pointsWithheld === CELL_UNAVAILABLE.NO_CASE_RESULTS,
+    `no case rows -> no point, withheld as ${cell.pointsWithheld}`);
+  check('V3-13', cell.n.text === 'N intended 54 · N successful 0',
+    `the server's own counts are shown as served: "${cell.n.text}"`);
+  check('V3-13', !cell.summary.available && cell.summary.reason === UNAVAILABLE.NO_READABLE_STATISTIC
+    && summaryStat(cell.summary, 'dice_3d', 'median') === null,
+    'an empty summary has no statistic - not a median of 0');
+}
+
+// V3-14 - the same, end to end through the generated `empty` scenarios. They
+// arrive with the contract v1.0 PR (A3), together with the core fix that
+// accepts `items: []`. Until the bundle has them this prints NOT RUN and
+// counts nothing - a missing scenario is not a pass.
+{
+  const notRun = (what) => console.log(`  skip V3-14  NOT RUN - this bundle has no \`empty\` scenario for ${what}`);
+  if (generated('experiment_list', 'empty')) {
+    const m = createExperimentComparison(newClient());
+    const s = await m.open({ scenarios: { experiment_list: 'empty' } });
+    check('V3-14', s.view.state === STATE.EMPTY_UNAVAILABLE && s.view.reason === UNAVAILABLE.NO_EXPERIMENTS_LISTED
+      && s.view.actions.includes(RECOVERY.REFRESH),
+      `SCR-07, no experiment listed -> ${s.view.state} / ${s.view.reason}, offers ${s.view.actions.join('/')}`);
+    check('V3-14', s.cells.every((c) => c.status === CELL_STATUS.NOT_LISTED && c.n === null && c.points.length === 0),
+      'every cell NOT_LISTED, no N, no point');
+    const o = await createStudyOverview(newClient()).open({ studyId: STUDY, scenarios: { experiment_list: 'empty' } });
+    check('V3-14', o.view.state === STATE.SUCCESS && o.experiments.reason === UNAVAILABLE.NO_EXPERIMENTS_LISTED
+      && o.experiments.totalRows === 0 && o.experiments.matrix.every((r) => r.n === null),
+      `SCR-01 keeps the study and says ${o.experiments.reason}`);
+  } else {
+    notRun('experiment_list');
+  }
+  if (generated('experiment_cases', 'empty')) {
+    const m = createExperimentComparison(newClient());
+    await m.open({ experimentIds: ['EXP-U-025'], metricName: 'dice_3d', scenarios: { experiment_cases: 'empty' } });
+    const c = m.cell('EXP-U-025');
+    check('V3-14', c.casesView.state === STATE.SUCCESS && c.cases.rows.length === 0,
+      `experiment_cases with no rows -> ${c.casesView.state}, not CONTRACT_DRIFT`);
+    check('V3-14', c.points.length === 0 && c.pointsWithheld === CELL_UNAVAILABLE.NO_CASE_RESULTS,
+      `the strip says ${c.pointsWithheld}, and draws nothing`);
+  } else {
+    notRun('experiment_cases');
+  }
 }
 
 // V3-12 - nothing in this vertical ranks or sorts, and nothing a device

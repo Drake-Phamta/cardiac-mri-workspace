@@ -26,7 +26,7 @@
 
 import { STATE, loading, success } from '../../core/index.mjs';
 import {
-  MATRIX, matrixEntry, readIdRows, readPopulation, readDataset, readCaseCounts, readCapabilities,
+  MATRIX, UNAVAILABLE, matrixEntry, readIdRows, readPopulation, readDataset, readCaseCounts, readCapabilities,
   readOutlierSelection,
 } from './readers.mjs';
 import {
@@ -152,9 +152,12 @@ export function createStudyOverview(client) {
       capabilities: readCapabilities(study.data.capabilities),
       experiments: Object.freeze({
         view: listView,
+        // A list that answered with no rows is a legitimate absence ("no
+        // experiment listed yet"), not a list of experiments with N 0.
+        reason: rows && rows.total === 0 ? UNAVAILABLE.NO_EXPERIMENTS_LISTED : null,
         listedIds: rows ? rows.ids : Object.freeze([]),
-        totalRows: rows ? rows.total : 0,
-        unreadableRows: rows ? rows.unreadable : 0,
+        totalRows: rows ? rows.total : null,
+        unreadableRows: rows ? rows.unreadable : null,
         outsideMatrix: Object.freeze((rows ? rows.ids : []).filter((id) => matrixEntry(id) === null)),
         population,
         matrix: Object.freeze(cells.map(overviewRow)),

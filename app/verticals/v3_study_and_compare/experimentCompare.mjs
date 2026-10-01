@@ -27,8 +27,12 @@
  * the server's summaries use (snapshot.metricNames) and the user picks one.
  */
 
-import { STATE, loading, success, stateForError } from '../../core/index.mjs';
-import { MATRIX, MATRIX_IDS, matrixEntry, readIdRows, readPopulation, readVariant } from './readers.mjs';
+import {
+  STATE, RECOVERY, loading, success, emptyUnavailable, stateForError,
+} from '../../core/index.mjs';
+import {
+  MATRIX, MATRIX_IDS, UNAVAILABLE, matrixEntry, readIdRows, readPopulation, readVariant,
+} from './readers.mjs';
 import {
   CELL_STATUS, aggregationFor, buildCell, notListedCell, requestCell, requestComparisons,
   labelsForCell, buildTrend, deltaFor, metricNamesOf,
@@ -102,11 +106,22 @@ export function createExperimentComparison(client) {
     const list = Object.freeze({
       view: listView,
       listedIds: rows ? rows.ids : Object.freeze([]),
-      totalRows: rows ? rows.total : 0,
-      unreadableRows: rows ? rows.unreadable : 0,
+      // null when the list call failed: an unknown count is not 0.
+      totalRows: rows ? rows.total : null,
+      unreadableRows: rows ? rows.unreadable : null,
       population: listView.state === STATE.SUCCESS ? readPopulation(listView.data.evaluation_population) : null,
       variant: listView.state === STATE.SUCCESS ? readVariant(listView.data.prediction_variant) : null,
     });
+
+    // `10` section 8 "empty/unavailable": the server lists no experiment yet
+    // (no run has finished). A legitimate absence with REFRESH - not a matrix
+    // of blank cells that reads as results, and never an N of 0.
+    if (mode === MODE.MATRIX && rows.total === 0) {
+      return set(emptyUnavailable(UNAVAILABLE.NO_EXPERIMENTS_LISTED, [RECOVERY.REFRESH]), {
+        mode, list, requested: [],
+        cells: MATRIX.map((e) => notListedCell(e, CELL_STATUS.NOT_LISTED)),
+      });
+    }
 
     const wanted = mode === MODE.EXPLICIT ? experimentIds : rows.ids;
     const requestedIds = wanted.filter((id) => matrixEntry(id) !== null);
