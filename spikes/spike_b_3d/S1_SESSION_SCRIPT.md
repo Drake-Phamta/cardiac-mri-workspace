@@ -36,19 +36,28 @@ camera (B6 after real gestures), tap the surface (B6/B7) and tap empty backgroun
 
 ## Rules fixed BEFORE the session (from the Day 22 override §4 and SPIKE_B_3D/TASK.md)
 
-- **B10** PASS at a level iff every complete scripted run has nearest-rank median ≥ 20 FPS.
-- **B11** PASS at a level iff every complete run has longest frame interval ≤ 500 ms and no interval > 500 ms.
-- **B6** PASS at a level iff every device pick whose ray meets the mask resolves within ±1 slice of the
-  truth (exact traversal of the real mask along the ray the device logged) and none of them resolves nothing.
-- **B7** PASS iff every navigation request is displayed in the 2D panel as exactly the requested slice, which
-  equals the pick's resolved slice, with no display that has no request.
-- **B9** PASS iff no pick that resolves nothing navigates, and no pick whose ray meets no mask voxel navigates.
-- **DR-008c** = the fastest level whose offline B5 is within ±1 slice **and** whose B10 and B11 pass.
-  "Fastest" = highest nearest-rank median FPS; if two such levels tie (e.g. both at the display cap), the one
-  with fewer triangles (more render headroom). On PR #66's evidence only L0 can qualify.
+- **Runs.** A scripted run is **complete** when its probe reports `status: complete`. A run is **invalid** if
+  the operator's notes put a screen-off, the app in the background, a touch during a hands-off phase or an
+  error status inside its time window. Invalid runs are excluded explicitly — `s1_extract.py
+  --exclude-suite <segment>.<suite>=<reason>`, recorded in the results — never silently; every other
+  complete run counts, including the runs of a suite that was re-run.
+- **B10** PASS at a level iff it has **≥ 3 complete valid runs** and every one has a nearest-rank median
+  ≥ 20 FPS. **B11** PASS at a level iff it has ≥ 3 complete valid runs and every one has a longest frame
+  interval ≤ 500 ms and no interval > 500 ms. Fewer than 3 complete valid runs → `NOT MEASURED` at that level.
+- **B6, B7, B9** are reported for every level and **judged at the chosen level** (DR-008c below).
+  **B6** PASS iff every device pick whose ray meets the mask resolves within ±1 slice of the truth (exact
+  walk of the real mask along the ray the device logged) and none of them resolves nothing. **B7** PASS iff
+  every navigation request is displayed in the 2D panel as exactly the requested slice, which equals the
+  pick's resolved slice, with no display that has no request. **B9** PASS iff no pick that resolves nothing
+  navigates, and no pick whose ray meets no mask voxel navigates.
+- **B12** = the frontier table: per level, triangles, median FPS (as defined next), longest stall, and the
+  offline B5 of PR #66.
+- **DR-008c** = among the levels whose offline B5 (PR #66) is within ±1 slice **and** whose B10 and B11 pass,
+  the **fastest**: the highest value of *the minimum, over the level's complete valid runs, of the run's
+  nearest-rank median FPS*. A tie (e.g. two levels at the display cap) goes to the level with fewer
+  triangles. On PR #66's evidence only L0 can qualify; the #44 PASS (5,648 synthetic triangles) does not
+  carry over to L0's 61,424.
 - If L0 fails B10 or B11, no level satisfies both bounds: **`NEGATIVE_RESULT`**, escalate. The ±1 bound is not widened.
-- A run is **invalid** (re-run it, never discard silently) if the screen turned off, the app went to the
-  background, the phone was touched during a hands-off phase, or the status shows an error.
 
 ## 0 · Before 19:00 — workstation (two PowerShell windows)
 
@@ -198,29 +207,37 @@ Quick checks while the session runs (window 2):
 ## 5 · Extraction (after the session — A4 / the owner, not the operator)
 
 ```powershell
-python spikes\spike_b_3d\harness\s1_extract.py --session $S1
+$env:CARDIAC_DATA_ROOT = "<extracted LASC package>"           # no built-in path
+python spikes\spike_b_3d\harness\s1_extract.py --self-test    # data-free: re-open case, repeats, sanitizing
+python spikes\spike_b_3d\harness\s1_extract.py --session $S1 [--exclude-suite <segment>.<suite>=<reason> ...]
 ```
 
-It writes `$S1\s1_results.json` (per level: B10/B11 per run recomputed from the raw intervals, B6 against
-the mask, B7, B9, cross-check of the HTTP and logcat copies, and of the device hit against a workstation
-re-intersection of the same ray) and `$S1\s1_per_pick.csv`. It needs the private LASC package and the
-gitignored meshes in `spikes/spike_b_3d/mesh/out_real/CASE_0059/`.
+It segments the records by page load (every `s1_rn_open_level`), keys picks by (segment, pick_id) so a
+re-opened level or a relaunched app never overwrites a pick, and **refuses** on a repeat inside one page
+load. It prints the segments with their clock times, so the operator's noted times map to
+`<segment>.<suite>` for `--exclude-suite`. It writes `$S1\s1_results.json` (per level: B10/B11 per run
+recomputed from the raw intervals, B6 against the mask, B7, B9, the cross-check of the two evidence paths,
+and of the device hit against a workstation re-intersection of the same ray) and `$S1\s1_per_pick.csv`.
+It needs the private LASC package and the gitignored meshes in `spikes/spike_b_3d/mesh/out_real/CASE_0059/`.
 
 ```powershell
-python spikes\spike_b_3d\harness\s1_export_evidence.py --session $S1 --out spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device
+python spikes\spike_b_3d\harness\s1_export_evidence.py --session $S1 --out spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device --notes <operator notes .txt>
+python spikes\spike_b_3d\harness\s1_export_evidence.py --check spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device   # pre-commit leak gate
 ```
 
 **What goes into git afterwards** (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/`, written by the
-command above, which also refuses to finish if the serial survives anywhere):
-`PROVENANCE.md` (from the template below), `session_state.json`, `conditions_before.json`,
-`conditions_after.json`, `repository_commit.txt`, `frame_probes.jsonl` (the frame-probe records only:
-timings, no anatomy), `s1_results.json`, `s1_per_pick.csv` (slice indices and errors, no coordinates) and
-`hashes.json`. **Not** committed: the APK, the meshes, `installed_base.apk`, and the raw pick records /
-logcat, which contain surface coordinates of the patient's anatomy — their SHA-256 are in `hashes.json`,
-the files stay in `$S1`. The exporter replaces the handset serial with `<A17_SERIAL>` in every copied file
-(the repository is public) and records the SHA-256 of the unredacted originals in `hashes.json`.
+exporter): `PROVENANCE.md` (**generated** from the files below, see §6), `session_state.json`,
+`conditions_before.json`, `conditions_after.json`, `repository_commit.txt`, `frame_probes.jsonl` (the
+frame-probe records only: timings, no anatomy), `s1_results.json`, `s1_per_pick.csv` (slice indices and
+errors, no coordinates) and `hashes.json`. **Not** committed: the APK, the meshes, `installed_base.apk`, and
+the raw pick records / logcat, which contain surface coordinates of the patient's anatomy — their SHA-256
+are in `hashes.json`, the files stay in `$S1`. Every copied string goes through one sanitizer: the handset
+serial becomes `<A17_SERIAL>`, absolute and device paths become basenames, the session folder becomes its
+name. The exporter ends with the leak gate and refuses (exit 1) if the serial, a drive-letter / UNC / home
+path, a `/data/app/` path or the words `worktrees` / `scratchpad` / `AppData` survive in any file; run
+`--check` again right before `git add`.
 
-## 6 · PROVENANCE template (fill in, commit with the evidence)
+## 6 · PROVENANCE — generated by the exporter (this is the structure it fills in)
 
 ```markdown
 # PROVENANCE — S-1 device session, 2026-10-01

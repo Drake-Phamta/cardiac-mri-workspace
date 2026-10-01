@@ -1,44 +1,56 @@
 #!/usr/bin/env python3
-"""Copy the committable part of an S-1 session into the repository's evidence folder.
+"""Copy the publishable part of an S-1 session into the repository, sanitized, with a
+generated PROVENANCE.md and a pre-commit leak check.
 
 THROWAWAY SPIKE CODE. Day 22 (2026-10-01), Claude agent under the leader's recovery
 override; Spike B owner Vu Hung Anh confirms on Day 23.
 
-    python spikes/spike_b_3d/harness/s1_export_evidence.py --session <dir> --out spikes/spike_b_3d/EVIDENCE_RAW/<folder>
+    python spikes/spike_b_3d/harness/s1_extract.py --session <dir> [--exclude-suite ...]
+    python spikes/spike_b_3d/harness/s1_export_evidence.py --session <dir> \
+        --out spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device [--notes <operator notes .txt>]
+    python spikes/spike_b_3d/harness/s1_export_evidence.py --check <folder>     # the leak gate only
 
-Run s1_extract.py first. What is copied, and what is not:
+Copied (every string passed through s1_extract.sanitize: the handset serial becomes
+<A17_SERIAL>, absolute and device paths become basenames):
+    s1_results.json, s1_per_pick.csv   the extractor's results (slice indices and errors only)
+    frame_probes.jsonl                 every s1_frame_probe as received (timings, no anatomy)
+    session_state.json, conditions_before.json, conditions_after.json, repository_commit.txt
+    hashes.json                        SHA-256 of every copied file, of the unredacted originals
+                                       and of every raw file left outside git
+    PROVENANCE.md                      GENERATED from those files (QA N8): roles, build, device,
+                                       session, deviations (operator notes, verbatim), the B12
+                                       table and the DR-008c computation (PR #66 B5 + the table)
+Left outside git: the collector JSONL, logcat stream/dump, s1_logcat_payloads.json and
+installed_base.apk (pick records carry anatomy coordinates; the APK carries the meshes).
 
-  copied   frame_probes.jsonl      every s1_frame_probe exactly as the collector received it
-                                   (raw frame intervals and page metadata; no anatomy)
-           s1_results.json         the extractor's per-level results
-           s1_per_pick.csv         one row per pick: phases, slice indices, errors, flags -
-                                   no coordinates
-           session_state.json, conditions_before.json, conditions_after.json,
-           repository_commit.txt   with the handset serial replaced by <A17_SERIAL>
-                                   (public repository)
-           hashes.json             SHA-256 of every copied file AND of every raw file left
-                                   behind, so the raw bytes can be matched later
-  left out the collector JSONL, logcat stream/dump, s1_logcat_payloads.json and
-           installed_base.apk: pick records carry world coordinates on the patient's
-           anatomy, and the APK carries the meshes.
-
-PROVENANCE.md is written by hand from the template in S1_SESSION_SCRIPT.md.
+The leak gate (also run at the end of every export) refuses if any file in the folder still
+contains the serial, a drive-letter / UNC / home path, a device /data/app path, or the words
+worktrees / scratchpad / AppData.
 """
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import json
 import os
+import re
+import sys
 from pathlib import Path
 
-REDACTED = "<A17_SERIAL>"
-COPY_REDACTED = ("session_state.json", "conditions_before.json", "conditions_after.json",
-                 "repository_commit.txt")
-COPY_AS_IS = ("s1_results.json", "s1_per_pick.csv")
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[2]
+sys.path.insert(0, str(HERE))
+
+from s1_extract import FPS_BOUND, MIN_RUNS, REDACTED_SERIAL, sanitize  # noqa: E402
+
+FRONTIER = REPO / "spikes" / "spike_b_3d" / "EVIDENCE_RAW" / "20261001_real_mesh" / "real_mesh_frontier.json"
+SANITIZE_JSON = ("session_state.json", "conditions_before.json", "conditions_after.json")
 KEPT_OUTSIDE = ("s1_collector.jsonl", "logcat_stream.txt", "logcat_dump.txt",
                 "s1_logcat_payloads.json", "installed_base.apk")
-REPO = Path(__file__).resolve().parents[3]
+# A drive letter counts only when no letter precedes it, so "file:///" and "http://" pass.
+LEAK_PATTERNS = [r"(?<![A-Za-z])[A-Za-z]:[\\/]", r"\\\\[A-Za-z0-9]", r"/data/app/", r"[\\/]Users[\\/]",
+                 r"worktrees", r"scratchpad", r"AppData"]
 
 
 def sha256(path: Path) -> str:
@@ -49,57 +61,199 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def leak_check(folder: Path, serial: str | None) -> list[str]:
+    hits = []
+    for p in sorted(folder.iterdir()):
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        if serial and serial in text:
+            hits.append(f"{p.name}: the handset serial")
+        for pat in LEAK_PATTERNS:
+            m = re.search(pat, text)
+            if m:
+                hits.append(f"{p.name}: /{pat}/ at '{text[max(0, m.start() - 20):m.end() + 20]}'")
+    return hits
+
+
+def dr008c(levels, frontier):
+    """Pre-declared rule: fastest level (min over complete valid runs of the nearest-rank
+    median) among levels with offline B5 within +/-1 (PR #66) and B10 and B11 PASS; a tie goes
+    to fewer triangles. Returns (table rows, chosen level or None)."""
+    b5 = {lv["level"]: lv["b5"]["verdict"] for lv in frontier["levels"]}
+    rows = []
+    for lv in levels:
+        bb = lv["b10_b11"]
+        tri = (lv.get("mesh") or {}).get("triangle_count")
+        eligible = (b5.get(lv["level"]) == "WITHIN_BOUND" and bb["B10"] == "PASS" and bb["B11"] == "PASS")
+        rows.append({"level": lv["level"], "triangles": tri, "b5_offline": b5.get(lv["level"], "NOT MEASURED"),
+                     "complete_valid_runs": bb["complete_valid_runs"], "median_fps": bb["median_fps_level"],
+                     "longest_stall_ms": bb["longest_stall_max_over_runs"], "B10": bb["B10"], "B11": bb["B11"],
+                     "eligible": eligible})
+    ok = [r for r in rows if r["eligible"]]
+    if not ok:
+        return rows, None
+    best = max(ok, key=lambda r: (round(r["median_fps"], 6), -(r["triangles"] or 0)))
+    return rows, best["level"]
+
+
+def fmt(v, digits=2):
+    if v is None:
+        return "—"
+    return f"{v:,.{digits}f}" if isinstance(v, float) else f"{v:,}" if isinstance(v, int) else str(v)
+
+
+def provenance(out: Path, results, state, build, frontier, notes, files):
+    rows, chosen = dr008c(results["levels"], frontier)
+    by_level = {lv["level"]: lv for lv in results["levels"]}
+    pre = state.get("preflight", {})
+    lines = [
+        "# PROVENANCE — S-1 device session, 2026-10-01",
+        "",
+        "**Generated by `s1_export_evidence.py` from the files in this folder** (QA N8). Spike B owner",
+        "**Vũ Hùng Anh** re-derives and confirms on Day 23; nothing here is his interpretation yet.",
+        f"Evidence status: `{results.get('evidence_status')}`.",
+        "",
+        "| Role | Person |",
+        "|---|---|",
+        "| Spike B owner — design, computation, interpretation; confirms on Day 23 | Vũ Hùng Anh |",
+        "| Operator — the only person who touched the phone (DR-006a) | Phạm Tuấn Anh |",
+        "| Session preparation and extraction under the Day 22 override | Claude agent A4 (leader's account) |",
+        "| Reviewer | pending |",
+        "",
+        "| Field | Value |",
+        "|---|---|",
+        f"| Device | {pre.get('model')} · Android {pre.get('android')} · serial {REDACTED_SERIAL} · emulator: {pre.get('is_emulator')} |",
+        f"| APK | `{build.get('apk_name', '—')}`, SHA-256 `{build.get('apk_sha256', '—')}`, built {build.get('apk_built_at', '—')} "
+        f"from commit `{build.get('repo_head', '—')}`"
+        + (" (tag `s1-apk-956ff63`)" if str(build.get("repo_head", "")).startswith("956ff63") else "") + " |",
+        f"| Installed APK | SHA-256 `{(state.get('installed_apk') or {}).get('sha256')}` — matches the build record: {(state.get('installed_apk') or {}).get('matches_build_record')} |",
+        f"| Assets | build_id `{build.get('assets_build_id', '—')}`; meshes = PR #66 levels (OBJ SHA-256 per level in real_mesh_frontier.json) |",
+        f"| Session | `start` {state.get('started')} · `finish` {state.get('ended')} |",
+        f"| Evidence paths | {json.dumps(results.get('evidence_paths'))} |",
+        f"| Page loads (segments) | {len(results.get('segments', []))}: " + "; ".join(
+            f"#{s['ordinal']} L{s['level']} at {s.get('opened_at_utc')}" for s in results.get("segments", [])) + " |",
+        f"| Excluded suites | {json.dumps(results.get('excluded_suites')) or 'none'} |",
+        "",
+        "## B12 — frontier, measured (median FPS = min over complete valid runs of the nearest-rank median)",
+        "",
+        "| Level | Triangles | Offline B5 (PR #66) | Complete valid runs | Median FPS | Longest stall ms | B10 | B11 | B6 | B7 | B9 |",
+        "|---:|---:|---|---:|---:|---:|---|---|---|---|---|",
+    ]
+    for r in rows:
+        lv = by_level[r["level"]]
+        lines.append(f"| L{r['level']} | {fmt(r['triangles'])} | {r['b5_offline']} | {r['complete_valid_runs']} | "
+                     f"{fmt(r['median_fps'])} | {fmt(r['longest_stall_ms'], 1)} | {r['B10']} | {r['B11']} | "
+                     f"{lv['b6']['verdict']} | {lv['b7']['verdict']} | {lv['b9']['verdict']} |")
+    lines += ["", "## DR-008c — computed by the pre-declared rule (proposal; the owner confirms on Day 23)", ""]
+    if chosen is None:
+        lines.append("**No level qualifies** (offline B5 within ±1 AND B10 PASS AND B11 PASS with "
+                     f"≥ {MIN_RUNS} complete valid runs): **`NEGATIVE_RESULT` — escalate.** The ±1 bound is not widened.")
+    else:
+        c = by_level[chosen]
+        lines.append(f"**DR-008c = L{chosen}** ({fmt((c.get('mesh') or {}).get('triangle_count'))} triangles): the fastest "
+                     f"eligible level (median FPS {fmt(c['b10_b11']['median_fps_level'])} ≥ {FPS_BOUND:g}). At the chosen level "
+                     f"B6 = {c['b6']['verdict']}, B7 = {c['b7']['verdict']}, B9 = {c['b9']['verdict']}.")
+    lines += ["", "B15 (development-cost note): **pending — Vũ Hùng Anh's own words**, not written by an agent.", "",
+              "## Deviations and re-runs (operator notes, verbatim)", ""]
+    lines += [f"    {ln}" for ln in (notes.splitlines() if notes else ["none recorded"])]
+    lines += ["", "## Files in this folder (SHA-256 of the committed bytes)", "", "| File | Bytes | SHA-256 |", "|---|---:|---|"]
+    lines += [f"| `{n}` | {v['bytes']:,} | `{v['sha256']}` |" for n, v in files.items()]
+    lines += ["", "## Kept outside git (patient-derived or device-identifying)", "",
+              ", ".join(f"`{n}`" for n in KEPT_OUTSIDE) + " — SHA-256 in `hashes.json`. `s1_per_pick.csv` is committed: "
+              "slice indices and errors only, no coordinates.", ""]
+    (out / "PROVENANCE.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    return chosen
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--session", required=True, type=Path)
-    ap.add_argument("--out", required=True, type=Path, help="evidence folder inside the repository")
+    ap.add_argument("--session", type=Path)
+    ap.add_argument("--out", type=Path, help="evidence folder inside the repository")
+    ap.add_argument("--notes", type=Path, help="operator notes (plain text), copied verbatim into PROVENANCE")
+    ap.add_argument("--frontier", type=Path, default=FRONTIER, help="PR #66 real_mesh_frontier.json")
+    ap.add_argument("--check", type=Path, help="only run the leak gate on this folder")
+    ap.add_argument("--serial", help="with --check: also look for this serial")
     args = ap.parse_args()
+    if args.check:
+        hits = leak_check(args.check.resolve(), args.serial)
+        print("\n".join(hits) if hits else f"leak check: {args.check} is clean")
+        return 1 if hits else 0
+    if not args.session or not args.out:
+        ap.error("--session and --out are required (or --check)")
+
     session, out = args.session.resolve(), args.out.resolve()
     state = json.loads((session / "session_state.json").read_text(encoding="utf-8"))
     serial = (state.get("preflight") or {}).get("serial")
     if not serial:
         raise SystemExit("session_state.json has no preflight serial; refusing to guess what to redact")
-    if not (session / "s1_results.json").exists():
+    results_path = session / "s1_results.json"
+    if not results_path.exists():
         raise SystemExit("run s1_extract.py --session first")
     out.mkdir(parents=True, exist_ok=True)
+    hashes = {"copied": {}, "unredacted_originals": {}, "kept_outside_git": {}}
 
-    hashes = {"copied": {}, "redacted_from_original": {}, "kept_outside_git": {}}
-    for name in COPY_REDACTED:
+    for name in SANITIZE_JSON:
         src = session / name
-        if not src.exists():
-            continue
-        text = src.read_text(encoding="utf-8-sig")
-        hashes["redacted_from_original"][name] = sha256(src)
-        (out / name).write_text(text.replace(serial, REDACTED), encoding="utf-8", newline="\n")
-    for name in COPY_AS_IS:
-        src = session / name
-        text = src.read_text(encoding="utf-8")
-        if serial in text:
-            text = text.replace(serial, REDACTED)
-        (out / name).write_text(text, encoding="utf-8", newline="\n")
+        if src.exists():
+            hashes["unredacted_originals"][name] = sha256(src)
+            data = sanitize(json.loads(src.read_text(encoding="utf-8-sig")), serial)
+            (out / name).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    commit = session / "repository_commit.txt"
+    if commit.exists():
+        (out / "repository_commit.txt").write_text(commit.read_text(encoding="utf-8-sig").strip() + "\n",
+                                                   encoding="utf-8", newline="\n")
+
+    results = sanitize(json.loads(results_path.read_text(encoding="utf-8")), serial)
+    results["device"]["serial"] = REDACTED_SERIAL
+    results["session_dir"] = session.name
+    apk = results.get("installed_apk") or {}
+    results["installed_apk"] = {k: apk.get(k) for k in ("sha256", "build_record_apk_sha256", "matches_build_record")}
+    results["per_pick_table"]["path"] = "s1_per_pick.csv"
+    (out / "s1_results.json").write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    (out / "s1_per_pick.csv").write_text((session / "s1_per_pick.csv").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
 
     probes = 0
     with (session / "s1_collector.jsonl").open(encoding="utf-8") as fh, \
             (out / "frame_probes.jsonl").open("w", encoding="utf-8", newline="\n") as dst:
         for line in fh:
-            if line.strip() and json.loads(line).get("payload", {}).get("kind") == "s1_frame_probe":
-                dst.write(line if line.endswith("\n") else line + "\n")
-                probes += 1
+            if line.strip():
+                rec = json.loads(line)
+                if rec.get("payload", {}).get("kind") == "s1_frame_probe":
+                    dst.write(json.dumps(sanitize(rec, serial), ensure_ascii=False, sort_keys=True) + "\n")
+                    probes += 1
 
     for name in KEPT_OUTSIDE:
         p = session / name
         if p.exists():
             hashes["kept_outside_git"][name] = {"sha256": sha256(p), "bytes": p.stat().st_size}
-    for p in sorted(out.iterdir()):
-        if p.is_file() and p.name != "hashes.json" and p.name != "PROVENANCE.md":
-            hashes["copied"][p.name] = {"sha256": sha256(p), "bytes": p.stat().st_size}
-            if serial in p.read_text(encoding="utf-8", errors="replace"):
-                raise SystemExit(f"{p.name} still contains the serial")
-    hashes["serial_redacted_as"] = REDACTED
+
+    build = {}
+    record = (state.get("installed_apk") or {}).get("build_record")
+    if record and Path(record).exists():
+        b = json.loads(Path(record).read_text(encoding="utf-8-sig"))
+        build = {"apk_name": Path(b.get("apk", "")).name, "apk_sha256": b.get("apk_sha256"),
+                 "apk_built_at": b.get("apk_built_at"), "repo_head": b.get("repo_head"),
+                 "assets_build_id": b.get("assets_build_id")}
+    frontier = json.loads(args.frontier.read_text(encoding="utf-8"))
+    notes = args.notes.read_text(encoding="utf-8-sig") if args.notes else ""
+    notes = notes.replace(serial, REDACTED_SERIAL)
+
+    files = {p.name: {"sha256": sha256(p), "bytes": p.stat().st_size}
+             for p in sorted(out.iterdir()) if p.is_file() and p.name not in ("hashes.json", "PROVENANCE.md")}
+    hashes["copied"] = files
+    hashes["serial_redacted_as"] = REDACTED_SERIAL
     hashes["frame_probe_records"] = probes
     (out / "hashes.json").write_text(json.dumps(hashes, indent=1) + "\n", encoding="utf-8", newline="\n")
-    print(f"exported {len(hashes['copied'])} files ({probes} frame probes) to {out}")
-    print(f"left outside git: {sorted(hashes['kept_outside_git'])}")
+    chosen = provenance(out, results, sanitize(state, serial), build, frontier, notes, files)
+
+    hits = leak_check(out, serial)
+    if hits:
+        print("LEAK CHECK FAILED - do not commit:")
+        print("\n".join(f"  {h}" for h in hits))
+        return 1
+    print(f"exported to {out}: {len(files)} files + hashes.json + PROVENANCE.md ({probes} frame probes); leak check clean")
+    print(f"DR-008c by the pre-declared rule: {'L' + str(chosen) if chosen is not None else 'no level - NEGATIVE_RESULT'}")
     return 0
 
 
