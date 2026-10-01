@@ -137,3 +137,16 @@ All five are within 200 ms. The three S6 runs span two release builds, so the wh
 1. `RESULT.md`: fix the header ("11/12 tiêu chí có dữ liệu … không còn ô `NOT MEASURED`") and the A9 table row so they carry L4. Also, the A12 table's "Chưa đánh giá" row is stale, because brush latency and A11 have since been measured.
 2. `run_qa004.py` scores only the newest file per criterion and reads A9 limb 1 as the whole criterion. Consider scoring every record and reporting limb 2 explicitly. Its docstring points at `management/day10/QA_REVIEW_004_SPIKE_A.md`; this review lives under `management/day22/`.
 3. In `SPIKE_PHASE_STATE.yaml`, `SPIKE_A` still says `latest_tested_commit: 6ca1e21`.
+
+---
+
+## 7 · Disposition *(added by the leader's session; not part of the QA report)*
+
+| Item | Decision |
+|---|---|
+| **L4** | Measured on 2026-10-01 at 20:58 in the product app (V1 SCR-03, APK from `ffbf763`) on the A17 against the real backend: **L4 PASS**, p50 153.5 KB and max 155.1 KB per new slice (1.1 % of a volume), revisits 0 bytes; the server log agrees. Evidence: `spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/` |
+| **L5** | **Accepted as a limitation** by Phạm Tuấn Anh on 2026-10-01 at 21:17: A2–A7 are exactness checks measured on the 64×64×16 fixture, not re-run at cohort size |
+| **Spike A** | **ACCEPTED-WITH-LIMITATIONS L1–L3, L5**, by the leader's explicit decision (not the pre-declared rule as written) |
+| **GATE-MOB-01** | **CLOSED** 21:17 (`management/adr/TECH_STACK_ADR.md` §8). The 3D module stays conditional on Spike B |
+| Housekeeping §6 | Item 1 (RESULT.md header, A9 row, A12 row) done; item 3 (`latest_tested_commit`) done; item 2 (`run_qa004.py`) open for Day 23 |
+

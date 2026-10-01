@@ -22,7 +22,7 @@
 > - 15 lần quay lại: 0 byte.
 > - Log của server khớp.
 >
-> Quyết định của leader về L5 và về GATE-MOB-01: **đang chờ**. Leader quyết có nhận L5 làm giới hạn hay không; L4 không còn là giới hạn.
+> Quyết định của leader về L5 và về GATE-MOB-01: **leader nhận L5 làm giới hạn lúc 21:17 ngày 01/10.** Spike A ACCEPTED-WITH-LIMITATIONS L1–L3, L5; GATE-MOB-01 CLOSED (`management/adr/TECH_STACK_ADR.md` §8; QA-004 §7).
 
 | Mục | Giá trị |
 |---|---|

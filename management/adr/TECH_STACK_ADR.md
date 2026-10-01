@@ -2,9 +2,9 @@
 
 | Field | Value |
 |---|---|
-| **Status** | PROPOSED — 2026-10-01 (Day 22). **Not pre-authorised:** QA-004 found that the Spike A rule of `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4 does not hold as written (L4, L5). The leader decides after the S-1 L4 measurement; see §8 |
+| **Status** | ACCEPTED — 2026-10-01 21:17 (Day 22), by the leader's explicit decision after the S-1 L4 measurement. Spike A ACCEPTED-WITH-LIMITATIONS L1–L3, L5 (QA-004); L4 measured PASS in the product app (§3, A9 row). The early close before Spike B is ACCEPTED is the deviation pre-authorised in `management/day22/RECOVERY_OVERRIDE_DAY22.md` §4; the 3D module is conditional (§8) |
 | **Resolves** | `GATE-MOB-01` (DR-G05) — spec `00` §11, `09` §7 |
-| **Decided by** | Phạm Tuấn Anh — Team Leader, by explicit decision (pending). QA: CHAT E, an LLM red-team session, not a human reviewer (QA-004; QA-ADR) |
+| **Decided by** | Phạm Tuấn Anh — Team Leader, by explicit decision at 21:17 (the §4 pre-authorisation did not apply as written: QA-004, L5). QA: CHAT E, an LLM red-team session, not a human reviewer (QA-004; QA-ADR) |
 | **Inputs** | Spike A (`management/spikes/SPIKE_A_2D/RESULT.md`); Spike B (`management/spikes/SPIKE_B_3D/RESULT.md`, PR #44); real-mesh frontier PR #66 (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_real_mesh/`); S7 WebView container (PR #46, draft, not on `main`); DR-006 device profile; DR-003 / DR-003a deployment profile; DR-015 transport direction; QA-004 (`management/day22/QA_REVIEW_004_SPIKE_A.md`); L4 product-app measurement (`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`, release APK from PR #77 @ `ffbf763`); Spike B S-1 device session (PR #73, `spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/`) |
 | **Residuals** | Spike B B5/B6/B7/B9/B12/B13 are **V2 acceptance conditions** (override §4). #66 measured B5, B9 and the B12 geometry columns offline on a real mask. Still to come on the device on 2026-10-01 evening (slot S-1):<br>• B6, B7 and device B9;<br>• FPS and stall per level, for B10/B11 and B12 (≥ 3 levels);<br>• the on-device check of B5's picks;<br>• B13.<br>The reopen trigger for the 3D module is in §8 |
 
@@ -39,7 +39,7 @@ Measurements count only on a **release** build whose timestamp post-dates the la
 | **A9 cached slice switch p95 ≤ 200 ms; no full-volume transfer per gesture** | **Limb 1 PASS.**<br>• 65.31 ms (64×64×16)<br>• 50.23 ms (576×576×16)<br>• 98.72 ms (576×576×88, whole cache)<br>• 576×576×88, ±3 window, cold start: 100.74 ms all steps, 50.84 ms in-window, 102.73 ms on a miss<br>**Limb 2:** not measurable in Spike A (L4). **Measured PASS in the product app** on the A17 against the real backend, 2026-10-01 20:58 (phone and server clock):<br>• `l4-report.mjs`: L4 PASS (R1–R8); 15 new + 15 revisit gestures; bytes per switch p50 153.5 KB, p95 155.1 KB, max 155.1 KB; 15/15 revisits at 0 bytes<br>• the server request log agrees: 16 switches, max 158,797 B, which is 0.54 % of one raw volume<br>• scope `MRI + ground truth (+ mask bytes) - no analysis run for this case: predictions are not part of this L4`, on CASE_0061<br>• release APK from `ffbf763`, built after the last code change. The first APK, from `0bfaba3`, crashed at start on Hermes (latin1 `TextDecoder`) and was fixed and rebuilt<br>• evidence: `spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/` |
 | A10 brush feedback ≤ 100 ms, no lost samples | Worst per-stroke 30.48 ms over 123 committed strokes; 0 committed samples lost. Feedback is a JS-side next-frame proxy, so it is a lower bound (64×64×16 fixture) |
 | A11 edit vs navigation gesture separation | 12/12 second-finger interruptions rolled back; 0 strokes committed in multi-touch |
-| Limitations (QA-004 §5) | **L1** A1 partial (no per-pixel fixture match).<br>**L2** A12 partial (one candidate built).<br>**L3** A8/A10/A11 on the 64×64×16 fixture.<br>**L4** A9 limb 2 not measured in Spike A.<br>**L5** A2–A7 also on the 64×64×16 fixture: exactness bounds, not re-run at cohort size.<br>L4 and L5 are outside the limitations pre-declared in `RECOVERY_OVERRIDE_DAY22.md` §4 |
+| Limitations (QA-004 §5) | **L1** A1 partial (no per-pixel fixture match).<br>**L2** A12 partial (one candidate built).<br>**L3** A8/A10/A11 on the 64×64×16 fixture.<br>**L4** A9 limb 2 not measured in Spike A.<br>**L5** A2–A7 also on the 64×64×16 fixture: exactness bounds, not re-run at cohort size.<br>L4 and L5 are outside the limitations pre-declared in `RECOVERY_OVERRIDE_DAY22.md` §4.<br>L1, L2, L3 and L5 accepted by the leader on 2026-10-01 21:17. L4 closed by the product-app measurement in the A9 row (MRI + ground-truth path only) |
 
 **Spike B — WebGL2 viewer**
 
@@ -86,10 +86,10 @@ Measurements count only on a **release** build whose timestamp post-dates the la
 
 ## 8 · Gate effect
 
-`GATE-MOB-01` stays **OPEN** until the leader decides on Spike A (QA-004 L4, L5) after tonight's L4 measurement. While the gate is open, this ADR locks no production mobile architecture (`09` §1.1). `mobile/` work (PR #77) continues under the override and is listed for Day 23 revalidation; V2/V3/V4 stay working skeletons (`RECOVERY_OVERRIDE_DAY22.md` §2).
+`GATE-MOB-01` → **CLOSED** on 2026-10-01 at 21:17 by the leader's explicit decision: Spike A ACCEPTED-WITH-LIMITATIONS (L1–L3, L5) with L4 measured PASS, and the Spike B framework evidence named in override §4 on record (#44; B1–B4, B8, B14 diagnostic PASS). Production mobile modules may now be created under `mobile/`; the V2 3D module stays a skeleton until Spike B is ACCEPTED.
 
-If the gate closes, it is an **early close, and a documented deviation.** `SPIKE_PHASE_STATE.yaml` (`gates_that_must_not_close_early`) requires both Spike A and Spike B to be ACCEPTED, and Spike B is still ACTIVE. The leader pre-authorised the Spike B part of this deviation (`RECOVERY_OVERRIDE_DAY22.md` §4). It applies only once Spike A is ACCEPTED, and the Spike A decision is the leader's explicit one (QA-004). The proposed scope:
-- **Final once the gate closes:**
+This is an **early close, and a documented deviation.** `SPIKE_PHASE_STATE.yaml` (`gates_that_must_not_close_early`) requires both Spike A and Spike B to be ACCEPTED, and Spike B is still ACTIVE. The leader authorised the Spike B part of this deviation in advance (`RECOVERY_OVERRIDE_DAY22.md` §4) and took the Spike A decision explicitly at 21:17 (QA-004). The deviation is scoped as follows:
+- **Final (gate closed 21:17):**
   - the framework (React Native / Expo);
   - the 2D viewer and brush;
   - the shared `app/core`.

@@ -295,7 +295,7 @@ spikes:
     priority: P1
     owner: "Pham Tuan Anh"
     reviewer: "Vu Hung Anh"
-    status: ACTIVE           # execution started - see day01/DAY01_CUTOVER_RECORD.md
+    status: ACCEPTED         # 2026-10-01 21:17: ACCEPTED-WITH-LIMITATIONS L1-L3, L5 by the leader's explicit decision (QA-004 disposition section 7); L4 measured PASS in the product app (spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/); Vu Hung Anh revalidates on Day 23
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
