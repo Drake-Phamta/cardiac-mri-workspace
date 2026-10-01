@@ -45,7 +45,7 @@ def keys(value, prefix=""):
 
 def test_health_and_every_contract_route_exists(api):
     health = api.client.get("/health").json()
-    assert health["status"] == "ok" and health["contract_version"] == "1.0.0"
+    assert health["status"] == "ok" and health["contract_version"] == CONTRACT["contract_version"]
     assert health["cases"] == {"total": 3, "EVALUATION": 2, "INFERENCE_REVIEW": 1}
     assert health["experiments"] == 1 and health["runs"] == 3
     assert health["rejected_experiment_packages"] == ["GATE_ML_01_NOT_ACCEPTED"]
@@ -349,10 +349,11 @@ def test_correction_creates_immutable_versions_and_never_touches_the_source(api,
 def test_findings_keep_their_evidence(api):
     created = api.call("POST", f"{B}/findings", "finding_create", 201, json_body={
         "study_id": STUDY, "experiment_id": "EXP-U-025", "case_id": "CASE_9001", "analysis_run_id": "RUN_9001",
-        "slice_index": 3, "finding_type": "UNDER_SEGMENTATION", "note": "misses the appendage",
-        "region_reference": {"x": 4, "y": 5}}).json()
+        "prediction_variant": "PROCESSED", "slice_index": 3, "finding_type": "UNDER_SEGMENTATION",
+        "note": "misses the appendage", "region_reference": {"x": 4, "y": 5}}).json()
     assert created["status"] == "OPEN" and created["revision"] == 1
     assert created["evidence"]["region_reference"] == {"x": 4, "y": 5}
+    assert created["evidence"]["prediction_variant"] == "PROCESSED"
     fid = created["finding_id"]
     listed = api.call("GET", f"{B}/findings?case_id=CASE_9001", "findings_list", 200).json()["items"]
     assert [item["finding_id"] for item in listed] == [fid]
@@ -369,15 +370,24 @@ def test_findings_keep_their_evidence(api):
         ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_4040"}, "CASE_NOT_FOUND", 404),
         ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9001", "slice_index": 99},
          "SLICE_OUT_OF_RANGE", 422),
-        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9003", "analysis_run_id": "RUN_9001"},
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9003", "analysis_run_id": "RUN_9001",
+          "prediction_variant": "RAW"}, "VALIDATION_ERROR", 422),
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_9001"},  # no variant
          "VALIDATION_ERROR", 422),
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9001", "prediction_variant": "RAW"},
+         "VALIDATION_ERROR", 422),  # a variant without a run
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_0031",
+          "prediction_variant": "PROCESSED"}, "VALIDATION_ERROR", 422),  # the run has no PROCESSED mask
     ):
         assert api.error_code(api.call("POST", f"{B}/findings", "finding_create", status, json_body=body)) == code
     inferred = api.call("POST", f"{B}/findings", "finding_create", 201, json_body={
-        "study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_0031"}).json()
+        "study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_0031",
+        "prediction_variant": "RAW"}).json()
     assert inferred["case_id"] == "CASE_0031"
-    with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
-        api.app.state.backend.storage.raw_execute("UPDATE findings SET case_id = 'CASE_9003'")
+    storage = api.app.state.backend.storage
+    for sql in ("UPDATE findings SET case_id = 'CASE_9003'", "UPDATE findings SET prediction_variant = 'RAW'"):
+        with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
+            storage.raw_execute(sql)
 
 
 def test_no_response_carries_a_physical_unit(api):
