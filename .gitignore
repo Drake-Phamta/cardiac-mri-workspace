@@ -104,6 +104,14 @@ desktop.ini
 # next to them ARE tracked - they are the diagnostic record.
 spikes/**/mesh/out/*.obj
 
+# --- BYTES DERIVED FROM A REAL MASK (Spike B, Day 22) ----------------------
+# Everything under mesh/out_real/ is computed from a patient segmentation: the
+# OBJ decimation levels, the per-ray error table, the mask slice images and the
+# staged device assets. Those bytes live only in this ignored folder and inside
+# the measurement APK. The tracked record is the small JSON evidence (counts,
+# timings, errors, sha256) under spikes/spike_b_3d/EVIDENCE_RAW/.
+spikes/**/mesh/out_real/
+
 # --- SPIKE E PAYLOADS -----------------------------------------------------
 # Generated synthetic payloads: large and reproducible, so the generator is
 # tracked and the bytes are not. Regenerate with payloads/generate.py.
