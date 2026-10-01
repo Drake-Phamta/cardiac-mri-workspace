@@ -6,6 +6,7 @@ export const View = 'View';
 export const Text = 'Text';
 export const ScrollView = 'ScrollView';
 export const TouchableOpacity = 'TouchableOpacity';
+export const Pressable = 'Pressable';
 export const TextInput = 'TextInput';
 export const Image = 'Image';
 export const ActivityIndicator = 'ActivityIndicator';
@@ -31,6 +32,6 @@ export const Alert = {
 };
 
 export default {
-  View, Text, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
+  View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
   StyleSheet, PanResponder, BackHandler, Alert,
 };
