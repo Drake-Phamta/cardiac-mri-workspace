@@ -1,5 +1,25 @@
 # Contract 1 - raw dataset / case ingestion (DRAFT v0)
 
+## Status: frozen as v1.0 on 2026-10-01 (INT-11)
+
+This contract is **frozen at v1.0** together with API Contract 11 v1.0.0 and
+Contract 2 (Day 22 recovery override). After the freeze, changes are additive
+only, by a PR from the contract owner reviewed by the leader.
+
+- The manifest wire literal `contract_version: "DRAFT v0"` is **kept unchanged**
+  as the identifier of this frozen revision: producers already written against
+  it stay valid, and changing the literal is itself a breaking change that needs
+  a new version.
+- The only v1.0 change is what the inference-only case requires (**INT-12**,
+  leader decision 2026-10-01): an optional boolean `ground_truth_withheld` on a
+  case. `true` records that the source package carries a reference mask which
+  the product deliberately does not ingest, so the case is ingested in
+  `INFERENCE_REVIEW` mode with `ground_truth_mask: null` and
+  `compatibility: null`. The validator rejects `ground_truth_withheld: true` on
+  any other combination. The rule picks **the lowest-numbered `final_holdout`
+  case other than `CASE_0027`** (`CASE_0001` under split
+  `path_a_seed2024_dr002b_v1`); the dataset itself is untouched.
+
 This directory is the Day 6–9 M3 draft approved by DR-004. It describes the
 offline-CLI contract for ingesting the validated raw dataset objects
 MRICase, MRIVolume, and GroundTruthMask. It is documentation, a JSON
@@ -77,6 +97,8 @@ The test covers:
 8. idempotency: same checksum is NO_OP, changed checksum is
    CHECKSUM_CONFLICT; and
 9. dataset/artifact geometry-status inconsistency;
-10. inference-review mode with a nullable ground-truth mask.
+10. inference-review mode with a nullable ground-truth mask;
+11. v1.0 / INT-12: `ground_truth_withheld: true` on an inference-review case
+    passes, and on a case that still carries its mask is rejected.
 
 All fixtures are synthetic and must not be cited as dataset evidence.

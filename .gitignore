@@ -12,6 +12,13 @@
 data/**
 !data/manifests/
 !data/manifests/**
+
+# backend/ derived data: slice PNGs and masks rendered from patient images,
+# Contract 2 experiment packages (predictions), the review database and its
+# reviewed masks. All derived from patient images; none is ever committed.
+backend/data_cache/
+backend/experiments/
+backend/var/
 *.nrrd
 *.nii
 *.nii.gz
@@ -30,6 +37,16 @@ data/**
 checkpoints/
 runs/
 wandb/
+
+# --- ML PIPELINE DERIVED ARRAYS (ml/) -------------------------------------
+# The slice cache, run directories and predictions live OUTSIDE git
+# (<CARDIAC_DATA_ROOT>\cache\<split_id>\img<img>\ and the run directories; see
+# ml/README.md "Data locations"); ml/data.py refuses a cache directory inside a work
+# tree. These lines catch a mistaken path: a resized patient array is still dataset bytes.
+*.npy
+*.npz
+ml/**/cache/
+ml/**/predictions/
 
 # --- SECRETS --------------------------------------------------------------
 # NFR-SEC-004: "Secrets/config credentials shall not be committed."
@@ -93,6 +110,14 @@ desktop.ini
 # checksum and the command that regenerates them instead. The JSON summaries
 # next to them ARE tracked - they are the diagnostic record.
 spikes/**/mesh/out/*.obj
+
+# --- BYTES DERIVED FROM A REAL MASK (Spike B, Day 22) ----------------------
+# Everything under mesh/out_real/ is computed from a patient segmentation: the
+# OBJ decimation levels, the per-ray error table, the mask slice images and the
+# staged device assets. Those bytes live only in this ignored folder and inside
+# the measurement APK. The tracked record is the small JSON evidence (counts,
+# timings, errors, sha256) under spikes/spike_b_3d/EVIDENCE_RAW/.
+spikes/**/mesh/out_real/
 
 # --- SPIKE E PAYLOADS -----------------------------------------------------
 # Generated synthetic payloads: large and reproducible, so the generator is

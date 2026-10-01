@@ -1,0 +1,75 @@
+{
+  "criterion": "C1-9",
+  "rule_source": "management/day22/RECOVERY_OVERRIDE_DAY22.md \u00a74 (declared before C1 ran)",
+  "inputs": {
+    "step_ms_by_family": {
+      "value": {
+        "unet_base32_depth4": {
+          "train": 1010.67,
+          "val": 121.84
+        },
+        "dinov2_s14_full_progressive": {
+          "train": 485.95,
+          "val": 123.08
+        }
+      },
+      "kind": "MEASURED on the leader PC (C1-2)"
+    },
+    "practical_point": {
+      "value": {
+        "img": 560,
+        "batch": 8
+      },
+      "kind": "MEASURED (C1-3)"
+    },
+    "effective_subset_sizes": {
+      "value": {
+        "025": 20,
+        "050": 38,
+        "100": 78
+      },
+      "kind": "READ from the split manifest"
+    },
+    "validation_cases": {
+      "value": 20,
+      "kind": "READ"
+    },
+    "slices_per_case": {
+      "value": 88,
+      "kind": "READ (dataset manifest, uniform)"
+    },
+    "overhead": {
+      "value": 1.1,
+      "kind": "ASSUMPTION"
+    },
+    "unet_host_speed": {
+      "value": "leader-PC speed used for the RTX 4050 as an upper bound",
+      "kind": "ASSUMPTION (conservative; the 4050 is the faster card)"
+    },
+    "queue_starts": {
+      "value": {
+        "dinov2_s14_full_progressive": "2026-10-01T15:30:00+07:00",
+        "unet_base32_depth4": "2026-10-02T09:00:00+07:00"
+      },
+      "kind": "DECISION (DR-016)"
+    },
+    "deadline": {
+      "value": "2026-10-03T12:00:00+07:00",
+      "kind": "DECISION"
+    }
+  },
+  "epochs_E": 50,
+  "verdict": "FITS",
+  "hours_per_run_at_E": {
+    "EXP-U-025": 3.81,
+    "EXP-U-050": 6.86,
+    "EXP-U-100": 13.66,
+    "EXP-D-025": 2.05,
+    "EXP-D-050": 3.52,
+    "EXP-D-100": 6.78
+  },
+  "queue_end": {
+    "unet_base32_depth4": "2026-10-03T09:19:40.719600+07:00",
+    "dinov2_s14_full_progressive": "2026-10-02T03:50:51.770000+07:00"
+  }
+}
