@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 class CaseRecord:
@@ -61,6 +61,7 @@ class CaseStore:
         self.index: dict = {}
         self.inference_only_ids: set = set()
         self.modes_known = False
+        self.digest_owners: Dict[str, List[Tuple[str, str, int]]] = {}
         index_path = self.root / "index.json"
         if not index_path.exists():
             return
@@ -72,6 +73,12 @@ class CaseStore:
                 self.cases[case_id] = record
         for digest, relative in self.index.get("blobs", {}).items():
             self.blobs[digest] = self.root / Path(*relative.split("/"))
+        # Content addressing means identical slices (an empty mask, say) share one
+        # digest: every owner is kept, so the request log never guesses one.
+        for case_id, record in self.cases.items():
+            for kind in ("mri", "gt"):
+                for z, digest in enumerate(record.data["slices"][kind]):
+                    self.digest_owners.setdefault(digest, []).append((case_id, kind, z))
         self._refuse_unsafe_holdout()
         # INT-12: the cases whose ground-truth-derived values are never served.
         self.inference_only_ids = set(self.index.get("inference_only_case_ids", [])) | {

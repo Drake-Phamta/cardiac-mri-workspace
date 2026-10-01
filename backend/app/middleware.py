@@ -5,13 +5,19 @@ transfer per slice gesture"): one JSON line per HTTP request in
 ``$CARDIAC_BACKEND_DATA/logs/requests.jsonl``::
 
     {"t": "...Z", "method": "GET", "route": "/api/v1/cases/{case_id}/slices/{slice_index}/mri",
-     "case_id": "CASE_0061", "slice_index": 44, "kind": "mri", "status": 200,
-     "bytes": 1234, "ms": 3.1}
+     "case_id": "CASE_0061", "slice_index": 44, "view": "mri", "digest": "<sha256 hex>",
+     "status": 200, "bytes": 1234, "ms": 3.1}
+    {"t": "...Z", "method": "GET", "route": "/api/v1/artifacts/{name}", "digest": "<sha256 hex>",
+     "kind": "mri", "case_id": "CASE_0061", "slice_index": 44, "status": 200, "bytes": 52011, "ms": 1.2}
 
-``route`` is the path template; ``case_id`` / ``slice_index`` / ``run_id`` come
-from the path, and for ``/api/v1/artifacts/<sha256>.png`` from the artifact
-itself (``kind`` = mri | gt | prediction | reviewed). ``bytes`` counts the
-response body actually sent. No client address, header or body is recorded.
+``route`` is the path template; ``case_id`` / ``slice_index`` come from the path,
+with run, review and reviewed-mask ids resolved to their case. A slice view
+(``view`` = mri | gt | prediction | reviewed) records the ``digest`` its
+content_url names; an artifact fetch records the digest it served and only the
+kind / case / slice that every owner of that digest shares (``shared`` and
+``owners`` when identical bytes belong to several slices). ``bytes`` counts the
+response body actually sent. No client address, header or request body is
+recorded; only allowlisted query keys are.
 """
 
 from __future__ import annotations
@@ -23,7 +29,9 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-Describe = Callable[[dict], Dict[str, Any]]
+# describe(scope, status, start of the JSON response body) -> fields of the log line
+Describe = Callable[[dict, int, bytes], Dict[str, Any]]
+CAPTURE_LIMIT = 16 * 1024  # slice-view answers are about 1 KB; PNG bodies are never captured
 
 
 def _utc() -> str:
@@ -43,13 +51,19 @@ class RequestLogMiddleware:
             await self.app(scope, receive, send)
             return
         started = time.perf_counter()
-        state = {"status": 0, "bytes": 0}
+        state = {"status": 0, "bytes": 0, "json": False}
+        captured = bytearray()
 
         async def counting_send(message: dict) -> None:
             if message["type"] == "http.response.start":
                 state["status"] = int(message["status"])
+                state["json"] = any(name == b"content-type" and value.startswith(b"application/json")
+                                    for name, value in message.get("headers", []))
             elif message["type"] == "http.response.body":
-                state["bytes"] += len(message.get("body", b""))
+                body = message.get("body", b"")
+                state["bytes"] += len(body)
+                if state["json"] and len(captured) < CAPTURE_LIMIT:
+                    captured.extend(body[: CAPTURE_LIMIT - len(captured)])
             await send(message)
 
         try:
@@ -57,7 +71,7 @@ class RequestLogMiddleware:
         finally:
             record: Dict[str, Any] = {"t": _utc(), "method": scope.get("method")}
             try:
-                record.update(self.describe(scope))
+                record.update(self.describe(scope, state["status"], bytes(captured)))
             except Exception:  # a log line never breaks a request
                 record["route"] = None
             record.update({"status": state["status"], "bytes": state["bytes"],

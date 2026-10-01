@@ -4,9 +4,13 @@ Every route is bound to one contract endpoint id, and the error codes it may
 answer are exactly that endpoint's ``errors`` list: answering any other code
 is a programming error (a 500 that the tests catch), never a silent drift.
 
-Run locally (from the repository root):
+Run locally (from the repository root; derived data under CARDIAC_BACKEND_DATA,
+outside any git work tree):
 
-    python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+    python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+
+Deployed, uvicorn binds the overlay interface address passed to the deploy
+script (0.0.0.0 only on explicit request).
 """
 
 from __future__ import annotations
@@ -14,8 +18,8 @@ from __future__ import annotations
 import functools
 import json
 import re
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import parse_qsl
 
 from fastapi import Body, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -37,8 +41,14 @@ from .storage import Storage, etag, now
 SLICE = re.compile(r"[0-9]{1,6}")
 REVIEWER = re.compile(r"[A-Za-z0-9_.@-]{1,64}")
 ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.png")
+CHECKSUM = re.compile(r"sha256:([0-9a-f]{64})")
 C2_VARIANT = {"RAW_PREDICTION": "RAW", "PROCESSED_PREDICTION": "PROCESSED"}
 MAX_NOTE = 4000
+# Request log: only these query keys are recorded (never the free-text case search `q`),
+# and only values made of identifier characters.
+LOGGED_QUERY_KEYS = frozenset({"mode", "limit", "page", "prediction_variant", "variant", "ids", "source_mask_id",
+                               "case_id", "analysis_run_id", "experiment_id", "status", "finding_type"})
+LOGGED_QUERY_VALUE = re.compile(r"[A-Za-z0-9_.,:-]{1,128}")
 
 
 class Backend:
@@ -77,8 +87,18 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.add_middleware(BodyLimitMiddleware, limit=settings.max_body_bytes, envelope=lambda: contract.error_body(
         "VALIDATION_ERROR", {"reason": f"request body above {settings.max_body_bytes} bytes"}))
 
-    def describe(scope: dict) -> Dict[str, Any]:
-        """Route template + case/slice for the request log; never the client address."""
+    # The slice views a slice switch starts with (L4); each answers one content_url.
+    slice_views = {
+        f"{base}/cases/{{case_id}}/slices/{{slice_index}}/mri": "mri",
+        f"{base}/cases/{{case_id}}/slices/{{slice_index}}/ground-truth": "gt",
+        f"{base}/analysis-runs/{{run_id}}/slices/{{slice_index}}/prediction": "prediction",
+        f"{base}/reviewed-masks/{{reviewed_mask_id}}/slices/{{slice_index}}": "reviewed",
+    }
+
+    def describe(scope: dict, status: int, body: bytes) -> Dict[str, Any]:
+        """Request-log fields: route template, the case and slice (run, review and reviewed-mask ids
+        resolved to their case), the artifact digest a slice view announced or an artifact fetch
+        served, and allowlisted query values. Never the client address, a header or a request body."""
         info: Dict[str, Any] = {"route": None}
         params: Dict[str, Any] = {}
         for route in app.router.routes:
@@ -93,31 +113,73 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if "slice_index" in params:
             raw = str(params["slice_index"])
             info["slice_index"] = int(raw) if SLICE.fullmatch(raw) else raw
+        if "case_id" not in info:
+            info.update(owner_case(info))
         if info["route"] == f"{base}/artifacts/{{name}}":
             info.update(describe_artifact(str(params.get("name", ""))))
-        query = scope.get("query_string", b"").decode("latin-1")
+        elif info["route"] in slice_views:
+            info["view"] = slice_views[info["route"]]
+            if status == 200:
+                info["digest"] = announced_digest(body)
+        query = logged_query(scope.get("query_string", b""))
         if query:
             info["query"] = query
         return info
 
+    def owner_case(info: Dict[str, Any]) -> Dict[str, Any]:
+        if "run_id" in info:
+            run = experiments.run(str(info["run_id"]))
+            return {"case_id": run.case_id} if run is not None else {}
+        if "reviewed_mask_id" in info:
+            row = storage.reviewed_mask(str(info["reviewed_mask_id"]))
+            return {"case_id": row["case_id"]} if row is not None else {}
+        if "review_id" in info:
+            row = storage.get_review(str(info["review_id"]))
+            return {"case_id": row["case_id"]} if row is not None else {}
+        return {}
+
+    def announced_digest(body: bytes) -> Optional[str]:
+        try:
+            match = CHECKSUM.fullmatch(str(json.loads(body.decode("utf-8")).get("checksum", "")))
+        except (ValueError, AttributeError):
+            return None
+        return match.group(1) if match else None
+
+    def logged_query(raw: bytes) -> Dict[str, str]:
+        kept: Dict[str, str] = {}
+        for key, value in parse_qsl(raw.decode("latin-1"), keep_blank_values=True):
+            if key in LOGGED_QUERY_KEYS:
+                kept[key] = value if LOGGED_QUERY_VALUE.fullmatch(value) else "<not logged>"
+        return kept
+
     def describe_artifact(name: str) -> Dict[str, Any]:
+        """Kind, case and slice of an artifact fetch - only what every owner of the digest agrees on.
+
+        Bytes are content-addressed, so identical slices (an empty mask above all) share one digest
+        across slices, cases and kinds; such a fetch is marked shared, never attributed to a guess."""
         match = ARTIFACT_NAME.fullmatch(name)
         if not match:
             return {}
         digest = match.group(1)
-        path = cases.blobs.get(digest)
-        if path is not None:
-            parts = path.relative_to(cases.root).parts  # cases/<case>/<mri|gt>/<z>.png
-            return {"kind": parts[2], "case_id": parts[1], "slice_index": int(Path(parts[3]).stem)}
-        path = experiments.render_blobs.get(digest)
-        if path is not None:
-            artifact = experiments.artifact(path.parent.name) or {}
-            return {"kind": "prediction", "artifact_id": path.parent.name, "case_id": artifact.get("case_id"),
-                    "slice_index": int(path.stem)}
-        located = storage.locate_blob(digest)
-        if located is not None:
-            return {"kind": "reviewed", "reviewed_mask_id": located[0], "case_id": located[1], "slice_index": located[2]}
-        return {"kind": None}
+        owners = [(kind, case_id, z, None) for case_id, kind, z in cases.digest_owners.get(digest, [])]
+        for artifact_id, z in list(experiments.render_owners.get(digest, [])):
+            owners.append(("prediction", (experiments.artifact(artifact_id) or {}).get("case_id"), z, artifact_id))
+        owners.extend(("reviewed", case_id, z, mask_id) for mask_id, case_id, z in storage.blob_owners(digest))
+        info: Dict[str, Any] = {"digest": digest, "kind": None}
+        if not owners:
+            return info
+        for position, field in enumerate(("kind", "case_id", "slice_index")):
+            values = {owner[position] for owner in owners}
+            if len(values) == 1:
+                info[field] = values.pop()
+        sources = {owner[3] for owner in owners}
+        if len(sources) == 1 and info["kind"] in ("prediction", "reviewed"):
+            info["artifact_id" if info["kind"] == "prediction" else "reviewed_mask_id"] = sources.pop()
+        distinct = {owner[:3] for owner in owners}
+        if len(distinct) > 1:
+            info["shared"] = True
+            info["owners"] = len(distinct)
+        return info
 
     app.add_middleware(RequestLogMiddleware, path=settings.request_log, describe=describe)
 

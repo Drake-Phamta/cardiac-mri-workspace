@@ -81,6 +81,8 @@ class ExperimentStore:
         self.rejected: List[dict] = []
         self.runs_without_case: List[str] = []
         self.render_blobs: Dict[str, Path] = {}
+        # digest -> every (prediction artifact id, slice index) rendering to it (empty slices repeat).
+        self.render_owners: Dict[str, List[Tuple[str, int]]] = {}
         self._volumes: "OrderedDict[str, np.ndarray]" = OrderedDict()
         self._max_volumes = max_volumes
         self._lock = threading.Lock()
@@ -139,8 +141,15 @@ class ExperimentStore:
                 checksums = json.loads(index_path.read_text(encoding="utf-8"))["slices"]
             except (OSError, KeyError, json.JSONDecodeError):
                 continue
+            self._register_render(index_path.parent, checksums)
+
+    def _register_render(self, directory: Path, checksums: List[str]) -> None:
+        with self._lock:
             for z, digest in enumerate(checksums):
-                self.render_blobs[digest] = index_path.parent / f"{z:04d}.png"
+                self.render_blobs[digest] = directory / f"{z:04d}.png"
+                owners = self.render_owners.setdefault(digest, [])
+                if (directory.name, z) not in owners:
+                    owners.append((directory.name, z))
 
     # -- queries -------------------------------------------------------------
     def run(self, run_id: str) -> Optional[RunRecord]:
@@ -205,9 +214,7 @@ class ExperimentStore:
                                              "render_version": imaging.MASK_RENDER_VERSION, "slices": checksums}),
                                  encoding="utf-8")
             temporary.replace(index_path)
-            with self._lock:
-                for index, digest in enumerate(checksums):
-                    self.render_blobs[digest] = directory / f"{index:04d}.png"
+            self._register_render(directory, checksums)
         rendered = json.loads(index_path.read_text(encoding="utf-8"))
         if rendered.get("source_checksum") != artifact["checksum"]["value"]:
             raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "rendered slices belong to different prediction bytes"})

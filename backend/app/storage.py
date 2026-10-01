@@ -9,7 +9,9 @@ Rules enforced here, not left to callers:
 - every state change is appended to ``review_history``;
 - a reviewed mask is a new immutable version: the database refuses UPDATE and
   DELETE on ``reviewed_masks``, ``reviewed_mask_slices`` and both history
-  tables (triggers), so an overwrite is impossible even from a bug;
+  tables, and an INSERT that meets an existing key (REPLACE) on those and on
+  ``findings`` (triggers), so an overwrite is impossible even from a bug or
+  another connection;
 - a finding's evidence columns cannot be updated (trigger); only note and
   status change, each change appended to ``finding_history``.
 """
@@ -133,6 +135,26 @@ CREATE TRIGGER IF NOT EXISTS findings_evidence_immutable
   BEFORE UPDATE OF study_id, experiment_id, case_id, analysis_run_id, slice_index, region_reference, finding_type
   ON findings BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
 CREATE TRIGGER IF NOT EXISTS findings_no_delete BEFORE DELETE ON findings
+  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
+-- An INSERT that meets an existing key (REPLACE, INSERT OR REPLACE, an upsert) is
+-- refused before conflict resolution runs, on any connection: these do not depend
+-- on PRAGMA recursive_triggers, which is per connection.
+CREATE TRIGGER IF NOT EXISTS reviewed_masks_no_replace BEFORE INSERT ON reviewed_masks
+  WHEN EXISTS (SELECT 1 FROM reviewed_masks WHERE reviewed_mask_id = NEW.reviewed_mask_id
+               OR (review_id = NEW.review_id AND version = NEW.version))
+  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
+CREATE TRIGGER IF NOT EXISTS reviewed_mask_slices_no_replace BEFORE INSERT ON reviewed_mask_slices
+  WHEN EXISTS (SELECT 1 FROM reviewed_mask_slices
+               WHERE reviewed_mask_id = NEW.reviewed_mask_id AND slice_index = NEW.slice_index)
+  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
+CREATE TRIGGER IF NOT EXISTS review_history_no_replace BEFORE INSERT ON review_history
+  WHEN EXISTS (SELECT 1 FROM review_history WHERE id = NEW.id)
+  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
+CREATE TRIGGER IF NOT EXISTS finding_history_no_replace BEFORE INSERT ON finding_history
+  WHEN EXISTS (SELECT 1 FROM finding_history WHERE id = NEW.id)
+  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
+CREATE TRIGGER IF NOT EXISTS findings_no_replace BEFORE INSERT ON findings
+  WHEN EXISTS (SELECT 1 FROM findings WHERE finding_id = NEW.finding_id)
   BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
 """
 
@@ -351,12 +373,15 @@ class Storage:
         rows = self._read("SELECT png FROM reviewed_mask_slices WHERE sha256 = ? LIMIT 1", (digest,))
         return bytes(rows[0]["png"]) if rows else None
 
-    def locate_blob(self, digest: str) -> Optional[Tuple[str, str, int]]:
-        """(reviewed_mask_id, case_id, slice_index) of a reviewed-mask slice, for the request log."""
+    def blob_owners(self, digest: str, limit: int = 1000) -> List[Tuple[str, str, int]]:
+        """Every (reviewed_mask_id, case_id, slice_index) whose PNG has this digest, for the request log.
+
+        Identical slices (an empty one, say) share a digest across versions and cases."""
         rows = self._read(
             "SELECT s.reviewed_mask_id AS id, m.case_id AS case_id, s.slice_index AS z FROM reviewed_mask_slices s"
-            " JOIN reviewed_masks m ON m.reviewed_mask_id = s.reviewed_mask_id WHERE s.sha256 = ? LIMIT 1", (digest,))
-        return (rows[0]["id"], rows[0]["case_id"], int(rows[0]["z"])) if rows else None
+            " JOIN reviewed_masks m ON m.reviewed_mask_id = s.reviewed_mask_id WHERE s.sha256 = ?"
+            " ORDER BY s.reviewed_mask_id, s.slice_index LIMIT ?", (digest, limit))
+        return [(row["id"], row["case_id"], int(row["z"])) for row in rows]
 
     # -- findings ------------------------------------------------------------
     def create_finding(self, values: Dict[str, Any]) -> sqlite3.Row:

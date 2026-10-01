@@ -11,7 +11,7 @@
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot D:\02_Research\cardiac-data\backend_cache -Port 8000
+  powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot <data-root> -Port 8000
 #>
 param(
   [string]$BindHost = "127.0.0.1",
@@ -22,7 +22,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $repo
-if (-not $DataRoot) { $DataRoot = "D:\02_Research\cardiac-data\backend_cache" }
+if (-not $DataRoot) { throw "Pass -DataRoot <data-root> or set CARDIAC_BACKEND_DATA (a directory outside any git work tree)." }
 $env:CARDIAC_BACKEND_DATA = $DataRoot
 if (-not (Test-Path (Join-Path $DataRoot "data_cache\index.json"))) {
   Write-Warning "No data cache under $DataRoot yet: every case endpoint will answer CASE_NOT_FOUND. Build it with: python -m backend.app.ingest"

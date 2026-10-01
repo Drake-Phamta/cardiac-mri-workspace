@@ -32,7 +32,7 @@
   $env:CARDIAC_DEPLOY_SSH_HOST = "<ssh-alias>"; $env:CARDIAC_DEPLOY_BIND_HOST = "<overlay-address>"
   powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1 -SshHost <ssh-alias> -BindHost <overlay-address> -DataCache D:\02_Research\cardiac-data\backend_cache\data_cache
+  powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1 -SshHost <ssh-alias> -BindHost <overlay-address> -DataCache <data-root>\data_cache
 #>
 param(
   [string]$SshHost = $env:CARDIAC_DEPLOY_SSH_HOST,
@@ -54,8 +54,10 @@ if ($BindAll) { $BindHost = "0.0.0.0" }
 if (-not $BindHost) { throw "Pass -BindHost <overlay-address> (or set CARDIAC_DEPLOY_BIND_HOST); binding 0.0.0.0 needs the explicit -BindAll." }
 if (-not $DataCache) {
   $root = $env:CARDIAC_BACKEND_DATA
-  if (-not $root) { $root = "D:\02_Research\cardiac-data\backend_cache" }
-  $DataCache = Join-Path $root "data_cache"
+  if (-not $root -and -not $SkipData) {
+    throw "Pass -DataCache <data-root>\data_cache or set CARDIAC_BACKEND_DATA (no machine path is built in)."
+  }
+  if ($root) { $DataCache = Join-Path $root "data_cache" }
 }
 
 function Invoke-Native {

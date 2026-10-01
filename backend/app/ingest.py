@@ -30,8 +30,8 @@ Output (derived from patient images; refused inside any git work tree):
 ``<out>`` defaults to ``$CARDIAC_BACKEND_DATA/data_cache``. Usage (from the
 repository root):
 
-    $env:CARDIAC_BACKEND_DATA = "D:\\02_Research\\cardiac-data\\backend_cache"
-    python -m backend.app.ingest --package-root D:/02_Research/cardiac-data/lasc2018/extracted
+    $env:CARDIAC_BACKEND_DATA = "<data-root>"
+    python -m backend.app.ingest --package-root "<LASC extracted root>"
 """
 
 from __future__ import annotations
@@ -52,7 +52,8 @@ from .config import DATA_ROOT_ENV, REPO_ROOT, data_root_from_env, inside_git_wor
 INGEST_VERSION = "backend-ingest/1"
 GEOMETRY_CONTRACT_VERSION = "dr008a-dr012/v1.0.0"
 EXCLUDED_FROM_INT12 = "CASE_0027"
-DEFAULT_PACKAGE_ROOT = Path(os.environ.get("CARDIAC_PACKAGE_ROOT", r"D:\02_Research\cardiac-data\lasc2018\extracted"))
+# No machine path is committed: the package root comes from CARDIAC_PACKAGE_ROOT or --package-root.
+PACKAGE_ROOT_ENV = "CARDIAC_PACKAGE_ROOT"
 DEFAULT_DATASET_MANIFEST = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
 DEFAULT_SPLIT_MANIFEST = REPO_ROOT / "data" / "manifests" / "split_manifest_path_a_seed2024.json"
 # sha256 of the committed split blob (split_id path_a_seed2024_dr002b_v1, PR #35 at 7b72ce8). A cache is
@@ -340,7 +341,9 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Contract 1 ingestion of the rule-selected cases into the backend data cache")
-    parser.add_argument("--package-root", type=Path, default=DEFAULT_PACKAGE_ROOT)
+    env_root = os.environ.get(PACKAGE_ROOT_ENV)
+    parser.add_argument("--package-root", type=Path, default=Path(env_root) if env_root else None,
+                        required=not env_root, help=f"the extracted LASC package (or set {PACKAGE_ROOT_ENV})")
     parser.add_argument("--dataset-manifest", type=Path, default=DEFAULT_DATASET_MANIFEST)
     parser.add_argument("--split-manifest", type=Path, default=DEFAULT_SPLIT_MANIFEST)
     parser.add_argument("--out", type=Path, default=None,

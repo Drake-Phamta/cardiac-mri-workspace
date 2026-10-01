@@ -466,20 +466,120 @@ def test_replace_cannot_overwrite_an_immutable_row(api):
             storage.raw_execute(sql)
     assert storage.reviewed_masks(rid)[0]["checksum"] == version["checksum"]
 
+    # #68 QA R-1: refused on ANY connection - this one never set PRAGMA recursive_triggers.
+    other = sqlite3.connect(str(storage.path), isolation_level=None)
+    try:
+        assert other.execute("PRAGMA recursive_triggers").fetchone()[0] == 0
+        columns = ("review_id, version, parent_reviewed_mask_id, case_id, run_id, source_mask_id, source_mask_kind,"
+                   " prediction_variant, source_checksum, 'sha256:forged', review_revision, shape, created_at, reviewer_id")
+        for sql in (
+            f"REPLACE INTO reviewed_masks SELECT * FROM reviewed_masks WHERE reviewed_mask_id = '{version['reviewed_mask_id']}'",
+            f"INSERT OR REPLACE INTO reviewed_masks SELECT 'RM_FORGED', {columns} FROM reviewed_masks LIMIT 1",
+            "INSERT OR REPLACE INTO reviewed_mask_slices SELECT * FROM reviewed_mask_slices LIMIT 1",
+            "INSERT OR REPLACE INTO review_history SELECT * FROM review_history LIMIT 1",
+        ):
+            with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
+                other.execute(sql)
+    finally:
+        other.close()
+    assert [row["checksum"] for row in storage.reviewed_masks(rid)] == [version["checksum"]]
+
+
+def _log_lines(api):
+    return [json.loads(line) for line in api.app.state.backend.settings.request_log.read_text(encoding="utf-8").splitlines()]
+
+
+def _summarizer():
+    import importlib.util
+
+    from conftest import REPO_ROOT
+
+    spec = importlib.util.spec_from_file_location(
+        "summarize_request_log", REPO_ROOT / "backend" / "scripts" / "summarize_request_log.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 def test_request_log_records_route_case_slice_and_bytes_without_the_client(api):
     """L4 (NFR-PERF-001 limb 2): one JSON line per request, artifact fetches attributed to their slice."""
     meta = api.call("GET", f"{B}/cases/CASE_9001/slices/3/mri", "mri_slice_get", 200).json()
     png = api.client.get(meta["content_url"])
-    log_path = api.app.state.backend.settings.request_log
-    lines = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    lines = _log_lines(api)
     slice_line, artifact_line = lines[-2], lines[-1]
     assert slice_line["route"] == "/api/v1/cases/{case_id}/slices/{slice_index}/mri"
     assert (slice_line["case_id"], slice_line["slice_index"], slice_line["status"]) == ("CASE_9001", 3, 200)
+    assert slice_line["view"] == "mri" and slice_line["digest"] == meta["checksum"].split(":", 1)[1]
     assert artifact_line["route"] == "/api/v1/artifacts/{name}" and artifact_line["bytes"] == len(png.content)
+    assert artifact_line["digest"] == slice_line["digest"] and "shared" not in artifact_line
     assert (artifact_line["kind"], artifact_line["case_id"], artifact_line["slice_index"]) == ("mri", "CASE_9001", 3)
     for line in lines:
         assert not {"client", "ip", "host", "headers", "user_agent"} & set(line)
+
+
+def test_request_log_switches_survive_shared_digests(api):
+    """#68 QA X3: an empty mask slice has the same bytes in every case; switches start at slice views,
+    artifact fetches join the switch that announced their digest, run / reviewed-mask ids resolve to the case."""
+    sizes = []
+
+    def get(url, endpoint_id=None):
+        response = api.call("GET", url, endpoint_id, 200) if endpoint_id else api.client.get(url)
+        assert response.status_code == 200, url
+        sizes.append(len(response.content))
+        return response
+
+    first = [get(f"{B}/cases/CASE_9001/slices/0/mri", "mri_slice_get").json(),
+             get(f"{B}/cases/CASE_9001/slices/0/ground-truth", "ground_truth_slice_get").json(),
+             get(f"{B}/analysis-runs/RUN_9001/slices/0/prediction?variant=RAW", "prediction_slice_get").json()]
+    for meta in first:
+        get(meta["content_url"])
+    second = get(f"{B}/cases/CASE_9003/slices/0/ground-truth", "ground_truth_slice_get").json()
+    assert second["checksum"] == first[1]["checksum"]  # the empty slice 0 of two cases: one digest
+    get(second["content_url"])
+    switch_bytes = [sum(sizes[:6]), sum(sizes[6:8])]
+
+    rid = _new_review(api).json()["review_id"]
+    api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/1", "working_mask_put", 200,
+             json_body=_working_body("ART_RUN_9001_RAW", 1, 1, np.zeros((synthetic.NY, synthetic.NX), np.uint8)))
+    mask_id = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201,
+                       json_body={"expected_revision": 2}).json()["reviewed_mask_id"]
+    del sizes[:]
+    reviewed = get(f"{B}/reviewed-masks/{mask_id}/slices/0", "reviewed_mask_slice_get").json()
+    get(reviewed["content_url"])
+    switch_bytes.append(sum(sizes))
+
+    lines = _log_lines(api)
+    routes = [line["route"] or "" for line in lines]
+    empty = first[1]["checksum"].split(":", 1)[1]
+    fetches = [line for line, route in zip(lines, routes) if route.endswith("/artifacts/{name}") and line["digest"] == empty]
+    assert len(fetches) >= 2
+    for line in fetches:  # owned by several slices of several cases: never attributed to one of them
+        assert line["shared"] is True and line["owners"] >= 4 and "case_id" not in line and "slice_index" not in line
+    prediction_line = next(line for line, route in zip(lines, routes) if route.endswith("/prediction"))
+    assert (prediction_line["case_id"], prediction_line["slice_index"], prediction_line["view"]) == ("CASE_9001", 0, "prediction")
+    assert prediction_line["query"] == {"variant": "RAW"}
+    reviewed_line = next(line for line, route in zip(lines, routes)
+                         if route.endswith("/reviewed-masks/{reviewed_mask_id}/slices/{slice_index}"))
+    assert (reviewed_line["case_id"], reviewed_line["slice_index"], reviewed_line["view"]) == ("CASE_9001", 0, "reviewed")
+    assert reviewed_line["digest"] == reviewed["checksum"].split(":", 1)[1]
+
+    switches, stats = _summarizer().summarize(lines)
+    assert [switch.key for switch in switches] == [("CASE_9001", 0), ("CASE_9003", 0), ("CASE_9001", 0)]
+    assert [switch.requests for switch in switches] == [6, 2, 2]
+    assert [switch.bytes for switch in switches] == switch_bytes  # the counted response bytes, exactly
+    assert stats["artifacts_by_digest"] == 5 and stats["artifacts_by_sequence"] == 0
+    assert stats["other_requests"] == 3  # review create, working slice of another slice, commit
+
+
+def test_request_log_keeps_only_allowlisted_query_keys(api):
+    """#68 QA R-3: the free-text case search `q` and unknown keys are never written to the log."""
+    api.call("GET", f"{B}/studies/{STUDY}/cases?q=private%20words&mode=EVALUATION&limit=5&token=abc", "case_list", 200)
+    api.call("GET", f"{B}/analysis-runs/RUN_9001/slices/1/prediction?variant=RAW%20OR%201", "prediction_slice_get", 404)
+    lines = _log_lines(api)
+    assert lines[-2]["query"] == {"mode": "EVALUATION", "limit": "5"}
+    assert lines[-1]["query"] == {"variant": "<not logged>"}
+    text = api.app.state.backend.settings.request_log.read_text(encoding="utf-8")
+    assert "private" not in text and "token" not in text and "OR 1" not in text
 
 
 def test_transport_hygiene(api):

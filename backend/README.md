@@ -48,8 +48,8 @@ bytes hash to the response `checksum`, `ETag` = that checksum).
   single counter advanced by every status change, working-slice upload and commit.
 - **Immutability**: a commit writes a new `ReviewedMask` version (`RM_<review>_V<n>`, parent = previous version,
   checksum = sha256 of the uint8 `(z, y, x)` {0, 255} volume bytes) with FR-REV-010 provenance (source mask, case,
-  run, time, reviewer from the optional `X-Reviewer-Id` header). SQLite **triggers refuse UPDATE/DELETE** on
-  reviewed masks, their slices and both history tables; finding evidence columns cannot be updated. The source
+  run, time, reviewer from the optional `X-Reviewer-Id` header). SQLite **triggers refuse UPDATE/DELETE and
+  REPLACE** on reviewed masks, their slices and both history tables; finding evidence columns cannot be updated. The source
   prediction file is never written (its checksum is re-verified when loaded).
 - **Working-mask payload**: `{encoding, data}` with `BITPACK_BASE64` (Ny·Nx bits, row-major, MSB first) or
   `PNG_BASE64` (8-bit Ny×Nx PNG, values {0, 255}); `geometry_contract_version` and `geometry_validation_status`
@@ -58,12 +58,11 @@ bytes hash to the response `checksum`, `ETag` = that checksum).
 ## Data: Contract 1 ingestion of the rule-selected cases
 
 ```powershell
-$env:CARDIAC_BACKEND_DATA = "D:\02_Research\cardiac-data\backend_cache"   # outside the repository
-python -m backend.app.ingest --package-root D:\02_Research\cardiac-data\lasc2018\extracted
+$env:CARDIAC_BACKEND_DATA = "<data-root>"   # outside the repository
+python -m backend.app.ingest --package-root "<LASC extracted root>"   # or set CARDIAC_PACKAGE_ROOT
 ```
 
-Selection is by rule from `data/manifests/split_manifest_path_a_seed2024.json` (pass `--split-manifest` while
-PR #35 is unmerged): **INTEGRATION_CASE_001 = CASE_0061** (lowest validation id), all **20 validation cases**
+Selection is by rule from `data/manifests/split_manifest_path_a_seed2024.json` (blob sha256 pinned): **INTEGRATION_CASE_001 = CASE_0061** (lowest validation id), all **20 validation cases**
 (EVALUATION), and the **INT-12 case = CASE_0001** (lowest `final_holdout` id other than CASE_0027,
 INFERENCE_REVIEW, ground truth withheld). The split's pinned dataset-manifest sha256 is checked.
 
@@ -80,7 +79,7 @@ package is listed by code in `/health` and never partially served.
 
 ```powershell
 pip install -r backend/requirements-dev.txt          # runtime pins + httpx/pytest
-powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot D:\02_Research\cardiac-data\backend_cache
+powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot "<data-root>"
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/api/v1/cases/CASE_0061/slices/44/mri
 ```
@@ -102,14 +101,16 @@ second package that the validator rejects). **Every JSON response is validated**
 generated fixtures. Covered: routes for all 28 endpoints, the INT-12 selection rule, slice pixels equal to the
 source (rows = y, columns = x), ground truth served only in EVALUATION mode and never derived for INT-12, every
 transition and refusal of the review state machine, stale revisions, working-mask geometry checks, two committed
-versions with parent links, unchanged v1 and source checksums, database-level immutability, finding evidence
-immutability, no physical-unit field anywhere, ingest idempotency and `CHECKSUM_CONFLICT`.
+versions with parent links, unchanged v1 and source checksums, database-level immutability (REPLACE included, on a
+second connection), finding evidence immutability, no physical-unit field anywhere, ingest idempotency and
+`CHECKSUM_CONFLICT`, and the request log: exact bytes, slice switches across an empty slice shared by two cases,
+id-to-case resolution, the query allowlist.
 
 ## Deploy to the Mac mini (run by the leader)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1 -SshHost <ssh-alias> -BindHost <overlay-address> `
-    -DataCache D:\02_Research\cardiac-data\backend_cache\data_cache
+    -DataCache "<data-root>\data_cache"
 ```
 
 `-SshHost` / `-BindHost` may instead come from the untracked environment variables `CARDIAC_DEPLOY_SSH_HOST` /
@@ -127,9 +128,14 @@ If the host answers locally but not over the overlay, check ZeroTier and the mac
 ## Request log and the L4 measurement
 
 Every HTTP request appends one JSON line to `$CARDIAC_BACKEND_DATA/logs/requests.jsonl`: UTC time, method, path
-**template**, `case_id` / `slice_index` / `run_id` from the path, `query`, status, response **bytes** actually
-sent and duration. A `GET /api/v1/artifacts/<sha256>.png` is attributed to its case, slice and kind
-(`mri`, `gt`, `prediction`, `reviewed`). No client address, header or body is recorded.
+**template**, `case_id` / `slice_index` from the path (run, review and reviewed-mask ids are resolved to their
+case), status, response **bytes** actually sent and duration. A slice view (`view` = `mri`, `gt`, `prediction`,
+`reviewed`) records the `digest` its `content_url` names; a `GET /api/v1/artifacts/<sha256>.png` records the
+`digest` it served and only the kind / case / slice that **every** owner of that digest shares. Identical bytes
+share one digest (on the real cache the empty ground-truth slice belongs to 360 slices of 20 cases), so such a
+fetch is marked `shared` with its number of `owners` and never attributed to one of them. Only allowlisted query
+keys are recorded (never the free-text case search `q`), with values limited to identifier characters. No client
+address, header or request body is recorded.
 
 L4 of NFR-PERF-001 ("no full-volume transfer per slice gesture") is read from it after the phone session:
 
@@ -137,9 +143,11 @@ L4 of NFR-PERF-001 ("no full-volume transfer per slice gesture") is read from it
 python backend\scripts\summarize_request_log.py --log <data>\logs\requests.jsonl --data-cache <data>\data_cache --since <session start, ISO UTC>
 ```
 
-It groups consecutive requests of one `(case_id, slice_index)` into a slice switch and prints bytes per switch
-(p50 / p95 / max), the largest single response, and the largest switch as a percentage of that case's raw
-volume. The API has no volume endpoint, so a switch is bounded by one slice's metadata plus its PNG(s).
+A slice switch starts at a slice-view request whose `(case_id, slice_index)` differs from the current switch;
+other requests of the same slice (metrics, error map) join it; an artifact fetch joins the most recent switch
+that announced its digest (by sequence only when none did). It prints bytes per switch (p50 / p95 / max), the
+largest single response, how the artifact fetches were attached, and the largest switch as a percentage of that
+case's raw volume. The API has no volume endpoint, so a switch is bounded by one slice's metadata plus its PNG(s).
 
 ## Transport hygiene
 
@@ -150,7 +158,9 @@ volume. The API has no volume endpoint, so a switch is bounded by one slice's me
 - The offline wheel set is checked with `backend/scripts/check_wheel_closure.py` for CPython 3.9.6 / darwin /
   arm64, in CI and inside the deploy (pip evaluates markers on the host interpreter, which once dropped
   `exceptiongroup`).
-- `PRAGMA recursive_triggers = ON`: a `REPLACE` cannot overwrite an immutable row either.
+- A `REPLACE` / `INSERT OR REPLACE` cannot overwrite an immutable row either: `BEFORE INSERT` triggers on
+  reviewed masks, their slices, both history tables and findings abort on an existing key on **any** connection,
+  and the service's own connection also sets `PRAGMA recursive_triggers = ON`.
 - The ingest pins the split blob sha256 (`c5c65a09…396d`), refuses to extend a cache built from another split or
   dataset manifest, and the service refuses a cache with more than one `final_holdout` case or a holdout case
   served with ground truth.
