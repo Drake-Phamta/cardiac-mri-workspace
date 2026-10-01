@@ -99,9 +99,10 @@ model = M.build_model("unet_base32_depth4", 560)
 
 ## Run directory and evaluation
 
-A run directory (default root `D:\02_Research\cardiac-runs\<experiment_id>\`, outside
-git) is also the Contract 2 artifact root: every path a manifest records is relative to
-it, with forward slashes.
+A run directory (`<CARDIAC_RUNS_ROOT>\<experiment_id>\`, outside git; `CARDIAC_RUNS_ROOT`
+is the environment variable, else `cardiac-runs` next to the main checkout) is also the
+Contract 2 artifact root: every path a manifest records is relative to it, with forward
+slashes.
 
 ```
 config.json  run_manifest.json  train_log.jsonl  checkpoints/{last,best}.pt
