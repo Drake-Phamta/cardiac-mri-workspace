@@ -1032,7 +1032,7 @@ least one mobile function end-to-end for the university course (`00` §3, PR-MOB
 
 | Vertical | Scope | Primary Owner | Secondary Reviewer |
 |---|---|---|---|
-| **V1** | Case Explorer / 2D MRI | **Phạm Tuấn Anh** | Vũ Hùng Anh |
+| **V1** | Case Explorer / 2D MRI — **plus SCR-04 Error Inspector** since `DR-013a`, 2026-09-18 | **Phạm Tuấn Anh** | Vũ Hùng Anh |
 | **V2** | 3D / Spatial Error Investigation | **Vũ Hùng Anh** | Phạm Tuấn Anh |
 | **V3** | Experiment / Cohort Analysis | **Bế Quốc Khánh** | Vũ Hùng Anh |
 | **V4** | Review / Findings | **Nguyễn Gia Đức Trung** | Phạm Tuấn Anh |
@@ -1549,6 +1549,18 @@ the demo.
 deliberately outside the `NFR-PERF-00x` / `TC-PERF-00x` ranges so nobody mistakes it for a frozen-spec
 requirement. If `docs/specs/v1.1/**` is ever opened, it is the candidate to become `NFR-PERF-005`.
 
+**Leader decision on the owner's proposal — 2026-09-18, Phạm Tuấn Anh: `PROVISIONAL`, with two amendments.**
+The owner proposed **p95 ≤ 3 500 ms per profile**, measured from dispatch of the first `s1` request to a complete,
+length/checksum-valid body on `wifi-overlay`; decode and render remain a separate later measurement (PR #26,
+`3b8b410`). Conditions 1, 2, 3 and 5 above are met. Condition 4 is met in form only, because the test names no
+sample count, and the evidence behind the number is **3 `cold_open_s1` samples per profile**, so its nearest-rank
+p95 is the single worst observation. Amendments that make the budget binding:
+
+1. `TC-PERF-FIRSTLOAD-01` runs a dedicated cold-open loop, cache cleared each time, **≥ 20 samples per profile**.
+2. The number is revisited after the evening `E8` capture of 2026-09-18. The daytime window was refused at 13:55
+   because the handset, the Mac mini and the workstation shared the lab Wi-Fi, so the overlay ran over a LAN rather
+   than the acceptance path; `E10` keeps stating that a daytime window is missing.
+
 #### Limb 2 — `ADR-ART-001` direction, decided on the measurement
 
 | Strategy | Ruling | Evidence |
@@ -1583,6 +1595,97 @@ accepts.
 `E10` needs the time-of-day spread that `E8` still lacks, so it is **not** forced into Day 8. It enters
 Trung's reserve queue today and is a **Day-9 primary candidate**; the `ADR-ART-001` draft follows `E10`.
 Neither is added to a packet that already totals ≈ 8,75 h.
+
+---
+
+### DR-013a — SCR-04 Error Inspector joins V1
+
+| Field | Value |
+|---|---|
+| **Decided** | ✅ 2026-09-18 · Phạm Tuấn Anh, while planning Day 9 |
+| **Affects** | `SCR-04`, `UC-05`, `TC-ERR-001`…`003`; `DR-013` Axis A |
+
+**Problem.** `SCR-04` had no owner. `14` §3 leaves the member mapping to the 30-day plan, and `DEMO_STANDARD.md`
+recorded that *"its owner is fixed in planning, not here"*. A screen nobody owns is a screen nobody builds.
+
+**Decision.** `SCR-04` joins **V1**, owned by **Phạm Tuấn Anh** with **Vũ Hùng Anh** as secondary reviewer. It is a
+2D slice screen that shares the `SCR-03` viewer and the `A9` slice-switching evidence; the 3D error map stays with
+V2. V2's owner is also the heaviest reviewer in the team, so adding a screen there would deepen the bottleneck the
+Day-8 close recorded.
+
+---
+
+### GATE-MOB-01 — measurement direction: React Native shell with WebGL2 in a WebView
+
+| Field | Value |
+|---|---|
+| **Decided** | ✅ 2026-09-18 · Phạm Tuấn Anh, while planning Day 9 |
+| **Status of the gate** | ⏳ **still OPEN** — this is how the evidence is gathered, **not** an ADR |
+
+**Problem.** `09` §7 requires the mobile spikes to prove pixel-accurate brush under zoom/pan **and** stable 3D with
+3D→slice mapping on the same candidate. Spike A measured the brush on **React Native/Expo**; Spike B measured 3D in
+**browser WebGL2** on desktop, and its `B10`/`B11` protocol (#44) targets **Chrome** on the phone. No single candidate
+had evidence for both.
+
+**Decision.** Measure `B10`/`B11` on the Galaxy A17 **inside a WebView of the Spike A app**, reusing the Spike B
+viewer. Vũ Hùng Anh packages the viewer and rewrites the protocol for the in-app run; Project Control builds the
+WebView container in the Spike A app; the leader operates the phone; the Spike B owner interprets the numbers.
+
+**What this does not do.** It does not write `TECH_STACK_ADR.md`, does not close `GATE-MOB-01`, and does not relax any
+`NFR-PERF` target. The gate closes only when Spike A and Spike B are both `ACCEPTED` through the four-step workflow.
+If the in-app numbers fail `B10`/`B11`, that is a result, and a native GL path becomes the next candidate.
+
+---
+
+### DR-010a — `DR-010` gives the worst-slice ranking to the API, but **no endpoint returns it**
+
+| Field | Value |
+|---|---|
+| **Raised** | ⏳ **OPEN** · 2026-09-19 · Project Control, while building `app/core` |
+| **Decides** | Phạm Tuấn Anh |
+| **Amends** | `DR-010` ("worst slice") |
+| **Affects** | `contracts/api/contract.json`, `SCR-04`, `FR-ERR-003`, `TC-ERR-003`, `UC-05`, V1 |
+| **Latest-safe** | **before `contract.json` leaves `DRAFT v0`.** After that this becomes an ADR-versioned change |
+
+**Problem.** `DR-010` froze the ranking *and* froze who applies it:
+
+> *the API returns the selection; the client never re-derives it*
+
+The ranking is settled. The **transport is not**: none of the 28 endpoints in `contract.json` returns a
+selection. Not `analysis_run_get`, not `analysis_run_metrics`, not `analysis_slice_metrics` — checked field
+by field, and `app/core/tests/test_readers.mjs` check `P2` asserts the absence against the contract so this
+cannot quietly stop being true.
+
+**The one near-miss, so nobody raises it as a counterexample.** `experiment_cases` is described as *"per-case
+metric/status rows for outlier drill-down"*. That is **`DR-010`'s other half** — the operational *"outlier"*,
+ranked over **cases** within an experiment. `SCR-04` needs the worst **slice** within one case's run. Two
+different rankings over two different populations; the endpoint that serves one does not serve the other.
+
+So `SCR-04`, whose entire purpose is to open on the worst slice, has a rule it may not apply and no endpoint
+to ask. `app/core/selection.mjs` is written as a **reader only** — there is no `.sort(` in the file and two
+checks keep it that way — and `readSelection()` currently returns `available: false`, so the screen shows
+`EMPTY_UNAVAILABLE`. That is honest and it is not a solution.
+
+**Why this is not urgent today but is urgent this week.** `SCR-04` is not among the four vertical PRs of
+Day 10, so nothing is blocked right now. But the contract is `DRAFT v0`; changing it today costs a field and
+a test, and changing it after it is baselined costs an ADR version plus a migration for whatever is already
+built on it.
+
+**Options.**
+
+| | Option | Cost | Consequence |
+|---|---|---|---|
+| **(a)** | New endpoint, e.g. `GET /api/v1/analysis-runs/{run_id}/worst-slices?prediction_variant={variant}` | 29th endpoint; `EXPECTED.endpointCount` and the contract tests move from 28 to 29 | Cleanest separation; one extra round trip before `SCR-04` can draw anything |
+| **(b)** *(recommended)* | Extend `analysis_run_metrics` with a `worst_slice_selection` block: `rule_id`, `selection_version`, `slices[{slice_index, dice, false_positives, false_negatives}]` | one `response_fields` entry; endpoint count unchanged | `SCR-04` gets the ranking in the call it already makes. `app/core/selection.mjs` reads exactly this shape today — only the field names would need confirming |
+| **(c)** | Leave it out of v1.0 | none now | Guts `SCR-04`: the screen exists to open on the worst slice. `FR-ERR-003` and `TC-ERR-003` would have to be re-scoped, and those are in the **frozen** spec |
+| **(d)** | Let the client rank from `analysis_slice_metrics` | none | **Rejected on the record.** It is exactly what `DR-010` forbids: two clients ranking independently give two answers to one clinical question, and the one on the phone is the one a reviewer acts on |
+
+**Recommendation: (b).** It keeps the endpoint count and the round-trip count where they are, and the
+per-slice metrics the ranking is computed from already live on that endpoint's family — so the server is
+returning a summary of data it has, not answering a new question.
+
+**What this does not do.** It does not reopen the ranking itself: the keys, their order and the exclusions
+stay exactly as `DR-010` approved them. Only the transport is in question.
 
 ---
 

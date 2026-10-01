@@ -1,0 +1,318 @@
+{
+ "criterion": "A2 — pinch-zoom and pan do not alter source-mask geometry",
+ "target": "checksum of the source mask unchanged (TASK.md A2)",
+ "captured_at": "20260915T212121+0700",
+ "label": "release build 2026-09-15 21:03 (expo run:android --variant release, PR #31 @ cf84802); operator Pham Tuan Anh",
+ "operator": "Phạm Tuấn Anh — chủ Spike A, bấm trên máy của chính mình (DR-006a)",
+ "build_type": "release — expo run:android --variant release; APK 68,865,408 bytes built 2026-09-15 21:03:11, installed 21:03:28; PR #31 @ cf84802",
+ "device_profile": "../../management/spikes/SPIKE_A_2D/DR006_DEVICE_PROFILE.md",
+ "verdict_from_raw_log": "OBSERVED",
+ "verdict_reason": "check 0 before any gesture and check 1 after 6 pinch + 1 pan gestures both match the fixture on all 16 slices",
+ "method": "app hashes every source-mask slice (SHA-256, app/viewerMath.js) on demand; this script recomputes the fixture hashes with hashlib and compares the device's hashes one by one. Gestures are counted from the device's own SPIKE_A_GESTURE lines.",
+ "fixture_self_consistent": true,
+ "timeline": [
+  {
+   "check": 0,
+   "label": "manual",
+   "slices_matching_fixture_recomputed": 16,
+   "of": 16,
+   "device_reported_match": 16,
+   "real_gestures_before_this_check": 0,
+   "auto_steps_before_this_check": 0,
+   "pinches_and_pans_so_far": {
+    "pinch": 0,
+    "pan": 0
+   },
+   "transform": {
+    "zoom": 5.561,
+    "panX": -6.222,
+    "panY": 22.4
+   }
+  },
+  {
+   "check": 1,
+   "label": "manual",
+   "slices_matching_fixture_recomputed": 16,
+   "of": 16,
+   "device_reported_match": 16,
+   "real_gestures_before_this_check": 7,
+   "auto_steps_before_this_check": 0,
+   "pinches_and_pans_so_far": {
+    "pinch": 6,
+    "pan": 1
+   },
+   "transform": {
+    "zoom": 5.031,
+    "panX": 21.014,
+    "panY": 10.13
+   }
+  },
+  {
+   "check": 2,
+   "label": "manual",
+   "slices_matching_fixture_recomputed": 16,
+   "of": 16,
+   "device_reported_match": 16,
+   "real_gestures_before_this_check": 0,
+   "auto_steps_before_this_check": 0,
+   "pinches_and_pans_so_far": {
+    "pinch": 6,
+    "pan": 1
+   },
+   "transform": {
+    "zoom": 5.031,
+    "panX": 21.014,
+    "panY": 10.13
+   }
+  }
+ ],
+ "gestures": [
+  {
+   "n": 1,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 1800.8,
+   "moves": 108,
+   "frames": 108,
+   "max_frame_gap_ms": 23.5,
+   "stall_over_500ms": false,
+   "zoom_from": 5.561,
+   "zoom_to": 13.447
+  },
+  {
+   "n": 2,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 2482.8,
+   "moves": 150,
+   "frames": 149,
+   "max_frame_gap_ms": 20,
+   "stall_over_500ms": false,
+   "zoom_from": 13.447,
+   "zoom_to": 5.78
+  },
+  {
+   "n": 3,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 800,
+   "moves": 48,
+   "frames": 48,
+   "max_frame_gap_ms": 23,
+   "stall_over_500ms": false,
+   "zoom_from": 5.78,
+   "zoom_to": 4.603
+  },
+  {
+   "n": 4,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 1067.3,
+   "moves": 62,
+   "frames": 61,
+   "max_frame_gap_ms": 29.9,
+   "stall_over_500ms": false,
+   "zoom_from": 4.603,
+   "zoom_to": 4.345
+  },
+  {
+   "n": 5,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 825.8,
+   "moves": 49,
+   "frames": 47,
+   "max_frame_gap_ms": 36.4,
+   "stall_over_500ms": false,
+   "zoom_from": 4.345,
+   "zoom_to": 4.279
+  },
+  {
+   "n": 6,
+   "kind": "pinch",
+   "fingers_max": 2,
+   "ms": 1050.3,
+   "moves": 65,
+   "frames": 63,
+   "max_frame_gap_ms": 18.7,
+   "stall_over_500ms": false,
+   "zoom_from": 4.279,
+   "zoom_to": 5.031
+  },
+  {
+   "n": 7,
+   "kind": "pan",
+   "fingers_max": 1,
+   "ms": 632.4,
+   "moves": 38,
+   "frames": 38,
+   "max_frame_gap_ms": 18.4,
+   "stall_over_500ms": false,
+   "zoom_from": 5.031,
+   "zoom_to": 5.031
+  }
+ ],
+ "gesture_frame_gaps": {
+  "n": 7,
+  "max_frame_gap_ms_worst": 36.4,
+  "stalls_over_500ms": 0,
+  "note": "max frame gap per gesture, sampled with requestAnimationFrame (TASK.md: stall > 500 ms)"
+ },
+ "mapping_self_check": null,
+ "taps": [
+  {
+   "u": 226.844,
+   "v": 254.222,
+   "src": [
+    44,
+    48
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 4.659,
+    "panY": 8.708
+   }
+  },
+  {
+   "u": 242.844,
+   "v": 255.644,
+   "src": [
+    46,
+    49
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 6.437,
+    "panY": 8.352
+   }
+  },
+  {
+   "u": 262.756,
+   "v": 259.556,
+   "src": [
+    51,
+    50
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 5.014,
+    "panY": 6.93
+   }
+  },
+  {
+   "u": 233.6,
+   "v": 232.178,
+   "src": [
+    46,
+    45
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 1.814,
+    "panY": 4.797
+   }
+  },
+  {
+   "u": 236.8,
+   "v": 249.244,
+   "src": [
+    46,
+    48
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 2.17,
+    "panY": 3.019
+   }
+  },
+  {
+   "u": 240.711,
+   "v": 260.978,
+   "src": [
+    47,
+    51
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 2.17,
+    "panY": 3.019
+   }
+  },
+  {
+   "u": 262.044,
+   "v": 247.111,
+   "src": [
+    52,
+    48
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 0.392,
+    "panY": 1.952
+   }
+  },
+  {
+   "u": 235.378,
+   "v": 245.333,
+   "src": [
+    46,
+    48
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 0.392,
+    "panY": 1.952
+   }
+  },
+  {
+   "u": 234.311,
+   "v": 262.4,
+   "src": [
+    42,
+    49
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 20.659,
+    "panY": 13.33
+   }
+  },
+  {
+   "u": 235.022,
+   "v": 264.889,
+   "src": [
+    42,
+    50
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 20.659,
+    "panY": 11.552
+   }
+  },
+  {
+   "u": 232.533,
+   "v": 262.044,
+   "src": [
+    42,
+    50
+   ],
+   "slice": 0,
+   "transform": {
+    "zoom": 5.031,
+    "panX": 21.014,
+    "panY": 10.13
+   }
+  }
+ ]
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cardiac MRI MPR + 3D feasibility POC</title>
+  <style>
+    :root { color-scheme:dark; font-family:Inter,ui-sans-serif,system-ui,sans-serif; background:#061018; color:#e8f3f5; }
+    body { margin:0; padding:18px; } main { max-width:1500px; margin:auto; }
+    header { border-bottom:1px solid #2a424b; padding-bottom:12px; margin-bottom:13px; display:flex; align-items:baseline; justify-content:space-between; gap:1rem; }
+    h1 { font-size:17px; margin:0; } header p { margin:0; color:#9fb9bf; font-size:12px; }
+    .grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(460px,.95fr); gap:13px; }
+    .mpr { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+    .panel { border:1px solid #29434d; border-radius:7px; overflow:hidden; background:#09151e; }
+    h2 { margin:0; padding:8px 11px; border-bottom:1px solid #29434d; color:#b7d1d6; font-size:11px; letter-spacing:.06em; }
+    canvas { display:block; width:100%; aspect-ratio:1; cursor:crosshair; background:#000; }
+    .sagittal { grid-column:span 2; max-width:50%; }
+    .three iframe { width:100%; height:650px; display:block; border:0; }
+    .readout { display:flex; flex-wrap:wrap; gap:.6rem 1rem; padding:10px 12px; font-size:12px; color:#b6cfd4; border-top:1px solid #29434d; }
+    .readout b { color:#81e0ea; font-weight:600; } .landmarks { color:#eab56d; }
+    .controls { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:12px; border-top:1px solid #29434d; }
+    label { color:#a9c4ca; font-size:11px; } input { width:100%; accent-color:#67d4df; }
+    footer { color:#8aa5ad; font-size:11px; margin-top:12px; line-height:1.5; }
+    @media (max-width:1050px) { .grid { grid-template-columns:1fr; } .sagittal { max-width:none; } .three iframe { height:560px; } }
+  </style>
+</head>
+<body><main>
+  <header><h1>CARDIAC MRI · MPR + 3D SEGMENTATION POC</h1><p>Public anonymised feasibility data · not diagnostic use</p></header>
+  <section class="grid">
+    <section class="panel"><h2>LINKED MULTIPLANAR MRI</h2>
+      <div class="mpr">
+        <div class="panel"><h2>AXIAL · drag/click: X,Y · wheel: Z</h2><canvas id="axial" width="320" height="320"></canvas></div>
+        <div class="panel"><h2>CORONAL · drag/click: X,Z · wheel: Y</h2><canvas id="coronal" width="320" height="320"></canvas></div>
+        <div class="panel sagittal"><h2>SAGITTAL · drag/click: Y,Z · wheel: X</h2><canvas id="sagittal" width="320" height="320"></canvas></div>
+      </div>
+      <div class="controls"><label>X <input id="x" type="range"></label><label>Y <input id="y" type="range"></label><label>Z <input id="z" type="range"></label></div>
+      <div class="readout"><span><b id="coords">loading…</b></span><span>orange = LA mask</span><span>cyan = linked crosshair</span><span class="landmarks" id="landmarks"></span></div>
+    </section>
+    <section class="panel three"><h2>3D SURFACE · SELECTED AXIAL PLANE HIGHLIGHTED</h2><iframe id="three" src="clinical-app/index.html" title="3D left atrium"></iframe></section>
+  </section>
+  <footer>Click any slice to move the same voxel reference through every panel. The highlighted 3D band uses the matching physical Z position. This dataset supplies only one left-atrium label; procedure landmarks must be segmented or annotated before clinical planning.</footer>
+</main><script type="module" src="poc.js"></script></body>
+</html>

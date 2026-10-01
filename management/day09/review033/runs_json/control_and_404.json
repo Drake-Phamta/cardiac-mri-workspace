@@ -1,0 +1,84 @@
+{
+  "record": "pr33_review_runs",
+  "note": "Review exercise on the handset's own loopback against a canned responder. Not Spike E acceptance evidence and not an E number.",
+  "runs": [
+    {
+      "label": "defaults, no new flag (control)",
+      "source": "pr33_control.jsonl",
+      "run_header": {
+        "operator": "Project Control PR33 review control",
+        "owner": "Nguyen Gia Duc Trung",
+        "measurement_path": "lan-diagnostic",
+        "overlay_connection": "direct",
+        "is_acceptance_evidence": false,
+        "network_retry_policy": "retry no-status TCP failures up to 0 times with a fixed delay; E9 diagnostic mode only",
+        "body_hash_enabled": false,
+        "repeats": 1
+      },
+      "samples": 57,
+      "status": {
+        "200": 57
+      },
+      "ok": {
+        "True": 57
+      },
+      "attempts": {
+        "1": 57
+      },
+      "network_retries": {
+        "0": 57
+      },
+      "body_sha256_present": 0,
+      "example": {
+        "scenario": "cold_open_s1",
+        "ok": true,
+        "status": 200,
+        "bytes": 19,
+        "bytes_received": 19,
+        "attempts": 1,
+        "network_retries": 0,
+        "body_sha256": null,
+        "error": null
+      }
+    },
+    {
+      "label": "HTTP 404 responder, --network-retries 8",
+      "source": "pr33_404.jsonl",
+      "run_header": {
+        "operator": "Project Control PR33 review 404",
+        "owner": "Nguyen Gia Duc Trung",
+        "measurement_path": "lan-diagnostic",
+        "overlay_connection": "direct",
+        "is_acceptance_evidence": false,
+        "network_retry_policy": "retry no-status TCP failures up to 8 times with a fixed delay; E9 diagnostic mode only",
+        "body_hash_enabled": true,
+        "repeats": 1
+      },
+      "samples": 57,
+      "status": {
+        "404": 57
+      },
+      "ok": {
+        "False": 57
+      },
+      "attempts": {
+        "1": 57
+      },
+      "network_retries": {
+        "0": 57
+      },
+      "body_sha256_present": 57,
+      "example": {
+        "scenario": "cold_open_s1",
+        "ok": false,
+        "status": 404,
+        "bytes": 9,
+        "bytes_received": 9,
+        "attempts": 1,
+        "network_retries": 0,
+        "body_sha256": "f507a5088d932fb0b07a4eb755ae3d30fbb8b8081ec45750c03ddedbb3e04f45",
+        "error": "HTTP 404 (nc_rc=0)"
+      }
+    }
+  ]
+}

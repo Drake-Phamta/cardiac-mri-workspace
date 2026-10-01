@@ -1,0 +1,31 @@
+{
+  "manifest_version": "synthetic-c0-1.0",
+  "split_id": "synthetic_pipeline_bringup_seed2024",
+  "operator": "Bế Quốc Khánh",
+  "randomization": {
+    "seed": 2024,
+    "algorithm": "fixed fixture; no random split at runtime"
+  },
+  "partitions": {
+    "train": {
+      "case_count": 6,
+      "case_ids": [
+        "SYNTH_CASE_0001",
+        "SYNTH_CASE_0002",
+        "SYNTH_CASE_0003",
+        "SYNTH_CASE_0004",
+        "SYNTH_CASE_0005",
+        "SYNTH_CASE_0006"
+      ]
+    },
+    "validation": {
+      "case_count": 2,
+      "case_ids": ["SYNTH_CASE_0007", "SYNTH_CASE_0008"]
+    },
+    "final_holdout": {
+      "case_count": 0,
+      "case_ids": []
+    }
+  },
+  "notice": "Synthetic case codes and voxels only. This fixture mirrors the partitions.*.case_ids shape of the Path A manifest and contains no LASC data."
+}

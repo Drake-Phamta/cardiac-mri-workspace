@@ -20,7 +20,7 @@ and keeps the measurements attributable:
     WHERE THIS MUST RUN FOR ACCEPTANCE
 
         Samsung Galaxy A17 5G
-                |  real 4G / 5G cellular Internet
+        |  declared Wi-Fi uplink or real 4G / 5G cellular Internet
                 v
         Authenticated ZeroTier private overlay      (DR-003a)
                 |
@@ -30,7 +30,8 @@ and keeps the measurements attributable:
     That topology is BINDING. TASK.md: "DO NOT use same-LAN measurements as the
     acceptance evidence for this spike." A LAN run is a labelled diagnostic and
     nothing more. Running this stub on a laptop and pointing a phone at it over
-    Wi-Fi produces numbers that TASK.md says are rejected outright.
+    same-LAN Wi-Fi produces diagnostic numbers that TASK.md says are rejected
+    as acceptance evidence.
 
 SECURITY - DR-003 and `12` section 5
     No public endpoint, no port forwarding, no public domain, no unauthenticated
@@ -44,8 +45,8 @@ WHAT IT SERVES - the four candidates from TASK.md
 
     1  per-slice image encoding, on demand      GET /s1/slice/{z}.png
     2  per-slice packed-binary mask             GET /s2/mask/{z}.bin
-    3  whole-volume download, client slices     GET /s3/volume.raw
-    4  prefetch window around the active slice  GET /s4/window?z=&radius=
+    3  whole-volume download, client slices     GET /s3/volume.raw?profile=576x576x88
+    4  prefetch window around the active slice  GET /s4/window?z=&radius=&profile=640x640x88
        mesh artifact by decimation level        GET /mesh/{level}.obj
 
 Every response carries the server's own handling time so network time can be
@@ -70,7 +71,13 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-STATE: dict = {"payloads": None, "log": None, "manifest": {}}
+STATE: dict = {
+    "payloads": None,
+    "log": None,
+    "manifest": {},
+    "profiles": {},
+    "default_profile": None,
+}
 
 _SAFE = re.compile(r"^[0-9]{1,6}$")
 
@@ -113,19 +120,37 @@ class Handler(BaseHTTPRequestHandler):
               "server_handling_ms": round(handling_ms, 3),
               "client": self.client_address[0]})
 
-    def _fail(self, status: int, reason: str, strategy: str, t0: float) -> None:
+    def _fail(self, status: int, reason: str, strategy: str, t0: float,
+              profile: str | None = None) -> None:
         body = json.dumps({"error": reason}).encode("utf-8")
+        extra = {"X-Payload-Profile": profile} if profile else None
         self._send(status, body, "application/json", strategy,
-                   (time.perf_counter() - t0) * 1000.0)
+                   (time.perf_counter() - t0) * 1000.0, extra=extra)
 
-    def _read(self, *parts) -> bytes | None:
+    def _profile_root(self, profile: str | None) -> str | None:
+        """Resolve a generated profile directory from the trusted manifest."""
+        payload_root = os.path.abspath(STATE["payloads"])
+        profiles = STATE.get("profiles") or {}
+        if not profiles:
+            return payload_root
+        if profile not in profiles:
+            return None
+        rel = profiles[profile].get("payload_dir", profile)
+        root = os.path.abspath(os.path.join(payload_root, rel))
+        if not root.startswith(payload_root + os.sep):
+            return None
+        return root
+
+    def _read(self, profile: str | None, *parts) -> bytes | None:
         """Read a payload file. Path components are validated, never joined raw.
 
         Enumeration and traversal are both refused: `12` section 5 forbids an
         open artifact directory, and a stub that serves ../../ is the fastest
         way to turn a spike into an incident.
         """
-        root = os.path.abspath(STATE["payloads"])
+        root = self._profile_root(profile)
+        if root is None:
+            return None
         target = os.path.abspath(os.path.join(root, *parts))
         if not target.startswith(root + os.sep):
             return None
@@ -133,6 +158,15 @@ class Handler(BaseHTTPRequestHandler):
             return None
         with open(target, "rb") as f:
             return f.read()
+
+    def _profile(self, query: dict[str, str]) -> str | None:
+        """Return the selected profile, preserving legacy single-profile mode."""
+        if not STATE.get("profiles"):
+            return None
+        return query.get("profile") or STATE.get("default_profile")
+
+    def _profile_extra(self, profile: str | None) -> dict:
+        return {"X-Payload-Profile": profile} if profile else {}
 
     def do_HEAD(self):
         self.do_GET()
@@ -146,6 +180,7 @@ class Handler(BaseHTTPRequestHandler):
                 if "=" in pair:
                     k, v = pair.split("=", 1)
                     query[k] = v
+        profile = self._profile(query)
 
         # --- health / manifest --------------------------------------------
         if path in ("/", "/health"):
@@ -153,7 +188,7 @@ class Handler(BaseHTTPRequestHandler):
                 "stub": "SPIKE_E transport stub",
                 "status": "up",
                 "warning": ("LAN measurements are DIAGNOSTIC ONLY. Acceptance evidence "
-                            "requires Galaxy A17 -> real cellular -> ZeroTier overlay -> "
+                            "requires Galaxy A17 -> the declared Wi-Fi/cellular uplink -> ZeroTier overlay -> "
                             "remote Mac mini M2 (SPIKE_E_TRANSPORT/TASK.md, DR-003)."),
                 "strategies": {
                     "s1": "/s1/slice/{z}.png   per-slice image encoding",
@@ -162,6 +197,8 @@ class Handler(BaseHTTPRequestHandler):
                     "s4": "/s4/window?z=&radius=   prefetch window",
                     "mesh": "/mesh/{level}.obj",
                 },
+                "profiles": sorted(STATE.get("profiles", {})),
+                "default_profile": STATE.get("default_profile"),
                 "payload_manifest": STATE["manifest"],
             }, ensure_ascii=False, indent=1).encode("utf-8")
             return self._send(200, body, "application/json", "meta",
@@ -171,29 +208,36 @@ class Handler(BaseHTTPRequestHandler):
         m = re.fullmatch(r"/s1/slice/(\d{1,6})\.png", path)
         if m:
             if not _SAFE.fullmatch(m.group(1)):
-                return self._fail(400, "bad slice index", "s1", t0)
-            data = self._read("slices_png", f"{int(m.group(1)):04d}.png")
+                return self._fail(400, "bad slice index", "s1", t0, profile)
+            data = self._read(profile, "slices_png", f"{int(m.group(1)):04d}.png")
             if data is None:
-                return self._fail(404, "slice not found", "s1", t0)
+                return self._fail(404, "slice not found", "s1", t0, profile)
             return self._send(200, data, "image/png", "s1",
-                              (time.perf_counter() - t0) * 1000.0)
+                              (time.perf_counter() - t0) * 1000.0,
+                              extra=self._profile_extra(profile))
 
         # --- strategy 2: per-slice packed mask -----------------------------
         m = re.fullmatch(r"/s2/mask/(\d{1,6})\.bin", path)
         if m:
-            data = self._read("slices_maskbits", f"{int(m.group(1)):04d}.bin")
+            data = self._read(profile, "slices_maskbits", f"{int(m.group(1)):04d}.bin")
             if data is None:
-                return self._fail(404, "mask slice not found", "s2", t0)
+                return self._fail(404, "mask slice not found", "s2", t0, profile)
             return self._send(200, data, "application/octet-stream", "s2",
-                              (time.perf_counter() - t0) * 1000.0)
+                              (time.perf_counter() - t0) * 1000.0,
+                              extra=self._profile_extra(profile))
 
         # --- strategy 3: whole volume --------------------------------------
         if path == "/s3/volume.raw":
-            data = self._read("volume_int16.raw")
+            profile_info = ((STATE.get("profiles") or {}).get(profile, {}) or {})
+            dtype = profile_info.get("dtype") or STATE["manifest"].get("dtype", "int16")
+            data = self._read(profile, f"volume_{dtype}.raw")
+            if data is None and not STATE.get("profiles"):
+                data = self._read(profile, "volume_int16.raw")
             if data is None:
-                return self._fail(404, "volume not found", "s3", t0)
+                return self._fail(404, "volume not found", "s3", t0, profile)
             return self._send(200, data, "application/octet-stream", "s3",
-                              (time.perf_counter() - t0) * 1000.0)
+                              (time.perf_counter() - t0) * 1000.0,
+                              extra=self._profile_extra(profile))
 
         # --- strategy 4: prefetch window -----------------------------------
         if path == "/s4/window":
@@ -201,37 +245,39 @@ class Handler(BaseHTTPRequestHandler):
                 z = int(query.get("z", "0"))
                 radius = int(query.get("radius", "2"))
             except ValueError:
-                return self._fail(400, "z and radius must be integers", "s4", t0)
+                return self._fail(400, "z and radius must be integers", "s4", t0, profile)
             if not (0 <= radius <= 32):
-                return self._fail(400, "radius out of range 0..32", "s4", t0)
+                return self._fail(400, "radius out of range 0..32", "s4", t0, profile)
 
             # Concatenated, length-prefixed, so one round trip carries the
             # window. Which framing wins is part of what the spike compares.
             chunks: list[bytes] = []
             included: list[int] = []
             for zz in range(max(0, z - radius), z + radius + 1):
-                data = self._read("slices_png", f"{zz:04d}.png")
+                data = self._read(profile, "slices_png", f"{zz:04d}.png")
                 if data is None:
                     continue
                 chunks.append(len(data).to_bytes(4, "big") + zz.to_bytes(4, "big") + data)
                 included.append(zz)
             if not chunks:
-                return self._fail(404, "no slice in window", "s4", t0)
+                return self._fail(404, "no slice in window", "s4", t0, profile)
             body = b"".join(chunks)
             return self._send(200, body, "application/octet-stream", "s4",
                               (time.perf_counter() - t0) * 1000.0,
-                              extra={"X-Window-Slices": ",".join(map(str, included))})
+                              extra={"X-Window-Slices": ",".join(map(str, included)),
+                                     **self._profile_extra(profile)})
 
         # --- mesh artifacts -------------------------------------------------
         m = re.fullmatch(r"/mesh/(\d{1,2})\.obj", path)
         if m:
-            data = self._read("meshes", f"level_{int(m.group(1))}.obj")
+            data = self._read(profile, "meshes", f"level_{int(m.group(1))}.obj")
             if data is None:
-                return self._fail(404, "mesh level not found", "mesh", t0)
+                return self._fail(404, "mesh level not found", "mesh", t0, profile)
             return self._send(200, data, "text/plain", "mesh",
-                              (time.perf_counter() - t0) * 1000.0)
+                              (time.perf_counter() - t0) * 1000.0,
+                              extra=self._profile_extra(profile))
 
-        return self._fail(404, "no such endpoint; GET / lists them", "none", t0)
+        return self._fail(404, "no such endpoint; GET / lists them", "none", t0, profile)
 
 
 def main() -> int:
@@ -253,6 +299,8 @@ def main() -> int:
     if os.path.exists(manifest_path):
         with open(manifest_path, encoding="utf-8") as f:
             STATE["manifest"] = json.load(f)
+    STATE["profiles"] = STATE["manifest"].get("profiles", {})
+    STATE["default_profile"] = STATE["manifest"].get("default_profile")
 
     if args.bind not in ("127.0.0.1", "localhost", "::1"):
         print()
@@ -269,10 +317,12 @@ def main() -> int:
 
     print()
     print(f"  SPIKE_E stub on http://{args.bind}:{args.port}   payloads: {args.payloads}")
+    if STATE["profiles"]:
+        print(f"  profiles: {', '.join(sorted(STATE['profiles']))}  (query ?profile=...)")
     print("  GET / lists the endpoints and echoes the payload manifest.")
     print()
     print("  LAN RUNS ARE DIAGNOSTIC ONLY. Acceptance evidence requires")
-    print("  Galaxy A17 -> real cellular -> ZeroTier overlay -> remote Mac mini M2,")
+    print("  Galaxy A17 -> declared Wi-Fi/cellular uplink -> ZeroTier overlay -> remote Mac mini M2,")
     print("  operator and owner are recorded by the client harness. Ctrl-C to stop.")
     print()
 

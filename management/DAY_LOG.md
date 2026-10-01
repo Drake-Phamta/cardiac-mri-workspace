@@ -13,23 +13,177 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Ngày hôm nay | **Day 8 — 2026-09-17** |
-| Ngày còn lại tới Day 30 | **23** |
-| **Buffer còn** | 🔴 **−1 ngày** *(dự trù 2 — tiêu 1 vì Day 1 trượt, 1 vì Day 3 trượt, 1 vì Day 6 trượt; **Day 7 đạt nên không tiêu thêm**)* |
+| Ngày hôm nay | **Day 11 — 2026-09-20** |
+| Ngày còn lại tới Day 30 | **20** |
+| **Buffer còn** | 🔴 **−3 ngày** *(dự trù 2 — tiêu 1 vì Day 1, 1 vì Day 3, 1 vì Day 6, 1 vì Day 9, 1 vì Day 10)* |
 | Màu trạng thái | 🔴 **RED** |
 | Cutover | **đã xảy ra** — 2026-09-11 12:00 +07:00 |
 | Đồng hồ DR-001 | **đang chạy** |
 | Trigger DR-001 | ✅ **đã đánh giá 2026-09-11 23:44 — KHÔNG nổ** |
 | Ngưỡng leo thang | **đã vượt — buffer âm từ 16/09.** Hạn Day 30 không lùi: ngày mất thêm phải bù bằng thực thi |
-| `15` §18 | ⚠ **trigger 2 vẫn nổ** (buffer −1, không đổi) · trigger 3 **theo dõi sát**: `GATE-DATA-01` sang **ngày thứ tám**; hết Day 8 mà #34 chưa được duyệt thì nổ thật — [`day07/DAY07_EOD_REVIEW.md`](day07/DAY07_EOD_REVIEW.md) §11 |
+| `15` §18 | 🔴 **ĐÃ NỔ, 3/5 điều kiện** — buffer −3 · `GATE-SPLIT-01` sống qua **hai** chu kỳ EOD với chủ sở hữu **không hoạt động** · 10/30 ngày hết mà `MUST` **0/33**. Mức áp dụng là **quyết định của leader**, đang `PENDING` — [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) §11 |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
-| Mốc đang chạy | **M3** (Day 6–9) — còn hôm nay và mai, 2/4 lối ra mới có bản nháp và **chưa cái nào lên `main`** · **M4** (Day 8–12) — bắt đầu hôm nay, `SPIKE_C1` còn `BLOCKED` |
+| Mốc đang chạy | ✅ **M3 (Day 6–9) ĐÓNG** 20/09 17:18 (`40498e5`), muộn 1 ngày · **M2 (Day 4–6) quá hạn 5 ngày** — `GATE-MOB-01` còn mở · **M4** (Day 8–12) — `GATE-SPLIT-01` chưa động, sang ngày thứ 4 · **M5** (Day 9–20) — có `app/` nhưng **chưa lên `main`** |
 
 ---
 
-## DAY 8 — 2026-09-17 · `ĐANG MỞ`
+## DAY 11 — 2026-09-20 · `ĐANG MỞ` — ngày mở van
 
-**Gói nhiệm vụ từng người:** [`day08/tasks/`](day08/tasks/)
+**Kế hoạch:** [`day11/DAY11_PLAN.md`](day11/DAY11_PLAN.md) · **Gói từng người:** [`day11/tasks/`](day11/tasks/)
+
+> **Lập lúc 17:50, và bản kế hoạch nói thẳng điều đó** — còn ~6 giờ, nên nó không giả vờ là kế hoạch một
+> ngày đầy đủ. Hôm nay **không thêm việc mới**: mục tiêu duy nhất là đưa thứ **đã làm xong từ hôm qua** lên
+> `main`. Năm PR CI xanh đang chờ **đúng hai lượt duyệt**; chồng `#48 → #50 → #51 → #52` tuyến tính và
+> `merge-tree` báo gộp sạch, nên **một lượt duyệt của Khánh mở khoá bốn PR**.
+
+| # | Điều kiện | Loại |
+|---|---|---|
+| 1 | **M5 có mã thật trên `main`** — #48 + #50 + #51 + #52 merged | 🔒 cam kết |
+| 2 | **Spike A `EVIDENCE_READY`** — #41 và #49 merged | 🔒 cam kết |
+| 3 | **Spike A `ACCEPTED`** đủ 4 bước, **bước 3 do Trung chạy** | 🎯 cố gắng |
+| 4 | **`GATE-SPLIT-01` `CLOSED`** | 🎯 cố gắng |
+| 5 | `GATE-MOB-01` `CLOSED` | ⏭ chuyển Day 12 |
+
+**Đã làm trước khi kế hoạch viết xong** *(17:44 → 17:55)*: gắn reviewer cho **#41, #50, #51, #52** — bốn PR
+này **không có người duyệt nào**, tức vô hình trong hàng đợi của mọi người · cập nhật **`RESULT.md` Spike A**
+(`a970167`) với kết quả `S8`, vì nó còn ghi `A8`/`A10`/`A11` là `NOT MEASURED` và Hùng Anh sẽ **không có gì
+để duyệt**.
+
+---
+
+## DAY 10 — 2026-09-19 · ❌ **`TRƯỢT` 1,25/4** — `app/` ra đời nhưng **không lên được `main`**
+
+**Bản chốt:** [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) *(chốt muộn 17 h 20 ph, 20/09 ~17:20)* ·
+**Nguyên nhân:** [`incidents/INC-002_DAY10_TEAM_INCIDENT.md`](incidents/INC-002_DAY10_TEAM_INCIDENT.md) —
+cả nhóm gặp sự cố. **Verdict `TRƯỢT` giữ nguyên** (verdict đo kết quả, không đo nỗ lực; ngày mất vẫn ăn
+buffer), nhưng nguyên nhân được ghi để không ai đọc thành hai người bỏ việc.
+
+### Đã xong — có bằng chứng truy được
+
+| Việc | Ai | Bằng chứng |
+|---|---|---|
+| Merge #31 — ba xung đột thật trong `App.js` giải bằng tay | leader | `11000f1` |
+| **`app/core`** — tầng trung lập nền tảng, 10 script test, **137 kiểm**, 2 job CI mới | leader | **#48**, CI 7/7 · *chưa merge* |
+| **Chặng `S8`** — lưu/nạp lại (`A8`) + 2 script kết luận `A10`/`A11` | leader | **#49** · *chưa merge* |
+| **Phiên đo `S8` trên A17** — `A8`, `A10`, `A11` đều `OBSERVED` | leader (bấm máy) | `EVIDENCE_RAW/SESSION_S8_RECORD.md` · `a8_save_reload_*.json` · `a10_a11_brush_feedback_*.json` |
+| Bộ **QA-004** cho Spike A | leader | `2da85b5` |
+| **`DR-010a`** mở — không endpoint nào trả "lát cắt tệ nhất" | leader | `b7a3e1d` |
+| **Duyệt #47** → mở khoá M3 | **Trung** | `APPROVED` 21:40 |
+| **Fixture sinh từ hợp đồng** — scenario cho **28/28** endpoint + 3 `stale_revision` | **Trung** | **#50**, CI 7/7 · *chưa merge* |
+| **Mô hình V4** review/correction, test 4/4 | **Trung** | **#51**, CI 7/7 · *chưa merge* |
+| Gói bằng chứng `TC-TEAM-001` | **Trung** | **#52**, CI 7/7 · *chưa merge* |
+| `CHANGES_REQUESTED` trên #44 | **Trung** | review 21:40 |
+
+### Còn tồn
+
+| Việc | Ai | Vì sao |
+|---|---|---|
+| `GATE-SPLIT-01` — #35 vẫn DRAFT từ 15/09 | **Khánh** | **0 commit, 0 review, 0 comment cả ngày** |
+| Duyệt #48 → mở khoá cả chồng #50/#51/#52 | **Khánh** | như trên |
+| Diễn giải `B10`/`B11` → `GATE-MOB-01` | **Hùng Anh** | **0 commit, 0 review, 0 comment cả ngày** |
+| Duyệt lại #41 · duyệt #49 · sửa #44 | **Hùng Anh** | như trên |
+| Merge #47 | leader | làm muộn, **20/09 17:18** |
+| Quyết `DR-010a` | leader | chưa |
+
+> **Sự thật quyết định ngày này: hai trên bốn thành viên không chạm vào repo.** Commit cuối của Hùng Anh
+> 18/09 15:12, của Khánh 18/09 11:44 — tới lúc chốt bản này là **gần hai ngày**. **Năm trên bảy blocker**
+> nằm ở hai người đó. Ngày có tiến bộ kỹ thuật thật, nhưng **mọi đường lên `main` đều đi qua một lượt duyệt
+> không xảy ra**. `15` §18 đã nổ; xem [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) §11.
+
+---
+
+## DAY 10 — kế hoạch đã đặt ra lúc đầu ngày
+
+**Gói nhiệm vụ từng người:** [`day10/tasks/`](day10/tasks/)
+
+> **Day 9 trượt 1,5/4, buffer −2**, nhưng `GATE-DATA-01` đã đóng và Spike D là `ACCEPTED` đầu tiên. **Bức tranh 21 ngày
+> còn lại:** hết 9/30 ngày mà **`app/` chưa tồn tại**, `MUST` vẫn 0/33, và **M2 quá hạn từ Day 6** vì `GATE-MOB-01` còn
+> mở. Vì vậy Day 10 nhắm đúng ba nút: đóng nốt M3, đóng `GATE-SPLIT-01` để `SPIKE_C1` chạy được, và **nghiệm thu Spike A
+> + Spike B để viết `TECH_STACK_ADR`** — thứ mở khoá cho cả bốn vertical cùng lúc.
+
+### Điều kiện để Day 10 KHÔNG trượt
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Trung → leader** | **M3 đóng**: #47 duyệt và merge, CI chạy test cả bốn hợp đồng | M3 hết quá hạn |
+| 2 | **Khánh → Trung → leader** | **`GATE-SPLIT-01` đóng**: #35 sinh lại trên manifest mới, duyệt lại, merge | `SPIKE_C1` chạy được → M4 |
+| 3 | **Hùng Anh · Trung · leader** | **`GATE-MOB-01` đóng**: Spike A và Spike B `ACCEPTED` đủ 4 bước → leader viết `TECH_STACK_ADR` | M2 đóng; bốn vertical có nền tảng đã quyết |
+| 4 | **cả nhóm** | **M5 có mã thật**: bộ khung `app/` trên `main` + fixture sinh từ hợp đồng + **ba PR vertical** (V1, V2, V4) chạy trên fixture | sản phẩm bắt đầu tồn tại |
+
+### Khối lượng
+
+| Người | Phần chính | Dự phòng | Việc chặn người khác, làm trước |
+|---|---|---|---|
+| **Vũ Hùng Anh** | 8 h | 1,75 h | diễn giải `B10`/`B11` · merge `main` vào #44 · duyệt lại #41 · duyệt #31 |
+| **Nguyễn Gia Đức Trung** | 8 h | 2,25 h | **duyệt #47** (M3 treo trên đúng lượt này) · duyệt #44 · duyệt lại #35 · fixture cho cả ba vertical |
+| **Bế Quốc Khánh** | 8 h | 2 h | **sinh lại split #35** (chặn cổng, chặn `SPIKE_C1`) |
+| **Phạm Tuấn Anh** | không giới hạn | — | **dựng `app/` trước 11:00** · merge · QA hai spike · `TECH_STACK_ADR` |
+
+---
+
+## DAY 9 — 2026-09-18 · ❌ **`TRƯỢT` 1,5/4** — nhưng `GATE-DATA-01` **ĐÓNG** và Spike D `ACCEPTED`
+
+**Chốt muộn 2026-09-19 ~02:30** · bản đầy đủ: [`day09/DAY09_EOD_REVIEW.md`](day09/DAY09_EOD_REVIEW.md)
+
+| Điều kiện | Kết quả |
+|---|---|
+| 1 · `GATE-DATA-01` | ✅ **đóng 21:40** — #34 merge 21:30, QA-003 `PASS` trên `main`, Spike D `ACCEPTED` qua đủ 4 bước. Lượt duyệt lại về 14:50, trễ hạn 11:00 |
+| 2 · M3 | ❌ bốn hợp đồng đã lên `main`, nhưng job CI **không có PR** cho tới khi leader mở #47 lúc 02:2x ngày 19 |
+| 3 · `GATE-SPLIT-01` | ❌ định nghĩa nhóm bắc cầu đã thống nhất, nhưng split chưa sinh lại; #35 còn nháp |
+| 4 · `B10`/`B11` | ⚠ **nửa** — 3 lượt đo hợp lệ trong WebView (thô trên `spike-b/evidence-20260918`), thiếu diễn giải của chủ Spike B |
+
+**Ngày này có:** 6 PR merge · `ACCEPTED` đầu tiên của dự án · khung `E8` thứ hai (342/342 mẫu `ok`) · phiên `B10`/`B11` đầu tiên · quyết định `E10` `PROVISIONAL`. **Buffer −1 → −2.**
+
+
+**Gói nhiệm vụ từng người:** [`day09/tasks/`](day09/tasks/)
+
+> **Day 8 đạt 4/4 đúng hạn → buffer giữ −1**, nhưng critical path dừng ở **lượt duyệt lại #34**, ngày thứ hai liên tiếp
+> dừng đúng ở một lượt review. Ba mốc chồng nhau hôm nay: **M3 hết hạn** · **M4** cần đóng hai cổng · **M5 bắt đầu** khi
+> `GATE-MOB-01` còn mở. **Ba quyết định của leader trước khi lập kế hoạch:** `GATE-MOB-01` đo `B10`/`B11` trong WebView của
+> app RN (hướng đo, chưa phải ADR) · #34 đóng băng ở `f118491` · SCR-04 giao cho V1. **Khối lượng:** mỗi thành viên
+> **≥ 8 h việc thật + ~2 h dự phòng**, hạn 23:59, **nợ tồn làm trước**.
+
+### Điều kiện để Day 9 KHÔNG trượt
+
+Lần này điều kiện **ghi đích danh bước "duyệt lại" và "merge"**, không dừng ở "đã duyệt".
+
+| # | Ai | Điều kiện | Mở khoá gì |
+|---|---|---|---|
+| 1 | **Vũ Hùng Anh → Phạm Tuấn Anh** | **Duyệt lại #34 trước 11:00** → merge → QA-003 chốt → Spike D `ACCEPTED` → **`GATE-DATA-01` đóng** | `SPIKE_C1` hết `BLOCKED` · điều kiện 3 |
+| 2 | **Trung · Vũ Hùng Anh · Phạm Tuấn Anh** | **M3 đóng**: #43, #45, #39 **merge** với **một** chuỗi `dr008a-dr012/v1.0.0`; test của **cả bốn** hợp đồng chạy trong CI | M5 dựng trên hợp đồng đã chốt |
+| 3 | **Khánh → Trung → Phạm Tuấn Anh** | **`GATE-SPLIT-01` đóng**: nhóm bắc cầu, sinh lại split trên manifest mới, Trung duyệt lại, merge #35 | `SPIKE_C1` được chạy |
+| 4 | **Vũ Hùng Anh · Phạm Tuấn Anh (bấm)** | **`B10`/`B11` đo trên A17 trong WebView của app RN**, có JSON thô và diễn giải của chủ Spike B | bằng chứng `GATE-MOB-01` cho một ứng viên duy nhất |
+
+⚠ Điều kiện 3 phụ thuộc điều kiện 1, nên #34 hẹn **11:00**.
+
+### Khối lượng và thứ tự từng người
+
+| Người | 🔴 Làm trước (nợ) | Việc chính Day 9 | Dự phòng | Giờ chính |
+|---|---|---|---|---|
+| **Vũ Hùng Anh** | ① **duyệt lại #34 trước 11:00** · ② sửa #43 (`relpath`, tính lại `picking_rays`, chốt chuỗi phiên bản) · ③ duyệt lại #26 | ④ **đóng gói viewer cho WebView** + protocol trong app, hẹn 18:00 · ⑤ diễn giải `B10`/`B11` · ⑥ `TC-TEAM-001` V2 | duyệt #41, #31 · fixture TP/FP/FN | **~8,5 h** |
+| **Nguyễn Gia Đức Trung** | ① #45 đổi sang `dr008a-dr012/v1.0.0` · ② phản hồi duyệt lại #45/#39 · ③ duyệt #44 | ④ **test hợp đồng vào CI** (lối ra M3) · ⑤ mock sinh từ schema API · ⑥ đề xuất `E10` · ⑦ `TC-TEAM-001` V4 | `ADR-ART-001` · ma trận SCR-06/08 | **~8,5 h** |
+| **Bế Quốc Khánh** | ① **nhóm bắc cầu** trên #35 · ② #35 hết nháp + sinh lại sau khi #34 merge · ③ #42 hết nháp · ④ PR follow-up #34 | ⑤ **`c1_preflight.py`** (phải `FAIL` khi gate mở) · ⑥ thiết kế SCR-01/SCR-07 · ⑦ phản hồi review #37 | preflight thật + `C1-1` nếu hai cổng đóng · `C0-3` | **~8,25 h** |
+| **Phạm Tuấn Anh** | duyệt lại #45/#39 · review #37/#42/#33 · merge #34 → **QA-003 chốt** → `GATE-DATA-01` · merge #43/#45/#39 → **M3** · merge #35 → `GATE-SPLIT-01` | 14:00 đo `E8` ban ngày *(tuỳ chọn)* · PC dựng container WebView trước 16:00 · **~20:00 đo `B10`/`B11`** · `TC-TEAM-001` V1 + SCR-04 · chốt ngày | duyệt lại #31 · chặn cache ảnh Spike A | không giới hạn |
+
+> **🎯 Chuẩn demo:** mỗi packet có dòng 🎯 dẫn về [`DEMO_STANDARD.md`](DEMO_STANDARD.md): Hùng Anh **H6–H7**, Trung **H8–H9**,
+> Khánh **H1/H2/H10**, Phạm Tuấn Anh **H3–H5** (giờ gồm cả SCR-04).
+
+### Đã xong — trong ngày
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| *(chưa có)* | | |
+
+---
+
+## DAY 8 — 2026-09-17 · ✅ **`ĐẠT` 4/4 — theo chữ và đúng hạn** · critical path **chưa qua**
+
+**Bản chốt đầy đủ:** [`day08/DAY08_EOD_REVIEW.md`](day08/DAY08_EOD_REVIEW.md) · **Gói nhiệm vụ:** [`day08/tasks/`](day08/tasks/)
+
+> **Chốt 17/09 ~23:55.** Cả bốn điều kiện đạt trong hạn, **không cần ngoại lệ về giờ** như Day 5 và Day 7. Nhưng
+> điều kiện 1 được đặt ra để mở khoá chuỗi *duyệt #34 → merge → QA → `GATE-DATA-01`*, và chuỗi đó **dừng ở lượt
+> duyệt lại**. Buffer **giữ −1**. Chuỗi *phần việc của Khánh land sau nửa đêm* (Day 4–7) **đã dừng**. Tồn đọng đưa
+> lên đầu Day 9 ở §13 của bản chốt — **chưa lập kế hoạch Day 9**.
 
 > **Day 7 đạt 4/4 theo nội dung → buffer giữ −1.** Hôm nay critical path chỉ còn thiếu **một lượt review**: #34
 > đã sẵn sàng từ 00:10 với nội dung đủ (7/7 phát hiện có câu trả lời, `A19` theo `Q2`, `F5` đã thực hiện) và
@@ -66,7 +220,20 @@ Khánh xếp trên mọi việc khác của cậu ấy.
 
 | Ai | Việc | Bằng chứng |
 |---|---|---|
-| *(chưa có)* | | |
+| **Vũ Hùng Anh** | **Duyệt #34 trước 12:00**, kèm phát hiện chặn: `A17 PASS` không phải audit toàn gói | review 11:07 |
+| **Vũ Hùng Anh** | Picking `B3`/`B4` *(nợ Day 7)* · **`geometry_contract_version`** + checker trong CI · approve #40 · device probe | `9e839ef` · #43 · #44 |
+| **Bế Quốc Khánh** | **#40 hết nháp, base `main`, merged** · **tuyên bố loại trừ `A17`** + `package_findings` · trả lời review #34 ×3 | `133f1a0` · `6fcc087` · `98dc4fa` |
+| **Bế Quốc Khánh** | Kế hoạch đo `SPIKE_C1` (chỉ thiết kế) + gói `TC-TEAM-001` V3 · #37 hết nháp | #42 |
+| **Nguyễn Gia Đức Trung** | **Duyệt lại #35** (`APPROVED`) · **sửa #32**, merged · approve #29 #30 #38 | `dfa9ef6` · `c44ee31` |
+| **Nguyễn Gia Đức Trung** | **Hợp đồng API `11` v0** · `E7` trên app thật · `E10`/`E13` theo `DR-015` · sửa phạm vi `NFR-PERF-001` ở #26 · sửa #39, #45 theo review | #45 · `097fdee` · `f6dc950` · `fdec7bb` |
+| **Phạm Tuấn Anh** | `DR-002b` × `F5` · **`DR-015`** · luật merge đè `CHANGES_REQUESTED` cũ · đính chính `NFR-PERF-001` | `7cde4eb` · `99575df` · `0c6039f` |
+| **Phạm Tuấn Anh** | **Spike A `S6`**: `A9` ở `576×576×88` — 98,72 / 50,84 ms, 376 MB → 135,90 MB thực đo | #41 · `6f1d09b` |
+| **Phạm Tuấn Anh** | **QA-003 sơ bộ** trên 3 head của #34 · review #39 #43 #45 #29 #32 · **merge #40 #29 #30 #38 #32** · gỡ chồng nhánh #30 | `53f3325` … `10eaacb` · `44fa56a` |
+
+### Còn tồn — chuyển sang Day 9
+
+Xem [`day08/DAY08_EOD_REVIEW.md`](day08/DAY08_EOD_REVIEW.md) §13. Nhiều nhất và quan trọng nhất: **Vũ Hùng Anh duyệt lại
+#34** — đó là mắt xích duy nhất còn giữ `GATE-DATA-01`.
 
 ---
 

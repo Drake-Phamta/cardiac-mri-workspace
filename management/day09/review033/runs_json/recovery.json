@@ -1,0 +1,88 @@
+{
+  "record": "pr33_review_reconnect_drill",
+  "captured_at": "2026-09-18T01:32:33+0700",
+  "not_evidence": "Review exercise on the handset's own loopback. Not Spike E acceptance evidence, not an E number.",
+  "loss_window_seconds": 8.09,
+  "harness_flags": {
+    "network_retries": "8",
+    "retry_delay": 1,
+    "pause_before_mesh": 5,
+    "body_hash": true
+  },
+  "sample_count": 57,
+  "mesh_samples": [
+    {
+      "scenario": "mesh_level_0",
+      "ok": true,
+      "status": 200,
+      "bytes": 19,
+      "bytes_received": 19,
+      "attempts": 4,
+      "network_retries": 3,
+      "body_sha256": "2086f095f229d60c37ef41dbac9fdbe46a56cde897a9953b78aaf9a65f988ccb",
+      "ms_total": 131,
+      "ms_including_local_rejections": 3850,
+      "error": null
+    },
+    {
+      "scenario": "mesh_level_1",
+      "ok": true,
+      "status": 200,
+      "bytes": 19,
+      "bytes_received": 19,
+      "attempts": 1,
+      "network_retries": 0,
+      "body_sha256": "2086f095f229d60c37ef41dbac9fdbe46a56cde897a9953b78aaf9a65f988ccb",
+      "ms_total": 137,
+      "ms_including_local_rejections": 179,
+      "error": null
+    },
+    {
+      "scenario": "mesh_level_2",
+      "ok": true,
+      "status": 200,
+      "bytes": 19,
+      "bytes_received": 19,
+      "attempts": 1,
+      "network_retries": 0,
+      "body_sha256": "2086f095f229d60c37ef41dbac9fdbe46a56cde897a9953b78aaf9a65f988ccb",
+      "ms_total": 147,
+      "ms_including_local_rejections": 189,
+      "error": null
+    },
+    {
+      "scenario": "mesh_level_3",
+      "ok": true,
+      "status": 200,
+      "bytes": 19,
+      "bytes_received": 19,
+      "attempts": 1,
+      "network_retries": 0,
+      "body_sha256": "2086f095f229d60c37ef41dbac9fdbe46a56cde897a9953b78aaf9a65f988ccb",
+      "ms_total": 115,
+      "ms_including_local_rejections": 156,
+      "error": null
+    }
+  ],
+  "retried_samples": [
+    {
+      "scenario": "mesh_level_0",
+      "ok": true,
+      "attempts": 4,
+      "network_retries": 3,
+      "error": null
+    }
+  ],
+  "stderr": [
+    "Android Toybox fallback: http://127.0.0.1:8799",
+    "path=lan-diagnostic connection=direct profile=stub-default retries=8 repeats=1",
+    "writing JSONL to /data/local/tmp/pr33_reconnect_1789669890.jsonl",
+    "RECONNECT_WINDOW: pause 5 seconds before first mesh request; toggle the AVD link now",
+    "network retry 1/8 for mesh_level_0",
+    "network retry 2/8 for mesh_level_0",
+    "network retry 3/8 for mesh_level_0",
+    "repeat 1/1 complete",
+    "JSONL ready: /data/local/tmp/pr33_reconnect_1789669890.jsonl",
+    "Pull it with: adb pull /data/local/tmp/pr33_reconnect_1789669890.jsonl ."
+  ]
+}

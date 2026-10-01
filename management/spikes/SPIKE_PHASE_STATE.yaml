@@ -194,12 +194,12 @@ spikes:
     priority: P0
     owner: "Be Quoc Khanh"
     reviewer: "Vu Hung Anh"
-    status: NEEDS_FIX        # QA Red Team REJECT 2026-09-15 11:52 (management/day06/QA_REVIEW_002_SPIKE_D.md) - back to the owner
+    status: ACCEPTED         # 2026-09-18 21:40 after all four steps: owner evidence, reviewer APPROVE (Vu Hung Anh, #34 at f118491, 14:50), QA-003 PASS on main 7d49df4, Project Control transition. GATE-DATA-01 CLOSED
     blocked_by: []
     started_at: "2026-09-11T12:00:00+07:00"
     review:
       state: APPROVED          # Vu Hung Anh APPROVED PR #25 at 2026-09-15 10:03:17 +07:00 and merged it (a92892c); the fixes need his re-review
-      qa: {verdict: REJECT, at: "2026-09-15T11:52+07:00", record: management/day06/QA_REVIEW_002_SPIKE_D.md, blocking: [F1, F2, F3, F4, F5]}
+      qa: {verdict: PASS, at: "2026-09-18T21:37+07:00", record: management/day09/QA_REVIEW_003_SPIKE_D_FINAL.md, resolved: [F1, F2, F3, F4, F5], previous: {verdict: REJECT, at: "2026-09-15T11:52+07:00", record: management/day06/QA_REVIEW_002_SPIKE_D.md}}
       reviewer: "Vu Hung Anh"
       priority_rank: 1          # ahead of SPIKE_A in Vu Hung Anh's queue - SPIKE_D is P0
       queue_note: >
@@ -214,7 +214,7 @@ spikes:
       - management/DATASET_AUDIT.md
       - data/manifests/dataset_manifest.*
     evidence_present: true     # RESULT.md is on main since a92892c - the rule stated in next_action
-    latest_tested_commit: a92892c
+    latest_tested_commit: 7d49df4   # QA-003 final ran on main after the #34 merge
     environment: null
     related_dr: [DR-001, DR-002, DR-012, DR-G01, DR-G02]
     related_condition: [C1, C6]
@@ -402,6 +402,12 @@ spikes:
       expected rays of geometry_fixture_v0.json have never been exercised from the app. Two further gaps for the
       owner: this spike still has NO RESULT.md at all, and the M3 exit item geometry_contract_version has no
       value defined anywhere in the repository although 11 sections 2 and 4, 05 and TC-REL-003 all reference it.
+      Update 2026-09-18 (Day-9 plan): the 2026-09-17 statement above that B3/B4 picking "still has no code anywhere"
+      is SUPERSEDED. The owner committed picking at 9e839ef (2026-09-17 11:14) and #30 merged as e0a9d61, followed by
+      #38 (d7557ae). geometry_contract_version now exists as dr008a-dr012/v1.0.0 in #43, and a RESULT.md for this spike
+      exists on the #43 branch (desktop, synthetic, no device numbers). Leader decision 2026-09-18: B10/B11 are measured
+      inside a WebView of the Spike A React Native app rather than in Chrome, so one candidate carries evidence for both
+      the brush and 3D; the owner packages the viewer and rewrites the protocol, the leader operates the phone.
     canonical_fixture: {path: tests/fixtures/geometry/geometry_fixture_v0.json, merged: 50a5433, owner: "Vu Hung Anh"}
 
   - id: SPIKE_C0

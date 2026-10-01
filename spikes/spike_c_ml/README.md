@@ -41,6 +41,17 @@ python spikes/spike_c_ml/harness/probe.py --operator "Bế Quốc Khánh" --img 
 python spikes/spike_c_ml/harness/extrapolate.py spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_*.json --gpu-hours-per-day 8
 ```
 
+Pipeline bring-up tổng hợp Day 6 (8 case giả, không đọc byte dữ liệu thật):
+
+```bash
+python spikes/spike_c_ml/harness/pipeline_bringup.py --selftest
+python spikes/spike_c_ml/harness/pipeline_bringup.py --operator "Bế Quốc Khánh" --img 560 --precision bf16 --checkpoint-dir D:/c0-checkpoints --output spikes/spike_c_ml/EVIDENCE_RAW/c0_pipeline_bringup.json
+```
+
+Lệnh thứ hai chạy đúng một epoch cho `unet_base16_depth4` và
+`dinov2_s14_frozen_progressive`, tính Dice trên validation tổng hợp, rồi lưu/nạp lại
+checkpoint và so đầu ra. Dice này chỉ kiểm luồng dữ liệu; không phải bằng chứng chất lượng mô hình.
+
 Lần chạy đầu **tải checkpoint DINOv2** về cache Hugging Face: `facebook/dinov2-small` ~85 MB và
 `facebook/dinov2-base` ~330 MB. Các lần sau chạy được với `HF_HUB_OFFLINE=1`. Muốn chạy ít biến thể hơn:
 `--variants dinov2_s14_full_progressive,unet_base32_depth4` (xem đủ danh sách: `--list-variants`).

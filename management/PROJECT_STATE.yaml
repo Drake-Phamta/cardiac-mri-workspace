@@ -21,13 +21,32 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 8                              # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-09-17"              # Day 7 closed MET 4/4 by leader decision; see day07/DAY07_EOD_REVIEW.md
+day: 11                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
+day_date: "2026-09-20"              # Day 10 closed MISSED 1.25/4, very late; see day10/DAY10_EOD_REVIEW.md
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
 day_4_verdict: MET                  # 3/3, closed the morning of 2026-09-14
 day_5_verdict: MET                  # 3/3 BY LEADER DECISION, closed the morning of 2026-09-15; see day_5_verdict_basis
 day_6_verdict: MISSED               # 3 of 4 conditions; closed 2026-09-16 about 01:45 by leader decision; see day_6_verdict_basis
 day_7_verdict: MET                  # 4/4 ON SUBSTANCE, 2/4 on the letter of the deadlines; leader decision 2026-09-17; see day_7_verdict_basis
+day_8_verdict: MET                  # 4/4 on the letter AND inside every deadline; closed 2026-09-17 ~23:55; critical path still not through - see day_8_verdict_basis
+day_9_verdict: MISSED               # 1.5 of 4: GATE-DATA-01 closed (condition 1), B10/B11 measured but not yet interpreted by the Spike B owner (condition 4, half). M3 and GATE-SPLIT-01 unmet. Closed late, 2026-09-19 ~02:30; see day09/DAY09_EOD_REVIEW.md
+day_10_verdict: MISSED              # 1.25 of 4. Condition 1 half: Trung approved #47 at 21:40 inside the day, CI green and MERGEABLE, but the leader's own merge did not happen until 2026-09-20 17:18. Condition 4 quarter: of four verticals only V4 has running code, and it is stacked behind #48 which nobody reviewed. Conditions 2 and 3 unmet. Closed very late, 2026-09-20 ~17:20; see day10/DAY10_EOD_REVIEW.md
+day_10_closed: true                 # Day 11 NOT planned at close
+day_10_verdict_basis: >             # the fact that decides this day, recorded so a later reader does not look for a technical cause
+  Two of four members had NO activity for the whole of Day 10 - no commit, no review, no comment.
+  Vu Hung Anh's last commit was 2026-09-18 15:12 and Be Quoc Khanh's 2026-09-18 11:44; by the time
+  this review was written (2026-09-20 17:20) that is close to two days. Five of the seven blockers
+  in day10/DAY10_EOD_REVIEW.md section 6 sit with those two people. The day produced real technical
+  progress - app/ exists for the first time, Spike A reached 11 of 12 criteria OBSERVED with A8, A10
+  and A11 measured on the A17 - but almost none of it reached main, because every path to main ran
+  through a review that did not happen. This triggers 15 section 18; see section 11 of the review.
+  CAUSE ADDED 2026-09-20, see management/incidents/INC-002_DAY10_TEAM_INCIDENT.md: the leader
+  reported that the team hit an incident that day. The MISSED verdict is NOT revised - a verdict
+  measures outcome, not effort, and a lost day still costs buffer whatever its cause - but the cause
+  is recorded so a later reader sees "missed because of a team-wide incident" rather than "two people
+  stopped working", which is a very different story about the same data.
+day_9_closed: true                  # Day 10 not planned yet at close; carry-overs in day09/DAY09_EOD_REVIEW.md section 13
+day_8_closed: true                  # Day 9 planned 2026-09-18 after the close, carry-overs first; see day09/tasks/
 capacity_policy:                    # leader decision 2026-09-14 - 15 section 5 capacity field, standing
   members_hours_per_day: 8          # Khanh, Trung, Vu Hung Anh
   daily_deadline: "23:59 local"
@@ -69,6 +88,20 @@ day_7_verdict_basis: >
   landed after midnight on four consecutive days (Day 4 03:10, Day 5 00:44, Day 6 00:19, Day 7 00:08-00:36),
   so the 12:00/18:00 push checkpoints introduced on 2026-09-16 have had no effect and are replaced on Day 8
   by a dependency-ordering rule rather than a tighter clock. Buffer stays -1: a met day spends no buffer.
+day_8_verdict_basis: >
+  All four conditions were met with evidence and inside their deadlines, so unlike Day 5 and Day 7 no
+  exception on timing was needed. Vu Hung Anh reviewed #34 at 11:07 against a 12:00 target and found a
+  release-blocking issue the QA pass had not: scan_package and scan_archive only read direct case
+  directories, so A17's PASS was not a package-wide audit. Be Quoc Khanh took #40 out of draft and onto main
+  (merged 11:37), recorded the A17 exclusion with package_findings, and answered the review three times, all
+  between 11:01 and 11:40 - which ends a run of four consecutive days on which his work landed after midnight.
+  Nguyen Gia Duc Trung approved #35 and fixed #32 (merged) at 17:26-17:37. The M3 step exists as #43
+  (geometry_contract_version, 11:25) and #45 (API Contract 11, 17:38).
+  Recorded plainly because the conditions were chosen to unlock a chain and the chain did not complete: #34
+  was reviewed but not RE-reviewed after the fix, so it did not merge, the QA re-check could not become a
+  verdict, GATE-DATA-01 stays open into its ninth day and SPIKE_C1 stays BLOCKED on the first day of M4.
+  Both M3 PRs are CHANGES_REQUESTED and contradict each other on the geometry version string. Buffer stays
+  -1: a met day spends no buffer.
 phase: EXECUTION
 execution_declared: true
 execution_started_at: "2026-09-11T12:00:00+07:00"   # from day01/DAY01_CUTOVER_RECORD.md
@@ -87,6 +120,30 @@ dr_001_trigger:
   audit_still_owned_by: "Be Quoc Khanh - criteria A2-A20 are unchanged and unstarted"
 recovery:
   active: false                     # EXPIRED at the start of Day 3, as written
+  # A trigger being met is a FACT; applying a level is a LEADER DECISION (15 section 18).
+  # Those are kept apart here so the record cannot later be read as Project Control
+  # having reassigned anyone's work on its own.
+  triggered_2026_09_20:
+    triggered: true
+    conditions_met:                 # 3 of the 5 in 15 section 18
+      - "remaining buffer below the safety threshold: buffer is -3 after Day 10"
+      - "a critical-path blocker survived two EOD cycles without credible resolution:
+         GATE-SPLIT-01 was unmet at the Day-9 close and again at the Day-10 close, and its
+         owner had no repository activity on either day"
+      - "forecast exceeds Day 30: 10 of 30 days are gone with MUST accepted at 0 of 33"
+    proposed_levels: "Level 1 (reallocate) twice - the #35 split regeneration, and the #48
+      review that is blocking three of Trung's PRs. Both are proposals in
+      day10/DAY10_EOD_REVIEW.md section 11, NOT applied."
+    decision: LEVEL_1_AUTHORISED_2026_09_20
+    decision_note: "The leader authorised Level 1 (reallocate) on 2026-09-20, for REVIEW TURNS
+      ONLY. Ownership does not move - DR-013's anti-bottleneck rule forbids transferring it for
+      speed, and INC-001 section 4.4 held that line. Every use must be appended to
+      SPIKE_PHASE_STATE.yaml review_serialization.reassignments with date/spike/from/to/reason/basis,
+      reason = 'recovery Level 1', never 'for speed'. Recorded in
+      management/incidents/INC-002_DAY10_TEAM_INCIDENT.md section 5."
+    precondition_before_any_reallocation: "ask the members first - satisfied. The leader reported
+      the team incident on 2026-09-20 BEFORE any reallocation happened, which is what INC-001's
+      first lesson asks for: ask before inferring."
   previous_invocation:
     active_on: "2026-09-11"
     record: management/incidents/INC-001_DAY2_MEMBER_UNAVAILABILITY.md
@@ -303,7 +360,7 @@ spikes:
 
 # --- GATES ------------------------------------------------------------------
 gates:
-  GATE-DATA-01:   {status: OPEN,   closes_on: "Spike D evidence: DATASET_AUDIT.md + manifest", note: "QA-002 REJECT 2026-09-15 11:52 - duplicate case unreported, default header geometry, A19 incomplete; management/day06/QA_REVIEW_002_SPIKE_D.md. The owner's repair is in draft PR #34 since 2026-09-16 00:19; the gate stays OPEN until reviewer APPROVE, a QA re-check PASS and the Project Control transition"}
+  GATE-DATA-01:   {status: CLOSED, closed_at: "2026-09-18T21:40+07:00", closed_by: "Pham Tuan Anh (Project Control) after the four-step workflow", closes_on: "Spike D evidence: DATASET_AUDIT.md + manifest", note: "#34 merged 7d49df4 (reviewer Vu Hung Anh APPROVED 14:50 at f118491); QA-003 PASS on main - all QA-002 blockers F1-F5 verified resolved, break_validator 6 DEFECT / 0 ZIPSLIP as recorded, F1 reproduced from the ZIP, DR-002b effective train 78 reproduced; management/day09/QA_REVIEW_003_SPIKE_D_FINAL.md. SPIKE_C1 remains BLOCKED on GATE-SPLIT-01"}
   GATE-SPLIT-01:  {status: OPEN,   closes_on: "patient-level split, seed 2024, provenance resolved",
                    path: "A - DR-002 decided 2026-09-14",
                    open_question: "The package has no case-to-patient mapping (PR #28, 2026-09-15). The draft manifest uses each case as its own group and records patient separation as NOT VERIFIABLE. The leader must accept that limitation on the record, or require source evidence, before this gate can close. PR #28 was auto-closed on 2026-09-15 at 10:03 when its base branch was deleted on the #25 merge; the owner reopens it as a new PR against main. QA-002 (2026-09-15) found CASE_0056 and CASE_0097 to be one acquisition exported twice, and the closed draft split put them in train and validation; the split must keep the pair on one side, or drop one copy through a Decision Request - decided 2026-09-15 as DR-002a: one group pinned to train. Update 2026-09-16: draft PR #35 replaces #28 and implements DR-002a. Its PATIENT_LINKAGE_EVIDENCE.md establishes that the challenge benchmark (Xiong et al., Medical Image Analysis 67, 2021) reports 154 scans from 60 de-identified patients, that the obtained package carries no case-to-patient map, and that an MRI-only screen over 11,781 pairs re-found the known duplicate at rank 1 while proving no other identity. Owner's conclusion: BLOCKED_PATIENT_LINKAGE. The leader must obtain a trustworthy patient grouping or record an explicit, documented exception to the patient-level requirement of 06 section 6 through a Decision Request. That request is DR-002b, DECIDED on 2026-09-16 as option (c) + (d): conservative grouping above a threshold the owner declares before any training run, development cases linked to a holdout case excluded from training, the limitation stated wherever an evaluation number appears, and a sensitivity analysis beside the primary metric. The gate now closes on a split manifest that implements this and passes Nguyen Gia Duc Trung's review; 06 section 6 is recorded as deviated with a documented exception."}
@@ -398,7 +455,7 @@ forecast:
     Kept RED at the Day-6 close: buffer is now -1, ACCEPTED is still 0, Spike D was rejected at the QA step
     hours after its evidence reached main, and GATE-SPLIT-01 gained a hard blocker (154 scans from 60
     patients with no mapping). Reconsider the colour when Spike D is ACCEPTED and GATE-SPLIT-01 has a ruling.
-  remaining_buffer_days: -1         # Day 6 missed: condition 3 unmet (Spike E stub never started)    # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
+  remaining_buffer_days: -2         # Day 6 missed: condition 3 unmet (Spike E stub never started)    # Day 3 slipped: 2 of its 3 stated conditions unmet          # was 2; Day 1 (2026-09-10) lost with zero spike execution
   buffer_note: >
     Day 1 passed with no cutover, no spike ACTIVE and no evidence. The leader chose to keep
     Day 30 fixed, so the lost day is absorbed by buffer rather than pushing the deadline. One
@@ -414,30 +471,44 @@ milestones:
   M0: {days: "Day 0",  status: IN_PROGRESS, exit: "DAY0_SIGNOFF 4/4 signed + readiness gate passed + cutover recorded"}
   M1: {days: "1-4",    status: NOT_STARTED, exit: "four spikes EVIDENCE_READY; DR-001 trigger evaluated on Day 1"}
   M2: {days: "4-6",    status: NOT_STARTED, exit: "GATE-MOB-01 closed on A+B; DR-002/005/008c decided or deferred with reason"}
-  M3: {days: "6-9",    status: IN_PROGRESS, exit: "API + both ingestion contracts + geometry contract versioned, contract tests run",
-       state_2026_09_17: "2 of 4 exits have a draft and NEITHER is on main: Contract 1 in PR #32 (changes requested) and Contract 2 in PR #39 (no reviewer). The API contract of spec 11 has NOT been started by anyone, and geometry_contract_version - referenced by 11 sections 2 and 4, by 05 and by TC-REL-003 - has no value defined anywhere in the repository. Two days of the window remain"}
+  M3: {days: "6-9",    status: DONE, closed_at: "2026-09-20T17:18+07:00",
+       exit: "API + both ingestion contracts + geometry contract versioned, contract tests run",
+       state_2026_09_20: "CLOSED, one day past its window. The fourth and last exit landed with PR #47 (40498e5): guardrails now runs the ingestion 1/2 and API 11 contract test suites, and the rebase kept the geometry-contract job that the original branch - cut before #43 merged - would have deleted. Trung approved at 21:40 on 2026-09-19, INSIDE Day 10; the merge happened 2026-09-20 17:18, outside it. Day 10 condition 1 is recorded as half for that reason: every part belonging to someone else was finished on time and the missing act was the leader's own merge",
+       state_2026_09_17: "2 of 4 exits have a draft and NEITHER is on main: Contract 1 in PR #32 (changes requested) and Contract 2 in PR #39 (no reviewer). The API contract of spec 11 has NOT been started by anyone, and geometry_contract_version - referenced by 11 sections 2 and 4, by 05 and by TC-REL-003 - has no value defined anywhere in the repository. Two days of the window remain",
+       state_2026_09_18: "LAST DAY OF THE WINDOW. All four contracts are on main: Contract 1 (#32, c44ee31), Contract 2 (#39, 7363a6a), API Contract 11 (#45, dd5a569) and the geometry contract dr008a-dr012/v1.0.0 with its checker in CI (#43, f2e78bb, merged 21:34 after 0 of 14 adversarial attacks landed). The only exit still missing is contract tests running in CI for the other three: Trung pushed branch ci/day9-contract-tests-trung (d7db4fe, 14:02) but had opened no PR by 21:40"}
   M4: {days: "8-12",   status: IN_PROGRESS, exit: "SPIKE_C1 accepted; GATE-ML-01 and GATE-SPLIT-01 closed",
-       state_2026_09_17: "Window opens on Day 8 with SPIKE_C1 still BLOCKED and all ten C1 criteria unmeasured. It unblocks only when Spike D is ACCEPTED and GATE-SPLIT-01 closes; DR-002b is decided and implemented in PR #35, so the remaining path is review, merge and the QA re-check"}
-  M5: {days: "9-20",   status: NOT_STARTED, exit: "V1-V4 each pass their acceptance tests"}
+       state_2026_09_17: "Window opens on Day 8 with SPIKE_C1 still BLOCKED and all ten C1 criteria unmeasured. It unblocks only when Spike D is ACCEPTED and GATE-SPLIT-01 closes; DR-002b is decided and implemented in PR #35, so the remaining path is review, merge and the QA re-check",
+       state_2026_09_18: "Day 1 of the window passed with SPIKE_C1 BLOCKED. #34 was reviewed at 11:07 and repaired by 11:40 but not re-reviewed, so GATE-DATA-01 enters its ninth day. #40 merged. QA-003 ran ahead of the merge and independently reproduced F1 from the bytes and the DR-002b exclusion set and effective train count of 78. Day 9 schedules the re-review before 11:00, the merge, the QA-003 close and the GATE-DATA-01 close, then the #35 regeneration and GATE-SPLIT-01. C1 runs on the owner's RTX 4050; no Mac mini is involved"}
+  M5: {days: "9-20",   status: IN_PROGRESS, exit: "V1-V4 each pass their acceptance tests",
+       state_2026_09_18: "Window opens on Day 9 with GATE-MOB-01 still OPEN and neither Spike A nor Spike B ACCEPTED, so no production mobile module may be created (09 section 1.1; spike TASK files). Allowed and scheduled: technology-neutral screen design and screen-state matrices, synthetic fixtures, TC-TEAM-001 packages for all four verticals, and mocks generated from an ACCEPTED contract once #45 merges. Structural gap recorded on 2026-09-18: Spike A measured the brush on React Native/Expo while Spike B measured 3D in browser WebGL2, so no single candidate had evidence for both as 09 section 7 requires; the leader chose to measure B10/B11 inside a WebView of the Spike A app. SCR-04 Error Inspector had no owner and was assigned to V1"}
   M6: {days: "12-22",  status: NOT_STARTED, exit: "experiment matrix complete; RQ-A and RQ-B answerable; GATE-IMG-01 closed"}
   M7: {days: "20-25",  status: NOT_STARTED, exit: "TC-E2E-001 green; canonical smoke stable"}
   M8: {days: "25-28",  status: NOT_STARTED, exit: "zero open P0/P1; all MUST acceptance tests green"}
   M9: {days: "28-30",  status: NOT_STARTED, exit: "demo + report + defense mapping; >=2 buffer days unspent"}
 
 # --- PULL REQUESTS ----------------------------------------------------------
-open_prs:                           # as of 2026-09-17 01:30 (Day-7 close)
-  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Spike E. Head eaa878f now carries the owner's profile-separated aggregation of the 2026-09-16 evening capture: E2-E6 and E12 per profile, E4 navigation p95 2864/1844 ms for s1 and 28606/6181 ms for the s4 prefetch window, E8 explicitly partial (one evening window, started 21:50). Project Control asked the owner on 2026-09-17 to relabel two sentences: those figures fail Spike E's own E4 criterion and feed RA-H13, but they are not an NFR-PERF-001 miss - E4 navigate_s1 issues the same uncached URL as E3, on the operator machine, over HTTP, while NFR-PERF-001 bounds cached on-device slice switching. The numbers themselves are not in question. The reviewer's only remaining objection - that the plan invoked a harness introduced solely by #24 - was cleared when #24 merged at 22:37. Waiting on his re-review, then the merge that puts Spike E RESULT.md on main"}
-  - {number: 29, branch: hung-anh/day06-b14, author: scalliontor, waits_on: TrungNGD195, note: "Spike B B14 owner interpretation; duplicated passage removed d223cc4 at 15:48, re-review requested"}
-  - {number: 30, branch: hung-anh/day06-b1, author: scalliontor, waits_on: TrungNGD195, note: "Spike B B1 WebGL2 viewer. Pan added on desktop and touch (0d079e8, 712fbe9) with a refreshed capture, then clinical segmentation styling (c5ecb4d); out of draft, re-review requested. This closes PR-3D-02, one of the five MUST requirements the old counts had dropped"}
-  - {number: 31, branch: spike-a/s5-brush, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S5 brush, A3-A7 OBSERVED on the device (evidence 1c62a00). Retargeted to main after #27 merged. The reviewer asked only for a documentation fix - the title said 'device run pending' while the evidence showed a completed run - which was applied at 22:40; re-review requested"}
-  - {number: 32, branch: chore/day6-m3-ingestion, author: TrungNGD195, waits_on: TrungNGD195, note: "M3 Contract 1 ingestion DRAFT v0. CHANGES_REQUESTED by the leader 2026-09-16 22:01: a self-contradicting manifest passes - dataset geometry_validation_status NOT_VALIDATED while every artifact claims VALIDATED_AXIS_ALIGNED - the QA-002 F15 class; plus a note that package_checksum is never verified at v0. Nothing has been pushed since f97b78f. The author did deliver the comparison against the real main manifest (comment 23:01)"}
-  - {number: 33, branch: chore/day6-e9-trung, author: TrungNGD195, waits_on: TrungNGD195, note: "E9 reconnect/retry drill plus, since fdf6d48 at 22:57, the physical-device procedure for the leader to operate. Retargeted to main after #24 merged, CI 4/4. NO reviewer has ever been requested - the author must ask"}
-  - {number: 34, branch: codex/day6-khanh, author: qkhanhbe, waits_on: scalliontor, note: "CRITICAL PATH. Ready for review since 2026-09-17 00:10 with ZERO reviews. Content is complete: each of F1-F5, F12 and F13 answered in its own comment with file/line and a recheck command; A19 written under the Q2 ruling as DEFERRED / NOT PASSED with training still BLOCKED; F5 implemented (aaccae6) - the public manifest lost 473 lines of per-file checksums, the restricted manifest lives outside the repository and the public one keeps its SHA-256 and regeneration command. CI 4/4. Next: Vu Hung Anh reviews, the leader merges, QA re-checks, then ACCEPTED"}
-  - {number: 35, branch: codex/path-a-split, author: qkhanhbe, draft: true, waits_on: TrungNGD195, note: "Path A split implementing DR-002b (c)+(d) in dc26b35: similarity threshold r >= 0.75 declared IN the manifest before any training run, four groups held whole across the nested subsets, CASE_0133 and its grouped CASE_0117 excluded from training so the effective train set is 78 with subsets 20/38/78, the shared limitation sentence, and a placeholder for the C1 sensitivity analysis. Per-pair scores print as RESTRICTED_BY_F5 - which collides with the reviewer's request for ids AND scores and needs a one-line leader ruling. Trung re-reviews; the owner then regenerates against the merged manifest SHA and leaves draft"}
-  - {number: 37, branch: spike-c0/pipeline-bringup, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "C0 synthetic pipeline bring-up, CI 4/4, untouched since 2026-09-15. Supporting work for C1, not a C0 criterion. Must leave draft before a review is due"}
-  - {number: 38, branch: hung-anh/day07-clinical-mpr-poc, base: hung-anh/day06-b1, author: scalliontor, waits_on: TrungNGD195, note: "Linked MPR and 3D feasibility POC (99e03ce, 22:01): axial/coronal/sagittal crosshairs, segmentation overlay, explicit unavailable landmarks, and the matching physical axial plane pushed into the B1 viewer for a surface-intersection cue. No MRI, label, OBJ or preview binary is committed. Stacked on the unmerged #30, so it is gated on that first. Direction is 2D -> 3D only; it is NOT the B3/B4 picking measurement, which still has no code"}
-  - {number: 39, branch: chore/day7-trung, author: TrungNGD195, waits_on: TrungNGD195, note: "M3 Contract 2 experiment-artifact DRAFT v0 (541c54c, 22:55): Draft 2020-12 schema, offline validator, 220 lines of synthetic checks, enforcing BOTH GATE-SPLIT-01 and GATE-ML-01, the exact 54-case FINAL_HOLDOUT, checksum/version provenance, raw -> processed -> metric lineage, traversal and replay/conflict cases. CI 4/4. NO reviewer requested; the PR is also not marked draft although its README says DRAFT v0"}
-  - {number: 40, branch: codex/day7-validator-hardening, base: codex/day6-khanh, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "QA-002 validator hardening (ed9c6c0, 2026-09-17 00:35): all eight tracked defects F6-F11, F14 and F15 repaired with one synthetic regression case each in tools/dataset_validate/hardening_regression.py, reported 8/8 PASS, plus a read-only rerun over the official ZIP (A1 re-matched the 2.2 GB SHA-256, A9 154/154, A10 154/154, A14 308/308). It also surfaced two previously invisible top-level files in the official package, Unet.py and preprocess_data.py, and leaves A17 FAIL pending the owner's exclusion statement rather than hiding them. STACKED ON #34 - the same trap that auto-closed #28; retarget to main and leave draft"}
+open_prs:                           # as of 2026-09-18 00:40 (Day-9 plan)
+  - {number: 26, branch: chore/day5-trung, author: TrungNGD195, waits_on: scalliontor, note: "Spike E. The NFR-PERF-001 scope is corrected at 097fdee (2026-09-17 22:19): the two sentences that called E4 an NFR-PERF-001 miss are replaced, and the file now says E4 fails its own criterion, s3 violates limb 2 and uncached fetches have no ceiling (RA-H13). Also E7 real-app plan and E10/E13 aligned with DR-015. Waiting on Vu Hung Anh's re-review"}
+  - {number: 31, branch: spike-a/s5-brush, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S5 brush, A3-A7 OBSERVED on the device. The only objection was the PR title, fixed on 2026-09-16 22:40; re-review pending. On the path to Spike A ACCEPTED and GATE-MOB-01"}
+  - {number: 33, branch: chore/day6-e9-trung, author: TrungNGD195, waits_on: TrungNGD195, note: "E9 reconnect and retry drill plus the physical-device procedure. Reviewed by the leader 2026-09-18 01:38 by running the harness on the A17 against a canned responder on the phone loopback: the retry code passes all four conditions (defaults untouched, HTTP errors not retried, recovery at attempts 4 and network_retries 3, bounded at exactly attempts 3). CHANGES_REQUESTED on the document only: both PowerShell command blocks exit 2 because adb shell loses the quoting around operator and owner, and the 3 s outage inside a 15 s pause cannot produce the network_retries > 0 that its own acceptance line demands. Suite in management/day09/review033"}
+  - {number: 35, branch: codex/path-a-split, author: qkhanhbe, draft: true, waits_on: qkhanhbe, note: "APPROVED by Trung 2026-09-17 17:37 but still draft. Carries the DR-002b threshold, declaration date and restricted-screen hash. Open question from QA-003: four groups recorded, while an independent recomputation finds four pairs forming three transitive components; grouping must be transitive. Regenerates against the new manifest SHA after #34 merges; GATE-SPLIT-01 closes on this PR"}
+  - {number: 41, branch: spike-a/s6-bounded-cache, author: Drake-Phamta, waits_on: scalliontor, note: "Spike A S6: A9 at 576x576x88, 98.72 ms whole cache and 50.84 ms in-window, 376 MB corrected to 135.90 MB measured, and the finding that a component-level window does not bound image-cache memory. Evidence for GATE-MOB-01"}
+  - {number: 47, branch: ci/day9-contract-tests, author: Drake-Phamta, waits_on: "TrungNGD195 or scalliontor", note: "THE LAST M3 EXIT. Runs test_contract1, test_contract2 and test_api_contract in CI. The job is Trung's (d7db4fe on ci/day9-contract-tests-trung, never opened as a PR); lifted onto main by the leader under DR-013, keeping the geometry-contract job that his branch predates. CI green 6/6. The leader cannot approve his own PR, so M3 stays open on one review"}
+  - {number: 44, branch: hung-anh/day08-perf-probe, author: scalliontor, waits_on: TrungNGD195, note: "Spike B device frame probe and MEASUREMENT_B10_B11.md, retargeted to main. Under the Day-9 decision the protocol is rewritten to run inside a WebView of the Spike A React Native app rather than Chrome; the leader operates the phone"}
+  - {number: 46, branch: spike-a/s7-webview-container, author: Drake-Phamta, draft: true, waits_on: Drake-Phamta, note: "S7 WebView container in the Spike A app, the transport for the GATE-MOB-01 measurement direction. Smoke test on the A17 release build 2026-09-18 01:16: webgl2 true, UNMASKED_RENDERER_WEBGL Mali-G68, viewer loaded in 964 ms, mesh rendered at 5648 triangles, orbit and pick responded. Evidence in spikes/spike_a_2d/EVIDENCE_RAW/s7_webview_env_20260918T011618+0700.*. Draft until the Spike B owner packages the viewer and its probe; no B10 or B11 value is computed in it"}
+merged_2026_09_18:
+  - {number: 34, commit: 7d49df4, author: qkhanhbe, approved_by: scalliontor, merged_by: Drake-Phamta, method: merge-commit, note: "Spike D QA-002 audit repair at the frozen head f118491. Followed by QA-003 PASS on main and GATE-DATA-01 CLOSED. Follow-up PR owed by Khanh: anomalies and package_findings in summary (F13), the real regeneration command (F12)"}
+  - {number: 43, commit: f2e78bb, author: scalliontor, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "M3 geometry exit: canonical contract dr008a-dr012/v1.0.0 with its checker in CI. Repair 9a85a1c: 0 of 14 attacks land, the off-by-one ray is now refused, and a cross-drive run no longer crashes"}
+  - {number: 37, commit: fae2b0b, author: qkhanhbe, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "C0 synthetic pipeline bring-up. Repair 1b35be7 (11:40) wraps the DINOv2 load in torch.random.fork_rng and records transformers, huggingface_hub and cuDNN. The unmodified head re-run on the leader GPU reproduced the fork_rng counterfactual to every printed digit (DINOv2 0.7275285721 / 0.2883632567), within 2.1e-5 of the RTX 4050 evidence; guard 8/8. Satisfies the C1 preflight line pipeline_bringup.py merged"}
+  - {number: 42, commit: abb45af, author: qkhanhbe, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "C1 measurement plan (design only) and V3 TC-TEAM-001 package. All five pre-read points closed as checks: transitive components recomputed rather than a hard-coded count, merged #35 commit pinned, library versions recorded, rerun tolerance 5e-5 loss / 5e-4 Dice, holdout_paths_resolved: 0. C1 stays BLOCKED on GATE-DATA-01 and GATE-SPLIT-01"}
+  - {number: 45, commit: dd5a569, author: TrungNGD195, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "M3 API Contract 11: 28 endpoints and 15 error codes. The repair fdec7bb applies schema.json before the semantic checks, pins geometry_contract.version to dr008a-dr012/v1.0.0 as a const in both validator and schema, and adds the per-endpoint invariants. Approved by rerunning the committed adversarial suite in management/day08/review045"}
+  - {number: 39, commit: 7363a6a, author: TrungNGD195, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "M3 Contract 2 experiment-artifact ingestion DRAFT v0. The repair f6dc950 applies schema.json before the semantic checks and removes the null crashes. Two of the three remaining M3 exits are now on main; only the geometry contract #43 and the CI contract-test job are left"}
+merged_2026_09_17:
+  - {number: 40, commit: 133f1a0, author: qkhanhbe, approved_by: scalliontor, merged_by: Drake-Phamta, method: merge-commit, note: "QA-002 validator hardening F6-F11, F14, F15, rebased onto main"}
+  - {number: 29, commit: 8d07f63, author: scalliontor, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "B14 owner interpretation; merged over a stale CHANGES_REQUESTED under the 2026-09-17 review-flow rule"}
+  - {number: 30, commit: e0a9d61, author: scalliontor, approved_by: TrungNGD195, merged_by: Drake-Phamta, method: merge-commit, note: "B1 WebGL2 viewer with pan and B3/B4 picking; branch kept, children #38/#43/#44 retargeted to main"}
+  - {number: 38, commit: d7557ae, author: scalliontor, approved_by: TrungNGD195, merged_by: Drake-Phamta, method: merge-commit, note: "linked MPR and 3D feasibility POC"}
+  - {number: 32, commit: c44ee31, author: TrungNGD195, approved_by: Drake-Phamta, merged_by: Drake-Phamta, method: merge-commit, note: "M3 Contract 1 raw dataset ingestion, the first M3 exit on main"}
 merged_2026_09_16:
   - {number: 24, commit: ff6431e, author: TrungNGD195, approved_by: scalliontor, merged_by: Drake-Phamta, method: merge-commit, note: "Spike E Day-4 record and the Android Toybox fallback harness - the client that produced runs 1-4 and both runs of the 2026-09-16 evening capture. The reviewer approved at 22:02 and corrected himself on the record: his previous re-review had looked up the wrong repository path, so the network-id fix had been in place all along. Branch kept; #33 was retargeted to main eight seconds later"}
   - {number: 36, commit: e6e3b0b, author: qkhanhbe, approved_by: scalliontor, merged_by: Drake-Phamta, method: squash, note: "SPIKE_C0 evidence - 20 measurements over 10 variants in fp32 and bf16 on the owner's RTX 4050, RESULT.md and the cost chart generated from the raw JSON, and the calendar verdict at his real 4-5 unattended GPU hours per day. The reviewer regenerated both artifacts byte-identically and stated he could not run probe.py --selftest on his host, so no independent GPU rerun is claimed. SPIKE_C0 is EVIDENCE_READY and PRELIMINARY; DR-007 keeps it from closing GATE-ML-01"}
@@ -477,6 +548,27 @@ decisions_pending:
   - {id: DR-008c, waits_on: SPIKE_B, subject: "mesh decimation budget, within the +/-1 slice ceiling"}
 
 decisions_made_during_execution:
+  - id: "GATE-MOB-01 measurement direction"
+    decided: "2026-09-18"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: "Measure B10/B11 on the Galaxy A17 inside a WebView of the Spike A React Native/Expo app, reusing the Spike B WebGL2 viewer, instead of in Chrome. Reason: Spike A has brush evidence only on React Native/Expo and Spike B has 3D evidence only in browser WebGL2, so no single candidate had evidence for both as 09 section 7 requires. This is a MEASUREMENT direction, not an architecture decision: TECH_STACK_ADR.md is not written and GATE-MOB-01 stays OPEN until both spikes are ACCEPTED through the four-step workflow"
+    evidence: "Spike A RESULT.md (RN/Expo only); Spike B RESULT.md on the #43 branch (desktop, synthetic, no device numbers); MEASUREMENT_B10_B11.md on #44 targeting Chrome"
+    gate_effect: "none yet. Produces the missing single-candidate evidence for GATE-MOB-01"
+    record: "management/readiness/OPEN_DECISIONS.md -> GATE-MOB-01 measurement direction"
+  - id: "PR 34 frozen for re-review"
+    decided: "2026-09-18"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: "PR #34 is frozen at f118491 until it merges. The owner's two remaining items - an anomaly count in the manifest summary (F13 class) and the real regeneration command instead of a <private ZIP path> template (F12) - go in a follow-up PR after the merge, so the reviewer's target and the QA-003 run stop moving"
+    evidence: "QA-003 ran on three different heads of #34 within one morning on 2026-09-17; the re-review never happened"
+    gate_effect: "shortens the path to GATE-DATA-01"
+    record: "management/day09/tasks/"
+  - id: DR-013a
+    decided: "2026-09-18"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: "SCR-04 Error Inspector (UC-05, TC-ERR-001..003) joins vertical V1, owned by Pham Tuan Anh with Vu Hung Anh as secondary reviewer. It was owned by nobody; DEMO_STANDARD deferred it to planning. SCR-04 is a 2D slice screen sharing the SCR-03 viewer and its A9 evidence, and V2's owner is already the heaviest reviewer in the team"
+    evidence: "DEMO_STANDARD.md line 78; spec 14 section 3 leaves the member mapping to the 30-day plan"
+    gate_effect: "none"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-013a"
   - id: DR-002
     decided: "2026-09-14"
     decided_by: "Pham Tuan Anh - Team Leader"
@@ -491,6 +583,22 @@ decisions_made_during_execution:
     evidence: "PATIENT_LINKAGE_EVIDENCE.md in PR #35 - 154 scans from 60 patients (Xiong et al. 2021), no case-to-patient map, MRI-only screen over 11,781 pairs recovering the known duplicate at rank 1"
     gate_effect: "GATE-SPLIT-01 closes on a split manifest that implements this, reviewed by Nguyen Gia Duc Trung; 06 section 6 patient-level separation is recorded as DEVIATED WITH A DOCUMENTED EXCEPTION, not satisfied"
     record: "management/readiness/OPEN_DECISIONS.md -> Part 2b, DR-002b"
+  - id: "stale CHANGES_REQUESTED while the reviewer is absent"
+    decided: "2026-09-17"
+    decided_by: "Pham Tuan Anh - Team Leader"
+    outcome: >
+      A pull request may be merged over an outstanding CHANGES_REQUESTED when three things hold together:
+      the objection was specific, it has been addressed on the artifact and VERIFIED by someone other than
+      the author rather than accepted on the commit message, and a reviewer named for that block by DR-013
+      has approved. The reason goes in the merge commit - what the objection was, how it was checked, who
+      approved and under which clause - so the decision is auditable rather than implicit. This does not
+      dismiss the assigned reviewer, whose later review is still welcome, and it does not move ownership:
+      DR-013's binding anti-bottleneck rule forbids transferring ownership, not reviewing, and positions the
+      stronger members as reviewers and safety nets precisely so work does not queue behind one person.
+      First applied to PR #29, and it applies to #30 and #38 on the same terms.
+    evidence: "Nguyen Gia Duc Trung had no activity for twelve hours on Day 8 while named reviewer on four open PRs (#29, #30, #33, #38); his #29 objection - a duplicated passage - was fixed by d223cc4a and confirmed by grep returning 1"
+    gate_effect: "none. It is an operating rule for review flow, not a gate or an acceptance step, and it does not touch the four-step acceptance workflow"
+    record: "merge commit of PR #29"
   - id: DR-015
     decided: "2026-09-17"
     decided_by: "Pham Tuan Anh - Team Leader"

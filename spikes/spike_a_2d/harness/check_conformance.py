@@ -11,16 +11,20 @@ What this checks TODAY, without the device:
   F2  the stored expected_source_pixel values recomputed independently
   F3  orientation markers sit exactly where DR-008a says they should
   F4  app/viewerMath.js (the code the phone runs) against independent references
+  F5  app/brushMath.js (the brush the phone runs) against fixtures/brush_ops.json,
+      which generate.py computes with a separate Python implementation
 
 What it does NOT check yet is stated as NOT IMPLEMENTED rather than passing
 silently. A checker that reports PASS for something it never looked at is worse
-than no checker, because it produces evidence that is not evidence.
+than no checker, because it produces evidence that is not evidence. F5 passing
+is offline logic, not A3-A7: those are measured on the device.
 
   A2  zoom/pan leaves the source mask checksum unchanged   -> on the device, extract_a2.py
-  A3  brush ADD touches only the intended pixels           -> needs app export
-  A4  brush ERASE touches only the intended pixels         -> needs app export
-  A5  brush mapping error distribution after zoom/pan      -> needs app export
-  A6  undo   A7 redo   A8 save/reload                      -> needs app export
+  A3  brush ADD touches only the intended pixels           -> on the device, extract_brush.py
+  A4  brush ERASE touches only the intended pixels         -> on the device, extract_brush.py
+  A5  brush mapping error distribution after zoom/pan      -> on the device, extract_brush.py
+  A6  undo   A7 redo                                       -> on the device, extract_brush.py
+  A8  save/reload                                          -> needs app save (stage S6)
 
 F2 exists because the fixture generator and this checker must not share code.
 generate.py writes the expected pixel; this file derives it again from the
@@ -167,6 +171,28 @@ def check_app_math():
            f"mask checksums, 60 mapping cases, zoom-about-point, A2 sequence")
 
 
+# --- F5 ---------------------------------------------------------------------
+def check_brush():
+    """
+    The phone runs app/brushMath.js. harness/test_brush.mjs replays
+    fixtures/brush_ops.json - written by generate.py's independent Python brush
+    implementation - through that exact file, and hashes with node:crypto.
+    """
+    import shutil
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        record("F5", "app brush logic (node)", SKIP, "node not on PATH")
+        return
+    out = subprocess.run([node, os.path.join(HERE, "test_brush.mjs")],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace")
+    lines = [ln.strip() for ln in out.stdout.splitlines() if ln.strip().startswith(("ok", "FAIL"))]
+    record("F5", "app brush logic (node)", PASS if out.returncode == 0 else FAIL,
+           f"{sum(ln.startswith('ok') for ln in lines)}/{len(lines)} checks: add/erase exact, 60 cases "
+           f"at r=0 and r=2, undo, redo, new stroke clears redo, reset, second-finger and terminate "
+           f"rollback, device hook")
+
+
 # --- device-dependent criteria ---------------------------------------------
 def declare_pending():
     record("A2", "zoom/pan leaves source mask checksum unchanged", SKIP,
@@ -177,9 +203,10 @@ def declare_pending():
         ("A5", "brush mapping error distribution after zoom/pan"),
         ("A6", "undo restores prior state"),
         ("A7", "redo restores undone state"),
-        ("A8", "save/reload reproduces edits"),
     ]:
-        record(cid, name, SKIP, "app does not export masks yet — stage S5/S6")
+        record(cid, name, SKIP, "offline logic in F5; measured ON THE DEVICE: app 'kiểm A5' + "
+                                "'A3–A7 tự động' + harness/extract_brush.py (stage S5)")
+    record("A8", "save/reload reproduces edits", SKIP, "app does not save masks yet — stage S6")
 
 
 def main():
@@ -191,6 +218,7 @@ def main():
     check_expected_pixels(vol, brush)
     check_orientation_markers(vol)
     check_app_math()
+    check_brush()
     declare_pending()
 
     width = max(len(n) for _, n, _, _ in results)
@@ -205,7 +233,7 @@ def main():
           f"{len(pending)} not implemented yet")
     if pending:
         print("  Criteria marked NOT IMPLEMENTED are NOT passing. They are recorded as")
-        print("  NOT MEASURED in RESULT.md until the app can export a mask.")
+        print("  NOT MEASURED in RESULT.md until there is device evidence for them.")
     sys.exit(1 if failed else 0)
 
 

@@ -75,7 +75,7 @@ question: *"Why did the AI fail on this MRI, and what can the researcher do abou
 spatial error (reconstruction, 2D↔3D linkage, error map), V3 Experiment / cohort (comparison, data scarcity,
 outlier drill-down), V4 Review / findings (review states, brush correction, reviewed-mask persistence, findings).
 `PROJECT_STATE.yaml` assigns V1 to Phạm Tuấn Anh, V2 to Vũ Hùng Anh, V3 to Bế Quốc Khánh and V4 to Nguyễn Gia Đức
-Trung. SCR-04 sits between V1 (overlay) and V2 (error); its owner is fixed in planning, not here.
+Trung. SCR-04 sits between V1 (overlay) and V2 (error); the leader assigned it to **V1 (Phạm Tuấn Anh)** on 2026-09-18 — `OPEN_DECISIONS` `DR-013a`.
 
 **Per-lens follow-ups.** After the hero flow, each course lens of `16` §3 has a prepared follow-up that answers
 its core question with the evidence listed there: Machine Learning (experiment matrix, Dice/IoU distributions,

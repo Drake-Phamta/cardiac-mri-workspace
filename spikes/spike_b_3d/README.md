@@ -31,6 +31,10 @@ spikes/spike_b_3d/
 ├── mesh/
 │   ├── build_mesh.py             voxel-face surface + 4 mức decimation
 │   └── out/                      .obj mỗi mức + mesh_levels.json + picking_error.json
+├── app/                          B1 WebGL2 viewer (OBJ + shading + orbit/zoom)
+│   ├── index.html
+│   ├── viewer.js
+│   └── B1_SCREENSHOT.png         ảnh chụp diagnostic
 └── harness/
     ├── conformance.py            B2 B4 B8 — thư viện tái dùng được cho TC-MAINT-002
     └── picking_error.py          B5 B6 B12 B14 — sai số picking, 6 hướng camera
@@ -66,7 +70,8 @@ Chỉ cần `numpy`. Không thêm dependency nào — chọn thư viện mesh ch
 | **B6** | B4 và B5 giữ nguyên sau xoay/zoom camera | cùng bound | `DIAGNOSTIC` — 6 hướng xoay đã chạy |
 | **B12** | Bảng frontier ≥3 mức | bảng | **4 mức** có triangle count + sai số; **thiếu cột FPS** |
 | **B14** | Tách interior / surface-tangent | hai nhóm | **có** — theo **nhãn hợp đồng** trong `b14_grouping` của fixture chính thức, kèm độ nhạy từng nhóm. Phán nhóm là của anh |
-| B1 B3 B7 B9 | render, picking, điều hướng 2D, chọn nền | — | `NOT MEASURED` — chưa dựng app |
+| **B1** | Render mesh level 0, camera xoay/zoom, shading | — | **DIAGNOSTIC — WebGL2 viewer đã dựng**, mesh tổng hợp; chưa phải nghiệm thu trên thiết bị |
+| B3 B7 B9 | picking, điều hướng 2D, chọn nền | — | `NOT MEASURED` — picking app và các tiêu chí này còn lại |
 | **B10 B11** | **≥20 FPS median · không stall >500 ms** | | `NOT MEASURED` — **cần Galaxy A17 và cần chính anh** |
 | **B13** | Đề xuất DR-008c | | **chưa đủ dữ kiện** — xem dưới |
 | B15 | Chi phí phát triển mỗi ứng viên | | `NOT MEASURED` |
@@ -125,9 +130,21 @@ deterministic; thời gian decimate đổi theo từng lần chạy):*
 | 3 | 356 | `interior` | 30 | 35,2° | 0,695 | 0 | 1 | 0,300 | ✓ |
 | 3 | 356 | `surface_tangent` | 48 | 29,5° | 0,194 | 0 | 1 | 0,042 | ✓ |
 
-**Đọc cột `slice/mm` trước cột `mean`.** Trên fixture này hai nhóm hợp đồng có đòn bẩy **chênh ~3,6
-lần** (0,695 vs 0,194): cùng một độ dịch hình học, `interior` sẽ ra sai số slice lớn hơn. Chênh lệch
-`mean` giữa hai nhóm vì thế **không** tự nó là tính chất của decimation. Diễn giải là việc của anh.
+### Diễn giải B14 — ghi chú của chủ sở hữu (Day 6)
+
+`slice/mm` là hệ số nhạy theo trục lát cắt, nên phải đọc trước các cột
+`mean` và `max`. Trên fixture tổng hợp này, nhóm `interior` có 0,695
+slice/mm còn `surface_tangent` có 0,194 slice/mm — chênh khoảng 3,6 lần.
+Vì vậy cùng một độ lệch hình học tính theo milimét sẽ làm sai số lát cắt của
+`interior` lớn hơn khoảng 3,6 lần. Chênh lệch `mean` giữa hai nhóm không thể
+được diễn giải riêng là mesh decimation tốt hơn hay xấu hơn.
+
+Hai nhãn `interior` và `surface_tangent` là nhóm hợp đồng của fixture và phải
+được giữ nguyên trong báo cáo; `steep`/`grazing` chỉ là chẩn đoán phụ. Khi
+đánh giá mức decimation, dùng `max`, `nohit` và bound ±1 slice cho từng nhóm,
+đồng thời giữ `slice/mm` cạnh số đo để tránh so sánh sai do độ nhạy khác nhau.
+Đây vẫn là kết quả trên mesh tổng hợp desktop; chưa đủ để chốt DR-008c hay
+ngoại suy sang mesh giải phẫu/FPS của Galaxy A17.
 
 *Chẩn đoán phụ — góc tới tại điểm chạm (`by_incidence_diagnostic`), **không** phải nhóm B14:*
 
@@ -168,11 +185,11 @@ lần** (0,695 vs 0,194): cùng một độ dịch hình học, `interior` sẽ 
 
 1. ~~Nhận / sửa / thay bộ fixture~~ ✅ **xong 13/09** — PR #20.
 2. ~~Công bố format~~ ✅ **xong 13/09** — `tests/fixtures/geometry/FORMAT.md`.
-3. Diễn giải nhóm B14 trên bảng trên — nhớ đọc cột `slice/mm`. *(Phát hiện "~7 lần" từng ghi ở đây
-   **đã rút lại** ngày 12/09; đừng thừa kế nó.)*
-4. Quyết có xoá `fixtures_proposal/` không — nó không còn là nguồn của công cụ nào.
-5. Thay mask tổng hợp bằng mask thật khi Spike D có dữ liệu, chạy lại `build_mesh.py`.
-6. `B10` `B11` trên Galaxy A17, điền cột FPS vào bảng frontier, rồi mới đề xuất **DR-008c**.
+3. Diễn giải nhóm B14 trên bảng trên — **PR #29** ghi chú owner Day 6; nhớ đọc cột `slice/mm`.
+4. ~~Dựng app B1 tối thiểu~~ ✅ **WebGL2 viewer + screenshot diagnostic Day 6**.
+5. Quyết có xoá `fixtures_proposal/` không — nó không còn là nguồn của công cụ nào.
+6. Thay mask tổng hợp bằng mask thật khi Spike D có dữ liệu, chạy lại `build_mesh.py`.
+7. `B10` `B11` trên Galaxy A17, điền cột FPS vào bảng frontier, rồi mới đề xuất **DR-008c**.
 
 **Liên quan:** [`../../management/spikes/SPIKE_B_3D/TASK.md`](../../management/spikes/SPIKE_B_3D/TASK.md) ·
 [`../../management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md`](../../management/spikes/SPIKE_B_3D/EVIDENCE_TEMPLATE.md) ·
