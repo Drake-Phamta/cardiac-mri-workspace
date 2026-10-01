@@ -36,10 +36,18 @@ FAIL-CLOSED ACCESS
     case_paths() resolves files for allowlisted cases only; load_case(), build_cache() and
     SliceDataset all go through it (SliceDataset takes the allowlist itself).
 
+DATA LOCATIONS (no machine-specific path is hard-coded)
+    <CARDIAC_DATA_ROOT>   environment variable CARDIAC_DATA_ROOT; otherwise the directory
+                          `cardiac-data` next to the MAIN checkout of this repository (found
+                          through the `gitdir:` of a linked worktree, so every worktree
+                          resolves the same place)
+    package root          CARDIAC_PACKAGE_ROOT, else <CARDIAC_DATA_ROOT>/lasc2018/extracted
+    cache root            CARDIAC_CACHE_ROOT,   else <CARDIAC_DATA_ROOT>/cache
+
 CACHE
     78 training cases do not fit in RAM as float32 at 560x560, so build_cache() writes one
     set of files per case to a directory OUTSIDE git (default
-    D:\\02_Research\\cardiac-data\\cache\\<split_id>\\img<img>\\):
+    <CARDIAC_DATA_ROOT>/cache/<split_id>/img<img>/):
         <case>_image.npy        float16 [Z, img, img], DR-011 output resized bilinear
         <case>_mask.npy         uint8   [Z, img, img], {0, 1}, resized nearest-exact
         <case>_mask_native.npy  uint8   [Z, H, W] native-resolution reference (optional)
@@ -65,9 +73,37 @@ import torch.nn.functional as F
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET_MANIFEST = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
 DEFAULT_SPLIT_MANIFEST = REPO_ROOT / "data" / "manifests" / "split_manifest_path_a_seed2024.json"
-DEFAULT_PACKAGE_ROOT = Path(os.environ.get("CARDIAC_PACKAGE_ROOT",
-                                           r"D:\02_Research\cardiac-data\lasc2018\extracted"))
-DEFAULT_CACHE_ROOT = Path(os.environ.get("CARDIAC_CACHE_ROOT", r"D:\02_Research\cardiac-data\cache"))
+
+
+def main_checkout_root(repo_root: Path = REPO_ROOT) -> Path:
+    """The main checkout of this repository, also when running from a linked worktree.
+
+    In a linked worktree `.git` is a file `gitdir: <main>/.git/worktrees/<name>`; the main
+    checkout is parents[2] of that path. Anything else (a normal checkout, a submodule, an
+    export without .git) resolves to `repo_root` itself.
+    """
+    dot_git = repo_root / ".git"
+    if dot_git.is_file():
+        text = dot_git.read_text(encoding="utf-8", errors="replace").strip()
+        if text.startswith("gitdir:"):
+            gitdir = Path(text[len("gitdir:"):].strip())
+            if not gitdir.is_absolute():
+                gitdir = repo_root / gitdir
+            gitdir = Path(os.path.normpath(gitdir))
+            if gitdir.parent.name == "worktrees" and gitdir.parents[1].name == ".git":
+                return gitdir.parents[2]
+    return repo_root
+
+
+def default_data_root() -> Path:
+    """CARDIAC_DATA_ROOT, else `cardiac-data` next to the main checkout."""
+    env = os.environ.get("CARDIAC_DATA_ROOT")
+    return Path(env) if env else main_checkout_root().parent / "cardiac-data"
+
+
+DEFAULT_DATA_ROOT = default_data_root()
+DEFAULT_PACKAGE_ROOT = Path(os.environ.get("CARDIAC_PACKAGE_ROOT") or DEFAULT_DATA_ROOT / "lasc2018" / "extracted")
+DEFAULT_CACHE_ROOT = Path(os.environ.get("CARDIAC_CACHE_ROOT") or DEFAULT_DATA_ROOT / "cache")
 
 PARTITIONS = ("train", "validation", "final_holdout")
 HOLDOUT_PARTITION = "final_holdout"
@@ -347,31 +383,58 @@ class CasePaths(Mapping):
         return len(self.allowlist)
 
 
+def _segments(rel: str) -> list[str]:
+    return [s for s in re.split(r"[\\/]", rel) if s not in ("", ".")]
+
+
 def _inside(root: Path, rel: str) -> Path:
+    if not isinstance(rel, str) or not rel or ".." in _segments(rel) or Path(rel).is_absolute() \
+            or rel.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", rel):
+        raise ValueError(f"manifest path must be relative without '..' segments: {rel!r}")
     p = (root / rel).resolve()
     if os.path.commonpath([str(p), str(root.resolve())]) != str(root.resolve()):
         raise ValueError(f"manifest path escapes the package root: {rel!r}")
     return p
 
 
+def _path_key(rel: str) -> str:
+    """Case- and separator-insensitive identity of a manifest path (Windows semantics)."""
+    return "/".join(_segments(rel)).casefold()
+
+
 def case_paths(dataset_manifest: dict, package_root: str | os.PathLike = DEFAULT_PACKAGE_ROOT, *,
                allowlist: CaseAllowlist) -> CasePaths:
     """Map each allowlisted case id to its MRI and mask NRRD files.
 
-    Raises when an allowlisted id is missing from the dataset manifest or its files are
-    missing on disk. Ids outside the allowlist are never resolved.
+    Raises when an allowlisted id is missing from the dataset manifest, when a manifest path
+    is absolute or has a '..' segment, when a file of an allowlisted case is also claimed by
+    another case id (or the MRI and the mask are the same file), or when a file is missing
+    on disk. Ids outside the allowlist are never resolved.
     """
     if not isinstance(allowlist, CaseAllowlist):
         raise TypeError("case_paths() needs a CaseAllowlist (fail-closed access)")
     root = Path(package_root)
     by_id = {c["case_id"]: c for c in dataset_manifest["cases"]}
+    claims: dict[str, set[str]] = {}
+    for c in dataset_manifest["cases"]:
+        for kind in ("mri", "mask"):
+            rel = (c.get(kind) or {}).get("path_relative")
+            if isinstance(rel, str):
+                claims.setdefault(_path_key(rel), set()).add(c["case_id"])
     files = {}
     for cid in allowlist:
         if cid not in by_id:
             raise CaseNotAllowedError(f"{cid} is not in the dataset manifest")
         c = by_id[cid]
-        mri = _inside(root, c["mri"]["path_relative"])
-        mask = _inside(root, c["mask"]["path_relative"])
+        rel_mri, rel_mask = c["mri"]["path_relative"], c["mask"]["path_relative"]
+        if _path_key(rel_mri) == _path_key(rel_mask):
+            raise ValueError(f"{cid}: MRI and mask are the same file {rel_mri!r}")
+        for rel in (rel_mri, rel_mask):
+            others = claims.get(_path_key(rel), set()) - {cid}
+            if others:
+                raise ValueError(f"{cid}: {rel!r} is also claimed by {sorted(others)}")
+        mri = _inside(root, rel_mri)
+        mask = _inside(root, rel_mask)
         for p in (mri, mask):
             if not p.is_file():
                 raise FileNotFoundError(f"{cid}: {p} does not exist (package root {root})")
@@ -514,12 +577,18 @@ def _check_volume(cid: str, vol: np.ndarray, files: CaseFiles, what: str) -> Non
                          f"shape xyz {files.shape_xyz}")
 
 
+def _allowed_files(case_id: str, paths: CasePaths) -> CaseFiles:
+    if not isinstance(paths, CasePaths):
+        raise TypeError("loaders need the CasePaths returned by case_paths() (fail-closed access)")
+    return paths[case_id]                       # raises outside the allowlist
+
+
 def load_image(case_id: str, paths: CasePaths) -> tuple[np.ndarray, dict, dict]:
     """(image float32 [Z, H, W] in [0, 1] by DR-011, source MRI header, info) for one allowed case.
 
     info: {"mri_sha256", "dr011_lo", "dr011_hi", "native_shape_zyx"}.
     """
-    files = paths[case_id]                      # raises outside the allowlist
+    files = _allowed_files(case_id, paths)
     raw, header, digest = read_nrrd_zyx(files.mri)
     _check_volume(case_id, raw, files, "mri")
     if raw.dtype != np.uint8:
@@ -532,7 +601,7 @@ def load_image(case_id: str, paths: CasePaths) -> tuple[np.ndarray, dict, dict]:
 
 def load_mask(case_id: str, paths: CasePaths) -> tuple[np.ndarray, dict, str]:
     """(reference mask uint8 [Z, H, W] in {0, 1}, mask header, sha256) for one allowed case."""
-    files = paths[case_id]                      # raises outside the allowlist
+    files = _allowed_files(case_id, paths)
     raw, header, digest = read_nrrd_zyx(files.mask)
     _check_volume(case_id, raw, files, "mask")
     return np.ascontiguousarray(binarize_mask(raw)), header, digest
@@ -544,6 +613,7 @@ def load_case(case_id: str, paths: CasePaths) -> tuple[np.ndarray, np.ndarray]:
     Axis order [z, y, x] - see the module docstring. Raises for any case outside the
     allowlist behind `paths` (CaseNotAllowedError / HoldoutAccessError).
     """
+    _allowed_files(case_id, paths)
     image, _, _ = load_image(case_id, paths)
     mask, _, _ = load_mask(case_id, paths)
     if mask.shape != image.shape:
@@ -640,8 +710,8 @@ def build_cache(case_ids: Iterable[str], paths: CasePaths, img: int,
                 log=print) -> dict:
     """Write the per-case resized arrays + sidecar for every case id (each must be allowed).
 
-    cache_dir defaults to D:\\02_Research\\cardiac-data\\cache\\<split_id>\\img<img>\\ and must be
-    outside any git work tree. A case whose sidecar is current (same preprocessing_version,
+    cache_dir defaults to <CARDIAC_DATA_ROOT>/cache/<split_id>/img<img>/ (see DATA LOCATIONS)
+    and must be outside any git work tree. A case whose sidecar is current (same preprocessing_version,
     img, split_id, source NRRD sha256 and files present) is reused, not rebuilt.
     native_mask=True also stores the native-resolution reference mask (needed to score
     validation predictions at native resolution).

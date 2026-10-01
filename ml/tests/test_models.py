@@ -74,6 +74,45 @@ def test_autocast_is_a_no_op_off_cuda():
         M.autocast_for("cuda", "int8")
 
 
+class _AutocastRecorder:
+    """Stands in for torch.autocast so the CUDA branch is testable on a CPU-only machine."""
+    calls: list = []
+
+    def __init__(self, device_type, dtype=None, **kwargs):
+        _AutocastRecorder.calls.append((device_type, dtype))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+@pytest.mark.parametrize("device", ["cuda", "cuda:0", torch.device("cuda"), torch.device("cuda", 0)])
+def test_every_cuda_spelling_takes_the_cuda_path(device, monkeypatch):
+    # torch.device("cuda") == "cuda" is False and "cuda:0" != "cuda": a string comparison
+    # would silently train in fp32 while the run records bf16 (PR #60 QA finding B1).
+    _AutocastRecorder.calls = []
+    monkeypatch.setattr(torch, "autocast", _AutocastRecorder)
+    with M.autocast_for(device, "bf16"):
+        pass
+    with M.autocast_for(device, "fp16"):
+        pass
+    assert _AutocastRecorder.calls == [("cuda", torch.bfloat16), ("cuda", torch.float16)]
+    assert M._device_kind(device) == "cuda"
+    assert M.PeakTracker(device).device == "cuda"          # true CUDA peak, not an RSS delta
+
+
+@pytest.mark.parametrize("device", ["cpu", torch.device("cpu")])
+def test_cpu_spellings_never_autocast(device, monkeypatch):
+    _AutocastRecorder.calls = []
+    monkeypatch.setattr(torch, "autocast", _AutocastRecorder)
+    with M.autocast_for(device, "bf16"):
+        pass
+    assert _AutocastRecorder.calls == []
+    assert M.PeakTracker(device).device == "cpu"
+
+
 def test_peak_tracker_cpu_reports_rss_delta():
     t = M.PeakTracker("cpu")
     t.start()

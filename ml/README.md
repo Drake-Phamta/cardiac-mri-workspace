@@ -33,9 +33,17 @@ with a provenance header (source path + commit `896c11a`).
   (labels stay {0, 1}). Predictions: logits are resized back to native resolution with
   `resize_logits_back`, then thresholded at 0.5 with `logits_to_mask`.
 - **Derived data stays outside git.** `build_cache` refuses a cache directory inside a
-  git work tree. Default: `D:\02_Research\cardiac-data\cache\<split_id>\img<img>\`
-  (override the root with `CARDIAC_CACHE_ROOT`; the package root with
-  `CARDIAC_PACKAGE_ROOT`).
+  git work tree. Default: `<CARDIAC_DATA_ROOT>\cache\<split_id>\img<img>\`.
+
+## Data locations
+
+No machine-specific path is written in the code:
+
+| Location | Resolved as |
+|---|---|
+| `<CARDIAC_DATA_ROOT>` | environment variable `CARDIAC_DATA_ROOT`; otherwise the directory `cardiac-data` next to the **main** checkout of this repository (from a linked worktree, `ml.data.main_checkout_root()` follows the worktree's `gitdir:` back to the main checkout, so every worktree resolves the same data) |
+| package root | `CARDIAC_PACKAGE_ROOT`, else `<CARDIAC_DATA_ROOT>\lasc2018\extracted` |
+| cache root | `CARDIAC_CACHE_ROOT`, else `<CARDIAC_DATA_ROOT>\cache` |
 
 ## Cache format (`ml-slice-cache/1`, `preprocessing_version` `ml-preproc-1.0.0`)
 
@@ -96,5 +104,6 @@ python -m pytest ml/tests -q
 ```
 
 The DINOv2 tests are skipped, not failed, on a machine without the pinned checkpoints in
-the local Hugging Face cache. `test_real_split_manifest_when_present` is skipped until the
-split manifest is on the branch.
+the local Hugging Face cache. `test_real_split_manifest_when_present` checks the real split
+manifest (its sha256, 54 holdout cases, subsets 20/38/78, `CASE_0117`/`CASE_0133` refused);
+it is skipped only on a branch that does not contain the manifest.

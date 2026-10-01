@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pickle
+import re
 from pathlib import Path
 
 import nrrd
@@ -216,6 +217,78 @@ def test_allowlist_refuses_everything_else(pkg, split, dataset, tmp_path):
         D.SliceDataset(["SYN_0001"], tmp_path / "cache")
 
 
+def test_loaders_refuse_anything_but_case_paths(pkg, split, dataset):
+    paths = train_paths(pkg, split, dataset)
+    raw = {cid: paths[cid] for cid in paths}                            # a plain dict bypasses the allowlist
+    for loader in (D.load_image, D.load_mask, D.load_case):
+        with pytest.raises(TypeError):
+            loader("SYN_0001", raw)
+
+
+@pytest.mark.parametrize("bad_rel", ["../outside/lgemri.nrrd", "Training Set/../../x/lgemri.nrrd",
+                                     "Training Set\\..\\..\\x\\lgemri.nrrd", "/abs/lgemri.nrrd",
+                                     "C:/abs/lgemri.nrrd"])
+def test_case_paths_refuses_escaping_paths(pkg, split, dataset, bad_rel):
+    bad = json.loads(json.dumps(dataset))
+    bad["cases"][0]["mri"]["path_relative"] = bad_rel                   # SYN_0001
+    allow = D.CaseAllowlist(["SYN_0001"], split)
+    with pytest.raises(ValueError):
+        D.case_paths(bad, pkg["package_root"], allowlist=allow)
+
+
+def test_case_paths_refuses_a_file_claimed_by_another_case(pkg, split, dataset):
+    bad = json.loads(json.dumps(dataset))
+    by_id = {c["case_id"]: c for c in bad["cases"]}
+    by_id["SYN_0001"]["mask"]["path_relative"] = by_id["SYN_0002"]["mask"]["path_relative"].upper()
+    allow = D.CaseAllowlist(["SYN_0001"], split)
+    with pytest.raises(ValueError, match="also claimed"):
+        D.case_paths(bad, pkg["package_root"], allowlist=allow)
+    same = json.loads(json.dumps(dataset))
+    case = next(c for c in same["cases"] if c["case_id"] == "SYN_0001")
+    case["mask"]["path_relative"] = case["mri"]["path_relative"]
+    with pytest.raises(ValueError, match="same file"):
+        D.case_paths(same, pkg["package_root"], allowlist=allow)
+
+
+# --- data locations (no machine-specific path in the repository) --------------------
+
+def test_main_checkout_root_follows_a_linked_worktree(tmp_path):
+    main = tmp_path / "proj" / "workspace"
+    (main / ".git" / "worktrees" / "wt1").mkdir(parents=True)
+    wt = main / ".claude" / "worktrees" / "wt1"
+    wt.mkdir(parents=True)
+    (wt / ".git").write_text(f"gitdir: {(main / '.git' / 'worktrees' / 'wt1').as_posix()}\n", encoding="utf-8")
+    assert D.main_checkout_root(wt) == main
+    rel = tmp_path / "rel"
+    rel.mkdir()
+    (rel / ".git").write_text("gitdir: ../proj/workspace/.git/worktrees/wt1\n", encoding="utf-8")
+    assert D.main_checkout_root(rel) == main                             # relative gitdir
+    assert D.main_checkout_root(main) == main                            # a normal checkout
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / ".git").write_text(f"gitdir: {(main / '.git' / 'modules' / 'x').as_posix()}\n", encoding="utf-8")
+    assert D.main_checkout_root(sub) == sub                              # submodule: not a worktree
+    assert D.main_checkout_root(tmp_path) == tmp_path                    # no .git at all
+
+
+def test_data_root_env_var_and_default(monkeypatch, tmp_path):
+    monkeypatch.setenv("CARDIAC_DATA_ROOT", str(tmp_path / "elsewhere"))
+    assert D.default_data_root() == tmp_path / "elsewhere"
+    monkeypatch.delenv("CARDIAC_DATA_ROOT")
+    assert D.default_data_root() == D.main_checkout_root().parent / "cardiac-data"
+
+
+def test_no_machine_specific_paths_in_committed_files():
+    # a drive letter + separator (not a URL scheme such as "https:/")
+    drive_path = re.compile("(?<![A-Za-z])[A-Za-z]" + ":" + r"[\\/]+[A-Za-z0-9_]")
+    files = sorted((D.REPO_ROOT / "ml").glob("*.py")) + sorted((D.REPO_ROOT / "ml").glob("*.md")) \
+        + sorted((D.REPO_ROOT / "ml").glob("configs/*")) + [D.REPO_ROOT / ".gitignore"]
+    offenders = [f"{f.name}:{n}" for f in files if f.is_file()
+                 for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1)
+                 if drive_path.search(line)]
+    assert offenders == []
+
+
 def test_split_manifest_with_overlapping_partitions_is_refused(split):
     bad = json.loads(json.dumps(split))
     bad["partitions"]["validation"]["case_ids"].append(synth.HOLDOUT[0])
@@ -327,9 +400,13 @@ def test_real_dataset_manifest_maps_case_ids_to_nrrd_paths():
         assert len(c["mri"]["shape"]) == 3 and c["mri"]["shape"][2] == 88
 
 
+REAL_SPLIT_SHA256 = "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d"
+
+
 def test_real_split_manifest_when_present():
     if not D.DEFAULT_SPLIT_MANIFEST.exists():
-        pytest.skip("split manifest not on this branch yet (PR #35)")
+        pytest.skip("split manifest not on this branch (merged to main with PR #35)")
+    assert D.sha256_file(D.DEFAULT_SPLIT_MANIFEST) == REAL_SPLIT_SHA256
     split = D.load_split_manifest()
     assert len(D.holdout_case_ids(split)) == 54
     assert [len(D.subset_case_ids(split, k)) for k in ("25_percent", "50_percent", "100_percent")] \
@@ -338,6 +415,13 @@ def test_real_split_manifest_when_present():
     assert set(D.partition_of(split)) <= known
     with pytest.raises(D.HoldoutAccessError):
         D.CaseAllowlist(sorted(D.holdout_case_ids(split))[:1], split)
+    for excluded in ("CASE_0117", "CASE_0133"):
+        with pytest.raises(D.CaseNotAllowedError):
+            D.CaseAllowlist([excluded], split)
+    allow25 = D.CaseAllowlist.for_training(split, "25_percent")
+    assert allow25.case_ids == split["training_subsets"]["25_percent"]["effective_case_ids"]
+    assert len(allow25) == 20
     for key in ("25_percent", "50_percent", "100_percent"):
         allow = D.CaseAllowlist.for_training(split, key)
         assert not (set(allow) & D.holdout_case_ids(split))
+        assert not (set(allow) & {"CASE_0117", "CASE_0133"})
