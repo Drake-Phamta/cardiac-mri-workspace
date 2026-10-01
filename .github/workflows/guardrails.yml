@@ -306,9 +306,16 @@ jobs:
           PY
 
       - name: run every app/core test script
+        run: node app/core/tests/run_all.mjs
+
+      # run_all.mjs globs app/core/tests/ only, so a vertical's tests are never
+      # picked up automatically. V4 (SCR-06 review/correction, SCR-08 findings)
+      # owns this one step, the same convention as the V1 step (#53).
+      - name: V4 review and findings
         run: |
-          node app/core/tests/run_all.mjs
           node app/verticals/v4_review_and_findings/test_review_correction.mjs
+          node app/verticals/v4_review_and_findings/test_brush.mjs
+          node app/verticals/v4_review_and_findings/test_findings.mjs
 
       # run_all.mjs globs app/core/tests/ only, so a vertical's test is never
       # picked up automatically. V1 runs as its own step so that two verticals
