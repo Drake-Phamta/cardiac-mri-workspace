@@ -1,12 +1,21 @@
 """Contract 2 experiment artifacts: experiments, analysis runs, prediction masks.
 
-Every package under ``experiments_root`` (a ``*.json`` manifest at depth 1 or 2
-whose ``contract`` is ``contract2_experiment_artifact``) is checked with the
-repository's own ``validate_contract2.validate_manifest`` before anything in
-it is served: both gates ACCEPTED, precomputed, checksums verified, provenance
-intact. A package that fails is listed in ``rejected`` with its code and is
-never partially served. Without any accepted package every run, metric and
-mesh endpoint answers its legitimately-unavailable state.
+Every package under ``experiments_root`` is checked with the repository's own
+``validate_contract2.validate_manifest`` before anything in it is served: both
+gates ACCEPTED, precomputed, checksums verified, provenance intact. A package
+that fails is listed in ``rejected`` with its code and is never partially
+served. Without any accepted package every run, metric and mesh endpoint
+answers its legitimately-unavailable state.
+
+Layouts found (a manifest is any ``*.json`` whose ``contract`` is
+``contract2_experiment_artifact``):
+
+    <experiments_root>/<package>/<manifest>.json          root = <package>
+    <experiments_root>/<run>/contract2/<manifest>.json    root = <run>  (ml/export_contract2.py)
+
+Runs are registered whether or not their case is ingested: run identity,
+status and saved metrics need no image. Endpoints that serve pixels or
+reviews still require the case to be in the data cache.
 """
 
 from __future__ import annotations
@@ -64,9 +73,23 @@ class Package:
         self.manifest_id: str = manifest["manifest_id"]
         self.experiment: dict = manifest["experiment"]
         self.artifacts: Dict[str, dict] = {item["artifact_id"]: item for item in manifest["artifacts"]}
+        self.run_by_case: Dict[str, str] = {run["case_id"]: run["analysis_run_id"] for run in manifest["analysis_runs"]}
 
     def artifact_path(self, artifact_id: str) -> Path:
         return self.root / Path(*self.artifacts[artifact_id]["source_path"].split("/"))
+
+    def experiment_artifact_path(self, key: str) -> Path:
+        """metrics_summary / per_case_metrics / per_slice_metrics, as the experiment cites them."""
+        return self.artifact_path(self.experiment[key]["artifact_id"])
+
+
+def package_root(manifest: dict, manifest_path: Path) -> Path:
+    """The directory every source_path is relative to: the manifest's own, or its parent."""
+    first = manifest.get("artifacts", [{}])[0].get("source_path") if manifest.get("artifacts") else None
+    for candidate in (manifest_path.parent, manifest_path.parent.parent):
+        if first and (candidate / Path(*first.split("/"))).is_file():
+            return candidate
+    return manifest_path.parent
 
 
 class ExperimentStore:
@@ -92,7 +115,8 @@ class ExperimentStore:
     def _candidates(self) -> List[Path]:
         if not self.root.is_dir():
             return []
-        found = sorted(self.root.glob("*.json")) + sorted(self.root.glob("*/*.json"))
+        found = (sorted(self.root.glob("*.json")) + sorted(self.root.glob("*/*.json"))
+                 + sorted(self.root.glob("*/contract2/*.json")))
         return [path for path in found if path.name != "index.json"]
 
     def _load(self) -> None:
@@ -106,12 +130,13 @@ class ExperimentStore:
                 continue
             if validator is None:
                 validator = _load_validator()
+            root = package_root(manifest, path)
             try:
-                validator.validate_manifest(manifest, path.parent)
+                validator.validate_manifest(manifest, root)
             except validator.ContractError as exc:
                 self.rejected.append({"manifest": path.name, "code": exc.code, "message": str(exc)})
                 continue
-            package = Package(manifest, path.parent)
+            package = Package(manifest, root)
             experiment_id = package.experiment["experiment_id"]
             clash = (
                 experiment_id in self.experiments
@@ -129,7 +154,6 @@ class ExperimentStore:
             for run in manifest["analysis_runs"]:
                 if self.cases.get(run["case_id"]) is None:
                     self.runs_without_case.append(run["analysis_run_id"])
-                    continue
                 self.runs[run["analysis_run_id"]] = RunRecord(run, experiment_id, package)
         self._load_render_index()
 

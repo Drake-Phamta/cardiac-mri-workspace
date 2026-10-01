@@ -47,7 +47,7 @@ def test_health_and_every_contract_route_exists(api):
     health = api.client.get("/health").json()
     assert health["status"] == "ok" and health["contract_version"] == CONTRACT["contract_version"]
     assert health["cases"] == {"total": 3, "EVALUATION": 2, "INFERENCE_REVIEW": 1}
-    assert health["experiments"] == 1 and health["runs"] == 3
+    assert health["experiments"] == 2 and health["runs"] == 10
     assert health["rejected_experiment_packages"] == ["GATE_ML_01_NOT_ACCEPTED"]
     routes = {(method, route.path) for route in api.app.routes for method in getattr(route, "methods", set())}
     for endpoint in CONTRACT["endpoints"]:
@@ -81,7 +81,8 @@ def test_study_and_case_list(api):
     study = api.call("GET", f"{B}/studies/{STUDY}", "study_get", 200).json()
     assert study["case_counts"] == {"total": 3, "EVALUATION": 2, "INFERENCE_REVIEW": 1}
     assert study["capabilities"]["ground_truth_evaluation"] and study["capabilities"]["inference_review"]
-    assert study["experiment_summary"] == {"status": "AVAILABLE", "experiment_ids": ["EXP-U-025"], "reason": None}
+    assert study["experiment_summary"] == {"status": "AVAILABLE", "experiment_ids": ["EXP-U-025", "EXP-U-050"],
+                                           "reason": None}
     rows = api.call("GET", f"{B}/studies/{STUDY}/cases", "case_list", 200).json()["items"]
     assert [(row["case_id"], row["mode_capability"], row["ground_truth_available"]) for row in rows] == [
         ("CASE_0031", "INFERENCE_REVIEW", False), ("CASE_9001", "EVALUATION", True), ("CASE_9003", "EVALUATION", True)]
@@ -99,7 +100,7 @@ def test_study_and_case_list(api):
 def test_case_geometry_is_index_space_only(api):
     case = api.call("GET", f"{B}/cases/CASE_9001", "case_get", 200).json()
     assert case["mode"] == "EVALUATION" and case["ground_truth_available"] is True
-    assert case["available_run_ids"] == ["RUN_9001"]
+    assert case["available_run_ids"] == ["RUN_9001", "RUN_C9001"]
     assert case["shape"] == [synthetic.NX, synthetic.NY, synthetic.NZ]
     assert case["geometry_validation_status"] == "GEOMETRY_NOT_VALIDATED"
     assert case["geometry_contract_version"] == GEOMETRY_VERSION
@@ -187,28 +188,107 @@ def test_prediction_slices_per_variant_never_substitute(api, environment):
 
 # -- runs and metrics -----------------------------------------------------------
 
-def test_runs_and_unavailable_metrics(api):
+def test_runs_and_experiments(api):
     run = api.call("GET", f"{B}/analysis-runs/RUN_9001", "analysis_run_get", 200).json()
     assert run["status"] == "SUCCEEDED" and run["precomputed"] is True and run["failure_code"] is None
     failed = api.call("GET", f"{B}/analysis-runs/RUN_9003", "analysis_run_get", 200).json()
     assert failed["status"] == "FAILED" and failed["failure_code"] == "ANALYSIS_FAILED"
+    # A run of a case that is not in the data cache still exists (identity, status, saved metrics)...
+    assert api.call("GET", f"{B}/analysis-runs/RUN_9101", "analysis_run_get", 200).json()["case_id"] == "CASE_9101"
+    # ...but nothing that needs its pixels is served.
+    absent = api.call("GET", f"{B}/analysis-runs/RUN_9101/slices/1/prediction?variant=RAW", "prediction_slice_get", 404)
+    assert api.error_code(absent) == "ARTIFACT_NOT_FOUND"
     assert api.error_code(api.call("GET", f"{B}/analysis-runs/RUN_X", "analysis_run_get", 404)) == "ARTIFACT_NOT_FOUND"
-    # No metric artifact is ingested yet: the contract's unavailable state, never a number.
-    metrics = api.call("GET", f"{B}/analysis-runs/RUN_9001/metrics?prediction_variant=RAW", "analysis_run_metrics", 404)
-    assert api.error_code(metrics) == "ARTIFACT_NOT_FOUND"
-    assert metrics.json()["error"]["details"]["reason"] == "METRICS_NOT_INGESTED"
     assert api.error_code(api.call("GET", f"{B}/analysis-runs/RUN_9003/metrics?prediction_variant=RAW",
                                    "analysis_run_metrics", 422)) == "ANALYSIS_FAILED"
-    assert api.error_code(api.call("GET", f"{B}/experiments/EXP-U-025/metrics", "experiment_metrics", 404)) == "ARTIFACT_NOT_FOUND"
     assert api.error_code(api.call("GET", f"{B}/experiments/EXP-D-025", "experiment_get", 404)) == "ARTIFACT_NOT_FOUND"
     experiment = api.call("GET", f"{B}/experiments/EXP-U-025", "experiment_get", 200).json()
     assert experiment["prediction_variant"] == "RAW" and experiment["training_fraction"] == 0.25
     listing = api.call("GET", f"{B}/experiments", "experiment_list", 200).json()
-    assert listing["items"] == [{"experiment_id": "EXP-U-025", "prediction_variant": "RAW"}]
+    assert listing["items"] == [{"experiment_id": "EXP-U-025", "prediction_variant": "RAW"},
+                                {"experiment_id": "EXP-U-050", "prediction_variant": "RAW"}]
     assert listing["evaluation_population"] == "holdout-final-54"
     created = api.call("POST", f"{B}/cases/CASE_9001/analysis-runs", "analysis_run_create", 409,
                        json_body={"experiment_id": "EXP-U-025"})
     assert api.error_code(created) == "RUN_NOT_DEPLOYABLE"
+
+
+# -- metrics from the saved Contract 2 artifacts (PR 3) ----------------------------
+
+def _dr010_slices(rows):
+    eligible = [row for row in rows if row["ref_voxels"] > 0]
+    return [row["slice_index"] for row in sorted(eligible, key=lambda row: (row["dice"], -(row["fp"] + row["fn"]),
+                                                                              row["slice_index"]))]
+
+
+def test_metric_field_map_is_explicit():
+    """N-6 decision: the ml-eval -> API name map lives in one place, the backend ingest."""
+    from backend.app.metrics import METRIC_SOURCES
+
+    assert {name: source[0] for name, source in METRIC_SOURCES.items()} == {
+        "dice": "dice_3d", "iou": "iou_3d", "false_positives": "fp_voxels", "false_negatives": "fn_voxels",
+        "relative_volume_error": "relative_volume_error_percent"}
+    assert list(METRIC_SOURCES) == CONTRACT["metric_rules"]["case_metric_fields"]
+
+
+def test_run_metrics_and_worst_slice_from_saved_artifacts(api, environment):
+    saved = environment["accepted"]["records"]["CASE_9001"]
+    rows = environment["accepted"]["per_slice"]["CASE_9001"]
+    body = api.call("GET", f"{B}/analysis-runs/RUN_9001/metrics?prediction_variant=RAW", "analysis_run_metrics", 200).json()
+    assert body["metric_state"] == "COMPUTED" and body["aggregation_level"] == "CASE_3D"
+    assert body["metric_version"] == "ml-eval-1.0.0" and body["prediction_mask_id"] == "ART_RUN_9001_RAW"
+    assert body["reference_mask_id"] == "MASK_CASE_9001"  # the id the client can fetch, provenance-checked
+    assert body["metric_values"] == {
+        "dice": saved["dice_3d"], "iou": saved["iou_3d"], "false_positives": saved["fp_voxels"],
+        "false_negatives": saved["fn_voxels"], "relative_volume_error": saved["relative_volume_error_percent"]}
+    selection = body["worst_slice_selection"]
+    assert selection["rule_id"] == "DR-010" and selection["selection_version"] == "dr010-worst-slice/v1"
+    assert [item["slice_index"] for item in selection["slices"]] == _dr010_slices(rows)
+    assert set(selection) == {"rule_id", "selection_version", "slices"}  # the exporter's extra keys never leak
+    for z, row in enumerate(rows):
+        metric = api.call("GET", f"{B}/analysis-runs/RUN_9001/slices/{z}/metrics?prediction_variant=RAW",
+                          "analysis_slice_metrics", 200).json()
+        if row["dice"] is None:
+            assert metric["metric_state"] == "NOT_APPLICABLE" and metric["metric_value"] is None
+        else:
+            assert metric["metric_state"] == "COMPUTED" and metric["metric_value"] == row["dice"]
+    processed = api.call("GET", f"{B}/analysis-runs/RUN_9001/metrics?prediction_variant=PROCESSED",
+                         "analysis_run_metrics", 404)
+    assert processed.json()["error"]["details"]["reason"] == "NO_METRICS_FOR_VARIANT"  # never the RAW numbers
+    error = api.call("GET", f"{B}/analysis-runs/RUN_9001/slices/2/error?prediction_variant=RAW", "analysis_slice_error", 404)
+    assert api.error_code(error) == "ARTIFACT_NOT_FOUND"
+
+
+def test_run_metrics_refuse_a_reference_this_backend_did_not_ingest(api):
+    case = api.app.state.backend.cases.get("CASE_9001")
+    case.data["mask_sha256"] = "0" * 64  # as if the evaluation had scored another reference file
+    refused = api.call("GET", f"{B}/analysis-runs/RUN_9001/metrics?prediction_variant=RAW", "analysis_run_metrics", 404)
+    assert refused.json()["error"]["details"]["reason"] == "METRICS_PROVENANCE_MISMATCH"
+
+
+def test_experiment_metrics_cases_outliers_and_compare(api, environment):
+    accepted = environment["accepted"]
+    summary = api.call("GET", f"{B}/experiments/EXP-U-025/metrics", "experiment_metrics", 200).json()
+    assert summary["evaluation_n"] == 5 and summary["successful_n"] == 4 and summary["prediction_variant"] == "RAW"
+    dice = [record["dice_3d"] for record in accepted["records"].values()]
+    assert summary["metric_summary"]["dice"]["n"] == 4
+    assert abs(summary["metric_summary"]["dice"]["mean"] - sum(dice) / 4) < 1e-12
+    assert summary["metric_summary"]["dice"]["ci95_low"] is not None  # the saved bootstrap CI, passed through
+    page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+    status = {row["case_id"]: row["status"] for row in page["items"]}
+    assert status == {"CASE_0027": "SUCCEEDED", "CASE_0031": "WITHHELD", "CASE_9001": "SUCCEEDED",
+                      "CASE_9003": "FAILED", "CASE_9101": "SUCCEEDED"}
+    withheld = next(row for row in page["items"] if row["case_id"] == "CASE_0031")
+    assert withheld["metric_values"] is None and "INT-12" in withheld["reason"]
+    candidates = sorted((record for case_id, record in accepted["records"].items() if case_id != "CASE_0031"),
+                        key=lambda record: (record["dice_3d"], -record["fp_fn_voxels"], record["case_id"]))
+    assert [item["case_id"] for item in page["outlier_selection"]["cases"]] == [r["case_id"] for r in candidates[:3]]
+    assert "CASE_0031" not in json.dumps(page["outlier_selection"])  # INT-12 is never an outlier candidate
+    compare = api.call("GET", f"{B}/experiments/compare?ids=EXP-U-025,EXP-U-050", "experiment_compare", 200).json()
+    assert compare["comparable"] is True and compare["compatibility_reason"] is None
+    assert compare["common_evaluation_population"] == ["CASE_0027", "CASE_0031", "CASE_9001", "CASE_9101"]
+    assert set(compare["summary"]) == {"EXP-U-025", "EXP-U-050"}
+    assert compare["summary"]["EXP-U-025"]["dice"]["ci95_low"] is None  # not computed here, never invented
 
 
 # -- reviews --------------------------------------------------------------------
@@ -277,7 +357,7 @@ def _working_body(source, revision, z, mask, encoding="BITPACK_BASE64", geometry
 
 
 def test_correction_creates_immutable_versions_and_never_touches_the_source(api, environment):
-    source_file = environment["accepted"]["root"] / "RUN_9001" / "raw.nrrd"
+    source_file = environment["accepted"]["prediction_files"]["RUN_9001"]
     source_sha_before = hashlib.sha256(source_file.read_bytes()).hexdigest()
     review = _new_review(api).json()
     rid, source = review["review_id"], "ART_RUN_9001_RAW"
