@@ -1,5 +1,10 @@
 # Lời nói — 4 người, 8–10 phút
 
+> **Có hai bản, dùng vào hai việc khác nhau.** File này là **bản gạch đầu dòng để tập** — ngắn, nắm ý.
+> Bản **câu đầy đủ để cầm lúc nói**, kèm câu hỏi và số liệu dự phòng của từng slide, là
+> [`APP_CONSULTATION_SCRIPT.docx`](APP_CONSULTATION_SCRIPT.docx) (14 trang, in dải trang của mình).
+> Nội dung hai bản khớp nhau; sửa một bên thì sửa cả bên kia.
+
 Đây là **gạch đầu dòng để nói**, không phải văn bản để đọc. Đọc nguyên văn sẽ nghe như đọc báo cáo. Nắm ý,
 nói bằng lời của mình, giữ đúng những chỗ **in đậm** — đó là những câu không được nói sai.
 
