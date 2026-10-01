@@ -1,0 +1,12 @@
+preflight: backend http://<configured> | study STUDY_LA_001 | case CASE_0061 | RAW
+  ok   P1 /health ok; backend contract 1.1.0, this checkout 1.1.0
+  ok   P2 study_get -> SUCCESS 
+  ok   P2 case_list -> SUCCESS  | 21 rows | 20 evaluation | 1 inference & review
+  ok   P3 case_get CASE_0061 -> SUCCESS 
+  ok   P3 Evaluation | run none - MRI + ground truth only | shape [576,576,88]
+  ok   P4 V1 model open at slice 45/88 -> SUCCESS  ""
+  ok   P5 MRI 155347 bytes, checksum verified
+  ok   P5 masks: prediction none (no analysis run) | ground truth 4762 px
+  ok   P6 new slice: 3 requests, 153 KB, all per-slice
+  ok   P6 back to slice 45: 0 requests, 0 bytes (must be 0)
+PREFLIGHT PASS
