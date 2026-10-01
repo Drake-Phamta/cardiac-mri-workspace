@@ -40,7 +40,7 @@ switch, so the distance from a full-volume transfer is visible.
 | Step | Budget |
 |---|---|
 | Install, cold start, open the case, GT on (§1, §2.1–2.7) | 6 min |
-| The L4 run (§2.8) — about 1 min; one rerun allowed | 4 min |
+| The L4 run (§2.8) — about 1 min; one rerun allowed, only as §2b says | 4 min |
 | Stop, dump, collect (§3) | 5 min |
 | Slack | 5 min |
 
@@ -104,15 +104,18 @@ both windows.
    (runtime, V1 model, checksum check, mask decoder) and never prints the address:
 
    ```powershell
-   node "$MOBILE\scripts\preflight-live.mjs" --case CASE_0061
+   node --no-warnings "$MOBILE\scripts\preflight-live.mjs" --case CASE_0061
    ```
+
+   `--no-warnings` matters: without it Node 24 prints a `MODULE_TYPELESS_PACKAGE_JSON` warning on stderr that
+   contains the absolute path of a file on this PC (#77 QA re-check R-2).
 
    It must end with `PREFLIGHT PASS`. Tonight P3 reads `run none - MRI + ground truth only` (no run is ingested)
    and P5 `prediction none (no analysis run)`; P4–P6 must still pass. `FAIL P1 … REBUILD` means the backend's
    `contract_version` is not the one
    this APK was built with — the app would answer every screen with `CONTRACT_DRIFT`; stop and rebuild from a
    checkout with the backend's contract. `P6` is a one-slice rehearsal of the L4 rules (per-slice requests only; going
-   back costs 0 bytes). Paste its output into your session notes.
+   back costs 0 bytes). Paste only the lines from `preflight:` to `PREFLIGHT …` into your session notes.
 3. **The network path is the acceptance path.** Phone on Wi-Fi, ZeroTier connected, `zerotier-cli peers` on the
    Mac mini shows the phone as `DIRECT` (DEMO_STANDARD §8). Write the path down.
 4. **Phone:** charged above 50 %, screen timeout ≥ 5 min, no battery saver, USB debugging on and authorised —
@@ -158,6 +161,44 @@ Start the capture **in window 2** (after its setup block) and leave it running u
 9. Do **not** touch anything else until the dialog appears. Do not press **Refresh this slice** or **Retry**
    during the run (a refresh is logged as its own gesture and disturbs R6).
 
+### 2b · The one rerun (only for a disturbed or hung run)
+
+Rerun **only** for one of these reasons:
+- the run was disturbed: you touched the screen, a call or notification came in, or the screen locked;
+- **"L4 finished" has not appeared about 2 minutes after the long-press** and the controls are still locked. This is
+  a known, rare hang (#77 QA re-check R-3): a stale step timer drops the waiter. It can only ever produce a FAIL,
+  never a PASS.
+
+Decide **before** you run the report. Never rerun because the verdict says FAIL. A rerun into the same capture fails
+R8 (30 new-slice gestures), and a rerun in the same app session fails R5 (the "new" slices are already cached), so do
+exactly this:
+
+1. Window 2: **Ctrl+C**, then keep attempt 1 under its own name:
+
+   ```powershell
+   Rename-Item "$CAP\S1_L4_logcat.txt" "S1_L4_logcat_attempt1.txt"
+   ```
+
+2. Window 1: back up attempt 1, then cold-start the app (empties every cache) and empty the log buffer:
+
+   ```powershell
+   & $adb -s $SERIAL logcat -d -v threadtime -s ReactNativeJS:V | Out-File -Encoding utf8 "$CAP\S1_L4_logcat_attempt1_dump.txt"
+   & $adb -s $SERIAL shell am force-stop com.cardiacmri.workspace
+   & $adb -s $SERIAL logcat -c
+   ```
+
+3. Window 2: start the capture for attempt 2:
+
+   ```powershell
+   & $adb -s $SERIAL logcat -v threadtime -s ReactNativeJS:V | Out-File -Encoding utf8 "$CAP\S1_L4_logcat_attempt2.txt"
+   ```
+
+4. Redo §2.1–2.9 on the phone.
+5. In §3 and §4, use `S1_L4_logcat_attempt2.txt` instead of `S1_L4_logcat.txt`, and write the dump to
+   `S1_L4_logcat_attempt2_dump.txt`.
+6. **Judge attempt 2 only.** Keep both attempt-1 files as evidence and record in the notes why you reran. If attempt 2
+   also ends without "L4 finished", stop: `L4 NOT MEASURED — run did not finish twice` (the abort rule above).
+
 ## 3 · Stop and collect
 
 1. In window 2 press **Ctrl+C**. Then, in window 1, dump the phone's buffer as a backup of the same window (the
@@ -180,7 +221,7 @@ Start the capture **in window 2** (after its setup block) and leave it running u
 ## 4 · Verdict (on the laptop)
 
 ```powershell
-node "$MOBILE\scripts\l4-report.mjs" "$CAP\S1_L4_logcat.txt"
+node --no-warnings "$MOBILE\scripts\l4-report.mjs" "$CAP\S1_L4_logcat.txt"     # after a rerun: S1_L4_logcat_attempt2.txt
 ```
 
 It prints the counts, the bytes per new-slice switch (n / p50 / p95 / max, nearest-rank), the full-volume
