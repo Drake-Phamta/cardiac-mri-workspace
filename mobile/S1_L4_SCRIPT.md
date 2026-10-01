@@ -167,7 +167,11 @@ Rerun **only** for one of these reasons:
 - the run was disturbed: you touched the screen, a call or notification came in, or the screen locked;
 - **"L4 finished" has not appeared about 2 minutes after the long-press** and the controls are still locked. This is
   a known, rare hang (#77 QA re-check R-3): a stale step timer drops the waiter. It can only ever produce a FAIL,
-  never a PASS.
+  never a PASS. It is fixed in `458219d`; tonight's APK (`0bfaba3`) predates the fix, so §2b applies to it and to
+  any build older than `458219d`.
+
+If the report says `L4 FAIL`, write down **which rule** failed (R1–R8), not just the verdict. A failure on R6 (a
+superseded gesture or a `CMW_STEP_TIMEOUT`) means the run was disturbed, not that a volume was transferred.
 
 Decide **before** you run the report. Never rerun because the verdict says FAIL. A rerun into the same capture fails
 R8 (30 new-slice gestures), and a rerun in the same app session fails R5 (the "new" slices are already cached), so do
