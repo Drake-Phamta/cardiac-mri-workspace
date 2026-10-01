@@ -61,6 +61,48 @@ def fixture_checksum(label: str) -> str:
     return "sha256:" + hashlib.sha256(f"contract11-fixture:{label}".encode("utf-8")).hexdigest()
 
 
+def metric_summary(contract: dict, n: int) -> dict:
+    """A typed placeholder summary: every case metric x every summary statistic."""
+    stats = contract["metric_rules"]["summary_statistics"]
+    return {metric: {stat: (n if stat == "n" else 0.5) for stat in stats}
+            for metric in contract["metric_rules"]["case_metric_fields"]}
+
+
+def experiment_case_rows() -> list:
+    """Per-case rows covering every case_result_status, values only on SUCCEEDED rows."""
+    def values(dice: float, fp: int, fn: int) -> dict:
+        return {"dice": dice, "iou": round(dice / (2 - dice), 4), "false_positives": fp,
+                "false_negatives": fn, "relative_volume_error": -5.0}
+    rows = [
+        ("CASE_0002", "SUCCEEDED", None, values(0.9, 10, 10)),
+        ("CASE_0003", "SUCCEEDED", None, values(0.6, 50, 70)),
+        ("CASE_0004", "SUCCEEDED", None, values(0.6, 20, 20)),
+        ("CASE_0005", "SUCCEEDED", None, values(0.4, 90, 30)),
+        ("CASE_0006", "FAILED", "fixture failure", None),
+        ("CASE_0001", "WITHHELD", "INFERENCE_REVIEW case: ground-truth-derived values withheld (INT-12)", None),
+    ]
+    return [{"case_id": case_id, "status": status, "reason": reason,
+             "analysis_run_id": f"RUN_{case_id[5:]}", "metric_values": metric_values}
+            for case_id, status, reason, metric_values in rows]
+
+
+def outlier_selection(rows: list) -> dict:
+    """The DR-010 outliers of the fixture rows, ranked as the server must rank them."""
+    candidates = [row for row in rows if row["status"] == "SUCCEEDED"]
+    ranked = sorted(candidates, key=lambda row: (
+        row["metric_values"]["dice"],
+        -(row["metric_values"]["false_positives"] + row["metric_values"]["false_negatives"]),
+        row["case_id"]))
+    return {
+        "rule_id": "DR-010", "selection_version": "dr010-outlier/v1", "experiment_id": "EXP_DEMO",
+        "prediction_variant": "RAW", "metric_name": "dice",
+        "cases": [{"case_id": row["case_id"], "analysis_run_id": row["analysis_run_id"],
+                   "metric_value": row["metric_values"]["dice"],
+                   "false_positives": row["metric_values"]["false_positives"],
+                   "false_negatives": row["metric_values"]["false_negatives"]} for row in ranked[:3]],
+    }
+
+
 def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
     """Return a typed placeholder determined by a contract field name (and endpoint)."""
     geometry_version = contract["geometry_contract"]["version"]
@@ -69,13 +111,31 @@ def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
         return STATUS_BY_ENDPOINT[endpoint_id]
     if field == "mode" and endpoint_id == "case_list":
         return None  # the echo of the mode filter; the fixture request applies none
+    if field == "experiment_id" and endpoint_id in {"experiment_get", "experiment_list"}:
+        return param_value("experiment_id")  # the requested id, echoed
+    if field == "reviewed_mask_id" and endpoint_id == "review_commit":
+        return "REVIEWED_MASK_0043_R2"  # a commit answers a NEW version, never a listed one
+    if field == "reviewed_mask_id" and endpoint_id == "reviewed_masks_list":
+        return "REVIEWED_MASK_0043_R1"
     if field == "provenance" and endpoint_id in SHAPED_ENDPOINTS["provenance"]:
+        second = endpoint_id == "review_commit"
         return {
             "review_id": "REVIEW_0043", "case_id": "CASE_0043", "run_id": "RUN_0043",
             "source_mask_id": "RAW_PREDICTION_ARTIFACT_ID_0043", "source_mask_kind": "RAW_PREDICTION",
-            "prediction_variant": "RAW", "version": 1, "parent_reviewed_mask_id": None,
+            "prediction_variant": "RAW", "version": 2 if second else 1,
+            "parent_reviewed_mask_id": "REVIEWED_MASK_0043_R1" if second else None,
             "created_at": "2026-10-01T00:00:00Z", "reviewer_id": None,
         }
+    if endpoint_id == "experiment_metrics" and field in {"evaluation_n", "successful_n"}:
+        return 6 if field == "evaluation_n" else 4
+    if endpoint_id == "experiment_metrics" and field == "metric_summary":
+        return metric_summary(contract, 4)
+    if endpoint_id == "experiment_compare" and field == "summary":
+        return {experiment_id: metric_summary(contract, 4) for experiment_id in param_value("experiment_ids")}
+    if endpoint_id == "experiment_compare" and field == "common_evaluation_population":
+        return ["CASE_0002", "CASE_0003", "CASE_0004", "CASE_0005"]
+    if endpoint_id == "experiment_compare" and field == "compatibility_reason":
+        return None
     values = {
         "geometry_contract_version": geometry_version,
         "geometry_validation_status": "GEOMETRY_NOT_VALIDATED",
@@ -119,7 +179,8 @@ def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
         "provenance": {"source": "contract-generated-fixture"},
         "evidence": {
             "study_id": "STUDY_DEMO", "experiment_id": "EXP_DEMO", "case_id": "CASE_0043",
-            "analysis_run_id": "RUN_0043", "slice_index": 44, "region_reference": None,
+            "analysis_run_id": "RUN_0043", "prediction_variant": "RAW", "slice_index": 44,
+            "region_reference": None,
         },
         "mask_payload": {"encoding": "BITPACK_BASE64", "data": "<base64 of Ny*Nx bits, row-major, MSB first>"},
         "summary": {"status": "fixture"},
@@ -199,6 +260,10 @@ def generate_fixture(contract: dict) -> dict:
             default_data["items"].append(inference_row)
         if endpoint_id == "analysis_run_metrics":
             default_data["metric_state"] = "COMPUTED"
+        if endpoint_id == "experiment_cases":
+            rows = experiment_case_rows()
+            default_data = {"items": rows, "metric_version": field_value("metric_version", contract, endpoint_id),
+                            "prediction_variant": "RAW", "outlier_selection": outlier_selection(rows)}
         endpoint_scenarios = {
             "default": {"request": request, "response": {"status": 200, "data": default_data}},
             "error_case": {
@@ -211,7 +276,17 @@ def generate_fixture(contract: dict) -> dict:
             # that matches nothing): top-level fields present, items empty.
             empty = {key: value for key, value in default_data.items() if key != "items"}
             empty["items"] = []
+            if "outlier_selection" in empty:
+                empty["outlier_selection"] = dict(empty["outlier_selection"], cases=[])
             endpoint_scenarios["empty"] = {"request": request, "response": {"status": 200, "data": empty}}
+        if endpoint_id == "experiment_get":
+            # EXP-D-PP: the post-processing ablation is served as PROCESSED (08 section 2).
+            processed = dict(default_data, experiment_id="EXP-D-PP", prediction_variant="PROCESSED",
+                             postprocessing_version="morphology-fixture")
+            endpoint_scenarios["processed_variant"] = {
+                "request": {"params": {"experiment_id": "EXP-D-PP"}, "body": None},
+                "response": {"status": 200, "data": processed},
+            }
         if endpoint_id in {"ground_truth_slice_get", "analysis_slice_metrics", "analysis_run_metrics"}:
             endpoint_scenarios["ground_truth_unavailable"] = {
                 "request": request,
