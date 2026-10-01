@@ -171,6 +171,9 @@ it with `node --test`; keep React Native imports in `.js` files.
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
   line when the slice is on screen. No URL, host or payload is logged. Judge a capture on the laptop with
   `node mobile/scripts/l4-report.mjs <logcat.txt>`; the step-by-step session is **`mobile/S1_L4_SCRIPT.md`**.
+  Before the session, `node mobile/scripts/preflight-live.mjs --case CASE_0061` checks the live backend from the
+  laptop with the app's own code: same `contract_version` as this checkout, the case, checksum-verified bytes,
+  masks through `maskPng.js`, and a one-slice rehearsal of the L4 rules. The address is never printed.
 - **Timing evidence (TC-PERF-001)** — every slice switch also logs
   `CMW_SLICE {"slice","ms_to_data","ms_to_image","ms_to_frame","meta_cached","image_seen_before","how","pass","dev","mode"}`.
   **Long-press the slice label** for the scripted runs: **L4 15 + 15** (15 new slices, then the same 15 revisited)
@@ -207,6 +210,7 @@ mobile/
   scripts/build-release.ps1            release APK + timestamp file
   scripts/l4-report.mjs                laptop-side L4 verdict from a logcat capture (CMW_GESTURE)
   scripts/slice-timing-report.mjs      laptop-side TC-PERF-001 percentiles from a logcat capture (CMW_SLICE)
+  scripts/preflight-live.mjs           laptop-side check of the live backend before a phone session (P1-P6)
   S1_L4_SCRIPT.md                      the S-1 phone session for L4, step by step
   src/config.mjs                       mode / base URL / study id  (pure, tested)
   src/runtime/                         createRuntime.mjs + httpTransport.mjs (pure, tested), loadRuntime.js, RuntimeContext.js

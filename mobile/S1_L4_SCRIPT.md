@@ -29,7 +29,18 @@ $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 
    Note the APK file name and its `apk_sha256` in your session notes.
 2. **The backend answers.** On the Mac mini, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
-   phone-side check is step 2.3 below: the case list loads.)
+   phone-side check is step 2.3 below: the case list loads.) Then, **on the laptop, from the checkout the APK was
+   built from** (same `mobile\.env.local`), run the preflight — it drives the backend with the app's own code
+   (runtime, V1 model, checksum check, mask decoder) and never prints the address:
+
+   ```powershell
+   node mobile\scripts\preflight-live.mjs --case CASE_0061
+   ```
+
+   It must end with `PREFLIGHT PASS`. `FAIL P1 … REBUILD` means the backend's `contract_version` is not the one
+   this APK was built with — the app would answer every screen with `CONTRACT_DRIFT`; stop and rebuild from a
+   checkout with the backend's contract. `P6` is a one-slice rehearsal of the L4 rules (per-slice requests only; going
+   back costs 0 bytes). Paste its output into your session notes.
 3. **The network path is the acceptance path.** Phone on Wi-Fi, ZeroTier connected, `zerotier-cli peers` on the
    Mac mini shows the phone as `DIRECT` (DEMO_STANDARD §8). Write the path down.
 4. **Phone:** charged above 50 %, screen timeout ≥ 5 min, no battery saver, USB debugging on and authorised:
