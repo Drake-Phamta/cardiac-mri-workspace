@@ -16,7 +16,7 @@
 | `cohort.mjs` | one matrix **cell** from the core states of `experiment_get` / `_metrics` / `_cases`; the server's comparability verdicts; trend and delta, gated by those verdicts; the D2 metric context |
 | `readers.mjs` | pure readers: counts, N, variant, family, fraction, population, metric summary, per-case rows, the DR-010 outlier selection, navigation intents. `MATRIX` (`08` §2) and `COMPARISONS` |
 | `strip.mjs` | strip-plot geometry and `pointAt` — a tap on any point resolves to its case |
-| `test_study_and_compare.mjs` | 110 checks; CI step **V3 study and compare** |
+| `test_study_and_compare.mjs` | 113 checks, plus V3-14, which prints `NOT RUN` until the bundle has `empty` scenarios; CI step **V3 study and compare** |
 
 ```bash
 python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
@@ -56,6 +56,7 @@ stripLayout(compare.stripColumns(), { width, height });   // + pointAt(layout, x
 | A metric served for another variant than `08` §2 defines the experiment by is **refused, not relabelled** (`11` §6) | `buildCell` | V3-5, V3-9 |
 | A served `experiment_id` / `study_id` that differs from the one asked is **reported**, not repaired | `readExperimentIdentity`, SCR-01 `idConfirmed` | V3-1, V3-4 |
 | Failed and excluded cases stay visible with their reason; only `SUCCEEDED` rows with a value are points | `readCaseRows` | V3-9 |
+| An empty list is a **legitimate absence**, said as such: no experiment listed → `SCR-07` is `EMPTY_UNAVAILABLE` / `NO_EXPERIMENTS_LISTED` with REFRESH; no case rows → the cell's strip says `NO_CASE_RESULTS`. An unknown row count is `null`, not 0 | `experimentCompare.mjs`, `buildCell` | V3-13, V3-14 |
 | Outliers are the server's DR-010 selection, **in the order served** — refused if it cites another rule, names no experiment/variant, or belongs to another one | `readOutlierSelection` | V3-9 |
 | Nothing in this vertical sorts (`.sort(` is refused outside comments) and nothing imports outside `app/` | — | V3-12 |
 | An intent to `SCR-03` is enabled only when the server named case, run **and** variant | `caseIntent` | V3-4, V3-9, V3-10 |
@@ -76,8 +77,15 @@ row with **no `experiment_id`**, one `experiment_cases` row with status `"IN_PRO
   and the comparability label exactly as the `default` / `not_comparable` scenario says.
 
 That is correct behaviour, not a gap in the screens. The typed path — real N, points, outliers, intents,
-trend, delta — is exercised by V3-8…V3-11 with inline reader inputs, the way `app/core`'s `test_readers.mjs`
-tests `selection.mjs` and `comparability.mjs`. No screen renders those inputs.
+trend, delta — is exercised by V3-8…V3-11 and V3-13 with inline reader inputs, the way `app/core`'s
+`test_readers.mjs` tests `selection.mjs` and `comparability.mjs`. No screen renders those inputs.
+
+**Pending dependency — empty lists.** `app/core/transport.mjs` currently refuses a list response with
+`items: []` as `CONTRACT_DRIFT` when the endpoint has row fields (`experiment_cases`), so "this experiment has
+no per-case result yet" would block the screen instead of saying so. The contract v1.0 PR (A3, Day 22) fixes
+that in core (explicit `row_fields`, per-item checks) and adds generated `empty` scenarios for
+`experiment_list` / `experiment_cases`. V3 already handles both (V3-13); V3-14 drives them end to end through
+the transport and runs as soon as the regenerated bundle has them. V3 does not patch core.
 
 ## Where Contract 11 (DRAFT v0) stops — decisions needed
 

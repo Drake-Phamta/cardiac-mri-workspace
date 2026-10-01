@@ -34,6 +34,10 @@ export const CELL_STATUS = Object.freeze({
 
 export const CELL_UNAVAILABLE = Object.freeze({
   CELL_NOT_LOADED: 'CELL_NOT_LOADED',
+  // experiment_cases answered with no rows: the experiment has no per-case
+  // result yet. A legitimate absence (`10` section 8), said as such - an empty
+  // strip with no words would read as "no cases failed".
+  NO_CASE_RESULTS: 'NO_CASE_RESULTS',
 });
 
 function statusFromView(view) {
@@ -132,6 +136,7 @@ export function buildCell(expected, {
   let pointsWithheld = null;
   if (!loaded) pointsWithheld = CELL_UNAVAILABLE.CELL_NOT_LOADED;
   else if (!cases) pointsWithheld = casesView ? (casesView.reason ?? 'CASES_NOT_LOADED') : 'CASES_NOT_REQUESTED';
+  else if (cases.rows.length === 0) pointsWithheld = CELL_UNAVAILABLE.NO_CASE_RESULTS;
   else if (!metricName) pointsWithheld = 'NO_METRIC_SELECTED';
 
   let outliers;
