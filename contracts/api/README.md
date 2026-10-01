@@ -1,3 +1,55 @@
+# API Contract 11 — v1.1.0 (v1.0.0 frozen 2026-10-01, v1.1.0 additive the same day)
+
+## v1.1.0 — the V3/V4 freeze follow-ups (additive)
+
+Raised by the V3 (#61) and V4 (#63) lanes while building on v1.0.0; answered here so the v1.0.0 PR under QA did
+not move. Every change is additive or a typed placeholder; the version string changes because consumers compare
+it whole.
+
+| Question | Answer in v1.1.0 |
+|---|---|
+| (a) shapes of `metric_summary`, `experiment_compare.summary`, per-case values | **Adopted from V3's `PROPOSED_SHAPES`**, with one rename: `metric_summary` maps every case metric (`dice`, `iou`, `false_positives`, `false_negatives`, `relative_volume_error`) to `{n, mean, std, median, q1, q3, min, max, ci95_low, ci95_high}` (number or `null` = not computed); `experiment_compare.summary` maps each compared `experiment_id` to a `metric_summary` over the common population; `experiment_cases` rows gain `analysis_run_id` and **`metric_values`** (V3 proposed `metrics`; renamed for consistency with `analysis_run_metrics.metric_values`), `null` unless the row is `SUCCEEDED`. Row `status` is `SUCCEEDED / FAILED / EXCLUDED / WITHHELD` — `WITHHELD` is the INT-12 inference-only case, served without values. |
+| (b) DR-010 outliers | `experiment_cases.outlier_selection` `{rule_id DR-010, selection_version dr010-outlier/v1, experiment_id, prediction_variant, metric_name dice, cases[{case_id, analysis_run_id, metric_value, false_positives, false_negatives}]}`, three cases, ranked by the server (Dice ascending, FP+FN descending, case_id ascending); only `SUCCEEDED` rows qualify. Not added to `study_get` (one carrier, as for the worst slice). |
+| (c) generator | `experiment_get` echoes the requested id; scenario `experiment_get.processed_variant` serves `EXP-D-PP` as `PROCESSED`. |
+| (d) findings revision | Already in v1.0.0: `revision` on `finding_create` and `findings_list` rows; `finding_patch` takes `expected_revision` and answers `STALE_REVISION`. |
+| (e) variant on findings | Optional `prediction_variant` on `finding_create` and in `evidence`: **required when `analysis_run_id` is given, `null` otherwise**; immutable like the rest of the evidence. |
+| (f) commit semantics | **Kept as v1.0.0 decided, now stated on the endpoint:** the commit itself moves the review to `CORRECTED` (`review_rules.commit_result_state`) and answers a **new** `reviewed_mask_id`; a `review_patch` to `CORRECTED` afterwards is `INVALID_REVIEW_TRANSITION`. The fixture's commit now answers `REVIEWED_MASK_0043_R2` with parent `..._R1`, never a listed id. |
+
+### #62 QA fixes, carried in 1.1.0
+
+- **B1** `experiment_list` rows carry their own `prediction_variant` (`row_fields: [experiment_id,
+  prediction_variant]`, bound to the variant enum): RAW experiments and EXP-D-PP (PROCESSED) share one list
+  (`08` §2). `evaluation_population` stays top-level and means the population every listed experiment shares
+  (`null` when they do not share one). A row without its variant is drift.
+- **B2** `review_commit` is **atomic**: the new immutable version, the move to `CORRECTED` and exactly one
+  revision step persist together or not at all. The `05` §6 edges into `CORRECTED` are performed **only** by
+  `review_commit` (`review_rules.corrected_only_via`), so `review_patch` to `CORRECTED` always answers
+  `INVALID_REVIEW_TRANSITION`; a commit is valid from every state and never answers that code (removed from its
+  error list). The commit response now carries `status` (`CORRECTED`). `review_status_transitions` still equals
+  `05` §6.
+- **N1** `validate_response` checks `mode` against `ground_truth_available` on `case_get` and on `case_list` rows.
+- **N2** a reviewed mask's `source_mask_kind` (commit response and `provenance` on list rows) is
+  `RAW_PREDICTION` or `PROCESSED_PREDICTION` — never `GROUND_TRUTH` (`domain_enums.review_source_mask_kind`).
+
+### Deviations from the frozen specs, and where they are translated
+
+| Frozen spec says | Contract 11 / backend says | Translated at |
+|---|---|---|
+| `RAW_PREDICTION` / `PROCESSED_PREDICTION` (`07` §6, Contract 2) | API `prediction_variant` = `RAW` / `PROCESSED` | the Contract 2 boundary in the backend (`backend/app/metrics.py`, `main.py`); the meaning is identical |
+| Contract 2 metric names `dice_3d`, `iou_3d`, `fp_voxels`, `fn_voxels`, `relative_volume_error_percent` (`ml/evaluate.py`) | `dice`, `iou`, `false_positives`, `false_negatives`, `relative_volume_error` (percent of the ground-truth voxel count) | one explicit field map in the backend ingest (`METRIC_SOURCES`), tested |
+| Contract 1 rejects a default-affine header as unvalidated geometry | ingested, recorded as `GEOMETRY_NOT_VALIDATED`, served in voxel-index units only | `backend/app/ingest.py` (recorded deviation, Day 23 decision) |
+| `11` §3 case detail `"mode"`; `05` `MRICase.mode_capability` | `case_get.mode`; `case_list` rows `mode_capability` (top-level `mode` = the filter echo) | the API itself |
+
+### Known gaps after 1.1.0
+
+- The DR-010 outlier selection is carried on `experiment_cases` only (not repeated on `study_get`).
+- `experiment_compare.summary` CIs are `null` (not computed by the API); cohort CIs come from the saved
+  `metrics_summary` on `experiment_metrics`.
+- Real per-case and per-slice metrics reach the backend only through Contract 2 FINAL_HOLDOUT packages, i.e.
+  after GATE-IMG-01 (D24+); until then the metric endpoints answer the unavailable state on real data.
+
+The rest of this file describes v1.0.0, which v1.1.0 keeps unchanged.
+
 # API Contract 11 — v1.0.0 (frozen 2026-10-01)
 
 This directory is the schema-first backend/mobile API contract from
@@ -8,7 +60,7 @@ lives in `backend/`; this directory stays implementation-free.
 
 ## Version and freeze
 
-`contract_version` is **`1.0.0`**, frozen on 2026-10-01 under INT-11 (Day 22
+`contract_version` was **`1.0.0`** (now `1.1.0`, see above), frozen on 2026-10-01 under INT-11 (Day 22
 recovery override, `management/day22/RECOVERY_OVERRIDE_DAY22.md`). It replaces
 `DRAFT v0`. Every consumer compares the whole string: `app/core/contract.mjs`
 refuses any other value, and so does the fixture loader. After the freeze,

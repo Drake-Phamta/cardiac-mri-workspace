@@ -45,7 +45,7 @@ def keys(value, prefix=""):
 
 def test_health_and_every_contract_route_exists(api):
     health = api.client.get("/health").json()
-    assert health["status"] == "ok" and health["contract_version"] == "1.0.0"
+    assert health["status"] == "ok" and health["contract_version"] == CONTRACT["contract_version"]
     assert health["cases"] == {"total": 3, "EVALUATION": 2, "INFERENCE_REVIEW": 1}
     assert health["experiments"] == 1 and health["runs"] == 3
     assert health["rejected_experiment_packages"] == ["GATE_ML_01_NOT_ACCEPTED"]
@@ -204,7 +204,8 @@ def test_runs_and_unavailable_metrics(api):
     experiment = api.call("GET", f"{B}/experiments/EXP-U-025", "experiment_get", 200).json()
     assert experiment["prediction_variant"] == "RAW" and experiment["training_fraction"] == 0.25
     listing = api.call("GET", f"{B}/experiments", "experiment_list", 200).json()
-    assert listing["items"] == [{"experiment_id": "EXP-U-025"}]
+    assert listing["items"] == [{"experiment_id": "EXP-U-025", "prediction_variant": "RAW"}]
+    assert listing["evaluation_population"] == "holdout-final-54"
     created = api.call("POST", f"{B}/cases/CASE_9001/analysis-runs", "analysis_run_create", 409,
                        json_body={"experiment_id": "EXP-U-025"})
     assert api.error_code(created) == "RUN_NOT_DEPLOYABLE"
@@ -305,7 +306,7 @@ def test_correction_creates_immutable_versions_and_never_touches_the_source(api,
     assert api.error_code(api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 409,
                                    json_body={"expected_revision": 1})) == "STALE_REVISION"
     first = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201, json_body={"expected_revision": 3}).json()
-    assert first["reviewed_mask_id"] == f"RM_{rid}_V1" and first["revision"] == 4
+    assert first["reviewed_mask_id"] == f"RM_{rid}_V1" and first["revision"] == 4 and first["status"] == "CORRECTED"
     assert first["provenance"]["version"] == 1 and first["provenance"]["parent_reviewed_mask_id"] is None
     assert first["provenance"]["case_id"] == "CASE_9001" and first["provenance"]["run_id"] == "RUN_9001"
     assert first["source_mask_kind"] == "RAW_PREDICTION"
@@ -344,15 +345,107 @@ def test_correction_creates_immutable_versions_and_never_touches_the_source(api,
     assert np.array_equal(png_array(api.client.get(raw_again["content_url"]).content), expected_raw)
 
 
+REVIEW_STATES = CONTRACT["domain_enums"]["review_status"]
+TRANSITIONS = CONTRACT["domain_enums"]["review_status_transitions"]
+
+
+def _review_in_state(api, state):
+    """A fresh review driven into `state` through the API only; returns (id, revision)."""
+    review = _new_review(api).json()
+    rid, revision = review["review_id"], review["revision"]
+    if state in ("ACCEPTED", "FLAGGED"):
+        revision = _patch(api, rid, state, revision, 200).json()["revision"]
+    elif state == "CORRECTED":
+        mask = np.zeros((synthetic.NY, synthetic.NX), dtype=np.uint8)
+        revision = api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/1", "working_mask_put", 200,
+                            json_body=_working_body("ART_RUN_9001_RAW", revision, 1, mask)).json()["working_revision"]
+        revision = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201,
+                            json_body={"expected_revision": revision}).json()["revision"]
+    return rid, revision
+
+
+@pytest.mark.parametrize("source,target", [(s, t) for s in REVIEW_STATES for t in REVIEW_STATES])
+def test_every_review_state_pair_through_patch(api, source, target):
+    """N9: all 16 (from, to) pairs. Edges into CORRECTED belong to review_commit (#62 QA B2)."""
+    rid, revision = _review_in_state(api, source)
+    allowed = target in TRANSITIONS.get(source, []) and target != "CORRECTED"
+    response = _patch(api, rid, target, revision, 200 if allowed else 409)
+    if allowed:
+        assert response.json()["status"] == target and response.json()["revision"] == revision + 1
+    else:
+        assert api.error_code(response) == "INVALID_REVIEW_TRANSITION"
+        assert api.app.state.backend.storage.get_review(rid)["revision"] == revision  # nothing moved
+
+
+@pytest.mark.parametrize("source", REVIEW_STATES)
+def test_commit_moves_every_state_to_corrected(api, source):
+    rid, revision = _review_in_state(api, source)
+    mask = np.full((synthetic.NY, synthetic.NX), 255, dtype=np.uint8)
+    revision = api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/2", "working_mask_put", 200,
+                        json_body=_working_body("ART_RUN_9001_RAW", revision, 2, mask)).json()["working_revision"]
+    committed = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201,
+                         json_body={"expected_revision": revision}).json()
+    assert committed["status"] == "CORRECTED" and committed["revision"] == revision + 1
+    assert api.app.state.backend.storage.get_review(rid)["status"] == "CORRECTED"
+
+
+def test_commit_is_atomic(api, monkeypatch):
+    """#62 QA B2: version, CORRECTED and the revision step persist together or not at all."""
+    rid, revision = _review_in_state(api, "FLAGGED")
+    mask = np.full((synthetic.NY, synthetic.NX), 255, dtype=np.uint8)
+    revision = api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/3", "working_mask_put", 200,
+                        json_body=_working_body("ART_RUN_9001_RAW", revision, 3, mask)).json()["working_revision"]
+    from backend.app.contract import ApiError
+
+    def unavailable(*args, **kwargs):
+        raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "simulated failure while building the version"})
+
+    experiments = api.app.state.backend.experiments
+    monkeypatch.setattr(experiments, "prediction_volume", unavailable)
+    failed = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 404, json_body={"expected_revision": revision})
+    assert api.error_code(failed) == "ARTIFACT_NOT_FOUND"
+    storage = api.app.state.backend.storage
+    after = storage.get_review(rid)
+    assert after["status"] == "FLAGGED" and after["revision"] == revision and storage.reviewed_masks(rid) == []
+    monkeypatch.undo()
+    committed = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201,
+                         json_body={"expected_revision": revision}).json()  # the working edit survived the rollback
+    assert committed["status"] == "CORRECTED" and committed["revision"] == revision + 1
+
+
+def test_inference_only_case_on_every_ground_truth_dependent_endpoint(api):
+    """N1: the INT-12 case answers GROUND_TRUTH_UNAVAILABLE on each case-scoped GT-dependent endpoint."""
+    case, run = synthetic.INT12, "RUN_0031"
+    calls = {
+        "ground_truth_slice_get": f"{B}/cases/{case}/slices/2/ground-truth",
+        "analysis_run_metrics": f"{B}/analysis-runs/{run}/metrics?prediction_variant=RAW",
+        "analysis_slice_metrics": f"{B}/analysis-runs/{run}/slices/2/metrics?prediction_variant=RAW",
+        "analysis_slice_error": f"{B}/analysis-runs/{run}/slices/2/error?prediction_variant=RAW",
+        "error_reconstruction_get": f"{B}/analysis-runs/{run}/error-reconstruction?prediction_variant=RAW",
+    }
+    # The other two are experiment-level: cohort summaries keep the whole population
+    # and never carry a per-case value (case_capability.case_level_scope).
+    experiment_level = {"experiment_metrics", "experiment_compare"}
+    assert set(calls) | experiment_level == set(CONTRACT["case_capability"]["ground_truth_dependent_endpoints"])
+    for endpoint_id, url in calls.items():
+        assert api.error_code(api.call("GET", url, endpoint_id, 404)) == "GROUND_TRUTH_UNAVAILABLE", endpoint_id
+    for endpoint_id, url in ((
+            "experiment_metrics", f"{B}/experiments/EXP-U-025/metrics"),
+            ("experiment_compare", f"{B}/experiments/compare?ids=EXP-U-025,EXP-U-025")):
+        response = api.call("GET", url, endpoint_id)
+        assert case not in json.dumps(response.json()), endpoint_id
+
+
 # -- findings -------------------------------------------------------------------
 
 def test_findings_keep_their_evidence(api):
     created = api.call("POST", f"{B}/findings", "finding_create", 201, json_body={
         "study_id": STUDY, "experiment_id": "EXP-U-025", "case_id": "CASE_9001", "analysis_run_id": "RUN_9001",
-        "slice_index": 3, "finding_type": "UNDER_SEGMENTATION", "note": "misses the appendage",
-        "region_reference": {"x": 4, "y": 5}}).json()
+        "prediction_variant": "PROCESSED", "slice_index": 3, "finding_type": "UNDER_SEGMENTATION",
+        "note": "misses the appendage", "region_reference": {"x": 4, "y": 5}}).json()
     assert created["status"] == "OPEN" and created["revision"] == 1
     assert created["evidence"]["region_reference"] == {"x": 4, "y": 5}
+    assert created["evidence"]["prediction_variant"] == "PROCESSED"
     fid = created["finding_id"]
     listed = api.call("GET", f"{B}/findings?case_id=CASE_9001", "findings_list", 200).json()["items"]
     assert [item["finding_id"] for item in listed] == [fid]
@@ -369,15 +462,24 @@ def test_findings_keep_their_evidence(api):
         ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_4040"}, "CASE_NOT_FOUND", 404),
         ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9001", "slice_index": 99},
          "SLICE_OUT_OF_RANGE", 422),
-        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9003", "analysis_run_id": "RUN_9001"},
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9003", "analysis_run_id": "RUN_9001",
+          "prediction_variant": "RAW"}, "VALIDATION_ERROR", 422),
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_9001"},  # no variant
          "VALIDATION_ERROR", 422),
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "case_id": "CASE_9001", "prediction_variant": "RAW"},
+         "VALIDATION_ERROR", 422),  # a variant without a run
+        ({"study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_0031",
+          "prediction_variant": "PROCESSED"}, "VALIDATION_ERROR", 422),  # the run has no PROCESSED mask
     ):
         assert api.error_code(api.call("POST", f"{B}/findings", "finding_create", status, json_body=body)) == code
     inferred = api.call("POST", f"{B}/findings", "finding_create", 201, json_body={
-        "study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_0031"}).json()
+        "study_id": STUDY, "finding_type": "OTHER", "note": "", "analysis_run_id": "RUN_0031",
+        "prediction_variant": "RAW"}).json()
     assert inferred["case_id"] == "CASE_0031"
-    with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
-        api.app.state.backend.storage.raw_execute("UPDATE findings SET case_id = 'CASE_9003'")
+    storage = api.app.state.backend.storage
+    for sql in ("UPDATE findings SET case_id = 'CASE_9003'", "UPDATE findings SET prediction_variant = 'RAW'"):
+        with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
+            storage.raw_execute(sql)
 
 
 def test_no_response_carries_a_physical_unit(api):

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 EXPECTED_CONTRACT = "api_contract_11"
-EXPECTED_VERSION = "1.0.0"
+EXPECTED_VERSION = "1.1.0"
 EXPECTED_GEOMETRY_VERSION = "dr008a-dr012/v1.0.0"
 
 

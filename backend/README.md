@@ -1,11 +1,11 @@
-# backend/ — API Contract 11 v1.0.0 service (FastAPI + SQLite)
+# backend/ — API Contract 11 service (FastAPI + SQLite)
 
 **Block owner: Nguyễn Gia Đức Trung** (backend / persistence / ingestion). The first version was written on
 2026-10-01 under the Day 22 recovery override as recovery support; the owner reviews and adopts it on Day 23.
 
 The product backend of `DEP-04`: Python + FastAPI + SQLite on the Mac mini M2 (DR-003 host, `TECH_STACK_ADR`),
-reached by the phone over the ZeroTier overlay. It serves **exactly** `contracts/api/contract.json` v1.0.0 and
-refuses to start on any other contract version.
+reached by the phone over the ZeroTier overlay. It serves **exactly** the version of `contracts/api/contract.json`
+pinned in `app/contract.py` (`EXPECTED_VERSION`, currently 1.1.0) and refuses to start on any other.
 
 **Derived patient data never lives in the repository.** Slice PNGs, masks, the review database, rendered
 predictions and Contract 2 packages all live under `CARDIAC_BACKEND_DATA` (a directory outside any git work

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic checks for API Contract 11 v1.0.0."""
+"""Synthetic checks for API Contract 11 v1.1.0."""
 
 from __future__ import annotations
 
@@ -43,13 +43,13 @@ def main() -> None:
     assert result == {
         "status": "PASS",
         "contract": "api_contract_11",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "endpoint_count": 28,
         "error_count": 15,
         "hero_endpoint_count": 23,
     }, result
     fixture = generate_fixture(contract)
-    assert fixture["contract_version"] == "1.0.0"
+    assert fixture["contract_version"] == "1.1.0"
     assert {item["id"] for item in fixture["endpoints"]} == {item["id"] for item in contract["endpoints"]}
     assert {item["code"] for item in fixture["errors"]} == {item["code"] for item in contract["errors"]}
     assert fixture["geometry"]["geometry_contract_version"] == "dr008a-dr012/v1.0.0"
@@ -136,6 +136,66 @@ def main() -> None:
     del row_missing["items"][0]["checksum"]
     assert validate_response(contract, "reviewed_masks_list", 200, row_missing)
     print(f"PASS empty pages validate on all {len(list_ids)} list endpoints; missing top-level and row fields do not")
+
+    # --- v1.1.0: the V3/V4 freeze follow-ups -----------------------------------
+    scenarios = fixture["scenarios"]
+    assert scenarios["experiment_get"]["default"]["response"]["data"]["experiment_id"] == "EXP_DEMO"
+    processed = scenarios["experiment_get"]["processed_variant"]["response"]["data"]
+    assert processed["experiment_id"] == "EXP-D-PP" and processed["prediction_variant"] == "PROCESSED"
+    listed = scenarios["reviewed_masks_list"]["default"]["response"]["data"]["items"][0]["reviewed_mask_id"]
+    committed = scenarios["review_commit"]["default"]["response"]["data"]
+    assert committed["reviewed_mask_id"] != listed and committed["provenance"]["parent_reviewed_mask_id"] == listed
+    cases_page = scenarios["experiment_cases"]["default"]["response"]["data"]
+    statuses_seen = {row["status"] for row in cases_page["items"]}
+    assert statuses_seen == {"SUCCEEDED", "FAILED", "WITHHELD"}, statuses_seen
+    assert [item["case_id"] for item in cases_page["outlier_selection"]["cases"]] == ["CASE_0005", "CASE_0003", "CASE_0004"]
+    assert scenarios["finding_create"]["default"]["request"]["body"]["prediction_variant"] == "RAW"
+    summary = scenarios["experiment_metrics"]["default"]["response"]["data"]["metric_summary"]
+    assert set(summary["dice"]) == set(contract["metric_rules"]["summary_statistics"])
+
+    def mutated(endpoint_id, change):
+        data = json.loads(json.dumps(scenarios[endpoint_id]["default"]["response"]["data"]))
+        change(data)
+        return validate_response(contract, endpoint_id, 200, data)
+
+    def withheld_numbers(data):
+        data["items"][-1]["metric_values"] = data["items"][0]["metric_values"]
+
+    def outlier_withheld(data):
+        data["outlier_selection"]["cases"][0]["case_id"] = "CASE_0001"
+
+    def outlier_unordered(data):
+        data["outlier_selection"]["cases"].reverse()
+
+    def evidence_without_variant(data):
+        data["evidence"]["prediction_variant"] = None
+
+    def summary_without_ci(data):
+        del data["metric_summary"]["dice"]["ci95_low"]
+
+    def row_without_variant(data):  # #62 QA B1
+        del data["items"][0]["prediction_variant"]
+
+    def commit_not_corrected(data):  # #62 QA B2
+        data["status"] = "FLAGGED"
+
+    def inference_with_ground_truth(data):  # N1
+        data["mode"] = "INFERENCE_REVIEW"
+
+    def ground_truth_source(data):  # N2
+        data["provenance"]["source_mask_kind"] = "GROUND_TRUTH"
+
+    for endpoint_id, change in (
+        ("experiment_cases", withheld_numbers), ("experiment_cases", outlier_withheld),
+        ("experiment_cases", outlier_unordered), ("finding_create", evidence_without_variant),
+        ("experiment_metrics", summary_without_ci), ("experiment_list", row_without_variant),
+        ("review_commit", commit_not_corrected), ("case_get", inference_with_ground_truth),
+        ("review_commit", ground_truth_source), ("reviewed_masks_list", lambda d: d["items"][0]["provenance"].update(
+            source_mask_kind="GROUND_TRUTH")),
+    ):
+        assert mutated(endpoint_id, change), (endpoint_id, change.__name__)
+    print("PASS v1.1.0: echoed experiment id, PROCESSED experiment, new commit id, per-case rows, "
+          "DR-010 outliers, finding variant and summary shapes, each with its refusal")
 
     broken = copy.deepcopy(contract)
     broken["errors"] = [item for item in broken["errors"] if item["code"] != "GROUND_TRUTH_UNAVAILABLE"]
@@ -226,9 +286,18 @@ def main() -> None:
     endpoint(broken, "review_create")["request_fields"].remove("source_mask_id")
     expect_error(broken, "REVIEW_STATE_INVALID", schema)
 
-    broken = copy.deepcopy(contract)
-    endpoint(broken, "review_commit")["errors"].remove("INVALID_REVIEW_TRANSITION")
+    broken = copy.deepcopy(contract)  # #62 QA B2: the commit performs ->CORRECTED from every state
+    endpoint(broken, "review_commit")["errors"].append("INVALID_REVIEW_TRANSITION")
     expect_error(broken, "REVIEW_STATE_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "review_commit")["response_fields"].remove("status")
+    expect_error(broken, "ENUM_INVALID", schema)  # the enum binding names a field that is gone
+
+    broken = copy.deepcopy(contract)  # #62 QA B1: every experiment row states its variant
+    endpoint(broken, "experiment_list")["row_fields"].remove("prediction_variant")
+    broken["enum_bindings"]["prediction_variant"].remove("experiment_list.prediction_variant")
+    expect_error(broken, "ENUM_INVALID", schema)
 
     broken = copy.deepcopy(contract)
     endpoint(broken, "analysis_run_metrics")["hero_flow"] = False
@@ -246,11 +315,27 @@ def main() -> None:
     endpoint(broken, "case_list")["row_fields"].append("no_such_field")
     expect_error(broken, "LIST_CONTRACT_INVALID", schema)
 
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "experiment_cases")["response_fields"].remove("outlier_selection")
+    expect_error(broken, "SELECTION_CONTRACT_MISSING", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "finding_create")["request_fields"].remove("prediction_variant")
+    expect_error(broken, "ENUM_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["metric_rules"]["summary_statistics"].remove("ci95_low")
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["enum_bindings"]["case_result_status"] = ["experiment_list.experiment_id"]
+    expect_error(broken, "ENUM_INVALID", schema)
+
     with tempfile.TemporaryDirectory(prefix="api-contract-") as temp:
         output = Path(temp) / "generated_fixture.json"
         output.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
         assert json.loads(output.read_text(encoding="utf-8"))["base_path"] == "/api/v1"
-    print("api_contract_checks=PASS cases=27")
+    print("api_contract_checks=PASS cases=34")
 
 
 if __name__ == "__main__":

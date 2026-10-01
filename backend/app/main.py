@@ -290,7 +290,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def evidence(row: Any) -> Dict[str, Any]:
         return {
             "study_id": row["study_id"], "experiment_id": row["experiment_id"], "case_id": row["case_id"],
-            "analysis_run_id": row["analysis_run_id"], "slice_index": row["slice_index"],
+            "analysis_run_id": row["analysis_run_id"], "prediction_variant": row["prediction_variant"],
+            "slice_index": row["slice_index"],
             "region_reference": None if row["region_reference"] is None else json.loads(row["region_reference"]),
         }
 
@@ -453,11 +454,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         packages = [experiments.experiments[key] for key in experiments.experiment_ids()]
         if prediction_variant is not None:
             packages = [package for package in packages if experiment_variant(package) == prediction_variant]
-        variants = {experiment_variant(package) for package in packages}
         populations = {package.experiment["evaluation_population_manifest"]["manifest_id"] for package in packages}
         return ok({
-            "items": [{"experiment_id": package.experiment["experiment_id"]} for package in packages],
-            "prediction_variant": prediction_variant or (variants.pop() if len(variants) == 1 else None),
+            "items": [{"experiment_id": package.experiment["experiment_id"],
+                       "prediction_variant": experiment_variant(package)} for package in packages],
+            # The population every listed experiment shares, or null when they do not share one.
             "evaluation_population": populations.pop() if len(populations) == 1 else None,
         })
 
@@ -735,7 +736,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         row = storage.commit(review_id, expected_revision, build, reviewer_of(request))
         data = {
             "reviewed_mask_id": row["reviewed_mask_id"], "checksum": row["checksum"],
-            "revision": row["review_revision"], "source_mask_id": row["source_mask_id"],
+            "revision": row["review_revision"], "status": contract.review_rules["commit_result_state"],
+            "source_mask_id": row["source_mask_id"],
             "source_mask_kind": row["source_mask_kind"], "provenance": provenance(row),
         }
         data.update(case.geometry())
@@ -770,8 +772,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(data)
 
     # -- findings --------------------------------------------------------------
-    finding_fields = ["study_id", "experiment_id", "case_id", "analysis_run_id", "slice_index",
-                      "finding_type", "note", "region_reference"]
+    finding_fields = ["study_id", "experiment_id", "case_id", "analysis_run_id", "prediction_variant",
+                      "slice_index", "finding_type", "note", "region_reference"]
 
     @app.post(f"{base}/findings")
     @endpoint("finding_create")
@@ -791,8 +793,18 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if region is not None and (not isinstance(region, dict) or len(json.dumps(region)) > 4096):
             raise ApiError("VALIDATION_ERROR", {"field": "region_reference", "reason": "null or a JSON object"})
         case = get_case(values["case_id"]) if values["case_id"] is not None else None
+        variant = values["prediction_variant"]
+        if values["analysis_run_id"] is None and variant is not None:
+            raise ApiError("VALIDATION_ERROR", {"field": "prediction_variant", "reason": "only with an analysis_run_id"})
         if values["analysis_run_id"] is not None:
+            if variant not in enums["prediction_variant"]:
+                raise ApiError("VALIDATION_ERROR", {"field": "prediction_variant",
+                                                    "reason": "required with an analysis_run_id",
+                                                    "allowed": enums["prediction_variant"]})
             run = get_run(values["analysis_run_id"])
+            if run.mask_id(variant) is None:
+                raise ApiError("VALIDATION_ERROR", {"field": "prediction_variant",
+                                                    "reason": f"the run has no {variant} prediction"})
             if case is None:
                 case = get_case(run.case_id)
                 values["case_id"] = run.case_id

@@ -30,7 +30,7 @@ JSON.
   "bundle": "api_contract_11_fixture_bundle",
   "bundle_version": "v0",
   "contract": "api_contract_11",
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "base_path": "/api/v1",
   "geometry": { "geometry_contract_version": "dr008a-dr012/v1.0.0",
                 "geometry_validation_status": "GEOMETRY_NOT_VALIDATED" },
