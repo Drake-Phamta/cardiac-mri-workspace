@@ -12,6 +12,9 @@
  * label to the runtime's own TextDecoder.
  */
 
+// True ISO-8859-1 (byte 0x80 -> U+0080), as the PNG spec defines tEXt chunks.
+// Node and WHATWG map the label "latin1" to windows-1252 (0x80 -> U+20AC); the
+// difference only touches PNG text chunks, never mask pixels. Keep it.
 const LATIN1_LABELS = new Set(['latin1', 'iso-8859-1', 'iso8859-1', 'l1']);
 
 class Latin1Decoder {

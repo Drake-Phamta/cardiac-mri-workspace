@@ -30,7 +30,7 @@ test('TD1 index.js imports the latin1 shim before anything else', () => {
   assert.match(imports[0], /src\/polyfills\/textDecoderLatin1\.mjs/, `first import is: ${imports[0]}`);
 });
 
-test('TD2 on a Hermes-like runtime the shim makes fast-png load and decode; latin1 is ISO-8859-1', async () => {
+test('TD2 on a Hermes-like runtime the shim makes fast-png load and decode; latin1 is ISO-8859-1', async (t) => {
   globalThis.TextDecoder = HermesLikeTextDecoder;
   try {
     assert.throws(() => new globalThis.TextDecoder('latin1'), /Unknown encoding: latin1/, 'the runtime reproduces the device error');
@@ -45,7 +45,18 @@ test('TD2 on a Hermes-like runtime the shim makes fast-png load and decode; lati
     assert.throws(() => new globalThis.TextDecoder('utf-16le'), /Unknown encoding/, 'other labels still fail as the runtime does');
 
     // fast-png is imported for the first time here, under the Hermes-like runtime.
-    const { encode, decode } = await import('fast-png');
+    // CI runs without node_modules: skip there, as _png.mjs does for the mask decoder.
+    let fastPng;
+    try {
+      fastPng = await import('fast-png');
+    } catch (err) {
+      if (err && err.code === 'ERR_MODULE_NOT_FOUND') {
+        t.skip('fast-png is not installed here (CI runs without npm install) - run `npm ci` in mobile/ to check this');
+        return;
+      }
+      throw err;
+    }
+    const { encode, decode } = fastPng;
     const data = Uint8Array.from({ length: 4 * 3 }, (_, i) => (i % 2 ? 255 : 0));
     const png = encode({ width: 4, height: 3, data, channels: 1, depth: 8 });
     const back = decode(png);
