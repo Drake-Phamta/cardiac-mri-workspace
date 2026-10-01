@@ -12,6 +12,13 @@
 data/**
 !data/manifests/
 !data/manifests/**
+
+# backend/ derived data: slice PNGs and masks rendered from patient images,
+# Contract 2 experiment packages (predictions), the review database and its
+# reviewed masks. All derived from patient images; none is ever committed.
+backend/data_cache/
+backend/experiments/
+backend/var/
 *.nrrd
 *.nii
 *.nii.gz

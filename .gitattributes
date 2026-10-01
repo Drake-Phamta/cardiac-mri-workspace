@@ -52,6 +52,7 @@ data/manifests/**           -text
 *.txt     text eol=lf
 *.html    text eol=lf
 *.sh      text eol=lf
+*.ps1     text eol=lf
 
 # --- BINARY -----------------------------------------------------------------
 *.png     binary
