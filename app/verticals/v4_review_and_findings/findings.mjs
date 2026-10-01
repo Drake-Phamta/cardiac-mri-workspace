@@ -98,7 +98,13 @@ export function normalizeFinding(input = {}, { requireAnchor = true, shape = nul
     status: input.status ?? (requireAnchor ? FINDING_STATUS.OPEN : null),
     note: input.note ?? '',
     evidence: input.evidence ?? null,
+    // Contract v1.0: every finding row carries its revision (a new one is 1);
+    // finding_patch needs it as expected_revision.
+    revision: input.revision ?? null,
   };
+  if (!(f.revision === null || (Number.isInteger(f.revision) && f.revision >= 1))) {
+    problems.push(`revision ${f.revision} is not a positive integer`);
+  }
 
   for (const key of ['findingId', 'studyId', 'experimentId', 'runId']) {
     if (!isOptionalId(f[key])) problems.push(`${key} must be a non-empty string or null`);
@@ -216,6 +222,7 @@ export function fieldsFromRecord(row) {
     status: row.status ?? null,
     note: row.note ?? '',
     evidence: row.evidence ?? null,
+    revision: row.revision ?? null,
   };
 }
 
@@ -286,6 +293,7 @@ export function createFindings(client, { studyId } = {}) {
     }
     const entry = entryFor(normalizeFinding({
       ...checked.finding, findingId: view.data.finding_id, status, evidence: view.data.evidence ?? null,
+      revision: view.data.revision ?? null,
     }, { requireAnchor: true, shape }));
     return set(view, { items: [entry, ...current.items], lastCreated: entry });
   }

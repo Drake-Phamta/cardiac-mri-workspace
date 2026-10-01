@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fitTransform, zoomAbout, panBy, clampZoom } from '../../core/index.mjs';
 import * as B from './brush.mjs';
+import * as P from './maskPayload.mjs';
 import { sha256Hex } from './sha256.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
@@ -47,7 +48,7 @@ let seed = 22;
 const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
 const randInt = (n) => Math.floor(rand() * n);
 
-const RAW = (maskId = 'MASK_RAW_TEST') => ({ maskId, kind: B.SOURCE_KIND.RAW_PREDICTION_MASK });
+const RAW = (maskId = 'MASK_RAW_TEST') => ({ maskId, kind: B.SOURCE_KIND.RAW_PREDICTION, variant: 'RAW' });
 function session(nx, ny, slices, source = RAW()) {
   const s = B.createBrushSession({ nx, ny, source });
   slices.forEach((bytes, z) => { if (bytes) s.loadSlice(z, bytes); });
@@ -82,36 +83,34 @@ function blob(nx, ny, cx, cy, rx, ry) {
     const a = src.indexOf(from);
     return a === -1 ? null : src.slice(a, src.indexOf(to, a) + to.length);
   };
-  const mine = text(new URL('brush.mjs', HERE));
-  const mySha = text(new URL('sha256.mjs', HERE));
   const groups = [
-    ['spikes/spike_a_2d/app/brushMath.js', mine, ['footprint', 'linePixels', 'beginStroke', 'strokeSample',
+    ['spikes/spike_a_2d/app/brushMath.js', 'brush.mjs', ['footprint', 'linePixels', 'beginStroke', 'strokeSample',
       'rollbackStroke', 'createHistory', 'commitStroke', 'endStroke', 'undo', 'redo', 'diffRuns'],
     ['export const RADII = [0, 1, 2, 3, 5];', "export const END_RELEASE = 'release';",
-      "export const END_SECOND_FINGER = 'second_finger';", "export const END_TERMINATED = 'terminated';"]],
-    ['spikes/spike_a_2d/app/persist.js', mine, ['rleEncodeSlice', 'rleDecodeSlice'], []],
-    ['spikes/spike_a_2d/app/viewerMath.js', mySha, ['sha256Hex'], []],
+      "export const END_SECOND_FINGER = 'second_finger';", "export const END_TERMINATED = 'terminated';"], []],
+    ['spikes/spike_a_2d/app/viewerMath.js', 'sha256.mjs', ['sha256Hex'], [],
+      [['const K = new Uint32Array([', ']);']]],
+    ['spikes/spike_a_2d/app/viewerMath.js', 'maskPayload.mjs', ['base64ToBytes'],
+      ["const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';"],
+      [['const B64_INV = (() => {', '})();']]],
   ];
-  for (const [path, copy, fns, lines] of groups) {
+  for (const [path, file, fns, lines, blocks] of groups) {
     const url = new URL(path, ROOT);
     if (!existsSync(url)) {
       // The spike is labelled throwaway; once retired, the header carries the provenance.
-      check('B0', true, `${path} retired — provenance frozen in the file header`);
+      check('B0', true, `${path} retired — provenance frozen in ${file}'s header`);
       continue;
     }
     const spike = text(url);
+    const copy = text(new URL(file, HERE));
     const diverged = fns.filter((n) => bodyOf(spike, n) === null || bodyOf(spike, n) !== bodyOf(copy, n));
     const lineMiss = lines.filter((l) => !spike.includes(l) || !copy.includes(l));
-    let kOk = true;
-    if (path.endsWith('viewerMath.js')) {
-      const k = block(spike, 'const K = new Uint32Array([', ']);');
-      kOk = k !== null && k === block(copy, 'const K = new Uint32Array([', ']);');
-    }
-    check('B0', diverged.length === 0 && lineMiss.length === 0 && kOk,
-      `${fns.length} function(s)${lines.length ? ` + ${lines.length} constants` : ''}${path.endsWith('viewerMath.js') ? ' + K table' : ''}` +
+    const blockMiss = blocks.filter(([a, b]) => block(spike, a, b) === null || block(spike, a, b) !== block(copy, a, b));
+    check('B0', diverged.length === 0 && lineMiss.length === 0 && blockMiss.length === 0,
+      `${file}: ${fns.join(', ')}${lines.length ? ` + ${lines.length} constant(s)` : ''}${blocks.length ? ` + ${blocks.length} table(s)` : ''}` +
       ` identical to ${path}` +
-      (diverged.length ? ` — diverged: ${diverged.join(', ')}` : '') + (lineMiss.length ? ` — constants differ` : '') +
-      (kOk ? '' : ' — K table differs'));
+      (diverged.length ? ` — diverged: ${diverged.join(', ')}` : '') + (lineMiss.length ? ' — constants differ' : '') +
+      (blockMiss.length ? ' — a table differs' : ''));
   }
 }
 
@@ -409,8 +408,16 @@ if (!haveOracle) {
     (bad.length ? ` — differs at ${bad.join(', ')}` : ''));
 }
 
-// --- B10 the save export round-trips byte for byte (TC-REV-005 at model level) -
+// --- B10 the save export is contract v1.0's mask_payload, byte for byte -------
 {
+  // Independent decoding: node's Buffer for base64, a plain loop for the bits
+  // (row-major, most significant bit first, 1 = foreground).
+  const unpack = (b64, n) => {
+    const packed = Buffer.from(b64, 'base64');
+    const out = new Uint8Array(n);
+    for (let k = 0; k < n; k++) out[k] = (packed[Math.floor(k / 8)] >> (7 - (k % 8))) & 1;
+    return { out, bytes: packed.length };
+  };
   const NX = 576; const NY = 576;
   const s = session(NX, NY, [blob(NX, NY, 300, 260, 90, 70)]);
   const t = fitTransform(1080, 1440, NX, NY);
@@ -418,19 +425,30 @@ if (!haveOracle) {
   s.beginStroke(0);
   for (let k = 0; k < 30; k++) s.sample(t.panX + (200 + k * 7) * t.zoom, t.panY + (240 + (k % 5) * 9) * t.zoom, t);
   s.endStroke();
-  const payload = s.exportSlice(0);
-  const back = B.decodeSlicePayload(payload);
-  const sum = payload.runs.reduce((a, b) => a + b, 0);
-  const tampered = { ...payload, runs: payload.runs.map((n, i) => (i === 1 ? n + 1 : i === 2 ? n - 1 : n)) };
-  const t2 = B.decodeSlicePayload(tampered);
-  const short = { ...payload, runs: payload.runs.slice(0, -1) };
-  let threw = false;
-  try { B.decodeSlicePayload(short); } catch { threw = true; }
-  check('B10', payload.format === B.PAYLOAD_FORMAT && sum === NX * NY && back.verified
-    && sha(back.bytes) === sha(s.workingSlice(0)) && payload.sha256 === sha(s.workingSlice(0)),
-  `576x576 working slice -> ${payload.runs.length} runs -> decoded bytes equal the working slice; payload SHA-256 = node:crypto`);
-  check('B10', t2.verified === false && threw,
-    'a payload whose runs were altered decodes with verified=false (reported, not hidden); a short one throws');
+  const entry = s.exportSlice(0);
+  const keys = Object.keys(entry.maskPayload).sort().join(',');
+  const indep = unpack(entry.maskPayload.data, NX * NY);
+  check('B10', keys === 'data,encoding' && entry.maskPayload.encoding === 'BITPACK_BASE64' && entry.sliceIndex === 0
+    && indep.bytes === NX * NY / 8 && sha(indep.out) === sha(s.workingSlice(0)) && entry.sha256 === sha(s.workingSlice(0)),
+  `576x576 working slice -> mask_payload {encoding, data} only; Buffer + an independent bit loop decode it to exactly ` +
+    'the working slice; the SHA-256 kept beside it = node:crypto');
+  // Round trip through the module's own decoder, a size that is not a multiple
+  // of 8 (zero-padded tail), and base64 against Buffer on every tail length.
+  const odd = new Uint8Array(15).map((_, i) => (i % 3 === 0 ? 1 : 0));
+  const oddPayload = P.encodeMaskPayload(odd, 5, 3);
+  const oddIndep = unpack(oddPayload.data, 15);
+  const roundTrip = sha(P.decodeMaskPayload(entry.maskPayload, NX, NY)) === sha(s.workingSlice(0))
+    && sha(P.decodeMaskPayload(oddPayload, 5, 3)) === sha(odd) && sha(oddIndep.out) === sha(odd) && oddIndep.bytes === 2;
+  const b64Bad = [0, 1, 2, 3, 4, 5, 7, 31, 32, 33].filter((n) => {
+    const b = new Uint8Array(n).map((_, i) => (i * 97 + n) & 0xff);
+    return P.bytesToBase64(b) !== Buffer.from(b).toString('base64');
+  });
+  const wrongSize = codeOf(() => P.encodeMaskPayload(new Uint8Array(10), 4, 3));
+  const unsupported = codeOf(() => P.decodeMaskPayload({ encoding: 'PNG_BASE64', data: '' }, 4, 3));
+  check('B10', roundTrip && b64Bad.length === 0 && wrongSize === 'MASK_SHAPE_MISMATCH' && unsupported === 'MASK_PAYLOAD_UNSUPPORTED',
+    'decodeMaskPayload inverts it, a 5x3 slice packs into 2 zero-padded bytes, bytesToBase64 equals Buffer at every ' +
+    'tail length; a wrong-size slice or a non-BITPACK payload is refused' +
+    (b64Bad.length ? ` — differs at ${b64Bad.join(', ')}` : ''));
 }
 
 // --- B11 SOURCE / UNSAVED / SAVED, and what a save uploads --------------------
@@ -462,7 +480,7 @@ if (!haveOracle) {
     'SAVED/SAVED/SAVED', 'UNSAVED/SAVED/UNSAVED', 'SAVED/SAVED/SAVED', 'UNSAVED/SAVED/UNSAVED',
   ];
   check('B11', sameList(states, want), `mask state walk ${states.join(' -> ')}`);
-  check('B11', sameList(firstUpload, [0]) && prepared.payloads.length === 1 && sameList(afterReset, [0])
+  check('B11', sameList(firstUpload, [0]) && prepared.entries.length === 1 && sameList(afterReset, [0])
     && s.state().lastSave.reviewedMaskId === 'RM_1' && sameList(s.state().lastSave.slices, [0]),
   'a save uploads the slices that differ from the source, keeps re-sending a slice the server already holds ' +
     '(even once it equals the source again), and SAVED means what was frozen at prepareSave');
@@ -474,7 +492,7 @@ if (!haveOracle) {
   const codes = {
     groundTruth: codeOf(() => B.createBrushSession({ nx: NX, ny: NY, source: { maskId: 'GT_1', kind: 'GROUND_TRUTH' } })),
     protoKind: codeOf(() => B.createBrushSession({ nx: NX, ny: NY, source: { maskId: 'X', kind: 'toString' } })),
-    noIdentity: codeOf(() => B.createBrushSession({ nx: NX, ny: NY, source: { kind: 'RAW_PREDICTION_MASK' } })),
+    noIdentity: codeOf(() => B.createBrushSession({ nx: NX, ny: NY, source: { kind: 'RAW_PREDICTION' } })),
   };
   const s = session(NX, NY, [new Uint8Array(NX * NY)]);
   const notBinary = new Uint8Array(NX * NY); notBinary[5] = 255;

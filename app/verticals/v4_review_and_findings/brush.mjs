@@ -16,24 +16,20 @@
  *            redo, diffRuns. The one changed line is the import: screenToSource
  *            now comes from app/core, itself a checked copy of the same spike
  *            function (app/core/tests/test_view_math.mjs V0).
- *   source : spikes/spike_a_2d/app/persist.js  (PR #49, branch spike-a/s8-save-reload)
- *   commit : 0e3e54f "SPIKE_A S8: save/reload for A8, and the two scripts that conclude A10/A11"
- *   blob   : c5c2c6cd7e20f14cdc0fdd32fc1dfba219274cc9
- *   copied : 2026-10-01, rleEncodeSlice and rleDecodeSlice, character-for-character.
  *
  * Why a copy and not a rewrite: these exact functions are what Spike A measured
  * on the A17 — A3/A4 8/8 strokes against an independent Python oracle, A5 60/60
- * at r = 0 and r = 2 after zoom/pan, the A6/A7 undo and redo walks, A8 byte-exact
- * save/reload, A10 worst stroke feedback 30.48 ms with 0 committed samples lost,
- * A11 12/12 second-finger interruptions rolled back. A rewrite would throw that
- * evidence away. test_brush.mjs B0 keeps the copy honest and B1 replays the
- * spike's own oracle against it.
+ * at r = 0 and r = 2 after zoom/pan, the A6/A7 undo and redo walks, A10 worst
+ * stroke feedback 30.48 ms with 0 committed samples lost, A11 12/12
+ * second-finger interruptions rolled back. A rewrite would throw that evidence
+ * away. test_brush.mjs B0 keeps the copy honest and B1 replays the spike's own
+ * oracle against it.
  *
  * NOT copied: runA5 and runOpsScript (the spike's measurement hooks);
  * copySlices, resetWorking and volumeSha256, which assume the whole volume is
  * in memory — SCR-06 loads slices one at a time, so the session below does the
- * same work over the slices it holds; persist.js's file format, which was the
- * spike's own. The API payload below is V4's.
+ * same work over the slices it holds; persist.js's run-length file format —
+ * contract v1.0 fixes the upload encoding instead (maskPayload.mjs).
  *
  * What V4 adds (createBrushSession):
  *   - a declared source identity, refused when it is ground truth (`10` §5);
@@ -45,11 +41,14 @@
  *     last save, `10` §5) as two different operations;
  *   - sample accounting, received = applied + outside and lost = 0, which is
  *     the logic half of TC-PERF-003 (the ≤ 100 ms half is a device measurement);
- *   - the save export: one run-length payload per slice, with its SHA-256.
+ *   - the save export: one contract v1.0 mask_payload per slice
+ *     ({ encoding: 'BITPACK_BASE64', data }), with the slice's SHA-256 kept
+ *     beside it, not inside it.
  */
 
 import { CoreError, screenToSource } from '../../core/index.mjs';
 import { sha256Hex } from './sha256.mjs';
+import { encodeMaskPayload } from './maskPayload.mjs';
 
 // ---------------------------------------------------------------------------
 // Copied from spikes/spike_a_2d/app/brushMath.js (see the header).
@@ -234,45 +233,6 @@ export function diffRuns(work, src, nx, ny) {
 }
 
 // ---------------------------------------------------------------------------
-// Copied from spikes/spike_a_2d/app/persist.js (see the header).
-//
-// One slice -> alternating run lengths, starting with a run of value 0. A slice
-// that begins with 1 therefore starts with a zero-length run, which costs one
-// number and removes the need for a separate "first value" field.
-// ---------------------------------------------------------------------------
-
-export function rleEncodeSlice(buf) {
-  const runs = [];
-  let value = 0;
-  let count = 0;
-  for (let i = 0; i < buf.length; i++) {
-    const v = buf[i] ? 1 : 0;
-    if (v === value) { count += 1; continue; }
-    runs.push(count);
-    value = v;
-    count = 1;
-  }
-  runs.push(count);
-  return runs;
-}
-
-export function rleDecodeSlice(runs, length) {
-  const buf = new Uint8Array(length);
-  let at = 0;
-  let value = 0;
-  for (let i = 0; i < runs.length; i++) {
-    const n = runs[i];
-    if (value === 1) buf.fill(1, at, at + n);
-    at += n;
-    value = value === 1 ? 0 : 1;
-  }
-  if (at !== length) {
-    throw new Error(`rle length mismatch: runs cover ${at}, expected ${length}`);
-  }
-  return buf;
-}
-
-// ---------------------------------------------------------------------------
 // V4's own code from here down.
 // ---------------------------------------------------------------------------
 
@@ -283,23 +243,23 @@ export const TOOL = Object.freeze({ ADD: 'add', ERASE: 'erase' });
 Object.freeze(RADII);
 
 /*
- * What a working mask may start from: the contract's own artifact kinds
- * (artifact_rules). GROUND_TRUTH is absent on purpose — `10` §5: "Ground truth
- * is never a default editable source and must not be copied into a reviewed
- * mask as if it were a user correction", and working_mask_put: "Ground truth
- * cannot be used as an implicit source prediction".
+ * What a working mask may start from: contract v1.0 domain_enums
+ * .source_mask_kind minus GROUND_TRUTH, which is absent on purpose — `10` §5:
+ * "Ground truth is never a default editable source and must not be copied
+ * into a reviewed mask as if it were a user correction", and
+ * working_mask_put: "Ground truth cannot be used as an implicit source
+ * prediction". test_review_correction V4-0 holds these to the contract.
  */
 export const SOURCE_KIND = Object.freeze({
-  RAW_PREDICTION_MASK: 'RAW_PREDICTION_MASK',
-  PROCESSED_PREDICTION_MASK: 'PROCESSED_PREDICTION_MASK',
-  REVIEWED_MASK: 'REVIEWED_MASK',
+  RAW_PREDICTION: 'RAW_PREDICTION',
+  PROCESSED_PREDICTION: 'PROCESSED_PREDICTION',
+  REVIEWED: 'REVIEWED',
 });
 
-// The SCR-03 prediction variant (`11` §6) a correction starts from, as its kind.
+// The prediction variant a review is scoped to (`11` §6, DR-009), as its kind.
 export const SOURCE_KIND_FOR_VARIANT = Object.freeze({
-  RAW: SOURCE_KIND.RAW_PREDICTION_MASK,
-  PROCESSED: SOURCE_KIND.PROCESSED_PREDICTION_MASK,
-  REVIEWED: SOURCE_KIND.REVIEWED_MASK,
+  RAW: SOURCE_KIND.RAW_PREDICTION,
+  PROCESSED: SOURCE_KIND.PROCESSED_PREDICTION,
 });
 
 /*
@@ -312,35 +272,16 @@ export const SOURCE_KIND_FOR_VARIANT = Object.freeze({
 export const MASK_STATE = Object.freeze({ SOURCE: 'SOURCE', UNSAVED: 'UNSAVED', SAVED: 'SAVED' });
 
 /*
- * working_mask_put.mask_payload. `11` §8 leaves the binary encoding to the
- * ADR ("edited binary slice payload or equivalent deterministic delta"). Until
- * it picks one, this is V4's proposal: persist.js's run-length coding, which
- * A8 measured byte-exact on the device, plus the SHA-256 of the decoded slice
- * so the receiver can prove it reconstructed the same bytes.
+ * One slice ready to upload: the contract's mask_payload ({ encoding, data },
+ * field_shapes.mask_payload - exactly those two keys) plus what the client
+ * keeps beside it: which slice, and the SHA-256 of the 0/1 bytes it encodes.
  */
-export const PAYLOAD_FORMAT = 'v4_binary_slice_rle/v1';
-
-export function encodeSlicePayload(sliceIndex, buf, nx, ny) {
+export function exportEntry(sliceIndex, buf, nx, ny) {
   return Object.freeze({
-    format: PAYLOAD_FORMAT,
-    slice_index: sliceIndex,
-    nx,
-    ny,
-    runs: Object.freeze(rleEncodeSlice(buf)),
+    sliceIndex,
     sha256: sha256Hex(buf),
+    maskPayload: encodeMaskPayload(buf, nx, ny),
   });
-}
-
-// Never throws on a checksum mismatch — it reports it. A decoder that hides a
-// bad reload behind an exception says "reload failed" when the finding is
-// "reload silently changed the mask" (the same reasoning as persist.js).
-export function decodeSlicePayload(payload) {
-  if (!payload || payload.format !== PAYLOAD_FORMAT) {
-    throw new CoreError('MASK_PAYLOAD_FORMAT', { format: payload ? payload.format : null });
-  }
-  const bytes = rleDecodeSlice(payload.runs, payload.nx * payload.ny);
-  const sha256 = sha256Hex(bytes);
-  return { bytes, sha256, verified: sha256 === payload.sha256 };
 }
 
 function sameBytes(a, b) {
@@ -373,7 +314,12 @@ export function createBrushSession({ nx, ny, source } = {}) {
   if (!(typeof source.kind === 'string' && Object.prototype.hasOwnProperty.call(SOURCE_KIND, source.kind))) {
     throw new CoreError('SOURCE_NOT_EDITABLE', { kind: source.kind ?? null, editable: Object.keys(SOURCE_KIND) });
   }
-  const identity = Object.freeze({ maskId: source.maskId, kind: source.kind, checksum: source.checksum ?? null });
+  const identity = Object.freeze({
+    maskId: source.maskId, kind: source.kind, variant: source.variant ?? null, checksum: source.checksum ?? null,
+    // Fixture mode has no pixels; a screen that edits a stand-in says so here,
+    // and must show it (see mobile/src/verticals/v4).
+    synthetic: source.synthetic === true,
+  });
   const length = nx * ny;
 
   // All sparse arrays indexed by slice: SCR-06 holds the slices it has opened.
@@ -502,8 +448,8 @@ export function createBrushSession({ nx, ny, source } = {}) {
   function prepareSave() {
     settle();
     const snapshot = new Map(loaded().map((z) => [z, Uint8Array.from(working[z])]));
-    const payloads = slicesToUpload().map((z) => encodeSlicePayload(z, snapshot.get(z), nx, ny));
-    return Object.freeze({ source: identity, payloads: Object.freeze(payloads), snapshot });
+    const entries = slicesToUpload().map((z) => exportEntry(z, snapshot.get(z), nx, ny));
+    return Object.freeze({ source: identity, entries: Object.freeze(entries), snapshot });
   }
 
   function markUploaded(z) {
@@ -513,7 +459,7 @@ export function createBrushSession({ nx, ny, source } = {}) {
 
   function markSaved(prepared, commit = {}) {
     for (const [z, bytes] of prepared.snapshot) saved[z] = bytes;
-    lastSave = Object.freeze({ ...commit, slices: Object.freeze(prepared.payloads.map((p) => p.slice_index)) });
+    lastSave = Object.freeze({ ...commit, slices: Object.freeze(prepared.entries.map((e) => e.sliceIndex)) });
     return lastSave;
   }
 
@@ -578,7 +524,7 @@ export function createBrushSession({ nx, ny, source } = {}) {
     diffRuns: (z) => { requireLoaded(z); return diffRuns(working[z], src[z], nx, ny); },
     sourceIntact,
     slicesToUpload,
-    exportSlice: (z) => { requireLoaded(z); return encodeSlicePayload(z, working[z], nx, ny); },
+    exportSlice: (z) => { requireLoaded(z); return exportEntry(z, working[z], nx, ny); },
     prepareSave,
     markUploaded,
     markSaved,

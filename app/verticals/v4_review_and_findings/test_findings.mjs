@@ -51,12 +51,15 @@ const DRAFT = {
 // F0: the closed sets are the domain's own.
 {
   const enums = contract.raw.domain_enums;
-  // TEMPORARY until A3's contract PR adds domain_enums (the Day-22 decision).
-  const ref = enums?.finding_status ?? ['OPEN', 'RESOLVED'];
-  check('F0', sameList(sorted(Object.keys(FINDING_STATUS)), sorted(ref)) && Object.entries(FINDING_STATUS).every(([k, v]) => k === v),
-    `finding status OPEN/RESOLVED equals ${enums ? 'contract.json domain_enums.finding_status' : 'the Day-22 decision (contract PR not merged yet)'}`);
-  check('F0', sameList(Object.keys(FINDING_TYPE), ['UNDER_SEGMENTATION', 'OVER_SEGMENTATION', 'BOUNDARY_DISAGREEMENT',
-    'DISCONNECTED_ARTIFACT', 'OTHER']), 'finding types are the five of 05 §2 (FR-FIND-003)');
+  // TEMPORARY until contract v1.0 (#62) is on main: the Day-22 decision.
+  const status = enums?.finding_status ?? ['OPEN', 'RESOLVED'];
+  const types = enums?.finding_type
+    ?? ['UNDER_SEGMENTATION', 'OVER_SEGMENTATION', 'BOUNDARY_DISAGREEMENT', 'DISCONNECTED_ARTIFACT', 'OTHER'];
+  const where = enums ? 'contract.json domain_enums' : 'the Day-22 decision (contract v1.0 not merged yet)';
+  check('F0', sameList(sorted(Object.keys(FINDING_STATUS)), sorted(status)) && Object.entries(FINDING_STATUS).every(([k, v]) => k === v),
+    `finding status OPEN/RESOLVED equals ${where}`);
+  check('F0', sameList(sorted(Object.keys(FINDING_TYPE)), sorted(types)) && Object.entries(FINDING_TYPE).every(([k, v]) => k === v),
+    `the five finding types (05 §2, FR-FIND-003) equal ${where}`);
 }
 
 // F1: a complete draft is valid, frozen, and opens at its exact evidence (TC-FIND-001).
@@ -126,7 +129,7 @@ const DRAFT = {
     'a record whose status is not OPEN/RESOLVED is flagged, not silently accepted');
 }
 
-// F4: SCR-08 lists the generated findings, honestly.
+// F4: SCR-08 lists the generated findings and opens each at its evidence.
 {
   const { client, sent } = recorder();
   const model = createFindings(client, { studyId: 'STUDY_DEMO' });
@@ -134,8 +137,11 @@ const DRAFT = {
   const row = s.items[0];
   check('F4', s.view.state === STATE.SUCCESS && s.items.length === 1 && sent[0].endpointId === 'findings_list',
     `findings_list -> ${s.view.state}, ${s.items.length} row`);
-  check('F4', row.ok && row.finding.status === 'OPEN' && !row.location.available,
-    'the generated row carries no evidence identifiers, so it is listed as not openable rather than given a guessed location');
+  check('F4', row?.ok && row.finding.status === 'OPEN' && row.finding.revision === 1 && row.finding.type !== null
+    && row.location.available && row.location.screen === 'SCR-03' && row.location.caseId === row.finding.evidence.case_id
+    && row.location.sliceIndex === row.finding.evidence.slice_index,
+  `the generated row (evidence ${row?.finding.evidence?.case_id} slice ${row?.finding.evidence?.slice_index}, revision ` +
+    `${row?.finding.revision}) opens SCR-03 exactly there`);
 }
 
 // F5: create from a case/slice context, then open it back (TC-FIND-001).
@@ -152,7 +158,7 @@ const DRAFT = {
   'finding_create carries study/experiment/case/run/slice/type/note/region in the contract\'s field names');
   const created = s.lastCreated;
   check('F5', Boolean(created?.finding.findingId) && created.finding.status === 'OPEN' && created.finding.caseId === 'CASE_0043'
-    && created.finding.evidence !== null && s.items.length === 2 && s.items[0] === created,
+    && created.finding.revision === 1 && created.finding.evidence !== null && s.items.length === 2 && s.items[0] === created,
   `created ${created?.finding.findingId} (${created?.finding.status}), anchored to the context it was created from, listed first`);
   const loc = model.open(created?.finding.findingId);
   check('F5', loc.available && loc.screen === 'SCR-03' && loc.caseId === 'CASE_0043' && loc.sliceIndex === 44
