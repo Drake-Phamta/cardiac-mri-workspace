@@ -7,6 +7,8 @@ make_package(root) writes a tiny LASC-2018-shaped package under `root`:
     <root>/split_manifest.json                       train / validation / final_holdout,
                                                      training_subsets, training_exclusions
 Shapes are deliberately non-square (x != y) so an axis mix-up cannot pass by symmetry.
+make_contract_package(root) is the same with CASE_#### ids and a 54-case holdout, the
+shape Contract 2 DRAFT v0 requires.
 """
 
 from __future__ import annotations
@@ -31,6 +33,17 @@ HEADER = {"space": "left-posterior-superior",
           "space directions": np.eye(3), "space origin": np.zeros(3),
           "kinds": ["domain", "domain", "domain"], "encoding": "raw"}
 
+# Contract 2 shaped package: real-looking ids, 54 holdout cases, one suspected linkage.
+C_TRAIN = ["CASE_0001", "CASE_0002", "CASE_0003", "CASE_0004"]
+C_VALIDATION = ["CASE_0005", "CASE_0006"]
+C_HOLDOUT = [f"CASE_{n:04d}" for n in range(101, 155)]
+C_EXCLUDED = ["CASE_0004"]
+C_SUSPECTED = ["CASE_0127"]
+C_SUBSETS = {"25_percent": ["CASE_0001"], "50_percent": ["CASE_0001", "CASE_0002"],
+             "100_percent": ["CASE_0001", "CASE_0002", "CASE_0003"]}
+C_SHAPES = {c: ((14, 12, 4) if n % 2 else (16, 12, 4))
+            for n, c in enumerate(C_TRAIN + C_VALIDATION + C_HOLDOUT)}
+
 
 def make_volume(case_id: str, shape_xyz: tuple[int, int, int]) -> tuple[np.ndarray, np.ndarray]:
     """(mri uint8 xyz, mask uint8 xyz {0, 255}); deterministic per case id."""
@@ -50,17 +63,19 @@ def make_volume(case_id: str, shape_xyz: tuple[int, int, int]) -> tuple[np.ndarr
     return mri, mask
 
 
-def make_package(root: Path) -> dict:
+def make_package(root: Path, *, train=TRAIN, validation=VALIDATION, holdout=HOLDOUT,
+                 excluded=EXCLUDED, subsets=SUBSETS, shapes=SHAPES, suspected=None,
+                 split_id=SPLIT_ID) -> dict:
     import nrrd
     root = Path(root)
     pkg = root / "package"
     cases = []
-    for n, cid in enumerate(TRAIN + VALIDATION + HOLDOUT):
-        released = "Testing Set" if cid in HOLDOUT else "Training Set"
+    for n, cid in enumerate(list(train) + list(validation) + list(holdout)):
+        released = "Testing Set" if cid in holdout else "Training Set"
         rel_dir = f"{released}/HASH{n:04d}ABC"
         d = pkg / rel_dir
         d.mkdir(parents=True, exist_ok=True)
-        mri, mask = make_volume(cid, SHAPES[cid])
+        mri, mask = make_volume(cid, shapes[cid])
         nrrd.write(str(d / "lgemri.nrrd"), mri, dict(HEADER), index_order="F")
         nrrd.write(str(d / "laendo.nrrd"), mask, dict(HEADER), index_order="F")
         cases.append({
@@ -68,27 +83,35 @@ def make_package(root: Path) -> dict:
             "source_dir_relative": rel_dir,
             "partition_as_released": released,
             "mri": {"path_relative": f"{rel_dir}/lgemri.nrrd", "dtype": "uint8",
-                    "shape": list(SHAPES[cid])},
+                    "shape": list(shapes[cid])},
             "mask": {"path_relative": f"{rel_dir}/laendo.nrrd", "dtype": "uint8",
-                     "shape": list(SHAPES[cid])},
+                     "shape": list(shapes[cid])},
         })
     dataset = {"manifest_version": "synthetic", "case_count_total": len(cases), "cases": cases}
     split = {
         "manifest_version": "synthetic",
-        "split_id": SPLIT_ID,
+        "split_id": split_id,
         "partitions": {
-            "train": {"case_count": len(TRAIN), "case_ids": list(TRAIN),
-                      "effective_training_case_ids": [c for c in TRAIN if c not in EXCLUDED]},
-            "validation": {"case_count": len(VALIDATION), "case_ids": list(VALIDATION)},
-            "final_holdout": {"case_count": len(HOLDOUT), "case_ids": list(HOLDOUT)},
+            "train": {"case_count": len(train), "case_ids": list(train),
+                      "effective_training_case_ids": [c for c in train if c not in excluded]},
+            "validation": {"case_count": len(validation), "case_ids": list(validation)},
+            "final_holdout": {"case_count": len(holdout), "case_ids": list(holdout)},
         },
-        "training_subsets": {k: {"case_count": len(v), "effective_case_ids": list(v)}
-                             for k, v in SUBSETS.items()},
-        "training_exclusions": {"all_excluded_case_ids": list(EXCLUDED)},
-        "sensitivity_analysis": {"suspected_holdout_case_ids": list(HOLDOUT)},
+        "training_subsets": {k: {"case_count": len(v), "nominal_case_count": len(v),
+                                 "excluded_case_ids": [], "effective_case_ids": list(v)}
+                             for k, v in subsets.items()},
+        "training_exclusions": {"all_excluded_case_ids": list(excluded)},
+        "sensitivity_analysis": {"suspected_holdout_case_ids": list(suspected if suspected is not None
+                                                                    else holdout[:1])},
     }
     (root / "dataset_manifest.json").write_text(json.dumps(dataset, indent=1) + "\n", encoding="utf-8")
     (root / "split_manifest.json").write_text(json.dumps(split, indent=1) + "\n", encoding="utf-8")
     return {"root": root, "package_root": pkg, "dataset": dataset, "split": split,
             "dataset_manifest_path": root / "dataset_manifest.json",
             "split_manifest_path": root / "split_manifest.json"}
+
+
+def make_contract_package(root: Path) -> dict:
+    return make_package(root, train=C_TRAIN, validation=C_VALIDATION, holdout=C_HOLDOUT,
+                        excluded=C_EXCLUDED, subsets=C_SUBSETS, shapes=C_SHAPES,
+                        suspected=C_SUSPECTED, split_id="synthetic_contract_split_v1")
