@@ -66,6 +66,18 @@ Mỗi PR dưới đây được merge dưới override, sau khi QA đạt. Với
 
 Họ DINOv2 trên PC leader: EXP-D-025 → EXP-D-100 → EXP-D-050, EXP-D-025 xong 17:15. Epoch 1 của EXP-D-100: 0,59 s mỗi bước, ngưỡng hoà vốn 1,89 s. Sáng nay kiểm cả ba run đều COMPLETE. Nếu bị ngắt thì chạy lại đúng lệnh cũ, cùng E và B; nó tự tiếp tục.
 
+**Ghi nhận tối 01/10 (không đổi công thức):**
+- Hàng đợi dừng hai lần và chạy lại từ `last.pt`:
+  - lần 1 khi PC khởi động lại, khoảng 20:42;
+  - lần 2 do một Ctrl+C, khoảng 20:59.
+- Mỗi lần resume khôi phục đúng `last_sha256` của epoch trước, với code `c7a37e0`.
+- Cả hai run đều có đoạn train loss tăng và Dice validation tụt mạnh:
+  - EXP-D-025, run chạy liền không resume: epoch 34–40, có epoch Dice 0,0;
+  - EXP-D-100: loss tăng từ epoch 9, và epoch 12 chỉ còn 0,249.
+- Vì vậy đây không phải lỗi do resume. Có thể nguyên nhân là lr hằng số 1e-4 khi fine-tune toàn bộ; bạn xem lại.
+- Checkpoint được chọn theo Dice validation, nên bản tốt nhất không bị ảnh hưởng (EXP-D-100: epoch 6, 0,571).
+- Ghi điều này thành giới hạn trong RESULT. **Không sửa công thức giữa ma trận** (DR-016a, ADR-ML-001).
+
 ## Việc 3 — V3: duyệt lại #61 và #69, rồi sửa các điểm QA *(chiều)*
 
 - **#61 (mô hình V3) đã merge** tối 01/10 → `d6441bc`, sau ba vòng QA (QA-61 → 61b → 61c MERGE).
