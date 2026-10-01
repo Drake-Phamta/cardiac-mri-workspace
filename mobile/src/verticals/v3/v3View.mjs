@@ -348,19 +348,36 @@ export function caseTable(cell) {
   // #61 QA B-1: a value served on a row that did not succeed is dropped by the
   // model and flagged, so the drift stays visible instead of silently gone.
   const ignored = c.servedValueIgnored ? `; ${c.servedValueIgnored} value(s) served on rows that did not succeed - ignored` : '';
+  // `11` section 6 (#69 QA B-1): a number is shown, and a row called plotted,
+  // only when THIS cell drew it. The model keeps every row of a cell whose
+  // variant it refused (listed, never dropped) and still knows each row's own
+  // value; printing it would put RAW numbers under a PROCESSED column.
+  const drawn = new Set(cell.points.map((p) => p.index));
+  const withheld = rowsWithheldText(cell);
   return Object.freeze({
     id: cell.id,
     title: cellTitle(cell),
-    text: c.total === 0 ? reasonLabel('NO_CASE_RESULTS') : `${c.total} row(s) returned, ${c.plotted} plotted${ignored}`,
+    text: c.total === 0 ? reasonLabel('NO_CASE_RESULTS')
+      : withheld ? `${c.total} row(s) returned - ${withheld}${ignored}`
+        : `${c.total} row(s) returned, ${drawn.size} plotted${ignored}`,
     rows: Object.freeze(cell.cases.rows.map((r) => Object.freeze({
       key: `${r.index}`,
       caseId: r.caseId || 'case id not returned',
-      statusText: `${rowStatusText(r)}${r.servedValueIgnored ? ' - its served value is ignored' : ''}`,
+      statusText: `${withheld && r.plotState === 'PLOTTED' ? 'succeeded - not drawn' : rowStatusText(r)}`
+        + `${r.servedValueIgnored ? ' - its served value is ignored' : ''}`,
       reason: r.reason,
-      valueText: r.value !== null ? fmt(r.value) : null,
+      valueText: drawn.has(r.index) && r.value !== null ? fmt(r.value) : null,
       route: routeForIntent(r.intent),
     }))),
   });
+}
+
+// Why a cell's rows carry no number although the server sent rows.
+function rowsWithheldText(cell) {
+  if (cell.status === CELL_STATUS.VARIANT_MISMATCH) return 'the metrics were served for another variant - listed, not drawn, not linked';
+  if (cell.pointsWithheld === 'CASES_FOR_ANOTHER_VARIANT') return reasonLabel('CASES_FOR_ANOTHER_VARIANT');
+  if (cell.status !== CELL_STATUS.LOADED) return reasonLabel('CELL_NOT_LOADED');
+  return null;
 }
 
 function deltaText(c, metricName, stat) {

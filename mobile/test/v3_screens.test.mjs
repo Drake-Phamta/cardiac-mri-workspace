@@ -325,6 +325,40 @@ test('V3S10 the #61 QA refusals reach the screen as words: pinned DR-010, inelig
   assert.equal(drift.text, '2 row(s) returned, 1 plotted; 1 value(s) served on rows that did not succeed - ignored');
 });
 
+test('V3S12 a cell whose variant was refused lists its rows with no number, calls none plotted, and links none (#69 QA B-1)', async () => {
+  // The generated EXP-D-PP: its metrics are served as RAW for a PROCESSED experiment.
+  const runtime = newRuntime();
+  const model = createExperimentComparison(runtime.client);
+  await model.open({ experimentIds: ['EXP-U-100', 'EXP-D-100', 'EXP-D-PP'] });
+  const snap = model.selectMetric('dice');
+  const pp = caseTable(snap.cells.find((c) => c.id === 'EXP-D-PP'));
+  assert.ok(pp.rows.length > 0, 'the rows stay listed');
+  assert.ok(pp.rows.every((r) => r.valueText === null), `no value under a refused variant: ${pp.rows.map((r) => r.valueText).join(',')}`);
+  assert.ok(pp.rows.every((r) => !/^plotted/.test(r.statusText)), pp.rows.map((r) => r.statusText).join(' | '));
+  assert.ok(pp.rows.every((r) => r.route.ok === false), 'no row of a refused cell opens SCR-03');
+  assert.match(pp.text, /served for another variant - listed, not drawn, not linked$/);
+  assert.doesNotMatch(pp.text, /plotted/);
+
+  // Typed: metrics RAW, but experiment_cases served for PROCESSED.
+  const cell = buildCell(matrixEntry('EXP-U-100'), {
+    metricsView: success({ evaluation_n: 2, successful_n: 2, prediction_variant: 'RAW', metric_version: 'mv1', metric_summary: { dice: { median: 0.8 } } }),
+    casesView: success({ items: ROWS, metric_version: 'mv1', prediction_variant: 'PROCESSED' }),
+    metricName: 'dice',
+    aggregation,
+  });
+  const t = caseTable(cell);
+  assert.equal(cell.status, 'LOADED');
+  assert.ok(t.rows.every((r) => r.valueText === null && r.route.ok === false), JSON.stringify(t.rows));
+  assert.equal(t.text, `${ROWS.length} row(s) returned - ${reasonLabel('CASES_FOR_ANOTHER_VARIANT')}`);
+
+  // Control: the same rows under a matching variant are drawn, valued and linked.
+  const ok = caseTable(typedCell(matrixEntry('EXP-U-100'), 0.8));
+  assert.equal(ok.rows[0].valueText, '0.910');
+  assert.equal(ok.rows[0].statusText, 'plotted');
+  assertNavigable(ok.rows[0].route);
+  assert.equal(ok.text, '2 row(s) returned, 1 plotted');
+});
+
 test('V3S11 SCR-01 with all seven matrix experiments listed: requested comparisons show the server verdict and link to SCR-07', async () => {
   const runtime = newRuntime();
   // The generated list names one matrix experiment. A live server that lists
