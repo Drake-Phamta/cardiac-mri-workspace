@@ -51,3 +51,12 @@ You do not map them. `core/errors.mjs` does, and `test_errors.mjs` walks all 15.
    Decision Request is open. Until it resolves `readSelection()` returns `available: false` and the screen
    shows unavailable. **Do not rank `analysis_slice_metrics` client-side** — that is exactly what DR-010
    forbids, and it would make the phone disagree with the server about a clinical question.
+
+## Tests
+
+```bash
+node app/verticals/v1_case_explorer/test_case_explorer.mjs   # 73 checks, groups V1-1 … V1-23
+```
+
+Against the generated bundle, plus small inline stubs that edit one field of a generated response. `V1-23`
+fails if the count on the line above stops matching the checks the file makes.

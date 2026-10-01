@@ -310,6 +310,13 @@ jobs:
           node app/core/tests/run_all.mjs
           node app/verticals/v4_review_and_findings/test_review_correction.mjs
 
+      # run_all.mjs globs app/core/tests/ only, so a vertical's test is never
+      # picked up automatically. V1 runs as its own step so that two verticals
+      # landing on the same day cannot conflict on one line; V4's test (#51)
+      # went into the step above instead.
+      - name: V1 case explorer
+        run: node app/verticals/v1_case_explorer/test_case_explorer.mjs
+
   # --------------------------------------------------------------------------
   app-framework-neutral:
     name: "app/core stays framework-neutral (GATE-MOB-01)"
