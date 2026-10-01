@@ -66,6 +66,9 @@ export function createExperimentComparison(client) {
   let current = snapshot(loading(), { source: client.transportKind });
   let lastOpen = null;
   let fetched = null; // the core states behind the cells, so selectMetric never re-fetches
+  // Only the latest open() may write the snapshot: a slower earlier call that
+  // resolves last must not put its answer over a newer one (`10` section 8).
+  let seq = 0;
 
   const set = (view, patch = {}) => { current = snapshot(view, { ...current, ...patch }); return current; };
 
@@ -87,6 +90,9 @@ export function createExperimentComparison(client) {
   }
 
   async function open({ experimentIds, metricName = null, scenarios } = {}) {
+    seq += 1;
+    const mine = seq;
+    const stale = () => mine !== seq;
     lastOpen = { experimentIds, metricName, scenarios };
     // Forget the previous fetch first: selectMetric after a failed re-open
     // must not rebuild cells from the run before it.
@@ -95,6 +101,7 @@ export function createExperimentComparison(client) {
     current = snapshot(loading(), { mode, metricName, source: client.transportKind });
 
     const listView = await client.call('experiment_list', {}, { scenario: pick(scenarios, 'experiment_list') });
+    if (stale()) return current;
     // Without the list, MATRIX mode has nothing to show; EXPLICIT mode still
     // has its ids, and only loses the evaluation population the list carries.
     if (mode === MODE.MATRIX && listView.state !== STATE.SUCCESS) {
@@ -142,11 +149,13 @@ export function createExperimentComparison(client) {
     await Promise.all(requestedIds.map(async (id) => {
       raw.set(id, await requestCell(client, matrixEntry(id), { scenarios }));
     }));
-    fetched = { mode, requestedIds, listed, list, raw };
+    if (stale()) return current;
 
     const present = new Set(requestedIds);
     const comparisons = await requestComparisons(client, present, { scenarios });
+    if (stale()) return current;
 
+    fetched = { mode, requestedIds, listed, list, raw };
     const { cells, metricNames } = assemble(metricName);
     return set(success(Object.freeze({ mode, requested: requestedIds })), {
       mode, list, outsideMatrix, requested: requestedIds, cells, comparisons, metricName, metricNames, aggregation,

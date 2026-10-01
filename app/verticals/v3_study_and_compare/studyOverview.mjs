@@ -99,6 +99,7 @@ export function createStudyOverview(client) {
   const aggregation = aggregationFor(client.contract);
   let current = snapshot(loading(), { source: client.transportKind });
   let lastOpen = null;
+  let seq = 0;
 
   const set = (view, patch = {}) => { current = snapshot(view, { ...current, ...patch }); return current; };
 
@@ -108,16 +109,22 @@ export function createStudyOverview(client) {
    */
   async function open({ studyId, scenarios } = {}) {
     if (!studyId) throw new Error('createStudyOverview.open needs an explicit studyId');
+    // Only the latest open() may write the snapshot (see experimentCompare.mjs).
+    seq += 1;
+    const mine = seq;
+    const stale = () => mine !== seq;
     lastOpen = { studyId, scenarios };
     current = snapshot(loading(), { studyId, source: client.transportKind });
 
     const study = await client.call('study_get', { study_id: studyId }, { scenario: pick(scenarios, 'study_get') });
+    if (stale()) return current;
     if (study.state !== STATE.SUCCESS) return set(study, { studyId });
 
     const [listView, findingsView] = await Promise.all([
       client.call('experiment_list', {}, { scenario: pick(scenarios, 'experiment_list') }),
       client.call('findings_list', {}, { scenario: pick(scenarios, 'findings_list') }),
     ]);
+    if (stale()) return current;
 
     const rows = listView.state === STATE.SUCCESS ? readExperimentRows(listView.data) : null;
     const listed = new Set(rows ? rows.ids : []);
@@ -131,11 +138,13 @@ export function createStudyOverview(client) {
     await Promise.all(listedMatrix.map(async (e) => {
       fetched.set(e.id, await requestCell(client, e, { scenarios, withIdentity: false, withCases: true }));
     }));
+    if (stale()) return current;
     const cells = MATRIX.map((e) => (listed.has(e.id)
       ? buildCell(e, { ...fetched.get(e.id), population, aggregation })
       : notListedCell(e, listView.state === STATE.SUCCESS ? CELL_STATUS.NOT_LISTED : CELL_STATUS.NOT_REQUESTED)));
 
     const comparisons = await requestComparisons(client, listed, { scenarios });
+    if (stale()) return current;
     const headline = comparisons.map((c) => Object.freeze({
       id: c.id,
       label: c.label,
@@ -148,8 +157,10 @@ export function createStudyOverview(client) {
       reason: c.presentation.reason,
       population: c.population ?? null,
       // The server's common-population summaries, shown only under its own
-      // COMPARABLE verdict. Anything else is a label and a reason, no numbers.
-      summaries: c.presentation.mayLabelFair ? c.summaries : null,
+      // COMPARABLE verdict and only when they are about these runs (variant,
+      // coverage - readComparison). Anything else is a label and a reason.
+      summaries: c.presentation.mayLabelFair && !c.numbersWithheld ? c.summaries : null,
+      numbersWithheld: c.numbersWithheld ?? null,
       view: c.view,
     }));
 

@@ -85,12 +85,22 @@ export const COMPARISONS = Object.freeze([
 
 /*
  * DR-010, approved: the operational "outlier". Cited, never applied here.
+ * The pinned values are contract.json selection_rules.outlier_selection;
+ * test_study_and_compare.mjs fails if a contract bump changes them, so a
+ * new selection version is a deliberate change here, not a silent drift.
  */
 export const OUTLIER_RULE = Object.freeze({
   id: 'DR-010',
+  selectionVersion: 'dr010-outlier/v1',
+  metricName: 'dice',
+  cardinality: 3,
   text: 'the three successfully evaluated cases with the lowest case-level 3D Dice, for the explicitly '
     + 'selected experiment and prediction variant; ties: higher FP+FN voxel count first, then case_id',
 });
+
+// Own-key lookup: a status or variant string such as "constructor" must not
+// match through the prototype of a plain object.
+const has = (table, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);
 
 // Per-case row statuses - contract domain_enums.case_result_status. `08`
 // section 8.1: failed and excluded cases are never dropped, so every row is
@@ -107,6 +117,9 @@ export const UNAVAILABLE = Object.freeze({
   OUTLIERS_NOT_RETURNED: 'OUTLIERS_NOT_RETURNED',
   OUTLIERS_UNREADABLE: 'OUTLIERS_UNREADABLE',
   OUTLIERS_UNDER_ANOTHER_RULE: 'OUTLIERS_UNDER_ANOTHER_RULE',
+  OUTLIERS_UNDER_ANOTHER_VERSION: 'OUTLIERS_UNDER_ANOTHER_VERSION',
+  OUTLIERS_FOR_ANOTHER_METRIC: 'OUTLIERS_FOR_ANOTHER_METRIC',
+  OUTLIERS_OVER_CARDINALITY: 'OUTLIERS_OVER_CARDINALITY',
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'OUTLIERS_FOR_ANOTHER_EXPERIMENT',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'OUTLIERS_FOR_ANOTHER_VARIANT',
@@ -183,7 +196,8 @@ const VARIANT_SPELLINGS = Object.freeze({
  * treated as undeclared, never guessed.
  */
 export function readVariant(v) {
-  const lane = typeof v === 'string' ? (VARIANT_SPELLINGS[v.toUpperCase()] ?? null) : null;
+  const key = typeof v === 'string' ? v.toUpperCase() : null;
+  const lane = has(VARIANT_SPELLINGS, key) ? VARIANT_SPELLINGS[key] : null;
   return Object.freeze({ declared: absent(v) ? null : v, lane, readable: lane !== null });
 }
 
@@ -328,7 +342,7 @@ export function caseIntent({ caseId, runId, variant, experimentId, from }) {
   const missing = [];
   if (!caseId) missing.push('case_id');
   if (!runId) missing.push('analysis_run_id');
-  if (!variant || !LANE[variant]) missing.push('prediction_variant');
+  if (!has(LANE, variant)) missing.push('prediction_variant');
   return Object.freeze({
     screen: 'SCR-03',
     caseId: caseId ?? null,
@@ -349,6 +363,12 @@ export function caseIntent({ caseId, runId, variant, experimentId, from }) {
  * reason (`08` section 8.1, INT-12), and a SUCCEEDED row with no value is
  * "not returned", not a point at 0. `servedVariant` is the variant the server
  * says these rows are for (top-level prediction_variant).
+ *
+ * A value exists ONLY on a SUCCEEDED row. The contract says metric_values is
+ * null otherwise, and that no per-case value of an INFERENCE_REVIEW case is
+ * served (case_capability.case_level_scope). A value that arrives anyway on a
+ * FAILED / EXCLUDED / WITHHELD row is dropped - never shown, never plotted -
+ * and the row keeps `servedValueIgnored: true` so the drift stays visible.
  */
 export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
   const items = Array.isArray(data?.items) ? data.items : null;
@@ -363,14 +383,16 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
     const caseId = typeof r?.case_id === 'string' && r.case_id ? r.case_id : null;
     const status = typeof r?.status === 'string' ? r.status : null;
     const runId = typeof r?.analysis_run_id === 'string' && r.analysis_run_id ? r.analysis_run_id : null;
+    const succeeded = status === ROW_STATUS.SUCCEEDED;
     const metrics = isObject(r?.metric_values) ? r.metric_values : null;
-    const raw = metricName && metrics ? metrics[metricName] : undefined;
+    const raw = succeeded && metricName && metrics ? metrics[metricName] : undefined;
     const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+    const servedValueIgnored = !succeeded && !absent(r?.metric_values);
 
     let plotState;
     if (!caseId) plotState = 'NO_CASE_ID';
-    else if (!status || !ROW_STATUS[status]) plotState = 'UNKNOWN_STATUS';
-    else if (status !== ROW_STATUS.SUCCEEDED) plotState = status;
+    else if (!has(ROW_STATUS, status)) plotState = 'UNKNOWN_STATUS';
+    else if (!succeeded) plotState = status;
     else if (!metricName) plotState = 'NO_METRIC_SELECTED';
     else if (value === null) plotState = 'VALUE_NOT_RETURNED';
     else plotState = 'PLOTTED';
@@ -382,15 +404,17 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
       reason: absent(r?.reason) ? null : r.reason,
       runId,
       value,
+      servedValueIgnored,
       plotted: plotState === 'PLOTTED',
       plotState,
       intent: caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' }),
     });
   });
 
-  const counts = { total: rows.length, plotted: 0 };
+  const counts = { total: rows.length, plotted: 0, servedValueIgnored: 0 };
   for (const row of rows) {
     if (row.plotted) counts.plotted += 1;
+    if (row.servedValueIgnored) counts.servedValueIgnored += 1;
     counts[row.plotState] = (counts[row.plotState] ?? 0) + 1;
   }
   return Object.freeze({
@@ -408,11 +432,13 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
  * The DR-010 outlier selection, READ ONLY - the same discipline as app/core
  * selection.mjs. The server applies the rule; this keeps the server's order
  * and ranks nothing. Refused rather than shown when:
- *   - it cites another rule (a second definition of "outlier" on screen is
- *     two answers to one question);
+ *   - it does not cite DR-010, at the pinned selection version and metric
+ *     (contract selection_rules.outlier_selection) - a second definition of
+ *     "outlier" on screen is two answers to one question;
  *   - it does not name its experiment and variant (DR-010: both are explicit
  *     inputs, never defaults);
- *   - it was made for another experiment or variant than the one displayed.
+ *   - it was made for another experiment or variant than the one displayed;
+ *   - it lists more cases than the rule's cardinality.
  */
 export function readOutlierSelection(block, { experimentId, variant } = {}) {
   const unavailable = (reason, extra = {}) => Object.freeze({
@@ -422,8 +448,14 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
   if (!isObject(block) || !Array.isArray(block.cases)) {
     return unavailable(UNAVAILABLE.OUTLIERS_UNREADABLE, { served: servedForDisplay(block) });
   }
-  if (!absent(block.rule_id) && block.rule_id !== OUTLIER_RULE.id) {
+  if (block.rule_id !== OUTLIER_RULE.id) {
     return unavailable(UNAVAILABLE.OUTLIERS_UNDER_ANOTHER_RULE, { served: servedForDisplay(block.rule_id) });
+  }
+  if (block.selection_version !== OUTLIER_RULE.selectionVersion) {
+    return unavailable(UNAVAILABLE.OUTLIERS_UNDER_ANOTHER_VERSION, { served: servedForDisplay(block.selection_version) });
+  }
+  if (block.metric_name !== OUTLIER_RULE.metricName) {
+    return unavailable(UNAVAILABLE.OUTLIERS_FOR_ANOTHER_METRIC, { served: servedForDisplay(block.metric_name) });
   }
   const servedVariant = readVariant(block.prediction_variant);
   const servedExperiment = typeof block.experiment_id === 'string' && block.experiment_id ? block.experiment_id : null;
@@ -437,6 +469,9 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
     return unavailable(UNAVAILABLE.OUTLIERS_FOR_ANOTHER_VARIANT, { served: servedVariant.declared });
   }
   if (block.cases.length === 0) return unavailable(UNAVAILABLE.NO_ELIGIBLE_CASES);
+  if (block.cases.length > OUTLIER_RULE.cardinality) {
+    return unavailable(UNAVAILABLE.OUTLIERS_OVER_CARDINALITY, { served: String(block.cases.length) });
+  }
 
   // Order comes from the server, in the order it sent. Preserved as-is.
   const cases = block.cases.map((c, rank) => {
@@ -458,12 +493,12 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
   return Object.freeze({
     available: true,
     reason: null,
-    ruleId: block.rule_id ?? null,
-    ruleCited: block.rule_id === OUTLIER_RULE.id,
-    selectionVersion: block.selection_version ?? null,
+    ruleId: block.rule_id,
+    ruleCited: true,
+    selectionVersion: block.selection_version,
     experimentId: servedExperiment,
     variant: servedVariant,
-    metricName: block.metric_name ?? null,
+    metricName: block.metric_name,
     cases: Object.freeze(cases),
   });
 }
@@ -517,7 +552,7 @@ export function readCaseCounts(v) {
 
 /*
  * study_get.capabilities - a list of names, or an object of flags. A flag is
- * on only when it is === true: the generated fixture puts placeholder STRINGS
+ * on only when it is === true: a fixture or a drifted server can put a STRING
  * in typed fields, and a string is truthy.
  */
 export function readCapabilities(v) {

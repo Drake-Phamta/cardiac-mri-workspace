@@ -14,7 +14,7 @@ import {
   STATE, getEndpoint, readComparability, presentation, VERDICT,
 } from '../../core/index.mjs';
 import {
-  COMPARISONS, OUTLIER_RULE,
+  COMPARISONS, OUTLIER_RULE, matrixEntry,
   readExperimentIdentity, readCohortN, readMetricSummary, readVariant, readCaseRows,
   readOutlierSelection, readPopulation, summaryStat,
 } from './readers.mjs';
@@ -239,14 +239,8 @@ export async function requestCell(client, expected, {
 }
 
 /*
- * The server's verdict on each comparison whose members are all present.
- *
- * NON_COMPARABLE_EXPERIMENTS is an ANSWER, not a failure: the server has
- * decided the runs are not comparable. It is read through core's
- * readComparability like a `comparable: false` body, so both routes produce
- * the same NOT_COMPARABLE label and the same "no delta" presentation. Any
- * other failure leaves the verdict UNDECIDED - which core already treats as
- * not comparable - with the failed state kept for the screen.
+ * The server's verdict on each comparison whose members are all present;
+ * readComparison (below) decides what of each answer a screen may use.
  */
 export async function requestComparisons(client, present, { scenarios } = {}) {
   return Promise.all(COMPARISONS.map(async (c) => {
@@ -261,33 +255,98 @@ export async function requestComparisons(client, present, { scenarios } = {}) {
         comparability,
         presentation: presentation(comparability),
         summaries: null,
+        numbersWithheld: null,
       });
     }
     const view = await client.call('experiment_compare', { experiment_ids: [...c.experimentIds] },
       { scenario: pick(scenarios, 'experiment_compare') });
-    let comparability;
-    let summaries = null;
-    if (view.state === STATE.SUCCESS) {
-      comparability = readComparability(view.data);
-      const s = view.data.summary;
-      summaries = Object.freeze(Object.fromEntries(c.experimentIds.map((id) => [id,
-        readMetricSummary(s && typeof s === 'object' ? s[id] : undefined)])));
-    } else if (view.error?.code === 'NON_COMPARABLE_EXPERIMENTS') {
-      comparability = readComparability({ comparable: false, compatibility_reason: view.error.safeMessage });
-    } else {
-      comparability = readComparability({});
-    }
-    return Object.freeze({
-      ...c,
-      requested: true,
-      notRequestedReason: null,
-      view,
-      comparability,
-      presentation: presentation(comparability),
-      population: view.state === STATE.SUCCESS ? readPopulation(view.data.common_evaluation_population) : null,
-      summaries,
-    });
+    return readComparison(c, view);
   }));
+}
+
+export const COMPARE_UNAVAILABLE = Object.freeze({
+  // The compare was served for another variant than its runs are defined on.
+  COMPARE_FOR_ANOTHER_VARIANT: 'COMPARE_FOR_ANOTHER_VARIANT',
+  // RQ-B mixes RAW and PROCESSED; contract 1.1.0 gives a compare ONE
+  // prediction_variant, so it cannot describe that pair's numbers yet.
+  MIXED_VARIANT_COMPARE_UNDEFINED: 'MIXED_VARIANT_COMPARE_UNDEFINED',
+  // A comparable:true whose summary does not cover every compared id.
+  SUMMARY_DOES_NOT_COVER_EVERY_ID: 'SUMMARY_DOES_NOT_COVER_EVERY_ID',
+});
+
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+// The one variant every member is defined on (`08` section 2), or null when
+// the members mix variants (RQ-B).
+function commonLane(c) {
+  const lanes = new Set(c.experimentIds.map((id) => (matrixEntry(id) ? matrixEntry(id).lane : null)));
+  return lanes.size === 1 ? [...lanes][0] : null;
+}
+
+/*
+ * One comparison, from the core state of its experiment_compare call. Pure,
+ * so every branch is tested without a transport.
+ *
+ * NON_COMPARABLE_EXPERIMENTS is an ANSWER, not a failure: the server has
+ * decided the runs are not comparable. It is read through core's
+ * readComparability like a `comparable: false` body. Any other failure leaves
+ * the verdict UNDECIDED - which core already treats as not comparable.
+ *
+ * A successful body is used only when it is about THESE runs:
+ *   - HEAD_TO_HEAD and TREND compare runs of one variant; a body served for
+ *     another variant is not their comparison - the verdict becomes UNDECIDED
+ *     with both variants named, and its numbers are withheld (`11` section 6);
+ *   - ABLATION (RQ-B) mixes RAW and PROCESSED: the verdict is shown as served,
+ *     the numbers are withheld until the contract defines a mixed compare;
+ *   - a comparable:true that does not carry a summary for every compared id
+ *     is unconfirmed (UNDECIDED): a fair label needs the numbers it vouches for.
+ */
+export function readComparison(c, view) {
+  let comparability;
+  let summaries = null;
+  let numbersWithheld = null;
+  if (view.state === STATE.SUCCESS) {
+    const lane = commonLane(c);
+    const served = readVariant(view.data.prediction_variant);
+    const summary = isPlainObject(view.data.summary) ? view.data.summary : null;
+    const uncovered = c.experimentIds.filter((id) => !summary || !isPlainObject(summary[id]));
+    if (lane === null) {
+      comparability = readComparability(view.data);
+      numbersWithheld = Object.freeze({
+        code: COMPARE_UNAVAILABLE.MIXED_VARIANT_COMPARE_UNDEFINED,
+        reason: `${c.label} compares RAW with PROCESSED; the contract does not define a mixed-variant compare `
+          + 'yet, so its numbers are withheld',
+      });
+    } else if (served.lane !== lane) {
+      const reason = `the comparison was served for ${served.declared ?? 'no declared variant'}, but ${c.label} `
+        + `compares ${lane} runs - not labelled, numbers withheld`;
+      comparability = readComparability({ compatibility_reason: reason });
+      numbersWithheld = Object.freeze({ code: COMPARE_UNAVAILABLE.COMPARE_FOR_ANOTHER_VARIANT, reason });
+    } else if (view.data.comparable === true && uncovered.length > 0) {
+      const reason = `the server's comparable verdict came without a summary for ${uncovered.join(', ')} - unconfirmed`;
+      comparability = readComparability({ compatibility_reason: reason });
+      numbersWithheld = Object.freeze({ code: COMPARE_UNAVAILABLE.SUMMARY_DOES_NOT_COVER_EVERY_ID, reason });
+    } else {
+      comparability = readComparability(view.data);
+      summaries = Object.freeze(Object.fromEntries(c.experimentIds.map((id) => [id,
+        readMetricSummary(summary ? summary[id] : undefined)])));
+    }
+  } else if (view.error?.code === 'NON_COMPARABLE_EXPERIMENTS') {
+    comparability = readComparability({ comparable: false, compatibility_reason: view.error.safeMessage });
+  } else {
+    comparability = readComparability({});
+  }
+  return Object.freeze({
+    ...c,
+    requested: true,
+    notRequestedReason: null,
+    view,
+    comparability,
+    presentation: presentation(comparability),
+    population: view.state === STATE.SUCCESS ? readPopulation(view.data.common_evaluation_population) : null,
+    summaries,
+    numbersWithheld,
+  });
 }
 
 /* Every server verdict that involves this cell - the label a screen puts on it. */
@@ -312,6 +371,7 @@ export function labelsForCell(cellId, comparisons) {
  */
 export function deltaFor(comparison, { metricName, stat }) {
   if (!comparison?.requested) return Object.freeze({ allowed: false, reason: comparison?.notRequestedReason ?? 'not requested' });
+  if (comparison.numbersWithheld) return Object.freeze({ allowed: false, reason: comparison.numbersWithheld.reason });
   if (!comparison.presentation.mayShowDelta) {
     return Object.freeze({ allowed: false, reason: comparison.presentation.reason ?? comparison.comparability.verdict });
   }

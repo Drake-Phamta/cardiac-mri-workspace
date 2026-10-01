@@ -27,11 +27,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
-  STATE, RECOVERY, VERDICT, success, readComparability, presentation,
+  STATE, RECOVERY, VERDICT, success, stateForError, readComparability, presentation,
 } from '../../core/index.mjs';
 import {
-  createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
-  buildCell, buildTrend, deltaFor, aggregationFor, stripLayout, pointAt, matrixEntry,
+  createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
+  buildCell, buildTrend, deltaFor, readComparison, aggregationFor, stripLayout, pointAt, matrixEntry,
   readCount, readCohortN, readVariant, readFraction, readFamily, readMetricSummary, readOutlierSelection,
   readCaseRows, caseIntent, summaryStat, UNAVAILABLE, OUTLIER_RULE,
 } from './index.mjs';
@@ -256,10 +256,14 @@ const check = (id, ok, detail) => {
   check('V3-6', m.delta('RQ-A-100', { stat: 'median' }).allowed === false, 'deltaFor refuses');
 
   await m.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice' });
+  // The generated compare says comparable:true, but its summary is keyed by
+  // the generator's own ids (EXP_DEMO_A/B), not the runs asked for - so the
+  // verdict is unconfirmed, not labelled fair (N-2).
   const ok = m.comparison('RQ-A-100');
-  check('V3-6', ok.comparability.verdict === VERDICT.COMPARABLE
-    && ok.presentation.reason === generated('experiment_compare').response.data.compatibility_reason,
-    `default scenario: the server says comparable:true -> ${ok.comparability.verdict}, reason as served`);
+  check('V3-6', ok.comparability.verdict === VERDICT.UNDECIDED && ok.summaries === null
+    && ok.numbersWithheld?.code === COMPARE_UNAVAILABLE.SUMMARY_DOES_NOT_COVER_EVERY_ID
+    && /EXP-U-100, EXP-D-100/.test(ok.presentation.reason),
+    `default scenario: comparable:true without a summary for the runs asked -> ${ok.comparability.verdict}: ${ok.presentation.reason}`);
   check('V3-6', m.comparison('RQ-A-025').requested === false
     && m.comparison('RQ-A-025').comparability.verdict === VERDICT.UNDECIDED,
     'a comparison that was not asked is UNDECIDED, never comparable by default');
@@ -416,11 +420,35 @@ const base0 = () => ({
     && !otherRows.outliers.available,
     `rows served for PROCESSED under RAW metrics -> ${otherRows.pointsWithheld}: listed, not drawn, not linked`);
 
+  // B-1 (QA): a value served on a FAILED / WITHHELD row is never passed
+  // through - not shown, not plotted - and the drift is flagged.
+  const drift = readCaseRows({
+    prediction_variant: 'RAW',
+    items: [
+      { case_id: 'CASE_0201', status: 'WITHHELD', reason: 'INT-12', analysis_run_id: 'RUN_0201', metric_values: { dice: 0.83 } },
+      { case_id: 'CASE_0202', status: 'FAILED', reason: 'OOM', analysis_run_id: 'RUN_0202', metric_values: { dice: 0 } },
+      { case_id: 'CASE_0203', status: 'constructor', reason: null, analysis_run_id: 'RUN_0203', metric_values: { dice: 0.5 } },
+    ],
+  }, { metricName: 'dice', variant: 'RAW', experimentId: 'EXP-U-100' });
+  const [w, f, proto] = drift.rows;
+  check('V3-9', w.value === null && w.servedValueIgnored && !w.plotted && w.plotState === 'WITHHELD',
+    'a WITHHELD row served with dice 0.83 shows no value, is not plotted, and is flagged servedValueIgnored');
+  check('V3-9', f.value === null && f.servedValueIgnored && !f.plotted && f.plotState === 'FAILED',
+    'a FAILED row served with dice 0 shows no value - not a 0 - and is flagged');
+  check('V3-9', proto.plotState === 'UNKNOWN_STATUS' && proto.value === null && drift.counts.servedValueIgnored === 3,
+    'a status like "constructor" is not a known status (own keys only); 3 drifted rows counted');
+
   // Refusals. Each would put a selection on screen that is not DR-010's for
-  // THIS experiment and variant.
-  const base = { rule_id: 'DR-010', experiment_id: 'EXP-U-100', prediction_variant: 'RAW', cases: [{ case_id: 'CASE_0102' }] };
+  // THIS experiment and variant, at the contract's pinned version and metric.
+  const base = base0();
+  const four = [1, 2, 3, 4].map((i) => ({ case_id: `CASE_030${i}`, analysis_run_id: `RUN_030${i}`, metric_value: 0.1 * i }));
   const refused = [
     [{ ...base, rule_id: 'TUKEY_1.5_IQR' }, UNAVAILABLE.OUTLIERS_UNDER_ANOTHER_RULE],
+    [{ ...base, rule_id: undefined }, UNAVAILABLE.OUTLIERS_UNDER_ANOTHER_RULE],
+    [{ ...base, selection_version: 'dr010-outlier/v2' }, UNAVAILABLE.OUTLIERS_UNDER_ANOTHER_VERSION],
+    [{ ...base, selection_version: undefined }, UNAVAILABLE.OUTLIERS_UNDER_ANOTHER_VERSION],
+    [{ ...base, metric_name: 'iou' }, UNAVAILABLE.OUTLIERS_FOR_ANOTHER_METRIC],
+    [{ ...base, cases: four }, UNAVAILABLE.OUTLIERS_OVER_CARDINALITY],
     [{ ...base, experiment_id: undefined }, UNAVAILABLE.OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT],
     [{ ...base, prediction_variant: undefined }, UNAVAILABLE.OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT],
     [{ ...base, experiment_id: 'EXP-D-100' }, UNAVAILABLE.OUTLIERS_FOR_ANOTHER_EXPERIMENT],
@@ -432,7 +460,15 @@ const base0 = () => ({
     const r = readOutlierSelection(block, { experimentId: 'EXP-U-100', variant: 'RAW' });
     check('V3-9', !r.available && r.reason === reason && r.cases.length === 0, `outlier selection refused: ${reason}`);
   }
-  check('V3-9', OUTLIER_RULE.id === 'DR-010', `the cited rule is ${OUTLIER_RULE.id}`);
+  check('V3-9', readOutlierSelection(base, { experimentId: 'EXP-U-100', variant: 'RAW' }).available,
+    'the same block at the pinned rule, version, metric and cardinality is accepted');
+
+  // B-2 (QA): the pinned values are the contract's. A contract bump that
+  // changes them fails here, loudly, instead of drifting past the reader.
+  const pinned = contract.raw.selection_rules.outlier_selection;
+  check('V3-9', OUTLIER_RULE.id === pinned.rule_id && OUTLIER_RULE.selectionVersion === pinned.selection_version
+    && OUTLIER_RULE.metricName === pinned.metric_name && OUTLIER_RULE.cardinality === pinned.cardinality,
+    `OUTLIER_RULE = contract selection_rules.outlier_selection: ${pinned.rule_id} · ${pinned.selection_version} · ${pinned.metric_name} · ${pinned.cardinality}`);
 
   const mismatch = typedCell(expected, { variant: 'PROCESSED' });
   check('V3-9', mismatch.status === CELL_STATUS.VARIANT_MISMATCH && mismatch.points.length === 0,
@@ -538,38 +574,128 @@ const base0 = () => ({
     'an empty summary has no statistic - not a median of 0');
 }
 
-// V3-14 - the same, end to end through the generated `empty` scenarios. They
-// arrive with the contract v1.0 PR (A3), together with the core fix that
-// accepts `items: []`. Until the bundle has them this prints NOT RUN and
-// counts nothing - a missing scenario is not a pass.
+// V3-14 - the same, end to end through the generated `empty` scenarios of
+// contract 1.1.0. Mandatory: a bundle without them fails here.
 {
-  const notRun = (what) => console.log(`  skip V3-14  NOT RUN - this bundle has no \`empty\` scenario for ${what}`);
-  if (generated('experiment_list', 'empty')) {
-    const m = createExperimentComparison(newClient());
-    const s = await m.open({ scenarios: { experiment_list: 'empty' } });
-    check('V3-14', s.view.state === STATE.EMPTY_UNAVAILABLE && s.view.reason === UNAVAILABLE.NO_EXPERIMENTS_LISTED
-      && s.view.actions.includes(RECOVERY.REFRESH),
-      `SCR-07, no experiment listed -> ${s.view.state} / ${s.view.reason}, offers ${s.view.actions.join('/')}`);
-    check('V3-14', s.cells.every((c) => c.status === CELL_STATUS.NOT_LISTED && c.n === null && c.points.length === 0),
-      'every cell NOT_LISTED, no N, no point');
-    const o = await createStudyOverview(newClient()).open({ studyId: STUDY, scenarios: { experiment_list: 'empty' } });
-    check('V3-14', o.view.state === STATE.SUCCESS && o.experiments.reason === UNAVAILABLE.NO_EXPERIMENTS_LISTED
-      && o.experiments.totalRows === 0 && o.experiments.matrix.every((r) => r.n === null),
-      `SCR-01 keeps the study and says ${o.experiments.reason}`);
-  } else {
-    notRun('experiment_list');
-  }
-  if (generated('experiment_cases', 'empty')) {
-    const m = createExperimentComparison(newClient());
-    await m.open({ experimentIds: ['EXP-U-025'], metricName: 'dice', scenarios: { experiment_cases: 'empty' } });
-    const c = m.cell('EXP-U-025');
-    check('V3-14', c.casesView.state === STATE.SUCCESS && c.cases.rows.length === 0,
-      `experiment_cases with no rows -> ${c.casesView.state}, not CONTRACT_DRIFT`);
-    check('V3-14', c.points.length === 0 && c.pointsWithheld === CELL_UNAVAILABLE.NO_CASE_RESULTS,
-      `the strip says ${c.pointsWithheld}, and draws nothing`);
-  } else {
-    notRun('experiment_cases');
-  }
+  check('V3-14', Boolean(generated('experiment_list', 'empty') && generated('experiment_cases', 'empty')),
+    'the generated bundle carries the `empty` scenarios for experiment_list and experiment_cases');
+  const m = createExperimentComparison(newClient());
+  const s = await m.open({ scenarios: { experiment_list: 'empty' } });
+  check('V3-14', s.view.state === STATE.EMPTY_UNAVAILABLE && s.view.reason === UNAVAILABLE.NO_EXPERIMENTS_LISTED
+    && s.view.actions.includes(RECOVERY.REFRESH),
+    `SCR-07, no experiment listed -> ${s.view.state} / ${s.view.reason}, offers ${s.view.actions.join('/')}`);
+  check('V3-14', s.cells.every((c) => c.status === CELL_STATUS.NOT_LISTED && c.n === null && c.points.length === 0),
+    'every cell NOT_LISTED, no N, no point');
+  const o = await createStudyOverview(newClient()).open({ studyId: STUDY, scenarios: { experiment_list: 'empty' } });
+  check('V3-14', o.view.state === STATE.SUCCESS && o.experiments.reason === UNAVAILABLE.NO_EXPERIMENTS_LISTED
+    && o.experiments.totalRows === 0 && o.experiments.matrix.every((r) => r.n === null),
+    `SCR-01 keeps the study and says ${o.experiments.reason}`);
+  const mc = createExperimentComparison(newClient());
+  await mc.open({ experimentIds: ['EXP-U-025'], metricName: 'dice', scenarios: { experiment_cases: 'empty' } });
+  const c = mc.cell('EXP-U-025');
+  check('V3-14', c.casesView?.state === STATE.SUCCESS && c.cases?.rows.length === 0,
+    `experiment_cases with no rows -> ${c.casesView?.state}, not CONTRACT_DRIFT`);
+  check('V3-14', c.points.length === 0 && c.pointsWithheld === CELL_UNAVAILABLE.NO_CASE_RESULTS,
+    `the strip says ${c.pointsWithheld}, and draws nothing`);
+}
+
+// V3-15 - B-3 / N-2 (QA): a comparison body is used only when it is about
+// THESE runs. Contract-valid bodies, through the pure readComparison.
+{
+  const pair = COMPARISONS.find((c) => c.id === 'RQ-A-100');
+  const trendU = COMPARISONS.find((c) => c.id === 'RQ-A-TREND-UNET');
+  const ablation = COMPARISONS.find((c) => c.id === 'RQ-B');
+  const summaryOf = (median) => ({ dice: { n: 4, mean: median, std: 0.1, median, q1: null, q3: null, min: null, max: null, ci95_low: null, ci95_high: null } });
+  const body = (variant, ids, comparable = true) => ({
+    comparable, compatibility_reason: null, common_evaluation_population: ['CASE_0002', 'CASE_0003'],
+    metric_version: 'mv1', prediction_variant: variant,
+    summary: Object.fromEntries(ids.map((id, i) => [id, summaryOf(0.8 + 0.05 * i)])),
+  });
+
+  // The QA probe: a PROCESSED body for the RAW pair RQ-A-100 used to give a +0.05 delta.
+  const swapped = readComparison(pair, success(body('PROCESSED', pair.experimentIds)));
+  check('V3-15', swapped.comparability.verdict === VERDICT.UNDECIDED && swapped.summaries === null
+    && swapped.numbersWithheld?.code === COMPARE_UNAVAILABLE.COMPARE_FOR_ANOTHER_VARIANT
+    && /PROCESSED/.test(swapped.presentation.reason) && /RAW/.test(swapped.presentation.reason),
+    `a PROCESSED body for the RAW pair -> ${swapped.comparability.verdict}: ${swapped.presentation.reason}`);
+  check('V3-15', deltaFor(swapped, { metricName: 'dice', stat: 'median' }).allowed === false && !swapped.presentation.mayLabelFair,
+    'and no difference, no fair label');
+
+  const trendSwapped = readComparison(trendU, success(body('PROCESSED', trendU.experimentIds)));
+  check('V3-15', trendSwapped.comparability.verdict === VERDICT.UNDECIDED && trendSwapped.summaries === null,
+    `a PROCESSED body for the RAW UNet trend -> ${trendSwapped.comparability.verdict}, nothing to join a line with`);
+
+  const mixed = readComparison(ablation, success(body('RAW', ablation.experimentIds)));
+  check('V3-15', mixed.summaries === null && mixed.numbersWithheld?.code === COMPARE_UNAVAILABLE.MIXED_VARIANT_COMPARE_UNDEFINED
+    && deltaFor(mixed, { metricName: 'dice', stat: 'median' }).allowed === false,
+    `RQ-B (RAW vs PROCESSED): numbers withheld until the contract defines a mixed compare - ${mixed.numbersWithheld?.code}`);
+
+  const partial = readComparison(pair, success(body('RAW', [pair.experimentIds[0]])));
+  check('V3-15', partial.comparability.verdict === VERDICT.UNDECIDED && partial.summaries === null
+    && partial.numbersWithheld?.code === COMPARE_UNAVAILABLE.SUMMARY_DOES_NOT_COVER_EVERY_ID
+    && partial.presentation.reason.includes(pair.experimentIds[1]),
+    `comparable:true with a summary for one run only -> ${partial.comparability.verdict}: ${partial.presentation.reason}`);
+
+  const fair = readComparison(pair, success(body('RAW', pair.experimentIds)));
+  const d = deltaFor(fair, { metricName: 'dice', stat: 'median' });
+  check('V3-15', fair.comparability.verdict === VERDICT.COMPARABLE && fair.numbersWithheld === null
+    && d.allowed && Math.abs(d.delta - 0.05) < 1e-12,
+    `the RAW body covering both runs -> ${fair.comparability.verdict}, difference ${d.delta?.toFixed(2)}`);
+
+  const refusedPair = readComparison(pair, stateForError(contract, 'NON_COMPARABLE_EXPERIMENTS'));
+  check('V3-15', refusedPair.comparability.verdict === VERDICT.NOT_COMPARABLE && refusedPair.numbersWithheld === null,
+    'NON_COMPARABLE_EXPERIMENTS is still read as the server\'s answer');
+}
+
+// V3-16 - N-4 / N-8 (QA): only the latest open() writes the snapshot, and
+// lookups use own keys only.
+{
+  const fixture = createFixtureTransport(bundle);
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let listCalls = 0;
+  const racing = createClient(contract, {
+    kind: 'fixture',
+    async send(resolved, options) {
+      if (resolved.endpointId === 'experiment_list') {
+        listCalls += 1;
+        if (listCalls === 1) await gate; // the FIRST open's list call is the slow one
+      }
+      return fixture.send(resolved, options);
+    },
+  });
+  const m = createExperimentComparison(racing);
+  const first = m.open({ scenarios: { experiment_list: 'error_case' } });
+  const second = await m.open({ experimentIds: ['EXP-U-100'] });
+  release();
+  const late = await first;
+  check('V3-16', m.current === second && late === second && m.current.view.state === STATE.SUCCESS,
+    'SCR-07: a slower, earlier open() resolving last does not overwrite the newer result');
+
+  let releaseStudy;
+  const studyGate = new Promise((resolve) => { releaseStudy = resolve; });
+  let studyCalls = 0;
+  const racingStudy = createClient(contract, {
+    kind: 'fixture',
+    async send(resolved, options) {
+      if (resolved.endpointId === 'study_get') {
+        studyCalls += 1;
+        if (studyCalls === 1) await studyGate;
+      }
+      return fixture.send(resolved, options);
+    },
+  });
+  const ov = createStudyOverview(racingStudy);
+  const firstStudy = ov.open({ studyId: STUDY, scenarios: { study_get: 'error_case' } });
+  const secondStudy = await ov.open({ studyId: STUDY });
+  releaseStudy();
+  await firstStudy;
+  check('V3-16', ov.current === secondStudy && ov.current.view.state === STATE.SUCCESS,
+    'SCR-01: the same guard');
+
+  check('V3-16', readVariant('constructor').lane === null && readVariant('__proto__').lane === null
+    && caseIntent({ caseId: 'C', runId: 'R', variant: 'toString' }).enabled === false,
+    'variant and lane lookups ignore prototype keys');
 }
 
 // V3-12 - nothing in this vertical ranks or sorts, and nothing a device

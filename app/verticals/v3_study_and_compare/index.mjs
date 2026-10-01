@@ -14,8 +14,8 @@
 export { createStudyOverview } from './studyOverview.mjs';
 export { createExperimentComparison, MODE } from './experimentCompare.mjs';
 export {
-  CELL_STATUS, CELL_UNAVAILABLE, buildCell, notListedCell, metricContext, labelsForCell,
-  deltaFor, buildTrend, metricNamesOf, aggregationFor,
+  CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, buildCell, notListedCell, metricContext, labelsForCell,
+  readComparison, deltaFor, buildTrend, metricNamesOf, aggregationFor,
 } from './cohort.mjs';
 export { stripLayout, pointAt } from './strip.mjs';
 export {

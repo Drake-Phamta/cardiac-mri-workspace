@@ -16,7 +16,7 @@
 | `cohort.mjs` | one matrix **cell** from the core states of `experiment_get` / `_metrics` / `_cases`; the server's comparability verdicts; trend and delta, gated by those verdicts; the D2 metric context |
 | `readers.mjs` | pure readers: counts, N, variant, family, fraction, population, metric summary, per-case rows, the DR-010 outlier selection, navigation intents. `MATRIX` (`08` §2) and `COMPARISONS` |
 | `strip.mjs` | strip-plot geometry and `pointAt` — a tap on any point resolves to its case |
-| `test_study_and_compare.mjs` | 129 checks against the contract 1.1.0 bundle, the `empty` scenarios included (V3-14); CI step **V3 study and compare** |
+| `test_study_and_compare.mjs` | 149 checks against the contract 1.1.0 bundle, the `empty` scenarios included and mandatory (V3-14); CI step **V3 study and compare** |
 
 ```bash
 python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
@@ -57,7 +57,10 @@ stripLayout(compare.stripColumns(), { width, height });   // + pointAt(layout, x
 | A served `experiment_id` / `study_id` that differs from the one asked is **reported**, not repaired | `readExperimentIdentity`, SCR-01 `idConfirmed` | V3-1, V3-4 |
 | Failed, excluded and withheld (INFERENCE_REVIEW) cases stay visible with their reason; only `SUCCEEDED` rows with a value are points, and only when `experiment_cases` states the same variant as the metrics | `readCaseRows`, `buildCell` | V3-4, V3-9 |
 | An empty list is a **legitimate absence**, said as such: no experiment listed → `SCR-07` is `EMPTY_UNAVAILABLE` / `NO_EXPERIMENTS_LISTED` with REFRESH; no case rows → the cell's strip says `NO_CASE_RESULTS`. An unknown row count is `null`, not 0 | `experimentCompare.mjs`, `buildCell` | V3-13, V3-14 |
-| Outliers are the server's DR-010 `outlier_selection`, **in the order served**, never computed — refused if it cites another rule, names no experiment/variant, or belongs to another one | `readOutlierSelection` | V3-4, V3-9 |
+| Outliers are the server's DR-010 `outlier_selection`, **in the order served**, never computed — accepted only at the contract's pinned rule, `selection_version`, metric and cardinality (`OUTLIER_RULE` = `selection_rules.outlier_selection`, checked against `contract.json`), and refused if it names no experiment/variant or belongs to another one | `readOutlierSelection` | V3-4, V3-9 |
+| A per-case value exists **only on a `SUCCEEDED` row**: a value served on a `FAILED` / `EXCLUDED` / `WITHHELD` row is dropped and the row flagged `servedValueIgnored` (contract: null otherwise; no INFERENCE_REVIEW value is ever served) | `readCaseRows` | V3-9 |
+| A comparison body is used only when it is about **these** runs: a head-to-head or trend body served for another variant is `UNDECIDED` with both variants named; a `comparable: true` whose `summary` misses a compared id is unconfirmed; RQ-B (RAW vs PROCESSED) keeps its verdict but its numbers are withheld until the contract defines a mixed compare | `readComparison` | V3-6, V3-15 |
+| Only the **latest** `open()` writes the snapshot; a slower earlier call that resolves last is dropped. Status / variant lookups use own keys only | both models, `readers.mjs` | V3-16 |
 | Nothing in this vertical sorts (`.sort(` is refused outside comments) and nothing imports outside `app/` | — | V3-12 |
 | An intent to `SCR-03` is enabled only when the server named case, run **and** variant | `caseIntent` | V3-4, V3-9, V3-10 |
 | A distribution is a **strip**, not a box: Tukey whiskers would be a second definition of "outlier" next to DR-010 | `strip.mjs` | V3-10 |
@@ -176,3 +179,8 @@ can do about it, and offering a retry would suggest otherwise.
 6. Deliberately left out of the skeleton: pagination of `experiment_cases` (54 holdout rows fit one page), a
    rendered `experiment_get` provenance panel (the model reads it: `cell.identity.provenance`), and the
    stale-version state (`STALE_MISMATCH`) for a cohort refreshed under a new `metric_version`.
+7. **From the #61 QA (Day 22), for you on D23:** N-3 draw the trend from the server's common-population
+   summaries rather than each run's own; N-5 one axis per metric (FP/FN counts and relative volume error are
+   not on Dice's [0, 1]); N-6 show the evaluation population only for the listed ids it covers; N-7 raise the
+   remaining contract gaps with Trung (a mixed RAW/PROCESSED compare for RQ-B; a PROCESSED fixture for
+   `EXP-D-PP` metrics and cases); N-9 list a strip column's `offAxis` values under the chart.
