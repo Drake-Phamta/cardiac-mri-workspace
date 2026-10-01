@@ -30,7 +30,6 @@ import {
 } from '../../../../app/core/index.mjs';
 import { createReviewCorrection, PREDICTION_VARIANT } from '../../../../app/verticals/v4_review_and_findings/index.mjs';
 import { createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE } from '../../../../app/verticals/v4_review_and_findings/brush.mjs';
-import { sha256Hex } from '../../../../app/verticals/v4_review_and_findings/sha256.mjs';
 import { syntheticSourceSlice } from './syntheticSource.mjs';
 import { createGestureController, MODE } from './gesture.mjs';
 
@@ -70,15 +69,20 @@ export function maskRuns(buf, nx, ny) {
 }
 
 /*
- * runtime        the shell runtime: { mode, config, contract, client }
+ * runtime        the shell runtime: { mode, config, contract, client, content }.
+ *                content.bytes(content_url, { checksum, signal, kind }) is the
+ *                app's one binary path (timeout, error mapping, checksum check);
+ *                content.uri(content_url) is the <Image> URL, null in fixture mode.
  * params         route params: runId (required by the navigator), and
  *                optionally caseId, variant, sliceIndex
- * decodeMaskPng  bytes -> { width, height, data: 0/1 }; the app's shared
- *                adapter. null = not in this build, and live pixels are then
- *                honestly unavailable.
- * fetchBytes     url -> Promise<Uint8Array>, for content_url (live only)
+ * decodeMaskPng  (bytes, { width, height }) -> { width, height, data: 0/1 };
+ *                the app's shared adapter (src/imaging/maskPng.js), throwing
+ *                CONTRACT_DRIFT on anything that is not the contract's mask PNG.
+ *                null = live pixels are honestly unavailable.
+ * signal         an AbortSignal that fires when the screen unmounts, so a
+ *                stalled byte fetch is abandoned rather than left loading.
  */
-export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null, fetchBytes = null }) {
+export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null, signal = null }) {
   const client = runtime.client;
   const fixture = runtime.mode === 'fixture';
   const review = createReviewCorrection(client);
@@ -92,6 +96,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let slice = null;
   const pixels = new Map();   // slice -> { kind, reason?, servedMaskId?, checksum? }
   const runsCache = new Map(); // slice -> source mask runs
+  const mriUris = new Map();   // slice -> MRI <Image> URL (live), null when absent
   let viewport = null;
   let transform = null;
   let fit = null;
@@ -179,11 +184,21 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     });
     pixels.clear();
     runsCache.clear();
+    mriUris.clear();
     phase = PHASE.READY;
     busy = null;
     if (viewport) fitView();
     const wanted = Number.isInteger(params.sliceIndex) ? params.sliceIndex : Math.floor(shape[2] / 2);
     return setSlice(wanted);
+  }
+
+  // The MRI slice under the masks (live only: fixture mode has no bytes, and
+  // content.uri answers null there). Not fatal when absent - the masks are
+  // still drawn on the dark extent.
+  async function loadMriUri(z) {
+    if (fixture || !runtime.content || mriUris.has(z)) return;
+    const mri = await client.call('mri_slice_get', { case_id: target.caseId, slice_index: z });
+    mriUris.set(z, mri.state === STATE.SUCCESS ? runtime.content.uri(mri.data.content_url) : null);
   }
 
   // 4. pixels for one slice.
@@ -194,7 +209,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       pixels.set(z, Object.freeze({ kind: PIXELS.SYNTHETIC }));
       return;
     }
-    if (!decodeMaskPng || !fetchBytes) {
+    if (!decodeMaskPng || !runtime.content) {
       pixels.set(z, Object.freeze({ kind: PIXELS.UNAVAILABLE, reason: 'PNG_DECODER_PENDING' }));
       return;
     }
@@ -212,27 +227,27 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     // Whether the slice's prediction_mask_id must equal the run's artifact id
     // is not stated by the contract (the fixture has them differ), so it is
     // shown beside the source identity rather than refused - see the README.
-    let bytes;
-    try {
-      bytes = await fetchBytes(`${runtime.config.apiBaseUrl}${d.content_url}`);
-    } catch (err) {
-      pixels.set(z, Object.freeze({ kind: PIXELS.UNAVAILABLE, reason: 'TRANSPORT_UNREACHABLE' }));
-      return;
-    }
-    // binary_delivery.content_url_rule: the bytes hash to the response checksum.
-    if (`sha256:${sha256Hex(bytes)}` !== d.checksum) {
-      pixels.set(z, Object.freeze({ kind: PIXELS.UNAVAILABLE, reason: 'CHECKSUM_MISMATCH' }));
+    //
+    // The app's one binary path: timeout, error mapping and the checksum check
+    // (binary_delivery.content_url_rule) all happen in runtime.content.
+    const got = await runtime.content.bytes(d.content_url, { checksum: d.checksum, signal, kind: 'mask' });
+    if (got.state !== STATE.SUCCESS) {
+      const reason = got.reason || (got.error && got.error.code) || got.state;
+      pixels.set(z, Object.freeze({ kind: PIXELS.UNAVAILABLE, reason, view: got }));
       return;
     }
     try {
-      const png = decodeMaskPng(bytes);
-      if (png.width !== nx || png.height !== ny) throw new Error(`PNG is ${png.width}x${png.height}, the slice is ${nx}x${ny}`);
+      const png = decodeMaskPng(got.data.bytes, { width: nx, height: ny });
       session.loadSlice(z, png.data);
     } catch (err) {
-      pixels.set(z, Object.freeze({ kind: PIXELS.UNAVAILABLE, reason: 'CONTRACT_DRIFT', detail: String(err && err.message) }));
+      pixels.set(z, Object.freeze({
+        kind: PIXELS.UNAVAILABLE, reason: (err && err.code) || 'CONTRACT_DRIFT', detail: String(err && err.message),
+      }));
       return;
     }
-    pixels.set(z, Object.freeze({ kind: PIXELS.SERVED, checksum: d.checksum, servedMaskId: d.prediction_mask_id ?? null }));
+    pixels.set(z, Object.freeze({
+      kind: PIXELS.SERVED, checksum: d.checksum, verified: got.data.verified === true, servedMaskId: d.prediction_mask_id ?? null,
+    }));
   }
 
   async function setSlice(z) {
@@ -245,6 +260,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       pixels.set(z, Object.freeze({ kind: PIXELS.LOADING }));
       busy = 'slice';
       emit();
+      await loadMriUri(z);
       await loadPixels(z);
       busy = null;
     }
@@ -352,6 +368,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
         total: shape ? shape[2] : null,
         pixels: pixels.get(slice) ?? null,
         maskState: ready ? session.maskState(slice) : null,
+        mriUri: mriUris.get(slice) ?? null,
       }),
       layers: ready ? layersFor(slice) : null,
       transform,
@@ -367,7 +384,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       // SCR-06 never navigates away by itself while any slice is UNSAVED.
       canLeave: !(brush && brush.unsavedSlices.length > 0),
       leaveBlockedReason: brush && brush.unsavedSlices.length > 0
-        ? `Save or cancel the unsaved edits on slice ${brush.unsavedSlices.join(', ')} first - leaving would lose them.`
+        ? `Slice ${brush.unsavedSlices.join(', ')} has unsaved edits; leaving this screen discards them.`
         : null,
     });
   }

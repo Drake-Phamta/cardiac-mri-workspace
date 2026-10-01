@@ -6,12 +6,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { STATE, RECOVERY, fitTransform } from '../../app/core/index.mjs';
+import { STATE, RECOVERY, fitTransform, success, fatalInvalid } from '../../app/core/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/runtime/createRuntime.mjs';
 import { createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE, maskRuns } from '../src/verticals/v4/reviewController.mjs';
 import { syntheticSourceSlice } from '../src/verticals/v4/syntheticSource.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
+import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
 
 const contractJson = readContractJson();
 const RUN = generatedBundleJson().scenarios.analysis_run_get.default.response.data;
@@ -251,7 +252,7 @@ test('RS14 with unsaved slices SCR-06 does not offer to leave by itself (no leav
   ctl.touch.release();
   let s = ctl.getState();
   assert.equal(s.canLeave, false);
-  assert.match(s.leaveBlockedReason, /slice 44/);
+  assert.match(s.leaveBlockedReason, /[Ss]lice 44/);
   ctl.undo();
   assert.equal(ctl.getState().canLeave, true, 'undone back to the source: nothing to lose');
   ctl.redo();
@@ -264,45 +265,45 @@ test('RS14 with unsaved slices SCR-06 does not offer to leave by itself (no leav
   assert.equal(ctl.getState().canLeave, true, 'cancelled back to the save');
 });
 
-test('RS13 live pixels: verified against the checksum, decoded by the injected adapter, refused on drift', async () => {
+test('RS13 live pixels: runtime.content (with the unmount signal) + the shell\'s PNG adapter, refused on drift', async (t) => {
+  const png = await importMaskPngOrSkip(t);
+  if (!png) return;
   const fx = fixtureRuntime();
   const nx = 576;
-  const bytes = new TextEncoder().encode('png bytes stand-in');
-  const sum = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-  // Fault injection over the generated metadata: only the checksum is
-  // replaced, so it matches the stand-in bytes the fake fetch returns.
-  const client = {
-    ...fx.client,
-    call: async (id, p, o) => {
-      const v = await fx.client.call(id, p, o);
-      return id === 'prediction_slice_get' && v.state === STATE.SUCCESS ? { ...v, data: { ...v.data, checksum: sum } } : v;
-    },
+  const served = ellipseMask(nx, nx, 300, 276, 20, 15); // 0 / 255, as binary_delivery serves masks
+  const bytes = encodePng(nx, nx, 0, served);
+  const calls = [];
+  const content = {
+    uri: (u) => `http://backend.test:8000${u}`,
+    bytes: async (url, opts) => { calls.push({ url, opts }); return success({ bytes, size: bytes.length, checksum: opts.checksum, verified: true }); },
   };
-  const live = { ...fx, mode: 'live', client, config: { ...fx.config, apiBaseUrl: 'http://backend.test:8000' } };
-  const fetched = [];
-  const fetchBytes = async (url) => { fetched.push(url); return bytes; };
-  const decoded = new Uint8Array(nx * nx);
-  decoded[276 * nx + 300] = 1;
-  const okDecoder = () => ({ width: nx, height: nx, data: decoded });
-  const ok = createReviewScreen({ runtime: live, params: { runId: 'RUN_0043', caseId: 'CASE_0043', variant: 'RAW' }, decodeMaskPng: okDecoder, fetchBytes });
+  const live = (c) => ({ ...fx, mode: 'live', content: c, config: { ...fx.config, apiBaseUrl: 'http://backend.test:8000' } });
+  const life = new AbortController();
+  const params = { runId: 'RUN_0043', caseId: 'CASE_0043', variant: 'RAW' };
+  const ok = createReviewScreen({ runtime: live(content), params, decodeMaskPng: png.decodeMaskPng, signal: life.signal });
   ok.setViewport(W, H);
   await ok.start();
   const s = ok.getState();
   assert.equal(s.slice.pixels.kind, PIXELS.SERVED, JSON.stringify(s.slice.pixels));
-  assert.ok(fetched[0].startsWith('http://backend.test:8000/api/v1/artifacts/'));
-  assert.deepEqual(s.layers.source, [{ y: 276, x: 300, len: 1 }]);
+  assert.equal(s.slice.pixels.verified, true);
+  const maskCall = calls.find((c) => c.opts.kind === 'mask');
+  assert.equal(maskCall.opts.signal, life.signal, 'the unmount signal reaches the one binary path');
+  assert.match(maskCall.opts.checksum, /^sha256:/, 'the slice checksum is handed over for content to verify');
+  assert.deepEqual(s.layers.source, maskRuns(Uint8Array.from(served, (v) => (v ? 1 : 0)), nx, nx), 'the served mask, decoded exactly');
+  assert.ok(s.slice.mriUri && s.slice.mriUri.startsWith('http://backend.test:8000/'), 'the MRI slice comes from content.uri');
   assert.equal(s.canEdit, true);
 
-  const wrongSize = createReviewScreen({
-    runtime: live, params: { runId: 'RUN_0043', variant: 'RAW' }, fetchBytes,
-    decodeMaskPng: () => ({ width: 288, height: 1152, data: decoded }),
-  });
-  await wrongSize.start();
-  assert.equal(wrongSize.getState().slice.pixels.reason, 'CONTRACT_DRIFT');
+  // runtime.content refusing the bytes (checksum, foreign URL...) -> unavailable, never drawn
+  const refusing = { ...content, bytes: async () => fatalInvalid({ code: 'CONTRACT_DRIFT', safeMessage: 'bytes do not hash to the checksum' }) };
+  const a = createReviewScreen({ runtime: live(refusing), params, decodeMaskPng: png.decodeMaskPng });
+  await a.start();
+  assert.equal(a.getState().slice.pixels.reason, 'CONTRACT_DRIFT');
+  assert.equal(a.getState().canEdit, false);
 
-  const tampered = createReviewScreen({
-    runtime: { ...live, client: fx.client }, params: { runId: 'RUN_0043', variant: 'RAW' }, fetchBytes, decodeMaskPng: okDecoder,
-  });
-  await tampered.start();
-  assert.equal(tampered.getState().slice.pixels.reason, 'CHECKSUM_MISMATCH', 'bytes that do not hash to the checksum are refused');
+  // a PNG of another size -> the adapter throws CONTRACT_DRIFT -> unavailable
+  const small = encodePng(288, 288, 0, ellipseMask(288, 288, 100, 100, 10, 10));
+  const smallContent = { ...content, bytes: async (url, opts) => success({ bytes: small, size: small.length, checksum: opts.checksum, verified: true }) };
+  const b = createReviewScreen({ runtime: live(smallContent), params, decodeMaskPng: png.decodeMaskPng });
+  await b.start();
+  assert.equal(b.getState().slice.pixels.reason, 'CONTRACT_DRIFT');
 });

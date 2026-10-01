@@ -16,16 +16,20 @@
  *   save / cancel                 Save asks first and names the source mask before it sends anything
  *
  * Fixture mode edits a SYNTHETIC stand-in (the bundle has no pixels) and says
- * so on the canvas. Live mode needs the app's PNG adapter; until it is in this
- * build the brush says "PNG decoder pending" and draws no invented mask.
+ * so on the canvas. Live mode fetches the mask bytes through runtime.content
+ * (timeout, checksum, abandoned on unmount), decodes them with the shell's one
+ * PNG adapter (src/imaging/maskPng.js) and draws the MRI slice under them via
+ * runtime.content.uri. While a slice is UNSAVED, a leave guard asks before any
+ * navigation takes the screen - and the brush session - away.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import { Alert, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { G, Rect } from 'react-native-svg';
 
 import { RECOVERY, STATE } from '../../../../app/core/index.mjs';
 import { RADII } from '../../../../app/verticals/v4_review_and_findings/brush.mjs';
+import { decodeMaskPng } from '../../imaging/maskPng';
 import StateView, { StatePanel } from '../../ui/StateView';
 import { color, font, MIN_TOUCH, space } from '../../ui/theme';
 import { createReviewScreen, MASK_STATE, MODE, PHASE, PIXELS, TOOL } from './reviewController.mjs';
@@ -48,8 +52,7 @@ const STATE_BADGE = Object.freeze({
 
 const PIXEL_REASON = Object.freeze({
   PNG_DECODER_PENDING: 'Mask pixels are unavailable in this build: the PNG decoder is pending. Review status still works.',
-  CHECKSUM_MISMATCH: 'The served mask bytes do not match their checksum, so they are not drawn.',
-  CONTRACT_DRIFT: 'The served mask is not the contract\'s 8-bit 0/255 PNG of this slice size, so it is not drawn.',
+  CONTRACT_DRIFT: 'The served mask failed the contract checks (its checksum, or an 8-bit 0/255 PNG of this slice size), so it is not drawn.',
   VARIANT_MISMATCH: 'The server served another prediction variant than this review\'s, so it is not drawn.',
   TRANSPORT_UNREACHABLE: 'The mask bytes could not be fetched.',
 });
@@ -57,12 +60,6 @@ const PIXEL_REASON = Object.freeze({
 const TRANSITION_LABEL = Object.freeze({
   ACCEPTED: 'Accept', FLAGGED: 'Flag', CORRECTED: 'Mark corrected', NOT_REVIEWED: 'Not reviewed',
 });
-
-async function fetchBytes(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return new Uint8Array(await r.arrayBuffer());
-}
 
 function confirm(title, message, onOk) {
   Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'OK', onPress: onOk }]);
@@ -116,12 +113,21 @@ function Canvas({ ctl, st }) {
   const [nx, ny] = st.shape || [0, 0];
   const px = st.slice && st.slice.pixels;
   const badge = st.slice && st.slice.maskState ? STATE_BADGE[st.slice.maskState] : null;
+  const mri = st.slice ? st.slice.mriUri : null;
   return (
     <View style={s.canvas} ref={ref} collapsable={false} onLayout={onLayout} {...responder.panHandlers}>
+      {t && mri && (
+        <Image
+          source={{ uri: mri }}
+          resizeMode="stretch"
+          accessibilityIgnoresInvertColors
+          style={{ position: 'absolute', left: t.panX, top: t.panY, width: nx * t.zoom, height: ny * t.zoom }}
+        />
+      )}
       {t && (
         <Svg width="100%" height="100%" pointerEvents="none">
           <G transform={`translate(${t.panX} ${t.panY}) scale(${t.zoom})`}>
-            <Rect x={0} y={0} width={nx} height={ny} fill={LAYER.extent} />
+            <Rect x={0} y={0} width={nx} height={ny} fill={mri ? 'none' : LAYER.extent} />
             {layers && <Runs runs={layers.source} fill={LAYER.source} opacity={0.45} />}
             {layers && <Runs runs={layers.saved.filter((r) => r.kind === 'add')} fill={LAYER.savedAdd} opacity={0.85} />}
             {layers && <Runs runs={layers.saved.filter((r) => r.kind === 'erase')} fill={LAYER.savedErase} opacity={0.9} />}
@@ -162,23 +168,43 @@ function Legend() {
 }
 
 export default function ReviewCorrectionScreen({ runtime, nav, params }) {
-  // The app's one PNG adapter (mobile/src/imaging/maskPng.js) is not in this
-  // build yet; until it is, live pixels are honestly unavailable.
-  const ctl = useMemo(() => createReviewScreen({ runtime, params, decodeMaskPng: null, fetchBytes }), [runtime, params]);
+  // One AbortController per screen instance: unmounting abandons a byte fetch
+  // still in flight (runtime.content honours the signal).
+  const life = useMemo(() => (typeof AbortController === 'function' ? new AbortController() : null), [runtime, params]);
+  const ctl = useMemo(
+    () => createReviewScreen({ runtime, params, decodeMaskPng, signal: life ? life.signal : null }),
+    [runtime, params, life],
+  );
   const [, tick] = useReducer((n) => n + 1, 0);
   useEffect(() => ctl.subscribe(tick), [ctl]);
   useEffect(() => { ctl.start(); }, [ctl]);
+  useEffect(() => () => { if (life) life.abort(); }, [life]);
   const st = ctl.getState();
+
+  // N-2: a covered screen unmounts in this navigator, so leaving with UNSAVED
+  // slices would drop the brush session. While any slice is unsaved, every
+  // way off the screen (Back, Android back, a tab, a push) asks first.
+  const guarded = typeof nav.setLeaveGuard === 'function';
+  useEffect(() => {
+    if (!guarded) return;
+    if (st.canLeave) { nav.setLeaveGuard(null); return; }
+    nav.setLeaveGuard(() => new Promise((resolve) => {
+      Alert.alert('Unsaved edits', `${ctl.getState().leaveBlockedReason} Leave anyway?`, [
+        { text: 'Stay', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Discard and leave', style: 'destructive', onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) });
+    }));
+  }, [guarded, st.canLeave, nav, ctl]);
 
   const onAction = useCallback((id) => {
     if (id === RECOVERY.BACK) {
-      // Never leave by ourselves with unsaved slices: the navigator would
-      // unmount this screen and drop them (no leave guard in the shell yet).
+      // With the shell's guard the navigator asks; without it, never leave by
+      // ourselves while a slice is unsaved.
       const now = ctl.getState();
-      if (now.canLeave) nav.pop();
+      if (guarded || now.canLeave) nav.pop();
       else Alert.alert('Unsaved edits', now.leaveBlockedReason);
     } else if (id === RECOVERY.REFRESH || id === RECOVERY.RETRY) ctl.refresh();
-  }, [ctl, nav]);
+  }, [ctl, nav, guarded]);
 
   if (st.phase === PHASE.CHOOSE_VARIANT) {
     return (
@@ -281,12 +307,12 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
           <Btn label="Cancel edits" disabled={!editable || b.unsavedSlices.length === 0}
             onPress={() => confirm('Discard unsaved edits?', 'The working mask goes back to the last save (or the source).', () => ctl.cancel())} />
           <Btn label={st.busy === 'saving' ? 'Saving…' : 'Save'} active disabled={!st.canSave} onPress={askSave} testID="save" />
-          <Btn label="New finding here" disabled={!st.canLeave}
+          <Btn label="New finding here" disabled={!guarded && !st.canLeave}
             onPress={() => nav.push('SCR-08', {
               caseId: st.target.caseId, runId: st.target.runId, variant: st.target.variant, sliceIndex: st.slice.index,
             })} />
         </View>
-        {!st.canLeave && <Text style={s.hint}>{st.leaveBlockedReason}</Text>}
+        {!guarded && !st.canLeave && <Text style={s.hint}>{st.leaveBlockedReason}</Text>}
       </ScrollView>
     </View>
   );

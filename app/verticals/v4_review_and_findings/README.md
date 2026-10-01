@@ -174,11 +174,9 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
   save goes through. A real backend answers a new id per commit.
 - **The generator has no `stale_revision` scenario for `finding_patch`**, so the FIXTURE panel cannot show a stale
   finding edit; test `F10` injects the generator's own STALE_REVISION envelope instead.
-- **Unsaved edits can still be lost by leaving SCR-06 from outside it.** The navigator unmounts a covered screen,
-  a tab tap resets the stack, and Android back pre-empts a screen's own guard, so the brush session goes with
-  the screen. Until the shell adds `nav.setLeaveGuard(fn)`, SCR-06 itself never navigates away while a slice is
-  UNSAVED ("New finding here" and Back are disabled, with the reason shown) — but a tab tap or the hardware back
-  button can still drop the edits.
+- **Leaving SCR-06 with unsaved edits asks first.** While any slice is UNSAVED the screen registers the shell's
+  `nav.setLeaveGuard`, so Back, the Android back button, a tab and a push (a covered screen unmounts) all ask
+  "Discard and leave?" before the brush session goes.
 
 ### The screens (`mobile/src/verticals/v4/`)
 
@@ -201,15 +199,10 @@ In the FIXTURE panel, `working_mask_put` / `review_commit` → `stale_revision` 
   pixel after zoom/pan, on the phone). Also time `loadSlice` on the A17: it hashes each 576×576 source slice
   once, which a slice switch in SCR-06 pays. Every render re-scans the slice for the diff layers and the mask
   states — if the stroke feedback misses 100 ms on the A17, start there (track dirty rows instead).
-- **Live pixels:** when the shell's binary path lands, pass `runtime.content.bytes` (transport timeout,
-  TRANSPORT_UNREACHABLE, checksum check) as `fetchBytes` with an `AbortSignal` tied to unmount — the bare `fetch` in
-  `ReviewCorrectionScreen.js` has no timeout, so a stalled overlay would leave SCR-06 loading — and decode through
-  the shell's `mobile/src/imaging/maskPng.js` (it passes `decodeMaskPng: null` today, so live mode says "PNG
-  decoder pending"). Then draw the MRI slice (`runtime.content.uri(content_url)`) under the masks. Ask the backend
-  whether a slice's `prediction_mask_id` is the run's `raw/processed_prediction_artifact_id`; the screen shows
-  both and checks neither.
-- **Leave guard:** when the shell adds `nav.setLeaveGuard(fn)`, register one in SCR-06 that asks before leaving
-  with UNSAVED slices (tab tap and Android back included), and re-enable "New finding here" through it.
+- **Live pixels on the backend:** SCR-06 fetches mask bytes through `runtime.content.bytes` (timeout, checksum,
+  abandoned on unmount), decodes them with the shell's `src/imaging/maskPng.js`, and draws the MRI slice from
+  `runtime.content.uri`. Check it against the real backend, and ask whether a slice's `prediction_mask_id` is the
+  run's `raw/processed_prediction_artifact_id`; the screen shows both and checks neither.
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
   `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
