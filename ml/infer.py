@@ -154,6 +154,21 @@ def _check_authorization(partition: str, holdout_authorization: dict | None,
     return record
 
 
+def resolve_runtime(device, precision: str | None, config: dict) -> tuple[str, str]:
+    """(device string, precision actually used).
+
+    Any CUDA spelling ("cuda", "cuda:0", torch.device("cuda", 0)) is recognised through
+    torch.device(...).type, never a string comparison; autocast is CUDA-only, so a CPU run
+    records fp32 whatever was asked.
+    """
+    device = device or config.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
+    if M._device_kind(device) == "cuda":
+        precision = precision or config.get("precision") or "bf16"
+    else:
+        precision = "fp32"
+    return str(device), precision
+
+
 def _read_progress(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -207,8 +222,7 @@ def predict_population(run_dir: str | Path, partition: str = "validation", *, ch
         _resolve(paths_cfg.get("dataset_manifest"), D.DEFAULT_DATASET_MANIFEST))
     package_root = Path(package_root or _resolve(paths_cfg.get("package_root"), D.DEFAULT_PACKAGE_ROOT))
     paths = D.case_paths(dataset_manifest, package_root, allowlist=allow)
-    device = device or config.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
-    precision = precision or (config.get("precision") if device == "cuda" else "fp32") or "fp32"
+    device, precision = resolve_runtime(device, precision, config)
     batch = int(batch or config.get("val_batch") or config.get("batch") or 4)
 
     pred_dir.mkdir(parents=True, exist_ok=True)

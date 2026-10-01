@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -124,10 +125,28 @@ def test_complete_run_is_skipped_and_a_changed_config_refused(trained):
 
 @pytest.mark.parametrize("change", [{"batch": 3}, {"precision": "bf16"}, {"typo_key": 1},
                                    {"subset": "75_percent"}, {"img": 100}, {"variant": "resnet"},
-                                   {"experiment_id": "../escape"}])
+                                   {"experiment_id": "../escape"}, {"device": "cuda:0"}])
 def test_bad_configs_are_refused(pkg, tmp_path, change):
+    # "cuda:0" is refused rather than reinterpreted, so no run can silently drop bf16
     with pytest.raises((T.ConfigError, ValueError)):
         T.validate_config(make_config(pkg, tmp_path, **change))
+
+
+@pytest.mark.parametrize("device,asked,config,expect", [
+    ("cuda", None, {"precision": "bf16"}, ("cuda", "bf16")),
+    ("cuda:0", None, {"precision": "bf16"}, ("cuda:0", "bf16")),
+    (torch.device("cuda", 0), None, {}, ("cuda:0", "bf16")),
+    (torch.device("cuda"), "fp32", {"precision": "bf16"}, ("cuda", "fp32")),
+    ("cpu", "bf16", {"precision": "bf16"}, ("cpu", "fp32")),
+    (None, None, {"device": "cpu", "precision": "bf16"}, ("cpu", "fp32")),
+])
+def test_infer_runtime_recognises_every_cuda_spelling(device, asked, config, expect):
+    assert I.resolve_runtime(device, asked, config) == expect
+
+
+def test_runs_root_is_not_machine_specific(monkeypatch):
+    assert T.DEFAULT_RUNS_ROOT == (Path(os.environ["CARDIAC_RUNS_ROOT"]) if os.environ.get("CARDIAC_RUNS_ROOT")
+                                   else D.main_checkout_root().parent / "cardiac-runs")
 
 
 def test_run_dir_inside_git_is_refused(pkg):

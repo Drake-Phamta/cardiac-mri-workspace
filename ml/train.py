@@ -38,7 +38,10 @@ WHAT IT DOES (the ADR-ML-001 recipe, declared before any result)
     * when all epochs are done: optional validation predictions + evaluation, then
       run_manifest.json with the `08` section 10 fields. Its presence means COMPLETE.
 
-Run directories live OUTSIDE git: default D:\\02_Research\\cardiac-runs\\<experiment_id>\\.
+Run directories live OUTSIDE git: <CARDIAC_RUNS_ROOT>/<experiment_id>/, where
+CARDIAC_RUNS_ROOT is the environment variable, else `cardiac-runs` next to the main checkout
+of this repository (ml.data.main_checkout_root(); no machine-specific path is hard-coded).
+The device is "cuda" or "cpu" exactly; any other spelling is refused, never reinterpreted.
 """
 
 from __future__ import annotations
@@ -64,7 +67,7 @@ from ml import infer as I
 from ml import manifests as MF
 from ml import models as M
 
-DEFAULT_RUNS_ROOT = Path(os.environ.get("CARDIAC_RUNS_ROOT", r"D:\02_Research\cardiac-runs"))
+DEFAULT_RUNS_ROOT = Path(os.environ.get("CARDIAC_RUNS_ROOT") or D.main_checkout_root().parent / "cardiac-runs")
 TRAIN_CODE_VERSION = "ml-train-1.0.0"
 REQUIRED = {"experiment_id": str, "variant": str, "subset": str, "epochs": int, "batch": int,
             "lr": float, "img": int, "seed": int}
