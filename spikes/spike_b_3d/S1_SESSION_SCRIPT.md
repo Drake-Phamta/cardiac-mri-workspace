@@ -60,6 +60,7 @@ gitignored meshes the extractor needs. Every command below runs from it.
 folder that does not exist yet, outside the repository):
 
 ```powershell
+. {
 $WT  = "<A4 worktree path - PR #73 description>"
 $APK = "<APK path - PR #73 description>"
 $S1  = "<NEW folder outside the repository, e.g. ...\s1_sessions\s1_20261001_1900>"
@@ -68,18 +69,22 @@ if ((git branch --show-current) -ne "spike-b/day22-s1-device-session") { throw "
 $ADB = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 $REC = Join-Path (Split-Path $APK) "build_record.json"
 foreach ($p in @($ADB, $APK, $REC)) { if (-not (Test-Path $p)) { throw "STOP: missing $p" } }
+if ((Get-FileHash $APK -Algorithm SHA256).Hash -ne "212dd248614e5131b2cdc39c6eb5196b0cb838570cf363da7fcf9509b989f978") { throw "STOP: not the session APK" }
 if ([IO.Path]::GetFullPath($S1).StartsWith([IO.Path]::GetFullPath($WT))) { throw "STOP: `$S1 must be outside the repository" }
 "OK  worktree $WT  apk $(Split-Path -Leaf $APK)  session folder $S1"
+}
 ```
 
 **Block B — window 1 only** (creates the session folder, then runs the collector for the whole session;
 it prints a line every 100 records):
 
 ```powershell
+. {
 if (Test-Path $S1) { throw "STOP: $S1 already exists - choose a NEW folder" }
 New-Item -ItemType Directory $S1 | Out-Null
 git rev-parse HEAD | Out-File -Encoding ascii "$S1\repository_commit.txt"
 python spikes\spike_b_3d\harness\s1_collector.py --out $S1
+}
 ```
 
 ## 1 · Phone preparation (operator)
@@ -91,6 +96,8 @@ python spikes\spike_b_3d\harness\s1_collector.py --out $S1
 4. **Block C — window 2 only** (the serial is derived, never typed, and never committed):
 
 ```powershell
+. {
+if (-not (Test-Path "$S1\repository_commit.txt")) { throw "STOP: window 2 `$S1 is not the folder window 1 created" }
 $found = @(& $ADB devices -l | Select-String "model:SM_A176B" | Where-Object { $_.Line -match "\sdevice\s" })
 if ($found.Count -ne 1) { throw "STOP: need exactly one authorised SM-A176B on adb; found $($found.Count)" }
 $SERIAL = ($found[0].Line -split "\s+")[0]
@@ -98,12 +105,14 @@ $SERIAL = ($found[0].Line -split "\s+")[0]
 & $ADB -s $SERIAL reverse tcp:8766 tcp:8766
 & $ADB -s $SERIAL shell monkey -p com.cardiacmri.spikebs1 1         # or tap the "Spike B S-1" icon
 python spikes\spike_b_3d\harness\s1_session.py start --out $S1 --serial $SERIAL --build-record $REC
+}
 ```
 
-`start` must print **`READY`** and `matches build record: True`. Then read the app's bottom line: it must
-show **`POST ok ≥ 1 · POST fail 0`** (the app's first record reached the collector). If `start` prints
-`NOT READY`, fix the listed item and run `start` again — it only keeps `session_NOT_READY.json`.
+`start` must print **`READY`** and `matches build record: True`. If `start` prints `NOT READY`, fix the
+listed item and run `start` again — it only keeps `session_NOT_READY.json`.
 **Never re-run `start` after `READY`**: if the session has to be restarted, use a new `$S1` (Block A + B).
+
+> After step a on **L0**, window 2: `(Invoke-RestMethod http://127.0.0.1:8766/health).records` must be **≥ 3**. If it is 0: run the `reverse` line again, tap **L0** again, check again; still 0 → STOP. (The app's `POST ok` line refreshes only when the screen changes.)
 
 ## 2 · The levels — phone time ≤ 45 min in total
 
@@ -141,7 +150,7 @@ crash). The extractor needs those times to tell repeated records apart. To redo 
 | `start` says `matches build record: False` | **STOP.** Wrong APK installed. Do not measure. |
 | `Ln loaded` shows the wrong triangle count, or loading takes > 30 s | Tap **L*n*** once more (note the time). Still wrong → skip that level; if it is **L0 → STOP**. |
 | A second `ERROR:` status on the same level | Skip the level (note the time); if it is **L0 → STOP**. |
-| Phone very hot, or `conditions` / the workstation reports thermal status ≥ 2 | Wait 5 min with the screen on; then `finish` (section 3) with what you have. |
+| Phone very hot, or thermal status ≥ 2 (window 2: `& $ADB -s $SERIAL shell dumpsys thermalservice \| Select-String "Thermal Status"`) | Wait 5 min with the screen on; then `finish` (section 3) with what you have. |
 | USB disconnected | Reconnect, run `& $ADB -s $SERIAL reverse tcp:8766 tcp:8766` again, continue; note the time. |
 | Window 1 stopped counting AND the app's `POST fail` keeps rising | Finish the current level (logcat is the second copy), then `finish`. |
 | 45 minutes of phone time reached | Stop after the current level and `finish`. |
@@ -183,7 +192,7 @@ Quick checks while the session runs (window 2):
 ```powershell
 (Select-String -Path "$S1\s1_collector.jsonl" -Pattern '"kind": "s1_frame_probe"').Count
 (Select-String -Path "$S1\s1_collector.jsonl" -Pattern '"kind": "s1_rn_nav_displayed"').Count
-(Select-String -Path "$S1\s1_collector.jsonl" -Pattern '"kind": "webview_error"|"kind": "s1_error"').Count   # must be 0
+(Select-String -Path "$S1\s1_collector.jsonl" -Pattern '"kind": "(webview_error|s1_error|s1_rn_webview_error|s1_rn_nav_error|webview_rejection|s1_nav_ack_timeout)"').Count   # must be 0
 ```
 
 ## 5 · Extraction (after the session — A4 / the owner, not the operator)
@@ -204,12 +213,12 @@ python spikes\spike_b_3d\harness\s1_export_evidence.py --session $S1 --out spike
 **What goes into git afterwards** (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/`, written by the
 command above, which also refuses to finish if the serial survives anywhere):
 `PROVENANCE.md` (from the template below), `session_state.json`, `conditions_before.json`,
-`conditions_after.json`, `repository_commit.txt`, the frame-probe records only (timings, no anatomy), and
-`s1_results.json` with the per-pick table reduced to slice indices and errors. **Not** committed: the APK,
-the meshes, `installed_base.apk`, and the raw pick records / logcat, which contain surface coordinates of
-the patient's anatomy — their SHA-256 are in `session_state.json`, the files stay in `$S1`.
-`session_state.json` and `conditions_*.json` carry the handset serial: replace it with `<A17_SERIAL>` in the
-committed copies (the repository is public) and record the SHA-256 of the unredacted originals.
+`conditions_after.json`, `repository_commit.txt`, `frame_probes.jsonl` (the frame-probe records only:
+timings, no anatomy), `s1_results.json`, `s1_per_pick.csv` (slice indices and errors, no coordinates) and
+`hashes.json`. **Not** committed: the APK, the meshes, `installed_base.apk`, and the raw pick records /
+logcat, which contain surface coordinates of the patient's anatomy — their SHA-256 are in `hashes.json`,
+the files stay in `$S1`. The exporter replaces the handset serial with `<A17_SERIAL>` in every copied file
+(the repository is public) and records the SHA-256 of the unredacted originals in `hashes.json`.
 
 ## 6 · PROVENANCE template (fill in, commit with the evidence)
 
@@ -243,5 +252,6 @@ committed copies (the repository is public) and record the SHA-256 of the unreda
 
 ## Kept outside git (patient-derived)
 APK, meshes, installed_base.apk, s1_collector.jsonl, logcat_stream.txt, logcat_dump.txt,
-s1_logcat_payloads.json, s1_per_pick.csv — SHA-256 in session_state.json.
+s1_logcat_payloads.json — SHA-256 in hashes.json. (s1_per_pick.csv IS committed: slice indices and
+errors only, no coordinates.)
 ```
