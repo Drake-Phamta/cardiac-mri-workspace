@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Cardiac MRI Workspace",
+    "slug": "cardiac-mri-workspace",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "backgroundColor": "#0e1116",
+    "android": {
+      "package": "com.cardiacmri.workspace",
+      "versionCode": 1
+    },
+    "plugins": [
+      "./plugins/withCleartextLocalDemo"
+    ]
+  }
+}
