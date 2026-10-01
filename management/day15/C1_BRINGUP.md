@@ -819,3 +819,18 @@ python spikes\spike_c_ml\c1\preflight.py check `
 
 `GATE-SPLIT-01` closes on QA-005 PASS of the merged split. The leader's session records that
 transition; this document does not.
+
+### 11.7 Day 22 real-data acceptance, 2026-10-01 11:47 +07:00 (stat and `os.link` only)
+
+The code was at commit `1f6ff5b` (`repo_c1_code_dirty: false`). The gates were **declared** by the
+operator as instructed for the Day 22 run. Both JSON files are outside Git. The paths below are
+written as placeholders.
+
+| Run | Data root | Result | `validation_paths_resolved` | `holdout_paths_resolved` | JSON (SHA-256 of the file) |
+|---|---|---|---:|---:|---|
+| `make-root --layout hardlink` | `<data-dir>\c1\root_hardlink` | 78 linked, 0 failed. 78 case dirs, 156 hard links (MRI + mask), no companion volumes | — | — | — |
+| `check`, `C1-PREFLIGHT-DAY22` | that root | **RUNNABLE**, exit 0. 41/41 checks pass. `is_spike_c1_evidence: true`. Split pin `c5c65a09…396d` matches. Derived exclusions `CASE_0117`, `CASE_0133` | **0** | **0** | `<data-dir>\c1\preflight_day22.json` (`aa0c85ba…8f93`) |
+| `check`, negative control | `<package-root>` (naive) | **REFUSED**, exit 1. Failing checks: `ROOT-NOT-PACKAGE`, `ROOT-IS-ALLOWLIST-ONLY`, `ENTRY-TARGETS-VERIFIED`, `NO-FILE-IS-VALIDATION-OR-HOLDOUT`, `VALIDATION-UNREACHABLE`, `HOLDOUT-UNREACHABLE`, `TRAINING-COMPLETE` | **20** | **54** | `<data-dir>\c1\preflight_day22_negative_control.json` (`6810a632…d38f`) |
+
+The preflight is runnable. That is **not** a C1 result. Zero of the ten C1 criteria are measured by
+it, and `GATE-ML-01` stays OPEN.
