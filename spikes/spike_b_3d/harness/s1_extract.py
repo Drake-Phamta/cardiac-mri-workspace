@@ -66,6 +66,14 @@ PICK_KINDS = ("s1_pick", "s1_nav_request", "s1_rn_nav_displayed", "s1_nav_ack_ti
 REDACTED_SERIAL = "<A17_SERIAL>"
 
 
+def _git(*args) -> str:
+    import subprocess
+    try:
+        return subprocess.run(["git", "-C", REPO, *args], capture_output=True, text=True, timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
 def nearest_rank(sorted_values, p):
     if not sorted_values:
         return None
@@ -88,10 +96,18 @@ def read_http(session):
     return out
 
 
+LOGCAT_TIME = re.compile(r"^(\d\d-\d\d \d\d:\d\d:\d\d\.\d\d\d)")
+
+
 def parse_logcat_lines(lines):
-    """Payloads in line order; a chunked message is placed where its last chunk arrived."""
+    """Payloads in line order; a chunked message is placed where its last chunk arrived.
+
+    Each payload carries `_logcat_time`, the device clock of the line that completed it.
+    """
     out, chunks = [], {}
     for line in lines:
+        ts = LOGCAT_TIME.match(line)
+        ts = ts.group(1) if ts else None
         m = re.search(rf"{TAG}_CHUNK (\S+) (\d+)/(\d+) (.*)$", line)
         if m:
             cid, idx, count, part = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
@@ -100,14 +116,14 @@ def parse_logcat_lines(lines):
             if len(c["parts"]) == c["count"]:
                 text = "".join(c["parts"][i] for i in range(1, count + 1))
                 try:
-                    out.append(json.loads(text))
+                    out.append({**json.loads(text), "_logcat_time": ts})
                 except json.JSONDecodeError:
                     out.append({"kind": "unparsed_chunked", "chunk_id": cid})
             continue
         m = re.search(rf"{TAG} (\{{.*\}})\s*$", line)
         if m:
             try:
-                out.append(json.loads(m.group(1)))
+                out.append({**json.loads(m.group(1)), "_logcat_time": ts})
             except json.JSONDecodeError:
                 out.append({"kind": "unparsed"})
     incomplete = [cid for cid, c in chunks.items() if len(c["parts"]) != c["count"]]
@@ -115,15 +131,31 @@ def parse_logcat_lines(lines):
 
 
 def read_logcat(session):
+    """The LONGER of the live stream and the end-of-session dump, as s1_session.finish does (QA X1):
+    a USB drop cuts the stream while the dump still holds the whole buffer."""
+    tagged = {}
     for name in ("logcat_stream.txt", "logcat_dump.txt"):
         path = os.path.join(session, name)
         if os.path.exists(path):
             with open(path, encoding="utf-8", errors="replace") as fh:
-                lines = [ln for ln in fh.read().splitlines() if TAG in ln]
-            if lines:
-                recs, incomplete = parse_logcat_lines(lines)
-                return recs, incomplete, name
-    return [], [], None
+                tagged[name] = [ln for ln in fh.read().splitlines() if TAG in ln]
+    used, info = choose_logcat_source(tagged)
+    if used is None:
+        return [], [], None, info
+    recs, incomplete = parse_logcat_lines(tagged[used])
+    return recs, incomplete, used, info
+
+
+def choose_logcat_source(tagged):
+    """{file name: tagged lines} -> (the longer source, counts); a tie keeps the live stream."""
+    info = {name: len(lines) for name, lines in tagged.items()}
+    if not any(tagged.values()):
+        return None, info
+    used = max(tagged, key=lambda n: (len(tagged[n]), n == "logcat_stream.txt"))
+    others = [n for n in tagged if n != used]
+    info["used"] = used
+    info["lines_only_in_the_other_source"] = (len(set(tagged[others[0]]) - set(tagged[used])) if others else 0)
+    return used, info
 
 
 # --- segmentation (QA F3) -----------------------------------------------------------------
@@ -142,7 +174,8 @@ def segment_records(records):
             seg_id = f"{r.get('session_id')}@{r.get('t_ms')}"
             suite = 0
             segments.append({"segment": seg_id, "level": r.get("level"),
-                             "opened_at_utc": r.get("_received_at_utc")})
+                             "opened_at_utc": r.get("_received_at_utc"),
+                             "opened_at_device_logcat": r.get("_logcat_time")})
         elif kind == "s1_suite_start":
             suite += 1
         out.append({**r, "_segment": seg_id, "_suite": suite})
@@ -158,20 +191,28 @@ def key_of(r):
     return None
 
 
-def index_unique(records, path_name):
-    """{key: record}; refuses on a repeated key - pick ids only repeat ACROSS page loads."""
-    keyed, repeats = {}, []
+def index_keys(records):
+    """({key: first record}, repeated keys, repeated displays). Pick ids only repeat ACROSS page
+    loads; a repeated key inside one is unexplained - except a second display of the same pick,
+    which is a B7 anomaly to report, not a reason to refuse everything."""
+    keyed, repeats, dup_displays = {}, [], []
     for r in records:
         key = key_of(r)
         if key is None:
             continue
         if key in keyed:
-            repeats.append(key)
+            (dup_displays if key[1] == "s1_rn_nav_displayed" else repeats).append((key, r))
             continue
         keyed[key] = r
+    return keyed, repeats, dup_displays
+
+
+def index_unique(records, path_name):
+    """index_keys, refusing on an unexplained repeat."""
+    keyed, repeats, _dups = index_keys(records)
     if repeats:
         raise SystemExit(f"{path_name}: {len(repeats)} unexplained repeated record(s) inside one page "
-                         f"load, e.g. {repeats[:5]}. Refusing to compute: find out why before any number.")
+                         f"load, e.g. {[k for k, _ in repeats[:5]]}. Refusing to compute: find out why first.")
     return keyed
 
 
@@ -180,20 +221,29 @@ def strip_private(r):
 
 
 def choose_primary(http, logcat):
+    """Logcat is primary when it has at least as many keyed records (it keeps emission order; HTTP
+    arrival order can swap records at a page-load boundary); otherwise HTTP. Only the PRIMARY's
+    repeats refuse (QA X2); the secondary's are reported - a POST lost during a USB reconnect must
+    not block an extraction whose logcat copy is complete."""
     hs, hseg = segment_records(http)
     ls, lseg = segment_records(logcat)
-    hk = index_unique(hs, "HTTP collector")
-    lk = index_unique(ls, "logcat")
-    primary = "http" if len(hk) >= len(lk) and hk else "logcat"
-    p_recs, p_keys, p_segs = (hs, hk, hseg) if primary == "http" else (ls, lk, lseg)
-    s_keys = lk if primary == "http" else hk
+    hk, hrep, hdup = index_keys(hs)
+    lk, lrep, ldup = index_keys(ls)
+    primary = "logcat" if lk and len(lk) >= len(hk) else "http"
+    p_recs, p_keys, p_segs, p_rep, p_dup = (ls, lk, lseg, lrep, ldup) if primary == "logcat" else (hs, hk, hseg, hrep, hdup)
+    s_keys, s_rep, s_segs = (hk, hrep, hseg) if primary == "logcat" else (lk, lrep, lseg)
+    if p_rep:
+        raise SystemExit(f"{primary} (primary): {len(p_rep)} unexplained repeated record(s) inside one page "
+                         f"load, e.g. {[k for k, _ in p_rep[:5]]}. Refusing to compute: find out why first.")
     same = sum(1 for k in set(p_keys) & set(s_keys)
                if json.dumps(strip_private(p_keys[k]), sort_keys=True) == json.dumps(strip_private(s_keys[k]), sort_keys=True))
     check = {"primary": primary, "primary_keyed": len(p_keys), "secondary_keyed": len(s_keys),
              "in_both_identical": same, "in_both_different": len(set(p_keys) & set(s_keys)) - same,
              "only_in_primary": len(set(p_keys) - set(s_keys)), "only_in_secondary": len(set(s_keys) - set(p_keys)),
-             "segments_primary": len(p_segs), "segments_secondary": len(lseg if primary == "http" else hseg)}
-    return p_recs, p_keys, p_segs, check
+             "segments_primary": len(p_segs), "segments_secondary": len(s_segs),
+             "secondary_repeats_reported_not_used": len(s_rep),
+             "primary_duplicate_displays": len(p_dup)}
+    return p_recs, p_keys, p_segs, check, p_dup
 
 
 # --- per-run frame statistics ---------------------------------------------------------------
@@ -229,13 +279,26 @@ def b10_b11(runs):
 
 # --- B7 / B9 bookkeeping, pure (unit-tested by --self-test) ------------------------------------
 
-def b7_b9_from(keyed):
-    """Per (segment, pick_id): requests, displays, picks. Returns per-level B7 / B9 code-path facts."""
+def b7_b9_from(keyed, dup_displays=()):
+    """Per (segment, pick_id): requests, displays, picks. Returns per-level B7 / B9 code-path facts.
+
+    A second display of the same pick in one page load is a B7 anomaly: reported, and a failure
+    when it shows a different slice from the first."""
     picks = {(k[0], k[2]): r for k, r in keyed.items() if k[1] == "s1_pick"}
     reqs = {(k[0], k[2]): r for k, r in keyed.items() if k[1] == "s1_nav_request"}
     shown = {(k[0], k[2]): r for k, r in keyed.items() if k[1] == "s1_rn_nav_displayed"}
     timeouts = {(k[0], k[2]) for k in keyed if k[1] == "s1_nav_ack_timeout"}
     per_level: dict = {}
+    for key, r in dup_displays:
+        lv = per_level.setdefault(r.get("level"), {"requests": 0, "ok": 0, "failures": [], "latencies": [],
+                                                   "orphans": 0, "nonresolved_navigated": 0})
+        lv.setdefault("duplicate_displays", 0)
+        lv["duplicate_displays"] += 1
+        first = shown.get((key[0], key[2]))
+        if first is None or first.get("displayed_slice") != r.get("displayed_slice"):
+            lv["failures"].append({"segment": key[0], "pick_id": key[2], "requested": r.get("requested_slice"),
+                                   "displayed": r.get("displayed_slice"), "timeout": False,
+                                   "note": "second display of the same pick with a different slice"})
     for pk, req in reqs.items():
         lv = per_level.setdefault(req.get("level"), {"requests": 0, "ok": 0, "failures": [], "latencies": [],
                                                      "orphans": 0, "nonresolved_navigated": 0})
@@ -259,6 +322,52 @@ def b7_b9_from(keyed):
             per_level.setdefault(p.get("level"), {"requests": 0, "ok": 0, "failures": [], "latencies": [],
                                                   "orphans": 0, "nonresolved_navigated": 0})["nonresolved_navigated"] += 1
     return per_level
+
+
+def parse_exclusions(items, known):
+    """--exclude-suite <segment>.<suite>=<reason> -> {(segment, suite): reason}; an unknown target refuses."""
+    out = {}
+    for item in items or []:
+        spec, _, reason = item.partition("=")
+        seg_no, _, suite_no = spec.partition(".")
+        if not reason or not seg_no.isdigit() or not suite_no.isdigit():
+            raise SystemExit(f"--exclude-suite wants <segment>.<suite>=<reason>; got {item!r}")
+        target = (int(seg_no), int(suite_no))
+        if target not in known:
+            raise SystemExit(f"--exclude-suite {spec}: no such suite with frame probes; known: {sorted(known)}")
+        out[target] = reason
+    return out
+
+
+def dr008c_decision(levels, frontier):
+    """The pre-declared DR-008c rule (QA N7, X3).
+
+    Eligible: offline B5 within +/-1 (PR #66) AND B10 PASS AND B11 PASS (>= 3 complete valid runs).
+    Fastest = highest min-over-runs nearest-rank median FPS; a tie goes to fewer triangles.
+      CHOSEN          some level is eligible
+      NOT_DETERMINED  none is, and a B5-eligible level is NOT MEASURED (< 3 valid runs): re-measure
+      NEGATIVE_RESULT none is, and every B5-eligible level was measured and failed B10 or B11
+    """
+    b5 = {lv["level"]: lv["b5"]["verdict"] for lv in frontier["levels"]}
+    rows = []
+    for lv in levels:
+        bb = lv["b10_b11"]
+        rows.append({"level": lv["level"], "triangles": (lv.get("mesh") or {}).get("triangle_count"),
+                     "b5_offline": b5.get(lv["level"], "NOT MEASURED"),
+                     "complete_valid_runs": bb["complete_valid_runs"], "median_fps": bb["median_fps_level"],
+                     "longest_stall_ms": bb["longest_stall_max_over_runs"], "B10": bb["B10"], "B11": bb["B11"],
+                     "eligible": b5.get(lv["level"]) == "WITHIN_BOUND" and bb["B10"] == "PASS" and bb["B11"] == "PASS"})
+    ok = [r for r in rows if r["eligible"]]
+    if ok:
+        best = max(ok, key=lambda r: (round(r["median_fps"], 6), -(r["triangles"] or 0)))
+        return {"status": "CHOSEN", "level": best["level"], "rows": rows, "not_measured": []}
+    measured_b5 = [lv for lv, v in b5.items() if v == "WITHIN_BOUND"]
+    not_measured = [{"level": r["level"], "complete_valid_runs": r["complete_valid_runs"]}
+                    for r in rows if r["b5_offline"] == "WITHIN_BOUND" and "NOT MEASURED" in (r["B10"], r["B11"])]
+    missing = [lv for lv in measured_b5 if lv not in {r["level"] for r in rows}]
+    not_measured += [{"level": lv, "complete_valid_runs": 0} for lv in missing]
+    status = "NOT_DETERMINED" if not_measured else "NEGATIVE_RESULT"
+    return {"status": status, "level": None, "rows": rows, "not_measured": not_measured}
 
 
 # --- publishing (QA F4) ------------------------------------------------------------------------
@@ -290,21 +399,17 @@ def run(args) -> int:
     if not data_root:
         raise SystemExit("set CARDIAC_DATA_ROOT or pass --data-root <extracted LASC package>")
     http = read_http(args.session)
-    logcat, incomplete, logcat_file = read_logcat(args.session)
-    records, keyed, segments, path_check = choose_primary(http, logcat)
+    logcat, incomplete, logcat_file, logcat_info = read_logcat(args.session)
+    records, keyed, segments, path_check, dup_displays = choose_primary(http, logcat)
     path_check["logcat_file"] = logcat_file
+    path_check["logcat_tagged_lines"] = logcat_info
     path_check["logcat_incomplete_chunks"] = len(incomplete)
     if not keyed:
         raise SystemExit("no keyed S-1 records in this session folder")
 
-    exclusions = {}
-    for item in args.exclude_suite or []:
-        spec, _, reason = item.partition("=")
-        seg_no, _, suite_no = spec.partition(".")
-        if not reason or not seg_no.isdigit() or not suite_no.isdigit():
-            raise SystemExit(f"--exclude-suite wants <segment>.<suite>=<reason>; got {item!r}")
-        exclusions[(int(seg_no), int(suite_no))] = reason
     seg_ordinal = {s["segment"]: i + 1 for i, s in enumerate(segments)}
+    known_suites = {(seg_ordinal.get(k[0], 0), k[2]) for k in keyed if k[1] == "s1_frame_probe"}
+    exclusions = parse_exclusions(args.exclude_suite, known_suites)
 
     state_path = os.path.join(args.session, "session_state.json")
     session_state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
@@ -365,7 +470,7 @@ def run(args) -> int:
             row["nav_slice_distance"] = abs(resolved - (int(nearest[2][v[0], v[1], v[2]]) + int(clo[2])))
         rows.append(row)
 
-    b7b9 = b7_b9_from(keyed)
+    b7b9 = b7_b9_from(keyed, dup_displays)
     probes = [r for k, r in keyed.items() if k[1] == "s1_frame_probe"]
     loaded = [r for r in records if r.get("kind") == "s1_loaded"]
     levels = sorted({r["level"] for r in rows} | {p["level"] for p in probes})
@@ -418,6 +523,7 @@ def run(args) -> int:
                    "verdict": "PASS" if (errs and max(errs) <= SLICE_BOUND and nohit == 0) else ("FAIL" if lr else "NOT MEASURED")},
             "b7": {"navigation_requests": f["requests"], "displayed_correctly": f["ok"],
                    "failure_count": len(f["failures"]), "failures": f["failures"][:20], "orphan_displays": f["orphans"],
+                   "duplicate_displays_anomaly": f.get("duplicate_displays", 0),
                    "latency_ms_median": statistics.median(lat) if lat else None, "latency_ms_max": max(lat) if lat else None,
                    "verdict": ("PASS" if f["requests"] and not f["failures"] and not f["orphans"] else ("FAIL" if f["requests"] else "NOT MEASURED"))},
             "b9": {"picks_resolving_nothing_that_navigated": f["nonresolved_navigated"],
@@ -434,6 +540,8 @@ def run(args) -> int:
         "schema_version": 2,
         "computed_at": dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).isoformat(timespec="seconds"),
         "computed_by": "s1_extract.py (Claude agent A4, Day 22 override); owner Vu Hung Anh re-derives on Day 23",
+        "extractor_commit": _git("rev-parse", "HEAD"),
+        "extractor_tree_clean": _git("status", "--porcelain", "--", "spikes/spike_b_3d/harness") == "",
         "session_dir": os.path.abspath(args.session),
         "evidence_status": evidence_status,
         "device": {k: preflight.get(k) for k in ("serial", "model", "android", "is_emulator")},
@@ -472,7 +580,9 @@ def run(args) -> int:
     print(f"evidence paths: {path_check}")
     print("segments (page loads):")
     for i, s in enumerate(segments, start=1):
-        print(f"  {i}: level {s['level']} opened {s['opened_at_utc']}")
+        suites = sorted({k[2] for k in keyed if k[1] == "s1_frame_probe" and seg_ordinal.get(k[0]) == i})
+        print(f"  {i}: level {s['level']} opened at {s.get('opened_at_device_logcat') or '-'} (device clock, logcat) / "
+              f"{s.get('opened_at_utc') or '-'} (collector, UTC); suites with frame probes: {suites}")
     print(f"{'lvl':>3} {'tris':>6} {'runs':>4} {'medFPS':>7} {'maxStall':>8} {'B10':>12} {'B11':>12} "
           f"{'picks':>5} {'B6max':>5} {'nohit':>5} {'B6':>5} {'navs':>5} {'B7':>5} {'bgNav':>5} {'B9':>5}")
     for r in results:
@@ -557,6 +667,71 @@ def self_test() -> int:
     ok(b10_b11([good, good, good])[1:] == ("PASS", "PASS"), "three good runs pass")
     ok(b10_b11([good, good, good, {**good, "excluded": "screen off"}])[0].__len__() == 3, "an excluded run is not counted")
     ok(b10_b11([good, good, {**good, "median_fps": 19.9}])[1] == "FAIL", "one slow run fails B10")
+
+    # X2 - primary choice: logcat (emission order) when it has >= keyed records; only the
+    # primary's repeats refuse. HTTP lost the second open_level during a reconnect:
+    lost = [r for r in stream if not (r["kind"] == "s1_rn_open_level" and r["t_ms"] == 900.0)]
+    _recs, keyed2, _segs, chk, _dups = choose_primary(lost, stream)
+    ok(chk["primary"] == "logcat" and chk["secondary_repeats_reported_not_used"] > 0,
+       f"a lost HTTP open_level is reported, not refused, when logcat is primary: {chk}")
+    ok(sum(1 for k in keyed2 if k[1] == "s1_pick") == 6, "logcat primary keeps all 6 picks")
+    try:
+        choose_primary(lost, [])
+    except SystemExit:
+        passed += 1
+    else:
+        raise SystemExit("FAIL: repeats in the only (primary) path were accepted")
+    # HTTP arrival order swapped at a boundary (a page-2 display before page 2's open_level)
+    swapped = list(stream)
+    i_open = next(i for i, r in enumerate(swapped) if r["kind"] == "s1_rn_open_level" and r["t_ms"] == 900.0)
+    i_disp = next(i for i, r in enumerate(swapped) if i > i_open and r["kind"] == "s1_rn_nav_displayed")
+    swapped.insert(i_open, swapped.pop(i_disp))
+    _r, keyed3, _s, chk3, _d = choose_primary(swapped, stream)
+    ok(chk3["primary"] == "logcat" and b7_b9_from(keyed3)[0]["ok"] == 4, "logcat order avoids the false B7 FAIL")
+
+    # X1 - a stream cut by a USB drop vs the complete dump: the longer source is read
+    full = [f"10-01 19:00:{n:02d}.000  1  2 I ReactNativeJS: {TAG} {json.dumps(r)}" for n, r in enumerate(stream)]
+    used, info = choose_logcat_source({"logcat_stream.txt": full[:2], "logcat_dump.txt": full})
+    ok(used == "logcat_dump.txt" and info["logcat_dump.txt"] == len(full), f"cut stream -> dump: {info}")
+    ok(choose_logcat_source({"logcat_stream.txt": full, "logcat_dump.txt": full})[0] == "logcat_stream.txt", "tie -> stream")
+    recs_full, _inc = parse_logcat_lines(full)
+    ok(recs_full[0]["_logcat_time"] == "10-01 19:00:00.000", "segment times come from the logcat clock")
+
+    # exclusion targets must exist
+    known = {(1, 1), (2, 1)}
+    ok(parse_exclusions(["2.1=screen off at 19:21"], known) == {(2, 1): "screen off at 19:21"}, "known target")
+    for bad_item in ("3.1=x", "1.x=y", "1.1"):
+        try:
+            parse_exclusions([bad_item], known)
+        except SystemExit:
+            passed += 1
+        else:
+            raise SystemExit(f"FAIL: --exclude-suite {bad_item} was accepted")
+
+    # X3 - DR-008c: CHOSEN / NOT_DETERMINED (L0 < 3 valid runs) / NEGATIVE_RESULT (L0 measured, failed)
+    front = {"levels": [{"level": 0, "b5": {"verdict": "WITHIN_BOUND"}}, {"level": 1, "b5": {"verdict": "NOT_WITHIN_BOUND"}}]}
+
+    def lvl(level, b10, b11, runs, fps, tris):
+        return {"level": level, "mesh": {"triangle_count": tris},
+                "b10_b11": {"B10": b10, "B11": b11, "complete_valid_runs": runs, "median_fps_level": fps,
+                            "longest_stall_max_over_runs": 17.0}}
+    d1 = dr008c_decision([lvl(0, "PASS", "PASS", 3, 59.9, 61424), lvl(1, "PASS", "PASS", 3, 60.0, 39384)], front)
+    ok(d1["status"] == "CHOSEN" and d1["level"] == 0, f"only the B5-eligible L0 can be chosen: {d1['status']} {d1['level']}")
+    d2 = dr008c_decision([lvl(0, "NOT MEASURED", "NOT MEASURED", 2, 59.9, 61424)], front)
+    ok(d2["status"] == "NOT_DETERMINED" and d2["not_measured"] == [{"level": 0, "complete_valid_runs": 2}], f"{d2}")
+    d3 = dr008c_decision([lvl(0, "FAIL", "PASS", 3, 14.0, 61424)], front)
+    ok(d3["status"] == "NEGATIVE_RESULT", "L0 measured and failing B10 is the NEGATIVE_RESULT")
+    d4 = dr008c_decision([lvl(1, "PASS", "PASS", 3, 60.0, 39384)], front)
+    ok(d4["status"] == "NOT_DETERMINED" and d4["not_measured"][0]["level"] == 0, "L0 never measured -> NOT DETERMINED")
+
+    # a second display of the same pick: anomaly, not a refusal; a failure only if it differs
+    dup = list(seg) + [dict(next(r for r in seg if r["kind"] == "s1_rn_nav_displayed"))]
+    keyed4, rep4, dups4 = index_keys(dup)
+    f4 = b7_b9_from(keyed4, dups4)
+    ok(not rep4 and len(dups4) == 1 and f4[0]["duplicate_displays"] == 1 and not f4[0]["failures"], "identical duplicate display")
+    other = dict(dups4[0][1], displayed_slice=77)
+    f5 = b7_b9_from(keyed4, [(dups4[0][0], other)])
+    ok(len(f5[0]["failures"]) == 1, "a duplicate display with a different slice is a B7 failure")
     print(f"s1_extract self-test: {passed} passed")
     return 0
 

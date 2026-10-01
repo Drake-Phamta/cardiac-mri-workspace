@@ -222,7 +222,7 @@ It needs the private LASC package and the gitignored meshes in `spikes/spike_b_3
 
 ```powershell
 python spikes\spike_b_3d\harness\s1_export_evidence.py --session $S1 --out spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device --notes <operator notes .txt>
-python spikes\spike_b_3d\harness\s1_export_evidence.py --check spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device   # pre-commit leak gate
+python spikes\spike_b_3d\harness\s1_export_evidence.py --check spikes\spike_b_3d\EVIDENCE_RAW\20261001_s1_device --session $S1   # pre-commit leak gate, serial included
 ```
 
 **What goes into git afterwards** (`spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device/`, written by the

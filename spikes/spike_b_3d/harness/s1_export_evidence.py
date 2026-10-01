@@ -42,7 +42,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 
-from s1_extract import FPS_BOUND, MIN_RUNS, REDACTED_SERIAL, sanitize  # noqa: E402
+from s1_extract import FPS_BOUND, MIN_RUNS, REDACTED_SERIAL, dr008c_decision, sanitize  # noqa: E402
 
 FRONTIER = REPO / "spikes" / "spike_b_3d" / "EVIDENCE_RAW" / "20261001_real_mesh" / "real_mesh_frontier.json"
 SANITIZE_JSON = ("session_state.json", "conditions_before.json", "conditions_after.json")
@@ -76,27 +76,6 @@ def leak_check(folder: Path, serial: str | None) -> list[str]:
     return hits
 
 
-def dr008c(levels, frontier):
-    """Pre-declared rule: fastest level (min over complete valid runs of the nearest-rank
-    median) among levels with offline B5 within +/-1 (PR #66) and B10 and B11 PASS; a tie goes
-    to fewer triangles. Returns (table rows, chosen level or None)."""
-    b5 = {lv["level"]: lv["b5"]["verdict"] for lv in frontier["levels"]}
-    rows = []
-    for lv in levels:
-        bb = lv["b10_b11"]
-        tri = (lv.get("mesh") or {}).get("triangle_count")
-        eligible = (b5.get(lv["level"]) == "WITHIN_BOUND" and bb["B10"] == "PASS" and bb["B11"] == "PASS")
-        rows.append({"level": lv["level"], "triangles": tri, "b5_offline": b5.get(lv["level"], "NOT MEASURED"),
-                     "complete_valid_runs": bb["complete_valid_runs"], "median_fps": bb["median_fps_level"],
-                     "longest_stall_ms": bb["longest_stall_max_over_runs"], "B10": bb["B10"], "B11": bb["B11"],
-                     "eligible": eligible})
-    ok = [r for r in rows if r["eligible"]]
-    if not ok:
-        return rows, None
-    best = max(ok, key=lambda r: (round(r["median_fps"], 6), -(r["triangles"] or 0)))
-    return rows, best["level"]
-
-
 def fmt(v, digits=2):
     if v is None:
         return "—"
@@ -104,7 +83,8 @@ def fmt(v, digits=2):
 
 
 def provenance(out: Path, results, state, build, frontier, notes, files):
-    rows, chosen = dr008c(results["levels"], frontier)
+    decision = dr008c_decision(results["levels"], frontier)
+    rows, chosen = decision["rows"], decision["level"]
     by_level = {lv["level"]: lv for lv in results["levels"]}
     pre = state.get("preflight", {})
     lines = [
@@ -146,9 +126,14 @@ def provenance(out: Path, results, state, build, frontier, notes, files):
                      f"{fmt(r['median_fps'])} | {fmt(r['longest_stall_ms'], 1)} | {r['B10']} | {r['B11']} | "
                      f"{lv['b6']['verdict']} | {lv['b7']['verdict']} | {lv['b9']['verdict']} |")
     lines += ["", "## DR-008c — computed by the pre-declared rule (proposal; the owner confirms on Day 23)", ""]
-    if chosen is None:
-        lines.append("**No level qualifies** (offline B5 within ±1 AND B10 PASS AND B11 PASS with "
-                     f"≥ {MIN_RUNS} complete valid runs): **`NEGATIVE_RESULT` — escalate.** The ±1 bound is not widened.")
+    if decision["status"] == "NOT_DETERMINED":
+        nm = "; ".join(f"L{x['level']} NOT MEASURED ({x['complete_valid_runs']} of {MIN_RUNS} valid runs)"
+                       for x in decision["not_measured"])
+        lines.append(f"**DR-008c NOT DETERMINED — {nm}; re-measure.** No B5-eligible level has {MIN_RUNS} "
+                     "complete valid runs, so neither a choice nor a `NEGATIVE_RESULT` follows from this session.")
+    elif decision["status"] == "NEGATIVE_RESULT":
+        lines.append("**No level qualifies**: every level within ±1 offline (PR #66) was measured and failed B10 or "
+                     "B11. **`NEGATIVE_RESULT` — escalate.** The ±1 bound is not widened.")
     else:
         c = by_level[chosen]
         lines.append(f"**DR-008c = L{chosen}** ({fmt((c.get('mesh') or {}).get('triangle_count'))} triangles): the fastest "
@@ -163,7 +148,7 @@ def provenance(out: Path, results, state, build, frontier, notes, files):
               ", ".join(f"`{n}`" for n in KEPT_OUTSIDE) + " — SHA-256 in `hashes.json`. `s1_per_pick.csv` is committed: "
               "slice indices and errors only, no coordinates.", ""]
     (out / "PROVENANCE.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
-    return chosen
+    return decision
 
 
 def main() -> int:
@@ -172,12 +157,21 @@ def main() -> int:
     ap.add_argument("--out", type=Path, help="evidence folder inside the repository")
     ap.add_argument("--notes", type=Path, help="operator notes (plain text), copied verbatim into PROVENANCE")
     ap.add_argument("--frontier", type=Path, default=FRONTIER, help="PR #66 real_mesh_frontier.json")
-    ap.add_argument("--check", type=Path, help="only run the leak gate on this folder")
-    ap.add_argument("--serial", help="with --check: also look for this serial")
+    ap.add_argument("--check", type=Path, help="only run the leak gate on this folder (needs --session or --serial)")
+    ap.add_argument("--serial", help="with --check: the serial to look for (or give --session)")
     args = ap.parse_args()
     if args.check:
-        hits = leak_check(args.check.resolve(), args.serial)
-        print("\n".join(hits) if hits else f"leak check: {args.check} is clean")
+        # QA X4: a gate that cannot know the serial must not pass. The serial comes from the
+        # session's own preflight record, or is given explicitly.
+        serial = args.serial
+        if not serial and args.session:
+            serial = (json.loads((args.session.resolve() / "session_state.json").read_text(encoding="utf-8"))
+                      .get("preflight") or {}).get("serial")
+        if not serial:
+            print("--check needs --session <S1 folder> (or --serial) so it can look for the handset serial")
+            return 2
+        hits = leak_check(args.check.resolve(), serial)
+        print("\n".join(hits) if hits else f"leak check: {args.check} is clean (serial included)")
         return 1 if hits else 0
     if not args.session or not args.out:
         ap.error("--session and --out are required (or --check)")
@@ -245,7 +239,7 @@ def main() -> int:
     hashes["serial_redacted_as"] = REDACTED_SERIAL
     hashes["frame_probe_records"] = probes
     (out / "hashes.json").write_text(json.dumps(hashes, indent=1) + "\n", encoding="utf-8", newline="\n")
-    chosen = provenance(out, results, sanitize(state, serial), build, frontier, notes, files)
+    decision = provenance(out, results, sanitize(state, serial), build, frontier, notes, files)
 
     hits = leak_check(out, serial)
     if hits:
@@ -253,7 +247,10 @@ def main() -> int:
         print("\n".join(f"  {h}" for h in hits))
         return 1
     print(f"exported to {out}: {len(files)} files + hashes.json + PROVENANCE.md ({probes} frame probes); leak check clean")
-    print(f"DR-008c by the pre-declared rule: {'L' + str(chosen) if chosen is not None else 'no level - NEGATIVE_RESULT'}")
+    shown = {"CHOSEN": f"L{decision['level']}",
+             "NOT_DETERMINED": f"NOT DETERMINED - re-measure {decision['not_measured']}",
+             "NEGATIVE_RESULT": "no level - NEGATIVE_RESULT, escalate"}[decision["status"]]
+    print(f"DR-008c by the pre-declared rule: {shown}")
     return 0
 
 
