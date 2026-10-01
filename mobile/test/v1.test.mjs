@@ -6,11 +6,11 @@ import assert from 'node:assert/strict';
 
 import { STATE, createBundle, createClient, createFixtureTransport } from '../../app/core/index.mjs';
 import { createCaseExplorer, LAYER } from '../../app/verticals/v1_case_explorer/index.mjs';
-import { createMaskStore, fetchBytesWith } from '../src/imaging/maskStore.mjs';
+import { createMaskStore } from '../src/imaging/maskStore.mjs';
 import { createSliceCache } from '../src/runtime/sliceCache.mjs';
 import { CAPABILITY, capabilityOf, filterRows, readCaseRows } from '../src/verticals/v1/capability.mjs';
 import {
-  buildNavSequence, chooseRun, clampSlice, metricsText, resolveContentUrl, runText, scrubIndex,
+  buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex,
   scrubPosition, sliceLabel, variantOptions,
 } from '../src/verticals/v1/explorer.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
@@ -100,15 +100,6 @@ test('V1g run choice: requested must be listed; one run opens; several runs ask'
   assert.equal(chooseRun(['R1', 'R2'], 'R2').runId, 'R2');
   assert.equal(chooseRun(['R1', 'R2'], 'R9').reason, 'requested-run-not-listed');
   assert.equal(chooseRun([]).reason, 'no-runs');
-});
-
-test('V1h content_url resolves only in live mode, and never in fixture mode', () => {
-  const live = { mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' };
-  assert.equal(resolveContentUrl('/api/v1/artifacts/abc.png', live), 'http://backend.invalid:8000/api/v1/artifacts/abc.png');
-  assert.equal(resolveContentUrl('https://cdn.example/x.png', live), 'https://cdn.example/x.png');
-  assert.equal(resolveContentUrl('content_url_fixture', live), null);
-  assert.equal(resolveContentUrl(null, live), null);
-  assert.equal(resolveContentUrl('/api/v1/artifacts/abc.png', { mode: 'fixture', apiBaseUrl: 'http://x' }), null);
 });
 
 test('V1i slice label is n / total, 1-based, with the 0-based z', () => {
@@ -269,13 +260,6 @@ test('V1q2 mask store with the real adapter: a PNG encoded by node:zlib comes ba
   const v = await store.load('http://h/a.png', { width: w, height: h });
   assert.equal(v.pixels, ellipseMask(w, h, 30, 20, 10, 8).filter((x) => x === 255).length);
   await assert.rejects(store.load('http://h/b.png', { width: w + 1, height: h }), (e) => e.code === 'CONTRACT_DRIFT');
-});
-
-test('V1r fetchBytesWith refuses a non-2xx answer', async () => {
-  const f = fetchBytesWith(async () => ({ status: 404, arrayBuffer: async () => new ArrayBuffer(0) }));
-  await assert.rejects(f('http://h/x.png'), /HTTP 404/);
-  const g = fetchBytesWith(async () => ({ status: 200, arrayBuffer: async () => Uint8Array.from([1, 2]).buffer }));
-  assert.deepEqual([...await g('http://h/y.png')], [1, 2]);
 });
 
 test('V1s capability labels match between the list and the case screen (TC-CASE-002)', () => {

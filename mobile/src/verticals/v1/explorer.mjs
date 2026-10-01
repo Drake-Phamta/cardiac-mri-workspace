@@ -43,22 +43,6 @@ export function chooseRun(availableRunIds, requested = null) {
   return Object.freeze({ runId: null, reason: 'choose', choices: Object.freeze(ids) });
 }
 
-/*
- * content_url -> something <Image> / fetch can load, or null.
- *   live mode     absolute http(s) URL as given; a path is joined to the base
- *   fixture mode  ALWAYS null: there is no backend behind any URL, and the
- *                 screen must say "no pixels in fixture mode" rather than
- *                 fire requests at a placeholder.
- */
-export function resolveContentUrl(contentUrl, config) {
-  if (!config || config.mode !== 'live') return null;
-  if (typeof contentUrl !== 'string' || contentUrl.trim() === '') return null;
-  const u = contentUrl.trim();
-  if (/^https?:\/\//i.test(u)) return u;
-  if (u.startsWith('/')) return `${config.apiBaseUrl}${u}`;
-  return null;
-}
-
 // `10` §3: slice `n / total`. 1-based for people, with the 0-based index the
 // API and the evidence files use, so neither has to be converted in a head.
 export function sliceLabel(sliceIndex, total) {

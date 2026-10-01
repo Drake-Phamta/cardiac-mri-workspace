@@ -19,6 +19,7 @@
  */
 
 import { STATE, RECOVERY } from '../../../app/core/index.mjs';
+import { maskBaseUrl } from '../config.mjs';
 
 export const TONE = Object.freeze({ NEUTRAL: 'neutral', INFO: 'info', WARN: 'warn', DANGER: 'danger' });
 
@@ -45,6 +46,9 @@ const REASON_TEXT = Object.freeze({
   SELECTION_NOT_RETURNED: 'The server did not return a worst-slice selection for this run.',
   SELECTION_NO_ELIGIBLE_SLICES: 'No slice has non-empty ground truth, so there is no worst slice to rank.',
   TRANSPORT_UNREACHABLE: 'The backend could not be reached. Check the overlay network, then retry.',
+  FIXTURE_NO_BYTES: 'Fixture mode: no bytes exist behind any content_url, so nothing is fetched.',
+  NO_CONTENT_URL: 'The response carries no content_url, so there are no bytes to fetch.',
+  REQUEST_ABORTED: 'The request was cancelled because the screen moved on.',
   CONTRACT_DRIFT: 'The response does not match the API contract this build was made from.',
   STALE_REVISION: 'Someone saved a newer revision. Refresh before writing again - nothing was overwritten.',
 });
@@ -64,7 +68,9 @@ function detailLines(view, context) {
   const problems = err.detail && Array.isArray(err.detail.problems) ? err.detail.problems : [];
   for (const p of problems.slice(0, 6)) lines.push(p);
   if (problems.length > 6) lines.push(`... ${problems.length - 6} more`);
-  if (code === 'TRANSPORT_UNREACHABLE' && context.apiBaseUrl) lines.push(`backend ${context.apiBaseUrl}`);
+  // The backend is named, never addressed: a screenshot of this panel is
+  // evidence that may be committed to a public repository (N-4).
+  if (code === 'TRANSPORT_UNREACHABLE' && context.apiBaseUrl) lines.push(`backend ${maskBaseUrl(context.apiBaseUrl)}`);
   return lines;
 }
 

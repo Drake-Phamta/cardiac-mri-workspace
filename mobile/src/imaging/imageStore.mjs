@@ -41,13 +41,18 @@ export function bytesToBase64(bytes) {
   return out.join('');
 }
 
+/*
+ * fetchBytes(key, { checksum }) -> Promise<Uint8Array>; in the app it is
+ * runtime.content.bytes (timeout, error mapping, checksum check, netLog)
+ * through bytesOrThrow. The key is the content_url itself.
+ */
 export function createImageStore({ fetchBytes, maxEntries = 48, mediaType = 'image/png', now = () => Date.now() } = {}) {
   if (typeof fetchBytes !== 'function') throw new Error('createImageStore needs fetchBytes(url)');
   const done = new Map();
   const pending = new Map();
   const stats = { hits: 0, loads: 0, failures: 0 };
 
-  function load(url) {
+  function load(url, { checksum = null } = {}) {
     if (done.has(url)) {
       const v = done.get(url);
       done.delete(url);
@@ -58,7 +63,7 @@ export function createImageStore({ fetchBytes, maxEntries = 48, mediaType = 'ima
     if (pending.has(url)) return pending.get(url);
     const t0 = now();
     const p = Promise.resolve()
-      .then(() => fetchBytes(url))
+      .then(() => fetchBytes(url, { checksum }))
       .then((bytes) => {
         const value = Object.freeze({
           uri: `data:${mediaType};base64,${bytesToBase64(bytes)}`,

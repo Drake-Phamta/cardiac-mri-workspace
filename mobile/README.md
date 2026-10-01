@@ -76,6 +76,10 @@ Precedence: `--api-base-url`, then `EXPO_PUBLIC_API_BASE_URL` in the environment
 variables: `CMW_MODE`, `CMW_STUDY_ID`, `PYTHON`. The URL is `scheme://host:port` only; contract paths already start
 with `/api/v1`, so a base URL ending in `/api/v1` is refused, and so is the README placeholder left unedited.
 
+**Redaction rule:** no backend address in anything committed — the app shows and logs it as `http://<configured>`,
+the `.build.txt` sidecar records only `sha256:` of the URL, fixture builds carry no address at all, and evidence
+copied from the server (logs, screenshots) is redacted to `<configured>` before it is committed.
+
 A live build **without** a URL does not guess one: `prepare.mjs` warns, and the app opens on a
 **CONFIGURATION ERROR** screen that says what to set (`CONFIG_LIVE_URL_MISSING`) and requests nothing.
 `build-release.ps1` refuses to build a live APK without a URL at all. Fixture mode needs nothing configured.
@@ -105,6 +109,11 @@ it: build time, mode, backend URL, git sha, APK sha256 and the `adb install -r` 
 not a store build.
 
 To check the JS bundle only (no Gradle): `npm run export:android`.
+
+**Shared machine rule (Day 22 onward, while a GPU job runs here):** one Gradle build at a time on the PC, no
+emulator. `build-release.ps1` stops the Gradle daemon after every build (`gradlew --stop`, pass or fail) and takes
+`-MaxWorkers` (default 4) — lower it if memory is tight; "Gradle build daemon disappeared unexpectedly" is a daemon
+the OS killed. Node tests and `expo export` are fine at any time.
 
 ## Where each vertical's files go
 
@@ -138,6 +147,9 @@ it with `node --test`; keep React Native imports in `.js` files.
 
 | Module | What |
 |---|---|
+| `runtime.content` (`src/runtime/content.mjs`) | **the app's one binary path**: `content.uri(content_url)` → absolute URL for an `<Image>` (null in fixture mode); `content.bytes(content_url, {checksum, signal, kind})` → an app/core state: SUCCESS `{bytes, size, checksum, verified}`, or `EMPTY_UNAVAILABLE` (`FIXTURE_NO_BYTES`, `NO_CONTENT_URL`, `REQUEST_ABORTED`), `TRANSPORT_UNREACHABLE` (network, timeout, 5xx), `CONTRACT_DRIFT` (not an artifact path of this backend, bytes that do not hash to `checksum`, an ETag that disagrees). Every response is counted in the gesture log. **No vertical fetches bytes any other way.** |
+| `useCall` (`src/runtime/useCall.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount |
+| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first. **Only the top screen is mounted**: a covered screen unmounts and must re-read what it needs |
 | `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
 | `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
 | `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |

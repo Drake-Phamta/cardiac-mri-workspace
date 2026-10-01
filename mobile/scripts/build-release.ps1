@@ -53,6 +53,11 @@
 .PARAMETER Clean
   Regenerate the staging android/ from scratch (expo prebuild --clean).
 
+.PARAMETER MaxWorkers
+  Gradle workers (default 4). The C++ steps are memory-hungry; on a machine
+  that is also training a model, fewer workers keep the Gradle daemon alive
+  ("Gradle build daemon disappeared unexpectedly" is a killed daemon).
+
 .PARAMETER StagingDir
   Where to build. Must be a short path OUTSIDE the repository and not a drive
   root. Default <drive of the checkout>:\cmw-build.
@@ -67,6 +72,7 @@ param(
   [string] $StudyId = '',
   [string] $Abis = 'arm64-v8a',
   [switch] $Clean,
+  [int] $MaxWorkers = 4,
   [string] $StagingDir = '',
   [string] $JavaHome = 'C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot',
   [string] $AndroidHome = (Join-Path $env:LOCALAPPDATA 'Android\Sdk')
@@ -197,8 +203,13 @@ try {
   Step "gradlew assembleRelease (ABIs: $Abis)"
   Push-Location (Join-Path $buildRoot 'android')
   try {
-    Invoke-Checked 'gradlew assembleRelease' { .\gradlew.bat assembleRelease "-PreactNativeArchitectures=$Abis" --console=plain }
+    Invoke-Checked 'gradlew assembleRelease' { .\gradlew.bat assembleRelease "-PreactNativeArchitectures=$Abis" "--max-workers=$MaxWorkers" --console=plain }
   } finally {
+    # Shared machine (a GPU training job runs alongside): never leave a Gradle
+    # daemon holding gigabytes after the build, whether it passed or failed.
+    $ErrorActionPreference = 'Continue'
+    .\gradlew.bat --stop --console=plain | Out-Null
+    $ErrorActionPreference = 'Stop'
     Pop-Location
   }
   $apk = Join-Path $buildRoot 'android\app\build\outputs\apk\release\app-release.apk'
@@ -217,28 +228,38 @@ $outApk = Join-Path $outDir ("cardiac-mri-workspace-$Mode-$stamp.apk")
 Copy-Item $apk $outApk
 $sha = (Get-FileHash $outApk -Algorithm SHA256).Hash.ToLower()
 $sizeMb = [math]::Round((Get-Item $outApk).Length / 1MB, 1)
+# Evidence redaction (N-4): this sidecar may be committed next to device
+# evidence in a public repository. It names the backend by a SHA-256 of its
+# URL - enough to prove two builds talked to the same backend, useless for
+# finding it - and uses paths relative to the repository root only.
+$urlHash = 'none (fixture build: no backend address)'
+if ($buildConfig.apiBaseUrl) {
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  $digest = $sha256.ComputeHash([System.Text.Encoding]::UTF8.GetBytes([string]$buildConfig.apiBaseUrl))
+  $urlHash = 'sha256:' + (($digest | ForEach-Object { $_.ToString('x2') }) -join '')
+}
+$relApk = "mobile\release\$(Split-Path -Leaf $outApk)"
 $lines = @(
   "apk              $(Split-Path -Leaf $outApk)",
   "built_at         $($finished.ToString('yyyy-MM-ddTHH:mm:sszzz'))",
   "build_seconds    $([int]($finished - $started).TotalSeconds)",
   'build_type       release (Hermes, signed with the template debug keystore - not a store build)',
   "mode             $($buildConfig.mode)",
-  "api_base_url     $($buildConfig.apiBaseUrl)",
+  "api_base_url     $urlHash",
   "study_id         $($buildConfig.studyId)",
   "contract         $($buildConfig.contractVersion)",
   "abis             $Abis",
   "git_sha          $gitSha",
   "git_branch       $branch",
   'source_tree      staging copy of committed HEAD (uncommitted changes excluded)',
-  "built_in         $buildRoot",
   "apk_sha256       $sha",
   "apk_size_mb      $sizeMb",
-  "install          adb install -r `"$outApk`""
+  "install          adb install -r `"$relApk`"   (from the repository root)"
 )
 $buildTxt = "$outApk.build.txt"
 [System.IO.File]::WriteAllText($buildTxt, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
 
 Write-Host ''
-Write-Host "APK        $outApk" -ForegroundColor Green
-Write-Host "BUILD INFO $buildTxt" -ForegroundColor Green
+Write-Host "APK        $relApk" -ForegroundColor Green
+Write-Host "BUILD INFO $relApk.build.txt" -ForegroundColor Green
 $lines | ForEach-Object { Write-Host "  $_" }
