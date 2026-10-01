@@ -71,7 +71,10 @@ export function readCaseRows(data) {
     }
     rows.push(Object.freeze({
       caseId,
-      capability: capabilityOf(item.mode, item.ground_truth_available),
+      // Contract 1.1.0 names the row field `mode_capability` (the top-level
+      // `mode` echoes the list filter); 1.0.0 called it `mode`. Read the
+      // newer name first - neither is ever inferred from the other field.
+      capability: capabilityOf(item.mode_capability ?? item.mode, item.ground_truth_available),
     }));
   });
   const counts = { total: rows.length, EVALUATION: 0, INFERENCE_REVIEW: 0, UNKNOWN: 0 };
