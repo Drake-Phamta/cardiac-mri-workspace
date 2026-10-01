@@ -35,7 +35,7 @@ def environment(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Any]:
     root = tmp_path_factory.mktemp("backend-env")
     built = synthetic.build_package(root)
     cache = root / "data_cache"
-    ingest.run_ingest(built["package"], built["dataset_manifest"], built["split_manifest"], cache, check_ignored=False)
+    ingest.run_ingest(built["package"], built["dataset_manifest"], built["split_manifest"], cache)
     experiments = root / "experiments"
     accepted = synthetic.build_contract2(experiments / "exp-u-025", "EXP-U-025")
     synthetic.build_contract2(experiments / "exp-d-025-blocked", "EXP-D-025", gates_accepted=False, prefix="B")

@@ -396,7 +396,7 @@ def test_no_response_carries_a_physical_unit(api):
 
 def test_ingest_is_idempotent_and_refuses_changed_bytes(environment, tmp_path):
     again = ingest.run_ingest(environment["package"], environment["dataset_manifest"], environment["split_manifest"],
-                              environment["cache"], check_ignored=False)
+                              environment["cache"])
     assert again["cases"] == ["CASE_0031", "CASE_9001", "CASE_9003"]
     import shutil
 
@@ -410,6 +410,25 @@ def test_ingest_is_idempotent_and_refuses_changed_bytes(environment, tmp_path):
     data[0, 0, 0] = (int(data[0, 0, 0]) + 1) % 256
     nrrd.write(str(mri), data, header)
     with pytest.raises(ingest.IngestError) as raised:
-        ingest.run_ingest(changed, environment["dataset_manifest"], environment["split_manifest"],
-                          environment["cache"], check_ignored=False)
+        ingest.run_ingest(changed, environment["dataset_manifest"], environment["split_manifest"], environment["cache"])
     assert raised.value.code == "CHECKSUM_CONFLICT"
+
+
+def test_derived_data_never_lives_inside_a_git_work_tree(environment, monkeypatch):
+    from backend.app.config import REPO_ROOT, Settings
+
+    inside = REPO_ROOT / "backend" / "never_created"
+    with pytest.raises(ingest.IngestError) as raised:
+        ingest.run_ingest(environment["package"], environment["dataset_manifest"], environment["split_manifest"], inside)
+    assert raised.value.code == "OUTPUT_INSIDE_GIT_WORKTREE" and not inside.exists()
+    paths = {"data_cache": environment["cache"], "experiments_root": environment["experiments"],
+             "db_path": environment["root"] / "db.sqlite3", "render_cache": environment["root"] / "render_cache"}
+    for name in paths:
+        with pytest.raises(RuntimeError, match="inside a git work tree"):
+            Settings.from_env(dict(paths, **{name: inside / name}))
+    for variable in ("CARDIAC_BACKEND_DATA", "CARDIAC_DATA_CACHE", "CARDIAC_DB", "CARDIAC_EXPERIMENTS_ROOT",
+                     "CARDIAC_RENDER_CACHE"):
+        monkeypatch.delenv(variable, raising=False)
+    with pytest.raises(RuntimeError, match="CARDIAC_BACKEND_DATA"):
+        Settings.from_env()  # no in-repository default exists
+    assert ingest.main(["--package-root", str(environment["package"])]) == 2

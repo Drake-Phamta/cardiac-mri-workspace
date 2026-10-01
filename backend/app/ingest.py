@@ -19,7 +19,7 @@ the default affine (QA-002 F2), which Contract 1 rejects as a validated
 geometry. Here the case is ingested with geometry_validation_status
 GEOMETRY_NOT_VALIDATED and served in voxel-index units only - no mm, no mL.
 
-Output (gitignored, derived from patient images; never commit it):
+Output (derived from patient images; refused inside any git work tree):
 
     <out>/index.json                     what was ingested + sha256 -> file index
     <out>/contract1_record.json          Contract-1-shaped record of the ingest
@@ -27,8 +27,10 @@ Output (gitignored, derived from patient images; never commit it):
     <out>/cases/<CASE>/mri/<z>.png       8-bit slices at native resolution
     <out>/cases/<CASE>/gt/<z>.png        reference mask slices, EVALUATION only
 
-Usage (from the repository root):
+``<out>`` defaults to ``$CARDIAC_BACKEND_DATA/data_cache``. Usage (from the
+repository root):
 
+    $env:CARDIAC_BACKEND_DATA = "D:\\02_Research\\cardiac-data\\backend_cache"
     python -m backend.app.ingest --package-root D:/02_Research/cardiac-data/lasc2018/extracted
 """
 
@@ -38,7 +40,6 @@ import argparse
 import datetime as _dt
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -46,7 +47,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from . import imaging
-from .config import BACKEND_ROOT, REPO_ROOT
+from .config import DATA_ROOT_ENV, REPO_ROOT, data_root_from_env, inside_git_worktree
 
 INGEST_VERSION = "backend-ingest/1"
 GEOMETRY_CONTRACT_VERSION = "dr008a-dr012/v1.0.0"
@@ -89,22 +90,14 @@ def rule_based_selection(split: dict) -> List[Dict[str, str]]:
     return selection
 
 
-def _refuse_tracked_output(out: Path) -> None:
-    """The cache holds patient-derived pixels: it must be ignored by git."""
-    out = Path(out).resolve()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        inside = subprocess.run(["git", "-C", str(out.parent), "rev-parse", "--is-inside-work-tree"],
-                                capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.SubprocessError):
-        return
-    if inside.returncode != 0 or inside.stdout.strip() != "true":
-        return
-    probe = out / "cases" / "probe.png"
-    ignored = subprocess.run(["git", "-C", str(out.parent), "check-ignore", "-q", str(probe)],
-                             capture_output=True, timeout=10)
-    if ignored.returncode != 0:
-        raise IngestError("OUTPUT_NOT_IGNORED", f"{out} is inside a git work tree and not ignored; refusing to write patient-derived slices there")
+def _refuse_output_inside_git(out: Path) -> None:
+    """The cache holds patient-derived pixels: never inside a git work tree, ignored or not."""
+    if inside_git_worktree(out):
+        raise IngestError(
+            "OUTPUT_INSIDE_GIT_WORKTREE",
+            f"{out} is inside a git work tree; write derived patient data outside the repository "
+            f"(set {DATA_ROOT_ENV} or pass --out)",
+        )
 
 
 def _write_once(path: Path, payload: bytes) -> None:
@@ -256,7 +249,7 @@ def _contract1_record(dataset_manifest: dict, records: List[dict]) -> dict:
 
 
 def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_path: Path, out: Path,
-               only: Optional[List[str]] = None, check_ignored: bool = True) -> dict:
+               only: Optional[List[str]] = None) -> dict:
     dataset_bytes = Path(dataset_manifest_path).read_bytes()
     dataset_manifest = json.loads(dataset_bytes.decode("utf-8"))
     split = json.loads(Path(split_manifest_path).read_text(encoding="utf-8"))
@@ -265,8 +258,7 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
     if pinned and pinned != dataset_sha:
         raise IngestError("PROVENANCE_INVALID", f"split pins dataset manifest {pinned[:12]}, got {dataset_sha[:12]}")
     out = Path(out).resolve()
-    if check_ignored:
-        _refuse_tracked_output(out)
+    _refuse_output_inside_git(out)
     out.mkdir(parents=True, exist_ok=True)
     by_id = {case["case_id"]: case for case in dataset_manifest["cases"]}
     selection = rule_based_selection(split)
@@ -312,9 +304,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--package-root", type=Path, default=DEFAULT_PACKAGE_ROOT)
     parser.add_argument("--dataset-manifest", type=Path, default=DEFAULT_DATASET_MANIFEST)
     parser.add_argument("--split-manifest", type=Path, default=DEFAULT_SPLIT_MANIFEST)
-    parser.add_argument("--out", type=Path, default=BACKEND_ROOT / "data_cache")
+    parser.add_argument("--out", type=Path, default=None,
+                        help=f"cache directory outside any git work tree (default: ${DATA_ROOT_ENV}/data_cache)")
     parser.add_argument("--only", nargs="*", help="ingest only these selected case ids (debugging)")
     args = parser.parse_args(argv)
+    if args.out is None:
+        root = data_root_from_env()
+        if root is None:
+            print(f"FAIL [OUTPUT_UNSET] set {DATA_ROOT_ENV} (outside the repository) or pass --out", file=sys.stderr)
+            return 2
+        args.out = root / "data_cache"
     try:
         index = run_ingest(args.package_root, args.dataset_manifest, args.split_manifest, args.out, args.only)
     except IngestError as exc:

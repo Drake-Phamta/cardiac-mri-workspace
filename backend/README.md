@@ -7,6 +7,11 @@ The product backend of `DEP-04`: Python + FastAPI + SQLite on the Mac mini M2 (D
 reached by the phone over the ZeroTier overlay. It serves **exactly** `contracts/api/contract.json` v1.0.0 and
 refuses to start on any other contract version.
 
+**Derived patient data never lives in the repository.** Slice PNGs, masks, the review database, rendered
+predictions and Contract 2 packages all live under `CARDIAC_BACKEND_DATA` (a directory outside any git work
+tree); the service and the ingest CLI refuse a path inside a work tree, ignored or not (the rule of
+`ml/data.py`'s `inside_git_worktree`). Host names and addresses are parameters, never committed.
+
 ## What it serves
 
 All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented against real data first.
@@ -53,6 +58,7 @@ bytes hash to the response `checksum`, `ETag` = that checksum).
 ## Data: Contract 1 ingestion of the rule-selected cases
 
 ```powershell
+$env:CARDIAC_BACKEND_DATA = "D:\02_Research\cardiac-data\backend_cache"   # outside the repository
 python -m backend.app.ingest --package-root D:\02_Research\cardiac-data\lasc2018\extracted
 ```
 
@@ -61,13 +67,12 @@ PR #35 is unmerged): **INTEGRATION_CASE_001 = CASE_0061** (lowest validation id)
 (EVALUATION), and the **INT-12 case = CASE_0001** (lowest `final_holdout` id other than CASE_0027,
 INFERENCE_REVIEW, ground truth withheld). The split's pinned dataset-manifest sha256 is checked.
 
-Output goes to `backend/data_cache/` (**gitignored** — derived from patient images; the script refuses to write
-into a git work tree path that is not ignored). Re-running is idempotent: identical bytes are a NO_OP, changed
+Output goes to `$CARDIAC_BACKEND_DATA/data_cache/` (or `--out`); a path inside a git work tree is refused. Re-running is idempotent: identical bytes are a NO_OP, changed
 source bytes are `CHECKSUM_CONFLICT`, never an overwrite. ~21 cases × 88 slices; MRI intensities are uint8 in the
 package and are copied unchanged (`png8-identity/1`), masks are {0, 255}.
 
 Contract 2 packages (experiment manifests + prediction NRRDs, as `ml/` exports them) go under
-`backend/experiments/<package>/` (**gitignored**). Each is validated with
+`$CARDIAC_BACKEND_DATA/experiments/<package>/`. Each is validated with
 `contracts/ingestion/contract2_experiment_artifact/validate_contract2.py` before anything is served; a rejected
 package is listed by code in `/health` and never partially served.
 
@@ -75,13 +80,14 @@ package is listed by code in `/health` and never partially served.
 
 ```powershell
 pip install -r backend/requirements-dev.txt          # runtime pins + httpx/pytest
-powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1    # http://127.0.0.1:8000
+powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot D:\02_Research\cardiac-data\backend_cache
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/api/v1/cases/CASE_0061/slices/44/mri
 ```
 
-Environment: `CARDIAC_DATA_CACHE`, `CARDIAC_EXPERIMENTS_ROOT`, `CARDIAC_DB` (default `backend/var/backend.sqlite3`),
-`CARDIAC_RENDER_CACHE`, `CARDIAC_STUDY_ID` (default `STUDY_LA_001`), `CARDIAC_API_CONTRACT`.
+Environment: `CARDIAC_BACKEND_DATA` (required; layout `data_cache/`, `experiments/`, `var/backend.sqlite3`,
+`var/render_cache/`), per-path overrides `CARDIAC_DATA_CACHE`, `CARDIAC_EXPERIMENTS_ROOT`, `CARDIAC_DB`,
+`CARDIAC_RENDER_CACHE`, plus `CARDIAC_STUDY_ID` (default `STUDY_LA_001`) and `CARDIAC_API_CONTRACT`.
 
 ## Tests
 
@@ -102,17 +108,21 @@ immutability, no physical-unit field anywhere, ingest idempotency and `CHECKSUM_
 ## Deploy to the Mac mini (run by the leader)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1
+powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1 -SshHost <ssh-alias> -BindHost <overlay-address> `
+    -DataCache D:\02_Research\cardiac-data\backend_cache\data_cache
 ```
 
-Packs code + contract files + the derived data cache (never raw NRRD) into `backend/var/deploy_stage/`, downloads
-the pinned requirements as Python 3.9 macOS-arm64 wheels, copies everything to `~/cardiac-backend` over
-`ssh macmini`, creates a venv from `/usr/bin/python3` (3.9.6 on the Mac mini), installs offline from the wheels,
-restarts uvicorn on `0.0.0.0:8000` in the background (`backend/var/uvicorn.pid`, `backend/var/uvicorn.log`),
-curls `/health` on the Mac mini and then from the PC over the overlay. Nothing is deleted on either side.
+`-SshHost` / `-BindHost` may instead come from the untracked environment variables `CARDIAC_DEPLOY_SSH_HOST` /
+`CARDIAC_DEPLOY_BIND_HOST`; binding `0.0.0.0` needs the explicit `-BindAll`. The script packs code + contract
+files + the derived data cache (never raw NRRD) into a fixed stage directory under `%TEMP%`, downloads the pinned
+requirements as Python 3.9 macOS-arm64 wheels, copies the code to `~/cardiac-backend` and the data to
+`~/cardiac-backend-data` over ssh, creates a venv from `/usr/bin/python3` (3.9.6 on the Mac mini), installs
+offline from the wheels, restarts uvicorn on `<overlay-address>:8000` in the background (pid file and log under
+`~/cardiac-backend-data/var/`), and curls `/health` on the host and then from the PC. Nothing is deleted on
+either side.
 
-Phone base URL: `http://10.64.193.115:8000/api/v1` · health: `http://10.64.193.115:8000/health`.
-If the Mac mini answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
+Phone base URL: `http://<overlay-address>:8000/api/v1` · health: `http://<overlay-address>:8000/health`.
+If the host answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
 
 ## Known gaps (Day 22)
 
