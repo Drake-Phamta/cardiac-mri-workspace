@@ -18,12 +18,19 @@
 | R2 | **Bytes per switch stay within a few hundred KB** — no slice gesture above 500 KB (one MRI slice PNG is ~0.1–0.3 MB; a 576×576×88 volume is ~29 MB raw). | `bytes_total`; `bytes_per_switch_kb` n / p50 / p95 / max (nearest-rank) |
 | R3 | **No endpoint returns the volume** — no single response above 2 MB, and no 200 without a byte count. | `requests[].bytes`, `max_request_kb` |
 | R4 | **Nothing volume-like, relative** — no response more than 10× the median of the same endpoint in the capture (and above 32 KB). Catches a mask "volume" (88 × ~2 KB) that fits under R2 and R3. | `endpoint_median_bytes`; the problem line names the ratio |
-| R5 | **The new-15 pass measured something** — every one of its gestures went to the network (`"cache_hit":false`), ended `"shown"`, and carries `mri_slice_get` and `artifact:mri` with more than 0 bytes. A pass where nothing was fetched or the MRI never arrived cannot pass. | each new-15 `CMW_GESTURE` |
+| R5 | **The new-15 pass measured something** — every one of its gestures went to the network (`"cache_hit":false`), ended `"shown"`, and carries every endpoint of the run's **scope** with more than 0 bytes: always `mri_slice_get` + `artifact:mri`; `ground_truth_slice_get` when the case declares ground truth (+ `artifact:mask` when the GT overlay was ON); `prediction_slice_get` only when the case has an analysis run. A pass where nothing was fetched or the MRI never arrived cannot pass. | each new-15 `CMW_GESTURE`; the `scope:` line |
 | R6 | **The run was undisturbed** — inside the L4 passes: no `"superseded"` gesture, no `CMW_STEP_TIMEOUT`, only slice gestures, each ending `"shown"`. | `counts.superseded`, `counts.step_timeouts_in_l4` |
 | R7 | **Revisits are cache hits with 0 bytes** — all 15 gestures of the `revisit-15` pass have `"cache_hit":true` and `"bytes_total":0`. | `revisit_cache_hits` = 15 |
 | R8 | **The run is complete** — exactly 15 new + 15 revisit gestures. A short capture cannot pass. | `l4_new`, `l4_revisit` |
 
-`L4 CANNOT_JUDGE` = the capture has no L4 run markers (the manual fallback in step 2.7): new slices and
+**Tonight's scope.** The backend has no analysis run ingested yet (`available_run_ids` is empty for every case), so
+CASE_0061 opens as a case before its first run: MRI + ground truth, no prediction (decision (b), Day 22). The
+report must print `scope: MRI + ground truth (+ mask bytes) - no analysis run for this case: predictions are not
+part of this L4`. If it says `overlay off: mask bytes not measured`, the GT overlay was not switched on (§2.7) —
+still a valid L4 of the MRI path, but say so in the notes. L4 judges *what* moves per slice gesture; with no run
+it says nothing about prediction transfers.
+
+`L4 CANNOT_JUDGE` = the capture has no L4 run markers (the manual fallback in step 2.8): new slices and
 revisits cannot be told apart, so R5–R8 are not judged. It is **not** a PASS; rerun with the long-press menu.
 The report also prints the reference line *one full volume ≈ slices × median new-slice KB* next to the largest
 switch, so the distance from a full-volume transfer is visible.
@@ -32,8 +39,8 @@ switch, so the distance from a full-volume transfer is visible.
 
 | Step | Budget |
 |---|---|
-| Install, cold start, open the case (§1, §2.1–2.6) | 6 min |
-| The L4 run (§2.7) — about 1 min; one rerun allowed | 4 min |
+| Install, cold start, open the case, GT on (§1, §2.1–2.7) | 6 min |
+| The L4 run (§2.8) — about 1 min; one rerun allowed | 4 min |
 | Stop, dump, collect (§3) | 5 min |
 | Slack | 5 min |
 
@@ -97,7 +104,9 @@ both windows.
    node "$MOBILE\scripts\preflight-live.mjs" --case CASE_0061
    ```
 
-   It must end with `PREFLIGHT PASS`. `FAIL P1 … REBUILD` means the backend's `contract_version` is not the one
+   It must end with `PREFLIGHT PASS`. Tonight P3 reads `run none - MRI + ground truth only` (no run is ingested)
+   and P5 `prediction none (no analysis run)`; P4–P6 must still pass. `FAIL P1 … REBUILD` means the backend's
+   `contract_version` is not the one
    this APK was built with — the app would answer every screen with `CONTRACT_DRIFT`; stop and rebuild from a
    checkout with the backend's contract. `P6` is a one-slice rehearsal of the L4 rules (per-slice requests only; going
    back costs 0 bytes). Paste its output into your session notes.
@@ -130,16 +139,20 @@ Start the capture **in window 2** (after its setup block) and leave it running u
    address. Check, in this order: ZeroTier on the phone, the Mac mini `/health`, and that the `.build.txt` hash
    matches `mobile\.env.local` (§0.1).)*
 4. Type `CASE_0061` in the search box and tap the row (or **Open CASE_0061 directly**).
-5. If asked, choose the run and the prediction variant (either variant is fine for L4; note which).
+5. Tonight the viewer opens directly: the line under the case id reads **No analysis run for this case - MRI and
+   ground truth only**, and there is no run or variant to choose. *(If the backend lists a run by then, the app asks
+   for the run and the prediction variant instead — either variant is fine for L4; note which.)*
 6. Wait until the viewer shows **slice 45 / 88 (z = 44)** with the MRI image.
-7. **Long-press the slice label** (`slice 45 / 88 …`, under the image) for ~1 s → choose **L4 15 + 15**.
+7. In **Overlays**, tap **Ground truth: OFF** so it reads **Ground truth: ON** (the cyan outline appears). The GT mask
+   bytes are then part of every new slice.
+8. **Long-press the slice label** (`slice 45 / 88 …`, under the image) for ~1 s → choose **L4 15 + 15**.
    The app now steps ▶ through **15 slices it has never shown** (z 45 → 59), then ◀ back through **the same
    15** (z 58 → 44), 400 ms after each slice is on screen. The controls are locked while it runs; it ends with an
    **"L4 finished"** dialog (about 30–60 s).
    - *Manual fallback (only if the long-press menu fails):* tap **▶** 15 times, waiting for each new slice to
      appear, then **◀** 15 times. The capture then has no run markers and the report says
      `L4 CANNOT_JUDGE` (manual) — it is evidence of R1–R4 only; note "manual".
-8. Do **not** touch anything else until the dialog appears. Do not press **Refresh this slice** or **Retry**
+9. Do **not** touch anything else until the dialog appears. Do not press **Refresh this slice** or **Retry**
    during the run (a refresh is logged as its own gesture and disturbs R6).
 
 ## 3 · Stop and collect

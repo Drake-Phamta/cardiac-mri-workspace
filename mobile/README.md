@@ -168,7 +168,9 @@ it with `node --test`; keep React Native imports in `.js` files.
   experiment and precomputed flag; entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. While the
   viewer shows a state instead of a slice, the metric and provenance read "-" and the entries are disabled ("this
   slice did not load") — nothing of the previously displayed slice stays on screen. **Refresh this slice** re-asks
-  the server for the current slice only.
+  the server for the current slice only. A case with **no analysis run yet** (`available_run_ids` empty) opens
+  straight into the viewer with MRI + ground truth only: the run line says so, no run / prediction / metric / error
+  request is made, and SCR-04/05/06 are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
