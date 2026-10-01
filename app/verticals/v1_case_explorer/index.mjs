@@ -150,11 +150,15 @@ function snapshot(view, f) {
     // cache key so RAW and PROCESSED can never share one.
     predictionRef: f.predictionRef ?? null,
     groundTruthRef: f.groundTruthRef ?? null,
-    // 3D needs a mesh, and only a run that SUCCEEDED and names its
-    // reconstructions has one. Derived from the fields above, so the flag
-    // cannot outlive its data.
-    canEnter3D: f.runStatus === RUN_STATUS.SUCCEEDED && reconstructionIds.length > 0,
-    canEnterError: f.canEnterError === true,
+    // Both entries are derived here, from the fields above, so neither can
+    // outlive its data - and neither is offered from a snapshot that is not
+    // SUCCESS. 3D needs a mesh, and only a run that SUCCEEDED and names its
+    // reconstructions has one. SCR-04 is "available only with ground truth"
+    // (`10` section 3): THIS slice's ground truth came back, not merely the
+    // case's declaration of it.
+    canEnter3D: view.state === STATE.SUCCESS
+      && f.runStatus === RUN_STATUS.SUCCEEDED && reconstructionIds.length > 0,
+    canEnterError: view.state === STATE.SUCCESS && (f.groundTruthRef ?? null) !== null,
   });
 }
 
@@ -276,9 +280,10 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
     /*
      * The run must belong to the case on screen, or its masks are drawn over
      * another case's MRI. Compared with the case_id that case_get SERVED, not
-     * the id requested: the generator fills every *_id from the field name
-     * (CASE_ID_0043), not from the request (CASE_0043), so a request-side
-     * check would block every generated scenario.
+     * the id requested: the generator - DRAFT v0 and contract 1.1.0 alike -
+     * fills every *_id but experiment_id from the field name (CASE_ID_0043),
+     * not from the request (CASE_0043), so a request-side check would block
+     * every generated scenario. It belongs here the day the generator echoes.
      */
     const servedCase = kase.data.case_id;
     if (typeof r.case_id !== 'string' || r.case_id === '' || r.case_id !== servedCase) {
@@ -405,7 +410,6 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
         [LAYER.PREDICTION]: predictionRef !== null,
         [LAYER.GROUND_TRUTH]: groundTruthRef !== null,
       },
-      canEnterError: groundTruthAvailable,
     });
   }
 
