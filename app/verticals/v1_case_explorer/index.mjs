@@ -16,7 +16,9 @@
  *   current slice image      mri_slice_get  (metadata + checksum only today -
  *                            see the header note on pixels)
  *   slice n / total          geometry_get / case_get -> shape[2]
- *   active run, precomputed  analysis_run_get
+ *   active run, precomputed  analysis_run_get - or none: a case that lists no
+ *                            run still opens, as MRI (+ ground truth), with
+ *                            noRunReason NO_ANALYSIS_RUN
  *   active prediction        the caller's variant, NEVER defaulted
  *   overlay controls         the 5 layers of `10` section 4
  *   metrics when valid       analysis_slice_metrics
@@ -66,6 +68,11 @@ export const RUN_STATUS = Object.freeze({
 });
 
 const RUN_IN_FLIGHT = new Set([RUN_STATUS.QUEUED, RUN_STATUS.RUNNING]);
+
+// Why a case opens with no run: it lists none (a real case before any
+// training), or none was asked for. The reason the screen shows for the
+// missing run and for every layer that needs one.
+export const NO_ANALYSIS_RUN = 'NO_ANALYSIS_RUN';
 
 const isVariant = (v) => Object.values(VARIANT).includes(v);
 const idsIn = (v) => (Array.isArray(v) ? v.filter((id) => typeof id === 'string' && id !== '') : []);
@@ -124,6 +131,9 @@ function snapshot(view, f) {
     availableRunIds: Object.freeze([...(f.availableRunIds ?? [])]),
     experimentId: f.experimentId ?? null,
     attemptNo: f.attemptNo ?? null,
+    // NO_ANALYSIS_RUN when the case opened without a run (runId is then
+    // null); null whenever a run was asked for and read.
+    noRunReason: f.noRunReason ?? null,
     // `n / total`. z is the slice axis under index_convention x=column,y=row,z=slice.
     sliceIndex: f.sliceIndex ?? null,
     sliceTotal: Array.isArray(shape) ? shape[2] : null,
@@ -133,6 +143,9 @@ function snapshot(view, f) {
     // Which overlays the user may even turn on. A layer whose data came back
     // unavailable is not offered, rather than offered and then empty.
     layersAvailable: Object.freeze({ ...(f.layersAvailable ?? {}) }),
+    // Why a layer is not offered, where the reason is known for the whole
+    // case rather than per slice - today only NO_ANALYSIS_RUN.
+    layerReasons: Object.freeze({ ...(f.layerReasons ?? {}) }),
     transform: f.transform ? Object.freeze({ ...f.transform }) : null,
     // `10` section 7: absent ground truth is an unavailable state, never an
     // empty chart and never a zero mask. Compared === true because the
@@ -155,16 +168,22 @@ function snapshot(view, f) {
     // cannot outlive its data.
     canEnter3D: f.runStatus === RUN_STATUS.SUCCEEDED && reconstructionIds.length > 0,
     canEnterError: f.canEnterError === true,
+    // An action the model declined without sending anything, e.g.
+    // { action: 'setVariant', reason: NO_ANALYSIS_RUN }. Kept until the next
+    // transition, so it describes the snapshot it arrived with.
+    refused: f.refused ?? null,
   });
 }
 
 /*
- * `variant` is a CONSTRUCTOR argument with no default. Leaving it out is a
- * programming error, caught here rather than becoming a request that silently
- * shows the wrong mask.
+ * `variant` has no default anywhere. It may be null at construction - a case
+ * with no run needs none, and the model ignores it there - but opening a run
+ * without one is a programming error, caught in open() before any request
+ * rather than becoming one that silently shows the wrong mask. A variant that
+ * IS given must be a real one.
  */
-export function createCaseExplorer(client, { variant, viewport } = {}) {
-  assertVariant(variant, 'createCaseExplorer');
+export function createCaseExplorer(client, { variant = null, viewport } = {}) {
+  if (variant !== null) assertVariant(variant, 'createCaseExplorer');
   const view0 = viewport ?? { width: 1080, height: 1440 };
 
   let current = snapshot(loading(), {
@@ -184,7 +203,7 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
    * not carry the RAW one (`10` section 8, "block misleading visualization").
    */
   const set = (v, patch = {}) => {
-    const next = { ...current, ...patch };
+    const next = { ...current, refused: null, ...patch };
     if (v.state !== STATE.SUCCESS) {
       Object.assign(next, {
         imageRef: null, predictionRef: null, groundTruthRef: null, metrics: null,
@@ -237,6 +256,9 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
    * the variant and the overlay switches - the user's choices - carry over.
    */
   async function open({ caseId, runId, sliceIndex = 0, scenarios }) {
+    // A run's masks are shown in one explicit variant (`11` section 6): asked
+    // for a run with none, refuse before anything is sent.
+    if (runId) assertVariant(current.variant, 'open() with a run');
     const mine = ++seq;
     current = snapshot(loading(), {
       caseId, runId, sliceIndex, variant: current.variant, overlays: current.overlays,
@@ -266,6 +288,23 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
       },
       transform: fitTransform(view0.width, view0.height, shape[0], shape[1]),
     });
+
+    /*
+     * No run to show - the case lists none, or none was asked for. A real
+     * case is served before any training (Day 22: 21 cases, no run), and its
+     * MRI, with ground truth where the case declares it, is still worth
+     * inspecting. So the slice view opens, and says plainly what it lacks:
+     * prediction, metrics and error are unavailable for one reason, and no
+     * run is ever requested - not analysis_run_get, not a prediction.
+     */
+    if (!runId || idsIn(kase.data.available_run_ids).length === 0) {
+      set(loading(), {
+        runId: null,
+        noRunReason: NO_ANALYSIS_RUN,
+        layerReasons: { [LAYER.PREDICTION]: NO_ANALYSIS_RUN, [LAYER.ERROR]: NO_ANALYSIS_RUN },
+      });
+      return loadSlice(sliceIndex, { scenarios });
+    }
 
     const run = await client.call('analysis_run_get', { run_id: runId },
       { scenario: pick(scenarios, 'analysis_run_get') });
@@ -327,7 +366,8 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
    */
   async function loadSlice(sliceIndex, { scenarios } = {}) {
     const mine = ++seq;
-    const { caseId, runId, groundTruthAvailable } = current;
+    const { caseId, runId, groundTruthAvailable, noRunReason } = current;
+    const hasRun = noRunReason === null;
     // Captured now: what this request is checked against cannot move if the
     // variant is switched while it is in flight.
     const requested = current.variant;
@@ -347,18 +387,21 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
      * Ground truth, and the metrics derived from it, are asked for only when
      * the case declares ground truth (`10` section 7). A case without it gets
      * neither request, and no NOT_APPLICABLE that would read as "measured,
-     * and empty".
+     * and empty". With no run there is no prediction and no metric to ask
+     * for: the MRI and the ground truth are the whole slice.
      */
     const [mri, pred, gt, metrics] = await Promise.all([
       client.call('mri_slice_get', { case_id: caseId, slice_index: sliceIndex },
         { scenario: pick(scenarios, 'mri_slice_get') }),
-      client.call('prediction_slice_get', { run_id: runId, slice_index: sliceIndex, variant: requested },
-        { scenario: pick(scenarios, 'prediction_slice_get') }),
+      hasRun
+        ? client.call('prediction_slice_get', { run_id: runId, slice_index: sliceIndex, variant: requested },
+          { scenario: pick(scenarios, 'prediction_slice_get') })
+        : null,
       groundTruthAvailable
         ? client.call('ground_truth_slice_get', { case_id: caseId, slice_index: sliceIndex },
           { scenario: pick(scenarios, 'ground_truth_slice_get') })
         : null,
-      groundTruthAvailable
+      hasRun && groundTruthAvailable
         ? client.call('analysis_slice_metrics', { run_id: runId, slice_index: sliceIndex, variant: requested },
           { scenario: pick(scenarios, 'analysis_slice_metrics'), context: { runStatus: current.runStatus } })
         : null,
@@ -372,7 +415,7 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
     // A prediction that did not come back disables its layer rather than
     // drawing nothing under a switch that says "on" (`10` section 7).
     let predictionRef = null;
-    if (pred.state === STATE.SUCCESS) {
+    if (pred && pred.state === STATE.SUCCESS) {
       const served = pred.data.prediction_variant ?? null;
       if (served !== requested) return set(variantMismatch(requested, served), { sliceIndex });
       predictionRef = refFor(pred.data, { kind: 'PREDICTION', caseId, runId, sliceIndex, variant: served });
@@ -385,7 +428,9 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
     // Metrics being unavailable does not break the viewer: the slice still
     // renders, the metrics panel says unavailable and why. `10` section 7.
     let metricsValue;
-    if (!groundTruthAvailable) {
+    if (!hasRun) {
+      metricsValue = Object.freeze({ state: 'UNAVAILABLE', value: null, reason: noRunReason });
+    } else if (!groundTruthAvailable) {
       metricsValue = Object.freeze({ state: 'UNAVAILABLE', value: null, reason: 'GROUND_TRUTH_UNAVAILABLE' });
     } else if (metrics.state === STATE.SUCCESS) {
       metricsValue = Object.freeze({
@@ -405,20 +450,24 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
         [LAYER.PREDICTION]: predictionRef !== null,
         [LAYER.GROUND_TRUTH]: groundTruthRef !== null,
       },
-      canEnterError: groundTruthAvailable,
+      // SCR-04 compares a prediction with ground truth; with no run there is
+      // nothing to compare.
+      canEnterError: hasRun && groundTruthAvailable,
     });
   }
 
   /*
    * Every action after open() comes through here. A slice is fetched only for
-   * a case that loaded and a run that SUCCEEDED. Otherwise - PROCESSING, or a
-   * case or run that failed - the case and run are read again, so REFRESH on
-   * a running analysis asks whether it finished instead of drawing slices of
-   * a run that has not.
+   * a case that loaded and either a run that SUCCEEDED or no run at all.
+   * Otherwise - PROCESSING, or a case or run that failed - the case and run
+   * are read again, so REFRESH on a running analysis asks whether it finished
+   * instead of drawing slices of a run that has not. With no run, navigation
+   * asks for slice data only, so a per-slice cache answers every revisit.
    */
   async function reload(sliceIndex, opts = {}) {
     if (current.caseId === null) return current;
-    if (current.runStatus === RUN_STATUS.SUCCEEDED && current.shape) return loadSlice(sliceIndex, opts);
+    const ready = current.runStatus === RUN_STATUS.SUCCEEDED || current.noRunReason !== null;
+    if (ready && current.shape) return loadSlice(sliceIndex, opts);
     return open({ caseId: current.caseId, runId: current.runId, sliceIndex, scenarios: opts.scenarios });
   }
 
@@ -430,6 +479,11 @@ export function createCaseExplorer(client, { variant, viewport } = {}) {
 
     /* Switching variant re-fetches; it never relabels what is already drawn. */
     async setVariant(next, opts) {
+      // No run, no prediction to switch: a no-op the snapshot records, not a
+      // throw, and nothing is sent.
+      if (current.noRunReason !== null) {
+        return set(current.view, { refused: Object.freeze({ action: 'setVariant', reason: current.noRunReason }) });
+      }
       assertVariant(next, 'setVariant');
       // LOADING carries no refs (see set), so between the switch and the
       // answer nothing fetched under the old variant sits under the new one.

@@ -55,7 +55,7 @@ You do not map them. `core/errors.mjs` does, and `test_errors.mjs` walks all 15.
 ## Tests
 
 ```bash
-node app/verticals/v1_case_explorer/test_case_explorer.mjs   # 73 checks, groups V1-1 … V1-23
+node app/verticals/v1_case_explorer/test_case_explorer.mjs   # 88 checks, groups V1-1 … V1-27
 ```
 
 Against the generated bundle, plus small inline stubs that edit one field of a generated response. `V1-23`
