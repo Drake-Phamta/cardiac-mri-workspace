@@ -51,11 +51,11 @@ the 30-day baseline, which is not authorised yet.
 
 | DR | Gate | Decision required before | Required artifact | Owner | Blocked by |
 |---|---|---|---|---|---|
-| **DR-G01** | `GATE-DATA-01` — **OPEN** | any training / final evaluation | validated package: label availability, geometry, checksums, case counts → `DATASET_AUDIT.md` + manifest | Leader + ML/Imaging review | Spike D |
-| **DR-G02** | `GATE-SPLIT-01` — **OPEN** | training starts | Path A or Path B from `06` §6; frozen patient manifest + seed `2024` | Leader / spec owner | DR-G01, RA-H02 |
-| **DR-G03** | `GATE-ML-01` — **OPEN** | final matrix training | one frozen DINOv2 variant, decoder, threshold, loss, training policy → `ADR-ML-001` | Leader after research/compute spike | **Spike C1** (C0 evidence is insufficient), DR-011 ✅ |
+| **DR-G01** | `GATE-DATA-01` — **✅ CLOSED 2026-09-18 21:40** | any training / final evaluation | validated package: label availability, geometry, checksums, case counts → `DATASET_AUDIT.md` + manifest | Leader + ML/Imaging review | Spike D |
+| **DR-G02** | `GATE-SPLIT-01` — **✅ CLOSED 2026-10-01 11:16** (QA-005, Day 22 override) | training starts | Path A or Path B from `06` §6; frozen patient manifest + seed `2024` | Leader / spec owner | DR-G01, RA-H02 |
+| **DR-G03** | `GATE-ML-01` — **✅ CLOSED 2026-10-01 14:30** (`ADR-ML-001`; the reviewer's Day 23 verdict is handled by DR-016b) | final matrix training | one frozen DINOv2 variant, decoder, threshold, loss, training policy → `ADR-ML-001` | Leader after research/compute spike | **Spike C1** (C0 evidence is insufficient), DR-011 ✅ |
 | **DR-G04** | `GATE-IMG-01` — **OPEN** | holdout post-processing evaluation | frozen morphology config from dev/validation evidence only | Leader after ablation setup | DR-G03 |
-| **DR-G05** | `GATE-MOB-01` — **OPEN** | production mobile architecture | framework selected on Spike A/B evidence → `TECH_STACK_ADR.md` | Leader | Spikes A/B, DR-006 |
+| **DR-G05** | `GATE-MOB-01` — **✅ CLOSED 2026-10-01 21:17** (`TECH_STACK_ADR.md`, leader's decision) | production mobile architecture | framework selected on Spike A/B evidence → `TECH_STACK_ADR.md` | Leader | Spikes A/B, DR-006 |
 | **DR-G06** | `GATE-DEPLOY-01` — **✅ RESOLVED** | — | **`LOCAL_DEMO` — PRIVATE OVERLAY / CELLULAR ACCESS** (DR-003 ✅) — **access amended to Wi-Fi by DR-003b, 2026-09-13**. Artifact-transport strategy remains an `ADR-ART-001` matter informed by Spike E. | Leader / Architect | — |
 
 **[SPEC]** `00` §11.1: "A gate resolution becomes part of project truth only when recorded in an
@@ -1200,7 +1200,7 @@ project-control failure, not a dataset question, and it escalates on its own ter
 
 **What was found.** `CASE_0056` and `CASE_0097`, both in the official `Training Set`, are one acquisition
 exported twice: their `laendo.nrrd` and `lawall.nrrd` are byte-identical (SHA-256 `685f964b…` and `ccd380f1…`)
-and their MRIs correlate at r = 0.9965. The audit reported no anomaly, and the draft split in the closed PR #28
+and their MRIs correlate almost perfectly (r above 0.99; the exact value is restricted by F5, DR-002c). The audit reported no anomaly, and the draft split in the closed PR #28
 placed `CASE_0056` in train and `CASE_0097` in validation — leakage between train and validation, a P0 class
 defect under `13` §12. Project Control reproduced the check on 2026-09-15 at 11:58.
 
@@ -1254,9 +1254,9 @@ QA-002 F1 fix) records the pair as an anomaly and points to this decision.
    distinct patient per case.
 3. One duplicated acquisition (`CASE_0056` / `CASE_0097`) was found by QA-002 and is already handled by DR-002a.
 4. The owner's MRI-only screen read all 154 volumes and scored 11,781 pairs without opening a single label. It
-   recovered the known duplicate at **rank 1** (sampled Pearson r = 0.996141). The strongest correlation crossing
-   the released Training ↔ Testing boundary was **r = 0.794344**; a proposed train ↔ validation crossing reached
-   **r = 0.781772**. These are **screening candidates**: a high score does not prove patient identity, and a low
+   recovered the known duplicate at **rank 1** (sampled Pearson r above 0.99). The strongest correlation crossing
+   the released Training ↔ Testing boundary was **above the 0.75 threshold**, and so was a proposed train ↔
+   validation crossing (exact scores restricted by F5, see DR-002c). These are **screening candidates**: a high score does not prove patient identity, and a low
    score does not rule out pre/post-ablation scans of the same patient.
 5. `06` §6 requires a **patient-level** split and forbids changing the split once results are observed.
    `13` TC-EXP-008 and `04` NFR-REP-002 rest on the same property.
@@ -1615,6 +1615,13 @@ recorded that *"its owner is fixed in planning, not here"*. A screen nobody owns
 V2. V2's owner is also the heaviest reviewer in the team, so adding a screen there would deepen the bottleneck the
 Day-8 close recorded.
 
+**Addendum 2026-10-02 09:25 (Phạm Tuấn Anh; QA-078 N-4, N-6).**
+- SCR-04 draws its error classes (TP, FP, FN) on the device from the slice's ground-truth and prediction masks.
+- Every number SCR-04 shows comes from the server (`analysis_run_metrics`). `analysis_slice_error` is not used.
+- SCR-04 checks that the masks it draws are the ones the server's numbers refer to (`reference_mask_id`,
+  `prediction_mask_id`), and warns when they differ.
+- In SCR-03 and SCR-04 alike, a Retry forgets only the slice it retries.
+
 ---
 
 ### GATE-MOB-01 — measurement direction: React Native shell with WebGL2 in a WebView
@@ -1727,7 +1734,7 @@ are compared within one recipe, not within one host; the host is a recorded cova
 
 | Field | Value |
 |---|---|
-| **Status** | ✅ **CONFIRMED by Phạm Tuấn Anh on 2026-10-01 at about 21:17** (in session). Recorded 2026-10-01 by the leader's session under the Day 22 delegation. It was written after the C1 QA (14:29) and after the DINOv2 queue started (14:30), and answers QA findings N-1 and N-2 (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`). **Phạm Tuấn Anh confirms it on Day 23** |
+| **Status** | ✅ **CONFIRMED by Phạm Tuấn Anh on 2026-10-01 at about 21:17** (in session). Recorded 2026-10-01 by the leader's session under the Day 22 delegation. It was written after the C1 QA (14:29) and after the DINOv2 queue started (14:30), and answers QA findings N-1 and N-2 (`management/day22/QA_REVIEW_C1_GATE_ML_01.md`) |
 | **Amends** | `DR-016`, the fallback clause only |
 | **Reason** | `RESULT_C1.md` §3.1. At 560 / batch 8 the UNet runs on the 4 GiB card only through driver memory spill: 2.18 s per step sustained in the C1 trial. E = 50 allows at most 1.13 s per step for a UNet queue that starts Day 23 09:00 and ends by 2026-10-03 12:00 |
 | **Affects** | the UNet queue (EXP-U-025/050/100), the run calendar, the UNet holdout evaluation date |
@@ -1754,6 +1761,203 @@ invalidate those runs (`ADR-ML-001` §3).
 
 **What it does not claim.** That the RTX 4050 runs batch 8 without spill. The tripwire measures that on Day 23; it is
 not assumed.
+
+---
+
+### DR-002c — F5 covers the published pair scores; no second sensitivity list
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh (Day 23, in session) |
+| **Amends** | `DR-002b` (item 4 of "What is established") and the QA-002 F5 ruling |
+| **Settles** | QA-005 **N-2** and **N-7** (`management/day22/QA_REVIEW_005_SPLIT.md`) |
+
+1. **F5 covers them.** The exact similarity scores of named case pairs are restricted, including:
+   - the three scores printed in DR-002b item 4;
+   - DR-002a's MRI correlation.
+
+   Their current text now gives a band instead. Git history keeps the old values, and the Day 6 QA records are not
+   edited. `management/spikes/SPIKE_D_DATASET/RESULT.md` belongs to its owner: Bế Quốc Khánh applies the same
+   change there.
+2. **No second sensitivity list.** The final evaluation keeps exactly two report slots:
+   - the primary 54-case population;
+   - the DR-002b sensitivity slot without CASE_0027.
+
+   Near-threshold holdout cases (QA-005 N-7) do not become a third slot. Their residual risk is the one DR-002b (b)
+   already accepted, and the final report states it as a limitation. This is declared before any holdout metric
+   exists and is not revisited after.
+
+---
+
+### DR-016b — If the Spike C1 reviewer rejects on Day 23
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh, before the reviewer's verdict (due 12:00) |
+| **Context** | SPIKE_C1 was ACCEPTED and `GATE-ML-01` closed under the Day 22 override. CHAT E's QA stood in for Vũ Hùng Anh's APPROVE (revalidation row H2) |
+
+**Decision.** The UNet queue starts and runs as planned (DR-016a). What happens next depends on the verdict:
+- **Approve:** nothing changes.
+- **Reject on documentation grounds** (wording, missing notes, traceability): the owner fixes the documents, and
+  `GATE-ML-01` stays closed.
+- **Reject on recipe or evidence grounds** (a C1-1…C1-10 claim the machine evidence does not back, or a recipe line
+  the evidence does not support):
+  - `GATE-ML-01` reopens;
+  - any running training queue stops at the next epoch boundary;
+  - the leader decides before anything restarts.
+
+The reviewer writes which kind of reject it is in the revalidation table.
+
+---
+
+### DR-017 — INT-12: one inference-only case in the app, hidden but not blinded
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh (Day 23, in session) |
+| **Records** | INT-12, which until now lived only in `management/day20/DAY20_REBASELINE.md`, the contract READMEs and `case_capability.decision` |
+| **Settles** | contract-stack QA **N-a** and **N-b** (`management/day22/qa/QA_CONTRACT_STACK_PR62_PR68_PR71.md`) and QA-075 **N-1** (`management/day22/qa/QA_PR75_REVIEW.md`) |
+| **Affects** | `contracts/api/contract.json` (`case_level_scope`, `summary_rule`, notes on `experiment_metrics` and `experiment_cases`), `contracts/api/generate_fixture.py`, the Contract 2 README, `backend/app/metrics.py` (QA-075 N-7), and the V3 and mobile tests that read the generated bundle |
+
+**The case.** INT-12 shows one holdout case, CASE_0001, as an `INFERENCE_REVIEW` case. The app never offers its
+ground truth, or any per-case value derived from it (PR-MODE-01, TC-MODE-001).
+
+**The conflict.** Two QA passes disagreed:
+- **QA-075 N-1:** a cohort summary that keeps the case lets anyone recover its Dice from n·mean minus the served
+  rows. Its recommendation was to take the case out of `successful_n`, `metric_summary` and compare.
+- **Contract-stack QA N-a:** keep the case in, and say so.
+
+**Decision: hidden, not blinded.**
+1. CASE_0001 stays in the 54-case evaluation population (DR-002). It counts in `evaluation_n`, `successful_n`,
+   `metric_summary`, and the compare population and summary. App and report use the same 54-case population.
+2. The app hides the case. It serves no ground-truth artifact for it, no per-case metric value and no slice-error
+   view, and never names it in an outlier list.
+   - **N-b:** the WITHHELD exclusion becomes part of `DR-010`'s outlier selection, with the same literal as
+     `ml/evaluate`.
+3. The contract text says so. Sentence 2 of `case_level_scope` changes:
+   - from: no value of the case is served;
+   - to: no per-case value of the case is served; the cohort statistics include it, so its values can be derived
+     from them.
+
+   The fixture becomes 5 successful out of 5, with the case included.
+4. A real Contract 2 package may go onto the backend host once both of these are on `main`:
+   - this text and the new fixture;
+   - DR-018's completeness checks in the validator.
+
+   This decision, not a change to the cohort maths, lifts QA-075's data gate.
+
+**Why.**
+- The LASC labels are public, so INT-12 demonstrates a product mode; it does not keep anything secret.
+- A 53-case app population would give H10 deltas that differ from the report's primary numbers.
+- The 54-case holdout is locked by DR-002.
+- Keeping the case in needs only text, fixture and test changes.
+
+**What it does not claim.** That CASE_0001's values are secret. They can be recovered from the cohort statistics and
+from the public dataset. The app never displays them.
+
+**Owners.**
+- Nguyễn Gia Đức Trung: the contract text, the generator, and the backend's FAILED-before-WITHHELD precedence
+  (QA-075 N-7).
+- The same PR updates the tests that read the bundle (`mobile/test/v3_screens.test.mjs`, the V3 README). Bế Quốc
+  Khánh reviews that part.
+
+---
+
+### DR-018 — Contract 2: failed cases, one run per case, mask kind, PROCESSED runs
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh |
+| **Amends** | `DR-004` (Contract 2, the experiment artifact) |
+| **Settles** | QA #64 **N-5** (`management/day22/qa/QA_PR64_REVIEW.md`: a dropped case, one mask shared by every run, a swapped `case_id`, a PROCESSED label on RAW masks), and the exporter's refusal of failed and PROCESSED runs |
+| **Affects** | the Contract 2 schema, README, validator and tests; `ml/export_contract2.py` and its tests; the backend loader |
+
+**Decision.**
+1. **Failed cases.** A case whose inference fails has **no run** in `runs`. It is listed, with its reason, in the
+   PER_CASE_METRICS failures, and the backend shows it as a FAILED row.
+2. **Validator checks:**
+   - the number of runs plus the number of listed failures equals `num_test_cases` (54 for FINAL_HOLDOUT);
+   - every case appears exactly once, as a run or as a failure;
+   - every run's `case_id` matches its artifacts;
+   - the mask kind matches the prediction variant: RAW masks for RAW runs, PROCESSED masks for PROCESSED runs.
+3. **Exporter.** It exports an experiment that has failed cases, under rule 1. It also exports PROCESSED runs
+   (EXP-D-PP), and records `postprocessing_config_sha256`.
+4. **Until the rule 2 checks are on `main`,** the backend does not rely on the validator for completeness, and no
+   real package is ingested.
+
+**Why.**
+- Today one failed case keeps a whole experiment out of the app.
+- The validator accepts a dropped case and a mislabelled mask kind.
+- Both problems would surface on D24–25, after the holdout runs.
+
+**Owners.** Both parts land before the D24 export.
+- Trung: schema, README, validator, tests, backend loader.
+- Khánh: exporter and ML tests.
+
+---
+
+### DR-019 — Publication policy: overlay addresses and the device serial
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh |
+| **Amends** | `DR-003a` and `DR-003b` (the overlay), `DR-006` (the target device) |
+| **Settles** | QA #65 **N-3**, #68 **N-13**, #73 **N2** |
+
+1. **The overlay is private.** On 2026-10-02 at 09:22 the leader's PC reported every ZeroTier network it has joined
+   as `PRIVATE`, so members must be authorised. That authorisation is the access control the unauthenticated
+   `LOCAL_DEMO` backend relies on. The leader keeps the member list to the team's devices.
+2. **From now on, committed files use placeholders** (`<overlay-ip>`, `<device-serial>`) instead of overlay addresses,
+   the network id or the device serial. The forbidden-bytes CI job gains an IPv4 scan; documentation ranges and
+   loopback are allowed.
+3. **No rewrite.**
+   - Addresses and the serial already on `main` stay where they are: overlay addresses in about 40 files, the
+     serial in 19.
+   - Hashed raw evidence is never edited by hand.
+   - History is not purged.
+
+   They count as disclosed; rule 1 is what makes that acceptable.
+
+---
+
+### DR-020 — API contract: the hero set and the wire literals stay
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh |
+| **Settles** | contract QA **N4** and **N10** (`management/day22/qa/QA_PR62_REVIEW.md`) |
+
+1. **The hero set stays at 23 endpoints.** `hero_flow` marks what was built first, not what the demo may use.
+   - `experiment_list` and `experiment_compare` are already served and used by V3.
+   - `analysis_slice_error` stays off: SCR-04 draws the error classes on the device (DR-013a addendum).
+   - No API version bump.
+2. **"DRAFT v0" stays the wire literal** of the frozen Contracts 1 and 2 (v1.0), because changing it would itself be
+   a breaking change. The READMEs and schema titles state plainly that it identifies the frozen v1.0. Owner: Trung.
+
+---
+
+### DR-021 — Mobile shell rules for every vertical
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-02 09:25** by Phạm Tuấn Anh |
+| **Settles** | the A2 questions: QA #77 N-6, N-8, N-10; QA #65 N-5, N-6, N-11, N-12b; QA-078 N-9 |
+
+1. **Checksums.** The runtime verifies the SHA-256 once per content URL, since the stores are content-addressed. A
+   response without a checksum is `CONTRACT_DRIFT`, not an unverified success.
+2. **Data calls.** V2, V3 and V4 screens use the shell's `useCall`, and V3's `useSnapshot.js` moves to it. This starts
+   once `useCall` aborts when it is disabled (QA #77 N-8, fixed by the shell owner on Day 23).
+3. **Build record.** The release build no longer records any hash of the API base URL. The field is dropped, not
+   replaced by an HMAC.
+4. **CI.** One `mobile/` job runs `npm ci --ignore-scripts` from the lockfile, then the render smoke test and a bundle
+   export. This is an accepted exception to the "no third-party code in CI" header, limited to the locked npm tree.
+5. **Cleartext HTTP and orientation.**
+   - Cleartext HTTP is allowed only in live builds (`LOCAL_DEMO` over the private overlay); fixture builds turn it
+     off.
+   - The portrait lock stays, because every measurement was taken in portrait.
+6. **Ownership.**
+   - The shell's owner is Phạm Tuấn Anh. Agent A2 built it under the Day 22 override.
+   - Each vertical owns `mobile/src/verticals/v<N>/` and `mobile/test/v<N>_*.test.mjs`.
 
 ---
 

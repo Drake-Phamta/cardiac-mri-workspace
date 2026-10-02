@@ -60,13 +60,13 @@
 
 | # | Mục | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
-| P1 | #53 → `6b52628`, #80 → `c7a37e0` | mô hình SCR-03; mở case không có run | 88 test V1; #80 N1, N3 trước khi run thật tới SCR-03 | |
+| P1 | #53 → `6b52628`, #80 → `c7a37e0` | mô hình SCR-03; mở case không có run | 88 test V1; #80 N1, N3 trước khi run thật tới SCR-03 | nhận (Phạm Tuấn Anh, 09:40 02/10). 88/88; #80 N1 sửa README, N3 sửa trong PR V1 hôm nay |
 | P2 | DR-016a | ghi sau C1, sau khi hàng đợi DINOv2 đã chạy | **anh đã xác nhận 21:17 ngày 01/10** | nhận (Phạm Tuấn Anh, 21:17 01/10) |
-| P3 | quyết định do QA nêu | danh sách trong gói Day 23 của anh | quyết từng mục | |
-| P4 | **GATE-MOB-01** (#82 → `f06cf6d`) | đã đóng 21:17 theo quyết định của anh (nhận L5) | đọc lại TECH_STACK_ADR §8 | |
-| P7 🔴 | #77 → `cab847a`, #78 → `92a59ff` | shell + V1 SCR-02/03/04 + công cụ L4 (agent A2/A2b) | ``npm test`` trong `mobile/` (177), render smoke; QA-078 N-4…N-10; #77 NB-1 (import shim trong `maskPng.js`) | |
-| P5 | phiên L4 tối 01/10 | đo trên APK `ffbf763`; phiên Claude điều khiển máy qua adb theo yêu cầu của anh | đọc `PROVENANCE.md` của L4 | |
-| P6 | #77 `ffbf763` | shim `latin1` cho Hermes (app văng khi khởi động) | đọc commit và test TD1/TD2 | |
+| P3 | quyết định do QA nêu | danh sách trong gói Day 23 của anh | quyết từng mục | đã quyết 09:25 02/10: DR-002c, DR-016b, DR-017…DR-021, phụ lục DR-013a. Còn lại: xoá dữ liệu tạm (cuối ngày) |
+| P4 | **GATE-MOB-01** (#82 → `f06cf6d`) | đã đóng 21:17 theo quyết định của anh (nhận L5) | đọc lại TECH_STACK_ADR §8 | nhận (Phạm Tuấn Anh, 21:17 01/10) |
+| P7 🔴 | #77 → `cab847a`, #78 → `92a59ff` | shell + V1 SCR-02/03/04 + công cụ L4 (agent A2/A2b) | ``npm test`` trong `mobile/` (177), render smoke; QA-078 N-4…N-10; #77 NB-1 (import shim trong `maskPng.js`) | cần sửa: QA-078 N-4…N-10; #77 NB-1, N-3, N-6…N-12. Sửa trong các PR V1 hôm nay (Phạm Tuấn Anh, 09:40 02/10). Kiểm lại: mobile 177/177 (0 bỏ qua), render 85, app/core 10/10 |
+| P5 | phiên L4 tối 01/10 | đo trên APK `ffbf763`; phiên Claude điều khiển máy qua adb theo yêu cầu của anh | đọc `PROVENANCE.md` của L4 | nhận (Phạm Tuấn Anh, 09:40 02/10). Chạy lại `l4-report` trên logcat đã commit: PASS, p50 153,5 KB, max 155,1 KB |
+| P6 | #77 `ffbf763` | shim `latin1` cho Hermes (app văng khi khởi động) | đọc commit và test TD1/TD2 | nhận (Phạm Tuấn Anh, 09:40 02/10). TD1/TD2 đạt; NB-1 (import shim trong `maskPng.js`) sửa trong PR V1 |
 
 ## Dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân (cần leader duyệt xoá)
 

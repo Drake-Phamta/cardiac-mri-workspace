@@ -9,8 +9,8 @@ leader merge.
 | Việc | Khi nào |
 |---|---|
 | **Đã xong tối qua:** GATE-MOB-01 đóng 21:17 (anh nhận L5); DR-016a xác nhận 21:17; merge #82, #77, #78, #73 (squash), #69; #65 đóng vì #77 thay thế | — |
-| **Kiểm hàng đợi DINOv2 lúc 08:00.** Hàng đợi bị một Ctrl+C dừng lúc khoảng 20:59 trong epoch 12 của EXP-D-100; chạy lại lúc 21:30 từ `last.pt` (epoch 11), lần này tách khỏi mọi console. EXP-D-100 dự kiến xong khoảng **04:00**, EXP-D-050 khoảng **08:00–09:00** sáng 02/10. Nếu dừng lần nữa, chạy lại đúng lệnh cũ; nó tự tiếp tục từ `last.pt`. **Không `git pull` hay checkout trong thư mục repo chính trên PC cho tới khi EXP-D-050 xong**: hàng đợi chạy mã `c7a37e0` từ thư mục đó (DR-016a), còn `ml/` trên `main` đã đổi (#81). Trên 4050 của Khánh: UNet bắt đầu 09:00 | 08:00, trưa, tối |
-| **Đồng hồ PC lệch:** sau khi khởi động lại, đồng hồ PC chậm khoảng 66 phút vì dịch vụ Windows Time không chạy. Bật lại cần quyền admin: `w32tm /resync` sau khi bật dịch vụ. Trước khi sửa, dấu giờ do PC ghi trong log đều lệch | sáng |
+| **Hàng đợi DINOv2: xong.** Cả ba run COMPLETE lúc 05:44; watchdog không phải chạy lại lần nào. Giờ có thể pull thư mục repo chính; nếu UNet phải chạy dự phòng trên PC này, dùng một worktree riêng ở `c7a37e0` | ✅ 09:03 |
+| **Đồng hồ PC:** đã tự đúng lại trước 00:05 ngày 02/10 | ✅ |
 | Khung duyệt **12:00** và **20:00**, như thường lệ | — |
 
 ## 🔴 Việc 1 — duyệt lại phần làm thay trong khối V1 *(sáng)*
@@ -21,22 +21,19 @@ leader merge.
 | #77 → `cab847a` (shell, SCR-02/03, công cụ L4, shim `latin1`), #78 → `92a59ff` (SCR-04) | agent A2/A2b làm thay trong khối anh. Chạy `npm test` trong `mobile/` (177) và render smoke; đọc QA-078 delta và #77 NB-1 (import shim trong `maskPng.js`) |
 | Gói Day 23 + bảng + DAY_LOG (đã merge tối qua) | đọc lại |
 
-## Quyết định đang chờ anh
+## Quyết định — đã chốt lúc 09:25 ngày 02/10
 
-| # | Câu hỏi | Nguồn |
-|---|---|---|
-| 1 | F5 còn bao ba điểm số chính xác đang công khai trong `OPEN_DECISIONS.md` DR-002b không | QA-005 N-2 |
-| 2 | Có khai **danh sách độ nhạy thứ hai** (case holdout gần ngưỡng) không. Chỉ được khai **trước** khi có bất kỳ số đo holdout nào | QA-005 N-7 |
-| 3 | Bộ endpoint hero có khớp DEMO H1–H10 không (experiment_compare, experiment_list, analysis_slice_error) | contract N4 |
-| 4 | Contract 1/2 vẫn gửi literal "DRAFT v0" | contract N10 |
-| 5 | Sửa Contract 2: case FAILED, kiểm đủ số case, kiểm đúng loại mask | #64 N-5, A1 |
-| 6 | Địa chỉ overlay đã lộ công khai (ca3447b và nhiều file trên `main`): ZeroTier có bắt duyệt thành viên không; có dọn không | #65 N-3, #68 N-13 |
-| 7 | Job CI bundle cho `mobile/`; cleartext HTTP; khoá màn hình dọc | #65 N-5, N-12b |
-| 8 | Kiểm checksum mọi ảnh hay chỉ lần đầu; bắt buộc `useCall` cho V2–V4; hash URL dùng HMAC hay bỏ | A2 |
-| 9 | **Xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân**, nằm trong các thư mục agent (danh sách trong `POST_RECOVERY_REVALIDATION_DAY23.md`) | cần anh duyệt |
-| 10 | **Số serial A17** đã công khai trên `main` từ Day 3 (18 file, cùng RESULT Spike B): dọn từ giờ, dọn cả lịch sử, hay giữ. Gộp với câu 6 thành một chính sách | QA #73 N2 |
-| 11 | SPIKE_C1 ACCEPTED và GATE-ML-01 đóng **dưới override**, dựa trên QA bằng LLM. Vũ Hùng Anh duyệt lại hôm nay; nếu anh ấy REJECT thì mở lại | #79 |
-| 12 | **INT-12 trong số liệu cohort (N-a).** Hiện case WITHHELD vẫn nằm trong `successful_n` và `metric_summary`, nên tính ngược ra được giá trị của nó. QA khuyên: tính nó trong `evaluation_n` nhưng loại khỏi `successful_n`, `metric_summary` và quần thể của compare; sửa contract cho khớp. **Chưa có gói Contract 2 thật nào lên Mac mini trước khi chốt** | QA-075 N-1, QA #62 N-a |
+| # | Câu hỏi | Quyết | Ghi ở |
+|---|---|---|---|
+| 1, 2 | F5 và ba điểm số; danh sách độ nhạy thứ hai | F5 có áp dụng (che số trong văn bản hiện tại); **không** có danh sách thứ hai | DR-002c |
+| 3, 4 | Bộ endpoint hero; literal "DRAFT v0" | Giữ 23 endpoint và giữ literal; sửa câu chữ | DR-020 |
+| 5 | Contract 2 | Case lỗi không có run, nằm trong failures; kiểm đủ 54 case, mỗi case một lần, loại mask khớp variant; exporter xuất được run PROCESSED | DR-018 |
+| 6, 10 | Địa chỉ overlay, số serial A17 | Mạng ZeroTier đã kiểm là PRIVATE (09:22); từ nay dùng placeholder và CI quét IPv4; không sửa bằng chứng hay lịch sử | DR-019 |
+| 7, 8 | CI cho mobile; checksum, `useCall`, băm URL | Một job `npm ci` cho render smoke và bundle; cleartext chỉ ở bản live; giữ khoá dọc; checksum một lần mỗi URL; `useCall` cho V2–V4; bỏ băm URL | DR-021 |
+| 11 | Nếu C1 bị REJECT | UNet chạy tiếp; chỉ mở lại GATE-ML-01 khi reject vì công thức hoặc bằng chứng | DR-016b |
+| 12 | N-a (INT-12) | **Tính vào** số liệu cohort, "ẩn chứ không làm mù" | DR-017 |
+| QA-078 N-4, N-6 | Retry; lớp lỗi vẽ trên máy | Retry chỉ xoá lát đó; số lấy từ server, có so id mask | phụ lục DR-013a |
+| **9** | **Xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân** | **Còn chờ:** cuối ngày có danh sách chính xác; anh xác nhận riêng thì mới xoá | — |
 
 ## Việc V1 từ QA-078 (SCR-04)
 
