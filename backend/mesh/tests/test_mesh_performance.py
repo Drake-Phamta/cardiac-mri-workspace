@@ -19,7 +19,7 @@ def ellipsoid(shape, semi_axes) -> np.ndarray:
 def test_256x256x64_ellipsoid_builds_level_0_in_under_5_seconds():
     mask = ellipsoid((256, 256, 64), (100.0, 90.0, 25.0))
     start = time.perf_counter()
-    mesh = build_case_mesh(mask, 0, spacing=(0.625, 0.625, 1.25), origin=(-80.0, -80.0, -40.0))
+    mesh = build_case_mesh(mask, 0, spacing=(0.625, 0.625, 1.25), origin=(-80.0, -80.0, -40.0), shape_xyz=mask.shape)
     elapsed = time.perf_counter() - start
     assert elapsed < 5.0, f"level 0 took {elapsed:.2f} s"
     assert mesh.triangle_count > 50_000

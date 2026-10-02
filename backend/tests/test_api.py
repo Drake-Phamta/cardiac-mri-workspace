@@ -17,7 +17,7 @@ import pytest
 from PIL import Image
 
 from backend.app import imaging, ingest
-from conftest import CONTRACT
+from backend.test_support import CONTRACT
 import synthetic
 
 B = "/api/v1"
@@ -674,7 +674,7 @@ def _log_lines(api):
 def _summarizer():
     import importlib.util
 
-    from conftest import REPO_ROOT
+    from backend.test_support import REPO_ROOT
 
     spec = importlib.util.spec_from_file_location(
         "summarize_request_log", REPO_ROOT / "backend" / "scripts" / "summarize_request_log.py")

@@ -23,6 +23,10 @@ export const MOBILE = fileURLToPath(new URL('../../', import.meta.url)).replace(
 const mreq = createRequire(`${MOBILE}/package.json`);
 const babel = mreq('@babel/core');
 const jsxPlugin = mreq.resolve('@babel/plugin-transform-react-jsx');
+// Resolve React before installing the custom hooks. Calling require.resolve()
+// from inside this resolver re-enters the hook on Node 24 and recurses forever.
+const reactEntries = new Map(['react', 'react/jsx-runtime', 'react/jsx-dev-runtime']
+  .map((name) => [name, pathToFileURL(mreq.resolve(name)).href]));
 const MOCKS = new URL('./mocks/', import.meta.url);
 const SRC_PREFIX = pathToFileURL(MOBILE).href.toLowerCase();
 
@@ -35,7 +39,8 @@ registerHooks({
     if (specifier === 'react-native-svg') return { url: new URL('svg.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react-native-safe-area-context') return { url: new URL('safe-area.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react' || specifier.startsWith('react/')) {
-      return { url: pathToFileURL(mreq.resolve(specifier)).href, shortCircuit: true, format: 'commonjs' };
+      const url = reactEntries.get(specifier);
+      if (url) return { url, shortCircuit: true, format: 'commonjs' };
     }
     // Metro resolves extensionless relative imports; Node does not.
     if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.(c|m)?js$|\.json$/.test(specifier)

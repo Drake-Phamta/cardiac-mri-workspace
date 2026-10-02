@@ -1,10 +1,10 @@
 # backend/mesh — product surface mesh, pick → slice, error geometry
 
-**Status:** built on Day 22 (2026-10-01) under the Day 22 recovery override
-(`management/day22/RECOVERY_OVERRIDE_DAY22.md`, item A4). Owner **Vũ Hùng Anh**
-adopts or rejects it on **Day 23**. Rows: V2-01 (product mesh pipeline),
-INT-13 (TC-MAINT-002 against product code), V2-03 / MOB-09 (error geometry
-skeleton).
+**Status:** Day 23 owner-delegated revalidation in branch `hung-anh/day23-full-followup`.
+The L0 product mesh is adopted as the exact-picking candidate; this is not a
+clinical rendering claim or device acceptance of SCR-05. Rows: V2-01 (product
+mesh pipeline), INT-13 (TC-MAINT-002 through product code), V2-03 / MOB-09
+(error-geometry skeleton).
 
 `backend.mesh` turns a binary segmentation mask into:
 
@@ -25,7 +25,8 @@ Import it as `backend.mesh` with the repository root on `sys.path`.
 ```python
 from backend.mesh import build_case_mesh, pick_slice, build_error_geometry
 
-mesh = build_case_mesh(mask_xyz, level=0, spacing=(0.625, 0.625, 1.25), origin=(0, 0, 0))
+mesh = build_case_mesh(mask_xyz, level=0, spacing=(0.625, 0.625, 1.25), origin=(0, 0, 0),
+                       shape_xyz=(Nx, Ny, Nz), space_directions=((0.625, 0, 0), (0, 0.625, 0), (0, 0, 1.25)))
 hit = pick_slice(mesh, ray_origin_world, ray_direction_world)
 slice_index = None if hit is None else hit["slice_index"]      # None never navigates
 payload = mesh.to_dict()                                        # JSON-serialisable
@@ -47,9 +48,12 @@ Source of truth: `tests/fixtures/geometry/FORMAT.md` (owner Vũ Hùng Anh, DR-01
 
 Masks are `bool`, or integer/float arrays with values `{0, 1}` or `{0, 255}`;
 anything else (label maps, probabilities, negatives, NaN) is
-`MASK_NOT_BINARY` — binarising is the caller's decision. Pass
-`shape_xyz=` from the header to catch a `(z, y, x)` array from a C-order
-reader (`GEOMETRY_MISMATCH`).
+`MASK_NOT_BINARY` — binarising is the caller's decision. `shape_xyz` is
+required and must come from the source header; it catches a `(z, y, x)` array
+from a C-order reader (`GEOMETRY_MISMATCH`). For header-backed data also pass
+`space_directions=`; flipped/oblique directions and disagreement with
+`spacing` are rejected. If omitted, the caller explicitly uses the canonical
+positive diagonal frame.
 
 This module computes in whatever frame it is given. It does **not** decide
 `geometry_validation_status`: per QA-002 the LASC headers carry default
@@ -73,6 +77,13 @@ unambiguous and picking can be checked **exactly** against the canonical
 fixture. An interpolated surface makes the true slice of a surface point
 ambiguous. Whether a smoother display layer is added on top is the owner's
 call; picking must resolve through these faces.
+
+The L0 surface is closed and consistently wound, but is not always
+2-manifold: voxels that touch only along an edge can make one mesh edge belong
+to four triangles. It is suitable for the tested exact-pick path; any smoothed
+display surface needs its own topology and source-mapping validation. A ray
+that starts inside foreground resolves to the exit face, not its starting
+voxel; the picking contract and current device tests start outside the mask.
 
 ## The per-face source slice rule (PR-3D-04)
 
@@ -105,10 +116,11 @@ picks through `face_source_slice` matched an exact traversal of the mask on **3,
 3,399** rays that meet it (six directions from the PR #66 ray set: top-down, bottom-up,
 60 degrees, two near-tangent, one oblique), with no miss and no navigation on a mask-free
 ray. The floor rule on the same hit points was one slice off on 1,524 of them, all where a
-ray comes down onto a +z cap. At level 2 both rules exceed ±1 slice (holes), as #66 found.
+ray comes down onto a +z cap. At level 2 both rules exceed ±1 slice; the decimation failures
+are silhouette shifts and collapsed one-voxel-thin structures, not mesh holes, as #66 found.
 The rays and slices are not committed (derived from a patient mask); only these counts.
 
-## Levels and DR-008c (not decided)
+## Levels and DR-008c (L0 adopted)
 
 | Level | 0 | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|---|
@@ -118,11 +130,13 @@ These are the five levels of today's (Day 22) offline Spike B real-mask
 frontier run (PR #66, `spikes/spike_b_3d/EVIDENCE_RAW/20261001_real_mesh/`). Level numbers follow that run, not the older
 `spikes/spike_b_3d/mesh/out/mesh_levels.json` numbering (cells 1, 2, 3, 4).
 
-**DR-008c is not decided.** Its rule (Day 22 override): DR-008c = the fastest
-level whose B5 ≤ ±1 source slice. Today's offline Spike B evidence shows only
-level 0 keeps real-mesh picking within ±1 slice — vertex clustering opens holes
-in thin anatomy — so **`DEFAULT_LEVEL = 0`**. Changing it is a DR-008c
-decision, not a code tweak.
+The pre-declared rule was DR-008c = the fastest level whose B5 ≤ ±1 source
+slice, with B10 ≥ 20 FPS median and B11 passing on the Galaxy A17 at the
+selected level. Offline evidence found only L0 eligible; the S-1 physical
+session then measured L0 at 59.88 FPS median and a 17 ms longest stall, with
+B6/B7/B9 passing. **DR-008c = L0 (61,424 triangles for CASE_0059)** and
+`DEFAULT_LEVEL = 0`. This covers one case/device/session and is not a medical
+image-quality finding. Do not reuse it for other anatomy or handsets.
 
 Decimation is the spike's vertex clustering, unchanged: keys
 `np.round(v / cell)` (round-half-to-even, so at even cells cluster widths
@@ -134,7 +148,7 @@ B5 measurement, bounded at ±1 slice only where Spike B shows it.
 
 ## Error geometry — DR-005 candidate 3 skeleton (V2-03)
 
-`build_error_geometry(pred, gt, spacing=..., origin=..., connectivity=26, level=0)`
+`build_error_geometry(pred, gt, spacing=..., origin=..., shape_xyz=..., connectivity=26, level=0)`
 returns the prediction's surface (`CaseMesh`, or `None` with
 `surface_reason` when the prediction is empty) and the connected components of
 `FP = pred & ~gt` and `FN = gt & ~pred` (`scipy.ndimage.label`; connectivity
@@ -207,8 +221,12 @@ synthetic; no patient data is read or written.
 
 ## Dependencies
 
-Python 3.12, `numpy` (2.2 used), `scipy` (1.17 used; `scipy.ndimage` for the
-error components). Tests: `pytest` (8.3 used). Nothing else.
+Mesh extraction and picking run on the backend target, Python 3.9 with
+`numpy==1.26.4`; they do not import SciPy. Error-component construction is an
+optional operation requiring SciPy (`scipy==1.13.1` is the last supported
+series for Python 3.9). Tests use the pinned `backend/requirements-dev.txt`.
+CI exercises the mesh suite on Python 3.9 and checks that importing
+`backend.mesh` succeeds when SciPy is unavailable.
 
 ## Provenance
 

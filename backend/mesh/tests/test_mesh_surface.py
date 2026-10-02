@@ -117,7 +117,7 @@ def assert_closed_oriented(mesh) -> None:
 def test_single_voxel_is_a_closed_outward_cube():
     mask = np.zeros((4, 5, 6), dtype=bool)
     mask[1, 2, 3] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
 
     assert mesh.vertex_count == 8
     assert mesh.triangle_count == 12
@@ -143,7 +143,7 @@ def test_two_stacked_voxels_drop_the_shared_face_and_keep_each_voxels_slice():
     k = 4
     mask = np.zeros((5, 5, 8), dtype=bool)
     mask[2, 2, k] = mask[2, 2, k + 1] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
 
     assert mesh.triangle_count == 20 and mesh.vertex_count == 12
     corners = lattice(mesh)
@@ -174,7 +174,7 @@ def test_faces_equal_an_independent_slow_reference(seed, shape, density):
     mask = rng.random(shape) < density
     if not mask.any():
         mask[0, 0, 0] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
 
     assert mesh_faces(mesh) == reference_faces(mask)
     assert mesh.triangle_count == 2 * len(reference_faces(mask))
@@ -190,7 +190,7 @@ def test_faces_equal_an_independent_slow_reference(seed, shape, density):
 
 def test_foreground_on_the_volume_border_emits_the_border_faces():
     full = np.ones((3, 4, 2), dtype=bool)
-    mesh = build_case_mesh(full, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(full, spacing=SPACING, origin=ORIGIN, shape_xyz=full.shape)
     assert mesh.triangle_count == 2 * 2 * (3 * 4 + 4 * 2 + 3 * 2)
     corners = lattice(mesh)
     for axis, limit in enumerate(full.shape):
@@ -203,7 +203,7 @@ def test_foreground_on_the_volume_border_emits_the_border_faces():
     corner = np.zeros((4, 4, 4), dtype=bool)
     corner[0, 0, 0] = True
     corner[3, 3, 3] = True
-    mesh = build_case_mesh(corner)
+    mesh = build_case_mesh(corner, shape_xyz=corner.shape)
     assert mesh.triangle_count == 24
     assert mesh_faces(mesh) == reference_faces(corner)
 
@@ -211,7 +211,7 @@ def test_foreground_on_the_volume_border_emits_the_border_faces():
 def test_vertices_are_origin_plus_lattice_corner_times_spacing():
     rng = np.random.default_rng(11)
     mask = rng.random((6, 7, 5)) < 0.4
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
     corners = lattice(mesh)
     expected = np.asarray(ORIGIN) + corners.astype(np.float64) * np.asarray(SPACING)
     assert np.array_equal(mesh.vertices_world, expected)
@@ -228,7 +228,7 @@ def test_vertices_are_origin_plus_lattice_corner_times_spacing():
 def test_accepted_mask_encodings_give_the_same_mesh():
     rng = np.random.default_rng(5)
     base = rng.random((5, 6, 4)) < 0.5
-    hashes = {build_case_mesh(m, spacing=SPACING, origin=ORIGIN).content_sha256() for m in (
+    hashes = {build_case_mesh(m, spacing=SPACING, origin=ORIGIN, shape_xyz=m.shape).content_sha256() for m in (
         base, base.astype(np.uint8), base.astype(np.uint8) * 255, base.astype(np.int64),
         base.astype(np.float32), base.astype(np.float64) * 255.0)}
     assert len(hashes) == 1
@@ -237,11 +237,11 @@ def test_accepted_mask_encodings_give_the_same_mesh():
 def test_memory_layout_does_not_change_the_mesh():
     rng = np.random.default_rng(9)
     mask = rng.random((7, 5, 6)) < 0.45
-    c_order = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
-    f_order = build_case_mesh(np.asfortranarray(mask), spacing=SPACING, origin=ORIGIN)
+    c_order = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
+    f_order = build_case_mesh(np.asfortranarray(mask), spacing=SPACING, origin=ORIGIN, shape_xyz=np.asfortranarray(mask).shape)
     strided = np.zeros((14, 5, 12), dtype=bool)
     strided[::2, :, ::2] = mask
-    view = build_case_mesh(strided[::2, :, ::2], spacing=SPACING, origin=ORIGIN)
+    view = build_case_mesh(strided[::2, :, ::2], spacing=SPACING, origin=ORIGIN, shape_xyz=strided[::2, :, ::2].shape)
     assert c_order.content_sha256() == f_order.content_sha256() == view.content_sha256()
 
 
@@ -259,7 +259,7 @@ def test_memory_layout_does_not_change_the_mesh():
 ])
 def test_invalid_masks_are_rejected_with_a_code(mask, code):
     with pytest.raises(GeometryError) as err:
-        build_case_mesh(mask)
+        build_case_mesh(mask, shape_xyz=mask.shape)
     assert err.value.code == code
     assert isinstance(err.value, ValueError)
 
@@ -283,6 +283,7 @@ def test_invalid_masks_are_rejected_with_a_code(mask, code):
 def test_invalid_geometry_and_options_are_rejected_with_a_code(kwargs, code):
     mask = np.zeros((4, 5, 6), dtype=bool)
     mask[1, 1, 1] = True
+    kwargs.setdefault("shape_xyz", mask.shape)
     with pytest.raises(GeometryError) as err:
         build_case_mesh(mask, **kwargs)
     assert err.value.code == code
@@ -294,10 +295,21 @@ def test_declared_shape_matching_the_mask_is_accepted():
     assert build_case_mesh(mask, shape_xyz=[4, 5, 6]).shape_xyz == (4, 5, 6)
 
 
+def test_declared_shape_is_required_and_flipped_header_is_rejected():
+    mask = np.zeros((4, 5, 6), dtype=bool)
+    mask[1, 1, 1] = True
+    with pytest.raises(TypeError, match="shape_xyz"):
+        build_case_mesh(mask)
+    with pytest.raises(GeometryError) as err:
+        build_case_mesh(mask, shape_xyz=mask.shape,
+                        space_directions=np.diag([1.0, 1.0, -1.0]))
+    assert err.value.code == "GEOMETRY_NOT_VALIDATED"
+
+
 def test_to_dict_is_json_and_carries_the_exact_contract_version():
     rng = np.random.default_rng(3)
     mask = rng.random((5, 5, 5)) < 0.5
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
     payload = json.loads(json.dumps(mesh.to_dict()))
     assert payload["geometry_contract_version"] == CONTRACT_VERSION
     assert payload["geometry"] == {
@@ -315,7 +327,7 @@ def test_to_dict_is_json_and_carries_the_exact_contract_version():
 def test_mesh_arrays_are_read_only_and_typed():
     mask = np.zeros((3, 3, 3), dtype=bool)
     mask[1, 1, 1] = True
-    mesh = build_case_mesh(mask)
+    mesh = build_case_mesh(mask, shape_xyz=mask.shape)
     assert mesh.vertices_world.dtype == np.float64 and mesh.triangles.dtype == np.int32
     assert mesh.face_source_slice.dtype == np.int32
     assert mesh.face_axis.dtype == np.int8 and mesh.face_sign.dtype == np.int8

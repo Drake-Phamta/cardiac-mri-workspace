@@ -48,13 +48,13 @@
 
 | # | Mục → `main` | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
-| H1 🔴 | #66 → `e5ccd38` | frontier mesh thật, B5/B9/B12 offline (agent A4) | `python spikes/spike_b_3d/harness/test_real_mesh_frontier.py`; README phần cơ chế | |
-| H2 🔴 | #79 → `3c02fd2` | **SPIKE_C1 ACCEPTED** dưới override, QA LLM đứng thay APPROVE của bạn | APPROVE hoặc REJECT + lý do. REJECT thì GATE-ML-01 mở lại | |
-| H3 | #41 → `a524b25` | Spike A S6: merge với `main` và sửa chữ sau khi bạn đã approve | duyệt lại `d0225d1` với vai reviewer của Spike A | |
-| H4 | #44 → `8a94172` | leader sửa dòng B10/B11 trong TC-TEAM-001 của bạn (`b0ae3e5`) | xác nhận hoặc sửa | |
-| H5 | phiên S-1 tối 01/10 | leader cầm máy; agent chuẩn bị gói và trích xuất | đọc `PROVENANCE.md`, kết quả trích xuất; viết B15 | |
-| H6 🔴 | #74 → `be86cb1` | `backend/mesh` (agent A4) | `pytest backend/mesh/tests -q` (131); đọc QA-074; N-2, N-4, N-5 trước khi có endpoint | |
-| H7 🔴 | #73 → `40b1316`: **Spike B ACCEPTED, DR-008c = L0** | leader cầm máy; agent trích xuất, xuất bằng chứng và viết RESULT | đọc RESULT và `PROVENANCE.md`; xác nhận chuỗi tap với leader (nhãn bị đảo); **viết B15 trước 10:00**; tự tính lại B6 từ mask | |
+| H1 🔴 | #66 → `e5ccd38` | frontier mesh thật, B5/B9/B12 offline (agent A4) | `python spikes/spike_b_3d/harness/test_real_mesh_frontier.py`; README phần cơ chế | **nhận** — harness 33/33; README giải thích silhouette shift / cấu trúc 1 voxel, không gọi là lỗ; DR-008c được chốt L0 theo S-1. Owner delegation, 2026-10-03 |
+| H2 🔴 | #79 → `3c02fd2` | **SPIKE_C1 ACCEPTED** dưới override, QA LLM đứng thay APPROVE của bạn | APPROVE hoặc REJECT + lý do. REJECT thì GATE-ML-01 mở lại | **APPROVE** — QA C1 `PASS WITH NOTES`, không có blocker; các caveat không thay đổi điều kiện đã khai trước và không khẳng định chất lượng lâm sàng. GATE-ML-01 giữ trạng thái đóng. Owner delegation, 2026-10-03 |
+| H3 | #41 → `a524b25` | Spike A S6: merge với `main` và sửa chữ sau khi bạn đã approve | duyệt lại `d0225d1` với vai reviewer của Spike A | **APPROVE** — `d0225d1` rút lại quan hệ nhân quả một-build sai, ghi rõ hai build và không đổi số đo; không phát hiện lỗi chặn trong lần đọc lại. Owner delegation, 2026-10-03 |
+| H4 | #44 → `8a94172` | leader sửa dòng B10/B11 trong TC-TEAM-001 của bạn (`b0ae3e5`) | xác nhận hoặc sửa | **nhận, kèm phân biệt phiên** — dòng 18/09 vẫn đúng cho mesh tổng hợp 5.648 tam giác; thêm S-1 01/10 riêng cho L0 mesh thật 61.424 tam giác (59,88 FPS; 17 ms). Không gộp hai phiên. Owner delegation, 2026-10-03 |
+| H5 | phiên S-1 tối 01/10 | leader cầm máy; agent chuẩn bị gói và trích xuất | đọc `PROVENANCE.md`, kết quả trích xuất; viết B15 | **hoàn tất** — đã thêm B15 định tính vào `SPIKE_B_3D/RESULT.md`, có ghi rõ văn bản do Codex chuẩn bị theo yêu cầu owner; không bịa số giờ phát triển. Owner delegation, 2026-10-03 |
+| H6 🔴 | #74 → `be86cb1` | `backend/mesh` (agent A4) | `pytest backend/mesh/tests -q` (131); đọc QA-074; N-2, N-4, N-5 trước khi có endpoint | **nhận có điều kiện tích hợp** — 133 mesh tests hiện đạt; CI Python 3.9 được thêm; SciPy chuyển thành phụ thuộc tùy chọn; pytest backend dùng helper chung; geometry shape/direction/version được kiểm tra. Contract 1.2.0 đã đề xuất nhưng chờ leader duyệt; chưa bật endpoint mesh trước khi được duyệt. Owner delegation, 2026-10-03 |
+| H7 🔴 | #73 → `40b1316`: **Spike B ACCEPTED, DR-008c = L0** | leader cầm máy; agent trích xuất, xuất bằng chứng và viết RESULT | đọc RESULT và `PROVENANCE.md`; xác nhận chuỗi tap với leader (nhãn bị đảo); **viết B15 trước 10:00**; tự tính lại B6 từ mask | **nhận DR-008c = L0** — re-aggregate `s1_per_pick.csv`: 327 mask-hit, max error 1, no-hit 0; 272 no-mask picks, navigation 0. Đây không phải tái chạy raw-mask traversal vì mask không có trong repo. Nhãn tap sai chiều được ghi lại; operator xác nhận vẫn chờ. B15 đã bổ sung. Owner delegation, 2026-10-03 |
 
 ## Phạm Tuấn Anh — V1, tích hợp
 

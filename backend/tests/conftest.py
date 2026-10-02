@@ -15,7 +15,8 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from backend.test_support import CONTRACT, REPO_ROOT
+
 for entry in (REPO_ROOT, REPO_ROOT / "contracts" / "api", Path(__file__).resolve().parent):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
@@ -27,9 +28,6 @@ from backend.app import ingest  # noqa: E402
 from backend.app.config import Settings  # noqa: E402
 from backend.app.main import create_app  # noqa: E402
 import synthetic  # noqa: E402
-
-CONTRACT = json.loads((REPO_ROOT / "contracts" / "api" / "contract.json").read_text(encoding="utf-8"))
-
 
 @pytest.fixture(scope="session")
 def environment(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Any]:

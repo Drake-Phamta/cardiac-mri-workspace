@@ -2,10 +2,10 @@
   Build the Spike B S-1 measurement APK (RELEASE). Day 22, 2026-10-01.
 
   THROWAWAY SPIKE TOOLING. Written by a Claude agent under the leader's recovery
-  override; Spike B owner Vu Hung Anh adopts or rejects it on Day 23.
+  override; owner-delegated revalidation was recorded 2026-10-03.
 
     powershell -ExecutionPolicy Bypass -File spikes\spike_b_3d\s1_app\build_release.ps1
-    powershell -ExecutionPolicy Bypass -File spikes\spike_b_3d\s1_app\build_release.ps1 -Assets <staged spike_b_s1> -BuildRoot D:\s1b
+    powershell -ExecutionPolicy Bypass -File spikes\spike_b_3d\s1_app\build_release.ps1 -Assets <staged spike_b_s1> -BuildRoot <short path outside repository> -JavaHome <JDK 17> -AndroidHome <Android SDK>
 
   WHY A SEPARATE BUILD ROOT. React Native's native (CMake/ninja) build fails on Windows when
   object paths pass ~250 characters, which a git worktree under .claude\worktrees\ does. The
@@ -19,7 +19,12 @@
   staging folder, the build root's android\app\src\main\assets\spike_b_s1 and the APK. The
   APK is copied to mesh\out_real\s1_build\<stamp>\ (gitignored). Nothing is deleted here.
 #>
-param([string]$Assets = "", [string]$BuildRoot = "D:\s1b")
+param(
+  [string]$Assets = "",
+  [string]$BuildRoot = (Join-Path $env:TEMP "cmw-spike-b-s1-build"),
+  [string]$JavaHome = $env:JAVA_HOME,
+  [string]$AndroidHome = $env:ANDROID_HOME
+)
 $ErrorActionPreference = "Stop"
 
 $app = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -29,8 +34,15 @@ if (-not $Assets) { $Assets = (Get-Content (Join-Path $outReal "s1_assets\LATEST
 if (-not (Test-Path (Join-Path $Assets "s1_manifest.json"))) { throw "no staged assets at $Assets - run s1\stage_assets.py" }
 if ($BuildRoot.StartsWith($repo)) { throw "-BuildRoot must be outside the repository" }
 
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot"
-$env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA "Android\Sdk"
+if (-not $JavaHome) { throw "Set JAVA_HOME or pass -JavaHome to a JDK 17 installation" }
+if (-not $AndroidHome) {
+  if (-not $env:LOCALAPPDATA) { throw "Set ANDROID_HOME or pass -AndroidHome to the Android SDK" }
+  $AndroidHome = Join-Path $env:LOCALAPPDATA "Android\Sdk"
+}
+if (-not (Test-Path (Join-Path $JavaHome "bin\java.exe"))) { throw "JDK 17 not found at $JavaHome" }
+if (-not (Test-Path (Join-Path $AndroidHome "platform-tools"))) { throw "Android SDK platform-tools not found at $AndroidHome" }
+$env:JAVA_HOME = (Resolve-Path $JavaHome).Path
+$env:ANDROID_HOME = (Resolve-Path $AndroidHome).Path
 $env:Path = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path"
 
 $started = Get-Date

@@ -43,7 +43,9 @@ from typing import Any
 
 import numpy as np
 
-CONTRACT_VERSION = "dr008a-dr012/v1.0.0"
+from backend.geometry_contract import GEOMETRY_CONTRACT_VERSION
+
+CONTRACT_VERSION = GEOMETRY_CONTRACT_VERSION
 # Spelling used by API contract 11 (contracts/api/generate_fixture.py).
 INDEX_CONVENTION = "x=column,y=row,z=slice"
 
@@ -195,6 +197,22 @@ def validate_axis_aligned(space_directions: Any) -> tuple[float, float, float]:
     return (float(diagonal[0]), float(diagonal[1]), float(diagonal[2]))
 
 
+def validate_spacing_directions(spacing: Any, space_directions: Any = None) -> tuple[float, float, float]:
+    """Validate spacing against the source direction matrix when provided.
+
+    Omitting directions means the caller uses the contract's canonical
+    positive diagonal frame. Header-backed API paths must pass the matrix.
+    """
+    declared = _vec3(spacing, "spacing", positive=True)
+    directions = np.diag(declared) if space_directions is None else space_directions
+    derived = validate_axis_aligned(directions)
+    if any(not _close(got, want) for got, want in zip(derived, declared)):
+        raise GeometryError(
+            GEOMETRY_MISMATCH,
+            f"space_directions imply spacing {list(derived)} but spacing is {list(declared)}")
+    return declared
+
+
 # --- the transform ----------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -297,7 +315,8 @@ def conformance_adapter(mask: Any, spacing: Any, origin: Any, level: int = 0, *,
     from .surface import build_case_mesh, pick_slice
 
     mesh = build_case_mesh(mask, level, spacing=spacing_t, origin=origin,
-                           contract_version=contract_version)
+                           contract_version=contract_version, shape_xyz=mask.shape,
+                           space_directions=space_directions)
     geometry = mesh.geometry
 
     def slice_of_ray(origin_world: Any, direction_world: Any) -> int | None:

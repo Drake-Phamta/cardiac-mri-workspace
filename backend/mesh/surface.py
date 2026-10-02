@@ -103,6 +103,7 @@ from .geometry import (
     GeometryError,
     VolumeGeometry,
     _vec3,
+    validate_spacing_directions,
 )
 
 LEVEL_CELLS: dict[int, float] = {0: 1, 1: 1.25, 2: 2, 3: 4, 4: 8}
@@ -415,24 +416,24 @@ def _mesh_from_region(region: np.ndarray, lo: tuple[int, int, int],
 def build_case_mesh(mask: Any, level: int = DEFAULT_LEVEL, *,
                     spacing: Any = (1.0, 1.0, 1.0), origin: Any = (0.0, 0.0, 0.0),
                     contract_version: str = CONTRACT_VERSION,
-                    shape_xyz: Any = None) -> CaseMesh:
+                    shape_xyz: Any, space_directions: Any = None) -> CaseMesh:
     """Build the voxel-face surface of ``mask`` (indexed [x, y, z]) at ``level``.
 
     Raises GeometryError: MESH_LEVEL_UNKNOWN, MASK_NOT_3D, MASK_NOT_BINARY,
     GEOMETRY_NOT_VALIDATED (spacing not positive-finite, origin not finite),
     GEOMETRY_CONTRACT_VERSION_MISSING/_MISMATCH (this code implements exactly
-    CONTRACT_VERSION), GEOMETRY_MISMATCH (``shape_xyz`` given and different from
+    CONTRACT_VERSION), GEOMETRY_MISMATCH (declared ``shape_xyz`` differs from
     ``mask.shape`` -- e.g. a (z, y, x) array from a C-order reader), MASK_EMPTY.
     """
     level, _cell = _level_cell(level)
     fg = as_binary_mask(mask)
+    declared = VolumeGeometry(shape_xyz, spacing, origin, contract_version).shape_xyz
+    if declared != fg.shape:
+        raise GeometryError(GEOMETRY_MISMATCH,
+                            f"mask.shape {fg.shape} != declared shape_xyz {declared}; "
+                            "arrays are indexed [x, y, z]")
+    spacing = validate_spacing_directions(spacing, space_directions)
     geometry = VolumeGeometry(fg.shape, spacing, origin, contract_version)
-    if shape_xyz is not None:
-        declared = VolumeGeometry(shape_xyz, spacing, origin, contract_version).shape_xyz
-        if declared != geometry.shape_xyz:
-            raise GeometryError(GEOMETRY_MISMATCH,
-                                f"mask.shape {geometry.shape_xyz} != declared shape_xyz {declared}; "
-                                "arrays are indexed [x, y, z]")
     box = _foreground_bbox(fg)
     if box is None:
         raise GeometryError(MASK_EMPTY, "mask has no foreground voxel; there is no surface to build")

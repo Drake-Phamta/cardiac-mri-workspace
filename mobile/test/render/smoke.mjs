@@ -57,6 +57,7 @@ const { RuntimeProvider } = await imp('src/runtime/RuntimeContext.js');
 const NavigatorView = (await imp('src/nav/NavigatorView.js')).default;
 const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
 const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
+const Inspector3DScreen = (await imp('src/verticals/v2/Inspector3DScreen.js')).default;
 const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
@@ -167,6 +168,10 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
     }
     if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: caseMode, ground_truth_available: gtAvailable, available_run_ids: ['RUN_A'] });
     if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: 'RUN_A', case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
+    if (path.includes('/reconstruction?')) {
+      const sourceMaskId = decodeURIComponent((path.match(/[?&]source_mask_id=([^&]+)/) || [])[1] || 'MASK_RAW');
+      return json(200, { ...gen('reconstruction_get'), mesh_artifact_id: 'REC_1', source_mask_id: sourceMaskId });
+    }
     if (/\/experiments\/[^/]+$/.test(path)) return json(200, { ...gen('experiment_get'), model_family: 'UNet2D' });
     if (/\/analysis-runs\/[^/]+\/metrics\?/.test(path)) {
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
@@ -628,6 +633,53 @@ function noRunBackend() {
   r = await fixtureAt('RAW');
   check('E4q', has(r, /Jump to worst · z 44 \(slice 45\)/) && has(r, /Dice 0\.500 · IoU 0\.250/) && !has(r, /Asked for/),
     'fixture, RAW: the generated DR-010 v1 block and the case metrics are shown');
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 7. SCR-05 source-image review and honest mesh state --------------------
+{
+  const backend = fakeBackend();
+  const runtime = liveRuntime(backend.fetchImpl);
+  const pushes = [];
+  const nav = { push: (id, params) => { pushes.push([id, params]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(Inspector3DScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 } })), nodeMock);
+  });
+  await tick(350);
+  check('V2-1', has(r, /Source MRI and segmentation/) && has(r, /MRI is shown as the reading source/),
+    'clinical workbench identifies original MRI as the reading source');
+  check('V2-1', has(r, /Source slice 45 \/ 88 \(z = 44\)/) && has(r, /Voxel-index coordinates/),
+    'source z and unvalidated physical geometry are explicit');
+  check('V2-1', has(r, /3D preview unavailable/) && has(r, /API 1\.1\.0 does not provide verified mesh bytes/)
+    && backend.requests.some((u) => u.includes('/reconstruction?source_mask_id=')),
+    `contract 1.1 mesh reference is requested correctly, but an ID alone never becomes a fabricated surface (${backend.requests.filter((u) => u.includes('reconstruction')).join(' / ')})`);
+  const mriImage = r.root.findAll((n) => n.type === 'Image')[0];
+  check('V2-1', mriImage && mriImage.props.source.uri.startsWith('data:image/png;base64,'),
+    'source MRI pixels pass through the runtime content/checksum path');
+  const maskPaths = r.root.findAll((n) => n.type === 'Path');
+  check('V2-1', maskPaths.length === 1 && backend.requests.some((u) => u.includes('/prediction?variant=RAW')),
+    'selected RAW segmentation is fetched and overlaid on the source MRI');
+  await press(r, 'Hide segmentation');
+  check('V2-1', r.root.findAll((n) => n.type === 'Path').length === 0 && has(r, /RAW prediction mask hidden/),
+    'source MRI can be reviewed without the derived segmentation layer');
+  await press(r, 'Show segmentation');
+  check('V2-1', r.root.findAll((n) => n.type === 'Path').length === 1,
+    'the selected segmentation overlay can be restored');
+  await press(r, '+');
+  await tick(250);
+  check('V2-2', has(r, /Source slice 46 \/ 88 \(z = 45\)/)
+    && backend.requests.some((u) => u.includes('/slices/45/mri')),
+    '2D source-slice control changes the actual MRI and mask requests');
+  await press(r, 'PROCESSED');
+  await tick(250);
+  check('V2-2', backend.requests.some((u) => u.includes('/prediction?variant=PROCESSED')),
+    'variant switch requests the declared PROCESSED mask instead of relabelling RAW');
+  await press(r, 'Open full 2D viewer');
+  check('V2-3', pushes.length === 1 && pushes[0][0] === 'SCR-03' && pushes[0][1].sliceIndex === 45
+    && pushes[0][1].variant === 'PROCESSED',
+    `source slice opens in SCR-03 with case/run/variant context: ${JSON.stringify(pushes[0] || null)}`);
   await act(async () => { r.unmount(); });
 }
 

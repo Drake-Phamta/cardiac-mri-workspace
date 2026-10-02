@@ -62,8 +62,9 @@ def geometry_from_header(header: dict) -> Dict[str, object]:
     if np.any(spacing <= 0):
         raise ValueError("zero-length space direction")
     unit = directions / spacing[:, None]
-    off_diagonal = unit - np.diag(np.diag(unit))
-    axis_aligned = bool(np.all(np.abs(off_diagonal) < 1e-6))
+    # The frozen transform has no direction term. A negative diagonal is a
+    # flipped axis, so only the positive identity orientation is representable.
+    axis_aligned = bool(np.allclose(unit, np.eye(3), rtol=0.0, atol=1e-6))
     origin = np.asarray(header.get("space origin", [0.0, 0.0, 0.0]), dtype=float)
     default_header = bool(
         np.allclose(spacing, 1.0) and np.allclose(origin, 0.0) and np.allclose(unit, np.eye(3))

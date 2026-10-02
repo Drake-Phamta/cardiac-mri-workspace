@@ -38,6 +38,7 @@ def shifted_cube_case():
 def build(pred, gt, **kwargs):
     kwargs.setdefault("spacing", SPACING)
     kwargs.setdefault("origin", ORIGIN)
+    kwargs.setdefault("shape_xyz", pred.shape)
     return build_error_geometry(pred, gt, **kwargs)
 
 

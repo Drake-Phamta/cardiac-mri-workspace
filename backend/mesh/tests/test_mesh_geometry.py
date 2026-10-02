@@ -6,6 +6,8 @@ import math
 
 import numpy as np
 import pytest
+import json
+from pathlib import Path
 
 from backend.mesh import (
     CONTRACT_VERSION,
@@ -35,6 +37,8 @@ def geom():
 def test_contract_version_constant_is_the_canonical_one(canonical_fixture):
     assert CONTRACT_VERSION == "dr008a-dr012/v1.0.0"
     assert canonical_fixture["geometry_contract_version"] == CONTRACT_VERSION
+    api_contract = json.loads((Path(__file__).resolve().parents[3] / "contracts/api/contract.json").read_text())
+    assert api_contract["geometry_contract"]["version"] == CONTRACT_VERSION
 
 
 def test_transform_matches_the_fixture_points(canonical_fixture, geom):
@@ -85,7 +89,7 @@ def test_malformed_points_raise(geom):
 def test_surface_slice_of_world_accepts_mesh_geometry_and_mappings(canonical_fixture, geom):
     mask = np.zeros(SHAPE, dtype=bool)
     mask[10, 10, 10] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
     point = voxel_point(geom, 10.5, 10.5, 12.5)
     for source in (mesh, geom, mesh.to_dict(), mesh.to_dict()["geometry"], canonical_fixture):
         assert surface_module.slice_of_world(source, point) == 12

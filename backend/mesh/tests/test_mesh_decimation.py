@@ -20,7 +20,7 @@ def test_triangle_counts_reproduce_the_spike_b_table(canonical_fixture, blob_mas
     6855 foreground voxels; triangles 5648 / 1448 / 356 at cells 1 / 2 / 4."""
     spacing, origin = canonical_fixture["spacing_xyz_mm"], canonical_fixture["origin_world_mm"]
     assert int(blob_mask.sum()) == 6855
-    counts = {level: build_case_mesh(blob_mask, level, spacing=spacing, origin=origin).triangle_count
+    counts = {level: build_case_mesh(blob_mask, level, spacing=spacing, origin=origin, shape_xyz=blob_mask.shape).triangle_count
               for level in LEVEL_CELLS}
     assert counts[0] == 5648 and counts[2] == 1448 and counts[3] == 356
     assert counts[0] > counts[1] > counts[2] > counts[3] > counts[4] > 0
@@ -30,8 +30,8 @@ def test_triangle_counts_reproduce_the_spike_b_table(canonical_fixture, blob_mas
 def test_surviving_triangles_keep_the_source_slice_of_their_original_face(canonical_fixture, blob_mask, level):
     spacing = np.asarray(canonical_fixture["spacing_xyz_mm"])
     origin = np.asarray(canonical_fixture["origin_world_mm"])
-    m0 = build_case_mesh(blob_mask, 0, spacing=spacing, origin=origin)
-    md = build_case_mesh(blob_mask, level, spacing=spacing, origin=origin)
+    m0 = build_case_mesh(blob_mask, 0, spacing=spacing, origin=origin, shape_xyz=blob_mask.shape)
+    md = build_case_mesh(blob_mask, level, spacing=spacing, origin=origin, shape_xyz=blob_mask.shape)
     cell = LEVEL_CELLS[level]
     assert md.level == level and md.cluster_cell == cell
     assert md.triangle_count < m0.triangle_count
@@ -59,20 +59,20 @@ def test_surviving_triangles_keep_the_source_slice_of_their_original_face(canoni
 def test_every_level_is_deterministic(canonical_fixture, blob_mask):
     spacing, origin = canonical_fixture["spacing_xyz_mm"], canonical_fixture["origin_world_mm"]
     for level in LEVEL_CELLS:
-        first = build_case_mesh(blob_mask, level, spacing=spacing, origin=origin)
-        second = build_case_mesh(np.array(blob_mask, order="F"), level, spacing=spacing, origin=origin)
+        first = build_case_mesh(blob_mask, level, spacing=spacing, origin=origin, shape_xyz=blob_mask.shape)
+        second = build_case_mesh(np.array(blob_mask, order="F"), level, spacing=spacing, origin=origin, shape_xyz=np.array(blob_mask, order="F").shape)
         assert first.content_sha256() == second.content_sha256()
         assert np.array_equal(first.triangles, second.triangles)
-    hashes = {build_case_mesh(blob_mask, level, spacing=spacing, origin=origin).content_sha256()
+    hashes = {build_case_mesh(blob_mask, level, spacing=spacing, origin=origin, shape_xyz=blob_mask.shape).content_sha256()
               for level in LEVEL_CELLS}
     assert len(hashes) == len(LEVEL_CELLS), "levels are distinguishable by their hash"
 
 
 def test_content_hash_covers_geometry_and_arrays(blob_mask):
-    base = build_case_mesh(blob_mask, 0)
-    assert base.content_sha256() != build_case_mesh(blob_mask, 0, spacing=(1.0, 1.0, 1.25)).content_sha256()
-    assert base.content_sha256() != build_case_mesh(blob_mask, 0, origin=(0.0, 0.0, 1.0)).content_sha256()
+    base = build_case_mesh(blob_mask, 0, shape_xyz=blob_mask.shape)
+    assert base.content_sha256() != build_case_mesh(blob_mask, 0, spacing=(1.0, 1.0, 1.25), shape_xyz=blob_mask.shape).content_sha256()
+    assert base.content_sha256() != build_case_mesh(blob_mask, 0, origin=(0.0, 0.0, 1.0), shape_xyz=blob_mask.shape).content_sha256()
     shifted = np.zeros_like(blob_mask)
     shifted[:, :, 1:] = blob_mask[:, :, :-1]
-    assert base.content_sha256() != build_case_mesh(shifted, 0).content_sha256()
+    assert base.content_sha256() != build_case_mesh(shifted, 0, shape_xyz=shifted.shape).content_sha256()
     assert len(base.content_sha256()) == 64

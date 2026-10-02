@@ -132,4 +132,4 @@ def test_adapter_works_at_every_level_but_only_level_0_is_exact_by_contract(cano
         for ray in canonical_fixture["picking_rays"]:
             got = adapter["slice_of_ray"](ray["origin_world"], ray["direction_world"])
             assert got is not None and 0 <= got < blob_mask.shape[2]
-    assert build_case_mesh(blob_mask).level == 0
+    assert build_case_mesh(blob_mask, shape_xyz=blob_mask.shape).level == 0

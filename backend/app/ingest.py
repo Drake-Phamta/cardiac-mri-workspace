@@ -48,9 +48,9 @@ import numpy as np
 
 from . import imaging
 from .config import DATA_ROOT_ENV, REPO_ROOT, data_root_from_env, inside_git_worktree
+from backend.geometry_contract import GEOMETRY_CONTRACT_VERSION
 
 INGEST_VERSION = "backend-ingest/1"
-GEOMETRY_CONTRACT_VERSION = "dr008a-dr012/v1.0.0"
 EXCLUDED_FROM_INT12 = "CASE_0027"
 # No machine path is committed: the package root comes from CARDIAC_PACKAGE_ROOT or --package-root.
 PACKAGE_ROOT_ENV = "CARDIAC_PACKAGE_ROOT"

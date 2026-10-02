@@ -26,7 +26,7 @@ def direction(voxel_dir):
 def single_voxel():
     mask = np.zeros((6, 6, 9), dtype=bool)
     mask[2, 3, 4] = True
-    return build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    return build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
 
 
 def test_pick_on_a_plus_z_face_returns_the_voxel_slice_not_floor_of_the_hit(single_voxel):
@@ -70,7 +70,7 @@ def test_stacked_voxels_resolve_to_the_voxel_actually_hit():
     k = 4
     mask = np.zeros((5, 5, 9), dtype=bool)
     mask[2, 2, k] = mask[2, 2, k + 1] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
     assert pick_slice(mesh, world((2.5, 2.5, 8.5)), (0, 0, -1))["slice_index"] == k + 1
     assert pick_slice(mesh, world((2.5, 2.5, 0.5)), (0, 0, 1))["slice_index"] == k
     assert pick_slice(mesh, world((-1.0, 2.5, k + 0.5)), (1, 0, 0))["slice_index"] == k
@@ -94,7 +94,7 @@ def test_lattice_plane_ray_skips_the_layer_it_only_grazes():
     mask = np.zeros((10, 3, 6), dtype=bool)
     mask[1:9, 1, 2] = True
     mask[3:6, 1, 3] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
     hit = pick_slice(mesh, world((-2.0, 1.5, 3.0)), (1, 0, 0))
     assert hit["slice_index"] == 3
     assert hit["point_world"][0] == pytest.approx(world((3, 0, 0))[0])
@@ -106,7 +106,7 @@ def test_concave_edge_entry_resolves_to_the_entered_voxel():
     # edge (x = 2, z = 2) enters E without crossing any face; E's slice is 1.
     mask = np.zeros((4, 3, 4), dtype=bool)
     mask[1, 1, 1] = mask[2, 1, 1] = mask[2, 1, 2] = True
-    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN)
+    mesh = build_case_mesh(mask, spacing=SPACING, origin=ORIGIN, shape_xyz=mask.shape)
     hit = pick_slice(mesh, world((0.0, 1.5, 4.0)), direction((1, 0, -1)))
     assert hit["slice_index"] == 1
     assert hit["slice_index"] == mesh.face_source_slice[hit["triangle"]]
@@ -114,7 +114,7 @@ def test_concave_edge_entry_resolves_to_the_entered_voxel():
 
 def test_pick_on_a_decimated_mesh_returns_a_surviving_triangles_slice(canonical_fixture, blob_mask):
     spacing, origin = canonical_fixture["spacing_xyz_mm"], canonical_fixture["origin_world_mm"]
-    mesh = build_case_mesh(blob_mask, 2, spacing=spacing, origin=origin)
+    mesh = build_case_mesh(blob_mask, 2, spacing=spacing, origin=origin, shape_xyz=blob_mask.shape)
     for ray in canonical_fixture["picking_rays"]:
         hit = pick_slice(mesh, ray["origin_world"], ray["direction_world"])
         assert hit is not None
