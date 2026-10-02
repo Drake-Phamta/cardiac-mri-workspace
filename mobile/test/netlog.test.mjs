@@ -2,9 +2,14 @@
 // the counted MRI image store (src/imaging/imageStore.mjs) behind L4 / NFR-PERF-001 limb 2
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
+import { STATE } from '../../app/core/index.mjs';
+import { resolveConfig } from '../src/config.mjs';
 import { bytesToBase64, createImageStore } from '../src/imaging/imageStore.mjs';
+import { createRuntime } from '../src/runtime/createRuntime.mjs';
 import { createNetLog, utf8Length } from '../src/runtime/netLog.mjs';
+import { readContractJson } from './_helpers.mjs';
 
 function capture() {
   const lines = [];
@@ -55,10 +60,60 @@ test('G3 a new gesture closes the open one as superseded - never merged into it'
   assert.equal(b.seq, a.seq + 1);
 });
 
+test('G3b #77 QA N-3: a request belongs to the gesture open when it STARTED - one that lands after gesture B opened is not B\'s', () => {
+  const { log, parsed } = capture();
+  const a = log.begin({ caseId: 'C', from: 1, to: 2 });
+  const startedInA = log.openSeq; // read as the request is sent, as runtime.content and the transport do
+  assert.equal(startedInA, a);
+  log.record({ endpoint: 'mri_slice_get', bytes: 10, seq: startedInA }); // lands while A is open: A's
+  log.begin({ caseId: 'C', from: 2, to: 3 }); // B supersedes A
+  log.record({ endpoint: 'artifact:mri', bytes: 5000, seq: startedInA }); // A's slow artifact lands during B
+  log.record({ endpoint: 'mri_slice_get', bytes: 20, seq: log.openSeq }); // B's own request
+  log.end();
+  const [ga, gb] = parsed();
+  assert.equal(ga.outcome, 'superseded');
+  assert.deepEqual(ga.requests.map((q) => q.endpoint), ['mri_slice_get']);
+  assert.deepEqual(gb.requests.map((q) => [q.endpoint, q.bytes]), [['mri_slice_get', 20]], 'A\'s late artifact is not filed under B');
+  assert.equal(gb.bytes_total, 20);
+  assert.deepEqual(log.totals(), { gestures: 2, requests: 3, bytes: 5030, unattributed: 0, late: 1 }, 'counted as late, not lost');
+  // A request sent with no gesture open stays unattributed even if one is open when it lands.
+  log.begin({ caseId: 'C', from: 3, to: 4 });
+  log.record({ endpoint: 'case_get', bytes: 7, seq: null });
+  assert.deepEqual(log.end().requests, []);
+  assert.equal(log.totals().unattributed, 1);
+});
+
+test('G3c the live runtime tags JSON calls and artifact bytes with the gesture open when they were sent', async () => {
+  const png = Uint8Array.from([137, 80, 78, 71, 1, 2, 3]);
+  const sum = `sha256:${createHash('sha256').update(png).digest('hex')}`;
+  const held = [];
+  const fetchImpl = (url) => new Promise((resolve) => {
+    held.push(() => resolve(url.includes('/artifacts/')
+      ? { status: 200, headers: { get: () => null }, arrayBuffer: async () => png.buffer.slice(0) }
+      : { status: 404, headers: { get: (k) => (k.toLowerCase() === 'content-type' ? 'application/json' : null) }, text: async () => '{"error":{"code":"CASE_NOT_FOUND","message":"x"}}' }));
+  });
+  const lines = [];
+  const runtime = createRuntime({
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    contractJson: readContractJson(), fetchImpl, log: (l) => lines.push(l),
+  });
+  runtime.netLog.begin({ caseId: 'C', from: 0, to: 1 });
+  const json = runtime.client.call('case_get', { case_id: 'C' });
+  const bytes = runtime.content.bytes('/api/v1/artifacts/x.png', { checksum: sum, kind: 'mri' });
+  runtime.netLog.begin({ caseId: 'C', from: 1, to: 2 }); // the first gesture is superseded before either answers
+  while (held.length < 2) await new Promise((r) => setTimeout(r, 1));
+  held.forEach((release) => release());
+  await json;
+  assert.equal((await bytes).state, STATE.SUCCESS);
+  const second = runtime.netLog.end();
+  assert.deepEqual(second.requests, [], 'neither late answer is filed under the gesture open when it landed');
+  assert.equal(runtime.netLog.totals().late, 2);
+});
+
 test('G4 requests outside any gesture are counted as unattributed, not lost or misfiled', () => {
   const { log } = capture();
   log.record({ endpoint: 'artifact:mask', bytes: 300 });
-  assert.deepEqual(log.totals(), { gestures: 0, requests: 1, bytes: 300, unattributed: 1 });
+  assert.deepEqual(log.totals(), { gestures: 0, requests: 1, bytes: 300, unattributed: 1, late: 0 });
   assert.equal(log.end(), null, 'ending with nothing open is a no-op');
   assert.equal(log.openSeq, null);
 });
