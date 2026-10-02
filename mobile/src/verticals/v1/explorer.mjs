@@ -99,8 +99,13 @@ export function metricsText(metrics, variant) {
 }
 
 // The run line `10` §3 requires: run, experiment / model, precomputed or new.
-export function runText(run, modelFamily = null) {
+// Until analysis_run_get has answered, or when it failed, nothing about the
+// experiment or the precomputed flag is known - the line says that, with the
+// reason, instead of "not stated" (#77 QA N-9).
+export function runText(run, modelFamily = null, { loading = false, error = null } = {}) {
   if (!run) return 'Run: -';
+  if (loading) return `Run ${run.runId} · loading run details…`;
+  if (error) return `Run ${run.runId} · run details unavailable (${error})`;
   const model = modelFamily ? `${modelFamily} · ` : '';
   const pre = run.precomputed === true ? 'precomputed' : run.precomputed === false ? 'newly executed' : 'precomputed: not stated';
   const status = run.status && run.status !== 'SUCCEEDED' ? ` · ${run.status}` : '';

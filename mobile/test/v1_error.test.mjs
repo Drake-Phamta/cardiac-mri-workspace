@@ -8,9 +8,9 @@ import { loading, readSelection, STATE, success } from '../../app/core/index.mjs
 import { variantMismatch } from '../../app/verticals/v1_case_explorer/index.mjs';
 import { disagreementRuns } from '../src/imaging/maskPaths.mjs';
 import {
-  CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
-  profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel, runMetricsView,
-  selectionNote, topEntries, worstLabel,
+  CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote,
+  pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel,
+  runMetricsView, selectionNote, topEntries, worstLabel,
 } from '../src/verticals/v1/errorInspector.mjs';
 import { loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
@@ -97,6 +97,32 @@ test('V4e masks on screen are compared with the server for the same slice', () =
   assert.equal(off.consistent, false);
   assert.match(off.text, /FP server 30 vs masks 29/);
   assert.equal(compareWithServer(null, { fp: 1, fn: 1 }).checked, false, 'no server entry -> no claim either way');
+});
+
+test('V4e2 #78 QA N-6, DR-013a addendum: the masks drawn must be the ones the run metrics name', () => {
+  const run = readRunMetrics({ reference_mask_id: 'REF_1', prediction_mask_id: 'PRED_RAW_1', metric_values: {} });
+  const drawn = (gt, pred) => ({
+    groundTruthRef: gt === undefined ? null : { artifactId: gt },
+    predictionRef: pred === undefined ? null : { artifactId: pred },
+  });
+  const same = compareMaskIds(run, drawn('REF_1', 'PRED_RAW_1'));
+  assert.deepEqual([same.checked, same.consistent], [true, true]);
+  const pred = compareMaskIds(run, drawn('REF_1', 'PRED_RAW_2'));
+  assert.deepEqual([pred.checked, pred.consistent], [true, false]);
+  assert.match(pred.text, /prediction drawn PRED_RAW_2, run metrics name PRED_RAW_1/);
+  assert.doesNotMatch(pred.text, /reference drawn/, 'only the pair that differs is named');
+  assert.match(pred.text, /not compared with the server's FP \/ FN/);
+  const ref = compareMaskIds(run, drawn('REF_9', 'PRED_RAW_1'));
+  assert.equal(ref.consistent, false);
+  assert.match(ref.text, /reference drawn REF_9, run metrics name REF_1/);
+  // Run metrics that name no mask cannot vouch for the masks drawn.
+  const unnamed = compareMaskIds(readRunMetrics({ reference_mask_id: 'REF_1', metric_values: {} }), drawn('REF_1', 'PRED_RAW_1'));
+  assert.equal(unnamed.consistent, false);
+  assert.match(unnamed.text, /prediction drawn PRED_RAW_1, run metrics name none/);
+  // Nothing drawn, or no run metrics: nothing to check, no claim either way.
+  assert.equal(compareMaskIds(run, drawn('REF_1', undefined)).checked, false);
+  assert.equal(compareMaskIds(null, drawn('REF_1', 'PRED_RAW_1')).checked, false);
+  assert.equal(compareMaskIds(run, null).checked, false);
 });
 
 test('V4f TC-ERR-001: on a known mask pair the classes are the boolean operations', () => {

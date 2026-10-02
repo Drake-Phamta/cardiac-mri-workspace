@@ -166,6 +166,40 @@ export function compareWithServer(cell, counts) {
   });
 }
 
+/*
+ * DR-013a addendum (#78 QA N-6, TC-ERR-002): the classes are drawn here, but
+ * every number on this screen is the server's, and those numbers are about the
+ * masks the run metrics name - reference_mask_id and prediction_mask_id. The
+ * masks drawn must be those masks (their ids as the slice responses state them:
+ * the V1 model's groundTruthRef / predictionRef.artifactId). When they differ,
+ * or the run metrics name none, the screen says so and does not compare the
+ * drawn classes with the server's FP / FN: the two would describe different
+ * masks. Nothing drawn (a ref missing) is nothing to check.
+ */
+export function compareMaskIds(runMetrics, displayed) {
+  const gt = displayed ? displayed.groundTruthRef : null;
+  const pred = displayed ? displayed.predictionRef : null;
+  if (!runMetrics || !gt || !pred) return Object.freeze({ checked: false, consistent: null, text: null });
+  const name = (v) => (v === null || v === undefined || v === '' ? 'none' : String(v));
+  const diffs = [];
+  for (const [label, server, drawn] of [
+    ['reference', runMetrics.referenceMaskId, gt.artifactId],
+    ['prediction', runMetrics.predictionMaskId, pred.artifactId],
+  ]) {
+    if (name(server) === 'none' || name(server) !== name(drawn)) {
+      diffs.push(`${label} drawn ${name(drawn)}, run metrics name ${name(server)}`);
+    }
+  }
+  return Object.freeze({
+    checked: true,
+    consistent: diffs.length === 0,
+    text: diffs.length === 0
+      ? `The masks drawn are the ones the server's numbers refer to (reference ${name(gt.artifactId)}, prediction ${name(pred.artifactId)}).`
+      : `The masks drawn are not the ones the server's numbers refer to: ${diffs.join('; ')}. `
+        + 'The drawn classes are not compared with the server\'s FP / FN.',
+  });
+}
+
 // Slider-style mapping for the profile chart: position -> slice, deterministic.
 export function profileIndexAt(x, width, total) {
   if (!(width > 0) || !Number.isInteger(total) || total <= 0) return null;
