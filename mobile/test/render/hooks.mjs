@@ -26,6 +26,10 @@ const babel = mreq('@babel/core');
 const jsxPlugin = mreq.resolve('@babel/plugin-transform-react-jsx');
 const MOCKS = new URL('./mocks/', import.meta.url);
 const SRC_PREFIX = pathToFileURL(MOBILE).href.toLowerCase();
+// `react` is resolved by the default resolver (`next`) as if imported from
+// mobile/package.json. Calling require.resolve inside the hook instead
+// re-enters these hooks on newer Node 24 releases (24.21: unbounded recursion).
+const MOBILE_PARENT = pathToFileURL(`${MOBILE}/package.json`).href;
 
 const isMobileSource = (url) => typeof url === 'string' && url.toLowerCase().startsWith(SRC_PREFIX)
   && !url.includes('/node_modules/');
@@ -36,7 +40,8 @@ registerHooks({
     if (specifier === 'react-native-svg') return { url: new URL('svg.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react-native-safe-area-context') return { url: new URL('safe-area.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react' || specifier.startsWith('react/')) {
-      return { url: pathToFileURL(mreq.resolve(specifier)).href, shortCircuit: true, format: 'commonjs' };
+      const r = next(specifier, { ...context, parentURL: MOBILE_PARENT });
+      return { ...r, shortCircuit: true, format: 'commonjs' };
     }
     // Metro resolves extensionless relative imports; Node does not.
     if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.(c|m)?js$|\.json$/.test(specifier)
