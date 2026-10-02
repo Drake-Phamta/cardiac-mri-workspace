@@ -128,6 +128,26 @@ export function worstLabel(entry) {
 }
 
 /*
+ * #78 QA N-7: a server entry opens exactly the slice it names. One that names
+ * no slice of this volume - z 90 of an 88-slice case, or no index at all - is
+ * listed as such and never opened: clamping it would open z 87, a slice the
+ * server did not name. (The scrubber's clamp is another matter: it keeps a
+ * gesture inside the volume.)
+ */
+export function inVolume(entry, total) {
+  return Boolean(entry) && Number.isInteger(total) && Number.isInteger(entry.sliceIndex)
+    && entry.sliceIndex >= 0 && entry.sliceIndex < total;
+}
+
+// What a worst-slice row says when it cannot be opened; null when it can.
+export function outsideVolumeNote(entry, total) {
+  if (!entry || inVolume(entry, total)) return null;
+  return Number.isInteger(total) && total > 0
+    ? `outside this volume (z 0..${total - 1}) - not opened`
+    : 'the case states no slice count - not opened';
+}
+
+/*
  * The masks on screen against the server's numbers for the same slice. The
  * selection counts in "pixels of the slice" (contract selection_rules), the
  * same unit the masks are counted in, so they must agree exactly.
@@ -211,8 +231,8 @@ function unsupported(reason, served, pinned) {
 export function readWorstSlices(data, pinned) {
   const pin = pinned || pinnedSelection(null);
   const selection = readSelection(data);
-  // The block readSelection read (it still accepts the pre-1.0 alias, QA N-10).
-  const block = data && typeof data === 'object' ? (data.worst_slice_selection ?? data.slice_selection ?? null) : null;
+  // The block readSelection read: the contract's field only, no alias (#78 QA N-10).
+  const block = data && typeof data === 'object' ? (data.worst_slice_selection ?? null) : null;
   if (!block) return selection; // not returned: unavailable, with its own reason
   const served = {
     ruleId: typeof block === 'object' ? (block.rule_id ?? null) : null,
@@ -264,6 +284,12 @@ export function selectionNote(selection) {
       return gated('selection_version', selection.served.selectionVersion, selection.pinned.selectionVersion);
     case SELECTION_UNAVAILABLE_REASON.NO_ELIGIBLE_SLICES:
       return Object.freeze({ tone: 'neutral', text: 'No slice has non-empty ground truth, so there is no worst slice to rank.' });
+    case SELECTION_UNAVAILABLE_REASON.MALFORMED:
+      return Object.freeze({
+        tone: 'warn',
+        text: `${selection.reason}: the server's worst-slice selection carries no list of slices, so it cannot be read. `
+          + 'Its worst slices are not listed, and none are ranked here instead.',
+      });
     default:
       return Object.freeze({ tone: 'neutral', text: 'The server did not return a worst-slice selection for this run.' });
   }
@@ -281,6 +307,8 @@ export function profileNote(level) {
       return 'No profile: the server\'s worst-slice selection is not one this build shows (see above).';
     case SELECTION_UNAVAILABLE_REASON.NO_ELIGIBLE_SLICES:
       return 'No profile: no slice has non-empty ground truth.';
+    case SELECTION_UNAVAILABLE_REASON.MALFORMED:
+      return 'No profile: the server\'s worst-slice selection cannot be read (see above).';
     default:
       return 'No profile: the server returned no worst-slice selection for this run.';
   }

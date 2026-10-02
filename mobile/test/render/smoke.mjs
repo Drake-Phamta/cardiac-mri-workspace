@@ -137,8 +137,10 @@ const SERVED_WORST = Object.freeze({
 // the fields a check is about overridden; every PNG is encoded here by
 // node:zlib and served with its real sha256 checksum and ETag. Predictions and
 // run metrics answer the variant asked for, unless `metricsVariant` names the
-// one the run metrics should answer instead (#78 QA B-3).
-function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST } = {}) {
+// one the run metrics should answer instead (#78 QA B-3). The per-slice metrics
+// of the slices in `metricsMissingAt` answer ARTIFACT_NOT_FOUND - a legitimately
+// unavailable answer the slice cache keeps (#78 QA N-4).
+function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST, metricsMissingAt = [] } = {}) {
   const W = 576; const H = 576;
   const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
@@ -184,6 +186,9 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
       return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
     }
+    if (path.includes('/metrics?') && metricsMissingAt.includes(Number(z))) {
+      return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'slice metrics not ingested' } });
+    }
     if (path.includes('/metrics?')) return json(200, { ...gen('analysis_slice_metrics'), metric_state: 'COMPUTED', metric_value: 0.8731, metric_version: 'm1' });
     return json(404, { error: { code: 'ARTIFACT_NOT_FOUND' } });
   };
@@ -197,7 +202,9 @@ const liveRuntime = (fetchImpl) => createRuntime({
 
 // ---- 2. live runtime with a fake backend: bytes, overlays, gesture log ------
 {
-  const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend();
+  // z 45's slice metrics are not ingested: its cached "unavailable" answer must
+  // outlive a Retry and a refresh of other slices (L9, #78 QA N-4).
+  const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend({ metricsMissingAt: [45] });
   const runtime = liveRuntime(fetchImpl);
   const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
   let r;
@@ -285,6 +292,13 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('L9', refreshed.length > 0 && refreshed.every((u) => u.includes('/slices/44/') || u.startsWith('/api/v1/artifacts/'))
     && rg && rg.to === 44 && rg.outcome === 'shown',
     `"Refresh this slice" re-asks for z 44 only, logged as a refresh gesture (${refreshed.length} requests)`);
+  // #78 QA N-4: Retry (z 43) and Refresh (z 44) forgot only their own slice - z 45's
+  // cached "unavailable" metrics answer is still there, so going back asks nothing.
+  mark = requests.length;
+  await press(r, '▶');
+  await tick(350);
+  check('L9', requests.length === mark && has(r, /slice 46 \/ 88/) && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
+    `back to z 45 after Retry and Refresh of other slices: ${requests.length - mark} requests; its "unavailable" answer survived`);
   await act(async () => { r.unmount(); });
 }
 
@@ -372,6 +386,33 @@ function noRunBackend() {
     && verdict.scope.required.includes('artifact:mask') && /predictions are not part of this L4/.test(verdict.scope.text),
     `scope: ${verdict.scope ? verdict.scope.text : '-'}`);
   check('N6', runData().length === 0, `no run data asked during the whole session (${runData().length})`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 3b. a run asked for that a no-run case does not list (#80 QA N3) -------
+// Another screen hands SCR-03 a run id, but the case lists no run: the same
+// no-run view, which names the requested run as not listed and never asks for it.
+{
+  const { requests, fetchImpl } = noRunBackend();
+  const runtime = liveRuntime(fetchImpl);
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_GONE', variant: 'RAW' } })), nodeMock);
+  });
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  const runData = requests.filter((p) => p.includes('/analysis-runs') || p.includes('/experiments'));
+  const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const scr04 = entry('Error inspector (SCR-04)');
+  check('N7', has(r, /slice 45 \/ 88/) && has(r, /^Requested run RUN_GONE is not listed for this case - MRI and ground truth only/)
+    && !has(r, /No default/) && runData.length === 0,
+    `requested run not listed: the no-run viewer, the run named as not listed; run requests: ${runData.length}`);
+  check('N7', scr04 && scr04.props.disabled === true
+    && textOf(scr04).includes('needs an analysis run - requested run RUN_GONE is not listed for this case'),
+    `SCR-04 entry disabled: ${scr04 ? textOf(scr04) : '-'}`);
   await act(async () => { r.unmount(); });
 }
 
@@ -519,8 +560,9 @@ function noRunBackend() {
   check('E4b', !inference.requests.some((u) => /metrics|ground-truth/.test(u)), 'and asks the server for no GT-dependent data');
   await act(async () => { r.unmount(); });
 
-  // Live, EVALUATION: classes, legend, server selection, profile, jump.
-  const evalBackend = fakeBackend();
+  // Live, EVALUATION: classes, legend, server selection, profile, jump. z 51's
+  // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
+  const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
   const paths = () => r.root.findAll((n) => n.type === 'Path');
   check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
@@ -591,6 +633,31 @@ function noRunBackend() {
   check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 53 \/ 88 {2}\(z = 52\)/)
     && stepBack && stepBack.to === 52 && stepBack.cache_hit === true,
     `back to z 52 after Retry: ${evalBackend.requests.length - afterRetry} requests of any kind, cache hit ${stepBack ? stepBack.cache_hit : '-'} (no clear-all)`);
+  // #78 QA N-4: nor did it forget another slice's cached "unavailable" answer (z 51's metrics).
+  await press(r, '◀');
+  await tick(400);
+  check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 52 \/ 88 {2}\(z = 51\)/)
+    && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
+    `on to z 51: ${evalBackend.requests.length - afterRetry} requests; its "unavailable" answer survived the Retry of z 53`);
+  await act(async () => { r.unmount(); });
+
+  // #78 QA N-7: a server entry outside the volume (z 90 of 88) is listed and named, never opened
+  // as the edge slice a clamp would give.
+  const outside = fakeBackend({ selection: { ...SERVED_WORST, slices: [{ slice_index: 90, dice: 0.05, false_positives: 500, false_negatives: 600 }, ...SERVED_WORST.slices] } });
+  r = await mount(liveRuntime(outside.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  const row = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const z90 = row('Worst · z 90 (slice 91)');
+  check('E4r', z90 && z90.props.disabled === true && textOf(z90).includes('outside this volume (z 0..87) - not opened')
+    && !has(r, /Jump to worst/) && has(r, /selection names slice 90, outside 0\.\.87/),
+    `z 90 listed, disabled and named: ${z90 ? textOf(z90) : '-'}`);
+  const outMark = outside.requests.length;
+  await press(r, 'Worst · z 90');
+  await tick(400);
+  check('E4r', outside.requests.length === outMark && has(r, /slice 45 \/ 88 {2}\(z = 44\)/) && !has(r, /\(z = 87\)/),
+    `a tap on it opens nothing: ${outside.requests.length - outMark} requests, still on z 44 (no clamp to z 87)`);
+  await press(r, '#2 · z 52');
+  await tick(400);
+  check('E4r', has(r, /slice 53 \/ 88 {2}\(z = 52\)/), 'the entries inside the volume still open their own slice');
   await act(async () => { r.unmount(); });
 
   // #78 QA B-2: a block of another selection version is not shown as DR-010's.

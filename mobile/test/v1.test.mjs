@@ -3,6 +3,8 @@
 // src/imaging/maskStore.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { STATE, createBundle, createClient, createFixtureTransport } from '../../app/core/index.mjs';
 import { createCaseExplorer, LAYER } from '../../app/verticals/v1_case_explorer/index.mjs';
@@ -14,7 +16,7 @@ import {
   scrubPosition, sliceLabel, variantOptions,
 } from '../src/verticals/v1/explorer.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
-import { generatedBundleJson, loadContract } from './_helpers.mjs';
+import { generatedBundleJson, loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
 const contract = loadContract();
 const bundle = createBundle(contract, generatedBundleJson());
@@ -100,6 +102,11 @@ test('V1g run choice: requested must be listed; one run opens; several runs ask'
   assert.equal(chooseRun(['R1', 'R2'], 'R2').runId, 'R2');
   assert.equal(chooseRun(['R1', 'R2'], 'R9').reason, 'requested-run-not-listed');
   assert.equal(chooseRun([]).reason, 'no-runs');
+  // #80 QA N3: a case that lists no run does not make a requested run 'requested'.
+  for (const listed of [[], null, undefined]) {
+    assert.deepEqual({ ...chooseRun(listed, 'R9') }, { runId: null, reason: 'requested-run-not-listed', choices: [] },
+      `requested R9, case lists ${JSON.stringify(listed)}`);
+  }
 });
 
 test('V1i slice label is n / total, 1-based, with the 0-based z', () => {
@@ -223,6 +230,32 @@ test('V1n3 slice cache: only ARTIFACT_NOT_FOUND / GROUND_TRUTH_UNAVAILABLE are k
   sent = 0;
   await ask(1); await ask(2);
   assert.equal(sent, 1, 'clearWhere dropped slice 1 only');
+});
+
+test('V1n4 #78 QA N-4: Retry forgets only the slice it retries - its "unavailable" answers too, never another slice\'s', async () => {
+  let sent = 0;
+  const stub = {
+    resolve: (id, p) => ({ url: `/s/${id}/${p.run_id}/${p.slice_index}` }),
+    async call() { sent += 1; return { state: 'EMPTY_UNAVAILABLE', reason: 'ARTIFACT_NOT_FOUND' }; },
+  };
+  const cached = createSliceCache(stub);
+  const ask = (z) => cached.call('analysis_slice_metrics', { run_id: 'R', slice_index: z, variant: 'RAW' });
+  await ask(5); await ask(6);
+  // What SCR-03's forgetSlice and SCR-04's retrySlice do to retry slice 6: clearWhere, no clearNegative.
+  assert.equal(cached.clearWhere((_id, p) => p.slice_index === 6 && (p.case_id === 'C' || p.run_id === 'R')), 1);
+  sent = 0;
+  await ask(6);
+  assert.equal(sent, 1, 'the retried slice\'s "unavailable" answer is gone: the server is asked again');
+  await ask(5);
+  assert.equal(sent, 1, 'slice 5\'s "unavailable" answer survived the Retry: no request');
+  // And in both screens clearNegative() is called once - on open, never on Retry.
+  for (const f of ['src/verticals/v1/CaseExplorerScreen.js', 'src/verticals/v1/ErrorInspectorScreen.js']) {
+    const code = readFileSync(join(MOBILE_ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const calls = code.split('\n').filter((l) => /\.clearNegative\(\)/.test(l));
+    assert.equal(calls.length, 1, `${f}: ${calls.map((l) => l.trim()).join(' | ')}`);
+    assert.match(code, /clearNegative\(\);\s*\n\s*if \(net\) net\.begin\(\{ caseId, from: null, to: \w+, kind: 'open' \}\);/,
+      `${f}: the one call is in the open effect`);
+  }
 });
 
 test('V1o2 slice cache: an unnamed read finds what the model fetched with scenario "default"', async () => {
