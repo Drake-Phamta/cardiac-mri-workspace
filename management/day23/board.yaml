@@ -9,7 +9,7 @@ verdict:
 facts:
   - {label: "Cổng đã đóng", value: "3 / 3", small: "SPLIT 11:16 · ML 14:30 · MOB 21:17 (leader nhận L5)"}
   - {label: "PR merge ngày 01/10", value: "34", small: "qua QA độc lập bằng LLM (CHAT E), không phải duyệt của người thứ hai"}
-  - {label: "Train", value: "EXP-D-025 xong · EXP-D-100 đang chạy", small: "xong khoảng 04:00, rồi EXP-D-050; E = 50, batch 8, 560×560"}
+  - {label: "Train DINOv2", value: "3 / 3 run xong", small: "xong 05:44 ngày 02/10; UNet trên RTX 4050 từ 09:00"}
   - {label: "Backend Mac mini", value: "contract 1.1.0 · 21 case", small: "0 run; chưa có gói Contract 2 thật (chặn dữ liệu N-1)"}
 conditions:
   title: "Điều kiện của Day 23"
@@ -17,7 +17,7 @@ conditions:
     - "🔒 Bốn người **duyệt lại và nhận** phần làm thay trong khối mình, ghi vào bảng revalidation trước 12:00"
     - "🔒 Hàng đợi **UNet** chạy trên RTX 4050 từ 09:00 và qua **tripwire DR-016a** ở epoch 1; hàng đợi DINOv2 vẫn sống"
     - "🔒 **Spike B** (đã ACCEPTED): chủ spike viết **B15 trước 10:00** và xác nhận DR-008c = L0"
-    - "🎯 Chuẩn bị GATE-IMG-01 trên dự đoán validation của EXP-D-100; leader chốt N-a, Trung sửa INT-12 trong số liệu cohort"
+    - "🎯 Chuẩn bị GATE-IMG-01 trên dự đoán validation của EXP-D-100; Trung làm N-a (DR-017) và Contract 2 (DR-018); Khánh sửa exporter (DR-018)"
     - "🎯 Mỗi chủ khối đo màn hình của mình trên A17; #72 (V4) thôi nháp; V2 SCR-05 bắt đầu trên mesh L0"
 yesterday:
   title: "Day 22 (01/10) đã làm được gì — override một ngày"
@@ -49,7 +49,7 @@ people:
     tasks:
       - "Duyệt lại #62 #68 #71 #63 #75 (+ #50); reviewer thứ hai TECH_STACK_ADR và reviewer Spike B"
       - "QA-063 N-1…N-5 (N-4 trước khi #72 thôi là nháp); QA-075 N-2…N-8"
-      - "Sửa INT-12 trong số liệu cohort khi leader chốt N-a; #72 (V4) thôi nháp, đo SCR-06 trên A17"
+      - "N-a đã chốt (DR-017): chữ hợp đồng + fixture 5/5; Contract 2 (DR-018); #72 thôi nháp"
   - name: "Vũ Hùng Anh"
     role: "V2 / 3D, Spike B; reviewer Spike A và C1"
     packet: "management/day23/tasks/DAY23_VU_HUNG_ANH.md"
@@ -61,16 +61,19 @@ people:
     role: "Leader, V1, tích hợp"
     packet: "management/day23/tasks/DAY23_PHAM_TUAN_ANH.md"
     tasks:
-      - "Duyệt lại #53, #80; nhận #77, #78 (V1, agent làm thay); QA-078 N-4…N-10"
-      - "Quyết **N-a** (INT-12 trong số liệu cohort); 08:00 kiểm hàng đợi DINOv2"
-      - "Theo dõi hai hàng đợi train; khung duyệt 12:00 và 20:00"
+      - "✅ Duyệt lại các hàng P (09:40) · ✅ chốt các quyết định (09:25)"
+      - "PR sửa V1 và shell (QA-078, #77, #80, #76), xin Hùng Anh duyệt"
+      - "Theo dõi UNet trên 4050; khung duyệt 12:00 và 20:00"
 decisions:
-  title: "Quyết định đang chờ leader"
+  title: "Quyết định của leader — đã chốt sáng 02/10"
   items:
-    - "Số serial A17 và địa chỉ overlay đã công khai trên `main` từ trước: dọn từ giờ, dọn cả lịch sử, hay giữ"
-    - "**N-a**: case WITHHELD (INT-12) có nằm trong `successful_n` / `metric_summary` hay không. Chặn mọi gói Contract 2 thật cho tới khi chốt"
-    - "Xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân (danh sách trên máy leader)"
-    - "Các quyết định QA nêu: QA-005 N-2, N-7 · contract N4, N10 · #65 N-3, N-5, N-12b · A2 (checksum, `useCall`, hash URL)"
+    - "**N-a (DR-017):** CASE_0001 được tính vào số liệu cohort, *ẩn chứ không làm mù*. App và báo cáo cùng dùng 54 case"
+    - "**Contract 2 (DR-018):** case lỗi không có run, nằm trong failures; validator kiểm đủ 54 case, mỗi case một lần, loại mask khớp variant; exporter xuất được EXP-D-PP"
+    - "**C1 (DR-016b):** UNet chạy tiếp; chỉ mở lại GATE-ML-01 nếu reviewer reject vì công thức hoặc bằng chứng"
+    - "**Không** có danh sách độ nhạy thứ hai; F5 che điểm số của các cặp (DR-002c)"
+    - "Mạng ZeroTier đã kiểm: PRIVATE. Từ nay dùng placeholder cho địa chỉ và serial; CI quét IPv4 (DR-019)"
+    - "Giữ 23 endpoint hero và literal \"DRAFT v0\" (DR-020). Luật shell mobile cho mọi vertical: `useCall`, checksum, CI render + bundle (DR-021)"
+    - "Dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân: leader duyệt, đã chuyển vào Thùng rác lúc 11:25"
 links:
   - {label: "Kế hoạch Day 23", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day23/DAY23_PLAN.md"}
   - {label: "Bảng revalidation", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day22/POST_RECOVERY_REVALIDATION_DAY23.md"}

@@ -561,6 +561,55 @@ decisions_pending:
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
 
 decisions_made_during_execution:
+  - id: DR-017
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "INT-12 hidden, not blinded: CASE_0001 counts in evaluation_n, successful_n, metric_summary and compare; the app serves none of its per-case values and never names it in an outlier list (N-b); the fixture becomes 5/5"
+    evidence: "QA-075 N-1 vs contract-stack QA N-a"
+    gate_effect: "lifts QA-075's data gate once the contract text, the fixture and DR-018's validator checks are on main"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-017"
+  - id: DR-018
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "Contract 2: a failed case has no run and is listed in the failures; the validator checks runs + failures = num_test_cases, each case once, case_id vs artifacts, mask kind vs variant; the exporter exports failed-case experiments and PROCESSED runs"
+    evidence: "QA #64 N-5; ml/export_contract2.py refusals"
+    gate_effect: "required before the D24 export and any real ingest"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-018"
+  - id: DR-016b
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "if the Spike C1 reviewer rejects: documentation grounds -> fix the documents, the gate stays closed; recipe or evidence grounds -> GATE-ML-01 reopens and running queues stop at the next epoch boundary"
+    evidence: "revalidation row H2"
+    gate_effect: "none unless a recipe/evidence reject"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-016b"
+  - id: DR-002c
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "F5 covers the exact pair scores (redacted in current text); no second sensitivity list - two report slots only"
+    evidence: "QA-005 N-2, N-7"
+    gate_effect: "none; declared before any holdout metric"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-002c"
+  - id: DR-019
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "publication policy: the overlay is PRIVATE (checked 09:22); placeholders for overlay addresses and the device serial from now on; a CI IPv4 scan; no rewrite of evidence or history"
+    evidence: "QA #65 N-3, #68 N-13, #73 N2"
+    gate_effect: "none"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-019"
+  - id: DR-020
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "API hero set stays at 23 endpoints; the DRAFT v0 wire literal stays; wording clarified"
+    evidence: "contract QA N4, N10"
+    gate_effect: "none; no API version bump"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-020"
+  - id: DR-021
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "mobile shell rules: checksum once per content URL, a missing checksum is CONTRACT_DRIFT; useCall for V2-V4; no URL hash in build records; one npm-ci CI job for render smoke and bundle; cleartext only in live builds; portrait stays; shell owner Pham Tuan Anh"
+    evidence: "QA #77 N-6/N-8/N-10, #65 N-5/N-6/N-11/N-12b, QA-078 N-9"
+    gate_effect: "none"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-021"
   - id: DR-008c
     decided: "2026-10-01"
     decided_by: "pre-declared rule of management/day22/RECOVERY_OVERRIDE_DAY22.md section 4 (authorised by Pham Tuan Anh - Team Leader); Vu Hung Anh confirms on Day 23"

@@ -12,6 +12,7 @@ chuyển.** Từ sáng nay khối 3D trở lại với bạn.
 
 | Quyết định | Ảnh hưởng |
 |---|---|
+| **Sáng 02/10 leader đã chốt** (`OPEN_DECISIONS.md` Part 2b) | **DR-016b:** khi duyệt lại Spike C1 (H2), nếu REJECT thì ghi rõ lý do thuộc loại *tài liệu* (chỉ sửa tài liệu, cổng vẫn đóng) hay *công thức hoặc bằng chứng* (GATE-ML-01 mở lại, UNet dừng). **DR-019:** B15 và mọi bằng chứng thiết bị mới dùng placeholder thay cho số serial và địa chỉ overlay. **DR-021:** SCR-05 gọi dữ liệu qua `useCall` của shell. **DR-013:** bạn là người duyệt V1; hôm nay leader sẽ xin bạn duyệt các PR sửa V1 |
 | **Kết quả offline (#66, đã merge `e5ccd38`)** | Chỉ **L0** (mặt mask chưa decimate, 61.424 tam giác) nằm trong ±1 lát. Mọi mức vertex-clustering đều trượt B5. Lý do: lệch silhouette dưới-voxel và cấu trúc dày 1 voxel bị sụp, **không phải lỗ**. QA đã dựng lại khớp từng tia |
 | **DR-008c** (luật khai trước: mức FPS cao nhất trong các mức có B5 ≤ ±1) | Chỉ có thể là **L0**, và chỉ khi B10 ≥ 20 FPS median và B11 đạt trên A17. Kết quả S-1: L0 đạt cả B10/B11 (59,9 FPS, khựng tối đa 17 ms) và B6/B7/B9 trên máy. L1–L4 trượt B6. Theo luật khai trước: **DR-008c = L0**, và **Spike B ACCEPTED** lúc 21:22 (#73 squash → `40b1316`, sau QA final của CHAT E). B15 là ngoại lệ được ghi: **bạn viết B15 trước 10:00** |
 | **GATE-MOB-01** | **đã đóng** 21:17 tối 01/10 (leader nhận L5, #82). Module 3D (WebGL2 trong WebView) có điều kiện là Spike B ACCEPTED; điều kiện đó đã thoả. Nếu khi duyệt lại bạn hoặc reviewer không đồng ý, ghi vào bảng revalidation (H7) để leader quyết |
