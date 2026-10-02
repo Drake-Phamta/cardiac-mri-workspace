@@ -73,7 +73,7 @@ decisions:
     - "**Không** có danh sách độ nhạy thứ hai; F5 che điểm số của các cặp (DR-002c)"
     - "Mạng ZeroTier đã kiểm: PRIVATE. Từ nay dùng placeholder cho địa chỉ và serial; CI quét IPv4 (DR-019)"
     - "Giữ 23 endpoint hero và literal \"DRAFT v0\" (DR-020). Luật shell mobile cho mọi vertical: `useCall`, checksum, CI render + bundle (DR-021)"
-    - "Còn chờ: xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân. Leader duyệt danh sách cuối ngày"
+    - "Dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân: leader duyệt, đã chuyển vào Thùng rác lúc 11:25"
 links:
   - {label: "Kế hoạch Day 23", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day23/DAY23_PLAN.md"}
   - {label: "Bảng revalidation", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day22/POST_RECOVERY_REVALIDATION_DAY23.md"}

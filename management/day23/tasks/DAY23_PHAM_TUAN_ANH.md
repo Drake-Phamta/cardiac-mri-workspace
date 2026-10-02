@@ -33,7 +33,7 @@ leader merge.
 | 11 | Nếu C1 bị REJECT | UNet chạy tiếp; chỉ mở lại GATE-ML-01 khi reject vì công thức hoặc bằng chứng | DR-016b |
 | 12 | N-a (INT-12) | **Tính vào** số liệu cohort, "ẩn chứ không làm mù" | DR-017 |
 | QA-078 N-4, N-6 | Retry; lớp lỗi vẽ trên máy | Retry chỉ xoá lát đó; số lấy từ server, có so id mask | phụ lục DR-013a |
-| **9** | **Xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân** | **Còn chờ:** cuối ngày có danh sách chính xác; anh xác nhận riêng thì mới xoá | — |
+| 9 | Xoá dữ liệu tạm dẫn xuất từ dữ liệu bệnh nhân | **Đã duyệt và làm lúc 11:25:** 98 thư mục vào Thùng rác (khoảng 6,7 GB) sau khi gỡ junction; dữ liệu giữ lại kiểm đủ số file. Anh tự dọn Thùng rác | bảng revalidation |
 
 ## Việc V1 từ QA-078 (SCR-04)
 
