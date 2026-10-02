@@ -26,11 +26,13 @@
  *     is a network request per revisit, which L4 forbids and the user gains
  *     nothing from. Any other unavailable reason is not kept.
  *
- * Forgetting (#77 QA N-1/N-2): clearNegative() drops only those unavailable
- * entries (the Explorer calls it when it mounts, and Retry / Refresh do);
- * clearWhere(fn) drops the entries whose (endpointId, params) match - "refresh
- * this slice" clears one slice's keys and nothing else, so a Retry never turns
- * the cached slices of an L4 revisit pass back into network traffic.
+ * Forgetting (#77 QA N-1/N-2, #78 QA N-4): clearNegative() drops only those
+ * unavailable entries, and SCR-03 / SCR-04 call it only when they open;
+ * clearWhere(fn) drops the entries whose (endpointId, params) match, the
+ * unavailable ones included. Retry forgets only the slice it retries - Retry
+ * and "refresh this slice" clear that slice's keys and nothing else, not even
+ * another slice's unavailable answer - so a Retry never turns the cached
+ * slices of an L4 revisit pass back into network traffic.
  *
  * Bounded LRU; a stale-run screen must call clear() rather than trust it.
  */

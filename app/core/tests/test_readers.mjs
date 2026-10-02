@@ -42,6 +42,14 @@ const { check, done } = createChecker();
   check('P2', s.available === false && s.reason === UNAVAILABLE_REASON.NOT_RETURNED && worstSlice(s) === null,
     `a response with no selection -> unavailable / ${s.reason}`);
   check('P2', readSelection(null).available === false, 'a null response is unavailable, not a crash');
+
+  // #78 QA N-10: only the contract's field name is read. The pre-1.0 alias
+  // `slice_selection` is not a selection, however well-formed its block.
+  const alias = readSelection({
+    slice_selection: { rule_id: 'DR-010', selection_version: 'dr010-worst-slice/v1', slices: [{ slice_index: 40, dice: 0.3 }] },
+  });
+  check('P2', alias.available === false && alias.reason === UNAVAILABLE_REASON.NOT_RETURNED,
+    `a block under the pre-1.0 alias slice_selection -> unavailable / ${alias.reason}`);
 }
 
 // P3 — when a selection does arrive, the server's order is preserved exactly.
@@ -65,11 +73,17 @@ const { check, done } = createChecker();
 }
 
 // P4 — an empty eligible set is its own reason. `10` section 7: absent is not
-// empty.
+// empty. And a block whose `slices` is not a list is neither: it cannot be
+// read, so it must not say "no slice is eligible" (#78 QA N-10).
 {
   const s = readSelection({ worst_slice_selection: { slices: [] } });
   check('P4', s.available === false && s.reason === UNAVAILABLE_REASON.NO_ELIGIBLE_SLICES,
     `an empty selection -> ${s.reason}`);
+  for (const slices of [undefined, null, 'z44', { 0: { slice_index: 44 } }]) {
+    const m = readSelection({ worst_slice_selection: { rule_id: 'DR-010', selection_version: 'v1', slices } });
+    check('P4', m.available === false && m.reason === UNAVAILABLE_REASON.MALFORMED && m.slices.length === 0,
+      `slices ${JSON.stringify(slices) ?? 'absent'} -> ${m.reason}, not ${UNAVAILABLE_REASON.NO_ELIGIBLE_SLICES}`);
+  }
 }
 
 // --- comparability ---------------------------------------------------------

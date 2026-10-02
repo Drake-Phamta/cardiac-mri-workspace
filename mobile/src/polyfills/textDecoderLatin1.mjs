@@ -6,10 +6,11 @@
  * (S-1 device session, 2026-10-01). Node's TextDecoder knows latin1, which is
  * why no test on the laptop saw it.
  *
- * This module must be the FIRST import of index.js. It changes nothing where
- * the runtime already decodes latin1; elsewhere it answers the latin1 labels
- * with a small ISO-8859-1 decoder (byte n -> U+00nn) and passes every other
- * label to the runtime's own TextDecoder.
+ * This module must be the FIRST import of index.js; src/imaging/maskPng.js
+ * also imports it, right before fast-png (#77 QA NB-1). It changes nothing
+ * where the runtime already decodes latin1; elsewhere it answers the latin1
+ * labels with a small ISO-8859-1 decoder (byte n -> U+00nn) and passes every
+ * other label to the runtime's own TextDecoder.
  */
 
 // True ISO-8859-1 (byte 0x80 -> U+0080), as the PNG spec defines tEXt chunks.

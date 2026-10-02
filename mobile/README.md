@@ -23,7 +23,7 @@ Runtime dependencies are exactly these; anything else is a request to the shell 
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
 | `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, not in CI, never bundled |
-| `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — **V4 SCR-06 owns the adapter in `src/verticals/v4/`**. Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
+| `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — **the shell / V1 owns the adapter, `src/imaging/maskPng.js`**, shared by V1 (SCR-03, SCR-04) and V4 (SCR-06). Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
 ## Run it
 
@@ -157,7 +157,7 @@ it with `node --test`; keep React Native imports in `.js` files.
 | `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
 | `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
 | `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |
-| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode). Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 calls it on open and on Retry) and `clearWhere(fn)` (one slice's keys, for **Refresh this slice**) — never a clear-all mid-session, so a Retry cannot turn cached revisits into traffic |
+| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode). Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 and SCR-04 call it on open only) and `clearWhere(fn)` (one slice's keys, its cached "unavailable" answers included). **Retry forgets only the slice it retries**, in SCR-03 and SCR-04 alike: Retry and **Refresh this slice** call `clearWhere` for that slice and nothing else — never a clear-all mid-session, so a Retry cannot turn cached revisits into traffic |
 | `src/verticals/v1/SliceViewport.js` | the slice viewport: image + overlays + pinch/pan (provenance: Spike A S4 gestures) |
 
 ## V1 screens (SCR-02, SCR-03, SCR-04)
@@ -175,17 +175,22 @@ it with `node --test`; keep React Native imports in `.js` files.
   the server for the current slice only. A case with **no analysis run yet** (`available_run_ids` empty) opens
   straight into the viewer with MRI + ground truth only: the run line says so, no run / prediction / metric / error
   request is made, and SCR-04/05/06 are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
-- **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case (or a run whose metrics answer
-  `GROUND_TRUTH_UNAVAILABLE`) gets a clear unavailable state, never an empty chart. TP / FP / FN are drawn from the
-  two masks the server served for the slice, each class with a colour **and** a name, a pixel count and a show/hide
-  switch; the counts are compared with the server's FP / FN for that slice. The worst slice is the **server's**
-  `worst_slice_selection` (DR-010a option b), first entry first — nothing is ranked on the phone (test V4x). The
-  per-slice profile places the server's entries by slice index; slices the server did not list are absent, not 0.
-  Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to the 3D error view (SCR-05).
+  A run handed in by another screen that such a case does not list gets the same view, and every reason names it
+  ("requested run … is not listed for this case"); it is never asked for (#80 QA N3).
+- **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case gets a clear unavailable state,
+  never an empty chart. TP / FP / FN are drawn from the two masks the server served for the slice, each class with
+  a colour **and** a name, a pixel count and a show/hide switch; the counts are compared with the server's FP / FN
+  for that slice. The worst slice is the **server's** `worst_slice_selection` (DR-010a option b), first entry first
+  — nothing is ranked on the phone (test V4x); an entry outside the volume is listed as such and never opened
+  (no clamping, #78 QA N-7). The per-slice profile places the server's entries by slice index; slices the server
+  did not list are absent, not 0. Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to
+  the 3D error view (SCR-05).
   Two gates come first (#78 QA B-2, B-3). A block is listed only under the `rule_id` and `selection_version` the
   loaded contract pins; otherwise `SELECTION_RULE_UNSUPPORTED` / `SELECTION_VERSION_UNSUPPORTED` names the served
-  value, with nothing listed, jumpable or profiled. Run metrics for another `prediction_variant` than the one asked
-  for get the V1 model's variant-mismatch state, with no case metric, worst slice, profile or server comparison.
+  value, with nothing listed, jumpable or profiled. A pinned block whose `slices` is not a list is
+  `SELECTION_MALFORMED` (app/core `readSelection`, #78 QA N-10), not "no eligible slice". Run metrics for another
+  `prediction_variant` than the one asked for get the V1 model's variant-mismatch state, with no case metric, worst
+  slice, profile or server comparison.
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
