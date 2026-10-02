@@ -2,7 +2,8 @@
  * Render-smoke harness, part 1: Node module hooks (node --import).
  *
  * TEST-ONLY. Runs the real screens in Node under react-test-renderer
- * (devDependency, deprecated upstream, not in CI - CI has no node_modules).
+ * (devDependency, deprecated upstream; in CI only in the mobile-render-bundle
+ * job, which runs `npm ci --ignore-scripts` first - DR-021 rule 4).
  * Its output is evidence that the screen LOGIC renders and reacts - never
  * device evidence: nothing here measures a frame, a gesture or a network.
  *

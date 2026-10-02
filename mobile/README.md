@@ -13,7 +13,8 @@ git and what CI tests.
 
 ## Dependencies
 
-Runtime dependencies are exactly these; anything else is a request to the shell owner, not an edit.
+Runtime dependencies are exactly these; anything else is a request to the shell owner — Phạm Tuấn Anh (built by
+agent A2 under the Day 22 override) — not an edit.
 
 | Package | Version | License | Why |
 |---|---|---|---|
@@ -22,7 +23,7 @@ Runtime dependencies are exactly these; anything else is a request to the shell 
 | `react-native-webview` | `13.16.1` | MIT | the 3D module (WebGL2 inside a WebView, measured on the A17) — V2 |
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
-| `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, not in CI, never bundled |
+| `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, run in CI only by the `mobile-render-bundle` job, never bundled. Pulls in a **nested `react-is` 19.3.0** (MIT; its own caret range `^19.2.3`, locked at `node_modules/react-test-renderer/node_modules/react-is`) next to React 19.2.3 — harmless for a test-only renderer (#77 QA N-12); the top-level `react-is` 18.3.1 belongs to other packages |
 | `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — **the shell / V1 owns the adapter, `src/imaging/maskPng.js`**, shared by V1 (SCR-03, SCR-04) and V4 (SCR-06). Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
 ## Run it
@@ -77,20 +78,25 @@ variables: `CMW_MODE`, `CMW_STUDY_ID`, `PYTHON`. The URL is `scheme://host:port`
 with `/api/v1`, so a base URL ending in `/api/v1` is refused, and so is the README placeholder left unedited.
 
 **Redaction rule:** no backend address in anything committed — the app shows and logs it as `http://<configured>`,
-the `.build.txt` sidecar records only `sha256:` of the URL, fixture builds carry no address at all, and evidence
-copied from the server (logs, screenshots) is redacted to `<configured>` before it is committed. **The URL hash is
-for a local comparison only — never publish it** (PR text, committed sidecar): an unsalted SHA-256 of an overlay
-address can be reversed by hashing every candidate address (#77 QA N-6). Before committing a `.build.txt`, replace
-its `api_base_url` value with `<redacted>`.
+the `.build.txt` sidecar records only that one was set (`api_base_url     configured (not recorded)`) — never the
+URL and no hash of it (DR-021 rule 3: an unsalted SHA-256 of an overlay address can be reversed by hashing every
+candidate address, #77 QA N-6) — fixture builds carry no address at all, and evidence copied from the server (logs,
+screenshots) is redacted to `<configured>` before it is committed. Sidecars written before this rule (the L4 build
+`ffbf763` among them) still carry a `sha256:` value: never publish it — replace it with `<redacted>` before
+committing such a sidecar, as the L4 evidence did. Committed files name overlay addresses only by a placeholder such
+as `<overlay-ip>`; CI fails a change that adds a private IPv4 literal (DR-019 rule 2).
 
 A live build **without** a URL does not guess one: `prepare.mjs` warns, and the app opens on a
 **CONFIGURATION ERROR** screen that says what to set (`CONFIG_LIVE_URL_MISSING`) and requests nothing.
 `build-release.ps1` refuses to build a live APK without a URL at all. Fixture mode needs nothing configured.
 
 There is **no fallback** from live to fixture: an unreachable backend is `RECOVERABLE_ERROR` with Retry; the panel
-says `backend http://<configured>` (the address is never shown or logged). Release builds allow cleartext HTTP (`plugins/withCleartextLocalDemo.js`) because the overlay is the
-encrypted transport in the `09` §10 `LOCAL_DEMO` profile; a `REMOTE_DEMO` deployment removes the plugin and serves
-HTTPS. Live HTTP timings go to logcat as `CMW_HTTP {"endpointId", "status", "ms"}` — never a payload (TC-SEC-003).
+says `backend http://<configured>` (the address is never shown or logged). **Live** release builds allow cleartext
+HTTP (`plugins/withCleartextLocalDemo.js`) because the overlay is the encrypted transport in the `09` §10
+`LOCAL_DEMO` profile; fixture builds do not (DR-021 rule 5) — the plugin reads the mode `prepare.mjs` wrote to
+`src/generated/buildConfig.json`, so run `prepare.mjs` before `expo prebuild` (every build script does). A
+`REMOTE_DEMO` deployment removes the plugin and serves HTTPS. Live HTTP timings go to logcat as
+`CMW_HTTP {"endpointId", "status", "ms"}` — never a payload (TC-SEC-003).
 
 ## Build a release APK
 
@@ -107,8 +113,8 @@ It sets `JAVA_HOME` (JDK 17 — the default `java` on this machine is 1.8) and `
 **commit before you build**, uncommitted edits are not in it (the script warns). Everything the build writes, prunes
 or regenerates (`-Clean`) stays inside the staging directory; the script never deletes anything outside it. The
 APK is copied to `mobile/release/cardiac-mri-workspace-<mode>-<yyyyMMdd-HHmmss>.apk` with `<apk>.build.txt` next to
-it: build time, mode, contract version, the backend URL's sha256 (not the URL), git sha, APK sha256 and the
-`adb install -r` line. `release/`, `android/` and every
+it: build time, mode, contract version, whether a backend URL was configured (never the URL or a hash of it), git
+sha, APK sha256 and the `adb install -r` line. `release/`, `android/` and every
 `*.apk` are gitignored. The APK is signed with the template debug keystore — installable for device tests,
 not a store build.
 
@@ -130,8 +136,10 @@ the OS killed. Node tests and `expo export` are fine at any time.
 
 **A vertical edits only its own folder.** Replace the placeholder file (same name, default export) and add whatever
 else it needs next to it. The shell files — `package.json`, the lockfile, `app.json`, `metro.config.js`,
-`src/registry.js`, `src/nav/**` — belong to the shell owner; a new dependency or a new screen id is a request to
-them, not an edit. `test/registry.test.mjs` fails if a registered file goes missing.
+`src/registry.js`, `src/nav/**` — belong to the shell owner, **Phạm Tuấn Anh** (the shell was built by agent A2
+under the Day 22 override); a new dependency or a new screen id is a request to them, not an edit. Each vertical
+owns `mobile/src/verticals/v<N>/` and its tests `mobile/test/v<N>_*.test.mjs` (DR-021 rule 6; CI runs every
+`mobile/test/*.test.mjs`). `test/registry.test.mjs` fails if a registered file goes missing or has no default export.
 
 The screen contract the navigator relies on:
 
@@ -222,8 +230,10 @@ safe-area-context (`test/render/mocks/`); screens get a real app/core runtime �
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
 the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
 
-- **Not in CI** — CI runs without `node_modules`; run it locally before pushing screen changes. V2/V3/V4 may use it
-  for their own screens (add checks next to the V1 ones).
+- **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
+  `npm run test:render`, then a fixture-mode `expo export` (DR-021 rule 4); every other CI job runs without
+  `node_modules`. Still run it locally before pushing screen changes. V2/V3/V4 may use it for their own screens (add
+  checks next to the V1 ones).
 - **Evidence of logic only, never device evidence.** No frame, gesture, decode time or network on a phone is
   measured by it; that evidence is logcat from the A17.
 
@@ -232,7 +242,7 @@ the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
 ```text
 mobile/
   App.js  index.js  app.json  metro.config.js  package.json  package-lock.json
-  plugins/withCleartextLocalDemo.js    release cleartext for LOCAL_DEMO (overlay HTTP)
+  plugins/withCleartextLocalDemo.js    release cleartext for LOCAL_DEMO (overlay HTTP), live builds only
   scripts/prepare.mjs                  generated inputs: fixture bundle + build config
   scripts/build-release.ps1            release APK + timestamp file
   scripts/l4-report.mjs                laptop-side L4 verdict from a logcat capture (CMW_GESTURE)
@@ -246,7 +256,7 @@ mobile/
   src/ui/                              StateView.js + stateCopy.mjs (7 states), NotBuiltYet.js, FixtureScenarioPanel.js, theme.js
   src/verticals/v1 v2 v3 v4/           the screens
   test/*.test.mjs                      node --test (CI)
-  test/render/                         render-smoke harness (local only, devDependency)
+  test/render/                         render-smoke harness (devDependency; CI job mobile-render-bundle)
 ```
 
 Rules carried over from `app/README.md`: product code never imports `spikes/**` (copy with a provenance header —
