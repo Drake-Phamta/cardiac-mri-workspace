@@ -2,41 +2,126 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cardiac MRI MPR + 3D feasibility POC</title>
+  <meta name="color-scheme" content="dark">
+  <title>Cardiac MRI · Segmentation review</title>
   <style>
-    :root { color-scheme:dark; font-family:Inter,ui-sans-serif,system-ui,sans-serif; background:#061018; color:#e8f3f5; }
-    body { margin:0; padding:18px; } main { max-width:1500px; margin:auto; }
-    header { border-bottom:1px solid #2a424b; padding-bottom:12px; margin-bottom:13px; display:flex; align-items:baseline; justify-content:space-between; gap:1rem; }
-    h1 { font-size:17px; margin:0; } header p { margin:0; color:#9fb9bf; font-size:12px; }
-    .grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(460px,.95fr); gap:13px; }
-    .mpr { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
-    .panel { border:1px solid #29434d; border-radius:7px; overflow:hidden; background:#09151e; }
-    h2 { margin:0; padding:8px 11px; border-bottom:1px solid #29434d; color:#b7d1d6; font-size:11px; letter-spacing:.06em; }
-    canvas { display:block; width:100%; aspect-ratio:1; cursor:crosshair; background:#000; }
-    .sagittal { grid-column:span 2; max-width:50%; }
-    .three iframe { width:100%; height:650px; display:block; border:0; }
-    .readout { display:flex; flex-wrap:wrap; gap:.6rem 1rem; padding:10px 12px; font-size:12px; color:#b6cfd4; border-top:1px solid #29434d; }
-    .readout b { color:#81e0ea; font-weight:600; } .landmarks { color:#eab56d; }
-    .controls { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:12px; border-top:1px solid #29434d; }
-    label { color:#a9c4ca; font-size:11px; } input { width:100%; accent-color:#67d4df; }
-    footer { color:#8aa5ad; font-size:11px; margin-top:12px; line-height:1.5; }
-    @media (max-width:1050px) { .grid { grid-template-columns:1fr; } .sagittal { max-width:none; } .three iframe { height:560px; } }
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #090f16;
+      color: #e7edf3;
+      font-synthesis: none;
+      --line: #283541;
+      --muted: #8c9ba9;
+      --teal: #72d6d9;
+      --amber: #f2a45d;
+      --panel: #101821;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #090f16; }
+    main { width: min(1760px, 100%); margin: 0 auto; padding: 16px 18px 14px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 3px 2px 14px; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #37616a; border-radius: 9px; color: #a9eef0; background: #112930; font-size: 17px; }
+    h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: .035em; }
+    .subtitle { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .session { display: flex; align-items: center; gap: 8px; color: #aac0c9; font-size: 11px; white-space: nowrap; }
+    .local-dot { width: 7px; height: 7px; border-radius: 50%; background: #76d1a0; box-shadow: 0 0 10px #76d16666; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 278px; gap: 12px; align-items: stretch; }
+    .viewports { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(300px, 1fr)); gap: 8px; }
+    .viewport, .sidebar { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; overflow: hidden; }
+    .viewport { min-width: 0; display: flex; flex-direction: column; }
+    .viewport-head { min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; border-bottom: 1px solid #202d38; color: #d7e0e8; }
+    .viewport-title { font-size: 11px; font-weight: 650; letter-spacing: .055em; }
+    .viewport-meta { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: #8293a1; }
+    .slice-wrap { flex: 1; min-height: 0; display: grid; place-items: center; background: #030609; position: relative; overflow: hidden; }
+    canvas { display: block; width: auto; height: 100%; max-width: 100%; max-height: 520px; aspect-ratio: 1; cursor: crosshair; touch-action: none; image-rendering: auto; }
+    .three-wrap { flex: 1; min-height: 260px; background: #050a10; }
+    .three-wrap iframe { display: block; border: 0; width: 100%; height: 100%; min-height: 260px; }
+    .sidebar { padding: 15px 14px; }
+    .sidebar-label { color: #8192a0; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .segment-card { margin-top: 11px; padding: 11px; border: 1px solid #34404a; border-radius: 7px; background: #141e27; }
+    .segment-name { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 620; }
+    .swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--amber); box-shadow: 0 0 9px #f2a45d55; }
+    .segment-summary { margin: 9px 0 0 19px; color: #a9b6c0; font-size: 11px; line-height: 1.5; }
+    .section-rule { height: 1px; background: #27333d; margin: 15px 0; }
+    .axis-control { display: block; margin-top: 14px; color: #b8c4cc; font-size: 11px; }
+    .axis-title { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .axis-title b { color: #71d7dc; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    input[type=range] { width: 100%; accent-color: #64cbd1; }
+    .coordinates { margin-top: 7px; color: #b5c2cc; font: 10px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    .accuracy-note { margin-top: 15px; padding: 10px; border: 1px solid #554431; border-radius: 6px; background: #211b14; color: #dbbd97; font-size: 10px; line-height: 1.55; }
+    footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: #71818e; font-size: 10px; line-height: 1.5; }
+    footer span:last-child { text-align: right; }
+    @media (max-width: 1100px) {
+      .workspace { grid-template-columns: 1fr; }
+      .viewports { grid-template-rows: repeat(2, minmax(290px, 1fr)); }
+      .sidebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+      .sidebar-label, .accuracy-note { grid-column: 1 / -1; }
+      .segment-card, .section-rule { grid-column: 1 / -1; }
+      .axis-control { margin: 7px 0; }
+    }
+    @media (max-width: 650px) {
+      main { padding: 10px; }
+      header { align-items: flex-start; }
+      .session { font-size: 0; }
+      .session .local-dot { flex: 0 0 7px; }
+      .viewports { grid-template-columns: 1fr; grid-template-rows: none; }
+      .viewport { min-height: 290px; }
+      .sidebar { display: block; }
+      footer { display: block; }
+      footer span { display: block; }
+      footer span:last-child { margin-top: 4px; text-align: left; }
+    }
   </style>
 </head>
 <body><main>
-  <header><h1>CARDIAC MRI · MPR + 3D SEGMENTATION POC</h1><p>Public anonymised feasibility data · not diagnostic use</p></header>
-  <section class="grid">
-    <section class="panel"><h2>LINKED MULTIPLANAR MRI</h2>
-      <div class="mpr">
-        <div class="panel"><h2>AXIAL · drag/click: X,Y · wheel: Z</h2><canvas id="axial" width="320" height="320"></canvas></div>
-        <div class="panel"><h2>CORONAL · drag/click: X,Z · wheel: Y</h2><canvas id="coronal" width="320" height="320"></canvas></div>
-        <div class="panel sagittal"><h2>SAGITTAL · drag/click: Y,Z · wheel: X</h2><canvas id="sagittal" width="320" height="320"></canvas></div>
-      </div>
-      <div class="controls"><label>X <input id="x" type="range"></label><label>Y <input id="y" type="range"></label><label>Z <input id="z" type="range"></label></div>
-      <div class="readout"><span><b id="coords">loading…</b></span><span>orange = LA mask</span><span>cyan = linked crosshair</span><span class="landmarks" id="landmarks"></span></div>
+  <header>
+    <div class="brand"><div class="mark" aria-hidden="true">✚</div><div>
+      <h1>CARDIAC MRI · SEGMENTATION REVIEW</h1>
+      <div class="subtitle">Source-linked multiplanar review and derived 3D surface</div>
+    </div></div>
+    <div class="session"><span class="local-dot"></span>LOCAL SESSION · DE-IDENTIFIED INPUT ONLY</div>
+  </header>
+  <section class="workspace">
+    <section class="viewports" aria-label="Linked four-pane medical image review">
+      <article class="viewport">
+        <div class="viewport-head"><span class="viewport-title">AXIAL · RAS XY</span><span class="viewport-meta" id="axial-position">Z —</span></div>
+        <div class="slice-wrap"><canvas id="axial" width="480" height="480" aria-label="Axial MRI with segmentation overlay"></canvas></div>
+      </article>
+      <article class="viewport">
+        <div class="viewport-head"><span class="viewport-title">SAGITTAL · RAS YZ</span><span class="viewport-meta" id="sagittal-position">X —</span></div>
+        <div class="slice-wrap"><canvas id="sagittal" width="480" height="480" aria-label="Sagittal MRI with segmentation overlay"></canvas></div>
+      </article>
+      <article class="viewport">
+        <div class="viewport-head"><span class="viewport-title">CORONAL · RAS XZ</span><span class="viewport-meta" id="coronal-position">Y —</span></div>
+        <div class="slice-wrap"><canvas id="coronal" width="480" height="480" aria-label="Coronal MRI with segmentation overlay"></canvas></div>
+      </article>
+      <article class="viewport">
+        <div class="viewport-head"><span class="viewport-title">3D · LABEL-DERIVED SURFACE</span><span class="viewport-meta" id="three-status">RAS · L0 exact</span></div>
+        <div class="three-wrap"><iframe id="three" src="clinical-app/index.html?mode=clinical" title="Interactive 3D segmentation surface"></iframe></div>
+      </article>
     </section>
-    <section class="panel three"><h2>3D SURFACE · SELECTED AXIAL PLANE HIGHLIGHTED</h2><iframe id="three" src="clinical-app/index.html" title="3D left atrium"></iframe></section>
+    <aside class="sidebar" aria-label="Segmentation and source controls">
+      <div class="sidebar-label">Current segmentation</div>
+      <div class="segment-card">
+        <div class="segment-name"><span class="swatch"></span><span id="segment-name">Loading selected label…</span></div>
+        <p id="segment-summary" class="segment-summary">Source labelmap · loading voxel count</p>
+      </div>
+      <div class="sidebar-label" style="margin-top:17px">Linked source position</div>
+      <label class="axis-control"><span class="axis-title"><span>Left ↔ Right</span><b>X</b></span><input id="x" type="range" aria-label="Left-right source voxel"></label>
+      <label class="axis-control"><span class="axis-title"><span>Posterior ↔ Anterior</span><b>Y</b></span><input id="y" type="range" aria-label="Posterior-anterior source voxel"></label>
+      <label class="axis-control"><span class="axis-title"><span>Inferior ↔ Superior</span><b>Z</b></span><input id="z" type="range" aria-label="Inferior-superior source slice"></label>
+      <div class="coordinates" id="coords">Loading voxel position…</div>
+      <div class="section-rule"></div>
+      <div class="sidebar-label">Anatomical review</div>
+      <div class="accuracy-note"><b>Source mask stays authoritative.</b> The 3D surface is derived from the selected labelmap. Confirm its contour in the linked source MRI slices. Missing procedure landmarks are listed below.</div>
+      <div class="coordinates" id="landmarks"></div>
+    </aside>
   </section>
-  <footer>Click any slice to move the same voxel reference through every panel. The highlighted 3D band uses the matching physical Z position. This dataset supplies only one left-atrium label; procedure landmarks must be segmented or annotated before clinical planning.</footer>
+  <footer>
+    <span>Scroll a slice or drag a crosshair to link all views · drag 3D to orbit · wheel to zoom</span>
+    <span>Research feasibility POC · not validated for diagnosis, measurement, or treatment planning</span>
+  </footer>
 </main><script type="module" src="poc.js"></script></body>
 </html>

@@ -1,41 +1,56 @@
-# Clinical MPR + 3D feasibility POC
+# Cardiac MRI linked MPR + 3D review POC
 
-This local-only diagnostic connects three linked MRI slice views to the B1
-surface viewer. Click or drag a slice to update the shared voxel crosshair;
-the 3D surface receives the matching physical axial-plane position and marks
-its surface intersection in orange.
+This local-only prototype follows a medical-image review layout: three linked
+source MRI planes beside one 3D surface generated from the selected source
+label. The slice views show radiological orientation labels, preserve physical
+pixel aspect ratio, and report the selected voxel centre in RAS millimetres.
+A 3D tap navigates by a verified per-triangle map back to the foreground
+source slice.
 
-It is **not** a diagnostic workstation or evidence for a clinical result. It
-contains no image, label, mesh, or patient-derived byte in Git. The volume and
-OBJ must come from the same authorised segmentation input; the operator must
-inspect contours in source slices before trusting the surface.
+It is a research feasibility viewer, not a diagnostic workstation. The source
+labelmap remains authoritative. The displayed mesh is the exact voxel-face
+surface; the optional vertex-normal shading only changes lighting and never
+moves mesh coordinates. Surface simplification or geometric smoothing is not
+performed in this POC.
 
 ## Build a local demo
 
-`nibabel` and `numpy` are required only on the operator workstation.
+Use de-identified MRI and its matching segmentation labelmap. `nibabel` and
+`numpy` are needed on the workstation. The builder checks that the two inputs
+have identical shape and affine, canonicalizes axis order and flips to RAS,
+and rejects oblique or sheared geometry rather than showing a falsely named
+axial/coronal/sagittal view. It creates the mesh and exact triangle-to-slice map
+from that same canonical labelmap, then hashes the OBJ before enabling 3D picks.
 
 ```bash
+python -m pip install nibabel numpy
 python spikes/spike_b_3d/clinical_poc/build_poc_data.py \
   --mri /authorised/case.nii.gz \
   --label /authorised/case_label.nii.gz \
-  --mesh /authorised/left_atrium.obj \
+  --label-value 1 \
   --out /tmp/cardiac-mpr-poc \
-  --segment-name "left atrium" \
-  --mesh-origin-mm 0,0,0
+  --segment-name "left atrium"
 cd /tmp/cardiac-mpr-poc
 python3 -m http.server 8768
 ```
 
-Open `http://localhost:8768/poc.html`. `--mesh-origin-mm` must equal the origin
-used while exporting the OBJ; the default fits an OBJ extracted in local image
-coordinates. The browser preview is downsampled two-fold and must not be used
-for measurement.
+Open `http://localhost:8768/poc.html`. Use `--label-value 255` if the source
+labelmap encodes the segment as 255. The default `--downsample 1` retains the
+source in-plane resolution. A larger value only lowers the preview resolution
+in X/Y; all source Z slices remain available. All generated image, mask, and
+mesh bytes stay in the chosen output directory outside Git.
 
-## What this does and does not show
+## What is and is not represented
 
-The POC shows an MRI grayscale preview, its segmentation overlay, X/Y/Z
-crosshair, physical Z-to-surface cue, and explicit missing-landmark text. A
-single left-atrium label cannot establish pulmonary-vein ostia, left-atrial
-appendage, mitral annulus, whole-heart anatomy, chamber volume, or ejection
-fraction. Those require the appropriate multi-class, multi-phase input and
-clinical review.
+The POC displays the MRI and segmentation together, three-plane crosshairs,
+RAS coordinates, a derived label volume, and the exact source Z slice beneath
+a tapped mesh triangle. A single LA label does not contain pulmonary-vein
+ostia, a left-atrial appendage boundary, a mitral annulus, the rest of the
+heart, or a verified clinical landmark. Those must come from distinct labels
+or reviewed annotations in the matching source study.
+
+Reference examples:
+
+- [3D Slicer research figure showing three MRI planes and a 3D atrial surface](https://www.nature.com/articles/s41597-024-03253-9/figures/3)
+- [Materialise Mimics cardiac-intervention planning example](https://www.materialise.com/en/healthcare/hcps/cardiovascular/cardiac-interventions)
+- [3D Slicer volume-rendering guide](https://slicer.readthedocs.io/en/5.10/user_guide/modules/volumerendering.html)
