@@ -50,6 +50,17 @@ grid runs.
   skeleton is about 3.5 px thick; the UNet (stride 1) and the progressive DINOv2 decoder (stride 1.75) are finer than
   every measured structure, while a linear DINOv2 head (stride 14) would be coarser than about a fifth of it. This
   supports the progressive decoder written into ADR-ML-001.
+
+### Owner interpretation — C1-4 (Bế Quốc Khánh, revalidated 2026-10-05)
+
+At the same 1,500-step budget, the UNet is more stable on this fixed panel: it has no sub-0.5 slices in the
+large- or median-area groups, while DINOv2 has 1/4 and 2/4; both struggle on the small-area group (UNet 3/4,
+DINOv2 4/4). The empty-slice false-positive counts are also high for both families, especially DINOv2
+(147/148 versus 104/148 for UNet). DINOv2's validation Dice peaking at 0.429 at step 750 and falling to 0.349
+while training loss still falls is evidence of unstable generalisation at this short budget, not evidence that
+the run failed or that the frozen recipe should be changed. I accept these as limitations to carry into the
+final comparison and post-processing analysis under `PR-SCI-03`; they are not a basis for tuning after seeing
+the panel.
 - **The calendar fits (C1-9): E = 50, the cap.** With the measured step times, 20/38/78 training cases × 88 slices,
   20 validation cases each epoch and a 1.10 overhead (ASSUMPTION), the DINOv2 queue on this PC takes 12.35 h
   (EXP-D-025 2.05 h, EXP-D-050 3.52 h, EXP-D-100 6.78 h). The UNet queue takes 24.33 h at this card's C1-2 UNet rate;
@@ -97,7 +108,8 @@ grid runs.
   spread is visible.
 - The UNet family will train on the RTX 4050, whose speed was not measured here (calendar ASSUMPTION, §3.1). The
   DR-016a tripwire checks it when that queue starts.
-- C1-4 owner notes on the decoder panel are owed by Bế Quốc Khánh (Day 23); only machine aggregates are here.
+- C1-4 owner notes are recorded in §2 for both families; only machine aggregates, not raw panel logits/masks,
+  remain available for re-check.
 - The holdout slots of `C1_MEASUREMENT_PLAN.md` §6 stay `NOT_RUN`.
 - **Recorded deviations from `C1_MEASUREMENT_PLAN.md`** (QA N-6):
   - C1-1 keeps one peak per grid cell, not per-step memory samples.

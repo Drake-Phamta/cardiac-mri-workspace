@@ -11,17 +11,17 @@
 
 | # | Mục → `main` | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
-| K1 🔴 | #59 → `0c3f847` | preflight C1: hardlink root, kiểm đích liên kết; `verify_subsets` | `python spikes/spike_c_ml/c1/test_preflight.py` | |
-| K2 🔴 | #60 → `b606295` | `ml/data.py` (CaseAllowlist, DR-011, cache), `ml/models.py` | `pytest ml/tests -q`; đối chiếu nguồn copy từ `probe.py` | |
-| K3 🔴 | #64 → `440dab1` | `ml/evaluate.py`, `ml/export_contract2.py` | ngữ nghĩa ml-eval-1.0.0: GT rỗng là case lỗi, bootstrap 10.000 mẫu seed 2024, ddof=1 | |
-| K4 🔴 | #70 → `2f62923` | `ml/train.py`, `ml/queue.py`, `ml/infer.py`, ghim split đóng băng | đối chiếu `RECIPE` với ADR-ML-001 từng dòng | |
-| K5 🔴 | #79 → `3c02fd2` | Spike C1 RESULT, ADR-ML-001, DR-016/016a; **GATE-ML-01 đóng** | đọc `RESULT_C1.md`, bản ghi QA §5; viết ghi chú C1-4 cho cả hai họ | |
-| K6 | hàng đợi DINOv2 | chạy trên PC leader từ 14:30, E = 50, batch 8 | `train_log.jsonl` từng run: loss giảm, không NaN; SHA checkpoint | |
-| K7 | #35 → `f5aa763` (split) | QA-005 thay cho duyệt lại sau rebase | N-1, N-3…N-6 của QA-005 | |
-| K8 🔴 | #61 → `d6441bc` | mô hình V3 trên contract 1.1.0; B-1…B-3 do agent A6 sửa, B-4 do phiên leader sửa | `node app/verticals/v3_study_and_compare/test_study_and_compare.mjs` (155); đọc QA-61, 61b, 61c | |
-| K9 🔴 | #81 → `d907240` | khoá chặn holdout: chỉ nhận split đóng băng, bản ghi GATE-IMG-01 có cấu trúc | `pytest ml/tests -q` (207) với `CUDA_VISIBLE_DEVICES=-1`; đọc QA-081; NB-2(a) trước hàng đợi UNet | |
-| K11 🔴 | #69 → `f5d5384` | màn V3 SCR-01/SCR-07 (agent A6, restack A6b, sửa B-1 bởi phiên leader) | ``npm test`` trong `mobile/`; đọc QA-069 N-1…N-7 | |
-| K10 | thử end-to-end | `ml/evaluate` → Contract 2 → backend trên dự đoán validation của EXP-D-025 (chạy local, ngoài git) | đọc `day22/qa/E2E_PROOF_EXP_D_025.md` | |
+| K1 🔴 | #59 → `0c3f847` | preflight C1: hardlink root, kiểm đích liên kết; `verify_subsets` | `python spikes/spike_c_ml/c1/test_preflight.py` | nhận — Bế Quốc Khánh, 01:10 05/10; 43/43 PASS |
+| K2 🔴 | #60 → `b606295` | `ml/data.py` (CaseAllowlist, DR-011, cache), `ml/models.py` | `pytest ml/tests -q`; đối chiếu nguồn copy từ `probe.py` | nhận — Bế Quốc Khánh, 01:10 05/10; ML regression 206 pass, 1 skip |
+| K3 🔴 | #64 → `440dab1` | `ml/evaluate.py`, `ml/export_contract2.py` | ngữ nghĩa ml-eval-1.0.0: GT rỗng là case lỗi, bootstrap 10.000 mẫu seed 2024, ddof=1 | cần sửa: validator CLI chưa ép UTF-8 trên Windows; ngữ nghĩa đã xác nhận và bản sửa nằm trong PR owner-revalidation — Bế Quốc Khánh, 01:10 05/10 |
+| K4 🔴 | #70 → `2f62923` | `ml/train.py`, `ml/queue.py`, `ml/infer.py`, ghim split đóng băng | đối chiếu `RECIPE` với ADR-ML-001 từng dòng | nhận — Bế Quốc Khánh, 01:10 05/10; recipe và split guard khớp, ML regression PASS |
+| K5 🔴 | #79 → `3c02fd2` | Spike C1 RESULT, ADR-ML-001, DR-016/016a; **GATE-ML-01 đóng** | đọc `RESULT_C1.md`, bản ghi QA §5; viết ghi chú C1-4 cho cả hai họ | nhận — Bế Quốc Khánh, 01:10 05/10; đã bổ sung diễn giải C1-4 vào RESULT |
+| K6 | hàng đợi DINOv2 | chạy trên PC leader từ 14:30, E = 50, batch 8 | `train_log.jsonl` từng run: loss giảm, không NaN; SHA checkpoint | chưa thể nhận — log/checkpoint ở PC leader, không có trên máy này; cần leader cung cấp hoặc xác nhận — Bế Quốc Khánh, 01:10 05/10 |
+| K7 | #35 → `f5aa763` (split) | QA-005 thay cho duyệt lại sau rebase | N-1, N-3…N-6 của QA-005 | nhận — Bế Quốc Khánh, 01:10 05/10; QA-005 PASS, split sha256 `c5c65a09…396d` vẫn được ghim |
+| K8 🔴 | #61 → `d6441bc` | mô hình V3 trên contract 1.1.0; B-1…B-3 do agent A6 sửa, B-4 do phiên leader sửa | `node app/verticals/v3_study_and_compare/test_study_and_compare.mjs` (155); đọc QA-61, 61b, 61c | cần sửa: N-11/N-13/N-15; đã sửa trong PR owner-revalidation, V3 158/158 PASS — Bế Quốc Khánh, 01:10 05/10 |
+| K9 🔴 | #81 → `d907240` | khoá chặn holdout: chỉ nhận split đóng băng, bản ghi GATE-IMG-01 có cấu trúc | `pytest ml/tests -q` (207) với `CUDA_VISIBLE_DEVICES=-1`; đọc QA-081; NB-2(a) trước hàng đợi UNet | nhận phần code — Bế Quốc Khánh, 01:10 05/10; 206 pass, 1 skip. NB-2(a) còn chờ queue/run UNet thật |
+| K11 🔴 | #69 → `f5d5384` | màn V3 SCR-01/SCR-07 (agent A6, restack A6b, sửa B-1 bởi phiên leader) | ``npm test`` trong `mobile/`; đọc QA-069 N-1…N-7 | nhận phần model/screen — Bế Quốc Khánh, 01:10 05/10; mobile 170 pass, 0 fail, 7 skip do chưa cài `fast-png`; bằng chứng A17 vẫn cần HITL |
+| K10 | thử end-to-end | `ml/evaluate` → Contract 2 → backend trên dự đoán validation của EXP-D-025 (chạy local, ngoài git) | đọc `day22/qa/E2E_PROOF_EXP_D_025.md` | nhận — Bế Quốc Khánh, 01:10 05/10; proof ghi exit 0, validator và backend đều PASS |
 
 
 ## Nguyễn Gia Đức Trung — contract, backend, V4

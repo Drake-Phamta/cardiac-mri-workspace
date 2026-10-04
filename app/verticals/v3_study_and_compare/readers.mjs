@@ -123,6 +123,7 @@ export const UNAVAILABLE = Object.freeze({
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'OUTLIERS_FOR_ANOTHER_EXPERIMENT',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'OUTLIERS_FOR_ANOTHER_VARIANT',
+  OUTLIERS_DUPLICATE_CASE_ID: 'OUTLIERS_DUPLICATE_CASE_ID',
   // The selection names a case that the same experiment_cases answer does not
   // list as SUCCEEDED (a FAILED, EXCLUDED or WITHHELD row, or no row at all).
   // DR-010 selects only among successfully evaluated cases, and an
@@ -188,20 +189,15 @@ export function readCohortN(data) {
   });
 }
 
-const VARIANT_SPELLINGS = Object.freeze({
-  RAW: LANE.RAW, RAW_PREDICTION: LANE.RAW,
-  PROCESSED: LANE.PROCESSED, PROCESSED_PREDICTION: LANE.PROCESSED,
-});
+const VARIANT_SPELLINGS = LANE;
 
 /*
- * Contract 11 examples say RAW_PREDICTION, Contract 2 says RAW_PREDICTION /
- * PROCESSED_PREDICTION, the generated fixture says RAW, `11` section 6 says
- * raw|processed. All four spell the same two lanes. `declared` keeps the
- * server's own spelling for display; an unknown spelling has lane null and is
- * treated as undeclared, never guessed.
+ * API contract 1.1.0 enumerates exactly RAW / PROCESSED. `declared` keeps the
+ * server's own spelling for display; aliases and case changes are drift, not
+ * values the client silently normalises.
  */
 export function readVariant(v) {
-  const key = typeof v === 'string' ? v.toUpperCase() : null;
+  const key = typeof v === 'string' ? v : null;
   const lane = has(VARIANT_SPELLINGS, key) ? VARIANT_SPELLINGS[key] : null;
   return Object.freeze({ declared: absent(v) ? null : v, lane, readable: lane !== null });
 }
@@ -384,18 +380,26 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
       counts: Object.freeze({ total: 0, plotted: 0 }), metricVersion: data?.metric_version ?? null, servedVariant,
     });
   }
+  const caseIdCounts = new Map();
+  for (const item of items) {
+    const id = typeof item?.case_id === 'string' && item.case_id ? item.case_id : null;
+    if (id) caseIdCounts.set(id, (caseIdCounts.get(id) ?? 0) + 1);
+  }
+  const duplicateCaseIds = new Set([...caseIdCounts].filter(([, n]) => n > 1).map(([id]) => id));
   const rows = items.map((r, index) => {
     const caseId = typeof r?.case_id === 'string' && r.case_id ? r.case_id : null;
+    const duplicateCaseId = caseId !== null && duplicateCaseIds.has(caseId);
     const status = typeof r?.status === 'string' ? r.status : null;
     const runId = typeof r?.analysis_run_id === 'string' && r.analysis_run_id ? r.analysis_run_id : null;
     const succeeded = status === ROW_STATUS.SUCCEEDED;
     const metrics = isObject(r?.metric_values) ? r.metric_values : null;
     const raw = succeeded && metricName && metrics ? metrics[metricName] : undefined;
-    const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+    const value = !duplicateCaseId && typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
     const servedValueIgnored = !succeeded && !absent(r?.metric_values);
 
     let plotState;
     if (!caseId) plotState = 'NO_CASE_ID';
+    else if (duplicateCaseId) plotState = 'DUPLICATE_CASE_ID';
     else if (!has(ROW_STATUS, status)) plotState = 'UNKNOWN_STATUS';
     else if (!succeeded) plotState = status;
     else if (!metricName) plotState = 'NO_METRIC_SELECTED';
@@ -412,7 +416,10 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
       servedValueIgnored,
       plotted: plotState === 'PLOTTED',
       plotState,
-      intent: caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' }),
+      intent: duplicateCaseId
+        ? Object.freeze({ ...caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' }),
+          enabled: false, reason: `duplicate case_id ${caseId} in experiment_cases` })
+        : caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' }),
     });
   });
 
@@ -430,6 +437,7 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
     metricName: metricName ?? null,
     metricVersion: data?.metric_version ?? null,
     servedVariant,
+    duplicateCaseIds: Object.freeze([...duplicateCaseIds]),
   });
 }
 
@@ -476,6 +484,11 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
   if (block.cases.length === 0) return unavailable(UNAVAILABLE.NO_ELIGIBLE_CASES);
   if (block.cases.length > OUTLIER_RULE.cardinality) {
     return unavailable(UNAVAILABLE.OUTLIERS_OVER_CARDINALITY, { served: String(block.cases.length) });
+  }
+  const selectedIds = block.cases.map((c) => c?.case_id).filter((id) => typeof id === 'string' && id);
+  const duplicateSelectedIds = [...new Set(selectedIds.filter((id, i) => selectedIds.indexOf(id) !== i))];
+  if (duplicateSelectedIds.length > 0) {
+    return unavailable(UNAVAILABLE.OUTLIERS_DUPLICATE_CASE_ID, { served: duplicateSelectedIds.join(', ') });
   }
 
   // Order comes from the server, in the order it sent. Preserved as-is.
