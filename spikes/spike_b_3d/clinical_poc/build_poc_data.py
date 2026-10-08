@@ -21,6 +21,20 @@ sys.path.insert(0, str(REPO_ROOT))
 from backend.mesh.surface import build_case_mesh
 
 
+def _affine_mm(image, name: str):
+    """Normalize NIfTI spatial units; unknown units cannot justify mm/mL."""
+    get_units = getattr(image.header, "get_xyzt_units", None)
+    unit = get_units()[0] if get_units else "unknown"
+    scale = {"mm": 1.0, "meter": 1000.0, "micron": 0.001}.get(unit)
+    if scale is None:
+        raise ValueError(f"{name} must declare spatial units (mm, meter or micron); refusing assumed millimetres")
+    affine = np.asarray(image.affine, dtype=np.float64).copy()
+    affine[:3, :] *= scale
+    if not np.isfinite(affine).all():
+        raise ValueError(f"{name} affine contains non-finite coordinates")
+    return affine, scale
+
+
 def _load_aligned_volumes(mri_path: Path, label_path: Path, label_value: int):
     """Load the MRI and label on one verified, axis-aligned RAS grid.
 
@@ -35,12 +49,15 @@ def _load_aligned_volumes(mri_path: Path, label_path: Path, label_value: int):
         raise ValueError("MRI and label must both be 3D volumes")
     if mri_source.shape != label_source.shape:
         raise ValueError("MRI and label shapes differ")
-    if not np.allclose(mri_source.affine, label_source.affine, rtol=0.0, atol=1e-5):
+    mri_affine_mm, mri_scale = _affine_mm(mri_source, "MRI")
+    label_affine_mm, _label_scale = _affine_mm(label_source, "labelmap")
+    if not np.allclose(mri_affine_mm, label_affine_mm, rtol=0.0, atol=1e-5):
         raise ValueError("MRI and label affine transforms differ; refusing misregistered inputs")
 
     mri = nib.as_closest_canonical(mri_source)
     label = nib.as_closest_canonical(label_source)
-    affine = np.asarray(mri.affine, dtype=np.float64)
+    affine = np.asarray(mri.affine, dtype=np.float64).copy()
+    affine[:3, :] *= mri_scale
     directions = affine[:3, :3]
     spacing = np.linalg.norm(directions, axis=0)
     if not np.isfinite(spacing).all() or np.any(spacing <= 0):
@@ -124,14 +141,20 @@ def main() -> int:
     origin_ras = [float(v) for v in origin_ras]
     centroid_source = np.argwhere(mask != 0).mean(axis=0)
     centroid_preview = [float(centroid_source[i] / step[i]) for i in range(3)]
+    # NIfTI affine maps integer indices to voxel centres. The backend's
+    # half-open cell contract maps integer indices to LOW corners instead.
+    # Convert only the mesh origin; MPR continues to use NIfTI centre positions.
+    mesh_origin_ras = [origin_ras[i] - spacing[i] / 2 for i in range(3)]
     mesh = build_case_mesh(mask.astype(bool), level=0, spacing=spacing,
-                           origin=origin_ras, shape_xyz=image.shape)
+                           origin=mesh_origin_ras, shape_xyz=image.shape)
     meta = {
       'shape_xyz': [int(v) for v in preview.shape],
       'source_shape_xyz': [int(v) for v in image.shape],
       'downsample_xyz': [int(v) for v in step],
       'source_spacing_xyz_mm': spacing,
       'source_origin_ras_mm': origin_ras,
+      'source_origin_reference': 'voxel_center',
+      'spatial_unit': 'mm',
       'preview_spacing_xyz_mm': [float(spacing[i] * step[i]) for i in range(3)],
       'centroid_preview_xyz': centroid_preview,
       'segment': args.segment_name,
@@ -142,6 +165,7 @@ def main() -> int:
       'segment_voxels': int(mask.sum()),
       'segment_volume_ml': float(mask.sum() * np.prod(spacing) / 1000.0),
       'mesh': {'representation': 'exact voxel-face source-label geometry',
+               'origin_cell_corner_ras_mm': mesh_origin_ras,
                'vertex_count': mesh.vertex_count, 'triangle_count': mesh.triangle_count,
                'content_sha256': mesh.content_sha256()},
       'landmarks_available': [f'{args.segment_name} label only'],
@@ -174,7 +198,11 @@ def main() -> int:
       'fixture': 'operator-provided local MRI + labelmap',
       'shape_xyz': [int(v) for v in image.shape],
       'spacing_xyz_mm': spacing,
-      'origin_world_mm': origin_ras,
+      'origin_world_mm': mesh_origin_ras,
+      'origin_reference': 'voxel_low_corner',
+      'source_voxel_center_origin_ras_mm': origin_ras,
+      'coordinate_system': 'RAS',
+      'spatial_unit': 'mm',
       'geometry_contract_version': mesh.geometry_contract_version,
       'segment': args.segment_name,
       'mask_source': 'selected integer label value from aligned labelmap',

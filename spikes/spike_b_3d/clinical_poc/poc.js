@@ -7,6 +7,13 @@ const [meta, pixels, mask] = await Promise.all([
   fetch('poc-data/mask_u8_zyx.bin').then((response) => response.arrayBuffer()).then((buffer) => new Uint8Array(buffer)),
 ]);
 
+if (meta.coordinate_system !== 'RAS' || meta.spatial_unit !== 'mm'
+    || meta.source_origin_reference !== 'voxel_center') {
+  document.querySelector('#coords').textContent = 'Local demo geometry is outdated or unsupported. Rebuild it with build_poc_data.py.';
+  document.querySelector('#three-status').textContent = 'GEOMETRY NEEDS REBUILD';
+  throw new Error('Unsupported or old POC geometry; rebuild the local demo with the updated builder.');
+}
+
 const [nx, ny, nz] = meta.shape_xyz;
 const downsample = meta.downsample_xyz;
 const sourceSpacing = meta.source_spacing_xyz_mm;
@@ -135,7 +142,8 @@ function render() {
   Object.keys(canvas).forEach(draw);
   sliders.forEach((slider, axis) => { slider.value = selected[axis]; });
   const native = sourceAt('axial', selected[0], selected[1]);
-  const ras = native.map((voxel, axis) => sourceOrigin[axis] + (voxel + 0.5) * sourceSpacing[axis]);
+  // The NIfTI affine origin already locates the centre of voxel (0,0,0).
+  const ras = native.map((voxel, axis) => sourceOrigin[axis] + voxel * sourceSpacing[axis]);
   const fixed = ras.map((value) => value.toFixed(1));
   document.querySelector('#coords').textContent = `RAS ${fixed.join(', ')} mm · source IJK ${native.join(', ')}`;
   document.querySelector('#segment-name').textContent = `${meta.segment} · label ${meta.label_value}`;
@@ -145,7 +153,7 @@ function render() {
   document.querySelector('#coronal-position').textContent = `Y ${native[1]} · ${ras[1].toFixed(1)} mm`;
   document.querySelector('#sagittal-position').textContent = `X ${native[0]} · ${ras[0].toFixed(1)} mm`;
   const z = selected[2] * downsample[2];
-  const worldZ = sourceOrigin[2] + (z + 0.5) * sourceSpacing[2];
+  const worldZ = sourceOrigin[2] + z * sourceSpacing[2];
   document.querySelector('#three').contentWindow?.postMessage({
     type: 'set-slice-world-z', z: worldZ, band_mm: sourceSpacing[2] * 0.9,
   }, window.location.origin);
@@ -193,4 +201,6 @@ window.addEventListener('message', (event) => {
   render();
 });
 window.addEventListener('resize', render);
+// Load the surface only after the MPR physical frame has been validated.
+document.querySelector('#three').src = 'clinical-app/index.html?mode=clinical';
 render();

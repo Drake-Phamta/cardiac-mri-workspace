@@ -47,11 +47,15 @@ class BuildPocDataTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def _save(self, affine=None, label_affine=None):
+    def _save(self, affine=None, label_affine=None, mri_unit="mm", label_unit="mm"):
         affine = self.affine if affine is None else affine
         label_affine = affine if label_affine is None else label_affine
-        nib.save(nib.Nifti1Image(self.mri, affine), self.mri_path)
-        nib.save(nib.Nifti1Image(self.label, label_affine), self.label_path)
+        mri = nib.Nifti1Image(self.mri, affine)
+        label = nib.Nifti1Image(self.label, label_affine)
+        mri.header.set_xyzt_units(mri_unit)
+        label.header.set_xyzt_units(label_unit)
+        nib.save(mri, self.mri_path)
+        nib.save(label, self.label_path)
 
     def _run(self, out, expect_success=True):
         result = subprocess.run([
@@ -84,6 +88,50 @@ class BuildPocDataTests(unittest.TestCase):
         self.assertEqual(len(pickmap["source_slice_by_triangle"]), pickmap["triangle_count"])
         self.assertTrue(all(0 <= z < self.shape[2] for z in pickmap["source_slice_by_triangle"]))
         self.assertTrue(mesh_path.is_file())
+
+    def test_single_voxel_surface_is_centered_on_nifti_voxel_center(self):
+        voxel = (5, 4, 3)
+        self.label.fill(0)
+        self.label[voxel] = 5
+        self._save()
+        out = self.root / "one-voxel"
+        self._run(out)
+        lines = (out / "mesh/out/level_0_cell1.obj").read_text().splitlines()
+        vertices = np.array([list(map(float, line.split()[1:]))
+                             for line in lines if line.startswith("v ")])
+        # NIfTI integer indices locate voxel centres, not the low cell corner.
+        center = nib.affines.apply_affine(self.affine, voxel)
+        half_spacing = np.array([0.7, 0.8, 2.4]) / 2
+        np.testing.assert_allclose(vertices.min(axis=0), center - half_spacing, rtol=0, atol=1e-6)
+        np.testing.assert_allclose(vertices.max(axis=0), center + half_spacing, rtol=0, atol=1e-6)
+        pickmap = json.loads((out / "mesh/out/level_0_cell1.pickmap.json").read_text())
+        self.assertEqual(pickmap["triangle_count"], 12)
+        self.assertEqual(pickmap["source_slice_by_triangle"], [voxel[2]] * 12)
+
+    def test_normalizes_declared_spatial_units_before_comparing_geometry(self):
+        for unit, mm_to_native in (("meter", 0.001), ("micron", 1000.0)):
+            with self.subTest(unit=unit):
+                affine = self.affine.copy()
+                affine[:3, :] *= mm_to_native
+                self._save(affine, label_affine=self.affine, mri_unit=unit, label_unit="mm")
+                out = self.root / unit
+                self._run(out)
+                meta = json.loads((out / "poc-data/meta.json").read_text())
+                np.testing.assert_allclose(meta["source_spacing_xyz_mm"], [0.7, 0.8, 2.4], rtol=0, atol=1e-5)
+                np.testing.assert_allclose(meta["source_origin_ras_mm"], [20, -30, 5], rtol=0, atol=1e-5)
+                self.assertAlmostEqual(meta["segment_volume_ml"], np.count_nonzero(self.label) * 0.7 * 0.8 * 2.4 / 1000, places=6)
+
+    def test_refuses_unknown_spatial_units_instead_of_assuming_millimetres(self):
+        for mri_unit, label_unit in (("unknown", "mm"), ("mm", "unknown")):
+            with self.subTest(mri_unit=mri_unit, label_unit=label_unit):
+                self._save(mri_unit=mri_unit, label_unit=label_unit)
+                result = self._run(self.root / "unknown-unit", expect_success=False)
+                self.assertIn("spatial units", result.stderr)
+
+    def test_refuses_equal_numeric_affines_with_different_physical_units(self):
+        self._save(mri_unit="meter", label_unit="mm")
+        result = self._run(self.root / "different-physical-grid", expect_success=False)
+        self.assertIn("affine transforms differ", result.stderr)
 
     def test_reorients_flipped_source_axes_to_positive_ras(self):
         affine = self.affine.copy()
