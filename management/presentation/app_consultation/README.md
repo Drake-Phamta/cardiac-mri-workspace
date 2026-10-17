@@ -7,8 +7,9 @@ dự kiến, và tham chiếu sản phẩm nào. Mỗi nhóm **10–15 phút**.
 
 | File | Ai đọc | Khi nào |
 |---|---|---|
+| [`APP_CONSULTATION_SCRIPT.docx`](APP_CONSULTATION_SCRIPT.docx) | **từng người, in dải trang của mình** | **Cầm trên tay lúc nói.** Câu đầy đủ đọc thẳng ra tiếng được, kèm Q&A và số liệu dự phòng của đúng slide đó |
 | [`APP_CONSULTATION_ONE_PAGE.md`](APP_CONSULTATION_ONE_PAGE.md) | **cả bốn người** | **Mở sẵn trong lúc họp.** Một trang, không cuộn |
-| [`APP_CONSULTATION_SPEAKER_SCRIPT.md`](APP_CONSULTATION_SPEAKER_SCRIPT.md) | từng người phần của mình | Đọc trước **tối nay**, tập nói một lượt |
+| [`APP_CONSULTATION_SPEAKER_SCRIPT.md`](APP_CONSULTATION_SPEAKER_SCRIPT.md) | từng người phần của mình | Đọc trước **tối nay**, tập nói một lượt — bản gạch đầu dòng, ngắn hơn bản `.docx` |
 | [`APP_CONSULTATION_QA.md`](APP_CONSULTATION_QA.md) | cả bốn | Lướt trước khi họp; mở sẵn tab riêng lúc Q&A |
 | [`slides.html`](slides.html) | người share màn hình | Mở bằng trình duyệt → F11 → share tab |
 | [`APP_CONSULTATION_SLIDE_OUTLINE.md`](APP_CONSULTATION_SLIDE_OUTLINE.md) | ai chỉnh slide | Chỉ khi cần sửa nội dung slide |
@@ -16,6 +17,10 @@ dự kiến, và tham chiếu sản phẩm nào. Mỗi nhóm **10–15 phút**.
 
 Ghi chú tham chiếu thiết kế nằm riêng, **không** thuộc gói thuyết trình:
 [`../../product_reference/CVI42_DESIGN_REFERENCE.md`](../../product_reference/CVI42_DESIGN_REFERENCE.md).
+
+File `.docx` sinh ra từ [`build_script_docx.py`](build_script_docx.py) — nội dung nằm trong file `.py`
+để còn diff được. Sửa nội dung thì sửa `.py` rồi chạy `python build_script_docx.py`, đừng sửa thẳng
+`.docx`. Nếu sửa làm đổi độ dài thì **mở lại bằng Word và kiểm dải trang** ghi trên bìa.
 
 ## Phân vai
 
