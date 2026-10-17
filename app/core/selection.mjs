@@ -28,6 +28,9 @@ export const UNAVAILABLE_REASON = Object.freeze({
   NOT_IN_CONTRACT: 'SELECTION_NOT_IN_CONTRACT',
   NOT_RETURNED: 'SELECTION_NOT_RETURNED',
   NO_ELIGIBLE_SLICES: 'SELECTION_NO_ELIGIBLE_SLICES',
+  // A block whose `slices` is not a list: unreadable, which is not the same
+  // as "no slice is eligible" (#78 QA N-10).
+  MALFORMED: 'SELECTION_MALFORMED',
 });
 
 function unavailable(reason) {
@@ -37,15 +40,17 @@ function unavailable(reason) {
 /*
  * Reads a selection the server returned. `data` is a validated response body.
  * The field names are the ones contract v1.0.0 freezes in
- * selection_rules.worst_slice_selection.
+ * selection_rules.worst_slice_selection - that name only; no other field is
+ * read as a selection (#78 QA N-10 dropped the pre-1.0 `slice_selection`).
  */
 export function readSelection(data) {
   if (!data || typeof data !== 'object') return unavailable(UNAVAILABLE_REASON.NOT_RETURNED);
 
-  const block = data.worst_slice_selection ?? data.slice_selection ?? null;
+  const block = data.worst_slice_selection ?? null;
   if (!block) return unavailable(UNAVAILABLE_REASON.NOT_RETURNED);
 
-  const slices = Array.isArray(block.slices) ? block.slices : [];
+  const slices = block.slices;
+  if (!Array.isArray(slices)) return unavailable(UNAVAILABLE_REASON.MALFORMED);
   if (slices.length === 0) return unavailable(UNAVAILABLE_REASON.NO_ELIGIBLE_SLICES);
 
   // Order comes from the server, in the order it sent. Preserved as-is.

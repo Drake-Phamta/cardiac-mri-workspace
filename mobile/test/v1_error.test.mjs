@@ -8,9 +8,9 @@ import { loading, readSelection, STATE, success } from '../../app/core/index.mjs
 import { variantMismatch } from '../../app/verticals/v1_case_explorer/index.mjs';
 import { disagreementRuns } from '../src/imaging/maskPaths.mjs';
 import {
-  CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareWithServer, fmt, pinnedSelection, profileFromSelection,
-  profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel, runMetricsView, selectionNote,
-  topEntries, worstLabel,
+  CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
+  profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel, runMetricsView,
+  selectionNote, topEntries, worstLabel,
 } from '../src/verticals/v1/errorInspector.mjs';
 import { loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
@@ -60,6 +60,22 @@ test('V4c selection entries outside the volume or repeated are reported, never s
   assert.equal(p.problems.length, 2);
   assert.match(p.problems[0], /outside/);
   assert.match(p.problems[1], /twice/);
+});
+
+test('V4c2 #78 QA N-7: a worst entry outside the volume is listed as such and never opened - no clamping', () => {
+  const at = (z) => ({ sliceIndex: z, dice: 0.1, falsePositives: 1, falseNegatives: 1 });
+  assert.equal(inVolume(at(0), 88), true);
+  assert.equal(inVolume(at(87), 88), true);
+  for (const z of [88, 90, -1, 4.5, null, '44']) {
+    assert.equal(inVolume(at(z), 88), false, `z ${JSON.stringify(z)} of 88 slices`);
+  }
+  assert.equal(inVolume(at(44), null), false, 'a case that states no slice count opens nothing');
+  assert.equal(inVolume(null, 88), false);
+  assert.equal(outsideVolumeNote(at(44), 88), null, 'an entry inside the volume opens: no note');
+  assert.equal(outsideVolumeNote(at(90), 88), 'outside this volume (z 0..87) - not opened');
+  assert.equal(outsideVolumeNote(at(44), null), 'the case states no slice count - not opened');
+  // The row still says which slice the server named - z 90, not the z 87 a clamp would open.
+  assert.match(worstLabel(at(90)), /^z 90 \(slice 91\) /);
 });
 
 test('V4d run metrics: missing values stay "not stated", never 0', () => {
@@ -216,6 +232,33 @@ test('V4o B-3: run metrics for another variant are the V1 model\'s variant misma
   const wait = loading();
   assert.equal(runMetricsView(wait, 'PROCESSED'), wait);
   assert.equal(runLevel(wait, { variant: 'RAW', pinned: PINNED, total: 88 }).metrics, null);
+});
+
+test('V4p #78 QA N-10: only worst_slice_selection is read; a block with no list of slices is SELECTION_MALFORMED, not "no eligible slice"', () => {
+  // The pre-1.0 alias is not a selection, even one that would pass the gate.
+  const alias = level(body({ worst_slice_selection: undefined, slice_selection: ws }));
+  assert.equal(alias.selection.available, false);
+  assert.equal(alias.selection.reason, 'SELECTION_NOT_RETURNED');
+  assert.deepEqual(onScreen(alias), { worst: [], bars: 0, compared: false });
+  assert.equal(selectionNote(alias.selection).text, 'The server did not return a worst-slice selection for this run.');
+  // A pinned block whose slices is not a list cannot be read - and says so.
+  for (const slices of [undefined, null, 'z44']) {
+    const lv = level(body({ worst_slice_selection: { ...ws, slices } }));
+    assert.equal(lv.selection.reason, 'SELECTION_MALFORMED', `slices ${JSON.stringify(slices)}`);
+    assert.deepEqual(onScreen(lv), { worst: [], bars: 0, compared: false });
+    const note = selectionNote(lv.selection);
+    assert.equal(note.tone, 'warn');
+    assert.match(note.text, /^SELECTION_MALFORMED: .*cannot be read\. .*none are ranked here instead\.$/);
+    assert.doesNotMatch(note.text, /non-empty ground truth/, 'not the "no eligible slice" wording');
+    assert.equal(profileNote(lv), 'No profile: the server\'s worst-slice selection cannot be read (see above).');
+  }
+  // The rule and version gate still comes first.
+  assert.equal(level(body({ worst_slice_selection: { ...ws, selection_version: 'dr010-worst-slice/v2', slices: 'z44' } })).selection.reason,
+    'SELECTION_VERSION_UNSUPPORTED');
+  // An empty list is still DR-010's "no eligible slice".
+  const empty = level(body({ worst_slice_selection: { ...ws, slices: [] } }));
+  assert.equal(empty.selection.reason, 'SELECTION_NO_ELIGIBLE_SLICES');
+  assert.equal(profileNote(empty), 'No profile: no slice has non-empty ground truth.');
 });
 
 test('V4x DR-010: no ordering of slices anywhere in the SCR-04 logic or screen', () => {

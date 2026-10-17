@@ -21,6 +21,10 @@
  * 575-pixel row would draw an edit or an error class that is not there.
  */
 
+// fast-png builds a latin1 TextDecoder at module load, which Hermes does not
+// support. index.js installs the shim first; importing it here as well keeps
+// this module safe in either load order (#77 QA NB-1).
+import '../polyfills/textDecoderLatin1.mjs';
 import { decode } from 'fast-png';
 
 export class MaskPngError extends Error {
