@@ -5,6 +5,7 @@
 | **Lập lúc** | tối 01/10, sau override Day 22 |
 | **Còn lại** | **7 ngày** tới Day 30, thứ Sáu 09/10. Hạn không lùi |
 | **Trạng thái sau Day 22** | **Cả ba cổng đã đóng:** `GATE-SPLIT-01` (11:16), `GATE-ML-01` (14:30), `GATE-MOB-01` (21:17, leader nhận L5). Spike A ACCEPTED-WITH-LIMITATIONS; **Spike B ACCEPTED, DR-008c = L0**. 34 PR đã merge, mỗi PR qua QA bằng LLM. Hàng đợi DINOv2 đang chạy |
+| **Cập nhật 09:40** | DINOv2 xong cả 3 run lúc 05:44. Leader đã chốt các quyết định (DR-002c, DR-016b, DR-017…DR-021, phụ lục DR-013a) và duyệt lại các hàng P |
 | **Quy trình hôm nay** | **Bình thường, đầy đủ.** Override Day 22 đã hết hạn lúc 23:59. Mỗi PR cần một duyệt hợp lệ đúng SHA head, cộng CI xanh (CP-07). PR về split, C1, ADR-ML hoặc cổng do leader merge |
 
 ---
@@ -36,7 +37,7 @@ duyệt lại và nhận phần làm thay trong khối mình**. Danh sách và c
 | 1 | Bốn người **duyệt lại và nhận** phần làm thay, ghi vào bảng revalidation **trước 12:00** | 🔒 cam kết | mỗi người khoảng 1,5 h |
 | 2 | Hàng đợi **UNet chạy trên RTX 4050** từ 09:00 và qua **tripwire DR-016a** ở epoch 1; hàng đợi **DINOv2** vẫn sống (EXP-D-100 → EXP-D-050) | 🔒 cam kết | Khánh |
 | 3 | **Chuẩn bị GATE-IMG-01:** dự đoán validation của EXP-D-100; ứng viên cấu hình morphology **chỉ** trên validation; khoá chặn holdout (#81) được Khánh nhận | 🎯 cố gắng | EXP-D-100 xong khoảng 04:00; Khánh |
-| 4 | **N-a (INT-12 trong số liệu cohort)** do leader quyết và Trung sửa; script ingest 54 case holdout sẵn sàng, chạy sau GATE-IMG-01 | 🎯 cố gắng | leader, Trung |
+| 4 | **N-a đã quyết (DR-017):** Trung sửa chữ hợp đồng và fixture 5/5. Contract 2 (DR-018): Trung làm validator, Khánh làm exporter. Script ingest 54 case holdout sẵn sàng, chạy sau GATE-IMG-01 | 🎯 cố gắng | Trung, Khánh |
 | 5 | **Spike B (đã ACCEPTED):** chủ spike viết **B15 trước 10:00**, xác nhận DR-008c = L0 và chuỗi tap của phiên S-1; Trung duyệt lại với vai reviewer | 🔒 cam kết | Hùng Anh, Trung |
 | 6 | Mobile đã lên `main` (#77, #78, #69). Mỗi chủ khối đo màn hình của mình trên A17 (TC-PERF, TC-REV). #72 (V4) thôi nháp và xin duyệt thường; V2 SCR-05 bắt đầu trên mesh L0 | 🎯 cố gắng | chủ từng vertical |
 

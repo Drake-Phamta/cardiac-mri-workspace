@@ -9,6 +9,7 @@ nhận nó.
 
 | Quyết định | Ảnh hưởng |
 |---|---|
+| **Sáng 02/10 leader đã chốt** (`OPEN_DECISIONS.md` Part 2b) | **DR-016b:** nếu Hùng Anh REJECT C1 vì công thức hoặc bằng chứng thì GATE-ML-01 mở lại và hàng đợi UNet dừng ở cuối epoch; REJECT vì tài liệu thì chỉ sửa tài liệu. **DR-002c:** **không** có danh sách độ nhạy thứ hai, chỉ hai slot báo cáo; che số r ở `management/spikes/SPIKE_D_DATASET/RESULT.md:29` theo F5. **DR-018:** exporter xuất được thí nghiệm có case lỗi (case lỗi không có run, nằm trong failures) và xuất được run PROCESSED (EXP-D-PP, ghi `postprocessing_config_sha256`), trước đợt export D24. **DR-017:** CASE_0001 tính vào số liệu cohort; PR của Trung sửa các test V3 đọc bundle, bạn duyệt phần đó. **DR-021:** V3 chuyển `useSnapshot.js` sang `useCall` sau khi leader sửa abort |
 | **DR-016**: hai máy tính toán | Họ **DINOv2** chạy trên PC leader (RTX 3050 Ti), bắt đầu 14:30 ngày 01/10. Họ **UNet** chạy trên **RTX 4050 của bạn**, bắt đầu **09:00 hôm nay**. Công thức giữ nguyên trên cả hai máy; máy chạy được ghi lại trong manifest của từng run |
 | **DR-016a** (ghi sau C1, leader **đã xác nhận** 21:17 ngày 01/10) | Có **tripwire** ở epoch 1 của EXP-U-025 (xem việc 2). Nếu 4050 không chạy được trước 12:00 hôm nay, hoặc trượt tripwire, thì **lịch trễ, công thức không đổi**: UNet vẫn E = 50, batch 8 |
 | **ADR-ML-001 ACCEPTED**, **GATE-ML-01 ĐÃ ĐÓNG** (14:30 ngày 01/10, C1 QA PASS WITH NOTES, `management/day22/QA_REVIEW_C1_GATE_ML_01.md`) | 560×560, batch 8, **E = 50**, loss 0,5·BCE + 0,5·softDice, AdamW 1e-4, bf16, seed 2024, ngưỡng 0,5. Chọn checkpoint theo Dice validation tính mỗi epoch. **Không đổi dòng nào khi đã bắt đầu run.** SPIKE_C1 ACCEPTED theo override; Vũ Hùng Anh duyệt lại |
@@ -64,7 +65,7 @@ Mỗi PR dưới đây được merge dưới override, sau khi QA đạt. Với
    - Con số này chỉ là ước lượng thận trọng **nếu 4050 chạy batch 8 mà không tràn bộ nhớ**. Nó **không** phải cận trên: trên 3050 Ti, UNet tràn bộ nhớ và mỗi bước mất 2,18 s.
    - Nếu chậm hơn dự kiến, báo leader; **không** đổi E hay batch.
 
-Họ DINOv2 trên PC leader: EXP-D-025 → EXP-D-100 → EXP-D-050, EXP-D-025 xong 17:15. Epoch 1 của EXP-D-100: 0,59 s mỗi bước, ngưỡng hoà vốn 1,89 s. Sáng nay kiểm cả ba run đều COMPLETE. Nếu bị ngắt thì chạy lại đúng lệnh cũ, cùng E và B; nó tự tiếp tục.
+Họ DINOv2 trên PC leader: EXP-D-025 → EXP-D-100 → EXP-D-050, EXP-D-025 xong 17:15. Epoch 1 của EXP-D-100: 0,59 s mỗi bước, ngưỡng hoà vốn 1,89 s. Sáng nay kiểm cả ba run đều COMPLETE. **Kết quả đêm 01/10:** cả ba run COMPLETE lúc 05:44, mỗi run có validation 20/20, ba phép so sánh validation đã chạy. Dice validation tốt nhất (chỉ để chọn checkpoint, chưa phải kết quả): EXP-D-025 0,570 (epoch 32), EXP-D-100 0,571 (epoch 6), EXP-D-050 0,587 (epoch 13). Nếu bị ngắt thì chạy lại đúng lệnh cũ, cùng E và B; nó tự tiếp tục.
 
 **Ghi nhận tối 01/10 (không đổi công thức):**
 - Hàng đợi dừng hai lần và chạy lại từ `last.pt`:

@@ -251,7 +251,7 @@ spikes:
       Project Control transition.
       Update 2026-09-15 11:52: QA Red Team REJECT (QA_REVIEW_002_SPIKE_D.md). CRITICAL F1: CASE_0056 and
       CASE_0097 (both Training Set) are one acquisition exported twice - byte-identical laendo and lawall, MRI
-      r 0.9965 - while the audit reports 0 anomalies, and the closed draft split put one in train and one in
+      r above 0.99 - while the audit reports 0 anomalies, and the closed draft split put one in train and one in
       validation (leakage). HIGH: F2 every header carries default geometry (spacing 1, origin 0, identity
       direction), so physical geometry is unverified and mm/mL stay disabled; F3 A19 does not cover 06 section
       9.1; F4 the owner's Q4 verdict is missing and the A11 verdict is not package-specific; F5 the public
