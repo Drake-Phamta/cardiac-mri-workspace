@@ -562,15 +562,21 @@ def test_a_full_run_with_fake_effects_writes_the_summary_and_the_aggregate(kit, 
     assert [s.key for s in again.steps if s.action == "run"] == [f"EXP-U-{f}.export" for f in ("025", "050", "100")] + ["aggregate"]
 
 
-def test_derive_pp_runs_between_inference_and_evaluation_and_needs_the_record(kit):
-    """The DINOv2 record scenario (Day 39): EXP-D-PP from EXP-D-100's RAW predictions, an ablation pair, --source-run."""
+def d_record(kit):
+    """The DINOv2 scenario of Day 39: trained D runs and a record that also lists EXP-D-PP (same checkpoint as D-100)."""
     shas = {}
-    for e, s in D_RUNS:
-        shas[e] = trained_run(kit, e, s)[1]
+    for e, sub in D_RUNS:
+        shas[e] = trained_run(kit, e, sub)[1]
     record = runfixture.write_authorization(
         kit.repo / "gate" / "D.rec.json", runfixture.authorization_record(
             kit.frozen, [*shas.items(), ("EXP-D-PP", shas["EXP-D-100"])], postprocessing_config_sha256=kit.pp_sha,
             closed_at=OLD_CLOSED_AT))
+    return record, shas
+
+
+def test_derive_pp_runs_between_inference_and_evaluation_and_needs_the_record(kit):
+    """The DINOv2 record scenario (Day 39): EXP-D-PP from EXP-D-100's RAW predictions, an ablation pair, --source-run."""
+    record, shas = d_record(kit)
     cfg = config(kit, record, experiments=("EXP-D-025", "EXP-D-050", "EXP-D-100"), derive_from="EXP-D-100")
     plan = HP.build_plan(cfg)
     assert not plan.problems, plan.problems
@@ -600,6 +606,31 @@ def test_derive_pp_runs_between_inference_and_evaluation_and_needs_the_record(ki
                                              derive_from="EXP-D-100", pp_config=other)).problems)
     assert any("derived from EXP-D-100 only" in p for p in HP.build_plan(config(
         kit, record, experiments=("EXP-D-025",), derive_from="EXP-D-025")).problems)
+
+
+def test_planned_commands_are_accepted_by_the_real_module_parsers(kit):
+    """Each kind of planned command is run once against the real module CLI with nothing to work on (no data root,
+    run directories that are synthetic and not the frozen split, so every one refuses before it reads anything).
+    What is asserted is that argparse accepted the flags: a typo here would fail the leader's real run."""
+    import subprocess
+    record = ready_for_unet(kit)
+    u = {s.key: s.argv for s in HP.build_plan(config(kit, record, compare_family_pairs=True)).steps}
+    kit_d = SimpleNamespace(**dict(vars(kit), runs=kit.tmp / "runs_d"))          # its own runs root
+    drecord, _ = d_record(kit_d)
+    d = {s.key: s.argv for s in HP.build_plan(config(
+        kit_d, drecord, experiments=("EXP-D-025", "EXP-D-050", "EXP-D-100"), derive_from="EXP-D-100")).steps}
+    argvs = [u["EXP-U-025.infer"], u["EXP-U-025.evaluate"], u["EXP-U-025__vs__EXP-D-025.compare"],
+             u["EXP-U-025.export"], d["EXP-D-PP.derive"], d["EXP-D-100__vs__EXP-D-PP.compare"],
+             d["EXP-D-PP.export"]]
+    assert "--allow-variant-mismatch" in argvs[5] and "--source-run" in argvs[6]
+    env = dict(os.environ, CUDA_VISIBLE_DEVICES="-1", PYTHONIOENCODING="utf-8",
+               CARDIAC_DATA_ROOT=str(kit.tmp / "no-data-here"), CARDIAC_RUNS_ROOT=str(kit.tmp / "no-runs-here"))
+    for argv in argvs:
+        done = subprocess.run(argv, cwd=str(TOOLS_ML.parents[1]), env=env, capture_output=True, text=True,
+                              timeout=600)
+        what = " ".join(argv[3:5])
+        assert "usage:" not in done.stderr and "unrecognized arguments" not in done.stderr, (what, done.stderr)
+        assert done.returncode in (0, 1, 2, 3), (what, done.returncode, done.stderr[-400:])
 
 
 # --- the aggregate builder -----------------------------------------------------------------------------------
