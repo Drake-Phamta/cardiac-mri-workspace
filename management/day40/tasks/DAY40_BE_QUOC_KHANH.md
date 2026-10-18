@@ -26,15 +26,27 @@ Ghi vào [`../../day39/POST_RECOVERY_REVALIDATION_DAY40.md`](../../day39/POST_RE
 ## 🔴 Việc 2 — chạy họ UNet trên RTX 4050 *(ngay sau việc 1)*
 
 Làm đúng theo [`../../day23/tasks/DAY23_BE_QUOC_KHANH.md`](../../day23/tasks/DAY23_BE_QUOC_KHANH.md) mục "Việc 2"
-(các bước 1–6, tripwire ≤ 1,13 s mỗi bước và không tràn bộ nhớ), với ba điểm mới:
+(các bước 1–6, tripwire ≤ 1,13 s mỗi bước và không tràn bộ nhớ), với bốn điểm mới:
 1. Máy bạn mới có file ZIP chính thức (#90). **Giải nén** ra thư mục dữ liệu ngoài repo, đặt `CARDIAC_DATA_ROOT`, rồi
    chạy preflight để hash của `dataset_manifest.json` khớp `f64d461f…` trước khi train.
 2. Đã kiểm 18/10: `git diff --stat c7a37e0 origin/main -- ml/train.py ml/data.py ml/models.py` **không in gì**,
    nên dùng `main` mới nhất là hợp lệ theo DR-016a mục 4.
 3. Báo leader **kết quả tripwire** ngay sau epoch 1 của EXP-U-025 (số giây mỗi bước, VRAM, Shared GPU memory).
+4. **Bước 3 của Day 23 (tự tạo file queue) không còn phải làm:** file queue đã nằm trong git,
+   `ml/configs/queues/unet_adr_ml_001.json` (EXP-U-025 → 050 → 100, cặp so sánh U-vs-U, đúng ADR-ML-001).
+   - Chạy thử: `python -m ml.queue --queue ml/configs/queues/unet_adr_ml_001.json --epochs 50 --batch 8 --dry-run`.
+   - Rồi chạy lại đúng lệnh đó, **không** có `--dry-run`.
+   - `--epochs 50 --batch 8` là bắt buộc (DR-016a): file để `SET_E` / `SET_BATCH` có chủ đích, thiếu thì `ml.train` từ chối chạy.
+   - Bị ngắt thì chạy lại đúng lệnh cũ, nó tự tiếp tục từ `last.pt`.
 
 Ước lượng: khoảng 24 h cho 3 run nếu 4050 không tràn bộ nhớ. Holdout của UNet **chỉ** chạy khi leader ký bản ghi cho
 phép mới (thêm EXP-U-025/050/100, `postprocessing_config_sha256` giữ nguyên).
+
+Khi cả 3 run COMPLETE (bạn chỉ làm đến đây, phần còn lại là việc của leader):
+- Báo leader, rồi **chép** (không move) nguyên thư mục 3 run sang `<runs>` trên PC leader. `checkpoints/last.pt` có thể bỏ lại.
+- Leader chạy `tools/ml/make_holdout_authorization.py` (ký bản ghi), commit lên `main`, rồi **một lệnh**
+  `tools/ml/holdout_pipeline.py` (inference holdout, chấm, so sánh, export Contract 2, tổng hợp số).
+- Chi tiết từng lệnh: `ml/README.md`, mục "UNet family: from training to the app". Bạn không chạy holdout.
 
 ## Việc 3 — V3 với số thật *(chiều)*
 
