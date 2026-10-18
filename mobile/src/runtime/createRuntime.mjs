@@ -113,15 +113,17 @@ export function createRuntime({
 
   const doFetch = fetchImpl ?? globalThis.fetch;
   // Every live request - JSON API calls and artifact bytes - is reported to
-  // the gesture log (L4: per-slice transfers only, revisits free).
+  // the gesture log (L4: per-slice transfers only, revisits free), under the
+  // gesture that was open when it was sent (#77 QA N-3).
   const netLog = createNetLog({ log, now });
   const transport = createHttpTransport({
     baseUrl: config.apiBaseUrl,
     fetchImpl: doFetch,
     timeoutMs: config.timeoutMs,
     now,
-    onTiming: (t) => {
-      netLog.record({ endpoint: t.endpointId, bytes: t.bytes, ms: t.ms, status: t.status });
+    onStart: () => netLog.openSeq,
+    onTiming: ({ start, ...t }) => {
+      netLog.record({ endpoint: t.endpointId, bytes: t.bytes, ms: t.ms, status: t.status, seq: start });
       if (onTiming) onTiming(t);
     },
   });

@@ -212,6 +212,9 @@ can do about it, and offering a retry would suggest otherwise.
    not on Dice's [0, 1]); N-6 show the evaluation population only for the listed ids it covers; N-7 raise the
    remaining contract gaps with Trung (a mixed RAW/PROCESSED compare for RQ-B; a PROCESSED fixture for
    `EXP-D-PP` metrics and cases); N-9 list a strip column's `offAxis` values under the chart.
+   N-11 (delta only for `HEAD_TO_HEAD`), N-13 (exact `RAW`/`PROCESSED` enum), and N-15 (duplicate
+   `case_id` is contract drift and invalidates an outlier selection) were closed in the owner revalidation
+   on 2026-10-05.
 8. **Device evidence — `NOT MEASURED`.** The screens were checked by `node --test` and by a JS bundle export
    only, never on the Galaxy A17. Owed: a release build on the A17 (portrait), the touch-target check
    (TC-USAB-004), the seven states via the FIXTURE panel (TC-MOBILE-STATE-001), and a short recording for the

@@ -47,6 +47,7 @@ const REASON = Object.freeze({
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'the selection does not name its experiment and variant - not shown',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'the selection belongs to another experiment - not shown',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'the selection was made for another variant - not shown',
+  OUTLIERS_DUPLICATE_CASE_ID: 'the selection repeats a case id - the whole selection is refused',
   // #61 QA B-4: refused whole - dropping the entry would re-derive DR-010 here.
   OUTLIERS_NAME_INELIGIBLE_CASE: 'the selection names a case that was not successfully evaluated - the whole selection is refused',
   NO_ELIGIBLE_CASES: 'no successfully evaluated case to select from',

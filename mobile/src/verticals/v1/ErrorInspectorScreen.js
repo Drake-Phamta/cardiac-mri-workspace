@@ -11,6 +11,11 @@
  *                                      server served for this slice, each class
  *                                      with a colour AND a name, a count and an
  *                                      on/off switch (TC-ERR-001, TC-ERR-002)
+ *   drawn masks = the server's masks   the run metrics' reference_mask_id and
+ *                                      prediction_mask_id against the ids of the
+ *                                      masks drawn; a difference is shown, and
+ *                                      the classes are then not compared with
+ *                                      the server's FP / FN (DR-013a addendum)
  *   per-slice metrics / error amounts  the server's per-slice Dice and the
  *                                      DR-010 selection's FP / FN per eligible
  *                                      slice, as a profile across the volume
@@ -46,8 +51,8 @@ import SliceScrubber from './SliceScrubber';
 import SliceViewport from './SliceViewport';
 import { capabilityOf } from './capability.mjs';
 import {
-  CLASS_ORDER, ERROR_CLASS, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection, profileIndexAt,
-  profileNote, runLevel, selectionNote, worstLabel,
+  CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
+  profileIndexAt, profileNote, runLevel, selectionNote, worstLabel,
 } from './errorInspector.mjs';
 import { metricsText } from './explorer.mjs';
 import { createSerialRunner } from './serialRunner.mjs';
@@ -219,7 +224,11 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     ? CLASS_ORDER.map((k) => ({ key: k, path: classes.paths[k], color: ERROR_CLASS[k].color, opacity, visible: visible[k] }))
     : [];
   const serverCell = showing && profile.cells.length ? profile.cells[z] : null;
-  const check = classes && classes.counts ? compareWithServer(serverCell, classes.counts) : null;
+  // DR-013a addendum (#78 QA N-6): the server's numbers are compared with the
+  // drawn classes only when the masks drawn are the ones those numbers name.
+  const ids = classes && classes.counts ? compareMaskIds(runMetrics, displayed) : null;
+  const idsDiffer = Boolean(ids && ids.checked && !ids.consistent);
+  const check = classes && classes.counts && !idsDiffer ? compareWithServer(serverCell, classes.counts) : null;
 
   let pixelNote = null;
   if (runtime.mode === 'fixture') pixelNote = 'Fixture mode: no pixels behind any URL, so no disagreement can be drawn. The numbers below are the server\'s.';
@@ -289,6 +298,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             ))}
           </View>
           <Text style={s.dim}>Counted from the two masks drawn here; tap a class to hide or show it.</Text>
+          {idsDiffer && <Text style={s.warn}>{ids.text}</Text>}
           {check && check.checked && <Text style={check.consistent ? s.ok : s.warn}>{check.text}</Text>}
           <Text style={s.mono}>reference {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · prediction {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)}</Text>
           <Text style={[s.metric, metricsLine.tone === 'ok' && s.ok]}>{metricsLine.text}</Text>

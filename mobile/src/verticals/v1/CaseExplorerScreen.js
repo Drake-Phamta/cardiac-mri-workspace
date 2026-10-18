@@ -296,7 +296,7 @@ function Explorer({
     (async () => {
       const r = await runtime.client.call('analysis_run_get', { run_id: runId });
       if (!alive) return;
-      if (r.state !== STATE.SUCCESS) { setRunInfo({ run: { runId }, modelFamily: null, error: r.reason }); return; }
+      if (r.state !== STATE.SUCCESS) { setRunInfo({ run: { runId }, modelFamily: null, error: r.reason || r.state }); return; }
       const d = r.data;
       let modelFamily = null;
       if (typeof d.experiment_id === 'string' && d.experiment_id) {
@@ -552,11 +552,16 @@ function Explorer({
         await sleep(gapMs);
       }
       console.log(`CMW_RUN_END ${JSON.stringify({ run: name, pass: pass.label, steps: pass.steps.length })}`);
+      // #77 QA N-3: the session's running totals, so requests that no gesture
+      // line lists (none open when they started, or one that had already
+      // closed when they ended) are still on record. A line of its own: the
+      // laptop-side reports read CMW_RUN_END unchanged.
+      if (net) console.log(`CMW_NET_TOTALS ${JSON.stringify({ run: name, pass: pass.label, ...net.totals() })}`);
     }
     passRef.current = null;
     setNavRun(null);
-    Alert.alert(`${name} finished`, 'The steps were logged to logcat (CMW_GESTURE, CMW_SLICE, CMW_RUN_*). Nothing is computed on the phone.');
-  }, [capability, caseId, hasRun, navRun, runId, runtime.mode, stepTo, targetVariant, total]);
+    Alert.alert(`${name} finished`, 'The steps were logged to logcat (CMW_GESTURE, CMW_SLICE, CMW_RUN_*, CMW_NET_TOTALS). Nothing is computed on the phone.');
+  }, [capability, caseId, hasRun, navRun, net, runId, runtime.mode, stepTo, targetVariant, total]);
 
   // L4 (S-1 tonight): 15 slices never seen, then the same 15 back - revisits.
   const runL4 = useCallback(() => {
@@ -620,6 +625,10 @@ function Explorer({
   if (!hasRun) reviewEntry = needsRun;
   else if (blocking) reviewEntry = notLoaded;
   else if (!(ok && predAvailable)) reviewEntry = 'needs this slice\'s prediction';
+  // #78 QA N-8: this screen unmounts under SCR-04/05/06, so each push leaves the
+  // run, variant and slice on screen in this screen's stack entry, in the same
+  // action - Back reopens exactly them, not the case's default run and slice.
+  const back = () => ({ runId, variant: displayed.variant, sliceIndex: z });
 
   return (
     <View style={s.root}>
@@ -629,7 +638,9 @@ function Explorer({
           <CapabilityBadge capability={capability} />
         </View>
         <Text style={s.runLine} numberOfLines={2}>
-          {hasRun ? runText(run, runInfo ? runInfo.modelFamily : null) : noRunLine}
+          {hasRun
+            ? runText(run, runInfo ? runInfo.modelFamily : null, { loading: runInfo === null, error: runInfo ? runInfo.error : null })
+            : noRunLine}
           {runReason === 'only-run' ? ' · only run' : ''}
         </Text>
         <View style={s.variantRow}>
@@ -767,13 +778,13 @@ function Explorer({
           <Entry
             label="Error inspector (SCR-04)"
             why={errorEntry}
-            onPress={() => nav.push('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z })}
+            onPress={() => nav.push('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())}
           />
-          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z })} />
+          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z }, back())} />
           <Entry
             label="Review / correct (SCR-06)"
             why={reviewEntry}
-            onPress={() => nav.push('SCR-06', { runId, caseId, variant: displayed.variant, sliceIndex: z })}
+            onPress={() => nav.push('SCR-06', { runId, caseId, variant: displayed.variant, sliceIndex: z }, back())}
           />
         </View>
         <Text style={s.hint}>Long-press the slice label for the scripted runs (L4, A9) - timings and bytes go to logcat.</Text>

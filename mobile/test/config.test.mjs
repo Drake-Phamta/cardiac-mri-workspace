@@ -97,7 +97,7 @@ test('C12 fixture mode drops a backend address completely, even when one is supp
 });
 
 test('C13 maskBaseUrl keeps the scheme and hides host and port', () => {
-  assert.equal(maskBaseUrl('http://10.1.2.3:8000'), 'http://<configured>');
+  assert.equal(maskBaseUrl('http://192.0.2.10:8000'), 'http://<configured>'); // RFC 5737 documentation address
   assert.equal(maskBaseUrl('HTTPS://backend.invalid'), 'https://<configured>');
   assert.equal(maskBaseUrl(null), '<not configured>');
   assert.ok(!describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: HOST })).includes('backend.invalid'));
