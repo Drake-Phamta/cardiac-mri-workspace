@@ -98,9 +98,20 @@ it from Day 23 (PR-MOBILE-03). Every file is framework-neutral: no React / React
   `CORRECTED` atomically with a new reviewed mask, and on a review already `CORRECTED` it adds a version without a
   transition. A PATCH to `CORRECTED` is refused before sending (`CORRECTED_BY_COMMIT_ONLY`) — the server would answer
   `INVALID_REVIEW_TRANSITION` — and no PATCH ever follows a commit.
-- The review's status after a commit is **read from the commit answer**, and that answer must name a **new**
-  `reviewed_mask_id`: one already in the version list would be an overwrite of an immutable version (PR-PROV-01),
-  so it is refused as `CONTRACT_DRIFT` with Refresh, nothing appended and the session left UNSAVED.
+- The review's status after a commit is **read from the commit answer**, and that answer is checked (QA-063 N-1):
+  a **new** `reviewed_mask_id` (one already in the version list would be an overwrite of an immutable version,
+  PR-PROV-01), status `CORRECTED`, the review's own `source_mask_id`, and the `source_mask_kind` its variant implies
+  (`RAW_PREDICTION` / `PROCESSED_PREDICTION`). A missing field is as wrong as a different one (no `??` fallback): it is
+  refused as `CONTRACT_DRIFT` with Refresh, nothing appended and the session left UNSAVED.
+- `review_create` must answer the **run**, source mask and variant it was opened for (QA-063 N-2), and a review that is
+  `CORRECTED` but lists no version is drift too.
+- **Continuing a review that is already `CORRECTED`** (QA-063 N-4). The server builds version N+1 from the **latest
+  version** plus the working slices, so a session that started from the source pixels would silently drop the earlier
+  correction of every slice it re-edits. The rule: the working **base** is the latest version
+  (`snapshot.baseVersion`, null while the review has no commit); the **source** - what Save names and what Reset returns
+  to (FR-REV-007) - stays the original prediction; the session's source kind must be the one the variant implies; and a
+  session built over another base than the latest version is refused (`BASE_VERSION_MISMATCH`, nothing sent). After a
+  save the session's base is the version it just committed.
 - Leaving `ACCEPTED` — by a PATCH or by saving a correction — is a confirmed action in the client
   (`{ confirmed: true }`, else `CONFIRMATION_REQUIRED`); the server allows it because it keeps the history.
 - A refused action is a `rejection` on the snapshot: **nothing is sent** and the view, status and revision are
@@ -117,15 +128,21 @@ spike, and `B1` replays the spike's Python oracle through the session.
 ```js
 const s = createBrushSession({ nx, ny, source: { maskId, kind: SOURCE_KIND.RAW_PREDICTION, variant: 'RAW' } });
 s.loadSlice(z, bytes);                 // 0/1 bytes; private copy + SHA-256; ground truth is refused as a source
+// continuing a CORRECTED review: createBrushSession({ ..., base: { reviewedMaskId } }) and
+// s.loadSlice(z, sourceBytes, { base: latestVersionBytes }) - working = saved = the version, reset = the source
 s.setTool(TOOL.ERASE); s.setRadius(3);
 s.beginStroke(z); s.sample(u, v, transform); s.endStroke();   // END_SECOND_FINGER / END_TERMINATED roll back
 s.undo(); s.redo(); s.reset(); s.cancel(); s.maskState(z); s.diffRuns(z); s.sourceIntact();
 await review.saveCorrection(s);        // PUT + commit; the session turns SAVED only after the commit succeeds
 ```
 
-`saveCorrection` refuses, before sending anything: another source mask than the review's, a slice size other
-than the case's, a `synthetic` stand-in session on any transport but the fixture one, and an unconfirmed save of
-an `ACCEPTED` review.
+`saveCorrection` refuses, before sending anything: another source mask than the review's, another source kind than
+its variant implies (`SOURCE_KIND_MISMATCH`), a base other than the review's latest version
+(`BASE_VERSION_MISMATCH`), a slice size other than the case's, a `synthetic` stand-in session on any transport but the
+fixture one, an unconfirmed save of an `ACCEPTED` review, and a save with nothing changed since the last commit
+(`NOTHING_TO_SAVE`, QA-063 N-3: a commit consumes the server's working copies, so a repeat would only make a duplicate
+version). Editable source kinds are `review_source_mask_kind` (a raw or processed prediction); `REVIEWED` is a base,
+never a source.
 
 ### Findings (`findings.mjs`)
 
@@ -133,7 +150,8 @@ an `ACCEPTED` review.
 that names a run also records the prediction variant that was on screen (`RAW` / `PROCESSED`; contract 1.1.0 sends
 it as `finding_create.prediction_variant`, null without a run), so opening it can restore the same overlay.
 `patch(findingId, { status, note })` is `finding_patch` with the finding's own revision as `expected_revision`;
-`STALE_REVISION` changes nothing and offers Refresh.
+`STALE_REVISION` changes nothing and offers Refresh. `adopt(view)` takes a `findings_list` answer the caller fetched
+(the screen's `useCall`) and normalizes it exactly like `list()`.
 `evidenceLocation()` opens `SCR-03` at the case and slice (with the region only if one was recorded), `SCR-07` for
 an experiment-only record, and otherwise says `NO_EVIDENCE_IDENTIFIERS` instead of guessing.
 
@@ -155,8 +173,9 @@ CI runs the same three in the `V4 review and findings` step of `guardrails.yml`.
 2. **`open()` initialises with `NOT_REVIEWED` through `review_create`**, which returns an existing review of the
    same scope unchanged (contract v1.0) — there is no review GET.
 3. **Uploads are `BITPACK_BASE64`**, one of the two encodings `binary_delivery` allows; it needs no PNG encoder.
-4. **A save re-sends every slice the server already holds**, so an edit undone after a failed save cannot ride
-   into the commit (test `V4-10`).
+4. **A save re-sends every slice the server was sent since the last commit**, and every slice that differs from what is
+   committed, so an edit undone after a failed save cannot ride into the commit (test `V4-10`); once a commit succeeds
+   the server's working copies are consumed and the session forgets them (N-3).
 5. **Leaving `ACCEPTED` asks for confirmation** in the client, though the contract allows it outright.
 6. **A finding's region is `POINT` / `BOX` in source pixels**, a proposal for the free-form `region_reference`.
 7. **A created finding keeps the anchor it was created from**; the fixture echoes placeholder ids.
@@ -169,18 +188,61 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 
 - **This branch is stacked on #71 (contract 1.1.0, over #62 and #68).** The fixture bundle needs that contract for
   the FR-REV-001 statuses, the scope and geometry fields, finding revisions and variants, and the `empty` scenarios.
-- **The fixture answers every commit with the same new id** (`..._R2`). A second save in one session therefore gets
-  an id that is already a version and is refused as drift (test `V4-8`); Refresh reloads the server's list and the
-  save goes through. A real backend answers a new id per commit.
+- **The fixture answers every commit with the same new id** (`..._R2`), and `review_create` always answers
+  `NOT_REVIEWED` with one version listed. A second save in one session therefore gets an id that is already a version
+  and is refused as drift (test `V4-8`); after Refresh the fixture no longer lists the version this session continues
+  from, so the session is refused (`BASE_VERSION_MISMATCH`) and a new session saves. A real backend answers a new id per
+  commit and the status `CORRECTED`; the stateful fake backend of `mobile/test/render/smoke.mjs` section 10 does the
+  same, and so does the API-level hero flow (`tools/e2e/hero_flow_api.py` H8 / H9).
 - **The generator has no `stale_revision` scenario for `finding_patch`**, so the FIXTURE panel cannot show a stale
   finding edit; test `F10` injects the generator's own STALE_REVISION envelope instead.
+
+### The screens (`mobile/src/verticals/v4/`)
+
+| File | What |
+|---|---|
+| `ReviewCorrectionScreen.js` | SCR-06: renders `reviewController.mjs` — header (source variant + id, review status, latest version and its source, slice n/total), canvas (source / saved / unsaved layers + a text badge), toolbar, review transitions, Save / Cancel / New finding here. Its `<RunReader>` and `<SliceReader>` fetch what the controller wants with the shell's `useCall` (DR-021 rule 2) |
+| `reviewController.mjs` | variant (route or an explicit RAW / PROCESSED choice) → `analysis_run_get` (must be SUCCEEDED; live: the run the route named) → the scoped review → pixels (prediction + MRI, and the latest version's slice when the review is CORRECTED) → brush → save. Reads are handed in by the screen (`provideRun`, `provideSlice`); writes go through the model. Node-tested in `mobile/test/v4_review_screen.test.mjs` (`mobile/test/_v4_drive.mjs` plays the readers) |
+| `gesture.mjs` | Spike A's A11 rules as a pure controller: one finger paints, a second finger or a system termination rolls the stroke back, two fingers pinch/pan, Pan mode |
+| `syntheticSource.mjs` | **fixture mode only**: the labelled SYNTHETIC stand-in the brush edits, because the bundle carries no pixels |
+| `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list (read with `useCall`) with evidence (variant included), Open evidence (SCR-03 / SCR-07, with the recorded variant), Review / correct (SCR-06), Resolve / Reopen (`finding_patch`), create only from a case/slice context - SCR-06 passes its variant, a bare run makes the form ask; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
+
+Both screens are also rendered, with the real navigator, hooks and a stateful fake backend, in the render smoke
+(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4n`). That is **logic evidence, not device evidence**.
+
+Demo path (hero steps H8 / H9): **Findings** tab → a finding → **Review / correct** (SCR-06 opens on the variant the
+finding recorded; a finding without one makes it ask RAW or PROCESSED) → brush → **Flag** → **Save** (names the source
+first) → the review is CORRECTED and the new version is shown with its source identity → **New finding here** (Back
+reopens the same variant and slice). In the FIXTURE panel, `working_mask_put` / `review_commit` → `stale_revision`
+shows the Refresh-only path.
+
+Rules of the screens:
+
+- **Reads go through `useCall`, writes through the model** (DR-021 rule 2): the run, each slice's prediction / MRI /
+  reviewed-slice metadata and the findings list are `useCall` reads (latest wins, aborted on unmount and when no longer
+  wanted); `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `finding_create` and `finding_patch`
+  are explicit actions with `expected_revision`.
+- **Bytes only through `runtime.content`** (DR-021 rule 1): the checksum is mandatory - a response without one is
+  `CONTRACT_DRIFT`, never an unverified success. Masks are decoded by `src/imaging/maskPng.js`; the MRI under them is
+  drawn from `runtime.imageStore` (the same verified path).
+- **Leaving SCR-06 with unsaved edits asks first**: while any slice is UNSAVED the screen registers `nav.setLeaveGuard`,
+  so Back, the Android back button, a tab and a push (a covered screen unmounts) all ask "Discard and leave?".
 
 ### TODO for Trung (from Day 23)
 
 - **Device measurements on the product screen, not the spike:** `TC-PERF-003` (brush feedback ≤ 100 ms, zero
   lost committed samples; Spike A's A10 had worst 30.48 ms) and `TC-REV-003` (brush lands on the right source
   pixel after zoom/pan, on the phone). Also time `loadSlice` on the A17: it hashes each 576×576 source slice
-  once, which a slice switch in SCR-06 pays.
+  once, which a slice switch in SCR-06 pays. Every render re-scans the slice for the diff layers and the mask
+  states — if the stroke feedback misses 100 ms on the A17, start there (track dirty rows instead).
+- **Live pixels on the backend:** SCR-06 decodes real masks (`runtime.content` + `src/imaging/maskPng.js`) and draws
+  the MRI slice from verified bytes. It is proven against a fake backend in the render smoke and against the contract
+  by the API-level hero flow, **not on the phone or on the deployed backend**: run it there. Also ask whether a slice's
+  `prediction_mask_id` is the run's `raw/processed_prediction_artifact_id`; the screen shows both and checks neither.
+- **Continuing a CORRECTED review** (N-4) reads one extra slice per slice opened (`reviewed_mask_slice_get` of the
+  latest version): measure that against TC-PERF-003 and the slice-switch budget, and decide what the screen should do
+  when another reviewer commits while edits are open (today: Refresh refuses to rebase unsaved edits and asks you to
+  cancel them first).
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
   `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
