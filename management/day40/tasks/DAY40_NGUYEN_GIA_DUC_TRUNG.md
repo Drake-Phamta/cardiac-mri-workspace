@@ -22,7 +22,12 @@ Hàng T1–T3 trong [`../../day39/POST_RECOVERY_REVALIDATION_DAY40.md`](../../da
   `tools/e2e/README.md`.
 - **T3 #87, #88:** duyệt lại với vai người duyệt thứ hai.
 
-## 🔴 Việc 2 — V4 SCR-06/SCR-08 (#72)
+## 🔴 Việc 2 — V4 SCR-06/SCR-08: nhận #99
+
+- **Cập nhật 18/10:** #72 được chuyển sang shell hiện tại và merge thành **#99** (`fe74e06`) sau QA LLM: SCR-06 và SCR-08 chạy với `useCall`, checksum bắt buộc, `maskPng`, leave guard; QA-063 N-1…N-4 đã đóng. Bạn duyệt lại (T4), đóng #72 nếu nhận, rồi đo trên A17 (TC-REV-001…006, TC-PERF-003, TC-FIND-001).
+- Hai câu hỏi mở cho bạn: `prediction_mask_id` có bắt buộc bằng id artifact của run không; khi người khác commit trong lúc bạn đang sửa thì làm gì (hiện Refresh từ chối rebase các nét chưa lưu).
+
+Ghi chú cũ:
 
 - Rebase #72 lên `main`, chốt QA-063 N-4 (luật tiếp tục một review đã CORRECTED), chuyển sang `useCall`, thôi nháp và
   xin duyệt thường (CP-07).

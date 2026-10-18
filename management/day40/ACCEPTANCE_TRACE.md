@@ -8,6 +8,9 @@
 | Kế hoạch đối chiếu | Bốn chặng C1 19–20/10, C2 21–24/10, C3 25–27/10, C4 28–30/10, nghiệm thu 31/10. Bản chi tiết nằm ở PR #97 (`management/day40/REPLAN_TO_2026-10-31.md`), **chưa merge vào `main`**, nên cột "Mốc" là đề xuất bám các chặng đó, không phải cam kết đã duyệt |
 | Người lập / trạng thái | Project Control (phiên Claude của leader). Bản nháp để leader duyệt. **Không phải RTM chính thức** của `13` §3 và **không ghi `ACCEPTED`** cho mục nào |
 
+
+> **Cập nhật cuối ngày 18/10:** sau khi tài liệu này được lập, #99 đã đưa V4 SCR-06/SCR-08 lên `main` (khung chạy được, test logic + render). Các dòng REV-01, REV-02, PROV-01, FIND-01 có thêm bằng chứng mức logic/render; vẫn **MỘT PHẦN** cho tới khi có bằng chứng thiết bị.
+
 ## 0. Đọc nhanh (sự thật hiện tại, không làm đẹp)
 
 - **0 trên 33 yêu cầu MUST đã `ACCEPTED`** (`management/PROJECT_STATE.yaml` ghi `accepted: 0`; REPLAN ghi chưa có TC nào được ghi PASS chính thức trên thiết bị). Theo bằng chứng trong repo: 2 yêu cầu `CÓ BẰNG CHỨNG`, 29 `MỘT PHẦN`, 2 `CHƯA CÓ`. `CÓ BẰNG CHỨNG` chưa phải `ACCEPTED` (cần review, tích hợp, DoD của `13` §6).

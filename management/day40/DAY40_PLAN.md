@@ -20,6 +20,8 @@
 | Contract + backend | DR-017 (CASE_0001 tính vào cohort), validator DR-018, DR-022: backend phục vụ **74 case** gồm 53 case holdout | #94 |
 | **E2E** | hero flow H1–H10 mức API trên dữ liệu thật: **22 PASS / 0 FAIL / 1 SKIP** (bước SKIP: UNet) | `tools/e2e/` (#95, #98) |
 | 3D | khung V2 SCR-05: 289 mesh L0 từ backend, chạm 3D → mở lát 2D (H6/H7 PASS) | #98 |
+| Review | khung V4 SCR-06/08 trên shell hiện tại (thay #72), QA-063 N-1…N-4 | #99 |
+| Mac mini | backend thật 74 case, 4 gói, 289 mesh; E2E qua overlay 20 PASS / 0 FAIL | deploy 08:56 |
 
 **Điều quan trọng nhất:** phần lớn việc 18/10 do **agent làm thay**, merge sau **QA bằng LLM**, không phải duyệt của
 người. **Việc 1 của mỗi người hôm nay là duyệt lại và nhận phần làm thay trong khối mình**:
@@ -35,7 +37,7 @@ người. **Việc 1 của mỗi người hôm nay là duyệt lại và nhận 
 | 2 | **Hàng đợi UNet chạy trên RTX 4050** (EXP-U-025 → 050 → 100, E = 50, batch 8) và qua **tripwire** ở epoch 1 | 🔒 cam kết | Khánh |
 | 3 | **B15** (Spike B) và **phán quyết Spike C1** (APPROVE/REJECT + loại lý do, DR-016b) | 🔒 cam kết | Hùng Anh |
 | 4 | ✅ Backend thật đã lên Mac mini 18/10 (74 case, 4 gói, 289 mesh; E2E qua overlay 20 PASS / 0 FAIL). Hôm nay: `/health` từ A17 | 🎯 cố gắng | leader |
-| 5 | V4 #72 rebase lên `main`, thôi nháp; V2 nhận khung SCR-05 | 🎯 cố gắng | Trung, Hùng Anh |
+| 5 | V4 nhận #99 (đóng #72), V2 nhận #98; mỗi người đo màn mình trên A17 theo lịch | 🎯 cố gắng | Trung, Hùng Anh |
 
 ## 2 · Thứ tự việc từng người
 

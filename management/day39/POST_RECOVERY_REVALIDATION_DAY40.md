@@ -24,6 +24,7 @@
 |---|---|---|---|---|
 | T1 🔴 | #94 → `01bed7b` | DR-017 (CASE_0001 tính vào cohort, fixture 5/5), N-b/N-c, QA-075 N-7, **validator DR-018**, **DR-022** (backend phục vụ 53 case holdout sau GATE-IMG-01) | `python -m pytest backend/tests -q -p no:cacheprovider`; `python contracts/api/test_api_contract.py`; đọc QA_PR94_D39 NB-1…NB-8 | |
 | T2 | #95 | script E2E hero flow mức API (dùng backend) | chạy theo `tools/e2e/README.md` với `--no-writes` | |
+| T4 🔴 | #99 → `fe74e06` | **V4 SCR-06/SCR-08** chuyển từ #72 lên shell hiện tại; model V4 đóng QA-063 N-1…N-4; NB-1 (commit phải có id và checksum) | `node app/verticals/v4_review_and_findings/test_review_correction.mjs` (50/50), `npm test` trong `mobile/` (246), render smoke (205); đọc QA_PR99_D39 NB-2…NB-7; đóng #72 nếu nhận | |
 | T3 | #87, #88 | CI job mobile, quét IPv4; điều hướng, netLog, `useCall`, checksum | duyệt lại với vai người duyệt thứ hai | |
 
 ## Vũ Hùng Anh — V2 / 3D

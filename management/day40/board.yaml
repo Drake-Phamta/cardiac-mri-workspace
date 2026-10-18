@@ -28,7 +28,7 @@ conditions:
     - "🔒 **UNet** chạy trên RTX 4050 và qua **tripwire** ở epoch 1 (Khánh)"
     - "🔒 **B15** và **phán quyết Spike C1** (Hùng Anh)"
     - "✅ Backend thật đã lên Mac mini (74 case, 4 thí nghiệm, 289 mesh); E2E qua overlay 20 PASS / 0 FAIL. Hôm nay kiểm từ A17"
-    - "🎯 #72 V4 thôi nháp; V2 nhận khung SCR-05; phiên A17 đo TC-PERF-001 (leader)"
+    - "🎯 V4 nhận #99, V2 nhận #98, đo trên A17 theo lịch; phiên A17 đo TC-PERF-001 bằng APK build 18/10 (leader)"
 yesterday:
   title: "18/10 đã làm được gì — override một ngày"
   items:
@@ -38,6 +38,7 @@ yesterday:
     - {text: "Ít dữ liệu: 25 → 100 % tăng +0,081 [+0,047; +0,118]; hậu xử lý PP-4 tăng +0,020 [+0,015; +0,026], 45/54 case", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
     - {text: "Backend: DR-017, validator DR-018, DR-022 phục vụ 74 case; 4 gói Contract 2 thật qua validator", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/94"}
     - {text: "**E2E hero flow qua API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/95"}
+    - {text: "Màn V4 SCR-06/08 (review, brush, finding) lên `main` trên shell hiện tại; QA-063 N-1…N-4 đóng", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/99"}
     - {text: "Khung màn 3D V2 SCR-05: 289 mesh L0 từ backend, chạm 3D → mở đúng lát 2D; E2E lên **22 PASS / 0 FAIL / 1 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/98"}
 people_title: "Việc của từng người"
 people_note: "Việc 1 của mọi người là duyệt lại phần agent đã làm thay trong khối mình ngày 18/10. Gói đầy đủ ở link cuối mỗi thẻ."
@@ -54,7 +55,7 @@ people:
     packet: "management/day40/tasks/DAY40_NGUYEN_GIA_DUC_TRUNG.md"
     tasks:
       - "Duyệt lại T1–T3 (#94 DR-017/018/022, #95 E2E, #87/#88)"
-      - "#72 V4 SCR-06/08: rebase, `useCall`, thôi nháp"
+      - "Nhận **#99** (V4 SCR-06/08 đã lên `main`), đóng #72; đo TC-REV-* trên A17"
       - "Duyệt lại bản deploy Mac mini; đưa chép gói + mesh vào script"
   - name: "Vũ Hùng Anh"
     role: "V2 / 3D; reviewer Spike A, C1, V1"
