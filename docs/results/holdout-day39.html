@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kết quả holdout · Cardiac MRI</title>
+<meta name="description" content="Kết quả trên tập holdout khoá, 18/10/2026">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: masthead summary, then a sticky section index beside one long report column; tables scroll in their own frames. */
+:root {
+  --bg: #F4F6F9; --surface: #FFFFFF; --fg: #17202B; --muted: #596574; --rule: #D6DCE4;
+  --accent: #22598C; --accent-soft: #E2ECF6; --code-bg: #ECEFF4;
+  --red: #B42318; --red-soft: #FCE7E4; --amber: #93560A; --amber-soft: #FDF0D5;
+  --green: #1F7547; --green-soft: #DFF2E6; --neutral-soft: #E7EAEF;
+  --ph-past: #CBD2DC; --ph1: #22598C; --ph2: #4F83B5; --ph3: #B7791F; --ph4: #2E8B57;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F141A; --surface: #161C24; --fg: #E2E7EE; --muted: #9AA6B5; --rule: #2B343F;
+    --accent: #8DB9E6; --accent-soft: #1B2C3E; --code-bg: #1C2430;
+    --red: #FF8F84; --red-soft: #3B1E1B; --amber: #F2BE5C; --amber-soft: #392B12;
+    --green: #7FD2A1; --green-soft: #15301F; --neutral-soft: #242C36;
+    --ph-past: #2E3844; --ph1: #6FA3D8; --ph2: #4B7BAA; --ph3: #C99035; --ph4: #4FAE78;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15.5px; line-height: 1.55; }
+.page { max-width: 1360px; margin: 0 auto; padding-inline: 20px; padding-block: 12px 72px; }
+.topnav { display: flex; flex-wrap: wrap; gap: 4px 6px; padding-block: 10px; margin-bottom: 18px; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.topnav a { color: var(--fg); text-decoration: none; padding: 4px 10px; border-radius: 4px; }
+.topnav a:hover { background: var(--accent-soft); color: var(--accent); }
+.topnav a.on { background: var(--fg); color: var(--bg); }
+.topnav .sep { flex: 1; }
+.masthead { display: grid; gap: 18px; padding-bottom: 28px; border-bottom: 1px solid var(--rule); margin-bottom: 28px; }
+.eyebrow { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; letter-spacing: -.01em; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 16px; }
+.verdict-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.verdict-row p { margin: 0; color: var(--muted); max-width: 72ch; }
+.days ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; }
+.days li { height: 28px; border-radius: 3px; display: flex; align-items: flex-end; justify-content: center; }
+.days li span { font-family: var(--font-mono); font-size: 10px; line-height: 1; color: var(--muted); transform: translateY(16px); }
+.days .past { background: var(--ph-past); }
+.days .r1 { background: var(--ph1); }
+.days .r2 { background: var(--ph2); }
+.days .r3 { background: var(--ph3); }
+.days .r4 { background: var(--ph4); }
+.days .today { outline: 2px solid var(--fg); outline-offset: 2px; }
+.days .today span { color: var(--fg); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.facts div { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; min-width: 0; }
+.facts dt { font-size: 13px; color: var(--muted); }
+.facts dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: 28px; font-variant-numeric: tabular-nums; }
+.facts dd small { font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--muted); }
+.gate { background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--red); border-radius: 6px; padding: 14px 18px; }
+.gate .gate-title { display: block; font-family: var(--font-display); font-weight: 600; font-size: 17px; margin-bottom: 6px; }
+.gate ol { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 40px; }
+nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; }
+nav.toc p { margin: 0 0 8px; font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+nav.toc a { display: flex; gap: 8px; padding: 4px 8px; border-radius: 4px; color: var(--fg); text-decoration: none; font-size: 14px; }
+nav.toc a b { font-family: var(--font-mono); font-weight: 400; font-size: 12px; color: var(--muted); min-width: 22px; padding-top: 2px; }
+nav.toc a:hover, nav.toc a.active { background: var(--accent-soft); color: var(--accent); }
+main { min-width: 0; }
+section { padding-top: 18px; margin-bottom: 36px; scroll-margin-top: 12px; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 25px; line-height: 1.2; letter-spacing: .01em; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--fg); display: flex; gap: 12px; align-items: baseline; text-wrap: balance; }
+.secnum { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--accent); }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin: 24px 0 8px; }
+p, ul, ol, blockquote { max-width: 80ch; }
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 8px 0; }
+li { margin: 3px 0; }
+a { color: var(--accent); }
+blockquote { margin: 12px 0; padding: 10px 16px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; }
+blockquote p { margin: 0; }
+code { font-family: var(--font-mono); font-size: .84em; background: var(--code-bg); padding: .08em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+pre { margin: 12px 0; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+pre.prompt { white-space: pre-wrap; max-height: 520px; overflow-y: auto; }
+.tablewrap { overflow-x: auto; margin: 12px 0 16px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+.tablewrap.mid table { min-width: 1080px; }
+.tablewrap.wide table { min-width: 1900px; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; line-height: 1.45; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+th { font-family: var(--font-display); font-weight: 600; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--code-bg); white-space: nowrap; }
+td { font-variant-numeric: tabular-nums; }
+tbody tr:hover td { background: var(--accent-soft); }
+.pill { display: inline-block; font-family: var(--font-display); font-weight: 600; font-size: 12.5px; letter-spacing: .05em; line-height: 1.5; padding: 0 8px; border-radius: 999px; white-space: nowrap; }
+.pill.red, .pill.p0 { background: var(--red-soft); color: var(--red); }
+.pill.amber, .pill.p1 { background: var(--amber-soft); color: var(--amber); }
+.pill.green { background: var(--green-soft); color: var(--green); }
+.pill.p2 { background: var(--accent-soft); color: var(--accent); }
+.pill.p3, .pill.neutral { background: var(--neutral-soft); color: var(--muted); }
+.pill.big { font-size: 15px; padding: 4px 14px; letter-spacing: .07em; }
+.brief { border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); margin: 16px 0; }
+.brief-bar { display: flex; justify-content: flex-end; padding: 8px 10px 0; }
+.brief-body { padding: 0 18px 14px; }
+.brief-body h3 { margin-top: 0; }
+.codeblock { position: relative; }
+.codeblock .copy { position: absolute; top: 8px; right: 10px; }
+button.copy { font: 600 13px var(--font-body); color: var(--accent); background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+button.copy:hover { border-color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#verdict h2 { border-bottom-color: var(--red); }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.card h3 { margin: 0; font-size: 18px; }
+.card .role { margin: 0; font-size: 13px; color: var(--muted); }
+.card ul { margin: 0; }
+.card .more { margin: 4px 0 0; font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 8px 0 0; max-width: none; }
+.chips a { display: inline-block; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); text-decoration: none; font-size: 14px; }
+.note { font-size: 14px; color: var(--muted); }
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  nav.toc { position: static; max-height: none; }
+  nav.toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+  nav.toc a { border: 1px solid var(--rule); background: var(--surface); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .days ol { gap: 2px; }
+  .days li { height: 22px; }
+  .facts dd { font-size: 23px; }
+  h2 { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="page">
+<nav class="topnav" aria-label="Trang"><a href="../index.html">Hôm nay</a><a href="holdout-day39.html" class="on">Kết quả</a><span class="sep"></span><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace">GitHub</a></nav>
+<style>
+.chart { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
+.chart text { font-family: var(--font-mono, monospace); font-size: 12px; fill: var(--muted); }
+.chart .lbl { fill: var(--fg); font-size: 12.5px; }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .s1 { fill: #2a78d6; stroke: #2a78d6; }
+.chart .s2 { fill: #eb6834; stroke: #eb6834; }
+.chart .ref { fill: var(--muted); }
+.chart .band { fill: #2a78d6; opacity: .16; stroke: none; }
+.chart .ln { fill: none !important; stroke-width: 2; }
+@media (prefers-color-scheme: dark) { .chart .s1 { fill: #3987e5; stroke: #3987e5; } .chart .s2 { fill: #d95926; stroke: #d95926; } }
+.legend2 { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
+.legend2 i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+</style><header class="masthead">
+  <p class="eyebrow">Cardiac MRI Workspace · kết quả</p>
+  <h1>Kết quả trên tập holdout khoá — 18/10/2026</h1>
+  <p class="sub">54 case LASC 2018 chưa từng dùng để train hay chọn mô hình, mỗi run được dự đoán và chấm đúng một lần sau
+  khi GATE-IMG-01 đóng. Chỉ số theo từng case (<code>ml-eval-1.0.0</code>); CI 95 % bootstrap 10 000 lần. Trang này chỉ có số tổng hợp.</p>
+  <dl class="facts">
+    <div><dt>Dice 3D tốt nhất</dt><dd>0,659</dd><p>DINOv2 100 % + hậu xử lý PP-4</p></div>
+    <div><dt>Ít dữ liệu: 20 → 78 case</dt><dd>+0,081</dd><p>CI 95 % [+0,047; +0,118]</p></div>
+    <div><dt>Hậu xử lý PP-4</dt><dd>+0,020</dd><p>CI [+0,015; +0,026], 45/54 case tốt hơn</p></div>
+    <div><dt>E2E hero flow (API)</dt><dd>22 PASS · 0 FAIL</dd><p>1 SKIP: UNet chưa train</p></div>
+  </dl>
+</header>
+<main>
+<section id="runs"><h2>Dice 3D theo run</h2>
+  <ul class="legend2"><li><i style="background:#2a78d6"></i>DINOv2 (RAW)</li><li><i style="background:#eb6834"></i>+ hậu xử lý PP-4</li></ul>
+  <svg class="chart" viewBox="0 0 760 224" role="img" aria-label="Dice 3D trung bình và CI 95 % theo run"><line class="grid" x1="150.0" y1="20" x2="150.0" y2="202"/><text x="150.0" y="218" text-anchor="middle">0,45</text><line class="grid" x1="241.7" y1="20" x2="241.7" y2="202"/><text x="241.7" y="218" text-anchor="middle">0,50</text><line class="grid" x1="333.3" y1="20" x2="333.3" y2="202"/><text x="333.3" y="218" text-anchor="middle">0,55</text><line class="grid" x1="425.0" y1="20" x2="425.0" y2="202"/><text x="425.0" y="218" text-anchor="middle">0,60</text><line class="grid" x1="516.7" y1="20" x2="516.7" y2="202"/><text x="516.7" y="218" text-anchor="middle">0,65</text><line class="grid" x1="608.3" y1="20" x2="608.3" y2="202"/><text x="608.3" y="218" text-anchor="middle">0,70</text><line class="grid" x1="700.0" y1="20" x2="700.0" y2="202"/><text x="700.0" y="218" text-anchor="middle">0,75</text><g><title>DINOv2 25 %: trung bình 0,558, CI 95 % [0,505; 0,607], trung vị 0,604, n = 54</title><text class="lbl" x="138" y="46" text-anchor="end">DINOv2 25 %</text><line class="s1" x1="251.0" y1="42" x2="437.8" y2="42" stroke-width="2"/><line class="s1" x1="251.0" y1="36" x2="251.0" y2="48" stroke-width="2"/><line class="s1" x1="437.8" y1="36" x2="437.8" y2="48" stroke-width="2"/><circle class="s1" cx="348.9" cy="42" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="447.8" y="46">0,558</text></g><g><title>DINOv2 50 %: trung bình 0,616, CI 95 % [0,567; 0,659], trung vị 0,667, n = 54</title><text class="lbl" x="138" y="92" text-anchor="end">DINOv2 50 %</text><line class="s1" x1="364.7" y1="88" x2="534.1" y2="88" stroke-width="2"/><line class="s1" x1="364.7" y1="82" x2="364.7" y2="94" stroke-width="2"/><line class="s1" x1="534.1" y1="82" x2="534.1" y2="94" stroke-width="2"/><circle class="s1" cx="453.6" cy="88" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="544.1" y="92">0,616</text></g><g><title>DINOv2 100 %: trung bình 0,639, CI 95 % [0,595; 0,677], trung vị 0,679, n = 54</title><text class="lbl" x="138" y="138" text-anchor="end">DINOv2 100 %</text><line class="s1" x1="414.9" y1="134" x2="566.0" y2="134" stroke-width="2"/><line class="s1" x1="414.9" y1="128" x2="414.9" y2="140" stroke-width="2"/><line class="s1" x1="566.0" y1="128" x2="566.0" y2="140" stroke-width="2"/><circle class="s1" cx="496.5" cy="134" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="576.0" y="138">0,639</text></g><g><title>100 % + PP-4: trung bình 0,659, CI 95 % [0,612; 0,700], trung vị 0,701, n = 54</title><text class="lbl" x="138" y="184" text-anchor="end">100 % + PP-4</text><line class="s2" x1="446.5" y1="180" x2="607.4" y2="180" stroke-width="2"/><line class="s2" x1="446.5" y1="174" x2="446.5" y2="186" stroke-width="2"/><line class="s2" x1="607.4" y1="174" x2="607.4" y2="186" stroke-width="2"/><circle class="s2" cx="533.2" cy="180" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="617.4" y="184">0,659</text></g></svg>
+  <div class="tablewrap"><table><thead><tr><th>Run</th><th>Variant</th><th>Dice TB</th><th>CI 95 %</th><th>Trung vị (Q1–Q3)</th>
+  <th>IoU TB</th><th>Dice TB theo lát</th><th>Sai lệch thể tích TB</th><th>Dice TB, tập độ nhạy (n = 53)</th></tr></thead><tbody><tr><td>DINOv2 25 %</td><td>RAW</td><td>0,558</td><td>[0,505; 0,607]</td><td>0,604 (0,523–0,688)</td><td>0,409</td><td>0,394</td><td>+19.2 %</td><td>0,555</td></tr><tr><td>DINOv2 50 %</td><td>RAW</td><td>0,616</td><td>[0,567; 0,659]</td><td>0,667 (0,581–0,726)</td><td>0,464</td><td>0,421</td><td>+12.5 %</td><td>0,613</td></tr><tr><td>DINOv2 100 %</td><td>RAW</td><td>0,639</td><td>[0,595; 0,677]</td><td>0,679 (0,579–0,740)</td><td>0,485</td><td>0,426</td><td>+14.9 %</td><td>0,637</td></tr><tr><td>100 % + PP-4</td><td>PROCESSED</td><td>0,659</td><td>[0,612; 0,700]</td><td>0,701 (0,581–0,766)</td><td>0,510</td><td>0,482</td><td>+1.4 %</td><td>0,657</td></tr></tbody></table></div>
+</section>
+<section id="scarcity"><h2>Ít dữ liệu: Dice theo số case train</h2>
+  <p>Ba run DINOv2 chỉ khác tập train (lồng nhau 20 ⊂ 38 ⊂ 78 case). Vùng mờ là CI 95 %. Mỗi mức là một run, một seed.</p>
+  <svg class="chart" viewBox="0 0 760 300" role="img" aria-label="Dice 3D theo số case train"><line class="grid" x1="60" y1="260.0" x2="640" y2="260.0"/><text x="52" y="264.0" text-anchor="end">0,45</text><line class="grid" x1="60" y1="219.3" x2="640" y2="219.3"/><text x="52" y="223.3" text-anchor="end">0,50</text><line class="grid" x1="60" y1="178.7" x2="640" y2="178.7"/><text x="52" y="182.7" text-anchor="end">0,55</text><line class="grid" x1="60" y1="138.0" x2="640" y2="138.0"/><text x="52" y="142.0" text-anchor="end">0,60</text><line class="grid" x1="60" y1="97.3" x2="640" y2="97.3"/><text x="52" y="101.3" text-anchor="end">0,65</text><line class="grid" x1="60" y1="56.7" x2="640" y2="56.7"/><text x="52" y="60.7" text-anchor="end">0,70</text><line class="grid" x1="60" y1="16.0" x2="640" y2="16.0"/><text x="52" y="20.0" text-anchor="end">0,75</text><polygon class="band" points="102.6,132.3 256.2,89.6 597.4,75.5 597.4,142.5 256.2,164.8 102.6,215.2"/><polyline class="s1 ln" points="102.6,171.8 256.2,125.3 597.4,106.3"/><g><title>DINOv2 25 %: 20 case train, Dice 0,558</title><circle class="s1" cx="102.6" cy="171.8" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="110.6" y="191.8" text-anchor="start">0,558</text><text x="102.6" y="286" text-anchor="middle">20</text></g><g><title>DINOv2 50 %: 38 case train, Dice 0,616</title><circle class="s1" cx="256.2" cy="125.3" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="264.2" y="145.3" text-anchor="start">0,616</text><text x="256.2" y="286" text-anchor="middle">38</text></g><g><title>DINOv2 100 %: 78 case train, Dice 0,639</title><circle class="s1" cx="597.4" cy="106.3" r="6" stroke="var(--bg)" stroke-width="2"/><text class="lbl" x="587.4" y="126.3" text-anchor="end">0,639</text><text x="597.4" y="286" text-anchor="middle">78</text></g><g><title>100 % + PP-4: Dice 0,659, CI 95 % [0,612; 0,700]</title><line class="s2" x1="623.4" y1="128.5" x2="623.4" y2="57.1" stroke-width="2"/><rect class="s2" x="617.4" y="84.0" width="12" height="12" transform="rotate(45 623.4 90.0)"/><text class="lbl" x="635.4" y="94.0">+ PP-4 0,659</text></g><text x="350.0" y="300" text-anchor="middle">số case train hiệu dụng</text></svg>
+</section>
+<section id="paired"><h2>So sánh cặp từng case (run B − run A)</h2>
+  <div class="tablewrap"><table><thead><tr><th>So sánh</th><th>Δ Dice TB</th><th>CI 95 %</th><th>Case B tốt hơn / A tốt hơn</th></tr></thead><tbody><tr><td>DINOv2 25 % → DINOv2 50 %</td><td>+0.057</td><td>[+0.036; +0.083]</td><td>43 / 11</td></tr><tr><td>DINOv2 25 % → DINOv2 100 %</td><td>+0.081</td><td>[+0.047; +0.118]</td><td>41 / 13</td></tr><tr><td>DINOv2 50 % → DINOv2 100 %</td><td>+0.023</td><td>[-0.001; +0.051]</td><td>28 / 26</td></tr><tr><td>DINOv2 100 % → 100 % + PP-4</td><td>+0.020</td><td>[+0.015; +0.026]</td><td>45 / 9</td></tr></tbody></table></div>
+  <p>50 % → 100 %: CI chạm 0, không khẳng định được lợi ích của lần nhân đôi cuối. Không hiệu chỉnh đa so sánh.
+  App trả <code>comparable: false</code> cho cặp RAW vs PROCESSED; dòng cuối là phân tích ablation ngoại tuyến (spec 08 §2).</p>
+</section>
+<section id="gate"><h2>GATE-IMG-01: hậu xử lý chọn chỉ trên validation</h2>
+  <p>Tập ứng viên và luật chọn được ghi vào repo trước khi chạy (#91). PP-4 = mở hình thái học 3D 3×3×3, rồi giữ thành
+  phần liên thông 26 lớn nhất. Cấu hình đóng băng bằng sha256 <code>c0a68cc7…</code>.</p>
+  <svg class="chart" viewBox="0 0 760 230" role="img" aria-label="GATE-IMG-01: Dice validation theo ứng viên"><line class="grid" x1="60" y1="196.0" x2="740" y2="196.0"/><text x="52" y="200.0" text-anchor="end">0,56</text><line class="grid" x1="60" y1="151.0" x2="740" y2="151.0"/><text x="52" y="155.0" text-anchor="end">0,57</text><line class="grid" x1="60" y1="106.0" x2="740" y2="106.0"/><text x="52" y="110.0" text-anchor="end">0,58</text><line class="grid" x1="60" y1="61.0" x2="740" y2="61.0"/><text x="52" y="65.0" text-anchor="end">0,59</text><line class="grid" x1="60" y1="16.0" x2="740" y2="16.0"/><text x="52" y="20.0" text-anchor="end">0,60</text><g><title>PP-0: Dice validation 0.5712</title><path class="ref" d="M82.7,196.0 V149.6 q0,-4 4,-4 h60.0 q4,0 4,4 V196.0 Z"/><text class="lbl" x="116.7" y="139.6" text-anchor="middle">0.5712</text><text x="116.7" y="218" text-anchor="middle">PP-0</text></g><g><title>PP-1: Dice validation 0.5855</title><path class="s1" d="M196.0,196.0 V85.2 q0,-4 4,-4 h60.0 q4,0 4,4 V196.0 Z"/><text class="lbl" x="230.0" y="75.2" text-anchor="middle">0.5855</text><text x="230.0" y="218" text-anchor="middle">PP-1</text></g><g><title>PP-2: Dice validation 0.5858</title><path class="s1" d="M309.3,196.0 V83.9 q0,-4 4,-4 h60.0 q4,0 4,4 V196.0 Z"/><text class="lbl" x="343.3" y="73.9" text-anchor="middle">0.5858</text><text x="343.3" y="218" text-anchor="middle">PP-2</text></g><g><title>PP-3: Dice validation 0.5859</title><path class="s1" d="M422.7,196.0 V83.5 q0,-4 4,-4 h60.0 q4,0 4,4 V196.0 Z"/><text class="lbl" x="456.7" y="73.5" text-anchor="middle">0.5859</text><text x="456.7" y="218" text-anchor="middle">PP-3</text></g><g><title>PP-4: Dice validation 0.5930</title><path class="s2" d="M536.0,196.0 V51.5 q0,-4 4,-4 h60.0 q4,0 4,4 V196.0 Z"/><text class="lbl" x="570.0" y="41.5" text-anchor="middle">0.5930</text><text x="570.0" y="218" text-anchor="middle">PP-4</text></g><g><title>PP-5: Dice validation 0.5858</title><path class="s1" d="M649.3,196.0 V83.9 q0,-4 4,-4 h60.0 q4,0 4,4 V196.0 Z"/><text class="lbl" x="683.3" y="73.9" text-anchor="middle">0.5858</text><text x="683.3" y="218" text-anchor="middle">PP-5</text></g></svg>
+  <div class="tablewrap"><table><thead><tr><th>Ứng viên</th><th>Dice TB validation (n = 20)</th></tr></thead><tbody><tr><td>PP-0</td><td>0.5712</td></tr><tr><td>PP-1</td><td>0.5855</td></tr><tr><td>PP-2</td><td>0.5858</td></tr><tr><td>PP-3</td><td>0.5859</td></tr><tr><td>PP-4</td><td>0.5930</td></tr><tr><td>PP-5</td><td>0.5858</td></tr></tbody></table></div>
+</section>
+<section id="limits"><h2>Giới hạn</h2>
+  <ul>
+    <li><strong>UNet chưa train</strong>: so sánh UNet vs DINOv2 (RQ-A) chưa trả lời được.</li>
+    <li>Không augmentation, lr hằng số (validation Dice dao động mạnh), train 2D theo lát, một seed mỗi mức.</li>
+    <li>Spacing là placeholder đơn vị: sai lệch thể tích tính theo voxel, không có mm/mL.</li>
+    <li>Dữ liệu không có ánh xạ case → bệnh nhân (DR-002b); tập độ nhạy bỏ một case nghi trùng, kết luận không đổi.</li>
+  </ul>
+</section>
+<section id="doc"><h2>Tài liệu</h2><ul class="chips">
+  <li><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/RESULTS_HOLDOUT_DINOV2.md">Biên bản kết quả</a></li>
+  <li><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/GATE_IMG_01_DECISION.md">GATE-IMG-01</a></li>
+  <li><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/gate_img_01/SELECTION.md">Bảng chọn trên validation</a></li>
+  <li><a href="https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/tools/e2e/README.md">E2E hero flow</a></li>
+  <li><a href="../index.html">Bảng điều phối hôm nay</a></li>
+</ul></section>
+</main>
+</div>
+<script>
+(function () {
+  function reset(btn, ms) { setTimeout(function () { btn.textContent = btn.dataset.label; }, ms); }
+  function selectNode(node, btn) {
+    var range = document.createRange();
+    range.selectNodeContents(node);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    btn.textContent = "Đã chọn, nhấn Ctrl+C";
+    reset(btn, 2600);
+  }
+  document.querySelectorAll("button.copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var holder = btn.closest(".brief") || btn.closest(".codeblock");
+      var node = holder.querySelector(".brief-body") || holder.querySelector("pre");
+      var text = node.innerText.trim();
+      try {
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = "Đã chép";
+          reset(btn, 1600);
+        }, function () { selectNode(node, btn); });
+      } catch (e) {
+        selectNode(node, btn);
+      }
+    });
+  });
+  var links = {};
+  document.querySelectorAll("nav.toc a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  if ("IntersectionObserver" in window && Object.keys(links).length) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && links[e.target.id]) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
+          links[e.target.id].classList.add("active");
+        }
+      });
+    }, { rootMargin: "0px 0px -75% 0px" });
+    document.querySelectorAll("main section").forEach(function (s) { obs.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
