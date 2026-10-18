@@ -34,7 +34,7 @@ yesterday:
   items:
     - {text: "Merge 6 PR tồn đọng (#85–#90): 3 có approval của Hùng Anh, 3 qua QA LLM", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/RECOVERY_OVERRIDE_DAY39.md"}
     - {text: "**GATE-IMG-01 đóng** theo luật khai trước: PP-4 (3D opening + thành phần lớn nhất) thắng trên validation", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/93"}
-    - {text: "**Kết quả holdout thật**: DINOv2 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · PP-4 **0,659** Dice 3D", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
+    - {text: "**Kết quả holdout thật**: DINOv2 25 % 0,558 · 50 % 0,616 · 100 % 0,639 · PP-4 **0,659** Dice 3D", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
     - {text: "Ít dữ liệu: 25 → 100 % tăng +0,081 [+0,047; +0,118]; hậu xử lý PP-4 tăng +0,020 [+0,015; +0,026], 45/54 case", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
     - {text: "Backend: DR-017, validator DR-018, DR-022 phục vụ 74 case; 4 gói Contract 2 thật qua validator", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/94"}
     - {text: "**E2E hero flow qua API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/95"}

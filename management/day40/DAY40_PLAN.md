@@ -15,7 +15,7 @@
 |---|---|---|
 | PR tồn đọng | #85–#90 lên `main` (3 PR có approval của Hùng Anh, 3 PR qua QA LLM) | `RECOVERY_OVERRIDE_DAY39.md` §6 |
 | **GATE-IMG-01** | **đóng** theo luật khai trước: PP-4 (3D opening, rồi thành phần liên thông lớn nhất) thắng trên validation (+0,022 Dice) | #92, #93 |
-| **Kết quả holdout thật** | DINOv2 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · **PP-4 0,659** Dice 3D trung bình (n = 54, CI 95 %) | `management/day39/RESULTS_HOLDOUT_DINOV2.md` (#96) |
+| **Kết quả holdout thật** | DINOv2 25 % 0,558 · 50 % 0,616 · 100 % 0,639 · **PP-4 0,659** Dice 3D trung bình (n = 54, CI 95 %) | `management/day39/RESULTS_HOLDOUT_DINOV2.md` (#96) |
 | So sánh | 25 → 100 %: +0,081 [+0,047; +0,118] · 50 → 100 %: +0,023 (CI chạm 0) · PP-4: +0,020 [+0,015; +0,026], 45/54 case tốt hơn | như trên |
 | Contract + backend | DR-017 (CASE_0001 tính vào cohort), validator DR-018, DR-022: backend phục vụ **74 case** gồm 53 case holdout | #94 |
 | **E2E** | hero flow H1–H10 mức API trên dữ liệu thật: **22 PASS / 0 FAIL / 1 SKIP** (bước SKIP: UNet) | `tools/e2e/` (#95, #98) |
