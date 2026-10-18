@@ -22,7 +22,7 @@ Every step is the existing module CLI in its own process (nothing is re-implemen
 
 Before the first step, a PRE-FLIGHT checks everything that can be known without reading a holdout case, so that no
 GPU hours are spent on a command that would fail later: the record (strict JSON, gate CLOSED, frozen split,
-decision_ref in the checkout), every run COMPLETE with a best.pt the record authorizes, a clean `ml/` tree (the
+decision_ref in the checkout, committed and unmodified in git), every run COMPLETE with a best.pt the record authorizes, a clean `ml/` tree (the
 exporter refuses dirty code), the counterpart runs of the comparisons already scored, and the scored-once rule:
 
     evaluation/final_holdout exists under THIS record     the step is done; the identical command resumes after it
@@ -93,6 +93,7 @@ class Config:
     aggregate_out: Path | None = None
     aggregate_base: str | None = DEFAULT_AGGREGATE_BASE
     require_clean_code: bool = True
+    require_committed_record: bool = True
     python: str = sys.executable
 
 
@@ -154,6 +155,28 @@ def _state(fp: dict, record_sha: str, who: str, problems: list[str]) -> str:
     return "new"
 
 
+def record_problem(path: str | Path) -> str | None:
+    """Why the record is not a committed file of this checkout, or None. A holdout authorization with no commit behind
+    it leaves no trail of what was authorized, so the pipeline wants the bytes it reads to be the committed ones."""
+    p = Path(path).resolve()
+    try:
+        rel = p.relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return f"the record {p.name} is outside this repository checkout; it must be committed to main (ml/README.md)"
+    try:
+        tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", "--error-unmatch", "--", rel],
+                                 capture_output=True, text=True, timeout=30)
+        status = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain", "--", rel],
+                                capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None                                # no git here: the clean-code check reports that
+    if tracked.returncode != 0:
+        return f"the record {p.name} is not tracked by git: commit it to main first (ml/README.md)"
+    if status.stdout.strip():
+        return f"the record {p.name} has uncommitted changes: the bytes read must be the committed ones"
+    return None
+
+
 def build_plan(cfg: Config, *, record: dict | None = None, record_sha: str | None = None) -> Plan:
     """Everything the command would do, and every reason it would be refused. Reads file presence and manifests
     only (never a case); writes nothing."""
@@ -173,6 +196,10 @@ def build_plan(cfg: Config, *, record: dict | None = None, record_sha: str | Non
     plan = Plan([], problems, notes, log_dir, comp_dir, aggregate_out, [], [], record_sha)
     if record is None:
         return plan
+    if cfg.require_committed_record:
+        committed = record_problem(cfg.record_path)
+        if committed:
+            problems.append(committed)
     notes.append(f"record {Path(cfg.record_path).name} sha256 {record_sha}")
     notes.append(f"  {record['gate']} {record['gate_status']} at {record['closed_at']}; signed by "
                  f"{record['authorized_by']} at {record['authorized_at']}; decision {record['decision_ref']}")
@@ -190,7 +217,8 @@ def build_plan(cfg: Config, *, record: dict | None = None, record_sha: str | Non
                 base_doc = json.loads(base_path.read_text(encoding="utf-8"))
             except ValueError:
                 base_doc = None
-            if not isinstance(base_doc, dict) or base_doc.get("format") != RA.FORMAT                     or base_doc.get("population") != PARTITION:
+            if (not isinstance(base_doc, dict) or base_doc.get("format") != RA.FORMAT
+                    or base_doc.get("population") != PARTITION):
                 problems.append(f"--aggregate-base {base_path.name} is not a {RA.FORMAT} file for {PARTITION}")
     if cfg.require_clean_code:
         version = MF.code_version()["version"]

@@ -117,7 +117,8 @@ PART = D.HOLDOUT_PARTITION
 
 def config(kit, record, experiments=("EXP-U-025", "EXP-U-050", "EXP-U-100"), **over):
     kw = dict(record_path=record, runs_root=kit.runs, experiments=list(experiments), aggregate_base=None,
-              aggregate_out=kit.tmp / "aggregate.json", require_clean_code=False, pp_config=kit.pp_config)
+              aggregate_out=kit.tmp / "aggregate.json", require_clean_code=False, require_committed_record=False,
+              pp_config=kit.pp_config)
     kw.update(over)
     return HP.Config(**kw)
 
@@ -417,6 +418,15 @@ def test_an_unusable_aggregate_base_is_refused_before_anything_runs(kit):
     assert any("--aggregate-base base.json is not a cardiac-results-aggregate/1 file" in p for p in problems)
     missing = HP.build_plan(config(kit, record, aggregate_base=str(kit.tmp / "nowhere.json")))
     assert not missing.problems and any("a fresh aggregate will be written" in n for n in missing.notes)
+
+
+def test_the_record_must_be_a_committed_file_of_the_checkout(kit):
+    record = ready_for_unet(kit)                    # signed, but it lives in a temporary directory, not in git
+    loose = HP.build_plan(config(kit, record, require_committed_record=True)).problems
+    assert any("is outside this repository checkout" in p and "committed to main" in p for p in loose)
+    assert HP.record_problem(record) is not None
+    committed = HP.ROOT / "management" / "day39" / "gate_img_01" / "holdout_authorization.json"
+    assert HP.record_problem(committed) is None     # the Day 39 record is a clean, tracked file
 
 
 def test_a_dirty_checkout_is_refused_before_anything_runs(kit, monkeypatch):

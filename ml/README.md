@@ -471,7 +471,7 @@ again without `--dry-run`. The steps, each the existing module CLI in its own pr
 | aggregate | `tools/ml/results_aggregate.py` over the new runs, the DINOv2 runs they were compared with and the new comparisons, extending `management/day39/results_aggregate.json` (`--aggregate-base`), written to `--aggregate-out` |
 
 - **Pre-flight, before any holdout case is read:** the record is strict JSON with the gate CLOSED and the frozen
-  split; every run is COMPLETE with a `best.pt` the record authorizes; `ml/` is a clean commit (the exporter refuses
+  split, and is a committed, unmodified file of this checkout; every run is COMPLETE with a `best.pt` the record authorizes; `ml/` is a clean commit (the exporter refuses
   dirty code); every EXP-D-* counterpart of a comparison already has its `evaluation/final_holdout`. One problem
   refuses the whole command (exit 2) and nothing runs. On a machine without the EXP-U-* run directories the dry run
   says exactly that, run by run.
