@@ -4,7 +4,7 @@
  * TEST-ONLY. It needs node_modules (react-test-renderer is a devDependency,
  * deprecated upstream), so CI runs it in its own job, mobile-render-bundle,
  * after `npm ci --ignore-scripts` from the lockfile (DR-021 rule 4); the
- * other CI jobs have no node_modules. It renders the real shell, V1 and V3
+ * other CI jobs have no node_modules. It renders the real shell, V1, V3 and V4
  * screens in Node with host-string React Native stand-ins (hooks.mjs), a real
  * app/core runtime, and either the generated fixture bundle or a fake live
  * backend whose PNGs are encoded here with node:zlib.
@@ -59,6 +59,7 @@ const { RuntimeProvider } = await imp('src/runtime/RuntimeContext.js');
 const NavigatorView = (await imp('src/nav/NavigatorView.js')).default;
 const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
 const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
+const FindingsScreen = (await imp('src/verticals/v4/FindingsScreen.js')).default;
 const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
@@ -119,7 +120,7 @@ const bundleJson = generatedBundleJson();
   check('S8', has(r, /SCR-02 · V1/), 'Back returns to the list');
   await press(r, 'Findings');
   await tick();
-  check('S8', has(r, /SCR-08 · V4/), 'Findings tab -> SCR-08 placeholder');
+  check('S8', has(r, /SCR-08 · V4/), 'Findings tab -> SCR-08 Findings');
   await act(async () => { r.unmount(); });
 }
 
@@ -904,7 +905,442 @@ function noRunBackend() {
   await act(async () => { r.unmount(); });
 }
 
-// ---- 10. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------
+// ---- 10. V4: SCR-06 Review / Correction and SCR-08 Findings (H8 / H9 at the screen) ----
+// A STATEFUL fake backend that answers like the real one does for the hero flow
+// (tools/e2e/hero_flow_api.py H8 / H9): review_create returns the existing review of
+// the same scope, a write carries expected_revision and a stale one is 409
+// STALE_REVISION, a commit makes version N+1 from the latest version plus the working
+// slices and answers 201 CORRECTED, a second commit with nothing new is 422. Masks are
+// PNGs encoded here; working slices arrive as BITPACK_BASE64 and are unpacked here, so
+// the checks compare what the SCREEN sent with what it should have sent.
+function reviewBackend({ seedVersion = false } = {}) {
+  const W = 576; const H = 576;
+  const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
+  const sum = (b) => `sha256:${createHash('sha256').update(b).digest('hex')}`;
+  const bits = (m) => Uint8Array.from(m, (v) => (v ? 1 : 0));
+  const asPng = (b01) => encodePng(W, H, 0, Uint8Array.from(b01, (v) => (v ? 255 : 0)));
+  const SOURCE = bits(ellipseMask(W, H, 310, 262, 66, 58));
+  const mriPng = encodePng(W, H, 0, Uint8Array.from({ length: W * H }, (_, i) => (i * 3) & 0xff), { zopts: { level: 9 } });
+  const json = (status, body) => {
+    const text = JSON.stringify(body);
+    return {
+      status,
+      headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null },
+      text: async () => text,
+      json: async () => body,
+    };
+  };
+  const err = (status, code) => json(status, { error: { code, message: code } });
+  const requests = [];
+  const db = {
+    review: null,
+    working: new Map(),
+    versions: [],
+    findings: [{
+      finding_id: 'FINDING_1', status: 'OPEN', finding_type: 'UNDER_SEGMENTATION', note: 'seed finding', revision: 1,
+      evidence: { study_id: 'STUDY_DEMO', experiment_id: 'EXP_DEMO', case_id: 'CASE_0061', analysis_run_id: 'RUN_A', prediction_variant: 'RAW', slice_index: 44, region_reference: null },
+    }],
+    nextFinding: 2,
+  };
+  const geometry = () => {
+    const g = gen('case_get');
+    return { geometry_contract_version: g.geometry_contract_version, geometry_validation_status: g.geometry_validation_status,
+      shape: g.shape, index_convention: g.index_convention, spacing: g.spacing, origin: g.origin, direction: g.direction };
+  };
+  const RAW_ID = gen('analysis_run_get').raw_prediction_artifact_id;
+  const versionSlice = (v, z) => (v.slices.get(z) ? v.slices.get(z) : (v.parent ? versionSlice(v.parent, z) : SOURCE));
+  const provenance = (v) => ({
+    review_id: db.review.review_id, case_id: 'CASE_0061', run_id: db.review.run_id, source_mask_id: RAW_ID, source_mask_kind: 'RAW_PREDICTION',
+    prediction_variant: 'RAW', version: v.version, parent_reviewed_mask_id: v.parent ? v.parent.id : null,
+    created_at: '2026-10-01T00:00:00Z', reviewer_id: null,
+  });
+  const row = (v) => ({ reviewed_mask_id: v.id, source_mask_id: RAW_ID, revision: v.revision, checksum: `sha256:${'0'.repeat(63)}${v.version}`, provenance: provenance(v) });
+  const unpack = (payload) => {
+    const packed = Buffer.from(payload.data, 'base64');
+    const out = new Uint8Array(W * H);
+    for (let k = 0; k < out.length; k += 1) out[k] = (packed[Math.floor(k / 8)] >> (7 - (k % 8))) & 1;
+    return out;
+  };
+  const ensureReview = (runId, body) => {
+    if (db.review) return { review: db.review, created: false };
+    db.review = { review_id: 'REVIEW_1', run_id: runId, status: 'NOT_REVIEWED', revision: 1, source_mask_id: body.source_mask_id, prediction_variant: body.prediction_variant };
+    if (seedVersion) {
+      // an earlier session already corrected slice 44: its version differs from the source there
+      const earlier = SOURCE.slice();
+      for (let y = 262; y < 282; y += 1) for (let x = 400; x < 420; x += 1) earlier[y * W + x] = 1;
+      db.versions.push({ id: 'REVMASK_0', version: 1, revision: 1, parent: null, slices: new Map([[44, earlier]]), earlier });
+      db.review.status = 'CORRECTED';
+      db.review.revision = 2;
+    }
+    return { review: db.review, created: true };
+  };
+  const reviewBody = (r) => ({ review_id: r.review_id, run_id: r.run_id, status: r.status, revision: r.revision, etag: `W/"revision-${r.revision}"`,
+    source_mask_id: r.source_mask_id, prediction_variant: r.prediction_variant });
+
+  const fetchImpl = async (url, init = {}) => {
+    const path = url.replace('http://backend.invalid:8000', '');
+    const method = (init.method || 'GET').toUpperCase();
+    const body = init.body ? JSON.parse(init.body) : null;
+    requests.push({ method, path, body });
+    let m;
+    if (path.startsWith('/api/v1/artifacts/')) {
+      const name = path.split('/').pop().replace('.png', '');
+      let bytes = mriPng;
+      if (name.startsWith('pred-')) bytes = asPng(SOURCE);
+      else if (name.startsWith('rev-')) {
+        const [, vid, z] = name.split('-');
+        const v = db.versions.find((x) => x.id === vid);
+        bytes = asPng(versionSlice(v, Number(z)));
+      }
+      return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+    }
+    if ((m = /^\/api\/v1\/analysis-runs\/([^/]+)$/.exec(path)) && method === 'GET') {
+      return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED' });
+    }
+    if ((m = /^\/api\/v1\/cases\/([^/]+)$/.exec(path)) && method === 'GET') return json(200, { ...gen('case_get'), case_id: m[1] });
+    if ((m = /^\/api\/v1\/cases\/[^/]+\/slices\/(\d+)\/mri$/.exec(path))) {
+      return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${m[1]}.png`, media_type: 'image/png', checksum: sum(mriPng) });
+    }
+    if ((m = /^\/api\/v1\/analysis-runs\/[^/]+\/slices\/(\d+)\/prediction\?variant=([A-Z]+)$/.exec(path))) {
+      return json(200, { ...gen('prediction_slice_get'), prediction_variant: m[2], prediction_mask_id: RAW_ID,
+        content_url: `/api/v1/artifacts/pred-${m[1]}.png`, media_type: 'image/png', checksum: sum(asPng(SOURCE)) });
+    }
+    if ((m = /^\/api\/v1\/analysis-runs\/([^/]+)\/reviews$/.exec(path)) && method === 'POST') {
+      const { review, created } = ensureReview(m[1], body);
+      return json(created ? 201 : 200, reviewBody(review));
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/reviewed-masks$/.exec(path)) && method === 'GET') {
+      return json(200, { items: db.versions.map(row) });
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/working-mask\/slices\/(\d+)$/.exec(path)) && method === 'PUT') {
+      if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
+      if (body.source_mask_id !== db.review.source_mask_id) return err(422, 'VALIDATION_ERROR');
+      if (body.mask_payload.encoding !== 'BITPACK_BASE64') return err(422, 'VALIDATION_ERROR');
+      db.working.set(Number(m[2]), unpack(body.mask_payload));
+      db.review.revision += 1;
+      return json(200, { review_id: db.review.review_id, working_revision: db.review.revision, source_mask_id: db.review.source_mask_id,
+        slice_index: Number(m[2]), ...geometry() });
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/commit$/.exec(path)) && method === 'POST') {
+      if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
+      if (db.working.size === 0) return err(422, 'VALIDATION_ERROR');
+      const parent = db.versions.length ? db.versions[db.versions.length - 1] : null;
+      const v = { id: `REVMASK_${db.versions.length + 1}`, version: db.versions.length + 1, revision: db.review.revision + 1, parent, slices: new Map(db.working) };
+      db.versions.push(v);
+      db.working.clear();
+      db.review.revision += 1;
+      db.review.status = 'CORRECTED';
+      return json(201, { ...row(v), status: 'CORRECTED', source_mask_kind: 'RAW_PREDICTION', revision: db.review.revision, ...geometry() });
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)$/.exec(path)) && method === 'PATCH') {
+      if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
+      if (body.status === 'CORRECTED') return err(409, 'INVALID_REVIEW_TRANSITION');
+      db.review.status = body.status;
+      db.review.revision += 1;
+      return json(200, reviewBody(db.review));
+    }
+    if ((m = /^\/api\/v1\/reviewed-masks\/([^/]+)\/slices\/(\d+)$/.exec(path)) && method === 'GET') {
+      const v = db.versions.find((x) => x.id === m[1]);
+      if (!v) return err(404, 'ARTIFACT_NOT_FOUND');
+      const bytes = asPng(versionSlice(v, Number(m[2])));
+      return json(200, { ...gen('reviewed_mask_slice_get'), reviewed_mask_id: v.id, slice_index: Number(m[2]),
+        content_url: `/api/v1/artifacts/rev-${v.id}-${m[2]}.png`, media_type: 'image/png', checksum: sum(bytes) });
+    }
+    if (path === '/api/v1/findings' && method === 'GET') return json(200, { items: db.findings });
+    if (path === '/api/v1/findings' && method === 'POST') {
+      const f = {
+        finding_id: `FINDING_${db.nextFinding}`, status: 'OPEN', finding_type: body.finding_type, note: body.note, revision: 1,
+        evidence: { study_id: body.study_id, experiment_id: body.experiment_id, case_id: body.case_id, analysis_run_id: body.analysis_run_id,
+          prediction_variant: body.prediction_variant, slice_index: body.slice_index, region_reference: body.region_reference },
+      };
+      db.nextFinding += 1;
+      db.findings.push(f);
+      return json(201, { finding_id: f.finding_id, case_id: f.evidence.case_id, analysis_run_id: f.evidence.analysis_run_id, slice_index: f.evidence.slice_index,
+        finding_type: f.finding_type, status: f.status, evidence: f.evidence, revision: 1 });
+    }
+    if ((m = /^\/api\/v1\/findings\/([^/]+)$/.exec(path)) && method === 'PATCH') {
+      const f = db.findings.find((x) => x.finding_id === m[1]);
+      if (!f) return err(404, 'ARTIFACT_NOT_FOUND');
+      if (body.expected_revision !== f.revision) return err(409, 'STALE_REVISION');
+      f.status = body.status;
+      f.note = body.note;
+      f.revision += 1;
+      return json(200, { finding_id: f.finding_id, status: f.status, note: f.note, evidence: f.evidence, revision: f.revision, etag: `W/"revision-${f.revision}"` });
+    }
+    return err(404, 'ARTIFACT_NOT_FOUND');
+  };
+  return { fetchImpl, requests, db, SOURCE, bits, asPng, W, H, RAW_ID,
+    writes: () => requests.filter((q) => q.method !== 'GET') };
+}
+
+{
+  const { BackHandler } = await import('react-native');
+  const { fitTransform } = await imp('../app/core/index.mjs');
+  const pressExact = async (r, label) => {
+    const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label);
+    if (!hits.length) throw new Error(`no button "${label}" exactly; texts: ${texts(r).slice(0, 50).join(' | ')}`);
+    await act(async () => { hits[0].props.onPress(); });
+  };
+  const btn = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label)[0];
+  const byId = (r, id) => r.root.findAll((n) => n.props && n.props.testID === id);
+  const alertNow = (title) => (globalThis.__alerts || []).filter((a) => a[0] === title).pop();
+  const answerAlert = async (title, label) => {
+    const a = alertNow(title);
+    if (!a) throw new Error(`no alert "${title}"; alerts: ${(globalThis.__alerts || []).map((x) => x[0]).join(' | ')}`);
+    const b = a[2].find((x) => x.text === label);
+    await act(async () => { b.onPress(); });
+    await tick(80);
+  };
+  const canvasOf = (r) => r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0].props.__pan;
+  const evt = (...pts) => ({ nativeEvent: { touches: pts.map((p) => ({ pageX: p.x, pageY: p.y })) } });
+  const fit = fitTransform(400, 400, 576, 576);
+  const pointOf = (x, y) => ({ x: fit.panX + (x + 0.5) * fit.zoom, y: fit.panY + (y + 0.5) * fit.zoom });
+  const stroke = async (r, ...pixels) => {
+    const c = canvasOf(r);
+    await act(async () => { c.onPanResponderGrant(evt(pointOf(...pixels[0]))); });
+    for (const px of pixels.slice(1)) await act(async () => { c.onPanResponderMove(evt(pointOf(...px))); });
+    await act(async () => { c.onPanResponderRelease(evt()); });
+  };
+  const unpackBody = (body) => {
+    const packed = Buffer.from(body.mask_payload.data, 'base64');
+    const out = new Uint8Array(576 * 576);
+    for (let k = 0; k < out.length; k += 1) out[k] = (packed[Math.floor(k / 8)] >> (7 - (k % 8))) & 1;
+    return out;
+  };
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const mount = async (backend, initial = 'SCR-08') => {
+    const runtime = liveRuntime(backend.fetchImpl);
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(NavigatorView, { runtime, initialScreenId: initial })), nodeMock);
+    });
+    await tick(120);
+    return r;
+  };
+  const toReview = async (r) => {
+    await pressExact(r, 'Review / correct');
+    await tick(250);
+    await layout(r);
+    await tick(150);
+  };
+
+  // --- H8: Findings tab -> Review / correct -> SCR-06 on RAW (the finding recorded it) ---
+  const be = reviewBackend();
+  const r = await mount(be);
+  check('V4a', has(r, /SCR-08 · V4/) && has(r, /seed finding/) && has(r, /CASE_0061 · slice 44 · run RUN_A · RAW/),
+    'SCR-08 lists the finding with its evidence (case, slice, run, variant)');
+  await toReview(r);
+  check('V4b', has(r, /SCR-06 · V4/) && !has(r, /Which prediction do you want to review/) && has(r, /^RAW · /) && has(r, /^Review: NOT_REVIEWED · rev 1$/),
+    'SCR-06 opens on RAW (the finding\'s own variant: no question, no default) with the review NOT_REVIEWED');
+  const reqs = be.requests.map((q) => `${q.method} ${q.path.replace(/\?.*/, '')}`);
+  check('V4b', reqs.includes('GET /api/v1/analysis-runs/RUN_A') && reqs.some((q) => q === 'POST /api/v1/analysis-runs/RUN_A/reviews')
+    && reqs.some((q) => /GET .*\/slices\/44\/prediction/.test(q)) && reqs.some((q) => /GET .*\/slices\/44\/mri/.test(q))
+    && reqs.some((q) => q.startsWith('GET /api/v1/artifacts/pred-44')),
+  `reads: the run, the scoped review, the slice's prediction and MRI, and the prediction bytes (${reqs.length} requests)`);
+  const create = be.requests.find((q) => q.method === 'POST' && q.path.endsWith('/reviews'));
+  check('V4b', create.body.status === 'NOT_REVIEWED' && create.body.source_mask_id === be.RAW_ID && create.body.prediction_variant === 'RAW',
+    'review_create sends status NOT_REVIEWED with the run\'s RAW artifact as the source and the variant');
+  check('V4b', byId(r, 'mask-state')[0] && textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits'
+    && r.root.findAll((n) => n.type === 'Image').some((n) => /^data:image\/png;base64,/.test(n.props.source.uri)),
+  'the real mask is decoded (no stand-in, no "decoder pending") and the MRI is drawn from its verified bytes');
+  check('V4b', !has(r, /SYNTHETIC/) && !has(r, /decoder is pending/i), 'nothing is labelled SYNTHETIC or pending in live mode');
+
+  // --- one brush stroke at SOURCE resolution ---
+  const rectsBefore = r.root.findAll((n) => n.type === 'Rect').length;
+  await stroke(r, [500, 300]);
+  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && r.root.findAll((n) => n.type === 'Rect').length > rectsBefore,
+    'a one-finger stroke paints (radius 2 by default) and the slice reads UNSAVED');
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  const guard1 = alertNow('Unsaved edits');
+  check('V4d', guard1 && /Slice 44 has unsaved edits/.test(guard1[1]) && has(r, /SCR-06 · V4/),
+    'LEAVE GUARD: Back with unsaved edits asks first, and nothing has moved yet');
+  await answerAlert('Unsaved edits', 'Stay');
+  check('V4d', has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', '"Stay" keeps the screen and the edit');
+  let handled;
+  globalThis.__alerts = [];
+  await act(async () => { handled = BackHandler.__press(); });
+  await tick(60);
+  check('V4d', handled === true && alertNow('Unsaved edits'), 'the Android back button asks too');
+  await answerAlert('Unsaved edits', 'Stay');
+
+  // --- undo / redo, then exactly one pixel at radius 0 ---
+  await pressExact(r, 'Undo');
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits' && btn(r, 'Undo').props.disabled === true && btn(r, 'Redo').props.disabled === false,
+    'Undo: back to the source (nothing to undo, Redo available)');
+  await pressExact(r, 'Redo');
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'Redo: the stroke is back');
+  await pressExact(r, 'Undo');
+  await pressExact(r, '0');
+  await stroke(r, [500, 300], [505, 300]);
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'two samples at radius 0 painted');
+
+  // --- flag with the review status (H8), then save (H9) ---
+  await pressExact(r, 'Flag');
+  await tick(80);
+  check('V4f', has(r, /^Review: FLAGGED · rev 2$/) && be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'FLAGGED' && q.body.expected_revision === 1),
+    'Flag sends review_patch with expected_revision and the review reads FLAGGED');
+  check('V4f', btn(r, 'Mark corrected').props.disabled === true && has(r, /CORRECTED is reached only by saving a correction/),
+    'CORRECTED is not offered as a status: only Save reaches it');
+  await pressExact(r, 'Save');
+  const ask = alertNow('Save correction?');
+  check('V4g', ask && ask[1].includes(`Source: RAW prediction ${be.RAW_ID}`) && /FLAGGED -> CORRECTED/.test(ask[1]) && !be.writes().some((q) => q.method === 'PUT'),
+    'Save names the source mask first, and nothing is sent until it is confirmed');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  const puts = be.writes().filter((q) => q.method === 'PUT');
+  const commits = be.writes().filter((q) => q.method === 'POST' && q.path.endsWith('/commit'));
+  const expected = be.SOURCE.slice();
+  // the stroke's two samples are joined by a line: pixels 500..505 of row 300
+  for (let x = 500; x <= 505; x += 1) expected[300 * 576 + x] = 1;
+  check('V4g', puts.length === 1 && puts[0].path.endsWith('/working-mask/slices/44') && puts[0].body.mask_payload.encoding === 'BITPACK_BASE64'
+    && Object.keys(puts[0].body.mask_payload).sort().join() === 'data,encoding' && same(unpackBody(puts[0].body), expected),
+  'the PUT is slice 44 as BITPACK_BASE64 and decodes to the source plus exactly the six SOURCE pixels the radius-0 stroke covered (500..505, row 300)');
+  check('V4g', puts[0].body.source_mask_id === be.RAW_ID && puts[0].body.expected_revision === 2 && commits.length === 1 && commits[0].body.expected_revision === 3,
+    'the PUT names the review\'s source and carries expected_revision 2; the commit carries 3 (revision moves with every write)');
+  const notice = byId(r, 'notice')[0];
+  check('V4g', notice && /Saved as a new version REVMASK_1 \(revision 4\) of the RAW prediction .* \(RAW_PREDICTION\)\. Review is CORRECTED\./.test(textOf(notice)),
+    `the new version is shown with its source identity: ${notice ? textOf(notice) : '-'}`);
+  check('V4g', has(r, /^Review: CORRECTED · rev 4$/) && byId(r, 'latest-version')[0] && /Latest version REVMASK_1 · source .* \(RAW_PREDICTION\) · 1 version/.test(textOf(byId(r, 'latest-version')[0]))
+    && textOf(byId(r, 'mask-state')[0]) === 'SAVED', 'the header reads CORRECTED, the latest version and its source, and the slice SAVED');
+  check('V4g', !be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'CORRECTED'), 'no PATCH to CORRECTED ever: the commit alone made it');
+  check('V4g', btn(r, 'Save').props.disabled === true, 'Save is disabled again: nothing changed since the commit');
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  check('V4g', has(r, /SCR-08 · V4/), 'saved: Back leaves without asking');
+
+  // --- H9: the raw prediction and the earlier version are untouched ---
+  check('V4h', same(be.db.versions[0].slices.get(44), expected) && same(be.SOURCE, be.bits(ellipseMask(576, 576, 310, 262, 66, 58))),
+    'the committed slice is the edit, and the source prediction bytes are unchanged');
+  check('V4h', !be.writes().some((q) => /prediction|artifacts/.test(q.path) && q.method !== 'GET'), 'nothing was ever written to a prediction or an artifact route');
+
+  // --- STALE_REVISION keeps the edit and offers Refresh (not Retry) ---
+  await toReview(r);
+  check('V4i', has(r, /^Review: CORRECTED · rev 4$/) && byId(r, 'continuing')[0] && /Continuing from version REVMASK_1; Reset returns to the original RAW prediction\./.test(textOf(byId(r, 'continuing')[0]))
+    && textOf(byId(r, 'mask-state')[0]) === 'SAVED',
+  'reopening the CORRECTED review continues from its latest version (N-4): SAVED, and Reset is said to go to the original prediction');
+  check('V4i', be.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && be.requests.some((q) => q.path.includes('/artifacts/rev-REVMASK_1-44')),
+    'the working base slice was read from the latest version (reviewed_mask_slice_get + its bytes)');
+  await pressExact(r, '3');
+  await stroke(r, [100, 100]);
+  be.db.review.revision += 1; // somebody else wrote: our expected_revision is stale
+  await pressExact(r, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  check('V4j', has(r, /STALE MISMATCH/), 'the stale save is the STALE_MISMATCH state');
+  check('V4j', r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Refresh').length >= 1
+    && r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Retry').length === 0
+    && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && btn(r, 'Save').props.disabled === true,
+  'STALE_REVISION: Refresh is offered, Retry is not, the edit is still UNSAVED, and Save cannot resend the stale write');
+  const stalePuts = be.requests.filter((q) => q.method === 'PUT').length;
+  await pressExact(r, 'Refresh');
+  await tick(200);
+  check('V4j', btn(r, 'Save').props.disabled === false && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && has(r, /^Review: CORRECTED · rev 5$/),
+    'after Refresh the review is reloaded at the server\'s revision and the edit is still there');
+  await pressExact(r, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  const secondPut = be.requests.filter((q) => q.method === 'PUT').slice(stalePuts)[0];
+  check('V4j', secondPut && secondPut.body.expected_revision === 5 && be.db.versions.length === 2
+    && textOf(byId(r, 'mask-state')[0]) === 'SAVED' && has(r, /^Review: CORRECTED · rev 7$/),
+  'saving again sends the reloaded revision and makes version 2 (the server\'s own revision, not a retry of the stale write)');
+
+  // --- New finding here: SCR-08 with the context, create, and Back restores the review ---
+  await pressExact(r, 'New finding here');
+  await tick(150);
+  check('V4k', has(r, /SCR-08 · V4/) && has(r, /^CASE_0061 · slice 44 · run RUN_A · RAW$/) && has(r, /New finding/),
+    'New finding here opens SCR-08 with the case, slice, run and variant of the review');
+  await pressExact(r, 'Over-segmentation');
+  const note = r.root.findAll((n) => n.type === 'TextInput')[0];
+  await act(async () => { note.props.onChangeText('Leaks into the right ventricle.'); });
+  await pressExact(r, 'Create finding');
+  await tick(150);
+  const posted = be.requests.find((q) => q.method === 'POST' && q.path === '/api/v1/findings');
+  check('V4k', posted && posted.body.case_id === 'CASE_0061' && posted.body.analysis_run_id === 'RUN_A' && posted.body.prediction_variant === 'RAW'
+    && posted.body.slice_index === 44 && posted.body.finding_type === 'OVER_SEGMENTATION' && posted.body.study_id === 'STUDY_DEMO'
+    && 'region_reference' in posted.body && 'experiment_id' in posted.body,
+  'finding_create sends the contract\'s fields: case, run, variant, slice, type, note, study');
+  check('V4k', has(r, /Finding FINDING_2 created \(OPEN\)/) && has(r, /Leaks into the right ventricle\./), 'the new finding is listed with its note');
+  await pressExact(r, '‹ Back');
+  await tick(250);
+  await layout(r);
+  await tick(150);
+  check('V4k', has(r, /SCR-06 · V4/) && !has(r, /Which prediction do you want to review/) && has(r, /slice 44 \/ 88/) && has(r, /^RAW · /),
+    'Back from SCR-08 reopens SCR-06 on the same variant and slice (returnParams), without asking again');
+  await act(async () => { r.unmount(); });
+
+  // --- SCR-08: create / list / open evidence / resolve, with a recording nav ---
+  const be8 = reviewBackend();
+  const runtime8 = liveRuntime(be8.fetchImpl);
+  const pushes = [];
+  const nav8 = { push: (...a) => { pushes.push(a); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let f;
+  await act(async () => {
+    f = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: runtime8 },
+      React.createElement(FindingsScreen, { runtime: runtime8, nav: nav8, params: {} })), nodeMock);
+  });
+  await tick(150);
+  check('V4l', has(f, /seed finding/) && has(f, /Under-segmentation/) && has(f, /^OPEN$/) && !has(f, /^New finding$/),
+    'SCR-08 opened bare lists the finding (type, status, note) and offers no create form');
+  await pressExact(f, 'Open evidence');
+  check('V4l', pushes.length === 1 && pushes[0][0] === 'SCR-03' && pushes[0][1].caseId === 'CASE_0061' && pushes[0][1].sliceIndex === 44
+    && pushes[0][1].runId === 'RUN_A' && pushes[0][1].variant === 'RAW',
+  'Open evidence pushes SCR-03 at the finding\'s case, slice, run and variant');
+  await pressExact(f, 'Review / correct');
+  check('V4l', pushes[1][0] === 'SCR-06' && pushes[1][1].runId === 'RUN_A' && pushes[1][1].variant === 'RAW' && pushes[1][1].sliceIndex === 44,
+    'Review / correct pushes SCR-06 with the run, variant and slice');
+  await pressExact(f, 'Resolve');
+  await tick(100);
+  const patchReq = be8.requests.find((q) => q.method === 'PATCH' && q.path.includes('/findings/'));
+  check('V4l', patchReq && patchReq.body.status === 'RESOLVED' && patchReq.body.expected_revision === 1 && has(f, /^RESOLVED$/) && btn(f, 'Reopen'),
+    'Resolve sends finding_patch with the finding\'s own revision; the list shows RESOLVED and offers Reopen');
+  be8.db.findings[0].revision += 1; // somebody else changed it
+  await pressExact(f, 'Reopen');
+  await tick(100);
+  check('V4l', has(f, /STALE MISMATCH/) && f.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Refresh').length >= 1
+    && has(f, /^RESOLVED$/), 'a stale Reopen shows Refresh, and the list keeps what it had');
+  await pressExact(f, 'Refresh');
+  await tick(150);
+  check('V4l', !has(f, /STALE MISMATCH/) && has(f, /^RESOLVED$/) === (be8.db.findings[0].status === 'RESOLVED'),
+    'Refresh reads the list again (useCall refetch) and the stale banner goes');
+  await act(async () => { f.unmount(); });
+
+  // --- an already CORRECTED review (seeded) continues from its latest version; Reset returns to the original ---
+  const bs = reviewBackend({ seedVersion: true });
+  const rs = await mount(bs);
+  await toReview(rs);
+  check('V4m', has(rs, /^Review: CORRECTED · rev 2$/) && byId(rs, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rs, 'continuing')[0]))
+    && textOf(byId(rs, 'mask-state')[0]) === 'SAVED' && btn(rs, 'Save').props.disabled === true,
+  'a CORRECTED review opens SAVED on its latest version, with nothing to save');
+  const sentBefore = bs.writes().length;
+  await pressExact(rs, 'Reset');
+  await answerAlert('Reset to the source?', 'OK');
+  check('V4m', textOf(byId(rs, 'mask-state')[0]) === 'UNSAVED edits' && btn(rs, 'Save').props.disabled === false && bs.writes().length === sentBefore,
+    'Reset goes back to the ORIGINAL prediction (not the last version): UNSAVED against the version, and nothing is sent by it');
+  await pressExact(rs, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  const putReset = bs.writes().find((q) => q.method === 'PUT');
+  check('V4m', putReset && same(unpackBody(putReset.body), bs.SOURCE) && bs.db.versions.length === 2
+    && bs.db.versions[1].parent && bs.db.versions[1].parent.id === 'REVMASK_0',
+  'saving after a reset commits the original prediction as version 2 on top of version 1 (the earlier version is its parent, untouched)');
+  check('V4m', same(bs.db.versions[0].slices.get(44), bs.db.versions[0].earlier), 'version 1 is unchanged');
+  await act(async () => { rs.unmount(); });
+
+  // --- the base version cannot be read: the slice is not editable (never edited from the source) ---
+  const bd = reviewBackend({ seedVersion: true });
+  const downFetch = async (url, init) => (/\/reviewed-masks\/[^/]+\/slices\//.test(url)
+    ? { status: 500, headers: { get: () => null }, text: async () => '', json: async () => null } : bd.fetchImpl(url, init));
+  const rd = await mount({ ...bd, fetchImpl: downFetch });
+  await toReview(rd);
+  check('V4n', has(rd, /continues from its latest version, but that version.s slice could not be read/) && !byId(rd, 'mask-state')[0]
+    && btn(rd, 'Retry slice'),
+  'the base slice cannot be fetched: the slice is not drawn as editable, the reason is said and Retry slice is offered');
+  await act(async () => { rd.unmount(); });
+}
+
+// ---- 11. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------
 // What a PASS means: the screen asks for the mesh references and bytes the way the contract says, verifies the bytes
 // against the id (DR-021 rule 1), hands the viewer only verified, grid-matching artifacts, shows loading /
 // unavailable (with the API's reason) / error / success, and turns a pick message into "slice n / total" and an
