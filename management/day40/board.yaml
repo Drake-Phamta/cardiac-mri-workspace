@@ -79,6 +79,8 @@ decisions:
     - "**DR-022** (chờ leader xác nhận hôm nay): backend phục vụ 53 case holdout ở chế độ EVALUATION sau GATE-IMG-01; CASE_0001 luôn chỉ suy luận"
 links:
   - {label: "📊 Trang kết quả holdout", href: "https://drake-phamta.github.io/cardiac-mri-workspace/results/holdout-day39.html"}
+  - {label: "Ma trận nghiệm thu (33 MUST)", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day40/ACCEPTANCE_TRACE.md"}
+  - {label: "Bằng chứng E2E", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/E2E_EVIDENCE.md"}
   - {label: "Kế hoạch tới 31/10", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day40/REPLAN_TO_2026-10-31.md"}
   - {label: "Kế hoạch Day 40", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day40/DAY40_PLAN.md"}
   - {label: "Bảng revalidation 18/10", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/POST_RECOVERY_REVALIDATION_DAY40.md"}
