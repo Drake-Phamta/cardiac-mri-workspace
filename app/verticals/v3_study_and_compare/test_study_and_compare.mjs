@@ -9,8 +9,9 @@
 //               --output app/core/fixtures/.generated/api_bundle.json
 //
 //      Since API contract 1.1.0 the generator gives the V3 endpoints TYPED
-//      values (N 6 / 4, a metric_summary, six case rows including FAILED and
-//      WITHHELD, a DR-010 outlier_selection) for one experiment, EXP_DEMO,
+//      values (N 5 / 5 - the evaluated WITHHELD INT-12 case counts, DR-017 -, a
+//      metric_summary, five case rows, a DR-010 outlier_selection) for one
+//      experiment, EXP_DEMO; the `with_failure` scenarios add a FAILED row (N 6 / 5),
 //      plus EXP-D-PP in the list. The fixture transport answers the same
 //      body whatever id is asked, so for a matrix id the checks also prove
 //      that a served identity that differs is REPORTED, and a selection made
@@ -182,11 +183,26 @@ const check = (id, ok, detail) => {
   check('V3-4', u.cases.rows.length === servedRows.length && u.points.length === plotted.length
     && u.points.map((p) => p.caseId).join(',') === plotted.map((r) => r.case_id).join(','),
     `${u.cases.rows.length} rows kept, ${u.points.length} plotted (SUCCEEDED with a dice value), in served order`);
-  const failed = u.cases.rows.find((r) => r.status === 'FAILED');
   const withheld = u.cases.rows.find((r) => r.status === 'WITHHELD');
-  check('V3-4', failed.plotState === 'FAILED' && failed.value === null && failed.reason
+  check('V3-4', !u.cases.rows.some((r) => r.status === 'FAILED')
     && withheld.plotState === 'WITHHELD' && withheld.value === null && /INT-12/.test(withheld.reason),
-    `FAILED and WITHHELD rows stay visible with their reason, value null - "${withheld.reason}"`);
+    `the WITHHELD row stays visible with its reason, value null - "${withheld.reason}"`);
+  // DR-017: INT-12 is hidden, not blinded - the evaluated WITHHELD case counts in both N and the summary n.
+  check('V3-4', served.evaluation_n === 5 && served.successful_n === 5 && u.n.text === 'N intended 5 · N successful 5'
+    && summaryStat(u.summary, 'dice', 'n') === 5 && servedRows.length === 5
+    && servedRows.filter((r) => r.status === 'SUCCEEDED' || r.status === 'WITHHELD').length === served.successful_n,
+    `the WITHHELD case counts in N and in the summary n: "${u.n.text}", dice n ${summaryStat(u.summary, 'dice', 'n')}`);
+  {
+    const wf = createExperimentComparison(newClient());
+    await wf.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice',
+      scenarios: { experiment_metrics: 'with_failure', experiment_cases: 'with_failure' } });
+    const f = wf.cell('EXP-U-100');
+    const failedRow = f.cases.rows.find((r) => r.status === 'FAILED');
+    check('V3-4', f.n.text === 'N intended 6 · N successful 5' && f.n.consistency === 'CONSISTENT'
+      && failedRow && failedRow.plotState === 'FAILED' && failedRow.value === null && failedRow.reason
+      && f.cases.rows.length === 6,
+      `with_failure scenario: "${f.n.text}", the FAILED row stays visible with its reason, value null`);
+  }
   check('V3-4', u.points.every((p) => p.intent.enabled && p.intent.variant === 'RAW' && p.intent.runId),
     `every point opens SCR-03 with case, run and variant: ${u.points[0].intent.text}`);
   check('V3-4', !u.outliers.available && u.outliers.reason === UNAVAILABLE.OUTLIERS_FOR_ANOTHER_EXPERIMENT

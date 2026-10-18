@@ -19,7 +19,10 @@ per-slice and per-case values (the client never ranks):
   FP+FN descending, then slice_index ascending - every eligible slice, ranked;
 - outlier: the three SUCCEEDED cases with the lowest case Dice, then FP+FN
   descending, then case_id ascending. An INFERENCE_REVIEW case (INT-12) is
-  WITHHELD and never a candidate; cohort summaries keep the whole population.
+  WITHHELD and never a candidate (the exclusion is part of DR-010's outlier selection, DR-017 N-b); its
+  row is WITHHELD even if the ML listed it as failed (QA-075 N-7). Cohort summaries and the compare
+  population keep the whole evaluated population, that case included (DR-017: hidden, not blinded).
+  A case that failed has no run (DR-018) and is a FAILED row from the PER_CASE_METRICS failures list.
 """
 
 from __future__ import annotations
@@ -259,13 +262,15 @@ class MetricsService:
         rows = []
         for case_id in sorted(loaded.population, key=lambda value: int(value.split("_", 1)[1])):
             run_id = package.run_by_case.get(case_id)
-            if case_id in loaded.failures:
+            if self.withheld(case_id):
+                # INT-12 first (QA-075 N-7, DR-017): whatever the ML recorded for this case - a value, a
+                # failure or nothing - the row is WITHHELD, with this backend's reason and no value.
+                rows.append({"case_id": case_id, "status": "WITHHELD", "reason": WITHHELD_REASON,
+                             "analysis_run_id": run_id, "metric_values": None})
+            elif case_id in loaded.failures:
                 failure = loaded.failures[case_id]
                 rows.append({"case_id": case_id, "status": "FAILED",
                              "reason": f"{failure.get('reason_code')}: {failure.get('reason')}",
-                             "analysis_run_id": run_id, "metric_values": None})
-            elif case_id in loaded.records and self.withheld(case_id):
-                rows.append({"case_id": case_id, "status": "WITHHELD", "reason": WITHHELD_REASON,
                              "analysis_run_id": run_id, "metric_values": None})
             elif case_id in loaded.records:
                 rows.append({"case_id": case_id, "status": "SUCCEEDED", "reason": None,

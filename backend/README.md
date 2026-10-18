@@ -66,6 +66,31 @@ Selection is by rule from `data/manifests/split_manifest_path_a_seed2024.json` (
 (EVALUATION), and the **INT-12 case = CASE_0001** (lowest `final_holdout` id other than CASE_0027,
 INFERENCE_REVIEW, ground truth withheld). The split's pinned dataset-manifest sha256 is checked.
 
+**Holdout cases after GATE-IMG-01 (DR-022).** Real Contract 2 packages are `FINAL_HOLDOUT` (54 cases), and the
+hero flow needs the per-case views (SCR-03 overlay, SCR-04 errors) of the evaluated cases, so the ingest can add
+them, **only** when it is given the closed authorization record:
+
+```powershell
+python -m backend.app.ingest --package-root "<LASC extracted root>" `
+    --include-holdout --holdout-authorization <repo-relative path of the ml-holdout-authorization/1 record>
+```
+
+With both flags the ingest also takes **every `final_holdout` case except the INT-12 case** (CASE_0027, the DR-002b
+suspected case, like any other) in EVALUATION mode, role `FINAL_HOLDOUT`: 20 + 1 + 53 = 74 cases. Without the
+record, or with a record that is not strict JSON of format `ml-holdout-authorization/1`, gate `GATE-IMG-01`,
+`gate_status` `CLOSED` and the pinned split's sha256, it refuses before anything is written. (`ml/` is not imported:
+the backend runs on Python 3.9 without torch, so these four checks are written out in `ingest.py`; the record's
+other fields are `ml/holdout.py`'s to validate.) The record path is repository-relative (it is committed with the
+GATE-IMG-01 decision); an absolute path is accepted for a local check and only its file name is recorded. The
+cache's `index.json` records the record's own sha256 under `holdout_authorization`.
+
+`CaseStore` keeps its lock: without that metadata a cache with more than one `final_holdout` case, or with one that
+has ground truth, still refuses to start; with it, the other holdout cases are allowed in EVALUATION mode. **The
+INT-12 case is `INFERENCE_REVIEW` without ground truth in every mode**: a cache that lists it as inference-only
+(`inference_only_case_ids`, which is required once a record is present) and also serves ground truth for it, or has
+a malformed or mismatched record, refuses to start. Real metrics then also reach the holdout cases' run-level
+endpoints, because those need the case in the cache.
+
 Output goes to `$CARDIAC_BACKEND_DATA/data_cache/` (or `--out`); a path inside a git work tree is refused. Re-running is idempotent: identical bytes are a NO_OP, changed
 source bytes are `CHECKSUM_CONFLICT`, never an overwrite. ~21 cases × 88 slices; MRI intensities are uint8 in the
 package and are copied unchanged (`png8-identity/1`), masks are {0, 255}.
@@ -95,8 +120,11 @@ python -m pytest backend/tests -q
 ```
 
 TestClient on a synthetic package (generated NRRDs with the real package's header, a synthetic split with
-CASE_0027 in the holdout, a synthetic Contract 2 package with RAW + PROCESSED predictions and a FAILED run, and a
-second package that the validator rejects). **Every JSON response is validated** with
+CASE_0027 in the holdout and 49 filler holdout cases, a synthetic 54-case Contract 2 package with RAW + PROCESSED
+predictions and one failed case that has no run and is listed in the failures (DR-018), and a second package that
+the validator rejects). `test_holdout.py` covers DR-022: refused without a record, with gate OPEN, a wrong split
+sha256 or a malformed record; accepted with a valid one (54 cases in the synthetic cache); INT-12 never served with ground
+truth; the old lock when the cache has no record. **Every JSON response is validated** with
 `contracts/api/validate_api_contract.validate_response` — the same function the contract test applies to the
 generated fixtures. Covered: routes for all 28 endpoints, the INT-12 selection rule, slice pixels equal to the
 source (rows = y, columns = x), ground truth served only in EVALUATION mode and never derived for INT-12, every
@@ -132,7 +160,10 @@ whose `contract` is `contract2_experiment_artifact`): `<pkg>/<manifest>.json`, a
 exporter's own `<run>/contract2/<manifest>.json` with **the run directory as artifact root** (`ml/export_contract2.py`
 output, copied as a whole run directory). Every package is checked with `validate_contract2.py` first (both gates
 `ACCEPTED`; checksums of every artifact, the manifests **and the checkpoint** — so the run copy must include the
-checkpoint file); a rejected package is listed by code in `/health` and never partially served.
+checkpoint file; and, since DR-018, completeness: runs + listed failures = 54, every population case exactly once,
+each run's artifacts carry its case and run ids, the mask kind matches the prediction variant); a rejected package
+is listed by code in `/health` and never partially served. The validator reads the PER_CASE_METRICS artifact and the
+population manifest, so both must be in the run copy.
 
 Served from the saved files (`ml/evaluate.py`, `ml-eval-1.0.0` formats), never recomputed from images:
 
@@ -140,9 +171,9 @@ Served from the saved files (`ml/evaluate.py`, `ml-eval-1.0.0` formats), never r
 |---|---|---|
 | `analysis_run_metrics` | the run's `METRIC_SET` (`ml-metric-set/1`) + `PER_SLICE_METRICS` | `metric_values` via one explicit field map (`METRIC_SOURCES`: `dice_3d→dice`, `iou_3d→iou`, `fp_voxels→false_positives`, `fn_voxels→false_negatives`, `relative_volume_error_percent→relative_volume_error`, percent of the GT voxel count); `worst_slice_selection` re-ranked here by DR-010 over every eligible slice, served with the contract literals (`DR-010`, `dr010-worst-slice/v1`) and cross-checked against the saved order |
 | `analysis_slice_metrics` | `PER_SLICE_METRICS` | `NOT_APPLICABLE` with `null` for a both-empty slice (`07` §6) |
-| `experiment_metrics` | `METRICS_SUMMARY` cohort | `n/mean/std/median/q1/q3/min/max` + the saved bootstrap CI as `ci95_low/high` |
-| `experiment_cases` | `PER_CASE_METRICS` | `SUCCEEDED / FAILED / EXCLUDED / WITHHELD` rows; the INT-12 case is `WITHHELD` (no values); DR-010 `outlier_selection` ranked here over `SUCCEEDED` rows only |
-| `experiment_compare` | per-case records of each package | comparable = same population, split, metric version and variant; summaries over the common population (CIs `null`, not computed here) |
+| `experiment_metrics` | `METRICS_SUMMARY` cohort | `n/mean/std/median/q1/q3/min/max` + the saved bootstrap CI as `ci95_low/high`. **INT-12 is hidden, not blinded (DR-017):** the evaluated INT-12 case counts in `evaluation_n`, `successful_n` and every `n`, so its value can be derived from the cohort statistics; the app serves no per-case value of it |
+| `experiment_cases` | `PER_CASE_METRICS` | `SUCCEEDED / FAILED / EXCLUDED / WITHHELD` rows; a failed case has no run (DR-018) and is a `FAILED` row from the `failures` list with `analysis_run_id` null; the INT-12 case is `WITHHELD` (no values), and WITHHELD is checked **before** FAILED and EXCLUDED (QA-075 N-7); DR-010 `outlier_selection` ranked here over `SUCCEEDED` rows only (the WITHHELD exclusion is part of DR-010's outlier selection, DR-017 N-b) |
+| `experiment_compare` | per-case records of each package | comparable = same population, split, metric version and variant; summaries over the common population, the INT-12 case included when it was evaluated (DR-017; CIs `null`, not computed here) |
 
 Provenance checks per request: the metric set scored exactly the run's prediction bytes (C2 checksum) and exactly
 the reference file this backend ingested (sha256 of the mask NRRD bytes); the per-slice rows cover the volume;
@@ -193,12 +224,17 @@ case's raw volume. The API has no volume endpoint, so a switch is bounded by one
   dataset manifest, and the service refuses a cache with more than one `final_holdout` case or a holdout case
   served with ground truth.
 
-## Known gaps (Day 22)
+## Known gaps (Day 22, updated Day 39)
 
 - Metrics, worst-slice selection and cohort endpoints answer the unavailable state until saved Contract 2 metric
-  artifacts exist (no training run has produced one yet).
+  artifacts exist. As of 2026-10-18 no holdout has been predicted: a real package needs the GATE-IMG-01 record on
+  `main`, the exporter and the validator DR-018 checks, and (for the per-case views) a cache built with
+  `--include-holdout --holdout-authorization <record>` (DR-022).
 - No Contract 2 package exists yet, so on real data there are no runs, predictions or reviews; the review flow is
-  proven on the synthetic package only.
+  proven on the synthetic package only. A failed case has no run (DR-018), so the FAILED-run guards
+  (`RUN_NOT_SUCCEEDED`, `ANALYSIS_FAILED`) cannot be reached by a valid package; the tests flip a loaded run to reach them.
+- The validator trusts the PER_CASE_METRICS artifact and the population manifest for the population; it does not
+  re-derive either from the split manifest.
 - The mesh frame of `RECONSTRUCTION_3D` artifacts is not declared by Contract 2; `mesh_to_world_transform` is the
   identity in the source mask's voxel-index frame. To be confirmed with the mesh pipeline (V2 / `backend/mesh/`).
 - No authentication (LOCAL_DEMO overlay, DR-003); `UNAUTHORIZED` is never answered. Plain HTTP on the overlay.

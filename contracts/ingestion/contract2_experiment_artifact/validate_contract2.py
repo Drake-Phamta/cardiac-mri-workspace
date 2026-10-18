@@ -4,6 +4,12 @@
 This is an offline review/acceptance tool, not a production ingestion module.
 It verifies provenance, gates, checksums and immutable re-ingestion semantics
 using the repository's Draft 2020-12 JSON Schema validator plus Python checks.
+
+DR-018 completeness checks (given the package root, they read the PER_CASE_METRICS
+artifact and the evaluation population manifest): runs plus listed failures equal
+``num_test_cases``; every population case appears exactly once, as a run or as a
+failure; each run's case and run ids match its artifacts; the mask kind matches
+the prediction variant (RAW masks for RAW runs, PROCESSED masks for PROCESSED runs).
 """
 
 from __future__ import annotations
@@ -120,6 +126,134 @@ def _validate_checkpoint(root: Path, checkpoint: dict) -> None:
     if not isinstance(checkpoint["checkpoint_id"], str) or not checkpoint["checkpoint_id"]:
         _fail("SCHEMA_INVALID", "experiment.checkpoint.checkpoint_id is required")
     _verify_file(root, checkpoint["path"], checkpoint["checksum"], "experiment.checkpoint")
+
+
+CASE_TOKEN = re.compile(r"CASE_[0-9]+")
+MASK_KIND_BY_VARIANT = {"RAW_PREDICTION": "RAW_PREDICTION_MASK", "PROCESSED_PREDICTION": "PROCESSED_PREDICTION_MASK"}
+
+
+def _json_file(root: Path, source_path: object, kind: str) -> dict:
+    """A JSON file under the package root (its checksum has already been verified)."""
+    path = _safe_path(root, source_path, kind)
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        _fail("ARTIFACT_UNREADABLE", f"{kind}: cannot read it as JSON: {exc}")
+    if not isinstance(document, dict):
+        _fail("ARTIFACT_UNREADABLE", f"{kind}: must be a JSON object")
+    return document
+
+
+def _case_id_list(value: object, kind: str) -> list:
+    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+        _fail("EVALUATION_POPULATION_INVALID", f"{kind}: case_ids must be a list of case id strings")
+    if len(set(value)) != len(value):
+        _fail("EVALUATION_POPULATION_INVALID", f"{kind}: a case id is listed twice")
+    return value
+
+
+def _check_completeness(experiment: dict, root: Path, artifact_by_id: dict, runs: list) -> int:
+    """DR-018: one run or one listed failure per population case; ids and mask kinds tie out.
+
+    Returns the number of failures listed in the PER_CASE_METRICS artifact.
+    """
+    variant = experiment["prediction_variant"]
+    expected_kind = MASK_KIND_BY_VARIANT.get(variant)
+    if expected_kind is None:
+        _fail("PROVENANCE_INVALID", f"experiment.prediction_variant {variant!r} is not a prediction variant")
+    per_case = _json_file(root, artifact_by_id[experiment["per_case_metrics"]["artifact_id"]]["source_path"],
+                          "experiment.per_case_metrics")
+    if per_case.get("prediction_variant") != variant:
+        _fail("PROVENANCE_INVALID", "PER_CASE_METRICS prediction_variant differs from experiment.prediction_variant")
+    failures = per_case.get("failures")
+    if not isinstance(failures, list):
+        _fail("EVALUATION_POPULATION_INVALID", "PER_CASE_METRICS failures must be a list (empty when no case failed)")
+    failed_ids = []
+    for item in failures:
+        if not (isinstance(item, dict) and isinstance(item.get("case_id"), str) and item["case_id"]
+                and isinstance(item.get("reason_code"), str) and item["reason_code"]
+                and isinstance(item.get("reason"), str)):
+            _fail("EVALUATION_POPULATION_INVALID", "each failure needs case_id, reason_code and reason strings")
+        failed_ids.append(item["case_id"])
+    population = per_case.get("population")
+    if not isinstance(population, dict):
+        _fail("EVALUATION_POPULATION_INVALID", "PER_CASE_METRICS population is missing")
+    population_ids = _case_id_list(population.get("case_ids"), "PER_CASE_METRICS population")
+    manifest_ref = experiment["evaluation_population_manifest"]
+    manifest_ids = _case_id_list(
+        _json_file(root, manifest_ref["path"], "experiment.evaluation_population_manifest").get("case_ids"),
+        "evaluation population manifest")
+    if sorted(manifest_ids) != sorted(population_ids):
+        _fail("EVALUATION_POPULATION_INVALID",
+              "the evaluated population differs from the evaluation population manifest")
+
+    run_cases = []
+    for run in runs:
+        if not (isinstance(run.get("case_id"), str) and run["case_id"]):
+            _fail("PROVENANCE_INVALID", f"{run.get('analysis_run_id')}: case_id is required")
+        if run.get("status") != "SUCCEEDED":
+            _fail("EVALUATION_POPULATION_INVALID",
+                  f"{run['analysis_run_id']}: a failed case has no run; list it in the PER_CASE_METRICS failures (DR-018)")
+        run_cases.append(run["case_id"])
+    repeated = sorted({case_id for case_id in run_cases if run_cases.count(case_id) > 1})
+    if repeated:
+        _fail("DUPLICATE_ANALYSIS_RUN", f"analysis runs: case(s) {repeated} have more than one run")
+    repeated = sorted({case_id for case_id in failed_ids if failed_ids.count(case_id) > 1})
+    if repeated:
+        _fail("EVALUATION_POPULATION_INVALID", f"listed failures: case(s) {repeated} are listed more than once")
+    both = sorted(set(run_cases) & set(failed_ids))
+    if both:
+        _fail("EVALUATION_POPULATION_INVALID", f"case(s) {both} are both an analysis run and a listed failure")
+    if len(runs) + len(failed_ids) != experiment["num_test_cases"]:
+        _fail("EVALUATION_POPULATION_INVALID",
+              f"{len(runs)} analysis run(s) + {len(failed_ids)} listed failure(s) != num_test_cases "
+              f"{experiment['num_test_cases']}")
+    covered = set(run_cases) | set(failed_ids)
+    if covered != set(population_ids):
+        _fail("EVALUATION_POPULATION_INVALID",
+              f"population cases without a run or a failure: {sorted(set(population_ids) - covered)}; "
+              f"run or failure cases outside the population: {sorted(covered - set(population_ids))}")
+
+    claimed: dict[str, str] = {}
+    paths: dict[str, str] = {}
+    for run in runs:
+        run_id, case_id = run["analysis_run_id"], run["case_id"]
+        raw_id, processed_id = run["raw_prediction_mask_id"], run.get("processed_prediction_mask_id")
+        if variant == "PROCESSED_PREDICTION" and processed_id is None:
+            _fail("PROVENANCE_INVALID", f"{run_id}: a PROCESSED_PREDICTION run must reference its processed mask")
+        owned = [raw_id] + ([processed_id] if processed_id is not None else []) \
+            + list(run["metric_set_ids"]) + list(run["reconstruction_ids"])
+        for artifact_id in owned:
+            artifact = artifact_by_id[artifact_id]
+            if claimed.setdefault(artifact_id, run_id) != run_id:
+                _fail("PROVENANCE_INVALID", f"{artifact_id}: shared by runs {claimed[artifact_id]} and {run_id}")
+            if paths.setdefault(artifact["source_path"], artifact_id) != artifact_id:
+                _fail("PROVENANCE_INVALID", f"{artifact_id}: reads the same file as {paths[artifact['source_path']]}")
+            if artifact.get("case_id") != case_id or artifact.get("analysis_run_id") != run_id:
+                _fail("PROVENANCE_INVALID", f"{artifact_id}: case_id/analysis_run_id differ from run {run_id} ({case_id})")
+            if f"/runs/{run_id}/" not in artifact["artifact_uri"]:
+                _fail("PROVENANCE_INVALID", f"{artifact_id}: artifact_uri is not under run {run_id}")
+            tokens = set(CASE_TOKEN.findall(artifact_id)) | set(CASE_TOKEN.findall(artifact["source_path"]))
+            if tokens - {case_id}:
+                _fail("PROVENANCE_INVALID",
+                      f"{artifact_id}: names case(s) {sorted(tokens - {case_id})} but run {run_id} is {case_id}")
+        for metric_id in run["metric_set_ids"]:
+            metric = artifact_by_id[metric_id]
+            label = metric.get("prediction_mask_kind")
+            if label != variant:
+                _fail("PROVENANCE_INVALID",
+                      f"{metric_id}: prediction_mask_kind {label!r} differs from the experiment's {variant}")
+            target = artifact_by_id[metric["prediction_mask_id"]]
+            if target["kind"] != expected_kind:
+                _fail("PROVENANCE_INVALID", f"{metric_id}: labelled {label} but scores a {target['kind']}")
+        for reconstruction_id in run["reconstruction_ids"]:
+            reconstruction = artifact_by_id[reconstruction_id]
+            label = reconstruction.get("source_mask_kind")
+            source = artifact_by_id[reconstruction["source_artifact_id"]]
+            if label is not None and MASK_KIND_BY_VARIANT.get(label) != source["kind"]:
+                _fail("PROVENANCE_INVALID",
+                      f"{reconstruction_id}: source_mask_kind {label!r} does not match {source['kind']}")
+    return len(failed_ids)
 
 
 def _validate_artifact(
@@ -325,11 +459,13 @@ def validate_manifest(
                 raw["artifact_id"], processed_id,
             }:
                 _fail("PROVENANCE_INVALID", f"{run_id}: reconstruction source is not this run's mask")
+    listed_failures = _check_completeness(experiment, root, artifact_by_id, runs)
     return {
         "status": "PASS",
         "manifest_id": manifest["manifest_id"],
         "artifacts": actions,
         "analysis_runs": len(runs),
+        "listed_failures": listed_failures,
     }
 
 
@@ -352,7 +488,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(
         f"PASS: Contract 2 DRAFT v0 {result['manifest_id']} — "
-        f"{result['analysis_runs']} analysis run(s), {len(result['artifacts'])} artifact(s); "
+        f"{result['analysis_runs']} analysis run(s) + {result['listed_failures']} listed failure(s), "
+        f"{len(result['artifacts'])} artifact(s); "
         f"actions={','.join(item['action'] for item in result['artifacts'])}"
     )
     return 0
