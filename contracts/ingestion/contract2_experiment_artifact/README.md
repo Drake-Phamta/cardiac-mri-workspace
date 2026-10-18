@@ -15,9 +15,14 @@ only, by a PR from the contract owner reviewed by the leader, with the exporter
   case (`CASE_0001` under split `path_a_seed2024_dr002b_v1`), and its metrics are
   computed against its ground truth like every other case. Withholding is a
   product configuration applied by the API (API Contract 11
-  `case_capability`): cohort summaries keep the case, while its per-case and
-  per-slice ground-truth-derived values, worst-slice selection and error data
-  are never served.
+  `case_capability`): cohort summaries keep the case (so its values can be
+  derived from them: INT-12 is hidden, not blinded, DR-017), while its per-case
+  and per-slice ground-truth-derived values, worst-slice selection and error
+  data are never served.
+- **Failed cases and completeness (DR-018)** need no schema change. A case whose
+  inference fails has **no run** in `analysis_runs`; it is listed, with its
+  reason, in the PER_CASE_METRICS artifact's `failures`. The validator now
+  checks completeness (see "Completeness checks").
 
 This directory contains an offline contract for precomputed experiment outputs.
 It is a review artifact, not a production ingestion module or API implementation.
@@ -64,6 +69,33 @@ The validator also enforces idempotent re-ingestion: the same URI and checksum
 is `NO_OP`; the same URI with a changed checksum is a hard
 `CHECKSUM_CONFLICT`. Relative paths cannot escape the package root.
 
+## Completeness checks (DR-018)
+
+Given the package root, `validate_manifest` reads the PER_CASE_METRICS artifact
+(the file `ml/evaluate.py` writes: `population.case_ids`, `prediction_variant`,
+`failures: [{case_id, reason_code, reason}]`) and the evaluation population
+manifest (`case_ids`), and refuses (`EVALUATION_POPULATION_INVALID`,
+`DUPLICATE_ANALYSIS_RUN` or `PROVENANCE_INVALID`) unless:
+
+- the number of analysis runs plus the number of listed failures equals
+  `experiment.num_test_cases` (54), and an analysis run is never `FAILED`;
+- every case of the evaluation population appears exactly once, as a run or as a
+  failure, no case is both, none twice, none outside the population, and the
+  population of the metrics artifact equals the population manifest;
+- every run's `case_id` matches its artifacts: each artifact a run uses (raw and
+  processed mask, metric sets, reconstructions) is used by that run alone, reads
+  its own file, carries the run's `case_id` and `analysis_run_id`, lives under
+  `artifact://.../runs/<run id>/`, and names no other case in its id or path;
+- the mask kind matches the prediction variant: a RAW_PREDICTION experiment
+  scores RAW_PREDICTION_MASK artifacts, a PROCESSED_PREDICTION experiment
+  scores PROCESSED_PREDICTION_MASK artifacts and every run has its processed
+  mask; a metric set's `prediction_mask_kind` equals the experiment's variant and
+  the mask it points at; the metrics artifact's `prediction_variant` agrees.
+
+The result also reports `listed_failures`. `ml/export_contract2.py` is updated
+separately (it still refuses an export that has failed cases); its output passes
+these checks.
+
 ## Local checks
 
 Run the synthetic, data-free checks from this directory:
@@ -72,9 +104,14 @@ Run the synthetic, data-free checks from this directory:
 python test_contract2.py
 ```
 
-The test exercises a valid 54-case holdout manifest, both gate failures,
-precomputed enforcement, checksum conflicts, missing metric references,
-provenance failures, path traversal rejection, and idempotent re-ingestion.
+The test builds a valid 54-case holdout package (and one with a listed failure,
+and a PROCESSED one) and exercises both gate failures, precomputed enforcement,
+checksum conflicts, missing metric references, provenance failures, path
+traversal rejection, idempotent re-ingestion, and each DR-018 refusal as a
+mutation: a dropped case, two runs on one case, one mask shared by two runs (and
+by every run), a swapped `case_id`, an artifact under another run or naming
+another case, a PROCESSED label on a RAW mask (and the reverse), a case listed
+and also run, a failure outside the population, a different population manifest.
 The Python validator applies `schema.json` with a Draft 2020-12 JSON Schema
 validator before its semantic checks, then verifies checksums and provenance.
 It requires the repository's `jsonschema` package:
