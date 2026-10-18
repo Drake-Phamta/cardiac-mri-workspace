@@ -16,6 +16,7 @@
 | K2 🔴 | #93 → `f08968a` | **GATE-IMG-01 đóng**: PP-4 đóng băng, bản ghi `holdout_authorization.json` | đọc `GATE_IMG_01_DECISION.md`, `gate_img_01/SELECTION.md`; kiểm sha256 của config `c0a68cc7…` | |
 | K3 🔴 | holdout 18/10 07:22–07:36 | suy luận holdout 3 run DINOv2, EXP-D-PP, đánh giá, so sánh, xuất 4 gói Contract 2 (ngoài git, trên PC leader) | đọc log trong `cardiac-runs/_holdout_d39/`; không chạy lại holdout | |
 | K4 | #96 | biên bản kết quả holdout (chỉ số tổng hợp) | đối chiếu với `metrics_summary.json` từng run | |
+| K6 🔴 | #100 → `d57be05` | **bộ công cụ UNet**: cấu hình hàng đợi đã commit, script tạo bản ghi cho phép holdout, pipeline holdout một lệnh (so sánh UNet vs DINOv2), job CI `ml tests (CPU)` | `python -m ml.queue --queue ml/configs/queues/unet_adr_ml_001.json --epochs 50 --batch 8 --dry-run`; đọc `ml/README.md` mục "UNet family" | |
 | K5 | #90 → `66a428c` | PR revalidation của chính bạn, merge sau QA LLM | — | |
 
 ## Nguyễn Gia Đức Trung — contract, backend, V4
@@ -25,6 +26,7 @@
 | T1 🔴 | #94 → `01bed7b` | DR-017 (CASE_0001 tính vào cohort, fixture 5/5), N-b/N-c, QA-075 N-7, **validator DR-018**, **DR-022** (backend phục vụ 53 case holdout sau GATE-IMG-01) | `python -m pytest backend/tests -q -p no:cacheprovider`; `python contracts/api/test_api_contract.py`; đọc QA_PR94_D39 NB-1…NB-8 | |
 | T2 | #95 | script E2E hero flow mức API (dùng backend) | chạy theo `tools/e2e/README.md` với `--no-writes` | |
 | T4 🔴 | #99 → `fe74e06` | **V4 SCR-06/SCR-08** chuyển từ #72 lên shell hiện tại; model V4 đóng QA-063 N-1…N-4; NB-1 (commit phải có id và checksum) | `node app/verticals/v4_review_and_findings/test_review_correction.mjs` (50/50), `npm test` trong `mobile/` (246), render smoke (205); đọc QA_PR99_D39 NB-2…NB-7; đóng #72 nếu nhận | |
+| T5 | #101 → `6efec48` | `deploy_macmini.ps1 -ShipPackages` (gói thí nghiệm + mesh) | đọc diff; dùng ở lần deploy UNet | |
 | T3 | #87, #88 | CI job mobile, quét IPv4; điều hướng, netLog, `useCall`, checksum | duyệt lại với vai người duyệt thứ hai | |
 
 ## Vũ Hùng Anh — V2 / 3D
@@ -39,4 +41,5 @@
 | # | Mục | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
 | P1 | **DR-022** | quyết định do phiên leader ghi dưới override | xác nhận hoặc đổi | |
+| P3 | #102, #103 | bộ dựng bảng/hình/slide nháp (cả nhóm đọc `management/presentation/final/DECK_OUTLINE.md`); script phiên điện thoại `mobile/scripts/device_session.ps1` | chạy `-DryRun`; đọc `mobile/DEVICE_SESSION.md` | |
 | P2 | #91, #93 | biên bản override và bản ghi cổng của chính anh | — | |
