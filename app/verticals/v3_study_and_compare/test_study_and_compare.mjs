@@ -317,9 +317,10 @@ const check = (id, ok, detail) => {
   const fromBundle = readCohortN(servedMetrics);
   check('V3-8', fromBundle.intended.value === servedMetrics.evaluation_n && fromBundle.successful.value === servedMetrics.successful_n,
     `the generated experiment_metrics default (typed since 1.1.0) reads as "${fromBundle.text}"`);
-  check('V3-8', readVariant('RAW_PREDICTION').lane === 'RAW' && readVariant('processed').lane === 'PROCESSED'
+  check('V3-8', readVariant('RAW').lane === 'RAW' && readVariant('PROCESSED').lane === 'PROCESSED'
+    && readVariant('RAW_PREDICTION').lane === null && readVariant('processed').lane === null
     && readVariant('BEST').lane === null && readVariant(undefined).lane === null,
-    'variant spellings map to two lanes; anything else is undeclared');
+    'only the exact RAW / PROCESSED contract enum is accepted');
   check('V3-8', readFraction(0.5).pct === 50 && readFraction(50).pct === null && readFraction('0.5').pct === null,
     'training_fraction: only Contract 2\'s 0.25 / 0.5 / 1.0');
   check('V3-8', readFamily('dinov2').family === 'DINOV2' && readFamily('UNet2D').family === 'UNET'
@@ -465,6 +466,15 @@ const base0 = () => ({
   check('V3-9', proto.plotState === 'UNKNOWN_STATUS' && proto.value === null && drift.counts.servedValueIgnored === 3,
     'a status like "constructor" is not a known status (own keys only); 3 drifted rows counted');
 
+  const duplicatedRows = readCaseRows({
+    prediction_variant: 'RAW',
+    items: [ROWS[0], { ...ROWS[0], status: 'WITHHELD', metric_values: null }],
+  }, { metricName: 'dice', variant: 'RAW', experimentId: 'EXP-U-100' });
+  check('V3-9', duplicatedRows.duplicateCaseIds.join(',') === 'CASE_0101'
+    && duplicatedRows.rows.every((row) => row.plotState === 'DUPLICATE_CASE_ID'
+      && row.value === null && !row.plotted && !row.intent.enabled),
+  'duplicate case_id rows are drift: no number, point or case intent');
+
   // Refusals. Each would put a selection on screen that is not DR-010's for
   // THIS experiment and variant, at the contract's pinned version and metric.
   const base = base0();
@@ -481,6 +491,7 @@ const base0 = () => ({
     [{ ...base, experiment_id: 'EXP-D-100' }, UNAVAILABLE.OUTLIERS_FOR_ANOTHER_EXPERIMENT],
     [{ ...base, prediction_variant: 'PROCESSED' }, UNAVAILABLE.OUTLIERS_FOR_ANOTHER_VARIANT],
     [{ ...base, cases: [] }, UNAVAILABLE.NO_ELIGIBLE_CASES],
+    [{ ...base, cases: [base.cases[0], base.cases[0]] }, UNAVAILABLE.OUTLIERS_DUPLICATE_CASE_ID],
     ['outliers_fixture', UNAVAILABLE.OUTLIERS_UNREADABLE],
   ];
   for (const [block, reason] of refused) {
@@ -584,7 +595,7 @@ const base0 = () => ({
 {
   const cell = buildCell(matrixEntry('EXP-D-025'), {
     metricsView: success({
-      evaluation_n: 54, successful_n: 0, prediction_variant: 'RAW_PREDICTION', metric_version: 'mv1', metric_summary: {},
+      evaluation_n: 54, successful_n: 0, prediction_variant: 'RAW', metric_version: 'mv1', metric_summary: {},
     }),
     casesView: success({ items: [], metric_version: 'mv1', prediction_variant: 'RAW' }),
     population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
@@ -668,6 +679,9 @@ const base0 = () => ({
   check('V3-15', fair.comparability.verdict === VERDICT.COMPARABLE && fair.numbersWithheld === null
     && d.allowed && Math.abs(d.delta - 0.05) < 1e-12,
     `the RAW body covering both runs -> ${fair.comparability.verdict}, difference ${d.delta?.toFixed(2)}`);
+  const fairTrend = readComparison(trendU, success(body('RAW', trendU.experimentIds)));
+  check('V3-15', deltaFor(fairTrend, { metricName: 'dice', stat: 'median' }).allowed === false,
+    'delta is refused for TREND even when the server says comparable');
 
   const refusedPair = readComparison(pair, stateForError(contract, 'NON_COMPARABLE_EXPERIMENTS'));
   check('V3-15', refusedPair.comparability.verdict === VERDICT.NOT_COMPARABLE && refusedPair.numbersWithheld === null,

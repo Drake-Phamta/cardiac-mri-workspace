@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -19,6 +20,14 @@ class ContractError(Exception):
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
+
+
+def _utf8_console() -> None:
+    """Keep the CLI byte contract stable when Windows uses a legacy code page."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="strict")
 
 
 def _fail(code: str, message: str) -> None:
@@ -350,4 +359,5 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    _utf8_console()
     raise SystemExit(main())
