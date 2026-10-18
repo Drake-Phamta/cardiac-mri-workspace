@@ -10,7 +10,7 @@
 | **Xác nhận DR-022** (backend phục vụ 53 case holdout sau GATE-IMG-01) trong bảng revalidation, hàng P1 | sáng |
 | Duyệt PR revalidation của từng người khi họ mở; khung duyệt **12:00** và **20:00** | trong ngày |
 | **Phiên A17: TC-PERF-001** theo `mobile/A9_TC_PERF_001_SCRIPT.md` (APK build từ `main` mới nhất) | chiều |
-| **Deploy Mac mini** với dữ liệu thật `cardiac-data/backend_d39` (cùng Trung), rồi chạy E2E `--no-writes` tới Mac mini | chiều |
+| **Mac mini đã deploy 18/10 09:00** (`a3bc595`): 74 case, 4 thí nghiệm, 289 mesh; E2E `--no-writes` từ PC tới Mac mini: 20 PASS / 0 FAIL / 3 SKIP (H8/H9 không ghi lên máy demo; UNet). Hôm nay chỉ cần kiểm `/health` từ điện thoại qua overlay | sáng |
 | Khi Khánh báo UNet xong: ký **bản ghi cho phép holdout thứ hai** (EXP-U-025/050/100) | khi có |
 
 ## Hàng đợi V1

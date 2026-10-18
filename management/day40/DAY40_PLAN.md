@@ -34,7 +34,7 @@ người. **Việc 1 của mỗi người hôm nay là duyệt lại và nhận 
 | 1 | Bốn người duyệt lại phần làm thay, ghi vào bảng revalidation **trước 12:00** | 🔒 cam kết | cả nhóm |
 | 2 | **Hàng đợi UNet chạy trên RTX 4050** (EXP-U-025 → 050 → 100, E = 50, batch 8) và qua **tripwire** ở epoch 1 | 🔒 cam kết | Khánh |
 | 3 | **B15** (Spike B) và **phán quyết Spike C1** (APPROVE/REJECT + loại lý do, DR-016b) | 🔒 cam kết | Hùng Anh |
-| 4 | Backend thật (74 case + 4 gói) lên Mac mini; E2E `--no-writes` chạy được từ PC | 🎯 cố gắng | leader, Trung |
+| 4 | ✅ Backend thật đã lên Mac mini 18/10 (74 case, 4 gói, 289 mesh; E2E qua overlay 20 PASS / 0 FAIL). Hôm nay: `/health` từ A17 | 🎯 cố gắng | leader |
 | 5 | V4 #72 rebase lên `main`, thôi nháp; V2 nhận khung SCR-05 | 🎯 cố gắng | Trung, Hùng Anh |
 
 ## 2 · Thứ tự việc từng người

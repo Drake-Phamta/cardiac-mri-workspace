@@ -29,7 +29,12 @@ Hàng T1–T3 trong [`../../day39/POST_RECOVERY_REVALIDATION_DAY40.md`](../../da
 - Backend đã chứng minh luồng review → commit → phiên bản bất biến trên dữ liệu thật (E2E H8/H9 PASS). Màn hình V4
   chỉ cần gọi đúng các endpoint đó.
 
-## Việc 3 — deploy Mac mini *(cùng leader)*
+## Việc 3 — Mac mini *(đã deploy 18/10, bạn duyệt lại)*
+
+- **Đã deploy 18/10 09:00** từ `main` `a3bc595`: 74 case, 4 thí nghiệm, 216 run, 289 mesh, 0 gói bị từ chối; E2E `--no-writes` từ PC qua overlay: 20 PASS / 0 FAIL.
+- Việc của bạn: đọc lại quy trình deploy (gói thí nghiệm và mesh được chép bằng tay vào `~/cardiac-backend-data/experiments` và `derived_meshes`; script deploy chỉ chép `data_cache`), đề xuất đưa hai bước đó vào script.
+
+Ghi chú cũ:
 
 - Dữ liệu thật đã dựng trên PC leader: `cardiac-data/backend_d39` (74 case, 4 gói, khoảng 1,3 GB; mesh L0 nếu PR V2
   đã merge). Mac mini còn khoảng 19 GB trống.

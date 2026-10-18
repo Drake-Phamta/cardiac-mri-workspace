@@ -27,7 +27,7 @@ conditions:
     - "🔒 Bốn người **duyệt lại và nhận** phần làm thay ngày 18/10, ghi vào bảng revalidation trước 12:00"
     - "🔒 **UNet** chạy trên RTX 4050 và qua **tripwire** ở epoch 1 (Khánh)"
     - "🔒 **B15** và **phán quyết Spike C1** (Hùng Anh)"
-    - "🎯 Backend thật lên Mac mini; E2E `--no-writes` chạy được từ PC (leader, Trung)"
+    - "✅ Backend thật đã lên Mac mini (74 case, 4 thí nghiệm, 289 mesh); E2E qua overlay 20 PASS / 0 FAIL. Hôm nay kiểm từ A17"
     - "🎯 #72 V4 thôi nháp; V2 nhận khung SCR-05; phiên A17 đo TC-PERF-001 (leader)"
 yesterday:
   title: "18/10 đã làm được gì — override một ngày"
@@ -55,7 +55,7 @@ people:
     tasks:
       - "Duyệt lại T1–T3 (#94 DR-017/018/022, #95 E2E, #87/#88)"
       - "#72 V4 SCR-06/08: rebase, `useCall`, thôi nháp"
-      - "Deploy Mac mini với dữ liệu thật cùng leader"
+      - "Duyệt lại bản deploy Mac mini; đưa chép gói + mesh vào script"
   - name: "Vũ Hùng Anh"
     role: "V2 / 3D; reviewer Spike A, C1, V1"
     packet: "management/day40/tasks/DAY40_VU_HUNG_ANH.md"
@@ -69,7 +69,7 @@ people:
     tasks:
       - "Nhắn từng người lúc 08:00; xác nhận DR-022"
       - "Phiên A17: **TC-PERF-001** theo script A9"
-      - "Deploy Mac mini; ký bản ghi holdout cho UNet khi xong"
+      - "Kiểm `/health` từ A17; ký bản ghi holdout cho UNet khi xong"
 decisions:
   title: "Quyết định của leader ngày 18/10"
   items:
