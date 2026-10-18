@@ -904,6 +904,291 @@ function noRunBackend() {
   await act(async () => { r.unmount(); });
 }
 
+// ---- 10. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------
+// What a PASS means: the screen asks for the mesh references and bytes the way the contract says, verifies the bytes
+// against the id (DR-021 rule 1), hands the viewer only verified, grid-matching artifacts, shows loading /
+// unavailable (with the API's reason) / error / success, and turns a pick message into "slice n / total" and an
+// "Open in 2D" push to SCR-03 with returnParams. It does NOT mean the surface is drawn or that a tap lands on a face:
+// the viewer script is exercised in test/v2_viewer.test.mjs, the pixels and the frame rate are the owner's device tests.
+{
+  const Inspector3DScreen = (await imp('src/verticals/v2/Inspector3DScreen.js')).default;
+  const { sent } = await imp('test/render/mocks/webview.mjs');
+  const { boxMesh, encodeMesh } = await imp('test/_v2mesh.mjs');
+  const sum = (b) => createHash('sha256').update(b).digest('hex');
+  const SHAPE = [576, 576, 88];
+  const predBytes = encodeMesh(boxMesh(SHAPE, [100, 100, 10], [300, 300, 12]));
+  const gtBytes = encodeMesh(boxMesh(SHAPE, [110, 110, 10], [290, 290, 12]));
+  const procBytes = encodeMesh(boxMesh(SHAPE, [105, 105, 10], [295, 295, 12]));
+  const IDS = { ART_RAW: predBytes, MASK_CASE_0061: gtBytes, ART_PROC: procBytes };
+  const MESH_ID = (b) => `MESH_${sum(b)}`;
+
+  // The base fake already serves case_get, the JSON of the MRI / GT / prediction slices and their PNGs. This one adds
+  // what SCR-05 asks for: run ids, reconstruction_get, the ground-truth mask id and the mesh bytes.
+  function meshBackend({ caseMode = 'EVALUATION', processed = false, missing = [], tamper = [], reconstructionStatus = null, listFail = false } = {}) {
+    const base = fakeBackend({ caseMode });
+    const requests = [];
+    const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
+    const json = (status, body) => {
+      const text = JSON.stringify(body);
+      return { status, headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null }, text: async () => text, json: async () => body };
+    };
+    const fetchImpl = async (url, init) => {
+      requests.push(url);
+      const path = url.replace('http://backend.invalid:8000', '');
+      let m;
+      if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)$/.exec(path))) {
+        return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED', raw_prediction_artifact_id: 'ART_RAW',
+          processed_prediction_artifact_id: processed ? 'ART_PROC' : null, reconstruction_ids: [MESH_ID(predBytes)] });
+      }
+      if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)\/reconstruction\?source_mask_id=([^&]+)$/.exec(path))) {
+        const mask = decodeURIComponent(m[2]);
+        if (reconstructionStatus) return json(reconstructionStatus, { error: { code: reconstructionStatus === 409 ? 'RUN_NOT_SUCCEEDED' : 'ARTIFACT_NOT_FOUND', message: 'x' } });
+        if (!IDS[mask] || missing.includes(mask)) return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'no reconstruction of this source mask' } });
+        const kind = mask === 'ART_RAW' ? 'RAW_PREDICTION' : mask === 'ART_PROC' ? 'PROCESSED_PREDICTION' : 'GROUND_TRUTH';
+        return json(200, { ...gen('reconstruction_get'), mesh_artifact_id: MESH_ID(IDS[mask]), source_mask_id: mask, source_mask_kind: kind,
+          reconstruction_version: `dr008c-L0/v1 sha256:${'0'.repeat(64)}` });
+      }
+      if ((m = /^\/api\/v1\/artifacts\/([0-9a-f]{64})\.cmesh$/.exec(path))) {
+        const mask = Object.keys(IDS).find((k) => sum(IDS[k]) === m[1]);
+        if (!mask) return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'x' } });
+        const bytes = tamper.includes(mask) ? Uint8Array.from(IDS[mask], (v, i) => (i === IDS[mask].length - 1 ? v ^ 1 : v)) : IDS[mask];
+        return { status: 200, headers: { get: (k) => ({ 'content-type': 'application/octet-stream', etag: `"sha256:${m[1]}"` })[k.toLowerCase()] ?? null },
+          arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+      }
+      if (path.endsWith('/ground-truth') || /\/slices\/\d+\/ground-truth$/.test(path)) {
+        const r = await base.fetchImpl(url, init);
+        if (r.status !== 200) return r;
+        const body = await r.json();
+        return json(200, { ...body, reference_mask_id: 'MASK_CASE_0061' });
+      }
+      return base.fetchImpl(url, init);
+    };
+    return { fetchImpl, requests };
+  }
+
+  const nodeMocks = { createNodeMock: () => ({ postMessage() {} }) };
+  const mount = async (backend, params, { nav = null } = {}) => {
+    const runtime = liveRuntime(backend.fetchImpl);
+    const recorded = { pushes: [], pops: 0 };
+    const nv = nav || { push: (...a) => { recorded.pushes.push(a); return true; }, pop: () => { recorded.pops += 1; return true; }, replace: () => true, reset: () => true, canGoBack: true };
+    sent.length = 0;
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(Inspector3DScreen, { runtime, nav: nv, params })), nodeMocks);
+    });
+    await tick(250);
+    return { r, runtime, recorded };
+  };
+  const web = (r) => r.root.findAll((n) => n.type === 'WebView')[0] || null;
+  const fromViewer = async (r, message) => { await act(async () => { web(r).props.onMessage({ nativeEvent: { data: JSON.stringify(message) } }); }); await tick(20); };
+  const sentJson = () => sent.map((m) => JSON.parse(m));
+  const entry = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const P = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 };
+
+  // 10a. success: references, verified bytes, the viewer's handshake, layers, the band
+  {
+    const backend = meshBackend();
+    const { r } = await mount(backend, P);
+    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=ART_RAW'), 'the prediction mesh is asked for by the RUN\'s own RAW mask id');
+    check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=MASK_CASE_0061'), 'the ground-truth mesh by the id the server stated on a ground-truth slice');
+    check('V2R1', paths.includes(`/api/v1/artifacts/${sum(predBytes)}.cmesh`) && paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`), 'both meshes come from the content route named by their ids');
+    check('V2R1', !paths.some((p) => p.includes('error-reconstruction')), 'no error mesh is requested (DR-005 open: nothing fabricated)');
+    check('V2R1', web(r) && has(r, /Run RUN_A · prediction RAW · L0 surface \(undecimated\)/) && has(r, /CASE_0061/), 'WebView mounted; run and variant always visible');
+    check('V2R2', sent.length === 0, 'nothing is sent before the viewer says it is ready');
+    await fromViewer(r, { type: 'ready' });
+    const out = sentJson();
+    const meshMsgs = out.filter((m) => m.type === 'mesh');
+    check('V2R2', meshMsgs.length === 2 && meshMsgs.find((m) => m.role === 'prediction').b64 === Buffer.from(predBytes).toString('base64')
+      && meshMsgs.find((m) => m.role === 'groundTruth').b64 === Buffer.from(gtBytes).toString('base64'), 'after ready: the verified prediction and ground-truth artifacts, byte for byte');
+    check('V2R2', out.some((m) => m.type === 'layers' && m.prediction === true && m.groundTruth === true) && out.some((m) => m.type === 'slice' && m.index === 44),
+      'layers on, and the band at the 2D slice the screen was opened from');
+    check('V2R3', has(r, /Prediction \(RAW\)/) && has(r, /^loading…$/), `before the viewer reports the meshes the layers read loading: ${texts(r).filter((t) => t === 'loading…').length}`);
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
+    check('V2R3', texts(r).filter((t) => t === '12 triangles').length === 2 && has(r, /^Prediction: ON$/) && has(r, /^Ground: ON$|^Ground truth: ON$/), 'both layers report their triangles and have their switch');
+    await press(r, 'Prediction: ON');
+    check('V2R3', sentJson().filter((m) => m.type === 'layers').pop().prediction === false && has(r, /^Prediction: OFF$/), 'the prediction switch tells the viewer');
+    await press(r, 'Prediction: OFF');
+    check('V2R4', has(r, /Nothing selected/) && entry(r, 'Open in 2D').props.disabled === true && has(r, /Open in 2D needs a selected slice/), 'no selection: Open in 2D is disabled and says why');
+    check('V2R4', has(r, /Amber band on the surface: slice 45 of 88 \(the 2D slice you came from\)/), 'the band is the 2D slice the user came from');
+    check('V2R4', has(r, /Voxel-index frame .* no millimetres/) && has(r, /DR-005 is open/), 'the frame and the error-view gap are stated');
+    const L = entry(r, 'Fit camera');
+    await act(async () => { L.props.onPress(); });
+    check('V2R4', sentJson().pop().type === 'fit', 'Fit camera tells the viewer');
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10b. H7: pick -> "slice n / total" -> Open in 2D (push to SCR-03, same run and variant, returnParams)
+  {
+    const backend = meshBackend();
+    const { r, recorded } = await mount(backend, P);
+    await fromViewer(r, { type: 'ready' });
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 5, slice: 52 });
+    check('V2R5', has(r, /^slice 53 \/ 88 {2}\(z = 52\) · picked on prediction$/), `the pick shows slice n / total: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2R5', has(r, /Amber band on the surface: slice 53 of 88 \(the picked slice\)/) && sentJson().filter((m) => m.type === 'slice').pop().index === 52, 'the band follows the pick');
+    check('V2R5', entry(r, 'Open in 2D').props.disabled === false, 'Open in 2D is enabled by a valid pick');
+    await press(r, 'Open in 2D');
+    check('V2R5', recorded.pushes.length === 1 && recorded.pushes[0][0] === 'SCR-03'
+      && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 })
+      && JSON.stringify(recorded.pushes[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 }),
+    `push SCR-03 at the picked slice for the same run and variant, with returnParams: ${JSON.stringify(recorded.pushes[0] || null)}`);
+    // a background tap clears the selection - nothing can navigate
+    await fromViewer(r, { type: 'pick', role: null, triangle: null, slice: null });
+    check('V2R6', has(r, /No surface at that point: nothing selected/) && entry(r, 'Open in 2D').props.disabled === true, 'a background tap clears the selection and disables Open in 2D');
+    check('V2R6', has(r, /Amber band on the surface: slice 45 of 88 \(the 2D slice you came from\)/), 'and the band returns to the 2D slice (not the old pick)');
+    await act(async () => { entry(r, 'Open in 2D').props.onPress && entry(r, 'Open in 2D').props.onPress(); });
+    check('V2R6', recorded.pushes.length === 1, 'a disabled button pushes nothing');
+    // a pick outside the volume, a malformed pick, a pick before any mesh: never selected
+    await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 1, slice: 88 });
+    check('V2R6', has(r, /outside this volume \(88 slices\): ignored/) && entry(r, 'Open in 2D').props.disabled === true, 'a slice outside the volume is refused, not clamped');
+    await fromViewer(r, { type: 'pick', role: 'prediction', slice: '7' });
+    check('V2R6', has(r, /outside this volume/) && entry(r, 'Open in 2D').props.disabled === true, 'a malformed pick changes nothing');
+    await fromViewer(r, { type: 'pick', role: 'groundTruth', triangle: 2, slice: 0 });
+    check('V2R6', has(r, /^slice 1 \/ 88 {2}\(z = 0\) · picked on ground truth$/) && entry(r, 'Open in 2D').props.disabled === false, 'slice 0 is a slice, picked on the ground-truth layer');
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10c. INFERENCE_REVIEW (INT-12): prediction mesh yes, ground truth never asked for
+  {
+    const backend = meshBackend({ caseMode: 'INFERENCE_REVIEW' });
+    const { r } = await mount(backend, P);
+    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R7', !paths.some((p) => p.includes('/ground-truth')) && !paths.some((p) => p.includes('MASK_CASE_0061')) && !paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`),
+      'no request for ground truth, nor for its mesh');
+    check('V2R7', paths.some((p) => p.endsWith('source_mask_id=ART_RAW')) && has(r, /unavailable \(GROUND_TRUTH_UNAVAILABLE\)/), 'the prediction mesh is requested; the ground-truth layer says why it is unavailable');
+    const gt = entry(r, 'Ground truth: n/a');
+    check('V2R7', gt && gt.props.disabled === true, 'its switch is disabled');
+    await fromViewer(r, { type: 'ready' });
+    check('V2R7', sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction', 'only the prediction artifact reaches the viewer');
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10d. the prediction mesh is unavailable: the API's own reason, nothing drawn, nothing substituted
+  {
+    const backend = meshBackend({ missing: ['ART_RAW'] });
+    const { r, recorded } = await mount(backend, P);
+    check('V2R8', has(r, /EMPTY UNAVAILABLE/) && has(r, /(code|reason) ARTIFACT_NOT_FOUND/) && has(r, /does not exist on the server/), `unavailable with the API reason: ${texts(r).filter((t) => /ARTIFACT_NOT_FOUND|UNAVAILABLE/.test(t)).join(' | ')}`);
+    check('V2R8', web(r) === null && has(r, /No mesh is drawn and nothing is substituted/), 'no viewer is mounted');
+    const asked = backend.requests.filter((u) => u.includes('/reconstruction?')).length;
+    await press(r, 'Refresh');
+    await tick(250);
+    check('V2R8', backend.requests.filter((u) => u.includes('/reconstruction?')).length > asked && web(r) === null, 'Refresh asks again (and the answer is still unavailable)');
+    check('V2R8', recorded.pops === 0, 'nothing navigated');
+    await act(async () => { r.unmount(); });
+  }
+  {
+    const backend = meshBackend({ reconstructionStatus: 409 });
+    const { r } = await mount(backend, P);
+    check('V2R8', has(r, /(code|reason) RUN_NOT_SUCCEEDED/) && web(r) === null, 'a run that did not succeed has no 3D: its code is shown');
+    await act(async () => { r.unmount(); });
+  }
+  {
+    // RAW-only run asked for PROCESSED: no mask id exists, so no reconstruction is requested at all
+    const backend = meshBackend({ processed: false });
+    const { r } = await mount(backend, { ...P, variant: 'PROCESSED' });
+    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R9', !paths.some((p) => p.includes('/reconstruction')) && has(r, /(code|reason) NO_PREDICTION_FOR_VARIANT/) && web(r) === null,
+      'a PROCESSED request on a RAW-only run is unavailable (NO_PREDICTION_FOR_VARIANT): never the RAW mesh relabelled');
+    await act(async () => { r.unmount(); });
+    const withProc = meshBackend({ processed: true });
+    const m2 = await mount(withProc, { ...P, variant: 'PROCESSED' });
+    const p2 = withProc.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R9', p2.some((p) => p.endsWith('source_mask_id=ART_PROC')) && has(m2.r, /Prediction \(PROCESSED\)/) && web(m2.r) !== null, 'a run with a PROCESSED prediction shows it, labelled PROCESSED');
+    await act(async () => { m2.r.unmount(); });
+  }
+
+  // 10e. bytes that do not hash to the id are CONTRACT_DRIFT, never drawn (DR-021 rule 1)
+  {
+    const backend = meshBackend({ tamper: ['ART_RAW'] });
+    const { r } = await mount(backend, P);
+    check('V2R10', has(r, /FATAL INVALID/) && has(r, /(code|reason) CONTRACT_DRIFT/) && web(r) === null && !has(r, /Retry/), 'tampered prediction bytes: blocked with CONTRACT_DRIFT, no viewer, no Retry');
+    await act(async () => { r.unmount(); });
+    const gtTamper = meshBackend({ tamper: ['MASK_CASE_0061'] });
+    const m2 = await mount(gtTamper, P);
+    await fromViewer(m2.r, { type: 'ready' });
+    check('V2R10', web(m2.r) !== null && has(m2.r, /error \(CONTRACT_DRIFT\)/) && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction',
+      'tampered ground-truth bytes: that layer reads error, the prediction still draws, the bad bytes never reach the viewer');
+    await act(async () => { m2.r.unmount(); });
+  }
+
+  // 10f. a mesh for another grid, and the viewer's own errors
+  {
+    const wrongGrid = encodeMesh(boxMesh([100, 100, 88], [10, 10, 10], [20, 20, 12]));
+    IDS.ART_RAW = wrongGrid;
+    const backend = meshBackend();
+    const { r } = await mount(backend, P);
+    check('V2R11', has(r, /(code|reason) GEOMETRY_MISMATCH/) && web(r) === null, 'a mesh built for another grid than the case is refused');
+    await act(async () => { r.unmount(); });
+    IDS.ART_RAW = predBytes;
+    const m2 = await mount(meshBackend(), P);
+    await fromViewer(m2.r, { type: 'ready' });
+    await fromViewer(m2.r, { type: 'error', role: null, code: 'WEBGL2_UNAVAILABLE', message: 'this WebView has no WebGL2' });
+    check('V2R11', has(m2.r, /(code|reason) WEBGL2_UNAVAILABLE/) && web(m2.r) === null, 'a viewer that cannot draw is an error state with its code, not a blank box');
+    await act(async () => { m2.r.unmount(); });
+    const m3 = await mount(meshBackend(), P);
+    await fromViewer(m3.r, { type: 'ready' });
+    await fromViewer(m3.r, { type: 'error', role: 'groundTruth', code: 'VIEWER_ERROR', message: 'MESH_GRID: the two meshes do not share one grid' });
+    check('V2R11', web(m3.r) !== null && has(m3.r, /error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused reads error; the prediction stays');
+    await act(async () => { m3.r.unmount(); });
+  }
+
+  // 10g. no variant given: the screen asks, there is no default (same rule as SCR-03)
+  {
+    const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+    forgetSession();
+    const backend = meshBackend();
+    const { r } = await mount(backend, { caseId: 'CASE_0061', runId: 'RUN_A' });
+    check('V2R12', has(r, /Prediction variant/) && has(r, /There is no default/) && web(r) === null
+      && !backend.requests.some((u) => u.includes('/reconstruction')), 'no variant: the screen asks and requests no mesh');
+    await press(r, 'RAW');
+    await tick(250);
+    check('V2R12', web(r) !== null && has(r, /Prediction \(RAW\)/), 'after the choice the mesh is requested and shown');
+    forgetSession();
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10h. fixture mode has no bytes behind any reference: an honest unavailable state
+  {
+    const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+    const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(Inspector3DScreen, { runtime, nav, params: { caseId: 'CASE_ID_0043', runId: 'RUN_ID_0043', variant: 'RAW', sliceIndex: 3 } })), nodeMocks);
+    });
+    await tick(120);
+    check('V2R13', has(r, /(code|reason) FIXTURE_NO_BYTES/) && web(r) === null, `fixture mode: unavailable (FIXTURE_NO_BYTES), no mesh invented: ${texts(r).filter((t) => /(code|reason) /.test(t)).join(' | ')}`);
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10i. SCR-03's 3D entry opens SCR-05 with the run, the variant and the slice on screen, and Back returns
+  {
+    const backend = fakeBackend();
+    const runtime = liveRuntime(backend.fetchImpl);
+    const recorded = [];
+    const nav = { push: (...a) => { recorded.push(a); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'PROCESSED' } })), nodeMock);
+    });
+    await tick(300);
+    await layout(r);
+    await tick(200);
+    const three = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('3D (SCR-05)'))[0];
+    check('V2R14', three && three.props.disabled === false, 'SCR-03: the 3D entry is enabled by a succeeded run that lists a reconstruction');
+    await act(async () => { three.props.onPress(); });
+    check('V2R14', recorded.length === 1 && recorded[0][0] === 'SCR-05'
+      && JSON.stringify(recorded[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'PROCESSED', sliceIndex: 44 })
+      && JSON.stringify(recorded[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'PROCESSED', sliceIndex: 44 }),
+    `SCR-03 -> SCR-05 carries case, run, variant and slice: ${JSON.stringify(recorded[0] ? [recorded[0][0], recorded[0][1]] : null)}`);
+    await act(async () => { r.unmount(); });
+  }
+}
+
 console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
