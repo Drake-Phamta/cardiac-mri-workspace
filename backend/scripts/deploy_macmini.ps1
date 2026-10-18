@@ -11,6 +11,11 @@
     -BindHost  the overlay interface address uvicorn binds on the host
                                             (or $env:CARDIAC_DEPLOY_BIND_HOST)
     -BindAll   explicit opt-in to bind 0.0.0.0 instead of -BindHost
+    -ShipPackages  also ship <data-root>\experiments (Contract 2 run directories, without
+               validation predictions/evaluations and last.pt) and <data-root>\derived_meshes
+               (L0 meshes, backend.mesh.build_cache), where <data-root> is the parent of -DataCache.
+               Unpacking over the host copy rewrites identical files only: packages and meshes are
+               write-once by design. Use it after new runs (e.g. the UNet family) are exported.
 
   Steps:
     1. checks the local derived data cache (<DataCache>/index.json, outside
@@ -47,6 +52,7 @@ param(
   [string]$RemoteDir = "cardiac-backend",
   [string]$RemoteDataDir = "cardiac-backend-data",
   [switch]$SkipData,
+  [switch]$ShipPackages,
   [switch]$SkipInstall,
   [switch]$NoWheels
 )
@@ -120,6 +126,22 @@ if (-not $SkipData) {
   Write-Host ("   data cache archive: {0:N0} MB" -f ((Get-Item $dataTar).Length / 1MB))
   $uploads += $dataTar
 }
+if ($ShipPackages) {
+  $dataRoot = Split-Path -Parent $DataCache
+  foreach ($part in "experiments", "derived_meshes") {
+    $src = Join-Path $dataRoot $part
+    if (-not (Test-Path $src)) { throw "-ShipPackages: $src does not exist (expected next to the data cache)" }
+    if (Test-InsideGitWorktree $src) { throw "$src is inside a git work tree; derived patient data must live outside the repository." }
+    $partTar = Join-Path $stage "$part.tar.gz"
+    Invoke-Native "tar ($part)" {
+      tar -czf $partTar --exclude "predictions/validation" --exclude "evaluation/validation" --exclude "last.pt" -C $dataRoot $part
+    }
+    $raw = tar -tzf $partTar | Select-String -Pattern '\.(dcm|mha|mhd|raw)$'
+    if ($raw) { throw "$part contains raw image files; refusing to copy them: $raw" }
+    Write-Host ("   {0} archive: {1:N0} MB" -f $part, ((Get-Item $partTar).Length / 1MB))
+    $uploads += $partTar
+  }
+}
 
 $shipWheels = (-not $NoWheels) -and (-not $SkipInstall)
 if ($shipWheels) {
@@ -149,6 +171,7 @@ foreach ($file in $uploads) {
 $unpack = "cd ~/$RemoteDir && tar -xzf code.tar.gz"
 if (-not $SkipData) { $unpack += " && tar -xzf data_cache.tar.gz -C ~/$RemoteDataDir/data_cache" }
 if ($shipWheels) { $unpack += " && tar -xzf wheels.tar.gz" }
+if ($ShipPackages) { $unpack += " && tar -xzf experiments.tar.gz -C ~/$RemoteDataDir && tar -xzf derived_meshes.tar.gz -C ~/$RemoteDataDir" }
 Invoke-Native "ssh unpack" { ssh -o BatchMode=yes $SshHost $unpack }
 
 Write-Host "== 5/6 install and start on ${BindHost}:${Port} (serve_macmini.sh)"

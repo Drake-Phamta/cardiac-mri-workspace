@@ -19,7 +19,8 @@ from build_rebaseline import ROOT, page, inline
 REPO = "https://github.com/Drake-Phamta/cardiac-mri-workspace"
 SRC = ROOT / "management" / "day39" / "results_aggregate.json"
 OUT = ROOT / "docs" / "results" / "holdout-day39.html"
-LABEL = {"EXP-D-025": "DINOv2 25 %", "EXP-D-050": "DINOv2 50 %", "EXP-D-100": "DINOv2 100 %", "EXP-D-PP": "100 % + PP-4"}
+LABEL = {"EXP-D-025": "DINOv2 25 %", "EXP-D-050": "DINOv2 50 %", "EXP-D-100": "DINOv2 100 %", "EXP-D-PP": "100 % + PP-4",
+         "EXP-U-025": "UNet 25 %", "EXP-U-050": "UNet 50 %", "EXP-U-100": "UNet 100 %"}
 CSS = """
 .chart { width: 100%; height: auto; display: block; margin: 8px 0 4px; }
 .chart text { font-family: var(--font-mono, monospace); font-size: 12px; fill: var(--muted); }
@@ -28,7 +29,9 @@ CSS = """
 .chart .s1 { fill: #2a78d6; stroke: #2a78d6; }
 .chart .s2 { fill: #eb6834; stroke: #eb6834; }
 .chart .ref { fill: var(--muted); }
+.chart .s3 { fill: #1baf7a; stroke: #1baf7a; }
 .chart .band { fill: #2a78d6; opacity: .16; stroke: none; }
+.chart .band3 { fill: #1baf7a; opacity: .16; stroke: none; }
 .chart .ln { fill: none !important; stroke-width: 2; }
 @media (prefers-color-scheme: dark) { .chart .s1 { fill: #3987e5; stroke: #3987e5; } .chart .s2 { fill: #d95926; stroke: #d95926; } }
 .legend2 { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
@@ -51,7 +54,7 @@ def dot_whisker(runs) -> str:
                      f'<text x="{x:.1f}" y="{h - 6}" text-anchor="middle">{f3(t)[:4]}</text>')
     for i, r in enumerate(runs):
         y = top + 22 + i * row
-        cls = "s2" if r["experiment_id"] == "EXP-D-PP" else "s1"
+        cls = "s2" if r["experiment_id"] == "EXP-D-PP" else ("s3" if r["experiment_id"].startswith("EXP-U-") else "s1")
         a, b = r["dice_ci95"]
         tip = (f'{LABEL[r["experiment_id"]]}: trung bình {f3(r["dice_mean"])}, CI 95 % [{f3(a)}; {f3(b)}], '
                f'trung vị {f3(r["dice_median"])}, n = 54')
@@ -78,19 +81,25 @@ def trend(runs) -> str:
     for t in (0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75):
         parts.append(f'<line class="grid" x1="{left}" y1="{sy(t):.1f}" x2="{w - right}" y2="{sy(t):.1f}"/>'
                      f'<text x="{left - 8}" y="{sy(t) + 4:.1f}" text-anchor="end">{f3(t)[:4]}</text>')
-    band_top = " ".join(f"{sx(xs[r['training_fraction']]):.1f},{sy(r['dice_ci95'][1]):.1f}" for r in raw)
-    band_bot = " ".join(f"{sx(xs[r['training_fraction']]):.1f},{sy(r['dice_ci95'][0]):.1f}" for r in reversed(raw))
-    parts.append(f'<polygon class="band" points="{band_top} {band_bot}"/>')
-    line = " ".join(f"{sx(xs[r['training_fraction']]):.1f},{sy(r['dice_mean']):.1f}" for r in raw)
-    parts.append(f'<polyline class="s1 ln" points="{line}"/>')
-    for r in raw:
-        n = xs[r["training_fraction"]]
-        # the 78-case label sits left of its point, so it never meets the PP-4 whisker on its right
-        lx, anchor = (sx(n) - 10, "end") if n == 78 else (sx(n) + 8, "start")
-        parts.append(f'<g><title>{html.escape(LABEL[r["experiment_id"]])}: {n} case train, Dice {f3(r["dice_mean"])}</title>'
-                     f'<circle class="s1" cx="{sx(n):.1f}" cy="{sy(r["dice_mean"]):.1f}" r="6" stroke="var(--bg)" stroke-width="2"/>'
-                     f'<text class="lbl" x="{lx:.1f}" y="{sy(r["dice_mean"]) + 20:.1f}" text-anchor="{anchor}">{f3(r["dice_mean"])}</text>'
-                     f'<text x="{sx(n):.1f}" y="{h - 14}" text-anchor="middle">{n}</text></g>')
+    # one line + CI band per model family (DINOv2 always; UNet once its runs are in the aggregate)
+    families = [("EXP-D-", "s1", "band"), ("EXP-U-", "s3", "band3")]
+    for prefix, cls, band in families:
+        fam = sorted((r for r in raw if r["experiment_id"].startswith(prefix)), key=lambda r: r["training_fraction"])
+        if not fam:
+            continue
+        band_top = " ".join(f"{sx(xs[r['training_fraction']]):.1f},{sy(r['dice_ci95'][1]):.1f}" for r in fam)
+        band_bot = " ".join(f"{sx(xs[r['training_fraction']]):.1f},{sy(r['dice_ci95'][0]):.1f}" for r in reversed(fam))
+        parts.append(f'<polygon class="{band}" points="{band_top} {band_bot}"/>')
+        line = " ".join(f"{sx(xs[r['training_fraction']]):.1f},{sy(r['dice_mean']):.1f}" for r in fam)
+        parts.append(f'<polyline class="{cls} ln" points="{line}"/>')
+        for r in fam:
+            n = xs[r["training_fraction"]]
+            # the 78-case label sits left of its point, so it never meets the PP-4 whisker on its right
+            lx, anchor = (sx(n) - 10, "end") if n == 78 else (sx(n) + 8, "start")
+            parts.append(f'<g><title>{html.escape(LABEL[r["experiment_id"]])}: {n} case train, Dice {f3(r["dice_mean"])}</title>'
+                         f'<circle class="{cls}" cx="{sx(n):.1f}" cy="{sy(r["dice_mean"]):.1f}" r="6" stroke="var(--bg)" stroke-width="2"/>'
+                         f'<text class="lbl" x="{lx:.1f}" y="{sy(r["dice_mean"]) + 20:.1f}" text-anchor="{anchor}">{f3(r["dice_mean"])}</text>'
+                         f'<text x="{sx(n):.1f}" y="{h - 14}" text-anchor="middle">{n}</text></g>')
     a, b = pp["dice_ci95"]
     x = sx(78) + 26
     parts.append(f'<g><title>100 % + PP-4: Dice {f3(pp["dice_mean"])}, CI 95 % [{f3(a)}; {f3(b)}]</title>'
@@ -147,7 +156,7 @@ def build(d) -> str:
 </header>
 <main>
 <section id="runs"><h2>Dice 3D theo run</h2>
-  <ul class="legend2"><li><i style="background:#2a78d6"></i>DINOv2 (RAW)</li><li><i style="background:#eb6834"></i>+ hậu xử lý PP-4</li></ul>
+  <ul class="legend2"><li><i style="background:#2a78d6"></i>DINOv2 (RAW)</li><li><i style="background:#eb6834"></i>+ hậu xử lý PP-4</li>{'<li><i style="background:#1baf7a"></i>UNet (RAW)</li>' if any(r["experiment_id"].startswith("EXP-U-") for r in runs) else ''}</ul>
   {dot_whisker(runs)}
   <div class="tablewrap"><table><thead><tr><th>Run</th><th>Variant</th><th>Dice TB</th><th>CI 95 %</th><th>Trung vị (Q1–Q3)</th>
   <th>IoU TB</th><th>Dice TB theo lát</th><th>Sai lệch thể tích TB</th><th>Dice TB, tập độ nhạy (n = 53)</th></tr></thead><tbody>{rows}</tbody></table></div>
