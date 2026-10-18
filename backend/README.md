@@ -24,11 +24,12 @@ All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented 
 | Reviews, reviewed masks | `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `reviewed_masks_list`, `reviewed_mask_slice_get` | SQLite |
 | Findings | `finding_create`, `findings_list`, `finding_patch` | SQLite |
 | Metrics, worst slice, cohort | `analysis_run_metrics`, `analysis_slice_metrics`, `experiment_metrics`, `experiment_cases`, … | **unavailable state** (`ARTIFACT_NOT_FOUND`, reason `METRICS_NOT_INGESTED`) until saved Contract 2 metric artifacts are ingested — never an invented number |
-| Mesh | `reconstruction_get`, `error_reconstruction_get` | Contract 2 `RECONSTRUCTION_3D` references; error mesh unavailable (DR-005 open) |
+| Mesh | `reconstruction_get`, `error_reconstruction_get` | L0 meshes derived from the served masks by `python -m backend.mesh.build_cache` into `derived_meshes/` (see "3-D meshes"); Contract 2 `RECONSTRUCTION_3D` references still honoured; error mesh unavailable (DR-005 open) |
 | Not deployable | `analysis_run_create` | `RUN_NOT_DEPLOYABLE` — precomputed runs only (PR-AN-01 is SHOULD) |
 
-Plus `GET /health` and `GET /api/v1/artifacts/<sha256>.png` (the immutable `content_url` of every slice; its
-bytes hash to the response `checksum`, `ETag` = that checksum).
+Plus `GET /health`, `GET /api/v1/artifacts/<sha256>.png` (the immutable `content_url` of every slice; its
+bytes hash to the response `checksum`, `ETag` = that checksum) and `GET /api/v1/artifacts/<sha256>.cmesh` (a derived 3-D
+mesh; the sha256 is the one in `mesh_artifact_id`).
 
 ### Rules the service enforces
 
@@ -82,11 +83,15 @@ record, or with a record that is not strict JSON of format `ml-holdout-authoriza
 the backend runs on Python 3.9 without torch, so these four checks are written out in `ingest.py`; the record's
 other fields are `ml/holdout.py`'s to validate.) The record path is repository-relative (it is committed with the
 GATE-IMG-01 decision); an absolute path is accepted for a local check and only its file name is recorded. The
-cache's `index.json` records the record's own sha256 under `holdout_authorization`.
+cache's `index.json` records the record's own sha256 under `holdout_authorization`, with `authorized_by` and `authorized_runs`: the
+record must name an approver and at least one `{experiment_id, checkpoint_sha256}` run (QA of PR #94), and `CaseStore` refuses a
+cache whose record lacks either. A cache built before that change is brought up to date by re-running the same ingest
+command (every case is a NO_OP; only `index.json` is rewritten).
 
 `CaseStore` keeps its lock: without that metadata a cache with more than one `final_holdout` case, or with one that
 has ground truth, still refuses to start; with it, the other holdout cases are allowed in EVALUATION mode. **The
-INT-12 case is `INFERENCE_REVIEW` without ground truth in every mode**: a cache that lists it as inference-only
+INT-12 case is `INFERENCE_REVIEW` without ground truth in every mode** - and `CASE_0001` is that case by rule: `CaseStore` refuses to
+start if CASE_0001 is served with ground truth, whatever the index designates: a cache that lists it as inference-only
 (`inference_only_case_ids`, which is required once a record is present) and also serves ground truth for it, or has
 a malformed or mismatched record, refuses to start. Real metrics then also reach the holdout cases' run-level
 endpoints, because those need the case in the cache.
@@ -110,13 +115,29 @@ curl http://127.0.0.1:8000/api/v1/cases/CASE_0061/slices/44/mri
 ```
 
 Environment: `CARDIAC_BACKEND_DATA` (required; layout `data_cache/`, `experiments/`, `var/backend.sqlite3`,
-`var/render_cache/`), per-path overrides `CARDIAC_DATA_CACHE`, `CARDIAC_EXPERIMENTS_ROOT`, `CARDIAC_DB`,
-`CARDIAC_RENDER_CACHE`, plus `CARDIAC_STUDY_ID` (default `STUDY_LA_001`) and `CARDIAC_API_CONTRACT`.
+`var/render_cache/`, `derived_meshes/`), per-path overrides `CARDIAC_DATA_CACHE`, `CARDIAC_EXPERIMENTS_ROOT`, `CARDIAC_DB`,
+`CARDIAC_RENDER_CACHE`, `CARDIAC_DERIVED_MESHES`, plus `CARDIAC_STUDY_ID` (default `STUDY_LA_001`) and `CARDIAC_API_CONTRACT`.
+
+## 3-D meshes (SCR-05, V2)
+
+`reconstruction_get` serves the **undecimated L0 voxel-face surface** (DR-008c) of a run's RAW or PROCESSED prediction
+and of the case's ground truth, derived once into `<CARDIAC_BACKEND_DATA>/derived_meshes/` (patient-derived: outside
+git, write-once, keyed by the sha256 of the source mask):
+
+```powershell
+python -m backend.mesh.build_cache --data "<data-root>" [--runs RUN_ID ...] [--no-ground-truth]
+```
+
+Every served mask without a mesh simply has no reconstruction (`ARTIFACT_NOT_FOUND`). A re-run is a NO_OP; a mesh that
+no longer matches its sidecar is a `CHECKSUM_CONFLICT`, never overwritten. `CASE_0001` has no ground truth to mesh; its
+predictions are meshed. The frame, the file format and the pick rule are in `backend/mesh/artifact.py`; the contract
+conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content". The
+deploy script copies `data_cache` only: copy `derived_meshes/` (or run the build step on the host) for a deployment.
 
 ## Tests
 
 ```powershell
-python -m pytest backend/tests -q
+python -m pytest backend/tests backend/mesh/tests -q -p no:cacheprovider
 ```
 
 TestClient on a synthetic package (generated NRRDs with the real package's header, a synthetic split with
@@ -235,8 +256,9 @@ case's raw volume. The API has no volume endpoint, so a switch is bounded by one
   (`RUN_NOT_SUCCEEDED`, `ANALYSIS_FAILED`) cannot be reached by a valid package; the tests flip a loaded run to reach them.
 - The validator trusts the PER_CASE_METRICS artifact and the population manifest for the population; it does not
   re-derive either from the split manifest.
-- The mesh frame of `RECONSTRUCTION_3D` artifacts is not declared by Contract 2; `mesh_to_world_transform` is the
-  identity in the source mask's voxel-index frame. To be confirmed with the mesh pipeline (V2 / `backend/mesh/`).
+- The served mesh frame is declared (voxel-index, `x=column,y=row,z=slice`, `backend/mesh/artifact.py`); the Contract 2
+  `RECONSTRUCTION_3D` kind still declares none, so a package that lists its own mesh is answered with the identity
+  transform only. No Contract 2 package lists one today; the meshes are derived.
 - No authentication (LOCAL_DEMO overlay, DR-003); `UNAUTHORIZED` is never answered. Plain HTTP on the overlay.
 - Python 3.9 compatibility is by construction and pinned wheels; the suite itself runs on the development
   Python (3.12).

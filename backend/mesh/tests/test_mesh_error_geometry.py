@@ -7,6 +7,10 @@ import json
 import numpy as np
 import pytest
 
+# scipy is not part of the backend runtime pins (QA-074 N-4): CI runs this module in a second step that installs it,
+# and the no-scipy step skips it (test_mesh_lazy_scipy.py proves the rest of backend.mesh needs only numpy).
+pytest.importorskip("scipy")
+
 from backend.mesh import (
     CONTRACT_VERSION,
     CaseMesh,

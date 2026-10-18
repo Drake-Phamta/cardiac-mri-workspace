@@ -223,6 +223,33 @@ it with `node --test`; keep React Native imports in `.js` files.
   nothing: `node mobile/scripts/slice-timing-report.mjs <logcat.txt>` prints n / p50 / p95 per pass
   (nearest-rank, Spike A's definition), and keeps DEV-build samples apart.
 
+## V2 screen (SCR-05) - a working skeleton
+
+SCR-05 3D Inspector (`src/verticals/v2/`) was built as a **skeleton** under the Day 39 recovery override so that hero
+steps H6 (open the 3D reconstruction, rotate / zoom / pan) and H7 (tap a region, jump to the contributing slice in
+SCR-03) run end to end on real data. Vũ Hùng Anh completes, measures and defends it (TC-3D-001..005, TC-PERF-002).
+
+- **Data.** `case_get`, `analysis_run_get`, `reconstruction_get` (the path token is `mask_id`; its value is the run's RAW
+  or PROCESSED prediction mask id, or the ground-truth id from `ground_truth_slice_get`) through `useCall`; the mesh
+  bytes through `runtime.content` (`/api/v1/artifacts/<sha256>.cmesh`, verified against the sha256 inside
+  `mesh_artifact_id = MESH_<sha256>`, DR-021 rule 1). The mesh is the undecimated L0 surface (DR-008c) in the
+  voxel-index frame, format `cardiac-mesh/1` (`backend/mesh/artifact.py`); see `contracts/api/README.md`, "3-D mesh
+  content". Fixture mode has no bytes, so it shows the honest unavailable state.
+- **Viewer.** `viewerSource.mjs` is one self-contained WebGL2 page for `react-native-webview` (adapted from Spike B,
+  provenance in its header): orbit, pinch zoom, two-finger pan, prediction (orange) and ground-truth (cyan) layers with
+  their own switch, an amber band for the selected 2D slice. The screen hands it only verified artifacts that fit the
+  case's grid.
+- **H7.** A tap resolves to `face_source_slice[t]` of the first triangle hit (not the floor of the hit point); the
+  screen shows "slice n / total"; **Open in 2D** pushes SCR-03 at that slice for the same run and variant with
+  `returnParams`, so Back reopens SCR-05 on that slice. A background tap clears the selection - nothing navigates by
+  accident. SCR-03's 3D entry now passes the variant it shows.
+- **Not done (owner):** error reconstruction (DR-005 is open; the screen says so), on-device FPS / stall / picking
+  measurements, label toggles beyond the two layers, smoothing, landscape, the 3D plane as a surface (it is a band).
+- **Tests.** `test/v2_inspector3d.test.mjs` (logic, golden artifact from the Python encoder, navigator round trip),
+  `test/v2_viewer.test.mjs` (the viewer script in node against a stubbed canvas: decode, refusal of damaged files, the
+  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 10 of the render smoke
+  (the screen with the WebView mocked: references, verified bytes, handshake, H7, unavailable / error states).
+
 ## Render-smoke harness (test-only)
 
 ```powershell
@@ -231,9 +258,9 @@ npm ci
 npm run test:render        # node --import ./test/render/hooks.mjs test/render/smoke.mjs
 ```
 
-Renders the real shell and V1 screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
-**devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg and
-safe-area-context (`test/render/mocks/`); screens get a real app/core runtime — the generated fixture bundle, or a
+Renders the real shell, V1 and V2 screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
+**devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
+safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get a real app/core runtime — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
 the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
 

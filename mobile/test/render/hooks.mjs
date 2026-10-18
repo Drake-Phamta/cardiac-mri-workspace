@@ -7,8 +7,9 @@
  * Its output is evidence that the screen LOGIC renders and reacts - never
  * device evidence: nothing here measures a frame, a gesture or a network.
  *
- *   - react-native, react-native-svg and react-native-safe-area-context are
- *     mapped to host-string stand-ins in ./mocks (enough to render a tree and
+ *   - react-native, react-native-svg, react-native-safe-area-context and
+ *     react-native-webview (SCR-05: no page is loaded; the messages the screen
+ *     sends the viewer are recorded) are mapped to host-string stand-ins in ./mocks (enough to render a tree and
  *     press a button, not a behavioural emulation);
  *   - every `react` import resolves to mobile/node_modules/react, so the
  *     renderer and the screens share ONE React;
@@ -39,6 +40,7 @@ registerHooks({
     if (specifier === 'react-native') return { url: new URL('react-native.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react-native-svg') return { url: new URL('svg.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react-native-safe-area-context') return { url: new URL('safe-area.mjs', MOCKS).href, shortCircuit: true };
+    if (specifier === 'react-native-webview') return { url: new URL('webview.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react' || specifier.startsWith('react/')) {
       const r = next(specifier, { ...context, parentURL: MOBILE_PARENT });
       return { ...r, shortCircuit: true, format: 'commonjs' };
