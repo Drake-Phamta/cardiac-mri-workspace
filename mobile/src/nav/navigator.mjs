@@ -4,7 +4,7 @@
  * all of that. Pure - the React side (NavigatorView.js) only renders
  * `top(state)` and dispatches actions.
  *
- *   push(id, params)     open a screen on top           (Case List -> Case Explorer)
+ *   push(id, params[, returnParams])  open a screen on top (Case List -> Case Explorer)
  *   pop()                back; a no-op at the root      (Android back button)
  *   replace(id, params)  swap the top screen            (Case Explorer -> another case)
  *   reset(id, params)    one-screen stack               (a tab press)
@@ -12,6 +12,12 @@
  * Every action validates the screen id and its required params against
  * screens.mjs. A push that omits caseId is a programming error and throws -
  * rendering SCR-03 with no case would be a screen inventing its subject.
+ *
+ * A covered screen UNMOUNTS, so what it shows when the user comes back is its
+ * stack entry's params. `returnParams` (#78 QA N-8) are merged into the entry
+ * the push COVERS, in the same action, keeping its key: SCR-03 hands SCR-04
+ * the run, variant and slice on screen and gets them back on Back. Nothing
+ * changes when the push does not happen (a leave guard said no).
  */
 
 import { ROOT_SCREEN_ID, isScreenId, missingParams } from './screens.mjs';
@@ -45,12 +51,21 @@ export function initialNavState(screenId = ROOT_SCREEN_ID, params = {}) {
   return Object.freeze({ stack: Object.freeze([entry(screenId, params, 1)]), seq: 1 });
 }
 
+// The covered entry with `returnParams` merged in: same key and screen, so it
+// is the same entry (and the same guard slot), with what to show on return.
+function withReturnParams(covered, returnParams) {
+  if (!returnParams || typeof returnParams !== 'object') return covered;
+  return Object.freeze({ ...covered, params: Object.freeze({ ...covered.params, ...returnParams }) });
+}
+
 export function navReducer(state, action) {
   const seq = state.seq + 1;
   switch (action.type) {
     case NAV.PUSH: {
       const next = entry(action.screenId, action.params, seq);
-      const stack = [...state.stack, next];
+      const below = state.stack.slice(0, -1);
+      const covered = withReturnParams(state.stack[state.stack.length - 1], action.returnParams);
+      const stack = [...below, covered, next];
       if (stack.length > MAX_DEPTH) stack.splice(0, stack.length - MAX_DEPTH);
       return Object.freeze({ stack: Object.freeze(stack), seq });
     }
@@ -87,15 +102,26 @@ export function validateRoute(screenId, params) {
  * reset (every tab press). The guard gets { type, screenId, params } and
  * answers true to leave, false to stay - or a Promise of either, e.g. after
  * a confirmation dialog. Anything but `true` stays. A guard belongs to the
- * stack entry that set it and disappears with it.
+ * stack entry that set it while that entry is on top: NavigatorView prunes
+ * every other key, so a covered screen - unmounted, its edits gone with it -
+ * leaves no guard behind to be asked on its behalf later (#77 QA N-7).
+ *
+ * One prompt at a time (#77 QA N-7): while a guard is being asked, any other
+ * action that would ask one - a second back press, a tab - is refused at once
+ * instead of opening a second dialog over the first.
  */
 export function createGuards() {
   const map = new Map();
+  let busy = false;
   return Object.freeze({
     get: (key) => map.get(key) || null,
     set(key, fn) { if (typeof fn === 'function') map.set(key, fn); else map.delete(key); },
     prune(keys) { for (const k of [...map.keys()]) if (!keys.includes(k)) map.delete(k); },
     get size() { return map.size; },
+    // hold() -> true when this caller may ask a guard now; release() when it has its answer.
+    hold() { if (busy) return false; busy = true; return true; },
+    release() { busy = false; },
+    get busy() { return busy; },
   });
 }
 
@@ -109,8 +135,9 @@ export function createGuards() {
  * uncaught throw there is a crash, and a crash is not an honest state.
  *
  * Return value of every action: `true` / `false` when it was decided at once
- * (no guard on the current screen), or a Promise of true / false when the
- * current screen's leave guard had to be asked.
+ * (no guard on the current screen, or another guard prompt still open), or a
+ * Promise of true / false when the current screen's leave guard had to be
+ * asked.
  */
 export function bindNav(dispatch, state, onError = null, guards = null) {
   const current = top(state);
@@ -121,30 +148,33 @@ export function bindNav(dispatch, state, onError = null, guards = null) {
   const leave = (action) => {
     const guard = guardNow();
     if (!guard) { dispatch(action); return true; }
+    if (!guards.hold()) return false; // a prompt is already open: this action stays
     return Promise.resolve()
       .then(() => guard({ type: action.type, screenId: action.screenId ?? null, params: action.params ?? null }))
       .then((ok) => {
+        guards.release();
         if (ok !== true) return false;
         dispatch(action);
         return true;
       }, (err) => {
+        guards.release();
         if (onError) onError(err);
         return false;
       });
   };
 
-  const routed = (type, screenId, params) => {
+  const routed = (type, screenId, params, returnParams = null) => {
     try {
       validateRoute(screenId, params);
     } catch (err) {
       if (onError) onError(err);
       return false;
     }
-    return leave({ type, screenId, params });
+    return leave(returnParams ? { type, screenId, params, returnParams } : { type, screenId, params });
   };
 
   return Object.freeze({
-    push: (screenId, params) => routed(NAV.PUSH, screenId, params),
+    push: (screenId, params, returnParams) => routed(NAV.PUSH, screenId, params, returnParams),
     replace: (screenId, params) => routed(NAV.REPLACE, screenId, params),
     reset: (screenId, params) => routed(NAV.RESET, screenId, params),
     pop: () => (canGoBack(state) ? leave({ type: NAV.POP }) : false),

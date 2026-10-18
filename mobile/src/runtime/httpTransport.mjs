@@ -95,6 +95,9 @@ async function readJsonBody(response, contentType) {
  *   onTiming        optional ({ endpointId, url, status, ms, bytes }) => void,
  *                   for performance evidence: `bytes` is the body size, never
  *                   the body. Called once per response, after the body is read.
+ *   onStart         optional (endpointId) => value, called as the request is
+ *                   sent; with it, onTiming also gets that value as `start`
+ *                   (the runtime passes the gesture open then, #77 QA N-3)
  */
 export function createHttpTransport({
   baseUrl,
@@ -102,6 +105,7 @@ export function createHttpTransport({
   timeoutMs = 15000,
   AbortControllerImpl = globalThis.AbortController,
   onTiming = null,
+  onStart = null,
   now = () => Date.now(),
 } = {}) {
   if (!baseUrl) throw new TransportError('NO_BASE_URL', 'createHttpTransport needs a baseUrl');
@@ -143,6 +147,10 @@ export function createHttpTransport({
         }
       }
 
+      let start = null;
+      if (onStart) {
+        try { start = onStart(resolved.endpointId); } catch (_e) { start = null; }
+      }
       const t0 = now();
       let response;
       try {
@@ -167,7 +175,9 @@ export function createHttpTransport({
       const { json: body, bytes } = await readJsonBody(response, contentType);
       if (onTiming) {
         try {
-          onTiming({ endpointId: resolved.endpointId, url: resolved.url, status, ms: now() - t0, bytes });
+          const timing = { endpointId: resolved.endpointId, url: resolved.url, status, ms: now() - t0, bytes };
+          if (onStart) timing.start = start;
+          onTiming(timing);
         } catch (_e) { /* evidence hook must never break a call */ }
       }
 

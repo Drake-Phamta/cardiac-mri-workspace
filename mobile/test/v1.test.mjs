@@ -143,6 +143,14 @@ test('V1l run text names run, model, experiment and the precomputed flag', () =>
   assert.equal(runText({ runId: 'R1', experimentId: 'EXP_A', precomputed: true, status: 'SUCCEEDED' }, 'UNet2D'),
     'Run R1 · UNet2D · EXP_A · precomputed');
   assert.match(runText({ runId: 'R1', experimentId: null, precomputed: null, status: 'FAILED' }), /precomputed: not stated · FAILED/);
+  // #77 QA N-9: before analysis_run_get answers, and after it failed, nothing is "not stated" - it is not known yet.
+  const waiting = runText({ runId: 'R1' }, null, { loading: true });
+  assert.equal(waiting, 'Run R1 · loading run details…');
+  const failed = runText({ runId: 'R1' }, null, { error: 'TRANSPORT_UNREACHABLE' });
+  assert.equal(failed, 'Run R1 · run details unavailable (TRANSPORT_UNREACHABLE)');
+  for (const t of [waiting, failed]) assert.doesNotMatch(t, /not stated/);
+  assert.equal(runText({ runId: 'R1', experimentId: 'EXP_A', precomputed: false }, null, { loading: false, error: null }),
+    'Run R1 · EXP_A · newly executed', 'once the run answered, the line is the run\'s');
 });
 
 test('V1m the 30-step sequence is Spike A\'s: 30 steps, +/-1 moves kept, all in range', () => {

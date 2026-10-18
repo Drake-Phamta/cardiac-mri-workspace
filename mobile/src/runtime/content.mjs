@@ -22,8 +22,9 @@
  *          RECOVERABLE_ERROR  TRANSPORT_UNREACHABLE (network, timeout, 5xx
  *                             without a contract code) - RETRY
  *          FATAL_INVALID      CONTRACT_DRIFT (a URL outside the artifact route,
- *                             bytes that do not hash to the checksum, an ETag
- *                             that disagrees, a 4xx without a contract code)
+ *                             no checksum stated, bytes that do not hash to
+ *                             the checksum, an ETag that disagrees, a 4xx
+ *                             without a contract code)
  *          + the contract code's own state for an error envelope
  *            (ARTIFACT_NOT_FOUND -> EMPTY_UNAVAILABLE, ...)
  *
@@ -77,16 +78,23 @@ export function createContent({
       return drift(`content_url is not an artifact path of the configured backend (${artifactPrefix}…)`,
         ['content_url outside the artifact route - not fetched']);
     }
-    let expected = null;
-    if (checksum !== null && checksum !== undefined) {
-      const m = /^sha256:([0-9a-f]{64})$/i.exec(String(checksum));
-      if (!m) return drift('checksum is not "sha256:<64 hex>"', [`checksum ${String(checksum).slice(0, 80)}`]);
-      expected = m[1].toLowerCase();
+    // DR-021 rule 1 (#77 QA N-10): every content URL's bytes are verified
+    // against the SHA-256 the server stated for them. A response that states
+    // none cannot be verified, so it is CONTRACT_DRIFT - never an unverified
+    // success - and nothing is fetched for it.
+    if (checksum === null || checksum === undefined || String(checksum).trim() === '') {
+      return drift('no checksum stated for this content_url - its bytes cannot be verified',
+        ['checksum missing - not fetched']);
     }
+    const m = /^sha256:([0-9a-f]{64})$/i.exec(String(checksum));
+    if (!m) return drift('checksum is not "sha256:<64 hex>"', [`checksum ${String(checksum).slice(0, 80)}`]);
+    const expected = m[1].toLowerCase();
     if (signal && signal.aborted) return emptyUnavailable(CONTENT_REASON.REQUEST_ABORTED);
 
+    // The gesture open as the request starts is the one it belongs to (#77 QA N-3).
+    const gesture = netLog ? netLog.openSeq : null;
     const record = (bytesCount, status, t0) => {
-      if (netLog) netLog.record({ endpoint: `artifact:${kind}`, bytes: bytesCount, ms: now() - t0, status });
+      if (netLog) netLog.record({ endpoint: `artifact:${kind}`, bytes: bytesCount, ms: now() - t0, status, seq: gesture });
     };
 
     let controller = null;
@@ -135,7 +143,7 @@ export function createContent({
       record(buf.length, res.status, t0);
 
       let verified = false;
-      if (expected && verifyChecksum) {
+      if (verifyChecksum) {
         const got = sha256Hex(buf);
         if (got !== expected) {
           return drift('the artifact bytes do not hash to the checksum the server stated',
@@ -150,7 +158,7 @@ export function createContent({
           }
         }
       }
-      return success(Object.freeze({ bytes: buf, size: buf.length, checksum: expected ? `sha256:${expected}` : null, verified }));
+      return success(Object.freeze({ bytes: buf, size: buf.length, checksum: `sha256:${expected}`, verified }));
     } finally {
       if (timer) clearTimeout(timer);
       if (unlink) unlink();

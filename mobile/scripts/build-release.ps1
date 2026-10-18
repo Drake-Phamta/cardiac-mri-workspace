@@ -25,7 +25,8 @@
   5. Runs `gradlew assembleRelease` - this also bundles the JS with Hermes.
   6. Copies the APK to mobile/release/ under a name carrying the mode and the
      build time, writes <apk>.build.txt next to it (timestamp, git sha, mode,
-     backend URL, APK sha256), and prints both.
+     whether a backend URL was configured - never the URL or a hash of it -
+     APK sha256), and prints both.
 
   The live backend URL is never in git (the repository is public). It is taken
   from -ApiBaseUrl, else the environment variable EXPO_PUBLIC_API_BASE_URL,
@@ -228,16 +229,14 @@ $outApk = Join-Path $outDir ("cardiac-mri-workspace-$Mode-$stamp.apk")
 Copy-Item $apk $outApk
 $sha = (Get-FileHash $outApk -Algorithm SHA256).Hash.ToLower()
 $sizeMb = [math]::Round((Get-Item $outApk).Length / 1MB, 1)
-# Evidence redaction (N-4): this sidecar may be committed next to device
-# evidence in a public repository. It names the backend by a SHA-256 of its
-# URL - enough to prove two builds talked to the same backend, useless for
-# finding it - and uses paths relative to the repository root only.
-$urlHash = 'none (fixture build: no backend address)'
-if ($buildConfig.apiBaseUrl) {
-  $sha256 = [System.Security.Cryptography.SHA256]::Create()
-  $digest = $sha256.ComputeHash([System.Text.Encoding]::UTF8.GetBytes([string]$buildConfig.apiBaseUrl))
-  $urlHash = 'sha256:' + (($digest | ForEach-Object { $_.ToString('x2') }) -join '')
-}
+# Evidence redaction (N-4; #77 QA N-6, DR-021 rule 3): this sidecar may be
+# committed next to device evidence in a public repository. It records only
+# WHETHER a backend URL was configured - never the URL and no hash of it: an
+# unsalted SHA-256 of an overlay address is reversed by hashing every
+# candidate address, so the field is dropped, not salted. Paths are relative
+# to the repository root only.
+$apiBaseUrlRecord = 'none (fixture build: no backend address)'
+if ($buildConfig.apiBaseUrl) { $apiBaseUrlRecord = 'configured (not recorded)' }
 $relApk = "mobile\release\$(Split-Path -Leaf $outApk)"
 $lines = @(
   "apk              $(Split-Path -Leaf $outApk)",
@@ -245,7 +244,7 @@ $lines = @(
   "build_seconds    $([int]($finished - $started).TotalSeconds)",
   'build_type       release (Hermes, signed with the template debug keystore - not a store build)',
   "mode             $($buildConfig.mode)",
-  "api_base_url     $urlHash",
+  "api_base_url     $apiBaseUrlRecord",
   "study_id         $($buildConfig.studyId)",
   "contract         $($buildConfig.contractVersion)",
   "abis             $Abis",

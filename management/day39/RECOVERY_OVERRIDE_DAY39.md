@@ -1,0 +1,120 @@
+# RECOVERY OVERRIDE — DAY 39 (2026-10-18)
+
+**Status:** ACTIVE
+**Effective:** 2026-10-18 06:45 +07:00
+**Expires:** automatically at 23:59 +07:00 on 2026-10-18. No renewal by silence.
+**Authorised by:** Phạm Tuấn Anh — Team Leader (decisions taken in session, 2026-10-18 06:40, recorded below)
+**Recorded by:** Project Control (the leader's Claude session)
+**Scope:** 2026-10-18 only. This is the single exception record for the day.
+
+---
+
+## 1 · Why
+
+Day 1 was 2026-09-10. The original Day 30 (2026-10-09) has passed. Today is calendar day 39.
+
+| Fact (verified 2026-10-18 06:35 against the repository) | Value |
+|---|---|
+| Last change on `main` before today | 2026-10-01 22:04 (`6eecb5e`, #84) |
+| Team activity on the repository, 2026-10-02 → 2026-10-17 | #90 (Bế Quốc Khánh, 2026-10-04, owner revalidation); approvals on #85, #86, #89 (Vũ Hùng Anh, 2026-10-02). Nothing else |
+| Gates | GATE-DATA-01, GATE-SPLIT-01, GATE-ML-01, GATE-MOB-01 closed; **GATE-IMG-01 open** |
+| ML runs | DINOv2 family complete: EXP-D-025, EXP-D-050, EXP-D-100 (50 epochs each, 2026-10-02 05:44). UNet family not started |
+| Holdout | never predicted, never scored |
+| Real numbers in the app | none: the backend has 0 analysis runs |
+
+The leader set a **new acceptance date: 2026-10-31**, for the course acceptance and the presentations. The leader
+asked that today everything that fell behind is completed and brought up to date, so that the team can resume
+normal work tomorrow (2026-10-19), with one exception: **training stays with Bế Quốc Khánh** (the UNet family).
+
+## 2 · Rules waived, for 2026-10-18 only
+
+The same four waivers as `management/day22/RECOVERY_OVERRIDE_DAY22.md` §2:
+
+1. The leader's session (with Claude agents under the leader's account) may implement, fix, rebase, resolve
+   conflicts, run measurements and write evidence inside **any** technical block, **except training**.
+2. The human secondary review before merge is replaced by an **independent QA pass**: an LLM QA agent, recorded as
+   such and never as a human reviewer, plus green CI.
+3. Review serialization and the normal WIP limits.
+4. The rule that the leader may not execute another member's implementation work.
+
+**This is recovery support, not a transfer of ownership.** `DR-013` ownership returns in full on 2026-10-19.
+Every item done in someone else's block is listed in the revalidation file for that owner to review, adopt or
+reject. Work on V2 and V4 screens is limited to **working skeletons**; each owner completes, measures and defends
+their own function (PR-MOBILE-03, TC-TEAM-001).
+
+## 3 · Rules NOT waived
+
+- No fabricated measurement: what is not measured is `NOT MEASURED`.
+- Owner-authored items stay owner-authored: **B15** (Vũ Hùng Anh), each member's TC-TEAM-001 text, the Spike C1
+  reviewer verdict. Nothing is written in their name.
+- `RawPrediction` and ground truth are immutable. No dataset, checkpoint or per-case value in git.
+- `docs/specs/v1.0/**` stays frozen. CI is not bypassed.
+- A null or negative result is valid (`PR-SCI-03`). Nothing is tuned to favour DINOv2 or the post-processing.
+- **The holdout is touched only under §4 below, after the GATE-IMG-01 record is on `main`.**
+- No destructive operation: no branch deletion, no force-push to `main`.
+
+## 4 · Decisions taken by the leader on 2026-10-18
+
+| ID | Decision |
+|---|---|
+| **Override** | This record (§2, §3) |
+| **Acceptance date** | 2026-10-31. The plan from 2026-10-19 is rebuilt on it |
+| **GATE-IMG-01** | Opened today under the pre-declared rule below. The leader authorises holdout inference and evaluation, **once**, for the three trained DINOv2 runs and for EXP-D-PP derived from EXP-D-100 |
+| **UNet family** | Stays with Bế Quốc Khánh (DR-016a still applies). Nothing in this record trains a model |
+
+### Pre-declared rule for GATE-IMG-01 (written before any candidate was evaluated)
+
+**Source evidence:** the RAW validation predictions of **EXP-D-100** (20 validation cases, `best.pt`), already on
+disk since 2026-10-02. No other run, no training case and no holdout case is used.
+
+**Candidate set (closed):** every candidate takes the raw binary mask volume (z = slice axis) and is deterministic.
+
+| ID | Operations, in order |
+|---|---|
+| PP-0 | identity (the raw mask). Reference only, **not eligible** |
+| PP-1 | keep the largest 3D connected component (26-connectivity) |
+| PP-2 | per-slice 2D hole filling, then PP-1 |
+| PP-3 | 3D binary closing, 3×3×3 cube, 1 iteration, then PP-1 |
+| PP-4 | 3D binary opening, 3×3×3 cube, 1 iteration, then PP-1 |
+| PP-5 | 3D binary closing (as PP-3), then per-slice 2D hole filling, then PP-1 |
+
+An empty mask stays empty under every candidate.
+
+**Selection:** the candidate with the highest **mean 3D Dice over the 20 validation cases**, computed with the
+same metric code and semantics as `ml/evaluate.py` (`ml-eval-1.0.0`). A tie within 0.001 goes to the lower ID
+(fewer operations). The winner is frozen **whether or not it beats PP-0**; the report states the change against
+PP-0 (improves, worsens or unchanged — `07` §5).
+
+**Freeze:** the winner is written as a JSON config (operations, order, structuring element, connectivity, code
+version). Its sha256 is the `postprocessing_config_sha256` of the authorization record.
+
+**Order of events, each a commit on `main`:**
+1. the post-processing code and its tests;
+2. the selection table on validation, the frozen config and its sha256, and the GATE-IMG-01 decision record;
+3. the `ml-holdout-authorization/1` record: runs EXP-D-025, EXP-D-050, EXP-D-100 with their `best.pt` sha256,
+   and the frozen config sha256;
+4. only then: holdout inference (`best.pt`), EXP-D-PP derived from EXP-D-100's raw holdout predictions with the
+   frozen config, evaluation, Contract 2 export, backend ingest.
+
+**Once:** each run's holdout is predicted and scored once. A crash may be rerun with the identical command; that
+rerun is recorded. No number seen on the holdout changes a config, a threshold, a checkpoint or a rule.
+
+## 5 · Lanes today
+
+Sequential, at most two agents at a time (the leader asked to protect the session quota). Agents run on Sonnet.
+
+1. Merge the approved PRs (#85, #86); LLM QA, then merge #87 → #88 → #89 and #90.
+2. Post-processing + GATE-IMG-01 selection (owner Bế Quốc Khánh) ‖ DR-017 and DR-018 in contracts, backend and the
+   exporter (owners Nguyễn Gia Đức Trung, Bế Quốc Khánh).
+3. Holdout pipeline, Contract 2 packages, backend deploy, end-to-end check through the API and the app.
+4. Working skeletons for V2 SCR-05 (owner Vũ Hùng Anh) and V4 SCR-06/08 (#72, owner Nguyễn Gia Đức Trung), if the
+   day allows.
+5. The plan to 2026-10-31, the 2026-10-19 package and the board.
+
+## 6 · Actions taken under this override
+
+| Time | Item | Action | Evidence | Normal step waived | Owner to revalidate |
+|---|---|---|---|---|---|
+| 06:40 | — | Leader's decisions (§4) | this file | — | — |
+| 06:43 | #85 Day 23 decisions | **Normal merge**: APPROVED by Vũ Hùng Anh on head `e8de065`, CI green | `ed7ea15` | none | — |
+| 06:43 | #86 V1 fixes | **Normal merge**: APPROVED by Vũ Hùng Anh on head `6d98d72`, CI green | `e3417ba` | none | — |
