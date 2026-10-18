@@ -33,6 +33,8 @@ from .cases import CaseRecord, CaseStore
 from .config import Settings
 from .contract import ApiError, Contract
 from .experiments import SOURCE_KIND, ExperimentStore, Package, RunRecord
+from ..mesh import artifact as mesh_module
+from .meshes import MEDIA_TYPE as MESH_MEDIA_TYPE, MeshStore
 from .metrics import MetricsService
 from .middleware import BodyLimitMiddleware, RequestLogMiddleware
 from .storage import Storage, etag, now
@@ -40,7 +42,7 @@ from .storage import Storage, etag, now
 # Whole-string patterns only (fullmatch): `$` would also accept a trailing newline.
 SLICE = re.compile(r"[0-9]{1,6}")
 REVIEWER = re.compile(r"[A-Za-z0-9_.@-]{1,64}")
-ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.png")
+ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.(png|cmesh)")
 CHECKSUM = re.compile(r"sha256:([0-9a-f]{64})")
 C2_VARIANT = {"RAW_PREDICTION": "RAW", "PROCESSED_PREDICTION": "PROCESSED"}
 MAX_NOTE = 4000
@@ -61,6 +63,10 @@ class Backend:
         self.cases = CaseStore(settings.data_cache)
         self.experiments = ExperimentStore(settings.experiments_root, self.cases, settings.render_cache)
         self.metrics = MetricsService(self.experiments, self.cases)
+        self.meshes = MeshStore(settings.derived_meshes)
+        for run in self.experiments.runs.values():
+            case = self.cases.get(run.case_id)
+            run.derived_reconstruction_ids = self.meshes.run_mesh_ids(run, case.shape if case else None) if case else []
         self.storage = Storage(settings.db_path, self.contract.transitions(),
                                self.contract.review_rules["create_allowed_states"])
 
@@ -161,6 +167,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if not match:
             return {}
         digest = match.group(1)
+        if match.group(2) == "cmesh":  # a derived L0 mesh: content-addressed, owned by one mask
+            return {"digest": digest, "kind": "mesh"}
         owners = [(kind, case_id, z, None) for case_id, kind, z in cases.digest_owners.get(digest, [])]
         for artifact_id, z in list(experiments.render_owners.get(digest, [])):
             owners.append(("prediction", (experiments.artifact(artifact_id) or {}).get("case_id"), z, artifact_id))
@@ -323,6 +331,13 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if not match:
             return error("ARTIFACT_NOT_FOUND", {"artifact": name})
         digest = match.group(1)
+        if match.group(2) == "cmesh":
+            mesh_bytes = backend.meshes.content(digest)
+            if mesh_bytes is None or imaging.sha256_bytes(mesh_bytes) != digest:
+                return error("ARTIFACT_NOT_FOUND", {"artifact": name})
+            return Response(mesh_bytes, media_type=MESH_MEDIA_TYPE, headers={
+                "ETag": f'"sha256:{digest}"', "Cache-Control": "private, max-age=31536000, immutable",
+            })
         payload: Optional[bytes] = None
         for index in (cases.blobs, experiments.render_blobs):
             path = index.get(digest)
@@ -356,7 +371,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "capabilities": {
                 "ground_truth_evaluation": counts.get("EVALUATION", 0) > 0,
                 "inference_review": counts.get("INFERENCE_REVIEW", 0) > 0,
-                "reconstruction_3d": any(run.reconstruction_ids for run in experiments.runs.values()),
+                "reconstruction_3d": any(run.reconstruction_ids or run.derived_reconstruction_ids
+                                         for run in experiments.runs.values()),
                 "review": True,
                 "live_analysis": False,
             },
@@ -534,7 +550,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "status": run.status, "attempt_no": run.attempt_no, "precomputed": True,
             "raw_prediction_artifact_id": run.raw_mask_id,
             "processed_prediction_artifact_id": run.processed_mask_id,
-            "reconstruction_ids": list(run.reconstruction_ids),
+            "reconstruction_ids": list(run.reconstruction_ids) + list(run.derived_reconstruction_ids),
             "failure_code": "ANALYSIS_FAILED" if run.status == "FAILED" else None,
             "failure_reason": run.failure_reason,
         })
@@ -594,23 +610,53 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     @app.get(f"{base}/analysis-runs/{{run_id}}/reconstruction")
     @endpoint("reconstruction_get")
     def reconstruction_get(run_id: str, source_mask_id: Optional[str] = Query(None)) -> Any:
+        """A mesh reference for one source mask of the run: its RAW or PROCESSED prediction, or the case's ground
+        truth. The mesh is the undecimated L0 voxel-face surface (DR-008c) derived by backend.mesh.build_cache,
+        in the voxel-index frame (vertex x = column, y = row, z = slice), hence the identity transform; its bytes
+        are served at /artifacts/<sha256>.cmesh, the sha256 being the one inside ``mesh_artifact_id``."""
         run = get_run(run_id)
         case = run_case(run)
         require_succeeded(run)
-        if source_mask_id not in {run.raw_mask_id, run.processed_mask_id} or source_mask_id is None:
-            raise ApiError("ARTIFACT_NOT_FOUND", {"source_mask_id": source_mask_id})
         artifacts = run.package.artifacts
-        meshes = [artifact_id for artifact_id in run.reconstruction_ids
+        if source_mask_id is None:
+            raise ApiError("ARTIFACT_NOT_FOUND", {"source_mask_id": source_mask_id})
+        mask_sha: Optional[str]
+        if source_mask_id in {run.raw_mask_id, run.processed_mask_id}:
+            source_kind = SOURCE_KIND[artifacts[source_mask_id]["kind"]]
+            mask_sha = artifacts[source_mask_id]["checksum"]["value"]
+        elif case.ground_truth_available and source_mask_id == case.reference_mask_id:
+            source_kind, mask_sha = "GROUND_TRUTH", case.data.get("mask_sha256")
+        elif not case.ground_truth_available and source_mask_id == f"MASK_{case.case_id}":
+            # INT-12: reconstruction_get has no GROUND_TRUTH_UNAVAILABLE in its error list (adding it would change
+            # the contract), so the refusal is ARTIFACT_NOT_FOUND carrying the reason (contracts/api/README.md).
+            raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "GROUND_TRUTH_UNAVAILABLE", "case_id": case.case_id,
+                                                  "mode": case.mode})
+        else:
+            raise ApiError("ARTIFACT_NOT_FOUND", {"source_mask_id": source_mask_id})
+        entry = backend.meshes.for_mask(mask_sha)
+        if entry is not None:
+            if entry.shape != case.shape:
+                raise ApiError("GEOMETRY_MISMATCH", {"reason": "the derived mesh was built for another volume shape"})
+            payload = {
+                "mesh_artifact_id": entry.artifact_id, "source_mask_id": source_mask_id,
+                "source_mask_kind": source_kind,
+                "reconstruction_version": mesh_module.reconstruction_version(str(mask_sha)),
+                # Voxel-index frame, axes x=column, y=row, z=slice; with geometry not validated there is no
+                # physical world frame to map to.
+                "mesh_to_world_transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            }
+            payload.update(case.geometry())
+            return ok(payload)
+        listed = [artifact_id for artifact_id in run.reconstruction_ids
                   if artifacts[artifact_id].get("source_artifact_id") == source_mask_id]
-        if not meshes:
-            raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "no reconstruction of this source mask"})
-        mesh = artifacts[meshes[0]]
+        if source_kind == "GROUND_TRUTH" or not listed:
+            raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "no reconstruction of this source mask "
+                                                            "(derived mesh not built)"})
+        mesh = artifacts[listed[0]]  # a Contract 2 package that lists its own mesh
         payload = {
             "mesh_artifact_id": mesh["artifact_id"], "source_mask_id": source_mask_id,
-            "source_mask_kind": SOURCE_KIND[artifacts[source_mask_id]["kind"]],
+            "source_mask_kind": source_kind,
             "reconstruction_version": mesh.get("evaluation_version") or "sha256:" + mesh["checksum"]["value"],
-            # Meshes are produced in the source mask's voxel-index frame; with
-            # geometry not validated there is no physical world frame to map to.
             "mesh_to_world_transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
         }
         payload.update(case.geometry())
