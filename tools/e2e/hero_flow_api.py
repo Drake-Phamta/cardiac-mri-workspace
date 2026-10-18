@@ -12,7 +12,8 @@ backend really serves, and prints a readable PASS / FAIL / SKIP report.
 Standard library only, Python 3.9-compatible syntax: it also runs on the Mac mini
 host. Exit code 0 only when no step FAILED (SKIP is not a failure).
 
-What it does NOT cover: the phone (gestures, rendering, performance) and 3D.
+What it does NOT cover: the phone (gestures, rendering, frame rate). H6 / H7 cover the data path of SCR-05:
+the mesh reference, its verified bytes, and the pick -> source slice -> mask-on-that-slice link.
 Review writes (H8/H9) create one review, one reviewed-mask version and one
 finding in the backend's own database; they are allowed only against a
 127.0.0.1 / localhost base URL unless --allow-remote-writes is given, and
@@ -20,9 +21,12 @@ finding in the backend's own database; they are allowed only against a
 per-case values (and echo the --json-out path you gave), so keep them out of git.
 """
 import argparse
+import array
 import base64
 import hashlib
 import json
+import math
+import re
 import struct
 import sys
 import time
@@ -158,6 +162,40 @@ def png_decode(data):
         out[y * stride:(y + 1) * stride] = line
         prev = line
     return width, height, bytes(out)
+
+
+def parse_cmesh(data):
+    """Parse a ``cardiac-mesh/1`` artifact (backend/mesh/artifact.py) with the standard library only.
+
+    Layout: ``CARDMESH`` + uint32 header length + JSON header, then little-endian vertices (uint16 x y z),
+    triangles (uint16 or uint32, ``index_bytes``) and per-triangle source slices (uint16); every section 4-aligned.
+    Raises ValueError when the file is not exactly what its header says."""
+    if data[:8] != b"CARDMESH" or len(data) < 12:
+        raise ValueError("not a cardiac-mesh artifact")
+    (hlen,) = struct.unpack_from("<I", data, 8)
+    header = json.loads(data[12:12 + hlen].decode("utf-8"))
+    if header.get("format") != "cardiac-mesh/1":
+        raise ValueError("format %r" % header.get("format"))
+    nv, nt, ib = header["vertex_count"], header["triangle_count"], header["index_bytes"]
+    pos = [12 + hlen]
+
+    def take(count, code):
+        arr = array.array(code)
+        size = count * arr.itemsize
+        arr.frombytes(data[pos[0]:pos[0] + size])
+        if len(arr) != count:
+            raise ValueError("mesh file is truncated")
+        if sys.byteorder != "little":
+            arr.byteswap()
+        pos[0] += size + (-size) % 4
+        return arr
+
+    vertices = take(nv * 3, "H")
+    triangles = take(nt * 3, "H" if ib == 2 else "I")
+    slices = take(nt, "H")
+    if pos[0] != len(data):
+        raise ValueError("mesh file has %d trailing bytes" % (len(data) - pos[0]))
+    return {"header": header, "vertices": vertices, "triangles": triangles, "slices": slices}
 
 
 def bitpack(mask01_bytes):
@@ -763,37 +801,217 @@ def build_steps(runner, args):
     runner.run("H5", "SCR-04 errors: slice metrics, error reference, FP/FN re-derived from the two PNG masks", h5, requires=["worst"])
 
     # ---- H6/H7 3D -------------------------------------------------------------
-    def h6_guard(c, st):
-        run = st["hero_run"]
-        rids = run.get("reconstruction_ids") or []
-        mask = run.get("raw_prediction_artifact_id")
-        r = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (BASE, q(run["run_id"]), q(mask)))
-        e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(run["run_id"])))
-        if rids:
-            c.ev("run lists reconstruction_ids=%s" % rids)
-            if c.expect_status(r, 200, "reconstruction_get"):
-                d = r.json
-                c.ok(d.get("source_mask_id") == mask, "reconstruction source_mask_id %r" % d.get("source_mask_id"))
-                c.ok(d.get("mesh_artifact_id") in rids, "mesh_artifact_id not among the run's reconstruction_ids")
-                c.ev("reconstruction_get: mesh=%s kind=%s version=%s transform present=%s" % (
-                    d.get("mesh_artifact_id"), d.get("source_mask_kind"), d.get("reconstruction_version"), "mesh_to_world_transform" in d))
-        else:
-            c.ev("reconstruction_get with no mesh -> %s %s; error_reconstruction_get -> %s %s" % (r.status, r.error_code, e.status, e.error_code))
-            c.expect_error(r, 404, "ARTIFACT_NOT_FOUND", "reconstruction_get (no mesh)")
-            c.expect_error(e, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get (DR-005 open)")
+    # SCR-05: reconstruction_get answers a mesh reference, the mesh bytes come from /artifacts/<sha256>.cmesh (the
+    # sha256 is the one inside mesh_artifact_id; contracts/api/README.md "3-D mesh content"), the app verifies it
+    # (DR-021 rule 1), draws it, and a tap resolves to face_source_slice[t] (PR-3D-04, DR-008c = L0).
+    def mesh_for(c, label, run, mask_id, kind, case_get, listed=True):
+        """reconstruction_get + the mesh bytes + every sanity check; returns the parsed mesh or None."""
+        r = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (BASE, q(run["run_id"]), q(mask_id)))
+        if not c.expect_status(r, 200, "reconstruction_get %s" % label):
+            return None
+        d = r.json
+        c.ev("%s: mesh_artifact_id=%s... kind=%s version=%s..." % (
+            label, str(d.get("mesh_artifact_id"))[:21], d.get("source_mask_kind"), str(d.get("reconstruction_version"))[:28]))
+        c.ok(d.get("source_mask_id") == mask_id and d.get("source_mask_kind") == kind,
+             "%s: source %r/%r, expected %s/%s" % (label, d.get("source_mask_id"), d.get("source_mask_kind"), mask_id, kind))
+        version = d.get("reconstruction_version")
+        c.ok(isinstance(version, str) and re.match(r"^dr008c-L0/v1 sha256:[0-9a-f]{64}$", version) is not None,
+             "%s: reconstruction_version %r" % (label, version))
+        c.ok(d.get("mesh_to_world_transform") == [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+             "%s: mesh_to_world_transform is not the identity of the voxel-index frame" % label)
+        for k in ("geometry_contract_version", "geometry_validation_status", "shape", "index_convention", "spacing",
+                  "origin", "direction"):
+            c.ok(d.get(k) == case_get.get(k), "%s: %s differs from the case geometry" % (label, k))
+        c.ok(d.get("index_convention") == "x=column,y=row,z=slice", "%s: index_convention %r" % (label, d.get("index_convention")))
+        mid = d.get("mesh_artifact_id")
+        if listed:  # the run lists the meshes of its own predictions; the ground-truth mesh belongs to the case
+            c.ok(mid in (run.get("reconstruction_ids") or []), "%s: mesh_artifact_id is not in the run's reconstruction_ids" % label)
+        m = re.match(r"^MESH_([0-9a-f]{64})$", mid or "")
+        if not c.ok(m is not None, "%s: mesh_artifact_id %r is not MESH_<sha256>" % (label, mid)):
+            return None
+        digest = m.group(1)
+        b = api.get("%s/artifacts/%s.cmesh" % (BASE, digest))
+        if not c.expect_status(b, 200, "mesh bytes %s" % label):
+            return None
+        c.ok(sha256_hex(b.body) == digest, "%s: the mesh bytes do not hash to the sha256 in mesh_artifact_id" % label)
+        c.ok((b.headers.get("etag") or "").replace('"', "") == "sha256:" + digest, "%s: ETag %r" % (label, b.headers.get("etag")))
+        mesh = parse_cmesh(b.body)
+        h = mesh["header"]
+        shape = case_get.get("shape")
+        nv, nt = h["vertex_count"], h["triangle_count"]
+        c.ev("%s: %d vertices, %d triangles, %d bytes (%.0f KB), sha256 verified, shape %s, frame %s" % (
+            label, nv, nt, len(b.body), len(b.body) / 1024.0, h["shape"], h["frame"]))
+        c.ok(h["shape"] == shape, "%s: mesh shape %s != case shape %s" % (label, h["shape"], shape))
+        c.ok(h["index_convention"] == "x=column,y=row,z=slice" and h["frame"] == "voxel-index" and h["level"] == 0,
+             "%s: header convention/frame/level" % label)
+        c.ok(nv > 0 and nt > 0 and nt % 2 == 0, "%s: vertex/triangle counts %d/%d not sane" % (label, nv, nt))
+        fg = h.get("foreground_voxels") or 0
+        c.ok(0 < fg and nt <= 12 * fg and nv <= 8 * fg, "%s: %d triangles / %d vertices for %d foreground voxels" % (label, nt, nv, fg))
+        v, t, s = mesh["vertices"], mesh["triangles"], mesh["slices"]
+        c.ok(all(0 <= v[3 * i + a] <= shape[a] for i in range(nv) for a in range(3)), "%s: a vertex lies outside [0, shape]" % label)
+        c.ok(all(i < nv for i in t), "%s: a triangle indexes past the vertices" % label)
+        c.ok(max(s) < shape[2], "%s: a face source slice is outside the volume" % label)
+        return mesh
 
-    runner.run("H6.g", "3D guards: reconstruction endpoints answer honestly (no fabricated mesh)", h6_guard, requires=["hero_run"])
+    def face(mesh, i):
+        """Centroid, outward unit normal and the foreground voxel behind triangle i (voxel-index frame)."""
+        v, t = mesh["vertices"], mesh["triangles"]
+        p = [[float(v[3 * t[3 * i + k] + a]) for a in range(3)] for k in range(3)]
+        e1 = [p[1][a] - p[0][a] for a in range(3)]
+        e2 = [p[2][a] - p[0][a] for a in range(3)]
+        n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]
+        ln = math.sqrt(sum(x * x for x in n))
+        n = [x / ln for x in n]
+        cen = [(p[0][a] + p[1][a] + p[2][a]) / 3.0 for a in range(3)]
+        vox = [int(math.floor(cen[a] - 0.5 * n[a])) for a in range(3)]
+        return cen, n, vox
+
+    def first_hit(mesh, origin, direction):
+        """Moller-Trumbore over every triangle, back faces accepted: index of the nearest hit, or None."""
+        v, t = mesh["vertices"], mesh["triangles"]
+        best, best_t = None, None
+        ox, oy, oz = origin
+        dx, dy, dz = direction
+        for i in range(len(t) // 3):
+            a, b, cc = 3 * t[3 * i], 3 * t[3 * i + 1], 3 * t[3 * i + 2]
+            e1x, e1y, e1z = v[b] - v[a], v[b + 1] - v[a + 1], v[b + 2] - v[a + 2]
+            e2x, e2y, e2z = v[cc] - v[a], v[cc + 1] - v[a + 1], v[cc + 2] - v[a + 2]
+            px, py, pz = dy * e2z - dz * e2y, dz * e2x - dx * e2z, dx * e2y - dy * e2x
+            det = e1x * px + e1y * py + e1z * pz
+            if abs(det) < 1e-12:
+                continue
+            inv = 1.0 / det
+            tx, ty, tz = ox - v[a], oy - v[a + 1], oz - v[a + 2]
+            u = (tx * px + ty * py + tz * pz) * inv
+            if u < -1e-9 or u > 1 + 1e-9:
+                continue
+            qx, qy, qz = ty * e1z - tz * e1y, tz * e1x - tx * e1z, tx * e1y - ty * e1x
+            w = (dx * qx + dy * qy + dz * qz) * inv
+            if w < -1e-9 or u + w > 1 + 1e-9:
+                continue
+            dist = (e2x * qx + e2y * qy + e2z * qz) * inv
+            if dist > 1e-9 and (best_t is None or dist < best_t):
+                best, best_t = i, dist
+        return best
 
     def h6(c, st):
-        rids = st["hero_run"].get("reconstruction_ids") or []
-        if rids:
-            c.ev("meshes exist but the rotate/zoom/select interaction is a device test")
-        c.skip("V2 SCR-05 not built yet - no 3D screen and no RECONSTRUCTION_3D artifact in the accepted packages "
-               "(reconstruction_ids empty); rotation, zoom, error map are device tests")
+        run, case, case_get = st["hero_run"], st["case"], st["case_get"]
+        c.ok(bool(run.get("reconstruction_ids")), "the run lists no reconstruction_ids (SCR-03 would not enable 3D); build "
+             "the derived meshes: python -m backend.mesh.build_cache --data <root>")
+        study = api.get("%s/studies/%s" % (BASE, q(args.study_id)))
+        c.ok(study.status == 200 and (study.json.get("capabilities") or {}).get("reconstruction_3d") is True,
+             "study_get capabilities.reconstruction_3d is not true")
+        raw = mesh_for(c, "prediction RAW (%s)" % HERO_RUN_EXPERIMENT, run, run.get("raw_prediction_artifact_id"),
+                       "RAW_PREDICTION", case_get)
+        gt = api.get("%s/cases/%s/slices/0/ground-truth" % (BASE, q(case)))
+        gt_mesh = None
+        if c.expect_status(gt, 200, "ground_truth_slice_get (reference mask id)"):
+            gt_mesh = mesh_for(c, "ground truth", run, gt.json.get("reference_mask_id"), "GROUND_TRUTH", case_get, listed=False)
+        pp = st.get("pp_run")
+        pp_mesh = None
+        if pp:
+            pp_mesh = mesh_for(c, "prediction PROCESSED (%s)" % PP_EXPERIMENT, pp, pp.get("processed_prediction_artifact_id"),
+                               "PROCESSED_PREDICTION", case_get)
+        if raw and gt_mesh:
+            c.ok(raw["header"]["shape"] == gt_mesh["header"]["shape"], "prediction and ground-truth meshes live in different grids")
+            c.ev("both meshes share the grid %s (x=column, y=row, z=slice): the toggle overlays them exactly" % raw["header"]["shape"])
+        # an unknown or foreign source is never answered with some other mesh
+        bad = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (BASE, q(run["run_id"]), q("NOT_A_MASK")))
+        c.expect_error(bad, 404, "ARTIFACT_NOT_FOUND", "reconstruction_get with an unknown source mask")
+        wrong = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (
+            BASE, q(run["run_id"]), q((pp or {}).get("processed_prediction_artifact_id") or "ART_NONE")))
+        c.expect_error(wrong, 404, "ARTIFACT_NOT_FOUND", "reconstruction_get with another run's mask (never substituted)")
+        e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(run["run_id"])))
+        c.expect_error(e, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get (DR-005 open: no fabricated error mesh)")
+        c.ev("error_reconstruction_get -> %s %s (DR-005 open: the 3D error view is the GT / prediction disagreement)" % (e.status, e.error_code))
+        st["meshes"] = {"RAW": raw, "GT": gt_mesh, "PROCESSED": pp_mesh}
+        c.ev("rotate / zoom / pan, the colours and the frame rate are device tests (TC-3D-001/002, TC-PERF-002)")
 
-    runner.run("H6", "3D reconstruction / error map", h6, requires=["hero_run"])
-    runner.run("H7", "select an error region -> jump to the 2D slice (2D<->3D link)",
-               lambda c, st: c.skip("V2 SCR-05 not built yet; the link needs a mesh and the DR-005 error-region map"))
+    runner.run("H6", "SCR-05 3D: reconstruction_get + mesh bytes (sha256), counts, vertices inside [0, shape], GT / RAW / PROCESSED",
+               h6, requires=["hero_run", "case_get"])
+
+    def h6_int12(c, st):
+        cid = args.int12
+        r = api.get("%s/cases/%s" % (BASE, q(cid)))
+        if not c.expect_status(r, 200, "case_get %s" % cid):
+            return
+        rid, run = None, None
+        for x in (r.json.get("available_run_ids") or []):
+            candidate = api.get("%s/analysis-runs/%s" % (BASE, q(x))).json or {}
+            if candidate.get("experiment_id") == HERO_RUN_EXPERIMENT:
+                rid, run = x, candidate
+        if rid is None:
+            c.skip("%s has no %s run" % (cid, HERO_RUN_EXPERIMENT))
+        pred = mesh_for(c, "%s prediction RAW" % cid, run, run.get("raw_prediction_artifact_id"), "RAW_PREDICTION", r.json)
+        c.ok(pred is not None, "the prediction mesh of the inference-only case must be served (INT-12 keeps predictions)")
+        g = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (BASE, q(rid), q("MASK_" + cid)))
+        details = ((g.json or {}).get("error") or {}).get("details") or {}
+        c.expect_error(g, 404, "ARTIFACT_NOT_FOUND", "reconstruction_get ground truth of %s" % cid)
+        c.ok(details.get("reason") == "GROUND_TRUTH_UNAVAILABLE", "ground-truth mesh refusal reason %r" % details.get("reason"))
+        c.ok("mesh_artifact_id" not in g.body.decode("utf-8", "replace"), "a refusal carries a mesh id")
+        c.ev("ground-truth mesh of %s -> %s %s reason=%s (the contract has no GROUND_TRUTH_UNAVAILABLE on reconstruction_get)" % (
+            cid, g.status, g.error_code, details.get("reason")))
+        e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(rid)))
+        c.expect_error(e, 404, "GROUND_TRUTH_UNAVAILABLE", "error_reconstruction_get %s" % cid)
+        c.ev("error mesh of %s -> %s %s" % (cid, e.status, e.error_code))
+
+    runner.run("H6.i", "INT-12 3D: prediction mesh served; ground-truth mesh and error mesh refused", h6_int12)
+
+    def h7(c, st):
+        meshes = st.get("meshes") or {}
+        run, case, case_get = st["hero_run"], st["case"], st["case_get"]
+        if not meshes.get("RAW"):
+            c.skip("H6 produced no prediction mesh")
+        nz = case_get["shape"][2]
+        sources = [("prediction RAW", meshes["RAW"], "%s/analysis-runs/%s/slices/%%d/prediction?variant=RAW" % (BASE, q(run["run_id"])))]
+        if meshes.get("GT"):
+            sources.append(("ground truth", meshes["GT"], "%s/cases/%s/slices/%%d/ground-truth" % (BASE, q(case))))
+        picks_done = 0
+        for label, mesh, route in sources:
+            slices = mesh["slices"]
+            order = sorted(range(len(slices)), key=lambda i: (slices[i], i))
+            chosen = sorted(set(order[int(len(order) * f)] for f in (0.02, 0.25, 0.5, 0.75, 0.98)))
+            pngs = {}
+            for tri in chosen:
+                cen, n, vox = face(mesh, tri)
+                # a tap: the camera looks along -normal at the face centre from outside the volume
+                origin = [cen[a] + 3.0 * n[a] for a in range(3)]
+                hit = first_hit(mesh, origin, [-x for x in n])
+                if not c.ok(hit is not None, "%s: a ray aimed at face %d hit nothing" % (label, tri)):
+                    continue
+                z = mesh["slices"][hit]
+                _hc, _hn, hvox = face(mesh, hit)
+                c.ok(0 <= z < nz, "%s: pick resolved slice %d outside [0, %d)" % (label, z, nz))
+                c.ok(hvox[2] == z, "%s: the voxel behind the hit face is in slice %d, the face says %d" % (label, hvox[2], z))
+                if z not in pngs:
+                    r = api.get(route % z)
+                    if not c.expect_status(r, 200, "%s slice %d" % (label, z)):
+                        continue
+                    raw_png = fetch_artifact(c, api, r.json, "%s slice %d" % (label, z))
+                    pngs[z] = png_decode(raw_png) if raw_png else None
+                png = pngs[z]
+                if png is None:
+                    continue
+                w, h, px = png
+                on_slice = sum(1 for b in px if b)
+                x, y = hvox[0], hvox[1]
+                c.ok(on_slice > 0, "%s: the mask of slice %d is empty" % (label, z))
+                c.ok(0 <= x < w and 0 <= y < h and px[y * w + x] == 255,
+                     "%s: slice %d has no mask at column %d row %d, where the picked face's voxel is" % (label, z, x, y))
+                picks_done += 1
+                c.ev("%s: face %d -> first hit %d -> slice %d / %d (z=%d); mask at column %d row %d on that slice is 255; "
+                     "slice mask %d px" % (label, tri, hit, z + 1, nz, z, x, y, on_slice))
+        c.ok(picks_done >= 5, "only %d picks verified" % picks_done)
+        # a tap on the background resolves nothing: no navigation, nothing clamped
+        sz = case_get["shape"][2]
+        miss = first_hit(meshes["RAW"], [0.5, 0.5, sz + 10.0], [0.0, 0.0, -1.0])
+        c.ev("background ray down the volume corner (column 0, row 0) -> %s" % ("no hit: no navigation" if miss is None else "HIT"))
+        c.ok(miss is None, "a ray through the empty corner of the volume hit the mesh")
+        c.ev("jump target: SCR-03 prediction_slice_get / ground_truth_slice_get at the resolved slice (served above); "
+             "the in-app push and the 3D plane following the 2D slice are device / render tests")
+
+    runner.run("H7", "pick a face in 3D -> its source slice is in range and the mask on that slice is at the face (GT, RAW)",
+               h7, requires=["hero_run", "case_get"])
 
     # ---- H8 / H9 review ---------------------------------------------------------
     def writes_allowed():

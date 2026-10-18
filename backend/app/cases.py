@@ -3,8 +3,32 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+
+# INT-12 (DR-017): the inference-only case. The rule is "CASE_0001 is always INFERENCE_REVIEW" - the store
+# enforces it on its own, whatever the cache index designates.
+INT12_CASE_ID = "CASE_0001"
+
+
+def authorized_by_valid(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def authorized_runs_valid(runs: object) -> bool:
+    """A non-empty list of exactly ``{experiment_id, checkpoint_sha256}`` (the shape ml/holdout.py writes)."""
+    if not isinstance(runs, list) or not runs:
+        return False
+    for run in runs:
+        if not isinstance(run, dict) or set(run) != {"experiment_id", "checkpoint_sha256"}:
+            return False
+        if not (isinstance(run["experiment_id"], str) and run["experiment_id"].strip()):
+            return False
+        if not (isinstance(run["checkpoint_sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", run["checkpoint_sha256"])):
+            return False
+    return True
 
 
 class CaseRecord:
@@ -80,8 +104,9 @@ class CaseStore:
                 for z, digest in enumerate(record.data["slices"][kind]):
                     self.digest_owners.setdefault(digest, []).append((case_id, kind, z))
         self._refuse_unsafe_holdout()
-        # INT-12: the cases whose ground-truth-derived values are never served.
-        self.inference_only_ids = set(self.index.get("inference_only_case_ids", [])) | {
+        # INT-12: the cases whose ground-truth-derived values are never served. CASE_0001 is always one of
+        # them, whatever the index says (the index is data on disk; the rule is code).
+        self.inference_only_ids = set(self.index.get("inference_only_case_ids", [])) | {INT12_CASE_ID} | {
             case_id for case_id, record in self.cases.items() if record.mode == "INFERENCE_REVIEW"}
         self.modes_known = "inference_only_case_ids" in self.index
 
@@ -93,6 +118,10 @@ class CaseStore:
         GATE-IMG-01 record): the other holdout cases may be served in EVALUATION mode, but the INT-12 case -
         every case the cache lists as inference-only - is INFERENCE_REVIEW without ground truth, always.
         """
+        int12 = self.cases.get(INT12_CASE_ID)
+        if int12 is not None and (int12.mode != "INFERENCE_REVIEW" or self._serves_ground_truth(int12)):
+            raise RuntimeError(f"{INT12_CASE_ID} is the INT-12 case and must be INFERENCE_REVIEW without ground truth "
+                               f"whatever the cache index designates; refusing to start")
         holdout = [record for record in self.cases.values() if record.data.get("split_partition") == "final_holdout"]
         authorization = self.index.get("holdout_authorization")
         if authorization is None:
@@ -110,6 +139,10 @@ class CaseStore:
                 and isinstance(authorization.get("record_sha256"), str) and len(authorization["record_sha256"]) == 64):
             raise RuntimeError("data cache holds holdout cases under a malformed or mismatched GATE-IMG-01 record; "
                                "refusing to start")
+        if not (authorized_runs_valid(authorization.get("authorized_runs"))
+                and authorized_by_valid(authorization.get("authorized_by"))):
+            raise RuntimeError("the GATE-IMG-01 record of this data cache authorizes no run or names nobody "
+                               "(authorized_runs / authorized_by); re-run the ingest with the record; refusing to start")
         designated = self.index.get("inference_only_case_ids")
         if not isinstance(designated, list) or not designated:
             raise RuntimeError("data cache with an authorization record does not designate the INT-12 case; refusing to start")

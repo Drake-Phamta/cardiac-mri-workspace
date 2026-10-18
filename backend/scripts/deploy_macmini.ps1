@@ -103,12 +103,14 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Write-Host "== 2/6 pack into $stage"
 $codeTar = Join-Path $stage "code.tar.gz"
 $codePaths = @(
-  "backend/app", "backend/requirements.txt", "backend/scripts/serve_macmini.sh",
+  "backend/app", "backend/mesh", "backend/requirements.txt", "backend/scripts/serve_macmini.sh",
   "contracts/api/contract.json", "contracts/api/schema.json", "contracts/api/validate_api_contract.py",
   "contracts/ingestion/contract2_experiment_artifact/schema.json",
   "contracts/ingestion/contract2_experiment_artifact/validate_contract2.py"
 )
-Invoke-Native "tar (code)" { tar -czf $codeTar --exclude "__pycache__" -C $repo $codePaths }
+# backend/app imports backend/mesh (reconstruction_get, PR #98); its tests and golden files stay home.
+# backend/tests/test_deploy_paths.py imports backend.app.main from exactly these paths.
+Invoke-Native "tar (code)" { tar -czf $codeTar --exclude "__pycache__" --exclude "backend/mesh/tests" -C $repo $codePaths }
 $uploads = @($codeTar)
 if (-not $SkipData) {
   $dataTar = Join-Path $stage "data_cache.tar.gz"

@@ -61,6 +61,37 @@ it whole.
   same precedent ("No API version bump"). The Contract 2 validator checks of DR-018 and the DR-022 holdout
   cases (backend ingest) do not touch this contract.
 
+### 3-D mesh content and the INT-12 mesh refusal (V2 skeleton, 2026-10-18; no wire change, no version bump)
+
+`reconstruction_get` already answers `mesh_artifact_id`, `source_mask_id`, `source_mask_kind`,
+`reconstruction_version`, the geometry block and `mesh_to_world_transform`. The backend now answers it for real
+(DR-008c = L0, `backend/mesh/`), and two things the contract text leaves open are fixed by convention. Neither adds a
+field, shape, enum, literal or error to `contract.json`, so there is no version bump (the freeze rule asks for one
+for additive changes to the interface; this is a use of what is already there).
+
+- **Mesh bytes ride the content-addressed artifact route** of `binary_delivery.content_url_rule`:
+  `GET /api/v1/artifacts/<sha256>.cmesh` answers the bytes (`application/octet-stream`, `ETag: "sha256:<hex>"`,
+  immutable). `reconstruction_get` has no `content_url` field, so the id carries the digest: `mesh_artifact_id` is
+  `MESH_<64 hex>`, the sha256 of the mesh bytes. The client derives the URL and the checksum it must verify from the
+  id alone (DR-021 rule 1: bytes that do not hash to it are `CONTRACT_DRIFT`). `binary_delivery.applies_to` still
+  lists the slice endpoints; mesh delivery is this documented extension of the same route, not a new route family.
+- **Format `cardiac-mesh/1`** (`backend/mesh/artifact.py`): the undecimated voxel-face surface (L0) with the source
+  slice of every triangle. Vertices are integer lattice corners in the source mask's **voxel-index frame** with the
+  axes of `index_convention` - `x` = column, `y` = row, `z` = slice - and voxel `k` occupying `[k, k + 1)`. While
+  `geometry_validation_status` is `GEOMETRY_NOT_VALIDATED` (every LASC 2018 header) `mesh_to_world_transform` is the
+  identity and no length is served. A pick resolves to `face_source_slice[t]` of the first triangle hit, never to the
+  floor of the hit point (the +z face of voxel k lies on z = k + 1), and a miss navigates nowhere.
+- `reconstruction_version` is `dr008c-L0/v1 sha256:<sha256 of the source mask file>`; `source_mask_id` may be the
+  run's RAW or PROCESSED prediction or the case's ground-truth mask id (`source_mask_kind` `GROUND_TRUTH`, an existing
+  enum value).
+- **INT-12.** For `CASE_0001` the ground-truth mesh is refused. `reconstruction_get` has no `GROUND_TRUTH_UNAVAILABLE`
+  in its error list (adding one would be a version bump), so the answer is `ARTIFACT_NOT_FOUND` with
+  `details.reason` = `GROUND_TRUTH_UNAVAILABLE` and nothing else; `error_reconstruction_get` answers the contract's own
+  `GROUND_TRUTH_UNAVAILABLE`. Its prediction meshes are served.
+- `error_reconstruction_get` stays the honest `ARTIFACT_NOT_FOUND` (reason names DR-005, which is open).
+- A run lists the meshes derived from its masks in `analysis_run_get.reconstruction_ids` (so SCR-03 enables 3D), and
+  `study_get.capabilities.reconstruction_3d` is true once any run has one.
+
 ### Deviations from the frozen specs, and where they are translated
 
 | Frozen spec says | Contract 11 / backend says | Translated at |

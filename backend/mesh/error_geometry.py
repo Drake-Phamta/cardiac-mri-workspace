@@ -56,7 +56,6 @@ import json
 from typing import Any
 
 import numpy as np
-from scipy import ndimage
 
 from .geometry import (
     CONNECTIVITY_UNSUPPORTED,
@@ -69,6 +68,20 @@ from .geometry import (
 from .surface import CaseMesh, _level_cell, _mesh_from_region, as_binary_mask, build_case_mesh
 
 CONNECTIVITY_RANK = {6: 1, 18: 2, 26: 3}
+
+
+def _ndimage():
+    """scipy.ndimage, imported on first use (QA-074 N-4).
+
+    The backend runtime (Python 3.9, ``backend/requirements.txt``) has no scipy: meshing and picking need only
+    numpy, so ``import backend.mesh`` must work without it. Only the error components need scipy.
+    """
+    try:
+        from scipy import ndimage
+    except ImportError as exc:  # pragma: no cover - exercised by test_mesh_lazy_scipy with scipy masked
+        raise ImportError("backend.mesh.error_geometry needs scipy (scipy.ndimage); it is not part of "
+                          "backend/requirements.txt - install it where error components are built") from exc
+    return ndimage
 DEFAULT_CONNECTIVITY = 26
 CLASS_ORDER = ("FN", "FP")
 
@@ -76,7 +89,7 @@ CLASS_ORDER = ("FN", "FP")
 def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
                        geometry: VolumeGeometry, include_meshes: bool) -> list[dict[str, Any]]:
     """Connected components of one error class, sorted, without ids yet."""
-    labels, n = ndimage.label(region, structure=structure)
+    labels, n = _ndimage().label(region, structure=structure)
     if n == 0:
         return []
     xs, ys, zs = np.nonzero(labels)                      # C order
@@ -177,7 +190,7 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
         if not all(_close(x, y) for x, y in zip(a, b)):
             raise GeometryError(GEOMETRY_MISMATCH, f"prediction {field} {list(a)} != ground-truth {field} {list(b)}")
 
-    structure = ndimage.generate_binary_structure(3, CONNECTIVITY_RANK[connectivity])
+    structure = _ndimage().generate_binary_structure(3, CONNECTIVITY_RANK[connectivity])
     fn = gt & ~pred
     fp = pred & ~gt
     components = (_component_records(fn, "FN", structure, geometry, include_component_meshes)

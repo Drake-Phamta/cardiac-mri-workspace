@@ -780,7 +780,7 @@ function Explorer({
             why={errorEntry}
             onPress={() => nav.push('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())}
           />
-          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z }, back())} />
+          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())} />
           <Entry
             label="Review / correct (SCR-06)"
             why={reviewEntry}
