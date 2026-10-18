@@ -54,6 +54,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from . import imaging
+from .cases import authorized_by_valid, authorized_runs_valid
 from .config import DATA_ROOT_ENV, REPO_ROOT, data_root_from_env, inside_git_worktree
 
 INGEST_VERSION = "backend-ingest/1"
@@ -133,12 +134,20 @@ def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
         problems.append(f"gate_status is {record.get('gate_status')!r}: {HOLDOUT_GATE} is not {HOLDOUT_GATE_CLOSED}")
     if record.get("split_sha256") != split_sha256:
         problems.append("split_sha256 is not the split this backend is pinned to")
+    # QA of PR #94: a record that authorizes no run, or names nobody, is not an authorization.
+    runs = record.get("authorized_runs")
+    if not authorized_runs_valid(runs):
+        problems.append("authorized_runs must be a non-empty list of {experiment_id, checkpoint_sha256}")
+    if not authorized_by_valid(record.get("authorized_by")):
+        problems.append("authorized_by must be a non-empty string")
     if problems:
         raise IngestError("HOLDOUT_AUTHORIZATION_INVALID", f"{given.name}: " + "; ".join(problems))
     recorded_path = given.as_posix() if not given.is_absolute() else given.name  # never an absolute machine path
     return {"format": HOLDOUT_AUTHORIZATION_FORMAT, "gate": HOLDOUT_GATE, "gate_status": HOLDOUT_GATE_CLOSED,
             "split_sha256": split_sha256, "record_sha256": imaging.sha256_bytes(raw),
-            "record_path": recorded_path}
+            "record_path": recorded_path, "authorized_by": record["authorized_by"].strip(),
+            "authorized_runs": [{"experiment_id": run["experiment_id"], "checkpoint_sha256": run["checkpoint_sha256"]}
+                                for run in runs]}
 
 
 def rule_based_selection(split: dict, include_holdout: bool = False) -> List[Dict[str, str]]:

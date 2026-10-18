@@ -19,7 +19,7 @@ from backend.app.cases import CaseStore
 from backend.app.config import Settings
 from backend.app.experiments import ExperimentStore
 from backend.app.main import create_app
-from conftest import Api
+from api_support import Api
 import synthetic
 
 B = "/api/v1"
@@ -133,6 +133,17 @@ def test_holdout_is_refused_without_a_record(environment, tmp_path, capsys):
     ({"split_sha256": "0" * 64}, "split_sha256"),
     ({"format": "ml-holdout-authorization/2"}, "format"),
     ({"gate": "GATE-ML-01"}, "gate"),
+    # QA of PR #94: a record that authorizes no run, or names nobody, authorizes nothing.
+    ({"authorized_runs": []}, "authorized_runs"),
+    ({"authorized_runs": None}, "authorized_runs"),
+    ({"authorized_runs": "EXP-D-100"}, "authorized_runs"),
+    ({"authorized_runs": [{"experiment_id": "EXP-U-025"}]}, "authorized_runs"),
+    ({"authorized_runs": [{"experiment_id": "", "checkpoint_sha256": "a" * 64}]}, "authorized_runs"),
+    ({"authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": "short"}]}, "authorized_runs"),
+    ({"authorized_by": ""}, "authorized_by"),
+    ({"authorized_by": "   "}, "authorized_by"),
+    ({"authorized_by": None}, "authorized_by"),
+    ({"authorized_by": ["x"]}, "authorized_by"),
 ])
 def test_holdout_is_refused_for_a_record_that_does_not_authorize(environment, tmp_path, override, fragment):
     record = write_record(tmp_path / "record.json", environment["split_sha256"], **override)
@@ -170,7 +181,9 @@ def test_the_cache_records_the_record_and_every_holdout_case_except_int12(enviro
     index = holdout_environment["index"]
     digest = hashlib.sha256(holdout_environment["record"].read_bytes()).hexdigest()
     assert index["holdout_authorization"] == {
-        **GATE, "split_sha256": environment["split_sha256"], "record_sha256": digest, "record_path": "authorization.json"}
+        **GATE, "split_sha256": environment["split_sha256"], "record_sha256": digest, "record_path": "authorization.json",
+        "authorized_by": "synthetic test",
+        "authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": "a" * 64}]}
     assert len(index["cases"]) == 2 + 1 + len(HOLDOUT_EVALUATED) == 54
     assert index["inference_only_case_ids"] == [INT12]
     cache = holdout_environment["cache"]
@@ -252,7 +265,7 @@ def test_without_the_record_in_the_cache_the_old_rule_holds(holdout_environment,
 
 def test_the_record_in_the_cache_lets_evaluation_holdout_cases_in(holdout_environment):
     store = CaseStore(holdout_environment["cache"])
-    assert len(store.cases) == 54 and store.inference_only_ids == {INT12} and store.modes_known
+    assert len(store.cases) == 54 and store.inference_only_ids == {INT12, "CASE_0001"} and store.modes_known
     assert store.counts() == {"total": 54, "EVALUATION": 53, "INFERENCE_REVIEW": 1}
 
 
@@ -268,6 +281,62 @@ def test_a_malformed_record_in_the_cache_refuses_to_start(holdout_environment, t
     edit_json(cache / "index.json", lambda index: change(index["holdout_authorization"]))
     with pytest.raises(RuntimeError, match="GATE-IMG-01 record"):
         CaseStore(cache)
+
+
+@pytest.mark.parametrize("change", [
+    lambda a: a.pop("authorized_runs"),
+    lambda a: a.update(authorized_runs=[]),
+    lambda a: a.update(authorized_runs="EXP-D-100"),
+    lambda a: a.update(authorized_runs=[{"experiment_id": "EXP-U-025"}]),
+    lambda a: a.pop("authorized_by"),
+    lambda a: a.update(authorized_by=""),
+    lambda a: a.update(authorized_by="  "),
+    lambda a: a.update(authorized_by=7),
+])
+def test_a_record_in_the_cache_that_authorizes_no_run_or_names_nobody_refuses_to_start(
+        holdout_environment, tmp_path, change):
+    """QA of PR #94: the gate being CLOSED is not enough; the record must name who and which runs."""
+    cache = copy_cache(holdout_environment["cache"], tmp_path / "cache")
+    edit_json(cache / "index.json", lambda index: change(index["holdout_authorization"]))
+    with pytest.raises(RuntimeError, match="authorized_runs / authorized_by"):
+        CaseStore(cache)
+
+
+def write_minimal_cache(root: Path, case_id: str, mode: str, ground_truth: bool, designated: list,
+                        partition: str = "final_holdout") -> Path:
+    """A hand-made cache holding one case, to test the store's own rules (no pixels)."""
+    case_dir = root / "cases" / case_id
+    case_dir.mkdir(parents=True)
+    record = {
+        "case_id": case_id, "mode": mode, "ground_truth_available": ground_truth, "shape": [4, 4, 2],
+        "volume_id": f"VOL_{case_id}", "reference_mask_id": f"MASK_{case_id}" if ground_truth else None,
+        "mask_sha256": "b" * 64 if ground_truth else None, "split_partition": partition,
+        "slices": {"mri": ["c" * 64] * 2, "gt": ["d" * 64] * 2 if ground_truth else []},
+    }
+    (case_dir / "case.json").write_text(json.dumps(record), encoding="utf-8")
+    (root / "index.json").write_text(json.dumps({"cases": [case_id], "blobs": {},
+                                                 "inference_only_case_ids": designated}), encoding="utf-8")
+    return root
+
+
+def test_case_0001_is_always_inference_review_whatever_the_index_designates(tmp_path):
+    """QA of PR #94: the rule 'CASE_0001 is always INFERENCE_REVIEW' lives in CaseStore, not in the index."""
+    for name, designated in (("empty", []), ("elsewhere", ["CASE_0031"]), ("itself", ["CASE_0001"])):
+        cache = write_minimal_cache(tmp_path / f"served_{name}", "CASE_0001", "EVALUATION", True, designated)
+        with pytest.raises(RuntimeError, match="CASE_0001"):
+            CaseStore(cache)
+    # Mode says INFERENCE_REVIEW but the case still carries ground truth: refused too.
+    cache = write_minimal_cache(tmp_path / "mixed", "CASE_0001", "INFERENCE_REVIEW", True, [])
+    with pytest.raises(RuntimeError, match="CASE_0001"):
+        CaseStore(cache)
+    # Properly withheld and nothing designated: served as inference-only, and a hidden case for the metrics.
+    cache = write_minimal_cache(tmp_path / "ok", "CASE_0001", "INFERENCE_REVIEW", False, [])
+    store = CaseStore(cache)
+    assert store.get("CASE_0001").ground_truth_available is False
+    assert "CASE_0001" in store.inference_only_ids
+    # The rule is about CASE_0001 only; another evaluation case is untouched.
+    other = CaseStore(write_minimal_cache(tmp_path / "other", "CASE_0042", "EVALUATION", True, [], "validation"))
+    assert other.get("CASE_0042").ground_truth_available is True and "CASE_0001" in other.inference_only_ids
 
 
 def test_int12_is_never_served_with_ground_truth_whatever_the_record_says(holdout_environment, tmp_path):

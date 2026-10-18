@@ -189,8 +189,9 @@ canonical fixture through it at level 0: **33 points and 13 rays, 0
 findings**, and a `dr008a-dr012/v1.0.1` expectation yields a
 `contract_version_mismatch` finding. The test imports the shared checker
 `spikes/spike_b_3d/harness/conformance.py` (its documented purpose); product
-code never imports `spikes/`. CI does not run these tests yet — adding a job
-to `.github/workflows/guardrails.yml` is outside this directory.
+code never imports `spikes/`. CI runs these tests (QA-074 N-2) in the `backend-tests` job of
+`.github/workflows/guardrails.yml`, on Python 3.9 with the backend pins, first without scipy and then with
+scipy 1.13.1 for the error-geometry module.
 
 ## Running the tests
 
@@ -207,8 +208,11 @@ synthetic; no patient data is read or written.
 
 ## Dependencies
 
-Python 3.12, `numpy` (2.2 used), `scipy` (1.17 used; `scipy.ndimage` for the
-error components). Tests: `pytest` (8.3 used). Nothing else.
+Runtime: `numpy` only (the backend pins 1.26.4 on Python 3.9; 2.2 on Python 3.12 also passes). `scipy` is needed
+only by `build_error_geometry` (`scipy.ndimage` for the error components) and is imported lazily
+(QA-074 N-4): `import backend.mesh`, meshing and picking work without it, and `build_error_geometry`
+raises a clear `ImportError` where it is absent. scipy is not in `backend/requirements.txt`; 1.13.1 is the last
+series with CPython 3.9 wheels (1.17 used on 3.12). Tests: `pytest` (8.3 used). Nothing else.
 
 ## Provenance
 
