@@ -59,6 +59,8 @@ class RunRecord:
         self.processed_mask_id: Optional[str] = run.get("processed_prediction_mask_id")
         self.metric_set_ids: List[str] = list(run.get("metric_set_ids") or [])
         self.reconstruction_ids: List[str] = list(run.get("reconstruction_ids") or [])
+        # Meshes derived from this run's masks by backend.mesh.build_cache (MeshStore.run_mesh_ids), set at startup.
+        self.derived_reconstruction_ids: List[str] = []
         self.failure_reason: Optional[str] = run.get("failure_reason")
         self.package = package
 

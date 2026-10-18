@@ -108,7 +108,21 @@ ray. The floor rule on the same hit points was one slice off on 1,524 of them, a
 ray comes down onto a +z cap. At level 2 both rules exceed ±1 slice (holes), as #66 found.
 The rays and slices are not committed (derived from a patient mask); only these counts.
 
-## Levels and DR-008c (not decided)
+## The served artifact and the derived-mesh step (SCR-05)
+
+`artifact.py` encodes a level-0 mesh as the compact binary `cardiac-mesh/1` (vertices uint16, triangles uint16 or
+uint32, `face_source_slice` uint16; about 0.4 MB for a 60k-triangle atrium, 1.4-5 MB for noisy full-size
+predictions) in the **voxel-index frame**: vertex `(x, y, z)` = (column, row, slice) lattice corner, which is what
+`index_convention` `x=column,y=row,z=slice` says and what `test_mesh_artifact.py` pins with an asymmetric single
+voxel. `build_cache.py` (`python -m backend.mesh.build_cache --data <root>`) writes one artifact per served mask into
+`<root>/derived_meshes/`, keyed by the source mask's sha256, write-once. The API conventions (mesh id, content route,
+INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content". A golden artifact built from a synthetic mask
+(`tests/golden/l_shape_cmesh.json`) is read by the mobile tests too, so the Python encoder and the JavaScript decoder
+agree byte for byte. QA-074 N-5 gaps (a), (b) and (c) are closed by convention, not by a contract field: (a) the format
+and media type are the ones above, (b) the pick rule is `face_source_slice[t]`, carried in the file, (c) the frame is
+the voxel-index frame with the identity transform.
+
+## Levels and DR-008c (decided 2026-10-01: L0)
 
 | Level | 0 | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|---|
@@ -118,7 +132,7 @@ These are the five levels of today's (Day 22) offline Spike B real-mask
 frontier run (PR #66, `spikes/spike_b_3d/EVIDENCE_RAW/20261001_real_mesh/`). Level numbers follow that run, not the older
 `spikes/spike_b_3d/mesh/out/mesh_levels.json` numbering (cells 1, 2, 3, 4).
 
-**DR-008c is not decided.** Its rule (Day 22 override): DR-008c = the fastest
+**DR-008c is decided as L0** (2026-10-01, Spike B S-1). Its rule (Day 22 override): DR-008c = the fastest
 level whose B5 ≤ ±1 source slice. Today's offline Spike B evidence shows only
 level 0 keeps real-mesh picking within ±1 slice — vertex clustering opens holes
 in thin anatomy — so **`DEFAULT_LEVEL = 0`**. Changing it is a DR-008c
