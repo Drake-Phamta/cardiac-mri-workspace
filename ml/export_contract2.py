@@ -27,16 +27,32 @@ sha256, and the evaluation must have been made under the same record.
 
 Gate states are explicit inputs with no default: the manifest records what the operator
 asserts, and contracts/ingestion/contract2_experiment_artifact/validate_contract2.py refuses
-anything but ACCEPTED / ACCEPTED. A run whose predictions or evaluation recorded a FAILED
-case cannot be exported: Contract 2 DRAFT v0 requires a raw prediction mask for every
-analysis run, so a failure would have to be dropped - which `08` section 8.1 forbids.
+anything but ACCEPTED / ACCEPTED.
+
+Failed cases (DR-018 rules 1 and 3). A case that failed in inference or in evaluation gets NO
+analysis run. It stays listed, with its reason, in the PER_CASE_METRICS artifact's `failures`
+(written by ml.evaluate), so `08` section 8.1 holds: nothing is dropped silently. The export
+record names the failed case ids. `experiment.num_test_cases` is the intended population (54);
+runs plus failures equal it.
+
+PROCESSED runs (DR-018 rule 3). EXP-D-PP (ml.postprocess.derive_run) is exported with mask kind
+PROCESSED_PREDICTION_MASK: per case one RAW_PREDICTION_MASK (the byte copy of the raw mask it
+derives from, kept in the derived run), one PROCESSED_PREDICTION_MASK that cites it
+(`source_artifact_id`), and a METRIC_SET whose prediction is the processed mask.
+`postprocessing_config_sha256` and `derived_from` are written to <manifest_id>.export.json (the
+Contract 2 schema admits no extra fields). A derived run holds no checkpoint file: the checkpoint
+is identified by `derived_from.checkpoint_sha256`, and Contract 2 needs the file under the artifact
+root, so the exporter takes the SOURCE run (--source-run), verifies its checkpoints/best.pt against
+that sha256 and places it (hard link, else copy) at the derived run's checkpoints/best.pt.
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -75,6 +91,31 @@ def _artifact(run_dir: Path, *, artifact_id: str, kind: str, uri: str, rel: str,
     return out
 
 
+def materialize_derived_checkpoint(run_dir: Path, source_run: Path | None, derived: dict, ckpt: dict) -> None:
+    """Contract 2 needs the checkpoint file under the artifact root. A derived run has none, so place the
+    verified source checkpoint there (hard link on the same volume, else a copy)."""
+    target = run_dir / ckpt["path"]
+    if target.is_file():
+        if D.sha256_file(target) != derived["checkpoint_sha256"]:
+            raise ExportError(f"{ckpt['path']} in the derived run is not the checkpoint named by derived_from")
+        return
+    if source_run is None:
+        raise ExportError("a derived (EXP-D-PP) run holds no checkpoint file: pass the source run "
+                          "(--source-run <EXP-D-100 run>) so its checkpoint can be verified and placed")
+    source = Path(source_run) / ckpt["path"]
+    if not source.is_file():
+        raise ExportError(f"the source run has no {ckpt['path']}")
+    if D.sha256_file(source) != derived["checkpoint_sha256"]:
+        raise ExportError("the source run's checkpoint sha256 differs from derived_from.checkpoint_sha256")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source, target)
+    except OSError:
+        shutil.copyfile(source, target)
+    if D.sha256_file(target) != derived["checkpoint_sha256"]:
+        raise ExportError("the placed checkpoint does not match derived_from.checkpoint_sha256")
+
+
 def default_manifest_id(experiment_id: str, prediction_variant: str) -> str:
     stem = re.sub(r"^exp-", "", experiment_id.lower())
     variant = "raw" if prediction_variant == "RAW_PREDICTION" else "processed"
@@ -88,13 +129,17 @@ def code_versions(rm: dict, pm: dict, em: dict) -> dict:
     inference = (pm.get("inference") or {}).get("code_version")
     if inference is not None:
         out["inference_code_version"] = inference
+    post = (pm.get("postprocessing") or {}).get("code_version")
+    if post is not None:
+        out["postprocessing_code_version"] = post
     return out
 
 
 def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
                    manifest_id: str | None = None, generated_at: str | None = None,
                    split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
-                   allow_dirty_code: bool = False, allow_unfrozen_split: bool = False) -> dict:
+                   allow_dirty_code: bool = False, allow_unfrozen_split: bool = False,
+                   source_run: str | Path | None = None) -> dict:
     """The Contract 2 manifest for <run>'s final_holdout evaluation (not written to disk).
 
     split_manifest is the FROZEN split (default: the repository's) and must have the pinned
@@ -104,6 +149,9 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     ("+dirty", "MIXED:...", "UNKNOWN") is refused unless allow_dirty_code=True, which export()
     records next to the manifest. The holdout authorization embedded in the predictions
     manifest must authorize this run, and the evaluation must name the same record.
+
+    Failed cases get no analysis run (DR-018); PROCESSED_PREDICTION runs (EXP-D-PP, derived) are
+    exported with PROCESSED_PREDICTION_MASK artifacts and need `source_run` for their checkpoint.
     """
     run_dir = Path(run_dir)
     try:
@@ -152,27 +200,58 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
         raise ExportError("holdout predictions were not made with the run's recorded checkpoint")
     if ckpt["path"] != H.BEST_CHECKPOINT:
         raise ExportError(f"the run's checkpoint is {ckpt['path']!r}; holdout authorization covers {H.BEST_CHECKPOINT}")
+    variant = pm["prediction_variant"]
+    try:
+        derived = MF.derived_from(pm)
+    except MF.ManifestError as exc:
+        raise ExportError(str(exc)) from exc
+    config_sha = pm.get("postprocessing_config_sha256")
+    if variant == "PROCESSED_PREDICTION":
+        if derived is None:
+            raise ExportError("a PROCESSED_PREDICTION run is exported only as a derived run "
+                              "(ml.postprocess derive): its predictions manifest has no derived_from")
+        if em.get("postprocessing_config_sha256") != config_sha:
+            raise ExportError("the evaluation was made with another post-processing config than the predictions")
+        if not (em["postprocessing_version"] == pm["postprocessing_version"] == rm["postprocessing_version"]):
+            raise ExportError("the post-processing version differs between run, predictions and evaluation")
+    elif derived is not None or config_sha is not None:
+        raise ExportError("a RAW_PREDICTION run carries no derived_from / post-processing config")
+    if derived is not None:
+        if ckpt["sha256"] != derived["checkpoint_sha256"]:
+            raise ExportError("the run's checkpoint differs from derived_from.checkpoint_sha256")
+        materialize_derived_checkpoint(run_dir, Path(source_run) if source_run is not None else None, derived, ckpt)
     best_sha = _checksum(run_dir, ckpt["path"], ckpt["sha256"], "checkpoint")["value"]
     try:
         H.verify_embedded(pm["holdout_authorization"], split_sha256=frozen_sha, experiment_id=exp,
-                          checkpoint_sha256=best_sha, prediction_variant=pm["prediction_variant"],
-                          postprocessing_config_sha256=pm.get("postprocessing_config_sha256"))
+                          checkpoint_sha256=best_sha, prediction_variant=variant,
+                          postprocessing_config_sha256=config_sha)
     except D.DataAccessError as exc:
         raise ExportError(f"holdout authorization: {exc}") from exc
     if (em.get("holdout_authorization") or {}).get("record_sha256") != pm["holdout_authorization"]["record_sha256"]:
         raise ExportError("the evaluation was not made under the predictions' holdout authorization record")
     if pm["prediction_variant"] != em["prediction_variant"]:
         raise ExportError("prediction variant differs between predictions and evaluation")
-    failed = [c["case_id"] for c in pm["cases"] if c.get("status") != "SUCCEEDED"]
-    if failed or em.get("failed_n"):
-        raise ExportError(f"{len(failed) or em.get('failed_n')} FAILED case(s) (e.g. {failed[:3]}): "
-                          f"Contract 2 DRAFT v0 needs a raw mask for every analysis run; exporting would "
-                          f"drop failures (08 section 8.1). Decision needed: amend the contract.")
     intended = list(pm["intended_case_ids"])
     if sorted(c["case_id"] for c in pm["cases"]) != sorted(intended):
         raise ExportError("predictions manifest cases differ from its intended population")
-    if set(em["metric_sets"]) != set(intended):
-        raise ExportError("evaluation metric sets do not cover the intended population")
+    # DR-018 rules 1 and 3: a failed case has no analysis run; it stays listed, with its reason, in the
+    # PER_CASE_METRICS failures. Every intended case is exactly a run (it has a metric set) or a failure.
+    scored = set(em["metric_sets"])
+    failed_pred = {c["case_id"] for c in pm["cases"] if c.get("status") != "SUCCEEDED"}
+    pcm = em["outputs"]["per_case_metrics"]
+    _checksum(run_dir, pcm["path"], pcm["sha256"], "per-case metrics")      # verified before it is read
+    per_case = D.load_json(run_dir / pcm["path"])
+    listed_rows = per_case.get("failures", [])
+    listed = {f["case_id"] for f in listed_rows}
+    if len(listed_rows) != len(listed) or listed & scored or scored | listed != set(intended):
+        raise ExportError("every intended case must be exactly one of: a scored case (an analysis run) or a "
+                          "failure listed in the PER_CASE_METRICS failures")
+    if not failed_pred <= listed:
+        raise ExportError("a case whose prediction failed must be listed in the PER_CASE_METRICS failures "
+                          "and have no analysis run")
+    if em.get("failed_n") != len(listed) or em.get("successful_n") != len(scored):
+        raise ExportError("evaluation manifest counts differ from its metric sets and failures")
+    failed = sorted(listed)
 
     pop = em["population"]
     pop_doc = D.load_json(run_dir / pop["path"])
@@ -183,33 +262,49 @@ def build_manifest(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     if pop_doc.get("source_split_manifest_sha256") != split_ref["sha256"]:
         raise ExportError("holdout population was derived from a different split manifest")
 
-    variant = pm["prediction_variant"]
     mask_kind = "RAW_PREDICTION_MASK" if variant == "RAW_PREDICTION" else "PROCESSED_PREDICTION_MASK"
-    if mask_kind != "RAW_PREDICTION_MASK":
-        raise ExportError("only RAW_PREDICTION runs are exported here; EXP-D-PP needs its raw run cited")
     pred_dir = Path(pm_rel).parent.as_posix()
     artifacts, runs = [], []
     for case in sorted(pm["cases"], key=lambda c: c["case_id"]):
         cid = case["case_id"]
+        if cid not in scored:
+            continue                               # no analysis run for a failed case (DR-018 rule 1)
         run_id = f"RUN_{exp}_{cid}"
         raw_id = f"ART_{exp}_{cid}_RAW"
         metric_id = f"ART_{exp}_{cid}_METRICS"
-        artifacts.append(_artifact(
-            run_dir, artifact_id=raw_id, kind="RAW_PREDICTION_MASK",
-            uri=f"artifact://experiments/{exp}/runs/{run_id}/raw_prediction.nrrd",
-            rel=f"{pred_dir}/{case['file']}", expected_sha=case["sha256"],
-            case_id=cid, analysis_run_id=run_id))
+        if variant == "RAW_PREDICTION":
+            artifacts.append(_artifact(
+                run_dir, artifact_id=raw_id, kind="RAW_PREDICTION_MASK",
+                uri=f"artifact://experiments/{exp}/runs/{run_id}/raw_prediction.nrrd",
+                rel=f"{pred_dir}/{case['file']}", expected_sha=case["sha256"],
+                case_id=cid, analysis_run_id=run_id))
+            processed_id, prediction_id = None, raw_id
+        else:
+            processed_id = prediction_id = f"ART_{exp}_{cid}_PROCESSED"
+            artifacts.append(_artifact(
+                run_dir, artifact_id=raw_id, kind="RAW_PREDICTION_MASK",
+                uri=f"artifact://experiments/{exp}/runs/{run_id}/raw_prediction.nrrd",
+                rel=f"{pred_dir}/{case['raw_source_file']}", expected_sha=case["raw_source_sha256"],
+                case_id=cid, analysis_run_id=run_id))
+            artifacts.append(_artifact(
+                run_dir, artifact_id=processed_id, kind=mask_kind,
+                uri=f"artifact://experiments/{exp}/runs/{run_id}/processed_prediction.nrrd",
+                rel=f"{pred_dir}/{case['file']}", expected_sha=case["sha256"],
+                case_id=cid, analysis_run_id=run_id, source_artifact_id=raw_id,
+                source_mask_kind="RAW_PREDICTION"))
         ms = em["metric_sets"][cid]
         artifacts.append(_artifact(
             run_dir, artifact_id=metric_id, kind="METRIC_SET",
             uri=f"artifact://experiments/{exp}/runs/{run_id}/metric_set.json",
             rel=ms["path"], expected_sha=ms["sha256"], case_id=cid, analysis_run_id=run_id,
             reference_mask_id=f"GT_{cid}", reference_mask_kind="GROUND_TRUTH",
-            prediction_mask_id=raw_id, prediction_mask_kind=variant,
+            prediction_mask_id=prediction_id, prediction_mask_kind=variant,
             evaluation_version=em["evaluation_metric_version"]))
         runs.append({"analysis_run_id": run_id, "case_id": cid, "status": "SUCCEEDED", "attempt_no": 1,
-                     "raw_prediction_mask_id": raw_id, "processed_prediction_mask_id": None,
+                     "raw_prediction_mask_id": raw_id, "processed_prediction_mask_id": processed_id,
                      "metric_set_ids": [metric_id], "reconstruction_ids": [], "failure_reason": None})
+    if not runs:
+        raise ExportError("no case was scored: there is nothing to export")
     kinds = {"metrics_summary": "METRICS_SUMMARY", "per_case_metrics": "PER_CASE_METRICS",
              "per_slice_metrics": "PER_SLICE_METRICS"}
     refs = {}
@@ -281,15 +376,18 @@ def validate(manifest: dict, run_dir: str | Path) -> dict:
 
 def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
            manifest_id: str | None = None, split_manifest: str | Path = D.DEFAULT_SPLIT_MANIFEST,
-           allow_dirty_code: bool = False, allow_unfrozen_split: bool = False) -> Path:
+           allow_dirty_code: bool = False, allow_unfrozen_split: bool = False,
+           source_run: str | Path | None = None) -> Path:
     """Write contract2/<manifest_id>.json and, next to it, <manifest_id>.export.json: the
-    export record (frozen split sha256, code versions, and whether dirty code or an unfrozen
-    split was allowed). The Contract 2 schema admits no extra fields, so the record is a
+    export record (frozen split sha256, code versions, whether dirty code or an unfrozen
+    split was allowed, the failed case ids, and for a PROCESSED run the post-processing config
+    sha256 and `derived_from`). The Contract 2 schema admits no extra fields, so the record is a
     separate file."""
     run_dir = Path(run_dir)
     manifest = build_manifest(run_dir, gate_split_01=gate_split_01, gate_ml_01=gate_ml_01,
                               manifest_id=manifest_id, split_manifest=split_manifest,
-                              allow_dirty_code=allow_dirty_code, allow_unfrozen_split=allow_unfrozen_split)
+                              allow_dirty_code=allow_dirty_code, allow_unfrozen_split=allow_unfrozen_split,
+                              source_run=source_run)
     out_dir = run_dir / MF.RUN_LAYOUT["contract2"]
     rm = MF.validate_run_manifest(D.load_json(run_dir / MF.RUN_LAYOUT["run_manifest"]))
     pm = MF.validate_predictions_manifest(
@@ -297,6 +395,7 @@ def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
     em = MF.validate_evaluation_manifest(
         D.load_json(run_dir / MF.RUN_LAYOUT["evaluation"].format(partition=PARTITION) / "evaluation_manifest.json"))
     versions = code_versions(rm, pm, em)
+    per_case = D.load_json(run_dir / em["outputs"]["per_case_metrics"]["path"])
     record = {"format": "ml-contract2-export/1", "manifest_id": manifest["manifest_id"],
               "frozen_split_sha256": D.sha256_file(split_manifest),
               "code_versions": versions,
@@ -305,6 +404,11 @@ def export(run_dir: str | Path, *, gate_split_01: str, gate_ml_01: str,
               "frozen_split_pinned_sha256": D.FROZEN_SPLIT_SHA256,
               "allow_unfrozen_split": bool(allow_unfrozen_split),
               "holdout_authorization_record_sha256": pm["holdout_authorization"]["record_sha256"],
+              "prediction_variant": pm["prediction_variant"],
+              "postprocessing_config_sha256": pm.get("postprocessing_config_sha256"),
+              "derived_from": MF.derived_from(pm),
+              "failed_case_ids": sorted(f["case_id"] for f in per_case.get("failures", [])),
+              "analysis_run_count": len(manifest["analysis_runs"]),
               "gates_as_asserted": manifest["gates"],
               "exported_at": MF.now_iso()}
     path = MF.write_json_new(out_dir / f"{manifest['manifest_id']}.json", manifest)
@@ -324,6 +428,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--manifest-id", default=None)
     ap.add_argument("--split-manifest", type=Path, default=D.DEFAULT_SPLIT_MANIFEST,
                     help="the FROZEN split (default: the repository's); any other sha256 is refused")
+    ap.add_argument("--source-run", type=Path, default=None,
+                    help="for a derived EXP-D-PP run: the EXP-D-100 run directory (its checkpoint is verified "
+                         "and placed under the derived run, Contract 2 needs the file)")
     ap.add_argument("--allow-dirty-code", action="store_true",
                     help="export although a code version is not a clean commit (recorded in the export record)")
     ap.add_argument("--validate", action="store_true", help="run validate_contract2.py on the result")
@@ -331,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         path = export(args.run_dir, gate_split_01=args.gate_split_01, gate_ml_01=args.gate_ml_01,
                       manifest_id=args.manifest_id, split_manifest=args.split_manifest,
-                      allow_dirty_code=args.allow_dirty_code)
+                      allow_dirty_code=args.allow_dirty_code, source_run=args.source_run)
     except (ExportError, KeyError, FileNotFoundError, ValueError) as exc:
         print(f"EXPORT REFUSED: {type(exc).__name__}: {exc}")
         return 2

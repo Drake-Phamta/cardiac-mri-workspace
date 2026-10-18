@@ -118,3 +118,10 @@ Sequential, at most two agents at a time (the leader asked to protect the sessio
 | 06:40 | — | Leader's decisions (§4) | this file | — | — |
 | 06:43 | #85 Day 23 decisions | **Normal merge**: APPROVED by Vũ Hùng Anh on head `e8de065`, CI green | `ed7ea15` | none | — |
 | 06:43 | #86 V1 fixes | **Normal merge**: APPROVED by Vũ Hùng Anh on head `6d98d72`, CI green | `e3417ba` | none | — |
+| 06:51 | #91 this record | **Override merge** of the leader's own record | `c7608c5` | secondary review | Nguyễn Gia Đức Trung |
+| 07:00 | #87 mobile CI job, IPv4 scan | **Override merge**: LLM QA `QA_PR87_D39` MERGE at `9bf8038`, CI 11/11 | `2156d24` | secondary review | Vũ Hùng Anh, Nguyễn Gia Đức Trung |
+| 07:01 | #88 mobile navigation and data fixes | **Override merge**: LLM QA `QA_PR88_D39` MERGE at `404a805`, CI 11/11 | `b719cb1` | secondary review | Vũ Hùng Anh, Nguyễn Gia Đức Trung |
+| 07:01 | #89 A9 / TC-PERF-001 script | **Normal merge**: APPROVED by Vũ Hùng Anh on head `eabcf26` | `7acc260` | none | — |
+| 07:01 | #90 Khánh revalidation, V3 fixes | **Override merge**: LLM QA `QA_PR90_D39` MERGE at `b1529dc`, CI 10/10 | `66a428c` | secondary review | Bế Quốc Khánh (author) |
+| 07:05 | GATE-IMG-01 selection | Rule of §4 run on EXP-D-100 validation: **PP-4** wins, +0.0218 mean Dice over raw; config frozen. LLM QA `QA_PR92_D39` recomputed the table independently, bit for bit | #92, `management/day39/gate_img_01/SELECTION.md` | secondary review | Bế Quốc Khánh |
+| 07:15 | **GATE-IMG-01 CLOSED** | Decision record and the `ml-holdout-authorization/1` record (EXP-D-025, -050, -100, EXP-D-PP), validated with `ml.holdout` | `management/day39/GATE_IMG_01_DECISION.md` | not pre-authorised: leader decision in session | Bế Quốc Khánh |
