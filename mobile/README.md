@@ -159,9 +159,9 @@ it with `node --test`; keep React Native imports in `.js` files.
 
 | Module | What |
 |---|---|
-| `runtime.content` (`src/runtime/content.mjs`) | **the app's one binary path**: `content.uri(content_url)` → absolute URL for an `<Image>` (null in fixture mode); `content.bytes(content_url, {checksum, signal, kind})` → an app/core state: SUCCESS `{bytes, size, checksum, verified}`, or `EMPTY_UNAVAILABLE` (`FIXTURE_NO_BYTES`, `NO_CONTENT_URL`, `REQUEST_ABORTED`), `TRANSPORT_UNREACHABLE` (network, timeout, 5xx), `CONTRACT_DRIFT` (not an artifact path of this backend, bytes that do not hash to `checksum`, an ETag that disagrees). Every response is counted in the gesture log. **No vertical fetches bytes any other way.** |
-| `useCall` (`src/runtime/useCall.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount |
-| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first. **Only the top screen is mounted**: a covered screen unmounts and must re-read what it needs |
+| `runtime.content` (`src/runtime/content.mjs`) | **the app's one binary path**: `content.uri(content_url)` → absolute URL for an `<Image>` (null in fixture mode); `content.bytes(content_url, {checksum, signal, kind})` → an app/core state: SUCCESS `{bytes, size, checksum, verified}`, or `EMPTY_UNAVAILABLE` (`FIXTURE_NO_BYTES`, `NO_CONTENT_URL`, `REQUEST_ABORTED`), `TRANSPORT_UNREACHABLE` (network, timeout, 5xx), `CONTRACT_DRIFT` (not an artifact path of this backend, no `checksum` stated — nothing is fetched then, DR-021 rule 1 — bytes that do not hash to `checksum`, an ETag that disagrees). Every response is counted in the gesture log, under the gesture open when it was sent. **No vertical fetches bytes any other way.** |
+| `useCall` (`src/runtime/useCall.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount and when `enabled` turns false (DR-021 rule 2) |
+| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first, one prompt at a time (an action while a prompt is open is refused). **Only the top screen is mounted**: a covered screen unmounts, its guard is dropped, and it must re-read what it needs — `nav.push(id, params, returnParams)` merges `returnParams` into the covered entry so Back reopens what was on screen (#77 QA N-7, #78 QA N-8) |
 | `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
 | `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
 | `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |
@@ -177,18 +177,22 @@ it with `node --test`; keep React Native imports in `.js` files.
   variant on first use (no default), then keeps it on screen; opens on the middle slice; slider + step buttons;
   pinch-zoom and pan; prediction (orange) and ground-truth (cyan) overlays with an opacity control, each toggle
   labelled in words; the per-slice Dice exactly as the server sent it; a run line with run, model family,
-  experiment and precomputed flag; entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. While the
-  viewer shows a state instead of a slice, the metric and provenance read "-" and the entries are disabled ("this
-  slice did not load") — nothing of the previously displayed slice stays on screen. **Refresh this slice** re-asks
-  the server for the current slice only. A case with **no analysis run yet** (`available_run_ids` empty) opens
-  straight into the viewer with MRI + ground truth only: the run line says so, no run / prediction / metric / error
-  request is made, and SCR-04/05/06 are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
+  experiment and precomputed flag ("loading run details…" until the run answers, "run details unavailable (reason)"
+  if it fails); entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. Back from any of them reopens
+  the run, variant and slice that were on screen (#78 QA N-8). While the viewer shows a state instead of a slice,
+  the metric and provenance read "-" and the entries are disabled ("this slice did not load") — nothing of the
+  previously displayed slice stays on screen. **Refresh this slice** re-asks the server for the current slice
+  only. A case with **no analysis run yet** (`available_run_ids` empty) opens straight into the viewer with MRI +
+  ground truth only: the run line says so, no run / prediction / metric / error request is made, and SCR-04/05/06
+  are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
   A run handed in by another screen that such a case does not list gets the same view, and every reason names it
   ("requested run … is not listed for this case"); it is never asked for (#80 QA N3).
 - **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case gets a clear unavailable state,
   never an empty chart. TP / FP / FN are drawn from the two masks the server served for the slice, each class with
   a colour **and** a name, a pixel count and a show/hide switch; the counts are compared with the server's FP / FN
-  for that slice. The worst slice is the **server's** `worst_slice_selection` (DR-010a option b), first entry first
+  for that slice — only when the masks drawn are the ones the run metrics name (`reference_mask_id`,
+  `prediction_mask_id`); otherwise the screen says they differ and compares nothing (DR-013a addendum, #78 QA
+  N-6). The worst slice is the **server's** `worst_slice_selection` (DR-010a option b), first entry first
   — nothing is ranked on the phone (test V4x); an entry outside the volume is listed as such and never opened
   (no clamping, #78 QA N-7). The per-slice profile places the server's entries by slice index; slices the server
   did not list are absent, not 0. Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to
@@ -202,7 +206,10 @@ it with `node --test`; keep React Native imports in `.js` files.
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
-  line when the slice is on screen. No URL, host or payload is logged. Judge a capture on the laptop with
+  line when the slice is on screen; a request is listed under the gesture open when it was sent, never under a
+  later one (#77 QA N-3). After each scripted pass,
+  `CMW_NET_TOTALS {"run","pass","gestures","requests","bytes","unattributed","late"}` records the requests no
+  gesture line lists. No URL, host or payload is logged. Judge a capture on the laptop with
   `node mobile/scripts/l4-report.mjs <logcat.txt>` (rules R1–R8, `PASS` / `FAIL` / `CANNOT_JUDGE`; bytes per
   switch as n / p50 / p95 / max); the step-by-step session, with the rule table at the top, is
   **`mobile/S1_L4_SCRIPT.md`**.

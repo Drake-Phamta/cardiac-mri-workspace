@@ -71,20 +71,24 @@ export default function NavigatorView({ runtime, initialScreenId }) {
   const meta = screenMeta(current.screenId);
   const Screen = componentFor(current.screenId);
 
-  // A guard lives exactly as long as its stack entry.
-  useEffect(() => { guards.prune(state.stack.map((e) => e.key)); }, [state, guards]);
+  // A guard lives while its screen is on top (#77 QA N-7): a covered screen
+  // unmounts, so its guard goes too - it never answers for edits that are gone.
+  // Child effects run first, so the new top screen's own guard is already set.
+  useEffect(() => { guards.prune([current.key]); }, [current.key, guards]);
 
   // Android back: pop (asking the current screen's leave guard, if any). At
   // the root with no guard the system default applies (the app goes to the
-  // background); at the root WITH a guard, the guard decides first.
+  // background); at the root WITH a guard, the guard decides first. While a
+  // guard prompt is open, another press is consumed and refused.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (nav.canGoBack) { nav.pop(); return true; }
       const guard = guards.get(current.key);
       if (!guard) return false;
+      if (!guards.hold()) return true;
       Promise.resolve()
         .then(() => guard({ type: 'EXIT', screenId: null, params: null }))
-        .then((ok) => { if (ok === true) BackHandler.exitApp(); }, () => {});
+        .then((ok) => { guards.release(); if (ok === true) BackHandler.exitApp(); }, () => { guards.release(); });
       return true;
     });
     return () => sub.remove();

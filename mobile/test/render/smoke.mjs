@@ -141,8 +141,13 @@ const SERVED_WORST = Object.freeze({
 // run metrics answer the variant asked for, unless `metricsVariant` names the
 // one the run metrics should answer instead (#78 QA B-3). The per-slice metrics
 // of the slices in `metricsMissingAt` answer ARTIFACT_NOT_FOUND - a legitimately
-// unavailable answer the slice cache keeps (#78 QA N-4).
-function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST, metricsMissingAt = [] } = {}) {
+// unavailable answer the slice cache keeps (#78 QA N-4). `runIds` lists the
+// case's runs (each answered as itself), `runMetricsPatch` overrides fields of
+// the run metrics (#78 QA N-6), and the study's case list holds the one case.
+function fakeBackend({
+  caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST, metricsMissingAt = [], runIds = ['RUN_A'],
+  runMetricsPatch = {},
+} = {}) {
   const W = 576; const H = 576;
   const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
@@ -169,8 +174,11 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
       const bytes = path.includes('gt-') ? gtPng : (path.includes('pred-') ? predPng : mriPng);
       return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
     }
-    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: caseMode, ground_truth_available: gtAvailable, available_run_ids: ['RUN_A'] });
-    if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: 'RUN_A', case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
+    if (/\/studies\/[^/]+\/cases$/.test(path)) {
+      return json(200, { ...gen('case_list'), items: [{ case_id: 'CASE_0061', mode_capability: caseMode, ground_truth_available: gtAvailable }] });
+    }
+    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: caseMode, ground_truth_available: gtAvailable, available_run_ids: runIds });
+    if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: path.split('/').pop(), case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
     if (/\/experiments\/[^/]+$/.test(path)) return json(200, { ...gen('experiment_get'), model_family: 'UNet2D' });
     if (/\/analysis-runs\/[^/]+\/metrics\?/.test(path)) {
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
@@ -179,6 +187,7 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
         ...gen('analysis_run_metrics'), prediction_variant: metricsVariant ?? asked, metric_state: 'COMPUTED', metric_version: 'm1',
         metric_values: { dice: 0.81, iou: 0.68, false_positives: 1200, false_negatives: 900, relative_volume_error: -4.2 },
         worst_slice_selection: selection,
+        ...runMetricsPatch,
       });
     }
     const z = (path.match(/slices\/(\d+)/) || [])[1];
@@ -304,6 +313,36 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await act(async () => { r.unmount(); });
 }
 
+// ---- 2b. an INFERENCE_REVIEW case on SCR-03 (#77 QA N-11) ------------------
+// No ground truth: no ground-truth toggle, the SCR-04 entry disabled with that
+// reason, and not one request for ground truth or metrics during the session.
+{
+  const { fetchImpl, requests } = fakeBackend({ caseMode: 'INFERENCE_REVIEW' });
+  const runtime = liveRuntime(fetchImpl);
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW' } })), nodeMock);
+  });
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  await press(r, '▶');
+  await tick(350);
+  const gtToggles = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^Ground truth/.test(textOf(n)));
+  check('L10', has(r, /slice 46 \/ 88/) && has(r, /Inference & review/) && gtToggles.length === 0
+    && has(r, /^Ground truth: none for this case \(Inference & review\) - no ground-truth layer, metric or error view is offered\.$/),
+    `INFERENCE_REVIEW: no ground-truth toggle (${gtToggles.length}), and the overlays card says why`);
+  const scr04 = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('Error inspector (SCR-04)'))[0];
+  check('L10', scr04 && scr04.props.disabled === true && textOf(scr04).includes('no ground truth for this case (Inference & review)'),
+    `SCR-04 entry disabled with the no-ground-truth reason: ${scr04 ? textOf(scr04) : '-'}`);
+  const gtOrMetrics = requests.filter((u) => /\/ground-truth|\/metrics/.test(u));
+  check('L10', requests.some((u) => u.includes('/prediction?')) && gtOrMetrics.length === 0,
+    `${requests.length} requests over open and one step, ${gtOrMetrics.length} to ground-truth or metrics endpoints`);
+  await act(async () => { r.unmount(); });
+}
+
 // A fake live backend with one case before its first run: MRI + ground truth per
 // slice, no analysis run. Used by sections 3 and 4.
 function noRunBackend() {
@@ -388,6 +427,14 @@ function noRunBackend() {
     && verdict.scope.required.includes('artifact:mask') && /predictions are not part of this L4/.test(verdict.scope.text),
     `scope: ${verdict.scope ? verdict.scope.text : '-'}`);
   check('N6', runData().length === 0, `no run data asked during the whole session (${runData().length})`);
+  // #77 QA N-3: each pass ends with the session's totals on a line of its own, right after CMW_RUN_END.
+  const mine = logs.slice(logStart);
+  const totals = mine.filter((l) => l.startsWith('CMW_NET_TOTALS ')).map((l) => JSON.parse(l.slice(15)));
+  const afterEnd = mine.every((l, i) => !l.startsWith('CMW_NET_TOTALS ') || mine[i - 1].startsWith('CMW_RUN_END '));
+  check('N6', totals.length === 2 && afterEnd && totals.map((t) => t.pass).join(',') === 'new-15,revisit-15'
+    && totals.every((t) => ['gestures', 'requests', 'bytes', 'unattributed', 'late'].every((k) => Number.isInteger(t[k])))
+    && totals[1].requests === totals[0].requests,
+    `CMW_NET_TOTALS after each CMW_RUN_END: ${totals.map((t) => `${t.pass} requests ${t.requests} unattributed ${t.unattributed} late ${t.late}`).join('; ')}`);
   await act(async () => { r.unmount(); });
 }
 
@@ -697,6 +744,163 @@ function noRunBackend() {
   r = await fixtureAt('RAW');
   check('E4q', has(r, /Jump to worst · z 44 \(slice 45\)/) && has(r, /Dice 0\.500 · IoU 0\.250/) && !has(r, /Asked for/),
     'fixture, RAW: the generated DR-010 v1 block and the case metrics are shown');
+  await act(async () => { r.unmount(); });
+
+  // #78 QA N-6, DR-013a addendum: the run metrics name another prediction mask than the one drawn.
+  // The slice is drawn (both masks verified), the mismatch is said, and the drawn classes are not
+  // compared with the server's FP / FN for a mask they were not counted from.
+  const otherMask = fakeBackend({ runMetricsPatch: { prediction_mask_id: 'PREDICTION_MASK_ID_OTHER' } });
+  r = await mount(liveRuntime(otherMask.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  const drawnPred = texts(r).find((t) => t.startsWith('reference ')) || '-';
+  check('E4s', has(r, /^The masks drawn are not the ones the server's numbers refer to: prediction drawn PREDICTION_MASK_ID_0043, run metrics name PREDICTION_MASK_ID_OTHER\. The drawn classes are not compared with the server's FP \/ FN\.$/)
+    && !has(r, /reference drawn/),
+    `the prediction mask id differs from the run metrics' and the screen says so (${drawnPred})`);
+  check('E4s', paths().length === 3 && has(r, /^Legend - this slice \(z 44\)$/) && !has(r, /(Matches|Differs from) the server for this slice/)
+    && has(r, /#2 · z 44/),
+    'the classes are drawn and the worst slices listed, but no FP / FN comparison against the other mask\'s numbers');
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 7. useCall aborts when it is disabled (DR-021 rule 2, #77 QA N-8) ------
+// A call started while enabled is aborted the moment `enabled` turns false, and
+// its late answer never reaches the screen.
+{
+  const useCall = (await imp('src/runtime/useCall.js')).default;
+  const { STATE, success } = await imp('../app/core/index.mjs');
+  const calls = [];
+  const client = { call: (_endpointId, _params, options) => new Promise((resolve) => { calls.push({ signal: options.signal, resolve }); }) };
+  function Probe({ enabled }) {
+    const { view } = useCall(client, 'case_get', { case_id: 'CASE_0061' }, { enabled });
+    return React.createElement('Text', null, `state ${view.state}`);
+  }
+  const loadingNow = (r) => has(r, new RegExp(`^state ${STATE.LOADING}$`));
+  let r;
+  await act(async () => { r = TestRenderer.create(React.createElement(Probe, { enabled: true })); });
+  check('U1', calls.length === 1 && calls[0].signal && !calls[0].signal.aborted && loadingNow(r), 'enabled: one call in flight, LOADING');
+  await act(async () => { r.update(React.createElement(Probe, { enabled: false })); });
+  check('U1', calls[0].signal.aborted === true, 'disabled: the call in flight is aborted (its signal fired)');
+  await act(async () => { calls[0].resolve(success({ case_id: 'CASE_0061' })); });
+  await tick();
+  check('U1', loadingNow(r) && !has(r, new RegExp(STATE.SUCCESS)) && calls.length === 1,
+    `its late answer never lands, and nothing new is asked: ${texts(r).join(' | ')}`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 8. the hardware back button and leave guards, real navigator (#77 QA N-7) ----
+// The BackHandler stand-in keeps its listeners, so the press below is the one
+// Android sends: NavigatorView's listener, the guard, the reducer.
+{
+  const { BackHandler } = await import('react-native');
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-02' })), nodeMock);
+  });
+  await tick(60);
+  const screenNav = () => r.root.findAll((n) => n.props && n.props.nav && typeof n.props.nav.setLeaveGuard === 'function')[0].props.nav;
+  const openCase = async () => {
+    const input = r.root.findAll((n) => n.type === 'TextInput')[0];
+    await act(async () => { input.props.onChangeText('CASE_0043'); });
+    await tick();
+    await press(r, 'Open CASE_0043 directly');
+    await tick(60);
+  };
+  let handled;
+  await act(async () => { handled = BackHandler.__press(); });
+  check('B1', BackHandler.__listeners === 1 && handled === false && has(r, /SCR-02 · V1/),
+    `one hardware-back listener (${BackHandler.__listeners}); at the root with no guard the press goes to the system`);
+
+  // Two quick presses on a guarded screen: one prompt, the second press refused while it is open.
+  await openCase();
+  let asked = 0;
+  let answer = null;
+  await act(async () => { screenNav().setLeaveGuard(() => { asked += 1; return new Promise((res) => { answer = res; }); }); });
+  let presses;
+  await act(async () => { presses = [BackHandler.__press(), BackHandler.__press()]; });
+  await tick();
+  check('B2', presses.every((x) => x === true) && asked === 1 && has(r, /SCR-03 · V1/),
+    `two quick back presses on SCR-03: both consumed, the guard asked ${asked} time(s), still on SCR-03`);
+  await act(async () => { answer(true); });
+  await tick(60);
+  check('B2', has(r, /SCR-02 · V1/) && asked === 1, 'the one prompt answered "leave": back on SCR-02, once');
+
+  // A covered screen leaves no guard behind: SCR-03 lets a push through and unmounts under SCR-08;
+  // back on SCR-03 (the same entry, mounted afresh, nothing to lose), Back asks no stale guard.
+  await openCase();
+  let coveredAsked = 0;
+  await act(async () => { screenNav().setLeaveGuard(() => { coveredAsked += 1; return true; }); });
+  await act(async () => { await screenNav().push('SCR-08', {}); });
+  await tick(60);
+  check('B3', has(r, /SCR-08 · V4/) && coveredAsked === 1, 'SCR-03\'s guard let the push through: SCR-08 on top');
+  await act(async () => { BackHandler.__press(); });
+  await tick(60);
+  await act(async () => { BackHandler.__press(); });
+  await tick(60);
+  check('B3', has(r, /SCR-02 · V1/) && coveredAsked === 1,
+    `back, back: SCR-08 -> SCR-03 -> SCR-02, and the covered screen's guard was not asked again (${coveredAsked})`);
+
+  // At the root, a guard decides the exit - asked once for two quick presses too.
+  let exitAsked = 0;
+  let exitAnswer = null;
+  await act(async () => { screenNav().setLeaveGuard(() => { exitAsked += 1; return new Promise((res) => { exitAnswer = res; }); }); });
+  const exitsBefore = BackHandler.exits;
+  await act(async () => { presses = [BackHandler.__press(), BackHandler.__press()]; });
+  await act(async () => { exitAnswer(true); });
+  await tick();
+  check('B4', presses.every((x) => x === true) && exitAsked === 1 && BackHandler.exits === exitsBefore + 1,
+    `root with a guard: two presses, one prompt (${exitAsked}), one exit`);
+  await act(async () => { r.unmount(); });
+  check('B4', BackHandler.__listeners === 0, 'the listener is removed with the navigator');
+}
+
+// ---- 9. Back from SCR-04 reopens SCR-03's run, variant and slice (#78 QA N-8) ----
+// The real navigator on a case with two runs: SCR-02 -> SCR-03 (RUN_B, PROCESSED,
+// a slice that is not the middle one) -> SCR-04 -> Back. The session's remembered
+// variant is forgotten on the way, so only SCR-03's stack entry can bring it back.
+{
+  const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+  forgetSession();
+  const backend = fakeBackend({ runIds: ['RUN_A', 'RUN_B'] });
+  const runtime = liveRuntime(backend.fetchImpl);
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-02' })), nodeMock);
+  });
+  await tick(150);
+  await press(r, 'CASE_0061');
+  await tick(150);
+  check('R1', has(r, /SCR-03 · V1/) && has(r, /^RUN_A$/) && has(r, /^RUN_B$/) && has(r, /No default/),
+    'two runs: SCR-03 asks for the run and the variant');
+  await press(r, 'RUN_B');
+  await press(r, 'PROCESSED');
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  await press(r, '+10');
+  await tick(350);
+  const runLine = () => texts(r).find((t) => t.startsWith('Run ')) || '-';
+  check('R1', has(r, /slice 55 \/ 88 {2}\(z = 54\)/) && /^Run RUN_B · UNet2D · /.test(runLine()) && has(r, /^Prediction \(PROCESSED\)/),
+    `SCR-03 before: ${runLine()} · PROCESSED · z 54`);
+  forgetSession();
+  await press(r, 'Error inspector (SCR-04)');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('R2', has(r, /SCR-04 · V1/) && has(r, /^Prediction PROCESSED vs ground truth · run RUN_B$/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
+    'SCR-04 opened on the same run, variant and slice');
+  const mark = backend.requests.length;
+  await press(r, '‹ Back');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  const sent = backend.requests.slice(mark);
+  check('R3', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+    && sent.every((u) => !u.includes('RUN_A')),
+    `back on SCR-03: run RUN_B again, not asked for (${runLine()})`);
+  check('R3', has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
+    `variant PROCESSED and slice z 54 restored: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
   await act(async () => { r.unmount(); });
 }
 
