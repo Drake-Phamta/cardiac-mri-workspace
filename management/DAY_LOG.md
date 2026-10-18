@@ -11,6 +11,8 @@
 **Mốc cố định:** `Day 1 = 2026-09-10` · **`Day 30 = 2026-10-09` — KHÔNG lùi.**
 Ngày mất **ăn vào buffer**, không đẩy hạn.
 
+> **Cập nhật 18/10/2026:** Day 30 (09/10) đã qua. Leader quyết **hạn nghiệm thu mới 31/10/2026** (Day 52); kế hoạch tại `management/day40/REPLAN_TO_2026-10-31.md`.
+
 | Chỉ số | Giá trị |
 |---|---|
 | Ngày hôm nay | **Day 11 — 2026-09-20** |
@@ -24,6 +26,28 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | `15` §18 | 🔴 **ĐÃ NỔ, 3/5 điều kiện** — buffer −3 · `GATE-SPLIT-01` sống qua **hai** chu kỳ EOD với chủ sở hữu **không hoạt động** · 10/30 ngày hết mà `MUST` **0/33**. Mức áp dụng là **quyết định của leader**, đang `PENDING` — [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) §11 |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
 | Mốc đang chạy | ✅ **M3 (Day 6–9) ĐÓNG** 20/09 17:18 (`40498e5`), muộn 1 ngày · **M2 (Day 4–6) quá hạn 5 ngày** — `GATE-MOB-01` còn mở · **M4** (Day 8–12) — `GATE-SPLIT-01` chưa động, sang ngày thứ 4 · **M5** (Day 9–20) — có `app/` nhưng **chưa lên `main`** |
+
+---
+
+## DAY 39 — 2026-10-18 · **`OVERRIDE MỘT NGÀY`** — **có kết quả thật**: GATE-IMG-01 đóng, holdout DINOv2, E2E 20 PASS / 0 FAIL
+
+Leader dùng override một ngày ([`day39/RECOVERY_OVERRIDE_DAY39.md`](day39/RECOVERY_OVERRIDE_DAY39.md)): agent làm thay mọi khối **trừ train**, merge sau QA độc lập bằng LLM + CI. Ba bạn vắng. Mục làm thay nằm trong [`day39/POST_RECOVERY_REVALIDATION_DAY40.md`](day39/POST_RECOVERY_REVALIDATION_DAY40.md).
+
+| Mảng | Kết quả | Bằng chứng |
+|---|---|---|
+| **PR tồn đọng** | #85, #86, #89 merge thường (approval của Vũ Hùng Anh ngày 02/10); #87, #88, #90 merge sau QA LLM | `ed7ea15`, `e3417ba`, `2156d24`, `b719cb1`, `7acc260`, `66a428c` |
+| **GATE-IMG-01** | **CLOSED** theo luật khai trước (#91): PP-4 thắng trên validation EXP-D-100 (0,5930 so với raw 0,5712); config đóng băng `c0a68cc7…`; QA tính lại độc lập khớp từng bit | #92 `a3c3904`, #93 `f08968a` |
+| **Holdout** | suy luận 3 run DINOv2 + EXP-D-PP, đánh giá, 4 so sánh, 4 gói Contract 2 (validator PASS), mỗi run một lần, 07:22–07:36 | `day39/RESULTS_HOLDOUT_DINOV2.md` (#96) |
+| **Kết quả** | Dice 3D trung bình (n = 54): 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · PP-4 0,659. 25→100 %: +0,081 [+0,047; +0,118]; PP-4: +0,020 [+0,015; +0,026] | như trên |
+| **Contract + backend** | DR-017, N-b/N-c, QA-075 N-7, validator DR-018, DR-022 (74 case) | #94 `01bed7b` |
+| **E2E** | hero flow mức API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP | #95 |
+| **Kế hoạch** | hạn mới 31/10; kế hoạch bốn chặng; gói Day 40 và bảng | `day40/` |
+
+**Ghi đúng như thấy:**
+- Từ 02/10 tới 17/10 nhóm gần như không hoạt động trên repo: chỉ có #90 (Khánh, 04/10) và ba approval của Hùng Anh (02/10). Day 23 được giữ mở theo luật của leader rồi đóng ở trạng thái **MISSED** cho phần của ba bạn.
+- Thư mục `node_modules` dùng chung trong scratch đã mất trong hai tuần; cài lại từ lockfile.
+- Họ UNet vẫn chưa train, nên **RQ-A (UNet vs DINOv2) chưa trả lời được**.
+- Chưa có số đo nào trên thiết bị trong ngày (không có điện thoại).
 
 ---
 
