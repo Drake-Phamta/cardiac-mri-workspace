@@ -43,14 +43,21 @@ validation 3D Dice. They differ only in training-case membership (nested subsets
 | EXP-D-025 → EXP-D-050 | data scarcity, 25 → 50 % | **+0.0572** [+0.0361, +0.0828] | 43 / 11 | COMPARABLE |
 | EXP-D-025 → EXP-D-100 | data scarcity, 25 → 100 % | **+0.0806** [+0.0469, +0.1183] | 41 / 13 | COMPARABLE |
 | EXP-D-050 → EXP-D-100 | data scarcity, 50 → 100 % | +0.0234 [−0.0006, +0.0514] | 28 / 26 | COMPARABLE |
-| EXP-D-100 → EXP-D-PP | post-processing ablation (RQ-B) | **+0.0199** [+0.0145, +0.0257] | 45 / 9 | COMPARABLE (raw vs processed, declared) |
+| EXP-D-100 → EXP-D-PP | post-processing ablation (RQ-B) | **+0.0199** [+0.0145, +0.0257] | 45 / 9 | COMPARABLE under `ml.evaluate compare --allow-variant-mismatch` (the declared RAW vs PROCESSED ablation) |
 
-The sensitivity population gives the same signs and CIs within ±0.003.
+The sensitivity population gives the same signs and CIs within ±0.003; its 50 → 100 % CI is [−0.00003, +0.0521], which
+still touches zero. The four CIs carry **no multiplicity correction**.
+
+The API and the app deliberately answer `comparable: false` for EXP-D-100 vs EXP-D-PP (different prediction
+variants, `experiment_compare`): the app never labels a RAW-vs-PROCESSED pair "comparable". The ablation above is
+the offline paired analysis that `08` §2 defines for EXP-D-PP, not an app comparison.
 
 ## 4 · What the results say — and do not say
 
-- **Data scarcity (DINOv2 family).** Quadrupling the training set (20 → 78 cases) raises mean holdout Dice by
-  0.081, with a CI that excludes zero. Most of the gain comes from 25 → 50 %; the 50 → 100 % step is small and its
+- **Data scarcity (DINOv2 family).** Quadrupling the training set (20 → 78 cases) is associated with a 0.081 higher
+  mean holdout Dice, with a CI that excludes zero. Each fraction is a **single training run (seed 2024)**, and the
+  selected checkpoints come from early, unstable training (best epoch 6 for EXP-D-100, 13 for EXP-D-050), so the
+  between-fraction differences include run-to-run variance this design cannot separate. Most of the gain comes from 25 → 50 %; the 50 → 100 % step is small and its
   CI touches zero, so this experiment **cannot claim** a gain from the last doubling.
 - **Post-processing (RQ-B).** The frozen PP-4 (3D opening, then the largest connected component) improves mean
   holdout Dice by 0.020 (CI excludes zero; 45 of 54 cases improve) and almost removes the volume bias of the raw
@@ -58,7 +65,8 @@ The sensitivity population gives the same signs and CIs within ±0.003.
   confirms the direction and size.
 - **Model comparison (RQ-A, UNet vs DINOv2).** **Not answerable yet**: the UNet family has not been trained.
 - **Absolute level.** A mean Dice around 0.64–0.66 is modest for left-atrium segmentation. The recorded limitations
-  apply: no augmentation, constant learning rate (both runs showed validation-Dice collapses, recorded on Day 22),
+  apply: no augmentation, constant learning rate (all three trained runs show episodes where validation Dice drops sharply and recovers, in
+  their `train_log.jsonl`; first noted on Day 22),
   2D slice training, identity spacing. A null or modest result is valid (`PR-SCI-03`).
 - **Low-Dice cases exist** (the lowest case-level Dice is below 0.1 in every run): the app's outlier drill-down
   (H2 → SCR-03/04) is where these are examined. Per-case values are not published here.
