@@ -8,7 +8,8 @@
 //
 // Requests are observed through a recording wrapper around the fixture
 // transport, so "nothing was sent" is checked, not assumed. The scope ids
-// (run, case, source mask) are read from the generated scenarios, never typed.
+// (run, source mask) are read from the generated scenarios, never typed; the
+// case id is only a route value (case_get does not echo it back).
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ import { createContract, createBundle, createClient, createFixtureTransport, get
 import {
   createReviewCorrection, checkTransition, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
 } from './index.mjs';
-import { createBrushSession, SOURCE_KIND, MASK_STATE, TOOL } from './brush.mjs';
+import { createBrushSession, SOURCE_KIND, SOURCE_KIND_FOR_VARIANT, MASK_STATE, TOOL } from './brush.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, ROOT), 'utf8'));
@@ -26,7 +27,10 @@ const bundle = createBundle(contract, readJson('app/core/fixtures/.generated/api
 const RUN = getScenario(bundle, 'analysis_run_get', 'default').response.data;
 const CASE = getScenario(bundle, 'case_get', 'default').response.data;
 const [NX, NY] = CASE.shape;
-const OPEN = { caseId: 'CASE_0043', runId: 'RUN_0043', sourceMaskId: RUN.raw_prediction_artifact_id, predictionVariant: 'RAW' };
+// review_create must answer the run it was opened for (QA-063 N-2), so the run
+// id is the one the generated review_create answers - not a typed literal.
+const REVIEW = getScenario(bundle, 'review_create', 'default').response.data;
+const OPEN = { caseId: 'CASE_0043', runId: REVIEW.run_id, sourceMaskId: RUN.raw_prediction_artifact_id, predictionVariant: 'RAW' };
 
 function recorder(transform = null, kind = 'fixture') {
   const inner = createFixtureTransport(bundle);
@@ -76,7 +80,11 @@ const unpack = (payload) => {
     && sameList(sorted(REVIEW_RULES.terminalStates), sorted(r.terminal_states))
     && REVIEW_RULES.correctedOnlyVia === r.corrected_only_via;
   const variantOk = sameList(sorted(Object.keys(PREDICTION_VARIANT)), sorted(ref.prediction_variant));
-  const kindsOk = sameList(sorted(Object.keys(SOURCE_KIND)), sorted(ref.source_mask_kind.filter((k) => k !== 'GROUND_TRUTH')));
+  // QA-063 N-4: a review's source is a prediction (review_source_mask_kind), never GROUND_TRUTH or REVIEWED.
+  const kindsOk = sameList(sorted(Object.keys(SOURCE_KIND)), sorted(ref.review_source_mask_kind))
+    && ref.review_source_mask_kind.every((k) => ref.source_mask_kind.includes(k) && k !== 'GROUND_TRUTH')
+    && sameList(sorted(Object.values(SOURCE_KIND_FOR_VARIANT)), sorted(ref.review_source_mask_kind))
+    && contract.raw.enum_bindings.review_source_mask_kind.includes('review_commit.source_mask_kind');
   check('V4-0', statusOk && keysOk && transOk && rulesOk && variantOk && kindsOk,
     `4 states, ${Object.values(REVIEW_TRANSITIONS).flat().length} transitions, review_rules (initial / commit result / ` +
     `terminal / corrected only via ${r.corrected_only_via}), prediction variants and editable source kinds equal ` +
@@ -205,9 +213,15 @@ const unpack = (payload) => {
     ? { ...response, data: { ...response.data, [field]: value } } : response);
   const a = await fresh(inject('status', 'IN_PROGRESS')).model.open(OPEN);
   const b = await fresh(inject('source_mask_id', 'SOMEONE_ELSES_MASK')).model.open(OPEN);
-  check('V4-7', [a, b].every((s) => s.view.state === STATE.FATAL_INVALID && s.view.error.code === 'CONTRACT_DRIFT'
+  // QA-063 N-2: a review answered for another run, or for no run, is drift too.
+  const c = await fresh(inject('run_id', 'RUN_9999')).model.open(OPEN);
+  const d = await fresh(inject('run_id', undefined)).model.open(OPEN);
+  const e = await fresh(inject('prediction_variant', 'PROCESSED')).model.open(OPEN);
+  check('V4-7', [a, b, c, d, e].every((s) => s.view.state === STATE.FATAL_INVALID && s.view.error.code === 'CONTRACT_DRIFT'
     && !s.view.actions.includes(RECOVERY.RETRY) && s.canWrite === false),
-  `review_create answering IN_PROGRESS, or a review of another source mask -> FATAL_INVALID CONTRACT_DRIFT`);
+  'review_create answering IN_PROGRESS, another source mask, another run (N-2), no run, or another variant -> FATAL_INVALID CONTRACT_DRIFT');
+  check('V4-7', c.view.error.detail.problems.some((p) => p.startsWith('run_id is RUN_9999')),
+    'the drift names the run that came back, not the one that was opened');
 }
 
 // A brush session over the review's own source, at the case's slice size.
@@ -274,10 +288,19 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
     && second.view.actions.includes(RECOVERY.REFRESH) && second.reviewedMasks.length === before.length + 1
     && s.state().maskState === MASK_STATE.UNSAVED && !sent.slice(m).some((c) => c.endpointId === 'review_patch'),
   'a commit that answers an existing version id is refused as drift: nothing appended, the edit stays UNSAVED, REFRESH offered');
+  // The generated fixture answers review_create NOT_REVIEWED with one version
+  // listed, whatever was committed. After REFRESH the server therefore does not
+  // list this session's base (the version it just committed), and saving over a
+  // base the server does not hold is refused (QA-063 N-4) - nothing is sent.
   await model.refresh();
-  const third = await model.saveCorrection(s);
-  check('V4-8', third.view.state === STATE.SUCCESS && third.status === 'CORRECTED' && s.state().maskState === MASK_STATE.SAVED,
-    'after REFRESH (the server list again) the same edit saves as a new version on the CORRECTED review, no PATCH');
+  const k = sent.length;
+  const stale = await model.saveCorrection(s);
+  check('V4-8', stale.rejection?.code === 'BASE_VERSION_MISMATCH' && sent.length === k && s.state().maskState === MASK_STATE.UNSAVED,
+    'after REFRESH the server no longer lists the base this session continues from: refused, nothing sent, the edit stays');
+  const fresh2 = editedSession();
+  const third = await model.saveCorrection(fresh2);
+  check('V4-8', third.view.state === STATE.SUCCESS && third.status === 'CORRECTED' && fresh2.state().maskState === MASK_STATE.SAVED,
+    'a session over the reloaded review saves as a new version, the review is CORRECTED, no PATCH');
 }
 
 // V4-9: STALE during the PUT - nothing is committed, the edits survive, REFRESH, save again.
@@ -376,6 +399,183 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
     `${writes.length}/${writes.length} writes carried expected_revision`);
   const generated = getScenario(bundle, 'review_patch', 'stale_revision');
   check('V4-12', generated?.response?.error?.code === 'STALE_REVISION', 'the stale scenario is the generator\'s own');
+}
+
+// V4-14 (QA-063 N-1): the commit's answer is validated - status, source mask id
+// and source kind - and a refused answer leaves the session UNSAVED and the
+// version list as it was. Fault injection over the GENERATED response.
+{
+  const injectCommit = (field, value) => (resolved, response) => (resolved.endpointId === 'review_commit' && response.data
+    ? { ...response, data: { ...response.data, [field]: value } } : response);
+  const rows = [
+    ['status FLAGGED', 'status', 'FLAGGED'], ['status ACCEPTED', 'status', 'ACCEPTED'], ['no status', 'status', undefined],
+    ['a foreign source mask', 'source_mask_id', 'SOMEONE_ELSES_MASK'], ['no source mask', 'source_mask_id', undefined],
+    ['GROUND_TRUTH kind', 'source_mask_kind', 'GROUND_TRUTH'], ['the other prediction kind', 'source_mask_kind', 'PROCESSED_PREDICTION'],
+    ['no kind', 'source_mask_kind', undefined],
+  ];
+  const wrong = [];
+  for (const [label, field, value] of rows) {
+    const { model } = fresh(injectCommit(field, value));
+    const opened = await model.open(OPEN);
+    const s = editedSession();
+    const r = await model.saveCorrection(s);
+    const ok = r.view.state === STATE.FATAL_INVALID && r.view.error.code === 'CONTRACT_DRIFT'
+      && r.view.actions.includes(RECOVERY.REFRESH) && r.reviewedMasks.length === opened.reviewedMasks.length
+      && r.status === opened.status && s.state().maskState === MASK_STATE.UNSAVED && r.lastCommit === null;
+    if (!ok) wrong.push(label);
+  }
+  check('V4-14', wrong.length === 0,
+    `${rows.length}/${rows.length} wrong review_commit answers are CONTRACT_DRIFT: nothing appended, the status kept, the edit stays UNSAVED, REFRESH offered` +
+    (wrong.length ? ` — accepted: ${wrong.join(', ')}` : ''));
+  const good = fresh();
+  await good.model.open(OPEN);
+  const saved = await good.model.saveCorrection(editedSession());
+  check('V4-14', saved.view.state === STATE.SUCCESS && saved.status === 'CORRECTED'
+    && saved.lastCommit.source_mask_id === OPEN.sourceMaskId && saved.lastCommit.source_mask_kind === 'RAW_PREDICTION',
+  'the generated answer passes: CORRECTED, the review source mask, RAW_PREDICTION for a RAW review');
+}
+
+// V4-15 (QA-063 N-3): a save with nothing changed since the last commit is
+// NOTHING_TO_SAVE and sends nothing - no duplicate version.
+{
+  let n = 0;
+  const uniqueCommits = (resolved, response) => {
+    if (resolved.endpointId !== 'review_commit' || !response.data) return response;
+    n += 1;
+    return { ...response, data: { ...response.data, reviewed_mask_id: `REVIEWED_MASK_TEST_${n}`,
+      provenance: { ...response.data.provenance, version: 10 + n } } };
+  };
+  const { model, sent } = fresh(uniqueCommits);
+  await model.open(OPEN);
+  const s = editedSession();
+  const first = await model.saveCorrection(s);
+  const k = sent.length;
+  const again = await model.saveCorrection(s);
+  check('V4-15', first.view.state === STATE.SUCCESS && again.rejection?.code === 'NOTHING_TO_SAVE' && sent.length === k
+    && again.reviewedMasks.length === first.reviewedMasks.length && again.canWrite,
+  'a second save right after a save: NOTHING_TO_SAVE, nothing sent, no duplicate version');
+  s.setTool(TOOL.ERASE);
+  s.beginStroke(45);
+  s.sample(305.5, 282.5, { zoom: 1, panX: 0, panY: 0 });
+  s.endStroke();
+  const j = sent.length;
+  const next = await model.saveCorrection(s);
+  const calls = sent.slice(j);
+  check('V4-15', next.view.state === STATE.SUCCESS && calls.map((c) => `${c.endpointId}${c.body?.slice_index ?? ''}`).join(',') === 'working_mask_put45,review_commit'
+    && next.reviewedMasks.length === first.reviewedMasks.length + 1 && next.lastCommit.reviewed_mask_id === 'REVIEWED_MASK_TEST_2',
+  'a real edit after a save sends ONLY the changed slice (45), and commits the next version');
+  // Undoing that edit again differs from the commit, so it is a real change to save; once saved, nothing is left.
+  s.undo();
+  const u = sent.length;
+  const undone = await model.saveCorrection(s);
+  const again2 = await model.saveCorrection(s);
+  check('V4-15', s.state().maskState === MASK_STATE.SAVED && undone.view.state === STATE.SUCCESS
+    && again2.rejection?.code === 'NOTHING_TO_SAVE' && sent.slice(u).filter((c) => c.endpointId === 'review_commit').length === 1,
+  'undoing a committed edit is a change (one more version); saving again straight after is NOTHING_TO_SAVE');
+}
+
+// V4-16 (QA-063 N-4): continuing a review that is already CORRECTED.
+{
+  const corrected = (resolved, response) => (resolved.endpointId === 'review_create' && response.data
+    ? { ...response, data: { ...response.data, status: 'CORRECTED' } } : response);
+  const baseOf = getScenario(bundle, 'reviewed_masks_list', 'default').response.data.items[0].reviewed_mask_id;
+  const { model, sent } = fresh(corrected);
+  const opened = await model.open(OPEN);
+  check('V4-16', opened.status === 'CORRECTED' && opened.baseVersion?.reviewed_mask_id === baseOf
+    && opened.latestVersion?.reviewed_mask_id === baseOf && opened.sourceMaskId === OPEN.sourceMaskId,
+  `a CORRECTED review opens with the latest version (${baseOf}) as its base, and the original prediction as its source`);
+  const fresh1 = await fresh().model.open(OPEN);
+  check('V4-16', fresh1.baseVersion === null, 'a review with no commit (NOT_REVIEWED) has no base version');
+
+  const cont = (baseId, over = {}) => {
+    const sess = createBrushSession({
+      nx: NX, ny: NY, source: { maskId: OPEN.sourceMaskId, kind: SOURCE_KIND.RAW_PREDICTION, variant: 'RAW', ...over },
+      base: baseId === null ? null : { reviewedMaskId: baseId },
+    });
+    // Slice 44 was corrected before (base != source); slice 45 never was (base == source).
+    sess.loadSlice(44, blob(300, 280, 60), baseId === null ? {} : { base: blob(300, 280, 70) });
+    sess.loadSlice(45, blob(305, 282, 58), baseId === null ? {} : { base: blob(305, 282, 58) });
+    return sess;
+  };
+  const refuse = async (label, session, code) => {
+    const n = sent.length;
+    const r = await model.saveCorrection(session);
+    return [label, r.rejection?.code === code && sent.length === n && r.canWrite];
+  };
+  const edit = (sess, z, x, y, tool = TOOL.ADD) => {
+    sess.setTool(tool);
+    sess.setRadius(3);
+    sess.beginStroke(z);
+    sess.sample(x + 0.5, y + 0.5, { zoom: 1, panX: 0, panY: 0 });
+    sess.endStroke();
+  };
+  const noBase = cont(null);
+  edit(noBase, 45, 400, 282);
+  const otherBase = cont('SOME_OTHER_VERSION');
+  edit(otherBase, 45, 400, 282);
+  const processed = cont(baseOf, { kind: SOURCE_KIND.PROCESSED_PREDICTION });
+  edit(processed, 45, 400, 282);
+  const results = [
+    await refuse('a session that starts from the source, not the latest version', noBase, 'BASE_VERSION_MISMATCH'),
+    await refuse('a session over another version', otherBase, 'BASE_VERSION_MISMATCH'),
+    await refuse('the other prediction kind', processed, 'SOURCE_KIND_MISMATCH'),
+  ];
+  const untouched = cont(baseOf);
+  results.push(await refuse('an untouched continued session (base != source is not an edit)', untouched, 'NOTHING_TO_SAVE'));
+  check('V4-16', results.every((r) => r[1]), `${results.length}/${results.length} refused locally, nothing sent: ` +
+    results.map((r) => `${r[0]}${r[1] ? '' : ' (WRONG)'}`).join('; '));
+
+  const s = cont(baseOf);
+  check('V4-16', s.state().maskState === MASK_STATE.SAVED && s.maskState(44) === MASK_STATE.SAVED
+    && s.state().baseId === baseOf && s.savedSlice(44).some((v, i) => v !== s.sourceSlice(44)[i]),
+  'the continued session reads SAVED, and its saved layer holds the earlier correction (differs from the source)');
+  edit(s, 45, 400, 282);
+  const n = sent.length;
+  const saved = await model.saveCorrection(s);
+  const calls = sent.slice(n);
+  check('V4-16', saved.view.state === STATE.SUCCESS && calls.map((c) => `${c.endpointId}${c.body?.slice_index ?? ''}`).join(',') === 'working_mask_put45,review_commit'
+    && saved.status === 'CORRECTED' && saved.reviewedMasks.length === opened.reviewedMasks.length + 1
+    && s.state().baseId === saved.lastCommit.reviewed_mask_id && s.maskState(45) === MASK_STATE.SAVED,
+  'saving a continued review PUTs only the edited slice (the earlier correction on 44 is not re-sent), commits a new version on the CORRECTED review, and moves the session base to it');
+
+  // Reset goes to the ORIGINAL prediction (FR-REV-007), not to the last version; saving it commits the source.
+  const r = cont(baseOf);
+  r.reset();
+  check('V4-16', r.maskState(44) === MASK_STATE.UNSAVED && r.maskState(45) === MASK_STATE.SAVED
+    && r.workingSlice(44).every((v, i) => v === r.sourceSlice(44)[i]) && r.state().unsavedSlices.join() === '44',
+  'reset returns to the original prediction: slice 44 now differs from the committed version (UNSAVED), slice 45 did not change');
+  const again = fresh(corrected);
+  await again.model.open(OPEN);
+  const done = await again.model.saveCorrection(r);
+  const puts = again.sent.filter((c) => c.endpointId === 'working_mask_put');
+  check('V4-16', done.view.state === STATE.SUCCESS && puts.length === 1 && puts[0].body.slice_index === 44
+    && sha(unpack(puts[0].body.mask_payload)) === sha(r.sourceSlice(44)),
+  'saving after a reset commits the source prediction for slice 44 only');
+  // cancel returns to the last committed version, not to the source.
+  const c = cont(baseOf);
+  edit(c, 44, 420, 282);
+  c.cancel();
+  check('V4-16', c.maskState(44) === MASK_STATE.SAVED && c.savedSlice(44).every((v, i) => v === c.workingSlice(44)[i]),
+    'cancel returns to the latest committed version');
+
+  // A session needs the base slice for every slice it loads, and declares it up front.
+  const onlySource = createBrushSession({ nx: NX, ny: NY, source: { maskId: OPEN.sourceMaskId, kind: SOURCE_KIND.RAW_PREDICTION }, base: { reviewedMaskId: baseOf } });
+  let missing = null;
+  try { onlySource.loadSlice(44, blob(300, 280, 60)); } catch (err) { missing = err.code; }
+  let undeclared = null;
+  try {
+    createBrushSession({ nx: NX, ny: NY, source: { maskId: OPEN.sourceMaskId, kind: SOURCE_KIND.RAW_PREDICTION } })
+      .loadSlice(44, blob(300, 280, 60), { base: blob(300, 280, 70) });
+  } catch (err) { undeclared = err.code; }
+  let kindErr = null;
+  try { createBrushSession({ nx: NX, ny: NY, source: { maskId: OPEN.sourceMaskId, kind: 'REVIEWED' } }); } catch (err) { kindErr = err.code; }
+  check('V4-16', missing === 'BASE_SLICE_MISSING' && undeclared === 'BASE_NOT_DECLARED' && kindErr === 'SOURCE_NOT_EDITABLE',
+    `a continued session refuses a slice without its base (${missing}), a base it was not built for (${undeclared}), and REVIEWED as a source (${kindErr})`);
+
+  // CORRECTED with no version listed is not a state the server can be in.
+  const emptyList = await fresh(corrected).model.open({ ...OPEN, scenarios: { reviewed_masks_list: 'empty' } });
+  check('V4-16', emptyList.view.state === STATE.FATAL_INVALID && emptyList.view.error.code === 'CONTRACT_DRIFT',
+    'a review that is CORRECTED but lists no version is CONTRACT_DRIFT');
 }
 
 console.log(`${failures === 0 ? 'PASS' : 'FAIL'} V4 review/correction — ${count - failures}/${count}`);

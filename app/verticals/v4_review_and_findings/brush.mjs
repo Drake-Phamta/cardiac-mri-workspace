@@ -243,17 +243,19 @@ export const TOOL = Object.freeze({ ADD: 'add', ERASE: 'erase' });
 Object.freeze(RADII);
 
 /*
- * What a working mask may start from: contract v1.0 domain_enums
- * .source_mask_kind minus GROUND_TRUTH, which is absent on purpose — `10` §5:
- * "Ground truth is never a default editable source and must not be copied
- * into a reviewed mask as if it were a user correction", and
- * working_mask_put: "Ground truth cannot be used as an implicit source
- * prediction". test_review_correction V4-0 holds these to the contract.
+ * What a review's SOURCE may be: contract 1.1.0 domain_enums
+ * .review_source_mask_kind (QA-063 N-4) - a raw or a processed prediction.
+ * GROUND_TRUTH is absent on purpose — `10` §5: "Ground truth is never a
+ * default editable source and must not be copied into a reviewed mask as if it
+ * were a user correction", and working_mask_put: "Ground truth cannot be used
+ * as an implicit source prediction". REVIEWED is absent too: an earlier
+ * reviewed version is never a review's source, it is the BASE a continued
+ * review starts from (createBrushSession `base`). test_review_correction V4-0
+ * holds these to the contract.
  */
 export const SOURCE_KIND = Object.freeze({
   RAW_PREDICTION: 'RAW_PREDICTION',
   PROCESSED_PREDICTION: 'PROCESSED_PREDICTION',
-  REVIEWED: 'REVIEWED',
 });
 
 // The prediction variant a review is scoped to (`11` §6, DR-009), as its kind.
@@ -298,13 +300,17 @@ const ENDS = [END_RELEASE, END_SECOND_FINGER, END_TERMINATED];
  *   nx, ny   the SOURCE resolution; every buffer here is nx * ny bytes, row-major
  *   source   { maskId, kind, checksum? } — what is being corrected, shown before
  *            save and sent as source_mask_id. kind is a SOURCE_KIND.
+ *   base     null for a first review. For a review that is already CORRECTED
+ *            (QA-063 N-4): { reviewedMaskId } - the latest committed version the
+ *            working slices start from. The source stays the original
+ *            prediction, and reset still goes back to it (FR-REV-007).
  *
  * Slices arrive one at a time through loadSlice(z, bytes): the session keeps
  * its own copy of the bytes (the caller's buffer is never written either) and
  * a working copy that strokes write into. Everything is at source resolution;
  * the display transform only ever reaches the brush through screenToSource.
  */
-export function createBrushSession({ nx, ny, source } = {}) {
+export function createBrushSession({ nx, ny, source, base = null } = {}) {
   if (!(Number.isInteger(nx) && nx > 0 && Number.isInteger(ny) && ny > 0)) {
     throw new CoreError('BRUSH_SHAPE_INVALID', { nx, ny });
   }
@@ -320,6 +326,12 @@ export function createBrushSession({ nx, ny, source } = {}) {
     // and must show it (see mobile/src/verticals/v4).
     synthetic: source.synthetic === true,
   });
+  if (base !== null && !(base && typeof base.reviewedMaskId === 'string' && base.reviewedMaskId !== '')) {
+    throw new CoreError('BASE_IDENTITY_MISSING', {});
+  }
+  // The version this session's pixels continue from; moves to the new version
+  // after every successful save.
+  let baseId = base ? base.reviewedMaskId : null;
   const length = nx * ny;
 
   // All sparse arrays indexed by slice: SCR-06 holds the slices it has opened.
@@ -344,14 +356,31 @@ export function createBrushSession({ nx, ny, source } = {}) {
     if (!working[z]) throw new CoreError('SLICE_NOT_LOADED', { sliceIndex: z });
   };
 
-  function loadSlice(z, bytes) {
-    if (!(Number.isInteger(z) && z >= 0)) throw new CoreError('SLICE_INDEX_INVALID', { sliceIndex: z });
+  const checkBinary = (z, bytes, code) => {
     if (!(bytes instanceof Uint8Array) || bytes.length !== length) {
       throw new CoreError('SLICE_SHAPE_MISMATCH', { sliceIndex: z, expected: length, got: bytes ? bytes.length : null });
     }
     for (let i = 0; i < length; i++) {
-      if (bytes[i] > 1) throw new CoreError('SOURCE_NOT_BINARY', { sliceIndex: z, index: i, value: bytes[i] });
+      if (bytes[i] > 1) throw new CoreError(code, { sliceIndex: z, index: i, value: bytes[i] });
     }
+  };
+
+  /*
+   * `bytes` are the SOURCE prediction's slice. `slice.base` is the same slice
+   * of the latest committed version, for a session that continues a CORRECTED
+   * review: it becomes the working copy AND the saved copy (so the slice reads
+   * SAVED, cancel returns to it, and the saved layer shows the earlier
+   * correction), while reset still returns to the source. A session built
+   * with a base refuses a slice without one - editing a corrected review from
+   * the source pixels would drop the earlier correction from the next version.
+   */
+  function loadSlice(z, bytes, slice = {}) {
+    if (!(Number.isInteger(z) && z >= 0)) throw new CoreError('SLICE_INDEX_INVALID', { sliceIndex: z });
+    checkBinary(z, bytes, 'SOURCE_NOT_BINARY');
+    const sliceBase = slice.base ?? null;
+    if (baseId !== null && sliceBase === null) throw new CoreError('BASE_SLICE_MISSING', { sliceIndex: z, baseId });
+    if (baseId === null && sliceBase !== null) throw new CoreError('BASE_NOT_DECLARED', { sliceIndex: z });
+    if (sliceBase !== null) checkBinary(z, sliceBase, 'BASE_NOT_BINARY');
     const sha = sha256Hex(bytes);
     if (src[z]) {
       if (sha === srcSha[z]) return sha;
@@ -361,7 +390,8 @@ export function createBrushSession({ nx, ny, source } = {}) {
     }
     src[z] = Uint8Array.from(bytes);
     srcSha[z] = sha;
-    working[z] = Uint8Array.from(bytes);
+    working[z] = Uint8Array.from(sliceBase ?? bytes);
+    if (sliceBase !== null) saved[z] = Uint8Array.from(sliceBase);
     return sha;
   }
 
@@ -431,13 +461,17 @@ export function createBrushSession({ nx, ny, source } = {}) {
   const unsavedSlices = () => loaded().filter((z) => maskState(z) === MASK_STATE.UNSAVED);
 
   /*
-   * What a save must upload: every slice that differs from the source, plus
-   * every slice the server was sent before. The server's working copy of a
-   * slice is whatever was last PUT; if the user has since undone that edit
-   * (after a failed save, say), skipping the slice would let the stale edit
-   * ride into the commit.
+   * What a save must upload: every slice that differs from what is already
+   * committed (the last save, else the base of a continued review, else the
+   * source), plus every slice the server was sent since the last commit. The
+   * server's working copy of a slice is whatever was last PUT; if the user has
+   * since undone that edit (after a failed save, say), skipping the slice
+   * would let the stale edit ride into the commit. A commit consumes the
+   * server's working copies (markSaved forgets them), so a save right after a
+   * save has nothing to send - NOTHING_TO_SAVE (QA-063 N-3).
    */
-  const slicesToUpload = () => loaded().filter((z) => uploaded.has(z) || !sameBytes(working[z], src[z]));
+  const committed = (z) => saved[z] ?? src[z];
+  const slicesToUpload = () => loaded().filter((z) => uploaded.has(z) || !sameBytes(working[z], committed(z)));
 
   /*
    * Freeze what this save is about to send. The snapshot is taken now, not
@@ -459,6 +493,10 @@ export function createBrushSession({ nx, ny, source } = {}) {
 
   function markSaved(prepared, commit = {}) {
     for (const [z, bytes] of prepared.snapshot) saved[z] = bytes;
+    // The commit consumed the server's working copies (N-3) and is now the
+    // version the next edit continues from (N-4).
+    uploaded.clear();
+    if (typeof commit.reviewedMaskId === 'string' && commit.reviewedMaskId !== '') baseId = commit.reviewedMaskId;
     lastSave = Object.freeze({ ...commit, slices: Object.freeze(prepared.entries.map((e) => e.sliceIndex)) });
     return lastSave;
   }
@@ -472,13 +510,14 @@ export function createBrushSession({ nx, ny, source } = {}) {
   function overall() {
     const z = loaded();
     if (z.some((k) => maskState(k) === MASK_STATE.UNSAVED)) return MASK_STATE.UNSAVED;
-    return lastSave ? MASK_STATE.SAVED : MASK_STATE.SOURCE;
+    return lastSave || z.some((k) => saved[k]) ? MASK_STATE.SAVED : MASK_STATE.SOURCE;
   }
 
   // What a toolbar renders. Plain data, rebuilt on every call.
   function state() {
     return Object.freeze({
       source: identity,
+      baseId,
       nx,
       ny,
       tool,
@@ -499,6 +538,8 @@ export function createBrushSession({ nx, ny, source } = {}) {
 
   return Object.freeze({
     get source() { return identity; },
+    // The reviewed version this session's pixels continue from, or null.
+    get baseId() { return baseId; },
     get nx() { return nx; },
     get ny() { return ny; },
     state,

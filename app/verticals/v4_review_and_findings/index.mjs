@@ -19,9 +19,25 @@
  *     A successful commit leaves the review CORRECTED by itself
  *     (review_rules.commit_result_state) - no PATCH follows it. The source
  *     prediction is never sent anywhere as a write (FR-REV-009).
+ *
+ * QA-063 N-1..N-4 (Day 22 QA of #63), closed here:
+ *   N-1  review_commit's answer is checked: status CORRECTED, and the source
+ *        mask id and kind are the review's own. No fallback for a missing field.
+ *   N-2  review_create answers the run that was opened.
+ *   N-3  a save with nothing changed since the last commit is NOTHING_TO_SAVE
+ *        (the session forgets what the server held once a commit consumed it).
+ *   N-4  continuing a CORRECTED review: the working base is the LATEST committed
+ *        version (`latestVersion`), the review's source and the target of reset
+ *        stay the original prediction, and the session's source kind must be the
+ *        one this review's variant implies. A session built over another base
+ *        than the latest version (`baseVersion`, null while the review has no
+ *        commit) is refused (BASE_VERSION_MISMATCH): the server
+ *        builds version N+1 from the latest version plus the working slices, so
+ *        saving over a stale base would drop the newer corrections.
  */
 
 import { STATE, RECOVERY, loading, fatalInvalid } from '../../core/index.mjs';
+import { SOURCE_KIND_FOR_VARIANT } from './brush.mjs';
 
 export const REVIEW_STATUS = Object.freeze({
   NOT_REVIEWED: 'NOT_REVIEWED',
@@ -55,6 +71,23 @@ export const REVIEW_RULES = Object.freeze({
 
 // domain_enums.prediction_variant - the variants a review can be scoped to.
 export const PREDICTION_VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
+
+/*
+ * The newest committed version: highest provenance.version, else highest
+ * revision, else the last row. The server builds each new version from this
+ * one, so it is what a continued review starts its pixels from (QA-063 N-4).
+ */
+export function latestVersion(reviewedMasks) {
+  const list = Array.isArray(reviewedMasks) ? reviewedMasks : [];
+  const rank = (v) => {
+    const n = v && v.provenance && Number.isInteger(v.provenance.version) ? v.provenance.version
+      : (v && Number.isInteger(v.revision) ? v.revision : -1);
+    return n;
+  };
+  let best = null;
+  list.forEach((v) => { if (best === null || rank(v) >= rank(best)) best = v; });
+  return best;
+}
 
 const own = (table, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);
 const isId = (v) => typeof v === 'string' && v.length > 0;
@@ -115,6 +148,10 @@ function snapshot(view, fields) {
     // Immutable versions only. A working (unsaved) mask never appears here.
     reviewedMasks,
     lastCommit: fields.lastCommit ?? null,
+    latestVersion: latestVersion(reviewedMasks),
+    // The version a CONTINUED review starts from (QA-063 N-4): the latest
+    // version when the review is CORRECTED, null on a review with no commit.
+    baseVersion: status === REVIEW_STATUS.CORRECTED ? latestVersion(reviewedMasks) : null,
     transitions: transitionsFrom(status),
     // A write the model refused before sending: { code, reason, ... }. The
     // view is untouched by it - nothing reached the server.
@@ -210,8 +247,11 @@ export function createReviewCorrection(client) {
     const d = review.data;
     const problems = [];
     if (!isReviewStatus(d.status)) problems.push(`status ${d.status} is not one of ${Object.keys(REVIEW_STATUS).join('/')}`);
-    for (const [field, want] of [['source_mask_id', sourceMaskId], ['prediction_variant', predictionVariant]]) {
-      if (d[field] !== undefined && d[field] !== want) problems.push(`${field} is ${d[field]}, the review was opened for ${want}`);
+    // review_rules.scope_fields: the review must answer the run, source mask
+    // and variant it was opened for - a missing field is as wrong as another
+    // value (QA-063 N-2).
+    for (const [field, want] of [['run_id', runId], ['source_mask_id', sourceMaskId], ['prediction_variant', predictionVariant]]) {
+      if (d[field] !== want) problems.push(`${field} is ${d[field]}, the review was opened for ${want}`);
     }
     if (problems.length) return set(drift('review_create', problems), { geometry });
 
@@ -223,7 +263,13 @@ export function createReviewCorrection(client) {
       scenario: pick(scenarios, 'reviewed_masks_list', scenario),
     });
     if (versions.state !== STATE.SUCCESS) return set(versions, fields);
-    return set(review, { ...fields, reviewedMasks: versions.data.items ?? [] });
+    const items = versions.data.items ?? [];
+    // CORRECTED is reached only by a commit, which makes a version: a corrected
+    // review that lists none is not a state the server can be in.
+    if (d.status === REVIEW_STATUS.CORRECTED && items.length === 0) {
+      return set(drift('reviewed_masks_list', ['the review is CORRECTED but lists no reviewed-mask version']), fields);
+    }
+    return set(review, { ...fields, reviewedMasks: items });
   }
 
   // The REFRESH action of STALE_MISMATCH: reload the same review from the server.
@@ -311,10 +357,19 @@ export function createReviewCorrection(client) {
     if (current.reviewedMasks.some((v) => v.reviewed_mask_id === d.reviewed_mask_id)) {
       problems.push(`reviewed_mask_id ${d.reviewed_mask_id} is already a version of this review`);
     }
-    // `status` is read from the response; a contract before 1.1.0 did not
-    // send it, and then the commit's defined result state stands in.
-    const status = d.status ?? REVIEW_RULES.commitResultState;
-    if (!isReviewStatus(status)) problems.push(`status ${status} is not one of ${Object.keys(REVIEW_STATUS).join('/')}`);
+    // Contract 1.1.0 answers status, source_mask_id and source_mask_kind with
+    // every commit; each is checked, none has a fallback (QA-063 N-1).
+    const status = d.status;
+    if (status !== REVIEW_RULES.commitResultState) {
+      problems.push(`status ${status} is not ${REVIEW_RULES.commitResultState}, the result of a commit`);
+    }
+    if (d.source_mask_id !== current.sourceMaskId) {
+      problems.push(`source_mask_id is ${d.source_mask_id}, the review's source is ${current.sourceMaskId}`);
+    }
+    const wantKind = SOURCE_KIND_FOR_VARIANT[current.predictionVariant];
+    if (d.source_mask_kind !== wantKind) {
+      problems.push(`source_mask_kind is ${d.source_mask_kind}, a ${current.predictionVariant} review has ${wantKind}`);
+    }
     if (problems.length) {
       return set(fatalInvalid({
         code: 'CONTRACT_DRIFT',
@@ -363,6 +418,16 @@ export function createReviewCorrection(client) {
     if (session.nx !== nx || session.ny !== ny) {
       return reject('GEOMETRY_MISMATCH', `The working mask is ${session.nx}x${session.ny}; the case is ${nx}x${ny}.`);
     }
+    const wantKind = SOURCE_KIND_FOR_VARIANT[current.predictionVariant];
+    if (src.kind !== wantKind) {
+      return reject('SOURCE_KIND_MISMATCH', `The brush edits a ${src.kind} source; a ${current.predictionVariant} review has ${wantKind}.`);
+    }
+    const wantBase = current.baseVersion ? current.baseVersion.reviewed_mask_id : null;
+    if ((session.baseId ?? null) !== wantBase) {
+      return reject('BASE_VERSION_MISMATCH', wantBase
+        ? `The latest version is ${wantBase}; this session continues from ${session.baseId ?? 'the source prediction'}. Reload the review before saving.`
+        : `This session continues from ${session.baseId}, which is not a version of this review.`);
+    }
     if (src.synthetic && client.transportKind !== 'fixture') {
       return reject('SYNTHETIC_SOURCE', 'A synthetic stand-in mask is never sent to a backend.');
     }
@@ -383,6 +448,7 @@ export function createReviewCorrection(client) {
     }
     const committed = await commit({ scenario: pick(scenarios, 'review_commit'), confirmed: true });
     if (committed.view.state !== STATE.SUCCESS) return committed;
+    // The new version is now the base the next edit continues from.
     session.markSaved(prepared, {
       reviewedMaskId: committed.lastCommit.reviewed_mask_id,
       checksum: committed.lastCommit.checksum,
