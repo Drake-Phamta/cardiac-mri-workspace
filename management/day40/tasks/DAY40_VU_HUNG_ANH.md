@@ -21,7 +21,7 @@ TC-TEAM-001).
 
 ## 🔴 Việc 2 — nhận khung V2 SCR-05
 
-Xem PR khung V2 (tiêu đề bắt đầu bằng `feat(v2)`):
+Xem #98 (đã merge, `a3bc595`):
 - **Backend:** mesh L0 dựng từ mask (dự đoán RAW/PROCESSED và ground truth), lưu ngoài git theo sha256 của mask nguồn;
   `reconstruction_get` trả tham chiếu mesh, `mesh_to_world_transform` là ma trận đơn vị trong hệ chỉ số voxel.
 - **App:** SCR-05 dựng WebGL2 trong WebView (lấy từ Spike B, có header nguồn gốc); xoay, zoom, pan; chạm một mặt →

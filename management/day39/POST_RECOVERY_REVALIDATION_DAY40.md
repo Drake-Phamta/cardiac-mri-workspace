@@ -30,7 +30,7 @@
 
 | # | Mục → `main` | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
-| H1 🔴 | PR khung V2 SCR-05 | backend phục vụ mesh L0 (DR-008c) từ mask, màn SCR-05 trong WebView, chạm để chọn lát → mở SCR-03 | xem mục "V2" trong gói Day 40 của bạn | |
+| H1 🔴 | #98 → `a3bc595` | backend phục vụ mesh L0 (DR-008c) từ mask; màn SCR-05 WebGL2 trong WebView, chạm → lát → mở SCR-03; script deploy đóng gói `backend/mesh`; gia cố kiểm bản ghi cho phép (QA_PR94 NB-1/NB-2) | `python -m pytest backend/tests backend/mesh/tests -q -p no:cacheprovider` (252), `npm test` trong `mobile/` (220); đọc QA_PR98_D39 N-1…N-9 | |
 | H2 | #87, #88, #89 | duyệt lại với vai người duyệt V1 | — | |
 
 ## Phạm Tuấn Anh — V1, tích hợp

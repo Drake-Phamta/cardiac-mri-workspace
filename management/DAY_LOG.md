@@ -29,7 +29,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 39 — 2026-10-18 · **`OVERRIDE MỘT NGÀY`** — **có kết quả thật**: GATE-IMG-01 đóng, holdout DINOv2, E2E 20 PASS / 0 FAIL
+## DAY 39 — 2026-10-18 · **`OVERRIDE MỘT NGÀY`** — **có kết quả thật**: GATE-IMG-01 đóng, holdout DINOv2, E2E 22 PASS / 0 FAIL, khung 3D
 
 Leader dùng override một ngày ([`day39/RECOVERY_OVERRIDE_DAY39.md`](day39/RECOVERY_OVERRIDE_DAY39.md)): agent làm thay mọi khối **trừ train**, merge sau QA độc lập bằng LLM + CI. Ba bạn vắng. Mục làm thay nằm trong [`day39/POST_RECOVERY_REVALIDATION_DAY40.md`](day39/POST_RECOVERY_REVALIDATION_DAY40.md).
 
@@ -40,7 +40,8 @@ Leader dùng override một ngày ([`day39/RECOVERY_OVERRIDE_DAY39.md`](day39/RE
 | **Holdout** | suy luận 3 run DINOv2 + EXP-D-PP, đánh giá, 4 so sánh, 4 gói Contract 2 (validator PASS), mỗi run một lần, 07:22–07:36 | `day39/RESULTS_HOLDOUT_DINOV2.md` (#96) |
 | **Kết quả** | Dice 3D trung bình (n = 54): 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · PP-4 0,659. 25→100 %: +0,081 [+0,047; +0,118]; PP-4: +0,020 [+0,015; +0,026] | như trên |
 | **Contract + backend** | DR-017, N-b/N-c, QA-075 N-7, validator DR-018, DR-022 (74 case) | #94 `01bed7b` |
-| **E2E** | hero flow mức API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP | #95 |
+| **E2E** | hero flow mức API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP buổi sáng; **22 PASS / 0 FAIL / 1 SKIP** sau khung 3D (bước SKIP: UNet) | #95, #98 |
+| **3D** | khung V2 SCR-05: backend phục vụ 289 mesh L0; SCR-05 WebGL2 trong WebView, chạm → lát → mở SCR-03; deploy đóng gói `backend/mesh` (QA bắt lỗi chặn B-1) | #98 `a3bc595` |
 | **Kế hoạch** | hạn mới 31/10; kế hoạch bốn chặng; gói Day 40 và bảng | `day40/` |
 
 **Ghi đúng như thấy:**

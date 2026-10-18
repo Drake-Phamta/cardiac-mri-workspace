@@ -15,12 +15,12 @@ strip:
 verdict:
   label: "Đã có kết quả thật"
   tone: "green"
-  text: "5/5 cổng đóng; kết quả holdout thật cho họ DINOv2; E2E hero flow qua API 20 PASS / 0 FAIL. Đường găng còn lại: họ UNet và bằng chứng trên thiết bị"
+  text: "5/5 cổng đóng; kết quả holdout thật cho họ DINOv2; E2E hero flow H1–H10 qua API 22 PASS / 0 FAIL, kể cả 3D. Đường găng còn lại: họ UNet và bằng chứng trên thiết bị"
 facts:
   - {label: "Cổng đã đóng", value: "5 / 5", small: "DATA · SPLIT · ML · MOB · IMG (18/10)"}
   - {label: "Dice holdout tốt nhất", value: "0,659", small: "DINOv2 100 % + PP-4, n = 54, CI 95 % [0,612; 0,700]"}
-  - {label: "E2E hero flow (API)", value: "20 PASS · 0 FAIL", small: "3 SKIP: 3D chưa có trước 18/10, UNet chưa train"}
-  - {label: "Backend", value: "74 case · 4 thí nghiệm", small: "20 validation + 53 holdout + CASE_0001 chỉ suy luận"}
+  - {label: "E2E hero flow H1–H10 (API)", value: "22 PASS · 0 FAIL", small: "1 SKIP: so sánh với UNet (chưa train)"}
+  - {label: "Backend", value: "74 case · 4 thí nghiệm · 289 mesh", small: "20 validation + 53 holdout + CASE_0001 chỉ suy luận"}
 conditions:
   title: "Điều kiện của Day 40"
   items:
@@ -38,7 +38,7 @@ yesterday:
     - {text: "Ít dữ liệu: 25 → 100 % tăng +0,081 [+0,047; +0,118]; hậu xử lý PP-4 tăng +0,020 [+0,015; +0,026], 45/54 case", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
     - {text: "Backend: DR-017, validator DR-018, DR-022 phục vụ 74 case; 4 gói Contract 2 thật qua validator", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/94"}
     - {text: "**E2E hero flow qua API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/95"}
-    - {text: "Khung màn 3D V2 SCR-05: mesh L0, chạm 3D → mở lát 2D", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pulls"}
+    - {text: "Khung màn 3D V2 SCR-05: 289 mesh L0 từ backend, chạm 3D → mở đúng lát 2D; E2E lên **22 PASS / 0 FAIL / 1 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/98"}
 people_title: "Việc của từng người"
 people_note: "Việc 1 của mọi người là duyệt lại phần agent đã làm thay trong khối mình ngày 18/10. Gói đầy đủ ở link cuối mỗi thẻ."
 people:

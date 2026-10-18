@@ -18,8 +18,8 @@
 | **Kết quả holdout thật** | DINOv2 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · **PP-4 0,659** Dice 3D trung bình (n = 54, CI 95 %) | `management/day39/RESULTS_HOLDOUT_DINOV2.md` (#96) |
 | So sánh | 25 → 100 %: +0,081 [+0,047; +0,118] · 50 → 100 %: +0,023 (CI chạm 0) · PP-4: +0,020 [+0,015; +0,026], 45/54 case tốt hơn | như trên |
 | Contract + backend | DR-017 (CASE_0001 tính vào cohort), validator DR-018, DR-022: backend phục vụ **74 case** gồm 53 case holdout | #94 |
-| **E2E** | hero flow mức API trên dữ liệu thật: **20 PASS / 0 FAIL / 3 SKIP** | `tools/e2e/` (#95) |
-| 3D | khung V2 SCR-05: mesh L0 từ backend, chạm 3D → lát 2D | PR khung V2 |
+| **E2E** | hero flow H1–H10 mức API trên dữ liệu thật: **22 PASS / 0 FAIL / 1 SKIP** (bước SKIP: UNet) | `tools/e2e/` (#95, #98) |
+| 3D | khung V2 SCR-05: 289 mesh L0 từ backend, chạm 3D → mở lát 2D (H6/H7 PASS) | #98 |
 
 **Điều quan trọng nhất:** phần lớn việc 18/10 do **agent làm thay**, merge sau **QA bằng LLM**, không phải duyệt của
 người. **Việc 1 của mỗi người hôm nay là duyệt lại và nhận phần làm thay trong khối mình**:
