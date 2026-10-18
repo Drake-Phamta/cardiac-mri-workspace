@@ -1,0 +1,91 @@
+day: 40
+title: "Day 40 · Chủ nhật 19/10 — nhận lại khối, chạy UNet, tới nghiệm thu 31/10"
+subtitle: "Kế hoạch mới: nghiệm thu và thuyết trình ngày 31/10/2026, còn 13 ngày. Override 18/10 đã hết hạn; quy trình thường quay lại đầy đủ."
+description: "Bảng điều phối Day 40: kết quả holdout thật, kế hoạch tới 31/10, việc từng người."
+strip:
+  title: "Lịch 19/10 → 31/10"
+  first: 40
+  last: 52
+  dates: {40: "19", 41: "20", 42: "21", 43: "22", 44: "23", 45: "24", 46: "25", 47: "26", 48: "27", 49: "28", 50: "29", 51: "30", 52: "31"}
+  phases:
+    - {until: 41, phase: "1", label: "C1 nhận lại và khởi động, 19–20/10"}
+    - {until: 45, phase: "2", label: "C2 hoàn thiện vertical + UNet, 21–24/10"}
+    - {until: 48, phase: "3", label: "C3 hội tụ, nghiệm thu nội bộ, 25–27/10"}
+    - {until: 52, phase: "4", label: "C4 báo cáo, slide, tổng duyệt; nghiệm thu 31/10"}
+verdict:
+  label: "Đã có kết quả thật"
+  tone: "green"
+  text: "5/5 cổng đóng; kết quả holdout thật cho họ DINOv2; E2E hero flow H1–H10 qua API 22 PASS / 0 FAIL, kể cả 3D. Đường găng còn lại: họ UNet và bằng chứng trên thiết bị"
+facts:
+  - {label: "Cổng đã đóng", value: "5 / 5", small: "DATA · SPLIT · ML · MOB · IMG (18/10)"}
+  - {label: "Dice holdout tốt nhất", value: "0,659", small: "DINOv2 100 % + PP-4, n = 54, CI 95 % [0,612; 0,700]"}
+  - {label: "E2E hero flow H1–H10 (API)", value: "22 PASS · 0 FAIL", small: "1 SKIP: so sánh với UNet (chưa train)"}
+  - {label: "Backend", value: "74 case · 4 thí nghiệm · 289 mesh", small: "20 validation + 53 holdout + CASE_0001 chỉ suy luận"}
+conditions:
+  title: "Điều kiện của Day 40"
+  items:
+    - "🔒 Bốn người **duyệt lại và nhận** phần làm thay ngày 18/10, ghi vào bảng revalidation trước 12:00"
+    - "🔒 **UNet** chạy trên RTX 4050 và qua **tripwire** ở epoch 1 (Khánh)"
+    - "🔒 **B15** và **phán quyết Spike C1** (Hùng Anh)"
+    - "✅ Backend thật đã lên Mac mini (74 case, 4 thí nghiệm, 289 mesh); E2E qua overlay 20 PASS / 0 FAIL. Hôm nay kiểm từ A17"
+    - "🎯 V4 nhận #99, V2 nhận #98, đo trên A17 theo lịch; phiên A17 đo TC-PERF-001 bằng APK build 18/10 (leader)"
+yesterday:
+  title: "18/10 đã làm được gì — override một ngày"
+  items:
+    - {text: "Merge 6 PR tồn đọng (#85–#90): 3 có approval của Hùng Anh, 3 qua QA LLM", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/RECOVERY_OVERRIDE_DAY39.md"}
+    - {text: "**GATE-IMG-01 đóng** theo luật khai trước: PP-4 (3D opening + thành phần lớn nhất) thắng trên validation", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/93"}
+    - {text: "**Kết quả holdout thật**: DINOv2 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · PP-4 **0,659** Dice 3D", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
+    - {text: "Ít dữ liệu: 25 → 100 % tăng +0,081 [+0,047; +0,118]; hậu xử lý PP-4 tăng +0,020 [+0,015; +0,026], 45/54 case", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/96"}
+    - {text: "Backend: DR-017, validator DR-018, DR-022 phục vụ 74 case; 4 gói Contract 2 thật qua validator", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/94"}
+    - {text: "**E2E hero flow qua API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/95"}
+    - {text: "Màn V4 SCR-06/08 (review, brush, finding) lên `main` trên shell hiện tại; QA-063 N-1…N-4 đóng", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/99"}
+    - {text: "Khung màn 3D V2 SCR-05: 289 mesh L0 từ backend, chạm 3D → mở đúng lát 2D; E2E lên **22 PASS / 0 FAIL / 1 SKIP**", link: "https://github.com/Drake-Phamta/cardiac-mri-workspace/pull/98"}
+people_title: "Việc của từng người"
+people_note: "Việc 1 của mọi người là duyệt lại phần agent đã làm thay trong khối mình ngày 18/10. Gói đầy đủ ở link cuối mỗi thẻ."
+people:
+  - name: "Bế Quốc Khánh"
+    role: "ML, V3 — đường găng"
+    packet: "management/day40/tasks/DAY40_BE_QUOC_KHANH.md"
+    tasks:
+      - "Duyệt lại K1–K5 (#92 hậu xử lý, #93 GATE-IMG-01, holdout, #96 kết quả)"
+      - "**Chạy UNet** trên 4050 (giải nén dữ liệu, preflight), báo **tripwire** sau epoch 1"
+      - "V3 với số thật: SCR-01/07; cách hiển thị RAW vs PROCESSED"
+  - name: "Nguyễn Gia Đức Trung"
+    role: "Contract, backend, V4"
+    packet: "management/day40/tasks/DAY40_NGUYEN_GIA_DUC_TRUNG.md"
+    tasks:
+      - "Duyệt lại T1–T3 (#94 DR-017/018/022, #95 E2E, #87/#88)"
+      - "Nhận **#99** (V4 SCR-06/08 đã lên `main`), đóng #72; đo TC-REV-* trên A17"
+      - "Duyệt lại bản deploy Mac mini; đưa chép gói + mesh vào script"
+  - name: "Vũ Hùng Anh"
+    role: "V2 / 3D; reviewer Spike A, C1, V1"
+    packet: "management/day40/tasks/DAY40_VU_HUNG_ANH.md"
+    tasks:
+      - "**B15** và **phán quyết Spike C1** (quá hạn từ 02/10)"
+      - "Nhận khung SCR-05: chạy test, sửa, đo trên A17 (TC-3D-*, TC-PERF-002)"
+      - "Duyệt lại #87, #88 với vai người duyệt V1"
+  - name: "Phạm Tuấn Anh"
+    role: "Leader, V1, tích hợp"
+    packet: "management/day40/tasks/DAY40_PHAM_TUAN_ANH.md"
+    tasks:
+      - "Nhắn từng người lúc 08:00; xác nhận DR-022"
+      - "Phiên A17: **TC-PERF-001** theo script A9"
+      - "Kiểm `/health` từ A17; ký bản ghi holdout cho UNet khi xong"
+decisions:
+  title: "Quyết định của leader ngày 18/10"
+  items:
+    - "Override một ngày 18/10, mọi khối trừ train (`RECOVERY_OVERRIDE_DAY39.md`)"
+    - "**Hạn nghiệm thu mới: 31/10/2026**; kế hoạch bốn chặng C1–C4 (`REPLAN_TO_2026-10-31.md`)"
+    - "**GATE-IMG-01** mở theo luật khai trước và đã đóng: PP-4, sha256 `c0a68cc7…`; holdout cho 3 run DINOv2 + EXP-D-PP, mỗi run một lần"
+    - "**DR-022** (chờ leader xác nhận hôm nay): backend phục vụ 53 case holdout ở chế độ EVALUATION sau GATE-IMG-01; CASE_0001 luôn chỉ suy luận"
+links:
+  - {label: "📊 Trang kết quả holdout", href: "https://drake-phamta.github.io/cardiac-mri-workspace/results/holdout-day39.html"}
+  - {label: "Ma trận nghiệm thu (33 MUST)", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day40/ACCEPTANCE_TRACE.md"}
+  - {label: "Bằng chứng E2E", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/E2E_EVIDENCE.md"}
+  - {label: "Kế hoạch tới 31/10", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day40/REPLAN_TO_2026-10-31.md"}
+  - {label: "Kế hoạch Day 40", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day40/DAY40_PLAN.md"}
+  - {label: "Bảng revalidation 18/10", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/POST_RECOVERY_REVALIDATION_DAY40.md"}
+  - {label: "Kết quả holdout", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/RESULTS_HOLDOUT_DINOV2.md"}
+  - {label: "GATE-IMG-01", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/GATE_IMG_01_DECISION.md"}
+  - {label: "E2E hero flow", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/tools/e2e/README.md"}
+  - {label: "Biên bản override 18/10", href: "https://github.com/Drake-Phamta/cardiac-mri-workspace/blob/main/management/day39/RECOVERY_OVERRIDE_DAY39.md"}

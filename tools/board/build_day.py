@@ -40,6 +40,35 @@ def link_or_text(item) -> str:
     return f'{text} <a href="{html.escape(href)}">→</a>' if href else text
 
 
+PHASE_CLASS = {"1": "r1", "2": "r2", "3": "r3", "4": "r4"}
+
+
+def window_strip(day: int, strip: dict) -> tuple[str, str, int]:
+    """A strip for a re-planned window (board.yaml `strip`), instead of the original 30 days.
+
+    strip: {first: 40, last: 52, label_every: [..days to label..],
+            phases: [{until: 41, phase: "1", label: "..."}, ...], dates: {40: "19/10", ...}}
+    Returns (cells html, legend html, cell count).
+    """
+    first, last = int(strip["first"]), int(strip["last"])
+    phases = strip["phases"]
+    dates = {int(k): str(v) for k, v in (strip.get("dates") or {}).items()}
+    cells = []
+    for d in range(first, last + 1):
+        ph = next((x for x in phases if d <= int(x["until"])), phases[-1])
+        cls, tip = PHASE_CLASS[str(ph["phase"])], ph["label"]
+        if d < day:
+            cls, tip = "past", "đã qua"
+        if d == day:
+            cls += " today"
+            tip = "hôm nay, " + tip
+        label = dates.get(d, str(d))
+        cells.append(f'<li class="{cls}" title="Day {d} ({dates.get(d, "")}): {esc(tip)}"><span>{esc(label)}</span></li>')
+    legend = '<li><i style="background:var(--ph-past)"></i>đã qua</li>' + "".join(
+        f'<li><i style="background:var(--ph{x["phase"]})"></i>{esc(x["label"])}</li>' for x in phases)
+    return "".join(cells), legend, last - first + 1
+
+
 def build(cfg: dict) -> str:
     day = int(cfg["day"])
     v = cfg["verdict"]
@@ -66,19 +95,26 @@ def build(cfg: dict) -> str:
         decisions_html = f'<section id="quyet"><h2>{esc(decisions["title"])}</h2><ol>{items}</ol></section>'
     links = "".join(f'<li><a href="{html.escape(l["href"])}">{esc(l["label"])}</a></li>' for l in cfg.get("links", []))
     tone = v.get("tone", "red")
-    body = f"""<header class="masthead">
-  <p class="eyebrow">Cardiac MRI Workspace · bảng điều phối</p>
-  <h1>{esc(cfg["title"])}</h1>
-  <p class="sub">{esc(cfg["subtitle"])}</p>
-  <div class="verdict-row"><span class="pill {tone} big">{esc(v["label"])}</span><p>{esc(v["text"])}</p></div>
-  <div class="days" aria-label="Lịch 30 ngày thực thi"><ol>{day_strip(day)}</ol>
+    if cfg.get("strip"):
+        cells, legend, n = window_strip(day, cfg["strip"])
+        strip_html = (f'<div class="days" aria-label="{esc(cfg["strip"].get("title", "Lịch"))}">'
+                      f'<ol style="grid-template-columns: repeat({n}, minmax(0, 1fr))">{cells}</ol>'
+                      f'<ul class="legend">{legend}</ul></div>')
+    else:
+        strip_html = f"""<div class="days" aria-label="Lịch 30 ngày thực thi"><ol>{day_strip(day)}</ol>
     <ul class="legend">
       <li><i style="background:var(--ph-past)"></i>đã qua</li>
       <li><i style="background:var(--ph1)"></i>R1 gỡ critical path, D20–22</li>
       <li><i style="background:var(--ph2)"></i>R2 làm song song, D23–25</li>
       <li><i style="background:var(--ph3)"></i>R3 hội tụ, D26–28</li>
       <li><i style="background:var(--ph4)"></i>R4 ổn định, D29–30</li>
-    </ul></div>
+    </ul></div>"""
+    body = f"""<header class="masthead">
+  <p class="eyebrow">Cardiac MRI Workspace · bảng điều phối</p>
+  <h1>{esc(cfg["title"])}</h1>
+  <p class="sub">{esc(cfg["subtitle"])}</p>
+  <div class="verdict-row"><span class="pill {tone} big">{esc(v["label"])}</span><p>{esc(v["text"])}</p></div>
+{strip_html}
   <dl class="facts">{facts}</dl>
   <div class="gate"><span class="gate-title">{esc(cfg["conditions"]["title"])}</span><ol>{conditions}</ol></div>
 </header>

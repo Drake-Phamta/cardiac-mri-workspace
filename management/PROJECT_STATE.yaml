@@ -21,8 +21,11 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 23                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-10-02"              # Day 22 was the one-day recovery override; see day22/RECOVERY_OVERRIDE_DAY22.md and day23/DAY23_PLAN.md
+day: 40                             # calendar day (Day 1 = 2026-09-10); the original Day 30 (2026-10-09) has passed
+day_date: "2026-10-19"              # plan: day40/DAY40_PLAN.md; window to acceptance: day40/REPLAN_TO_2026-10-31.md
+acceptance_date: "2026-10-31"       # leader decision 2026-10-18 06:40 (Day 39); replaces the fixed Day 30
+day_23_to_38_verdict: MISSED        # Day 23 kept open (leader rule 2026-10-03); team activity 2026-10-02..17: #90 (Khanh, 10-04) and three approvals (Hung Anh, 10-02) only
+day_39_verdict: RECOVERY_OVERRIDE   # 2026-10-18: #85-#98 (approved or LLM QA + CI); GATE-IMG-01 CLOSED; first final-holdout results (DINOv2 25/50/100 + PP-4); backend 74 cases; API hero-flow E2E 22 PASS / 0 FAIL / 1 SKIP (UNet); V2 SCR-05 skeleton (#98)
 day_11_to_21_verdict: MISSED        # Day 11 0/4 (closed on paper on 2026-10-01); Days 12-19 and 21 no delivery; Day 20 was the full rebaseline (AT RISK); see DAY_LOG.md
 day_22_verdict: RECOVERY_OVERRIDE   # 28 PRs merged on independent LLM QA (CHAT E) + CI; GATE-SPLIT-01 and GATE-ML-01 closed; GATE-MOB-01 CLOSED 21:17 by the leader's explicit decision (L5 accepted; #82); Spike A and Spike B ACCEPTED; mobile shell + V1 + V3 screens merged (#77, #78, #69); owners revalidate on Day 23
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
