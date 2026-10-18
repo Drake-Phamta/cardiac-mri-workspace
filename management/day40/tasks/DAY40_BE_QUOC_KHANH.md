@@ -8,7 +8,7 @@
 | Quyết định | Ảnh hưởng |
 |---|---|
 | **GATE-IMG-01 đóng 18/10** (`management/day39/GATE_IMG_01_DECISION.md`) | PP-4 đóng băng, sha256 `c0a68cc7…4961e`. Họ UNet là **raw primary**; nếu muốn hậu xử lý cho UNet thì phải khai riêng (`08` §2) |
-| **Kết quả holdout DINOv2** (`management/day39/RESULTS_HOLDOUT_DINOV2.md`) | 25 % 0,559 · 50 % 0,616 · 100 % 0,639 · PP-4 0,659. RQ-A chỉ trả lời được khi có UNet |
+| **Kết quả holdout DINOv2** (`management/day39/RESULTS_HOLDOUT_DINOV2.md`) | 25 % 0,558 · 50 % 0,616 · 100 % 0,639 · PP-4 0,659. RQ-A chỉ trả lời được khi có UNet |
 | **DR-016a** (xác nhận 01/10) | E = 50, batch 8, công thức không đổi. 4050 không chạy được thì lịch trễ, không đổi công thức |
 | **DR-018** | exporter đã xuất được case lỗi và run PROCESSED (#92). Bạn duyệt lại |
 | **DR-002c** | che số r ở `management/spikes/SPIKE_D_DATASET/RESULT.md:29` theo F5 (việc cũ, còn mở) |
