@@ -181,6 +181,17 @@ def build_plan(cfg: Config, *, record: dict | None = None, record_sha: str | Non
         problems.append(f"the runs root does not exist: {runs_root}")
     elif D.inside_git_worktree(runs_root):
         problems.append(f"the runs root is inside a git work tree: {runs_root} (run directories live outside git)")
+    if cfg.aggregate_base:                          # found out now, not after the last step
+        base_path = Path(cfg.aggregate_base) if Path(cfg.aggregate_base).is_absolute() else ROOT / cfg.aggregate_base
+        if not base_path.is_file():
+            notes.append(f"  aggregate base {base_path.name} not found: a fresh aggregate will be written")
+        else:
+            try:
+                base_doc = json.loads(base_path.read_text(encoding="utf-8"))
+            except ValueError:
+                base_doc = None
+            if not isinstance(base_doc, dict) or base_doc.get("format") != RA.FORMAT                     or base_doc.get("population") != PARTITION:
+                problems.append(f"--aggregate-base {base_path.name} is not a {RA.FORMAT} file for {PARTITION}")
     if cfg.require_clean_code:
         version = MF.code_version()["version"]
         if not MF.is_clean_code_version(version):

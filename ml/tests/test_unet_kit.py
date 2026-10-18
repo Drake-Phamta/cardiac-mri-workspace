@@ -73,6 +73,7 @@ def trained_run(kit, exp: str, subset: str) -> tuple[Path, str]:
     rm_path = run / "run_manifest.json"
     rm = json.loads(rm_path.read_text(encoding="utf-8"))
     rm["checkpoint"].update(sha256=sha, epoch=7)
+    rm["model_family"] = "unet" if exp.startswith("EXP-U") else "dinov2"
     rm_path.write_bytes(MF.json_bytes(rm))
     (run / "config.json").write_bytes(MF.json_bytes({"experiment_id": exp}))
     (run / "run_state.json").write_bytes(MF.json_bytes({"status": "COMPLETE", "best_sha256": sha, "epochs_done": 3}))
@@ -233,6 +234,21 @@ def test_authorization_refuses_an_incomplete_or_altered_run(kit, capsys, how, te
     assert code == 2 and text in printed and "EXP-U-050" in printed and not out.exists()
 
 
+@pytest.mark.parametrize("field, value, text", [
+    ("training_fraction", 0.5, "is a 0.25 run but the run trained on fraction 0.5"),
+    ("model_family", "dinov2", "names the UNet family but the run's model_family is 'dinov2'")])
+def test_authorization_refuses_a_run_whose_id_says_something_else(kit, capsys, field, value, text):
+    run, _ = trained_run(kit, "EXP-U-025", "25_percent")
+    path = run / "run_manifest.json"
+    rm = json.loads(path.read_text(encoding="utf-8"))
+    rm[field] = value
+    path.write_bytes(MF.json_bytes(rm))
+    out = kit.tmp / "m.json"
+    code = MA.main(["--run-dirs", str(run), "--authorized-by", "N", "--authorized-at", SIGNED_AT, "--out", str(out),
+                    "--gate-record", str(kit.gate), "--frozen-config", str(kit.pp_config)])
+    assert code == 2 and text in capsys.readouterr().out and not out.exists()
+
+
 @pytest.mark.parametrize("kind, text", [
     ("scored", "already scored"), ("predicted", "already predicted"), ("partial", "partial holdout predictions")])
 def test_authorization_refuses_a_run_that_was_already_used_on_the_holdout(kit, capsys, kind, text):
@@ -391,6 +407,16 @@ def test_the_identical_command_resumes_where_it_stopped(kit):
     assert action["EXP-U-050.infer"][0] == "skip" and action["EXP-U-050.evaluate"][0] == "run"
     assert action["EXP-U-100.infer"] == ("run", "resumes the partial inference")
     assert action["EXP-U-100.evaluate"][0] == "run"
+
+
+def test_an_unusable_aggregate_base_is_refused_before_anything_runs(kit):
+    record = ready_for_unet(kit)
+    bad = kit.tmp / "base.json"
+    bad.write_text('{"format": "something-else"}', encoding="utf-8")
+    problems = HP.build_plan(config(kit, record, aggregate_base=str(bad))).problems
+    assert any("--aggregate-base base.json is not a cardiac-results-aggregate/1 file" in p for p in problems)
+    missing = HP.build_plan(config(kit, record, aggregate_base=str(kit.tmp / "nowhere.json")))
+    assert not missing.problems and any("a fresh aggregate will be written" in n for n in missing.notes)
 
 
 def test_a_dirty_checkout_is_refused_before_anything_runs(kit, monkeypatch):

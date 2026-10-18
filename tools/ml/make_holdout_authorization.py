@@ -31,10 +31,11 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT =Path(__file__).resolve().parents[2]
 for _p in (str(Path(__file__).resolve().parent), str(ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -46,6 +47,8 @@ from ml import manifests as MF    # noqa: E402
 DEFAULT_GATE_RECORD = "management/day39/gate_img_01/holdout_authorization.json"
 DEFAULT_FROZEN_CONFIG = "management/day39/gate_img_01/postprocess_config.frozen.json"
 PARTITION = D.HOLDOUT_PARTITION
+CORE_ID_RE = re.compile(r"^EXP-([UD])-(025|050|100)$")
+CORE_FRACTIONS = {"025": 0.25, "050": 0.5, "100": 1.0}
 
 
 class Refused(Exception):
@@ -90,6 +93,16 @@ def inspect_run(run_dir: str | Path, expected_id: str | None = None) -> tuple[di
         problems.append(f"{name}: config.json is missing or names another experiment than run_manifest.json")
     if expected_id is not None and experiment_id != expected_id:
         problems.append(f"{name}: the run directory holds experiment {experiment_id}, not {expected_id}")
+    core = CORE_ID_RE.match(experiment_id)
+    if core:                                    # a core matrix id must say what the run really is (08 section 2)
+        fraction = CORE_FRACTIONS[core.group(2)]
+        if rm.get("training_fraction") != fraction:
+            problems.append(f"{name}: {experiment_id} is a {fraction:g} run but the run trained on fraction "
+                            f"{rm.get('training_fraction')!r}")
+        family = str(rm.get("model_family", "")).lower()
+        if core.group(1) == "U" and not family.startswith("unet") or core.group(1) == "D" and not family.startswith("dino"):
+            problems.append(f"{name}: {experiment_id} names the {'UNet' if core.group(1) == 'U' else 'DINOv2'} "
+                            f"family but the run's model_family is {rm.get('model_family')!r}")
     best = run_dir / H.BEST_CHECKPOINT
     best_sha = None
     if not best.is_file():
