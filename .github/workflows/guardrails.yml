@@ -4,12 +4,19 @@ name: guardrails
 #
 #   NFR-MAINT-001 / -002 / -003  -- the Integration/CI block
 #
-# Four independent jobs on purpose: when something breaks, the job name says
-# WHICH invariant broke without anyone reading a log.
+# Eleven independent jobs, one per invariant, on purpose: when something
+# breaks, the job name says WHICH invariant broke without anyone reading a log.
 #
-# No third-party actions beyond actions/checkout and actions/setup-python. A
-# repository governed by `12` section 6 should not grow a supply-chain surface
-# to check its own checksums.
+# No third-party actions beyond actions/checkout and actions/setup-python, and
+# no npm. A repository governed by `12` section 6 should not grow a
+# supply-chain surface to check its own checksums.
+#
+# ONE accepted, limited exception (DR-021 rule 4, decided 2026-10-02): the
+# mobile-render-bundle job uses actions/setup-node (first-party, like
+# setup-python) and runs `npm ci --ignore-scripts` from the committed
+# mobile/package-lock.json - the locked, integrity-pinned npm tree and nothing
+# else - for the render smoke test and a bundle export. Every other job still
+# installs no npm package.
 
 on:
   pull_request:
@@ -267,6 +274,79 @@ jobs:
             fi
           done
 
+          # DR-019 rule 2: committed files use placeholders (<overlay-ip>), never
+          # a private or overlay address. Only the lines ADDED by this change are
+          # scanned, so the addresses already on main (DR-019 rule 3: no rewrite)
+          # never fail a build. Flagged: 10/8, 172.16/12, 192.168/16 and the
+          # CGNAT block 100.64/10. Allowed: 10.0.2.2 (the Android emulator's
+          # alias for its host); loopback, 0.0.0.0 and the documentation ranges
+          # (RFC 5737) are outside the flagged blocks anyway. A match is exactly
+          # four dot-separated 0-255 groups that are not part of a longer dotted
+          # run, so version strings (1.2.3, 1.2.3.4.5, 10.0.26200.0) never
+          # match. A range is written short (10/8), as here: its four-part
+          # network address would be flagged like any other address in it.
+          # The address itself is never printed: this log is public too.
+          if ! python3 - "$BASE" "$HEAD" <<'PY'
+          import re, subprocess, sys
+
+          base, head = sys.argv[1], sys.argv[2]
+          diff = subprocess.run(
+              ["git", "-c", "core.quotePath=false", "diff", "-U0", "--no-color", "--no-ext-diff", base, head],
+              capture_output=True, text=True, encoding="utf-8", errors="replace")
+          if diff.returncode != 0:
+              print(f"::error::git diff failed, so the IPv4 scan saw nothing: {diff.stderr.strip()}")
+              sys.exit(1)
+
+          QUAD = re.compile(r"(?<![\w.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?!\w|\.\d)")
+
+          def flagged(groups):
+              if any(len(g) > 1 and g[0] == "0" for g in groups):
+                  return None                     # a leading zero: not written as an address
+              o = [int(g) for g in groups]
+              if any(x > 255 for x in o) or o == [10, 0, 2, 2]:
+                  return None
+              a, b = o[0], o[1]
+              if a == 10:
+                  return "10/8"
+              if a == 172 and 16 <= b <= 31:
+                  return "172.16/12"
+              if a == 192 and b == 168:
+                  return "192.168/16"
+              if a == 100 and 64 <= b <= 127:
+                  return "100.64/10 (CGNAT)"
+              return None
+
+          def prop(s):
+              return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A").replace(":", "%3A").replace(",", "%2C")
+
+          path, line, in_header, scanned, hits = None, 0, False, 0, 0
+          for raw in diff.stdout.splitlines():
+              if raw.startswith("diff --git "):
+                  path, in_header = None, True
+              elif raw.startswith("@@"):          # content lines always carry a +, - or space prefix
+                  in_header = False
+                  line = int(re.match(r"@@ -\S+ \+(\d+)", raw).group(1))
+              elif in_header:
+                  if raw.startswith("+++ "):      # the file header, never an added line
+                      target = raw[4:].strip('"')
+                      path = None if target == "/dev/null" else target[2:] if target.startswith("b/") else target
+              elif raw.startswith("+"):
+                  scanned += 1
+                  for m in QUAD.finditer(raw[1:]):
+                      block = flagged(m.groups())
+                      if block:
+                          hits += 1
+                          print(f"::error file={prop(path or '?')},line={line}::{path}:{line}: <private IPv4> in {block}"
+                                " - write a placeholder such as <overlay-ip> (DR-019 rule 2)")
+                  line += 1
+
+          print(f"IPv4 scan: {scanned} added line(s), {hits} private address(es)")
+          sys.exit(1 if hits else 0)
+          PY
+          then
+            fail=1
+          fi
+
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "no forbidden bytes in this change"
 
@@ -461,3 +541,68 @@ jobs:
           fi
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "mobile/ respects the spike and node-only boundaries"
+
+  # --------------------------------------------------------------------------
+  # The header's one exception (DR-021 rule 4; closes QA #65 N-5: "CI never
+  # parses or bundles the .js files"). mobile-shell above runs the plain-ESM
+  # logic tests with no npm; this job installs the LOCKED npm tree and then
+  # (1) renders the real screens (`npm run test:render`, react-test-renderer)
+  # and (2) bundles the app the way a release build does, so a JSX syntax
+  # error, a wrong import or a package missing from the lockfile fails here
+  # instead of at the device build.
+  mobile-render-bundle:
+    name: "mobile render smoke + bundle (npm ci)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The fixture generator (contracts/api/generate_fixture.py) runs inside
+      # the render smoke and in prepare.mjs.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # First-party, like setup-python. The render smoke loads its hooks with
+      # module.registerHooks (Node >= 22.15); the runner's default node is
+      # older, and the build PC runs Node 24.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: record the runtime
+        run: |
+          node --version
+          npm --version
+
+      # `npm ci` installs exactly the committed lockfile (every entry is
+      # integrity-pinned) and fails if package.json and the lock disagree.
+      # --ignore-scripts: no package code runs at install time. The lockfile
+      # has no install scripts anyway - `grep -c hasInstallScript
+      # mobile/package-lock.json` is 0 (checked 2026-10-02) - so this flag
+      # changes nothing today and keeps it that way if one is ever added.
+      - name: npm ci (locked tree, no install scripts)
+        working-directory: mobile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: render smoke (react-test-renderer, logic only - never device evidence)
+        working-directory: mobile
+        run: npm run test:render
+
+      # The same JS bundle a release build makes, minus Gradle: Metro resolves
+      # every module the app reaches (../app/core and
+      # ../contracts/api/contract.json included) and compiles it to Hermes
+      # bytecode. The output goes to the runner's temp dir, never the checkout.
+      - name: bundle export (android, fixture mode)
+        working-directory: mobile
+        env:
+          EXPO_NO_TELEMETRY: '1'
+          CI: '1'
+        run: |
+          node scripts/prepare.mjs --mode fixture --strict
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/expo-dist"
+          files=$(find "$RUNNER_TEMP/expo-dist" -type f | wc -l)
+          size=$(du -sh "$RUNNER_TEMP/expo-dist" | cut -f1)
+          echo "bundle export: $files file(s), $size in total"
+          find "$RUNNER_TEMP/expo-dist" -type f -name '*.hbc' -exec ls -l {} \;
+          if [ "$files" -eq 0 ]; then
+            echo "::error::expo export wrote no files"
+            exit 1
+          fi

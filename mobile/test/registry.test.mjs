@@ -23,11 +23,27 @@ const productFiles = [
   join(MOBILE_ROOT, 'App.js'), join(MOBILE_ROOT, 'index.js'), ...walk(join(MOBILE_ROOT, 'src')),
 ];
 
-test('G1 every screen in the table has a file in its vertical folder', () => {
+// A plain-text check, not a parse: `export default function X`, `export default X;`
+// and `export { X as default }` all count (#65 QA N-11 - the screen contract is
+// "has a default export", not one way of writing it).
+const HAS_DEFAULT_EXPORT = /^\s*export\s+default\b|^\s*export\s*\{[^}]*\bas\s+default\b/m;
+
+test('G1 every screen in the table has a file in its vertical folder, with a default export', () => {
   for (const s of SCREENS) {
     const p = join(MOBILE_ROOT, screenPath(s.id));
     assert.ok(existsSync(p), `${s.id} -> ${screenPath(s.id)} is missing`);
-    assert.match(readFileSync(p, 'utf8'), /export default function/, `${s.id} needs a default-exported component`);
+    assert.match(readFileSync(p, 'utf8'), HAS_DEFAULT_EXPORT, `${s.id} needs a default-exported component`);
+  }
+});
+
+test('G1b the default-export check accepts every way of writing one, and only those', () => {
+  for (const ok of ['export default function CaseListScreen() {}', 'const A = () => null;\nexport default A;',
+    'function A() {}\nexport { A as default };', '  export default memo(A);']) {
+    assert.match(ok, HAS_DEFAULT_EXPORT, ok);
+  }
+  for (const bad of ['export function CaseListScreen() {}', '// export default function Old() {}',
+    'const note = "export default";', 'export { A };']) {
+    assert.doesNotMatch(bad, HAS_DEFAULT_EXPORT, bad);
   }
 });
 

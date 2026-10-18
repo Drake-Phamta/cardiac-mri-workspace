@@ -1,8 +1,10 @@
 /*
  * Render-smoke harness, part 2: the checks.  npm run test:render  (from mobile/)
  *
- * TEST-ONLY and NOT IN CI (it needs node_modules: react-test-renderer is a
- * devDependency, deprecated upstream). It renders the real shell, V1 and V3
+ * TEST-ONLY. It needs node_modules (react-test-renderer is a devDependency,
+ * deprecated upstream), so CI runs it in its own job, mobile-render-bundle,
+ * after `npm ci --ignore-scripts` from the lockfile (DR-021 rule 4); the
+ * other CI jobs have no node_modules. It renders the real shell, V1 and V3
  * screens in Node with host-string React Native stand-ins (hooks.mjs), a real
  * app/core runtime, and either the generated fixture bundle or a fake live
  * backend whose PNGs are encoded here with node:zlib.

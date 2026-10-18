@@ -80,23 +80,16 @@ both windows.
 
 1. **The APK is the right one.** Open the `.apk.build.txt` next to the APK in `$MOBILE\release\` and check:
    `mode live` · `contract 1.1.0` · `git_sha` is the commit you expect · `built_at` is **after** that commit ·
-   `source_tree staging copy of committed HEAD` · `api_base_url` is a `sha256:` hash, never the address. **Do
-   not publish that hash** (session notes in the repo, PR text): an unsalted SHA-256 of an overlay address can be
-   reversed by trying every candidate address (#77 QA N-6) — before committing the sidecar, replace its
-   `api_base_url` value with `<redacted>`. To confirm the hash is the Mac mini's URL, hash the value in
-   your untracked `mobile\.env.local` **normalised the way the build normalises it** (quotes and spaces
-   trimmed, trailing `/` removed) — the block reads the file itself, so the address is never typed or shown:
-
-   ```powershell
-   . {
-   $line = Get-Content "$MOBILE\.env.local" | Where-Object { $_ -match '^\s*EXPO_PUBLIC_API_BASE_URL\s*=' } | Select-Object -First 1
-   $u = ($line -split '=', 2)[1].Trim().Trim('"').Trim("'").Trim().TrimEnd('/')
-   "sha256:" + ((([System.Security.Cryptography.SHA256]::Create()).ComputeHash([Text.Encoding]::UTF8.GetBytes($u)) | ForEach-Object { $_.ToString('x2') }) -join '')
-   }
-   ```
-
-   It must equal `api_base_url` in the `.build.txt` (compare on screen; do not copy the hash into notes). Note the
-   APK file name and its `apk_sha256` in your session notes. Tonight's APK:
+   `source_tree staging copy of committed HEAD` · `api_base_url configured (not recorded)`.
+   Builds from now on record **nothing** about the backend address — not the URL, not a hash of it (DR-021 rule 3;
+   an unsalted SHA-256 of an overlay address can be reversed by trying every candidate address, #77 QA N-6). The
+   sidecar therefore cannot say which backend an APK was built for: build from the checkout whose
+   `mobile\.env.local` you use, and let the preflight from that same checkout (§0.2) prove the backend.
+   *History:* the L4 build (`ffbf763`, below) was made before this rule and still recorded an unsalted `sha256:` of
+   the URL (this step then compared it with a hash of `mobile\.env.local`); the committed evidence has that value
+   redacted to `<redacted>` (`apk_build_record.txt`). A sidecar of a build older than DR-021 rule 3 is redacted the
+   same way before it is committed; never publish its hash. Note the APK file name and its `apk_sha256` in your
+   session notes. Tonight's APK:
    `cardiac-mri-workspace-live-20261001-194641.apk`, `git_sha ffbf763`, apk_sha256 `4a66a5284aee…fe100d5a`. The first APK of the evening (`…-141939.apk`, `0bfaba3`) crashed at start on Hermes (`RangeError: Unknown encoding: latin1`, from fast-png); `ffbf763` adds the latin1 shim, and L4 was measured on that build (`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`).
 2. **The backend answers.** On the Mac mini, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
    phone-side check is step 2.3 below: the case list loads.) Then, **on the laptop, from the checkout the APK was
@@ -142,8 +135,8 @@ Start the capture **in window 2** (after its setup block) and leave it running u
 2. Tap the **Cases** tab (SCR-02).
 3. The list loads with the backend's cases. *(If it shows "Something went wrong — The backend could not be
    reached", fix the network first. The screen says `backend http://<configured>` — by design it never shows the
-   address. Check, in this order: ZeroTier on the phone, the Mac mini `/health`, and that the `.build.txt` hash
-   matches `mobile\.env.local` (§0.1).)*
+   address. Check, in this order: ZeroTier on the phone, the Mac mini `/health`, and that the APK was built from
+   the checkout whose `mobile\.env.local` passed the preflight (§0.1, §0.2).)*
 4. Type `CASE_0061` in the search box and tap the row (or **Open CASE_0061 directly**).
 5. Tonight the viewer opens directly: the line under the case id reads **No analysis run for this case - MRI and
    ground truth only**, and there is no run or variant to choose. *(If the backend lists a run by then, the app asks
