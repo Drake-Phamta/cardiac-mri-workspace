@@ -1255,7 +1255,7 @@ function Step-Tour {
     Write-Host '  SCR-06 (Review / Correction): opening the screen makes the app send ONE review_create to the backend' -ForegroundColor Yellow
     Write-Host '  (idempotent: it returns the existing review of this run, or creates it as NOT_REVIEWED). The script will' -ForegroundColor Yellow
     Write-Host '  NOT tap Accept / Flag / Save or draw anything; no review is committed.' -ForegroundColor Yellow
-    $a = Read-Operator '  Open SCR-06 for the screenshot? [Y/n]' -Default 'n'
+    $a = Read-Operator '  Open SCR-06 for the screenshot? [y/N] (Enter = No)' -Default 'n'
     if ($a -match '^[nN]') { Add-TourEntry -Screen 'SCR-06 review' -Status 'skipped' -Note 'operator chose not to open it (review_create)' }
     else {
       [void](Step-TourScreen -Screen 'SCR-06 review (read-only)' -Expected "in the case viewer scroll down and tap 'Review / correct (SCR-06)'; take no action in it" -Action {

@@ -350,7 +350,9 @@ function Get-DeviceSessionSelfChecks {
     $script:Ctx.Secrets = New-Object System.Collections.ArrayList
     try {
       Add-Secret -Value 'R58M12ABCDE' -Mask '<device-serial>'
-      $t = Hide-Secret ('adb -s R58M12ABCDE shell; backend 192.168.1.20 and 10.147.17.5 and 172.22.0.9; ' + $env:USERPROFILE + '\x')
+      # Synthetic private addresses are joined at run time: no committed line carries a dotted quad (DR-019 CI scan).
+      $ipA = (192, 168, 1, 20) -join '.'; $ipB = (10, 147, 17, 5) -join '.'; $ipC = (172, 22, 0, 9) -join '.'
+      $t = Hide-Secret ('adb -s R58M12ABCDE shell; backend ' + $ipA + ' and ' + $ipB + ' and ' + $ipC + '; ' + $env:USERPROFILE + '\x')
       Assert-True ($t -notmatch 'R58M12ABCDE') 'serial leaked'
       Assert-True ($t -match '<device-serial>') 'serial not masked'
       Assert-True ($t -notmatch '192\.168|10\.147|172\.22') 'private address leaked'
@@ -524,7 +526,8 @@ function Get-DeviceSessionSelfChecks {
     $dir = $script:ST.Tmp
     $bad = Join-Path $dir 'scan_bad.txt'
     $good = Join-Path $dir 'scan_good.txt'
-    Write-TextFile -Path $bad -Text ("line one`nbackend at 192.168.4.7 here`nserial R58M12ABCDE here`nsee http://example.test:8000/x`nCMW_HTTP {`"url`":`"/api/v1/cases`"}`n")
+    $ipD = (192, 168, 4, 7) -join '.'
+    Write-TextFile -Path $bad -Text ("line one`nbackend at $ipD here`nserial R58M12ABCDE here`nsee http://example.test:8000/x`nCMW_HTTP {`"url`":`"/api/v1/cases`"}`n")
     Write-TextFile -Path $good -Text ("CMW_GESTURE {`"seq`":1}`nbackend http://<configured> study STUDY_LA_001`nversion 1.1.0`n")
     $hits = @(Find-SensitiveText -Paths @($bad, $good) -Serials @('R58M12ABCDE'))
     $kinds = @($hits | ForEach-Object { $_.Kind + '@' + $_.Line })

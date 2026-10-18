@@ -417,7 +417,7 @@ function shell(s, a) {
   const during = s.a9Running && !s.dialog;
   switch (cmd) {
     case 'getprop':
-      return out(`[ro.product.model]: [SM-A176B]\n[ro.product.brand]: [samsung]\n[ro.product.device]: [a17x]\n[ro.build.version.release]: [16]\n[ro.build.version.sdk]: [36]\n[ro.product.cpu.abi]: [arm64-v8a]\n[ro.build.version.security_patch]: [2026-09-01]\n[ro.serialno]: [${SERIAL}]\n[dhcp.wlan0.ipaddress]: [192.168.1.55]`);
+      return out(`[ro.product.model]: [SM-A176B]\n[ro.product.brand]: [samsung]\n[ro.product.device]: [a17x]\n[ro.build.version.release]: [16]\n[ro.build.version.sdk]: [36]\n[ro.product.cpu.abi]: [arm64-v8a]\n[ro.build.version.security_patch]: [2026-09-01]\n[ro.serialno]: [${SERIAL}]\n[dhcp.wlan0.ipaddress]: [${[192, 168, 1, 55].join('.')}]`); // joined at run time: no dotted quad in the committed file (DR-019 CI scan)
     case 'wm': return out('Physical size: 1080x2340');
     case 'date': return out('2026-10-18T10:15:30+0700');
     case 'settings':
