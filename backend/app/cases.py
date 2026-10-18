@@ -86,13 +86,46 @@ class CaseStore:
         self.modes_known = "inference_only_case_ids" in self.index
 
     def _refuse_unsafe_holdout(self) -> None:
-        """At most one final_holdout case (the INT-12 case), and never with its ground truth."""
+        """The holdout lock.
+
+        Without the DR-022 authorization metadata: at most one final_holdout case (the INT-12 case), and
+        never with its ground truth. With it (a cache built by ``ingest --include-holdout`` under a closed
+        GATE-IMG-01 record): the other holdout cases may be served in EVALUATION mode, but the INT-12 case -
+        every case the cache lists as inference-only - is INFERENCE_REVIEW without ground truth, always.
+        """
         holdout = [record for record in self.cases.values() if record.data.get("split_partition") == "final_holdout"]
-        if len(holdout) > 1:
-            raise RuntimeError(f"data cache serves {len(holdout)} final_holdout cases; at most one (INT-12) is allowed")
+        authorization = self.index.get("holdout_authorization")
+        if authorization is None:
+            if len(holdout) > 1:
+                raise RuntimeError(f"data cache serves {len(holdout)} final_holdout cases; at most one (INT-12) "
+                                   f"is allowed without a GATE-IMG-01 authorization record")
+            for record in holdout:
+                if self._serves_ground_truth(record) or record.mode != "INFERENCE_REVIEW":
+                    raise RuntimeError(f"{record.case_id} is a final_holdout case served with ground truth; refusing to start")
+            return
+        if not (isinstance(authorization, dict)
+                and authorization.get("format") == "ml-holdout-authorization/1"
+                and authorization.get("gate") == "GATE-IMG-01" and authorization.get("gate_status") == "CLOSED"
+                and authorization.get("split_sha256") == self.index.get("split_sha256")
+                and isinstance(authorization.get("record_sha256"), str) and len(authorization["record_sha256"]) == 64):
+            raise RuntimeError("data cache holds holdout cases under a malformed or mismatched GATE-IMG-01 record; "
+                               "refusing to start")
+        designated = self.index.get("inference_only_case_ids")
+        if not isinstance(designated, list) or not designated:
+            raise RuntimeError("data cache with an authorization record does not designate the INT-12 case; refusing to start")
+        for record in self.cases.values():
+            if (record.case_id in designated or record.mode == "INFERENCE_REVIEW") and (
+                    self._serves_ground_truth(record) or record.mode != "INFERENCE_REVIEW"):
+                raise RuntimeError(f"{record.case_id} is the INT-12 inference-only case but is served with ground "
+                                   f"truth; refusing to start")
         for record in holdout:
-            if record.ground_truth_available or record.data.get("slices", {}).get("gt") or record.mode != "INFERENCE_REVIEW":
-                raise RuntimeError(f"{record.case_id} is a final_holdout case served with ground truth; refusing to start")
+            if record.case_id not in designated and record.mode != "EVALUATION":
+                raise RuntimeError(f"{record.case_id} is a final_holdout case in mode {record.mode}; refusing to start")
+
+    @staticmethod
+    def _serves_ground_truth(record: CaseRecord) -> bool:
+        return bool(record.ground_truth_available or record.data.get("slices", {}).get("gt")
+                    or record.reference_mask_id or record.data.get("mask_sha256"))
 
     def get(self, case_id: str) -> Optional[CaseRecord]:
         return self.cases.get(case_id)

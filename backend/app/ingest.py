@@ -8,7 +8,14 @@ metric exists):
 - every one of the 20 ``validation`` cases, in EVALUATION mode;
 - the INT-12 inference-only case = the lowest-numbered ``final_holdout`` case
   other than CASE_0027, in INFERENCE_REVIEW mode. Its ground-truth file is
-  never opened: nothing derived from it reaches the cache.
+  never opened: nothing derived from it reaches the cache;
+- DR-022 (only with ``--include-holdout --holdout-authorization <record>``): every other
+  ``final_holdout`` case (CASE_0027, the DR-002b suspected case, included), in EVALUATION mode with role
+  FINAL_HOLDOUT, so the evaluated cases have SCR-03 / SCR-04 views. The INT-12 case stays
+  INFERENCE_REVIEW without ground truth in every mode. The record must be a file of
+  format ``ml-holdout-authorization/1`` for gate GATE-IMG-01 with gate_status CLOSED and the pinned
+  split's sha256; the cache records the record's own sha256. The backend does not import ``ml/``
+  (it runs on Python 3.9 without torch), so these checks are written out here.
 
 What Contract 1 asks for and this does: GATE-DATA-01 ACCEPTED is asserted;
 every artifact is addressed by sha256; re-ingesting identical bytes is a
@@ -59,6 +66,10 @@ DEFAULT_SPLIT_MANIFEST = REPO_ROOT / "data" / "manifests" / "split_manifest_path
 # sha256 of the committed split blob (split_id path_a_seed2024_dr002b_v1, PR #35 at 7b72ce8). A cache is
 # built from exactly this split; another split needs a deliberate --split-sha256 and a fresh cache.
 PINNED_SPLIT_SHA256 = "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d"
+# DR-022: the record GATE-IMG-01 closes with (written by the leader; the same literals as ml/holdout.py).
+HOLDOUT_AUTHORIZATION_FORMAT = "ml-holdout-authorization/1"
+HOLDOUT_GATE = "GATE-IMG-01"
+HOLDOUT_GATE_CLOSED = "CLOSED"
 
 
 class IngestError(Exception):
@@ -75,8 +86,67 @@ def _case_number(case_id: str) -> int:
     return int(case_id.split("_", 1)[1])
 
 
-def rule_based_selection(split: dict) -> List[Dict[str, str]]:
-    """The cases this backend serves, by the leader's rules, in a stable order."""
+def _no_duplicate_keys(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError(f"key {key!r} appears twice")
+        out[key] = value
+    return out
+
+
+def _no_constants(name):
+    raise ValueError(f"{name} is not JSON")
+
+
+def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
+    """The GATE-IMG-01 record, checked, as the metadata the cache records (DR-022).
+
+    ``path`` is repository-relative (the record is committed with the gate decision); an absolute
+    path is accepted for a local check. Refused unless the file exists, is strict JSON, has format
+    ``ml-holdout-authorization/1``, gate ``GATE-IMG-01``, gate_status ``CLOSED`` and the split sha256
+    this ingest is pinned to. Nothing is opened but the record.
+    """
+    if path is None:
+        raise IngestError("HOLDOUT_AUTHORIZATION_REQUIRED",
+                          "holdout cases need --holdout-authorization <ml-holdout-authorization/1 record>")
+    given = Path(path)
+    resolved = given if given.is_absolute() else REPO_ROOT / given
+    try:
+        raw = resolved.read_bytes()
+    except OSError as exc:
+        raise IngestError("HOLDOUT_AUTHORIZATION_INVALID",
+                          f"cannot read the authorization record {given.name}: {type(exc).__name__}")
+    try:
+        record = json.loads(raw.decode("utf-8-sig"), object_pairs_hook=_no_duplicate_keys,
+                            parse_constant=_no_constants)
+    except ValueError as exc:
+        raise IngestError("HOLDOUT_AUTHORIZATION_INVALID", f"{given.name} is not valid JSON: {exc}")
+    if not isinstance(record, dict):
+        raise IngestError("HOLDOUT_AUTHORIZATION_INVALID", f"{given.name} must be a JSON object")
+    problems = []
+    if record.get("format") != HOLDOUT_AUTHORIZATION_FORMAT:
+        problems.append(f"format must be {HOLDOUT_AUTHORIZATION_FORMAT!r}")
+    if record.get("gate") != HOLDOUT_GATE:
+        problems.append(f"gate must be {HOLDOUT_GATE!r}")
+    if record.get("gate_status") != HOLDOUT_GATE_CLOSED:
+        problems.append(f"gate_status is {record.get('gate_status')!r}: {HOLDOUT_GATE} is not {HOLDOUT_GATE_CLOSED}")
+    if record.get("split_sha256") != split_sha256:
+        problems.append("split_sha256 is not the split this backend is pinned to")
+    if problems:
+        raise IngestError("HOLDOUT_AUTHORIZATION_INVALID", f"{given.name}: " + "; ".join(problems))
+    recorded_path = given.as_posix() if not given.is_absolute() else given.name  # never an absolute machine path
+    return {"format": HOLDOUT_AUTHORIZATION_FORMAT, "gate": HOLDOUT_GATE, "gate_status": HOLDOUT_GATE_CLOSED,
+            "split_sha256": split_sha256, "record_sha256": imaging.sha256_bytes(raw),
+            "record_path": recorded_path}
+
+
+def rule_based_selection(split: dict, include_holdout: bool = False) -> List[Dict[str, str]]:
+    """The cases this backend serves, by the leader's rules, in a stable order.
+
+    ``include_holdout`` (DR-022, only after GATE-IMG-01) adds every ``final_holdout`` case except the
+    INT-12 case, in EVALUATION mode; the INT-12 case is always the one inference-only case.
+    """
     partitions = split["partitions"]
     validation = sorted(partitions["validation"]["case_ids"], key=_case_number)
     holdout = sorted(partitions["final_holdout"]["case_ids"], key=_case_number)
@@ -91,6 +161,9 @@ def rule_based_selection(split: dict) -> List[Dict[str, str]]:
                   for case_id in validation[1:]]
     selection.append({"case_id": candidates[0], "role": "INFERENCE_ONLY_INT12", "mode": "INFERENCE_REVIEW",
                       "split_partition": "final_holdout"})
+    if include_holdout:
+        selection += [{"case_id": case_id, "role": "FINAL_HOLDOUT", "mode": "EVALUATION",
+                       "split_partition": "final_holdout"} for case_id in holdout if case_id != candidates[0]]
     return selection
 
 
@@ -270,7 +343,8 @@ def _contract1_record(dataset_manifest: dict, records: List[dict]) -> dict:
 
 
 def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_path: Path, out: Path,
-               only: Optional[List[str]] = None, expected_split_sha256: str = PINNED_SPLIT_SHA256) -> dict:
+               only: Optional[List[str]] = None, expected_split_sha256: str = PINNED_SPLIT_SHA256,
+               include_holdout: bool = False, holdout_authorization: Optional[Path] = None) -> dict:
     dataset_bytes = Path(dataset_manifest_path).read_bytes()
     dataset_manifest = json.loads(dataset_bytes.decode("utf-8"))
     split_bytes = Path(split_manifest_path).read_bytes()
@@ -279,6 +353,11 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
         raise IngestError("PROVENANCE_INVALID", f"split manifest sha256 {split_sha[:12]} is not the pinned "
                                                 f"{expected_split_sha256[:12]} (hash the committed blob bytes)")
     split = json.loads(split_bytes.decode("utf-8"))
+    if holdout_authorization is not None and not include_holdout:
+        raise IngestError("HOLDOUT_AUTHORIZATION_UNUSED", "--holdout-authorization needs --include-holdout")
+    authorization = None
+    if include_holdout:  # refused before anything is written or any holdout file is touched
+        authorization = load_holdout_authorization(holdout_authorization, split_sha)
     pinned = (split.get("source_dataset_manifest") or {}).get("sha256")
     dataset_sha = imaging.sha256_bytes(dataset_bytes)
     if pinned and pinned != dataset_sha:
@@ -296,7 +375,7 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
                                                 f"use a fresh cache directory - caches are never merged across splits")
     out.mkdir(parents=True, exist_ok=True)
     by_id = {case["case_id"]: case for case in dataset_manifest["cases"]}
-    selection = rule_based_selection(split)
+    selection = rule_based_selection(split, include_holdout)
     if only:
         selection = [item for item in selection if item["case_id"] in set(only)]
     blobs: Dict[str, str] = {}
@@ -315,6 +394,8 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
     merged_blobs = dict(previous.get("blobs", {}))
     merged_blobs.update(blobs)
     full_selection = rule_based_selection(split)
+    # A cache that already holds authorised holdout cases keeps saying so when re-run without the flag.
+    recorded_authorization = authorization or previous.get("holdout_authorization")
     index = {
         "ingest_version": INGEST_VERSION,
         "generated_at": _now(),
@@ -332,6 +413,11 @@ def run_ingest(package_root: Path, dataset_manifest_path: Path, split_manifest_p
         "cases": cases,
         "blobs": merged_blobs,
     }
+    if recorded_authorization is not None:
+        index["holdout_authorization"] = recorded_authorization
+        index["selection_rules"]["FINAL_HOLDOUT"] = (
+            "DR-022: every final_holdout case except the INT-12 case, EVALUATION mode, only under a closed "
+            "GATE-IMG-01 authorization record")
     index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
     all_records = [json.loads((out / "cases" / case_id / "case.json").read_text(encoding="utf-8")) for case_id in cases]
     (out / "contract1_record.json").write_text(
@@ -349,6 +435,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--out", type=Path, default=None,
                         help=f"cache directory outside any git work tree (default: ${DATA_ROOT_ENV}/data_cache)")
     parser.add_argument("--only", nargs="*", help="ingest only these selected case ids (debugging)")
+    parser.add_argument("--include-holdout", action="store_true",
+                        help="DR-022: also ingest every final_holdout case except INT-12, in EVALUATION mode "
+                             "(needs --holdout-authorization)")
+    parser.add_argument("--holdout-authorization", type=Path, default=None,
+                        help="repository-relative path of the closed GATE-IMG-01 record "
+                             f"(format {HOLDOUT_AUTHORIZATION_FORMAT})")
     parser.add_argument("--split-sha256", default=PINNED_SPLIT_SHA256,
                         help="sha256 of the split manifest blob (default: the pinned path_a_seed2024_dr002b_v1)")
     args = parser.parse_args(argv)
@@ -360,7 +452,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         args.out = root / "data_cache"
     try:
         index = run_ingest(args.package_root, args.dataset_manifest, args.split_manifest, args.out, args.only,
-                           expected_split_sha256=args.split_sha256)
+                           expected_split_sha256=args.split_sha256, include_holdout=args.include_holdout,
+                           holdout_authorization=args.holdout_authorization)
     except IngestError as exc:
         print(f"FAIL [{exc.code}] {exc}", file=sys.stderr)
         return 2
