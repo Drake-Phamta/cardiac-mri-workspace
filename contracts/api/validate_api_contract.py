@@ -493,7 +493,13 @@ def _check_worst_slice(contract: dict, at: str, block: Any, problems: List[str])
         problems.append(f"{at}: worst_slice_selection lists a slice twice")
 
 
-def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], problems: List[str]) -> None:
+def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], problems: List[str],
+                    page_variant: Any = None) -> None:
+    """The DR-010 outlier block, checked against the rows of the same response (QA N-c).
+
+    Count, exactly the lowest three, values and run ids equal to the rows, and the
+    variant equal to the page's. Only SUCCEEDED rows qualify: a WITHHELD (INT-12) row never does.
+    """
     rule = contract["selection_rules"]["outlier_selection"]
     if not isinstance(block, dict) or set(block) != set(rule["block_fields"]):
         problems.append(f"{at}: outlier_selection must have exactly {rule['block_fields']}")
@@ -504,11 +510,17 @@ def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], proble
         problems.append(f"{at}: outlier_selection.metric_name must be {rule['metric_name']}")
     if block["prediction_variant"] not in contract["domain_enums"]["prediction_variant"]:
         problems.append(f"{at}: outlier_selection.prediction_variant is not a prediction variant")
+    elif page_variant is not None and block["prediction_variant"] != page_variant:
+        problems.append(f"{at}: outlier_selection.prediction_variant {block['prediction_variant']} differs from the page's {page_variant}")
+    if not (isinstance(block["experiment_id"], str) and block["experiment_id"]):
+        problems.append(f"{at}: outlier_selection.experiment_id must be a non-empty string")
     cases = block["cases"]
     if not isinstance(cases, list) or len(cases) > rule["cardinality"]:
         problems.append(f"{at}: outlier_selection.cases must be a list of at most {rule['cardinality']}")
         return
-    succeeded = {row.get("case_id") for row in rows if isinstance(row, dict) and row.get("status") == "SUCCEEDED"}
+    succeeded_rows = {row.get("case_id"): row for row in rows
+                      if isinstance(row, dict) and row.get("status") == "SUCCEEDED"}
+    succeeded = set(succeeded_rows)
     keys = []
     for position, item in enumerate(cases):
         where = f"{at}: outlier_selection.cases[{position}]"
@@ -523,9 +535,28 @@ def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], proble
             return
         if rows and item["case_id"] not in succeeded:
             problems.append(f"{where}: {item['case_id']} is not a SUCCEEDED row (WITHHELD, FAILED and EXCLUDED never qualify)")
+        row = succeeded_rows.get(item["case_id"])
+        values = row.get("metric_values") if row else None
+        if isinstance(values, dict):
+            if (item["metric_value"], item["false_positives"], item["false_negatives"]) != (
+                    values.get(rule["metric_name"]), values.get("false_positives"), values.get("false_negatives")):
+                problems.append(f"{where}: values differ from the {item['case_id']} row")
+            if item["analysis_run_id"] != row.get("analysis_run_id"):
+                problems.append(f"{where}: analysis_run_id differs from the {item['case_id']} row")
         keys.append((item["metric_value"], -(item["false_positives"] + item["false_negatives"]), str(item["case_id"])))
     if keys != sorted(keys):
         problems.append(f"{at}: outlier_selection.cases are not in DR-010 order")
+    if len({item["case_id"] for item in cases}) != len(cases):
+        problems.append(f"{at}: outlier_selection lists a case twice")
+    ranked = []
+    for case_id, row in succeeded_rows.items():
+        values = row.get("metric_values")
+        if isinstance(values, dict) and _is_number(values.get(rule["metric_name"]))                 and _is_int(values.get("false_positives")) and _is_int(values.get("false_negatives")):
+            ranked.append((values[rule["metric_name"]], -(values["false_positives"] + values["false_negatives"]), str(case_id)))
+    expected = [key[2] for key in sorted(ranked)[: rule["cardinality"]]]
+    if [item["case_id"] for item in cases] != expected:
+        problems.append(f"{at}: outlier_selection.cases must be exactly the {rule['cardinality']} lowest-Dice SUCCEEDED "
+                        f"rows {expected} (DR-010), got {[item['case_id'] for item in cases]}")
 
 
 def _check_metric_values(at: str, value: Any, problems: List[str]) -> None:
@@ -678,7 +709,8 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
             elif row.get("metric_values") is not None:
                 problems.append(f"{where}: a {row.get('status')} row carries metric_values null, never numbers")
         if "outlier_selection" in body:
-            _check_outliers(contract, at, body["outlier_selection"], body["items"], problems)
+            _check_outliers(contract, at, body["outlier_selection"], body["items"], problems,
+                            body.get("prediction_variant"))
     if endpoint_id == "experiment_metrics" and "metric_summary" in body:
         _check_summary(contract, f"{at}: metric_summary", body["metric_summary"], problems)
     if endpoint_id == "experiment_compare" and "summary" in body:

@@ -99,7 +99,8 @@ test('V3S3 SCR-07 on the generated bundle: typed values as served, identity and 
   const u = card('EXP-U-100');
   assert.equal(u.statusText, 'loaded - identity unconfirmed');
   assert.equal(u.tone, TONE.WARN);
-  assert.equal(u.nText, 'N intended 6 · N successful 4');
+  // DR-017: the evaluated WITHHELD INT-12 case counts, so the generated default is 5 of 5.
+  assert.equal(u.nText, 'N intended 5 · N successful 5');
   assert.equal(u.summaryText, 'summary has dice, iou, false_positives, false_negatives, relative_volume_error - pick one');
   assert.ok(u.warnings.some((w) => /EXP_DEMO/.test(w)), u.warnings.join(' | '));
   assert.deepEqual([...u.contextMissing], []);
@@ -172,13 +173,28 @@ test('V3S6 case links: every generated row is listed with a valid SCR-03 route; 
   const runtime = newRuntime();
   const snap = await createExperimentComparison(runtime.client).open({ experimentIds: ['EXP-U-100'], metricName: 'dice' });
   const table = caseTable(snap.cells.find((c) => c.id === 'EXP-U-100'));
-  assert.equal(table.rows.length, 6, 'all six generated rows are listed, none dropped');
-  assert.equal(table.text, '6 row(s) returned, 4 plotted');
-  const failed = table.rows.find((r) => r.statusText === 'failed');
+  assert.equal(table.rows.length, 5, 'all five generated rows are listed, none dropped');
+  assert.equal(table.text, '5 row(s) returned, 4 plotted');
   const withheld = table.rows.find((r) => r.statusText.startsWith('withheld'));
-  assert.ok(failed && failed.reason && failed.valueText === null, 'a FAILED row keeps its reason and has no value');
   assert.ok(withheld && /INT-12/.test(withheld.reason) && withheld.valueText === null, 'a WITHHELD row is listed, never with a value');
   for (const r of table.rows) assertNavigable(r.route);
+
+  // The `with_failure` scenarios add one FAILED row (6 intended, 5 evaluated).
+  runtime.fixtureScenarios.set('experiment_cases', 'with_failure');
+  runtime.fixtureScenarios.set('experiment_metrics', 'with_failure');
+  try {
+    const failSnap = await createExperimentComparison(runtime.client).open({ experimentIds: ['EXP-U-100'], metricName: 'dice' });
+    const failCell = failSnap.cells.find((c) => c.id === 'EXP-U-100');
+    const failTable = caseTable(failCell);
+    assert.equal(failTable.rows.length, 6);
+    assert.equal(failTable.text, '6 row(s) returned, 4 plotted');
+    assert.equal(comparisonView(failSnap).rows.flatMap((r) => r.cells).find((c) => c.id === 'EXP-U-100').nText, 'N intended 6 · N successful 5');
+    const failed = failTable.rows.find((r) => r.statusText === 'failed');
+    assert.ok(failed && failed.reason && failed.valueText === null, 'a FAILED row keeps its reason and has no value');
+    for (const r of failTable.rows) assertNavigable(r.route);
+  } finally {
+    runtime.fixtureScenarios.clear();
+  }
   const noRun = routeForIntent(caseIntent({ caseId: 'CASE_0101', runId: null, variant: 'RAW', experimentId: 'EXP-U-100' }));
   assert.equal(noRun.ok, false);
   assert.match(noRun.reason, /analysis_run_id/);

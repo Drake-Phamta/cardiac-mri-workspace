@@ -1861,6 +1861,22 @@ from the public dataset. The app never displays them.
 - The same PR updates the tests that read the bundle (`mobile/test/v3_screens.test.mjs`, the V3 README). Bế Quốc
   Khánh reviews that part.
 
+**Implemented 2026-10-18** under the Day 39 override (`management/day39/RECOVERY_OVERRIDE_DAY39.md`; Trung
+revalidates on 2026-10-19):
+- `case_level_scope`, `summary_rule` and the notes of `experiment_metrics`, `experiment_cases` and
+  `experiment_compare` say what item 3 says; the fixture is 5 of 5 with CASE_0001 in the compare population, plus
+  `with_failure` scenarios (6 intended, 5 evaluated, one FAILED row) so every row status stays reachable.
+- **No API version bump** (`1.1.0` stays): no field, shape, enum, literal or error changed, only the meaning text of
+  a population rule and the fixture numbers; the freeze rule asks for a new version string for additive interface
+  changes, and DR-020 sets the precedent. A consumer written against 1.1.0 keeps working.
+- N-b: the WITHHELD exclusion is written into `selection_rules.outlier_selection.eligibility`. The wire literals
+  stay `DR-010` / `dr010-outlier/v1` (DR-020); `ml/evaluate.py` writes `DR-010-outlier` / `dr010-outlier/1.0.0` in its
+  own artifact, which the backend re-derives instead of passing through. The leader may still want the two
+  literals aligned; that is a wire change.
+- N-c: `validate_response` checks `outlier_selection` (exactly the three lowest-Dice SUCCEEDED rows, values and run
+  ids equal to the rows, no case twice, variant equal to the page's).
+- QA-075 N-7: `backend/app/metrics.py` checks WITHHELD before FAILED and EXCLUDED.
+
 ---
 
 ### DR-018 — Contract 2: failed cases, one run per case, mask kind, PROCESSED runs
@@ -1893,6 +1909,13 @@ from the public dataset. The app never displays them.
 **Owners.** Both parts land before the D24 export.
 - Trung: schema, README, validator, tests, backend loader.
 - Khánh: exporter and ML tests.
+
+**Validator implemented 2026-10-18** under the Day 39 override, no schema change (rule 2): runs + listed failures =
+`num_test_cases`, every population case exactly once, run ↔ artifact ids, mask kind ↔ variant; see the Contract 2
+README, "Completeness checks". The checks also refuse a `FAILED` run (rule 1) and read the evaluation population
+manifest. The backend loader already shows listed failures as FAILED rows (`analysis_run_id` null, WITHHELD
+first). The exporter (rule 3) is Khánh's and is not part of this change; the exporter's current output passes the
+new checks (`ml/tests/test_export_contract2.py`).
 
 ---
 
@@ -1958,6 +1981,46 @@ from the public dataset. The app never displays them.
 6. **Ownership.**
    - The shell's owner is Phạm Tuấn Anh. Agent A2 built it under the Day 22 override.
    - Each vertical owns `mobile/src/verticals/v<N>/` and `mobile/test/v<N>_*.test.mjs`.
+
+---
+
+### DR-022 — Holdout cases in the backend after GATE-IMG-01
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-18 by the leader's session under the Day 39 override (GATE-IMG-01 authorization); the leader confirms** |
+| **Amends** | the Day 22 backend ingest rule (20 validation cases + the INT-12 case) and the `CaseStore` holdout lock (QA #68 N-1) |
+| **Related** | DR-002 (the 54-case holdout), DR-002b (CASE_0027), DR-017 (INT-12), DR-018 (Contract 2 completeness) |
+| **Affects** | `backend/app/ingest.py`, `backend/app/cases.py`, `backend/tests/`, `backend/README.md`, `backend/scripts/deploy_macmini.ps1` |
+
+**Problem.** The ingest selects 20 validation cases plus CASE_0001 (INT-12), and `CaseStore` refuses a cache with
+more than one `final_holdout` case. A real Contract 2 package is `FINAL_HOLDOUT` (54 cases), so the evaluated cases
+have run-level metrics but no case in the cache, and the hero flow's per-case views (SCR-03 overlay, SCR-04 errors)
+have nothing to draw.
+
+**Decision.**
+1. `python -m backend.app.ingest ... --include-holdout --holdout-authorization <repo-relative path of the
+   ml-holdout-authorization/1 record>` additionally ingests every `final_holdout` case **except CASE_0001**, in
+   EVALUATION mode with role `FINAL_HOLDOUT`. CASE_0027 (the DR-002b suspected case) is ingested like any other.
+2. It does so only if the record file exists and parses as strict JSON with `format` `ml-holdout-authorization/1`,
+   `gate` `GATE-IMG-01`, `gate_status` `CLOSED` and a `split_sha256` equal to the backend's pinned split sha. The
+   checks are written in backend code; the backend does not import `ml/` (Python 3.9, no torch). The cache metadata
+   records the record's sha256.
+3. `CaseStore` keeps today's rule for a cache without that metadata. With it, holdout cases are allowed in EVALUATION
+   mode.
+4. **CASE_0001 is always `INFERENCE_REVIEW` without ground truth.** The refusal is unconditional: a cache that lists
+   it as inference-only and serves ground truth for it, or that lists no inference-only case alongside a record,
+   does not start.
+
+**Why.**
+- The holdout labels are public and the records say what was evaluated; the app shows per-case views of the
+  evaluated cases, as DR-017 already decided for the cohort.
+- The record, not a flag, is what opens the lock: the same gate that allowed holdout inference allows the app to show
+  the cases.
+- INT-12 stays the one case with no ground truth in the app, as DR-017 decided.
+
+**What it does not do.** It does not change what is evaluated, the split or the metrics. It does not ingest anything
+by default, and a dry run needs a record that is not a real one only on the operator's own machine, never in git.
 
 ---
 

@@ -147,8 +147,29 @@ def main() -> None:
     assert committed["reviewed_mask_id"] != listed and committed["provenance"]["parent_reviewed_mask_id"] == listed
     cases_page = scenarios["experiment_cases"]["default"]["response"]["data"]
     statuses_seen = {row["status"] for row in cases_page["items"]}
-    assert statuses_seen == {"SUCCEEDED", "FAILED", "WITHHELD"}, statuses_seen
-    assert [item["case_id"] for item in cases_page["outlier_selection"]["cases"]] == ["CASE_0005", "CASE_0003", "CASE_0004"]
+    assert statuses_seen == {"SUCCEEDED", "WITHHELD"}, statuses_seen
+    failure_page = scenarios["experiment_cases"]["with_failure"]["response"]["data"]
+    assert {row["status"] for row in failure_page["items"]} == {"SUCCEEDED", "FAILED", "WITHHELD"}
+    for page in (cases_page, failure_page):
+        assert [item["case_id"] for item in page["outlier_selection"]["cases"]] == ["CASE_0005", "CASE_0003", "CASE_0004"]
+
+    # DR-017 (INT-12 hidden, not blinded): the evaluated WITHHELD case counts everywhere in the
+    # cohort numbers (5 of 5), is in the compare population, and has no value on its own row.
+    metrics_page = scenarios["experiment_metrics"]["default"]["response"]["data"]
+    counted = [row["case_id"] for row in cases_page["items"] if row["status"] in {"SUCCEEDED", "WITHHELD"}]
+    assert "CASE_0001" in counted and next(r for r in cases_page["items"] if r["case_id"] == "CASE_0001")["metric_values"] is None
+    assert metrics_page["evaluation_n"] == len(cases_page["items"]) == metrics_page["successful_n"] == len(counted) == 5
+    assert all(stats["n"] == 5 for stats in metrics_page["metric_summary"].values())
+    compare_page = scenarios["experiment_compare"]["default"]["response"]["data"]
+    assert compare_page["common_evaluation_population"] == sorted(counted)
+    assert all(all(stats["n"] == 5 for stats in per.values()) for per in compare_page["summary"].values())
+    with_failure = scenarios["experiment_metrics"]["with_failure"]["response"]["data"]
+    assert (with_failure["evaluation_n"], with_failure["successful_n"]) == (6, 5)
+    assert with_failure["evaluation_n"] == len(failure_page["items"])
+    assert "WITHHELD" in contract["metric_rules"]["summary_rule"]
+    scope = contract["case_capability"]["case_level_scope"]
+    assert "counts in evaluation_n, successful_n, metric_summary and experiment_compare" in scope
+    assert "No per-case value of an INFERENCE_REVIEW case is served" in scope and "can be derived from them" in scope
     assert scenarios["finding_create"]["default"]["request"]["body"]["prediction_variant"] == "RAW"
     summary = scenarios["experiment_metrics"]["default"]["response"]["data"]["metric_summary"]
     assert set(summary["dice"]) == set(contract["metric_rules"]["summary_statistics"])
@@ -166,6 +187,26 @@ def main() -> None:
 
     def outlier_unordered(data):
         data["outlier_selection"]["cases"].reverse()
+
+    def outlier_too_few(data):  # QA N-c: 0-2 cases although four rows are SUCCEEDED
+        data["outlier_selection"]["cases"].pop()
+
+    def outlier_not_lowest(data):  # QA N-c: a selection that is not the true bottom three
+        data["outlier_selection"]["cases"][2] = dict(data["outlier_selection"]["cases"][2], case_id="CASE_0002",
+                                                     analysis_run_id="RUN_0002", metric_value=0.9,
+                                                     false_positives=10, false_negatives=10)
+
+    def outlier_value_differs(data):  # QA N-c: values that differ from the row
+        data["outlier_selection"]["cases"][0]["metric_value"] = 0.41
+
+    def outlier_run_differs(data):
+        data["outlier_selection"]["cases"][0]["analysis_run_id"] = "RUN_9999"
+
+    def outlier_variant_differs(data):  # QA N-c: variant that differs from the page
+        data["outlier_selection"]["prediction_variant"] = "PROCESSED"
+
+    def outlier_twice(data):
+        data["outlier_selection"]["cases"][2] = dict(data["outlier_selection"]["cases"][1])
 
     def evidence_without_variant(data):
         data["evidence"]["prediction_variant"] = None
@@ -188,6 +229,9 @@ def main() -> None:
     for endpoint_id, change in (
         ("experiment_cases", withheld_numbers), ("experiment_cases", outlier_withheld),
         ("experiment_cases", outlier_unordered), ("finding_create", evidence_without_variant),
+        ("experiment_cases", outlier_too_few), ("experiment_cases", outlier_not_lowest),
+        ("experiment_cases", outlier_value_differs), ("experiment_cases", outlier_run_differs),
+        ("experiment_cases", outlier_variant_differs), ("experiment_cases", outlier_twice),
         ("experiment_metrics", summary_without_ci), ("experiment_list", row_without_variant),
         ("review_commit", commit_not_corrected), ("case_get", inference_with_ground_truth),
         ("review_commit", ground_truth_source), ("reviewed_masks_list", lambda d: d["items"][0]["provenance"].update(

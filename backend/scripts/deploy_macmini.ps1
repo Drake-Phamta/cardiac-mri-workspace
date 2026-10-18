@@ -14,7 +14,11 @@
 
   Steps:
     1. checks the local derived data cache (<DataCache>/index.json, outside
-       the repository); it holds 8-bit slice PNGs + JSON only - never NRRD;
+       the repository); it holds 8-bit slice PNGs + JSON only - never NRRD.
+       No flag is needed for holdout cases (DR-022): they are in the cache
+       only if it was built with `python -m backend.app.ingest --include-holdout
+       --holdout-authorization <record>`; the record's sha256 is then in
+       index.json and is printed here;
     2. packs the code (backend/app, requirements, serve script, the contract
        files the service loads) and the data cache into tar.gz files in a
        fixed stage directory under %TEMP% (overwritten on every run, never
@@ -82,10 +86,14 @@ if (-not $SkipData) {
   if (Test-InsideGitWorktree $DataCache) { throw "$DataCache is inside a git work tree; derived patient data must live outside the repository." }
   $index = Join-Path $DataCache "index.json"
   if (-not (Test-Path $index)) {
-    throw "No data cache at $DataCache. Build it first: python -m backend.app.ingest --out $DataCache"
+    throw "No data cache at $DataCache. Build it first: python -m backend.app.ingest --out $DataCache (add --include-holdout --holdout-authorization <record> for the evaluated holdout cases, DR-022)"
   }
-  $cases = (Get-Content $index -Raw | ConvertFrom-Json).cases
+  $cacheIndex = Get-Content $index -Raw | ConvertFrom-Json
+  $cases = $cacheIndex.cases
   Write-Host "   data cache: $DataCache ($($cases.Count) cases)"
+  if ($cacheIndex.holdout_authorization) {
+    Write-Host "   holdout cases under GATE-IMG-01 record sha256 $($cacheIndex.holdout_authorization.record_sha256)"
+  }
 }
 Invoke-Native "ssh $SshHost" { ssh -o BatchMode=yes -o ConnectTimeout=15 $SshHost "echo connected" }
 

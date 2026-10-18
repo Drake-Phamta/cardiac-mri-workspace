@@ -69,8 +69,20 @@ def metric_summary(contract: dict, n: int) -> dict:
             for metric in contract["metric_rules"]["case_metric_fields"]}
 
 
-def experiment_case_rows() -> list:
-    """Per-case rows covering every case_result_status, values only on SUCCEEDED rows."""
+# DR-017 (INT-12: hidden, not blinded). The evaluated WITHHELD case counts in every
+# cohort number, so the default population is five cases and all five succeeded; the
+# case's own row carries no value. EVALUATED_CASE_IDS is that population, in served order.
+EVALUATED_CASE_IDS = ["CASE_0002", "CASE_0003", "CASE_0004", "CASE_0005", "CASE_0001"]
+FAILED_CASE_ID = "CASE_0006"  # only in the `with_failure` scenarios
+
+
+def experiment_case_rows(with_failure: bool = False) -> list:
+    """Per-case rows, values only on SUCCEEDED rows.
+
+    Default: four SUCCEEDED rows and the WITHHELD INT-12 row (5 evaluated of 5). With
+    ``with_failure`` one FAILED row is added (6 intended, 5 evaluated) so a client meets
+    every case_result_status.
+    """
     def values(dice: float, fp: int, fn: int) -> dict:
         return {"dice": dice, "iou": round(dice / (2 - dice), 4), "false_positives": fp,
                 "false_negatives": fn, "relative_volume_error": -5.0}
@@ -79,9 +91,11 @@ def experiment_case_rows() -> list:
         ("CASE_0003", "SUCCEEDED", None, values(0.6, 50, 70)),
         ("CASE_0004", "SUCCEEDED", None, values(0.6, 20, 20)),
         ("CASE_0005", "SUCCEEDED", None, values(0.4, 90, 30)),
-        ("CASE_0006", "FAILED", "fixture failure", None),
+        (FAILED_CASE_ID, "FAILED", "fixture failure", None),
         ("CASE_0001", "WITHHELD", "INFERENCE_REVIEW case: ground-truth-derived values withheld (INT-12)", None),
     ]
+    if not with_failure:
+        rows = [row for row in rows if row[0] != FAILED_CASE_ID]
     return [{"case_id": case_id, "status": status, "reason": reason,
              "analysis_run_id": f"RUN_{case_id[5:]}", "metric_values": metric_values}
             for case_id, status, reason, metric_values in rows]
@@ -128,13 +142,14 @@ def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
             "created_at": "2026-10-01T00:00:00Z", "reviewer_id": None,
         }
     if endpoint_id == "experiment_metrics" and field in {"evaluation_n", "successful_n"}:
-        return 6 if field == "evaluation_n" else 4
+        return len(EVALUATED_CASE_IDS)  # 5 evaluated of 5: the WITHHELD case counts (DR-017)
     if endpoint_id == "experiment_metrics" and field == "metric_summary":
-        return metric_summary(contract, 4)
+        return metric_summary(contract, len(EVALUATED_CASE_IDS))
     if endpoint_id == "experiment_compare" and field == "summary":
-        return {experiment_id: metric_summary(contract, 4) for experiment_id in param_value("experiment_ids")}
+        return {experiment_id: metric_summary(contract, len(EVALUATED_CASE_IDS))
+                for experiment_id in param_value("experiment_ids")}
     if endpoint_id == "experiment_compare" and field == "common_evaluation_population":
-        return ["CASE_0002", "CASE_0003", "CASE_0004", "CASE_0005"]
+        return sorted(EVALUATED_CASE_IDS)  # includes CASE_0001 (DR-017), as the server sorts by case number
     if endpoint_id == "experiment_compare" and field == "compatibility_reason":
         return None
     values = {
@@ -283,6 +298,19 @@ def generate_fixture(contract: dict) -> dict:
             if "outlier_selection" in empty:
                 empty["outlier_selection"] = dict(empty["outlier_selection"], cases=[])
             endpoint_scenarios["empty"] = {"request": request, "response": {"status": 200, "data": empty}}
+        if endpoint_id == "experiment_metrics":
+            # One FAILED case: 6 intended, 5 evaluated (the WITHHELD case still counts).
+            data = json.loads(json.dumps(default_data))
+            data["evaluation_n"] = len(EVALUATED_CASE_IDS) + 1
+            endpoint_scenarios["with_failure"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
+        if endpoint_id == "experiment_cases":
+            rows = experiment_case_rows(with_failure=True)
+            data = dict(default_data, items=rows, outlier_selection=outlier_selection(rows))
+            endpoint_scenarios["with_failure"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
         if endpoint_id == "experiment_get":
             # EXP-D-PP: the post-processing ablation is served as PROCESSED (08 section 2).
             processed = dict(default_data, experiment_id="EXP-D-PP", prediction_variant="PROCESSED",
