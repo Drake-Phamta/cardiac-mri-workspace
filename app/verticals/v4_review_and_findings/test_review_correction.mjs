@@ -412,6 +412,8 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
     ['a foreign source mask', 'source_mask_id', 'SOMEONE_ELSES_MASK'], ['no source mask', 'source_mask_id', undefined],
     ['GROUND_TRUTH kind', 'source_mask_kind', 'GROUND_TRUTH'], ['the other prediction kind', 'source_mask_kind', 'PROCESSED_PREDICTION'],
     ['no kind', 'source_mask_kind', undefined],
+    ['no version id', 'reviewed_mask_id', undefined], ['an empty version id', 'reviewed_mask_id', ''],
+    ['no checksum', 'checksum', undefined], ['a malformed checksum', 'checksum', 'md5:abc'],
   ];
   const wrong = [];
   for (const [label, field, value] of rows) {

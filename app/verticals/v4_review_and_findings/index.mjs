@@ -354,6 +354,14 @@ export function createReviewCorrection(client) {
     // version (PR-PROV-01) - nothing is appended, the session is not marked
     // saved, and only a refresh shows what the server holds.
     const problems = [];
+    // The new version must be identifiable and verifiable: an answer without its id
+    // or its checksum cannot be appended as an immutable version (QA_PR99_D39 NB-1).
+    if (typeof d.reviewed_mask_id !== 'string' || d.reviewed_mask_id === '') {
+      problems.push('the answer names no reviewed_mask_id for the new version');
+    }
+    if (typeof d.checksum !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(d.checksum)) {
+      problems.push(`the answer carries no sha256 checksum for the new version (${JSON.stringify(d.checksum)})`);
+    }
     if (current.reviewedMasks.some((v) => v.reviewed_mask_id === d.reviewed_mask_id)) {
       problems.push(`reviewed_mask_id ${d.reviewed_mask_id} is already a version of this review`);
     }
