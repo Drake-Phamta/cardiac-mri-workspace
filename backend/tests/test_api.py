@@ -31,6 +31,13 @@ def png_array(payload: bytes) -> np.ndarray:
         return np.asarray(image.convert("L"))
 
 
+def fail_run(api, run_id):
+    """DR-018: a failed case has no run in a valid package. The FAILED-run guards (RUN_NOT_SUCCEEDED,
+    ANALYSIS_FAILED) are still part of the API, so they are exercised by flipping a loaded run."""
+    run = api.app.state.backend.experiments.runs[run_id]
+    run.status, run.failure_reason = "FAILED", "synthetic failure"
+
+
 def keys(value, prefix=""):
     if isinstance(value, dict):
         for key, inner in value.items():
@@ -47,7 +54,7 @@ def test_health_and_every_contract_route_exists(api):
     health = api.client.get("/health").json()
     assert health["status"] == "ok" and health["contract_version"] == CONTRACT["contract_version"]
     assert health["cases"] == {"total": 3, "EVALUATION": 2, "INFERENCE_REVIEW": 1}
-    assert health["experiments"] == 2 and health["runs"] == 10
+    assert health["experiments"] == 2 and health["runs"] == 2 * 53  # 54 cases each, one failed and without a run
     assert health["rejected_experiment_packages"] == ["GATE_ML_01_NOT_ACCEPTED"]
     routes = {(method, route.path) for route in api.app.routes for method in getattr(route, "methods", set())}
     for endpoint in CONTRACT["endpoints"]:
@@ -182,6 +189,7 @@ def test_prediction_slices_per_variant_never_substitute(api, environment):
     for query in ("?variant=raw", "", "?variant=REVIEWED"):
         response = api.call("GET", f"{B}/analysis-runs/RUN_9001/slices/3/prediction{query}", "prediction_slice_get", 404)
         assert api.error_code(response) == "ARTIFACT_NOT_FOUND"
+    fail_run(api, "RUN_9003")
     failed = api.call("GET", f"{B}/analysis-runs/RUN_9003/slices/3/prediction?variant=RAW", "prediction_slice_get", 409)
     assert api.error_code(failed) == "RUN_NOT_SUCCEEDED"
 
@@ -191,6 +199,7 @@ def test_prediction_slices_per_variant_never_substitute(api, environment):
 def test_runs_and_experiments(api):
     run = api.call("GET", f"{B}/analysis-runs/RUN_9001", "analysis_run_get", 200).json()
     assert run["status"] == "SUCCEEDED" and run["precomputed"] is True and run["failure_code"] is None
+    fail_run(api, "RUN_9003")
     failed = api.call("GET", f"{B}/analysis-runs/RUN_9003", "analysis_run_get", 200).json()
     assert failed["status"] == "FAILED" and failed["failure_code"] == "ANALYSIS_FAILED"
     # A run of a case that is not in the data cache still exists (identity, status, saved metrics)...
@@ -268,27 +277,65 @@ def test_run_metrics_refuse_a_reference_this_backend_did_not_ingest(api):
 
 def test_experiment_metrics_cases_outliers_and_compare(api, environment):
     accepted = environment["accepted"]
+    records = accepted["records"]  # 53 SUCCEEDED records, INT-12's included: it was evaluated (DR-017)
+    assert len(records) == 53 and synthetic.INT12 in records
     summary = api.call("GET", f"{B}/experiments/EXP-U-025/metrics", "experiment_metrics", 200).json()
-    assert summary["evaluation_n"] == 5 and summary["successful_n"] == 4 and summary["prediction_variant"] == "RAW"
-    dice = [record["dice_3d"] for record in accepted["records"].values()]
-    assert summary["metric_summary"]["dice"]["n"] == 4
-    assert abs(summary["metric_summary"]["dice"]["mean"] - sum(dice) / 4) < 1e-12
+    assert summary["evaluation_n"] == 54 and summary["successful_n"] == 53 and summary["prediction_variant"] == "RAW"
+    dice = [record["dice_3d"] for record in records.values()]
+    assert summary["metric_summary"]["dice"]["n"] == 53  # the whole evaluated population, the WITHHELD case included
+    assert abs(summary["metric_summary"]["dice"]["mean"] - sum(dice) / len(dice)) < 1e-12
     assert summary["metric_summary"]["dice"]["ci95_low"] is not None  # the saved bootstrap CI, passed through
     page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+    assert len(page["items"]) == 54
     status = {row["case_id"]: row["status"] for row in page["items"]}
-    assert status == {"CASE_0027": "SUCCEEDED", "CASE_0031": "WITHHELD", "CASE_9001": "SUCCEEDED",
-                      "CASE_9003": "FAILED", "CASE_9101": "SUCCEEDED"}
+    assert {case_id: status[case_id] for case_id in ("CASE_0027", "CASE_0031", "CASE_9001", "CASE_9003", "CASE_9101",
+                                                     synthetic.FAILED_CASE)} == {
+        "CASE_0027": "SUCCEEDED", "CASE_0031": "WITHHELD", "CASE_9001": "SUCCEEDED", "CASE_9003": "SUCCEEDED",
+        "CASE_9101": "SUCCEEDED", synthetic.FAILED_CASE: "FAILED"}
+    assert sorted(set(status.values())) == ["FAILED", "SUCCEEDED", "WITHHELD"]
+    # DR-017: successful_n = SUCCEEDED rows + the evaluated WITHHELD row.
+    assert summary["successful_n"] == sum(1 for value in status.values() if value in {"SUCCEEDED", "WITHHELD"})
     withheld = next(row for row in page["items"] if row["case_id"] == "CASE_0031")
     assert withheld["metric_values"] is None and "INT-12" in withheld["reason"]
-    candidates = sorted((record for case_id, record in accepted["records"].items() if case_id != "CASE_0031"),
+    # DR-018: the failed case has no run; its FAILED row is read from the PER_CASE_METRICS failures.
+    failed = next(row for row in page["items"] if row["case_id"] == synthetic.FAILED_CASE)
+    assert failed["analysis_run_id"] is None and failed["metric_values"] is None
+    assert failed["reason"] == "EVALUATION_ERROR: synthetic failure"
+    assert api.app.state.backend.experiments.runs_for_case(synthetic.FAILED_CASE) == []
+    candidates = sorted((record for case_id, record in records.items() if case_id != "CASE_0031"),
                         key=lambda record: (record["dice_3d"], -record["fp_fn_voxels"], record["case_id"]))
     assert [item["case_id"] for item in page["outlier_selection"]["cases"]] == [r["case_id"] for r in candidates[:3]]
     assert "CASE_0031" not in json.dumps(page["outlier_selection"])  # INT-12 is never an outlier candidate
     compare = api.call("GET", f"{B}/experiments/compare?ids=EXP-U-025,EXP-U-050", "experiment_compare", 200).json()
     assert compare["comparable"] is True and compare["compatibility_reason"] is None
-    assert compare["common_evaluation_population"] == ["CASE_0027", "CASE_0031", "CASE_9001", "CASE_9101"]
+    # DR-017: the evaluated WITHHELD case is in the compare population, and in every n.
+    assert compare["common_evaluation_population"] == sorted(records, key=lambda value: int(value.split("_")[1]))
+    assert "CASE_0031" in compare["common_evaluation_population"]
+    assert synthetic.FAILED_CASE not in compare["common_evaluation_population"]
     assert set(compare["summary"]) == {"EXP-U-025", "EXP-U-050"}
+    assert all(stats["n"] == 53 for per in compare["summary"].values() for stats in per.values())
     assert compare["summary"]["EXP-U-025"]["dice"]["ci95_low"] is None  # not computed here, never invented
+
+
+def test_withheld_case_wins_over_a_recorded_failure_or_nothing(api):
+    """QA-075 N-7: the INT-12 row is WITHHELD whatever the ML recorded for it (a value, a failure, no record)."""
+    loaded = api.app.state.backend.metrics.package_metrics(api.app.state.backend.experiments.experiments["EXP-U-025"])
+    record = loaded.records.pop("CASE_0031")  # as if the ML had no SUCCEEDED record for it ...
+    loaded.failures["CASE_0031"] = {"case_id": "CASE_0031", "reason_code": "EVALUATION_ERROR", "reason": "ml failure text"}
+    page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+    row = next(item for item in page["items"] if item["case_id"] == "CASE_0031")
+    assert row["status"] == "WITHHELD" and row["metric_values"] is None and "ml failure text" not in json.dumps(row)
+    assert "CASE_0031" not in json.dumps(page["outlier_selection"])
+    del loaded.failures["CASE_0031"]  # ... or listed nowhere at all
+    page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+    assert next(item for item in page["items"] if item["case_id"] == "CASE_0031")["status"] == "WITHHELD"
+    loaded.records["CASE_0031"] = record
+    page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+    assert next(item for item in page["items"] if item["case_id"] == "CASE_0031")["status"] == "WITHHELD"
+    # An ordinary case in the same position is FAILED, not WITHHELD.
+    loaded.failures["CASE_9001"] = {"case_id": "CASE_9001", "reason_code": "EVALUATION_ERROR", "reason": "x"}
+    page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+    assert next(item for item in page["items"] if item["case_id"] == "CASE_9001")["status"] == "FAILED"
 
 
 # -- reviews --------------------------------------------------------------------
@@ -338,6 +385,7 @@ def test_review_source_must_be_the_runs_prediction(api):
     wrong_variant = api.call("POST", f"{B}/analysis-runs/RUN_9001/reviews", "review_create", 422, json_body={
         "status": "NOT_REVIEWED", "source_mask_id": "ART_RUN_9001_RAW", "prediction_variant": "PROCESSED"})
     assert api.error_code(wrong_variant) == "VALIDATION_ERROR"
+    fail_run(api, "RUN_9003")
     failed = api.call("POST", f"{B}/analysis-runs/RUN_9003/reviews", "review_create", 409, json_body={
         "status": "NOT_REVIEWED", "source_mask_id": "ART_RUN_9003_RAW", "prediction_variant": "RAW"})
     assert api.error_code(failed) == "RUN_NOT_SUCCEEDED"

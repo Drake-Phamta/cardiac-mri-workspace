@@ -26,9 +26,15 @@ HEADER = {
 }
 TRAIN = ["CASE_0055"]
 VALIDATION = ["CASE_9003", "CASE_9001"]  # unsorted on purpose; 9001 is INTEGRATION_CASE_001
-HOLDOUT = ["CASE_9101", "CASE_0027", "CASE_0031"]  # rule skips CASE_0027 -> INT-12 = CASE_0031
+# DR-018 / DR-022: a Contract 2 package evaluates 54 cases, and holdout cases other than INT-12 can be
+# ingested after GATE-IMG-01. The 49 fillers are small holdout cases that make the package 54 cases wide;
+# the default ingest never touches them.
+FILLERS = [f"CASE_{number}" for number in range(9102, 9151)]
+HOLDOUT = ["CASE_9101", "CASE_0027", "CASE_0031"] + FILLERS  # rule skips CASE_0027 -> INT-12 = CASE_0031
 INT12 = "CASE_0031"
 INTEGRATION = "CASE_9001"
+FAILED_CASE = "CASE_9150"  # the one case whose inference "failed": no run, a listed failure (DR-018)
+POPULATION = ["CASE_0027", "CASE_0031", "CASE_9001", "CASE_9003", "CASE_9101"] + FILLERS  # 54 cases
 
 
 def mri_volume(seed: int) -> np.ndarray:
@@ -169,13 +175,15 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
     per_slice_metrics, metrics_summary}.json + metric_sets/<case>.json, and the
     manifest at contract2/<manifest_id>.json. Metrics are recomputed with the
     ml-eval-1.0.0 formulas from the synthetic references, so values are consistent.
-    Population: the INT-12 case, two evaluation cases that are ingested, one FAILED
-    run, and two holdout cases the backend does not ingest.
+    Population: 54 cases (``POPULATION``): the INT-12 case, two validation cases that the default
+    ingest serves, CASE_0027, CASE_9101 and 49 fillers. One case (``FAILED_CASE``) failed: it has no
+    run and is listed in the PER_CASE_METRICS failures (DR-018).
     """
     volumes = package["volumes"]
-    population = ["CASE_0027", "CASE_0031", "CASE_9001", "CASE_9003", "CASE_9101"]
-    failed = {"CASE_9003"}
+    population = list(POPULATION)
+    failed = {FAILED_CASE}
     shifts = {"CASE_0027": 2, "CASE_0031": 1, "CASE_9001": 0, "CASE_9003": 2, "CASE_9101": 1}
+    shifts.update({case_id: index % 3 for index, case_id in enumerate(FILLERS)})
     references = {case_id: volumes[case_id]["gt"] for case_id in population}
     references["CASE_0031"] = gt_volume(7)  # the package file is withheld (not an NRRD); score in memory
     exp = experiment_id
@@ -183,6 +191,9 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
     run_dir.mkdir(parents=True, exist_ok=True)
     artifacts, runs, records, per_slice, failures, predictions, prediction_files = [], [], [], {}, [], {}, {}
     for case_id in population:
+        if case_id in failed:
+            failures.append({"case_id": case_id, "reason_code": "EVALUATION_ERROR", "reason": "synthetic failure"})
+            continue
         number = case_id.split("_")[1]
         run_id = f"RUN_{prefix}{number}"
         raw_id = f"ART_{run_id}_RAW"
@@ -207,46 +218,43 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
                               "checksum": _write(run_dir, prel, _nrrd_bytes(scratch, processed)), "immutable": True,
                               "case_id": case_id, "analysis_run_id": run_id, "source_artifact_id": raw_id})
         metric_ids = []
-        if case_id in failed:
-            failures.append({"case_id": case_id, "reason_code": "EVALUATION_ERROR", "reason": "synthetic failure"})
-        else:
-            record, rows = case_metrics(case_id, volume, references[case_id])
-            records.append(record)
-            per_slice[case_id] = rows
-            eligible = sorted((row for row in rows if row["ref_voxels"] > 0),
-                              key=lambda row: (row["dice"], -(row["fp"] + row["fn"]), row["slice_index"]))
-            reference_file = Path(package["package"]) / next(
-                item for item in json.loads(Path(package["dataset_manifest"]).read_text(encoding="utf-8"))["cases"]
-                if item["case_id"] == case_id)["mask"]["path_relative"]
-            metric_set = {
-                "format": "ml-metric-set/1", "experiment_id": exp, "case_id": case_id,
-                "evaluation_metric_version": METRIC_VERSION,
-                "prediction_mask": {"kind": "RAW_PREDICTION", "path": rel, "sha256": raw_sum["value"]},
-                "reference_mask": {"kind": "GROUND_TRUTH", "dataset_path_relative": "synthetic",
-                                   "sha256": hashlib.sha256(reference_file.read_bytes()).hexdigest()},
-                "metrics": record,
-                "worst_slice_selection": {
-                    "rule_id": "DR-010", "selection_version": "dr010-worst-slice/1.0.0", "metric_version": METRIC_VERSION,
-                    "rule": "extra key, ignored by the API", "eligible_slice_count": len(eligible),
-                    "slices": [{"slice_index": row["slice_index"], "dice": row["dice"], "false_positives": row["fp"],
-                                "false_negatives": row["fn"]} for row in eligible]},
-                "problematic_fp_slices": {"slices": []},
-            }
-            metric_id = f"ART_{run_id}_METRICS"
-            mrel = f"evaluation/final_holdout/metric_sets/{case_id}.json"
-            artifacts.append({"artifact_id": metric_id, "kind": "METRIC_SET",
-                              "artifact_uri": f"artifact://experiments/{exp}/runs/{run_id}/metric_set.json",
-                              "source_path": mrel, "media_type": "application/json",
-                              "checksum": _write(run_dir, mrel, _json(metric_set)), "immutable": True,
-                              "case_id": case_id, "analysis_run_id": run_id, "reference_mask_id": f"GT_{case_id}",
-                              "reference_mask_kind": "GROUND_TRUTH", "prediction_mask_id": raw_id,
-                              "prediction_mask_kind": "RAW_PREDICTION", "evaluation_version": METRIC_VERSION})
-            metric_ids.append(metric_id)
+        record, rows = case_metrics(case_id, volume, references[case_id])
+        records.append(record)
+        per_slice[case_id] = rows
+        eligible = sorted((row for row in rows if row["ref_voxels"] > 0),
+                          key=lambda row: (row["dice"], -(row["fp"] + row["fn"]), row["slice_index"]))
+        reference_file = Path(package["package"]) / next(
+            item for item in json.loads(Path(package["dataset_manifest"]).read_text(encoding="utf-8"))["cases"]
+            if item["case_id"] == case_id)["mask"]["path_relative"]
+        metric_set = {
+            "format": "ml-metric-set/1", "experiment_id": exp, "case_id": case_id,
+            "evaluation_metric_version": METRIC_VERSION,
+            "prediction_mask": {"kind": "RAW_PREDICTION", "path": rel, "sha256": raw_sum["value"]},
+            "reference_mask": {"kind": "GROUND_TRUTH", "dataset_path_relative": "synthetic",
+                               "sha256": hashlib.sha256(reference_file.read_bytes()).hexdigest()},
+            "metrics": record,
+            "worst_slice_selection": {
+                "rule_id": "DR-010", "selection_version": "dr010-worst-slice/1.0.0", "metric_version": METRIC_VERSION,
+                "rule": "extra key, ignored by the API", "eligible_slice_count": len(eligible),
+                "slices": [{"slice_index": row["slice_index"], "dice": row["dice"], "false_positives": row["fp"],
+                            "false_negatives": row["fn"]} for row in eligible]},
+            "problematic_fp_slices": {"slices": []},
+        }
+        metric_id = f"ART_{run_id}_METRICS"
+        mrel = f"evaluation/final_holdout/metric_sets/{case_id}.json"
+        artifacts.append({"artifact_id": metric_id, "kind": "METRIC_SET",
+                          "artifact_uri": f"artifact://experiments/{exp}/runs/{run_id}/metric_set.json",
+                          "source_path": mrel, "media_type": "application/json",
+                          "checksum": _write(run_dir, mrel, _json(metric_set)), "immutable": True,
+                          "case_id": case_id, "analysis_run_id": run_id, "reference_mask_id": f"GT_{case_id}",
+                          "reference_mask_kind": "GROUND_TRUTH", "prediction_mask_id": raw_id,
+                          "prediction_mask_kind": "RAW_PREDICTION", "evaluation_version": METRIC_VERSION})
+        metric_ids.append(metric_id)
         runs.append({"analysis_run_id": run_id, "case_id": case_id,
-                     "status": "FAILED" if case_id in failed else "SUCCEEDED", "attempt_no": 1,
+                     "status": "SUCCEEDED", "attempt_no": 1,
                      "raw_prediction_mask_id": raw_id, "processed_prediction_mask_id": processed_id,
                      "metric_set_ids": metric_ids, "reconstruction_ids": [],
-                     "failure_reason": "synthetic failure" if case_id in failed else None})
+                     "failure_reason": None})
     header = {"evaluation_metric_version": METRIC_VERSION, "experiment_id": exp,
               "population": {"role": "FINAL_HOLDOUT", "partition": "final_holdout", "case_ids": population},
               "prediction_variant": "RAW_PREDICTION", "reference_mask_kind": "GROUND_TRUTH",
@@ -275,6 +283,8 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
     def manifest_ref(manifest_id: str, rel: str, payload: bytes) -> dict:
         return {"manifest_id": manifest_id, "path": rel, "checksum": _write(run_dir, rel, payload)}
 
+    population_document = _json({"role": "FINAL_HOLDOUT", "partition": "final_holdout", "case_ids": population})
+
     manifest = {
         "contract": "contract2_experiment_artifact",
         "contract_version": "DRAFT v0",
@@ -290,7 +300,7 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
             "seed": 2024, "preprocessing_version": "ml-preproc-1.0.0", "postprocessing_version": "none",
             "prediction_variant": "RAW_PREDICTION",
             "evaluation_population_manifest": dict(manifest_ref(
-                "holdout-final-54", "manifests/population_final_holdout.json", b"holdout"),
+                "holdout-final-54", "manifests/population_final_holdout.json", population_document),
                 role="FINAL_HOLDOUT", case_count=54),
             "evaluation_metric_version": METRIC_VERSION, "training_code_version": "git:synthetic",
             "checkpoint": {"checkpoint_id": f"{exp}/best", "path": "checkpoints/best.pt",
