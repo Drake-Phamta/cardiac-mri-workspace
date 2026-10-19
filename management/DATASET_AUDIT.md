@@ -4,15 +4,14 @@
 > Produced by `tools/dataset_validate/` from `data/manifests/dataset_manifest.json`.
 > Regenerate with:
 >
-> ```bash
-> python tools/dataset_validate/validate.py --root <extracted package> \
->        --acquisition <acquisition.json> --write-manifest --write-audit
+> ```powershell
+> python tools/dataset_validate/validate.py --archive "D:/cardiac-mri-workspace-data/lasc2018/2018_UTAH_MICCAI.zip" --acquisition "D:/cardiac-mri-workspace-data/lasc2018/acquisition.json" --restricted-manifest-out "D:/cardiac-mri-workspace-data/lasc2018/dataset_manifest_restricted.json" --write-manifest --write-audit
 > ```
 >
 > Editing this file by hand makes it disagree with the manifest, and the manifest is
 > the artifact `GATE-DATA-01` accepts (`06` §9.1, criterion A20).
 
-**Generated at:** 2026-09-17T11:34:34+07:00
+**Generated at:** 2026-09-21T08:37:59+07:00
 **NRRD reader:** `pynrrd 1.1.3`
 **Package reference:** `EXTERNAL PRIVATE ARCHIVE - see acquisition.package_files` (absolute local paths are not published)
 
@@ -50,7 +49,7 @@ The per-data-file SHA-256 table is stored outside this public repository. The pu
 
 - **Restricted artifact SHA-256:** `bde53efc650e6ee1dd6299a1db57706d32ec714a45c2832b41e77ba128858d86`
 - **Contains:** per-data-file SHA-256 table
-- **Regenerate:** `python tools/dataset_validate/validate.py --archive <private ZIP path> --acquisition <private acquisition.json path> --write-manifest --write-audit`
+- **Regenerate:** `python tools/dataset_validate/validate.py --archive "D:/cardiac-mri-workspace-data/lasc2018/2018_UTAH_MICCAI.zip" --acquisition "D:/cardiac-mri-workspace-data/lasc2018/acquisition.json" --restricted-manifest-out "D:/cardiac-mri-workspace-data/lasc2018/dataset_manifest_restricted.json" --write-manifest --write-audit`
 - **Policy:** F5 leader decision, 2026-09-16
 
 ## 2 · Case counts by released partition — `06` §9.1

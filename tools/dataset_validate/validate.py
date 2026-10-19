@@ -69,6 +69,21 @@ REGENERATION_COMMAND = (
     "--acquisition <private acquisition.json path> --write-manifest --write-audit"
 )
 
+
+def regeneration_command(args, restricted_out: str) -> str:
+    """Record the exact input/output paths of a real evidence-generation run."""
+    source_flag = "--archive" if args.archive else "--root"
+    source = args.archive or args.root
+    parts = ["python tools/dataset_validate/validate.py", source_flag,
+             json.dumps(os.path.abspath(source).replace('\\', '/'))]
+    if args.acquisition:
+        parts.extend(("--acquisition",
+                      json.dumps(os.path.abspath(args.acquisition).replace('\\', '/'))))
+    parts.extend(("--restricted-manifest-out",
+                  json.dumps(restricted_out.replace('\\', '/')),
+                  "--write-manifest", "--write-audit"))
+    return " ".join(parts)
+
 MARK = {
     checks.PASS: "ok  ",
     checks.FAIL: "FAIL",
@@ -171,7 +186,7 @@ def selftest() -> int:
         public_manifest = make_public_manifest(manifest, restricted_sha,
                                                REGENERATION_COMMAND)
         results = checks.run_checks(manifest)
-        summary = checks.summarise(results)
+        summary = checks.summarise(results, manifest=public_manifest)
         print_table(results, summary)
 
         by_id = {r.cid: r for r in results}
@@ -220,6 +235,23 @@ def selftest() -> int:
             problems.append("public duplicate evidence leaked a per-file SHA-256")
         if public_manifest["restricted_manifest"]["sha256"] != restricted_sha:
             problems.append("public restricted-manifest reference hash mismatch")
+        if summary["anomalies"] != checks.anomaly_counts(public_manifest)["anomalies"]:
+            problems.append("summary anomaly count diverges from public manifest")
+        if (summary["anomalies"], summary["duplicate_evidence_groups"],
+                summary["package_findings"]) != (2, 2, 0):
+            problems.append("summary failed to count two synthetic duplicate anomalies")
+        with_layout = dict(public_manifest, package_findings=[
+            {"kind": "FILE_OUTSIDE_CASE_DIRECTORY", "path_relative": "extra.py"},
+            {"kind": "FILE_OUTSIDE_CASE_DIRECTORY", "path_relative": "other.py"},
+        ])
+        with_layout_summary = checks.summarise(results, manifest=with_layout)
+        if (with_layout_summary["anomalies"], with_layout_summary["package_findings"]) != (4, 2):
+            problems.append("summary failed to distinguish 2 from 4 anomalies")
+        for finding_count, expected_count in (("anomalies", 0), ("package_findings", 0)):
+            empty = dict(public_manifest, duplicate_evidence=[], package_findings=[])
+            clean = checks.summarise(results, manifest=empty)
+            if clean[finding_count] != expected_count:
+                problems.append(f"summary {finding_count} did not change with evidence")
 
         # The low-disk archive path must produce the same evidence structure as
         # the extracted-directory path.  This catches ZIP discovery, temporary
@@ -338,7 +370,7 @@ def main() -> int:
             payload = json.load(f)
         results = checks.run_checks(payload)
         owner_verdicts = ((payload.get("acquisition") or {}).get("owner_verdicts") or {})
-        summary = checks.summarise(results, owner_verdicts)
+        summary = checks.summarise(results, owner_verdicts, payload)
         print_table(results, summary)
         os.makedirs(os.path.dirname(args.audit_out), exist_ok=True)
         with open(args.audit_out, "w", encoding="utf-8", newline="\n") as f:
@@ -389,10 +421,11 @@ def main() -> int:
 
     restricted_payload = restricted_manifest_bytes(manifest)
     restricted_sha = hashlib.sha256(restricted_payload).hexdigest()
-    public_manifest = make_public_manifest(manifest, restricted_sha, REGENERATION_COMMAND)
+    public_manifest = make_public_manifest(
+        manifest, restricted_sha, regeneration_command(args, restricted_out))
     results = checks.run_checks(public_manifest)
     owner_verdicts = ((public_manifest.get("acquisition") or {}).get("owner_verdicts") or {})
-    summary = checks.summarise(results, owner_verdicts)
+    summary = checks.summarise(results, owner_verdicts, public_manifest)
     print_table(results, summary)
 
     if args.write_manifest:
