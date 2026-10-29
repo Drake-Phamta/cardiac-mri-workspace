@@ -24,7 +24,7 @@ import { validateRoute } from '../src/nav/navigator.mjs';
 import { createRuntime } from '../src/runtime/createRuntime.mjs';
 import { TONE } from '../src/ui/stateCopy.mjs';
 import {
-  caseTable, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
+  caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
 } from '../src/verticals/v3/v3View.mjs';
 import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
 
@@ -77,7 +77,7 @@ test('V3S1 SCR-01 on the generated bundle: study, cases, experiments, outliers a
   assertNavigable(v.routes.findings);
 });
 
-test('V3S2 SCR-01 never prints a per-experiment metric value - that belongs on SCR-07 with its labels', async () => {
+test('V3S2 SCR-01 matrix has no unlabeled per-experiment metric values; comparison summaries carry their verdict', async () => {
   const runtime = newRuntime();
   const snap = await createStudyOverview(runtime.client).open({ studyId: runtime.config.studyId });
   for (const row of overviewView(snap).experiments.rows) {
@@ -267,11 +267,19 @@ test('V3S7 typed path: D2 context, server summary, and a difference / trend line
 
   const h2h = fair.comparisons.find((c) => c.id === 'RQ-A-025');
   assert.match(h2h.deltaText, /difference \+0\.050 \(server common-population summaries\)/);
+  const headline = comparisonRow(verdicts({ comparable: true, compatibility_reason: 'same holdout, mv1' })
+    .find((c) => c.id === 'RQ-A-025'));
+  assert.deepEqual(headline.summaryRows.map((r) => r.text), [
+    'EXP-U-025: dice median 0.800',
+    'EXP-D-025: dice median 0.850',
+  ], 'SCR-01 exposes compact common-population values only under COMPARABLE');
   assert.equal(fair.trend.length, 2, 'one trend row per family');
   assert.ok(fair.trend.every((t) => t.connected && t.text.startsWith('joined')), JSON.stringify(fair.trend));
 
   const unfair = comparisonView(typedSnapshot({ comparable: false, compatibility_reason: 'different metric_version' }), { stat: 'median' });
-  assert.equal(unfair.comparisons.find((c) => c.id === 'RQ-A-025').deltaText, 'no difference shown: different metric_version');
+  const unfairHeadline = unfair.comparisons.find((c) => c.id === 'RQ-A-025');
+  assert.equal(unfairHeadline.deltaText, 'no difference shown: different metric_version');
+  assert.deepEqual([...unfairHeadline.summaryRows], [], 'SCR-01 withholds summaries unless the server says COMPARABLE');
   assert.equal(unfair.trend.length, 2);
   assert.ok(unfair.trend.every((t) => !t.connected && t.text === 'not joined: different metric_version'));
 
@@ -286,6 +294,14 @@ test('V3S7 typed path: D2 context, server summary, and a difference / trend line
   assert.deepEqual([...noStat.trend], [], 'no statistic picked, no trend drawn');
   assert.ok(noStat.trendText);
   assert.equal(noStat.comparisons.find((c) => c.id === 'RQ-A-025').deltaText, 'pick a metric and a statistic to see the difference');
+
+  const ablation = verdicts({ comparable: true, compatibility_reason: 'server verdict' })
+    .find((c) => c.id === 'RQ-B');
+  const withheldAblation = comparisonRow({
+    ...ablation,
+    numbersWithheld: { reason: 'RAW and PROCESSED have no defined mixed-variant summary' },
+  });
+  assert.deepEqual([...withheldAblation.summaryRows], [], 'mixed RAW/PROCESSED values remain withheld on SCR-01');
 });
 
 test('V3S8 a tapped strip point names its case and opens SCR-03 with case, run and variant', () => {
@@ -323,6 +339,11 @@ test('V3S10 the #61 QA refusals reach the screen as words: pinned DR-010, inelig
   for (const code of Object.keys(UNAVAILABLE).filter((k) => k.startsWith('OUTLIERS_'))) {
     assert.notEqual(reasonLabel(code), code, `${code} is shown as a code, not in words`);
   }
+  for (const { code } of contractJson.errors) {
+    assert.notEqual(reasonLabel(code), code, `${code} is shown as a code, not in words`);
+  }
+  assert.equal(reasonLabel('SOMETHING_NEW'), 'something new', 'a future CODE_LIKE_THIS still has readable words');
+  assert.equal(reasonLabel('already a server sentence'), 'already a server sentence');
   // B-2: DR-010 is pinned to the contract's selection version.
   const v0 = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, { selection: { selection_version: 'dr010-outlier/v0' } }).outliers);
   assert.equal(v0.available, false);
@@ -352,6 +373,10 @@ test('V3S12 a cell whose variant was refused lists its rows with no number, call
   assert.ok(pp.rows.every((r) => r.valueText === null), `no value under a refused variant: ${pp.rows.map((r) => r.valueText).join(',')}`);
   assert.ok(pp.rows.every((r) => !/^plotted/.test(r.statusText)), pp.rows.map((r) => r.statusText).join(' | '));
   assert.ok(pp.rows.every((r) => r.route.ok === false), 'no row of a refused cell opens SCR-03');
+  assert.ok(pp.rows.every((r) => /metrics were served for RAW - refused/.test(r.route.reason)),
+    pp.rows.map((r) => r.route.reason).join(' | '));
+  assert.ok(pp.rows.every((r) => !/did not return prediction_variant/.test(r.route.reason)),
+    'a refused experiment names the real refusal, not a misleading missing-field reason');
   assert.match(pp.text, /served for another variant - listed, not drawn, not linked$/);
   assert.doesNotMatch(pp.text, /plotted/);
 
@@ -365,6 +390,7 @@ test('V3S12 a cell whose variant was refused lists its rows with no number, call
   const t = caseTable(cell);
   assert.equal(cell.status, 'LOADED');
   assert.ok(t.rows.every((r) => r.valueText === null && r.route.ok === false), JSON.stringify(t.rows));
+  assert.ok(t.rows.every((r) => r.route.reason === "the per-case rows were served for PROCESSED, not the experiment's RAW variant - listed, not drawn, not linked"));
   assert.equal(t.text, `${ROWS.length} row(s) returned - ${reasonLabel('CASES_FOR_ANOTHER_VARIANT')}`);
 
   // Control: the same rows under a matching variant are drawn, valued and linked.

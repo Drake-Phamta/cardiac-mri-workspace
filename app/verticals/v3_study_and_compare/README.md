@@ -75,13 +75,13 @@ models have not already decided.
 
 | File | What it does |
 |---|---|
-| `StudyOverviewScreen.js` | `SCR-01`: study, dataset, case counts by mode, capabilities, experiment summary; the matrix with **N and status only**; the server's comparability verdicts; each listed experiment's DR-010 outliers (one tap → `SCR-03`); findings; links to `SCR-02` / `SCR-07` / `SCR-08` |
+| `StudyOverviewScreen.js` | `SCR-01`: study, dataset, case counts by mode, capabilities, experiment summary; the matrix with **N and status only**; the server's comparability verdicts and compact common-population medians only under `COMPARABLE`; each listed experiment's DR-010 outliers (one tap → `SCR-03`); findings; links to `SCR-02` / `SCR-07` / `SCR-08` |
 | `ExperimentComparisonScreen.js` | `SCR-07`: metric and statistic chips (**no default**); the UNet / DINOv2 × 25 / 50 / 100 % cards with N, the server summary, the D2 context and the server's labels; the strip plot; comparisons with a difference only under `COMPARABLE`; the RQ-A trend; the per-case table of the tapped experiment, failed and excluded rows included. `params.experimentIds` opens one pair or group |
 | `StripChart.js` | draws `stripLayout` with `react-native-svg`; a tap selects the nearest dot (`pointAt`) and the screen shows its case with an "Open case" link, so a dense strip cannot navigate by accident |
 | `v3View.mjs` | **every** string, tone and route both screens show — pure, so `node --test` checks what the user reads |
 | `V3Parts.js`, `useSnapshot.js` | shared cards, chips and links; the hook that shows LOADING on every request and drops a late answer to an older one |
-| `mobile/test/v3_screens.test.mjs` | 11 tests: the copy and routes over the generated bundle through a real fixture runtime (including the FIXTURE panel's `not_comparable` and `error_case`), the typed path, the #61 QA refusals (B-1 to B-4) in words, and `SCR-01` with every matrix experiment listed |
-| `mobile/test/render/smoke.mjs` § 5 | render smoke (not in CI, needs `node_modules`): `SCR-01` and `SCR-07` through the real navigator under the FIXTURE badge, and a tapped strip dot opening `SCR-03` |
+| `mobile/test/v3_screens.test.mjs` | 12 tests: the copy and routes over the generated bundle through a real fixture runtime (including the FIXTURE panel's `not_comparable` and `error_case`), common-population values on SCR-01 only under `COMPARABLE`, readable contract errors, truthful refused-link reasons, the #61 QA refusals (B-1 to B-4), and `SCR-01` with every matrix experiment listed |
+| `mobile/test/render/smoke.mjs` § 5 | render smoke in CI since PR #87 (needs `node_modules`): `SCR-01` and `SCR-07` through the real navigator under the FIXTURE badge, and a tapped strip dot opening `SCR-03`; this is logic/render evidence, not device evidence |
 
 ```powershell
 node --test mobile/test/*.test.mjs        # the mobile suite, V3 included
@@ -185,13 +185,18 @@ returns all of them. The server decides; this screen reports.
 
 ## Error codes you must handle
 
-`ARTIFACT_NOT_FOUND` · `NON_COMPARABLE_EXPERIMENTS` · `GROUND_TRUTH_UNAVAILABLE` · `VALIDATION_ERROR` ·
-`UNAUTHORIZED`
+All 15 contract errors plus the three client-side errors are rendered as words. A future uppercase
+`CODE_LIKE_THIS` is humanised rather than shown as an unexplained raw code.
 
 `NON_COMPARABLE_EXPERIMENTS` resolves to `EMPTY_UNAVAILABLE` with **no action** — there is nothing the user
 can do about it, and offering a retry would suggest otherwise.
 
 ## TODO for Khánh
+
+Day 41 closes the four remaining QA-069 code/evidence notes: N-1 (compact SCR-01 values only under the
+server's `COMPARABLE`), N-3 (a refused case link names the cell/variant refusal), N-4 (all contract codes have
+readable copy, with a safe fallback), and N-6 (the V3 render smoke is now part of CI through PR #87). These do
+not replace the target-device evidence below.
 
 1. **Switch to real Contract 2 artifacts once ingested** (DEP-07 → backend). No model or screen change is
    needed: the same `client.call()` reads the HTTP transport. Build a live app (`mobile/README.md`, "Live

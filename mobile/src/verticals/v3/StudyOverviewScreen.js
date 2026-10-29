@@ -9,11 +9,10 @@
  * createStudyOverview (app/verticals/v3_study_and_compare, PR #61); every
  * string drawn here comes from v3View.mjs, which node --test checks.
  *
- * What it deliberately does NOT show: per-experiment metric values. Two
- * numbers side by side read as a comparison, and here they would carry no
- * comparability label - SCR-07 shows them with the server's verdicts. This
- * screen shows N and status per experiment, and common-population numbers
- * only under the server's own COMPARABLE.
+ * What the experiment matrix deliberately does NOT show: metric values. Two
+ * numbers side by side there would carry no comparability label. This screen
+ * shows N and status per experiment, and compact common-population numbers
+ * only inside a comparison with the server's own COMPARABLE verdict.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -109,6 +108,7 @@ function Overview({ v, go, blocked }) {
             <Text style={[s.headlineVerdict, { color: TONE_COLOR[h.tone] }]}>{h.verdictText}</Text>
             {h.reason ? <Text style={s.small}>{h.reason}</Text> : null}
             {h.populationText ? <Text style={s.small}>{h.populationText}</Text> : null}
+            {h.summaryRows.map((row) => <Text key={row.experimentId} style={s.metric}>{row.text}</Text>)}
           </TouchableOpacity>
         ))}
       </Card>
@@ -162,6 +162,7 @@ const s = StyleSheet.create({
   headlineOff: { opacity: 0.7 },
   headlineLabel: { color: color.text, fontSize: font.body, fontWeight: '600' },
   headlineVerdict: { fontSize: font.small, marginTop: 2 },
+  metric: { color: color.text, fontSize: font.small, marginTop: 4 },
   small: { color: color.textDim, fontSize: font.small, marginTop: 2 },
   blocked: { padding: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.danger, backgroundColor: color.dangerBg },
   blockedT: { color: color.danger, fontSize: font.body },
