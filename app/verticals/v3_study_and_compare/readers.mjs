@@ -371,7 +371,9 @@ export function caseIntent({ caseId, runId, variant, experimentId, from }) {
  * FAILED / EXCLUDED / WITHHELD row is dropped - never shown, never plotted -
  * and the row keeps `servedValueIgnored: true` so the drift stays visible.
  */
-export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
+export function readCaseRows(data, {
+  metricName, variant, experimentId, disabledIntentReason = null,
+} = {}) {
   const items = Array.isArray(data?.items) ? data.items : null;
   const servedVariant = readVariant(data?.prediction_variant);
   if (!items) {
@@ -406,6 +408,13 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
     else if (value === null) plotState = 'VALUE_NOT_RETURNED';
     else plotState = 'PLOTTED';
 
+    const baseIntent = caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' });
+    const intent = duplicateCaseId
+      ? Object.freeze({ ...baseIntent, enabled: false, reason: `duplicate case_id ${caseId} in experiment_cases` })
+      : disabledIntentReason
+        ? Object.freeze({ ...baseIntent, enabled: false, reason: disabledIntentReason })
+        : baseIntent;
+
     return Object.freeze({
       index,
       caseId,
@@ -416,10 +425,7 @@ export function readCaseRows(data, { metricName, variant, experimentId } = {}) {
       servedValueIgnored,
       plotted: plotState === 'PLOTTED',
       plotState,
-      intent: duplicateCaseId
-        ? Object.freeze({ ...caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' }),
-          enabled: false, reason: `duplicate case_id ${caseId} in experiment_cases` })
-        : caseIntent({ caseId, runId, variant, experimentId, from: 'experiment_cases' }),
+      intent,
     });
   });
 
