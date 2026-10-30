@@ -59,6 +59,7 @@ const PIXEL_REASON = Object.freeze({
   NO_DECODER: 'Mask pixels are unavailable: this runtime has no mask decoder wired. Review status still works.',
   CONTRACT_DRIFT: 'The served mask failed the contract checks (its checksum, or an 8-bit 0/255 PNG of this slice size), so it is not drawn.',
   VARIANT_MISMATCH: 'The server served another prediction variant than this review\'s, so it is not drawn.',
+  SOURCE_MASK_MISMATCH: 'The server served a slice of another mask than this review\'s source prediction, so it is not drawn and cannot be edited.',
   TRANSPORT_UNREACHABLE: 'The mask bytes could not be fetched.',
   BASE_UNAVAILABLE: 'This review is already CORRECTED and continues from its latest version, but that version\'s slice could not be read. The slice is not editable: editing from the source would drop the earlier correction.',
   BASE_MISMATCH: 'The server answered another version than the review\'s latest, so the slice is not drawn. Refresh the review.',

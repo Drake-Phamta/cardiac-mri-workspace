@@ -21,6 +21,7 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 
 import { MOBILE } from './hooks.mjs';
+import { startWatchdog, timeoutFromEnv } from './watchdog.mjs';
 
 globalThis.__DEV__ = false;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -50,7 +51,17 @@ async function press(r, label) {
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
 let failures = 0;
 let count = 0;
-const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
+// QA_PR88_D39 N-2: a regression that never settles (a request not aborted, a guard never released) must read as a red
+// check, not as a hang. The whole run has 8 minutes (it takes about one); RENDER_SMOKE_TIMEOUT_MS overrides it.
+const watchdog = startWatchdog({
+  ms: timeoutFromEnv(process.env, 8 * 60 * 1000),
+  onTimeout: ({ ms, last }) => {
+    origLog(`  FAIL WATCHDOG the render smoke did not finish within ${Math.round(ms / 1000)} s (a request that is never aborted, a guard that is never released or a promise that never settles); the last check that ran was ${last}`);
+    origLog(`RENDER SMOKE FAIL - did not finish (${count} checks ran)`);
+    process.exit(1);
+  },
+});
+const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; watchdog.note(id); origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
 
 const imp = (p) => import(new URL(p, `file:///${MOBILE.replace(/\\/g, '/')}/`).href);
 const { resolveConfig } = await imp('src/config.mjs');
@@ -902,6 +913,25 @@ function noRunBackend() {
     `back on SCR-03: run RUN_B again, not asked for (${runLine()})`);
   check('R3', has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
     `variant PROCESSED and slice z 54 restored: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+
+  // #88 QA N-1: SCR-03's other entries carry the same returnParams. SCR-05's is held by V2R14 (the recorded push);
+  // here the real navigator opens SCR-06 and Back must reopen what was on screen when it was pressed. The slice is
+  // moved first: SCR-03's entry still holds the returnParams the SCR-04 trip above left in it (z 54), so a push that
+  // forgot its own returnParams would bring back the OLD slice and only a moved slice can tell.
+  await press(r, '+10');
+  await tick(350);
+  check('R4', has(r, /slice 65 \/ 88 {2}\(z = 64\)/), `SCR-03 moved on to z 64 before the SCR-06 entry is pressed: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+  forgetSession();
+  await press(r, 'Review / correct (SCR-06)');
+  await tick(300);
+  check('R4', has(r, /SCR-06 · V4/), 'SCR-03 -> SCR-06 through the real navigator, from RUN_B / PROCESSED / z 64');
+  await press(r, '‹ Back');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('R5', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+    && has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 65 \/ 88 {2}\(z = 64\)/),
+  `back on SCR-03 from SCR-06: run RUN_B, variant PROCESSED, slice z 64, not the earlier z 54 (${runLine()} / ${texts(r).find((t) => t.startsWith('slice ')) || '-'})`);
   await act(async () => { r.unmount(); });
 }
 
@@ -1165,6 +1195,24 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('V4d', handled === true && alertNow('Unsaved edits'), 'the Android back button asks too');
   await answerAlert('Unsaved edits', 'Stay');
 
+  // #88 QA N-3: a guard must settle on EVERY path. Dismissing the prompt without pressing a button (Android: a tap
+  // outside it) is an answer too - onDismiss says "stay". A guard that never settled would keep the shell's
+  // one-prompt latch closed and refuse every later Back, tab and push on this screen.
+  globalThis.__alerts = [];
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  const dismissable = alertNow('Unsaved edits');
+  check('V4q', dismissable && dismissable[3] && dismissable[3].cancelable === true && typeof dismissable[3].onDismiss === 'function',
+    'the leave prompt can be dismissed without a button, and says what dismissing means (onDismiss)');
+  await act(async () => { dismissable[3].onDismiss(); });
+  await tick(60);
+  globalThis.__alerts = [];
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  check('V4q', Boolean(alertNow('Unsaved edits')) && has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
+    'after a dismissed prompt the next Back asks again (the latch was released) and nothing moved or was lost');
+  await answerAlert('Unsaved edits', 'Stay');
+
   // --- undo / redo, then exactly one pixel at radius 0 ---
   await pressExact(r, 'Undo');
   check('V4e', textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits' && btn(r, 'Undo').props.disabled === true && btn(r, 'Redo').props.disabled === false,
@@ -1338,6 +1386,63 @@ function reviewBackend({ seedVersion = false } = {}) {
     && btn(rd, 'Retry slice'),
   'the base slice cannot be fetched: the slice is not drawn as editable, the reason is said and Retry slice is offered');
   await act(async () => { rd.unmount(); });
+
+  // --- the server names another mask than the run's artifact for the slice: not drawn, not editable, never fetched (QA_PR99_D39 NB-3) ---
+  const bm = reviewBackend();
+  const otherMask = async (url, init) => {
+    const res = await bm.fetchImpl(url, init);
+    if (!/\/slices\/\d+\/prediction\?variant=/.test(url)) return res;
+    const body = { ...(await res.json()), prediction_mask_id: 'PREDICTION_MASK_ID_OTHER' };
+    const text = JSON.stringify(body);
+    return { status: res.status, headers: res.headers, text: async () => text, json: async () => body };
+  };
+  const rm = await mount({ ...bm, fetchImpl: otherMask });
+  await toReview(rm);
+  check('V4o', has(rm, /served a slice of another mask than this review.s source prediction/) && !byId(rm, 'mask-state')[0]
+    && !btn(rm, 'Retry slice') && btn(rm, 'Save').props.disabled === true
+    && bm.requests.some((q) => /\/slices\/44\/prediction/.test(q.path)) && !bm.requests.some((q) => q.path.startsWith('/api/v1/artifacts/pred-')),
+  "a slice that names another mask than the run's artifact is not drawn as editable, the reason is said, and its bytes were never fetched");
+  await act(async () => { rm.unmount(); });
+
+  // --- another reviewer commits a newer version while this one has an unsaved edit (QA_PR99_D39 NB-2) ---
+  const bx = reviewBackend({ seedVersion: true });
+  const rx = await mount(bx);
+  await toReview(rx);
+  check('V4p', byId(rx, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0])),
+    'the review starts on its latest version, REVMASK_0');
+  await pressExact(rx, '3');
+  await stroke(rx, [100, 100]);
+  const theirs = bx.SOURCE.slice();
+  for (let y = 250; y < 270; y += 1) for (let x = 380; x < 400; x += 1) theirs[y * 576 + x] = 1;
+  bx.db.versions.push({ id: 'REVMASK_1', version: 2, revision: 3, parent: bx.db.versions[0], slices: new Map([[44, theirs]]) });
+  bx.db.review.revision += 1; // their commit moved the review: our expected_revision is stale
+  await pressExact(rx, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  check('V4p', has(rx, /STALE MISMATCH/) && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits', 'the save is stale: somebody else committed, the edit is still UNSAVED');
+  await pressExact(rx, 'Refresh');
+  await tick(200);
+  const sentAfterRefresh = bx.writes().length; // Refresh re-opens the review (an idempotent POST); nothing after it may write
+  const refused = byId(rx, 'notice')[0];
+  check('V4p', refused && /latest version is REVMASK_1; your edits continue from REVMASK_0\. Cancel the edits/.test(textOf(refused))
+    && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits' && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0]))
+    && byId(rx, 'latest-version')[0] && /Latest version REVMASK_1/.test(textOf(byId(rx, 'latest-version')[0])),
+  'Refresh found REVMASK_1 but does not drop the unsaved edit: it says so, and the edit still continues from REVMASK_0');
+  await pressExact(rx, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(100);
+  check('V4p', /latest version is REVMASK_1; this session continues from REVMASK_0/.test(textOf(byId(rx, 'notice')[0])) && bx.writes().length === sentAfterRefresh,
+    'saving over the older base is refused on the device: nothing is sent');
+  await pressExact(rx, 'Cancel edits');
+  await answerAlert('Discard unsaved edits?', 'OK');
+  await pressExact(rx, '‹ Back');
+  await tick(60);
+  check('V4p', has(rx, /SCR-08 · V4/), 'with the edit cancelled, Back leaves without asking');
+  await toReview(rx);
+  check('V4p', /Continuing from version REVMASK_1/.test(textOf(byId(rx, 'continuing')[0])) && textOf(byId(rx, 'mask-state')[0]) === 'SAVED'
+    && bx.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && bx.db.versions.length === 2,
+  "reopened, the review continues from REVMASK_1 (read from the server), and the other reviewer's version is untouched");
+  await act(async () => { rx.unmount(); });
 }
 
 // ---- 11. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------
@@ -2197,5 +2302,6 @@ console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
 check('E1', appErrors.length === 0, `console.error from app code: ${appErrors.length}${appErrors.length ? ` - ${appErrors[0].slice(0, 300)}` : ''}`);
+watchdog.stop();
 origLog(failures === 0 ? `RENDER SMOKE PASS - ${count} checks (logic only, not device evidence)` : `RENDER SMOKE FAIL - ${failures} of ${count}`);
 process.exit(failures === 0 ? 0 : 1);

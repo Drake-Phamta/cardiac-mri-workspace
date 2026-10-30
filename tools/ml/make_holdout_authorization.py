@@ -35,7 +35,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT =Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[2]
 for _p in (str(Path(__file__).resolve().parent), str(ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)

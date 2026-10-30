@@ -217,7 +217,10 @@ export function createReviewCorrection(client) {
    * answers is authoritative; one outside the four states, or a review of a
    * different scope, is contract drift and the screen must not render it.
    */
-  async function open({ caseId, runId, sourceMaskId, predictionVariant, scenario = 'default', scenarios } = {}) {
+  async function open({ caseId, runId, sourceMaskId, predictionVariant, scenario = 'default', scenarios, signal = null } = {}) {
+    // The two READS of this sequence take the screen's AbortSignal (DR-021 rule 2: a screen that is gone stops its
+    // reads). review_create is a write and is not aborted: a POST that was sent is finished, and it is idempotent.
+    const reads = signal ? { signal } : {};
     const scope = { caseId, runId, sourceMaskId, predictionVariant };
     current = snapshot(loading(), scope);
     const missing = ['caseId', 'runId', 'sourceMaskId'].filter((k) => !isId(scope[k]));
@@ -230,7 +233,7 @@ export function createReviewCorrection(client) {
       }));
     }
 
-    const kase = await client.call('case_get', { case_id: caseId }, { scenario: pick(scenarios, 'case_get', scenario) });
+    const kase = await client.call('case_get', { case_id: caseId }, { scenario: pick(scenarios, 'case_get', scenario), ...reads });
     if (kase.state !== STATE.SUCCESS) return set(kase);
     const geometry = Object.freeze({
       contractVersion: kase.data.geometry_contract_version,
@@ -260,7 +263,7 @@ export function createReviewCorrection(client) {
       reviewedMasks: [], lastCommit: null,
     };
     const versions = await client.call('reviewed_masks_list', { review_id: d.review_id }, {
-      scenario: pick(scenarios, 'reviewed_masks_list', scenario),
+      scenario: pick(scenarios, 'reviewed_masks_list', scenario), ...reads,
     });
     if (versions.state !== STATE.SUCCESS) return set(versions, fields);
     const items = versions.data.items ?? [];

@@ -54,7 +54,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from . import imaging
-from .cases import authorized_by_valid, authorized_runs_valid
+from .cases import authorized_by_valid, authorized_runs_problems
 from .config import DATA_ROOT_ENV, REPO_ROOT, data_root_from_env, inside_git_worktree
 
 INGEST_VERSION = "backend-ingest/1"
@@ -103,8 +103,9 @@ def _no_constants(name):
 def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
     """The GATE-IMG-01 record, checked, as the metadata the cache records (DR-022).
 
-    ``path`` is repository-relative (the record is committed with the gate decision); an absolute
-    path is accepted for a local check. Refused unless the file exists, is strict JSON, has format
+    ``path`` is repository-relative (the record is committed with the gate decision; a relative path with
+    ``..`` or a drive is refused); an absolute path is accepted for a local check and only its file name is
+    recorded. Refused unless the file exists, is strict JSON, has format
     ``ml-holdout-authorization/1``, gate ``GATE-IMG-01``, gate_status ``CLOSED`` and the split sha256
     this ingest is pinned to. Nothing is opened but the record.
     """
@@ -112,6 +113,12 @@ def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
         raise IngestError("HOLDOUT_AUTHORIZATION_REQUIRED",
                           "holdout cases need --holdout-authorization <ml-holdout-authorization/1 record>")
     given = Path(path)
+    # The "repository-relative" promise is enforced, not assumed (QA_PR94_D39 NB-3): a relative path may not climb
+    # out of the repository or name a drive/root, and is refused before anything is opened.
+    if not given.is_absolute() and (".." in given.parts or given.drive or given.root):
+        raise IngestError("HOLDOUT_AUTHORIZATION_INVALID",
+                          f"{given.name}: a relative record path must stay inside the repository "
+                          f"(no '..', no drive, no leading separator)")
     resolved = given if given.is_absolute() else REPO_ROOT / given
     try:
         raw = resolved.read_bytes()
@@ -136,8 +143,7 @@ def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
         problems.append("split_sha256 is not the split this backend is pinned to")
     # QA of PR #94: a record that authorizes no run, or names nobody, is not an authorization.
     runs = record.get("authorized_runs")
-    if not authorized_runs_valid(runs):
-        problems.append("authorized_runs must be a non-empty list of {experiment_id, checkpoint_sha256}")
+    problems.extend(authorized_runs_problems(runs))
     if not authorized_by_valid(record.get("authorized_by")):
         problems.append("authorized_by must be a non-empty string")
     if problems:

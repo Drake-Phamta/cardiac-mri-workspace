@@ -339,6 +339,31 @@ test('V3S10 the #61 QA refusals reach the screen as words: pinned DR-010, inelig
   assert.equal(drift.rows[1].valueText, null);
   assert.equal(drift.rows[1].statusText, 'failed - its served value is ignored');
   assert.equal(drift.text, '2 row(s) returned, 1 plotted; 1 value(s) served on rows that did not succeed - ignored');
+  // QA_PR90_D39 N-1: a case id served twice has screen copy, not the raw state word; no number, no link.
+  const dup = [
+    { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0101', metric_values: { dice: 0.91 } },
+    { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0103', metric_values: { dice: 0.5 } },
+    ROWS[1],
+  ];
+  const dupTable = caseTable(typedCell(matrixEntry('EXP-U-025'), 0.8, { items: dup }));
+  const twice = dupTable.rows.filter((r) => r.caseId === 'CASE_0101');
+  assert.equal(twice.length, 2, 'both rows are listed, none dropped');
+  for (const row of twice) {
+    assert.equal(row.statusText, 'duplicate case id - not plotted');
+    assert.doesNotMatch(row.statusText, /DUPLICATE_CASE_ID/);
+    assert.equal(row.valueText, null, 'no number is shown for an ambiguous case');
+    assert.equal(row.route.ok, false, 'and no link: which run would it open');
+  }
+  assert.match(dupTable.rows.find((r) => r.caseId === 'CASE_0102').statusText, /^failed/, 'the other rows are untouched');
+  assert.equal(dupTable.text, '3 row(s) returned, 0 plotted');
+  // QA_PR90_D39 N-3: the refusal of a selection that repeats a case reads in words, and none of its cases is shown.
+  const entry = { case_id: 'CASE_0101', analysis_run_id: 'RUN_0101', metric_value: 0.91, false_positives: 3, false_negatives: 4 };
+  const repeated = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, { selection: { cases: [entry, entry] } }).outliers);
+  assert.equal(repeated.available, false);
+  assert.deepEqual([...repeated.rows], []);
+  assert.match(repeated.text, /the selection repeats a case id - the whole selection is refused/);
+  assert.doesNotMatch(repeated.text, /OUTLIERS_DUPLICATE_CASE_ID/);
+  assert.equal(reasonLabel('OUTLIERS_DUPLICATE_CASE_ID'), 'the selection repeats a case id - the whole selection is refused');
 });
 
 test('V3S12 a cell whose variant was refused lists its rows with no number, calls none plotted, and links none (#69 QA B-1)', async () => {

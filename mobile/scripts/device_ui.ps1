@@ -181,6 +181,68 @@ function Invoke-Native {
   }
 }
 
+# The 8.3 short spelling of a folder (ADMINI~1) and its long one name the same place; GetLongPathName expands one to the other.
+if (-not ('CmwLongPath' -as [type])) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class CmwLongPath {
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  static extern uint GetLongPathNameW(string shortPath, StringBuilder longPath, uint bufferSize);
+  public static string Expand(string path) {
+    StringBuilder sb = new StringBuilder(2048);
+    uint n = GetLongPathNameW(path, sb, (uint)sb.Capacity);
+    return (n > 0 && n < sb.Capacity) ? sb.ToString() : path;
+  }
+}
+'@
+}
+
+function Get-LongPath {
+  # A full path with every 8.3 short name expanded, so two spellings of one folder compare equal. The folder need not
+  # exist: the nearest existing ancestor is expanded and the missing part is appended as given.
+  param([string]$Path)
+  $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+  $missing = New-Object System.Collections.ArrayList
+  $head = $full
+  while ($head -and -not (Test-Path -LiteralPath $head)) {
+    $leaf = [System.IO.Path]::GetFileName($head)
+    $parent = [System.IO.Path]::GetDirectoryName($head)
+    if (-not $leaf -or -not $parent) { break }
+    $missing.Insert(0, $leaf)
+    $head = $parent.TrimEnd('\')
+  }
+  if ($head -and (Test-Path -LiteralPath $head)) { $head = [CmwLongPath]::Expand($head).TrimEnd('\') }
+  $result = $head
+  foreach ($m in $missing) { $result = $result + '\' + $m }
+  return $result
+}
+
+function Test-OutsideGit {
+  # The output folder must not be inside the repository (or any git work tree): serial, addresses and screenshots.
+  # Paths are compared in their long (8.3-expanded) form: a short-name alias of a folder inside the repository is inside.
+  param([string]$Path, [string]$Repo)
+  $full = (Get-LongPath $Path) + '\'
+  $roots = New-Object System.Collections.ArrayList
+  [void]$roots.Add((Get-LongPath $Repo) + '\')
+  $git = Get-Command git -ErrorAction SilentlyContinue
+  if ($git) {
+    $probe = $Path
+    while ($probe -and -not (Test-Path -LiteralPath $probe)) { $probe = Split-Path -Parent $probe }
+    if ($probe) {
+      $r = Invoke-Native -FilePath $git.Source -ArgumentList @('-C', $probe, 'rev-parse', '--show-toplevel') -TimeoutSec 20
+      if ($r.ExitCode -eq 0 -and $r.StdOut.Trim()) {
+        [void]$roots.Add((Get-LongPath $r.StdOut.Trim()) + '\')
+      }
+    }
+  }
+  foreach ($root in $roots) {
+    if ($full.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
+  }
+  return $true
+}
+
 function Invoke-Adb {
   # adb for the pinned device. -NoSerial for commands that are not about a device (devices, start-server).
   param(

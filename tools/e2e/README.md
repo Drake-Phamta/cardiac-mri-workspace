@@ -82,7 +82,7 @@ python tools/e2e/hero_flow_api.py --base-url http://127.0.0.1:8000 --json-out <o
 
 H8/H9 write one review, one reviewed-mask version and one finding into `<root>\var\backend.sqlite3`. Re-running is safe:
 the review of the same scope is returned unchanged and the commit adds the next version. To get a clean demo database
-afterwards, stop the backend and rename `<root>\var` (do not deploy it; the deploy script only copies `data_cache`).
+afterwards, stop the backend and rename `<root>\var` (do not deploy it; the deploy script copies `data_cache` and, with `-ShipPackages`, `experiments` and `derived_meshes`, never `var`).
 
 ## Run it against the Mac mini (read-only)
 

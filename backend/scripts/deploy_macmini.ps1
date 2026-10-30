@@ -69,11 +69,28 @@ if (-not $DataCache) {
   }
   if ($root) { $DataCache = Join-Path $root "data_cache" }
 }
+# -ShipPackages reads <data-root>\experiments and \derived_meshes, where <data-root> is the parent of the data cache,
+# so it needs a data cache path even with -SkipData (QA_PR100_103_D39 #101 NB-1: without one it died in Split-Path).
+if ($ShipPackages -and -not $DataCache) {
+  throw "-ShipPackages needs the data root: pass -DataCache <data-root>\data_cache or set CARDIAC_BACKEND_DATA (experiments and derived_meshes are read next to the data cache)."
+}
 
 function Invoke-Native {
   param([string]$What, [scriptblock]$Command)
   & $Command
   if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE" }
+}
+
+# `tar -tzf` lists what an archive holds. A listing that failed (exit code != 0) must not read as "no raw image files":
+# the archive is refused (QA_PR100_103_D39 #101 NB-2).
+function Assert-NoRawImages {
+  param([string]$What, [string]$Archive, [string]$Pattern)
+  $entries = @(tar -tzf $Archive)
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar -tzf ($What) failed with exit code $LASTEXITCODE; refusing to copy an archive whose contents could not be checked for raw image files"
+  }
+  $raw = @($entries | Select-String -Pattern $Pattern)
+  if ($raw.Count -gt 0) { throw "$What contains raw image files; refusing to copy them: $($raw -join ', ')" }
 }
 
 function Test-InsideGitWorktree([string]$Path) {
@@ -121,8 +138,7 @@ $uploads = @($codeTar)
 if (-not $SkipData) {
   $dataTar = Join-Path $stage "data_cache.tar.gz"
   Invoke-Native "tar (data cache)" { tar -czf $dataTar -C $DataCache . }
-  $raw = tar -tzf $dataTar | Select-String -Pattern '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$'
-  if ($raw) { throw "the data cache contains raw image files; refusing to copy them: $raw" }
+  Assert-NoRawImages "the data cache" $dataTar '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$'
   Write-Host ("   data cache archive: {0:N0} MB" -f ((Get-Item $dataTar).Length / 1MB))
   $uploads += $dataTar
 }
@@ -136,8 +152,8 @@ if ($ShipPackages) {
     Invoke-Native "tar ($part)" {
       tar -czf $partTar --exclude "predictions/validation" --exclude "evaluation/validation" --exclude "last.pt" -C $dataRoot $part
     }
-    $raw = tar -tzf $partTar | Select-String -Pattern '\.(dcm|mha|mhd|raw)$'
-    if ($raw) { throw "$part contains raw image files; refusing to copy them: $raw" }
+    # NRRD masks are the Contract 2 prediction artifacts and are allowed here; every other raw image format is not.
+    Assert-NoRawImages $part $partTar '\.(nii|nii\.gz|dcm|mha|mhd|raw)$'
     Write-Host ("   {0} archive: {1:N0} MB" -f $part, ((Get-Item $partTar).Length / 1MB))
     $uploads += $partTar
   }
