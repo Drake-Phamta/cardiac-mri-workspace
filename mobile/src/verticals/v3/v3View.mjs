@@ -330,6 +330,7 @@ function rowStatusText(row) {
     case 'VALUE_NOT_RETURNED': return 'succeeded, value not returned';
     case 'NO_METRIC_SELECTED': return row.status === 'SUCCEEDED' ? 'succeeded - pick a metric' : String(row.status);
     case 'NO_CASE_ID': return 'no case id';
+    case 'DUPLICATE_CASE_ID': return 'duplicate case id - not plotted';
     case 'UNKNOWN_STATUS': return `status "${row.status}" not recognised`;
     default: return String(row.plotState);
   }
