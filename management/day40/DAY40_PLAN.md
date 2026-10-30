@@ -1,5 +1,7 @@
 # DAY 40 — 2026-10-19 (Chủ nhật) · kế hoạch
 
+> **Đã thay thế ngày 30/10/2026** bởi DR-023 (`management/day51/OPERATING_MODE_2026-10-30.md`): hạn nghiệm thu 08/11/2026, làm theo chế độ một người vận hành. Tài liệu này giữ nguyên để làm lịch sử.
+
 | Mục | Giá trị |
 |---|---|
 | **Lập lúc** | tối 18/10, sau override một ngày (Day 39) |

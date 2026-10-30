@@ -58,19 +58,18 @@ review_state_semantics:
   NEEDS_FIX:         "reviewer rejected; returns to the owner"
 
 readiness_conditions_open:
-  C1:
-    description: "Spike D completes; DATASET_AUDIT.md + manifest ACCEPTED, resolving GATE-DATA-01 and Path A/B provenance"
-    unblocked_by: SPIKE_D
   C4:
     description: "RA-B01 resolved - 3D error pipeline defined on Spike F evidence, or explicit scope decision"
     unblocked_by: SPIKE_F
+    note: "2026-10-30 21:55: the leader decided that Spike F runs before the error-map PR merges (DR-005 partly decided: direction = the full 3D error map)"
   C6:
     description: "Axis-aligned-only policy approved (DR-012); confirmation against the actual validated package still required"
     state: PARTIALLY_RESOLVED
     unblocked_by: SPIKE_D
     warning: "Do NOT mark C6 CLOSED before Spike D evidence exists."
+    note: "2026-10-30: SPIKE_D is ACCEPTED (2026-09-18). Every header carries default geometry, so axis alignment holds at header level only; closing C6 with that limitation is a leader decision"
 
-readiness_conditions_closed: [C2, C3, C5, C7, C8]
+readiness_conditions_closed: [C1, C2, C3, C5, C7, C8]   # C1 closed 2026-09-18 21:40 with GATE-DATA-01 (SPIKE_D ACCEPTED); moved here 2026-10-30
 
 team:
   - name: "Pham Tuan Anh"
@@ -519,12 +518,14 @@ spikes:
     wip_note: >
       QUEUED behind SPIKE_B as Vu Hung Anh's next primary spike. Preparation with synthetic TP/FP/FN
       fixtures may begin, but it must not become a second primary task while SPIKE_B is ACTIVE.
+      Update 2026-10-30: SPIKE_B is ACCEPTED (2026-10-01), so this queue no longer applies; Spike F runs
+      under DR-023 through the leader's account (see next_action).
     started_at: null            # owner sets the REAL date/time on starting; never backdate
     review:
       state: NOT_REQUESTED
       reviewer: "Pham Tuan Anh"
       priority_rank: 3          # behind SPIKE_B and SPIKE_E
-      queue_note: "Queued behind Spike B as Vu Hung Anh's next primary spike; review slot follows."
+      queue_note: "Queued behind Spike B as Vu Hung Anh's next primary spike; review slot follows. Update 2026-10-30: the review is an independent LLM QA pass (DR-023), because the leader operates the device (DR-006a recusal)."
     directory: management/spikes/SPIKE_F_3D_ERROR
     task: management/spikes/SPIKE_F_3D_ERROR/TASK.md
     evidence_template: management/spikes/SPIKE_F_3D_ERROR/EVIDENCE_TEMPLATE.md
@@ -541,7 +542,7 @@ spikes:
       If the MUST feature is not achievable within the project window, report the NEGATIVE_RESULT and
       trigger the formal scope decision via DR-005. Never silently simplify. 03 section 4 lists
       "3D is decorative only and cannot link back to MRI slices" as an MVP rejection condition.
-    next_action: "Prepare synthetic TP/FP/FN fixtures only. Do not start primary work while Spike B is ACTIVE. Note 2026-09-17: those fixtures are wanted independently of this spike - 13 section 11 requires a small binary mask pair with known TP/FP/FN/Dice/IoU in the canonical fixture set - so building them under tests/fixtures/error_masks/ is permitted work today and is listed in the owner's Day-8 reserve queue. All twelve F criteria remain unmeasured and no F implementation may begin while SPIKE_B is ACTIVE. Update 2026-10-30: Spike F will not run. DR-005 was decided by the leader without it (full 3D error map, management/readiness/OPEN_DECISIONS.md); the L0 picking evidence of Spike B carries over. Status stays PREPARED because no execution ever started."
+    next_action: "Prepare synthetic TP/FP/FN fixtures only. Do not start primary work while Spike B is ACTIVE. Note 2026-09-17: those fixtures are wanted independently of this spike - 13 section 11 requires a small binary mask pair with known TP/FP/FN/Dice/IoU in the canonical fixture set - so building them under tests/fixtures/error_masks/ is permitted work today and is listed in the owner's Day-8 reserve queue. All twelve F criteria remain unmeasured and no F implementation may begin while SPIKE_B is ACTIVE. Update 2026-10-30 21:55: the leader decided that Spike F runs before the error-map PR merges (DR-005 partly decided: direction = the full 3D error map). Under DR-023 the leader's session runs the off-device part (F1, F3-F6, F9, F10; synthetic TP/FP/FN fixtures under tests/fixtures/error_masks/) and the leader runs the device part in phone session 2 (F2 legibility judgement, F7, F8). The owner of record, Vu Hung Anh (DR-013), was not consulted: no activity in the repository since 2026-10-03. Status stays PREPARED until execution starts."
 
 wip_compliance:
   rule: "15 section 7: max 1 primary implementation task; optionally 1 review task; optionally 1 small auxiliary activity."
@@ -566,6 +567,7 @@ wip_compliance:
       constraint: >
         SPIKE_B is the only primary active task. SPIKE_F remains PREPARED. Synthetic fixture preparation is
         allowed, but SPIKE_F implementation must not become a second active primary task.
+        Update 2026-10-30: SPIKE_B is ACCEPTED; SPIKE_F runs under DR-023 through the leader's account.
     "Nguyen Gia Duc Trung":
       primary: SPIKE_E
       queued: []
@@ -741,6 +743,8 @@ review_serialization:
       rationale: >
         Only SPIKE_F remains (2026-09-14). Its device measurement (F7) is not yet decided; if the leader
         operates it too, the same recusal applies and SPIKE_F review moves as well.
+        Update 2026-10-30: the leader operates the device for Spike F, so the recusal applies; under DR-023
+        the review is an independent LLM QA pass.
       currently_reviewing: null
       queued: []
 

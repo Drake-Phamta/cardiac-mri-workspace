@@ -13,7 +13,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 > **Cập nhật 18/10/2026:** Day 30 (09/10) đã qua. Leader quyết **hạn nghiệm thu mới 31/10/2026** (Day 52); kế hoạch tại `management/day40/REPLAN_TO_2026-10-31.md`.
 
-> **Cập nhật 30/10/2026:** leader quyết **hạn nghiệm thu 08/11/2026** và **chế độ một người vận hành** (DR-023, `management/day51/OPERATING_MODE_2026-10-30.md`). Danh mục việc: `management/day51/WORK_INVENTORY.md`.
+> **Cập nhật 30/10/2026:** leader báo **hạn nghiệm thu đã lùi sang 08/11/2026** và quyết **chế độ một người vận hành** (DR-023, `management/day51/OPERATING_MODE_2026-10-30.md`). Danh mục việc: `management/day51/WORK_INVENTORY.md`.
 
 | Chỉ số | Giá trị |
 |---|---|
@@ -31,23 +31,38 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 40–51 — 2026-10-19 → 2026-10-30 · ❌ **`TRƯỢT` mọi mốc của REPLAN**, rồi **chế độ một người vận hành**
+## DAY 40–51 — 2026-10-19 → 2026-10-30 · ❌ **`TRƯỢT` các mốc của REPLAN**, rồi **chế độ một người vận hành**
 
-Trong 12 ngày chỉ có hai PR, đều của Bế Quốc Khánh: #105 (bảng revalidation, 19/10) và #106 (các mục QA V3 không cần train, 29/10; job CI "backend tests" đỏ vì máy chạy CI `ubuntu-latest` chuyển sang Ubuntu 26.04, không có Python 3.9, không phải lỗi code; sửa ở #108). Nguyễn Gia Đức Trung không có hoạt động từ 01/10, Vũ Hùng Anh không có từ 02/10. Không mốc kiểm nào của `day40/REPLAN_TO_2026-10-31.md` đạt (20/10, 22/10, 24/10, 27/10, 30/10). Họ UNet vẫn chưa train. Mac mini không trả lời ssh ngày 27/10 và 30/10.
+**Hoạt động trong repo này (19/10 → 29/10).**
+- Chỉ có hai PR, đều của Bế Quốc Khánh:
+  - #105: bảng revalidation, mở 19/10;
+  - #106: các mục QA V3 không cần train, mở 29/10.
+- Job CI "backend tests" của #106 đỏ, nhưng không phải do code. Máy chạy CI `ubuntu-latest` đã chuyển sang Ubuntu 26.04, bản này không có Python 3.9. #108 sửa lỗi này.
+- Nguyễn Gia Đức Trung không có hoạt động riêng trong repo từ 21/09. Các sự kiện ngày 01/10 là leader merge PR của Trung.
+- Vũ Hùng Anh không có hoạt động từ 03/10 03:18 (+07), lần cuối là một nhánh không có PR.
 
-**Leader quyết ngày 30/10** ([`day51/OPERATING_MODE_2026-10-30.md`](day51/OPERATING_MODE_2026-10-30.md), DR-023, DR-005):
+**Tình trạng.**
+- Không mốc kiểm nào của `day40/REPLAN_TO_2026-10-31.md` (20/10, 22/10, 24/10, 27/10) đạt trọn vẹn. Riêng phần Mac mini của mốc 20/10 đã đạt.
+- Họ UNet chưa train, theo bản ghi cuối trong repo (#105, 19/10) và theo leader.
+- Theo phiên của leader, Mac mini không trả lời qua mạng overlay ngày 27/10 và tối 30/10.
+
+**Leader quyết ngày 30/10** ([`day51/OPERATING_MODE_2026-10-30.md`](day51/OPERATING_MODE_2026-10-30.md), DR-023, DR-005). Biên bản dẫn nguồn của từng mục: tin nhắn 18:41, các câu trả lời khoảng 18:45, tin nhắn buổi tối, và các xác nhận lúc 21:55 sau khi QA LLM rà #107.
 
 | Mục | Quyết định |
 |---|---|
-| Hạn nghiệm thu | **08/11/2026** (thay 31/10) |
-| Cách làm | mọi việc trừ train UNet chạy qua tài khoản của leader, không chia theo thành viên; mỗi PR qua QA LLM độc lập và CI xanh, leader quyết |
-| Sở hữu V1–V4 | chỉ còn là bản đồ bảo vệ của môn Mobile (CLO3); gói bằng chứng ghi rõ phần agent làm |
-| Môn báo cáo | ML, Xử lý ảnh, Mobile; bỏ Khoa học dữ liệu khỏi danh sách môn, sản phẩm vẫn làm đủ |
-| Báo cáo và slide | mỗi môn một báo cáo và một bộ slide, làm sau khi sản phẩm xong và có bằng chứng thiết bị, không làm vội |
-| DR-005 | **bản đồ lỗi 3D đầy đủ**; điều kiện C4 đóng |
-| Nhịp | chất lượng trước tốc độ: làm rõ từng chi tiết, không bỏ qua tiểu tiết |
+| Hạn nghiệm thu | **08/11/2026**. Leader báo lịch đã lùi, thay hạn 31/10 |
+| Cách làm | Mọi việc trừ phần GPU (UNet) chạy qua tài khoản của leader, không chia theo thành viên. Phiên tự merge mọi PR khi QA LLM độc lập đạt và CI xanh ("Tự merge tất cả", 21:55) |
+| Sở hữu V1–V4 | Giữ DR-013 cho phần bảo vệ. Gói bằng chứng ghi trung thực phần thành viên tự làm và phần agent làm. Bảng revalidation từng người không còn bắt buộc. Nếu thiếu phần tự làm thì ghi là hạn chế của TC-TEAM-001 (21:55) |
+| Môn báo cáo | ML, Xử lý ảnh, Mobile. Khoa học dữ liệu bỏ khỏi danh sách môn, sản phẩm vẫn làm đủ |
+| Báo cáo và slide | Mỗi môn một báo cáo và một bộ slide, không làm vội. Theo kế hoạch của phiên: viết sau khi sản phẩm xong và có bằng chứng thiết bị |
+| DR-005 | Hướng: **bản đồ lỗi 3D đầy đủ**. **Spike F chạy trước khi merge** bản đồ lỗi (21:55). Điều kiện C4 còn mở cho tới khi có bằng chứng của Spike F |
+| UNet | Để Khánh. Leader đã từ chối chạy trên PC của mình ngày 27/10 |
+| Nhịp | Chất lượng trước tốc độ: làm rõ từng chi tiết, không bỏ qua tiểu tiết; 2 agent song song |
 
-**Bắt đầu ngay trong tối 30/10:** agent A làm bản đồ lỗi 3D và liên kết 2D↔3D (việc A1–A12); agent B làm CI của #106 và tồn đọng QA (B1–B16). Hai agent chạy song song, mỗi lúc chỉ một việc nặng.
+**Tối 30/10.**
+- Agent A làm xong vòng 1 của bản đồ lỗi 3D và liên kết 2D↔3D. Vòng 2 đang chạy: vùng lỗi kèm các lát của nó, đánh dấu điểm ảnh khi chuyển 3D → 2D, truyền mesh theo khúc.
+- Agent B đóng phần lớn tồn đọng QA. Nhánh `fix/qa-backlog-d51` đang qua QA LLM.
+- QA LLM của #107/#108: `day51/qa/QA_PR107_PR108_D51.md`. Đã merge #108 (`5232f52`, chuyển job backend sang chạy trên Ubuntu 24.04) và #105 (`d325136`).
 
 ---
 

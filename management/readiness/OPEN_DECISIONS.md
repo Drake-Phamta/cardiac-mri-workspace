@@ -12,9 +12,9 @@
 DR-005 (Spike F) and DR-008c (Spike B).
 **Update 2026-09-15: DR-002a** (Part 2b) — the duplicated acquisition `CASE_0056`/`CASE_0097` found by QA-002 is
 one group pinned to train.
-**Update 2026-10-30: DR-005 is DECIDED — the full 3D error map** (see its entry). DR-008c was decided on 2026-10-01
-(L0), so no audit-raised decision remains open. **DR-023** (Part 2b) records the single-operator mode and the
-acceptance date of 2026-11-08.
+**Update 2026-10-30: DR-005 is PARTLY DECIDED.** The direction is the full 3D error map. Spike F runs before the
+error-map PR merges, and the representation is approved on its evidence (see the entry). DR-008c was decided on
+2026-10-01 (L0). **DR-023** (Part 2b) records the single-operator mode and the acceptance date of 2026-11-08.
 **Authoritative status table:** `READINESS_REVIEW_RESOLUTION.md` §10.
 
 ---
@@ -448,13 +448,31 @@ as tabulated above. Adding the corresponding requirement and acceptance tests st
 
 ### DR-005 — 3D error representation pipeline definition
 
-> **✅ DECIDED 2026-10-30** by Phạm Tuấn Anh: the **full 3D error map**. For a run's prediction (RAW or PROCESSED)
-> against the case's ground truth, the false-positive voxels (prediction and not ground truth) and the false-negative
-> voxels (ground truth and not prediction) each get their own L0 voxel-face surface (DR-008c), with a per-face source
-> slice and a per-face class, served by `error_reconstruction_get`. A tapped error face resolves to its source slice
-> and opens it in 2D (FR-3D-008). INT-12 cases get no error mesh (`GROUND_TRUTH_UNAVAILABLE`). Spike F is not run:
-> the L0 picking evidence of Spike B (±1 slice) carries over, because the error surfaces are built the same way.
-> Recorded in `management/day51/OPERATING_MODE_2026-10-30.md`. The original text follows.
+> **🟡 PARTLY DECIDED 2026-10-30** by Phạm Tuấn Anh, in session.
+>
+> - **Direction (about 18:45): the full 3D error map, not the 2D descope.** He chose the option "Làm đầy đủ":
+>   *"Mesh lỗi theo lớp FP/FN trên 3D, endpoint error_reconstruction_get và hiển thị trên SCR-05. Thêm 2–3 giờ và
+>   rủi ro trước nghiệm thu."* The other option was the descope ("Hạ phạm vi": FP/FN in 2D on SCR-04 only, with
+>   the ground-truth and prediction surfaces overlaid in 3D).
+> - **Spike F (21:55): "Chạy Spike F trước".** Spike F runs before the error-map PR merges, as the Recommendation
+>   below asks, and the representation is approved on its evidence. Readiness condition C4 stays open until then.
+> - **The candidate under test is not the decision.** Branch `feat/v2-error-map-and-linkage` implements this, for
+>   a run's prediction (RAW or PROCESSED) against the case's ground truth:
+>   - FP (prediction and not ground truth) and FN (ground truth and not prediction) as L0 voxel-face surfaces
+>     (DR-008c), with a per-face source slice and class, served by `error_reconstruction_get`;
+>   - agreement (UC-09 "overlap") shown by the prediction surface, with no separate TP mesh;
+>   - a tap that resolves to its source slice. Its second round adds the connected error region and its
+>     contributing slices (FR-3D-008).
+>
+>   It is closest to Option 1 (without a TP mesh, and with voxel faces instead of isosurfaces), plus the region
+>   addressability of Option 3. It enters Spike F as a candidate.
+> - **Fallback.** If no candidate passes Spike F, including F8 (≥ 20 FPS on the A17 with the error layers active),
+>   the result is a `NEGATIVE_RESULT`, and Option 4 (2D only) goes through `00` §13.
+> - **Decision owner.** The entry names "Leader + Imaging owner". The Imaging owner, Vũ Hùng Anh, was not
+>   consulted: he has had no activity in this repository since 2026-10-03. The leader decides under DR-023.
+> - INT-12 (CASE_0001) gets `GROUND_TRUTH_UNAVAILABLE` and no error mesh, as contract 1.1.0 says.
+> - Record: `management/day51/OPERATING_MODE_2026-10-30.md`. LLM QA of this record:
+>   `management/day51/qa/QA_PR107_PR108_D51.md` (B-2, Appendix B). The original text follows.
 
 > ~~**OPEN** — explicitly kept open; requires Spike F evidence.~~
 
@@ -2039,39 +2057,72 @@ by default, and a dry run needs a record that is not a real one only on the oper
 
 | Field | Value |
 |---|---|
-| **Status** | ✅ **DECIDED 2026-10-30** by Phạm Tuấn Anh, in session (about 18:45; pace and care about 19:00) |
-| **Amends** | the per-PR review rule of `15` (CP-07); the per-member plan of `management/day40/REPLAN_TO_2026-10-31.md`; the acceptance date of 2026-10-31; DR-013 (ownership) |
-| **Related** | DR-005 (decided the same day), DR-013, DR-016a (UNet host), `16` §3 and §5.1 |
-| **Record** | `management/day51/OPERATING_MODE_2026-10-30.md`; the work list `management/day51/WORK_INVENTORY.md` |
+| **Status** | ✅ **DECIDED 2026-10-30** by Phạm Tuấn Anh, in session. Sources: his message at 18:41, his answers at about 18:45, his evening messages, and his confirmations at 21:55 after the LLM QA of this record. Each item names its source. Items marked *Project Control* are the session's own rules or plan, not his decisions |
+| **Amends** | until 2026-11-08, how these frozen rules are applied (the spec files are not edited): `15` §7 (WIP: one primary task per member), §8 (a merge needs an assigned reviewer's approval), §11 (owner + reviewer before implementation), `13` §6 item 3 (code review). Also the waivers of `management/day39/RECOVERY_OVERRIDE_DAY39.md` ("the leader may not execute another member's implementation work"; "DR-013 ownership returns in full on 2026-10-19"), the per-member plan and the 2026-10-31 date of `management/day40/REPLAN_TO_2026-10-31.md`, and DR-013 (ownership) |
+| **Related** | DR-005 (partly decided the same day), DR-013, DR-016a (UNet host; its fallback was declined on 2026-10-27), PR-MOBILE-03 / TC-TEAM-001, `16` §3 and §5.1 |
+| **Record** | `management/day51/OPERATING_MODE_2026-10-30.md`; the work list `management/day51/WORK_INVENTORY.md`; LLM QA `management/day51/qa/QA_PR107_PR108_D51.md` |
 
-**Problem.** From 2026-10-18 to 2026-10-30 only Bế Quốc Khánh worked in the repository (#105 on 10-19, #106 on
-10-29). Nguyễn Gia Đức Trung has no activity since 10-01 and Vũ Hùng Anh none since 10-02. Every checkpoint of the
-replan (20/10, 22/10, 24/10, 27/10, 30/10) was missed. The UNet family is untrained, the product app has no device
-evidence beyond L4, and 0 of 33 MUST requirements are `ACCEPTED`.
+**Problem.**
+- From 2026-10-19 to 2026-10-29 the only team activity in this repository was Bế Quốc Khánh's: PR #105 (opened
+  10-19) and PR #106 (opened 10-29).
+- Nguyễn Gia Đức Trung has no own action in this repository since 2026-09-21. His 10-01 merge events are the
+  leader's merges of his PRs.
+- Vũ Hùng Anh has none since 2026-10-03 03:18 (+07), a branch without a PR.
+- No checkpoint of the replan (20/10, 22/10, 24/10, 27/10) was met in full.
+- The UNet family is untrained, per the last repository record (#105, 10-19) and the leader's report.
+- The product app has no device evidence beyond L4.
+- 0 of 33 MUST requirements are `ACCEPTED`.
 
 **Decision.**
-1. **Acceptance on 2026-11-08**, replacing 2026-10-31.
-2. **Single operator.** All remaining work except UNet training runs through the leader's account and its Claude
-   sessions, without per-member division. Each PR merges after an independent LLM QA pass, recorded as LLM QA and
-   never as a human review, plus green CI. The leader decides. Per-member revalidation tables become optional.
-3. **Ownership for the defense only.** The V1–V4 ownership of DR-013 stays as the defense mapping of the Mobile course
-   (CLO3). Each member's evidence package states which parts agents built under the leader's account. Nothing is
-   written in a member's name that the member did not do.
-4. **Subjects.** Machine Learning, Image Processing and Mobile Application Development. Data Science is no longer a
-   reporting subject. The product scope is unchanged: all 33 MUST requirements, including the cohort and outlier
-   features, stay and are tested.
-5. **Reports and decks.** One report and one deck per subject, written after the product is complete and the device
-   evidence exists, without haste.
-6. **UNet** stays with Bế Quốc Khánh. If it is not trained in time, the ML report states the model comparison as an
-   unanswered question and says why.
-7. **Pace and care.** Quality before speed. There is more than a week left. Every detail is made explicit and no
-   small detail is skipped. Each unit is verified before the next one starts.
-8. **Acceptance marks.** A requirement becomes `ACCEPTED` only when the leader marks it, on committed evidence
-   (`13` §6). Project Control proposes and never marks it.
+1. **Acceptance on 2026-11-08**, replacing 2026-10-31. The leader reported that the schedule moved (about 18:45:
+   "thật ra lịch đã lùi xuống 8/11").
+2. **Single operator.** All remaining work except the final GPU runs (the UNet family) runs through the leader's
+   account and its Claude sessions, without per-member division. Source, 18:41: "Bây giờ trừ phần cần GPU chạy cuối
+   cùng, ta có thể hoàn thành toàn bộ công việc, và không cần chia cụ thể từng thành viên nữa chứ, vì mọi người sẽ
+   cùng dùng tài khoản tôi …"
+3. **Merge rule (21:55, "Tự merge tất cả").** The session merges every PR, decision records included, after an
+   independent LLM QA pass and green CI. The pass is recorded as LLM QA, never as a human review. The leader reviews
+   afterwards through `management/DAY_LOG.md` and the board. This explicitly renews the rule of the Day 22 and Day 39
+   overrides, which expired on 2026-10-18 ("No renewal by silence").
+4. **Ownership and TC-TEAM-001 (21:55, "Giữ DR-013, ghi trung thực").**
+   - Each member keeps their DR-013 function for the defense: V1 Phạm Tuấn Anh, V2 Vũ Hùng Anh, V3 Bế Quốc Khánh,
+     V4 Nguyễn Gia Đức Trung.
+   - Each evidence package states what the member built (by commit) and what agents built under the leader's account.
+     The member must study and defend the function. Each member's TC-TEAM-001 text stays the member's own (carried
+     over).
+   - The per-member revalidation tables are no longer required. *Project Control* reads this as also lifting the
+     "Vũ Hùng Anh revalidates" conditions recorded for Spikes A, B and C1, which are revalidations of the same kind.
+     The leader can say otherwise.
+   - PR-MOBILE-03 stays MUST. Where a member's own implementation is not enough for TC-TEAM-001, the package records
+     the shortfall as a limitation of TC-TEAM-001.
+5. **Nothing is written in a member's name that the member did not do.** Carried over from
+   `management/day39/RECOVERY_OVERRIDE_DAY39.md` §3 and `management/day40/ACCEPTANCE_TRACE.md`.
+6. **Subjects.** Machine Learning, Image Processing and Mobile Application Development. Data Science is dropped as a
+   reporting subject and the product scope is unchanged. Source, evening: "… bỏ môn Khoa học dữ liêu đi nhé, vẫn làm
+   đầy đủ sản phẩm, nhưng sản phẩm này tôi không dùng để báo cáo môn đó nữa". All 33 MUST requirements, including the
+   cohort and outlier features, stay and are tested.
+7. **Reports and decks.** One report and one deck per subject ("mỗi môn sẽ có 1 bản báo cáo + slides"), not rushed
+   ("về báo cáo và slides đừng làm vội nhé"). *Project Control's plan:* they are written after the product is complete
+   and the device evidence exists. The draft deck of #102 is source material only.
+8. **UNet stays with Bế Quốc Khánh.** On 2026-10-27 the leader declined the DR-016a fallback (UNet on his PC):
+   "Để Khánh, không chạy". The option text was: "Báo cáo và slide ghi UNet là hạn chế; câu hỏi UNet vs DINOv2 không
+   trả lời được khi nghiệm thu." If UNet is not trained in time, the ML report states the UNet vs DINOv2 question
+   (RQ-A) as unanswered, says why, and lists it as a limitation.
+9. **Pace and care.** Quality before speed. Source, evening: "bạn còn hơn 1 tuần cơ nên là không cần vội đâu, tôi ưu
+   tiên chất lượng hơn"; "… làm rõ từng chi tiết và làm thật cẩn thận, tỉ mỉ, đừng bỏ qua tiểu tiết nào". Two agents
+   run in parallel (about 18:45, "2 agent song song"). *Project Control:* each unit is verified before the next one
+   starts, and one heavy job runs at a time on the leader's PC.
+10. **Acceptance marks (*Project Control's own rule*).** Project Control proposes a requirement for `ACCEPTED` with
+    committed evidence (`management/day40/ACCEPTANCE_TRACE.md` §1.2) and never marks it itself. The mark is the
+    leader's.
 
-**What it does not change.** The frozen specs. The holdout rules (no access outside an authorization record; each run
-scored once). The publication policy (DR-019). The evidence rules of `management/day40/ACCEPTANCE_TRACE.md` §1.2.
-The mobile rules of DR-021.
+**What it does not change.**
+- The frozen spec files. They are not edited, and the checksums stay 19/19.
+- The holdout rules: no access outside an authorization record, and each run is scored once.
+- The publication policy (DR-019).
+- The evidence rules of `management/day40/ACCEPTANCE_TRACE.md` §1.2.
+- The mobile rules of DR-021.
+- PR-MOBILE-03 as a MUST requirement.
 
 ---
 
@@ -2099,7 +2150,7 @@ BEFORE TRAINING
   DR-011  normalization policy      →  experiment matrix
 
 BEFORE FEATURE / ACCEPTANCE
-  DR-005  3D error pipeline         →  PR-ERR-03, PR-3D-05    [DECIDED 2026-10-30: full 3D error map; Spike F not run]
+  DR-005  3D error pipeline         →  PR-ERR-03, PR-3D-05    [PARTLY DECIDED 2026-10-30: full 3D map; Spike F runs before the merge]
   DR-008b/c tolerance + mesh budget →  FR-3D-002/005 ACCEPTED [needs Spike B]
   DR-G04  GATE-IMG-01 morphology    →  EXP-D-PP
   DR-G05  GATE-MOB-01 framework     →  production mobile architecture

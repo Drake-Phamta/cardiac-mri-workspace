@@ -2,24 +2,27 @@
 
 | Mục | Giá trị |
 |---|---|
-| **Lập** | 30/10/2026 (Day 51), theo `management/day51/OPERATING_MODE_2026-10-30.md` (DR-023) |
+| **Lập** | 30/10/2026 (Day 51), theo `management/day51/OPERATING_MODE_2026-10-30.md` (DR-023). Sửa cùng ngày theo QA LLM của PR #107 (`management/day51/qa/QA_PR107_PR108_D51.md`) và các xác nhận của leader lúc 21:55 |
 | **Mục đích** | Một danh sách duy nhất, đủ từng việc còn lại tới nghiệm thu. Mỗi việc ghi nguồn, điều kiện xong (thấy được), cách kiểm và trạng thái. Không việc nào được đóng nếu chưa chạy phép kiểm và ghi bằng chứng |
-| **Cơ sở** | `main` tại `cd76112`; `management/day40/ACCEPTANCE_TRACE.md` (33 MUST, 70 TC); `docs/specs/v1.0/16` (§3 góc nhìn từng môn, §5–§7); các file QA trong `management/day39/qa/`; `mobile/DEVICE_SESSION.md` |
-| **Nhịp** | Chất lượng trước tốc độ. Tối đa 2 agent chạy song song, một việc nặng một lúc. Ngày ghi trong bảng là hạn muộn nhất, không phải mục tiêu chạy đua |
+| **Cơ sở** | `main` tại `d325136` (sau #108 và #105); `management/day40/ACCEPTANCE_TRACE.md` (33 MUST, 70 TC); `docs/specs/v1.0/16` (§3 góc nhìn từng môn, §5–§7); các tệp QA; `mobile/DEVICE_SESSION.md` |
+| **Tên tệp QA** | `QA_PRnn` là `management/day39/qa/QA_PRnn_D39.md`; `QA_PR100_103` là `management/day39/qa/QA_PR100_103_D39.md`. QA_PR95 và QA_PR96 đánh số mục 1…n, không có nhãn "NB-" |
+| **Mã dòng** | Có tiền tố `W-` để không trùng với các mã đã có trong repo: kịch bản A9, ghi chú B15 của Spike B, điều kiện C1–C8, các pha C1–C4 của REPLAN, các dòng revalidation K1–K6 và T1–T4 |
+| **Nhịp** | Chất lượng trước tốc độ. Tối đa 2 agent chạy song song; một việc nặng (build, train, dựng mesh) một lúc; giữ máy mát. Ngày ghi trong bảng là hạn muộn nhất, không phải mục tiêu chạy đua |
 
 ## 0 · Cách đọc
 
 | Trạng thái | Nghĩa |
 |---|---|
 | `MỞ` | chưa bắt đầu |
-| `ĐANG LÀM` | đang làm, ghi nhánh hoặc agent |
-| `XONG` | đã chạy phép kiểm; ghi commit, PR hoặc tệp bằng chứng |
-| `CHỜ LEADER` | cần anh quyết định hoặc thao tác |
-| `CHỜ THIẾT BỊ` | cần phiên điện thoại (chỉ anh thao tác) |
+| `ĐANG LÀM` | đang làm; ghi nhánh hoặc agent |
+| `CHỜ QA` | đã làm và tự kiểm trên một nhánh; chờ QA LLM độc lập, rồi merge |
+| `XONG` | đã chạy phép kiểm; ghi commit, PR hoặc tệp bằng chứng. Việc cài đặt trên máy, không có bằng chứng trong repo, ghi `XONG` kèm ngày kiểm |
+| `CHỜ LEADER` | cần leader quyết định hoặc thao tác |
+| `CHỜ THIẾT BỊ` | cần phiên điện thoại (chỉ leader thao tác, DR-006a) |
 | `CHỜ GPU` | cần Bế Quốc Khánh (RTX 4050) |
-| `BỎ` | không làm, kèm lý do và người quyết |
+| `BỎ` | không làm; ghi lý do và người quyết |
 
-Cách cập nhật: mỗi PR đóng việc nào thì sửa đúng dòng đó trong cùng PR. `XONG` không có nghĩa là `ACCEPTED`: chỉ anh mới chuyển một yêu cầu sang `ACCEPTED` (`13` §6).
+Cách cập nhật: PR đóng việc nào thì sửa đúng dòng đó trong cùng PR. `XONG` không có nghĩa là `ACCEPTED`. Project Control chỉ đề xuất, việc đánh dấu `ACCEPTED` là của leader (DR-023 mục 10).
 
 ---
 
@@ -27,76 +30,104 @@ Cách cập nhật: mỗi PR đóng việc nào thì sửa đúng dòng đó tro
 
 ### P1-A · V2: bản đồ lỗi 3D và liên kết 2D↔3D
 
-Agent A, nhánh `feat/v2-error-map-and-linkage`, theo DR-005 (đã quyết 30/10: làm đầy đủ).
+Agent A làm trên nhánh `feat/v2-error-map-and-linkage`. Vòng 1: `916b400`…`17a83eb`, đã đẩy lên origin, chưa có PR. Vòng 2 đang chạy.
+
+Đây là ứng viên 1 của Spike F, chưa phải quyết định cuối. Nhánh này chỉ merge sau khi Spike F có bằng chứng (DR-005; leader quyết 21:55 "Chạy Spike F trước").
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| A1 | Artifact mesh lỗi: FP = dự đoán ∧ ¬GT, FN = GT ∧ ¬dự đoán; mỗi lớp một bề mặt mặt-voxel L0 (DR-008c); mỗi mặt mang lát nguồn và lớp; ghi một lần, khóa theo sha256 của hai mask cộng phiên bản định dạng | DR-005, FR-3D-007 | Test chứng minh lớp đúng và mọi mặt nằm trên voxel đúng lớp ở lát nguồn của nó; dựng lại cho ra cùng byte | `pytest backend/mesh/tests`; mutation phép gán lớp làm test đỏ | ĐANG LÀM |
-| A2 | `build_cache` dựng mesh lỗi cho mọi run có GT, cả RAW và PROCESSED; bỏ qua case INFERENCE_REVIEW | DR-005, DR-017 | Số mesh lỗi bằng số cặp (run, variant) có GT; CASE_0001 không có mesh lỗi | test + đếm trên thư mục dữ liệu backend (ngoài git) | ĐANG LÀM |
-| A3 | `error_reconstruction_get` trả đủ trường của contract; `GROUND_TRUTH_UNAVAILABLE` cho INT-12; `ARTIFACT_NOT_FOUND` chỉ khi thật sự thiếu; byte đi qua route theo nội dung, có checksum. Test cũ "honestly unavailable while DR-005 is open" được thay bằng test hành vi mới, không xóa im lặng | contract 1.1.0; FR-3D-007 | Test endpoint đạt; test contract API đạt | `pytest backend/tests`; `python contracts/api/test_api_contract.py` | ĐANG LÀM |
-| A4 | SCR-05 có 4 lớp GT / dự đoán / FP / FN, nhãn chữ và chú giải (không chỉ dựa vào màu), bật/tắt từng lớp | PR-ERR-03, PR-3D-05, spec `10` | Render thấy đủ 4 nhãn và chú giải; mỗi lớp bật/tắt độc lập | `npm test`; `npm run test:render` | ĐANG LÀM |
-| A5 | 2D→3D: dải "lát n / tổng" theo lát 2D lúc mở, lúc quay lại từ SCR-03/SCR-04 (QA_PR98 N-6) và khi kéo slider trong SCR-05 | PR-3D-03, TC-3D-003 | Test khứ hồi: đổi lát trong 2D rồi quay lại, dải nằm ở lát mới | `npm test` | ĐANG LÀM |
-| A6 | 3D→2D: chạm, lấy mặt trúng đầu tiên, ra lát nguồn và lớp. "Mở 2D" sang SCR-03 đúng lát; mặt FP/FN có thêm "Mở lỗi" sang SCR-04 đúng lát | PR-3D-04, FR-3D-008, TC-3D-004/005 | Test điều hướng đạt | `npm test`; mutation ánh xạ chạm → lát làm test đỏ | ĐANG LÀM |
-| A7 | Mỗi lớp có trạng thái riêng: đang tải / không khả dụng (lý do API) / lỗi / thành công. Thiếu mesh lỗi không làm hỏng các bề mặt khác | PR-MOBILE-02 | Mỗi trạng thái có một test | `npm test` | ĐANG LÀM |
-| A8 | Viewer không gọi mạng (QA_PR98 N-4: thêm assertion) và không giải mã một mesh hai lần (N-5) | QA_PR98 | Hai test mới đạt | `npm test` | ĐANG LÀM |
-| A9 | `MeshStore` tự từ chối sidecar có nguồn là GT của INT-12 | QA_PR98 N-9 | Test đạt | `pytest backend/tests` | ĐANG LÀM |
-| A10 | E2E H6/H7 mở rộng: byte và checksum của mesh FP/FN; mặt FP được chọn nằm trên voxel dự đoán = 1, GT = 0 trong PNG phục vụ; FN tương tự | TC-3D-005, `DEMO_STANDARD` §3 | `hero_flow_api.py` PASS trên CASE_0042 và thêm một case | backend local; đầu ra lưu ngoài git | ĐANG LÀM |
-| A11 | Dựng mesh lỗi vào thư mục dữ liệu backend (ngoài git), ghi kích thước và thời gian dựng | DR-005 | Có số kích thước và thời gian trong báo cáo của agent | — | ĐANG LÀM |
-| A12 | Ghi lệch hợp đồng: route mesh và định dạng id mesh lỗi chỉ nằm trong `contracts/api/README.md`; không nâng phiên bản API trước nghiệm thu | QA_PR98 N-8 | README nêu rõ lệch và lý do | đọc lại | ĐANG LÀM |
+| W-A1 | Artifact mesh lỗi. FP = dự đoán ∧ ¬GT, FN = GT ∧ ¬dự đoán; mỗi lớp là một bề mặt mặt-voxel L0 (DR-008c). Mỗi mặt mang lát nguồn và lớp. Ghi một lần, khóa theo sha256 của hai mask cộng phiên bản định dạng | DR-005, FR-3D-007 | Test chứng minh lớp đúng, mọi mặt nằm trên voxel đúng lớp ở lát nguồn của nó, và dựng lại cho ra cùng byte. Fixture TP/FP/FN theo `13` §11 là việc W-F1 | `pytest backend/mesh/tests`; mutation phép gán lớp làm test đỏ | CHỜ QA (vòng 1) |
+| W-A2 | `build_cache` dựng mesh lỗi cho mọi run có GT, cả RAW và PROCESSED; bỏ qua case INFERENCE_REVIEW | DR-005, DR-017 | Số mesh lỗi bằng số cặp (run, variant) có GT; CASE_0001 không có mesh lỗi | test; đếm trên thư mục dữ liệu backend (ngoài git) | CHỜ QA (vòng 1) |
+| W-A3 | `error_reconstruction_get` trả đủ trường của contract: `GROUND_TRUTH_UNAVAILABLE` cho INT-12, `ARTIFACT_NOT_FOUND` chỉ khi thật sự thiếu, byte đi qua route theo nội dung và có checksum. Test cũ "honestly unavailable while DR-005 is open" được thay bằng test hành vi mới, không xóa im lặng | contract 1.1.0; FR-3D-007 | Test endpoint và test contract API đạt | `pytest backend/tests`; `python contracts/api/test_api_contract.py` | CHỜ QA (vòng 1) |
+| W-A4 | SCR-05 có 4 lớp GT / dự đoán / FP / FN, bật tắt từng lớp, có nhãn chữ và chú giải không chỉ dựa vào màu (`10` §7) | PR-ERR-03, PR-3D-05 | Render thấy đủ 4 nhãn và chú giải; mỗi lớp bật tắt độc lập | `npm test`; `npm run test:render` | CHỜ QA (vòng 1) |
+| W-A5 | 2D→3D: dải "lát n / tổng" theo lát 2D lúc mở SCR-05, lúc quay lại từ SCR-03/SCR-04 (QA_PR98 N-6) và khi kéo slider trong SCR-05 | PR-3D-03, TC-3D-003 | Test khứ hồi: đổi lát trong 2D rồi quay lại, dải nằm ở lát mới | `npm test`; render V2N3/V2N4 | CHỜ QA (vòng 1) |
+| W-A6 | 3D→2D: chạm thì lấy mặt trúng đầu tiên, ra lát nguồn và lớp. "Mở 2D" sang SCR-03 đúng lát; mặt FP/FN có thêm "Mở lỗi" sang SCR-04 đúng lát. Chạm vào nền không điều hướng đi đâu, và không vẽ điểm sáng chính xác hơn mức phép chiếu cho phép (`10` §6) | PR-3D-04, FR-3D-008, TC-3D-004/005 | Test điều hướng đạt, kể cả chạm nền | `npm test`; mutation ánh xạ chạm → lát làm test đỏ | CHỜ QA (vòng 1) |
+| W-A7 | Mỗi lớp có trạng thái riêng theo PR-MOBILE-02: đang tải, đang xử lý (nếu có), không khả dụng (kèm lý do API), lỗi, thử lại, thành công. Thiếu mesh lỗi không làm hỏng các bề mặt khác | PR-MOBILE-02, TC-MOBILE-STATE-001 | Mỗi trạng thái có một test | `npm test`; render | CHỜ QA (vòng 1) |
+| W-A8 | Viewer không gọi mạng (QA_PR98 N-4, thêm assertion) và không giải mã một mesh hai lần (N-5) | QA_PR98 N-4, N-5 | Hai test mới đạt | `npm test` | CHỜ QA (vòng 1) |
+| W-A9 | `MeshStore` tự từ chối sidecar có nguồn là GT của INT-12 | QA_PR98 N-9 | Test đạt | `pytest backend/tests` | CHỜ QA (vòng 1) |
+| W-A10 | E2E H6.e/H7.e: byte và checksum của mesh FP/FN; mặt FP được chọn nằm trên voxel có dự đoán = 1 và GT = 0 trong PNG được phục vụ; FN tương tự | TC-3D-005, `DEMO_STANDARD` §3 | `hero_flow_api.py` PASS trên CASE_0042 và hai case khác | backend local; đầu ra lưu ngoài git | CHỜ QA (vòng 1) |
+| W-A11 | Kích thước và thời gian dựng mesh lỗi trên dữ liệu thật | DR-005; Spike F F1, F9 | Số liệu (min/median/max) được ghi trong mô tả PR và trong kết quả Spike F | đối chiếu với thư mục dữ liệu backend (ngoài git) | CHỜ QA (vòng 1) |
+| W-A12 | Ghi rõ lệch hợp đồng: route mesh và định dạng id mesh lỗi chỉ nằm trong `contracts/api/README.md`; không nâng phiên bản API trước nghiệm thu | QA_PR98 N-8 | README nêu lệch và lý do | đọc lại | CHỜ QA (vòng 1) |
+| W-A13 | Chạm vào FP/FN thì chọn cả vùng lỗi liên thông (26-liên thông như `backend/mesh/error_geometry.py`): hiện các lát đóng góp, bước qua từng lát, mở SCR-03/SCR-04 ở lát đã chọn | FR-3D-008, UC-09, `10` SCR-05 | Test Python so với scipy (có ca chéo góc 6 vs 26); test mobile; mutation; E2E flood-fill độc lập trên 3 case | `pytest`; `npm test`; E2E | ĐANG LÀM (vòng 2) |
+| W-A14 | Từ pick 3D sang 2D: đánh dấu đúng điểm ảnh (cột, hàng) của voxel trúng; không đánh dấu khi vị trí không chắc | `10` §6 | Test marker đúng điểm ảnh; test không có marker khi vào từ SCR-02 | `npm test`; render | ĐANG LÀM (vòng 2) |
+| W-A15 | Nút ◀ ▶ ở SCR-05 không bao giờ là nút chết khi chưa có mặt cắt | PR-MOBILE-02 | Test hành vi đã chọn | `npm test` | ĐANG LÀM (vòng 2) |
+| W-A16 | Gửi mesh vào WebView theo khúc có giới hạn, kiểm độ dài và sha256 trước khi giải mã; lớp đang tắt (GT) không tải cho tới khi được bật | rủi ro thiết bị (mesh tới 9 MB) | Test cho thiếu, trùng, sai thứ tự và quá cỡ khúc; test tải lười | `npm test` | ĐANG LÀM (vòng 2) |
+| W-A17 | Việc nhỏ: chữ cũ trong `contract.json` (theo luật phiên bản của README), bảng màu FP/FN tách rõ, ghi cách hiểu UC-09 "overlap", ghi chú MAX_PATH | QA của vòng 1 | README và test cập nhật | đọc lại | ĐANG LÀM (vòng 2) |
 
 ### P1-B · Tồn đọng QA và PR của Khánh
 
-Agent B, nhánh `fix/qa-backlog-d51`.
+Agent B làm trên nhánh `fix/qa-backlog-d51`, 19 commit, head `6a08de3`, đã đẩy lên origin. QA LLM độc lập đang chạy.
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| B1 | #106: tìm nguyên nhân gốc của job CI đỏ "backend tests" | #106 | Có nguyên nhân gốc kèm dòng log; job xanh khi chạy lại | log CI | Nguyên nhân gốc đã tìm ra ngày 30/10: `ubuntu-latest` đã chuyển sang Ubuntu 26.04, không có CPython 3.9 cho `setup-python` (job đỏ cả ở #107 chỉ có tài liệu). Không phải lỗi code của #106. Sửa ở #108 (ghim job về `ubuntu-24.04`; CI xanh: CPython 3.9.25, backend 111 đạt, mesh 119 đạt + 1 bỏ qua). Chờ QA rồi merge, sau đó chạy lại CI của #106 |
-| B2 | Rà diff của #106 (V3 app + mobile, evidence, che thông tin trong RESULT Spike D) và #105 (bảng revalidation) | #105, #106 | Danh sách lỗi, hoặc ghi "không có lỗi" kèm phạm vi đã đọc | đọc diff | ĐANG LÀM |
-| B3 | V4: Refresh khi phiên bản mới nhất đã đổi | QA_PR99 NB-2 | Có test cho nhánh mất dữ liệu | `node app/verticals/v4_review_and_findings/test_*.mjs` | ĐANG LÀM |
-| B4 | V4 live: kiểm `prediction_mask_id` theo artifact id của run (như E2E H8) | QA_PR99 NB-3 | Test; README đúng với code | như trên | ĐANG LÀM |
-| B5 | V4: các lệnh đọc dùng `client.call` hay `useCall` phải khớp README (DR-021 rule 2) | QA_PR99 NB-4 | README đúng, hoặc lệnh đọc chuyển sang `useCall` | test + đọc lại | ĐANG LÀM |
-| B6 | V4 live: `caseId` của route phải khớp `case_id` của run | QA_PR99 NB-5 | Test | `npm test` | ĐANG LÀM |
-| B7 | `mobile/README.md` mô tả render smoke có V4 và số đếm mới | QA_PR99 NB-6 | README đúng | đọc lại | ĐANG LÀM |
-| B8 | Test tie-break của `latestVersion` | QA_PR99 NB-7 | Mutation `>=` thành `>` làm test đỏ | mutation | ĐANG LÀM |
-| B9 | `record_path` không được trỏ ra ngoài repo | QA_PR94 NB-3 | Test từ chối `..` | `pytest backend/tests` | ĐANG LÀM |
-| B10 | Hai câu đã cũ (README Contract 2 dòng 96; exporter) | QA_PR94 NB-4 | Chữ đúng với code | đọc lại | ĐANG LÀM |
-| B11 | `successful_n` khi ML ghi case INT-12 là failed | QA_PR94 NB-5 | Test hoặc ghi rõ quy tắc | `pytest` | ĐANG LÀM |
-| B12 | Validator: kiểm nốt `experiment_id` của `outlier_selection` (N-c mới đóng một nửa) | QA_PR94 NB-6 | Test | `python contracts/api/test_api_contract.py` | ĐANG LÀM |
-| B13 | Dàn lại dòng dài trong validator | QA_PR94 NB-7 | — | đọc lại | ĐANG LÀM |
-| B14 | `authorized_runs`: từ chối `experiment_id` trùng; so run được phục vụ với `authorized_runs` | QA_PR98 N-7 | Test | `pytest backend/tests` | ĐANG LÀM |
-| B15 | Công cụ: #100 pipeline kiểm bản ghi cho phép đã nằm trên `origin/main` (không chỉ ở máy); #101 deploy `-SkipData -ShipPackages` khi DataCache rỗng báo lỗi rõ, kiểm mã thoát của `tar -tzf`; #102 quét rò rỉ trước khi ghi file; #103 các mục còn lại | QA_PR100_103 | Mỗi mục có test hoặc phép kiểm PowerShell | test + parse `.ps1` | ĐANG LÀM |
-| B16 | V1/V3: các mục không chặn còn lại (không thuộc V2) | QA_PR88, QA_PR90 | Mỗi mục có test hoặc lý do bỏ | test | ĐANG LÀM |
+| W-B1 | #106: nguyên nhân gốc của job CI đỏ "backend tests" | #106 | Có nguyên nhân gốc kèm dòng log; job xanh | log CI | XONG. `ubuntu-latest` đã sang Ubuntu 26.04, bản này không có CPython 3.9. #108 ghim job về `ubuntu-24.04`, merge `5232f52` |
+| W-B2 | Rà #105 và #106 | #105, #106 | Danh sách lỗi, hoặc "không có lỗi" kèm phạm vi đã đọc | QA LLM | XONG: `management/day51/qa/QA_PR105_PR106_D51.md`. #105 merge `d325136`; #106 còn 3 việc phải sửa (W-B17) |
+| W-B3 | V4: Refresh khi phiên bản mới nhất đã đổi | QA_PR99 NB-2 | Có test cho nhánh có nguy cơ mất dữ liệu | `npm test` (`mobile/test/v4_review_screen.test.mjs`) | CHỜ QA (`2d440ff`) |
+| W-B4 | V4 live: kiểm `prediction_mask_id` theo artifact id của run, như E2E H8 | QA_PR99 NB-3 | Test; README đúng với code | `npm test`; render | CHỜ QA (`e621213`) |
+| W-B5 | V4: lệnh đọc dùng `client.call` hay `useCall` phải khớp README (DR-021 luật 2) | QA_PR99 NB-4 | README đúng; các lệnh đọc nhận tín hiệu hủy | `npm test` | CHỜ QA (`e49e043`) |
+| W-B6 | V4 live: `caseId` của route phải khớp `case_id` của run | QA_PR99 NB-5 | Test | `npm test` | CHỜ QA (`e621213`) |
+| W-B7 | `mobile/README.md` mô tả render smoke có V4 và số đếm mới | QA_PR99 NB-6 | README đúng | đọc lại | CHỜ QA (`846470c`) |
+| W-B8 | Test tie-break của `latestVersion` | QA_PR99 NB-7 | Mutation `>=` → `>` làm test đỏ | mutation | CHỜ QA (`2d440ff`) |
+| W-B9 | `record_path` không được trỏ ra ngoài repo | QA_PR94 NB-3 | Test từ chối `..`, ổ đĩa, đường dẫn gốc | `pytest backend/tests` | CHỜ QA (`8110e75`) |
+| W-B10 | Hai câu đã cũ: `contracts/ingestion/contract2_experiment_artifact/README.md` dòng 96 và `backend/README.md` dòng 251 | QA_PR94 NB-4 | Chữ đúng với code | đọc lại | CHỜ QA (`f43afe6`) |
+| W-B11 | `successful_n` khi ML ghi case INT-12 là failed | QA_PR94 NB-5 | Test ghim quy tắc | `pytest backend/tests` | CHỜ QA (`f43afe6`) |
+| W-B12 | Validator kiểm nốt `experiment_id` của `outlier_selection` | QA_PR94 NB-6 | Test | `python contracts/api/test_api_contract.py` | CHỜ QA (`6a213b6`) |
+| W-B13 | Dàn lại dòng dài trong validator | QA_PR94 NB-7 | Dòng đã dàn lại, test validator vẫn đạt | `python contracts/api/test_api_contract.py` | CHỜ QA (`6a213b6`) |
+| W-B14 | `authorized_runs`: từ chối `experiment_id` trùng hoặc có khoảng trắng; run có trong bản ghi nhưng checkpoint khác thì bị từ chối | QA_PR98 N-7 | Test | `pytest backend/tests` | CHỜ QA (`8110e75`). Phần "run không có trong bản ghi" chuyển sang W-C16 |
+| W-B15a | #100: pipeline đòi bản ghi cho phép phải nằm trên `origin/main`; khoảng trắng `ROOT =Path`; README ML cũ | QA_PR100_103 #100 NB-1, NB-4, NB-5 | Test với repo git tạm | `pytest ml/tests` | CHỜ QA (`029936a`, `8ea50ec`) |
+| W-B15b | #101: `-SkipData -ShipPackages` khi DataCache rỗng báo lỗi trước ssh; kiểm mã thoát của `tar -tzf`; quét `.nii`; README; nhãn biểu đồ không đè nhau | QA_PR100_103 #101 NB-1, NB-2, NB-4, NB-5 | 12 test chạy script thật với ssh/scp giả; test trang kết quả | `pytest backend/tests` (Windows); `pytest ml/tests` | CHỜ QA (`8ea50ec`, `06896e2`) |
+| W-B15c | #102: quét rò rỉ trước khi ghi vào `--out` | QA_PR100_103 #102 NB-1 | Bản dựng lỗi không đụng `--out` | report self-test | CHỜ QA (`e1d576d`) |
+| W-B15d | #103: câu hỏi SCR-06 mặc định "Không" khi bấm Enter; đường dẫn 8.3; fixture che IP nằm ngoài dải mặc định của ZeroTier | QA_PR100_103 #103 NB-1, NB-2 | Self-test 34/34; Pester | self-test; Pester | CHỜ QA (`67f0dfa`, `6a08de3`) |
+| W-B16 | V1/V3/shell: QA_PR88 N-1 (returnParams SCR-06), N-2 (watchdog cho render smoke), N-3 (guard không dứt), N-4 (ghi rõ); QA_PR87 N-6; QA_PR90 N-1, N-2, N-3, N-4 | QA_PR87, QA_PR88, QA_PR90 | Mỗi mục có test hoặc ghi rõ lý do | `npm test`; render; `pytest` | CHỜ QA (`be9283c`, `59d37fb`, `1c09812`, `f75f19a`) |
+| W-B17 | Sửa #106 ngay trên nhánh của Khánh (thêm commit, không viết lại lịch sử, ghi rõ do phiên leader sửa theo DR-023): test V3S10 phải kiểm thật; test cấp màn hình cho dòng tóm tắt SCR-01 (cả nhánh trung bình và "không có tóm tắt"); bỏ đường dẫn máy trong `TC_TEAM_001_BE_QUOC_KHANH.md`; thay `replaceAll` | QA_PR105_PR106 N-1, N-2, N-4, N-5; leader 21:55 | Mutation làm test đỏ; quét thấy không còn đường dẫn; QA phần sửa đạt; CI xanh; merge | `npm test`; render; QA LLM | MỞ |
 
-### P1-C · Sau khi A và B xong
+### P1-C · Tích hợp, QA và các việc sản phẩm còn lại
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| C1 | QA LLM độc lập cho nhánh A; sửa phát hiện; PR; CI xanh; merge | DR-023 | PR merge, có file QA trong `management/day51/qa/` | CI + QA | MỞ |
-| C2 | QA LLM cho nhánh B; PR; merge. #106: đẩy `fix/pr106-ci` thành PR nối tiếp (hoặc nhờ Khánh lấy), rồi merge #106 sau QA; merge #105 | DR-023 | #105, #106 và nhánh B nằm trên `main` | CI + QA | MỞ |
-| C3 | **Sổ QA**: liệt kê mọi phát hiện không chặn trong `management/day22/`…`day39/` (`qa/`, `QA_REVIEW_*`), kiểm từng mục trên `main`: đã sửa (commit), còn mở, hay chấp nhận có lý do | "đừng bỏ qua tiểu tiết" | `management/day51/QA_REGISTER.md` đủ từng mục | đối chiếu code | MỞ |
-| C4 | Sửa các mục còn mở trong sổ QA mà A và B không làm. Đã biết: QA_PR92 NB-1 (run dẫn xuất tin manifest của chính nó), NB-2 (exporter đặt checkpoint trước khi kiểm bản ghi cho phép); QA_PR98 N-2 (`--only-binary` cho scipy), N-3 (chú thích job CI); QA_PR87 N-1 (bộ quét IPv4 bỏ sót), N-3 (`timeout-minutes`); QA_PR95 NB-1…NB-7 (E2E); QA_PR96 NB-1…NB-5 (chữ trong tài liệu kết quả); QA_PR94 NB-1, NB-2 | C3 | Mỗi mục có test, hoặc lý do bỏ được anh duyệt | test | MỞ |
-| C5 | PR-EXP-04 trên app: ở live mode SCR-07 hiện ô EXP-D-PP cạnh EXP-D-100, ghi rõ "ablation hậu xử lý, cùng checkpoint", không bao giờ ghi là so sánh giữa mô hình. Thêm kịch bản generator phục vụ EXP-D-PP là PROCESSED để test được | PR-EXP-04, PR-IMG-01, QA_PR94 NB-8, V3 README mục 2 | Test render thấy ô ablation có nhãn đúng; ô so sánh RAW với PROCESSED vẫn là `comparable:false` | `npm run test:render`; V3 test | MỞ |
-| C6 | PR-EXP-02 mức case: xác định phần so sánh cặp theo case còn thiếu (V3 README mục 3), làm và test | PR-EXP-02, TC-EXP-006/007 | Chạm một điểm của cặp mở đúng case; có test | V3 test + render | MỞ |
-| C7 | Test opacity: đổi opacity không đổi hình học mask | TC-MASK-003 | Test đạt; mutation làm đỏ | `npm test` | MỞ |
-| C8 | Client hiện trạng thái không khả dụng khi lệch phiên bản hình học | TC-REL-003 | Test đạt | `npm test` | MỞ |
-| C9 | Quét bí mật toàn repo và bundle mobile (hiện CI chỉ quét tệp thêm vào) | TC-SEC-004 | Job CI xanh và bắt được mẫu cài thử | CI | MỞ |
-| C10 | Bản đồ module và ranh giới tích hợp | TC-MAINT-001 | Có tệp, mỗi module trỏ tới code và test | đọc lại | MỞ |
-| C11 | Code mobile chạy trực tiếp fixture hình học chuẩn | TC-MAINT-002, INT-13 | Test mobile đọc fixture chuẩn và khớp | `npm test` | MỞ |
-| C12 | Mac mini: bật máy và kiểm ssh; deploy `-ShipPackages` có mesh lỗi; chạy E2E `--no-writes` lên Mac mini | DR-022; `backend/scripts/deploy_macmini.ps1` | `/health` ok; E2E không FAIL | E2E | CHỜ LEADER. Kiểm 30/10 tối: ZeroTier trên PC ONLINE, 3 mạng OK, có địa chỉ và route của mạng Mac mini; Mac mini không trả lời ARP trên overlay, ping từ địa chỉ overlay báo host unreachable, cổng 22 và 8000 đóng; trong danh sách peer có một máy bản 1.16.1 không có đường kết nối nào. Lỗi nằm ở phía Mac mini (tắt/ngủ, dịch vụ ZeroTier dừng, mất mạng hoặc bị gỡ quyền) |
-| C13 | E2E đầy đủ ở local sau khi merge: mọi bước PASS, trừ bước UNet | `tools/e2e/hero_flow_api.py` | Cập nhật `E2E_EVIDENCE` mới (chỉ số đếm và tóm tắt) | E2E | MỞ |
-| C14 | Build APK release live từ `main` cuối, ghi commit và sha256 trong `.build.txt` | `mobile/scripts/build-release.ps1` | APK và bản ghi build cho phiên 2 | `device_session.ps1 -DryRun` | MỞ |
-| C15 | Kịch bản phiên 2: mỗi TC thiết bị có các bước và tiêu chí PASS viết sẵn (mở rộng `device_session.ps1` hoặc tài liệu đi kèm): TC-PERF-002, TC-PERF-003, TC-3D-002…005, TC-REV-002…005, TC-REL-002, TC-MOBILE-STATE-001, TC-USAB-001/003/004, TC-MODE-001 trên INT-12, TC-SEC-003, TC-E2E-001, TC-USAB-005 | ACCEPTANCE_TRACE §3 | Kịch bản có bản tự kiểm không cần điện thoại (`-SelfTest`, điện thoại giả) | Pester + SelfTest | MỞ |
+| W-C1 | QA LLM độc lập cho nhánh A (sau vòng 2); sửa các phát hiện; mở PR; CI xanh; merge sau khi Spike F có bằng chứng | DR-023, DR-005 | PR được merge; tệp QA nằm trong `management/day51/qa/` | CI + QA | MỞ |
+| W-C2 | QA LLM cho nhánh B; sửa phát hiện; PR; merge. #105 đã merge; #106 xem W-B17. Nhánh nháp `fix/pr106-ci` trùng với #108 nên không dùng | DR-023 | Nhánh B nằm trên `main` | CI + QA | ĐANG LÀM (QA) |
+| W-C3 | **Sổ QA**: liệt kê mọi phát hiện trong cả 58 tệp QA từ `management/day03/` tới `day39/` (`qa/`, `QA_REVIEW_*`, kể cả các tệp ngày 3, 6, 8, 9). Kiểm từng mục trên `main`: đã sửa (commit), còn mở, hay chấp nhận có lý do. Danh sách trích tự động có 708 dòng làm bảng kiểm | "đừng bỏ qua tiểu tiết" | `management/day51/QA_REGISTER.md` đủ từng mục; số mục mỗi tệp khớp với bảng trích, chỗ lệch có giải thích | đối chiếu code | MỞ |
+| W-C4 | Sửa các mục còn mở trong sổ QA mà A và B không làm. Các mục đã biết là ứng viên cho W-C3: QA_PR92 NB-1 (run dẫn xuất tin manifest của chính nó), NB-2 (exporter đặt checkpoint trước khi kiểm bản ghi); QA_PR95 mục 1–7 (E2E, làm sau khi nhánh A merge vì cùng tệp); QA_PR100_103 #100 NB-2 (trạng thái `partial` không gắn với bản ghi), #103 NB-3. Đã đóng, không làm lại: QA_PR96 mục 1–5 (`06c1b2d`), QA_PR94 NB-1/NB-2 (#98) | W-C3 | Mỗi mục có test, hoặc lý do bỏ được leader duyệt | test | MỞ |
+| W-C5 | PR-EXP-04 trên app: ở live mode SCR-07 hiện ô EXP-D-PP cạnh EXP-D-100, ghi rõ "ablation hậu xử lý, cùng checkpoint", không bao giờ gọi là so sánh giữa mô hình. Thêm kịch bản generator phục vụ EXP-D-PP là PROCESSED để test được | PR-EXP-04, PR-IMG-01, QA_PR94 NB-8, mục 2 trong danh sách "TODO for Khánh" của README V3 | Test render thấy ô ablation với nhãn đúng; ô so sánh RAW với PROCESSED vẫn là `comparable:false` | `npm run test:render`; test V3 | MỞ |
+| W-C6 | PR-EXP-02 mức case: xác định phần so sánh cặp theo case còn thiếu (mục 3 trong "TODO for Khánh" của README V3), làm và test | PR-EXP-02, TC-EXP-006/007 | Chạm một điểm của cặp thì mở đúng case; có test | test V3; render | MỞ |
+| W-C7 | Test opacity: đổi opacity không đổi hình học mask | TC-MASK-003 | Test đạt; mutation làm đỏ | `npm test` | MỞ |
+| W-C8 | Client hiện trạng thái không khả dụng khi lệch phiên bản hình học | TC-REL-003 | Test đạt | `npm test` | MỞ |
+| W-C9 | Quét bí mật toàn repo và bundle mobile (CI hiện chỉ quét các dòng thêm vào) | TC-SEC-004 | Job CI xanh và bắt được mẫu cài thử | CI | MỞ |
+| W-C10 | Bản đồ module và ranh giới tích hợp, kèm danh sách tệp nhạy cảm khi tích hợp và cách kiểm va chạm | TC-MAINT-001 | Có tệp; mỗi module trỏ tới code và test | đọc lại | MỞ |
+| W-C11 | Code mobile chạy trực tiếp fixture hình học chuẩn | TC-MAINT-002, INT-13 | Test mobile đọc fixture chuẩn và khớp | `npm test` | MỞ |
+| W-C12 | Mac mini: kiểm ssh và `/health`; deploy `-ShipPackages` có mesh lỗi, không gửi `checkpoints/best.pt` (QA_PR100_103 #101 NB-3); chạy E2E `--no-writes` lên Mac mini | DR-022; `backend/scripts/deploy_macmini.ps1` | `/health` ok; E2E không FAIL | E2E | CHỜ LEADER. Tối 30/10 Mac mini không trả lời qua mạng overlay, phía PC đã kiểm ổn. Nguyên nhân phía Mac mini chưa rõ; leader cần bật máy |
+| W-C13 | E2E đầy đủ ở local sau khi merge: mọi bước PASS, trừ bước UNet | `tools/e2e/hero_flow_api.py` | Cập nhật `E2E_EVIDENCE` mới, chỉ gồm số đếm và tóm tắt | E2E | MỞ |
+| W-C14 | Build APK release live từ `main` cuối; ghi commit và sha256 trong `.build.txt` | `mobile/scripts/build-release.ps1` | APK và bản ghi build cho phiên 2 | `device_session.ps1 -DryRun` | MỞ |
+| W-C15 | Kịch bản phiên 2, cùng danh sách với W-D3: mỗi TC thiết bị có các bước và tiêu chí PASS viết sẵn. Gồm TC-PERF-001/002/003, TC-3D-002…005 (có vùng FN mỏng và nhỏ), TC-REV-002…005, TC-USAB-001/002/003/004, TC-REL-002, TC-MOBILE-STATE-001, TC-MODE-001 / TC-CASE-002 / TC-MASK-002 trên CASE_0001, TC-SEC-003, TC-E2E-001, TC-USAB-005, và phần thiết bị của Spike F (W-F3) | ACCEPTANCE_TRACE §3 | Kịch bản có bản tự kiểm không cần điện thoại (`-SelfTest`, điện thoại giả) | Pester + SelfTest | MỞ |
+| W-C16 | Backend nhận nhiều bản ghi cho phép holdout (Day 39 cho DINOv2, sau này một bản cho UNet). Run không có trong bản ghi nào thì bị từ chối, đúng luật "không truy cập holdout ngoài bản ghi" | QA_PR98 N-7; luật holdout | Test; dữ liệu thật vẫn nạp đủ (chỉ kiểm metadata) | `pytest backend/tests` | MỞ |
+| W-C17 | CI: chú thích có điều kiện bỏ ghim 3.9 và sửa chú thích node đã sai (QA_PR107_108 #108 N-1, N-2); action Node 20 hết hạn (N-4); ghim node/python cho các job dùng bản có sẵn trên máy chạy (N-7); `--only-binary` cho scipy (QA_PR98 N-2); tên và chú thích job còn ghi "Contract 11 v1.0.0" (N-3); bộ quét IPv4 bỏ sót và `timeout-minutes` (QA_PR87 N-1…N-4, QA_PR88 N-2); dòng pip dài (QA_PR100_103 #100 NB-3) | các QA đã nêu | Mỗi mục có thay đổi hoặc lý do; CI xanh | CI | MỞ |
+| W-C18 | Bảng tiến độ GitHub Pages cho Day 51: `docs/index.html` còn ghi "31/10" và "quy trình thường quay lại". Dựng lại bằng công cụ bảng sau khi tệp trạng thái đã cập nhật | QA_PR107_108 N-13; luật chia sẻ cho nhóm | Trang Pages trả 200 và ghi đúng 08/11, DR-023 | mở trang | MỞ |
+| W-C19 | Điều kiện C6: SPIKE_D đã ACCEPTED, nhưng mọi header mang hình học mặc định, nên tính thẳng trục chỉ đúng ở mức header. Đóng C6 kèm giới hạn này, hoặc để mở | `PROJECT_STATE.yaml` C6 | Leader quyết; trạng thái cập nhật | — | CHỜ LEADER |
 
 ---
 
-## P2 · Bằng chứng thiết bị (anh thao tác điện thoại)
+## P1-F · Spike F: so sánh cách biểu diễn lỗi 3D (leader quyết 21:55: chạy trước khi merge bản đồ lỗi)
+
+Theo `management/spikes/SPIKE_F_3D_ERROR/TASK.md`, 12 tiêu chí F1–F12. Agent không bịa số đo trên thiết bị và không tự đánh giá mức dễ đọc (TASK, "What Claude may NOT fabricate"). Chủ ghi trong hồ sơ là Vũ Hùng Anh (DR-013), không được hỏi vì không hoạt động từ 03/10. Review là một lượt QA LLM độc lập, vì leader thao tác thiết bị (DR-006a).
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| D1 | **Phiên 1 (tối 30/10)**: `device_session.ps1`, gồm TC-PERF-001 ×3 (MRI + GT, CASE_0061), tour SCR-01…SCR-08 (CASE_0042), chấm T1–T4. Điều kiện: Mac mini bật và `/health` ok; ZeroTier trên điện thoại DIRECT; APK live hiện có | `mobile/DEVICE_SESSION.md`; `mobile/A9_TC_PERF_001_SCRIPT.md` | Có `SUMMARY.md` và PROVENANCE đã điền; các file thuộc cột "có" được commit | verdict của script; quét an toàn | CHỜ LEADER |
-| D2 | Đối chiếu log server của phiên 1 (A9 §4.4: `requests.jsonl`, `uvicorn.log`, `summarize_request_log.py`) | A9 §4.4 | Số request khớp với log điện thoại | script tóm tắt | MỞ |
-| D3 | **Phiên 2 (bản build cuối, chậm nhất 03/11)**, theo C15: ảnh mọi màn hình ở mọi trạng thái chính; TC-PERF-001 ×3; TC-PERF-002 (SCR-05 4 lớp, mesh case holdout); TC-PERF-003 (brush 576×576); TC-3D-002…005; TC-REV-002…005; TC-USAB-002; TC-REL-002 (ngắt mạng giữa lúc lưu); TC-MODE-001 / TC-CASE-002 / TC-MASK-002 trên CASE_0001; ma trận trạng thái từng màn hình (TC-MOBILE-STATE-001); TC-USAB-001/003/004; kiểm log thật (TC-SEC-003) | ACCEPTANCE_TRACE §3; DEMO_STANDARD D1, D5 | Mỗi TC có tệp thô và verdict; không lần đo nào bị loại | verdict của script | CHỜ THIẾT BỊ |
-| D4 | TC-E2E-001: một lượt hero flow H1–H10 quay liên tục trên A17. TC-USAB-005: 5 lượt liên tiếp thành công trên cùng bản build, log đã che được commit | `13` §13 | Video (ngoài git) và log đã che (trong git) | tiêu chí PASS của kịch bản | CHỜ THIẾT BỊ |
+| W-F1 | Phần không cần thiết bị. Fixture TP/FP/FN tổng hợp trong `tests/fixtures/error_masks/` (số đếm, Dice, IoU biết trước, theo `13` §11). Pipeline trong `spikes/spike_f_3d_error/` cho ba ứng viên: (1) mesh FP/FN riêng (cách của nhánh A); (2) một bề mặt LA phân lớp lỗi theo mặt; (3) bề mặt + điểm đánh dấu cho từng vùng FP/FN liên thông, mang dải lát. Đo F1, F3, F4, F5, F6, F9, F10 trên fixture và trên một case validation chọn theo luật khai trước | TASK F1–F6, F9, F10 | Bảng chi phí máy đọc được; test tất định; giới hạn ±1 lát giữ nguyên | `pytest`; QA LLM | MỞ |
+| W-F2 | Bộ đo trên thiết bị, loại dùng xong bỏ: một trang dựng từng ứng viên trong Chrome trên A17 qua `adb reverse`, không cần APK hay Mac mini. Đo FPS (F8) và tỉ lệ chọn vùng thành công (F7), chụp ảnh cho F2. Có bản tự kiểm không cần điện thoại | TASK F2, F7, F8 | Self-test đạt; script cho leader chạy | self-test | MỞ |
+| W-F3 | Phiên thiết bị của Spike F (leader): chạy W-F2; leader tự đánh giá F2 (mức dễ đọc, ghi nguyên văn) | TASK F2, F7, F8 | Có tệp thô và ảnh; số đo là số thật | verdict của script | CHỜ THIẾT BỊ |
+| W-F4 | `RESULT.md` theo F1–F12 và khuyến nghị cho DR-005 (F11), hoặc `NEGATIVE_RESULT` (F12). Leader duyệt cách biểu diễn; C4 đóng theo bằng chứng | TASK F11, F12; DR-005 | Leader quyết; `PROJECT_STATE` C4 cập nhật | QA LLM | MỞ |
+
+---
+
+## P2 · Bằng chứng thiết bị (leader thao tác điện thoại)
+
+| ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
+|---|---|---|---|---|---|
+| W-D1 | **Phiên 1**, ngay khi Mac mini trả lời: `device_session.ps1` gồm TC-PERF-001 ×3 (MRI + GT, CASE_0061), tour SCR-01…SCR-08 (CASE_0042), chấm T1–T4. Điều kiện: Mac mini bật và `/health` ok, ZeroTier trên điện thoại DIRECT, có APK live | `mobile/DEVICE_SESSION.md`; `mobile/A9_TC_PERF_001_SCRIPT.md` | Có `SUMMARY.md` và PROVENANCE đã điền; các tệp ở cột "có" được commit | verdict của script; quét an toàn | CHỜ LEADER |
+| W-D2 | Đối chiếu log server của phiên 1 (A9 §4.4: `requests.jsonl`, `uvicorn.log`, `summarize_request_log.py`) | A9 §4.4 | Số request khớp với log điện thoại | script tóm tắt | MỞ |
+| W-D3 | **Phiên 2**, trên bản build cuối, chậm nhất 03/11, theo W-C15: ảnh mọi màn hình ở mọi trạng thái chính; TC-PERF-001 ×3; TC-PERF-002 (SCR-05 4 lớp, mesh case holdout); TC-PERF-003 (brush 576×576); TC-3D-002…005; TC-REV-002…005; TC-USAB-001/002/003/004; TC-REL-002 (ngắt mạng giữa lúc lưu); TC-MODE-001 / TC-CASE-002 / TC-MASK-002 trên CASE_0001; ma trận trạng thái từng màn hình (TC-MOBILE-STATE-001); kiểm log thật (TC-SEC-003); phần thiết bị của Spike F (W-F3) | ACCEPTANCE_TRACE §3; DEMO_STANDARD D1, D5 | Mỗi TC có tệp thô và verdict; không lần đo nào bị loại | verdict của script | CHỜ THIẾT BỊ |
+| W-D4 | TC-E2E-001: quay một video liên tục một lượt hero flow H1–H10 trên A17. TC-USAB-005: 5 lượt liên tiếp thành công trên cùng bản build, có log; log đã che được commit | `13` §13 | Video (ngoài git) và log đã che (trong git) | tiêu chí PASS của kịch bản | CHỜ THIẾT BỊ |
 
 ---
 
@@ -104,14 +135,14 @@ Agent B, nhánh `fix/qa-backlog-d51`.
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| E1 | Cập nhật `ACCEPTANCE_TRACE.md` từng dòng (33 MUST, 70 TC) theo bằng chứng mới. Phần môn học còn ML, Xử lý ảnh, Mobile; giữ một dòng ghi chú cho Khoa học dữ liệu | §1.2 của trace | Mỗi dòng đổi trạng thái đều trỏ tới tệp hoặc commit | đối chiếu | MỞ |
-| E2 | RTM thực thi ở mức FR/NFR: `management/REQUIREMENTS_TRACEABILITY_MATRIX.md` | TC-AUDIT-001 | Mọi FR/NFR MUST có TC và bằng chứng, hoặc ghi rõ thiếu | đối chiếu `13` §10 | MỞ |
-| E3 | UI theo thiết kế so với UI đã cài đặt, cho 8 màn hình. Nguồn thiết kế: spec `10` (đóng băng trước khi cài đặt) và thiết kế trong các gói TC-TEAM; ảnh thật lấy từ D3 | `16` §5.1 CLO1/CLO2 | Bảng từng màn hình: khớp / lệch kèm lý do | ảnh D3 | MỞ |
-| E4 | Bốn gói TC-TEAM-001 cập nhật theo code thực, ghi rõ phần agent làm dưới tài khoản leader; không viết thay phần bảo vệ cá nhân | `16` §5.1 CLO3, DR-023 mục 3 | Mỗi gói có PR, test, ảnh màn hình so với thiết kế, riêng tư, giới hạn | đọc lại | MỞ |
-| E5 | Biên bản "truy được mọi phiên bản" cho mỗi bảng số trong báo cáo | TC-REP-001 | Mỗi bảng trỏ tới manifest, mã, split, cấu hình | đối chiếu | MỞ |
-| E6 | Hồ sơ mạng tin cậy của `LOCAL_DEMO` (ZeroTier PRIVATE, cleartext chỉ ở bản live) | TC-SEC-002 | Có biên bản | đọc lại | MỞ |
-| E7 | Rà P0/P1: không còn lỗi P0/P1 mở | `13` §6 | Danh sách rỗng, kèm phạm vi đã rà | sổ QA + issue | MỞ |
-| E8 | Anh đánh dấu `ACCEPTED` từng yêu cầu đủ điều kiện; `PROJECT_STATE.yaml` cập nhật số `accepted` | `13` §6, TC-AUDIT-002 | Số trong state khớp với trace | CI `state-parses` | CHỜ LEADER |
+| W-E1 | Cập nhật `ACCEPTANCE_TRACE.md` từng dòng (33 MUST, 70 TC) theo bằng chứng mới, kể cả các dòng còn ghi 31/10 và bốn môn. Phần môn học còn ML, Xử lý ảnh, Mobile; giữ một dòng ghi chú cho Khoa học dữ liệu | §1.2 của trace | Mỗi dòng đổi trạng thái trỏ tới một tệp hoặc commit | đối chiếu | MỞ |
+| W-E2 | RTM thực thi ở mức FR/NFR: `management/REQUIREMENTS_TRACEABILITY_MATRIX.md` | TC-AUDIT-001 | Mọi FR/NFR MUST có TC và bằng chứng, hoặc ghi rõ thiếu | đối chiếu `13` §10 | MỞ |
+| W-E3 | UI theo thiết kế so với UI đã cài đặt, cho 8 màn hình. Nguồn thiết kế: spec `10` (đóng băng trước khi cài đặt) và thiết kế trong các gói TC-TEAM; ảnh thật lấy từ W-D3 | `16` §5.1 CLO1/CLO2 | Bảng từng màn hình: khớp, hoặc lệch kèm lý do | ảnh W-D3 | MỞ |
+| W-E4 | Bốn gói TC-TEAM-001, mỗi thành viên một chức năng theo DR-013 (V1 Phạm Tuấn Anh, V2 Vũ Hùng Anh, V3 Bế Quốc Khánh, V4 Nguyễn Gia Đức Trung). Mỗi gói có bằng chứng phân tích, thiết kế, UI, cài đặt, test, riêng tư và bảo vệ. Ghi trung thực phần thành viên tự làm (theo commit) và phần agent làm dưới tài khoản leader. Phần bảo vệ và lời của TC-TEAM-001 do thành viên tự viết. Thiếu phần tự cài đặt thì ghi là hạn chế của TC-TEAM-001 | TC-TEAM-001, PR-MOBILE-03, `16` §5.1 CLO3, DR-023 mục 4–5 | Mỗi gói đủ bảy phần và ghi đúng tác giả | đọc lại | MỞ |
+| W-E5 | Biên bản "truy được mọi phiên bản" cho mỗi bảng số trong báo cáo | TC-REP-001 | Mỗi bảng trỏ tới manifest, mã, split, cấu hình | đối chiếu | MỞ |
+| W-E6 | Hồ sơ mạng tin cậy của `LOCAL_DEMO`: ZeroTier PRIVATE, cleartext chỉ có ở bản live | TC-SEC-002 | Có biên bản | đọc lại | MỞ |
+| W-E7 | Rà P0/P1: không còn P0 mở, và không còn P1 làm hỏng demo chuẩn hay tính đúng khoa học | `13` §12–§13 | Danh sách rỗng, kèm phạm vi đã rà | sổ QA + issue | MỞ |
+| W-E8 | Leader đánh dấu `ACCEPTED` từng yêu cầu đủ điều kiện; `PROJECT_STATE.yaml` cập nhật số `accepted` | DR-023 mục 10, TC-AUDIT-002 | Số trong tệp trạng thái khớp với trace | CI `state-parses` | CHỜ LEADER |
 
 ---
 
@@ -119,34 +150,35 @@ Agent B, nhánh `fix/qa-backlog-d51`.
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| R0 | Thông tin từng môn: mẫu báo cáo, ngôn ngữ, độ dài, thời lượng trình bày, ngày bảo vệ, cá nhân hay nhóm | anh | Có đủ cho cả ba môn | — | CHỜ LEADER |
-| R1 | **Báo cáo ML.** Câu hỏi lõi của `16` §3 ML. Bằng chứng: ma trận 25/50/100 % (DINOv2; UNet nếu kịp), phân phối Dice/IoU, so sánh cặp theo case, giao thức tái lập. Giới hạn: không augmentation, lr hằng số, 2D, một seed mỗi tỉ lệ, không hiệu chỉnh đa so sánh, ngoại lệ DR-002b. Số lấy từ `management/day39/RESULTS_HOLDOUT_DINOV2.md` | `16` §3, PR-SCI-03, TC-SCI-003 | Anh duyệt bản cuối | danh sách tick R6 | MỞ |
-| R2 | **Báo cáo Xử lý ảnh.** Chuẩn hóa và resize (DR-011); ablation raw → PP-4 (GATE-IMG-01), kèm cảnh báo PP-4 được chọn trên chính 20 case validation (QA_PR92 NB-3) và hiệu ứng lát biên (NB-4); hình thái học; dựng bề mặt L0; ánh xạ voxel/pixel/world (`GEOMETRY_NOT_VALIDATED`, không mm); bản đồ lỗi 2D và 3D | `16` §3, TC-SCI-002 | Anh duyệt bản cuối | danh sách tick R6 | MỞ |
-| R3 | **Báo cáo Mobile.** Đủ `16` §5 và rubric §5.1 (CLO1–CLO3): phân tích chức năng/phi chức năng, kiến trúc và ADR, UI thiết kế so với cài đặt (E3), cấu trúc dùng chung, tích hợp, riêng tư, chức năng của từng thành viên; số đo thiết bị lấy từ D1–D4 | `16` §3, §5, §5.1 | Anh duyệt bản cuối | danh sách tick R6 | MỞ |
-| R4 | Ba bộ slide, mỗi môn một bộ. Bộ dựng của #102 và bản nháp 24 slide chỉ là nguồn | quyết định 30/10 | Anh duyệt | dựng lại từ artifact | MỞ |
-| R5 | Bốn gói bảo vệ Mobile: phần lõi chung và phần chuyên sâu cá nhân, theo chuỗi yêu cầu → thiết kế UI → kiến trúc/API → commit → test → demo → riêng tư → giới hạn | `16` §6 | Mỗi thành viên có một gói | đọc lại | MỞ |
-| R6 | Danh sách tick từ ngữ: ghi LASC 2018, không gọi là tái lập LAScarQS (TC-SCI-001); không mm/mL (TC-SCI-002); giữ thứ tự quan sát, có CI, không lọc case (TC-SCI-003); QA LLM không gọi là review người; phần agent làm ghi đúng | `13` §13 | Mỗi báo cáo và slide có bảng tick đã điền | rà | MỞ |
-| R7 | Lưu bằng chứng theo `16` §7: manifest, ảnh/video, sơ đồ kiến trúc, UML, PR/test tiêu biểu, RTM, đóng góp thành viên, thiết kế UI kèm ảnh màn hình, nhật ký quyết định | `16` §7 | Có danh mục trỏ tới từng mục | đối chiếu | MỞ |
-| R8 | Tổng duyệt có bấm giờ, ít nhất một lần cho mỗi môn | REPLAN C4 | Ghi thời lượng và sửa đổi | — | CHỜ LEADER |
+| W-R0 | Thông tin từng môn: mẫu báo cáo, ngôn ngữ, độ dài, thời lượng trình bày, ngày bảo vệ, cá nhân hay nhóm | leader | Có đủ cho cả ba môn | — | CHỜ LEADER |
+| W-R1 | **Báo cáo ML.** Câu hỏi lõi của `16` §3 ML. Bằng chứng: ma trận 25/50/100 % (DINOv2, và UNet nếu kịp), phân phối Dice/IoU, so sánh cặp theo case, giao thức tái lập. Giới hạn: không augmentation, lr hằng số, 2D, một seed mỗi tỉ lệ, không hiệu chỉnh đa so sánh, ngoại lệ DR-002b; UNet chưa có thì RQ-A ghi là chưa trả lời được (DR-023 mục 8). Số lấy từ `management/day39/RESULTS_HOLDOUT_DINOV2.md` | `16` §3, PR-SCI-03, TC-SCI-003 | Leader duyệt bản cuối | danh sách tick W-R6 | MỞ |
+| W-R2 | **Báo cáo Xử lý ảnh.** Chuẩn hóa và resize (DR-011); ablation raw → PP-4 (GATE-IMG-01), kèm cảnh báo PP-4 được chọn trên chính 20 case validation (QA_PR92 NB-3) và hiệu ứng lát biên (NB-4); hình thái học; dựng bề mặt L0; ánh xạ voxel/pixel/world (`GEOMETRY_NOT_VALIDATED`, không dùng mm); bản đồ lỗi 2D và 3D, kèm kết quả Spike F | `16` §3, TC-SCI-002 | Leader duyệt bản cuối | danh sách tick W-R6 | MỞ |
+| W-R3 | **Báo cáo Mobile.** Đủ `16` §5 và rubric §5.1 (CLO1–CLO3): phân tích chức năng và phi chức năng, kiến trúc và ADR, UI thiết kế so với cài đặt (W-E3), cấu trúc dùng chung, tích hợp, riêng tư, chức năng của từng thành viên; số đo thiết bị lấy từ W-D1…W-D4 | `16` §3, §5, §5.1 | Leader duyệt bản cuối | danh sách tick W-R6 | MỞ |
+| W-R4 | Ba bộ slide, mỗi môn một bộ. Bộ dựng của #102 và bản nháp 24 slide chỉ là nguồn; cập nhật hạn 08/11 và ba môn, bỏ "31/10" và bốn môn (QA_PR100_103 #102 NB-2…NB-4 xét ở đây) | DR-023 mục 7 | Leader duyệt | dựng lại từ artifact | MỞ |
+| W-R5 | Bốn gói bảo vệ Mobile: phần lõi chung và phần chuyên sâu cá nhân, theo chuỗi yêu cầu → thiết kế UI → kiến trúc/API → commit → test → demo → riêng tư → giới hạn | `16` §6 | Mỗi thành viên có một gói | đọc lại | MỞ |
+| W-R6 | Danh sách tick từ ngữ: ghi LASC 2018, không gọi là tái lập LAScarQS (TC-SCI-001); không mm/mL (TC-SCI-002); giữ thứ tự quan sát, có CI, không lọc case (TC-SCI-003); QA LLM không gọi là review người; phần agent làm ghi đúng | `13` §13 | Mỗi báo cáo và slide có bảng tick đã điền | rà | MỞ |
+| W-R7 | Lưu bằng chứng theo `16` §7: manifest, ảnh/video, sơ đồ kiến trúc, UML, PR/test tiêu biểu, RTM, đóng góp thành viên, thiết kế UI kèm ảnh màn hình, nhật ký quyết định | `16` §7 | Có danh mục trỏ tới từng mục | đối chiếu | MỞ |
+| W-R8 | Tổng duyệt có bấm giờ, ít nhất một lần cho mỗi môn. Pha C4 của REPLAN đòi hai lần; số lần ở đây là kế hoạch của Project Control | kế hoạch Project Control | Ghi thời lượng và các sửa đổi | — | CHỜ LEADER |
 
 ---
 
 ## K · UNet (Bế Quốc Khánh, GPU)
 
+UNet ở lại với Khánh. Ngày 27/10 leader đã từ chối phương án dự phòng của DR-016a, tức chạy trên PC của leader ("Để Khánh, không chạy").
+
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| K1 | Train EXP-U-025/050/100 theo ADR-ML-001, qua tripwire DR-016a, bằng hàng đợi của #100 | PR-EXP-01/03 | Ba checkpoint và log train | `ml/tests` + tripwire | CHỜ GPU |
-| K2 | Anh ký bản ghi cho phép holdout thứ hai cho EXP-U-* (`tools/ml/make_holdout_authorization.py`) | ACCEPTANCE_TRACE PR-EXP-03 | Bản ghi nằm trên `main` | `holdout_pipeline.py` kiểm bản ghi | CHỜ GPU |
-| K3 | `tools/ml/holdout_pipeline.py`: chấm một lần, xuất Contract 2, validator, nạp backend, chạy lại H10 | #100 | H10 so sánh UNet với DINOv2 không còn SKIP | E2E | CHỜ GPU |
-| K4 | Hạn để kết quả UNet vào báo cáo. Đề xuất: 04/11 12:00. Quá hạn thì báo cáo ML ghi RQ-A chưa trả lời được, nêu lý do | PR-SCI-03 | Anh quyết | — | CHỜ LEADER |
+| W-K1 | Train EXP-U-025/050/100 theo ADR-ML-001, qua tripwire của DR-016a, bằng hàng đợi của #100 | PR-EXP-01/03 | Ba checkpoint và log train | `ml/tests` + tripwire | CHỜ GPU |
+| W-K2 | Leader ký bản ghi cho phép holdout thứ hai cho EXP-U-* (`tools/ml/make_holdout_authorization.py`) | ACCEPTANCE_TRACE PR-EXP-03 | Bản ghi nằm trên `main` | `holdout_pipeline.py` kiểm bản ghi | CHỜ GPU |
+| W-K3 | `tools/ml/holdout_pipeline.py`: chấm một lần, xuất Contract 2, chạy validator, nạp backend, chạy lại H10 | #100 | H10 so sánh UNet với DINOv2 không còn SKIP | E2E | CHỜ GPU |
+| W-K4 | Hạn để kết quả UNet kịp vào báo cáo. Đề xuất 04/11 12:00. Quá hạn thì báo cáo ML ghi RQ-A chưa trả lời được và nêu lý do | PR-SCI-03; DR-023 mục 8 | Leader quyết | — | CHỜ LEADER |
 
 ---
 
 ## O · Vận hành
 
-| ID | Việc | Trạng thái |
-|---|---|---|
-| O1 | Mac mini bật và ssh được trước mỗi phiên điện thoại và mỗi lần deploy; tắt chế độ tự ngủ (đã timeout hai lần: 27/10, 30/10) | CHỜ LEADER |
-| O4 | Máy chạy CI: job Python 3.9 ghim `ubuntu-24.04` (#108). Các job khác chạy `ubuntu-latest` (26.04) và đang xanh; nếu một job đỏ ở bước setup, kiểm ảnh máy chạy trước khi kiểm code | XONG khi #108 merge |
-| O2 | Tối đa 2 agent; một việc nặng (build, train, dựng mesh) một lúc; giữ máy mát | áp dụng |
-| O3 | Bản cài `node_modules` dùng chung nằm ngoài repo và ngoài thư mục tạm, để không bị dọn mất lần nữa | XONG (30/10) |
+| ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
+|---|---|---|---|---|---|
+| W-O1 | Mac mini bật và ssh được trước mỗi phiên điện thoại và mỗi lần deploy; tắt chế độ tự ngủ | W-C12, W-D1 | ssh và `/health` trả lời | `ssh`; `/health` | CHỜ LEADER |
+| W-O2 | Thư mục `node_modules` dùng chung cho mọi worktree nằm ngoài repo và ngoài thư mục tạm, để không bị dọn mất lần nữa | lần mất trong đợt 02–17/10 | Các worktree trỏ tới thư mục dùng chung | kiểm trong phiên | XONG (máy leader, kiểm 30/10) |
+| W-O3 | Máy chạy CI: job Python 3.9 ghim `ubuntu-24.04`. Các job khác chạy `ubuntu-latest` (26.04) và đang xanh; job nào đỏ ở bước setup thì kiểm ảnh máy chạy trước khi kiểm code | #108 | #108 merge, CI xanh trên `main` | CI | XONG (`5232f52`) |
