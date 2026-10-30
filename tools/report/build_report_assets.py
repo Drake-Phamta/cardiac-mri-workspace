@@ -17,8 +17,11 @@ When the UNet results exist, add the runs (and re-run `ml.evaluate compare` for 
 WHAT IS PUBLIC AND WHAT IS NOT
     The repository is public. Everything written to --out is an AGGREGATE: means, medians, quartiles, SDs,
     bootstrap CIs, paired deltas, counts of cases, per-epoch validation means, per-position means over cases.
-    No per-case value, no case identifier, no MRI or mask pixel is written there. After writing, the builder scans
-    the text outputs and fails (exit 2) if it finds a CASE_ identifier, an IPv4-like literal or an absolute path.
+    No per-case value, no case identifier, no MRI or mask pixel is written there. The builder renders the text outputs
+    (the aggregate, the tables, the SVG figures) into a private staging folder, scans them there, and fails (exit 2)
+    if it finds a CASE_ identifier, an IPv4-like literal or an absolute path: --out is written only after a clean
+    scan, so a refused run leaves --out exactly as it was. The PNG figures are not scanned (they are drawn from the
+    same aggregates).
     The two per-case figures (strip plot, raw-vs-processed scatter) go ONLY to --local-out, which defaults to
     <runs-root>/_report_local and is refused if it lies inside a git work tree.
 
@@ -36,7 +39,9 @@ import argparse
 import json
 import math
 import re
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -1275,25 +1280,38 @@ def main(argv: list[str] | None = None) -> int:
     if agg.get("missing_comparisons"):
         warn("comparison files missing for: " + "; ".join(agg["missing_comparisons"]))
 
-    out.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
-    json_path = out / "results_aggregate.json"
-    json_path.write_text(dump_json(agg) + "\n", encoding="utf-8", newline="\n")
-    written.append(json_path)
-
+    # Every text output (the aggregate, the tables, the SVG figures) is rendered into a private staging folder and
+    # scanned THERE; --out receives files only when the scan is clean. An exit-2 run therefore leaves --out exactly as
+    # it was, instead of holding the offending files next to a previous good build (QA_PR100_103_D39 #102 NB-1).
     plt = setup_mpl()
-    for fn in (fig_a, fig_b, fig_c, fig_d, fig_e, fig_f):
-        written += fn(plt, agg, fig_dir)
-    md = out / "RESULTS_TABLES.md"
-    md.write_text(build_tables_md(agg, "figures").rstrip("\n") + "\n", encoding="utf-8", newline="\n")
-    written.append(md)
+    with tempfile.TemporaryDirectory(prefix="report-assets-stage-") as stage_name:
+        stage = Path(stage_name)
+        staged: list[Path] = []
+        json_path = stage / "results_aggregate.json"
+        json_path.write_text(dump_json(agg) + "\n", encoding="utf-8", newline="\n")
+        staged.append(json_path)
+        for fn in (fig_a, fig_b, fig_c, fig_d, fig_e, fig_f):
+            staged += fn(plt, agg, stage / "figures")
+        md = stage / "RESULTS_TABLES.md"
+        md.write_text(build_tables_md(agg, "figures").rstrip("\n") + "\n", encoding="utf-8", newline="\n")
+        staged.append(md)
 
-    problems = scan_for_leaks(written)
-    if problems:
-        print("ERROR the committed outputs contain per-case or environment data:")
-        for p in problems:
-            print("  -", p)
-        return 2
+        problems = scan_for_leaks(staged)
+        if problems:
+            print("ERROR the committed outputs contain per-case or environment data (nothing was written to --out):")
+            for q in problems:
+                print("  -", q)
+            return 2
+
+        out.mkdir(parents=True, exist_ok=True)
+        written: list[Path] = []
+        for source in staged:
+            target = out / source.relative_to(stage)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            written.append(target)
+    json_path = out / "results_aggregate.json"
+    md = out / "RESULTS_TABLES.md"
 
     local_written: list[Path] = []
     if local_out is not None:
