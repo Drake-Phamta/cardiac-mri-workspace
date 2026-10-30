@@ -907,6 +907,14 @@ C4  ->  Spike F
 C6  ->  Spike D confirmation
 ```
 
+> **Update 2026-10-30 (Project Control, mirrored from `PROJECT_STATE.yaml`).**
+> - **C1 is CLOSED.** Spike D was ACCEPTED and GATE-DATA-01 closed on 2026-09-18 at 21:40.
+> - **C4 stays OPEN.** DR-005 is partly decided: the direction is the full 3D error map. At 21:55 the leader decided
+>   that Spike F runs before the error-map PR merges, and C4 closes on Spike F's evidence.
+> - **C6** still needs a decision: every header carries default geometry, so axis alignment holds at header level
+>   only.
+> - **Decisions.** DR-002 was decided on 2026-09-14 and DR-008c on 2026-10-01 (L0). DR-005 is partly decided.
+
 **No free ownership or deployment decision remains open.**
 
 ---

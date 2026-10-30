@@ -1,5 +1,11 @@
 # SPIKE F — TASK
 
+> **Update 2026-10-30 21:55.** The leader decided that Spike F runs before the error-map PR merges. DR-005 is
+> partly decided: the direction is the full 3D error map. Spike B is ACCEPTED, so the queue below no longer applies.
+> Under DR-023 the leader's session runs the off-device part and the leader runs the device part. The review is an
+> independent LLM QA pass. The rules below stand unchanged, including "What Claude may NOT fabricate".
+> Work items: `management/day51/WORK_INVENTORY.md`, P1-F.
+
 ## Identity
 
 | Field | Value |

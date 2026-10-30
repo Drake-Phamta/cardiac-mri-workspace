@@ -21,9 +21,10 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 40                             # calendar day (Day 1 = 2026-09-10); the original Day 30 (2026-10-09) has passed
-day_date: "2026-10-19"              # plan: day40/DAY40_PLAN.md; window to acceptance: day40/REPLAN_TO_2026-10-31.md
-acceptance_date: "2026-10-31"       # leader decision 2026-10-18 06:40 (Day 39); replaces the fixed Day 30
+day: 51                             # calendar day (Day 1 = 2026-09-10); the original Day 30 (2026-10-09) has passed
+day_date: "2026-10-30"              # single-operator mode from this day (DR-023); work list: day51/WORK_INVENTORY.md; the per-member day packages end with Day 40
+acceptance_date: "2026-11-08"       # reported by the leader 2026-10-30 (Day 51): the schedule moved from 2026-10-31; single-operator mode (DR-023): management/day51/OPERATING_MODE_2026-10-30.md
+day_40_to_50_verdict: MISSED        # 2026-10-19..29: the only team activity in this repository was #105 (Khanh, revalidation, opened 10-19) and #106 (Khanh, V3 QA items, opened 10-29); no REPLAN checkpoint (20/10, 22/10, 24/10, 27/10) met in full; UNet untrained per #105 (10-19) and the leader's report
 day_23_to_38_verdict: MISSED        # Day 23 kept open (leader rule 2026-10-03); team activity 2026-10-02..17: #90 (Khanh, 10-04) and three approvals (Hung Anh, 10-02) only
 day_39_verdict: RECOVERY_OVERRIDE   # 2026-10-18: #85-#98 (approved or LLM QA + CI); GATE-IMG-01 CLOSED; first final-holdout results (DINOv2 25/50/100 + PP-4); backend 74 cases; API hero-flow E2E 22 PASS / 0 FAIL / 1 SKIP (UNet); V2 SCR-05 skeleton (#98)
 day_11_to_21_verdict: MISSED        # Day 11 0/4 (closed on paper on 2026-10-01); Days 12-19 and 21 no delivery; Day 20 was the full rebaseline (AT RISK); see DAY_LOG.md
@@ -349,8 +350,8 @@ members:
 # --- SPIKES -----------------------------------------------------------------
 # Mirrors management/spikes/SPIKE_PHASE_STATE.yaml, which remains the authority.
 spikes:
-  SPIKE_D:  {status: NEEDS_FIX, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P0,
-             review: APPROVED, qa: REJECT, evidence_commit: a92892c, next: "repair in draft PR #34 (2026-09-16 00:19): F1-F5, F12, F13 addressed; owner confirms the A11/A14/F5 wording and marks it ready, leader decides Q2 and the rest of F5, then Vu Hung Anh re-reviews and QA re-checks"}
+  SPIKE_D:  {status: ACCEPTED, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P0,
+             review: APPROVED, qa: PASS, next: "ACCEPTED 2026-09-18 21:40 (owner evidence; reviewer APPROVE by Vu Hung Anh, #34 at f118491; QA-003 PASS on main 7d49df4; GATE-DATA-01 CLOSED). Mirror corrected 2026-10-30: this line had stayed at NEEDS_FIX since 2026-09-16"}
   SPIKE_A:  {status: ACCEPTED, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P1,
              next: "ACCEPTED-WITH-LIMITATIONS L1-L3, L5 on 2026-10-01 21:17 by the leader's explicit decision (QA-004 section 7); L4 measured PASS in the product app; Vu Hung Anh revalidates on Day 23"}
   SPIKE_B:  {status: ACCEPTED, started_at: "2026-09-11T12:00:00+07:00", evidence_present: true, priority: P1,
@@ -360,7 +361,8 @@ spikes:
   SPIKE_C0: {status: EVIDENCE_READY, started_at: "2026-09-16T00:43:25+07:00", evidence_present: true, priority: P2,
              review: APPROVED, evidence_commit: e6e3b0b,
              next: "PR #36 approved by scalliontor 17:17 and merged; 20 measurements over 10 variants in fp32 and bf16 plus the 4-5 h/day calendar verdict are on main. PRELIMINARY: cannot close GATE-ML-01 (DR-007) and no QA step has run. #37 (synthetic pipeline bring-up) is still a draft"}
-  SPIKE_F:  {status: PREPARED, started_at: null, evidence_present: false, priority: P2}
+  SPIKE_F:  {status: PREPARED, started_at: null, evidence_present: false, priority: P2,
+             next: "2026-10-30 21:55: the leader decided that Spike F runs before the error-map PR merges (DR-005 partly decided: direction = the full 3D error map). Off-device part by the leader's session under DR-023; device part (F2, F7, F8) by the leader in phone session 2; review = an independent LLM QA pass (the leader operates the device, DR-006a recusal)"}
   SPIKE_C1: {status: ACCEPTED, started_at: "2026-10-01T11:58:19+07:00", evidence_present: true, priority: P1,
              qa: PASS_WITH_NOTES, latest_tested_commit: 58cbd5e,
              next: "ACCEPTED 2026-10-01 14:30 under the Day 22 override (CHAT E QA in place of the reviewer's APPROVE; management/day22/QA_REVIEW_C1_GATE_ML_01.md). Day 23: the owner adopts it and writes the C1-4 notes; Vu Hung Anh revalidates"}
@@ -389,13 +391,13 @@ gates:
 
 # --- READINESS CONDITIONS ---------------------------------------------------
 conditions:
-  C1: {status: OPEN, waits_on: SPIKE_D}
+  C1: {status: CLOSED, closed_by: GATE-DATA-01, note: "mirrored 2026-10-30: SPIKE_D ACCEPTED and GATE-DATA-01 CLOSED on 2026-09-18 21:40; Path A decided by DR-002 (2026-09-14)"}
   C2: {status: CLOSED, closed_by: DR-004}
   C3: {status: CLOSED, closed_by: DR-003}
-  C4: {status: OPEN, waits_on: SPIKE_F, note: "RA-B01 — the single BLOCKER finding"}
+  C4: {status: OPEN, waits_on: SPIKE_F, note: "RA-B01. DR-005 partly decided 2026-10-30: direction = the full 3D error map; at 21:55 the leader decided that Spike F runs before the error-map PR merges. C4 closes on Spike F evidence, or on a scope decision under 00 section 13"}
   C5: {status: CLOSED, closed_by: DR-008a}
-  C6: {status: PARTIALLY_RESOLVED, waits_on: SPIKE_D,
-       note: "axis-aligned policy approved (DR-012); evidence pending. Never mark CLOSED before Spike D. QA-002: every header carries default geometry (spacing 1, origin 0, identity direction), so axis alignment holds at header level only and physical geometry is unverified."}
+  C6: {status: PARTIALLY_RESOLVED, waits_on: LEADER,
+       note: "2026-10-30: SPIKE_D is ACCEPTED (2026-09-18) and every header carries default geometry, so axis alignment holds at header level only; closing C6 with that limitation, or keeping it open, is a leader decision (WORK_INVENTORY W-C19). Earlier: axis-aligned policy approved (DR-012); evidence pending. Never mark CLOSED before Spike D. QA-002: every header carries default geometry (spacing 1, origin 0, identity direction), so axis alignment holds at header level only and physical geometry is unverified."}
   C7: {status: CLOSED, closed_by: DR-013}
   C8: {status: CLOSED}
 
@@ -562,10 +564,24 @@ merged_prs_note: >
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
   - {id: "E10 first-load budget figure", waits_on: "Nguyen Gia Duc Trung", subject: "DR-015 decided that a first-load budget becomes binding, but SPIKE_E/TASK.md 161 and 196 make E10 the spike owner's deliverable, so the figure is his to propose and the leader's to accept. His provisional 1000 ms p95 is already in tension with his own data - 445 ms p95 in run-4 against 3103 ms in the 2026-09-16 evening capture on the 576 profile - so it needs the time-of-day spread E8 still lacks. Five stated conditions in OPEN_DECISIONS DR-015 limb 1. Reserve queue today, Day-9 primary candidate"}
+  - {id: DR-005, waits_on: SPIKE_F, subject: "3D error representation: the direction was decided on 2026-10-30 (the full 3D error map); the representation is approved on Spike F's evidence (the leader, 21:55: Spike F runs before the error-map PR merges)"}
   - {id: "DEMO_STANDARD panel", waits_on: "Pham Tuan Anh", subject: "whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16"}
-  - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
 
 decisions_made_during_execution:
+  - id: DR-023
+    decided: "2026-10-30"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 51, in session: 18:41 message, ~18:45 answers, evening messages, 21:55 confirmations after the LLM QA of PR #107)"
+    outcome: "acceptance on 2026-11-08 (reported by the leader: the schedule moved); single operator: all work except the final GPU runs (UNet) through the leader's account, no per-member division (18:41); the session merges every PR after an independent LLM QA pass and green CI (21:55, Tu merge tat ca); DR-013 kept for the defense, packages state honestly what members and agents built, per-member revalidation no longer required, TC-TEAM-001 shortfall recorded as a limitation (21:55); subjects ML, Image Processing, Mobile, Data Science dropped as a reporting subject, product scope unchanged; one report and one deck per subject, not rushed; UNet stays with Be Quoc Khanh (DR-016a fallback declined 2026-10-27); quality before speed. Project Control rules (not leader decisions): reports after the product and the device evidence; Project Control never marks ACCEPTED"
+    evidence: "team activity in this repository 2026-10-19..29: #105 and #106 only; 0/33 MUST accepted"
+    gate_effect: "none"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-023; management/day51/OPERATING_MODE_2026-10-30.md"
+  - id: DR-005
+    decided: "2026-10-30 (partly)"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 51, in session: ~18:45 direction, 21:55 Spike F)"
+    outcome: "direction: the full 3D error map, not the 2D descope (~18:45, Lam day du); Spike F runs before the error-map PR merges and the representation is approved on its evidence (21:55, Chay Spike F truoc); the FP/FN L0 voxel-face map on feat/v2-error-map-and-linkage is Spike F candidate 1; fallback: Option 4 (2D only) through 00 section 13; the Imaging owner (Vu Hung Anh) was not consulted"
+    evidence: "Spike B L0 picking on the A17 (+-1 slice, DR-008c) covers one surface only; Spike F supplies the rest"
+    gate_effect: "none yet: readiness condition C4 (RA-B01) stays OPEN until Spike F"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-005; management/day51/OPERATING_MODE_2026-10-30.md"
   - id: DR-017
     decided: "2026-10-02"
     decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
@@ -728,7 +744,7 @@ not_frozen:
   - "mobile framework"
   - "final DINOv2 recipe"
   - "mesh decimation budget"
-  - "3D error representation"
+  - "3D error representation - DR-005 partly decided 2026-10-30 (direction: the full 3D error map); the representation is approved on Spike F's evidence, and the error-mesh format freezes after that approval"
   - "artifact transport strategy"
   - "morphology configuration"
 
