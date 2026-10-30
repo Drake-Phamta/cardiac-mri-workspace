@@ -24,7 +24,7 @@ All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented 
 | Reviews, reviewed masks | `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `reviewed_masks_list`, `reviewed_mask_slice_get` | SQLite |
 | Findings | `finding_create`, `findings_list`, `finding_patch` | SQLite |
 | Metrics, worst slice, cohort | `analysis_run_metrics`, `analysis_slice_metrics`, `experiment_metrics`, `experiment_cases`, … | **unavailable state** (`ARTIFACT_NOT_FOUND`, reason `METRICS_NOT_INGESTED`) until saved Contract 2 metric artifacts are ingested — never an invented number |
-| Mesh | `reconstruction_get`, `error_reconstruction_get` | L0 meshes derived from the served masks, and the FP / FN error mesh of each prediction against the case's ground truth (DR-005), by `python -m backend.mesh.build_cache` into `derived_meshes/` (see "3-D meshes"); Contract 2 `RECONSTRUCTION_3D` references still honoured; an INFERENCE_REVIEW case has no error mesh (`GROUND_TRUTH_UNAVAILABLE`) |
+| Mesh | `reconstruction_get`, `error_reconstruction_get` | L0 meshes derived from the served masks, and the FP / FN error mesh of each prediction against the case's ground truth with its connected error regions (DR-005, FR-3D-008), by `python -m backend.mesh.build_cache` into `derived_meshes/` (see "3-D meshes"); Contract 2 `RECONSTRUCTION_3D` references still honoured; an INFERENCE_REVIEW case has no error mesh (`GROUND_TRUTH_UNAVAILABLE`) |
 | Not deployable | `analysis_run_create` | `RUN_NOT_DEPLOYABLE` — precomputed runs only (PR-AN-01 is SHOULD) |
 
 Plus `GET /health`, `GET /api/v1/artifacts/<sha256>.png` (the immutable `content_url` of every slice; its
@@ -134,15 +134,28 @@ predictions are meshed. The frame, the file format and the pick rule are in `bac
 conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content". The
 deploy script copies `data_cache` only: copy `derived_meshes/` (or run the build step on the host) for a deployment.
 
-**Error mesh (DR-005).** For every RAW and PROCESSED prediction of an EVALUATION case the same step also writes
-`<reference_sha256>.<prediction_sha256>.err1.cmesh` (+ `.err1.json`): the voxel-face surfaces of
+**Error mesh (DR-005, regions FR-3D-008).** For every RAW and PROCESSED prediction of an EVALUATION case the same step also
+writes `<reference_sha256>.<prediction_sha256>.err2.cmesh` (+ `.err2.json`): the voxel-face surfaces of
 `FP = prediction AND NOT ground truth` and `FN = ground truth AND NOT prediction` in one file, every face with its source
-slice and its class (`backend/mesh/error_artifact.py`, format `cardiac-errormesh/1`). `error_reconstruction_get` serves it
+slice, its class and its connected error region, plus the table of regions (`backend/mesh/error_artifact.py`, format
+`cardiac-errormesh/2`; regions are 26-connected components by default, the connectivity is in the header; layout and the
+region-number type rule in `backend/mesh/README.md`). `error_reconstruction_get` serves it
 (`error_mesh_artifact_id` = `ERRMESH_<sha256 of the bytes>`, same content route); without the file it is the honest
 `ARTIFACT_NOT_FOUND` ("derived error mesh not built"), and an INFERENCE_REVIEW case answers `GROUND_TRUTH_UNAVAILABLE`
 before anything is read. `--no-ground-truth` reads no ground truth, so it builds neither the ground-truth meshes nor
 the error meshes. A mesh derived from a ground truth is loaded only for a ground truth the backend serves
 (`MeshStore(ground_truth_masks=...)`), so a planted INT-12 mesh is never on the content route.
+
+- **scipy is needed to build, not to serve.** The regions are labelled with scipy (`backend/mesh/error_geometry.py`),
+  which is not in `backend/requirements.txt`: an error mesh that has to be built on a host without it stops with
+  `SCIPY_REQUIRED` before any volume is read (build where scipy is installed and copy `derived_meshes/`, or pass
+  `--no-error-meshes`). A pair that is already built is a no-op without it, and the backend itself imports numpy only.
+- **First-format files stay.** Earlier local builds wrote `*.err1.cmesh` / `*.err1.json` (`cardiac-errormesh/1`, no regions).
+  The step leaves them where they are and reports their number and size; the backend loads `err2` only, so a pair is
+  never answered by two formats, and the content route answers 404 for the old digests. Delete them yourself when
+  nothing needs them.
+- **Windows path length.** An error-mesh file name is 140 characters (144 with the atomic `.tmp`): keep the data root at
+  most 99 characters on Windows (`backend/mesh/README.md`, "Windows: keep the data root short").
 
 ## Tests
 

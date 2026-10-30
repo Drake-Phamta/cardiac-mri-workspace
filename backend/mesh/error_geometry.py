@@ -25,7 +25,9 @@ DEFINITIONS
     Per component: ``voxel_count``; ``bbox_voxel`` {lo, hi} INCLUSIVE voxel
     indices; ``source_slice_range`` [zmin, zmax] inclusive and ``slices`` (the
     sorted distinct z), both exact from the voxels, so region -> slice set is
-    deterministic with zero slice error; ``centroid_world`` = mean of the voxel
+    deterministic with zero slice error; ``slice_voxels`` is the component's
+    voxel count on each of those slices (same order; the sum is ``voxel_count``). A connected set has no gap in z, so
+    ``slices`` is every slice from zmin to zmax (tested); ``centroid_world`` = mean of the voxel
     CENTRES (index + 0.5) in world coordinates; ``marker_world`` = the centre of
     the component's own voxel nearest the centroid (world distance, so
     anisotropic spacing counts; ties -> first voxel in C order), so the marker
@@ -40,6 +42,11 @@ ORDER (deterministic; the order is total because components are disjoint)
     5. first voxel in C order (x, y, z)
     ids are "<class>_<rank>" with rank counted from 1 within the class.
 
+ONE LABELLING
+    ``label_error_class(region, cls, connectivity=...)`` labels one class with exactly the code above and also returns
+    scipy's label volume and the rank of every label, so the served error artifact (``error_artifact.py``, per-face
+    component ids and the component table) is built from this module's labelling and not from a second one.
+
 SURFACE
     ``surface`` is ``build_case_mesh(pred, level)`` -- the prediction's
     voxel-face surface at the requested level (DEFAULT 0; DR-008c is
@@ -53,6 +60,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -86,12 +94,62 @@ DEFAULT_CONNECTIVITY = 26
 CLASS_ORDER = ("FN", "FP")
 
 
+def _structure(connectivity: Any) -> np.ndarray:
+    """The 3-D neighbourhood of a declared connectivity (6, 18 or 26), validated; always passed to scipy explicitly."""
+    if isinstance(connectivity, (bool, np.bool_)) or not isinstance(connectivity, (int, np.integer)) \
+            or int(connectivity) not in CONNECTIVITY_RANK:
+        raise GeometryError(CONNECTIVITY_UNSUPPORTED,
+                            f"connectivity must be 6, 18 or 26; got {connectivity!r}")
+    return _ndimage().generate_binary_structure(3, CONNECTIVITY_RANK[int(connectivity)])
+
+
+@dataclass(frozen=True)
+class LabelledClass:
+    """The connected components of ONE error class, as ``build_error_geometry`` labels them.
+
+    ``records`` are the component records (sorted, ids ``<class>_0001`` ...); ``labels`` is scipy's label volume (0 = not
+    in the class) and ``rank_of_label[label]`` the 1-based rank of that scipy label in ``records`` order (entry 0 is 0).
+    ``rank_at`` turns voxel coordinates into ranks, so a caller that knows a voxel of the class knows its component
+    without labelling a second time (the served error artifact uses it for the component of every face).
+    """
+
+    records: list
+    labels: np.ndarray
+    rank_of_label: np.ndarray
+
+    def rank_at(self, x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
+        """Rank (1..n, the position in ``records``) of the component of each voxel; 0 where the voxel is not in the class."""
+        return self.rank_of_label[self.labels[x, y, z]]
+
+
+def label_error_class(region: Any, cls: str, *, connectivity: int = 26, spacing: Any = (1.0, 1.0, 1.0),
+                      origin: Any = (0.0, 0.0, 0.0), contract_version: str = CONTRACT_VERSION) -> LabelledClass:
+    """Label one error class (``region`` indexed [x, y, z]) exactly like ``build_error_geometry`` does.
+
+    Same ``scipy.ndimage.label`` call, same structure for the declared connectivity, same ordering and ids; this is the
+    function the served artifact builds its component table from, so there is one labelling in the code base.
+    """
+    if cls not in CLASS_ORDER:
+        raise ValueError(f"cls must be one of {CLASS_ORDER}; got {cls!r}")
+    structure = _structure(connectivity)
+    mask = as_binary_mask(region, name="region")
+    geometry = VolumeGeometry(mask.shape, spacing, origin, contract_version)
+    records, labels, rank_of_label = _label_components(mask, cls, structure, geometry, False)
+    return LabelledClass(records, labels, rank_of_label)
+
+
 def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
                        geometry: VolumeGeometry, include_meshes: bool) -> list[dict[str, Any]]:
-    """Connected components of one error class, sorted, without ids yet."""
+    """Connected components of one error class, sorted, with ids."""
+    return _label_components(region, cls, structure, geometry, include_meshes)[0]
+
+
+def _label_components(region: np.ndarray, cls: str, structure: np.ndarray, geometry: VolumeGeometry,
+                      include_meshes: bool) -> tuple[list[dict[str, Any]], np.ndarray, np.ndarray]:
+    """Components of one error class: ``(records, scipy labels, rank of each scipy label)``."""
     labels, n = _ndimage().label(region, structure=structure)
     if n == 0:
-        return []
+        return [], labels, np.zeros(1, dtype=np.int64)
     xs, ys, zs = np.nonzero(labels)                      # C order
     lab = labels[xs, ys, zs].astype(np.int64) - 1
     order = np.argsort(lab, kind="stable")               # group by label, C order inside
@@ -118,9 +176,11 @@ def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
     marker_world = origin + (marker_idx + 0.5) * spacing
 
     nz = geometry.shape_xyz[2]
-    label_z = np.unique(lab * nz + zs)                   # sorted by label, then z
+    label_z, label_z_counts = np.unique(lab * nz + zs, return_counts=True)   # sorted by label, then z
     z_label, z_value = np.divmod(label_z, nz)
-    slices = np.split(z_value, np.searchsorted(z_label, np.arange(1, n)))
+    cut = np.searchsorted(z_label, np.arange(1, n))
+    slices = np.split(z_value, cut)
+    slice_voxels = np.split(label_z_counts, cut)         # voxels of the component on each of its slices
 
     records = []
     for k in range(n):
@@ -131,6 +191,7 @@ def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
             "bbox_voxel": {"lo": lo[k].tolist(), "hi": hi[k].tolist()},
             "source_slice_range": [int(lo[k, 2]), int(hi[k, 2])],
             "slices": slices[k].tolist(),
+            "slice_voxels": slice_voxels[k].tolist(),
             "centroid_world": centroid_world[k].tolist(),
             "marker_world": marker_world[k].tolist(),
             "marker_voxel": marker_idx[k].tolist(),
@@ -144,12 +205,15 @@ def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
         first = idx[starts[k]]
         record["_sort"] = (-int(counts[k]), int(lo[k, 2]), tuple(lo[k].tolist()),
                            tuple(hi[k].tolist()), tuple(first.tolist()))
+        record["_label"] = k + 1
         records.append(record)
     records.sort(key=lambda r: r["_sort"])
+    rank_of_label = np.zeros(n + 1, dtype=np.int64)
     for rank, record in enumerate(records, start=1):
         record["id"] = f"{cls}_{rank:04d}"
-        del record["_sort"]
-    return records
+        rank_of_label[record["_label"]] = rank
+        del record["_sort"], record["_label"]
+    return records, labels, rank_of_label
 
 
 def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: Any,
@@ -170,10 +234,7 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
     ``error_geometry_sha256`` gives a stable identity.
     """
     level, cell = _level_cell(level)
-    if isinstance(connectivity, (bool, np.bool_)) or not isinstance(connectivity, (int, np.integer)) \
-            or int(connectivity) not in CONNECTIVITY_RANK:
-        raise GeometryError(CONNECTIVITY_UNSUPPORTED,
-                            f"connectivity must be 6, 18 or 26; got {connectivity!r}")
+    _structure(connectivity)            # validates it before anything else is read (CONNECTIVITY_UNSUPPORTED)
     connectivity = int(connectivity)
     pred = as_binary_mask(pred_mask, name="pred_mask")
     gt = as_binary_mask(gt_mask, name="gt_mask")
@@ -190,7 +251,7 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
         if not all(_close(x, y) for x, y in zip(a, b)):
             raise GeometryError(GEOMETRY_MISMATCH, f"prediction {field} {list(a)} != ground-truth {field} {list(b)}")
 
-    structure = _ndimage().generate_binary_structure(3, CONNECTIVITY_RANK[connectivity])
+    structure = _structure(connectivity)
     fn = gt & ~pred
     fp = pred & ~gt
     components = (_component_records(fn, "FN", structure, geometry, include_component_meshes)
@@ -266,5 +327,5 @@ def error_geometry_sha256(result: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-__all__ = ["CONNECTIVITY_RANK", "DEFAULT_CONNECTIVITY", "CLASS_ORDER", "build_error_geometry",
-           "error_geometry_to_dict", "error_geometry_sha256"]
+__all__ = ["CONNECTIVITY_RANK", "DEFAULT_CONNECTIVITY", "CLASS_ORDER", "LabelledClass", "build_error_geometry",
+           "label_error_class", "error_geometry_to_dict", "error_geometry_sha256"]

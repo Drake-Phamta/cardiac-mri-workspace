@@ -19,6 +19,7 @@ from backend.mesh import (
     error_geometry_sha256,
     error_geometry_to_dict,
 )
+from backend.mesh.error_geometry import label_error_class
 
 SHAPE = (20, 20, 16)
 SPACING = (0.625, 0.75, 1.25)
@@ -109,6 +110,54 @@ def test_connectivity_controls_how_diagonal_neighbours_group(second_voxel, expec
         assert result["connectivity"] == connectivity
         assert result["summary"]["fp_components"] == count
         assert sum(c["voxel_count"] for c in result["components"]) == 2
+
+
+def test_each_component_counts_its_voxels_on_every_slice_it_touches():
+    pred, gt = shifted_cube_case()
+    fn, fp_layer, fp_blob = build(pred, gt)["components"]
+    assert (fn["slices"], fn["slice_voxels"]) == ([4], [25])
+    assert (fp_layer["slices"], fp_layer["slice_voxels"]) == ([9], [25])
+    assert (fp_blob["slices"], fp_blob["slice_voxels"]) == ([2, 3], [4, 4])
+
+
+@pytest.mark.parametrize("connectivity", [6, 18, 26])
+def test_label_error_class_is_the_labelling_build_error_geometry_uses(connectivity):
+    """One labelling: the served error artifact takes its regions from label_error_class, so its records, ids, order and
+    per-voxel ranks must be the ones build_error_geometry reports for the same class."""
+    rng = np.random.default_rng(connectivity)
+    gt = rng.random((10, 9, 8)) < 0.3
+    pred = gt.copy()
+    flip = rng.random(gt.shape) < 0.2
+    pred[flip] = ~pred[flip]
+    result = build(pred, gt, connectivity=connectivity)
+    for cls, region in (("FP", pred & ~gt), ("FN", gt & ~pred)):
+        labelled = label_error_class(region, cls, connectivity=connectivity, spacing=SPACING, origin=ORIGIN)
+        assert labelled.records == [c for c in result["components"] if c["class"] == cls]
+        xs, ys, zs = np.nonzero(region)
+        ranks = labelled.rank_at(xs, ys, zs)
+        assert len(labelled.records) >= 2 and int(ranks.min()) >= 1
+        assert np.bincount(ranks, minlength=len(labelled.records) + 1)[1:].tolist() ==             [c["voxel_count"] for c in labelled.records]
+        # a voxel is in the component whose slices and bounding box hold it
+        for x, y, z, rank in list(zip(xs, ys, zs, ranks))[:200]:
+            record = labelled.records[int(rank) - 1]
+            assert int(z) in record["slices"]
+            lo, hi = record["bbox_voxel"]["lo"], record["bbox_voxel"]["hi"]
+            assert all(lo[i] <= v <= hi[i] for i, v in enumerate((int(x), int(y), int(z))))
+        outside = labelled.rank_at(*np.nonzero(~region))
+        assert int(outside.max()) == 0, "a voxel that is not in the class has no component"
+
+
+def test_label_error_class_refuses_what_build_error_geometry_refuses():
+    region = np.zeros((4, 4, 4), dtype=bool)
+    region[1, 1, 1] = True
+    for bad in (7, True, "26", None, 0):
+        with pytest.raises(GeometryError) as raised:
+            label_error_class(region, "FP", connectivity=bad)
+        assert raised.value.code == "CONNECTIVITY_UNSUPPORTED"
+    with pytest.raises(ValueError):
+        label_error_class(region, "TP")
+    nothing = label_error_class(np.zeros((4, 4, 4), dtype=bool), "FN")
+    assert nothing.records == [] and nothing.rank_at(np.array([0]), np.array([0]), np.array([0])).tolist() == [0]
 
 
 def test_default_connectivity_is_26():
@@ -247,7 +296,15 @@ def test_random_pairs_satisfy_the_component_invariants(seed):
     for c in comps:
         zmin, zmax = c["source_slice_range"]
         assert c["slices"] == sorted(set(c["slices"])) and c["slices"][0] == zmin and c["slices"][-1] == zmax
+        assert c["slices"] == list(range(zmin, zmax + 1)), "a connected set has no gap in z"
+        assert len(c["slice_voxels"]) == len(c["slices"]) and min(c["slice_voxels"]) >= 1
+        assert sum(c["slice_voxels"]) == c["voxel_count"]
         assert zmin <= c["marker_slice"] <= zmax and c["marker_slice"] == c["marker_voxel"][2]
         assert region[c["class"]][tuple(c["marker_voxel"])]
         lo, hi = c["bbox_voxel"]["lo"], c["bbox_voxel"]["hi"]
         assert all(lo[i] <= c["marker_voxel"][i] <= hi[i] for i in range(3))
+    # the per-slice counts of a class's components add up to the class's voxels on every slice
+    for cls in ("FP", "FN"):
+        for z in range(region[cls].shape[2]):
+            counted = sum(c["slice_voxels"][c["slices"].index(z)] for c in comps if c["class"] == cls and z in c["slices"])
+            assert counted == int(region[cls][:, :, z].sum()), (cls, z)

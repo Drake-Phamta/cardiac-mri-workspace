@@ -221,11 +221,13 @@ jobs:
         run: python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
       # scipy is deliberately NOT in backend/requirements.txt (the wheel closure above is unchanged). 1.13.1 is the
-      # last series that ships CPython 3.9 wheels; it is installed here only to run the error-geometry tests.
-      - name: backend mesh error-geometry tests (scipy 1.13.1, test-only)
+      # last series that ships CPython 3.9 wheels; it is installed here only to run the tests that label error regions:
+      # the error-geometry and error-artifact tests, and the API tests that build and serve the error meshes (they are
+      # skipped in the step above, where scipy is absent).
+      - name: backend mesh error tests (scipy 1.13.1, test-only)
         run: |
           python -m pip install --quiet scipy==1.13.1
-          python -m pytest backend/mesh/tests -q -p no:cacheprovider
+          python -m pytest backend/mesh/tests backend/tests/test_meshes.py -q -p no:cacheprovider
 
       # The deploy installs the Mac mini OFFLINE from the wheels the operator PC
       # downloads; pip evaluates markers on the host interpreter, so prove the

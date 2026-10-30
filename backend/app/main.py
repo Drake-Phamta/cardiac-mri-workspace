@@ -672,8 +672,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     @endpoint("error_reconstruction_get")
     def error_reconstruction_get(run_id: str, prediction_variant: Optional[str] = Query(None)) -> Any:
         """The 3-D error mesh of one prediction variant against the case's ground truth (DR-005): the FP and FN
-        voxel-face surfaces in one artifact, every face with its source slice and class. Built by
-        backend.mesh.build_cache for EVALUATION cases only; in the voxel-index frame like the surface meshes. Its bytes
+        voxel-face surfaces in one artifact, every face with its source slice, class and connected error region
+        (``cardiac-errormesh/2``, FR-3D-008). Built by backend.mesh.build_cache for EVALUATION cases only; in the
+        voxel-index frame like the surface meshes. Its bytes
         are served at /artifacts/<sha256>.cmesh, the sha256 being the one inside ``error_mesh_artifact_id``
         (``ERRMESH_<sha256>``)."""
         run = get_run(run_id)

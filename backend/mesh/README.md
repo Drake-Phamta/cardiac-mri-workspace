@@ -128,26 +128,56 @@ decoder agree byte for byte. QA-074 N-5 gaps (a), (b) and (c) are closed by conv
 and media type are the ones above, (b) the pick rule is `face_source_slice[t]`, carried in the file, (c) the frame is
 the voxel-index frame with the identity transform.
 
-## The served error artifact (DR-005, decided 2026-10-30)
+## The served error artifact (DR-005, decided 2026-10-30; regions FR-3D-008, Round 2)
 
-`error_artifact.py` builds `cardiac-errormesh/1` for one prediction (RAW or PROCESSED) and the case's ground truth:
+`error_artifact.py` builds `cardiac-errormesh/2` (builder `dr005-L0/v2`) for one prediction (RAW or PROCESSED) and the
+case's ground truth:
 
 | | |
 |---|---|
-| Classes | `FP` (code 1) = prediction AND NOT ground truth, `FN` (code 2) = ground truth AND NOT prediction. Agreement (TP) has no surface of its own: the prediction surface shows it where no error covers it |
+| Classes | `FP` (code 1) = prediction AND NOT ground truth, `FN` (code 2) = ground truth AND NOT prediction. Agreement (TP) has no surface of its own: the prediction surface shows it where no error covers it (UC-09 interpretation, `app/verticals/v2_3d_inspector/README.md`) |
 | Surface | the L0 voxel faces of each class's voxel set, built by the same `build_case_mesh` as every other mesh: a face lies between a voxel of the class and anything else, its normal points out of the class, and its **source slice is the `z` of the class voxel** - the rule of the surface artifact, not a new one |
 | Frame | the voxel-index frame of `cardiac-mesh/1` (`x=column,y=row,z=slice`, voxel `k` = `[k, k+1)`), vertices uint16, identity transform, no millimetres while the geometry is not validated |
-| Layout | the `cardiac-mesh/1` container (`CARDMESH`, JSON header, vertices, triangles, `face_source_slice`) plus a fifth section `face_class` (uint8 per triangle). Blocks are contiguous: the FP vertices then the FN vertices, the FP triangles then the FN triangles; a triangle indexes only its own block. The header's `classes` table gives each class's `code`, `rule`, `voxels`, `vertex_range` and `triangle_range` |
-| Zero errors | a class with no voxel is an empty range (and `0` voxels): "no false positives" is a fact, not a missing layer. A prediction equal to the ground truth is a valid artifact with no face |
-| Identity | the header names both source masks (`reference_mask_sha256`, `prediction_mask_sha256`), so the bytes are a pure function of the two masks; the artifact is content-addressed (sha256 of the bytes) and written once as `<reference_sha256>.<prediction_sha256>.err1.cmesh` + `.err1.json` by `build_cache` |
-| Pick | the first triangle a ray hits names `face_source_slice[t]` and `face_class[t]`; a miss navigates nowhere (`artifact.pick_triangle` is the reference ray cast) |
-| Cross-check | the class voxel counts equal the server's own `analysis_run_metrics` `false_positives` / `false_negatives` of the same run and variant (`tools/e2e/hero_flow_api.py` H6 checks it on the served data), and `agreement_voxels` gives the same Dice |
+| Regions | a **region** is a connected component of one class's voxel set, labelled by `error_geometry.label_error_class`: `scipy.ndimage.label` with `generate_binary_structure(3, rank)` for the connectivity recorded in the header (`connectivity`, 6 / 18 / 26, **default 26**), ordered and named exactly as `build_error_geometry` does (voxel count descending, first slice ascending, bounding box, first voxel in C order; ids `FP_0001` ..., `FN_0001` ...). There is one labelling in the code base: the artifact is built from it, not from a second one. Voxels that touch across an edge are one region under 18 and 26 and two under 6; voxels that touch only at a corner are one region under 26 alone - the three touch cases are tested for each connectivity |
+| Region numbers | the file numbers the regions `1..C`: the FP regions first, then the FN regions, in the order above; `face_component[t]` is the number of the region of triangle `t` (a face names a region of its own class; `0` is never used) |
+| Region table | the header's `components` list has, per region number, `id`, `class`, `voxels`, `first_slice` and `slice_voxels` (the region's voxel count on slices `first_slice`, `first_slice + 1`, ...). A connected voxel set has no gap in `z`, so the contributing slices are exactly `first_slice .. first_slice + len(slice_voxels) - 1`, every one with at least one voxel: the list is exact and compact at the same time (builder and reader both check it; tests compare it with scipy's labelling and with an independent flood fill). The class entries of `classes` also carry `component_range` (half-open range of their region numbers) |
+| Region number type | `component_index_bytes` is the **smallest** of 1 (uint8), 2 (uint16), 4 (uint32) whose type holds `C`: `C <= 255` -> 1, `C <= 65535` -> 2, else 4. The reader refuses any other value, so one file has one meaning. Real error sets have tens to a few hundred regions (a handful of slices each), so the byte type and a JSON table of 15-20 KB (a fraction of one percent of the file, which is dominated by the triangles) are enough; a different table encoding would add a decoder to the phone for no measurable gain |
+| Layout | the `cardiac-mesh/1` container (`CARDMESH`, JSON header, vertices, triangles, `face_source_slice`) plus two more sections: `face_class` (uint8 per triangle) and `face_component` (uint8 / uint16 / uint32 per triangle, the type above). Blocks are contiguous: the FP vertices then the FN vertices, the FP triangles then the FN triangles; a triangle indexes only its own block. The header's `classes` table gives each class's `code`, `rule`, `voxels`, `vertex_range`, `triangle_range` and `component_range` |
+| Zero errors | a class with no voxel is an empty range everywhere (`0` voxels, no triangles, no regions): "no false positives" is a fact, not a missing layer. A prediction equal to the ground truth is a valid artifact with no face and no region |
+| Identity | the header names both source masks (`reference_mask_sha256`, `prediction_mask_sha256`) and the connectivity, so the bytes are a pure function of the two masks and the connectivity; the artifact is content-addressed (sha256 of the bytes) and written once as `<reference_sha256>.<prediction_sha256>.err2.cmesh` + `.err2.json` by `build_cache`. The connectivity is not in the file name: one pair, one file, and asking for another connectivity than the pair was built with is a `CONNECTIVITY_CONFLICT`, never a silent no-op |
+| Pick | the first triangle a ray hits names `face_source_slice[t]`, `face_class[t]` and the region `face_component[t]`; a miss navigates nowhere (`artifact.pick_triangle` is the reference ray cast) |
+| Cross-check | the class voxel counts equal the server's own `analysis_run_metrics` `false_positives` / `false_negatives` of the same run and variant (`tools/e2e/hero_flow_api.py` H6 checks it on the served data), `agreement_voxels` gives the same Dice, and the voxel counts of the regions of a class add up to the class's count |
 
-`error_geometry.py` (connected components with markers, candidate 3) is not part of the served path: the demo needs
-"tap an error region, land on its contributing slice", which the per-face slice and class already give, and a stored
-component id is not needed for it. The size on the real holdout data is a distribution, not a constant: it is printed
-by the build step (`built_bytes_min_median_max`, `built_triangles_min_median_max` under `error_meshes`) and recorded in
-the run report, not here.
+**The first format version is retired, not deleted.** `cardiac-errormesh/1` (no regions) was only ever built locally; its
+files are `<reference_sha256>.<prediction_sha256>.err1.cmesh` / `.err1.json`. `build_cache` writes `err2` files next to
+them, **never deletes, rewrites or reads them**, and reports how many there are and how large (`legacy_v1_files`,
+`legacy_v1_bytes` under `error_meshes`, and a `NOTE` line). The backend loads `err2` only: an `err1` sidecar is listed in
+`MeshStore.legacy` (a diagnostic, not a rejection), its bytes are in no index, so the content route answers 404 for their
+digests and `error_reconstruction_get` names the `err2` artifact only - a pair is never answered by two formats. Remove
+the `err1` files yourself once nothing needs them (the deploy script's `-ShipPackages` packs the whole `derived_meshes/`
+folder, so they would otherwise travel to the Mac mini).
+
+**Building needs scipy, serving does not.** The labelling is scipy's, and scipy is deliberately not in
+`backend/requirements.txt` (QA-074 N-4): `import backend.mesh` and the whole read side (`decode_error_mesh`, the backend
+that serves the bytes) need numpy only, `build_cache` imports scipy when an error mesh has to be built. Without it the
+step stops with `SCIPY_REQUIRED` before any volume is read (build on a host that has scipy and copy `derived_meshes/`, or
+pass `--no-error-meshes`); a pair that is already built is a no-op and needs no scipy. CI runs the error tests in the step
+that installs scipy 1.13.1 (Python 3.9, numpy 1.26.4) and skips them in the step without it.
+
+The size on the real holdout data is a distribution, not a constant: the build step prints it
+(`built_bytes_min_median_max`, `built_triangles_min_median_max`, `components_min_median_max` and
+`header_bytes_min_median_max` under `error_meshes`) and it is recorded in the run report, not here.
+
+### Windows: keep the data root short (MAX_PATH)
+
+An error-mesh file name is `<64 hex>.<64 hex>.err2.cmesh` = **140** characters (`.err2.json` is 139), and the atomic
+write adds `.tmp` (144). With the folder `derived_meshes` (14) and two separators the full path is `len(data root) + 160`
+characters, and the Windows API without long-path support refuses a path above 259 characters (`MAX_PATH` 260 including
+the terminating NUL). **The data root must therefore be at most 99 characters** (`CARDIAC_BACKEND_DATA`, `--data`). A longer
+root fails on the first error mesh with a confusing `FileNotFoundError` on `<...>.err2.cmesh.tmp` (the surface meshes,
+`<64 hex>.l0.cmesh` = 73 characters, still fit). Windows 10 long paths (the system-wide `LongPathsEnabled` registry value) lift
+the limit for Python 3.6+, but do not rely on them for a demo machine: use a short root such as `D:\cardiac-data\backend`. The Mac
+mini (POSIX, 1,024+ character paths) is not affected.
 
 ## Levels and DR-008c (decided 2026-10-01: L0)
 

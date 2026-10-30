@@ -16,14 +16,22 @@ NO_OP, and a file that exists with other bytes is a CHECKSUM_CONFLICT, never ove
 last, so a mesh without a sidecar is an interrupted build and is rebuilt.
 
 For each RAW and PROCESSED prediction of an EVALUATION case it also writes the ERROR mesh against the case's ground
-truth (DR-005; ``error_artifact.py``, format ``cardiac-errormesh/1``: the FP and FN voxel-face surfaces, every face with
-its source slice and its class) as
+truth (DR-005; ``error_artifact.py``, format ``cardiac-errormesh/2``: the FP and FN voxel-face surfaces, every face with
+its source slice, its class and its connected error region, plus the region table) as
 
-    <data>/derived_meshes/<reference_sha256>.<prediction_sha256>.err1.cmesh    the error mesh bytes
-    <data>/derived_meshes/<reference_sha256>.<prediction_sha256>.err1.json     sidecar: counts, shape, sha256
+    <data>/derived_meshes/<reference_sha256>.<prediction_sha256>.err2.cmesh    the error mesh bytes
+    <data>/derived_meshes/<reference_sha256>.<prediction_sha256>.err2.json     sidecar: counts, shape, sha256, regions
 
-keyed by BOTH masks' sha256 and the format version (``err1``), write-once in the same way. Never built for an
+keyed by BOTH masks' sha256 and the format version (``err2``), write-once in the same way. Never built for an
 INFERENCE_REVIEW case (INT-12: CASE_0001 has no ground truth in the cache and is in ``inference_only_ids``).
+
+The regions are labelled with scipy (``error_geometry.label_error_class``; scipy is not in ``backend/requirements.txt``,
+so an error mesh that has to be BUILT on a host without it fails with SCIPY_REQUIRED - build on the operator PC and copy
+``derived_meshes/``, or pass ``--no-error-meshes``). A pair that is already built is a NO_OP and needs no scipy.
+
+Files of the first format version (``*.err1.cmesh`` / ``*.err1.json``, built by an earlier run of this step) are NOT
+touched: the build leaves them in place, never reads them, and reports how many there are and how large (the backend
+serves ``err2`` only, so a pair is never answered by two formats). Remove them yourself once nothing needs them.
 
 Contract 2 and API Contract 11 are unchanged: this step only adds derived, patient-derived files outside git.
 CASE_0001 (INT-12) has no ground truth in the cache, so none is built for it; its predictions are meshed.
@@ -49,13 +57,16 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from . import artifact, error_artifact
+from .error_geometry import DEFAULT_CONNECTIVITY
 
 DERIVED_DIR = "derived_meshes"
 MESH_SUFFIX = ".l0.cmesh"
 SIDECAR_SUFFIX = ".l0.json"
 # The error mesh of one (ground truth, prediction) pair: both digests and the format version in the name.
-ERROR_SUFFIX = ".err1.cmesh"
-ERROR_SIDECAR_SUFFIX = ".err1.json"
+ERROR_SUFFIX = ".err2.cmesh"
+ERROR_SIDECAR_SUFFIX = ".err2.json"
+# The first version of the error mesh (no regions; never released): its files are left alone and never served.
+LEGACY_ERROR_SUFFIXES = (".err1.cmesh", ".err1.json")
 ERROR_SOURCE = "error_mesh"
 DATA_ENV = "CARDIAC_BACKEND_DATA"
 
@@ -80,6 +91,25 @@ def error_mesh_path(root: Path, reference_sha256: str, prediction_sha256: str) -
 
 def error_sidecar_path(root: Path, reference_sha256: str, prediction_sha256: str) -> Path:
     return Path(root) / f"{reference_sha256}.{prediction_sha256}{ERROR_SIDECAR_SUFFIX}"
+
+
+def legacy_error_files(root: Path) -> List[Path]:
+    """The first-format error-mesh files (``*.err1.cmesh`` / ``*.err1.json``) in the cache folder, sorted; read-only."""
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    return sorted(path for suffix in LEGACY_ERROR_SUFFIXES for path in root.glob(f"*{suffix}"))
+
+
+def _require_scipy() -> None:
+    """The regions are labelled with scipy: say so before a volume is read, not with a bare ImportError."""
+    try:
+        import scipy.ndimage  # noqa: F401
+    except ImportError as exc:
+        raise BuildError("SCIPY_REQUIRED", "the error meshes label their regions with scipy.ndimage, which is not "
+                                           "installed here (it is not part of backend/requirements.txt): build them "
+                                           "where scipy is installed and copy derived_meshes/, or pass "
+                                           "--no-error-meshes") from exc
 
 
 def _write_atomic(path: Path, payload: bytes) -> None:
@@ -143,9 +173,12 @@ def store_volume(root: Path, mask_sha256: str, volume_zyx: Any, source: str) -> 
 
 
 def store_error_volumes(root: Path, reference_sha256: str, prediction_sha256: str, reference_volume: Any,
-                        prediction_volume: Any) -> Dict[str, Any]:
+                        prediction_volume: Any, connectivity: int = DEFAULT_CONNECTIVITY) -> Dict[str, Any]:
     """Build and store the error mesh of one (ground truth, prediction) pair, write-once. Returns the sidecar (plus
     ``action``): NEW, or NO_OP when the pair was built before (neither volume is then read - both may be callables).
+
+    The file name has no connectivity: one pair, one file, and the connectivity is in its header and sidecar. Asking for
+    another connectivity than the one a pair was built with is a CONNECTIVITY_CONFLICT, never a silent NO_OP.
     """
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -153,11 +186,16 @@ def store_error_volumes(root: Path, reference_sha256: str, prediction_sha256: st
     body = error_mesh_path(root, reference_sha256, prediction_sha256)
     existing = _verified_record(side, body)
     if existing is not None:
+        if existing.get("connectivity") != connectivity:
+            raise BuildError("CONNECTIVITY_CONFLICT", f"{body.name} was built with connectivity "
+                                                      f"{existing.get('connectivity')}, not {connectivity}; derived "
+                                                      f"meshes are never overwritten - move the pair aside to rebuild it")
         return dict(existing, action="NO_OP")
+    _require_scipy()
     reference = reference_volume() if callable(reference_volume) else reference_volume
     prediction = prediction_volume() if callable(prediction_volume) else prediction_volume
     payload, info = error_artifact.build_error_artifact(prediction, reference, prediction_sha256=prediction_sha256,
-                                                         reference_sha256=reference_sha256)
+                                                         reference_sha256=reference_sha256, connectivity=connectivity)
     record = dict(info, source=ERROR_SOURCE)
     _write_pair(side, body, payload, record)
     return dict(record, action="NEW")
@@ -207,7 +245,8 @@ def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool =
     def note(into: List[Dict[str, Any]], label: str, sidecar: Dict[str, Any], elapsed: float, extra: str = "") -> None:
         into.append({"label": label, "action": sidecar["action"], "seconds": elapsed,
                      "bytes": sidecar.get("bytes", 0), "triangles": sidecar.get("triangle_count", 0),
-                     "vertices": sidecar.get("vertex_count", 0)})
+                     "vertices": sidecar.get("vertex_count", 0), "components": sidecar.get("component_count"),
+                     "header_bytes": sidecar.get("header_bytes")})
         log(f"{sidecar['action']:5} {label:34} tri={sidecar.get('triangle_count', 0):>7} "
             f"bytes={sidecar.get('bytes', 0):>8} {elapsed:6.2f}s{extra}", flush=True)
 
@@ -271,10 +310,19 @@ def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool =
                     root, reference_sha, prediction_sha, lambda case=case: ground_truth_of(case),
                     lambda run=run, variant=variant: experiments.prediction_volume(run, variant)[2])
                 note(error_results, f"{run.run_id} {variant} ERROR", sidecar, time.perf_counter() - started,
-                     f" fp={sidecar.get('fp_voxels', 0)} fn={sidecar.get('fn_voxels', 0)}")
+                     f" fp={sidecar.get('fp_voxels', 0)} fn={sidecar.get('fn_voxels', 0)} "
+                     f"regions={sidecar.get('component_count', 0)}")
         errors = summarise(error_results)
         errors["pairs"] = errors.pop("masks")
         summary["error_meshes"] = errors
+        legacy = legacy_error_files(root)
+        if legacy:
+            # Left in place on purpose (never deleted by this step, never served): say how many and how large.
+            errors["legacy_v1_files"] = len(legacy)
+            errors["legacy_v1_bytes"] = sum(path.stat().st_size for path in legacy)
+            log(f"NOTE {len(legacy)} first-format error-mesh files (*.err1.*, {errors['legacy_v1_bytes']} bytes) are "
+                f"left in place; the backend serves *.err2.* only - remove them yourself once nothing needs them",
+                flush=True)
     return summary
 
 
@@ -293,6 +341,12 @@ def summarise(results: List[Dict[str, Any]]) -> Dict[str, Any]:
             "built_seconds_total": round(sum(times), 1),
             "built_triangles_min_median_max": [min(tris), int(statistics.median(tris)), max(tris)],
         })
+    # Error meshes only: the regions per mesh and the size of the JSON header that carries their table (new and old).
+    served = [r for r in results if r["action"] in ("NEW", "NO_OP")]
+    for key, name in (("components", "components_min_median_max"), ("header_bytes", "header_bytes_min_median_max")):
+        values = [r[key] for r in served if r.get(key) is not None]
+        if values:
+            summary[name] = [min(values), int(statistics.median(values)), max(values)]
     return summary
 
 

@@ -5,9 +5,15 @@ DR-008c) voxel-face surface of one mask in the voxel-index frame, with the sourc
 (``backend/mesh/artifact.py``, format ``cardiac-mesh/1``). Nothing is built here: a mask without a sidecar simply
 has no reconstruction, and ``reconstruction_get`` says so (ARTIFACT_NOT_FOUND).
 
-``<reference_sha256>.<prediction_sha256>.err1.json`` describes ``....err1.cmesh``: the FP / FN error mesh of one
-prediction against the case's ground truth (``backend/mesh/error_artifact.py``, format ``cardiac-errormesh/1``, DR-005).
-It answers ``error_reconstruction_get``; the same rules apply.
+``<reference_sha256>.<prediction_sha256>.err2.json`` describes ``....err2.cmesh``: the FP / FN error mesh of one
+prediction against the case's ground truth, with its connected error regions (``backend/mesh/error_artifact.py``,
+format ``cardiac-errormesh/2``, DR-005, FR-3D-008). It answers ``error_reconstruction_get``; the same rules apply.
+
+One format per pair. Files of the first format version (``*.err1.json`` / ``*.err1.cmesh``, no regions; built by an
+earlier run of ``build_cache`` and never deleted by it) are not loaded: they are listed in ``legacy`` (a diagnostic, not a
+rejection), they are not in ``by_error`` or ``by_mesh``, so the content route answers 404 for their digests and
+``error_reconstruction_get`` names the ``err2`` artifact only. A sidecar called ``err2`` that says it is another format is
+rejected.
 
 Identity. A mesh is content-addressed by the sha256 of its bytes. ``mesh_artifact_id`` is ``MESH_<that sha256>`` and
 ``error_mesh_artifact_id`` is ``ERRMESH_<that sha256>``, so the client derives both the content route
@@ -35,10 +41,12 @@ from .experiments import RunRecord
 
 SIDECAR_SUFFIX = ".l0.json"
 MESH_SUFFIX = ".l0.cmesh"
-ERROR_SIDECAR_SUFFIX = ".err1.json"
-ERROR_MESH_SUFFIX = ".err1.cmesh"
+ERROR_SIDECAR_SUFFIX = ".err2.json"
+ERROR_MESH_SUFFIX = ".err2.cmesh"
+LEGACY_ERROR_SIDECAR_SUFFIX = ".err1.json"      # the first error-mesh format: never served
 FORMAT = "cardiac-mesh/1"
-ERROR_FORMAT = "cardiac-errormesh/1"
+ERROR_FORMAT = "cardiac-errormesh/2"
+ERROR_CONNECTIVITIES = (6, 18, 26)              # error_geometry.CONNECTIVITY_RANK (not imported: no scipy path here)
 GROUND_TRUTH_SOURCE = "ground_truth_slices"
 HEX64 = re.compile(r"[0-9a-f]{64}")
 MESH_ID = re.compile(r"MESH_([0-9a-f]{64})")
@@ -81,6 +89,8 @@ class ErrorMeshEntry:
         self.prediction_sha256: str = record["prediction_mask_sha256"]
         self.mesh_sha256: str = record["mesh_sha256"]
         self.shape: List[int] = [int(v) for v in record["shape"]]  # [Nx, Ny, Nz]
+        self.connectivity: int = int(record["connectivity"])      # of the regions (6, 18 or 26)
+        self.component_count: int = int(record["component_count"])
 
     @property
     def artifact_id(self) -> str:
@@ -98,12 +108,15 @@ class MeshStore:
         # Both kinds, by the sha256 of their bytes: what the content route serves.
         self.by_mesh: Dict[str, Any] = {}
         self.rejected: List[str] = []
+        # Sidecars of the first error-mesh format: present, never loaded, never served (see the module docstring).
+        self.legacy: List[str] = []
         if self.root is None or not self.root.is_dir():
             return
         for side in sorted(self.root.glob(f"*{SIDECAR_SUFFIX}")):
             self._load_surface(side)
         for side in sorted(self.root.glob(f"*{ERROR_SIDECAR_SUFFIX}")):
             self._load_error(side)
+        self.legacy = sorted(side.name for side in self.root.glob(f"*{LEGACY_ERROR_SIDECAR_SUFFIX}"))
 
     # -- loading -------------------------------------------------------------
     def _read(self, side: Path) -> Optional[Dict[str, Any]]:
@@ -184,6 +197,8 @@ class MeshStore:
                 and stem == f"{reference}.{prediction}"
                 and isinstance(record.get("mesh_sha256"), str) and bool(HEX64.fullmatch(record["mesh_sha256"]))
                 and _is_count(record.get("bytes"))
+                and _is_count(record.get("connectivity")) and record["connectivity"] in ERROR_CONNECTIVITIES
+                and _is_count(record.get("component_count")) and record["component_count"] >= 0
                 and isinstance(shape, list) and len(shape) == 3 and all(isinstance(v, int) for v in shape))
 
     # -- queries -------------------------------------------------------------

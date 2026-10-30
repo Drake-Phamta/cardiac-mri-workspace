@@ -104,14 +104,24 @@ convention, the way "3-D mesh content" above does it for the surface mesh:
   the artifact bytes; `GET /api/v1/artifacts/<sha256>.cmesh` answers them (`application/octet-stream`,
   `ETag: "sha256:<hex>"`, immutable). The client derives the URL and the checksum from the id alone and treats bytes
   that do not hash to it as `CONTRACT_DRIFT` (DR-021 rule 1). One route, two artifacts: `MESH_` (surface) and `ERRMESH_`
-  (error) ids, and the header `format` (`cardiac-mesh/1` / `cardiac-errormesh/1`), tell them apart; a client that is
-  handed the wrong kind refuses it.
-- **Format `cardiac-errormesh/1`** (`backend/mesh/error_artifact.py`): the L0 voxel-face surfaces of
+  (error) ids, and the header `format` (`cardiac-mesh/1` / `cardiac-errormesh/2`), tell them apart; a client that is
+  handed the wrong kind refuses it. The backend serves one format per pair: the first error-mesh format
+  (`cardiac-errormesh/1`, no regions, only ever built locally) is not served and its digests answer 404.
+- **Format `cardiac-errormesh/2`** (`backend/mesh/error_artifact.py`): the L0 voxel-face surfaces of
   `FP = prediction AND NOT ground truth` and `FN = ground truth AND NOT prediction` in one file, in the voxel-index frame
   of the surface mesh (`x=column,y=row,z=slice`, identity transform, no length served). Every face carries
   `face_source_slice` - the `z` of the class voxel it belongs to, the rule of the surface mesh, built by the same code -
   and `face_class` (1 = FP, 2 = FN). A pick resolves to the source slice and the class of the **first triangle hit**; a miss
   navigates nowhere. A class with no voxel is an empty block: "no false positives" is a fact, not a missing layer.
+- **Regions (FR-3D-008).** Every face also carries `face_component`, the number of its **error region**: a connected
+  component of the class's voxel set, labelled by `backend/mesh/error_geometry.py` (`scipy.ndimage.label`,
+  26-connectivity by default, the connectivity is `connectivity` in the header). Regions are numbered `1..C`, FP first,
+  then FN, each class largest first; the header's `components` table gives, per number, `id` (`FP_0001` ...), `class`,
+  `voxels`, `first_slice` and `slice_voxels` (voxels on `first_slice`, `first_slice + 1`, ...): a connected set has no gap in
+  `z`, so that is exactly the region's contributing slices, with their voxel counts. A pick names the region of the
+  first triangle hit, so "select an error region and navigate to one or more contributing slices" needs no second request.
+  The number is stored in the smallest of 1, 2, 4 bytes that holds `C` (`component_index_bytes`). Layout and rules:
+  `backend/mesh/README.md`.
 - **`reference_mask_id` / `prediction_mask_id`** are the ids the server states elsewhere for the same masks
   (`ground_truth_slice_get`, `analysis_run_get`, `prediction_slice_get`). A client draws the error mesh only when they are
   the masks it shows, and says so when they are not. The class voxel counts in the artifact header equal the
@@ -123,10 +133,17 @@ convention, the way "3-D mesh content" above does it for the surface mesh:
   shape. No error mesh is built for an INFERENCE_REVIEW case, and the store loads no mesh derived from a ground truth the
   backend does not serve.
 - **Placement (QA #98 N-8, unchanged).** The id format, the route and this format live in this README, not in
-  `contract.json`; `binary_delivery.applies_to` and `content_url_rule` still describe slices only, and
-  `hero_flow.picking` still says an error-region -> slice map "waits on DR-005": that map is the per-face source slice
-  and class inside the artifact, so the sentence is stale until the next freeze. At the freeze, put the convention in
-  `contract.json` and bump.
+  `contract.json`; `binary_delivery.applies_to` and `content_url_rule` still describe slices only.
+- **`hero_flow.picking` is stale and is not edited here.** It still says an error-region -> slice map "waits on DR-005 and
+  is not part of v1.0": that map now exists, as the per-face source slice, class and region inside the artifact (above).
+  `contract.json` is frozen: "Version and freeze" allows changes that are additive, made by the contract owner's PR with a
+  new version string, and the text-only amendments made so far (the DR-017 / DR-018 / DR-022 block above) each rest on a
+  named decision. This one has none, and no test or schema pins the sentence (`schema.json` asks for a non-empty string),
+  so the sentence stays stale until the contract owner's next PR; it is a text-only change that PR can make with the rest.
+  Suggested wording: "2D <-> 3D picking resolves through the shared geometry contract (geometry_get,
+  mesh_to_world_transform; 11 section 7). An error region -> contributing slices map is carried by the error mesh
+  artifact (error_reconstruction_get, README '3-D error mesh'); it is not part of v1.1's wire." At the freeze, put the
+  convention in `contract.json` and bump.
 
 ### Deviations from the frozen specs, and where they are translated
 

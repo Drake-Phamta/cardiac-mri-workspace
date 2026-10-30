@@ -1,17 +1,24 @@
 """SCR-05 on the backend: derived L0 meshes (build_cache), reconstruction_get, error_reconstruction_get (the FP / FN error
-mesh, DR-005) and the mesh content route.
+mesh with its connected error regions, DR-005, FR-3D-008) and the mesh content route.
 
 Synthetic package only. API Contract 11 is unchanged: every JSON answer still passes validate_response (through
 ``Api.call``). The frame is the voxel-index frame, axes x=column, y=row, z=slice (DR-008a), so a served face is
 checked against the served slice PNGs (row = y, column = x).
+
+The error meshes label their regions with scipy, which is a test-only dependency and not in backend/requirements.txt
+(QA-074 N-4): the tests that need a built error mesh are skipped where scipy is not installed, and CI runs this module
+a second time after installing it. The surface-mesh tests need numpy only.
 """
 
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import io
+import itertools
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +35,9 @@ from backend.mesh import artifact, build_case_mesh, build_cache, error_artifact
 
 B = "/api/v1"
 DENY = "GROUND_TRUTH_UNAVAILABLE"
+HAS_SCIPY = importlib.util.find_spec("scipy") is not None
+needs_scipy = pytest.mark.skipif(not HAS_SCIPY, reason="the error-mesh regions are labelled with scipy "
+                                                       "(test-only dependency, not in backend/requirements.txt)")
 
 
 def png_array(payload: bytes) -> np.ndarray:
@@ -39,7 +49,8 @@ def png_array(payload: bytes) -> np.ndarray:
 def built(environment):
     """The derived meshes of the synthetic cache + packages, built once through the real CLI step."""
     lines = []
-    summary = build_cache.build_all(environment["root"], log=lambda *args, **kwargs: lines.append(args[0]))
+    summary = build_cache.build_all(environment["root"], log=lambda *args, **kwargs: lines.append(args[0]),
+                                    error_meshes=HAS_SCIPY)
     return {"dir": environment["root"] / "derived_meshes", "summary": summary, "lines": lines}
 
 
@@ -115,10 +126,11 @@ def test_the_build_covers_every_served_mask_and_each_evaluation_ground_truth(env
 
 def test_a_rerun_is_a_no_op_and_never_overwrites(environment, built, tmp_path):
     before = {path.name: path.read_bytes() for path in built["dir"].iterdir()}
-    again = build_cache.build_all(environment["root"], log=lambda *a, **k: None)
+    again = build_cache.build_all(environment["root"], log=lambda *a, **k: None, error_meshes=HAS_SCIPY)
     assert again["new"] == 0 and again["no_op"] == again["masks"] and again["empty"] == 0
-    errors = again["error_meshes"]
-    assert errors["pairs"] >= 3 and errors["new"] == 0 and errors["no_op"] == errors["pairs"]
+    if HAS_SCIPY:
+        errors = again["error_meshes"]
+        assert errors["pairs"] >= 3 and errors["new"] == 0 and errors["no_op"] == errors["pairs"]
     assert {path.name: path.read_bytes() for path in built["dir"].iterdir()} == before
     # A mesh whose bytes no longer match its sidecar is a conflict, not something to overwrite.
     copy = tmp_path / "root"
@@ -129,7 +141,7 @@ def test_a_rerun_is_a_no_op_and_never_overwrites(environment, built, tmp_path):
     victim = next((copy / "derived_meshes").glob("*.l0.cmesh"))
     victim.write_bytes(victim.read_bytes()[:-4] + b"\x01\x00\x00\x00")
     with pytest.raises(build_cache.BuildError) as raised:
-        build_cache.build_all(copy, log=lambda *a, **k: None)
+        build_cache.build_all(copy, log=lambda *a, **k: None, error_meshes=HAS_SCIPY)
     assert raised.value.code == "CHECKSUM_CONFLICT"
 
 
@@ -143,17 +155,26 @@ def test_the_cli_builds_selected_runs_only(environment, tmp_path, capsys):
     assert "SUMMARY" in out and "RUN_9003 RAW" in out and "RUN_9001" not in out and "GROUND_TRUTH" not in out
     assert len(list((copy / "derived_meshes").glob("*.l0.cmesh"))) == 1
     # --no-ground-truth reads no ground truth, so it builds no error mesh (they are derived from it)
-    assert "ERROR" not in out and not list((copy / "derived_meshes").glob("*.err1.*"))
-    # the error meshes of that run alone, then none with --no-error-meshes
+    assert "ERROR" not in out and not list((copy / "derived_meshes").glob("*.err2.*"))
+    assert build_cache.main(["--data", str(copy), "--runs", "RUN_NOPE", "--no-error-meshes"]) == 2
+    assert "RUN_NOT_FOUND" in capsys.readouterr().err
+
+
+@needs_scipy
+def test_the_cli_builds_the_error_meshes_of_selected_runs_only(environment, tmp_path, capsys):
+    copy = tmp_path / "root"
+    copy.mkdir()
+    shutil.copytree(environment["cache"], copy / "data_cache")
+    shutil.copytree(environment["experiments"], copy / "experiments")
+    # the error meshes of one run alone, then none with --no-error-meshes
     assert build_cache.main(["--data", str(copy), "--runs", "RUN_9003"]) == 0
     out = capsys.readouterr().out
     assert "RUN_9003 RAW ERROR" in out and "CASE_9003 GROUND_TRUTH" in out and "RUN_9001" not in out
-    assert len(list((copy / "derived_meshes").glob("*.err1.cmesh"))) == 1
+    assert "regions=" in out and "components_min_median_max" in out and "header_bytes_min_median_max" in out
+    assert len(list((copy / "derived_meshes").glob("*.err2.cmesh"))) == 1
     assert build_cache.main(["--data", str(copy), "--runs", "RUN_9001", "--no-error-meshes"]) == 0
     assert "ERROR" not in capsys.readouterr().out
-    assert len(list((copy / "derived_meshes").glob("*.err1.cmesh"))) == 1
-    assert build_cache.main(["--data", str(copy), "--runs", "RUN_NOPE"]) == 2
-    assert "RUN_NOT_FOUND" in capsys.readouterr().err
+    assert len(list((copy / "derived_meshes").glob("*.err2.cmesh"))) == 1
 
 
 def test_a_mask_with_no_foreground_is_recorded_empty_and_served_as_unavailable(tmp_path):
@@ -371,10 +392,14 @@ def processed_prediction(environment) -> np.ndarray:
     return volume
 
 
+@needs_scipy
 def test_the_build_writes_one_error_mesh_per_prediction_of_an_evaluation_case(environment, built):
     errors = built["summary"]["error_meshes"]
-    sidecars = sorted(built["dir"].glob("*.err1.json"))
+    sidecars = sorted(built["dir"].glob("*.err2.json"))
     assert errors["pairs"] == len(sidecars) >= 3 and errors["new"] + errors["no_op"] == errors["pairs"]
+    # the regions of every mesh and the size of the header that carries their table are reported (min, median, max)
+    assert len(errors["components_min_median_max"]) == 3 and errors["components_min_median_max"][0] >= 1
+    assert len(errors["header_bytes_min_median_max"]) == 3 and "legacy_v1_files" not in errors
     assert any("RUN_9001 RAW ERROR" in line for line in built["lines"])
     assert any("RUN_9001 PROCESSED ERROR" in line for line in built["lines"])
     assert any("RUN_9003 RAW ERROR" in line for line in built["lines"])
@@ -382,14 +407,22 @@ def test_the_build_writes_one_error_mesh_per_prediction_of_an_evaluation_case(en
     gt_sha = {case_id: case.data["mask_sha256"] for case_id, case in cases.cases.items() if case.ground_truth_available}
     for side in sidecars:
         record = json.loads(side.read_text(encoding="utf-8"))
-        body = side.with_name(side.name.replace(".err1.json", ".err1.cmesh"))
+        body = side.with_name(side.name.replace(".err2.json", ".err2.cmesh"))
         # keyed by both masks' sha256 and the format version
-        assert side.name == f"{record['reference_mask_sha256']}.{record['prediction_mask_sha256']}.err1.json"
+        assert side.name == f"{record['reference_mask_sha256']}.{record['prediction_mask_sha256']}.err2.json"
         assert record["reference_mask_sha256"] in gt_sha.values() and record["shape"] == [12, 10, 6]
         assert hashlib.sha256(body.read_bytes()).hexdigest() == record["mesh_sha256"] and record["bytes"] == body.stat().st_size
-        assert record["format"] == "cardiac-errormesh/1" and record["source"] == "error_mesh"
+        assert record["format"] == "cardiac-errormesh/2" and record["source"] == "error_mesh"
         decoded = error_artifact.decode_error_mesh(body.read_bytes())
         assert [c["voxels"] for c in decoded["header"]["classes"]] == [record["fp_voxels"], record["fn_voxels"]]
+        # the regions: the sidecar states what the header holds
+        header = decoded["header"]
+        assert record["connectivity"] == header["connectivity"] == 26
+        assert record["component_count"] == header["component_count"] == len(header["components"]) >= 2
+        assert record["fp_components"] + record["fn_components"] == record["component_count"]
+        assert record["component_index_bytes"] == header["component_index_bytes"] == 1
+        assert 0 < record["header_bytes"] < record["bytes"]
+        assert record["header_bytes"] == int.from_bytes(body.read_bytes()[8:12], "little")
     # INT-12: CASE_0031 has no ground truth in the cache, so no error mesh exists for any of its predictions
     assert "CASE_0031" not in gt_sha
     int12_predictions = {artifact_record["checksum"]["value"]
@@ -397,10 +430,11 @@ def test_the_build_writes_one_error_mesh_per_prediction_of_an_evaluation_case(en
                          for artifact_record in package["artifacts"] if artifact_record.get("case_id") == "CASE_0031"}
     assert int12_predictions
     assert not [path for path in built["dir"].iterdir()
-                if any(sha in path.name for sha in int12_predictions) and ".err1." in path.name]
+                if any(sha in path.name for sha in int12_predictions) and (".err2." in path.name or ".err1." in path.name)]
     assert not any("RUN_0031" in line and "ERROR" in line for line in built["lines"])
 
 
+@needs_scipy
 def test_the_error_mesh_reference_its_bytes_and_the_classes_of_every_face(mesh_api, environment):
     api = mesh_api
     run = api.call("GET", f"{B}/analysis-runs/RUN_9001", "analysis_run_get", 200).json()
@@ -446,6 +480,7 @@ def test_the_error_mesh_reference_its_bytes_and_the_classes_of_every_face(mesh_a
     assert metrics["reference_mask_id"] == meta["reference_mask_id"] and metrics["prediction_mask_id"] == meta["prediction_mask_id"]
 
 
+@needs_scipy
 def test_every_error_face_lies_on_the_served_masks_of_its_source_slice(mesh_api):
     """H7 for errors: a picked FP face has the prediction at that (column, row) of its slice and no ground truth there;
     a picked FN face the other way round - read from the served PNGs (row = y, column = x)."""
@@ -476,6 +511,7 @@ def test_every_error_face_lies_on_the_served_masks_of_its_source_slice(mesh_api)
         assert seen == {1, 2}, (run, variant, "the synthetic pair has false positives and false negatives")
 
 
+@needs_scipy
 def test_processed_has_its_own_error_mesh_and_an_unknown_variant_is_not_found(mesh_api, environment):
     api = mesh_api
     raw = error_reconstruction(api, "RUN_9001", "RAW").json()
@@ -496,6 +532,7 @@ def test_processed_has_its_own_error_mesh_and_an_unknown_variant_is_not_found(me
                                    "error_reconstruction_get", 404)) == "ARTIFACT_NOT_FOUND"
 
 
+@needs_scipy
 def test_int12_has_no_error_mesh_even_when_one_is_planted(environment, built, tmp_path):
     """INT-12: the route answers GROUND_TRUTH_UNAVAILABLE first; and an error mesh planted against a ground truth the
     backend does not serve is never loaded, so its bytes are not on the content route either."""
@@ -521,7 +558,7 @@ def test_int12_has_no_error_mesh_even_when_one_is_planted(environment, built, tm
     api = make_api(environment, tmp_path / "planted", derived)
     try:
         backend = api.app.state.backend
-        planted = f"{forged_reference}.{int12_prediction}.err1.json"
+        planted = f"{forged_reference}.{int12_prediction}.err2.json"
         assert planted in backend.meshes.rejected and backend.meshes.for_error(forged_reference, int12_prediction) is None
         assert api.client.get(f"{B}/artifacts/{record['mesh_sha256']}.cmesh").status_code == 404
         assert api.error_code(error_reconstruction(api, "RUN_0031", "RAW", 404)) == DENY
@@ -532,13 +569,14 @@ def test_int12_has_no_error_mesh_even_when_one_is_planted(environment, built, tm
         api.app.state.backend.storage.close()
 
 
+@needs_scipy
 def test_a_rerun_never_overwrites_an_error_mesh(environment, built, tmp_path):
     copy = tmp_path / "root"
     copy.mkdir()
     shutil.copytree(environment["cache"], copy / "data_cache")
     shutil.copytree(environment["experiments"], copy / "experiments")
     shutil.copytree(built["dir"], copy / "derived_meshes")
-    victim = next((copy / "derived_meshes").glob("*.err1.cmesh"))
+    victim = next((copy / "derived_meshes").glob("*.err2.cmesh"))
     original = victim.read_bytes()
     victim.write_bytes(original[:-4] + b"\x01\x00\x00\x00")
     with pytest.raises(build_cache.BuildError) as raised:
@@ -546,16 +584,17 @@ def test_a_rerun_never_overwrites_an_error_mesh(environment, built, tmp_path):
     assert raised.value.code == "CHECKSUM_CONFLICT" and victim.read_bytes() != original
     # an interrupted build (body, no sidecar) is rebuilt with identical bytes, and a different body is a conflict
     victim.write_bytes(original)
-    victim.with_name(victim.name.replace(".err1.cmesh", ".err1.json")).unlink()
+    victim.with_name(victim.name.replace(".err2.cmesh", ".err2.json")).unlink()
     again = build_cache.build_all(copy, log=lambda *a, **k: None)
     assert again["error_meshes"]["new"] == 1 and victim.read_bytes() == original
-    victim.with_name(victim.name.replace(".err1.cmesh", ".err1.json")).unlink()
+    victim.with_name(victim.name.replace(".err2.cmesh", ".err2.json")).unlink()
     victim.write_bytes(original[:-4] + b"\x02\x00\x00\x00")
     with pytest.raises(build_cache.BuildError) as raised:
         build_cache.build_all(copy, log=lambda *a, **k: None)
     assert raised.value.code == "CHECKSUM_CONFLICT"
 
 
+@needs_scipy
 def test_the_content_route_serves_only_verified_error_mesh_bytes(mesh_api):
     api = mesh_api
     meta = error_reconstruction(api, "RUN_9003", "RAW").json()
@@ -581,10 +620,11 @@ def test_the_content_route_serves_only_verified_error_mesh_bytes(mesh_api):
     assert raised.value.code == "MESH_FORMAT"
 
 
+@needs_scipy
 def test_an_error_mesh_built_for_another_shape_is_a_geometry_mismatch(environment, built, tmp_path):
     derived = tmp_path / "derived"
     shutil.copytree(built["dir"], derived)
-    for side in derived.glob("*.err1.json"):
+    for side in derived.glob("*.err2.json"):
         record = json.loads(side.read_text(encoding="utf-8"))
         record["shape"] = [record["shape"][0] + 1] + record["shape"][1:]
         side.write_text(json.dumps(record), encoding="utf-8")
@@ -596,6 +636,7 @@ def test_an_error_mesh_built_for_another_shape_is_a_geometry_mismatch(environmen
         api.app.state.backend.storage.close()
 
 
+@needs_scipy
 def test_a_run_that_did_not_succeed_has_no_error_mesh(mesh_api):
     run = mesh_api.app.state.backend.experiments.runs["RUN_9003"]
     run.status, run.failure_reason = "FAILED", "synthetic failure"
@@ -604,6 +645,7 @@ def test_a_run_that_did_not_succeed_has_no_error_mesh(mesh_api):
     assert mesh_api.error_code(error_reconstruction(mesh_api, "RUN_9003", "RAW", 409)) == "RUN_NOT_SUCCEEDED"
 
 
+@needs_scipy
 def test_the_request_log_tells_an_error_mesh_fetch_from_a_surface_mesh_fetch(environment, built, tmp_path):
     settings = Settings.from_env({
         "data_cache": environment["cache"], "experiments_root": environment["experiments"],
@@ -623,15 +665,208 @@ def test_the_request_log_tells_an_error_mesh_fetch_from_a_surface_mesh_fetch(env
     assert fetched == {error_id.split("_", 1)[1]: "error_mesh", surface_id.split("_", 1)[1]: "mesh"}
 
 
+# -- regions (FR-3D-008) -----------------------------------------------------------------------------
+
+def flood_regions(voxels: set, connectivity: int = 26) -> list:
+    """Connected sets of a voxel set by a plain breadth-first search: independent of the labelling under test (no scipy)."""
+    reach = {6: 1, 18: 2, 26: 3}[connectivity]
+    steps = [d for d in itertools.product((-1, 0, 1), repeat=3) if 0 < sum(abs(c) for c in d) <= reach]
+    unseen, regions = set(voxels), []
+    while unseen:
+        start = unseen.pop()
+        region, queue = {start}, [start]
+        while queue:
+            x, y, z = queue.pop()
+            for dx, dy, dz in steps:
+                neighbour = (x + dx, y + dy, z + dz)
+                if neighbour in unseen:
+                    unseen.discard(neighbour)
+                    region.add(neighbour)
+                    queue.append(neighbour)
+        regions.append(region)
+    return regions
+
+
+def region_signature(name: str, region: set) -> tuple:
+    z = sorted({v[2] for v in region})
+    return (name, len(region), z[0], tuple(sum(1 for v in region if v[2] == value) for value in z))
+
+
+@needs_scipy
+def test_every_error_face_names_the_flood_filled_region_of_the_voxel_behind_it(mesh_api, environment):
+    """FR-3D-008 / TC-3D-005 on the served bytes: the regions are the connected sets of the FP and FN voxels, counted by an
+    independent flood fill of the voxels (not by scipy); a face's number is the region of its own voxel; the table says each
+    region's voxel count and contributing slices."""
+    api = mesh_api
+    accepted, volumes = environment["accepted"]["predictions"], environment["volumes"]
+    pairs = (("RUN_9001", "RAW", accepted["RUN_9001"], volumes["CASE_9001"]["gt"]),
+             ("RUN_9001", "PROCESSED", processed_prediction(environment), volumes["CASE_9001"]["gt"]),
+             ("RUN_9003", "RAW", accepted["RUN_9003"], volumes["CASE_9003"]["gt"]))
+    for run, variant, prediction_volume, reference_volume in pairs:
+        prediction, reference = voxel_set(prediction_volume), voxel_set(reference_volume)
+        sets = {"FP": prediction - reference, "FN": reference - prediction}
+        meta = error_reconstruction(api, run, variant).json()
+        decoded = error_artifact.decode_error_mesh(mesh_bytes(api, meta["error_mesh_artifact_id"]))
+        header = decoded["header"]
+        assert header["connectivity"] == 26
+        flood = {name: flood_regions(voxels) for name, voxels in sets.items()}
+        # the table: the same regions (as multisets of class, voxel count, first slice and per-slice counts), FP before FN,
+        # largest first inside a class
+        expected = [region_signature(name, region) for name in ("FP", "FN") for region in flood[name]]
+        table = [(c["class"], c["voxels"], c["first_slice"], tuple(c["slice_voxels"])) for c in header["components"]]
+        assert sorted(table) == sorted(expected), (run, variant)
+        assert header["component_count"] == len(expected) >= 2
+        for name in ("FP", "FN"):
+            counts = [c["voxels"] for c in header["components"] if c["class"] == name]
+            assert counts == sorted(counts, reverse=True)
+        # every face: the voxel behind it is in exactly one flood region, and that region is the table row it names
+        voxels = foreground_voxel_of_each_face(decoded)
+        region_of_voxel = {(name, voxel): index for name in flood for index, region in enumerate(flood[name]) for voxel in region}
+        numbers_of_region = {}
+        for t in range(voxels.shape[0]):
+            name = error_artifact.CLASS_NAME[int(decoded["face_class"][t])]
+            voxel = tuple(int(c) for c in voxels[t])
+            row = header["components"][int(decoded["face_component"][t]) - 1]
+            assert row["class"] == name
+            index = region_of_voxel[(name, voxel)]
+            assert (row["class"], row["voxels"], row["first_slice"], tuple(row["slice_voxels"])) == \
+                region_signature(name, flood[name][index]), (run, variant, t)
+            assert numbers_of_region.setdefault((name, index), int(decoded["face_component"][t])) == \
+                int(decoded["face_component"][t]), "one region, one number"
+        # and the other way round: distinct regions have distinct numbers, and every region of the table owns faces
+        assert len(set(numbers_of_region.values())) == len(numbers_of_region) == header["component_count"]
+
+
+@needs_scipy
+def test_the_connectivity_is_recorded_per_pair_and_another_one_is_a_conflict(tmp_path):
+    prediction = np.zeros((4, 5, 6), dtype=np.uint8)           # (z, y, x)
+    prediction[1, 1, 1] = 255
+    prediction[2, 2, 2] = 255                                  # touches the first at a corner only
+    reference = np.zeros_like(prediction)
+    derived = tmp_path / "derived"
+    first = build_cache.store_error_volumes(derived, "a" * 64, "b" * 64, reference, prediction)
+    assert first["action"] == "NEW" and first["connectivity"] == 26 and first["component_count"] == 1
+    unread = lambda: pytest.fail("a volume was read for a pair that is already built")  # noqa: E731
+    again = build_cache.store_error_volumes(derived, "a" * 64, "b" * 64, unread, unread)
+    assert again["action"] == "NO_OP" and again["connectivity"] == 26
+    before = build_cache.error_mesh_path(derived, "a" * 64, "b" * 64).read_bytes()
+    with pytest.raises(build_cache.BuildError) as raised:
+        build_cache.store_error_volumes(derived, "a" * 64, "b" * 64, reference, prediction, connectivity=6)
+    assert raised.value.code == "CONNECTIVITY_CONFLICT"
+    assert build_cache.error_mesh_path(derived, "a" * 64, "b" * 64).read_bytes() == before
+    other = build_cache.store_error_volumes(derived, "c" * 64, "b" * 64, reference, prediction, connectivity=6)
+    assert other["action"] == "NEW" and other["connectivity"] == 6 and other["component_count"] == 2
+    body = build_cache.error_mesh_path(derived, "c" * 64, "b" * 64).read_bytes()
+    assert error_artifact.read_error_header(body)["connectivity"] == 6 and body != before
+
+
+def test_a_missing_scipy_is_a_named_build_error_and_a_built_pair_needs_none(environment, built, tmp_path, monkeypatch):
+    unread = lambda: pytest.fail("a volume was read")  # noqa: E731
+    monkeypatch.setitem(sys.modules, "scipy", None)             # whatever is installed, import scipy now fails
+    monkeypatch.setitem(sys.modules, "scipy.ndimage", None)
+    with pytest.raises(build_cache.BuildError) as raised:
+        build_cache.store_error_volumes(tmp_path / "derived", "a" * 64, "b" * 64, unread, unread)
+    assert raised.value.code == "SCIPY_REQUIRED" and "--no-error-meshes" in str(raised.value)
+    assert not list((tmp_path / "derived").glob("*.err2.*"))
+    if HAS_SCIPY:
+        sidecar = sorted(built["dir"].glob("*.err2.json"))[0]
+        record = json.loads(sidecar.read_text(encoding="utf-8"))
+        again = build_cache.store_error_volumes(built["dir"], record["reference_mask_sha256"],
+                                                record["prediction_mask_sha256"], unread, unread)
+        assert again["action"] == "NO_OP"                       # a pair that is built is only read back, no scipy
+
+
+# -- one format per pair: the first-format files are left alone and never served --------------------------------------------
+
+@needs_scipy
+def test_first_format_files_are_left_in_place_reported_and_never_served(environment, built, tmp_path):
+    copy = tmp_path / "root"
+    copy.mkdir()
+    shutil.copytree(environment["cache"], copy / "data_cache")
+    shutil.copytree(environment["experiments"], copy / "experiments")
+    derived = copy / "derived_meshes"
+    shutil.copytree(built["dir"], derived)
+    reference = CaseStore(environment["cache"]).get("CASE_9001").data["mask_sha256"]
+    prediction = next(item for item in environment["accepted"]["manifest"]["artifacts"]
+                      if item["artifact_id"] == "ART_RUN_9001_RAW")["checksum"]["value"]
+    stem = f"{reference}.{prediction}"
+    # what an earlier run left next to the new files: a body and a sidecar of the first format for the very same pair
+    old_body = b"CARDMESH" + bytes(range(96))
+    old_digest = hashlib.sha256(old_body).hexdigest()
+    old_sidecar = json.dumps({"format": "cardiac-errormesh/1", "builder": "dr005-L0/v1", "level": 0, "bytes": len(old_body),
+                              "mesh_sha256": old_digest, "shape": [12, 10, 6], "reference_mask_sha256": reference,
+                              "prediction_mask_sha256": prediction, "source": "error_mesh"}).encode("utf-8")
+    (derived / f"{stem}.err1.cmesh").write_bytes(old_body)
+    (derived / f"{stem}.err1.json").write_bytes(old_sidecar)
+    before = {path.name: path.read_bytes() for path in derived.iterdir()}
+    lines = []
+    summary = build_cache.build_all(copy, log=lambda *a, **k: lines.append(a[0]))
+    # the build deletes, rewrites and adds nothing, and says what it left
+    assert {path.name: path.read_bytes() for path in derived.iterdir()} == before
+    errors = summary["error_meshes"]
+    assert errors["new"] == 0 and errors["legacy_v1_files"] == 2 and errors["legacy_v1_bytes"] == len(old_body) + len(old_sidecar)
+    assert any("first-format" in line and "left in place" in line for line in lines)
+    assert [path.name for path in build_cache.legacy_error_files(derived)] == [f"{stem}.err1.cmesh", f"{stem}.err1.json"]
+    # the store lists the old sidecar for the operator but loads and serves the new format only
+    store = MeshStore(derived, ground_truth_masks=served_ground_truths(environment))
+    assert store.legacy == [f"{stem}.err1.json"] and f"{stem}.err1.json" not in store.rejected
+    entry = store.for_error(reference, prediction)
+    assert entry is not None and entry.path.name == f"{stem}.err2.cmesh" and entry.mesh_sha256 != old_digest
+    assert len(store.by_error) == len(list(derived.glob("*.err2.json")))
+    assert old_digest not in store.by_mesh and store.content(old_digest) is None
+    api = make_api(environment, tmp_path / "api", derived)
+    try:
+        meta = error_reconstruction(api, "RUN_9001", "RAW").json()
+        assert meta["error_mesh_artifact_id"] == f"ERRMESH_{entry.mesh_sha256}"
+        decoded = error_artifact.decode_error_mesh(mesh_bytes(api, meta["error_mesh_artifact_id"]))
+        assert decoded["header"]["format"] == "cardiac-errormesh/2"
+        assert api.client.get(f"{B}/artifacts/{old_digest}.cmesh").status_code == 404     # the old bytes are never on the route
+    finally:
+        api._client_context.__exit__(None, None, None)
+        api.app.state.backend.storage.close()
+
+
+@needs_scipy
+def test_a_sidecar_that_is_not_a_valid_second_format_one_is_rejected_not_served(environment, built, tmp_path):
+    derived = tmp_path / "derived"
+    shutil.copytree(built["dir"], derived)
+    sidecars = sorted(derived.glob("*.err2.json"))
+    assert len(sidecars) >= 3
+    served = served_ground_truths(environment)
+    assert not MeshStore(derived, ground_truth_masks=served).rejected
+    damages = [
+        lambda r: r.update(format="cardiac-errormesh/1"),            # a first-format sidecar under a second-format name
+        lambda r: r.update(connectivity=7),
+        lambda r: r.update(connectivity=True),
+        lambda r: r.update(connectivity="26"),
+        lambda r: r.pop("connectivity"),
+        lambda r: r.update(component_count=-1),
+        lambda r: r.update(component_count="3"),
+        lambda r: r.update(component_count=None),
+        lambda r: r.pop("component_count"),
+    ]
+    for index, damage in enumerate(damages):
+        side = sidecars[index % len(sidecars)]
+        original = side.read_text(encoding="utf-8")
+        record = json.loads(original)
+        damage(record)
+        side.write_text(json.dumps(record), encoding="utf-8")
+        store = MeshStore(derived, ground_truth_masks=served)
+        assert store.rejected == [side.name], (index, store.rejected)
+        assert len(store.by_error) == len(sidecars) - 1
+        side.write_text(original, encoding="utf-8")
+
+
 # -- INT-12 defence in the store itself (QA #98 N-9) -------------------------------------------------------
 
+@needs_scipy
 def test_the_store_loads_a_ground_truth_derived_mesh_only_for_a_ground_truth_it_was_told_about(environment, built):
     served = served_ground_truths(environment)
     everything = MeshStore(built["dir"], ground_truth_masks=served)
     assert not everything.rejected
     ground_truth_sidecars = [side for side in built["dir"].glob("*.l0.json")
                              if json.loads(side.read_text(encoding="utf-8")).get("source") == "ground_truth_slices"]
-    error_sidecars = list(built["dir"].glob("*.err1.json"))
+    error_sidecars = list(built["dir"].glob("*.err2.json"))
     assert ground_truth_sidecars and error_sidecars
     # told about none (the default): no ground-truth mesh and no error mesh is loaded, predictions are
     default = MeshStore(built["dir"])
