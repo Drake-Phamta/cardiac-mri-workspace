@@ -1484,9 +1484,10 @@ function reviewBackend({ seedVersion = false } = {}) {
     for (const [role, n, v] of FOUR()) await fromViewer(r, { type: 'loaded', role, triangles: n, vertices: v });
     check('V2R3', has(r, /^12 triangles$/) && has(r, /^100 voxels · 12 triangles$/) && has(r, /^200 voxels · 12 triangles$/),
       `prediction and ground truth report their triangles, FP and FN their voxels (from the server's artifact): ${texts(r).filter((t) => /triangles/.test(t)).join(' | ')}`);
-    // never colour alone: every layer's name, meaning and glyph are printed
-    check('V2R3', has(r, /^FP - over-segmentation$/) && has(r, /^predicted, not in the ground truth$/) && has(r, /^FN - missed$/) && has(r, /^in the ground truth, not predicted$/)
-      && has(r, /^the segmentation the model produced$/) && has(r, /^the reference segmentation$/), 'the legend prints each layer\'s name and meaning');
+    // never colour alone: every layer's name, meaning, glyph and look (how the scene draws it) are printed
+    check('V2R3', has(r, /^FP - over-segmentation$/) && has(r, /^predicted, not in the ground truth · drawn checkered$/) && has(r, /^FN - missed$/) && has(r, /^in the ground truth, not predicted · drawn striped$/)
+      && has(r, /^the segmentation the model produced · drawn solid$/) && has(r, /^the reference segmentation · drawn see-through$/),
+    'the legend prints each layer\'s name, meaning and how the scene draws it (checkered, striped, solid, see-through)');
     check('V2R3', ['■', '□', '▲', '▼'].every((g) => has(r, new RegExp(`^${g}$`))), 'and a glyph of its own');
     check('V2R3', has(r, /^Prediction: ON$/) && has(r, /^Ground truth: OFF$/) && has(r, /^FP: ON$/) && has(r, /^FN: ON$/), 'each layer has its switch, printed ON / OFF');
     await press(r, 'FP: ON');

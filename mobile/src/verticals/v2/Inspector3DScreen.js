@@ -12,7 +12,7 @@
  *   error representation        error_reconstruction_get -> ONE error artifact (cardiac-errormesh/1) that becomes two
  *                               layers of their own, false positive (FP) and false negative (FN), next to the prediction
  *                               and the ground truth. Four layers, each with its own state and switch, a printed legend
- *                               (name, meaning, glyph - never colour alone) and FN hatched in the scene. The error mesh
+ *                               (name, meaning, glyph, look - never colour alone), FN striped and FP checkered in the scene. The error mesh
  *                               is drawn only if it was made from the masks shown (reference_mask_id, prediction_mask_id).
  *   select (H7)                 a tap resolves to the source slice and the class of the FIRST face hit and the screen shows
  *                               "slice n / total" and what was hit; "Open in 2D" pushes SCR-03 at that slice, and for an FP
@@ -314,7 +314,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
     // `10` §7: no ground truth is an unavailable state, never an empty map that reads as zero error.
     errorHint = 'This case has no ground truth, so there is no 3D error map and no ground-truth surface - that is not zero error.';
   } else if (errorsReady) {
-    errorHint = 'Error map: false-positive faces (▲) mark where the model segmented something the ground truth does not have; false-negative faces (▼, hatched) mark ground truth the model missed. Tap one to see its slice.';
+    errorHint = 'Error map: false-positive faces (▲, checkered) mark where the model segmented something the ground truth does not have; false-negative faces (▼, striped) mark ground truth the model missed. Tap one to see its slice.';
   } else if (errorsUnavailable) {
     errorHint = `The 3D error map is unavailable (${statuses.falsePositive.reason || 'no reason given'}). The prediction and ground-truth surfaces still show where they differ.`;
   } else {
@@ -453,7 +453,7 @@ function LayerRow({ role, name, note, usable, on, onToggle }) {
       </View>
       <View style={s.layerText}>
         <Text style={s.value}>{name}</Text>
-        <Text style={s.dim}>{info.detail}</Text>
+        <Text style={s.dim}>{info.detail} · {info.look}</Text>
         <Text style={s.dim}>{note}</Text>
       </View>
       <TouchableOpacity

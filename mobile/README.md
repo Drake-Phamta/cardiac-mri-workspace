@@ -243,8 +243,10 @@ and the plane follows the 2D slice. Vũ Hùng Anh completes, measures and defend
   `error (MASK_MISMATCH)` and its bytes are not fetched. Fixture mode has no bytes, so it shows the honest unavailable state.
 - **Four layers, none by colour alone.** Prediction, ground truth, false positive (FP) and false negative (FN), each with
   its own state (loading / unavailable with the API's reason / error with its code / ready with its counts), its own switch
-  and a legend row that prints its name, its meaning and a glyph (FP and FN use SCR-04's words and colours). In the scene FN
-  is hatched. The prediction decides the screen; every other layer reads its own state, so a missing error mesh never takes
+  and a legend row that prints its name, its meaning, a glyph and how the scene draws it (FP and FN use SCR-04's words and
+  colours). In the scene FP is checkered, FN striped, the prediction solid and the ground truth see-through, and the surfaces
+  are partly desaturated while an error layer is drawn on them - so no class depends on its colour alone. The prediction
+  decides the screen; every other layer reads its own state, so a missing error mesh never takes
   the surfaces down (the ground truth is then switched on by default, so the disagreement still shows as two surfaces). A
   class with no voxel is READY with "none: no false-positive voxels" - zero error is a fact, not a missing layer. An
   INFERENCE_REVIEW case (INT-12) is asked for neither ground truth nor error mesh: those layers say

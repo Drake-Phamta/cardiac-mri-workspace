@@ -517,7 +517,7 @@ test('V2W18 the camera: reported when a gesture ends, restored from the screen w
   assert.deepEqual(v.events('camera').pop(), { type: 'camera', yaw: -0.5, pitch: 0.35, zoom: 1, panX: 0, panY: 0 });
 });
 
-test('V2W19 what a frame draws: the error layers with a depth offset, FN hatched, the empty class not at all, the plane only with a slice', () => {
+test('V2W19 what a frame draws: the error layers with a depth offset, FP checkered and FN striped, the empty class not at all, the plane only with a slice', () => {
   const v = makeViewer();
   v.load('prediction', errorGoldenPredictionBytes());
   v.load('error', errorGoldenBytes());
@@ -532,9 +532,11 @@ test('V2W19 what a frame draws: the error layers with a depth offset, FN hatched
   assert.ok(names.indexOf('polygonOffset') > -1 && names.indexOf('polygonOffset') < names.indexOf('drawElements', names.indexOf('drawElements') + 1),
     'the depth offset is on before the first error layer is drawn');
   assert.deepEqual(first.filter(([n]) => n === 'polygonOffset').map((c) => c.slice(1)), [[-1, -1]]);
-  // FN is hatched, FP and the prediction are not
+  // every layer has a pattern of its own besides its colour: the prediction solid (0), FP checkered (2), FN striped (1)
   const hatch = first.filter(([n, loc]) => n === 'uniform1f' && loc && loc.uniform === 'uHatch').map((c) => c[2]);
-  assert.deepEqual(hatch, [0, 0, 1]);
+  assert.deepEqual(hatch, [0, 2, 1]);
+  const mute = first.filter(([n, loc]) => n === 'uniform1f' && loc && loc.uniform === 'uMute').map((c) => c[2]);
+  assert.deepEqual(mute, [0.55, 0, 0], 'the surface is partly desaturated while error layers are drawn; the error layers keep their colours');
   assert.deepEqual(uniformValue(first, 'uBand').map((a) => a[0]), [0.9, 0.35, 0.35], 'the error classes keep most of their colour under the band');
   assert.equal(drawElements(first).length, 3);
   assert.equal(first.filter(([n]) => n === 'drawArrays').length, 0, 'no slice, no plane');

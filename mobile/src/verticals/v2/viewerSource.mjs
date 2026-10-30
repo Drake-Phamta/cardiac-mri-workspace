@@ -15,8 +15,9 @@
  *     the floor of the hit point, and a miss posts slice null (it never navigates);
  *   - flat shading from screen-space derivatives, so no normal buffer is needed; four layers (prediction, ground truth,
  *     false positive, false negative) with their own visibility; the slice plane is a translucent quad with an outline
- *     and a band on the surfaces; false negatives are hatched, so the two error classes differ without colour, and the
- *     surfaces are partly desaturated while an error layer is drawn on them, so the class colours stand out;
+ *     and a band on the surfaces; false negatives are striped and false positives checkered, so the two error classes
+ *     and the solid surfaces differ without colour, and the surfaces are partly desaturated while an error layer is drawn
+ *     on them, so the class colours stand out;
  *   - the camera frames the anatomy (the ground truth when it is loaded, else everything) by percentile bounds, so a few
  *     stray prediction islands do not shrink the picture; the plane is sized the same way. Nothing is dropped from drawing
  *     or picking;
@@ -298,9 +299,11 @@ export const VIEWER_SCRIPT = [
   '  "out vec3 vView; out vec3 vPos;",',
   '  "void main() { vec4 w = uMV * vec4(aPos, 1.0); vView = w.xyz; vPos = aPos; gl_Position = uProj * w; }"',
   '].join("\\n");',
-  // uBand: how much of the slice band replaces the colour (the error classes keep most of theirs); uHatch: stripes
-  // across the faces (the false negatives), so the two error classes differ without colour; uMute: how much of the colour
-  // of a surface is taken out while error layers are drawn on it, so the class colours stand out; uFlat: the slice plane.
+  // uBand: how much of the slice band replaces the colour (the error classes keep most of theirs); uHatch: the pattern a
+  // layer is drawn with - 0 solid, 1 striped (the false negatives), 2 checkered (the false positives) - so the two error
+  // classes and the surfaces differ without colour; uMute: how much of the colour of a surface is taken out while error
+  // layers are drawn on it, so the class colours stand out; uFlat: the slice plane. The checks are cells of 4 voxels,
+  // shifted by 0.02 voxel so that a face lying ON a cell boundary (every face lies on an integer plane) never flickers.
   'var FS = [',
   '  "#version 300 es",',
   '  "precision highp float;",',
@@ -317,7 +320,8 @@ export const VIEWER_SCRIPT = [
   '  "  float rim = pow(1.0 - max(dot(n, v), 0.0), 2.5);",',
   '  "  vec3 c = uColor * (0.32 + 0.68 * diffuse + 0.12 * rim);",',
   '  "  c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), uMute);",',
-  '  "  if (uHatch > 0.5) { float stripe = step(0.5, fract((vPos.x + vPos.y + vPos.z) / 6.0)); c *= 1.0 - 0.30 * stripe; }",',
+  '  "  if (uHatch > 1.5) { vec3 cell = floor((vPos + 0.02) / 4.0); float check = mod(cell.x + cell.y + cell.z, 2.0); c *= 1.0 - 0.28 * check; }",',
+  '  "  else if (uHatch > 0.5) { float stripe = step(0.5, fract((vPos.x + vPos.y + vPos.z) / 6.0)); c *= 1.0 - 0.30 * stripe; }",',
   '  "  if (uSlice >= 0.0) { float band = 1.0 - smoothstep(0.5, 1.0, abs(vPos.z - (uSlice + 0.5))); c = mix(c, vec3(1.0, 0.82, 0.2), band * uBand); }",',
   '  "  outColor = vec4(c, uAlpha);",',
   '  "}"',
@@ -439,7 +443,7 @@ export const VIEWER_SCRIPT = [
   // The error faces share their plane with prediction faces (an FP face is a prediction face; an FN face meets one):
   // pulled toward the camera by the depth offset, they win the tie everywhere and keep their class colour.
   '  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1.0, -1.0);',
-  '  drawLayer("falsePositive", 1.0, 0.35, 0.0, 0.0);',
+  '  drawLayer("falsePositive", 1.0, 0.35, 2.0, 0.0);',
   '  drawLayer("falseNegative", 1.0, 0.35, 1.0, 0.0);',
   '  gl.disable(gl.POLYGON_OFFSET_FILL);',
   '  var gtAlpha = othersVisible() ? 0.5 : 1.0;',

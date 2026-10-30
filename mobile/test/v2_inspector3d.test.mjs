@@ -476,9 +476,11 @@ test('V2E4 the legend never relies on colour alone: every layer has its own name
     assert.ok(info.short.length > 2 && info.detail.length > 10 && info.glyph.length === 1 && /^#[0-9a-f]{6}$/.test(info.color), role);
     assert.equal(LAYER_COLOR[role], info.color);
   }
-  for (const key of ['short', 'detail', 'glyph', 'color']) {
+  for (const key of ['short', 'detail', 'glyph', 'color', 'look']) {
     assert.equal(new Set(ROLE_ORDER.map((r) => LAYER_INFO[r][key])).size, 4, `four different ${key}s`);
   }
+  // the legend ties each pattern the viewer draws to its class: FP checkered, FN striped (V2W19 pins the uniforms)
+  assert.deepEqual(ROLE_ORDER.map((r) => LAYER_INFO[r].look), ['drawn solid', 'drawn see-through', 'drawn checkered', 'drawn striped']);
   assert.deepEqual([LAYER_INFO.falsePositive.short, LAYER_INFO.falsePositive.detail, LAYER_INFO.falsePositive.color],
     [ERROR_CLASS.FP.label, ERROR_CLASS.FP.detail, ERROR_CLASS.FP.color]);
   assert.deepEqual([LAYER_INFO.falseNegative.short, LAYER_INFO.falseNegative.detail, LAYER_INFO.falseNegative.color],

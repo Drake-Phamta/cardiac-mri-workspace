@@ -42,13 +42,15 @@ export const ERROR_CONTAINER = 'error';
 export const CLASS_OF_ROLE = Object.freeze({ falsePositive: 'FP', falseNegative: 'FN' });
 export const ROLE_OF_CLASS = Object.freeze({ FP: 'falsePositive', FN: 'falseNegative' });
 
-// Never colour alone (`10` §7, §9): every layer has a printed name, a printed meaning and a glyph, and the scene
-// itself hatches FN. The FP / FN names, meanings and colours are SCR-04's (ERROR_CLASS): one legend across the app.
+// Never colour alone (`10` §7, §9): every layer has a printed name, a printed meaning, a glyph and a printed LOOK in the
+// scene (solid, see-through, checkered, striped - the viewer draws FP checkered and FN striped, see viewerSource.mjs), so
+// the legend ties each pattern to its class. The FP / FN names, meanings and colours are SCR-04's (ERROR_CLASS): one
+// legend across the app.
 export const LAYER_INFO = Object.freeze({
-  prediction: Object.freeze({ short: 'Prediction', glyph: '■', color: '#f0883e', detail: 'the segmentation the model produced' }),
-  groundTruth: Object.freeze({ short: 'Ground truth', glyph: '□', color: '#39c5cf', detail: 'the reference segmentation' }),
-  falsePositive: Object.freeze({ short: ERROR_CLASS.FP.label, glyph: '▲', color: ERROR_CLASS.FP.color, detail: ERROR_CLASS.FP.detail }),
-  falseNegative: Object.freeze({ short: ERROR_CLASS.FN.label, glyph: '▼', color: ERROR_CLASS.FN.color, detail: ERROR_CLASS.FN.detail }),
+  prediction: Object.freeze({ short: 'Prediction', glyph: '■', color: '#f0883e', detail: 'the segmentation the model produced', look: 'drawn solid' }),
+  groundTruth: Object.freeze({ short: 'Ground truth', glyph: '□', color: '#39c5cf', detail: 'the reference segmentation', look: 'drawn see-through' }),
+  falsePositive: Object.freeze({ short: ERROR_CLASS.FP.label, glyph: '▲', color: ERROR_CLASS.FP.color, detail: ERROR_CLASS.FP.detail, look: 'drawn checkered' }),
+  falseNegative: Object.freeze({ short: ERROR_CLASS.FN.label, glyph: '▼', color: ERROR_CLASS.FN.color, detail: ERROR_CLASS.FN.detail, look: 'drawn striped' }),
 });
 export const LAYER_COLOR = Object.freeze({
   prediction: LAYER_INFO.prediction.color, groundTruth: LAYER_INFO.groundTruth.color,
