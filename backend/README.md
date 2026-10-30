@@ -143,7 +143,8 @@ Every served mask without a mesh simply has no reconstruction (`ARTIFACT_NOT_FOU
 no longer matches its sidecar is a `CHECKSUM_CONFLICT`, never overwritten. `CASE_0001` has no ground truth to mesh; its
 predictions are meshed. The frame, the file format and the pick rule are in `backend/mesh/artifact.py`; the contract
 conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content". The
-deploy script copies `data_cache` only: copy `derived_meshes/` (or run the build step on the host) for a deployment.
+deploy script copies `data_cache` by default and, with `-ShipPackages`, also `experiments/` and `derived_meshes/` (see
+"Deploy to the Mac mini"); or run the build step on the host.
 
 ## Tests
 
@@ -181,6 +182,16 @@ requirements as Python 3.9 macOS-arm64 wheels, copies the code to `~/cardiac-bac
 offline from the wheels, restarts uvicorn on `<overlay-address>:8000` in the background (pid file and log under
 `~/cardiac-backend-data/var/`), and curls `/health` on the host and then from the PC. Nothing is deleted on
 either side.
+
+Options for a redeploy after new runs are exported (the UNet family, `ml/README.md` "Redeploy"): **`-ShipPackages`**
+also packs `<data-root>\experiments` (Contract 2 run directories, without `predictions/validation`,
+`evaluation/validation` and `last.pt`) and `<data-root>\derived_meshes`, where `<data-root>` is the parent of
+`-DataCache`; `-SkipData` leaves the data cache alone. `-ShipPackages` needs a data cache path even with `-SkipData`
+(`-DataCache <data-root>\data_cache` or `CARDIAC_BACKEND_DATA`) and says so before it connects. Every archive is
+listed with `tar -tzf` before it is uploaded: a listing that fails, or one that holds a raw image file
+(`.nii`, `.nii.gz`, `.dcm`, `.mha`, `.mhd`, `.raw`; the data cache also refuses `.nrrd`, the packages allow it because
+their prediction masks are NRRD), refuses the deploy. `backend/tests/test_deploy_paths.py` runs the real script in
+Windows PowerShell against fake `ssh` / `scp` for these cases (skipped where PowerShell or the system `tar` is absent).
 
 Phone base URL: `http://<overlay-address>:8000/api/v1` · health: `http://<overlay-address>:8000/health`.
 If the host answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
