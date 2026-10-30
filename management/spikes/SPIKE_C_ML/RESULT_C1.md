@@ -50,6 +50,11 @@ grid runs.
   skeleton is about 3.5 px thick; the UNet (stride 1) and the progressive DINOv2 decoder (stride 1.75) are finer than
   every measured structure, while a linear DINOv2 head (stride 14) would be coarser than about a fifth of it. This
   supports the progressive decoder written into ADR-ML-001.
+- **The calendar fits (C1-9): E = 50, the cap.** With the measured step times, 20/38/78 training cases × 88 slices,
+  20 validation cases each epoch and a 1.10 overhead (ASSUMPTION), the DINOv2 queue on this PC takes 12.35 h
+  (EXP-D-025 2.05 h, EXP-D-050 3.52 h, EXP-D-100 6.78 h). The UNet queue takes 24.33 h at this card's C1-2 UNet rate;
+  §3.1 says when that rate holds for the RTX 4050. Starting 2026-10-01 15:30 and 2026-10-02 09:00, both end before the
+  2026-10-03 12:00 deadline (`c1_calendar`). DR-007 (fall back to 448) is not needed.
 
 ### Owner interpretation — C1-4 (Bế Quốc Khánh, revalidated 2026-10-05)
 
@@ -61,11 +66,6 @@ while training loss still falls is evidence of unstable generalisation at this s
 the run failed or that the frozen recipe should be changed. I accept these as limitations to carry into the
 final comparison and post-processing analysis under `PR-SCI-03`; they are not a basis for tuning after seeing
 the panel.
-- **The calendar fits (C1-9): E = 50, the cap.** With the measured step times, 20/38/78 training cases × 88 slices,
-  20 validation cases each epoch and a 1.10 overhead (ASSUMPTION), the DINOv2 queue on this PC takes 12.35 h
-  (EXP-D-025 2.05 h, EXP-D-050 3.52 h, EXP-D-100 6.78 h). The UNet queue takes 24.33 h at this card's C1-2 UNet rate;
-  §3.1 says when that rate holds for the RTX 4050. Starting 2026-10-01 15:30 and 2026-10-02 09:00, both end before the
-  2026-10-03 12:00 deadline (`c1_calendar`). DR-007 (fall back to 448) is not needed.
 
 ## 3 · Observations the pre-declared rule did not anticipate
 
