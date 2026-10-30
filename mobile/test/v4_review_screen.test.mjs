@@ -51,13 +51,20 @@ function at(x, y, nx = 576, ny = 576) {
 const covers = (runs, x, y) => runs.some((r) => r.y === y && x >= r.x && x < r.x + r.len);
 
 // What the app does in live mode: runtime.content, imageStore and the PNG adapter. The generated
-// bundle answers every slice with its own placeholder ids, so the live checks use the run id the
-// bundle's analysis_run_get answers (live mode requires the run that answered to be the route's).
-const LIVE_PARAMS = Object.freeze({ runId: RUN.run_id, caseId: 'CASE_0043', variant: 'RAW' });
+// bundle answers every slice with its own placeholder ids, so the live checks use the run and case
+// ids the bundle's analysis_run_get answers (live mode requires the run that answered to be the
+// route's, and to belong to the route's case) and a prediction_slice_get that names the run's
+// artifact for the variant, as the real backend does (E2E H8; QA_PR99_D39 NB-3).
+const LIVE_PARAMS = Object.freeze({ runId: RUN.run_id, caseId: RUN.case_id, variant: 'RAW' });
+const ARTIFACT_OF = Object.freeze({ RAW: RUN.raw_prediction_artifact_id, PROCESSED: RUN.processed_prediction_artifact_id });
+const conforming = (client) => patchedClient(client, {
+  prediction_slice_get: (v, params) => (v.state === STATE.SUCCESS
+    ? { ...v, data: { ...v.data, prediction_variant: params.variant, prediction_mask_id: ARTIFACT_OF[params.variant] } } : v),
+});
 const liveOf = (fx, content, client = fx.client) => ({
   ...fx,
   mode: 'live',
-  client,
+  client: conforming(client),
   content,
   imageStore: { load: async (url, { checksum }) => ({ uri: `data:image/png;base64,${Buffer.from(`${url}${checksum}`).toString('base64')}` }) },
   config: { ...fx.config, apiBaseUrl: 'http://backend.test:8000' },
@@ -504,4 +511,99 @@ test('RS18 a slice that could not be fetched can be retried; a slice left before
   // an answer for a slice that is no longer the wanted one is dropped
   await leave.provideSlice(44, {});
   assert.equal(leave.getState().wants.slice.z, 45);
+});
+
+test('RS19 live: the run must belong to the case the route named - nothing is opened for a run of another case (QA_PR99_D39 NB-5)', async (t) => {
+  const png = await importMaskPngOrSkip(t);
+  if (!png) return;
+  const fx = fixtureRuntime();
+  const content = fakeContent({ mask: encodePng(NX, NX, 0, ellipseMask(NX, NX, 300, 276, 20, 15)) });
+  const asked = [];
+  const live = liveOf(fx, content, { ...fx.client, call: (id, p, o) => { asked.push(id); return fx.client.call(id, p, o); } });
+  const wrong = createReviewScreen({ runtime: live, params: { ...LIVE_PARAMS, caseId: 'CASE_9999' }, decodeMaskPng: png.decodeMaskPng });
+  await wrong.start();
+  await drive(wrong, live.client);
+  const s = wrong.getState();
+  assert.equal(s.phase, PHASE.BLOCKED);
+  assert.equal(s.blockedView.error.code, 'CONTRACT_DRIFT');
+  assert.match(s.blockedView.error.detail.problems[0], new RegExp(`case_id is ${RUN.case_id}, the route named CASE_9999`));
+  assert.deepEqual(asked, ['analysis_run_get'], 'no case, review or slice was read, and no review was created, for a run of another case');
+  assert.equal(content.calls.length, 0, 'and no bytes were fetched');
+
+  // controls: the route that names the run's own case opens; a route that names no case takes the run's
+  const own = createReviewScreen({ runtime: live, params: LIVE_PARAMS, decodeMaskPng: png.decodeMaskPng });
+  await own.start();
+  await drive(own, live.client);
+  assert.equal(own.getState().phase, PHASE.READY);
+  assert.equal(own.getState().target.caseId, RUN.case_id);
+  const bare = createReviewScreen({ runtime: live, params: { runId: RUN.run_id, variant: 'RAW' }, decodeMaskPng: png.decodeMaskPng });
+  await bare.start();
+  await drive(bare, live.client);
+  assert.equal(bare.getState().phase, PHASE.READY, 'a route without a caseId is not refused');
+  assert.equal(bare.getState().target.caseId, RUN.case_id, 'the case is the run\'s');
+});
+
+test('RS20 live: a slice that is not of the run\'s artifact for the variant is not drawn and its bytes are never fetched (QA_PR99_D39 NB-3)', async (t) => {
+  const png = await importMaskPngOrSkip(t);
+  if (!png) return;
+  const fx = fixtureRuntime();
+  const served = encodePng(NX, NX, 0, ellipseMask(NX, NX, 300, 276, 20, 15));
+  // liveOf wraps a conforming server (the run's artifact id on every slice); a backend that serves
+  // another mask is built by putting the client back after it.
+  const serving = (content, patches = {}) => {
+    const rt = liveOf(fx, content);
+    rt.client = patchedClient(fx.client, patches);
+    return rt;
+  };
+  // The bundle's review_create always answers the RAW scope; a real backend answers the scope it was asked for.
+  const answeringTheScope = (client) => ({
+    ...client,
+    call: async (id, params, options) => {
+      const v = await client.call(id, params, options);
+      return id === 'review_create' && v.state === STATE.SUCCESS
+        ? { ...v, data: { ...v.data, source_mask_id: options.body.source_mask_id, prediction_variant: options.body.prediction_variant } } : v;
+    },
+  });
+  const open = async (rt, variant = 'RAW') => {
+    const c = createReviewScreen({ runtime: rt, params: { ...LIVE_PARAMS, variant }, decodeMaskPng: png.decodeMaskPng });
+    c.setViewport(W, H);
+    await c.start();
+    await drive(c, rt.client);
+    return c;
+  };
+
+  // The bundle's own prediction_slice_get names PREDICTION_MASK_ID_0043, which is not the run's artifact.
+  const content = fakeContent({ mask: served });
+  const ctl = await open(serving(content));
+  let s = ctl.getState();
+  assert.equal(s.phase, PHASE.READY, 'the review itself opens; only the slice is refused');
+  assert.equal(s.slice.pixels.kind, PIXELS.UNAVAILABLE);
+  assert.equal(s.slice.pixels.reason, 'SOURCE_MASK_MISMATCH');
+  assert.ok(s.slice.pixels.detail.includes('PREDICTION_MASK_ID_0043') && s.slice.pixels.detail.includes(RUN.raw_prediction_artifact_id),
+    `the refusal names both ids: ${s.slice.pixels.detail}`);
+  assert.equal(content.calls.filter((c) => c.opts.kind === 'mask').length, 0, 'the other mask\'s bytes were never fetched');
+  assert.equal(s.canEdit, false);
+  assert.equal(s.canSave, false);
+  ctl.touch.grant([at(380, 276)]);
+  ctl.touch.release();
+  assert.equal(ctl.getState().brush.undoDepth, 0, 'nothing can be painted on a slice of another mask');
+
+  // Controls: the run's artifact is drawn for both variants.
+  s = (await open(liveOf(fx, fakeContent({ mask: served })))).getState();
+  assert.equal(s.slice.pixels.kind, PIXELS.SERVED);
+  assert.equal(s.slice.pixels.servedMaskId, RUN.raw_prediction_artifact_id);
+  s = (await open(liveOf(fx, fakeContent({ mask: served }), answeringTheScope(fx.client)), 'PROCESSED')).getState();
+  assert.equal(s.slice.pixels.kind, PIXELS.SERVED, JSON.stringify(s.slice.pixels));
+  assert.equal(s.slice.pixels.servedMaskId, RUN.processed_prediction_artifact_id);
+  assert.equal(s.target.sourceMaskId, RUN.processed_prediction_artifact_id, 'a PROCESSED review is scoped to the processed artifact');
+
+  // A substitution under the right label: the response says PROCESSED but names the RAW artifact.
+  const swapped = serving(fakeContent({ mask: served }), {
+    prediction_slice_get: (v) => (v.state === STATE.SUCCESS
+      ? { ...v, data: { ...v.data, prediction_variant: 'PROCESSED', prediction_mask_id: RUN.raw_prediction_artifact_id } } : v),
+  });
+  swapped.client = answeringTheScope(swapped.client);
+  const sub = await open(swapped, 'PROCESSED');
+  assert.equal(sub.getState().slice.pixels.reason, 'SOURCE_MASK_MISMATCH', 'the RAW artifact under a PROCESSED review is refused');
+  assert.equal(sub.getState().canEdit, false);
 });

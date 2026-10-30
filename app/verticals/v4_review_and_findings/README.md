@@ -208,7 +208,7 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 | `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list (read with `useCall`) with evidence (variant included), Open evidence (SCR-03 / SCR-07, with the recorded variant), Review / correct (SCR-06), Resolve / Reopen (`finding_patch`), create only from a case/slice context - SCR-06 passes its variant, a bare run makes the form ask; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
 
 Both screens are also rendered, with the real navigator, hooks and a stateful fake backend, in the render smoke
-(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4n`). That is **logic evidence, not device evidence**.
+(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4o`). That is **logic evidence, not device evidence**.
 
 Demo path (hero steps H8 / H9): **Findings** tab → a finding → **Review / correct** (SCR-06 opens on the variant the
 finding recorded; a finding without one makes it ask RAW or PROCESSED) → brush → **Flag** → **Save** (names the source
@@ -237,8 +237,12 @@ Rules of the screens:
   states — if the stroke feedback misses 100 ms on the A17, start there (track dirty rows instead).
 - **Live pixels on the backend:** SCR-06 decodes real masks (`runtime.content` + `src/imaging/maskPng.js`) and draws
   the MRI slice from verified bytes. It is proven against a fake backend in the render smoke and against the contract
-  by the API-level hero flow, **not on the phone or on the deployed backend**: run it there. Also ask whether a slice's
-  `prediction_mask_id` is the run's `raw/processed_prediction_artifact_id`; the screen shows both and checks neither.
+  by the API-level hero flow, **not on the phone or on the deployed backend**: run it there. In live mode a slice's
+  `prediction_mask_id` must be the run's `raw/processed_prediction_artifact_id` for the variant (E2E H8 asserts it on
+  the real backend); another id is refused as `SOURCE_MASK_MISMATCH` before any byte is fetched, because Save names the
+  run's artifact as `source_mask_id` while the brush edits the pixels of the slice (test `RS20`, render check `V4o`).
+  The check is live-only: the generated fixture's placeholder ids differ and fixture mode has no slice reads. A live run
+  that does not belong to the case the route named is `CONTRACT_DRIFT` too (`RS19`).
 - **Continuing a CORRECTED review** (N-4) reads one extra slice per slice opened (`reviewed_mask_slice_get` of the
   latest version): measure that against TC-PERF-003 and the slice-switch budget, and decide what the screen should do
   when another reviewer commits while edits are open (today: Refresh refuses to rebase unsaved edits and asks you to

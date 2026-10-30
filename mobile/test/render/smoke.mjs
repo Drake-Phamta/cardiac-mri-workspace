@@ -1338,6 +1338,23 @@ function reviewBackend({ seedVersion = false } = {}) {
     && btn(rd, 'Retry slice'),
   'the base slice cannot be fetched: the slice is not drawn as editable, the reason is said and Retry slice is offered');
   await act(async () => { rd.unmount(); });
+
+  // --- the server names another mask than the run's artifact for the slice: not drawn, not editable, never fetched (QA_PR99_D39 NB-3) ---
+  const bm = reviewBackend();
+  const otherMask = async (url, init) => {
+    const res = await bm.fetchImpl(url, init);
+    if (!/\/slices\/\d+\/prediction\?variant=/.test(url)) return res;
+    const body = { ...(await res.json()), prediction_mask_id: 'PREDICTION_MASK_ID_OTHER' };
+    const text = JSON.stringify(body);
+    return { status: res.status, headers: res.headers, text: async () => text, json: async () => body };
+  };
+  const rm = await mount({ ...bm, fetchImpl: otherMask });
+  await toReview(rm);
+  check('V4o', has(rm, /served a slice of another mask than this review.s source prediction/) && !byId(rm, 'mask-state')[0]
+    && !btn(rm, 'Retry slice') && btn(rm, 'Save').props.disabled === true
+    && bm.requests.some((q) => /\/slices\/44\/prediction/.test(q.path)) && !bm.requests.some((q) => q.path.startsWith('/api/v1/artifacts/pred-')),
+  "a slice that names another mask than the run's artifact is not drawn as editable, the reason is said, and its bytes were never fetched");
+  await act(async () => { rm.unmount(); });
 }
 
 // ---- 11. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------

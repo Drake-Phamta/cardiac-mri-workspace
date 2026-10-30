@@ -23,15 +23,16 @@
  *                defaulted (`11` §6). A review is scoped to it (DR-009).
  *   2. run       analysis_run_get (read): the run must have SUCCEEDED; it names
  *                the case and the source artifact of the variant. In live mode
- *                it must be the run the route named.
+ *                it must be the run - and belong to the case - the route named.
  *   3. review    the V4 model: case geometry, review_create with the scope,
  *                reviewed-mask versions.
  *   4. pixels    LIVE, per slice: prediction_slice_get (+ mri_slice_get, and
- *                reviewed_mask_slice_get when continuing a CORRECTED review)
- *                -> bytes through runtime.content (timeout, mandatory checksum,
- *                abandoned on unmount) -> the shell's one PNG adapter. FIXTURE:
- *                a SYNTHETIC stand-in, labelled as such - the bundle has no
- *                pixels.
+ *                reviewed_mask_slice_get when continuing a CORRECTED review);
+ *                the slice must be of the run's artifact for the variant
+ *                (prediction_mask_id = the source) -> bytes through
+ *                runtime.content (timeout, mandatory checksum, abandoned on
+ *                unmount) -> the shell's one PNG adapter. FIXTURE: a SYNTHETIC
+ *                stand-in, labelled as such - the bundle has no pixels.
  *   5. brush     the V4 brush session at SOURCE resolution; touches arrive in
  *                canvas coordinates and reach it only through screenToSource.
  *   6. save      the model's saveCorrection: PUT + commit = a new immutable
@@ -119,7 +120,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let session = null;
   let shape = null;           // [nx, ny, nz]
   let slice = null;
-  const pixels = new Map();   // slice -> { kind, reason?, servedMaskId?, checksum? }
+  const pixels = new Map();   // slice -> { kind, reason?, servedMaskId? (live: always the run's artifact), checksum? }
   const runsCache = new Map(); // slice -> source mask runs
   const mriUris = new Map();   // slice -> { uri, reason } (live), absent in fixture mode
   const inflight = new Set();  // slices whose provided answers are being turned into pixels
@@ -209,6 +210,16 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
         code: 'CONTRACT_DRIFT',
         safeMessage: 'The run that answered is not the run this screen was opened for.',
         detail: { endpointId: 'analysis_run_get', problems: [`run_id is ${run.data.run_id}, the route named ${params.runId}`] },
+      }, [RECOVERY.BACK]));
+    }
+    // ... and it belongs to the case the route named (QA_PR99_D39 NB-5). The geometry
+    // and the MRI come from the case, the prediction from the run, so a disagreement
+    // would draw one case's mask over another case's image.
+    if (!fixture && params.caseId && run.data.case_id !== params.caseId) {
+      return block(fatalInvalid({
+        code: 'CONTRACT_DRIFT',
+        safeMessage: 'The run that answered belongs to another case than the one this screen was opened for.',
+        detail: { endpointId: 'analysis_run_get', problems: [`case_id is ${run.data.case_id}, the route named ${params.caseId}`] },
       }, [RECOVERY.BACK]));
     }
     const sourceMaskId = variant === PREDICTION_VARIANT.RAW
@@ -338,9 +349,18 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       pixels.set(z, unavailable('VARIANT_MISMATCH'));
       return;
     }
-    // Whether the slice's prediction_mask_id must equal the run's artifact id
-    // is not stated by the contract (the fixture has them differ), so it is
-    // shown beside the source identity rather than refused - see the README.
+    // The brush edits the pixels of THIS slice while Save names the run's artifact
+    // as source_mask_id, so on a live backend the slice must be a slice of that
+    // artifact. The real backend always answers it (E2E H8 asserts it); another id
+    // would turn a correction of one mask into a "correction" of another. The
+    // generated fixture's placeholder ids differ and it never reaches this code
+    // (fixture mode has no slice reads), so the check is live-only (QA_PR99_D39 NB-3).
+    if (!fixture && d.prediction_mask_id !== target.sourceMaskId) {
+      pixels.set(z, unavailable('SOURCE_MASK_MISMATCH', {
+        detail: `the server served a slice of mask ${d.prediction_mask_id}; this review's ${target.variant} source is ${target.sourceMaskId}`,
+      }));
+      return;
+    }
     const src = await fetchMask(d.content_url, d.checksum, 'mask');
     if (src.failed) { pixels.set(z, src.failed); return; }
 
