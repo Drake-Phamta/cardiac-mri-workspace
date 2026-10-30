@@ -1355,6 +1355,46 @@ function reviewBackend({ seedVersion = false } = {}) {
     && bm.requests.some((q) => /\/slices\/44\/prediction/.test(q.path)) && !bm.requests.some((q) => q.path.startsWith('/api/v1/artifacts/pred-')),
   "a slice that names another mask than the run's artifact is not drawn as editable, the reason is said, and its bytes were never fetched");
   await act(async () => { rm.unmount(); });
+
+  // --- another reviewer commits a newer version while this one has an unsaved edit (QA_PR99_D39 NB-2) ---
+  const bx = reviewBackend({ seedVersion: true });
+  const rx = await mount(bx);
+  await toReview(rx);
+  check('V4p', byId(rx, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0])),
+    'the review starts on its latest version, REVMASK_0');
+  await pressExact(rx, '3');
+  await stroke(rx, [100, 100]);
+  const theirs = bx.SOURCE.slice();
+  for (let y = 250; y < 270; y += 1) for (let x = 380; x < 400; x += 1) theirs[y * 576 + x] = 1;
+  bx.db.versions.push({ id: 'REVMASK_1', version: 2, revision: 3, parent: bx.db.versions[0], slices: new Map([[44, theirs]]) });
+  bx.db.review.revision += 1; // their commit moved the review: our expected_revision is stale
+  await pressExact(rx, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  check('V4p', has(rx, /STALE MISMATCH/) && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits', 'the save is stale: somebody else committed, the edit is still UNSAVED');
+  await pressExact(rx, 'Refresh');
+  await tick(200);
+  const sentAfterRefresh = bx.writes().length; // Refresh re-opens the review (an idempotent POST); nothing after it may write
+  const refused = byId(rx, 'notice')[0];
+  check('V4p', refused && /latest version is REVMASK_1; your edits continue from REVMASK_0\. Cancel the edits/.test(textOf(refused))
+    && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits' && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0]))
+    && byId(rx, 'latest-version')[0] && /Latest version REVMASK_1/.test(textOf(byId(rx, 'latest-version')[0])),
+  'Refresh found REVMASK_1 but does not drop the unsaved edit: it says so, and the edit still continues from REVMASK_0');
+  await pressExact(rx, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(100);
+  check('V4p', /latest version is REVMASK_1; this session continues from REVMASK_0/.test(textOf(byId(rx, 'notice')[0])) && bx.writes().length === sentAfterRefresh,
+    'saving over the older base is refused on the device: nothing is sent');
+  await pressExact(rx, 'Cancel edits');
+  await answerAlert('Discard unsaved edits?', 'OK');
+  await pressExact(rx, '‹ Back');
+  await tick(60);
+  check('V4p', has(rx, /SCR-08 · V4/), 'with the edit cancelled, Back leaves without asking');
+  await toReview(rx);
+  check('V4p', /Continuing from version REVMASK_1/.test(textOf(byId(rx, 'continuing')[0])) && textOf(byId(rx, 'mask-state')[0]) === 'SAVED'
+    && bx.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && bx.db.versions.length === 2,
+  "reopened, the review continues from REVMASK_1 (read from the server), and the other reviewer's version is untouched");
+  await act(async () => { rx.unmount(); });
 }
 
 // ---- 11. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------

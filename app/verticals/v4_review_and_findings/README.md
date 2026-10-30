@@ -208,7 +208,7 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 | `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list (read with `useCall`) with evidence (variant included), Open evidence (SCR-03 / SCR-07, with the recorded variant), Review / correct (SCR-06), Resolve / Reopen (`finding_patch`), create only from a case/slice context - SCR-06 passes its variant, a bare run makes the form ask; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
 
 Both screens are also rendered, with the real navigator, hooks and a stateful fake backend, in the render smoke
-(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4o`). That is **logic evidence, not device evidence**.
+(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4p`). That is **logic evidence, not device evidence**.
 
 Demo path (hero steps H8 / H9): **Findings** tab → a finding → **Review / correct** (SCR-06 opens on the variant the
 finding recorded; a finding without one makes it ask RAW or PROCESSED) → brush → **Flag** → **Save** (names the source
@@ -245,8 +245,12 @@ Rules of the screens:
   that does not belong to the case the route named is `CONTRACT_DRIFT` too (`RS19`).
 - **Continuing a CORRECTED review** (N-4) reads one extra slice per slice opened (`reviewed_mask_slice_get` of the
   latest version): measure that against TC-PERF-003 and the slice-switch budget, and decide what the screen should do
-  when another reviewer commits while edits are open (today: Refresh refuses to rebase unsaved edits and asks you to
-  cancel them first).
+  when another reviewer commits while edits are open. Today (held by tests `RS21`, `RS22` and render check `V4p`):
+  Refresh over a newer latest version rebuilds the session on it when nothing is unsaved; with unsaved edits it
+  refuses (`BASE_VERSION_MISMATCH`), keeps the edits, and a save over the older base is refused locally. **Open
+  design gap:** once the review has reloaded, the stale banner (and its Refresh button) is gone, so after Cancel the
+  only way to continue from the newer version is to leave and reopen the review (the refusal text says "Refresh
+  again").
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
   `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its

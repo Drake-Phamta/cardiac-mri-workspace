@@ -13,6 +13,7 @@ import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/runtime/createRuntime.mjs';
 import { createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE, maskRuns } from '../src/verticals/v4/reviewController.mjs';
 import { syntheticSourceSlice } from '../src/verticals/v4/syntheticSource.mjs';
+import { diffRuns } from '../../app/verticals/v4_review_and_findings/brush.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
 import { drive, fakeContent, patchedClient } from './_v4_drive.mjs';
@@ -606,4 +607,129 @@ test('RS20 live: a slice that is not of the run\'s artifact for the variant is n
   const sub = await open(swapped, 'PROCESSED');
   assert.equal(sub.getState().slice.pixels.reason, 'SOURCE_MASK_MISMATCH', 'the RAW artifact under a PROCESSED review is refused');
   assert.equal(sub.getState().canEdit, false);
+});
+
+// Another reviewer commits while this screen has the review open (QA_PR99_D39 NB-2). The review
+// is CORRECTED, so the screen continues from its latest version A; once `other.committed` is set the
+// server lists a newer version B as well, and reviewed_mask_slice_get serves the version it is asked for
+// (the bytes of A and of B differ, so the checks can tell which one the screen draws).
+function twoReviewers(fx, png) {
+  const original = ellipseMask(NX, NX, 300, 276, 20, 15);
+  const bytesOf = { A: encodePng(NX, NX, 0, ellipseMask(NX, NX, 322, 276, 26, 15)), B: encodePng(NX, NX, 0, ellipseMask(NX, NX, 340, 290, 30, 18)) };
+  const rowA = bundle.scenarios.reviewed_masks_list.default.response.data.items[0];
+  const rowB = {
+    ...rowA, reviewed_mask_id: 'REVIEWED_MASK_0043_R2', revision: 2,
+    provenance: { ...rowA.provenance, version: 2, parent_reviewed_mask_id: rowA.reviewed_mask_id },
+  };
+  const other = { committed: false };
+  const writes = [];
+  const base = patchedClient(fx.client, {
+    review_create: (v) => (v.state === STATE.SUCCESS ? { ...v, data: { ...v.data, status: 'CORRECTED' } } : v),
+    reviewed_masks_list: (v) => (v.state === STATE.SUCCESS ? { ...v, data: { ...v.data, items: other.committed ? [rowA, rowB] : [rowA] } } : v),
+    reviewed_mask_slice_get: (v, params) => (v.state === STATE.SUCCESS
+      ? { ...v, data: { ...v.data, reviewed_mask_id: params.reviewed_mask_id, content_url: `/api/v1/artifacts/${params.reviewed_mask_id}.png` } } : v),
+  });
+  const client = { ...base, call: (id, p, o) => { if (o && o.body) writes.push(id); return base.call(id, p, o); } };
+  const content = fakeContent({
+    mask: encodePng(NX, NX, 0, original),
+    reviewed: async (url, opts) => {
+      const bytes = url.includes(rowB.reviewed_mask_id) ? bytesOf.B : bytesOf.A;
+      return { state: STATE.SUCCESS, data: { bytes, size: bytes.length, checksum: opts.checksum, verified: true } };
+    },
+  });
+  const runtime = liveOf(fx, content, client);
+  const open = async () => {
+    const ctl = createReviewScreen({ runtime, params: LIVE_PARAMS, decodeMaskPng: png.decodeMaskPng });
+    ctl.setViewport(W, H);
+    await ctl.start();
+    await drive(ctl, runtime.client);
+    return ctl;
+  };
+  const bits = (m) => Uint8Array.from(m, (v) => (v ? 1 : 0));
+  return {
+    A: rowA.reviewed_mask_id,
+    B: rowB.reviewed_mask_id,
+    other,
+    writes,
+    open,
+    runtime,
+    // the saved layer the screen must draw when it continues from version A / B
+    savedLayerOf: {
+      A: diffRuns(bits(ellipseMask(NX, NX, 322, 276, 26, 15)), bits(original), NX, NX),
+      B: diffRuns(bits(ellipseMask(NX, NX, 340, 290, 30, 18)), bits(original), NX, NX),
+    },
+  };
+}
+
+test('RS21 Refresh over a newer latest version rebuilds the session on it when nothing is unsaved (QA_PR99_D39 NB-2)', async (t) => {
+  const png = await importMaskPngOrSkip(t);
+  if (!png) return;
+  const fx = fixtureRuntime();
+  const rv = twoReviewers(fx, png);
+  const ctl = await rv.open();
+  let s = ctl.getState();
+  assert.equal(s.brush.baseId, rv.A, 'the screen continues from version A');
+  assert.deepEqual(s.layers.saved, rv.savedLayerOf.A, 'and draws A as the saved layer');
+  assert.equal(s.canSave, false);
+
+  rv.other.committed = true; // another reviewer commits version B
+  s = await ctl.refresh();
+  assert.equal(s.review.latestVersion.reviewed_mask_id, rv.B, 'the reload sees B');
+  assert.equal(s.brush.baseId, rv.B, 'the session was rebuilt over the new base');
+  assert.equal(s.notice, null, 'a rebuild with nothing to lose is not a refusal');
+  assert.equal(s.wants.slice.baseVersionId, rv.B, 'the slice is read again, from B');
+  s = await drive(ctl, rv.runtime.client);
+  assert.equal(s.slice.pixels.kind, PIXELS.SERVED);
+  assert.deepEqual(s.layers.saved, rv.savedLayerOf.B, 'B\'s pixels are drawn, not A\'s');
+  assert.equal(s.slice.maskState, MASK_STATE.SAVED);
+  assert.equal(s.canSave, false, 'rebuilding is not an edit');
+
+  // control: a reload that finds the same latest version keeps the session (and its pixels) as they are
+  rv.other.committed = false;
+  const calm = await rv.open();
+  assert.equal(calm.getState().brush.baseId, rv.A);
+  const again = await calm.refresh();
+  assert.equal(again.brush.baseId, rv.A);
+  assert.equal(again.wants.slice, null, 'nothing is read again when the latest version did not change');
+});
+
+test('RS22 Refresh over a newer latest version refuses to drop unsaved edits; Cancel, then Refresh, continues from it (QA_PR99_D39 NB-2)', async (t) => {
+  const png = await importMaskPngOrSkip(t);
+  if (!png) return;
+  const fx = fixtureRuntime();
+  const rv = twoReviewers(fx, png);
+  const ctl = await rv.open();
+  ctl.setRadius(3);
+  ctl.touch.grant([at(420, 276)]);
+  ctl.touch.release();
+  assert.equal(ctl.getState().slice.maskState, MASK_STATE.UNSAVED);
+
+  rv.other.committed = true;
+  let s = await ctl.refresh();
+  assert.equal(s.notice.kind, 'refused');
+  assert.equal(s.notice.code, 'BASE_VERSION_MISMATCH');
+  assert.ok(s.notice.text.includes(rv.A) && s.notice.text.includes(rv.B), `the refusal names both versions: ${s.notice.text}`);
+  assert.equal(s.review.latestVersion.reviewed_mask_id, rv.B, 'the review itself was reloaded');
+  assert.equal(s.brush.baseId, rv.A, 'the session still continues from A');
+  assert.deepEqual(s.brush.unsavedSlices, [44], 'the unsaved slice is still there');
+  assert.equal(s.slice.maskState, MASK_STATE.UNSAVED);
+  assert.ok(covers(s.layers.unsaved, 420, 276), 'and so is the stroke');
+  assert.equal(s.wants.slice, null, 'nothing was read again');
+  assert.equal(s.canLeave, false, 'leaving still asks');
+
+  // saving over the old base stays refused by the model, and nothing is sent
+  const sent = rv.writes.length;
+  s = await ctl.save();
+  assert.equal(s.notice.code, 'BASE_VERSION_MISMATCH');
+  assert.equal(rv.writes.length, sent, 'no working_mask_put, no commit');
+  assert.equal(s.brush.baseId, rv.A);
+
+  // the user cancels the edits; the next Refresh continues from B
+  ctl.cancel();
+  s = await ctl.refresh();
+  assert.equal(s.brush.baseId, rv.B);
+  assert.equal(s.notice, null);
+  s = await drive(ctl, rv.runtime.client);
+  assert.deepEqual(s.layers.saved, rv.savedLayerOf.B);
+  assert.equal(s.slice.maskState, MASK_STATE.SAVED);
 });
