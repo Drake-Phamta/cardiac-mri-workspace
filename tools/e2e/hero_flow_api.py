@@ -13,7 +13,8 @@ Standard library only, Python 3.9-compatible syntax: it also runs on the Mac min
 host. Exit code 0 only when no step FAILED (SKIP is not a failure).
 
 What it does NOT cover: the phone (gestures, rendering, frame rate). H6 / H7 cover the data path of SCR-05:
-the mesh reference, its verified bytes, and the pick -> source slice -> mask-on-that-slice link.
+the mesh references (the surfaces AND the 3D error map: the false-positive and false-negative surfaces), their
+verified bytes, and the pick -> source slice (and class) -> mask-on-that-slice link.
 Review writes (H8/H9) create one review, one reviewed-mask version and one
 finding in the backend's own database; they are allowed only against a
 127.0.0.1 / localhost base URL unless --allow-remote-writes is given, and
@@ -42,6 +43,9 @@ METRIC_FIELDS = ["dice", "iou", "false_positives", "false_negatives", "relative_
 SUMMARY_KEYS = ["n", "mean", "std", "median", "q1", "q3", "min", "max", "ci95_low", "ci95_high"]
 HERO_RUN_EXPERIMENT = "EXP-D-100"
 PP_EXPERIMENT = "EXP-D-PP"
+SURFACE_FORMAT = "cardiac-mesh/1"
+ERROR_FORMAT = "cardiac-errormesh/1"
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 
@@ -164,18 +168,20 @@ def png_decode(data):
     return width, height, bytes(out)
 
 
-def parse_cmesh(data):
-    """Parse a ``cardiac-mesh/1`` artifact (backend/mesh/artifact.py) with the standard library only.
+def parse_cmesh(data, fmt=SURFACE_FORMAT):
+    """Parse a ``cardiac-mesh/1`` surface artifact (backend/mesh/artifact.py) or, with ``fmt=ERROR_FORMAT``, a
+    ``cardiac-errormesh/1`` error artifact (backend/mesh/error_artifact.py) with the standard library only.
 
     Layout: ``CARDMESH`` + uint32 header length + JSON header, then little-endian vertices (uint16 x y z),
-    triangles (uint16 or uint32, ``index_bytes``) and per-triangle source slices (uint16); every section 4-aligned.
+    triangles (uint16 or uint32, ``index_bytes``) and per-triangle source slices (uint16); an error artifact adds one
+    class byte per triangle (1 = FP, 2 = FN). Every section 4-aligned.
     Raises ValueError when the file is not exactly what its header says."""
     if data[:8] != b"CARDMESH" or len(data) < 12:
         raise ValueError("not a cardiac-mesh artifact")
     (hlen,) = struct.unpack_from("<I", data, 8)
     header = json.loads(data[12:12 + hlen].decode("utf-8"))
-    if header.get("format") != "cardiac-mesh/1":
-        raise ValueError("format %r" % header.get("format"))
+    if header.get("format") != fmt:
+        raise ValueError("format %r, expected %s" % (header.get("format"), fmt))
     nv, nt, ib = header["vertex_count"], header["triangle_count"], header["index_bytes"]
     pos = [12 + hlen]
 
@@ -193,9 +199,10 @@ def parse_cmesh(data):
     vertices = take(nv * 3, "H")
     triangles = take(nt * 3, "H" if ib == 2 else "I")
     slices = take(nt, "H")
+    classes = take(nt, "B") if fmt == ERROR_FORMAT else None
     if pos[0] != len(data):
         raise ValueError("mesh file has %d trailing bytes" % (len(data) - pos[0]))
-    return {"header": header, "vertices": vertices, "triangles": triangles, "slices": slices}
+    return {"header": header, "vertices": vertices, "triangles": triangles, "slices": slices, "classes": classes}
 
 
 def bitpack(mask01_bytes):
@@ -921,14 +928,174 @@ def build_steps(runner, args):
         wrong = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (
             BASE, q(run["run_id"]), q((pp or {}).get("processed_prediction_artifact_id") or "ART_NONE")))
         c.expect_error(wrong, 404, "ARTIFACT_NOT_FOUND", "reconstruction_get with another run's mask (never substituted)")
-        e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(run["run_id"])))
-        c.expect_error(e, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get (DR-005 open: no fabricated error mesh)")
-        c.ev("error_reconstruction_get -> %s %s (DR-005 open: the 3D error view is the GT / prediction disagreement)" % (e.status, e.error_code))
+        c.ev("the 3D error map (error_reconstruction_get: the FP and FN surfaces) is checked in H6.e")
         st["meshes"] = {"RAW": raw, "GT": gt_mesh, "PROCESSED": pp_mesh}
         c.ev("rotate / zoom / pan, the colours and the frame rate are device tests (TC-3D-001/002, TC-PERF-002)")
 
     runner.run("H6", "SCR-05 3D: reconstruction_get + mesh bytes (sha256), counts, vertices inside [0, shape], GT / RAW / PROCESSED",
                h6, requires=["hero_run", "case_get"])
+
+    # ---- H6.e the 3D error map -------------------------------------------------------------------------------------
+    # error_reconstruction_get answers ONE error artifact (cardiac-errormesh/1, id ERRMESH_<sha256 of the bytes>): the
+    # false-positive and false-negative surfaces, every face with its source slice and its class. The checks are made
+    # against what the app is shown elsewhere: the ids of the two masks, the geometry of the case, the FP / FN counts of
+    # analysis_run_metrics, and - the strong one - the served PNG masks of EVERY slice.
+    def check_error_header(c, label, mesh, shape):
+        """The class table and the sections of an error artifact, from the bytes alone."""
+        h = mesh["header"]
+        nv, nt = h["vertex_count"], h["triangle_count"]
+        c.ok(h["shape"] == shape, "%s: error mesh shape %s != case shape %s" % (label, h["shape"], shape))
+        c.ok(h["index_convention"] == "x=column,y=row,z=slice" and h["frame"] == "voxel-index" and h["level"] == 0,
+             "%s: header convention/frame/level" % label)
+        for key in ("reference_mask_sha256", "prediction_mask_sha256"):
+            c.ok(isinstance(h.get(key), str) and HEX64.match(h[key]) is not None, "%s: %s is not a sha256" % (label, key))
+        table = h.get("classes") or []
+        c.ok([x.get("name") for x in table] == ["FP", "FN"] and [x.get("code") for x in table] == [1, 2],
+             "%s: the class table must list FP (1) then FN (2), got %s" % (label, [(x.get("name"), x.get("code")) for x in table]))
+        if len(table) != 2:
+            return
+        v, t, cls = mesh["vertices"], mesh["triangles"], mesh["classes"]
+        v_at = t_at = 0
+        for x in table:
+            vr, tr, voxels = x["vertex_range"], x["triangle_range"], x["voxels"]
+            name = x["name"]
+            c.ok(vr[0] == v_at and tr[0] == t_at and vr[1] >= vr[0] and tr[1] >= tr[0], "%s: %s ranges are not contiguous" % (label, name))
+            c.ok((voxels == 0) == (tr[1] == tr[0]) == (vr[1] == vr[0]), "%s: %s voxels (%s) and faces disagree about being empty" % (label, name, voxels))
+            c.ok(tr[1] - tr[0] <= 12 * voxels and vr[1] - vr[0] <= 8 * voxels, "%s: %s has more faces than %d voxels can have" % (label, name, voxels))
+            c.ok(all(cls[i] == x["code"] for i in range(tr[0], tr[1])), "%s: a face in the %s block carries another class" % (label, name))
+            c.ok(all(vr[0] <= t[i] < vr[1] for i in range(3 * tr[0], 3 * tr[1])), "%s: a %s triangle indexes outside its own vertices" % (label, name))
+            v_at, t_at = vr[1], tr[1]
+        c.ok(v_at == nv and t_at == nt, "%s: the class ranges do not cover the file" % label)
+        c.ok(all(0 <= v[3 * i + a] <= shape[a] for i in range(nv) for a in range(3)), "%s: a vertex lies outside [0, shape]" % label)
+        c.ok(nt == 0 or max(mesh["slices"]) < shape[2], "%s: a face source slice is outside the volume" % label)
+
+    def error_mesh_for(c, label, run, variant, mask_id, gt_id, case_get, metrics):
+        """error_reconstruction_get + the artifact bytes + every check; returns {mesh, meta} or None."""
+        path = "%s/analysis-runs/%s/error-reconstruction?prediction_variant=%s" % (BASE, q(run["run_id"]), variant)
+        r = api.get(path)
+        if not c.expect_status(r, 200, "error_reconstruction_get %s" % label):
+            return None
+        d = r.json
+        mid = d.get("error_mesh_artifact_id")
+        c.ev("%s: error_mesh_artifact_id=%s... variant=%s reference=%s prediction=%s" % (
+            label, str(mid)[:24], d.get("prediction_variant"), d.get("reference_mask_id"), d.get("prediction_mask_id")))
+        c.ok(d.get("prediction_variant") == variant, "%s: prediction_variant %r, asked %s" % (label, d.get("prediction_variant"), variant))
+        c.ok(d.get("reference_mask_id") == gt_id, "%s: reference_mask_id %r is not the ground-truth id %r the server states on a slice" % (label, d.get("reference_mask_id"), gt_id))
+        c.ok(d.get("prediction_mask_id") == mask_id, "%s: prediction_mask_id %r is not the run's %s mask %r" % (label, d.get("prediction_mask_id"), variant, mask_id))
+        for k in ("geometry_contract_version", "geometry_validation_status", "shape", "index_convention", "spacing", "origin", "direction"):
+            c.ok(d.get(k) == case_get.get(k), "%s: %s differs from the case geometry" % (label, k))
+        c.ok(mid not in (run.get("reconstruction_ids") or []), "%s: the error mesh is listed among the run's surface meshes (reconstruction_ids)" % label)
+        again = api.get(path)
+        c.ok(again.status == 200 and again.json == d, "%s: asking twice did not give the same answer" % label)
+        m = re.match(r"^ERRMESH_([0-9a-f]{64})$", mid or "")
+        if not c.ok(m is not None, "%s: error_mesh_artifact_id %r is not ERRMESH_<sha256>" % (label, mid)):
+            return None
+        digest = m.group(1)
+        b = api.get("%s/artifacts/%s.cmesh" % (BASE, digest))
+        if not c.expect_status(b, 200, "error mesh bytes %s" % label):
+            return None
+        c.ok(sha256_hex(b.body) == digest, "%s: the error mesh bytes do not hash to the sha256 in error_mesh_artifact_id" % label)
+        c.ok((b.headers.get("etag") or "").replace('"', "") == "sha256:" + digest, "%s: ETag %r" % (label, b.headers.get("etag")))
+        c.ok((b.headers.get("content-type") or "").startswith("application/octet-stream"), "%s: content-type %r" % (label, b.headers.get("content-type")))
+        mesh = parse_cmesh(b.body, ERROR_FORMAT)
+        h = mesh["header"]
+        check_error_header(c, label, mesh, case_get.get("shape"))
+        fp, fn = h["classes"][0], h["classes"][1]
+        c.ev("%s: %d vertices, %d triangles, %d bytes (%.0f KB), sha256 verified; FP %d voxels / %d triangles, FN %d voxels / %d triangles" % (
+            label, h["vertex_count"], h["triangle_count"], len(b.body), len(b.body) / 1024.0,
+            fp["voxels"], fp["triangle_range"][1] - fp["triangle_range"][0], fn["voxels"], fn["triangle_range"][1] - fn["triangle_range"][0]))
+        mv = (metrics or {}).get("metric_values") or {}
+        c.ok(fp["voxels"] == mv.get("false_positives"), "%s: FP voxels %s != analysis_run_metrics false_positives %s" % (label, fp["voxels"], mv.get("false_positives")))
+        c.ok(fn["voxels"] == mv.get("false_negatives"), "%s: FN voxels %s != analysis_run_metrics false_negatives %s" % (label, fn["voxels"], mv.get("false_negatives")))
+        c.ok((metrics or {}).get("reference_mask_id", d.get("reference_mask_id")) == d.get("reference_mask_id")
+             and (metrics or {}).get("prediction_mask_id", d.get("prediction_mask_id")) == d.get("prediction_mask_id"),
+             "%s: analysis_run_metrics names other masks than the error mesh" % label)
+        return {"mesh": mesh, "meta": d, "digest": digest, "bytes": len(b.body)}
+
+    def slice_png(c, st, kind, variant, run, case, z):
+        """One served mask slice as (width, height, bytes), fetched once per run (checksum verified like the app does)."""
+        key = (kind, variant if kind == "pred" else None, z)
+        cache = st.setdefault("png_cache", {})
+        if key not in cache:
+            if kind == "pred":
+                r = api.get("%s/analysis-runs/%s/slices/%d/prediction?variant=%s" % (BASE, q(run["run_id"]), z, variant))
+            else:
+                r = api.get("%s/cases/%s/slices/%d/ground-truth" % (BASE, q(case), z))
+            raw = fetch_artifact(c, api, r.json, "%s slice %d" % (kind, z)) if c.expect_status(r, 200, "%s slice %d" % (kind, z)) else None
+            cache[key] = png_decode(raw) if raw else None
+        return cache[key]
+
+    def per_slice_errors(c, st, label, variant, run, case, nz):
+        """FP and FN pixels of every slice from the served PNG masks: {z: (fp, fn)} or None."""
+        out = {}
+        for z in range(nz):
+            pred, gt = slice_png(c, st, "pred", variant, run, case, z), slice_png(c, st, "gt", variant, run, case, z)
+            if pred is None or gt is None:
+                c.ok(False, "%s: slice %d could not be fetched" % (label, z))
+                return None
+            (pw, ph, ppx), (gw, gh, gpx) = pred, gt
+            c.ok((pw, ph) == (gw, gh), "%s: slice %d prediction %dx%d and ground truth %dx%d differ" % (label, z, pw, ph, gw, gh))
+            c.ok(ppx.count(0) + ppx.count(255) == len(ppx) and gpx.count(0) + gpx.count(255) == len(gpx), "%s: slice %d masks are not {0, 255}" % (label, z))
+            everything = (1 << (8 * len(ppx))) - 1
+            p, g = int.from_bytes(ppx, "big"), int.from_bytes(gpx, "big")
+            out[z] = (bin(p & (g ^ everything)).count("1") // 8, bin(g & (p ^ everything)).count("1") // 8)
+        return out
+
+    def h6e(c, st):
+        run, case, case_get = st["hero_run"], st["case"], st["case_get"]
+        nz = case_get["shape"][2]
+        gt = api.get("%s/cases/%s/slices/0/ground-truth" % (BASE, q(case)))
+        if not c.expect_status(gt, 200, "ground_truth_slice_get (reference mask id)"):
+            return
+        gt_id = gt.json.get("reference_mask_id")
+        targets = [("RAW", run, "%s RAW" % HERO_RUN_EXPERIMENT, st["hero_metrics"], run.get("raw_prediction_artifact_id"))]
+        pp = st.get("pp_run")
+        if pp and st.get("pp_metrics"):
+            targets.append(("PROCESSED", pp, "%s PROCESSED" % PP_EXPERIMENT, st["pp_metrics"], pp.get("processed_prediction_artifact_id")))
+        made = {}
+        for variant, r, label, metrics, mask_id in targets:
+            entry = error_mesh_for(c, label, r, variant, mask_id, gt_id, case_get, metrics)
+            if entry is None:
+                continue
+            made[variant] = dict(entry, run=r, label=label, metrics=metrics)
+            errors = per_slice_errors(c, st, label, variant, r, case, nz)
+            if errors is None:
+                continue
+            h = entry["mesh"]["header"]
+            fp, fn = h["classes"]
+            slices = entry["mesh"]["slices"]
+            fp_sum, fn_sum = sum(v[0] for v in errors.values()), sum(v[1] for v in errors.values())
+            c.ok(fp_sum == fp["voxels"], "%s: FP pixels of the %d served slices add up to %d, the artifact says %d voxels" % (label, nz, fp_sum, fp["voxels"]))
+            c.ok(fn_sum == fn["voxels"], "%s: FN pixels of the %d served slices add up to %d, the artifact says %d voxels" % (label, nz, fn_sum, fn["voxels"]))
+            for name, rng, col in (("FP", fp["triangle_range"], 0), ("FN", fn["triangle_range"], 1)):
+                face_slices = sorted(set(slices[i] for i in range(rng[0], rng[1])))
+                pixel_slices = sorted(z for z, v in errors.items() if v[col] > 0)
+                c.ok(face_slices == pixel_slices, "%s: slices with %s faces %s != slices with %s pixels in the served masks %s" % (
+                    label, name, face_slices[:6], name, pixel_slices[:6]))
+                c.ev("%s %s: faces on %d slices (%s..%s), exactly the slices where the two served masks disagree that way" % (
+                    label, name, len(face_slices), face_slices[0] if face_slices else "-", face_slices[-1] if face_slices else "-"))
+            # the server's own per-slice numbers (SCR-04's) are the same counts
+            listed = (metrics.get("worst_slice_selection") or {}).get("slices") or []
+            wrong = [x for x in listed if (x.get("false_positives"), x.get("false_negatives")) != errors.get(x.get("slice_index"))]
+            c.ok(not wrong, "%s: %d of %d slices in worst_slice_selection have FP / FN that differ from the served masks, e.g. %s" % (
+                label, len(wrong), len(listed), wrong[:1]))
+            c.ev("%s: FP %d / FN %d pixels over %d slices = the artifact = analysis_run_metrics; all %d slices of worst_slice_selection carry the same FP / FN as the masks" % (
+                label, fp_sum, fn_sum, nz, len(listed)))
+            st.setdefault("slice_errors", {})[variant] = errors
+        # no silent substitution: an unknown variant is not a mesh, and the RAW-only hero run has no PROCESSED mask
+        for odd in ("REVIEWED", "raw", ""):
+            bad = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=%s" % (BASE, q(run["run_id"]), q(odd)))
+            c.expect_error(bad, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get with variant %r" % odd)
+        none = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=PROCESSED" % (BASE, q(run["run_id"])))
+        c.expect_error(none, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get PROCESSED on the RAW-only %s run" % HERO_RUN_EXPERIMENT)
+        c.ev("an unknown variant, and PROCESSED on the RAW-only %s run -> %s %s (never another mesh relabelled)" % (HERO_RUN_EXPERIMENT, none.status, none.error_code))
+        if not made:
+            c.ok(False, "no error mesh was served for %s" % case)
+        st["err_meshes"] = made
+        c.ev("rotate / zoom / pan, the colours, the hatching of FN and the frame rate with four layers are device tests (TC-3D-001/002, TC-PERF-002)")
+
+    runner.run("H6.e", "SCR-05 3D error map: error_reconstruction_get + error mesh bytes (sha256), classes, counts = metrics = served PNG masks on every slice",
+               h6e, requires=["hero_run", "case_get", "hero_metrics"])
 
     def h6_int12(c, st):
         cid = args.int12
@@ -954,6 +1121,17 @@ def build_steps(runner, args):
         e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(rid)))
         c.expect_error(e, 404, "GROUND_TRUTH_UNAVAILABLE", "error_reconstruction_get %s" % cid)
         c.ev("error mesh of %s -> %s %s" % (cid, e.status, e.error_code))
+        # every run of the case, both variants: the contract's own code, and no error mesh id or mask id anywhere in the answer
+        refused = 0
+        for x in (r.json.get("available_run_ids") or []):
+            for variant in ("RAW", "PROCESSED"):
+                ex = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=%s" % (BASE, q(x), variant))
+                c.expect_error(ex, 404, "GROUND_TRUTH_UNAVAILABLE", "error_reconstruction_get %s %s" % (x, variant))
+                body = ex.body.decode("utf-8", "replace")
+                c.ok("error_mesh_artifact_id" not in body and "ERRMESH_" not in body and "reference_mask_id" not in body,
+                     "the refusal for %s %s names an error mesh or a mask" % (x, variant))
+                refused += 1
+        c.ev("error mesh of %s: %d answers (every run, RAW and PROCESSED) all GROUND_TRUTH_UNAVAILABLE, none names a mesh or a mask" % (cid, refused))
 
     runner.run("H6.i", "INT-12 3D: prediction mesh served; ground-truth mesh and error mesh refused", h6_int12)
 
@@ -1012,6 +1190,83 @@ def build_steps(runner, args):
 
     runner.run("H7", "pick a face in 3D -> its source slice is in range and the mask on that slice is at the face (GT, RAW)",
                h7, requires=["hero_run", "case_get"])
+
+    # ---- H7.e tap an error region -> its contributing slice ----------------------------------------------------------
+    # The app resolves a tap to face_source_slice[t] and face_class[t] of the FIRST triangle hit (PR-3D-04). For each class
+    # on each served error mesh, faces spread over its slices are "tapped" (a ray from outside, aimed at the face centre,
+    # cast through every triangle of the error mesh): the hit's slice is in range, is the slice of the voxel behind the
+    # hit face, and the two served masks of THAT slice disagree at that (column, row) the way the face's class says -
+    # FP: prediction 255 and ground truth 0, FN: prediction 0 and ground truth 255. These are the masks SCR-03 / SCR-04 show.
+    def h7e(c, st):
+        meshes = st.get("err_meshes") or {}
+        if not meshes:
+            c.skip("H6.e produced no error mesh")
+        case, case_get = st["case"], st["case_get"]
+        nz = case_get["shape"][2]
+        total_picks = 0
+        for variant in sorted(meshes):
+            entry = meshes[variant]
+            mesh, run, label = entry["mesh"], entry["run"], entry["label"]
+            errors = (st.get("slice_errors") or {}).get(variant) or {}
+            slices, classes = mesh["slices"], mesh["classes"]
+            for table in mesh["header"]["classes"]:
+                name, code = table["name"], table["code"]
+                lo, hi = table["triangle_range"]
+                if hi == lo:
+                    c.ev("%s %s: no faces (0 voxels): nothing to tap" % (label, name))
+                    continue
+                order = sorted(range(lo, hi), key=lambda i: (slices[i], i))
+                chosen = sorted(set(order[int(len(order) * f)] for f in (0.02, 0.25, 0.5, 0.75, 0.98)))
+                done = same_class = 0
+                hit_slices = set()
+                for tri in chosen:
+                    cen, n, _vox = face(mesh, tri)
+                    # a tap: the camera looks along -normal at the face centre from outside the volume
+                    origin = [cen[a] + 3.0 * n[a] for a in range(3)]
+                    hit = first_hit(mesh, origin, [-x for x in n])
+                    if not c.ok(hit is not None, "%s %s: a ray aimed at face %d hit nothing" % (label, name, tri)):
+                        continue
+                    z, hit_code = slices[hit], classes[hit]
+                    _hc, _hn, hvox = face(mesh, hit)
+                    c.ok(0 <= z < nz, "%s %s: pick resolved slice %d outside [0, %d)" % (label, name, z, nz))
+                    c.ok(hvox[2] == z, "%s %s: the voxel behind the hit face is in slice %d, the face says %d" % (label, name, hvox[2], z))
+                    c.ok(hit_code in (1, 2), "%s %s: the hit face carries class byte %d" % (label, name, hit_code))
+                    pred = slice_png(c, st, "pred", variant, run, case, z)
+                    gt = slice_png(c, st, "gt", variant, run, case, z)
+                    if pred is None or gt is None:
+                        c.ok(False, "%s %s: slice %d masks not available" % (label, name, z))
+                        continue
+                    w, h, ppx = pred
+                    gpx = gt[2]
+                    x, y = hvox[0], hvox[1]
+                    inside = 0 <= x < w and 0 <= y < h
+                    p_val, g_val = (ppx[y * w + x], gpx[y * w + x]) if inside else (None, None)
+                    if hit_code == 1:
+                        c.ok(inside and p_val == 255 and g_val == 0, "%s %s: the picked FP face is at column %d row %d of slice %d where prediction=%s ground truth=%s (FP needs 255 / 0)" % (label, name, x, y, z, p_val, g_val))
+                        c.ok(errors.get(z, (1, 0))[0] > 0, "%s %s: slice %d has no false-positive pixel in the served masks" % (label, name, z))
+                    elif hit_code == 2:
+                        c.ok(inside and p_val == 0 and g_val == 255, "%s %s: the picked FN face is at column %d row %d of slice %d where prediction=%s ground truth=%s (FN needs 0 / 255)" % (label, name, x, y, z, p_val, g_val))
+                        c.ok(errors.get(z, (0, 1))[1] > 0, "%s %s: slice %d has no false-negative pixel in the served masks" % (label, name, z))
+                    done += 1
+                    same_class += 1 if hit_code == code else 0
+                    hit_slices.add(z)
+                    c.ev("%s %s: face %d -> first hit %d (%s) -> slice %d / %d (z=%d); prediction=%s ground truth=%s at column %d row %d of that slice" % (
+                        label, name, tri, hit, "FP" if hit_code == 1 else "FN", z + 1, nz, z, p_val, g_val, x, y))
+                total_picks += done
+                c.ok(done >= min(5, len(chosen)), "%s %s: only %d picks verified" % (label, name, done))
+                c.ev("%s %s: %d taps on %d different slices; %d of %d hit a face of the class aimed at (a tap resolves the FIRST face along the ray, "
+                     "so a face of the other class lying in front of the aimed one is what is picked - and is checked as what it is)" % (
+                         label, name, done, len(hit_slices), same_class, done))
+            # a tap on the background resolves nothing: no navigation, nothing clamped
+            miss = first_hit(mesh, [0.5, 0.5, nz + 10.0], [0.0, 0.0, -1.0])
+            c.ev("%s: background ray down the volume corner (column 0, row 0) -> %s" % (label, "no hit: no navigation" if miss is None else "HIT"))
+            c.ok(miss is None, "%s: a ray through the empty corner of the volume hit the error mesh" % label)
+        c.ok(total_picks >= 10, "only %d error-face picks verified in all" % total_picks)
+        c.ev("jump target: SCR-03 (prediction_slice_get / ground_truth_slice_get) or SCR-04 (analysis_run_metrics) at the resolved slice, "
+             "both served above; the in-app push, Back and the 3D plane following the 2D slice are device / render tests")
+
+    runner.run("H7.e", "tap an error face in 3D -> its source slice and class: the two served masks of that slice disagree there the way the class says (FP, FN)",
+               h7e, requires=["hero_run", "case_get"])
 
     # ---- H8 / H9 review ---------------------------------------------------------
     def writes_allowed():
@@ -1293,7 +1548,8 @@ def build_steps(runner, args):
                 continue
             for label, path in (("analysis_run_metrics", "metrics?prediction_variant=RAW"),
                                 ("analysis_slice_metrics", "slices/44/metrics?prediction_variant=RAW"),
-                                ("analysis_slice_error", "slices/44/error?prediction_variant=RAW")):
+                                ("analysis_slice_error", "slices/44/error?prediction_variant=RAW"),
+                                ("error_reconstruction_get", "error-reconstruction?prediction_variant=RAW")):
                 x = api.get("%s/analysis-runs/%s/%s" % (BASE, q(rid), path))
                 c.expect_error(x, 404, "GROUND_TRUTH_UNAVAILABLE", "%s for %s" % (label, cid))
                 c.ev("%s run %s -> %s %s" % (label, rid, x.status, x.error_code))
