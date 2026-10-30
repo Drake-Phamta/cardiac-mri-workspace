@@ -199,9 +199,13 @@ jobs:
   # The backend runs on the Mac mini's system Python 3.9 (DR-003), so its
   # suite runs on 3.9 here: compatibility is tested, not assumed. Synthetic
   # data only; every JSON response is validated against Contract 11 v1.0.0.
+  # Pinned to ubuntu-24.04: by 2026-10-29 ubuntu-latest had moved to Ubuntu
+  # 26.04, which has no CPython 3.9 for setup-python ("The version '3.9' with
+  # architecture 'x64' was not found for Ubuntu 26.04"). The other jobs do not
+  # need 3.9 and stay on ubuntu-latest.
   backend-tests:
     name: "backend tests (Python 3.9, Contract 11 v1.0.0)"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
