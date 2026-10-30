@@ -68,9 +68,10 @@ def test_backend_imports_from_the_deployed_paths_only(tmp_path):
 import pytest  # noqa: E402
 
 POWERSHELL = shutil.which("powershell")
-SYSTEM_TAR = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "tar.exe"
+SYSTEM_ROOT = os.environ.get("SystemRoot")        # no machine path is written here: the system folder comes from the environment
+SYSTEM_TAR = Path(SYSTEM_ROOT) / "System32" / "tar.exe" if SYSTEM_ROOT else None
 needs_windows_powershell = pytest.mark.skipif(
-    sys.platform != "win32" or not POWERSHELL or not SYSTEM_TAR.is_file(),
+    sys.platform != "win32" or not POWERSHELL or SYSTEM_TAR is None or not SYSTEM_TAR.is_file(),
     reason="runs deploy_macmini.ps1 in Windows PowerShell with the system tar (operator PC only)")
 
 
