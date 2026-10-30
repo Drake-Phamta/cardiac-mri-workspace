@@ -907,6 +907,11 @@ C4  ->  Spike F
 C6  ->  Spike D confirmation
 ```
 
+> **Update 2026-10-30 (Project Control, mirrored from `PROJECT_STATE.yaml`).** C1 is CLOSED: Spike D was ACCEPTED and
+> GATE-DATA-01 closed on 2026-09-18 at 21:40. C4 is CLOSED by DR-005, decided by the leader on 2026-10-30 (the full
+> 3D error map; Spike F not run). C6 is unchanged. On decisions: DR-002 was decided on 2026-09-14, DR-008c on
+> 2026-10-01 (L0) and DR-005 on 2026-10-30, so no audit-raised decision remains open.
+
 **No free ownership or deployment decision remains open.**
 
 ---

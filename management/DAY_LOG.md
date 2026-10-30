@@ -13,6 +13,8 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 > **Cập nhật 18/10/2026:** Day 30 (09/10) đã qua. Leader quyết **hạn nghiệm thu mới 31/10/2026** (Day 52); kế hoạch tại `management/day40/REPLAN_TO_2026-10-31.md`.
 
+> **Cập nhật 30/10/2026:** leader quyết **hạn nghiệm thu 08/11/2026** và **chế độ một người vận hành** (DR-023, `management/day51/OPERATING_MODE_2026-10-30.md`). Danh mục việc: `management/day51/WORK_INVENTORY.md`.
+
 | Chỉ số | Giá trị |
 |---|---|
 | Ngày hôm nay | **Day 11 — 2026-09-20** |
@@ -26,6 +28,26 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 | `15` §18 | 🔴 **ĐÃ NỔ, 3/5 điều kiện** — buffer −3 · `GATE-SPLIT-01` sống qua **hai** chu kỳ EOD với chủ sở hữu **không hoạt động** · 10/30 ngày hết mà `MUST` **0/33**. Mức áp dụng là **quyết định của leader**, đang `PENDING` — [`day10/DAY10_EOD_REVIEW.md`](day10/DAY10_EOD_REVIEW.md) §11 |
 | Level 5 de-scope | **chưa tuyên bố** — `15` §414 là quyết định của leader. Và `DAY03_EOD_REVIEW` §11 cho thấy nó **mua 0 ngày** |
 | Mốc đang chạy | ✅ **M3 (Day 6–9) ĐÓNG** 20/09 17:18 (`40498e5`), muộn 1 ngày · **M2 (Day 4–6) quá hạn 5 ngày** — `GATE-MOB-01` còn mở · **M4** (Day 8–12) — `GATE-SPLIT-01` chưa động, sang ngày thứ 4 · **M5** (Day 9–20) — có `app/` nhưng **chưa lên `main`** |
+
+---
+
+## DAY 40–51 — 2026-10-19 → 2026-10-30 · ❌ **`TRƯỢT` mọi mốc của REPLAN**, rồi **chế độ một người vận hành**
+
+Trong 12 ngày chỉ có hai PR, đều của Bế Quốc Khánh: #105 (bảng revalidation, 19/10) và #106 (các mục QA V3 không cần train, 29/10; job CI "backend tests" đỏ). Nguyễn Gia Đức Trung không có hoạt động từ 01/10, Vũ Hùng Anh không có từ 02/10. Không mốc kiểm nào của `day40/REPLAN_TO_2026-10-31.md` đạt (20/10, 22/10, 24/10, 27/10, 30/10). Họ UNet vẫn chưa train. Mac mini không trả lời ssh ngày 27/10 và 30/10.
+
+**Leader quyết ngày 30/10** ([`day51/OPERATING_MODE_2026-10-30.md`](day51/OPERATING_MODE_2026-10-30.md), DR-023, DR-005):
+
+| Mục | Quyết định |
+|---|---|
+| Hạn nghiệm thu | **08/11/2026** (thay 31/10) |
+| Cách làm | mọi việc trừ train UNet chạy qua tài khoản của leader, không chia theo thành viên; mỗi PR qua QA LLM độc lập và CI xanh, leader quyết |
+| Sở hữu V1–V4 | chỉ còn là bản đồ bảo vệ của môn Mobile (CLO3); gói bằng chứng ghi rõ phần agent làm |
+| Môn báo cáo | ML, Xử lý ảnh, Mobile; bỏ Khoa học dữ liệu khỏi danh sách môn, sản phẩm vẫn làm đủ |
+| Báo cáo và slide | mỗi môn một báo cáo và một bộ slide, làm sau khi sản phẩm xong và có bằng chứng thiết bị, không làm vội |
+| DR-005 | **bản đồ lỗi 3D đầy đủ**; điều kiện C4 đóng |
+| Nhịp | chất lượng trước tốc độ: làm rõ từng chi tiết, không bỏ qua tiểu tiết |
+
+**Bắt đầu ngay trong tối 30/10:** agent A làm bản đồ lỗi 3D và liên kết 2D↔3D (việc A1–A12); agent B làm CI của #106 và tồn đọng QA (B1–B16). Hai agent chạy song song, mỗi lúc chỉ một việc nặng.
 
 ---
 

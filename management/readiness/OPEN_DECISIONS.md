@@ -12,6 +12,9 @@
 DR-005 (Spike F) and DR-008c (Spike B).
 **Update 2026-09-15: DR-002a** (Part 2b) — the duplicated acquisition `CASE_0056`/`CASE_0097` found by QA-002 is
 one group pinned to train.
+**Update 2026-10-30: DR-005 is DECIDED — the full 3D error map** (see its entry). DR-008c was decided on 2026-10-01
+(L0), so no audit-raised decision remains open. **DR-023** (Part 2b) records the single-operator mode and the
+acceptance date of 2026-11-08.
 **Authoritative status table:** `READINESS_REVIEW_RESOLUTION.md` §10.
 
 ---
@@ -445,7 +448,15 @@ as tabulated above. Adding the corresponding requirement and acceptance tests st
 
 ### DR-005 — 3D error representation pipeline definition
 
-> **OPEN** — explicitly kept open; requires Spike F evidence.
+> **✅ DECIDED 2026-10-30** by Phạm Tuấn Anh: the **full 3D error map**. For a run's prediction (RAW or PROCESSED)
+> against the case's ground truth, the false-positive voxels (prediction and not ground truth) and the false-negative
+> voxels (ground truth and not prediction) each get their own L0 voxel-face surface (DR-008c), with a per-face source
+> slice and a per-face class, served by `error_reconstruction_get`. A tapped error face resolves to its source slice
+> and opens it in 2D (FR-3D-008). INT-12 cases get no error mesh (`GROUND_TRUTH_UNAVAILABLE`). Spike F is not run:
+> the L0 picking evidence of Spike B (±1 slice) carries over, because the error surfaces are built the same way.
+> Recorded in `management/day51/OPERATING_MODE_2026-10-30.md`. The original text follows.
+
+> ~~**OPEN** — explicitly kept open; requires Spike F evidence.~~
 
 | Field | Content |
 |---|---|
@@ -2024,6 +2035,46 @@ by default, and a dry run needs a record that is not a real one only on the oper
 
 ---
 
+### DR-023 — Single-operator mode from 2026-10-30; acceptance on 2026-11-08
+
+| Field | Value |
+|---|---|
+| **Status** | ✅ **DECIDED 2026-10-30** by Phạm Tuấn Anh, in session (about 18:45; pace and care about 19:00) |
+| **Amends** | the per-PR review rule of `15` (CP-07); the per-member plan of `management/day40/REPLAN_TO_2026-10-31.md`; the acceptance date of 2026-10-31; DR-013 (ownership) |
+| **Related** | DR-005 (decided the same day), DR-013, DR-016a (UNet host), `16` §3 and §5.1 |
+| **Record** | `management/day51/OPERATING_MODE_2026-10-30.md`; the work list `management/day51/WORK_INVENTORY.md` |
+
+**Problem.** From 2026-10-18 to 2026-10-30 only Bế Quốc Khánh worked in the repository (#105 on 10-19, #106 on
+10-29). Nguyễn Gia Đức Trung has no activity since 10-01 and Vũ Hùng Anh none since 10-02. Every checkpoint of the
+replan (20/10, 22/10, 24/10, 27/10, 30/10) was missed. The UNet family is untrained, the product app has no device
+evidence beyond L4, and 0 of 33 MUST requirements are `ACCEPTED`.
+
+**Decision.**
+1. **Acceptance on 2026-11-08**, replacing 2026-10-31.
+2. **Single operator.** All remaining work except UNet training runs through the leader's account and its Claude
+   sessions, without per-member division. Each PR merges after an independent LLM QA pass, recorded as LLM QA and
+   never as a human review, plus green CI. The leader decides. Per-member revalidation tables become optional.
+3. **Ownership for the defense only.** The V1–V4 ownership of DR-013 stays as the defense mapping of the Mobile course
+   (CLO3). Each member's evidence package states which parts agents built under the leader's account. Nothing is
+   written in a member's name that the member did not do.
+4. **Subjects.** Machine Learning, Image Processing and Mobile Application Development. Data Science is no longer a
+   reporting subject. The product scope is unchanged: all 33 MUST requirements, including the cohort and outlier
+   features, stay and are tested.
+5. **Reports and decks.** One report and one deck per subject, written after the product is complete and the device
+   evidence exists, without haste.
+6. **UNet** stays with Bế Quốc Khánh. If it is not trained in time, the ML report states the model comparison as an
+   unanswered question and says why.
+7. **Pace and care.** Quality before speed. There is more than a week left. Every detail is made explicit and no
+   small detail is skipped. Each unit is verified before the next one starts.
+8. **Acceptance marks.** A requirement becomes `ACCEPTED` only when the leader marks it, on committed evidence
+   (`13` §6). Project Control proposes and never marks it.
+
+**What it does not change.** The frozen specs. The holdout rules (no access outside an authorization record; each run
+scored once). The publication policy (DR-019). The evidence rules of `management/day40/ACCEPTANCE_TRACE.md` §1.2.
+The mobile rules of DR-021.
+
+---
+
 ## Part 3 — Decision dependency order
 
 Ordered by what each unblocks, not by calendar.
@@ -2048,7 +2099,7 @@ BEFORE TRAINING
   DR-011  normalization policy      →  experiment matrix
 
 BEFORE FEATURE / ACCEPTANCE
-  DR-005  3D error pipeline         →  PR-ERR-03, PR-3D-05    [needs Spike F]
+  DR-005  3D error pipeline         →  PR-ERR-03, PR-3D-05    [DECIDED 2026-10-30: full 3D error map; Spike F not run]
   DR-008b/c tolerance + mesh budget →  FR-3D-002/005 ACCEPTED [needs Spike B]
   DR-G04  GATE-IMG-01 morphology    →  EXP-D-PP
   DR-G05  GATE-MOB-01 framework     →  production mobile architecture

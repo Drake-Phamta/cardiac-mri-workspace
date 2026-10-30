@@ -11,6 +11,8 @@
 
 > **Cập nhật cuối ngày 18/10:** sau khi tài liệu này được lập, #99 đã đưa V4 SCR-06/SCR-08 lên `main` (khung chạy được, test logic + render). Các dòng REV-01, REV-02, PROV-01, FIND-01 có thêm bằng chứng mức logic/render; vẫn **MỘT PHẦN** cho tới khi có bằng chứng thiết bị.
 
+> **Cập nhật 30/10:** hạn nghiệm thu mới là **08/11/2026**, làm theo chế độ một người vận hành (DR-023, `management/day51/OPERATING_MODE_2026-10-30.md`). DR-005 đã được quyết là **bản đồ lỗi 3D đầy đủ**. Môn báo cáo còn ML, Xử lý ảnh, Mobile; mục 5.3 (Khoa học dữ liệu) chỉ còn để tham khảo, phạm vi sản phẩm không đổi. Từng dòng của tài liệu này được làm lại ở việc E1 của `management/day51/WORK_INVENTORY.md` khi có bằng chứng mới. TC-MAINT-003 đã có job CI `ml-tests` từ #100.
+
 ## 0. Đọc nhanh (sự thật hiện tại, không làm đẹp)
 
 - **0 trên 33 yêu cầu MUST đã `ACCEPTED`** (`management/PROJECT_STATE.yaml` ghi `accepted: 0`; REPLAN ghi chưa có TC nào được ghi PASS chính thức trên thiết bị). Theo bằng chứng trong repo: 2 yêu cầu `CÓ BẰNG CHỨNG`, 29 `MỘT PHẦN`, 2 `CHƯA CÓ`. `CÓ BẰNG CHỨNG` chưa phải `ACCEPTED` (cần review, tích hợp, DoD của `13` §6).

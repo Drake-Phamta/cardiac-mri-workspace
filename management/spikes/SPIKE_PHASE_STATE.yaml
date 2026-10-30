@@ -541,7 +541,7 @@ spikes:
       If the MUST feature is not achievable within the project window, report the NEGATIVE_RESULT and
       trigger the formal scope decision via DR-005. Never silently simplify. 03 section 4 lists
       "3D is decorative only and cannot link back to MRI slices" as an MVP rejection condition.
-    next_action: "Prepare synthetic TP/FP/FN fixtures only. Do not start primary work while Spike B is ACTIVE. Note 2026-09-17: those fixtures are wanted independently of this spike - 13 section 11 requires a small binary mask pair with known TP/FP/FN/Dice/IoU in the canonical fixture set - so building them under tests/fixtures/error_masks/ is permitted work today and is listed in the owner's Day-8 reserve queue. All twelve F criteria remain unmeasured and no F implementation may begin while SPIKE_B is ACTIVE."
+    next_action: "Prepare synthetic TP/FP/FN fixtures only. Do not start primary work while Spike B is ACTIVE. Note 2026-09-17: those fixtures are wanted independently of this spike - 13 section 11 requires a small binary mask pair with known TP/FP/FN/Dice/IoU in the canonical fixture set - so building them under tests/fixtures/error_masks/ is permitted work today and is listed in the owner's Day-8 reserve queue. All twelve F criteria remain unmeasured and no F implementation may begin while SPIKE_B is ACTIVE. Update 2026-10-30: Spike F will not run. DR-005 was decided by the leader without it (full 3D error map, management/readiness/OPEN_DECISIONS.md); the L0 picking evidence of Spike B carries over. Status stays PREPARED because no execution ever started."
 
 wip_compliance:
   rule: "15 section 7: max 1 primary implementation task; optionally 1 review task; optionally 1 small auxiliary activity."
