@@ -176,7 +176,7 @@ characters, and the Windows API without long-path support refuses a path above 2
 the terminating NUL). **The data root must therefore be at most 99 characters** (`CARDIAC_BACKEND_DATA`, `--data`). A longer
 root fails on the first error mesh with a confusing `FileNotFoundError` on `<...>.err2.cmesh.tmp` (the surface meshes,
 `<64 hex>.l0.cmesh` = 73 characters, still fit). Windows 10 long paths (the system-wide `LongPathsEnabled` registry value) lift
-the limit for Python 3.6+, but do not rely on them for a demo machine: use a short root such as `D:\cardiac-data\backend`. The Mac
+the limit for Python 3.6+, but do not rely on them for a demo machine: use a short root (a top-level folder such as `<drive>:\cmri`, 7 characters). The Mac
 mini (POSIX, 1,024+ character paths) is not affected.
 
 ## Levels and DR-008c (decided 2026-10-01: L0)

@@ -27,7 +27,7 @@ REGIONS (FR-3D-008, "selecting an error region shall provide navigation to one o
     ``voxels``, ``first_slice`` and ``slice_voxels`` (its voxel count on slices ``first_slice``, ``first_slice + 1``, ...).
     A connected voxel set has no gap in z, so its contributing slices are exactly ``first_slice .. first_slice +
     len(slice_voxels) - 1`` and every one of them has voxels: the writer asserts it, the reader checks it, and the table is
-    that compact (JSON, 15-20 KB for the real meshes of the Day 39 data, about 0.4 % of the file - see README).
+    that compact (JSON; a few KB to a few tens of KB for the real meshes of the Day 39 data, under 0.5 % of the file - see README).
 
 FRAME
     Identical to ``cardiac-mesh/1``: vertices are integer lattice corners in the voxel-index frame, stored as uint16

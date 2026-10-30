@@ -588,7 +588,12 @@
    ],
    "slice": 4,
    "class": "FP",
-   "component": 1
+   "component": 1,
+   "voxel": [
+    6,
+    3,
+    4
+   ]
   },
   {
    "origin": [
@@ -603,7 +608,12 @@
    ],
    "slice": 5,
    "class": "FP",
-   "component": 2
+   "component": 2,
+   "voxel": [
+    0,
+    6,
+    5
+   ]
   },
   {
    "origin": [
@@ -618,7 +628,12 @@
    ],
    "slice": 1,
    "class": "FN",
-   "component": 3
+   "component": 3,
+   "voxel": [
+    2,
+    2,
+    1
+   ]
   },
   {
    "origin": [
@@ -633,7 +648,12 @@
    ],
    "slice": 1,
    "class": "FN",
-   "component": 3
+   "component": 3,
+   "voxel": [
+    2,
+    2,
+    1
+   ]
   },
   {
    "origin": [
@@ -648,7 +668,12 @@
    ],
    "slice": 2,
    "class": "FN",
-   "component": 3
+   "component": 3,
+   "voxel": [
+    2,
+    2,
+    2
+   ]
   },
   {
    "origin": [
@@ -663,7 +688,12 @@
    ],
    "slice": 3,
    "class": "FP",
-   "component": 1
+   "component": 1,
+   "voxel": [
+    6,
+    3,
+    3
+   ]
   },
   {
    "origin": [
@@ -678,7 +708,12 @@
    ],
    "slice": 3,
    "class": "FP",
-   "component": 1
+   "component": 1,
+   "voxel": [
+    6,
+    3,
+    3
+   ]
   },
   {
    "origin": [
@@ -693,7 +728,8 @@
    ],
    "slice": null,
    "class": null,
-   "component": null
+   "component": null,
+   "voxel": null
   },
   {
    "origin": [
@@ -708,7 +744,8 @@
    ],
    "slice": null,
    "class": null,
-   "component": null
+   "component": null,
+   "voxel": null
   }
  ]
 }
