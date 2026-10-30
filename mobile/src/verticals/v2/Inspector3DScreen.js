@@ -9,16 +9,24 @@
  *                               drawn by the self-contained WebGL2 viewer (viewerSource.mjs) in a WebView. The mesh is
  *                               the undecimated L0 surface (DR-008c) in the voxel-index frame: no millimetres.
  *   rotate, zoom, pan           one-finger orbit, two-finger pinch zoom and pan (in the viewer)
- *   error representation        error_reconstruction_get -> ONE error artifact (cardiac-errormesh/1) that becomes two
+ *   error representation        error_reconstruction_get -> ONE error artifact (cardiac-errormesh/2) that becomes two
  *                               layers of their own, false positive (FP) and false negative (FN), next to the prediction
  *                               and the ground truth. Four layers, each with its own state and switch, a printed legend
  *                               (name, meaning, glyph, look - never colour alone), FN striped and FP checkered in the scene. The error mesh
  *                               is drawn only if it was made from the masks shown (reference_mask_id, prediction_mask_id).
- *   select (H7)                 a tap resolves to the source slice and the class of the FIRST face hit and the screen shows
- *                               "slice n / total" and what was hit; "Open in 2D" pushes SCR-03 at that slice, and for an FP
- *                               or FN face "Open errors" pushes SCR-04 at it, for the same run and variant, with
- *                               returnParams so Back reopens this screen on the same layers, camera and plane. A tap on the
- *                               background clears the selection and says so: nothing navigates by accident.
+ *   select (H7)                 a tap resolves to the source slice, the class, the region and the voxel of the FIRST face hit
+ *                               and the screen shows "slice n / total" and what was hit; "Open in 2D" pushes SCR-03 at that
+ *                               slice, and for an FP or FN face "Open errors" pushes SCR-04 at it, for the same run and
+ *                               variant, with returnParams so Back reopens this screen on the same layers, camera and plane. A
+ *                               tap on the background clears the selection and says so: nothing navigates by accident.
+ *   error region (FR-3D-008)    a tap on an FP / FN face selects its connected region: the panel gives its class, voxel count
+ *                               and slices, starts on the tapped slice and steps through the region's slices (never out of
+ *                               them); the plane follows, the region is drawn bright and solid in the 3D view, and both
+ *                               hand-offs open the slice the panel is on. The picked voxel's (column, row) rides along as a
+ *                               marker, for the slice it was picked in only.
+ *   bytes -> viewer, lazy layers a mesh goes to the WebView in bounded chunks with its length and sha256 (inspector3d.mjs
+ *                               transferPlan), one message per macrotask. The ground truth is off by default while the error
+ *                               map is usable and is not fetched until its switch is turned on (its own loading state).
  *   2D <-> 3D                   the slice plane follows the 2D slice handed in by SCR-03 / SCR-04 - on entry and, with the
  *                               slice they end on, on Back (QA #98 N-6) - and a slider moves it.
  *   states                      loading, unavailable (with the API's own reason), error, success - app/core states drawn
@@ -50,9 +58,10 @@ import { variantOptions } from '../v1/explorer.mjs';
 import { rememberedVariant, rememberVariant } from '../v1/session.mjs';
 import {
   ACTION, effectiveVisibility, entryFromParams, ERROR_CONTAINER, ERROR_ROLES, errorCounts, errorMaskProblem,
-  errorMeshRef, gridMatches, initialInspectorState, inspectorReducer, LAYER, LAYER_INFO, layerNote, layerStatus,
-  maskIdForVariant, meshRef, openErrors, openIn2D, parseErrorMeshHeader, parseMeshHeader, parseViewerMessage, planeText,
-  ROLE_ORDER, ROLES, screenStatus, selectionText, toViewer,
+  errorMeshRef, gridMatches, initialInspectorState, inspectorReducer, LAYER, LAYER_INFO, layerNote, layerRequested,
+  layerStatus, maskIdForVariant, MESH_ROLES, meshRef, openErrors, openIn2D, parseErrorMeshHeader, parseMeshHeader,
+  parseViewerMessage, planeText, regionOf, regionPanel, regionTable, ROLE_ORDER, ROLES, screenStatus, selectionText,
+  toViewer, transferPlan,
 } from './inspector3d.mjs';
 import { VIEWER_HTML } from './viewerSource.mjs';
 
@@ -78,6 +87,10 @@ function useMeshBytes(content, ref, enabled) {
 }
 
 const PENDING = loading();
+const NO_REGIONS = Object.freeze([]);
+// One mesh message per macrotask: the JS thread is never held for more than the base64 of one chunk (the plan builds a message
+// only when it is asked for it).
+const yieldToUi = () => new Promise((resolve) => setTimeout(resolve, 0));
 const TOGGLE_NAME = Object.freeze({ prediction: 'Prediction', groundTruth: 'Ground truth', falsePositive: 'FP', falseNegative: 'FN' });
 
 export default function Inspector3DScreen({ runtime, nav, params }) {
@@ -144,6 +157,20 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
     slice: entry.slice, layers: entry.layers, camera: entry.camera, total,
   }));
 
+  // the viewer (its state is read by every layer's status, so it is declared before the calls)
+  const webRef = useRef(null);
+  const sent = useRef({});
+  const senders = useRef({});
+  const transferIds = useRef(0);
+  const highlightSent = useRef(null);
+  const cameraRef = useRef(null);
+  // How many times the page has said it is ready: the first time and every reload of the page (a WebView that is recreated posts
+  // `ready` again and has nothing), so whatever the page needs is sent again each time.
+  const [readyCount, setReadyCount] = useState(0);
+  const ready = readyCount > 0;
+  const [loaded, setLoaded] = useState({});
+  const [viewerErrors, setViewerErrors] = useState({});
+
   const basePath = runtime.contract.basePath;
   // What the viewer is asked to draw: bytes that hash to the id (runtime.content) AND parse as the format AND fit
   // this case's grid. One memo per layer, so the viewer is told once per mesh.
@@ -167,12 +194,10 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
   const predRef = useMemo(() => refOf(predCall), [predCall.view]); // eslint-disable-line react-hooks/exhaustive-deps
   const predBytes = useMeshBytes(runtime.content, predRef, Boolean(predRef));
 
-  // 2. ground truth: its mask id is the one the server states on a slice, never derived from a name
+  // 2. ground truth: its mask id is the one the server states on a slice, never derived from a name. The slice call is small and
+  //    always made (the error mesh is checked against the id); the ground-truth MESH is lazy - see 4.
   const gtSlice = useCall(client, 'ground_truth_slice_get', { case_id: caseId, slice_index: 0 }, { enabled: gtWanted });
   const gtMaskId = gtSlice.view.state === STATE.SUCCESS ? gtSlice.view.data.reference_mask_id : null;
-  const gtCall = useCall(client, 'reconstruction_get', { run_id: runId, mask_id: gtMaskId || '' }, { enabled: gtWanted && Boolean(gtMaskId) });
-  const gtRef = useMemo(() => refOf(gtCall), [gtCall.view]); // eslint-disable-line react-hooks/exhaustive-deps
-  const gtBytes = useMeshBytes(runtime.content, gtRef, Boolean(gtRef));
 
   // 3. the error mesh: one artifact, two layers. Its bytes are fetched only once the masks it names are the masks shown.
   const errCall = useCall(client, 'error_reconstruction_get', { run_id: runId, variant }, { enabled: errWanted });
@@ -188,7 +213,6 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
   const errBytes = useMeshBytes(runtime.content, errRef, Boolean(errRef));
 
   const predPrepared = useMemo(() => surfaceOf(predCall.view, predBytes.view), [predCall.view, predBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
-  const gtPrepared = useMemo(() => surfaceOf(gtCall.view, gtBytes.view), [gtCall.view, gtBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
   const errPrepared = useMemo(() => {
     if (errCall.view.state !== STATE.SUCCESS) return errCall.view;
     if (!runtime.content.live) return emptyUnavailable('FIXTURE_NO_BYTES');
@@ -204,6 +228,29 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
     return Object.freeze({ ...errBytes.view, header: header.header });
   }, [errCall.view, errBytes.view, gtSlice.view, errProblem, errData, basePath, shape, runtime.content.live]); // eslint-disable-line react-hooks/exhaustive-deps
   const counts = useMemo(() => (errPrepared.state === STATE.SUCCESS && errPrepared.header ? errorCounts(errPrepared.header) : {}), [errPrepared]);
+  const regions = useMemo(() => (errPrepared.state === STATE.SUCCESS && errPrepared.header ? regionTable(errPrepared.header) : NO_REGIONS), [errPrepared]);
+
+  // The state of the error layers does not depend on the ground truth, so what is shown can be worked out before the ground
+  // truth is asked for: it is asked for only when it is to be shown.
+  const errorStatus = (role) => layerStatus({
+    wanted: errWanted,
+    reason: kase.ground_truth_available === true ? 'NO_PREDICTION_MESH_WANTED' : 'GROUND_TRUTH_UNAVAILABLE',
+    steps: errWanted ? [gtSlice.view, errCall.view, errPrepared] : [],
+    viewerLoaded: Boolean(loaded[role]),
+    viewerError: viewerErrors[ERROR_CONTAINER],
+  });
+  const errorStatuses = { falsePositive: errorStatus(ROLES.FALSE_POSITIVE), falseNegative: errorStatus(ROLES.FALSE_NEGATIVE) };
+  const shown = effectiveVisibility(ui, errorStatuses);
+
+  // 4. the ground-truth mesh: fetched when its layer is switched on (or is on by default because there is no usable error map),
+  //    and kept once fetched. A layer that is off is not fetched.
+  const [gtFetched, setGtFetched] = useState(false);
+  const gtRequested = layerRequested({ wanted: gtWanted && Boolean(gtMaskId), shown: shown.groundTruth, requestedBefore: gtFetched });
+  useEffect(() => { if (gtRequested && !gtFetched) setGtFetched(true); }, [gtRequested, gtFetched]);
+  const gtCall = useCall(client, 'reconstruction_get', { run_id: runId, mask_id: gtMaskId || '' }, { enabled: gtRequested });
+  const gtRef = useMemo(() => refOf(gtCall), [gtCall.view]); // eslint-disable-line react-hooks/exhaustive-deps
+  const gtBytes = useMeshBytes(runtime.content, gtRef, Boolean(gtRef));
+  const gtPrepared = useMemo(() => surfaceOf(gtCall.view, gtBytes.view), [gtCall.view, gtBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meshes = useMemo(() => ({
     prediction: predPrepared.state === STATE.SUCCESS && predPrepared.header
@@ -214,14 +261,6 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
       ? { bytes: errPrepared.data.bytes, checksum: errPrepared.data.checksum } : null,
   }), [predPrepared, gtPrepared, errPrepared]);
 
-  // the viewer
-  const webRef = useRef(null);
-  const sent = useRef({});
-  const cameraRef = useRef(null);
-  const [ready, setReady] = useState(false);
-  const [loaded, setLoaded] = useState({});
-  const [viewerErrors, setViewerErrors] = useState({});
-
   // layer states: each one reads its own steps; the prediction decides the screen, nothing else does
   const predStatus = layerStatus({
     wanted: wantPrediction,
@@ -230,43 +269,71 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
     viewerLoaded: Boolean(loaded.prediction),
     viewerError: viewerErrors.prediction,
   });
+  // never asked for yet (off, and not fetched before): IDLE, not loading - the toggle says "switch it on to load it"
   const gtStatus = layerStatus({
     wanted: gtWanted,
+    idle: gtWanted && !gtFetched && !shown.groundTruth,
     reason: kase.ground_truth_available === true ? 'NO_PREDICTION_MESH_WANTED' : 'GROUND_TRUTH_UNAVAILABLE',
     steps: gtWanted ? [gtSlice.view, gtCall.view, gtPrepared] : [],
     viewerLoaded: Boolean(loaded.groundTruth),
     viewerError: viewerErrors.groundTruth,
   });
-  const errorStatus = (role) => layerStatus({
-    wanted: errWanted,
-    reason: kase.ground_truth_available === true ? 'NO_PREDICTION_MESH_WANTED' : 'GROUND_TRUTH_UNAVAILABLE',
-    steps: errWanted ? [gtSlice.view, errCall.view, errPrepared] : [],
-    viewerLoaded: Boolean(loaded[role]),
-    viewerError: viewerErrors[ERROR_CONTAINER],
-  });
   const statuses = {
-    prediction: predStatus, groundTruth: gtStatus, falsePositive: errorStatus(ROLES.FALSE_POSITIVE), falseNegative: errorStatus(ROLES.FALSE_NEGATIVE),
+    prediction: predStatus, groundTruth: gtStatus, falsePositive: errorStatuses.falsePositive, falseNegative: errorStatuses.falseNegative,
   };
   const overall = screenStatus(predStatus);
-  const shown = effectiveVisibility(ui, statuses);
   cameraRef.current = ui.camera;   // the last camera the viewer reported, or the one Back restored; sent once when the viewer is ready
 
   const tell = useCallback((message) => { if (webRef.current && message) webRef.current.postMessage(message); }, []);
+  // One mesh = one transfer: meshStart, chunks of at most CHUNK_BYTES, meshEnd, each message in a macrotask of its own. A newer
+  // transfer for the same role cancels the older one (a Retry); everything stops with the screen.
+  const pump = useCallback(async (plan, token) => {
+    for (let i = 0; i < plan.count; i += 1) {
+      if (token.cancelled) return;
+      tell(plan.message(i));
+      // eslint-disable-next-line no-await-in-loop
+      await yieldToUi();
+    }
+  }, [tell]);
   useEffect(() => {
     if (!ready) return;
-    for (const role of ['prediction', 'groundTruth', ERROR_CONTAINER]) {
+    for (const role of MESH_ROLES) {
       const item = meshes[role];
-      if (item && sent.current[role] !== item.checksum) { sent.current[role] = item.checksum; tell(toViewer.mesh(role, item.bytes)); }
+      if (!item || sent.current[role] === item.checksum) continue;
+      sent.current[role] = item.checksum;
+      if (senders.current[role]) senders.current[role].cancelled = true;
+      transferIds.current += 1;
+      const plan = transferPlan({ role, bytes: item.bytes, checksum: item.checksum, tx: transferIds.current });
+      if (!plan) {
+        // a mesh the viewer would refuse for its size is that layer's error, never one giant message
+        setViewerErrors((e) => ({ ...e, [role]: { code: 'MESH_NOT_SENDABLE', message: 'the mesh is empty or above the size the viewer accepts' } }));
+        continue;
+      }
+      senders.current[role] = { cancelled: false };
+      pump(plan, senders.current[role]);
     }
-  }, [ready, meshes, tell]);
+  }, [ready, readyCount, meshes, pump]);
+  useEffect(() => () => { for (const token of Object.values(senders.current)) token.cancelled = true; }, []);
   const shownKey = JSON.stringify(shown);
-  useEffect(() => { if (ready) tell(toViewer.layers(shown)); }, [ready, shownKey, tell]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (ready) tell(toViewer.slice(ui.plane)); }, [ready, ui.plane, tell]);
-  useEffect(() => { if (ready) tell(toViewer.camera(cameraRef.current)); }, [ready, tell]);
+  useEffect(() => { if (ready) tell(toViewer.layers(shown)); }, [ready, readyCount, shownKey, tell]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (ready) tell(toViewer.slice(ui.plane)); }, [ready, readyCount, ui.plane, tell]);
+  useEffect(() => { if (ready) tell(toViewer.camera(cameraRef.current)); }, [ready, readyCount, tell]);
+
+  // The selected error region: the number the viewer named, found in the table of the error mesh that is loaded. A selection that
+  // names no region of that table (the mesh was replaced by a Retry, the table is not there) is dropped, not guessed at.
+  const region = useMemo(() => regionOf(regions, ui.selection.component), [regions, ui.selection.component]);
+  useEffect(() => { if (Number.isInteger(ui.selection.component) && !region) dispatch({ type: ACTION.DESELECT }); }, [ui.selection.component, region]);
+  const highlightNumber = region ? region.number : null;
+  const errorLayersLoaded = `${Boolean(loaded.falsePositive)}${Boolean(loaded.falseNegative)}`;
+  useEffect(() => {
+    if (!ready || (highlightNumber === null && highlightSent.current === null)) return;
+    highlightSent.current = highlightNumber;
+    tell(toViewer.highlight(highlightNumber));
+  }, [ready, readyCount, highlightNumber, errorLayersLoaded, tell]);
 
   const onMessage = useCallback((event) => {
     const m = parseViewerMessage(event && event.nativeEvent ? event.nativeEvent.data : null);
-    if (m.kind === 'ready') { sent.current = {}; setLoaded({}); setViewerErrors({}); setReady(true); }
+    if (m.kind === 'ready') { sent.current = {}; highlightSent.current = null; setLoaded({}); setViewerErrors({}); setReadyCount((n) => n + 1); }
     else if (m.kind === 'loaded') setLoaded((l) => ({ ...l, [m.role]: m }));
     else if (m.kind === 'error') {
       const key = m.role === ERROR_CONTAINER || ERROR_ROLES.includes(m.role) ? ERROR_CONTAINER : (m.role || ROLES.PREDICTION);
@@ -277,13 +344,16 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
 
   const retry = () => {
     setViewerErrors({}); sent.current = {};
-    predCall.refetch(); predBytes.refetch(); gtSlice.refetch(); gtCall.refetch(); gtBytes.refetch();
-    errCall.refetch(); errBytes.refetch();
+    predCall.refetch(); predBytes.refetch(); gtSlice.refetch(); errCall.refetch(); errBytes.refetch();
+    if (gtRequested) { gtCall.refetch(); gtBytes.refetch(); }       // a layer that was never asked for is not fetched by a retry either
   };
   const onStateAction = (id) => { if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) retry(); else nav.pop(); };
 
   // 3D -> 2D: what Back must restore rides in the same action as the push
-  const ctx = { caseId, runId, variant, selection: ui.selection, total, visible: shown, camera: ui.camera };
+  const ctx = {
+    caseId, runId, variant, selection: ui.selection, slice: Number.isInteger(ui.regionSlice) ? ui.regionSlice : null, total, visible: shown, camera: ui.camera,
+  };
+  const panel = regionPanel({ selection: ui.selection, regionSlice: ui.regionSlice, region, total });
   const plan2d = openIn2D(ctx);
   const planErrors = openErrors(ctx);
   const go = (plan) => { if (plan) { rememberVariant(variant); nav.push(plan.screenId, plan.params, plan.returnParams); } };
@@ -356,7 +426,8 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
             const status = statuses[role];
             const count = ERROR_ROLES.includes(role) ? counts[role] : null;
             const triangles = ERROR_ROLES.includes(role) ? (count ? count.triangles : null) : (loaded[role] ? loaded[role].triangles : null);
-            const usable = status.state === LAYER.READY && !(ERROR_ROLES.includes(role) && count && count.voxels === 0);
+            // READY, or IDLE (a layer that is off and not loaded yet: its switch is what loads it)
+            const usable = (status.state === LAYER.READY && !(ERROR_ROLES.includes(role) && count && count.voxels === 0)) || status.state === LAYER.IDLE;
             const name = role === ROLES.PREDICTION ? `Prediction (${variant})` : LAYER_INFO[role].short;
             return (
               <LayerRow
@@ -389,12 +460,43 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
           {entry.note ? <Text style={s.dim}>{entry.note}</Text> : null}
         </View>
         <View style={s.card}>
-          <Text style={s.label}>Selected region (tap the surface)</Text>
+          <Text style={s.label}>Selection (tap the surface)</Text>
           {Number.isInteger(ui.selection.slice) ? (
             <Text style={s.value}>{selectionText(ui.selection, total)}</Text>
           ) : (
             <Text style={s.dim}>{ui.selection.note || 'Nothing selected. Tap the surface to resolve the slice that produced that face.'}</Text>
           )}
+          {panel ? (
+            <View style={s.region} testID="region-panel">
+              <Text style={s.value}>{panel.title}</Text>
+              <Text style={s.dim}>{panel.summary}</Text>
+              <Text style={s.dim}>{panel.position}</Text>
+              <Text style={s.dim}>{panel.onSlice}</Text>
+              <View style={s.row}>
+                <TouchableOpacity
+                  style={[s.btn, !panel.canPrev && s.btnOff]}
+                  disabled={!panel.canPrev}
+                  onPress={() => dispatch({ type: ACTION.REGION_STEP, delta: -1, region, total })}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !panel.canPrev }}
+                >
+                  <Text style={[s.btnT, !panel.canPrev && s.btnTOff]}>Previous slice of this region</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.btn, !panel.canNext && s.btnOff]}
+                  disabled={!panel.canNext}
+                  onPress={() => dispatch({ type: ACTION.REGION_STEP, delta: 1, region, total })}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !panel.canNext }}
+                >
+                  <Text style={[s.btnT, !panel.canNext && s.btnTOff]}>Next slice of this region</Text>
+                </TouchableOpacity>
+              </View>
+              {!panel.canPrev ? <Text style={s.dim}>Previous: {panel.prevNote}.</Text> : null}
+              {!panel.canNext ? <Text style={s.dim}>Next: {panel.nextNote}.</Text> : null}
+              <Text style={s.dim}>The region is drawn bright and solid in the 3D view; the buttons below open the slice shown here.</Text>
+            </View>
+          ) : null}
           <View style={s.row}>
             <TouchableOpacity
               style={[s.btn, !plan2d && s.btnOff]}
@@ -486,6 +588,7 @@ const s = StyleSheet.create({
   panel: { flex: 1 },
   panelBody: { padding: space.l },
   card: { borderWidth: 1, borderColor: color.border, backgroundColor: color.surface, borderRadius: 10, padding: space.m, marginTop: space.s },
+  region: { borderTopWidth: 1, borderTopColor: color.border, marginTop: space.s, paddingTop: space.s },
   layer: { flexDirection: 'row', alignItems: 'center', marginTop: space.s },
   chip: { width: 24, height: 24, borderRadius: 4, marginRight: space.s, alignItems: 'center', justifyContent: 'center' },
   glyph: { color: '#0e1116', fontSize: font.small, fontWeight: '700' },

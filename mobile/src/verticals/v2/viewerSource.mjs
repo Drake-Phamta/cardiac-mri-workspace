@@ -7,12 +7,13 @@
  *   spikes/spike_b_3d/app/viewer.js   blob 52cd8fdc53a0 (last changed ba492ae)  camera, shaders, gestures
  *   spikes/spike_b_3d/app/picking.js  blob 696af3dd3314 (last changed 9e839ef)  Moller-Trumbore ray cast
  * copied 2026-10-18 and changed as follows. Product code never imports a spike.
- *   - the input is the served `cardiac-mesh/1` surface artifact (backend/mesh/artifact.py) or the `cardiac-errormesh/1`
+ *   - the input is the served `cardiac-mesh/1` surface artifact (backend/mesh/artifact.py) or the `cardiac-errormesh/2`
  *     error artifact (backend/mesh/error_artifact.py), not an OBJ: indexed vertices in the voxel-index frame (x = column,
- *     y = row, z = slice) and the source slice of every triangle - for the error artifact also the class of every
- *     triangle and the two class blocks (FP, FN), which become two layers of their own;
- *   - a tap resolves to face_source_slice[t] (and the class) of the first triangle hit (PR-3D-04, DR-008c = L0), NOT to
- *     the floor of the hit point, and a miss posts slice null (it never navigates);
+ *     y = row, z = slice) and the source slice of every triangle - for the error artifact also the class and the connected
+ *     error region of every triangle and the two class blocks (FP, FN), which become two layers of their own;
+ *   - a tap resolves to face_source_slice[t] (and the class, the region and the voxel) of the first triangle hit (PR-3D-04,
+ *     DR-008c = L0), NOT to the floor of the hit point, and a miss posts slice null (it never navigates);
+ *   - the selected error region is drawn in a pass of its own (a solid, brightened copy of its faces), see `highlight`;
  *   - flat shading from screen-space derivatives, so no normal buffer is needed; four layers (prediction, ground truth,
  *     false positive, false negative) with their own visibility; the slice plane is a translucent quad with an outline
  *     and a band on the surfaces; false negatives are striped and false positives checkered, so the two error classes
@@ -24,15 +25,34 @@
  *   - measurement code (the 30 s frame probe) is NOT carried over: B10 / B11 on the device are the owner's.
  *
  * PROTOCOL (JSON strings through window.ReactNativeWebView.postMessage / WebView.postMessage)
- *   in   {type:'mesh', role:'prediction'|'groundTruth'|'error', b64}   a verified artifact, base64. 'error' is the error
- *                                                                       container: it fills falsePositive AND falseNegative
+ *   in   a MESH arrives in bounded chunks (the roles are 'prediction', 'groundTruth' and 'error' - the error container,
+ *        which fills falsePositive AND falseNegative); `tx` numbers a transfer, `n` numbers its messages 0, 1, 2 ...
+ *        {type:'meshStart', role, tx, n:0, bytes, chunk, chunks, sha256}   announces the transfer: its length, the chunk
+ *                                                              size (at most CHUNK_MAX_BYTES), the number of chunks and the
+ *                                                              sha256 the reassembled bytes must have
+ *        {type:'meshChunk', role, tx, n, seq, b64}             chunk `seq` (0-based): exactly `chunk` raw bytes, the last one
+ *                                                              the remainder
+ *        {type:'meshEnd', role, tx, n}                         the sender has sent everything: verify, then decode
+ *        The page reassembles into one buffer, checks the length and the sha256 BEFORE it decodes, and refuses with that
+ *        layer's error: a chunk that is out of order (MESH_CHUNK_ORDER), repeated (MESH_CHUNK_DUPLICATE), larger than
+ *        announced or than the bound (MESH_CHUNK_OVERSIZED), of another size than its place needs (MESH_CHUNK_SIZE), missing
+ *        when the end arrives or when a message of the transfer did not (MESH_CHUNK_MISSING), a transfer that goes quiet
+ *        (MESH_TRANSFER_TIMEOUT), bytes that do not have the announced length or sha256 (MESH_LENGTH, MESH_CHECKSUM). The
+ *        same message delivered twice (both message channels, `n` unchanged) is ignored, not an error. A single {type:'mesh'}
+ *        message is refused (MESH_PROTOCOL): it would be an unbounded chunk.
  *        {type:'layers', prediction, groundTruth, falsePositive, falseNegative}   visibility (booleans; others ignored)
  *        {type:'slice', index:int|null}                        the slice of the plane (the 2D slice, the slider, a pick)
+ *        {type:'highlight', component:int|null}                draw the faces of one error region (its number in the error
+ *                                                              artifact) in a pass of their own; null clears it
  *        {type:'camera', yaw, pitch, zoom, panX, panY}         restore a camera (Back); values outside the gesture limits are ignored
  *        {type:'fit'}                                          reset the camera
  *   out  {type:'ready'} {type:'loaded', role, triangles, vertices} {type:'error', code, message, role|null}
  *        {type:'pick', role:'prediction'|'groundTruth'|'falsePositive'|'falseNegative'|null, triangle:int|null,
- *         slice:int|null, cls:'FP'|'FN'|null}                  cls is the class byte of the face that was hit
+ *         slice:int|null, cls:'FP'|'FN'|null, component:int|null, column:int|null, row:int|null}
+ *                                                              cls and component are the class byte and the region number of
+ *                                                              the face that was hit (null on a surface); column and row are
+ *                                                              the voxel behind the face - its (x, y) - or null when the face
+ *                                                              does not say (a face whose voxel is not in its source slice)
  *        {type:'camera', yaw, pitch, zoom, panX, panY}         when a gesture ends (and on fit)
  *   Loading is idempotent: the same bytes for the same role are decoded once, however many times (and through however
  *   many of the two message channels) they arrive; the second delivery posts nothing (QA #98 N-5).
@@ -41,10 +61,37 @@
  * v2_viewer.test.mjs runs it in node against a stubbed canvas, the golden artifacts and the Python pick cases.
  */
 
+import { CHUNK_BYTES, LAYER_COLOR, MAX_MESH_BYTES, TRANSFER_IDLE_MS } from './inspector3d.mjs';
+
+// The colours the legend prints are the colours the viewer draws: one palette (inspector3d.mjs LAYER_COLOR, whose FP and
+// FN are SCR-04's ERROR_CLASS), turned into the 0..1 floats the shader takes.
+const floatsOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+const COLOR_FLOATS = Object.freeze({
+  prediction: floatsOf(LAYER_COLOR.prediction), groundTruth: floatsOf(LAYER_COLOR.groundTruth),
+  falsePositive: floatsOf(LAYER_COLOR.falsePositive), falseNegative: floatsOf(LAYER_COLOR.falseNegative),
+});
+
+// SHA-256 as a standalone ES5 function of the page (the WebView has no crypto the page may rely on, and Hermes cannot hand a
+// function's source to a string): 64 round constants, then the compression function over 64-byte blocks. v2_viewer.test.mjs
+// checks it against node's crypto on every length around the block boundaries.
+const SHA256_CONSTANTS = [
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
+
 export const VIEWER_SCRIPT = [
   '(function () {',
   "'use strict';",
-  "var SURFACE = 'cardiac-mesh/1', ERRORS = 'cardiac-errormesh/1';",
+  "var SURFACE = 'cardiac-mesh/1', ERRORS = 'cardiac-errormesh/2';",
+  // The bounds of a mesh transfer (inspector3d.mjs: CHUNK_BYTES, MAX_MESH_BYTES, TRANSFER_IDLE_MS): a chunk is at most
+  // CHUNK_MAX raw bytes, a mesh at most MESH_MAX, and a transfer that goes quiet for IDLE_MS is dead.
+  `var CHUNK_MAX = ${CHUNK_BYTES}, MESH_MAX = ${MAX_MESH_BYTES}, IDLE_MS = ${TRANSFER_IDLE_MS};`,
   'var TAN_HALF = Math.tan(Math.PI / 8);',   // fov 45 degrees
   'var TAP_MAX_MOVE = 8, TAP_MAX_MS = 450, TIE_EPS = 1e-6;',
   'var ZOOM_MIN = 0.35, ZOOM_MAX = 8, PITCH_MAX = 1.45, PAN_MAX = 20;',
@@ -58,7 +105,11 @@ export const VIEWER_SCRIPT = [
   'var layers = { prediction: null, groundTruth: null, falsePositive: null, falseNegative: null };',
   'var visible = { prediction: true, groundTruth: true, falsePositive: true, falseNegative: true };',
   'var sources = { prediction: null, groundTruth: null, error: null };',   // the decoded bytes each mesh role came from
-  'var COLORS = { prediction: [0.94, 0.53, 0.24], groundTruth: [0.22, 0.77, 0.81], falsePositive: [0.91, 0.39, 0.35], falseNegative: [0.30, 0.62, 0.88] };',
+  `var COLORS = ${JSON.stringify(COLOR_FLOATS)};`,
+  // the selected error region is drawn in its class colour mixed 60 % toward white, solid (no pattern), over its own faces
+  'function lighten(c) { return [c[0] + (1 - c[0]) * 0.6, c[1] + (1 - c[1]) * 0.6, c[2] + (1 - c[2]) * 0.6]; }',
+  'var HI = { falsePositive: lighten(COLORS.falsePositive), falseNegative: lighten(COLORS.falseNegative) };',
+  'var hi = { component: null, role: null, faces: null, indices: null, vao: null, ibo: null, indexType: 0 };',
   'var cam = { yaw: -0.5, pitch: 0.35, zoom: 1, pan: [0, 0], scale: 1, center: [0, 0, 0], base: 2.8 };',
   'var bounds = null, planeData = new Float32Array(12);',
   'var sliceIndex = null, dirty = true, pointers = {}, gesture = null, cameraMoved = false, cameraTimer = null;',
@@ -87,6 +138,13 @@ export const VIEWER_SCRIPT = [
   '  return true;',
   '}',
   'function pad4(size) { return (4 - (size % 4)) % 4; }',
+  // The header is ASCII JSON and grows with the region table (about 100 bytes a region): converted in pieces, because one
+  // String.fromCharCode.apply over a few hundred thousand bytes overflows the argument stack.
+  'function asciiText(bytes, from, to) {',
+  '  var out = "", at;',
+  '  for (at = from; at < to; at += 8192) out += String.fromCharCode.apply(null, bytes.subarray(at, Math.min(to, at + 8192)));',
+  '  return out;',
+  '}',
   // Every class block of an error artifact: first the class table (contiguous ranges that cover the file), then the
   // faces (the class code in every face, the triangles indexing only their own block) - the order the other readers
   // use, so one damaged file gets one code everywhere (mirrors backend/mesh/error_artifact.py decode_error_mesh).
@@ -111,13 +169,58 @@ export const VIEWER_SCRIPT = [
   '    }',
   '  }',
   '}',
+  'function componentType(header) {',
+  '  var b = header.component_index_bytes;',
+  '  if (b === 1) return Uint8Array;',
+  '  if (b === 2) return Uint16Array;',
+  '  if (b === 4) return Uint32Array;',
+  '  throw new Error("MESH_HEADER: component_index_bytes " + b);',
+  '}',
+  // The error regions (FR-3D-008), mirroring backend/mesh/error_artifact.py: a declared connectivity, a table of exactly
+  // component_count regions named like the backend names them (FP_0001 ...), contiguous per-class ranges that cover 1..C,
+  // per region a contiguous run of non-empty slices whose counts add up; then every face names a region of its own class on
+  // one of that region's slices, and every region owns a face.
+  'function checkRegions(header, comps, slices) {',
+  '  var table = header.components, count = header.component_count, conn = header.connectivity, shapeZ = header.shape[2];',
+  '  var at = 1, i, k, c, need = count <= 255 ? 1 : count <= 65535 ? 2 : 4;',
+  '  if (conn !== 6 && conn !== 18 && conn !== 26) throw new Error("MESH_COMPONENTS: connectivity must be 6, 18 or 26");',
+  '  if (!Array.isArray(table) || count !== table.length) throw new Error("MESH_COMPONENTS: component_count is not the length of the component table");',
+  '  if (header.component_index_bytes !== need) throw new Error("MESH_COMPONENTS: component_index_bytes must be " + need);',
+  '  for (i = 0; i < 2; i++) {',
+  '    var cls = header.classes[i], span = cls.component_range, total = 0;',
+  '    if (!span || span.length !== 2 || span[0] !== at || !(span[1] >= span[0])) throw new Error("MESH_COMPONENTS: class " + cls.name + " component_range is not contiguous");',
+  '    if ((cls.voxels === 0) !== (span[1] === span[0])) throw new Error("MESH_COMPONENTS: class " + cls.name + " voxels and regions disagree about being empty");',
+  '    for (c = span[0]; c < span[1]; c++) {',
+  '      var row = table[c - 1], per = row && row.slice_voxels, rank = c - span[0] + 1, sum = 0;',
+  '      if (!row || row.class !== cls.name || row.id !== cls.name + "_" + ("000" + rank).slice(-4)) throw new Error("MESH_COMPONENTS: region " + c + " is not " + cls.name + " number " + rank);',
+  '      if (!Array.isArray(per) || per.length === 0 || !(row.first_slice >= 0) || row.first_slice + per.length > shapeZ) throw new Error("MESH_COMPONENTS: " + row.id + " slices are not a contiguous run inside the volume");',
+  '      for (k = 0; k < per.length; k++) { if (!(per[k] >= 1)) throw new Error("MESH_COMPONENTS: " + row.id + " has a contributing slice without a voxel"); sum += per[k]; }',
+  '      if (row.voxels !== sum) throw new Error("MESH_COMPONENTS: " + row.id + " voxels is not the sum of its slice counts");',
+  '      total += sum;',
+  '    }',
+  '    if (total !== cls.voxels) throw new Error("MESH_COMPONENTS: the " + cls.name + " regions hold " + total + " voxels, the class " + cls.voxels);',
+  '    at = span[1];',
+  '  }',
+  '  if (at !== count + 1) throw new Error("MESH_COMPONENTS: the class component ranges do not cover the component table");',
+  '  for (i = 0; i < 2; i++) {',
+  '    var s = header.classes[i], r = s.component_range, t = s.triangle_range, owns = new Uint8Array(r[1] - r[0] + 1);',
+  '    for (k = t[0]; k < t[1]; k++) {',
+  '      var num = comps[k];',
+  '      if (num < r[0] || num >= r[1]) throw new Error("MESH_COMPONENT: a face in the " + s.name + " block names a region of another class");',
+  '      owns[num - r[0]] = 1;',
+  '      var reg = table[num - 1];',
+  '      if (slices[k] < reg.first_slice || slices[k] >= reg.first_slice + reg.slice_voxels.length) throw new Error("MESH_COMPONENT: a " + s.name + " face lies on a slice its region does not contribute to");',
+  '    }',
+  '    for (k = 0; k < r[1] - r[0]; k++) if (!owns[k]) throw new Error("MESH_COMPONENT: a " + s.name + " region owns no face");',
+  '  }',
+  '}',
   'function decode(input) {',
   '  var bytes = input.slice(), view = new DataView(bytes.buffer);',      // a fresh, aligned buffer
   '  var magic = String.fromCharCode.apply(null, bytes.subarray(0, 8));',
   '  if (bytes.length < 12 || magic !== "CARDMESH") throw new Error("MESH_MAGIC: not a cardiac-mesh artifact");',
   '  var hlen = view.getUint32(8, true);',
   '  if (hlen % 4 !== 0 || 12 + hlen > bytes.length) throw new Error("MESH_HEADER: bad header length");',
-  '  var header = JSON.parse(String.fromCharCode.apply(null, bytes.subarray(12, 12 + hlen)));',
+  '  var header = JSON.parse(asciiText(bytes, 12, 12 + hlen));',
   '  var isError = header.format === ERRORS;',
   '  if (header.format !== SURFACE && !isError) throw new Error("MESH_FORMAT: " + header.format);',
   '  if (header.level !== 0 || header.frame !== "voxel-index" || header.index_convention !== "x=column,y=row,z=slice")',
@@ -136,6 +239,7 @@ export const VIEWER_SCRIPT = [
   '  var triangles = section(nt * 3, ib === 2 ? Uint16Array : Uint32Array);',
   '  var slices = section(nt, Uint16Array);',
   '  var classes = isError ? section(nt, Uint8Array) : null;',
+  '  var comps = isError ? section(nt, componentType(header)) : null;',
   '  if (pos !== bytes.length) throw new Error("MESH_LENGTH: sections do not fill the file");',
   '  var i, maxIndex = 0, maxSlice = 0;',
   '  for (i = 0; i < triangles.length; i++) if (triangles[i] > maxIndex) maxIndex = triangles[i];',
@@ -143,11 +247,11 @@ export const VIEWER_SCRIPT = [
   '  for (i = 0; i < nv * 3; i++) if (vertices[i] > shape[i % 3]) throw new Error("MESH_VERTEX: a vertex lies outside [0, shape]");',
   '  for (i = 0; i < slices.length; i++) if (slices[i] > maxSlice) maxSlice = slices[i];',
   '  if (nt && maxSlice >= shape[2]) throw new Error("MESH_SLICE: a source slice is outside the volume");',
-  '  if (isError) checkClasses(header, triangles, classes);',
+  '  if (isError) { checkClasses(header, triangles, classes); checkRegions(header, comps, slices); }',
   '  var positions = new Float32Array(nv * 3);',
   '  for (i = 0; i < positions.length; i++) positions[i] = vertices[i];',
   '  return { format: header.format, header: header, bytes: bytes, positions: positions, triangles: triangles, slices: slices,',
-  '           classes: classes, nv: nv, nt: nt };',
+  '           classes: classes, components: comps, nv: nv, nt: nt };',
   '}',
   // An error artifact becomes two layers, one per class block: positions and slices are views, the triangle indices are
   // made local to the block (so each layer is an ordinary indexed mesh), and the class bytes stay for the pick.
@@ -159,7 +263,8 @@ export const VIEWER_SCRIPT = [
   '    var nt = t1 - t0, nv = v1 - v0, local = nv < 65536 ? new Uint16Array(nt * 3) : new Uint32Array(nt * 3), i;',
   '    for (i = 0; i < nt * 3; i++) local[i] = mesh.triangles[t0 * 3 + i] - v0;',
   '    out[role] = { role: role, header: mesh.header, positions: mesh.positions.subarray(v0 * 3, v1 * 3), triangles: local,',
-  '                  slices: mesh.slices.subarray(t0, t1), classes: mesh.classes.subarray(t0, t1), nv: nv, nt: nt, voxels: c.voxels };',
+  '                  slices: mesh.slices.subarray(t0, t1), classes: mesh.classes.subarray(t0, t1),',
+  '                  components: mesh.components.subarray(t0, t1), componentRange: c.component_range, nv: nv, nt: nt, voxels: c.voxels };',
   '  });',
   '  return out;',
   '}',
@@ -187,6 +292,22 @@ export const VIEWER_SCRIPT = [
   '  }',
   '  return best < 0 ? null : { triangle: best, distance: bestT };',
   '}',
+  // The voxel behind a face: the face of a voxel-face surface lies in one lattice plane (the axis on which its three corners
+  // agree), spans one voxel in the other two, and its outward normal says which side of the plane the voxel is on (voxel k
+  // spans [k, k + 1)). Returns [x, y, z] = [column, row, slice], or null for a triangle that is not such a face.
+  'function faceVoxel(layer, t) {',
+  '  var v = layer.positions, tri = layer.triangles, ia = 3 * tri[3 * t], ib = 3 * tri[3 * t + 1], ic = 3 * tri[3 * t + 2];',
+  '  var axis = -1, a, out = [0, 0, 0];',
+  '  for (a = 0; a < 3; a++) {',
+  '    if (v[ia + a] === v[ib + a] && v[ib + a] === v[ic + a]) { if (axis >= 0) return null; axis = a; }',
+  '  }',
+  '  if (axis < 0) return null;',
+  '  var e1 = [v[ib] - v[ia], v[ib + 1] - v[ia + 1], v[ib + 2] - v[ia + 2]], e2 = [v[ic] - v[ia], v[ic + 1] - v[ia + 1], v[ic + 2] - v[ia + 2]];',
+  '  var nrm = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];',
+  '  for (a = 0; a < 3; a++) out[a] = Math.min(v[ia + a], v[ib + a], v[ic + a]);',
+  '  if (nrm[axis] > 0) out[axis] -= 1;',
+  '  return out;',
+  '}',
   'function normalise(d) {',
   '  var l = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);',
   '  return l > 1e-12 ? [d[0] / l, d[1] / l, d[2] / l] : null;',
@@ -201,8 +322,12 @@ export const VIEWER_SCRIPT = [
   '    if (!layer || !visible[role] || layer.nt === 0) return;',
   '    var hit = rayCast(layer, origin, d);',
   '    if (hit && (best === null || hit.distance < best.distance - TIE_EPS)) {',
+  '      var vox = faceVoxel(layer, hit.triangle);',
+  '      if (vox !== null && vox[2] !== layer.slices[hit.triangle]) vox = null;',     // the slice stays the artifact's word
   '      best = { role: role, triangle: hit.triangle, distance: hit.distance, slice: layer.slices[hit.triangle],',
-  '               cls: layer.classes ? (CLASS_NAME[layer.classes[hit.triangle]] || null) : null };',
+  '               cls: layer.classes ? (CLASS_NAME[layer.classes[hit.triangle]] || null) : null,',
+  '               component: layer.components ? layer.components[hit.triangle] : null,',
+  '               column: vox ? vox[0] : null, row: vox ? vox[1] : null };',
   '    }',
   '  });',
   '  return best;',
@@ -251,8 +376,9 @@ export const VIEWER_SCRIPT = [
   // A tap tells the screen what it hit; the screen owns the plane and answers with a slice message.
   'function pickAt(clientX, clientY) {',
   '  var ray = rayAt(clientX, clientY), hit = pickRay(ray.origin, ray.direction);',
-  '  if (!hit) { post({ type: "pick", role: null, triangle: null, slice: null, cls: null }); return null; }',
-  '  post({ type: "pick", role: hit.role, triangle: hit.triangle, slice: hit.slice, cls: hit.cls });',
+  '  if (!hit) { post({ type: "pick", role: null, triangle: null, slice: null, cls: null, component: null, column: null, row: null }); return null; }',
+  '  post({ type: "pick", role: hit.role, triangle: hit.triangle, slice: hit.slice, cls: hit.cls, component: hit.component,',
+  '         column: hit.column, row: hit.row });',
   '  return hit;',
   '}',
   'function fit() { cam.yaw = -0.5; cam.pitch = 0.35; cam.zoom = 1; cam.pan = [0, 0]; dirty = true; postCamera(); }',
@@ -370,6 +496,55 @@ export const VIEWER_SCRIPT = [
   'function release(layer) {',
   '  if (layer && gl && layer.vao) { gl.deleteBuffer(layer.vbo); gl.deleteBuffer(layer.ibo); gl.deleteVertexArray(layer.vao); }',
   '}',
+  // The selected error region: the faces of one region number of an error layer, as an index buffer of their own over the
+  // layer's vertex buffer, drawn solid and brightened over the layer (drawHighlight). null clears it. A number that belongs to
+  // no loaded error layer draws nothing.
+  'function uploadHighlight(layer) {',
+  '  hi.vao = gl.createVertexArray();',
+  '  gl.bindVertexArray(hi.vao);',
+  '  gl.bindBuffer(gl.ARRAY_BUFFER, layer.vbo);',
+  '  gl.enableVertexAttribArray(locs.pos);',
+  '  gl.vertexAttribPointer(locs.pos, 3, gl.FLOAT, false, 0, 0);',
+  '  hi.ibo = gl.createBuffer();',
+  '  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, hi.ibo);',
+  '  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, hi.indices, gl.STATIC_DRAW);',
+  '  hi.indexType = hi.indices instanceof Uint16Array ? gl.UNSIGNED_SHORT : gl.UNSIGNED_INT;',
+  '  gl.bindVertexArray(null);',
+  '}',
+  'function clearHighlight() {',
+  '  if (gl && hi.vao) { gl.deleteBuffer(hi.ibo); gl.deleteVertexArray(hi.vao); }',
+  '  hi = { component: null, role: null, faces: null, indices: null, vao: null, ibo: null, indexType: 0 };',
+  '}',
+  'function setHighlight(n) {',
+  '  clearHighlight(); dirty = true;',
+  '  if (typeof n !== "number" || n !== Math.floor(n) || n < 1) return;',
+  '  var found = null, t, k;',
+  '  ["falsePositive", "falseNegative"].forEach(function (role) {',
+  '    var layer = layers[role], r = layer && layer.componentRange;',
+  '    if (layer && r && n >= r[0] && n < r[1]) found = layer;',
+  '  });',
+  '  if (!found) return;',
+  '  var faces = [];',
+  '  for (t = 0; t < found.nt; t++) if (found.components[t] === n) faces.push(t);',
+  '  var idx = found.nv < 65536 ? new Uint16Array(faces.length * 3) : new Uint32Array(faces.length * 3);',
+  '  for (k = 0; k < faces.length; k++) {',
+  '    idx[3 * k] = found.triangles[3 * faces[k]]; idx[3 * k + 1] = found.triangles[3 * faces[k] + 1]; idx[3 * k + 2] = found.triangles[3 * faces[k] + 2];',
+  '  }',
+  '  hi = { component: n, role: found.role, faces: faces, indices: idx, vao: null, ibo: null, indexType: 0 };',
+  '  if (gl && faces.length > 0) uploadHighlight(found);',
+  '}',
+  'function drawHighlight() {',
+  '  if (!hi.vao || !hi.faces || hi.faces.length === 0 || !visible[hi.role]) return;',
+  '  var c = HI[hi.role];',
+  '  gl.uniform3f(locs.uColor, c[0], c[1], c[2]);',
+  '  gl.uniform1f(locs.uAlpha, 1.0);',
+  '  gl.uniform1f(locs.uBand, 0.0);',
+  '  gl.uniform1f(locs.uHatch, 0.0);',
+  '  gl.uniform1f(locs.uMute, 0.0);',
+  '  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2.0, -2.0);',
+  '  gl.bindVertexArray(hi.vao);',
+  '  gl.drawElements(gl.TRIANGLES, hi.faces.length * 3, hi.indexType, 0);',
+  '}',
   'function projection(aspect) {',
   '  var f = 1 / TAN_HALF, n = 0.05, fa = 100, out = new Float32Array(16);',
   '  out[0] = f / aspect; out[5] = f; out[10] = (fa + n) / (n - fa); out[11] = -1; out[14] = (2 * fa * n) / (n - fa);',
@@ -445,6 +620,7 @@ export const VIEWER_SCRIPT = [
   '  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1.0, -1.0);',
   '  drawLayer("falsePositive", 1.0, 0.35, 2.0, 0.0);',
   '  drawLayer("falseNegative", 1.0, 0.35, 1.0, 0.0);',
+  '  drawHighlight();',
   '  gl.disable(gl.POLYGON_OFFSET_FILL);',
   '  var gtAlpha = othersVisible() ? 0.5 : 1.0;',
   '  if (gtAlpha < 1.0) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }',
@@ -470,6 +646,7 @@ export const VIEWER_SCRIPT = [
   '  if ((role === "error") !== (mesh.format === ERRORS)) throw new Error("MESH_FORMAT: a " + mesh.header.format + " artifact is not a " + role + " mesh");',
   '  checkGrid(mesh.header);',
   '  var made = role === "error" ? splitErrors(mesh) : (function () { var one = {}; mesh.role = role; one[role] = mesh; return one; })();',
+  '  if (role === "error") clearHighlight();',
   '  Object.keys(made).forEach(function (r) {',
   '    release(layers[r]);',
   '    layers[r] = made[r];',
@@ -479,6 +656,123 @@ export const VIEWER_SCRIPT = [
   '  refit(); dirty = true;',
   '  Object.keys(made).forEach(function (r) { post({ type: "loaded", role: r, triangles: made[r].nt, vertices: made[r].nv }); });',
   '  return made;',
+  '}',
+  // ---- mesh transfer: bounded chunks, reassembled, length and sha256 checked BEFORE decoding -------------------------------
+  // The screen sends a mesh as meshStart, meshChunk x chunks, meshEnd (see PROTOCOL above). One transfer per role is open at a
+  // time; a new meshStart for the role replaces it. Every refusal ends the transfer and is that role's error.
+  'var K256 = [' + SHA256_CONSTANTS.join(',') + '];',
+  'function rotr(x, n) { return (x >>> n) | (x << (32 - n)); }',
+  'function sha256Hex(bytes) {',
+  '  var H = [1779033703, -1150833019, 1013904242, -1521486534, 1359893119, -1694144372, 528734635, 1541459225];',
+  '  var w = new Int32Array(64), n = bytes.length, full = n - (n % 64), off;',
+  '  function block(src, at) {',
+  '    var t, a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7], t1, t2, s0, s1;',
+  '    for (t = 0; t < 16; t++) w[t] = (src[at + 4 * t] << 24) | (src[at + 4 * t + 1] << 16) | (src[at + 4 * t + 2] << 8) | src[at + 4 * t + 3];',
+  '    for (t = 16; t < 64; t++) {',
+  '      s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);',
+  '      s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);',
+  '      w[t] = (w[t - 16] + s0 + w[t - 7] + s1) | 0;',
+  '    }',
+  '    for (t = 0; t < 64; t++) {',
+  '      t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K256[t] + w[t]) | 0;',
+  '      t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;',
+  '      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;',
+  '    }',
+  '    H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;',
+  '    H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;',
+  '  }',
+  '  for (off = 0; off < full; off += 64) block(bytes, off);',
+  '  var rest = n - full, tail = new Uint8Array(rest + 9 <= 64 ? 64 : 128), hiBits = Math.floor(n / 536870912), loBits = (n % 536870912) * 8, i;',
+  '  for (i = 0; i < rest; i++) tail[i] = bytes[full + i];',
+  '  tail[rest] = 128;',
+  '  for (i = 0; i < 4; i++) { tail[tail.length - 8 + i] = (hiBits >>> (24 - 8 * i)) & 255; tail[tail.length - 4 + i] = (loBits >>> (24 - 8 * i)) & 255; }',
+  '  block(tail, 0);',
+  '  if (tail.length === 128) block(tail, 64);',
+  '  var hex = "", word;',
+  '  for (i = 0; i < 8; i++) { word = (H[i] >>> 0).toString(16); hex += "00000000".slice(word.length) + word; }',
+  '  return hex;',
+  '}',
+  'var transfers = {}, lastStarted = {};',
+  'function isMeshRole(r) { return r === "prediction" || r === "groundTruth" || r === "error"; }',
+  'function isCount(v, min) { return typeof v === "number" && isFinite(v) && Math.floor(v) === v && v >= min; }',
+  'function abortTransfer(role) {',
+  '  var t = transfers[role];',
+  '  if (t && t.timer !== null && typeof clearTimeout === "function") clearTimeout(t.timer);',
+  '  delete transfers[role];',
+  '}',
+  'function refuse(role, code, message) { abortTransfer(role); throw new Error(code + ": " + message); }',
+  // A transfer that goes quiet is dead: one error for the layer instead of a spinner that never ends.
+  'function armTransfer(role) {',
+  '  var t = transfers[role];',
+  '  if (!t || typeof setTimeout !== "function") return;',
+  '  if (t.timer !== null && typeof clearTimeout === "function") clearTimeout(t.timer);',
+  '  t.timer = setTimeout(function () {',
+  '    if (transfers[role] !== t) return;',
+  '    abortTransfer(role);',
+  '    fail("VIEWER_ERROR", "MESH_TRANSFER_TIMEOUT: no message of transfer " + t.tx + " for " + Math.round(IDLE_MS / 1000) + " s (" + t.next + " of " + t.chunks + " chunks arrived)", role);',
+  '  }, IDLE_MS);',
+  '}',
+  'function onStart(d) {',
+  '  var role = d.role;',
+  '  if (!isMeshRole(role)) throw new Error("MESH_ROLE: " + role);',
+  '  if (!isCount(d.tx, 1) || d.n !== 0 || !isCount(d.bytes, 1) || !isCount(d.chunk, 1) || !isCount(d.chunks, 1) || typeof d.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(d.sha256)) {',
+  '    refuse(role, "MESH_TRANSFER", "meshStart is malformed");',
+  '  }',
+  '  if (transfers[role] && transfers[role].tx === d.tx) return;',       // the same start delivered twice
+  '  if (d.tx <= (lastStarted[role] || 0)) return;',                      // an older transfer replayed
+  '  if (d.chunk > CHUNK_MAX) refuse(role, "MESH_CHUNK_OVERSIZED", "the chunk size " + d.chunk + " is above the bound of " + CHUNK_MAX + " bytes");',
+  '  if (d.bytes > MESH_MAX) refuse(role, "MESH_TOO_LARGE", d.bytes + " bytes is above the bound of " + MESH_MAX + " bytes for one mesh");',
+  '  if (d.chunks !== Math.ceil(d.bytes / d.chunk)) refuse(role, "MESH_TRANSFER", d.bytes + " bytes in chunks of " + d.chunk + " are not " + d.chunks + " chunks");',
+  '  abortTransfer(role);',
+  '  lastStarted[role] = d.tx;',
+  '  transfers[role] = { tx: d.tx, bytes: d.bytes, chunk: d.chunk, chunks: d.chunks, sha: d.sha256, buffer: new Uint8Array(d.bytes), next: 0, lastN: 0, timer: null };',
+  '  armTransfer(role);',
+  '}',
+  // The open transfer a chunk or an end belongs to. null = a late message of a transfer that is over, replaced or failed (the
+  // tail of a superseded transfer, a delivery after the end): ignored, it must not turn a good new transfer into an error.
+  'function openTransfer(d) {',
+  '  if (!isMeshRole(d.role)) throw new Error("MESH_ROLE: " + d.role);',
+  '  var t = transfers[d.role];',
+  '  if (t && t.tx === d.tx) return t;',
+  '  if (isCount(d.tx, 1) && d.tx <= (lastStarted[d.role] || 0)) return null;',
+  '  throw new Error("MESH_CHUNK_UNEXPECTED: a message of transfer " + d.tx + " arrived with no such transfer started for " + d.role);',
+  '}',
+  // true = process this message; false = it is a delivery of one already processed (both channels, `n` unchanged)
+  'function takeOrdinal(t, d) {',
+  '  if (!isCount(d.n, 1)) refuse(d.role, "MESH_TRANSFER", "a message of transfer " + t.tx + " has no ordinal");',
+  '  if (d.n <= t.lastN) return false;',
+  '  if (d.n > t.lastN + 1) refuse(d.role, "MESH_CHUNK_MISSING", "message " + (t.lastN + 1) + " of transfer " + t.tx + " did not arrive (message " + d.n + " did)");',
+  '  t.lastN = d.n;',
+  '  return true;',
+  '}',
+  'function onChunk(d) {',
+  '  var t = openTransfer(d);',
+  '  if (t === null || !takeOrdinal(t, d)) return;',
+  '  if (!isCount(d.seq, 0)) refuse(d.role, "MESH_TRANSFER", "a chunk has no sequence number");',
+  '  if (d.seq < t.next) refuse(d.role, "MESH_CHUNK_DUPLICATE", "chunk " + d.seq + " arrived again (" + t.next + " of " + t.chunks + " already received)");',
+  '  if (d.seq > t.next) refuse(d.role, "MESH_CHUNK_ORDER", "chunk " + d.seq + " arrived before chunk " + t.next + " (missing or out of order)");',
+  '  if (d.seq >= t.chunks) refuse(d.role, "MESH_CHUNK_OVERSIZED", "chunk " + d.seq + " is beyond the " + t.chunks + " announced");',
+  '  if (typeof d.b64 !== "string") refuse(d.role, "MESH_TRANSFER", "chunk " + d.seq + " carries no data");',
+  '  if (d.b64.length > 4 * Math.ceil(t.chunk / 3) + 4) refuse(d.role, "MESH_CHUNK_OVERSIZED", "chunk " + d.seq + " is longer than the " + t.chunk + " bytes announced");',
+  '  var raw;',
+  '  try { raw = b64ToBytes(d.b64); } catch (e) { refuse(d.role, "MESH_CHUNK_ENCODING", "chunk " + d.seq + " is not base64"); }',
+  '  var expected = Math.min(t.chunk, t.bytes - d.seq * t.chunk);',
+  '  if (raw.length > expected) refuse(d.role, "MESH_CHUNK_OVERSIZED", "chunk " + d.seq + " has " + raw.length + " bytes, its place takes " + expected);',
+  '  if (raw.length < expected) refuse(d.role, "MESH_CHUNK_SIZE", "chunk " + d.seq + " has " + raw.length + " bytes, its place takes " + expected);',
+  '  t.buffer.set(raw, d.seq * t.chunk);',
+  '  t.next = d.seq + 1;',
+  '  armTransfer(d.role);',
+  '}',
+  'function onEnd(d) {',
+  '  var t = openTransfer(d);',
+  '  if (t === null || !takeOrdinal(t, d)) return;',
+  '  if (t.next !== t.chunks) refuse(d.role, "MESH_CHUNK_MISSING", "the end of transfer " + t.tx + " arrived after " + t.next + " of " + t.chunks + " chunks");',
+  '  var assembled = t.buffer, role = d.role;',
+  '  abortTransfer(role);',
+  '  if (assembled.length !== t.bytes) throw new Error("MESH_LENGTH: " + assembled.length + " bytes assembled, " + t.bytes + " announced");',
+  '  var got = sha256Hex(assembled);',
+  '  if (got !== t.sha) throw new Error("MESH_CHECKSUM: the assembled bytes hash to " + got.slice(0, 12) + "..., the transfer announced " + t.sha.slice(0, 12) + "...");',
+  '  loadMesh(role, assembled);',
   '}',
   'function applyCamera(data) {',
   '  var ok = [data.yaw, data.pitch, data.zoom, data.panX, data.panY].every(function (v) { return typeof v === "number" && isFinite(v); });',
@@ -490,16 +784,22 @@ export const VIEWER_SCRIPT = [
   '  if (typeof data === "string") { try { data = JSON.parse(data); } catch (e) { return; } }',
   '  if (!data || typeof data !== "object") return;',
   '  try {',
-  '    if (data.type === "mesh" && typeof data.b64 === "string") loadMesh(data.role, b64ToBytes(data.b64));',
+  '    if (data.type === "meshStart") onStart(data);',
+  '    else if (data.type === "meshChunk") onChunk(data);',
+  '    else if (data.type === "meshEnd") onEnd(data);',
+  '    else if (data.type === "mesh") throw new Error("MESH_PROTOCOL: a mesh is sent in chunks (meshStart, meshChunk, meshEnd), never in one message");',
   '    else if (data.type === "layers") {',
   '      ROLES.forEach(function (r) { if (typeof data[r] === "boolean") visible[r] = data[r]; });',
   '      dirty = true;',
   '    } else if (data.type === "slice") {',
   '      sliceIndex = typeof data.index === "number" && isFinite(data.index) && data.index >= 0 ? Math.floor(data.index) : null;',
   '      dirty = true;',
-  '    } else if (data.type === "camera") applyCamera(data);',
+  '    } else if (data.type === "highlight") setHighlight(data.component === undefined ? null : data.component);',
+  '    else if (data.type === "camera") applyCamera(data);',
   '    else if (data.type === "fit") fit();',
-  '  } catch (e) { fail("VIEWER_ERROR", String(e && e.message ? e.message : e), data.type === "mesh" ? data.role : null); }',
+  '  } catch (e) {',
+  '    fail("VIEWER_ERROR", String(e && e.message ? e.message : e), data.type === "mesh" || data.type === "meshStart" || data.type === "meshChunk" || data.type === "meshEnd" ? data.role : null);',
+  '  }',
   '}',
 
   // ---- gestures: orbit, pinch zoom, two-finger pan, tap to pick -----------------------------------------------
@@ -574,12 +874,16 @@ export const VIEWER_SCRIPT = [
   'window.addEventListener("resize", function () { dirty = true; });',
   'window.__cardiacViewer = {',
   '  decodeMesh: decode, loadMesh: loadMesh, pickRay: pickRay, pickAt: pickAt, project: project, rayAt: rayAt,',
+  '  sha256Hex: sha256Hex, faceVoxel: faceVoxel, highlightFaces: function () { return hi.faces ? hi.faces.slice() : []; },',
   '  setCamera: function (c) { for (var k in c) cam[k] = c[k]; dirty = true; }, camera: function () { return cam; },',
   '  setLayers: function (v) { ROLES.forEach(function (r) { if (typeof v[r] === "boolean") visible[r] = v[r]; }); },',
   '  state: function () {',
   '    var loaded = {}, counts = {};',
   '    ROLES.forEach(function (r) { loaded[r] = !!layers[r]; counts[r] = layers[r] ? layers[r].nt : null; });',
-  '    return { slice: sliceIndex, visible: visible, loaded: loaded, triangles: counts, bounds: bounds };',
+  '    var open = {};',
+  '    Object.keys(transfers).forEach(function (r) { open[r] = { tx: transfers[r].tx, next: transfers[r].next, chunks: transfers[r].chunks }; });',
+  '    return { slice: sliceIndex, visible: visible, loaded: loaded, triangles: counts, bounds: bounds, colors: COLORS, transfers: open,',
+  '             highlight: { component: hi.component, role: hi.role, faces: hi.faces ? hi.faces.length : 0 } };',
   '  }',
   '};',
   'window.requestAnimationFrame(draw);',

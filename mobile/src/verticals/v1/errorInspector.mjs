@@ -33,6 +33,14 @@
 import { readSelection, SELECTION_UNAVAILABLE_REASON, STATE } from '../../../../app/core/index.mjs';
 import { variantMismatch } from '../../../../app/verticals/v1_case_explorer/index.mjs';
 
+/*
+ * One legend for the whole app (`10` §7: the categories must stay unambiguous): SCR-04's overlays and SCR-05's error layers
+ * and legend read these colours. FP and FN were changed on 2026-10-30 because they sat too close to the 3D surfaces' own
+ * colours - the prediction's orange (#f0883e) and the ground truth's cyan (#39c5cf): CIEDE2000 19 and 22 under normal
+ * vision, 9 and 13 under deuteranopia. FP is now a raspberry magenta (hue 326) and FN a cobalt blue (hue 225): in the worst
+ * of normal, protan and deutan vision FP is 36 from the prediction's orange and FN 21 from the ground truth's cyan, FP and FN
+ * are 23 apart, and FP is 26 and FN 49 from the TP green (v2_palette.test.mjs recomputes all of it). TP is unchanged.
+ */
 export const ERROR_CLASS = Object.freeze({
   TP: Object.freeze({
     key: 'TP',
@@ -44,13 +52,13 @@ export const ERROR_CLASS = Object.freeze({
     key: 'FP',
     label: 'FP - over-segmentation',
     detail: 'predicted, not in the ground truth',
-    color: '#e8635a',
+    color: '#c13584',
   }),
   FN: Object.freeze({
     key: 'FN',
     label: 'FN - missed',
     detail: 'in the ground truth, not predicted',
-    color: '#4d9de0',
+    color: '#4f7cff',
   }),
 });
 

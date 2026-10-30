@@ -49,29 +49,64 @@ export function encodeMesh({ shape, vertices, triangles, slices, header = {}, in
 }
 
 /*
- * Encode an error mesh: `fp` and `fn` are { voxels, vertices, triangles (LOCAL to the class), slices }, an empty class
- * is `{ voxels: 0, vertices: [], triangles: [], slices: [] }`. The file puts the FP block before the FN block, offsets
- * the FN triangle indices, writes one class byte per triangle and a class table. `header` overrides top-level header
- * fields, `classTable` the table itself, `classBytes` the class bytes (all three to build a damaged file).
+ * Encode an error mesh (`cardiac-errormesh/2`): `fp` and `fn` are { voxels, vertices, triangles (LOCAL to the class), slices,
+ * regions? }, an empty class is `{ voxels: 0, vertices: [], triangles: [], slices: [] }`. The file puts the FP block before the
+ * FN block, offsets the FN triangle indices, writes one class byte and one region number per triangle, a class table and the
+ * region table. A class's `regions` is [{ faces: [local triangle indices], firstSlice, sliceVoxels: [...] }]; without it the
+ * class is ONE region holding every face, whose voxels are spread over the slice run of its faces. The regions are numbered 1..C,
+ * FP first. Overrides to build a damaged file: `header` (top-level fields), `classTable`, `classBytes`, `componentTable` (the
+ * `components` list), `faceComponents` (the region number of every triangle), `componentBytes` (the width of those numbers).
  */
 export const NO_FACES = Object.freeze({ voxels: 0, vertices: [], triangles: [], slices: [] });
-export function encodeErrorMesh({ shape, fp = NO_FACES, fn = NO_FACES, header = {}, classTable = null, classBytes = null, indexBytes = 2 }) {
+
+function defaultRegions(cls) {
+  if (cls.voxels === 0 && cls.triangles.length === 0) return [];
+  const first = Math.min(...cls.slices);
+  const run = Math.max(...cls.slices) - first + 1;
+  const voxels = Math.max(cls.voxels, run);   // a damaged class (faces for no voxel) still gets a region of its own, one voxel per slice at least
+  const base = Math.floor(voxels / run);
+  const sliceVoxels = Array.from({ length: run }, (_, i) => base + (i === 0 ? voxels - base * run : 0));
+  return [{ faces: cls.triangles.map((_, i) => i), firstSlice: first, sliceVoxels }];
+}
+
+export function encodeErrorMesh({
+  shape, fp = NO_FACES, fn = NO_FACES, header = {}, classTable = null, classBytes = null, indexBytes = 2,
+  componentTable = null, faceComponents = null, componentBytes = null, connectivity = 26,
+}) {
   const vertices = [...fp.vertices, ...fn.vertices];
   const triangles = [...fp.triangles, ...fn.triangles.map((t) => t.map((i) => i + fp.vertices.length))];
   const slices = [...fp.slices, ...fn.slices];
   const classes = [...fp.triangles.map(() => 1), ...fn.triangles.map(() => 2)];
-  const table = classTable || [
-    { name: 'FP', code: 1, rule: 'prediction AND NOT ground truth', voxels: fp.voxels, vertex_range: [0, fp.vertices.length], triangle_range: [0, fp.triangles.length] },
+  const fpRegions = fp.regions || defaultRegions(fp);
+  const fnRegions = fn.regions || defaultRegions(fn);
+  const numbersOf = (cls, regions, offset) => {
+    const out = cls.triangles.map(() => 0);
+    regions.forEach((r, k) => r.faces.forEach((t) => { out[t] = offset + k + 1; }));
+    return out;
+  };
+  const numbers = [...numbersOf(fp, fpRegions, 0), ...numbersOf(fn, fnRegions, fpRegions.length)];
+  const count = fpRegions.length + fnRegions.length;
+  const entry = (name, regions, k) => ({
+    id: `${name}_${String(k + 1).padStart(4, '0')}`, class: name, voxels: regions[k].sliceVoxels.reduce((a, b) => a + b, 0),
+    first_slice: regions[k].firstSlice, slice_voxels: regions[k].sliceVoxels,
+  });
+  const table = componentTable || [...fpRegions.map((_, k) => entry('FP', fpRegions, k)), ...fnRegions.map((_, k) => entry('FN', fnRegions, k))];
+  const width = componentBytes || (count <= 255 ? 1 : count <= 65535 ? 2 : 4);
+  const classEntries = classTable || [
+    { name: 'FP', code: 1, rule: 'prediction AND NOT ground truth', voxels: fp.voxels, vertex_range: [0, fp.vertices.length],
+      triangle_range: [0, fp.triangles.length], component_range: [1, 1 + fpRegions.length] },
     { name: 'FN', code: 2, rule: 'ground truth AND NOT prediction', voxels: fn.voxels,
-      vertex_range: [fp.vertices.length, vertices.length], triangle_range: [fp.triangles.length, triangles.length] },
+      vertex_range: [fp.vertices.length, vertices.length], triangle_range: [fp.triangles.length, triangles.length],
+      component_range: [1 + fpRegions.length, 1 + count] },
   ];
   const head = {
-    format: 'cardiac-errormesh/1', kind: 'error_voxel_face_surface', builder: 'test', level: 0,
+    format: 'cardiac-errormesh/2', kind: 'error_voxel_face_surface', builder: 'test', level: 0,
     vertex_count: vertices.length, triangle_count: triangles.length, index_bytes: indexBytes, shape,
-    index_convention: 'x=column,y=row,z=slice', frame: 'voxel-index', classes: table, agreement_voxels: 1,
+    index_convention: 'x=column,y=row,z=slice', frame: 'voxel-index', classes: classEntries, agreement_voxels: 1,
+    connectivity, labelling: 'test', component_count: count, component_index_bytes: width, components: table,
     reference_mask_sha256: 'b'.repeat(64), prediction_mask_sha256: 'a'.repeat(64), ...header,
   };
-  return pack(head, [[vertices.flat(), 2], [triangles.flat(), indexBytes], [slices, 2], [classBytes || classes, 1]]);
+  return pack(head, [[vertices.flat(), 2], [triangles.flat(), indexBytes], [slices, 2], [classBytes || classes, 1], [faceComponents || numbers, width]]);
 }
 
 // The outward-wound box of voxels [x0, x1) x [y0, y1) x [z0, z1) as 12 triangles (a hand-made, valid mesh).

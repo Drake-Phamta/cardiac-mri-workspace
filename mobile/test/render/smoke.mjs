@@ -1347,6 +1347,10 @@ function reviewBackend({ seedVersion = false } = {}) {
 // success on its own - a missing error mesh never takes the surfaces down - and turns a pick message into "slice n / total",
 // the class of the face, "Open in 2D" (SCR-03) and, for an FP / FN face, "Open errors" (SCR-04), with returnParams that put
 // the screen back on its layers, camera and plane (and, through the real navigator, on the slice the 2D screen ended on).
+// Round 2 adds: a tap on an error face selects its connected REGION (panel, steps that never leave the region, highlight);
+// the picked voxel's (column, row) arrives on SCR-03 / SCR-04 as a marker on that exact pixel, for its slice only; the
+// scrubber's arrows are never dead; a mesh reaches the viewer in bounded chunks with its length and sha256; and the ground
+// truth is not fetched until its layer is switched on.
 // It does NOT mean the surface is drawn or that a tap lands on a face: the viewer script is exercised in
 // test/v2_viewer.test.mjs, the pixels and the frame rate are the owner's device tests.
 {
@@ -1358,9 +1362,16 @@ function reviewBackend({ seedVersion = false } = {}) {
   const predBytes = encodeMesh(boxMesh(SHAPE, [100, 100, 10], [300, 300, 12]));
   const gtBytes = encodeMesh(boxMesh(SHAPE, [110, 110, 10], [290, 290, 12]));
   const procBytes = encodeMesh(boxMesh(SHAPE, [105, 105, 10], [295, 295, 12]));
-  // the error meshes: FP = a 10 x 10 x 1 slab in slice 52 (100 voxels), FN = a 10 x 10 x 2 slab in slices 10-11 (200 voxels)
-  const errBytes = encodeErrorMesh({ shape: SHAPE, fp: boxClass([300, 150, 52], [310, 160, 53]), fn: boxClass([120, 120, 10], [130, 130, 12]) });
-  const errOnlyFn = encodeErrorMesh({ shape: SHAPE, fn: boxClass([120, 120, 10], [130, 130, 12]) });
+  // the error meshes: FP = ONE region of 100 voxels on slices 50..54 (10, 20, 40, 20, 10 voxels), FN = ONE region of 200 voxels on slices
+  // 10..11 (100 each). The box faces are spread over those slices so that every face lies on a slice of its region.
+  const spread = (box, first, count, regions) => ({ ...box, slices: box.slices.map((_, i) => first + (i % count)), regions });
+  const fpBox = boxClass([300, 150, 50], [310, 160, 51]);
+  const fnBox = boxClass([120, 120, 10], [130, 130, 11]);
+  const all = (box) => box.triangles.map((_, i) => i);
+  const fpClass = { ...spread(fpBox, 50, 5, [{ faces: all(fpBox), firstSlice: 50, sliceVoxels: [10, 20, 40, 20, 10] }]), voxels: 100 };
+  const fnClass = { ...spread(fnBox, 10, 2, [{ faces: all(fnBox), firstSlice: 10, sliceVoxels: [100, 100] }]), voxels: 200 };
+  const errBytes = encodeErrorMesh({ shape: SHAPE, fp: fpClass, fn: fnClass });
+  const errOnlyFn = encodeErrorMesh({ shape: SHAPE, fn: fnClass });
   const errNone = encodeErrorMesh({ shape: SHAPE });
   const errWrongGrid = encodeErrorMesh({ shape: [100, 100, 88], fp: boxClass([10, 10, 10], [20, 20, 11]) });
   const IDS = { ART_RAW: predBytes, MASK_CASE_0061: gtBytes, ART_PROC: procBytes };
@@ -1445,17 +1456,47 @@ function reviewBackend({ seedVersion = false } = {}) {
     return { r, runtime, recorded };
   };
   const web = (r) => r.root.findAll((n) => n.type === 'WebView')[0] || null;
-  const fromViewer = async (r, message) => { await act(async () => { web(r).props.onMessage({ nativeEvent: { data: JSON.stringify(message) } }); }); await tick(20); };
+  // a message from the page; the screen's mesh messages go out one per macrotask, so `ready` waits for them
+  const fromViewer = async (r, message) => { await act(async () => { web(r).props.onMessage({ nativeEvent: { data: JSON.stringify(message) } }); }); await tick(message.type === 'ready' ? 90 : 20); };
   const sentJson = () => sent.map((m) => JSON.parse(m));
+  // The meshes the screen has sent so far, reassembled the way the page does: [{ role, tx, bytes, sha256, chunks }] in the order
+  // their meshEnd went out. A transfer is complete only with its start, every chunk once in order, and its end.
+  const transfers = () => {
+    const open = {};
+    const done = [];
+    for (const m of sentJson()) {
+      if (m.type === 'meshStart') open[m.role] = { ...m, parts: [], next: 0, ordinal: 0 };
+      else if (m.type === 'meshChunk') {
+        const t = open[m.role];
+        if (t && t.tx === m.tx && m.seq === t.next && m.n === t.ordinal + 1) { t.parts.push(Buffer.from(m.b64, 'base64')); t.next += 1; t.ordinal = m.n; } else if (t) t.broken = true;
+      } else if (m.type === 'meshEnd') {
+        const t = open[m.role];
+        if (t && t.tx === m.tx && !t.broken && t.next === t.chunks && m.n === t.ordinal + 1) {
+          done.push({ role: m.role, tx: t.tx, bytes: Buffer.concat(t.parts), sha256: t.sha256, chunks: t.chunks, chunk: t.chunk, announced: t.bytes });
+        }
+        delete open[m.role];
+      }
+    }
+    return done;
+  };
+  const transferRoles = () => transfers().map((t) => t.role).join();
   const lastOf = (type) => sentJson().filter((m) => m.type === type).pop();
   const entry = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const hosts = (r, testID) => r.root.findAll((n) => typeof n.type === 'string' && n.props.testID === testID);
+  const markers = (r) => hosts(r, 'pick-marker');
   const P = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 };
   const FOUR = (n = 12, v = 8) => [['prediction', n, v], ['groundTruth', n, v], ['falsePositive', n, v], ['falseNegative', n, v]];
-  const loadedAll = async (r, roles = FOUR()) => {
+  // the layers the viewer reports once the screen has sent them: the ground truth is not among them unless its switch was turned on
+  const THREE = (n = 12, v = 8) => [['prediction', n, v], ['falsePositive', n, v], ['falseNegative', n, v]];
+  const loadedAll = async (r, roles = THREE()) => {
     await fromViewer(r, { type: 'ready' });
     for (const [role, triangles, vertices] of roles) await fromViewer(r, { type: 'loaded', role, triangles, vertices });
   };
-  const pick = (slice, role, cls, triangle = 5) => ({ type: 'pick', role, triangle, slice, cls });
+  // a tap as the page posts it: the face's slice, class and region (FP is region 1 and FN region 2 of the error mesh above) and the voxel
+  const pick = (slice, role, cls, triangle = 5, extra = {}) => ({
+    type: 'pick', role, triangle, slice, cls, component: cls === 'FP' ? 1 : cls === 'FN' ? 2 : null,
+    column: slice === null ? null : 305, row: slice === null ? null : 155, ...extra,
+  });
   const layerMsg = () => { const m = lastOf('layers'); return m ? { prediction: m.prediction, groundTruth: m.groundTruth, falsePositive: m.falsePositive, falseNegative: m.falseNegative } : null; };
 
   // 11a. success: references, verified bytes, the viewer's handshake, the four layers, the legend, the plane
@@ -1464,26 +1505,31 @@ function reviewBackend({ seedVersion = false } = {}) {
     const { r } = await mount(backend, P);
     const paths = backend.paths();
     check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=ART_RAW'), 'the prediction mesh is asked for by the RUN\'s own RAW mask id');
-    check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=MASK_CASE_0061'), 'the ground-truth mesh by the id the server stated on a ground-truth slice');
     check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/error-reconstruction?prediction_variant=RAW'), 'the error mesh is asked for with the variant shown');
-    check('V2R1', [predBytes, gtBytes, errBytes].every((b) => paths.includes(`/api/v1/artifacts/${sum(b)}.cmesh`)), 'all three meshes come from the content route named by their ids');
+    check('V2R1', paths.some((p) => /\/cases\/CASE_0061\/slices\/0\/ground-truth$/.test(p)), 'the ground-truth MASK id is asked for (a slice call: the error mesh is checked against it)');
+    check('V2R1', !paths.some((p) => p.includes('source_mask_id=MASK_CASE_0061')) && !paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`),
+      'but the ground-truth MESH is not: its layer is off while the error map is usable, so nothing is fetched for it (lazy layer)');
+    check('V2R1', [predBytes, errBytes].every((b) => paths.includes(`/api/v1/artifacts/${sum(b)}.cmesh`)), 'the prediction and error meshes come from the content route named by their ids');
     check('V2R1', web(r) && has(r, /Run RUN_A · prediction RAW · L0 surface \(undecimated\)/) && has(r, /CASE_0061/), 'WebView mounted; run and variant always visible');
     check('V2R2', sent.length === 0, 'nothing is sent before the viewer says it is ready');
     await fromViewer(r, { type: 'ready' });
     const out = sentJson();
-    const meshMsgs = out.filter((m) => m.type === 'mesh');
-    const b64 = (b) => Buffer.from(b).toString('base64');
-    check('V2R2', meshMsgs.map((m) => m.role).join() === 'prediction,groundTruth,error'
-      && meshMsgs.find((m) => m.role === 'prediction').b64 === b64(predBytes) && meshMsgs.find((m) => m.role === 'groundTruth').b64 === b64(gtBytes)
-      && meshMsgs.find((m) => m.role === 'error').b64 === b64(errBytes), 'after ready: the verified prediction, ground-truth and error artifacts, byte for byte');
+    const done = transfers();
+    check('V2R2', !out.some((m) => m.type === 'mesh'), 'no mesh is ever sent as one message');
+    check('V2R2', done.map((t) => t.role).join() === 'prediction,error'
+      && done[0].bytes.equals(Buffer.from(predBytes)) && done[1].bytes.equals(Buffer.from(errBytes))
+      && done[0].sha256 === sum(predBytes) && done[1].sha256 === sum(errBytes) && done.every((t) => t.announced === t.bytes.length),
+    'after ready: the verified prediction and error artifacts, reassembled byte for byte from their chunks with their announced length and sha256 (the ground truth is not sent: it is off)');
     check('V2R2', JSON.stringify(layerMsg()) === JSON.stringify({ prediction: true, groundTruth: false, falsePositive: true, falseNegative: true })
       && out.some((m) => m.type === 'slice' && m.index === 44) && !out.some((m) => m.type === 'camera'),
     `the four switches (ground truth off while an error map is expected) and the plane at the 2D slice they came from; no camera to restore: ${JSON.stringify(layerMsg())}`);
-    check('V2R3', has(r, /Prediction \(RAW\)/) && has(r, /FP - over-segmentation/) && has(r, /FN - missed/) && texts(r).filter((t) => t === 'loading…').length === 4,
-      `before the viewer reports the meshes every layer reads loading: ${texts(r).filter((t) => t === 'loading…').length}`);
-    for (const [role, n, v] of FOUR()) await fromViewer(r, { type: 'loaded', role, triangles: n, vertices: v });
+    check('V2R3', has(r, /Prediction \(RAW\)/) && has(r, /FP - over-segmentation/) && has(r, /FN - missed/) && texts(r).filter((t) => t === 'loading…').length === 3,
+      `before the viewer reports the meshes the prediction, FP and FN read loading: ${texts(r).filter((t) => t === 'loading…').length}`);
+    check('V2R3', has(r, /^not loaded: off while the error map is shown - switch it on to load it$/) && has(r, /^Ground truth: OFF$/) && entry(r, 'Ground truth: OFF').props.disabled === false,
+      'the ground truth reads "not loaded", not loading - and its switch is enabled: it is what loads it');
+    for (const [role, n, v] of THREE()) await fromViewer(r, { type: 'loaded', role, triangles: n, vertices: v });
     check('V2R3', has(r, /^12 triangles$/) && has(r, /^100 voxels · 12 triangles$/) && has(r, /^200 voxels · 12 triangles$/),
-      `prediction and ground truth report their triangles, FP and FN their voxels (from the server's artifact): ${texts(r).filter((t) => /triangles/.test(t)).join(' | ')}`);
+      `the prediction reports its triangles, FP and FN their voxels (from the server's artifact): ${texts(r).filter((t) => /triangles/.test(t)).join(' | ')}`);
     // never colour alone: every layer's name, meaning, glyph and look (how the scene draws it) are printed
     check('V2R3', has(r, /^FP - over-segmentation$/) && has(r, /^predicted, not in the ground truth · drawn checkered$/) && has(r, /^FN - missed$/) && has(r, /^in the ground truth, not predicted · drawn striped$/)
       && has(r, /^the segmentation the model produced · drawn solid$/) && has(r, /^the reference segmentation · drawn see-through$/),
@@ -1493,7 +1539,22 @@ function reviewBackend({ seedVersion = false } = {}) {
     await press(r, 'FP: ON');
     check('V2R3', layerMsg().falsePositive === false && layerMsg().falseNegative === true && has(r, /^FP: OFF$/), 'the FP switch tells the viewer, and only FP');
     await press(r, 'FP: OFF');
+    // lazy ground truth: its switch is what fetches it - the reference, then the bytes, with a loading state of its own
+    const gtAsked = backend.count('source_mask_id=MASK_CASE_0061');
     await press(r, 'Ground truth: OFF');
+    check('V2R3', has(r, /^loading…$/) && texts(r).filter((t) => t === 'loading…').length === 1 && JSON.stringify(layerMsg()) === JSON.stringify({ prediction: true, groundTruth: true, falsePositive: true, falseNegative: true }),
+      `switched on: the ground truth reads loading and the viewer is told it is on: ${JSON.stringify(layerMsg())}`);
+    await tick(300);
+    const lazy = backend.paths();
+    check('V2R1', gtAsked === 0 && lazy.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=MASK_CASE_0061') && lazy.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`),
+      'the ground-truth mesh is asked for by the id the server stated on a ground-truth slice - once its switch is on - and its bytes come from the content route');
+    check('V2R2', transferRoles() === 'prediction,error,groundTruth' && transfers()[2].bytes.equals(Buffer.from(gtBytes)), 'and only then does it go to the viewer, verified, in chunks');
+    await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
+    check('V2R3', has(r, /^Ground truth: ON$/) && texts(r).filter((t) => t === '12 triangles').length === 2, 'loaded: the ground truth reads ready and its switch is ON');
+    await press(r, 'Ground truth: ON');
+    await press(r, 'Ground truth: OFF');
+    check('V2R1', backend.count('source_mask_id=MASK_CASE_0061') === 1 && backend.count(`${sum(gtBytes)}.cmesh`) === 1 && transferRoles() === 'prediction,error,groundTruth',
+      'switched off and on again: nothing is fetched or sent twice');
     await press(r, 'Prediction: ON');
     check('V2R3', JSON.stringify(layerMsg()) === JSON.stringify({ prediction: false, groundTruth: true, falsePositive: true, falseNegative: true })
       && has(r, /^Ground truth: ON$/) && has(r, /^Prediction: OFF$/), `the other switches too: ${JSON.stringify(layerMsg())}`);
@@ -1530,23 +1591,58 @@ function reviewBackend({ seedVersion = false } = {}) {
     const layers = { prediction: true, groundTruth: false, falsePositive: true, falseNegative: true };
     await press(r, 'Open in 2D');
     check('V2R5', recorded.pushes.length === 1 && recorded.pushes[0][0] === 'SCR-03'
-      && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 })
+      && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52, marker: { column: 305, row: 155, sliceIndex: 52 } })
       && JSON.stringify(recorded.pushes[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'RAW', sliceIndex: 52, layers, camera: { yaw: -0.2, pitch: 0.4, zoom: 2, pan: [0.1, -0.2] } }),
     `push SCR-03 at the picked slice for the same run and variant, with returnParams that restore the layers and the camera: ${JSON.stringify(recorded.pushes[0] || null)}`);
     await press(r, 'Open errors');
     check('V2R5', recorded.pushes.length === 2 && recorded.pushes[1][0] === 'SCR-04'
-      && JSON.stringify(recorded.pushes[1][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 })
+      && JSON.stringify(recorded.pushes[1][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52, marker: { column: 305, row: 155, sliceIndex: 52 } })
       && recorded.pushes[1][2].sliceIndex === 52 && JSON.stringify(recorded.pushes[1][2].layers) === JSON.stringify(layers),
     `an FP face also opens SCR-04 at its slice: ${JSON.stringify(recorded.pushes[1] ? [recorded.pushes[1][0], recorded.pushes[1][1]] : null)}`);
+    // FR-3D-008: the tap selected the FP face's connected REGION - its panel, its slices, a highlight in the viewer
+    check('V2R16', has(r, /^FP_0001 · false positive \(FP\)$/) && has(r, /^100 voxels on 5 slices · slices 51-55 of 88$/)
+      && has(r, /^slice 53 \/ 88 {2}\(z = 52\) · slice 3 of 5 of this region \(the tapped slice\)$/) && has(r, /^40 voxels of the region on this slice$/),
+    `the region panel: class, voxel count, slices, the slice it is on (the tapped one by default): ${texts(r).filter((t) => /FP_0001|voxels on|of this region|of the region/.test(t)).join(' | ')}`);
+    check('V2R16', lastOf('highlight') && lastOf('highlight').component === 1, 'the viewer is told to highlight region 1');
+    // the panel steps through the region's own slices; the plane follows; the hand-off opens the slice the panel is on, without a marker
+    await press(r, 'Next slice of this region');
+    check('V2R16', has(r, /^slice 54 \/ 88 {2}\(z = 53\) · slice 4 of 5 of this region$/) && lastOf('slice').index === 53 && has(r, /slice 54 of 88 \(the slice of the selected region you stepped to\)/)
+      && has(r, /^20 voxels of the region on this slice$/), 'a step moves the panel one slice and the plane with it');
+    await press(r, 'Open in 2D');
+    check('V2R16', recorded.pushes.length === 3 && recorded.pushes[2][0] === 'SCR-03'
+      && JSON.stringify(recorded.pushes[2][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 53 }) && recorded.pushes[2][2].sliceIndex === 53,
+    `the hand-off opens the slice the panel is on, and carries NO marker (the pixel is not known on another slice): ${JSON.stringify(recorded.pushes[2] ? recorded.pushes[2][1] : null)}`);
+    await press(r, 'Next slice of this region');
+    check('V2R16', has(r, /^slice 55 \/ 88 {2}\(z = 54\) · slice 5 of 5 of this region$/) && entry(r, 'Next slice of this region').props.disabled === true && has(r, /^Next: last slice of this region\.$/),
+      'at the last slice of the region the next step is disabled and says why');
+    await press(r, 'Next slice of this region');
+    check('V2R16', lastOf('slice').index === 54 && has(r, /^slice 55 \/ 88 {2}\(z = 54\) · slice 5 of 5 of this region$/), 'a step that would leave the region changes nothing');
+    for (let k = 0; k < 4; k += 1) await press(r, 'Previous slice of this region');
+    check('V2R16', has(r, /^slice 51 \/ 88 {2}\(z = 50\) · slice 1 of 5 of this region$/) && entry(r, 'Previous slice of this region').props.disabled === true && has(r, /^Previous: first slice of this region\.$/),
+      'and at the first slice the previous step is disabled and says why');
+    await press(r, 'Previous slice of this region');
+    check('V2R16', lastOf('slice').index === 50, 'nor can a step leave the region at that end');
+    for (let k = 0; k < 2; k += 1) await press(r, 'Next slice of this region');
+    check('V2R16', has(r, /^slice 53 \/ 88 {2}\(z = 52\) · slice 3 of 5 of this region \(the tapped slice\)$/), 'back on the tapped slice it says so');
+    await press(r, 'Open errors');
+    check('V2R16', recorded.pushes.length === 4 && recorded.pushes[3][0] === 'SCR-04' && recorded.pushes[3][1].marker && recorded.pushes[3][1].marker.column === 305,
+      'and the marker is handed over again for the slice it was picked in');
     // an FN face
     await fromViewer(r, pick(11, 'falseNegative', 'FN'));
     check('V2R5', has(r, /^slice 12 \/ 88 {2}\(z = 11\) · picked on a false-negative \(FN\) face - in the ground truth, not predicted$/) && entry(r, 'Open errors').props.disabled === false,
       'an FN face is named as such and opens SCR-04 too');
+    check('V2R16', has(r, /^FN_0001 · false negative \(FN\)$/) && has(r, /^200 voxels on 2 slices · slices 11-12 of 88$/) && lastOf('highlight').component === 2
+      && has(r, /^slice 12 \/ 88 {2}\(z = 11\) · slice 2 of 2 of this region \(the tapped slice\)$/), 'the FN face selects the FN region (number 2): its own panel and highlight');
     // the prediction surface carries no error: Open in 2D yes, Open errors no (and it says why)
     await fromViewer(r, pick(40, 'prediction', null));
     check('V2R5', has(r, /^slice 41 \/ 88 {2}\(z = 40\) · picked on the prediction surface$/) && entry(r, 'Open in 2D').props.disabled === false
       && entry(r, 'Open errors').props.disabled === true && has(r, /Open errors needs a false-positive or false-negative face/),
     'a prediction face opens the 2D screen but there is no error to open');
+    check('V2R16', !has(r, /^FN_0001/) && !has(r, /of this region/) && lastOf('highlight').component === null && entry(r, 'Next slice of this region') === undefined,
+      'a surface tap keeps today\'s behaviour: no region, no panel, and the highlight is cleared');
+    await press(r, 'Open in 2D');
+    check('V2R5', JSON.stringify(recorded.pushes[recorded.pushes.length - 1][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 40, marker: { column: 305, row: 155, sliceIndex: 40 } }),
+      'and a surface tap names its voxel too: the 2D screen gets the marker');
     await fromViewer(r, pick(40, 'groundTruth', null));
     check('V2R5', has(r, /picked on the ground-truth surface$/) && entry(r, 'Open errors').props.disabled === true, 'nor does a ground-truth face');
     // a background tap clears the selection - nothing can navigate; the plane stays where the user last put it
@@ -1554,6 +1650,9 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R6', has(r, /No surface at that point: nothing selected/) && entry(r, 'Open in 2D').props.disabled === true && entry(r, 'Open errors').props.disabled === true,
       'a background tap clears the selection and disables both pushes');
     check('V2R6', has(r, /slice 41 of 88 \(the picked slice\)/), 'and the plane stays on the last picked slice');
+    await fromViewer(r, pick(52, 'falsePositive', 'FP'));
+    await fromViewer(r, pick(null, null, null, null));
+    check('V2R16', lastOf('highlight').component === null && !has(r, /^FP_0001/), 'a background tap clears the region: no panel, no highlight');
     const pushes = recorded.pushes.length;
     await act(async () => { entry(r, 'Open in 2D').props.onPress && entry(r, 'Open in 2D').props.onPress(); });
     check('V2R6', recorded.pushes.length === pushes, 'a disabled button pushes nothing');
@@ -1582,7 +1681,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R7', ['Ground truth: n/a', 'FP: n/a', 'FN: n/a'].every((label) => { const b = entry(r, label); return b && b.props.disabled === true; }), 'their switches are disabled');
     check('V2R7', has(r, /no ground truth, so there is no 3D error map and no ground-truth surface - that is not zero error/), 'and the screen says an absent error map is not zero error');
     await fromViewer(r, { type: 'ready' });
-    check('V2R7', sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction', 'only the prediction artifact reaches the viewer');
+    check('V2R7', transferRoles() === 'prediction' && !sentJson().some((m) => m.type === 'highlight'), 'only the prediction artifact reaches the viewer');
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, pick(52, 'prediction', null));
     check('V2R7', entry(r, 'Open in 2D').props.disabled === false && entry(r, 'Open errors').props.disabled === true, 'the prediction can still be opened in 2D; there is no error view to open');
@@ -1635,14 +1734,17 @@ function reviewBackend({ seedVersion = false } = {}) {
     const gtTamper = meshBackend({ tamper: ['MASK_CASE_0061'] });
     const m2 = await mount(gtTamper, P);
     await fromViewer(m2.r, { type: 'ready' });
-    check('V2R10', web(m2.r) !== null && has(m2.r, /error \(CONTRACT_DRIFT\)/) && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction,error',
-      'tampered ground-truth bytes: that layer reads error, the prediction and the error map still draw, the bad bytes never reach the viewer');
+    check('V2R10', !has(m2.r, /error \(CONTRACT_DRIFT\)/) && gtTamper.count(`${sum(gtBytes)}.cmesh`) === 0, 'tampered ground-truth bytes are not even fetched while that layer is off');
+    await press(m2.r, 'Ground truth: OFF');
+    await tick(300);
+    check('V2R10', web(m2.r) !== null && has(m2.r, /error \(CONTRACT_DRIFT\)/) && transferRoles() === 'prediction,error',
+      'switched on, they are fetched and refused: that layer reads error, the prediction and the error map still draw, the bad bytes never reach the viewer');
     await act(async () => { m2.r.unmount(); });
     const errTamper = meshBackend({ error: { tamper: true } });
     const m3 = await mount(errTamper, P);
     await loadedAll(m3.r, [['prediction', 12, 8], ['groundTruth', 12, 8]]);
     check('V2R10', web(m3.r) !== null && texts(m3.r).filter((t) => /^error \(CONTRACT_DRIFT\): the artifact bytes do not hash to the checksum the server stated$/.test(t)).length === 2
-      && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction,groundTruth',
+      && transferRoles() === 'prediction,groundTruth',
     `tampered error bytes: FP and FN read error (${texts(m3.r).filter((t) => /^error/.test(t)).join(' | ')}), the surfaces still draw, the bad bytes never reach the viewer`);
     check('V2R10', JSON.stringify(layerMsg()) === JSON.stringify({ prediction: true, groundTruth: true, falsePositive: true, falseNegative: true })
       && ['FP: n/a', 'FN: n/a'].every((label) => { const b = entry(m3.r, label); return b && b.props.disabled === true; }),
@@ -1667,14 +1769,25 @@ function reviewBackend({ seedVersion = false } = {}) {
     await act(async () => { m2.r.unmount(); });
     const m3 = await mount(meshBackend(), P);
     await fromViewer(m3.r, { type: 'ready' });
+    await press(m3.r, 'Ground truth: OFF');
+    await tick(300);
     await fromViewer(m3.r, { type: 'error', role: 'groundTruth', code: 'VIEWER_ERROR', message: 'MESH_GRID: the two meshes do not share one grid' });
     check('V2R11', web(m3.r) !== null && has(m3.r, /error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused reads error; the prediction stays');
     await act(async () => { m3.r.unmount(); });
     const m4 = await mount(meshBackend(), P);
-    await loadedAll(m4.r, [['prediction', 12, 8], ['groundTruth', 12, 8]]);
+    await loadedAll(m4.r, [['prediction', 12, 8]]);
     await fromViewer(m4.r, { type: 'error', role: 'error', code: 'VIEWER_ERROR', message: 'MESH_CLASSES: the class table must list FP then FN' });
     check('V2R11', web(m4.r) !== null && texts(m4.r).filter((t) => /^error \(VIEWER_ERROR\): MESH_CLASSES/.test(t)).length === 2 && has(m4.r, /^Prediction: ON$/) && has(m4.r, /^Ground truth: /),
     'an error container the viewer refused makes FP and FN read error with its message; the surfaces stay');
+    // the transfer errors of the page (a missing, repeated, out-of-order or oversized chunk, a wrong length or sha256) are that layer's error too
+    for (const [code, role, layers] of [['MESH_CHUNK_ORDER', 'error', 2], ['MESH_CHECKSUM', 'error', 2], ['MESH_CHUNK_MISSING', 'error', 2], ['MESH_TRANSFER_TIMEOUT', 'error', 2]]) {
+      const m5 = await mount(meshBackend(), P);
+      await loadedAll(m5.r, [['prediction', 12, 8]]);
+      await fromViewer(m5.r, { type: 'error', role, code: 'VIEWER_ERROR', message: `${code}: a message of the mesh transfer was refused` });
+      check('V2R11', web(m5.r) !== null && texts(m5.r).filter((t) => new RegExp(`^error \\(VIEWER_ERROR\\): ${code}`).test(t)).length === layers && has(m5.r, /^Prediction: ON$/) && entry(m5.r, 'Retry failed layers') !== undefined,
+        `${code} on the error mesh: FP and FN read error with its code, the prediction stays, a retry is offered`);
+      await act(async () => { m5.r.unmount(); });
+    }
     await act(async () => { m4.r.unmount(); });
   }
 
@@ -1738,9 +1851,9 @@ function reviewBackend({ seedVersion = false } = {}) {
     const gate = new Promise((resolve) => { release = resolve; });
     const backend = meshBackend({ error: { gate } });
     const { r } = await mount(backend, P);
-    await loadedAll(r, [['prediction', 12, 8], ['groundTruth', 12, 8]]);
-    check('V2S10', texts(r).filter((t) => t === 'loading…').length === 2 && has(r, /^12 triangles$/) && has(r, /^Prediction: ON$/),
-      `LOADING: the error call is pending - FP and FN read loading, the prediction and ground truth read ready: ${texts(r).filter((t) => /loading|triangles/.test(t)).join(' | ')}`);
+    await loadedAll(r, [['prediction', 12, 8]]);
+    check('V2S10', texts(r).filter((t) => t === 'loading…').length === 2 && has(r, /^12 triangles$/) && has(r, /^Prediction: ON$/) && has(r, /^not loaded: off while the error map is shown/),
+      `LOADING: the error call is pending - FP and FN read loading, the prediction reads ready and the ground truth (off) is not loaded: ${texts(r).filter((t) => /loading|triangles|not loaded/.test(t)).join(' | ')}`);
     check('V2S10', ['FP: n/a', 'FN: n/a'].every((label) => { const b = entry(r, label); return b && b.props.disabled === true; }) && web(r) !== null, 'and the error switches are n/a until the layers are ready; the viewer is up');
     check('V2S10', JSON.stringify(layerMsg()) === JSON.stringify({ prediction: true, groundTruth: false, falsePositive: true, falseNegative: true }),
       `a ground truth that is off by default does not flicker on while the error map loads: ${JSON.stringify(layerMsg())}`);
@@ -1748,7 +1861,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     await tick(250);
     await fromViewer(r, { type: 'loaded', role: 'falsePositive', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'loaded', role: 'falseNegative', triangles: 12, vertices: 8 });
-    check('V2S10', has(r, /^100 voxels · 12 triangles$/) && has(r, /^FP: ON$/) && has(r, /^FN: ON$/) && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).includes('error'),
+    check('V2S10', has(r, /^100 voxels · 12 triangles$/) && has(r, /^FP: ON$/) && has(r, /^FN: ON$/) && transferRoles().split(',').includes('error'),
       'SUCCESS: when it answers, the error bytes are verified and sent and both layers become ready');
     await act(async () => { r.unmount(); });
   }
@@ -1814,13 +1927,13 @@ function reviewBackend({ seedVersion = false } = {}) {
     // success with zero error: a fact, not a missing layer
     const onlyFn = meshBackend({ error: { bytes: errOnlyFn } });
     const { r } = await mount(onlyFn, P);
-    await loadedAll(r, [['prediction', 12, 8], ['groundTruth', 12, 8], ['falsePositive', 0, 0], ['falseNegative', 12, 8]]);
+    await loadedAll(r, [['prediction', 12, 8], ['falsePositive', 0, 0], ['falseNegative', 12, 8]]);
     check('V2S14', has(r, /^none: no false-positive voxels$/) && has(r, /^200 voxels · 12 triangles$/) && entry(r, 'FP: n/a').props.disabled === true && has(r, /^FN: ON$/),
       `SUCCESS with no false positives: "none: no false-positive voxels" (not a missing layer, not an error), FN as usual: ${texts(r).filter((t) => /none|voxels/.test(t)).join(' | ')}`);
     await act(async () => { r.unmount(); });
     const none = meshBackend({ error: { bytes: errNone } });
     const m2 = await mount(none, P);
-    await loadedAll(m2.r, [['prediction', 12, 8], ['groundTruth', 12, 8], ['falsePositive', 0, 0], ['falseNegative', 0, 0]]);
+    await loadedAll(m2.r, [['prediction', 12, 8], ['falsePositive', 0, 0], ['falseNegative', 0, 0]]);
     check('V2S14', has(m2.r, /^none: no false-positive voxels$/) && has(m2.r, /^none: no false-negative voxels$/) && !has(m2.r, /unavailable/) && !has(m2.r, /^error/),
       'no error at all: both layers say so in words, and neither reads unavailable or error');
     await act(async () => { m2.r.unmount(); });
@@ -1832,7 +1945,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     const camera = { yaw: 1.5, pitch: -0.4, zoom: 3, pan: [0.2, -0.1] };
     const backend = meshBackend();
     const { r } = await mount(backend, { ...P, sliceIndex: 60, layers, camera });
-    await loadedAll(r);
+    await loadedAll(r, FOUR());
     check('V2R15', JSON.stringify(layerMsg()) === JSON.stringify(layers) && has(r, /^Prediction: OFF$/) && has(r, /^Ground truth: ON$/) && has(r, /^FP: OFF$/) && has(r, /^FN: ON$/),
       `the layers it had: ${JSON.stringify(layerMsg())}`);
     const cam = lastOf('camera');
@@ -1869,6 +1982,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     await layout(r);
     await tick(200);
     check('V2N1', has(r, /SCR-03 · V1/) && has(r, /slice 45 \/ 88 {2}\(z = 44\)/), `SCR-03 opened on the middle slice: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2M4', markers(r).length === 0 && !has(r, /^Marker:/), 'opened from the case list (SCR-02) there is no 3D pick, so no marker: the location is not known');
     await press(r, '3D (SCR-05)');
     await tick(300);
     check('V2N1', has(r, /SCR-05 · V2/) && web(r) !== null, 'the 3D screen opened');
@@ -1876,15 +1990,23 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2N1', lastOf('slice').index === 44, 'its plane is at the 2D slice it came from (44)');
     await fromViewer(r, { type: 'camera', yaw: -0.2, pitch: 0.4, zoom: 2, panX: 0.1, panY: -0.2 });
     await press(r, 'FP: ON');                                // the user hides the FP layer before leaving
-    await fromViewer(r, pick(52, 'falseNegative', 'FN'));
+    await fromViewer(r, pick(52, 'falsePositive', 'FP'));
     await press(r, 'Open in 2D');
     await tick(300);
     await layout(r);
     await tick(200);
     check('V2N2', has(r, /SCR-03 · V1/) && has(r, /slice 53 \/ 88 {2}\(z = 52\)/), `Open in 2D: SCR-03 shows the picked slice: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2M1', markers(r).length === 1 && has(r, /^Marker: column 305, row 155 on slice 53 \/ 88 - the voxel you picked in the 3D view\./),
+      'the picked voxel is marked on SCR-03, on the slice it was picked in, and the screen says so in words');
     await press(r, '+10');
     await tick(350);
     check('V2N2', has(r, /slice 63 \/ 88 {2}\(z = 62\)/), `the user moves on in 2D: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2M1', markers(r).length === 0 && !has(r, /^Marker:/), 'a slider move to another slice: no marker - the location of another slice is not known');
+    await press(r, '−10');
+    await tick(350);
+    check('V2M1', markers(r).length === 1, 'and back on the picked slice the marker is there again');
+    await press(r, '+10');
+    await tick(350);
     await press(r, '‹ Back');
     await tick(300);
     check('V2N3', has(r, /SCR-05 · V2/) && web(r) !== null, 'Back: the 3D screen is there again');
@@ -1902,9 +2024,11 @@ function reviewBackend({ seedVersion = false } = {}) {
     await layout(r);
     await tick(250);
     check('V2N4', has(r, /SCR-04 · V1/) && has(r, /slice 12 \/ 88 {2}\(z = 11\)/), `Open errors: SCR-04 shows the FN face's slice: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2M2', markers(r).length === 1 && has(r, /^Marker: column 305, row 155 on slice 12 \/ 88/), 'SCR-04 marks the picked voxel too');
     await press(r, '+10');
     await tick(350);
     check('V2N4', has(r, /slice 22 \/ 88 {2}\(z = 21\)/), `the user moves on in SCR-04: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2M2', markers(r).length === 0, 'and after a slider move SCR-04 has no marker either');
     await press(r, '‹ Back');
     await tick(300);
     await loadedAll(r);
@@ -1918,6 +2042,153 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2N5', has(r, /SCR-03 · V1/) && has(r, /slice 45 \/ 88 {2}\(z = 44\)/) && has(r, /^Prediction \(RAW\)/),
       `Back from the 3D screen reopens SCR-03 on its own slice (44): ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
     forgetSession();
+    await act(async () => { r.unmount(); });
+  }
+
+  // 11m. the marker, pixel for pixel, on SCR-03 and SCR-04 - and nowhere the location is not known
+  {
+    const { fitTransform, screenToSource } = await imp('../app/core/index.mjs');
+    const ErrorInspectorScreen = (await imp('src/verticals/v1/ErrorInspectorScreen.js')).default;
+    const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+    const mountV1 = async (Screen, params) => {
+      const runtime = liveRuntime(fakeBackend().fetchImpl);
+      let r;
+      await act(async () => {
+        r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime }, React.createElement(Screen, { runtime, nav, params })), nodeMock);
+      });
+      await tick(300);
+      await layout(r);
+      await tick(250);
+      return r;
+    };
+    const base = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW' };
+    const xf = fitTransform(400, 400, 576, 576);
+    for (const [name, Screen, id] of [['SCR-03', CaseExplorerScreen, 'V2M3'], ['SCR-04', ErrorInspectorScreen, 'V2M5']]) {
+      const marker = { column: 305, row: 155, sliceIndex: 52 };
+      const r = await mountV1(Screen, { ...base, sliceIndex: 52, marker });
+      const pixel = hosts(r, 'pick-marker-pixel')[0];
+      const ring = hosts(r, 'pick-marker-ring')[0];
+      check(id, markers(r).length === 1 && pixel && ring, `${name}: the picked voxel is marked on the slice it was picked in`);
+      const near = (a, b) => Math.abs(a - b) < 1e-9;
+      check(id, pixel && near(pixel.props.x, xf.panX + 305 * xf.zoom) && near(pixel.props.y, xf.panY + 155 * xf.zoom) && near(pixel.props.width, xf.zoom) && near(pixel.props.height, xf.zoom),
+        `${name}: the marker's pixel is the source pixel (305, 155) through the display transform, one pixel wide`);
+      const back = ring ? screenToSource(ring.props.cx, ring.props.cy, xf, 576, 576) : null;
+      check(id, back && back[0] === 305 && back[1] === 155, `${name}: the ring's centre, taken back through the 2D tap's own inverse (screenToSource), is exactly pixel column 305, row 155: ${JSON.stringify(back)}`);
+      check(id, has(r, /^Marker: column 305, row 155 on slice 53 \/ 88 - the voxel you picked in the 3D view\. It shows on that slice only\.$/), `${name}: and the screen says it in words`);
+      const rings = r.root.findAll((n) => n.type === 'Circle');
+      check(id, rings.length === 2 && rings.every((c) => c.props.cx === ring.props.cx && c.props.cy === ring.props.cy), `${name}: a halo and a ring, both centred on the pixel`);
+      await act(async () => { r.unmount(); });
+    }
+    // no marker where the location is not known: no param, another slice, outside the grid, malformed
+    const none = async (params, why) => {
+      for (const [name, Screen, id] of [['SCR-03', CaseExplorerScreen, 'V2M4'], ['SCR-04', ErrorInspectorScreen, 'V2M5']]) {
+        const r = await mountV1(Screen, params);
+        check(id, markers(r).length === 0 && !has(r, /^Marker:/), `${name}: no marker - ${why}`);
+        await act(async () => { r.unmount(); });
+      }
+    };
+    await none({ ...base, sliceIndex: 52 }, 'opened without a 3D pick (no marker param)');
+    await none({ ...base, sliceIndex: 53, marker: { column: 305, row: 155, sliceIndex: 52 } }, 'the slice shown (54) is not the slice the voxel was picked in (53): the pixel of another slice is not invented');
+    await none({ ...base, sliceIndex: 52, marker: { column: 600, row: 155, sliceIndex: 52 } }, 'a column outside the 576-pixel grid is dropped, not clamped');
+    await none({ ...base, sliceIndex: 52, marker: { column: 305, row: 576, sliceIndex: 52 } }, 'a row outside the grid');
+    await none({ ...base, sliceIndex: 52, marker: { column: -1, row: 4, sliceIndex: 52 } }, 'a negative pixel');
+    await none({ ...base, sliceIndex: 52, marker: { column: 1.5, row: 4, sliceIndex: 52 } }, 'a pixel that is not an integer');
+    await none({ ...base, sliceIndex: 52, marker: { column: 305, row: 155 } }, 'a marker with no slice');
+    await none({ ...base, sliceIndex: 52, marker: 'yes' }, 'a marker that is not an object');
+    // a marker on a slice that is shown and then left: gone; and back on that slice: there again (SCR-03 drives it with its own slider)
+  }
+
+  // 11n. the scrubber's arrows are never dead (SCR-05 starts with no plane when no 2D slice was handed in)
+  {
+    const noSlice = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW' };
+    const first = await mount(meshBackend(), noSlice);
+    await loadedAll(first.r);
+    check('V2M6', has(first.r, /No slice plane: no 2D slice is selected/) && lastOf('slice').index === null && has(first.r, /^slice - \/ -$/), 'no slice handed in: no plane, and the label says so');
+    check('V2M6', ['◀', '▶', '−10', '+10'].every((l) => entry(first.r, l).props.disabled === false), 'none of the four step buttons is disabled or dead');
+    await press(first.r, '▶');
+    check('V2M6', lastOf('slice').index === 44 && has(first.r, /^slice 45 \/ 88 {2}\(z = 44\)$/) && has(first.r, /slice 45 of 88 \(set with the slider\)/),
+      'the first press puts the plane at the middle slice - the slice SCR-03 itself opens on');
+    await press(first.r, '▶');
+    check('V2M6', lastOf('slice').index === 45, 'and the next press steps from there');
+    await act(async () => { first.r.unmount(); });
+    for (const label of ['◀', '−10', '+10']) {
+      const m = await mount(meshBackend(), noSlice);
+      await loadedAll(m.r);
+      await press(m.r, label);
+      check('V2M6', lastOf('slice').index === 44, `${label} from no slice also puts the plane at the middle slice (${lastOf('slice').index})`);
+      await act(async () => { m.r.unmount(); });
+    }
+    // at an end of the stack the arrow that cannot move is disabled instead of silently doing nothing
+    for (const [slice, off, on] of [[0, ['◀', '−10'], ['▶', '+10']], [87, ['▶', '+10'], ['◀', '−10']]]) {
+      const m = await mount(meshBackend(), { ...noSlice, sliceIndex: slice });
+      await loadedAll(m.r);
+      check('V2M6', off.every((l) => entry(m.r, l).props.disabled === true) && on.every((l) => entry(m.r, l).props.disabled === false),
+        `at slice ${slice} ${off.join(' and ')} are disabled, ${on.join(' and ')} are not`);
+      await act(async () => { m.r.unmount(); });
+    }
+  }
+
+  // 11o. the transfer at the screen: bounded chunks in order with their ordinals, a re-send when the page reloads, an oversized mesh
+  {
+    const { CHUNK_BYTES, MAX_MESH_BYTES } = await imp('src/verticals/v2/inspector3d.mjs');
+    // a prediction mesh of 240 KB: two chunks (the screen reads only its header; the page is mocked here, v2_viewer.test.mjs decodes)
+    const many = 30000;
+    const bigPred = encodeMesh({ shape: SHAPE, vertices: [[100, 100, 10], [101, 100, 10], [100, 101, 10]], triangles: Array.from({ length: many }, () => [0, 1, 2]), slices: new Array(many).fill(10) });
+    IDS.ART_RAW = bigPred;
+    const backend = meshBackend();
+    const { r } = await mount(backend, P);
+    await fromViewer(r, { type: 'ready' });
+    const out = sentJson();
+    const predTransfer = out.filter((m) => m.role === 'prediction');
+    check('V2T1', bigPred.length > CHUNK_BYTES && bigPred.length < 2 * CHUNK_BYTES && predTransfer.map((m) => m.type).join() === 'meshStart,meshChunk,meshChunk,meshEnd',
+      `a ${bigPred.length}-byte mesh is a start, two chunks and an end: ${predTransfer.map((m) => m.type).join()}`);
+    check('V2T1', predTransfer.every((m, i) => m.n === i && m.tx === predTransfer[0].tx) && predTransfer[1].seq === 0 && predTransfer[2].seq === 1,
+      'every message of the transfer carries the transfer id and its ordinal 0, 1, 2, 3; the chunks their sequence numbers');
+    check('V2T1', predTransfer[0].chunk === CHUNK_BYTES && predTransfer[0].chunks === 2 && predTransfer[0].bytes === bigPred.length && predTransfer[0].sha256 === sum(bigPred),
+      'the start announces the chunk size (the bound), the number of chunks, the length and the sha256 the bytes were verified against');
+    check('V2T1', sent.every((m) => m.length < 262144 + 400), `no message is above 256 KiB plus its envelope (largest ${Math.max(...sent.map((m) => m.length))})`);
+    check('V2T1', transfers().find((t) => t.role === 'prediction').bytes.equals(Buffer.from(bigPred)), 'and the chunks are the mesh, byte for byte');
+    // the page reloads (a second `ready`): everything is sent again as new transfers, with later ids - the page then takes them as new
+    const firstTx = Math.max(...out.map((m) => m.tx).filter(Number.isInteger));
+    sent.length = 0;
+    await fromViewer(r, { type: 'ready' });
+    const again = sentJson();
+    check('V2T2', transferRoles().split(',').sort().join() === 'error,prediction' && again.filter((m) => m.type === 'meshStart').every((m) => m.tx > firstTx),
+      `after a second ready both meshes are sent again, as transfers with later ids: ${again.filter((m) => m.type === 'meshStart').map((m) => `${m.role}#${m.tx}`).join(' ')} (the transfers of the two meshes are interleaved, one message per macrotask each)`);
+    await act(async () => { r.unmount(); });
+    IDS.ART_RAW = predBytes;
+    // a mesh above the bound is that layer's error, never one giant message
+    const huge = (() => {
+      const triangles = 2_400_000;
+      const head = { format: 'cardiac-mesh/1', kind: 'voxel_face_surface', builder: 'test', level: 0, vertex_count: 3, triangle_count: triangles, index_bytes: 4, shape: SHAPE,
+        index_convention: 'x=column,y=row,z=slice', frame: 'voxel-index', foreground_voxels: 1 };
+      let raw = JSON.stringify(head);
+      raw += ' '.repeat((4 - ((12 + raw.length) % 4)) % 4);
+      const out2 = Buffer.alloc(12 + raw.length + 20 + triangles * 12 + triangles * 2);
+      out2.write('CARDMESH', 0, 'latin1');
+      out2.writeUInt32LE(raw.length, 8);
+      out2.write(raw, 12, 'latin1');
+      return new Uint8Array(out2.buffer, out2.byteOffset, out2.length);
+    })();
+    check('V2T3', huge.length > MAX_MESH_BYTES, `a ${huge.length}-byte mesh is above the ${MAX_MESH_BYTES}-byte bound`);
+    IDS.ART_RAW = huge;
+    const bigBackend = meshBackend();
+    const m2 = await mount(bigBackend, P);
+    await fromViewer(m2.r, { type: 'ready' });
+    check('V2T3', !sentJson().some((m) => m.type === 'meshChunk' && m.role === 'prediction') && has(m2.r, /(code|reason) MESH_NOT_SENDABLE/),
+      'nothing of it is sent: the layer reads error with its code (the prediction decides the screen)');
+    await act(async () => { m2.r.unmount(); });
+    IDS.ART_RAW = predBytes;
+  }
+
+  // 11p. a ground truth that is wanted from the start (the user's switch came back with the params) is fetched at once, once
+  {
+    const backend = meshBackend();
+    const { r } = await mount(backend, { ...P, layers: { groundTruth: true } });
+    check('V2G1', backend.count('source_mask_id=MASK_CASE_0061') === 1 && backend.count(`${sum(gtBytes)}.cmesh`) === 1,
+      'a switch that is already on (Back restored it) fetches the ground truth at once, once');
+    await fromViewer(r, { type: 'ready' });
+    check('V2G1', transferRoles() === 'prediction,groundTruth,error', `and sends it with the others: ${transferRoles()}`);
     await act(async () => { r.unmount(); });
   }
 }

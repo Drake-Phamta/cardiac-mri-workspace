@@ -7,24 +7,46 @@
  *                      error_reconstruction_get answers `error_mesh_artifact_id` = ERRMESH_<sha256>; the content route
  *                      and the checksum the app must verify (DR-021 rule 1) come from that id alone
  *                      (contracts/api/README.md, "3-D mesh content" and "3-D error mesh")
- *   artifact header    the `cardiac-mesh/1` and `cardiac-errormesh/1` headers, read before the bytes go to the WebView
- *                      (backend/mesh/artifact.py, backend/mesh/error_artifact.py)
+ *   artifact header    the `cardiac-mesh/1` and `cardiac-errormesh/2` headers, read before the bytes go to the WebView
+ *                      (backend/mesh/artifact.py, backend/mesh/error_artifact.py); the error header carries the table of
+ *                      connected error REGIONS (FR-3D-008): id, class, voxels and the slices each one contributes to
  *   layers             four: prediction, ground truth, false positive (FP), false negative (FN). FP and FN come from one
  *                      error artifact; each layer has its own state (loading / unavailable / error / ready) and its own
  *                      switch, so a missing error mesh never takes the surfaces down
  *   viewer messages    what the WebView posts, checked: a malformed message is ignored, never acted on
  *   state              one reducer (visible layers, slice plane, selection, camera) - see `inspectorReducer`
- *   pick -> slice      H7: a tap resolves to face_source_slice[t] and the class of the FIRST triangle hit; a background
- *                      tap resolves nothing and CLEARS the selection, so nothing can navigate by accident
- *   3D -> 2D           "Open in 2D" (SCR-03) at the picked slice, and for an FP / FN face "Open errors" (SCR-04) at it,
- *                      with the returnParams that put this screen back on the same layers, camera and slice
+ *   pick -> slice      H7: a tap resolves to face_source_slice[t], the class, the region and the voxel of the FIRST triangle
+ *                      hit; a background tap resolves nothing and CLEARS the selection, so nothing can navigate by accident
+ *   region (FR-3D-008) a tap on an FP / FN face selects its connected region: the panel gives its class, voxel count and
+ *                      slices, starts on the tapped slice, and steps through the region's slices (never out of them)
+ *   3D -> 2D           "Open in 2D" (SCR-03) at the region's current slice, and for an FP / FN face "Open errors" (SCR-04) at
+ *                      it, with the returnParams that put this screen back on the same layers, camera and slice; the picked
+ *                      voxel's (column, row) rides along as a marker, only while the slice opened is the slice it was picked in
  *   2D -> 3D           the plane follows the slice SCR-03 / SCR-04 hand in, on entry and (QA #98 N-6) on Back
+ *   bytes -> viewer    a mesh goes to the WebView in bounded chunks (`transferPlan`) with its length and sha256, never in
+ *                      one message; a layer that is off is not fetched until it is switched on (`layerRequested`)
  */
 
 import { ERROR_CLASS } from '../v1/errorInspector.mjs';
 
 export const MESH_FORMAT = 'cardiac-mesh/1';
-export const ERROR_MESH_FORMAT = 'cardiac-errormesh/1';
+export const ERROR_MESH_FORMAT = 'cardiac-errormesh/2';
+export const CONNECTIVITIES = Object.freeze([6, 18, 26]);
+
+/*
+ * The bounds of one mesh transfer to the WebView (viewerSource.mjs embeds them, so the sender and the receiver cannot
+ * disagree):
+ *   CHUNK_BYTES       192 KiB of raw bytes = 262,144 base64 characters per message. Small enough to stay far below the message
+ *                     sizes at which WebView bridges have stalled or dropped (reports start near 1 MB), large enough that the
+ *                     biggest error mesh measured on the Day 39 data (9.8 MB) is 50 chunks. One chunk is converted and posted per
+ *                     macrotask, so the JS thread is never held for more than the conversion of one chunk.
+ *   MAX_MESH_BYTES    32 MiB: what the page allocates for one reassembly buffer, 3.3 times the biggest mesh measured. A bigger
+ *                     announcement is refused (MESH_TOO_LARGE) before anything is allocated.
+ *   TRANSFER_IDLE_MS  a transfer that has been quiet this long is dead (MESH_TRANSFER_TIMEOUT): one error for the layer.
+ */
+export const CHUNK_BYTES = 196608;
+export const MAX_MESH_BYTES = 33554432;
+export const TRANSFER_IDLE_MS = 20000;
 export const MESH_ID = /^MESH_([0-9a-f]{64})$/;
 export const ERROR_MESH_ID = /^ERRMESH_([0-9a-f]{64})$/;
 export const HEX64 = /^[0-9a-f]{64}$/;
@@ -136,11 +158,54 @@ export function parseMeshHeader(bytes) {
 
 const CLASS_TABLE = Object.freeze([['FP', 1], ['FN', 2]]);
 
+const componentBytesFor = (count) => (count <= 0xFF ? 1 : count <= 0xFFFF ? 2 : 4);
+const COMPONENT_KEYS = ['class', 'first_slice', 'id', 'slice_voxels', 'voxels'];
+
 /*
- * Reads and checks the header of a `cardiac-errormesh/1` artifact. Mirrors backend/mesh/error_artifact.py
+ * The region table of an error header (FR-3D-008): a declared connectivity, a table of exactly `component_count` entries named
+ * `<class>_<rank>`, contiguous per-class `component_range`s that cover 1..C, the smallest region-number type, and per region a
+ * contiguous run of non-empty slices whose counts add up to its voxels and the class's regions to the class's voxels.
+ * Mirrors backend/mesh/error_artifact.py _check_component_table. null when it holds, else { ok: false, code, message }.
+ */
+function checkRegionTable(h) {
+  const bad = (message) => ({ ok: false, code: 'MESH_COMPONENTS', message });
+  const table = h.components;
+  const count = h.component_count;
+  if (!CONNECTIVITIES.includes(h.connectivity)) return bad('connectivity must be 6, 18 or 26');
+  if (!Array.isArray(table) || !isCount(count) || count !== table.length) return bad('component_count is not the length of the component table');
+  if (h.component_index_bytes !== componentBytesFor(count)) return bad(`component_index_bytes must be ${componentBytesFor(count)} (the smallest type that holds ${count})`);
+  let at = 1;
+  for (let i = 0; i < CLASS_TABLE.length; i += 1) {
+    const name = CLASS_TABLE[i][0];
+    const span = h.classes[i].component_range;
+    if (!Array.isArray(span) || span.length !== 2 || span[0] !== at || !isCount(span[1]) || span[1] < span[0]) return bad(`class ${name}: component_range is not contiguous`);
+    if ((h.classes[i].voxels === 0) !== (span[1] === span[0])) return bad(`class ${name}: voxels and regions disagree about being empty`);
+    let total = 0;
+    for (let c = span[0]; c < span[1]; c += 1) {
+      const row = table[c - 1];
+      const rank = c - span[0] + 1;
+      if (!row || typeof row !== 'object' || Object.keys(row).sort().join() !== COMPONENT_KEYS.join()) return bad(`${name} region ${rank}: keys must be ${COMPONENT_KEYS.join(', ')}`);
+      if (row.class !== name || row.id !== `${name}_${String(rank).padStart(4, '0')}`) return bad(`${name} region ${rank}: id or class does not match its place`);
+      const per = row.slice_voxels;
+      if (!Array.isArray(per) || per.length === 0 || !per.every((n) => isCount(n) && n >= 1) || !isCount(row.first_slice) || row.first_slice + per.length > h.shape[2]) {
+        return bad(`${row.id}: slices are not a contiguous run of non-empty slices inside the volume`);
+      }
+      const sum = per.reduce((a, b) => a + b, 0);
+      if (row.voxels !== sum) return bad(`${row.id}: voxels is not the sum of its slice counts`);
+      total += sum;
+    }
+    if (total !== h.classes[i].voxels) return bad(`class ${name}: its regions hold ${total} voxels, the class ${h.classes[i].voxels}`);
+    at = span[1];
+  }
+  return at === count + 1 ? null : bad('the class component ranges do not cover the component table');
+}
+
+/*
+ * Reads and checks the header of a `cardiac-errormesh/2` artifact. Mirrors backend/mesh/error_artifact.py
  * read_error_header: the container, the class table (FP then FN, codes 1 and 2, contiguous ranges that cover the
- * vertices and the triangles exactly, a class with no voxel an empty range) and the sections (vertices, triangles,
- * source slices and one class byte per triangle) filling the file. The header names both source masks.
+ * vertices and the triangles exactly, a class with no voxel an empty range), the region table (checkRegionTable) and the
+ * sections (vertices, triangles, source slices, one class byte and one region number per triangle) filling the file. The
+ * header names both source masks.
  */
 export function parseErrorMeshHeader(bytes) {
   const bad = (code, message) => ({ ok: false, code, message });
@@ -171,11 +236,29 @@ export function parseErrorMeshHeader(bytes) {
     triangleAt = t[1];
   }
   if (vertexAt !== h.vertex_count || triangleAt !== h.triangle_count) return bad('MESH_CLASSES', 'the class ranges do not cover the file');
+  const regions = checkRegionTable(h);
+  if (regions) return regions;
   let expected = c.headerEnd;
-  for (const size of [h.vertex_count * 6, h.triangle_count * 3 * h.index_bytes, h.triangle_count * 2, h.triangle_count]) expected += size + pad4(size);
+  for (const size of [h.vertex_count * 6, h.triangle_count * 3 * h.index_bytes, h.triangle_count * 2, h.triangle_count, h.triangle_count * h.component_index_bytes]) expected += size + pad4(size);
   if (expected !== bytes.length) return bad('MESH_LENGTH', `sections need ${expected} bytes, the file has ${bytes.length}`);
   return Object.freeze({ ok: true, header: Object.freeze(h) });
 }
+
+/*
+ * The regions of a parsed error header, one per region number (1..C): `number` (what a pick names), `id`, `cls` and `role`,
+ * `voxels`, the contiguous run of slices it contributes to (`firstSlice`..`lastSlice`, `sliceCount`) and `sliceVoxels`, its
+ * voxel count on each of them. A connected voxel set has no gap in z, so the run IS the slice list.
+ */
+export function regionTable(header) {
+  if (!header || !Array.isArray(header.components)) return Object.freeze([]);
+  return Object.freeze(header.components.map((c, i) => Object.freeze({
+    number: i + 1, id: c.id, cls: c.class, role: ROLE_OF_CLASS[c.class], voxels: c.voxels,
+    firstSlice: c.first_slice, lastSlice: c.first_slice + c.slice_voxels.length - 1, sliceCount: c.slice_voxels.length,
+    sliceVoxels: Object.freeze([...c.slice_voxels]),
+  })));
+}
+
+export const regionOf = (regions, number) => (Array.isArray(regions) && Number.isInteger(number) && number >= 1 && number <= regions.length ? regions[number - 1] : null);
 
 /* The per-class counts of a parsed error header: { falsePositive: { voxels, triangles }, falseNegative: {...} }. */
 export function errorCounts(header) {
@@ -231,10 +314,38 @@ export function bytesToBase64(bytes) {
   return parts.join('');
 }
 
-/* The messages the screen sends the viewer (viewerSource.mjs protocol). */
+export const MESH_ROLES = Object.freeze(['prediction', 'groundTruth', ERROR_CONTAINER]);
+
+/*
+ * The messages of ONE mesh transfer, built one at a time (a nine-megabyte mesh is never a twelve-megabyte string): message 0 is
+ * meshStart (role, transfer id `tx`, byte length, chunk size, number of chunks, sha256), messages 1..chunks are the chunks
+ * (`seq` 0-based, `chunkBytes` raw bytes each and the last the remainder, base64), message chunks + 1 is meshEnd. `n` is the
+ * ordinal of the message in the transfer - the viewer ignores a message it has already taken (both message channels deliver
+ * one) and refuses a repeated chunk, an out-of-order one, a missing one. `checksum` is `sha256:<64 hex>`, the one the bytes
+ * were verified against (runtime.content). null when the inputs are not a mesh the viewer would accept.
+ */
+export function transferPlan({ role, bytes, checksum, tx, chunkBytes = CHUNK_BYTES }) {
+  if (!MESH_ROLES.includes(role) || !(bytes instanceof Uint8Array) || bytes.length < 1 || bytes.length > MAX_MESH_BYTES) return null;
+  if (typeof checksum !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(checksum)) return null;
+  if (!Number.isInteger(tx) || tx < 1 || !Number.isInteger(chunkBytes) || chunkBytes < 1 || chunkBytes > CHUNK_BYTES) return null;
+  const chunks = Math.ceil(bytes.length / chunkBytes);
+  const sha256 = checksum.slice(7);
+  return Object.freeze({
+    role, tx, bytes: bytes.length, chunks, count: chunks + 2,
+    message(i) {
+      if (!Number.isInteger(i) || i < 0 || i > chunks + 1) return null;
+      if (i === 0) return JSON.stringify({ type: 'meshStart', role, tx, n: 0, bytes: bytes.length, chunk: chunkBytes, chunks, sha256 });
+      if (i === chunks + 1) return JSON.stringify({ type: 'meshEnd', role, tx, n: i });
+      const seq = i - 1;
+      return JSON.stringify({ type: 'meshChunk', role, tx, n: i, seq, b64: bytesToBase64(bytes.subarray(seq * chunkBytes, Math.min(bytes.length, (seq + 1) * chunkBytes))) });
+    },
+  });
+}
+
+/* The messages the screen sends the viewer (viewerSource.mjs protocol). A mesh goes through `transferPlan`, never one message. */
 export const toViewer = Object.freeze({
-  // role: 'prediction' | 'groundTruth' (a cardiac-mesh/1 surface) or 'error' (the cardiac-errormesh/1 container)
-  mesh: (role, bytes) => JSON.stringify({ type: 'mesh', role, b64: bytesToBase64(bytes) }),
+  // the selected error region (its number in the error artifact), or null for none
+  highlight: (component) => JSON.stringify({ type: 'highlight', component: Number.isInteger(component) && component >= 1 ? component : null }),
   // `visible` maps each of the four roles to a boolean; anything else is left out and the viewer ignores it.
   layers: (visible) => {
     const out = { type: 'layers' };
@@ -270,8 +381,9 @@ export function sanitizeCamera(c) {
 
 /*
  * One message the WebView posted, checked. { kind: 'ready' | 'loaded' | 'error' | 'pick' | 'camera' | 'ignored', ... }.
- * A pick carries `slice` as an integer or null and, for an error face, its class; anything else is ignored (never
- * coerced into a slice), and so is a pick whose class disagrees with the layer it names.
+ * A pick carries `slice` as an integer or null and, for an error face, its class and region number; `column` and `row` are the
+ * voxel behind the face (both or neither). Anything else is ignored (never coerced into a slice), and so is a pick whose class
+ * disagrees with the layer it names or whose region does not go with its class (a surface face has none, an error face one).
  */
 export function parseViewerMessage(raw) {
   let data = raw;
@@ -293,12 +405,18 @@ export function parseViewerMessage(raw) {
         message: typeof data.message === 'string' ? data.message.slice(0, 300) : '',
       };
     case 'pick': {
-      if (data.slice === null) return { kind: 'pick', role: null, triangle: null, slice: null, cls: null };
+      if (data.slice === null) return { kind: 'pick', role: null, triangle: null, slice: null, cls: null, component: null, column: null, row: null };
       if (!Number.isInteger(data.slice) || data.slice < 0 || !role) return { kind: 'ignored', reason: 'malformed pick' };
       const cls = data.cls === undefined || data.cls === null ? null : data.cls;
       // The class of the face must be the class of the layer: a layer of FP faces cannot name an FN face.
       if (cls !== (CLASS_OF_ROLE[role] || null)) return { kind: 'ignored', reason: 'pick class disagrees with its layer' };
-      return { kind: 'pick', role, triangle: Number.isInteger(data.triangle) ? data.triangle : null, slice: data.slice, cls };
+      const component = data.component === undefined || data.component === null ? null : data.component;
+      if (cls ? !(Number.isInteger(component) && component >= 1) : component !== null) return { kind: 'ignored', reason: 'pick region does not go with its class' };
+      const located = Number.isInteger(data.column) && data.column >= 0 && Number.isInteger(data.row) && data.row >= 0;
+      return {
+        kind: 'pick', role, triangle: Number.isInteger(data.triangle) ? data.triangle : null, slice: data.slice, cls, component,
+        column: located ? data.column : null, row: located ? data.row : null,
+      };
     }
     case 'camera': {
       const camera = sanitizeCamera({ yaw: data.yaw, pitch: data.pitch, zoom: data.zoom, pan: [data.panX, data.panY] });
@@ -310,7 +428,7 @@ export function parseViewerMessage(raw) {
 
 /* ------------------------------------------------------------------ pick -> slice and class (H7) */
 
-export const SELECTION_NONE = Object.freeze({ slice: null, role: null, cls: null, triangle: null, note: null });
+export const SELECTION_NONE = Object.freeze({ slice: null, role: null, cls: null, component: null, column: null, row: null, triangle: null, note: null });
 
 /*
  * The selection after a pick message. A background tap clears the selection and says so; a slice outside the volume
@@ -327,7 +445,9 @@ export function selectionAfterPick(pick, total) {
     return Object.freeze({ ...SELECTION_NONE, note: `The pick named slice ${pick.slice}, outside this volume (${total} slices): ignored.` });
   }
   return Object.freeze({
-    slice: pick.slice, role: pick.role, cls: pick.cls || null, triangle: Number.isInteger(pick.triangle) ? pick.triangle : null, note: null,
+    slice: pick.slice, role: pick.role, cls: pick.cls || null, component: Number.isInteger(pick.component) ? pick.component : null,
+    column: Number.isInteger(pick.column) ? pick.column : null, row: Number.isInteger(pick.row) ? pick.row : null,
+    triangle: Number.isInteger(pick.triangle) ? pick.triangle : null, note: null,
   });
 }
 
@@ -344,7 +464,8 @@ export function sliceText(slice, total) {
 export function planeText(plane, total, source) {
   if (!Number.isInteger(plane) || !Number.isInteger(total)) return 'No slice plane: no 2D slice is selected. Move the slider or tap the surface.';
   const why = source === PLANE_SOURCE.PICK ? 'the picked slice'
-    : source === PLANE_SOURCE.SLIDER ? 'set with the slider' : 'the 2D slice you came from';
+    : source === PLANE_SOURCE.REGION ? 'the slice of the selected region you stepped to'
+      : source === PLANE_SOURCE.SLIDER ? 'set with the slider' : 'the 2D slice you came from';
   return `Amber plane and band on the surface: slice ${plane + 1} of ${total} (${why}).`;
 }
 
@@ -356,20 +477,59 @@ export function selectionText(selection, total) {
   return `${sliceText(selection.slice, total)} · picked on ${what}${meaning}`;
 }
 
+/*
+ * What the region panel says about the selected region (FR-3D-008, UC-09): its id and class in words, its voxel count, the
+ * slices it contributes to, the slice the panel is on with its place in the region's list and the region's voxels there, and
+ * what each of ◀ ▶ does - a step that would leave the region is disabled and says so, never silent. null without a region.
+ */
+export function regionPanel({ selection, regionSlice, region, total }) {
+  if (!selection || !region || !Number.isInteger(selection.component) || selection.component !== region.number) return null;
+  if (!Number.isInteger(regionSlice) || regionSlice < region.firstSlice || regionSlice > region.lastSlice) return null;
+  const className = region.cls === 'FP' ? 'false positive' : 'false negative';
+  const place = regionSlice - region.firstSlice;
+  const span = region.sliceCount === 1 ? `slice ${region.firstSlice + 1}` : `slices ${region.firstSlice + 1}-${region.lastSlice + 1}`;
+  const group = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return Object.freeze({
+    title: `${region.id} · ${className} (${region.cls})`,
+    summary: `${group(region.voxels)} voxel${region.voxels === 1 ? '' : 's'} on ${region.sliceCount} slice${region.sliceCount === 1 ? '' : 's'} · ${span} of ${total}`,
+    position: `${sliceText(regionSlice, total)} · slice ${place + 1} of ${region.sliceCount} of this region${regionSlice === selection.slice ? ' (the tapped slice)' : ''}`,
+    onSlice: `${group(region.sliceVoxels[place])} voxel${region.sliceVoxels[place] === 1 ? '' : 's'} of the region on this slice`,
+    canPrev: place > 0,
+    canNext: place < region.sliceCount - 1,
+    prevNote: place > 0 ? null : 'first slice of this region',
+    nextNote: place < region.sliceCount - 1 ? null : 'last slice of this region',
+  });
+}
+
+/*
+ * The marker SCR-03 / SCR-04 draw on the exact pixel of the picked voxel (`10` §6): { column, row, sliceIndex } only while
+ * the slice being opened or shown IS the slice the voxel was picked in and the pick named its voxel. In every other case the
+ * location is not known - the app does not invent a pixel for another slice, a slider move, a region step, or a screen that was
+ * not opened from a 3D pick - so there is no marker.
+ */
+export function markerFor({ selection, slice }) {
+  if (!selection || !Number.isInteger(slice) || selection.slice !== slice) return null;
+  if (!Number.isInteger(selection.column) || selection.column < 0 || !Number.isInteger(selection.row) || selection.row < 0) return null;
+  return Object.freeze({ column: selection.column, row: selection.row, sliceIndex: slice });
+}
+
 /* ------------------------------------------------------------------ the state of the screen: one reducer */
 
 /*
  * What the user has done on this screen, and nothing that comes from the server:
  *   visible    the switches the user has set (or Back restored), per role; a role with no entry takes its default
  *   plane      the slice the plane / band marks, or null. It starts as the 2D slice the screen was opened with, moves
- *              with the slider, and jumps to the slice of a picked face; `planeSource` says which (ENTRY, SLIDER, PICK)
- *   selection  the picked face (slice, layer, class), or SELECTION_NONE with the note why
+ *              with the slider, jumps to the slice of a picked face and follows the region panel's steps; `planeSource`
+ *              says which (ENTRY, SLIDER, PICK, REGION)
+ *   selection  the picked face (slice, layer, class, region, voxel), or SELECTION_NONE with the note why
+ *   regionSlice the slice the region panel is on: the picked slice at first, then wherever ◀ ▶ stepped, always one of the
+ *              region's slices (REGION_STEP refuses a step out of them); null with no region selected
  *   camera     the last camera the viewer reported (restored on Back), or null
  * The status of each layer (loading / unavailable / error / ready) is NOT here: it is derived from the calls.
  */
 const isSliceIn = (slice, total) => Number.isInteger(slice) && slice >= 0 && Number.isInteger(total) && slice < total;
 
-export const PLANE_SOURCE = Object.freeze({ ENTRY: 'ENTRY', SLIDER: 'SLIDER', PICK: 'PICK' });
+export const PLANE_SOURCE = Object.freeze({ ENTRY: 'ENTRY', SLIDER: 'SLIDER', PICK: 'PICK', REGION: 'REGION' });
 
 export function sanitizeLayers(layers) {
   const out = {};
@@ -388,11 +548,14 @@ export function initialInspectorState({ slice = null, layers = null, camera = nu
     plane: valid ? slice : null,
     planeSource: valid ? PLANE_SOURCE.ENTRY : null,
     selection: SELECTION_NONE,
+    regionSlice: null,
     camera: sanitizeCamera(camera),
   });
 }
 
-export const ACTION = Object.freeze({ SET_VISIBLE: 'SET_VISIBLE', SLIDE: 'SLIDE', PICK: 'PICK', DESELECT: 'DESELECT', CAMERA: 'CAMERA' });
+export const ACTION = Object.freeze({
+  SET_VISIBLE: 'SET_VISIBLE', SLIDE: 'SLIDE', PICK: 'PICK', DESELECT: 'DESELECT', CAMERA: 'CAMERA', REGION_STEP: 'REGION_STEP',
+});
 
 export function inspectorReducer(state, action) {
   switch (action && action.type) {
@@ -406,13 +569,28 @@ export function inspectorReducer(state, action) {
     case ACTION.PICK: {
       const selection = selectionAfterPick(action.pick, action.total);
       if (!selection) return state;
-      // A face picked: the plane marks its slice. A background tap or a bad pick clears the selection and leaves the plane.
+      // A face picked: the plane marks its slice, and a region panel (if the face is an error face) starts on it. A background
+      // tap or a bad pick clears the selection and leaves the plane.
       return Number.isInteger(selection.slice)
-        ? Object.freeze({ ...state, selection, plane: selection.slice, planeSource: PLANE_SOURCE.PICK })
-        : Object.freeze({ ...state, selection });
+        ? Object.freeze({
+          ...state, selection, plane: selection.slice, planeSource: PLANE_SOURCE.PICK,
+          regionSlice: Number.isInteger(selection.component) ? selection.slice : null,
+        })
+        : Object.freeze({ ...state, selection, regionSlice: null });
     }
     case ACTION.DESELECT:
-      return Object.freeze({ ...state, selection: SELECTION_NONE });
+      return Object.freeze({ ...state, selection: SELECTION_NONE, regionSlice: null });
+    case ACTION.REGION_STEP: {
+      // One slice at a time through the region's own slices; a step that would leave them changes nothing, so the panel can
+      // never show a slice the region does not contribute to (and the plane follows it, `10` §6).
+      const r = action.region;
+      if (!Number.isInteger(state.regionSlice) || !Number.isInteger(state.selection.component) || !r
+        || !Number.isInteger(r.firstSlice) || !Number.isInteger(r.lastSlice) || r.number !== state.selection.component) return state;
+      if (!Number.isInteger(action.delta) || action.delta === 0) return state;
+      const next = state.regionSlice + (action.delta > 0 ? 1 : -1);
+      if (next < r.firstSlice || next > r.lastSlice || !isSliceIn(next, action.total)) return state;
+      return Object.freeze({ ...state, regionSlice: next, plane: next, planeSource: PLANE_SOURCE.REGION });
+    }
     case ACTION.CAMERA: {
       const camera = sanitizeCamera(action.camera);
       return camera ? Object.freeze({ ...state, camera }) : state;
@@ -462,25 +640,37 @@ export function returnParamsFor({ runId, variant, slice, visible, camera }) {
 }
 
 /*
- * The push to SCR-03 for the selected slice: same case, run and variant, `sliceIndex` = the picked slice. null when
- * nothing valid is selected. `ctx` carries what Back must restore: the visible layers and the camera.
+ * The push to SCR-03: same case, run and variant, `sliceIndex` = `slice` (the region panel's current slice, else the picked
+ * one). null when nothing valid is selected. `marker` rides in the params exactly when `markerFor` gives one (the slice opened is
+ * the slice the voxel was picked in). `visible` and `camera` are what Back must restore.
  */
-export function openIn2D({ caseId, runId, variant, selection, total, visible = null, camera = null }) {
+export function openIn2D({ caseId, runId, variant, selection, slice = null, total, visible = null, camera = null }) {
   if (!selection || !isSliceIn(selection.slice, total)) return null;
-  const params = openParams({ caseId, runId, variant, slice: selection.slice, total });
+  const at = slice === null ? selection.slice : slice;
+  const params = openParams({ caseId, runId, variant, slice: at, total });
   if (!params) return null;
-  return Object.freeze({ screenId: 'SCR-03', params, returnParams: returnParamsFor({ runId, variant, slice: selection.slice, visible, camera }) });
+  const marker = markerFor({ selection, slice: at });
+  return Object.freeze({
+    screenId: 'SCR-03', params: marker ? Object.freeze({ ...params, marker }) : params,
+    returnParams: returnParamsFor({ runId, variant, slice: at, visible, camera }),
+  });
 }
 
 /*
- * The push to SCR-04 (Error Inspector) at the slice of a picked FP or FN face. Only an error face opens it: a pick on
- * the prediction or the ground-truth surface carries no error class, so there is no error to go and look at.
+ * The push to SCR-04 (Error Inspector) at the slice of a picked FP or FN face (or the slice the region panel is on). Only an
+ * error face opens it: a pick on the prediction or the ground-truth surface carries no error class, so there is no error to go
+ * and look at. The marker rides along under the same rule as for SCR-03.
  */
-export function openErrors({ caseId, runId, variant, selection, total, visible = null, camera = null }) {
+export function openErrors({ caseId, runId, variant, selection, slice = null, total, visible = null, camera = null }) {
   if (!selection || !selection.cls || !isSliceIn(selection.slice, total)) return null;
-  const params = openParams({ caseId, runId, variant, slice: selection.slice, total });
+  const at = slice === null ? selection.slice : slice;
+  const params = openParams({ caseId, runId, variant, slice: at, total });
   if (!params) return null;
-  return Object.freeze({ screenId: 'SCR-04', params, returnParams: returnParamsFor({ runId, variant, slice: selection.slice, visible, camera }) });
+  const marker = markerFor({ selection, slice: at });
+  return Object.freeze({
+    screenId: 'SCR-04', params: marker ? Object.freeze({ ...params, marker }) : params,
+    returnParams: returnParamsFor({ runId, variant, slice: at, visible, camera }),
+  });
 }
 
 /*
@@ -509,8 +699,10 @@ export const LAYER = Object.freeze({ IDLE: 'IDLE', LOADING: 'LOADING', READY: 'R
  * What the screen says about one layer, from the state of its steps (reconstruction_get view, bytes view, viewer
  * report). `steps` is an array of app/core screen states in order; the first that is not SUCCESS decides.
  */
-export function layerStatus({ wanted = true, reason = null, steps = [], viewerLoaded = false, viewerError = null }) {
+export function layerStatus({ wanted = true, idle = false, reason = null, steps = [], viewerLoaded = false, viewerError = null }) {
   if (!wanted) return Object.freeze({ state: LAYER.UNAVAILABLE, reason: reason || 'NOT_APPLICABLE', code: reason || null });
+  // A layer that is off and was never asked for is not fetched (layerRequested): it is IDLE until it is switched on.
+  if (idle) return Object.freeze({ state: LAYER.IDLE, reason: null, code: null });
   if (viewerError) return Object.freeze({ state: LAYER.ERROR, reason: viewerError.code, code: viewerError.code, message: viewerError.message });
   for (const step of steps) {
     if (!step || step.state === 'LOADING' || step.state === 'PROCESSING') return Object.freeze({ state: LAYER.LOADING, reason: null, code: null });
@@ -523,6 +715,13 @@ export function layerStatus({ wanted = true, reason = null, steps = [], viewerLo
   }
   return Object.freeze({ state: viewerLoaded ? LAYER.READY : LAYER.LOADING, reason: null, code: null });
 }
+
+/*
+ * Is a layer's mesh to be fetched now? Only a layer that can exist (`wanted`) and is switched on - or was fetched before, so
+ * that switching it off and on again does not fetch it twice. The prediction is always requested (it decides the screen);
+ * the ground truth is off by default while the error map is usable and costs nothing until the user switches it on.
+ */
+export const layerRequested = ({ wanted, shown, requestedBefore = false }) => Boolean(wanted) && (Boolean(shown) || Boolean(requestedBefore));
 
 /* The screen's overall state: the prediction decides it (a 3D view without the prediction is not what was asked for). */
 export function screenStatus(prediction) {
@@ -545,6 +744,8 @@ export function triangleText(n) {
  */
 export function layerNote(role, status, { triangles = null, voxels = null } = {}) {
   switch (status.state) {
+    case LAYER.IDLE: return role === ROLES.GROUND_TRUTH
+      ? 'not loaded: off while the error map is shown - switch it on to load it' : 'not loaded - switch it on to load it';
     case LAYER.LOADING: return 'loading…';
     case LAYER.UNAVAILABLE: return `unavailable (${status.reason || 'no reason given'})`;
     case LAYER.ERROR: return `error (${status.reason || 'unknown'})${status.message ? `: ${status.message}` : ''}`;
