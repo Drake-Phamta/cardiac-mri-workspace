@@ -138,7 +138,7 @@ the OS killed. Node tests and `expo export` are fine at any time.
 else it needs next to it. The shell files — `package.json`, the lockfile, `app.json`, `metro.config.js`,
 `src/registry.js`, `src/nav/**` — belong to the shell owner, **Phạm Tuấn Anh** (the shell was built by agent A2
 under the Day 22 override); a new dependency or a new screen id is a request to them, not an edit. Each vertical
-owns `mobile/src/verticals/v<N>/` and its tests `mobile/test/v<N>_*.test.mjs` (DR-021 rule 6; CI runs every
+owns `mobile/src/verticals/v<N>/` and its tests `mobile/test/v<N>.test.mjs` / `mobile/test/v<N>_*.test.mjs` (DR-021 rule 6; CI runs every
 `mobile/test/*.test.mjs`). `test/registry.test.mjs` fails if a registered file goes missing or has no default export.
 
 The screen contract the navigator relies on:
@@ -161,7 +161,7 @@ it with `node --test`; keep React Native imports in `.js` files.
 |---|---|
 | `runtime.content` (`src/runtime/content.mjs`) | **the app's one binary path**: `content.uri(content_url)` → absolute URL for an `<Image>` (null in fixture mode); `content.bytes(content_url, {checksum, signal, kind})` → an app/core state: SUCCESS `{bytes, size, checksum, verified}`, or `EMPTY_UNAVAILABLE` (`FIXTURE_NO_BYTES`, `NO_CONTENT_URL`, `REQUEST_ABORTED`), `TRANSPORT_UNREACHABLE` (network, timeout, 5xx), `CONTRACT_DRIFT` (not an artifact path of this backend, no `checksum` stated — nothing is fetched then, DR-021 rule 1 — bytes that do not hash to `checksum`, an ETag that disagrees). Every response is counted in the gesture log, under the gesture open when it was sent. **No vertical fetches bytes any other way.** |
 | `useCall` (`src/runtime/useCall.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount and when `enabled` turns false (DR-021 rule 2) |
-| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first, one prompt at a time (an action while a prompt is open is refused). **Only the top screen is mounted**: a covered screen unmounts, its guard is dropped, and it must re-read what it needs — `nav.push(id, params, returnParams)` merges `returnParams` into the covered entry so Back reopens what was on screen (#77 QA N-7, #78 QA N-8) |
+| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first, one prompt at a time (an action while a prompt is open is refused). **A guard must settle on every path:** a guard that returns a Promise must resolve it for each button *and* when the prompt is dismissed without one (`Alert.alert(..., { cancelable: true, onDismiss: () => resolve(false) })`); the shell cannot tell "still deciding" from "abandoned", so a Promise that never settles keeps the one-prompt latch closed and refuses every later Back, tab and push on that screen (`#88 QA N-3`; SCR-06 does it, render check `V4q`). **Only the top screen is mounted**: a covered screen unmounts, its guard is dropped, and it must re-read what it needs — `nav.push(id, params, returnParams)` merges `returnParams` into the covered entry so Back reopens what was on screen (#77 QA N-7, #78 QA N-8) |
 | `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
 | `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
 | `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |
@@ -212,7 +212,9 @@ it with `node --test`; keep React Native imports in `.js` files.
   gesture line lists. No URL, host or payload is logged. Judge a capture on the laptop with
   `node mobile/scripts/l4-report.mjs <logcat.txt>` (rules R1–R8, `PASS` / `FAIL` / `CANNOT_JUDGE`; bytes per
   switch as n / p50 / p95 / max); the step-by-step session, with the rule table at the top, is
-  **`mobile/S1_L4_SCRIPT.md`**.
+  **`mobile/S1_L4_SCRIPT.md`**. `l4-report.mjs` does not judge `CMW_NET_TOTALS` (a design choice, the old log lines are
+  unchanged): the bytes of `late` and `unattributed` requests do not count against the L4 limit, so read that line next
+  to the verdict (the A9 judge, `device_judge.ps1`, does compare the two passes' totals, T3) (#88 QA N-4).
   Before the session, `node mobile/scripts/preflight-live.mjs --case CASE_0061` checks the live backend from the
   laptop with the app's own code: same `contract_version` as this checkout, the case, checksum-verified bytes,
   masks through `maskPng.js`, and a one-slice rehearsal of the L4 rules. The address is never printed.
@@ -247,7 +249,7 @@ SCR-03) run end to end on real data. Vũ Hùng Anh completes, measures and defen
   measurements, label toggles beyond the two layers, smoothing, landscape, the 3D plane as a surface (it is a band).
 - **Tests.** `test/v2_inspector3d.test.mjs` (logic, golden artifact from the Python encoder, navigator round trip),
   `test/v2_viewer.test.mjs` (the viewer script in node against a stubbed canvas: decode, refusal of damaged files, the
-  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 10 of the render smoke
+  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 11 of the render smoke
   (the screen with the WebView mocked: references, verified bytes, handshake, H7, unavailable / error states).
 
 ## Render-smoke harness (test-only)
@@ -258,16 +260,30 @@ npm ci
 npm run test:render        # node --import ./test/render/hooks.mjs test/render/smoke.mjs
 ```
 
-Renders the real shell, V1 and V2 screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
+Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get a real app/core runtime — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**217** at
+this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
+`R4`, `R5` and `V4q`). `test/render/smoke.mjs` is in numbered sections:
+
+| Section | What it renders |
+|---|---|
+| 1 – 4, 2b, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 (`R1`..`R3`) and from SCR-06 (`R4`, `R5`) restoring SCR-03's run, variant and slice (the SCR-05 entry's `returnParams` are held by `V2R14`) |
+| 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
+| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
+| 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
 
 - **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
   `npm run test:render`, then a fixture-mode `expo export` (DR-021 rule 4); every other CI job runs without
-  `node_modules`. Still run it locally before pushing screen changes. V2/V3/V4 may use it for their own screens (add
-  checks next to the V1 ones).
+  `node_modules`. Still run it locally before pushing screen changes. Each vertical adds its checks in its own
+  section, next to the V1 ones.
+- **A run that does not finish fails, it does not hang.** A watchdog (`test/render/watchdog.mjs`, tested without
+  `node_modules` by `test/renderWatchdog.test.mjs`) ends the run after 8 minutes (it takes about one; set
+  `RENDER_SMOKE_TIMEOUT_MS` to change it) with `FAIL WATCHDOG ... the last check that ran was <id>` and exit code 1
+  (`#88 QA N-2`): a request that is never aborted or a leave guard that never settles shows up as a red run naming the
+  last check, not as a job that runs until the runner's own limit.
 - **Evidence of logic only, never device evidence.** No frame, gesture, decode time or network on a phone is
   measured by it; that evidence is logcat from the A17.
 

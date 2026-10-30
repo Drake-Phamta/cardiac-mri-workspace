@@ -18,7 +18,7 @@ for entry in (REPO_ROOT, REPO_ROOT / "contracts" / "api", Path(__file__).resolve
         sys.path.insert(0, str(entry))
 
 from fastapi.testclient import TestClient  # noqa: E402
-from validate_api_contract import validate_response  # noqa: E402
+from validate_api_contract import request_params, validate_response  # noqa: E402
 
 CONTRACT = json.loads((REPO_ROOT / "contracts" / "api" / "contract.json").read_text(encoding="utf-8"))
 
@@ -34,7 +34,8 @@ class Api:
              json_body: Any = None, headers: Optional[Dict[str, str]] = None):
         response = self.client.request(method, url, json=json_body, headers=headers)
         body = response.json()
-        problems = validate_response(CONTRACT, endpoint_id, response.status_code, body)
+        problems = validate_response(CONTRACT, endpoint_id, response.status_code, body,
+                                     request=request_params(CONTRACT, endpoint_id, url))
         assert not problems, (endpoint_id, url, response.status_code, problems)
         if expect is not None:
             assert response.status_code == expect, (url, response.status_code, body)

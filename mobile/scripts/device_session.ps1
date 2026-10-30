@@ -135,29 +135,6 @@ function Resolve-Session {
   }
 }
 
-function Test-OutsideGit {
-  # The output folder must not be inside the repository (or any git work tree): serial, addresses and screenshots.
-  param([string]$Path, [string]$Repo)
-  $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\') + '\'
-  $roots = New-Object System.Collections.ArrayList
-  [void]$roots.Add([System.IO.Path]::GetFullPath($Repo).TrimEnd('\') + '\')
-  $git = Get-Command git -ErrorAction SilentlyContinue
-  if ($git) {
-    $probe = $Path
-    while ($probe -and -not (Test-Path -LiteralPath $probe)) { $probe = Split-Path -Parent $probe }
-    if ($probe) {
-      $r = Invoke-Native -FilePath $git.Source -ArgumentList @('-C', $probe, 'rev-parse', '--show-toplevel') -TimeoutSec 20
-      if ($r.ExitCode -eq 0 -and $r.StdOut.Trim()) {
-        [void]$roots.Add(([System.IO.Path]::GetFullPath($r.StdOut.Trim()).TrimEnd('\') + '\'))
-      }
-    }
-  }
-  foreach ($root in $roots) {
-    if ($full.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
-  }
-  return $true
-}
-
 function New-State {
   return @{
     Version = 1
@@ -1256,7 +1233,7 @@ function Step-Tour {
     Write-Host '  (idempotent: it returns the existing review of this run, or creates it as NOT_REVIEWED). The script will' -ForegroundColor Yellow
     Write-Host '  NOT tap Accept / Flag / Save or draw anything; no review is committed.' -ForegroundColor Yellow
     $a = Read-Operator '  Open SCR-06 for the screenshot? [y/N] (Enter = No)' -Default 'n'
-    if ($a -match '^[nN]') { Add-TourEntry -Screen 'SCR-06 review' -Status 'skipped' -Note 'operator chose not to open it (review_create)' }
+    if ($a -notmatch '^[yY]') { Add-TourEntry -Screen 'SCR-06 review' -Status 'skipped' -Note 'operator chose not to open it (review_create)' }
     else {
       [void](Step-TourScreen -Screen 'SCR-06 review (read-only)' -Expected "in the case viewer scroll down and tap 'Review / correct (SCR-06)'; take no action in it" -Action {
         if (-not (Invoke-TapText -Text 'Review / correct (SCR-06)' -NoSubstring -Scroll -EnabledOnly -TimeoutSec 30)) { return $false }

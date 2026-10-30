@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createContract, createBundle, createClient, createFixtureTransport, getScenario, RECOVERY, STATE } from '../../core/index.mjs';
 import {
-  createReviewCorrection, checkTransition, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
+  createReviewCorrection, checkTransition, latestVersion, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
 } from './index.mjs';
 import { createBrushSession, SOURCE_KIND, SOURCE_KIND_FOR_VARIANT, MASK_STATE, TOOL } from './brush.mjs';
 
@@ -578,6 +578,27 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
   const emptyList = await fresh(corrected).model.open({ ...OPEN, scenarios: { reviewed_masks_list: 'empty' } });
   check('V4-16', emptyList.view.state === STATE.FATAL_INVALID && emptyList.view.error.code === 'CONTRACT_DRIFT',
     'a review that is CORRECTED but lists no version is CONTRACT_DRIFT');
+}
+
+// V4-17 (QA_PR99_D39 NB-7): which row is the latest version. The server builds each new version from it, so
+// a wrong pick would continue a review from an older correction.
+{
+  const row = (id, version, revision) => ({ reviewed_mask_id: id, revision, provenance: version === undefined ? null : { version } });
+  const idOf = (rows) => latestVersion(rows)?.reviewed_mask_id ?? null;
+  const results = [
+    ['the highest provenance.version wins whatever the order', idOf([row('b', 2, 1), row('c', 3, 1), row('a', 1, 9)]) === 'c'],
+    ['a tie on provenance.version goes to the later row', idOf([row('a', 2, 1), row('b', 2, 1)]) === 'b'],
+    ['... in either order', idOf([row('b', 2, 1), row('a', 2, 1)]) === 'a'],
+    ['without a version the highest revision wins', idOf([row('a', undefined, 3), row('b', undefined, 5), row('c', undefined, 4)]) === 'b'],
+    ['a tie on revision goes to the later row', idOf([row('a', undefined, 4), row('b', undefined, 4)]) === 'b'],
+    ['a version that is not an integer is no rank: the revision decides', idOf([
+      { ...row('a', 1, 2), provenance: { version: '9' } }, { ...row('b', 1, 5), provenance: { version: '9' } }, { ...row('c', 1, 3), provenance: { version: '9' } },
+    ]) === 'b'],
+    ['rows with neither: the last row', idOf([{ reviewed_mask_id: 'a' }, { reviewed_mask_id: 'b' }, { reviewed_mask_id: 'c' }]) === 'c'],
+    ['no rows, or not a list: nothing', latestVersion([]) === null && latestVersion(undefined) === null && latestVersion('x') === null],
+  ];
+  check('V4-17', results.every((r) => r[1]), `${results.length}/${results.length} cases: ` +
+    results.map((r) => `${r[0]}${r[1] ? '' : ' (WRONG)'}`).join('; '));
 }
 
 console.log(`${failures === 0 ? 'PASS' : 'FAIL'} V4 review/correction — ${count - failures}/${count}`);

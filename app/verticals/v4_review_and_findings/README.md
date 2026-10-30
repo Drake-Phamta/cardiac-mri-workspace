@@ -91,9 +91,12 @@ it from Day 23 (PR-MOBILE-03). Every file is framework-neutral: no React / React
 `CORRECTED` has no way out. These, and `review_rules`, equal `contract.json` (test `V4-0`).
 
 - A review is **scoped** to one run, one source mask and one prediction variant (DR-009):
-  `open({ caseId, runId, sourceMaskId, predictionVariant })`. `open` reads `case_get` first, because every
+  `open({ caseId, runId, sourceMaskId, predictionVariant, signal })`. `open` reads `case_get` first, because every
   working-mask PUT must echo the **case's** `geometry_contract_version` and `geometry_validation_status`
-  (`GEOMETRY_NOT_VALIDATED` on the real data) — never an assumed `VALIDATED`.
+  (`GEOMETRY_NOT_VALIDATED` on the real data) — never an assumed `VALIDATED`. The sequence is `case_get` →
+  `review_create` → `reviewed_masks_list`; the optional `signal` (the screen's `AbortSignal`) goes to the two reads, not
+  to the `review_create` write (a POST that was sent is finished, and it is idempotent). `refresh()` takes the same
+  options.
 - **Only a commit enters `CORRECTED`** (contract 1.1.0 `review_rules.corrected_only_via`): it leaves the review
   `CORRECTED` atomically with a new reviewed mask, and on a review already `CORRECTED` it adds a version without a
   transition. A PATCH to `CORRECTED` is refused before sending (`CORRECTED_BY_COMMIT_ONLY`) — the server would answer
@@ -208,7 +211,7 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 | `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list (read with `useCall`) with evidence (variant included), Open evidence (SCR-03 / SCR-07, with the recorded variant), Review / correct (SCR-06), Resolve / Reopen (`finding_patch`), create only from a case/slice context - SCR-06 passes its variant, a bare run makes the form ask; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
 
 Both screens are also rendered, with the real navigator, hooks and a stateful fake backend, in the render smoke
-(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4n`). That is **logic evidence, not device evidence**.
+(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4q`). That is **logic evidence, not device evidence**.
 
 Demo path (hero steps H8 / H9): **Findings** tab → a finding → **Review / correct** (SCR-06 opens on the variant the
 finding recorded; a finding without one makes it ask RAW or PROCESSED) → brush → **Flag** → **Save** (names the source
@@ -221,7 +224,11 @@ Rules of the screens:
 - **Reads go through `useCall`, writes through the model** (DR-021 rule 2): the run, each slice's prediction / MRI /
   reviewed-slice metadata and the findings list are `useCall` reads (latest wins, aborted on unmount and when no longer
   wanted); `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `finding_create` and `finding_patch`
-  are explicit actions with `expected_revision`.
+  are explicit actions with `expected_revision`. **One exception, on purpose:** the review's own open sequence
+  (`case_get` → `review_create` → `reviewed_masks_list`, run by the model's `open()` and again by `refresh()`) is not a
+  `useCall` read, because it ends in a POST and each step needs the answer of the one before. Its two reads take the
+  screen's `AbortSignal`, so an unmounted screen stops them (test `RS23`); the POST and the other writes are not
+  aborted. `reviewController.mjs` therefore reads nothing itself except through that sequence.
 - **Bytes only through `runtime.content`** (DR-021 rule 1): the checksum is mandatory - a response without one is
   `CONTRACT_DRIFT`, never an unverified success. Masks are decoded by `src/imaging/maskPng.js`; the MRI under them is
   drawn from `runtime.imageStore` (the same verified path).
@@ -237,12 +244,20 @@ Rules of the screens:
   states — if the stroke feedback misses 100 ms on the A17, start there (track dirty rows instead).
 - **Live pixels on the backend:** SCR-06 decodes real masks (`runtime.content` + `src/imaging/maskPng.js`) and draws
   the MRI slice from verified bytes. It is proven against a fake backend in the render smoke and against the contract
-  by the API-level hero flow, **not on the phone or on the deployed backend**: run it there. Also ask whether a slice's
-  `prediction_mask_id` is the run's `raw/processed_prediction_artifact_id`; the screen shows both and checks neither.
+  by the API-level hero flow, **not on the phone or on the deployed backend**: run it there. In live mode a slice's
+  `prediction_mask_id` must be the run's `raw/processed_prediction_artifact_id` for the variant (E2E H8 asserts it on
+  the real backend); another id is refused as `SOURCE_MASK_MISMATCH` before any byte is fetched, because Save names the
+  run's artifact as `source_mask_id` while the brush edits the pixels of the slice (test `RS20`, render check `V4o`).
+  The check is live-only: the generated fixture's placeholder ids differ and fixture mode has no slice reads. A live run
+  that does not belong to the case the route named is `CONTRACT_DRIFT` too (`RS19`).
 - **Continuing a CORRECTED review** (N-4) reads one extra slice per slice opened (`reviewed_mask_slice_get` of the
   latest version): measure that against TC-PERF-003 and the slice-switch budget, and decide what the screen should do
-  when another reviewer commits while edits are open (today: Refresh refuses to rebase unsaved edits and asks you to
-  cancel them first).
+  when another reviewer commits while edits are open. Today (held by tests `RS21`, `RS22` and render check `V4p`):
+  Refresh over a newer latest version rebuilds the session on it when nothing is unsaved; with unsaved edits it
+  refuses (`BASE_VERSION_MISMATCH`), keeps the edits, and a save over the older base is refused locally. **Open
+  design gap:** once the review has reloaded, the stale banner (and its Refresh button) is gone, so after Cancel the
+  only way to continue from the newer version is to leave and reopen the review (the refusal text says "Refresh
+  again").
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
   `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
 - **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
