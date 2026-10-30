@@ -21,6 +21,7 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 
 import { MOBILE } from './hooks.mjs';
+import { startWatchdog, timeoutFromEnv } from './watchdog.mjs';
 
 globalThis.__DEV__ = false;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -50,7 +51,17 @@ async function press(r, label) {
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
 let failures = 0;
 let count = 0;
-const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
+// QA_PR88_D39 N-2: a regression that never settles (a request not aborted, a guard never released) must read as a red
+// check, not as a hang. The whole run has 8 minutes (it takes about one); RENDER_SMOKE_TIMEOUT_MS overrides it.
+const watchdog = startWatchdog({
+  ms: timeoutFromEnv(process.env, 8 * 60 * 1000),
+  onTimeout: ({ ms, last }) => {
+    origLog(`  FAIL WATCHDOG the render smoke did not finish within ${Math.round(ms / 1000)} s (a request that is never aborted, a guard that is never released or a promise that never settles); the last check that ran was ${last}`);
+    origLog(`RENDER SMOKE FAIL - did not finish (${count} checks ran)`);
+    process.exit(1);
+  },
+});
+const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; watchdog.note(id); origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
 
 const imp = (p) => import(new URL(p, `file:///${MOBILE.replace(/\\/g, '/')}/`).href);
 const { resolveConfig } = await imp('src/config.mjs');
@@ -902,6 +913,25 @@ function noRunBackend() {
     `back on SCR-03: run RUN_B again, not asked for (${runLine()})`);
   check('R3', has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
     `variant PROCESSED and slice z 54 restored: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+
+  // #88 QA N-1: SCR-03's other entries carry the same returnParams. SCR-05's is held by V2R14 (the recorded push);
+  // here the real navigator opens SCR-06 and Back must reopen what was on screen when it was pressed. The slice is
+  // moved first: SCR-03's entry still holds the returnParams the SCR-04 trip above left in it (z 54), so a push that
+  // forgot its own returnParams would bring back the OLD slice and only a moved slice can tell.
+  await press(r, '+10');
+  await tick(350);
+  check('R4', has(r, /slice 65 \/ 88 {2}\(z = 64\)/), `SCR-03 moved on to z 64 before the SCR-06 entry is pressed: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+  forgetSession();
+  await press(r, 'Review / correct (SCR-06)');
+  await tick(300);
+  check('R4', has(r, /SCR-06 · V4/), 'SCR-03 -> SCR-06 through the real navigator, from RUN_B / PROCESSED / z 64');
+  await press(r, '‹ Back');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('R5', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+    && has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 65 \/ 88 {2}\(z = 64\)/),
+  `back on SCR-03 from SCR-06: run RUN_B, variant PROCESSED, slice z 64, not the earlier z 54 (${runLine()} / ${texts(r).find((t) => t.startsWith('slice ')) || '-'})`);
   await act(async () => { r.unmount(); });
 }
 
@@ -1163,6 +1193,24 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { handled = BackHandler.__press(); });
   await tick(60);
   check('V4d', handled === true && alertNow('Unsaved edits'), 'the Android back button asks too');
+  await answerAlert('Unsaved edits', 'Stay');
+
+  // #88 QA N-3: a guard must settle on EVERY path. Dismissing the prompt without pressing a button (Android: a tap
+  // outside it) is an answer too - onDismiss says "stay". A guard that never settled would keep the shell's
+  // one-prompt latch closed and refuse every later Back, tab and push on this screen.
+  globalThis.__alerts = [];
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  const dismissable = alertNow('Unsaved edits');
+  check('V4q', dismissable && dismissable[3] && dismissable[3].cancelable === true && typeof dismissable[3].onDismiss === 'function',
+    'the leave prompt can be dismissed without a button, and says what dismissing means (onDismiss)');
+  await act(async () => { dismissable[3].onDismiss(); });
+  await tick(60);
+  globalThis.__alerts = [];
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  check('V4q', Boolean(alertNow('Unsaved edits')) && has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
+    'after a dismissed prompt the next Back asks again (the latch was released) and nothing moved or was lost');
   await answerAlert('Unsaved edits', 'Stay');
 
   // --- undo / redo, then exactly one pixel at radius 0 ---
@@ -1686,5 +1734,6 @@ console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
 check('E1', appErrors.length === 0, `console.error from app code: ${appErrors.length}${appErrors.length ? ` - ${appErrors[0].slice(0, 300)}` : ''}`);
+watchdog.stop();
 origLog(failures === 0 ? `RENDER SMOKE PASS - ${count} checks (logic only, not device evidence)` : `RENDER SMOKE FAIL - ${failures} of ${count}`);
 process.exit(failures === 0 ? 0 : 1);
