@@ -83,6 +83,12 @@ def trend(runs) -> str:
                      f'<text x="{left - 8}" y="{sy(t) + 4:.1f}" text-anchor="end">{f3(t)[:4]}</text>')
     # one line + CI band per model family (DINOv2 always; UNet once its runs are in the aggregate)
     families = [("EXP-D-", "s1", "band"), ("EXP-U-", "s3", "band3")]
+    # Value labels: with one family each label sits 20 px below its point. When both families have a point at the
+    # same number of train cases, the higher mean's label goes ABOVE its point and the lower one's stays below, so two
+    # close means never print their numbers on top of each other (QA_PR100_103_D39 #101 NB-5). A tie: UNet goes above.
+    means_at = {}
+    for r in raw:
+        means_at.setdefault(r["training_fraction"], {})[r["experiment_id"][:6]] = r["dice_mean"]
     for prefix, cls, band in families:
         fam = sorted((r for r in raw if r["experiment_id"].startswith(prefix)), key=lambda r: r["training_fraction"])
         if not fam:
@@ -96,9 +102,12 @@ def trend(runs) -> str:
             n = xs[r["training_fraction"]]
             # the 78-case label sits left of its point, so it never meets the PP-4 whisker on its right
             lx, anchor = (sx(n) - 10, "end") if n == 78 else (sx(n) + 8, "start")
+            others = [m for p, m in means_at[r["training_fraction"]].items() if p != prefix]
+            above = any(r["dice_mean"] > m or (r["dice_mean"] == m and prefix == "EXP-U-") for m in others)
+            ly = sy(r["dice_mean"]) + (-12 if above else 20)
             parts.append(f'<g><title>{html.escape(LABEL[r["experiment_id"]])}: {n} case train, Dice {f3(r["dice_mean"])}</title>'
                          f'<circle class="{cls}" cx="{sx(n):.1f}" cy="{sy(r["dice_mean"]):.1f}" r="6" stroke="var(--bg)" stroke-width="2"/>'
-                         f'<text class="lbl" x="{lx:.1f}" y="{sy(r["dice_mean"]) + 20:.1f}" text-anchor="{anchor}">{f3(r["dice_mean"])}</text>'
+                         f'<text class="lbl" x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}">{f3(r["dice_mean"])}</text>'
                          f'<text x="{sx(n):.1f}" y="{h - 14}" text-anchor="middle">{n}</text></g>')
     a, b = pp["dice_ci95"]
     x = sx(78) + 26
