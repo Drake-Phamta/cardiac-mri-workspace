@@ -88,9 +88,45 @@ for additive changes to the interface; this is a use of what is already there).
   in its error list (adding one would be a version bump), so the answer is `ARTIFACT_NOT_FOUND` with
   `details.reason` = `GROUND_TRUTH_UNAVAILABLE` and nothing else; `error_reconstruction_get` answers the contract's own
   `GROUND_TRUTH_UNAVAILABLE`. Its prediction meshes are served.
-- `error_reconstruction_get` stays the honest `ARTIFACT_NOT_FOUND` (reason names DR-005, which is open).
+- `error_reconstruction_get` answered the honest `ARTIFACT_NOT_FOUND` while DR-005 was open; since 2026-10-30 it serves
+  the error mesh, see "3-D error mesh" below.
 - A run lists the meshes derived from its masks in `analysis_run_get.reconstruction_ids` (so SCR-03 enables 3D), and
-  `study_get.capabilities.reconstruction_3d` is true once any run has one.
+  `study_get.capabilities.reconstruction_3d` is true once any run has one. Error meshes are not listed there.
+
+### 3-D error mesh (`error_reconstruction_get`, DR-005 decided 2026-10-30; no wire change, no version bump)
+
+`error_reconstruction_get` answers exactly the fields `contract.json` lists - `error_mesh_artifact_id`,
+`reference_mask_id`, `prediction_mask_id`, `prediction_variant` and the geometry block - so nothing is added to a field,
+shape, enum, literal or error list, and there is no version bump. What the contract text leaves open is fixed by
+convention, the way "3-D mesh content" above does it for the surface mesh:
+
+- **Mesh bytes ride the same content-addressed route.** `error_mesh_artifact_id` is `ERRMESH_<64 hex>`, the sha256 of
+  the artifact bytes; `GET /api/v1/artifacts/<sha256>.cmesh` answers them (`application/octet-stream`,
+  `ETag: "sha256:<hex>"`, immutable). The client derives the URL and the checksum from the id alone and treats bytes
+  that do not hash to it as `CONTRACT_DRIFT` (DR-021 rule 1). One route, two artifacts: `MESH_` (surface) and `ERRMESH_`
+  (error) ids, and the header `format` (`cardiac-mesh/1` / `cardiac-errormesh/1`), tell them apart; a client that is
+  handed the wrong kind refuses it.
+- **Format `cardiac-errormesh/1`** (`backend/mesh/error_artifact.py`): the L0 voxel-face surfaces of
+  `FP = prediction AND NOT ground truth` and `FN = ground truth AND NOT prediction` in one file, in the voxel-index frame
+  of the surface mesh (`x=column,y=row,z=slice`, identity transform, no length served). Every face carries
+  `face_source_slice` - the `z` of the class voxel it belongs to, the rule of the surface mesh, built by the same code -
+  and `face_class` (1 = FP, 2 = FN). A pick resolves to the source slice and the class of the **first triangle hit**; a miss
+  navigates nowhere. A class with no voxel is an empty block: "no false positives" is a fact, not a missing layer.
+- **`reference_mask_id` / `prediction_mask_id`** are the ids the server states elsewhere for the same masks
+  (`ground_truth_slice_get`, `analysis_run_get`, `prediction_slice_get`). A client draws the error mesh only when they are
+  the masks it shows, and says so when they are not. The class voxel counts in the artifact header equal the
+  `false_positives` / `false_negatives` of `analysis_run_metrics` for the same run and variant.
+- **Errors, all from the contract's own list.** `GROUND_TRUTH_UNAVAILABLE` for an INFERENCE_REVIEW case (INT-12), before
+  anything is read - `error_reconstruction_get` has the code, so unlike `reconstruction_get` it needs no `details.reason`
+  workaround; `ARTIFACT_NOT_FOUND` when the variant has no prediction or the derived mesh was not built (`details.reason`
+  says which); `RUN_NOT_SUCCEEDED` / `ANALYSIS_FAILED`; `GEOMETRY_MISMATCH` when the mesh was built for another volume
+  shape. No error mesh is built for an INFERENCE_REVIEW case, and the store loads no mesh derived from a ground truth the
+  backend does not serve.
+- **Placement (QA #98 N-8, unchanged).** The id format, the route and this format live in this README, not in
+  `contract.json`; `binary_delivery.applies_to` and `content_url_rule` still describe slices only, and
+  `hero_flow.picking` still says an error-region -> slice map "waits on DR-005": that map is the per-face source slice
+  and class inside the artifact, so the sentence is stale until the next freeze. At the freeze, put the convention in
+  `contract.json` and bump.
 
 ### Deviations from the frozen specs, and where they are translated
 

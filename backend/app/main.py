@@ -63,7 +63,13 @@ class Backend:
         self.cases = CaseStore(settings.data_cache)
         self.experiments = ExperimentStore(settings.experiments_root, self.cases, settings.render_cache)
         self.metrics = MetricsService(self.experiments, self.cases)
-        self.meshes = MeshStore(settings.derived_meshes)
+        # INT-12 (QA #98 N-9): a mesh derived from a ground truth is loaded only for the ground truths this backend
+        # serves - those of its EVALUATION cases. The inference-only case has none, so none of its is ever loaded.
+        served_ground_truths = {
+            case.data["mask_sha256"] for case in self.cases.cases.values()
+            if case.ground_truth_available and case.data.get("mask_sha256") and case.case_id not in self.cases.inference_only_ids
+        }
+        self.meshes = MeshStore(settings.derived_meshes, ground_truth_masks=served_ground_truths)
         for run in self.experiments.runs.values():
             case = self.cases.get(run.case_id)
             run.derived_reconstruction_ids = self.meshes.run_mesh_ids(run, case.shape if case else None) if case else []
@@ -167,8 +173,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if not match:
             return {}
         digest = match.group(1)
-        if match.group(2) == "cmesh":  # a derived L0 mesh: content-addressed, owned by one mask
-            return {"digest": digest, "kind": "mesh"}
+        if match.group(2) == "cmesh":  # a derived L0 mesh: content-addressed, owned by one mask (or one mask pair)
+            return {"digest": digest, "kind": backend.meshes.kind_of(digest) or "mesh"}
         owners = [(kind, case_id, z, None) for case_id, kind, z in cases.digest_owners.get(digest, [])]
         for artifact_id, z in list(experiments.render_owners.get(digest, [])):
             owners.append(("prediction", (experiments.artifact(artifact_id) or {}).get("case_id"), z, artifact_id))
@@ -665,13 +671,31 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     @app.get(f"{base}/analysis-runs/{{run_id}}/error-reconstruction")
     @endpoint("error_reconstruction_get")
     def error_reconstruction_get(run_id: str, prediction_variant: Optional[str] = Query(None)) -> Any:
+        """The 3-D error mesh of one prediction variant against the case's ground truth (DR-005): the FP and FN
+        voxel-face surfaces in one artifact, every face with its source slice and class. Built by
+        backend.mesh.build_cache for EVALUATION cases only; in the voxel-index frame like the surface meshes. Its bytes
+        are served at /artifacts/<sha256>.cmesh, the sha256 being the one inside ``error_mesh_artifact_id``
+        (``ERRMESH_<sha256>``)."""
         run = get_run(run_id)
         case = run_case(run)
         variant = variant_or_not_found(prediction_variant)
-        require_ground_truth(case)
+        require_ground_truth(case)  # INT-12: GROUND_TRUTH_UNAVAILABLE before anything else is read
         require_succeeded(run, "ANALYSIS_FAILED")
-        experiments.mask_artifact(run, variant)
-        raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "no 3-D error reconstruction artifact (DR-005 open)"})
+        mask_id, mask = experiments.mask_artifact(run, variant)
+        entry = backend.meshes.for_error(case.data.get("mask_sha256"), mask["checksum"]["value"])
+        if entry is None:
+            raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "no 3-D error mesh of this prediction (derived error mesh "
+                                                            "not built)"})
+        if entry.shape != case.shape:
+            raise ApiError("GEOMETRY_MISMATCH", {"reason": "the derived error mesh was built for another volume shape"})
+        payload = {
+            "error_mesh_artifact_id": entry.artifact_id,
+            "reference_mask_id": case.reference_mask_id,
+            "prediction_mask_id": mask_id,
+            "prediction_variant": variant,
+        }
+        payload.update(case.geometry())
+        return ok(payload)
 
     # -- reviews ---------------------------------------------------------------
     def review_payload(row: Any) -> Dict[str, Any]:

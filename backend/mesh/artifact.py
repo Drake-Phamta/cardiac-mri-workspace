@@ -39,7 +39,7 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -97,8 +97,11 @@ def build_mesh_artifact(volume_zyx: np.ndarray) -> Tuple[bytes, Dict[str, Any]]:
     }
 
 
-def encode_mesh(mesh: CaseMesh) -> bytes:
-    """Encode a level-0 mesh built in the voxel-index frame (spacing 1, origin 0)."""
+def lattice_arrays(mesh: CaseMesh) -> Tuple[List[int], np.ndarray, np.ndarray]:
+    """``(shape, vertices, face_source_slice)`` of a level-0 mesh built in the voxel-index frame, after the checks
+    every served mesh passes: undecimated, spacing 1 / origin 0, integer lattice corners inside ``[0, shape]``, a
+    source slice inside the volume. Shared by the surface artifact and the error artifact (``error_artifact.py``),
+    so both put exactly the same face rule on the wire."""
     if mesh.level != 0 or mesh.cluster_cell != 1:
         raise MeshArtifactError("LEVEL_NOT_SERVED", "only the undecimated level 0 is served (DR-008c)")
     if tuple(mesh.spacing) != (1.0, 1.0, 1.0) or tuple(mesh.origin) != (0.0, 0.0, 0.0):
@@ -115,6 +118,12 @@ def encode_mesh(mesh: CaseMesh) -> bytes:
     slices = mesh.face_source_slice
     if slices.size and (slices.min() < 0 or slices.max() >= shape[2]):
         raise MeshArtifactError("SLICE_OUT_OF_RANGE", "a face's source slice is outside the volume")
+    return shape, vertices, slices
+
+
+def encode_mesh(mesh: CaseMesh) -> bytes:
+    """Encode a level-0 mesh built in the voxel-index frame (spacing 1, origin 0)."""
+    shape, vertices, slices = lattice_arrays(mesh)
     index_bytes = 2 if mesh.vertex_count < 65536 else 4
     header = {
         "format": FORMAT, "kind": "voxel_face_surface", "builder": BUILDER, "level": 0,

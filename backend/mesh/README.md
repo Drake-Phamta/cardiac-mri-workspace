@@ -17,7 +17,11 @@ skeleton).
   (`geometry.py`);
 - a **DR-005 candidate 3** error geometry: the prediction's surface plus
   FP/FN connected-component markers with exact slice ranges
-  (`error_geometry.py`).
+  (`error_geometry.py`; a skeleton, not wired to the API);
+- the served **error mesh** (DR-005, decided 2026-10-30): the FP and FN
+  voxel-face surfaces of a prediction against the ground truth, every face with
+  its source slice and its class (`error_artifact.py`, see "The served error
+  artifact" below).
 
 It is a namespace package: there is deliberately no `backend/__init__.py`.
 Import it as `backend.mesh` with the repository root on `sys.path`.
@@ -115,12 +119,35 @@ uint32, `face_source_slice` uint16; about 0.4 MB for a 60k-triangle atrium, 1.4-
 predictions) in the **voxel-index frame**: vertex `(x, y, z)` = (column, row, slice) lattice corner, which is what
 `index_convention` `x=column,y=row,z=slice` says and what `test_mesh_artifact.py` pins with an asymmetric single
 voxel. `build_cache.py` (`python -m backend.mesh.build_cache --data <root>`) writes one artifact per served mask into
-`<root>/derived_meshes/`, keyed by the source mask's sha256, write-once. The API conventions (mesh id, content route,
-INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content". A golden artifact built from a synthetic mask
-(`tests/golden/l_shape_cmesh.json`) is read by the mobile tests too, so the Python encoder and the JavaScript decoder
-agree byte for byte. QA-074 N-5 gaps (a), (b) and (c) are closed by convention, not by a contract field: (a) the format
+`<root>/derived_meshes/`, keyed by the source mask's sha256, write-once; the same step writes the error meshes (below),
+keyed by both masks' sha256 and the format version (`--no-error-meshes` skips them, `--no-ground-truth` reads no ground
+truth at all). The API conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh
+content" and "3-D error mesh". Golden artifacts built from synthetic masks (`tests/golden/l_shape_cmesh.json`,
+`tests/golden/known_errors_errormesh.json`) are read by the mobile tests too, so the Python encoder and the JavaScript
+decoder agree byte for byte. QA-074 N-5 gaps (a), (b) and (c) are closed by convention, not by a contract field: (a) the format
 and media type are the ones above, (b) the pick rule is `face_source_slice[t]`, carried in the file, (c) the frame is
 the voxel-index frame with the identity transform.
+
+## The served error artifact (DR-005, decided 2026-10-30)
+
+`error_artifact.py` builds `cardiac-errormesh/1` for one prediction (RAW or PROCESSED) and the case's ground truth:
+
+| | |
+|---|---|
+| Classes | `FP` (code 1) = prediction AND NOT ground truth, `FN` (code 2) = ground truth AND NOT prediction. Agreement (TP) has no surface of its own: the prediction surface shows it where no error covers it |
+| Surface | the L0 voxel faces of each class's voxel set, built by the same `build_case_mesh` as every other mesh: a face lies between a voxel of the class and anything else, its normal points out of the class, and its **source slice is the `z` of the class voxel** - the rule of the surface artifact, not a new one |
+| Frame | the voxel-index frame of `cardiac-mesh/1` (`x=column,y=row,z=slice`, voxel `k` = `[k, k+1)`), vertices uint16, identity transform, no millimetres while the geometry is not validated |
+| Layout | the `cardiac-mesh/1` container (`CARDMESH`, JSON header, vertices, triangles, `face_source_slice`) plus a fifth section `face_class` (uint8 per triangle). Blocks are contiguous: the FP vertices then the FN vertices, the FP triangles then the FN triangles; a triangle indexes only its own block. The header's `classes` table gives each class's `code`, `rule`, `voxels`, `vertex_range` and `triangle_range` |
+| Zero errors | a class with no voxel is an empty range (and `0` voxels): "no false positives" is a fact, not a missing layer. A prediction equal to the ground truth is a valid artifact with no face |
+| Identity | the header names both source masks (`reference_mask_sha256`, `prediction_mask_sha256`), so the bytes are a pure function of the two masks; the artifact is content-addressed (sha256 of the bytes) and written once as `<reference_sha256>.<prediction_sha256>.err1.cmesh` + `.err1.json` by `build_cache` |
+| Pick | the first triangle a ray hits names `face_source_slice[t]` and `face_class[t]`; a miss navigates nowhere (`artifact.pick_triangle` is the reference ray cast) |
+| Cross-check | the class voxel counts equal the server's own `analysis_run_metrics` `false_positives` / `false_negatives` of the same run and variant (`tools/e2e/hero_flow_api.py` H6 checks it on the served data), and `agreement_voxels` gives the same Dice |
+
+`error_geometry.py` (connected components with markers, candidate 3) is not part of the served path: the demo needs
+"tap an error region, land on its contributing slice", which the per-face slice and class already give, and a stored
+component id is not needed for it. The size on the real holdout data is a distribution, not a constant: it is printed
+by the build step (`built_bytes_min_median_max`, `built_triangles_min_median_max` under `error_meshes`) and recorded in
+the run report, not here.
 
 ## Levels and DR-008c (decided 2026-10-01: L0)
 
@@ -222,7 +249,8 @@ synthetic; no patient data is read or written.
 
 ## Dependencies
 
-Runtime: `numpy` only (the backend pins 1.26.4 on Python 3.9; 2.2 on Python 3.12 also passes). `scipy` is needed
+Runtime: `numpy` only (the backend pins 1.26.4 on Python 3.9; 2.2 on Python 3.12 also passes), the served error mesh
+included (`error_artifact.py` needs no scipy). `scipy` is needed
 only by `build_error_geometry` (`scipy.ndimage` for the error components) and is imported lazily
 (QA-074 N-4): `import backend.mesh`, meshing and picking work without it, and `build_error_geometry`
 raises a clear `ImportError` where it is absent. scipy is not in `backend/requirements.txt`; 1.13.1 is the last

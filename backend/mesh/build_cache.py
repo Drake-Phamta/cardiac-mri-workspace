@@ -1,6 +1,7 @@
-"""Derived-mesh step: build the L0 mesh of every served mask into ``<data>/derived_meshes/`` (V2-01, SCR-05).
+"""Derived-mesh step: build the L0 meshes of every served mask into ``<data>/derived_meshes/`` (V2-01, SCR-05).
 
     python -m backend.mesh.build_cache --data <CARDIAC_BACKEND_DATA> [--runs RUN_ID ...] [--no-ground-truth]
+                                       [--no-error-meshes]
 
 For each served run (a Contract 2 package under ``<data>/experiments``) the RAW and PROCESSED prediction masks,
 and for each EVALUATION case its ground truth, it writes the undecimated voxel-face surface plus the source slice
@@ -14,12 +15,23 @@ ground truth the mask checksum recorded by the ingest). Files are write-once lik
 NO_OP, and a file that exists with other bytes is a CHECKSUM_CONFLICT, never overwritten. The sidecar is written
 last, so a mesh without a sidecar is an interrupted build and is rebuilt.
 
+For each RAW and PROCESSED prediction of an EVALUATION case it also writes the ERROR mesh against the case's ground
+truth (DR-005; ``error_artifact.py``, format ``cardiac-errormesh/1``: the FP and FN voxel-face surfaces, every face with
+its source slice and its class) as
+
+    <data>/derived_meshes/<reference_sha256>.<prediction_sha256>.err1.cmesh    the error mesh bytes
+    <data>/derived_meshes/<reference_sha256>.<prediction_sha256>.err1.json     sidecar: counts, shape, sha256
+
+keyed by BOTH masks' sha256 and the format version (``err1``), write-once in the same way. Never built for an
+INFERENCE_REVIEW case (INT-12: CASE_0001 has no ground truth in the cache and is in ``inference_only_ids``).
+
 Contract 2 and API Contract 11 are unchanged: this step only adds derived, patient-derived files outside git.
 CASE_0001 (INT-12) has no ground truth in the cache, so none is built for it; its predictions are meshed.
 
 Ground truth is rebuilt from the data cache's ground-truth slice PNGs, each checked against the checksum the cache
 recorded for it; a prediction is read from its NRRD, checked against its manifest checksum. Memory: one 640x640x88
-volume at a time (about 36 MB) plus the four most recent predictions the experiment store keeps.
+volume at a time (about 36 MB) plus the four most recent predictions the experiment store keeps, and for the error
+meshes the ground truth of one case.
 """
 
 from __future__ import annotations
@@ -36,11 +48,15 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from . import artifact
+from . import artifact, error_artifact
 
 DERIVED_DIR = "derived_meshes"
 MESH_SUFFIX = ".l0.cmesh"
 SIDECAR_SUFFIX = ".l0.json"
+# The error mesh of one (ground truth, prediction) pair: both digests and the format version in the name.
+ERROR_SUFFIX = ".err1.cmesh"
+ERROR_SIDECAR_SUFFIX = ".err1.json"
+ERROR_SOURCE = "error_mesh"
 DATA_ENV = "CARDIAC_BACKEND_DATA"
 
 
@@ -58,10 +74,42 @@ def sidecar_path(root: Path, mask_sha256: str) -> Path:
     return Path(root) / f"{mask_sha256}{SIDECAR_SUFFIX}"
 
 
+def error_mesh_path(root: Path, reference_sha256: str, prediction_sha256: str) -> Path:
+    return Path(root) / f"{reference_sha256}.{prediction_sha256}{ERROR_SUFFIX}"
+
+
+def error_sidecar_path(root: Path, reference_sha256: str, prediction_sha256: str) -> Path:
+    return Path(root) / f"{reference_sha256}.{prediction_sha256}{ERROR_SIDECAR_SUFFIX}"
+
+
 def _write_atomic(path: Path, payload: bytes) -> None:
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_bytes(payload)
     temporary.replace(path)
+
+
+def _verified_record(side: Path, body: Path) -> Optional[Dict[str, Any]]:
+    """The sidecar of a finished build, after checking that the mesh next to it still has the recorded bytes; None
+    when there is no sidecar (nothing built, or an interrupted build). A mismatch is a CHECKSUM_CONFLICT."""
+    if not side.is_file():
+        return None
+    record = json.loads(side.read_text(encoding="utf-8"))
+    if record.get("empty"):
+        return record
+    if not body.is_file() or hashlib.sha256(body.read_bytes()).hexdigest() != record.get("mesh_sha256"):
+        raise BuildError("CHECKSUM_CONFLICT", f"{body.name} no longer matches its sidecar; derived meshes are "
+                                              f"never overwritten - move the pair aside to rebuild it")
+    return record
+
+
+def _write_pair(side: Path, body: Path, payload: bytes, record: Dict[str, Any]) -> None:
+    """Body first, sidecar last (a body without a sidecar is an interrupted build); never over other bytes."""
+    if body.exists() and body.read_bytes() != payload:
+        raise BuildError("CHECKSUM_CONFLICT", f"{body.name} exists with different bytes (interrupted build?); "
+                                              f"derived meshes are never overwritten - move it aside")
+    if not body.exists():
+        _write_atomic(body, payload)
+    _write_atomic(side, (json.dumps(record, sort_keys=True, indent=2) + "\n").encode("utf-8"))
 
 
 def store_volume(root: Path, mask_sha256: str, volume_zyx: Any, source: str) -> Dict[str, Any]:
@@ -73,14 +121,9 @@ def store_volume(root: Path, mask_sha256: str, volume_zyx: Any, source: str) -> 
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     side, body = sidecar_path(root, mask_sha256), mesh_path(root, mask_sha256)
-    if side.is_file():
-        record = json.loads(side.read_text(encoding="utf-8"))
-        if record.get("empty"):
-            return dict(record, action="NO_OP")
-        if not body.is_file() or hashlib.sha256(body.read_bytes()).hexdigest() != record.get("mesh_sha256"):
-            raise BuildError("CHECKSUM_CONFLICT", f"{body.name} no longer matches its sidecar; derived meshes are "
-                                                  f"never overwritten - move the pair aside to rebuild it")
-        return dict(record, action="NO_OP")
+    existing = _verified_record(side, body)
+    if existing is not None:
+        return dict(existing, action="NO_OP")
     from .geometry import GeometryError  # lazy: nothing above needs it
 
     volume = volume_zyx() if callable(volume_zyx) else volume_zyx
@@ -94,13 +137,29 @@ def store_volume(root: Path, mask_sha256: str, volume_zyx: Any, source: str) -> 
                   "source": source}
         _write_atomic(side, (json.dumps(record, sort_keys=True, indent=2) + "\n").encode("utf-8"))
         return dict(record, action="EMPTY")
-    if body.exists() and body.read_bytes() != payload:
-        raise BuildError("CHECKSUM_CONFLICT", f"{body.name} exists with different bytes (interrupted build?); "
-                                              f"derived meshes are never overwritten - move it aside")
-    if not body.exists():
-        _write_atomic(body, payload)
     record = dict(info, mask_sha256=mask_sha256, source=source)
-    _write_atomic(side, (json.dumps(record, sort_keys=True, indent=2) + "\n").encode("utf-8"))
+    _write_pair(side, body, payload, record)
+    return dict(record, action="NEW")
+
+
+def store_error_volumes(root: Path, reference_sha256: str, prediction_sha256: str, reference_volume: Any,
+                        prediction_volume: Any) -> Dict[str, Any]:
+    """Build and store the error mesh of one (ground truth, prediction) pair, write-once. Returns the sidecar (plus
+    ``action``): NEW, or NO_OP when the pair was built before (neither volume is then read - both may be callables).
+    """
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    side = error_sidecar_path(root, reference_sha256, prediction_sha256)
+    body = error_mesh_path(root, reference_sha256, prediction_sha256)
+    existing = _verified_record(side, body)
+    if existing is not None:
+        return dict(existing, action="NO_OP")
+    reference = reference_volume() if callable(reference_volume) else reference_volume
+    prediction = prediction_volume() if callable(prediction_volume) else prediction_volume
+    payload, info = error_artifact.build_error_artifact(prediction, reference, prediction_sha256=prediction_sha256,
+                                                         reference_sha256=reference_sha256)
+    record = dict(info, source=ERROR_SOURCE)
+    _write_pair(side, body, payload, record)
     return dict(record, action="NEW")
 
 
@@ -121,7 +180,9 @@ def ground_truth_volume(case: Any) -> np.ndarray:
 
 
 def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool = True,
-              log=print) -> Dict[str, Any]:
+              log=print, error_meshes: bool = True) -> Dict[str, Any]:
+    """Build every derived mesh of the data root; ``ground_truth=False`` reads no ground truth at all (so no
+    ground-truth mesh and no error mesh), ``error_meshes=False`` skips only the error meshes."""
     from backend.app.cases import CaseStore
     from backend.app.config import inside_git_worktree
     from backend.app.experiments import ExperimentStore
@@ -140,7 +201,15 @@ def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool =
         missing = sorted(wanted - {run.run_id for run in selected})
         raise BuildError("RUN_NOT_FOUND", f"no such served run: {missing}")
     results: List[Dict[str, Any]] = []
+    error_results: List[Dict[str, Any]] = []
     seen = set()
+
+    def note(into: List[Dict[str, Any]], label: str, sidecar: Dict[str, Any], elapsed: float, extra: str = "") -> None:
+        into.append({"label": label, "action": sidecar["action"], "seconds": elapsed,
+                     "bytes": sidecar.get("bytes", 0), "triangles": sidecar.get("triangle_count", 0),
+                     "vertices": sidecar.get("vertex_count", 0)})
+        log(f"{sidecar['action']:5} {label:34} tri={sidecar.get('triangle_count', 0):>7} "
+            f"bytes={sidecar.get('bytes', 0):>8} {elapsed:6.2f}s{extra}", flush=True)
 
     def record(label: str, mask_sha: str, volume_fn, source: str) -> None:
         if mask_sha in seen:
@@ -148,12 +217,7 @@ def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool =
         seen.add(mask_sha)
         started = time.perf_counter()
         sidecar = store_volume(root, mask_sha, volume_fn, source)
-        elapsed = time.perf_counter() - started
-        results.append({"label": label, "action": sidecar["action"], "seconds": elapsed,
-                        "bytes": sidecar.get("bytes", 0), "triangles": sidecar.get("triangle_count", 0),
-                        "vertices": sidecar.get("vertex_count", 0)})
-        log(f"{sidecar['action']:5} {label:34} tri={sidecar.get('triangle_count', 0):>7} "
-            f"bytes={sidecar.get('bytes', 0):>8} {elapsed:6.2f}s", flush=True)
+        note(results, label, sidecar, time.perf_counter() - started)
 
     for run in selected:
         if run.status != "SUCCEEDED" or cases.get(run.case_id) is None:
@@ -174,7 +238,44 @@ def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool =
                 continue
             record(f"{case.case_id} GROUND_TRUTH", case.data["mask_sha256"],
                    lambda case=case: ground_truth_volume(case), "ground_truth_slices")
-    return summarise(results)
+    summary = summarise(results)
+    if ground_truth and error_meshes:
+        # One ground truth is held at a time, so the runs go case by case. A pair already seen (EXP-D-PP serves
+        # the RAW prediction of EXP-D-100 as its own RAW mask) is built once.
+        held: Dict[str, np.ndarray] = {}
+        pairs = set()
+
+        def ground_truth_of(case: Any) -> np.ndarray:
+            if case.case_id not in held:
+                held.clear()
+                held[case.case_id] = ground_truth_volume(case)
+            return held[case.case_id]
+
+        for run in sorted(selected, key=lambda item: (item.case_id, item.experiment_id)):
+            case = cases.get(run.case_id)
+            # INT-12 and every case without a ground truth: no error mesh can exist for them.
+            if (run.status != "SUCCEEDED" or case is None or case.case_id in cases.inference_only_ids
+                    or not case.ground_truth_available or not case.data.get("mask_sha256")):
+                continue
+            for variant in ("RAW", "PROCESSED"):
+                mask_id = run.mask_id(variant)
+                if mask_id is None:
+                    continue
+                reference_sha = case.data["mask_sha256"]
+                prediction_sha = run.package.artifacts[mask_id]["checksum"]["value"]
+                if (reference_sha, prediction_sha) in pairs:
+                    continue
+                pairs.add((reference_sha, prediction_sha))
+                started = time.perf_counter()
+                sidecar = store_error_volumes(
+                    root, reference_sha, prediction_sha, lambda case=case: ground_truth_of(case),
+                    lambda run=run, variant=variant: experiments.prediction_volume(run, variant)[2])
+                note(error_results, f"{run.run_id} {variant} ERROR", sidecar, time.perf_counter() - started,
+                     f" fp={sidecar.get('fp_voxels', 0)} fn={sidecar.get('fn_voxels', 0)}")
+        errors = summarise(error_results)
+        errors["pairs"] = errors.pop("masks")
+        summary["error_meshes"] = errors
+    return summary
 
 
 def summarise(results: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -200,10 +301,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--data", type=Path, default=Path(os.environ[DATA_ENV]) if os.environ.get(DATA_ENV) else None,
                         required=DATA_ENV not in os.environ, help=f"the backend data root (or set {DATA_ENV})")
     parser.add_argument("--runs", nargs="*", help="only these run ids (and, for ground truth, their cases)")
-    parser.add_argument("--no-ground-truth", action="store_true", help="skip the ground-truth meshes")
+    parser.add_argument("--no-ground-truth", action="store_true",
+                        help="read no ground truth: skip the ground-truth meshes and the error meshes derived from it")
+    parser.add_argument("--no-error-meshes", action="store_true", help="skip the FP / FN error meshes only")
     args = parser.parse_args(argv)
     try:
-        summary = build_all(args.data, args.runs, ground_truth=not args.no_ground_truth)
+        summary = build_all(args.data, args.runs, ground_truth=not args.no_ground_truth,
+                            error_meshes=not args.no_error_meshes)
     except BuildError as exc:
         print(f"FAIL [{exc.code}] {exc}", file=sys.stderr)
         return 2
