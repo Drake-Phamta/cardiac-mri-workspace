@@ -157,6 +157,17 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     runner.run(() => model.open({ caseId, runId, sliceIndex: start }));
   }, [runner, model, net, client, caseId, runId, start]);
 
+  // QA #98 N-6: when Back leaves this screen for the 3D inspector, that screen reopens its slice plane on the slice
+  // shown HERE, not on the slice it opened this screen at. Asked at the moment of the pop; only the 3D screen is told.
+  useEffect(() => {
+    if (typeof nav.setReturnParams !== 'function') return undefined;
+    nav.setReturnParams(({ screenId }) => {
+      const onScreen = displayedRef.current;
+      return screenId === 'SCR-05' && onScreen && Number.isInteger(onScreen.sliceIndex) ? { sliceIndex: onScreen.sliceIndex } : null;
+    });
+    return () => nav.setReturnParams(null);
+  }, [nav]);
+
   const retrySlice = useCallback(() => {
     const zz = model.current.sliceIndex;
     if (client.clearWhere && Number.isInteger(zz)) {

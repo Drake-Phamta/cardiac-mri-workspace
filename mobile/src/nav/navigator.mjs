@@ -18,6 +18,15 @@
  * the push COVERS, in the same action, keeping its key: SCR-03 hands SCR-04
  * the run, variant and slice on screen and gets them back on Back. Nothing
  * changes when the push does not happen (a leave guard said no).
+ *
+ * The screen that is left can add to what the screen below comes back with
+ * (QA #98 N-6): it registers nav.setReturnParams(fn), and when it is popped
+ * (Back, the Android back button) `fn({ screenId })` is asked for the params
+ * to merge into the entry that becomes the top, in the same action - so SCR-05
+ * reopens on the 2D slice SCR-03 ended on, not the one it was opened with. It
+ * is asked at the moment the pop happens (after a leave guard said yes), and
+ * its answer is merged the way push's returnParams are. A provider lives and
+ * dies with its entry, exactly like a guard.
  */
 
 import { ROOT_SCREEN_ID, isScreenId, missingParams } from './screens.mjs';
@@ -71,7 +80,9 @@ export function navReducer(state, action) {
     }
     case NAV.POP: {
       if (state.stack.length <= 1) return state;
-      return Object.freeze({ stack: Object.freeze(state.stack.slice(0, -1)), seq: state.seq });
+      const rest = state.stack.slice(0, -1);
+      const below = withReturnParams(rest[rest.length - 1], action.returnParams);
+      return Object.freeze({ stack: Object.freeze([...rest.slice(0, -1), below]), seq: state.seq });
     }
     case NAV.REPLACE: {
       const next = entry(action.screenId, action.params, seq);
@@ -112,12 +123,19 @@ export function validateRoute(screenId, params) {
  */
 export function createGuards() {
   const map = new Map();
+  const returns = new Map(); // entry key -> fn({ screenId }) -> params for the entry below, when this one is popped
   let busy = false;
   return Object.freeze({
     get: (key) => map.get(key) || null,
     set(key, fn) { if (typeof fn === 'function') map.set(key, fn); else map.delete(key); },
-    prune(keys) { for (const k of [...map.keys()]) if (!keys.includes(k)) map.delete(k); },
+    getReturn: (key) => returns.get(key) || null,
+    setReturn(key, fn) { if (typeof fn === 'function') returns.set(key, fn); else returns.delete(key); },
+    prune(keys) {
+      for (const k of [...map.keys()]) if (!keys.includes(k)) map.delete(k);
+      for (const k of [...returns.keys()]) if (!keys.includes(k)) returns.delete(k);
+    },
     get size() { return map.size; },
+    get returnSize() { return returns.size; },
     // hold() -> true when this caller may ask a guard now; release() when it has its answer.
     hold() { if (busy) return false; busy = true; return true; },
     release() { busy = false; },
@@ -145,16 +163,32 @@ export function bindNav(dispatch, state, onError = null, guards = null) {
   // effect, after the nav object it was rendered with already exists.
   const guardNow = () => (guards ? guards.get(current.key) : null);
 
+  // A pop carries what the screen being left wants the screen below to come back with (QA #98 N-6). Asked when the pop
+  // is about to be dispatched - after a leave guard said yes, so it is the state the user actually left in. A provider
+  // that throws or answers nothing usable changes nothing: leaving is never blocked by it.
+  const withReturn = (action) => {
+    const provide = guards ? guards.getReturn(current.key) : null;
+    const below = state.stack[state.stack.length - 2];
+    if (action.type !== NAV.POP || !provide || !below) return action;
+    let params = null;
+    try {
+      params = provide({ screenId: below.screenId });
+    } catch (err) {
+      if (onError) onError(err);
+    }
+    return params && typeof params === 'object' && !Array.isArray(params) ? { ...action, returnParams: params } : action;
+  };
+
   const leave = (action) => {
     const guard = guardNow();
-    if (!guard) { dispatch(action); return true; }
+    if (!guard) { dispatch(withReturn(action)); return true; }
     if (!guards.hold()) return false; // a prompt is already open: this action stays
     return Promise.resolve()
       .then(() => guard({ type: action.type, screenId: action.screenId ?? null, params: action.params ?? null }))
       .then((ok) => {
         guards.release();
         if (ok !== true) return false;
-        dispatch(action);
+        dispatch(withReturn(action));
         return true;
       }, (err) => {
         guards.release();
@@ -180,6 +214,8 @@ export function bindNav(dispatch, state, onError = null, guards = null) {
     pop: () => (canGoBack(state) ? leave({ type: NAV.POP }) : false),
     setLeaveGuard: (fn) => { if (guards) guards.set(current.key, fn); },
     hasLeaveGuard: () => Boolean(guardNow()),
+    // fn({ screenId }) -> params to merge into the entry below when THIS entry is popped, or null (QA #98 N-6)
+    setReturnParams: (fn) => { if (guards) guards.setReturn(current.key, fn); },
     canGoBack: canGoBack(state),
     depth: state.stack.length,
   });

@@ -219,3 +219,135 @@ test('N15 one leave prompt at a time: a second action while a guard is asking is
   assert.equal(await nav.pop(), false);
   assert.equal(asked, 1);
 });
+
+// ---- QA #98 N-6: the screen that is left adds to what the screen below comes back with -------------------------------
+
+const threeD = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 };
+
+test('N16 a pop merges its returnParams into the entry that becomes the top, keeping its key; nothing else moves', () => {
+  let s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-05', params: threeD });
+  const root = s.stack[0];
+  const threeDEntry = top(s);
+  s = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-03', params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 } });
+  const before = s;
+  const popped = navReducer(s, { type: NAV.POP, returnParams: { sliceIndex: 60 } });
+  assert.equal(top(popped).key, threeDEntry.key, 'the same entry: the same React key and guard slot');
+  assert.deepEqual({ ...top(popped).params }, { ...threeD, sliceIndex: 60 });
+  assert.ok(Object.isFrozen(top(popped)) && Object.isFrozen(top(popped).params));
+  assert.equal(popped.stack[0], root, 'entries below are untouched');
+  assert.equal(popped.seq, before.seq);
+  assert.equal(before.stack[1].params.sliceIndex, 52, 'the old state is not mutated');
+  // no returnParams: the very same entry object, as before
+  assert.equal(top(navReducer(s, { type: NAV.POP })), threeDEntry);
+  // a pop at the root is still a no-op, with or without params
+  const alone = initialNavState('SCR-02');
+  assert.equal(navReducer(alone, { type: NAV.POP, returnParams: { x: 1 } }), alone);
+});
+
+test('N17 setReturnParams: a pop asks the leaving screen for the params of the screen below, at the moment it pops', async () => {
+  const dispatched = [];
+  const guards = createGuards();
+  let s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-05', params: threeD });
+  s = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-03', params: threeD });
+  const nav = bindNav((a) => dispatched.push(a), s, null, guards);
+  let slice = 52;
+  const asked = [];
+  nav.setReturnParams((below) => { asked.push(below.screenId); return { sliceIndex: slice }; });
+  slice = 61;                                           // the user scrubbed after the screen registered
+  assert.equal(nav.pop(), true);
+  assert.deepEqual(dispatched, [{ type: NAV.POP, returnParams: { sliceIndex: 61 } }], 'the slice at pop time, not at registration');
+  assert.deepEqual(asked, ['SCR-05'], 'it is told which screen is below');
+  // a push never asks it
+  assert.equal(nav.push('SCR-04', { caseId: 'C', runId: 'R', variant: 'RAW' }), true);
+  assert.equal(asked.length, 1);
+  // through a leave guard: asked after the guard says yes, so it is the state the user left in
+  dispatched.length = 0;
+  nav.setLeaveGuard(() => new Promise((r) => setTimeout(() => { slice = 70; r(true); }, 5)));
+  assert.equal(await nav.pop(), true);
+  assert.deepEqual(dispatched, [{ type: NAV.POP, returnParams: { sliceIndex: 70 } }]);
+  // a guard that says no changes nothing and asks nobody
+  dispatched.length = 0;
+  asked.length = 0;
+  nav.setLeaveGuard(() => false);
+  assert.equal(await nav.pop(), false);
+  assert.deepEqual([dispatched, asked], [[], []]);
+});
+
+test('N18 a provider that answers nothing usable, or throws, never blocks leaving; setReturnParams(null) removes it', () => {
+  const guards = createGuards();
+  const errors = [];
+  let s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-05', params: threeD });
+  s = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-03', params: threeD });
+  const dispatched = [];
+  const nav = bindNav((a) => dispatched.push(a), s, (e) => errors.push(e.message), guards);
+  for (const answer of [null, undefined, 7, 'x', [1, 2], true]) {
+    nav.setReturnParams(() => answer);
+    assert.equal(nav.pop(), true);
+  }
+  nav.setReturnParams(() => { throw new Error('provider failed'); });
+  assert.equal(nav.pop(), true);
+  assert.deepEqual(errors, ['provider failed']);
+  assert.ok(dispatched.every((a) => a.type === NAV.POP && !('returnParams' in a)), 'the pop went through without params');
+  nav.setReturnParams(() => ({ sliceIndex: 1 }));
+  nav.setReturnParams(null);
+  dispatched.length = 0;
+  assert.equal(nav.pop(), true);
+  assert.deepEqual(dispatched, [{ type: NAV.POP }], 'a removed provider is not asked');
+  // without a guards object (a bare nav) the registration is a no-op
+  const bare = bindNav((a) => dispatched.push(a), s);
+  assert.doesNotThrow(() => bare.setReturnParams(() => ({ sliceIndex: 9 })));
+  dispatched.length = 0;
+  assert.equal(bare.pop(), true);
+  assert.deepEqual(dispatched, [{ type: NAV.POP }]);
+});
+
+test('N19 a provider lives with its entry: popped or covered, it is pruned with the guards', () => {
+  const guards = createGuards();
+  const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-03', params: { caseId: 'C' } });
+  bindNav(() => {}, s, null, guards).setReturnParams(() => ({ sliceIndex: 4 }));
+  assert.equal(guards.returnSize, 1);
+  const covered = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-04', params: { caseId: 'C', runId: 'R', variant: 'RAW' } });
+  guards.prune([top(covered).key]);                      // what NavigatorView does after every state change
+  assert.equal(guards.returnSize, 0, 'the covered screen unmounted, its provider goes with it');
+  assert.equal(guards.getReturn(top(s).key), null);
+  // Back on SCR-03 (same key, re-mounted): nobody is asked until the new mount registers again
+  const dispatched = [];
+  const back = navReducer(covered, { type: NAV.POP });
+  bindNav((a) => dispatched.push(a), back, null, guards).pop();
+  assert.deepEqual(dispatched, [{ type: NAV.POP }]);
+});
+
+test('N20 the round trip: SCR-03 -> SCR-05 -> SCR-03, scrub, Back - SCR-05 reopens on the slice SCR-03 ended on, with its layers and camera', () => {
+  const guards = createGuards();
+  let state = initialNavState('SCR-03', { caseId: 'CASE_0061' });
+  const dispatch = (action) => { state = navReducer(state, action); guards.prune([top(state).key]); };
+  // SCR-03 (slice 44) opens the 3D screen
+  bindNav(dispatch, state, null, guards).push('SCR-05', { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 },
+    { runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  assert.equal(top(state).screenId, 'SCR-05');
+  // SCR-05 picks a face in slice 52 and opens it in 2D, leaving its layers and camera for Back
+  const layers = { prediction: true, groundTruth: false, falsePositive: true, falseNegative: true };
+  const camera = { yaw: -0.2, pitch: 0.4, zoom: 2, pan: [0.1, -0.2] };
+  bindNav(dispatch, state, null, guards).push('SCR-03', { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 },
+    { runId: 'RUN_A', variant: 'RAW', sliceIndex: 52, layers, camera });
+  assert.equal(top(state).screenId, 'SCR-03');
+  // the 2D screen registers what Back should carry (only for the 3D screen), the user scrubs to slice 60, Back
+  let shownSlice = 52;
+  const nav2d = bindNav(dispatch, state, null, guards);
+  nav2d.setReturnParams(({ screenId }) => (screenId === 'SCR-05' ? { sliceIndex: shownSlice } : null));
+  shownSlice = 60;
+  assert.equal(nav2d.pop(), true);
+  assert.equal(top(state).screenId, 'SCR-05');
+  assert.equal(top(state).params.sliceIndex, 60, 'the 3D plane follows the 2D slice on the way back');
+  assert.deepEqual({ ...top(state).params.layers }, layers, 'with the layers it had');
+  assert.deepEqual(top(state).params.camera, camera, 'and the camera it had');
+  // Back again: SCR-03 reopens on the slice it was opened at (44), because SCR-05 registered nothing for it
+  const nav3d = bindNav(dispatch, state, null, guards);
+  assert.equal(nav3d.pop(), true);
+  assert.deepEqual([top(state).screenId, top(state).params.sliceIndex], ['SCR-03', 44]);
+  // and a 2D screen opened from somewhere else (the case list) asks nobody for the 3D slice: the provider says null
+  const list = bindNav(dispatch, state, null, guards);
+  list.setReturnParams(({ screenId }) => (screenId === 'SCR-05' ? { sliceIndex: 1 } : null));
+  list.push('SCR-04', { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW' });
+  assert.equal(top(state).screenId, 'SCR-04');
+});

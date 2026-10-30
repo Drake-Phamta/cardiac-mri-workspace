@@ -287,6 +287,17 @@ function Explorer({
     runner.run(() => model.open({ caseId, runId, sliceIndex: initialSlice }));
   }, [runner, model, net, client, caseId, runId, initialSlice]);
 
+  // QA #98 N-6: when Back leaves this screen for the 3D inspector, that screen reopens its slice plane on the slice
+  // shown HERE, not on the slice it opened this screen at. Asked at the moment of the pop; only the 3D screen is told.
+  useEffect(() => {
+    if (typeof nav.setReturnParams !== 'function') return undefined;
+    nav.setReturnParams(({ screenId }) => {
+      const onScreen = displayedRef.current;
+      return screenId === 'SCR-05' && onScreen && Number.isInteger(onScreen.sliceIndex) ? { sliceIndex: onScreen.sliceIndex } : null;
+    });
+    return () => nav.setReturnParams(null);
+  }, [nav]);
+
   // The run line: run, model family, experiment, precomputed. Read once - and
   // never with no run: a case before its first run asks for no run data, not
   // even for a run another screen asked for that the case does not list.
