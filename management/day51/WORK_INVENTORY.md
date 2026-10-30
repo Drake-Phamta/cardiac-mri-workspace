@@ -50,7 +50,7 @@ Agent B, nhánh `fix/qa-backlog-d51`.
 
 | ID | Việc | Nguồn | Xong khi | Kiểm bằng | Trạng thái |
 |---|---|---|---|---|---|
-| B1 | #106: tìm nguyên nhân gốc của job CI đỏ "backend tests" và sửa trên nhánh `fix/pr106-ci` (từ head của #106) | #106 | Có nguyên nhân gốc kèm dòng log và test; job xanh khi chạy lại | `pytest backend/tests` trên bản merge với `main` | ĐANG LÀM |
+| B1 | #106: tìm nguyên nhân gốc của job CI đỏ "backend tests" | #106 | Có nguyên nhân gốc kèm dòng log; job xanh khi chạy lại | log CI | Nguyên nhân gốc đã tìm ra ngày 30/10: `ubuntu-latest` đã chuyển sang Ubuntu 26.04, không có CPython 3.9 cho `setup-python` (job đỏ cả ở #107 chỉ có tài liệu). Không phải lỗi code của #106. Sửa ở #108 (ghim job về `ubuntu-24.04`; CI xanh: CPython 3.9.25, backend 111 đạt, mesh 119 đạt + 1 bỏ qua). Chờ QA rồi merge, sau đó chạy lại CI của #106 |
 | B2 | Rà diff của #106 (V3 app + mobile, evidence, che thông tin trong RESULT Spike D) và #105 (bảng revalidation) | #105, #106 | Danh sách lỗi, hoặc ghi "không có lỗi" kèm phạm vi đã đọc | đọc diff | ĐANG LÀM |
 | B3 | V4: Refresh khi phiên bản mới nhất đã đổi | QA_PR99 NB-2 | Có test cho nhánh mất dữ liệu | `node app/verticals/v4_review_and_findings/test_*.mjs` | ĐANG LÀM |
 | B4 | V4 live: kiểm `prediction_mask_id` theo artifact id của run (như E2E H8) | QA_PR99 NB-3 | Test; README đúng với code | như trên | ĐANG LÀM |
@@ -82,7 +82,7 @@ Agent B, nhánh `fix/qa-backlog-d51`.
 | C9 | Quét bí mật toàn repo và bundle mobile (hiện CI chỉ quét tệp thêm vào) | TC-SEC-004 | Job CI xanh và bắt được mẫu cài thử | CI | MỞ |
 | C10 | Bản đồ module và ranh giới tích hợp | TC-MAINT-001 | Có tệp, mỗi module trỏ tới code và test | đọc lại | MỞ |
 | C11 | Code mobile chạy trực tiếp fixture hình học chuẩn | TC-MAINT-002, INT-13 | Test mobile đọc fixture chuẩn và khớp | `npm test` | MỞ |
-| C12 | Mac mini: bật máy và kiểm ssh; deploy `-ShipPackages` có mesh lỗi; chạy E2E `--no-writes` lên Mac mini | DR-022; `backend/scripts/deploy_macmini.ps1` | `/health` ok; E2E không FAIL | E2E | CHỜ LEADER (máy đang tắt: ssh timeout 27/10 và 30/10) |
+| C12 | Mac mini: bật máy và kiểm ssh; deploy `-ShipPackages` có mesh lỗi; chạy E2E `--no-writes` lên Mac mini | DR-022; `backend/scripts/deploy_macmini.ps1` | `/health` ok; E2E không FAIL | E2E | CHỜ LEADER. Kiểm 30/10 tối: ZeroTier trên PC ONLINE, 3 mạng OK, có địa chỉ và route của mạng Mac mini; Mac mini không trả lời ARP trên overlay, ping từ địa chỉ overlay báo host unreachable, cổng 22 và 8000 đóng; trong danh sách peer có một máy bản 1.16.1 không có đường kết nối nào. Lỗi nằm ở phía Mac mini (tắt/ngủ, dịch vụ ZeroTier dừng, mất mạng hoặc bị gỡ quyền) |
 | C13 | E2E đầy đủ ở local sau khi merge: mọi bước PASS, trừ bước UNet | `tools/e2e/hero_flow_api.py` | Cập nhật `E2E_EVIDENCE` mới (chỉ số đếm và tóm tắt) | E2E | MỞ |
 | C14 | Build APK release live từ `main` cuối, ghi commit và sha256 trong `.build.txt` | `mobile/scripts/build-release.ps1` | APK và bản ghi build cho phiên 2 | `device_session.ps1 -DryRun` | MỞ |
 | C15 | Kịch bản phiên 2: mỗi TC thiết bị có các bước và tiêu chí PASS viết sẵn (mở rộng `device_session.ps1` hoặc tài liệu đi kèm): TC-PERF-002, TC-PERF-003, TC-3D-002…005, TC-REV-002…005, TC-REL-002, TC-MOBILE-STATE-001, TC-USAB-001/003/004, TC-MODE-001 trên INT-12, TC-SEC-003, TC-E2E-001, TC-USAB-005 | ACCEPTANCE_TRACE §3 | Kịch bản có bản tự kiểm không cần điện thoại (`-SelfTest`, điện thoại giả) | Pester + SelfTest | MỞ |
@@ -146,6 +146,7 @@ Agent B, nhánh `fix/qa-backlog-d51`.
 
 | ID | Việc | Trạng thái |
 |---|---|---|
-| O1 | Mac mini bật và ssh được trước mỗi phiên điện thoại và mỗi lần deploy | CHỜ LEADER |
+| O1 | Mac mini bật và ssh được trước mỗi phiên điện thoại và mỗi lần deploy; tắt chế độ tự ngủ (đã timeout hai lần: 27/10, 30/10) | CHỜ LEADER |
+| O4 | Máy chạy CI: job Python 3.9 ghim `ubuntu-24.04` (#108). Các job khác chạy `ubuntu-latest` (26.04) và đang xanh; nếu một job đỏ ở bước setup, kiểm ảnh máy chạy trước khi kiểm code | XONG khi #108 merge |
 | O2 | Tối đa 2 agent; một việc nặng (build, train, dựng mesh) một lúc; giữ máy mát | áp dụng |
 | O3 | Bản cài `node_modules` dùng chung nằm ngoài repo và ngoài thư mục tạm, để không bị dọn mất lần nữa | XONG (30/10) |

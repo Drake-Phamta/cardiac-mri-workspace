@@ -33,7 +33,7 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ## DAY 40–51 — 2026-10-19 → 2026-10-30 · ❌ **`TRƯỢT` mọi mốc của REPLAN**, rồi **chế độ một người vận hành**
 
-Trong 12 ngày chỉ có hai PR, đều của Bế Quốc Khánh: #105 (bảng revalidation, 19/10) và #106 (các mục QA V3 không cần train, 29/10; job CI "backend tests" đỏ). Nguyễn Gia Đức Trung không có hoạt động từ 01/10, Vũ Hùng Anh không có từ 02/10. Không mốc kiểm nào của `day40/REPLAN_TO_2026-10-31.md` đạt (20/10, 22/10, 24/10, 27/10, 30/10). Họ UNet vẫn chưa train. Mac mini không trả lời ssh ngày 27/10 và 30/10.
+Trong 12 ngày chỉ có hai PR, đều của Bế Quốc Khánh: #105 (bảng revalidation, 19/10) và #106 (các mục QA V3 không cần train, 29/10; job CI "backend tests" đỏ vì máy chạy CI `ubuntu-latest` chuyển sang Ubuntu 26.04, không có Python 3.9, không phải lỗi code; sửa ở #108). Nguyễn Gia Đức Trung không có hoạt động từ 01/10, Vũ Hùng Anh không có từ 02/10. Không mốc kiểm nào của `day40/REPLAN_TO_2026-10-31.md` đạt (20/10, 22/10, 24/10, 27/10, 30/10). Họ UNet vẫn chưa train. Mac mini không trả lời ssh ngày 27/10 và 30/10.
 
 **Leader quyết ngày 30/10** ([`day51/OPERATING_MODE_2026-10-30.md`](day51/OPERATING_MODE_2026-10-30.md), DR-023, DR-005):
 
