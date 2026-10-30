@@ -13,8 +13,9 @@ Standard library only, Python 3.9-compatible syntax: it also runs on the Mac min
 host. Exit code 0 only when no step FAILED (SKIP is not a failure).
 
 What it does NOT cover: the phone (gestures, rendering, frame rate). H6 / H7 cover the data path of SCR-05:
-the mesh references (the surfaces AND the 3D error map: the false-positive and false-negative surfaces), their
-verified bytes, and the pick -> source slice (and class) -> mask-on-that-slice link.
+the mesh references (the surfaces AND the 3D error map: the false-positive and false-negative surfaces and their
+connected error regions), their verified bytes, the pick -> source slice (and class) -> mask-on-that-slice link, and
+(H7.r) the error regions against an independent flood fill of the served masks.
 Review writes (H8/H9) create one review, one reviewed-mask version and one
 finding in the backend's own database; they are allowed only against a
 127.0.0.1 / localhost base URL unless --allow-remote-writes is given, and
@@ -44,7 +45,8 @@ SUMMARY_KEYS = ["n", "mean", "std", "median", "q1", "q3", "min", "max", "ci95_lo
 HERO_RUN_EXPERIMENT = "EXP-D-100"
 PP_EXPERIMENT = "EXP-D-PP"
 SURFACE_FORMAT = "cardiac-mesh/1"
-ERROR_FORMAT = "cardiac-errormesh/1"
+ERROR_FORMAT = "cardiac-errormesh/2"
+CONNECTIVITIES = (6, 18, 26)
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
@@ -170,11 +172,12 @@ def png_decode(data):
 
 def parse_cmesh(data, fmt=SURFACE_FORMAT):
     """Parse a ``cardiac-mesh/1`` surface artifact (backend/mesh/artifact.py) or, with ``fmt=ERROR_FORMAT``, a
-    ``cardiac-errormesh/1`` error artifact (backend/mesh/error_artifact.py) with the standard library only.
+    ``cardiac-errormesh/2`` error artifact (backend/mesh/error_artifact.py) with the standard library only.
 
     Layout: ``CARDMESH`` + uint32 header length + JSON header, then little-endian vertices (uint16 x y z),
     triangles (uint16 or uint32, ``index_bytes``) and per-triangle source slices (uint16); an error artifact adds one
-    class byte per triangle (1 = FP, 2 = FN). Every section 4-aligned.
+    class byte per triangle (1 = FP, 2 = FN) and one region number per triangle (uint8, uint16 or uint32 as
+    ``component_index_bytes`` says; the region table is the header's ``components``). Every section 4-aligned.
     Raises ValueError when the file is not exactly what its header says."""
     if data[:8] != b"CARDMESH" or len(data) < 12:
         raise ValueError("not a cardiac-mesh artifact")
@@ -200,9 +203,16 @@ def parse_cmesh(data, fmt=SURFACE_FORMAT):
     triangles = take(nt * 3, "H" if ib == 2 else "I")
     slices = take(nt, "H")
     classes = take(nt, "B") if fmt == ERROR_FORMAT else None
+    face_components = None
+    if fmt == ERROR_FORMAT:
+        code = {1: "B", 2: "H", 4: "I"}.get(header.get("component_index_bytes"))
+        if code is None:
+            raise ValueError("component_index_bytes %r is not 1, 2 or 4" % (header.get("component_index_bytes"),))
+        face_components = take(nt, code)
     if pos[0] != len(data):
         raise ValueError("mesh file has %d trailing bytes" % (len(data) - pos[0]))
-    return {"header": header, "vertices": vertices, "triangles": triangles, "slices": slices, "classes": classes}
+    return {"header": header, "header_bytes": hlen, "vertices": vertices, "triangles": triangles, "slices": slices,
+            "classes": classes, "face_components": face_components}
 
 
 def bitpack(mask01_bytes):
@@ -936,8 +946,9 @@ def build_steps(runner, args):
                h6, requires=["hero_run", "case_get"])
 
     # ---- H6.e the 3D error map -------------------------------------------------------------------------------------
-    # error_reconstruction_get answers ONE error artifact (cardiac-errormesh/1, id ERRMESH_<sha256 of the bytes>): the
-    # false-positive and false-negative surfaces, every face with its source slice and its class. The checks are made
+    # error_reconstruction_get answers ONE error artifact (cardiac-errormesh/2, id ERRMESH_<sha256 of the bytes>): the
+    # false-positive and false-negative surfaces, every face with its source slice, its class and its connected error
+    # region (the region table is in the header; H7.r checks it against a flood fill). The checks are made
     # against what the app is shown elsewhere: the ids of the two masks, the geometry of the case, the FP / FN counts of
     # analysis_run_metrics, and - the strong one - the served PNG masks of EVERY slice.
     def check_error_header(c, label, mesh, shape):
@@ -968,6 +979,59 @@ def build_steps(runner, args):
         c.ok(v_at == nv and t_at == nt, "%s: the class ranges do not cover the file" % label)
         c.ok(all(0 <= v[3 * i + a] <= shape[a] for i in range(nv) for a in range(3)), "%s: a vertex lies outside [0, shape]" % label)
         c.ok(nt == 0 or max(mesh["slices"]) < shape[2], "%s: a face source slice is outside the volume" % label)
+        check_component_table(c, label, mesh)
+
+    def check_component_table(c, label, mesh):
+        """The error regions (FR-3D-008) from the bytes alone: the declared connectivity, a table of exactly
+        ``component_count`` regions named like the backend names them, contiguous class ranges, per region a contiguous run of
+        non-empty slices whose counts add up, and per face a region number of its own class on one of the region's slices."""
+        h = mesh["header"]
+        table, count, shape_z = h.get("components"), h.get("component_count"), h["shape"][2]
+        conn = h.get("connectivity")
+        c.ok(isinstance(conn, int) and not isinstance(conn, bool) and conn in CONNECTIVITIES,
+             "%s: connectivity %r is not one of 6, 18, 26" % (label, conn))
+        if not (isinstance(table, list) and isinstance(count, int) and count == len(table)):
+            c.ok(False, "%s: component_count %r is not the length of the component table" % (label, count))
+            return
+        need = 1 if count <= 255 else 2 if count <= 65535 else 4
+        c.ok(h.get("component_index_bytes") == need, "%s: component_index_bytes %r; the smallest type that holds %d regions is %d bytes" % (
+            label, h.get("component_index_bytes"), count, need))
+        comp, slices = mesh["face_components"], mesh["slices"]
+        at = 1
+        for x in h["classes"]:
+            name, (t_lo, t_hi), span = x["name"], x["triangle_range"], x.get("component_range")
+            if not (isinstance(span, list) and len(span) == 2 and span[0] == at and span[1] >= span[0]):
+                c.ok(False, "%s: %s component_range %r does not continue the previous class" % (label, name, span))
+                return
+            rows, total, previous = table[span[0] - 1:span[1] - 1], 0, None
+            for rank, row in enumerate(rows, 1):
+                if not c.ok(sorted(row) == ["class", "first_slice", "id", "slice_voxels", "voxels"],
+                            "%s: %s region %d has keys %s" % (label, name, rank, sorted(row))):
+                    return
+                per = row["slice_voxels"]
+                c.ok(row["id"] == "%s_%04d" % (name, rank) and row["class"] == name, "%s: region %r should be %s_%04d" % (label, row["id"], name, rank))
+                c.ok(isinstance(per, list) and len(per) > 0 and all(isinstance(n, int) and n > 0 for n in per)
+                     and row["first_slice"] >= 0 and row["first_slice"] + len(per) <= shape_z,
+                     "%s: %s slices are not a contiguous run of non-empty slices inside the volume" % (label, row["id"]))
+                c.ok(row["voxels"] == sum(per), "%s: %s voxels %s != the sum of slice_voxels %s" % (label, row["id"], row["voxels"], sum(per)))
+                if previous is not None:
+                    c.ok((-row["voxels"], row["first_slice"]) >= (-previous["voxels"], previous["first_slice"]),
+                         "%s: %s is out of order after %s (largest first, then first slice)" % (label, row["id"], previous["id"]))
+                total += row["voxels"]
+                previous = row
+            c.ok(total == x["voxels"], "%s: the %s regions hold %d voxels, the class %d" % (label, name, total, x["voxels"]))
+            c.ok((x["voxels"] == 0) == (span[1] == span[0]), "%s: %s voxels and regions disagree about being empty" % (label, name))
+            numbers = comp[t_lo:t_hi]
+            c.ok(all(span[0] <= n < span[1] for n in numbers), "%s: a %s face names a region of another class (or none)" % (label, name))
+            c.ok(len(set(numbers)) == span[1] - span[0], "%s: %d %s regions own no face" % (label, span[1] - span[0] - len(set(numbers)), name))
+            off = 0
+            for i in range(t_lo, t_hi):
+                row = table[comp[i] - 1] if span[0] <= comp[i] < span[1] else None
+                if row is None or not (row["first_slice"] <= slices[i] < row["first_slice"] + len(row["slice_voxels"])):
+                    off += 1
+            c.ok(off == 0, "%s: %d %s faces lie on a slice their region does not contribute to" % (label, off, name))
+            at = span[1]
+        c.ok(at == count + 1, "%s: the class component ranges do not cover the component table" % label)
 
     def error_mesh_for(c, label, run, variant, mask_id, gt_id, case_get, metrics):
         """error_reconstruction_get + the artifact bytes + every check; returns {mesh, meta} or None."""
@@ -1004,6 +1068,10 @@ def build_steps(runner, args):
         c.ev("%s: %d vertices, %d triangles, %d bytes (%.0f KB), sha256 verified; FP %d voxels / %d triangles, FN %d voxels / %d triangles" % (
             label, h["vertex_count"], h["triangle_count"], len(b.body), len(b.body) / 1024.0,
             fp["voxels"], fp["triangle_range"][1] - fp["triangle_range"][0], fn["voxels"], fn["triangle_range"][1] - fn["triangle_range"][0]))
+        c.ev("%s: %d error regions (FP %d, FN %d), connectivity %s, region numbers in %d byte(s) per face, JSON header %d bytes (%.1f%% of the file)" % (
+            label, h["component_count"], fp["component_range"][1] - fp["component_range"][0],
+            fn["component_range"][1] - fn["component_range"][0], h["connectivity"], h["component_index_bytes"], mesh["header_bytes"],
+            100.0 * mesh["header_bytes"] / len(b.body)))
         mv = (metrics or {}).get("metric_values") or {}
         c.ok(fp["voxels"] == mv.get("false_positives"), "%s: FP voxels %s != analysis_run_metrics false_positives %s" % (label, fp["voxels"], mv.get("false_positives")))
         c.ok(fn["voxels"] == mv.get("false_negatives"), "%s: FN voxels %s != analysis_run_metrics false_negatives %s" % (label, fn["voxels"], mv.get("false_negatives")))
@@ -1267,6 +1335,202 @@ def build_steps(runner, args):
 
     runner.run("H7.e", "tap an error face in 3D -> its source slice and class: the two served masks of that slice disagree there the way the class says (FP, FN)",
                h7e, requires=["hero_run", "case_get"])
+
+    # ---- H7.r select an error REGION -> its contributing slices (FR-3D-008, TC-3D-005) ----------------------------------
+    # The app selects the connected region of a tapped error face and offers the slices that contribute to it. The region
+    # table and the per-face region numbers of the artifact are checked against an INDEPENDENT labelling: the FP and FN
+    # voxels come from the served PNG masks of every slice (prediction AND NOT ground truth; ground truth AND NOT
+    # prediction), and a plain flood fill of them (standard library only: no scipy, no numpy, nothing from the backend) with
+    # the connectivity the artifact declares labels them. The artifact is right when its regions are exactly those: the same
+    # count, the same voxel count, the same slice list with the same per-slice counts, and every face's region number is the
+    # region of the voxel behind that face.
+    def offsets_for(connectivity, pw, plane):
+        """Index steps of the 6, 18 or 26 neighbours in a flat zero-padded grid (row pitch pw, slice pitch plane)."""
+        reach = {6: 1, 18: 2, 26: 3}[connectivity]
+        return [dz * plane + dy * pw + dx for dz in (-1, 0, 1) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
+                if 0 < abs(dz) + abs(dy) + abs(dx) <= reach]
+
+    def class_grids(c, st, label, variant, run, case, shape):
+        """FP and FN voxels of the served masks as two flat 0/1 grids with a one-voxel zero border (so no bounds checks are
+        needed): ``(fp, fn, pw, plane)`` or None."""
+        w, h, nz = shape[0], shape[1], shape[2]
+        pw = w + 2
+        plane = pw * (h + 2)
+        fp, fn = bytearray(plane * (nz + 2)), bytearray(plane * (nz + 2))
+        lut = bytes(1 if i == 255 else 0 for i in range(256))
+        for z in range(nz):
+            pred, gt = slice_png(c, st, "pred", variant, run, case, z), slice_png(c, st, "gt", variant, run, case, z)
+            if pred is None or gt is None or (pred[0], pred[1]) != (w, h) or (gt[0], gt[1]) != (w, h):
+                c.ok(False, "%s: the served masks of slice %d are missing or not %d x %d" % (label, z, w, h))
+                return None
+            everything = (1 << (8 * len(pred[2]))) - 1
+            p, g = int.from_bytes(pred[2], "big"), int.from_bytes(gt[2], "big")
+            fp_px = (p & (g ^ everything)).to_bytes(len(pred[2]), "big").translate(lut)
+            fn_px = (g & (p ^ everything)).to_bytes(len(pred[2]), "big").translate(lut)
+            base = (z + 1) * plane + pw + 1
+            for y in range(h):
+                at = base + y * pw
+                fp[at:at + w] = fp_px[y * w:(y + 1) * w]
+                fn[at:at + w] = fn_px[y * w:(y + 1) * w]
+        return fp, fn, pw, plane
+
+    def flood_label(grid, lab, first_label, offsets, plane):
+        """Flood-fill every set voxel of ``grid`` (visited voxels are cleared); ``lab[voxel]`` gets the region label, counting
+        from ``first_label``. Returns one dict per region: label, voxels, first_slice, slice_voxels (counts from the first
+        to the last slice, zeros included so that a gap would show)."""
+        regions = []
+        label, start = first_label - 1, 0
+        while True:
+            seed = grid.find(1, start)
+            if seed < 0:
+                break
+            start = seed + 1
+            label += 1
+            grid[seed] = 0
+            stack, members = [seed], []
+            while stack:
+                j = stack.pop()
+                members.append(j)
+                lab[j] = label
+                for d in offsets:
+                    k = j + d
+                    if grid[k]:
+                        grid[k] = 0
+                        stack.append(k)
+            zs = [m // plane - 1 for m in members]
+            first, last = min(zs), max(zs)
+            per = [0] * (last - first + 1)
+            for z in zs:
+                per[z - first] += 1
+            regions.append({"label": label, "voxels": len(members), "first_slice": first, "slice_voxels": per})
+        return regions
+
+    def median_of(values):
+        ordered = sorted(values)
+        return ordered[len(ordered) // 2] if ordered else 0
+
+    def h7r(c, st):
+        meshes = st.get("err_meshes") or {}
+        if not meshes:
+            c.skip("H6.e produced no error mesh")
+        case, case_get = st["case"], st["case_get"]
+        shape = case_get["shape"]
+        w, hh, nz = shape[0], shape[1], shape[2]
+        total_regions = total_taps = 0
+        for variant in sorted(meshes):
+            entry = meshes[variant]
+            mesh, run, label = entry["mesh"], entry["run"], entry["label"]
+            h = mesh["header"]
+            conn = h.get("connectivity")
+            if not c.ok(conn in CONNECTIVITIES, "%s: connectivity %r cannot be flood-filled" % (label, conn)):
+                continue
+            started = time.time()
+            grids = class_grids(c, st, label, variant, run, case, shape)
+            if grids is None:
+                continue
+            fp_grid, fn_grid, pw, plane = grids
+            offsets = offsets_for(conn, pw, plane)
+            lab = array.array("H", [0]) * len(fp_grid)
+            independent, next_label = {}, 1
+            for name, grid in (("FP", fp_grid), ("FN", fn_grid)):
+                independent[name] = flood_label(grid, lab, next_label, offsets, plane)
+                next_label += len(independent[name])
+            del fp_grid, fn_grid
+            if not c.ok(next_label <= 65535, "%s: more than 65,534 regions in the flood fill" % label):
+                continue
+            filled = time.time() - started
+            table = h["components"]
+            comp, slices = mesh["face_components"], mesh["slices"]
+            flood_by_label = {}
+            for name in ("FP", "FN"):
+                cls = next(x for x in h["classes"] if x["name"] == name)
+                span = cls["component_range"]
+                rows = table[span[0] - 1:span[1] - 1]
+                theirs = independent[name]
+                c.ok(len(rows) == len(theirs), "%s %s: the artifact has %d regions, the flood fill of the served masks finds %d" % (
+                    label, name, len(rows), len(theirs)))
+                key = lambda r: (r["voxels"], r["first_slice"], tuple(r["slice_voxels"]))  # noqa: E731
+                c.ok(sorted(map(key, rows)) == sorted(map(key, theirs)),
+                     "%s %s: the region table differs from the flood fill (voxels, first slice or per-slice counts)" % (label, name))
+                c.ok(cls["voxels"] == sum(r["voxels"] for r in theirs), "%s %s: class voxels %s != flood-filled voxels %d" % (
+                    label, name, cls["voxels"], sum(r["voxels"] for r in theirs)))
+                c.ok(all(min(r["slice_voxels"]) > 0 for r in theirs), "%s %s: a flood-filled region has a slice without a voxel between its first and last" % (label, name))
+                for r in theirs:
+                    flood_by_label[r["label"]] = (name, r)
+                sizes = [r["voxels"] for r in theirs]
+                spans = [len(r["slice_voxels"]) for r in theirs]
+                c.ev("%s %s: %d regions in the artifact = %d by flood fill of the served masks; voxels min/median/max %s/%s/%s; "
+                     "slices per region median/max %s/%s; %d regions on one slice only" % (
+                         label, name, len(rows), len(theirs), min(sizes) if sizes else 0, median_of(sizes), max(sizes) if sizes else 0,
+                         median_of(spans), max(spans) if spans else 0, sum(1 for n in spans if n == 1)))
+                total_regions += len(theirs)
+
+            # every face: the voxel behind it is in exactly one flood-filled region of its own class, and the artifact
+            # numbers that region the same way for all of its faces (a bijection between flood labels and region numbers)
+            def voxel_index(vox):
+                x, y, z = vox
+                return (z + 1) * plane + (y + 1) * pw + (x + 1) if 0 <= x < w and 0 <= y < hh and 0 <= z < nz else None
+
+            to_number, to_label = {}, {}
+            outside = mapped_wrong = 0
+            for cls in h["classes"]:
+                for t in range(cls["triangle_range"][0], cls["triangle_range"][1]):
+                    index = voxel_index(face(mesh, t)[2])
+                    found = lab[index] if index is not None else 0
+                    if found == 0 or flood_by_label[found][0] != cls["name"]:
+                        outside += 1
+                        continue
+                    if to_number.setdefault(found, comp[t]) != comp[t] or to_label.setdefault(comp[t], found) != found:
+                        mapped_wrong += 1
+            c.ok(outside == 0, "%s: %d faces lie on a voxel that is not in the class the face carries (served masks)" % (label, outside))
+            c.ok(mapped_wrong == 0, "%s: %d faces name a region that is not the one the flood fill puts their voxel in" % (label, mapped_wrong))
+            c.ok(len(to_number) == len(table) == len(to_label), "%s: %d flood-filled regions own faces, the table has %d regions" % (label, len(to_number), len(table)))
+            different = 0
+            for found, number in to_number.items():
+                row, region = table[number - 1], flood_by_label[found][1]
+                if (row["voxels"], row["first_slice"], row["slice_voxels"]) != (region["voxels"], region["first_slice"], region["slice_voxels"]):
+                    different += 1
+            c.ok(different == 0, "%s: %d regions have other voxels / slices in the table than in the flood fill of their own faces" % (label, different))
+            c.ev("%s: %d error faces: each lies on a voxel of one flood-filled region of its class, and its region number is that region's in the table for every face (%d of %d regions own faces) [%.1f s to flood-fill %d slices, %.1f s in all]" % (
+                label, h["triangle_count"], len(to_number), len(table), filled, nz, time.time() - started))
+
+            # taps: the largest, the median and the most-sliced region of each class, selected through a ray cast like the
+            # app's (the first hit names the region), then looked up in the flood fill
+            for cls in h["classes"]:
+                span, (t_lo, t_hi) = cls["component_range"], cls["triangle_range"]
+                rows = table[span[0] - 1:span[1] - 1]
+                if not rows:
+                    c.ev("%s %s: no regions (0 voxels): nothing to select" % (label, cls["name"]))
+                    continue
+                widest = max(range(len(rows)), key=lambda k: (len(rows[k]["slice_voxels"]), -k))
+                for number in sorted(set([span[0], span[0] + (len(rows) - 1) // 2, span[0] + widest])):
+                    t = next(i for i in range(t_lo, t_hi) if comp[i] == number)
+                    cen, n, _vox = face(mesh, t)
+                    hit = first_hit(mesh, [cen[a] + 3.0 * n[a] for a in range(3)], [-x for x in n])
+                    if not c.ok(hit is not None, "%s %s: a ray aimed at face %d hit nothing" % (label, cls["name"], t)):
+                        continue
+                    row = table[comp[hit] - 1]
+                    index = voxel_index(face(mesh, hit)[2])
+                    found = lab[index] if index is not None else 0
+                    region = flood_by_label.get(found, (None, None))[1]
+                    c.ok(region is not None and (row["voxels"], row["first_slice"], row["slice_voxels"]) ==
+                         (region["voxels"], region["first_slice"], region["slice_voxels"]),
+                         "%s %s: the tap's region %s is not the flood-filled region of the hit voxel" % (label, cls["name"], row["id"]))
+                    z = slices[hit]
+                    listed = list(range(row["first_slice"], row["first_slice"] + len(row["slice_voxels"])))
+                    c.ok(z in listed, "%s %s: the tapped slice %d is not one of the region's slices %s" % (label, cls["name"], z, listed[:6]))
+                    total_taps += 1
+                    c.ev("%s %s: tap aimed at %s -> first hit %d -> region %s: %d voxels on %d slice(s) (%d..%d), default slice %d / %d is one of them; "
+                         "the flood fill of the served masks gives the same %d voxels and per-slice counts" % (
+                             label, cls["name"], rows[number - span[0]]["id"], hit, row["id"], row["voxels"], len(listed),
+                             listed[0] + 1, listed[-1] + 1, z + 1, nz, region["voxels"] if region else -1))
+            del lab
+        c.ok(total_taps >= 4, "only %d region taps verified in all" % total_taps)
+        c.ev("%d regions in all agree with an independent flood fill of the served masks; the region panel, the slice stepping inside a region "
+             "and the highlight are render / device tests" % total_regions)
+
+    runner.run("H7.r", "select an error region in 3D -> the artifact's regions (count, voxels, slice list, per-face numbers) equal an independent flood fill of the served FP / FN masks",
+               h7r, requires=["hero_run", "case_get"])
 
     # ---- H8 / H9 review ---------------------------------------------------------
     def writes_allowed():
