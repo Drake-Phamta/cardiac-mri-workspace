@@ -4,7 +4,10 @@
 // runtime's own override API (the FIXTURE panel's), never a hand-written body.
 // The controller reads nothing itself (DR-021 rule 2): `drive` plays the
 // screen's useCall readers - same endpoints, same params - and hands the
-// answers back. The real hooks run in the render smoke (test/render/smoke.mjs).
+// answers back. The one exception is the review's open sequence (case_get ->
+// review_create -> reviewed_masks_list), which the V4 model runs; RS23 holds
+// that its reads take the screen's abort signal. The real hooks run in the
+// render smoke (test/render/smoke.mjs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -732,4 +735,49 @@ test('RS22 Refresh over a newer latest version refuses to drop unsaved edits; Ca
   s = await drive(ctl, rv.runtime.client);
   assert.deepEqual(s.layers.saved, rv.savedLayerOf.B);
   assert.equal(s.slice.maskState, MASK_STATE.SAVED);
+});
+
+test('RS23 the review\'s open sequence takes the screen\'s abort signal on its two reads, not on its write (QA_PR99_D39 NB-4)', async () => {
+  const runtime = fixtureRuntime();
+  const life = new AbortController();
+  const seen = [];
+  const client = { ...runtime.client, call: (id, p, o) => { seen.push({ id, signal: (o && o.signal) || null }); return runtime.client.call(id, p, o); } };
+  const rt = { ...runtime, client };
+  const ctl = createReviewScreen({ runtime: rt, params: { runId: 'RUN_0043', caseId: 'CASE_0043', variant: 'RAW' }, signal: life.signal });
+  ctl.setViewport(W, H);
+  await ctl.start();
+  await drive(ctl, client);
+  const opened = (id) => seen.filter((c) => c.id === id);
+  assert.deepEqual(['case_get', 'review_create', 'reviewed_masks_list'].map((id) => opened(id).length), [1, 1, 1]);
+  assert.equal(opened('case_get')[0].signal, life.signal, 'case_get is abandoned when the screen is');
+  assert.equal(opened('reviewed_masks_list')[0].signal, life.signal, 'and so is the list of versions');
+  assert.equal(opened('review_create')[0].signal, null, 'review_create is a write: a POST that was sent is finished, not torn');
+  // the same on Refresh, which opens the review again
+  await ctl.refresh();
+  assert.equal(opened('case_get')[1].signal, life.signal);
+  assert.equal(opened('reviewed_masks_list')[1].signal, life.signal);
+
+  // what the signal is for: a stalled network ends when the screen is gone, and nothing further is sent
+  const stalled = [];
+  const hung = {
+    ...runtime.client,
+    call: (id, p, o) => {
+      stalled.push(id);
+      if (id !== 'case_get') return runtime.client.call(id, p, o);
+      return new Promise((resolve) => {
+        o.signal.addEventListener('abort', () => resolve(fatalInvalid({ code: 'TRANSPORT_UNREACHABLE', safeMessage: 'request aborted' })));
+      });
+    },
+  };
+  const gone = new AbortController();
+  const lost = createReviewScreen({ runtime: { ...runtime, client: hung }, params: { runId: 'RUN_0043', caseId: 'CASE_0043', variant: 'RAW' }, signal: gone.signal });
+  await lost.start();
+  const pending = lost.provideRun(await hung.call('analysis_run_get', { run_id: lost.getState().wants.run.runId }));
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(stalled.includes('case_get'), 'the open sequence is waiting on the network');
+  gone.abort(); // the screen unmounts
+  const end = await Promise.race([pending, new Promise((r) => setTimeout(() => r('HUNG'), 1500))]);
+  assert.notEqual(end, 'HUNG', 'the stalled read ended with the screen');
+  assert.equal(end.phase, PHASE.BLOCKED);
+  assert.deepEqual(stalled.filter((id) => id !== 'analysis_run_get'), ['case_get'], 'no review_create and no version list after the screen is gone');
 });

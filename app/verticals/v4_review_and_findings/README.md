@@ -91,9 +91,12 @@ it from Day 23 (PR-MOBILE-03). Every file is framework-neutral: no React / React
 `CORRECTED` has no way out. These, and `review_rules`, equal `contract.json` (test `V4-0`).
 
 - A review is **scoped** to one run, one source mask and one prediction variant (DR-009):
-  `open({ caseId, runId, sourceMaskId, predictionVariant })`. `open` reads `case_get` first, because every
+  `open({ caseId, runId, sourceMaskId, predictionVariant, signal })`. `open` reads `case_get` first, because every
   working-mask PUT must echo the **case's** `geometry_contract_version` and `geometry_validation_status`
-  (`GEOMETRY_NOT_VALIDATED` on the real data) — never an assumed `VALIDATED`.
+  (`GEOMETRY_NOT_VALIDATED` on the real data) — never an assumed `VALIDATED`. The sequence is `case_get` →
+  `review_create` → `reviewed_masks_list`; the optional `signal` (the screen's `AbortSignal`) goes to the two reads, not
+  to the `review_create` write (a POST that was sent is finished, and it is idempotent). `refresh()` takes the same
+  options.
 - **Only a commit enters `CORRECTED`** (contract 1.1.0 `review_rules.corrected_only_via`): it leaves the review
   `CORRECTED` atomically with a new reviewed mask, and on a review already `CORRECTED` it adds a version without a
   transition. A PATCH to `CORRECTED` is refused before sending (`CORRECTED_BY_COMMIT_ONLY`) — the server would answer
@@ -221,7 +224,11 @@ Rules of the screens:
 - **Reads go through `useCall`, writes through the model** (DR-021 rule 2): the run, each slice's prediction / MRI /
   reviewed-slice metadata and the findings list are `useCall` reads (latest wins, aborted on unmount and when no longer
   wanted); `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `finding_create` and `finding_patch`
-  are explicit actions with `expected_revision`.
+  are explicit actions with `expected_revision`. **One exception, on purpose:** the review's own open sequence
+  (`case_get` → `review_create` → `reviewed_masks_list`, run by the model's `open()` and again by `refresh()`) is not a
+  `useCall` read, because it ends in a POST and each step needs the answer of the one before. Its two reads take the
+  screen's `AbortSignal`, so an unmounted screen stops them (test `RS23`); the POST and the other writes are not
+  aborted. `reviewController.mjs` therefore reads nothing itself except through that sequence.
 - **Bytes only through `runtime.content`** (DR-021 rule 1): the checksum is mandatory - a response without one is
   `CONTRACT_DRIFT`, never an unverified success. Masks are decoded by `src/imaging/maskPng.js`; the MRI under them is
   drawn from `runtime.imageStore` (the same verified path).

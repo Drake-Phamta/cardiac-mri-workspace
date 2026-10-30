@@ -18,6 +18,13 @@
  * review_commit change the review) are explicit actions of the model, which
  * carries expected_revision on every one of them.
  *
+ * The one exception to "reads go through useCall" is the review's open
+ * sequence: the model runs case_get -> review_create -> reviewed_masks_list
+ * itself (open(), and again on refresh()), because it ends in a POST and every
+ * step needs the answer of the one before. Its two reads take this controller's
+ * `signal`, so an unmounted screen stops them; review_create and the other
+ * writes do not (a write that was sent is finished, not torn).
+ *
  * The flow, and the rule behind each step:
  *   1. variant   RAW or PROCESSED, from the route or chosen by the user - never
  *                defaulted (`11` §6). A review is scoped to it (DR-009).
@@ -229,7 +236,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
 
     // 3. the review, scoped.
     const opened = await review.open({
-      caseId: target.caseId, runId: fixture ? run.data.run_id : params.runId, sourceMaskId, predictionVariant: variant,
+      caseId: target.caseId, runId: fixture ? run.data.run_id : params.runId, sourceMaskId, predictionVariant: variant, signal,
     });
     if (opened.view.state !== STATE.SUCCESS) return block(opened.view);
 
@@ -456,7 +463,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     if (phase === PHASE.BLOCKED || !session) return variant ? open(variant) : start();
     busy = 'opening';
     emit();
-    await review.refresh();
+    await review.refresh({ signal });
     busy = null;
     notice = null;
     const now = review.current;
