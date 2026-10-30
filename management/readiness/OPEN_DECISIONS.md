@@ -470,6 +470,9 @@ as tabulated above. Adding the corresponding requirement and acceptance tests st
 >   the result is a `NEGATIVE_RESULT`, and Option 4 (2D only) goes through `00` §13.
 > - **Decision owner.** The entry names "Leader + Imaging owner". The Imaging owner, Vũ Hùng Anh, was not
 >   consulted: he has had no activity in this repository since 2026-10-03. The leader decides under DR-023.
+> - **Compatible masks** (PR-ERR-03) are a prediction and a ground truth on the same validated grid: same shape and
+>   geometry version. Otherwise `error_reconstruction_get` answers `GEOMETRY_NOT_VALIDATED` or `GEOMETRY_MISMATCH`
+>   (contract 1.1.0) and the 3D error map is unavailable, with that reason.
 > - INT-12 (CASE_0001) gets `GROUND_TRUTH_UNAVAILABLE` and no error mesh, as contract 1.1.0 says.
 > - Record: `management/day51/OPERATING_MODE_2026-10-30.md`. LLM QA of this record:
 >   `management/day51/qa/QA_PR107_PR108_D51.md` (B-2, Appendix B). The original text follows.
@@ -2091,10 +2094,12 @@ by default, and a dry run needs a record that is not a real one only on the oper
      The member must study and defend the function. Each member's TC-TEAM-001 text stays the member's own (carried
      over).
    - The per-member revalidation tables are no longer required. *Project Control* reads this as also lifting the
-     "Vũ Hùng Anh revalidates" conditions recorded for Spikes A, B and C1, which are revalidations of the same kind.
-     The leader can say otherwise.
+     revalidation conditions of the Day 22 acceptances: Vũ Hùng Anh for Spikes A and C1, Nguyễn Gia Đức Trung for
+     Spike B. They are revalidations of the same kind; the leader can say otherwise. Spike B's B15 note is
+     owner-authored (Vũ Hùng Anh), stays due and is not written for him (`WORK_INVENTORY.md` W-E9).
    - PR-MOBILE-03 stays MUST. Where a member's own implementation is not enough for TC-TEAM-001, the package records
-     the shortfall as a limitation of TC-TEAM-001.
+     the shortfall as a limitation of TC-TEAM-001. TC-TEAM-001 stays a required test of `13` §13, so such a
+     limitation may leave it short of PASS. The record says so; it does not hide it.
 5. **Nothing is written in a member's name that the member did not do.** Carried over from
    `management/day39/RECOVERY_OVERRIDE_DAY39.md` §3 and `management/day40/ACCEPTANCE_TRACE.md`.
 6. **Subjects.** Machine Learning, Image Processing and Mobile Application Development. Data Science is dropped as a
@@ -2106,8 +2111,8 @@ by default, and a dry run needs a record that is not a real one only on the oper
    and the device evidence exists. The draft deck of #102 is source material only.
 8. **UNet stays with Bế Quốc Khánh.** On 2026-10-27 the leader declined the DR-016a fallback (UNet on his PC):
    "Để Khánh, không chạy". The option text was: "Báo cáo và slide ghi UNet là hạn chế; câu hỏi UNet vs DINOv2 không
-   trả lời được khi nghiệm thu." If UNet is not trained in time, the ML report states the UNet vs DINOv2 question
-   (RQ-A) as unanswered, says why, and lists it as a limitation.
+   trả lời được khi nghiệm thu." If UNet is not trained in time, the ML report and the ML deck state the UNet vs
+   DINOv2 question (RQ-A) as unanswered, say why, and list it as a limitation.
 9. **Pace and care.** Quality before speed. Source, evening: "bạn còn hơn 1 tuần cơ nên là không cần vội đâu, tôi ưu
    tiên chất lượng hơn"; "… làm rõ từng chi tiết và làm thật cẩn thận, tỉ mỉ, đừng bỏ qua tiểu tiết nào". Two agents
    run in parallel (about 18:45, "2 agent song song"). *Project Control:* each unit is verified before the next one

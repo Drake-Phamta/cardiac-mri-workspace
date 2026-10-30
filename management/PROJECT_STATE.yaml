@@ -396,8 +396,8 @@ conditions:
   C3: {status: CLOSED, closed_by: DR-003}
   C4: {status: OPEN, waits_on: SPIKE_F, note: "RA-B01. DR-005 partly decided 2026-10-30: direction = the full 3D error map; at 21:55 the leader decided that Spike F runs before the error-map PR merges. C4 closes on Spike F evidence, or on a scope decision under 00 section 13"}
   C5: {status: CLOSED, closed_by: DR-008a}
-  C6: {status: PARTIALLY_RESOLVED, waits_on: "a leader decision - SPIKE_D is ACCEPTED (2026-09-18), and every header carries default geometry, so axis alignment holds at header level only; close C6 with that limitation or keep it open",
-       note: "axis-aligned policy approved (DR-012); evidence pending. Never mark CLOSED before Spike D. QA-002: every header carries default geometry (spacing 1, origin 0, identity direction), so axis alignment holds at header level only and physical geometry is unverified."}
+  C6: {status: PARTIALLY_RESOLVED, waits_on: LEADER,
+       note: "2026-10-30: SPIKE_D is ACCEPTED (2026-09-18) and every header carries default geometry, so axis alignment holds at header level only; closing C6 with that limitation, or keeping it open, is a leader decision (WORK_INVENTORY W-C19). Earlier: axis-aligned policy approved (DR-012); evidence pending. Never mark CLOSED before Spike D. QA-002: every header carries default geometry (spacing 1, origin 0, identity direction), so axis alignment holds at header level only and physical geometry is unverified."}
   C7: {status: CLOSED, closed_by: DR-013}
   C8: {status: CLOSED}
 
@@ -564,6 +564,7 @@ merged_prs_note: >
 # --- DECISIONS --------------------------------------------------------------
 decisions_pending:
   - {id: "E10 first-load budget figure", waits_on: "Nguyen Gia Duc Trung", subject: "DR-015 decided that a first-load budget becomes binding, but SPIKE_E/TASK.md 161 and 196 make E10 the spike owner's deliverable, so the figure is his to propose and the leader's to accept. His provisional 1000 ms p95 is already in tension with his own data - 445 ms p95 in run-4 against 3103 ms in the 2026-09-16 evening capture on the 576 profile - so it needs the time-of-day spread E8 still lacks. Five stated conditions in OPEN_DECISIONS DR-015 limb 1. Reserve queue today, Day-9 primary candidate"}
+  - {id: DR-005, waits_on: SPIKE_F, subject: "3D error representation: the direction was decided on 2026-10-30 (the full 3D error map); the representation is approved on Spike F's evidence (the leader, 21:55: Spike F runs before the error-map PR merges)"}
   - {id: "DEMO_STANDARD panel", waits_on: "Pham Tuan Anh", subject: "whether the final build gets an on-screen performance panel - 10 defines none, so it needs a Decision Request under 00 section 13. v1 and the count erratum were approved 2026-09-16"}
 
 decisions_made_during_execution:
@@ -743,7 +744,7 @@ not_frozen:
   - "mobile framework"
   - "final DINOv2 recipe"
   - "mesh decimation budget"
-  - "3D error representation - DR-005 decided 2026-10-30 (full 3D error map); the error-mesh format freezes with the V2 error-map PR"
+  - "3D error representation - DR-005 partly decided 2026-10-30 (direction: the full 3D error map); the representation is approved on Spike F's evidence, and the error-mesh format freezes after that approval"
   - "artifact transport strategy"
   - "morphology configuration"
 

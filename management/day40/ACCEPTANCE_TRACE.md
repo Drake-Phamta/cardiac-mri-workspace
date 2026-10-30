@@ -11,7 +11,7 @@
 
 > **Cập nhật cuối ngày 18/10:** sau khi tài liệu này được lập, #99 đã đưa V4 SCR-06/SCR-08 lên `main` (khung chạy được, test logic + render). Các dòng REV-01, REV-02, PROV-01, FIND-01 có thêm bằng chứng mức logic/render; vẫn **MỘT PHẦN** cho tới khi có bằng chứng thiết bị.
 
-> **Cập nhật 30/10:** hạn nghiệm thu mới là **08/11/2026** (leader báo lịch đã lùi), làm theo chế độ một người vận hành (DR-023, `management/day51/OPERATING_MODE_2026-10-30.md`). DR-005 đã quyết hướng **bản đồ lỗi 3D đầy đủ**; Spike F chạy trước khi merge bản đồ lỗi (leader, 21:55). Môn báo cáo còn ML, Xử lý ảnh, Mobile; mục 5.3 (Khoa học dữ liệu) chỉ còn để tham khảo, phạm vi sản phẩm không đổi. Từng dòng của tài liệu này được làm lại ở việc E1 của `management/day51/WORK_INVENTORY.md` khi có bằng chứng mới. TC-MAINT-003 đã có job CI `ml-tests` từ #100.
+> **Cập nhật 30/10:** hạn nghiệm thu mới là **08/11/2026** (leader báo lịch đã lùi), làm theo chế độ một người vận hành (DR-023, `management/day51/OPERATING_MODE_2026-10-30.md`). DR-005 đã quyết hướng **bản đồ lỗi 3D đầy đủ**; Spike F chạy trước khi merge bản đồ lỗi (leader, 21:55). Môn báo cáo còn ML, Xử lý ảnh, Mobile; mục 5.3 (Khoa học dữ liệu) chỉ còn để tham khảo, phạm vi sản phẩm không đổi. Từng dòng của tài liệu này được làm lại ở việc W-E1 của `management/day51/WORK_INVENTORY.md` khi có bằng chứng mới. TC-MAINT-003 đã có job CI `ml-tests` từ #100.
 
 ## 0. Đọc nhanh (sự thật hiện tại, không làm đẹp)
 
