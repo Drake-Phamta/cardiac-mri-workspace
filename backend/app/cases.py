@@ -45,10 +45,6 @@ def authorized_runs_problems(runs: object) -> List[str]:
     return problems
 
 
-def authorized_runs_valid(runs: object) -> bool:
-    return not authorized_runs_problems(runs)
-
-
 class CaseRecord:
     def __init__(self, data: dict, root: Path):
         self.data = data

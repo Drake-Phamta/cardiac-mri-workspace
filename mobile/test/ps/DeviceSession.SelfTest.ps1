@@ -565,7 +565,7 @@ function Get-DeviceSessionSelfChecks {
     Assert-True (-not (Test-OutsideGit -Path (Join-Path $repo.ToUpperInvariant() 'out') -Repo $repo)) 'Windows paths ignore case: another spelling of the repository is inside'
     Assert-True (Test-OutsideGit -Path (Join-Path $script:ST.Tmp 'somewhere_else') -Repo $repo) 'a sibling folder must be outside'
     Assert-True (Test-OutsideGit -Path ($repo + '_sibling') -Repo $repo) 'a folder whose name only starts like the repository must be outside'
-    $fso = New-Object -ComObject Scripting.FileSystemObject
+    try { $fso = New-Object -ComObject Scripting.FileSystemObject } catch { return }    # no COM class here: nothing to compare
     $repoShort = $fso.GetFolder($repo).ShortPath
     if ($repoShort -eq $repo) { return }    # 8.3 names are off on this volume: nothing to compare
     Assert-True (-not (Test-OutsideGit -Path (Join-Path $repoShort 'out') -Repo $repo)) 'the short-name spelling of the repository folder, with a new folder below it, must be inside'

@@ -211,7 +211,7 @@ masks travel as `{ encoding, data }`; a finding with a run records its predictio
 | `FindingsScreen.js` + `findingsController.mjs` | SCR-08: list (read with `useCall`) with evidence (variant included), Open evidence (SCR-03 / SCR-07, with the recorded variant), Review / correct (SCR-06), Resolve / Reopen (`finding_patch`), create only from a case/slice context - SCR-06 passes its variant, a bare run makes the form ask; node-tested in `mobile/test/v4_findings_screen.test.mjs` |
 
 Both screens are also rendered, with the real navigator, hooks and a stateful fake backend, in the render smoke
-(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4p`). That is **logic evidence, not device evidence**.
+(`mobile/test/render/smoke.mjs`, section 10: checks `V4a`..`V4q`). That is **logic evidence, not device evidence**.
 
 Demo path (hero steps H8 / H9): **Findings** tab → a finding → **Review / correct** (SCR-06 opens on the variant the
 finding recorded; a finding without one makes it ask RAW or PROCESSED) → brush → **Flag** → **Save** (names the source
