@@ -351,11 +351,12 @@ function Get-DeviceSessionSelfChecks {
     try {
       Add-Secret -Value 'R58M12ABCDE' -Mask '<device-serial>'
       # Synthetic private addresses are joined at run time: no committed line carries a dotted quad (DR-019 CI scan).
-      $ipA = (192, 168, 1, 20) -join '.'; $ipB = (10, 147, 17, 5) -join '.'; $ipC = (172, 22, 0, 9) -join '.'
+      # The 10.x fixture is outside ZeroTier's default 10.147.x.x pool, so it cannot be the project's overlay address (QA_PR100_103_D39 #103).
+      $ipA = (192, 168, 1, 20) -join '.'; $ipB = (10, 250, 250, 5) -join '.'; $ipC = (172, 22, 0, 9) -join '.'
       $t = Hide-Secret ('adb -s R58M12ABCDE shell; backend ' + $ipA + ' and ' + $ipB + ' and ' + $ipC + '; ' + $env:USERPROFILE + '\x')
       Assert-True ($t -notmatch 'R58M12ABCDE') 'serial leaked'
       Assert-True ($t -match '<device-serial>') 'serial not masked'
-      Assert-True ($t -notmatch '192\.168|10\.147|172\.22') 'private address leaked'
+      Assert-True ($t -notmatch '192\.168|10\.250\.250|172\.22') 'private address leaked'
       Assert-True ($t -match '<home>') 'profile path leaked'
     } finally { $script:Ctx.Secrets = $saved }
   }
