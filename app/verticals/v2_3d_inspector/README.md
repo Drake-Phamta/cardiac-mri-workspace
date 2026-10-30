@@ -16,9 +16,46 @@ validates the seven; the transform is yours to use.
 
 `error_reconstruction_get` answers `error_mesh_artifact_id` (`ERRMESH_<sha256 of the artifact bytes>`),
 `reference_mask_id`, `prediction_mask_id`, `prediction_variant` and the seven geometry fields; the path token is
-`{variant}`. The bytes are the one `cardiac-errormesh/1` artifact (the FP and FN surfaces, every face with its source
-slice and class) on the same content route as the surface meshes - see `contracts/api/README.md`, "3-D error mesh". The
-screen draws it only for the masks it shows (`reference_mask_id`, `prediction_mask_id`).
+`{variant}`. The bytes are the one `cardiac-errormesh/2` artifact (the FP and FN surfaces, every face with its source
+slice, class and connected error region, plus the region table) on the same content route as the surface meshes - see
+`contracts/api/README.md`, "3-D error mesh". The screen draws it only for the masks it shows (`reference_mask_id`,
+`prediction_mask_id`).
+
+## UC-09 / FR-3D-007 / FR-3D-008: how "overlap / FP / FN or equivalent" is met
+
+UC-09 asks the 3D error view to "distinguish overlap/FP/FN **or equivalent** error regions", and FR-3D-008 that selecting an
+error region "provide navigation to one or more contributing slices". The screen's reading, decided with the leader on
+2026-10-30 (DR-005 option 1, FP and FN as separate surfaces with independent visibility):
+
+- **FP and FN are surfaces of their own** (`FP = prediction AND NOT ground truth`, `FN = ground truth AND NOT prediction`),
+  each switchable, each with its own legend row, pattern (FP checkered, FN striped) and colour.
+- **Agreement (overlap, TP) has no surface of its own.** It is what the *prediction surface* shows where no error face
+  covers it (the error faces are drawn on top of the prediction's, and the prediction is part-desaturated while they are
+  shown). That is the "equivalent": the three classes are all visible, but only two of them are extra geometry. Reasons: the
+  **phone payload** - a third surface would add roughly the size of the prediction mesh again (the error meshes of the Day 39
+  data are 1.1-9.8 MB each, the surfaces 0.3-5 MB; four meshes can already reach ~17 MB), on a device whose WebView bridge and
+  frame rate are the risk (TC-PERF-002) - and **the leader's option names FP and FN only**. The agreement *count* is in the
+  artifact (`agreement_voxels`) and gives the same Dice as the server's metric.
+- **An error region is a connected component** of the FP (or FN) voxels (26-connectivity by default, recorded in the artifact),
+  labelled by `backend/mesh/error_geometry.py`. Selecting one (a tap on any of its faces) shows its class, voxel count and the
+  slices it contributes to, starts on the tapped slice, steps through the region's slices, highlights the region in the scene,
+  and opens SCR-03 / SCR-04 at the slice the panel is on.
+
+## Hand-offs to SCR-03 and SCR-04, and the marker (`10` §6)
+
+`Open in 2D` and `Open errors` push the slice the region panel is on (the tapped slice until the user steps). The voxel behind
+the tapped face is a pixel of that slice in the very frame the 2D screens draw (x = column, y = row), so the push also carries
+`marker: { column, row, sliceIndex }` and SCR-03 / SCR-04 draw a marker on that exact pixel (`mobile/src/verticals/v1/marker.mjs`).
+It is carried **only while the slice opened is the slice the voxel was picked in** and is drawn only while that slice is shown:
+after a region step to another slice, a slider move, or on a screen opened from the case list (SCR-02) the location is not
+known, and `10` §6 forbids inventing a more precise highlight than the slice index, so there is none.
+
+## Meshes reach the WebView in bounded chunks
+
+The remark below about a truncated bridge payload is handled by the transfer protocol (`transferPlan` in
+`inspector3d.mjs`, the receiver in `viewerSource.mjs`): a mesh is a start message (length, chunk size, number of chunks,
+sha256), chunks of at most 192 KiB (256 KiB of base64), and an end; the page checks the order, the sizes, the length and the
+sha256 **before** it decodes, and any problem is that layer's error (`mobile/README.md`, V2 section).
 
 ## What core already does
 

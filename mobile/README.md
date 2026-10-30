@@ -236,44 +236,101 @@ and the plane follows the 2D slice. Vũ Hùng Anh completes, measures and defend
   (the path token is `variant`) through `useCall`; the mesh bytes through `runtime.content`
   (`/api/v1/artifacts/<sha256>.cmesh`, verified against the sha256 inside `mesh_artifact_id = MESH_<sha256>` or
   `error_mesh_artifact_id = ERRMESH_<sha256>`, DR-021 rule 1). The surfaces are the undecimated L0 meshes (DR-008c) in the
-  voxel-index frame, format `cardiac-mesh/1` (`backend/mesh/artifact.py`); the error mesh is one `cardiac-errormesh/1`
-  artifact (`backend/mesh/error_artifact.py`) that the viewer splits into the FP and FN layers; see
+  voxel-index frame, format `cardiac-mesh/1` (`backend/mesh/artifact.py`); the error mesh is one `cardiac-errormesh/2`
+  artifact (`backend/mesh/error_artifact.py`: faces with class, source slice and connected error region, and the region
+  table) that the viewer splits into the FP and FN layers; see
   `contracts/api/README.md`, "3-D mesh content" and "3-D error mesh". The error mesh is drawn only if it names the masks the
   screen shows (`reference_mask_id`, `prediction_mask_id`, variant): otherwise the FP and FN layers read
   `error (MASK_MISMATCH)` and its bytes are not fetched. Fixture mode has no bytes, so it shows the honest unavailable state.
+  **Lazy layers:** a mesh whose layer is off is not fetched. The ground truth is off by default while the error map is usable,
+  so its mesh is requested (reference, then bytes, with a loading state of its own) only when its switch is turned on - or at
+  once when there is no usable error map and the two surfaces side by side are the disagreement view, or when Back restores it
+  as on - and never again after that; until then its row reads "not loaded: off while the error map is shown - switch it on to
+  load it" and its switch is the control that loads it. Its mask id (a small ground-truth slice call) is always asked for: the
+  error mesh is checked against it.
 - **Four layers, none by colour alone.** Prediction, ground truth, false positive (FP) and false negative (FN), each with
   its own state (loading / unavailable with the API's reason / error with its code / ready with its counts), its own switch
   and a legend row that prints its name, its meaning, a glyph and how the scene draws it (FP and FN use SCR-04's words and
   colours). In the scene FP is checkered, FN striped, the prediction solid and the ground truth see-through, and the surfaces
-  are partly desaturated while an error layer is drawn on them - so no class depends on its colour alone. The prediction
+  are partly desaturated while an error layer is drawn on them - so no class depends on its colour alone. **Palette
+  (2026-10-30):** FP and FN were too close to the surfaces' own colours (CIEDE2000 19 between FP `#e8635a` and the
+  prediction's orange `#f0883e`, 22 between FN `#4d9de0` and the ground truth's cyan `#39c5cf` - and 9 and 13 for a
+  deuteranope), so they changed, for SCR-04's overlays too (one legend, `ERROR_CLASS`): **FP `#c13584`**, a raspberry magenta
+  (hue 326), and **FN `#4f7cff`**, a cobalt blue (hue 225). In the worst of normal, protan and deutan vision FP is 36 from the
+  prediction's orange and FN 21 from the ground truth's cyan, FP and FN are 23 apart, and FP is 26 and FN 49 from SCR-04's TP
+  green (the patterns stay; `test/v2_palette.test.mjs` recomputes all of it - CIEDE2000 checked against published reference
+  pairs, Machado 2009 simulation - and shows the retired colours failing the same check). The colours were picked by a search
+  over hue, lightness and chroma against the four fixed colours (orange, cyan, TP green, the amber plane), with lightness kept
+  high enough that shaded faces stay visible on the dark background. The prediction
   decides the screen; every other layer reads its own state, so a missing error mesh never takes
   the surfaces down (the ground truth is then switched on by default, so the disagreement still shows as two surfaces). A
   class with no voxel is READY with "none: no false-positive voxels" - zero error is a fact, not a missing layer. An
   INFERENCE_REVIEW case (INT-12) is asked for neither ground truth nor error mesh: those layers say
   `unavailable (GROUND_TRUTH_UNAVAILABLE)` and the screen says that is not zero error.
-- **State.** One reducer (`inspectorReducer` in `inspector3d.mjs`): the switches, the plane, the selection and the camera.
-  What a layer *is* is derived from the calls, never stored.
+- **State.** One reducer (`inspectorReducer` in `inspector3d.mjs`): the switches, the plane, the selection, the region
+  panel's slice and the camera. What a layer *is* is derived from the calls, never stored.
+- **Error regions (FR-3D-008).** The error artifact numbers the connected components of the FP and FN voxels
+  (26-connectivity, recorded in its header) and gives every face its region; its header table lists, per region, the id
+  (`FP_0001` ...), class, voxel count and the contiguous run of slices it contributes to with the voxels on each. A tap on an
+  FP / FN face selects that region: the panel prints its class, voxel count and slices ("100 voxels on 5 slices · slices
+  51-55 of 88"), starts on the tapped slice, and **Previous / Next slice of this region** step through the region's own
+  slices - a step that would leave the region is disabled and says why (and the reducer refuses it too) - while the 3D plane
+  follows. The region is highlighted in the scene (its faces drawn again, solid and brightened, nearer by a depth offset), and
+  **Open in 2D / Open errors** open the slice the panel is on. A surface tap keeps today's behaviour (slice only, no region).
+  Back restores the layers, camera and plane; the selected region is not restored (tap it again).
+- **Marker (Spec 10 §6).** The viewer's pick also names the voxel behind the face (`column`, `row`, from the face's own
+  vertices and normal, never from the hit point). SCR-05 passes it to SCR-03 and to SCR-04 as `marker`, and `SliceViewport`
+  draws it on that exact pixel (the pixel as a rectangle through the display transform, plus a ring and ticks of constant size)
+  with a line of text; it exists only for the slice the voxel was picked in. `10` §6: "if only the slice index is reliable the
+  UI must not invent a more precise pixel highlight" - so a region step to another slice, a slider move, and a screen opened
+  from SCR-02 have no marker.
+- **Scrubber.** ◀ ▶ −10 +10 are never dead: with no slice shown (SCR-05 opened without a 2D slice) the first press puts the
+  plane at the middle slice (the slice SCR-03 opens on), and a button that cannot move - at an end of the stack - is disabled
+  instead of silently doing nothing (`stepTarget` in `v1/explorer.mjs`; `SliceScrubber` is shared with SCR-03 / SCR-04, whose
+  tests stay green).
 - **Slice plane.** A translucent plane at the middle of the slice with an outline, a band on the surfaces, a printed
   "slice n / total" and a slider. It starts at the 2D slice SCR-03 / SCR-04 hand in, follows the slider and a pick, and on
   Back it follows the slice the 2D screen ended on (QA #98 N-6: the screen that is left provides it through
   `nav.setReturnParams`).
 - **Viewer.** `viewerSource.mjs` is one self-contained WebGL2 page for `react-native-webview` (adapted from Spike B,
-  provenance in its header): orbit, pinch zoom, two-finger pan, the four layers, the slice plane. It loads each mesh once
-  however often it is delivered (QA #98 N-5), reports the camera when a gesture ends so that Back can restore it, and
-  contains nothing that could touch the network (test V2L15, QA #98 N-4). The screen hands it only verified artifacts that
-  fit the case's grid.
-- **H7.** A tap resolves to `face_source_slice[t]` and the class `face_class[t]` of the first triangle hit (not the floor
-  of the hit point); the screen shows "slice n / total" and what was hit; **Open in 2D** pushes SCR-03 at that slice, and
-  for an FP / FN face **Open errors** pushes SCR-04 at it, both for the same run and variant with `returnParams`, so Back
-  reopens SCR-05 on the same layers, camera and slice. A background tap clears the selection - nothing navigates by
-  accident. SCR-03's 3D entry passes the variant it shows.
+  provenance in its header): orbit, pinch zoom, two-finger pan, the four layers, the slice plane, the region highlight. It
+  loads each mesh once however often it is delivered (QA #98 N-5), reports the camera when a gesture ends so that Back can
+  restore it, and contains nothing that could touch the network (test V2L15, QA #98 N-4). The screen hands it only verified
+  artifacts that fit the case's grid.
+- **Mesh transfer RN -> WebView (bounded chunks).** A mesh is never one message. `transferPlan` (`inspector3d.mjs`) builds, one
+  message at a time, a `meshStart` (role, transfer id, byte length, chunk size, number of chunks, **sha256**), the chunks
+  (`seq` 0.., exactly `chunk` raw bytes each and the last the remainder, base64) and a `meshEnd`; every message carries its
+  ordinal `n`. **Bound:** a chunk is at most **192 KiB** raw = 256 KiB of base64 - far below the sizes at which WebView bridges
+  have stalled or dropped messages (reports start near 1 MB) and small enough that one macrotask converts and posts one chunk
+  (the screen sends one message per macrotask), yet the biggest error mesh measured (9.8 MB) is only 50 chunks; a mesh above
+  **32 MiB** (3.3x that) is refused before anything is allocated. The page reassembles into one buffer and, before it decodes,
+  checks the length and the sha256 (an ES5 SHA-256 inside the page: the viewer has no crypto it may rely on). Refusals, each
+  that layer's error with its own code and each followed by a working fresh transfer: a chunk out of order
+  (`MESH_CHUNK_ORDER`), repeated (`MESH_CHUNK_DUPLICATE`), missing - an ordinal gap or an end that arrives early
+  (`MESH_CHUNK_MISSING`) - larger than announced or than the bound (`MESH_CHUNK_OVERSIZED`), smaller than its place
+  (`MESH_CHUNK_SIZE`), not base64 (`MESH_CHUNK_ENCODING`), a mesh above the bound (`MESH_TOO_LARGE`), a transfer that goes quiet
+  for 20 s (`MESH_TRANSFER_TIMEOUT`), bytes with another sha256 (`MESH_CHECKSUM`), a chunk of no transfer
+  (`MESH_CHUNK_UNEXPECTED`), a malformed start (`MESH_TRANSFER`), a single-message mesh (`MESH_PROTOCOL`). The same message
+  delivered twice (both channels, `n` unchanged) and the late tail of a replaced transfer are ignored, not errors. When the
+  page reloads (a second `ready`) everything is sent again as new transfers.
+- **H7.** A tap resolves to `face_source_slice[t]`, the class `face_class[t]`, the region `face_component[t]` and the voxel of
+  the first triangle hit (not the floor of the hit point); the screen shows "slice n / total" and what was hit; **Open in 2D**
+  pushes SCR-03 at that slice (the region panel's), and for an FP / FN face **Open errors** pushes SCR-04 at it, both for the
+  same run and variant with `returnParams`, so Back reopens SCR-05 on the same layers, camera and slice. A background tap
+  clears the selection - nothing navigates by accident. SCR-03's 3D entry passes the variant it shows.
 - **Not done (owner):** on-device FPS / stall / picking measurements with four layers (TC-PERF-002; the error meshes
-  are heavier than the surfaces), label toggles beyond the four layers, smoothing, landscape, tapping a face that is hidden
-  behind another one (the viewer picks the nearest visible face; hide a layer to reach the one behind).
-- **Tests.** `test/v2_inspector3d.test.mjs` (logic: references, both headers against the Python goldens, messages, the
-  reducer, pick -> slice and class, the pushes and Back, layer states, the legend), `test/v2_viewer.test.mjs` (the viewer
-  script in node against a stubbed canvas: decode, refusal of damaged files, the Python golden pick cases for slice and
-  class, tap -> slice, background tap, four layers, idempotent loading, camera, what a frame draws, gestures),
+  are heavier than the surfaces), **the chunked transfer on a device** (the 4.2 MB median and 9.8 MB largest error meshes
+  through the real WebView bridge, and the time the SHA-256 takes there - only the protocol, the sizes and the refusals are
+  tested), label toggles beyond the four layers, smoothing, landscape, tapping a face that is hidden behind another one
+  (the viewer picks the nearest visible face; hide a layer to reach the one behind), restoring the selected region on Back.
+- **Tests.** `test/v2_inspector3d.test.mjs` (logic: references, both headers against the Python goldens, the region table,
+  messages, the reducer incl. region steps that never leave the region, region panel text, the marker rule, the transfer plan,
+  lazy layers, pick -> slice and class, the pushes and Back, layer states, the legend), `test/v2_viewer.test.mjs` (the viewer
+  script in node against a stubbed canvas: the chunked transfer and every refusal, SHA-256 against node's crypto, decode,
+  refusal of damaged files and region tables, the Python golden pick cases for slice, class, region and voxel, tap -> slice,
+  background tap, four layers, region highlight, idempotent loading, camera, what a frame draws, gestures),
+  `test/v2_palette.test.mjs` (the FP / FN colours against the surfaces under colour-vision simulation),
+  `test/v1_marker.test.mjs` (the marker's pixel is exact at every zoom and pan) and `v1.test.mjs` V1s (the step buttons),
   `test/navigator.test.mjs` N16-N20 (the pop side of `returnParams`) and section 11 of the render smoke (the screen with the
   WebView mocked: references, verified bytes, handshake, H6 / H7, every layer's four states, INT-12, Back through the real
   navigator).
