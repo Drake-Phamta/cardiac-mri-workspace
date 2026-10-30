@@ -82,11 +82,22 @@ record, or with a record that is not strict JSON of format `ml-holdout-authoriza
 `gate_status` `CLOSED` and the pinned split's sha256, it refuses before anything is written. (`ml/` is not imported:
 the backend runs on Python 3.9 without torch, so these four checks are written out in `ingest.py`; the record's
 other fields are `ml/holdout.py`'s to validate.) The record path is repository-relative (it is committed with the
-GATE-IMG-01 decision); an absolute path is accepted for a local check and only its file name is recorded. The
+GATE-IMG-01 decision): a relative path with `..`, a drive or a leading separator is refused before anything is opened
+(QA_PR94_D39 NB-3), and an absolute path is accepted for a local check and only its file name is recorded. The
 cache's `index.json` records the record's own sha256 under `holdout_authorization`, with `authorized_by` and `authorized_runs`: the
-record must name an approver and at least one `{experiment_id, checkpoint_sha256}` run (QA of PR #94), and `CaseStore` refuses a
+record must name an approver and at least one `{experiment_id, checkpoint_sha256}` run, each experiment listed once and
+named without surrounding spaces, as `ml/holdout.py` requires (QA of PR #94; QA_PR98_D39 N-7), and `CaseStore` refuses a
 cache whose record lacks either. A cache built before that change is brought up to date by re-running the same ingest
 command (every case is a NO_OP; only `index.json` is rewritten).
+
+**Served runs against the record.** When the cache carries the record, the experiment loader compares each package with
+its `authorized_runs`: a package whose `experiment_id` the record lists, but whose checkpoint
+(`experiment.checkpoint.checksum`) is not the listed one, is another model's holdout results under an authorized name and
+is rejected whole (`HOLDOUT_CHECKPOINT_NOT_AUTHORIZED`, listed in `/health` `rejected_experiment_packages`). An experiment
+the record does **not** list is served, because this cache holds one record and the UNet redeploy authorizes `EXP-U-*` in a
+second one (`ml/README.md`, "Redeploy"): "not listed" cannot be told from "authorized elsewhere" here, and the exporter
+already refused those runs without their own record. Holding more than one record in the cache, and then refusing
+unlisted experiments, is a decision for the leader (it changes DR-022's single record) and is not done.
 
 `CaseStore` keeps its lock: without that metadata a cache with more than one `final_holdout` case, or with one that
 has ground truth, still refuses to start; with it, the other holdout cases are allowed in EVALUATION mode. **The

@@ -17,18 +17,36 @@ def authorized_by_valid(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def authorized_runs_valid(runs: object) -> bool:
-    """A non-empty list of exactly ``{experiment_id, checkpoint_sha256}`` (the shape ml/holdout.py writes)."""
+def authorized_runs_problems(runs: object) -> List[str]:
+    """Why ``runs`` is not a valid ``authorized_runs`` list; empty when it is.
+
+    A non-empty list of exactly ``{experiment_id, checkpoint_sha256}`` (the shape ml/holdout.py writes), each
+    experiment listed once: ml/holdout.py refuses a record that lists an experiment twice, and a record that
+    named one experiment with two checkpoints would authorize whichever the reader happens to find first
+    (QA_PR98_D39 N-7).
+    """
     if not isinstance(runs, list) or not runs:
-        return False
-    for run in runs:
+        return ["authorized_runs must be a non-empty list"]
+    problems: List[str] = []
+    seen = set()
+    for position, run in enumerate(runs):
         if not isinstance(run, dict) or set(run) != {"experiment_id", "checkpoint_sha256"}:
-            return False
-        if not (isinstance(run["experiment_id"], str) and run["experiment_id"].strip()):
-            return False
+            problems.append(f"authorized_runs[{position}] must be exactly {{experiment_id, checkpoint_sha256}}")
+            continue
+        name = run["experiment_id"]
+        if not (isinstance(name, str) and name.strip() and name == name.strip()):  # ml/holdout.py _is_name
+            problems.append(f"authorized_runs[{position}].experiment_id must be a non-empty string")
+        elif name in seen:
+            problems.append(f"authorized_runs[{position}].experiment_id {name!r} is listed twice")
+        else:
+            seen.add(name)
         if not (isinstance(run["checkpoint_sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", run["checkpoint_sha256"])):
-            return False
-    return True
+            problems.append(f"authorized_runs[{position}].checkpoint_sha256 must be a lowercase 64-hex sha256")
+    return problems
+
+
+def authorized_runs_valid(runs: object) -> bool:
+    return not authorized_runs_problems(runs)
 
 
 class CaseRecord:
@@ -139,10 +157,12 @@ class CaseStore:
                 and isinstance(authorization.get("record_sha256"), str) and len(authorization["record_sha256"]) == 64):
             raise RuntimeError("data cache holds holdout cases under a malformed or mismatched GATE-IMG-01 record; "
                                "refusing to start")
-        if not (authorized_runs_valid(authorization.get("authorized_runs"))
-                and authorized_by_valid(authorization.get("authorized_by"))):
-            raise RuntimeError("the GATE-IMG-01 record of this data cache authorizes no run or names nobody "
-                               "(authorized_runs / authorized_by); re-run the ingest with the record; refusing to start")
+        run_problems = authorized_runs_problems(authorization.get("authorized_runs"))
+        if run_problems or not authorized_by_valid(authorization.get("authorized_by")):
+            raise RuntimeError("the GATE-IMG-01 record of this data cache authorizes no run, authorizes one twice or "
+                               "names nobody (authorized_runs / authorized_by)"
+                               + (": " + "; ".join(run_problems) if run_problems else "")
+                               + "; re-run the ingest with the record; refusing to start")
         designated = self.index.get("inference_only_case_ids")
         if not isinstance(designated, list) or not designated:
             raise RuntimeError("data cache with an authorization record does not designate the INT-12 case; refusing to start")
