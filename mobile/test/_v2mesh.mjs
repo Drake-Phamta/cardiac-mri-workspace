@@ -1,4 +1,4 @@
-// Shared by the V2 tests: the golden `cardiac-mesh/1` and `cardiac-errormesh/1` artifacts the Python encoders built from
+// Shared by the V2 tests: the golden `cardiac-mesh/1` and `cardiac-errormesh/2` artifacts the Python encoders built from
 // synthetic masks (backend/mesh/tests/golden/*.json), and small JavaScript encoders for hand-made meshes.
 // The encoders follow the layouts of backend/mesh/artifact.py and backend/mesh/error_artifact.py independently, so a
 // format change breaks a test here.
