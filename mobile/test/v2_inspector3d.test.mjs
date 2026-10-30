@@ -22,7 +22,7 @@ import {
 import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/verticals/v2/viewerSource.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import {
-  boxClass, encodeErrorMesh, ERROR_GOLDEN, errorGoldenBytes, GOLDEN, goldenBytes, NO_FACES,
+  boxClass, encodeErrorMesh, ERROR_GOLDEN, errorGoldenBytes, GOLDEN, goldenBytes,
 } from './_v2mesh.mjs';
 
 const HEX = 'ab'.repeat(32);

@@ -128,7 +128,7 @@ test('V2W4 H7: a TAP goes through the camera to the face under the finger and po
   const at = v.api.project([FACE_ON_TOP.x, FACE_ON_TOP.y, FACE_ON_TOP.z]);
   const ray = v.api.rayAt(at.x, at.y);
   const hit = v.api.pickRay(ray.origin, ray.direction);
-  assert.ok(hit !== null && hit.slice >= 0 && hit.slice < GOLDEN.shape_xyz[2], 'a pick after rotation is a slice in range or nothing');
+  assert.equal(hit.slice, 2, 'after a rotation the tap on the same face still resolves the same slice (V2W20 covers more cameras)');
 });
 
 test('V2W5 H7: a tap on the background posts no slice - it can never navigate', () => {
@@ -558,4 +558,42 @@ test('V2W19 what a frame draws: the error layers with a depth offset, FN hatched
   const w = makeViewer();
   w.load('error', encodeErrorMesh({ shape: [10, 10, 6], fn: boxClass([5, 5, 3], [6, 6, 5]) }));
   assert.equal(drawElements(w.frame()).length, 1);
+});
+
+test('V2W20 TC-3D-004: the slice and the class a tap resolves do not depend on the camera - rotation, zoom and pan change nothing', () => {
+  const cameras = [
+    { yaw: 0, pitch: 0, zoom: 1, pan: [0, 0] }, { yaw: -0.5, pitch: 0.35, zoom: 1, pan: [0, 0] },
+    { yaw: 0.4, pitch: 0.6, zoom: 2.5, pan: [0.05, -0.05] }, { yaw: -0.9, pitch: 0.2, zoom: 1.5, pan: [0, 0] },
+    { yaw: 1.2, pitch: 0.9, zoom: 3, pan: [0, 0] }, { yaw: 0.1, pitch: 1.2, zoom: 1, pan: [0, 0] },
+    { yaw: -2.2, pitch: 0.8, zoom: 0.5, pan: [-0.1, 0.1] },
+  ];
+  const through = (v, point) => {
+    const at = v.api.project(point);
+    const ray = v.api.rayAt(at.x, at.y);
+    return v.api.pickRay(ray.origin, ray.direction);
+  };
+  // the surface golden: the top of the tower at column 1, row 1 is slice 2, the top of the voxel (4, 3, 3) is slice 3
+  const surface = makeViewer();
+  surface.load('prediction', goldenBytes());
+  // the error golden, error layers only: the top of the FP slab voxel (6, 3, 4) lies on z = 5 -> slice 4, FP;
+  // the top of the FN slab voxel (2, 2, 2) lies on z = 3 -> slice 2, FN (hand-derived in test_error_artifact.py)
+  const errors = makeViewer();
+  errors.load('error', errorGoldenBytes());
+  let seen = 0;
+  for (const camera of cameras) {
+    surface.api.setCamera(camera);
+    errors.api.setCamera(camera);
+    const a = through(surface, [1.5, 1.5, 3]);
+    const b = through(surface, [4.5, 3.5, 4]);
+    const c = through(errors, [6.5, 3.5, 5]);
+    const d = through(errors, [2.5, 2.5, 3]);
+    assert.ok(a && b && c && d, `${JSON.stringify(camera)}: a point is hidden behind another face - every camera here looks at the tops from above`);
+    assert.deepEqual([a.slice, b.slice, c.slice, c.cls, d.slice, d.cls], [2, 3, 4, 'FP', 2, 'FN'], JSON.stringify(camera));
+    seen += 1;
+  }
+  assert.equal(seen, cameras.length);
+  // the other side of the same coin: from below the first face along the ray is another one, and that is what is resolved
+  surface.api.setCamera({ yaw: -3.0, pitch: -0.8, zoom: 0.5, pan: [-0.1, 0.1] });
+  const below = through(surface, [4.5, 3.5, 4]);
+  assert.notEqual(below.slice, 3, 'seen from underneath, the first face is not the top of the voxel: the tap resolves what it really hits');
 });

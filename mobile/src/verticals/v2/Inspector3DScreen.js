@@ -249,7 +249,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, params, fr
   };
   const overall = screenStatus(predStatus);
   const shown = effectiveVisibility(ui, statuses);
-  cameraRef.current = ui.camera || entry.camera;
+  cameraRef.current = ui.camera;   // the last camera the viewer reported, or the one Back restored; sent once when the viewer is ready
 
   const tell = useCallback((message) => { if (webRef.current && message) webRef.current.postMessage(message); }, []);
   useEffect(() => {

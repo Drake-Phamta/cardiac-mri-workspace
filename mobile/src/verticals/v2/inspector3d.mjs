@@ -50,9 +50,6 @@ export const LAYER_INFO = Object.freeze({
   falsePositive: Object.freeze({ short: ERROR_CLASS.FP.label, glyph: '▲', color: ERROR_CLASS.FP.color, detail: ERROR_CLASS.FP.detail }),
   falseNegative: Object.freeze({ short: ERROR_CLASS.FN.label, glyph: '▼', color: ERROR_CLASS.FN.color, detail: ERROR_CLASS.FN.detail }),
 });
-export const ROLE_LABEL = Object.freeze({
-  prediction: 'Prediction', groundTruth: 'Ground truth', falsePositive: 'False positive (FP)', falseNegative: 'False negative (FN)',
-});
 export const LAYER_COLOR = Object.freeze({
   prediction: LAYER_INFO.prediction.color, groundTruth: LAYER_INFO.groundTruth.color,
   falsePositive: LAYER_INFO.falsePositive.color, falseNegative: LAYER_INFO.falseNegative.color,

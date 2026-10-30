@@ -15,7 +15,11 @@
  *     the floor of the hit point, and a miss posts slice null (it never navigates);
  *   - flat shading from screen-space derivatives, so no normal buffer is needed; four layers (prediction, ground truth,
  *     false positive, false negative) with their own visibility; the slice plane is a translucent quad with an outline
- *     and a band on the surfaces; false negatives are hatched, so the two error classes differ without colour;
+ *     and a band on the surfaces; false negatives are hatched, so the two error classes differ without colour, and the
+ *     surfaces are partly desaturated while an error layer is drawn on them, so the class colours stand out;
+ *   - the camera frames the anatomy (the ground truth when it is loaded, else everything) by percentile bounds, so a few
+ *     stray prediction islands do not shrink the picture; the plane is sized the same way. Nothing is dropped from drawing
+ *     or picking;
  *   - measurement code (the 30 s frame probe) is NOT carried over: B10 / B11 on the device are the owner's.
  *
  * PROTOCOL (JSON strings through window.ReactNativeWebView.postMessage / WebView.postMessage)
