@@ -338,6 +338,22 @@ def test_withheld_case_wins_over_a_recorded_failure_or_nothing(api):
     assert next(item for item in page["items"] if item["case_id"] == "CASE_9001")["status"] == "FAILED"
 
 
+def test_a_page_that_names_another_experiments_outliers_fails_the_contract_check(api, monkeypatch):
+    """QA_PR94_D39 NB-6: Api.call checks the echoed outlier experiment_id against the experiment in the URL."""
+    service = api.app.state.backend.metrics
+    original = service.experiment_cases
+
+    def wrong(package):
+        page = original(package)
+        page["outlier_selection"]["experiment_id"] = "EXP-U-050"
+        return page
+
+    monkeypatch.setattr(service, "experiment_cases", wrong)
+    with pytest.raises(AssertionError, match="not the experiment that was asked for"):
+        api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200)
+    api.call("GET", f"{B}/experiments/EXP-U-050/cases", "experiment_cases", 200)  # the same page IS right for EXP-U-050
+
+
 # -- reviews --------------------------------------------------------------------
 
 def _new_review(api, run="RUN_9001", variant="RAW", status="NOT_REVIEWED"):
