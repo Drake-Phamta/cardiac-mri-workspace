@@ -223,32 +223,58 @@ it with `node --test`; keep React Native imports in `.js` files.
   nothing: `node mobile/scripts/slice-timing-report.mjs <logcat.txt>` prints n / p50 / p95 per pass
   (nearest-rank, Spike A's definition), and keeps DEV-build samples apart.
 
-## V2 screen (SCR-05) - a working skeleton
+## V2 screen (SCR-05) - the 3D error map
 
 SCR-05 3D Inspector (`src/verticals/v2/`) was built as a **skeleton** under the Day 39 recovery override so that hero
 steps H6 (open the 3D reconstruction, rotate / zoom / pan) and H7 (tap a region, jump to the contributing slice in
-SCR-03) run end to end on real data. Vũ Hùng Anh completes, measures and defends it (TC-3D-001..005, TC-PERF-002).
+SCR-03) run end to end on real data, and extended on 2026-10-30 with the **3D error map** (DR-005, decided by the
+leader): the model's false-positive and false-negative regions as surfaces of their own, a tap on one lands on its slice,
+and the plane follows the 2D slice. Vũ Hùng Anh completes, measures and defends it (TC-3D-001..005, TC-PERF-002).
 
 - **Data.** `case_get`, `analysis_run_get`, `reconstruction_get` (the path token is `mask_id`; its value is the run's RAW
-  or PROCESSED prediction mask id, or the ground-truth id from `ground_truth_slice_get`) through `useCall`; the mesh
-  bytes through `runtime.content` (`/api/v1/artifacts/<sha256>.cmesh`, verified against the sha256 inside
-  `mesh_artifact_id = MESH_<sha256>`, DR-021 rule 1). The mesh is the undecimated L0 surface (DR-008c) in the
-  voxel-index frame, format `cardiac-mesh/1` (`backend/mesh/artifact.py`); see `contracts/api/README.md`, "3-D mesh
-  content". Fixture mode has no bytes, so it shows the honest unavailable state.
+  or PROCESSED prediction mask id, or the ground-truth id from `ground_truth_slice_get`) and `error_reconstruction_get`
+  (the path token is `variant`) through `useCall`; the mesh bytes through `runtime.content`
+  (`/api/v1/artifacts/<sha256>.cmesh`, verified against the sha256 inside `mesh_artifact_id = MESH_<sha256>` or
+  `error_mesh_artifact_id = ERRMESH_<sha256>`, DR-021 rule 1). The surfaces are the undecimated L0 meshes (DR-008c) in the
+  voxel-index frame, format `cardiac-mesh/1` (`backend/mesh/artifact.py`); the error mesh is one `cardiac-errormesh/1`
+  artifact (`backend/mesh/error_artifact.py`) that the viewer splits into the FP and FN layers; see
+  `contracts/api/README.md`, "3-D mesh content" and "3-D error mesh". The error mesh is drawn only if it names the masks the
+  screen shows (`reference_mask_id`, `prediction_mask_id`, variant): otherwise the FP and FN layers read
+  `error (MASK_MISMATCH)` and its bytes are not fetched. Fixture mode has no bytes, so it shows the honest unavailable state.
+- **Four layers, none by colour alone.** Prediction, ground truth, false positive (FP) and false negative (FN), each with
+  its own state (loading / unavailable with the API's reason / error with its code / ready with its counts), its own switch
+  and a legend row that prints its name, its meaning and a glyph (FP and FN use SCR-04's words and colours). In the scene FN
+  is hatched. The prediction decides the screen; every other layer reads its own state, so a missing error mesh never takes
+  the surfaces down (the ground truth is then switched on by default, so the disagreement still shows as two surfaces). A
+  class with no voxel is READY with "none: no false-positive voxels" - zero error is a fact, not a missing layer. An
+  INFERENCE_REVIEW case (INT-12) is asked for neither ground truth nor error mesh: those layers say
+  `unavailable (GROUND_TRUTH_UNAVAILABLE)` and the screen says that is not zero error.
+- **State.** One reducer (`inspectorReducer` in `inspector3d.mjs`): the switches, the plane, the selection and the camera.
+  What a layer *is* is derived from the calls, never stored.
+- **Slice plane.** A translucent plane at the middle of the slice with an outline, a band on the surfaces, a printed
+  "slice n / total" and a slider. It starts at the 2D slice SCR-03 / SCR-04 hand in, follows the slider and a pick, and on
+  Back it follows the slice the 2D screen ended on (QA #98 N-6: the screen that is left provides it through
+  `nav.setReturnParams`).
 - **Viewer.** `viewerSource.mjs` is one self-contained WebGL2 page for `react-native-webview` (adapted from Spike B,
-  provenance in its header): orbit, pinch zoom, two-finger pan, prediction (orange) and ground-truth (cyan) layers with
-  their own switch, an amber band for the selected 2D slice. The screen hands it only verified artifacts that fit the
-  case's grid.
-- **H7.** A tap resolves to `face_source_slice[t]` of the first triangle hit (not the floor of the hit point); the
-  screen shows "slice n / total"; **Open in 2D** pushes SCR-03 at that slice for the same run and variant with
-  `returnParams`, so Back reopens SCR-05 on that slice. A background tap clears the selection - nothing navigates by
-  accident. SCR-03's 3D entry now passes the variant it shows.
-- **Not done (owner):** error reconstruction (DR-005 is open; the screen says so), on-device FPS / stall / picking
-  measurements, label toggles beyond the two layers, smoothing, landscape, the 3D plane as a surface (it is a band).
-- **Tests.** `test/v2_inspector3d.test.mjs` (logic, golden artifact from the Python encoder, navigator round trip),
-  `test/v2_viewer.test.mjs` (the viewer script in node against a stubbed canvas: decode, refusal of damaged files, the
-  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 10 of the render smoke
-  (the screen with the WebView mocked: references, verified bytes, handshake, H7, unavailable / error states).
+  provenance in its header): orbit, pinch zoom, two-finger pan, the four layers, the slice plane. It loads each mesh once
+  however often it is delivered (QA #98 N-5), reports the camera when a gesture ends so that Back can restore it, and
+  contains nothing that could touch the network (test V2L15, QA #98 N-4). The screen hands it only verified artifacts that
+  fit the case's grid.
+- **H7.** A tap resolves to `face_source_slice[t]` and the class `face_class[t]` of the first triangle hit (not the floor
+  of the hit point); the screen shows "slice n / total" and what was hit; **Open in 2D** pushes SCR-03 at that slice, and
+  for an FP / FN face **Open errors** pushes SCR-04 at it, both for the same run and variant with `returnParams`, so Back
+  reopens SCR-05 on the same layers, camera and slice. A background tap clears the selection - nothing navigates by
+  accident. SCR-03's 3D entry passes the variant it shows.
+- **Not done (owner):** on-device FPS / stall / picking measurements with four layers (TC-PERF-002; the error meshes
+  are heavier than the surfaces), label toggles beyond the four layers, smoothing, landscape, tapping a face that is hidden
+  behind another one (the viewer picks the nearest visible face; hide a layer to reach the one behind).
+- **Tests.** `test/v2_inspector3d.test.mjs` (logic: references, both headers against the Python goldens, messages, the
+  reducer, pick -> slice and class, the pushes and Back, layer states, the legend), `test/v2_viewer.test.mjs` (the viewer
+  script in node against a stubbed canvas: decode, refusal of damaged files, the Python golden pick cases for slice and
+  class, tap -> slice, background tap, four layers, idempotent loading, camera, what a frame draws, gestures),
+  `test/navigator.test.mjs` N16-N20 (the pop side of `returnParams`) and section 11 of the render smoke (the screen with the
+  WebView mocked: references, verified bytes, handshake, H6 / H7, every layer's four states, INT-12, Back through the real
+  navigator).
 
 ## Render-smoke harness (test-only)
 

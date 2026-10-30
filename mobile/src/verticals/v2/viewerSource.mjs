@@ -1,44 +1,62 @@
 /*
  * SCR-05 viewer: a self-contained WebGL2 page, as a string for react-native-webview (V2, Vũ Hùng Anh owns it;
- * built as a skeleton under the Day 39 recovery override - the owner completes, measures and defends it).
+ * built as a skeleton under the Day 39 recovery override and extended on 2026-10-30 with the 3D error map, DR-005 - the
+ * owner completes, measures and defends it).
  *
  * PROVENANCE. Adapted from the Spike B diagnostic viewer, which stays throwaway behind spikes/**:
  *   spikes/spike_b_3d/app/viewer.js   blob 52cd8fdc53a0 (last changed ba492ae)  camera, shaders, gestures
  *   spikes/spike_b_3d/app/picking.js  blob 696af3dd3314 (last changed 9e839ef)  Moller-Trumbore ray cast
  * copied 2026-10-18 and changed as follows. Product code never imports a spike.
- *   - the input is the served `cardiac-mesh/1` artifact (backend/mesh/artifact.py), not an OBJ: indexed vertices in
- *     the voxel-index frame (x = column, y = row, z = slice) and the source slice of every triangle;
- *   - a tap resolves to face_source_slice[t] of the first triangle hit (PR-3D-04, DR-008c = L0), NOT to the floor
- *     of the hit point, and a miss posts slice null (it never navigates);
- *   - flat shading from screen-space derivatives, so no normal buffer is needed; two layers (prediction, ground
- *     truth) with their own visibility; the selected slice is a band on the surface;
+ *   - the input is the served `cardiac-mesh/1` surface artifact (backend/mesh/artifact.py) or the `cardiac-errormesh/1`
+ *     error artifact (backend/mesh/error_artifact.py), not an OBJ: indexed vertices in the voxel-index frame (x = column,
+ *     y = row, z = slice) and the source slice of every triangle - for the error artifact also the class of every
+ *     triangle and the two class blocks (FP, FN), which become two layers of their own;
+ *   - a tap resolves to face_source_slice[t] (and the class) of the first triangle hit (PR-3D-04, DR-008c = L0), NOT to
+ *     the floor of the hit point, and a miss posts slice null (it never navigates);
+ *   - flat shading from screen-space derivatives, so no normal buffer is needed; four layers (prediction, ground truth,
+ *     false positive, false negative) with their own visibility; the slice plane is a translucent quad with an outline
+ *     and a band on the surfaces; false negatives are hatched, so the two error classes differ without colour;
  *   - measurement code (the 30 s frame probe) is NOT carried over: B10 / B11 on the device are the owner's.
  *
  * PROTOCOL (JSON strings through window.ReactNativeWebView.postMessage / WebView.postMessage)
- *   in   {type:'mesh', role:'prediction'|'groundTruth', b64}   a verified artifact, base64
- *        {type:'layers', prediction:bool, groundTruth:bool}    visibility
- *        {type:'slice', index:int|null}                        the slice the 2D viewer shows (band on the surface)
+ *   in   {type:'mesh', role:'prediction'|'groundTruth'|'error', b64}   a verified artifact, base64. 'error' is the error
+ *                                                                       container: it fills falsePositive AND falseNegative
+ *        {type:'layers', prediction, groundTruth, falsePositive, falseNegative}   visibility (booleans; others ignored)
+ *        {type:'slice', index:int|null}                        the slice of the plane (the 2D slice, the slider, a pick)
+ *        {type:'camera', yaw, pitch, zoom, panX, panY}         restore a camera (Back); values outside the gesture limits are ignored
  *        {type:'fit'}                                          reset the camera
  *   out  {type:'ready'} {type:'loaded', role, triangles, vertices} {type:'error', code, message, role|null}
- *        {type:'pick', role:'prediction'|'groundTruth'|null, triangle:int|null, slice:int|null}
+ *        {type:'pick', role:'prediction'|'groundTruth'|'falsePositive'|'falseNegative'|null, triangle:int|null,
+ *         slice:int|null, cls:'FP'|'FN'|null}                  cls is the class byte of the face that was hit
+ *        {type:'camera', yaw, pitch, zoom, panX, panY}         when a gesture ends (and on fit)
+ *   Loading is idempotent: the same bytes for the same role are decoded once, however many times (and through however
+ *   many of the two message channels) they arrive; the second delivery posts nothing (QA #98 N-5).
  *
  * The script avoids template literals and backslash escapes so it can live in a JS string; mobile/test/
- * v2_viewer.test.mjs runs it in node against a stubbed canvas, the golden artifact and the Python pick cases.
+ * v2_viewer.test.mjs runs it in node against a stubbed canvas, the golden artifacts and the Python pick cases.
  */
 
 export const VIEWER_SCRIPT = [
   '(function () {',
   "'use strict';",
-  "var FORMAT = 'cardiac-mesh/1';",
+  "var SURFACE = 'cardiac-mesh/1', ERRORS = 'cardiac-errormesh/1';",
   'var TAN_HALF = Math.tan(Math.PI / 8);',   // fov 45 degrees
-  'var TAP_MAX_MOVE = 8, TAP_MAX_MS = 450;',
+  'var TAP_MAX_MOVE = 8, TAP_MAX_MS = 450, TIE_EPS = 1e-6;',
+  'var ZOOM_MIN = 0.35, ZOOM_MAX = 8, PITCH_MAX = 1.45, PAN_MAX = 20;',
+  'var ROLES = ["prediction", "groundTruth", "falsePositive", "falseNegative"];',
+  // A tap picks the nearest visible face; faces at one distance (an error face lies exactly on a prediction face) go to
+  // the first of these: the error class, then the prediction, then the ground truth.
+  'var PICK_ORDER = ["falsePositive", "falseNegative", "prediction", "groundTruth"];',
+  'var CLASS_NAME = { 1: "FP", 2: "FN" };',
   'var canvas = document.getElementById("gl");',
-  'var gl = null, program = null, locs = {};',
-  'var layers = { prediction: null, groundTruth: null };',
-  'var visible = { prediction: true, groundTruth: true };',
-  'var COLORS = { prediction: [0.94, 0.53, 0.24], groundTruth: [0.22, 0.77, 0.81] };',
+  'var gl = null, program = null, locs = {}, planeVao = null, planeVbo = null;',
+  'var layers = { prediction: null, groundTruth: null, falsePositive: null, falseNegative: null };',
+  'var visible = { prediction: true, groundTruth: true, falsePositive: true, falseNegative: true };',
+  'var sources = { prediction: null, groundTruth: null, error: null };',   // the decoded bytes each mesh role came from
+  'var COLORS = { prediction: [0.94, 0.53, 0.24], groundTruth: [0.22, 0.77, 0.81], falsePositive: [0.91, 0.39, 0.35], falseNegative: [0.30, 0.62, 0.88] };',
   'var cam = { yaw: -0.5, pitch: 0.35, zoom: 1, pan: [0, 0], scale: 1, center: [0, 0, 0], base: 2.8 };',
-  'var sliceIndex = null, dirty = true, pointers = {}, gesture = null;',
+  'var bounds = null, planeData = new Float32Array(12);',
+  'var sliceIndex = null, dirty = true, pointers = {}, gesture = null, cameraMoved = false, cameraTimer = null;',
 
   'function post(message) {',
   '  try {',
@@ -48,22 +66,55 @@ export const VIEWER_SCRIPT = [
   '  } catch (e) { /* the bridge is gone: nothing to tell */ }',
   '}',
   'function fail(code, message, role) { post({ type: "error", code: code, message: message, role: role || null }); }',
+  'function postCamera() {',
+  '  post({ type: "camera", yaw: cam.yaw, pitch: cam.pitch, zoom: cam.zoom, panX: cam.pan[0], panY: cam.pan[1] });',
+  '}',
 
-  // ---- the artifact ----------------------------------------------------------------------------------------
+  // ---- the artifacts ---------------------------------------------------------------------------------------
   'function b64ToBytes(b64) {',
   '  var bin = atob(b64), n = bin.length, out = new Uint8Array(n);',
   '  for (var i = 0; i < n; i++) out[i] = bin.charCodeAt(i);',
   '  return out;',
   '}',
+  'function sameBytes(a, b) {',
+  '  if (!a || !b || a.length !== b.length) return false;',
+  '  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;',
+  '  return true;',
+  '}',
   'function pad4(size) { return (4 - (size % 4)) % 4; }',
-  'function decodeMesh(input) {',
+  // Every class block of an error artifact: first the class table (contiguous ranges that cover the file), then the
+  // faces (the class code in every face, the triangles indexing only their own block) - the order the other readers
+  // use, so one damaged file gets one code everywhere (mirrors backend/mesh/error_artifact.py decode_error_mesh).
+  'function checkClasses(header, triangles, classes) {',
+  '  var table = header.classes, names = ["FP", "FN"], vAt = 0, tAt = 0, i, k;',
+  '  if (!table || table.length !== 2) throw new Error("MESH_CLASSES: the class table must list FP then FN");',
+  '  for (i = 0; i < 2; i++) {',
+  '    var e = table[i], v = e.vertex_range, t = e.triangle_range;',
+  '    if (e.name !== names[i] || e.code !== i + 1 || !(e.voxels >= 0)) throw new Error("MESH_CLASSES: class " + names[i] + " is malformed");',
+  '    if (!v || !t || v[0] !== vAt || t[0] !== tAt || v[1] < v[0] || t[1] < t[0]) throw new Error("MESH_CLASSES: class " + names[i] + " ranges are not contiguous");',
+  '    if ((e.voxels === 0) !== (t[1] === t[0]) || (e.voxels === 0) !== (v[1] === v[0])) throw new Error("MESH_CLASSES: class " + names[i] + " voxels and faces disagree");',
+  '    if (t[1] - t[0] > 12 * e.voxels || v[1] - v[0] > 8 * e.voxels) throw new Error("MESH_CLASSES: class " + names[i] + " has more faces than its voxels can have");',
+  '    vAt = v[1]; tAt = t[1];',
+  '  }',
+  '  if (vAt !== header.vertex_count || tAt !== header.triangle_count) throw new Error("MESH_CLASSES: the class ranges do not cover the file");',
+  '  for (i = 0; i < 2; i++) {',
+  '    var vr = table[i].vertex_range, tr = table[i].triangle_range;',
+  '    for (k = tr[0]; k < tr[1]; k++) {',
+  '      if (classes[k] !== table[i].code) throw new Error("MESH_CLASS: a face in the " + names[i] + " block carries another class");',
+  '      if (triangles[3 * k] < vr[0] || triangles[3 * k] >= vr[1] || triangles[3 * k + 1] < vr[0] || triangles[3 * k + 1] >= vr[1] ||',
+  '          triangles[3 * k + 2] < vr[0] || triangles[3 * k + 2] >= vr[1]) throw new Error("MESH_INDEX: a " + names[i] + " triangle indexes outside its own vertices");',
+  '    }',
+  '  }',
+  '}',
+  'function decode(input) {',
   '  var bytes = input.slice(), view = new DataView(bytes.buffer);',      // a fresh, aligned buffer
   '  var magic = String.fromCharCode.apply(null, bytes.subarray(0, 8));',
   '  if (bytes.length < 12 || magic !== "CARDMESH") throw new Error("MESH_MAGIC: not a cardiac-mesh artifact");',
   '  var hlen = view.getUint32(8, true);',
   '  if (hlen % 4 !== 0 || 12 + hlen > bytes.length) throw new Error("MESH_HEADER: bad header length");',
   '  var header = JSON.parse(String.fromCharCode.apply(null, bytes.subarray(12, 12 + hlen)));',
-  '  if (header.format !== FORMAT) throw new Error("MESH_FORMAT: " + header.format);',
+  '  var isError = header.format === ERRORS;',
+  '  if (header.format !== SURFACE && !isError) throw new Error("MESH_FORMAT: " + header.format);',
   '  if (header.level !== 0 || header.frame !== "voxel-index" || header.index_convention !== "x=column,y=row,z=slice")',
   '    throw new Error("MESH_HEADER: unsupported level, frame or index convention");',
   '  var nv = header.vertex_count, nt = header.triangle_count, ib = header.index_bytes, shape = header.shape;',
@@ -79,6 +130,7 @@ export const VIEWER_SCRIPT = [
   '  var vertices = section(nv * 3, Uint16Array);',
   '  var triangles = section(nt * 3, ib === 2 ? Uint16Array : Uint32Array);',
   '  var slices = section(nt, Uint16Array);',
+  '  var classes = isError ? section(nt, Uint8Array) : null;',
   '  if (pos !== bytes.length) throw new Error("MESH_LENGTH: sections do not fill the file");',
   '  var i, maxIndex = 0, maxSlice = 0;',
   '  for (i = 0; i < triangles.length; i++) if (triangles[i] > maxIndex) maxIndex = triangles[i];',
@@ -86,9 +138,25 @@ export const VIEWER_SCRIPT = [
   '  for (i = 0; i < nv * 3; i++) if (vertices[i] > shape[i % 3]) throw new Error("MESH_VERTEX: a vertex lies outside [0, shape]");',
   '  for (i = 0; i < slices.length; i++) if (slices[i] > maxSlice) maxSlice = slices[i];',
   '  if (nt && maxSlice >= shape[2]) throw new Error("MESH_SLICE: a source slice is outside the volume");',
+  '  if (isError) checkClasses(header, triangles, classes);',
   '  var positions = new Float32Array(nv * 3);',
   '  for (i = 0; i < positions.length; i++) positions[i] = vertices[i];',
-  '  return { header: header, positions: positions, triangles: triangles, slices: slices, nv: nv, nt: nt };',
+  '  return { format: header.format, header: header, bytes: bytes, positions: positions, triangles: triangles, slices: slices,',
+  '           classes: classes, nv: nv, nt: nt };',
+  '}',
+  // An error artifact becomes two layers, one per class block: positions and slices are views, the triangle indices are
+  // made local to the block (so each layer is an ordinary indexed mesh), and the class bytes stay for the pick.
+  'function splitErrors(mesh) {',
+  '  var out = {};',
+  '  mesh.header.classes.forEach(function (c) {',
+  '    var role = c.name === "FP" ? "falsePositive" : "falseNegative";',
+  '    var v0 = c.vertex_range[0], v1 = c.vertex_range[1], t0 = c.triangle_range[0], t1 = c.triangle_range[1];',
+  '    var nt = t1 - t0, nv = v1 - v0, local = nv < 65536 ? new Uint16Array(nt * 3) : new Uint32Array(nt * 3), i;',
+  '    for (i = 0; i < nt * 3; i++) local[i] = mesh.triangles[t0 * 3 + i] - v0;',
+  '    out[role] = { role: role, header: mesh.header, positions: mesh.positions.subarray(v0 * 3, v1 * 3), triangles: local,',
+  '                  slices: mesh.slices.subarray(t0, t1), classes: mesh.classes.subarray(t0, t1), nv: nv, nt: nt, voxels: c.voxels };',
+  '  });',
+  '  return out;',
   '}',
 
   // ---- ray casting (Moller-Trumbore, back faces accepted; picking.js) -------------------------------------
@@ -118,16 +186,18 @@ export const VIEWER_SCRIPT = [
   '  var l = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);',
   '  return l > 1e-12 ? [d[0] / l, d[1] / l, d[2] / l] : null;',
   '}',
-  // The nearest hit over the visible layers. A miss is null: it never resolves to a slice.
+  // The nearest hit over the visible layers. A miss is null: it never resolves to a slice. The slice and the class are
+  // those of the FIRST triangle hit (PR-3D-04), read from the artifact, never from the hit point.
   'function pickRay(origin, direction) {',
   '  var d = normalise(direction), best = null;',
   '  if (!d) return null;',
-  '  ["prediction", "groundTruth"].forEach(function (role) {',
+  '  PICK_ORDER.forEach(function (role) {',
   '    var layer = layers[role];',
-  '    if (!layer || !visible[role]) return;',
+  '    if (!layer || !visible[role] || layer.nt === 0) return;',
   '    var hit = rayCast(layer, origin, d);',
-  '    if (hit && (best === null || hit.distance < best.distance)) {',
-  '      best = { role: role, triangle: hit.triangle, distance: hit.distance, slice: layer.slices[hit.triangle] };',
+  '    if (hit && (best === null || hit.distance < best.distance - TIE_EPS)) {',
+  '      best = { role: role, triangle: hit.triangle, distance: hit.distance, slice: layer.slices[hit.triangle],',
+  '               cls: layer.classes ? (CLASS_NAME[layer.classes[hit.triangle]] || null) : null };',
   '    }',
   '  });',
   '  return best;',
@@ -173,29 +243,44 @@ export const VIEWER_SCRIPT = [
   '  var nx = v[0] / (-v[2] * TAN_HALF * aspect), ny = v[1] / (-v[2] * TAN_HALF);',
   '  return { x: r.left + (nx * 0.5 + 0.5) * r.width, y: r.top + (0.5 - ny * 0.5) * r.height };',
   '}',
+  // A tap tells the screen what it hit; the screen owns the plane and answers with a slice message.
   'function pickAt(clientX, clientY) {',
   '  var ray = rayAt(clientX, clientY), hit = pickRay(ray.origin, ray.direction);',
-  '  if (!hit) { post({ type: "pick", role: null, triangle: null, slice: null }); return null; }',
-  '  post({ type: "pick", role: hit.role, triangle: hit.triangle, slice: hit.slice });',
-  '  sliceIndex = hit.slice; dirty = true;',                     // the selected slice becomes the band
+  '  if (!hit) { post({ type: "pick", role: null, triangle: null, slice: null, cls: null }); return null; }',
+  '  post({ type: "pick", role: hit.role, triangle: hit.triangle, slice: hit.slice, cls: hit.cls });',
   '  return hit;',
   '}',
-  'function fit() { cam.yaw = -0.5; cam.pitch = 0.35; cam.zoom = 1; cam.pan = [0, 0]; dirty = true; }',
-  'function refit() {',
-  '  var lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], any = false;',
-  '  ["prediction", "groundTruth"].forEach(function (role) {',
-  '    var layer = layers[role];',
-  '    if (!layer) return;',
-  '    any = true;',
+  'function fit() { cam.yaw = -0.5; cam.pitch = 0.35; cam.zoom = 1; cam.pan = [0, 0]; dirty = true; postCamera(); }',
+  // The frame of the camera and the extent of the plane: the anatomy. The ground truth when it is loaded (the reference LA,
+  // free of stray prediction islands), else everything that is loaded - in both cases from the 0.5th to the 99.5th
+  // percentile of a sample of the vertices on each axis, so a few stray faces do not shrink the picture. Nothing is dropped
+  // from drawing or from picking; the camera can zoom out to whatever lies outside the frame.
+  'function robustBounds(roles) {',
+  '  var total = 0, k = 0, axes = [[], [], []], a;',
+  '  roles.forEach(function (r) { if (layers[r] && layers[r].nt > 0) total += layers[r].positions.length / 3; });',
+  '  if (total === 0) return null;',
+  '  var step = Math.max(1, Math.floor(total / 40000));',
+  '  roles.forEach(function (r) {',
+  '    var layer = layers[r];',
+  '    if (!layer || layer.nt === 0) return;',
   '    for (var i = 0; i < layer.positions.length; i += 3) {',
-  '      for (var a = 0; a < 3; a++) {',
-  '        var x = layer.positions[i + a];',
-  '        if (x < lo[a]) lo[a] = x;',
-  '        if (x > hi[a]) hi[a] = x;',
-  '      }',
+  '      if (k++ % step === 0) { axes[0].push(layer.positions[i]); axes[1].push(layer.positions[i + 1]); axes[2].push(layer.positions[i + 2]); }',
   '    }',
   '  });',
-  '  if (!any) return;',
+  '  var lo = [0, 0, 0], hi = [0, 0, 0];',
+  '  for (a = 0; a < 3; a++) {',
+  '    axes[a].sort(function (p, q) { return p - q; });',
+  '    var n = axes[a].length;',
+  '    lo[a] = axes[a][Math.floor(0.005 * n)];',
+  '    hi[a] = axes[a][Math.ceil(0.995 * n) - 1];',
+  '  }',
+  '  return { lo: lo, hi: hi };',
+  '}',
+  'function refit() {',
+  '  var framed = robustBounds(layers.groundTruth && layers.groundTruth.nt > 0 ? ["groundTruth"] : ROLES);',
+  '  if (!framed) return;',
+  '  var lo = framed.lo, hi = framed.hi;',
+  '  bounds = framed;',
   '  cam.center = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];',
   '  var radius = Math.sqrt(Math.pow(hi[0] - lo[0], 2) + Math.pow(hi[1] - lo[1], 2) + Math.pow(hi[2] - lo[2], 2)) / 2;',
   '  cam.scale = radius > 0 ? 1 / radius : 1;',
@@ -206,16 +291,20 @@ export const VIEWER_SCRIPT = [
   '  "#version 300 es",',
   '  "in vec3 aPos;",',
   '  "uniform mat4 uProj; uniform mat4 uMV;",',
-  '  "out vec3 vView; out float vZ;",',
-  '  "void main() { vec4 w = uMV * vec4(aPos, 1.0); vView = w.xyz; vZ = aPos.z; gl_Position = uProj * w; }"',
+  '  "out vec3 vView; out vec3 vPos;",',
+  '  "void main() { vec4 w = uMV * vec4(aPos, 1.0); vView = w.xyz; vPos = aPos; gl_Position = uProj * w; }"',
   '].join("\\n");',
+  // uBand: how much of the slice band replaces the colour (the error classes keep most of theirs); uHatch: stripes
+  // across the faces (the false negatives), so the two error classes differ without colour; uMute: how much of the colour
+  // of a surface is taken out while error layers are drawn on it, so the class colours stand out; uFlat: the slice plane.
   'var FS = [',
   '  "#version 300 es",',
   '  "precision highp float;",',
-  '  "in vec3 vView; in float vZ;",',
-  '  "uniform vec3 uColor; uniform float uAlpha; uniform float uSlice;",',
+  '  "in vec3 vView; in vec3 vPos;",',
+  '  "uniform vec3 uColor; uniform float uAlpha; uniform float uSlice; uniform float uBand; uniform float uHatch; uniform float uMute; uniform float uFlat;",',
   '  "out vec4 outColor;",',
   '  "void main() {",',
+  '  "  if (uFlat > 0.5) { outColor = vec4(uColor, uAlpha); return; }",',
   '  "  vec3 n = normalize(cross(dFdx(vView), dFdy(vView)));",',
   '  "  vec3 v = normalize(-vView);",',
   '  "  if (dot(n, v) < 0.0) n = -n;",',
@@ -223,7 +312,9 @@ export const VIEWER_SCRIPT = [
   '  "  float diffuse = max(dot(n, l), 0.0);",',
   '  "  float rim = pow(1.0 - max(dot(n, v), 0.0), 2.5);",',
   '  "  vec3 c = uColor * (0.32 + 0.68 * diffuse + 0.12 * rim);",',
-  '  "  if (uSlice >= 0.0) { float band = 1.0 - smoothstep(0.5, 1.0, abs(vZ - (uSlice + 0.5))); c = mix(c, vec3(1.0, 0.82, 0.2), band * 0.9); }",',
+  '  "  c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), uMute);",',
+  '  "  if (uHatch > 0.5) { float stripe = step(0.5, fract((vPos.x + vPos.y + vPos.z) / 6.0)); c *= 1.0 - 0.30 * stripe; }",',
+  '  "  if (uSlice >= 0.0) { float band = 1.0 - smoothstep(0.5, 1.0, abs(vPos.z - (uSlice + 0.5))); c = mix(c, vec3(1.0, 0.82, 0.2), band * uBand); }",',
   '  "  outColor = vec4(c, uAlpha);",',
   '  "}"',
   '].join("\\n");',
@@ -242,10 +333,19 @@ export const VIEWER_SCRIPT = [
   '  gl.linkProgram(program);',
   '  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "link failed");',
   '  locs.pos = gl.getAttribLocation(program, "aPos");',
-  '  ["uProj", "uMV", "uColor", "uAlpha", "uSlice"].forEach(function (n) { locs[n] = gl.getUniformLocation(program, n); });',
+  '  ["uProj", "uMV", "uColor", "uAlpha", "uSlice", "uBand", "uHatch", "uMute", "uFlat"].forEach(function (n) { locs[n] = gl.getUniformLocation(program, n); });',
+  '  planeVao = gl.createVertexArray();',
+  '  gl.bindVertexArray(planeVao);',
+  '  planeVbo = gl.createBuffer();',
+  '  gl.bindBuffer(gl.ARRAY_BUFFER, planeVbo);',
+  '  gl.bufferData(gl.ARRAY_BUFFER, planeData, gl.DYNAMIC_DRAW);',
+  '  gl.enableVertexAttribArray(locs.pos);',
+  '  gl.vertexAttribPointer(locs.pos, 3, gl.FLOAT, false, 0, 0);',
+  '  gl.bindVertexArray(null);',
   '  return true;',
   '}',
   'function upload(layer) {',
+  '  if (layer.nt === 0) return;',                                     // a class with no face has nothing to draw
   '  layer.vao = gl.createVertexArray();',
   '  gl.bindVertexArray(layer.vao);',
   '  layer.vbo = gl.createBuffer();',
@@ -258,6 +358,9 @@ export const VIEWER_SCRIPT = [
   '  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, layer.triangles, gl.STATIC_DRAW);',
   '  layer.indexType = layer.triangles instanceof Uint16Array ? gl.UNSIGNED_SHORT : gl.UNSIGNED_INT;',
   '  gl.bindVertexArray(null);',
+  '}',
+  'function release(layer) {',
+  '  if (layer && gl && layer.vao) { gl.deleteBuffer(layer.vbo); gl.deleteBuffer(layer.ibo); gl.deleteVertexArray(layer.vao); }',
   '}',
   'function projection(aspect) {',
   '  var f = 1 / TAN_HALF, n = 0.05, fa = 100, out = new Float32Array(16);',
@@ -277,13 +380,41 @@ export const VIEWER_SCRIPT = [
   '  var h = Math.max(1, Math.floor((canvas.clientHeight || 1) * ratio));',
   '  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; dirty = true; }',
   '}',
-  'function drawLayer(role, alpha) {',
+  'function drawLayer(role, alpha, band, hatch, mute) {',
   '  var layer = layers[role];',
-  '  if (!layer || !visible[role]) return;',
+  '  if (!layer || layer.nt === 0 || !visible[role]) return;',
   '  gl.uniform3f(locs.uColor, COLORS[role][0], COLORS[role][1], COLORS[role][2]);',
   '  gl.uniform1f(locs.uAlpha, alpha);',
+  '  gl.uniform1f(locs.uBand, band);',
+  '  gl.uniform1f(locs.uHatch, hatch);',
+  '  gl.uniform1f(locs.uMute, mute);',
   '  gl.bindVertexArray(layer.vao);',
   '  gl.drawElements(gl.TRIANGLES, layer.nt * 3, layer.indexType, 0);',
+  '}',
+  // The slice plane: a translucent quad at the middle of the slice, a little wider than everything that is loaded, with
+  // an outline. Drawn last with the depth test on, so a surface in front of it hides it.
+  'function drawPlane() {',
+  '  if (sliceIndex === null || !bounds || !planeVao) return;',
+  '  var padX = Math.max(2, (bounds.hi[0] - bounds.lo[0]) * 0.08), padY = Math.max(2, (bounds.hi[1] - bounds.lo[1]) * 0.08);',
+  '  var x0 = bounds.lo[0] - padX, x1 = bounds.hi[0] + padX, y0 = bounds.lo[1] - padY, y1 = bounds.hi[1] + padY, z = sliceIndex + 0.5;',
+  '  planeData.set([x0, y0, z, x1, y0, z, x1, y1, z, x0, y1, z]);',
+  '  gl.bindVertexArray(planeVao);',
+  '  gl.bindBuffer(gl.ARRAY_BUFFER, planeVbo);',
+  '  gl.bufferData(gl.ARRAY_BUFFER, planeData, gl.DYNAMIC_DRAW);',
+  '  gl.uniform1f(locs.uFlat, 1.0);',
+  '  gl.uniform3f(locs.uColor, 1.0, 0.82, 0.2);',
+  '  gl.uniform1f(locs.uAlpha, 0.16);',
+  '  gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);',
+  '  gl.uniform1f(locs.uAlpha, 0.9);',
+  '  gl.drawArrays(gl.LINE_LOOP, 0, 4);',
+  '  gl.uniform1f(locs.uFlat, 0.0);',
+  '}',
+  // an error layer that is loaded, has faces and is switched on
+  'function errorsDrawn() {',
+  '  return ["falsePositive", "falseNegative"].some(function (r) { return layers[r] && layers[r].nt > 0 && visible[r]; });',
+  '}',
+  'function othersVisible() {',
+  '  return ["prediction", "falsePositive", "falseNegative"].some(function (r) { return layers[r] && layers[r].nt > 0 && visible[r]; });',
   '}',
   'function draw() {',
   '  window.requestAnimationFrame(draw);',
@@ -297,26 +428,54 @@ export const VIEWER_SCRIPT = [
   '  gl.uniformMatrix4fv(locs.uProj, false, projection(canvas.width / canvas.height));',
   '  gl.uniformMatrix4fv(locs.uMV, false, modelView());',
   '  gl.uniform1f(locs.uSlice, sliceIndex === null ? -1 : sliceIndex);',
+  '  gl.uniform1f(locs.uFlat, 0.0);',
   '  gl.disable(gl.BLEND); gl.depthMask(true);',
-  '  drawLayer("prediction", 1.0);',                         // opaque first
+  '  var mute = errorsDrawn() ? 0.55 : 0.0;',
+  '  drawLayer("prediction", 1.0, 0.9, 0.0, mute);',                    // opaque first
+  // The error faces share their plane with prediction faces (an FP face is a prediction face; an FN face meets one):
+  // pulled toward the camera by the depth offset, they win the tie everywhere and keep their class colour.
+  '  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1.0, -1.0);',
+  '  drawLayer("falsePositive", 1.0, 0.35, 0.0, 0.0);',
+  '  drawLayer("falseNegative", 1.0, 0.35, 1.0, 0.0);',
+  '  gl.disable(gl.POLYGON_OFFSET_FILL);',
+  '  var gtAlpha = othersVisible() ? 0.5 : 1.0;',
+  '  if (gtAlpha < 1.0) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }',
+  '  drawLayer("groundTruth", gtAlpha, 0.9, 0.0, mute);',
   '  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);',
-  '  drawLayer("groundTruth", layers.prediction && visible.prediction ? 0.5 : 1.0);',
+  '  drawPlane();',
   '  gl.depthMask(true); gl.bindVertexArray(null);',
   '}',
 
   // ---- messages in ---------------------------------------------------------------------------------------------
-  'function loadMesh(role, bytes) {',
-  '  if (role !== "prediction" && role !== "groundTruth") throw new Error("MESH_ROLE: " + role);',
-  '  var mesh = decodeMesh(bytes);',
-  '  var other = layers[role === "prediction" ? "groundTruth" : "prediction"];',
-  '  if (other && (other.header.shape.join(",") !== mesh.header.shape.join(",")))',
-  '    throw new Error("MESH_GRID: the two meshes do not share one grid");',
-  '  if (layers[role] && gl) { gl.deleteBuffer(layers[role].vbo); gl.deleteBuffer(layers[role].ibo); gl.deleteVertexArray(layers[role].vao); }',
-  '  layers[role] = mesh;',
-  '  if (gl) upload(mesh);',
+  'function checkGrid(header) {',
+  '  var key = header.shape.join(",");',
+  '  ROLES.forEach(function (r) {',
+  '    if (layers[r] && layers[r].header.shape.join(",") !== key) throw new Error("MESH_GRID: the meshes do not share one grid");',
+  '  });',
+  '}',
+  // Loading is idempotent: the same bytes for a role again (the host or the two message channels delivering a message
+  // twice) change nothing and post nothing. Different bytes replace the role. A refused artifact leaves the role as it was.
+  'function loadMesh(role, input) {',
+  '  if (role !== "prediction" && role !== "groundTruth" && role !== "error") throw new Error("MESH_ROLE: " + role);',
+  '  if (sameBytes(sources[role], input)) return null;',
+  '  var mesh = decode(input);',
+  '  if ((role === "error") !== (mesh.format === ERRORS)) throw new Error("MESH_FORMAT: a " + mesh.header.format + " artifact is not a " + role + " mesh");',
+  '  checkGrid(mesh.header);',
+  '  var made = role === "error" ? splitErrors(mesh) : (function () { var one = {}; mesh.role = role; one[role] = mesh; return one; })();',
+  '  Object.keys(made).forEach(function (r) {',
+  '    release(layers[r]);',
+  '    layers[r] = made[r];',
+  '    if (gl) upload(made[r]);',
+  '  });',
+  '  sources[role] = mesh.bytes;',
   '  refit(); dirty = true;',
-  '  post({ type: "loaded", role: role, triangles: mesh.nt, vertices: mesh.nv });',
-  '  return mesh;',
+  '  Object.keys(made).forEach(function (r) { post({ type: "loaded", role: r, triangles: made[r].nt, vertices: made[r].nv }); });',
+  '  return made;',
+  '}',
+  'function applyCamera(data) {',
+  '  var ok = [data.yaw, data.pitch, data.zoom, data.panX, data.panY].every(function (v) { return typeof v === "number" && isFinite(v); });',
+  '  if (!ok || Math.abs(data.pitch) > PITCH_MAX || data.zoom < ZOOM_MIN || data.zoom > ZOOM_MAX || Math.abs(data.panX) > PAN_MAX || Math.abs(data.panY) > PAN_MAX) return;',
+  '  cam.yaw = data.yaw; cam.pitch = data.pitch; cam.zoom = data.zoom; cam.pan = [data.panX, data.panY]; dirty = true;',
   '}',
   'function onMessage(event) {',
   '  var data = event && event.data;',
@@ -325,19 +484,25 @@ export const VIEWER_SCRIPT = [
   '  try {',
   '    if (data.type === "mesh" && typeof data.b64 === "string") loadMesh(data.role, b64ToBytes(data.b64));',
   '    else if (data.type === "layers") {',
-  '      if (typeof data.prediction === "boolean") visible.prediction = data.prediction;',
-  '      if (typeof data.groundTruth === "boolean") visible.groundTruth = data.groundTruth;',
+  '      ROLES.forEach(function (r) { if (typeof data[r] === "boolean") visible[r] = data[r]; });',
   '      dirty = true;',
   '    } else if (data.type === "slice") {',
   '      sliceIndex = typeof data.index === "number" && isFinite(data.index) && data.index >= 0 ? Math.floor(data.index) : null;',
   '      dirty = true;',
-  '    } else if (data.type === "fit") fit();',
+  '    } else if (data.type === "camera") applyCamera(data);',
+  '    else if (data.type === "fit") fit();',
   '  } catch (e) { fail("VIEWER_ERROR", String(e && e.message ? e.message : e), data.type === "mesh" ? data.role : null); }',
   '}',
 
   // ---- gestures: orbit, pinch zoom, two-finger pan, tap to pick -----------------------------------------------
   'function count() { return Object.keys(pointers).length; }',
   'function two() { var k = Object.keys(pointers); return [pointers[k[0]], pointers[k[1]]]; }',
+  // The camera is reported when a gesture ends (and a quiet moment after a wheel), never during it: the screen keeps
+  // the last one so that Back can restore it.
+  'function cameraSettled() {',
+  '  cameraMoved = false;',
+  '  postCamera();',
+  '}',
   'function onDown(e) {',
   '  if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (x) { /* synthetic */ } }',
   '  pointers[e.pointerId] = { x: e.clientX, y: e.clientY };',
@@ -352,9 +517,9 @@ export const VIEWER_SCRIPT = [
   '}',
   'function panBy(dx, dy) {',
   '  var r = rect(), k = (2 * distance() * TAN_HALF) / r.height;',
-  '  cam.pan[0] += dx * k; cam.pan[1] -= dy * k; dirty = true;',
+  '  cam.pan[0] += dx * k; cam.pan[1] -= dy * k; dirty = true; cameraMoved = true;',
   '}',
-  'function setZoom(z) { cam.zoom = Math.min(8, Math.max(0.35, z)); dirty = true; }',
+  'function setZoom(z) { cam.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)); dirty = true; cameraMoved = true; }',
   'function onMove(e) {',
   '  var prev = pointers[e.pointerId];',
   '  if (!prev) return;',
@@ -367,20 +532,24 @@ export const VIEWER_SCRIPT = [
   '    if (gesture) { gesture.d = d; gesture.mx = mx; gesture.my = my; }',
   '  } else if (count() === 1 && gesture && gesture.moved) {',
   '    cam.yaw += dx * 0.009;',
-  '    cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + dy * 0.009));',
-  '    dirty = true;',
+  '    cam.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, cam.pitch + dy * 0.009));',
+  '    dirty = true; cameraMoved = true;',
   '  }',
   '}',
   'function onUp(e) {',
   '  var wasTap = gesture && !gesture.moved && !gesture.multi && count() === 1 && Date.now() - gesture.t0 <= TAP_MAX_MS;',
   '  delete pointers[e.pointerId];',
-  '  if (count() === 0) gesture = null;',
+  '  if (count() === 0) { gesture = null; if (cameraMoved) cameraSettled(); }',
   '  else if (count() === 1 && gesture) { gesture.d = 0; gesture.moved = true; }',   // a lifted second finger is no tap
   '  if (wasTap && e.type === "pointerup") pickAt(e.clientX, e.clientY);',
   '}',
   'function onWheel(e) {',
   '  if (e.preventDefault) e.preventDefault();',
   '  setZoom(cam.zoom * Math.exp(-e.deltaY * 0.001));',
+  '  if (typeof setTimeout === "function") {',
+  '    if (cameraTimer !== null && typeof clearTimeout === "function") clearTimeout(cameraTimer);',
+  '    cameraTimer = setTimeout(function () { cameraTimer = null; if (cameraMoved) cameraSettled(); }, 250);',
+  '  }',
   '}',
 
   // ---- start ----------------------------------------------------------------------------------------------------
@@ -396,10 +565,14 @@ export const VIEWER_SCRIPT = [
   'document.addEventListener("message", onMessage);',     // Android
   'window.addEventListener("resize", function () { dirty = true; });',
   'window.__cardiacViewer = {',
-  '  decodeMesh: decodeMesh, loadMesh: loadMesh, pickRay: pickRay, pickAt: pickAt, project: project, rayAt: rayAt,',
+  '  decodeMesh: decode, loadMesh: loadMesh, pickRay: pickRay, pickAt: pickAt, project: project, rayAt: rayAt,',
   '  setCamera: function (c) { for (var k in c) cam[k] = c[k]; dirty = true; }, camera: function () { return cam; },',
-  '  setLayers: function (v) { visible.prediction = v.prediction; visible.groundTruth = v.groundTruth; },',
-  '  state: function () { return { slice: sliceIndex, visible: visible, loaded: { prediction: !!layers.prediction, groundTruth: !!layers.groundTruth } }; }',
+  '  setLayers: function (v) { ROLES.forEach(function (r) { if (typeof v[r] === "boolean") visible[r] = v[r]; }); },',
+  '  state: function () {',
+  '    var loaded = {}, counts = {};',
+  '    ROLES.forEach(function (r) { loaded[r] = !!layers[r]; counts[r] = layers[r] ? layers[r].nt : null; });',
+  '    return { slice: sliceIndex, visible: visible, loaded: loaded, triangles: counts, bounds: bounds };',
+  '  }',
   '};',
   'window.requestAnimationFrame(draw);',
   'post({ type: "ready" });',

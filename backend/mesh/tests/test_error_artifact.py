@@ -329,6 +329,10 @@ def golden_document():
         "classes": decoded["header"]["classes"], "agreement_voxels": info["tp_voxels"],
         "vertex_count": info["vertex_count"], "triangle_count": info["triangle_count"], "bytes": info["bytes"],
         "sha256": info["mesh_sha256"], "bytes_b64": base64.b64encode(payload).decode("ascii"),
+        # the surface artifacts of the same two masks: a scene with all four layers (the error faces lie on the
+        # prediction's, which is what the viewer's pick priority and depth offset are for)
+        "prediction_surface_b64": base64.b64encode(artifact.build_mesh_artifact(volume(PREDICTION))[0]).decode("ascii"),
+        "reference_surface_b64": base64.b64encode(artifact.build_mesh_artifact(volume(REFERENCE))[0]).decode("ascii"),
         "picks": picks,
     }
 

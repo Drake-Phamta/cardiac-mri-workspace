@@ -14,6 +14,12 @@
 `reconstruction_get` also returns `mesh_to_world_transform` on top of the seven geometry fields. Core
 validates the seven; the transform is yours to use.
 
+`error_reconstruction_get` answers `error_mesh_artifact_id` (`ERRMESH_<sha256 of the artifact bytes>`),
+`reference_mask_id`, `prediction_mask_id`, `prediction_variant` and the seven geometry fields; the path token is
+`{variant}`. The bytes are the one `cardiac-errormesh/1` artifact (the FP and FN surfaces, every face with its source
+slice and class) on the same content route as the surface meshes - see `contracts/api/README.md`, "3-D error mesh". The
+screen draws it only for the masks it shows (`reference_mask_id`, `prediction_mask_id`).
+
 ## What core already does
 
 ```js
