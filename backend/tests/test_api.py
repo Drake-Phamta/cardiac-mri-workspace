@@ -354,6 +354,34 @@ def test_a_page_that_names_another_experiments_outliers_fails_the_contract_check
     api.call("GET", f"{B}/experiments/EXP-U-050/cases", "experiment_cases", 200)  # the same page IS right for EXP-U-050
 
 
+def test_successful_n_counts_the_withheld_case_only_when_it_was_evaluated(api):
+    """QA_PR94_D39 NB-5: the contract defines successful_n as the SUCCEEDED rows plus one for the WITHHELD (INT-12)
+    row WHEN THAT CASE WAS EVALUATED. If the ML recorded INT-12 as a failure, the row is still WITHHELD (QA-075 N-7)
+    and the artifact's own successful_n does not count it: nothing is repaired, nothing about the case is served."""
+    def numbers():
+        page = api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 200).json()
+        counts = api.call("GET", f"{B}/experiments/EXP-U-025/metrics", "experiment_metrics", 200).json()
+        by_status = {}
+        for row in page["items"]:
+            by_status[row["status"]] = by_status.get(row["status"], 0) + 1
+        return page, counts, by_status
+
+    page, counts, by_status = numbers()  # as exported: INT-12 evaluated
+    assert by_status == {"SUCCEEDED": 52, "WITHHELD": 1, "FAILED": 1}
+    assert counts["successful_n"] == by_status["SUCCEEDED"] + 1 and counts["evaluation_n"] == len(page["items"]) == 54
+
+    loaded = api.app.state.backend.metrics.package_metrics(api.app.state.backend.experiments.experiments["EXP-U-025"])
+    loaded.records.pop("CASE_0031")  # the ML artifact of a run whose INT-12 inference failed ...
+    loaded.failures["CASE_0031"] = {"case_id": "CASE_0031", "reason_code": "EVALUATION_ERROR", "reason": "ml failure text"}
+    loaded.successful_n -= 1  # ... counts it as a failure, not a success
+    page, counts, by_status = numbers()
+    assert by_status == {"SUCCEEDED": 52, "WITHHELD": 1, "FAILED": 1}  # the row is WITHHELD all the same
+    row = next(item for item in page["items"] if item["case_id"] == "CASE_0031")
+    assert row["metric_values"] is None and "ml failure text" not in json.dumps(page)
+    assert counts["successful_n"] == by_status["SUCCEEDED"], "a WITHHELD row that was not evaluated is not a success"
+    assert counts["evaluation_n"] == len(page["items"]) == 54
+
+
 # -- reviews --------------------------------------------------------------------
 
 def _new_review(api, run="RUN_9001", variant="RAW", status="NOT_REVIEWED"):

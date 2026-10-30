@@ -258,13 +258,18 @@ case's raw volume. The API has no volume endpoint, so a switch is bounded by one
 
 ## Known gaps (Day 22, updated Day 39)
 
-- Metrics, worst-slice selection and cohort endpoints answer the unavailable state until saved Contract 2 metric
-  artifacts exist. As of 2026-10-18 no holdout has been predicted: a real package needs the GATE-IMG-01 record on
-  `main`, the exporter and the validator DR-018 checks, and (for the per-case views) a cache built with
-  `--include-holdout --holdout-authorization <record>` (DR-022).
-- No Contract 2 package exists yet, so on real data there are no runs, predictions or reviews; the review flow is
-  proven on the synthetic package only. A failed case has no run (DR-018), so the FAILED-run guards
-  (`RUN_NOT_SUCCEEDED`, `ANALYSIS_FAILED`) cannot be reached by a valid package; the tests flip a loaded run to reach them.
+- Metrics, worst-slice selection and cohort endpoints answer the unavailable state when no saved Contract 2 metric
+  artifacts are served. Since 2026-10-18 the GATE-IMG-01 record is on `main` and four holdout packages (EXP-D-025,
+  EXP-D-050, EXP-D-100, EXP-D-PP) exist; they are served from a cache built with
+  `--include-holdout --holdout-authorization <record>` (DR-022), and the API-level hero flow (`tools/e2e/`) has run
+  against them on the PC and on the Mac mini. As of 2026-10-30 no UNet (`EXP-U-*`) package exists yet.
+- The review flow is proven on real data by the hero flow's H8 / H9 and on the synthetic package by the suite. A failed
+  case has no run (DR-018), so the FAILED-run guards (`RUN_NOT_SUCCEEDED`, `ANALYSIS_FAILED`) cannot be reached by a
+  valid package; the tests flip a loaded run to reach them.
+- `successful_n` is read from the metrics artifact. The contract defines it as the SUCCEEDED rows of `experiment_cases`
+  plus one for the WITHHELD (INT-12) row **when that case was evaluated**; if the ML recorded the INT-12 case as a
+  failure, its row is still WITHHELD (the backend's own reason, QA-075 N-7) and the artifact's `successful_n` does not
+  count it. Nothing is repaired or leaked; a test pins the arithmetic (QA_PR94_D39 NB-5).
 - The validator trusts the PER_CASE_METRICS artifact and the population manifest for the population; it does not
   re-derive either from the split manifest.
 - The served mesh frame is declared (voxel-index, `x=column,y=row,z=slice`, `backend/mesh/artifact.py`); the Contract 2
