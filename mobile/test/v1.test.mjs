@@ -12,8 +12,8 @@ import { createMaskStore } from '../src/imaging/maskStore.mjs';
 import { createSliceCache } from '../src/runtime/sliceCache.mjs';
 import { CAPABILITY, capabilityOf, filterRows, readCaseRows } from '../src/verticals/v1/capability.mjs';
 import {
-  buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex,
-  scrubPosition, sliceLabel, variantOptions,
+  buildNavSequence, chooseRun, clampSlice, metricsText, middleSlice, runText, scrubIndex,
+  scrubPosition, sliceLabel, stepTarget, variantOptions,
 } from '../src/verticals/v1/explorer.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
 import { generatedBundleJson, loadContract, MOBILE_ROOT } from './_helpers.mjs';
@@ -376,4 +376,38 @@ test('V1c2 contract 1.1.0 rows: `mode_capability` is the row mode (top-level `mo
   assert.deepEqual(r.rows.map((x) => x.capability.key), ['INFERENCE_REVIEW', 'EVALUATION']);
   assert.ok(r.rows.every((x) => x.capability.consistent));
   assert.deepEqual({ ...r.counts }, { total: 2, EVALUATION: 1, INFERENCE_REVIEW: 1, UNKNOWN: 0 });
+});
+
+test('V1s the step buttons are never dead: from no slice the first press puts the slice at the middle, at an end the button cannot move', () => {
+  const N = 88;
+  // from a slice shown: one or ten on, kept inside the stack
+  assert.equal(stepTarget(44, 1, N), 45);
+  assert.equal(stepTarget(44, -1, N), 43);
+  assert.equal(stepTarget(44, 10, N), 54);
+  assert.equal(stepTarget(44, -10, N), 34);
+  assert.equal(stepTarget(85, 10, N), 87, '+10 near the end goes to the last slice');
+  assert.equal(stepTarget(3, -10, N), 0, 'and -10 near the start to the first');
+  // at an end, towards that end: no move (the screen disables the button), away from it: a move
+  assert.equal(stepTarget(0, -1, N), null);
+  assert.equal(stepTarget(0, -10, N), null);
+  assert.equal(stepTarget(87, 1, N), null);
+  assert.equal(stepTarget(87, 10, N), null);
+  assert.equal(stepTarget(0, 1, N), 1);
+  assert.equal(stepTarget(87, -1, N), 86);
+  // from NO slice shown (SCR-05 with no 2D slice handed in): every button puts it at the middle - the slice SCR-03 opens on
+  assert.equal(middleSlice(N), 44);
+  for (const delta of [-10, -1, 1, 10]) {
+    for (const none of [null, undefined, NaN, '4', 2.5]) assert.equal(stepTarget(none, delta, N), 44, `delta ${delta} from ${String(none)}`);
+  }
+  assert.equal(middleSlice(1), 0);
+  assert.equal(stepTarget(null, 1, 1), 0, 'a one-slice volume: the only slice');
+  assert.equal(stepTarget(0, 1, 1), null);
+  // nothing to step in without a stack, and no step of size zero
+  for (const total of [0, -3, null, undefined, 2.5, '88']) assert.equal(stepTarget(10, 1, total), null, String(total));
+  assert.equal(stepTarget(10, 0, N), null);
+  assert.equal(stepTarget(10, 1.5, N), null);
+  assert.equal(middleSlice(0), null);
+  assert.equal(middleSlice(null), null);
+  // and the middle is what SCR-03 opens on (CaseExplorerScreen: Math.floor(total / 2))
+  for (const total of [1, 2, 7, 88, 89]) assert.equal(middleSlice(total), Math.floor(total / 2));
 });

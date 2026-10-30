@@ -10,6 +10,11 @@
  * pixel (x, y) at every zoom and pan (TC-MASK-001), and zoom / pan never
  * touch mask data (`07` §8 invariant 2) - they only change three numbers.
  *
+ * The pick marker (`10` §6): when SCR-05 opens this screen from a 3D pick, `marker` = { column, row } names the pixel of the
+ * picked voxel. It is drawn from the SAME transform (marker.mjs `markerGeometry`): the exact pixel as a rectangle of one source
+ * pixel, and a ring with four ticks of a constant size around its centre so it is found at any zoom. The screen passes a marker
+ * only for the slice it was picked in; with no `marker` nothing is drawn - the location is not guessed.
+ *
  * Gestures. PROVENANCE - adapted, not imported (product code never imports
  * spikes/**):
  *   source : spikes/spike_a_2d/app/App.js - pagePoints, PanResponder
@@ -26,10 +31,11 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, View } from 'react-native';
-import Svg, { Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../../../app/core/index.mjs';
 import { color, font, space } from '../../ui/theme';
+import { MARKER_RING, markerGeometry } from './marker.mjs';
 
 const TAP_MAX_TRAVEL = 6;
 const TAP_MAX_MS = 400;
@@ -48,8 +54,42 @@ function Grid({ nx, ny }) {
   );
 }
 
+const MARKER_COLOR = '#ffd133';
+const MARKER_HALO = '#05070a';
+
+/* The marker as an overlay in VIEW coordinates, so the ring keeps its size at every zoom while the pixel rectangle scales. */
+function PickMarker({ geometry, width, height, column, row }) {
+  const { pixel, center } = geometry;
+  const { radius, innerGap } = MARKER_RING;
+  const tick = (key, x1, y1, x2, y2) => (
+    <React.Fragment key={key}>
+      <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={MARKER_HALO} strokeWidth={5} />
+      <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={MARKER_COLOR} strokeWidth={2.5} />
+    </React.Fragment>
+  );
+  return (
+    <Svg
+      style={s.markerLayer}
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      pointerEvents="none"
+      testID="pick-marker"
+      accessibilityLabel={`Marker on column ${column}, row ${row}`}
+    >
+      <Rect testID="pick-marker-pixel" x={pixel.x} y={pixel.y} width={pixel.width} height={pixel.height} fill={MARKER_COLOR} fillOpacity={0.95} />
+      <Circle cx={center.x} cy={center.y} r={radius + 1.5} fill="none" stroke={MARKER_HALO} strokeWidth={4} />
+      <Circle testID="pick-marker-ring" cx={center.x} cy={center.y} r={radius} fill="none" stroke={MARKER_COLOR} strokeWidth={2.5} />
+      {tick('l', center.x - radius - 5, center.y, center.x - innerGap, center.y)}
+      {tick('r', center.x + innerGap, center.y, center.x + radius + 5, center.y)}
+      {tick('t', center.x, center.y - radius - 5, center.x, center.y - innerGap)}
+      {tick('b', center.x, center.y + innerGap, center.x, center.y + radius + 5)}
+    </Svg>
+  );
+}
+
 export default function SliceViewport({
-  shape, imageUri, onImageLoad, onImageError, layers = [], placeholderNote = null, resetKey, onTap,
+  shape, imageUri, onImageLoad, onImageError, layers = [], placeholderNote = null, resetKey, onTap, marker = null,
 }) {
   const nx = shape ? shape[0] : null;
   const ny = shape ? shape[1] : null;
@@ -59,6 +99,7 @@ export default function SliceViewport({
   const viewRef = useRef(null);
   const origin = useRef({ x: 0, y: 0 });
   const size = useRef(null);
+  const [viewSize, setViewSize] = useState(null);
   const gest = useRef(null);
 
   const setTransform = useCallback((t) => { xfRef.current = t; setXf(t); }, []);
@@ -76,6 +117,7 @@ export default function SliceViewport({
   const onLayout = useCallback((e) => {
     const { width, height } = e.nativeEvent.layout;
     size.current = { w: width, h: height };
+    setViewSize({ w: width, h: height });
     if (viewRef.current) viewRef.current.measure((x, y, w, h, px, py) => { origin.current = { x: px, y: py }; });
     refit();
   }, [refit]);
@@ -132,6 +174,7 @@ export default function SliceViewport({
   }), [nx, ny, onTap, setTransform]);
 
   const box = xf && nx ? { position: 'absolute', left: xf.panX, top: xf.panY, width: nx * xf.zoom, height: ny * xf.zoom } : null;
+  const where = marker && xf && viewSize ? markerGeometry(marker, xf) : null;
 
   return (
     <View style={s.viewport} ref={viewRef} onLayout={onLayout} {...responder.panHandlers}>
@@ -165,6 +208,7 @@ export default function SliceViewport({
           <Path d={l.path} fill={l.color} fillOpacity={l.opacity} />
         </Svg>
       )) : null}
+      {where ? <PickMarker geometry={where} width={viewSize.w} height={viewSize.h} column={marker.column} row={marker.row} /> : null}
       {!imageUri && placeholderNote ? (
         <View style={s.noteBox} pointerEvents="none">
           <Text style={s.note}>{placeholderNote}</Text>
@@ -183,6 +227,7 @@ const s = StyleSheet.create({
     width: '100%', aspectRatio: 1, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden',
     borderWidth: 1, borderColor: color.border,
   },
+  markerLayer: { position: 'absolute', left: 0, top: 0 },
   noteBox: { position: 'absolute', left: space.l, right: space.l, bottom: space.l, padding: space.s, borderRadius: 6, backgroundColor: 'rgba(14,17,22,0.85)' },
   note: { color: color.textDim, fontSize: font.small, textAlign: 'center' },
   zoom: { position: 'absolute', top: space.s, right: space.s, color: color.text, fontFamily: font.mono, fontSize: font.small, backgroundColor: 'rgba(14,17,22,0.7)', paddingHorizontal: 6, borderRadius: 4 },

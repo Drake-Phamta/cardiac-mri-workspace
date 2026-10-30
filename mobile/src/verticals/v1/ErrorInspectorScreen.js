@@ -50,6 +50,7 @@ import CapabilityBadge from './CapabilityBadge';
 import SliceScrubber from './SliceScrubber';
 import SliceViewport from './SliceViewport';
 import { capabilityOf } from './capability.mjs';
+import { markerAtSlice, markerFromParams, markerText } from './marker.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
   profileIndexAt, profileNote, runLevel, selectionNote, worstLabel,
@@ -99,11 +100,12 @@ export default function ErrorInspectorScreen({ runtime, nav, params }) {
       kase={kase}
       capability={capability}
       initialSlice={params.sliceIndex}
+      markerParam={params.marker}
     />
   );
 }
 
-function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, initialSlice }) {
+function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, initialSlice, markerParam = null }) {
   const client = runtime.sliceClient || runtime.client;
   const net = runtime.netLog || null;
   const shape = Array.isArray(kase.shape) ? kase.shape : null;
@@ -215,6 +217,8 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   // on screen as if it were this one.
   const showing = ok && !blocking;
   const z = ok ? displayed.sliceIndex : null;
+  // `10` §6: the pixel of the voxel picked in 3D, drawn on the slice it was picked in and on no other (see SCR-03).
+  const marker = showing ? markerAtSlice(markerFromParams(markerParam, shape), z) : null;
   const peekMask = (r) => (r && r.contentUrl && runtime.maskStore && size ? runtime.maskStore.peek(r.contentUrl, size) : null);
   const predMask = showing ? peekMask(displayed.predictionRef) : null;
   const gtMask = showing ? peekMask(displayed.groundTruthRef) : null;
@@ -271,6 +275,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             layers={layers}
             placeholderNote={pixelNote}
             resetKey={caseId}
+            marker={marker}
           />
         )}
       </View>
@@ -279,6 +284,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollIn}>
         {pixelNote && !blocking ? <Text style={s.dim}>{pixelNote}</Text> : null}
+        {marker ? <Text style={s.dim}>{markerText(marker, total)}</Text> : null}
 
         <View style={s.card}>
           <Text style={s.cardH}>Legend - this slice ({showing ? `z ${z}` : '-'})</Text>

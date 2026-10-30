@@ -54,6 +54,7 @@ import {
   buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel,
   VARIANT_TEXT, variantOptions,
 } from './explorer.mjs';
+import { markerAtSlice, markerFromParams, markerText } from './marker.mjs';
 import { createSerialRunner } from './serialRunner.mjs';
 import { rememberedVariant, rememberVariant } from './session.mjs';
 
@@ -136,6 +137,7 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
       notListedRunId={notListedRunId}
       initialVariant={noRun ? null : variant}
       initialSlice={initialSlice}
+      markerParam={params.marker}
       onVariantChosen={rememberVariant}
       onChangeRun={choice.choices.length > 1 ? () => setRunId(null) : null}
     />
@@ -212,7 +214,7 @@ function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVarian
  */
 function Explorer({
   runtime, nav, caseId, kase, capability, runId, runReason, notListedRunId, initialVariant, initialSlice, onVariantChosen,
-  onChangeRun,
+  onChangeRun, markerParam = null,
 }) {
   const client = runtime.sliceClient || runtime.client;
   const net = runtime.netLog || null;
@@ -607,6 +609,9 @@ function Explorer({
   // the slice that was displayed before may stay on screen as if it were this
   // one - no metric, no provenance, no entry that would carry its index.
   const showing = ok && !blocking;
+  // `10` §6: SCR-05 opened this screen from a 3D pick and handed in the pixel of the picked voxel. It is drawn on the slice it
+  // was picked in and on no other (a slider move, Back from another slice): the location of another slice is not known.
+  const marker = showing ? markerAtSlice(markerFromParams(markerParam, shape), z) : null;
   const notLoaded = 'this slice did not load';
   let metrics;
   if (blocking) metrics = { text: 'Slice Dice: -', tone: 'neutral' };
@@ -692,6 +697,7 @@ function Explorer({
             placeholderNote={pixelNote}
             resetKey={`${caseId}|${fitKey}`}
             onTap={(src, at) => setTap({ src, slice: z, zoom: at.zoom })}
+            marker={marker}
           />
         )}
       </View>
@@ -714,6 +720,7 @@ function Explorer({
           </TouchableOpacity>
         )}
         {pixelNote && !blocking ? <Text style={s.dim}>{pixelNote}</Text> : null}
+        {marker ? <Text style={s.dim}>{markerText(marker, total)}</Text> : null}
 
         <View style={s.card}>
           <Text style={s.cardH}>Overlays</Text>

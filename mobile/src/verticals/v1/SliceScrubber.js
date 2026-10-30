@@ -5,6 +5,9 @@
  * reachable (TC-MRI-002). Every change is reported; the screen's serial
  * runner coalesces a fast scrub into "the slice in flight, then the last".
  *
+ * The step buttons are never dead (stepTarget): with no slice shown the first press puts the slice at the middle of the stack,
+ * and a button that cannot move - at an end of the stack - is disabled instead of silently doing nothing.
+ *
  * React Native core has no Slider, and a dependency for one track is not
  * worth it: a View and a PanResponder are the whole component.
  */
@@ -13,7 +16,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { color, font, MIN_TOUCH, space } from '../../ui/theme';
-import { scrubIndex, scrubPosition, sliceLabel } from './explorer.mjs';
+import { scrubIndex, scrubPosition, sliceLabel, stepTarget } from './explorer.mjs';
 
 export default function SliceScrubber({ index, pending, total, onChange, onLongPressLabel, disabled = false }) {
   const [width, setWidth] = useState(0);
@@ -42,10 +45,10 @@ export default function SliceScrubber({ index, pending, total, onChange, onLongP
   const shown = pending !== null && pending !== undefined ? pending : index;
   const thumb = Number.isInteger(shown) && total ? scrubPosition(shown, width, total) : 0;
   const step = (d) => {
-    if (!Number.isInteger(shown) || !total) return;
-    const next = Math.max(0, Math.min(total - 1, shown + d));
-    if (next !== shown) onChange(next);
+    const next = stepTarget(shown, d, total);
+    if (next !== null) onChange(next);
   };
+  const cannot = (d) => disabled || stepTarget(shown, d, total) === null;
 
   return (
     <View style={s.root}>
@@ -56,8 +59,8 @@ export default function SliceScrubber({ index, pending, total, onChange, onLongP
         </Text>
       </TouchableOpacity>
       <View style={s.row}>
-        <Btn label="−10" onPress={() => step(-10)} disabled={disabled} />
-        <Btn label="◀" onPress={() => step(-1)} disabled={disabled} />
+        <Btn label="−10" onPress={() => step(-10)} disabled={cannot(-10)} />
+        <Btn label="◀" onPress={() => step(-1)} disabled={cannot(-1)} />
         <View
           style={s.track}
           onLayout={(e) => { widthRef.current = e.nativeEvent.layout.width; setWidth(e.nativeEvent.layout.width); }}
@@ -68,8 +71,8 @@ export default function SliceScrubber({ index, pending, total, onChange, onLongP
           <View style={s.rail} pointerEvents="none" />
           {width > 0 && total ? <View style={[s.thumb, { left: thumb - 10 }]} pointerEvents="none" /> : null}
         </View>
-        <Btn label="▶" onPress={() => step(1)} disabled={disabled} />
-        <Btn label="+10" onPress={() => step(10)} disabled={disabled} />
+        <Btn label="▶" onPress={() => step(1)} disabled={cannot(1)} />
+        <Btn label="+10" onPress={() => step(10)} disabled={cannot(10)} />
       </View>
     </View>
   );
@@ -83,6 +86,7 @@ function Btn({ label, onPress, disabled }) {
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(disabled) }}
     >
       <Text style={s.btnT}>{label}</Text>
     </TouchableOpacity>

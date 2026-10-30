@@ -59,6 +59,23 @@ export function clampSlice(index, total) {
 }
 
 /*
+ * What a step button (◀ ▶ −10 +10) does - never nothing (QA: SCR-05's arrows were dead controls while no slice was selected):
+ *   - from a slice shown: that slice plus `delta`, kept inside the stack;
+ *   - from NO slice shown (a screen that has no plane yet, SCR-05 without a 2D slice handed in): the first press puts the slice
+ *     at the middle of the stack - the slice SCR-03 itself opens on (`middleSlice`) - and the next presses step from there;
+ *   - from an end of the stack, towards that end: no move (null), and the button is shown disabled instead of doing nothing.
+ * `delta` is a non-zero integer. Returns the slice index to go to, or null for "no move".
+ */
+export const middleSlice = (total) => (Number.isInteger(total) && total > 0 ? Math.floor(total / 2) : null);
+
+export function stepTarget(shown, delta, total) {
+  if (!Number.isInteger(total) || total <= 0 || !Number.isInteger(delta) || delta === 0) return null;
+  if (!Number.isInteger(shown)) return middleSlice(total);
+  const next = Math.max(0, Math.min(total - 1, shown + delta));
+  return next === shown ? null : next;
+}
+
+/*
  * Slider position -> slice index, deterministically (TC-MRI-002): the track
  * is cut into `total` equal cells and x picks one. The same x always gives
  * the same slice; the ends are reachable; outside the track clamps.
