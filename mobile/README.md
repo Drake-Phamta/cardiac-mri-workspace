@@ -247,7 +247,7 @@ SCR-03) run end to end on real data. Vũ Hùng Anh completes, measures and defen
   measurements, label toggles beyond the two layers, smoothing, landscape, the 3D plane as a surface (it is a band).
 - **Tests.** `test/v2_inspector3d.test.mjs` (logic, golden artifact from the Python encoder, navigator round trip),
   `test/v2_viewer.test.mjs` (the viewer script in node against a stubbed canvas: decode, refusal of damaged files, the
-  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 10 of the render smoke
+  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 11 of the render smoke
   (the screen with the WebView mocked: references, verified bytes, handshake, H7, unavailable / error states).
 
 ## Render-smoke harness (test-only)
@@ -258,16 +258,25 @@ npm ci
 npm run test:render        # node --import ./test/render/hooks.mjs test/render/smoke.mjs
 ```
 
-Renders the real shell, V1 and V2 screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
+Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get a real app/core runtime — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**212** at
+this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the follow-up checks `V4o` and `V4p`).
+`test/render/smoke.mjs` is in numbered sections:
+
+| Section | What it renders |
+|---|---|
+| 1 – 4, 2b, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 restoring SCR-03's run, variant and slice |
+| 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
+| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4p`, including the leave guard, a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
+| 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
 
 - **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
   `npm run test:render`, then a fixture-mode `expo export` (DR-021 rule 4); every other CI job runs without
-  `node_modules`. Still run it locally before pushing screen changes. V2/V3/V4 may use it for their own screens (add
-  checks next to the V1 ones).
+  `node_modules`. Still run it locally before pushing screen changes. Each vertical adds its checks in its own
+  section, next to the V1 ones.
 - **Evidence of logic only, never device evidence.** No frame, gesture, decode time or network on a phone is
   measured by it; that evidence is logcat from the A17.
 
