@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Cardiac MRI · 3D review preview</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="topbar"><div class="brand"><span class="brand-mark">✚</span><div><h1>CARDIAC MRI <span>/</span> 3D REVIEW</h1><p id="case-title">Loading source study…</p></div></div><div class="badges"><span class="badge warn" id="orientation-badge" hidden>ORIENTATION UNVERIFIED</span><span class="badge"><i></i><span id="source-badge">LOCAL PREVIEW</span></span></div></header>
+  <div id="error" role="alert" hidden></div>
+  <main class="workspace">
+    <section class="mpr-stack" aria-label="Linked source MRI planes">
+      <article class="mpr axial"><div class="pane-head"><b id="axial-title">AXIAL</b><span id="axial-pos">—</span></div><div class="slice"><canvas id="axial"></canvas></div><input id="z" type="range"></article>
+      <article class="mpr coronal"><div class="pane-head"><b id="coronal-title">CORONAL</b><span id="coronal-pos">—</span></div><div class="slice"><canvas id="coronal"></canvas></div><input id="y" type="range"></article>
+      <article class="mpr sagittal"><div class="pane-head"><b id="sagittal-title">SAGITTAL</b><span id="sagittal-pos">—</span></div><div class="slice"><canvas id="sagittal"></canvas></div><input id="x" type="range"></article>
+    </section>
+    <section class="scene-panel">
+      <div class="scene-head"><div><b>3D · SOURCE-LINKED ANATOMY</b><span id="mode-caption">Derived surfaces + MRI intensity</span></div><span id="render-status">Loading verified data…</span></div>
+      <div class="stage" id="stage"><div id="vtk"></div><div class="stage-note"><span id="stage-label">MRI + SEGMENTATION</span><small id="resolution">millimetres</small></div><div class="stage-bottom"><span id="pick-status">Click a surface to locate its source label.</span><span id="renderer">—</span></div></div>
+      <div class="scene-toolbar"><span id="camera-buttons" class="camera-buttons"></span><button id="fit" title="Oblique view framing the visible display">Fit</button><label><input id="planes" type="checkbox"> MRI planes</label><label><input id="clip" type="checkbox"> <span id="clip-label">Cut at source slice</span></label></div>
+    </section>
+    <aside class="sidebar">
+      <section class="group">
+        <div class="section-label">Display</div>
+        <div class="mode-buttons" id="modes"><button data-mode="surface">Surface</button><button data-mode="mip" title="Maximum intensity projection of the bright-blood MRI">MIP</button><button data-mode="volume">Volume</button><button data-mode="combined" class="active">Combined</button></div>
+        <label class="control">Surface reconstruction<select id="variant"><option value="gentle">FlyingEdges · gentle smoothing</option><option value="voxel">Exact voxel faces</option><option value="flying">FlyingEdges · no smoothing</option><option value="slicer">FlyingEdges · Slicer default</option><option value="nets">SurfaceNets · constrained</option></select></label>
+      </section>
+      <section class="group">
+        <div class="section-label">Anatomical layers</div><div id="segments"></div>
+        <label class="control"><span>Surface opacity <b id="surface-alpha-value">100%</b></span><input id="surface-alpha" type="range" min="0.1" max="1" step="0.05" value="1"></label>
+        <label class="check"><input id="overlay" type="checkbox" checked> Show source labels in MRI</label>
+      </section>
+      <section class="group">
+        <div class="section-label">MRI intensity</div>
+        <label class="control"><span>MRI window width <b id="window-value">—</b></span><input id="window" type="range" min="1" max="100" value="75"></label>
+        <label class="control"><span>MRI window level <b id="level-value">—</b></span><input id="level" type="range" min="0" max="100" value="38"></label>
+        <label class="control"><span>Volume threshold <b id="threshold-value">—</b></span><input id="threshold" type="range" min="0" max="100" value="65"></label>
+        <label class="control"><span>Volume opacity <b id="volume-alpha-value">3%</b></span><input id="volume-alpha" type="range" min="0" max="0.7" step="0.01" value="0.03"></label>
+        <p class="small-note" id="volume-note">Window/level sets the MRI slices. MIP uses the ROI's 90th–99.9th percentile intensities; threshold and opacity shape the shaded volume.</p>
+      </section>
+      <section class="group">
+        <div class="section-label">Source correspondence</div><div id="coords" class="mono">Loading…</div><div id="native-coords" class="mono secondary"></div>
+      </section>
+      <section class="group">
+        <div class="section-label">Display geometry</div><div id="metrics" class="metrics"></div><p class="small-note">Surface deviations are sampled against exact voxel faces. Review the source contours when changing reconstruction.</p>
+      </section>
+      <section class="group source-note"><b id="scope-title">Source study</b><p id="scope">Loading attribution…</p><p id="orientation-note" hidden></p><a id="attribution" target="_blank" rel="noopener">Dataset &amp; license</a></section>
+    </aside>
+  </main>
+  <footer><span>3D: drag to orbit, wheel to zoom, click a surface to locate it · MRI: click/drag sets the crosshair, wheel changes slice, ⌘/Ctrl+wheel or pinch zooms, Shift- or right-drag pans, double-click toggles label ROI / full field</span><span>Local research preview · clinical performance has not been established</span></footer>
+  <script type="module" src="main.js"></script>
+</body></html>

@@ -42,6 +42,22 @@ const planes = {
     left: 'A', right: 'P', top: 'S', bottom: 'I', title: 'SAGITTAL · RAS YZ' },
 };
 
+// A placeholder header (e.g. MSD Heart) records no anatomy. Name array axes
+// instead of guessing R/L; "+" marks the higher-index edge.
+if (meta.orientation?.status === 'unverified') {
+  const axis = ['i', 'j', 'k'];
+  for (const [name, plane] of Object.entries(planes)) {
+    const h = axis[plane.horizontal], v = axis[plane.vertical];
+    Object.assign(plane, { left: `${h}+`, right: `${h}−`, top: `${v}+`, bottom: `${v}−` });
+    const title = document.querySelector(`#${name}-position`)?.previousElementSibling;
+    if (title) title.textContent = `ARRAY ${axis[3 - plane.horizontal - plane.vertical].toUpperCase()}-PLANE · ORIENTATION UNVERIFIED`;
+  }
+  ['x', 'y', 'z'].forEach((id, at) => {
+    const caption = document.querySelector(`#${id}`)?.closest('label')?.querySelector('.axis-title span');
+    if (caption) caption.textContent = `Array axis ${axis[at]}`;
+  });
+}
+
 function pointFor(name, horizontal, vertical) {
   const selectedPoint = [...selected];
   const plane = planes[name];
@@ -145,7 +161,9 @@ function render() {
   // The NIfTI affine origin already locates the centre of voxel (0,0,0).
   const ras = native.map((voxel, axis) => sourceOrigin[axis] + voxel * sourceSpacing[axis]);
   const fixed = ras.map((value) => value.toFixed(1));
-  document.querySelector('#coords').textContent = `RAS ${fixed.join(', ')} mm · source IJK ${native.join(', ')}`;
+  document.querySelector('#coords').textContent = meta.orientation?.status === 'unverified'
+    ? `Array mm ${fixed.join(', ')} (orientation unverified) · source IJK ${native.join(', ')}`
+    : `RAS ${fixed.join(', ')} mm · source IJK ${native.join(', ')}`;
   document.querySelector('#segment-name').textContent = `${meta.segment} · label ${meta.label_value}`;
   document.querySelector('#segment-summary').textContent = `${meta.segment_voxels.toLocaleString()} voxels · ${meta.segment_volume_ml.toFixed(1)} mL label volume`;
   document.querySelector('#landmarks').textContent = `Missing labels: ${meta.landmarks_unavailable.join(' · ')}`;

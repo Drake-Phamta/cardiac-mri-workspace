@@ -1,7 +1,7 @@
 # Patient-specific cardiac MRI 3D preview: research findings
 
-Research date: 2026-10-08. This is an implementation proposal for the local
-preview, not a change to the frozen product API, DR-008c or clinical acceptance.
+Research date: 2026-10-08. A standalone implementation was added on 2026-10-09;
+it does not change the frozen product API, DR-008c or clinical acceptance.
 
 ## Recommendation
 
@@ -9,9 +9,9 @@ Build a source-linked medical-image viewer with three complementary displays:
 source MRI MPR, labelled anatomical surfaces, and optional MRI intensity volume
 rendering. Preserve the source image and segmentation; construct a smoother
 surface as a separate display representation with measured geometric error.
-Use VTK on the backend for surface conversion and evaluate vtk.js in the mobile
-WebView for rendering and reslicing. Neither library has been added by this
-research change.
+Use VTK for optional workstation surface conversion and evaluate vtk.js in the
+mobile WebView for rendering and reslicing. The local workstation now uses
+isolated VTK and vtk.js dependencies; neither is a product runtime dependency.
 
 Clinical correctness depends on the acquisition, selected cardiac phase,
 segmentation and anatomical definitions as well as the surface algorithm. An
@@ -23,9 +23,18 @@ exact reconstruction of an incorrect labelmap still has incorrect anatomy.
 | --- | --- | --- |
 | `mobile/.../Inspector3DScreen.js` | Reads MRI slices and masks; rendering is unavailable until mesh bytes, frame and face map can be verified | The local POC is not integrated into the product screen |
 | `backend/mesh/surface.py` | Exact voxel-face L0 surface with foreground-face provenance | Reliable source-face mapping; voxel steps remain on the silhouette |
-| Local POC builder | One selected label; axis-aligned canonical RAS only; rejects 4D and oblique volumes | Cannot represent a whole heart, native oblique MPR or cardiac motion yet |
-| Local MPR pixels | Global percentile window exported as 8-bit grayscale | Clipped intensities cannot be recovered with later window changes |
-| Local surface viewer | One opaque mesh, vertex-normal shading, a source Z highlight | No scalar volume rendering, anatomy layers, clipping view or full XYZ pick cross-reference |
+| Earlier exact-face POC | One label; percentile-clipped grayscale and exact triangle correspondence | Retained for exact-face comparison; no intensity volume rendering |
+| New workstation builder | All nonzero labels; validated axis-aligned canonical RAS; rejects 4D/oblique volumes | Separate display meshes and geometry reports; full affine reslicing and cine remain unfinished |
+| Orientation status | Placeholder headers (identity at origin 0, or no qform/sform) are `unverified`; `--array-axes` lets an operator declare stored-axis anatomy | Plane names and R/L are shown only for a scanner or declared orientation; MSD Heart's array "axial" plane is anatomically sagittal |
+| New workstation MRI | Native float32 source MRI, adjustable window/level, GPU ray casting of a declared context crop | Original intensity detail is retained; a display transfer function does not establish tissue identity |
+| New workstation surfaces | Five reconstruction settings, layer visibility/opacity, clipping, orientation and full XYZ proximity lookup | Independent smoothing per label; no inherited exact triangle map or clinical acceptance |
+
+The new preview is reproducible with the publicly licensed MSD Heart training
+data and retained local attribution. This source provides only an LA label;
+other chambers visible in the MRI intensity view have not been segmented.
+Automated browser checks exercise actual canvas picking and verify the resulting
+source-label voxel and all three slice controls, including missed and hidden
+label rays. Desktop rendering does not establish performance on the target phone.
 
 ### Geometry correction made during this audit
 
@@ -119,6 +128,12 @@ target phone. Crop to the cardiac ROI and reduce only the interaction preview
 quality when needed, with a visible return to full-quality data after motion.
 
 ## Proposed implementation order
+
+Steps 2 and 3 and scalar-preserving volume rendering in step 4 are implemented
+in `build_workstation.py` and `workstation/`. Full affine/oblique reslicing,
+joint multi-label interfaces, target-phone evaluation and product integration
+remain pending. The selected preview setting is an operator display choice,
+not an override of the accepted L0 product representation.
 
 1. Correct voxel-centre/corner conversion and units (implemented in this audit).
 2. Produce a VTK display-surface comparison beside exact L0 and the source

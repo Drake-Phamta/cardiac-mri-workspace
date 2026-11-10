@@ -164,6 +164,48 @@ class BuildPocDataTests(unittest.TestCase):
         result = self._run(ROOT, expect_success=False)
         self.assertIn("must be outside the repository", result.stderr)
 
+    def test_scanner_header_orientation_is_reported_as_verified(self):
+        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair
+        pair = load_canonical_pair(self.mri_path, self.label_path)
+        self.assertEqual(pair["orientation"]["status"], "header")
+        self.assertEqual(pair["orientation"]["array_axes"], "RAS")
+
+    def test_placeholder_header_is_unverified_instead_of_labelled_ras(self):
+        # MSD Task02 Heart ships identity directions at origin 0: numerically
+        # valid, anatomically meaningless. Its "axial" plane is really sagittal.
+        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair
+        self._save(np.diag([0.7, 0.8, 2.4, 1.0]))
+        pair = load_canonical_pair(self.mri_path, self.label_path)
+        self.assertEqual(pair["orientation"]["status"], "unverified")
+        self.assertIsNone(pair["orientation"]["array_axes"])
+        np.testing.assert_array_equal(pair["image"], self.mri)
+        out = self.root / "placeholder"
+        self._run(out)
+        meta = json.loads((out / "poc-data/meta.json").read_text())
+        self.assertEqual(meta["orientation"]["status"], "unverified")
+
+    def test_declared_array_axes_reorient_placeholder_geometry_without_resampling(self):
+        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair
+        self._save(np.diag([0.7, 0.8, 2.4, 1.0]))
+        # Stored axis 0 runs anterior, axis 1 superior, axis 2 toward the left.
+        pair = load_canonical_pair(self.mri_path, self.label_path, "ASL")
+        self.assertEqual(pair["orientation"]["status"], "operator-declared")
+        self.assertEqual(pair["image"].shape, (8, 12, 10))  # canonical x,y,z = R,A,S
+        np.testing.assert_allclose(pair["spacing"], [2.4, 0.7, 0.8])
+        # Canonical +x (right) is stored axis 2 reversed; +y is axis 0; +z is axis 1.
+        np.testing.assert_array_equal(pair["image"], np.transpose(self.mri, (2, 0, 1))[::-1])
+        np.testing.assert_array_equal(pair["labels"], np.transpose(self.label, (2, 0, 1))[::-1])
+        native = np.linalg.inv(pair["stored_affine"]) @ pair["affine"]
+        np.testing.assert_allclose(native @ [0, 0, 0, 1], [0, 0, 7, 1], atol=1e-9)
+
+    def test_declared_array_axes_never_override_a_scanner_header(self):
+        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair, parse_array_axes
+        with self.assertRaisesRegex(ValueError, "already declares"):
+            load_canonical_pair(self.mri_path, self.label_path, "ASL")
+        for bad in ("AS", "ASX", "AAL", "RLS"):
+            with self.subTest(codes=bad), self.assertRaises(ValueError):
+                parse_array_axes(bad)
+
 
 if __name__ == "__main__":
     unittest.main()

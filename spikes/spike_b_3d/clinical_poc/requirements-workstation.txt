@@ -1,0 +1,5 @@
+# Optional workstation preview only; not backend production dependencies.
+numpy==1.26.4
+nibabel==5.3.2
+vtk==9.6.2
+matplotlib==3.9.4

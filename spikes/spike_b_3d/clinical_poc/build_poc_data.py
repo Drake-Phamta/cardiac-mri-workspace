@@ -35,13 +35,73 @@ def _affine_mm(image, name: str):
     return affine, scale
 
 
-def _load_aligned_volumes(mri_path: Path, label_path: Path, label_value: int):
-    """Load the MRI and label on one verified, axis-aligned RAS grid.
+_AXIS_DIRECTION = {"R": (1, 0, 0), "L": (-1, 0, 0), "A": (0, 1, 0),
+                   "P": (0, -1, 0), "S": (0, 0, 1), "I": (0, 0, -1)}
 
-    The POC deliberately refuses oblique/sheared geometry instead of labeling
-    voxel axes as anatomical axial/coronal/sagittal views. Reorienting to the
-    closest canonical orientation handles axis permutations and flips without
-    resampling the label map.
+
+def parse_array_axes(codes):
+    """Validate an operator declaration such as ``ASL``: one anatomical
+    direction per stored array axis (axis 0, 1, 2)."""
+    codes = (codes or "").strip().upper()
+    if len(codes) != 3 or any(code not in _AXIS_DIRECTION for code in codes):
+        raise ValueError("--array-axes needs three letters from R/L/A/P/S/I, one per stored array axis, e.g. ASL")
+    if len({np.flatnonzero(_AXIS_DIRECTION[code])[0] for code in codes}) != 3:
+        raise ValueError("--array-axes must name three different anatomical axes")
+    return codes
+
+
+def _orientation(source, affine_mm, array_axes):
+    """Decide whether R/L, A/P and S/I may be shown for this volume.
+
+    Several public datasets (MSD Task02 Heart among them) ship a placeholder
+    header: identity directions at origin 0, or no qform/sform at all. Such a
+    header is numerically valid but says nothing about anatomy, so labelling
+    its axes "axial" or "right" would be a guess. The operator may declare the
+    anatomical direction of each stored axis after checking the images.
+    """
+    try:
+        codes = (int(source.header["qform_code"]), int(source.header["sform_code"]))
+    except (KeyError, TypeError, ValueError):  # not a NIfTI header; no placeholder codes to read
+        codes = (1, 1)
+    directions = affine_mm[:3, :3]
+    spacing = np.linalg.norm(directions, axis=0)
+    placeholder = codes == (0, 0) or (
+        np.allclose(directions, np.diag(spacing), rtol=0.0, atol=1e-6)
+        and np.allclose(affine_mm[:3, 3], 0.0, rtol=0.0, atol=1e-6))
+    header_axcodes = "".join(nib.aff2axcodes(affine_mm))
+    if array_axes:
+        if not placeholder:
+            raise ValueError(f"The header already declares a {header_axcodes} scanner orientation; "
+                             "--array-axes only replaces placeholder geometry")
+        declared = affine_mm.copy()
+        declared[:3, :3] = np.column_stack([np.multiply(_AXIS_DIRECTION[code], size)
+                                            for code, size in zip(array_axes, spacing)])
+        return declared, {"status": "operator-declared", "array_axes": array_axes,
+                          "header_axcodes": header_axcodes,
+                          "basis": "operator declaration after reviewing the source images"}
+    if placeholder:
+        return affine_mm, {"status": "unverified", "array_axes": None, "header_axcodes": header_axcodes,
+                           "basis": "placeholder header (identity directions at origin 0, or no qform/sform); "
+                                    "anatomical directions are not recorded"}
+    return affine_mm, {"status": "header", "array_axes": header_axcodes, "header_axcodes": header_axcodes,
+                       "basis": "scanner orientation recorded in the NIfTI header"}
+
+
+def _canonical(values, affine):
+    """Reorder/flip array axes to the closest RAS orientation without resampling."""
+    ornt = nib.orientations.io_orientation(affine)
+    # inv_ornt_aff takes the shape BEFORE reorientation (flips use its extents).
+    return nib.orientations.apply_orientation(values, ornt), affine @ nib.orientations.inv_ornt_aff(ornt, values.shape)
+
+
+def load_canonical_pair(mri_path: Path, label_path: Path, array_axes=None):
+    """Load MRI and labels on one verified, axis-aligned canonical grid.
+
+    Oblique/sheared geometry is refused rather than shown under anatomical
+    plane names. Reorientation handles axis permutations and flips without
+    resampling the label map. Returns float32 image and labels, voxel spacing
+    and voxel-centre origin in mm, the canonical and stored-array affines, and
+    the orientation status that decides whether anatomical labels are shown.
     """
     mri_source = nib.load(str(mri_path))
     label_source = nib.load(str(label_path))
@@ -49,34 +109,36 @@ def _load_aligned_volumes(mri_path: Path, label_path: Path, label_value: int):
         raise ValueError("MRI and label must both be 3D volumes")
     if mri_source.shape != label_source.shape:
         raise ValueError("MRI and label shapes differ")
-    mri_affine_mm, mri_scale = _affine_mm(mri_source, "MRI")
+    mri_affine_mm, _mri_scale = _affine_mm(mri_source, "MRI")
     label_affine_mm, _label_scale = _affine_mm(label_source, "labelmap")
     if not np.allclose(mri_affine_mm, label_affine_mm, rtol=0.0, atol=1e-5):
         raise ValueError("MRI and label affine transforms differ; refusing misregistered inputs")
+    stored_affine, orientation = _orientation(mri_source, mri_affine_mm, array_axes)
 
-    mri = nib.as_closest_canonical(mri_source)
-    label = nib.as_closest_canonical(label_source)
-    affine = np.asarray(mri.affine, dtype=np.float64).copy()
-    affine[:3, :] *= mri_scale
+    image, affine = _canonical(np.asarray(mri_source.get_fdata(dtype=np.float32), dtype=np.float32), stored_affine)
+    labels, _ = _canonical(np.asarray(label_source.get_fdata(dtype=np.float32), dtype=np.float32), stored_affine)
     directions = affine[:3, :3]
     spacing = np.linalg.norm(directions, axis=0)
     if not np.isfinite(spacing).all() or np.any(spacing <= 0):
         raise ValueError("MRI affine has invalid voxel spacing")
-    diagonal = np.diag(spacing)
-    if not np.allclose(directions, diagonal, rtol=0.0, atol=1e-5):
+    if not np.allclose(directions, np.diag(spacing), rtol=0.0, atol=1e-5):
         raise ValueError("MRI axes are oblique or sheared; resample to an axis-aligned RAS grid first")
-
-    image = np.asarray(mri.get_fdata(dtype=np.float32), dtype=np.float32)
-    labels = np.asarray(label.get_fdata(dtype=np.float32), dtype=np.float32)
     if not np.isfinite(image).all() or not np.isfinite(labels).all():
         raise ValueError("MRI and label must contain only finite values")
     if not np.equal(labels, np.rint(labels)).all():
         raise ValueError("segmentation labelmap must contain integer class IDs")
-    mask = labels == label_value
+    return {"image": np.ascontiguousarray(image), "labels": np.ascontiguousarray(labels),
+            "spacing": spacing, "origin": affine[:3, 3].copy(), "affine": affine,
+            "stored_affine": stored_affine, "orientation": orientation}
+
+
+def _load_aligned_volumes(mri_path: Path, label_path: Path, label_value: int, array_axes=None):
+    """Canonical MRI plus a binary mask of one label value (the exact-face POC)."""
+    pair = load_canonical_pair(mri_path, label_path, array_axes)
+    mask = pair["labels"] == label_value
     if not mask.any():
         raise ValueError(f"label value {label_value} is absent from the segmentation")
-    origin_ras = affine[:3, 3]
-    return image, mask.astype(np.uint8), spacing, origin_ras, mri
+    return pair["image"], mask.astype(np.uint8), pair["spacing"], pair["origin"], pair
 
 
 def _write_obj(path: Path, mesh) -> str:
@@ -109,6 +171,9 @@ def main() -> int:
                     help='integer class ID in the labelmap (default: 1)')
     ap.add_argument('--downsample', type=int, default=1,
                     help='in-plane preview stride; all source slices remain navigable')
+    ap.add_argument('--array-axes',
+                    help='only for placeholder headers: anatomical direction of stored axes 0,1,2 '
+                         '(e.g. ASL), declared after reviewing the images')
     args = ap.parse_args()
     if args.downsample < 1:
         ap.error('--downsample must be a positive integer')
@@ -118,8 +183,9 @@ def main() -> int:
         ap.error('--mri and --label must be readable files')
 
     try:
-        image, mask, spacing, origin_ras, _source_img = _load_aligned_volumes(
-            args.mri, args.label, args.label_value)
+        array_axes = parse_array_axes(args.array_axes) if args.array_axes else None
+        image, mask, spacing, origin_ras, pair = _load_aligned_volumes(
+            args.mri, args.label, args.label_value, array_axes)
     except ValueError as error:
         ap.error(str(error))
     step = np.array([args.downsample, args.downsample, 1], dtype=np.int64)
@@ -161,6 +227,7 @@ def main() -> int:
       'label_value': args.label_value,
       'source': 'operator-provided local volume and labelmap',
       'coordinate_system': 'RAS',
+      'orientation': pair['orientation'],
       'slice_views': {'axial': 'RAS XY', 'coronal': 'RAS XZ', 'sagittal': 'RAS YZ'},
       'segment_voxels': int(mask.sum()),
       'segment_volume_ml': float(mask.sum() * np.prod(spacing) / 1000.0),
