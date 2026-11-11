@@ -3,15 +3,19 @@
  * override, to be revalidated by the owner on Day 23).
  *
  * `10` §3 / §7 and the DEMO_STANDARD §4 bar:
- *   available only with ground truth   an INFERENCE_REVIEW case (or a run whose
- *                                      metrics answer GROUND_TRUTH_UNAVAILABLE)
- *                                      gets a clear unavailable state - never an
- *                                      empty chart that reads as "no error"
- *                                      (PR-MODE-01, TC-MODE-001)
+ *   available only with ground truth   an INFERENCE_REVIEW case gets a clear
+ *                                      unavailable state - never an empty chart
+ *                                      that reads as "no error" (PR-MODE-01,
+ *                                      TC-MODE-001)
  *   prediction vs ground truth         TP / FP / FN drawn from the two masks the
  *                                      server served for this slice, each class
  *                                      with a colour AND a name, a count and an
  *                                      on/off switch (TC-ERR-001, TC-ERR-002)
+ *   drawn masks = the server's masks   the run metrics' reference_mask_id and
+ *                                      prediction_mask_id against the ids of the
+ *                                      masks drawn; a difference is shown, and
+ *                                      the classes are then not compared with
+ *                                      the server's FP / FN (DR-013a addendum)
  *   per-slice metrics / error amounts  the server's per-slice Dice and the
  *                                      DR-010 selection's FP / FN per eligible
  *                                      slice, as a profile across the volume
@@ -19,7 +23,9 @@
  *                                      (analysis_run_metrics, DR-010a option b),
  *                                      first entry first - never ranked here;
  *                                      only under the rule_id and
- *                                      selection_version the contract pins
+ *                                      selection_version the contract pins; an
+ *                                      entry outside the volume is listed as
+ *                                      such and never opened (no clamping)
  *   run-level numbers                  only for the variant asked for: a
  *                                      substituted one is the V1 model's
  *                                      variant-mismatch state (`11` §6)
@@ -45,8 +51,8 @@ import SliceScrubber from './SliceScrubber';
 import SliceViewport from './SliceViewport';
 import { capabilityOf } from './capability.mjs';
 import {
-  CLASS_ORDER, ERROR_CLASS, compareWithServer, fmt, pinnedSelection, profileIndexAt, profileNote, runLevel,
-  selectionNote, worstLabel,
+  CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
+  profileIndexAt, profileNote, runLevel, selectionNote, worstLabel,
 } from './errorInspector.mjs';
 import { metricsText } from './explorer.mjs';
 import { createSerialRunner } from './serialRunner.mjs';
@@ -143,8 +149,9 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
   const start = Number.isInteger(initialSlice) ? initialSlice : (Number.isInteger(total) ? Math.floor(total / 2) : 0);
   useEffect(() => {
-    // Same cache rules as SCR-03 (#77 QA N-1/N-2): a fresh open does not trust
-    // a cached "unavailable" answer; a Retry forgets only the slice it retries.
+    // Same cache rules as SCR-03 (#77 QA N-1/N-2, #78 QA N-4): only a fresh
+    // open drops every cached "unavailable" answer; a Retry forgets only the
+    // slice it retries - that slice's answers, "unavailable" ones included.
     if (client.clearNegative) client.clearNegative();
     if (net) net.begin({ caseId, from: null, to: start, kind: 'open' });
     runner.run(() => model.open({ caseId, runId, sliceIndex: start }));
@@ -152,7 +159,6 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
   const retrySlice = useCallback(() => {
     const zz = model.current.sliceIndex;
-    if (client.clearNegative) client.clearNegative();
     if (client.clearWhere && Number.isInteger(zz)) {
       client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || p.run_id === runId));
     }
@@ -218,7 +224,11 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     ? CLASS_ORDER.map((k) => ({ key: k, path: classes.paths[k], color: ERROR_CLASS[k].color, opacity, visible: visible[k] }))
     : [];
   const serverCell = showing && profile.cells.length ? profile.cells[z] : null;
-  const check = classes && classes.counts ? compareWithServer(serverCell, classes.counts) : null;
+  // DR-013a addendum (#78 QA N-6): the server's numbers are compared with the
+  // drawn classes only when the masks drawn are the ones those numbers name.
+  const ids = classes && classes.counts ? compareMaskIds(runMetrics, displayed) : null;
+  const idsDiffer = Boolean(ids && ids.checked && !ids.consistent);
+  const check = classes && classes.counts && !idsDiffer ? compareWithServer(serverCell, classes.counts) : null;
 
   let pixelNote = null;
   if (runtime.mode === 'fixture') pixelNote = 'Fixture mode: no pixels behind any URL, so no disagreement can be drawn. The numbers below are the server\'s.';
@@ -288,6 +298,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             ))}
           </View>
           <Text style={s.dim}>Counted from the two masks drawn here; tap a class to hide or show it.</Text>
+          {idsDiffer && <Text style={s.warn}>{ids.text}</Text>}
           {check && check.checked && <Text style={check.consistent ? s.ok : s.warn}>{check.text}</Text>}
           <Text style={s.mono}>reference {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · prediction {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)}</Text>
           <Text style={[s.metric, metricsLine.tone === 'ok' && s.ok]}>{metricsLine.text}</Text>
@@ -302,17 +313,28 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           ) : (
             <>
               <Text style={s.dim}>{selection.ruleId} · {selection.selectionVersion} · in the order the server ranked them</Text>
-              {worst.map((e, i) => (
-                <TouchableOpacity
-                  key={e.sliceIndex}
-                  style={[s.worst, i === 0 && s.worstFirst]}
-                  onPress={() => goTo(e.sliceIndex)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Jump to ${worstLabel(e)}`}
-                >
-                  <Text style={[s.worstT, i === 0 && s.worstTFirst]}>{i === 0 ? 'Jump to worst · ' : `#${i + 1} · `}{worstLabel(e)}</Text>
-                </TouchableOpacity>
-              ))}
+              {worst.map((e, i) => {
+                // #78 QA N-7: an entry outside the volume is listed, never opened -
+                // goTo would clamp it to the edge slice.
+                const opens = inVolume(e, total);
+                const away = outsideVolumeNote(e, total);
+                return (
+                  <TouchableOpacity
+                    key={e.sliceIndex}
+                    style={[s.worst, i === 0 && s.worstFirst, !opens && s.worstOff]}
+                    onPress={() => { if (opens) goTo(e.sliceIndex); }}
+                    disabled={!opens}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !opens }}
+                    accessibilityLabel={opens ? `Jump to ${worstLabel(e)}` : `${worstLabel(e)}, ${away}`}
+                  >
+                    <Text style={[s.worstT, i === 0 && s.worstTFirst]}>
+                      {i === 0 ? (opens ? 'Jump to worst · ' : 'Worst · ') : `#${i + 1} · `}{worstLabel(e)}
+                    </Text>
+                    {away ? <Text style={s.warn}>{away}</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
             </>
           )}
         </View>
@@ -417,6 +439,7 @@ const s = StyleSheet.create({
     paddingHorizontal: space.m, justifyContent: 'center',
   },
   worstFirst: { borderColor: ERROR_CLASS.FP.color },
+  worstOff: { borderColor: color.warn, opacity: 0.7 },
   worstT: { color: color.text, fontFamily: font.mono, fontSize: font.small },
   worstTFirst: { color: ERROR_CLASS.FP.color, fontWeight: '700' },
   chart: { height: 64, width: '100%', backgroundColor: color.bg, borderRadius: 6 },

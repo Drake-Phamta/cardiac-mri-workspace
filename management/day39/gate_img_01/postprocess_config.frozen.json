@@ -1,0 +1,22 @@
+{
+ "format": "ml-postprocess-config/1",
+ "config_id": "PP-4",
+ "operations": [
+  {
+   "op": "opening_3d",
+   "structuring_element": "cube",
+   "size": 3,
+   "iterations": 1,
+   "border_value": 0,
+   "border": "outside the volume is background; no padding"
+  },
+  {
+   "op": "largest_component_3d",
+   "connectivity": 26,
+   "structuring_element": "generate_binary_structure(3, 3)",
+   "tie_break": "lowest label (first voxel in C order)"
+  }
+ ],
+ "code_version": "git:4c0e7aa1672f20ad57f1ea3c487ddede6d1bf1f8",
+ "source_rule": "management/day39/RECOVERY_OVERRIDE_DAY39.md §4"
+}

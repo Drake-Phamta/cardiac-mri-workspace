@@ -9,6 +9,8 @@
  *   - LOADING on every (re)fetch - a refetch never keeps the old data on screen
  *     under a request for new data;
  *   - aborted on unmount, so a screen that is gone stops its requests;
+ *   - aborted when `enabled` turns false (DR-021 rule 2, #77 QA N-8): a call
+ *     started while enabled never lands after the screen said it is not wanted;
  *   - `view` is always an app/core screen state, as client.call returns it.
  *
  * Params are compared by value (JSON), so passing a new object literal on
@@ -29,7 +31,7 @@ export default function useCall(client, endpointId, params = {}, { enabled = tru
   paramsRef.current = params;
 
   useEffect(() => {
-    if (!enabled || !client) return undefined;
+    if (!enabled || !client) { latest.abort(); return undefined; }
     const ticket = latest.start();
     setView(loading());
     const options = { signal: ticket.signal };

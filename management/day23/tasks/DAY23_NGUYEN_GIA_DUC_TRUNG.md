@@ -8,6 +8,7 @@ nay các khối này trở lại với bạn.
 
 | Quyết định | Ảnh hưởng |
 |---|---|
+| **Sáng 02/10 leader đã chốt** (`OPEN_DECISIONS.md` Part 2b) | **DR-017 (N-a):** CASE_0001 được **tính vào** `successful_n`, `metric_summary` và compare ("ẩn chứ không làm mù"). **DR-018:** sửa Contract 2 (case lỗi, đủ case, loại mask). **DR-020:** giữ 23 endpoint hero và literal "DRAFT v0", chỉ sửa câu chữ. **DR-019:** từ nay dùng placeholder cho địa chỉ overlay. **DR-021:** #72 gọi dữ liệu qua `useCall`. Việc cụ thể ở việc 2 và 3 |
 | **API contract 1.1.0 đã lên `main`** (#62 → #68 → #71) | Backend, app/core và fixture đều ghim **1.1.0**. Đổi gì cũng phải nâng phiên bản |
 | **Backend đã deploy lên Mac mini** (từ `main` `a7b4950`, 12:59 ngày 01/10) | `/health`: contract 1.1.0, **21 case**: 20 EVALUATION + 1 INFERENCE_REVIEW (CASE_0001, INT-12). Hiện có **0 run**: số đo thật chỉ có sau GATE-IMG-01. Bind vào địa chỉ overlay, không có `0.0.0.0` |
 | **`review_commit` là cách duy nhất vào CORRECTED** (nguyên tử) | PATCH sang CORRECTED luôn bị trả INVALID_REVIEW_TRANSITION |
@@ -29,17 +30,16 @@ Ghi **"nhận"** hoặc **"cần sửa: …"** cho từng mục vào `management
 
 ## 🔴 Việc 2 — V4 và metrics *(trước 15:00)*
 
-- **#63 (mô hình V4) đã merge** tối 01/10 → `254044a`, sau QA-063 MERGE (`management/day22/qa/QA_PR63_V4_MODEL.md`). Bạn duyệt lại, rồi sửa các điểm QA nêu:
+- **#63 (mô hình V4) đã merge** tối 01/10 → `254044a`, sau QA-063 MERGE (`management/day22/qa/QA_PR63_REVIEW.md`). Bạn duyệt lại, rồi sửa các điểm QA nêu:
   - **N-1:** kiểm câu trả lời của `review_commit`: status phải là CORRECTED, `source_mask_id` và `source_mask_kind` phải khớp; bỏ fallback `??`;
   - **N-2:** so `run_id` của `review_create` với run đang mở;
   - **N-3:** lưu lại khi không có thay đổi thì trả `NOTHING_TO_SAVE`;
   - **N-4 (chốt trước khi #72 thôi là nháp):** luật tiếp tục một review đã CORRECTED. Lấy phiên bản đã duyệt mới nhất làm nền, reset về prediction gốc; kiểm kind theo `SOURCE_KIND_FOR_VARIANT`;
   - **N-5:** test in `SKIP` thay vì `ok` khi file spike không còn; F10 dùng `?.`;
   - **N-7:** sửa chữ.
-- **#75 (metrics) đã merge** → `985c9c3`, sau QA-075 MERGE · REDEPLOY OK (`management/day22/qa/QA_PR75_BACKEND_METRICS.md`). **Mac mini đã redeploy** lúc 15:07 ngày 01/10 bằng `-SkipData`. `/health`: contract 1.1.0, 21 case, 0 experiment, 0 run, không có gói bị từ chối.
-  - **Chặn dữ liệu (QA-075 N-1).** Hiện số liệu tổng hợp của cohort còn tính cả case WITHHELD (INT-12). Lấy `metric_summary` trừ đi các hàng SUCCEEDED là ra lại được giá trị của case đó.
-    - **Chưa được đưa gói Contract 2 thật nào lên Mac mini** cho tới khi leader quyết N-a và bạn sửa xong.
-    - Hướng QA khuyên: WITHHELD được tính trong `evaluation_n`, nhưng không tính trong `successful_n`, `metric_summary`, quần thể và summary của compare. Backend tính lại các số này từ bản ghi từng case.
+- **#75 (metrics) đã merge** → `985c9c3`, sau QA-075 MERGE · REDEPLOY OK (`management/day22/qa/QA_PR75_REVIEW.md`). **Mac mini đã redeploy** lúc 15:07 ngày 01/10 bằng `-SkipData`. `/health`: contract 1.1.0, 21 case, 0 experiment, 0 run, không có gói bị từ chối.
+  - **Chặn dữ liệu (QA-075 N-1): leader đã quyết N-a lúc 09:25 (DR-017). CASE_0001 được tính vào số liệu cohort** ("ẩn chứ không làm mù"); backend **không** phải tính lại thống kê.
+    - Gói Contract 2 thật được lên Mac mini khi hai thứ đã trên `main`: phần chữ hợp đồng và fixture của N-a (việc 3.1), và các kiểm tra đủ case của DR-018.
   - **N-2..N-8:**
     - N-2: chặn `package_root` thoát ra ngoài `experiments_root`;
     - N-3: file producer sai định dạng thì trả 500 không có envelope;
@@ -48,12 +48,19 @@ Ghi **"nhận"** hoặc **"cần sửa: …"** cho từng mục vào `management
     - N-6: test tie-break DR-010;
     - N-7: WITHHELD được ưu tiên trước FAILED;
     - N-8: phiên bản và nhãn.
-- **#72** (màn SCR-06/SCR-08, nháp): GATE-MOB-01 **đã đóng** và #77 đã lên `main`. Chốt N-4, rebase lên `main`, thôi nháp và xin duyệt thường (CP-07). Đã nối với API shell của #77 (`runtime.content`, `maskPng.js`, `setLeaveGuard`).
+- **#72** (màn SCR-06/SCR-08, nháp): GATE-MOB-01 **đã đóng** và #77 đã lên `main`. Chốt N-4, rebase lên `main`, thôi nháp và xin duyệt thường (CP-07). Theo DR-021: gọi dữ liệu qua `useCall` của shell. Đã nối với API shell của #77 (`runtime.content`, `maskPng.js`, `setLeaveGuard`).
 
 ## Việc 3 — nợ kỹ thuật đã ghi *(chiều; ưu tiên theo thứ tự)*
 
 1. **Chặn trước PR 3 phục vụ số thật:**
-   - **N-a:** n của cohort tính cả case WITHHELD đã đánh giá; sửa fixture thành 5/5; ghi rõ INT-12 *ẩn nhưng không làm mù*.
+   - **N-a (DR-017):** n của cohort tính cả case WITHHELD đã đánh giá; sửa fixture thành 5/5; ghi rõ INT-12 *ẩn nhưng không làm mù*. Cùng PR sửa các test đọc bundle (`mobile/test/v3_screens.test.mjs`, README V3); Khánh duyệt phần V3.
+   - **DR-018 (Contract 2):** README, schema, validator và test, cộng backend loader. Validator kiểm:
+     - số run + số lỗi = `num_test_cases`;
+     - mỗi case đúng một lần;
+     - `case_id` khớp artifact;
+     - loại mask khớp variant.
+     Phải xong trước đợt export D24.
+   - **DR-020:** câu chữ README và tiêu đề: "DRAFT v0" là định danh của bản v1.0 đã đóng băng; lý do giữ 23 endpoint hero.
    - **N-b:** ghi loại trừ WITHHELD vào DR-010; khớp literal với `ml/evaluate`.
    - **N-c:** validator kiểm `outlier_selection` (số lượng, đúng 3 thấp nhất, khớp hàng, khớp id).
 2. **#68:**

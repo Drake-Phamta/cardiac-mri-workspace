@@ -28,13 +28,16 @@ export const VARIANT_TEXT = Object.freeze({
 
 /*
  * Which run the explorer opens. An explicit request wins and must be one the
- * case lists; a case with exactly one run opens it (and the screen shows it);
- * several runs mean the user chooses - nothing is picked for them.
+ * case lists - also when the case lists none (#80 QA N3): a run that is not
+ * listed is never reported as 'requested', so the screen opens no run for it
+ * and says why instead of asking the server about it. A case with exactly one
+ * run opens it (and the screen shows it); several runs mean the user chooses -
+ * nothing is picked for them.
  */
 export function chooseRun(availableRunIds, requested = null) {
   const ids = Array.isArray(availableRunIds) ? availableRunIds.filter((x) => typeof x === 'string' && x) : [];
   if (requested) {
-    return ids.length === 0 || ids.includes(requested)
+    return ids.includes(requested)
       ? Object.freeze({ runId: requested, reason: 'requested', choices: Object.freeze(ids) })
       : Object.freeze({ runId: null, reason: 'requested-run-not-listed', choices: Object.freeze(ids) });
   }
@@ -96,8 +99,13 @@ export function metricsText(metrics, variant) {
 }
 
 // The run line `10` §3 requires: run, experiment / model, precomputed or new.
-export function runText(run, modelFamily = null) {
+// Until analysis_run_get has answered, or when it failed, nothing about the
+// experiment or the precomputed flag is known - the line says that, with the
+// reason, instead of "not stated" (#77 QA N-9).
+export function runText(run, modelFamily = null, { loading = false, error = null } = {}) {
   if (!run) return 'Run: -';
+  if (loading) return `Run ${run.runId} · loading run details…`;
+  if (error) return `Run ${run.runId} · run details unavailable (${error})`;
   const model = modelFamily ? `${modelFamily} · ` : '';
   const pre = run.precomputed === true ? 'precomputed' : run.precomputed === false ? 'newly executed' : 'precomputed: not stated';
   const status = run.status && run.status !== 'SUCCEEDED' ? ` · ${run.status}` : '';

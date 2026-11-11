@@ -231,9 +231,9 @@ const DRAFT = {
   const patched = await model.patch(f.findingId, { status: 'RESOLVED' });
   const body = sent[sent.length - 1].body;
   const after = patched.items[0].finding;
-  check('F10', patched.view.state === STATE.SUCCESS && body.status === 'RESOLVED' && body.expected_revision === f.revision
-    && body.note === f.note && after.status === 'RESOLVED' && after.caseId === f.caseId && after.sliceIndex === f.sliceIndex,
-  `RESOLVED sent with expected_revision ${body.expected_revision}; the entry is RESOLVED and keeps its evidence anchor`);
+  check('F10', patched.view.state === STATE.SUCCESS && body?.status === 'RESOLVED' && body?.expected_revision === f.revision
+    && body?.note === f.note && after.status === 'RESOLVED' && after.caseId === f.caseId && after.sliceIndex === f.sliceIndex,
+  `RESOLVED sent with expected_revision ${body?.expected_revision}; the entry is RESOLVED and keeps its evidence anchor`);
   // The generator has no stale scenario for finding_patch, so the stale answer
   // is the generator's own STALE_REVISION envelope from review_patch - a
   // contract-derived error this endpoint lists - injected for one call.
@@ -247,6 +247,23 @@ const DRAFT = {
     && !stale.view.actions.includes(RECOVERY.RETRY) && stale.items[0].finding.status === before.status
     && stale.items[0].finding.revision === before.revision,
   'STALE_REVISION -> STALE_MISMATCH with REFRESH only; the finding is unchanged');
+}
+
+// F11: adopt(view) takes a list the caller fetched (a screen's useCall) and gives the same items as list().
+{
+  const { client } = recorder();
+  const a = createFindings(client, { studyId: 'STUDY_DEMO' });
+  const listed = await a.list();
+  const b = createFindings(client, { studyId: 'STUDY_DEMO' });
+  const view = await client.call('findings_list', {});
+  const adopted = b.adopt(view);
+  check('F11', adopted.view.state === STATE.SUCCESS && JSON.stringify(adopted.items) === JSON.stringify(listed.items) && adopted.items.length >= 1,
+    'adopt(view) normalizes a caller-fetched findings_list exactly like list()');
+  const wait = b.adopt({ state: STATE.LOADING, data: null });
+  check('F11', wait.view.state === STATE.LOADING && wait.items.length === adopted.items.length,
+    'a LOADING view is adopted as LOADING: the held items are kept but nothing is shown as current');
+  const failed = b.adopt(await createClient(contract, { kind: 'fixture', send: async () => ({ status: 401, error: { code: 'UNAUTHORIZED' } }) }).call('findings_list', {}));
+  check('F11', failed.view.state !== STATE.SUCCESS && failed.view.state !== STATE.LOADING, `an error view is adopted as ${failed.view.state}`);
 }
 
 console.log(`${failures === 0 ? 'PASS' : 'FAIL'} V4 findings — ${count - failures}/${count}`);

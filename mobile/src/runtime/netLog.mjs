@@ -17,12 +17,19 @@
  * or a host - only endpoint ids and sizes (TC-SEC-003, no address in logs).
  * A gesture that is superseded by the next one is closed with outcome
  * "superseded", never silently merged into it.
+ *
+ * A request belongs to the gesture that was open when it STARTED (#77 QA N-3):
+ * the caller reads `openSeq` before it sends and passes it to record() as
+ * `seq`. A response that lands after its gesture closed is counted as `late`,
+ * never filed under the gesture open at that moment; one that started with
+ * no gesture open is `unattributed`. totals() keeps both, and SCR-03 logs it
+ * as CMW_NET_TOTALS after each scripted pass's CMW_RUN_END.
  */
 
 export function createNetLog({ log = (line) => console.log(line), now = () => Date.now() } = {}) {
   let seq = 0;
   let open = null;
-  const totals = { gestures: 0, requests: 0, bytes: 0, unattributed: 0 };
+  const totals = { gestures: 0, requests: 0, bytes: 0, unattributed: 0, late: 0 };
 
   function end({ outcome = 'shown' } = {}) {
     if (!open) return null;
@@ -61,10 +68,13 @@ export function createNetLog({ log = (line) => console.log(line), now = () => Da
       open = { seq, kind, case: caseId, from, to, t0: now(), requests: [] };
       return seq;
     },
-    record({ endpoint, bytes = null, ms = null, status = null }) {
+    // seq: openSeq when the request started (null: none was open). Left out,
+    // the request is taken to start now.
+    record({ endpoint, bytes = null, ms = null, status = null, seq = open ? open.seq : null }) {
       totals.requests += 1;
       totals.bytes += bytes || 0;
-      if (!open) { totals.unattributed += 1; return; }
+      if (seq === null) { totals.unattributed += 1; return; }
+      if (!open || open.seq !== seq) { totals.late += 1; return; }
       open.requests.push({
         endpoint,
         bytes: Number.isFinite(bytes) ? bytes : null,

@@ -16,7 +16,7 @@ import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
   STATE, RECOVERY, screenToSource, sliceCacheKey,
 } from '../../core/index.mjs';
-import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN } from './index.mjs';
+import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN, RUN_NOT_LISTED } from './index.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
 const readJson = (p) => JSON.parse(readFileSync(new URL(p, ROOT), 'utf8'));
@@ -347,17 +347,22 @@ const check = (id, ok, detail) => {
 }
 
 // V1-14 — an error after a success carries none of the success's identities:
-// a FATAL_INVALID at slice 45 must not hold slice 44's image or mask.
+// a FATAL_INVALID at slice 45 must not hold slice 44's image or mask, and it
+// offers no entry: the screen is showing an error, not the case.
 {
   const m = createCaseExplorer(newClient(), { variant: 'RAW' });
   const ok = await m.open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
   check('V1-14', ok.imageRef !== null && ok.predictionRef !== null, 'slice 44 loaded with its refs');
+  check('V1-14', ok.canEnter3D === true && ok.canEnterError === true && ok.groundTruthRef !== null,
+    'and with entries to 3D and to the error view');
   const s = await m.goToSlice(45, { scenarios: { mri_slice_get: 'error_case' } });
   check('V1-14', s.view.state === STATE.FATAL_INVALID && s.sliceIndex === 45,
     `MRI of slice 45 fails -> ${s.view.state} at slice ${s.sliceIndex}`);
   check('V1-14', s.imageRef === null && s.predictionRef === null && s.metrics === null
     && s.layersAvailable[LAYER.PREDICTION] === false,
     'and no ref, metric or layer of slice 44 survives under it');
+  check('V1-14', s.reconstructionIds.length > 0 && s.canEnter3D === false && s.canEnterError === false,
+    `${s.view.state} -> no entry to 3D or to the error view, though the run still names its mesh`);
 }
 
 // V1-15 — a superseded answer is dropped: slow slice 10, then fast slice 11,
@@ -495,8 +500,8 @@ const check = (id, ok, detail) => {
     caseId: CASE, runId: RUN, sliceIndex: 44, scenarios: { ground_truth_slice_get: 'ground_truth_unavailable' },
   });
   check('V1-20', s3.view.state === STATE.SUCCESS && s3.groundTruthRef === null
-    && s3.layersAvailable[LAYER.GROUND_TRUTH] === false,
-    'declared but not served for this slice -> the slice renders, the layer is not offered');
+    && s3.layersAvailable[LAYER.GROUND_TRUTH] === false && s3.canEnterError === false,
+    'declared but not served for this slice -> the slice renders; no ground-truth layer, no error view');
 }
 
 // V1-21 — where the bytes are. content_url and media_type ride on each ref
@@ -543,27 +548,35 @@ const check = (id, ok, detail) => {
 // V1-24 — a case that lists no analysis run still opens: the deployed backend
 // serves real cases before any training. MRI and, where the case declares it,
 // ground truth are shown; prediction, error and metrics are unavailable for
-// one stated reason; and no run is ever asked for.
+// one stated reason; and no run is ever asked for. A run that WAS asked for is
+// not dropped silently (#80 QA N3): RUN_NOT_LISTED, and requestedRunId keeps it.
 {
   const log = [];
   const noRuns = stubbedClient({ case_get: withData({ available_run_ids: [] }) }, { log });
-  const s = await createCaseExplorer(noRuns, { variant: 'RAW' }).open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
+  const m = createCaseExplorer(noRuns, { variant: 'RAW' });
+  const s = await m.open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
   check('V1-24', s.view.state === STATE.SUCCESS && s.imageRef !== null && s.runId === null
-    && s.noRunReason === NO_ANALYSIS_RUN && s.canEnter3D === false,
-    `no run listed -> ${s.view.state}: MRI shown, run ${s.runId} (${s.noRunReason}), no 3D`);
+    && s.noRunReason === RUN_NOT_LISTED && s.requestedRunId === RUN && s.canEnter3D === false,
+    `${RUN} asked for, no run listed -> ${s.view.state}: MRI shown, run ${s.runId} `
+    + `(${s.noRunReason}, requested ${s.requestedRunId}), no 3D`);
   check('V1-24', s.caseMode === 'EVALUATION' && s.groundTruthRef !== null
     && s.layersAvailable[LAYER.GROUND_TRUTH] === true,
     `${s.caseMode} declares ground truth -> the ground-truth layer is offered`);
   check('V1-24', s.predictionRef === null && s.layersAvailable[LAYER.PREDICTION] === false
-    && s.layerReasons[LAYER.PREDICTION] === NO_ANALYSIS_RUN && s.layerReasons[LAYER.ERROR] === NO_ANALYSIS_RUN
-    && s.metrics?.state === 'UNAVAILABLE' && s.metrics.reason === NO_ANALYSIS_RUN && s.canEnterError === false,
-    `prediction, error and metrics unavailable: ${s.metrics?.reason}`);
+    && s.layerReasons[LAYER.PREDICTION] === RUN_NOT_LISTED && s.layerReasons[LAYER.ERROR] === RUN_NOT_LISTED
+    && s.metrics?.state === 'UNAVAILABLE' && s.metrics.reason === RUN_NOT_LISTED && s.canEnterError === false,
+    `prediction, error and metrics unavailable: ${s.metrics?.reason}; ground truth came back, still no error view`);
   check('V1-24', ['analysis_run_get', 'prediction_slice_get', 'analysis_slice_metrics'].every((id) => !log.includes(id)),
     `0 run requests; asked only ${[...new Set(log)].join(', ')}`);
+  const sent = log.length;
+  const r = await m.setVariant('PROCESSED');
+  check('V1-24', r.refused?.reason === RUN_NOT_LISTED && r.requestedRunId === RUN && log.length === sent,
+    `setVariant -> refused ${r.refused?.reason}, ${log.length - sent} requests; the requested run is still named`);
 
   const s2 = await createCaseExplorer(newClient(), { variant: 'RAW' }).open({ caseId: CASE, sliceIndex: 44 });
-  check('V1-24', s2.view.state === STATE.SUCCESS && s2.runId === null && s2.noRunReason === NO_ANALYSIS_RUN,
-    'no run requested -> the same no-run slice view, whatever the case lists');
+  check('V1-24', s2.view.state === STATE.SUCCESS && s2.runId === null && s2.requestedRunId === null
+    && s2.noRunReason === NO_ANALYSIS_RUN && s2.layerReasons[LAYER.PREDICTION] === NO_ANALYSIS_RUN,
+    'no run requested -> the same no-run slice view, NO_ANALYSIS_RUN, whatever the case lists');
 }
 
 // V1-25 — no run on an INFERENCE_REVIEW case: the MRI only. Its ground truth
@@ -623,7 +636,7 @@ const check = (id, ok, detail) => {
 
   const err = await m.goToSlice(46, { scenarios: { mri_slice_get: 'error_case' } });
   check('V1-26', err.view.state === STATE.FATAL_INVALID && err.imageRef === null && err.groundTruthRef === null
-    && err.metrics === null && err.noRunReason === NO_ANALYSIS_RUN,
+    && err.metrics === null && err.noRunReason === RUN_NOT_LISTED && err.requestedRunId === RUN,
     `an error with no run -> ${err.view.state}, no ref kept, and still no run`);
 }
 

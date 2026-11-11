@@ -99,7 +99,8 @@ test('V3S3 SCR-07 on the generated bundle: typed values as served, identity and 
   const u = card('EXP-U-100');
   assert.equal(u.statusText, 'loaded - identity unconfirmed');
   assert.equal(u.tone, TONE.WARN);
-  assert.equal(u.nText, 'N intended 6 · N successful 4');
+  // DR-017: the evaluated WITHHELD INT-12 case counts, so the generated default is 5 of 5.
+  assert.equal(u.nText, 'N intended 5 · N successful 5');
   assert.equal(u.summaryText, 'summary has dice, iou, false_positives, false_negatives, relative_volume_error - pick one');
   assert.ok(u.warnings.some((w) => /EXP_DEMO/.test(w)), u.warnings.join(' | '));
   assert.deepEqual([...u.contextMissing], []);
@@ -172,13 +173,28 @@ test('V3S6 case links: every generated row is listed with a valid SCR-03 route; 
   const runtime = newRuntime();
   const snap = await createExperimentComparison(runtime.client).open({ experimentIds: ['EXP-U-100'], metricName: 'dice' });
   const table = caseTable(snap.cells.find((c) => c.id === 'EXP-U-100'));
-  assert.equal(table.rows.length, 6, 'all six generated rows are listed, none dropped');
-  assert.equal(table.text, '6 row(s) returned, 4 plotted');
-  const failed = table.rows.find((r) => r.statusText === 'failed');
+  assert.equal(table.rows.length, 5, 'all five generated rows are listed, none dropped');
+  assert.equal(table.text, '5 row(s) returned, 4 plotted');
   const withheld = table.rows.find((r) => r.statusText.startsWith('withheld'));
-  assert.ok(failed && failed.reason && failed.valueText === null, 'a FAILED row keeps its reason and has no value');
   assert.ok(withheld && /INT-12/.test(withheld.reason) && withheld.valueText === null, 'a WITHHELD row is listed, never with a value');
   for (const r of table.rows) assertNavigable(r.route);
+
+  // The `with_failure` scenarios add one FAILED row (6 intended, 5 evaluated).
+  runtime.fixtureScenarios.set('experiment_cases', 'with_failure');
+  runtime.fixtureScenarios.set('experiment_metrics', 'with_failure');
+  try {
+    const failSnap = await createExperimentComparison(runtime.client).open({ experimentIds: ['EXP-U-100'], metricName: 'dice' });
+    const failCell = failSnap.cells.find((c) => c.id === 'EXP-U-100');
+    const failTable = caseTable(failCell);
+    assert.equal(failTable.rows.length, 6);
+    assert.equal(failTable.text, '6 row(s) returned, 4 plotted');
+    assert.equal(comparisonView(failSnap).rows.flatMap((r) => r.cells).find((c) => c.id === 'EXP-U-100').nText, 'N intended 6 · N successful 5');
+    const failed = failTable.rows.find((r) => r.statusText === 'failed');
+    assert.ok(failed && failed.reason && failed.valueText === null, 'a FAILED row keeps its reason and has no value');
+    for (const r of failTable.rows) assertNavigable(r.route);
+  } finally {
+    runtime.fixtureScenarios.clear();
+  }
   const noRun = routeForIntent(caseIntent({ caseId: 'CASE_0101', runId: null, variant: 'RAW', experimentId: 'EXP-U-100' }));
   assert.equal(noRun.ok, false);
   assert.match(noRun.reason, /analysis_run_id/);
@@ -323,6 +339,31 @@ test('V3S10 the #61 QA refusals reach the screen as words: pinned DR-010, inelig
   assert.equal(drift.rows[1].valueText, null);
   assert.equal(drift.rows[1].statusText, 'failed - its served value is ignored');
   assert.equal(drift.text, '2 row(s) returned, 1 plotted; 1 value(s) served on rows that did not succeed - ignored');
+  // QA_PR90_D39 N-1: a case id served twice has screen copy, not the raw state word; no number, no link.
+  const dup = [
+    { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0101', metric_values: { dice: 0.91 } },
+    { case_id: 'CASE_0101', status: 'SUCCEEDED', reason: null, analysis_run_id: 'RUN_0103', metric_values: { dice: 0.5 } },
+    ROWS[1],
+  ];
+  const dupTable = caseTable(typedCell(matrixEntry('EXP-U-025'), 0.8, { items: dup }));
+  const twice = dupTable.rows.filter((r) => r.caseId === 'CASE_0101');
+  assert.equal(twice.length, 2, 'both rows are listed, none dropped');
+  for (const row of twice) {
+    assert.equal(row.statusText, 'duplicate case id - not plotted');
+    assert.doesNotMatch(row.statusText, /DUPLICATE_CASE_ID/);
+    assert.equal(row.valueText, null, 'no number is shown for an ambiguous case');
+    assert.equal(row.route.ok, false, 'and no link: which run would it open');
+  }
+  assert.match(dupTable.rows.find((r) => r.caseId === 'CASE_0102').statusText, /^failed/, 'the other rows are untouched');
+  assert.equal(dupTable.text, '3 row(s) returned, 0 plotted');
+  // QA_PR90_D39 N-3: the refusal of a selection that repeats a case reads in words, and none of its cases is shown.
+  const entry = { case_id: 'CASE_0101', analysis_run_id: 'RUN_0101', metric_value: 0.91, false_positives: 3, false_negatives: 4 };
+  const repeated = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, { selection: { cases: [entry, entry] } }).outliers);
+  assert.equal(repeated.available, false);
+  assert.deepEqual([...repeated.rows], []);
+  assert.match(repeated.text, /the selection repeats a case id - the whole selection is refused/);
+  assert.doesNotMatch(repeated.text, /OUTLIERS_DUPLICATE_CASE_ID/);
+  assert.equal(reasonLabel('OUTLIERS_DUPLICATE_CASE_ID'), 'the selection repeats a case id - the whole selection is refused');
 });
 
 test('V3S12 a cell whose variant was refused lists its rows with no number, calls none plotted, and links none (#69 QA B-1)', async () => {

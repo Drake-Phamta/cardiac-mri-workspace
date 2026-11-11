@@ -41,6 +41,46 @@ test('N4 push / pop / replace / reset', () => {
   assert.deepEqual(s.stack.map((e) => e.screenId), ['SCR-08']);
 });
 
+test('N4b #78 QA N-8: a push carries returnParams into the entry it covers, keeping its key; Back shows them', () => {
+  let s = initialNavState('SCR-02');
+  s = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-03', params: { caseId: 'CASE_0061' } });
+  const explorer = top(s);
+  const root = s.stack[0];
+  s = navReducer(s, {
+    type: NAV.PUSH, screenId: 'SCR-04', params: { caseId: 'CASE_0061', runId: 'RUN_B', variant: 'PROCESSED', sliceIndex: 54 },
+    returnParams: { runId: 'RUN_B', variant: 'PROCESSED', sliceIndex: 54 },
+  });
+  const covered = s.stack[1];
+  assert.equal(covered.key, explorer.key, 'the same entry: same key, so the same React key and guard slot');
+  assert.deepEqual({ ...covered.params }, { caseId: 'CASE_0061', runId: 'RUN_B', variant: 'PROCESSED', sliceIndex: 54 });
+  assert.ok(Object.isFrozen(covered) && Object.isFrozen(covered.params));
+  assert.equal(s.stack[0], root, 'entries below are untouched');
+  assert.deepEqual({ ...explorer.params }, { caseId: 'CASE_0061' }, 'the old state is not mutated');
+  s = navReducer(s, { type: NAV.POP });
+  assert.equal(top(s).key, explorer.key);
+  assert.deepEqual({ ...top(s).params }, { caseId: 'CASE_0061', runId: 'RUN_B', variant: 'PROCESSED', sliceIndex: 54 });
+  // A later push without returnParams leaves the entry as it is; a new one overwrites per key.
+  s = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-05', params: { caseId: 'CASE_0061', runId: 'RUN_B' } });
+  assert.equal(s.stack[1].params.sliceIndex, 54);
+  s = navReducer(navReducer(s, { type: NAV.POP }), {
+    type: NAV.PUSH, screenId: 'SCR-05', params: { caseId: 'CASE_0061', runId: 'RUN_B' }, returnParams: { sliceIndex: 12 },
+  });
+  assert.deepEqual({ ...s.stack[1].params }, { caseId: 'CASE_0061', runId: 'RUN_B', variant: 'PROCESSED', sliceIndex: 12 });
+});
+
+test('N4c bindNav.push sends returnParams in the one PUSH action, and a refused leave changes nothing', async () => {
+  const dispatched = [];
+  const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-03', params: { caseId: 'C' } });
+  const back = { runId: 'R', variant: 'RAW', sliceIndex: 3 };
+  assert.equal(bindNav((a) => dispatched.push(a), s).push('SCR-04', { caseId: 'C', runId: 'R', variant: 'RAW' }, back), true);
+  assert.deepEqual(dispatched, [{ type: NAV.PUSH, screenId: 'SCR-04', params: { caseId: 'C', runId: 'R', variant: 'RAW' }, returnParams: back }]);
+  const guards = createGuards();
+  const nav = bindNav((a) => dispatched.push(a), s, null, guards);
+  nav.setLeaveGuard(() => false);
+  assert.equal(await nav.push('SCR-04', { caseId: 'C', runId: 'R', variant: 'RAW' }, back), false);
+  assert.equal(dispatched.length, 1, 'no action at all - the covered entry keeps its params');
+});
+
 test('N5 pop at the root is a no-op that returns the same state (Android back then exits)', () => {
   const s = initialNavState();
   assert.equal(navReducer(s, { type: NAV.POP }), s);
@@ -133,11 +173,49 @@ test('N13 no guard: actions answer at once; a throwing guard stays and reports',
   assert.equal(nav.hasLeaveGuard(), false, 'a guard can be removed');
 });
 
-test('N14 a guard belongs to its stack entry and is pruned with it', () => {
+test('N14 a guard lives while its entry is on top: popped or COVERED, it is pruned (#77 QA N-7)', () => {
   const guards = createGuards();
   const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-06', params: { runId: 'R' } });
   bindNav(() => {}, s, null, guards).setLeaveGuard(() => false);
   assert.equal(guards.size, 1);
-  guards.prune(navReducer(s, { type: NAV.POP }).stack.map((e) => e.key));
+  guards.prune([top(navReducer(s, { type: NAV.POP })).key]); // what NavigatorView does: keep the top key only
   assert.equal(guards.size, 0);
+  // Covered: SCR-06 lets the push through, unmounts under SCR-08 and its guard goes.
+  let asked = 0;
+  bindNav(() => {}, s, null, guards).setLeaveGuard(() => { asked += 1; return true; });
+  const covered = navReducer(s, { type: NAV.PUSH, screenId: 'SCR-08', params: {} });
+  guards.prune([top(covered).key]);
+  assert.equal(guards.size, 0, 'the covered screen leaves no guard behind');
+  // Back on SCR-06 (same key, re-mounted, nothing to lose yet): back asks nobody.
+  const back = navReducer(covered, { type: NAV.POP });
+  assert.equal(top(back).key, top(s).key);
+  assert.equal(bindNav(() => {}, back, null, guards).pop(), true, 'decided at once - no stale guard asked');
+  assert.equal(asked, 0);
+});
+
+test('N15 one leave prompt at a time: a second action while a guard is asking is refused at once (#77 QA N-7)', async () => {
+  const dispatched = [];
+  const guards = createGuards();
+  const s = navReducer(initialNavState('SCR-02'), { type: NAV.PUSH, screenId: 'SCR-06', params: { runId: 'R' } });
+  const nav = bindNav((a) => dispatched.push(a.type), s, null, guards);
+  let asked = 0;
+  let answer = null;
+  nav.setLeaveGuard(() => { asked += 1; return new Promise((r) => { answer = r; }); });
+  const first = nav.pop();
+  await Promise.resolve();
+  assert.equal(guards.busy, true, 'the first prompt is open');
+  assert.equal(nav.pop(), false, 'a second Back is refused, not a second prompt');
+  assert.equal(nav.reset('SCR-01', {}), false, 'so is a tab press');
+  assert.equal(asked, 1);
+  answer(true);
+  assert.equal(await first, true);
+  assert.deepEqual(dispatched, [NAV.POP]);
+  assert.equal(guards.busy, false, 'released once the guard answered');
+  // A guard that throws releases too: the next prompt can open.
+  nav.setLeaveGuard(() => { throw new Error('dialog failed'); });
+  assert.equal(await nav.pop(), false);
+  assert.equal(guards.busy, false);
+  nav.setLeaveGuard(() => false);
+  assert.equal(await nav.pop(), false);
+  assert.equal(asked, 1);
 });

@@ -147,6 +147,40 @@ def validate_predictions_manifest(doc) -> dict:
     return doc
 
 
+DERIVED_EXPERIMENT_ID = "EXP-D-PP"             # the post-processing ablation run (`08` section 2)
+DERIVED_SOURCE_EXPERIMENT_ID = "EXP-D-100"     # it is derived from this run's RAW predictions
+DERIVED_FROM_KEYS = ("experiment_id", "partition", "predictions_manifest_sha256", "checkpoint_sha256")
+
+
+def derived_from(pm: dict) -> dict | None:
+    """The `derived_from` block of a DERIVED predictions manifest (ml.postprocess.derive_run), validated;
+    None for a normal run. A derived run has no checkpoint file of its own: the checkpoint is identified
+    by `derived_from.checkpoint_sha256`, which a holdout authorization must list for EXP-D-PP. Only
+    EXP-D-PP, a PROCESSED_PREDICTION run derived from EXP-D-100, may carry the block; anything else
+    that carries one is refused (it would otherwise skip the checkpoint-file checks of a normal run)."""
+    block = pm.get("derived_from")
+    if block is None:
+        return None
+    problems = []
+    if not isinstance(block, dict) or set(DERIVED_FROM_KEYS) - set(block):
+        raise ManifestError(f"predictions_manifest.derived_from must carry {list(DERIVED_FROM_KEYS)}")
+    if pm.get("experiment_id") != DERIVED_EXPERIMENT_ID:
+        problems.append(f"only {DERIVED_EXPERIMENT_ID} may be a derived run")
+    if pm.get("prediction_variant") != "PROCESSED_PREDICTION":
+        problems.append("a derived run's prediction_variant must be PROCESSED_PREDICTION")
+    if block["experiment_id"] != DERIVED_SOURCE_EXPERIMENT_ID:
+        problems.append(f"it must derive from {DERIVED_SOURCE_EXPERIMENT_ID}")
+    for key in ("predictions_manifest_sha256", "checkpoint_sha256"):
+        if not (isinstance(block[key], str) and len(block[key]) == 64 and set(block[key]) <= set("0123456789abcdef")):
+            problems.append(f"derived_from.{key} must be a lowercase 64-hex sha256")
+    cfg = pm.get("postprocessing_config_sha256")
+    if not (isinstance(cfg, str) and len(cfg) == 64 and set(cfg) <= set("0123456789abcdef")):
+        problems.append("postprocessing_config_sha256 must be a lowercase 64-hex sha256")
+    if problems:
+        raise ManifestError("predictions_manifest (derived run): " + "; ".join(problems))
+    return block
+
+
 def validate_evaluation_manifest(doc) -> dict:
     """The evaluation manifest written by ml.evaluate (format ml-evaluation/1)."""
     return _validate(doc, EVALUATION_REQUIRED, "ml-evaluation/1", "evaluation_manifest")

@@ -21,8 +21,11 @@ meta:
     sections 10-11 in every conflict.
 
 # --- WHERE WE ARE -----------------------------------------------------------
-day: 23                             # Day 2 = 2026-09-11 was the first execution day (see DAY_LOG.md)
-day_date: "2026-10-02"              # Day 22 was the one-day recovery override; see day22/RECOVERY_OVERRIDE_DAY22.md and day23/DAY23_PLAN.md
+day: 40                             # calendar day (Day 1 = 2026-09-10); the original Day 30 (2026-10-09) has passed
+day_date: "2026-10-19"              # plan: day40/DAY40_PLAN.md; window to acceptance: day40/REPLAN_TO_2026-10-31.md
+acceptance_date: "2026-10-31"       # leader decision 2026-10-18 06:40 (Day 39); replaces the fixed Day 30
+day_23_to_38_verdict: MISSED        # Day 23 kept open (leader rule 2026-10-03); team activity 2026-10-02..17: #90 (Khanh, 10-04) and three approvals (Hung Anh, 10-02) only
+day_39_verdict: RECOVERY_OVERRIDE   # 2026-10-18: #85-#98 (approved or LLM QA + CI); GATE-IMG-01 CLOSED; first final-holdout results (DINOv2 25/50/100 + PP-4); backend 74 cases; API hero-flow E2E 22 PASS / 0 FAIL / 1 SKIP (UNet); V2 SCR-05 skeleton (#98)
 day_11_to_21_verdict: MISSED        # Day 11 0/4 (closed on paper on 2026-10-01); Days 12-19 and 21 no delivery; Day 20 was the full rebaseline (AT RISK); see DAY_LOG.md
 day_22_verdict: RECOVERY_OVERRIDE   # 28 PRs merged on independent LLM QA (CHAT E) + CI; GATE-SPLIT-01 and GATE-ML-01 closed; GATE-MOB-01 CLOSED 21:17 by the leader's explicit decision (L5 accepted; #82); Spike A and Spike B ACCEPTED; mobile shell + V1 + V3 screens merged (#77, #78, #69); owners revalidate on Day 23
 day_3_verdict: SLIPPED              # 2 of its 3 stated conditions unmet
@@ -375,7 +378,9 @@ gates:
                    closed_by: "Pham Tuan Anh (Project Control) under the pre-declared rule of management/day22/RECOVERY_OVERRIDE_DAY22.md section 4",
                    closes_on: "SPIKE_C1 evidence — C0 is not sufficient",
                    closure: "Spike C1 run 2 (code 58cbd5e, the leader's PC per DR-016): C1-1..C1-10 backed by machine evidence; the result table, calendar and summary in management/spikes/SPIKE_C_ML/c1_evidence re-derive byte-identically; both families converge (no NaN/Inf, checkpoint reload delta 0.0). QA PASS WITH NOTES (CHAT E, an LLM QA under the leader's account, not a second human), no blocking finding: management/day22/QA_REVIEW_C1_GATE_ML_01.md. ADR-ML-001 ACCEPTED: 560x560, batch 8, E = 50, the override section 4 recipe unchanged. The DINOv2 queue started 14:30 from main c7a37e0; the UNet queue runs on the RTX 4050 from Day 23 behind the DR-016a tripwire. Findings N-1..N-8 were handled in PR #79 or assigned for Day 23 (QA record section 5)"}
-  GATE-IMG-01:    {status: OPEN,   closes_on: "morphology config on development/validation evidence only"}
+  GATE-IMG-01:    {status: CLOSED, closed_at: "2026-10-18T07:15+07:00", closed_by: "Pham Tuan Anh (rule pre-declared in management/day39/RECOVERY_OVERRIDE_DAY39.md section 4)",
+                   closes_on: "morphology config on development/validation evidence only",
+                   closure: "PP-4 (3D opening 3x3x3, then largest 26-connected component) selected on EXP-D-100 validation (mean 3D Dice 0.5930 vs raw 0.5712); frozen config sha256 c0a68cc7...4961e; holdout authorization management/day39/gate_img_01/holdout_authorization.json for EXP-D-025/050/100 and EXP-D-PP; record management/day39/GATE_IMG_01_DECISION.md"}
   GATE-MOB-01:    {status: CLOSED, closed_at: "2026-10-01T21:17+07:00",
                    closed_by: "Pham Tuan Anh, explicit leader decision (the Spike A rule of RECOVERY_OVERRIDE_DAY22 section 4 did not hold as written: QA-004 L4, L5)",
                    closes_on: "Spike A AND Spike B evidence, via TECH_STACK_ADR.md",
@@ -561,6 +566,55 @@ decisions_pending:
   - {id: DR-005,  waits_on: SPIKE_F, subject: "3D error representation"}
 
 decisions_made_during_execution:
+  - id: DR-017
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "INT-12 hidden, not blinded: CASE_0001 counts in evaluation_n, successful_n, metric_summary and compare; the app serves none of its per-case values and never names it in an outlier list (N-b); the fixture becomes 5/5"
+    evidence: "QA-075 N-1 vs contract-stack QA N-a"
+    gate_effect: "lifts QA-075's data gate once the contract text, the fixture and DR-018's validator checks are on main"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-017"
+  - id: DR-018
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "Contract 2: a failed case has no run and is listed in the failures; the validator checks runs + failures = num_test_cases, each case once, case_id vs artifacts, mask kind vs variant; the exporter exports failed-case experiments and PROCESSED runs"
+    evidence: "QA #64 N-5; ml/export_contract2.py refusals"
+    gate_effect: "required before the D24 export and any real ingest"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-018"
+  - id: DR-016b
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "if the Spike C1 reviewer rejects: documentation grounds -> fix the documents, the gate stays closed; recipe or evidence grounds -> GATE-ML-01 reopens and running queues stop at the next epoch boundary"
+    evidence: "revalidation row H2"
+    gate_effect: "none unless a recipe/evidence reject"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-016b"
+  - id: DR-002c
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "F5 covers the exact pair scores (redacted in current text); no second sensitivity list - two report slots only"
+    evidence: "QA-005 N-2, N-7"
+    gate_effect: "none; declared before any holdout metric"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-002c"
+  - id: DR-019
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "publication policy: the overlay is PRIVATE (checked 09:22); placeholders for overlay addresses and the device serial from now on; a CI IPv4 scan; no rewrite of evidence or history"
+    evidence: "QA #65 N-3, #68 N-13, #73 N2"
+    gate_effect: "none"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-019"
+  - id: DR-020
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "API hero set stays at 23 endpoints; the DRAFT v0 wire literal stays; wording clarified"
+    evidence: "contract QA N4, N10"
+    gate_effect: "none; no API version bump"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-020"
+  - id: DR-021
+    decided: "2026-10-02"
+    decided_by: "Pham Tuan Anh - Team Leader (Day 23, 09:25, in session)"
+    outcome: "mobile shell rules: checksum once per content URL, a missing checksum is CONTRACT_DRIFT; useCall for V2-V4; no URL hash in build records; one npm-ci CI job for render smoke and bundle; cleartext only in live builds; portrait stays; shell owner Pham Tuan Anh"
+    evidence: "QA #77 N-6/N-8/N-10, #65 N-5/N-6/N-11/N-12b, QA-078 N-9"
+    gate_effect: "none"
+    record: "management/readiness/OPEN_DECISIONS.md -> DR-021"
   - id: DR-008c
     decided: "2026-10-01"
     decided_by: "pre-declared rule of management/day22/RECOVERY_OVERRIDE_DAY22.md section 4 (authorised by Pham Tuan Anh - Team Leader); Vu Hung Anh confirms on Day 23"

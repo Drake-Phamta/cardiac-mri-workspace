@@ -2,12 +2,14 @@
  * Render-smoke harness, part 1: Node module hooks (node --import).
  *
  * TEST-ONLY. Runs the real screens in Node under react-test-renderer
- * (devDependency, deprecated upstream, not in CI - CI has no node_modules).
+ * (devDependency, deprecated upstream; in CI only in the mobile-render-bundle
+ * job, which runs `npm ci --ignore-scripts` first - DR-021 rule 4).
  * Its output is evidence that the screen LOGIC renders and reacts - never
  * device evidence: nothing here measures a frame, a gesture or a network.
  *
- *   - react-native, react-native-svg and react-native-safe-area-context are
- *     mapped to host-string stand-ins in ./mocks (enough to render a tree and
+ *   - react-native, react-native-svg, react-native-safe-area-context and
+ *     react-native-webview (SCR-05: no page is loaded; the messages the screen
+ *     sends the viewer are recorded) are mapped to host-string stand-ins in ./mocks (enough to render a tree and
  *     press a button, not a behavioural emulation);
  *   - every `react` import resolves to mobile/node_modules/react, so the
  *     renderer and the screens share ONE React;
@@ -23,12 +25,12 @@ export const MOBILE = fileURLToPath(new URL('../../', import.meta.url)).replace(
 const mreq = createRequire(`${MOBILE}/package.json`);
 const babel = mreq('@babel/core');
 const jsxPlugin = mreq.resolve('@babel/plugin-transform-react-jsx');
-// Resolve React before installing the custom hooks. Calling require.resolve()
-// from inside this resolver re-enters the hook on Node 24 and recurses forever.
-const reactEntries = new Map(['react', 'react/jsx-runtime', 'react/jsx-dev-runtime']
-  .map((name) => [name, pathToFileURL(mreq.resolve(name)).href]));
 const MOCKS = new URL('./mocks/', import.meta.url);
 const SRC_PREFIX = pathToFileURL(MOBILE).href.toLowerCase();
+// `react` is resolved by the default resolver (`next`) as if imported from
+// mobile/package.json. Calling require.resolve inside the hook instead
+// re-enters these hooks on newer Node 24 releases (24.21: unbounded recursion).
+const MOBILE_PARENT = pathToFileURL(`${MOBILE}/package.json`).href;
 
 const isMobileSource = (url) => typeof url === 'string' && url.toLowerCase().startsWith(SRC_PREFIX)
   && !url.includes('/node_modules/');
@@ -38,9 +40,10 @@ registerHooks({
     if (specifier === 'react-native') return { url: new URL('react-native.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react-native-svg') return { url: new URL('svg.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react-native-safe-area-context') return { url: new URL('safe-area.mjs', MOCKS).href, shortCircuit: true };
+    if (specifier === 'react-native-webview') return { url: new URL('webview.mjs', MOCKS).href, shortCircuit: true };
     if (specifier === 'react' || specifier.startsWith('react/')) {
-      const url = reactEntries.get(specifier);
-      if (url) return { url, shortCircuit: true, format: 'commonjs' };
+      const r = next(specifier, { ...context, parentURL: MOBILE_PARENT });
+      return { ...r, shortCircuit: true, format: 'commonjs' };
     }
     // Metro resolves extensionless relative imports; Node does not.
     if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.(c|m)?js$|\.json$/.test(specifier)

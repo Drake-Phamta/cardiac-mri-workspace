@@ -9,8 +9,9 @@
 //               --output app/core/fixtures/.generated/api_bundle.json
 //
 //      Since API contract 1.1.0 the generator gives the V3 endpoints TYPED
-//      values (N 6 / 4, a metric_summary, six case rows including FAILED and
-//      WITHHELD, a DR-010 outlier_selection) for one experiment, EXP_DEMO,
+//      values (N 5 / 5 - the evaluated WITHHELD INT-12 case counts, DR-017 -, a
+//      metric_summary, five case rows, a DR-010 outlier_selection) for one
+//      experiment, EXP_DEMO; the `with_failure` scenarios add a FAILED row (N 6 / 5),
 //      plus EXP-D-PP in the list. The fixture transport answers the same
 //      body whatever id is asked, so for a matrix id the checks also prove
 //      that a served identity that differs is REPORTED, and a selection made
@@ -182,11 +183,26 @@ const check = (id, ok, detail) => {
   check('V3-4', u.cases.rows.length === servedRows.length && u.points.length === plotted.length
     && u.points.map((p) => p.caseId).join(',') === plotted.map((r) => r.case_id).join(','),
     `${u.cases.rows.length} rows kept, ${u.points.length} plotted (SUCCEEDED with a dice value), in served order`);
-  const failed = u.cases.rows.find((r) => r.status === 'FAILED');
   const withheld = u.cases.rows.find((r) => r.status === 'WITHHELD');
-  check('V3-4', failed.plotState === 'FAILED' && failed.value === null && failed.reason
+  check('V3-4', !u.cases.rows.some((r) => r.status === 'FAILED')
     && withheld.plotState === 'WITHHELD' && withheld.value === null && /INT-12/.test(withheld.reason),
-    `FAILED and WITHHELD rows stay visible with their reason, value null - "${withheld.reason}"`);
+    `the WITHHELD row stays visible with its reason, value null - "${withheld.reason}"`);
+  // DR-017: INT-12 is hidden, not blinded - the evaluated WITHHELD case counts in both N and the summary n.
+  check('V3-4', served.evaluation_n === 5 && served.successful_n === 5 && u.n.text === 'N intended 5 · N successful 5'
+    && summaryStat(u.summary, 'dice', 'n') === 5 && servedRows.length === 5
+    && servedRows.filter((r) => r.status === 'SUCCEEDED' || r.status === 'WITHHELD').length === served.successful_n,
+    `the WITHHELD case counts in N and in the summary n: "${u.n.text}", dice n ${summaryStat(u.summary, 'dice', 'n')}`);
+  {
+    const wf = createExperimentComparison(newClient());
+    await wf.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'], metricName: 'dice',
+      scenarios: { experiment_metrics: 'with_failure', experiment_cases: 'with_failure' } });
+    const f = wf.cell('EXP-U-100');
+    const failedRow = f.cases.rows.find((r) => r.status === 'FAILED');
+    check('V3-4', f.n.text === 'N intended 6 · N successful 5' && f.n.consistency === 'CONSISTENT'
+      && failedRow && failedRow.plotState === 'FAILED' && failedRow.value === null && failedRow.reason
+      && f.cases.rows.length === 6,
+      `with_failure scenario: "${f.n.text}", the FAILED row stays visible with its reason, value null`);
+  }
   check('V3-4', u.points.every((p) => p.intent.enabled && p.intent.variant === 'RAW' && p.intent.runId),
     `every point opens SCR-03 with case, run and variant: ${u.points[0].intent.text}`);
   check('V3-4', !u.outliers.available && u.outliers.reason === UNAVAILABLE.OUTLIERS_FOR_ANOTHER_EXPERIMENT
@@ -317,9 +333,10 @@ const check = (id, ok, detail) => {
   const fromBundle = readCohortN(servedMetrics);
   check('V3-8', fromBundle.intended.value === servedMetrics.evaluation_n && fromBundle.successful.value === servedMetrics.successful_n,
     `the generated experiment_metrics default (typed since 1.1.0) reads as "${fromBundle.text}"`);
-  check('V3-8', readVariant('RAW_PREDICTION').lane === 'RAW' && readVariant('processed').lane === 'PROCESSED'
+  check('V3-8', readVariant('RAW').lane === 'RAW' && readVariant('PROCESSED').lane === 'PROCESSED'
+    && readVariant('RAW_PREDICTION').lane === null && readVariant('processed').lane === null
     && readVariant('BEST').lane === null && readVariant(undefined).lane === null,
-    'variant spellings map to two lanes; anything else is undeclared');
+    'only the exact RAW / PROCESSED contract enum is accepted');
   check('V3-8', readFraction(0.5).pct === 50 && readFraction(50).pct === null && readFraction('0.5').pct === null,
     'training_fraction: only Contract 2\'s 0.25 / 0.5 / 1.0');
   check('V3-8', readFamily('dinov2').family === 'DINOV2' && readFamily('UNet2D').family === 'UNET'
@@ -465,6 +482,15 @@ const base0 = () => ({
   check('V3-9', proto.plotState === 'UNKNOWN_STATUS' && proto.value === null && drift.counts.servedValueIgnored === 3,
     'a status like "constructor" is not a known status (own keys only); 3 drifted rows counted');
 
+  const duplicatedRows = readCaseRows({
+    prediction_variant: 'RAW',
+    items: [ROWS[0], { ...ROWS[0], status: 'WITHHELD', metric_values: null }],
+  }, { metricName: 'dice', variant: 'RAW', experimentId: 'EXP-U-100' });
+  check('V3-9', duplicatedRows.duplicateCaseIds.join(',') === 'CASE_0101'
+    && duplicatedRows.rows.every((row) => row.plotState === 'DUPLICATE_CASE_ID'
+      && row.value === null && !row.plotted && !row.intent.enabled),
+  'duplicate case_id rows are drift: no number, point or case intent');
+
   // Refusals. Each would put a selection on screen that is not DR-010's for
   // THIS experiment and variant, at the contract's pinned version and metric.
   const base = base0();
@@ -481,6 +507,7 @@ const base0 = () => ({
     [{ ...base, experiment_id: 'EXP-D-100' }, UNAVAILABLE.OUTLIERS_FOR_ANOTHER_EXPERIMENT],
     [{ ...base, prediction_variant: 'PROCESSED' }, UNAVAILABLE.OUTLIERS_FOR_ANOTHER_VARIANT],
     [{ ...base, cases: [] }, UNAVAILABLE.NO_ELIGIBLE_CASES],
+    [{ ...base, cases: [base.cases[0], base.cases[0]] }, UNAVAILABLE.OUTLIERS_DUPLICATE_CASE_ID],
     ['outliers_fixture', UNAVAILABLE.OUTLIERS_UNREADABLE],
   ];
   for (const [block, reason] of refused) {
@@ -584,7 +611,7 @@ const base0 = () => ({
 {
   const cell = buildCell(matrixEntry('EXP-D-025'), {
     metricsView: success({
-      evaluation_n: 54, successful_n: 0, prediction_variant: 'RAW_PREDICTION', metric_version: 'mv1', metric_summary: {},
+      evaluation_n: 54, successful_n: 0, prediction_variant: 'RAW', metric_version: 'mv1', metric_summary: {},
     }),
     casesView: success({ items: [], metric_version: 'mv1', prediction_variant: 'RAW' }),
     population: { available: true, label: 'FINAL_HOLDOUT', n: 54 },
@@ -668,6 +695,9 @@ const base0 = () => ({
   check('V3-15', fair.comparability.verdict === VERDICT.COMPARABLE && fair.numbersWithheld === null
     && d.allowed && Math.abs(d.delta - 0.05) < 1e-12,
     `the RAW body covering both runs -> ${fair.comparability.verdict}, difference ${d.delta?.toFixed(2)}`);
+  const fairTrend = readComparison(trendU, success(body('RAW', trendU.experimentIds)));
+  check('V3-15', deltaFor(fairTrend, { metricName: 'dice', stat: 'median' }).allowed === false,
+    'delta is refused for TREND even when the server says comparable');
 
   const refusedPair = readComparison(pair, stateForError(contract, 'NON_COMPARABLE_EXPERIMENTS'));
   check('V3-15', refusedPair.comparability.verdict === VERDICT.NOT_COMPARABLE && refusedPair.numbersWithheld === null,

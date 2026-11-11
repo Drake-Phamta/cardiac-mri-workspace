@@ -17,7 +17,7 @@
 | `cohort.mjs` | one matrix **cell** from the core states of `experiment_get` / `_metrics` / `_cases`; the server's comparability verdicts; trend and delta, gated by those verdicts; the D2 metric context |
 | `readers.mjs` | pure readers: counts, N, variant, family, fraction, population, metric summary, per-case rows, the DR-010 outlier selection, navigation intents. `MATRIX` (`08` §2) and `COMPARISONS` |
 | `strip.mjs` | strip-plot geometry and `pointAt` — a tap on any point resolves to its case |
-| `test_study_and_compare.mjs` | 149 checks against the contract 1.1.0 bundle, the `empty` scenarios included and mandatory (V3-14); CI step **V3 study and compare** |
+| `test_study_and_compare.mjs` | 160 checks against the contract 1.1.0 bundle, the `empty` scenarios included and mandatory (V3-14); CI step **V3 study and compare** |
 
 ```bash
 python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
@@ -97,16 +97,19 @@ with no code edit.
 ## What today's generated bundle shows (contract 1.1.0)
 
 Since contract 1.1.0 the generator gives the V3 endpoints **typed** values for one experiment, `EXP_DEMO`:
-N intended 6 / successful 4, a `metric_summary` for the five case metrics, six case rows (four `SUCCEEDED`
-with `metric_values`, one `FAILED`, one `WITHHELD` INFERENCE_REVIEW case) and a DR-010 `outlier_selection`.
+N intended 5 / successful 5, a `metric_summary` for the five case metrics (n 5), five case rows (four `SUCCEEDED`
+with `metric_values` and one `WITHHELD` INFERENCE_REVIEW case, CASE_0001) and a DR-010 `outlier_selection`. Since
+DR-017 (INT-12: hidden, not blinded) the evaluated `WITHHELD` case counts in both N, in every summary `n` and in
+the compare population; only its own row carries no value. The `with_failure` scenarios of `experiment_metrics`
+and `experiment_cases` add one `FAILED` row (N 6 / 5) so every row status is reachable.
 The list also names `EXP-D-PP` as `PROCESSED`. The fixture transport answers the same body whatever id is
 asked, so on the bundle:
 
 - `SCR-01`: dataset object, case counts by mode, capabilities and `experiment_summary` (`UNAVAILABLE`, with
   its reason) as served; `EXP-D-PP` is the one listed matrix experiment; `EXP_DEMO` is listed outside the
   `08` §2 matrix and shown by id; findings `OPEN`;
-- `SCR-07` for a matrix id (e.g. `EXP-U-100`): N 6 / 4, the summary, 4 plotted cases with working SCR-03
-  links, the `FAILED` and `WITHHELD` rows listed with their reasons — and the identity mismatch (`EXP_DEMO`
+- `SCR-07` for a matrix id (e.g. `EXP-U-100`): N 5 / 5, the summary, 4 plotted cases with working SCR-03
+  links, the `WITHHELD` row (and, in `with_failure`, the `FAILED` row) listed with its reason — and the identity mismatch (`EXP_DEMO`
   answered) **reported**, and the outlier selection (made for `EXP_DEMO`) **refused, not relabelled**;
 - `EXP-D-PP` stays `VARIANT_MISMATCH`: the generator has a `PROCESSED` identity (`experiment_get`
   `processed_variant`) but serves its metrics as `RAW`, and identity does not launder a variant (V3-5).
@@ -212,6 +215,9 @@ can do about it, and offering a retry would suggest otherwise.
    not on Dice's [0, 1]); N-6 show the evaluation population only for the listed ids it covers; N-7 raise the
    remaining contract gaps with Trung (a mixed RAW/PROCESSED compare for RQ-B; a PROCESSED fixture for
    `EXP-D-PP` metrics and cases); N-9 list a strip column's `offAxis` values under the chart.
+   N-11 (delta only for `HEAD_TO_HEAD`), N-13 (exact `RAW`/`PROCESSED` enum), and N-15 (duplicate
+   `case_id` is contract drift and invalidates an outlier selection) were closed in the owner revalidation
+   on 2026-10-05.
 8. **Device evidence — `NOT MEASURED`.** The screens were checked by `node --test` and by a JS bundle export
    only, never on the Galaxy A17. Owed: a release build on the A17 (portrait), the touch-target check
    (TC-USAB-004), the seven states via the FIXTURE panel (TC-MOBILE-STATE-001), and a short recording for the

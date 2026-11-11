@@ -11,10 +11,19 @@
     -BindHost  the overlay interface address uvicorn binds on the host
                                             (or $env:CARDIAC_DEPLOY_BIND_HOST)
     -BindAll   explicit opt-in to bind 0.0.0.0 instead of -BindHost
+    -ShipPackages  also ship <data-root>\experiments (Contract 2 run directories, without
+               validation predictions/evaluations and last.pt) and <data-root>\derived_meshes
+               (L0 meshes, backend.mesh.build_cache), where <data-root> is the parent of -DataCache.
+               Unpacking over the host copy rewrites identical files only: packages and meshes are
+               write-once by design. Use it after new runs (e.g. the UNet family) are exported.
 
   Steps:
     1. checks the local derived data cache (<DataCache>/index.json, outside
-       the repository); it holds 8-bit slice PNGs + JSON only - never NRRD;
+       the repository); it holds 8-bit slice PNGs + JSON only - never NRRD.
+       No flag is needed for holdout cases (DR-022): they are in the cache
+       only if it was built with `python -m backend.app.ingest --include-holdout
+       --holdout-authorization <record>`; the record's sha256 is then in
+       index.json and is printed here;
     2. packs the code (backend/app, requirements, serve script, the contract
        files the service loads) and the data cache into tar.gz files in a
        fixed stage directory under %TEMP% (overwritten on every run, never
@@ -43,6 +52,7 @@ param(
   [string]$RemoteDir = "cardiac-backend",
   [string]$RemoteDataDir = "cardiac-backend-data",
   [switch]$SkipData,
+  [switch]$ShipPackages,
   [switch]$SkipInstall,
   [switch]$NoWheels
 )
@@ -59,11 +69,28 @@ if (-not $DataCache) {
   }
   if ($root) { $DataCache = Join-Path $root "data_cache" }
 }
+# -ShipPackages reads <data-root>\experiments and \derived_meshes, where <data-root> is the parent of the data cache,
+# so it needs a data cache path even with -SkipData (QA_PR100_103_D39 #101 NB-1: without one it died in Split-Path).
+if ($ShipPackages -and -not $DataCache) {
+  throw "-ShipPackages needs the data root: pass -DataCache <data-root>\data_cache or set CARDIAC_BACKEND_DATA (experiments and derived_meshes are read next to the data cache)."
+}
 
 function Invoke-Native {
   param([string]$What, [scriptblock]$Command)
   & $Command
   if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE" }
+}
+
+# `tar -tzf` lists what an archive holds. A listing that failed (exit code != 0) must not read as "no raw image files":
+# the archive is refused (QA_PR100_103_D39 #101 NB-2).
+function Assert-NoRawImages {
+  param([string]$What, [string]$Archive, [string]$Pattern)
+  $entries = @(tar -tzf $Archive)
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar -tzf ($What) failed with exit code $LASTEXITCODE; refusing to copy an archive whose contents could not be checked for raw image files"
+  }
+  $raw = @($entries | Select-String -Pattern $Pattern)
+  if ($raw.Count -gt 0) { throw "$What contains raw image files; refusing to copy them: $($raw -join ', ')" }
 }
 
 function Test-InsideGitWorktree([string]$Path) {
@@ -82,10 +109,14 @@ if (-not $SkipData) {
   if (Test-InsideGitWorktree $DataCache) { throw "$DataCache is inside a git work tree; derived patient data must live outside the repository." }
   $index = Join-Path $DataCache "index.json"
   if (-not (Test-Path $index)) {
-    throw "No data cache at $DataCache. Build it first: python -m backend.app.ingest --out $DataCache"
+    throw "No data cache at $DataCache. Build it first: python -m backend.app.ingest --out $DataCache (add --include-holdout --holdout-authorization <record> for the evaluated holdout cases, DR-022)"
   }
-  $cases = (Get-Content $index -Raw | ConvertFrom-Json).cases
+  $cacheIndex = Get-Content $index -Raw | ConvertFrom-Json
+  $cases = $cacheIndex.cases
   Write-Host "   data cache: $DataCache ($($cases.Count) cases)"
+  if ($cacheIndex.holdout_authorization) {
+    Write-Host "   holdout cases under GATE-IMG-01 record sha256 $($cacheIndex.holdout_authorization.record_sha256)"
+  }
 }
 Invoke-Native "ssh $SshHost" { ssh -o BatchMode=yes -o ConnectTimeout=15 $SshHost "echo connected" }
 
@@ -95,20 +126,37 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Write-Host "== 2/6 pack into $stage"
 $codeTar = Join-Path $stage "code.tar.gz"
 $codePaths = @(
-  "backend/app", "backend/requirements.txt", "backend/scripts/serve_macmini.sh",
+  "backend/app", "backend/mesh", "backend/requirements.txt", "backend/scripts/serve_macmini.sh",
   "contracts/api/contract.json", "contracts/api/schema.json", "contracts/api/validate_api_contract.py",
   "contracts/ingestion/contract2_experiment_artifact/schema.json",
   "contracts/ingestion/contract2_experiment_artifact/validate_contract2.py"
 )
-Invoke-Native "tar (code)" { tar -czf $codeTar --exclude "__pycache__" -C $repo $codePaths }
+# backend/app imports backend/mesh (reconstruction_get, PR #98); its tests and golden files stay home.
+# backend/tests/test_deploy_paths.py imports backend.app.main from exactly these paths.
+Invoke-Native "tar (code)" { tar -czf $codeTar --exclude "__pycache__" --exclude "backend/mesh/tests" -C $repo $codePaths }
 $uploads = @($codeTar)
 if (-not $SkipData) {
   $dataTar = Join-Path $stage "data_cache.tar.gz"
   Invoke-Native "tar (data cache)" { tar -czf $dataTar -C $DataCache . }
-  $raw = tar -tzf $dataTar | Select-String -Pattern '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$'
-  if ($raw) { throw "the data cache contains raw image files; refusing to copy them: $raw" }
+  Assert-NoRawImages "the data cache" $dataTar '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$'
   Write-Host ("   data cache archive: {0:N0} MB" -f ((Get-Item $dataTar).Length / 1MB))
   $uploads += $dataTar
+}
+if ($ShipPackages) {
+  $dataRoot = Split-Path -Parent $DataCache
+  foreach ($part in "experiments", "derived_meshes") {
+    $src = Join-Path $dataRoot $part
+    if (-not (Test-Path $src)) { throw "-ShipPackages: $src does not exist (expected next to the data cache)" }
+    if (Test-InsideGitWorktree $src) { throw "$src is inside a git work tree; derived patient data must live outside the repository." }
+    $partTar = Join-Path $stage "$part.tar.gz"
+    Invoke-Native "tar ($part)" {
+      tar -czf $partTar --exclude "predictions/validation" --exclude "evaluation/validation" --exclude "last.pt" -C $dataRoot $part
+    }
+    # NRRD masks are the Contract 2 prediction artifacts and are allowed here; every other raw image format is not.
+    Assert-NoRawImages $part $partTar '\.(nii|nii\.gz|dcm|mha|mhd|raw)$'
+    Write-Host ("   {0} archive: {1:N0} MB" -f $part, ((Get-Item $partTar).Length / 1MB))
+    $uploads += $partTar
+  }
 }
 
 $shipWheels = (-not $NoWheels) -and (-not $SkipInstall)
@@ -139,6 +187,7 @@ foreach ($file in $uploads) {
 $unpack = "cd ~/$RemoteDir && tar -xzf code.tar.gz"
 if (-not $SkipData) { $unpack += " && tar -xzf data_cache.tar.gz -C ~/$RemoteDataDir/data_cache" }
 if ($shipWheels) { $unpack += " && tar -xzf wheels.tar.gz" }
+if ($ShipPackages) { $unpack += " && tar -xzf experiments.tar.gz -C ~/$RemoteDataDir && tar -xzf derived_meshes.tar.gz -C ~/$RemoteDataDir" }
 Invoke-Native "ssh unpack" { ssh -o BatchMode=yes $SshHost $unpack }
 
 Write-Host "== 5/6 install and start on ${BindHost}:${Port} (serve_macmini.sh)"

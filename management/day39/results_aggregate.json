@@ -1,0 +1,153 @@
+{
+ "format": "cardiac-results-aggregate/1",
+ "population": "final_holdout",
+ "n": 54,
+ "metric_version": "ml-eval-1.0.0",
+ "note": "aggregates only; per-case values stay outside git",
+ "runs": [
+  {
+   "experiment_id": "EXP-D-025",
+   "training_fraction": 0.25,
+   "variant": "RAW_PREDICTION",
+   "dice_mean": 0.5585,
+   "dice_ci95": [
+    0.5051,
+    0.607
+   ],
+   "dice_median": 0.604,
+   "dice_q1": 0.5231,
+   "dice_q3": 0.6881,
+   "dice_sd": 0.1945,
+   "iou_mean": 0.409,
+   "mean_slice_dice": 0.394,
+   "rve_percent_mean": 19.21,
+   "sensitivity_dice_mean": 0.5549
+  },
+  {
+   "experiment_id": "EXP-D-050",
+   "training_fraction": 0.5,
+   "variant": "RAW_PREDICTION",
+   "dice_mean": 0.6156,
+   "dice_ci95": [
+    0.5671,
+    0.6595
+   ],
+   "dice_median": 0.6675,
+   "dice_q1": 0.5813,
+   "dice_q3": 0.7256,
+   "dice_sd": 0.1743,
+   "iou_mean": 0.4639,
+   "mean_slice_dice": 0.4213,
+   "rve_percent_mean": 12.47,
+   "sensitivity_dice_mean": 0.6128
+  },
+  {
+   "experiment_id": "EXP-D-100",
+   "training_fraction": 1.0,
+   "variant": "RAW_PREDICTION",
+   "dice_mean": 0.639,
+   "dice_ci95": [
+    0.5945,
+    0.6769
+   ],
+   "dice_median": 0.6788,
+   "dice_q1": 0.5786,
+   "dice_q3": 0.7397,
+   "dice_sd": 0.1541,
+   "iou_mean": 0.4854,
+   "mean_slice_dice": 0.4264,
+   "rve_percent_mean": 14.95,
+   "sensitivity_dice_mean": 0.6375
+  },
+  {
+   "experiment_id": "EXP-D-PP",
+   "training_fraction": 1.0,
+   "variant": "PROCESSED_PREDICTION",
+   "dice_mean": 0.659,
+   "dice_ci95": [
+    0.6117,
+    0.6995
+   ],
+   "dice_median": 0.7013,
+   "dice_q1": 0.5814,
+   "dice_q3": 0.7664,
+   "dice_sd": 0.1639,
+   "iou_mean": 0.5099,
+   "mean_slice_dice": 0.4816,
+   "rve_percent_mean": 1.43,
+   "sensitivity_dice_mean": 0.6573
+  }
+ ],
+ "comparisons": [
+  {
+   "a": "EXP-D-025",
+   "b": "EXP-D-050",
+   "mean_delta": 0.0572,
+   "ci95": [
+    0.0361,
+    0.0828
+   ],
+   "b_higher": 43,
+   "a_higher": 11
+  },
+  {
+   "a": "EXP-D-025",
+   "b": "EXP-D-100",
+   "mean_delta": 0.0806,
+   "ci95": [
+    0.0469,
+    0.1183
+   ],
+   "b_higher": 41,
+   "a_higher": 13
+  },
+  {
+   "a": "EXP-D-050",
+   "b": "EXP-D-100",
+   "mean_delta": 0.0234,
+   "ci95": [
+    -0.0006,
+    0.0514
+   ],
+   "b_higher": 28,
+   "a_higher": 26
+  },
+  {
+   "a": "EXP-D-100",
+   "b": "EXP-D-PP",
+   "mean_delta": 0.0199,
+   "ci95": [
+    0.0145,
+    0.0257
+   ],
+   "b_higher": 45,
+   "a_higher": 9
+  }
+ ],
+ "gate_img_01_validation": [
+  {
+   "id": "PP-0",
+   "dice": 0.5712
+  },
+  {
+   "id": "PP-1",
+   "dice": 0.5855
+  },
+  {
+   "id": "PP-2",
+   "dice": 0.5858
+  },
+  {
+   "id": "PP-3",
+   "dice": 0.5859
+  },
+  {
+   "id": "PP-4",
+   "dice": 0.593
+  },
+  {
+   "id": "PP-5",
+   "dice": 0.5858
+  }
+ ]
+}

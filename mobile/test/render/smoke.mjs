@@ -1,8 +1,10 @@
 /*
  * Render-smoke harness, part 2: the checks.  npm run test:render  (from mobile/)
  *
- * TEST-ONLY and NOT IN CI (it needs node_modules: react-test-renderer is a
- * devDependency, deprecated upstream). It renders the real shell, V1 and V3
+ * TEST-ONLY. It needs node_modules (react-test-renderer is a devDependency,
+ * deprecated upstream), so CI runs it in its own job, mobile-render-bundle,
+ * after `npm ci --ignore-scripts` from the lockfile (DR-021 rule 4); the
+ * other CI jobs have no node_modules. It renders the real shell, V1, V3 and V4
  * screens in Node with host-string React Native stand-ins (hooks.mjs), a real
  * app/core runtime, and either the generated fixture bundle or a fake live
  * backend whose PNGs are encoded here with node:zlib.
@@ -19,6 +21,7 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 
 import { MOBILE } from './hooks.mjs';
+import { startWatchdog, timeoutFromEnv } from './watchdog.mjs';
 
 globalThis.__DEV__ = false;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -48,7 +51,17 @@ async function press(r, label) {
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
 let failures = 0;
 let count = 0;
-const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
+// QA_PR88_D39 N-2: a regression that never settles (a request not aborted, a guard never released) must read as a red
+// check, not as a hang. The whole run has 8 minutes (it takes about one); RENDER_SMOKE_TIMEOUT_MS overrides it.
+const watchdog = startWatchdog({
+  ms: timeoutFromEnv(process.env, 8 * 60 * 1000),
+  onTimeout: ({ ms, last }) => {
+    origLog(`  FAIL WATCHDOG the render smoke did not finish within ${Math.round(ms / 1000)} s (a request that is never aborted, a guard that is never released or a promise that never settles); the last check that ran was ${last}`);
+    origLog(`RENDER SMOKE FAIL - did not finish (${count} checks ran)`);
+    process.exit(1);
+  },
+});
+const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; watchdog.note(id); origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
 
 const imp = (p) => import(new URL(p, `file:///${MOBILE.replace(/\\/g, '/')}/`).href);
 const { resolveConfig } = await imp('src/config.mjs');
@@ -57,7 +70,7 @@ const { RuntimeProvider } = await imp('src/runtime/RuntimeContext.js');
 const NavigatorView = (await imp('src/nav/NavigatorView.js')).default;
 const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
 const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
-const Inspector3DScreen = (await imp('src/verticals/v2/Inspector3DScreen.js')).default;
+const FindingsScreen = (await imp('src/verticals/v4/FindingsScreen.js')).default;
 const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
@@ -118,7 +131,7 @@ const bundleJson = generatedBundleJson();
   check('S8', has(r, /SCR-02 · V1/), 'Back returns to the list');
   await press(r, 'Findings');
   await tick();
-  check('S8', has(r, /SCR-08 · V4/), 'Findings tab -> SCR-08 placeholder');
+  check('S8', has(r, /SCR-08 · V4/), 'Findings tab -> SCR-08 Findings');
   await act(async () => { r.unmount(); });
 }
 
@@ -138,8 +151,15 @@ const SERVED_WORST = Object.freeze({
 // the fields a check is about overridden; every PNG is encoded here by
 // node:zlib and served with its real sha256 checksum and ETag. Predictions and
 // run metrics answer the variant asked for, unless `metricsVariant` names the
-// one the run metrics should answer instead (#78 QA B-3).
-function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST } = {}) {
+// one the run metrics should answer instead (#78 QA B-3). The per-slice metrics
+// of the slices in `metricsMissingAt` answer ARTIFACT_NOT_FOUND - a legitimately
+// unavailable answer the slice cache keeps (#78 QA N-4). `runIds` lists the
+// case's runs (each answered as itself), `runMetricsPatch` overrides fields of
+// the run metrics (#78 QA N-6), and the study's case list holds the one case.
+function fakeBackend({
+  caseMode = 'EVALUATION', metricsVariant = null, selection = SERVED_WORST, metricsMissingAt = [], runIds = ['RUN_A'],
+  runMetricsPatch = {},
+} = {}) {
   const W = 576; const H = 576;
   const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
   const gtPng = encodePng(W, H, 0, ellipseMask(W, H, 300, 260, 70, 55));
@@ -166,12 +186,11 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
       const bytes = path.includes('gt-') ? gtPng : (path.includes('pred-') ? predPng : mriPng);
       return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
     }
-    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: caseMode, ground_truth_available: gtAvailable, available_run_ids: ['RUN_A'] });
-    if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: 'RUN_A', case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
-    if (path.includes('/reconstruction?')) {
-      const sourceMaskId = decodeURIComponent((path.match(/[?&]source_mask_id=([^&]+)/) || [])[1] || 'MASK_RAW');
-      return json(200, { ...gen('reconstruction_get'), mesh_artifact_id: 'REC_1', source_mask_id: sourceMaskId });
+    if (/\/studies\/[^/]+\/cases$/.test(path)) {
+      return json(200, { ...gen('case_list'), items: [{ case_id: 'CASE_0061', mode_capability: caseMode, ground_truth_available: gtAvailable }] });
     }
+    if (/\/cases\/[^/]+$/.test(path)) return json(200, { ...gen('case_get'), case_id: 'CASE_0061', mode: caseMode, ground_truth_available: gtAvailable, available_run_ids: runIds });
+    if (/\/analysis-runs\/[^/]+$/.test(path)) return json(200, { ...gen('analysis_run_get'), run_id: path.split('/').pop(), case_id: 'CASE_0061', status: 'SUCCEEDED', precomputed: true, reconstruction_ids: ['REC_1'] });
     if (/\/experiments\/[^/]+$/.test(path)) return json(200, { ...gen('experiment_get'), model_family: 'UNet2D' });
     if (/\/analysis-runs\/[^/]+\/metrics\?/.test(path)) {
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
@@ -180,6 +199,7 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
         ...gen('analysis_run_metrics'), prediction_variant: metricsVariant ?? asked, metric_state: 'COMPUTED', metric_version: 'm1',
         metric_values: { dice: 0.81, iou: 0.68, false_positives: 1200, false_negatives: 900, relative_volume_error: -4.2 },
         worst_slice_selection: selection,
+        ...runMetricsPatch,
       });
     }
     const z = (path.match(/slices\/(\d+)/) || [])[1];
@@ -188,6 +208,9 @@ function fakeBackend({ caseMode = 'EVALUATION', metricsVariant = null, selection
     if (path.endsWith('/ground-truth')) {
       if (!gtAvailable) return json(404, { error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT' } });
       return json(200, { ...gen('ground_truth_slice_get'), content_url: `/api/v1/artifacts/gt-${z}.png`, media_type: 'image/png', checksum: sum(gtPng) });
+    }
+    if (path.includes('/metrics?') && metricsMissingAt.includes(Number(z))) {
+      return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'slice metrics not ingested' } });
     }
     if (path.includes('/metrics?')) return json(200, { ...gen('analysis_slice_metrics'), metric_state: 'COMPUTED', metric_value: 0.8731, metric_version: 'm1' });
     return json(404, { error: { code: 'ARTIFACT_NOT_FOUND' } });
@@ -202,7 +225,9 @@ const liveRuntime = (fetchImpl) => createRuntime({
 
 // ---- 2. live runtime with a fake backend: bytes, overlays, gesture log ------
 {
-  const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend();
+  // z 45's slice metrics are not ingested: its cached "unavailable" answer must
+  // outlive a Retry and a refresh of other slices (L9, #78 QA N-4).
+  const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend({ metricsMissingAt: [45] });
   const runtime = liveRuntime(fetchImpl);
   const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
   let r;
@@ -290,6 +315,43 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('L9', refreshed.length > 0 && refreshed.every((u) => u.includes('/slices/44/') || u.startsWith('/api/v1/artifacts/'))
     && rg && rg.to === 44 && rg.outcome === 'shown',
     `"Refresh this slice" re-asks for z 44 only, logged as a refresh gesture (${refreshed.length} requests)`);
+  // #78 QA N-4: Retry (z 43) and Refresh (z 44) forgot only their own slice - z 45's
+  // cached "unavailable" metrics answer is still there, so going back asks nothing.
+  mark = requests.length;
+  await press(r, '▶');
+  await tick(350);
+  check('L9', requests.length === mark && has(r, /slice 46 \/ 88/) && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
+    `back to z 45 after Retry and Refresh of other slices: ${requests.length - mark} requests; its "unavailable" answer survived`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 2b. an INFERENCE_REVIEW case on SCR-03 (#77 QA N-11) ------------------
+// No ground truth: no ground-truth toggle, the SCR-04 entry disabled with that
+// reason, and not one request for ground truth or metrics during the session.
+{
+  const { fetchImpl, requests } = fakeBackend({ caseMode: 'INFERENCE_REVIEW' });
+  const runtime = liveRuntime(fetchImpl);
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW' } })), nodeMock);
+  });
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  await press(r, '▶');
+  await tick(350);
+  const gtToggles = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^Ground truth/.test(textOf(n)));
+  check('L10', has(r, /slice 46 \/ 88/) && has(r, /Inference & review/) && gtToggles.length === 0
+    && has(r, /^Ground truth: none for this case \(Inference & review\) - no ground-truth layer, metric or error view is offered\.$/),
+    `INFERENCE_REVIEW: no ground-truth toggle (${gtToggles.length}), and the overlays card says why`);
+  const scr04 = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('Error inspector (SCR-04)'))[0];
+  check('L10', scr04 && scr04.props.disabled === true && textOf(scr04).includes('no ground truth for this case (Inference & review)'),
+    `SCR-04 entry disabled with the no-ground-truth reason: ${scr04 ? textOf(scr04) : '-'}`);
+  const gtOrMetrics = requests.filter((u) => /\/ground-truth|\/metrics/.test(u));
+  check('L10', requests.some((u) => u.includes('/prediction?')) && gtOrMetrics.length === 0,
+    `${requests.length} requests over open and one step, ${gtOrMetrics.length} to ground-truth or metrics endpoints`);
   await act(async () => { r.unmount(); });
 }
 
@@ -377,6 +439,41 @@ function noRunBackend() {
     && verdict.scope.required.includes('artifact:mask') && /predictions are not part of this L4/.test(verdict.scope.text),
     `scope: ${verdict.scope ? verdict.scope.text : '-'}`);
   check('N6', runData().length === 0, `no run data asked during the whole session (${runData().length})`);
+  // #77 QA N-3: each pass ends with the session's totals on a line of its own, right after CMW_RUN_END.
+  const mine = logs.slice(logStart);
+  const totals = mine.filter((l) => l.startsWith('CMW_NET_TOTALS ')).map((l) => JSON.parse(l.slice(15)));
+  const afterEnd = mine.every((l, i) => !l.startsWith('CMW_NET_TOTALS ') || mine[i - 1].startsWith('CMW_RUN_END '));
+  check('N6', totals.length === 2 && afterEnd && totals.map((t) => t.pass).join(',') === 'new-15,revisit-15'
+    && totals.every((t) => ['gestures', 'requests', 'bytes', 'unattributed', 'late'].every((k) => Number.isInteger(t[k])))
+    && totals[1].requests === totals[0].requests,
+    `CMW_NET_TOTALS after each CMW_RUN_END: ${totals.map((t) => `${t.pass} requests ${t.requests} unattributed ${t.unattributed} late ${t.late}`).join('; ')}`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 3b. a run asked for that a no-run case does not list (#80 QA N3) -------
+// Another screen hands SCR-03 a run id, but the case lists no run: the same
+// no-run view, which names the requested run as not listed and never asks for it.
+{
+  const { requests, fetchImpl } = noRunBackend();
+  const runtime = liveRuntime(fetchImpl);
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_GONE', variant: 'RAW' } })), nodeMock);
+  });
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  const runData = requests.filter((p) => p.includes('/analysis-runs') || p.includes('/experiments'));
+  const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const scr04 = entry('Error inspector (SCR-04)');
+  check('N7', has(r, /slice 45 \/ 88/) && has(r, /^Requested run RUN_GONE is not listed for this case - MRI and ground truth only/)
+    && !has(r, /No default/) && runData.length === 0,
+    `requested run not listed: the no-run viewer, the run named as not listed; run requests: ${runData.length}`);
+  check('N7', scr04 && scr04.props.disabled === true
+    && textOf(scr04).includes('needs an analysis run - requested run RUN_GONE is not listed for this case'),
+    `SCR-04 entry disabled: ${scr04 ? textOf(scr04) : '-'}`);
   await act(async () => { r.unmount(); });
 }
 
@@ -524,8 +621,9 @@ function noRunBackend() {
   check('E4b', !inference.requests.some((u) => /metrics|ground-truth/.test(u)), 'and asks the server for no GT-dependent data');
   await act(async () => { r.unmount(); });
 
-  // Live, EVALUATION: classes, legend, server selection, profile, jump.
-  const evalBackend = fakeBackend();
+  // Live, EVALUATION: classes, legend, server selection, profile, jump. z 51's
+  // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
+  const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
   const paths = () => r.root.findAll((n) => n.type === 'Path');
   check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
@@ -596,6 +694,31 @@ function noRunBackend() {
   check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 53 \/ 88 {2}\(z = 52\)/)
     && stepBack && stepBack.to === 52 && stepBack.cache_hit === true,
     `back to z 52 after Retry: ${evalBackend.requests.length - afterRetry} requests of any kind, cache hit ${stepBack ? stepBack.cache_hit : '-'} (no clear-all)`);
+  // #78 QA N-4: nor did it forget another slice's cached "unavailable" answer (z 51's metrics).
+  await press(r, '◀');
+  await tick(400);
+  check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 52 \/ 88 {2}\(z = 51\)/)
+    && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
+    `on to z 51: ${evalBackend.requests.length - afterRetry} requests; its "unavailable" answer survived the Retry of z 53`);
+  await act(async () => { r.unmount(); });
+
+  // #78 QA N-7: a server entry outside the volume (z 90 of 88) is listed and named, never opened
+  // as the edge slice a clamp would give.
+  const outside = fakeBackend({ selection: { ...SERVED_WORST, slices: [{ slice_index: 90, dice: 0.05, false_positives: 500, false_negatives: 600 }, ...SERVED_WORST.slices] } });
+  r = await mount(liveRuntime(outside.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  const row = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const z90 = row('Worst · z 90 (slice 91)');
+  check('E4r', z90 && z90.props.disabled === true && textOf(z90).includes('outside this volume (z 0..87) - not opened')
+    && !has(r, /Jump to worst/) && has(r, /selection names slice 90, outside 0\.\.87/),
+    `z 90 listed, disabled and named: ${z90 ? textOf(z90) : '-'}`);
+  const outMark = outside.requests.length;
+  await press(r, 'Worst · z 90');
+  await tick(400);
+  check('E4r', outside.requests.length === outMark && has(r, /slice 45 \/ 88 {2}\(z = 44\)/) && !has(r, /\(z = 87\)/),
+    `a tap on it opens nothing: ${outside.requests.length - outMark} requests, still on z 44 (no clamp to z 87)`);
+  await press(r, '#2 · z 52');
+  await tick(400);
+  check('E4r', has(r, /slice 53 \/ 88 {2}\(z = 52\)/), 'the entries inside the volume still open their own slice');
   await act(async () => { r.unmount(); });
 
   // #78 QA B-2: a block of another selection version is not shown as DR-010's.
@@ -634,58 +757,983 @@ function noRunBackend() {
   check('E4q', has(r, /Jump to worst · z 44 \(slice 45\)/) && has(r, /Dice 0\.500 · IoU 0\.250/) && !has(r, /Asked for/),
     'fixture, RAW: the generated DR-010 v1 block and the case metrics are shown');
   await act(async () => { r.unmount(); });
+
+  // #78 QA N-6, DR-013a addendum: the run metrics name another prediction mask than the one drawn.
+  // The slice is drawn (both masks verified), the mismatch is said, and the drawn classes are not
+  // compared with the server's FP / FN for a mask they were not counted from.
+  const otherMask = fakeBackend({ runMetricsPatch: { prediction_mask_id: 'PREDICTION_MASK_ID_OTHER' } });
+  r = await mount(liveRuntime(otherMask.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
+  const drawnPred = texts(r).find((t) => t.startsWith('reference ')) || '-';
+  check('E4s', has(r, /^The masks drawn are not the ones the server's numbers refer to: prediction drawn PREDICTION_MASK_ID_0043, run metrics name PREDICTION_MASK_ID_OTHER\. The drawn classes are not compared with the server's FP \/ FN\.$/)
+    && !has(r, /reference drawn/),
+    `the prediction mask id differs from the run metrics' and the screen says so (${drawnPred})`);
+  check('E4s', paths().length === 3 && has(r, /^Legend - this slice \(z 44\)$/) && !has(r, /(Matches|Differs from) the server for this slice/)
+    && has(r, /#2 · z 44/),
+    'the classes are drawn and the worst slices listed, but no FP / FN comparison against the other mask\'s numbers');
+  await act(async () => { r.unmount(); });
 }
 
-// ---- 7. SCR-05 source-image review and honest mesh state --------------------
+// ---- 7. useCall aborts when it is disabled (DR-021 rule 2, #77 QA N-8) ------
+// A call started while enabled is aborted the moment `enabled` turns false, and
+// its late answer never reaches the screen.
 {
-  const backend = fakeBackend();
-  const runtime = liveRuntime(backend.fetchImpl);
-  const pushes = [];
-  const nav = { push: (id, params) => { pushes.push([id, params]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const useCall = (await imp('src/runtime/useCall.js')).default;
+  const { STATE, success } = await imp('../app/core/index.mjs');
+  const calls = [];
+  const client = { call: (_endpointId, _params, options) => new Promise((resolve) => { calls.push({ signal: options.signal, resolve }); }) };
+  function Probe({ enabled }) {
+    const { view } = useCall(client, 'case_get', { case_id: 'CASE_0061' }, { enabled });
+    return React.createElement('Text', null, `state ${view.state}`);
+  }
+  const loadingNow = (r) => has(r, new RegExp(`^state ${STATE.LOADING}$`));
+  let r;
+  await act(async () => { r = TestRenderer.create(React.createElement(Probe, { enabled: true })); });
+  check('U1', calls.length === 1 && calls[0].signal && !calls[0].signal.aborted && loadingNow(r), 'enabled: one call in flight, LOADING');
+  await act(async () => { r.update(React.createElement(Probe, { enabled: false })); });
+  check('U1', calls[0].signal.aborted === true, 'disabled: the call in flight is aborted (its signal fired)');
+  await act(async () => { calls[0].resolve(success({ case_id: 'CASE_0061' })); });
+  await tick();
+  check('U1', loadingNow(r) && !has(r, new RegExp(STATE.SUCCESS)) && calls.length === 1,
+    `its late answer never lands, and nothing new is asked: ${texts(r).join(' | ')}`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 8. the hardware back button and leave guards, real navigator (#77 QA N-7) ----
+// The BackHandler stand-in keeps its listeners, so the press below is the one
+// Android sends: NavigatorView's listener, the guard, the reducer.
+{
+  const { BackHandler } = await import('react-native');
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
-      React.createElement(Inspector3DScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 } })), nodeMock);
+      React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-02' })), nodeMock);
   });
-  await tick(350);
-  check('V2-1', has(r, /Source MRI and segmentation/) && has(r, /MRI is shown as the reading source/),
-    'clinical workbench identifies original MRI as the reading source');
-  check('V2-1', has(r, /Source slice 45 \/ 88 \(z = 44\)/) && has(r, /Voxel-index coordinates/),
-    'source z and unvalidated physical geometry are explicit');
-  check('V2-1', has(r, /3D preview unavailable/) && has(r, /API 1\.1\.0 does not provide verified mesh bytes/)
-    && backend.requests.some((u) => u.includes('/reconstruction?source_mask_id=')),
-    `contract 1.1 mesh reference is requested correctly, but an ID alone never becomes a fabricated surface (${backend.requests.filter((u) => u.includes('reconstruction')).join(' / ')})`);
-  const mriImage = r.root.findAll((n) => n.type === 'Image')[0];
-  check('V2-1', mriImage && mriImage.props.source.uri.startsWith('data:image/png;base64,'),
-    'source MRI pixels pass through the runtime content/checksum path');
-  const maskPaths = r.root.findAll((n) => n.type === 'Path');
-  check('V2-1', maskPaths.length === 1 && backend.requests.some((u) => u.includes('/prediction?variant=RAW')),
-    'selected RAW segmentation is fetched and overlaid on the source MRI');
-  await press(r, 'Hide segmentation');
-  check('V2-1', r.root.findAll((n) => n.type === 'Path').length === 0 && has(r, /RAW prediction mask hidden/),
-    'source MRI can be reviewed without the derived segmentation layer');
-  await press(r, 'Show segmentation');
-  check('V2-1', r.root.findAll((n) => n.type === 'Path').length === 1,
-    'the selected segmentation overlay can be restored');
-  await press(r, '+');
-  await tick(250);
-  check('V2-2', has(r, /Source slice 46 \/ 88 \(z = 45\)/)
-    && backend.requests.some((u) => u.includes('/slices/45/mri')),
-    '2D source-slice control changes the actual MRI and mask requests');
-  await press(r, 'PROCESSED');
-  await tick(250);
-  check('V2-2', backend.requests.some((u) => u.includes('/prediction?variant=PROCESSED')),
-    'variant switch requests the declared PROCESSED mask instead of relabelling RAW');
-  await press(r, 'Open full 2D viewer');
-  check('V2-3', pushes.length === 1 && pushes[0][0] === 'SCR-03' && pushes[0][1].sliceIndex === 45
-    && pushes[0][1].variant === 'PROCESSED',
-    `source slice opens in SCR-03 with case/run/variant context: ${JSON.stringify(pushes[0] || null)}`);
+  await tick(60);
+  const screenNav = () => r.root.findAll((n) => n.props && n.props.nav && typeof n.props.nav.setLeaveGuard === 'function')[0].props.nav;
+  const openCase = async () => {
+    const input = r.root.findAll((n) => n.type === 'TextInput')[0];
+    await act(async () => { input.props.onChangeText('CASE_0043'); });
+    await tick();
+    await press(r, 'Open CASE_0043 directly');
+    await tick(60);
+  };
+  let handled;
+  await act(async () => { handled = BackHandler.__press(); });
+  check('B1', BackHandler.__listeners === 1 && handled === false && has(r, /SCR-02 · V1/),
+    `one hardware-back listener (${BackHandler.__listeners}); at the root with no guard the press goes to the system`);
+
+  // Two quick presses on a guarded screen: one prompt, the second press refused while it is open.
+  await openCase();
+  let asked = 0;
+  let answer = null;
+  await act(async () => { screenNav().setLeaveGuard(() => { asked += 1; return new Promise((res) => { answer = res; }); }); });
+  let presses;
+  await act(async () => { presses = [BackHandler.__press(), BackHandler.__press()]; });
+  await tick();
+  check('B2', presses.every((x) => x === true) && asked === 1 && has(r, /SCR-03 · V1/),
+    `two quick back presses on SCR-03: both consumed, the guard asked ${asked} time(s), still on SCR-03`);
+  await act(async () => { answer(true); });
+  await tick(60);
+  check('B2', has(r, /SCR-02 · V1/) && asked === 1, 'the one prompt answered "leave": back on SCR-02, once');
+
+  // A covered screen leaves no guard behind: SCR-03 lets a push through and unmounts under SCR-08;
+  // back on SCR-03 (the same entry, mounted afresh, nothing to lose), Back asks no stale guard.
+  await openCase();
+  let coveredAsked = 0;
+  await act(async () => { screenNav().setLeaveGuard(() => { coveredAsked += 1; return true; }); });
+  await act(async () => { await screenNav().push('SCR-08', {}); });
+  await tick(60);
+  check('B3', has(r, /SCR-08 · V4/) && coveredAsked === 1, 'SCR-03\'s guard let the push through: SCR-08 on top');
+  await act(async () => { BackHandler.__press(); });
+  await tick(60);
+  await act(async () => { BackHandler.__press(); });
+  await tick(60);
+  check('B3', has(r, /SCR-02 · V1/) && coveredAsked === 1,
+    `back, back: SCR-08 -> SCR-03 -> SCR-02, and the covered screen's guard was not asked again (${coveredAsked})`);
+
+  // At the root, a guard decides the exit - asked once for two quick presses too.
+  let exitAsked = 0;
+  let exitAnswer = null;
+  await act(async () => { screenNav().setLeaveGuard(() => { exitAsked += 1; return new Promise((res) => { exitAnswer = res; }); }); });
+  const exitsBefore = BackHandler.exits;
+  await act(async () => { presses = [BackHandler.__press(), BackHandler.__press()]; });
+  await act(async () => { exitAnswer(true); });
+  await tick();
+  check('B4', presses.every((x) => x === true) && exitAsked === 1 && BackHandler.exits === exitsBefore + 1,
+    `root with a guard: two presses, one prompt (${exitAsked}), one exit`);
   await act(async () => { r.unmount(); });
+  check('B4', BackHandler.__listeners === 0, 'the listener is removed with the navigator');
+}
+
+// ---- 9. Back from SCR-04 reopens SCR-03's run, variant and slice (#78 QA N-8) ----
+// The real navigator on a case with two runs: SCR-02 -> SCR-03 (RUN_B, PROCESSED,
+// a slice that is not the middle one) -> SCR-04 -> Back. The session's remembered
+// variant is forgotten on the way, so only SCR-03's stack entry can bring it back.
+{
+  const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+  forgetSession();
+  const backend = fakeBackend({ runIds: ['RUN_A', 'RUN_B'] });
+  const runtime = liveRuntime(backend.fetchImpl);
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-02' })), nodeMock);
+  });
+  await tick(150);
+  await press(r, 'CASE_0061');
+  await tick(150);
+  check('R1', has(r, /SCR-03 · V1/) && has(r, /^RUN_A$/) && has(r, /^RUN_B$/) && has(r, /No default/),
+    'two runs: SCR-03 asks for the run and the variant');
+  await press(r, 'RUN_B');
+  await press(r, 'PROCESSED');
+  await tick(300);
+  await layout(r);
+  await tick(200);
+  await press(r, '+10');
+  await tick(350);
+  const runLine = () => texts(r).find((t) => t.startsWith('Run ')) || '-';
+  check('R1', has(r, /slice 55 \/ 88 {2}\(z = 54\)/) && /^Run RUN_B · UNet2D · /.test(runLine()) && has(r, /^Prediction \(PROCESSED\)/),
+    `SCR-03 before: ${runLine()} · PROCESSED · z 54`);
+  forgetSession();
+  await press(r, 'Error inspector (SCR-04)');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('R2', has(r, /SCR-04 · V1/) && has(r, /^Prediction PROCESSED vs ground truth · run RUN_B$/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
+    'SCR-04 opened on the same run, variant and slice');
+  const mark = backend.requests.length;
+  await press(r, '‹ Back');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  const sent = backend.requests.slice(mark);
+  check('R3', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+    && sent.every((u) => !u.includes('RUN_A')),
+    `back on SCR-03: run RUN_B again, not asked for (${runLine()})`);
+  check('R3', has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
+    `variant PROCESSED and slice z 54 restored: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+
+  // #88 QA N-1: SCR-03's other entries carry the same returnParams. SCR-05's is held by V2R14 (the recorded push);
+  // here the real navigator opens SCR-06 and Back must reopen what was on screen when it was pressed. The slice is
+  // moved first: SCR-03's entry still holds the returnParams the SCR-04 trip above left in it (z 54), so a push that
+  // forgot its own returnParams would bring back the OLD slice and only a moved slice can tell.
+  await press(r, '+10');
+  await tick(350);
+  check('R4', has(r, /slice 65 \/ 88 {2}\(z = 64\)/), `SCR-03 moved on to z 64 before the SCR-06 entry is pressed: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+  forgetSession();
+  await press(r, 'Review / correct (SCR-06)');
+  await tick(300);
+  check('R4', has(r, /SCR-06 · V4/), 'SCR-03 -> SCR-06 through the real navigator, from RUN_B / PROCESSED / z 64');
+  await press(r, '‹ Back');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('R5', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+    && has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 65 \/ 88 {2}\(z = 64\)/),
+  `back on SCR-03 from SCR-06: run RUN_B, variant PROCESSED, slice z 64, not the earlier z 54 (${runLine()} / ${texts(r).find((t) => t.startsWith('slice ')) || '-'})`);
+  await act(async () => { r.unmount(); });
+}
+
+// ---- 10. V4: SCR-06 Review / Correction and SCR-08 Findings (H8 / H9 at the screen) ----
+// A STATEFUL fake backend that answers like the real one does for the hero flow
+// (tools/e2e/hero_flow_api.py H8 / H9): review_create returns the existing review of
+// the same scope, a write carries expected_revision and a stale one is 409
+// STALE_REVISION, a commit makes version N+1 from the latest version plus the working
+// slices and answers 201 CORRECTED, a second commit with nothing new is 422. Masks are
+// PNGs encoded here; working slices arrive as BITPACK_BASE64 and are unpacked here, so
+// the checks compare what the SCREEN sent with what it should have sent.
+function reviewBackend({ seedVersion = false } = {}) {
+  const W = 576; const H = 576;
+  const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
+  const sum = (b) => `sha256:${createHash('sha256').update(b).digest('hex')}`;
+  const bits = (m) => Uint8Array.from(m, (v) => (v ? 1 : 0));
+  const asPng = (b01) => encodePng(W, H, 0, Uint8Array.from(b01, (v) => (v ? 255 : 0)));
+  const SOURCE = bits(ellipseMask(W, H, 310, 262, 66, 58));
+  const mriPng = encodePng(W, H, 0, Uint8Array.from({ length: W * H }, (_, i) => (i * 3) & 0xff), { zopts: { level: 9 } });
+  const json = (status, body) => {
+    const text = JSON.stringify(body);
+    return {
+      status,
+      headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null },
+      text: async () => text,
+      json: async () => body,
+    };
+  };
+  const err = (status, code) => json(status, { error: { code, message: code } });
+  const requests = [];
+  const db = {
+    review: null,
+    working: new Map(),
+    versions: [],
+    findings: [{
+      finding_id: 'FINDING_1', status: 'OPEN', finding_type: 'UNDER_SEGMENTATION', note: 'seed finding', revision: 1,
+      evidence: { study_id: 'STUDY_DEMO', experiment_id: 'EXP_DEMO', case_id: 'CASE_0061', analysis_run_id: 'RUN_A', prediction_variant: 'RAW', slice_index: 44, region_reference: null },
+    }],
+    nextFinding: 2,
+  };
+  const geometry = () => {
+    const g = gen('case_get');
+    return { geometry_contract_version: g.geometry_contract_version, geometry_validation_status: g.geometry_validation_status,
+      shape: g.shape, index_convention: g.index_convention, spacing: g.spacing, origin: g.origin, direction: g.direction };
+  };
+  const RAW_ID = gen('analysis_run_get').raw_prediction_artifact_id;
+  const versionSlice = (v, z) => (v.slices.get(z) ? v.slices.get(z) : (v.parent ? versionSlice(v.parent, z) : SOURCE));
+  const provenance = (v) => ({
+    review_id: db.review.review_id, case_id: 'CASE_0061', run_id: db.review.run_id, source_mask_id: RAW_ID, source_mask_kind: 'RAW_PREDICTION',
+    prediction_variant: 'RAW', version: v.version, parent_reviewed_mask_id: v.parent ? v.parent.id : null,
+    created_at: '2026-10-01T00:00:00Z', reviewer_id: null,
+  });
+  const row = (v) => ({ reviewed_mask_id: v.id, source_mask_id: RAW_ID, revision: v.revision, checksum: `sha256:${'0'.repeat(63)}${v.version}`, provenance: provenance(v) });
+  const unpack = (payload) => {
+    const packed = Buffer.from(payload.data, 'base64');
+    const out = new Uint8Array(W * H);
+    for (let k = 0; k < out.length; k += 1) out[k] = (packed[Math.floor(k / 8)] >> (7 - (k % 8))) & 1;
+    return out;
+  };
+  const ensureReview = (runId, body) => {
+    if (db.review) return { review: db.review, created: false };
+    db.review = { review_id: 'REVIEW_1', run_id: runId, status: 'NOT_REVIEWED', revision: 1, source_mask_id: body.source_mask_id, prediction_variant: body.prediction_variant };
+    if (seedVersion) {
+      // an earlier session already corrected slice 44: its version differs from the source there
+      const earlier = SOURCE.slice();
+      for (let y = 262; y < 282; y += 1) for (let x = 400; x < 420; x += 1) earlier[y * W + x] = 1;
+      db.versions.push({ id: 'REVMASK_0', version: 1, revision: 1, parent: null, slices: new Map([[44, earlier]]), earlier });
+      db.review.status = 'CORRECTED';
+      db.review.revision = 2;
+    }
+    return { review: db.review, created: true };
+  };
+  const reviewBody = (r) => ({ review_id: r.review_id, run_id: r.run_id, status: r.status, revision: r.revision, etag: `W/"revision-${r.revision}"`,
+    source_mask_id: r.source_mask_id, prediction_variant: r.prediction_variant });
+
+  const fetchImpl = async (url, init = {}) => {
+    const path = url.replace('http://backend.invalid:8000', '');
+    const method = (init.method || 'GET').toUpperCase();
+    const body = init.body ? JSON.parse(init.body) : null;
+    requests.push({ method, path, body });
+    let m;
+    if (path.startsWith('/api/v1/artifacts/')) {
+      const name = path.split('/').pop().replace('.png', '');
+      let bytes = mriPng;
+      if (name.startsWith('pred-')) bytes = asPng(SOURCE);
+      else if (name.startsWith('rev-')) {
+        const [, vid, z] = name.split('-');
+        const v = db.versions.find((x) => x.id === vid);
+        bytes = asPng(versionSlice(v, Number(z)));
+      }
+      return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+    }
+    if ((m = /^\/api\/v1\/analysis-runs\/([^/]+)$/.exec(path)) && method === 'GET') {
+      return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED' });
+    }
+    if ((m = /^\/api\/v1\/cases\/([^/]+)$/.exec(path)) && method === 'GET') return json(200, { ...gen('case_get'), case_id: m[1] });
+    if ((m = /^\/api\/v1\/cases\/[^/]+\/slices\/(\d+)\/mri$/.exec(path))) {
+      return json(200, { ...gen('mri_slice_get'), content_url: `/api/v1/artifacts/mri-${m[1]}.png`, media_type: 'image/png', checksum: sum(mriPng) });
+    }
+    if ((m = /^\/api\/v1\/analysis-runs\/[^/]+\/slices\/(\d+)\/prediction\?variant=([A-Z]+)$/.exec(path))) {
+      return json(200, { ...gen('prediction_slice_get'), prediction_variant: m[2], prediction_mask_id: RAW_ID,
+        content_url: `/api/v1/artifacts/pred-${m[1]}.png`, media_type: 'image/png', checksum: sum(asPng(SOURCE)) });
+    }
+    if ((m = /^\/api\/v1\/analysis-runs\/([^/]+)\/reviews$/.exec(path)) && method === 'POST') {
+      const { review, created } = ensureReview(m[1], body);
+      return json(created ? 201 : 200, reviewBody(review));
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/reviewed-masks$/.exec(path)) && method === 'GET') {
+      return json(200, { items: db.versions.map(row) });
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/working-mask\/slices\/(\d+)$/.exec(path)) && method === 'PUT') {
+      if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
+      if (body.source_mask_id !== db.review.source_mask_id) return err(422, 'VALIDATION_ERROR');
+      if (body.mask_payload.encoding !== 'BITPACK_BASE64') return err(422, 'VALIDATION_ERROR');
+      db.working.set(Number(m[2]), unpack(body.mask_payload));
+      db.review.revision += 1;
+      return json(200, { review_id: db.review.review_id, working_revision: db.review.revision, source_mask_id: db.review.source_mask_id,
+        slice_index: Number(m[2]), ...geometry() });
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/commit$/.exec(path)) && method === 'POST') {
+      if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
+      if (db.working.size === 0) return err(422, 'VALIDATION_ERROR');
+      const parent = db.versions.length ? db.versions[db.versions.length - 1] : null;
+      const v = { id: `REVMASK_${db.versions.length + 1}`, version: db.versions.length + 1, revision: db.review.revision + 1, parent, slices: new Map(db.working) };
+      db.versions.push(v);
+      db.working.clear();
+      db.review.revision += 1;
+      db.review.status = 'CORRECTED';
+      return json(201, { ...row(v), status: 'CORRECTED', source_mask_kind: 'RAW_PREDICTION', revision: db.review.revision, ...geometry() });
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)$/.exec(path)) && method === 'PATCH') {
+      if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
+      if (body.status === 'CORRECTED') return err(409, 'INVALID_REVIEW_TRANSITION');
+      db.review.status = body.status;
+      db.review.revision += 1;
+      return json(200, reviewBody(db.review));
+    }
+    if ((m = /^\/api\/v1\/reviewed-masks\/([^/]+)\/slices\/(\d+)$/.exec(path)) && method === 'GET') {
+      const v = db.versions.find((x) => x.id === m[1]);
+      if (!v) return err(404, 'ARTIFACT_NOT_FOUND');
+      const bytes = asPng(versionSlice(v, Number(m[2])));
+      return json(200, { ...gen('reviewed_mask_slice_get'), reviewed_mask_id: v.id, slice_index: Number(m[2]),
+        content_url: `/api/v1/artifacts/rev-${v.id}-${m[2]}.png`, media_type: 'image/png', checksum: sum(bytes) });
+    }
+    if (path === '/api/v1/findings' && method === 'GET') return json(200, { items: db.findings });
+    if (path === '/api/v1/findings' && method === 'POST') {
+      const f = {
+        finding_id: `FINDING_${db.nextFinding}`, status: 'OPEN', finding_type: body.finding_type, note: body.note, revision: 1,
+        evidence: { study_id: body.study_id, experiment_id: body.experiment_id, case_id: body.case_id, analysis_run_id: body.analysis_run_id,
+          prediction_variant: body.prediction_variant, slice_index: body.slice_index, region_reference: body.region_reference },
+      };
+      db.nextFinding += 1;
+      db.findings.push(f);
+      return json(201, { finding_id: f.finding_id, case_id: f.evidence.case_id, analysis_run_id: f.evidence.analysis_run_id, slice_index: f.evidence.slice_index,
+        finding_type: f.finding_type, status: f.status, evidence: f.evidence, revision: 1 });
+    }
+    if ((m = /^\/api\/v1\/findings\/([^/]+)$/.exec(path)) && method === 'PATCH') {
+      const f = db.findings.find((x) => x.finding_id === m[1]);
+      if (!f) return err(404, 'ARTIFACT_NOT_FOUND');
+      if (body.expected_revision !== f.revision) return err(409, 'STALE_REVISION');
+      f.status = body.status;
+      f.note = body.note;
+      f.revision += 1;
+      return json(200, { finding_id: f.finding_id, status: f.status, note: f.note, evidence: f.evidence, revision: f.revision, etag: `W/"revision-${f.revision}"` });
+    }
+    return err(404, 'ARTIFACT_NOT_FOUND');
+  };
+  return { fetchImpl, requests, db, SOURCE, bits, asPng, W, H, RAW_ID,
+    writes: () => requests.filter((q) => q.method !== 'GET') };
+}
+
+{
+  const { BackHandler } = await import('react-native');
+  const { fitTransform } = await imp('../app/core/index.mjs');
+  const pressExact = async (r, label) => {
+    const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label);
+    if (!hits.length) throw new Error(`no button "${label}" exactly; texts: ${texts(r).slice(0, 50).join(' | ')}`);
+    await act(async () => { hits[0].props.onPress(); });
+  };
+  const btn = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label)[0];
+  const byId = (r, id) => r.root.findAll((n) => n.props && n.props.testID === id);
+  const alertNow = (title) => (globalThis.__alerts || []).filter((a) => a[0] === title).pop();
+  const answerAlert = async (title, label) => {
+    const a = alertNow(title);
+    if (!a) throw new Error(`no alert "${title}"; alerts: ${(globalThis.__alerts || []).map((x) => x[0]).join(' | ')}`);
+    const b = a[2].find((x) => x.text === label);
+    await act(async () => { b.onPress(); });
+    await tick(80);
+  };
+  const canvasOf = (r) => r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0].props.__pan;
+  const evt = (...pts) => ({ nativeEvent: { touches: pts.map((p) => ({ pageX: p.x, pageY: p.y })) } });
+  const fit = fitTransform(400, 400, 576, 576);
+  const pointOf = (x, y) => ({ x: fit.panX + (x + 0.5) * fit.zoom, y: fit.panY + (y + 0.5) * fit.zoom });
+  const stroke = async (r, ...pixels) => {
+    const c = canvasOf(r);
+    await act(async () => { c.onPanResponderGrant(evt(pointOf(...pixels[0]))); });
+    for (const px of pixels.slice(1)) await act(async () => { c.onPanResponderMove(evt(pointOf(...px))); });
+    await act(async () => { c.onPanResponderRelease(evt()); });
+  };
+  const unpackBody = (body) => {
+    const packed = Buffer.from(body.mask_payload.data, 'base64');
+    const out = new Uint8Array(576 * 576);
+    for (let k = 0; k < out.length; k += 1) out[k] = (packed[Math.floor(k / 8)] >> (7 - (k % 8))) & 1;
+    return out;
+  };
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const mount = async (backend, initial = 'SCR-08') => {
+    const runtime = liveRuntime(backend.fetchImpl);
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(NavigatorView, { runtime, initialScreenId: initial })), nodeMock);
+    });
+    await tick(120);
+    return r;
+  };
+  const toReview = async (r) => {
+    await pressExact(r, 'Review / correct');
+    await tick(250);
+    await layout(r);
+    await tick(150);
+  };
+
+  // --- H8: Findings tab -> Review / correct -> SCR-06 on RAW (the finding recorded it) ---
+  const be = reviewBackend();
+  const r = await mount(be);
+  check('V4a', has(r, /SCR-08 · V4/) && has(r, /seed finding/) && has(r, /CASE_0061 · slice 44 · run RUN_A · RAW/),
+    'SCR-08 lists the finding with its evidence (case, slice, run, variant)');
+  await toReview(r);
+  check('V4b', has(r, /SCR-06 · V4/) && !has(r, /Which prediction do you want to review/) && has(r, /^RAW · /) && has(r, /^Review: NOT_REVIEWED · rev 1$/),
+    'SCR-06 opens on RAW (the finding\'s own variant: no question, no default) with the review NOT_REVIEWED');
+  const reqs = be.requests.map((q) => `${q.method} ${q.path.replace(/\?.*/, '')}`);
+  check('V4b', reqs.includes('GET /api/v1/analysis-runs/RUN_A') && reqs.some((q) => q === 'POST /api/v1/analysis-runs/RUN_A/reviews')
+    && reqs.some((q) => /GET .*\/slices\/44\/prediction/.test(q)) && reqs.some((q) => /GET .*\/slices\/44\/mri/.test(q))
+    && reqs.some((q) => q.startsWith('GET /api/v1/artifacts/pred-44')),
+  `reads: the run, the scoped review, the slice's prediction and MRI, and the prediction bytes (${reqs.length} requests)`);
+  const create = be.requests.find((q) => q.method === 'POST' && q.path.endsWith('/reviews'));
+  check('V4b', create.body.status === 'NOT_REVIEWED' && create.body.source_mask_id === be.RAW_ID && create.body.prediction_variant === 'RAW',
+    'review_create sends status NOT_REVIEWED with the run\'s RAW artifact as the source and the variant');
+  check('V4b', byId(r, 'mask-state')[0] && textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits'
+    && r.root.findAll((n) => n.type === 'Image').some((n) => /^data:image\/png;base64,/.test(n.props.source.uri)),
+  'the real mask is decoded (no stand-in, no "decoder pending") and the MRI is drawn from its verified bytes');
+  check('V4b', !has(r, /SYNTHETIC/) && !has(r, /decoder is pending/i), 'nothing is labelled SYNTHETIC or pending in live mode');
+
+  // --- one brush stroke at SOURCE resolution ---
+  const rectsBefore = r.root.findAll((n) => n.type === 'Rect').length;
+  await stroke(r, [500, 300]);
+  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && r.root.findAll((n) => n.type === 'Rect').length > rectsBefore,
+    'a one-finger stroke paints (radius 2 by default) and the slice reads UNSAVED');
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  const guard1 = alertNow('Unsaved edits');
+  check('V4d', guard1 && /Slice 44 has unsaved edits/.test(guard1[1]) && has(r, /SCR-06 · V4/),
+    'LEAVE GUARD: Back with unsaved edits asks first, and nothing has moved yet');
+  await answerAlert('Unsaved edits', 'Stay');
+  check('V4d', has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', '"Stay" keeps the screen and the edit');
+  let handled;
+  globalThis.__alerts = [];
+  await act(async () => { handled = BackHandler.__press(); });
+  await tick(60);
+  check('V4d', handled === true && alertNow('Unsaved edits'), 'the Android back button asks too');
+  await answerAlert('Unsaved edits', 'Stay');
+
+  // #88 QA N-3: a guard must settle on EVERY path. Dismissing the prompt without pressing a button (Android: a tap
+  // outside it) is an answer too - onDismiss says "stay". A guard that never settled would keep the shell's
+  // one-prompt latch closed and refuse every later Back, tab and push on this screen.
+  globalThis.__alerts = [];
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  const dismissable = alertNow('Unsaved edits');
+  check('V4q', dismissable && dismissable[3] && dismissable[3].cancelable === true && typeof dismissable[3].onDismiss === 'function',
+    'the leave prompt can be dismissed without a button, and says what dismissing means (onDismiss)');
+  await act(async () => { dismissable[3].onDismiss(); });
+  await tick(60);
+  globalThis.__alerts = [];
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  check('V4q', Boolean(alertNow('Unsaved edits')) && has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
+    'after a dismissed prompt the next Back asks again (the latch was released) and nothing moved or was lost');
+  await answerAlert('Unsaved edits', 'Stay');
+
+  // --- undo / redo, then exactly one pixel at radius 0 ---
+  await pressExact(r, 'Undo');
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits' && btn(r, 'Undo').props.disabled === true && btn(r, 'Redo').props.disabled === false,
+    'Undo: back to the source (nothing to undo, Redo available)');
+  await pressExact(r, 'Redo');
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'Redo: the stroke is back');
+  await pressExact(r, 'Undo');
+  await pressExact(r, '0');
+  await stroke(r, [500, 300], [505, 300]);
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'two samples at radius 0 painted');
+
+  // --- flag with the review status (H8), then save (H9) ---
+  await pressExact(r, 'Flag');
+  await tick(80);
+  check('V4f', has(r, /^Review: FLAGGED · rev 2$/) && be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'FLAGGED' && q.body.expected_revision === 1),
+    'Flag sends review_patch with expected_revision and the review reads FLAGGED');
+  check('V4f', btn(r, 'Mark corrected').props.disabled === true && has(r, /CORRECTED is reached only by saving a correction/),
+    'CORRECTED is not offered as a status: only Save reaches it');
+  await pressExact(r, 'Save');
+  const ask = alertNow('Save correction?');
+  check('V4g', ask && ask[1].includes(`Source: RAW prediction ${be.RAW_ID}`) && /FLAGGED -> CORRECTED/.test(ask[1]) && !be.writes().some((q) => q.method === 'PUT'),
+    'Save names the source mask first, and nothing is sent until it is confirmed');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  const puts = be.writes().filter((q) => q.method === 'PUT');
+  const commits = be.writes().filter((q) => q.method === 'POST' && q.path.endsWith('/commit'));
+  const expected = be.SOURCE.slice();
+  // the stroke's two samples are joined by a line: pixels 500..505 of row 300
+  for (let x = 500; x <= 505; x += 1) expected[300 * 576 + x] = 1;
+  check('V4g', puts.length === 1 && puts[0].path.endsWith('/working-mask/slices/44') && puts[0].body.mask_payload.encoding === 'BITPACK_BASE64'
+    && Object.keys(puts[0].body.mask_payload).sort().join() === 'data,encoding' && same(unpackBody(puts[0].body), expected),
+  'the PUT is slice 44 as BITPACK_BASE64 and decodes to the source plus exactly the six SOURCE pixels the radius-0 stroke covered (500..505, row 300)');
+  check('V4g', puts[0].body.source_mask_id === be.RAW_ID && puts[0].body.expected_revision === 2 && commits.length === 1 && commits[0].body.expected_revision === 3,
+    'the PUT names the review\'s source and carries expected_revision 2; the commit carries 3 (revision moves with every write)');
+  const notice = byId(r, 'notice')[0];
+  check('V4g', notice && /Saved as a new version REVMASK_1 \(revision 4\) of the RAW prediction .* \(RAW_PREDICTION\)\. Review is CORRECTED\./.test(textOf(notice)),
+    `the new version is shown with its source identity: ${notice ? textOf(notice) : '-'}`);
+  check('V4g', has(r, /^Review: CORRECTED · rev 4$/) && byId(r, 'latest-version')[0] && /Latest version REVMASK_1 · source .* \(RAW_PREDICTION\) · 1 version/.test(textOf(byId(r, 'latest-version')[0]))
+    && textOf(byId(r, 'mask-state')[0]) === 'SAVED', 'the header reads CORRECTED, the latest version and its source, and the slice SAVED');
+  check('V4g', !be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'CORRECTED'), 'no PATCH to CORRECTED ever: the commit alone made it');
+  check('V4g', btn(r, 'Save').props.disabled === true, 'Save is disabled again: nothing changed since the commit');
+  await pressExact(r, '‹ Back');
+  await tick(60);
+  check('V4g', has(r, /SCR-08 · V4/), 'saved: Back leaves without asking');
+
+  // --- H9: the raw prediction and the earlier version are untouched ---
+  check('V4h', same(be.db.versions[0].slices.get(44), expected) && same(be.SOURCE, be.bits(ellipseMask(576, 576, 310, 262, 66, 58))),
+    'the committed slice is the edit, and the source prediction bytes are unchanged');
+  check('V4h', !be.writes().some((q) => /prediction|artifacts/.test(q.path) && q.method !== 'GET'), 'nothing was ever written to a prediction or an artifact route');
+
+  // --- STALE_REVISION keeps the edit and offers Refresh (not Retry) ---
+  await toReview(r);
+  check('V4i', has(r, /^Review: CORRECTED · rev 4$/) && byId(r, 'continuing')[0] && /Continuing from version REVMASK_1; Reset returns to the original RAW prediction\./.test(textOf(byId(r, 'continuing')[0]))
+    && textOf(byId(r, 'mask-state')[0]) === 'SAVED',
+  'reopening the CORRECTED review continues from its latest version (N-4): SAVED, and Reset is said to go to the original prediction');
+  check('V4i', be.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && be.requests.some((q) => q.path.includes('/artifacts/rev-REVMASK_1-44')),
+    'the working base slice was read from the latest version (reviewed_mask_slice_get + its bytes)');
+  await pressExact(r, '3');
+  await stroke(r, [100, 100]);
+  be.db.review.revision += 1; // somebody else wrote: our expected_revision is stale
+  await pressExact(r, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  check('V4j', has(r, /STALE MISMATCH/), 'the stale save is the STALE_MISMATCH state');
+  check('V4j', r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Refresh').length >= 1
+    && r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Retry').length === 0
+    && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && btn(r, 'Save').props.disabled === true,
+  'STALE_REVISION: Refresh is offered, Retry is not, the edit is still UNSAVED, and Save cannot resend the stale write');
+  const stalePuts = be.requests.filter((q) => q.method === 'PUT').length;
+  await pressExact(r, 'Refresh');
+  await tick(200);
+  check('V4j', btn(r, 'Save').props.disabled === false && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && has(r, /^Review: CORRECTED · rev 5$/),
+    'after Refresh the review is reloaded at the server\'s revision and the edit is still there');
+  await pressExact(r, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  const secondPut = be.requests.filter((q) => q.method === 'PUT').slice(stalePuts)[0];
+  check('V4j', secondPut && secondPut.body.expected_revision === 5 && be.db.versions.length === 2
+    && textOf(byId(r, 'mask-state')[0]) === 'SAVED' && has(r, /^Review: CORRECTED · rev 7$/),
+  'saving again sends the reloaded revision and makes version 2 (the server\'s own revision, not a retry of the stale write)');
+
+  // --- New finding here: SCR-08 with the context, create, and Back restores the review ---
+  await pressExact(r, 'New finding here');
+  await tick(150);
+  check('V4k', has(r, /SCR-08 · V4/) && has(r, /^CASE_0061 · slice 44 · run RUN_A · RAW$/) && has(r, /New finding/),
+    'New finding here opens SCR-08 with the case, slice, run and variant of the review');
+  await pressExact(r, 'Over-segmentation');
+  const note = r.root.findAll((n) => n.type === 'TextInput')[0];
+  await act(async () => { note.props.onChangeText('Leaks into the right ventricle.'); });
+  await pressExact(r, 'Create finding');
+  await tick(150);
+  const posted = be.requests.find((q) => q.method === 'POST' && q.path === '/api/v1/findings');
+  check('V4k', posted && posted.body.case_id === 'CASE_0061' && posted.body.analysis_run_id === 'RUN_A' && posted.body.prediction_variant === 'RAW'
+    && posted.body.slice_index === 44 && posted.body.finding_type === 'OVER_SEGMENTATION' && posted.body.study_id === 'STUDY_DEMO'
+    && 'region_reference' in posted.body && 'experiment_id' in posted.body,
+  'finding_create sends the contract\'s fields: case, run, variant, slice, type, note, study');
+  check('V4k', has(r, /Finding FINDING_2 created \(OPEN\)/) && has(r, /Leaks into the right ventricle\./), 'the new finding is listed with its note');
+  await pressExact(r, '‹ Back');
+  await tick(250);
+  await layout(r);
+  await tick(150);
+  check('V4k', has(r, /SCR-06 · V4/) && !has(r, /Which prediction do you want to review/) && has(r, /slice 44 \/ 88/) && has(r, /^RAW · /),
+    'Back from SCR-08 reopens SCR-06 on the same variant and slice (returnParams), without asking again');
+  await act(async () => { r.unmount(); });
+
+  // --- SCR-08: create / list / open evidence / resolve, with a recording nav ---
+  const be8 = reviewBackend();
+  const runtime8 = liveRuntime(be8.fetchImpl);
+  const pushes = [];
+  const nav8 = { push: (...a) => { pushes.push(a); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let f;
+  await act(async () => {
+    f = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: runtime8 },
+      React.createElement(FindingsScreen, { runtime: runtime8, nav: nav8, params: {} })), nodeMock);
+  });
+  await tick(150);
+  check('V4l', has(f, /seed finding/) && has(f, /Under-segmentation/) && has(f, /^OPEN$/) && !has(f, /^New finding$/),
+    'SCR-08 opened bare lists the finding (type, status, note) and offers no create form');
+  await pressExact(f, 'Open evidence');
+  check('V4l', pushes.length === 1 && pushes[0][0] === 'SCR-03' && pushes[0][1].caseId === 'CASE_0061' && pushes[0][1].sliceIndex === 44
+    && pushes[0][1].runId === 'RUN_A' && pushes[0][1].variant === 'RAW',
+  'Open evidence pushes SCR-03 at the finding\'s case, slice, run and variant');
+  await pressExact(f, 'Review / correct');
+  check('V4l', pushes[1][0] === 'SCR-06' && pushes[1][1].runId === 'RUN_A' && pushes[1][1].variant === 'RAW' && pushes[1][1].sliceIndex === 44,
+    'Review / correct pushes SCR-06 with the run, variant and slice');
+  await pressExact(f, 'Resolve');
+  await tick(100);
+  const patchReq = be8.requests.find((q) => q.method === 'PATCH' && q.path.includes('/findings/'));
+  check('V4l', patchReq && patchReq.body.status === 'RESOLVED' && patchReq.body.expected_revision === 1 && has(f, /^RESOLVED$/) && btn(f, 'Reopen'),
+    'Resolve sends finding_patch with the finding\'s own revision; the list shows RESOLVED and offers Reopen');
+  be8.db.findings[0].revision += 1; // somebody else changed it
+  await pressExact(f, 'Reopen');
+  await tick(100);
+  check('V4l', has(f, /STALE MISMATCH/) && f.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Refresh').length >= 1
+    && has(f, /^RESOLVED$/), 'a stale Reopen shows Refresh, and the list keeps what it had');
+  await pressExact(f, 'Refresh');
+  await tick(150);
+  check('V4l', !has(f, /STALE MISMATCH/) && has(f, /^RESOLVED$/) === (be8.db.findings[0].status === 'RESOLVED'),
+    'Refresh reads the list again (useCall refetch) and the stale banner goes');
+  await act(async () => { f.unmount(); });
+
+  // --- an already CORRECTED review (seeded) continues from its latest version; Reset returns to the original ---
+  const bs = reviewBackend({ seedVersion: true });
+  const rs = await mount(bs);
+  await toReview(rs);
+  check('V4m', has(rs, /^Review: CORRECTED · rev 2$/) && byId(rs, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rs, 'continuing')[0]))
+    && textOf(byId(rs, 'mask-state')[0]) === 'SAVED' && btn(rs, 'Save').props.disabled === true,
+  'a CORRECTED review opens SAVED on its latest version, with nothing to save');
+  const sentBefore = bs.writes().length;
+  await pressExact(rs, 'Reset');
+  await answerAlert('Reset to the source?', 'OK');
+  check('V4m', textOf(byId(rs, 'mask-state')[0]) === 'UNSAVED edits' && btn(rs, 'Save').props.disabled === false && bs.writes().length === sentBefore,
+    'Reset goes back to the ORIGINAL prediction (not the last version): UNSAVED against the version, and nothing is sent by it');
+  await pressExact(rs, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  const putReset = bs.writes().find((q) => q.method === 'PUT');
+  check('V4m', putReset && same(unpackBody(putReset.body), bs.SOURCE) && bs.db.versions.length === 2
+    && bs.db.versions[1].parent && bs.db.versions[1].parent.id === 'REVMASK_0',
+  'saving after a reset commits the original prediction as version 2 on top of version 1 (the earlier version is its parent, untouched)');
+  check('V4m', same(bs.db.versions[0].slices.get(44), bs.db.versions[0].earlier), 'version 1 is unchanged');
+  await act(async () => { rs.unmount(); });
+
+  // --- the base version cannot be read: the slice is not editable (never edited from the source) ---
+  const bd = reviewBackend({ seedVersion: true });
+  const downFetch = async (url, init) => (/\/reviewed-masks\/[^/]+\/slices\//.test(url)
+    ? { status: 500, headers: { get: () => null }, text: async () => '', json: async () => null } : bd.fetchImpl(url, init));
+  const rd = await mount({ ...bd, fetchImpl: downFetch });
+  await toReview(rd);
+  check('V4n', has(rd, /continues from its latest version, but that version.s slice could not be read/) && !byId(rd, 'mask-state')[0]
+    && btn(rd, 'Retry slice'),
+  'the base slice cannot be fetched: the slice is not drawn as editable, the reason is said and Retry slice is offered');
+  await act(async () => { rd.unmount(); });
+
+  // --- the server names another mask than the run's artifact for the slice: not drawn, not editable, never fetched (QA_PR99_D39 NB-3) ---
+  const bm = reviewBackend();
+  const otherMask = async (url, init) => {
+    const res = await bm.fetchImpl(url, init);
+    if (!/\/slices\/\d+\/prediction\?variant=/.test(url)) return res;
+    const body = { ...(await res.json()), prediction_mask_id: 'PREDICTION_MASK_ID_OTHER' };
+    const text = JSON.stringify(body);
+    return { status: res.status, headers: res.headers, text: async () => text, json: async () => body };
+  };
+  const rm = await mount({ ...bm, fetchImpl: otherMask });
+  await toReview(rm);
+  check('V4o', has(rm, /served a slice of another mask than this review.s source prediction/) && !byId(rm, 'mask-state')[0]
+    && !btn(rm, 'Retry slice') && btn(rm, 'Save').props.disabled === true
+    && bm.requests.some((q) => /\/slices\/44\/prediction/.test(q.path)) && !bm.requests.some((q) => q.path.startsWith('/api/v1/artifacts/pred-')),
+  "a slice that names another mask than the run's artifact is not drawn as editable, the reason is said, and its bytes were never fetched");
+  await act(async () => { rm.unmount(); });
+
+  // --- another reviewer commits a newer version while this one has an unsaved edit (QA_PR99_D39 NB-2) ---
+  const bx = reviewBackend({ seedVersion: true });
+  const rx = await mount(bx);
+  await toReview(rx);
+  check('V4p', byId(rx, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0])),
+    'the review starts on its latest version, REVMASK_0');
+  await pressExact(rx, '3');
+  await stroke(rx, [100, 100]);
+  const theirs = bx.SOURCE.slice();
+  for (let y = 250; y < 270; y += 1) for (let x = 380; x < 400; x += 1) theirs[y * 576 + x] = 1;
+  bx.db.versions.push({ id: 'REVMASK_1', version: 2, revision: 3, parent: bx.db.versions[0], slices: new Map([[44, theirs]]) });
+  bx.db.review.revision += 1; // their commit moved the review: our expected_revision is stale
+  await pressExact(rx, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(150);
+  check('V4p', has(rx, /STALE MISMATCH/) && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits', 'the save is stale: somebody else committed, the edit is still UNSAVED');
+  await pressExact(rx, 'Refresh');
+  await tick(200);
+  const sentAfterRefresh = bx.writes().length; // Refresh re-opens the review (an idempotent POST); nothing after it may write
+  const refused = byId(rx, 'notice')[0];
+  check('V4p', refused && /latest version is REVMASK_1; your edits continue from REVMASK_0\. Cancel the edits/.test(textOf(refused))
+    && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits' && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0]))
+    && byId(rx, 'latest-version')[0] && /Latest version REVMASK_1/.test(textOf(byId(rx, 'latest-version')[0])),
+  'Refresh found REVMASK_1 but does not drop the unsaved edit: it says so, and the edit still continues from REVMASK_0');
+  await pressExact(rx, 'Save');
+  await answerAlert('Save correction?', 'OK');
+  await tick(100);
+  check('V4p', /latest version is REVMASK_1; this session continues from REVMASK_0/.test(textOf(byId(rx, 'notice')[0])) && bx.writes().length === sentAfterRefresh,
+    'saving over the older base is refused on the device: nothing is sent');
+  await pressExact(rx, 'Cancel edits');
+  await answerAlert('Discard unsaved edits?', 'OK');
+  await pressExact(rx, '‹ Back');
+  await tick(60);
+  check('V4p', has(rx, /SCR-08 · V4/), 'with the edit cancelled, Back leaves without asking');
+  await toReview(rx);
+  check('V4p', /Continuing from version REVMASK_1/.test(textOf(byId(rx, 'continuing')[0])) && textOf(byId(rx, 'mask-state')[0]) === 'SAVED'
+    && bx.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && bx.db.versions.length === 2,
+  "reopened, the review continues from REVMASK_1 (read from the server), and the other reviewer's version is untouched");
+  await act(async () => { rx.unmount(); });
+}
+
+// ---- 11. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------
+// What a PASS means: the screen asks for the mesh references and bytes the way the contract says, verifies the bytes
+// against the id (DR-021 rule 1), hands the viewer only verified, grid-matching artifacts, shows loading /
+// unavailable (with the API's reason) / error / success, and turns a pick message into "slice n / total" and an
+// "Open in 2D" push to SCR-03 with returnParams. It does NOT mean the surface is drawn or that a tap lands on a face:
+// the viewer script is exercised in test/v2_viewer.test.mjs, the pixels and the frame rate are the owner's device tests.
+{
+  const Inspector3DScreen = (await imp('src/verticals/v2/Inspector3DScreen.js')).default;
+  const { sent } = await imp('test/render/mocks/webview.mjs');
+  const { boxMesh, encodeMesh } = await imp('test/_v2mesh.mjs');
+  const sum = (b) => createHash('sha256').update(b).digest('hex');
+  const SHAPE = [576, 576, 88];
+  const predBytes = encodeMesh(boxMesh(SHAPE, [100, 100, 10], [300, 300, 12]));
+  const gtBytes = encodeMesh(boxMesh(SHAPE, [110, 110, 10], [290, 290, 12]));
+  const procBytes = encodeMesh(boxMesh(SHAPE, [105, 105, 10], [295, 295, 12]));
+  const IDS = { ART_RAW: predBytes, MASK_CASE_0061: gtBytes, ART_PROC: procBytes };
+  const MESH_ID = (b) => `MESH_${sum(b)}`;
+
+  // The base fake already serves case_get, the JSON of the MRI / GT / prediction slices and their PNGs. This one adds
+  // what SCR-05 asks for: run ids, reconstruction_get, the ground-truth mask id and the mesh bytes.
+  function meshBackend({ caseMode = 'EVALUATION', processed = false, missing = [], tamper = [], reconstructionStatus = null, listFail = false } = {}) {
+    const base = fakeBackend({ caseMode });
+    const requests = [];
+    const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
+    const json = (status, body) => {
+      const text = JSON.stringify(body);
+      return { status, headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null }, text: async () => text, json: async () => body };
+    };
+    const fetchImpl = async (url, init) => {
+      requests.push(url);
+      const path = url.replace('http://backend.invalid:8000', '');
+      let m;
+      if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)$/.exec(path))) {
+        return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED', raw_prediction_artifact_id: 'ART_RAW',
+          processed_prediction_artifact_id: processed ? 'ART_PROC' : null, reconstruction_ids: [MESH_ID(predBytes)] });
+      }
+      if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)\/reconstruction\?source_mask_id=([^&]+)$/.exec(path))) {
+        const mask = decodeURIComponent(m[2]);
+        if (reconstructionStatus) return json(reconstructionStatus, { error: { code: reconstructionStatus === 409 ? 'RUN_NOT_SUCCEEDED' : 'ARTIFACT_NOT_FOUND', message: 'x' } });
+        if (!IDS[mask] || missing.includes(mask)) return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'no reconstruction of this source mask' } });
+        const kind = mask === 'ART_RAW' ? 'RAW_PREDICTION' : mask === 'ART_PROC' ? 'PROCESSED_PREDICTION' : 'GROUND_TRUTH';
+        return json(200, { ...gen('reconstruction_get'), mesh_artifact_id: MESH_ID(IDS[mask]), source_mask_id: mask, source_mask_kind: kind,
+          reconstruction_version: `dr008c-L0/v1 sha256:${'0'.repeat(64)}` });
+      }
+      if ((m = /^\/api\/v1\/artifacts\/([0-9a-f]{64})\.cmesh$/.exec(path))) {
+        const mask = Object.keys(IDS).find((k) => sum(IDS[k]) === m[1]);
+        if (!mask) return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'x' } });
+        const bytes = tamper.includes(mask) ? Uint8Array.from(IDS[mask], (v, i) => (i === IDS[mask].length - 1 ? v ^ 1 : v)) : IDS[mask];
+        return { status: 200, headers: { get: (k) => ({ 'content-type': 'application/octet-stream', etag: `"sha256:${m[1]}"` })[k.toLowerCase()] ?? null },
+          arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+      }
+      if (path.endsWith('/ground-truth') || /\/slices\/\d+\/ground-truth$/.test(path)) {
+        const r = await base.fetchImpl(url, init);
+        if (r.status !== 200) return r;
+        const body = await r.json();
+        return json(200, { ...body, reference_mask_id: 'MASK_CASE_0061' });
+      }
+      return base.fetchImpl(url, init);
+    };
+    return { fetchImpl, requests };
+  }
+
+  const nodeMocks = { createNodeMock: () => ({ postMessage() {} }) };
+  const mount = async (backend, params, { nav = null } = {}) => {
+    const runtime = liveRuntime(backend.fetchImpl);
+    const recorded = { pushes: [], pops: 0 };
+    const nv = nav || { push: (...a) => { recorded.pushes.push(a); return true; }, pop: () => { recorded.pops += 1; return true; }, replace: () => true, reset: () => true, canGoBack: true };
+    sent.length = 0;
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(Inspector3DScreen, { runtime, nav: nv, params })), nodeMocks);
+    });
+    await tick(250);
+    return { r, runtime, recorded };
+  };
+  const web = (r) => r.root.findAll((n) => n.type === 'WebView')[0] || null;
+  const fromViewer = async (r, message) => { await act(async () => { web(r).props.onMessage({ nativeEvent: { data: JSON.stringify(message) } }); }); await tick(20); };
+  const sentJson = () => sent.map((m) => JSON.parse(m));
+  const entry = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  const P = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 };
+
+  // 10a. success: references, verified bytes, the viewer's handshake, layers, the band
+  {
+    const backend = meshBackend();
+    const { r } = await mount(backend, P);
+    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=ART_RAW'), 'the prediction mesh is asked for by the RUN\'s own RAW mask id');
+    check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=MASK_CASE_0061'), 'the ground-truth mesh by the id the server stated on a ground-truth slice');
+    check('V2R1', paths.includes(`/api/v1/artifacts/${sum(predBytes)}.cmesh`) && paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`), 'both meshes come from the content route named by their ids');
+    check('V2R1', !paths.some((p) => p.includes('error-reconstruction')), 'no error mesh is requested (DR-005 open: nothing fabricated)');
+    check('V2R1', web(r) && has(r, /Run RUN_A · prediction RAW · L0 surface \(undecimated\)/) && has(r, /CASE_0061/), 'WebView mounted; run and variant always visible');
+    check('V2R2', sent.length === 0, 'nothing is sent before the viewer says it is ready');
+    await fromViewer(r, { type: 'ready' });
+    const out = sentJson();
+    const meshMsgs = out.filter((m) => m.type === 'mesh');
+    check('V2R2', meshMsgs.length === 2 && meshMsgs.find((m) => m.role === 'prediction').b64 === Buffer.from(predBytes).toString('base64')
+      && meshMsgs.find((m) => m.role === 'groundTruth').b64 === Buffer.from(gtBytes).toString('base64'), 'after ready: the verified prediction and ground-truth artifacts, byte for byte');
+    check('V2R2', out.some((m) => m.type === 'layers' && m.prediction === true && m.groundTruth === true) && out.some((m) => m.type === 'slice' && m.index === 44),
+      'layers on, and the band at the 2D slice the screen was opened from');
+    check('V2R3', has(r, /Prediction \(RAW\)/) && has(r, /^loading…$/), `before the viewer reports the meshes the layers read loading: ${texts(r).filter((t) => t === 'loading…').length}`);
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
+    check('V2R3', texts(r).filter((t) => t === '12 triangles').length === 2 && has(r, /^Prediction: ON$/) && has(r, /^Ground: ON$|^Ground truth: ON$/), 'both layers report their triangles and have their switch');
+    await press(r, 'Prediction: ON');
+    check('V2R3', sentJson().filter((m) => m.type === 'layers').pop().prediction === false && has(r, /^Prediction: OFF$/), 'the prediction switch tells the viewer');
+    await press(r, 'Prediction: OFF');
+    check('V2R4', has(r, /Nothing selected/) && entry(r, 'Open in 2D').props.disabled === true && has(r, /Open in 2D needs a selected slice/), 'no selection: Open in 2D is disabled and says why');
+    check('V2R4', has(r, /Amber band on the surface: slice 45 of 88 \(the 2D slice you came from\)/), 'the band is the 2D slice the user came from');
+    check('V2R4', has(r, /Voxel-index frame .* no millimetres/) && has(r, /DR-005 is open/), 'the frame and the error-view gap are stated');
+    const L = entry(r, 'Fit camera');
+    await act(async () => { L.props.onPress(); });
+    check('V2R4', sentJson().pop().type === 'fit', 'Fit camera tells the viewer');
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10b. H7: pick -> "slice n / total" -> Open in 2D (push to SCR-03, same run and variant, returnParams)
+  {
+    const backend = meshBackend();
+    const { r, recorded } = await mount(backend, P);
+    await fromViewer(r, { type: 'ready' });
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 5, slice: 52 });
+    check('V2R5', has(r, /^slice 53 \/ 88 {2}\(z = 52\) · picked on prediction$/), `the pick shows slice n / total: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+    check('V2R5', has(r, /Amber band on the surface: slice 53 of 88 \(the picked slice\)/) && sentJson().filter((m) => m.type === 'slice').pop().index === 52, 'the band follows the pick');
+    check('V2R5', entry(r, 'Open in 2D').props.disabled === false, 'Open in 2D is enabled by a valid pick');
+    await press(r, 'Open in 2D');
+    check('V2R5', recorded.pushes.length === 1 && recorded.pushes[0][0] === 'SCR-03'
+      && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 })
+      && JSON.stringify(recorded.pushes[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 }),
+    `push SCR-03 at the picked slice for the same run and variant, with returnParams: ${JSON.stringify(recorded.pushes[0] || null)}`);
+    // a background tap clears the selection - nothing can navigate
+    await fromViewer(r, { type: 'pick', role: null, triangle: null, slice: null });
+    check('V2R6', has(r, /No surface at that point: nothing selected/) && entry(r, 'Open in 2D').props.disabled === true, 'a background tap clears the selection and disables Open in 2D');
+    check('V2R6', has(r, /Amber band on the surface: slice 45 of 88 \(the 2D slice you came from\)/), 'and the band returns to the 2D slice (not the old pick)');
+    await act(async () => { entry(r, 'Open in 2D').props.onPress && entry(r, 'Open in 2D').props.onPress(); });
+    check('V2R6', recorded.pushes.length === 1, 'a disabled button pushes nothing');
+    // a pick outside the volume, a malformed pick, a pick before any mesh: never selected
+    await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 1, slice: 88 });
+    check('V2R6', has(r, /outside this volume \(88 slices\): ignored/) && entry(r, 'Open in 2D').props.disabled === true, 'a slice outside the volume is refused, not clamped');
+    await fromViewer(r, { type: 'pick', role: 'prediction', slice: '7' });
+    check('V2R6', has(r, /outside this volume/) && entry(r, 'Open in 2D').props.disabled === true, 'a malformed pick changes nothing');
+    await fromViewer(r, { type: 'pick', role: 'groundTruth', triangle: 2, slice: 0 });
+    check('V2R6', has(r, /^slice 1 \/ 88 {2}\(z = 0\) · picked on ground truth$/) && entry(r, 'Open in 2D').props.disabled === false, 'slice 0 is a slice, picked on the ground-truth layer');
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10c. INFERENCE_REVIEW (INT-12): prediction mesh yes, ground truth never asked for
+  {
+    const backend = meshBackend({ caseMode: 'INFERENCE_REVIEW' });
+    const { r } = await mount(backend, P);
+    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R7', !paths.some((p) => p.includes('/ground-truth')) && !paths.some((p) => p.includes('MASK_CASE_0061')) && !paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`),
+      'no request for ground truth, nor for its mesh');
+    check('V2R7', paths.some((p) => p.endsWith('source_mask_id=ART_RAW')) && has(r, /unavailable \(GROUND_TRUTH_UNAVAILABLE\)/), 'the prediction mesh is requested; the ground-truth layer says why it is unavailable');
+    const gt = entry(r, 'Ground truth: n/a');
+    check('V2R7', gt && gt.props.disabled === true, 'its switch is disabled');
+    await fromViewer(r, { type: 'ready' });
+    check('V2R7', sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction', 'only the prediction artifact reaches the viewer');
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10d. the prediction mesh is unavailable: the API's own reason, nothing drawn, nothing substituted
+  {
+    const backend = meshBackend({ missing: ['ART_RAW'] });
+    const { r, recorded } = await mount(backend, P);
+    check('V2R8', has(r, /EMPTY UNAVAILABLE/) && has(r, /(code|reason) ARTIFACT_NOT_FOUND/) && has(r, /does not exist on the server/), `unavailable with the API reason: ${texts(r).filter((t) => /ARTIFACT_NOT_FOUND|UNAVAILABLE/.test(t)).join(' | ')}`);
+    check('V2R8', web(r) === null && has(r, /No mesh is drawn and nothing is substituted/), 'no viewer is mounted');
+    const asked = backend.requests.filter((u) => u.includes('/reconstruction?')).length;
+    await press(r, 'Refresh');
+    await tick(250);
+    check('V2R8', backend.requests.filter((u) => u.includes('/reconstruction?')).length > asked && web(r) === null, 'Refresh asks again (and the answer is still unavailable)');
+    check('V2R8', recorded.pops === 0, 'nothing navigated');
+    await act(async () => { r.unmount(); });
+  }
+  {
+    const backend = meshBackend({ reconstructionStatus: 409 });
+    const { r } = await mount(backend, P);
+    check('V2R8', has(r, /(code|reason) RUN_NOT_SUCCEEDED/) && web(r) === null, 'a run that did not succeed has no 3D: its code is shown');
+    await act(async () => { r.unmount(); });
+  }
+  {
+    // RAW-only run asked for PROCESSED: no mask id exists, so no reconstruction is requested at all
+    const backend = meshBackend({ processed: false });
+    const { r } = await mount(backend, { ...P, variant: 'PROCESSED' });
+    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R9', !paths.some((p) => p.includes('/reconstruction')) && has(r, /(code|reason) NO_PREDICTION_FOR_VARIANT/) && web(r) === null,
+      'a PROCESSED request on a RAW-only run is unavailable (NO_PREDICTION_FOR_VARIANT): never the RAW mesh relabelled');
+    await act(async () => { r.unmount(); });
+    const withProc = meshBackend({ processed: true });
+    const m2 = await mount(withProc, { ...P, variant: 'PROCESSED' });
+    const p2 = withProc.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    check('V2R9', p2.some((p) => p.endsWith('source_mask_id=ART_PROC')) && has(m2.r, /Prediction \(PROCESSED\)/) && web(m2.r) !== null, 'a run with a PROCESSED prediction shows it, labelled PROCESSED');
+    await act(async () => { m2.r.unmount(); });
+  }
+
+  // 10e. bytes that do not hash to the id are CONTRACT_DRIFT, never drawn (DR-021 rule 1)
+  {
+    const backend = meshBackend({ tamper: ['ART_RAW'] });
+    const { r } = await mount(backend, P);
+    check('V2R10', has(r, /FATAL INVALID/) && has(r, /(code|reason) CONTRACT_DRIFT/) && web(r) === null && !has(r, /Retry/), 'tampered prediction bytes: blocked with CONTRACT_DRIFT, no viewer, no Retry');
+    await act(async () => { r.unmount(); });
+    const gtTamper = meshBackend({ tamper: ['MASK_CASE_0061'] });
+    const m2 = await mount(gtTamper, P);
+    await fromViewer(m2.r, { type: 'ready' });
+    check('V2R10', web(m2.r) !== null && has(m2.r, /error \(CONTRACT_DRIFT\)/) && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction',
+      'tampered ground-truth bytes: that layer reads error, the prediction still draws, the bad bytes never reach the viewer');
+    await act(async () => { m2.r.unmount(); });
+  }
+
+  // 10f. a mesh for another grid, and the viewer's own errors
+  {
+    const wrongGrid = encodeMesh(boxMesh([100, 100, 88], [10, 10, 10], [20, 20, 12]));
+    IDS.ART_RAW = wrongGrid;
+    const backend = meshBackend();
+    const { r } = await mount(backend, P);
+    check('V2R11', has(r, /(code|reason) GEOMETRY_MISMATCH/) && web(r) === null, 'a mesh built for another grid than the case is refused');
+    await act(async () => { r.unmount(); });
+    IDS.ART_RAW = predBytes;
+    const m2 = await mount(meshBackend(), P);
+    await fromViewer(m2.r, { type: 'ready' });
+    await fromViewer(m2.r, { type: 'error', role: null, code: 'WEBGL2_UNAVAILABLE', message: 'this WebView has no WebGL2' });
+    check('V2R11', has(m2.r, /(code|reason) WEBGL2_UNAVAILABLE/) && web(m2.r) === null, 'a viewer that cannot draw is an error state with its code, not a blank box');
+    await act(async () => { m2.r.unmount(); });
+    const m3 = await mount(meshBackend(), P);
+    await fromViewer(m3.r, { type: 'ready' });
+    await fromViewer(m3.r, { type: 'error', role: 'groundTruth', code: 'VIEWER_ERROR', message: 'MESH_GRID: the two meshes do not share one grid' });
+    check('V2R11', web(m3.r) !== null && has(m3.r, /error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused reads error; the prediction stays');
+    await act(async () => { m3.r.unmount(); });
+  }
+
+  // 10g. no variant given: the screen asks, there is no default (same rule as SCR-03)
+  {
+    const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+    forgetSession();
+    const backend = meshBackend();
+    const { r } = await mount(backend, { caseId: 'CASE_0061', runId: 'RUN_A' });
+    check('V2R12', has(r, /Prediction variant/) && has(r, /There is no default/) && web(r) === null
+      && !backend.requests.some((u) => u.includes('/reconstruction')), 'no variant: the screen asks and requests no mesh');
+    await press(r, 'RAW');
+    await tick(250);
+    check('V2R12', web(r) !== null && has(r, /Prediction \(RAW\)/), 'after the choice the mesh is requested and shown');
+    forgetSession();
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10h. fixture mode has no bytes behind any reference: an honest unavailable state
+  {
+    const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+    const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(Inspector3DScreen, { runtime, nav, params: { caseId: 'CASE_ID_0043', runId: 'RUN_ID_0043', variant: 'RAW', sliceIndex: 3 } })), nodeMocks);
+    });
+    await tick(120);
+    check('V2R13', has(r, /(code|reason) FIXTURE_NO_BYTES/) && web(r) === null, `fixture mode: unavailable (FIXTURE_NO_BYTES), no mesh invented: ${texts(r).filter((t) => /(code|reason) /.test(t)).join(' | ')}`);
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10i. SCR-03's 3D entry opens SCR-05 with the run, the variant and the slice on screen, and Back returns
+  {
+    const backend = fakeBackend();
+    const runtime = liveRuntime(backend.fetchImpl);
+    const recorded = [];
+    const nav = { push: (...a) => { recorded.push(a); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+    let r;
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+        React.createElement(CaseExplorerScreen, { runtime, nav, params: { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'PROCESSED' } })), nodeMock);
+    });
+    await tick(300);
+    await layout(r);
+    await tick(200);
+    const three = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('3D (SCR-05)'))[0];
+    check('V2R14', three && three.props.disabled === false, 'SCR-03: the 3D entry is enabled by a succeeded run that lists a reconstruction');
+    await act(async () => { three.props.onPress(); });
+    check('V2R14', recorded.length === 1 && recorded[0][0] === 'SCR-05'
+      && JSON.stringify(recorded[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'PROCESSED', sliceIndex: 44 })
+      && JSON.stringify(recorded[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'PROCESSED', sliceIndex: 44 }),
+    `SCR-03 -> SCR-05 carries case, run, variant and slice: ${JSON.stringify(recorded[0] ? [recorded[0][0], recorded[0][1]] : null)}`);
+    await act(async () => { r.unmount(); });
+  }
 }
 
 console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
 check('E1', appErrors.length === 0, `console.error from app code: ${appErrors.length}${appErrors.length ? ` - ${appErrors[0].slice(0, 300)}` : ''}`);
+watchdog.stop();
 origLog(failures === 0 ? `RENDER SMOKE PASS - ${count} checks (logic only, not device evidence)` : `RENDER SMOKE FAIL - ${failures} of ${count}`);
 process.exit(failures === 0 ? 0 : 1);

@@ -18,7 +18,8 @@
  *   slice n / total          geometry_get / case_get -> shape[2]
  *   active run, precomputed  analysis_run_get - or none: a case that lists no
  *                            run still opens, as MRI (+ ground truth), with
- *                            noRunReason NO_ANALYSIS_RUN
+ *                            noRunReason NO_ANALYSIS_RUN (RUN_NOT_LISTED when
+ *                            a run was asked for; requestedRunId keeps it)
  *   active prediction        the caller's variant, NEVER defaulted
  *   overlay controls         the 5 layers of `10` section 4
  *   metrics when valid       analysis_slice_metrics
@@ -69,10 +70,14 @@ export const RUN_STATUS = Object.freeze({
 
 const RUN_IN_FLIGHT = new Set([RUN_STATUS.QUEUED, RUN_STATUS.RUNNING]);
 
-// Why a case opens with no run: it lists none (a real case before any
-// training), or none was asked for. The reason the screen shows for the
+// Why a case opens with no run: none was asked for (a real case before any
+// training lists none to ask for). The reason the screen shows for the
 // missing run and for every layer that needs one.
 export const NO_ANALYSIS_RUN = 'NO_ANALYSIS_RUN';
+// A run WAS asked for, but the case lists none: still no run is requested,
+// and the reason says so instead of dropping the request silently. The id
+// asked for stays in the snapshot as requestedRunId (#80 QA N3).
+export const RUN_NOT_LISTED = 'RUN_NOT_LISTED';
 
 const isVariant = (v) => Object.values(VARIANT).includes(v);
 const idsIn = (v) => (Array.isArray(v) ? v.filter((id) => typeof id === 'string' && id !== '') : []);
@@ -125,6 +130,9 @@ function snapshot(view, f) {
     view,
     caseId: f.caseId ?? null,
     runId: f.runId ?? null,
+    // The run the caller asked open() for, kept when it is not opened: with
+    // RUN_NOT_LISTED, runId is null and this still names it.
+    requestedRunId: f.requestedRunId ?? null,
     // The always-visible run / model / variant / mode line. Whatever the
     // server did not state stays null; nothing here is defaulted.
     caseMode: f.caseMode ?? null,
@@ -132,8 +140,9 @@ function snapshot(view, f) {
     availableRunIds: Object.freeze([...(f.availableRunIds ?? [])]),
     experimentId: f.experimentId ?? null,
     attemptNo: f.attemptNo ?? null,
-    // NO_ANALYSIS_RUN when the case opened without a run (runId is then
-    // null); null whenever a run was asked for and read.
+    // NO_ANALYSIS_RUN when the case opened without a run, RUN_NOT_LISTED when
+    // the run asked for is not one the case lists (runId is null either way);
+    // null whenever a run was asked for and read.
     noRunReason: f.noRunReason ?? null,
     // `n / total`. z is the slice axis under index_convention x=column,y=row,z=slice.
     sliceIndex: f.sliceIndex ?? null,
@@ -145,7 +154,7 @@ function snapshot(view, f) {
     // unavailable is not offered, rather than offered and then empty.
     layersAvailable: Object.freeze({ ...(f.layersAvailable ?? {}) }),
     // Why a layer is not offered, where the reason is known for the whole
-    // case rather than per slice - today only NO_ANALYSIS_RUN.
+    // case rather than per slice - today only the no-run reasons.
     layerReasons: Object.freeze({ ...(f.layerReasons ?? {}) }),
     transform: f.transform ? Object.freeze({ ...f.transform }) : null,
     // `10` section 7: absent ground truth is an unavailable state, never an
@@ -164,11 +173,17 @@ function snapshot(view, f) {
     // cache key so RAW and PROCESSED can never share one.
     predictionRef: f.predictionRef ?? null,
     groundTruthRef: f.groundTruthRef ?? null,
-    // 3D needs a mesh, and only a run that SUCCEEDED and names its
-    // reconstructions has one. Derived from the fields above, so the flag
-    // cannot outlive its data.
-    canEnter3D: f.runStatus === RUN_STATUS.SUCCEEDED && reconstructionIds.length > 0,
-    canEnterError: f.canEnterError === true,
+    // Both entries are derived here, from the fields above, so neither can
+    // outlive its data - and neither is offered from a snapshot that is not
+    // SUCCESS. 3D needs a mesh, and only a run that SUCCEEDED and names its
+    // reconstructions has one. SCR-04 compares a run's prediction with ground
+    // truth (`10` section 3, "available only with ground truth"): it needs a
+    // run, and THIS slice's ground truth back - not merely the case's
+    // declaration of it.
+    canEnter3D: view.state === STATE.SUCCESS
+      && f.runStatus === RUN_STATUS.SUCCEEDED && reconstructionIds.length > 0,
+    canEnterError: view.state === STATE.SUCCESS
+      && (f.noRunReason ?? null) === null && (f.groundTruthRef ?? null) !== null,
     // An action the model declined without sending anything, e.g.
     // { action: 'setVariant', reason: NO_ANALYSIS_RUN }. Kept until the next
     // transition, so it describes the snapshot it arrived with.
@@ -262,7 +277,7 @@ export function createCaseExplorer(client, { variant = null, viewport } = {}) {
     if (runId) assertVariant(current.variant, 'open() with a run');
     const mine = ++seq;
     current = snapshot(loading(), {
-      caseId, runId, sliceIndex, variant: current.variant, overlays: current.overlays,
+      caseId, runId, requestedRunId: runId || null, sliceIndex, variant: current.variant, overlays: current.overlays,
     });
 
     const kase = await client.call('case_get', { case_id: caseId },
@@ -296,13 +311,16 @@ export function createCaseExplorer(client, { variant = null, viewport } = {}) {
      * MRI, with ground truth where the case declares it, is still worth
      * inspecting. So the slice view opens, and says plainly what it lacks:
      * prediction, metrics and error are unavailable for one reason, and no
-     * run is ever requested - not analysis_run_get, not a prediction.
+     * run is ever requested - not analysis_run_get, not a prediction. A run
+     * that was asked for is not dropped silently: the reason is RUN_NOT_LISTED
+     * and requestedRunId still names it (#80 QA N3).
      */
     if (!runId || idsIn(kase.data.available_run_ids).length === 0) {
+      const reason = runId ? RUN_NOT_LISTED : NO_ANALYSIS_RUN;
       set(loading(), {
         runId: null,
-        noRunReason: NO_ANALYSIS_RUN,
-        layerReasons: { [LAYER.PREDICTION]: NO_ANALYSIS_RUN, [LAYER.ERROR]: NO_ANALYSIS_RUN },
+        noRunReason: reason,
+        layerReasons: { [LAYER.PREDICTION]: reason, [LAYER.ERROR]: reason },
       });
       return loadSlice(sliceIndex, { scenarios });
     }
@@ -451,9 +469,6 @@ export function createCaseExplorer(client, { variant = null, viewport } = {}) {
         [LAYER.PREDICTION]: predictionRef !== null,
         [LAYER.GROUND_TRUTH]: groundTruthRef !== null,
       },
-      // SCR-04 compares a prediction with ground truth; with no run there is
-      // nothing to compare.
-      canEnterError: hasRun && groundTruthAvailable,
     });
   }
 

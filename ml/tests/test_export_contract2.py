@@ -7,6 +7,7 @@ Run from the repository root:  python -m pytest ml/tests -q
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 
@@ -90,7 +91,7 @@ def test_written_manifest_passes_the_validator_cli(evaluated_run, cpkg):
                     split_manifest=cpkg["split_manifest_path"])
     proc = subprocess.run([sys.executable, str(X.VALIDATOR), "--manifest", str(path),
                            "--root", str(evaluated_run)], capture_output=True, text=True,
-                          encoding="utf-8")
+                          encoding="utf-8", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert proc.stdout.startswith("PASS")
     record = json.loads(path.with_name(path.stem + ".export.json").read_text(encoding="utf-8"))
@@ -165,10 +166,57 @@ def test_a_changed_artifact_is_caught(evaluated_run, cpkg):
         build(evaluated_run, cpkg)
 
 
-def test_failed_cases_block_the_export(cpkg, tmp_path, clean_code, pinned):
+def test_failed_cases_are_exported_without_a_run_and_stay_in_the_failures(cpkg, tmp_path, clean_code, pinned):
+    """DR-018 rules 1 and 3: the experiment is exported; the failed case has no analysis run and no artifact,
+    and stays listed, with its reason, in the PER_CASE_METRICS artifact's `failures`."""
+    failing = synth.C_HOLDOUT[3]
+    run, auth = holdout_run(cpkg, tmp_path, "EXP-U-100", subset="100_percent", fail_cases=(failing,))
+    evaluate_holdout(run, cpkg, auth)
+    path = X.export(run, gate_split_01="ACCEPTED", gate_ml_01="ACCEPTED", split_manifest=cpkg["split_manifest_path"])
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    result = X.validate(manifest, run)
+    assert result["status"] == "PASS", result
+    assert result["analysis_runs"] == 53 and manifest["experiment"]["num_test_cases"] == 54
+    assert failing not in {r["case_id"] for r in manifest["analysis_runs"]}
+    assert failing not in {a.get("case_id") for a in manifest["artifacts"]}
+    per_case_art = next(a for a in manifest["artifacts"] if a["kind"] == "PER_CASE_METRICS")
+    per_case = json.loads((run / per_case_art["source_path"]).read_text(encoding="utf-8"))
+    assert [f["case_id"] for f in per_case["failures"]] == [failing]
+    assert per_case["failures"][0]["reason_code"] == "INFERENCE_FAILED"
+    assert per_case["intended_n"] == 54 and per_case["successful_n"] == 53 and per_case["failed_n"] == 1
+    record = json.loads(path.with_name(path.stem + ".export.json").read_text(encoding="utf-8"))
+    assert record["failed_case_ids"] == [failing] and record["analysis_run_count"] == 53
+    assert record["postprocessing_config_sha256"] is None and record["derived_from"] is None
+
+
+def test_an_evaluation_failure_is_also_a_failure_without_a_run(cpkg, tmp_path, clean_code, pinned):
+    """A case that was predicted but could not be scored (here: its file changed) is a failure too."""
+    run, auth = holdout_run(cpkg, tmp_path, "EXP-U-100", subset="100_percent")
+    victim = synth.C_HOLDOUT[7]
+    target = run / "predictions" / "final_holdout" / f"{victim}.nrrd"
+    target.write_bytes(target.read_bytes() + b"x")
+    evaluate_holdout(run, cpkg, auth)
+    manifest = build(run, cpkg)
+    assert victim not in {r["case_id"] for r in manifest["analysis_runs"]} and len(manifest["analysis_runs"]) == 53
+    assert X.validate(manifest, run)["status"] == "PASS"
+
+
+def test_a_failure_missing_from_the_per_case_failures_blocks_the_export(cpkg, tmp_path, clean_code, pinned):
+    """A failed case may only be left without a run when the per-case artifact still lists it."""
     run, auth = holdout_run(cpkg, tmp_path, "EXP-U-100", subset="100_percent", fail_cases=(synth.C_HOLDOUT[3],))
     evaluate_holdout(run, cpkg, auth)
-    with pytest.raises(X.ExportError, match="FAILED"):
+    path = run / "evaluation" / "final_holdout" / "per_case_metrics.json"
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc["failures"] = []
+    path.write_bytes(MF.json_bytes(doc))
+    with pytest.raises(X.ExportError):
+        build(run, cpkg)
+
+
+def test_every_case_failing_has_nothing_to_export(cpkg, tmp_path, clean_code, pinned):
+    run, auth = holdout_run(cpkg, tmp_path, "EXP-U-100", subset="100_percent", fail_cases=tuple(synth.C_HOLDOUT))
+    evaluate_holdout(run, cpkg, auth)
+    with pytest.raises(X.ExportError, match="nothing to export"):
         build(run, cpkg)
 
 

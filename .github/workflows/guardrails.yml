@@ -4,12 +4,26 @@ name: guardrails
 #
 #   NFR-MAINT-001 / -002 / -003  -- the Integration/CI block
 #
-# Four independent jobs on purpose: when something breaks, the job name says
-# WHICH invariant broke without anyone reading a log.
+# Twelve independent jobs, one per invariant, on purpose: when something
+# breaks, the job name says WHICH invariant broke without anyone reading a log.
 #
-# No third-party actions beyond actions/checkout and actions/setup-python. A
-# repository governed by `12` section 6 should not grow a supply-chain surface
-# to check its own checksums.
+# No third-party actions beyond actions/checkout and actions/setup-python, and
+# no npm. A repository governed by `12` section 6 should not grow a
+# supply-chain surface to check its own checksums.
+#
+# ONE accepted, limited exception (DR-021 rule 4, decided 2026-10-02): the
+# mobile-render-bundle job uses actions/setup-node (first-party, like
+# setup-python) and runs `npm ci --ignore-scripts` from the committed
+# mobile/package-lock.json - the locked, integrity-pinned npm tree and nothing
+# else - for the render smoke test and a bundle export. Every other job still
+# installs no npm package.
+#
+# A SECOND, equally limited exception, recorded here when the ml-tests job was
+# added (Day 40 UNet kit): that job installs CPU PyTorch from the official
+# PyTorch wheel index (download.pytorch.org/whl/cpu, the index the PyTorch
+# project documents for CPU installs, an exact version pinned) instead of the
+# CUDA build PyPI serves, plus six PyPI packages pinned to exact versions.
+# It adds no GitHub Action and no npm package, and no other job installs torch.
 
 on:
   pull_request:
@@ -185,9 +199,13 @@ jobs:
   # The backend runs on the Mac mini's system Python 3.9 (DR-003), so its
   # suite runs on 3.9 here: compatibility is tested, not assumed. Synthetic
   # data only; every JSON response is validated against Contract 11 v1.0.0.
+  # Pinned to ubuntu-24.04: by 2026-10-29 ubuntu-latest had moved to Ubuntu
+  # 26.04, which has no CPython 3.9 for setup-python ("The version '3.9' with
+  # architecture 'x64' was not found for Ubuntu 26.04"). The other jobs do not
+  # need 3.9 and stay on ubuntu-latest.
   backend-tests:
     name: "backend tests (Python 3.9, Contract 11 v1.0.0)"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -200,6 +218,19 @@ jobs:
       - name: backend test suite
         run: python -m pytest backend/tests -q -p no:cacheprovider
 
+      # QA-074 N-2 / N-4. backend.mesh serves the 3-D inspector (V2): it must import and mesh on the backend's pins
+      # (numpy 1.26.4, no scipy). This step runs BEFORE scipy is installed, so the error-geometry module (the only
+      # scipy user) skips and test_mesh_lazy_scipy proves nothing else needs it.
+      - name: backend mesh tests on the backend pins (no scipy)
+        run: python -m pytest backend/mesh/tests -q -p no:cacheprovider
+
+      # scipy is deliberately NOT in backend/requirements.txt (the wheel closure above is unchanged). 1.13.1 is the
+      # last series that ships CPython 3.9 wheels; it is installed here only to run the error-geometry tests.
+      - name: backend mesh error-geometry tests (scipy 1.13.1, test-only)
+        run: |
+          python -m pip install --quiet scipy==1.13.1
+          python -m pytest backend/mesh/tests -q -p no:cacheprovider
+
       # The deploy installs the Mac mini OFFLINE from the wheels the operator PC
       # downloads; pip evaluates markers on the host interpreter, so prove the
       # set closes over the TARGET (CPython 3.9.6, darwin, arm64).
@@ -210,23 +241,6 @@ jobs:
             --implementation cp --only-binary=:all: -r backend/requirements.txt -d /tmp/wheels-backend-host
           python backend/scripts/check_wheel_closure.py --wheels /tmp/wheels-backend-host \
             --requirements backend/requirements.txt
-
-  # Product mesh and picking are backend code too (INT-13). Keep their test
-  # signal separate, and exercise the Mac mini's Python 3.9 runtime.
-  backend-mesh-tests:
-    name: "backend mesh tests (Python 3.9)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: install backend test requirements and optional error-geometry dependency
-        run: python -m pip install --quiet -r backend/requirements-dev.txt scipy==1.13.1
-
-      - name: product mesh tests
-        run: python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
   # --------------------------------------------------------------------------
 
@@ -283,6 +297,79 @@ jobs:
               fail=1
             fi
           done
+
+          # DR-019 rule 2: committed files use placeholders (<overlay-ip>), never
+          # a private or overlay address. Only the lines ADDED by this change are
+          # scanned, so the addresses already on main (DR-019 rule 3: no rewrite)
+          # never fail a build. Flagged: 10/8, 172.16/12, 192.168/16 and the
+          # CGNAT block 100.64/10. Allowed: 10.0.2.2 (the Android emulator's
+          # alias for its host); loopback, 0.0.0.0 and the documentation ranges
+          # (RFC 5737) are outside the flagged blocks anyway. A match is exactly
+          # four dot-separated 0-255 groups that are not part of a longer dotted
+          # run, so version strings (1.2.3, 1.2.3.4.5, 10.0.26200.0) never
+          # match. A range is written short (10/8), as here: its four-part
+          # network address would be flagged like any other address in it.
+          # The address itself is never printed: this log is public too.
+          if ! python3 - "$BASE" "$HEAD" <<'PY'
+          import re, subprocess, sys
+
+          base, head = sys.argv[1], sys.argv[2]
+          diff = subprocess.run(
+              ["git", "-c", "core.quotePath=false", "diff", "-U0", "--no-color", "--no-ext-diff", base, head],
+              capture_output=True, text=True, encoding="utf-8", errors="replace")
+          if diff.returncode != 0:
+              print(f"::error::git diff failed, so the IPv4 scan saw nothing: {diff.stderr.strip()}")
+              sys.exit(1)
+
+          QUAD = re.compile(r"(?<![\w.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?!\w|\.\d)")
+
+          def flagged(groups):
+              if any(len(g) > 1 and g[0] == "0" for g in groups):
+                  return None                     # a leading zero: not written as an address
+              o = [int(g) for g in groups]
+              if any(x > 255 for x in o) or o == [10, 0, 2, 2]:
+                  return None
+              a, b = o[0], o[1]
+              if a == 10:
+                  return "10/8"
+              if a == 172 and 16 <= b <= 31:
+                  return "172.16/12"
+              if a == 192 and b == 168:
+                  return "192.168/16"
+              if a == 100 and 64 <= b <= 127:
+                  return "100.64/10 (CGNAT)"
+              return None
+
+          def prop(s):
+              return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A").replace(":", "%3A").replace(",", "%2C")
+
+          path, line, in_header, scanned, hits = None, 0, False, 0, 0
+          for raw in diff.stdout.splitlines():
+              if raw.startswith("diff --git "):
+                  path, in_header = None, True
+              elif raw.startswith("@@"):          # content lines always carry a +, - or space prefix
+                  in_header = False
+                  line = int(re.match(r"@@ -\S+ \+(\d+)", raw).group(1))
+              elif in_header:
+                  if raw.startswith("+++ "):      # the file header, never an added line
+                      target = raw[4:].strip('"')
+                      path = None if target == "/dev/null" else target[2:] if target.startswith("b/") else target
+              elif raw.startswith("+"):
+                  scanned += 1
+                  for m in QUAD.finditer(raw[1:]):
+                      block = flagged(m.groups())
+                      if block:
+                          hits += 1
+                          print(f"::error file={prop(path or '?')},line={line}::{path}:{line}: <private IPv4> in {block}"
+                                " - write a placeholder such as <overlay-ip> (DR-019 rule 2)")
+                  line += 1
+
+          print(f"IPv4 scan: {scanned} added line(s), {hits} private address(es)")
+          sys.exit(1 if hits else 0)
+          PY
+          then
+            fail=1
+          fi
 
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "no forbidden bytes in this change"
@@ -478,3 +565,104 @@ jobs:
           fi
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "mobile/ respects the spike and node-only boundaries"
+
+  # --------------------------------------------------------------------------
+  # The header's one exception (DR-021 rule 4; closes QA #65 N-5: "CI never
+  # parses or bundles the .js files"). mobile-shell above runs the plain-ESM
+  # logic tests with no npm; this job installs the LOCKED npm tree and then
+  # (1) renders the real screens (`npm run test:render`, react-test-renderer)
+  # and (2) bundles the app the way a release build does, so a JSX syntax
+  # error, a wrong import or a package missing from the lockfile fails here
+  # instead of at the device build.
+  mobile-render-bundle:
+    name: "mobile render smoke + bundle (npm ci)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The fixture generator (contracts/api/generate_fixture.py) runs inside
+      # the render smoke and in prepare.mjs.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # First-party, like setup-python. The render smoke loads its hooks with
+      # module.registerHooks (Node >= 22.15); the runner's default node is
+      # older, and the build PC runs Node 24.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: record the runtime
+        run: |
+          node --version
+          npm --version
+
+      # `npm ci` installs exactly the committed lockfile (every entry is
+      # integrity-pinned) and fails if package.json and the lock disagree.
+      # --ignore-scripts: no package code runs at install time. The lockfile
+      # has no install scripts anyway - `grep -c hasInstallScript
+      # mobile/package-lock.json` is 0 (checked 2026-10-02) - so this flag
+      # changes nothing today and keeps it that way if one is ever added.
+      - name: npm ci (locked tree, no install scripts)
+        working-directory: mobile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: render smoke (react-test-renderer, logic only - never device evidence)
+        working-directory: mobile
+        run: npm run test:render
+
+      # The same JS bundle a release build makes, minus Gradle: Metro resolves
+      # every module the app reaches (../app/core and
+      # ../contracts/api/contract.json included) and compiles it to Hermes
+      # bytecode. The output goes to the runner's temp dir, never the checkout.
+      - name: bundle export (android, fixture mode)
+        working-directory: mobile
+        env:
+          EXPO_NO_TELEMETRY: '1'
+          CI: '1'
+        run: |
+          node scripts/prepare.mjs --mode fixture --strict
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/expo-dist"
+          files=$(find "$RUNNER_TEMP/expo-dist" -type f | wc -l)
+          size=$(du -sh "$RUNNER_TEMP/expo-dist" | cut -f1)
+          echo "bundle export: $files file(s), $size in total"
+          find "$RUNNER_TEMP/expo-dist" -type f -name '*.hbc' -exec ls -l {} \;
+          if [ "$files" -eq 0 ]; then
+            echo "::error::expo export wrote no files"
+            exit 1
+          fi
+
+  # --------------------------------------------------------------------------
+  # ml/: training, inference, evaluation, the holdout lock, the Contract 2
+  # exporter and the UNet kit (tools/ml), all on synthetic data - no dataset
+  # bytes, no checkpoint, no GPU, nothing downloaded. The environment is the
+  # point: CUDA_VISIBLE_DEVICES=-1 keeps torch on the CPU, HF_HUB_OFFLINE=1
+  # keeps Hugging Face offline, so the tests that need the pinned DINOv2
+  # weights (not installed here) skip instead of failing. The versions are the
+  # ones the suite was run with locally (Python 3.12, torch 2.5.1); torch is
+  # the official CPU wheel (the header's second exception). transformers and
+  # huggingface_hub are not installed on purpose: nothing in ml/tests needs
+  # them without the weights.
+  ml-tests:
+    name: "ml tests (CPU)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CUDA_VISIBLE_DEVICES: '-1'
+      HF_HUB_OFFLINE: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: install CPU torch (official PyTorch CPU wheel index)
+        run: python -m pip install --quiet torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: install the other packages ml/ imports
+        run: |
+          python -m pip install --quiet numpy==2.2.6 scipy==1.17.1 pynrrd==1.1.3             psutil==7.2.2 jsonschema==4.26.0 pytest==8.3.4
+          python -c "import torch; print('torch', torch.__version__, 'cuda available:', torch.cuda.is_available())"
+
+      - name: ml test suite
+        run: python -m pytest ml/tests -q -p no:cacheprovider

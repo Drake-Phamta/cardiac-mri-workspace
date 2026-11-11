@@ -391,6 +391,9 @@ export function labelsForCell(cellId, comparisons) {
  */
 export function deltaFor(comparison, { metricName, stat }) {
   if (!comparison?.requested) return Object.freeze({ allowed: false, reason: comparison?.notRequestedReason ?? 'not requested' });
+  if (comparison.kind !== 'HEAD_TO_HEAD' || comparison.experimentIds.length !== 2) {
+    return Object.freeze({ allowed: false, reason: 'a delta is defined only for a two-run HEAD_TO_HEAD comparison' });
+  }
   if (comparison.numbersWithheld) return Object.freeze({ allowed: false, reason: comparison.numbersWithheld.reason });
   if (!comparison.presentation.mayShowDelta) {
     return Object.freeze({ allowed: false, reason: comparison.presentation.reason ?? comparison.comparability.verdict });

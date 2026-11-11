@@ -81,7 +81,8 @@ function regionProblems(region, shape) {
  * `requireAnchor` is true for a finding the user is creating: it is created
  * from a case/slice context, so that context must be complete (PR-FIND-01),
  * and it needs a type. It is false for a record read back from the API, where
- * `05` lets case and slice be null and findings_list rows carry no type. Such
+ * `05` lets case and slice be null (contract 1.1.0 rows carry finding_type, note
+ * and revision, but an older or partial record may not). Such
  * a record is still shown - "filtering ... cannot hide evidence identifiers"
  * - it just cannot be opened at a slice. A value that IS present must always
  * be valid: an unknown type or status is rejected either way (TC-FIND-002).
@@ -222,8 +223,8 @@ export function createRequestBody(finding) {
 }
 
 /*
- * A findings_list row -> loose fields for normalizeFinding. The contract only
- * guarantees finding_id, status and evidence on a row. The anchor may sit
+ * A findings_list row -> loose fields for normalizeFinding. Contract 1.1.0 rows
+ * carry finding_id, status, evidence, finding_type, note and revision. The anchor may sit
  * inside `evidence` or beside it, under finding_create's field names, so both
  * places are read, evidence first.
  */
@@ -278,13 +279,22 @@ export function createFindings(client, { studyId } = {}) {
     return current;
   };
 
-  async function list({ scenario = 'default' } = {}) {
-    set(loading());
-    const view = await client.call('findings_list', {}, { scenario });
+  /*
+   * Take a findings_list answer that the CALLER fetched - a screen reads the
+   * list through the shell's useCall (DR-021 rule 2: latest wins, aborted on
+   * unmount) and hands the view here. A LOADING view keeps the items already
+   * held, but the view says LOADING, so nothing is shown as current.
+   */
+  function adopt(view) {
     if (view.state !== STATE.SUCCESS) return set(view);
     const items = (view.data.items ?? [])
       .map((row) => entryFor(normalizeFinding(fieldsFromRecord(row), { requireAnchor: false })));
     return set(view, { items });
+  }
+
+  async function list({ scenario = 'default' } = {}) {
+    set(loading());
+    return adopt(await client.call('findings_list', {}, { scenario }));
   }
 
   /*
@@ -368,6 +378,7 @@ export function createFindings(client, { studyId } = {}) {
 
   return Object.freeze({
     get current() { return current; },
+    adopt,
     list,
     create,
     open,

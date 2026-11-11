@@ -31,6 +31,71 @@ it whole.
 - **N2** a reviewed mask's `source_mask_kind` (commit response and `provenance` on list rows) is
   `RAW_PREDICTION` or `PROCESSED_PREDICTION` — never `GROUND_TRUTH` (`domain_enums.review_source_mask_kind`).
 
+### DR-017 / DR-018 / DR-022 amendments to the text (2026-10-18, Day 39 override; no wire change, no version bump)
+
+- **INT-12 is hidden, not blinded (DR-017).** The evaluated `WITHHELD` case (CASE_0001) stays in the 54-case
+  population, so it counts in `evaluation_n`, `successful_n`, `metric_summary` and in `experiment_compare`
+  (population and summary). `case_capability.case_level_scope` sentence 2 now reads: no *per-case* value of the
+  case is served; the cohort statistics include it, so its values can be derived from them. The app serves no
+  ground-truth artifact, no per-case metric value and no slice-error view for it, and never names it in an
+  outlier list. `successful_n` is the number of `SUCCEEDED` rows of `experiment_cases` plus one for the `WITHHELD` row when that case
+  was evaluated.
+- **Fixture.** The default is 5 evaluated of 5 (`EXP_DEMO`: four `SUCCEEDED` rows and the `WITHHELD` CASE_0001;
+  `successful_n` 5; every summary `n` 5; compare population CASE_0001..CASE_0005). The scenarios
+  `experiment_metrics.with_failure` (6 intended, 5 evaluated) and `experiment_cases.with_failure` (adds a
+  `FAILED` CASE_0006) keep every row status reachable.
+- **N-b (DR-010 outlier).** The `WITHHELD` exclusion is part of DR-010's outlier selection: candidates are
+  `SUCCEEDED` rows only. The wire literals stay `rule_id` `DR-010` and `selection_version` `dr010-outlier/v1`
+  (DR-020: wire literals stay); `ml/evaluate.py` writes its own artifact with `DR-010-outlier` and
+  `dr010-outlier/1.0.0`, which the backend never passes through: it re-derives the selection from the per-case
+  records (`backend/app/metrics.py`). Ranking and cardinality are identical in both.
+- **N-c (validator).** `validate_response` now checks `outlier_selection` against the rows of the same response:
+  exactly the three lowest-Dice `SUCCEEDED` rows (so a `WITHHELD`, `FAILED` or `EXCLUDED` case never appears),
+  each entry's Dice, FP, FN and `analysis_run_id` equal to its row, no case twice, and the block's
+  `prediction_variant` equal to the page's. Given the request (`validate_response(..., request=request_params(contract,
+  endpoint_id, url))`, which reads the `{placeholders}` of the endpoint's path from the URL that was asked), the block's
+  `experiment_id` must also be the experiment in the path (QA_PR94_D39 NB-6); the backend tests and the generated
+  scenarios pass it, so a page of one experiment carrying another's outliers is refused. Without a request that one
+  comparison is skipped, as before.
+- **Why no version bump.** The freeze rule above asks for a new version string for additive changes to the
+  interface (fields, enums, error codes, shapes). This amendment changes the meaning text of a population rule
+  and the fixture's numbers, not a field, shape, enum, literal or error, so a consumer written against `1.1.0`
+  keeps working unchanged; a bump would force every pin (`app/core/contract.mjs`, the backend, mobile, the
+  fixtures) to move for no interface change. DR-017 lists text, fixture and tests only, and DR-020 sets the
+  same precedent ("No API version bump"). The Contract 2 validator checks of DR-018 and the DR-022 holdout
+  cases (backend ingest) do not touch this contract.
+
+### 3-D mesh content and the INT-12 mesh refusal (V2 skeleton, 2026-10-18; no wire change, no version bump)
+
+`reconstruction_get` already answers `mesh_artifact_id`, `source_mask_id`, `source_mask_kind`,
+`reconstruction_version`, the geometry block and `mesh_to_world_transform`. The backend now answers it for real
+(DR-008c = L0, `backend/mesh/`), and two things the contract text leaves open are fixed by convention. Neither adds a
+field, shape, enum, literal or error to `contract.json`, so there is no version bump (the freeze rule asks for one
+for additive changes to the interface; this is a use of what is already there).
+
+- **Mesh bytes ride the content-addressed artifact route** of `binary_delivery.content_url_rule`:
+  `GET /api/v1/artifacts/<sha256>.cmesh` answers the bytes (`application/octet-stream`, `ETag: "sha256:<hex>"`,
+  immutable). `reconstruction_get` has no `content_url` field, so the id carries the digest: `mesh_artifact_id` is
+  `MESH_<64 hex>`, the sha256 of the mesh bytes. The client derives the URL and the checksum it must verify from the
+  id alone (DR-021 rule 1: bytes that do not hash to it are `CONTRACT_DRIFT`). `binary_delivery.applies_to` still
+  lists the slice endpoints; mesh delivery is this documented extension of the same route, not a new route family.
+- **Format `cardiac-mesh/1`** (`backend/mesh/artifact.py`): the undecimated voxel-face surface (L0) with the source
+  slice of every triangle. Vertices are integer lattice corners in the source mask's **voxel-index frame** with the
+  axes of `index_convention` - `x` = column, `y` = row, `z` = slice - and voxel `k` occupying `[k, k + 1)`. While
+  `geometry_validation_status` is `GEOMETRY_NOT_VALIDATED` (every LASC 2018 header) `mesh_to_world_transform` is the
+  identity and no length is served. A pick resolves to `face_source_slice[t]` of the first triangle hit, never to the
+  floor of the hit point (the +z face of voxel k lies on z = k + 1), and a miss navigates nowhere.
+- `reconstruction_version` is `dr008c-L0/v1 sha256:<sha256 of the source mask file>`; `source_mask_id` may be the
+  run's RAW or PROCESSED prediction or the case's ground-truth mask id (`source_mask_kind` `GROUND_TRUTH`, an existing
+  enum value).
+- **INT-12.** For `CASE_0001` the ground-truth mesh is refused. `reconstruction_get` has no `GROUND_TRUTH_UNAVAILABLE`
+  in its error list (adding one would be a version bump), so the answer is `ARTIFACT_NOT_FOUND` with
+  `details.reason` = `GROUND_TRUTH_UNAVAILABLE` and nothing else; `error_reconstruction_get` answers the contract's own
+  `GROUND_TRUTH_UNAVAILABLE`. Its prediction meshes are served.
+- `error_reconstruction_get` stays the honest `ARTIFACT_NOT_FOUND` (reason names DR-005, which is open).
+- A run lists the meshes derived from its masks in `analysis_run_get.reconstruction_ids` (so SCR-03 enables 3D), and
+  `study_get.capabilities.reconstruction_3d` is true once any run has one.
+
 ### Deviations from the frozen specs, and where they are translated
 
 | Frozen spec says | Contract 11 / backend says | Translated at |
@@ -115,7 +180,8 @@ The leader's rule: **the lowest-numbered `final_holdout` case other than
 truth in the package; this case is served in `INFERENCE_REVIEW` mode with its
 ground truth withheld by configuration. The dataset is untouched and the offline
 evaluation population (54 holdout cases) is unchanged; the API serves none of
-that case's ground truth or per-case/per-slice ground-truth-derived values.
+that case's ground truth or per-case/per-slice ground-truth-derived values. The cohort statistics do include the
+case (DR-017: hidden, not blinded), so its values can be derived from them.
 
 ### Physical units
 

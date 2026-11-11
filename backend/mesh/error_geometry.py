@@ -64,29 +64,32 @@ from .geometry import (
     GeometryError,
     VolumeGeometry,
     _close,
-    validate_spacing_directions,
 )
 from .surface import CaseMesh, _level_cell, _mesh_from_region, as_binary_mask, build_case_mesh
 
 CONNECTIVITY_RANK = {6: 1, 18: 2, 26: 3}
-DEFAULT_CONNECTIVITY = 26
-CLASS_ORDER = ("FN", "FP")
 
 
-def _require_ndimage():
+def _ndimage():
+    """scipy.ndimage, imported on first use (QA-074 N-4).
+
+    The backend runtime (Python 3.9, ``backend/requirements.txt``) has no scipy: meshing and picking need only
+    numpy, so ``import backend.mesh`` must work without it. Only the error components need scipy.
+    """
     try:
         from scipy import ndimage
-    except ImportError as exc:
-        raise RuntimeError(
-            "build_error_geometry requires the optional SciPy dependency (scipy.ndimage)") from exc
+    except ImportError as exc:  # pragma: no cover - exercised by test_mesh_lazy_scipy with scipy masked
+        raise ImportError("backend.mesh.error_geometry needs scipy (scipy.ndimage); it is not part of "
+                          "backend/requirements.txt - install it where error components are built") from exc
     return ndimage
+DEFAULT_CONNECTIVITY = 26
+CLASS_ORDER = ("FN", "FP")
 
 
 def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
                        geometry: VolumeGeometry, include_meshes: bool) -> list[dict[str, Any]]:
     """Connected components of one error class, sorted, without ids yet."""
-    ndimage = _require_ndimage()
-    labels, n = ndimage.label(region, structure=structure)
+    labels, n = _ndimage().label(region, structure=structure)
     if n == 0:
         return []
     xs, ys, zs = np.nonzero(labels)                      # C order
@@ -150,12 +153,10 @@ def _component_records(region: np.ndarray, cls: str, structure: np.ndarray,
 
 
 def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: Any,
-                         shape_xyz: Any,
                          connectivity: int = DEFAULT_CONNECTIVITY, level: int = 0,
                          include_component_meshes: bool = False,
                          gt_spacing: Any = None, gt_origin: Any = None,
-                         contract_version: str = CONTRACT_VERSION,
-                         space_directions: Any = None) -> dict[str, Any]:
+                         contract_version: str = CONTRACT_VERSION) -> dict[str, Any]:
     """Candidate 3 error geometry for one prediction / ground-truth pair.
 
     ``spacing``/``origin`` describe the prediction; ``gt_spacing``/``gt_origin``
@@ -179,11 +180,6 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
     if pred.shape != gt.shape:
         raise GeometryError(GEOMETRY_MISMATCH,
                             f"pred_mask shape {pred.shape} != gt_mask shape {gt.shape}")
-    declared = VolumeGeometry(shape_xyz, spacing, origin, contract_version).shape_xyz
-    if declared != pred.shape:
-        raise GeometryError(GEOMETRY_MISMATCH,
-                            f"mask.shape {pred.shape} != declared shape_xyz {declared}; arrays are [x, y, z]")
-    spacing = validate_spacing_directions(spacing, space_directions)
     geometry = VolumeGeometry(pred.shape, spacing, origin, contract_version)
     gt_geometry = VolumeGeometry(gt.shape,
                                  spacing if gt_spacing is None else gt_spacing,
@@ -194,8 +190,7 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
         if not all(_close(x, y) for x, y in zip(a, b)):
             raise GeometryError(GEOMETRY_MISMATCH, f"prediction {field} {list(a)} != ground-truth {field} {list(b)}")
 
-    ndimage = _require_ndimage()
-    structure = ndimage.generate_binary_structure(3, CONNECTIVITY_RANK[connectivity])
+    structure = _ndimage().generate_binary_structure(3, CONNECTIVITY_RANK[connectivity])
     fn = gt & ~pred
     fp = pred & ~gt
     components = (_component_records(fn, "FN", structure, geometry, include_component_meshes)
@@ -205,9 +200,7 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
     if pred_voxels:
         surface: CaseMesh | None = build_case_mesh(pred, level, spacing=geometry.spacing,
                                                    origin=geometry.origin,
-                                                   contract_version=contract_version,
-                                                   shape_xyz=geometry.shape_xyz,
-                                                   space_directions=space_directions)
+                                                   contract_version=contract_version)
         surface_reason = None
     else:
         surface = None

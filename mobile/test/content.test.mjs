@@ -86,31 +86,52 @@ test('B6 an ETag that disagrees, or a malformed checksum, is CONTRACT_DRIFT', as
   assert.equal((await c.bytes(PATH, { checksum: SUM })).reason, 'CONTRACT_DRIFT');
   assert.equal((await c.bytes(PATH, { checksum: 'sha256:fixture-derived-not-clinical' })).reason, 'CONTRACT_DRIFT');
   const off = live(async () => answer(200, Uint8Array.from([9])));
-  assert.equal((await off.bytes('/api/v1/cases/X')).reason, 'CONTRACT_DRIFT', 'a non-artifact path is never fetched');
+  assert.equal((await off.bytes('/api/v1/cases/X', { checksum: SUM })).reason, 'CONTRACT_DRIFT', 'a non-artifact path is never fetched');
+});
+
+test('B6b DR-021 rule 1 (#77 QA N-10): no checksum stated is CONTRACT_DRIFT, never an unverified success, and nothing is fetched', async () => {
+  let calls = 0;
+  const lines = [];
+  const netLog = createNetLog({ log: (l) => lines.push(l) });
+  const c = live(async () => { calls += 1; return answer(200, BYTES, { etag: `"${SUM}"` }); }, { netLog });
+  for (const checksum of [undefined, null, '', '   ']) {
+    const v = await c.bytes(PATH, checksum === undefined ? {} : { checksum });
+    assert.equal(v.state, STATE.FATAL_INVALID, `checksum ${JSON.stringify(checksum)}`);
+    assert.equal(v.reason, 'CONTRACT_DRIFT');
+    assert.match(v.error.safeMessage, /no checksum stated/);
+    assert.ok(!v.actions.includes(RECOVERY.RETRY));
+  }
+  assert.equal(calls, 0, 'bytes that cannot be verified are not fetched');
+  assert.deepEqual(netLog.totals(), { gestures: 0, requests: 0, bytes: 0, unattributed: 0, late: 0 });
+  await assert.rejects(bytesOrThrow(c, PATH, {}), (e) => e.code === 'CONTRACT_DRIFT');
+  const ok = await c.bytes(PATH, { checksum: SUM });
+  assert.equal(ok.state, STATE.SUCCESS);
+  assert.equal(ok.data.verified, true, 'every SUCCESS is a verified one');
+  assert.equal(ok.data.checksum, SUM);
 });
 
 test('B7 network failure, timeout and 5xx-without-code are TRANSPORT_UNREACHABLE with RETRY', async () => {
   const down = live(async () => { throw new TypeError('Network request failed'); });
-  const a = await down.bytes(PATH);
+  const a = await down.bytes(PATH, { checksum: SUM });
   assert.equal(a.reason, 'TRANSPORT_UNREACHABLE');
   assert.ok(a.actions.includes(RECOVERY.RETRY));
   const hang = live((url, init) => new Promise((_, reject) => {
     init.signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); });
   }));
-  assert.equal((await hang.bytes(PATH)).reason, 'TRANSPORT_UNREACHABLE', 'the transport timeout applies');
+  assert.equal((await hang.bytes(PATH, { checksum: SUM })).reason, 'TRANSPORT_UNREACHABLE', 'the transport timeout applies');
   const crash = live(async () => answer(500, new Uint8Array(0), { 'content-type': 'application/json', 'x-body': '{"detail":"boom"}' }));
-  assert.equal((await crash.bytes(PATH)).reason, 'TRANSPORT_UNREACHABLE');
+  assert.equal((await crash.bytes(PATH, { checksum: SUM })).reason, 'TRANSPORT_UNREACHABLE');
 });
 
 test('B8 a contract error envelope maps through app/core; a bare 4xx is drift', async () => {
   const gone = live(async () => answer(404, new Uint8Array(0), {
     'content-type': 'application/json', 'x-body': '{"error":{"code":"ARTIFACT_NOT_FOUND","message":"x"}}',
   }));
-  const v = await gone.bytes(PATH);
+  const v = await gone.bytes(PATH, { checksum: SUM });
   assert.equal(v.state, STATE.EMPTY_UNAVAILABLE);
   assert.equal(v.reason, 'ARTIFACT_NOT_FOUND');
   const bare = live(async () => answer(403, new Uint8Array(0)));
-  assert.equal((await bare.bytes(PATH)).reason, 'CONTRACT_DRIFT');
+  assert.equal((await bare.bytes(PATH, { checksum: SUM })).reason, 'CONTRACT_DRIFT');
 });
 
 test('B9 the caller\'s signal aborts the request and the answer says so', async () => {
@@ -118,12 +139,12 @@ test('B9 the caller\'s signal aborts the request and the answer says so', async 
   const c = live((url, init) => new Promise((_, reject) => {
     init.signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); });
   }), { timeoutMs: 5000 });
-  const pending = c.bytes(PATH, { signal: controller.signal });
+  const pending = c.bytes(PATH, { checksum: SUM, signal: controller.signal });
   controller.abort();
   const v = await pending;
   assert.equal(v.state, STATE.EMPTY_UNAVAILABLE);
   assert.equal(v.reason, CONTENT_REASON.REQUEST_ABORTED);
-  const already = await c.bytes(PATH, { signal: controller.signal });
+  const already = await c.bytes(PATH, { checksum: SUM, signal: controller.signal });
   assert.equal(already.reason, CONTENT_REASON.REQUEST_ABORTED, 'an aborted signal never starts a request');
 });
 

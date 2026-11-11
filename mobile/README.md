@@ -13,7 +13,8 @@ git and what CI tests.
 
 ## Dependencies
 
-Runtime dependencies are exactly these; anything else is a request to the shell owner, not an edit.
+Runtime dependencies are exactly these; anything else is a request to the shell owner — Phạm Tuấn Anh (built by
+agent A2 under the Day 22 override) — not an edit.
 
 | Package | Version | License | Why |
 |---|---|---|---|
@@ -22,8 +23,8 @@ Runtime dependencies are exactly these; anything else is a request to the shell 
 | `react-native-webview` | `13.16.1` | MIT | the 3D module (WebGL2 inside a WebView, measured on the A17) — V2 |
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
-| `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, not in CI, never bundled |
-| `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — **V4 SCR-06 owns the adapter in `src/verticals/v4/`**. Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
+| `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, run in CI only by the `mobile-render-bundle` job, never bundled. Pulls in a **nested `react-is` 19.3.0** (MIT; its own caret range `^19.2.3`, locked at `node_modules/react-test-renderer/node_modules/react-is`) next to React 19.2.3 — harmless for a test-only renderer (#77 QA N-12); the top-level `react-is` 18.3.1 belongs to other packages |
+| `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — **the shell / V1 owns the adapter, `src/imaging/maskPng.js`**, shared by V1 (SCR-03, SCR-04) and V4 (SCR-06). Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
 ## Run it
 
@@ -77,20 +78,25 @@ variables: `CMW_MODE`, `CMW_STUDY_ID`, `PYTHON`. The URL is `scheme://host:port`
 with `/api/v1`, so a base URL ending in `/api/v1` is refused, and so is the README placeholder left unedited.
 
 **Redaction rule:** no backend address in anything committed — the app shows and logs it as `http://<configured>`,
-the `.build.txt` sidecar records only `sha256:` of the URL, fixture builds carry no address at all, and evidence
-copied from the server (logs, screenshots) is redacted to `<configured>` before it is committed. **The URL hash is
-for a local comparison only — never publish it** (PR text, committed sidecar): an unsalted SHA-256 of an overlay
-address can be reversed by hashing every candidate address (#77 QA N-6). Before committing a `.build.txt`, replace
-its `api_base_url` value with `<redacted>`.
+the `.build.txt` sidecar records only that one was set (`api_base_url     configured (not recorded)`) — never the
+URL and no hash of it (DR-021 rule 3: an unsalted SHA-256 of an overlay address can be reversed by hashing every
+candidate address, #77 QA N-6) — fixture builds carry no address at all, and evidence copied from the server (logs,
+screenshots) is redacted to `<configured>` before it is committed. Sidecars written before this rule (the L4 build
+`ffbf763` among them) still carry a `sha256:` value: never publish it — replace it with `<redacted>` before
+committing such a sidecar, as the L4 evidence did. Committed files name overlay addresses only by a placeholder such
+as `<overlay-ip>`; CI fails a change that adds a private IPv4 literal (DR-019 rule 2).
 
 A live build **without** a URL does not guess one: `prepare.mjs` warns, and the app opens on a
 **CONFIGURATION ERROR** screen that says what to set (`CONFIG_LIVE_URL_MISSING`) and requests nothing.
 `build-release.ps1` refuses to build a live APK without a URL at all. Fixture mode needs nothing configured.
 
 There is **no fallback** from live to fixture: an unreachable backend is `RECOVERABLE_ERROR` with Retry; the panel
-says `backend http://<configured>` (the address is never shown or logged). Release builds allow cleartext HTTP (`plugins/withCleartextLocalDemo.js`) because the overlay is the
-encrypted transport in the `09` §10 `LOCAL_DEMO` profile; a `REMOTE_DEMO` deployment removes the plugin and serves
-HTTPS. Live HTTP timings go to logcat as `CMW_HTTP {"endpointId", "status", "ms"}` — never a payload (TC-SEC-003).
+says `backend http://<configured>` (the address is never shown or logged). **Live** release builds allow cleartext
+HTTP (`plugins/withCleartextLocalDemo.js`) because the overlay is the encrypted transport in the `09` §10
+`LOCAL_DEMO` profile; fixture builds do not (DR-021 rule 5) — the plugin reads the mode `prepare.mjs` wrote to
+`src/generated/buildConfig.json`, so run `prepare.mjs` before `expo prebuild` (every build script does). A
+`REMOTE_DEMO` deployment removes the plugin and serves HTTPS. Live HTTP timings go to logcat as
+`CMW_HTTP {"endpointId", "status", "ms"}` — never a payload (TC-SEC-003).
 
 ## Build a release APK
 
@@ -107,8 +113,8 @@ It sets `JAVA_HOME` (JDK 17 — the default `java` on this machine is 1.8) and `
 **commit before you build**, uncommitted edits are not in it (the script warns). Everything the build writes, prunes
 or regenerates (`-Clean`) stays inside the staging directory; the script never deletes anything outside it. The
 APK is copied to `mobile/release/cardiac-mri-workspace-<mode>-<yyyyMMdd-HHmmss>.apk` with `<apk>.build.txt` next to
-it: build time, mode, contract version, the backend URL's sha256 (not the URL), git sha, APK sha256 and the
-`adb install -r` line. `release/`, `android/` and every
+it: build time, mode, contract version, whether a backend URL was configured (never the URL or a hash of it), git
+sha, APK sha256 and the `adb install -r` line. `release/`, `android/` and every
 `*.apk` are gitignored. The APK is signed with the template debug keystore — installable for device tests,
 not a store build.
 
@@ -130,8 +136,10 @@ the OS killed. Node tests and `expo export` are fine at any time.
 
 **A vertical edits only its own folder.** Replace the placeholder file (same name, default export) and add whatever
 else it needs next to it. The shell files — `package.json`, the lockfile, `app.json`, `metro.config.js`,
-`src/registry.js`, `src/nav/**` — belong to the shell owner; a new dependency or a new screen id is a request to
-them, not an edit. `test/registry.test.mjs` fails if a registered file goes missing.
+`src/registry.js`, `src/nav/**` — belong to the shell owner, **Phạm Tuấn Anh** (the shell was built by agent A2
+under the Day 22 override); a new dependency or a new screen id is a request to them, not an edit. Each vertical
+owns `mobile/src/verticals/v<N>/` and its tests `mobile/test/v<N>.test.mjs` / `mobile/test/v<N>_*.test.mjs` (DR-021 rule 6; CI runs every
+`mobile/test/*.test.mjs`). `test/registry.test.mjs` fails if a registered file goes missing or has no default export.
 
 The screen contract the navigator relies on:
 
@@ -151,13 +159,13 @@ it with `node --test`; keep React Native imports in `.js` files.
 
 | Module | What |
 |---|---|
-| `runtime.content` (`src/runtime/content.mjs`) | **the app's one binary path**: `content.uri(content_url)` → absolute URL for an `<Image>` (null in fixture mode); `content.bytes(content_url, {checksum, signal, kind})` → an app/core state: SUCCESS `{bytes, size, checksum, verified}`, or `EMPTY_UNAVAILABLE` (`FIXTURE_NO_BYTES`, `NO_CONTENT_URL`, `REQUEST_ABORTED`), `TRANSPORT_UNREACHABLE` (network, timeout, 5xx), `CONTRACT_DRIFT` (not an artifact path of this backend, bytes that do not hash to `checksum`, an ETag that disagrees). Every response is counted in the gesture log. **No vertical fetches bytes any other way.** |
-| `useCall` (`src/runtime/useCall.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount |
-| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first. **Only the top screen is mounted**: a covered screen unmounts and must re-read what it needs |
+| `runtime.content` (`src/runtime/content.mjs`) | **the app's one binary path**: `content.uri(content_url)` → absolute URL for an `<Image>` (null in fixture mode); `content.bytes(content_url, {checksum, signal, kind})` → an app/core state: SUCCESS `{bytes, size, checksum, verified}`, or `EMPTY_UNAVAILABLE` (`FIXTURE_NO_BYTES`, `NO_CONTENT_URL`, `REQUEST_ABORTED`), `TRANSPORT_UNREACHABLE` (network, timeout, 5xx), `CONTRACT_DRIFT` (not an artifact path of this backend, no `checksum` stated — nothing is fetched then, DR-021 rule 1 — bytes that do not hash to `checksum`, an ETag that disagrees). Every response is counted in the gesture log, under the gesture open when it was sent. **No vertical fetches bytes any other way.** |
+| `useCall` (`src/runtime/useCall.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount and when `enabled` turns false (DR-021 rule 2) |
+| `nav.setLeaveGuard(fn)` | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first, one prompt at a time (an action while a prompt is open is refused). **A guard must settle on every path:** a guard that returns a Promise must resolve it for each button *and* when the prompt is dismissed without one (`Alert.alert(..., { cancelable: true, onDismiss: () => resolve(false) })`); the shell cannot tell "still deciding" from "abandoned", so a Promise that never settles keeps the one-prompt latch closed and refuses every later Back, tab and push on that screen (`#88 QA N-3`; SCR-06 does it, render check `V4q`). **Only the top screen is mounted**: a covered screen unmounts, its guard is dropped, and it must re-read what it needs — `nav.push(id, params, returnParams)` merges `returnParams` into the covered entry so Back reopens what was on screen (#77 QA N-7, #78 QA N-8) |
 | `src/imaging/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
 | `src/imaging/maskPaths.mjs` | a decoded mask → row runs → one SVG path in source-pixel units; `disagreementRuns(gt, pred)` → TP / FP / FN |
 | `src/imaging/maskStore.mjs` | fetch → decode → path, cached per content-addressed URL (`runtime.maskStore` in live mode) |
-| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode). Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 calls it on open and on Retry) and `clearWhere(fn)` (one slice's keys, for **Refresh this slice**) — never a clear-all mid-session, so a Retry cannot turn cached revisits into traffic |
+| `src/runtime/sliceCache.mjs` | per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode). Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 and SCR-04 call it on open only) and `clearWhere(fn)` (one slice's keys, its cached "unavailable" answers included). **Retry forgets only the slice it retries**, in SCR-03 and SCR-04 alike: Retry and **Refresh this slice** call `clearWhere` for that slice and nothing else — never a clear-all mid-session, so a Retry cannot turn cached revisits into traffic |
 | `src/verticals/v1/SliceViewport.js` | the slice viewport: image + overlays + pinch/pan (provenance: Spike A S4 gestures) |
 
 ## V1 screens (SCR-02, SCR-03, SCR-04)
@@ -169,30 +177,44 @@ it with `node --test`; keep React Native imports in `.js` files.
   variant on first use (no default), then keeps it on screen; opens on the middle slice; slider + step buttons;
   pinch-zoom and pan; prediction (orange) and ground-truth (cyan) overlays with an opacity control, each toggle
   labelled in words; the per-slice Dice exactly as the server sent it; a run line with run, model family,
-  experiment and precomputed flag; entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. While the
-  viewer shows a state instead of a slice, the metric and provenance read "-" and the entries are disabled ("this
-  slice did not load") — nothing of the previously displayed slice stays on screen. **Refresh this slice** re-asks
-  the server for the current slice only. A case with **no analysis run yet** (`available_run_ids` empty) opens
-  straight into the viewer with MRI + ground truth only: the run line says so, no run / prediction / metric / error
-  request is made, and SCR-04/05/06 are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
-- **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case (or a run whose metrics answer
-  `GROUND_TRUTH_UNAVAILABLE`) gets a clear unavailable state, never an empty chart. TP / FP / FN are drawn from the
-  two masks the server served for the slice, each class with a colour **and** a name, a pixel count and a show/hide
-  switch; the counts are compared with the server's FP / FN for that slice. The worst slice is the **server's**
-  `worst_slice_selection` (DR-010a option b), first entry first — nothing is ranked on the phone (test V4x). The
-  per-slice profile places the server's entries by slice index; slices the server did not list are absent, not 0.
-  Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to the 3D error view (SCR-05).
+  experiment and precomputed flag ("loading run details…" until the run answers, "run details unavailable (reason)"
+  if it fails); entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. Back from any of them reopens
+  the run, variant and slice that were on screen (#78 QA N-8). While the viewer shows a state instead of a slice,
+  the metric and provenance read "-" and the entries are disabled ("this slice did not load") — nothing of the
+  previously displayed slice stays on screen. **Refresh this slice** re-asks the server for the current slice
+  only. A case with **no analysis run yet** (`available_run_ids` empty) opens straight into the viewer with MRI +
+  ground truth only: the run line says so, no run / prediction / metric / error request is made, and SCR-04/05/06
+  are disabled with "needs an analysis run" (V1 model #80, `NO_ANALYSIS_RUN`).
+  A run handed in by another screen that such a case does not list gets the same view, and every reason names it
+  ("requested run … is not listed for this case"); it is never asked for (#80 QA N3).
+- **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case gets a clear unavailable state,
+  never an empty chart. TP / FP / FN are drawn from the two masks the server served for the slice, each class with
+  a colour **and** a name, a pixel count and a show/hide switch; the counts are compared with the server's FP / FN
+  for that slice — only when the masks drawn are the ones the run metrics name (`reference_mask_id`,
+  `prediction_mask_id`); otherwise the screen says they differ and compares nothing (DR-013a addendum, #78 QA
+  N-6). The worst slice is the **server's** `worst_slice_selection` (DR-010a option b), first entry first
+  — nothing is ranked on the phone (test V4x); an entry outside the volume is listed as such and never opened
+  (no clamping, #78 QA N-7). The per-slice profile places the server's entries by slice index; slices the server
+  did not list are absent, not 0. Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to
+  the 3D error view (SCR-05).
   Two gates come first (#78 QA B-2, B-3). A block is listed only under the `rule_id` and `selection_version` the
   loaded contract pins; otherwise `SELECTION_RULE_UNSUPPORTED` / `SELECTION_VERSION_UNSUPPORTED` names the served
-  value, with nothing listed, jumpable or profiled. Run metrics for another `prediction_variant` than the one asked
-  for get the V1 model's variant-mismatch state, with no case metric, worst slice, profile or server comparison.
+  value, with nothing listed, jumpable or profiled. A pinned block whose `slices` is not a list is
+  `SELECTION_MALFORMED` (app/core `readSelection`, #78 QA N-10), not "no eligible slice". Run metrics for another
+  `prediction_variant` than the one asked for get the V1 model's variant-mismatch state, with no case metric, worst
+  slice, profile or server comparison.
 - **Network evidence (L4, NFR-PERF-001 limb 2)** — the MRI bytes are fetched in JS and shown as a data URI (the
   path Spike A measured), so every byte is counted: each slice switch writes one
   `CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],"cache_hit","bytes_total",…}`
-  line when the slice is on screen. No URL, host or payload is logged. Judge a capture on the laptop with
+  line when the slice is on screen; a request is listed under the gesture open when it was sent, never under a
+  later one (#77 QA N-3). After each scripted pass,
+  `CMW_NET_TOTALS {"run","pass","gestures","requests","bytes","unattributed","late"}` records the requests no
+  gesture line lists. No URL, host or payload is logged. Judge a capture on the laptop with
   `node mobile/scripts/l4-report.mjs <logcat.txt>` (rules R1–R8, `PASS` / `FAIL` / `CANNOT_JUDGE`; bytes per
   switch as n / p50 / p95 / max); the step-by-step session, with the rule table at the top, is
-  **`mobile/S1_L4_SCRIPT.md`**.
+  **`mobile/S1_L4_SCRIPT.md`**. `l4-report.mjs` does not judge `CMW_NET_TOTALS` (a design choice, the old log lines are
+  unchanged): the bytes of `late` and `unattributed` requests do not count against the L4 limit, so read that line next
+  to the verdict (the A9 judge, `device_judge.ps1`, does compare the two passes' totals, T3) (#88 QA N-4).
   Before the session, `node mobile/scripts/preflight-live.mjs --case CASE_0061` checks the live backend from the
   laptop with the app's own code: same `contract_version` as this checkout, the case, checksum-verified bytes,
   masks through `maskPng.js`, and a one-slice rehearsal of the L4 rules. The address is never printed.
@@ -203,6 +225,33 @@ it with `node --test`; keep React Native imports in `.js` files.
   nothing: `node mobile/scripts/slice-timing-report.mjs <logcat.txt>` prints n / p50 / p95 per pass
   (nearest-rank, Spike A's definition), and keeps DEV-build samples apart.
 
+## V2 screen (SCR-05) - a working skeleton
+
+SCR-05 3D Inspector (`src/verticals/v2/`) was built as a **skeleton** under the Day 39 recovery override so that hero
+steps H6 (open the 3D reconstruction, rotate / zoom / pan) and H7 (tap a region, jump to the contributing slice in
+SCR-03) run end to end on real data. Vũ Hùng Anh completes, measures and defends it (TC-3D-001..005, TC-PERF-002).
+
+- **Data.** `case_get`, `analysis_run_get`, `reconstruction_get` (the path token is `mask_id`; its value is the run's RAW
+  or PROCESSED prediction mask id, or the ground-truth id from `ground_truth_slice_get`) through `useCall`; the mesh
+  bytes through `runtime.content` (`/api/v1/artifacts/<sha256>.cmesh`, verified against the sha256 inside
+  `mesh_artifact_id = MESH_<sha256>`, DR-021 rule 1). The mesh is the undecimated L0 surface (DR-008c) in the
+  voxel-index frame, format `cardiac-mesh/1` (`backend/mesh/artifact.py`); see `contracts/api/README.md`, "3-D mesh
+  content". Fixture mode has no bytes, so it shows the honest unavailable state.
+- **Viewer.** `viewerSource.mjs` is one self-contained WebGL2 page for `react-native-webview` (adapted from Spike B,
+  provenance in its header): orbit, pinch zoom, two-finger pan, prediction (orange) and ground-truth (cyan) layers with
+  their own switch, an amber band for the selected 2D slice. The screen hands it only verified artifacts that fit the
+  case's grid.
+- **H7.** A tap resolves to `face_source_slice[t]` of the first triangle hit (not the floor of the hit point); the
+  screen shows "slice n / total"; **Open in 2D** pushes SCR-03 at that slice for the same run and variant with
+  `returnParams`, so Back reopens SCR-05 on that slice. A background tap clears the selection - nothing navigates by
+  accident. SCR-03's 3D entry now passes the variant it shows.
+- **Not done (owner):** error reconstruction (DR-005 is open; the screen says so), on-device FPS / stall / picking
+  measurements, label toggles beyond the two layers, smoothing, landscape, the 3D plane as a surface (it is a band).
+- **Tests.** `test/v2_inspector3d.test.mjs` (logic, golden artifact from the Python encoder, navigator round trip),
+  `test/v2_viewer.test.mjs` (the viewer script in node against a stubbed canvas: decode, refusal of damaged files, the
+  Python golden pick cases, tap -> slice, background tap, layers, gestures), and section 11 of the render smoke
+  (the screen with the WebView mocked: references, verified bytes, handshake, H7, unavailable / error states).
+
 ## Render-smoke harness (test-only)
 
 ```powershell
@@ -211,14 +260,30 @@ npm ci
 npm run test:render        # node --import ./test/render/hooks.mjs test/render/smoke.mjs
 ```
 
-Renders the real shell and V1 screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
-**devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg and
-safe-area-context (`test/render/mocks/`); screens get a real app/core runtime — the generated fixture bundle, or a
+Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
+**devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
+safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get a real app/core runtime — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**217** at
+this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
+`R4`, `R5` and `V4q`). `test/render/smoke.mjs` is in numbered sections:
 
-- **Not in CI** — CI runs without `node_modules`; run it locally before pushing screen changes. V2/V3/V4 may use it
-  for their own screens (add checks next to the V1 ones).
+| Section | What it renders |
+|---|---|
+| 1 – 4, 2b, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 (`R1`..`R3`) and from SCR-06 (`R4`, `R5`) restoring SCR-03's run, variant and slice (the SCR-05 entry's `returnParams` are held by `V2R14`) |
+| 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
+| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
+| 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
+
+- **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
+  `npm run test:render`, then a fixture-mode `expo export` (DR-021 rule 4); every other CI job runs without
+  `node_modules`. Still run it locally before pushing screen changes. Each vertical adds its checks in its own
+  section, next to the V1 ones.
+- **A run that does not finish fails, it does not hang.** A watchdog (`test/render/watchdog.mjs`, tested without
+  `node_modules` by `test/renderWatchdog.test.mjs`) ends the run after 8 minutes (it takes about one; set
+  `RENDER_SMOKE_TIMEOUT_MS` to change it) with `FAIL WATCHDOG ... the last check that ran was <id>` and exit code 1
+  (`#88 QA N-2`): a request that is never aborted or a leave guard that never settles shows up as a red run naming the
+  last check, not as a job that runs until the runner's own limit.
 - **Evidence of logic only, never device evidence.** No frame, gesture, decode time or network on a phone is
   measured by it; that evidence is logcat from the A17.
 
@@ -227,7 +292,7 @@ the slice cache, the overlay paths and the `CMW_GESTURE` byte counts.
 ```text
 mobile/
   App.js  index.js  app.json  metro.config.js  package.json  package-lock.json
-  plugins/withCleartextLocalDemo.js    release cleartext for LOCAL_DEMO (overlay HTTP)
+  plugins/withCleartextLocalDemo.js    release cleartext for LOCAL_DEMO (overlay HTTP), live builds only
   scripts/prepare.mjs                  generated inputs: fixture bundle + build config
   scripts/build-release.ps1            release APK + timestamp file
   scripts/l4-report.mjs                laptop-side L4 verdict from a logcat capture (CMW_GESTURE)
@@ -241,7 +306,7 @@ mobile/
   src/ui/                              StateView.js + stateCopy.mjs (7 states), NotBuiltYet.js, FixtureScenarioPanel.js, theme.js
   src/verticals/v1 v2 v3 v4/           the screens
   test/*.test.mjs                      node --test (CI)
-  test/render/                         render-smoke harness (local only, devDependency)
+  test/render/                         render-smoke harness (devDependency; CI job mobile-render-bundle)
 ```
 
 Rules carried over from `app/README.md`: product code never imports `spikes/**` (copy with a provenance header —

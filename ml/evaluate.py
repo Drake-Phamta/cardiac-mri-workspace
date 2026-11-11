@@ -547,10 +547,18 @@ def _authorize_holdout(run_dir: Path, pm: dict, split_sha: str, loaded: tuple[di
     if pm["checkpoint"].get("path") != H.BEST_CHECKPOINT:
         raise H.HoldoutAuthorizationError(f"holdout predictions must come from {H.BEST_CHECKPOINT}, "
                                           f"not {pm['checkpoint'].get('path')!r}")
-    best = run_dir / H.BEST_CHECKPOINT
-    if not best.is_file():
-        raise H.HoldoutAuthorizationError(f"{H.BEST_CHECKPOINT} is missing; the authorization cannot be verified")
-    best_sha = D.sha256_file(best)
+    derived = MF.derived_from(pm)
+    if derived is not None:
+        # EXP-D-PP (ml.postprocess.derive_run): no checkpoint file in this run directory; the checkpoint is
+        # the one named by derived_from, and the record must list EXP-D-PP with exactly that sha256.
+        best_sha = derived["checkpoint_sha256"]
+        if pm["checkpoint"]["sha256"] != best_sha:
+            raise H.HoldoutAuthorizationError("the derived run's checkpoint sha256 differs from derived_from")
+    else:
+        best = run_dir / H.BEST_CHECKPOINT
+        if not best.is_file():
+            raise H.HoldoutAuthorizationError(f"{H.BEST_CHECKPOINT} is missing; the authorization cannot be verified")
+        best_sha = D.sha256_file(best)
     block = H.verified_block(*loaded, split_sha256=split_sha, experiment_id=pm["experiment_id"],
                              checkpoint_sha256=best_sha, prediction_variant=pm["prediction_variant"],
                              postprocessing_config_sha256=pm.get("postprocessing_config_sha256"))
@@ -559,6 +567,44 @@ def _authorize_holdout(run_dir: Path, pm: dict, split_sha: str, loaded: tuple[di
                                           f"{pm['checkpoint']['sha256']}, not this run's {H.BEST_CHECKPOINT}")
     H.require_same_record(pm["holdout_authorization"], block)
     return block
+
+
+def make_pair_loader(run_dir: Path, pred_dir: Path, by_case: dict, paths, *,
+                     transform: Callable[[np.ndarray], np.ndarray] | None = None) -> Callable[[str], tuple]:
+    """load_pair(case_id) -> (prediction [Z,H,W], reference [Z,H,W], provenance), the loader
+    evaluate_population scores. The prediction file is checked against the sha256 its manifest
+    recorded, and its header geometry against the reference's; the reference comes from
+    ml.data.load_mask through `paths` (an allowlist-bound CasePaths), so ground truth is resolved
+    exactly as in every evaluation.
+
+    `transform`, if given, is applied to the verified prediction before scoring (ml.gate_img_01
+    scores post-processing candidates in memory with it); a normal evaluation passes None.
+    """
+    def load_pair(cid: str):
+        entry = by_case.get(cid)
+        if entry is None:
+            raise PredictionUnavailable("NO_PREDICTION_RECORD", f"{cid}: no entry in the predictions manifest")
+        if entry.get("status") != "SUCCEEDED":
+            raise PredictionUnavailable("INFERENCE_FAILED", f"{cid}: {entry.get('failure_reason')}")
+        pred_file = pred_dir / entry["file"]
+        if not pred_file.is_file():
+            raise PredictionUnavailable("PREDICTION_FILE_MISSING",
+                                        f"{cid}: {_rel_new(pred_file, run_dir)} is missing")
+        pred, pred_header, digest = D.read_nrrd_zyx(pred_file)
+        if digest != entry["sha256"]:
+            raise CaseEvaluationError("PREDICTION_CHECKSUM_MISMATCH", f"{cid}: prediction file changed")
+        ref, ref_header, ref_sha = D.load_mask(cid, paths)
+        for key in ("space", "space directions", "space origin"):
+            if key in ref_header and not np.array_equal(np.asarray(pred_header.get(key)),
+                                                        np.asarray(ref_header[key])):
+                raise CaseEvaluationError("GEOMETRY_MISMATCH", f"{cid}: prediction header {key} differs")
+        if transform is not None:
+            pred = transform(pred)
+        return pred, ref, {"prediction_file": _rel(pred_dir / entry["file"], run_dir),
+                           "prediction_sha256": digest,
+                           "reference_path_relative": paths[cid].mask_relative,
+                           "reference_sha256": ref_sha}
+    return load_pair
 
 
 def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict | None = None,
@@ -625,28 +671,7 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
                            str(Path(package_root).resolve()): "<package_root>",
                            str(package_root): "<package_root>"})
 
-    def load_pair(cid: str):
-        entry = by_case.get(cid)
-        if entry is None:
-            raise PredictionUnavailable("NO_PREDICTION_RECORD", f"{cid}: no entry in the predictions manifest")
-        if entry.get("status") != "SUCCEEDED":
-            raise PredictionUnavailable("INFERENCE_FAILED", f"{cid}: {entry.get('failure_reason')}")
-        pred_file = pred_dir / entry["file"]
-        if not pred_file.is_file():
-            raise PredictionUnavailable("PREDICTION_FILE_MISSING",
-                                        f"{cid}: {_rel_new(pred_file, run_dir)} is missing")
-        pred, pred_header, digest = D.read_nrrd_zyx(pred_file)
-        if digest != entry["sha256"]:
-            raise CaseEvaluationError("PREDICTION_CHECKSUM_MISMATCH", f"{cid}: prediction file changed")
-        ref, ref_header, ref_sha = D.load_mask(cid, paths)
-        for key in ("space", "space directions", "space origin"):
-            if key in ref_header and not np.array_equal(np.asarray(pred_header.get(key)),
-                                                        np.asarray(ref_header[key])):
-                raise CaseEvaluationError("GEOMETRY_MISMATCH", f"{cid}: prediction header {key} differs")
-        return pred, ref, {"prediction_file": _rel(pred_dir / entry["file"], run_dir),
-                           "prediction_sha256": digest,
-                           "reference_path_relative": paths[cid].mask_relative,
-                           "reference_sha256": ref_sha}
+    load_pair = make_pair_loader(run_dir, pred_dir, by_case, paths)
 
     population = {"role": pop["role"], "partition": partition, "manifest_id": pop["manifest_id"],
                   "path": pop_ref["path"], "sha256": pop_ref["sha256"], "case_ids": intended}
@@ -656,6 +681,8 @@ def evaluate_run(run_dir: str | Path, partition: str, *, dataset_manifest: dict 
                                  "is_frozen": split_sha == D.FROZEN_SPLIT_SHA256,
                                  "allow_unfrozen_split": bool(allow_unfrozen_split)},
                 "holdout_authorization": authorization}
+    if pm.get("postprocessing_config_sha256") is not None:      # a PROCESSED run records which config it used
+        recorded["postprocessing_config_sha256"] = pm["postprocessing_config_sha256"]
     return write_evaluation(run_dir, partition, result, experiment_id=pm["experiment_id"],
                             predictions_manifest=pm, predictions_manifest_path=pm_path, split=split,
                             manifest_extra=recorded)

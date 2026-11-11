@@ -1,6 +1,6 @@
 /*
  * SCR-03 - Case Explorer / 2D MRI Inspector (V1, Phạm Tuấn Anh; built under
- * the Day 22 override, revalidated by the owner on D23).
+ * the Day 22 override, to be revalidated by the owner on Day 23).
  *
  * `10` §3 and the DEMO_STANDARD §4 bar, and where each is met:
  *   current slice image            the MRI PNG from content_url, drawn by <Image>
@@ -101,8 +101,11 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   // A case with no analysis run yet (available_run_ids empty) opens straight
   // into the viewer with MRI + ground truth only: nothing to choose, and no
   // prediction, metric or error layer (the V1 model answers them
-  // UNAVAILABLE NO_ANALYSIS_RUN and asks for no run data).
-  const noRun = choice.reason === 'no-runs';
+  // UNAVAILABLE NO_ANALYSIS_RUN and asks for no run data). A run handed in for
+  // such a case is not listed, so it is the same no-run view, which names the
+  // run as not listed - it is never asked for (#80 QA N3).
+  const noRun = choice.runId === null && choice.choices.length === 0;
+  const notListedRunId = noRun && choice.reason === 'requested-run-not-listed' ? runId : null;
   if (!noRun && (!choice.runId || !variant)) {
     return (
       <Chooser
@@ -130,6 +133,7 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
       capability={capability}
       runId={noRun ? null : choice.runId}
       runReason={choice.reason}
+      notListedRunId={notListedRunId}
       initialVariant={noRun ? null : variant}
       initialSlice={initialSlice}
       onVariantChosen={rememberVariant}
@@ -207,7 +211,8 @@ function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVarian
  * each switch writes one CMW_GESTURE line listing every request it caused.
  */
 function Explorer({
-  runtime, nav, caseId, kase, capability, runId, runReason, initialVariant, initialSlice, onVariantChosen, onChangeRun,
+  runtime, nav, caseId, kase, capability, runId, runReason, notListedRunId, initialVariant, initialSlice, onVariantChosen,
+  onChangeRun,
 }) {
   const client = runtime.sliceClient || runtime.client;
   const net = runtime.netLog || null;
@@ -218,7 +223,11 @@ function Explorer({
   const height = shape ? shape[1] : null;
   const size = useMemo(() => (width && height ? { width, height } : null), [width, height]);
   const options = variantOptions(runtime.contract);
-  const noRunText = 'no analysis run for this case';
+  // With no run, every "why not" names the reason: no run at all, or the run
+  // asked for is not one this case lists.
+  const noRunText = notListedRunId
+    ? `requested run ${notListedRunId} is not listed for this case`
+    : 'no analysis run for this case';
 
   const model = useMemo(() => createCaseExplorer(client, { variant: initialVariant }), [client, initialVariant]);
   const [current, setCurrent] = useState(model.current);
@@ -279,14 +288,15 @@ function Explorer({
   }, [runner, model, net, client, caseId, runId, initialSlice]);
 
   // The run line: run, model family, experiment, precomputed. Read once - and
-  // never with no run: a case before its first run asks for no run data.
+  // never with no run: a case before its first run asks for no run data, not
+  // even for a run another screen asked for that the case does not list.
   useEffect(() => {
     if (!hasRun) { setRunInfo(null); return undefined; }
     let alive = true;
     (async () => {
       const r = await runtime.client.call('analysis_run_get', { run_id: runId });
       if (!alive) return;
-      if (r.state !== STATE.SUCCESS) { setRunInfo({ run: { runId }, modelFamily: null, error: r.reason }); return; }
+      if (r.state !== STATE.SUCCESS) { setRunInfo({ run: { runId }, modelFamily: null, error: r.reason || r.state }); return; }
       const d = r.data;
       let modelFamily = null;
       if (typeof d.experiment_id === 'string' && d.experiment_id) {
@@ -404,11 +414,12 @@ function Explorer({
     if (c.view.state === STATE.SUCCESS) setShown(c);
   }, [model]);
 
-  // Forget what the cache holds for one slice, plus every cached "unavailable"
-  // answer (#77 QA N-2). The other slices' answers stay, so a Retry in the
-  // middle of a session never turns an L4 revisit pass into network traffic.
+  // Retry forgets only the slice it retries (#77 QA N-2, #78 QA N-4): every
+  // cached answer for that slice, its "unavailable" ones included, and nothing
+  // else - not even another slice's "unavailable" answer, which only a fresh
+  // open drops. So a Retry in the middle of a session never turns an L4
+  // revisit pass into network traffic. SCR-04 follows the same rule.
   const forgetSlice = useCallback((zz) => {
-    if (client.clearNegative) client.clearNegative();
     if (client.clearWhere && Number.isInteger(zz)) {
       client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || (hasRun && p.run_id === runId)));
     }
@@ -541,11 +552,16 @@ function Explorer({
         await sleep(gapMs);
       }
       console.log(`CMW_RUN_END ${JSON.stringify({ run: name, pass: pass.label, steps: pass.steps.length })}`);
+      // #77 QA N-3: the session's running totals, so requests that no gesture
+      // line lists (none open when they started, or one that had already
+      // closed when they ended) are still on record. A line of its own: the
+      // laptop-side reports read CMW_RUN_END unchanged.
+      if (net) console.log(`CMW_NET_TOTALS ${JSON.stringify({ run: name, pass: pass.label, ...net.totals() })}`);
     }
     passRef.current = null;
     setNavRun(null);
-    Alert.alert(`${name} finished`, 'The steps were logged to logcat (CMW_GESTURE, CMW_SLICE, CMW_RUN_*). Nothing is computed on the phone.');
-  }, [capability, caseId, hasRun, navRun, runId, runtime.mode, stepTo, targetVariant, total]);
+    Alert.alert(`${name} finished`, 'The steps were logged to logcat (CMW_GESTURE, CMW_SLICE, CMW_RUN_*, CMW_NET_TOTALS). Nothing is computed on the phone.');
+  }, [capability, caseId, hasRun, navRun, net, runId, runtime.mode, stepTo, targetVariant, total]);
 
   // L4 (S-1 tonight): 15 slices never seen, then the same 15 back - revisits.
   const runL4 = useCallback(() => {
@@ -594,6 +610,8 @@ function Explorer({
   else if (ok && !u.mri) pixelNote = 'This response carries no content_url: no pixels to draw for this slice.';
   else if (imageError) pixelNote = `MRI slice could not be fetched: ${imageError.message}`;
   const needsRun = `needs an analysis run - ${noRunText}`;
+  const noRunLine = (notListedRunId ? `Requested run ${notListedRunId} is not listed for this case` : 'No analysis run for this case')
+    + ` - MRI${capability.groundTruthUsable ? ' and ground truth' : ''} only`;
   let errorEntry = null;
   if (!capability.groundTruthUsable) errorEntry = 'no ground truth for this case (Inference & review)';
   else if (!hasRun) errorEntry = needsRun;
@@ -607,6 +625,10 @@ function Explorer({
   if (!hasRun) reviewEntry = needsRun;
   else if (blocking) reviewEntry = notLoaded;
   else if (!(ok && predAvailable)) reviewEntry = 'needs this slice\'s prediction';
+  // #78 QA N-8: this screen unmounts under SCR-04/05/06, so each push leaves the
+  // run, variant and slice on screen in this screen's stack entry, in the same
+  // action - Back reopens exactly them, not the case's default run and slice.
+  const back = () => ({ runId, variant: displayed.variant, sliceIndex: z });
 
   return (
     <View style={s.root}>
@@ -616,8 +638,9 @@ function Explorer({
           <CapabilityBadge capability={capability} />
         </View>
         <Text style={s.runLine} numberOfLines={2}>
-          {hasRun ? runText(run, runInfo ? runInfo.modelFamily : null)
-            : `No analysis run for this case - MRI${capability.groundTruthUsable ? ' and ground truth' : ''} only`}
+          {hasRun
+            ? runText(run, runInfo ? runInfo.modelFamily : null, { loading: runInfo === null, error: runInfo ? runInfo.error : null })
+            : noRunLine}
           {runReason === 'only-run' ? ' · only run' : ''}
         </Text>
         <View style={s.variantRow}>
@@ -755,13 +778,13 @@ function Explorer({
           <Entry
             label="Error inspector (SCR-04)"
             why={errorEntry}
-            onPress={() => nav.push('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z })}
+            onPress={() => nav.push('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())}
           />
-          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z })} />
+          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())} />
           <Entry
             label="Review / correct (SCR-06)"
             why={reviewEntry}
-            onPress={() => nav.push('SCR-06', { runId, caseId, variant: displayed.variant, sliceIndex: z })}
+            onPress={() => nav.push('SCR-06', { runId, caseId, variant: displayed.variant, sliceIndex: z }, back())}
           />
         </View>
         <Text style={s.hint}>Long-press the slice label for the scripted runs (L4, A9) - timings and bytes go to logcat.</Text>

@@ -12,6 +12,7 @@ Layout under ``CARDIAC_BACKEND_DATA``::
     experiments/           Contract 2 packages (predictions, metrics)
     var/backend.sqlite3    reviews, reviewed masks, findings
     var/render_cache/      prediction slices rendered on demand
+    derived_meshes/        L0 meshes written by `python -m backend.mesh.build_cache` (SCR-05)
     logs/requests.jsonl    one JSON line per request (no client address)
 
 Other settings: CARDIAC_CORS_ORIGINS (comma-separated allowlist; empty = no
@@ -29,7 +30,7 @@ from typing import Optional, Tuple
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_ROOT.parent
 DATA_ROOT_ENV = "CARDIAC_BACKEND_DATA"
-DATA_FIELDS = ("data_cache", "db_path", "experiments_root", "render_cache", "request_log")
+DATA_FIELDS = ("data_cache", "db_path", "experiments_root", "render_cache", "request_log", "derived_meshes")
 
 
 def inside_git_worktree(path: os.PathLike) -> bool:
@@ -61,6 +62,8 @@ class Settings:
     experiments_root: Path
     render_cache: Path
     request_log: Path
+    # None = no derived meshes (every reconstruction is then unavailable); built by backend.mesh.build_cache.
+    derived_meshes: Optional[Path] = None
     study_id: str = "STUDY_LA_001"
     reviewer_header: str = "X-Reviewer-Id"
     cors_origins: Tuple[str, ...] = ()
@@ -78,12 +81,13 @@ class Settings:
             "experiments_root": _env_path("CARDIAC_EXPERIMENTS_ROOT") or (root / "experiments" if root else None),
             "render_cache": _env_path("CARDIAC_RENDER_CACHE") or (root / "var" / "render_cache" if root else None),
             "request_log": _env_path("CARDIAC_REQUEST_LOG") or (root / "logs" / "requests.jsonl" if root else None),
+            "derived_meshes": _env_path("CARDIAC_DERIVED_MESHES") or (root / "derived_meshes" if root else None),
             "study_id": os.environ.get("CARDIAC_STUDY_ID", "STUDY_LA_001"),
             "cors_origins": origins,
             "enable_docs": os.environ.get("CARDIAC_ENABLE_DOCS") == "1",
         }
         values.update(overrides or {})
-        missing = sorted(name for name, value in values.items() if value is None)
+        missing = sorted(name for name, value in values.items() if value is None and name != "derived_meshes")
         if missing:
             raise RuntimeError(
                 f"set {DATA_ROOT_ENV} to a directory outside any git work tree "
@@ -98,7 +102,7 @@ class Settings:
             if field.name not in DATA_FIELDS:
                 continue
             path = getattr(self, field.name)
-            if inside_git_worktree(path):
+            if path is not None and inside_git_worktree(path):
                 raise RuntimeError(
                     f"{field.name}={path} is inside a git work tree; derived patient data must live outside "
                     f"the repository (set {DATA_ROOT_ENV})"

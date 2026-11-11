@@ -1,6 +1,8 @@
 # Proposal: API Contract 1.2.0 mesh artifact and exact slice linkage
 
-**Status: proposal for architecture-owner review.** Contract 1.1.0 remains in force. This file does not authorize changing the frozen v1.0 spec or deploying an endpoint.
+**Status: superseded, kept for the record (2026-11-11).** Before this proposal was reviewed, `main` began serving the L0 mesh through `reconstruction_get` without a contract change (`e8fc8d6`, PR #98): the content-addressed `MESH_<sha256>` ID carries the checksum, and the `cardiac-mesh/1` bytes carry `face_source_slice`. SCR-05 on `main` therefore renders the mesh, and the "mesh unavailable" state described below no longer applies. The coordinate-frame and units rules below remain open points for review.
+
+*Original status: proposal for architecture-owner review. Contract 1.1.0 remains in force. This file does not authorize changing the frozen v1.0 spec or deploying an endpoint.*
 
 ## Why a minor contract is needed
 
