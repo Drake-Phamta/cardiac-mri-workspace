@@ -1,0 +1,4 @@
+nibabel>=5.2
+numpy>=1.26
+scikit-image>=0.22
+SimpleITK>=2.3
