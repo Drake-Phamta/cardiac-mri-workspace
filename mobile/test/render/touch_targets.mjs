@@ -5,8 +5,8 @@
  * React Native stand-ins) and measures each touchable the way React Native would size its hit area: the height its
  * style gives it (height, else minHeight, else the height of the row or column that stretches it) plus its hitSlop.
  * Every one must reach MIN_TOUCH (48 dp). A control that can be narrower than 48 dp (a short label) must say so with
- * a minWidth. There is no layout engine here: this measures what the styles ask for, not a frame on a phone; the
- * phone's own check is the uiautomator dump of the device session.
+ * a minWidth. There is no layout engine here: this measures what the styles ask for (touch_measure.mjs), not a frame
+ * on a phone; the phone's own check is the uiautomator dump of the device session.
  */
 
 import React from 'react';
@@ -14,6 +14,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import TestRenderer, { act } from 'react-test-renderer';
 
 import { MOBILE } from './hooks.mjs';
+import { hitArea, isTouchable, named } from './touch_measure.mjs';
 
 globalThis.__DEV__ = false;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -49,53 +50,7 @@ let failures = 0;
 let count = 0;
 const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; origLog(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${detail}`); };
 
-// ---- measuring ---------------------------------------------------------------------------------------------------
-
-const flat = (st) => (Array.isArray(st) ? Object.assign({}, ...st.map(flat)) : (st && typeof st === 'object' ? st : {}));
-const num = (v) => (typeof v === 'number' ? v : 0);
-const hostParent = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return p; };
-const slopOf = (node) => {
-  const h = node.props.hitSlop;
-  if (!h) return { top: 0, bottom: 0, left: 0, right: 0 };
-  if (typeof h === 'number') return { top: h, bottom: h, left: h, right: h };
-  return { top: num(h.top), bottom: num(h.bottom), left: num(h.left), right: num(h.right) };
-};
-// A style that fills its parent (StyleSheet.absoluteFill): the backdrop behind a sheet, not a sized control.
-const fillsParent = (st) => st.position === 'absolute' && st.left === 0 && st.right === 0 && st.top === 0 && st.bottom === 0;
-const innerHeight = (st, h) => h - (num(st.paddingTop ?? st.paddingVertical ?? st.padding) + num(st.paddingBottom ?? st.paddingVertical ?? st.padding))
-  - (num(st.borderTopWidth ?? st.borderWidth) + num(st.borderBottomWidth ?? st.borderWidth));
-
-// The height a style gives a node: height, else minHeight, else (in a row whose items stretch, or alignSelf stretch)
-// the inner height of its parent. null = the styles say nothing about it.
-function boxHeight(node) {
-  const st = flat(node.props.style);
-  if (typeof st.height === 'number') return st.height;
-  if (typeof st.minHeight === 'number') return st.minHeight;
-  const parent = hostParent(node);
-  if (!parent) return null;
-  const ps = flat(parent.props.style);
-  const stretched = st.alignSelf === 'stretch'
-    || (st.alignSelf === undefined && ps.flexDirection === 'row' && (ps.alignItems === undefined || ps.alignItems === 'stretch'));
-  if (!stretched) return null;
-  const outer = boxHeight(parent);
-  return outer === null ? null : innerHeight(ps, outer);
-}
-
-// { height, width } of the area that answers a touch: the box plus its hitSlop. width is null for a content-sized control.
-function hitArea(node) {
-  const st = flat(node.props.style);
-  const slop = slopOf(node);
-  const h = boxHeight(node);
-  const w = typeof st.width === 'number' ? st.width : (typeof st.minWidth === 'number' ? st.minWidth : null);
-  return {
-    height: h === null ? null : h + slop.top + slop.bottom,
-    width: w === null ? null : w + slop.left + slop.right,
-    fills: fillsParent(st),
-  };
-}
-
-const isTouchable = (n) => (n.type === 'TouchableOpacity' || n.type === 'Pressable') && typeof n.props.onPress === 'function';
-const named = (n) => n.props.testID || n.props.accessibilityLabel || n.props.accessibilityRole || 'touchable';
+// ---- measuring: see touch_measure.mjs ------------------------------------------------------------------------------------
 
 async function render(element) {
   let r;
