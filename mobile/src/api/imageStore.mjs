@@ -15,31 +15,7 @@
  * content URL is content-addressed, so a cached image can never be stale.
  */
 
-const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-// Uint8Array -> base64, without Buffer or btoa (Hermes-safe, tested against
-// Node's Buffer in test/imaging.test.mjs).
-export function bytesToBase64(bytes) {
-  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  const out = [];
-  let chunk = '';
-  let i = 0;
-  for (; i + 2 < b.length; i += 3) {
-    const n = (b[i] << 16) | (b[i + 1] << 8) | b[i + 2];
-    chunk += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + B64[(n >> 6) & 63] + B64[n & 63];
-    if (chunk.length >= 8192) { out.push(chunk); chunk = ''; }
-  }
-  const rest = b.length - i;
-  if (rest === 1) {
-    const n = b[i] << 16;
-    chunk += `${B64[(n >> 18) & 63]}${B64[(n >> 12) & 63]}==`;
-  } else if (rest === 2) {
-    const n = (b[i] << 16) | (b[i + 1] << 8);
-    chunk += `${B64[(n >> 18) & 63]}${B64[(n >> 12) & 63]}${B64[(n >> 6) & 63]}=`;
-  }
-  out.push(chunk);
-  return out.join('');
-}
+import { bytesToBase64 } from '../lib/bytes.mjs';
 
 /*
  * fetchBytes(key, { checksum }) -> Promise<Uint8Array>; in the app it is

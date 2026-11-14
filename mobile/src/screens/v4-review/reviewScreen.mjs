@@ -52,6 +52,7 @@
  * make the server build the next version without the earlier correction.
  */
 
+import { maskRuns } from '../../lib/mask.mjs';
 import {
   STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError, fitTransform, clampZoom, zoomAbout,
 } from '../../api/index.mjs';
@@ -77,23 +78,6 @@ export const PIXELS = Object.freeze({
 });
 
 const isVariant = (v) => typeof v === 'string' && Object.prototype.hasOwnProperty.call(PREDICTION_VARIANT, v);
-
-// Row runs of 1s - one rectangle per run, so a mask is a few hundred shapes,
-// not a View per pixel (the same idea as the spike's diffRuns).
-export function maskRuns(buf, nx, ny) {
-  const runs = [];
-  for (let y = 0; y < ny; y++) {
-    const row = y * nx;
-    let x = 0;
-    while (x < nx) {
-      if (!buf[row + x]) { x += 1; continue; }
-      const start = x;
-      while (x < nx && buf[row + x]) x += 1;
-      runs.push({ y, x: start, len: x - start });
-    }
-  }
-  return runs;
-}
 
 const unavailable = (reason, extra = {}) => Object.freeze({ kind: PIXELS.UNAVAILABLE, reason, retryable: false, ...extra });
 // A failed read can be tried again when its own state offers RETRY (a network failure, not a refusal).
@@ -522,7 +506,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   function layersFor(z) {
     if (!session || !pixelsReady(z)) return null;
     const [nx, ny] = shape;
-    if (!runsCache.has(z)) runsCache.set(z, maskRuns(session.sourceSlice(z), nx, ny));
+    if (!runsCache.has(z)) runsCache.set(z, maskRuns({ width: nx, height: ny, data: session.sourceSlice(z) }));
     const saved = session.savedSlice(z);
     return Object.freeze({
       source: runsCache.get(z),

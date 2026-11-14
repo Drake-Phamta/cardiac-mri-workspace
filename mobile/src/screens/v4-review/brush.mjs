@@ -47,7 +47,7 @@
  */
 
 import { CoreError, screenToSource } from '../../api/index.mjs';
-import { sha256Hex } from './sha256.mjs';
+import { sha256Hex } from '../../lib/bytes.mjs';
 import { encodeMaskPayload } from './maskPayload.mjs';
 
 // ---------------------------------------------------------------------------

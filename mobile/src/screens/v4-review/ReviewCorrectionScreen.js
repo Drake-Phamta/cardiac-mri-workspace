@@ -29,10 +29,11 @@
 
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { G, Rect } from 'react-native-svg';
+import Svg, { G, Path, Rect } from 'react-native-svg';
 
 import { RECOVERY, STATE } from '../../api/index.mjs';
 import { RADII } from './brush.mjs';
+import { runsToPath } from '../../lib/mask.mjs';
 import { decodeMaskPng } from '../../lib/maskPng';
 import useCall from '../../api/useCall';
 import StateView, { StatePanel } from '../../components/StateView';
@@ -136,7 +137,7 @@ function Canvas({ ctl, st }) {
         <Svg width="100%" height="100%" pointerEvents="none">
           <G transform={`translate(${t.panX} ${t.panY}) scale(${t.zoom})`}>
             <Rect x={0} y={0} width={nx} height={ny} fill={mri ? 'none' : LAYER.extent} />
-            {layers && <Runs runs={layers.source} fill={LAYER.source} opacity={0.45} />}
+            {layers && <Path d={runsToPath(layers.source)} fill={LAYER.source} opacity={0.45} />}
             {layers && <Runs runs={layers.saved.filter((r) => r.kind === 'add')} fill={LAYER.savedAdd} opacity={0.85} />}
             {layers && <Runs runs={layers.saved.filter((r) => r.kind === 'erase')} fill={LAYER.savedErase} opacity={0.9} />}
             {layers && <Runs runs={layers.unsaved.filter((r) => r.kind === 'add')} fill={LAYER.unsavedAdd} opacity={0.9} />}

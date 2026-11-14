@@ -15,6 +15,8 @@
  *   layers             prediction and ground truth, each with its own state; ground truth only for a case that has it
  */
 
+import { bytesToBase64 } from '../../lib/bytes.mjs';
+
 export const MESH_FORMAT = 'cardiac-mesh/1';
 export const MESH_ID = /^MESH_([0-9a-f]{64})$/;
 export const ROLES = Object.freeze({ PREDICTION: 'prediction', GROUND_TRUTH: 'groundTruth' });
@@ -83,26 +85,6 @@ export function gridMatches(header, caseShape) {
 }
 
 /* ------------------------------------------------------------------ bytes -> WebView */
-
-const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-export function bytesToBase64(bytes) {
-  const parts = [];
-  const n = bytes.length;
-  let i = 0;
-  for (; i + 2 < n; i += 3) {
-    const v = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
-    parts.push(B64[(v >> 18) & 63] + B64[(v >> 12) & 63] + B64[(v >> 6) & 63] + B64[v & 63]);
-    if (parts.length >= 8192) { parts[0] = parts.join(''); parts.length = 1; }
-  }
-  if (n - i === 1) {
-    const v = bytes[i] << 16;
-    parts.push(`${B64[(v >> 18) & 63]}${B64[(v >> 12) & 63]}==`);
-  } else if (n - i === 2) {
-    const v = (bytes[i] << 16) | (bytes[i + 1] << 8);
-    parts.push(`${B64[(v >> 18) & 63]}${B64[(v >> 12) & 63]}${B64[(v >> 6) & 63]}=`);
-  }
-  return parts.join('');
-}
 
 /* The messages the screen sends the viewer (viewerHtml.mjs protocol). */
 export const toViewer = Object.freeze({

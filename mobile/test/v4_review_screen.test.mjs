@@ -14,7 +14,8 @@ import assert from 'node:assert/strict';
 import { STATE, RECOVERY, fitTransform, fatalInvalid } from '../src/api/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
-import { createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE, maskRuns } from '../src/screens/v4-review/reviewScreen.mjs';
+import { maskRuns } from '../src/lib/mask.mjs';
+import { createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE } from '../src/screens/v4-review/reviewScreen.mjs';
 import { syntheticSourceSlice } from '../src/screens/v4-review/syntheticSource.mjs';
 import { diffRuns } from '../src/screens/v4-review/brush.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
@@ -114,7 +115,7 @@ test('RS3 a route that names the variant and slice opens there directly', async 
   const s = ctl.getState();
   assert.equal(s.phase, PHASE.READY);
   assert.equal(s.slice.index, 40);
-  const want = maskRuns(syntheticSourceSlice(576, 576, 40, 88), 576, 576);
+  const want = maskRuns({ width: 576, height: 576, data: syntheticSourceSlice(576, 576, 40, 88) });
   assert.deepEqual(s.layers.source, want, 'the drawn source is exactly the synthetic slice');
 });
 
@@ -313,7 +314,7 @@ test('RS13 live pixels: the reads, then runtime.content (mandatory checksum, unm
   const maskCall = content.calls.find((c) => c.opts.kind === 'mask');
   assert.equal(maskCall.opts.signal, life.signal, 'the unmount signal reaches the one binary path');
   assert.match(maskCall.opts.checksum, /^sha256:/, 'the slice checksum is handed over for content to verify');
-  assert.deepEqual(s.layers.source, maskRuns(Uint8Array.from(served, (v) => (v ? 1 : 0)), NX, NX), 'the served mask, decoded exactly');
+  assert.deepEqual(s.layers.source, maskRuns({ width: NX, height: NX, data: Uint8Array.from(served, (v) => (v ? 1 : 0)) }), 'the served mask, decoded exactly');
   assert.ok(s.slice.mriUri && s.slice.mriUri.startsWith('data:image/png;base64,'), 'the MRI slice is the verified data URI from the image store');
   assert.equal(s.canEdit, true);
 
@@ -413,7 +414,7 @@ test('RS16 continuing a CORRECTED review (QA-063 N-4): the latest version is the
   assert.equal(s.slice.pixels.kind, PIXELS.SERVED);
   // working = the latest version (SAVED); the source layer is the original; the saved layer is the earlier correction
   assert.equal(s.slice.maskState, MASK_STATE.SAVED);
-  assert.deepEqual(s.layers.source, maskRuns(bits(original), NX, NX));
+  assert.deepEqual(s.layers.source, maskRuns({ width: NX, height: NX, data: bits(original) }));
   assert.ok(s.layers.saved.length > 0 && s.layers.unsaved.length === 0, 'the earlier correction is drawn as saved, nothing unsaved');
   assert.equal(s.canSave, false, 'opening a corrected review is not an edit');
   // edit on top of the version: only that is unsaved

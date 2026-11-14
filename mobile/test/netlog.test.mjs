@@ -6,7 +6,8 @@ import { createHash } from 'node:crypto';
 
 import { STATE } from '../src/api/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { bytesToBase64, createImageStore } from '../src/api/imageStore.mjs';
+import { createImageStore } from '../src/api/imageStore.mjs';
+import { bytesToBase64 } from '../src/lib/bytes.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { createNetLog, utf8Length } from '../src/api/netLog.mjs';
 import { readContractJson } from './_helpers.mjs';
