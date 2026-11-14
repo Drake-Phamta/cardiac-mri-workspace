@@ -13,9 +13,9 @@ skeleton).
 - the canonical **DR-008a / DR-012 transform** as product code, plus the
   adapter that runs the canonical geometry fixture through the product mesh
   (`geometry.py`);
-- a **DR-005 candidate 3** error geometry: the prediction's surface plus
-  FP/FN connected-component markers with exact slice ranges
-  (`error_geometry.py`).
+- the **3-D error geometry** the app shows (candidate 3): the prediction's
+  surface plus one marker per FP/FN connected component, with its exact
+  slice range (`error_geometry.py`, served as `cardiac-error-geometry/1`).
 
 It is a namespace package: there is deliberately no `backend/__init__.py`.
 Import it as `backend.mesh` with the repository root on `sys.path`.
@@ -144,9 +144,31 @@ table). Surviving triangles keep the `face_source_slice`, axis and sign of
 their level-0 face. Decimated picks take the nearest hit; their error is the
 B5 measurement, bounded at ±1 slice only where Spike B shows it.
 
-## Error geometry — DR-005 candidate 3 skeleton (V2-03)
+## Error geometry — candidate 3, served to SCR-05
 
-`build_error_geometry(pred, gt, spacing=..., origin=..., connectivity=26, level=0)`
+Chosen on 2026-11-14 as the 3-D error representation (PR-ERR-03, PR-3D-05): the prediction surface plus one marker per
+FP / FN region. The app shows the prediction's own `cardiac-mesh/1` surface and draws the markers on it; a tap on a
+marker gives "FN, slices 11-13 (z = 10-12), 523 voxels" and "Open in 2D" opens SCR-03 at the marker's slice (the
+marker voxel lies inside the region, so that slice always shows it).
+
+**What is served.** `build_error_artifact(pred_zyx, gt_zyx, surface_mesh_artifact_id)` returns JSON bytes (sorted
+keys, compact, ASCII; same masks, same bytes) in the **voxel-index frame**, every number a voxel index or a voxel count:
+
+| Field | Meaning |
+|---|---|
+| `format`, `frame`, `index_convention`, `shape` | `cardiac-error-geometry/1`, `voxel-index`, `x=column,y=row,z=slice`, `[Nx, Ny, Nz]` |
+| `surface_mesh_artifact_id` | `MESH_<sha256>` of the prediction mesh the markers belong to (the app refuses markers of another surface) |
+| `connectivity`, `summary` | 26; voxel and component counts (`fp_voxels`, `fn_components`, ...) |
+| `components[]` | `id` (`FN_0001`...), `class`, `voxel_count`, `slice_range` [zmin, zmax], `marker_voxel` [x, y, z], `bbox_lo`, `bbox_hi` |
+
+No world coordinates and no lengths are served (geometry is not validated). `build_cache.py` writes one file per
+prediction of a case with ground truth, `<pred_sha256>.<gt_sha256>.errors.json` in `derived_meshes/`, write-once; this
+step needs scipy and is skipped (with a log line) without it. The API answers `error_reconstruction_get` with
+`error_mesh_artifact_id` = `ERRGEOM_<sha256 of the file>`; the bytes are at `/api/v1/artifacts/<sha256>.json`, verified
+on every read (`contracts/api/README.md`). A z-connected component spans consecutive slices, so the range is the slice
+set.
+
+**The underlying function.** `build_error_geometry(pred, gt, spacing=..., origin=..., connectivity=26, level=0)`
 returns the prediction's surface (`CaseMesh`, or `None` with
 `surface_reason` when the prediction is empty) and the connected components of
 `FP = pred & ~gt` and `FN = gt & ~pred` (`scipy.ndimage.label`; connectivity
@@ -160,9 +182,7 @@ ring. `include_component_meshes=True` adds a level-0 voxel-face mesh per
 component (enough for candidate 1's FP/FN meshes; a TP mesh is
 `build_case_mesh(pred & gt)`).
 
-DR-005 itself is decided on Day 24: Vũ Hùng Anh brings the recommendation
-from MOB-09 (compressed Spike F, F7/F8 on device) and the leader records the
-decision (DAY20 plan, D24 18:30). Choices taken for the skeleton meanwhile:
+Choices:
 
 - **Order:** FN before FP (alphabetical), then `voxel_count` descending, `zmin`
   ascending, bbox `lo` then `hi` lexicographic, then the first voxel in C order
@@ -203,7 +223,7 @@ findings**, and a `dr008a-dr012/v1.0.1` expectation yields a
 `prototypes/3d-viewer/harness/conformance.py` (its documented purpose); product
 code never imports `prototypes/`. CI runs these tests in the `backend-tests` job of
 `.github/workflows/guardrails.yml`, on Python 3.9 with the backend pins, first without scipy and then with
-scipy 1.13.1 for the error-geometry module.
+scipy 1.13.1 for the error-geometry module and the served error geometry (`backend/tests/test_meshes.py`).
 
 ## Running the tests
 
@@ -221,9 +241,9 @@ synthetic; no patient data is read or written.
 ## Dependencies
 
 Runtime: `numpy` only (the backend pins 1.26.4 on Python 3.9; 2.2 on Python 3.12 also passes). `scipy` is needed
-only by `build_error_geometry` (`scipy.ndimage` for the error components) and is imported lazily
-(QA-074 N-4): `import backend.mesh`, meshing and picking work without it, and `build_error_geometry`
-raises a clear `ImportError` where it is absent. scipy is not in `backend/requirements.txt`; 1.13.1 is the last
+only by `build_error_geometry` (`scipy.ndimage` for the error components), so only by the offline error step of
+`build_cache.py`, and is imported lazily (QA-074 N-4): `import backend.mesh`, meshing, picking and the API (which only
+reads the error files) work without it, and `build_error_geometry` raises a clear `ImportError` where it is absent. scipy is not in `backend/requirements.txt`; 1.13.1 is the last
 series with CPython 3.9 wheels (1.17 used on 3.12). Tests: `pytest` (8.3 used). Nothing else.
 
 ## Provenance
