@@ -4,7 +4,7 @@ Tệp này chỉ giữ **số đã đo** (chỉ có số tổng hợp: không gi
 Nhiều tệp nguồn (hồ sơ đo, báo cáo nguyên mẫu) đã rời cây thư mục nhưng còn trong lịch sử git: ghi chú `(565bf5e)`
 nghĩa là đọc lại bằng `git show 565bf5e:<đường dẫn>`. Dấu thập phân là dấu phẩy (0,6390), giống các bảng nguồn tiếng Việt.
 
-## 1. Phân đoạn nhĩ trái bằng DINOv2: kết quả trên tập holdout
+## 1. Phân vùng nhĩ trái bằng DINOv2: kết quả trên tập holdout
 
 ### 1.1 Dữ liệu và các run
 
@@ -114,7 +114,7 @@ Nguồn: `management/day39/RESULTS_HOLDOUT_DINOV2.md` (565bf5e) dòng "Status" v
 - Spacing trong header là placeholder (1, 1, 1), nên RVE và thể tích tính bằng **voxel**, không có mm hay mL.
 - Holdout chỉ có n = 54 case; mỗi mức dữ liệu chỉ một run, một seed; bốn CI không hiệu chỉnh đa so sánh.
 - Không augmentation, learning rate cố định, train theo lát 2D. Checkpoint chọn ở giai đoạn train sớm, chưa ổn định (epoch 6 với EXP-D-100).
-- Dice trung bình khoảng 0,64–0,66 là mức khiêm tốn cho phân đoạn nhĩ trái. Mọi run đều có case Dice dưới 0,1.
+- Dice trung bình khoảng 0,64–0,66 là mức khiêm tốn cho phân vùng nhĩ trái. Mọi run đều có case Dice dưới 0,1.
 - Không kiểm được tách biệt theo bệnh nhân (xem Spike D); tập độ nhạy n = 53 là biện pháp bù.
 
 Nguồn: `management/day39/RESULTS_HOLDOUT_DINOV2.md` (565bf5e) dòng "Geometry" và §4.

@@ -15,7 +15,7 @@ Cách đọc bảng. Cột **Trạng thái** giữ đúng ba mức của bản �
 
 | ID | Ý nghĩa | Vertical phụ trách | Trạng thái | Còn thiếu chính |
 |---|---|---|---|---|
-| PR-STUDY-01 | Một không gian nghiên cứu phân đoạn nhĩ trái: dữ liệu, case, thí nghiệm, lượt chạy, finding | V3 (Khánh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |
+| PR-STUDY-01 | Một không gian nghiên cứu phân vùng nhĩ trái: dữ liệu, case, thí nghiệm, lượt chạy, finding | V3 (Khánh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |
 | PR-COHORT-01 | Xem tóm tắt hiệu năng trên cả tập case (cohort) cho các lượt chạy so sánh được | V3 (Khánh) | Một phần | kết quả UNet (chưa train) |
 | PR-COHORT-02 | Từ phân tích cohort, tìm và mở được các case điểm thấp hoặc bất thường | V3 (Khánh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |
 | PR-CASE-01 | Duyệt và mở case MRI theo mã đã ẩn danh | V1 (Tuấn Anh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |
@@ -25,8 +25,8 @@ Cách đọc bảng. Cột **Trạng thái** giữ đúng ba mức của bản �
 | PR-IMG-01 | So sánh dự đoán thô với dự đoán đã hậu xử lý, khi có đủ hai bản | V1 (Tuấn Anh) + ML | Một phần | bằng chứng khi chạy app thật trên điện thoại |
 | PR-ERR-01 | Khi có ground truth, hiện chỗ dự đoán lệch so với nhãn chuẩn ở mức lát và pixel | V1 (Tuấn Anh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |
 | PR-ERR-02 | Từ lỗi tổng hợp hoặc lỗi của một case, bấm xuống được đúng lát MRI làm bằng chứng | V1 (Tuấn Anh) + V3 | Một phần | bằng chứng khi chạy app thật trên điện thoại |
-| PR-ERR-03 | Hiển thị lỗi phân đoạn trên mô hình 3D, liên kết với bằng chứng 2D | V2 (Hùng Anh) | Chưa có | chưa có trong app |
-| PR-3D-01 | Dựng mô hình 3D nhĩ trái từ mask phân đoạn đã kiểm | V2 (Hùng Anh) | Đủ bằng chứng | chỉ còn bước nghiệm thu |
+| PR-ERR-03 | Hiển thị lỗi phân vùng trên mô hình 3D, liên kết với bằng chứng 2D | V2 (Hùng Anh) | Chưa có | chưa có trong app |
+| PR-3D-01 | Dựng mô hình 3D nhĩ trái từ mask phân vùng đã kiểm | V2 (Hùng Anh) | Đủ bằng chứng | chỉ còn bước nghiệm thu |
 | PR-3D-02 | Xoay, phóng to, kéo mô hình 3D trên điện thoại | V2 (Hùng Anh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |
 | PR-3D-03 | Đổi lát MRI thì mặt phẳng lát trên mô hình 3D đổi theo | V2 (Hùng Anh) + V1 | Một phần | một phần chức năng hoặc hiển thị trong app |
 | PR-3D-04 | Chạm một vùng trên mô hình 3D thì nhảy tới lát MRI tương ứng | V2 (Hùng Anh) | Một phần | bằng chứng khi chạy app thật trên điện thoại |

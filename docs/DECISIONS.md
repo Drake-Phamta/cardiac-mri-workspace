@@ -5,7 +5,7 @@ nằm trong [specs/v1.0/](specs/v1.0/) (ví dụ `07` là `07_ML_AND_IMAGE_PROCE
 
 ## Sản phẩm và kiến trúc
 
-**1. App chỉ xem và rà soát kết quả đã tính sẵn.** Điện thoại không train và không chạy mô hình. Kết quả phân đoạn
+**1. App chỉ xem và rà soát kết quả đã tính sẵn.** Điện thoại không train và không chạy mô hình. Kết quả phân vùng
 được tính trước trên máy có GPU (`ml/`), đóng gói, rồi backend phục vụ cho app; yêu cầu "chạy phân tích mới" luôn
 trả `RUN_NOT_DEPLOYABLE`. Lý do: điện thoại không đủ sức chạy DINOv2 trên khối 3D, và mục tiêu môn học là khám phá,
 so sánh, sửa kết quả chứ không phải suy luận trên máy.

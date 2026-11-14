@@ -1,6 +1,6 @@
 # Cardiac MRI Workspace
 
-App Android giúp người nghiên cứu **xem và rà soát kết quả phân đoạn nhĩ trái (left atrium) trên ảnh MRI tim 3D**.
+App Android giúp người nghiên cứu **xem và rà soát kết quả phân vùng nhĩ trái (left atrium) trên ảnh MRI tim 3D**.
 Người dùng là sinh viên, người nghiên cứu ảnh y tế: họ mở từng case, lướt từng lát MRI với mask dự đoán chồng lên,
 so với ground truth, xem chỗ mô hình sai, xem mô hình 3D của nhĩ trái, so sánh các thí nghiệm (UNet và DINOv2,
 25/50/100 % dữ liệu train, có hoặc không hậu xử lý), sửa mask bằng bút và ghi lại nhận xét (finding).
@@ -8,7 +8,7 @@ so với ground truth, xem chỗ mô hình sai, xem mô hình 3D của nhĩ trá
 Dữ liệu là bộ LASC 2018 (154 ảnh MRI LGE 3D, đã ẩn danh). Kết quả mô hình được **tính sẵn** trên máy có GPU; điện
 thoại không train và không chạy mô hình.
 
-Đồ án môn Lập trình ứng dụng di động và môn Học máy. Tài liệu chính:
+Đồ án môn Phát triển ứng dụng cho các thiết bị di động và môn Học máy. Tài liệu chính:
 
 | Tài liệu | Nội dung |
 |---|---|
@@ -113,7 +113,7 @@ node app/verticals/v4_review_and_findings/test_findings.mjs
 node --test mobile/test/*.test.mjs
 cd mobile; npm ci; npm run test:render; cd ..
 
-# backend (134 test) và lưới 3D (141 test)
+# backend (135 test) và lưới 3D (141 test)
 python -m pytest backend/tests -q -p no:cacheprovider
 python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
