@@ -66,6 +66,6 @@ export function diceTile(headline) {
   });
   return Object.freeze({
     rows: Object.freeze(rows),
-    emptyText: rows.some((r) => r.fair) ? null : 'No UNet vs DINOv2 pair is judged comparable by the server yet.',
+    emptyText: rows.some((r) => r.fair) ? null : 'No UNet vs DINOv2 pair is judged comparable yet.',
   });
 }

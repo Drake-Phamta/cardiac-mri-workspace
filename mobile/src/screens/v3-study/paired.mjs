@@ -112,7 +112,12 @@ function pairedCard(comparison, cells, metricName) {
     summaryText: p.available
       ? `${metricName}, ${secondName} minus ${firstName}: ${n} case${n === 1 ? '' : 's'}, median difference ${signed(p.median)}`
       : null,
+    // The one-line caption of the chart on the page: which run minus which, how many cases, the median difference.
+    captionText: p.available ? `${secondName} − ${firstName} · ${n} case${n === 1 ? '' : 's'} · median ${signed(p.median)}` : null,
     directionText: p.available ? `Above 0: ${secondName} higher. Below 0: ${firstName} higher.` : null,
+    unpairedShort: p.available && p.unpaired > 0
+      ? `${p.unpaired} case${p.unpaired === 1 ? '' : 's'} without a value in both runs ${p.unpaired === 1 ? 'is' : 'are'} not drawn`
+      : null,
     unpairedText: p.available && p.unpaired > 0
       ? `${p.unpaired} case${p.unpaired === 1 ? '' : 's'}${p.populationChecked ? ' of the common population' : ''} without a value in both runs - not drawn`
       : null,

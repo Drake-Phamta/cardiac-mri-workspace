@@ -23,7 +23,8 @@ import {
   aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND, metricLabel, runDetails, studyDetails,
 } from '../src/screens/v3-study/about.mjs';
 import {
-  comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
+  chooseOutlierGroup, comparisonView, experimentLabel, FAMILY_STYLE, OUTLIER_LABEL, overviewView, plainText, pointDetail,
+  trianglePath,
 } from '../src/screens/v3-study/view.mjs';
 import { color, contrastRatio, family } from '../src/components/tokens.mjs';
 import { resolveConfig } from '../src/config.mjs';
@@ -113,6 +114,8 @@ test('V3U3 a COMPARABLE pair: one dot per case with a Dice in both runs, lowest 
   assert.equal(card.summaryText, 'dice, DINOv2 25 % minus UNet 25 %: 4 cases, median difference +0.065');
   assert.equal(card.directionText, 'Above 0: DINOv2 25 % higher. Below 0: UNet 25 % higher.');
   assert.equal(card.unpairedText, '1 case of the common population without a value in both runs - not drawn');
+  assert.equal(card.captionText, 'DINOv2 25 % − UNet 25 % · 4 cases · median +0.065', 'the one-line caption under the chart');
+  assert.equal(card.unpairedShort, '1 case without a value in both runs is not drawn');
 
   const detail = pairDetail(card.pairs[0], card);
   assert.equal(detail.text, 'CASE_0003: UNet 25 % 0.610, DINOv2 25 % 0.580, difference -0.030');
@@ -241,7 +244,7 @@ test('V3U8 SCR-01 tiles: case counts, findings open / resolved, median Dice only
     { value: '2', text: 'cases in the study', lines: ['1 evaluation', '1 inference & review'] });
   assert.deepEqual({ ...findingsTile(snap.findings) }, { open: 1, resolved: 0 });
   const none = diceTile(snap.headline);
-  assert.equal(none.emptyText, 'No UNet vs DINOv2 pair is judged comparable by the server yet.');
+  assert.equal(none.emptyText, 'No UNet vs DINOv2 pair is judged comparable yet.');
   assert.deepEqual(none.rows.map((r) => [r.label, r.chip, r.unetText]), [
     ['25 % data', 'Not compared', null], ['50 % data', 'Not compared', null], ['100 % data', 'Not compared', null],
   ]);
@@ -337,6 +340,61 @@ test('V3U11 the technical lines SCR-01 leaves off its surface go into the sheet;
   assert.equal(study.datasetName, 'fixture dataset');
   assert.match(study.datasetText, /DATASET_FIXTURE/, 'the version and id stay in datasetText, for the sheet');
   assert.doesNotMatch(study.datasetName, /DATASET_FIXTURE|version/);
+});
+
+test('V3U12 SCR-07 rows: one value per experiment, status only when not normal, numbers per comparison, names not ids', async () => {
+  assert.equal(experimentLabel('EXP-U-025'), 'UNet 25 %');
+  assert.equal(experimentLabel('EXP-D-PP'), 'DINOv2 100 % post-processed');
+  assert.equal(experimentLabel('EXP_DEMO'), 'EXP_DEMO', 'an id the matrix does not know is shown as sent');
+  assert.equal(plainText('EXP-U-025, EXP-D-025 not available to compare'), 'UNet 25 %, DINOv2 25 % not available to compare');
+
+  const runtime = newRuntime();
+  const client = createClient(runtime.contract, v3Transport(contractJson, runtime.bundle, { dice: SIX_RUNS }));
+  const model = createExperimentComparison(client);
+  await model.open({});
+  const snap = model.selectMetric('dice');
+  const v = comparisonView(snap, { stat: 'median', selectedCellId: null });
+  const cell = (id) => v.rows.flatMap((r) => r.cells).find((c) => c.id === id);
+  assert.deepEqual([cell('EXP-U-025').valueText, cell('EXP-U-025').bar, cell('EXP-U-025').casesText, cell('EXP-U-025').statusWord],
+    ['0.655', 0.655, '5 of 5 cases', null], 'a loaded run: the median, its bar, its case count, and no status word');
+  assert.match(cell('EXP-D-PP').statusWord, /^Not listed by the server$/, 'a run that is not simply loaded says so in words');
+  assert.equal(cell('EXP-D-PP').valueText, null, 'and has no number');
+  assert.equal(v.explicit, false);
+  const first = v.comparisons.find((c) => c.id === 'RQ-A-025');
+  assert.equal(first.rowLabel, 'UNet vs DINOv2 · 25 %');
+  assert.equal(first.deltaValueText, '+0.030', 'the median difference is the value of the row');
+  assert.equal(v.comparisons.find((c) => c.kind === 'TREND' && c.family === 'UNET').rowLabel, 'UNet 25 → 50 → 100 %');
+  assert.equal(v.trend[0].rowLabel, 'UNet 25 → 50 → 100 %');
+
+  const fresh = createExperimentComparison(client);
+  const none = comparisonView(await fresh.open({}), { stat: 'median' });
+  assert.equal(none.comparisons.find((c) => c.id === 'RQ-A-025').deltaValueText, null, 'no metric picked: no number');
+  assert.ok(v.plotNotes.every((n) => !/EXP-/.test(n)), 'the plot notes name runs, not ids');
+
+  const pair = await typedComparison({ dice: SIX_RUNS });
+  assert.equal(comparisonView(pair.selectMetric('dice'), { stat: 'median' }).explicit, true, 'opened with explicit ids');
+  const strip = pair.stripColumns();
+  const hit = pointDetail({ caseId: 'CASE_0003', value: 0.61, column: 'EXP-U-025', outlier: true, intent: null }, 'dice');
+  assert.equal(strip.length > 0, true);
+  assert.equal(hit.title, 'CASE_0003 · 0.610');
+  assert.equal(hit.caption, `Dice · UNet 25 % · one of the ${OUTLIER_LABEL}`);
+  assert.match(hit.text, /\(server\)$/, 'the full sentence stays for the record');
+});
+
+test('V3U13 SCR-01 lists the lowest-Dice cases of one experiment: DINOv2 at the largest fraction unless one is picked', async () => {
+  const runtime = newRuntime();
+  const client = createClient(runtime.contract, v3Transport(contractJson, runtime.bundle, { dice: SIX_RUNS }));
+  const groups = overviewView(await createStudyOverview(client).open({ studyId: runtime.config.studyId })).outliers.groups;
+  assert.equal(groups.length, 6);
+  assert.equal(chooseOutlierGroup(groups).experimentId, 'EXP-D-100', 'DINOv2 at the largest data fraction');
+  assert.equal(chooseOutlierGroup(groups, 'EXP-U-025').experimentId, 'EXP-U-025', 'a picked experiment wins');
+  assert.equal(chooseOutlierGroup(groups, 'EXP-NONE').experimentId, 'EXP-D-100', 'a pick that is not listed falls back');
+  const unetOnly = groups.filter((g) => g.family === 'UNET');
+  assert.equal(chooseOutlierGroup(unetOnly).experimentId, 'EXP-U-025', 'no DINOv2 list: the first experiment with values');
+  const empty = groups.map((g) => ({ ...g, view: { ...g.view, available: false, rows: [] } }));
+  assert.equal(chooseOutlierGroup(empty).experimentId, groups[0].experimentId, 'no list at all: the first group says why');
+  assert.equal(chooseOutlierGroup([]), null);
+  assert.deepEqual(groups.find((g) => g.experimentId === 'EXP-D-100').view.rows.map((r) => r.scoreText), ['0.660', '0.720', '0.840'].sort(), 'the three lowest of the run');
 });
 
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {

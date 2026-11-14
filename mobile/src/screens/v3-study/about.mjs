@@ -39,14 +39,15 @@ export function aboutData({ datasetText = null, fixture = false } = {}) {
 
 /*
  * The technical lines the main surface leaves out, as extra sections of the sheet: what the server's summary
- * contains, which capabilities it lists, and the rule behind the lowest-Dice lists.
+ * contains, which capabilities it lists, why a pair was not compared, and the rule behind the lowest-Dice lists.
  */
-export function studyDetails({ summaryText = null, capabilities = [], outlierRule = null } = {}) {
+export function studyDetails({ summaryText = null, capabilities = [], outlierRule = null, pairLines = [] } = {}) {
   return Object.freeze([
     section('Server details', [
       summaryText,
       capabilities.length ? `Capabilities: ${capabilities.join(', ')}` : null,
     ]),
+    section('Median Dice pairs', pairLines),
     section('Lowest-Dice lists', [outlierRule]),
   ].filter((s) => s.lines.length > 0));
 }
