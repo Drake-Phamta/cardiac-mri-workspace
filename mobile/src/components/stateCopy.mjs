@@ -1,21 +1,6 @@
 /*
- * What a screen SAYS in each of the seven app/core states - pure, so the copy
- * and the action list are tested in node and StateView.js only draws them.
- *
- * `10` §8 acceptance, restated as the rule each branch follows:
- *   LOADING            the request is pending; a spinner, nothing else
- *   PROCESSING         analysis is running; stay interactive; show progress
- *                      ONLY if the server sent one (SCR-09: never fabricate)
- *   EMPTY_UNAVAILABLE  the artifact is legitimately absent; say WHY, never an
- *                      empty chart, never zero (`10` §7)
- *   RECOVERABLE_ERROR  a safe reason plus the recovery app/core offered
- *   FATAL_INVALID      block the view; expose the code and a reference id
- *   STALE_MISMATCH     a version mismatch; refresh, never retry (no
- *                      last-write-wins, revision_rules)
- *   SUCCESS            the screen draws its data; nothing here
- *
- * The action list is app/core's, never extended here: a FATAL_INVALID that
- * offered RETRY would re-render the same lie.
+ * The text and buttons a screen shows for each screen state. Plain JS, so Node tests check the text
+ * and StateView.js only draws it. The actions come from api/states.mjs; this file never adds one.
  */
 
 import { STATE, RECOVERY } from '../api/states.mjs';
@@ -31,8 +16,7 @@ export const ACTION_LABEL = Object.freeze({
   [RECOVERY.VIEW_FAILURE]: 'View failure reason',
 });
 
-// Plain-language reasons for the codes a researcher actually meets. The
-// contract's own message_template is shown too; this adds what to DO.
+// Plain-language reasons for the common codes, saying what the user can do.
 const REASON_TEXT = Object.freeze({
   GROUND_TRUTH_UNAVAILABLE:
     'This case has no ground-truth mask, so error and metric views are unavailable - not zero.',
@@ -69,8 +53,7 @@ function detailLines(view, context) {
   const problems = err.detail && Array.isArray(err.detail.problems) ? err.detail.problems : [];
   for (const p of problems.slice(0, 6)) lines.push(p);
   if (problems.length > 6) lines.push(`... ${problems.length - 6} more`);
-  // The backend is named, never addressed: a screenshot of this panel is
-  // evidence that may be committed to a public repository (N-4).
+  // The backend address is masked: a screenshot of this panel may end up in a public repository.
   if (code === 'TRANSPORT_UNREACHABLE' && context.apiBaseUrl) lines.push(`backend ${maskBaseUrl(context.apiBaseUrl)}`);
   return lines;
 }
@@ -84,10 +67,7 @@ function progressText(progress) {
   return null;
 }
 
-/*
- * view    an app/core screen state ({ state, data, error, reason, actions, progress })
- * context { what: 'the case list', apiBaseUrl }
- */
+// view is a screen state; context is { what: 'the case list', apiBaseUrl }.
 export function describeState(view, context = {}) {
   const what = context.what || 'this view';
   const actions = (view.actions || []).map((id) => ({ id, label: ACTION_LABEL[id] || id }));
@@ -136,7 +116,7 @@ export function describeState(view, context = {}) {
     case STATE.SUCCESS:
       return { state: view.state, tone: TONE.NEUTRAL, spinner: false, blocking: false, title: null, body: null, details: [], actions: [] };
     default:
-      // A state app/core does not define. Treated as invalid, never as success.
+      // An unknown state is treated as invalid, never as success.
       return {
         state: STATE.FATAL_INVALID, tone: TONE.DANGER, spinner: false, blocking: true,
         title: 'Unknown screen state', body: `app/core returned an unknown state: ${view && view.state}`,

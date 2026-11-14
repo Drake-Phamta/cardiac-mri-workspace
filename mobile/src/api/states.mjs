@@ -1,16 +1,7 @@
 /*
- * The 15 contract error codes, mapped once to what a screen must do.
- *
- * This table is the deliverable. Every vertical reads it instead of re-reading
- * `10` section 8, and test_errors.mjs asserts it code by code so it cannot
- * drift quietly. Three rules decided its shape:
- *
- *   - an absent artifact is UNAVAILABLE, never an empty chart and never a zero
- *     mask (`10` section 7);
- *   - a wrong reference or an unvalidated geometry BLOCKS the view rather than
- *     rendering something misleading (`10` section 8, TC-REL-003);
- *   - STALE_REVISION never offers RETRY. Retrying a stale write is last-write-
- *     wins, which revision_rules forbids.
+ * Maps the 15 contract error codes to a screen state and the actions a user may take (spec 10 §7-8).
+ * A missing artifact is UNAVAILABLE (never an empty chart or a zero mask), a bad reference or an
+ * unvalidated geometry blocks the view, and a stale write never offers RETRY.
  */
 
 import { CoreError } from './contract.mjs';
@@ -51,8 +42,7 @@ const MAP = Object.freeze({
   UNAUTHORIZED: { state: STATE.RECOVERABLE_ERROR, actions: [RECOVERY.REAUTH] },
 });
 
-// Codes the client itself raises. They are not in the contract because no
-// server sends them, but a screen still has to show something honest.
+// Codes the app raises itself. No server sends them, so they are not in the contract.
 export const CLIENT_CODES = Object.freeze({
   TRANSPORT_UNREACHABLE: { state: STATE.RECOVERABLE_ERROR, actions: [RECOVERY.RETRY], httpStatus: null },
   FIXTURE_SCENARIO_MISSING: { state: STATE.EMPTY_UNAVAILABLE, actions: [], httpStatus: null },
@@ -76,11 +66,7 @@ export function parseErrorEnvelope(body, httpStatus) {
   };
 }
 
-/*
- * context.runStatus lets one row be context-sensitive: a run that has not
- * succeeded because it is still QUEUED or RUNNING is PROCESSING, which `10`
- * section 8 requires to stay interactive, not an unavailable screen.
- */
+// A run that is still QUEUED or RUNNING (context.runStatus) shows PROCESSING, not an unavailable screen.
 export function classifyError(contract, code, context = {}) {
   const client = CLIENT_CODES[code];
   const contractRow = MAP[code];
@@ -122,21 +108,9 @@ function clientMessage(code) {
 }
 
 /*
- * The seven screen states every vertical renders, and the only constructors
- * for them.
- *
- * A screen never assembles a state object literal. It calls one of these, so
- * four invariants hold in four verticals without four people remembering them:
- *
- *   - `data` is non-null ONLY in SUCCESS. An error state carrying half a
- *     payload is how a stale mask ends up drawn under an error banner.
- *   - FATAL_INVALID never offers RETRY. `10` section 8 blocks the view on a bad
- *     reference or an unvalidated geometry; retrying re-renders the same lie.
- *   - EMPTY_UNAVAILABLE always carries a reason. "No data" with no reason is
- *     indistinguishable from a bug, and `10` section 7 requires the screen to
- *     say that the artifact is absent, not to show an empty chart.
- *   - Every non-SUCCESS state carries `actions`, possibly empty. An empty list
- *     is a decision ("nothing the user can do here"), not an oversight.
+ * Screen states. Screens build them only through these functions, which keep three rules:
+ * data is set only in SUCCESS (so an old mask is never drawn under an error), FATAL_INVALID
+ * never offers RETRY, and EMPTY_UNAVAILABLE always says why.
  */
 
 export const ALL_STATES = Object.freeze(Object.values(STATE));
@@ -183,16 +157,12 @@ export function fatalInvalid(error, actions = [RECOVERY.BACK]) {
 }
 
 export function staleMismatch(error, actions = [RECOVERY.REFRESH]) {
-  // RETRY on a stale write is last-write-wins, which revision_rules forbids.
+  // RETRY on a stale write would be last-write-wins, which the contract forbids.
   const list = actions.filter((a) => a !== RECOVERY.RETRY);
   return make(STATE.STALE_MISMATCH, { error, reason: error?.code || null, actions: Object.freeze(list) });
 }
 
-/*
- * The single entry point a screen uses on a failed call: classify, then build
- * the matching state. Nothing else in a vertical should branch on an error
- * code, and test_screen_state.mjs walks all 15 codes through this function.
- */
+// What a screen calls on a failed request, so no screen branches on error codes itself.
 export function stateForError(contract, code, context = {}) {
   const classified = classifyError(contract, code, context);
   switch (classified.state) {

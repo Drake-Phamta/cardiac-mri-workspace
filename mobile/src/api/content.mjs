@@ -1,36 +1,7 @@
 /*
- * runtime.content - the app's ONE binary path, shared by every vertical.
- *
- * Contract v1.0 `binary_delivery`: slice endpoints answer JSON metadata that
- * carries `content_url` (immutable, content-addressed under
- * /api/v1/artifacts/) and `checksum` ("sha256:<hex>"); the bytes come from
- * content_url, they hash to that checksum, and the artifact route answers
- * with an ETag equal to it. Every vertical that needs bytes - V1 overlays and
- * MRI, V4 brush editing, anything later - goes through here, so all of them
- * get the same timeout, the same error mapping, the same checksum check and
- * the same network accounting, instead of one bare fetch each.
- *
- *   content.uri(content_url)
- *       -> absolute URL for an <Image>, or null (fixture mode, or not an
- *          artifact path of this backend)
- *   content.bytes(content_url, { checksum, signal, kind })
- *       -> Promise of an app/core screen state, never a throw:
- *          SUCCESS            data = { bytes: Uint8Array, size, checksum, verified }
- *          EMPTY_UNAVAILABLE  FIXTURE_NO_BYTES (fixture mode: nothing behind any
- *                             URL), NO_CONTENT_URL, REQUEST_ABORTED (the
- *                             caller's signal fired - discard it)
- *          RECOVERABLE_ERROR  TRANSPORT_UNREACHABLE (network, timeout, 5xx
- *                             without a contract code) - RETRY
- *          FATAL_INVALID      CONTRACT_DRIFT (a URL outside the artifact route,
- *                             no checksum stated, bytes that do not hash to
- *                             the checksum, an ETag that disagrees, a 4xx
- *                             without a contract code)
- *          + the contract code's own state for an error envelope
- *            (ARTIFACT_NOT_FOUND -> EMPTY_UNAVAILABLE, ...)
- *
- * Only artifact paths of the configured backend are fetched: a content_url
- * pointing at another host is CONTRACT_DRIFT, never a request. Every
- * response is reported to runtime.netLog as `artifact:<kind>` with its size.
+ * The one path for artifact bytes (MRI slices, masks). bytes(content_url, { checksum }) fetches from
+ * this backend's /artifacts/ route, checks the bytes against the stated sha256 and returns a screen
+ * state, never a throw. A content_url on another host is CONTRACT_DRIFT and is never fetched.
  */
 
 import { emptyUnavailable, fatalInvalid, stateForError, success, parseErrorEnvelope } from './states.mjs';
@@ -59,7 +30,7 @@ export function createContent({
   const base = live ? String(baseUrl).replace(/\/+$/, '') : null;
   const artifactPrefix = `${contract.basePath}/artifacts/`;
 
-  // content_url -> absolute URL of THIS backend's artifact route, or null.
+  // content_url -> absolute URL on this backend's artifact route, or null.
   function resolve(contentUrl) {
     if (!live || typeof contentUrl !== 'string') return null;
     const u = contentUrl.trim();
@@ -76,10 +47,8 @@ export function createContent({
       return drift(`content_url is not an artifact path of the configured backend (${artifactPrefix}…)`,
         ['content_url outside the artifact route - not fetched']);
     }
-    // DR-021 rule 1 (#77 QA N-10): every content URL's bytes are verified
-    // against the SHA-256 the server stated for them. A response that states
-    // none cannot be verified, so it is CONTRACT_DRIFT - never an unverified
-    // success - and nothing is fetched for it.
+    // Bytes are always checked against the stated SHA-256, so a missing checksum is
+    // CONTRACT_DRIFT (never an unchecked success) and nothing is fetched.
     if (checksum === null || checksum === undefined || String(checksum).trim() === '') {
       return drift('no checksum stated for this content_url - its bytes cannot be verified',
         ['checksum missing - not fetched']);
@@ -89,7 +58,7 @@ export function createContent({
     const expected = m[1].toLowerCase();
     if (signal && signal.aborted) return emptyUnavailable(CONTENT_REASON.REQUEST_ABORTED);
 
-    // The gesture open as the request starts is the one it belongs to (#77 QA N-3).
+    // The request belongs to the gesture that is open when it starts.
     const gesture = netLog ? netLog.openSeq : null;
     const record = (bytesCount, status, t0) => {
       if (netLog) netLog.record({ endpoint: `artifact:${kind}`, bytes: bytesCount, ms: now() - t0, status, seq: gesture });
@@ -170,11 +139,7 @@ export function createContent({
   });
 }
 
-/*
- * For stores that cache bytes and want a plain value-or-throw: a non-SUCCESS
- * state becomes an Error carrying it (`err.view`), so the layer can say why
- * it is unavailable with the same words as everywhere else.
- */
+// For caches that want value-or-throw: a non-SUCCESS state becomes an Error with the state in err.view.
 export async function bytesOrThrow(content, contentUrl, options) {
   const view = await content.bytes(contentUrl, options);
   if (view.state === 'SUCCESS') return view.data.bytes;

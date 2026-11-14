@@ -1,11 +1,6 @@
 /*
- * Cardiac MRI Workspace - the app shell.
- *
- * Loads the runtime (build config + contract + one app/core client), then
- * hands it to the navigator. If the runtime cannot be built - a contract the
- * app/core loader refuses, a fixture bundle that drifted, a bad base URL -
- * the app shows that as a blocking screen with every problem listed, rather
- * than starting with a client it cannot trust.
+ * The app root: loads the runtime and hands it to the navigator. If the runtime cannot be built (a bad
+ * contract, fixture bundle or base URL), it shows a blocking screen that lists every problem instead.
  */
 
 import React, { useMemo } from 'react';

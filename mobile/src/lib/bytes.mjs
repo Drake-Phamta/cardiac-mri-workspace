@@ -1,15 +1,7 @@
 /*
- * SHA-256 (FIPS 180-4) over bytes, for the content_url checksum check of
- * contract v1.0 binary_delivery ("its bytes hash to the response checksum").
- *
- * PROVENANCE - a COPY, not an import (product code never imports spikes/**).
- *   source : spikes/spike_a_2d/app/viewerMath.js - K and sha256Hex
- *   commit : 1b362e8 "SPIKE_A S4: pinch-zoom and pan, with an on-device A2 checksum check"
- *   blob   : e4275a93ad8f1282beed27d7af7767e06af96f44
- *   copied : 2026-10-01, unchanged except formatting.
- * Hermes has no WebCrypto. This function ran on the A17 in Spike A's A2
- * session (16/16 slice checksums matched the fixture) and is re-checked
- * against node:crypto in test/content.test.mjs.
+ * Byte helpers in plain JS, because Hermes has no WebCrypto, Buffer or btoa: SHA-256 for the
+ * content_url checksum check, and base64. sha256Hex is copied unchanged from the 2D viewer prototype,
+ * where it ran on the phone; the tests compare it with node:crypto.
  */
 
 const K = new Uint32Array([

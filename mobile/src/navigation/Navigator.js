@@ -1,16 +1,7 @@
 /*
- * Renders the navigator: a header with Back and the screen id, the top
- * screen of the stack, and the tab bar of the `10` §2 tree (Study, Cases,
- * Experiments, Findings). Android's back button pops the stack.
- *
- * Each screen is wrapped in an error boundary. Four verticals land code in
- * this app; one of them throwing must block ITS screen with a visible
- * FATAL_INVALID, not take the other three down with a white crash.
- *
- * Only the TOP screen is mounted. A screen that is covered by a push, popped,
- * replaced or reset away UNMOUNTS - its React state is gone, and it re-reads
- * what it needs when it is shown again. A screen with something to lose
- * registers nav.setLeaveGuard(fn) (see navigator.mjs) and is asked first.
+ * Draws the navigator: a header with Back, the top screen of the stack, and the tab bar. Only the top
+ * screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in
+ * an error boundary, so a crash blocks only that screen with FATAL_INVALID instead of the whole app.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
@@ -30,19 +21,8 @@ import ReviewCorrectionScreen from '../screens/v4-review/ReviewCorrectionScreen'
 import ExperimentComparisonScreen from '../screens/v3-study/ExperimentComparisonScreen';
 import FindingsScreen from '../screens/v4-review/FindingsScreen';
 
-/*
- * SCR-01..SCR-08 -> the component that renders it.
- *
- * Owned by the shell (V1 / Integration). A vertical does NOT edit this file:
- * it replaces the screen file this table already points at, inside its own
- * folder. The ids, titles, owners and paths are in src/nav/screens.mjs, and
- * mobile/test/registry.test.mjs checks that every entry below matches that
- * table and that every file exists - so a renamed screen fails a test, not a
- * phone.
- *
- * Static `import`s on purpose: Metro bundles what it can see, and a computed
- * require would be a screen that exists in git but not in the APK.
- */
+// Screen id -> component. Static imports, because Metro bundles only what it can see.
+// A test checks this table against routes.mjs, so a renamed screen fails a test, not the phone.
 
 const REGISTRY = Object.freeze({
   'SCR-01': StudyOverviewScreen,
@@ -105,15 +85,12 @@ export default function NavigatorView({ runtime, initialScreenId }) {
   const meta = screenMeta(current.screenId);
   const Screen = componentFor(current.screenId);
 
-  // A guard lives while its screen is on top (#77 QA N-7): a covered screen
-  // unmounts, so its guard goes too - it never answers for edits that are gone.
-  // Child effects run first, so the new top screen's own guard is already set.
+  // A guard lives only while its screen is on top. Child effects run first, so the new top
+  // screen's own guard is already set when this prunes the others.
   useEffect(() => { guards.prune([current.key]); }, [current.key, guards]);
 
-  // Android back: pop (asking the current screen's leave guard, if any). At
-  // the root with no guard the system default applies (the app goes to the
-  // background); at the root WITH a guard, the guard decides first. While a
-  // guard prompt is open, another press is consumed and refused.
+  // Android back pops, asking the leave guard first. At the root without a guard the system default
+  // applies (the app goes to the background). While a guard prompt is open, another press is ignored.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (nav.canGoBack) { nav.pop(); return true; }
@@ -247,16 +224,8 @@ const s = StyleSheet.create({
   tabActive: { color: color.accent },
 });
 
-/*
- * Fixture mode only: choose which generated scenario each endpoint answers
- * with, so every `10` §8 state can be shown on the phone without a code
- * change (TC-MOBILE-STATE-001). The scenario names are the generator's
- * (contracts/api/generate_fixture.py), listed from the bundle - nothing
- * here invents a response.
- *
- * Tap a row to cycle that endpoint through its scenarios. The open screen
- * re-mounts and re-fetches after every change.
- */
+// Fixture mode only: tap an endpoint to cycle through its generated scenarios, so every screen state
+// can be shown on the phone. The open screen reloads after each change.
 
 function FixtureScenarioPanel({ visible, onClose, overrides }) {
   const [, setTick] = useState(0);

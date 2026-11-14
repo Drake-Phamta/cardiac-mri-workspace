@@ -1,20 +1,7 @@
 /*
- * Decoded mask -> what the screen draws.
- *
- * A mask slice is Ny x Nx values as maskPng.js returns them - 0 = background,
- * 1 = foreground (the contract's 0 / 255, validated and mapped there). Any
- * nonzero value counts as foreground here. It is drawn as ONE vector path
- * of row runs in SOURCE pixel units:
- *
- *     M x y h len v 1 h -len z      one rectangle per run of foreground pixels
- *
- * placed with the same display transform as the MRI image (an SVG whose
- * viewBox is the source grid). Zoom and pan therefore move the overlay and the
- * image together by construction - the overlay is never re-sampled, so it
- * cannot drift off the anatomy (TC-MASK-001), and pixel (x, y) of the mask is
- * exactly pixel (x, y) of the slice (DR-008a: x = column, y = row).
- *
- * Pure functions on typed arrays: tested in node, run unchanged on Hermes.
+ * Turns a decoded mask (0 = background, nonzero = foreground) into one SVG path of row runs in source pixels.
+ * The path uses the same transform as the MRI image, so zoom and pan move both together and mask
+ * pixel (x, y) stays on slice pixel (x, y), with x = column and y = row.
  */
 
 
@@ -32,10 +19,7 @@ export function foregroundCount(mask) {
   return n;
 }
 
-/*
- * Row runs of pixels where `pick(i)` is true. Returned as a flat Int32Array of
- * (y, x, len) triples - compact enough to cache per slice.
- */
+// Row runs where pick(i) is true, as a flat Int32Array of (y, x, len) triples, small enough to cache.
 function runsWhere(width, height, pick) {
   const out = [];
   for (let y = 0; y < height; y += 1) {
@@ -75,16 +59,9 @@ export function runPixelCount(runs) {
 }
 
 /*
- * SCR-04's disagreement classes, pixel by pixel, from the two masks the server
- * served (ground truth and the prediction of the ACTIVE variant):
- *
- *   TP  in both              FP  prediction only            FN  ground truth only
- *
- * This is a drawing of two served artifacts, not a metric: the per-slice
- * numbers on screen come from the server (analysis_slice_metrics and the
- * worst_slice_selection block), and nothing here ranks slices (DR-010).
- * Both masks must share the slice geometry; a mismatch is refused, never
- * cropped or stretched to fit.
+ * Pixel classes for the error view: TP in both masks, FP prediction only, FN ground truth only.
+ * This is only a drawing; the numbers on screen come from the server. Masks of different sizes are
+ * refused, never cropped or stretched.
  */
 export function disagreementRuns(groundTruth, prediction) {
   check(groundTruth);

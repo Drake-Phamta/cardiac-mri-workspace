@@ -1,13 +1,7 @@
 /*
- * The accepted API contract, loaded and frozen.
- *
- * Takes already-parsed JSON: nothing in app/core touches the filesystem except
- * app/core/node/loadFromDisk.mjs, because on a device the contract is a bundled
- * asset whatever TECH_STACK_ADR eventually picks.
- *
- * Version comparison is whole-string equality. There is no "nearest compatible"
- * here and there must never be one - tests/fixtures/geometry/FORMAT.md and
- * TC-REL-003 both turn on an exact geometry contract version.
+ * The API contract (contract.json), checked once and frozen.
+ * It takes already-parsed JSON, because on the phone the contract is a bundled asset, not a file.
+ * Versions must match exactly; there is no "nearest compatible" version.
  */
 
 export const EXPECTED = Object.freeze({
@@ -36,11 +30,7 @@ function deepFreeze(value) {
   return value;
 }
 
-/*
- * Returns a frozen Contract, or throws CoreError('CONTRACT_INVALID') listing
- * every problem at once - a loader that reports one problem per run turns a
- * contract bump into an afternoon.
- */
+// Throws CONTRACT_INVALID with every problem found, not only the first one.
 export function createContract(json) {
   const problems = [];
   const need = (cond, message) => { if (!cond) problems.push(message); };
@@ -115,19 +105,9 @@ export function listEndpoints(contract) {
 }
 
 /*
- * Endpoint resolution against the accepted contract.
- *
- * Two facts about contract.json shape every decision here:
- *   1. a path is already fully qualified - it starts with /api/v1, so nothing
- *      concatenates base_path onto it;
- *   2. query parameters are baked into the path string, and the query parameter
- *      NAME differs from the placeholder TOKEN:
- *          /api/v1/analysis-runs/{run_id}/metrics?prediction_variant={variant}
- *          /api/v1/experiments/compare?ids={experiment_ids}
- *      Two endpoints even use {variant} under different names (prediction_variant=
- *      for the metrics/error family, variant= for prediction_slice_get).
- * Callers therefore key params by TOKEN, and this module keeps the contract's
- * parameter names verbatim. No caller ever writes a URL template by hand.
+ * Paths in contract.json already start with /api/v1 and carry their query, e.g.
+ * /api/v1/experiments/compare?ids={experiment_ids}. The query name can differ from the
+ * {token}, so callers pass params keyed by token and never build a URL by hand.
  */
 
 const TOKEN = /\{([a-z_][a-z0-9_]*)\}/gi;
@@ -163,16 +143,12 @@ function serialize(token, value, endpointId) {
   if (value === undefined || value === null || value === '') {
     throw new CoreError('MISSING_PARAM', { endpointId, token });
   }
-  // Only experiment_ids is a list today; joining with a comma keeps the id
-  // readable in a log, which a percent-encoded comma would not.
+  // A list (experiment_ids) keeps plain commas so the ids stay readable in a log.
   const raw = Array.isArray(value) ? value.join(',') : String(value);
   return encodeURIComponent(raw).replace(/%2C/g, ',');
 }
 
-/*
- * Every token must be supplied. A default would be a silent substitution, and
- * `11` section 6 forbids exactly that for the prediction variant.
- */
+// Every token is required: a default would silently swap the prediction variant (spec 11 §6).
 export function resolveEndpoint(contract, endpointId, params = {}) {
   const endpoint = getEndpoint(contract, endpointId);
   const parsed = parseEndpointPath(endpoint.path);
@@ -204,17 +180,11 @@ export function resolveEndpoint(contract, endpointId, params = {}) {
     groundTruthBehavior: endpoint.ground_truth_behavior,
     allowedErrors: new Set(endpoint.errors),
     responseFields: Object.freeze([...(endpoint.response_fields || [])]),
-    // List endpoints (contract v1.0.0) say which fields live on each item;
-    // null for an endpoint without row_fields.
     rowFields: Array.isArray(endpoint.row_fields) ? Object.freeze([...endpoint.row_fields]) : null,
   });
 }
 
-/*
- * revision_rules.last_write_wins_allowed is false, so a write that forgets
- * expected_revision is a client bug, not a server concern. Saying that once
- * here means V4 cannot forget it in one of four call sites.
- */
+// The contract forbids last-write-wins, so a write without expected_revision is a client bug.
 export function assertWritePreconditions(contract, endpointId, body = {}) {
   const endpoint = getEndpoint(contract, endpointId);
   if (endpoint.revision_required === true && !(body && 'expected_revision' in body)) {

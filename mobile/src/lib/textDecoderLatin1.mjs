@@ -1,21 +1,11 @@
 /*
- * Hermes' built-in TextDecoder decodes UTF-8 only: `new TextDecoder('latin1')`
- * throws `RangeError: Unknown encoding: latin1`. fast-png builds exactly that
- * decoder at module load (lib/helpers/text.js, for tEXt chunks), so a release
- * APK that imports the mask decoder died before the first screen on the A17
- * (S-1 device session, 2026-10-01). Node's TextDecoder knows latin1, which is
- * why no test on the laptop saw it.
- *
- * This module must be the FIRST import of index.js; src/imaging/maskPng.js
- * also imports it, right before fast-png (#77 QA NB-1). It changes nothing
- * where the runtime already decodes latin1; elsewhere it answers the latin1
- * labels with a small ISO-8859-1 decoder (byte n -> U+00nn) and passes every
- * other label to the runtime's own TextDecoder.
+ * Hermes' TextDecoder knows only UTF-8, but fast-png creates a latin1 decoder when it loads, so the release
+ * app would crash before the first screen (Node knows latin1, so tests do not show it). This adds a latin1
+ * decoder and leaves every other label to the runtime. It must be the first import of index.js.
  */
 
-// True ISO-8859-1 (byte 0x80 -> U+0080), as the PNG spec defines tEXt chunks.
-// Node and WHATWG map the label "latin1" to windows-1252 (0x80 -> U+20AC); the
-// difference only touches PNG text chunks, never mask pixels. Keep it.
+// True ISO-8859-1 (byte 0x80 -> U+0080), as PNG text chunks use. Node maps "latin1" to windows-1252
+// instead; that only affects PNG text chunks, never mask pixels.
 const LATIN1_LABELS = new Set(['latin1', 'iso-8859-1', 'iso8859-1', 'l1']);
 
 class Latin1Decoder {

@@ -1,6 +1,6 @@
 /*
- * The screen table (SCR-01..SCR-08 of spec `10` §3): id, title, owning vertical, the params a screen cannot open
- * without, and the tab it sits on. Pure data; Navigator.js maps each id to its component.
+ * The screen table (spec 10 §3): id, title, the params a screen needs before it can open, and its tab.
+ * Plain data; Navigator.js maps each id to its component.
  */
 
 export const SCREENS = Object.freeze([

@@ -1,45 +1,18 @@
 /*
- * Per-slice response cache in front of the app/core client (PR-CACHE-01,
- * DR-015: caching is PER SLICE; whole-volume caching is out).
- *
- * NFR-PERF-001 bounds switching among ALREADY CACHED slices at p95 <= 200 ms.
- * Without a cache every switch back to a slice the user has seen costs the
- * same three or four round trips over the overlay as the first visit. With
- * it, a revisit is answered from memory and only the image decode remains -
- * and React Native's image pipeline already caches the MRI bytes by URL.
- *
- * What may be cached, and why it is safe:
- *   - only the slice-level GET endpoints below, and only SUCCESS states;
- *   - their artifacts are immutable (contract artifact_rules) and their
- *     content_url is content-addressed, so a response for one exact URL
- *     never changes underneath the cache;
- *   - the key is the RESOLVED URL, which carries the case or run, the slice
- *     index and the prediction variant - RAW and PROCESSED can never share an
- *     entry (`11` §6: no silent variant substitution, and a cache that mixed
- *     them would be one with a longer lifetime);
- *   - errors are never cached (a retry must reach the server);
- *   - a LEGITIMATELY UNAVAILABLE answer is cached for `unavailableTtlMs`
- *     (default 5 min) - only EMPTY_UNAVAILABLE with a reason in
- *     NEGATIVE_CACHE_REASONS (ARTIFACT_NOT_FOUND: metrics not ingested yet;
- *     GROUND_TRUTH_UNAVAILABLE: an inference-only case). Scrolling back over a
- *     slice whose metrics do not exist must not ask again on every pass - that
- *     is a network request per revisit, which L4 forbids and the user gains
- *     nothing from. Any other unavailable reason is not kept.
- *
- * Forgetting (#77 QA N-1/N-2, #78 QA N-4): clearNegative() drops only those
- * unavailable entries, and SCR-03 / SCR-04 call it only when they open;
- * clearWhere(fn) drops the entries whose (endpointId, params) match, the
- * unavailable ones included. Retry forgets only the slice it retries - Retry
- * and "refresh this slice" clear that slice's keys and nothing else, not even
- * another slice's unavailable answer - so a Retry never turns the cached
- * slices of an L4 revisit pass back into network traffic.
- *
- * Bounded LRU; a stale-run screen must call clear() rather than trust it.
+ * Per-slice caches (never a whole volume): API responses, MRI images and decoded masks, each a bounded LRU.
+ * A revisited slice is answered from memory with no network request. Artifact URLs are
+ * content-addressed, so a cached entry for one URL never goes stale.
  */
 
 import { bytesToBase64 } from '../lib/bytes.mjs';
 import { maskRuns, runPixelCount, runsToPath } from '../lib/mask.mjs';
 
+/*
+ * Response cache. Only SUCCESS answers of CACHEABLE_ENDPOINTS are kept, keyed by the resolved URL, so RAW
+ * and PROCESSED never share an entry (spec 11 §6). Errors are never kept, so a retry reaches the server.
+ * An unavailable answer with a reason in NEGATIVE_CACHE_REASONS is kept for unavailableTtlMs, so
+ * scrolling back over a slice without metrics does not ask again every time.
+ */
 export const NEGATIVE_CACHE_REASONS = Object.freeze(['ARTIFACT_NOT_FOUND', 'GROUND_TRUTH_UNAVAILABLE']);
 
 export const CACHEABLE_ENDPOINTS = Object.freeze([
@@ -74,9 +47,7 @@ export function createSliceCache(client, {
     } catch (_err) {
       return null; // let the client report the bad request as its own state
     }
-    // A named fixture scenario is part of the answer; an unnamed request and
-    // an explicit 'default' are the same request (the V1 model always names
-    // one, a screen reading the cache usually does not).
+    // A named fixture scenario changes the answer; no name and 'default' are the same request.
     const scenario = options && options.scenario && options.scenario !== 'default' ? options.scenario : '';
     return `${endpointId}|${url}|${scenario}`;
   }
@@ -127,23 +98,22 @@ export function createSliceCache(client, {
       const key = keyFor(endpointId, params, options);
       return key !== null && fresh(key);
     },
-    // The cached state for exactly this request, synchronously, or null. Lets
-    // a screen read a field of a response the model already fetched
-    // (content_url, say) in the same render, without a round trip.
+    // The cached state for this request, read synchronously during a render, or null.
     peek: (endpointId, params, options) => {
       if (!allowed.has(endpointId)) return null;
       const key = keyFor(endpointId, params, options);
       return key !== null && fresh(key) ? store.get(key) : null;
     },
-    // Everything - a stale run, or a test.
+    // Drops everything (a stale run, or a test).
     clear() { store.clear(); expires.clear(); about.clear(); },
-    // Only the cached "legitimately unavailable" answers; returns how many.
+    // Drops only the cached unavailable answers; returns how many.
     clearNegative() {
       const keys = [...expires.keys()];
       keys.forEach(drop);
       return keys.length;
     },
-    // The entries whose request matches fn(endpointId, params); returns how many.
+    // Drops the entries matching fn(endpointId, params); returns how many. Retry uses it to
+    // forget only the slice it retries, so other cached slices still need no request.
     clearWhere(fn) {
       const keys = [...about.entries()].filter(([, a]) => fn(a.endpointId, a.params)).map(([k]) => k);
       keys.forEach(drop);
@@ -155,26 +125,9 @@ export function createSliceCache(client, {
 }
 
 /*
- * MRI slice images: fetch the PNG bytes from content_url, keep them as a
- * data URI, hand <Image> the data URI.
- *
- * Why not give <Image> the URL directly? Because then the bytes never pass
- * through JavaScript, and L4 (NFR-PERF-001 limb 2: no full-volume transfer
- * per slice gesture) needs the phone to COUNT what each gesture received.
- * Fetching here lets netLog attribute every byte to its gesture, and the
- * per-slice cache makes a revisit provably free (0 requests). Data URIs are
- * also exactly how Spike A measured A9 on the A17 (cached switch p95 65 ms,
- * 576 x 576 x 88, release build), so this is the measured path, not a new
- * one.
- *
- * Bounded LRU per slice image (DR-015: per slice, never the volume). The
- * content URL is content-addressed, so a cached image can never be stale.
- */
-
-/*
- * fetchBytes(key, { checksum }) -> Promise<Uint8Array>; in the app it is
- * runtime.content.bytes (timeout, error mapping, checksum check, netLog)
- * through bytesOrThrow. The key is the content_url itself.
+ * MRI slice images, kept as data URIs. The PNG bytes are fetched in JS instead of giving <Image> the URL,
+ * so the network log can count each gesture's bytes and a cached revisit costs no request.
+ * fetchBytes(contentUrl, { checksum }) is content.bytes through bytesOrThrow in the app.
  */
 export function createImageStore({ fetchBytes, maxEntries = 48, mediaType = 'image/png', now = () => Date.now() } = {}) {
   if (typeof fetchBytes !== 'function') throw new Error('createImageStore needs fetchBytes(url)');
@@ -221,22 +174,9 @@ export function createImageStore({ fetchBytes, maxEntries = 48, mediaType = 'ima
 }
 
 /*
- * Fetch -> decode -> vector path, once per mask artifact.
- *
- * Keyed by the content_url and the slice size the mask must have. Contract
- * v1.0: content_url is immutable and content-addressed, so one URL is one set
- * of bytes forever, and a cached decode can never be a stale one. Bounded
- * LRU - DR-015 caches per slice, never the volume.
- *
- * Both effects are injected:
- *   fetchBytes(contentUrl, { checksum }) -> Promise<Uint8Array>
- *        in the app: runtime.content.bytes through bytesOrThrow - the ONE
- *        binary path (timeout, error mapping, checksum check, netLog)
- *   decode(bytes, {width, height}) -> {width, height, data of 0|1}
- *        in the app: decodeMaskPng from maskPng.js - the ONE PNG decoder
- * so this file has no dependency at all and its cache logic is tested in node
- * without node_modules. In-flight loads are shared: two components asking for
- * the same mask cost one request.
+ * Masks: fetch, decode and build the vector path once per mask, keyed by content_url and slice size.
+ * fetchBytes and decode (decodeMaskPng in the app) are injected, so Node tests need no node_modules.
+ * Two components asking for the same mask share one request.
  */
 
 export function createMaskStore({ fetchBytes, decode, maxEntries = 300, now = () => Date.now() } = {}) {
@@ -253,12 +193,7 @@ export function createMaskStore({ fetchBytes, decode, maxEntries = 300, now = ()
     while (done.size > maxEntries) done.delete(done.keys().next().value);
   }
 
-  /*
-   * Resolves to { width, height, mask, runs, path, pixels, ms } or rejects
-   * with the reason the layer is unavailable (a MaskPngError for a mask that
-   * is not the contract's format, an Error carrying `view` for a failed
-   * fetch). A failure is NOT cached: the next ask retries.
-   */
+  // Resolves to { width, height, mask, runs, path, pixels, ms }. A failure is not cached, so the next call retries.
   function load(url, expected, { checksum = null } = {}) {
     if (!expected || !Number.isInteger(expected.width) || !Number.isInteger(expected.height)) {
       return Promise.reject(new Error('maskStore.load needs the expected slice size {width, height}'));

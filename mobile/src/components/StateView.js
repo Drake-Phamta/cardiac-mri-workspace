@@ -1,16 +1,7 @@
 /*
- * Renders any of the seven app/core screen states. Every screen in every
- * vertical uses this instead of drawing its own spinner or error box, so the
- * `10` §8 state model looks and behaves the same across V1-V4.
- *
- *   <StateView view={view} what="the case list"
- *              onAction={(id) => ...}>
- *     {(data) => <TheRealScreen data={data} />}
- *   </StateView>
- *
- * Children render ONLY in SUCCESS - app/core guarantees `data` is non-null
- * there and null everywhere else, so a stale payload can never be drawn
- * under an error banner. The copy and the actions come from stateCopy.mjs.
+ * Draws any screen state, so loading, errors and empty states look the same on every screen.
+ * Children render only in SUCCESS, the one state with data, so old data is never drawn under an error.
+ * The text and actions come from stateCopy.mjs.
  */
 
 import React from 'react';

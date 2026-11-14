@@ -1,31 +1,14 @@
 /*
- * A small state-based stack navigator. No navigation library: the app has
- * eight screens, one stack and a tab bar, and a reducer plus a header is
- * all of that. Pure - the React side (NavigatorView.js) only renders
- * `top(state)` and dispatches actions.
- *
- *   push(id, params[, returnParams])  open a screen on top (Case List -> Case Explorer)
- *   pop()                back; a no-op at the root      (Android back button)
- *   replace(id, params)  swap the top screen            (Case Explorer -> another case)
- *   reset(id, params)    one-screen stack               (a tab press)
- *
- * Every action validates the screen id and its required params against
- * screens.mjs. A push that omits caseId is a programming error and throws -
- * rendering SCR-03 with no case would be a screen inventing its subject.
- *
- * A covered screen UNMOUNTS, so what it shows when the user comes back is its
- * stack entry's params. `returnParams` (#78 QA N-8) are merged into the entry
- * the push COVERS, in the same action, keeping its key: SCR-03 hands SCR-04
- * the run, variant and slice on screen and gets them back on Back. Nothing
- * changes when the push does not happen (a leave guard said no).
+ * A small stack navigator as a plain reducer, no navigation library: push, pop (Android back), replace,
+ * and reset (a tab press). Every action checks the screen id and its required params against routes.mjs.
+ * A covered screen unmounts, so push can pass returnParams for the covered entry to show on return.
  */
 
 import { ROOT_SCREEN_ID, isScreenId, missingParams } from './routes.mjs';
 
 export const NAV = Object.freeze({ PUSH: 'PUSH', POP: 'POP', REPLACE: 'REPLACE', RESET: 'RESET' });
 
-// A deep stack on a phone is a leak, not a feature. Twenty is far beyond any
-// path through the `10` §2 tree (Study -> Cases -> Explorer -> Error -> 3D).
+// Far deeper than any real path (Study -> Cases -> Explorer -> Error -> 3D); a deeper stack is a leak.
 export const MAX_DEPTH = 20;
 
 export class NavError extends Error {
@@ -51,8 +34,7 @@ export function initialNavState(screenId = ROOT_SCREEN_ID, params = {}) {
   return Object.freeze({ stack: Object.freeze([entry(screenId, params, 1)]), seq: 1 });
 }
 
-// The covered entry with `returnParams` merged in: same key and screen, so it
-// is the same entry (and the same guard slot), with what to show on return.
+// Keeps the covered entry's key, so it stays the same entry (and guard slot) with the new params.
 function withReturnParams(covered, returnParams) {
   if (!returnParams || typeof returnParams !== 'object') return covered;
   return Object.freeze({ ...covered, params: Object.freeze({ ...covered.params, ...returnParams }) });
@@ -94,28 +76,10 @@ export function validateRoute(screenId, params) {
 }
 
 /*
- * Leave guards (N-2). A screen with something to lose - V4's unsaved brush
- * edits on SCR-06, say - registers one with nav.setLeaveGuard(fn). Every
- * action that would take the user OFF that screen asks it first: pop (Back,
- * the Android back button), push (a new screen COVERS it - and a covered
- * screen UNMOUNTS in this navigator, its React state is gone), replace, and
- * reset (every tab press). The guard gets { type, screenId, params } and
- * answers true to leave, false to stay - or a Promise of either, e.g. after
- * a confirmation dialog. Anything but `true` stays. A guard belongs to the
- * stack entry that set it while that entry is on top: NavigatorView prunes
- * every other key, so a covered screen - unmounted, its edits gone with it -
- * leaves no guard behind to be asked on its behalf later (#77 QA N-7).
- *
- * One prompt at a time (#77 QA N-7): while a guard is being asked, any other
- * action that would ask one - a second back press, a tab - is refused at once
- * instead of opening a second dialog over the first.
- *
- * A guard MUST settle on every path (#88 QA N-3). One that returns a Promise has
- * to resolve it for each button of its dialog AND when the dialog is dismissed
- * without one (Alert.alert's onDismiss: resolve false). The shell cannot tell
- * "still deciding" from "abandoned", so a Promise that never settles keeps
- * hold() closed, and every later back press, tab and push on that screen is
- * refused. V4's SCR-06 does it (render check V4q).
+ * Leave guards: a screen with unsaved work (e.g. brush edits) sets one with nav.setLeaveGuard(fn), and every
+ * action that would leave the screen asks it first. fn gets { type, screenId, params } and returns true, or
+ * a Promise of true, to leave. Only one prompt is open at a time, so a guard's Promise must settle on every
+ * path, dialog dismiss included, or every later action on that screen is refused.
  */
 export function createGuards() {
   const map = new Map();
@@ -133,23 +97,13 @@ export function createGuards() {
 }
 
 /*
- * The object a screen receives as `nav`. Bound to a dispatch so a screen can
- * call nav.push('SCR-03', { caseId }) without knowing the reducer exists.
- *
- * The route is validated HERE, before dispatch, so a bad push never reaches
- * the reducer inside a React render. It returns false and reports through
- * `onError` instead of throwing out of a tap handler: in a release build an
- * uncaught throw there is a crash, and a crash is not an honest state.
- *
- * Return value of every action: `true` / `false` when it was decided at once
- * (no guard on the current screen, or another guard prompt still open), or a
- * Promise of true / false when the current screen's leave guard had to be
- * asked.
+ * The nav object a screen receives, e.g. nav.push('SCR-03', { caseId }). A bad route returns false and goes
+ * to onError before dispatch, instead of throwing from a tap handler (a crash in a release build).
+ * Each action returns true or false, or a Promise of it when a leave guard had to be asked.
  */
 export function bindNav(dispatch, state, onError = null, guards = null) {
   const current = top(state);
-  // Read at action time, not bind time: a screen usually sets its guard in an
-  // effect, after the nav object it was rendered with already exists.
+  // Read when the action runs: a screen usually sets its guard in an effect, after this object exists.
   const guardNow = () => (guards ? guards.get(current.key) : null);
 
   const leave = (action) => {

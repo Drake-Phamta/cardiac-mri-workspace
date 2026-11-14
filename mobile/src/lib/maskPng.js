@@ -1,29 +1,10 @@
 /*
- * THE mask PNG decoder of the app - one adapter over fast-png, shared by V1
- * (SCR-03 overlays, SCR-04 disagreement) and V4 (SCR-06 brush editing).
- * Owned by the shell / V1. Other verticals import it; they do not edit it.
- *
- * Contract v1.0 `binary_delivery`: every mask slice (ground truth, raw and
- * processed prediction, reviewed mask) is served as an 8-bit single-channel
- * PNG at native resolution - height Ny rows, width Nx columns, row = y,
- * column = x, top-left origin (DR-008a) - with values 0 = background and
- * 255 = foreground.
- *
- *   decodeMaskPng(bytes, { width, height })
- *     -> { width, height, data: Uint8Array(width * height) of 0 | 1 }
- *     data[y * width + x] is source pixel (x, y).
- *
- * Strict on purpose. Anything that is not exactly that format - another bit
- * depth, colour, alpha, a palette, a value other than 0 or 255, or a size
- * other than the slice the caller expects - throws MaskPngError with code
- * CONTRACT_DRIFT and the reason. A mask that cannot be read is an
- * unavailable layer, never a guessed one: thresholding a 128 or stretching a
- * 575-pixel row would draw an edit or an error class that is not there.
+ * The app's one mask PNG decoder, over fast-png. A mask is an 8-bit single-channel PNG of 0 and 255 at the
+ * slice size; it comes back as data[y * width + x] of 0 or 1. Anything else throws MaskPngError (CONTRACT_DRIFT),
+ * so an unreadable mask is shown as unavailable, never guessed.
  */
 
-// fast-png builds a latin1 TextDecoder at module load, which Hermes does not
-// support. index.js installs the shim first; importing it here as well keeps
-// this module safe in either load order (#77 QA NB-1).
+// fast-png builds a latin1 TextDecoder when it loads, which Hermes lacks, so the shim must come first.
 import './textDecoderLatin1.mjs';
 import { decode } from 'fast-png';
 

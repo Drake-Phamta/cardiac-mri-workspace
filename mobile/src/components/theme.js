@@ -1,9 +1,6 @@
 /*
- * One palette for every vertical. Dark, because MRI is read on dark, and
- * because the overlay colours below were chosen against it.
- *
- * Touch targets: `10` §9 and TC-USAB-004 - nothing tappable is smaller than
- * MIN_TOUCH (48 dp, the Android guidance).
+ * One dark palette for every screen: MRI is read on a dark background and the overlay colours were
+ * picked against it. Nothing tappable is smaller than MIN_TOUCH (48 dp, the Android guidance).
  */
 
 export const MIN_TOUCH = 48;

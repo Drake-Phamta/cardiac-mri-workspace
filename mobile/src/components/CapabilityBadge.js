@@ -1,7 +1,6 @@
 /*
- * The mode capability badge - the SAME component on SCR-02 rows and the
- * SCR-03 header, fed by the same capabilityOf(), so a case reads identically
- * in both places (TC-CASE-002). The label is text, not only colour (`10` §9).
+ * The case mode badge, on the case list rows and the case screen header, so a case reads the same in both.
+ * The mode is written as text, not shown by colour alone.
  */
 
 import React from 'react';

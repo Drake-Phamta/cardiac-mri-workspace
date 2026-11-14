@@ -1,31 +1,12 @@
 /*
- * Build configuration for the mobile app - which transport the client uses.
- *
- * Two modes, chosen at BUILD time by scripts/prepare.mjs, never switched by
- * the app at run time:
- *
- *   fixture  every call is answered from the bundle that
- *            contracts/api/generate_fixture.py generated (gitignored, never
- *            hand-written). Demonstrable with no backend - `12` asks for that.
- *            Needs nothing configured.
- *   live     every call goes over HTTP to the FastAPI backend. The base URL
- *            is NOT in git (the repository is public): it comes at build time
- *            from EXPO_PUBLIC_API_BASE_URL, either in the environment or in
- *            the untracked mobile/.env.local. A live build without one starts
- *            on a configuration-error screen instead of guessing a host.
- *
- * There is deliberately no fallback from live to fixture. A placeholder
- * answer shown when the backend is down would be a screen that lies about
- * where its numbers came from (DEMO_STANDARD D2). Live + unreachable is the
- * RECOVERABLE_ERROR state with a retry, which is the honest screen.
- *
- * Plain ESM with no React Native import: Metro bundles this file and
- * `node --test` imports the very same file, so the tests check what ships.
+ * Build configuration: fixture mode answers from the generated bundle with no backend; live mode calls the
+ * backend over HTTP. scripts/prepare.mjs fixes the mode at build time. Live never falls back to fixture,
+ * so a backend that is down shows RECOVERABLE_ERROR with Retry, not made-up answers.
  */
 
 export const MODE = Object.freeze({ FIXTURE: 'fixture', LIVE: 'live' });
 
-// The build-time variable that carries the live backend's base URL.
+// The build-time variable with the backend base URL. The URL is never in git: the repository is public.
 export const API_BASE_URL_ENV = 'EXPO_PUBLIC_API_BASE_URL';
 
 // Matches the generated fixture's {study_id} so fixture mode needs no flag.
@@ -43,12 +24,8 @@ export class ConfigError extends Error {
   }
 }
 
-/*
- * Every endpoint path in contract.json is already absolute (/api/v1/...), so
- * the base URL must be scheme://host[:port] and nothing more. A base that
- * ends in /api/v1 would produce /api/v1/api/v1/... - refused here rather than
- * discovered as a 404 on the phone.
- */
+// Contract paths already start with /api/v1, so the base URL is only scheme://host[:port].
+// A base ending in /api/v1 is refused here instead of showing up as a 404 on the phone.
 export function normalizeBaseUrl(raw) {
   if (typeof raw !== 'string' || raw.trim() === '') {
     throw new ConfigError('apiBaseUrl is empty');
@@ -77,13 +54,8 @@ function normalizeStudyId(raw) {
   return value;
 }
 
-/*
- * `input` is the JSON that scripts/prepare.mjs wrote to
- * src/generated/buildConfig.json. Unknown keys are ignored; a bad mode or a
- * malformed URL throws, because a build that guesses its own transport is a
- * build nobody can describe in an evidence file. A MISSING live URL does not
- * throw: it resolves with `problem` set, so the app can show what to fix.
- */
+// input is src/generated/buildConfig.json from scripts/prepare.mjs. A bad mode or URL throws; a missing
+// live URL does not, it sets problem so the app can show what to fix.
 export function resolveConfig(input = {}) {
   const src = input && typeof input === 'object' ? input : {};
   const mode = src.mode === undefined || src.mode === null ? MODE.FIXTURE : String(src.mode).toLowerCase();
@@ -97,9 +69,7 @@ export function resolveConfig(input = {}) {
     throw new ConfigError(`timeoutMs must be 1000..120000, got: ${src.timeoutMs}`);
   }
 
-  // Fixture mode drops the backend address completely: a fixture build has no
-  // use for one, and an address that is not there cannot leak into a log,
-  // a sidecar or a screenshot.
+  // Fixture mode drops the backend address, so it cannot leak into a log or a screenshot.
   const hasUrl = mode === MODE.LIVE && typeof src.apiBaseUrl === 'string' && src.apiBaseUrl.trim() !== '';
   const apiBaseUrl = hasUrl ? normalizeBaseUrl(src.apiBaseUrl) : null;
   const problem = mode === MODE.LIVE && !apiBaseUrl
@@ -125,20 +95,15 @@ export function resolveConfig(input = {}) {
   });
 }
 
-/*
- * Evidence redaction (N-4): the repository is public, and screenshots, logs
- * and build sidecars get committed as evidence. Anything the app SHOWS or
- * LOGS names the backend as scheme + "<configured>", never its host or port;
- * build-release.ps1 records only a SHA-256 of the URL.
- */
+// Screenshots and logs may be committed to the public repository, so the app shows the backend only as
+// scheme + "<configured>", never its host or port.
 export function maskBaseUrl(url) {
   if (typeof url !== 'string' || url === '') return '<not configured>';
   const m = /^(https?):\/\//i.exec(url);
   return m ? `${m[1].toLowerCase()}://<configured>` : '<configured>';
 }
 
-// One line for a banner or a log record. Never contains patient data or the
-// backend address.
+// One line for a banner or a log. Never contains patient data or the backend address.
 export function describeConfig(config) {
   if (config.mode === MODE.LIVE) {
     return config.apiBaseUrl
@@ -148,12 +113,8 @@ export function describeConfig(config) {
   return `FIXTURE · generated contract fixtures · study ${config.studyId}`;
 }
 
-/*
- * KEY=VALUE lines of a .env file -> object. Comments (#) and blank lines are
- * skipped; surrounding quotes are removed. Used by prepare.mjs for
- * mobile/.env.local, so the URL never has to be typed on a command line that
- * ends up in a shell history or a build log.
- */
+// Reads mobile/.env.local for prepare.mjs, so the URL is never typed on a command line that ends up
+// in a shell history or a build log.
 export function parseEnvFile(text) {
   const out = {};
   for (const line of String(text || '').split(/\r?\n/)) {

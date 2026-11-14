@@ -1,28 +1,7 @@
 /*
- * Live transport: plugs `fetch` into app/core's `createClient`.
- *
- * app/core/transport.mjs defines the shape - `send(resolved, options)` returns
- * `{ status, data }` on success or `{ status, error: { code, ... } }` on a
- * contract error - and validates every response before a screen sees it. This
- * file only moves bytes. It never classifies an error and never builds a URL
- * from a template: `resolved.url` comes from app/core/endpoints.mjs, already
- * resolved against the contract.
- *
- * Three decisions live here, each because the alternative lies to the user:
- *
- *   1. A network failure or a timeout THROWS. createClient turns a throw into
- *      TRANSPORT_UNREACHABLE, which is RECOVERABLE_ERROR with RETRY.
- *   2. A 5xx that carries no contract error code also throws. A FastAPI crash
- *      returns {"detail": "Internal Server Error"}; that is a server that is
- *      up but failing, and "retry" is the honest offer. Calling it
- *      CONTRACT_DRIFT would block the screen for something a retry can fix.
- *   3. A 4xx with no contract error code is passed through WITHOUT a code, so
- *      app/core reports CONTRACT_DRIFT and blocks the view. A backend that
- *      answers 404 {"detail": "Not Found"} is a route the contract does not
- *      know - a real drift, not a missing artifact.
- *
- * No React Native import: `fetch` and `AbortController` are injected, so
- * `node --test` exercises the same file Metro bundles.
+ * The HTTP transport for createClient: send(resolved) fetches resolved.url and returns { status, data }
+ * or { status, error }. It only moves bytes; client.mjs checks and classifies the answer.
+ * fetch and AbortController are injected, so Node tests run this same file.
  */
 
 import { parseErrorEnvelope } from './states.mjs';
@@ -64,12 +43,7 @@ function headerOf(response, name) {
   }
 }
 
-/*
- * The JSON body and how many bytes it was on the wire: Content-Length when
- * the server sends it, else the UTF-8 length of the body text. The byte
- * count feeds the per-gesture network log (netLog.mjs, L4); the body itself
- * is never logged.
- */
+// The JSON body and its size on the wire (Content-Length, else the UTF-8 length of the text).
 async function readJsonBody(response, contentType) {
   const declaredRaw = headerOf(response, 'content-length');
   const declared = declaredRaw === null || declaredRaw === undefined ? NaN : Number(declaredRaw);
@@ -86,17 +60,9 @@ async function readJsonBody(response, contentType) {
 }
 
 /*
- * options:
- *   baseUrl         scheme://host[:port] - config.mjs has already normalised it
- *   fetchImpl       defaults to globalThis.fetch
- *   timeoutMs       per request; a timeout is a TRANSPORT_UNREACHABLE
- *   AbortControllerImpl  injectable for tests; defaults to the global
- *   onTiming        optional ({ endpointId, url, status, ms, bytes }) => void,
- *                   for performance evidence: `bytes` is the body size, never
- *                   the body. Called once per response, after the body is read.
- *   onStart         optional (endpointId) => value, called as the request is
- *                   sent; with it, onTiming also gets that value as `start`
- *                   (the runtime passes the gesture open then, #77 QA N-3)
+ * baseUrl is already normalised by config.mjs. onTiming gets { endpointId, url, status, ms, bytes }
+ * once per response (the size, never the body). onStart(endpointId) runs as the request is sent,
+ * and its return value reaches onTiming as start.
  */
 export function createHttpTransport({
   baseUrl,
@@ -122,11 +88,10 @@ export function createHttpTransport({
         headers['Content-Type'] = 'application/json';
         init.body = JSON.stringify(options.body);
       }
-      // revision_rules.etag_header is ETag; a write may also carry If-Match.
       if (options.ifMatch) headers['If-Match'] = String(options.ifMatch);
 
-      // One AbortController per request, fired by the timeout OR by the
-      // caller's options.signal (useCall aborts on unmount / param change).
+      // One AbortController per request, fired by the timeout or by the caller's signal
+      // (useCall aborts on unmount or when the params change).
       const callerSignal = options.signal || null;
       if (callerSignal && callerSignal.aborted) {
         throw new TransportError('ABORTED', `request to ${resolved.endpointId} was cancelled before it started`, { url });
@@ -180,6 +145,8 @@ export function createHttpTransport({
         } catch (_e) { /* evidence hook must never break a call */ }
       }
 
+      // A 5xx without a contract code throws, so the user gets RETRY: the server is up but failing.
+      // A 4xx without a code goes on with no code, and the client reports CONTRACT_DRIFT.
       if (status >= 400) {
         const envelope = parseErrorEnvelope(body, status);
         if (!envelope.code && status >= 500) {
@@ -194,47 +161,22 @@ export function createHttpTransport({
       }
 
       if (!isJson(contentType)) {
-        // A BINARY endpoint answered with raw bytes. app/core validates a data
-        // object against response_fields, so this reaches the screen as
-        // CONTRACT_DRIFT naming the endpoint - until ADR-ART-001's
-        // representation is wired here, which is the right failure.
+        // A binary answer has no data object, so the client reports CONTRACT_DRIFT for this endpoint.
         return { status, data: null, contentType: contentType || null };
       }
 
-      // The body is passed through untouched. In particular the ETag header is
-      // NOT copied into `data`: response_fields list `etag` as a body field,
-      // and filling it from a header would hide exactly that drift.
+      // The ETag header is not copied into data: etag is a body field, and filling it
+      // from the header would hide a missing field.
       return { status, data: body, contentType };
     },
   });
 }
 
 /*
- * Network accounting per slice gesture - the phone-side evidence for L4,
- * NFR-PERF-001 limb 2: "a slice gesture never triggers a full-volume
- * transfer".
- *
- * A screen opens a gesture when the user asks for a slice and closes it when
- * that slice is on screen; every network request in between - JSON API calls
- * (httpTransport), MRI and mask artifact bytes (imageStore, maskStore) - is
- * attributed to it. Closing writes ONE logcat line:
- *
- *   CMW_GESTURE {"seq","kind","case","from","to","requests":[{"endpoint","bytes","ms","status"}],
- *                "cache_hit","bytes_total","max_request_bytes","ms","outcome"}
- *
- * cache_hit is true exactly when the gesture caused no network request at all.
- * Bytes are the response body as received (Content-Length when the server
- * sends it, else the counted body). Nothing here contains a payload, a URL
- * or a host - only endpoint ids and sizes (TC-SEC-003, no address in logs).
- * A gesture that is superseded by the next one is closed with outcome
- * "superseded", never silently merged into it.
- *
- * A request belongs to the gesture that was open when it STARTED (#77 QA N-3):
- * the caller reads `openSeq` before it sends and passes it to record() as
- * `seq`. A response that lands after its gesture closed is counted as `late`,
- * never filed under the gesture open at that moment; one that started with
- * no gesture open is `unattributed`. totals() keeps both, and SCR-03 logs it
- * as CMW_NET_TOTALS after each scripted pass's CMW_RUN_END.
+ * Network log per slice gesture, to show a slice switch never downloads a whole volume. Requests between
+ * begin() and end() count toward the gesture, and end() logs one CMW_GESTURE line. A request belongs to
+ * the gesture open when it started; an answer after that gesture closed counts as late.
+ * Only endpoint ids and sizes are logged, never a URL or host.
  */
 
 export function createNetLog({ log = (line) => console.log(line), now = () => Date.now() } = {}) {
@@ -271,16 +213,14 @@ export function createNetLog({ log = (line) => console.log(line), now = () => Da
   }
 
   return Object.freeze({
-    // kind: 'slice' (a slice switch - what L4 judges), 'open' (the first
-    // slice of a case), 'variant' (a prediction-variant switch, from === to).
+    // kind: 'slice' (slice switch), 'open' (first slice of a case) or 'variant' (from === to).
     begin({ caseId = null, from = null, to = null, kind = 'slice' } = {}) {
       if (open) end({ outcome: 'superseded' });
       seq += 1;
       open = { seq, kind, case: caseId, from, to, t0: now(), requests: [] };
       return seq;
     },
-    // seq: openSeq when the request started (null: none was open). Left out,
-    // the request is taken to start now.
+    // seq: openSeq when the request started (null if none was open). Defaults to the open gesture.
     record({ endpoint, bytes = null, ms = null, status = null, seq = open ? open.seq : null }) {
       totals.requests += 1;
       totals.bytes += bytes || 0;
@@ -300,8 +240,7 @@ export function createNetLog({ log = (line) => console.log(line), now = () => Da
   });
 }
 
-// UTF-8 byte length of a string, for a body read as text without a
-// Content-Length header. Hermes-safe (no TextEncoder needed).
+// UTF-8 byte length counted by hand, so it needs no TextEncoder on Hermes.
 export function utf8Length(text) {
   const s = String(text);
   let n = 0;

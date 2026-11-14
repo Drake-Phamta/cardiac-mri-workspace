@@ -1,15 +1,7 @@
 /*
- * Case mode capability - ONE derivation, used by SCR-02 (the list) and
- * SCR-03 (the case), so a case reads the same in both places (TC-CASE-002:
- * "reflected consistently in case list, case detail and enabled UI
- * capabilities").
- *
- * The server decides the mode; this only reads it. Contract v1.0
- * case_capability: EVALUATION carries ground_truth_available = true and
- * serves ground-truth-dependent data; INFERENCE_REVIEW carries false and
- * answers GROUND_TRUTH_UNAVAILABLE (INT-12 withholds one final-holdout case
- * this way). A row whose two fields disagree is shown as inconsistent, not
- * silently resolved in either direction.
+ * Case mode and prediction variant, shared by the case list and the case screen so both read a case alike.
+ * The server decides the mode: EVALUATION has ground truth, INFERENCE_REVIEW has none.
+ * A row whose mode and ground_truth_available disagree is shown as inconsistent, never silently resolved.
  */
 
 export const CAPABILITY = Object.freeze({
@@ -47,26 +39,19 @@ export function capabilityOf(mode, groundTruthAvailable) {
   return Object.freeze({
     ...cap,
     groundTruthAvailable: gt,
-    // Ground-truth-dependent UI is enabled only when BOTH say so.
+    // Ground-truth views are enabled only when both fields say so.
     groundTruthUsable: cap.key === 'EVALUATION' && gt === true,
     consistent: problem === null,
     problem,
   });
 }
 
-// `11` section 6 forbids a silent variant substitution, so these are the only
-// accepted values and nothing in the app defaults one. They are the
-// variants prediction_slice_get serves. `10` section 3's "reviewed" is not one:
-// a reviewed mask is its own artifact (reviewed_mask_slice_get) and its own
-// layer, LAYER.REVIEWED_MASK, so asking prediction_slice_get for it is refused.
+// The only accepted variants, and nothing defaults one (spec 11 §6). A reviewed mask is not a
+// variant: it has its own endpoint (reviewed_mask_slice_get) and its own layer.
 export const PREDICTION_VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
 
-/*
- * The prediction variants a user may choose, from the contract when it
- * declares them (v1.0 domain_enums.prediction_variant = RAW, PROCESSED), so
- * the screen never offers a value the server must refuse. Order is the
- * contract's. There is NO default: the screen asks.
- */
+// Variants the user may choose, in the contract's order, so the screen never offers one the server
+// refuses. There is no default: the screen asks.
 export function variantOptions(contract) {
   const raw = contract && contract.raw ? contract.raw : contract;
   const declared = raw && raw.domain_enums && Array.isArray(raw.domain_enums.prediction_variant)
@@ -80,13 +65,8 @@ export const VARIANT_TEXT = Object.freeze({
 });
 
 /*
- * What the user chose earlier in this app session, and nothing else.
- *
- * The prediction variant is never defaulted (`11` §6, V1 model). The first
- * case asks; after that the user's own last choice is pre-selected for the
- * next case and SHOWN as such ("chosen earlier this session") - a remembered
- * explicit choice, visible on screen, not a value the app picked.
- * Memory only: a restart asks again.
+ * The variant the user chose earlier in this app session, kept in memory only. The first case asks;
+ * later cases pre-select that choice and say so on screen, so the app never picks one by itself.
  */
 
 const state = { variant: null };
