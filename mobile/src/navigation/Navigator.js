@@ -1,7 +1,7 @@
 /*
- * Draws the navigator: a header with Back, the top screen of the stack, and the tab bar. Only the top
- * screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in
- * an error boundary, so a crash blocks only that screen with FATAL_INVALID instead of the whole app.
+ * Draws the navigator: a header with Back, the screen's name and the case and run it shows, the top screen of
+ * the stack, and the tab bar. Tapping the name opens "About this screen" (screen id, mode, contract, build).
+ * Only the top screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in an error boundary, so a crash blocks only that screen with FATAL_INVALID.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
@@ -9,8 +9,9 @@ import { BackHandler, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal 
 import { fatalInvalid, RECOVERY } from '../api/states.mjs';
 import { describeConfig, MODE } from '../config.mjs';
 import { StatePanel } from '../components/StateView';
-import { color, font, MIN_TOUCH, space } from '../components/theme';
+import { color, font, MIN_TOUCH, radius, space } from '../components/theme';
 import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
+import { aboutLines, headerLines, sameContext } from './header.mjs';
 import { screenMeta, TABS } from './routes.mjs';
 import StudyOverviewScreen from '../screens/v3-study/StudyOverviewScreen';
 import CaseListScreen from '../screens/v1-cases/CaseListScreen';
@@ -57,12 +58,12 @@ class ScreenBoundary extends React.Component {
     if (this.state.error) {
       const view = fatalInvalid({
         code: 'SCREEN_CRASHED',
-        safeMessage: `${this.props.screenId} failed while rendering and was stopped.`,
+        safeMessage: `${this.props.title} failed while rendering and was stopped.`,
         detail: { problems: [String(this.state.error && this.state.error.message)] },
       });
       return (
         <View style={s.crash}>
-          <StatePanel view={view} what={this.props.screenId} onAction={(id) => { if (id === RECOVERY.BACK) this.props.onBack(); }} />
+          <StatePanel view={view} what={this.props.title} onAction={(id) => { if (id === RECOVERY.BACK) this.props.onBack(); }} />
         </View>
       );
     }
@@ -74,20 +75,28 @@ export default function NavigatorView({ runtime, initialScreenId }) {
   const [state, dispatch] = useReducer(navReducer, initialScreenId, (id) => initialNavState(id));
   const [navError, setNavError] = useState(null);
   const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [epoch, setEpoch] = useState(0);
+  const [reported, setReported] = useState(null); // { key, context } from nav.setContext
   const guards = useMemo(() => createGuards(), []);
 
+  const onContext = useCallback((key, context) => {
+    setReported((prev) => (prev && prev.key === key && sameContext(prev.context, context) ? prev : { key, context }));
+  }, []);
   const nav = useMemo(
-    () => bindNav(dispatch, state, (err) => setNavError(String((err && err.message) || err)), guards),
-    [state, guards],
+    () => bindNav(dispatch, state, (err) => setNavError(String((err && err.message) || err)), guards, onContext),
+    [state, guards, onContext],
   );
   const current = top(state);
   const meta = screenMeta(current.screenId);
   const Screen = componentFor(current.screenId);
+  const context = reported && reported.key === current.key ? reported.context : null;
+  const head = headerLines(meta, current.params, context, { studyId: runtime.config.studyId });
 
   // A guard lives only while its screen is on top. Child effects run first, so the new top
   // screen's own guard is already set when this prunes the others.
   useEffect(() => { guards.prune([current.key]); }, [current.key, guards]);
+  useEffect(() => { setAboutOpen(false); }, [current.key]);
 
   // Android back pops, asking the leave guard first. At the root without a guard the system default
   // applies (the app goes to the background). While a guard prompt is open, another press is ignored.
@@ -119,19 +128,26 @@ export default function NavigatorView({ runtime, initialScreenId }) {
 
   const onBack = useCallback(() => nav.pop(), [nav]);
   const fixture = runtime.mode === MODE.FIXTURE;
+  const about = aboutLines(meta, runtime.config, runtime.contract ? runtime.contract.contractVersion : null);
 
   return (
     <View style={s.root}>
-      <View style={s.header}>
+      <View style={s.header} testID={`screen-${meta.id}`}>
         {nav.canGoBack ? (
           <TouchableOpacity style={s.back} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
             <Text style={s.backT}>‹ Back</Text>
           </TouchableOpacity>
         ) : <View style={s.backSpacer} />}
-        <View style={s.titleBox}>
-          <Text style={s.screenId}>{meta.id} · {meta.vertical}</Text>
-          <Text style={s.title} numberOfLines={1}>{meta.title}</Text>
-        </View>
+        <TouchableOpacity
+          style={s.titleBox}
+          onPress={() => setAboutOpen((o) => !o)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: aboutOpen }}
+          accessibilityLabel={`${head.title}${head.subtitle ? `, ${head.subtitle}` : ''}. About this screen`}
+        >
+          <Text style={s.title} numberOfLines={1}>{head.title}</Text>
+          <Text style={s.subtitle} numberOfLines={1}>{head.subtitle ? `${head.subtitle} ` : ''}{aboutOpen ? '▴' : '▾'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[s.mode, fixture ? s.modeFixture : s.modeLive]}
           onPress={() => fixture && setScenarioOpen(true)}
@@ -142,6 +158,12 @@ export default function NavigatorView({ runtime, initialScreenId }) {
           <Text style={[s.modeT, fixture ? s.modeFixtureT : s.modeLiveT]}>{fixture ? 'FIXTURE' : 'LIVE'}</Text>
         </TouchableOpacity>
       </View>
+      {aboutOpen && (
+        <View style={s.about} testID="about-screen">
+          <Text style={s.aboutH}>About this screen</Text>
+          {about.map((line) => <Text key={line} style={s.aboutLine} selectable>{line}</Text>)}
+        </View>
+      )}
       {fixture && (
         <Text style={s.banner} numberOfLines={1}>
           Generated contract fixtures - not patient data, not a backend. Tap FIXTURE to choose scenarios.
@@ -149,7 +171,7 @@ export default function NavigatorView({ runtime, initialScreenId }) {
       )}
 
       <View style={s.body}>
-        <ScreenBoundary key={`${current.key}:${epoch}`} screenId={current.screenId} onBack={onBack}>
+        <ScreenBoundary key={`${current.key}:${epoch}`} screenId={current.screenId} title={meta.title} onBack={onBack}>
           {Screen ? <Screen runtime={runtime} nav={nav} params={current.params} /> : null}
         </ScreenBoundary>
       </View>
@@ -171,8 +193,8 @@ export default function NavigatorView({ runtime, initialScreenId }) {
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
             >
+              <View style={[s.tabBar, active && s.tabBarActive]} />
               <Text style={[s.tabT, active && s.tabActive]}>{tab.label}</Text>
-              <Text style={[s.tabId, active && s.tabActive]}>{tab.screenId}</Text>
             </TouchableOpacity>
           );
         })}
@@ -198,29 +220,36 @@ const s = StyleSheet.create({
   back: { minHeight: MIN_TOUCH, minWidth: 72, justifyContent: 'center', paddingHorizontal: space.s },
   backT: { color: color.accent, fontSize: font.h2, fontWeight: '600' },
   backSpacer: { width: 72 },
-  titleBox: { flex: 1, alignItems: 'center' },
-  screenId: { color: color.textDim, fontFamily: font.mono, fontSize: font.small },
+  titleBox: { flex: 1, alignItems: 'center', minHeight: MIN_TOUCH, justifyContent: 'center' },
   title: { color: color.text, fontSize: font.h2, fontWeight: '700' },
-  mode: { minHeight: MIN_TOUCH, minWidth: 72, justifyContent: 'center', alignItems: 'center', borderRadius: 8, borderWidth: 1 },
+  subtitle: { color: color.textDim, fontFamily: font.mono, fontSize: font.small, marginTop: 1 },
+  mode: { minHeight: MIN_TOUCH, minWidth: 72, justifyContent: 'center', alignItems: 'center', borderRadius: radius.m, borderWidth: 1 },
   modeFixture: { borderColor: color.warn, backgroundColor: color.warnBg },
   modeLive: { borderColor: color.ok, backgroundColor: color.okBg },
   modeT: { fontFamily: font.mono, fontSize: font.small, fontWeight: '700' },
   modeFixtureT: { color: color.warn },
   modeLiveT: { color: color.ok },
+  about: {
+    backgroundColor: color.surfaceHi, borderBottomWidth: 1, borderBottomColor: color.border,
+    paddingHorizontal: space.l, paddingVertical: space.m, gap: 2,
+  },
+  aboutH: { color: color.textDim, fontSize: font.small, fontWeight: '700', marginBottom: space.xs },
+  aboutLine: { color: color.textDim, fontFamily: font.mono, fontSize: font.small },
   banner: {
     color: color.warn, backgroundColor: color.warnBg, fontSize: font.small, paddingHorizontal: space.m, paddingVertical: space.xs,
   },
   body: { flex: 1 },
   crash: { flex: 1, justifyContent: 'center', padding: space.l },
   toast: {
-    position: 'absolute', left: space.l, right: space.l, bottom: 84, padding: space.m, borderRadius: 8,
+    position: 'absolute', left: space.l, right: space.l, bottom: 84, padding: space.m, borderRadius: radius.m,
     backgroundColor: color.dangerBg, borderColor: color.danger, borderWidth: 1,
   },
   toastT: { color: color.danger, fontSize: font.body },
   tabs: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: color.border, backgroundColor: color.surface },
   tab: { flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  tabBar: { position: 'absolute', top: 0, left: space.l, right: space.l, height: 3, borderRadius: 2 },
+  tabBarActive: { backgroundColor: color.accent },
   tabT: { color: color.textDim, fontSize: font.body, fontWeight: '600' },
-  tabId: { color: color.textFaint, fontFamily: font.mono, fontSize: 10 },
   tabActive: { color: color.accent },
 });
 
@@ -285,7 +314,7 @@ const panel = StyleSheet.create({
   changed: { color: color.warn, fontWeight: '700' },
   actions: { flexDirection: 'row', gap: space.s, marginTop: space.m, marginBottom: space.xl },
   btn: {
-    flex: 1, minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.border,
+    flex: 1, minHeight: MIN_TOUCH, borderRadius: radius.m, borderWidth: 1, borderColor: color.control,
     alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
   },
   btnP: { borderColor: color.accent, backgroundColor: color.accentBg },
