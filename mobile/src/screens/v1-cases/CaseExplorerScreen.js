@@ -43,7 +43,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { loading, RECOVERY, STATE } from '../../api/states.mjs';
 import {
-  createCaseExplorer, LAYER, buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel, createSerialRunner,
+  createCaseExplorer, LAYER, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel, createSerialRunner,
 } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
@@ -52,12 +52,10 @@ import SliceViewport, { SliceScrubber, useMaskOverlay } from './SliceView';
 import {
   capabilityOf, VARIANT_TEXT, variantOptions, rememberedVariant, rememberVariant,
 } from '../../lib/caseMode.mjs';
+import { useScriptedRuns, useSliceTiming } from './scriptedRuns';
 
 export const OVERLAY_COLOR = Object.freeze({ PREDICTION: '#f0883e', GROUND_TRUTH: '#39c5cf' });
 
-const now = () => (global.performance ? global.performance.now() : Date.now());
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const isDev = () => (typeof __DEV__ !== 'undefined' ? __DEV__ : null);
 const short = (s) => (typeof s === 'string' && s.length > 24 ? `${s.slice(0, 23)}…` : (s ?? '-'));
 
 export default function CaseExplorerScreen({ runtime, nav, params }) {
@@ -237,13 +235,9 @@ function Explorer({
   const [imageError, setImageError] = useState(null);
   const [prepareEpoch, setPrepareEpoch] = useState(0);
   const [runInfo, setRunInfo] = useState(null);
-  const [navRun, setNavRun] = useState(null);
   const [fitKey, setFitKey] = useState(0);
 
-  const sample = useRef(null);            // CMW_SLICE timing of the slice in flight
-  const seenImages = useRef(new Set());
-  const stepWaiter = useRef(null);        // the scripted runs wait on this
-  const passRef = useRef(null);
+  const timing = useSliceTiming();
   const displayedRef = useRef(null);
   const overlaysRef = useRef(model.current.overlays);
   const lastLoadedUri = useRef(null);
@@ -256,15 +250,13 @@ function Explorer({
       // targetVariant is NOT taken from here: a slice answer that lands while
       // a variant switch is queued must not undo the user's choice on screen.
       setShown(c);
-      if (sample.current && sample.current.slice === c.sliceIndex && sample.current.tData === null) {
-        sample.current.tData = now();
-      }
+      timing.dataArrived(c.sliceIndex);
     } else if (c.view.state !== STATE.LOADING) {
       // The gesture ended in a state, not on a slice: close it saying which.
       if (net && net.openSeq !== null) net.end({ outcome: c.view.state });
-      if (stepWaiter.current) { const w = stepWaiter.current; stepWaiter.current = null; w.resolve(null); }
+      timing.stepFailed();
     }
-  }, [model, net]);
+  }, [model, net, timing]);
 
   const runner = useMemo(() => createSerialRunner({
     onSettled: ({ idle }) => { settle(); if (idle) setPending(null); },
@@ -368,11 +360,7 @@ function Explorer({
       displayedRef.current = shown;
       setDisplayed(shown);
       if (net && net.openSeq !== null && net.openTo === shown.sliceIndex) net.end({ outcome: failed ? 'image-error' : 'shown' });
-      if (stepWaiter.current && stepWaiter.current.slice === shown.sliceIndex) {
-        const w = stepWaiter.current;
-        stepWaiter.current = null;
-        w.resolve(shown.sliceIndex);
-      }
+      timing.stepShown(shown.sliceIndex);
     });
     return () => { alive = false; };
   }, [shown, prepareEpoch, urlsFor, runtime.imageStore, runtime.maskStore, size, net]);
@@ -383,16 +371,9 @@ function Explorer({
     const from = displayedRef.current ? displayedRef.current.sliceIndex : null;
     setPending(z);
     if (net) net.begin({ caseId, from, to: z, kind: 'slice' });
-    sample.current = {
-      slice: z,
-      t0: now(),
-      tData: null,
-      tLoad: null,
-      pass: passRef.current,
-      metaCached: Boolean(client.has && client.has('mri_slice_get', { case_id: caseId, slice_index: z })),
-    };
+    timing.startSample(z, Boolean(client.has && client.has('mri_slice_get', { case_id: caseId, slice_index: z })));
     runner.run(() => model.goToSlice(z), { key: 'slice' });
-  }, [client, caseId, model, net, runner, total]);
+  }, [client, caseId, model, net, runner, timing, total]);
 
   const switchVariant = useCallback((v) => {
     if (!hasRun || v === targetVariant) return;
@@ -460,29 +441,8 @@ function Explorer({
 
   useEffect(() => { setImageProblem(null); }, [imageUri]);
 
-  const finishSample = useCallback((how) => {
-    const sm = sample.current;
-    if (!sm || sm.slice !== z || sm.tLoad !== null) return;
-    sm.tLoad = now();
-    requestAnimationFrame(() => {
-      const tFrame = now();
-      const rec = {
-        slice: sm.slice,
-        ms_to_data: sm.tData !== null ? +(sm.tData - sm.t0).toFixed(2) : null,
-        ms_to_image: +(sm.tLoad - sm.t0).toFixed(2),
-        ms_to_frame: +(tFrame - sm.t0).toFixed(2),
-        meta_cached: sm.metaCached,
-        image_seen_before: seenImages.current.has(u.mri),
-        how,
-        pass: sm.pass,
-        dev: isDev(),
-        mode: runtime.mode,
-      };
-      if (u.mri) seenImages.current.add(u.mri);
-      if (sample.current === sm) sample.current = null;
-      console.log(`CMW_SLICE ${JSON.stringify(rec)}`);
-    });
-  }, [z, u.mri, runtime.mode]);
+  const finishSample = useCallback((how) => timing.finishSample(how, z, u.mri, runtime.mode),
+    [timing, z, u.mri, runtime.mode]);
 
   const onImageLoad = useCallback((e) => {
     lastLoadedUri.current = imageUri;
@@ -503,88 +463,14 @@ function Explorer({
   // failed, or the same image already on screen (an <Image> whose source did
   // not change fires no onLoad): the sample ends when the display does.
   useEffect(() => {
-    const sm = sample.current;
-    if (!ok || !sm || sm.slice !== z || sm.tData === null) return;
+    if (!ok || !timing.waitingForImage(z)) return;
     if (!imageUri) finishSample(imageError ? 'image-error' : 'no-image');
     else if (imageUri === lastLoadedUri.current) finishSample('image-unchanged');
-  }, [ok, imageUri, imageError, z, displayed, finishSample]);
+  }, [ok, imageUri, imageError, z, displayed, finishSample, timing]);
 
-  // ----- scripted runs: logcat evidence, nothing computed on the phone --------
-  // The timeout belongs to THIS step's waiter, compared by identity: the revisit
-  // pass steps back over slices the new pass showed, so an earlier step's timer
-  // must never time out a later step that waits on the same slice (#77 QA R-3).
-  const stepTo = useCallback((n) => new Promise((resolve) => {
-    let timer = null;
-    const waiter = { slice: n, resolve: (v) => { clearTimeout(timer); resolve(v); } };
-    stepWaiter.current = waiter;
-    goTo(n);
-    timer = setTimeout(() => {
-      if (stepWaiter.current === waiter) {
-        stepWaiter.current = null;
-        console.log(`CMW_STEP_TIMEOUT ${JSON.stringify({ slice: n, waited_ms: 6000 })}`);
-        resolve(null);
-      }
-    }, 6000);
-  }), [goTo]);
-
-  const runScripted = useCallback(async (name, passes, gapMs) => {
-    if (!Number.isInteger(total) || navRun) return;
-    for (const pass of passes) {
-      setNavRun(`${name} ${pass.label}`);
-      passRef.current = `${name}:${pass.label}`;
-      // has_run / gt_declared / gt_overlay tell the laptop-side judge what every
-      // new slice must carry (l4-report.mjs R5): a case with no run is judged
-      // on MRI + ground truth and the report says predictions were not in it.
-      const ov = overlaysRef.current || {};
-      console.log(`CMW_RUN_START ${JSON.stringify({
-        run: name, pass: pass.label, steps: pass.steps.length, sequence: pass.steps, nz: total, case_id: caseId,
-        run_id: hasRun ? runId : null, variant: hasRun ? targetVariant : null,
-        has_run: hasRun, gt_declared: capability.groundTruthUsable, gt_overlay: ov[LAYER.GROUND_TRUTH] === true,
-        prediction_overlay: hasRun && ov[LAYER.PREDICTION] === true,
-        dev: isDev(), mode: runtime.mode,
-      })}`);
-      for (const n of pass.steps) {
-        await stepTo(n);
-        await sleep(gapMs);
-      }
-      console.log(`CMW_RUN_END ${JSON.stringify({ run: name, pass: pass.label, steps: pass.steps.length })}`);
-      // #77 QA N-3: the session's running totals, so requests that no gesture
-      // line lists (none open when they started, or one that had already
-      // closed when they ended) are still on record. A line of its own: the
-      // laptop-side reports read CMW_RUN_END unchanged.
-      if (net) console.log(`CMW_NET_TOTALS ${JSON.stringify({ run: name, pass: pass.label, ...net.totals() })}`);
-    }
-    passRef.current = null;
-    setNavRun(null);
-    Alert.alert(`${name} finished`, 'The steps were logged to logcat (CMW_GESTURE, CMW_SLICE, CMW_RUN_*, CMW_NET_TOTALS). Nothing is computed on the phone.');
-  }, [capability, caseId, hasRun, navRun, net, runId, runtime.mode, stepTo, targetVariant, total]);
-
-  // L4 (S-1 tonight): 15 slices never seen, then the same 15 back - revisits.
-  const runL4 = useCallback(() => {
-    const z0 = displayedRef.current ? displayedRef.current.sliceIndex : 0;
-    const dir = z0 + 15 <= total - 1 ? 1 : -1;
-    const fresh = Array.from({ length: 15 }, (_, i) => z0 + dir * (i + 1));
-    const back = Array.from({ length: 15 }, (_, i) => z0 + dir * (14 - i));
-    runScripted('L4', [{ label: 'new-15', steps: fresh }, { label: 'revisit-15', steps: back }], 400);
-  }, [runScripted, total]);
-
-  // TC-PERF-001: Spike A's A9 30-step sequence, a warm pass then a measured one.
-  const runA9 = useCallback(() => {
-    const seq = buildNavSequence(total);
-    runScripted('A9', [{ label: 'warm', steps: [0, ...seq] }, { label: 'measured', steps: [0, ...seq] }], 350);
-  }, [runScripted, total]);
-
-  const askScripted = useCallback(() => {
-    Alert.alert(
-      'Scripted slice navigation',
-      'L4: 15 new slices, then the same 15 revisited (the S-1 gesture check). A9: Spike A\'s 30-step TC-PERF-001 sequence, warm then measured. Timings and bytes go to logcat only.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'A9 30-step', onPress: runA9 },
-        { text: 'L4 15 + 15', onPress: runL4 },
-      ],
-    );
-  }, [runA9, runL4]);
+  const { navRun, askScripted } = useScriptedRuns({
+    timing, goTo, runtime, net, caseId, runId, hasRun, total, capability, targetVariant, overlaysRef, displayedRef,
+  });
 
   // ----- render ---------------------------------------------------------------
   const run = runInfo ? runInfo.run : { runId };
