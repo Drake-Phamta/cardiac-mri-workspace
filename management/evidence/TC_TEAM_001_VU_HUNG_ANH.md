@@ -7,12 +7,12 @@
 | Technical block | Imaging, reconstruction and canonical 2D↔3D geometry |
 | Secondary reviewer | Phạm Tuấn Anh for V2; Nguyễn Gia Đức Trung reviews Spike B |
 | Prepared | 2026-09-18 (Day 9) |
-| Updated | 2026-10-01 (Day 22): the B10/B11 rows are synced with `management/spikes/SPIKE_B_3D/RESULT.md` under the Day 22 recovery override, after QA (CHAT E) found the package contradicted it. Edited by the leader's session, not the owner; the owner confirms or corrects this on Day 23 |
+| Updated | 2026-10-03: owner-delegated Day 23 revalidation; S-1's real-mesh result is added separately from the 2026-09-18 synthetic-mesh B10/B11 session. 2026-11-11: §4/§5 follow `main`'s SCR-05 after merging it into `hung-anh/day23-full-followup` |
 | Package status | **IN PROGRESS — not a TC-TEAM-001 PASS** |
 
 This package indexes the six evidence items required by `10` §10 for V2. It
-distinguishes an implemented diagnostic spike from the future product screen,
-and target-device observations from desktop or fixture diagnostics.
+distinguishes the diagnostic spike from the SCR-05 product screen, and
+target-device observations from desktop or fixture diagnostics.
 
 ## 1. Requirement and use-case ownership
 
@@ -108,9 +108,15 @@ measurement transport for `GATE-MOB-01`, not the V2 technology decision.
 | `mesh/build_mesh.py` | deterministic synthetic mask, voxel-face mesh, four decimation levels | diagnostic only |
 | `harness/picking_error.py` | independent DDA source-mask ground truth for decimation error | diagnostic only |
 
-The current viewer is not a product data client: it has no case/run API,
-source-mask selection, navigation into SCR-03, or 3D error representation. The
-package therefore remains `IN PROGRESS`.
+The product SCR-05 is the working skeleton merged to `main` in PR #98
+(`428b873`, merge `a3bc595`, 2026-10-18): a WebGL2 viewer in a WebView loads
+the L0 mesh that `reconstruction_get` now lists (`e8fc8d6`) through
+`runtime.content`, verifies its bytes against the sha256 in the `MESH_<sha256>`
+ID, and a tap opens `face_source_slice[t]` in SCR-03. It needed no API contract
+change. The earlier Day 23 source-image workbench on this branch (`052b059`),
+which kept the mesh unavailable pending a Contract 1.2.0 proposal, was replaced
+by `main`'s screen when `main` was merged on 2026-11-11. The package remains
+`IN PROGRESS`.
 
 ## 5. Test and evidence record
 
@@ -122,8 +128,10 @@ package therefore remains `IN PROGRESS`.
 | `TC-3D-003` | `set-slice-world-z` changes source-coordinate plane band | POC, no integrated SCR-03 test |
 | `TC-3D-004` | canonical point/picking tests resolve fixture slice exactly | viewer displays a slice; product navigation is absent |
 | `TC-3D-005` | — | **NOT STARTED**; needs TP/FP/FN fixture, Spike F and DR-005 |
+| SCR-05 3D Inspector | `mobile/src/verticals/v2/Inspector3DScreen.js` (PR #98); `v2_inspector3d` and `v2_viewer` node tests plus 46 `V2R` render-smoke checks: mesh request and display, fixture-mode unavailability, tap/background tap, SCR-03 ↔ SCR-05 navigation | **IMPLEMENTED, logic smoke only**; not device evidence. A17 FPS/stalls, finger picking and the 2D → 3D plane link remain unmeasured |
 | B14 diagnostic | four synthetic levels and DDA-vs-mesh ray checks retain contract groups | desktop/synthetic; cannot decide DR-008c |
 | B10/B11 | Three A17 WebView probe runs on 2026-09-18; raw `webview_probe_payloads.jsonl` sha256 `125417809c…508e`; QA re-derived every summary field from all 5,400 frame intervals (median 59.88 FPS, longest stall 16.90 ms) | **OBSERVED PASS** — owner interpretation in `RESULT.md`; one A17 session; synthetic level 0 only; an embedded 360×225 CSS px panel; requestAnimationFrame at 60 Hz on a 90 Hz display, so 59.88 FPS is the ceiling. Not reviewer-approved when written. Levels 1–3 and a real mesh are **NOT MEASURED** |
+| S-1 B10/B11 | Three Galaxy A17 runs on the `CASE_0059` L0 mesh (61,424 triangles); 59.88 FPS median, 17 ms longest stall | **PASS for the pre-declared Spike B gate at L0 only**; one case/device/session; raw coordinates/logcat remain outside git. It is separate from the 2026-09-18 synthetic session |
 
 Before V2 acceptance: build a real reconstruction from a validated mask; test
 both linkage directions in one mobile build after rotate/zoom; run
@@ -142,8 +150,10 @@ transform and canonical test, not visual resemblance. A background pick stays
 put; an inference-only case says error data is unavailable.
 
 Open risks remain explicit: a real mask can change decimation/picking results;
-B10/B11 cover synthetic level 0 only; the V2 product screen is unimplemented; and
-`DR-005`, `DR-008c`, `ADR-ART-001` and the final mobile stack stay open.
+the product screen has only render-smoke evidence; the two-way spatial link
+and A17 validation remain open; `DR-005`, `ADR-ART-001`
+and the final mobile stack stay open. `DR-008c = L0` is adopted for the tested
+Spike B case under the Day 22 pre-declared rule.
 
 ## Completion checklist
 
@@ -153,7 +163,7 @@ B10/B11 cover synthetic level 0 only; the V2 product screen is unimplemented; an
 - [x] Implementation PR and commit index
 - [x] Test evidence with limits stated
 - [x] H6/H7 demo and defense mapping
-- [ ] Integrated V2 mobile implementation
+- [ ] Integrated V2 mobile implementation — partial: SCR-05 skeleton with the L0 mesh on `main` (PR #98); no device evidence
 - [ ] Real-mask provenance and two-way mobile linkage tests
 - [ ] `TC-3D-005` 3D error implementation/test
 - [ ] A17 `TC-PERF-002` raw evidence and interpretation — partial: spike-viewer B10/B11 at synthetic level 0 observed (PR #44); the product screen and levels 1–3 are not measured

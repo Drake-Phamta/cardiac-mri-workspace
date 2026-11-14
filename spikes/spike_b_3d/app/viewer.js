@@ -13,6 +13,7 @@ import { DEFAULT_MEASURE_MS, DEFAULT_WARMUP_MS, FrameProbe } from './performance
 import { deliverFrameProbe, frameProbePayload, localProbeSink, selectMeshLevel } from './webview_probe.js';
 
 const canvas = document.querySelector('#gl');
+const isClinicalMode = new URLSearchParams(window.location.search).get('mode') === 'clinical';
 const status = document.querySelector('#status');
 const trianglesLabel = document.querySelector('#triangles');
 const fitButton = document.querySelector('#fit');
@@ -47,6 +48,7 @@ uniform vec3 uLight;
 uniform vec3 uColor;
 uniform bool uShading;
 uniform float uSliceZ;
+uniform float uSliceBandMm;
 uniform bool uSliceActive;
 out vec4 outColor;
 void main() {
@@ -63,7 +65,7 @@ void main() {
              + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
   // This is the physical axial plane selected by the linked 2D viewer.
   // It is a surface-intersection cue, not a fabricated contour.
-  float planeBand = 1.0 - smoothstep(0.0, 1.6, abs(vSourceZ - uSliceZ));
+  float planeBand = 1.0 - smoothstep(0.0, uSliceBandMm, abs(vSourceZ - uSliceZ));
   if (uSliceActive) color = mix(color, vec3(1.0, 0.72, 0.16), planeBand * 0.92);
   outColor = vec4(color, 1.0);
 }`;
@@ -144,6 +146,7 @@ function setup(gl, mesh) {
     color: gl.getUniformLocation(program, 'uColor'),
     shading: gl.getUniformLocation(program, 'uShading'),
     sliceZ: gl.getUniformLocation(program, 'uSliceZ'),
+    sliceBandMm: gl.getUniformLocation(program, 'uSliceBandMm'),
     sliceActive: gl.getUniformLocation(program, 'uSliceActive') };
 }
 
@@ -172,6 +175,8 @@ let lastFrameProbeRecord = null;
 let selectedMesh = null;
 let probeSinkUrl = null;
 let sliceWorldZ = null;
+let sliceBandMm = 1.0;
+let sourceSliceMap = null;
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -247,9 +252,13 @@ function draw(frameAt) {
   gl.uniformMatrix4fv(renderer.projection, false, projection);
   gl.uniformMatrix4fv(renderer.model, false, model);
   gl.uniform3f(renderer.light, -1.8, 2.6, 3.2);
-  gl.uniform3f(renderer.color, 0.31, 0.77, 0.82);
+  gl.uniform3f(renderer.color,
+    isClinicalMode ? 0.69 : 0.31,
+    isClinicalMode ? 0.48 : 0.77,
+    isClinicalMode ? 0.39 : 0.82);
   gl.uniform1i(renderer.shading, shading ? 1 : 0);
   gl.uniform1f(renderer.sliceZ, sliceWorldZ || 0);
+  gl.uniform1f(renderer.sliceBandMm, sliceBandMm);
   gl.uniform1i(renderer.sliceActive, sliceWorldZ === null ? 0 : 1);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
@@ -274,6 +283,10 @@ function pickSurface(event) {
     pickLabel.textContent = 'pick unavailable: canonical geometry not loaded';
     return;
   }
+  if (isClinicalMode && !sourceSliceMap) {
+    pickLabel.textContent = 'pick disabled: verified triangle → source-slice map unavailable';
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
   const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const ndcY = 1 - ((event.clientY - rect.top) / rect.height) * 2;
@@ -282,6 +295,16 @@ function pickSurface(event) {
   const inverse = invertMat4(new Float32Array(16), projectionModel);
   const ray = inverse && screenRayFromNdc(ndcX, ndcY, inverse);
   const hit = ray && rayMeshFirstHit(ray.origin, ray.direction, renderer.positions);
+  if (isClinicalMode) {
+    const sliceIndex = hit ? sourceSliceMap[hit.triangle] : null;
+    if (!Number.isInteger(sliceIndex) || sliceIndex < 0 || sliceIndex >= geometry.shape_xyz[2]) {
+      pickLabel.textContent = 'pick: no mapped source surface hit';
+      return;
+    }
+    pickLabel.textContent = `pick: source slice ${sliceIndex} · verified triangle map`;
+    window.parent.postMessage({ type: 'select-source-slice', slice_index: sliceIndex }, window.location.origin);
+    return;
+  }
   const resolved = worldToSlice(hit?.point, geometry);
   if (!hit) {
     pickLabel.textContent = 'pick: no surface hit';
@@ -360,9 +383,11 @@ shadeButton.addEventListener('click', () => {
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
 });
 window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
   const data = event.data;
   if (!data || data.type !== 'set-slice-world-z' || !Number.isFinite(data.z)) return;
   sliceWorldZ = data.z;
+  if (Number.isFinite(data.band_mm) && data.band_mm > 0) sliceBandMm = data.band_mm;
 });
 if (perfRunButton) {
   perfRunButton.addEventListener('click', () => {
@@ -394,6 +419,12 @@ if (perfDownloadButton) {
   });
 }
 
+async function sha256Hex(bytes) {
+  if (!globalThis.crypto?.subtle) return null;
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+}
+
 fetch('../mesh/out/mesh_levels.json')
   .then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
@@ -405,10 +436,27 @@ fetch('../mesh/out/mesh_levels.json')
     const objUrl = new URL(`../${selectedMesh.selected.obj}`, import.meta.url);
     const response = await fetch(objUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
-    return { text: await response.text(), summary };
+    const bytes = await response.arrayBuffer();
+    return { bytes, summary, objUrl };
   })
-  .then(({ text, summary }) => {
-    const mesh = parseObj(text);
+  .then(async ({ bytes, summary, objUrl }) => {
+    const digest = await sha256Hex(bytes);
+    const mesh = parseObj(new TextDecoder().decode(bytes), { normalMode: isClinicalMode ? 'vertex' : 'flat' });
+    if (isClinicalMode && digest && digest === selectedMesh.selected.sha256) {
+      const mapUrl = new URL(objUrl.href.replace(/\.obj$/i, '.pickmap.json'));
+      const mapResponse = await fetch(mapUrl);
+      if (mapResponse.ok) {
+        const candidate = await mapResponse.json();
+        const map = candidate.source_slice_by_triangle;
+        const valid = candidate.kind === 'cmw-triangle-to-source-slice/1'
+          && candidate.mesh_sha256 === digest
+          && candidate.geometry_contract_version === summary.geometry_contract_version
+          && candidate.triangle_count === mesh.triangles
+          && Array.isArray(map) && map.length === mesh.triangles
+          && map.every((slice) => Number.isInteger(slice) && slice >= 0 && slice < summary.shape_xyz[2]);
+        if (valid) sourceSliceMap = Int32Array.from(map);
+      }
+    }
     geometry = {
       shape_xyz: summary.shape_xyz,
       spacing_xyz_mm: summary.spacing_xyz_mm,
@@ -433,8 +481,16 @@ fetch('../mesh/out/mesh_levels.json')
       maxRadius = Math.max(maxRadius, Math.hypot(values[i] - center[0], values[i + 1] - center[1], values[i + 2] - center[2]));
     }
     scale = maxRadius ? 1 / maxRadius : 1;
-    trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · level ${selectedMesh.level}`;
-    status.textContent = `${selectedMesh.selected.obj.split('/').at(-1)} · loaded`;
+    if (trianglesLabel) trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · level ${selectedMesh.level}`;
+    status.textContent = isClinicalMode
+      ? (sourceSliceMap ? 'source geometry + triangle map verified' : 'surface loaded · exact picking disabled')
+      : `${selectedMesh.selected.obj.split('/').at(-1)} · loaded`;
+    if (isClinicalMode) {
+      if (trianglesLabel) trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · source mask exact`;
+      pickLabel.textContent = sourceSliceMap
+        ? 'pick: tap a surface face to open its source MRI slice'
+        : 'pick disabled: mesh or triangle map checksum failed';
+    }
     draw();
   })
   .catch((error) => {

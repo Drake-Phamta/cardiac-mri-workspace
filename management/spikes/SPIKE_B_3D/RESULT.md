@@ -1,18 +1,21 @@
 # SPIKE B — current diagnostic result
 
-**Status:** `ACTIVE` · **evidence_present:** `false` · **Owner:** Vũ Hùng Anh
+**Status:** `ACCEPTED` · **evidence_present:** `true` · **Owner:** Vũ Hùng Anh
+**Acceptance authority:** Project Control transition on 2026-10-01 under the Day 22 override;
+owner revalidation recorded here on 2026-10-03 under the owner's explicit delegation.
 
 This is a status result, not an acceptance-evidence record. `B10` and `B11`
 below are owner-interpreted, on-device observations; all other numbers are
 deterministic desktop diagnostics over the canonical fixture or synthetic mesh.
-The result still lacks real-mesh measurements and a reviewer verdict, so it
-does not make the spike evidence-ready.
+Acceptance is limited to the pre-declared Spike B rule and the S-1 case/device
+session. It does not establish medical image quality or generalise to other
+cases or handsets.
 
 ## S-1 device session, 2026-10-01
 
 > Written under the Day 22 recovery override by Claude agent A4c (leader's account). The owner, Vũ Hùng
-> Anh, adopts or rejects this on Day 23. The status line at the top of this file is **unchanged on
-> purpose**. The leader's session records Spike B ACCEPTED only after the independent QA pass.
+> Anh, revalidated this section on 2026-10-03 under his explicit request to complete the Day 23 packet.
+> The leader's session recorded Spike B ACCEPTED only after the independent QA pass.
 > The criteria table further down is the pre-S-1 diagnostic state, kept as written. This section
 > supersedes it for B5, B6, B7, B9, B10, B11, B12 and B13, within the scope stated here.
 
@@ -109,15 +112,55 @@ The pre-declared rule is `RECOVERY_OVERRIDE_DAY22.md` §4, row "Spike B ACCEPTED
 | B10 ≥ 20 FPS median, B11 pass at the chosen level | L0: 59.88 FPS, longest stall 17 ms | yes, at L0 |
 | B12 table with ≥ 3 levels | 5 levels, above | yes |
 | DR-008c = the fastest level whose B5 ≤ ±1 slice | L0 is the only B5-eligible level | **DR-008c = L0** |
-| B15 | Owner's development-cost note | **due from Vũ Hùng Anh by Day 23 10:00** (recorded exception) |
+| B15 | Qualitative development-cost assessment | **recorded below; no person-hours were tracked** |
 
 **DR-008c = L0**: the undecimated voxel-face surface, 61,424 triangles for `CASE_0059`. The decimated
 levels L1–L4 fail B6 on the device as well as B5 offline. They are not candidates.
 
 **B13** (the `DR-008c` recommendation) is therefore L0.
 
-On this evidence, Spike B meets the pre-declared acceptance rule. B15 is outstanding as the recorded
-exception. QA, then the leader's session, records the status. This section does not record it.
+On this evidence, Spike B meets the pre-declared acceptance rule at L0. The result does not claim a
+smooth or clinically validated surface: it verifies exact slice-linked interaction and the stated
+performance bound for this one S-1 session. The independent secondary reviewer revalidation remains
+with Nguyễn Gia Đức Trung; this owner review does not replace it.
+
+### B15 — qualitative development-cost assessment
+
+**Owner-delegated assessment (text prepared by Codex at Vũ Hùng Anh's explicit request, 2026-10-03):**
+
+The basic level-0 voxel-face mesh and orbit/zoom/pan viewer were a manageable implementation. The
+harder work was keeping every displayed triangle traceable to its source voxel, proving that a miss
+never changes the selected slice, and checking rotated and near-tangent picks against exact mask
+traversal. The S-1 data shows that simplification is not a free performance win: the tested clustered
+levels reduced triangle count but lost the required slice accuracy on this case. I would keep L0 for
+the exact-picking source surface and treat any smoother display mesh as a separate, measured layer.
+
+The product-grade clinical workbench is still a larger integration task: the current API needs a
+versioned mesh artifact, checksum, explicit coordinate frame and per-face source-slice map; the app
+then needs the MRI/MPR-to-mesh linkage and a real-device review. This app currently receives 8-bit MRI
+slice images, not a DICOM scalar volume for volume rendering. The 3D surface is therefore a spatial
+view of a segmentation, not the diagnostic image itself. No person-hours were recorded, so this is a
+qualitative comparison, not an effort estimate.
+
+### Owner revalidation notes, 2026-10-03
+
+- **DR-008c:** adopt L0 under the pre-declared rule; no topology-preserving alternative was measured,
+  so it does not alter the already-qualified frontier.
+- **Picking:** retain exact voxel traversal / per-face source-slice mapping; a miss returns no slice and
+  never navigates.
+- **Surface method:** keep voxel faces as the source/picking surface for V2-01. A smoother display
+  layer, including Marching Cubes, needs separate validation and must map back to the exact source
+  mask; it is not accepted by this decision.
+- **B5 silhouette clips:** include both `interior` and `surface_tangent` cohorts as already specified.
+  L0 met ±1 in both; retain the fixed bound.
+- **S-1 taps:** the committed per-pick table has 9 first-block taps labelled `background` that hit the
+  mask and 15 second-block taps labelled `surface` that miss it. B6/B9 use mask truth and remain
+  unchanged. Operator confirmation of the label sequence is still pending; the evidence is not
+  presented as the operator's confirmed recollection.
+- **B6 re-aggregation:** `s1_per_pick.csv` reproduces 599 L0 picks, 327 mask-hit picks, maximum error 1,
+  zero mask-hit misses, 272 no-mask picks and zero navigation on those no-mask picks. This re-aggregates
+  the extractor's committed truth labels; it is not a fresh traversal of the raw patient mask, which is
+  not present in the repository.
 
 ### Who did what
 

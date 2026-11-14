@@ -1,10 +1,10 @@
 // OBJ parser for the subset emitted by mesh/build_mesh.py.
-// Faces are triangulated and expanded with flat normals for the WebGL viewer.
+// Vertex-normal mode changes lighting only; positions and triangle order stay exact.
 
-export function parseObj(text) {
+export function parseObj(text, { normalMode = 'flat' } = {}) {
+  if (!['flat', 'vertex'].includes(normalMode)) throw new Error(`unknown OBJ normal mode: ${normalMode}`);
   const vertices = [];
-  const positions = [];
-  const normals = [];
+  const triangles = [];
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
@@ -29,17 +29,36 @@ export function parseObj(text) {
           ab[0] * ac[1] - ab[1] * ac[0],
         ];
         const length = Math.hypot(...n) || 1;
-        for (const index of tri) {
-          positions.push(...vertices[index]);
-          normals.push(n[0] / length, n[1] / length, n[2] / length);
-        }
+        triangles.push({ ids: tri, normal: [n[0] / length, n[1] / length, n[2] / length], area: length });
       }
     }
   }
-  if (positions.length === 0) throw new Error('OBJ contains no triangles');
+  if (triangles.length === 0) throw new Error('OBJ contains no triangles');
+  const vertexNormals = normalMode === 'vertex' ? vertices.map(() => [0, 0, 0]) : null;
+  if (vertexNormals) {
+    for (const triangle of triangles) {
+      for (const index of triangle.ids) {
+        for (let axis = 0; axis < 3; axis += 1) {
+          vertexNormals[index][axis] += triangle.normal[axis] * triangle.area;
+        }
+      }
+    }
+    for (const normal of vertexNormals) {
+      const length = Math.hypot(...normal) || 1;
+      for (let axis = 0; axis < 3; axis += 1) normal[axis] /= length;
+    }
+  }
+  const positions = [];
+  const normals = [];
+  for (const triangle of triangles) {
+    for (const index of triangle.ids) {
+      positions.push(...vertices[index]);
+      normals.push(...(vertexNormals ? vertexNormals[index] : triangle.normal));
+    }
+  }
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
-    triangles: positions.length / 9,
+    triangles: triangles.length,
   };
 }
