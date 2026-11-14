@@ -1,7 +1,9 @@
 // The SCR-05 WebGL2 page, kept as a string for react-native-webview; adapted from the team's 3D viewer prototype.
-// It draws the prediction and ground-truth surfaces, the FP / FN error markers and the axis marker, and talks to
-// the app with JSON messages (inspector3d.mjs builds and checks them). The script has no template literals, so it
-// can live in a JS string and the Node tests can run it too.
+// It draws the prediction and ground-truth surfaces, the FP / FN error markers and the axis marker, shows the tools
+// over them (viewerTools.mjs) and talks to the app with JSON messages (inspector3d.mjs builds and checks them).
+// The script has no template literals, so it can live in a JS string and the Node tests can run it too.
+
+import { PALETTE, TOOLS_CSS, TOOLS_SCRIPT } from './viewerTools.mjs';
 
 export const VIEWER_SCRIPT = [
   '(function () {',
@@ -16,10 +18,14 @@ export const VIEWER_SCRIPT = [
   'var SURFACES = ["prediction", "groundTruth"];',
   'var layers = { prediction: null, groundTruth: null };',
   'var visible = { prediction: true, groundTruth: true, errors: true };',
-  'var opacity = { prediction: 1, groundTruth: 0.3 };',
-  'var COLORS = { prediction: [0.94, 0.53, 0.24], groundTruth: [0.22, 0.77, 0.81] };',
-  'var MARKER_COLORS = { FN: [0.30, 0.55, 1.0], FP: [0.97, 0.47, 0.73] };',   // the error colours of the 2D screens
-  'var markers = [], markerVao = null, markerBuffer = null, markerCount = 0, markersDirty = true, selectedId = null;',
+  'var opacity = { prediction: 1, groundTruth: 0.3 };',   // the ground truth starts see-through, so the solid prediction reads in front
+  // The colours come from the design tokens (viewerTools.mjs): the overlay colours of the 2D screens and the error classes.
+  'var PALETTE = ' + JSON.stringify(PALETTE) + ';',
+  'function rgb(hex) { var n = parseInt(hex.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }',
+  'var COLORS = { prediction: rgb(PALETTE.prediction), groundTruth: rgb(PALETTE.groundTruth) };',
+  'var background = rgb(PALETTE.background);',
+  'var MARKER_COLORS = { FN: rgb(PALETTE.FN), FP: rgb(PALETTE.FP) };',
+  'var markers = [], markersLoaded = false, markerVao = null, markerBuffer = null, markerCount = 0, markersDirty = true, selectedId = null;',
   'var cam = { yaw: -0.5, pitch: 0.35, zoom: 1, pan: [0, 0], scale: 1, center: [0, 0, 0], base: 2.8 };',
   // [yaw, pitch] that put the camera on the named side of a voxel axis, looking at the model.
   'var VIEWS = { "+x": [-HALF_PI, 0], "-x": [HALF_PI, 0], "+y": [0, HALF_PI], "-y": [0, -HALF_PI], "+z": [0, 0], "-z": [Math.PI, 0] };',
@@ -102,8 +108,11 @@ export const VIEWER_SCRIPT = [
   '  var l = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);',
   '  return l > 1e-12 ? [d[0] / l, d[1] / l, d[2] / l] : null;',
   '}',
-  // The top of the kept part with the cut on: voxel k spans [k, k + 1), so slice k keeps everything up to z = k + 1.
-  'function cutZ() { return cutOn && sliceIndex !== null ? sliceIndex + 1 : null; }',
+  // The slice band: voxel k spans [k, k + 1) in the voxel-index frame (the geometry contract's floor rule), so slice k
+  // is the slab z = k to z = k + 1. No slice, no band.
+  'function bandRange() { return sliceIndex === null ? null : [sliceIndex, sliceIndex + 1]; }',
+  // With the cut on, the surface above the band is hidden: slice k keeps everything up to z = k + 1.
+  'function cutZ() { return cutOn && sliceIndex !== null ? bandRange()[1] : null; }',
   // The nearest hit over the visible layers. A miss is null, never a slice.
   'function pickRay(origin, direction) {',
   '  var d = normalise(direction), best = null;',
@@ -177,19 +186,52 @@ export const VIEWER_SCRIPT = [
   '  });',
   '  return best;',
   '}',
+  // Selecting a region (a tap on its marker, Previous / Next): the band moves to the slice of its marker voxel, which
+  // lies inside the region, and the app is told.
+  'function selectMarker(marker) {',
+  '  selectedId = marker.id; sliceIndex = marker.at[2]; markersDirty = true; dirty = true;',
+  '  post({ type: "marker", id: marker.id });',
+  '  renderTools();',
+  '}',
   'function pickAt(clientX, clientY) {',
   '  var marker = markerAt(clientX, clientY);',
-  '  if (marker) {',
-  '    selectedId = marker.id; sliceIndex = marker.at[2]; markersDirty = true; dirty = true;',
-  '    post({ type: "marker", id: marker.id });',
-  '    return marker;',
-  '  }',
+  '  if (marker) { selectMarker(marker); return marker; }',
   '  var ray = rayAt(clientX, clientY), hit = pickRay(ray.origin, ray.direction);',
   '  selectedId = null; markersDirty = true; dirty = true;',
-  '  if (!hit) { post({ type: "pick", role: null, triangle: null, slice: null }); return null; }',
+  '  if (!hit) { post({ type: "pick", role: null, triangle: null, slice: null }); renderTools(); return null; }',
   '  post({ type: "pick", role: hit.role, triangle: hit.triangle, slice: hit.slice });',
   '  sliceIndex = hit.slice; dirty = true;',                     // the selected slice becomes the band
+  '  renderTools();',
   '  return hit;',
+  '}',
+  'function selectedIndex() {',
+  '  for (var i = 0; i < markers.length; i++) if (markers[i].id === selectedId) return i;',
+  '  return -1;',
+  '}',
+  // Previous / Next: the region after (by 1) or before (by -1) the selected one, in the server's order, wrapping around.
+  // With nothing selected Next starts at the first and Previous at the last. Stepping shows the error layer first, so a
+  // region is never selected while its layer is hidden.
+  'function step(by) {',
+  '  if (!markers.length) return;',
+  '  visible.errors = true;',
+  '  var at = selectedIndex();',
+  '  var next = at < 0 ? (by < 0 ? markers.length - 1 : 0) : (at + by + markers.length) % markers.length;',
+  '  selectMarker(markers[next]);',
+  '}',
+  // Layer switches. A layer with nothing loaded has no switch (the tools do not draw one).
+  'function setLayer(role, on) {',
+  '  var loaded = role === "errors" ? markersLoaded : (role === "prediction" || role === "groundTruth") && layers[role];',
+  '  if (!loaded || typeof on !== "boolean") return;',
+  '  visible[role] = on; markersDirty = true; dirty = true;',
+  '}',
+  'function setOpacity(role, value) {',
+  '  if ((role !== "prediction" && role !== "groundTruth") || OPACITY_STEPS.indexOf(value) < 0) return;',
+  '  opacity[role] = value; dirty = true;',
+  '}',
+  // The cut needs a slice to cut at.
+  'function setCut(on) {',
+  '  if (sliceIndex === null) return;',
+  '  cutOn = Boolean(on); markersDirty = true; dirty = true;',
   '}',
   'function fit() { cam.yaw = -0.5; cam.pitch = 0.35; cam.zoom = 1; cam.pan = [0, 0]; dirty = true; }',
   'function view(axis) {',
@@ -230,7 +272,7 @@ export const VIEWER_SCRIPT = [
   '  "#version 300 es",',
   '  "precision highp float;",',
   '  "in vec3 vView; in float vZ;",',
-  '  "uniform vec3 uColor; uniform float uAlpha; uniform float uSlice; uniform float uCutZ;",',
+  '  "uniform vec3 uColor; uniform float uAlpha; uniform vec2 uBand; uniform float uCutZ;",',
   '  "out vec4 outColor;",',
   '  "void main() {",',
   '  "  if (uCutZ >= 0.0 && vZ > uCutZ) discard;",',
@@ -242,7 +284,7 @@ export const VIEWER_SCRIPT = [
   '  "  float rim = pow(1.0 - max(dot(n, v), 0.0), 2.5);",',
   '  "  vec3 c = uColor * (0.32 + 0.68 * diffuse + 0.12 * rim);",',
   '  "  if (!gl_FrontFacing) c *= 0.6;",',
-  '  "  if (uSlice >= 0.0) { float band = 1.0 - smoothstep(0.5, 1.0, abs(vZ - (uSlice + 0.5))); c = mix(c, vec3(1.0, 0.82, 0.2), band * 0.9); }",',
+  '  "  if (uBand.y > uBand.x) { float band = 1.0 - smoothstep(0.0, 0.5, max(max(uBand.x - vZ, vZ - uBand.y), 0.0)); c = mix(c, vec3(1.0, 0.82, 0.2), band * 0.9); }",',
   '  "  outColor = vec4(c, uAlpha);",',
   '  "}"',
   '].join("\\n");',
@@ -288,7 +330,7 @@ export const VIEWER_SCRIPT = [
   '  if (!gl) { fail("WEBGL2_UNAVAILABLE", "this WebView has no WebGL2"); return false; }',
   '  program = link(VS, FS);',
   '  locs.pos = gl.getAttribLocation(program, "aPos");',
-  '  ["uProj", "uMV", "uColor", "uAlpha", "uSlice", "uCutZ"].forEach(function (n) { locs[n] = gl.getUniformLocation(program, n); });',
+  '  ["uProj", "uMV", "uColor", "uAlpha", "uBand", "uCutZ"].forEach(function (n) { locs[n] = gl.getUniformLocation(program, n); });',
   '  markerProgram = link(MVS, MFS);',
   '  mlocs.pos = gl.getAttribLocation(markerProgram, "aPos");',
   '  mlocs.style = gl.getAttribLocation(markerProgram, "aStyle");',
@@ -322,10 +364,12 @@ export const VIEWER_SCRIPT = [
   '  return new Float32Array([r[0] * s, r[3] * s, r[6] * s, 0, r[1] * s, r[4] * s, r[7] * s, 0,',
   '                           r[2] * s, r[5] * s, r[8] * s, 0, tx, ty, tz, 1]);',
   '}',
+  // The camera sits far enough back for the model to fit the width of a narrow (portrait) page, never closer than 2.8.
   'function resize() {',
   '  var ratio = window.devicePixelRatio || 1, w = Math.max(1, Math.floor((canvas.clientWidth || 1) * ratio));',
   '  var h = Math.max(1, Math.floor((canvas.clientHeight || 1) * ratio));',
   '  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; dirty = true; }',
+  '  cam.base = Math.max(2.8, 1.15 / (TAN_HALF * Math.min(1, w / h)));',
   '}',
   'function drawLayer(role, alpha) {',
   '  var layer = layers[role];',
@@ -375,8 +419,9 @@ export const VIEWER_SCRIPT = [
   '  gl.drawArrays(gl.POINTS, 0, markerCount);',
   '  gl.enable(gl.DEPTH_TEST);',
   '}',
-  // The axis marker (bottom left): where the voxel axes point now. Voxel axes, not anatomy: the frame has no A/P/S.
-  'var AXES = [["x col", 0, "#f0a14a"], ["y row", 1, "#5fd39a"], ["z slice", 2, "#79c0ff"]];',
+  // The axis marker (top left): where the voxel axes point now. Voxel axes, not anatomy: the frame has no A/P/S.
+  // All three are neutral grey and named in words, so no hue competes with the prediction, ground truth or error colours.
+  'var AXES = [["x col", 0], ["y row", 1], ["z slice", 2]];',
   'function drawAxes() {',
   '  var ctx = axesCanvas && axesCanvas.getContext ? axesCanvas.getContext("2d") : null;',
   '  if (!ctx) return;',
@@ -384,11 +429,11 @@ export const VIEWER_SCRIPT = [
   '  if (axesCanvas.width !== size * ratio) { axesCanvas.width = size * ratio; axesCanvas.height = size * ratio; }',
   '  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);',
   '  ctx.clearRect(0, 0, size, size);',
-  '  ctx.lineWidth = 2; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";',
+  '  ctx.lineWidth = 2; ctx.font = "11px Roboto, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";',
   '  AXES.slice().sort(function (a, b) { return r[6 + a[1]] - r[6 + b[1]]; }).forEach(function (axis) {',   // far ones first
   '    var i = axis[1], dx = r[i] * len, dy = -r[3 + i] * len, toward = r[6 + i];',
   '    ctx.globalAlpha = toward < -0.2 ? 0.55 : 1;',
-  '    ctx.strokeStyle = axis[2]; ctx.fillStyle = axis[2];',
+  '    ctx.strokeStyle = PALETTE.axis; ctx.fillStyle = PALETTE.axis;',
   '    if (Math.abs(toward) > 0.9) {',
   // An axis along the line of sight has no length on screen: a dot (toward you) or a ring (away), labelled below.
   '      ctx.beginPath(); ctx.arc(c, c, 4, 0, 2 * Math.PI);',
@@ -399,7 +444,7 @@ export const VIEWER_SCRIPT = [
   '    ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(c + dx, c + dy); ctx.stroke();',
   '    ctx.fillText(axis[0], c + dx * 1.6, c + dy * 1.6);',
   '  });',
-  '  ctx.globalAlpha = 1; ctx.fillStyle = "#8b939b"; ctx.fillText("voxel axes", c, size - 7);',
+  '  ctx.globalAlpha = 1; ctx.fillStyle = PALETTE.axisCaption; ctx.fillText("voxel axes", c, size - 7);',
   '}',
   'function draw() {',
   '  window.requestAnimationFrame(draw);',
@@ -407,13 +452,13 @@ export const VIEWER_SCRIPT = [
   '  dirty = false;',
   '  resize();',
   '  gl.viewport(0, 0, canvas.width, canvas.height);',
-  '  gl.clearColor(0.055, 0.067, 0.086, 1); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);',
+  '  gl.clearColor(background[0], background[1], background[2], 1); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);',
   '  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);',
-  '  var proj = projection(canvas.width / canvas.height), mv = modelView(), z = cutZ();',
+  '  var proj = projection(canvas.width / canvas.height), mv = modelView(), z = cutZ(), band = bandRange();',
   '  gl.useProgram(program);',
   '  gl.uniformMatrix4fv(locs.uProj, false, proj);',
   '  gl.uniformMatrix4fv(locs.uMV, false, mv);',
-  '  gl.uniform1f(locs.uSlice, sliceIndex === null ? -1 : sliceIndex);',
+  '  gl.uniform2f(locs.uBand, band ? band[0] : 0, band ? band[1] : 0);',
   '  gl.uniform1f(locs.uCutZ, z === null ? -1 : z);',
   // Solid layers first, into the depth buffer; see-through layers after, blended, without writing depth, so a
   // see-through ground truth shows only where it lies outside the solid prediction. LESS (not LEQUAL) for them: where
@@ -444,7 +489,8 @@ export const VIEWER_SCRIPT = [
   '    var lose = gl.getExtension("WEBGL_lose_context");',
   '    if (lose && typeof lose.loseContext === "function") lose.loseContext();',
   '  }',
-  '  gl = null; layers = { prediction: null, groundTruth: null }; markers = []; markerVao = null;',
+  '  gl = null; layers = { prediction: null, groundTruth: null }; markers = []; markersLoaded = false; markerVao = null;',
+  '  renderTools();',
   '}',
   'function loadMarkers(items) {',
   '  if (!Array.isArray(items)) throw new Error("MARKERS_INVALID: no marker list");',
@@ -454,7 +500,8 @@ export const VIEWER_SCRIPT = [
   '    if (!ok) throw new Error("MARKERS_INVALID: a marker is malformed");',
   '    return { id: m.id, cls: m.cls, at: m.at.slice(), voxels: m.voxels };',
   '  });',
-  '  markersDirty = true; dirty = true;',
+  '  markersLoaded = true; markersDirty = true; dirty = true;',
+  '  renderTools();',
   '}',
   'function loadMesh(role, bytes) {',
   '  if (role !== "prediction" && role !== "groundTruth") throw new Error("MESH_ROLE: " + role);',
@@ -466,6 +513,7 @@ export const VIEWER_SCRIPT = [
   '  layers[role] = mesh;',
   '  if (gl) upload(mesh);',
   '  refit(); dirty = true;',
+  '  renderTools();',
   '  post({ type: "loaded", role: role, triangles: mesh.nt, vertices: mesh.nv });',
   '  return mesh;',
   '}',
@@ -476,24 +524,13 @@ export const VIEWER_SCRIPT = [
   '  try {',
   '    if (data.type === "mesh" && typeof data.b64 === "string") loadMesh(data.role, b64ToBytes(data.b64));',
   '    else if (data.type === "markers") loadMarkers(data.items);',
-  '    else if (data.type === "layers") {',
-  '      ["prediction", "groundTruth", "errors"].forEach(function (k) { if (typeof data[k] === "boolean") visible[k] = data[k]; });',
-  '      markersDirty = true; dirty = true;',
-  '    } else if (data.type === "opacity") {',
-  '      SURFACES.forEach(function (k) { if (typeof data[k] === "number" && data[k] > 0 && data[k] <= 1) opacity[k] = data[k]; });',
-  '      dirty = true;',
-  '    } else if (data.type === "slice") {',
+  '    else if (data.type === "slice") {',
   '      sliceIndex = typeof data.index === "number" && isFinite(data.index) && data.index >= 0 ? Math.floor(data.index) : null;',
-  '      markersDirty = true; dirty = true;',
+  '      markersDirty = true; dirty = true; renderTools();',
   '    } else if (data.type === "select") {',
   '      selectedId = typeof data.id === "string" ? data.id : null;',
-  '      markersDirty = true; dirty = true;',
-  '    } else if (data.type === "cut") {',
-  '      if (typeof data.on === "boolean") cutOn = data.on;',
-  '      markersDirty = true; dirty = true;',
-  '    } else if (data.type === "view") view(data.axis);',
-  '    else if (data.type === "fit") fit();',
-  '    else if (data.type === "dispose") dispose();',
+  '      markersDirty = true; dirty = true; renderTools();',
+  '    } else if (data.type === "dispose") dispose();',
   '  } catch (e) {',
   '    var role = data.type === "mesh" ? data.role : data.type === "markers" ? "errors" : null;',
   '    fail("VIEWER_ERROR", String(e && e.message ? e.message : e), role);',
@@ -548,6 +585,7 @@ export const VIEWER_SCRIPT = [
   '  setZoom(cam.zoom * Math.exp(-e.deltaY * 0.001));',
   '}',
 
+  TOOLS_SCRIPT,
   'try { initGl(); } catch (e) { fail("WEBGL_INIT", String(e && e.message ? e.message : e)); }',
   'canvas.addEventListener("pointerdown", onDown);',
   'canvas.addEventListener("pointermove", onMove);',
@@ -565,10 +603,10 @@ export const VIEWER_SCRIPT = [
   'window.addEventListener("pagehide", dispose);',
   'window.__cardiacViewer = {',
   '  decodeMesh: decodeMesh, loadMesh: loadMesh, pickRay: pickRay, pickAt: pickAt, project: project, rayAt: rayAt,',
-  '  markerAt: markerAt, setCamera: function (c) { for (var k in c) cam[k] = c[k]; dirty = true; }, camera: function () { return cam; },',
+  '  markerAt: markerAt, bandRange: bandRange, setCamera: function (c) { for (var k in c) cam[k] = c[k]; dirty = true; }, camera: function () { return cam; },',
   '  state: function () {',
   '    return { slice: sliceIndex, cut: cutZ(), visible: visible, opacity: opacity, selected: selectedId, disposed: disposed,',
-  '      markers: markers.length, shownMarkers: shownMarkers().map(function (m) { return m.id; }),',
+  '      markers: markers.length, markersLoaded: markersLoaded, shownMarkers: shownMarkers().map(function (m) { return m.id; }),',
   '      loaded: { prediction: !!layers.prediction, groundTruth: !!layers.groundTruth } };',
   '  }',
   '};',
@@ -580,10 +618,12 @@ export const VIEWER_SCRIPT = [
 export const VIEWER_HTML = [
   '<!doctype html><html><head><meta charset="utf-8">',
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">',
-  '<style>html,body{margin:0;height:100%;background:#0e1116;overflow:hidden}',
+  '<style>html,body{margin:0;height:100%;background:' + PALETTE.background + ';overflow:hidden}',
   '#gl{width:100%;height:100%;display:block;touch-action:none;outline:none}',
-  '#axes{position:absolute;left:2px;bottom:2px;width:112px;height:112px;pointer-events:none}</style></head>',
-  '<body><canvas id="gl" aria-label="3D surface"></canvas><canvas id="axes" aria-hidden="true"></canvas><script>',
+  // The voxel-axis marker sits under the Views group (top left).
+  '#axes{position:absolute;left:6px;top:70px;width:112px;height:112px;pointer-events:none}',
+  TOOLS_CSS + '</style></head>',
+  '<body><canvas id="gl" aria-label="3D surface"></canvas><canvas id="axes" aria-hidden="true"></canvas><div id="tools"></div><script>',
   VIEWER_SCRIPT,
   '</script></body></html>',
 ].join('\n');

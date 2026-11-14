@@ -6,67 +6,18 @@
 // switches, and turns pointer events into orbit / pinch zoom / pan / tap; that a tap on an error marker names it, the
 // cut hides (and does not pick) what lies above the slice, the axis views look along the voxel axes, see-through layers
 // are drawn after the solid ones, the axis marker is labelled with voxel axes, and dispose frees every GPU object.
+// The tools the page draws over the surface (layers, opacity, cut, views, Previous / Next) are pressed here the way the
+// page's own click listener sees them (data-act / data-arg), so the same code path serves a finger and a test.
 // What it cannot prove: how it looks, or how fast it draws on the A17 - that is the owner's device test.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-import { VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
+import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
 import { boxMesh, encodeMesh, GOLDEN, goldenBytes } from './_v2mesh.mjs';
-
-function makeViewer() {
-  const posted = [];
-  const canvasHandlers = {};
-  const windowHandlers = {};
-  const documentHandlers = {};
-  const glCalls = [];
-  let created = 0;
-  const gl = new Proxy({}, {
-    get: (_t, name) => {
-      if (typeof name !== 'string') return undefined;
-      if (/^[A-Z_0-9]+$/.test(name)) return name; // GL constants
-      if (name === 'getExtension') return (ext) => (ext === 'WEBGL_lose_context' ? { loseContext: () => glCalls.push(['loseContext']) } : null);
-      return (...args) => {
-        glCalls.push([name, ...args]);
-        if (name.startsWith('create')) { created += 1; return { name, id: created }; }
-        return name === 'getUniformLocation' ? { name } : true;
-      };
-    },
-  });
-  // The axis marker draws on its own 2D canvas; this one records what is written on it.
-  const axesText = [];
-  const axes2d = new Proxy({}, {
-    get: (_t, name) => (name === 'fillText' ? (text) => axesText.push(text) : () => true),
-    set: () => true,
-  });
-  const axesCanvas = { width: 0, height: 0, getContext: (kind) => (kind === '2d' ? axes2d : null) };
-  const rect = { left: 0, top: 0, width: 400, height: 400 };
-  const canvas = {
-    clientWidth: 400, clientHeight: 400, width: 0, height: 0, getContext: () => gl, setPointerCapture() {},
-    getBoundingClientRect: () => rect, addEventListener: (type, fn) => { canvasHandlers[type] = fn; },
-  };
-  const document = { getElementById: (id) => (id === 'axes' ? axesCanvas : canvas), addEventListener: (type, fn) => { documentHandlers[type] = fn; } };
-  const frames = [];
-  const window = {
-    ReactNativeWebView: { postMessage: (m) => posted.push(JSON.parse(m)) },
-    addEventListener: (type, fn) => { windowHandlers[type] = fn; },
-    requestAnimationFrame: (fn) => { frames.push(fn); return frames.length; }, devicePixelRatio: 1,
-  };
-  const context = vm.createContext({ window, document, atob: globalThis.atob, console });
-  new vm.Script(VIEWER_SCRIPT, { filename: 'viewer-script.js' }).runInContext(context);
-  const api = window.__cardiacViewer;
-  const send = (message) => windowHandlers.message({ data: typeof message === 'string' ? message : JSON.stringify(message) });
-  const b64 = (bytes) => Buffer.from(bytes).toString('base64');
-  const load = (role, bytes) => send({ type: 'mesh', role, b64: b64(bytes) });
-  const events = (type) => posted.filter((m) => m.type === type);
-  // Runs the page's next animation frame (draw), as the browser would.
-  const frame = () => { const fn = frames.shift(); if (fn) fn(); };
-  const tap = (x, y) => {
-    canvasHandlers.pointerdown({ pointerId: 9, clientX: x, clientY: y });
-    canvasHandlers.pointerup({ type: 'pointerup', pointerId: 9, clientX: x, clientY: y });
-  };
-  return { api, posted, canvas, canvasHandlers, windowHandlers, documentHandlers, glCalls, send, load, events, rect, frame, tap, axesText };
-}
+import { errorClass, overlay } from '../src/components/tokens.mjs';
+import { makeViewer } from './_v2viewer.mjs';
+import { PALETTE } from '../src/screens/v2-3d/viewerTools.mjs';
 
 const FACE_ON_TOP = { x: 1.5, y: 1.5, z: 3 };   // the top of the tower at column 1, row 1: voxels z 0..2 -> source slice 2
 
@@ -149,15 +100,17 @@ test('V2W6 layers: a hidden layer cannot be picked; with both visible the nearer
   v.load('groundTruth', goldenBytes());
   const ray = { origin: [1.5, 1.5, 10], direction: [0, 0, -1] };
   assert.equal(v.api.pickRay(ray.origin, ray.direction).role, 'prediction', 'a tie keeps the first layer');
-  v.send({ type: 'layers', prediction: false, groundTruth: true });
+  v.press('layer', 'prediction');
   assert.equal(v.api.pickRay(ray.origin, ray.direction).role, 'groundTruth');
   assert.equal(v.api.pickRay(ray.origin, ray.direction).slice, 2);
-  v.send({ type: 'layers', prediction: false, groundTruth: false });
+  v.press('layer', 'groundTruth');
   assert.equal(v.api.pickRay(ray.origin, ray.direction), null, 'nothing visible, nothing to pick');
-  v.send({ type: 'layers', prediction: 'yes', groundTruth: 1 });
-  assert.equal(v.api.pickRay(ray.origin, ray.direction), null, 'a non-boolean switch is ignored');
-  v.send({ type: 'layers', prediction: true, groundTruth: false });
+  v.send({ type: 'layers', prediction: true, groundTruth: true });
+  assert.equal(v.api.pickRay(ray.origin, ray.direction), null, 'the app cannot flip the switches: they belong to the tools');
+  v.press('layer', 'prediction');
   assert.equal(v.api.pickRay(ray.origin, ray.direction).role, 'prediction');
+  v.press('layer', 'errors');
+  assert.equal(v.api.state().visible.errors, true, 'a layer with nothing loaded has no switch');
 });
 
 test('V2W7 the two layers must share one grid; a damaged artifact is refused with its code and role', () => {
@@ -254,7 +207,7 @@ test('V2W10 gestures: one finger orbits, two fingers pinch-zoom and pan, a wheel
   assert.ok(v.api.camera().zoom <= 8, 'zoom is bounded');
   for (let i = 0; i < 80; i += 1) v.canvasHandlers.wheel({ deltaY: 1000, preventDefault() {} });
   assert.ok(v.api.camera().zoom >= 0.35, 'zoom out is bounded');
-  v.send({ type: 'fit' });
+  v.press('fit');
   assert.deepEqual([v.api.camera().yaw, v.api.camera().pitch, v.api.camera().zoom, ...v.api.camera().pan], [-0.5, 0.35, 1, 0, 0]);
 });
 
@@ -317,7 +270,7 @@ test('V2W13 a tap on an error marker names it and moves the band to its slice; m
   assert.equal(v.events('marker').length, 1, 'a tap 40 px away is not a marker tap');
   assert.equal(v.events('pick').length, 1, 'it falls through to the surface pick');
   assert.equal(v.api.state().selected, null, 'and clears the marker selection');
-  v.send({ type: 'layers', errors: false });
+  v.press('layer', 'errors');
   v.tap(fp.x, fp.y);
   assert.deepEqual(v.events('pick').pop().slice, 2, 'with the error layer off the same tap picks the surface');
   assert.deepEqual([...v.api.state().shownMarkers], []);
@@ -345,18 +298,20 @@ test('V2W15 Cut at slice: nothing above the slice is drawn or picked, markers ab
   v.send({ type: 'markers', items: MARKERS });
   const down = (x, y) => v.api.pickRay([x, y, 10], [0, 0, -1]);
   assert.deepEqual([down(1.5, 1.5).slice, down(1.5, 1.5).distance], [2, 7], 'no cut: the tower top (z = 3)');
+  v.press('cut');
+  assert.equal(v.api.state().cut, null, 'with no slice there is nothing to cut at');
   v.send({ type: 'slice', index: 1 });
-  v.send({ type: 'cut', on: true });
+  v.press('cut');
   assert.equal(v.api.state().cut, 2, 'slice 1 keeps everything up to z = 2');
   assert.deepEqual([down(1.5, 1.5).slice, down(1.5, 1.5).distance], [0, 10], 'the hidden top is skipped: the ray reaches the bottom face');
   assert.deepEqual([...v.api.state().shownMarkers], ['FN_0001'], 'the marker on slice 2 is above the cut');
   v.send({ type: 'slice', index: 2 });
   assert.deepEqual([down(4.5, 3.5).slice, down(4.5, 3.5).distance], [2, 8], 'the voxel on slice 3 is cut away, its slice-2 voxel stays');
   assert.deepEqual([...v.api.state().shownMarkers], ['FN_0001', 'FP_0001']);
-  v.send({ type: 'cut', on: false });
+  v.press('cut');
   assert.equal(v.api.state().cut, null);
   assert.equal(down(4.5, 3.5).slice, 3);
-  v.send({ type: 'cut', on: true });
+  v.press('cut');
   v.send({ type: 'slice', index: null });
   assert.equal(v.api.state().cut, null, 'no slice, nothing to cut at');
   v.frame();
@@ -373,18 +328,18 @@ test('V2W16 axis views look along each voxel axis from its named side; Fit retur
   };
   const expected = { '+x': [-1, 0, 0], '-x': [1, 0, 0], '+y': [0, -1, 0], '-y': [0, 1, 0], '+z': [0, 0, -1], '-z': [0, 0, 1] };
   for (const [axis, dir] of Object.entries(expected)) {
-    v.send({ type: 'view', axis });
+    v.press('view', axis);
     assert.deepEqual(look(), dir, `from ${axis} the camera looks along ${dir}`);
     assert.deepEqual([v.api.camera().zoom, ...v.api.camera().pan], [1, 0, 0]);
   }
-  v.send({ type: 'view', axis: 'anterior' });
+  v.press('view', 'anterior');
   assert.deepEqual(look(), [0, 0, 1], 'an unknown view changes nothing');
-  v.send({ type: 'view', axis: '+y' });
+  v.press('view', '+y');
   v.canvasHandlers.pointerdown({ pointerId: 1, clientX: 100, clientY: 100 });
   v.canvasHandlers.pointermove({ pointerId: 1, clientX: 100, clientY: 200 });
   v.canvasHandlers.pointerup({ type: 'pointerup', pointerId: 1, clientX: 100, clientY: 200 });
   assert.ok(v.api.camera().pitch <= Math.PI / 2 + 1e-12, 'orbiting never tips past the pole');
-  v.send({ type: 'fit' });
+  v.press('fit');
   assert.deepEqual([v.api.camera().yaw, v.api.camera().pitch], [-0.5, 0.35]);
 });
 
@@ -394,7 +349,7 @@ test('V2W17 opacity: solid layers are drawn first into the depth buffer, see-thr
   v.load('groundTruth', goldenBytes());
   const draws = () => {
     v.glCalls.length = 0;
-    v.send({ type: 'fit' });   // anything that asks for a new frame
+    v.press('fit');   // anything that asks for a new frame
     v.frame();
     let depth = null, blend = null, alpha = null;
     const out = [];
@@ -408,11 +363,11 @@ test('V2W17 opacity: solid layers are drawn first into the depth buffer, see-thr
     return out;
   };
   assert.deepEqual(draws(), [[true, false, 1], [false, true, 0.3]], 'default: a solid prediction, then the ground truth at 30%');
-  v.send({ type: 'opacity', prediction: 0.6, groundTruth: 1 });
+  v.press('opacity', 'prediction:0.6');
+  v.press('opacity', 'groundTruth:1');
   assert.deepEqual(draws(), [[true, false, 1], [false, true, 0.6]], 'a solid ground truth first, then the prediction at 60%');
-  v.send({ type: 'opacity', prediction: 0, groundTruth: 2 });
-  v.send({ type: 'opacity', prediction: 'x' });
-  assert.deepEqual({ ...v.api.state().opacity }, { prediction: 0.6, groundTruth: 1 }, 'values outside (0, 1] are ignored');
+  for (const bad of ['prediction:0', 'groundTruth:2', 'prediction:0.5', 'prediction:x', 'errors:1', 'sky:0.3']) v.press('opacity', bad);
+  assert.deepEqual({ ...v.api.state().opacity }, { prediction: 0.6, groundTruth: 1 }, 'only the three steps 30 / 60 / 100 % of the two surfaces are accepted');
   v.send({ type: 'markers', items: MARKERS });
   v.frame();
   assert.ok(v.glCalls.some(([n, mode, , count]) => n === 'drawArrays' && mode === 'POINTS' && count === 2), 'the two markers are drawn as points');
@@ -451,4 +406,107 @@ test('V2W19 dispose frees every buffer, vertex array, shader and program, and lo
   assert.equal(v.events('loaded').length, 3, 'nothing is loaded after dispose');
   assert.equal(v.glCalls.length, before, 'and nothing touches the GPU again');
   assert.equal(v.api.state().disposed, true);
+});
+
+// ---- the tools over the surface ------------------------------------------------------------------------------------
+
+test('V2W20 the tools appear with the surface, each a labelled button; a layer with nothing loaded has no row', () => {
+  const v = makeViewer();
+  assert.equal(v.tools.innerHTML, '', 'no tools before there is something to look at');
+  v.load('prediction', goldenBytes());
+  const labels = ['View from plus x', 'View from minus x', 'View from plus y', 'View from minus y', 'View from plus z', 'View from minus z',
+    'Fit the model in view', 'Cut at the selected slice', 'Prediction', 'Prediction opacity 30%', 'Prediction opacity 60%', 'Prediction opacity 100%'];
+  for (const label of labels) assert.ok(v.button(label), label);
+  assert.equal(v.button('Ground truth'), null, 'no ground-truth mesh, no ground-truth row');
+  assert.equal(v.button('Errors'), null, 'no markers yet, no error row');
+  assert.match(v.button('Cut at the selected slice'), /disabled/, 'no slice to cut at: the cut is disabled');
+  v.send({ type: 'slice', index: 2 });
+  assert.doesNotMatch(v.button('Cut at the selected slice'), /disabled/);
+  assert.match(v.button('Cut at the selected slice'), /aria-pressed="false"/);
+
+  v.load('groundTruth', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  assert.ok(v.button('Ground truth') && v.button('Errors') && v.button('Next error region') && v.button('Previous error region'));
+  assert.match(v.tools.innerHTML, /2 regions/, 'with nothing selected the stepper counts the regions');
+  assert.match(v.button('Ground truth opacity 30%'), /aria-pressed="true"/, 'the ground truth starts see-through');
+  assert.match(v.button('Prediction opacity 100%'), /aria-pressed="true"/, 'and the prediction solid');
+  v.press('opacity', 'groundTruth:0.6');
+  assert.match(v.button('Ground truth opacity 60%'), /aria-pressed="true"/);
+  assert.match(v.button('Ground truth opacity 30%'), /aria-pressed="false"/);
+  v.press('layer', 'groundTruth');
+  assert.match(v.button('Ground truth'), /aria-pressed="false"/, 'hidden: the switch says so');
+  assert.equal(v.button('Ground truth opacity 60%'), null, 'a hidden layer shows no opacity steps');
+  v.press('cut');
+  assert.match(v.tools.innerHTML, /Above slice 3 hidden/, 'the cut says what it hides, slice numbers 1-based');
+  v.press('step', 1);
+  assert.match(v.tools.innerHTML, /1 \/ 2/, 'the stepper shows which region is selected');
+  v.send({ type: 'dispose' });
+  assert.equal(v.tools.innerHTML, '', 'after dispose the tools are gone');
+});
+
+test('V2W21 Previous / Next never select a region while the Errors layer is off: stepping shows the layer first', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  v.press('layer', 'errors');
+  const s0 = v.api.state();
+  assert.deepEqual([s0.visible.errors, [...s0.shownMarkers], s0.selected], [false, [], null], 'the Errors layer is off, nothing is drawn or selected');
+  v.press('step', 1);
+  const s1 = v.api.state();
+  assert.deepEqual([s1.visible.errors, s1.selected, v.events('marker').map((m) => m.id)], [true, 'FN_0001', ['FN_0001']],
+    'Next turns the layer on, then selects the first region and tells the app');
+  assert.deepEqual([...s1.shownMarkers], ['FN_0001', 'FP_0001'], 'and the markers are drawn');
+  // the same from the layer off again, going backwards: the last region
+  v.press('step', 1);
+  v.press('layer', 'errors');
+  v.press('step', -1);
+  const s2 = v.api.state();
+  assert.deepEqual([s2.visible.errors, s2.selected], [true, 'FN_0001'], 'Previous from the second region goes back to the first');
+  assert.equal(v.events('marker').length, 3, 'every step told the app which region');
+  v.press('layer', 'errors');
+  v.press('step', -1);
+  assert.deepEqual([v.api.state().visible.errors, v.api.state().selected], [true, 'FP_0001'], 'Previous wraps to the last region');
+  v.press('step', 1);
+  assert.equal(v.api.state().selected, 'FN_0001', 'Next wraps to the first');
+  // no region at all: stepping does nothing and does not switch the layer on
+  const none = makeViewer();
+  none.load('prediction', goldenBytes());
+  none.send({ type: 'markers', items: [] });
+  none.press('layer', 'errors');
+  none.press('step', 1);
+  assert.deepEqual([none.api.state().visible.errors, none.api.state().selected, none.events('marker').length], [false, null, 0]);
+  assert.match(none.tools.innerHTML, /None/, 'the row says there are none, and draws no stepper');
+  assert.equal(none.button('Next error region'), null);
+});
+
+test('V2W22 every tool is at least 48 px wide and tall; the markup carries no identifier of a case', () => {
+  const css = [...VIEWER_HTML.matchAll(/#tools[^{}]*button[^{}]*\{([^}]*)\}/g)].map((m) => m[1]);
+  const mins = css.flatMap((rule) => [...rule.matchAll(/min-(?:width|height):(\d+)px/g)].map((m) => Number(m[1])));
+  assert.ok(mins.length >= 2 && mins.every((n) => n >= 48), `min sizes of the tool buttons: ${mins}`);
+  assert.ok(!/(^|[^-])(width|height):\d+px/.test(css.join(';').replace(/min-(width|height):\d+px/g, '')), 'no fixed size on a button can shrink it below the minimum');
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.load('groundTruth', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  assert.ok((v.tools.innerHTML.match(/<button /g) || []).length >= 17, 'six views, Fit, Cut, two layers with three steps each, errors with Previous / Next');
+  assert.ok(!/CASE_|RUN_|MASK_|MESH_|http/.test(v.tools.innerHTML + VIEWER_HTML.replace(/MESH_[A-Z]+:/g, '')), 'the page holds nothing that names a case');
+});
+
+test('V2W23 one legend for the app: the page takes its colours from the design tokens, nothing is hand-written in it', () => {
+  assert.deepEqual([PALETTE.prediction, PALETTE.groundTruth, PALETTE.FN, PALETTE.FP], [overlay.prediction, overlay.groundTruth, errorClass.FN, errorClass.FP]);
+  // The page carries exactly that palette, so a token change reaches the surface and the tool chips together.
+  const inPage = JSON.parse(/var PALETTE = (\{[^;]*\});/.exec(VIEWER_SCRIPT)[1]);
+  assert.deepEqual(inPage, { ...PALETTE });
+  assert.ok(VIEWER_HTML.includes(`background:${PALETTE.background}`), 'the page is as near-black as the app bar');
+  assert.ok(!/#4c8dff|#f778ba|#f0883e|#39c5cf/i.test(VIEWER_SCRIPT.replace(/var PALETTE = \{[^;]*\};/, '')), 'no hex of a data colour outside the palette');
+  // the surfaces and the markers are painted with those colours (as 0-1 RGB uniforms)
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  v.frame();
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const uniform3 = (name) => v.glCalls.filter(([n, loc]) => n === 'uniform3f' && loc && loc.name === name).pop().slice(2);
+  assert.deepEqual(uniform3('uColor'), rgb(overlay.prediction));
+  assert.deepEqual(uniform3('uFN'), rgb(errorClass.FN));
+  assert.deepEqual(uniform3('uFP'), rgb(errorClass.FP));
 });
