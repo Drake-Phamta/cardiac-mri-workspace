@@ -1,0 +1,8 @@
+# Feature branches not merged into main yet. tools/trace_check.py --allow-pending reads this file:
+# a ref that does not resolve on a matrix row whose pending_branch lists only these tags is PENDING, not an error.
+# Delete this file and run the check with --strict once every branch below is merged (docs/spec/09, section 3).
+shell   # origin/shell/design-system  (app shell, design direction A)
+v1      # origin/v1/tuan-anh-upgrades (Phạm Tuấn Anh: SCR-02, SCR-03, SCR-04)
+v2      # origin/v2/hung-anh-upgrades (Vũ Hùng Anh: SCR-05, 3D error markers)
+v3      # origin/v3/khanh-upgrades    (Bế Quốc Khánh: SCR-01, SCR-07)
+v4      # origin/v4/trung-upgrades    (Nguyễn Gia Đức Trung: SCR-06, SCR-08, contract 1.2.0)
