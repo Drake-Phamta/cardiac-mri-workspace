@@ -10,13 +10,21 @@ import Svg, { Rect } from 'react-native-svg';
 
 import { emptyUnavailable, RECOVERY, STATE } from '../../api/states.mjs';
 import { createCaseExplorer, metricsText, createSerialRunner } from './cases.mjs';
-import { disagreementRuns, runsToPath } from '../../lib/mask.mjs';
+import {
+  disagreementMasks, disagreementRuns, maskOutlinePath, runsToPath,
+} from '../../lib/mask.mjs';
 import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { SliceScrubber } from './SliceView';
+import SliceViewport, {
+  OverlayStyleChips, PrivacyRow, SliceScrubber, useSlicePlayer,
+} from './SliceView';
+import { usePrivacyMode } from '../../lib/screenCapture';
+import {
+  OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
+} from './sliceControls.mjs';
 import { capabilityOf } from '../../lib/caseMode.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
@@ -97,6 +105,15 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const [pending, setPending] = useState(null);
   const [visible, setVisible] = useState({ TP: true, FP: true, FN: true });
   const [opacity, setOpacity] = useState(0.6);
+  // Privacy mode (on by default): screenshots and casting of this screen show black while it is on.
+  const privacy = usePrivacyMode('SCR-04');
+  // Both by default: the fill shows the area, the outline its edge (FP dashed), so a class never relies on colour.
+  const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-04', { mode: OVERLAY_MODE.BOTH, width: 2 }));
+  const changeStyle = useCallback((patch) => setStyle((st) => {
+    const next = { ...st, ...patch };
+    rememberOverlayStyle('SCR-04', next);
+    return next;
+  }), []);
   const displayedRef = useRef(null);
 
   const settle = useCallback(() => {
@@ -160,6 +177,9 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const ok = displayed !== null;
   const state = current.view.state;
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
+  // Play sweeps the slices with their error classes; the user's own slice actions (userGoTo, Retry) stop it.
+  const player = useSlicePlayer({ total, goTo, displayed, failed: blocking });
+  const userGoTo = useCallback((n) => { player.stop(); goTo(n); }, [player.stop, goTo]);
   // As in SCR-03: while the viewer shows a state, nothing from the previous slice stays on screen.
   const showing = ok && !blocking;
   const z = ok ? displayed.sliceIndex : null;
@@ -179,8 +199,24 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     }
   }, [predMask, gtMask]);
 
+  // Each class's outline, traced from its own mask only while an outline is shown.
+  const outlined = needsOutline(style.mode);
+  const classOutlines = useMemo(() => {
+    if (!outlined || !predMask || !gtMask || !classes || classes.error) return null;
+    const m = disagreementMasks(gtMask.mask, predMask.mask);
+    return { TP: maskOutlinePath(m.tp), FP: maskOutlinePath(m.fp), FN: maskOutlinePath(m.fn) };
+  }, [outlined, predMask, gtMask, classes]);
+
   const layers = classes && classes.paths
-    ? CLASS_ORDER.map((k) => ({ key: k, path: classes.paths[k], color: ERROR_CLASS[k].color, opacity, visible: visible[k] }))
+    ? CLASS_ORDER.map((k) => ({
+      key: k,
+      path: classes.paths[k],
+      outline: classOutlines ? classOutlines[k] : null,
+      color: ERROR_CLASS[k].color,
+      dashed: ERROR_CLASS[k].dashed === true,
+      opacity,
+      visible: visible[k],
+    }))
     : [];
   const serverCell = showing && profile.cells.length ? profile.cells[z] : null;
   // The server's FP / FN are compared with the drawn classes only when the drawn masks are the ones it names.
@@ -209,7 +245,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
       <View style={s.viewerBox}>
         {blocking ? (
           <View style={s.blocked}>
-            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={(id) => { if (id === RECOVERY.BACK) nav.pop(); else retrySlice(); }} />
+            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={(id) => { if (id === RECOVERY.BACK) nav.pop(); else { player.stop(); retrySlice(); } }} />
           </View>
         ) : (
           <SliceViewport
@@ -218,11 +254,14 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             layers={layers}
             placeholderNote={pixelNote}
             resetKey={caseId}
+            overlayMode={style.mode}
+            outlineWidth={style.width}
           />
         )}
       </View>
 
-      <SliceScrubber index={blocking ? current.sliceIndex : (ok ? z : current.sliceIndex)} pending={pending} total={total} onChange={goTo} />
+      <SliceScrubber index={blocking ? current.sliceIndex : (ok ? z : current.sliceIndex)} pending={pending} total={total} onChange={userGoTo}
+        playing={player.playing} onPlay={player.toggle} />
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollIn}>
         {pixelNote && !blocking ? <Text style={s.dim}>{pixelNote}</Text> : null}
@@ -238,17 +277,30 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
               accessibilityState={{ checked: visible[k] }}
               accessibilityLabel={`${ERROR_CLASS[k].label}, ${visible[k] ? 'shown' : 'hidden'}`}
             >
-              <View style={[s.swatch, { backgroundColor: ERROR_CLASS[k].color }, !visible[k] && s.swatchOff]} />
+              <View
+                style={[
+                  s.swatch,
+                  { borderColor: ERROR_CLASS[k].color, backgroundColor: `${ERROR_CLASS[k].color}66` },
+                  ERROR_CLASS[k].dashed && s.swatchDashed,
+                  !visible[k] && s.swatchOff,
+                ]}
+              />
               <View style={s.legendText}>
                 <Text style={s.legendLabel}>
                   {ERROR_CLASS[k].label}{classes && classes.counts ? ` · ${classes.counts[k.toLowerCase()]} px` : ''}{visible[k] ? '' : ' (hidden)'}
                 </Text>
-                <Text style={s.dim}>{ERROR_CLASS[k].detail}</Text>
+                <Text style={s.dim}>{ERROR_CLASS[k].detail}{outlined ? ` · ${ERROR_CLASS[k].dashed ? 'dashed' : 'solid'} edge` : ''}</Text>
               </View>
             </TouchableOpacity>
           ))}
+          <OverlayStyleChips
+            mode={style.mode}
+            width={style.width}
+            onMode={(mode) => changeStyle({ mode })}
+            onWidth={(width) => changeStyle({ width })}
+          />
           <View style={s.opacityRow}>
-            <Text style={s.dim}>Opacity</Text>
+            <Text style={s.rowLabel}>{style.mode === OVERLAY_MODE.OUTLINE ? 'Fill (off)' : 'Fill'}</Text>
             {[0.4, 0.6, 0.8, 1].map((o) => (
               <TouchableOpacity key={o} style={[s.step, opacity === o && s.stepOn]} onPress={() => setOpacity(o)} accessibilityRole="button">
                 <Text style={[s.stepT, opacity === o && s.stepTOn]}>{Math.round(o * 100)}%</Text>
@@ -259,6 +311,10 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           {idsDiffer && <Text style={s.warn}>{ids.text}</Text>}
           {check && check.checked && <Text style={check.consistent ? s.ok : s.warn}>{check.text}</Text>}
           <Text style={[s.metric, metricsLine.tone === 'ok' && s.ok]}>{metricsLine.text}</Text>
+        </View>
+
+        <View style={s.card}>
+          <PrivacyRow privacy={privacy} />
         </View>
 
         <Provenance title="Provenance (this slice)" summary="the mask ids the classes were counted from">
@@ -282,7 +338,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
                   <TouchableOpacity
                     key={e.sliceIndex}
                     style={[s.worst, i === 0 && s.worstFirst, !opens && s.worstOff]}
-                    onPress={() => { if (opens) goTo(e.sliceIndex); }}
+                    onPress={() => { if (opens) userGoTo(e.sliceIndex); }}
                     disabled={!opens}
                     accessibilityRole="button"
                     accessibilityState={{ disabled: !opens }}
@@ -301,7 +357,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
         <View style={s.card}>
           <Text style={s.cardH}>Error profile across the volume (server: FP + FN per eligible slice)</Text>
-          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={goTo} note={profileNote(run)} />
+          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={userGoTo} note={profileNote(run)} />
           <Text style={s.dim}>Bar = FP + FN pixels the server counted on that slice. No bar = not eligible (no ground truth there) - not zero. Tap to open a slice.</Text>
           {profile.problems.map((p) => <Text key={p} style={s.warn}>{p}</Text>)}
         </View>
@@ -384,11 +440,13 @@ const s = StyleSheet.create({
   legendRow: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.s },
   legendText: { flex: 1 },
   legendLabel: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  swatch: { width: 20, height: 20, borderRadius: 4 },
+  swatch: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderStyle: 'solid' },
+  swatchDashed: { borderStyle: 'dashed' },
   swatchOff: { opacity: 0.25 },
   opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
+  rowLabel: { color: color.textDim, fontSize: font.small, minWidth: 52 },
   step: {
-    minHeight: 40, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.border,
+    minHeight: MIN_TOUCH, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.control,
     alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
   },
   stepOn: { borderColor: color.accent, backgroundColor: color.accentBg },

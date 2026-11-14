@@ -12,16 +12,23 @@ import {
   createCaseExplorer, LAYER, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel, createSerialRunner,
 } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
+import { color, font, MIN_TOUCH, overlay, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { SliceScrubber, useMaskOverlay } from './SliceView';
+import SliceViewport, {
+  OverlayStyleChips, PrivacyRow, SliceScrubber, outlineOf, useMaskOverlay, useSlicePlayer,
+} from './SliceView';
+import { usePrivacyMode } from '../../lib/screenCapture';
+import {
+  OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
+} from './sliceControls.mjs';
 import {
   capabilityOf, VARIANT_TEXT, variantOptions, rememberedVariant, rememberVariant,
 } from '../../lib/caseMode.mjs';
 import { useScriptedRuns, useSliceTiming } from './scriptedRuns';
 
-export const OVERLAY_COLOR = Object.freeze({ PREDICTION: '#f0883e', GROUND_TRUTH: '#39c5cf' });
+// Orange and cyan stay apart for every common colour-vision deficiency, and each layer is named in words too.
+export const OVERLAY_COLOR = Object.freeze({ PREDICTION: overlay.prediction, GROUND_TRUTH: overlay.groundTruth });
 
 const short = (s) => (typeof s === 'string' && s.length > 24 ? `${s.slice(0, 23)}…` : (s ?? '-'));
 
@@ -181,6 +188,14 @@ function Explorer({
   const [pending, setPending] = useState(null);
   const [targetVariant, setTargetVariant] = useState(initialVariant);
   const [opacity, setOpacity] = useState(0.5);
+  // Privacy mode (on by default): screenshots and casting of this screen show black while it is on.
+  const privacy = usePrivacyMode('SCR-03');
+  const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-03', { mode: OVERLAY_MODE.FILL, width: 2 }));
+  const changeStyle = useCallback((patch) => setStyle((st) => {
+    const next = { ...st, ...patch };
+    rememberOverlayStyle('SCR-03', next);
+    return next;
+  }), []);
   const [tap, setTap] = useState(null);
   const [imageProblem, setImageProblem] = useState(null);
   const [imageError, setImageError] = useState(null);
@@ -192,6 +207,8 @@ function Explorer({
   const displayedRef = useRef(null);
   const overlaysRef = useRef(model.current.overlays);
   const lastLoadedUri = useRef(null);
+  // Set to the Play button's stop() below; any slice action of the user's own stops a sweep first.
+  const stopPlay = useRef(() => {});
 
   const settle = useCallback(() => {
     const c = model.current;
@@ -330,6 +347,7 @@ function Explorer({
 
   const switchVariant = useCallback((v) => {
     if (!hasRun || v === targetVariant) return;
+    stopPlay.current();
     onVariantChosen(v);
     setTargetVariant(v);
     const z = displayedRef.current ? displayedRef.current.sliceIndex : null;
@@ -353,6 +371,7 @@ function Explorer({
   }, [client, caseId, hasRun, runId]);
 
   const refreshSlice = useCallback(() => {
+    stopPlay.current();
     const zz = model.current.sliceIndex;
     forgetSlice(zz);
     if (net && Number.isInteger(zz)) net.begin({ caseId, from: zz, to: zz, kind: 'refresh' });
@@ -384,9 +403,16 @@ function Explorer({
   const gt = useMaskOverlay(runtime.maskStore, gtOn ? u.gt : null, size, u.sums.gt);
   const predAvailable = ok && displayed.layersAvailable[LAYER.PREDICTION] === true;
   const gtAvailable = ok && displayed.layersAvailable[LAYER.GROUND_TRUTH] === true && displayed.groundTruthRef !== null;
+  const outlined = needsOutline(style.mode);
   const layers = [
-    { key: 'gt', path: gt.path, color: OVERLAY_COLOR.GROUND_TRUTH, opacity, visible: !imageProblem && gtOn && gtAvailable },
-    { key: 'pred', path: pred.path, color: OVERLAY_COLOR.PREDICTION, opacity, visible: !imageProblem && !switching && overlays[LAYER.PREDICTION] === true && predAvailable },
+    {
+      key: 'gt', path: gt.path, outline: outlined ? outlineOf(gt.mask) : null, color: OVERLAY_COLOR.GROUND_TRUTH, opacity,
+      visible: !imageProblem && gtOn && gtAvailable,
+    },
+    {
+      key: 'pred', path: pred.path, outline: outlined ? outlineOf(pred.mask) : null, color: OVERLAY_COLOR.PREDICTION, opacity,
+      visible: !imageProblem && !switching && overlays[LAYER.PREDICTION] === true && predAvailable,
+    },
   ];
 
   useEffect(() => { setImageProblem(null); }, [imageUri]);
@@ -420,6 +446,12 @@ function Explorer({
   const { navRun, askScripted } = useScriptedRuns({
     timing, goTo, runtime, net, caseId, runId, hasRun, total, capability, targetVariant, overlaysRef, displayedRef,
   });
+
+  // Play sweeps the slices one at a time (each one on screen before the next is asked for); a scripted run or a
+  // slice that fails stops it.
+  const player = useSlicePlayer({ total, goTo, displayed, failed: blocking, locked: Boolean(navRun) });
+  stopPlay.current = player.stop;
+  const userGoTo = useCallback((n) => { player.stop(); goTo(n); }, [player.stop, goTo]);
 
   const run = runInfo ? runInfo.run : { runId };
   // While the viewer shows a state instead of a slice, nothing from the previous slice (metric, provenance,
@@ -509,6 +541,8 @@ function Explorer({
             placeholderNote={pixelNote}
             resetKey={`${caseId}|${fitKey}`}
             onTap={(src, at) => setTap({ src, slice: z, zoom: at.zoom })}
+            overlayMode={style.mode}
+            outlineWidth={style.width}
           />
         )}
       </View>
@@ -517,9 +551,11 @@ function Explorer({
         index={scrubIndex}
         pending={pending}
         total={total}
-        onChange={goTo}
+        onChange={userGoTo}
         onLongPressLabel={askScripted}
         disabled={Boolean(navRun)}
+        playing={player.playing}
+        onPlay={player.toggle}
       />
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollIn}>
@@ -558,8 +594,14 @@ function Explorer({
           ) : (
             <Text style={s.dim}>Ground truth: none for this case ({capability.label}) - no ground-truth layer, metric or error view is offered.</Text>
           )}
+          <OverlayStyleChips
+            mode={style.mode}
+            width={style.width}
+            onMode={(mode) => changeStyle({ mode })}
+            onWidth={(width) => changeStyle({ width })}
+          />
           <View style={s.opacityRow}>
-            <Text style={s.dim}>Opacity</Text>
+            <Text style={s.rowLabel}>{style.mode === OVERLAY_MODE.OUTLINE ? 'Fill (off)' : 'Fill'}</Text>
             {OPACITY_STEPS.map((o) => (
               <TouchableOpacity key={o} style={[s.step, opacity === o && s.stepOn]} onPress={() => setOpacity(o)} accessibilityRole="button">
                 <Text style={[s.stepT, opacity === o && s.stepTOn]}>{Math.round(o * 100)}%</Text>
@@ -587,6 +629,10 @@ function Explorer({
             </Text>
           )}
           {geometryNote && <Text style={s.dim}>{geometryNote}</Text>}
+        </View>
+
+        <View style={s.card}>
+          <PrivacyRow privacy={privacy} />
         </View>
 
         <Provenance title="Provenance (this slice)" summary="artifact ids and checksums of the MRI and masks">
@@ -681,8 +727,9 @@ const s = StyleSheet.create({
   swatch: { width: 18, height: 18, borderRadius: 4 },
   swatchOff: { opacity: 0.35 },
   opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
+  rowLabel: { color: color.textDim, fontSize: font.small, minWidth: 52 },
   step: {
-    minHeight: 40, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.border,
+    minHeight: MIN_TOUCH, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.control,
     alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
   },
   stepOn: { borderColor: color.accent, backgroundColor: color.accentBg },

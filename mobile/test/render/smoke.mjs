@@ -254,6 +254,21 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tick(250);
   paths = r.root.findAll((n) => n.type === 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 2, `ground-truth overlay added (${paths.length} paths)`);
+  // Fill / Outline / Both (V1 item 1): the outline is a second path with no fill, traced from the boundary pixels.
+  const svgPaths = () => r.root.findAll((n) => n.type === 'Path');
+  const outlinePaths = () => svgPaths().filter((n) => n.props.fill === 'none');
+  await press(r, 'Outline');
+  check('O1', svgPaths().length === 2 && outlinePaths().length === 2
+    && outlinePaths().every((n) => n.props.strokeWidth > 0 && /^M\d+ \d+[hv]/.test(n.props.d) && n.props.d.endsWith('z')),
+  `Outline: ${outlinePaths().length} outline paths, no fill (stroke ${outlinePaths()[0] ? outlinePaths()[0].props.strokeWidth.toFixed(3) : '-'} source px)`);
+  const w2 = outlinePaths()[0].props.strokeWidth;
+  await press(r, '3 px');
+  check('O1', Math.abs(outlinePaths()[0].props.strokeWidth / w2 - 1.5) < 1e-9, 'the 3 px chip widens the outline 1.5 times (it is set in screen pixels)');
+  await press(r, 'Both');
+  check('O1', svgPaths().length === 4 && outlinePaths().length === 2, `Both: fill and outline for each layer (${svgPaths().length} paths)`);
+  await press(r, '2 px');
+  await press(r, 'Fill');
+  check('O1', svgPaths().length === 2 && outlinePaths().length === 0, 'back to Fill: the two filled layers only');
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
   await tick(30);
 
@@ -328,6 +343,63 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tick(350);
   check('L9', requests.length === mark && has(r, /slice 46 \/ 88/) && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
     `back to z 45 after Retry and Refresh of other slices: ${requests.length - mark} requests; its "unavailable" answer survived`);
+
+  // Play (V1 item 3): one slice at a time, each on screen before the next is asked for, so no gesture is ever
+  // superseded by the next one.
+  const playMark = gestures().length;
+  await press(r, 'Play');
+  for (let i = 0; i < 60 && gestures().slice(playMark).length < 4; i += 1) await tick(100);
+  await press(r, 'Pause');
+  await tick(500);
+  const played = gestures().slice(playMark);
+  check('P1', played.length >= 4 && played.every((g) => g.kind === 'slice' && g.to === g.from + 1 && g.outcome === 'shown')
+    && played.every((g, i) => i === 0 || g.from === played[i - 1].to),
+  `Play: ${played.map((g) => `${g.from}->${g.to} ${g.outcome}`).join(', ')}`);
+  const afterPause = gestures().length;
+  await tick(600);
+  check('P1', gestures().length === afterPause && has(r, /^Play$/), 'Pause stops the sweep: no slice asked for after it');
+
+  // Hold ▶: one step at once, then one every 120 ms until the finger lifts; the newest slice wins.
+  const labelBefore = texts(r).find((t) => t.startsWith('slice ')) || '';
+  const from = Number((labelBefore.match(/^slice (\d+) /) || [])[1]);
+  const next = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === '▶')[0];
+  await act(async () => { next.props.onLongPress(); });
+  await tick(400);
+  await act(async () => { next.props.onPressOut(); });
+  await tick(800);
+  const after = Number(((texts(r).find((t) => t.startsWith('slice ')) || '').match(/^slice (\d+) /) || [])[1]);
+  check('P2', after - from >= 3 && !has(r, /loading…$/), `holding ▶ for 400 ms stepped from slice ${from} to ${after}, then stopped`);
+
+  // Double tap: 2x about the finger, then back to fit. (The viewport was re-mounted after the L8 error, so it lays
+  // out again first.)
+  await layout(r);
+  const viewport = () => r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0].props.__pan;
+  const tapAt = async (x, y) => {
+    await act(async () => {
+      viewport().onPanResponderGrant({ nativeEvent: { touches: [{ pageX: x, pageY: y }] } });
+      viewport().onPanResponderRelease();
+    });
+  };
+  await tapAt(200, 200);
+  await tapAt(204, 203);
+  check('P3', has(r, /^×2\.0$/), `double tap zooms to 2x (${texts(r).find((t) => t.startsWith('×')) || 'no zoom label'})`);
+  await tick(400);
+  await tapAt(150, 150);
+  await tapAt(150, 152);
+  check('P3', !has(r, /^×\d/), 'a second double tap returns to fit');
+
+  // Privacy mode (V1 item 5): on by default. This test build has no expo-screen-capture, so it says it cannot block
+  // screenshots yet instead of claiming protection; the switch still records the user's choice.
+  const privacySwitch = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'switch'
+    && /^Privacy mode/.test(n.props.accessibilityLabel || ''))[0];
+  check('V5', has(r, /^Privacy mode: not available in this build$/) && has(r, /so screenshots are not blocked\.$/)
+    && privacySwitch().props.accessibilityState.checked === true, 'privacy mode on by default; without the module it says screenshots are not blocked');
+  await act(async () => { privacySwitch().props.onPress(); });
+  await tick(30);
+  check('V5', has(r, /^Privacy mode: OFF \(not available in this build\)$/) && privacySwitch().props.accessibilityState.checked === false,
+    'switched off, it reads OFF');
+  await act(async () => { privacySwitch().props.onPress(); });
+  await tick(30);
   await act(async () => { r.unmount(); });
 }
 
@@ -631,8 +703,20 @@ function noRunBackend() {
   // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
   const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
-  const paths = () => r.root.findAll((n) => n.type === 'Path');
-  check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
+  // SCR-04 draws each class as fill and outline (Both) by default; `paths` counts the fills, one per class.
+  const paths = () => r.root.findAll((n) => n.type === 'Path' && n.props.fill !== 'none');
+  const outlines = () => r.root.findAll((n) => n.type === 'Path' && n.props.fill === 'none');
+  check('E4c', paths().length === 3, `TP / FP / FN drawn as three filled paths (${paths().length})`);
+  check('O2', outlines().length === 3 && outlines().map((n) => n.props.stroke).join() === paths().map((n) => n.props.fill).join(),
+    'Both by default: each class also has its outline, in the class colour');
+  const dashedEdges = outlines().filter((n) => Array.isArray(n.props.strokeDasharray));
+  check('C1', dashedEdges.length === 1 && dashedEdges[0].props.stroke === '#f778ba' && paths().map((n) => n.props.fill).join() === '#56d364,#f778ba,#4c8dff'
+    && has(r, /^predicted, not in the ground truth · dashed edge$/),
+  `TP green, FP magenta with the only dashed edge, FN blue (${paths().map((n) => n.props.fill).join(', ')}); the legend says "dashed edge"`);
+  await press(r, 'Outline');
+  check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
+  await press(r, 'Both');
+  check('V5', has(r, /^Privacy mode: not available in this build$/), 'SCR-04 has the same privacy switch, on by default');
   check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
     'legend: every class named in words with its pixel count');
   check('E4d', has(r, /Differs from the server for this slice|Matches the server for this slice/),
@@ -1844,6 +1928,72 @@ function reviewBackend({ seedVersion = false } = {}) {
     && backend.requests.slice(mark).some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')) && has(r, /slice 45 \/ 88/),
   `cleared ${cachedBefore} image(s); the slice on screen was fetched again (${backend.requests.length - mark} requests)`);
   await act(async () => { r.unmount(); });
+}
+
+// ---- 13. V1 SCR-02 as a worklist: Dice chips, worst first, "no GT" (V1 item 4) ----
+// A fake live backend whose case list holds the fixture's experiment rows: CASE_0001 has no ground truth,
+// CASE_0006 failed, CASE_0007 is not in the experiment. EXP-D-PP states PROCESSED but is answered with RAW values.
+{
+  const { forgetWorklist } = await imp('src/screens/v1-cases/cases.mjs');
+  forgetWorklist();
+  const CaseListScreen = (await imp('src/screens/v1-cases/CaseListScreen.js')).default;
+  const gen = (id, name = 'default') => JSON.parse(JSON.stringify(bundleJson.scenarios[id][name].response.data));
+  const json = (status, body) => {
+    const text = JSON.stringify(body);
+    return {
+      status,
+      headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null },
+      text: async () => text,
+      json: async () => body,
+    };
+  };
+  const ids = ['CASE_0001', 'CASE_0002', 'CASE_0003', 'CASE_0004', 'CASE_0005', 'CASE_0006', 'CASE_0007'];
+  const requests = [];
+  const fetchImpl = async (url) => {
+    const path = url.replace('http://backend.invalid:8000', '');
+    requests.push(path);
+    if (/\/studies\/[^/]+\/cases$/.test(path)) {
+      return json(200, { ...gen('case_list'), items: ids.map((id) => ({ case_id: id, mode_capability: id === 'CASE_0001' ? 'INFERENCE_REVIEW' : 'EVALUATION', ground_truth_available: id !== 'CASE_0001' })) });
+    }
+    if (path === '/api/v1/experiments') return json(200, gen('experiment_list'));
+    if (path === '/api/v1/experiments/EXP_DEMO/cases') {
+      return json(200, { ...gen('experiment_cases', 'with_failure'), outlier_selection: gen('experiment_cases').outlier_selection });
+    }
+    if (path === '/api/v1/experiments/EXP-D-PP/cases') return json(200, gen('experiment_cases'));
+    return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'not here' } });
+  };
+  const runtime = liveRuntime(fetchImpl);
+  const pushed = [];
+  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: false };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseListScreen, { runtime, nav, params: {} })), nodeMock);
+  });
+  await tick(200);
+  const rowOrder = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d+, /.test(n.props.accessibilityLabel || ''))
+    .map((n) => n.props.accessibilityLabel.split(',')[0]);
+  check('W1', has(r, /^Choose an experiment to see each case's Dice\.$/) && !has(r, /^Dice \d/) && rowOrder().join() === ids.join()
+    && !requests.some((u) => u.includes('/experiments/EXP')), 'no experiment chosen: server order, no Dice, no per-case request');
+  await press(r, 'EXP_DEMO');
+  await tick(200);
+  check('W2', has(r, /^Dice 0\.900$/) && has(r, /^Dice 0\.400$/) && has(r, /^no GT$/) && has(r, /^run failed$/) && has(r, /^not in EXP_DEMO$/)
+    && !has(r, /^Dice 0(\.0+)?$/), 'EXP_DEMO: the server\'s Dice per case; no GT, failed and not-in-experiment in words, never 0');
+  check('W2', has(r, /^outlier 1\/3$/) && has(r, /^outlier 3\/3$/) && has(r, /from the server, metric metric_version_fixture/),
+    'the server\'s own outlier pick is marked, and the note names the metric version');
+  await press(r, 'Worst first');
+  await tick(60);
+  check('W3', rowOrder().join() === 'CASE_0005,CASE_0003,CASE_0004,CASE_0002,CASE_0001,CASE_0006,CASE_0007' && has(r, /Sorted on this phone: lowest Dice first/),
+    `worst first: ${rowOrder().join(', ')} - the first three are the server's outliers 1, 2, 3; no-value rows follow in server order`);
+  await press(r, 'CASE_0005');
+  check('W3', pushed.length === 1 && JSON.stringify(pushed[0]) === JSON.stringify(['SCR-03', { caseId: 'CASE_0005', runId: 'RUN_0005', variant: 'RAW' }]),
+    `a row opens SCR-03 on the experiment's run and variant: ${JSON.stringify(pushed[0] || null)}`);
+  await press(r, 'EXP-D-PP');
+  await tick(200);
+  check('W4', has(r, /^Asked for EXP-D-PP \(PROCESSED\); the server answered with RAW values, so no Dice is shown\.$/) && !has(r, /^Dice 0\./)
+    && rowOrder().join() === ids.join(), 'EXP-D-PP answered with RAW values: no Dice shown, and nothing sorted by them');
+  await act(async () => { r.unmount(); });
+  forgetWorklist();
 }
 
 console.log = origLog;

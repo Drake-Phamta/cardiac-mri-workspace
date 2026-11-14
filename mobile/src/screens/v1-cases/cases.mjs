@@ -1,6 +1,7 @@
 /*
  * Logic for the case screens (SCR-02/03/04), plain JS that Node tests import: the case explorer state model, the
- * screen helpers (run choice, labels, slider math, case list rows), the serial action runner and slice cache keys.
+ * screen helpers (run choice, labels, slider math, case list rows and the worklist's Dice chips), the serial action
+ * runner and slice cache keys.
  */
 
 import { PREDICTION_VARIANT, capabilityOf } from '../../lib/caseMode.mjs';
@@ -543,12 +544,138 @@ export function readCaseRows(data) {
   });
 }
 
-// Search by id substring and filter by mode. Server order is kept.
+// Search by id substring and filter by mode. The order it is given is kept.
 export function filterRows(rows, { query = '', mode = 'ALL' } = {}) {
   const q = String(query).trim().toLowerCase();
   return rows.filter((r) => (mode === 'ALL' || r.capability.key === mode)
     && (q === '' || r.caseId.toLowerCase().includes(q)));
 }
+
+/*
+ * SCR-02 as a worklist: each case's Dice for one experiment the user picks (experiment_cases), a "worst first"
+ * order, and a "no GT" chip for a case without ground truth. A missing value is a word on the chip, never 0.
+ */
+
+export const WORKLIST_SORT = Object.freeze({ SERVER: 'SERVER', WORST_FIRST: 'WORST_FIRST' });
+
+const numberOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+// experiment_list data -> the experiments to pick from, each with the variant it states.
+export function readExperimentChoices(data) {
+  const items = data && Array.isArray(data.items) ? data.items : [];
+  return Object.freeze(items
+    .filter((it) => it && typeof it.experiment_id === 'string' && it.experiment_id !== '')
+    .map((it) => Object.freeze({
+      experimentId: it.experiment_id,
+      variant: typeof it.prediction_variant === 'string' ? it.prediction_variant : null,
+    })));
+}
+
+// The rule and version of the server's outlier pick that this build shows (contract selection_rules).
+export function pinnedOutlierSelection(contract) {
+  const pin = contract && contract.raw && contract.raw.selection_rules ? contract.raw.selection_rules.outlier_selection : null;
+  const text = (v) => (typeof v === 'string' && v !== '' ? v : null);
+  return Object.freeze({ ruleId: text(pin && pin.rule_id), selectionVersion: text(pin && pin.selection_version) });
+}
+
+/*
+ * experiment_cases data -> one entry per case. Values served for another variant than the experiment states are
+ * not shown at all. The server's outlier pick is marked only under the pinned rule and version, for this
+ * experiment and variant; it is the server's ranking and is never recomputed here.
+ */
+export function readExperimentCases(data, { experimentId, variant = null, pinned = pinnedOutlierSelection(null) } = {}) {
+  const none = (problem) => Object.freeze({
+    ok: false, problem, variant: null, metricVersion: null, byCase: new Map(), outliers: new Map(), outlierNote: null,
+  });
+  if (!data || typeof data !== 'object') return none('The server returned no per-case results.');
+  const served = typeof data.prediction_variant === 'string' ? data.prediction_variant : null;
+  if (variant !== null && served !== variant) {
+    return none(`Asked for ${experimentId} (${variant}); the server answered with ${served === null ? 'no stated variant' : `${served} values`}, so no Dice is shown.`);
+  }
+  const byCase = new Map();
+  for (const row of Array.isArray(data.items) ? data.items : []) {
+    const caseId = row && typeof row.case_id === 'string' && row.case_id !== '' ? row.case_id : null;
+    if (!caseId || byCase.has(caseId)) continue;
+    const v = row.metric_values && typeof row.metric_values === 'object' ? row.metric_values : {};
+    byCase.set(caseId, Object.freeze({
+      caseId,
+      status: typeof row.status === 'string' ? row.status : null,
+      reason: typeof row.reason === 'string' ? row.reason : null,
+      runId: typeof row.analysis_run_id === 'string' && row.analysis_run_id !== '' ? row.analysis_run_id : null,
+      dice: numberOrNull(v.dice),
+      falsePositives: numberOrNull(v.false_positives),
+      falseNegatives: numberOrNull(v.false_negatives),
+    }));
+  }
+  const outliers = new Map();
+  let outlierNote = null;
+  const block = data.outlier_selection;
+  if (block && typeof block === 'object') {
+    const matches = pinned.ruleId !== null && block.rule_id === pinned.ruleId
+      && pinned.selectionVersion !== null && block.selection_version === pinned.selectionVersion
+      && block.experiment_id === experimentId && block.prediction_variant === served && Array.isArray(block.cases);
+    if (matches) {
+      block.cases.forEach((c, i) => { if (c && typeof c.case_id === 'string' && !outliers.has(c.case_id)) outliers.set(c.case_id, i + 1); });
+    } else {
+      outlierNote = 'The server\'s outlier pick is for another rule, version, experiment or variant, so it is not marked.';
+    }
+  }
+  return Object.freeze({
+    ok: true, problem: null, variant: served, metricVersion: data.metric_version ?? null, byCase, outliers, outlierNote,
+  });
+}
+
+// The chip of one case row. A case without usable ground truth says "no GT" whatever the row holds.
+export function worklistChip(row, entry, experimentId) {
+  if (!row.capability.groundTruthUsable) return Object.freeze({ kind: 'NO_GT', text: 'no GT', value: null });
+  if (!entry) return Object.freeze({ kind: 'NOT_IN_EXPERIMENT', text: `not in ${experimentId}`, value: null });
+  switch (entry.status) {
+    case 'SUCCEEDED':
+      return entry.dice !== null
+        ? Object.freeze({ kind: 'DICE', text: `Dice ${entry.dice.toFixed(3)}`, value: entry.dice })
+        : Object.freeze({ kind: 'NOT_STATED', text: 'Dice not stated', value: null });
+    case 'WITHHELD': return Object.freeze({ kind: 'NO_GT', text: 'no GT', value: null });
+    case 'FAILED': return Object.freeze({ kind: 'FAILED', text: 'run failed', value: null });
+    case 'EXCLUDED': return Object.freeze({ kind: 'EXCLUDED', text: 'excluded', value: null });
+    default: return Object.freeze({ kind: 'UNKNOWN', text: `status ${entry.status || 'not stated'}`, value: null });
+  }
+}
+
+/*
+ * The list rows: each case with its chip, the experiment's run to open, and the server's outlier rank (1-3).
+ * WORST_FIRST puts the cases with a Dice lowest first, ties by FP + FN (more first) and then case id: the order the
+ * server uses for its outlier pick, so the top three agree with it. Cases without a Dice follow, in the order the
+ * server listed them. Without per-case results the server order is kept.
+ */
+export function worklistRows(rows, cases, { experimentId = null, sort = WORKLIST_SORT.SERVER } = {}) {
+  const usable = Boolean(cases && cases.ok);
+  const out = rows.map((row) => {
+    const entry = usable ? (cases.byCase.get(row.caseId) || null) : null;
+    const errors = entry && entry.falsePositives !== null && entry.falseNegatives !== null
+      ? entry.falsePositives + entry.falseNegatives : null;
+    return Object.freeze({
+      ...row,
+      chip: usable ? worklistChip(row, entry, experimentId) : null,
+      runId: entry ? entry.runId : null,
+      outlierRank: usable ? (cases.outliers.get(row.caseId) ?? null) : null,
+      errorPixels: errors,
+    });
+  });
+  if (!usable || sort !== WORKLIST_SORT.WORST_FIRST) return Object.freeze(out);
+  const withDice = out.filter((r) => r.chip.kind === 'DICE');
+  const without = out.filter((r) => r.chip.kind !== 'DICE');
+  const byCaseId = (a, b) => (a.caseId < b.caseId ? -1 : (a.caseId > b.caseId ? 1 : 0));
+  withDice.sort((a, b) => (a.chip.value - b.chip.value)
+    || ((b.errorPixels ?? -1) - (a.errorPixels ?? -1))
+    || byCaseId(a, b));
+  return Object.freeze([...withDice, ...without]);
+}
+
+// The experiment and order chosen on SCR-02, kept for the session: the list unmounts under SCR-03.
+let worklistChoice = Object.freeze({ experimentId: null, sort: WORKLIST_SORT.SERVER });
+export const rememberedWorklist = () => worklistChoice;
+export function rememberWorklist(choice) { worklistChoice = Object.freeze({ ...worklistChoice, ...choice }); }
+export function forgetWorklist() { worklistChoice = Object.freeze({ experimentId: null, sort: WORKLIST_SORT.SERVER }); }
 
 /*
  * Runs one model action at a time, so two loads never race and an older slice is never drawn over a newer one.

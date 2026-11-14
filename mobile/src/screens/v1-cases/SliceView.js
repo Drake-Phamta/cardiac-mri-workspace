@@ -1,14 +1,20 @@
 /*
- * The 2D slice view shared by SCR-03 and SCR-04: the viewport (MRI image, mask overlays, pinch-zoom, pan, tap to
- * source pixel), the slice scrubber, and the hook that turns a mask URL into an overlay path.
+ * The 2D slice view shared by SCR-03 and SCR-04: the viewport (MRI image, mask overlays as fill, outline or both,
+ * pinch-zoom, pan, tap to source pixel), the slice scrubber, the overlay style chips, and the hook that turns a
+ * mask URL into an overlay path.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../lib/viewMath.mjs';
-import { color, font, space, MIN_TOUCH } from '../../components/theme';
+import { maskOutlinePath } from '../../lib/mask.mjs';
+import { privacyText } from '../../lib/privacy.mjs';
+import { color, font, radius, space, MIN_TOUCH } from '../../components/theme';
 import { scrubIndex, scrubPosition, sliceLabel } from './cases.mjs';
+import {
+  createPlayer, createRepeater, doubleTapTransform, isDoubleTap, OUTLINE_WIDTHS, OVERLAY_MODE, OVERLAY_MODES, overlayStyle,
+} from './sliceControls.mjs';
 
 const TAP_MAX_TRAVEL = 6;
 const TAP_MAX_MS = 400;
@@ -33,9 +39,12 @@ function Grid({ nx, ny }) {
  * always sits over MRI pixel (x, y), and zoom / pan never touch mask data.
  * Gestures (adapted from the 2D viewer prototype): one finger pans, two fingers pinch about their midpoint and pan
  * with it, adding or lifting a finger restarts the gesture, and a short still touch is a tap.
+ * A layer is { key, path (filled runs), outline (boundary loops), color, opacity, visible, dashed }; overlayMode
+ * and outlineWidth (screen px) say which of the two paths are drawn (sliceControls.mjs overlayStyle).
  */
 export default function SliceViewport({
   shape, imageUri, onImageLoad, onImageError, layers = [], placeholderNote = null, resetKey, onTap,
+  overlayMode = OVERLAY_MODE.FILL, outlineWidth = 2,
 }) {
   const nx = shape ? shape[0] : null;
   const ny = shape ? shape[1] : null;
@@ -46,6 +55,7 @@ export default function SliceViewport({
   const origin = useRef({ x: 0, y: 0 });
   const size = useRef(null);
   const gest = useRef(null);
+  const lastTap = useRef(null);
 
   const setTransform = useCallback((t) => { xfRef.current = t; setXf(t); }, []);
 
@@ -108,9 +118,19 @@ export default function SliceViewport({
       const cur = gest.current;
       gest.current = null;
       if (!cur || !xfRef.current || !nx) return;
-      if (cur.maxFingers === 1 && cur.travel < TAP_MAX_TRAVEL && now() - cur.t0 < TAP_MAX_MS && onTap) {
-        const src = screenToSource(cur.start.x, cur.start.y, xfRef.current, nx, ny);
-        onTap(src, { u: cur.start.x, v: cur.start.y, zoom: xfRef.current.zoom / fitRef.current.zoom });
+      if (cur.maxFingers === 1 && cur.travel < TAP_MAX_TRAVEL && now() - cur.t0 < TAP_MAX_MS) {
+        // A second tap close in time and place toggles fit / 2x about that point (OsiriX-style double tap).
+        const tap = { t: now(), u: cur.start.x, v: cur.start.y };
+        if (isDoubleTap(lastTap.current, tap) && fitRef.current) {
+          lastTap.current = null;
+          setTransform(doubleTapTransform(xfRef.current, fitRef.current, tap.u, tap.v));
+          return;
+        }
+        lastTap.current = tap;
+        if (onTap) {
+          const src = screenToSource(cur.start.x, cur.start.y, xfRef.current, nx, ny);
+          onTap(src, { u: cur.start.x, v: cur.start.y, zoom: xfRef.current.zoom / fitRef.current.zoom });
+        }
       }
     },
     onPanResponderTerminate: () => { gest.current = null; },
@@ -137,19 +157,35 @@ export default function SliceViewport({
           <Grid nx={nx} ny={ny} />
         </Svg>
       ) : null}
-      {box ? layers.filter((l) => l.visible && l.path).map((l) => (
-        <Svg
-          key={l.key}
-          style={box}
-          width={box.width}
-          height={box.height}
-          viewBox={`0 0 ${nx} ${ny}`}
-          preserveAspectRatio="none"
-          pointerEvents="none"
-        >
-          <Path d={l.path} fill={l.color} fillOpacity={l.opacity} />
-        </Svg>
-      )) : null}
+      {box ? layers.map((l) => {
+        const st = overlayStyle({ mode: overlayMode, widthPx: outlineWidth, zoom: xf.zoom, dashed: l.dashed === true, opacity: l.opacity });
+        const fill = st.fill && l.path ? l.path : null;
+        const edge = st.stroke && l.outline ? l.outline : null;
+        if (!l.visible || (!fill && !edge)) return null;
+        return (
+          <Svg
+            key={l.key}
+            style={box}
+            width={box.width}
+            height={box.height}
+            viewBox={`0 0 ${nx} ${ny}`}
+            preserveAspectRatio="none"
+            pointerEvents="none"
+          >
+            {fill ? <Path d={fill} fill={l.color} fillOpacity={st.fillOpacity} /> : null}
+            {edge ? (
+              <Path
+                d={edge}
+                fill="none"
+                stroke={l.color}
+                strokeWidth={st.strokeWidth}
+                strokeDasharray={st.strokeDasharray || undefined}
+                strokeLinejoin="miter"
+              />
+            ) : null}
+          </Svg>
+        );
+      }) : null}
       {!imageUri && placeholderNote ? (
         <View style={s.noteBox} pointerEvents="none">
           <Text style={s.note}>{placeholderNote}</Text>
@@ -177,14 +213,19 @@ const s = StyleSheet.create({
  * Slice navigation: a slider track plus step buttons. scrubIndex() maps a finger x to a slice, so the same x always
  * gives the same slice and both ends are reachable. Every change is reported; the screen's serial runner merges a
  * fast scrub. React Native core has no Slider, so a View and a PanResponder do the job.
+ * Holding ◀ or ▶ repeats the step; Play (when onPlay is given) sweeps the slices, see useSlicePlayer.
  */
 
-export function SliceScrubber({ index, pending, total, onChange, onLongPressLabel, disabled = false }) {
+export function SliceScrubber({
+  index, pending, total, onChange, onLongPressLabel, disabled = false, playing = false, onPlay = null,
+}) {
   const [width, setWidth] = useState(0);
   const last = useRef(null);
   const widthRef = useRef(0);
   const totalRef = useRef(total);
   totalRef.current = total;
+  // The slice the last step asked for, so a held button keeps moving before the screen re-renders.
+  const asked = useRef(null);
 
   const emit = useCallback((x) => {
     const i = scrubIndex(x, widthRef.current, totalRef.current);
@@ -204,24 +245,42 @@ export function SliceScrubber({ index, pending, total, onChange, onLongPressLabe
   }), [disabled, emit]);
 
   const shown = pending !== null && pending !== undefined ? pending : index;
+  asked.current = shown;
   const thumb = Number.isInteger(shown) && total ? scrubPosition(shown, width, total) : 0;
   const step = (d) => {
-    if (!Number.isInteger(shown) || !total) return;
-    const next = Math.max(0, Math.min(total - 1, shown + d));
-    if (next !== shown) onChange(next);
+    const from = asked.current;
+    if (!Number.isInteger(from) || !total) return;
+    const next = Math.max(0, Math.min(total - 1, from + d));
+    if (next === from) return;
+    asked.current = next;
+    onChange(next);
   };
 
   return (
     <View style={scrub.root}>
-      <TouchableOpacity onLongPress={onLongPressLabel} delayLongPress={800} activeOpacity={0.8} accessibilityRole="text">
-        <Text style={scrub.label}>
-          {sliceLabel(index, total)}
-          {pending !== null && pending !== undefined && pending !== index ? `   → ${pending + 1} loading…` : ''}
-        </Text>
-      </TouchableOpacity>
+      <View style={scrub.top}>
+        <TouchableOpacity style={scrub.labelBox} onLongPress={onLongPressLabel} delayLongPress={800} activeOpacity={0.8} accessibilityRole="text">
+          <Text style={scrub.label}>
+            {sliceLabel(index, total)}
+            {pending !== null && pending !== undefined && pending !== index ? `   → ${pending + 1} loading…` : ''}
+          </Text>
+        </TouchableOpacity>
+        {onPlay ? (
+          <TouchableOpacity
+            style={[scrub.play, playing && scrub.playOn, disabled && scrub.btnD]}
+            onPress={onPlay}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityState={{ selected: playing }}
+            accessibilityLabel={playing ? 'Pause the slice sweep' : 'Play: sweep through the slices'}
+          >
+            <Text style={[scrub.playT, playing && scrub.playTOn]}>{playing ? 'Pause' : 'Play'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
       <View style={scrub.row}>
-        <Btn label="−10" onPress={() => step(-10)} disabled={disabled} />
-        <Btn label="◀" onPress={() => step(-1)} disabled={disabled} />
+        <Btn label="−10" a11y="Back 10 slices" onPress={() => step(-10)} disabled={disabled} />
+        <Btn label="◀" a11y="Previous slice, hold to repeat" onPress={() => step(-1)} disabled={disabled} repeat />
         <View
           style={scrub.track}
           onLayout={(e) => { widthRef.current = e.nativeEvent.layout.width; setWidth(e.nativeEvent.layout.width); }}
@@ -232,30 +291,77 @@ export function SliceScrubber({ index, pending, total, onChange, onLongPressLabe
           <View style={scrub.rail} pointerEvents="none" />
           {width > 0 && total ? <View style={[scrub.thumb, { left: thumb - 10 }]} pointerEvents="none" /> : null}
         </View>
-        <Btn label="▶" onPress={() => step(1)} disabled={disabled} />
-        <Btn label="+10" onPress={() => step(10)} disabled={disabled} />
+        <Btn label="▶" a11y="Next slice, hold to repeat" onPress={() => step(1)} disabled={disabled} repeat />
+        <Btn label="+10" a11y="Forward 10 slices" onPress={() => step(10)} disabled={disabled} />
       </View>
     </View>
   );
 }
 
-function Btn({ label, onPress, disabled }) {
+// A step button. With `repeat`, holding it (after the long-press delay) steps again every REPEAT_EVERY_MS until the
+// finger lifts; a short tap is one step.
+function Btn({ label, a11y, onPress, disabled, repeat = false }) {
+  const pressRef = useRef(onPress);
+  pressRef.current = onPress;
+  const repeater = useMemo(() => createRepeater({ fire: () => pressRef.current() }), []);
+  useEffect(() => () => repeater.stop(), [repeater]);
+  useEffect(() => { if (disabled) repeater.stop(); }, [disabled, repeater]);
   return (
     <TouchableOpacity
       style={[scrub.btn, disabled && scrub.btnD]}
       onPress={onPress}
+      onLongPress={repeat ? () => repeater.start() : undefined}
+      onPressOut={repeat ? () => repeater.stop() : undefined}
+      delayLongPress={350}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={a11y || label}
     >
       <Text style={scrub.btnT}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
+/*
+ * The Play button's state for a screen (sliceControls.mjs createPlayer). `displayed` is the snapshot on screen: each
+ * new one tells the player its slice arrived. `failed` (the viewer shows an error state) and `locked` (a scripted
+ * run) stop it. The screen calls stop() before any slice action of its own, so play never competes with the user.
+ */
+export function useSlicePlayer({ total, goTo, displayed, failed = false, locked = false }) {
+  const [playing, setPlaying] = useState(false);
+  const goToRef = useRef(goTo);
+  goToRef.current = goTo;
+  const player = useMemo(
+    () => (Number.isInteger(total) && total > 1
+      ? createPlayer({ total, step: (z) => goToRef.current(z), onChange: setPlaying })
+      : null),
+    [total],
+  );
+  useEffect(() => () => { if (player) player.stop(); }, [player]);
+  useEffect(() => { if (player && displayed) player.settled(displayed.sliceIndex); }, [player, displayed]);
+  useEffect(() => { if (player && failed) player.failed(); }, [player, failed]);
+  useEffect(() => { if (player && locked) player.stop(); }, [player, locked]);
+  const toggle = useCallback(() => {
+    if (!player) return;
+    if (player.playing) player.stop();
+    else if (displayed) player.start(displayed.sliceIndex);
+  }, [player, displayed]);
+  const stop = useCallback(() => { if (player) player.stop(); }, [player]);
+  return { playing, toggle: player ? toggle : null, stop };
+}
+
 const scrub = StyleSheet.create({
   root: { marginTop: space.s },
-  label: { color: color.text, fontFamily: font.mono, fontSize: font.body, textAlign: 'center', marginBottom: space.xs },
+  top: { flexDirection: 'row', alignItems: 'center', gap: space.s, marginBottom: space.xs },
+  labelBox: { flex: 1, minHeight: 40, justifyContent: 'center' },
+  label: { color: color.text, fontFamily: font.mono, fontSize: font.body, textAlign: 'center', fontVariant: font.numeric },
+  play: {
+    minHeight: MIN_TOUCH, minWidth: 72, paddingHorizontal: space.m, borderRadius: radius.m, borderWidth: 1,
+    borderColor: color.control, backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',
+  },
+  playOn: { borderColor: color.accent, backgroundColor: color.accentBg },
+  playT: { color: color.text, fontSize: font.body, fontWeight: '700' },
+  playTOn: { color: color.accent },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   track: { flex: 1, height: MIN_TOUCH, justifyContent: 'center' },
   rail: { height: 6, borderRadius: 3, backgroundColor: color.border },
@@ -264,7 +370,7 @@ const scrub = StyleSheet.create({
     backgroundColor: color.accent, borderWidth: 2, borderColor: color.text,
   },
   btn: {
-    minWidth: 44, minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.border,
+    minWidth: 44, minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.control,
     backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
   },
   btnD: { opacity: 0.4 },
@@ -277,7 +383,7 @@ const scrub = StyleSheet.create({
  * status: 'off' (no store or no URL), 'loading', 'ready' (path drawable), 'error' (`error` says why).
  */
 
-const OFF = Object.freeze({ status: 'off', path: null, pixels: null, error: null, url: null });
+const OFF = Object.freeze({ status: 'off', path: null, pixels: null, mask: null, error: null, url: null });
 
 export function useMaskOverlay(store, url, size, checksum = null) {
   const width = size ? size.width : null;
@@ -291,17 +397,121 @@ export function useMaskOverlay(store, url, size, checksum = null) {
     if (!store || !url || !expected) { setState(OFF); return undefined; }
     if (store.peek(url, expected)) return undefined; // drawn from the cache below
     let alive = true;
-    setState({ status: 'loading', path: null, pixels: null, error: null, url });
+    setState({ status: 'loading', path: null, pixels: null, mask: null, error: null, url });
     store.load(url, expected, { checksum }).then(
-      (v) => { if (alive) setState({ status: 'ready', path: v.path, pixels: v.pixels, error: null, url }); },
-      (err) => { if (alive) setState({ status: 'error', path: null, pixels: null, error: String(err && err.message), url }); },
+      (v) => { if (alive) setState({ status: 'ready', path: v.path, pixels: v.pixels, mask: v.mask, error: null, url }); },
+      (err) => { if (alive) setState({ status: 'error', path: null, pixels: null, mask: null, error: String(err && err.message), url }); },
     );
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, url, width, height, checksum]);
 
-  if (cached) return { status: 'ready', path: cached.path, pixels: cached.pixels, error: null, url };
+  if (cached) return { status: 'ready', path: cached.path, pixels: cached.pixels, mask: cached.mask, error: null, url };
   // Never hand back a path that belongs to a previous URL.
-  if (state.url !== url) return url && store && expected ? { status: 'loading', path: null, pixels: null, error: null, url } : OFF;
+  if (state.url !== url) return url && store && expected ? { status: 'loading', path: null, pixels: null, mask: null, error: null, url } : OFF;
   return state;
 }
+
+// A mask's outline path, traced once per decoded mask and only when an outline is shown.
+const outlines = new WeakMap();
+export function outlineOf(mask) {
+  if (!mask || typeof mask !== 'object') return null;
+  if (!outlines.has(mask)) outlines.set(mask, maskOutlinePath(mask));
+  return outlines.get(mask);
+}
+
+/*
+ * The overlay style chips under a viewer: Fill / Outline / Both, and the outline width in screen pixels.
+ */
+export function OverlayStyleChips({ mode, width, onMode, onWidth }) {
+  const showsOutline = mode !== OVERLAY_MODE.FILL;
+  return (
+    <View style={chips.wrap}>
+      <View style={chips.row}>
+        <Text style={chips.label}>Draw</Text>
+        {OVERLAY_MODES.map((m) => (
+          <TouchableOpacity
+            key={m.key}
+            style={[chips.chip, mode === m.key && chips.on]}
+            onPress={() => onMode(m.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mode === m.key }}
+            accessibilityLabel={`Draw masks as ${m.label.toLowerCase()}`}
+          >
+            <Text style={[chips.t, mode === m.key && chips.tOn]}>{m.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {showsOutline ? (
+        <View style={chips.row}>
+          <Text style={chips.label}>Outline</Text>
+          {OUTLINE_WIDTHS.map((w) => (
+            <TouchableOpacity
+              key={w}
+              style={[chips.chip, width === w && chips.on]}
+              onPress={() => onWidth(w)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: width === w }}
+              accessibilityLabel={`Outline ${w} pixel${w === 1 ? '' : 's'} wide`}
+            >
+              <Text style={[chips.t, width === w && chips.tOn]}>{w} px</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/*
+ * The privacy mode switch of a screen that shows MRI (usePrivacyMode in lib/screenCapture.js). It says what is in
+ * force, not only what was asked: "not available in this build" until the APK carries the module.
+ */
+export function PrivacyRow({ privacy }) {
+  const t = privacyText(privacy.status, privacy.on);
+  return (
+    <TouchableOpacity
+      style={priv.row}
+      onPress={privacy.toggle}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: privacy.on }}
+      accessibilityLabel={t.title}
+    >
+      <View style={[priv.knob, privacy.on && priv.knobOn]}>
+        <Text style={[priv.knobT, privacy.on && priv.knobTOn]}>{privacy.on ? 'ON' : 'OFF'}</Text>
+      </View>
+      <View style={priv.text}>
+        <Text style={[priv.title, t.tone === 'warn' && priv.warn]}>{t.title}</Text>
+        {t.detail ? <Text style={priv.detail}>{t.detail}</Text> : null}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const priv = StyleSheet.create({
+  row: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.m },
+  knob: {
+    minWidth: 52, minHeight: 32, borderRadius: radius.pill, borderWidth: 1, borderColor: color.control,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
+  },
+  knobOn: { borderColor: color.ok, backgroundColor: color.okBg },
+  knobT: { color: color.textDim, fontSize: font.small, fontWeight: '700', fontFamily: font.mono },
+  knobTOn: { color: color.ok },
+  text: { flex: 1 },
+  title: { color: color.text, fontSize: font.body, fontWeight: '600' },
+  warn: { color: color.warn },
+  detail: { color: color.textDim, fontSize: font.small, marginTop: 2 },
+});
+
+const chips = StyleSheet.create({
+  wrap: { gap: space.xs },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
+  label: { color: color.textDim, fontSize: font.small, minWidth: 52 },
+  chip: {
+    minHeight: MIN_TOUCH, minWidth: 56, paddingHorizontal: space.s, borderRadius: radius.s, borderWidth: 1,
+    borderColor: color.control, alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
+  },
+  on: { borderColor: color.accent, backgroundColor: color.accentBg },
+  t: { color: color.textDim, fontSize: font.small, fontWeight: '600' },
+  tOn: { color: color.accent },
+});
