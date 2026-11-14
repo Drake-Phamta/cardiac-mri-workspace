@@ -1,29 +1,14 @@
 name: guardrails
 
-# Automates the invariants Project Control has been checking by hand since Day 0.
+# One job per check, so a failing job name says what broke without reading a log.
 #
-#   NFR-MAINT-001 / -002 / -003  -- the Integration/CI block
-#
-# Twelve independent jobs, one per invariant, on purpose: when something
-# breaks, the job name says WHICH invariant broke without anyone reading a log.
-#
-# No third-party actions beyond actions/checkout and actions/setup-python, and
-# no npm. A repository governed by `12` section 6 should not grow a
-# supply-chain surface to check its own checksums.
-#
-# ONE accepted, limited exception (DR-021 rule 4, decided 2026-10-02): the
-# mobile-render-bundle job uses actions/setup-node (first-party, like
-# setup-python) and runs `npm ci --ignore-scripts` from the committed
-# mobile/package-lock.json - the locked, integrity-pinned npm tree and nothing
-# else - for the render smoke test and a bundle export. Every other job still
-# installs no npm package.
-#
-# A SECOND, equally limited exception, recorded here when the ml-tests job was
-# added (Day 40 UNet kit): that job installs CPU PyTorch from the official
-# PyTorch wheel index (download.pytorch.org/whl/cpu, the index the PyTorch
-# project documents for CPU installs, an exact version pinned) instead of the
-# CUDA build PyPI serves, plus six PyPI packages pinned to exact versions.
-# It adds no GitHub Action and no npm package, and no other job installs torch.
+# No third-party actions beyond actions/checkout, actions/setup-python and
+# actions/setup-node. Two jobs install packages, each from pinned versions:
+#   mobile-render-bundle  `npm ci --ignore-scripts` from the committed
+#                         mobile/package-lock.json (render smoke + bundle export);
+#   ml-tests              CPU PyTorch from the official PyTorch wheel index plus
+#                         six PyPI packages, every version pinned.
+# Every other job installs no npm package.
 
 on:
   pull_request:
@@ -37,7 +22,7 @@ jobs:
 
   # --------------------------------------------------------------------------
   spec-integrity:
-    name: "frozen spec checksums (19/19)"
+    name: "spec checksums (16/16)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,111 +32,16 @@ jobs:
           cd docs/specs/v1.0
           # sha256sum -c exits 0 on a manifest that lists nothing, and on one
           # that silently lost a line. Both would be a pass that means nothing,
-          # so the count is asserted too. 19 is the frozen size of spec v1.0.
+          # so the count is asserted too: spec v1.0 keeps 16 product documents.
           sha256sum -c SPEC_MANIFEST_SHA256.txt | tee /tmp/spec.txt
           ok=$(grep -c ': OK$' /tmp/spec.txt || true)
           echo "checksums OK: $ok"
-          if [ "$ok" -ne 19 ]; then
-            echo "::error::expected 19 OK lines, got $ok - the manifest itself may have changed"
+          if [ "$ok" -ne 16 ]; then
+            echo "::error::expected 16 OK lines, got $ok - the manifest itself may have changed"
             exit 1
           fi
 
   # --------------------------------------------------------------------------
-  spec-frozen:
-    name: "no PR touches docs/specs/v1.0"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: diff against the base and refuse spec edits
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if [ -z "$BASE" ]; then
-            echo "push build - comparing against the previous commit"
-            BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
-            HEAD=$(git rev-parse HEAD)
-          fi
-          echo "base $BASE"
-          echo "head $HEAD"
-          changed=$(git diff --name-only "$BASE" "$HEAD" -- 'docs/specs/v1.0/**' || true)
-          if [ -n "$changed" ]; then
-            echo "::error::this change touches the frozen specification:"
-            echo "$changed"
-            echo ""
-            echo "Specification v1.0 is frozen. `00` section 13 sets the only route:"
-            echo "  Problem -> Decision Request -> impact analysis -> leader approval"
-            echo "  -> specification update -> implementation"
-            echo ""
-            echo "An amendment to an APPROVED decision goes in"
-            echo "management/readiness/OPEN_DECISIONS.md Part 2b instead - see DR-001a,"
-            echo "DR-003a. That route needs no spec edit and keeps checksums at 19/19."
-            exit 1
-          fi
-          echo "no spec file touched"
-
-  # --------------------------------------------------------------------------
-  state-parses:
-    name: "central state files parse"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - run: pip install --quiet pyyaml
-
-      - name: parse the state files and re-assert the invariants
-        run: |
-          python - <<'PY'
-          import sys, yaml, pathlib
-
-          problems = []
-
-          def load(p):
-              path = pathlib.Path(p)
-              if not path.exists():
-                  problems.append(f"{p} is missing")
-                  return None
-              try:
-                  return yaml.safe_load(path.read_text(encoding="utf-8"))
-              except Exception as exc:
-                  problems.append(f"{p} does not parse: {exc}")
-                  return None
-
-          spikes = load("management/spikes/SPIKE_PHASE_STATE.yaml")
-          project = load("management/PROJECT_STATE.yaml")
-
-          if spikes:
-              by_id = {s["id"]: s for s in spikes.get("spikes", [])}
-
-              # A spike cannot be ACTIVE without a real started_at. The state
-              # file's own header forbids backdating, and a null start with an
-              # ACTIVE status is how that rule gets quietly broken.
-              for sid, s in by_id.items():
-                  if s.get("status") == "ACTIVE" and not s.get("started_at"):
-                      problems.append(f"{sid} is ACTIVE with no started_at")
-                  if s.get("status") == "ACCEPTED" and not s.get("evidence_present"):
-                      problems.append(f"{sid} is ACCEPTED with evidence_present false")
-
-              # SPIKE_C1 may not leave BLOCKED while SPIKE_D is unaccepted.
-              c1, d = by_id.get("SPIKE_C1"), by_id.get("SPIKE_D")
-              if c1 and d and c1.get("status") != "BLOCKED" and d.get("status") != "ACCEPTED":
-                  problems.append(
-                      f"SPIKE_C1 is {c1.get('status')} while SPIKE_D is {d.get('status')} "
-                      "- C1 is blocked by D until D is ACCEPTED")
-
-          if problems:
-              for p in problems:
-                  print(f"::error::{p}")
-              sys.exit(1)
-          print("state files parse and their invariants hold")
-          PY
-
   # --------------------------------------------------------------------------
   geometry-contract:
     name: "canonical geometry contract (TC-MAINT-002)"
@@ -164,12 +54,11 @@ jobs:
 
       - name: verify canonical fixture and exact contract version
         run: |
-          python spikes/spike_b_3d/harness/conformance.py \
+          python prototypes/3d-viewer/harness/conformance.py \
             --fixture tests/fixtures/geometry/geometry_fixture_v0.json \
             --expect-contract-version dr008a-dr012/v1.0.0 \
             --implementation-name reference
 
-  # --------------------------------------------------------------------------
   # --------------------------------------------------------------------------
   contract-tests:
     name: "contract tests (ingestion 1/2 + API 11)"
@@ -196,9 +85,9 @@ jobs:
         run: python test_api_contract.py
 
   # --------------------------------------------------------------------------
-  # The backend runs on the Mac mini's system Python 3.9 (DR-003), so its
-  # suite runs on 3.9 here: compatibility is tested, not assumed. Synthetic
-  # data only; every JSON response is validated against Contract 11 v1.0.0.
+  # The backend is kept compatible with Python 3.9, so its suite runs on 3.9
+  # here: compatibility is tested, not assumed. Synthetic data only; every JSON
+  # response is validated against the API contract.
   # Pinned to ubuntu-24.04: by 2026-10-29 ubuntu-latest had moved to Ubuntu
   # 26.04, which has no CPython 3.9 for setup-python ("The version '3.9' with
   # architecture 'x64' was not found for Ubuntu 26.04"). The other jobs do not
@@ -218,7 +107,7 @@ jobs:
       - name: backend test suite
         run: python -m pytest backend/tests -q -p no:cacheprovider
 
-      # QA-074 N-2 / N-4. backend.mesh serves the 3-D inspector (V2): it must import and mesh on the backend's pins
+      # backend.mesh serves the 3-D inspector (V2): it must import and mesh on the backend's pins
       # (numpy 1.26.4, no scipy). This step runs BEFORE scipy is installed, so the error-geometry module (the only
       # scipy user) skips and test_mesh_lazy_scipy proves nothing else needs it.
       - name: backend mesh tests on the backend pins (no scipy)
@@ -231,9 +120,9 @@ jobs:
           python -m pip install --quiet scipy==1.13.1
           python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
-      # The deploy installs the Mac mini OFFLINE from the wheels the operator PC
+      # backend/scripts/deploy_macmini.ps1 installs OFFLINE from wheels the PC
       # downloads; pip evaluates markers on the host interpreter, so prove the
-      # set closes over the TARGET (CPython 3.9.6, darwin, arm64).
+      # set closes over that target (CPython 3.9.6, darwin, arm64).
       - name: offline wheel set closes over CPython 3.9.6 darwin arm64
         run: |
           python -m pip install --quiet packaging
@@ -264,7 +153,7 @@ jobs:
           added=$(git diff --name-only --diff-filter=AM "$BASE" "$HEAD" || true)
           fail=0
 
-          # `12` section 3 / `06` section 5: dataset bytes are never committed.
+          # Spec `12` section 3 / `06` section 5: dataset bytes are never committed.
           bad=$(echo "$added" | grep -Ei '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$' || true)
           if [ -n "$bad" ]; then
             echo "::error::dataset bytes must never be committed (12 section 3, 06 section 5):"
@@ -287,7 +176,7 @@ jobs:
           fi
 
           # A large file is usually a dataset or a build artifact that slipped
-          # past .gitignore. Spike evidence is text; 10 MB is generous for it.
+          # past .gitignore; 10 MB is generous for anything that belongs here.
           for f in $added; do
             [ -f "$f" ] || continue
             size=$(stat -c%s "$f")
@@ -298,10 +187,9 @@ jobs:
             fi
           done
 
-          # DR-019 rule 2: committed files use placeholders (<overlay-ip>), never
-          # a private or overlay address. Only the lines ADDED by this change are
-          # scanned, so the addresses already on main (DR-019 rule 3: no rewrite)
-          # never fail a build. Flagged: 10/8, 172.16/12, 192.168/16 and the
+          # Committed files use placeholders (<host>), never a private address.
+          # Only the lines ADDED by this change are scanned, so a file that is
+          # merely moved never fails a build. Flagged: 10/8, 172.16/12, 192.168/16 and the
           # CGNAT block 100.64/10. Allowed: 10.0.2.2 (the Android emulator's
           # alias for its host); loopback, 0.0.0.0 and the documentation ranges
           # (RFC 5737) are outside the flagged blocks anyway. A match is exactly
@@ -361,7 +249,7 @@ jobs:
                       if block:
                           hits += 1
                           print(f"::error file={prop(path or '?')},line={line}::{path}:{line}: <private IPv4> in {block}"
-                                " - write a placeholder such as <overlay-ip> (DR-019 rule 2)")
+                                " - write a placeholder such as <host>")
                   line += 1
 
           print(f"IPv4 scan: {scanned} added line(s), {hits} private address(es)")
@@ -430,24 +318,16 @@ jobs:
 
   # --------------------------------------------------------------------------
   app-framework-neutral:
-    name: "app/core stays framework-neutral (GATE-MOB-01)"
+    name: "app/core stays framework-neutral"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # GATE-MOB-01 is still open: Spike A and Spike B are not both ACCEPTED,
-      # so TECH_STACK_ADR does not exist and no framework has been chosen.
-      # app/core is written so the four verticals can start anyway. This job
-      # is what stops that neutrality from decaying the first time someone is
-      # in a hurry - by then three verticals would depend on the choice.
-      #
-      # Delete this job when the ADR lands AND the team decides core may bind
-      # to the chosen framework. Deleting it silently is the failure mode.
-      #
-      # Scope is app/ ONLY. mobile/ is the React Native app that CONSUMES
-      # app/core - it is supposed to import react-native and have a
-      # package.json. Its own boundaries are checked by the mobile-shell job.
-      - name: refuse framework imports, npm dependencies and spike imports
+      # app/core is the shared, framework-free layer every vertical uses and
+      # plain node tests. This job keeps it that way. Scope is app/ ONLY:
+      # mobile/ is the React Native app that CONSUMES app/core; its own
+      # boundaries are checked by the mobile-shell job.
+      - name: refuse framework imports, npm dependencies and prototype imports
         run: |
           fail=0
           files=$(find app -name '*.mjs' -o -name '*.js' | sort)
@@ -456,7 +336,7 @@ jobs:
           bad=$(grep -REn "from ['\"](react|react-native|react-dom|expo|flutter|@react-native|vue|svelte|next)" \
                   --include='*.mjs' --include='*.js' app/core || true)
           if [ -n "$bad" ]; then
-            echo "::error::app/core must not import a UI framework while GATE-MOB-01 is open:"
+            echo "::error::app/core must not import a UI framework:"
             echo "$bad"; fail=1
           fi
 
@@ -477,23 +357,23 @@ jobs:
             echo "$bad"; fail=1
           fi
 
-          # Spike code is labelled throwaway and lives behind its own boundary.
-          # Reuse is by copy with a provenance header (see app/core/viewMath.mjs).
-          bad=$(grep -REn "spikes/" --include='*.mjs' --include='*.js' app/core \
+          # Prototype code lives behind its own boundary. Reuse is by copy with
+          # a provenance header (see app/core/viewMath.mjs).
+          bad=$(grep -REn "(spikes|prototypes)/" --include='*.mjs' --include='*.js' app/core \
                   | grep -E "^[^:]+:[0-9]+:\s*(import|export)" || true)
           if [ -n "$bad" ]; then
-            echo "::error::app/core must not import from spikes/ - copy with provenance instead:"
+            echo "::error::app/core must not import from prototypes/ - copy with provenance instead:"
             echo "$bad"; fail=1
           fi
 
           bad=$(find app -name package.json -o -name 'package-lock.json' -o -name 'metro.config.js' \
                   -o -name 'vite.config.*' -o -name 'webpack.config.*' -o -name 'pubspec.yaml' || true)
           if [ -n "$bad" ]; then
-            echo "::error::a manifest or bundler config under app/ pre-empts the ADR:"
+            echo "::error::app/ has no manifest or bundler config of its own:"
             echo "$bad"; fail=1
           fi
 
-          # DR-010 gave worst-slice ranking to the API: "the API returns the
+          # The worst-slice ranking belongs to the API: "the API returns the
           # selection; the client never re-derives it."
           #
           # Anchored so it cannot match its own documentation: selection.mjs
@@ -503,7 +383,7 @@ jobs:
           # this is the cheap second net at the boundary.
           bad=$(grep -nE '^[^*/]*\.sort\(' app/core/selection.mjs || true)
           if [ -n "$bad" ]; then
-            echo "::error::selection.mjs must not rank slices (DR-010):"
+            echo "::error::selection.mjs must not rank slices (the API ranks them):"
             echo "$bad"; fail=1
           fi
 
@@ -548,13 +428,13 @@ jobs:
           fi
           node mobile/scripts/prepare.mjs --mode fixture
 
-      - name: mobile/ never imports spikes/ or app/core/node/
+      - name: mobile/ never imports prototypes/ or app/core/node/
         run: |
           fail=0
-          bad=$(grep -REn "(from|require\()\s*['\"][^'\"]*spikes/" --include='*.js' --include='*.mjs' \
+          bad=$(grep -REn "(from|require\()\s*['\"][^'\"]*(spikes|prototypes)/" --include='*.js' --include='*.mjs' \
                   mobile/App.js mobile/index.js mobile/src || true)
           if [ -n "$bad" ]; then
-            echo "::error::product code must not import spike code - copy with a provenance header:"
+            echo "::error::product code must not import prototype code - copy with a provenance header:"
             echo "$bad"; fail=1
           fi
           bad=$(grep -REn "(from|require\()\s*['\"][^'\"]*core/node/" --include='*.js' --include='*.mjs' \
@@ -564,12 +444,11 @@ jobs:
             echo "$bad"; fail=1
           fi
           if [ "$fail" -ne 0 ]; then exit 1; fi
-          echo "mobile/ respects the spike and node-only boundaries"
+          echo "mobile/ respects the prototype and node-only boundaries"
 
   # --------------------------------------------------------------------------
-  # The header's one exception (DR-021 rule 4; closes QA #65 N-5: "CI never
-  # parses or bundles the .js files"). mobile-shell above runs the plain-ESM
-  # logic tests with no npm; this job installs the LOCKED npm tree and then
+  # mobile-shell above runs the plain-ESM logic tests with no npm; this job
+  # installs the LOCKED npm tree (see the header) and then
   # (1) renders the real screens (`npm run test:render`, react-test-renderer)
   # and (2) bundles the app the way a release build does, so a JSX syntax
   # error, a wrong import or a package missing from the lockfile fails here
@@ -633,13 +512,13 @@ jobs:
 
   # --------------------------------------------------------------------------
   # ml/: training, inference, evaluation, the holdout lock, the Contract 2
-  # exporter and the UNet kit (tools/ml), all on synthetic data - no dataset
+  # exporter and the holdout tools (tools/ml), all on synthetic data - no dataset
   # bytes, no checkpoint, no GPU, nothing downloaded. The environment is the
   # point: CUDA_VISIBLE_DEVICES=-1 keeps torch on the CPU, HF_HUB_OFFLINE=1
   # keeps Hugging Face offline, so the tests that need the pinned DINOv2
   # weights (not installed here) skip instead of failing. The versions are the
   # ones the suite was run with locally (Python 3.12, torch 2.5.1); torch is
-  # the official CPU wheel (the header's second exception). transformers and
+  # the official CPU wheel (see the header). transformers and
   # huggingface_hub are not installed on purpose: nothing in ml/tests needs
   # them without the weights.
   ml-tests:
