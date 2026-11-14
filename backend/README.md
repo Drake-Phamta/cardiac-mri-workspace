@@ -22,7 +22,7 @@ tree); the service and the ingest CLI refuse a path inside a work tree, ignored 
 | `app/routes/health.py` | `/health` and the artifact bytes, `/api/v1/artifacts/<sha256>.png` and `.cmesh` |
 | `app/routes/cases.py` | study, case list, case, MRI and ground-truth slices, geometry |
 | `app/routes/experiments.py` | experiment list, comparison, one experiment, its metrics and per-case rows |
-| `app/routes/runs.py` | analysis runs: run, run metrics, slice metrics, slice error, prediction slice, 3-D meshes |
+| `app/routes/runs.py` | analysis runs: run, run metrics, slice metrics, slice error, prediction slice, 3-D meshes, 3-D error |
 | `app/routes/reviews.py` | review create / patch, working-mask upload, commit, reviewed masks |
 | `app/routes/findings.py` | finding create / list / patch |
 | `app/middleware.py` | the JSONL request log (and `make_describe`, which names each request by its route template) and the body limit |
@@ -45,7 +45,7 @@ All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented 
 | Reviews, reviewed masks | `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `reviewed_masks_list`, `reviewed_mask_slice_get` | SQLite |
 | Findings | `finding_create`, `findings_list`, `finding_patch` | SQLite |
 | Metrics, worst slice, cohort | `analysis_run_metrics`, `analysis_slice_metrics`, `experiment_metrics`, `experiment_cases`, … | **unavailable state** (`ARTIFACT_NOT_FOUND`, reason `METRICS_NOT_INGESTED`) until saved Contract 2 metric artifacts are ingested — never an invented number |
-| Mesh | `reconstruction_get`, `error_reconstruction_get` | L0 meshes derived from the served masks by `python -m backend.mesh.build_cache` into `derived_meshes/` (see "3-D meshes"); Contract 2 `RECONSTRUCTION_3D` references still honoured; error mesh unavailable (the 3D error representation is not decided yet) |
+| Mesh | `reconstruction_get`, `error_reconstruction_get` | L0 meshes derived from the served masks by `python -m backend.mesh.build_cache` into `derived_meshes/` (see "3-D meshes"); Contract 2 `RECONSTRUCTION_3D` references still honoured; the 3-D error is the FP / FN markers of the same step (`ERRGEOM_<sha256>`, see "3-D meshes") |
 | Not deployable | `analysis_run_create` | `RUN_NOT_DEPLOYABLE` — precomputed runs only (PR-AN-01 is SHOULD) |
 
 Plus `GET /health`, `GET /api/v1/artifacts/<sha256>.png` (the immutable `content_url` of every slice; its
@@ -169,6 +169,13 @@ Every served mask without a mesh simply has no reconstruction (`ARTIFACT_NOT_FOU
 no longer matches its sidecar is a `CHECKSUM_CONFLICT`, never overwritten. `CASE_0001` has no ground truth to mesh; its
 predictions are meshed. The frame, the file format and the pick rule are in `backend/mesh/artifact.py`; the contract
 conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content".
+
+The same step writes the **3-D error** of each prediction of a case with ground truth: one marker per FP / FN region
+with its slice range (`<pred_sha256>.<gt_sha256>.errors.json`, format `cardiac-error-geometry/1`, see
+`backend/mesh/README.md`). It needs scipy (`pip install scipy`; the service itself does not), and says `SKIP` without
+it. `error_reconstruction_get` then answers `error_mesh_artifact_id` = `ERRGEOM_<sha256>` and serves the bytes at
+`/api/v1/artifacts/<sha256>.json`; before the step it answers `ARTIFACT_NOT_FOUND`, and `CASE_0001` (no ground truth)
+answers `GROUND_TRUTH_UNAVAILABLE`.
 
 ## Tests
 

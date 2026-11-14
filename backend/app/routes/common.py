@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from ..contract import ApiError, Contract
 
-ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.(png|cmesh)")
+ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.(png|cmesh|json)")
 
 
 def error(contract: Contract, code: str, details: Optional[Dict[str, Any]] = None) -> JSONResponse:

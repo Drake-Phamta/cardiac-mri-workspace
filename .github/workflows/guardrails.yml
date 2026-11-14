@@ -114,11 +114,12 @@ jobs:
         run: python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
       # scipy is deliberately NOT in backend/requirements.txt. 1.13.1 is the last series that ships CPython 3.9
-      # wheels; it is installed here only to run the error-geometry tests.
+      # wheels; it is installed here only to run the error-geometry tests: the module itself, and the served
+      # error geometry (build_cache writes it with scipy; the API only reads the file).
       - name: backend mesh error-geometry tests (scipy 1.13.1, test-only)
         run: |
           python -m pip install --quiet scipy==1.13.1
-          python -m pytest backend/mesh/tests -q -p no:cacheprovider
+          python -m pytest backend/mesh/tests backend/tests/test_meshes.py -q -p no:cacheprovider
 
   # --------------------------------------------------------------------------
 

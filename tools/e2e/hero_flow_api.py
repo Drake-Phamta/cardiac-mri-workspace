@@ -850,7 +850,41 @@ def build_steps(runner, args):
         c.ok(all(0 <= v[3 * i + a] <= shape[a] for i in range(nv) for a in range(3)), "%s: a vertex lies outside [0, shape]" % label)
         c.ok(all(i < nv for i in t), "%s: a triangle indexes past the vertices" % label)
         c.ok(max(s) < shape[2], "%s: a face source slice is outside the volume" % label)
+        mesh["mesh_artifact_id"] = mid
         return mesh
+
+    def error_geometry(c, run, raw_mesh, case_get):
+        """error_reconstruction_get + the error geometry bytes: FP / FN markers on the RAW prediction surface."""
+        e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(run["run_id"])))
+        if e.status != 200:
+            c.expect_error(e, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get (error geometry not built yet)")
+            c.ev("error_reconstruction_get -> %s %s: build it with python -m backend.mesh.build_cache --data <root> "
+                 "(needs scipy)" % (e.status, e.error_code))
+            return
+        d = e.json
+        pred, variant, eid = d.get("prediction_mask_id"), d.get("prediction_variant"), d.get("error_mesh_artifact_id")
+        c.ok(pred == run.get("raw_prediction_artifact_id") and variant == "RAW",
+             "error geometry for %r/%r, expected the run's RAW prediction" % (pred, variant))
+        m = re.match(r"^ERRGEOM_([0-9a-f]{64})$", eid or "")
+        if not c.ok(m is not None, "error_mesh_artifact_id %r is not ERRGEOM_<sha256>" % eid):
+            return
+        b = api.get("%s/artifacts/%s.json" % (BASE, m.group(1)))
+        if not c.expect_status(b, 200, "error geometry bytes"):
+            return
+        c.ok(sha256_hex(b.body) == m.group(1), "the error geometry bytes do not hash to error_mesh_artifact_id")
+        doc = json.loads(b.body.decode("ascii"))
+        shape, comps = case_get.get("shape"), doc.get("components") or []
+        c.ok(doc.get("format") == "cardiac-error-geometry/1" and doc.get("frame") == "voxel-index"
+             and doc.get("shape") == shape, "error geometry format/frame/shape")
+        c.ok(raw_mesh is not None and doc.get("surface_mesh_artifact_id") == raw_mesh.get("mesh_artifact_id"),
+             "the error geometry names another surface than the RAW prediction mesh")
+        bad = [k["id"] for k in comps if k["class"] not in ("FN", "FP")
+               or not 0 <= k["slice_range"][0] <= k["marker_voxel"][2] <= k["slice_range"][1] < shape[2]]
+        c.ok(not bad, "markers or slice ranges outside the volume: %s" % bad[:5])
+        s = doc.get("summary") or {}
+        c.ev("error geometry: %d FN and %d FP regions (%s / %s voxels), %d bytes, sha256 verified, drawn on %s..." % (
+            s.get("fn_components", 0), s.get("fp_components", 0), s.get("fn_voxels"), s.get("fp_voxels"), len(b.body),
+            str(doc.get("surface_mesh_artifact_id"))[:13]))
 
     def face(mesh, i):
         """Centroid, outward unit normal and the foreground voxel behind triangle i (voxel-index frame)."""
@@ -920,9 +954,7 @@ def build_steps(runner, args):
         wrong = api.get("%s/analysis-runs/%s/reconstruction?source_mask_id=%s" % (
             BASE, q(run["run_id"]), q((pp or {}).get("processed_prediction_artifact_id") or "ART_NONE")))
         c.expect_error(wrong, 404, "ARTIFACT_NOT_FOUND", "reconstruction_get with another run's mask (never substituted)")
-        e = api.get("%s/analysis-runs/%s/error-reconstruction?prediction_variant=RAW" % (BASE, q(run["run_id"])))
-        c.expect_error(e, 404, "ARTIFACT_NOT_FOUND", "error_reconstruction_get (DR-005 open: no fabricated error mesh)")
-        c.ev("error_reconstruction_get -> %s %s (DR-005 open: the 3D error view is the GT / prediction disagreement)" % (e.status, e.error_code))
+        error_geometry(c, run, raw, case_get)
         st["meshes"] = {"RAW": raw, "GT": gt_mesh, "PROCESSED": pp_mesh}
         c.ev("rotate / zoom / pan, the colours and the frame rate are device tests (TC-3D-001/002, TC-PERF-002)")
 

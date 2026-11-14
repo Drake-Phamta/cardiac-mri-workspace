@@ -1,4 +1,4 @@
-"""Analysis runs: one run, its metrics, its per-slice metrics, error map and prediction, and its 3-D meshes."""
+"""Analysis runs: one run, its metrics, its per-slice metrics, error map and prediction, its 3-D meshes and error."""
 
 from typing import Any, Optional
 
@@ -149,10 +149,24 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
     @app.get(f"{base}/analysis-runs/{{run_id}}/error-reconstruction")
     @endpoint(contract, "error_reconstruction_get")
     def error_reconstruction_get(run_id: str, prediction_variant: Optional[str] = Query(None)) -> Any:
+        """The 3-D error of the run's prediction against the case's ground truth: one marker per FP / FN region,
+        drawn on the prediction surface. ``error_mesh_artifact_id`` is ``ERRGEOM_<sha256>``; the JSON bytes are
+        served at /artifacts/<sha256>.json and name the prediction mesh they belong to."""
         run = backend.get_run(run_id)
         case = backend.run_case(run)
         variant = backend.variant_or_not_found(prediction_variant)
         require_ground_truth(case)
         require_succeeded(run, "ANALYSIS_FAILED")
-        experiments.mask_artifact(run, variant)
-        raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "no 3-D error reconstruction artifact (DR-005 open)"})
+        mask_id, mask = experiments.mask_artifact(run, variant)
+        entry = backend.meshes.errors_for(mask["checksum"]["value"], case.data.get("mask_sha256"))
+        if entry is None:
+            raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "no error geometry for this prediction "
+                                                            "(derived file not built)"})
+        if entry.shape != case.shape:
+            raise ApiError("GEOMETRY_MISMATCH", {"reason": "the error geometry was built for another volume shape"})
+        payload = {
+            "error_mesh_artifact_id": entry.artifact_id, "reference_mask_id": case.reference_mask_id,
+            "prediction_mask_id": mask_id, "prediction_variant": variant,
+        }
+        payload.update(case.geometry())
+        return ok(payload)

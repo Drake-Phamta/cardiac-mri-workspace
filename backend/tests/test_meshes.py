@@ -1,4 +1,5 @@
-"""SCR-05 on the backend: derived L0 meshes (build_cache), reconstruction_get and the mesh content route.
+"""SCR-05 on the backend: derived L0 meshes and error geometry (build_cache), reconstruction_get,
+error_reconstruction_get and their content routes.
 
 Synthetic package only. API Contract 11 is unchanged: every JSON answer still passes validate_response (through
 ``Api.call``). The frame is the voxel-index frame, axes x=column, y=row, z=slice (DR-008a), so a served face is
@@ -10,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -130,6 +132,7 @@ def test_the_cli_builds_selected_runs_only(environment, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "SUMMARY" in out and "RUN_9003 RAW" in out and "RUN_9001" not in out and "GROUND_TRUTH" not in out
     assert len(list((copy / "derived_meshes").glob("*.l0.cmesh"))) == 1
+    assert not list((copy / "derived_meshes").glob("*.errors.json"))  # error geometry needs the ground truth
     assert build_cache.main(["--data", str(copy), "--runs", "RUN_NOPE"]) == 2
     assert "RUN_NOT_FOUND" in capsys.readouterr().err
 
@@ -249,10 +252,125 @@ def test_int12_gets_a_prediction_mesh_but_no_ground_truth_mesh_and_no_error_mesh
     assert not any(path.name.startswith("MASK_CASE_0031") for path in api.app.state.backend.meshes.root.iterdir())
 
 
-def test_error_reconstruction_stays_honestly_unavailable_while_dr005_is_open(mesh_api):
-    response = mesh_api.call("GET", f"{B}/analysis-runs/RUN_9001/error-reconstruction?prediction_variant=RAW",
-                             "error_reconstruction_get", 404)
-    assert mesh_api.error_code(response) == "ARTIFACT_NOT_FOUND" and "DR-005" in json.dumps(response.json())
+# -- error_reconstruction_get: candidate 3, FP / FN markers on the prediction surface ----------------
+
+needs_scipy = pytest.mark.skipif(not build_cache.scipy_available(),
+                                 reason="the error geometry is built with scipy (installed in the CI scipy step)")
+
+
+def error_reconstruction(api: Api, run: str, variant: str, expect: int = 200):
+    return api.call("GET", f"{B}/analysis-runs/{run}/error-reconstruction?prediction_variant={variant}",
+                    "error_reconstruction_get", expect)
+
+
+def run_of_errors_file(backend, prediction_sha256: str, ground_truth_sha256: str):
+    """(run id, variant) whose prediction and case ground truth have these sha256s (an identical prediction file can
+    belong to runs of several cases, so the ground truth is needed too)."""
+    for run in backend.experiments.runs.values():
+        case = backend.cases.get(run.case_id)
+        for variant in ("RAW", "PROCESSED"):
+            mask_id = run.mask_id(variant)
+            if mask_id and case is not None and case.data.get("mask_sha256") == ground_truth_sha256 \
+                    and run.package.artifacts[mask_id]["checksum"]["value"] == prediction_sha256:
+                return run.run_id, variant
+    raise AssertionError(f"no served run has the masks {prediction_sha256} / {ground_truth_sha256}")
+
+
+def error_document(api: Api, error_mesh_artifact_id: str) -> dict:
+    digest = error_mesh_artifact_id.split("_", 1)[1]
+    response = api.client.get(f"{B}/artifacts/{digest}.json")
+    assert response.status_code == 200, response.text
+    assert hashlib.sha256(response.content).hexdigest() == digest
+    assert response.headers["etag"] == f'"sha256:{digest}"' and response.headers["content-type"] == "application/json"
+    return json.loads(response.content)
+
+
+@needs_scipy
+def test_the_error_geometry_names_the_prediction_surface_and_its_fp_fn_regions(mesh_api, environment):
+    api = mesh_api
+    meta = error_reconstruction(api, "RUN_9001", "RAW").json()
+    assert re.fullmatch(r"ERRGEOM_[0-9a-f]{64}", meta["error_mesh_artifact_id"])
+    assert (meta["prediction_mask_id"], meta["prediction_variant"], meta["reference_mask_id"]) == \
+        ("ART_RUN_9001_RAW", "RAW", "MASK_CASE_9001")
+    geometry = api.call("GET", f"{B}/cases/CASE_9001/geometry", "geometry_get", 200).json()
+    assert all(meta[key] == value for key, value in geometry.items())
+    document = error_document(api, meta["error_mesh_artifact_id"])
+    surface = reconstruction(api, "RUN_9001", "ART_RUN_9001_RAW").json()["mesh_artifact_id"]
+    assert document["format"] == "cardiac-error-geometry/1" and document["frame"] == "voxel-index"
+    assert document["surface_mesh_artifact_id"] == surface and document["shape"] == [12, 10, 6]
+    # Counted again from the arrays: FP = predicted, not ground truth; FN = ground truth, not predicted.
+    pred = environment["accepted"]["predictions"]["RUN_9001"] != 0
+    gt = environment["volumes"]["CASE_9001"]["gt"] != 0
+    fp, fn = pred & ~gt, gt & ~pred
+    summary = document["summary"]
+    assert (summary["fp_voxels"], summary["fn_voxels"]) == (int(fp.sum()), int(fn.sum())) and fp.any() and fn.any()
+    by_class = {"FP": fp, "FN": fn}
+    for cls in ("FP", "FN"):
+        mine = [c for c in document["components"] if c["class"] == cls]
+        assert sum(c["voxel_count"] for c in mine) == int(by_class[cls].sum())
+        assert len(mine) == summary[f"{cls.lower()}_components"]
+        for c in mine:
+            x, y, z = c["marker_voxel"]
+            assert by_class[cls][x, y, z], c  # the marker sits on a voxel of its own class
+            zmin, zmax = c["slice_range"]
+            assert 0 <= zmin <= z <= zmax < 6 and c["bbox_lo"][2] == zmin and c["bbox_hi"][2] == zmax
+    assert [c["id"] for c in document["components"]][:1] == ["FN_0001"]  # FN first, then FP, largest first
+    assert "world" not in json.dumps(document)  # voxel indices only: no world or millimetre coordinates
+
+
+@needs_scipy
+def test_processed_has_its_own_error_geometry_and_no_variant_is_substituted(mesh_api):
+    api = mesh_api
+    raw = error_reconstruction(api, "RUN_9001", "RAW").json()
+    processed = error_reconstruction(api, "RUN_9001", "PROCESSED").json()
+    assert processed["prediction_mask_id"] == "ART_RUN_9001_PROCESSED"
+    assert processed["error_mesh_artifact_id"] != raw["error_mesh_artifact_id"]
+    surface = reconstruction(api, "RUN_9001", "ART_RUN_9001_PROCESSED").json()["mesh_artifact_id"]
+    assert error_document(api, processed["error_mesh_artifact_id"])["surface_mesh_artifact_id"] == surface
+    assert api.error_code(error_reconstruction(api, "RUN_9003", "PROCESSED", 404)) == "ARTIFACT_NOT_FOUND"
+    assert api.error_code(error_reconstruction(api, "RUN_9003", "REVIEWED", 404)) == "ARTIFACT_NOT_FOUND"
+    run = api.app.state.backend.experiments.runs["RUN_9003"]
+    run.status, run.failure_reason = "FAILED", "synthetic failure"
+    assert api.error_code(error_reconstruction(api, "RUN_9003", "RAW", 422)) == "ANALYSIS_FAILED"
+
+
+def test_without_the_derived_file_the_error_geometry_is_not_found(bare_api):
+    response = error_reconstruction(bare_api, "RUN_9001", "RAW", 404)
+    assert bare_api.error_code(response) == "ARTIFACT_NOT_FOUND" and "not built" in json.dumps(response.json())
+
+
+@needs_scipy
+def test_error_files_are_write_once_checked_on_load_and_on_every_read(environment, built, tmp_path):
+    assert built["summary"]["error_geometry"]["new"] + built["summary"]["error_geometry"]["no_op"] >= 3
+    derived = tmp_path / "derived"
+    shutil.copytree(built["dir"], derived)
+    files = sorted(derived.glob("*.errors.json"))
+    assert len(files) >= 3 and not any("ERRORS" in line and "RUN_0031" in line for line in built["lines"])
+    damaged, regridded = files[0], files[1]
+    damaged.write_text("{not json", encoding="utf-8")
+    document = json.loads(regridded.read_text(encoding="ascii"))
+    regridded.write_text(json.dumps(dict(document, shape=[13, 10, 6])), encoding="ascii")
+    from backend.app.meshes import MeshStore
+
+    store = MeshStore(derived)
+    # Keyed by mask pair; by content, two pairs with the same disagreement share one artifact (and one id).
+    assert damaged.name in store.rejected and len(store.errors_by_masks) == len(files) - 1
+    api = make_api(environment, tmp_path, derived)
+    backend = api.app.state.backend
+    try:
+        for (pred_sha, gt_sha), entry in backend.meshes.errors_by_masks.items():
+            assert entry.path.name == f"{pred_sha}.{gt_sha}.errors.json"
+        regridded_masks = tuple(regridded.name[: -len(".errors.json")].split("."))
+        run_id, variant = run_of_errors_file(backend, *regridded_masks)
+        assert api.error_code(error_reconstruction(api, run_id, variant, 422)) == "GEOMETRY_MISMATCH"
+        # A file changed on disk after start-up is never served.
+        entry = next(iter(backend.meshes.errors_by_sha.values()))
+        entry.path.write_bytes(entry.path.read_bytes() + b" ")
+        assert api.client.get(f"{B}/artifacts/{entry.sha256}.json").status_code == 404
+        assert api.client.get(f"{B}/artifacts/{entry.sha256}.cmesh").status_code == 404
+    finally:
+        api._client_context.__exit__(None, None, None)
+        backend.storage.close()
 
 
 def test_without_derived_meshes_nothing_is_offered(bare_api):

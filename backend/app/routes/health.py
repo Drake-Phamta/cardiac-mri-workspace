@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import Response
 
 from .. import __version__, imaging
-from ..meshes import MEDIA_TYPE as MESH_MEDIA_TYPE
+from ..meshes import ERRORS_MEDIA_TYPE, MEDIA_TYPE as MESH_MEDIA_TYPE
 from ..state import Backend
 from ..storage import now
 from .common import ARTIFACT_NAME, error
@@ -41,11 +41,15 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
         if not match:
             return error(contract, "ARTIFACT_NOT_FOUND", {"artifact": name})
         digest = match.group(1)
-        if match.group(2) == "cmesh":
-            mesh_bytes = backend.meshes.content(digest)
-            if mesh_bytes is None or imaging.sha256_bytes(mesh_bytes) != digest:
+        if match.group(2) in ("cmesh", "json"):
+            # A derived mesh (.cmesh) or error geometry (.json): read from derived_meshes, verified on every read.
+            if match.group(2) == "cmesh":
+                derived, media_type = backend.meshes.content(digest), MESH_MEDIA_TYPE
+            else:
+                derived, media_type = backend.meshes.errors_content(digest), ERRORS_MEDIA_TYPE
+            if derived is None or imaging.sha256_bytes(derived) != digest:
                 return error(contract, "ARTIFACT_NOT_FOUND", {"artifact": name})
-            return Response(mesh_bytes, media_type=MESH_MEDIA_TYPE, headers={
+            return Response(derived, media_type=media_type, headers={
                 "ETag": f'"sha256:{digest}"', "Cache-Control": "private, max-age=31536000, immutable",
             })
         payload: Optional[bytes] = None

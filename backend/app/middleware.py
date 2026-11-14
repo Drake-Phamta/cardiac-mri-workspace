@@ -217,6 +217,8 @@ def make_describe(app: Any, backend: Backend) -> Describe:
         digest = match.group(1)
         if match.group(2) == "cmesh":  # a derived L0 mesh: content-addressed, owned by one mask
             return {"digest": digest, "kind": "mesh"}
+        if match.group(2) == "json":  # derived error geometry: owned by one prediction / ground-truth pair
+            return {"digest": digest, "kind": "error_geometry"}
         owners = [(kind, case_id, z, None) for case_id, kind, z in cases.digest_owners.get(digest, [])]
         for artifact_id, z in list(experiments.render_owners.get(digest, [])):
             owners.append(("prediction", (experiments.artifact(artifact_id) or {}).get("case_id"), z, artifact_id))
