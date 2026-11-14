@@ -1730,6 +1730,29 @@ function reviewBackend({ seedVersion = false } = {}) {
   }
 }
 
+// ---- 12. Shell: state panels ----
+{
+  const { default: StateView } = await imp('src/components/StateView.js');
+  const { loading, recoverableError } = await imp('src/api/states.mjs');
+  let r;
+  // State panel: a placeholder while loading; an error shows its cause, its code, one action, details folded.
+  await act(async () => { r = TestRenderer.create(React.createElement(StateView, { view: loading(), what: 'the case list' })); });
+  check('H5', r.root.findAll((n) => n.props && n.props.testID === 'placeholder').length === 1 && has(r, /^Loading the case list…$/),
+    'loading: a placeholder where the content will be, and what is loading');
+  const err = recoverableError({ code: 'TRANSPORT_UNREACHABLE', httpStatus: 503, requestId: 'req_7' }, ['RETRY']);
+  const acted = [];
+  await act(async () => { r.update(React.createElement(StateView, { view: err, what: 'the case list', onAction: (id) => acted.push(id) })); });
+  const buttons = () => r.root.findAll((n) => n.type === 'TouchableOpacity').map(textOf);
+  check('H5', r.root.findAll((n) => n.props && n.props.testID === 'placeholder').length === 0 && has(r, /could not be reached/)
+    && has(r, /^code TRANSPORT_UNREACHABLE$/) && !has(r, /^request req_7$/) && buttons().join(',') === 'Details (2),Retry',
+  `error: cause, code, one action, details folded (${buttons().join(', ')})`);
+  await press(r, 'Details');
+  await press(r, 'Retry');
+  check('H5', has(r, /^HTTP 503$/) && has(r, /^request req_7$/) && acted.join() === 'RETRY', 'Details shows the HTTP status and request id; Retry answers RETRY');
+  await act(async () => { r.unmount(); });
+
+}
+
 console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
