@@ -3,6 +3,18 @@
  * Plain data; Navigator.js maps each id to its component.
  */
 
+/*
+ * How the shell frames a screen. DEFAULT: the app bar above the screen and the tab bar below it. VIEWER: the app
+ * bar floats over the screen on a dark scrim and the tab bar is hidden, so a full-bleed image gets the whole
+ * height. A screen opts in itself (`MyScreen.chrome = CHROME.VIEWER`); it then keeps its own content clear of the
+ * top size.appBar (56 dp). Every other screen keeps DEFAULT.
+ */
+export const CHROME = Object.freeze({ DEFAULT: 'default', VIEWER: 'viewer' });
+
+export function chromeOf(component) {
+  return component && component.chrome === CHROME.VIEWER ? CHROME.VIEWER : CHROME.DEFAULT;
+}
+
 export const SCREENS = Object.freeze([
   { id: 'SCR-01', title: 'Study Overview', vertical: 'V3', required: [], tab: 'Study' },
   { id: 'SCR-02', title: 'Case List', vertical: 'V1', required: [], tab: 'Cases' },

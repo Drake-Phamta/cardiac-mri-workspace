@@ -674,7 +674,14 @@ function Wait-AppReady {
 }
 
 function Switch-Tab {
+  # A pushed viewer screen (the case viewer) hides the tab bar, so first go back with the header's Back until the
+  # tab is on screen (a few steps at most: Cases -> viewer -> error inspector -> 3D -> viewer again).
   param([string]$Label)
+  for ($i = 0; $i -lt 6; $i++) {
+    $d = Get-UiDump
+    if ($d -and (Get-TapNode -Dump $d -Text $Label -NoSubstring -YMin 0.86 -Last)) { break }
+    if (-not (Invoke-Back)) { break }
+  }
   return (Invoke-TapText -Text $Label -NoSubstring -YMin 0.86 -Last -TimeoutSec 20)
 }
 

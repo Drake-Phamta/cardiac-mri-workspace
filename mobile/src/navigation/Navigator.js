@@ -1,18 +1,23 @@
 /*
  * Draws the navigator: the app bar (Back, the screen's name and the case and run it shows, Live or Fixture, Info),
- * the top screen of the stack, and the tab bar. Info opens the Details sheet (screen id, mode, contract, build, and "Clear cached images"). Only the top
+ * the top screen of the stack, and the tab bar. Info opens the Details sheet (the screen's own sections, then screen
+ * id, mode, contract, build, and "Clear cached images"). Only the top
  * screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in an error
  * boundary, so a crash blocks only that screen with FATAL_INVALID. The session cover (SessionCover.js) wraps
  * everything.
+ * A screen that opts in to CHROME.VIEWER (routes.mjs) gets the whole height: the app bar floats over it on a dark
+ * scrim and the tab bar is hidden while it is on top. What a screen reports with nav.setContext (header.mjs) fills
+ * the header: title and subtitle, a subtitle button, icon actions, a "more" button and Details sections.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { fatalInvalid, RECOVERY } from '../api/states.mjs';
 import { describeConfig, MODE } from '../config.mjs';
 import AppHeader from '../components/AppHeader';
-import { Button } from '../components/Controls';
+import { Button, IconButton } from '../components/Controls';
 import DetailsSheet from '../components/DetailsSheet';
 import { IconAlert, IconFlag, IconFlask, IconGrid, IconGridFilled, IconList } from '../components/icons';
 import { StatePanel } from '../components/StateView';
@@ -20,8 +25,8 @@ import SessionGate from '../components/SessionCover';
 import { clearCachedData, SESSION_LIMITS } from '../components/session.mjs';
 import { color, HAIRLINE, MIN_TOUCH, radius, size, space, type } from '../components/theme';
 import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
-import { aboutLines, headerLines, sameContext } from './header.mjs';
-import { screenMeta, TABS } from './routes.mjs';
+import { aboutLines, contextDetails, headerLines, sameContext } from './header.mjs';
+import { CHROME, chromeOf, screenMeta, TABS } from './routes.mjs';
 import StudyOverviewScreen from '../screens/v3-study/StudyOverviewScreen';
 import CaseListScreen from '../screens/v1-cases/CaseListScreen';
 import CaseExplorerScreen from '../screens/v1-cases/CaseExplorerScreen';
@@ -152,42 +157,74 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
   const onBack = useCallback(() => nav.pop(), [nav]);
   const fixture = runtime.mode === MODE.FIXTURE;
   const about = aboutLines(meta, runtime.config, runtime.contract ? runtime.contract.contractVersion : null);
+  const viewer = chromeOf(Screen) === CHROME.VIEWER;
+  const actions = context && Array.isArray(context.actions) ? context.actions.filter((a) => a && a.icon && typeof a.onPress === 'function') : [];
+  const overflow = context && context.overflow && typeof context.overflow.onPress === 'function' ? context.overflow : null;
+  const onSubtitlePress = context && typeof context.onSubtitlePress === 'function' ? context.onSubtitlePress : null;
+  const sections = [...contextDetails(context), { title: 'This screen', lines: about }];
+
+  const header = (
+    <AppHeader
+      testID={`screen-${meta.id}`}
+      title={head.title}
+      subtitle={head.subtitle}
+      onBack={nav.canGoBack ? onBack : null}
+      // The viewer's top bar names no mode while live (the mockup's bar is Back, case, run, privacy, Info); Fixture
+      // stays, because it marks generated data and opens the scenarios.
+      status={fixture ? 'fixture' : (viewer ? null : 'live')}
+      onStatusPress={fixture ? () => setScenarioOpen(true) : null}
+      statusLabel={describeConfig(runtime.config)}
+      onInfo={() => setAboutOpen(true)}
+      floating={viewer}
+      onSubtitlePress={onSubtitlePress}
+      overflow={overflow}
+      trailing={actions.length ? actions.map((a) => (
+        <IconButton
+          key={a.key}
+          icon={a.icon}
+          label={a.label}
+          active={a.active === true}
+          onPress={a.onPress}
+          tint={viewer ? color.t1 : color.t2}
+          testID={`header-action-${a.key}`}
+        />
+      )) : null}
+    />
+  );
 
   return (
     <SessionGate limits={session || SESSION_LIMITS} now={session ? session.now : undefined} checkEveryMs={session ? session.checkEveryMs : null} onClearCache={clearCache}>
       <View style={s.root}>
-        <AppHeader
-          testID={`screen-${meta.id}`}
-          title={head.title}
-          subtitle={head.subtitle}
-          onBack={nav.canGoBack ? onBack : null}
-          status={fixture ? 'fixture' : 'live'}
-          onStatusPress={fixture ? () => setScenarioOpen(true) : null}
-          statusLabel={describeConfig(runtime.config)}
-          onInfo={() => setAboutOpen(true)}
-        />
-        {fixture && (
+        {viewer ? null : header}
+        {fixture && !viewer && (
           <Text style={s.banner} numberOfLines={2}>
             Generated contract fixtures: not patient data, not a backend. Tap Fixture to choose scenarios.
           </Text>
         )}
 
-        <View style={s.body}>
+        <View style={[s.body, viewer && s.bodyViewer]}>
           <ScreenBoundary key={`${current.key}:${epoch}`} screenId={current.screenId} title={meta.title} onBack={onBack}>
             {Screen ? <Screen runtime={runtime} nav={nav} params={current.params} /> : null}
           </ScreenBoundary>
         </View>
 
+        {viewer ? (
+          <View style={s.floatTop} pointerEvents="box-none" testID="viewer-chrome">
+            <TopScrim />
+            {header}
+          </View>
+        ) : null}
+
         {navError && (
-          <View style={s.toast} accessibilityRole="alert">
+          <View style={[s.toast, viewer && s.toastViewer]} accessibilityRole="alert">
             <IconAlert size={18} strokeWidth={2} color={color.danger} />
             <Text style={s.toastT}>Cannot open: {navError}</Text>
           </View>
         )}
 
-        <TabBar activeScreenId={state.stack[0].screenId} onSelect={(id) => nav.reset(id, {})} />
+        {viewer ? null : <TabBar activeScreenId={state.stack[0].screenId} onSelect={(id) => nav.reset(id, {})} />}
 
-        <DetailsSheet visible={aboutOpen} onClose={() => setAboutOpen(false)} sections={[{ title: 'This screen', lines: about }]}>
+        <DetailsSheet visible={aboutOpen} onClose={() => setAboutOpen(false)} sections={sections}>
           <View style={s.sheetActions}>
             <Button label="Clear cached images" variant="secondary" onPress={() => setCacheNote(clearCache().text)} />
             {cacheNote ? <Text style={s.note}>{cacheNote}</Text> : null}
@@ -203,6 +240,27 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
         )}
       </View>
     </SessionGate>
+  );
+}
+
+/*
+ * The viewer's top scrim: black fading to clear, so the floating bar reads over bright tissue. The mockup's fade
+ * is 152 dp from the top of the phone (92 % -> 72 % at 45 % -> 0); the status bar takes the first 28 dp of it, so
+ * the app draws the remaining 124 dp, starting where that fade has reached 84 %.
+ */
+const SCRIM_HEIGHT = 124;
+function TopScrim() {
+  return (
+    <Svg style={s.scrim} width="100%" height={SCRIM_HEIGHT} pointerEvents="none" testID="viewer-scrim">
+      <Defs>
+        <LinearGradient id="viewerScrim" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#000000" stopOpacity="0.84" />
+          <Stop offset="0.32" stopColor="#000000" stopOpacity="0.72" />
+          <Stop offset="1" stopColor="#000000" stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height={SCRIM_HEIGHT} fill="url(#viewerScrim)" />
+    </Svg>
   );
 }
 
@@ -249,12 +307,17 @@ const s = StyleSheet.create({
     borderBottomWidth: HAIRLINE, borderColor: color.hair,
   },
   body: { flex: 1 },
+  bodyViewer: { backgroundColor: color.viewer },
+  floatTop: { position: 'absolute', left: 0, right: 0, top: 0 },
+  scrim: { position: 'absolute', left: 0, right: 0, top: 0 },
   crash: { flex: 1, justifyContent: 'center', paddingHorizontal: space.l },
   toast: {
     position: 'absolute', left: space.l, right: space.l, bottom: size.tabBar + HAIRLINE + space.l,
     flexDirection: 'row', alignItems: 'center', gap: space.s,
     paddingHorizontal: space.m, paddingVertical: space.m, borderRadius: radius.m, backgroundColor: color.raised,
   },
+  // No tab bar under a viewer: the toast sits above its bottom panel instead.
+  toastViewer: { bottom: size.bottomPanel + space.l },
   toastT: { ...type.body, color: color.t1, flex: 1 },
   sheetActions: { gap: space.s },
   note: { ...type.caption, color: color.t2 },
