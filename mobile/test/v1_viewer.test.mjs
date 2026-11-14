@@ -4,7 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { formatSlice, sliceDetail, sliceParts } from '../src/lib/sliceNumber.mjs';
-import { framing, VIEWER_ZOOM, viewerFrame, zoomReadout, doubleTapTransform } from '../src/screens/v1-cases/sliceControls.mjs';
+import {
+  framing, MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR, pinchTransform, VIEWER_ZOOM, viewerFrame, zoomReadout, doubleTapTransform,
+} from '../src/screens/v1-cases/sliceControls.mjs';
 import {
   diceCornerText, familyName, runSubtitle, sliceLabel, variantLabel,
 } from '../src/screens/v1-cases/cases.mjs';
@@ -75,6 +77,33 @@ test('V1v3 full-bleed framing: fit in the band between the floating bar and the 
   const twice = doubleTapTransform(f.fit, f.fit, 195, 300);
   assert.equal(zoomReadout(twice, f.fit, f.start), '×2.0');
   assert.deepEqual({ ...doubleTapTransform(f.start, f.fit, 195, 300) }, { ...f.fit }, 'a double tap from 1.6x returns to fit');
+});
+
+test('V1v5 pinch-in stops at fit (1.0x), never below; pinch-out stops at 16x; reaching fit gives exactly the fit view', () => {
+  const f = framing(390, 716, 576, 576, { top: 56, bottom: 168 }, VIEWER_ZOOM);
+  const zoomOf = (t) => t.zoom / f.fit.zoom;
+  assert.equal(MIN_ZOOM_FACTOR, 1);
+  assert.equal(MAX_ZOOM_FACTOR, 16);
+  // From the opening view (1.6x): a small pinch-in stays above fit and keeps the point under the fingers.
+  const small = pinchTransform(f.start, 0.8, f.fit, 100, 300);
+  assert.ok(Math.abs(zoomOf(small) - 1.28) < 1e-9);
+  assert.ok(Math.abs((100 - f.start.panX) / f.start.zoom - (100 - small.panX) / small.zoom) < 1e-9, 'the source pixel under the fingers stays there');
+  // The device showed 0.9x after a pinch from 2x: any pinch-in past fit now lands on fit itself.
+  const two = doubleTapTransform(f.fit, f.fit, 195, 300);
+  assert.ok(Math.abs(zoomOf(two) - 2) < 1e-9);
+  const past = pinchTransform(two, 150 / 500, f.fit, 195, 300);
+  assert.deepEqual({ ...past }, { ...f.fit }, 'pinch-in from 2x by a factor 0.3 stops at fit (it was 0.6x before) and the slice is centred again');
+  assert.equal(zoomReadout(past, f.fit, f.start), null, 'so no "x0.6" or "x0.9" readout');
+  // Many small pinch-in steps (a real gesture is a stream of them) never go under fit.
+  let t = f.start;
+  for (let i = 0; i < 40; i += 1) {
+    t = pinchTransform(t, 0.9, f.fit, 80 + i, 300);
+    assert.ok(t.zoom >= f.fit.zoom, `step ${i}: ${zoomOf(t)}x`);
+  }
+  assert.deepEqual({ ...t }, { ...f.fit });
+  // Pinch-out is capped at 16x fit; at fit a pinch-in does nothing.
+  assert.ok(Math.abs(zoomOf(pinchTransform(two, 1000, f.fit, 195, 300)) - 16) < 1e-9);
+  assert.deepEqual({ ...pinchTransform(f.fit, 0.5, f.fit, 10, 10) }, { ...f.fit });
 });
 
 test('V1v4 the words of the viewer: corner Dice, model names, variant labels, the run subtitle', () => {

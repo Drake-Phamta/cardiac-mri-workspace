@@ -33,9 +33,10 @@ function fakeTime() {
   };
 }
 
-test('VP1 the sweep goes one slice up and wraps to the first', () => {
+test('VP1 the sweep goes one slice up and ends after the last one', () => {
   assert.equal(nextPlayIndex(4, 10), 5);
-  assert.equal(nextPlayIndex(9, 10), 0);
+  assert.equal(nextPlayIndex(8, 10), 9);
+  assert.equal(nextPlayIndex(9, 10), null, 'after the last slice there is no next one: the sweep does not wrap');
   assert.equal(nextPlayIndex(null, 10), null);
   assert.equal(nextPlayIndex(3, 0), null);
   assert.equal(PLAY_INTERVAL_MS, 200, 'about 5 slices per second');
@@ -50,21 +51,21 @@ test('VP2 play never has two slice loads in flight: the next step waits for the 
     total: 5, now: clock.now, schedule: clock.schedule, cancel: clock.cancel,
     step: (z) => { asked.push(z); inFlight += 1; maxInFlight = Math.max(maxInFlight, inFlight); },
   });
-  player.start(3);
-  assert.deepEqual(asked, [4], 'Play asks for the next slice at once');
+  player.start(0);
+  assert.deepEqual(asked, [1], 'Play asks for the next slice at once');
   clock.advance(1000);
-  assert.deepEqual(asked, [4], 'nothing more while slice 4 is loading, however long it takes');
+  assert.deepEqual(asked, [1], 'nothing more while slice 1 is loading, however long it takes');
   inFlight -= 1;
-  player.settled(4);
+  player.settled(1);
   clock.advance(0);
-  assert.deepEqual(asked, [4, 0], 'slice 4 took longer than the interval: the next one is asked at once, wrapping to 0');
+  assert.deepEqual(asked, [1, 2], 'slice 1 took longer than the interval: the next one is asked at once');
   clock.advance(50);
   inFlight -= 1;
-  player.settled(0);
+  player.settled(2);
   clock.advance(100);
-  assert.deepEqual(asked, [4, 0], 'slice 0 came after 50 ms: the step waits for the rest of the 200 ms');
+  assert.deepEqual(asked, [1, 2], 'slice 2 came after 50 ms: the step waits for the rest of the 200 ms');
   clock.advance(50);
-  assert.deepEqual(asked, [4, 0, 1]);
+  assert.deepEqual(asked, [1, 2, 3]);
   assert.equal(maxInFlight, 1, 'one load in flight at most');
 });
 
@@ -102,9 +103,46 @@ test('VP4 play on top of the serial runner: every step runs, none is dropped as 
   const slow = (z) => new Promise((r) => setTimeout(() => { shown.push(z); r(); player.settled(z); }, 5));
   player = createPlayer({ total: 4, intervalMs: 1, step: (z) => runner.run(() => slow(z), { key: 'slice' }) });
   player.start(0);
-  for (let i = 0; i < 60 && shown.length < 6; i += 1) await new Promise((r) => setTimeout(r, 5));
+  for (let i = 0; i < 60 && player.playing; i += 1) await new Promise((r) => setTimeout(r, 5));
+  assert.equal(player.playing, false, 'the sweep ended by itself on the last slice');
+  assert.deepEqual(shown, [1, 2, 3], 'each slice in order up to the last one, the runner never had to replace a queued one');
+});
+
+test('VP7 Play stops on the last slice and the button reads Play again; Play there starts over from slice 1', () => {
+  const clock = fakeTime();
+  const asked = [];
+  const changes = [];
+  const player = createPlayer({
+    total: 4, now: clock.now, schedule: clock.schedule, cancel: clock.cancel,
+    step: (z) => asked.push(z), onChange: (on) => changes.push(on),
+  });
+  player.start(1);
+  assert.deepEqual(asked, [2]);
+  player.settled(2);
+  clock.advance(PLAY_INTERVAL_MS);
+  assert.deepEqual(asked, [2, 3], 'on to the last slice (index 3 of 4, "Slice 4 / 4")');
+  player.settled(3);
+  assert.equal(player.playing, false, 'the last slice is on screen: play is over at once, not after another interval');
+  assert.deepEqual(changes, [true, false]);
+  clock.advance(5000);
+  assert.deepEqual(asked, [2, 3], 'it did not wrap to the first slice');
+  assert.equal(clock.pending, 0);
+
+  // Play on the last slice: again from slice 1 (index 0), then up as before.
+  player.start(3);
+  assert.deepEqual(asked, [2, 3, 0], 'asks for slice 1 first');
+  assert.equal(player.playing, true);
+  player.settled(0);
+  clock.advance(PLAY_INTERVAL_MS);
+  assert.deepEqual(asked, [2, 3, 0, 1]);
   player.stop();
-  assert.deepEqual(shown.slice(0, 6), [1, 2, 3, 0, 1, 2], 'each slice in order, the runner never had to replace a queued one');
+  assert.deepEqual(changes, [true, false, true, false]);
+
+  // A sweep that is asked to start with no slices to go through does nothing.
+  const none = createPlayer({ total: 1, step: (z) => asked.push(z), schedule: clock.schedule, cancel: clock.cancel });
+  none.start(0);
+  assert.equal(none.playing, false);
+  assert.deepEqual(asked, [2, 3, 0, 1]);
 });
 
 test('VP5 hold to repeat: one step at once, then every interval until released', () => {

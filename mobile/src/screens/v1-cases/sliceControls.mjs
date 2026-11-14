@@ -3,7 +3,7 @@
  * play button, hold-to-repeat on the step buttons, and double tap to zoom. SliceView.js draws them.
  */
 
-import { zoomAbout } from '../../lib/viewMath.mjs';
+import { clampZoom, zoomAbout } from '../../lib/viewMath.mjs';
 
 // ----- Overlay drawing -----
 
@@ -56,10 +56,11 @@ export function forgetOverlayStyles() { chosenStyle.clear(); }
 // About 5 slices per second once they are cached; a slice not yet cached takes as long as it takes to load.
 export const PLAY_INTERVAL_MS = 200;
 
-// The next slice of a sweep: one up, back to the first slice after the last.
+// The next slice of a sweep: one up. null after the last slice (the sweep ends there) or for a slice or count that
+// is not a number.
 export function nextPlayIndex(index, total) {
   if (!Number.isInteger(index) || !Number.isInteger(total) || total <= 0) return null;
-  return index + 1 >= total ? 0 : index + 1;
+  return index + 1 >= total ? null : index + 1;
 }
 
 /*
@@ -67,6 +68,8 @@ export function nextPlayIndex(index, total) {
  * rest of the interval, then asks for the next. So play never has two slice loads in flight, and the serial
  * runner's newest-slice-wins rule is never needed to throw a request away. step(index) asks the screen for a
  * slice; stop() comes from the screen on any other slice action.
+ * The sweep ends on the last slice: once it is on screen play stops, and the button reads Play again. Pressing Play
+ * on the last slice starts over from the first one.
  */
 export function createPlayer({
   step, total, intervalMs = PLAY_INTERVAL_MS, now = () => Date.now(),
@@ -79,14 +82,17 @@ export function createPlayer({
   let timer = null;
 
   const clearTimer = () => { if (timer !== null) { cancel(timer); timer = null; } };
+  const request = (index) => {
+    waitingFor = index;
+    askedAt = now();
+    step(index);
+  };
   const ask = () => {
     timer = null;
     if (!playing) return;
     const next = nextPlayIndex(position, total);
     if (next === null) { stop(); return; }
-    waitingFor = next;
-    askedAt = now();
-    step(next);
+    request(next);
   };
   function stop() {
     const was = playing;
@@ -98,19 +104,22 @@ export function createPlayer({
 
   return Object.freeze({
     start(from) {
-      if (playing || !Number.isInteger(from)) return;
+      if (playing || !Number.isInteger(from) || !Number.isInteger(total) || total < 2) return;
       playing = true;
       position = from;
       onChange(true);
-      ask();
+      // On the last slice there is nowhere to go on to: begin again at the first.
+      if (nextPlayIndex(from, total) === null) request(0);
+      else ask();
     },
     stop,
-    // The screen shows `index` now. Only the slice play asked for moves play on.
+    // The screen shows `index` now. Only the slice play asked for moves play on; on the last slice it ends.
     settled(index) {
       if (!playing || index !== waitingFor) return;
       position = index;
       waitingFor = null;
       clearTimer();
+      if (nextPlayIndex(index, total) === null) { stop(); return; }
       timer = schedule(ask, Math.max(0, askedAt + intervalMs - now()));
     },
     // The slice play asked for ended in an error or unavailable state: play stops there.
@@ -158,6 +167,22 @@ export function doubleTapTransform(t, fit, u, v) {
   if (!t || !fit) return t;
   if (t.zoom / fit.zoom > 1.5) return { ...fit };
   return zoomAbout(t, fit.zoom * 2, u, v);
+}
+
+// ----- Pinch zoom -----
+
+// A pinch zooms between fit and 16x fit. Below fit the slice only gets smaller, with black all round it.
+export const MIN_ZOOM_FACTOR = 1;
+export const MAX_ZOOM_FACTOR = 16;
+
+/*
+ * The transform after a pinch that changed the finger distance by `ratio`, about the point (fx, fy). Zoom stays
+ * between fit and MAX_ZOOM_FACTOR x fit; when the pinch reaches fit it returns exactly the fit view (centred), so
+ * pinching in always ends on the whole slice.
+ */
+export function pinchTransform(t, ratio, fit, fx, fy) {
+  const zoom = clampZoom(t.zoom * ratio, fit.zoom, MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+  return zoom <= fit.zoom ? { ...fit } : zoomAbout(t, zoom, fx, fy);
 }
 
 // ----- Full-bleed framing (SCR-03) -----

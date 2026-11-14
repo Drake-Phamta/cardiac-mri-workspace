@@ -310,15 +310,21 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('A2', ['Ground truth', 'Prediction'].every((l) => byTestId(r, `layer-${l}`)) && ['Fill', 'Outline', 'Both'].every((l) => byLabel(r, l).length === 1)
     && has(r, /^MRI$/) && has(r, /^Evaluation$/) && has(r, /^Slice Dice$/) && Boolean(byTestId(r, 'viewer-scrim')),
   'layer chips, the draw-mode toolbar and the corner annotations over the image; the screen draws the top scrim under them');
+  const viewerShort = shortTouchables(r.root);
+  check('T5', viewerShort.length === 0, `SCR-03: every touchable (layer chips, draw modes, variant, transport) reaches 48 dp${viewerShort.length ? ` - not: ${viewerShort.join(', ')}` : ''}`);
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
   check('L2', img() && img().props.source.uri.startsWith('data:image/png;base64,'), 'MRI drawn from fetched bytes (data URI)');
   check('L2', requests.some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')), 'the bytes came from base URL + content_url');
   let paths = marks(r, 'Path').map((n) => n.props.d.length);
-  check('L3', paths.length === 1 && paths[0] > 100, `prediction overlay drawn as one path (${paths.join(',')} chars)`);
+  check('L3', paths.length === 2 && paths.every((n) => n > 100), `prediction and ground truth both drawn from the start, one path each (${paths.join(',')} chars)`);
   await pressId(r, 'layer-Ground truth');
   await tick(250);
   paths = marks(r, 'Path').map((n) => n.props.d.length);
-  check('L3', paths.length === 2, `ground-truth overlay added (${paths.length} paths)`);
+  check('L3', paths.length === 1, `the ground-truth chip hides it: the prediction alone (${paths.length} path)`);
+  await pressId(r, 'layer-Ground truth');
+  await tick(250);
+  paths = marks(r, 'Path').map((n) => n.props.d.length);
+  check('L3', paths.length === 2, `and shows it again (${paths.length} paths)`);
   // Fill / Outline / Both (V1 item 1): the outline is a second path with no fill, traced from the boundary pixels,
   // drawn over a black halo so it shows on bright tissue.
   const svgPaths = () => marks(r, 'Path');
@@ -470,6 +476,47 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tapAt(150, 152);
   check('P3', !has(r, /^×\d/), 'and the next returns to fit');
 
+  // Pinch-in stops at fit (device P9: it stopped at x0.9, below fit). Zoom to 2x, then pinch in far past fit.
+  await tick(400);
+  await tapAt(200, 200);
+  await tapAt(204, 203);
+  check('P3', has(r, /^×2\.0$/), 'zoomed to 2x again');
+  const pinch = async (from, to) => {
+    const two = (d) => ({ nativeEvent: { touches: [{ pageX: 200 - d / 2, pageY: 300 }, { pageX: 200 + d / 2, pageY: 300 }] } });
+    await act(async () => {
+      viewport().onPanResponderGrant(two(from));
+      viewport().onPanResponderMove(two(to));
+      viewport().onPanResponderRelease();
+    });
+  };
+  await pinch(300, 200);
+  check('P3', has(r, /^×1\.3$/), `a pinch-in to two thirds of the distance from 2x reads x1.3 (${texts(r).find((t) => t.startsWith('×')) || 'fit'})`);
+  await pinch(300, 20);
+  check('P3', !texts(r).some((t) => /^×0\./.test(t)) && !has(r, /^×\d/), 'a pinch-in far past fit ends on fit: no readout below 1.0x');
+
+  // Play ends on the last slice (device P15: it went round to slice 1), and Play there starts over from slice 1.
+  const gotoSlice = async (n) => {
+    for (let i = 0; i < 30 && sliceNo() !== n; i += 1) {
+      const d = n - sliceNo();
+      await pressLabel(r, d > 0 ? (d >= 10 ? STEP.fwd10 : STEP.next) : (d <= -10 ? STEP.back10 : STEP.prev));
+      await tick(120);
+    }
+  };
+  await gotoSlice(86);
+  await pressLabel(r, STEP.play);
+  for (let i = 0; i < 80 && byLabel(r, STEP.pause).length === 1; i += 1) await tick(100);
+  check('P4', onSlice(r, 88) && byLabel(r, STEP.play).length === 1 && byLabel(r, STEP.pause).length === 0,
+    `Play from slice 86 ended by itself on ${readout(r)}; the button reads Play again`);
+  const atEnd = gestures().length;
+  await tick(700);
+  check('P4', gestures().length === atEnd && onSlice(r, 88), 'and it did not go round to slice 1');
+  await pressLabel(r, STEP.play);
+  for (let i = 0; i < 40 && !onSlice(r, 3); i += 1) await tick(100);
+  await pressLabel(r, STEP.pause);
+  const restart = gestures().slice(atEnd);
+  check('P4', restart.length >= 3 && restart[0].from === 87 && restart[0].to === 0 && restart.every((g, i) => i === 0 || g.to === g.from + 1),
+    `Play on slice 88 starts again from slice 1, then one slice at a time: ${restart.map((g) => `${g.from}->${g.to}`).join(', ')}`);
+
   // Privacy mode (V1 item 5): on by default. This test build has no expo-screen-capture, so it says it cannot block
   // screenshots yet instead of claiming protection; the shield in the app bar still records the user's choice and is
   // accent only while the screen is really protected.
@@ -611,9 +658,8 @@ function noRunBackend() {
     'no variant control or prediction chip; SCR-04/05/06 disabled with "needs an analysis run"');
   await closeSheet(r, 'tools-sheet');
   check('N4', ctxHas(nav, /^Slice Dice: - \(no analysis run for this case\)$/) && textOf(byTestId(r, 'slice-dice')) === '—', 'the slice metric says why it is empty');
-  await pressId(r, 'layer-Ground truth');
   await tick(300);
-  check('N5', marks(r, 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
+  check('N5', marks(r, 'Path').length === 1, 'ground-truth overlay drawn from the start (the only mask)');
 
   // The L4 15 + 15 run, started the way the leader starts it: long-press the slice number.
   const label = byTestId(r, 'slice-readout');
@@ -692,7 +738,6 @@ function noRunBackend() {
   await tick(300);
   await layout(r);
   await tick(200);
-  await pressId(r, 'layer-Ground truth');
   await tick(300);
   const logStart = logs.length;
   const realSetTimeout = globalThis.setTimeout;

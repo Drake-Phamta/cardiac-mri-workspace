@@ -8,6 +8,7 @@ import { PREDICTION_VARIANT, capabilityOf } from '../../lib/caseMode.mjs';
 import { formatSlice } from '../../lib/sliceNumber.mjs';
 import { STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
+import { MAX_ZOOM_FACTOR, MIN_ZOOM_FACTOR } from './sliceControls.mjs';
 import { CoreError } from '../../api/contract.mjs';
 
 // Overlay layers. The MRI itself is always drawn; these are toggles.
@@ -134,7 +135,9 @@ export function createCaseExplorer(client, { variant = null, viewport } = {}) {
 
   let current = snapshot(loading(), {
     variant,
-    overlays: { [LAYER.PREDICTION]: true, [LAYER.GROUND_TRUTH]: false, [LAYER.ERROR]: false, [LAYER.REVIEWED_MASK]: false },
+    // Both masks are on from the start; a layer is drawn only on a slice that has its data (layersAvailable), so a
+    // case without ground truth shows the prediction alone.
+    overlays: { [LAYER.PREDICTION]: true, [LAYER.GROUND_TRUTH]: true, [LAYER.ERROR]: false, [LAYER.REVIEWED_MASK]: false },
   });
 
   // Bumped by every action that fetches. A response is applied only while its action is still the latest, so a
@@ -387,7 +390,7 @@ export function createCaseExplorer(client, { variant = null, viewport } = {}) {
       const t = current.transform;
       if (!t) return current;
       const fit = fitTransform(view0.width, view0.height, current.shape[0], current.shape[1]);
-      return set(current.view, { transform: zoomAbout(t, clampZoom(t.zoom * factor, fit.zoom), fx, fy) });
+      return set(current.view, { transform: zoomAbout(t, clampZoom(t.zoom * factor, fit.zoom, MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR), fx, fy) });
     },
 
     pan(dx, dy) {

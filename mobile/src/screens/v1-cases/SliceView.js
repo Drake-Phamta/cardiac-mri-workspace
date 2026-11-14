@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
-import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../lib/viewMath.mjs';
+import { fitTransform, panBy, screenToSource } from '../../lib/viewMath.mjs';
 import { maskOutlinePath } from '../../lib/mask.mjs';
 import { sliceParts } from '../../lib/sliceNumber.mjs';
 import { FloatingToolbar, ToolButton } from '../../components/Floating';
@@ -19,7 +19,7 @@ import { color, MIN_TOUCH, space, type } from '../../components/theme';
 import { scrubIndex, scrubPosition } from './cases.mjs';
 import {
   createPlayer, createRepeater, doubleTapTransform, framing, isDoubleTap, OVERLAY_MODE, OVERLAY_MODES, overlayStyle,
-  viewerFrame, zoomReadout,
+  pinchTransform, viewerFrame, zoomReadout,
 } from './sliceControls.mjs';
 
 const TAP_MAX_TRAVEL = 6;
@@ -125,8 +125,9 @@ export default function SliceViewport({
         const m0 = mid(cur.prev);
         const m1 = mid(pts);
         let next = t;
-        if (d0 > 0) next = zoomAbout(next, clampZoom(t.zoom * (d(pts) / d0), fitRef.current.zoom), m0.x, m0.y);
-        next = panBy(next, m1.x - m0.x, m1.y - m0.y);
+        // Pinch-in stops at fit (the whole slice, centred); only a zoomed-in view pans with the two fingers.
+        if (d0 > 0) next = pinchTransform(next, d(pts) / d0, fitRef.current, m0.x, m0.y);
+        if (next.zoom > fitRef.current.zoom) next = panBy(next, m1.x - m0.x, m1.y - m0.y);
         cur.travel += Math.hypot(m1.x - m0.x, m1.y - m0.y) + Math.abs(d(pts) - d0);
         setTransform(next);
       } else {
