@@ -2,6 +2,15 @@
  * What the screen header says: the screen's name for people, and the case and run it shows. A screen that picks
  * its run itself (SCR-03) reports it with nav.setContext; that wins over the route params. The screen id, the
  * build and the contract version go to the Details sheet behind the header's Info button instead.
+ *
+ * What a screen may report with nav.setContext (all optional; memoize arrays and functions, the shell compares the
+ * report shallowly and re-renders only when it changed):
+ *   caseId, runId, variant   the default subtitle, "CASE · run RUN · VARIANT"
+ *   title, subtitle          strings that replace the header's two lines (a viewer names the case and the model)
+ *   onSubtitlePress          the subtitle becomes a button with a chevron (a run picker)
+ *   actions                  [{ key, icon, label, active, onPress }]: icon buttons before Info (a privacy shield)
+ *   overflow                 { label, onPress }: a "more" button after Info, for a screen's own menu
+ *   details                  [{ title, lines }]: sections at the top of the Details sheet (ids, checksums, versions)
  */
 
 const word = (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null);
@@ -17,12 +26,22 @@ export function headerLines(meta, params = null, context = null, { studyId = nul
   if (runId && variant) parts.push(variant);
   let subtitle = parts.join(' · ');
   if (!subtitle) subtitle = word(studyId) ? `Study ${studyId}` : '';
+  const ctx = context || {};
   return Object.freeze({
-    title: meta.title,
-    subtitle: subtitle || null,
+    title: word(ctx.title) || meta.title,
+    subtitle: word(ctx.subtitle) || subtitle || null,
     screenId: meta.id,
     vertical: meta.vertical,
   });
+}
+
+// The screen's own Details sections from its report: only well-formed { title, lines } entries with text lines.
+export function contextDetails(context) {
+  const list = context && Array.isArray(context.details) ? context.details : [];
+  return Object.freeze(list
+    .filter((sec) => sec && word(sec.title) && Array.isArray(sec.lines))
+    .map((sec) => Object.freeze({ title: sec.title, lines: Object.freeze(sec.lines.filter((l) => word(l))) }))
+    .filter((sec) => sec.lines.length > 0));
 }
 
 // The lines of the Details sheet: which screen this is in the spec, and what build answers it.
