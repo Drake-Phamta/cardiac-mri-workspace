@@ -1,7 +1,7 @@
 // node --test mobile/test/  - V3 SCR-01 / SCR-07: what the two screens say and where their links go
 //
-// The screens draw only what src/verticals/v3/v3View.mjs computes from the V3
-// state models (app/verticals/v3_study_and_compare, PR #61), so these tests
+// The screens draw only what src/screens/v3-study/view.mjs computes from the V3
+// state models (models.mjs), so these tests
 // check the words and routes a user sees without a device.
 //
 // V3S1-V3S6 run the models over the GENERATED fixture bundle through a real

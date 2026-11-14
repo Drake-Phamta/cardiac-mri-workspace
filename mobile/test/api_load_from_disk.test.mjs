@@ -1,6 +1,6 @@
-// node app/core/tests/test_load_from_disk.mjs
+// node mobile/test/api_load_from_disk.test.mjs   (node --test runs it as well)
 //
-// The other nine tests feed app/core JSON they built themselves. This one
+// The other nine tests feed the API layer JSON they built themselves. This one
 // feeds it the two artifacts that actually exist on disk:
 //   - contracts/api/contract.json, the accepted contract;
 //   - whatever contracts/api/generate_fixture.py produces TODAY.
@@ -105,7 +105,7 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
 
 // D6 — the documented path. CI regenerates the bundle at BUNDLE_PATH before
 // running these tests, so in CI this asserts that the generated file at the
-// path FORMAT.md publishes is the one the app actually loads. Locally the
+// path FIXTURE_FORMAT.md publishes is the one the app actually loads. Locally the
 // file usually does not exist, and the check says so rather than failing:
 // a developer who has not run the generator is not in an error state.
 {
@@ -119,4 +119,4 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
   }
 }
 
-done('app/core load from disk');
+done('api load from disk');

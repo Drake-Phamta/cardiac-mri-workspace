@@ -1,4 +1,4 @@
-// node app/core/tests/test_transport.mjs
+// node mobile/test/api_client.test.mjs   (node --test runs it as well)
 //
 // The client must hand a screen a state, never a raw response, and must never
 // hand it a response the contract did not license.
@@ -147,4 +147,4 @@ const client = createClient(contract, createFixtureTransport(bundle));
     `validateResponse alone finds ${problems.length} problems`);
 }
 
-done('app/core transport');
+done('api client');

@@ -1,4 +1,4 @@
-// node app/core/tests/test_cache_key.mjs
+// node mobile/test/v1_cache_key.test.mjs   (node --test runs it as well)
 //
 // A cache bug that evicts too eagerly costs milliseconds. A cache bug that
 // COLLIDES shows a reviewer the wrong mask under the right case id. Every
@@ -97,4 +97,4 @@ const base = { kind: 'PREDICTION', runId: 'RUN_1', sliceIndex: 7, sourceVersion:
   check('K9', a === b, 'the same inputs give the same key');
 }
 
-done('app/core cache key');
+done('V1 cache key');

@@ -1,4 +1,4 @@
-// node --test mobile/test/  - SCR-08 Findings controller (src/verticals/v4/findingsController.mjs)
+// node --test mobile/test/  - SCR-08 Findings controller (src/screens/v4-review/findings.mjs)
 //
 // Fixture runtime over the GENERATED bundle; scenarios are switched with the
 // runtime's own override API, never a hand-written body. The controller reads

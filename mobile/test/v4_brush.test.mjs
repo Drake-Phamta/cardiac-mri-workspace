@@ -1,4 +1,4 @@
-// node app/verticals/v4_review_and_findings/test_brush.mjs
+// node mobile/test/v4_brush.test.mjs   (node --test runs it as well)
 //
 // The SCR-06 brush model (brush.mjs), offline. Needs no fixture bundle.
 //
@@ -12,7 +12,7 @@
 //   SHA-256                      node:crypto, never the module's sha256Hex
 //
 // Not here, because they are device measurements: the <= 100 ms feedback half
-// of TC-PERF-003 and TC-REV-003 on the phone (README "TODO for Trung").
+// is measured on the phone.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';

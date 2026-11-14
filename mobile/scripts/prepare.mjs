@@ -5,7 +5,7 @@
  *
  *   api_bundle.json    the fixture bundle, produced by the project's own
  *                      generator - contracts/api/generate_fixture.py - and
- *                      checked by app/core's createBundle before it is kept.
+ *                      checked by createBundle (src/api/client.mjs) before it is kept.
  *                      Never hand-written: contract.json says
  *                      fixture_rules.handwritten_fixtures_allowed = false.
  *   buildConfig.json   mode (fixture | live), backend base URL, study id,
@@ -122,7 +122,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const contract = createContract(contractJson); // refuses a drifted contract before anything is written
 
   const { json: bundleJson, python } = runGenerator({ python: env.PYTHON });
-  const bundle = createBundle(contract, bundleJson); // FORMAT.md rules 1-6, all problems at once
+  const bundle = createBundle(contract, bundleJson); // FIXTURE_FORMAT.md rules 1-6, all problems at once
 
   const config = resolveConfig({
     mode: args.mode,

@@ -1,12 +1,6 @@
 /*
- * The ONLY file in app/core that touches the filesystem.
- *
- * It exists for tests and for CI. On a device the contract and the bundle are
- * bundled assets, and how they are read depends on the framework that
- * TECH_STACK_ADR eventually picks - which is exactly the decision app/core
- * must not pre-empt. So every other module takes already-parsed JSON, and the
- * one place that knows about `node:fs` lives here, under `core/node/`, where
- * the framework-neutrality CI job expects to find it.
+ * Test helper: reads the contract and a fixture bundle from disk. The app itself takes
+ * already-parsed JSON (a device bundle has no node:fs), so this stays under mobile/test/.
  */
 
 import { readFile } from 'node:fs/promises';

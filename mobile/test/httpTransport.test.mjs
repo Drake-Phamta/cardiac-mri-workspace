@@ -1,4 +1,4 @@
-// node --test mobile/test/  - the live transport plugged into app/core (src/runtime/httpTransport.mjs)
+// node --test mobile/test/  - the live transport (src/api/http.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -65,7 +65,7 @@ test('T2 query parameters keep the contract name, not the token name (prediction
   assert.equal(fetchImpl.calls[0].url, `${BASE}/api/v1/analysis-runs/RUN_1/slices/44/metrics?prediction_variant=PROCESSED`);
 });
 
-test('T3 a contract error envelope becomes the app/core state for that code', async () => {
+test('T3 a contract error envelope becomes the screen state for that code', async () => {
   const fetchImpl = fakeFetch(() => json(404, {
     error: { code: 'GROUND_TRUTH_UNAVAILABLE', message: 'no GT', request_id: 'req_42', details: null },
   }));

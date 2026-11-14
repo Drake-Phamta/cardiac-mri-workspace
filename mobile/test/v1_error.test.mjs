@@ -1,4 +1,4 @@
-// node --test mobile/test/  - SCR-04 Error Inspector logic (src/verticals/v1/errorInspector.mjs)
+// node --test mobile/test/  - SCR-04 Error Inspector logic (src/screens/v1-cases/errorInspector.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -27,7 +27,7 @@ const block = {
   metric_version: 'm1',
 };
 
-test('V4a the worst slice is the SERVER\'s first entry, read through app/core - never re-ranked', () => {
+test('V4a the worst slice is the SERVER\'s first entry, read through readSelection - never re-ranked', () => {
   const sel = readSelection(block);
   assert.equal(sel.available, true);
   assert.deepEqual(topEntries(sel, 2).map((e) => e.sliceIndex), [44, 12], 'server order kept');
@@ -225,13 +225,13 @@ test('V4m B-2: a missing selection_version is unsupported - never read as v1', (
   assert.match(selectionNote(lv.selection).text, /^SELECTION_VERSION_UNSUPPORTED: the server sent no selection_version; this build shows only "dr010-worst-slice\/v1"\./);
 });
 
-test('V4n B-2: another rule_id, or none, is SELECTION_RULE_UNSUPPORTED - app/core\'s DR-010 default is not trusted', () => {
+test('V4n B-2: another rule_id, or none, is SELECTION_RULE_UNSUPPORTED - readSelection\'s DR-010 default is not trusted', () => {
   const other = level(body({ worst_slice_selection: { ...ws, rule_id: 'DR-999' } }));
   assert.equal(other.selection.reason, 'SELECTION_RULE_UNSUPPORTED');
   assert.deepEqual(onScreen(other), { worst: [], bars: 0, compared: false });
   assert.match(selectionNote(other.selection).text, /^SELECTION_RULE_UNSUPPORTED: the server sent rule_id "DR-999"; this build shows only "DR-010"\./);
   const { rule_id: _r, ...noRule } = ws;
-  assert.equal(readSelection({ worst_slice_selection: noRule }).ruleId, 'DR-010', 'app/core fills a missing rule_id in...');
+  assert.equal(readSelection({ worst_slice_selection: noRule }).ruleId, 'DR-010', 'readSelection fills a missing rule_id in...');
   const unstated = level(body({ worst_slice_selection: noRule }));
   assert.equal(unstated.selection.reason, 'SELECTION_RULE_UNSUPPORTED', '...the gate does not');
   assert.match(selectionNote(unstated.selection).text, /the server sent no rule_id/);

@@ -1,4 +1,4 @@
-// node app/core/tests/test_view_math.mjs
+// node mobile/test/view_math.test.mjs   (node --test runs it as well)
 //
 // The view-transform functions of viewMath.mjs (fit, zoom about a point, pan,
 // screen -> source pixel), re-checked against independent reasoning rather
@@ -108,4 +108,4 @@ const NX = 576; const NY = 576;
     `signatures unchanged: ${arities.join(' ')}`);
 }
 
-done('app/core view math');
+done('view math');

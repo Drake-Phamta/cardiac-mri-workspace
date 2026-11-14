@@ -1,4 +1,4 @@
-// node --test mobile/test/  - runtime assembly, fixture and live (src/runtime/createRuntime.mjs)
+// node --test mobile/test/  - runtime assembly, fixture and live (src/api/runtime.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -10,12 +10,12 @@ import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 
 const contractJson = readContractJson();
 
-test('R1 fixture mode builds a client over the GENERATED bundle and answers through app/core', async () => {
+test('R1 fixture mode builds a client over the GENERATED bundle and answers through the API client', async () => {
   const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson: generatedBundleJson() });
   assert.equal(runtime.mode, MODE.FIXTURE);
   assert.equal(runtime.client.transportKind, 'fixture');
   const view = await runtime.client.call('case_get', { case_id: 'CASE_0043' });
-  // Whatever the generator currently produces, the answer is a valid app/core
+  // Whatever the generator currently produces, the answer is a valid
   // state: SUCCESS once it emits scenarios, EMPTY_UNAVAILABLE
   // (FIXTURE_SCENARIO_MISSING) before then. Never a raw response.
   assert.ok([STATE.SUCCESS, STATE.EMPTY_UNAVAILABLE].includes(view.state), view.state);
@@ -29,7 +29,7 @@ test('R2 fixture mode without a bundle refuses to start rather than guessing', (
   );
 });
 
-test('R3 a drifted contract is refused by app/core before any screen exists', () => {
+test('R3 a drifted contract is refused by the contract loader before any screen exists', () => {
   const drifted = { ...contractJson, contract_version: 'SOMETHING ELSE' };
   assert.throws(() => createRuntime({ config: resolveConfig({ mode: 'live' }), contractJson: drifted }), /CONTRACT_INVALID/);
 });

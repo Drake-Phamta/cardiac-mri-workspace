@@ -1,4 +1,4 @@
-// node --test mobile/test/  - the state-based navigator (src/nav/navigator.mjs, src/nav/screens.mjs)
+// node --test mobile/test/  - the state-based navigator (src/navigation/navigator.mjs, routes.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

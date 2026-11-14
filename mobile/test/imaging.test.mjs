@@ -1,5 +1,5 @@
-// node --test mobile/test/  - the mask PNG adapter (src/imaging/maskPng.js, over fast-png)
-// and mask paths (src/imaging/maskPaths.mjs)
+// node --test mobile/test/  - the mask PNG adapter (src/lib/maskPng.js, over fast-png)
+// and mask paths (src/lib/mask.mjs)
 //
 // Every PNG here is ENCODED IN THE TEST with node:zlib (_png.mjs), from pixel
 // arrays the test also holds: an independent encoder cross-checks the app's

@@ -1,4 +1,4 @@
-// node app/core/tests/test_contract.mjs
+// node mobile/test/api_contract.test.mjs   (node --test runs it as well)
 //
 // Checks the loader against the REAL contracts/api/contract.json, not a
 // miniature. A loader tested only against its own fixture agrees with itself.
@@ -59,4 +59,4 @@ check('C7', contract.geometryFields.length === 7,
   check('C11', code === 'CONTRACT_INVALID', `unknown error reference rejected (${code})`);
 }
 
-done('app/core contract');
+done('api contract');

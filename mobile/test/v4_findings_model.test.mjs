@@ -1,8 +1,8 @@
-// node app/verticals/v4_review_and_findings/test_findings.mjs
+// node mobile/test/v4_findings_model.test.mjs   (node --test runs it as well)
 //
 // The SCR-08 findings model (findings.mjs): validation and evidenceLocation as
 // pure functions, then list/create against the GENERATED fixture bundle
-// (generate it as in test_review_correction.mjs). Requests are recorded, so
+// (generatedBundleJson() runs the generator). Requests are recorded, so
 // "nothing was sent" is checked, not assumed.
 
 import { readFileSync } from 'node:fs';

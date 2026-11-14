@@ -1,12 +1,9 @@
-// node app/verticals/v3_study_and_compare/test_study_and_compare.mjs
+// node mobile/test/v3_model.test.mjs   (node --test runs it as well)
 //
 // Two kinds of input, kept apart on purpose:
 //
 //   1. The GENERATED fixture bundle, through a real core client - every
-//      screen-level check (V3-1..V3-7). Generate it first:
-//
-//        python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
-//               --output app/core/fixtures/.generated/api_bundle.json
+//      screen-level check (V3-1..V3-7); generatedBundleJson() runs the generator.
 //
 //      Since API contract 1.1.0 the generator gives the V3 endpoints TYPED
 //      values (N 5 / 5 - the evaluated WITHHELD INT-12 case counts, DR-017 -, a
@@ -18,8 +15,8 @@
 //      for another experiment is REFUSED - not relabelled.
 //
 //   2. Inline TYPED inputs to the pure readers (V3-8..V3-12), the way
-//      app/core/tests/test_readers.mjs P3/P7 test selection.mjs and
-//      comparability.mjs. They exercise the path a typed server response will
+//      readers.test.mjs P3/P7 test the worst-slice and comparability
+//      readers. They exercise the path a typed server response will
 //      take. They are reader inputs, not fixtures: no screen renders them.
 //
 // Same harness shape as V1 and V4: a local check(), ids V3-n, exit 1 on any

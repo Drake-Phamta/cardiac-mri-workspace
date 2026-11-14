@@ -79,6 +79,21 @@ test('G5 product code imports node: builtins nowhere (scripts/ and test/ are bui
   assert.deepEqual(offenders.map((f) => relative(REPO_ROOT, f)), []);
 });
 
+test('G8 a screen folder never imports from another screen folder (shared code lives in api/, lib/, components/)', () => {
+  const screensDir = join(MOBILE_ROOT, 'src', 'screens');
+  const offenders = [];
+  for (const folder of readdirSync(screensDir)) {
+    for (const f of walk(join(screensDir, folder))) {
+      const code = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+      for (const m of code.matchAll(/(?:from\s+|import\s*\(\s*|require\(\s*)['"](\.[^'"]+)['"]/g)) {
+        const target = relative(screensDir, join(dirname(f), m[1])).split(/[\\/]/);
+        if (target[0] !== '..' && target[0] !== folder) offenders.push(`${relative(REPO_ROOT, f)} -> ${m[1]}`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
 test('G7 the generated inputs are gitignored, never committed', () => {
   const ignore = readFileSync(join(MOBILE_ROOT, '.gitignore'), 'utf8');
   for (const line of ['/src/generated/', '/android/', '/ios/', '*.apk', 'node_modules/']) {

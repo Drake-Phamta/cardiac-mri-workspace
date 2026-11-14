@@ -5,7 +5,7 @@
 // (DR-021 rule 2). These helpers do what the screen's <RunReader>,
 // <SliceReader> and findings list hook do, in plain node: call the same
 // endpoints with the same params and hand the answers back. (SCR-06's review
-// open sequence is the one read the V4 model runs itself; see reviewController.)
+// open sequence is the one read the V4 model runs itself; see reviewScreen.mjs.)
 import { createHash } from 'node:crypto';
 
 import { success } from '../src/api/states.mjs';

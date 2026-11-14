@@ -1,4 +1,4 @@
-// Shared test scaffolding for app/core. No npm dependency, no test runner:
+// Shared scaffolding for the check()-style tests. No npm dependency, no test runner:
 // every test file is a plain node script that exits 1 on failure, which is
 // the convention the rest of the repo already uses.
 

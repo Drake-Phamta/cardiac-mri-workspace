@@ -1,6 +1,6 @@
-// node app/core/tests/test_screen_state.mjs
+// node mobile/test/api_states.test.mjs   (node --test runs it as well)
 //
-// The four invariants in screenState.mjs, checked against all 15 codes rather
+// The four invariants in states.mjs, checked against all 15 codes rather
 // than against the three a reviewer would think of.
 
 import { createContract } from '../src/api/contract.mjs';
@@ -75,4 +75,4 @@ const views = codes.map((c) => [c, screen.stateForError(contract, c)]);
     'every other error state is terminal');
 }
 
-done('app/core screen state');
+done('api screen states');

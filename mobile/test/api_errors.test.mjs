@@ -1,4 +1,4 @@
-// node app/core/tests/test_errors.mjs
+// node mobile/test/api_errors.test.mjs   (node --test runs it as well)
 //
 // Walks all 15 contract codes through classifyError. The point is coverage:
 // if someone adds a 16th code to the contract and not to the table, R1 fails
@@ -104,4 +104,4 @@ const codes = [...contract.errorsByCode.keys()];
   check('R10', b.code === null, 'an envelope with no code yields null, not a guess');
 }
 
-done('app/core errors');
+done('api errors');

@@ -1,4 +1,4 @@
-// node --test mobile/test/  - SCR-06 Review / Correction controller (src/verticals/v4/reviewController.mjs)
+// node --test mobile/test/  - SCR-06 Review / Correction controller (src/screens/v4-review/reviewScreen.mjs)
 //
 // Fixture runtime over the GENERATED bundle; scenarios are switched with the
 // runtime's own override API (the FIXTURE panel's), never a hand-written body.

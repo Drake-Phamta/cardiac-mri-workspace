@@ -1,12 +1,9 @@
-// node app/verticals/v1_case_explorer/test_case_explorer.mjs
+// node mobile/test/v1_model.test.mjs   (node --test runs it as well)
 //
 // Runs against the GENERATED fixture bundle, so it exercises the same
-// handshake every other vertical does. Generate it first:
+// handshake every other screen does (generatedBundleJson() runs the generator).
 //
-//   python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
-//          --output app/core/fixtures/.generated/api_bundle.json
-//
-// Same harness shape as V4's test: a local check(), ids V1-n, exit 1 on any
+// Same harness shape as the V4 tests: a local check(), ids V1-n, exit 1 on any
 // failure, no dependency to install. What the generator cannot produce - a
 // foreign run, a null variant, a slow slice - comes from small inline stubs
 // that edit ONE field of a generated response, never a handwritten one.

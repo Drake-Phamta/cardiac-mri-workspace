@@ -1,4 +1,4 @@
-// node --test mobile/test/  - what the shared StateView says in each of the 7 states (src/ui/stateCopy.mjs)
+// node --test mobile/test/  - what the shared StateView says in each of the 7 states (src/components/stateCopy.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -10,7 +10,7 @@ import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();
 
-test('S1 every one of the seven app/core states has a rendering, and none falls through', () => {
+test('S1 every one of the seven screen states has a rendering, and none falls through', () => {
   assert.equal(ALL_STATES.length, 7);
   const samples = {
     [STATE.LOADING]: loading(),

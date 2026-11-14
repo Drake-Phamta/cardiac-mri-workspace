@@ -1,10 +1,7 @@
-// node app/verticals/v4_review_and_findings/test_review_correction.mjs
+// node mobile/test/v4_review_model.test.mjs   (node --test runs it as well)
 //
 // The SCR-06 review/correction model against the GENERATED fixture bundle
-// (contract v1.0). Generate it first:
-//
-//   python contracts/api/generate_fixture.py --contract contracts/api/contract.json \
-//          --output app/core/fixtures/.generated/api_bundle.json
+// (generatedBundleJson() runs the generator).
 //
 // Requests are observed through a recording wrapper around the fixture
 // transport, so "nothing was sent" is checked, not assumed. The scope ids

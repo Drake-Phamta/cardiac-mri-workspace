@@ -1,5 +1,5 @@
-// node --test mobile/test/  - per-gesture network accounting (src/runtime/netLog.mjs) and
-// the counted MRI image store (src/imaging/imageStore.mjs) behind L4 / NFR-PERF-001 limb 2
+// node --test mobile/test/  - per-gesture network accounting (src/api/http.mjs) and
+// the counted MRI image store (src/api/cache.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

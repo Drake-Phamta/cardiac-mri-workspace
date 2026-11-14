@@ -1,4 +1,4 @@
-// node --test mobile/test/  - V2 SCR-05: the pure logic of the 3D Inspector (src/verticals/v2/inspector3d.mjs)
+// node --test mobile/test/  - V2 SCR-05: the pure logic of the 3D Inspector (src/screens/v2-3d/inspector3d.mjs)
 //
 // Mesh reference from the id, the `cardiac-mesh/1` header (against a golden built by the Python encoder from a synthetic
 // mask), the viewer's messages, pick -> slice (H7), and the push back to SCR-03 with returnParams. No device, no GPU:

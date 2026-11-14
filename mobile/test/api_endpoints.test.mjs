@@ -1,6 +1,6 @@
-// node app/core/tests/test_endpoints.mjs
+// node mobile/test/api_endpoints.test.mjs   (node --test runs it as well)
 //
-// The riskiest module in app/core, because two things about contract.json are
+// The riskiest module in src/api, because two things about contract.json are
 // easy to get wrong and both fail silently:
 //   - the query string is baked into `path`;
 //   - the query PARAMETER name is not the placeholder TOKEN name
@@ -105,4 +105,4 @@ check('E6', throwsCode(() => resolveEndpoint(contract, 'no_such_endpoint', {})) 
     `query param ${p.queryTokens[0].param} <- token ${p.queryTokens[0].token}`);
 }
 
-done('app/core endpoints');
+done('api endpoints');

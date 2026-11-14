@@ -119,7 +119,7 @@ export function describeState(view, context = {}) {
       // An unknown state is treated as invalid, never as success.
       return {
         state: STATE.FATAL_INVALID, tone: TONE.DANGER, spinner: false, blocking: true,
-        title: 'Unknown screen state', body: `app/core returned an unknown state: ${view && view.state}`,
+        title: 'Unknown screen state', body: `The app received an unknown screen state: ${view && view.state}`,
         details: [], actions: [{ id: RECOVERY.BACK, label: ACTION_LABEL[RECOVERY.BACK] }],
       };
   }

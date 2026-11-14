@@ -1,4 +1,4 @@
-// Metro bundles mobile/ and ../contracts: src/api/loadRuntime.js requires contracts/api/contract.json from there,
+// Metro bundles mobile/ and ../contracts: loadRuntime() in src/api/RuntimeContext.js requires contracts/api/contract.json,
 // so the APK carries exactly the contract that is in git. The logic files are .mjs, so .mjs is a source extension.
 const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');

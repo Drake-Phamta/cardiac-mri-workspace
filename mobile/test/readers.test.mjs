@@ -1,4 +1,4 @@
-// node app/core/tests/test_readers.mjs
+// node mobile/test/readers.test.mjs   (node --test runs it as well)
 //
 // selection.mjs and comparability.mjs are the two modules whose job is to NOT
 // compute something. Both failures are silent: a chart that looks fair but is
@@ -130,4 +130,4 @@ const { check, done } = createChecker();
     'the two sets of numbers stay visible even when not comparable');
 }
 
-done('app/core readers');
+done('readers');

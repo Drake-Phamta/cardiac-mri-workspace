@@ -1,6 +1,5 @@
 // node --test mobile/test/  - V1 screen logic: SCR-02 rows and capability, SCR-03 helpers,
-// the slice cache and the mask store (src/verticals/v1/*.mjs, src/runtime/sliceCache.mjs,
-// src/imaging/maskStore.mjs)
+// the slice cache and the mask store (src/screens/v1-cases/*.mjs, src/api/cache.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

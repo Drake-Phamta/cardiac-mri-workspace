@@ -102,7 +102,7 @@ export function buildBundle(contract, { endpointIds = null } = {}) {
       geometry_contract_version: contract.geometryContractVersion,
       geometry_validation_status: 'VALIDATED',
     },
-    generated_by: 'app/core/tests/_bundle.mjs',
+    generated_by: 'mobile/test/_bundle.mjs',
     scenarios,
   };
 }

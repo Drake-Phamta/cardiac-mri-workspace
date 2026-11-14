@@ -6,7 +6,7 @@
  * after `npm ci --ignore-scripts` from the lockfile (DR-021 rule 4); the
  * other CI jobs have no node_modules. It renders the real shell, V1, V3 and V4
  * screens in Node with host-string React Native stand-ins (hooks.mjs), a real
- * app/core runtime, and either the generated fixture bundle or a fake live
+ * app runtime, and either the generated fixture bundle or a fake live
  * backend whose PNGs are encoded here with node:zlib.
  *
  * What a PASS means: the screens' LOGIC renders and reacts as described - the

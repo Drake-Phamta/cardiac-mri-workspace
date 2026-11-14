@@ -1,7 +1,7 @@
-// node app/core/tests/test_fixture_loader.mjs
+// node mobile/test/api_fixtures.test.mjs   (node --test runs it as well)
 //
 // Each check corrupts a bundle in exactly one way and asserts the loader
-// names it. These are the six rules in FORMAT.md, and they are the six ways
+// names it. These are the six rules in contracts/api/FIXTURE_FORMAT.md, and they are the six ways
 // Trung's generator can drift from the contract without anything crashing.
 
 import { createContract } from '../src/api/contract.mjs';
@@ -132,4 +132,4 @@ const good = buildBundle(contract);
   check('F8', problemsOf(b).length >= 3, `${problemsOf(b).length} problems reported in one pass`);
 }
 
-done('app/core fixture loader');
+done('api fixture loader');
