@@ -15,10 +15,9 @@ script (0.0.0.0 only on explicit request).
 
 from __future__ import annotations
 
-import functools
 import json
 import re
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import parse_qsl
 
 from fastapi import Body, FastAPI, Query, Request
@@ -31,44 +30,25 @@ from starlette.routing import Match
 from . import __version__, imaging
 from .cases import CaseRecord, CaseStore
 from .config import Settings
-from .contract import ApiError, Contract
-from .experiments import SOURCE_KIND, ExperimentStore, Package, RunRecord
+from .contract import ApiError
+from .experiments import SOURCE_KIND, ExperimentStore, Package
 from ..mesh import artifact as mesh_module
-from .meshes import MEDIA_TYPE as MESH_MEDIA_TYPE, MeshStore
-from .metrics import MetricsService
+from .meshes import MEDIA_TYPE as MESH_MEDIA_TYPE
+from .metrics import C2_VARIANT, MetricsService
 from .middleware import BodyLimitMiddleware, RequestLogMiddleware
+from .routes.common import ARTIFACT_NAME, artifact_url, body_object, endpoint, error, ok, revision_of
+from .state import SLICE, Backend, parse_slice, require_ground_truth, require_succeeded
 from .storage import Storage, etag, now
 
 # Whole-string patterns only (fullmatch): `$` would also accept a trailing newline.
-SLICE = re.compile(r"[0-9]{1,6}")
 REVIEWER = re.compile(r"[A-Za-z0-9_.@-]{1,64}")
-ARTIFACT_NAME = re.compile(r"([0-9a-f]{64})\.(png|cmesh)")
 CHECKSUM = re.compile(r"sha256:([0-9a-f]{64})")
-C2_VARIANT = {"RAW_PREDICTION": "RAW", "PROCESSED_PREDICTION": "PROCESSED"}
 MAX_NOTE = 4000
 # Request log: only these query keys are recorded (never the free-text case search `q`),
 # and only values made of identifier characters.
 LOGGED_QUERY_KEYS = frozenset({"mode", "limit", "page", "prediction_variant", "variant", "ids", "source_mask_id",
                                "case_id", "analysis_run_id", "experiment_id", "status", "finding_type"})
 LOGGED_QUERY_VALUE = re.compile(r"[A-Za-z0-9_.,:-]{1,128}")
-
-
-class Backend:
-    """Everything a request needs, built once per process."""
-
-    def __init__(self, settings: Settings):
-        settings.refuse_data_inside_git()
-        self.settings = settings
-        self.contract = Contract.load(settings.contract_path)
-        self.cases = CaseStore(settings.data_cache)
-        self.experiments = ExperimentStore(settings.experiments_root, self.cases, settings.render_cache)
-        self.metrics = MetricsService(self.experiments, self.cases)
-        self.meshes = MeshStore(settings.derived_meshes)
-        for run in self.experiments.runs.values():
-            case = self.cases.get(run.case_id)
-            run.derived_reconstruction_ids = self.meshes.run_mesh_ids(run, case.shape if case else None) if case else []
-        self.storage = Storage(settings.db_path, self.contract.transitions(),
-                               self.contract.review_rules["create_allowed_states"])
 
 
 def create_app(settings: Optional[Settings] = None) -> FastAPI:
@@ -192,99 +172,21 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.add_middleware(RequestLogMiddleware, path=settings.request_log, describe=describe)
 
     # -- plumbing --------------------------------------------------------------
-    def error(code: str, details: Optional[Dict[str, Any]] = None) -> JSONResponse:
-        return JSONResponse(contract.error_body(code, details), status_code=contract.http_status(code))
-
-    def endpoint(endpoint_id: str) -> Callable:
-        allowed = set(contract.endpoint_errors(endpoint_id))
-
-        def wrap(fn: Callable) -> Callable:
-            @functools.wraps(fn)
-            def inner(*args: Any, **kwargs: Any) -> Any:
-                try:
-                    return fn(*args, **kwargs)
-                except ApiError as exc:
-                    if exc.code not in allowed:
-                        raise RuntimeError(f"{endpoint_id} may not answer {exc.code}") from exc
-                    return error(exc.code, exc.details)
-            return inner
-        return wrap
-
     @app.exception_handler(RequestValidationError)
     def _malformed_body(request: Request, exc: RequestValidationError) -> JSONResponse:
-        return error("VALIDATION_ERROR", {"reason": "the request body is not valid JSON"})
+        return error(contract, "VALIDATION_ERROR", {"reason": "the request body is not valid JSON"})
 
     @app.exception_handler(StarletteHTTPException)
     def _no_route(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         if exc.status_code == 404:
-            return error("ARTIFACT_NOT_FOUND", {"reason": "no such route"})
+            return error(contract, "ARTIFACT_NOT_FOUND", {"reason": "no such route"})
         # 400 / 405 / ...: still the contract envelope, at the HTTP status that happened.
         body = contract.error_body("VALIDATION_ERROR", {"reason": str(exc.detail), "http_status": exc.status_code})
         return JSONResponse(body, status_code=exc.status_code)
 
-    def ok(payload: Dict[str, Any], status: int = 200, tag: Optional[str] = None) -> JSONResponse:
-        headers = {"ETag": tag} if tag else None
-        return JSONResponse(payload, status_code=status, headers=headers)
-
-    def get_case(case_id: str) -> CaseRecord:
-        case = cases.get(case_id)
-        if case is None:
-            raise ApiError("CASE_NOT_FOUND", {"case_id": case_id})
-        return case
-
-    def parse_slice(case: CaseRecord, raw: str) -> int:
-        if not SLICE.fullmatch(raw or "") or int(raw) >= case.nz:
-            raise ApiError("SLICE_OUT_OF_RANGE", {"slice_index": raw, "valid": [0, case.nz - 1]})
-        return int(raw)
-
-    def get_run(run_id: str) -> RunRecord:
-        run = experiments.run(run_id)
-        if run is None:
-            raise ApiError("ARTIFACT_NOT_FOUND", {"run_id": run_id})
-        return run
-
-    def run_case(run: RunRecord) -> CaseRecord:
-        case = cases.get(run.case_id)
-        if case is None:  # experiments only serve runs of ingested cases
-            raise ApiError("ARTIFACT_NOT_FOUND", {"run_id": run.run_id})
-        return case
-
-    def require_ground_truth(case: CaseRecord) -> None:
-        if not case.ground_truth_available:
-            raise ApiError("GROUND_TRUTH_UNAVAILABLE", {"case_id": case.case_id, "mode": case.mode})
-
-    def variant_or_not_found(raw: Optional[str]) -> str:
-        if raw not in enums["prediction_variant"]:
-            raise ApiError("ARTIFACT_NOT_FOUND", {"prediction_variant": raw, "allowed": enums["prediction_variant"]})
-        return str(raw)
-
-    def require_succeeded(run: RunRecord, failed_code: str = "RUN_NOT_SUCCEEDED") -> None:
-        if run.status == "FAILED":
-            raise ApiError(failed_code, {"run_id": run.run_id, "status": run.status, "failure_reason": run.failure_reason})
-        if run.status != "SUCCEEDED":
-            raise ApiError("RUN_NOT_SUCCEEDED", {"run_id": run.run_id, "status": run.status})
-
-    def body_object(payload: Any, allowed: List[str], required: List[str]) -> Dict[str, Any]:
-        if not isinstance(payload, dict):
-            raise ApiError("VALIDATION_ERROR", {"reason": "the request body must be a JSON object"})
-        unknown = sorted(set(payload) - set(allowed))
-        missing = sorted(set(required) - set(payload))
-        if unknown or missing:
-            raise ApiError("VALIDATION_ERROR", {"unknown_fields": unknown, "missing_fields": missing})
-        return payload
-
-    def revision_of(payload: Dict[str, Any]) -> int:
-        value = payload.get("expected_revision")
-        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-            raise ApiError("VALIDATION_ERROR", {"field": "expected_revision", "reason": "a positive integer is required"})
-        return value
-
     def reviewer_of(request: Request) -> Optional[str]:
         value = request.headers.get(settings.reviewer_header)
         return value if value and REVIEWER.fullmatch(value) else None
-
-    def url(digest: str) -> str:
-        return f"{base}/artifacts/{digest}.png"
 
     def provenance(row: Any) -> Dict[str, Any]:
         return {
@@ -329,12 +231,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def artifact(name: str) -> Response:
         match = ARTIFACT_NAME.fullmatch(name)
         if not match:
-            return error("ARTIFACT_NOT_FOUND", {"artifact": name})
+            return error(contract, "ARTIFACT_NOT_FOUND", {"artifact": name})
         digest = match.group(1)
         if match.group(2) == "cmesh":
             mesh_bytes = backend.meshes.content(digest)
             if mesh_bytes is None or imaging.sha256_bytes(mesh_bytes) != digest:
-                return error("ARTIFACT_NOT_FOUND", {"artifact": name})
+                return error(contract, "ARTIFACT_NOT_FOUND", {"artifact": name})
             return Response(mesh_bytes, media_type=MESH_MEDIA_TYPE, headers={
                 "ETag": f'"sha256:{digest}"', "Cache-Control": "private, max-age=31536000, immutable",
             })
@@ -347,14 +249,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if payload is None:
             payload = storage.blob(digest)
         if payload is None or imaging.sha256_bytes(payload) != digest:
-            return error("ARTIFACT_NOT_FOUND", {"artifact": name})
+            return error(contract, "ARTIFACT_NOT_FOUND", {"artifact": name})
         return Response(payload, media_type=contract.media_type, headers={
             "ETag": f'"sha256:{digest}"', "Cache-Control": "private, max-age=31536000, immutable",
         })
 
     # -- study and cases -------------------------------------------------------
     @app.get(f"{base}/studies/{{study_id}}")
-    @endpoint("study_get")
+    @endpoint(contract, "study_get")
     def study_get(study_id: str) -> Any:
         if study_id != settings.study_id:
             raise ApiError("ARTIFACT_NOT_FOUND", {"study_id": study_id})
@@ -384,7 +286,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         })
 
     @app.get(f"{base}/studies/{{study_id}}/cases")
-    @endpoint("case_list")
+    @endpoint(contract, "case_list")
     def case_list(study_id: str, mode: Optional[str] = Query(None), q: Optional[str] = Query(None),
                   limit: Optional[str] = Query(None), page: Optional[str] = Query(None)) -> Any:
         if study_id != settings.study_id:
@@ -413,9 +315,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         })
 
     @app.get(f"{base}/cases/{{case_id}}")
-    @endpoint("case_get")
+    @endpoint(contract, "case_get")
     def case_get(case_id: str) -> Any:
-        case = get_case(case_id)
+        case = backend.get_case(case_id)
         payload = {
             "case_id": case.case_id,
             "mode": case.mode,
@@ -426,24 +328,24 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(payload)
 
     @app.get(f"{base}/cases/{{case_id}}/slices/{{slice_index}}/mri")
-    @endpoint("mri_slice_get")
+    @endpoint(contract, "mri_slice_get")
     def mri_slice_get(case_id: str, slice_index: str) -> Any:
-        case = get_case(case_id)
+        case = backend.get_case(case_id)
         z = parse_slice(case, slice_index)
         digest = case.slice_checksum("mri", z)
         if not case.slice_path("mri", z).is_file():
             raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "slice not in the data cache"})
         payload = {
             "source_volume_id": case.volume_id, "source_version": case.source_version(),
-            "checksum": "sha256:" + digest, "content_url": url(digest), "media_type": contract.media_type,
+            "checksum": "sha256:" + digest, "content_url": artifact_url(contract, digest), "media_type": contract.media_type,
         }
         payload.update(case.geometry())
         return ok(payload)
 
     @app.get(f"{base}/cases/{{case_id}}/slices/{{slice_index}}/ground-truth")
-    @endpoint("ground_truth_slice_get")
+    @endpoint(contract, "ground_truth_slice_get")
     def ground_truth_slice_get(case_id: str, slice_index: str) -> Any:
-        case = get_case(case_id)
+        case = backend.get_case(case_id)
         z = parse_slice(case, slice_index)
         require_ground_truth(case)
         digest = case.slice_checksum("gt", z)
@@ -451,19 +353,19 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "slice not in the data cache"})
         payload = {
             "reference_mask_id": case.reference_mask_id, "checksum": "sha256:" + digest,
-            "content_url": url(digest), "media_type": contract.media_type,
+            "content_url": artifact_url(contract, digest), "media_type": contract.media_type,
         }
         payload.update(case.geometry())
         return ok(payload)
 
     @app.get(f"{base}/cases/{{case_id}}/geometry")
-    @endpoint("geometry_get")
+    @endpoint(contract, "geometry_get")
     def geometry_get(case_id: str) -> Any:
-        return ok(get_case(case_id).geometry())
+        return ok(backend.get_case(case_id).geometry())
 
     # -- experiments -----------------------------------------------------------
     @app.get(f"{base}/experiments")
-    @endpoint("experiment_list")
+    @endpoint(contract, "experiment_list")
     def experiment_list(prediction_variant: Optional[str] = Query(None)) -> Any:
         if prediction_variant is not None and prediction_variant not in enums["prediction_variant"]:
             raise ApiError("ARTIFACT_NOT_FOUND", {"prediction_variant": prediction_variant})
@@ -479,7 +381,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         })
 
     @app.get(f"{base}/experiments/compare")
-    @endpoint("experiment_compare")
+    @endpoint(contract, "experiment_compare")
     def experiment_compare(ids: Optional[str] = Query(None)) -> Any:
         requested = [value for value in (ids or "").split(",") if value]
         if len(requested) < 2 or len(set(requested)) != len(requested):
@@ -493,7 +395,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(metrics.compare(packages))
 
     @app.get(f"{base}/experiments/{{experiment_id}}")
-    @endpoint("experiment_get")
+    @endpoint(contract, "experiment_get")
     def experiment_get(experiment_id: str) -> Any:
         package = experiments.experiments.get(experiment_id)
         if package is None:
@@ -514,7 +416,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         })
 
     @app.get(f"{base}/experiments/{{experiment_id}}/metrics")
-    @endpoint("experiment_metrics")
+    @endpoint(contract, "experiment_metrics")
     def experiment_metrics(experiment_id: str) -> Any:
         package = experiments.experiments.get(experiment_id)
         if package is None:
@@ -522,7 +424,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(metrics.experiment_metrics(package))
 
     @app.get(f"{base}/experiments/{{experiment_id}}/cases")
-    @endpoint("experiment_cases")
+    @endpoint(contract, "experiment_cases")
     def experiment_cases(experiment_id: str) -> Any:
         package = experiments.experiments.get(experiment_id)
         if package is None:
@@ -531,9 +433,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     # -- analysis runs ---------------------------------------------------------
     @app.post(f"{base}/cases/{{case_id}}/analysis-runs")
-    @endpoint("analysis_run_create")
+    @endpoint(contract, "analysis_run_create")
     def analysis_run_create(case_id: str, payload: Any = Body(None)) -> Any:
-        get_case(case_id)
+        backend.get_case(case_id)
         body = body_object(payload, ["experiment_id"], ["experiment_id"])
         if not isinstance(body["experiment_id"], str):
             raise ApiError("VALIDATION_ERROR", {"field": "experiment_id"})
@@ -542,9 +444,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         })
 
     @app.get(f"{base}/analysis-runs/{{run_id}}")
-    @endpoint("analysis_run_get")
+    @endpoint(contract, "analysis_run_get")
     def analysis_run_get(run_id: str) -> Any:
-        run = get_run(run_id)
+        run = backend.get_run(run_id)
         return ok({
             "run_id": run.run_id, "case_id": run.case_id, "experiment_id": run.experiment_id,
             "status": run.status, "attempt_no": run.attempt_no, "precomputed": True,
@@ -556,22 +458,22 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         })
 
     @app.get(f"{base}/analysis-runs/{{run_id}}/metrics")
-    @endpoint("analysis_run_metrics")
+    @endpoint(contract, "analysis_run_metrics")
     def analysis_run_metrics(run_id: str, prediction_variant: Optional[str] = Query(None)) -> Any:
-        run = get_run(run_id)
-        case = run_case(run)
-        variant = variant_or_not_found(prediction_variant)
+        run = backend.get_run(run_id)
+        case = backend.run_case(run)
+        variant = backend.variant_or_not_found(prediction_variant)
         require_ground_truth(case)
         require_succeeded(run, "ANALYSIS_FAILED")
         experiments.mask_artifact(run, variant)
         return ok(metrics.run_metrics(run, variant))
 
     @app.get(f"{base}/analysis-runs/{{run_id}}/slices/{{slice_index}}/metrics")
-    @endpoint("analysis_slice_metrics")
+    @endpoint(contract, "analysis_slice_metrics")
     def analysis_slice_metrics(run_id: str, slice_index: str, prediction_variant: Optional[str] = Query(None)) -> Any:
-        run = get_run(run_id)
-        case = run_case(run)
-        variant = variant_or_not_found(prediction_variant)
+        run = backend.get_run(run_id)
+        case = backend.run_case(run)
+        variant = backend.variant_or_not_found(prediction_variant)
         require_ground_truth(case)
         require_succeeded(run, "ANALYSIS_FAILED")
         z = parse_slice(case, slice_index)
@@ -579,11 +481,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(metrics.slice_metrics(run, variant, z))
 
     @app.get(f"{base}/analysis-runs/{{run_id}}/slices/{{slice_index}}/error")
-    @endpoint("analysis_slice_error")
+    @endpoint(contract, "analysis_slice_error")
     def analysis_slice_error(run_id: str, slice_index: str, prediction_variant: Optional[str] = Query(None)) -> Any:
-        run = get_run(run_id)
-        case = run_case(run)
-        variant = variant_or_not_found(prediction_variant)
+        run = backend.get_run(run_id)
+        case = backend.run_case(run)
+        variant = backend.variant_or_not_found(prediction_variant)
         require_ground_truth(case)
         require_succeeded(run, "ANALYSIS_FAILED")
         z = parse_slice(case, slice_index)
@@ -591,31 +493,31 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(metrics.slice_error(run, variant, z))
 
     @app.get(f"{base}/analysis-runs/{{run_id}}/slices/{{slice_index}}/prediction")
-    @endpoint("prediction_slice_get")
+    @endpoint(contract, "prediction_slice_get")
     def prediction_slice_get(run_id: str, slice_index: str, variant: Optional[str] = Query(None)) -> Any:
-        run = get_run(run_id)
-        case = run_case(run)
+        run = backend.get_run(run_id)
+        case = backend.run_case(run)
         z = parse_slice(case, slice_index)
-        chosen = variant_or_not_found(variant)
+        chosen = backend.variant_or_not_found(variant)
         require_succeeded(run)
         mask_id, artifact, digest = experiments.prediction_slice(run, chosen, z)
         payload = {
             "prediction_mask_id": mask_id, "prediction_variant": chosen,
             "source_version": f"{artifact['checksum']['value'][:16]}/{imaging.MASK_RENDER_VERSION}",
-            "checksum": "sha256:" + digest, "content_url": url(digest), "media_type": contract.media_type,
+            "checksum": "sha256:" + digest, "content_url": artifact_url(contract, digest), "media_type": contract.media_type,
         }
         payload.update(case.geometry())
         return ok(payload)
 
     @app.get(f"{base}/analysis-runs/{{run_id}}/reconstruction")
-    @endpoint("reconstruction_get")
+    @endpoint(contract, "reconstruction_get")
     def reconstruction_get(run_id: str, source_mask_id: Optional[str] = Query(None)) -> Any:
         """A mesh reference for one source mask of the run: its RAW or PROCESSED prediction, or the case's ground
         truth. The mesh is the undecimated L0 voxel-face surface (DR-008c) derived by backend.mesh.build_cache,
         in the voxel-index frame (vertex x = column, y = row, z = slice), hence the identity transform; its bytes
         are served at /artifacts/<sha256>.cmesh, the sha256 being the one inside ``mesh_artifact_id``."""
-        run = get_run(run_id)
-        case = run_case(run)
+        run = backend.get_run(run_id)
+        case = backend.run_case(run)
         require_succeeded(run)
         artifacts = run.package.artifacts
         if source_mask_id is None:
@@ -663,11 +565,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(payload)
 
     @app.get(f"{base}/analysis-runs/{{run_id}}/error-reconstruction")
-    @endpoint("error_reconstruction_get")
+    @endpoint(contract, "error_reconstruction_get")
     def error_reconstruction_get(run_id: str, prediction_variant: Optional[str] = Query(None)) -> Any:
-        run = get_run(run_id)
-        case = run_case(run)
-        variant = variant_or_not_found(prediction_variant)
+        run = backend.get_run(run_id)
+        case = backend.run_case(run)
+        variant = backend.variant_or_not_found(prediction_variant)
         require_ground_truth(case)
         require_succeeded(run, "ANALYSIS_FAILED")
         experiments.mask_artifact(run, variant)
@@ -679,9 +581,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 "etag": etag(row["review_id"], row["revision"])}
 
     @app.post(f"{base}/analysis-runs/{{run_id}}/reviews")
-    @endpoint("review_create")
+    @endpoint(contract, "review_create")
     def review_create(run_id: str, request: Request, payload: Any = Body(None)) -> Any:
-        run = get_run(run_id)
+        run = backend.get_run(run_id)
         body = body_object(payload, ["status", "source_mask_id", "prediction_variant"],
                            ["status", "source_mask_id", "prediction_variant"])
         if body["status"] not in enums["review_status"]:
@@ -691,7 +593,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if not isinstance(body["source_mask_id"], str):
             raise ApiError("VALIDATION_ERROR", {"field": "source_mask_id"})
         require_succeeded(run)
-        case = run_case(run)
+        case = backend.run_case(run)
         source = body["source_mask_id"]
         if source == case.reference_mask_id or cases.mask_owner(source) is not None:
             raise ApiError("VALIDATION_ERROR", {"field": "source_mask_id", "reason": "ground truth is never a review source"})
@@ -710,7 +612,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(data, status=201 if created else 200, tag=data["etag"])
 
     @app.patch(f"{base}/reviews/{{review_id}}")
-    @endpoint("review_patch")
+    @endpoint(contract, "review_patch")
     def review_patch(review_id: str, request: Request, payload: Any = Body(None)) -> Any:
         body = body_object(payload, ["status", "expected_revision"], ["status", "expected_revision"])
         if body["status"] not in enums["review_status"]:
@@ -720,7 +622,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(data, tag=data["etag"])
 
     @app.put(f"{base}/reviews/{{review_id}}/working-mask/slices/{{slice_index}}")
-    @endpoint("working_mask_put")
+    @endpoint(contract, "working_mask_put")
     def working_mask_put(review_id: str, slice_index: str, request: Request, payload: Any = Body(None)) -> Any:
         review = storage.get_review(review_id)
         if review is None:
@@ -756,7 +658,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return case
 
     @app.post(f"{base}/reviews/{{review_id}}/commit")
-    @endpoint("review_commit")
+    @endpoint(contract, "review_commit")
     def review_commit(review_id: str, request: Request, payload: Any = Body(None)) -> Any:
         review = storage.get_review(review_id)
         if review is None:
@@ -790,7 +692,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return ok(data, status=201, tag=etag(review_id, row["review_revision"]))
 
     @app.get(f"{base}/reviews/{{review_id}}/reviewed-masks")
-    @endpoint("reviewed_masks_list")
+    @endpoint(contract, "reviewed_masks_list")
     def reviewed_masks_list(review_id: str) -> Any:
         if storage.get_review(review_id) is None:
             raise ApiError("ARTIFACT_NOT_FOUND", {"review_id": review_id})
@@ -800,7 +702,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         } for row in storage.reviewed_masks(review_id)]})
 
     @app.get(f"{base}/reviewed-masks/{{reviewed_mask_id}}/slices/{{slice_index}}")
-    @endpoint("reviewed_mask_slice_get")
+    @endpoint(contract, "reviewed_mask_slice_get")
     def reviewed_mask_slice_get(reviewed_mask_id: str, slice_index: str) -> Any:
         row = storage.reviewed_mask(reviewed_mask_id)
         if row is None:
@@ -813,7 +715,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if stored is None:
             raise ApiError("ARTIFACT_NOT_FOUND", {"reviewed_mask_id": reviewed_mask_id, "slice_index": z})
         data = {"reviewed_mask_id": reviewed_mask_id, "slice_index": z, "checksum": "sha256:" + stored["sha256"],
-                "content_url": url(stored["sha256"]), "media_type": contract.media_type}
+                "content_url": artifact_url(contract, stored["sha256"]), "media_type": contract.media_type}
         data.update(case.geometry())
         return ok(data)
 
@@ -822,7 +724,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                       "slice_index", "finding_type", "note", "region_reference"]
 
     @app.post(f"{base}/findings")
-    @endpoint("finding_create")
+    @endpoint(contract, "finding_create")
     def finding_create(payload: Any = Body(None)) -> Any:
         body = body_object(payload, finding_fields, ["study_id", "finding_type", "note"])
         values = {field: body.get(field) for field in finding_fields}
@@ -838,7 +740,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         region = values["region_reference"]
         if region is not None and (not isinstance(region, dict) or len(json.dumps(region)) > 4096):
             raise ApiError("VALIDATION_ERROR", {"field": "region_reference", "reason": "null or a JSON object"})
-        case = get_case(values["case_id"]) if values["case_id"] is not None else None
+        case = backend.get_case(values["case_id"]) if values["case_id"] is not None else None
         variant = values["prediction_variant"]
         if values["analysis_run_id"] is None and variant is not None:
             raise ApiError("VALIDATION_ERROR", {"field": "prediction_variant", "reason": "only with an analysis_run_id"})
@@ -847,12 +749,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 raise ApiError("VALIDATION_ERROR", {"field": "prediction_variant",
                                                     "reason": "required with an analysis_run_id",
                                                     "allowed": enums["prediction_variant"]})
-            run = get_run(values["analysis_run_id"])
+            run = backend.get_run(values["analysis_run_id"])
             if run.mask_id(variant) is None:
                 raise ApiError("VALIDATION_ERROR", {"field": "prediction_variant",
                                                     "reason": f"the run has no {variant} prediction"})
             if case is None:
-                case = get_case(run.case_id)
+                case = backend.get_case(run.case_id)
                 values["case_id"] = run.case_id
             elif run.case_id != case.case_id:
                 raise ApiError("VALIDATION_ERROR", {"reason": "analysis_run_id belongs to another case"})
@@ -872,7 +774,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         }, status=201, tag=etag(row["finding_id"], row["revision"]))
 
     @app.get(f"{base}/findings")
-    @endpoint("findings_list")
+    @endpoint(contract, "findings_list")
     def findings_list(case_id: Optional[str] = Query(None), analysis_run_id: Optional[str] = Query(None),
                       experiment_id: Optional[str] = Query(None), status: Optional[str] = Query(None),
                       finding_type: Optional[str] = Query(None)) -> Any:
@@ -888,7 +790,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         } for row in rows]})
 
     @app.patch(f"{base}/findings/{{finding_id}}")
-    @endpoint("finding_patch")
+    @endpoint(contract, "finding_patch")
     def finding_patch(finding_id: str, payload: Any = Body(None)) -> Any:
         body = body_object(payload, ["note", "status", "expected_revision"], ["expected_revision"])
         if "note" not in body and "status" not in body:
