@@ -78,6 +78,8 @@ node scripts/prepare.mjs --mode live --api-base-url http://127.0.0.1:8000 --stud
 Precedence: `--api-base-url`, then `EXPO_PUBLIC_API_BASE_URL` in the environment, then `mobile/.env.local`. Other
 variables: `CMW_MODE`, `CMW_STUDY_ID`, `PYTHON`. The URL is `scheme://host:port` only; contract paths already start
 with `/api/v1`, so a base URL ending in `/api/v1` is refused, and so is a URL that still contains a `<placeholder>`.
+Plain `http://` is accepted only for this device (`127.0.0.1`, `localhost`, `[::1]`); any other host must use
+`https://` (`CONFIG_CLEARTEXT_REMOTE`), so MRI slices never cross a real network in cleartext.
 
 **Redaction rule:** the app shows and logs the backend as `http://<configured>`; the `.build.txt` sidecar records
 only that a URL was set (`api_base_url     configured (not recorded)`), never the URL and no hash of it (an
