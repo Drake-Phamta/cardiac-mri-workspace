@@ -387,6 +387,19 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tapAt(150, 150);
   await tapAt(150, 152);
   check('P3', !has(r, /^×\d/), 'a second double tap returns to fit');
+
+  // Privacy mode (V1 item 5): on by default. This test build has no expo-screen-capture, so it says it cannot block
+  // screenshots yet instead of claiming protection; the switch still records the user's choice.
+  const privacySwitch = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'switch'
+    && /^Privacy mode/.test(n.props.accessibilityLabel || ''))[0];
+  check('V5', has(r, /^Privacy mode: not available in this build$/) && has(r, /so screenshots are not blocked\.$/)
+    && privacySwitch().props.accessibilityState.checked === true, 'privacy mode on by default; without the module it says screenshots are not blocked');
+  await act(async () => { privacySwitch().props.onPress(); });
+  await tick(30);
+  check('V5', has(r, /^Privacy mode: OFF \(not available in this build\)$/) && privacySwitch().props.accessibilityState.checked === false,
+    'switched off, it reads OFF');
+  await act(async () => { privacySwitch().props.onPress(); });
+  await tick(30);
   await act(async () => { r.unmount(); });
 }
 
@@ -703,6 +716,7 @@ function noRunBackend() {
   await press(r, 'Outline');
   check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
   await press(r, 'Both');
+  check('V5', has(r, /^Privacy mode: not available in this build$/), 'SCR-04 has the same privacy switch, on by default');
   check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
     'legend: every class named in words with its pixel count');
   check('E4d', has(r, /Differs from the server for this slice|Matches the server for this slice/),

@@ -18,7 +18,10 @@ import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { OverlayStyleChips, SliceScrubber, useSlicePlayer } from './SliceView';
+import SliceViewport, {
+  OverlayStyleChips, PrivacyRow, SliceScrubber, useSlicePlayer,
+} from './SliceView';
+import { usePrivacyMode } from '../../lib/screenCapture';
 import {
   OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
 } from './sliceControls.mjs';
@@ -102,6 +105,8 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const [pending, setPending] = useState(null);
   const [visible, setVisible] = useState({ TP: true, FP: true, FN: true });
   const [opacity, setOpacity] = useState(0.6);
+  // Privacy mode (on by default): screenshots and casting of this screen show black while it is on.
+  const privacy = usePrivacyMode('SCR-04');
   // Both by default: the fill shows the area, the outline its edge (FP dashed), so a class never relies on colour.
   const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-04', { mode: OVERLAY_MODE.BOTH, width: 2 }));
   const changeStyle = useCallback((patch) => setStyle((st) => {
@@ -306,6 +311,10 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           {idsDiffer && <Text style={s.warn}>{ids.text}</Text>}
           {check && check.checked && <Text style={check.consistent ? s.ok : s.warn}>{check.text}</Text>}
           <Text style={[s.metric, metricsLine.tone === 'ok' && s.ok]}>{metricsLine.text}</Text>
+        </View>
+
+        <View style={s.card}>
+          <PrivacyRow privacy={privacy} />
         </View>
 
         <Provenance title="Provenance (this slice)" summary="the mask ids the classes were counted from">

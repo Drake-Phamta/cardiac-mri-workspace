@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "expo": "~57.0.21",
+    "expo-screen-capture": "~57.0.4",
     "fast-png": "8.0.0",
     "react": "19.2.3",
     "react-native": "0.86.3",

@@ -9,6 +9,7 @@ import { Image, PanResponder, StyleSheet, Text, View, TouchableOpacity } from 'r
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../lib/viewMath.mjs';
 import { maskOutlinePath } from '../../lib/mask.mjs';
+import { privacyText } from '../../lib/privacy.mjs';
 import { color, font, radius, space, MIN_TOUCH } from '../../components/theme';
 import { scrubIndex, scrubPosition, sliceLabel } from './cases.mjs';
 import {
@@ -461,6 +462,46 @@ export function OverlayStyleChips({ mode, width, onMode, onWidth }) {
     </View>
   );
 }
+
+/*
+ * The privacy mode switch of a screen that shows MRI (usePrivacyMode in lib/screenCapture.js). It says what is in
+ * force, not only what was asked: "not available in this build" until the APK carries the module.
+ */
+export function PrivacyRow({ privacy }) {
+  const t = privacyText(privacy.status, privacy.on);
+  return (
+    <TouchableOpacity
+      style={priv.row}
+      onPress={privacy.toggle}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: privacy.on }}
+      accessibilityLabel={t.title}
+    >
+      <View style={[priv.knob, privacy.on && priv.knobOn]}>
+        <Text style={[priv.knobT, privacy.on && priv.knobTOn]}>{privacy.on ? 'ON' : 'OFF'}</Text>
+      </View>
+      <View style={priv.text}>
+        <Text style={[priv.title, t.tone === 'warn' && priv.warn]}>{t.title}</Text>
+        {t.detail ? <Text style={priv.detail}>{t.detail}</Text> : null}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const priv = StyleSheet.create({
+  row: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.m },
+  knob: {
+    minWidth: 52, minHeight: 32, borderRadius: radius.pill, borderWidth: 1, borderColor: color.control,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
+  },
+  knobOn: { borderColor: color.ok, backgroundColor: color.okBg },
+  knobT: { color: color.textDim, fontSize: font.small, fontWeight: '700', fontFamily: font.mono },
+  knobTOn: { color: color.ok },
+  text: { flex: 1 },
+  title: { color: color.text, fontSize: font.body, fontWeight: '600' },
+  warn: { color: color.warn },
+  detail: { color: color.textDim, fontSize: font.small, marginTop: 2 },
+});
 
 const chips = StyleSheet.create({
   wrap: { gap: space.xs },

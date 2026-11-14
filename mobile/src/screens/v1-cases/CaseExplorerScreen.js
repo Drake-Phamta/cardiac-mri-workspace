@@ -16,8 +16,9 @@ import { color, font, MIN_TOUCH, overlay, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
 import SliceViewport, {
-  OverlayStyleChips, SliceScrubber, outlineOf, useMaskOverlay, useSlicePlayer,
+  OverlayStyleChips, PrivacyRow, SliceScrubber, outlineOf, useMaskOverlay, useSlicePlayer,
 } from './SliceView';
+import { usePrivacyMode } from '../../lib/screenCapture';
 import {
   OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
 } from './sliceControls.mjs';
@@ -187,6 +188,8 @@ function Explorer({
   const [pending, setPending] = useState(null);
   const [targetVariant, setTargetVariant] = useState(initialVariant);
   const [opacity, setOpacity] = useState(0.5);
+  // Privacy mode (on by default): screenshots and casting of this screen show black while it is on.
+  const privacy = usePrivacyMode('SCR-03');
   const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-03', { mode: OVERLAY_MODE.FILL, width: 2 }));
   const changeStyle = useCallback((patch) => setStyle((st) => {
     const next = { ...st, ...patch };
@@ -626,6 +629,10 @@ function Explorer({
             </Text>
           )}
           {geometryNote && <Text style={s.dim}>{geometryNote}</Text>}
+        </View>
+
+        <View style={s.card}>
+          <PrivacyRow privacy={privacy} />
         </View>
 
         <Provenance title="Provenance (this slice)" summary="artifact ids and checksums of the MRI and masks">
