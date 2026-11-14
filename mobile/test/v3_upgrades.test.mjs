@@ -69,8 +69,8 @@ test('V3U1 the screens say "lowest-Dice cases", never a process id; the code kee
 });
 
 test('V3U2 families differ by colour AND marker: UNet blue circle, DINOv2 orange triangle, from the design tokens', () => {
-  assert.deepEqual({ ...FAMILY_STYLE.UNET }, { ...family[0] });
-  assert.deepEqual({ ...FAMILY_STYLE.DINOV2 }, { ...family[1] });
+  assert.deepEqual({ ...FAMILY_STYLE.UNET }, { ...family.UNET });
+  assert.deepEqual({ ...FAMILY_STYLE.DINOV2 }, { ...family.DINOV2 });
   assert.equal(FAMILY_STYLE.UNET.marker, 'circle');
   assert.equal(FAMILY_STYLE.DINOV2.marker, 'triangle');
   assert.ok(contrastRatio(FAMILY_STYLE.UNET.color, color.surface) >= 3 && contrastRatio(FAMILY_STYLE.DINOV2.color, color.surface) >= 3,

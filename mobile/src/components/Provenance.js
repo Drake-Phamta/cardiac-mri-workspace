@@ -1,17 +1,20 @@
 /*
- * A folded card for the identifiers behind what is on screen (artifact ids, checksums, versions). Closed by
+ * A folded row for the identifiers behind what is on screen (artifact ids, checksums, versions). Closed by
  * default, so the screen reads as a viewer first; one tap shows every id, selectable for a bug report.
+ * Direction A: a 48 dp row between hairlines with a chevron, no card.
  */
 
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { color, font, MIN_TOUCH, radius, space } from './theme';
+import { IconChevronDown, IconChevronRight } from './icons';
+import { color, HAIRLINE, MIN_TOUCH, space, type } from './theme';
 
 export default function Provenance({ title = 'Provenance', summary = null, children, initiallyOpen = false }) {
   const [open, setOpen] = useState(initiallyOpen);
+  const Chevron = open ? IconChevronDown : IconChevronRight;
   return (
-    <View style={s.card}>
+    <View style={s.box}>
       <TouchableOpacity
         style={s.head}
         onPress={() => setOpen((o) => !o)}
@@ -19,27 +22,28 @@ export default function Provenance({ title = 'Provenance', summary = null, child
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${title}, ${open ? 'shown' : 'hidden'}`}
       >
-        <Text style={s.title}>{open ? '▾' : '▸'} {title}</Text>
-        {!open && summary ? <Text style={s.summary} numberOfLines={1}>{summary}</Text> : null}
+        <Chevron size={16} strokeWidth={2} color={color.t3} />
+        <View style={s.headText}>
+          <Text style={s.title}>{title}</Text>
+          {!open && summary ? <Text style={s.summary} numberOfLines={1}>{summary}</Text> : null}
+        </View>
       </TouchableOpacity>
       {open ? <View style={s.body}>{children}</View> : null}
     </View>
   );
 }
 
-// One identifier line inside the card.
+// One identifier line inside the row.
 export function IdLine({ children }) {
   return <Text style={s.id} selectable>{children}</Text>;
 }
 
 const s = StyleSheet.create({
-  card: {
-    backgroundColor: color.surface, borderColor: color.border, borderWidth: 1, borderRadius: radius.l,
-    paddingHorizontal: space.m,
-  },
-  head: { minHeight: MIN_TOUCH, justifyContent: 'center' },
-  title: { color: color.textDim, fontSize: font.small, fontWeight: '700', letterSpacing: 0.5 },
-  summary: { color: color.textFaint, fontSize: font.tiny, marginTop: 2 },
-  body: { paddingBottom: space.m, gap: space.xs },
-  id: { color: color.textDim, fontFamily: font.mono, fontSize: font.tiny },
+  box: { borderTopWidth: HAIRLINE, borderBottomWidth: HAIRLINE, borderColor: color.hair },
+  head: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.s, paddingVertical: space.xs },
+  headText: { flex: 1 },
+  title: { ...type.body, fontWeight: '500', color: color.t1 },
+  summary: { ...type.caption, color: color.t3 },
+  body: { paddingLeft: 24, paddingBottom: space.m, gap: space.xs },
+  id: { ...type.caption, color: color.t2, fontVariant: ['tabular-nums'] },
 });

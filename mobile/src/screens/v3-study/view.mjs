@@ -12,7 +12,7 @@ export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV
 
 // Each family is drawn with its own colour AND marker shape (UNet blue circle, DINOv2 orange triangle), so a chart
 // never depends on colour alone.
-export const FAMILY_STYLE = Object.freeze({ [FAMILY.UNET]: family[0], [FAMILY.DINOV2]: family[1] });
+export const FAMILY_STYLE = Object.freeze({ [FAMILY.UNET]: family.UNET, [FAMILY.DINOV2]: family.DINOV2 });
 
 // SVG path of a triangle marker centred on (x, y), about as large as a circle of radius r.
 export function trianglePath(x, y, r) {
