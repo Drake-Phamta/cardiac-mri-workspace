@@ -15,7 +15,8 @@ import {
 } from '../src/screens/v3-study/paired.mjs';
 import { createClient } from '../src/api/client.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';
-import { v3Transport } from './_v3_server.mjs';
+import { trendLayout, trendNotes, trendSeries } from '../src/screens/v3-study/trend.mjs';
+import { SIX_RUNS, v3Transport } from './_v3_server.mjs';
 import { OUTLIER_RULE } from '../src/screens/v3-study/readers.mjs';
 import {
   comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
@@ -171,6 +172,58 @@ test('V3U5 empty states: no pair loaded, a run with no rows, and the fixture who
     ['RQ-A-025', true, 4], ['RQ-A-050', true, 4], ['RQ-A-100', true, 4],
   ]);
   assert.ok(flat.cards.every((c) => c.median === 0 && c.pairs.every((p) => p.delta === 0)));
+});
+
+// --- trend over 25 / 50 / 100 % (SCR-07) --------------------------------------
+
+async function typedMatrix(options) {
+  const runtime = newRuntime();
+  const model = createExperimentComparison(createClient(runtime.contract, v3Transport(contractJson, runtime.bundle, options)));
+  await model.open({});
+  return model;
+}
+
+test('V3U7 trend: every case, the server median and q1-q3 per run; line and band only under COMPARABLE', async () => {
+  const fair = (await typedMatrix({ dice: SIX_RUNS })).selectMetric('dice');
+  assert.deepEqual([...trendSeries(fair.cells, fair.comparisons, null)], [], 'no metric picked, no chart');
+  const series = trendSeries(fair.cells, fair.comparisons, 'dice');
+  assert.deepEqual(series.map((s) => [s.family, s.joined, s.band, s.runs.map((r) => r.fractionPct).join('/')]), [
+    ['UNET', true, true, '25/50/100'], ['DINOV2', true, true, '25/50/100'],
+  ]);
+  const u025 = series[0].runs[0];
+  assert.deepEqual([...u025.values], [0.82, 0.61, 0.7, 0.4], 'every plotted case, as served');
+  assert.equal(u025.median.toFixed(3), '0.655', 'the median is the server summary, not computed here');
+  assert.ok(u025.q1 < u025.median && u025.median < u025.q3);
+  assert.deepEqual([...trendNotes(series)], [
+    'UNet: joined - the server judged the three runs comparable',
+    'DINOv2: joined - the server judged the three runs comparable',
+  ]);
+
+  const layout = trendLayout(series, { width: 360, height: 220 });
+  const [unet, dino] = layout.families;
+  assert.equal(unet.line.split(' L').length, 3, 'one line through the three medians');
+  assert.ok(unet.band.startsWith('M') && unet.band.endsWith('Z'), 'a closed q1-q3 band');
+  assert.ok(unet.runs.every((r, i) => r.x < dino.runs[i].x), 'UNet left of DINOv2 at each fraction');
+  for (const run of [...unet.runs, ...dino.runs]) {
+    assert.ok(run.iqr.y <= run.medianY && run.medianY <= run.iqr.y + run.iqr.height, `${run.experimentId}: the median lies inside q1-q3`);
+    assert.equal(run.dots.length, 4);
+  }
+  assert.ok(unet.runs[2].medianY < unet.runs[0].medianY, 'a higher median Dice is drawn higher');
+  assert.equal(layout.offAxis, 0);
+
+  const unfair = (await typedMatrix({ dice: SIX_RUNS, compare: 'not_comparable' })).selectMetric('dice');
+  const apart = trendSeries(unfair.cells, unfair.comparisons, 'dice');
+  assert.ok(apart.every((s) => !s.joined && !s.band));
+  assert.match(trendNotes(apart)[0], /^UNet: not joined - /);
+  const apartLayout = trendLayout(apart, { width: 360, height: 220 });
+  assert.ok(apartLayout.families.every((f) => f.line === null && f.band === null), 'no line or band');
+  assert.ok(apartLayout.families.every((f) => f.runs.every((r) => r.iqr && r.medianY !== null && r.dots.length === 4)),
+    'each run still shows its cases, its q1-q3 bar and its median, side by side');
+
+  const counts = (await typedMatrix({ dice: SIX_RUNS })).selectMetric('false_positives');
+  const countSeries = trendSeries(counts.cells, counts.comparisons, 'false_positives');
+  assert.equal(trendLayout(countSeries, { width: 360, height: 220 }).offAxis, 24, 'voxel counts are off a 0-1 axis: counted, not clipped');
+  assert.match(trendNotes(countSeries).at(-1), /^24 value\(s\) outside 0 to 1 are not drawn/);
 });
 
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {

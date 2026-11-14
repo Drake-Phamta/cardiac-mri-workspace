@@ -579,9 +579,11 @@ function noRunBackend() {
   await press(r, 'dice');
   await layout(r);
   await tick(30);
-  const dots = r.root.findAll((n) => n.type === 'Circle');
+  // The trend chart draws the same cases too, so only the strip's markers are counted.
+  const stripBox = r.root.findAll((n) => n.props && n.props.testID === 'strip-chart')[0];
+  const dots = stripBox ? stripBox.findAll((n) => n.type === 'Circle') : [];
   check('V3R3', dots.length === 4, `EXP-U-100 strip: ${dots.length} dots, one per successful case (4)`);
-  const strip = r.root.findAll((n) => n.type === 'Pressable')[0];
+  const strip = stripBox ? stripBox.findAll((n) => n.type === 'Pressable')[0] : null;
   if (strip && dots.length) {
     await act(async () => { strip.props.onPress({ nativeEvent: { locationX: dots[0].props.cx, locationY: dots[0].props.cy } }); });
   }
@@ -595,13 +597,13 @@ function noRunBackend() {
 // SCR-07 paired view over a typed server that answers each run with its own rows (test/_v3_server.mjs; the
 // fixture serves one set of rows for every run). COMPARABLE draws one dot per paired case and a tapped dot opens
 // either run; NOT COMPARABLE and a run with no rows draw no chart and say why.
-const { v3Transport } = await imp('test/_v3_server.mjs');
+const { SIX_RUNS, v3Transport } = await imp('test/_v3_server.mjs');
 const { createClient } = await imp('src/api/client.mjs');
 const inside = (r, testID, type) => {
   const box = r.root.findAll((n) => n.props && n.props.testID === testID)[0];
   return box ? box.findAll((n) => n.type === type) : [];
 };
-async function mountTypedPair(options, ids = ['EXP-U-025', 'EXP-D-025']) {
+async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', 'EXP-D-025'] }) {
   const base = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
   const runtime = { ...base, client: createClient(base.contract, v3Transport(contractJson, base.bundle, options)) };
   const pushed = [];
@@ -609,7 +611,7 @@ async function mountTypedPair(options, ids = ['EXP-U-025', 'EXP-D-025']) {
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
-      React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ids } })), nodeMock);
+      React.createElement(ExperimentComparisonScreen, { runtime, nav, params })), nodeMock);
   });
   await tick(60);
   await press(r, 'dice');
@@ -646,6 +648,28 @@ async function mountTypedPair(options, ids = ['EXP-U-025', 'EXP-D-025']) {
   const { r } = await mountTypedPair({ noRows: ['EXP-D-025'] });
   check('V3R6', inside(r, 'scr07-paired', 'Svg').length === 0
     && has(r, /^Not shown: EXP-D-025 has no per-case dice value: no per-case result yet$/), 'a run with no rows: no chart, and why');
+  await act(async () => { r.unmount(); });
+}
+// The trend chart over all six RAW runs: per run 4 cases, a q1-q3 bar and a median tick; a line and band per
+// family only under COMPARABLE, DINOv2's line dashed.
+{
+  const { r } = await mountTypedPair({ dice: SIX_RUNS }, {});
+  const paths = inside(r, 'trend-chart', 'Path');
+  const lines = paths.filter((n) => n.props.fill === 'none');
+  check('V3R7', inside(r, 'trend-chart', 'Rect').length === 6 && inside(r, 'trend-chart', 'Circle').length === 12
+    && paths.length === 12 + 4 && lines.length === 2 && lines.filter((n) => n.props.strokeDasharray === '6 4').length === 1,
+    `COMPARABLE trend: 6 q1-q3 bars, 12 UNet circles, 12 DINOv2 triangles, 2 bands and 2 lines (one dashed): paths ${paths.length}`);
+  check('V3R7', has(r, /^UNet: joined - the server judged the three runs comparable$/), 'the join is explained under the chart');
+  // The three UNet vs DINOv2 pairs each get a paired chart.
+  check('V3R7', ['RQ-A-025', 'RQ-A-050', 'RQ-A-100'].every((id) => inside(r, `paired-${id}`, 'Circle').length === 4),
+    'all three pairs are comparable: three paired charts of 4 cases');
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r } = await mountTypedPair({ dice: SIX_RUNS, compare: 'not_comparable' }, {});
+  const lines = inside(r, 'trend-chart', 'Path').filter((n) => n.props.fill === 'none' || n.props.fillOpacity === 0.12);
+  check('V3R8', lines.length === 0 && inside(r, 'trend-chart', 'Rect').length === 6 && has(r, /^UNet: not joined - /),
+    'NOT COMPARABLE trend: bars and cases per run, no line or band, and why');
   await act(async () => { r.unmount(); });
 }
 

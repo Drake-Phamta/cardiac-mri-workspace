@@ -458,7 +458,7 @@ export function comparisonView(snap, { stat = null, selectedCellId = null } = {}
       ...comparisonRow(c), deltaText: deltaText(c, snap.metricName, stat),
     }))),
     trend: trendRows(snap, stat),
-    trendText: snap.metricName && stat ? null : 'pick a metric and a statistic to see the 25 -> 50 -> 100 % trend',
+    trendText: snap.metricName && !stat ? "pick a statistic to list each run's value under the chart" : null,
     selected: caseTable(selected),
     selectedOutliers: selected ? outlierView(selected.outliers) : null,
   });

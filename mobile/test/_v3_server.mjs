@@ -11,6 +11,14 @@ export const PAIRED_DICE = Object.freeze({
   'EXP-U-025': { CASE_0002: 0.82, CASE_0003: 0.61, CASE_0004: 0.7, CASE_0005: 0.4 },
   'EXP-D-025': { CASE_0002: 0.86, CASE_0003: 0.58, CASE_0004: 0.79, CASE_0005: 0.52 },
 });
+// All six RAW runs of the matrix, for the trend chart: each family improves with more training data.
+export const SIX_RUNS = Object.freeze({
+  ...PAIRED_DICE,
+  'EXP-U-050': { CASE_0002: 0.85, CASE_0003: 0.66, CASE_0004: 0.74, CASE_0005: 0.47 },
+  'EXP-U-100': { CASE_0002: 0.88, CASE_0003: 0.7, CASE_0004: 0.77, CASE_0005: 0.55 },
+  'EXP-D-050': { CASE_0002: 0.88, CASE_0003: 0.65, CASE_0004: 0.82, CASE_0005: 0.6 },
+  'EXP-D-100': { CASE_0002: 0.9, CASE_0003: 0.72, CASE_0004: 0.84, CASE_0005: 0.66 },
+});
 const WITHHELD_CASE = 'CASE_0001';
 const METRICS = ['dice', 'iou', 'false_positives', 'false_negatives', 'relative_volume_error'];
 const STATS = ['n', 'mean', 'std', 'median', 'q1', 'q3', 'min', 'max', 'ci95_low', 'ci95_high'];

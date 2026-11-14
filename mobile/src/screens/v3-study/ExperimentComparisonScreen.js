@@ -12,8 +12,9 @@ import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { StripChart, Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
-import { PairedChart } from './charts';
+import { FamilyLegend, PairedChart, TrendChart } from './charts';
 import { pairDetail, pairedCards } from './paired.mjs';
+import { trendNotes, trendSeries } from './trend.mjs';
 import { comparisonView, OUTLIER_LABEL, pointDetail } from './view.mjs';
 
 export default function ExperimentComparisonScreen({ runtime, nav, params }) {
@@ -61,6 +62,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
         <Comparison
           v={comparisonView(snap, { stat, selectedCellId: cellId })}
           pairs={pairedCards(snap)}
+          trend={trendSeries(snap.cells, snap.comparisons, snap.metricName)}
           metricName={snap.metricName}
           columns={columns}
           point={point}
@@ -81,7 +83,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
 }
 
 function Comparison({
-  v, pairs, metricName, columns, point, onPoint, paired, onPaired, onMetric, stat, onStat, cellId, onCell, go, blocked,
+  v, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onMetric, stat, onStat, cellId, onCell, go, blocked,
 }) {
   const detail = pointDetail(point, metricName);
   return (
@@ -178,6 +180,17 @@ function Comparison({
       </Card>
 
       <Card title="Trend over 25 → 50 → 100 % data" testID="scr07-trend">
+        {trend.length ? (
+          <>
+            <TrendChart series={trend} label={`trend of ${metricName} over 25, 50 and 100 % training data`} />
+            <FamilyLegend />
+            <Line dim small>
+              {'Markers: every case. Bar: the middle half of the cases (q1 to q3); tick: the median, both from the '
+                + "server's summary. A line and band join the runs only where the server judged them comparable."}
+            </Line>
+            {trendNotes(trend).map((n) => <Line key={n} small>{n}</Line>)}
+          </>
+        ) : <Line dim small>Pick a metric above to draw the trend.</Line>}
         <Line dim small>{v.trendText}</Line>
         {v.trend.map((t) => (
           <View key={t.family} style={s.comparison}>
