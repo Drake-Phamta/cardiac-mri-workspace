@@ -30,7 +30,8 @@ một file, không cần cài máy chủ CSDL. Điện thoại nối với máy 
 nên backend chỉ nghe `127.0.0.1`, không lộ ra mạng nào. Mã backend giữ tương thích Python 3.9 (CI chạy test trên 3.9).
 
 **5. `contracts/api/contract.json` là định nghĩa API dùng chung.** Backend chỉ khởi động khi đúng phiên bản hợp đồng
-(hiện 1.1.0); app kiểm mọi response theo hợp đồng; dữ liệu giả cho chế độ fixture được *sinh* từ hợp đồng, không viết
+(hiện 1.1.0 trên main; nhánh `v4/trung-upgrades` nâng lên 1.2.0, chỉ thêm `review_history_list` và lý do gắn cờ);
+app kiểm mọi response theo hợp đồng; dữ liệu giả cho chế độ fixture được *sinh* từ hợp đồng, không viết
 tay; mọi response trong test backend đều được kiểm theo schema. Lý do: bốn người làm song song mà không lệch nhau,
 và app chạy được ở chế độ fixture khi chưa có backend.
 
@@ -83,7 +84,9 @@ và lát chỉ có dự đoán thừa trên nền không đẩy lát giải ph�
 
 **15. Viewer 3D dùng lưới L0 không giảm tam giác.** Trên Galaxy A17, L0 (61 424 tam giác) vẫn đạt FPS trung vị 59,88 và
 chạm → lát sai tối đa 1 lát; các mức giảm tam giác chạm sai tới 5–16 lát (RESULTS 2.2). Backend tự dựng lưới L0 từ mask
-(`backend/mesh/`). Biểu diễn **lỗi** trên mô hình 3D chưa được quyết định vì chưa đo; app ghi rõ là chưa có.
+(`backend/mesh/`). Biểu diễn **lỗi** trên mô hình 3D là phương án 3 (trưởng nhóm chọn ngày 2026-11-14): bề mặt dự
+đoán và một điểm đánh dấu cho mỗi vùng FP / FN liên thông, kèm dải lát chính xác; backend dựng sẵn bằng
+`python -m backend.mesh.build_cache` (mã trên nhánh `v2/hung-anh-upgrades`). FPS trên máy khi bật lớp lỗi chưa đo.
 
 **16. Tải dữ liệu theo từng lát, có checksum.** Mỗi lát MRI/mask là một PNG riêng có địa chỉ theo sha256; app kiểm
 SHA-256 trước khi dùng và cache lát đã xem. Không tải cả khối (p50 trên 2 phút), không tải trước theo cửa sổ (chậm hơn
