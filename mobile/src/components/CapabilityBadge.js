@@ -1,33 +1,32 @@
 /*
- * The case mode badge, on the case list rows and the case screen header, so a case reads the same in both.
- * The mode is written as text, not shown by colour alone.
+ * The case mode tag, on the case list rows and the case screen header, so a case reads the same in both.
+ * The mode is a word on a neutral tag: Direction A keeps colour for data and state, so the two modes get none.
+ * A mode that disagrees with the case's data is the one coloured case (warn), and says so in words.
  */
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { color, font, space } from './theme';
-
-const TONE = {
-  EVALUATION: { fg: color.evaluation, bg: color.okBg },
-  INFERENCE_REVIEW: { fg: color.inference, bg: color.inferenceBg },
-  UNKNOWN: { fg: color.warn, bg: color.warnBg },
-};
+import { color, radius, type } from './theme';
 
 export default function CapabilityBadge({ capability, compact = false }) {
-  const tone = TONE[capability.key] || TONE.UNKNOWN;
+  const warn = !capability.consistent;
   return (
-    <View style={[s.badge, { borderColor: tone.fg, backgroundColor: tone.bg }]} accessibilityLabel={`mode ${capability.label}`}>
-      <Text style={[s.label, { color: tone.fg }]}>{compact ? capability.short : capability.label}</Text>
-      {!capability.consistent && <Text style={[s.label, { color: color.warn }]}> · inconsistent</Text>}
+    <View style={[s.tag, warn && s.warnTag]} accessibilityLabel={`mode ${capability.label}`}>
+      <Text style={[s.label, warn && s.warnLabel]}>
+        {compact ? capability.short : capability.label}
+        {warn ? ' · inconsistent' : ''}
+      </Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  badge: {
-    flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 1, borderRadius: 6,
-    paddingHorizontal: space.s, paddingVertical: 2,
+  tag: {
+    alignSelf: 'flex-start', height: 20, justifyContent: 'center', paddingHorizontal: 6,
+    borderRadius: radius.xs, backgroundColor: color.raised,
   },
-  label: { fontSize: font.small, fontWeight: '700', fontFamily: font.mono },
+  warnTag: { backgroundColor: color.warnSoft },
+  label: { ...type.micro, fontWeight: '600', color: color.t2 },
+  warnLabel: { color: color.warn },
 });
