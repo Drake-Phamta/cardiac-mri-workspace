@@ -252,136 +252,8 @@ jobs:
           echo "no forbidden bytes in this change"
 
   # --------------------------------------------------------------------------
-  app-core:
-    name: "app/core tests"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      # ubuntu-latest ships node; no setup-node action, for the same
-      # supply-chain reason the header gives. The version is printed so a
-      # failure that turns out to be a runtime difference is diagnosable.
-      - name: record the runtime
-        run: node --version
-
-      # The bundle is generated, never committed (fixture_rules
-      # .handwritten_fixtures_allowed = false), so CI builds it from the
-      # contract with the project's own generator before the tests run.
-      - name: generate the fixture bundle from the contract
-        run: |
-          mkdir -p app/core/fixtures/.generated
-          python - <<'PY'
-          import json, sys
-          sys.path.insert(0, "contracts/api")
-          from generate_fixture import generate_fixture
-          with open("contracts/api/contract.json", encoding="utf-8") as fh:
-              contract = json.load(fh)
-          bundle = generate_fixture(contract)
-          with open("app/core/fixtures/.generated/api_bundle.json", "w", encoding="utf-8") as fh:
-              json.dump(bundle, fh, indent=2)
-          print(f"generated {len(bundle['endpoints'])} endpoints, "
-                f"{len(bundle.get('scenarios', {}))} with scenarios")
-          PY
-
-      - name: run every app/core test script
-        run: node app/core/tests/run_all.mjs
-
-      # run_all.mjs globs app/core/tests/ only, so a vertical's tests are never
-      # picked up automatically. Each vertical runs as its own step, so two
-      # verticals landing on the same day cannot conflict on one line.
-      - name: V4 review and findings
-        run: |
-          node app/verticals/v4_review_and_findings/test_review_correction.mjs
-          node app/verticals/v4_review_and_findings/test_brush.mjs
-          node app/verticals/v4_review_and_findings/test_findings.mjs
-
-      - name: V1 case explorer
-        run: node app/verticals/v1_case_explorer/test_case_explorer.mjs
-
-      # V3 - SCR-01 / SCR-07 state models, against the bundle generated above.
-      - name: V3 study and compare
-        run: node app/verticals/v3_study_and_compare/test_study_and_compare.mjs
-
-  # --------------------------------------------------------------------------
-  app-framework-neutral:
-    name: "app/core stays framework-neutral"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # app/core is the shared, framework-free layer every vertical uses and
-      # plain node tests. This job keeps it that way. Scope is app/ ONLY:
-      # mobile/ is the React Native app that CONSUMES app/core; its own
-      # boundaries are checked by the mobile-shell job.
-      - name: refuse framework imports, npm dependencies and prototype imports
-        run: |
-          fail=0
-          files=$(find app -name '*.mjs' -o -name '*.js' | sort)
-          echo "scanning:"; echo "$files" | sed 's/^/  /'
-
-          bad=$(grep -REn "from ['\"](react|react-native|react-dom|expo|flutter|@react-native|vue|svelte|next)" \
-                  --include='*.mjs' --include='*.js' app/core || true)
-          if [ -n "$bad" ]; then
-            echo "::error::app/core must not import a UI framework:"
-            echo "$bad"; fail=1
-          fi
-
-          # Any bare specifier is an npm dependency, because app/ has no
-          # package.json to resolve one. node: builtins are allowed, and only
-          # under app/core/node/.
-          bad=$(grep -REn "^\s*import .* from ['\"][^./]" --include='*.mjs' --include='*.js' app \
-                  | grep -v "from ['\"]node:" || true)
-          if [ -n "$bad" ]; then
-            echo "::error::app/ has no package.json; every import must be relative:"
-            echo "$bad"; fail=1
-          fi
-
-          bad=$(grep -REn "from ['\"]node:" --include='*.mjs' app/core \
-                  | grep -v '^app/core/node/' | grep -v '^app/core/tests/' || true)
-          if [ -n "$bad" ]; then
-            echo "::error::node: builtins belong in app/core/node/ only - a device bundle has no node:fs:"
-            echo "$bad"; fail=1
-          fi
-
-          # Prototype code lives behind its own boundary. Reuse is by copy with
-          # a provenance header (see app/core/viewMath.mjs).
-          bad=$(grep -REn "(spikes|prototypes)/" --include='*.mjs' --include='*.js' app/core \
-                  | grep -E "^[^:]+:[0-9]+:\s*(import|export)" || true)
-          if [ -n "$bad" ]; then
-            echo "::error::app/core must not import from prototypes/ - copy with provenance instead:"
-            echo "$bad"; fail=1
-          fi
-
-          bad=$(find app -name package.json -o -name 'package-lock.json' -o -name 'metro.config.js' \
-                  -o -name 'vite.config.*' -o -name 'webpack.config.*' -o -name 'pubspec.yaml' || true)
-          if [ -n "$bad" ]; then
-            echo "::error::app/ has no manifest or bundler config of its own:"
-            echo "$bad"; fail=1
-          fi
-
-          # The worst-slice ranking belongs to the API: "the API returns the
-          # selection; the client never re-derives it."
-          #
-          # Anchored so it cannot match its own documentation: selection.mjs
-          # says in a comment that it contains no `.sort(`, and a naive grep
-          # fails on that line. The authoritative check is P1 in
-          # app/core/tests/test_readers.mjs, which strips comments properly;
-          # this is the cheap second net at the boundary.
-          bad=$(grep -nE '^[^*/]*\.sort\(' app/core/selection.mjs || true)
-          if [ -n "$bad" ]; then
-            echo "::error::selection.mjs must not rank slices (the API ranks them):"
-            echo "$bad"; fail=1
-          fi
-
-          if [ "$fail" -ne 0 ]; then exit 1; fi
-          echo "app/core is framework-neutral, dependency-free and does not re-derive the selection"
-
-  # --------------------------------------------------------------------------
   mobile-shell:
-    name: "mobile shell logic tests (node --test)"
+    name: "mobile logic tests (node --test)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -389,19 +261,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Same rule as app-core: the runner's own node, no setup-node action.
+      # The runner's own node, no setup-node action (see the header).
       - name: record the runtime
         run: node --version
 
-      # The tests import mobile/src/*.mjs and app/core directly and need NO
-      # npm install: everything they touch is plain ESM. The fixture bundle
+      # The tests import the plain-ESM logic in mobile/src directly and need no
+      # npm install (the few fast-png checks skip without it). The fixture bundle
       # they use is generated by contracts/api/generate_fixture.py inside the
       # tests themselves - never a committed or hand-written file.
       - name: run the mobile logic tests
         run: node --test mobile/test/*.test.mjs
 
       # prepare.mjs is what every build runs first; running it here proves the
-      # generator output passes app/core's bundle checks and the build config
+      # generator output passes the bundle checks of src/api/client.mjs and the build config
       # resolves in both modes. The live URL is never in git: CI uses a
       # reserved .invalid name, and checks that a live build without any URL
       # warns (the app shows a configuration error) and that --strict, which
@@ -417,26 +289,20 @@ jobs:
           fi
           node mobile/scripts/prepare.mjs --mode fixture
 
-      - name: mobile/ never imports prototypes/ or app/core/node/
+      # The worst-slice ranking belongs to the API: the client reads the server's
+      # order and never re-derives it. readers.test.mjs P1 checks this with comments
+      # stripped; this anchored grep is a cheap second net.
+      - name: the worst-slice reader ranks nothing
         run: |
-          fail=0
-          bad=$(grep -REn "(from|require\()\s*['\"][^'\"]*(spikes|prototypes)/" --include='*.js' --include='*.mjs' \
-                  mobile/App.js mobile/index.js mobile/src || true)
+          bad=$(grep -nE '^[^*/]*\.sort\(' mobile/src/screens/v1-cases/errorInspector.mjs || true)
           if [ -n "$bad" ]; then
-            echo "::error::product code must not import prototype code - copy with a provenance header:"
-            echo "$bad"; fail=1
+            echo "::error::errorInspector.mjs must not rank slices (the API ranks them):"
+            echo "$bad"; exit 1
           fi
-          bad=$(grep -REn "(from|require\()\s*['\"][^'\"]*core/node/" --include='*.js' --include='*.mjs' \
-                  mobile/App.js mobile/index.js mobile/src || true)
-          if [ -n "$bad" ]; then
-            echo "::error::app/core/node/ is for tests and CI only - a device bundle has no node:fs:"
-            echo "$bad"; fail=1
-          fi
-          if [ "$fail" -ne 0 ]; then exit 1; fi
-          echo "mobile/ respects the prototype and node-only boundaries"
+          echo "the worst-slice reader keeps the server's order"
 
   # --------------------------------------------------------------------------
-  # mobile-shell above runs the plain-ESM logic tests with no npm; this job
+  # mobile-shell above runs the logic tests with no npm; this job
   # installs the LOCKED npm tree (see the header) and then
   # (1) renders the real screens (`npm run test:render`, react-test-renderer)
   # and (2) bundles the app the way a release build does, so a JSX syntax
@@ -479,8 +345,8 @@ jobs:
         run: npm run test:render
 
       # The same JS bundle a release build makes, minus Gradle: Metro resolves
-      # every module the app reaches (../app/core and
-      # ../contracts/api/contract.json included) and compiles it to Hermes
+      # every module the app reaches (../contracts/api/contract.json
+      # included) and compiles it to Hermes
       # bytecode. The output goes to the runner's temp dir, never the checkout.
       - name: bundle export (android, fixture mode)
         working-directory: mobile
