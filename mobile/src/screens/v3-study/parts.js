@@ -1,4 +1,4 @@
-// Small UI pieces shared by SCR-01 and SCR-07. No data logic: every string they draw comes from view.mjs.
+// Small UI pieces shared by SCR-01 and SCR-07. No data logic: every string they draw comes from the .mjs files.
 // Status is always words next to its colour, never colour alone, and every tap target is at least MIN_TOUCH.
 
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
@@ -8,6 +8,7 @@ import { color, font, MIN_TOUCH, radius, space } from '../../components/theme';
 import Svg, { Circle, G, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 import { pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
 import { FamilyLegend, Marker } from './charts';
+import { LOCKED_METRICS, METRIC_LEGEND } from './about.mjs';
 import { fatalInvalid, RECOVERY } from '../../api/states.mjs';
 
 export const TONE_COLOR = Object.freeze({
@@ -73,6 +74,37 @@ export function Chip({ label, selected, onPress }) {
 
 export function Row({ children }) {
   return <View style={s.row}>{children}</View>;
+}
+
+// A button that does something on this screen (a LinkButton goes to another screen).
+export function Button({ label, onPress }) {
+  return (
+    <View style={s.linkBox}>
+      <TouchableOpacity style={s.btn} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+        <Text style={s.btnT}>{label}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// What each metric means (about.mjs), the picked one in bold; metrics in mm or mL are listed as locked.
+export function MetricLegend({ selected = null }) {
+  return (
+    <View style={s.legend} testID="metric-legend">
+      {METRIC_LEGEND.map((m) => (
+        <Text key={m.name} style={[s.legendLine, m.name === selected && s.legendOn]}>
+          <Text style={s.legendName}>{m.label}</Text>
+          {` (${m.name}): ${m.text}`}
+        </Text>
+      ))}
+      {LOCKED_METRICS.map((m) => (
+        <Text key={m.name} style={[s.legendLine, s.legendLocked]}>
+          <Text style={s.legendName}>{m.label}</Text>
+          {`: ${m.text}`}
+        </Text>
+      ))}
+    </View>
+  );
 }
 
 // A label that is not a button, such as the server's verdict next to a number.
@@ -151,6 +183,11 @@ const s = StyleSheet.create({
   chipT: { color: color.textDim, fontSize: font.body },
   chipOnT: { color: color.accent, fontWeight: '600' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginTop: space.xs },
+  legend: { marginTop: space.s, gap: 2 },
+  legendLine: { color: color.textDim, fontSize: font.small, lineHeight: 17 },
+  legendOn: { color: color.text },
+  legendLocked: { color: color.textFaint },
+  legendName: { fontWeight: '700' },
   pill: { alignSelf: 'flex-start', paddingHorizontal: space.s, paddingVertical: 2, borderRadius: radius.pill, borderWidth: 1 },
   pillOk: { borderColor: color.ok, backgroundColor: color.okBg },
   pillOff: { borderColor: color.control, backgroundColor: color.surfaceHi },

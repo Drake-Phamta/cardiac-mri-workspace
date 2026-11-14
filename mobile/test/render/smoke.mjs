@@ -558,6 +558,15 @@ function noRunBackend() {
   check('V3R9', has(r, /^No UNet vs DINOv2 pair is judged comparable by the server yet\.$/)
     && texts(r).filter((t) => t === 'Not compared').length === 3 && !has(r, /^Comparable$/),
   'median Dice tile: no pair is compared, so no number and no "Comparable" chip');
+  const sheetOpen = () => r.root.findAll((n) => n.type === 'Modal').some((m) => m.findAll((x) => x.props && x.props.testID === 'about-data').length > 0);
+  check('V3R11', !sheetOpen(), '"About this data" is closed until asked for');
+  await press(r, 'About this data');
+  check('V3R11', sheetOpen() && has(r, /^https:\/\/www\.cardiacatlas\.org\/atriaseg2018-challenge\/atria-seg-data\/$/)
+    && has(r, /^Cases are named CASE_0001 to CASE_0154/) && has(r, /Not for diagnosis or treatment decisions/)
+    && has(r, /^The server names this study's dataset: fixture dataset/) && has(r, /^Fixture mode: every number/),
+  'the sheet names the source, the case IDs, research use only, the served dataset and that fixture numbers are placeholders');
+  await press(r, 'Close');
+  check('V3R11', !sheetOpen(), 'Close closes it');
   await press(r, 'Open the comparison (SCR-07)');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^FIXTURE$/), 'SCR-07 opened from SCR-01, under the FIXTURE badge');
@@ -571,6 +580,8 @@ function noRunBackend() {
   check('V3R2', r.root.findAll((n) => n.type === 'Svg').length === 1, 'the strip plot is drawn, empty');
   check('V3R2', has(r, /^No UNet vs DINOv2 pair is loaded here: both runs of a pair must be listed by the server\.$/),
     'no pair is loaded, so the paired card says why instead of drawing');
+  check('V3R2', has(r, /^Dice \(dice\): overlap of prediction and reference, 0 to 1; higher is better$/)
+    && has(r, /^HD95: locked: /), 'the metric legend explains Dice and shows HD95 as locked');
   await act(async () => { r.unmount(); });
 }
 {

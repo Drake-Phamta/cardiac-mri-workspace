@@ -20,12 +20,17 @@ import { SIX_RUNS, v3Transport } from './_v3_server.mjs';
 import { OUTLIER_RULE, readCaseCounts } from '../src/screens/v3-study/readers.mjs';
 import { casesTile, diceTile, findingsTile } from '../src/screens/v3-study/tiles.mjs';
 import {
+  aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND,
+} from '../src/screens/v3-study/about.mjs';
+import {
   comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
 } from '../src/screens/v3-study/view.mjs';
 import { color, contrastRatio, family } from '../src/components/tokens.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
-import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
+import {
+  MOBILE_ROOT, REPO_ROOT, generatedBundleJson, readContractJson,
+} from './_helpers.mjs';
 
 const contractJson = readContractJson();
 const V3_DIR = join(MOBILE_ROOT, 'src', 'screens', 'v3-study');
@@ -275,6 +280,38 @@ test('V3U8 SCR-01 tiles: case counts, findings open / resolved, median Dice only
   assert.deepEqual({ ...casesTile(null), lines: [] }, { value: null, text: 'case counts unavailable', lines: [] });
   const noTotal = casesTile(readCaseCounts({ EVALUATION: 3 }));
   assert.deepEqual([noTotal.value, noTotal.text, [...noTotal.lines]], [null, 'total unavailable', ['3 evaluation']]);
+});
+
+// --- metric legend and "About this data" ----------------------------------------
+
+test('V3U9 the legend covers every case metric of the contract and locks the ones it blocks', () => {
+  assert.deepEqual(METRIC_LEGEND.map((m) => m.name), contractJson.metric_rules.case_metric_fields);
+  assert.deepEqual(LOCKED_METRICS.map((m) => m.name), contractJson.metric_rules.physical_metrics_blocked_while_geometry_not_validated);
+  assert.equal(METRIC_LEGEND[0].text, 'overlap of prediction and reference, 0 to 1; higher is better');
+  assert.match(LOCKED_METRICS[0].label, /^HD95$/);
+  assert.match(LOCKED_METRICS[0].text, /^locked: .*geometry/);
+});
+
+test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts and scores only, research use', () => {
+  const sheet = aboutData({ datasetText: 'fixture dataset · version fixture (DATASET_FIXTURE)', fixture: true });
+  assert.deepEqual(sheet.map((s) => s.title), [
+    'Where the data comes from', 'Terms of use', 'Case IDs', 'What these screens show', 'Use', 'This build',
+  ]);
+  const text = sheet.flatMap((s) => s.lines).join('\n');
+  const spec06 = readFileSync(join(REPO_ROOT, 'docs', 'specs', 'v1.0', '06_DATASET_CONTRACT.md'), 'utf8');
+  assert.ok(spec06.includes(DATASET_SOURCE_URL) && text.includes(DATASET_SOURCE_URL), 'the source is the one spec 06 names');
+  const audit = readFileSync(join(REPO_ROOT, 'data', 'DATASET_AUDIT.md'), 'utf8');
+  assert.match(audit, /154 unique CASE_NNNN IDs/, 'the case ID range shown matches the dataset audit');
+  assert.match(text, /CASE_0001 to CASE_0154/);
+  assert.match(text, /no name, birth date or hospital record number/);
+  assert.match(text, /Counts and scores only/);
+  assert.match(text, /Not for diagnosis or treatment decisions/);
+  assert.match(text, /The server names this study's dataset: fixture dataset/);
+  assert.match(text, /generated placeholder, not a result/);
+  assert.doesNotMatch(text, PROCESS_ID);
+  const live = aboutData();
+  assert.equal(live.length, 5, 'a live build has no fixture section');
+  assert.ok(!live.flatMap((s) => s.lines).some((l) => /server names/.test(l)), 'no dataset line when the server named none');
 });
 
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {

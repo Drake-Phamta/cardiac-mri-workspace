@@ -12,8 +12,10 @@ import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import {
-  Card, Line, LinkButton, OutlierBar, Pill, Tile, TONE_COLOR, useSnapshot,
+  Button, Card, Line, LinkButton, OutlierBar, Pill, Tile, TONE_COLOR, useSnapshot,
 } from './parts';
+import AboutDataSheet from './AboutDataSheet';
+import { aboutData } from './about.mjs';
 import { casesTile, diceTile, findingsTile } from './tiles.mjs';
 import { FAMILY_STYLE, overviewView } from './view.mjs';
 
@@ -23,6 +25,7 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
   const model = useMemo(() => createStudyOverview(runtime.client), [runtime]);
   const [snap, run] = useSnapshot(model);
   const [blocked, setBlocked] = useState(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   useEffect(() => { run(() => model.open({ studyId })); }, [model, studyId, run]);
 
@@ -40,12 +43,24 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
 
   return (
     <StateView view={snap.view} what="the study overview" onAction={onAction}>
-      {() => <Overview v={overviewView(snap)} snap={snap} go={go} blocked={blocked} />}
+      {() => {
+        const v = overviewView(snap);
+        return (
+          <>
+            <Overview v={v} snap={snap} go={go} blocked={blocked} onAbout={() => setAboutOpen(true)} />
+            <AboutDataSheet
+              visible={aboutOpen}
+              sections={aboutData({ datasetText: v.study.datasetText, fixture: snap.source === 'fixture' })}
+              onClose={() => setAboutOpen(false)}
+            />
+          </>
+        );
+      }}
     </StateView>
   );
 }
 
-function Overview({ v, snap, go, blocked }) {
+function Overview({ v, snap, go, blocked, onAbout }) {
   const cases = casesTile(snap.caseCounts);
   const findings = findingsTile(snap.findings);
   const dice = diceTile(snap.headline);
@@ -58,6 +73,7 @@ function Overview({ v, snap, go, blocked }) {
         {v.study.capabilities.length > 0 && (
           <Line dim small>{`Capabilities: ${v.study.capabilities.join(', ')}`}</Line>
         )}
+        <Button label="About this data" onPress={onAbout} />
       </Card>
 
       <View style={s.tiles}>
@@ -76,7 +92,10 @@ function Overview({ v, snap, go, blocked }) {
       </View>
 
       <Card title="Median Dice, UNet vs DINOv2" testID="scr01-dice">
-        <Line dim small>Dice: 0 to 1, higher is better. Shown only for pairs the server judged comparable.</Line>
+        <Line dim small>
+          Dice: 0 to 1, higher is better. Shown only for pairs the server judged comparable. HD95 stays locked until
+          the geometry is validated.
+        </Line>
         {dice.emptyText ? <Line>{dice.emptyText}</Line> : null}
         {dice.rows.map((row) => (
           <TouchableOpacity

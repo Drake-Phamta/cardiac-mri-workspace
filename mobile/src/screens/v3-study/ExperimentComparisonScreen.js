@@ -11,7 +11,11 @@ import { createExperimentComparison } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import { StripChart, Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
+import {
+  Button, StripChart, Card, Chip, Line, LinkButton, MetricLegend, Row, TONE_COLOR, useSnapshot,
+} from './parts';
+import AboutDataSheet from './AboutDataSheet';
+import { aboutData } from './about.mjs';
 import { FamilyLegend, PairedChart, TrendChart } from './charts';
 import { pairDetail, pairedCards } from './paired.mjs';
 import { trendNotes, trendSeries } from './trend.mjs';
@@ -28,6 +32,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   // The tapped dot of a paired chart: { cardId, pair }.
   const [paired, setPaired] = useState(null);
   const [blocked, setBlocked] = useState(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   useEffect(() => {
     setPoint(null);
@@ -59,24 +64,32 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   return (
     <StateView view={snap.view} what="the experiment comparison" onAction={onAction}>
       {() => (
-        <Comparison
-          v={comparisonView(snap, { stat, selectedCellId: cellId })}
-          pairs={pairedCards(snap)}
-          trend={trendSeries(snap.cells, snap.comparisons, snap.metricName)}
-          metricName={snap.metricName}
-          columns={columns}
-          point={point}
-          onPoint={setPoint}
-          paired={paired}
-          onPaired={setPaired}
-          onMetric={pickMetric}
-          stat={stat}
-          onStat={setStat}
-          cellId={cellId}
-          onCell={setCellId}
-          go={go}
-          blocked={blocked}
-        />
+        <>
+          <Comparison
+            v={comparisonView(snap, { stat, selectedCellId: cellId })}
+            pairs={pairedCards(snap)}
+            trend={trendSeries(snap.cells, snap.comparisons, snap.metricName)}
+            metricName={snap.metricName}
+            columns={columns}
+            point={point}
+            onPoint={setPoint}
+            paired={paired}
+            onPaired={setPaired}
+            onMetric={pickMetric}
+            stat={stat}
+            onStat={setStat}
+            cellId={cellId}
+            onCell={setCellId}
+            go={go}
+            blocked={blocked}
+            onAbout={() => setAboutOpen(true)}
+          />
+          <AboutDataSheet
+            visible={aboutOpen}
+            sections={aboutData({ fixture: snap.source === 'fixture' })}
+            onClose={() => setAboutOpen(false)}
+          />
+        </>
       )}
     </StateView>
   );
@@ -84,6 +97,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
 
 function Comparison({
   v, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onMetric, stat, onStat, cellId, onCell, go, blocked,
+  onAbout,
 }) {
   const detail = pointDetail(point, metricName);
   return (
@@ -92,6 +106,7 @@ function Comparison({
         <Line>{v.modeText}</Line>
         <Line dim small>{v.listText}</Line>
         <Line dim small>{v.outsideMatrixText}</Line>
+        <Button label="About this data" onPress={onAbout} />
       </Card>
 
       <Card title="Metric and statistic" testID="scr07-choices">
@@ -106,6 +121,7 @@ function Comparison({
             <Chip key={st} label={st} selected={st === stat} onPress={() => onStat(st === stat ? null : st)} />
           ))}
         </Row>
+        <MetricLegend selected={metricName} />
       </Card>
 
       <Card title="UNet vs DINOv2 · 25 / 50 / 100 %" testID="scr07-matrix">
