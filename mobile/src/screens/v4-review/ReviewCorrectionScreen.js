@@ -15,14 +15,15 @@ import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { createReviewScreen, MASK_STATE, MODE, PHASE, PIXELS, TOOL } from './reviewScreen.mjs';
 
-// Layer colours (dark theme). Each layer also has a text label, so colour is never the only cue.
+// Layer colours (dark theme). The source is a blue line, the edits are filled; an unsaved add (green) and an unsaved
+// erase (magenta) are never a red / green pair. Each layer also has a text label, so colour is never the only cue.
 const LAYER = Object.freeze({
   extent: '#141a22',
   source: '#58a6ff',
   savedAdd: '#d2a8ff',
   savedErase: '#4b3366',
   unsavedAdd: '#5fd39a',
-  unsavedErase: '#f08a95',
+  unsavedErase: '#f778ba',
 });
 
 const STATE_BADGE = Object.freeze({
@@ -30,6 +31,7 @@ const STATE_BADGE = Object.freeze({
   [MASK_STATE.UNSAVED]: { label: 'UNSAVED edits', fg: color.warn },
   [MASK_STATE.SAVED]: { label: 'SAVED', fg: LAYER.savedAdd },
 });
+const SOURCE_ONLY_BADGE = Object.freeze({ label: 'SOURCE prediction only — release to see the edits', fg: LAYER.source });
 
 const PIXEL_REASON = Object.freeze({
   NO_DECODER: 'Mask pixels are unavailable: this runtime has no mask decoder wired. Review status still works.',
@@ -93,9 +95,11 @@ function Canvas({ ctl, st }) {
 
   const t = st.transform;
   const layers = st.layers;
+  const edits = layers && !st.sourceOnly;
   const [nx, ny] = st.shape || [0, 0];
   const px = st.slice && st.slice.pixels;
-  const badge = st.slice && st.slice.maskState ? STATE_BADGE[st.slice.maskState] : null;
+  const state = st.slice && st.slice.maskState ? STATE_BADGE[st.slice.maskState] : null;
+  const badge = state && st.sourceOnly ? SOURCE_ONLY_BADGE : state;
   const mri = st.slice ? st.slice.mriUri : null;
   return (
     <View style={s.canvas} ref={ref} collapsable={false} onLayout={onLayout} {...responder.panHandlers}>
@@ -111,11 +115,19 @@ function Canvas({ ctl, st }) {
         <Svg width="100%" height="100%" pointerEvents="none">
           <G transform={`translate(${t.panX} ${t.panY}) scale(${t.zoom})`}>
             <Rect x={0} y={0} width={nx} height={ny} fill={mri ? 'none' : LAYER.extent} />
-            {layers && <Path d={runsToPath(layers.source)} fill={LAYER.source} opacity={0.45} />}
-            {layers && <Runs runs={layers.saved.filter((r) => r.kind === 'add')} fill={LAYER.savedAdd} opacity={0.85} />}
-            {layers && <Runs runs={layers.saved.filter((r) => r.kind === 'erase')} fill={LAYER.savedErase} opacity={0.9} />}
-            {layers && <Runs runs={layers.unsaved.filter((r) => r.kind === 'add')} fill={LAYER.unsavedAdd} opacity={0.9} />}
-            {layers && <Runs runs={layers.unsaved.filter((r) => r.kind === 'erase')} fill={LAYER.unsavedErase} opacity={0.85} />}
+            {layers && st.sourceOnly && (
+              <Path d={runsToPath(layers.source)} fill={LAYER.source} opacity={0.5} testID="source-fill" />
+            )}
+            {/* The source's edge, 2 screen pixels wide at any zoom, under the edits: the edits are see-through,
+                so the line still shows where an edit crosses it. */}
+            {layers && (
+              <Path d={layers.sourceOutline} fill="none" stroke={LAYER.source} strokeWidth={2 / t.zoom}
+                strokeLinecap="square" testID="source-outline" />
+            )}
+            {edits && <Runs runs={layers.saved.filter((r) => r.kind === 'add')} fill={LAYER.savedAdd} opacity={0.75} />}
+            {edits && <Runs runs={layers.saved.filter((r) => r.kind === 'erase')} fill={LAYER.savedErase} opacity={0.85} />}
+            {edits && <Runs runs={layers.unsaved.filter((r) => r.kind === 'add')} fill={LAYER.unsavedAdd} opacity={0.75} />}
+            {edits && <Runs runs={layers.unsaved.filter((r) => r.kind === 'erase')} fill={LAYER.unsavedErase} opacity={0.75} />}
           </G>
         </Svg>
       )}
@@ -171,19 +183,37 @@ function SliceReader({ ctl, client, want }) {
 }
 
 function Legend() {
-  const item = (fill, label) => (
+  const item = (fill, label, line = false) => (
     <View style={s.legendItem} key={label}>
-      <View style={[s.swatch, { backgroundColor: fill }]} />
+      <View style={[s.swatch, line ? { borderColor: fill, borderWidth: 2 } : { backgroundColor: fill }]} />
       <Text style={s.legendT}>{label}</Text>
     </View>
   );
   return (
     <View style={s.legend}>
-      {item(LAYER.source, 'source')}
+      {item(LAYER.source, 'source (edge)', true)}
       {item(LAYER.savedAdd, 'saved correction')}
       {item(LAYER.unsavedAdd, 'unsaved add')}
       {item(LAYER.unsavedErase, 'unsaved erase')}
     </View>
+  );
+}
+
+// Press and hold to see the source prediction alone; releasing brings the edits back.
+function HoldSource({ ctl, on, disabled }) {
+  return (
+    <TouchableOpacity
+      style={[s.btn, on && s.btnActive, disabled && s.btnOff]}
+      onPressIn={() => ctl.holdSource(true)}
+      onPressOut={() => ctl.holdSource(false)}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel="Hold to show only the source prediction"
+      accessibilityState={{ disabled: Boolean(disabled), selected: Boolean(on) }}
+      testID="hold-source"
+    >
+      <Text style={[s.btnT, on && s.btnTActive]}>Hold: source</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -319,6 +349,7 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
           <Btn label="Pan" active={st.mode === MODE.PAN} onPress={() => ctl.setMode(MODE.PAN)} />
           <Btn label="Add" active={b.tool === TOOL.ADD} disabled={!editable} onPress={() => ctl.setTool(TOOL.ADD)} />
           <Btn label="Erase" active={b.tool === TOOL.ERASE} disabled={!editable} onPress={() => ctl.setTool(TOOL.ERASE)} />
+          <HoldSource ctl={ctl} on={st.sourceOnly} disabled={!st.layers} />
         </View>
         <View style={s.row}>
           <Text style={s.label}>size</Text>

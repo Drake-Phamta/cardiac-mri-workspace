@@ -1190,6 +1190,19 @@ function reviewBackend({ seedVersion = false } = {}) {
   await stroke(r, [500, 300]);
   check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && r.root.findAll((n) => n.type === 'Rect').length > rectsBefore,
     'a one-finger stroke paints (radius 2 by default) and the slice reads UNSAVED');
+
+  // Hold Source (V4 item 1): the source prediction alone, filled; the edits come back on release.
+  const rects = () => r.root.findAll((n) => n.type === 'Rect').length;
+  const withEdits = rects();
+  check('V4s', byId(r, 'source-outline')[0] && /^M\d+ \d+h\d+/.test(byId(r, 'source-outline')[0].props.d) && !byId(r, 'source-fill')[0],
+    'the source is drawn as its edge (a path of pixel sides), not filled, while the edits show');
+  await act(async () => { byId(r, 'hold-source')[0].props.onPressIn(); });
+  check('V4s', byId(r, 'source-fill')[0] && rects() < withEdits
+    && textOf(byId(r, 'mask-state')[0]) === 'SOURCE prediction only — release to see the edits',
+  'held: the source prediction filled, no edit drawn, and the badge says what is shown');
+  await act(async () => { byId(r, 'hold-source')[0].props.onPressOut(); });
+  check('V4s', !byId(r, 'source-fill')[0] && rects() === withEdits && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
+    'released: the edits and the UNSAVED state are back');
   await pressExact(r, '‹ Back');
   await tick(60);
   const guard1 = alertNow('Unsaved edits');

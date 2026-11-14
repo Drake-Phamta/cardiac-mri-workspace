@@ -6,6 +6,7 @@ import { maskRuns } from '../../lib/mask.mjs';
 import { STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
 import { createReviewCorrection } from './review.mjs';
+import { outlinePath } from './outline.mjs';
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import {
   createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE, END_SECOND_FINGER, END_TERMINATED,
@@ -53,6 +54,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let slice = null;
   const pixels = new Map();   // slice -> { kind, reason?, servedMaskId? (live: always the run's artifact), checksum? }
   const runsCache = new Map(); // slice -> source mask runs
+  const outlineCache = new Map(); // slice -> the source mask's edge as an SVG path
   const mriUris = new Map();   // slice -> { uri, reason } (live), absent in fixture mode
   const inflight = new Set();  // slices whose provided answers are being turned into pixels
   let runPending = false;     // waiting for provideRun
@@ -63,6 +65,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let transform = null;
   let fit = null;
   let mode = MODE.BRUSH;
+  let sourceOnly = false;     // while the Source button is held: the source prediction alone, no edits drawn
   let busy = null;            // 'opening' | 'slice' | 'status' | 'saving' | null
   let notice = null;          // the outcome of the last action, for a banner
   let lastStroke = null;
@@ -168,6 +171,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     session = newSession();
     pixels.clear();
     runsCache.clear();
+    outlineCache.clear();
     mriUris.clear();
     inflight.clear();
     sliceWant = null;
@@ -402,6 +406,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     session = newSession();
     pixels.clear();
     runsCache.clear();
+    outlineCache.clear();
     inflight.clear();
     sliceWant = null;
     const z = slice;
@@ -435,9 +440,12 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     if (!session || !pixelsReady(z)) return null;
     const [nx, ny] = shape;
     if (!runsCache.has(z)) runsCache.set(z, maskRuns({ width: nx, height: ny, data: session.sourceSlice(z) }));
+    if (!outlineCache.has(z)) outlineCache.set(z, outlinePath(session.sourceSlice(z), nx, ny));
     const saved = session.savedSlice(z);
     return Object.freeze({
       source: runsCache.get(z),
+      // The source's edge, drawn as a line under the see-through edits, so where the prediction was stays visible.
+      sourceOutline: outlineCache.get(z),
       // The saved correction relative to the source, then the unsaved edits
       // relative to what is saved - three layers a reader can tell apart.
       saved: saved ? diffRuns(saved, session.sourceSlice(z), nx, ny) : [],
@@ -472,6 +480,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
         mriReason: mri ? mri.reason : null,
       }),
       layers: ready ? layersFor(slice) : null,
+      sourceOnly,
       transform,
       mode,
       busy,
@@ -512,6 +521,12 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     setTool: (tool) => act(() => session.setTool(tool)),
     setRadius: (r) => act(() => session.setRadius(r)),
     setMode: (m) => act(() => { if (m === MODE.BRUSH || m === MODE.PAN) mode = m; }),
+    // Press and hold Source: only the source prediction is drawn until the button is released. Nothing is
+    // painted meanwhile, and a stroke in progress is rolled back, so comparing never edits.
+    holdSource: (on) => act(() => {
+      sourceOnly = Boolean(on);
+      if (sourceOnly && gesture.active) gesture.terminate();
+    }),
     undo: () => act(() => { session.undo(); }),
     redo: () => act(() => { session.redo(); }),
     reset: () => act(() => {
@@ -539,7 +554,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     fitView() { fitView(); emit(); },
     // Touches, already in canvas coordinates.
     touch: Object.freeze({
-      grant(points) { if (editable() || mode === MODE.PAN) { gesture.grant(points); emit(); } },
+      grant(points) { if ((editable() && !sourceOnly) || mode === MODE.PAN) { gesture.grant(points); emit(); } },
       fingers(points) { gesture.fingers(points); emit(); },
       move(points) { gesture.move(points); emit(); },
       release() { gesture.release(); emit(); },
