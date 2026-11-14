@@ -2087,7 +2087,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { r.unmount(); });
 
   // Viewer chrome (routes.mjs CHROME.VIEWER), opted into by the screen component itself: the app bar floats over the
-  // screen on a scrim, the tab bar is hidden, and Back brings both back. SCR-03 is made to opt in here, so the check
+  // screen (which draws its own scrim, TopScrim), the tab bar is hidden, and Back brings both back. SCR-03 is made to opt in here, so the check
   // holds whichever screen uses it; its own setting is restored afterwards.
   const chromeBefore = CaseExplorerScreen.chrome;
   CaseExplorerScreen.chrome = 'viewer';
@@ -2108,9 +2108,9 @@ function reviewBackend({ seedVersion = false } = {}) {
     const chromeView = byTestId(r, 'viewer-chrome');
     const floats = chromeView && chromeView.props.style && chromeView.props.style.position === 'absolute';
     const headerInside = chromeView && chromeView.findAll((n) => n.props && n.props.testID === 'screen-SCR-03').length > 0;
-    check('H9', onScreen(r, 'SCR-03') && floats && headerInside && Boolean(byTestId(r, 'viewer-scrim')) && tabBar(r).length === 0
+    check('H9', onScreen(r, 'SCR-03') && floats && headerInside && tabBar(r).length === 0
       && Boolean(byTestId(r, 'header-back')) && !byTestId(r, 'header-status'),
-    'viewer chrome: the app bar (Back, title, Info) floats over the screen on a scrim; no tab bar; no Live word while live');
+    'viewer chrome: the app bar (Back, title, Info) floats over the screen; no tab bar; no Live word while live');
     await pressBack(r);
     await tick(150);
     check('H9', onScreen(r, 'SCR-02') && tabBar(r).length === 4 && selectedTab(r) === 'Cases' && !byTestId(r, 'viewer-chrome'),

@@ -5,15 +5,15 @@
  * screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in an error
  * boundary, so a crash blocks only that screen with FATAL_INVALID. The session cover (SessionCover.js) wraps
  * everything.
- * A screen that opts in to CHROME.VIEWER (routes.mjs) gets the whole height: the app bar floats over it on a dark
- * scrim and the tab bar is hidden while it is on top. What a screen reports with nav.setContext (header.mjs) fills
- * the header: title and subtitle, a subtitle button, icon actions, a "more" button and Details sections.
+ * A screen that opts in to CHROME.VIEWER (routes.mjs) gets the whole height: the app bar floats over it and the tab bar
+ * is hidden while it is on top. The screen draws the dark scrim under the bar itself (TopScrim in Floating.js), so its
+ * own annotations can sit above the scrim. What a screen reports with nav.setContext (header.mjs) fills the header:
+ * title and subtitle, a subtitle button, icon actions, a "more" button and Details sections.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { fatalInvalid, RECOVERY } from '../api/states.mjs';
 import { describeConfig, MODE } from '../config.mjs';
 import AppHeader from '../components/AppHeader';
@@ -210,7 +210,6 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
 
         {viewer ? (
           <View style={s.floatTop} pointerEvents="box-none" testID="viewer-chrome">
-            <TopScrim />
             {header}
           </View>
         ) : null}
@@ -240,27 +239,6 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
         )}
       </View>
     </SessionGate>
-  );
-}
-
-/*
- * The viewer's top scrim: black fading to clear, so the floating bar reads over bright tissue. The mockup's fade
- * is 152 dp from the top of the phone (92 % -> 72 % at 45 % -> 0); the status bar takes the first 28 dp of it, so
- * the app draws the remaining 124 dp, starting where that fade has reached 84 %.
- */
-const SCRIM_HEIGHT = 124;
-function TopScrim() {
-  return (
-    <Svg style={s.scrim} width="100%" height={SCRIM_HEIGHT} pointerEvents="none" testID="viewer-scrim">
-      <Defs>
-        <LinearGradient id="viewerScrim" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#000000" stopOpacity="0.84" />
-          <Stop offset="0.32" stopColor="#000000" stopOpacity="0.72" />
-          <Stop offset="1" stopColor="#000000" stopOpacity="0" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height={SCRIM_HEIGHT} fill="url(#viewerScrim)" />
-    </Svg>
   );
 }
 
@@ -309,7 +287,6 @@ const s = StyleSheet.create({
   body: { flex: 1 },
   bodyViewer: { backgroundColor: color.viewer },
   floatTop: { position: 'absolute', left: 0, right: 0, top: 0 },
-  scrim: { position: 'absolute', left: 0, right: 0, top: 0 },
   crash: { flex: 1, justifyContent: 'center', paddingHorizontal: space.l },
   toast: {
     position: 'absolute', left: space.l, right: space.l, bottom: size.tabBar + HAIRLINE + space.l,

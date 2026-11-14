@@ -8,7 +8,7 @@ Kích thước: `space.xs..xxl` (4–32), `radius.xs..l` (4–10), `size.*` (chi
 |---|---|---|
 | Biểu tượng | `icons.js`: `IconBack`, `IconInfo`, `IconPlay`, `IconMore`, … | `size`, `color`, `strokeWidth`; nút bọc ngoài mang `accessibilityLabel` |
 | Thanh đầu trang | `AppHeader.js` | shell vẽ sẵn; màn hình báo case / run bằng `nav.setContext` (thêm được `title`, `subtitle`, `onSubtitlePress`, `actions`, `overflow`, `details`: xem `navigation/header.mjs`) |
-| Màn hình ảnh tràn viền | `MyScreen.chrome = CHROME.VIEWER` (`navigation/routes.mjs`) | thanh đầu nổi trên ảnh (nền mờ dần), ẩn thanh tab; nội dung tự chừa 56 dp phía trên |
+| Màn hình ảnh tràn viền | `MyScreen.chrome = CHROME.VIEWER` (`navigation/routes.mjs`) | thanh đầu nổi trên ảnh, ẩn thanh tab; màn hình tự vẽ `TopScrim` (`Floating.js`) trên ảnh, dưới chú thích của nó, và chừa 56 dp phía trên |
 | Nút một biểu tượng | `IconButton` (`Controls.js`) | vùng chạm 48 dp; `active` tô `accent` |
 | Nút chữ | `Button` (`Controls.js`) | `primary` / `secondary` / `quiet`; `block` giãn hết bề ngang |
 | Chọn 1 trong vài | `SegmentedControl` (`Controls.js`) | rãnh 32 dp màu `field`, mục chọn `accent` trên `accentSoft` |
@@ -18,7 +18,7 @@ Kích thước: `space.xs..xxl` (4–32), `radius.xs..l` (4–10), `size.*` (chi
 | Dòng danh sách | `ListRow` (`ListRow.js`) | `nav` 48 / `meter` 40 / `case` 52 dp; `bar`, `value`, `tag`, `trailing` |
 | Thanh Dice 4 dp | `MiniBar` (`ListRow.js`) | `warn` cho outlier, còn lại xám `barNeutral` |
 | Ba số lớn | `MetricStrip.js` | ô có `onPress` hiện mũi tên và mở nơi nó đếm |
-| Công cụ nổi trên ảnh | `FloatingToolbar`, `ToolButton`, `BottomPanel` (`Floating.js`) | tự đặt vị trí bằng `style` |
+| Công cụ nổi trên ảnh | `FloatingToolbar`, `ToolButton`, `BottomPanel`, `TopScrim` (`Floating.js`) | tự đặt vị trí bằng `style` |
 | Bảng chi tiết | `DetailsSheet`, `Sheet`, `DetailLine` (`DetailsSheet.js`) | mã, checksum, phiên bản; tự ẩn khi màn hình bị che |
 | Trạng thái màn hình | `StateView`, `StatePanel` (`StateView.js`) | chữ và nút lấy từ `stateCopy.mjs` |
 | Mã định danh gập lại | `Provenance` + `IdLine` | dòng 48 dp giữa hai đường kẻ |

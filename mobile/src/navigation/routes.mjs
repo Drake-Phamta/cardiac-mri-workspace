@@ -5,9 +5,10 @@
 
 /*
  * How the shell frames a screen. DEFAULT: the app bar above the screen and the tab bar below it. VIEWER: the app
- * bar floats over the screen on a dark scrim and the tab bar is hidden, so a full-bleed image gets the whole
- * height. A screen opts in itself (`MyScreen.chrome = CHROME.VIEWER`); it then keeps its own content clear of the
- * top size.appBar (56 dp). Every other screen keeps DEFAULT.
+ * bar floats over the screen and the tab bar is hidden, so a full-bleed image gets the whole height. A screen opts
+ * in itself (`MyScreen.chrome = CHROME.VIEWER`); it then draws TopScrim (components/Floating.js) over its image so
+ * the bar reads on bright tissue, and keeps its own content clear of the top size.appBar (56 dp). Every other screen
+ * keeps DEFAULT.
  */
 export const CHROME = Object.freeze({ DEFAULT: 'default', VIEWER: 'viewer' });
 
