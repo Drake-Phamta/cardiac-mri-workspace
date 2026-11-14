@@ -1,72 +1,18 @@
-/*
- * V4 brush model — the working mask behind SCR-06 Review / Correction.
- *
- * Framework-neutral like the rest of app/: no React, no React Native, no node
- * builtin. A screen feeds it touch samples and draws what it returns; nothing
- * here knows how a pixel reaches the display.
- *
- * PROVENANCE — the stroke, footprint and history functions are a COPY, not an
- * import (app/README.md rule 2: no import from spikes/**).
- *   source : spikes/spike_a_2d/app/brushMath.js
- *   commit : e41e78b "SPIKE_A S5: pure brush logic in brushMath.js, checked offline as F5"
- *   blob   : abb3ec28abdca146cc88d8e396bdc1f82fa22609
- *   copied : 2026-10-01 (Day 22), character-for-character: RADII, the three
- *            END_* constants, footprint, linePixels, beginStroke, strokeSample,
- *            rollbackStroke, createHistory, commitStroke, endStroke, undo,
- *            redo, diffRuns. The one changed line is the import: screenToSource
- *            now comes from app/core, itself a checked copy of the same spike
- *            function (app/core/tests/test_view_math.mjs V0).
- *
- * Why a copy and not a rewrite: these exact functions are what Spike A measured
- * on the A17 — A3/A4 8/8 strokes against an independent Python oracle, A5 60/60
- * at r = 0 and r = 2 after zoom/pan, the A6/A7 undo and redo walks, A10 worst
- * stroke feedback 30.48 ms with 0 committed samples lost, A11 12/12
- * second-finger interruptions rolled back. A rewrite would throw that evidence
- * away. test_brush.mjs B0 keeps the copy honest and B1 replays the spike's own
- * oracle against it.
- *
- * NOT copied: runA5 and runOpsScript (the spike's measurement hooks);
- * copySlices, resetWorking and volumeSha256, which assume the whole volume is
- * in memory — SCR-06 loads slices one at a time, so the session below does the
- * same work over the slices it holds; persist.js's run-length file format —
- * contract v1.0 fixes the upload encoding instead (maskPayload.mjs).
- *
- * What V4 adds (createBrushSession):
- *   - a declared source identity, refused when it is ground truth (`10` §5);
- *   - a private copy of every source slice with its SHA-256 taken at load, so
- *     "the source mask was never written" is a check, not a belief (TC-REV-006);
- *   - a per-slice mask state SOURCE / UNSAVED / SAVED, because SCR-06 must tell
- *     the three apart at a glance (`10` §3, DEMO_STANDARD §4);
- *   - reset (back to the declared source, FR-REV-007) and cancel (back to the
- *     last save, `10` §5) as two different operations;
- *   - sample accounting, received = applied + outside and lost = 0, which is
- *     the logic half of TC-PERF-003 (the ≤ 100 ms half is a device measurement);
- *   - the save export: one contract v1.0 mask_payload per slice
- *     ({ encoding: 'BITPACK_BASE64', data }), with the slice's SHA-256 kept
- *     beside it, not inside it.
- */
+// Brush model behind SCR-06: the working mask a reviewer edits, one slice at a time, at source resolution.
+// It keeps a private, hashed copy of each source slice (never written), the undo/redo history, the
+// SOURCE / UNSAVED / SAVED state of each slice and the upload payload. Plain JS that Node tests import.
 
 import { CoreError } from '../../api/contract.mjs';
 import { screenToSource } from '../../lib/viewMath.mjs';
 import { sha256Hex, base64ToBytes, bytesToBase64 } from '../../lib/bytes.mjs';
 
-// ---------------------------------------------------------------------------
-// Copied from spikes/spike_a_2d/app/brushMath.js (see the header).
-//
-// Contract (spike fixtures/brush_ops.json `contract`):
-//   centre pixel  screenToSource - floor, null outside the image, and null paints nothing
-//   footprint     {(x, y) : (x-cx)^2 + (y-cy)^2 <= r^2, inside the image}, in SOURCE
-//                 pixels, so zoom and pan cannot change what a stamp covers
-//   stroke        consecutive in-image samples joined by an integer Bresenham line
-//                 between their centre pixels, both ends included, footprint stamped
-//                 at every line pixel; a sample outside the image ends the segment
-//   values        add writes 1, erase writes 0, on one slice of the WORKING mask;
-//                 nothing in this file writes the source mask
-//   history       one committed stroke = one undo step (slice, changed flat indices,
-//                 old values, new values - changed pixels only); a new stroke clears
-//                 redo; reset restores every slice from the source and clears history
-//   flat index    y * nx + x (row-major; DR-008a x = column, y = row)
-// ---------------------------------------------------------------------------
+// Stroke and history functions, copied unchanged from the 2D viewer prototype, where they ran on the phone.
+//   footprint  the disc (x-cx)^2 + (y-cy)^2 <= r^2 in source pixels, so zoom and pan cannot change a stamp
+//   stroke     consecutive in-image samples joined by a Bresenham line, the footprint stamped at every
+//              line pixel; a sample outside the image paints nothing and ends the segment
+//   values     add writes 1, erase writes 0, on the working mask only
+//   history    one committed stroke = one undo step (changed pixels only); a new stroke clears redo
+//   index      y * nx + x (row-major; x = column, y = row)
 
 export const RADII = [0, 1, 2, 3, 5];
 
@@ -90,7 +36,6 @@ export function footprint(cx, cy, r, nx, ny) {
 }
 
 // All-octant integer Bresenham, both endpoints included, as flat [x, y, x, y, ...].
-// generate.py states the same line as a rounding rule instead of this loop.
 export function linePixels(x0, y0, x1, y1) {
   const out = [];
   const dx = Math.abs(x1 - x0);
@@ -119,12 +64,8 @@ export function beginStroke(slice, tool, radius) {
   };
 }
 
-/*
- * THE entry point for one touch sample. The live PanResponder handler, the
- * "kiểm A5" check and the scripted A3–A7 run all come through here, so the
- * offline test exercises the path a finger does. `buf` is the stroke's slice of
- * the working mask; `t` is the display transform {zoom, panX, panY}.
- */
+// The one entry point for a touch sample, so the tests exercise the same path a finger does.
+// `buf` is the stroke's slice of the working mask; `t` is the display transform {zoom, panX, panY}.
 export function strokeSample(stroke, buf, u, v, t, nx, ny) {
   stroke.received += 1;
   const c = screenToSource(u, v, t, nx, ny);
@@ -176,13 +117,8 @@ export function commitStroke(history, stroke) {
   return entry;
 }
 
-/*
- * Finish a stroke. END_RELEASE commits it as one undo step. END_SECOND_FINGER
- * (a second finger landed: the gesture is navigation) and END_TERMINATED (the
- * system took the gesture away) restore the working mask exactly and leave
- * history untouched. `changed` is how many pixels the stroke had changed when it
- * ended - restored again when committed is false.
- */
+// END_RELEASE commits the stroke as one undo step. END_SECOND_FINGER (the gesture became navigation) and
+// END_TERMINATED (the system took the gesture) restore the working mask exactly and leave history alone.
 export function endStroke(history, stroke, buf, end) {
   if (end === END_RELEASE) {
     const entry = commitStroke(history, stroke);
@@ -210,11 +146,8 @@ export function redo(history, working) {
   return e;
 }
 
-/*
- * Rendering: where one working slice differs from its source, as row runs.
- * Consecutive pixels of the same kind in a row are one run, so the overlay
- * draws a handful of rectangles instead of a View per pixel.
- */
+// Where a working slice differs from its source, as row runs, so the overlay draws a few rectangles
+// instead of one per pixel.
 export function diffRuns(work, src, nx, ny) {
   const runs = [];
   for (let y = 0; y < ny; y++) {
@@ -232,52 +165,35 @@ export function diffRuns(work, src, nx, ny) {
   return runs;
 }
 
-// ---------------------------------------------------------------------------
-// V4's own code from here down.
-// ---------------------------------------------------------------------------
+// The edit session the screen uses, built on the functions above.
 
 export const TOOL = Object.freeze({ ADD: 'add', ERASE: 'erase' });
 
-// The copied RADII line stays byte-identical to the spike (B0); freezing it
-// here means no caller can widen the measured range (FR-REV-004).
+// Frozen here, so no caller can widen the brush sizes.
 Object.freeze(RADII);
 
-/*
- * What a review's SOURCE may be: contract 1.1.0 domain_enums
- * .review_source_mask_kind (QA-063 N-4) - a raw or a processed prediction.
- * GROUND_TRUTH is absent on purpose — `10` §5: "Ground truth is never a
- * default editable source and must not be copied into a reviewed mask as if it
- * were a user correction", and working_mask_put: "Ground truth cannot be used
- * as an implicit source prediction". REVIEWED is absent too: an earlier
- * reviewed version is never a review's source, it is the BASE a continued
- * review starts from (createBrushSession `base`). test_review_correction V4-0
- * holds these to the contract.
- */
+// What a review's source may be: a raw or a processed prediction. Ground truth is left out because it is
+// never an editable source (spec 10 §5). An earlier reviewed version is not a source either; it is the
+// base a continued review starts from.
 export const SOURCE_KIND = Object.freeze({
   RAW_PREDICTION: 'RAW_PREDICTION',
   PROCESSED_PREDICTION: 'PROCESSED_PREDICTION',
 });
 
-// The prediction variant a review is scoped to (`11` §6, DR-009), as its kind.
+// The source kind of each prediction variant.
 export const SOURCE_KIND_FOR_VARIANT = Object.freeze({
   RAW: SOURCE_KIND.RAW_PREDICTION,
   PROCESSED: SOURCE_KIND.PROCESSED_PREDICTION,
 });
 
-/*
- * The three things SCR-06 must keep apart (`10` §3 "user must be able to
- * distinguish raw prediction from unsaved/saved reviewed mask"):
- *   SOURCE   the slice still equals the declared source and nothing was saved
- *   UNSAVED  it differs from what is saved (or from the source, before a save)
- *   SAVED    it equals what the last successful save committed
- */
+// The three slice states the screen must tell apart:
+//   SOURCE   the slice still equals the source and nothing was saved
+//   UNSAVED  it differs from what is saved (or from the source, before a save)
+//   SAVED    it equals what the last successful save committed
 export const MASK_STATE = Object.freeze({ SOURCE: 'SOURCE', UNSAVED: 'UNSAVED', SAVED: 'SAVED' });
 
-/*
- * One slice ready to upload: the contract's mask_payload ({ encoding, data },
- * field_shapes.mask_payload - exactly those two keys) plus what the client
- * keeps beside it: which slice, and the SHA-256 of the 0/1 bytes it encodes.
- */
+// One slice ready to upload: the contract's mask_payload ({ encoding, data }, exactly those two keys),
+// with the slice index and the SHA-256 of its 0/1 bytes kept beside it.
 export function exportEntry(sliceIndex, buf, nx, ny) {
   return Object.freeze({
     sliceIndex,
@@ -294,22 +210,12 @@ function sameBytes(a, b) {
 
 const ENDS = [END_RELEASE, END_SECOND_FINGER, END_TERMINATED];
 
-/*
- * One edit session over one declared source mask.
- *
- *   nx, ny   the SOURCE resolution; every buffer here is nx * ny bytes, row-major
- *   source   { maskId, kind, checksum? } — what is being corrected, shown before
- *            save and sent as source_mask_id. kind is a SOURCE_KIND.
- *   base     null for a first review. For a review that is already CORRECTED
- *            (QA-063 N-4): { reviewedMaskId } - the latest committed version the
- *            working slices start from. The source stays the original
- *            prediction, and reset still goes back to it (FR-REV-007).
- *
- * Slices arrive one at a time through loadSlice(z, bytes): the session keeps
- * its own copy of the bytes (the caller's buffer is never written either) and
- * a working copy that strokes write into. Everything is at source resolution;
- * the display transform only ever reaches the brush through screenToSource.
- */
+// One edit session over one source mask.
+//   nx, ny   the source resolution; every buffer is nx * ny bytes, row-major
+//   source   { maskId, kind, ... }: what is being corrected, sent as source_mask_id; kind is a SOURCE_KIND
+//   base     null for a first review; for a CORRECTED review, { reviewedMaskId } of the latest version the
+//            working slices start from. Reset still goes back to the source.
+// Slices arrive one at a time through loadSlice(z, bytes); the caller's buffer is copied, never written.
 export function createBrushSession({ nx, ny, source, base = null } = {}) {
   if (!(Number.isInteger(nx) && nx > 0 && Number.isInteger(ny) && ny > 0)) {
     throw new CoreError('BRUSH_SHAPE_INVALID', { nx, ny });
@@ -322,19 +228,17 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
   }
   const identity = Object.freeze({
     maskId: source.maskId, kind: source.kind, variant: source.variant ?? null, checksum: source.checksum ?? null,
-    // Fixture mode has no pixels; a screen that edits a stand-in says so here,
-    // and must show it (see mobile/src/verticals/v4).
+    // True for the fixture-mode stand-in; the screen must label it.
     synthetic: source.synthetic === true,
   });
   if (base !== null && !(base && typeof base.reviewedMaskId === 'string' && base.reviewedMaskId !== '')) {
     throw new CoreError('BASE_IDENTITY_MISSING', {});
   }
-  // The version this session's pixels continue from; moves to the new version
-  // after every successful save.
+  // The version the pixels continue from; it moves to the new version after each successful save.
   let baseId = base ? base.reviewedMaskId : null;
   const length = nx * ny;
 
-  // All sparse arrays indexed by slice: SCR-06 holds the slices it has opened.
+  // Sparse arrays indexed by slice: only the slices the screen has opened.
   const src = [];       // private source copies — written once, at load, never again
   const srcSha = [];    // SHA-256 of each source copy, taken at load
   const working = [];   // what strokes write into
@@ -365,15 +269,10 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     }
   };
 
-  /*
-   * `bytes` are the SOURCE prediction's slice. `slice.base` is the same slice
-   * of the latest committed version, for a session that continues a CORRECTED
-   * review: it becomes the working copy AND the saved copy (so the slice reads
-   * SAVED, cancel returns to it, and the saved layer shows the earlier
-   * correction), while reset still returns to the source. A session built
-   * with a base refuses a slice without one - editing a corrected review from
-   * the source pixels would drop the earlier correction from the next version.
-   */
+  // `bytes` is the source prediction's slice. When continuing a CORRECTED review, `slice.base` is the same
+  // slice of the latest version: it becomes the working and the saved copy, while reset still returns to
+  // the source. A session with a base refuses a slice without one, or the next version would lose the
+  // earlier correction.
   function loadSlice(z, bytes, slice = {}) {
     if (!(Number.isInteger(z) && z >= 0)) throw new CoreError('SLICE_INDEX_INVALID', { sliceIndex: z });
     checkBinary(z, bytes, 'SOURCE_NOT_BINARY');
@@ -400,7 +299,6 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     tool = next;
   }
 
-  // FR-REV-004 "adjustable within a bounded useful range": the measured radii.
   function setRadius(r) {
     if (!RADII.includes(r)) throw new CoreError('BRUSH_RADIUS_OUT_OF_RANGE', { radius: r, allowed: RADII });
     radius = r;
@@ -418,14 +316,13 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     return Object.freeze({
       slice: s.slice, tool: s.tool, radius: s.radius, end, committed: r.committed, changed: r.changed,
       received: s.received, applied: s.applied, outside: s.outside,
-      // Every sample is either painted or counted as outside the image. A
-      // non-zero `lost` would mean a sample was dropped (TC-PERF-003).
+      // Every sample is painted or counted as outside the image; a non-zero `lost` means one was dropped.
       lost: s.received - s.applied - s.outside,
     });
   }
 
-  // Undo, redo, reset, cancel and save all end a live stroke first, and never
-  // by committing it: only a clean lift commits (the A11 rule).
+  // Undo, redo, reset, cancel and save end a live stroke first, never by committing it:
+  // only a clean lift commits.
   const settle = () => (active ? finish(END_TERMINATED) : null);
 
   function begin(z) {
@@ -460,25 +357,15 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
 
   const unsavedSlices = () => loaded().filter((z) => maskState(z) === MASK_STATE.UNSAVED);
 
-  /*
-   * What a save must upload: every slice that differs from what is already
-   * committed (the last save, else the base of a continued review, else the
-   * source), plus every slice the server was sent since the last commit. The
-   * server's working copy of a slice is whatever was last PUT; if the user has
-   * since undone that edit (after a failed save, say), skipping the slice
-   * would let the stale edit ride into the commit. A commit consumes the
-   * server's working copies (markSaved forgets them), so a save right after a
-   * save has nothing to send - NOTHING_TO_SAVE (QA-063 N-3).
-   */
+  // A save uploads every slice that differs from what is committed (last save, else the base, else the
+  // source), plus every slice PUT since the last commit: the server keeps the last PUT, so an edit undone
+  // after a failed save must be sent again. A commit consumes those copies, so a save right after a save
+  // has nothing to send.
   const committed = (z) => saved[z] ?? src[z];
   const slicesToUpload = () => loaded().filter((z) => uploaded.has(z) || !sameBytes(working[z], committed(z)));
 
-  /*
-   * Freeze what this save is about to send. The snapshot is taken now, not
-   * when the commit returns: the UI keeps accepting strokes while the save is
-   * in flight, and SAVED must mean "what was committed", not "what is on
-   * screen when the response arrives".
-   */
+  // Freeze what this save sends now, not when the commit returns: strokes are still accepted while the
+  // save is in flight, and SAVED must mean what was committed.
   function prepareSave() {
     settle();
     const snapshot = new Map(loaded().map((z) => [z, Uint8Array.from(working[z])]));
@@ -493,15 +380,14 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
 
   function markSaved(prepared, commit = {}) {
     for (const [z, bytes] of prepared.snapshot) saved[z] = bytes;
-    // The commit consumed the server's working copies (N-3) and is now the
-    // version the next edit continues from (N-4).
+    // The commit consumed the server's working copies and is now the version the next edit continues from.
     uploaded.clear();
     if (typeof commit.reviewedMaskId === 'string' && commit.reviewedMaskId !== '') baseId = commit.reviewedMaskId;
     lastSave = Object.freeze({ ...commit, slices: Object.freeze(prepared.entries.map((e) => e.sliceIndex)) });
     return lastSave;
   }
 
-  // Re-hash every source copy against the hash taken at load (TC-REV-006).
+  // Checks the source was never written: re-hash each source copy against its hash at load.
   function sourceIntact() {
     const changed = loaded().filter((z) => sha256Hex(src[z]) !== srcSha[z]);
     return Object.freeze({ ok: changed.length === 0, slices: loaded().length, changed: Object.freeze(changed) });
@@ -552,18 +438,15 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     endStroke: end,
     undo: () => { settle(); return undo(history, working); },
     redo: () => { settle(); return redo(history, working); },
-    // FR-REV-007: every open slice back to the exact declared source; the
-    // history goes too, since its entries describe edits that no longer exist.
+    // Every open slice back to the exact source; the history goes too, since its edits no longer exist.
     reset: () => { restoreAll((z) => src[z]); return state(); },
-    // `10` §5 "Cancel discards unsaved session changes": back to the last save,
-    // or to the source when nothing has been saved yet.
+    // Back to the last save, or to the source when nothing has been saved yet.
     cancel: () => { restoreAll((z) => saved[z] ?? src[z]); return state(); },
     maskState,
     // Read-only views for drawing. Callers must not write into them.
     workingSlice: (z) => { requireLoaded(z); return working[z]; },
     sourceSlice: (z) => { requireLoaded(z); return src[z]; },
-    // What the last successful save committed for this slice, or null before
-    // any save - so a screen can draw saved and unsaved edits differently.
+    // What the last save committed for this slice, or null, so saved and unsaved edits draw differently.
     savedSlice: (z) => { requireLoaded(z); return saved[z] ?? null; },
     diffRuns: (z) => { requireLoaded(z); return diffRuns(working[z], src[z], nx, ny); },
     sourceIntact,
@@ -575,37 +458,16 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
   });
 }
 
-/*
- * The working-mask upload, exactly as contract v1.0 binary_delivery says -
- * framework-neutral, no dependency.
- *
- * working_mask_put.mask_payload is { encoding, data }, nothing else
- * (field_shapes.mask_payload). V4 sends BITPACK_BASE64: "base64 of Ny*Nx
- * bits, row-major, most significant bit first, 1 = foreground". It needs no
- * PNG encoder, so it works on the device today; PNG_BASE64 is the contract's
- * other option and is not produced here.
- *
- * The other direction - a served mask PNG (0/255) decoded to 0/1 - is the
- * app's one shared adapter, mobile/src/imaging/maskPng.js (owned by the shell),
- * not a second decoder here.
- *
- * PROVENANCE - base64ToBytes (with B64 and B64_INV) is a COPY, not an import.
- *   source : spikes/spike_a_2d/app/viewerMath.js
- *   commit : 1b362e8 "SPIKE_A S4: pinch-zoom and pan, with an on-device A2 checksum check"
- *   blob   : e4275a93ad8f1282beed27d7af7767e06af96f44
- *   copied : 2026-10-01 (Day 22), character-for-character; it decoded every
- *            fixture slice Spike A drew on the A17. test_brush.mjs B0 checks it.
- *   bytesToBase64 and the bit packing are V4's own, checked against node's
- *   Buffer (an independent implementation) in test_brush.mjs B10.
- */
+// Upload encoding for working_mask_put: mask_payload is { encoding, data }. BITPACK_BASE64 is base64 of
+// Ny*Nx bits, row-major, most significant bit first, 1 = foreground. It needs no PNG encoder on the phone;
+// PNG_BASE64 is allowed by the contract but not produced here.
 
 export const MASK_PAYLOAD_ENCODING = Object.freeze({
   BITPACK_BASE64: 'BITPACK_BASE64',
   PNG_BASE64: 'PNG_BASE64',
 });
 
-// 0/1 bytes -> bits, row-major, most significant bit first; a trailing
-// partial byte is zero-padded.
+// 0/1 bytes -> bits, most significant bit first; a trailing partial byte is zero-padded.
 export function packBits(buf) {
   const out = new Uint8Array(Math.ceil(buf.length / 8));
   for (let k = 0; k < buf.length; k++) if (buf[k]) out[k >> 3] |= 0x80 >> (k & 7);
@@ -623,7 +485,7 @@ export function encodeMaskPayload(buf, nx, ny) {
   return Object.freeze({ encoding: MASK_PAYLOAD_ENCODING.BITPACK_BASE64, data: bytesToBase64(packBits(buf)) });
 }
 
-// The inverse, for a reload check (TC-REV-005). BITPACK_BASE64 only.
+// The inverse, used to check what a reload returns. BITPACK_BASE64 only.
 export function decodeMaskPayload(payload, nx, ny) {
   if (!payload || payload.encoding !== MASK_PAYLOAD_ENCODING.BITPACK_BASE64 || typeof payload.data !== 'string') {
     throw new CoreError('MASK_PAYLOAD_UNSUPPORTED', { encoding: payload ? payload.encoding : null });

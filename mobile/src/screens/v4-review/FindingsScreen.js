@@ -1,26 +1,6 @@
-/*
- * SCR-08 — Findings (V4, owner Nguyễn Gia Đức Trung).
- *
- * Built on Day 22 under the recovery override as a working skeleton; the
- * owner completes, measures and defends it from Day 23. Everything this file
- * does besides drawing is in findingsController.mjs (node-tested in
- * mobile/test/v4_findings_screen.test.mjs).
- *
- * `10` §3: "Displays findings with evidence context and status. Opening a
- * finding navigates to the strongest available evidence location."
- *   - every finding: type, status, note, and its evidence (case · slice · run);
- *   - Open evidence -> SCR-03 at that exact case and slice (SCR-07 for an
- *     experiment-only record); a record without identifiers says so;
- *   - Review / correct -> SCR-06 for that run, case and slice (it asks for the
- *     variant - a finding records none);
- *   - New finding: only from a case/slice context (FR-FIND-001), i.e. when
- *     SCR-08 was opened from SCR-06's "New finding here" or another screen
- *     with caseId + sliceIndex.
- *
- * The list is read with the shell's useCall (DR-021 rule 2) and handed to the
- * controller; Refresh / Retry refetch it. Create and Resolve / Reopen are the
- * controller's writes.
- */
+// SCR-08 Findings: lists findings with their status and evidence (case, slice, run), opens the evidence
+// location, and creates a new finding when opened from a case slice. The logic is in findings.mjs;
+// this file reads the list with useCall, hands it to the controller and draws its state.
 
 import React, { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';

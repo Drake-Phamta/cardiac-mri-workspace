@@ -1,40 +1,6 @@
-/*
- * V4 Review / Correction state model (SCR-06).
- *
- * This is deliberately framework-neutral: a React Native screen, a WebView,
- * or a browser can render the frozen snapshot returned by this module. It
- * never writes URLs or interprets errors itself; app/core owns both rules.
- *
- * Day 22 (recovery override; built for Nguyễn Gia Đức Trung, who owns it),
- * against contract v1.0 (`review_rules`, `domain_enums`, DR-009):
- *   - the review status is exactly FR-REV-001's four states, and the
- *     transitions of `05` §6 are enforced here BEFORE anything is sent - the
- *     same way core refuses a write without expected_revision;
- *   - a review is scoped to one run, one source mask and one prediction
- *     variant (review_rules.scope_fields); open() sends all three;
- *   - revision safety is unchanged: every write carries expected_revision,
- *     and STALE_REVISION locks writing until REFRESH (never RETRY);
- *   - saveCorrection() is the SCR-06 save: upload the edited working slices,
- *     then commit them as a NEW immutable ReviewedMask version (FR-REV-008).
- *     A successful commit leaves the review CORRECTED by itself
- *     (review_rules.commit_result_state) - no PATCH follows it. The source
- *     prediction is never sent anywhere as a write (FR-REV-009).
- *
- * QA-063 N-1..N-4 (Day 22 QA of #63), closed here:
- *   N-1  review_commit's answer is checked: status CORRECTED, and the source
- *        mask id and kind are the review's own. No fallback for a missing field.
- *   N-2  review_create answers the run that was opened.
- *   N-3  a save with nothing changed since the last commit is NOTHING_TO_SAVE
- *        (the session forgets what the server held once a commit consumed it).
- *   N-4  continuing a CORRECTED review: the working base is the LATEST committed
- *        version (`latestVersion`), the review's source and the target of reset
- *        stay the original prediction, and the session's source kind must be the
- *        one this review's variant implies. A session built over another base
- *        than the latest version (`baseVersion`, null while the review has no
- *        commit) is refused (BASE_VERSION_MISMATCH): the server
- *        builds version N+1 from the latest version plus the working slices, so
- *        saving over a stale base would drop the newer corrections.
- */
+// Review state model for SCR-06: one review of one run, source mask and prediction variant. It checks
+// status changes before sending them and saves a correction as a new immutable reviewed-mask version.
+// Plain JS that Node tests import; every change to an open review carries expected_revision.
 
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, RECOVERY, loading, fatalInvalid } from '../../api/states.mjs';
@@ -47,11 +13,7 @@ export const REVIEW_STATUS = Object.freeze({
   CORRECTED: 'CORRECTED',
 });
 
-/*
- * `05` §6, transcribed. It mirrors contracts/api/contract.json
- * `domain_enums.review_status_transitions`, and test V4-0 holds the two equal.
- * CORRECTED has no way out: the spec lists none.
- */
+// Allowed status changes (spec 05 §6). A test keeps this equal to the API contract. CORRECTED is final.
 export const REVIEW_TRANSITIONS = Object.freeze({
   NOT_REVIEWED: Object.freeze(['ACCEPTED', 'FLAGGED', 'CORRECTED']),
   ACCEPTED: Object.freeze(['FLAGGED', 'CORRECTED']),
@@ -59,22 +21,17 @@ export const REVIEW_TRANSITIONS = Object.freeze({
   CORRECTED: Object.freeze([]),
 });
 
-// contract.json review_rules, mirrored (test V4-0).
+// Mirrors review_rules in the API contract.
 export const REVIEW_RULES = Object.freeze({
   initialState: REVIEW_STATUS.NOT_REVIEWED,
   commitResultState: REVIEW_STATUS.CORRECTED,
   terminalStates: Object.freeze([REVIEW_STATUS.CORRECTED]),
-  // Contract 1.1.0: the edges into CORRECTED are taken only by review_commit,
-  // atomically with a new reviewed mask; a review_patch to CORRECTED is
-  // INVALID_REVIEW_TRANSITION.
+  // Only review_commit reaches CORRECTED, together with a new reviewed mask; the server refuses a patch to it.
   correctedOnlyVia: 'review_commit',
 });
 
-/*
- * The newest committed version: highest provenance.version, else highest
- * revision, else the last row. The server builds each new version from this
- * one, so it is what a continued review starts its pixels from (QA-063 N-4).
- */
+// The newest saved version: highest provenance.version, else highest revision, else the last row.
+// The server builds each new version from this one, so a continued review starts its pixels from it.
 export function latestVersion(reviewedMasks) {
   const list = Array.isArray(reviewedMasks) ? reviewedMasks : [];
   const rank = (v) => {
@@ -95,18 +52,9 @@ function refusal(code, reason) {
   return Object.freeze({ ok: false, code, reason, confirm: false });
 }
 
-/*
- * May `from -> to` be sent as a review_patch? Pure, so a toolbar greys out a
- * button with the same rule the model enforces.
- *   - only the transitions of `05` §6 (a repeat of the current state is not
- *     one - review_rules.notes);
- *   - never to CORRECTED: that edge belongs to review_commit alone
- *     (review_rules.corrected_only_via), so CORRECTED always has a persisted
- *     reviewed mask - saving a correction is how a review gets there;
- *   - leaving ACCEPTED is allowed because the server appends every transition
- *     to an immutable history; the client still makes it a confirmed action,
- *     so `confirm` is true and patchStatus wants { confirmed: true } (`10` §9).
- */
+// May `from -> to` be sent as a review_patch? Pure, so the toolbar greys out buttons by the same rule.
+// Never to CORRECTED: only saving a correction gets there, so a CORRECTED review always has a saved mask.
+// Leaving ACCEPTED is allowed (the server keeps the history) but must be confirmed by the user.
 export function checkTransition(from, to) {
   if (!isReviewStatus(from)) return refusal('REVIEW_STATUS_UNKNOWN', `${from} is not a review state`);
   if (!isReviewStatus(to)) return refusal('REVIEW_STATUS_UNKNOWN', `${to} is not a review state`);
@@ -134,7 +82,7 @@ function snapshot(view, fields) {
     view,
     caseId: fields.caseId ?? null,
     runId: fields.runId ?? null,
-    // The review's scope (DR-009): what is being reviewed, shown before save.
+    // The review's scope: what is being reviewed, shown before save.
     sourceMaskId: fields.sourceMaskId ?? null,
     predictionVariant: fields.predictionVariant ?? null,
     // The case's geometry, echoed on every working-mask write.
@@ -147,15 +95,13 @@ function snapshot(view, fields) {
     reviewedMasks,
     lastCommit: fields.lastCommit ?? null,
     latestVersion: latestVersion(reviewedMasks),
-    // The version a CONTINUED review starts from (QA-063 N-4): the latest
-    // version when the review is CORRECTED, null on a review with no commit.
+    // The version a continued review starts from: the latest one when CORRECTED, else null.
     baseVersion: status === REVIEW_STATUS.CORRECTED ? latestVersion(reviewedMasks) : null,
     transitions: transitionsFrom(status),
-    // A write the model refused before sending: { code, reason, ... }. The
-    // view is untouched by it - nothing reached the server.
+    // A write refused before sending: { code, reason, ... }. Nothing reached the server, so the view is unchanged.
     rejection: fields.rejection ?? null,
-    // A stale correction must be refreshed, then consciously re-applied. A
-    // second submit of the same revision is forbidden last-write-wins.
+    // After a failed write (e.g. a stale revision) the user must refresh; resending the same revision
+    // would be last-write-wins.
     canWrite: view.state === STATE.SUCCESS,
   });
 }
@@ -176,17 +122,10 @@ function drift(endpointId, problems) {
   });
 }
 
-// Scenarios are per endpoint (see V1). A map names some; the rest use `fallback`.
+// Fixture scenarios are per endpoint: the map names some, the rest use `fallback`.
 const pick = (scenarios, endpointId, fallback = 'default') => (scenarios && scenarios[endpointId]) || fallback;
 
-/**
- * Create the V4 state model over a core client.
- *
- * `open` takes the case and the review's scope (run, source mask, variant).
- * It reads the case geometry, initializes/loads the review, then lists the
- * immutable reviewed-mask versions. No mutable mask is ever treated as a
- * reviewed one.
- */
+// The review state model over an API client. Only saved (immutable) versions count as reviewed masks.
 export function createReviewCorrection(client) {
   let current = snapshot(loading(), {});
 
@@ -206,18 +145,12 @@ export function createReviewCorrection(client) {
     return null;
   };
 
-  /*
-   * case_get first: working_mask_put must echo the CASE's
-   * geometry_contract_version and geometry_validation_status (GEOMETRY_
-   * NOT_VALIDATED on the real data), never an assumed VALIDATED. Then
-   * review_create with status NOT_REVIEWED (`05` §6 initial state), which
-   * returns an existing review of the same scope unchanged. The status it
-   * answers is authoritative; one outside the four states, or a review of a
-   * different scope, is contract drift and the screen must not render it.
-   */
+  // case_get first: each working_mask_put must echo the case's own geometry status, never an assumed
+  // VALIDATED. review_create returns an existing review of the same scope unchanged; an answer with an
+  // unknown status or another scope is contract drift and is not shown.
   async function open({ caseId, runId, sourceMaskId, predictionVariant, scenario = 'default', scenarios, signal = null } = {}) {
-    // The two READS of this sequence take the screen's AbortSignal (DR-021 rule 2: a screen that is gone stops its
-    // reads). review_create is a write and is not aborted: a POST that was sent is finished, and it is idempotent.
+    // Only the reads take the screen's AbortSignal. review_create is not aborted: a sent POST should
+    // finish, and it is idempotent.
     const reads = signal ? { signal } : {};
     const scope = { caseId, runId, sourceMaskId, predictionVariant };
     current = snapshot(loading(), scope);
@@ -248,9 +181,7 @@ export function createReviewCorrection(client) {
     const d = review.data;
     const problems = [];
     if (!isReviewStatus(d.status)) problems.push(`status ${d.status} is not one of ${Object.keys(REVIEW_STATUS).join('/')}`);
-    // review_rules.scope_fields: the review must answer the run, source mask
-    // and variant it was opened for - a missing field is as wrong as another
-    // value (QA-063 N-2).
+    // The review must answer the run, source mask and variant it was opened for; a missing field is wrong too.
     for (const [field, want] of [['run_id', runId], ['source_mask_id', sourceMaskId], ['prediction_variant', predictionVariant]]) {
       if (d[field] !== want) problems.push(`${field} is ${d[field]}, the review was opened for ${want}`);
     }
@@ -282,14 +213,9 @@ export function createReviewCorrection(client) {
     return open({ caseId, runId, sourceMaskId, predictionVariant, ...options });
   }
 
-  /*
-   * Change the review status. Refused locally, with nothing sent, when the
-   * transition is not in `05` §6 or needs a confirmation it did not get. On
-   * success the status becomes `to`: a 2xx from review_patch means the server
-   * applied exactly that transition. (The generated fixture's response status
-   * is a fixed placeholder, so it is not read back here.) On any failure the
-   * status and revision stay what they were.
-   */
+  // Refused locally, with nothing sent, when the transition is not allowed or lacks a needed confirmation.
+  // A 2xx means the server applied exactly `to`, so the status is not read back (the fixture answers a
+  // fixed placeholder). On failure the status and revision stay as they were.
   async function patchStatus(to, { scenario = 'default', confirmed = false } = {}) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;
@@ -308,8 +234,7 @@ export function createReviewCorrection(client) {
     });
   }
 
-  // One working slice. source_mask_id is the review's own (the contract
-  // refuses any other), and the geometry is the case's, echoed.
+  // Upload one working slice with the review's own source_mask_id and the case's geometry echoed.
   async function putWorkingMask({ sliceIndex, maskPayload, scenario = 'default' }) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;
@@ -331,13 +256,8 @@ export function createReviewCorrection(client) {
 
   const needsConfirm = (confirmed) => current.status === REVIEW_STATUS.ACCEPTED && confirmed !== true;
 
-  /*
-   * Commit = a NEW immutable ReviewedMask version, appended; never an
-   * overwrite. It leaves the review CORRECTED (commit_result_state); on a
-   * review already CORRECTED it adds a version without a transition. From
-   * ACCEPTED that is a transition away from an accepted review, so it is
-   * confirmed first, like patchStatus.
-   */
+  // Commit appends a new immutable reviewed-mask version and leaves the review CORRECTED.
+  // From ACCEPTED it moves away from an accepted review, so it must be confirmed, like patchStatus.
   async function commit({ scenario = 'default', confirmed = false } = {}) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;
@@ -350,13 +270,10 @@ export function createReviewCorrection(client) {
     });
     if (view.state !== STATE.SUCCESS) return set(view);
     const d = view.data;
-    // Contract 1.1.0: a commit answers a NEW version id and the review's
-    // status. An id already in the list would be an overwrite of an immutable
-    // version (PR-PROV-01) - nothing is appended, the session is not marked
-    // saved, and only a refresh shows what the server holds.
+    // The answer must name a new version with its checksum; an id already in the list would overwrite an
+    // immutable version. On any problem nothing is appended, the session is not marked saved, and only a
+    // refresh shows what the server holds.
     const problems = [];
-    // The new version must be identifiable and verifiable: an answer without its id
-    // or its checksum cannot be appended as an immutable version (QA_PR99_D39 NB-1).
     if (typeof d.reviewed_mask_id !== 'string' || d.reviewed_mask_id === '') {
       problems.push('the answer names no reviewed_mask_id for the new version');
     }
@@ -366,8 +283,7 @@ export function createReviewCorrection(client) {
     if (current.reviewedMasks.some((v) => v.reviewed_mask_id === d.reviewed_mask_id)) {
       problems.push(`reviewed_mask_id ${d.reviewed_mask_id} is already a version of this review`);
     }
-    // Contract 1.1.0 answers status, source_mask_id and source_mask_kind with
-    // every commit; each is checked, none has a fallback (QA-063 N-1).
+    // A commit always answers status, source_mask_id and source_mask_kind, so none has a fallback.
     const status = d.status;
     if (status !== REVIEW_RULES.commitResultState) {
       problems.push(`status ${status} is not ${REVIEW_RULES.commitResultState}, the result of a commit`);
@@ -402,20 +318,11 @@ export function createReviewCorrection(client) {
     });
   }
 
-  /*
-   * The SCR-06 save, over a brush session (brush.mjs createBrushSession).
-   * Refused before anything is sent when the session edits another source
-   * than the review's, has another slice size than the case, is a synthetic
-   * stand-in on a real backend, or would move an ACCEPTED review unconfirmed.
-   * Then:
-   *   1. freeze what is being saved (prepareSave) - edits made while the save
-   *      is in flight stay UNSAVED;
-   *   2. PUT every slice that must go, each with expected_revision;
-   *   3. commit them as a new ReviewedMask version - the review is CORRECTED;
-   *   4. only then mark the session SAVED.
-   * The first failure stops the save and is the state returned; a
-   * STALE_REVISION anywhere leaves canWrite false and REFRESH as the only way on.
-   */
+  // Save a brush session (brush.mjs). Refused before anything is sent when the session has another source,
+  // slice size or base version than the review, or is a synthetic stand-in on a real backend. The server
+  // builds the next version from the latest one, so saving over an older base would drop newer corrections.
+  // Order: freeze what is saved (edits made meanwhile stay unsaved), PUT each slice, commit, then mark the
+  // session saved. The first failure stops the save and is returned.
   async function saveCorrection(session, { scenarios, confirmed = false } = {}) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;

@@ -1,27 +1,10 @@
-/*
- * V4 — SCR-08 Findings, as a model. Framework-neutral, like index.mjs.
- *
- * A finding is an evidence-linked observation (`05` §2). SCR-08's one hard
- * rule (`10` §3) is that opening a finding takes the user back to "the
- * strongest available evidence location", so the anchor is the point of the
- * object:
- *
- *   { experimentId?, runId?, caseId, sliceIndex, region?, type, status }
- *
- * Requirements: PR-FIND-01, FR-FIND-001..004, TC-FIND-001/002. A finding only
- * REFERENCES evidence; nothing in this file writes an MRI, a prediction or a
- * metric artifact (FR-FIND-004).
- *
- * Built on Day 22 under the recovery override for Nguyễn Gia Đức Trung, who
- * owns it. Status and note changes go through finding_patch with the
- * finding's own revision as expected_revision (contract v1.0+ gives every
- * finding row one); STALE_REVISION changes nothing and offers REFRESH.
- */
+// Findings for SCR-08: the model and the screen logic. A finding is an observation anchored to evidence
+// (case, slice, optional run and region); opening it goes to the strongest evidence it holds. A finding
+// only references evidence and never writes an MRI, prediction or metric. Plain JS that Node tests import.
 
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, loading, fatalInvalid } from '../../api/states.mjs';
 
-// `05` §2 Finding.finding_type, FR-FIND-003.
 export const FINDING_TYPE = Object.freeze({
   UNDER_SEGMENTATION: 'UNDER_SEGMENTATION',
   OVER_SEGMENTATION: 'OVER_SEGMENTATION',
@@ -30,19 +13,14 @@ export const FINDING_TYPE = Object.freeze({
   OTHER: 'OTHER',
 });
 
-// `05` §2 Finding.status and `11` §9 (OPEN|RESOLVED). Mirrors contract.json
-// `domain_enums.finding_status`; test F0 holds them equal.
+// Mirrors finding_status in the API contract; a test keeps them equal.
 export const FINDING_STATUS = Object.freeze({ OPEN: 'OPEN', RESOLVED: 'RESOLVED' });
 
-/*
- * FR-FIND-002 "an optional region/spatial coordinate". In SOURCE pixels of
- * the anchored slice (DR-008a: x = column, y = row), so it means the same
- * thing at any zoom. The contract's region_reference is free-form; this shape
- * is V4's proposal until the API says otherwise.
- */
+// An optional region in source pixels of the anchored slice (x = column, y = row), so it means the same
+// at any zoom. The contract leaves region_reference free-form; this POINT / BOX shape is ours.
 export const REGION_KIND = Object.freeze({ POINT: 'POINT', BOX: 'BOX' });
 
-// Where opening a finding goes. `10` §2 navigation structure.
+// Where opening a finding goes.
 export const EVIDENCE_SCREEN = Object.freeze({
   CASE_EXPLORER: 'SCR-03',
   EXPERIMENT_COMPARISON: 'SCR-07',
@@ -71,21 +49,11 @@ function regionProblems(region, shape) {
   return [`region kind ${region.kind} is not POINT or BOX`];
 }
 
-/*
- * Build a frozen finding from loose fields and say what is wrong with it.
- *
- * `requireAnchor` is true for a finding the user is creating: it is created
- * from a case/slice context, so that context must be complete (PR-FIND-01),
- * and it needs a type. It is false for a record read back from the API, where
- * `05` lets case and slice be null (contract 1.1.0 rows carry finding_type, note
- * and revision, but an older or partial record may not). Such
- * a record is still shown - "filtering ... cannot hide evidence identifiers"
- * - it just cannot be opened at a slice. A value that IS present must always
- * be valid: an unknown type or status is rejected either way (TC-FIND-002).
- *
- * `shape` ([nx, ny, nz], from case_get) bounds the slice and the region when
- * it is known.
- */
+// Build a frozen finding from loose fields and list what is wrong with it.
+// `requireAnchor` is true when the user creates a finding: it needs a full case/slice context and a type.
+// It is false for a record read back from the API, where case and slice may be null; such a record is
+// still shown, it just cannot be opened at a slice. A value that is present must always be valid.
+// `shape` ([nx, ny, nz], from case_get) bounds the slice and the region when it is known.
 export function normalizeFinding(input = {}, { requireAnchor = true, shape = null } = {}) {
   const problems = [];
   const f = {
@@ -101,8 +69,7 @@ export function normalizeFinding(input = {}, { requireAnchor = true, shape = nul
     status: input.status ?? (requireAnchor ? FINDING_STATUS.OPEN : null),
     note: input.note ?? '',
     evidence: input.evidence ?? null,
-    // Contract v1.0: every finding row carries its revision (a new one is 1);
-    // finding_patch needs it as expected_revision.
+    // Every finding row carries a revision (a new one is 1); finding_patch sends it as expected_revision.
     revision: input.revision ?? null,
   };
   if (!(f.revision === null || (Number.isInteger(f.revision) && f.revision >= 1))) {
@@ -151,13 +118,9 @@ export function normalizeFinding(input = {}, { requireAnchor = true, shape = nul
   return Object.freeze({ ok: problems.length === 0, finding: Object.freeze(f), problems: Object.freeze(problems) });
 }
 
-/*
- * Where opening this finding goes - the strongest evidence it actually holds,
- * and never more: a region is passed on only when one was recorded, so the
- * Case Explorer cannot be asked to highlight a pixel nobody chose (`10` §6
- * makes the same rule for 3D -> 2D). Returns `available: false` with a reason
- * rather than a guess when the record holds no identifiers.
- */
+// Where opening this finding goes: the strongest evidence it holds, never more. A region is passed on
+// only when one was recorded, so the Case Explorer never highlights a pixel nobody chose. With no
+// identifiers it returns `available: false` and a reason instead of a guess.
 export function evidenceLocation(finding) {
   if (finding && isId(finding.caseId) && isIndex(finding.sliceIndex)) {
     return Object.freeze({
@@ -167,8 +130,7 @@ export function evidenceLocation(finding) {
       caseId: finding.caseId,
       sliceIndex: finding.sliceIndex,
       runId: finding.runId ?? null,
-      // The prediction variant that was on screen (contract 1.1.0), so SCR-03
-      // can show the same overlay instead of asking - or guessing.
+      // The variant that was on screen, so SCR-03 shows the same overlay instead of guessing.
       variant: finding.variant ?? null,
       experimentId: finding.experimentId ?? null,
       region: finding.region ?? null,
@@ -218,12 +180,8 @@ export function createRequestBody(finding) {
   };
 }
 
-/*
- * A findings_list row -> loose fields for normalizeFinding. Contract 1.1.0 rows
- * carry finding_id, status, evidence, finding_type, note and revision. The anchor may sit
- * inside `evidence` or beside it, under finding_create's field names, so both
- * places are read, evidence first.
- */
+// A findings_list row -> loose fields for normalizeFinding. The anchor may sit inside `evidence` or beside
+// it, under finding_create's field names, so both places are read, evidence first.
 export function fieldsFromRecord(row) {
   const ev = row && row.evidence && typeof row.evidence === 'object' ? row.evidence : {};
   const read = (name) => (ev[name] !== undefined ? ev[name] : row[name]);
@@ -262,10 +220,8 @@ function snapshot(view, fields) {
   });
 }
 
-/*
- * The SCR-08 model over a core client. `studyId` is a constructor argument:
- * every finding belongs to a study (`05` §2), and a default would be a guess.
- */
+// The findings model over an API client. `studyId` is required: every finding belongs to a study,
+// and a default would be a guess.
 export function createFindings(client, { studyId } = {}) {
   if (!isId(studyId)) throw new Error('createFindings needs the study id the findings belong to');
   let current = snapshot(loading(), {});
@@ -275,12 +231,8 @@ export function createFindings(client, { studyId } = {}) {
     return current;
   };
 
-  /*
-   * Take a findings_list answer that the CALLER fetched - a screen reads the
-   * list through the shell's useCall (DR-021 rule 2: latest wins, aborted on
-   * unmount) and hands the view here. A LOADING view keeps the items already
-   * held, but the view says LOADING, so nothing is shown as current.
-   */
+  // Take a findings_list answer the screen fetched. A LOADING view keeps the items already held, but the
+  // view says LOADING, so nothing is shown as current.
   function adopt(view) {
     if (view.state !== STATE.SUCCESS) return set(view);
     const items = (view.data.items ?? [])
@@ -293,13 +245,9 @@ export function createFindings(client, { studyId } = {}) {
     return adopt(await client.call('findings_list', {}, { scenario }));
   }
 
-  /*
-   * Create from a case/slice context. The draft is checked first and nothing
-   * is sent when it is incomplete or invalid. The stored anchor is the one the
-   * user created from - the generated fixture echoes placeholder ids, so the
-   * echo is not read back as the anchor; finding_id, status and evidence come
-   * from the server.
-   */
+  // Create from a case/slice context; nothing is sent when the draft is invalid. The anchor kept is the one
+  // the user created from (the fixture echoes placeholder ids); finding_id, status and evidence come from
+  // the server.
   async function create(draft = {}, { scenario = 'default', shape = null } = {}) {
     const checked = normalizeFinding({ ...draft, studyId, findingId: null, status: FINDING_STATUS.OPEN },
       { requireAnchor: true, shape });
@@ -333,13 +281,8 @@ export function createFindings(client, { studyId } = {}) {
 
   const reject = (code, reason) => set(current.view, { rejection: Object.freeze({ code, reason }) });
 
-  /*
-   * finding_patch: only status (OPEN | RESOLVED) and note may change; the
-   * evidence and the anchor never do (FR-FIND-004). The finding's own revision
-   * goes as expected_revision - no revision, no write (last-write-wins is
-   * forbidden). On success the entry takes the server's status, note and
-   * revision; on STALE_REVISION nothing changes and the view offers REFRESH.
-   */
+  // Only status and note may change; the evidence and anchor never do. The finding's own revision goes as
+  // expected_revision, so no revision means no write. On STALE_REVISION nothing changes and REFRESH is offered.
   async function patch(findingId, { status, note } = {}, { scenario = 'default' } = {}) {
     const index = current.items.findIndex((e) => e.finding.findingId === findingId);
     if (index === -1) return reject('FINDING_NOT_LISTED', `${findingId} is not in this list`);
@@ -382,35 +325,14 @@ export function createFindings(client, { studyId } = {}) {
   });
 }
 
-/*
- * SCR-08 Findings — everything the screen does except drawing. Pure, so
- * node --test drives it against the generated fixture bundle;
- * FindingsScreen.js renders getState().
- *
- * Built on Day 22 under the recovery override for V4's owner Nguyễn Gia Đức
- * Trung, on app/verticals/v4_review_and_findings/findings.mjs.
- *
- * The LIST is a read, so the screen fetches it with the shell's useCall
- * (DR-021 rule 2: latest wins, aborted on unmount) and hands every view to
- * provideList(); Refresh / Retry are the screen's refetch. The writes
- * (finding_create, finding_patch) are explicit actions of the model, each
- * with the finding's own revision where the contract wants one.
- *
- *   - the list: every finding with its type, status, note and evidence; a
- *     record without evidence identifiers is shown, but cannot be opened;
- *   - open: "navigates to the strongest available evidence location" (`10` §3)
- *     - SCR-03 at the exact case and slice, or SCR-07 for an experiment-only
- *     record - as the route the navigator should push;
- *   - create: only from a case/slice context (FR-FIND-001) - SCR-08 opened
- *     with caseId + sliceIndex (from SCR-06, or another screen) shows the form,
- *     prefilled with that context; the tab alone shows the list.
- */
+// Screen logic: everything SCR-08 does except drawing. FindingsScreen.js fetches the list, hands each view
+// to provideList() and renders getState(). The create form shows only when the route carries a case and
+// slice (for example from SCR-06); the tab alone shows the list.
 
 const isVariant = (v) => typeof v === 'string' && Object.prototype.hasOwnProperty.call(PREDICTION_VARIANT, v);
 
-// The create context a route carries, or null when SCR-08 was opened bare.
-// SCR-06 passes its own prediction variant; a route that names a run without
-// one leaves the variant to the form (contract 1.1.0 needs it with a run).
+// The create context a route carries, or null when SCR-08 was opened bare. A route with a run but no
+// variant leaves the variant to the form, since a finding with a run needs one.
 export function contextFrom(params = {}) {
   if (!isId(params.caseId) || !isIndex(params.sliceIndex)) return null;
   const runId = isId(params.runId) ? params.runId : null;
@@ -442,9 +364,8 @@ export function routeFor(location) {
   return null;
 }
 
-// Correcting the evidence slice needs a run (SCR-06 is scoped to one). The
-// variant goes along when the finding recorded it (contract 1.1.0); without
-// it SCR-06 asks rather than defaulting.
+// Correcting the evidence slice needs a run (SCR-06 is scoped to one). The variant goes along when the
+// finding recorded it; without it SCR-06 asks rather than defaulting.
 export function reviewRouteFor(location) {
   if (!location || !location.available || location.screen !== EVIDENCE_SCREEN.CASE_EXPLORER || !location.runId) return null;
   const p = { runId: location.runId, caseId: location.caseId, sliceIndex: location.sliceIndex };
@@ -501,7 +422,7 @@ export function createFindingsScreen({ runtime, params = {} }) {
     return getState();
   }
 
-  // OPEN <-> RESOLVED through finding_patch (expected_revision = the finding's own).
+  // OPEN <-> RESOLVED through finding_patch.
   async function setStatus(findingId, status) {
     if (busy) return getState();
     busy = 'status';

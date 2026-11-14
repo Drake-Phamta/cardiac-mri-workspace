@@ -1,31 +1,6 @@
-/*
- * SCR-06 — Review / Correction (V4, owner Nguyễn Gia Đức Trung).
- *
- * Built on Day 22 under the recovery override as a working skeleton; the
- * owner completes, measures and defends it from Day 23. Everything this file
- * does besides drawing is in reviewController.mjs (node-tested in
- * mobile/test/v4_review_screen.test.mjs); this file renders its state and
- * forwards taps and touches.
- *
- * `10` §3 SCR-06 and DEMO_STANDARD §4, and where each is on screen:
- *   source prediction mask        blue layer; its identity (variant + id) in the header
- *   current working mask          saved correction (purple) + unsaved edits (green add / red erase)
- *   source / unsaved / saved      told apart by layer colour AND a text badge (`10` §9: never colour alone)
- *   brush toolbar                 Brush|Pan, Add|Erase, size 0-5, Undo, Redo, Reset
- *   review state                  status + the transitions the model allows
- *   save / cancel                 Save asks first and names the source mask before it sends anything
- *
- * Fixture mode edits a SYNTHETIC stand-in (the bundle has no pixels) and says
- * so on the canvas. Live mode reads the run and each slice with the shell's
- * useCall (DR-021 rule 2: <RunReader> and <SliceReader> below fetch what the
- * controller wants and hand it back), gets the mask bytes through
- * runtime.content (timeout, mandatory checksum, abandoned on unmount), decodes
- * them with the shell's one PNG adapter (src/imaging/maskPng.js) and draws the
- * MRI slice under them from the verified bytes (runtime.imageStore). A review
- * that is already CORRECTED continues from its latest version (QA-063 N-4).
- * While a slice is UNSAVED, a leave guard asks before any navigation takes the
- * screen - and the brush session - away.
- */
+// SCR-06 Review / Correction: draws the source prediction mask over the MRI slice, lets the reviewer brush
+// a correction, change the review status and save a new reviewed-mask version. The logic is in
+// reviewScreen.mjs; this file only draws its state and forwards taps and touches.
 
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -40,7 +15,7 @@ import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { createReviewScreen, MASK_STATE, MODE, PHASE, PIXELS, TOOL } from './reviewScreen.mjs';
 
-// Layer colours (dark theme). Each layer also has a text label in the legend.
+// Layer colours (dark theme). Each layer also has a text label, so colour is never the only cue.
 const LAYER = Object.freeze({
   extent: '#141a22',
   source: '#58a6ff',
@@ -112,8 +87,7 @@ function Canvas({ ctl, st }) {
   const onLayout = useCallback((e) => {
     const { width, height } = e.nativeEvent.layout;
     ctl.setViewport(width, height);
-    // Page origin of the canvas, as Spike A measured it: touches arrive in
-    // page coordinates whichever child they land on.
+    // Touches arrive in page coordinates whichever child they land on, so keep the canvas origin.
     if (ref.current) ref.current.measure((x, y, w, h, px, py) => { origin.current = { x: px, y: py }; });
   }, [ctl]);
 
@@ -167,13 +141,8 @@ function Canvas({ ctl, st }) {
   );
 }
 
-/*
- * The two reads of SCR-06, through the shell's useCall (DR-021 rule 2). Neither
- * draws anything: each fetches what the controller says it wants - latest wins,
- * aborted on unmount or when no longer wanted - and hands the answer back.
- * A reader is keyed by what it fetches, so a view of another slice or another
- * ask can never be handed in under the wrong one.
- */
+// The readers draw nothing: each fetches what the controller asks for and hands the answer back.
+// They are keyed by what they fetch, so an answer can never be handed in for the wrong slice.
 function RunReader({ ctl, client, runId }) {
   const { view } = useCall(client, 'analysis_run_get', { run_id: runId });
   useEffect(() => { if (view.state !== STATE.LOADING) ctl.provideRun(view); }, [view, ctl]);
@@ -219,8 +188,7 @@ function Legend() {
 }
 
 export default function ReviewCorrectionScreen({ runtime, nav, params }) {
-  // One AbortController per screen instance: unmounting abandons a byte fetch
-  // still in flight (runtime.content honours the signal).
+  // One AbortController per screen instance: unmounting aborts a byte fetch still in flight.
   const life = useMemo(() => (typeof AbortController === 'function' ? new AbortController() : null), [runtime, params]);
   const ctl = useMemo(
     () => createReviewScreen({ runtime, params, decodeMaskPng, signal: life ? life.signal : null }),
@@ -233,9 +201,8 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
   useEffect(() => () => { if (life) life.abort(); }, [life]);
   const st = ctl.getState();
 
-  // N-2: a covered screen unmounts in this navigator, so leaving with UNSAVED
-  // slices would drop the brush session. While any slice is unsaved, every
-  // way off the screen (Back, Android back, a tab, a push) asks first.
+  // A covered screen unmounts in this navigator, so leaving would drop unsaved edits.
+  // While a slice is unsaved, every way off the screen (Back, Android back, a tab, a push) asks first.
   const guarded = typeof nav.setLeaveGuard === 'function';
   useEffect(() => {
     if (!guarded) return;
@@ -250,8 +217,7 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
 
   const onAction = useCallback((id) => {
     if (id === RECOVERY.BACK) {
-      // With the shell's guard the navigator asks; without it, never leave by
-      // ourselves while a slice is unsaved.
+      // With a leave guard the navigator asks; without one, never leave while a slice is unsaved.
       const now = ctl.getState();
       if (guarded || now.canLeave) nav.pop();
       else Alert.alert('Unsaved edits', now.leaveBlockedReason);
@@ -272,7 +238,6 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
       </View>
     );
   }
-  // The reads the controller wants, fetched with useCall (DR-021 rule 2).
   const readers = (
     <>
       {st.wants.run && <RunReader key={`run#${st.wants.run.epoch}`} ctl={ctl} client={client} runId={st.wants.run.runId} />}
