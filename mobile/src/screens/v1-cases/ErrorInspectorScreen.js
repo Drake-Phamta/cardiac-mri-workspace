@@ -179,7 +179,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
   // Play sweeps the slices with their error classes; the user's own slice actions (userGoTo, Retry) stop it.
   const player = useSlicePlayer({ total, goTo, displayed, failed: blocking });
-  const userGoTo = (n) => { player.stop(); goTo(n); };
+  const userGoTo = useCallback((n) => { player.stop(); goTo(n); }, [player.stop, goTo]);
   // As in SCR-03: while the viewer shows a state, nothing from the previous slice stays on screen.
   const showing = ok && !blocking;
   const z = ok ? displayed.sliceIndex : null;
