@@ -255,10 +255,8 @@ export default function SliceViewport({
 }
 
 const s = StyleSheet.create({
-  viewport: {
-    width: '100%', aspectRatio: 1, backgroundColor: color.viewer, borderRadius: 8, overflow: 'hidden',
-    borderWidth: 1, borderColor: color.hair,
-  },
+  // SCR-04's square: the full width of the screen, edge to edge like the viewer, no frame.
+  viewport: { width: '100%', aspectRatio: 1, backgroundColor: color.viewer, overflow: 'hidden' },
   fill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: color.viewer, overflow: 'hidden' },
   noteBox: { position: 'absolute', left: space.l, right: space.l, bottom: space.l, padding: space.s, borderRadius: 6, backgroundColor: color.glass },
   note: { ...type.caption, color: color.t2, textAlign: 'center' },

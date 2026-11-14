@@ -268,7 +268,8 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const detailsKey = JSON.stringify(detailSections);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const details = useMemo(() => detailSections, [detailsKey]);
-  const subtitle = `${caseId} · ${variantLabel(variant)} vs ground truth`;
+  // The corner says "vs ground truth"; the app bar keeps to the case and the variant, so it fits beside Live and Info.
+  const subtitle = `${caseId} · ${variantLabel(variant)}`;
   useEffect(() => {
     if (typeof nav.setContext !== 'function') return;
     nav.setContext({ subtitle, actions, details });

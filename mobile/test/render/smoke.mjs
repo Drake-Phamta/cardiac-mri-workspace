@@ -307,8 +307,8 @@ const liveRuntime = (fetchImpl) => createRuntime({
     && Object.values(STEP).filter((l) => l !== STEP.pause).every((l) => inPanel((n) => n.type === 'TouchableOpacity' && n.props.accessibilityLabel === l) === 1),
   'B3: the bottom panel holds the variant, the slider and the five transport buttons at once');
   check('A2', ['Ground truth', 'Prediction'].every((l) => byTestId(r, `layer-${l}`)) && ['Fill', 'Outline', 'Both'].every((l) => byLabel(r, l).length === 1)
-    && has(r, /^MRI$/) && has(r, /^Evaluation$/) && has(r, /^Slice Dice$/),
-  'layer chips, the draw-mode toolbar and the corner annotations over the image');
+    && has(r, /^MRI$/) && has(r, /^Evaluation$/) && has(r, /^Slice Dice$/) && Boolean(byTestId(r, 'viewer-scrim')),
+  'layer chips, the draw-mode toolbar and the corner annotations over the image; the screen draws the top scrim under them');
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
   check('L2', img() && img().props.source.uri.startsWith('data:image/png;base64,'), 'MRI drawn from fetched bytes (data URI)');
   check('L2', requests.some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')), 'the bytes came from base URL + content_url');
@@ -1131,7 +1131,7 @@ function noRunBackend() {
   await tick(300);
   await layout(r);
   await tick(250);
-  check('R2', onScreen(r, 'SCR-04') && has(r, /^CASE_0061 · Processed vs ground truth$/) && onSlice(r, 55) && !has(r, /RUN_B/),
+  check('R2', onScreen(r, 'SCR-04') && has(r, /^CASE_0061 · Processed$/) && has(r, /^Processed vs ground truth$/) && onSlice(r, 55) && !has(r, /RUN_B/),
     'SCR-04 opened on the same variant and slice; the run id is not on the screen');
   sheet = await info();
   check('R2', sheet.includes('Run RUN_B · prediction PROCESSED vs ground truth') && sheet.includes('Slice 55 / 88 · z 54'),

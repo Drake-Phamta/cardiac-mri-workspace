@@ -16,7 +16,7 @@ import {
   createSerialRunner, variantLabel,
 } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
-import { BottomPanel } from '../../components/Floating';
+import { BottomPanel, TopScrim } from '../../components/Floating';
 import { Button, Chip, SegmentedControl } from '../../components/Controls';
 import { Sheet } from '../../components/DetailsSheet';
 import { SectionLabel } from '../../components/ListRow';
@@ -606,6 +606,9 @@ function Explorer({
         />
       )}
 
+      {/* The scrim under the floating app bar: above the image, below the corner annotations. */}
+      <TopScrim />
+
       <View style={[s.corner, s.cornerLeft]} pointerEvents="none">
         <Text style={s.cornerLabel}>MRI</Text>
         <Text style={s.cornerValue}>{capability.label}</Text>
@@ -700,9 +703,10 @@ function Explorer({
         <View style={s.sheetSection}>
           <SectionLabel title="Display" />
           <View style={s.setting}>
-            <Text style={[s.settingT, style.mode === OVERLAY_MODE.FILL && s.settingOff]}>
-              Outline width{style.mode === OVERLAY_MODE.FILL ? ' (Outline or Both)' : ''}
-            </Text>
+            <View style={s.settingHead}>
+              <Text style={[s.settingT, style.mode === OVERLAY_MODE.FILL && s.settingOff]}>Outline width</Text>
+              {style.mode === OVERLAY_MODE.FILL ? <Text style={s.settingNote}>not used while Fill is chosen</Text> : null}
+            </View>
             <SegmentedControl
               label="Outline width"
               options={OUTLINE_WIDTHS.map((w) => ({ value: w, label: `${w} px` }))}
@@ -711,9 +715,10 @@ function Explorer({
             />
           </View>
           <View style={s.setting}>
-            <Text style={[s.settingT, style.mode === OVERLAY_MODE.OUTLINE && s.settingOff]}>
-              Fill opacity{style.mode === OVERLAY_MODE.OUTLINE ? ' (Fill or Both)' : ''}
-            </Text>
+            <View style={s.settingHead}>
+              <Text style={[s.settingT, style.mode === OVERLAY_MODE.OUTLINE && s.settingOff]}>Fill opacity</Text>
+              {style.mode === OVERLAY_MODE.OUTLINE ? <Text style={s.settingNote}>not used while Outline is chosen</Text> : null}
+            </View>
             <SegmentedControl
               label="Fill opacity"
               options={OPACITY_STEPS.map((o) => ({ value: o, label: `${Math.round(o * 100)} %` }))}
@@ -796,6 +801,8 @@ const s = StyleSheet.create({
   setting: { gap: space.s, paddingVertical: space.s },
   settingT: { ...type.body, color: color.t1 },
   settingOff: { color: color.t2 },
+  settingHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.s },
+  settingNote: { ...type.caption, color: color.t3 },
   sheetButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, paddingTop: space.s },
   entry: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
   entryLine: { borderBottomWidth: HAIRLINE, borderColor: color.hair },
