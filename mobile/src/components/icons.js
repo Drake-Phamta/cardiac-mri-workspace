@@ -72,6 +72,10 @@ export const IconAlert = make('IconAlert', (c) => (
   <><Circle cx={12} cy={12} r={8.75} /><Path d="M12 7.5v5.25" /><Circle cx={12} cy={16.25} r={1.15} {...solid(c)} /></>
 ));
 export const IconCheck = make('IconCheck', () => <Path d="m5.5 12.5 4.25 4.25L18.5 8" />);
+// "More" (Android's overflow menu): three dots on the same 24 dp grid, the dot size of IconInfo's.
+export const IconMore = make('IconMore', (c) => (
+  <>{[5.75, 12, 18.25].map((y) => <Circle key={y} cx={12} cy={y} r={1.6} {...solid(c)} />)}</>
+));
 
 // Tab bar: Study, Cases, Experiments, Findings.
 export const IconGrid = make('IconGrid', () => (

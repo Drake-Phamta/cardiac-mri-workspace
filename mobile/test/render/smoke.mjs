@@ -1866,6 +1866,40 @@ function reviewBackend({ seedVersion = false } = {}) {
     && backend.requests.slice(mark).some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')) && has(r, /slice 45 \/ 88/),
   `cleared ${cachedBefore} image(s); the slice on screen was fetched again (${backend.requests.length - mark} requests)`);
   await act(async () => { r.unmount(); });
+
+  // Viewer chrome (routes.mjs CHROME.VIEWER), opted into by the screen component itself: the app bar floats over the
+  // screen on a scrim, the tab bar is hidden, and Back brings both back. SCR-03 is made to opt in here, so the check
+  // holds whichever screen uses it; its own setting is restored afterwards.
+  const chromeBefore = CaseExplorerScreen.chrome;
+  CaseExplorerScreen.chrome = 'viewer';
+  try {
+    (await imp('src/lib/caseMode.mjs')).forgetSession();
+    const viewerBackend = fakeBackend();
+    const viewerRuntime = liveRuntime(viewerBackend.fetchImpl);
+    await act(async () => {
+      r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: viewerRuntime },
+        React.createElement(NavigatorView, { runtime: viewerRuntime, initialScreenId: 'SCR-02' })), nodeMock);
+    });
+    await tick(150);
+    check('H9', tabBar(r).length === 4 && !byTestId(r, 'viewer-chrome'), 'a screen that does not opt in: the app bar above it and the tab bar below');
+    await press(r, 'CASE_0061');
+    await tick(150);
+    if (has(r, /No default/)) await press(r, 'RAW');
+    await tick(300);
+    const chromeView = byTestId(r, 'viewer-chrome');
+    const floats = chromeView && chromeView.props.style && chromeView.props.style.position === 'absolute';
+    const headerInside = chromeView && chromeView.findAll((n) => n.props && n.props.testID === 'screen-SCR-03').length > 0;
+    check('H9', onScreen(r, 'SCR-03') && floats && headerInside && Boolean(byTestId(r, 'viewer-scrim')) && tabBar(r).length === 0
+      && Boolean(byTestId(r, 'header-back')) && !byTestId(r, 'header-status'),
+    'viewer chrome: the app bar (Back, title, Info) floats over the screen on a scrim; no tab bar; no Live word while live');
+    await pressBack(r);
+    await tick(150);
+    check('H9', onScreen(r, 'SCR-02') && tabBar(r).length === 4 && selectedTab(r) === 'Cases' && !byTestId(r, 'viewer-chrome'),
+      'Back: the list again, with the app bar in place and the tab bar back');
+    await act(async () => { r.unmount(); });
+  } finally {
+    CaseExplorerScreen.chrome = chromeBefore;
+  }
 }
 
 console.log = origLog;

@@ -166,7 +166,8 @@ so the `10` §8 state model looks and behaves the same on every screen.
 | `src/api/cache.mjs` | the per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode), the MRI image store and the mask store. Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 and SCR-04 call it on open only) and `clearWhere(fn)` (one slice's keys). **Retry forgets only the slice it retries**, so a Retry cannot turn cached revisits into traffic |
 | `src/lib/caseMode.mjs` | the case mode badge logic (`capabilityOf`), `PREDICTION_VARIANT`, the variant options and the variant remembered for this session |
 | `src/components/tokens.mjs` (through `theme.js`) | Direction A design tokens (Clinical viewer): `color` (`bg` / `surface` / `field` / `raised`, `hair` separators, translucent `glass` over the image, text `t1` / `t2` / `t3`, `accent`, `live`, `warn`, `danger`; the older names stay as aliases), `overlay`, `errorClass`, `family` (colour + marker), `status`, `space`, `radius`, `size`, `type` (the type scale) and `font.numeric`; `test/shell.test.mjs` measures the contrast of every pair, glass over white tissue included. Which component to use for what: `src/components/README.md` |
-| `nav.setContext({caseId, runId, variant})` | tells the header what the screen shows when the route params do not (SCR-03 picks its run itself) |
+| `nav.setContext({caseId, runId, variant})` | tells the header what the screen shows when the route params do not (SCR-03 picks its run itself); it may also report `title` / `subtitle`, `onSubtitlePress` (a run picker), icon `actions`, an `overflow` menu button and `details` sections for the Details sheet (`src/navigation/header.mjs` lists them) |
+| `CHROME.VIEWER` (`src/navigation/routes.mjs`) | a full-bleed image screen opts in with `MyScreen.chrome = CHROME.VIEWER`: the app bar floats over it on a dark scrim and the tab bar is hidden while it is on top; it keeps its own content clear of the top 56 dp. Every other screen keeps the default chrome |
 | `src/components/Provenance.js` | a folded row, closed by default, for artifact ids and checksums (`<Provenance title=… summary=…><IdLine>…</IdLine></Provenance>`) |
 | `src/components/SessionCover.js` | covers the app after 5 min in the background or 10 min without a touch (`session.mjs`); "Clear cached images" (spec 12 §8) empties the image, mask and slice caches and reloads the open screen, unless it has unsaved work |
 
@@ -265,9 +266,9 @@ Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`rea
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get the real runtime (`src/api/runtime.mjs`) — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**240** at
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**243** at
 this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
-`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`, 240 with the tab bar and Details sheet checks `H7`, `H8`). Counts of drawn marks (overlay paths, chart dots, mask rects) leave icons out: an icon's Svg has a `testID` starting with `icon-`. `test/render/smoke.mjs` is in numbered sections:
+`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`, 240 with the tab bar and Details sheet checks `H7`, `H8`, 243 with the viewer chrome `H9`). Counts of drawn marks (overlay paths, chart dots, mask rects) leave icons out: an icon's Svg has a `testID` starting with `icon-`. `test/render/smoke.mjs` is in numbered sections:
 
 | Section | What it renders |
 |---|---|
@@ -275,7 +276,7 @@ this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with 
 | 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
 | 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
 | 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
-| 12 | **Shell**: the header (name, case, run, Back, Live / Fixture), the tab bar, the Details sheet behind Info (and that it hides under the session cover), the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button) and Clear cached images — checks `H1`..`H8` |
+| 12 | **Shell**: the header (name, case, run, Back, Live / Fixture), the tab bar, the Details sheet behind Info (and that it hides under the session cover), the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button), Clear cached images, and the viewer chrome a screen can opt in to (floating app bar, no tab bar) — checks `H1`..`H9` |
 
 - **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
   `npm run test:render`, then a fixture-mode `expo export`; every other CI job runs without

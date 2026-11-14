@@ -6,8 +6,9 @@ Kích thước: `space.xs..xxl` (4–32), `radius.xs..l` (4–10), `size.*` (chi
 
 | Cần gì | Dùng | Ghi chú |
 |---|---|---|
-| Biểu tượng | `icons.js`: `IconBack`, `IconInfo`, `IconPlay`, … | `size`, `color`, `strokeWidth`; nút bọc ngoài mang `accessibilityLabel` |
-| Thanh đầu trang | `AppHeader.js` | shell vẽ sẵn; màn hình báo case / run bằng `nav.setContext` |
+| Biểu tượng | `icons.js`: `IconBack`, `IconInfo`, `IconPlay`, `IconMore`, … | `size`, `color`, `strokeWidth`; nút bọc ngoài mang `accessibilityLabel` |
+| Thanh đầu trang | `AppHeader.js` | shell vẽ sẵn; màn hình báo case / run bằng `nav.setContext` (thêm được `title`, `subtitle`, `onSubtitlePress`, `actions`, `overflow`, `details`: xem `navigation/header.mjs`) |
+| Màn hình ảnh tràn viền | `MyScreen.chrome = CHROME.VIEWER` (`navigation/routes.mjs`) | thanh đầu nổi trên ảnh (nền mờ dần), ẩn thanh tab; nội dung tự chừa 56 dp phía trên |
 | Nút một biểu tượng | `IconButton` (`Controls.js`) | vùng chạm 48 dp; `active` tô `accent` |
 | Nút chữ | `Button` (`Controls.js`) | `primary` / `secondary` / `quiet`; `block` giãn hết bề ngang |
 | Chọn 1 trong vài | `SegmentedControl` (`Controls.js`) | rãnh 32 dp màu `field`, mục chọn `accent` trên `accentSoft` |
