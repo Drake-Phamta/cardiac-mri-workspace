@@ -1916,6 +1916,72 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { r.unmount(); });
 }
 
+// ---- 13. V1 SCR-02 as a worklist: Dice chips, worst first, "no GT" (V1 item 4) ----
+// A fake live backend whose case list holds the fixture's experiment rows: CASE_0001 has no ground truth,
+// CASE_0006 failed, CASE_0007 is not in the experiment. EXP-D-PP states PROCESSED but is answered with RAW values.
+{
+  const { forgetWorklist } = await imp('src/screens/v1-cases/cases.mjs');
+  forgetWorklist();
+  const CaseListScreen = (await imp('src/screens/v1-cases/CaseListScreen.js')).default;
+  const gen = (id, name = 'default') => JSON.parse(JSON.stringify(bundleJson.scenarios[id][name].response.data));
+  const json = (status, body) => {
+    const text = JSON.stringify(body);
+    return {
+      status,
+      headers: { get: (k) => ({ 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(text)) })[k.toLowerCase()] ?? null },
+      text: async () => text,
+      json: async () => body,
+    };
+  };
+  const ids = ['CASE_0001', 'CASE_0002', 'CASE_0003', 'CASE_0004', 'CASE_0005', 'CASE_0006', 'CASE_0007'];
+  const requests = [];
+  const fetchImpl = async (url) => {
+    const path = url.replace('http://backend.invalid:8000', '');
+    requests.push(path);
+    if (/\/studies\/[^/]+\/cases$/.test(path)) {
+      return json(200, { ...gen('case_list'), items: ids.map((id) => ({ case_id: id, mode_capability: id === 'CASE_0001' ? 'INFERENCE_REVIEW' : 'EVALUATION', ground_truth_available: id !== 'CASE_0001' })) });
+    }
+    if (path === '/api/v1/experiments') return json(200, gen('experiment_list'));
+    if (path === '/api/v1/experiments/EXP_DEMO/cases') {
+      return json(200, { ...gen('experiment_cases', 'with_failure'), outlier_selection: gen('experiment_cases').outlier_selection });
+    }
+    if (path === '/api/v1/experiments/EXP-D-PP/cases') return json(200, gen('experiment_cases'));
+    return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'not here' } });
+  };
+  const runtime = liveRuntime(fetchImpl);
+  const pushed = [];
+  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: false };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(CaseListScreen, { runtime, nav, params: {} })), nodeMock);
+  });
+  await tick(200);
+  const rowOrder = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d+, /.test(n.props.accessibilityLabel || ''))
+    .map((n) => n.props.accessibilityLabel.split(',')[0]);
+  check('W1', has(r, /^Choose an experiment to see each case's Dice\.$/) && !has(r, /^Dice \d/) && rowOrder().join() === ids.join()
+    && !requests.some((u) => u.includes('/experiments/EXP')), 'no experiment chosen: server order, no Dice, no per-case request');
+  await press(r, 'EXP_DEMO');
+  await tick(200);
+  check('W2', has(r, /^Dice 0\.900$/) && has(r, /^Dice 0\.400$/) && has(r, /^no GT$/) && has(r, /^run failed$/) && has(r, /^not in EXP_DEMO$/)
+    && !has(r, /^Dice 0(\.0+)?$/), 'EXP_DEMO: the server\'s Dice per case; no GT, failed and not-in-experiment in words, never 0');
+  check('W2', has(r, /^outlier 1\/3$/) && has(r, /^outlier 3\/3$/) && has(r, /from the server, metric metric_version_fixture/),
+    'the server\'s own outlier pick is marked, and the note names the metric version');
+  await press(r, 'Worst first');
+  await tick(60);
+  check('W3', rowOrder().join() === 'CASE_0005,CASE_0003,CASE_0004,CASE_0002,CASE_0001,CASE_0006,CASE_0007' && has(r, /Sorted on this phone: lowest Dice first/),
+    `worst first: ${rowOrder().join(', ')} - the first three are the server's outliers 1, 2, 3; no-value rows follow in server order`);
+  await press(r, 'CASE_0005');
+  check('W3', pushed.length === 1 && JSON.stringify(pushed[0]) === JSON.stringify(['SCR-03', { caseId: 'CASE_0005', runId: 'RUN_0005', variant: 'RAW' }]),
+    `a row opens SCR-03 on the experiment's run and variant: ${JSON.stringify(pushed[0] || null)}`);
+  await press(r, 'EXP-D-PP');
+  await tick(200);
+  check('W4', has(r, /^Asked for EXP-D-PP \(PROCESSED\); the server answered with RAW values, so no Dice is shown\.$/) && !has(r, /^Dice 0\./)
+    && rowOrder().join() === ids.join(), 'EXP-D-PP answered with RAW values: no Dice shown, and nothing sorted by them');
+  await act(async () => { r.unmount(); });
+  forgetWorklist();
+}
+
 console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
