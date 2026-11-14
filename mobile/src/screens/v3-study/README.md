@@ -1,29 +1,29 @@
-# V3 — Study Overview và Experiment Comparison (SCR-01, SCR-07)
+# V3 — Study Overview và Experiment Comparison (SCR-01, SCR-07), giao diện Direction A
 
-**Cho người dùng:** SCR-01 có thẻ số case, thẻ finding (đang mở / đã xử lý), Dice trung vị từng cặp UNet–DINOv2 **chỉ
-khi server nói so sánh được** (chip "Comparable"), 3 case Dice thấp nhất mỗi thí nghiệm dạng thanh nhỏ, ma trận thí nghiệm
-và mọi phán quyết của server. SCR-07 vẽ Dice từng case (UNet tròn xanh, DINOv2 tam giác cam), hiệu số từng case của cặp so
-sánh được, xu hướng 25/50/100 % (từng case, trung vị, q1–q3; chỉ nối khi server cho phép), chú giải metric (HD95 bị khoá
-vì hình học chưa xác thực). Nút "About this data": nguồn LASC 2018, điều khoản, mã case giả danh, chỉ dùng nghiên cứu.
+**Cho người dùng:** SCR-01 theo `A_overview`: dòng dataset (ô ảnh giữ chỗ + tên), dòng "About this data", dải 3 số
+(Cases / Findings / Resolved), số case theo chế độ, các hàng "Median Dice · UNet vs DINOv2" (25 / 50 / 100 % data; **chỉ khi
+server nói so sánh được** mới có hai điểm tròn / tam giác và hai số, còn lại là "Not compared" và "—") và danh sách "Lowest Dice"
+mỗi thí nghiệm (thanh nhỏ, chạm để mở case). SCR-07 cùng ngôn ngữ: Metric / Statistic là `SegmentedControl`, ma trận ô, Dice từng
+case (UNet tròn xanh, DINOv2 tam giác cam), hiệu số cặp so sánh được, xu hướng 25/50/100 %; trạng thái "Not shown: …" là một dòng chữ.
+Không có mã kỹ thuật trên màn chính: checksum, tên capability, phiên bản metric, cohort / population nằm trong sheet "About this data".
 
-**File nào làm gì** (file `.js` vẽ, file `.mjs` quyết định và được `node --test` kiểm):
-- `StudyOverviewScreen.js`, `ExperimentComparisonScreen.js`: hai màn hình. `AboutDataSheet.js`: trang "About this data".
-- `parts.js`: khối giao diện chung (`Card`, `Tile`, `Pill`, `OutlierBar`, `MetricLegend`, `StripChart`), hook `useSnapshot`.
-- `charts.js`: `Marker` (tròn / tam giác), `FamilyLegend`, `PairedChart`, `TrendChart`.
-- `models.mjs`: mô hình trạng thái hai màn hình; `cohort.mjs`: từng ô ma trận và phép so sánh (`deltaFor`, `buildTrend`).
-- `readers.mjs`: đọc từng trường server trả về; `readComparability` / `presentation` quyết định có được so sánh.
-- `view.mjs`: chữ và link (`overviewView`, `comparisonView`), toạ độ strip, màu + hình mỗi họ (`FAMILY_STYLE`).
-- `paired.mjs`: ghép case theo ID, hiệu số DINOv2 − UNet, xếp từ thấp đến cao, trung vị; chỉ khi COMPARABLE.
-- `trend.mjs`: biểu đồ xu hướng; `tiles.mjs`: các thẻ SCR-01; `about.mjs`: "About this data" và chú giải metric.
+**Riêng tư:** hai màn chỉ nhận và vẽ **con số và mã case giả danh** (CASE_0001…CASE_0154, do dự án gán lúc nhập): không ảnh MRI,
+không tên, ngày sinh hay số hồ sơ bệnh viện. Không lưu gì xuống máy (không storage, không log nội dung); đóng app là hết.
+Dữ liệu là bộ LASC 2018 (không phải LAScarQS 2022), chỉ dùng nghiên cứu và giảng dạy, không dùng chẩn đoán. Fixture: mọi số là giả.
+
+**File nào làm gì** (`.js` vẽ, `.mjs` quyết định và được `node --test` kiểm):
+- `StudyOverviewScreen.js`, `ExperimentComparisonScreen.js`: hai màn. `DiceRows.js`: hàng Median Dice trên thang 0–1.
+- `AboutDataSheet.js`: "About this data" trên `DetailsSheet` dùng chung. `charts.js`: `Marker`, `FamilyKey`, `FamilyLegend`, biểu đồ.
+- `parts.js`: `Section`, `Note`, `InfoRow`, `LinkRow`, `CellRow`, `MetricLegend`, `StripChart`, hook `useSnapshot`.
+- Dùng từ `components/`: `ListRow`, `MetricStrip`, `SegmentedControl`, `DetailsSheet`; chạm ≥ 48 dp (`hitSlop` khi hàng thấp hơn).
+- `models.mjs`, `cohort.mjs`, `readers.mjs`: mô hình trạng thái, ô ma trận, đọc từng trường server; `readComparability` quyết định so sánh.
+- `view.mjs`, `tiles.mjs`, `about.mjs`: chữ, link, số cho SCR-01, nội dung sheet. `paired.mjs`, `trend.mjs`: hiệu số cặp và xu hướng.
 
 **Luồng dữ liệu:** `runtime.client` → `model.open()` (qua `useSnapshot`) → `study_get`, `experiment_list`, `findings_list`,
-`experiment_metrics` / `experiment_cases` mỗi ô, `experiment_compare` mỗi cặp → `readers.mjs` → snapshot đóng băng → các
-`.mjs` ra chữ và toạ độ → các `.js` vẽ. Chỉ `paired.mjs` sắp xếp (để vẽ); 3 case Dice thấp nhất giữ thứ tự của server.
+`experiment_metrics` / `experiment_cases`, `experiment_compare` → `readers.mjs` → snapshot đóng băng → `.mjs` ra chữ và toạ độ → `.js` vẽ.
+**Demo FIXTURE:** chạm Fixture → `experiment_list: full_matrix`, `experiment_compare: comparable`; test dùng `test/_v3_server.mjs`.
 
-**Demo FIXTURE:** chạm FIXTURE → `experiment_list: full_matrix`, `experiment_compare: comparable`. Fixture trả cùng một
-bộ case cho mọi thí nghiệm nên mọi hiệu số là 0; test dùng `test/_v3_server.mjs` để có số khác nhau.
-
-**Test** (chạy từ thư mục gốc repo):
+**Test** (từ thư mục gốc repo):
 ```powershell
 node --test mobile/test/v3_model.test.mjs mobile/test/v3_screens.test.mjs mobile/test/v3_upgrades.test.mjs
 cd mobile; npm run test:render
