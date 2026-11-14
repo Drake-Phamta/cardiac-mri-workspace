@@ -210,8 +210,7 @@ not replace the target-device evidence below.
    Decide which primary metric/statistic the views open on once the contract names them (no default today).
 4. **TC-EXP-\* evidence**: map V3-n checks to TC-EXP-003/004/005/006/007 and TC-REP-003 in the RTM, and add
    the real-data runs (TC-EXP-006 "outlier → case evidence" end-to-end through SCR-03).
-5. **TC-TEAM-001**: update `management/evidence/TC_TEAM_001_BE_QUOC_KHANH.md` §4–§5 with these PRs, your own
-   review of them, and the UI-vs-design comparison.
+5. **TC-TEAM-001**: be ready to explain this code, your own review of it, and the UI-vs-design comparison.
 6. Deliberately left out of the skeleton: pagination of `experiment_cases` (54 holdout rows fit one page), a
    rendered `experiment_get` provenance panel (the model reads it: `cell.identity.provenance`), and the
    stale-version state (`STALE_MISMATCH`) for a cohort refreshed under a new `metric_version`.

@@ -7,7 +7,7 @@
  *
  *   node mobile/scripts/l4-report.mjs <logcat.txt> [--max-gesture-kb 500] [--max-request-kb 2048]
  *
- * PASS needs every rule below (mobile/S1_L4_SCRIPT.md has the same table):
+ * PASS needs every rule below (tools/device/S1_L4_SCRIPT.md has the same table):
  *   R1 per-slice only - every request of a slice gesture is one of the
  *      per-slice endpoints or a per-slice artifact; nothing case- or
  *      volume-level;

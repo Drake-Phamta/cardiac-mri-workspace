@@ -1,9 +1,9 @@
-# tools/e2e - API-level hero-flow proof (DEMO_STANDARD rule D6)
+# tools/e2e - API-level hero-flow proof
 
-`hero_flow_api.py` walks the demo hero flow H1-H10 (`management/DEMO_STANDARD.md` section 3) through the **same HTTP
+`hero_flow_api.py` walks the demo hero flow H1-H10 (the table below lists every step) through the **same HTTP
 endpoints the mobile app calls** (API Contract 11 v1.1.0, `contracts/api/contract.json`), on the data the target backend
 really serves, and prints a readable PASS / FAIL / SKIP report. It is the first end-to-end proof that does not need a
-phone. Standard library only (the mesh is parsed with `struct` / `array`), Python 3.9-compatible syntax (it also runs on the Mac mini host with `/usr/bin/python3`).
+phone. Standard library only (the mesh is parsed with `struct` / `array`), Python 3.9-compatible syntax.
 
 ## One command
 
@@ -43,9 +43,9 @@ The demo case defaults to the first `EXP-D-100` outlier that is an EVALUATION ca
 Run from the repository root; `<root>` is a directory outside any git work tree.
 
 ```powershell
-# 1. Contract 1 cache: 20 validation + INT-12 + 53 holdout cases = 74 (DR-022; needs the closed GATE-IMG-01 record)
+# 1. Contract 1 cache: 20 validation + INT-12 + 53 holdout cases = 74 (needs the committed holdout authorization record)
 python -m backend.app.ingest --package-root <LASC extracted root> --out <root>\data_cache `
-    --include-holdout --holdout-authorization management/day39/gate_img_01/holdout_authorization.json
+    --include-holdout --holdout-authorization ml/records/gate_img_01/holdout_authorization.json
 
 # 2. Contract 2 packages: copy each run directory as a whole (never move). The manifest lives at
 #    <run>\contract2\<manifest>.json with the run directory as artifact root. The validation predictions/evaluation
@@ -57,7 +57,7 @@ foreach ($e in 'EXP-D-025','EXP-D-050','EXP-D-100','EXP-D-PP') {
 python -m backend.mesh.build_cache --data <root>
 ```
 
-On the Day 39 data this is 289 masks (216 predictions, 73 ground truths) and about 0.65 GB, built in about a minute; a
+On the DINOv2 holdout data this is 289 masks (216 predictions, 73 ground truths) and about 0.65 GB, built in about a minute; a
 re-run is a NO_OP. Without it H6 and H7 FAIL ("the run lists no reconstruction_ids"), by design.
 
 `/health` must then show 74 cases, 4 experiments, 216 runs (54 per experiment) and an empty
@@ -73,23 +73,22 @@ python tools/e2e/hero_flow_api.py --base-url http://127.0.0.1:8000 --json-out <o
 
 H8/H9 write one review, one reviewed-mask version and one finding into `<root>\var\backend.sqlite3`. Re-running is safe:
 the review of the same scope is returned unchanged and the commit adds the next version. To get a clean demo database
-afterwards, stop the backend and rename `<root>\var` (do not deploy it; the deploy script copies `data_cache` and, with `-ShipPackages`, `experiments` and `derived_meshes`, never `var`).
+afterwards, stop the backend and rename `<root>\var`.
 
-## Run it against the Mac mini (read-only)
+## Read-only run
 
 ```powershell
-python tools/e2e/hero_flow_api.py --base-url http://<overlay-address>:8000 --no-writes --json-out <outside git>\hero_flow_macmini.json
+python tools/e2e/hero_flow_api.py --base-url http://127.0.0.1:8000 --no-writes --json-out <outside git>\hero_flow.json
 ```
 
 `--no-writes` skips H8/H9 (they are also skipped automatically for any non-local host unless `--allow-remote-writes`).
-Run from the PC over the overlay, or on the host itself with `/usr/bin/python3 hero_flow_api.py --base-url http://127.0.0.1:8000 --no-writes`.
-The expected counts are those of the Day 39 data (74 cases, 4 experiments, N = 54); pass `--expect-cases`, `--expect-n`
-and `--experiments` for a different deployment.
+The expected counts are those of the DINOv2 holdout data (74 cases, 4 experiments, N = 54); pass `--expect-cases`,
+`--expect-n` and `--experiments` for a different data set.
 
 ## Out of scope
 
 - **The device**: gestures, rendering, zoom/pan alignment, brush latency, slice-switch p95 (TC-PERF-001..003), the release
-  build, the overlay network. Those stay device tests (D1, D5).
+  build, the USB link. Those stay device tests.
 - **3D on the device** (H6, H7): the mesh data path and the pick -> slice -> mask link are proven here; rotating, zooming, the
   frame rate (TC-PERF-002) and the tap on a real finger are device tests (TC-3D-001..005).
 - **UNet vs DINOv2** (H10 model comparison): SKIP until the UNet runs are exported.

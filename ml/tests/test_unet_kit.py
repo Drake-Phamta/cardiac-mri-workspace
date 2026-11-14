@@ -426,8 +426,8 @@ def test_the_record_must_be_a_committed_file_of_the_checkout(kit):
     loose = HP.build_plan(config(kit, record, require_committed_record=True)).problems
     assert any("is outside this repository checkout" in p and "committed to main" in p for p in loose)
     assert HP.record_problem(record) is not None
-    committed = HP.ROOT / "management" / "day39" / "gate_img_01" / "holdout_authorization.json"
-    assert HP.record_problem(committed) is None     # the Day 39 record is a clean, tracked file
+    committed = HP.ROOT / "ml" / "records" / "gate_img_01" / "holdout_authorization.json"
+    assert HP.record_problem(committed) is None     # the committed DINOv2 record is a clean, tracked file
 
 
 # QA_PR100_103_D39 #100 NB-1: "committed" must mean "on origin/main", not "in some local commit". The checkout is a real

@@ -4,7 +4,7 @@ Spike D dataset validator — command-line entry point.
 
 Runs the `06` section 9 checks against an extracted LASC 2018 package, emits the
 machine-readable manifest required by `06` section 9.1 / criterion A20, and can
-render management/DATASET_AUDIT.md from that manifest.
+render data/DATASET_AUDIT.md from that manifest.
 
     # prove the tool works, without the real package
     python validate.py --selftest
@@ -19,11 +19,9 @@ render management/DATASET_AUDIT.md from that manifest.
 Exit codes:  0 no FAIL  ·  1 at least one FAIL  ·  2 the run could not proceed.
 
 WHO RUNS THIS
-    Spike D's Primary Owner is Bế Quốc Khánh, and SPIKE_D_DATASET/TASK.md line
-    196 reads: "All of the above must be read from the actual downloaded package
-    by Bế Quốc Khánh." This script is the harness, which the same file's line 198
-    explicitly permits Claude to write. Running it and signing the result is the
-    owner's work. The script records who ran it, and does not fill that in for
+    The dataset check's owner is Bế Quốc Khánh: the evidence must be read from the
+    actual downloaded package by the owner. This script is the harness. Running it
+    and signing the result is the owner's work. The script records who ran it, and does not fill that in for
     anyone.
 """
 
@@ -45,7 +43,7 @@ from dataset_scan import (make_public_manifest, restricted_manifest_bytes,
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "data", "manifests", "dataset_manifest.json")
-DEFAULT_AUDIT = os.path.join(REPO_ROOT, "management", "DATASET_AUDIT.md")
+DEFAULT_AUDIT = os.path.join(REPO_ROOT, "data", "DATASET_AUDIT.md")
 RESTRICTED_BASENAME = "dataset_manifest_restricted.json"
 
 

@@ -125,8 +125,7 @@ lives in `backend/`; this directory stays implementation-free.
 
 ## Version and freeze
 
-`contract_version` was **`1.0.0`** (now `1.1.0`, see above), frozen on 2026-10-01 under INT-11 (Day 22
-recovery override, `management/day22/RECOVERY_OVERRIDE_DAY22.md`). It replaces
+`contract_version` was **`1.0.0`** (now `1.1.0`, see above), frozen on 2026-10-01 (INT-11). It replaces
 `DRAFT v0`. Every consumer compares the whole string: `app/core/contract.mjs`
 refuses any other value, and so does the fixture loader. After the freeze,
 changes are additive only, by a PR from the contract owner (Nguyễn Gia Đức

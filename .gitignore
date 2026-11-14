@@ -1,17 +1,16 @@
 # =============================================================================
-# Money/dataset governance — enforced by `12` §3 and NFR-SEC-004
+# Dataset governance — enforced by `12` §3 and NFR-SEC-004
 # =============================================================================
 
 # --- DATASET BYTES MUST NEVER BE COMMITTED --------------------------------
 # `12` §3: "Do not redistribute the dataset outside permitted terms."
 # `06` §5: raw package stays outside version control.
-# SPIKE_D_DATASET/TASK.md forbids "Committing dataset bytes to the repository".
 #
-# The MANIFEST is tracked (it is the GATE-DATA-01 acceptance artifact);
-# the raw volumes are not.
+# The manifests and the generated dataset audit are tracked; the raw volumes are not.
 data/**
 !data/manifests/
 !data/manifests/**
+!data/DATASET_AUDIT.md
 
 # backend/ derived data: slice PNGs and masks rendered from patient images,
 # Contract 2 experiment packages (predictions), the review database and its
@@ -63,19 +62,15 @@ secrets/
 credentials.json
 service-account*.json
 
-# --- SPIKE / MEASUREMENT SCRATCH ------------------------------------------
-# Spike harnesses are throwaway; RESULT.md and evidence artifacts ARE tracked.
-spikes/**/build/
-spikes/**/.gradle/
-spikes/**/node_modules/
-
-# --- SPIKE SCAFFOLDING ----------------------------------------------------
-# expo prebuild regenerates spikes/**/android/ from app.json, so it is build
-# output rather than source. The spike is throwaway; the native project is
-# reproducible with `npx expo run:android`.
-spikes/**/android/
-spikes/**/.expo/
-spikes/**/ios/
+# --- PROTOTYPE BUILD OUTPUT -----------------------------------------------
+# expo prebuild regenerates prototypes/**/android/ from app.json, so it is build
+# output rather than source; `npx expo run:android` reproduces it.
+prototypes/**/build/
+prototypes/**/.gradle/
+prototypes/**/node_modules/
+prototypes/**/android/
+prototypes/**/.expo/
+prototypes/**/ios/
 
 # --- PYTHON ---------------------------------------------------------------
 __pycache__/
@@ -105,25 +100,21 @@ desktop.ini
 *.swp
 *~
 
-# --- SPIKE MESH ARTIFACTS -------------------------------------------------
-# DAY01_VU_HUNG_ANH.md: large mesh artifacts stay out of git; record the
-# checksum and the command that regenerates them instead. The JSON summaries
-# next to them ARE tracked - they are the diagnostic record.
-spikes/**/mesh/out/*.obj
+# --- PROTOTYPE MESH ARTIFACTS ---------------------------------------------
+# Large mesh files stay out of git; the JSON summaries next to them are tracked.
+prototypes/**/mesh/out/*.obj
 
-# --- BYTES DERIVED FROM A REAL MASK (Spike B, Day 22) ----------------------
+# --- BYTES DERIVED FROM A REAL MASK (3D viewer prototype) ------------------
 # Everything under mesh/out_real/ is computed from a patient segmentation: the
 # OBJ decimation levels, the per-ray error table, the mask slice images and the
-# staged device assets. Those bytes live only in this ignored folder and inside
-# the measurement APK. The tracked record is the small JSON evidence (counts,
-# timings, errors, sha256) under spikes/spike_b_3d/EVIDENCE_RAW/.
-spikes/**/mesh/out_real/
+# staged device assets. Those bytes live only in this ignored folder.
+prototypes/**/mesh/out_real/
 
-# --- SPIKE E PAYLOADS -----------------------------------------------------
+# --- TRANSPORT PROTOTYPE PAYLOADS -----------------------------------------
 # Generated synthetic payloads: large and reproducible, so the generator is
 # tracked and the bytes are not. Regenerate with payloads/generate.py.
-spikes/**/payloads/out/
-spikes/**/payloads/out_*/
+prototypes/**/payloads/out/
+prototypes/**/payloads/out_*/
 
 # --- GENERATED FIXTURE BUNDLE ---------------------------------------------
 # contract.json says fixture_rules.handwritten_fixtures_allowed = false, so a
@@ -131,14 +122,3 @@ spikes/**/payloads/out_*/
 # regenerates it from the contract on every run; app/core/fixtures/FORMAT.md
 # is the tracked artifact, the bundle is not.
 app/core/fixtures/.generated/
-
-# --- SPIKE A FIXTURE AT REAL SLICE SIZE -----------------------------------
-# The 64x64 fixture IS tracked - it is small and it anchors the conformance
-# checks. The 576x576 regeneration used to re-measure A9 at the real cohort
-# slice size is ~6.8 MB per file and is NOT committed: the generator plus the
-# exact command reproduce it byte for byte, and the run records the sha256.
-#
-#     python spikes/spike_a_2d/fixtures/generate.py --nx 576 --ny 576
-#
-# Guarded by size, not by name, so any oversized regeneration is caught.
-spikes/spike_a_2d/fixtures/*_576.json

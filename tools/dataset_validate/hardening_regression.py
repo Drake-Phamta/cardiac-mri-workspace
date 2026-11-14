@@ -2,7 +2,7 @@
 """Regression cases for QA-002 F6-F11, F14 and F15.
 
 All volumes and archives are synthetic and live in a temporary directory.
-The scenarios are reduced from management/day06/qa002/break_validator.py so
+The scenarios are reduced from an earlier review script (in git history) so
 they run without the original reviewer's machine-specific scratch path.
 """
 

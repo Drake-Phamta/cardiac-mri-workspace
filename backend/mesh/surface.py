@@ -1,9 +1,7 @@
 """Exact voxel-face surface mesh with a per-face source slice (V2-01; PR-3D-01, PR-3D-04).
 
-STATUS
-    Built on Day 22 (2026-10-01) under the Day 22 recovery override
-    (management/day22/RECOVERY_OVERRIDE_DAY22.md, item A4). V2-01 owner
-    Vu Hung Anh adopts or rejects it on Day 23.
+OWNER
+    Vu Hung Anh (V2-01).
 
 WHAT IT BUILDS
     ``build_case_mesh(mask, level)`` turns a binary mask indexed mask[x, y, z]
@@ -16,7 +14,7 @@ WHAT IT BUILDS
 
 WHY VOXEL FACES AND NOT MARCHING CUBES
     DAY20 row V2-01 names Marching Cubes. This module deliberately keeps the
-    spike's exact voxel faces (spikes/spike_b_3d/mesh/build_mesh.py explains
+    spike's exact voxel faces (prototypes/3d-viewer/mesh/build_mesh.py explains
     why): every surface point lies on a cell boundary, so the source slice of
     each face is unambiguous and picking can be checked EXACTLY against the
     canonical fixture. An interpolated surface makes the "true" slice of a
@@ -62,7 +60,7 @@ LEVELS AND DR-008c
     kept, so counts match the Spike B frontier table.
 
 PROVENANCE -- the face table and the decimation rule are a COPY, not an import.
-    source : spikes/spike_b_3d/mesh/build_mesh.py (_FACES, extract_surface,
+    source : prototypes/3d-viewer/mesh/build_mesh.py (_FACES, extract_surface,
              decimate, to_world)
     commit : origin/main f5aa763; file last changed in ee9ef60
              "SPIKE_B tooling: merge picking harness and fixture proposal"
@@ -78,7 +76,7 @@ PROVENANCE -- the face table and the decimation rule are a COPY, not an import.
              and np.add.at became bincount. Output was compared with the spike
              on its 48x40x24 synthetic blob at cells 1, 1.25, 2, 3, 4 and 8
              during development: identical vertices and triangles.
-    Spike code is throwaway and stays behind spikes/**; product code never
+    Prototype code stays behind prototypes/**; product code never
     imports it (reuse is by copy with provenance).
 """
 

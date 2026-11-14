@@ -59,9 +59,9 @@ test('G2 registry.js statically imports exactly those files and maps each id to 
   assert.equal(mapped.length, SCREENS.length, 'registry maps a screen the table does not know');
 });
 
-test('G3 no product file imports from spikes/ (copy with a provenance header instead)', () => {
-  const offenders = productFiles.filter((f) => /^\s*(import|export)\b[^;]*from\s+['"][^'"]*spikes\//m.test(readFileSync(f, 'utf8'))
-    || /require\(\s*['"][^'"]*spikes\//.test(readFileSync(f, 'utf8')));
+test('G3 no product file imports from prototypes/ (copy with a provenance header instead)', () => {
+  const offenders = productFiles.filter((f) => /^\s*(import|export)\b[^;]*from\s+['"][^'"]*(spikes|prototypes)\//m.test(readFileSync(f, 'utf8'))
+    || /require\(\s*['"][^'"]*(spikes|prototypes)\//.test(readFileSync(f, 'utf8')));
   assert.deepEqual(offenders.map((f) => relative(REPO_ROOT, f)), []);
 });
 

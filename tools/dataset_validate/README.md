@@ -1,18 +1,7 @@
-# `tools/dataset_validate` — Spike D dataset validator
+# `tools/dataset_validate` — dataset validator
 
-> ### Who this is for
->
-> **Spike D's Primary Owner is Bế Quốc Khánh.** This directory is the *harness*.
-> `SPIKE_D_DATASET/TASK.md:198` permits Claude to write it:
->
-> > *"Claude **may**: write the validation script, define the manifest schema, structure
-> > `DATASET_AUDIT.md`, and analyse and interpret output the owner supplies."*
->
-> The same file, two lines earlier, says who produces the evidence:
->
-> > *"All of the above must be read from the actual downloaded package **by Bế Quốc Khánh**."*
->
-> So: the tool was built for you; running it, reading the numbers and signing them is your work.
+> **Owner of the dataset check: Bế Quốc Khánh.** This directory is the harness. The evidence must be read from the
+> actual downloaded package by the owner: running the tool, reading the numbers and signing them is the owner's work.
 > The tool records who ran it and never fills that in on anyone's behalf.
 
 ---
@@ -24,7 +13,7 @@ artifacts `GATE-DATA-01` needs (`06` §9.1):
 
 ```text
 data/manifests/dataset_manifest.json     machine-readable, generated  (criterion A20)
-management/DATASET_AUDIT.md              rendered from that manifest  (criterion A19)
+data/DATASET_AUDIT.md                    rendered from that manifest  (criterion A19)
 ```
 
 It answers **16 of the 20** acceptance criteria mechanically. It refuses to answer the other
@@ -46,7 +35,7 @@ pip install -r tools/dataset_validate/requirements.txt
 ```
 
 One dependency: `pynrrd`. Its **exact version is recorded in every manifest**, because
-`SPIKE_D_DATASET/TASK.md` lists the NRRD library and version as a required environment field.
+the dataset check lists the NRRD library and version as a required environment field.
 
 ---
 
@@ -198,6 +187,5 @@ open and training remains blocked until those exact IDs are reviewed.
 (`06` §5). `.gitignore` blocks `*.nrrd` and `data/**`, but the package belongs outside the
 workspace entirely.
 
-**Related:** [`../../management/spikes/SPIKE_D_DATASET/TASK.md`](../../management/spikes/SPIKE_D_DATASET/TASK.md) ·
-[`../../management/spikes/SPIKE_D_DATASET/EVIDENCE_TEMPLATE.md`](../../management/spikes/SPIKE_D_DATASET/EVIDENCE_TEMPLATE.md) ·
+**Related:** [`../../docs/RESULTS.md`](../../docs/RESULTS.md) (dataset check results) ·
 [`../../docs/specs/v1.0/06_DATASET_CONTRACT.md`](../../docs/specs/v1.0/06_DATASET_CONTRACT.md)

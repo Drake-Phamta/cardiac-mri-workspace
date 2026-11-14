@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""API-level end-to-end proof of the demo hero flow (DEMO_STANDARD rule D6).
+"""API-level end-to-end proof of the demo hero flow.
 
-Walks H1..H10 of management/DEMO_STANDARD.md section 3 through the same HTTP
+Walks the hero-flow steps H1..H10 through the same HTTP
 endpoints the mobile app calls (API Contract 11 v1.1.0), on the data the target
 backend really serves, and prints a readable PASS / FAIL / SKIP report.
 
@@ -9,8 +9,7 @@ backend really serves, and prints a readable PASS / FAIL / SKIP report.
     python tools/e2e/hero_flow_api.py --base-url http://<host>:8000 --no-writes
     python tools/e2e/hero_flow_api.py --base-url ... --case CASE_0042 --json-out run.json
 
-Standard library only, Python 3.9-compatible syntax: it also runs on the Mac mini
-host. Exit code 0 only when no step FAILED (SKIP is not a failure).
+Standard library only, Python 3.9-compatible syntax. Exit code 0 only when no step FAILED (SKIP is not a failure).
 
 What it does NOT cover: the phone (gestures, rendering, frame rate). H6 / H7 cover the data path of SCR-05:
 the mesh reference, its verified bytes, and the pick -> source slice -> mask-on-that-slice link.

@@ -1,9 +1,9 @@
 """TC-MAINT-002 / INT-13: the canonical geometry fixture run THROUGH the product mesh.
 
-The checker is the shared canonical one, spikes/spike_b_3d/harness/conformance.py
+The checker is the shared canonical one, prototypes/3d-viewer/harness/conformance.py
 -- its documented purpose is that backend and mobile adapters run the same
 checker on the same fixture. Only this test imports it (product code never
-imports spikes/). The blob mask comes from the conftest copy of the checker's
+imports prototypes/). The blob mask comes from the conftest copy of the checker's
 occupancy formula; the checker does not share code with the product.
 """
 
@@ -19,7 +19,7 @@ import pytest
 from backend.mesh import CONTRACT_VERSION, GeometryError, build_case_mesh, conformance_adapter, pick_slice
 from backend.mesh import validate_contract_version
 
-CONFORMANCE_HARNESS = Path(__file__).resolve().parents[3] / "spikes" / "spike_b_3d" / "harness"
+CONFORMANCE_HARNESS = Path(__file__).resolve().parents[3] / "prototypes" / "3d-viewer" / "harness"
 EXPECTED_VERSION = "dr008a-dr012/v1.0.0"
 
 

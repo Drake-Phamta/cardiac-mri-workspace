@@ -6,8 +6,8 @@ the source voxel grid.
 
 PROVENANCE
     dr011_normalize() and the resize policy (image bilinear + antialias, mask
-    nearest-exact) are copied from spikes/spike_c_ml/harness/probe.py at commit 896c11a.
-    The DR-011 parameters are copied from spikes/spike_c_ml/dr011_normalization.json at the
+    nearest-exact) are copied from prototypes/ml-probe/harness/probe.py at commit 896c11a.
+    The DR-011 parameters are copied from prototypes/ml-probe/dr011_normalization.json at the
     same commit; ml/tests/test_data.py fails if the two ever disagree.
 
 AXIS CONVENTION - read before touching any array
@@ -113,7 +113,7 @@ DEFAULT_CACHE_ROOT = Path(os.environ.get("CARDIAC_CACHE_ROOT") or DEFAULT_DATA_R
 PARTITIONS = ("train", "validation", "final_holdout")
 HOLDOUT_PARTITION = "final_holdout"
 
-# DR-011 (copied from spikes/spike_c_ml/dr011_normalization.json @ 896c11a, "implementation").
+# DR-011 (copied from prototypes/ml-probe/dr011_normalization.json @ 896c11a, "implementation").
 DR011 = {"p_low": 0.5, "p_high": 99.5}
 
 PREPROCESSING_VERSION = "ml-preproc-1.0.0"

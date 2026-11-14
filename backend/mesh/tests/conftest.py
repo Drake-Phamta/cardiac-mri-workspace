@@ -26,7 +26,7 @@ def synthetic_blob_cell(cell, shape) -> bool:
     """Occupancy of the synthetic blob the canonical picking rays target.
 
     COPY (a data definition, not an import) of ``synthetic_blob_cell`` inside
-    ``reference_impl`` in spikes/spike_b_3d/harness/conformance.py
+    ``reference_impl`` in prototypes/3d-viewer/harness/conformance.py
     (origin/main f5aa763; file blob 1fa137308275392e986fafc884c8f6764ee122d8).
     Evaluated per cell with Python floats exactly as the checker does, so the
     mask is bit-for-bit the occupancy the checker's DDA traverses.
