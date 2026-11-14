@@ -7,8 +7,31 @@
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { color, HAIRLINE, radius, size, type } from './theme';
+
+/*
+ * The viewer's top scrim: black fading to clear, so the floating app bar (viewer chrome) and the corner
+ * annotations read over bright tissue. A viewer-chrome screen draws it above its image and below its own
+ * annotations. The mockup's fade is 152 dp from the top of the phone (92 % -> 72 % at 45 % -> 0); the status bar
+ * takes the first 28 dp of it, so the app draws the remaining 124 dp, starting where that fade has reached 84 %.
+ */
+export const SCRIM_HEIGHT = 124;
+export function TopScrim({ height = SCRIM_HEIGHT }) {
+  return (
+    <Svg style={s.scrim} width="100%" height={height} pointerEvents="none" testID="viewer-scrim">
+      <Defs>
+        <LinearGradient id="viewerScrim" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#000000" stopOpacity="0.84" />
+          <Stop offset="0.32" stopColor="#000000" stopOpacity="0.72" />
+          <Stop offset="1" stopColor="#000000" stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height={height} fill="url(#viewerScrim)" />
+    </Svg>
+  );
+}
 
 export function FloatingToolbar({ children, label, style }) {
   return (
@@ -42,6 +65,7 @@ export function BottomPanel({ children, style, testID }) {
 }
 
 const s = StyleSheet.create({
+  scrim: { position: 'absolute', left: 0, right: 0, top: 0 },
   toolbar: {
     // 3 dp padding + the 1 dp edge = the mockup's 4 dp, so each tool stays 48 dp wide.
     width: size.toolbar, padding: 3, gap: 2, borderRadius: radius.l, backgroundColor: color.glass,
