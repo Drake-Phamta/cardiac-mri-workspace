@@ -118,12 +118,34 @@ def outlier_selection(rows: list) -> dict:
     }
 
 
+# Contract 1.2.0: review_patch may carry a reason, and review_history_list lists every write of a review.
+FLAG_REASON = "Boundary misses part of the wall on this slice (fixture text)"
+
+
+def review_history_rows() -> list:
+    """One review's history, oldest first: created, flagged with a reason, one slice uploaded, saved as version 1."""
+    def row(revision: int, action: str, before: Optional[str], after: str, minute: str, **extra) -> dict:
+        values = {"revision": revision, "action": action, "from_status": before, "to_status": after,
+                  "reviewer_id": "project-reviewer", "reason": None, "slice_index": None,
+                  "reviewed_mask_id": None, "at": f"2026-10-01T09:{minute}:00Z"}
+        values.update(extra)
+        return values
+    return [
+        row(1, "CREATE", None, "NOT_REVIEWED", "00"),
+        row(2, "TRANSITION", "NOT_REVIEWED", "FLAGGED", "05", reason=FLAG_REASON),
+        row(3, "WORKING_SLICE", "FLAGGED", "FLAGGED", "10", slice_index=44),
+        row(4, "COMMIT", "FLAGGED", "CORRECTED", "11", reviewed_mask_id="REVIEWED_MASK_0043_R1"),
+    ]
+
+
 def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
     """Return a typed placeholder determined by a contract field name (and endpoint)."""
     geometry_version = contract["geometry_contract"]["version"]
     checksum = fixture_checksum(endpoint_id or field)
     if field == "status" and endpoint_id in STATUS_BY_ENDPOINT:
         return STATUS_BY_ENDPOINT[endpoint_id]
+    if field == "reason" and endpoint_id == "review_patch":
+        return FLAG_REASON  # the default patch flags the review, and the app sends a reason with a flag
     if field == "mode" and endpoint_id == "case_list":
         return None  # the echo of the mode filter; the fixture request applies none
     if field == "experiment_id" and endpoint_id in {"experiment_get", "experiment_list"}:
@@ -283,6 +305,8 @@ def generate_fixture(contract: dict) -> dict:
             rows = experiment_case_rows()
             default_data = {"items": rows, "metric_version": field_value("metric_version", contract, endpoint_id),
                             "prediction_variant": "RAW", "outlier_selection": outlier_selection(rows)}
+        if endpoint_id == "review_history_list":
+            default_data = {"review_id": field_value("review_id", contract, endpoint_id), "items": review_history_rows()}
         endpoint_scenarios = {
             "default": {"request": request, "response": {"status": 200, "data": default_data}},
             "error_case": {

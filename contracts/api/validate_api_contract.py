@@ -35,7 +35,7 @@ def _fail(code: str, message: str) -> None:
     raise ContractError(code, message)
 
 
-EXPECTED_VERSION = "1.1.0"
+EXPECTED_VERSION = "1.2.0"
 EXPECTED_ERRORS = {
     "CASE_NOT_FOUND", "SLICE_OUT_OF_RANGE", "ARTIFACT_NOT_FOUND",
     "GROUND_TRUTH_UNAVAILABLE", "INVALID_REVIEW_TRANSITION", "STALE_REVISION",
@@ -55,7 +55,7 @@ REQUIRED_ENDPOINTS = {
     "prediction_slice_get", "reconstruction_get", "error_reconstruction_get",
     "review_create", "review_patch", "working_mask_put", "review_commit",
     "reviewed_masks_list", "reviewed_mask_slice_get", "finding_create", "findings_list",
-    "finding_patch",
+    "finding_patch", "review_history_list",
 }
 # The leader's hero-flow subset (DEP-04 / INT-11, 2026-10-01): study, cases,
 # case, slice image, masks per variant, runs + metrics incl. per-slice and the
@@ -81,7 +81,9 @@ REQUIRED_ENUM_BINDINGS = {
     "review_status": {
         "review_create.status", "review_create.request.status",
         "review_patch.status", "review_patch.request.status", "review_commit.status",
+        "review_history_list.to_status",
     },
+    "review_history_action": {"review_history_list.action"},
     "review_source_mask_kind": {"review_commit.source_mask_kind"},
     "prediction_variant": {"experiment_list.prediction_variant"},
     "finding_status": {
@@ -92,6 +94,10 @@ REQUIRED_ENUM_BINDINGS = {
     "case_result_status": {"experiment_cases.status"},
 }
 CHECKSUM = re.compile(r"^sha256:[0-9a-f]{64}$")
+# review_history_list (1.2.0): a UTC time, and a reviewer alias that can never be an email address.
+UTC_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
+REVIEWER_ALIAS = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+REASON_MAX = 500
 # Any key that names a physical unit. While geometry is not validated the API
 # serves no mm/mL value at all (geometry_contract.unvalidated_geometry_rule).
 PHYSICAL_KEY = re.compile(r"(^|_)(mm|ml|mm2|mm3|millimet\w*|millilit\w*|cm|cm3)($|_)", re.IGNORECASE)
@@ -568,6 +574,33 @@ def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], proble
                         f"rows {expected} (DR-010), got {[item['case_id'] for item in cases]}")
 
 
+def _check_review_history(contract: dict, at: str, rows: List[Any], problems: List[str]) -> None:
+    """review_history_list (1.2.0): oldest first, and each row carries only what its action records."""
+    statuses = contract["domain_enums"]["review_status"]
+    only_on = {"reason": "TRANSITION", "slice_index": "WORKING_SLICE", "reviewed_mask_id": "COMMIT"}
+    revisions = []
+    for position, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        where = f"{at}: items[{position}]"
+        revisions.append(row.get("revision"))
+        for field, action in only_on.items():
+            if row.get(field) is not None and row.get("action") != action:
+                problems.append(f"{where}: {field} belongs to a {action} row, not {row.get('action')}")
+        if row.get("from_status") is not None and row["from_status"] not in statuses:
+            problems.append(f"{where}: from_status {row['from_status']!r} is not a review status")
+        reason = row.get("reason")
+        if reason is not None and not (isinstance(reason, str) and reason.strip() and len(reason) <= REASON_MAX):
+            problems.append(f"{where}: reason must be null or 1 to {REASON_MAX} characters of text")
+        reviewer = row.get("reviewer_id")
+        if reviewer is not None and not (isinstance(reviewer, str) and REVIEWER_ALIAS.match(reviewer)):
+            problems.append(f"{where}: reviewer_id must be a project alias (letters, digits, _ . -), never an address")
+        if not (isinstance(row.get("at"), str) and UTC_TIME.match(row["at"])):
+            problems.append(f"{where}: at must be a UTC time such as 2026-10-01T09:00:00Z")
+    if all(_is_int(value) for value in revisions) and revisions != sorted(revisions):
+        problems.append(f"{at}: history rows must be served oldest first (revision ascending)")
+
+
 def _check_metric_values(at: str, value: Any, problems: List[str]) -> None:
     if not isinstance(value, dict):
         problems.append(f"{at}: metric_values must be an object")
@@ -742,6 +775,8 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
         if "outlier_selection" in body:
             _check_outliers(contract, at, body["outlier_selection"], body["items"], problems,
                             body.get("prediction_variant"), (request or {}).get("experiment_id"))
+    if endpoint_id == "review_history_list" and isinstance(body.get("items"), list):
+        _check_review_history(contract, at, body["items"], problems)
     if endpoint_id == "experiment_metrics" and "metric_summary" in body:
         _check_summary(contract, f"{at}: metric_summary", body["metric_summary"], problems)
     if endpoint_id == "experiment_compare" and "summary" in body:

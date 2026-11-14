@@ -2,7 +2,7 @@
 """API-level end-to-end proof of the demo hero flow.
 
 Walks the hero-flow steps H1..H10 through the same HTTP
-endpoints the mobile app calls (API Contract 11 v1.1.0), on the data the target
+endpoints the mobile app calls (API Contract 11 v1.2.0), on the data the target
 backend really serves, and prints a readable PASS / FAIL / SKIP report.
 
     python tools/e2e/hero_flow_api.py --base-url http://127.0.0.1:8000
@@ -34,7 +34,7 @@ import urllib.parse
 import urllib.request
 import zlib
 
-EXPECTED_CONTRACT_VERSION = "1.1.0"
+EXPECTED_CONTRACT_VERSION = "1.2.0"
 BASE = "/api/v1"
 DEFAULT_EXPERIMENTS = ["EXP-D-025", "EXP-D-050", "EXP-D-100", "EXP-D-PP"]
 METRIC_FIELDS = ["dice", "iou", "false_positives", "false_negatives", "relative_volume_error"]

@@ -6,10 +6,10 @@
 
 export const EXPECTED = Object.freeze({
   contract: 'api_contract_11',
-  contractVersion: '1.1.0',
+  contractVersion: '1.2.0',
   basePath: '/api/v1',
   geometryContractVersion: 'dr008a-dr012/v1.0.0',
-  endpointCount: 28,
+  endpointCount: 29,
   errorCount: 15,
 });
 

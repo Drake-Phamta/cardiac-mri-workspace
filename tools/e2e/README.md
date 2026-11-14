@@ -1,7 +1,7 @@
 # tools/e2e - API-level hero-flow proof
 
 `hero_flow_api.py` walks the demo hero flow H1-H10 (the table below lists every step) through the **same HTTP
-endpoints the mobile app calls** (API Contract 11 v1.1.0, `contracts/api/contract.json`), on the data the target backend
+endpoints the mobile app calls** (API Contract 11 v1.2.0, `contracts/api/contract.json`), on the data the target backend
 really serves, and prints a readable PASS / FAIL / SKIP report. It is the first end-to-end proof that does not need a
 phone. Standard library only (the mesh is parsed with `struct` / `array`), Python 3.9-compatible syntax.
 

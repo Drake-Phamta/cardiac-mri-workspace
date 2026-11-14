@@ -38,6 +38,7 @@ ROUTES = [
     ("POST", "/api/v1/reviews/{review_id}/commit", "review_commit"),
     ("GET", "/api/v1/reviews/{review_id}/reviewed-masks", "reviewed_masks_list"),
     ("GET", "/api/v1/reviewed-masks/{reviewed_mask_id}/slices/{slice_index}", "reviewed_mask_slice_get"),
+    ("GET", "/api/v1/reviews/{review_id}/history", "review_history_list"),
     ("POST", "/api/v1/findings", "finding_create"),
     ("GET", "/api/v1/findings", "findings_list"),
     ("PATCH", "/api/v1/findings/{finding_id}", "finding_patch"),

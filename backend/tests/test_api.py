@@ -585,6 +585,51 @@ def test_commit_is_atomic(api, monkeypatch):
     assert committed["status"] == "CORRECTED" and committed["revision"] == revision + 1
 
 
+def test_review_history_lists_every_write_oldest_first(api):
+    """Contract 1.2.0: review_history_list says who changed what and when; a flag keeps its reason."""
+    rid = _new_review(api).json()["review_id"]
+    api.call("PATCH", f"{B}/reviews/{rid}", "review_patch", 200, json_body={
+        "status": "FLAGGED", "expected_revision": 1, "reason": "  Misses the septal wall on slice 2.  "})
+    mask = np.zeros((synthetic.NY, synthetic.NX), dtype=np.uint8)
+    revision = api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/2", "working_mask_put", 200,
+                        json_body=_working_body("ART_RUN_9001_RAW", 2, 2, mask)).json()["working_revision"]
+    committed = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201,
+                         json_body={"expected_revision": revision}).json()
+
+    history = api.call("GET", f"{B}/reviews/{rid}/history", "review_history_list", 200).json()
+    rows = history["items"]
+    assert history["review_id"] == rid
+    assert [(row["action"], row["from_status"], row["to_status"]) for row in rows] == [
+        ("CREATE", None, "NOT_REVIEWED"), ("TRANSITION", "NOT_REVIEWED", "FLAGGED"),
+        ("WORKING_SLICE", "FLAGGED", "FLAGGED"), ("COMMIT", "FLAGGED", "CORRECTED")]
+    assert [row["revision"] for row in rows] == [1, 2, 3, 4]
+    assert rows[1]["reason"] == "Misses the septal wall on slice 2."  # kept trimmed
+    assert rows[2]["slice_index"] == 2 and rows[3]["reviewed_mask_id"] == committed["reviewed_mask_id"]
+    assert [row["reason"] for row in rows].count(None) == 3, "only the flag carries a reason"
+    assert "sha256" not in json.dumps(history), "no working-slice checksum is listed"
+    assert all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", row["at"]) for row in rows)
+    missing = api.call("GET", f"{B}/reviews/R_NONE/history", "review_history_list", 404)
+    assert api.error_code(missing) == "ARTIFACT_NOT_FOUND"
+
+
+def test_a_flag_reason_is_optional_text_of_at_most_500_characters(api):
+    rid = _new_review(api).json()["review_id"]
+    url = f"{B}/reviews/{rid}"
+    for reason in ("", "   ", 42, "x" * 501):
+        refused = api.call("PATCH", url, "review_patch", 422,
+                           json_body={"status": "FLAGGED", "expected_revision": 1, "reason": reason})
+        assert api.error_code(refused) == "VALIDATION_ERROR", reason
+    assert api.app.state.backend.storage.get_review(rid)["revision"] == 1  # nothing moved
+    api.call("PATCH", url, "review_patch", 200, json_body={"status": "ACCEPTED", "expected_revision": 1})  # as before 1.2.0
+    api.call("PATCH", url, "review_patch", 200, json_body={"status": "FLAGGED", "expected_revision": 2, "reason": None})
+    other = _new_review(api, run="RUN_9001", variant="PROCESSED").json()["review_id"]
+    api.call("PATCH", f"{B}/reviews/{other}", "review_patch", 200,
+             json_body={"status": "FLAGGED", "expected_revision": 1, "reason": "y" * 500})
+    reasons = [row["reason"] for row in api.call("GET", f"{url}/history", "review_history_list", 200).json()["items"]]
+    assert reasons == [None, None, None]
+    assert api.call("GET", f"{B}/reviews/{other}/history", "review_history_list", 200).json()["items"][1]["reason"] == "y" * 500
+
+
 def test_inference_only_case_on_every_ground_truth_dependent_endpoint(api):
     """N1: the INT-12 case answers GROUND_TRUTH_UNAVAILABLE on each case-scoped GT-dependent endpoint."""
     case, run = synthetic.INT12, "RUN_0031"
@@ -652,6 +697,15 @@ def test_findings_keep_their_evidence(api):
     for sql in ("UPDATE findings SET case_id = 'CASE_9003'", "UPDATE findings SET prediction_variant = 'RAW'"):
         with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
             storage.raw_execute(sql)
+
+
+def test_findings_are_listed_oldest_first(api):
+    """Contract 1.2.0 states the order; findings made within one second keep their creation order."""
+    made = [api.call("POST", f"{B}/findings", "finding_create", 201, json_body={
+        "study_id": STUDY, "finding_type": "OTHER", "note": f"finding {n}", "case_id": "CASE_9001"}).json()["finding_id"]
+        for n in range(5)]
+    listed = api.call("GET", f"{B}/findings", "findings_list", 200).json()["items"]
+    assert [item["finding_id"] for item in listed] == made
 
 
 def test_no_response_carries_a_physical_unit(api):

@@ -1,5 +1,7 @@
-"""Reviews of a prediction: create, change status, upload an edited slice, commit a reviewed mask, read it back."""
+"""Reviews of a prediction: create, change status, upload an edited slice, commit a reviewed mask, read it back,
+and read the review's history (who changed what, and when)."""
 
+import json
 import re
 from typing import Any, Dict, Optional
 
@@ -13,7 +15,35 @@ from ..state import Backend, parse_slice, require_succeeded
 from ..storage import etag
 from .common import artifact_url, body_object, endpoint, ok, revision_of
 
-REVIEWER = re.compile(r"[A-Za-z0-9_.@-]{1,64}")
+# A reviewer is recorded as a project alias. "@" is not allowed, so an email address is never stored or served.
+REVIEWER = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+REASON_MAX = 500
+
+
+def reason_of(body: Dict[str, Any]) -> Optional[str]:
+    """review_patch's optional reason: absent or null, else 1 to REASON_MAX characters once trimmed."""
+    reason = body.get("reason")
+    if reason is None:
+        return None
+    if not isinstance(reason, str) or not reason.strip() or len(reason.strip()) > REASON_MAX:
+        raise ApiError("VALIDATION_ERROR", {"field": "reason", "reason": f"null, or 1 to {REASON_MAX} characters of text"})
+    return reason.strip()
+
+
+def history_row(row: Any) -> Dict[str, Any]:
+    """One review_history row as review_history_list serves it. The detail column is JSON written by storage;
+    each action shows only its own field, and a working slice's checksum is not listed."""
+    detail = json.loads(row["detail"]) if row["detail"] else {}
+    action = row["action"]
+    reviewer = row["reviewer_id"]
+    return {
+        "revision": row["revision"], "action": action, "from_status": row["from_status"], "to_status": row["to_status"],
+        "reviewer_id": reviewer if reviewer and REVIEWER.fullmatch(reviewer) else None,
+        "reason": detail.get("reason") if action == "TRANSITION" else None,
+        "slice_index": detail.get("slice_index") if action == "WORKING_SLICE" else None,
+        "reviewed_mask_id": detail.get("reviewed_mask_id") if action == "COMMIT" else None,
+        "at": row["at"],
+    }
 
 
 def provenance(row: Any) -> Dict[str, Any]:
@@ -73,10 +103,10 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
     @app.patch(f"{base}/reviews/{{review_id}}")
     @endpoint(contract, "review_patch")
     def review_patch(review_id: str, request: Request, payload: Any = Body(None)) -> Any:
-        body = body_object(payload, ["status", "expected_revision"], ["status", "expected_revision"])
+        body = body_object(payload, ["status", "expected_revision", "reason"], ["status", "expected_revision"])
         if body["status"] not in enums["review_status"]:
             raise ApiError("VALIDATION_ERROR", {"field": "status", "allowed": enums["review_status"]})
-        row = storage.patch_review(review_id, body["status"], revision_of(body), reviewer_of(request))
+        row = storage.patch_review(review_id, body["status"], revision_of(body), reviewer_of(request), reason_of(body))
         data = review_payload(row)
         return ok(data, tag=data["etag"])
 
@@ -177,3 +207,10 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
                 "content_url": artifact_url(contract, stored["sha256"]), "media_type": contract.media_type}
         data.update(case.geometry())
         return ok(data)
+
+    @app.get(f"{base}/reviews/{{review_id}}/history")
+    @endpoint(contract, "review_history_list")
+    def review_history_list(review_id: str) -> Any:
+        if storage.get_review(review_id) is None:
+            raise ApiError("ARTIFACT_NOT_FOUND", {"review_id": review_id})
+        return ok({"review_id": review_id, "items": [history_row(row) for row in storage.review_history(review_id)]})

@@ -1765,7 +1765,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('H1', !has(r, /SCR-0\d · V\d/) && !has(r, /^SCR-0\d$/), 'no screen id in the header or the tab bar');
   const titleBox = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && isHeaderTitle(n))[0];
   await act(async () => { titleBox().props.onPress(); });
-  check('H2', has(r, /^About this screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),
+  check('H2', has(r, /^About this screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.2\.0$/),
     `tapping the name opens About this screen: ${texts(r).filter((x) => /^(Screen|Mode|Contract|Build) /.test(x)).join(' | ')}`);
   await press(r, 'Clear cached images');
   check('H2', has(r, /^Nothing to clear: this build keeps no images \(fixture mode\)\.$/), 'fixture mode: nothing to clear, and it says so');
