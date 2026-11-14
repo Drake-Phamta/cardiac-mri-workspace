@@ -1,7 +1,5 @@
 """Reviews of a prediction: create, change status, upload an edited slice, commit a reviewed mask, read it back."""
 
-from __future__ import annotations
-
 import re
 from typing import Any, Dict, Optional
 

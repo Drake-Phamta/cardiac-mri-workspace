@@ -1,7 +1,5 @@
 """The study, its case list, one case, its MRI and ground-truth slices and its geometry."""
 
-from __future__ import annotations
-
 from typing import Any, Optional
 
 from fastapi import FastAPI, Query

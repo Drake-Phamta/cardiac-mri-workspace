@@ -1,7 +1,5 @@
 """Experiments: the list, the comparison of two or more, one experiment, its metrics and its per-case rows."""
 
-from __future__ import annotations
-
 from typing import Any, Optional
 
 from fastapi import FastAPI, Query

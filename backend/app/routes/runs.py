@@ -1,7 +1,5 @@
 """Analysis runs: one run, its metrics, its per-slice metrics, error map and prediction, and its 3-D meshes."""
 
-from __future__ import annotations
-
 from typing import Any, Optional
 
 from fastapi import Body, FastAPI, Query

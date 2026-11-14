@@ -26,6 +26,8 @@ def endpoint(contract: Contract, endpoint_id: str) -> Callable:
     """Binds a route to one contract endpoint: it may answer only the error codes that endpoint lists.
 
     Any other code is a programming error (a 500 that the tests catch), never a silent drift.
+    The route modules do not use `from __future__ import annotations`: FastAPI 0.115 reads a string annotation
+    through this wrapper's globals (this module's), where `Request` is not defined.
     """
     allowed = set(contract.endpoint_errors(endpoint_id))
 

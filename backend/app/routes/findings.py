@@ -1,7 +1,5 @@
 """Findings: a note about a study, case, run or slice, with its evidence; create, list and edit."""
 
-from __future__ import annotations
-
 import json
 from typing import Any, Dict, Optional
 
