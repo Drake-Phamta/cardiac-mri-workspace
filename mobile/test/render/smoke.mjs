@@ -126,6 +126,7 @@ const { decodeMaskPng } = await imp('src/lib/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
+const { shortTouchables } = await imp('test/render/touch_measure.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -857,6 +858,14 @@ function noRunBackend() {
   check('E4f', has(r, /^0\.810$/) && has(r, /^0\.680$/) && has(r, /^-4\.2 %$/) && has(r, /^FP 1200 · FN 900 voxels$/), 'case metrics as the server sent them');
   const bars = () => marks(r, 'Rect').filter((n) => n.props.fill !== 'none').length;
   check('E4g', bars() === 3, `profile: one bar per eligible slice, none for the rest (${bars()})`);
+  // P3: no decision-record id and no "server ·" label on the main surface; the source is said once, in Details.
+  check('E4g', !texts(r).some((t) => /DR-0\d\d|^server ·|^server$/.test(t)) && has(r, /^Worst slices$/) && has(r, /^FP \+ FN per slice$/)
+    && has(r, /^Pixels in error on each slice\. Tap a bar to open that slice\.$/) && has(r, /^Raw$/)
+    && ctxHas(nav, /^Case metrics, worst slices and the error profile are the server's, shown as served\./)
+    && ctxHas(nav, /^Worst slices: DR-010 · /),
+  'SCR-04: no "server ·" prefix and no DR-010 on the main surface; one plain line under the profile; the source and the rule are in Details');
+  const slice4 = shortTouchables(r.root);
+  check('T5', slice4.length === 0, `SCR-04: every touchable (chips, settings, worst slices, jump, 3D) reaches 48 dp${slice4.length ? ` - not: ${slice4.join(', ')}` : ''}`);
   const reqMark = evalBackend.requests.length;
   const gestureMark = gestures().length;
   await press(r, 'Jump to the worst slice');

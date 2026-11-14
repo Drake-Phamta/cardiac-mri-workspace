@@ -22,7 +22,7 @@ import { Button, SegmentedControl } from '../../components/Controls';
 import { SectionLabel } from '../../components/ListRow';
 import MetricStrip from '../../components/MetricStrip';
 import { IconEye, IconEyeOff, IconShield } from '../../components/icons';
-import { color, HAIRLINE, MIN_TOUCH, radius, size, space, type } from '../../components/theme';
+import { color, HAIRLINE, hitSlopFor, MIN_TOUCH, radius, size, space, type } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import SliceViewport, { DrawModeToolbar, SliceControls, SliceReadout, useSlicePlayer } from './SliceView';
 import { usePrivacyMode } from '../../lib/screenCapture';
@@ -263,6 +263,15 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
         selection.available ? `Worst slices: ${selection.ruleId} · ${selection.selectionVersion}, in the order the server ranked them` : null,
       ].filter(Boolean),
     },
+    {
+      // Said once, here: the main surface carries no "server ·" labels.
+      title: 'Where the numbers come from',
+      lines: [
+        "Case metrics, worst slices and the error profile are the server's, shown as served. This phone ranks nothing.",
+        'The TP, FP and FN pixel counts on the chips and in the legend are counted on this phone from the two masks drawn.',
+        'Error profile: a bar is the FP + FN pixels the server counted on that slice. A slice with no bar has no ground truth - that is not zero.',
+      ],
+    },
     { title: 'Privacy', lines: [priv.title, priv.detail].filter(Boolean) },
   ];
   const detailsKey = JSON.stringify(detailSections);
@@ -357,7 +366,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
       </View>
 
       <View style={s.section}>
-        <SectionLabel title="Worst slices" meta={pinned.ruleId ? `server · ${pinned.ruleId}` : 'no rule pinned by the contract'} />
+        <SectionLabel title="Worst slices" />
         {run.view.state !== STATE.SUCCESS ? (
           <StatePanel view={run.view} what="the run metrics" compact onAction={(id) => (id === RECOVERY.BACK ? nav.pop() : metricsCall.refetch())} />
         ) : !selection.available ? (
@@ -400,15 +409,15 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
       </View>
 
       <View style={s.section}>
-        <SectionLabel title="Error profile" meta="server · FP + FN per slice" />
+        <SectionLabel title="Error profile" meta="FP + FN per slice" />
         <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={userGoTo} note={profileNote(run)} />
-        <Text style={s.caption}>Bar = FP + FN pixels the server counted on that slice. No bar = not eligible (no ground truth there) - not zero. Tap to open a slice.</Text>
+        <Text style={s.caption}>Pixels in error on each slice. Tap a bar to open that slice.</Text>
         {profile.problems.map((p) => <Text key={p} style={s.warn}>{p}</Text>)}
       </View>
 
       {runMetrics && (
         <View style={s.section}>
-          <SectionLabel title="Case metrics" meta={`server · ${variantLabel(runMetrics.variant)}`} />
+          <SectionLabel title="Case metrics" meta={variantLabel(runMetrics.variant)} />
           <MetricStrip
             cells={[
               { label: 'Dice', value: fmt(runMetrics.dice), caption: 'whole case' },
@@ -443,7 +452,7 @@ function ClassChip({ k, count, on, onPress }) {
     <TouchableOpacity
       style={s.chip}
       onPress={onPress}
-      hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+      hitSlop={hitSlopFor(size.chip)}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
       accessibilityLabel={`${c.label}${count !== null ? `, ${count} pixels` : ''}, ${on ? 'shown' : 'hidden'}`}
