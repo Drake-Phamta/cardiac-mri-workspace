@@ -87,7 +87,7 @@ export function Button({ label, onPress }) {
   );
 }
 
-// What each metric means (about.mjs), the picked one in bold; metrics in mm or mL are listed as locked.
+// What each metric means (about.mjs), the picked one brighter; metrics in mm or mL are listed as locked.
 export function MetricLegend({ selected = null }) {
   return (
     <View style={s.legend} testID="metric-legend">
