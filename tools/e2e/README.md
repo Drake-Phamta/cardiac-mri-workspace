@@ -67,7 +67,7 @@ re-run is a NO_OP. Without it H6 and H7 FAIL ("the run lists no reconstruction_i
 
 ```powershell
 $env:CARDIAC_BACKEND_DATA = "<root>"
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000     # or backend\scripts\run_local.ps1 -DataRoot <root> -Port 8000
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --no-access-log     # or backend\scripts\run_local.ps1 -DataRoot <root> -Port 8000
 python tools/e2e/hero_flow_api.py --base-url http://127.0.0.1:8000 --json-out <outside git>\hero_flow.json
 ```
 
