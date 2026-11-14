@@ -3,10 +3,12 @@
 **Cho người dùng:** SCR-01 theo `A_overview`: dòng dataset (hình vẽ minh hoạ + tên), "About this data", dải 3 số (Cases / Findings /
 Resolved), số case theo chế độ, các hàng "Median Dice · UNet vs DINOv2" (**chỉ khi server nói so sánh được** mới có điểm tròn / tam giác
 và hai số, còn lại "Not compared" và "—"; dưới hàng chỉ một câu) và **một** danh sách "Lowest Dice" (mặc định DINOv2 ở tỉ lệ dữ liệu
-lớn nhất; hàng "Experiment" mở sheet để đổi). SCR-07 là các mục gồm hàng dày, mỗi hàng một giá trị: Metric (`SegmentedControl`), Experiments
-(dấu họ, tên, "5 of 5 cases", thanh + trung vị), Distribution, Comparisons (hiệu số trung vị, hoặc "Not compared"), Per-case differences,
-Trend. Chạm một hàng để mở sheet chi tiết (id, mean, q1, q3, N, phán quyết của server, lý do, từng case). Trang chỉ hiện trung vị.
-Mã kỹ thuật (checksum, capability, id EXP-…, phiên bản metric, cohort) chỉ nằm trong các sheet; "Metric definitions" là một sheet riêng.
+lớn nhất; hàng "Experiment" mở sheet để đổi). SCR-07 là các mục gồm hàng dày, mỗi hàng một giá trị: hàng chọn "Metric · Dice" (cùng `PickerRow` + sheet với SCR-01; **mở sẵn Dice**
+nếu server có metric đó), Experiments (dấu họ, tên, "5 of 5 cases", thanh + trung vị), Distribution, Comparisons (hiệu số trung vị,
+hoặc "Not compared"), Per-case differences, Trend. Chạm một hàng để mở sheet chi tiết (id, mean, q1, q3, N, phán quyết của server, lý do,
+từng case). Trang chỉ hiện trung vị. "About this data" chỉ có chữ thường cho người đọc. Mã kỹ thuật (phiên bản dataset, capability,
+id EXP-…, phiên bản metric, cohort, luật xếp hạng chính xác) màn báo cho shell bằng `nav.setContext({ details })` và nằm trong sheet
+Details (nút Info trên thanh trên); "Metric definitions" là một sheet riêng.
 
 **Riêng tư:** hai màn chỉ nhận và vẽ **con số và mã case giả danh** (CASE_0001…CASE_0154, do dự án gán lúc nhập): không ảnh MRI,
 không tên, ngày sinh hay số hồ sơ bệnh viện (ô hình ở SCR-01 là hình vẽ). Không lưu gì xuống máy, không log nội dung.
@@ -15,7 +17,7 @@ Dữ liệu là bộ LASC 2018 (không phải LAScarQS 2022), chỉ dùng nghiê
 **File nào làm gì** (`.js` vẽ, `.mjs` quyết định và được `node --test` kiểm):
 - `StudyOverviewScreen.js`, `ExperimentComparisonScreen.js`: hai màn. `DiceRows.js`: hàng Median Dice. `DatasetThumb.js`: hình vẽ. `Picker.js`: hàng + sheet chọn.
 - `parts.js`: `Section`, `Note`, `ExperimentRow`, `ValueRow`, `LinkRow`, `MetricLegend`, `StripChart`, `useSnapshot`. `charts.js`: `Marker`, `FamilyKey`, biểu đồ.
-- Dùng từ `components/`: `ListRow`, `MetricStrip`, `SegmentedControl`, `DetailsSheet` / `Sheet`; chạm ≥ 48 dp (`hitSlop` khi hàng thấp hơn).
+- Dùng từ `components/`: `ListRow`, `MetricStrip`, `DetailsSheet` / `Sheet`; chạm ≥ 48 dp (`hitSlop` khi hàng thấp hơn; chấm trên biểu đồ chọn được từ 24 dp quanh tâm).
 - `models.mjs`, `cohort.mjs`, `readers.mjs`: trạng thái, ô ma trận, đọc từng trường server; `readComparability` quyết định so sánh.
 - `view.mjs` (chữ, tên, giá trị từng hàng), `tiles.mjs`, `about.mjs` (nội dung sheet), `paired.mjs`, `trend.mjs`: chữ và số cho hai màn.
 
