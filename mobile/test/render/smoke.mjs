@@ -1310,7 +1310,13 @@ function reviewBackend({ seedVersion = false } = {}) {
     'New finding here opens SCR-08 with the case, slice, run and variant of the review');
   await pressExact(r, 'Over-segmentation');
   const note = r.root.findAll((n) => n.type === 'TextInput')[0];
+  // Privacy (V4 item 5): a note that may hold a personal detail is warned about before it is saved.
+  await act(async () => { note.props.onChangeText('Seen by Dr Smith on 12/03/2024'); });
+  check('V4r', byId(r, 'note-warning')[0] && /looks like a date, looks like a person.s name/.test(textOf(byId(r, 'note-warning')[0]))
+    && btn(r, 'Create anyway') && has(r, /^30 \/ 500$/),
+  'a note that looks like it holds a date and a name is warned about, with its length, and Create reads "Create anyway"');
   await act(async () => { note.props.onChangeText('Leaks into the right ventricle.'); });
+  check('V4r', !byId(r, 'note-warning')[0] && btn(r, 'Create finding') && has(r, /^31 \/ 500$/), 'an image-only note: no warning, plain "Create finding"');
   await pressExact(r, 'Create finding');
   await tick(150);
   const posted = be.requests.find((q) => q.method === 'POST' && q.path === '/api/v1/findings');

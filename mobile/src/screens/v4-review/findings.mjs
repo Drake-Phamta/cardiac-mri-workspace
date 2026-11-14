@@ -4,6 +4,7 @@
 
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, loading, fatalInvalid } from '../../api/states.mjs';
+import { checkNote } from './notes.mjs';
 
 export const FINDING_TYPE = Object.freeze({
   UNDER_SEGMENTATION: 'UNDER_SEGMENTATION',
@@ -251,6 +252,14 @@ export function createFindings(client, { studyId } = {}) {
   async function create(draft = {}, { scenario = 'default', shape = null } = {}) {
     const checked = normalizeFinding({ ...draft, studyId, findingId: null, status: FINDING_STATUS.OPEN },
       { requireAnchor: true, shape });
+    const note = checkNote(checked.finding.note);
+    if (note.tooLong) {
+      return set(current.view, {
+        rejection: Object.freeze({
+          code: 'VALIDATION_ERROR', reason: `The note is ${note.length} characters; at most ${note.max} are kept.`, problems: [],
+        }),
+      });
+    }
     if (!checked.ok) {
       return set(current.view, {
         rejection: Object.freeze({ code: 'VALIDATION_ERROR', reason: checked.problems.join('; '), problems: checked.problems }),
@@ -439,6 +448,8 @@ export function createFindingsScreen({ runtime, params = {} }) {
 
   function getState() {
     const m = model.current;
+    // The note is checked as it is typed: too long blocks Create, a possible personal detail is a warning.
+    const noteCheck = form ? checkNote(form.note) : null;
     return Object.freeze({
       version,
       view: listView,
@@ -446,9 +457,10 @@ export function createFindingsScreen({ runtime, params = {} }) {
       items: m.items,
       context,
       form: form ? Object.freeze({ ...form }) : null,
+      noteCheck,
       // A form opened with a run but no variant asks which prediction was seen.
       needsVariant: Boolean(context && context.runId && !context.variant),
-      canSubmit: Boolean(form && form.type && (!context.runId || form.variant) && !busy),
+      canSubmit: Boolean(form && form.type && (!context.runId || form.variant) && noteCheck.ok && !busy),
       busy,
       notice,
     });

@@ -10,6 +10,7 @@ import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { createFindingsScreen, FINDING_TYPE } from './findings.mjs';
+import NoteCheck from './NoteCheck';
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 
 const TYPE_LABEL = Object.freeze({
@@ -71,12 +72,18 @@ function CreateForm({ ctl, st }) {
         style={s.input}
         value={st.form.note}
         onChangeText={(v) => ctl.setNote(v)}
-        placeholder="Note (what you see, where)"
+        placeholder="Note: what you see on the image, and where"
         placeholderTextColor={color.textFaint}
         multiline
         accessibilityLabel="Finding note"
       />
-      <Btn label={st.busy === 'create' ? 'Saving…' : 'Create finding'} active disabled={!st.canSubmit} onPress={() => ctl.submit()} />
+      <NoteCheck check={st.noteCheck} />
+      <Btn
+        label={st.busy === 'create' ? 'Saving…' : st.noteCheck.warnings.length ? 'Create anyway' : 'Create finding'}
+        active
+        disabled={!st.canSubmit}
+        onPress={() => ctl.submit()}
+      />
       {!st.form.type && <Text style={s.hint}>Choose a type first.</Text>}
       {st.needsVariant && !st.form.variant && <Text style={s.hint}>Choose the prediction variant (the finding names a run).</Text>}
     </View>
@@ -171,7 +178,7 @@ const s = StyleSheet.create({
   noticeWarn: { color: color.warn },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginTop: space.xs },
   input: {
-    minHeight: 64, color: color.text, borderColor: color.border, borderWidth: 1, borderRadius: 8, padding: space.s,
+    minHeight: 64, color: color.text, borderColor: color.control, borderWidth: 1, borderRadius: 8, padding: space.s,
     fontSize: font.body, textAlignVertical: 'top',
   },
   btn: {
