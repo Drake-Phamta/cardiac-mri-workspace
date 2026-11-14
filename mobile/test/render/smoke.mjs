@@ -38,16 +38,34 @@ const tick = async (ms = 30) => { await act(async () => { await sleep(ms); }); }
 const textOf = (node) => (node.children || []).map((c) => (typeof c === 'string' ? c : textOf(c))).join('');
 const texts = (r) => r.root.findAll((n) => n.type === 'Text').map(textOf);
 const has = (r, re) => texts(r).some((t) => re.test(t));
+// Icons (src/components/icons.js) are react-native-svg drawings too; each icon's Svg has testID "icon-<Name>". A check
+// that counts drawn marks (overlay paths, chart dots, mask rects, a chart's Svg) counts only the marks outside an icon.
+const isIcon = (n) => n.type === 'Svg' && typeof n.props.testID === 'string' && n.props.testID.startsWith('icon-');
+const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return true; return false; };
+const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
   const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
   await act(async () => { for (const v of views) v.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } } }); });
 }
+// The header's controls (Back, the Live / Fixture indicator, Info) have testIDs "header-..."; a check that presses a
+// label means the screen's own button, so they are skipped. onScreen reads the screen from the header's testID.
+const isHeaderControl = (n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('header-');
+const onScreen = (r, screenId) => r.root.findAll((n) => n.props && n.props.testID === `screen-${screenId}`).length > 0;
 async function press(r, label) {
-  const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).includes(label));
+  const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).includes(label) && !isHeaderControl(n));
   if (!hits.length) throw new Error(`no button "${label}"; texts: ${texts(r).slice(0, 40).join(' | ')}`);
   await act(async () => { hits[0].props.onPress(); });
 }
+// The header's Back is an arrow icon, found by its testID; it pops the stack as Android back does.
+async function pressBack(r) {
+  const hit = r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.testID === 'header-back')[0];
+  if (!hit) throw new Error(`no header Back; texts: ${texts(r).slice(0, 40).join(' | ')}`);
+  await act(async () => { hit.props.onPress(); });
+}
+const byTestId = (r, id) => r.root.findAll((n) => n.props && n.props.testID === id && typeof n.type === 'string')[0];
+const tabBar = (r) => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'tab');
+const selectedTab = (r) => tabBar(r).filter((t) => t.props.accessibilityState.selected).map(textOf).join();
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
 let failures = 0;
 let count = 0;
@@ -88,12 +106,12 @@ const bundleJson = generatedBundleJson();
       React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-01' })), nodeMock);
   });
   await tick();
-  check('S1', has(r, /SCR-01 · V3/) && has(r, /Study Overview/), 'root is SCR-01 Study Overview');
-  check('S1', has(r, /FIXTURE/), 'fixture badge visible');
+  check('S1', onScreen(r, 'SCR-01') && has(r, /Study Overview/), 'root is SCR-01 Study Overview');
+  check('S1', textOf(byTestId(r, 'header-status')) === 'Fixture', 'the header says Fixture next to its grey dot');
 
   await press(r, 'Cases');
   await tick(60);
-  check('S2', has(r, /SCR-02 · V1/) && has(r, /Case List/), 'Cases tab opens SCR-02');
+  check('S2', onScreen(r, 'SCR-02') && has(r, /Case List/), 'Cases tab opens SCR-02');
   check('S2', has(r, /Study STUDY_DEMO/), 'study id shown');
 
   const input = r.root.findAll((n) => n.type === 'TextInput')[0];
@@ -101,7 +119,7 @@ const bundleJson = generatedBundleJson();
   await tick();
   await press(r, 'Open CASE_0043 directly');
   await tick(60);
-  check('S3', has(r, /SCR-03 · V1/) && has(r, /Case Explorer/), 'SCR-03 opened from the list');
+  check('S3', onScreen(r, 'SCR-03') && has(r, /Case Explorer/), 'SCR-03 opened from the list');
   check('S3', has(r, /Prediction variant/) && has(r, /No default/), 'variant chooser asks (no default)');
   await press(r, 'RAW');
   await tick(150);
@@ -126,12 +144,12 @@ const bundleJson = generatedBundleJson();
   const slices = logs.filter((l) => l.startsWith('CMW_SLICE '));
   check('S7', slices.length >= 2, `CMW_SLICE timing lines logged: ${slices.length}`);
 
-  await press(r, '‹ Back');
+  await pressBack(r);
   await tick(60);
-  check('S8', has(r, /SCR-02 · V1/), 'Back returns to the list');
+  check('S8', onScreen(r, 'SCR-02'), 'Back returns to the list');
   await press(r, 'Findings');
   await tick();
-  check('S8', has(r, /SCR-08 · V4/), 'Findings tab -> SCR-08 Findings');
+  check('S8', onScreen(r, 'SCR-08'), 'Findings tab -> SCR-08 Findings');
   await act(async () => { r.unmount(); });
 }
 
@@ -244,11 +262,11 @@ const liveRuntime = (fetchImpl) => createRuntime({
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
   check('L2', img() && img().props.source.uri.startsWith('data:image/png;base64,'), 'MRI drawn from fetched bytes (data URI)');
   check('L2', requests.some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')), 'the bytes came from base URL + content_url');
-  let paths = r.root.findAll((n) => n.type === 'Path').map((n) => n.props.d.length);
+  let paths = marks(r, 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 1 && paths[0] > 100, `prediction overlay drawn as one path (${paths.join(',')} chars)`);
   await press(r, 'Ground truth: OFF');
   await tick(250);
-  paths = r.root.findAll((n) => n.type === 'Path').map((n) => n.props.d.length);
+  paths = marks(r, 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 2, `ground-truth overlay added (${paths.length} paths)`);
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
   await tick(30);
@@ -278,10 +296,12 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 575, height: 576 } } }); });
   await tick(30);
   check('L7', has(r, /575x576 but the case geometry says 576x576/), 'an MRI of the wrong size blocks the overlays and says why');
-  check('L7', r.root.findAll((n) => n.type === 'Path').length === 0, 'and no overlay is drawn over it');
+  check('L7', marks(r, 'Path').length === 0, 'and no overlay is drawn over it');
 
   // #77 QA B-3: a slice that fails shows nothing of the slice displayed before.
   const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
+  check('L8', !has(r, /^MRI .+ · .+/) && has(r, /Provenance \(this slice\)/), 'the artifact ids are folded under Provenance by default');
+  await press(r, 'Provenance (this slice)');
   check('L8', has(r, /^MRI .+ · .+/) && !has(r, /^MRI - · -$/) && entry('Error inspector').props.disabled === false,
     'before: provenance and the SCR-04 entry belong to the displayed slice');
   setFailSlice(43);
@@ -422,7 +442,7 @@ function noRunBackend() {
   check('N4', has(r, /^Slice Dice: - \(no analysis run for this case\)$/), 'the slice metric says why it is empty');
   await press(r, 'Ground truth: OFF');
   await tick(300);
-  check('N5', r.root.findAll((n) => n.type === 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
+  check('N5', marks(r, 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
 
   // The L4 15 + 15 run, started the way the leader starts it: long-press the slice label.
   const label = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.onLongPress === 'function')[0];
@@ -531,7 +551,7 @@ function noRunBackend() {
 }
 
 // ---- 5. V3: SCR-01 and SCR-07 on the fixture runtime (#69) ------------------
-// Both screens through the real navigator, under the FIXTURE badge, each
+// Both screens through the real navigator, under the Fixture indicator, each
 // drawing its model's answer rather than a state panel; then SCR-07 opened for
 // one experiment, where a tapped strip dot opens SCR-03 with case, run, variant.
 {
@@ -542,12 +562,12 @@ function noRunBackend() {
       React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-01' })), nodeMock);
   });
   await tick(60);
-  check('V3R1', has(r, /SCR-01 · V3/) && has(r, /^FIXTURE$/), 'SCR-01 renders under the FIXTURE badge');
+  check('V3R1', onScreen(r, 'SCR-01') && has(r, /^Fixture$/), 'SCR-01 renders under the Fixture indicator');
   check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^1 of 7 matrix experiments listed by the server$/)
     && has(r, /^Outliers \(DR-010\)$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
   await press(r, 'Open the comparison (SCR-07)');
   await tick(60);
-  check('V3R2', has(r, /SCR-07 · V3/) && has(r, /^FIXTURE$/), 'SCR-07 opened from SCR-01, under the FIXTURE badge');
+  check('V3R2', onScreen(r, 'SCR-07') && has(r, /^Fixture$/), 'SCR-07 opened from SCR-01, under the Fixture indicator');
   check('V3R2', has(r, /filled from the server's experiment list$/) && has(r, /^Comparisons \(server verdicts\)$/),
     'SCR-07 draws its model: the matrix and the server verdicts');
   // The generated list names one matrix experiment (EXP-D-PP, refused), so no
@@ -555,7 +575,7 @@ function noRunBackend() {
   check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/), 'no metric to pick, and it says so');
   await layout(r);
   await tick(30);
-  check('V3R2', r.root.findAll((n) => n.type === 'Svg').length === 1, 'the strip plot is drawn, empty');
+  check('V3R2', marks(r, 'Svg').length === 1, 'the strip plot is drawn, empty');
   await act(async () => { r.unmount(); });
 }
 {
@@ -571,7 +591,7 @@ function noRunBackend() {
   await press(r, 'dice');
   await layout(r);
   await tick(30);
-  const dots = r.root.findAll((n) => n.type === 'Circle');
+  const dots = marks(r, 'Circle');
   check('V3R3', dots.length === 4, `EXP-U-100 strip: ${dots.length} dots, one per successful case (4)`);
   const strip = r.root.findAll((n) => n.type === 'Pressable')[0];
   if (strip && dots.length) {
@@ -625,7 +645,7 @@ function noRunBackend() {
   // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
   const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
-  const paths = () => r.root.findAll((n) => n.type === 'Path');
+  const paths = () => marks(r, 'Path');
   check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
   check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
     'legend: every class named in words with its pixel count');
@@ -637,7 +657,7 @@ function noRunBackend() {
   check('E4e', has(r, /#2 · z 44/) && has(r, /#3 · z 30/) && listed.join(',') === '52,44,30',
     `the list in the server's order, never re-ranked: z ${listed.join(', ')}`);
   check('E4f', has(r, /Dice 0\.810 · IoU 0\.680/) && has(r, /RVE -4\.2 %/), 'case metrics as the server sent them');
-  const bars = () => r.root.findAll((n) => n.type === 'Rect' && n.props.fill !== 'none').length;
+  const bars = () => marks(r, 'Rect').filter((n) => n.props.fill !== 'none').length;
   check('E4g', bars() === 3, `profile: one bar per eligible slice, none for the rest (${bars()})`);
   const reqMark = evalBackend.requests.length;
   const gestureMark = gestures().length;
@@ -666,6 +686,9 @@ function noRunBackend() {
     `entry to the 3D error view with the slice: ${JSON.stringify(pushes[0] || null)}`);
 
   // #77 QA B-3, applied to SCR-04: a slice that fails shows nothing of the slice displayed before.
+  await press(r, 'Provenance (this slice)');
+  check('E4k', /^reference \S+ · prediction \S+$/.test(texts(r).find((x) => x.startsWith('reference ')) || '') && !has(r, /^reference - · prediction -$/),
+    `before: the mask ids under Provenance belong to the displayed slice (${texts(r).find((x) => x.startsWith('reference ')) || '-'})`);
   evalBackend.setFailSlice(53);
   await press(r, '▶');
   await tick(400);
@@ -820,7 +843,7 @@ function noRunBackend() {
   };
   let handled;
   await act(async () => { handled = BackHandler.__press(); });
-  check('B1', BackHandler.__listeners === 1 && handled === false && has(r, /SCR-02 · V1/),
+  check('B1', BackHandler.__listeners === 1 && handled === false && onScreen(r, 'SCR-02'),
     `one hardware-back listener (${BackHandler.__listeners}); at the root with no guard the press goes to the system`);
 
   // Two quick presses on a guarded screen: one prompt, the second press refused while it is open.
@@ -831,11 +854,11 @@ function noRunBackend() {
   let presses;
   await act(async () => { presses = [BackHandler.__press(), BackHandler.__press()]; });
   await tick();
-  check('B2', presses.every((x) => x === true) && asked === 1 && has(r, /SCR-03 · V1/),
+  check('B2', presses.every((x) => x === true) && asked === 1 && onScreen(r, 'SCR-03'),
     `two quick back presses on SCR-03: both consumed, the guard asked ${asked} time(s), still on SCR-03`);
   await act(async () => { answer(true); });
   await tick(60);
-  check('B2', has(r, /SCR-02 · V1/) && asked === 1, 'the one prompt answered "leave": back on SCR-02, once');
+  check('B2', onScreen(r, 'SCR-02') && asked === 1, 'the one prompt answered "leave": back on SCR-02, once');
 
   // A covered screen leaves no guard behind: SCR-03 lets a push through and unmounts under SCR-08;
   // back on SCR-03 (the same entry, mounted afresh, nothing to lose), Back asks no stale guard.
@@ -844,12 +867,12 @@ function noRunBackend() {
   await act(async () => { screenNav().setLeaveGuard(() => { coveredAsked += 1; return true; }); });
   await act(async () => { await screenNav().push('SCR-08', {}); });
   await tick(60);
-  check('B3', has(r, /SCR-08 · V4/) && coveredAsked === 1, 'SCR-03\'s guard let the push through: SCR-08 on top');
+  check('B3', onScreen(r, 'SCR-08') && coveredAsked === 1, 'SCR-03\'s guard let the push through: SCR-08 on top');
   await act(async () => { BackHandler.__press(); });
   await tick(60);
   await act(async () => { BackHandler.__press(); });
   await tick(60);
-  check('B3', has(r, /SCR-02 · V1/) && coveredAsked === 1,
+  check('B3', onScreen(r, 'SCR-02') && coveredAsked === 1,
     `back, back: SCR-08 -> SCR-03 -> SCR-02, and the covered screen's guard was not asked again (${coveredAsked})`);
 
   // At the root, a guard decides the exit - asked once for two quick presses too.
@@ -883,7 +906,7 @@ function noRunBackend() {
   await tick(150);
   await press(r, 'CASE_0061');
   await tick(150);
-  check('R1', has(r, /SCR-03 · V1/) && has(r, /^RUN_A$/) && has(r, /^RUN_B$/) && has(r, /No default/),
+  check('R1', onScreen(r, 'SCR-03') && has(r, /^RUN_A$/) && has(r, /^RUN_B$/) && has(r, /No default/),
     'two runs: SCR-03 asks for the run and the variant');
   await press(r, 'RUN_B');
   await press(r, 'PROCESSED');
@@ -900,15 +923,15 @@ function noRunBackend() {
   await tick(300);
   await layout(r);
   await tick(250);
-  check('R2', has(r, /SCR-04 · V1/) && has(r, /^Prediction PROCESSED vs ground truth · run RUN_B$/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
+  check('R2', onScreen(r, 'SCR-04') && has(r, /^Prediction PROCESSED vs ground truth · run RUN_B$/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
     'SCR-04 opened on the same run, variant and slice');
   const mark = backend.requests.length;
-  await press(r, '‹ Back');
+  await pressBack(r);
   await tick(300);
   await layout(r);
   await tick(250);
   const sent = backend.requests.slice(mark);
-  check('R3', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+  check('R3', onScreen(r, 'SCR-03') && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
     && sent.every((u) => !u.includes('RUN_A')),
     `back on SCR-03: run RUN_B again, not asked for (${runLine()})`);
   check('R3', has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
@@ -924,12 +947,12 @@ function noRunBackend() {
   forgetSession();
   await press(r, 'Review / correct (SCR-06)');
   await tick(300);
-  check('R4', has(r, /SCR-06 · V4/), 'SCR-03 -> SCR-06 through the real navigator, from RUN_B / PROCESSED / z 64');
-  await press(r, '‹ Back');
+  check('R4', onScreen(r, 'SCR-06'), 'SCR-03 -> SCR-06 through the real navigator, from RUN_B / PROCESSED / z 64');
+  await pressBack(r);
   await tick(300);
   await layout(r);
   await tick(250);
-  check('R5', has(r, /SCR-03 · V1/) && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
+  check('R5', onScreen(r, 'SCR-03') && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
     && has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 65 \/ 88 {2}\(z = 64\)/),
   `back on SCR-03 from SCR-06: run RUN_B, variant PROCESSED, slice z 64, not the earlier z 54 (${runLine()} / ${texts(r).find((t) => t.startsWith('slice ')) || '-'})`);
   await act(async () => { r.unmount(); });
@@ -1158,10 +1181,10 @@ function reviewBackend({ seedVersion = false } = {}) {
   // --- H8: Findings tab -> Review / correct -> SCR-06 on RAW (the finding recorded it) ---
   const be = reviewBackend();
   const r = await mount(be);
-  check('V4a', has(r, /SCR-08 · V4/) && has(r, /seed finding/) && has(r, /CASE_0061 · slice 44 · run RUN_A · RAW/),
+  check('V4a', onScreen(r, 'SCR-08') && has(r, /seed finding/) && has(r, /CASE_0061 · slice 44 · run RUN_A · RAW/),
     'SCR-08 lists the finding with its evidence (case, slice, run, variant)');
   await toReview(r);
-  check('V4b', has(r, /SCR-06 · V4/) && !has(r, /Which prediction do you want to review/) && has(r, /^RAW · /) && has(r, /^Review: NOT_REVIEWED · rev 1$/),
+  check('V4b', onScreen(r, 'SCR-06') && !has(r, /Which prediction do you want to review/) && has(r, /^RAW · /) && has(r, /^Review: NOT_REVIEWED · rev 1$/),
     'SCR-06 opens on RAW (the finding\'s own variant: no question, no default) with the review NOT_REVIEWED');
   const reqs = be.requests.map((q) => `${q.method} ${q.path.replace(/\?.*/, '')}`);
   check('V4b', reqs.includes('GET /api/v1/analysis-runs/RUN_A') && reqs.some((q) => q === 'POST /api/v1/analysis-runs/RUN_A/reviews')
@@ -1177,17 +1200,17 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('V4b', !has(r, /SYNTHETIC/) && !has(r, /decoder is pending/i), 'nothing is labelled SYNTHETIC or pending in live mode');
 
   // --- one brush stroke at SOURCE resolution ---
-  const rectsBefore = r.root.findAll((n) => n.type === 'Rect').length;
+  const rectsBefore = marks(r, 'Rect').length;
   await stroke(r, [500, 300]);
-  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && r.root.findAll((n) => n.type === 'Rect').length > rectsBefore,
+  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && marks(r, 'Rect').length > rectsBefore,
     'a one-finger stroke paints (radius 2 by default) and the slice reads UNSAVED');
-  await pressExact(r, '‹ Back');
+  await pressBack(r);
   await tick(60);
   const guard1 = alertNow('Unsaved edits');
-  check('V4d', guard1 && /Slice 44 has unsaved edits/.test(guard1[1]) && has(r, /SCR-06 · V4/),
+  check('V4d', guard1 && /Slice 44 has unsaved edits/.test(guard1[1]) && onScreen(r, 'SCR-06'),
     'LEAVE GUARD: Back with unsaved edits asks first, and nothing has moved yet');
   await answerAlert('Unsaved edits', 'Stay');
-  check('V4d', has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', '"Stay" keeps the screen and the edit');
+  check('V4d', onScreen(r, 'SCR-06') && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', '"Stay" keeps the screen and the edit');
   let handled;
   globalThis.__alerts = [];
   await act(async () => { handled = BackHandler.__press(); });
@@ -1199,7 +1222,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   // outside it) is an answer too - onDismiss says "stay". A guard that never settled would keep the shell's
   // one-prompt latch closed and refuse every later Back, tab and push on this screen.
   globalThis.__alerts = [];
-  await pressExact(r, '‹ Back');
+  await pressBack(r);
   await tick(60);
   const dismissable = alertNow('Unsaved edits');
   check('V4q', dismissable && dismissable[3] && dismissable[3].cancelable === true && typeof dismissable[3].onDismiss === 'function',
@@ -1207,9 +1230,9 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { dismissable[3].onDismiss(); });
   await tick(60);
   globalThis.__alerts = [];
-  await pressExact(r, '‹ Back');
+  await pressBack(r);
   await tick(60);
-  check('V4q', Boolean(alertNow('Unsaved edits')) && has(r, /SCR-06 · V4/) && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
+  check('V4q', Boolean(alertNow('Unsaved edits')) && onScreen(r, 'SCR-06') && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
     'after a dismissed prompt the next Back asks again (the latch was released) and nothing moved or was lost');
   await answerAlert('Unsaved edits', 'Stay');
 
@@ -1254,9 +1277,9 @@ function reviewBackend({ seedVersion = false } = {}) {
     && textOf(byId(r, 'mask-state')[0]) === 'SAVED', 'the header reads CORRECTED, the latest version and its source, and the slice SAVED');
   check('V4g', !be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'CORRECTED'), 'no PATCH to CORRECTED ever: the commit alone made it');
   check('V4g', btn(r, 'Save').props.disabled === true, 'Save is disabled again: nothing changed since the commit');
-  await pressExact(r, '‹ Back');
+  await pressBack(r);
   await tick(60);
-  check('V4g', has(r, /SCR-08 · V4/), 'saved: Back leaves without asking');
+  check('V4g', onScreen(r, 'SCR-08'), 'saved: Back leaves without asking');
 
   // --- H9: the raw prediction and the earlier version are untouched ---
   check('V4h', same(be.db.versions[0].slices.get(44), expected) && same(be.SOURCE, be.bits(ellipseMask(576, 576, 310, 262, 66, 58))),
@@ -1297,7 +1320,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   // --- New finding here: SCR-08 with the context, create, and Back restores the review ---
   await pressExact(r, 'New finding here');
   await tick(150);
-  check('V4k', has(r, /SCR-08 · V4/) && has(r, /^CASE_0061 · slice 44 · run RUN_A · RAW$/) && has(r, /New finding/),
+  check('V4k', onScreen(r, 'SCR-08') && has(r, /^CASE_0061 · slice 44 · run RUN_A · RAW$/) && has(r, /New finding/),
     'New finding here opens SCR-08 with the case, slice, run and variant of the review');
   await pressExact(r, 'Over-segmentation');
   const note = r.root.findAll((n) => n.type === 'TextInput')[0];
@@ -1310,11 +1333,11 @@ function reviewBackend({ seedVersion = false } = {}) {
     && 'region_reference' in posted.body && 'experiment_id' in posted.body,
   'finding_create sends the contract\'s fields: case, run, variant, slice, type, note, study');
   check('V4k', has(r, /Finding FINDING_2 created \(OPEN\)/) && has(r, /Leaks into the right ventricle\./), 'the new finding is listed with its note');
-  await pressExact(r, '‹ Back');
+  await pressBack(r);
   await tick(250);
   await layout(r);
   await tick(150);
-  check('V4k', has(r, /SCR-06 · V4/) && !has(r, /Which prediction do you want to review/) && has(r, /slice 44 \/ 88/) && has(r, /^RAW · /),
+  check('V4k', onScreen(r, 'SCR-06') && !has(r, /Which prediction do you want to review/) && has(r, /slice 44 \/ 88/) && has(r, /^RAW · /),
     'Back from SCR-08 reopens SCR-06 on the same variant and slice (returnParams), without asking again');
   await act(async () => { r.unmount(); });
 
@@ -1435,9 +1458,9 @@ function reviewBackend({ seedVersion = false } = {}) {
     'saving over the older base is refused on the device: nothing is sent');
   await pressExact(rx, 'Cancel edits');
   await answerAlert('Discard unsaved edits?', 'OK');
-  await pressExact(rx, '‹ Back');
+  await pressBack(rx);
   await tick(60);
-  check('V4p', has(rx, /SCR-08 · V4/), 'with the edit cancelled, Back leaves without asking');
+  check('V4p', onScreen(rx, 'SCR-08'), 'with the edit cancelled, Back leaves without asking');
   await toReview(rx);
   check('V4p', /Continuing from version REVMASK_1/.test(textOf(byId(rx, 'continuing')[0])) && textOf(byId(rx, 'mask-state')[0]) === 'SAVED'
     && bx.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && bx.db.versions.length === 2,
@@ -1728,6 +1751,121 @@ function reviewBackend({ seedVersion = false } = {}) {
     `SCR-03 -> SCR-05 carries case, run, variant and slice: ${JSON.stringify(recorded[0] ? [recorded[0][0], recorded[0][1]] : null)}`);
     await act(async () => { r.unmount(); });
   }
+}
+
+// ---- 12. Shell: header, tab bar, Details sheet, state panels, session cover, cache clear ----
+{
+  const { AppState, BackHandler } = await import('react-native');
+  const { default: StateView } = await imp('src/components/StateView.js');
+  const { loading, recoverableError } = await imp('src/api/states.mjs');
+  const headerTexts = (r) => {
+    const h = r.root.findAll((n) => n.props && typeof n.props.testID === 'string' && n.props.testID.startsWith('screen-'))[0];
+    return h ? h.findAll((n) => n.type === 'Text').map(textOf) : [];
+  };
+
+  // Header: a name for people and the study; no screen id in the header or the tab bar.
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  let t = 0;
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(NavigatorView, {
+        runtime, initialScreenId: 'SCR-01', session: { idleMs: 600, backgroundMs: 300, checkEveryMs: 20, now: () => t },
+      })), nodeMock);
+  });
+  await tick(60);
+  check('H1', onScreen(r, 'SCR-01') && headerTexts(r).join(' | ') === 'Study Overview | Study STUDY_DEMO | Fixture'
+    && !byTestId(r, 'header-back'), `header on a tab root, no Back: ${headerTexts(r).join(' | ')}`);
+  check('H1', !has(r, /SCR-0\d · V\d/) && !has(r, /^SCR-0\d$/), 'no screen id in the header or the tab bar');
+  check('H8', tabBar(r).map(textOf).join() === 'Study,Cases,Experiments,Findings'
+    && tabBar(r).every((tab) => tab.findAll((n) => isIcon(n)).length === 1) && selectedTab(r) === 'Study',
+  `tab bar: four tabs, each an icon and its name; selected: ${selectedTab(r)}`);
+  const infoButton = () => byTestId(r, 'header-info');
+  await act(async () => { infoButton().props.onPress(); });
+  check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),
+    `Info opens the Details sheet: ${texts(r).filter((x) => /^(Screen|Mode|Contract|Build) /.test(x)).join(' | ')}`);
+  await press(r, 'Clear cached images');
+  check('H2', has(r, /^Nothing to clear: this build keeps no images \(fixture mode\)\.$/), 'fixture mode: nothing to clear, and it says so');
+
+  // Session cover: idle, then the back button is held, then "Show the screen".
+  const root = r.root.findAll((n) => typeof n.props.onStartShouldSetResponderCapture === 'function')[0];
+  t = 500;
+  await act(async () => { root.props.onStartShouldSetResponderCapture(); });
+  await tick(60);
+  check('H3', !has(r, /^Screen hidden$/), 'a touch at 500 ms keeps the screen (idle limit 600 ms)');
+  t = 1200;
+  await tick(80);
+  const cover = () => r.root.findAll((n) => n.props && n.props.testID === 'session-cover')[0];
+  check('H3', Boolean(cover()) && has(r, /^Screen hidden$/) && has(r, /^Nobody touched the screen for 0\.6 seconds\./),
+    `700 ms without a touch: the cover is up (${texts(r).find((x) => x.startsWith('Nobody')) || '-'})`);
+  check('H7', !has(r, /^This screen$/) && !has(r, /^Screen SCR-01 \(V3\)$/), 'the open Details sheet hides under the cover (a Modal would draw over it)');
+  let handled;
+  await act(async () => { handled = BackHandler.__press(); });
+  check('H3', handled === true && onScreen(r, 'SCR-01'), 'while covered the back button changes nothing');
+  await press(r, 'Show the screen');
+  check('H3', !cover() && BackHandler.__listeners === 1, 'Show the screen removes the cover and its back-button hold');
+  check('H7', has(r, /^This screen$/), 'the Details sheet is back once the screen shows again');
+  await act(async () => { byTestId(r, 'details-sheet-close').props.onPress(); });
+  check('H7', !has(r, /^This screen$/) && !has(r, /^Details$/), 'Close shuts the Details sheet');
+
+  // Background for longer than the limit covers the screen on return; a short trip does not.
+  await act(async () => { AppState.__set('background'); });
+  t += 100;
+  await act(async () => { AppState.__set('active'); });
+  check('H4', !cover(), 'back after 100 ms in the background: no cover');
+  await act(async () => { AppState.__set('background'); });
+  t += 400;
+  await act(async () => { AppState.__set('active'); });
+  check('H4', Boolean(cover()) && has(r, /in the background for/), `back after 400 ms (limit 300): ${texts(r).find((x) => x.startsWith('The app was')) || '-'}`);
+  await press(r, 'Show the screen');
+  await act(async () => { r.unmount(); });
+  check('H4', AppState.__listeners === 0, 'the AppState listener is removed with the navigator');
+
+  // State panel: a placeholder while loading; an error shows its cause, its code, one action, details folded.
+  await act(async () => { r = TestRenderer.create(React.createElement(StateView, { view: loading(), what: 'the case list' })); });
+  check('H5', r.root.findAll((n) => n.props && n.props.testID === 'placeholder').length === 1 && has(r, /^Loading the case list…$/),
+    'loading: a placeholder where the content will be, and what is loading');
+  const err = recoverableError({ code: 'TRANSPORT_UNREACHABLE', httpStatus: 503, requestId: 'req_7' }, ['RETRY']);
+  const acted = [];
+  await act(async () => { r.update(React.createElement(StateView, { view: err, what: 'the case list', onAction: (id) => acted.push(id) })); });
+  const buttons = () => r.root.findAll((n) => n.type === 'TouchableOpacity').map(textOf);
+  check('H5', r.root.findAll((n) => n.props && n.props.testID === 'placeholder').length === 0 && has(r, /could not be reached/)
+    && has(r, /^code TRANSPORT_UNREACHABLE$/) && !has(r, /^request req_7$/) && buttons().join(',') === 'Details (2),Retry',
+  `error: cause, code, one action, details folded (${buttons().join(', ')})`);
+  await press(r, 'Details');
+  await press(r, 'Retry');
+  check('H5', has(r, /^HTTP 503$/) && has(r, /^request req_7$/) && acted.join() === 'RETRY', 'Details shows the HTTP status and request id; Retry answers RETRY');
+  await act(async () => { r.unmount(); });
+
+  // Live: the header names the run SCR-03 picked; "Clear cached images" empties the stores and reloads the slice.
+  (await imp('src/lib/caseMode.mjs')).forgetSession();
+  const backend = fakeBackend();
+  const live = liveRuntime(backend.fetchImpl);
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: live },
+      React.createElement(NavigatorView, { runtime: live, initialScreenId: 'SCR-02' })), nodeMock);
+  });
+  await tick(150);
+  await press(r, 'CASE_0061');
+  await tick(150);
+  if (has(r, /No default/)) await press(r, 'RAW');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'Case Explorer | CASE_0061 · run RUN_A · RAW | Live'
+    && Boolean(byTestId(r, 'header-back')), `SCR-03 header, with Back: ${headerTexts(r).join(' | ')}`);
+  check('H8', selectedTab(r) === 'Cases', `a pushed screen keeps the tab bar, its root tab selected: ${selectedTab(r)}`);
+  const cachedBefore = live.imageStore.stats().cached;
+  const mark = backend.requests.length;
+  await act(async () => { infoButton().props.onPress(); });
+  await press(r, 'Clear cached images');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('H6', cachedBefore > 0 && has(r, /^Cleared \d+ images?, \d+ masks? and \d+ cached answers? from the app's memory/)
+    && backend.requests.slice(mark).some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')) && has(r, /slice 45 \/ 88/),
+  `cleared ${cachedBefore} image(s); the slice on screen was fetched again (${backend.requests.length - mark} requests)`);
+  await act(async () => { r.unmount(); });
 }
 
 console.log = origLog;

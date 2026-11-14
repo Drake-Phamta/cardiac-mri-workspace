@@ -14,6 +14,7 @@ import {
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
+import Provenance, { IdLine } from '../../components/Provenance';
 import SliceViewport, { SliceScrubber, useMaskOverlay } from './SliceView';
 import {
   capabilityOf, VARIANT_TEXT, variantOptions, rememberedVariant, rememberVariant,
@@ -216,6 +217,13 @@ function Explorer({
     },
   }), [settle]);
   useEffect(() => () => runner.dispose(), [runner]);
+
+  // The header names the run and variant on screen; the route may not, because this screen can pick the run itself.
+  useEffect(() => {
+    if (typeof nav.setContext !== 'function') return undefined;
+    nav.setContext({ runId: hasRun ? runId : null, variant: hasRun ? targetVariant : null });
+    return () => nav.setContext(null);
+  }, [nav, hasRun, runId, targetVariant]);
 
   useEffect(() => {
     // A fresh open drops cached "unavailable" answers: the data may have arrived since the last visit.
@@ -581,18 +589,17 @@ function Explorer({
           {geometryNote && <Text style={s.dim}>{geometryNote}</Text>}
         </View>
 
-        <View style={s.card}>
-          <Text style={s.cardH}>Provenance (this slice)</Text>
-          <Text style={s.mono}>MRI {short(showing && displayed.imageRef ? displayed.imageRef.artifactId : null)} · {short(showing && displayed.imageRef ? displayed.imageRef.checksum : null)}</Text>
+        <Provenance title="Provenance (this slice)" summary="artifact ids and checksums of the MRI and masks">
+          <IdLine>MRI {short(showing && displayed.imageRef ? displayed.imageRef.artifactId : null)} · {short(showing && displayed.imageRef ? displayed.imageRef.checksum : null)}</IdLine>
           {hasRun ? (
-            <Text style={s.mono}>Prediction {showing ? displayed.variant : '-'} {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(showing && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</Text>
+            <IdLine>Prediction {showing ? displayed.variant : '-'} {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(showing && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</IdLine>
           ) : (
-            <Text style={s.mono}>Prediction - ({noRunText})</Text>
+            <IdLine>Prediction - ({noRunText})</IdLine>
           )}
           {capability.groundTruthUsable && (
-            <Text style={s.mono}>Ground truth {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.checksum : null)}</Text>
+            <IdLine>Ground truth {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.checksum : null)}</IdLine>
           )}
-        </View>
+        </Provenance>
 
         <View style={s.entries}>
           <Entry
@@ -684,7 +691,6 @@ const s = StyleSheet.create({
   metric: { color: color.text, fontSize: font.body },
   ok: { color: color.ok },
   warnT: { color: color.warn },
-  mono: { color: color.textDim, fontFamily: font.mono, fontSize: 11 },
   entries: { gap: space.s },
   entry: {
     minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg,
