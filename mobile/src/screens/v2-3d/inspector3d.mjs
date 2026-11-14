@@ -1,9 +1,10 @@
 // What the 3D Inspector (SCR-05) decides apart from drawing: mesh and error references, the downloaded files,
-// viewer messages, tap-to-slice, error markers and the layer states. Plain JS, so the Node tests check the same code
-// the phone runs.
+// viewer messages, tap-to-slice, error markers, the layer states and the words of the bottom panel and the Details
+// sheet. Plain JS, so the Node tests check the same code the phone runs. (Which layers are shown, their opacity, the
+// cut and Previous / Next are the page's own tools: viewerTools.mjs.)
 
 import { bytesToBase64 } from '../../lib/bytes.mjs';
-import { errorClass, overlay } from '../../components/tokens.mjs';
+import { errorClass } from '../../components/tokens.mjs';
 
 export const MESH_FORMAT = 'cardiac-mesh/1';
 export const ERRORS_FORMAT = 'cardiac-error-geometry/1';
@@ -11,19 +12,14 @@ export const MESH_ID = /^MESH_([0-9a-f]{64})$/;
 export const ERRORS_ID = /^ERRGEOM_([0-9a-f]{64})$/;
 export const ROLES = Object.freeze({ PREDICTION: 'prediction', GROUND_TRUTH: 'groundTruth', ERRORS: 'errors' });
 export const ROLE_LABEL = Object.freeze({ prediction: 'Prediction', groundTruth: 'Ground truth', errors: 'Errors' });
-// Same colours as the 2D overlays and the Error Inspector, so the whole app has one legend.
-export const LAYER_COLOR = Object.freeze({ prediction: overlay.prediction, groundTruth: overlay.groundTruth });
+export const VARIANT_LABEL = Object.freeze({ RAW: 'Raw', PROCESSED: 'Processed' });
+// The error classes are the colours of the Error Inspector (and of the markers on the surface), so the app has one legend.
 export const MARKER_COLOR = Object.freeze({ FN: errorClass.FN, FP: errorClass.FP });
+export const ERROR_TITLE = Object.freeze({ FN: 'Missed region (FN)', FP: 'Extra region (FP)' });
 export const ERROR_MEANING = Object.freeze({
-  FN: 'missed: ground truth the prediction left out',
-  FP: 'extra: predicted where the ground truth has none',
+  FN: 'Ground truth that the prediction left out.',
+  FP: 'Predicted where the ground truth has none.',
 });
-
-// Opacity steps of a surface layer. The ground truth starts see-through so the solid prediction reads in front.
-export const OPACITY_STEPS = Object.freeze([0.3, 0.6, 1]);
-export const DEFAULT_OPACITY = Object.freeze({ prediction: 1, groundTruth: 0.3 });
-// Camera presets: look at the model from the named side of each voxel axis.
-export const VIEW_AXES = Object.freeze(['+x', '-x', '+y', '-y', '+z', '-z']);
 
 // Both ids are <PREFIX>_<sha256 of the bytes>, so the download URL and the checksum come from the id alone.
 // Any other id has no content route: null.
@@ -118,18 +114,11 @@ export function parseErrorGeometry(bytes, { shape, surfaceMeshId }) {
 // mask or server name, so the page never holds anything that identifies a case.
 export const toViewer = Object.freeze({
   mesh: (role, bytes) => JSON.stringify({ type: 'mesh', role, b64: bytesToBase64(bytes) }),
-  layers: ({ prediction, groundTruth, errors }) => JSON.stringify({
-    type: 'layers', prediction: Boolean(prediction), groundTruth: Boolean(groundTruth), errors: Boolean(errors),
-  }),
-  opacity: ({ prediction, groundTruth }) => JSON.stringify({ type: 'opacity', prediction, groundTruth }),
   markers: (markers) => JSON.stringify({
     type: 'markers', items: markers.map((m) => ({ id: m.id, cls: m.cls, at: m.at, voxels: m.voxels })),
   }),
   select: (markerId) => JSON.stringify({ type: 'select', id: typeof markerId === 'string' ? markerId : null }),
   slice: (index) => JSON.stringify({ type: 'slice', index: Number.isInteger(index) ? index : null }),
-  cut: (on) => JSON.stringify({ type: 'cut', on: Boolean(on) }),
-  view: (axis) => JSON.stringify({ type: 'view', axis: VIEW_AXES.includes(axis) ? axis : null }),
-  fit: () => JSON.stringify({ type: 'fit' }),
   dispose: () => JSON.stringify({ type: 'dispose' }),
 });
 
@@ -174,14 +163,6 @@ export function selectionForMarker(markers, id) {
   return Object.freeze({ slice: marker.slice, role: ROLES.ERRORS, note: null, marker });
 }
 
-// The marker after (step 1) or before (step -1) the selected one, in the server's order, wrapping around.
-export function stepMarker(markers, selected, step) {
-  if (!Array.isArray(markers) || markers.length === 0) return null;
-  const at = selected ? markers.findIndex((m) => m.id === selected.id) : -1;
-  if (at < 0) return step < 0 ? markers[markers.length - 1] : markers[0];
-  return markers[(at + step + markers.length) % markers.length];
-}
-
 const slicesOf = (zmin, zmax) => (zmin === zmax ? `slice ${zmin + 1} (z = ${zmin})` : `slices ${zmin + 1}-${zmax + 1} (z = ${zmin}-${zmax})`);
 const thousands = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
@@ -202,22 +183,6 @@ export function errorSummaryText(markers) {
   }).join(' · ');
 }
 
-export function opacityText(value) {
-  return `${Math.round(value * 100)}%`;
-}
-
-// "Cut at slice": hide the surface above the active slice (the band), so the inside shows there. Without a slice
-// there is nothing to cut at.
-export function cutStatus(on, slice, total) {
-  const available = Number.isInteger(slice) && Number.isInteger(total) && slice >= 0 && slice < total;
-  if (!available) {
-    return Object.freeze({ available, active: false, label: 'Cut at slice: n/a', note: 'Cut needs a slice: open 3D from a 2D slice, or tap the surface or a marker.' });
-  }
-  return Object.freeze({
-    available, active: Boolean(on), label: `Cut at slice ${slice + 1}: ${on ? 'ON' : 'OFF'}`,
-    note: on ? `The surface above slice ${slice + 1} of ${total} is hidden.` : null,
-  });
-}
 
 // A background tap clears the selection with a note, so a tap never navigates by accident. A slice outside
 // [0, total) is refused, not clamped.
@@ -232,10 +197,10 @@ export function selectionAfterPick(pick, total) {
   return Object.freeze({ slice: pick.slice, role: pick.role, note: null, marker: null });
 }
 
-// 1-based for people, then the 0-based index the API uses, as SCR-03 prints it.
-export function sliceText(slice, total) {
-  if (!Number.isInteger(slice) || !Number.isInteger(total)) return 'slice - / -';
-  return `slice ${slice + 1} / ${total}  (z = ${slice})`;
+// "45 / 88": the slice 1-based, as the app writes it everywhere (the shared formatter of the 2D screens is not on this
+// branch yet; same output). The 0-based z index the API uses is for the Details sheet only.
+export function sliceReadout(slice, total) {
+  return `${Number.isInteger(slice) ? slice + 1 : '-'} / ${Number.isInteger(total) ? total : '-'}`;
 }
 
 // The push to SCR-03 at the picked slice, or null. returnParams update this screen's stack entry, so Back from
@@ -282,4 +247,98 @@ export function screenStatus(prediction) {
 
 export function triangleText(n) {
   return Number.isInteger(n) ? `${thousands(n)} triangles` : '- triangles';
+}
+
+// What the bottom panel says about the selection, as plain strings (the screen only lays them out): a tapped region
+// (what it is in words, its size and slices), a picked surface point, or a hint when nothing is selected.
+export function selectionPanel(selection, markers) {
+  const marker = selection && selection.marker;
+  if (marker) {
+    const at = Array.isArray(markers) ? markers.findIndex((m) => m.id === marker.id) : -1;
+    return Object.freeze({
+      kind: 'marker',
+      cls: marker.cls,
+      title: ERROR_TITLE[marker.cls],
+      meaning: ERROR_MEANING[marker.cls],
+      facts: Object.freeze([
+        `${thousands(marker.voxels)} voxel${marker.voxels === 1 ? '' : 's'}`,
+        marker.zmin === marker.zmax ? `Slice ${marker.zmin + 1}` : `Slices ${marker.zmin + 1}\u2013${marker.zmax + 1}`,
+        ...(at >= 0 ? [`Region ${at + 1} of ${markers.length}`] : []),
+      ]),
+    });
+  }
+  if (selection && Number.isInteger(selection.slice)) {
+    return Object.freeze({
+      kind: 'pick',
+      cls: null,
+      title: `Picked on the ${ROLE_LABEL[selection.role].toLowerCase()}`,
+      meaning: 'The 2D slice that produced this part of the surface.',
+      facts: Object.freeze([]),
+    });
+  }
+  return Object.freeze({
+    kind: 'none',
+    cls: null,
+    title: null,
+    meaning: (selection && selection.note) || 'Tap the surface to pick a slice, or an error marker to see its region.',
+    facts: Object.freeze([]),
+  });
+}
+
+// One plain sentence for each layer that cannot be shown (the codes and messages go to Details). A loading layer says
+// nothing: its row appears when it is drawn.
+export function layerNotices(groundTruth, errors) {
+  const out = [];
+  const gone = (status) => status.state === LAYER.UNAVAILABLE || status.state === LAYER.ERROR;
+  if (groundTruth.state === LAYER.UNAVAILABLE && groundTruth.reason === 'GROUND_TRUTH_UNAVAILABLE') {
+    out.push('This case has no ground truth, so only the prediction is shown.');
+    return out;
+  }
+  if (gone(groundTruth)) out.push('The ground-truth surface is not available.');
+  if (gone(errors)) out.push('The error markers are not available for this prediction.');
+  return out;
+}
+
+const layerLine = (label, status) => {
+  if (status.state === LAYER.UNAVAILABLE) return `${label}: unavailable (${status.reason || 'no reason given'})`;
+  if (status.state === LAYER.ERROR) return `${label}: error (${status.reason || 'unknown'})${status.message ? `: ${status.message}` : ''}`;
+  return null;
+};
+
+// The Details sheet: what the main surface leaves out (ids, checksums, counts, indices, the frame). Sections of
+// { title, lines }; `surfaces` are the drawn meshes: { label, id, checksum, triangles, vertices }.
+export function detailSections({
+  caseId, runId, variant, modeLabel, surfaces = [], errorGeometryId = null, markers = null, selection = null,
+  statuses = [], geometryNote = null,
+}) {
+  const sections = [{
+    title: 'This view',
+    lines: [`Case ${caseId}`, `Run ${runId}`, `Prediction ${variant} · ${modeLabel}`, 'Surface: level L0, undecimated'],
+  }];
+  const drawn = surfaces.filter((m) => m.id);
+  if (drawn.length) {
+    sections.push({
+      title: 'Surfaces',
+      lines: drawn.flatMap((m) => [
+        `${m.label} ${m.id}`,
+        `${m.label}: ${triangleText(m.triangles)} · ${Number.isInteger(m.vertices) ? `${thousands(m.vertices)} vertices` : '- vertices'}`,
+        `${m.label} checksum ${m.checksum || 'not stated'}`,
+      ]),
+    });
+  }
+  if (Array.isArray(markers)) {
+    sections.push({
+      title: 'Error regions',
+      lines: [...(errorGeometryId ? [`Error geometry ${errorGeometryId}`] : []), errorSummaryText(markers)],
+    });
+  }
+  if (selection && selection.marker) {
+    sections.push({ title: 'Selected region', lines: [selection.marker.id, markerText(selection.marker)] });
+  } else if (selection && Number.isInteger(selection.slice)) {
+    sections.push({ title: 'Selected slice', lines: [`Slice index z = ${selection.slice} (0-based)`] });
+  }
+  const problems = statuses.map(([label, status]) => layerLine(label, status)).filter(Boolean);
+  if (problems.length) sections.push({ title: 'Layers', lines: problems });
+  if (geometryNote) sections.push({ title: 'Frame', lines: [geometryNote] });
+  return sections;
 }

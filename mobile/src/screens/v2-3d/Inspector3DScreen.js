@@ -1,24 +1,27 @@
 // SCR-05 3D Inspector: shows the reconstructed left atrium as WebGL layers in a WebView: the prediction surface, the
-// ground truth (see-through) and one marker per FP / FN error region. A tap on the surface picks the slice that made
-// that face; a tap on a marker selects its error region; "Open in 2D" opens SCR-03 on that slice.
+// ground truth (see-through) and one marker per FP / FN error region. The page draws the tools over the surface
+// (layers, opacity, cut, views, Previous / Next: viewerTools.mjs); this screen loads and checks the data, hands it to
+// the page, and shows the selection in the bottom panel. A tap on the surface picks the slice that made that face; a
+// tap on a marker selects its error region; "Open in 2D" opens SCR-03 on that slice.
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { emptyUnavailable, fatalInvalid, loading, RECOVERY, STATE } from '../../api/states.mjs';
 import { createLatest } from '../../api/client.mjs';
 import { useCall } from '../../api/RuntimeContext';
+import { Button } from '../../components/Controls';
+import DetailsSheet from '../../components/DetailsSheet';
 import StateView, { StatePanel } from '../../components/StateView';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import CapabilityBadge from '../../components/CapabilityBadge';
+import { color, space, type } from '../../components/theme';
 import { capabilityOf, variantOptions, rememberedVariant, rememberVariant } from '../../lib/caseMode.mjs';
 import {
-  cutStatus, DEFAULT_OPACITY, ERROR_MEANING, errorSummaryText, errorsRef, gridMatches, LAYER, LAYER_COLOR, layerStatus,
-  MARKER_COLOR, markerText, maskIdForVariant, meshRef, OPACITY_STEPS, opacityText, openIn2D, parseErrorGeometry,
-  parseMeshHeader, parseViewerMessage, ROLE_LABEL, ROLES, screenStatus, SELECTION_NONE, selectionAfterPick,
-  selectionForMarker, sliceText, stepMarker, toViewer, triangleText, VIEW_AXES,
+  detailSections, errorSummaryText, errorsRef, gridMatches, LAYER, layerNotices, layerStatus, maskIdForVariant, meshRef,
+  openIn2D, parseErrorGeometry, parseMeshHeader, parseViewerMessage, ROLES, screenStatus, SELECTION_NONE,
+  selectionAfterPick, selectionForMarker, selectionPanel, toViewer, VARIANT_LABEL,
 } from './inspector3d.mjs';
+import SelectionPanel from './SelectionPanel';
 import { VIEWER_HTML } from './viewerHtml.mjs';
 
 // Loads the bytes of one artifact reference. Latest wins, like useCall: the request is aborted on unmount and when
@@ -44,7 +47,6 @@ function useArtifactBytes(content, ref, kind) {
 }
 
 const PENDING = loading();
-const AXIS_LABEL = { '+x': '+X', '-x': '−X', '+y': '+Y', '-y': '−Y', '+z': '+Z', '-z': '−Z' };
 
 export default function Inspector3DScreen({ runtime, nav, params }) {
   const { caseId, runId } = params;
@@ -58,18 +60,17 @@ export default function Inspector3DScreen({ runtime, nav, params }) {
   }, [caseCall, runCall, nav]);
 
   if (caseCall.view.state !== STATE.SUCCESS) return <StateView view={caseCall.view} what={`case ${caseId}`} onAction={onAction} />;
-  if (runCall.view.state !== STATE.SUCCESS) return <StateView view={runCall.view} what={`run ${runId}`} onAction={onAction} />;
+  if (runCall.view.state !== STATE.SUCCESS) return <StateView view={runCall.view} what="the analysis run" onAction={onAction} />;
   if (!variant) {
     // The variant has no default (spec 11 §6), so the screen asks, like SCR-03.
     return (
-      <View style={s.center}>
-        <Text style={s.h2}>Prediction variant</Text>
-        <Text style={s.dim}>Which prediction should the 3D surface show? There is no default.</Text>
-        <View style={s.row}>
-          {allowed.map((v) => (
-            <TouchableOpacity key={v} style={s.btn} onPress={() => { rememberVariant(v); setVariant(v); }} accessibilityRole="button">
-              <Text style={s.btnT}>{v}</Text>
-            </TouchableOpacity>
+      <View style={s.stateBox}>
+        <Text style={s.askTitle}>Which prediction?</Text>
+        <Text style={s.askBody}>Choose the prediction the 3D surface is built from.</Text>
+        <View style={s.askRow}>
+          {allowed.map((v, i) => (
+            <Button key={v} label={VARIANT_LABEL[v] || v} accessibilityLabel={v} variant={i === 0 ? 'primary' : 'secondary'}
+              onPress={() => { rememberVariant(v); setVariant(v); }} />
           ))}
         </View>
       </View>
@@ -85,12 +86,11 @@ export default function Inspector3DScreen({ runtime, nav, params }) {
       kase={caseCall.view.data}
       run={runCall.view.data}
       initialSlice={Number.isInteger(params.sliceIndex) ? params.sliceIndex : null}
-      fromErrorView={params.view === 'error'}
     />
   );
 }
 
-function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSlice, fromErrorView }) {
+function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSlice }) {
   const client = runtime.client;
   const capability = capabilityOf(kase.mode, kase.ground_truth_available);
   const shape = Array.isArray(kase.shape) ? kase.shape : null;
@@ -135,6 +135,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     [errCall.view, basePath]);
   const errBytes = useArtifactBytes(runtime.content, errRef, 'errors');
   const predMeshId = predCall.view.state === STATE.SUCCESS ? predCall.view.data.mesh_artifact_id : null;
+  const gtMeshId = gtCall.view.state === STATE.SUCCESS ? gtCall.view.data.mesh_artifact_id : null;
 
   const predPrepared = useMemo(() => layerOf(predCall.view, predBytes.view), [predCall.view, predBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
   const gtPrepared = useMemo(() => layerOf(gtCall.view, gtBytes.view), [gtCall.view, gtBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -155,9 +156,9 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
 
   const meshes = useMemo(() => ({
     prediction: predPrepared.state === STATE.SUCCESS && predPrepared.header
-      ? { bytes: predPrepared.data.bytes, checksum: predPrepared.data.checksum, triangles: predPrepared.header.triangle_count } : null,
+      ? { bytes: predPrepared.data.bytes, checksum: predPrepared.data.checksum } : null,
     groundTruth: gtPrepared.state === STATE.SUCCESS && gtPrepared.header
-      ? { bytes: gtPrepared.data.bytes, checksum: gtPrepared.data.checksum, triangles: gtPrepared.header.triangle_count } : null,
+      ? { bytes: gtPrepared.data.bytes, checksum: gtPrepared.data.checksum } : null,
   }), [predPrepared, gtPrepared]);
 
   const webRef = useRef(null);
@@ -166,14 +167,11 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const [ready, setReady] = useState(0);
   const [loaded, setLoaded] = useState({});
   const [viewerErrors, setViewerErrors] = useState({});
-  const [show, setShow] = useState({ prediction: true, groundTruth: true, errors: true });
-  const [opacity, setOpacity] = useState(DEFAULT_OPACITY);
-  const [cutOn, setCutOn] = useState(false);
   const [selection, setSelection] = useState(SELECTION_NONE);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // The amber band shows the selected slice, else the 2D slice this screen was opened from.
+  // The band on the surface shows the selected slice, else the 2D slice this screen was opened from.
   const band = Number.isInteger(selection.slice) ? selection.slice : initialSlice;
-  const cut = cutStatus(cutOn, band, total);
 
   const tell = useCallback((message) => { if (webRef.current) webRef.current.postMessage(message); }, []);
   useEffect(() => {
@@ -187,10 +185,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
       tell(toViewer.markers(markers));
     }
   }, [ready, meshes, markers, errPrepared, tell]);
-  useEffect(() => { if (ready) tell(toViewer.layers(show)); }, [ready, show, tell]);
-  useEffect(() => { if (ready) tell(toViewer.opacity(opacity)); }, [ready, opacity, tell]);
   useEffect(() => { if (ready) tell(toViewer.slice(band)); }, [ready, band, tell]);
-  useEffect(() => { if (ready) tell(toViewer.cut(cut.active)); }, [ready, cut.active, tell]);
   useEffect(() => { if (ready) tell(toViewer.select(selection.marker ? selection.marker.id : null)); }, [ready, selection, tell]);
   // Leaving the screen: the page frees its GPU buffers. A layout-effect cleanup runs while the WebView is still there.
   useLayoutEffect(() => () => { if (webRef.current) webRef.current.postMessage(toViewer.dispose()); }, []);
@@ -239,12 +234,6 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const onStateAction = (id) => { if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) retry(); else nav.pop(); };
 
   const plan = openIn2D({ caseId, runId, variant, selection, total });
-  const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
-    ? 'Voxel-index frame (x = column, y = row, z = slice). Geometry is not validated: no millimetres are shown.' : null;
-  const step = (by) => {
-    const next = stepMarker(markers, selection.marker, by);
-    if (next) setSelection(selectionForMarker(markers, next.id));
-  };
 
   // No prediction mesh: show the API's reason instead of the viewer.
   if (overall === 'unavailable' || overall === 'error') {
@@ -253,20 +242,36 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
         ? fatalInvalid({ code: predStatus.code, safeMessage: predStatus.message || 'the 3D viewer reported an error' })
         : emptyUnavailable(predStatus.reason || 'NO_RECONSTRUCTION', [RECOVERY.BACK]));
     return (
-      <View style={s.root}>
-        <Header caseId={caseId} capability={capability} runId={runId} variant={variant} />
+      <View style={s.stateBox}>
         <StatePanel view={view} what="the 3D reconstruction" onAction={onStateAction} />
-        <Text style={s.dim}>
-          No mesh is drawn and nothing is substituted. The 2D viewer (SCR-03) still shows this run's slices.
-        </Text>
+        <Text style={s.askBody}>No 3D surface is shown. The 2D viewer still shows this run&apos;s slices.</Text>
       </View>
     );
   }
 
-  const surfacesReady = predStatus.state === LAYER.READY;
+  const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
+    ? 'Voxel-index frame (x = column, y = row, z = slice). Geometry is not validated: no millimetres are shown.' : null;
+  const surfaceInfo = (label, meshId, mesh, seen) => ({
+    label, id: meshId, checksum: mesh ? mesh.checksum : null, triangles: seen ? seen.triangles : null, vertices: seen ? seen.vertices : null,
+  });
+  const sections = detailSections({
+    caseId,
+    runId,
+    variant,
+    modeLabel: capability.label,
+    surfaces: [
+      surfaceInfo('Prediction', predMeshId, meshes.prediction, loaded.prediction),
+      surfaceInfo('Ground truth', gtMeshId, meshes.groundTruth, loaded.groundTruth),
+    ],
+    errorGeometryId: errCall.view.state === STATE.SUCCESS ? errCall.view.data.error_mesh_artifact_id : null,
+    markers,
+    selection,
+    statuses: [['Ground truth', gtStatus], ['Errors', errStatus]],
+    geometryNote,
+  });
+
   return (
     <View style={s.root}>
-      <Header caseId={caseId} capability={capability} runId={runId} variant={variant} />
       <View style={s.stage}>
         <WebView
           ref={webRef}
@@ -296,217 +301,32 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
           <View style={s.overlay} pointerEvents="none"><StatePanel view={PENDING} what="the 3D surface" compact /></View>
         ) : null}
       </View>
-      <ScrollView style={s.panel} contentContainerStyle={s.panelBody}>
-        <View style={s.toolbar}>
-          {VIEW_AXES.map((axis) => (
-            <TouchableOpacity key={axis} style={[s.tool, !surfacesReady && s.btnOff]} disabled={!surfacesReady}
-              onPress={() => tell(toViewer.view(axis))} accessibilityRole="button" accessibilityLabel={`View from ${axis.replace('-', 'minus ').replace('+', 'plus ')}`}>
-              <Text style={[s.toolT, !surfacesReady && s.btnTOff]}>{AXIS_LABEL[axis]}</Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity style={[s.tool, s.toolWide, !surfacesReady && s.btnOff]} disabled={!surfacesReady}
-            onPress={() => tell(toViewer.fit())} accessibilityRole="button" accessibilityLabel="Fit the model in view">
-            <Text style={[s.toolT, !surfacesReady && s.btnTOff]}>Fit</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={s.dim}>View from the side of a voxel axis (x = column, y = row, z = slice), or Fit to reset.</Text>
-        <View style={s.row}>
-          <TouchableOpacity
-            style={[s.btn, cut.active && s.btnOn, (!cut.available || !surfacesReady) && s.btnOff]}
-            disabled={!cut.available || !surfacesReady}
-            onPress={() => setCutOn((v) => !v)}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: cut.active, disabled: !cut.available || !surfacesReady }}
-          >
-            <Text style={[s.btnT, (!cut.available || !surfacesReady) && s.btnTOff]}>{cut.label}</Text>
-          </TouchableOpacity>
-        </View>
-        {cut.note ? <Text style={s.dim}>{cut.note}</Text> : null}
-
-        <View style={s.card}>
-          <LayerRow role={ROLES.PREDICTION} label={`Prediction (${variant})`} status={predStatus} on={show.prediction}
-            note={triangleText(loaded.prediction && loaded.prediction.triangles)}
-            onToggle={() => setShow((v) => ({ ...v, prediction: !v.prediction }))}
-            opacity={opacity.prediction} onOpacity={(a) => setOpacity((o) => ({ ...o, prediction: a }))} />
-          <LayerRow role={ROLES.GROUND_TRUTH} label="Ground truth" status={gtStatus} on={show.groundTruth}
-            note={triangleText(loaded.groundTruth && loaded.groundTruth.triangles)}
-            onToggle={() => setShow((v) => ({ ...v, groundTruth: !v.groundTruth }))}
-            opacity={opacity.groundTruth} onOpacity={(a) => setOpacity((o) => ({ ...o, groundTruth: a }))} />
-          <LayerRow role={ROLES.ERRORS} label="Errors (FP / FN)" status={errStatus} on={show.errors}
-            note={errorSummaryText(markers)}
-            onToggle={() => setShow((v) => ({ ...v, errors: !v.errors }))} />
-          {markers ? <Legend /> : null}
-        </View>
-
-        <View style={s.card}>
-          <Text style={s.label}>Selected region (tap the surface or a marker)</Text>
-          {selection.marker ? (
-            <MarkerDetail marker={selection.marker} markers={markers} />
-          ) : Number.isInteger(selection.slice) ? (
-            <Text style={s.value}>{sliceText(selection.slice, total)} · picked on {ROLE_LABEL[selection.role].toLowerCase()}</Text>
-          ) : (
-            <Text style={s.dim}>{selection.note || 'Nothing selected. Tap the surface to resolve the slice that produced that face.'}</Text>
-          )}
-          {markers && markers.length > 0 ? (
-            <View style={s.row}>
-              <TouchableOpacity style={s.btnSmall} onPress={() => step(-1)} accessibilityRole="button" accessibilityLabel="Previous error region">
-                <Text style={s.btnT}>‹ Previous</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.btnSmall} onPress={() => step(1)} accessibilityRole="button" accessibilityLabel="Next error region">
-                <Text style={s.btnT}>Next ›</Text>
-              </TouchableOpacity>
-              <Text style={s.dim}>error regions, largest first</Text>
-            </View>
-          ) : null}
-          <Text style={s.dim}>
-            {Number.isInteger(band)
-              ? `Amber band on the surface: slice ${band + 1} of ${total}${Number.isInteger(selection.slice) ? ' (the selected slice)' : ' (the 2D slice you came from)'}.`
-              : 'No slice band: no 2D slice is selected.'}
-          </Text>
-        </View>
-        <View style={s.row}>
-          <TouchableOpacity
-            style={[s.btn, s.btnWide, !plan && s.btnOff]}
-            disabled={!plan}
-            onPress={() => { if (plan) { rememberVariant(variant); nav.push(plan.screenId, plan.params, plan.returnParams); } }}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !plan }}
-          >
-            <Text style={[s.btnT, !plan && s.btnTOff]}>{plan ? `Open in 2D at slice ${plan.params.sliceIndex + 1}` : 'Open in 2D (SCR-03)'}</Text>
-          </TouchableOpacity>
-        </View>
-        {!plan ? <Text style={s.dim}>Open in 2D needs a selected slice.</Text> : null}
-        <Text style={s.dim}>Drag to orbit · pinch to zoom · two fingers to pan · tap to select.</Text>
-        {fromErrorView ? (
-          <Text style={s.dim}>Opened from the Error Inspector: the markers show where the prediction and the ground truth disagree.</Text>
-        ) : null}
-        {geometryNote ? <Text style={s.dim}>{geometryNote}</Text> : null}
-      </ScrollView>
-    </View>
-  );
-}
-
-function Header({ caseId, capability, runId, variant }) {
-  return (
-    <View style={s.header}>
-      <View style={s.row}>
-        <Text style={s.caseId}>{caseId}</Text>
-        <CapabilityBadge capability={capability} />
-      </View>
-      <Text style={s.dim}>Run {runId} · prediction {variant} · L0 surface (undecimated)</Text>
-    </View>
-  );
-}
-
-// FN is a round dot and FP a square, here as in the viewer, so the class never depends on colour alone.
-function Glyph({ cls }) {
-  return <View style={[s.glyph, cls === 'FP' && s.glyphSquare, { backgroundColor: MARKER_COLOR[cls] }]} />;
-}
-
-function Legend() {
-  return (
-    <View style={s.legend}>
-      {['FN', 'FP'].map((cls) => (
-        <View key={cls} style={s.legendItem}>
-          <Glyph cls={cls} />
-          <Text style={s.dim}>{`${cls} ${ERROR_MEANING[cls]}`}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function MarkerDetail({ marker, markers }) {
-  const at = markers ? markers.findIndex((m) => m.id === marker.id) : -1;
-  return (
-    <View>
-      <View style={s.legendItem}>
-        <Glyph cls={marker.cls} />
-        <Text style={s.value}>{markerText(marker)}</Text>
-      </View>
-      <Text style={s.dim}>{`${ERROR_MEANING[marker.cls]} · region ${at + 1} of ${markers ? markers.length : 0}`}</Text>
-    </View>
-  );
-}
-
-function LayerRow({ role, label, status, on, note, onToggle, opacity, onOpacity }) {
-  const usable = status.state === LAYER.READY;
-  let text = note;
-  if (status.state === LAYER.LOADING) text = 'loading…';
-  else if (status.state === LAYER.UNAVAILABLE) text = `unavailable (${status.reason || 'no reason given'})`;
-  else if (status.state === LAYER.ERROR) text = `error (${status.reason || 'unknown'})${status.message ? `: ${status.message}` : ''}`;
-  return (
-    <View style={s.layerBlock}>
-      <View style={s.layer}>
-        {role === ROLES.ERRORS ? <Glyph cls="FN" /> : <View style={[s.chip, { backgroundColor: LAYER_COLOR[role] }]} />}
-        <View style={s.layerText}>
-          <Text style={s.value}>{label}</Text>
-          <Text style={s.dim}>{text}</Text>
-        </View>
-        <TouchableOpacity
-          style={[s.toggle, !usable && s.btnOff]}
-          disabled={!usable}
-          onPress={onToggle}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !usable }}
-        >
-          <Text style={[s.btnT, !usable && s.btnTOff]}>{`${label.split(' (')[0]}: ${usable ? (on ? 'ON' : 'OFF') : 'n/a'}`}</Text>
-        </TouchableOpacity>
-      </View>
-      {onOpacity && usable && on ? (
-        <View style={s.opacityRow}>
-          <Text style={s.dim}>Opacity</Text>
-          {OPACITY_STEPS.map((a) => (
-            <TouchableOpacity key={a} style={[s.opacityChip, a === opacity && s.opacityChipOn]} onPress={() => onOpacity(a)}
-              accessibilityRole="radio" accessibilityState={{ selected: a === opacity }} accessibilityLabel={`${label} opacity ${opacityText(a)}`}>
-              <Text style={[s.opacityT, a === opacity && s.opacityTOn]}>{opacityText(a)}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : null}
+      <SelectionPanel
+        variant={variant}
+        capability={capability}
+        band={band}
+        total={total}
+        content={selectionPanel(selection, markers)}
+        summary={markers ? errorSummaryText(markers) : null}
+        notices={layerNotices(gtStatus, errStatus)}
+        openLabel={plan ? `Open in 2D at slice ${plan.params.sliceIndex + 1}` : 'Open in 2D'}
+        canOpen={Boolean(plan)}
+        onOpen={() => { if (plan) { rememberVariant(variant); nav.push(plan.screenId, plan.params, plan.returnParams); } }}
+        onDetails={() => setDetailsOpen(true)}
+      />
+      <DetailsSheet visible={detailsOpen} onClose={() => setDetailsOpen(false)} title="3D details" sections={sections} testID="inspector-details" />
     </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  center: { flex: 1, justifyContent: 'center', padding: space.l },
-  header: { paddingHorizontal: space.l, paddingTop: space.s, paddingBottom: space.xs },
-  caseId: { color: color.text, fontSize: font.h2, fontWeight: '700', marginRight: space.s },
-  h2: { color: color.text, fontSize: font.h2, fontWeight: '700', marginBottom: space.xs },
-  dim: { color: color.textDim, fontSize: font.small, marginTop: 2 },
-  value: { color: color.text, fontSize: font.body, flexShrink: 1 },
-  label: { color: color.textFaint, fontSize: font.small, letterSpacing: 0.5, marginBottom: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.s, marginTop: space.s },
-  stage: { height: 300, marginHorizontal: space.l, borderWidth: 1, borderColor: color.border, borderRadius: 10, overflow: 'hidden', backgroundColor: color.surface },
-  web: { flex: 1, backgroundColor: color.surface },
-  overlay: { position: 'absolute', left: space.l, right: space.l, top: space.l },
-  panel: { flex: 1 },
-  panelBody: { padding: space.l, paddingTop: space.s },
-  toolbar: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
-  tool: { minHeight: MIN_TOUCH, minWidth: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.control, backgroundColor: color.surface, alignItems: 'center', justifyContent: 'center' },
-  toolWide: { paddingHorizontal: space.l },
-  toolT: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  card: { borderWidth: 1, borderColor: color.border, backgroundColor: color.surface, borderRadius: 10, padding: space.m, marginTop: space.s },
-  layerBlock: { marginBottom: space.xs },
-  layer: { flexDirection: 'row', alignItems: 'center', marginTop: space.xs },
-  chip: { width: 14, height: 14, borderRadius: 3, marginRight: space.s },
-  glyph: { width: 14, height: 14, borderRadius: 7, marginRight: space.s, borderWidth: 1, borderColor: color.bg },
-  glyphSquare: { borderRadius: 2 },
-  layerText: { flex: 1 },
-  legend: { marginTop: space.xs, gap: 2 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.s, marginLeft: 22, marginTop: space.xs },
-  opacityChip: { minHeight: MIN_TOUCH, minWidth: 56, borderRadius: 999, borderWidth: 1, borderColor: color.control, alignItems: 'center', justifyContent: 'center' },
-  opacityChipOn: { borderColor: color.accent, backgroundColor: color.accentBg },
-  opacityT: { color: color.textDim, fontSize: font.small, fontWeight: '600' },
-  opacityTOn: { color: color.accent },
-  toggle: { minHeight: MIN_TOUCH, minWidth: 132, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg, alignItems: 'center', justifyContent: 'center' },
-  btn: { minHeight: MIN_TOUCH, minWidth: 120, paddingHorizontal: space.l, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg, alignItems: 'center', justifyContent: 'center' },
-  btnWide: { flexGrow: 1 },
-  btnSmall: { minHeight: MIN_TOUCH, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg, alignItems: 'center', justifyContent: 'center' },
-  btnOn: { backgroundColor: color.accent + '33' },
-  btnT: { color: color.accent, fontSize: font.body, fontWeight: '600' },
-  btnOff: { borderColor: color.border, backgroundColor: color.surface },
-  btnTOff: { color: color.textFaint },
+  // The page (and the WebGL canvas in it) is as near-black as the app bar, so the surface floats in the screen.
+  stage: { flex: 1, backgroundColor: color.bg },
+  web: { flex: 1, backgroundColor: color.bg },
+  overlay: { position: 'absolute', left: space.l, right: space.l, top: 0, bottom: 0, justifyContent: 'center' },
+  stateBox: { flex: 1, justifyContent: 'center', paddingHorizontal: space.l, gap: space.m },
+  askTitle: { ...type.screenTitle, color: color.t1 },
+  askBody: { ...type.body, color: color.t2 },
+  askRow: { flexDirection: 'row', gap: space.s, marginTop: space.s },
 });

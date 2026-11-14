@@ -1570,7 +1570,18 @@ function reviewBackend({ seedVersion = false } = {}) {
   const lastSent = (type) => sentJson().filter((m) => m.type === type).pop();
   const P = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 };
 
-  // 10a. success: references, verified bytes, the viewer's handshake, layers, the band
+  const openDetails = async (r) => { await press(r, 'Details'); await tick(20); };
+  const closeDetails = async (r) => { await act(async () => { byTestId(r, 'inspector-details-close').props.onPress(); }); await tick(20); };
+  const isOpen2D = (r) => entry(r, 'Open in 2D');
+  // A control's touch target in dp: its own size plus the hitSlop around it (the minimum is 48, spec 10 / MIN_TOUCH).
+  const hitSize = (n) => {
+    const st = Object.assign({}, ...[n.props.style].flat(3).filter(Boolean));
+    const slop = n.props.hitSlop || {};
+    return [(st.width || st.minWidth || ((st.paddingHorizontal || 0) * 2 + 16)) + (slop.left || 0) + (slop.right || 0),
+      (st.height || st.minHeight || 0) + (slop.top || 0) + (slop.bottom || 0)];
+  };
+
+  // 10a. success: references, verified bytes, the viewer's handshake, the bottom panel, the Details sheet
   {
     const backend = meshBackend();
     const { r } = await mount(backend, P);
@@ -1580,156 +1591,144 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R1', paths.includes(`/api/v1/artifacts/${sum(predBytes)}.cmesh`) && paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`), 'both meshes come from the content route named by their ids');
     check('V2R1', paths.includes('/api/v1/analysis-runs/RUN_A/error-reconstruction?prediction_variant=RAW') && paths.includes(`/api/v1/artifacts/${sum(errBytes)}.json`),
       'the error geometry is asked for by run and variant, and its bytes come from the content route named by its id');
-    check('V2R1', web(r) && has(r, /Run RUN_A · prediction RAW · L0 surface \(undecimated\)/) && has(r, /CASE_0061/), 'WebView mounted; run and variant always visible');
+    check('V2R1', web(r) && has(r, /^Prediction · Raw$/) && has(r, /^Evaluation$/) && has(r, /^Slice 45 \/ 88$/),
+      `WebView mounted; the panel says which prediction and the slice as "n / total": ${texts(r).filter((t) => /^(Prediction|Slice|Evaluation)/.test(t)).join(' | ')}`);
+    check('V2R1', !has(r, /RUN_A|CASE_0061|MESH_|ERRGEOM_|sha256|L0 surface|undecimated|triangles|vertices|SCR-0|z = /),
+      'no id, checksum, mesh size, screen id or z index on the main surface');
     check('V2R2', sent.length === 0, 'nothing is sent before the viewer says it is ready');
+    check('V2R3', has(r, /^LOADING$/) && has(r, /Loading the 3D surface/), 'before the viewer reports the surface the screen says it is loading');
     await fromViewer(r, { type: 'ready' });
     const out = sentJson();
     const meshMsgs = out.filter((m) => m.type === 'mesh');
     check('V2R2', meshMsgs.length === 2 && meshMsgs.find((m) => m.role === 'prediction').b64 === Buffer.from(predBytes).toString('base64')
       && meshMsgs.find((m) => m.role === 'groundTruth').b64 === Buffer.from(gtBytes).toString('base64'), 'after ready: the verified prediction and ground-truth artifacts, byte for byte');
-    check('V2R2', out.some((m) => m.type === 'layers' && m.prediction === true && m.groundTruth === true && m.errors === true) && out.some((m) => m.type === 'slice' && m.index === 44),
-      'layers on (errors too), and the band at the 2D slice the screen was opened from');
+    check('V2R2', out.some((m) => m.type === 'slice' && m.index === 44), 'and the band at the 2D slice the screen was opened from');
     const markerMsg = out.find((m) => m.type === 'markers');
     check('V2R2', markerMsg && JSON.stringify(markerMsg.items) === JSON.stringify(ERROR_COMPONENTS.map((c) => ({ id: c.id, cls: c.class, at: c.marker_voxel, voxels: c.voxel_count }))),
       `the three verified markers, in the server's order: ${markerMsg ? markerMsg.items.map((m) => m.id).join(',') : '-'}`);
-    check('V2R2', out.some((m) => m.type === 'opacity' && m.prediction === 1 && m.groundTruth === 0.3) && out.some((m) => m.type === 'cut' && m.on === false),
-      'a solid prediction, a 30% see-through ground truth, and no cut');
-    check('V2R3', has(r, /Prediction \(RAW\)/) && has(r, /^loading…$/), `before the viewer reports the meshes the layers read loading: ${texts(r).filter((t) => t === 'loading…').length}`);
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
-    check('V2R3', texts(r).filter((t) => t === '12 triangles').length === 2 && has(r, /^Prediction: ON$/) && has(r, /^Ground: ON$|^Ground truth: ON$/), 'both layers report their triangles and have their switch');
-    await press(r, 'Prediction: ON');
-    check('V2R3', sentJson().filter((m) => m.type === 'layers').pop().prediction === false && has(r, /^Prediction: OFF$/), 'the prediction switch tells the viewer');
-    await press(r, 'Prediction: OFF');
-    check('V2R3', has(r, /^1 FN region \(523 voxels\) · 2 FP regions \(43 voxels\)$/) && has(r, /^Errors: ON$/), 'the error layer counts its regions and has its switch');
-    check('V2R3', has(r, /^FN missed: ground truth the prediction left out$/) && has(r, /^FP extra: predicted where the ground truth has none$/), 'the legend says what FN and FP mean');
-    await press(r, 'Errors: ON');
-    check('V2R3', lastSent('layers').errors === false && has(r, /^Errors: OFF$/), 'the error switch hides the markers');
-    await press(r, 'Errors: OFF');
-    check('V2R4', has(r, /Nothing selected/) && entry(r, 'Open in 2D').props.disabled === true && has(r, /Open in 2D needs a selected slice/), 'no selection: Open in 2D is disabled and says why');
-    check('V2R4', has(r, /Amber band on the surface: slice 45 of 88 \(the 2D slice you came from\)/), 'the band is the 2D slice the user came from');
-    check('V2R4', has(r, /Voxel-index frame .* no millimetres/) && !has(r, /DR-0|TC-|QA-/), 'the frame is stated; no process id in the UI text');
-    await tap(byA11y(r, 'Fit the model in view'));
-    check('V2R4', sentJson().pop().type === 'fit', 'Fit tells the viewer');
-    const axes = [];
-    for (const axis of ['+x', '-x', '+y', '-y', '+z', '-z']) {
-      await tap(byA11y(r, `View from ${axis.replace('-', 'minus ').replace('+', 'plus ')}`));
-      axes.push(lastSent('view').axis);
-    }
-    check('V2R4', axes.join() === '+x,-x,+y,-y,+z,-z' && has(r, /^\+X$/) && has(r, /^−Z$/), `six axis views: ${axes.join()}`);
-    check('V2R4', has(r, /voxel axis \(x = column, y = row, z = slice\)/), 'the axis buttons are explained as voxel axes');
+    check('V2R3', !has(r, /^LOADING$/) && web(r) !== null, 'once the surface is drawn the loading state is gone');
+    check('V2R3', has(r, /^1 FN region \(523 voxels\) · 2 FP regions \(43 voxels\)$/), 'nothing selected: the panel counts the error regions');
+    check('V2R4', has(r, /^Tap the surface to pick a slice, or an error marker to see its region\.$/) && isOpen2D(r).props.disabled === true,
+      'no selection: Open in 2D is disabled and the hint says what to do');
+    check('V2R4', !has(r, /Voxel-index frame|no millimetres/), 'the frame note is not on the main surface');
+    await openDetails(r);
+    const hex = sum(predBytes);
+    check('V2R3', has(r, new RegExp(`^Prediction MESH_${hex}$`)) && has(r, /^Prediction: 12 triangles · 8 vertices$/) && has(r, new RegExp(`^Prediction checksum sha256:${hex}$`))
+      && has(r, /^Case CASE_0061$/) && has(r, /^Run RUN_A$/) && has(r, /^Prediction RAW · Evaluation$/), 'the Details sheet has the ids, checksums and mesh sizes');
+    check('V2R4', has(r, /Voxel-index frame \(x = column, y = row, z = slice\)\. Geometry is not validated: no millimetres are shown\./), 'and the frame note');
+    check('V2R3', has(r, /^Error geometry ERRGEOM_/) && has(r, /^1 FN region/), 'and the error geometry');
+    await closeDetails(r);
     await act(async () => { r.unmount(); });
   }
 
-  // 10b. H7: pick -> "slice n / total" -> Open in 2D (push to SCR-03, same run and variant, returnParams)
+  // 10b. H7: pick -> "Slice n / total" -> Open in 2D (push to SCR-03, same run and variant, returnParams)
   {
     const backend = meshBackend();
     const { r, recorded } = await mount(backend, P);
     await fromViewer(r, { type: 'ready' });
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 5, slice: 52 });
-    check('V2R5', has(r, /^slice 53 \/ 88 {2}\(z = 52\) · picked on prediction$/), `the pick shows slice n / total: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
-    check('V2R5', has(r, /Amber band on the surface: slice 53 of 88 \(the selected slice\)/) && sentJson().filter((m) => m.type === 'slice').pop().index === 52, 'the band follows the pick');
-    check('V2R5', entry(r, 'Open in 2D').props.disabled === false, 'Open in 2D is enabled by a valid pick');
+    check('V2R5', has(r, /^Picked on the prediction$/) && has(r, /^Slice 53 \/ 88$/) && !has(r, /z = /), `the pick shows slice n / total, 1-based: ${texts(r).find((t) => t.startsWith('Slice ')) || '-'}`);
+    check('V2R5', sentJson().filter((m) => m.type === 'slice').pop().index === 52, 'the band follows the pick');
+    check('V2R5', isOpen2D(r).props.disabled === false && byA11y(r, 'Open in 2D at slice 53'), 'Open in 2D is enabled by a valid pick and names the slice it opens');
     await press(r, 'Open in 2D');
     check('V2R5', recorded.pushes.length === 1 && recorded.pushes[0][0] === 'SCR-03'
       && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 })
       && JSON.stringify(recorded.pushes[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 }),
     `push SCR-03 at the picked slice for the same run and variant, with returnParams: ${JSON.stringify(recorded.pushes[0] || null)}`);
+    await openDetails(r);
+    check('V2R5', has(r, /^Slice index z = 52 \(0-based\)$/), 'the 0-based z index is in the Details sheet');
+    await closeDetails(r);
     // a background tap clears the selection - nothing can navigate
     await fromViewer(r, { type: 'pick', role: null, triangle: null, slice: null });
-    check('V2R6', has(r, /No surface at that point: nothing selected/) && entry(r, 'Open in 2D').props.disabled === true, 'a background tap clears the selection and disables Open in 2D');
-    check('V2R6', has(r, /Amber band on the surface: slice 45 of 88 \(the 2D slice you came from\)/), 'and the band returns to the 2D slice (not the old pick)');
-    await act(async () => { entry(r, 'Open in 2D').props.onPress && entry(r, 'Open in 2D').props.onPress(); });
+    check('V2R6', has(r, /No surface at that point: nothing selected/) && isOpen2D(r).props.disabled === true, 'a background tap clears the selection and disables Open in 2D');
+    check('V2R6', has(r, /^Slice 45 \/ 88$/), 'and the band returns to the 2D slice (not the old pick)');
+    await act(async () => { isOpen2D(r).props.onPress && isOpen2D(r).props.onPress(); });
     check('V2R6', recorded.pushes.length === 1, 'a disabled button pushes nothing');
     // a pick outside the volume, a malformed pick, a pick before any mesh: never selected
     await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 1, slice: 88 });
-    check('V2R6', has(r, /outside this volume \(88 slices\): ignored/) && entry(r, 'Open in 2D').props.disabled === true, 'a slice outside the volume is refused, not clamped');
+    check('V2R6', has(r, /outside this volume \(88 slices\): ignored/) && isOpen2D(r).props.disabled === true, 'a slice outside the volume is refused, not clamped');
     await fromViewer(r, { type: 'pick', role: 'prediction', slice: '7' });
-    check('V2R6', has(r, /outside this volume/) && entry(r, 'Open in 2D').props.disabled === true, 'a malformed pick changes nothing');
+    check('V2R6', has(r, /outside this volume/) && isOpen2D(r).props.disabled === true, 'a malformed pick changes nothing');
     await fromViewer(r, { type: 'pick', role: 'groundTruth', triangle: 2, slice: 0 });
-    check('V2R6', has(r, /^slice 1 \/ 88 {2}\(z = 0\) · picked on ground truth$/) && entry(r, 'Open in 2D').props.disabled === false, 'slice 0 is a slice, picked on the ground-truth layer');
+    check('V2R6', has(r, /^Picked on the ground truth$/) && has(r, /^Slice 1 \/ 88$/) && isOpen2D(r).props.disabled === false, 'slice 0 is a slice, picked on the ground-truth surface');
     await act(async () => { r.unmount(); });
   }
 
-  // 10j. error markers (PR-3D-05, PR-ERR-03): a marker tap names the region, "FN, slices a-b", and opens SCR-03 there
+  // 10j. error markers (PR-3D-05, PR-ERR-03): a marker tap says what the region is, its size and slices, and opens SCR-03 there
   {
     const backend = meshBackend();
     const { r, recorded } = await mount(backend, P);
     await fromViewer(r, { type: 'ready' });
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'marker', id: 'FN_0001' });
-    check('V2R15', has(r, /^FN, slices 11-13 \(z = 10-12\), 523 voxels$/) && has(r, /^missed: ground truth the prediction left out · region 1 of 3$/),
-      `the tapped marker reads class, slice range and size: ${texts(r).find((t) => t.startsWith('FN,')) || '-'}`);
-    check('V2R15', lastSent('select').id === 'FN_0001' && lastSent('slice').index === 11 && has(r, /Amber band on the surface: slice 12 of 88 \(the selected slice\)/),
+    check('V2R15', has(r, /^Missed region \(FN\)$/) && has(r, /^Ground truth that the prediction left out\.$/) && has(r, /^523 voxels · Slices 11\u201313 · Region 1 of 3$/),
+      `the tapped marker reads what it is, its size, its slices and its place: ${texts(r).find((t) => /voxels/.test(t)) || '-'}`);
+    check('V2R15', lastSent('select').id === 'FN_0001' && lastSent('slice').index === 11 && has(r, /^Slice 12 \/ 88$/),
       'the viewer highlights it and the band moves to the slice of its marker voxel (inside the region)');
-    check('V2R15', has(r, /^Open in 2D at slice 12$/), 'Open in 2D names the slice it will open');
+    check('V2R15', !has(r, /FN_0001|z = 10/), 'no region id or z index on the main surface');
+    check('V2R15', byA11y(r, 'Open in 2D at slice 12') && isOpen2D(r).props.disabled === false, 'Open in 2D names the slice it will open');
     await press(r, 'Open in 2D');
     check('V2R15', recorded.pushes.length === 1 && recorded.pushes[0][0] === 'SCR-03'
       && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 11 })
       && JSON.stringify(recorded.pushes[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'RAW', sliceIndex: 11 }),
     `Open in 2D: SCR-03 of the same case, run and variant at the region's slice: ${JSON.stringify(recorded.pushes[0] || null)}`);
-    await tap(byA11y(r, 'Next error region'));
-    check('V2R15', has(r, /^FP, slice 11 \(z = 10\), 40 voxels$/) && lastSent('select').id === 'FP_0001' && has(r, /region 2 of 3$/), 'Next steps to the next region in the server order');
-    await tap(byA11y(r, 'Next error region'));
-    await tap(byA11y(r, 'Next error region'));
-    check('V2R15', has(r, /^FN, slices 11-13/) && lastSent('select').id === 'FN_0001', 'and wraps around after the last one');
-    await tap(byA11y(r, 'Previous error region'));
-    check('V2R15', has(r, /^FP, slice 13 \(z = 12\), 3 voxels$/) && lastSent('select').id === 'FP_0002', 'Previous wraps back to the last region');
+    await fromViewer(r, { type: 'marker', id: 'FP_0001' });
+    check('V2R15', has(r, /^Extra region \(FP\)$/) && has(r, /^Predicted where the ground truth has none\.$/) && has(r, /^40 voxels · Slice 11 · Region 2 of 3$/) && lastSent('select').id === 'FP_0001',
+      'a false positive reads as an extra region, in the singular for one slice');
+    await openDetails(r);
+    check('V2R15', has(r, /^FP_0001$/) && has(r, /^FP, slice 11 \(z = 10\), 40 voxels$/), 'the Details sheet has the region id and the z index');
+    await closeDetails(r);
     await fromViewer(r, { type: 'marker', id: 'FN_9999' });
-    check('V2R15', has(r, /not in this error geometry: ignored/) && entry(r, 'Open in 2D').props.disabled === true && lastSent('select').id === null,
+    check('V2R15', has(r, /not in this error geometry: ignored/) && isOpen2D(r).props.disabled === true && lastSent('select').id === null,
       'a marker id the screen does not hold selects nothing');
+    await fromViewer(r, { type: 'marker', id: 'FP_0002' });
     await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 3, slice: 40 });
-    check('V2R15', lastSent('select').id === null && has(r, /^slice 41 \/ 88/), 'a surface pick replaces the marker selection');
+    check('V2R15', lastSent('select').id === null && has(r, /^Slice 41 \/ 88$/) && has(r, /^Picked on the prediction$/), 'a surface pick replaces the marker selection');
     await act(async () => { r.unmount(); });
   }
 
-  // 10k. Cut at slice and per-layer opacity
+  // 10k. the tools (layers, opacity, cut, views, Previous / Next) are the page's own: the app sends data and the
+  // selection, never a tool message, and draws no tool of its own (v2_viewer.test.mjs presses them in the page)
   {
     const backend = meshBackend();
     const { r } = await mount(backend, P);
     await fromViewer(r, { type: 'ready' });
-    check('V2R16', entry(r, 'Cut at slice 45').props.disabled === true && byA11y(r, 'View from plus x').props.disabled === true,
-      'before the surface is drawn the cut and the view buttons are disabled');
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
-    check('V2R16', has(r, /^Cut at slice 45: OFF$/) && entry(r, 'Cut at slice 45').props.disabled === false, 'the cut is offered at the 2D slice the screen came from');
-    await press(r, 'Cut at slice 45: OFF');
-    check('V2R16', lastSent('cut').on === true && has(r, /^Cut at slice 45: ON$/) && has(r, /^The surface above slice 45 of 88 is hidden\.$/), 'the cut tells the viewer and says what it hides');
     await fromViewer(r, { type: 'marker', id: 'FP_0001' });
-    check('V2R16', has(r, /^Cut at slice 11: ON$/) && lastSent('slice').index === 10 && lastSent('cut').on === true, 'the cut follows the selected slice');
-    await press(r, 'Cut at slice 11: ON');
-    check('V2R16', lastSent('cut').on === false, 'and switches off again');
-    const chips = r.root.findAll((n) => n.type === 'TouchableOpacity' && /opacity \d+%$/.test(n.props.accessibilityLabel || ''));
-    check('V2R17', chips.map((n) => n.props.accessibilityLabel).join('|')
-      === 'Prediction (RAW) opacity 30%|Prediction (RAW) opacity 60%|Prediction (RAW) opacity 100%|Ground truth opacity 30%|Ground truth opacity 60%|Ground truth opacity 100%',
-    `three opacity steps per surface layer: ${chips.length}`);
-    check('V2R17', byA11y(r, 'Ground truth opacity 30%').props.accessibilityState.selected === true && byA11y(r, 'Prediction (RAW) opacity 100%').props.accessibilityState.selected === true,
-      'the ground truth starts at 30%, the prediction solid');
-    await tap(byA11y(r, 'Ground truth opacity 60%'));
-    await tap(byA11y(r, 'Prediction (RAW) opacity 30%'));
-    check('V2R17', lastSent('opacity').groundTruth === 0.6 && lastSent('opacity').prediction === 0.3, `each layer has its own opacity: ${JSON.stringify(lastSent('opacity'))}`);
-    await press(r, 'Ground truth: ON');
-    check('V2R17', !byA11y(r, 'Ground truth opacity 60%') && byA11y(r, 'Prediction (RAW) opacity 30%'), 'a hidden layer shows no opacity steps');
+    await fromViewer(r, { type: 'pick', role: 'groundTruth', triangle: 2, slice: 7 });
+    const types = [...new Set(sentJson().map((m) => m.type))].sort().join();
+    check('V2R16', types === 'markers,mesh,select,slice', `the app sends only mesh, markers, slice and select: ${types}`);
+    check('V2R16', !byA11y(r, 'Next error region') && !byA11y(r, 'Previous error region') && !has(r, /^(Cut|Fit|\+X|\u2212Z)$/) && !has(r, /opacity|Opacity/),
+      'and draws no layer, opacity, cut, view or Previous / Next control: they are the page\'s');
+    const sizes = r.root.findAll((n) => n.type === 'TouchableOpacity').map(hitSize);
+    check('V2R16', sizes.length >= 2 && sizes.every(([w, h]) => w >= 48 && h >= 48), `every control of the screen has a touch target of at least 48 dp: ${JSON.stringify(sizes)}`);
     await act(async () => { r.unmount(); });
   }
 
-  // 10l. the error layer alone fails: the surfaces stay, the error row says why, nothing is drawn for it
+  // 10l. the error layer alone fails: the surfaces stay, a sentence says the markers are missing, nothing is drawn for them
   {
-    for (const [errors, expect] of [['missing', /^unavailable \(ARTIFACT_NOT_FOUND\)$/], ['other-surface', /^error \(ERRORS_OTHER_SURFACE\)/], ['tamper', /^error \(CONTRACT_DRIFT\)/]]) {
+    for (const [errors, expect] of [['missing', /^Errors: unavailable \(ARTIFACT_NOT_FOUND\)$/], ['other-surface', /^Errors: error \(ERRORS_OTHER_SURFACE\)/], ['tamper', /^Errors: error \(CONTRACT_DRIFT\)/]]) {
       const backend = meshBackend({ errors });
       const { r } = await mount(backend, P);
       await fromViewer(r, { type: 'ready' });
       await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
-      check('V2R18', web(r) !== null && has(r, expect) && !sentJson().some((m) => m.type === 'markers') && has(r, /^Errors: n\/a$/) && !byA11y(r, 'Next error region'),
-        `${errors}: the surface stays, the error row reads ${texts(r).find((t) => expect.test(t)) || '-'}, no marker reaches the viewer`);
+      check('V2R18', web(r) !== null && has(r, /^The error markers are not available for this prediction\.$/) && !sentJson().some((m) => m.type === 'markers'),
+        `${errors}: the surface stays, the panel says the markers are not available, no marker reaches the viewer`);
+      await openDetails(r);
+      check('V2R18', has(r, expect), `${errors}: the Details sheet names why: ${texts(r).find((t) => expect.test(t)) || '-'}`);
       await act(async () => { r.unmount(); });
     }
     const m2 = await mount(meshBackend(), P);
     await fromViewer(m2.r, { type: 'ready' });
     await fromViewer(m2.r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(m2.r, { type: 'error', role: 'errors', code: 'VIEWER_ERROR', message: 'MARKERS_INVALID: a marker is malformed' });
-    check('V2R18', web(m2.r) !== null && has(m2.r, /^error \(VIEWER_ERROR\): MARKERS_INVALID/) && has(m2.r, /^Prediction: ON$/), 'markers the viewer refused read error on the error row only');
+    check('V2R18', web(m2.r) !== null && has(m2.r, /^The error markers are not available for this prediction\.$/), 'markers the viewer refused read as not available, the surface stays');
+    await openDetails(m2.r);
+    check('V2R18', has(m2.r, /^Errors: error \(VIEWER_ERROR\): MARKERS_INVALID/), 'and the viewer\'s code is in Details');
     await act(async () => { m2.r.unmount(); });
   }
 
@@ -1745,10 +1744,8 @@ function reviewBackend({ seedVersion = false } = {}) {
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'marker', id: 'FN_0001' });
-    await press(r, 'Cut at slice 12: OFF');
-    await tap(byA11y(r, 'Ground truth opacity 60%'));
-    await tap(byA11y(r, 'View from plus z'));
-    const allowed = ['mesh', 'markers', 'layers', 'opacity', 'slice', 'cut', 'select', 'view', 'fit', 'dispose'];
+    await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 3, slice: 20 });
+    const allowed = ['mesh', 'markers', 'slice', 'select', 'dispose'];
     const words = ['CASE_0061', 'RUN_A', 'ART_RAW', 'MASK_CASE_0061', 'http', 'backend.invalid', 'sha256', 'MESH_', 'ERRGEOM_', sum(predBytes), sum(errBytes)];
     const leaks = sentJson().flatMap((m) => {
       const text = JSON.stringify({ ...m, b64: undefined });
@@ -1756,7 +1753,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     });
     // (The page's own error codes start with MESH_, so the static page is checked for the identifiers only.)
     const inPage = ['CASE_', 'RUN_', 'ART_RAW', 'http', 'backend.invalid', 'sha256:', 'ERRGEOM_'].filter((x) => VIEWER_HTML.includes(x));
-    check('V2R19', sentJson().length >= 8 && leaks.length === 0 && inPage.length === 0,
+    check('V2R19', sentJson().length >= 6 && leaks.length === 0 && inPage.length === 0,
       `${sentJson().length} messages: no case, run, mask, server or checksum crosses into the WebView (${[...leaks, ...inPage].join(', ') || 'none'})`);
     const meshHeader = Buffer.from(predBytes).toString('latin1');
     check('V2R19', !/CASE_|RUN_|MASK_/.test(meshHeader), 'the mesh bytes themselves carry no case identifier');
@@ -1764,7 +1761,6 @@ function reviewBackend({ seedVersion = false } = {}) {
     await act(async () => { r.unmount(); });
     check('V2R19', sent.length === 1 && JSON.parse(sent[0]).type === 'dispose' && recorded.pushes.length === 0, 'leaving the screen tells the page to free its GPU buffers');
   }
-
   // 10c. INFERENCE_REVIEW (INT-12): prediction mesh yes, ground truth never asked for
   {
     const backend = meshBackend({ caseMode: 'INFERENCE_REVIEW' });
@@ -1772,13 +1768,12 @@ function reviewBackend({ seedVersion = false } = {}) {
     const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
     check('V2R7', !paths.some((p) => p.includes('/ground-truth')) && !paths.some((p) => p.includes('MASK_CASE_0061')) && !paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`),
       'no request for ground truth, nor for its mesh');
-    check('V2R7', paths.some((p) => p.endsWith('source_mask_id=ART_RAW')) && has(r, /unavailable \(GROUND_TRUTH_UNAVAILABLE\)/), 'the prediction mesh is requested; the ground-truth layer says why it is unavailable');
-    check('V2R7', !paths.some((p) => p.includes('error-reconstruction')) && texts(r).filter((t) => t === 'unavailable (GROUND_TRUTH_UNAVAILABLE)').length === 2,
-      'no error geometry is asked for either; the error row says why');
-    const gt = entry(r, 'Ground truth: n/a');
-    check('V2R7', gt && gt.props.disabled === true, 'its switch is disabled');
+    check('V2R7', paths.some((p) => p.endsWith('source_mask_id=ART_RAW')) && has(r, /^This case has no ground truth, so only the prediction is shown\.$/), 'the prediction mesh is requested; one sentence says there is no ground truth');
+    check('V2R7', !paths.some((p) => p.includes('error-reconstruction')) && !has(r, /^The (error markers|ground-truth surface)/), 'no error geometry is asked for either, and no second sentence about it');
     await fromViewer(r, { type: 'ready' });
     check('V2R7', sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction', 'only the prediction artifact reaches the viewer');
+    await openDetails(r);
+    check('V2R7', has(r, /^Ground truth: unavailable \(GROUND_TRUTH_UNAVAILABLE\)$/) && has(r, /^Errors: unavailable \(GROUND_TRUTH_UNAVAILABLE\)$/), 'Details names the reason for each layer');
     await act(async () => { r.unmount(); });
   }
 
@@ -1787,7 +1782,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     const backend = meshBackend({ missing: ['ART_RAW'] });
     const { r, recorded } = await mount(backend, P);
     check('V2R8', has(r, /EMPTY UNAVAILABLE/) && has(r, /(code|reason) ARTIFACT_NOT_FOUND/) && has(r, /does not exist on the server/), `unavailable with the API reason: ${texts(r).filter((t) => /ARTIFACT_NOT_FOUND|UNAVAILABLE/.test(t)).join(' | ')}`);
-    check('V2R8', web(r) === null && has(r, /No mesh is drawn and nothing is substituted/), 'no viewer is mounted');
+    check('V2R8', web(r) === null && has(r, /No 3D surface is shown\./), 'no viewer is mounted, and the screen says so');
     const asked = backend.requests.filter((u) => u.includes('/reconstruction?')).length;
     await press(r, 'Refresh');
     await tick(250);
@@ -1812,7 +1807,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     const withProc = meshBackend({ processed: true });
     const m2 = await mount(withProc, { ...P, variant: 'PROCESSED' });
     const p2 = withProc.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
-    check('V2R9', p2.some((p) => p.endsWith('source_mask_id=ART_PROC')) && has(m2.r, /Prediction \(PROCESSED\)/) && web(m2.r) !== null, 'a run with a PROCESSED prediction shows it, labelled PROCESSED');
+    check('V2R9', p2.some((p) => p.endsWith('source_mask_id=ART_PROC')) && has(m2.r, /^Prediction · Processed$/) && web(m2.r) !== null, 'a run with a PROCESSED prediction shows it, labelled Processed');
     await act(async () => { m2.r.unmount(); });
   }
 
@@ -1825,8 +1820,10 @@ function reviewBackend({ seedVersion = false } = {}) {
     const gtTamper = meshBackend({ tamper: ['MASK_CASE_0061'] });
     const m2 = await mount(gtTamper, P);
     await fromViewer(m2.r, { type: 'ready' });
-    check('V2R10', web(m2.r) !== null && has(m2.r, /error \(CONTRACT_DRIFT\)/) && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction',
-      'tampered ground-truth bytes: that layer reads error, the prediction still draws, the bad bytes never reach the viewer');
+    await openDetails(m2.r);
+    check('V2R10', web(m2.r) !== null && has(m2.r, /^The ground-truth surface is not available\.$/) && has(m2.r, /^Ground truth: error \(CONTRACT_DRIFT\)/)
+      && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction',
+    'tampered ground-truth bytes: a sentence says the surface is not available (the code is in Details), the prediction still draws, the bad bytes never reach the viewer');
     await act(async () => { m2.r.unmount(); });
   }
 
@@ -1847,7 +1844,8 @@ function reviewBackend({ seedVersion = false } = {}) {
     const m3 = await mount(meshBackend(), P);
     await fromViewer(m3.r, { type: 'ready' });
     await fromViewer(m3.r, { type: 'error', role: 'groundTruth', code: 'VIEWER_ERROR', message: 'MESH_GRID: the two meshes do not share one grid' });
-    check('V2R11', web(m3.r) !== null && has(m3.r, /error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused reads error; the prediction stays');
+    await openDetails(m3.r);
+    check('V2R11', web(m3.r) !== null && has(m3.r, /^The ground-truth surface is not available\.$/) && has(m3.r, /^Ground truth: error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused is reported; the prediction stays');
     await act(async () => { m3.r.unmount(); });
   }
 
@@ -1857,11 +1855,11 @@ function reviewBackend({ seedVersion = false } = {}) {
     forgetSession();
     const backend = meshBackend();
     const { r } = await mount(backend, { caseId: 'CASE_0061', runId: 'RUN_A' });
-    check('V2R12', has(r, /Prediction variant/) && has(r, /There is no default/) && web(r) === null
+    check('V2R12', has(r, /^Which prediction\?$/) && has(r, /Choose the prediction the 3D surface is built from\./) && web(r) === null
       && !backend.requests.some((u) => u.includes('/reconstruction')), 'no variant: the screen asks and requests no mesh');
-    await press(r, 'RAW');
+    await tap(byA11y(r, 'RAW'));
     await tick(250);
-    check('V2R12', web(r) !== null && has(r, /Prediction \(RAW\)/), 'after the choice the mesh is requested and shown');
+    check('V2R12', web(r) !== null && has(r, /^Prediction · Raw$/), 'after the choice the mesh is requested and shown');
     forgetSession();
     await act(async () => { r.unmount(); });
   }

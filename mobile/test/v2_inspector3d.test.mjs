@@ -2,8 +2,9 @@
 //
 // Mesh and error references from the id, the `cardiac-mesh/1` header (against a golden built by the Python encoder from
 // a synthetic mask), the `cardiac-error-geometry/1` markers, the viewer's messages, pick -> slice (H7), marker -> region,
-// the cut, and the push back to SCR-03 with returnParams. No device, no GPU: the viewer script itself is exercised in
-// v2_viewer.test.mjs; the screen's rendering in test:render (section 11).
+// the words of the bottom panel and the Details sheet, and the push back to SCR-03 with returnParams. No device, no GPU:
+// the viewer script and its tools are exercised in v2_viewer.test.mjs and v2_geometry.test.mjs; the screen's rendering
+// in test:render (section 11).
 import { bytesToBase64 } from '../src/lib/bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,14 +12,13 @@ import assert from 'node:assert/strict';
 import { resolveConfig } from '../src/config.mjs';
 import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/navigation/navigator.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
-import { sliceLabel } from '../src/screens/v1-cases/cases.mjs';
 import {
-  cutStatus, DEFAULT_OPACITY, errorSummaryText, errorsRef, gridMatches, LAYER, LAYER_COLOR, layerStatus, MARKER_COLOR,
-  markerText, maskIdForVariant, meshRef, OPACITY_STEPS, opacityText, openIn2D, parseErrorGeometry, parseMeshHeader,
-  parseViewerMessage, screenStatus, SELECTION_NONE, selectionAfterPick, selectionForMarker, sliceText, stepMarker,
-  toViewer, triangleText, VIEW_AXES,
+  detailSections, ERROR_MEANING, ERROR_TITLE, errorSummaryText, errorsRef, gridMatches, LAYER, layerNotices, layerStatus,
+  MARKER_COLOR, markerText, maskIdForVariant, meshRef, openIn2D, parseErrorGeometry, parseMeshHeader,
+  parseViewerMessage, screenStatus, SELECTION_NONE, selectionAfterPick, selectionForMarker, selectionPanel, sliceReadout,
+  toViewer, triangleText, VARIANT_LABEL,
 } from '../src/screens/v2-3d/inspector3d.mjs';
-import { errorClass, overlay } from '../src/components/tokens.mjs';
+import { errorClass } from '../src/components/tokens.mjs';
 import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { encodeErrors, ERROR_COMPONENTS, GOLDEN, goldenBytes } from './_v2mesh.mjs';
@@ -87,11 +87,9 @@ test('V2L5 base64 for the WebView equals the standard encoding, for every length
   assert.equal(bytesToBase64(goldenBytes()), GOLDEN.bytes_b64);
   const m = JSON.parse(toViewer.mesh('prediction', goldenBytes()));
   assert.deepEqual([m.type, m.role, m.b64], ['mesh', 'prediction', GOLDEN.bytes_b64]);
-  assert.deepEqual(JSON.parse(toViewer.layers({ prediction: 1, groundTruth: 0 })), { type: 'layers', prediction: true, groundTruth: false, errors: false });
   assert.deepEqual(JSON.parse(toViewer.slice(12)), { type: 'slice', index: 12 });
   assert.deepEqual(JSON.parse(toViewer.slice(null)), { type: 'slice', index: null });
   assert.deepEqual(JSON.parse(toViewer.slice(1.5)), { type: 'slice', index: null });
-  assert.deepEqual(JSON.parse(toViewer.fit()), { type: 'fit' });
 });
 
 test('V2L6 viewer messages are checked: a malformed one is ignored, a pick slice is an integer or null, never coerced', () => {
@@ -130,10 +128,12 @@ test('V2L7 H7: a pick selects the source slice only inside the volume; a backgro
   assert.deepEqual({ ...SELECTION_NONE }, { slice: null, role: null, note: null, marker: null });
 });
 
-test('V2L8 "slice n / total" reads exactly as SCR-03 prints it', () => {
-  for (const [z, n] of [[0, 88], [44, 88], [87, 88], [3, 6]]) assert.equal(sliceText(z, n), sliceLabel(z, n));
-  assert.equal(sliceText(null, 88), 'slice - / -');
-  assert.equal(sliceText(44, 88), 'slice 45 / 88  (z = 44)');
+test('V2L8 the slice reads "n / total", 1-based, as the 2D screens write it; the z index is not in it', () => {
+  assert.equal(sliceReadout(44, 88), '45 / 88');
+  assert.equal(sliceReadout(0, 88), '1 / 88');
+  assert.equal(sliceReadout(87, 88), '88 / 88');
+  assert.equal(sliceReadout(null, 88), '- / 88', 'no slice yet');
+  assert.equal(sliceReadout(3, null), '4 / -');
   assert.equal(triangleText(61424), '61,424 triangles');
   assert.equal(triangleText(null), '- triangles');
 });
@@ -278,11 +278,8 @@ test('V2L18 marker messages: only id, class, voxel and size cross into the page;
   assert.ok(!JSON.stringify(sentMarkers).includes('CASE_'), 'nothing beyond the geometry is copied');
   assert.deepEqual(JSON.parse(toViewer.select('FP_0001')), { type: 'select', id: 'FP_0001' });
   assert.deepEqual(JSON.parse(toViewer.select(undefined)), { type: 'select', id: null });
-  assert.deepEqual(JSON.parse(toViewer.cut(1)), { type: 'cut', on: true });
-  assert.deepEqual(VIEW_AXES.map((a) => JSON.parse(toViewer.view(a)).axis), ['+x', '-x', '+y', '-y', '+z', '-z']);
-  assert.equal(JSON.parse(toViewer.view('anterior')).axis, null, 'no anatomical view: the frame is voxel indices');
-  assert.deepEqual(JSON.parse(toViewer.opacity(DEFAULT_OPACITY)), { type: 'opacity', prediction: 1, groundTruth: 0.3 });
   assert.deepEqual(JSON.parse(toViewer.dispose()), { type: 'dispose' });
+  assert.deepEqual(Object.keys(toViewer).sort(), ['dispose', 'markers', 'mesh', 'select', 'slice'], 'the page owns its tools (layers, opacity, cut, views): the app sends data and the selection only');
   const p = (o) => parseViewerMessage(JSON.stringify(o));
   assert.deepEqual(p({ type: 'marker', id: 'FN_0001' }), { kind: 'marker', id: 'FN_0001' });
   for (const id of [null, 7, 'TP_0001', 'FN_1', 'FN_0001; x', '']) assert.equal(p({ type: 'marker', id }).kind, 'ignored', String(id));
@@ -290,7 +287,7 @@ test('V2L18 marker messages: only id, class, voxel and size cross into the page;
   assert.equal(p({ type: 'error', role: 'other', code: 'X' }).role, null);
 });
 
-test('V2L19 a marker selects its region: "FN, slices 11-13", the band and Open in 2D at the marker slice', () => {
+test('V2L19 a marker selects its region: the band and Open in 2D at the marker slice; Details has the z index', () => {
   const markers = markersOf();
   const sel = selectionForMarker(markers, 'FN_0001');
   assert.equal(sel.slice, 11, 'the slice of the marker voxel, which lies inside the region');
@@ -310,36 +307,63 @@ test('V2L19 a marker selects its region: "FN, slices 11-13", the band and Open i
   assert.equal(errorSummaryText(null), '');
 });
 
-test('V2L20 Previous / Next step through the regions in the server order and wrap around', () => {
+test('V2L20 the bottom panel says what the selection is in words: a region, a picked point, or a hint', () => {
   const markers = markersOf();
-  assert.equal(stepMarker(markers, null, 1).id, 'FN_0001', 'Next with nothing selected starts at the first region');
-  assert.equal(stepMarker(markers, null, -1).id, 'FP_0002', 'Previous starts at the last');
-  assert.equal(stepMarker(markers, markers[0], 1).id, 'FP_0001');
-  assert.equal(stepMarker(markers, markers[2], 1).id, 'FN_0001');
-  assert.equal(stepMarker(markers, markers[0], -1).id, 'FP_0002');
-  assert.equal(stepMarker([], null, 1), null);
-  assert.equal(stepMarker(null, null, 1), null);
+  const region = selectionPanel(selectionForMarker(markers, 'FN_0001'), markers);
+  assert.deepEqual([region.kind, region.cls, region.title, region.meaning], ['marker', 'FN', 'Missed region (FN)', 'Ground truth that the prediction left out.']);
+  assert.deepEqual([...region.facts], ['523 voxels', 'Slices 11\u201313', 'Region 1 of 3']);
+  const extra = selectionPanel(selectionForMarker(markers, 'FP_0001'), markers);
+  assert.deepEqual([extra.title, extra.meaning, [...extra.facts]], ['Extra region (FP)', 'Predicted where the ground truth has none.', ['40 voxels', 'Slice 11', 'Region 2 of 3']]);
+  assert.deepEqual([...selectionPanel(selectionForMarker([{ ...markers[0], voxels: 1 }], 'FN_0001'), null).facts].slice(0, 1), ['1 voxel'], 'one voxel, in the singular');
+  const pick = selectionPanel({ slice: 52, role: 'groundTruth', note: null, marker: null }, markers);
+  assert.deepEqual([pick.kind, pick.title], ['pick', 'Picked on the ground truth']);
+  const none = selectionPanel(SELECTION_NONE, markers);
+  assert.deepEqual([none.kind, none.title], ['none', null]);
+  assert.match(none.meaning, /^Tap the surface to pick a slice, or an error marker/);
+  assert.match(selectionPanel(selectionAfterPick({ kind: 'pick', slice: null }, 88), markers).meaning, /No surface at that point/, 'a note from a refused tap replaces the hint');
+  assert.deepEqual(Object.keys(ERROR_TITLE), ['FN', 'FP']);
+  assert.deepEqual({ ...ERROR_MEANING }, { FN: 'Ground truth that the prediction left out.', FP: 'Predicted where the ground truth has none.' });
+  assert.deepEqual({ ...VARIANT_LABEL }, { RAW: 'Raw', PROCESSED: 'Processed' });
+  const mainSurface = JSON.stringify([region, extra, pick, none]);
+  assert.ok(!/FN_0001|FP_0001|z = |MESH_|sha256/.test(mainSurface), 'no id, z index or checksum in the words of the panel');
 });
 
-test('V2L21 Cut at slice needs a slice inside the volume, and says what it hides', () => {
-  assert.deepEqual({ ...cutStatus(false, 44, 88) }, { available: true, active: false, label: 'Cut at slice 45: OFF', note: null });
-  assert.deepEqual({ ...cutStatus(true, 44, 88) }, { available: true, active: true, label: 'Cut at slice 45: ON', note: 'The surface above slice 45 of 88 is hidden.' });
-  for (const [slice, total] of [[null, 88], [88, 88], [-1, 88], [2.5, 88], [3, null]]) {
-    const c = cutStatus(true, slice, total);
-    assert.deepEqual([c.available, c.active, c.label], [false, false, 'Cut at slice: n/a'], `${slice}/${total}`);
-  }
+test('V2L21 a layer that cannot be shown gets one plain sentence; its code goes to Details', () => {
+  const ready = { state: LAYER.READY };
+  const gone = (reason) => ({ state: LAYER.UNAVAILABLE, reason });
+  assert.deepEqual(layerNotices(ready, ready), []);
+  assert.deepEqual(layerNotices({ state: LAYER.LOADING }, { state: LAYER.LOADING }), [], 'a loading layer says nothing yet');
+  assert.deepEqual(layerNotices(gone('GROUND_TRUTH_UNAVAILABLE'), gone('GROUND_TRUTH_UNAVAILABLE')), ['This case has no ground truth, so only the prediction is shown.'], 'one sentence, not two');
+  assert.deepEqual(layerNotices(ready, gone('ARTIFACT_NOT_FOUND')), ['The error markers are not available for this prediction.']);
+  assert.deepEqual(layerNotices({ state: LAYER.ERROR, reason: 'CONTRACT_DRIFT' }, ready), ['The ground-truth surface is not available.']);
+  assert.equal(layerNotices(gone('NO_PREDICTION_MESH_WANTED'), gone('NO_PREDICTION_MESH_WANTED')).length, 2);
 });
 
-test('V2L22 one legend for the app: layer and marker colours are the design tokens; three opacity steps', () => {
-  assert.deepEqual({ ...LAYER_COLOR }, { prediction: overlay.prediction, groundTruth: overlay.groundTruth });
+test('V2L22 the Details sheet takes what the main surface leaves out: ids, checksums, counts, z index, the frame, layer codes', () => {
+  const markers = markersOf();
+  const sections = detailSections({
+    caseId: 'CASE_0029', runId: 'RUN_EXP-D-100_CASE_0029', variant: 'RAW', modeLabel: 'Evaluation',
+    surfaces: [
+      { label: 'Prediction', id: `MESH_${HEX}`, checksum: `sha256:${HEX}`, triangles: 168968, vertices: 84500 },
+      { label: 'Ground truth', id: null, checksum: null, triangles: null, vertices: null },
+    ],
+    errorGeometryId: `ERRGEOM_${HEX}`, markers, selection: selectionForMarker(markers, 'FN_0001'),
+    statuses: [['Ground truth', { state: LAYER.UNAVAILABLE, reason: 'ARTIFACT_NOT_FOUND' }], ['Errors', { state: LAYER.READY }]],
+    geometryNote: 'Voxel-index frame.',
+  });
+  const by = Object.fromEntries(sections.map((s) => [s.title, s.lines]));
+  assert.deepEqual(Object.keys(by), ['This view', 'Surfaces', 'Error regions', 'Selected region', 'Layers', 'Frame']);
+  assert.deepEqual(by['This view'], ['Case CASE_0029', 'Run RUN_EXP-D-100_CASE_0029', 'Prediction RAW · Evaluation', 'Surface: level L0, undecimated']);
+  assert.deepEqual(by.Surfaces, [`Prediction MESH_${HEX}`, 'Prediction: 168,968 triangles · 84,500 vertices', `Prediction checksum sha256:${HEX}`], 'only a drawn surface is listed');
+  assert.deepEqual(by['Error regions'], [`Error geometry ERRGEOM_${HEX}`, '1 FN region (523 voxels) · 2 FP regions (43 voxels)']);
+  assert.deepEqual(by['Selected region'], ['FN_0001', 'FN, slices 11-13 (z = 10-12), 523 voxels']);
+  assert.deepEqual(by.Layers, ['Ground truth: unavailable (ARTIFACT_NOT_FOUND)'], 'a ready layer needs no line');
+  assert.equal(new Set(sections.flatMap((s) => s.lines)).size, sections.flatMap((s) => s.lines).length, 'every line is distinct: the sheet keys its rows by the line');
+  const slice = detailSections({ caseId: 'C', runId: 'R', variant: 'RAW', modeLabel: 'Evaluation', selection: selectionAfterPick({ kind: 'pick', role: 'prediction', slice: 52 }, 88) });
+  assert.deepEqual(slice.map((s) => s.title), ['This view', 'Selected slice']);
+  assert.deepEqual(slice[1].lines, ['Slice index z = 52 (0-based)']);
+});
+
+test('V2L23 the panel marks the error classes with the Error Inspector colours (the page takes the same from the tokens)', () => {
   assert.deepEqual({ ...MARKER_COLOR }, { FN: errorClass.FN, FP: errorClass.FP });
-  assert.deepEqual([...OPACITY_STEPS], [0.3, 0.6, 1]);
-  assert.deepEqual({ ...DEFAULT_OPACITY }, { prediction: 1, groundTruth: 0.3 }, 'the ground truth starts see-through');
-  assert.deepEqual(OPACITY_STEPS.map(opacityText), ['30%', '60%', '100%']);
-  // The page draws the same colours (as 0-1 RGB): FN #4c8dff, FP #f778ba.
-  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  const page = /MARKER_COLORS = \{ FN: \[([^\]]+)\], FP: \[([^\]]+)\] \}/.exec(VIEWER_SCRIPT);
-  for (const [cls, list] of [['FN', page[1]], ['FP', page[2]]]) {
-    list.split(',').map(Number).forEach((v, i) => assert.ok(Math.abs(v - rgb(errorClass[cls])[i]) < 0.01, `${cls} channel ${i}`));
-  }
 });
