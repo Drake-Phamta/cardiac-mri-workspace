@@ -20,7 +20,7 @@ import { SIX_RUNS, v3Transport } from './_v3_server.mjs';
 import { OUTLIER_RULE, readCaseCounts } from '../src/screens/v3-study/readers.mjs';
 import { casesTile, diceTile, findingsTile } from '../src/screens/v3-study/tiles.mjs';
 import {
-  aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND,
+  aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND, metricLabel, runDetails, studyDetails,
 } from '../src/screens/v3-study/about.mjs';
 import {
   comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
@@ -266,6 +266,8 @@ test('V3U8 SCR-01 tiles: case counts, findings open / resolved, median Dice only
   const fair = await typed({ dice: SIX_RUNS });
   assert.deepEqual(diceTile(fair.headline).rows[0].unetText, 'UNet 0.655', "the server's median over the common population");
   assert.deepEqual(diceTile(fair.headline).rows[0].dinoText, 'DINOv2 0.685');
+  assert.deepEqual([diceTile(fair.headline).rows[0].unet, diceTile(fair.headline).rows[0].dino], [0.655, 0.685], 'the markers use the numbers');
+  assert.deepEqual([none.rows[0].unet, none.rows[0].dino], [null, null], 'no pair, no number to place on the track');
   const refused = diceTile((await typed({ dice: SIX_RUNS, compare: 'not_comparable' })).headline);
   assert.ok(refused.rows.every((r) => r.chip === 'Not comparable' && r.unetText === null
     && r.note === 'The experiments do not share a fair evaluation contract.'), JSON.stringify(refused.rows.map((r) => r.note)));
@@ -274,6 +276,8 @@ test('V3U8 SCR-01 tiles: case counts, findings open / resolved, median Dice only
   const group = overviewView(fair).outliers.groups.find((g) => g.experimentId === 'EXP-U-025');
   assert.equal(group.family, 'UNET');
   assert.deepEqual(group.view.rows.map((r) => [r.caseId, r.bar]), [['CASE_0005', 0.4], ['CASE_0003', 0.61], ['CASE_0004', 0.7]]);
+  assert.deepEqual(group.view.rows.map((r) => r.scoreText), ['0.400', '0.610', '0.700'], 'the row shows the bare Dice');
+  assert.equal(group.view.variantText, 'Raw');
 
   const failed = await createStudyOverview(newRuntime({ findings_list: 'error_case' }).client).open({ studyId: plain.config.studyId });
   assert.deepEqual({ ...findingsTile(failed.findings) }, { open: null, resolved: null }, 'a failed list is not "0 open"');
@@ -303,6 +307,7 @@ test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts a
   const audit = readFileSync(join(REPO_ROOT, 'data', 'DATASET_AUDIT.md'), 'utf8');
   assert.match(audit, /154 unique CASE_NNNN IDs/, 'the case ID range shown matches the dataset audit');
   assert.match(text, /CASE_0001 to CASE_0154/);
+  assert.match(text, /This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\./);
   assert.match(text, /no name, birth date or hospital record number/);
   assert.match(text, /Counts and scores only/);
   assert.match(text, /Not for diagnosis or treatment decisions/);
@@ -312,6 +317,26 @@ test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts a
   const live = aboutData();
   assert.equal(live.length, 5, 'a live build has no fixture section');
   assert.ok(!live.flatMap((s) => s.lines).some((l) => /server names/.test(l)), 'no dataset line when the server named none');
+});
+
+test('V3U11 the technical lines SCR-01 leaves off its surface go into the sheet; the dataset name stands alone', async () => {
+  const details = studyDetails({ summaryText: 'experiment summary: 4 experiment(s) available', capabilities: ['review'], outlierRule: 'the rule' });
+  assert.deepEqual(details.map((d) => [d.title, [...d.lines]]), [
+    ['Server details', ['experiment summary: 4 experiment(s) available', 'Capabilities: review']],
+    ['Lowest-Dice lists', ['the rule']],
+  ]);
+  assert.deepEqual(studyDetails(), [], 'no lines, no section');
+  assert.deepEqual(runDetails(['EXP-U-025 · model unet']).map((d) => [d.title, [...d.lines]]), [['Run details', ['EXP-U-025 · model unet']]]);
+  assert.deepEqual(runDetails([]), []);
+  assert.equal(metricLabel('dice'), 'Dice');
+  assert.equal(metricLabel('some_new_metric'), 'some_new_metric', 'a name the legend does not know is shown as sent');
+
+  const runtime = newRuntime();
+  const snap = await createStudyOverview(runtime.client).open({ studyId: runtime.config.studyId });
+  const study = overviewView(snap).study;
+  assert.equal(study.datasetName, 'fixture dataset');
+  assert.match(study.datasetText, /DATASET_FIXTURE/, 'the version and id stay in datasetText, for the sheet');
+  assert.doesNotMatch(study.datasetName, /DATASET_FIXTURE|version/);
 });
 
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {

@@ -3,6 +3,8 @@
 // The facts come from the project's dataset record (data/DATASET_AUDIT.md) and the API contract.
 
 export const DATASET_SOURCE_URL = 'https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/';
+// The short source line under the dataset name on SCR-01.
+export const DATASET_SOURCE_NAME = 'Atrial Segmentation Challenge, Cardiac Atlas Project';
 
 const section = (title, lines) => Object.freeze({ title, lines: Object.freeze(lines.filter(Boolean)) });
 
@@ -13,6 +15,7 @@ export function aboutData({ datasetText = null, fixture = false } = {}) {
       'Left-atrium LGE MRI from the 2018 Atria Segmentation Challenge (LASC 2018), downloaded from the official '
         + 'Cardiac Atlas Project page:',
       DATASET_SOURCE_URL,
+      'This is the LASC 2018 challenge data, not the later LAScarQS 2022 data.',
       datasetText ? `The server names this study's dataset: ${datasetText}.` : null,
     ]),
     section('Terms of use', [
@@ -34,6 +37,25 @@ export function aboutData({ datasetText = null, fixture = false } = {}) {
   ].filter(Boolean));
 }
 
+/*
+ * The technical lines the main surface leaves out, as extra sections of the sheet: what the server's summary
+ * contains, which capabilities it lists, and the rule behind the lowest-Dice lists.
+ */
+export function studyDetails({ summaryText = null, capabilities = [], outlierRule = null } = {}) {
+  return Object.freeze([
+    section('Server details', [
+      summaryText,
+      capabilities.length ? `Capabilities: ${capabilities.join(', ')}` : null,
+    ]),
+    section('Lowest-Dice lists', [outlierRule]),
+  ].filter((s) => s.lines.length > 0));
+}
+
+// SCR-07's per-run context lines (family, variant, cohort level, population, N, metric version): one sheet section.
+export function runDetails(lines = []) {
+  return Object.freeze([section('Run details', lines)].filter((s) => s.lines.length > 0));
+}
+
 // One line per case metric the server sends (contract metric_rules.case_metric_fields), in the contract's order.
 export const METRIC_LEGEND = Object.freeze([
   { name: 'dice', label: 'Dice', text: 'overlap of prediction and reference, 0 to 1; higher is better' },
@@ -46,6 +68,12 @@ export const METRIC_LEGEND = Object.freeze([
     text: 'predicted minus reference voxel count, in % of the reference; closer to 0 is better',
   },
 ].map((m) => Object.freeze(m)));
+
+// The name a metric is called on the screens: the legend's label ("Dice"), or the server's own name if it has none.
+export function metricLabel(name) {
+  const known = METRIC_LEGEND.find((m) => m.name === name);
+  return known ? known.label : String(name);
+}
 
 // Metrics in mm or mL stay locked: the contract blocks them while the geometry is not validated.
 export const LOCKED_METRICS = Object.freeze([

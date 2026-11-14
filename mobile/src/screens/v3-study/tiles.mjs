@@ -57,6 +57,9 @@ export function diceTile(headline) {
       chip: fair ? 'Comparable' : chipFor(h),
       unetText: fair ? `UNet ${fmt(unet)}` : null,
       dinoText: fair ? `DINOv2 ${fmt(dino)}` : null,
+      // The two medians as numbers, for the markers on the 0 to 1 track.
+      unet: fair ? unet : null,
+      dino: fair ? dino : null,
       note: fair ? row.populationText : (row.reason || (row.fair ? 'no median Dice in the summary' : null)),
       route: row.route,
     });

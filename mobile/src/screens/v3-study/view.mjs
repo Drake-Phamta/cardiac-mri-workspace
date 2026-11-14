@@ -243,6 +243,12 @@ export function comparisonRow(c) {
   });
 }
 
+// "RAW" -> "Raw": the prediction variant as the screens write it.
+const variantLabel = (declared) => {
+  const text = String(declared ?? '');
+  return text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : null;
+};
+
 export function outlierView(o) {
   if (!o) return Object.freeze({ available: false, text: 'not loaded', rule: OUTLIER_RULE.text, rows: Object.freeze([]) });
   if (!o.available) {
@@ -255,10 +261,15 @@ export function outlierView(o) {
     text: `the ${OUTLIER_LABEL} of ${o.experimentId} (${o.variant.declared}), in the order the server sent`
       + `${o.ruleCited ? '' : ' - the server did not cite the rule'}`,
     rule: OUTLIER_RULE.text,
+    // SCR-01 draws the list under "Lowest Dice · <run>" with the variant ("Raw") on the right.
+    variantText: variantLabel(o.variant.declared),
+    warning: o.ruleCited ? null : 'the server did not cite the lowest-Dice rule',
     rows: Object.freeze(o.cases.map((c) => Object.freeze({
       key: `${c.rank}:${c.caseId}`,
       caseId: c.caseId || 'case id not returned',
       valueText: c.value.available ? `${o.metricName || 'metric'} ${fmt(c.value.value)}` : 'value unavailable',
+      // The bare number for a row that has no room for the metric name.
+      scoreText: c.value.available ? fmt(c.value.value) : '—',
       // The length of the small bar on SCR-01: the Dice itself, 0 to 1. No bar for a value off that scale.
       bar: c.value.available && c.value.value >= 0 && c.value.value <= 1 ? c.value.value : null,
       route: routeForIntent(c.intent),
@@ -326,6 +337,8 @@ export function overviewView(snap) {
         : null,
       datasetText: snap.dataset && snap.dataset.available
         ? snap.dataset.label : `dataset unavailable${served(snap.dataset && snap.dataset.served)}`,
+      // The dataset's name alone for the main surface; its version and id stay in datasetText, in the About sheet.
+      datasetName: snap.dataset && snap.dataset.available ? (snap.dataset.name ?? snap.dataset.datasetId) : null,
       counts: Object.freeze(counts),
       countsText: snap.caseCounts && !snap.caseCounts.available ? 'case counts unavailable' : null,
       capabilities: Object.freeze(snap.capabilities ? [...snap.capabilities.names] : []),
