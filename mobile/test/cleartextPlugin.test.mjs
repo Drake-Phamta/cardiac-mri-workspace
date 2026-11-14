@@ -19,7 +19,7 @@ function manifest(appAttrs = { 'android:name': '.MainApplication' }) {
 }
 const appAttrs = (m) => m.manifest.application[0].$;
 
-test('K1 a live build allows cleartext HTTP (LOCAL_DEMO over the private overlay)', () => {
+test('K1 a live build allows cleartext HTTP (LOCAL_DEMO: the backend on the computer, reached over USB)', () => {
   const m = applyCleartextPolicy(manifest(), 'live');
   assert.equal(appAttrs(m)[ATTR], 'true');
   assert.equal(appAttrs(m)['android:name'], '.MainApplication', 'other attributes are untouched');
