@@ -7,6 +7,7 @@ import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import Svg, { Circle, G, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 import { pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
+import { FamilyLegend, Marker } from './charts';
 import { fatalInvalid, RECOVERY } from '../../api/states.mjs';
 
 export const TONE_COLOR = Object.freeze({
@@ -103,12 +104,11 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginTop: space.xs },
 });
 
-// SCR-07 strip chart: one column per experiment, one dot per evaluated case, a ring on the server's outliers.
+// SCR-07 strip chart: one column per experiment, one marker per evaluated case (UNet circle, DINOv2 triangle), a
+// ring on the server's outliers.
 // stripLayout and pointAt (view.mjs) do the geometry. A tap only selects a dot; opening the case needs the link.
 
 export const STRIP_HEIGHT = 240;
-
-const FAMILY_COLOR = Object.freeze({ UNET: color.accent, DINOV2: color.inference });
 
 export function StripChart({ columns, selected, onSelect, label }) {
   const [width, setWidth] = useState(0);
@@ -121,6 +121,7 @@ export function StripChart({ columns, selected, onSelect, label }) {
     <View
       onLayout={(e) => setWidth(Math.floor(e.nativeEvent.layout.width))}
       accessibilityLabel={label}
+      testID="strip-chart"
     >
       {layout ? (
         <Pressable onPress={(e) => onSelect(pointAt(layout, e.nativeEvent.locationX, e.nativeEvent.locationY))}>
@@ -140,16 +141,7 @@ export function StripChart({ columns, selected, onSelect, label }) {
                   {col.label}
                 </SvgText>
                 {col.points.map((p, i) => (
-                  <Circle
-                    key={`${col.key}-${i}`}
-                    cx={p.x}
-                    cy={p.y}
-                    r={p.r}
-                    fill={FAMILY_COLOR[col.group] || color.text}
-                    fillOpacity={0.75}
-                    stroke={p.outlier ? color.warn : 'none'}
-                    strokeWidth={p.outlier ? 2 : 0}
-                  />
+                  <Marker key={`${col.key}-${i}`} group={col.group} x={p.x} y={p.y} r={p.r} ring={p.outlier} />
                 ))}
               </G>
             ))}
@@ -174,6 +166,7 @@ export function StripChart({ columns, selected, onSelect, label }) {
       ) : (
         <View style={{ height: STRIP_HEIGHT }} />
       )}
+      <FamilyLegend />
     </View>
   );
 }

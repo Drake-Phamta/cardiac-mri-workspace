@@ -11,7 +11,10 @@ import { join } from 'node:path';
 
 import { createExperimentComparison, createStudyOverview } from '../src/screens/v3-study/models.mjs';
 import { OUTLIER_RULE } from '../src/screens/v3-study/readers.mjs';
-import { comparisonView, OUTLIER_LABEL, overviewView } from '../src/screens/v3-study/view.mjs';
+import {
+  comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
+} from '../src/screens/v3-study/view.mjs';
+import { color, contrastRatio, family } from '../src/components/tokens.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
@@ -50,4 +53,15 @@ test('V3U1 the screens say "lowest-Dice cases", never a process id; the code kee
     const code = readFileSync(join(V3_DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     assert.doesNotMatch(code, PROCESS_ID, `${f} has a process id in its screen copy`);
   }
+});
+
+test('V3U2 families differ by colour AND marker: UNet blue circle, DINOv2 orange triangle, from the design tokens', () => {
+  assert.deepEqual({ ...FAMILY_STYLE.UNET }, { ...family[0] });
+  assert.deepEqual({ ...FAMILY_STYLE.DINOV2 }, { ...family[1] });
+  assert.equal(FAMILY_STYLE.UNET.marker, 'circle');
+  assert.equal(FAMILY_STYLE.DINOV2.marker, 'triangle');
+  assert.ok(contrastRatio(FAMILY_STYLE.UNET.color, color.surface) >= 3 && contrastRatio(FAMILY_STYLE.DINOV2.color, color.surface) >= 3,
+    'both markers are at least 3:1 on the card surface');
+  // A closed triangle around its centre: apex above, base below.
+  assert.equal(trianglePath(100, 50, 5), 'M100 44 L105.5 54 L94.5 54 Z');
 });

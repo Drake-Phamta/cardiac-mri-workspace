@@ -6,8 +6,19 @@ import { STATE } from '../../api/states.mjs';
 import { CELL_STATUS, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
 import { FAMILY, MATRIX, OUTLIER_RULE, summaryStat } from './readers.mjs';
 import { TONE } from '../../components/stateCopy.mjs';
+import { family } from '../../components/tokens.mjs';
 
 export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV2]: 'DINOv2' });
+
+// Each family is drawn with its own colour AND marker shape (UNet blue circle, DINOv2 orange triangle), so a chart
+// never depends on colour alone.
+export const FAMILY_STYLE = Object.freeze({ [FAMILY.UNET]: family[0], [FAMILY.DINOV2]: family[1] });
+
+// SVG path of a triangle marker centred on (x, y), about as large as a circle of radius r.
+export function trianglePath(x, y, r) {
+  const t = (v) => Number(v.toFixed(2));
+  return `M${t(x)} ${t(y - r * 1.2)} L${t(x + r * 1.1)} ${t(y + r * 0.8)} L${t(x - r * 1.1)} ${t(y + r * 0.8)} Z`;
+}
 
 // The outlier rule in the words the screens use. OUTLIER_RULE keeps the contract's rule id for the code.
 export const OUTLIER_LABEL = `${OUTLIER_RULE.cardinality} lowest-Dice cases`;
