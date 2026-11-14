@@ -551,7 +551,7 @@ function noRunBackend() {
 }
 
 // ---- 5. V3: SCR-01 and SCR-07 on the fixture runtime (#69) ------------------
-// Both screens through the real navigator, under the FIXTURE badge, each
+// Both screens through the real navigator, under the Fixture indicator, each
 // drawing its model's answer rather than a state panel; then SCR-07 opened for
 // one experiment, where a tapped strip dot opens SCR-03 with case, run, variant.
 {

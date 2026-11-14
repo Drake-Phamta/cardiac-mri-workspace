@@ -119,7 +119,7 @@ test('SH5 header: a name for people plus the case, run and variant; the study on
   assert.equal(headerLines(screenMeta('SCR-02'), {}, null).subtitle, null);
 });
 
-test('SH6 About this screen: the screen id, mode, contract and build', () => {
+test('SH6 the Details sheet: the screen id, mode, contract and build', () => {
   const lines = aboutLines(screenMeta('SCR-04'), {
     mode: 'live', studyId: 'STUDY_LA_001', build: { gitSha: '8e8b8c26d4dc', generatedAt: '2026-11-14T14:52:43Z', contractVersion: '1.1.0' },
   });
