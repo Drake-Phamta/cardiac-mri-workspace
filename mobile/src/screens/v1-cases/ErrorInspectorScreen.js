@@ -18,7 +18,7 @@ import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { OverlayStyleChips, SliceScrubber } from './SliceView';
+import SliceViewport, { OverlayStyleChips, SliceScrubber, useSlicePlayer } from './SliceView';
 import {
   OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
 } from './sliceControls.mjs';
@@ -172,6 +172,9 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const ok = displayed !== null;
   const state = current.view.state;
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
+  // Play sweeps the slices with their error classes; the user's own slice actions (userGoTo, Retry) stop it.
+  const player = useSlicePlayer({ total, goTo, displayed, failed: blocking });
+  const userGoTo = (n) => { player.stop(); goTo(n); };
   // As in SCR-03: while the viewer shows a state, nothing from the previous slice stays on screen.
   const showing = ok && !blocking;
   const z = ok ? displayed.sliceIndex : null;
@@ -237,7 +240,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
       <View style={s.viewerBox}>
         {blocking ? (
           <View style={s.blocked}>
-            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={(id) => { if (id === RECOVERY.BACK) nav.pop(); else retrySlice(); }} />
+            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={(id) => { if (id === RECOVERY.BACK) nav.pop(); else { player.stop(); retrySlice(); } }} />
           </View>
         ) : (
           <SliceViewport
@@ -252,7 +255,8 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
         )}
       </View>
 
-      <SliceScrubber index={blocking ? current.sliceIndex : (ok ? z : current.sliceIndex)} pending={pending} total={total} onChange={goTo} />
+      <SliceScrubber index={blocking ? current.sliceIndex : (ok ? z : current.sliceIndex)} pending={pending} total={total} onChange={userGoTo}
+        playing={player.playing} onPlay={player.toggle} />
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollIn}>
         {pixelNote && !blocking ? <Text style={s.dim}>{pixelNote}</Text> : null}
@@ -325,7 +329,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
                   <TouchableOpacity
                     key={e.sliceIndex}
                     style={[s.worst, i === 0 && s.worstFirst, !opens && s.worstOff]}
-                    onPress={() => { if (opens) goTo(e.sliceIndex); }}
+                    onPress={() => { if (opens) userGoTo(e.sliceIndex); }}
                     disabled={!opens}
                     accessibilityRole="button"
                     accessibilityState={{ disabled: !opens }}
@@ -344,7 +348,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
         <View style={s.card}>
           <Text style={s.cardH}>Error profile across the volume (server: FP + FN per eligible slice)</Text>
-          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={goTo} note={profileNote(run)} />
+          <ProfileChart profile={profile} current={showing ? z : null} total={total} onPick={userGoTo} note={profileNote(run)} />
           <Text style={s.dim}>Bar = FP + FN pixels the server counted on that slice. No bar = not eligible (no ground truth there) - not zero. Tap to open a slice.</Text>
           {profile.problems.map((p) => <Text key={p} style={s.warn}>{p}</Text>)}
         </View>

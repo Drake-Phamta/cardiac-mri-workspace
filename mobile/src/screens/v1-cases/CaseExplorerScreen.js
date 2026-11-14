@@ -16,7 +16,7 @@ import { color, font, MIN_TOUCH, overlay, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
 import SliceViewport, {
-  OverlayStyleChips, SliceScrubber, outlineOf, useMaskOverlay,
+  OverlayStyleChips, SliceScrubber, outlineOf, useMaskOverlay, useSlicePlayer,
 } from './SliceView';
 import {
   OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
@@ -204,6 +204,8 @@ function Explorer({
   const displayedRef = useRef(null);
   const overlaysRef = useRef(model.current.overlays);
   const lastLoadedUri = useRef(null);
+  // Set to the Play button's stop() below; any slice action of the user's own stops a sweep first.
+  const stopPlay = useRef(() => {});
 
   const settle = useCallback(() => {
     const c = model.current;
@@ -342,6 +344,7 @@ function Explorer({
 
   const switchVariant = useCallback((v) => {
     if (!hasRun || v === targetVariant) return;
+    stopPlay.current();
     onVariantChosen(v);
     setTargetVariant(v);
     const z = displayedRef.current ? displayedRef.current.sliceIndex : null;
@@ -365,6 +368,7 @@ function Explorer({
   }, [client, caseId, hasRun, runId]);
 
   const refreshSlice = useCallback(() => {
+    stopPlay.current();
     const zz = model.current.sliceIndex;
     forgetSlice(zz);
     if (net && Number.isInteger(zz)) net.begin({ caseId, from: zz, to: zz, kind: 'refresh' });
@@ -439,6 +443,12 @@ function Explorer({
   const { navRun, askScripted } = useScriptedRuns({
     timing, goTo, runtime, net, caseId, runId, hasRun, total, capability, targetVariant, overlaysRef, displayedRef,
   });
+
+  // Play sweeps the slices one at a time (each one on screen before the next is asked for); a scripted run or a
+  // slice that fails stops it.
+  const player = useSlicePlayer({ total, goTo, displayed, failed: blocking, locked: Boolean(navRun) });
+  stopPlay.current = player.stop;
+  const userGoTo = useCallback((n) => { player.stop(); goTo(n); }, [player.stop, goTo]);
 
   const run = runInfo ? runInfo.run : { runId };
   // While the viewer shows a state instead of a slice, nothing from the previous slice (metric, provenance,
@@ -538,9 +548,11 @@ function Explorer({
         index={scrubIndex}
         pending={pending}
         total={total}
-        onChange={goTo}
+        onChange={userGoTo}
         onLongPressLabel={askScripted}
         disabled={Boolean(navRun)}
+        playing={player.playing}
+        onPlay={player.toggle}
       />
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollIn}>

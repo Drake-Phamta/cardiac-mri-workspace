@@ -343,6 +343,50 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tick(350);
   check('L9', requests.length === mark && has(r, /slice 46 \/ 88/) && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
     `back to z 45 after Retry and Refresh of other slices: ${requests.length - mark} requests; its "unavailable" answer survived`);
+
+  // Play (V1 item 3): one slice at a time, each on screen before the next is asked for, so no gesture is ever
+  // superseded by the next one.
+  const playMark = gestures().length;
+  await press(r, 'Play');
+  for (let i = 0; i < 60 && gestures().slice(playMark).length < 4; i += 1) await tick(100);
+  await press(r, 'Pause');
+  await tick(500);
+  const played = gestures().slice(playMark);
+  check('P1', played.length >= 4 && played.every((g) => g.kind === 'slice' && g.to === g.from + 1 && g.outcome === 'shown')
+    && played.every((g, i) => i === 0 || g.from === played[i - 1].to),
+  `Play: ${played.map((g) => `${g.from}->${g.to} ${g.outcome}`).join(', ')}`);
+  const afterPause = gestures().length;
+  await tick(600);
+  check('P1', gestures().length === afterPause && has(r, /^Play$/), 'Pause stops the sweep: no slice asked for after it');
+
+  // Hold ▶: one step at once, then one every 120 ms until the finger lifts; the newest slice wins.
+  const labelBefore = texts(r).find((t) => t.startsWith('slice ')) || '';
+  const from = Number((labelBefore.match(/^slice (\d+) /) || [])[1]);
+  const next = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === '▶')[0];
+  await act(async () => { next.props.onLongPress(); });
+  await tick(400);
+  await act(async () => { next.props.onPressOut(); });
+  await tick(800);
+  const after = Number(((texts(r).find((t) => t.startsWith('slice ')) || '').match(/^slice (\d+) /) || [])[1]);
+  check('P2', after - from >= 3 && !has(r, /loading…$/), `holding ▶ for 400 ms stepped from slice ${from} to ${after}, then stopped`);
+
+  // Double tap: 2x about the finger, then back to fit. (The viewport was re-mounted after the L8 error, so it lays
+  // out again first.)
+  await layout(r);
+  const viewport = () => r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0].props.__pan;
+  const tapAt = async (x, y) => {
+    await act(async () => {
+      viewport().onPanResponderGrant({ nativeEvent: { touches: [{ pageX: x, pageY: y }] } });
+      viewport().onPanResponderRelease();
+    });
+  };
+  await tapAt(200, 200);
+  await tapAt(204, 203);
+  check('P3', has(r, /^×2\.0$/), `double tap zooms to 2x (${texts(r).find((t) => t.startsWith('×')) || 'no zoom label'})`);
+  await tick(400);
+  await tapAt(150, 150);
+  await tapAt(150, 152);
+  check('P3', !has(r, /^×\d/), 'a second double tap returns to fit');
   await act(async () => { r.unmount(); });
 }
 
