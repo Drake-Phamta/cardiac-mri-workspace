@@ -4,6 +4,7 @@
 // cut and Previous / Next are the page's own tools: viewerTools.mjs.)
 
 import { bytesToBase64 } from '../../lib/bytes.mjs';
+import { sliceDetail, sliceParts } from '../../lib/sliceNumber.mjs';
 import { errorClass } from '../../components/tokens.mjs';
 
 export const MESH_FORMAT = 'cardiac-mesh/1';
@@ -118,7 +119,10 @@ export const toViewer = Object.freeze({
     type: 'markers', items: markers.map((m) => ({ id: m.id, cls: m.cls, at: m.at, voxels: m.voxels })),
   }),
   select: (markerId) => JSON.stringify({ type: 'select', id: typeof markerId === 'string' ? markerId : null }),
-  slice: (index) => JSON.stringify({ type: 'slice', index: Number.isInteger(index) ? index : null }),
+  // `label` is the slice number as the app writes it (lib/sliceNumber.mjs), for the one place the page shows it.
+  slice: (index, label = null) => JSON.stringify({ type: 'slice', index: Number.isInteger(index) ? index : null, label: typeof label === 'string' ? label : null }),
+  // The heights covered by the app bar (top) and the bottom panel (bottom), so the page keeps its tools clear of them.
+  insets: (top, bottom) => JSON.stringify({ type: 'insets', top, bottom }),
   dispose: () => JSON.stringify({ type: 'dispose' }),
 });
 
@@ -163,13 +167,17 @@ export function selectionForMarker(markers, id) {
   return Object.freeze({ slice: marker.slice, role: ROLES.ERRORS, note: null, marker });
 }
 
-const slicesOf = (zmin, zmax) => (zmin === zmax ? `slice ${zmin + 1} (z = ${zmin})` : `slices ${zmin + 1}-${zmax + 1} (z = ${zmin}-${zmax})`);
+// A slice number for people, from the app's one formatter (1-based; '-' when the volume is not known).
+const slicePart = (z, total) => sliceParts(z, total).current;
+const slicesOf = (zmin, zmax, total) => (zmin === zmax
+  ? `slice ${slicePart(zmin, total)} (z ${zmin})`
+  : `slices ${slicePart(zmin, total)}-${slicePart(zmax, total)} (z ${zmin}-${zmax})`);
 const thousands = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-// "FN, slices 35-42 (z = 34-41), 523 voxels": slices 1-based for people, then the 0-based index SCR-03 prints.
-export function markerText(marker) {
+// "FN, slices 35-42 (z 34-41), 523 voxels": slices 1-based for people, then the 0-based z the server uses (Details only).
+export function markerText(marker, total) {
   if (!marker) return '';
-  return `${marker.cls}, ${slicesOf(marker.zmin, marker.zmax)}, ${thousands(marker.voxels)} voxel${marker.voxels === 1 ? '' : 's'}`;
+  return `${marker.cls}, ${slicesOf(marker.zmin, marker.zmax, total)}, ${thousands(marker.voxels)} voxel${marker.voxels === 1 ? '' : 's'}`;
 }
 
 // "3 FN regions (1,020 voxels) · 5 FP regions (184 voxels)"
@@ -197,11 +205,6 @@ export function selectionAfterPick(pick, total) {
   return Object.freeze({ slice: pick.slice, role: pick.role, note: null, marker: null });
 }
 
-// "45 / 88": the slice 1-based, as the app writes it everywhere (the shared formatter of the 2D screens is not on this
-// branch yet; same output). The 0-based z index the API uses is for the Details sheet only.
-export function sliceReadout(slice, total) {
-  return `${Number.isInteger(slice) ? slice + 1 : '-'} / ${Number.isInteger(total) ? total : '-'}`;
-}
 
 // The push to SCR-03 at the picked slice, or null. returnParams update this screen's stack entry, so Back from
 // SCR-03 reopens it on the same slice.
@@ -251,7 +254,7 @@ export function triangleText(n) {
 
 // What the bottom panel says about the selection, as plain strings (the screen only lays them out): a tapped region
 // (what it is in words, its size and slices), a picked surface point, or a hint when nothing is selected.
-export function selectionPanel(selection, markers) {
+export function selectionPanel(selection, markers, total) {
   const marker = selection && selection.marker;
   if (marker) {
     const at = Array.isArray(markers) ? markers.findIndex((m) => m.id === marker.id) : -1;
@@ -262,7 +265,7 @@ export function selectionPanel(selection, markers) {
       meaning: ERROR_MEANING[marker.cls],
       facts: Object.freeze([
         `${thousands(marker.voxels)} voxel${marker.voxels === 1 ? '' : 's'}`,
-        marker.zmin === marker.zmax ? `Slice ${marker.zmin + 1}` : `Slices ${marker.zmin + 1}\u2013${marker.zmax + 1}`,
+        marker.zmin === marker.zmax ? `Slice ${slicePart(marker.zmin, total)}` : `Slices ${slicePart(marker.zmin, total)}\u2013${slicePart(marker.zmax, total)}`,
         ...(at >= 0 ? [`Region ${at + 1} of ${markers.length}`] : []),
       ]),
     });
@@ -308,7 +311,7 @@ const layerLine = (label, status) => {
 // The Details sheet: what the main surface leaves out (ids, checksums, counts, indices, the frame). Sections of
 // { title, lines }; `surfaces` are the drawn meshes: { label, id, checksum, triangles, vertices }.
 export function detailSections({
-  caseId, runId, variant, modeLabel, surfaces = [], errorGeometryId = null, markers = null, selection = null,
+  caseId, runId, variant, modeLabel, total = null, surfaces = [], errorGeometryId = null, markers = null, selection = null,
   statuses = [], geometryNote = null,
 }) {
   const sections = [{
@@ -333,9 +336,9 @@ export function detailSections({
     });
   }
   if (selection && selection.marker) {
-    sections.push({ title: 'Selected region', lines: [selection.marker.id, markerText(selection.marker)] });
+    sections.push({ title: 'Selected region', lines: [selection.marker.id, markerText(selection.marker, total)] });
   } else if (selection && Number.isInteger(selection.slice)) {
-    sections.push({ title: 'Selected slice', lines: [`Slice index z = ${selection.slice} (0-based)`] });
+    sections.push({ title: 'Selected slice', lines: [sliceDetail(selection.slice, total)] });
   }
   const problems = statuses.map(([label, status]) => layerLine(label, status)).filter(Boolean);
   if (problems.length) sections.push({ title: 'Layers', lines: problems });

@@ -1,8 +1,10 @@
 // SCR-05 3D Inspector: shows the reconstructed left atrium as WebGL layers in a WebView: the prediction surface, the
-// ground truth (see-through) and one marker per FP / FN error region. The page draws the tools over the surface
-// (layers, opacity, cut, views, Previous / Next: viewerTools.mjs); this screen loads and checks the data, hands it to
-// the page, and shows the selection in the bottom panel. A tap on the surface picks the slice that made that face; a
-// tap on a marker selects its error region; "Open in 2D" opens SCR-03 on that slice.
+// ground truth (see-through) and one marker per FP / FN error region. The WebView fills the screen (viewer chrome:
+// the shell's app bar floats over it, the tab bar is hidden); the page draws the tools over the surface (layers,
+// opacity, cut, views, Previous / Next: viewerTools.mjs) between the app bar and the bottom panel. This screen loads
+// and checks the data, hands it to the page, and shows the selection in the bottom panel. A tap on the surface picks
+// the slice that made that face; a tap on a marker selects its error region; "Open in 2D" opens SCR-03 on that slice.
+// The app bar says the case and the prediction; the ids, checksums and sizes are the shell's Details sheet (nav.setContext).
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -12,10 +14,12 @@ import { emptyUnavailable, fatalInvalid, loading, RECOVERY, STATE } from '../../
 import { createLatest } from '../../api/client.mjs';
 import { useCall } from '../../api/RuntimeContext';
 import { Button } from '../../components/Controls';
-import DetailsSheet from '../../components/DetailsSheet';
+import { TopScrim } from '../../components/Floating';
 import StateView, { StatePanel } from '../../components/StateView';
-import { color, space, type } from '../../components/theme';
+import { color, size, space, type } from '../../components/theme';
 import { capabilityOf, variantOptions, rememberedVariant, rememberVariant } from '../../lib/caseMode.mjs';
+import { sliceParts } from '../../lib/sliceNumber.mjs';
+import { CHROME } from '../../navigation/routes.mjs';
 import {
   detailSections, errorSummaryText, errorsRef, gridMatches, LAYER, layerNotices, layerStatus, maskIdForVariant, meshRef,
   openIn2D, parseErrorGeometry, parseMeshHeader, parseViewerMessage, ROLES, screenStatus, SELECTION_NONE,
@@ -47,6 +51,16 @@ function useArtifactBytes(content, ref, kind) {
 }
 
 const PENDING = loading();
+// The bottom panel's height until it has been measured (the mockup's 188 dp includes the gesture inset the app keeps free).
+const PANEL_GUESS = size.bottomPanel - 20;
+
+// What the shell's app bar and Details sheet show: nav.setContext, set when it changes and cleared when the screen goes.
+function useShellContext(nav, context) {
+  useEffect(() => {
+    if (context && typeof nav.setContext === 'function') nav.setContext(context);
+  }, [nav, context]);
+  useEffect(() => () => { if (typeof nav.setContext === 'function') nav.setContext(null); }, [nav]);
+}
 
 export default function Inspector3DScreen({ runtime, nav, params }) {
   const { caseId, runId } = params;
@@ -59,12 +73,18 @@ export default function Inspector3DScreen({ runtime, nav, params }) {
     if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) { caseCall.refetch(); runCall.refetch(); } else nav.pop();
   }, [caseCall, runCall, nav]);
 
-  if (caseCall.view.state !== STATE.SUCCESS) return <StateView view={caseCall.view} what={`case ${caseId}`} onAction={onAction} />;
-  if (runCall.view.state !== STATE.SUCCESS) return <StateView view={runCall.view} what="the analysis run" onAction={onAction} />;
+  // Before there is an Inspector (loading, an error, the variant question) the app bar names the case and not the run:
+  // the Inspector reports its own bar once it has the data.
+  const loaded = caseCall.view.state === STATE.SUCCESS && runCall.view.state === STATE.SUCCESS && Boolean(variant);
+  const waiting = useMemo(() => (loaded ? null : { title: caseId, subtitle: '3D view' }), [loaded, caseId]);
+  useShellContext(nav, waiting);
+
+  if (caseCall.view.state !== STATE.SUCCESS) return <View style={s.belowBar}><StateView view={caseCall.view} what={`case ${caseId}`} onAction={onAction} /></View>;
+  if (runCall.view.state !== STATE.SUCCESS) return <View style={s.belowBar}><StateView view={runCall.view} what="the analysis run" onAction={onAction} /></View>;
   if (!variant) {
     // The variant has no default (spec 11 §6), so the screen asks, like SCR-03.
     return (
-      <View style={s.stateBox}>
+      <View style={[s.stateBox, s.belowBar]}>
         <Text style={s.askTitle}>Which prediction?</Text>
         <Text style={s.askBody}>Choose the prediction the 3D surface is built from.</Text>
         <View style={s.askRow}>
@@ -89,6 +109,9 @@ export default function Inspector3DScreen({ runtime, nav, params }) {
     />
   );
 }
+
+// The shell frames this screen as a viewer: the app bar floats over it and the tab bar is hidden.
+Inspector3DScreen.chrome = CHROME.VIEWER;
 
 function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSlice }) {
   const client = runtime.client;
@@ -168,7 +191,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const [loaded, setLoaded] = useState({});
   const [viewerErrors, setViewerErrors] = useState({});
   const [selection, setSelection] = useState(SELECTION_NONE);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(PANEL_GUESS);
 
   // The band on the surface shows the selected slice, else the 2D slice this screen was opened from.
   const band = Number.isInteger(selection.slice) ? selection.slice : initialSlice;
@@ -185,7 +208,11 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
       tell(toViewer.markers(markers));
     }
   }, [ready, meshes, markers, errPrepared, tell]);
-  useEffect(() => { if (ready) tell(toViewer.slice(band)); }, [ready, band, tell]);
+  // The slice number the page shows is written here, with the app's one formatter.
+  const bandLabel = Number.isInteger(band) && Number.isInteger(total) ? sliceParts(band, total).current : null;
+  useEffect(() => { if (ready) tell(toViewer.slice(band, bandLabel)); }, [ready, band, bandLabel, tell]);
+  // The page fills the screen: it keeps its tools clear of the app bar above and the bottom panel below.
+  useEffect(() => { if (ready) tell(toViewer.insets(size.appBar, panelHeight)); }, [ready, panelHeight, tell]);
   useEffect(() => { if (ready) tell(toViewer.select(selection.marker ? selection.marker.id : null)); }, [ready, selection, tell]);
   // Leaving the screen: the page frees its GPU buffers. A layout-effect cleanup runs while the WebView is still there.
   useLayoutEffect(() => () => { if (webRef.current) webRef.current.postMessage(toViewer.dispose()); }, []);
@@ -235,20 +262,8 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
 
   const plan = openIn2D({ caseId, runId, variant, selection, total });
 
-  // No prediction mesh: show the API's reason instead of the viewer.
-  if (overall === 'unavailable' || overall === 'error') {
-    const view = predStatus.view
-      || (predStatus.state === LAYER.ERROR
-        ? fatalInvalid({ code: predStatus.code, safeMessage: predStatus.message || 'the 3D viewer reported an error' })
-        : emptyUnavailable(predStatus.reason || 'NO_RECONSTRUCTION', [RECOVERY.BACK]));
-    return (
-      <View style={s.stateBox}>
-        <StatePanel view={view} what="the 3D reconstruction" onAction={onStateAction} />
-        <Text style={s.askBody}>No 3D surface is shown. The 2D viewer still shows this run&apos;s slices.</Text>
-      </View>
-    );
-  }
-
+  // The shell's app bar (the case, then the experiment and prediction) and Details sheet (what the main surface leaves
+  // out: ids, checksums, mesh sizes, the z index, the frame, why a layer is missing).
   const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
     ? 'Voxel-index frame (x = column, y = row, z = slice). Geometry is not validated: no millimetres are shown.' : null;
   const surfaceInfo = (label, meshId, mesh, seen) => ({
@@ -259,6 +274,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     runId,
     variant,
     modeLabel: capability.label,
+    total,
     surfaces: [
       surfaceInfo('Prediction', predMeshId, meshes.prediction, loaded.prediction),
       surfaceInfo('Ground truth', gtMeshId, meshes.groundTruth, loaded.groundTruth),
@@ -269,62 +285,83 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     statuses: [['Ground truth', gtStatus], ['Errors', errStatus]],
     geometryNote,
   });
+  const detailsKey = JSON.stringify(sections);
+  const details = useMemo(() => sections, [detailsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const experimentId = run.experiment_id;
+  const context = useMemo(
+    () => ({ title: caseId, subtitle: [experimentId, VARIANT_LABEL[variant]].filter(Boolean).join(' · '), details }),
+    [caseId, experimentId, variant, details],
+  );
+  useShellContext(nav, context);
+
+  // No prediction mesh: show the API's reason instead of the viewer.
+  if (overall === 'unavailable' || overall === 'error') {
+    const view = predStatus.view
+      || (predStatus.state === LAYER.ERROR
+        ? fatalInvalid({ code: predStatus.code, safeMessage: predStatus.message || 'the 3D viewer reported an error' })
+        : emptyUnavailable(predStatus.reason || 'NO_RECONSTRUCTION', [RECOVERY.BACK]));
+    return (
+      <View style={[s.stateBox, s.belowBar]}>
+        <StatePanel view={view} what="the 3D reconstruction" onAction={onStateAction} />
+        <Text style={s.askBody}>No 3D surface is shown. The 2D viewer still shows this run&apos;s slices.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={s.root}>
-      <View style={s.stage}>
-        <WebView
-          ref={webRef}
-          style={s.web}
-          source={{ html: VIEWER_HTML }}
-          originWhitelist={['about:*', 'data:*']}
-          javaScriptEnabled
-          // Privacy: nothing of this page is kept on the phone - no cache, no cookies, no storage, no history.
-          incognito
-          cacheEnabled={false}
-          cacheMode="LOAD_NO_CACHE"
-          domStorageEnabled={false}
-          thirdPartyCookiesEnabled={false}
-          allowFileAccess={false}
-          allowUniversalAccessFromFileURLs={false}
-          setSupportMultipleWindows={false}
-          mixedContentMode="never"
-          scrollEnabled={false}
-          overScrollMode="never"
-          androidLayerType="hardware"
-          onMessage={onMessage}
-          onShouldStartLoadWithRequest={(r) => r.url === 'about:blank' || String(r.url).startsWith('data:')}
-          onError={() => setViewerErrors((e) => ({ ...e, prediction: { code: 'WEBVIEW_ERROR', message: 'the WebView failed to load' } }))}
-          accessibilityLabel="3D surface of the segmentation"
-        />
-        {overall === 'loading' ? (
-          <View style={s.overlay} pointerEvents="none"><StatePanel view={PENDING} what="the 3D surface" compact /></View>
-        ) : null}
-      </View>
+      <WebView
+        ref={webRef}
+        style={s.web}
+        source={{ html: VIEWER_HTML }}
+        originWhitelist={['about:*', 'data:*']}
+        javaScriptEnabled
+        // Privacy: nothing of this page is kept on the phone - no cache, no cookies, no storage, no history.
+        incognito
+        cacheEnabled={false}
+        cacheMode="LOAD_NO_CACHE"
+        domStorageEnabled={false}
+        thirdPartyCookiesEnabled={false}
+        allowFileAccess={false}
+        allowUniversalAccessFromFileURLs={false}
+        setSupportMultipleWindows={false}
+        mixedContentMode="never"
+        scrollEnabled={false}
+        overScrollMode="never"
+        androidLayerType="hardware"
+        onMessage={onMessage}
+        onShouldStartLoadWithRequest={(r) => r.url === 'about:blank' || String(r.url).startsWith('data:')}
+        onError={() => setViewerErrors((e) => ({ ...e, prediction: { code: 'WEBVIEW_ERROR', message: 'the WebView failed to load' } }))}
+        accessibilityLabel="3D surface of the segmentation"
+      />
+      {/* The scrim under the floating app bar: above the page, below the bar. */}
+      <TopScrim />
+      {overall === 'loading' ? (
+        <View style={s.overlay} pointerEvents="none"><StatePanel view={PENDING} what="the 3D surface" compact /></View>
+      ) : null}
       <SelectionPanel
         variant={variant}
         capability={capability}
         band={band}
         total={total}
-        content={selectionPanel(selection, markers)}
+        content={selectionPanel(selection, markers, total)}
         summary={markers ? errorSummaryText(markers) : null}
         notices={layerNotices(gtStatus, errStatus)}
-        openLabel={plan ? `Open in 2D at slice ${plan.params.sliceIndex + 1}` : 'Open in 2D'}
+        openLabel={plan ? `Open in 2D at slice ${bandLabel}` : 'Open in 2D'}
         canOpen={Boolean(plan)}
         onOpen={() => { if (plan) { rememberVariant(variant); nav.push(plan.screenId, plan.params, plan.returnParams); } }}
-        onDetails={() => setDetailsOpen(true)}
+        onHeight={setPanelHeight}
       />
-      <DetailsSheet visible={detailsOpen} onClose={() => setDetailsOpen(false)} title="3D details" sections={sections} testID="inspector-details" />
     </View>
   );
 }
-
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bg },
-  // The page (and the WebGL canvas in it) is as near-black as the app bar, so the surface floats in the screen.
-  stage: { flex: 1, backgroundColor: color.bg },
-  web: { flex: 1, backgroundColor: color.bg },
-  overlay: { position: 'absolute', left: space.l, right: space.l, top: 0, bottom: 0, justifyContent: 'center' },
+  // The WebView fills the whole screen, behind the floating app bar and the bottom panel.
+  root: { flex: 1, backgroundColor: color.viewer },
+  web: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: color.viewer },
+  overlay: { position: 'absolute', left: space.l, right: space.l, top: size.appBar, bottom: PANEL_GUESS, justifyContent: 'center' },
+  // The app bar floats over the top 56 dp of this screen, so content that is not the page starts below it.
+  belowBar: { paddingTop: size.appBar, backgroundColor: color.viewer },
   stateBox: { flex: 1, justifyContent: 'center', paddingHorizontal: space.l, gap: space.m },
   askTitle: { ...type.screenTitle, color: color.t1 },
   askBody: { ...type.body, color: color.t2 },

@@ -1468,7 +1468,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { rx.unmount(); });
 }
 
-// ---- 11. SCR-05 3D Inspector: H6 and H7 on the live runtime, WebView mocked (V2) --------------------------
+// ---- 11. SCR-05 3D Inspector (viewer chrome): H6 and H7 on the live runtime, WebView mocked (V2) ----------------
 // What a PASS means: the screen asks for the mesh and error references and bytes the way the contract says, verifies
 // the bytes against the id (DR-021 rule 1), hands the viewer only verified, grid-matching artifacts and markers of the
 // surface on screen, shows loading / unavailable (with the API's reason) / error / success, and turns a pick or a
@@ -1548,10 +1548,16 @@ function reviewBackend({ seedVersion = false } = {}) {
   }
 
   const nodeMocks = { createNodeMock: () => ({ postMessage() {} }) };
+  let lastMounted = null;
   const mount = async (backend, params, { nav = null } = {}) => {
     const runtime = liveRuntime(backend.fetchImpl);
-    const recorded = { pushes: [], pops: 0 };
-    const nv = nav || { push: (...a) => { recorded.pushes.push(a); return true; }, pop: () => { recorded.pops += 1; return true; }, replace: () => true, reset: () => true, canGoBack: true };
+    const recorded = { pushes: [], pops: 0, contexts: [] };
+    lastMounted = recorded;
+    const nv = nav || {
+      push: (...a) => { recorded.pushes.push(a); return true; }, pop: () => { recorded.pops += 1; return true; }, replace: () => true, reset: () => true, canGoBack: true,
+      // what the shell's app bar and Details sheet would show: the screen reports it with nav.setContext
+      setContext: (c) => { recorded.contexts.push(c); },
+    };
     sent.length = 0;
     let r;
     await act(async () => {
@@ -1570,8 +1576,10 @@ function reviewBackend({ seedVersion = false } = {}) {
   const lastSent = (type) => sentJson().filter((m) => m.type === type).pop();
   const P = { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 };
 
-  const openDetails = async (r) => { await press(r, 'Details'); await tick(20); };
-  const closeDetails = async (r) => { await act(async () => { byTestId(r, 'inspector-details-close').props.onPress(); }); await tick(20); };
+  // What the screen last reported to the shell: the app bar's title and subtitle, and the Details sections.
+  const reported = (rec = lastMounted) => rec.contexts.filter(Boolean).pop() || {};
+  const detailLines = (rec = lastMounted) => (reported(rec).details || []).flatMap((sec) => sec.lines);
+  const hasDetail = (re, rec = lastMounted) => detailLines(rec).some((l) => re.test(l));
   const isOpen2D = (r) => entry(r, 'Open in 2D');
   // A control's touch target in dp: its own size plus the hitSlop around it (the minimum is 48, spec 10 / MIN_TOUCH).
   const hitSize = (n) => {
@@ -1613,13 +1621,11 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R4', has(r, /^Tap the surface to pick a slice, or an error marker to see its region\.$/) && isOpen2D(r).props.disabled === true,
       'no selection: Open in 2D is disabled and the hint says what to do');
     check('V2R4', !has(r, /Voxel-index frame|no millimetres/), 'the frame note is not on the main surface');
-    await openDetails(r);
     const hex = sum(predBytes);
-    check('V2R3', has(r, new RegExp(`^Prediction MESH_${hex}$`)) && has(r, /^Prediction: 12 triangles · 8 vertices$/) && has(r, new RegExp(`^Prediction checksum sha256:${hex}$`))
-      && has(r, /^Case CASE_0061$/) && has(r, /^Run RUN_A$/) && has(r, /^Prediction RAW · Evaluation$/), 'the Details sheet has the ids, checksums and mesh sizes');
-    check('V2R4', has(r, /Voxel-index frame \(x = column, y = row, z = slice\)\. Geometry is not validated: no millimetres are shown\./), 'and the frame note');
-    check('V2R3', has(r, /^Error geometry ERRGEOM_/) && has(r, /^1 FN region/), 'and the error geometry');
-    await closeDetails(r);
+    check('V2R3', hasDetail(new RegExp(`^Prediction MESH_${hex}$`)) && hasDetail(/^Prediction: 12 triangles · 8 vertices$/) && hasDetail(new RegExp(`^Prediction checksum sha256:${hex}$`))
+      && hasDetail(/^Case CASE_0061$/) && hasDetail(/^Run RUN_A$/) && hasDetail(/^Prediction RAW · Evaluation$/), 'the Details sheet (the shell\'s, from nav.setContext) has the ids, checksums and mesh sizes');
+    check('V2R4', hasDetail(/Voxel-index frame \(x = column, y = row, z = slice\)\. Geometry is not validated: no millimetres are shown\./), 'and the frame note');
+    check('V2R3', hasDetail(/^Error geometry ERRGEOM_/) && hasDetail(/^1 FN region/), 'and the error geometry');
     await act(async () => { r.unmount(); });
   }
 
@@ -1638,9 +1644,7 @@ function reviewBackend({ seedVersion = false } = {}) {
       && JSON.stringify(recorded.pushes[0][1]) === JSON.stringify({ caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 })
       && JSON.stringify(recorded.pushes[0][2]) === JSON.stringify({ runId: 'RUN_A', variant: 'RAW', sliceIndex: 52 }),
     `push SCR-03 at the picked slice for the same run and variant, with returnParams: ${JSON.stringify(recorded.pushes[0] || null)}`);
-    await openDetails(r);
-    check('V2R5', has(r, /^Slice index z = 52 \(0-based\)$/), 'the 0-based z index is in the Details sheet');
-    await closeDetails(r);
+    check('V2R5', hasDetail(/^Slice 53 \/ 88 · z 52$/), 'the 0-based z index is in the Details sheet, next to the 1-based slice');
     // a background tap clears the selection - nothing can navigate
     await fromViewer(r, { type: 'pick', role: null, triangle: null, slice: null });
     check('V2R6', has(r, /No surface at that point: nothing selected/) && isOpen2D(r).props.disabled === true, 'a background tap clears the selection and disables Open in 2D');
@@ -1678,9 +1682,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     await fromViewer(r, { type: 'marker', id: 'FP_0001' });
     check('V2R15', has(r, /^Extra region \(FP\)$/) && has(r, /^Predicted where the ground truth has none\.$/) && has(r, /^40 voxels · Slice 11 · Region 2 of 3$/) && lastSent('select').id === 'FP_0001',
       'a false positive reads as an extra region, in the singular for one slice');
-    await openDetails(r);
-    check('V2R15', has(r, /^FP_0001$/) && has(r, /^FP, slice 11 \(z = 10\), 40 voxels$/), 'the Details sheet has the region id and the z index');
-    await closeDetails(r);
+    check('V2R15', hasDetail(/^FP_0001$/) && hasDetail(/^FP, slice 11 \(z 10\), 40 voxels$/), 'the Details sheet has the region id and the z index');
     await fromViewer(r, { type: 'marker', id: 'FN_9999' });
     check('V2R15', has(r, /not in this error geometry: ignored/) && isOpen2D(r).props.disabled === true && lastSent('select').id === null,
       'a marker id the screen does not hold selects nothing');
@@ -1690,8 +1692,8 @@ function reviewBackend({ seedVersion = false } = {}) {
     await act(async () => { r.unmount(); });
   }
 
-  // 10k. the tools (layers, opacity, cut, views, Previous / Next) are the page's own: the app sends data and the
-  // selection, never a tool message, and draws no tool of its own (v2_viewer.test.mjs presses them in the page)
+  // 10k. the tools (layers, opacity, cut, views, Previous / Next) are the page's own: the app sends data, the selection
+  // and the insets, never a tool message, and draws no tool of its own (v2_viewer.test.mjs presses them in the page)
   {
     const backend = meshBackend();
     const { r } = await mount(backend, P);
@@ -1701,11 +1703,11 @@ function reviewBackend({ seedVersion = false } = {}) {
     await fromViewer(r, { type: 'marker', id: 'FP_0001' });
     await fromViewer(r, { type: 'pick', role: 'groundTruth', triangle: 2, slice: 7 });
     const types = [...new Set(sentJson().map((m) => m.type))].sort().join();
-    check('V2R16', types === 'markers,mesh,select,slice', `the app sends only mesh, markers, slice and select: ${types}`);
+    check('V2R16', types === 'insets,markers,mesh,select,slice', `the app sends only mesh, markers, slice, select and the insets: ${types}`);
     check('V2R16', !byA11y(r, 'Next error region') && !byA11y(r, 'Previous error region') && !has(r, /^(Cut|Fit|\+X|\u2212Z)$/) && !has(r, /opacity|Opacity/),
       'and draws no layer, opacity, cut, view or Previous / Next control: they are the page\'s');
     const sizes = r.root.findAll((n) => n.type === 'TouchableOpacity').map(hitSize);
-    check('V2R16', sizes.length >= 2 && sizes.every(([w, h]) => w >= 48 && h >= 48), `every control of the screen has a touch target of at least 48 dp: ${JSON.stringify(sizes)}`);
+    check('V2R16', sizes.length >= 1 && sizes.every(([w, h]) => w >= 48 && h >= 48), `every control of the screen has a touch target of at least 48 dp: ${JSON.stringify(sizes)}`);
     await act(async () => { r.unmount(); });
   }
 
@@ -1718,8 +1720,7 @@ function reviewBackend({ seedVersion = false } = {}) {
       await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
       check('V2R18', web(r) !== null && has(r, /^The error markers are not available for this prediction\.$/) && !sentJson().some((m) => m.type === 'markers'),
         `${errors}: the surface stays, the panel says the markers are not available, no marker reaches the viewer`);
-      await openDetails(r);
-      check('V2R18', has(r, expect), `${errors}: the Details sheet names why: ${texts(r).find((t) => expect.test(t)) || '-'}`);
+      check('V2R18', hasDetail(expect), `${errors}: the Details sheet names why: ${detailLines().find((t) => expect.test(t)) || '-'}`);
       await act(async () => { r.unmount(); });
     }
     const m2 = await mount(meshBackend(), P);
@@ -1727,8 +1728,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     await fromViewer(m2.r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(m2.r, { type: 'error', role: 'errors', code: 'VIEWER_ERROR', message: 'MARKERS_INVALID: a marker is malformed' });
     check('V2R18', web(m2.r) !== null && has(m2.r, /^The error markers are not available for this prediction\.$/), 'markers the viewer refused read as not available, the surface stays');
-    await openDetails(m2.r);
-    check('V2R18', has(m2.r, /^Errors: error \(VIEWER_ERROR\): MARKERS_INVALID/), 'and the viewer\'s code is in Details');
+    check('V2R18', hasDetail(/^Errors: error \(VIEWER_ERROR\): MARKERS_INVALID/), 'and the viewer\'s code is in Details');
     await act(async () => { m2.r.unmount(); });
   }
 
@@ -1745,7 +1745,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'marker', id: 'FN_0001' });
     await fromViewer(r, { type: 'pick', role: 'prediction', triangle: 3, slice: 20 });
-    const allowed = ['mesh', 'markers', 'slice', 'select', 'dispose'];
+    const allowed = ['mesh', 'markers', 'slice', 'select', 'insets', 'dispose'];
     const words = ['CASE_0061', 'RUN_A', 'ART_RAW', 'MASK_CASE_0061', 'http', 'backend.invalid', 'sha256', 'MESH_', 'ERRGEOM_', sum(predBytes), sum(errBytes)];
     const leaks = sentJson().flatMap((m) => {
       const text = JSON.stringify({ ...m, b64: undefined });
@@ -1761,6 +1761,50 @@ function reviewBackend({ seedVersion = false } = {}) {
     await act(async () => { r.unmount(); });
     check('V2R19', sent.length === 1 && JSON.parse(sent[0]).type === 'dispose' && recorded.pushes.length === 0, 'leaving the screen tells the page to free its GPU buffers');
   }
+  // 10n. viewer chrome: the screen opts in, the WebView fills the screen under the floating app bar, the app bar and the
+  // Details sheet say what the screen reports (nav.setContext), and the page is told how much room the bar and the panel take
+  {
+    const { chromeOf, CHROME, screenMeta } = await imp('src/navigation/routes.mjs');
+    const { contextDetails, headerLines } = await imp('src/navigation/header.mjs');
+    check('V2R20', Inspector3DScreen.chrome === CHROME.VIEWER && chromeOf(Inspector3DScreen) === CHROME.VIEWER, 'SCR-05 opts in to the viewer chrome: the app bar floats over it and the tab bar is hidden');
+    const backend = meshBackend();
+    const { r, recorded } = await mount(backend, P);
+    const style = Object.assign({}, ...[web(r).props.style].flat(3).filter(Boolean));
+    check('V2R20', style.position === 'absolute' && style.left === 0 && style.right === 0 && style.top === 0 && style.bottom === 0, 'the WebView fills the whole screen, behind the app bar and the bottom panel');
+    check('V2R20', Boolean(byTestId(r, 'viewer-scrim')), 'the top scrim is drawn over the page, under the app bar');
+    await fromViewer(r, { type: 'ready' });
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
+    const ctx = reported(recorded);
+    const head = headerLines(screenMeta('SCR-05'), P, ctx, { studyId: null });
+    check('V2R20', head.title === 'CASE_0061' && /^.+ · Raw$/.test(head.subtitle) && !/RUN_|run /.test(head.subtitle),
+      `the app bar names the case, then the experiment and the prediction, not the run id: "${head.title}" / "${head.subtitle}"`);
+    check('V2R20', contextDetails(ctx).map((sec) => sec.title).join() === 'This view,Surfaces,Error regions,Frame',
+      `the shell takes the screen's Details sections: ${contextDetails(ctx).map((sec) => sec.title).join(', ')}`);
+    check('V2R20', !ctx.actions && !ctx.overflow, 'no icon button and no "more" menu: nothing in this screen needs one');
+    check('V2R20', lastSent('insets').top === 56 && lastSent('insets').bottom === 168, `the page is told the app bar is 56 dp and (until measured) the panel 168 dp: ${JSON.stringify(lastSent('insets'))}`);
+    await act(async () => { byTestId(r, 'selection-dock').props.onLayout({ nativeEvent: { layout: { height: 214 } } }); });
+    await tick(20);
+    check('V2R20', lastSent('insets').bottom === 214, `the measured panel height reaches the page: ${JSON.stringify(lastSent('insets'))}`);
+    check('V2R20', lastSent('slice').index === 44 && lastSent('slice').label === '45', 'the slice number the page shows is the one the app wrote with the shared formatter');
+    await fromViewer(r, { type: 'marker', id: 'FN_0001' });
+    check('V2R20', lastSent('slice').label === '12' && hasDetail(/^FN, slices 11-13 \(z 10-12\), 523 voxels$/, recorded), 'and it follows the selection');
+    check('V2R20', !has(r, /^Details$/), 'the panel has no Details button: the app bar\'s Info opens the sheet');
+    await act(async () => { r.unmount(); });
+    check('V2R20', recorded.contexts[recorded.contexts.length - 1] === null, 'leaving the screen clears what it reported');
+    // the states before there is a viewer: the app bar names the case, content starts below it
+    const loadingBackend = meshBackend({ missing: ['ART_RAW'] });
+    const m2 = await mount(loadingBackend, P);
+    const belowBar = m2.r.root.findAll((n) => n.props && n.props.style && [n.props.style].flat(3).some((st) => st && st.paddingTop === 56)).length > 0;
+    check('V2R20', belowBar && reported(m2.recorded).title === 'CASE_0061' && /^.+ · Raw$/.test(reported(m2.recorded).subtitle), 'an unavailable surface: the state panel starts below the app bar, which still names the case');
+    await act(async () => { m2.r.unmount(); });
+    const { forgetSession } = await imp('src/lib/caseMode.mjs');
+    forgetSession();
+    const m3 = await mount(meshBackend(), { caseId: 'CASE_0061', runId: 'RUN_A' });
+    check('V2R20', has(m3.r, /^Which prediction\?$/) && reported(m3.recorded).title === 'CASE_0061' && reported(m3.recorded).subtitle === '3D view', 'the variant question: the app bar names the case and says nothing of the run');
+    await act(async () => { m3.r.unmount(); });
+    forgetSession();
+  }
   // 10c. INFERENCE_REVIEW (INT-12): prediction mesh yes, ground truth never asked for
   {
     const backend = meshBackend({ caseMode: 'INFERENCE_REVIEW' });
@@ -1772,8 +1816,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R7', !paths.some((p) => p.includes('error-reconstruction')) && !has(r, /^The (error markers|ground-truth surface)/), 'no error geometry is asked for either, and no second sentence about it');
     await fromViewer(r, { type: 'ready' });
     check('V2R7', sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction', 'only the prediction artifact reaches the viewer');
-    await openDetails(r);
-    check('V2R7', has(r, /^Ground truth: unavailable \(GROUND_TRUTH_UNAVAILABLE\)$/) && has(r, /^Errors: unavailable \(GROUND_TRUTH_UNAVAILABLE\)$/), 'Details names the reason for each layer');
+    check('V2R7', hasDetail(/^Ground truth: unavailable \(GROUND_TRUTH_UNAVAILABLE\)$/) && hasDetail(/^Errors: unavailable \(GROUND_TRUTH_UNAVAILABLE\)$/), 'Details names the reason for each layer');
     await act(async () => { r.unmount(); });
   }
 
@@ -1820,8 +1863,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     const gtTamper = meshBackend({ tamper: ['MASK_CASE_0061'] });
     const m2 = await mount(gtTamper, P);
     await fromViewer(m2.r, { type: 'ready' });
-    await openDetails(m2.r);
-    check('V2R10', web(m2.r) !== null && has(m2.r, /^The ground-truth surface is not available\.$/) && has(m2.r, /^Ground truth: error \(CONTRACT_DRIFT\)/)
+    check('V2R10', web(m2.r) !== null && has(m2.r, /^The ground-truth surface is not available\.$/) && hasDetail(/^Ground truth: error \(CONTRACT_DRIFT\)/)
       && sentJson().filter((m) => m.type === 'mesh').map((m) => m.role).join() === 'prediction',
     'tampered ground-truth bytes: a sentence says the surface is not available (the code is in Details), the prediction still draws, the bad bytes never reach the viewer');
     await act(async () => { m2.r.unmount(); });
@@ -1844,8 +1886,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     const m3 = await mount(meshBackend(), P);
     await fromViewer(m3.r, { type: 'ready' });
     await fromViewer(m3.r, { type: 'error', role: 'groundTruth', code: 'VIEWER_ERROR', message: 'MESH_GRID: the two meshes do not share one grid' });
-    await openDetails(m3.r);
-    check('V2R11', web(m3.r) !== null && has(m3.r, /^The ground-truth surface is not available\.$/) && has(m3.r, /^Ground truth: error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused is reported; the prediction stays');
+    check('V2R11', web(m3.r) !== null && has(m3.r, /^The ground-truth surface is not available\.$/) && hasDetail(/^Ground truth: error \(VIEWER_ERROR\): MESH_GRID/), 'a ground-truth layer the viewer refused is reported; the prediction stays');
     await act(async () => { m3.r.unmount(); });
   }
 
