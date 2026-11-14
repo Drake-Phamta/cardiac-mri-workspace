@@ -1,0 +1,65 @@
+{
+  "verdict": "PASS",
+  "note": null,
+  "scope": {
+    "known": true,
+    "has_run": false,
+    "gt_declared": true,
+    "gt_overlay": true,
+    "required": [
+      "mri_slice_get",
+      "artifact:mri",
+      "ground_truth_slice_get",
+      "artifact:mask"
+    ],
+    "text": "MRI + ground truth (+ mask bytes) - no analysis run for this case: predictions are not part of this L4"
+  },
+  "problems": [],
+  "counts": {
+    "gestures": 31,
+    "slice_gestures": 30,
+    "l4_new": 15,
+    "l4_revisit": 15,
+    "superseded": 0,
+    "step_timeouts_in_l4": 0,
+    "revisit_cache_hits": 15
+  },
+  "bytes_per_switch_kb": {
+    "new_15": {
+      "n": 15,
+      "p50": 153.5,
+      "p95": 155.1,
+      "max": 155.1
+    },
+    "revisit_15": {
+      "n": 15,
+      "p50": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "all_slice_gestures": {
+      "n": 30,
+      "p50": 0,
+      "p95": 154.9,
+      "max": 155.1
+    }
+  },
+  "endpoint_median_bytes": {
+    "case_get": 362,
+    "ground_truth_slice_get": 517,
+    "mri_slice_get": 567,
+    "artifact:mri": 155347,
+    "artifact:mask": 790
+  },
+  "max_request_kb": 153.2,
+  "full_volume_reference": {
+    "slices": 88,
+    "median_new_slice_kb": 153.5,
+    "full_volume_kb": 13508,
+    "largest_switch_share": 0.011
+  }
+}
+scope: MRI + ground truth (+ mask bytes) - no analysis run for this case: predictions are not part of this L4; required per new slice: mri_slice_get, artifact:mri, ground_truth_slice_get, artifact:mask
+bytes per new slice switch (KB, nearest-rank): n 15 | p50 153.5 | p95 155.1 | max 155.1
+reference: one full volume ~ 88 x 153.5 KB = 13508 KB; the largest new-slice switch moved 155.1 KB (1.1 % of it)
+L4 PASS

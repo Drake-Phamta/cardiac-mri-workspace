@@ -1,0 +1,6 @@
+slice switches: 16 over 1 case(s), 64 requests
+bytes per switch: p50 157,176  p95 158,797  max 158,797
+largest single response: 156,856 bytes (/api/v1/artifacts/{name}, case CASE_0061, slice 57)
+artifact fetches: 32 joined the switch that announced their digest, 0 joined by sequence, 0 came before any switch (0 bytes); 0 had a digest shared by several slices
+other requests (not slice-scoped): 3 (2,556 bytes)
+largest switch 158,797 bytes (CASE_0061 slice 57) = 0.54 % of one raw volume (29,196,288 bytes uint8, 88 slices); L4 holds when every switch stays far below one volume

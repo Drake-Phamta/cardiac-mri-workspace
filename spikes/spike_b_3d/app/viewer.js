@@ -9,13 +9,19 @@
 
 import { parseObj } from './obj.js';
 import { invertMat4, multiplyMat4, rayMeshFirstHit, screenRayFromNdc, worldToSlice } from './picking.js';
+import { DEFAULT_MEASURE_MS, DEFAULT_WARMUP_MS, FrameProbe } from './performance.js';
+import { deliverFrameProbe, frameProbePayload, localProbeSink, selectMeshLevel } from './webview_probe.js';
 
 const canvas = document.querySelector('#gl');
+const isClinicalMode = new URLSearchParams(window.location.search).get('mode') === 'clinical';
 const status = document.querySelector('#status');
 const trianglesLabel = document.querySelector('#triangles');
 const fitButton = document.querySelector('#fit');
 const shadeButton = document.querySelector('#shade');
 const pickLabel = document.querySelector('#pick');
+const perfRunButton = document.querySelector('#perf-run');
+const perfDownloadButton = document.querySelector('#perf-download');
+const performanceLabel = document.querySelector('#performance');
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
@@ -42,6 +48,7 @@ uniform vec3 uLight;
 uniform vec3 uColor;
 uniform bool uShading;
 uniform float uSliceZ;
+uniform float uSliceBandMm;
 uniform bool uSliceActive;
 out vec4 outColor;
 void main() {
@@ -56,9 +63,9 @@ void main() {
   // while keeping surface contours readable against the dark MRI-style field.
   vec3 color = uColor * (0.34 + 0.62 * diffuse + 0.18 * rim)
              + vec3(0.78, 0.95, 1.0) * (0.20 * specular);
-  // A narrow band marks the physical axial plane selected in the linked MPR
-  // panes. It is a surface-intersection cue, never a fabricated contour.
-  float planeBand = 1.0 - smoothstep(0.0, 1.6, abs(vSourceZ - uSliceZ));
+  // This is the physical axial plane selected by the linked 2D viewer.
+  // It is a surface-intersection cue, not a fabricated contour.
+  float planeBand = 1.0 - smoothstep(0.0, uSliceBandMm, abs(vSourceZ - uSliceZ));
   if (uSliceActive) color = mix(color, vec3(1.0, 0.72, 0.16), planeBand * 0.92);
   outColor = vec4(color, 1.0);
 }`;
@@ -139,6 +146,7 @@ function setup(gl, mesh) {
     color: gl.getUniformLocation(program, 'uColor'),
     shading: gl.getUniformLocation(program, 'uShading'),
     sliceZ: gl.getUniformLocation(program, 'uSliceZ'),
+    sliceBandMm: gl.getUniformLocation(program, 'uSliceBandMm'),
     sliceActive: gl.getUniformLocation(program, 'uSliceActive') };
 }
 
@@ -162,7 +170,13 @@ let pinchState = null;
 let geometry = null;
 let tapCandidate = false;
 let interactionMoved = false;
+let activeFrameProbe = null;
+let lastFrameProbeRecord = null;
+let selectedMesh = null;
+let probeSinkUrl = null;
 let sliceWorldZ = null;
+let sliceBandMm = 1.0;
+let sourceSliceMap = null;
 
 function panBy(dx, dy) {
   // Move in screen coordinates. Scaling by camera distance keeps panning
@@ -183,7 +197,49 @@ function resize() {
   gl.viewport(0, 0, width, height);
 }
 
-function draw() {
+function performanceMetadata() {
+  return {
+    user_agent: navigator.userAgent,
+    page_url: window.location.href,
+    viewport_css_px: [canvas.clientWidth, canvas.clientHeight],
+    canvas_backing_px: [canvas.width, canvas.height],
+    device_pixel_ratio: window.devicePixelRatio || 1,
+    triangles: renderer ? renderer.count / 3 : null,
+    mesh_id: selectedMesh?.meshId ?? null,
+    mesh_level: selectedMesh?.level ?? null,
+    geometry_contract_version: geometry?.geometry_contract_version ?? null,
+    react_native_webview_bridge: typeof window.ReactNativeWebView?.postMessage === 'function',
+    local_probe_sink: probeSinkUrl,
+    interaction_protocol: 'operator performs orbit, pan and pinch-zoom during the 30 s window',
+    evidence_scope: 'diagnostic only until physical target-device provenance is recorded',
+  };
+}
+
+function setPerformanceText(text) {
+  if (performanceLabel) performanceLabel.textContent = text;
+}
+
+function completeFrameProbe(result) {
+  lastFrameProbeRecord = frameProbePayload(result, performanceMetadata());
+  if (perfRunButton) perfRunButton.disabled = false;
+  if (perfDownloadButton) perfDownloadButton.disabled = !result.median_fps;
+  if (result.median_fps) {
+    setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · sending raw evidence…`);
+    void deliverFrameProbe(lastFrameProbeRecord, {
+      nativePostMessage: window.ReactNativeWebView?.postMessage?.bind(window.ReactNativeWebView),
+      fetchImpl: window.fetch.bind(window),
+      sinkUrl: probeSinkUrl,
+    }).then((outcome) => {
+      const sent = [outcome.native === 'posted' ? 'RN' : null, outcome.http === 'posted' ? 'HTTP' : null]
+        .filter(Boolean).join(' + ') || 'no collector';
+      setPerformanceText(`probe: ${result.median_fps.toFixed(1)} median FPS · ${result.longest_stall_ms.toFixed(1)} ms max interval · raw evidence: ${sent}`);
+    });
+  } else {
+    setPerformanceText('probe failed: no usable animation frames; keep the viewer visible and retry');
+  }
+}
+
+function draw(frameAt) {
   if (!renderer) return;
   resize();
   gl.enable(gl.DEPTH_TEST);
@@ -196,12 +252,23 @@ function draw() {
   gl.uniformMatrix4fv(renderer.projection, false, projection);
   gl.uniformMatrix4fv(renderer.model, false, model);
   gl.uniform3f(renderer.light, -1.8, 2.6, 3.2);
-  gl.uniform3f(renderer.color, 0.31, 0.77, 0.82);
+  gl.uniform3f(renderer.color,
+    isClinicalMode ? 0.69 : 0.31,
+    isClinicalMode ? 0.48 : 0.77,
+    isClinicalMode ? 0.39 : 0.82);
   gl.uniform1i(renderer.shading, shading ? 1 : 0);
   gl.uniform1f(renderer.sliceZ, sliceWorldZ || 0);
+  gl.uniform1f(renderer.sliceBandMm, sliceBandMm);
   gl.uniform1i(renderer.sliceActive, sliceWorldZ === null ? 0 : 1);
   gl.drawArrays(gl.TRIANGLES, 0, renderer.count);
   gl.bindVertexArray(null);
+  if (activeFrameProbe) {
+    const result = activeFrameProbe.record(frameAt);
+    if (result) {
+      activeFrameProbe = null;
+      completeFrameProbe(result);
+    }
+  }
   requestAnimationFrame(draw);
 }
 
@@ -216,6 +283,10 @@ function pickSurface(event) {
     pickLabel.textContent = 'pick unavailable: canonical geometry not loaded';
     return;
   }
+  if (isClinicalMode && !sourceSliceMap) {
+    pickLabel.textContent = 'pick disabled: verified triangle → source-slice map unavailable';
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
   const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const ndcY = 1 - ((event.clientY - rect.top) / rect.height) * 2;
@@ -224,6 +295,16 @@ function pickSurface(event) {
   const inverse = invertMat4(new Float32Array(16), projectionModel);
   const ray = inverse && screenRayFromNdc(ndcX, ndcY, inverse);
   const hit = ray && rayMeshFirstHit(ray.origin, ray.direction, renderer.positions);
+  if (isClinicalMode) {
+    const sliceIndex = hit ? sourceSliceMap[hit.triangle] : null;
+    if (!Number.isInteger(sliceIndex) || sliceIndex < 0 || sliceIndex >= geometry.shape_xyz[2]) {
+      pickLabel.textContent = 'pick: no mapped source surface hit';
+      return;
+    }
+    pickLabel.textContent = `pick: source slice ${sliceIndex} · verified triangle map`;
+    window.parent.postMessage({ type: 'select-source-slice', slice_index: sliceIndex }, window.location.origin);
+    return;
+  }
   const resolved = worldToSlice(hit?.point, geometry);
   if (!hit) {
     pickLabel.textContent = 'pick: no surface hit';
@@ -302,27 +383,85 @@ shadeButton.addEventListener('click', () => {
   shadeButton.textContent = `shading: ${shading ? 'on' : 'off'}`;
 });
 window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
   const data = event.data;
   if (!data || data.type !== 'set-slice-world-z' || !Number.isFinite(data.z)) return;
   sliceWorldZ = data.z;
+  if (Number.isFinite(data.band_mm) && data.band_mm > 0) sliceBandMm = data.band_mm;
 });
+if (perfRunButton) {
+  perfRunButton.addEventListener('click', () => {
+    if (!renderer) {
+      setPerformanceText('probe unavailable: wait for mesh to load');
+      return;
+    }
+    activeFrameProbe = new FrameProbe({
+      startedAt: performance.now(),
+      warmupMs: DEFAULT_WARMUP_MS,
+      measureMs: DEFAULT_MEASURE_MS,
+    });
+    lastFrameProbeRecord = null;
+    perfRunButton.disabled = true;
+    if (perfDownloadButton) perfDownloadButton.disabled = true;
+    setPerformanceText('probe: 3 s warm-up, then 30 s measurement — orbit, pan and pinch-zoom now');
+  });
+}
+if (perfDownloadButton) {
+  perfDownloadButton.addEventListener('click', () => {
+    if (!lastFrameProbeRecord) return;
+    const blob = new Blob([`${JSON.stringify(lastFrameProbeRecord, null, 2)}\n`], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `spike-b-frame-probe-${new Date().toISOString().replaceAll(':', '-')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
-Promise.all([
-  fetch('../mesh/out/level_0_cell1.obj').then((response) => {
-    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
-    return response.text();
-  }),
-  fetch('../mesh/out/mesh_levels.json').then((response) => {
+async function sha256Hex(bytes) {
+  if (!globalThis.crypto?.subtle) return null;
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+fetch('../mesh/out/mesh_levels.json')
+  .then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
     return response.json();
-  }),
-])
-  .then(([text, summary]) => {
-    const mesh = parseObj(text);
+  })
+  .then(async (summary) => {
+    selectedMesh = selectMeshLevel(window.location.search, summary.levels || []);
+    probeSinkUrl = localProbeSink(window.location.search, window.location.href);
+    const objUrl = new URL(`../${selectedMesh.selected.obj}`, import.meta.url);
+    const response = await fetch(objUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status} — run mesh/build_mesh.py first`);
+    const bytes = await response.arrayBuffer();
+    return { bytes, summary, objUrl };
+  })
+  .then(async ({ bytes, summary, objUrl }) => {
+    const digest = await sha256Hex(bytes);
+    const mesh = parseObj(new TextDecoder().decode(bytes), { normalMode: isClinicalMode ? 'vertex' : 'flat' });
+    if (isClinicalMode && digest && digest === selectedMesh.selected.sha256) {
+      const mapUrl = new URL(objUrl.href.replace(/\.obj$/i, '.pickmap.json'));
+      const mapResponse = await fetch(mapUrl);
+      if (mapResponse.ok) {
+        const candidate = await mapResponse.json();
+        const map = candidate.source_slice_by_triangle;
+        const valid = candidate.kind === 'cmw-triangle-to-source-slice/1'
+          && candidate.mesh_sha256 === digest
+          && candidate.geometry_contract_version === summary.geometry_contract_version
+          && candidate.triangle_count === mesh.triangles
+          && Array.isArray(map) && map.length === mesh.triangles
+          && map.every((slice) => Number.isInteger(slice) && slice >= 0 && slice < summary.shape_xyz[2]);
+        if (valid) sourceSliceMap = Int32Array.from(map);
+      }
+    }
     geometry = {
       shape_xyz: summary.shape_xyz,
       spacing_xyz_mm: summary.spacing_xyz_mm,
       origin_world_mm: summary.origin_world_mm,
+      geometry_contract_version: summary.geometry_contract_version || null,
     };
     renderer = setup(gl, mesh);
     // Centre/normalise from the loaded OBJ so the same camera works for any
@@ -342,8 +481,16 @@ Promise.all([
       maxRadius = Math.max(maxRadius, Math.hypot(values[i] - center[0], values[i + 1] - center[1], values[i + 2] - center[2]));
     }
     scale = maxRadius ? 1 / maxRadius : 1;
-    trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles`;
-    status.textContent = 'level_0_cell1.obj · loaded';
+    if (trianglesLabel) trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · level ${selectedMesh.level}`;
+    status.textContent = isClinicalMode
+      ? (sourceSliceMap ? 'source geometry + triangle map verified' : 'surface loaded · exact picking disabled')
+      : `${selectedMesh.selected.obj.split('/').at(-1)} · loaded`;
+    if (isClinicalMode) {
+      if (trianglesLabel) trianglesLabel.textContent = `${mesh.triangles.toLocaleString()} triangles · source mask exact`;
+      pickLabel.textContent = sourceSliceMap
+        ? 'pick: tap a surface face to open its source MRI slice'
+        : 'pick disabled: mesh or triangle map checksum failed';
+    }
     draw();
   })
   .catch((error) => {

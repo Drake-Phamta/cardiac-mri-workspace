@@ -1,0 +1,17 @@
+{
+  "name": "cardiac-mri-local-workstation-preview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --format=esm --minify --outdir=dist",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@kitware/vtk.js": "37.4.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.64.0"
+  }
+}

@@ -1,0 +1,213 @@
+<#
+.SYNOPSIS
+  Deploy the backend to the backend host (DR-003) and start it on <BindHost>:<Port>.
+
+.DESCRIPTION
+  Run from a Windows PowerShell 5.1 prompt on the operator's PC, with ssh
+  BatchMode key access to the host. Host-specific values are parameters (or
+  untracked environment variables) - no address or host alias is committed:
+
+    -SshHost   ssh alias or user@host       (or $env:CARDIAC_DEPLOY_SSH_HOST)
+    -BindHost  the overlay interface address uvicorn binds on the host
+                                            (or $env:CARDIAC_DEPLOY_BIND_HOST)
+    -BindAll   explicit opt-in to bind 0.0.0.0 instead of -BindHost
+    -ShipPackages  also ship <data-root>\experiments (Contract 2 run directories, without
+               validation predictions/evaluations and last.pt) and <data-root>\derived_meshes
+               (L0 meshes, backend.mesh.build_cache), where <data-root> is the parent of -DataCache.
+               Unpacking over the host copy rewrites identical files only: packages and meshes are
+               write-once by design. Use it after new runs (e.g. the UNet family) are exported.
+
+  Steps:
+    1. checks the local derived data cache (<DataCache>/index.json, outside
+       the repository); it holds 8-bit slice PNGs + JSON only - never NRRD.
+       No flag is needed for holdout cases (DR-022): they are in the cache
+       only if it was built with `python -m backend.app.ingest --include-holdout
+       --holdout-authorization <record>`; the record's sha256 is then in
+       index.json and is printed here;
+    2. packs the code (backend/app, requirements, serve script, the contract
+       files the service loads) and the data cache into tar.gz files in a
+       fixed stage directory under %TEMP% (overwritten on every run, never
+       deleted by this script);
+    3. downloads the pinned requirements as Python 3.9 macOS-arm64 wheels, so
+       the host installs offline (skip with -NoWheels);
+    4. ssh: creates ~/<RemoteDir> (code) and ~/<RemoteDataDir> (derived data,
+       review database, logs), copies and unpacks in place - nothing deleted;
+    5. runs backend/scripts/serve_macmini.sh there: venv from /usr/bin/python3,
+       pip install, restart uvicorn in the background (pid file + log under
+       ~/<RemoteDataDir>/var), and curl /health on the host itself;
+    6. calls /health from this PC at http://<BindHost>:<Port>.
+
+.EXAMPLE
+  $env:CARDIAC_DEPLOY_SSH_HOST = "<ssh-alias>"; $env:CARDIAC_DEPLOY_BIND_HOST = "<overlay-address>"
+  powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1
+.EXAMPLE
+  powershell -ExecutionPolicy Bypass -File backend\scripts\deploy_macmini.ps1 -SshHost <ssh-alias> -BindHost <overlay-address> -DataCache <data-root>\data_cache
+#>
+param(
+  [string]$SshHost = $env:CARDIAC_DEPLOY_SSH_HOST,
+  [string]$BindHost = $env:CARDIAC_DEPLOY_BIND_HOST,
+  [switch]$BindAll,
+  [int]$Port = 8000,
+  [string]$DataCache = "",
+  [string]$RemoteDir = "cardiac-backend",
+  [string]$RemoteDataDir = "cardiac-backend-data",
+  [switch]$SkipData,
+  [switch]$ShipPackages,
+  [switch]$SkipInstall,
+  [switch]$NoWheels
+)
+
+$ErrorActionPreference = "Stop"
+$repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+if (-not $SshHost) { throw "Pass -SshHost <ssh-alias> or set CARDIAC_DEPLOY_SSH_HOST (kept out of the repository)." }
+if ($BindAll) { $BindHost = "0.0.0.0" }
+if (-not $BindHost) { throw "Pass -BindHost <overlay-address> (or set CARDIAC_DEPLOY_BIND_HOST); binding 0.0.0.0 needs the explicit -BindAll." }
+if (-not $DataCache) {
+  $root = $env:CARDIAC_BACKEND_DATA
+  if (-not $root -and -not $SkipData) {
+    throw "Pass -DataCache <data-root>\data_cache or set CARDIAC_BACKEND_DATA (no machine path is built in)."
+  }
+  if ($root) { $DataCache = Join-Path $root "data_cache" }
+}
+# -ShipPackages reads <data-root>\experiments and \derived_meshes, where <data-root> is the parent of the data cache,
+# so it needs a data cache path even with -SkipData (QA_PR100_103_D39 #101 NB-1: without one it died in Split-Path).
+if ($ShipPackages -and -not $DataCache) {
+  throw "-ShipPackages needs the data root: pass -DataCache <data-root>\data_cache or set CARDIAC_BACKEND_DATA (experiments and derived_meshes are read next to the data cache)."
+}
+
+function Invoke-Native {
+  param([string]$What, [scriptblock]$Command)
+  & $Command
+  if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE" }
+}
+
+# `tar -tzf` lists what an archive holds. A listing that failed (exit code != 0) must not read as "no raw image files":
+# the archive is refused (QA_PR100_103_D39 #101 NB-2).
+function Assert-NoRawImages {
+  param([string]$What, [string]$Archive, [string]$Pattern)
+  $entries = @(tar -tzf $Archive)
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar -tzf ($What) failed with exit code $LASTEXITCODE; refusing to copy an archive whose contents could not be checked for raw image files"
+  }
+  $raw = @($entries | Select-String -Pattern $Pattern)
+  if ($raw.Count -gt 0) { throw "$What contains raw image files; refusing to copy them: $($raw -join ', ')" }
+}
+
+function Test-InsideGitWorktree([string]$Path) {
+  $current = [System.IO.Path]::GetFullPath($Path)
+  while ($current) {
+    if (Test-Path (Join-Path $current ".git")) { return $true }
+    $parent = [System.IO.Path]::GetDirectoryName($current)
+    if ($parent -eq $current) { break }
+    $current = $parent
+  }
+  return $false
+}
+
+Write-Host "== 1/6 local checks"
+if (-not $SkipData) {
+  if (Test-InsideGitWorktree $DataCache) { throw "$DataCache is inside a git work tree; derived patient data must live outside the repository." }
+  $index = Join-Path $DataCache "index.json"
+  if (-not (Test-Path $index)) {
+    throw "No data cache at $DataCache. Build it first: python -m backend.app.ingest --out $DataCache (add --include-holdout --holdout-authorization <record> for the evaluated holdout cases, DR-022)"
+  }
+  $cacheIndex = Get-Content $index -Raw | ConvertFrom-Json
+  $cases = $cacheIndex.cases
+  Write-Host "   data cache: $DataCache ($($cases.Count) cases)"
+  if ($cacheIndex.holdout_authorization) {
+    Write-Host "   holdout cases under GATE-IMG-01 record sha256 $($cacheIndex.holdout_authorization.record_sha256)"
+  }
+}
+Invoke-Native "ssh $SshHost" { ssh -o BatchMode=yes -o ConnectTimeout=15 $SshHost "echo connected" }
+
+$stage = Join-Path ([System.IO.Path]::GetTempPath()) "cardiac-backend-deploy"
+New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+Write-Host "== 2/6 pack into $stage"
+$codeTar = Join-Path $stage "code.tar.gz"
+$codePaths = @(
+  "backend/app", "backend/mesh", "backend/requirements.txt", "backend/scripts/serve_macmini.sh",
+  "contracts/api/contract.json", "contracts/api/schema.json", "contracts/api/validate_api_contract.py",
+  "contracts/ingestion/contract2_experiment_artifact/schema.json",
+  "contracts/ingestion/contract2_experiment_artifact/validate_contract2.py"
+)
+# backend/app imports backend/mesh (reconstruction_get, PR #98); its tests and golden files stay home.
+# backend/tests/test_deploy_paths.py imports backend.app.main from exactly these paths.
+Invoke-Native "tar (code)" { tar -czf $codeTar --exclude "__pycache__" --exclude "backend/mesh/tests" -C $repo $codePaths }
+$uploads = @($codeTar)
+if (-not $SkipData) {
+  $dataTar = Join-Path $stage "data_cache.tar.gz"
+  Invoke-Native "tar (data cache)" { tar -czf $dataTar -C $DataCache . }
+  Assert-NoRawImages "the data cache" $dataTar '\.(nrrd|nii|nii\.gz|dcm|mha|mhd|raw)$'
+  Write-Host ("   data cache archive: {0:N0} MB" -f ((Get-Item $dataTar).Length / 1MB))
+  $uploads += $dataTar
+}
+if ($ShipPackages) {
+  $dataRoot = Split-Path -Parent $DataCache
+  foreach ($part in "experiments", "derived_meshes") {
+    $src = Join-Path $dataRoot $part
+    if (-not (Test-Path $src)) { throw "-ShipPackages: $src does not exist (expected next to the data cache)" }
+    if (Test-InsideGitWorktree $src) { throw "$src is inside a git work tree; derived patient data must live outside the repository." }
+    $partTar = Join-Path $stage "$part.tar.gz"
+    Invoke-Native "tar ($part)" {
+      tar -czf $partTar --exclude "predictions/validation" --exclude "evaluation/validation" --exclude "last.pt" -C $dataRoot $part
+    }
+    # NRRD masks are the Contract 2 prediction artifacts and are allowed here; every other raw image format is not.
+    Assert-NoRawImages $part $partTar '\.(nii|nii\.gz|dcm|mha|mhd|raw)$'
+    Write-Host ("   {0} archive: {1:N0} MB" -f $part, ((Get-Item $partTar).Length / 1MB))
+    $uploads += $partTar
+  }
+}
+
+$shipWheels = (-not $NoWheels) -and (-not $SkipInstall)
+if ($shipWheels) {
+  Write-Host "== 3/6 wheels for Python 3.9 / macOS arm64"
+  $wheels = Join-Path $stage "wheels"
+  Invoke-Native "pip download" {
+    python -m pip download --quiet --disable-pip-version-check --platform macosx_11_0_arm64 --python-version 3.9 `
+      --implementation cp --only-binary=:all: -r (Join-Path $repo "backend\requirements.txt") -d $wheels
+  }
+  # pip evaluated markers on THIS interpreter; prove the set installs on the host's CPython 3.9.6.
+  Invoke-Native "wheel closure check" {
+    python (Join-Path $repo "backend\scripts\check_wheel_closure.py") --wheels $wheels `
+      --requirements (Join-Path $repo "backend\requirements.txt")
+  }
+  $wheelTar = Join-Path $stage "wheels.tar.gz"
+  Invoke-Native "tar (wheels)" { tar -czf $wheelTar -C $stage wheels }
+  $uploads += $wheelTar
+} else {
+  Write-Host "== 3/6 wheels skipped (the host installs from PyPI, or not at all with -SkipInstall)"
+}
+
+Write-Host "== 4/6 copy to ${SshHost}: ~/$RemoteDir (code), ~/$RemoteDataDir (data)"
+Invoke-Native "ssh mkdir" { ssh -o BatchMode=yes $SshHost "mkdir -p ~/$RemoteDir ~/$RemoteDataDir/data_cache ~/$RemoteDataDir/var" }
+foreach ($file in $uploads) {
+  Invoke-Native "scp $(Split-Path $file -Leaf)" { scp -o BatchMode=yes -q $file "${SshHost}:$RemoteDir/" }
+}
+$unpack = "cd ~/$RemoteDir && tar -xzf code.tar.gz"
+if (-not $SkipData) { $unpack += " && tar -xzf data_cache.tar.gz -C ~/$RemoteDataDir/data_cache" }
+if ($shipWheels) { $unpack += " && tar -xzf wheels.tar.gz" }
+if ($ShipPackages) { $unpack += " && tar -xzf experiments.tar.gz -C ~/$RemoteDataDir && tar -xzf derived_meshes.tar.gz -C ~/$RemoteDataDir" }
+Invoke-Native "ssh unpack" { ssh -o BatchMode=yes $SshHost $unpack }
+
+Write-Host "== 5/6 install and start on ${BindHost}:${Port} (serve_macmini.sh)"
+$skip = 0
+if ($SkipInstall) { $skip = 1 }
+Invoke-Native "serve_macmini.sh" {
+  ssh -o BatchMode=yes $SshHost "bash ~/$RemoteDir/backend/scripts/serve_macmini.sh $Port $BindHost `$HOME/$RemoteDataDir $skip"
+}
+
+Write-Host "== 6/6 /health from this PC"
+if ($BindAll) {
+  Write-Host "   bound to 0.0.0.0: check http://<overlay-address>:${Port}/health from the phone"
+} else {
+  try {
+    $health = Invoke-RestMethod -Uri "http://${BindHost}:${Port}/health" -TimeoutSec 15
+    Write-Host ("   OK: contract {0}, cases {1}, experiments {2}" -f $health.contract_version, $health.cases.total, $health.experiments)
+  } catch {
+    Write-Warning "The host answers locally but not from this PC: $($_.Exception.Message). Check the overlay and the macOS firewall for python3."
+  }
+}
+Write-Host "Deployed. API base: http://${BindHost}:${Port}/api/v1   health: http://${BindHost}:${Port}/health"
+Write-Host "Logs: ssh $SshHost 'tail -f ~/$RemoteDataDir/var/uvicorn.log'"
+Write-Host "Stop: ssh $SshHost 'kill `$(cat ~/$RemoteDataDir/var/uvicorn.pid)'"

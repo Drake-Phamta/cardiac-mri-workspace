@@ -1,0 +1,57 @@
+// Host-string stand-ins for React Native: enough to render the tree and press
+// buttons in react-test-renderer. Not a behavioural emulation.
+import React from 'react';
+
+export const View = 'View';
+export const Text = 'Text';
+export const ScrollView = 'ScrollView';
+export const TouchableOpacity = 'TouchableOpacity';
+export const Pressable = 'Pressable';
+export const TextInput = 'TextInput';
+export const Image = 'Image';
+export const ActivityIndicator = 'ActivityIndicator';
+export const StatusBar = 'StatusBar';
+
+export function Modal({ visible, children }) {
+  return visible ? React.createElement('Modal', null, children) : null;
+}
+
+export function FlatList({ data, renderItem, keyExtractor, ListHeaderComponent, ListEmptyComponent, ListFooterComponent }) {
+  const items = (data || []).map((item, index) => React.createElement(
+    React.Fragment, { key: keyExtractor ? keyExtractor(item, index) : String(index) }, renderItem({ item, index }),
+  ));
+  return React.createElement('FlatList', null, ListHeaderComponent || null,
+    items.length ? items : (ListEmptyComponent || null), ListFooterComponent || null);
+}
+
+export const StyleSheet = { create: (s) => s, absoluteFill: {}, hairlineWidth: 1 };
+export const PanResponder = { create: (cfg) => ({ panHandlers: { __pan: cfg } }) };
+// Keeps its listeners (#77 QA N-7), so a check can press the hardware back
+// button: __press() calls them newest first, as Android does, until one
+// returns true, and answers whether one did (false = the system default, the
+// app goes to the background). exitApp() is counted, not performed.
+const backListeners = [];
+export const BackHandler = {
+  addEventListener(event, fn) {
+    const entry = { event, fn };
+    backListeners.push(entry);
+    return { remove() { const i = backListeners.indexOf(entry); if (i >= 0) backListeners.splice(i, 1); } };
+  },
+  exitApp() { BackHandler.exits += 1; },
+  exits: 0,
+  __press() {
+    for (const { event, fn } of [...backListeners].reverse()) {
+      if (event === 'hardwareBackPress' && fn() === true) return true;
+    }
+    return false;
+  },
+  get __listeners() { return backListeners.length; },
+};
+export const Alert = {
+  alert: (...args) => { (globalThis.__alerts = globalThis.__alerts || []).push(args); },
+};
+
+export default {
+  View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
+  StyleSheet, PanResponder, BackHandler, Alert,
+};

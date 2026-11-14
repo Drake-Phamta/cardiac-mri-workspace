@@ -1,0 +1,127 @@
+{
+  "label": "C1_PREP/NON-AUTHORITATIVE_DRY_RUN",
+  "generated_by": "spikes/spike_c_ml/c1/forecast_matrix.py",
+  "throughput_provenance": {
+    "source_file": "<worktree>\\spikes\\spike_c_ml\\EVIDENCE_RAW\\c0_probe_20260916T005659+0700.json",
+    "captured_at": "20260916T005659+0700",
+    "operator": "Be Quoc Khanh",
+    "compute": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "precision": "bf16",
+    "input_is_synthetic": true,
+    "warning": "Step times are Spike C0 measurements on SYNTHETIC data. They are NOT Spike C1 evidence and cannot close GATE-ML-01."
+  },
+  "measured_inputs": {
+    "slices_per_case": 88,
+    "slices_per_case_source": "dataset_manifest cases[].mri.shape[2], uniform across all cases",
+    "effective_subset_sizes": {
+      "25_percent": 20,
+      "50_percent": 38,
+      "100_percent": 78
+    },
+    "effective_subset_source": "split manifest training_subsets[*].effective_case_ids (length of the id list)",
+    "split_id": "path_a_seed2024_dr002b_v1"
+  },
+  "assumptions": {
+    "epochs": 50,
+    "overhead_factor": 1.35,
+    "gpu_hours_per_day": 4.0,
+    "ablation_priced_as": "the single most expensive core run",
+    "note": "NOT MEASURED. Epoch count is unmeasured until C1-6 convergence evidence exists."
+  },
+  "calendar": {
+    "window_start": "2026-09-24",
+    "deadline": "2026-10-09",
+    "window_days": 15,
+    "gpu_hour_budget": 60.0
+  },
+  "runs": [
+    {
+      "run": "EXP-U-025",
+      "family": "UNet",
+      "variant": "unet_base32_depth4",
+      "fraction": "25_percent",
+      "effective_cases": 20,
+      "slices_per_case_measured": 88,
+      "slices_total": 1760,
+      "batch": 2,
+      "steps_per_epoch": 880,
+      "measured_ms_per_train_step": 77.89,
+      "hours": 1.29
+    },
+    {
+      "run": "EXP-U-050",
+      "family": "UNet",
+      "variant": "unet_base32_depth4",
+      "fraction": "50_percent",
+      "effective_cases": 38,
+      "slices_per_case_measured": 88,
+      "slices_total": 3344,
+      "batch": 2,
+      "steps_per_epoch": 1672,
+      "measured_ms_per_train_step": 77.89,
+      "hours": 2.44
+    },
+    {
+      "run": "EXP-U-100",
+      "family": "UNet",
+      "variant": "unet_base32_depth4",
+      "fraction": "100_percent",
+      "effective_cases": 78,
+      "slices_per_case_measured": 88,
+      "slices_total": 6864,
+      "batch": 2,
+      "steps_per_epoch": 3432,
+      "measured_ms_per_train_step": 77.89,
+      "hours": 5.01
+    },
+    {
+      "run": "EXP-D-025",
+      "family": "DINOv2",
+      "variant": "dinov2_s14_full_progressive",
+      "fraction": "25_percent",
+      "effective_cases": 20,
+      "slices_per_case_measured": 88,
+      "slices_total": 1760,
+      "batch": 2,
+      "steps_per_epoch": 880,
+      "measured_ms_per_train_step": 89.56,
+      "hours": 1.48
+    },
+    {
+      "run": "EXP-D-050",
+      "family": "DINOv2",
+      "variant": "dinov2_s14_full_progressive",
+      "fraction": "50_percent",
+      "effective_cases": 38,
+      "slices_per_case_measured": 88,
+      "slices_total": 3344,
+      "batch": 2,
+      "steps_per_epoch": 1672,
+      "measured_ms_per_train_step": 89.56,
+      "hours": 2.81
+    },
+    {
+      "run": "EXP-D-100",
+      "family": "DINOv2",
+      "variant": "dinov2_s14_full_progressive",
+      "fraction": "100_percent",
+      "effective_cases": 78,
+      "slices_per_case_measured": 88,
+      "slices_total": 6864,
+      "batch": 2,
+      "steps_per_epoch": 3432,
+      "measured_ms_per_train_step": 89.56,
+      "hours": 5.76
+    }
+  ],
+  "not_measured_variants": [],
+  "totals": {
+    "core_six_runs_hours": 18.79,
+    "ablation_hours": 5.76,
+    "total_hours": 24.55,
+    "days_needed_at_budget_rate": 6.14,
+    "fits_window": true,
+    "headroom_hours": 35.45
+  },
+  "gate_statement": "This forecast does NOT close GATE-ML-01. Its throughput input is C0 synthetic evidence; DR-007 requires C1 real-data evidence."
+}

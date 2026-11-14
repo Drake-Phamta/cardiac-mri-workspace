@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Path A patient-group split manifest",
+  "type": "object",
+  "required": [
+    "manifest_version", "split_id", "generated_at", "operator",
+    "source_dataset_manifest", "decision", "randomization", "patient_grouping",
+    "similarity_screening", "partitions", "training_subsets",
+    "training_exclusions", "sensitivity_analysis", "invariants", "gate_split_01"
+  ],
+  "properties": {
+    "manifest_version": { "const": "1.0" },
+    "split_id": { "const": "path_a_seed2024_dr002b_v1" },
+    "generated_at": { "type": "string" },
+    "operator": { "type": "string", "minLength": 1 },
+    "source_dataset_manifest": {
+      "type": "object",
+      "required": ["path", "sha256", "case_count"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "case_count": { "const": 154 }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["selected_path", "decision_id", "duplicate_acquisition_decision_id", "patient_linkage_exception_decision_id", "known_duplicate_case_ids"],
+      "properties": {
+        "selected_path": { "const": "Path A" },
+        "decision_id": { "const": "DR-002" },
+        "duplicate_acquisition_decision_id": { "const": "DR-002a" },
+        "patient_linkage_exception_decision_id": { "const": "DR-002b" },
+        "known_duplicate_case_ids": { "const": ["CASE_0056", "CASE_0097"] }
+      }
+    },
+    "randomization": {
+      "type": "object",
+      "required": ["seed", "algorithm"],
+      "properties": { "seed": { "const": 2024 }, "algorithm": { "type": "string" } }
+    },
+    "patient_grouping": {
+      "type": "object",
+      "required": ["mode", "patient_linkage_status", "group_count", "statement"],
+      "properties": {
+        "mode": { "enum": ["correlation_screen_proxy_groups", "explicit_case_to_patient_map"] },
+        "patient_linkage_status": {
+          "enum": ["NOT_VERIFIABLE_DOCUMENTED_EXCEPTION", "PROVIDED_BY_EXTERNAL_MAPPING"]
+        },
+        "group_count": { "type": "integer", "minimum": 1 },
+        "train_known_distinct_acquisitions": { "const": 79 },
+        "statement": { "type": "string", "minLength": 1 }
+      }
+    },
+    "similarity_screening": {
+      "type": "object",
+      "required": ["status", "decision_id"],
+      "properties": {
+        "status": { "enum": ["APPLIED_UNDER_DOCUMENTED_EXCEPTION", "REPLACED_BY_AUTHORITATIVE_PATIENT_MAP"] },
+        "decision_id": { "const": "DR-002b" },
+        "threshold_metric": { "type": "string" },
+        "screen_method": { "type": "string", "minLength": 1 },
+        "group_semantics": { "type": "string", "minLength": 1 },
+        "threshold_operator": { "const": ">=" },
+        "threshold": { "const": 0.75 },
+        "threshold_declared_at": { "const": "2026-09-17" },
+        "restricted_screen_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "pair_count_screened": { "const": 11781 },
+        "pair_count_above_threshold": { "type": "integer", "minimum": 1 },
+        "affected_case_count": { "type": "integer", "minimum": 2 },
+        "affected_case_ids": { "$ref": "#/$defs/caseIds" },
+        "exact_pair_scores": { "const": "RESTRICTED_BY_F5" }
+      }
+    },
+    "partitions": {
+      "type": "object",
+      "required": ["train", "validation", "final_holdout"],
+      "properties": {
+        "train": { "$ref": "#/$defs/partition80" },
+        "validation": { "$ref": "#/$defs/partition20" },
+        "final_holdout": { "$ref": "#/$defs/partition54" }
+      }
+    },
+    "training_subsets": {
+      "type": "object",
+      "required": ["25_percent", "50_percent", "100_percent"],
+      "properties": {
+        "25_percent": { "$ref": "#/$defs/subset20" },
+        "50_percent": { "$ref": "#/$defs/subset40" },
+        "100_percent": { "$ref": "#/$defs/subset80" }
+      }
+    },
+    "training_exclusions": {
+      "type": "object",
+      "required": ["direct_case_ids", "group_propagated_case_ids", "all_excluded_case_ids", "remaining_effective_train_count", "exact_pair_scores"],
+      "properties": {
+        "direct_case_ids": { "$ref": "#/$defs/caseIds" },
+        "group_propagated_case_ids": { "$ref": "#/$defs/caseIds" },
+        "all_excluded_case_ids": { "$ref": "#/$defs/caseIds" },
+        "remaining_effective_train_count": { "type": "integer", "minimum": 0, "maximum": 80 },
+        "exact_pair_scores": { "const": "RESTRICTED_BY_F5" }
+      }
+    },
+    "sensitivity_analysis": {
+      "type": "object",
+      "required": ["status", "primary_metric", "sensitivity_metric", "suspected_holdout_case_ids", "interpretation_required"],
+      "properties": {
+        "status": { "enum": ["PENDING_SPIKE_C1", "COMPLETE"] },
+        "primary_metric": { "type": "string" },
+        "sensitivity_metric": { "type": "string" },
+        "suspected_holdout_case_ids": { "$ref": "#/$defs/caseIds" },
+        "interpretation_required": { "const": true }
+      }
+    },
+    "invariants": { "type": "object" },
+    "gate_split_01": {
+      "type": "object",
+      "required": ["status", "closed_by_this_script"],
+      "properties": {
+        "status": { "const": "EVIDENCE_READY_FOR_REVIEW" },
+        "closed_by_this_script": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "caseIds": {
+      "type": "array", "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^CASE_[0-9]{4}$" }
+    },
+    "groupIds": {
+      "type": "array", "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^PATIENT_GROUP_[0-9]{4}$" }
+    },
+    "partition80": {
+      "type": "object", "required": ["case_count", "case_ids", "patient_group_ids", "training_exclusion_count", "training_excluded_case_ids", "effective_training_case_count", "effective_training_case_ids"],
+      "properties": { "case_count": { "const": 80 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 80, "maxItems": 80 }, "patient_group_ids": { "$ref": "#/$defs/groupIds" }, "training_exclusion_count": { "type": "integer", "minimum": 0 }, "training_excluded_case_ids": { "$ref": "#/$defs/caseIds" }, "effective_training_case_count": { "type": "integer", "minimum": 0, "maximum": 80 }, "effective_training_case_ids": { "$ref": "#/$defs/caseIds" } }
+    },
+    "partition20": {
+      "type": "object", "required": ["case_count", "case_ids", "patient_group_ids"],
+      "properties": { "case_count": { "const": 20 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 20, "maxItems": 20 }, "patient_group_ids": { "$ref": "#/$defs/groupIds" } }
+    },
+    "partition54": {
+      "type": "object", "required": ["case_count", "case_ids", "patient_group_ids"],
+      "properties": { "case_count": { "const": 54 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 54, "maxItems": 54 }, "patient_group_ids": { "$ref": "#/$defs/groupIds" } }
+    },
+    "subset20": {
+      "type": "object", "required": ["case_count", "nominal_case_count", "case_ids", "excluded_case_ids", "effective_case_count", "effective_case_ids"],
+      "properties": { "case_count": { "const": 20 }, "nominal_case_count": { "const": 20 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 20, "maxItems": 20 }, "excluded_case_ids": { "$ref": "#/$defs/caseIds" }, "effective_case_count": { "type": "integer", "minimum": 0, "maximum": 20 }, "effective_case_ids": { "$ref": "#/$defs/caseIds" } }
+    },
+    "subset40": {
+      "type": "object", "required": ["case_count", "nominal_case_count", "case_ids", "excluded_case_ids", "effective_case_count", "effective_case_ids"],
+      "properties": { "case_count": { "const": 40 }, "nominal_case_count": { "const": 40 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 40, "maxItems": 40 }, "excluded_case_ids": { "$ref": "#/$defs/caseIds" }, "effective_case_count": { "type": "integer", "minimum": 0, "maximum": 40 }, "effective_case_ids": { "$ref": "#/$defs/caseIds" } }
+    },
+    "subset80": {
+      "type": "object", "required": ["case_count", "nominal_case_count", "case_ids", "excluded_case_ids", "effective_case_count", "effective_case_ids"],
+      "properties": { "case_count": { "const": 80 }, "nominal_case_count": { "const": 80 }, "case_ids": { "$ref": "#/$defs/caseIds", "minItems": 80, "maxItems": 80 }, "excluded_case_ids": { "$ref": "#/$defs/caseIds" }, "effective_case_count": { "type": "integer", "minimum": 0, "maximum": 80 }, "effective_case_ids": { "$ref": "#/$defs/caseIds" } }
+    }
+  }
+}

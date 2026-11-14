@@ -1,0 +1,23 @@
+{
+  "kind": "synthetic_payload_profile_manifest",
+  "source": "Spike D A6 audit (PR #25)",
+  "synthetic_bytes": true,
+  "not_dataset_evidence": true,
+  "profiles": {
+    "576x576x88": {
+      "shape_xyz": [576, 576, 88],
+      "dtype": "uint8",
+      "observed_case_count": 69,
+      "raw_volume_bytes": 29196288,
+      "payload_dir": "576x576x88"
+    },
+    "640x640x88": {
+      "shape_xyz": [640, 640, 88],
+      "dtype": "uint8",
+      "observed_case_count": 85,
+      "raw_volume_bytes": 36044800,
+      "payload_dir": "640x640x88"
+    }
+  },
+  "default_profile": "576x576x88"
+}

@@ -1,0 +1,16 @@
+{
+ "queue_id": "unet-adr-ml-001",
+ "_note": "The UNet family of ADR-ML-001 (spec 08 section 2): EXP-U-025, EXP-U-050, EXP-U-100, in that order, one recipe, only the training-case membership differs. Values as the DINOv2 queue of Day 22 used them: variant unet_base32_depth4, img 560, lr 1e-4, seed 2024, bf16, cuda, num_workers 0, require_clean_code true. E and the batch are placeholders on purpose (the same pattern as the DINOv2 queue file): DR-016a fixes E = 50 and batch 8, so run it as python -m ml.queue --queue ml/configs/queues/unet_adr_ml_001.json --epochs 50 --batch 8 --dry-run and then without --dry-run; the values are recorded in each run's config.json. ml.train refuses the placeholders, so this file cannot start a run with a wrong E by accident. Each run trains, predicts the VALIDATION population with best.pt and evaluates it; the compare pairs are paired U-vs-U VALIDATION comparisons (a pipeline / model-selection check, not a result). The holdout is never touched by the queue; it needs a signed authorization record (ml/README.md, section 'UNet family: from training to the app'). Paths are the defaults: the repository's frozen split, data, cache and runs next to the main checkout (CARDIAC_DATA_ROOT, CARDIAC_RUNS_ROOT).",
+ "experiments": [
+  {"experiment_id": "EXP-U-025", "variant": "unet_base32_depth4", "subset": "25_percent",
+   "epochs": "SET_E", "batch": "SET_BATCH", "lr": 0.0001, "img": 560, "seed": 2024,
+   "precision": "bf16", "device": "cuda", "num_workers": 0, "require_clean_code": true},
+  {"experiment_id": "EXP-U-050", "variant": "unet_base32_depth4", "subset": "50_percent",
+   "epochs": "SET_E", "batch": "SET_BATCH", "lr": 0.0001, "img": 560, "seed": 2024,
+   "precision": "bf16", "device": "cuda", "num_workers": 0, "require_clean_code": true},
+  {"experiment_id": "EXP-U-100", "variant": "unet_base32_depth4", "subset": "100_percent",
+   "epochs": "SET_E", "batch": "SET_BATCH", "lr": 0.0001, "img": 560, "seed": 2024,
+   "precision": "bf16", "device": "cuda", "num_workers": 0, "require_clean_code": true}
+ ],
+ "compare": [["EXP-U-025", "EXP-U-100"], ["EXP-U-050", "EXP-U-100"], ["EXP-U-025", "EXP-U-050"]]
+}

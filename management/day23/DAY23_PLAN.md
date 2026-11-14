@@ -1,0 +1,88 @@
+# DAY 23 — 2026-10-02 (thứ Sáu) · kế hoạch
+
+| Mục | Giá trị |
+|---|---|
+| **Lập lúc** | tối 01/10, sau override Day 22 |
+| **Còn lại** | **7 ngày** tới Day 30, thứ Sáu 09/10. Hạn không lùi |
+| **Trạng thái sau Day 22** | **Cả ba cổng đã đóng:** `GATE-SPLIT-01` (11:16), `GATE-ML-01` (14:30), `GATE-MOB-01` (21:17, leader nhận L5). Spike A ACCEPTED-WITH-LIMITATIONS; **Spike B ACCEPTED, DR-008c = L0**. 34 PR đã merge, mỗi PR qua QA bằng LLM. Hàng đợi DINOv2 đang chạy |
+| **Cập nhật 09:40** | DINOv2 xong cả 3 run lúc 05:44. Leader đã chốt các quyết định (DR-002c, DR-016b, DR-017…DR-021, phụ lục DR-013a) và duyệt lại các hàng P |
+| **Quy trình hôm nay** | **Bình thường, đầy đủ.** Override Day 22 đã hết hạn lúc 23:59. Mỗi PR cần một duyệt hợp lệ đúng SHA head, cộng CI xanh (CP-07). PR về split, C1, ADR-ML hoặc cổng do leader merge |
+
+---
+
+## 0 · Day 22 đã làm được gì *(có bằng chứng, trong `DAY_LOG.md`)*
+
+| Mảng | Kết quả ngày 01/10 | Bằng chứng |
+|---|---|---|
+| **Cổng** | `GATE-SPLIT-01` **đóng** 11:16 · `GATE-ML-01` **đóng** 14:30 · `GATE-MOB-01` **đóng** 21:17: L4 PASS trên app sản phẩm, leader nhận L5 | `f5aa763`, `3c02fd2`, `f06cf6d` |
+| **ML** | Spike C1 xong; **ADR-ML-001 ACCEPTED**: 560, batch 8, E = 50. Hàng đợi DINOv2 chạy từ 14:30. **EXP-D-025 xong lúc 17:15**: Dice 3D validation trung bình 0,570 (số dùng để chọn mô hình, không phải kết quả). EXP-D-100 đang chạy (dừng một lần lúc 20:59, chạy lại 21:30) | #79, `day22/qa/` |
+| **Pipeline** | train / infer / evaluate / export Contract 2 đều trên `main`. Thử end-to-end với dữ liệu thật tới backend và API: đạt, khi nới luật quần thể | #60, #64, #70, `E2E_PROOF_EXP_D_025.md` |
+| **Khoá holdout** | Chỉ nhận split đóng băng; bắt buộc bản ghi GATE-IMG-01 có cấu trúc | #81 → `d907240` |
+| **Contract + backend** | API contract 1.1.0. Backend với metrics chạy trên Mac mini, redeploy lúc 15:07 | #62, #68, #71, #75 |
+| **Mô hình vertical** | V1 (SCR-03, case chưa có run) · V3 (sau 3 vòng QA) · V4 (review, brush, findings) | #53, #80, #61, #63 |
+| **Màn hình mobile** | Shell + V1 SCR-02/03/04 (#77, #78) và V3 SCR-01/07 (#69) **đã lên `main`** sau khi cổng đóng. APK live chạy trên A17 sau khi sửa lỗi văng `latin1` trên Hermes (`ffbf763`) | `cab847a`, `92a59ff`, `f5d5384` |
+| **3D** | Frontier mesh thật (chỉ L0 nằm trong ±1 lát) · pipeline mesh trong backend · phiên S-1: Spike B: 5 mức × 3 lượt đều 59,9 FPS, nhưng chỉ **L0** đạt B6 trên máy, nên **DR-008c = L0**; **Spike B ACCEPTED** theo luật khai trước. L4 trên app: **PASS** | #66, #74, #73 → `40b1316` |
+
+**Điều quan trọng nhất cần biết:** phần lớn công việc hôm qua do **agent làm thay**, rồi merge sau khi có
+**QA bằng LLM** (CHAT E). Đó **không phải** duyệt của người thứ hai. Vì vậy **việc 1 của mỗi người hôm nay là
+duyệt lại và nhận phần làm thay trong khối mình**. Danh sách và chỗ ghi kết quả nằm trong
+[`../day22/POST_RECOVERY_REVALIDATION_DAY23.md`](../day22/POST_RECOVERY_REVALIDATION_DAY23.md).
+
+---
+
+## 1 · Điều kiện của ngày
+
+| # | Điều kiện | Loại | Phụ thuộc |
+|---|---|---|---|
+| 1 | Bốn người **duyệt lại và nhận** phần làm thay, ghi vào bảng revalidation **trước 12:00** | 🔒 cam kết | mỗi người khoảng 1,5 h |
+| 2 | Hàng đợi **UNet chạy trên RTX 4050** từ 09:00 và qua **tripwire DR-016a** ở epoch 1; hàng đợi **DINOv2** vẫn sống (EXP-D-100 → EXP-D-050) | 🔒 cam kết | Khánh |
+| 3 | **Chuẩn bị GATE-IMG-01:** dự đoán validation của EXP-D-100; ứng viên cấu hình morphology **chỉ** trên validation; khoá chặn holdout (#81) được Khánh nhận | 🎯 cố gắng | EXP-D-100 xong khoảng 04:00; Khánh |
+| 4 | **N-a đã quyết (DR-017):** Trung sửa chữ hợp đồng và fixture 5/5. Contract 2 (DR-018): Trung làm validator, Khánh làm exporter. Script ingest 54 case holdout sẵn sàng, chạy sau GATE-IMG-01 | 🎯 cố gắng | Trung, Khánh |
+| 5 | **Spike B (đã ACCEPTED):** chủ spike viết **B15 trước 10:00**, xác nhận DR-008c = L0 và chuỗi tap của phiên S-1; Trung duyệt lại với vai reviewer | 🔒 cam kết | Hùng Anh, Trung |
+| 6 | Mobile đã lên `main` (#77, #78, #69). Mỗi chủ khối đo màn hình của mình trên A17 (TC-PERF, TC-REV). #72 (V4) thôi nháp và xin duyệt thường; V2 SCR-05 bắt đầu trên mesh L0 | 🎯 cố gắng | chủ từng vertical |
+
+---
+
+## 2 · Thứ tự việc từng người
+
+| Người | Việc 1 (sáng) | Việc 2 | Việc 3+ |
+|---|---|---|---|
+| **Bế Quốc Khánh** | duyệt lại #59 #60 #64 #70 #79 #81; viết ghi chú C1-4 | **09:00 chạy hàng đợi UNet** trên 4050 | duyệt lại #61 và #69 (đã merge); N của QA-61b và QA-069 |
+| **Nguyễn Gia Đức Trung** | duyệt lại #62 #68 #71 #63 #75 (+ #50); reviewer thứ hai của TECH_STACK_ADR (#82) và reviewer Spike B | sửa INT-12 trong số liệu cohort khi leader chốt N-a; #72 thôi nháp | nợ contract/backend N-a…N-h, N-14; generator |
+| **Vũ Hùng Anh** | duyệt lại #66, #73, #74; APPROVE/REJECT Spike C1; xác nhận TC-TEAM-001 | **B15 trước 10:00**; xác nhận DR-008c = L0 | V2 SCR-05 trên mesh L0 |
+| **Phạm Tuấn Anh** | duyệt lại #53, #80 và nhận #77, #78 (V1); kiểm hàng đợi train lúc 08:00 | quyết N-a; theo dõi UNet trên 4050 | quyết định chờ (danh sách trong gói của anh) |
+
+Gói chi tiết: [`tasks/`](tasks/).
+
+---
+
+## 3 · Máy và GPU
+
+| Máy | Việc | Hạn |
+|---|---|---|
+| PC leader (RTX 3050 Ti 4 GiB) | DINOv2: EXP-D-025 (**xong** 17:15) → EXP-D-100 (chạy từ 17:15) → EXP-D-050, E = 50, batch 8. Mỗi epoch EXP-D-100 khoảng 576 s. Hàng đợi bị một Ctrl+C dừng lúc khoảng 20:59 trong epoch 12 của EXP-D-100; chạy lại lúc 21:30 từ `last.pt` (epoch 11), lần này tách khỏi mọi console. EXP-D-100 dự kiến xong khoảng **04:00**, EXP-D-050 khoảng **08:00–09:00** sáng 02/10. Sáng nay kiểm cả ba run | EXP-D-100 khoảng 04:00; EXP-D-050 khoảng 08:00–09:00 |
+| RTX 4050 6 GiB của Khánh | UNet: EXP-U-025 → EXP-U-050 → EXP-U-100, cùng công thức. Tripwire DR-016a ở epoch 1: mỗi bước ≤ 1,13 s, không tràn bộ nhớ | bắt đầu 09:00; khoảng 24,3 h nếu không tràn bộ nhớ; hạn 12:00 ngày 03/10 |
+| Mac mini | backend 1.1.0, 21 case, 0 run | redeploy khi #75 merge |
+| A17 | Phiên S-1 và L4 xong tối 01/10. Cổng đã đóng: máy dùng cho TC-PERF/TC-REV của từng vertical, mỗi lúc một người | chia theo khung giờ trong kênh nhóm |
+
+**Không ai** chạy job nặng song song trên máy đang train: tối đa 2 worker, mỗi lúc một bản build Gradle. Hôm qua
+một pool 18 tiến trình làm cạn bộ nhớ commit và giết job C1.
+
+---
+
+## 4 · Ranh giới (không đổi)
+
+- Không đụng holdout trước GATE-IMG-01.
+- Không đổi công thức ADR-ML-001 khi run đã bắt đầu.
+- Không bịa số đo: chưa đo thì ghi `NOT MEASURED`.
+- Không commit byte dataset, checkpoint, giá trị từng case, hash từng file dữ liệu, địa chỉ máy hay đường dẫn máy.
+- Không sửa `docs/specs/v1.0/**`.
+- Không force-push `main`.
+- Không xoá file hay nhánh khi chưa hỏi leader.
+- `NEGATIVE_RESULT` là kết quả hợp lệ (PR-SCI-03).
+
+**Liên quan:**
+- [`../day22/RECOVERY_OVERRIDE_DAY22.md`](../day22/RECOVERY_OVERRIDE_DAY22.md)
+- [`../day22/POST_RECOVERY_REVALIDATION_DAY23.md`](../day22/POST_RECOVERY_REVALIDATION_DAY23.md)
+- [`../spikes/SPIKE_C_ML/RESULT_C1.md`](../spikes/SPIKE_C_ML/RESULT_C1.md)
+- [`../adr/ADR_ML_001.md`](../adr/ADR_ML_001.md)

@@ -1,0 +1,616 @@
+{
+  "spike": "SPIKE_C1",
+  "stamp": "20261001T121428",
+  "code_commit": "58cbd5e71f3a6548839a6d3e5a5934b9102ef63a",
+  "operator": "Day 22 recovery override (leader account)",
+  "owner": "Bế Quốc Khánh (adopts on Day 23)",
+  "compute_host_decision": "DR-016",
+  "environment": {
+    "host_label": "leader PC, RTX 3050 Ti Laptop 4 GiB (DR-016)",
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.6",
+    "torch": "2.5.1+cu121",
+    "cuda": "12.1",
+    "cudnn": 90100,
+    "transformers": "4.51.3",
+    "huggingface_hub": "0.36.2",
+    "numpy": "2.2.6",
+    "cuda_available": true,
+    "gpu": "NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+    "vram_total_mib": 4096,
+    "vram_free_mib_at_start": 3288,
+    "bf16_supported": true
+  },
+  "provenance_C1_8": {
+    "preflight_label": "C1-PREFLIGHT-DAY22",
+    "split_manifest_sha256": "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d",
+    "dataset_manifest_sha256": "f64d461fe8eaceaa5d867d7223f2db23b8cf30fd6c1841ce8336f99823cd5ea9",
+    "selected_pointer": "$.training_subsets.25_percent.effective_case_ids",
+    "selected_case_ids": [
+      "CASE_0059",
+      "CASE_0079",
+      "CASE_0082",
+      "CASE_0083",
+      "CASE_0088",
+      "CASE_0090",
+      "CASE_0092",
+      "CASE_0101",
+      "CASE_0105",
+      "CASE_0111",
+      "CASE_0112",
+      "CASE_0114",
+      "CASE_0116",
+      "CASE_0121",
+      "CASE_0123",
+      "CASE_0125",
+      "CASE_0129",
+      "CASE_0146",
+      "CASE_0149",
+      "CASE_0154"
+    ],
+    "internal_fold": {
+      "seed": 2024,
+      "train": [
+        "CASE_0059",
+        "CASE_0082",
+        "CASE_0083",
+        "CASE_0090",
+        "CASE_0092",
+        "CASE_0101",
+        "CASE_0111",
+        "CASE_0112",
+        "CASE_0114",
+        "CASE_0116",
+        "CASE_0121",
+        "CASE_0123",
+        "CASE_0125",
+        "CASE_0146",
+        "CASE_0149",
+        "CASE_0154"
+      ],
+      "val": [
+        "CASE_0079",
+        "CASE_0088",
+        "CASE_0105",
+        "CASE_0129"
+      ]
+    },
+    "data_access": "ml.data CaseAllowlist.for_training(split, '25_percent') over a hardlink root; dataset manifest viewed with the 20 selected cases only, paths rewritten to <CASE_ID>/<file name>",
+    "validation_partition_loaded": false,
+    "holdout_loaded": false,
+    "source_shape_strata": [
+      [
+        576,
+        576
+      ],
+      [
+        640,
+        640
+      ]
+    ]
+  },
+  "one_case_verification": {
+    "case_id": "CASE_0059",
+    "load_seconds": 1.06,
+    "image_dtype": "float32",
+    "image_shape_zyx": [
+      88,
+      640,
+      640
+    ],
+    "image_min": 0.0,
+    "image_max": 1.0,
+    "mask_values": [
+      0,
+      1
+    ]
+  },
+  "preprocessing": {
+    "version": "ml-preproc-1.0.0",
+    "spec": {
+      "preprocessing_version": "ml-preproc-1.0.0",
+      "axis_order": "arrays are [z, y, x]; NRRD (x, y, z) -> transpose(2, 1, 0); slices along z",
+      "normalization": "DR-011 per-volume: clip to this volume's [0.5, 99.5] percentiles (numpy linear interpolation), scale to [0, 1], float32; no cohort statistic",
+      "image_resize": "torch bilinear, align_corners=False, antialias=True, to img x img, clamp to [0, 1]",
+      "mask_binarize": "foreground = source value > 0 (source masks are {0, 255})",
+      "mask_resize": "torch nearest-exact to img x img (label values preserved)",
+      "cache_dtypes": {
+        "image": "float16",
+        "mask": "uint8"
+      },
+      "augmentation": "none",
+      "slices": "all slices of every case",
+      "dinov2_extra": "inside DinoSeg.forward only: replicate to 3 channels, then the checkpoint's fixed image_mean/image_std (pretrained-model constants)",
+      "spacing": "identity placeholder in this release; every size is in voxels"
+    },
+    "cache_status": {
+      "560": [
+        "reused"
+      ],
+      "448": [
+        "reused"
+      ]
+    }
+  },
+  "dr011_runtime_C1_7": {
+    "policy_file": "spikes/spike_c_ml/dr011_normalization.json",
+    "cohort_statistics_used": false,
+    "cases": 20,
+    "volume_lo": {
+      "n": 20,
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.0
+    },
+    "volume_hi": {
+      "n": 20,
+      "min": 50.0,
+      "median": 87.0,
+      "max": 145.0
+    }
+  },
+  "grid_C1_1_C1_2_C1_3": [
+    {
+      "variant": "unet_base32_depth4",
+      "img": 560,
+      "batch": 8,
+      "train_step_ms_median": 1010.67,
+      "train_step_ms_p95": 1144.46,
+      "peak_allocated_mib": 3387.3,
+      "peak_reserved_mib": 3968.0,
+      "val_step_ms_median": 121.84,
+      "fits": true
+    },
+    {
+      "variant": "unet_base32_depth4",
+      "img": 560,
+      "batch": 4,
+      "train_step_ms_median": 238.46,
+      "train_step_ms_p95": 266.03,
+      "peak_allocated_mib": 1729.4,
+      "peak_reserved_mib": 2262.0,
+      "val_step_ms_median": 62.74,
+      "fits": true
+    },
+    {
+      "variant": "unet_base32_depth4",
+      "img": 560,
+      "batch": 2,
+      "train_step_ms_median": 136.77,
+      "train_step_ms_p95": 182.29,
+      "peak_allocated_mib": 900.8,
+      "peak_reserved_mib": 1030.0,
+      "val_step_ms_median": 34.13,
+      "fits": true
+    },
+    {
+      "variant": "dinov2_s14_full_progressive",
+      "img": 560,
+      "batch": 8,
+      "train_step_ms_median": 485.95,
+      "train_step_ms_p95": 681.63,
+      "peak_allocated_mib": 3159.4,
+      "peak_reserved_mib": 3440.0,
+      "val_step_ms_median": 123.08,
+      "fits": true
+    },
+    {
+      "variant": "dinov2_s14_full_progressive",
+      "img": 560,
+      "batch": 4,
+      "train_step_ms_median": 314.63,
+      "train_step_ms_p95": 630.3,
+      "peak_allocated_mib": 1739.6,
+      "peak_reserved_mib": 1932.0,
+      "val_step_ms_median": 67.14,
+      "fits": true
+    },
+    {
+      "variant": "dinov2_s14_full_progressive",
+      "img": 560,
+      "batch": 2,
+      "train_step_ms_median": 291.56,
+      "train_step_ms_p95": 398.16,
+      "peak_allocated_mib": 1030.7,
+      "peak_reserved_mib": 1146.0,
+      "val_step_ms_median": 72.1,
+      "fits": true
+    },
+    {
+      "variant": "unet_base32_depth4",
+      "img": 448,
+      "batch": 8,
+      "train_step_ms_median": 287.97,
+      "train_step_ms_p95": 307.8,
+      "peak_allocated_mib": 2209.1,
+      "peak_reserved_mib": 2874.0,
+      "val_step_ms_median": 78.53,
+      "fits": true
+    },
+    {
+      "variant": "unet_base32_depth4",
+      "img": 448,
+      "batch": 4,
+      "train_step_ms_median": 141.68,
+      "train_step_ms_p95": 192.34,
+      "peak_allocated_mib": 1146.6,
+      "peak_reserved_mib": 1470.0,
+      "val_step_ms_median": 41.06,
+      "fits": true
+    },
+    {
+      "variant": "unet_base32_depth4",
+      "img": 448,
+      "batch": 2,
+      "train_step_ms_median": 76.86,
+      "train_step_ms_p95": 95.61,
+      "peak_allocated_mib": 614.2,
+      "peak_reserved_mib": 766.0,
+      "val_step_ms_median": 22.93,
+      "fits": true
+    },
+    {
+      "variant": "dinov2_s14_full_progressive",
+      "img": 448,
+      "batch": 8,
+      "train_step_ms_median": 281.3,
+      "train_step_ms_p95": 386.38,
+      "peak_allocated_mib": 2150.7,
+      "peak_reserved_mib": 2472.0,
+      "val_step_ms_median": 75.94,
+      "fits": true
+    },
+    {
+      "variant": "dinov2_s14_full_progressive",
+      "img": 448,
+      "batch": 4,
+      "train_step_ms_median": 288.61,
+      "train_step_ms_p95": 367.89,
+      "peak_allocated_mib": 1254.5,
+      "peak_reserved_mib": 1394.0,
+      "val_step_ms_median": 89.91,
+      "fits": true
+    },
+    {
+      "variant": "dinov2_s14_full_progressive",
+      "img": 448,
+      "batch": 2,
+      "train_step_ms_median": 214.85,
+      "train_step_ms_p95": 283.29,
+      "peak_allocated_mib": 791.1,
+      "peak_reserved_mib": 884.0,
+      "val_step_ms_median": 93.0,
+      "fits": true
+    }
+  ],
+  "practical_point": {
+    "img": 560,
+    "batch": 8
+  },
+  "convergence_C1_6": {
+    "unet_base32_depth4": {
+      "variant": "unet_base32_depth4",
+      "model_card": {
+        "models_version": "ml-models-1.0.0",
+        "model_variant": "unet_base32_depth4",
+        "model_family": "unet",
+        "input_size": 560,
+        "parameters_total": 4619777,
+        "parameters_trainable": 4619777,
+        "effective_output_stride": 1.0,
+        "decoder": "unet",
+        "backbone": "none (trained from scratch)",
+        "backbone_mode": "n/a",
+        "unet_base": 32,
+        "unet_depth": 4,
+        "checkpoint": null
+      },
+      "img": 560,
+      "batch": 8,
+      "steps_requested": 1500,
+      "steps_done": 1500,
+      "epochs_done": 8.52,
+      "dice_note": "3D Dice on the 4 internal-fold cases at the model input resolution, threshold 0.5; a convergence sanity signal, not an evaluation metric (ml/evaluate.py scores at native resolution)",
+      "finite": true,
+      "elapsed_seconds": 3265.3,
+      "loss_mean_first_10pct": 0.74391,
+      "loss_mean_last_10pct": 0.47806,
+      "loss_log": "c1_loss_unet_base32_depth4.jsonl",
+      "decreasing": true,
+      "verdict": "CONVERGING",
+      "reload_verified": true,
+      "checkpoint": {
+        "bytes": 18529126,
+        "sha256": "28b3fac2ff5f982c7fda69687e1c8a00ed2f1009b4df815a3bf4db398806779e",
+        "reload_max_abs_diff": 0.0
+      },
+      "fold_val_dice_mean_by_step": [
+        {
+          "step": 250,
+          "dice_mean": 0.25945
+        },
+        {
+          "step": 500,
+          "dice_mean": 0.71843
+        },
+        {
+          "step": 750,
+          "dice_mean": 0.64927
+        },
+        {
+          "step": 1000,
+          "dice_mean": 0.7353
+        },
+        {
+          "step": 1250,
+          "dice_mean": 0.7334
+        },
+        {
+          "step": 1500,
+          "dice_mean": 0.78807
+        }
+      ],
+      "decoder_panel_C1_4": {
+        "largest": {
+          "slices": 4,
+          "dice": {
+            "n": 4,
+            "min": 0.8374,
+            "median": 0.9323,
+            "max": 0.9725
+          }
+        },
+        "median": {
+          "slices": 4,
+          "dice": {
+            "n": 4,
+            "min": 0.7896,
+            "median": 0.8548,
+            "max": 0.926
+          }
+        },
+        "smallest": {
+          "slices": 4,
+          "dice": {
+            "n": 4,
+            "min": 0.0,
+            "median": 0.0931,
+            "max": 0.547
+          }
+        },
+        "empty_gt_slices": 148,
+        "empty_gt_slices_with_false_positive": 104
+      }
+    },
+    "dinov2_s14_full_progressive": {
+      "variant": "dinov2_s14_full_progressive",
+      "model_card": {
+        "models_version": "ml-models-1.0.0",
+        "model_variant": "dinov2_s14_full_progressive",
+        "model_family": "dinov2",
+        "input_size": 560,
+        "parameters_total": 22294849,
+        "parameters_trainable": 22294849,
+        "effective_output_stride": 1.75,
+        "decoder": "progressive",
+        "backbone": "ViT-S/14",
+        "backbone_mode": "full",
+        "checkpoint": {
+          "key": "s14",
+          "repo": "facebook/dinov2-small",
+          "arch": "ViT-S/14",
+          "revision_requested": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+          "revision_resolved": "ed25f3a31f01632728cabb09d1542f84ab7b0056",
+          "weights_file": "model.safetensors",
+          "weights_bytes": 88249960,
+          "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+          "image_mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "image_std": [
+            0.229,
+            0.224,
+            0.225
+          ],
+          "mean_std_source": "preprocessor_config.json of this checkpoint"
+        },
+        "attn_implementation": "sdpa"
+      },
+      "img": 560,
+      "batch": 8,
+      "steps_requested": 1500,
+      "steps_done": 1500,
+      "epochs_done": 8.52,
+      "dice_note": "3D Dice on the 4 internal-fold cases at the model input resolution, threshold 0.5; a convergence sanity signal, not an evaluation metric (ml/evaluate.py scores at native resolution)",
+      "finite": true,
+      "elapsed_seconds": 684.9,
+      "loss_mean_first_10pct": 0.78194,
+      "loss_mean_last_10pct": 0.49896,
+      "loss_log": "c1_loss_dinov2_s14_full_progressive.jsonl",
+      "decreasing": true,
+      "verdict": "CONVERGING",
+      "reload_verified": true,
+      "checkpoint": {
+        "bytes": 89283132,
+        "sha256": "1f5d7dd17c099e2e61181e2924b98e7276f65544b9adea8de96af581e6d9cbc2",
+        "reload_max_abs_diff": 0.0
+      },
+      "fold_val_dice_mean_by_step": [
+        {
+          "step": 250,
+          "dice_mean": 0.17683
+        },
+        {
+          "step": 500,
+          "dice_mean": 0.26051
+        },
+        {
+          "step": 750,
+          "dice_mean": 0.4288
+        },
+        {
+          "step": 1000,
+          "dice_mean": 0.42058
+        },
+        {
+          "step": 1250,
+          "dice_mean": 0.40024
+        },
+        {
+          "step": 1500,
+          "dice_mean": 0.34948
+        }
+      ],
+      "decoder_panel_C1_4": {
+        "largest": {
+          "slices": 4,
+          "dice": {
+            "n": 4,
+            "min": 0.0842,
+            "median": 0.7745,
+            "max": 0.8621
+          }
+        },
+        "median": {
+          "slices": 4,
+          "dice": {
+            "n": 4,
+            "min": 0.0,
+            "median": 0.7541,
+            "max": 0.7864
+          }
+        },
+        "smallest": {
+          "slices": 4,
+          "dice": {
+            "n": 4,
+            "min": 0.0,
+            "median": 0.065,
+            "max": 0.0724
+          }
+        },
+        "empty_gt_slices": 148,
+        "empty_gt_slices_with_false_positive": 147
+      }
+    }
+  },
+  "boundary_C1_5": {
+    "unit": "voxels (identity spacing placeholder; no physical units)",
+    "model_input_size": 560,
+    "cases": 20,
+    "skeleton_points": 106867,
+    "thickness_native": {
+      "p1": 4.0,
+      "p5": 8.0,
+      "p10": 10.77,
+      "p25": 17.088,
+      "p50": 30.067,
+      "p75": 44.0
+    },
+    "thickness_at_model_input": {
+      "p1": 3.5,
+      "p5": 7.215,
+      "p10": 9.899,
+      "p25": 15.677,
+      "p50": 27.499,
+      "p75": 40.086
+    },
+    "fraction_thinner_than_stride_at_model_input": {
+      "unet_full_resolution": 0.0,
+      "dinov2_progressive": 0.0,
+      "dinov2_linear": 0.19786
+    },
+    "effective_output_stride_at_model_input": {
+      "unet_full_resolution": 1.0,
+      "dinov2_progressive": 1.75,
+      "dinov2_linear": 14.0
+    },
+    "elapsed_seconds": 121.53
+  },
+  "calendar_C1_9": {
+    "criterion": "C1-9",
+    "rule_source": "management/day22/RECOVERY_OVERRIDE_DAY22.md §4 (declared before C1 ran)",
+    "inputs": {
+      "step_ms_by_family": {
+        "value": {
+          "unet_base32_depth4": {
+            "train": 1010.67,
+            "val": 121.84
+          },
+          "dinov2_s14_full_progressive": {
+            "train": 485.95,
+            "val": 123.08
+          }
+        },
+        "kind": "MEASURED on the leader PC (C1-2)"
+      },
+      "practical_point": {
+        "value": {
+          "img": 560,
+          "batch": 8
+        },
+        "kind": "MEASURED (C1-3)"
+      },
+      "effective_subset_sizes": {
+        "value": {
+          "025": 20,
+          "050": 38,
+          "100": 78
+        },
+        "kind": "READ from the split manifest"
+      },
+      "validation_cases": {
+        "value": 20,
+        "kind": "READ"
+      },
+      "slices_per_case": {
+        "value": 88,
+        "kind": "READ (dataset manifest, uniform)"
+      },
+      "overhead": {
+        "value": 1.1,
+        "kind": "ASSUMPTION"
+      },
+      "unet_host_speed": {
+        "value": "leader-PC speed used for the RTX 4050 as an upper bound",
+        "kind": "ASSUMPTION (conservative; the 4050 is the faster card)"
+      },
+      "queue_starts": {
+        "value": {
+          "dinov2_s14_full_progressive": "2026-10-01T15:30:00+07:00",
+          "unet_base32_depth4": "2026-10-02T09:00:00+07:00"
+        },
+        "kind": "DECISION (DR-016)"
+      },
+      "deadline": {
+        "value": "2026-10-03T12:00:00+07:00",
+        "kind": "DECISION"
+      }
+    },
+    "epochs_E": 50,
+    "verdict": "FITS",
+    "hours_per_run_at_E": {
+      "EXP-U-025": 3.81,
+      "EXP-U-050": 6.86,
+      "EXP-U-100": 13.66,
+      "EXP-D-025": 2.05,
+      "EXP-D-050": 3.52,
+      "EXP-D-100": 6.78
+    },
+    "queue_end": {
+      "unet_base32_depth4": "2026-10-03T09:19:40.719600+07:00",
+      "dinov2_s14_full_progressive": "2026-10-02T03:50:51.770000+07:00"
+    }
+  },
+  "recipe": {
+    "loss": "0.5*BCEWithLogits + 0.5*softDice",
+    "optimizer": "AdamW lr 1e-4 constant",
+    "precision": "bf16 autocast",
+    "seed": 2024,
+    "threshold": 0.5,
+    "augmentation": "none",
+    "source": "management/day22/RECOVERY_OVERRIDE_DAY22.md §4"
+  }
+}

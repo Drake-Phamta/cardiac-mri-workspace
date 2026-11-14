@@ -20,6 +20,10 @@ WINDOW_RADIUS=2
 REPEATS=3
 TIMEOUT=60
 OUT_FILE=""
+NETWORK_RETRY_MAX=0
+NETWORK_RETRY_DELAY=1
+PAUSE_BEFORE_MESH=0
+BODY_HASH=0
 
 # Local connect rejections - added 2026-09-13 after run 1 (see PROVENANCE.md of
 # EVIDENCE_RAW/20260913_run1). On this handset the kernel caches the output
@@ -49,7 +53,9 @@ Usage:
     --operator "Person who presses the phone" \
     --owner "Nguyen Gia Duc Trung" \
     [--slices 88] [--window-radius 2] [--repeats 3] \
-    [--timeout 60] [--out /data/local/tmp/e_transport_android.jsonl]
+    [--timeout 60] [--network-retries 0] [--retry-delay 1] \
+    [--pause-before-mesh 0] [--body-hash] \
+    [--out /data/local/tmp/e_transport_android.jsonl]
 
 Pull the output afterwards, for example:
   adb pull /data/local/tmp/e_transport_android.jsonl .
@@ -84,9 +90,12 @@ request() {
   fi
   req_first_start=$(now_ms)
   req_rejections=0
+  req_network_retries=0
+  req_attempts=0
   req_cpu_json=null
 
   while :; do
+    req_attempts=$((req_attempts + 1))
     req_start=$(now_ms)
     req_pin=""
     if [ "$req_rejections" -gt 0 ]; then
@@ -102,10 +111,23 @@ request() {
       $req_pin toybox nc -n -w "$TIMEOUT" "$HOST" "$PORT" > "$TMP_FILE" 2> "$ERR_FILE"
     req_nc_rc=$?
     req_end=$(now_ms)
+    req_probe_status=$(head -n 1 "$TMP_FILE" 2>/dev/null | tr -d '\r' |
+      sed -n 's#^HTTP/[0-9.]* \([0-9][0-9][0-9]\).*#\1#p')
     if [ "$req_nc_rc" -ne 0 ] && [ ! -s "$TMP_FILE" ] &&
        grep -q 'Network is unreachable' "$ERR_FILE" 2>/dev/null &&
        [ "$req_rejections" -lt "$LOCAL_RETRY_MAX" ]; then
       req_rejections=$((req_rejections + 1))
+      continue
+    fi
+    # E9 controlled reconnect mode: retry a failed TCP attempt that produced
+    # no HTTP response after the operator restores the link. HTTP errors are
+    # not retried, and the default remains zero retries for ordinary runs.
+    if [ "$req_nc_rc" -ne 0 ] && [ ! -s "$TMP_FILE" ] &&
+       [ -z "$req_probe_status" ] &&
+       [ "$req_network_retries" -lt "$NETWORK_RETRY_MAX" ]; then
+      req_network_retries=$((req_network_retries + 1))
+      echo "network retry $req_network_retries/$NETWORK_RETRY_MAX for $req_scenario" >&2
+      sleep "$NETWORK_RETRY_DELAY"
       continue
     fi
     break
@@ -171,7 +193,17 @@ request() {
   req_url_json="$(json_escape "$req_url")"
   profile_json="null"
   [ -n "$PROFILE" ] && profile_json="\"$(json_escape "$PROFILE")\""
-  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"bytes_received\":$req_body_bytes,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"payload_profile\":$profile_json,\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
+  req_body_sha256_json=null
+  if [ "$BODY_HASH" -eq 1 ] && [ "$req_body_bytes" -gt 0 ]; then
+    req_body_sha256=$(tail -c +$((req_header_bytes + 1)) "$TMP_FILE" 2>/dev/null |
+      toybox sha256sum 2>/dev/null | cut -d' ' -f1)
+    req_hash_len=$(printf '%s' "$req_body_sha256" | wc -c | tr -d ' ')
+    case "$req_body_sha256" in
+      [0-9a-fA-F][0-9a-fA-F]*)
+        [ "$req_hash_len" -eq 64 ] && req_body_sha256_json="\"$req_body_sha256\"" ;;
+    esac
+  fi
+  emit "{\"record_type\":\"sample\",\"captured_at_ms\":$req_end,\"repeat\":$req_repeat,\"scenario\":\"$(json_escape "$req_scenario")\",\"criterion\":\"$req_criterion\",\"url\":\"$req_url_json\",\"ok\":$req_ok,\"status\":$req_status_json,\"bytes\":$req_payload_json,\"bytes_received\":$req_body_bytes,\"body_sha256\":$req_body_sha256_json,\"ms_total\":$req_ms,\"local_connect_rejections\":$req_rejections,\"network_retries\":$req_network_retries,\"attempts\":$req_attempts,\"ms_including_local_rejections\":$req_ms_with_rejections,\"pinned_cpu\":$req_cpu_json,\"ms_to_first_byte\":null,\"server_handling_ms\":$req_server_json,\"strategy\":$req_strategy_json,\"measurement_path\":\"$(json_escape "$MEASUREMENT_PATH")\",\"overlay_connection\":\"$(json_escape "$CONNECTION")\",\"payload_profile\":$profile_json,\"operator\":\"$(json_escape "$OPERATOR")\",\"owner\":\"$(json_escape "$OWNER")\",\"error\":$req_error_json,\"timing_note\":\"Toybox shell fallback records total time; first-byte timing is not available.\"}"
   rm -f "$TMP_FILE" "$ERR_FILE"
 }
 
@@ -187,6 +219,10 @@ while [ "$#" -gt 0 ]; do
     --window-radius) WINDOW_RADIUS="$2"; shift 2 ;;
     --repeats) REPEATS="$2"; shift 2 ;;
     --timeout) TIMEOUT="$2"; shift 2 ;;
+    --network-retries) NETWORK_RETRY_MAX="$2"; shift 2 ;;
+    --retry-delay) NETWORK_RETRY_DELAY="$2"; shift 2 ;;
+    --pause-before-mesh) PAUSE_BEFORE_MESH="$2"; shift 2 ;;
+    --body-hash) BODY_HASH=1; shift ;;
     --out) OUT_FILE="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage; exit 2 ;;
@@ -210,6 +246,11 @@ fi
 if [ -n "$PROFILE" ] && [ "$PROFILE" != "576x576x88" ] && [ "$PROFILE" != "640x640x88" ]; then
   echo "--profile must be 576x576x88 or 640x640x88" >&2; exit 2
 fi
+case "$NETWORK_RETRY_MAX:$NETWORK_RETRY_DELAY:$PAUSE_BEFORE_MESH" in
+  *[!0-9:]*|*:*:*:*|:*)
+    echo "--network-retries, --retry-delay, and --pause-before-mesh must be non-negative integers" >&2
+    exit 2 ;;
+esac
 
 # Toybox nc is plain TCP, so this fallback intentionally accepts only http://.
 case "$BASE_URL" in
@@ -244,7 +285,11 @@ else
   acceptance_json=false
   warning_json="\"DIAGNOSTIC ONLY: LAN/AVD measurements are not Spike E acceptance evidence.\""
 fi
-emit "{\"record_type\":\"run_header\",\"captured_at\":\"$captured_at\",\"operator\":\"$operator_json\",\"owner\":\"$owner_json\",\"base\":\"$base_json\",\"measurement_path\":\"$MEASUREMENT_PATH\",\"overlay_connection\":\"$CONNECTION\",\"payload_profile\":$profile_json,\"repeats\":$REPEATS,\"is_acceptance_evidence\":$acceptance_json,\"warning\":$warning_json,\"client\":\"android-toybox-nc\",\"local_retry_policy\":\"on an instant local Network is unreachable (no SYN sent) retry up to $LOCAL_RETRY_MAX times on rotating CPUs; counted per sample in local_connect_rejections\",\"cpu_count\":$NCPU,\"note\":\"ms_to_first_byte is null in this fallback; total time and server handling are recorded.\"}"
+network_retry_policy="retry no-status TCP failures up to $NETWORK_RETRY_MAX times with a fixed delay; E9 diagnostic mode only"
+network_retry_policy_json=$(json_escape "$network_retry_policy")
+body_hash_enabled_json=false
+[ "$BODY_HASH" -eq 1 ] && body_hash_enabled_json=true
+emit "{\"record_type\":\"run_header\",\"captured_at\":\"$captured_at\",\"operator\":\"$operator_json\",\"owner\":\"$owner_json\",\"base\":\"$base_json\",\"measurement_path\":\"$MEASUREMENT_PATH\",\"overlay_connection\":\"$CONNECTION\",\"payload_profile\":$profile_json,\"repeats\":$REPEATS,\"is_acceptance_evidence\":$acceptance_json,\"warning\":$warning_json,\"client\":\"android-toybox-nc\",\"local_retry_policy\":\"on an instant local Network is unreachable (no SYN sent) retry up to $LOCAL_RETRY_MAX times on rotating CPUs; counted per sample in local_connect_rejections\",\"network_retry_policy\":\"$network_retry_policy_json\",\"body_hash_enabled\":$body_hash_enabled_json,\"cpu_count\":$NCPU,\"note\":\"ms_to_first_byte is null in this fallback; total time and server handling are recorded.\"}"
 
 MID=$((SLICES / 2))
 STEP=$((SLICES / 12))
@@ -252,7 +297,9 @@ STEP=$((SLICES / 12))
 WINDOW_STEP=$((WINDOW_RADIUS * 2 + 1))
 
 echo "Android Toybox fallback: $BASE_URL" >&2
-echo "path=$MEASUREMENT_PATH connection=$CONNECTION profile=\${PROFILE:-stub-default} repeats=$REPEATS" >&2
+profile_display="$PROFILE"
+[ -z "$profile_display" ] && profile_display=stub-default
+echo "path=$MEASUREMENT_PATH connection=$CONNECTION profile=$profile_display retries=$NETWORK_RETRY_MAX repeats=$REPEATS" >&2
 echo "writing JSONL to $OUT_FILE" >&2
 
 rep=0
@@ -289,6 +336,10 @@ while [ "$rep" -lt "$REPEATS" ]; do
   done
 
   # E6 — all four mesh levels.
+  if [ "$rep" -eq 0 ] && [ "$PAUSE_BEFORE_MESH" -gt 0 ]; then
+    echo "RECONNECT_WINDOW: pause $PAUSE_BEFORE_MESH seconds before first mesh request; toggle the AVD link now" >&2
+    sleep "$PAUSE_BEFORE_MESH"
+  fi
   level=0
   while [ "$level" -lt 4 ]; do
     request "mesh_level_$level" E6 "/mesh/$level.obj" "$rep"

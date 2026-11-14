@@ -1,0 +1,30 @@
+{
+ "format": "ml-holdout-authorization/1",
+ "gate": "GATE-IMG-01",
+ "gate_status": "CLOSED",
+ "closed_at": "2026-10-18T07:15:00+07:00",
+ "decision_ref": "management/day39/GATE_IMG_01_DECISION.md",
+ "split_sha256": "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d",
+ "postprocessing_config_sha256": "c0a68cc76b598e742c474a845580dba8b8afb9eb073b2588404f11845014961e",
+ "authorized_runs": [
+  {
+   "experiment_id": "EXP-D-025",
+   "checkpoint_sha256": "8d97b8fd1dec0ad10b0892568688bcb85aa618d0adf6e4ee5dfd4d0642668a28"
+  },
+  {
+   "experiment_id": "EXP-D-050",
+   "checkpoint_sha256": "63fcb7f9ccc3c5cc834ccea2e894b17f0f0667addc4b6a524a5e51210a8800f2"
+  },
+  {
+   "experiment_id": "EXP-D-100",
+   "checkpoint_sha256": "58152720f14821297d8b209f4a82e159261b0fbc84691f7d0aebde3c935351fc"
+  },
+  {
+   "experiment_id": "EXP-D-PP",
+   "checkpoint_sha256": "58152720f14821297d8b209f4a82e159261b0fbc84691f7d0aebde3c935351fc"
+  }
+ ],
+ "authorized_by": "Phạm Tuấn Anh",
+ "authorized_at": "2026-10-18T07:15:00+07:00",
+ "notes": "Day 39 override, rule management/day39/RECOVERY_OVERRIDE_DAY39.md section 4; winner PP-4; each run predicted and scored once."
+}

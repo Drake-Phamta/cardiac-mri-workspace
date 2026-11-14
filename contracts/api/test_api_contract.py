@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic checks for API Contract 11 DRAFT v0."""
+"""Synthetic checks for API Contract 11 v1.1.0."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 from generate_fixture import generate_fixture
-from validate_api_contract import ContractError, validate_contract
+from validate_api_contract import ContractError, request_params, validate_contract, validate_response
 
 
 HERE = Path(__file__).resolve().parent
@@ -22,6 +22,10 @@ def expect_error(contract: dict, code: str, schema: dict) -> None:
         assert exc.code == code, (exc.code, str(exc))
     else:
         raise AssertionError(f"expected {code}")
+
+
+def endpoint(contract: dict, endpoint_id: str) -> dict:
+    return next(item for item in contract["endpoints"] if item["id"] == endpoint_id)
 
 
 def main() -> None:
@@ -39,43 +43,241 @@ def main() -> None:
     assert result == {
         "status": "PASS",
         "contract": "api_contract_11",
-        "version": "DRAFT v0",
+        "version": "1.1.0",
         "endpoint_count": 28,
         "error_count": 15,
-    }
+        "hero_endpoint_count": 23,
+    }, result
     fixture = generate_fixture(contract)
+    assert fixture["contract_version"] == "1.1.0"
     assert {item["id"] for item in fixture["endpoints"]} == {item["id"] for item in contract["endpoints"]}
     assert {item["code"] for item in fixture["errors"]} == {item["code"] for item in contract["errors"]}
     assert fixture["geometry"]["geometry_contract_version"] == "dr008a-dr012/v1.0.0"
+    assert set(fixture["scenarios"]) == {item["id"] for item in contract["endpoints"]}
+    for endpoint_id in ("review_patch", "working_mask_put", "review_commit"):
+        assert "stale_revision" in fixture["scenarios"][endpoint_id]
+    assert fixture["scenarios"]["analysis_run_get"]["default"]["response"]["data"]["status"] == "SUCCEEDED"
+    for endpoint_id in ("prediction_slice_get", "analysis_slice_metrics"):
+        response = fixture["scenarios"][endpoint_id]["run_not_succeeded"]["response"]
+        assert response["status"] == 409
+        assert response["error"]["code"] == "RUN_NOT_SUCCEEDED"
     print("PASS valid contract and schema-derived fixture")
+
+    # Every generated scenario, success or error, passes the same response
+    # validator the backend is tested with.
+    checked = 0
+    for endpoint_id, by_name in fixture["scenarios"].items():
+        for name, scenario in by_name.items():
+            response = scenario["response"]
+            body = response.get("data") if response["status"] < 400 else {"error": response["error"]}
+            # The scenario's own request is passed too, so an answer that echoes its request is checked against it.
+            problems = validate_response(contract, endpoint_id, response["status"], body,
+                                         request=(scenario.get("request") or {}).get("params"))
+            assert not problems, (endpoint_id, name, problems)
+            checked += 1
+    print(f"PASS {checked} generated scenarios validate against the contract")
+
+    # The agreed review/finding statuses (V4 lane, 2026-10-01).
+    default = {
+        endpoint_id: fixture["scenarios"][endpoint_id]["default"]
+        for endpoint_id in ("review_create", "review_patch", "finding_create", "findings_list", "finding_patch")
+    }
+    assert default["review_create"]["response"]["data"]["status"] == "NOT_REVIEWED"
+    assert default["review_create"]["request"]["body"]["status"] == "NOT_REVIEWED"
+    assert default["review_patch"]["request"]["body"]["status"] == "FLAGGED"
+    assert default["review_patch"]["response"]["data"]["status"] == "FLAGGED"
+    assert default["finding_create"]["response"]["data"]["status"] == "OPEN"
+    assert default["findings_list"]["response"]["data"]["items"][0]["status"] == "OPEN"
+    assert default["finding_patch"]["request"]["body"]["status"] == "RESOLVED"
+    assert default["finding_patch"]["response"]["data"]["status"] == "RESOLVED"
+    inference = fixture["scenarios"]["case_get"]["inference_review"]["response"]["data"]
+    assert inference["mode"] == "INFERENCE_REVIEW" and inference["ground_truth_available"] is False
+    worst = fixture["scenarios"]["analysis_run_metrics"]["default"]["response"]["data"]["worst_slice_selection"]
+    assert worst["rule_id"] == "DR-010" and [s["slice_index"] for s in worst["slices"]] == [44, 12, 60]
+    print("PASS review/finding statuses, inference-review case and worst-slice selection in the fixture")
+
+    # The response validator refuses what the contract forbids.
+    envelope = {"code": "STALE_REVISION", "message": "m", "request_id": "r", "details": None}
+    rejected = [
+        ("review_patch", 200, {"review_id": "R", "status": "APPROVED", "revision": 2, "etag": "x"}),
+        ("analysis_slice_metrics", 200, {
+            "slice_index": 3, "metric_state": "NOT_APPLICABLE", "metric_value": 0.0,
+            "reference_mask_id": "A", "prediction_mask_id": "B", "metric_version": "v",
+        }),
+        ("mri_slice_get", 409, {"error": envelope}),
+        ("case_get", 404, {"error": {"code": "CASE_NOT_FOUND", "message": "m"}}),
+    ]
+    with_unit = dict(fixture["scenarios"]["case_get"]["default"]["response"]["data"])
+    with_unit["volume_ml"] = 12.5
+    rejected.append(("case_get", 200, with_unit))
+    unordered = json.loads(json.dumps(fixture["scenarios"]["analysis_run_metrics"]["default"]["response"]["data"]))
+    unordered["worst_slice_selection"]["slices"].reverse()
+    rejected.append(("analysis_run_metrics", 200, unordered))
+    drifted = dict(fixture["scenarios"]["geometry_get"]["default"]["response"]["data"])
+    drifted["geometry_contract_version"] = "dr008a-dr012/v1.0.1"
+    rejected.append(("geometry_get", 200, drifted))
+    bad_checksum = dict(fixture["scenarios"]["mri_slice_get"]["default"]["response"]["data"])
+    bad_checksum["checksum"] = "sha256:not-a-digest"
+    rejected.append(("mri_slice_get", 200, bad_checksum))
+    for endpoint_id, status, body in rejected:
+        assert validate_response(contract, endpoint_id, status, body), (endpoint_id, status, body)
+    print(f"PASS the response validator rejects all {len(rejected)} contract violations")
+
+    # List endpoints: an empty page is valid, a missing top-level field is not,
+    # and neither is a row that lacks a row field.
+    list_ids = [item["id"] for item in contract["endpoints"] if "items" in item["response_fields"]]
+    assert sorted(list_ids) == sorted(
+        ["case_list", "experiment_list", "experiment_cases", "reviewed_masks_list", "findings_list"]
+    )
+    for endpoint_id in list_ids:
+        empty = fixture["scenarios"][endpoint_id]["empty"]["response"]["data"]
+        assert empty["items"] == [] and not validate_response(contract, endpoint_id, 200, empty), endpoint_id
+    assert not validate_response(contract, "findings_list", 200, {"items": []})
+    assert validate_response(contract, "case_list", 200, {"items": [], "mode": None})  # next_page missing
+    row_missing = json.loads(json.dumps(fixture["scenarios"]["reviewed_masks_list"]["default"]["response"]["data"]))
+    del row_missing["items"][0]["checksum"]
+    assert validate_response(contract, "reviewed_masks_list", 200, row_missing)
+    print(f"PASS empty pages validate on all {len(list_ids)} list endpoints; missing top-level and row fields do not")
+
+    # --- v1.1.0: the V3/V4 freeze follow-ups -----------------------------------
+    scenarios = fixture["scenarios"]
+    assert scenarios["experiment_get"]["default"]["response"]["data"]["experiment_id"] == "EXP_DEMO"
+    processed = scenarios["experiment_get"]["processed_variant"]["response"]["data"]
+    assert processed["experiment_id"] == "EXP-D-PP" and processed["prediction_variant"] == "PROCESSED"
+    listed = scenarios["reviewed_masks_list"]["default"]["response"]["data"]["items"][0]["reviewed_mask_id"]
+    committed = scenarios["review_commit"]["default"]["response"]["data"]
+    assert committed["reviewed_mask_id"] != listed and committed["provenance"]["parent_reviewed_mask_id"] == listed
+    cases_page = scenarios["experiment_cases"]["default"]["response"]["data"]
+    statuses_seen = {row["status"] for row in cases_page["items"]}
+    assert statuses_seen == {"SUCCEEDED", "WITHHELD"}, statuses_seen
+    failure_page = scenarios["experiment_cases"]["with_failure"]["response"]["data"]
+    assert {row["status"] for row in failure_page["items"]} == {"SUCCEEDED", "FAILED", "WITHHELD"}
+    for page in (cases_page, failure_page):
+        assert [item["case_id"] for item in page["outlier_selection"]["cases"]] == ["CASE_0005", "CASE_0003", "CASE_0004"]
+
+    # DR-017 (INT-12 hidden, not blinded): the evaluated WITHHELD case counts everywhere in the
+    # cohort numbers (5 of 5), is in the compare population, and has no value on its own row.
+    metrics_page = scenarios["experiment_metrics"]["default"]["response"]["data"]
+    counted = [row["case_id"] for row in cases_page["items"] if row["status"] in {"SUCCEEDED", "WITHHELD"}]
+    assert "CASE_0001" in counted and next(r for r in cases_page["items"] if r["case_id"] == "CASE_0001")["metric_values"] is None
+    assert metrics_page["evaluation_n"] == len(cases_page["items"]) == metrics_page["successful_n"] == len(counted) == 5
+    assert all(stats["n"] == 5 for stats in metrics_page["metric_summary"].values())
+    compare_page = scenarios["experiment_compare"]["default"]["response"]["data"]
+    assert compare_page["common_evaluation_population"] == sorted(counted)
+    assert all(all(stats["n"] == 5 for stats in per.values()) for per in compare_page["summary"].values())
+    with_failure = scenarios["experiment_metrics"]["with_failure"]["response"]["data"]
+    assert (with_failure["evaluation_n"], with_failure["successful_n"]) == (6, 5)
+    assert with_failure["evaluation_n"] == len(failure_page["items"])
+    assert "WITHHELD" in contract["metric_rules"]["summary_rule"]
+    scope = contract["case_capability"]["case_level_scope"]
+    assert "counts in evaluation_n, successful_n, metric_summary and experiment_compare" in scope
+    assert "No per-case value of an INFERENCE_REVIEW case is served" in scope and "can be derived from them" in scope
+    assert scenarios["finding_create"]["default"]["request"]["body"]["prediction_variant"] == "RAW"
+    summary = scenarios["experiment_metrics"]["default"]["response"]["data"]["metric_summary"]
+    assert set(summary["dice"]) == set(contract["metric_rules"]["summary_statistics"])
+
+    def mutated(endpoint_id, change):
+        data = json.loads(json.dumps(scenarios[endpoint_id]["default"]["response"]["data"]))
+        change(data)
+        return validate_response(contract, endpoint_id, 200, data)
+
+    def withheld_numbers(data):
+        data["items"][-1]["metric_values"] = data["items"][0]["metric_values"]
+
+    def outlier_withheld(data):
+        data["outlier_selection"]["cases"][0]["case_id"] = "CASE_0001"
+
+    def outlier_unordered(data):
+        data["outlier_selection"]["cases"].reverse()
+
+    def outlier_too_few(data):  # QA N-c: 0-2 cases although four rows are SUCCEEDED
+        data["outlier_selection"]["cases"].pop()
+
+    def outlier_not_lowest(data):  # QA N-c: a selection that is not the true bottom three
+        data["outlier_selection"]["cases"][2] = dict(data["outlier_selection"]["cases"][2], case_id="CASE_0002",
+                                                     analysis_run_id="RUN_0002", metric_value=0.9,
+                                                     false_positives=10, false_negatives=10)
+
+    def outlier_value_differs(data):  # QA N-c: values that differ from the row
+        data["outlier_selection"]["cases"][0]["metric_value"] = 0.41
+
+    def outlier_run_differs(data):
+        data["outlier_selection"]["cases"][0]["analysis_run_id"] = "RUN_9999"
+
+    def outlier_variant_differs(data):  # QA N-c: variant that differs from the page
+        data["outlier_selection"]["prediction_variant"] = "PROCESSED"
+
+    def outlier_twice(data):
+        data["outlier_selection"]["cases"][2] = dict(data["outlier_selection"]["cases"][1])
+
+    def evidence_without_variant(data):
+        data["evidence"]["prediction_variant"] = None
+
+    def summary_without_ci(data):
+        del data["metric_summary"]["dice"]["ci95_low"]
+
+    def row_without_variant(data):  # #62 QA B1
+        del data["items"][0]["prediction_variant"]
+
+    def commit_not_corrected(data):  # #62 QA B2
+        data["status"] = "FLAGGED"
+
+    def inference_with_ground_truth(data):  # N1
+        data["mode"] = "INFERENCE_REVIEW"
+
+    def ground_truth_source(data):  # N2
+        data["provenance"]["source_mask_kind"] = "GROUND_TRUTH"
+
+    for endpoint_id, change in (
+        ("experiment_cases", withheld_numbers), ("experiment_cases", outlier_withheld),
+        ("experiment_cases", outlier_unordered), ("finding_create", evidence_without_variant),
+        ("experiment_cases", outlier_too_few), ("experiment_cases", outlier_not_lowest),
+        ("experiment_cases", outlier_value_differs), ("experiment_cases", outlier_run_differs),
+        ("experiment_cases", outlier_variant_differs), ("experiment_cases", outlier_twice),
+        ("experiment_metrics", summary_without_ci), ("experiment_list", row_without_variant),
+        ("review_commit", commit_not_corrected), ("case_get", inference_with_ground_truth),
+        ("review_commit", ground_truth_source), ("reviewed_masks_list", lambda d: d["items"][0]["provenance"].update(
+            source_mask_kind="GROUND_TRUTH")),
+    ):
+        assert mutated(endpoint_id, change), (endpoint_id, change.__name__)
+    print("PASS v1.1.0: echoed experiment id, PROCESSED experiment, new commit id, per-case rows, "
+          "DR-010 outliers, finding variant and summary shapes, each with its refusal")
+
+    # QA_PR94_D39 NB-6: the outlier block of an experiment_cases page must name the experiment the page was asked for.
+    asked = scenarios["experiment_cases"]["default"]["request"]["params"]
+    page = scenarios["experiment_cases"]["default"]["response"]["data"]
+    assert not validate_response(contract, "experiment_cases", 200, page, request=asked)
+    wrong = validate_response(contract, "experiment_cases", 200, page, request={"experiment_id": "EXP-OTHER"})
+    assert any("not the experiment that was asked for" in item for item in wrong), wrong
+    assert not validate_response(contract, "experiment_cases", 200, page), "without a request nothing is compared"
+    assert request_params(contract, "experiment_cases", "/api/v1/experiments/EXP_DEMO/cases?limit=2") == asked
+    assert request_params(contract, "experiment_cases", "/api/v1/experiments/EXP_DEMO") == {}
+    assert request_params(contract, "reviewed_mask_slice_get", "/api/v1/reviewed-masks/RM_1/slices/44") == {
+        "reviewed_mask_id": "RM_1", "slice_index": "44"}
+    print("PASS an experiment_cases page is checked against the experiment that was asked for")
 
     broken = copy.deepcopy(contract)
     broken["errors"] = [item for item in broken["errors"] if item["code"] != "GROUND_TRUTH_UNAVAILABLE"]
     expect_error(broken, "SCHEMA_INVALID", schema)
 
     broken = copy.deepcopy(contract)
-    geometry_endpoint = next(item for item in broken["endpoints"] if item["id"] == "geometry_get")
-    geometry_endpoint["response_fields"].remove("geometry_contract_version")
+    endpoint(broken, "geometry_get")["response_fields"].remove("geometry_contract_version")
     expect_error(broken, "GEOMETRY_CONTRACT_MISSING", schema)
 
     broken = copy.deepcopy(contract)
-    gt_endpoint = next(item for item in broken["endpoints"] if item["id"] == "ground_truth_slice_get")
-    gt_endpoint["ground_truth_behavior"] = "AVAILABILITY_DECLARED"
+    endpoint(broken, "ground_truth_slice_get")["ground_truth_behavior"] = "AVAILABILITY_DECLARED"
     expect_error(broken, "GROUND_TRUTH_RULE", schema)
 
     broken = copy.deepcopy(contract)
-    review_endpoint = next(item for item in broken["endpoints"] if item["id"] == "review_patch")
-    review_endpoint["revision_required"] = False
+    endpoint(broken, "review_patch")["revision_required"] = False
     expect_error(broken, "REVISION_CONTROL_MISSING", schema)
 
     broken = copy.deepcopy(contract)
-    commit_endpoint = next(item for item in broken["endpoints"] if item["id"] == "review_commit")
-    commit_endpoint["immutability"] = "READ_ONLY"
+    endpoint(broken, "review_commit")["immutability"] = "READ_ONLY"
     expect_error(broken, "IMMUTABLE_POLICY_INVALID", schema)
 
     broken = copy.deepcopy(contract)
-    compare_endpoint = next(item for item in broken["endpoints"] if item["id"] == "experiment_compare")
-    compare_endpoint["errors"].remove("NON_COMPARABLE_EXPERIMENTS")
+    endpoint(broken, "experiment_compare")["errors"].remove("NON_COMPARABLE_EXPERIMENTS")
     expect_error(broken, "COMPARISON_CONTRACT_MISSING", schema)
 
     broken = copy.deepcopy(contract)
@@ -91,25 +293,108 @@ def main() -> None:
     expect_error(broken, "SCHEMA_INVALID", schema)
 
     broken = copy.deepcopy(contract)
-    slice_endpoint = next(item for item in broken["endpoints"] if item["id"] == "mri_slice_get")
-    slice_endpoint["errors"].remove("SLICE_OUT_OF_RANGE")
+    endpoint(broken, "mri_slice_get")["errors"].remove("SLICE_OUT_OF_RANGE")
     expect_error(broken, "ENDPOINT_RULE_MISSING", schema)
 
     broken = copy.deepcopy(contract)
-    run_endpoint = next(item for item in broken["endpoints"] if item["id"] == "analysis_run_create")
-    run_endpoint["method"] = "GET"
+    endpoint(broken, "analysis_run_create")["method"] = "GET"
     expect_error(broken, "ENDPOINT_RULE_MISSING", schema)
 
     broken = copy.deepcopy(contract)
-    working_endpoint = next(item for item in broken["endpoints"] if item["id"] == "working_mask_put")
-    working_endpoint["request_fields"].remove("geometry_contract_version")
+    endpoint(broken, "working_mask_put")["request_fields"].remove("geometry_contract_version")
     expect_error(broken, "ENDPOINT_RULE_MISSING", schema)
+
+    # --- v1.0 rules ---------------------------------------------------------
+    broken = copy.deepcopy(contract)
+    broken["contract_version"] = "DRAFT v0"
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["domain_enums"]["review_status"] = ["IN_PROGRESS", "APPROVED"]
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["domain_enums"]["review_status_transitions"]["FLAGGED"].append("ACCEPTED")
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["enum_bindings"]["review_status"].remove("review_patch.request.status")
+    expect_error(broken, "ENUM_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["enum_bindings"]["finding_status"].append("finding_patch.no_such_field")
+    expect_error(broken, "ENUM_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "analysis_run_metrics")["response_fields"].remove("worst_slice_selection")
+    expect_error(broken, "SELECTION_CONTRACT_MISSING", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "analysis_slice_metrics")["response_fields"].append("worst_slice_selection")
+    expect_error(broken, "SELECTION_CONTRACT_MISSING", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "analysis_slice_error")["errors"].remove("GROUND_TRUTH_UNAVAILABLE")
+    expect_error(broken, "CASE_CAPABILITY_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["case_capability"]["ground_truth_dependent_endpoints"].remove("error_reconstruction_get")
+    expect_error(broken, "CASE_CAPABILITY_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "review_create")["request_fields"].remove("source_mask_id")
+    expect_error(broken, "REVIEW_STATE_INVALID", schema)
+
+    broken = copy.deepcopy(contract)  # #62 QA B2: the commit performs ->CORRECTED from every state
+    endpoint(broken, "review_commit")["errors"].append("INVALID_REVIEW_TRANSITION")
+    expect_error(broken, "REVIEW_STATE_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "review_commit")["response_fields"].remove("status")
+    expect_error(broken, "ENUM_INVALID", schema)  # the enum binding names a field that is gone
+
+    broken = copy.deepcopy(contract)  # #62 QA B1: every experiment row states its variant
+    endpoint(broken, "experiment_list")["row_fields"].remove("prediction_variant")
+    broken["enum_bindings"]["prediction_variant"].remove("experiment_list.prediction_variant")
+    expect_error(broken, "ENUM_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "analysis_run_metrics")["hero_flow"] = False
+    expect_error(broken, "HERO_FLOW_INCOMPLETE", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "mri_slice_get")["response_fields"].remove("content_url")
+    expect_error(broken, "BINARY_DELIVERY_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    del endpoint(broken, "findings_list")["row_fields"]
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "case_list")["row_fields"].append("no_such_field")
+    expect_error(broken, "LIST_CONTRACT_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "experiment_cases")["response_fields"].remove("outlier_selection")
+    expect_error(broken, "SELECTION_CONTRACT_MISSING", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "finding_create")["request_fields"].remove("prediction_variant")
+    expect_error(broken, "ENUM_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["metric_rules"]["summary_statistics"].remove("ci95_low")
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["enum_bindings"]["case_result_status"] = ["experiment_list.experiment_id"]
+    expect_error(broken, "ENUM_INVALID", schema)
 
     with tempfile.TemporaryDirectory(prefix="api-contract-") as temp:
         output = Path(temp) / "generated_fixture.json"
         output.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
         assert json.loads(output.read_text(encoding="utf-8"))["base_path"] == "/api/v1"
-    print("api_contract_checks=PASS cases=12")
+    print("api_contract_checks=PASS cases=34")
 
 
 if __name__ == "__main__":

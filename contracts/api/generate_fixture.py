@@ -1,29 +1,414 @@
 #!/usr/bin/env python3
-"""Generate a data-free API mock catalog from schema.json (never handwritten)."""
+"""Generate the data-free Contract 11 fixture bundle; never hand-write it.
+
+Every value is a placeholder derived from a contract field name, an enum in
+``domain_enums`` or a shape in ``field_shapes``. Nothing here is a measurement:
+the numbers in metric fields only exercise the response shape, and the bundle
+says so in ``data_policy``.
+"""
 
 from __future__ import annotations
 
+import argparse
+import hashlib
+import json
+import re
+from pathlib import Path
+from typing import List, Optional
 
-def generate_fixture(schema: dict) -> dict:
+
+TOKEN = re.compile(r"\{([a-z_][a-z0-9_]*)\}", re.IGNORECASE)
+# Used only for list endpoints that do not declare row_fields in the contract.
+LIST_TOP_LEVEL_FIELDS = {
+    "next_page", "mode", "metric_version", "prediction_variant", "evaluation_population",
+}
+DATA_POLICY = (
+    "synthetic and data-free: every value is a placeholder generated from the contract, "
+    "never a measurement, image, mask or patient-derived byte"
+)
+
+# Statuses by endpoint, agreed with the V4 client lane on 2026-10-01. Endpoints
+# that are not listed keep the historical placeholder (experiment_cases and
+# analysis_run_create are deliberately unchanged in v1.0).
+STATUS_BY_ENDPOINT = {
+    "review_create": "NOT_REVIEWED",
+    "review_patch": "FLAGGED",
+    "review_commit": "CORRECTED",  # the commit itself performs the move to CORRECTED, atomically
+    "finding_create": "OPEN",
+    "findings_list": "OPEN",
+    "finding_patch": "RESOLVED",
+    "analysis_run_get": "SUCCEEDED",
+}
+# Objects with a declared shape in field_shapes, typed only where bound.
+SHAPED_ENDPOINTS = {
+    "provenance": {"review_commit", "reviewed_masks_list"},
+}
+
+
+def param_value(token: str):
+    """Return a deterministic, non-clinical value for one URL token."""
+    values = {
+        "case_id": "CASE_0043", "run_id": "RUN_0043", "review_id": "REVIEW_0043",
+        "reviewed_mask_id": "REVIEWED_MASK_0043_R1", "study_id": "STUDY_DEMO",
+        "experiment_id": "EXP_DEMO", "finding_id": "FINDING_0043", "slice_index": 44,
+        "variant": "RAW", "experiment_ids": ["EXP_DEMO_A", "EXP_DEMO_B"],
+        "mask_id": "MASK_PROCESSED_0043",
+    }
+    return values.get(token, f"X_{token.upper()}")
+
+
+def fixture_checksum(label: str) -> str:
+    """A real sha256 of a declared fixture label, so the checksum format is exact."""
+    return "sha256:" + hashlib.sha256(f"contract11-fixture:{label}".encode("utf-8")).hexdigest()
+
+
+def metric_summary(contract: dict, n: int) -> dict:
+    """A typed placeholder summary: every case metric x every summary statistic."""
+    stats = contract["metric_rules"]["summary_statistics"]
+    return {metric: {stat: (n if stat == "n" else 0.5) for stat in stats}
+            for metric in contract["metric_rules"]["case_metric_fields"]}
+
+
+# DR-017 (INT-12: hidden, not blinded). The evaluated WITHHELD case counts in every
+# cohort number, so the default population is five cases and all five succeeded; the
+# case's own row carries no value. EVALUATED_CASE_IDS is that population, in served order.
+EVALUATED_CASE_IDS = ["CASE_0002", "CASE_0003", "CASE_0004", "CASE_0005", "CASE_0001"]
+FAILED_CASE_ID = "CASE_0006"  # only in the `with_failure` scenarios
+
+
+def experiment_case_rows(with_failure: bool = False) -> list:
+    """Per-case rows, values only on SUCCEEDED rows.
+
+    Default: four SUCCEEDED rows and the WITHHELD INT-12 row (5 evaluated of 5). With
+    ``with_failure`` one FAILED row is added (6 intended, 5 evaluated) so a client meets
+    every case_result_status.
+    """
+    def values(dice: float, fp: int, fn: int) -> dict:
+        return {"dice": dice, "iou": round(dice / (2 - dice), 4), "false_positives": fp,
+                "false_negatives": fn, "relative_volume_error": -5.0}
+    rows = [
+        ("CASE_0002", "SUCCEEDED", None, values(0.9, 10, 10)),
+        ("CASE_0003", "SUCCEEDED", None, values(0.6, 50, 70)),
+        ("CASE_0004", "SUCCEEDED", None, values(0.6, 20, 20)),
+        ("CASE_0005", "SUCCEEDED", None, values(0.4, 90, 30)),
+        (FAILED_CASE_ID, "FAILED", "fixture failure", None),
+        ("CASE_0001", "WITHHELD", "INFERENCE_REVIEW case: ground-truth-derived values withheld (INT-12)", None),
+    ]
+    if not with_failure:
+        rows = [row for row in rows if row[0] != FAILED_CASE_ID]
+    return [{"case_id": case_id, "status": status, "reason": reason,
+             "analysis_run_id": f"RUN_{case_id[5:]}", "metric_values": metric_values}
+            for case_id, status, reason, metric_values in rows]
+
+
+def outlier_selection(rows: list) -> dict:
+    """The DR-010 outliers of the fixture rows, ranked as the server must rank them."""
+    candidates = [row for row in rows if row["status"] == "SUCCEEDED"]
+    ranked = sorted(candidates, key=lambda row: (
+        row["metric_values"]["dice"],
+        -(row["metric_values"]["false_positives"] + row["metric_values"]["false_negatives"]),
+        row["case_id"]))
     return {
-        "contract": schema["contract"],
-        "contract_version": schema["contract_version"],
-        "base_path": schema["base_path"],
-        "endpoints": [
-            {
-                "id": endpoint["id"],
-                "method": endpoint["method"],
-                "path": endpoint["path"],
-                "response_kind": endpoint["response_kind"],
-            }
-            for endpoint in schema["endpoints"]
-        ],
-        "errors": [
-            {"code": error["code"], "http_status": error["http_status"]}
-            for error in schema["errors"]
-        ],
-        "geometry": {
-            "geometry_contract_version": schema["geometry_contract"]["version"],
-            "geometry_validation_status": "VALIDATED",
+        "rule_id": "DR-010", "selection_version": "dr010-outlier/v1", "experiment_id": "EXP_DEMO",
+        "prediction_variant": "RAW", "metric_name": "dice",
+        "cases": [{"case_id": row["case_id"], "analysis_run_id": row["analysis_run_id"],
+                   "metric_value": row["metric_values"]["dice"],
+                   "false_positives": row["metric_values"]["false_positives"],
+                   "false_negatives": row["metric_values"]["false_negatives"]} for row in ranked[:3]],
+    }
+
+
+def field_value(field: str, contract: dict, endpoint_id: Optional[str] = None):
+    """Return a typed placeholder determined by a contract field name (and endpoint)."""
+    geometry_version = contract["geometry_contract"]["version"]
+    checksum = fixture_checksum(endpoint_id or field)
+    if field == "status" and endpoint_id in STATUS_BY_ENDPOINT:
+        return STATUS_BY_ENDPOINT[endpoint_id]
+    if field == "mode" and endpoint_id == "case_list":
+        return None  # the echo of the mode filter; the fixture request applies none
+    if field == "experiment_id" and endpoint_id in {"experiment_get", "experiment_list"}:
+        return param_value("experiment_id")  # the requested id, echoed
+    if field == "reviewed_mask_id" and endpoint_id == "review_commit":
+        return "REVIEWED_MASK_0043_R2"  # a commit answers a NEW version, never a listed one
+    if field == "reviewed_mask_id" and endpoint_id == "reviewed_masks_list":
+        return "REVIEWED_MASK_0043_R1"
+    if field == "provenance" and endpoint_id in SHAPED_ENDPOINTS["provenance"]:
+        second = endpoint_id == "review_commit"
+        return {
+            "review_id": "REVIEW_0043", "case_id": "CASE_0043", "run_id": "RUN_0043",
+            "source_mask_id": "RAW_PREDICTION_ARTIFACT_ID_0043", "source_mask_kind": "RAW_PREDICTION",
+            "prediction_variant": "RAW", "version": 2 if second else 1,
+            "parent_reviewed_mask_id": "REVIEWED_MASK_0043_R1" if second else None,
+            "created_at": "2026-10-01T00:00:00Z", "reviewer_id": None,
+        }
+    if endpoint_id == "experiment_metrics" and field in {"evaluation_n", "successful_n"}:
+        return len(EVALUATED_CASE_IDS)  # 5 evaluated of 5: the WITHHELD case counts (DR-017)
+    if endpoint_id == "experiment_metrics" and field == "metric_summary":
+        return metric_summary(contract, len(EVALUATED_CASE_IDS))
+    if endpoint_id == "experiment_compare" and field == "summary":
+        return {experiment_id: metric_summary(contract, len(EVALUATED_CASE_IDS))
+                for experiment_id in param_value("experiment_ids")}
+    if endpoint_id == "experiment_compare" and field == "common_evaluation_population":
+        return sorted(EVALUATED_CASE_IDS)  # includes CASE_0001 (DR-017), as the server sorts by case number
+    if endpoint_id == "experiment_compare" and field == "compatibility_reason":
+        return None
+    values = {
+        "geometry_contract_version": geometry_version,
+        "geometry_validation_status": "GEOMETRY_NOT_VALIDATED",
+        "shape": [576, 576, 88], "index_convention": contract["geometry_contract"]["index_convention"],
+        "spacing": [1.0, 1.0, 1.0], "origin": [0.0, 0.0, 0.0],
+        "direction": [1, 0, 0, 0, 1, 0, 0, 0, 1], "slice_index": 44,
+        "revision": 1, "working_revision": 1, "etag": 'W/"revision-1"',
+        "status": "IN_PROGRESS", "checksum": checksum,
+        "content_url": f"{contract['base_path']}/artifacts/{checksum.split(':', 1)[1]}.png",
+        "media_type": contract["binary_delivery"]["media_type"],
+        "prediction_variant": "RAW", "comparable": True, "metric_state": "NOT_APPLICABLE",
+        "metric_value": None, "items": [], "next_page": None,
+        "mode": "EVALUATION", "mode_capability": "EVALUATION", "ground_truth_available": True,
+        "aggregation_level": "CASE_3D", "precomputed": True, "attempt_no": 1,
+        "failure_code": None, "failure_reason": None,
+        "source_mask_id": "RAW_PREDICTION_ARTIFACT_ID_0043", "source_mask_kind": "RAW_PREDICTION",
+        "finding_type": "UNDER_SEGMENTATION", "region_reference": None,
+        "mesh_to_world_transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        "dataset": {"dataset_id": "DATASET_FIXTURE", "name": "fixture dataset", "version": "fixture"},
+        "case_counts": {"total": 2, "EVALUATION": 1, "INFERENCE_REVIEW": 1},
+        "capabilities": {
+            "ground_truth_evaluation": True, "inference_review": True, "reconstruction_3d": True,
+            "review": True, "live_analysis": False,
+        },
+        "experiment_summary": {"status": "UNAVAILABLE", "experiment_ids": [], "reason": "FIXTURE"},
+        "metric_values": {
+            "dice": 0.5, "iou": 0.25, "false_positives": 100, "false_negatives": 200,
+            "relative_volume_error": -10.0,
+        },
+        "worst_slice_selection": {
+            "rule_id": contract["selection_rules"]["worst_slice_selection"]["rule_id"],
+            "selection_version": contract["selection_rules"]["worst_slice_selection"]["selection_version"],
+            # Ranked as the server must rank them (DR-010): Dice ascending, then
+            # FP+FN descending, then slice_index ascending.
+            "slices": [
+                {"slice_index": 44, "dice": 0.25, "false_positives": 30, "false_negatives": 10},
+                {"slice_index": 12, "dice": 0.25, "false_positives": 5, "false_negatives": 5},
+                {"slice_index": 60, "dice": 0.5, "false_positives": 1, "false_negatives": 2},
+            ],
+        },
+        "provenance": {"source": "contract-generated-fixture"},
+        "evidence": {
+            "study_id": "STUDY_DEMO", "experiment_id": "EXP_DEMO", "case_id": "CASE_0043",
+            "analysis_run_id": "RUN_0043", "prediction_variant": "RAW", "slice_index": 44,
+            "region_reference": None,
+        },
+        "mask_payload": {"encoding": "BITPACK_BASE64", "data": "<base64 of Ny*Nx bits, row-major, MSB first>"},
+        "summary": {"status": "fixture"},
+    }
+    if field in values:
+        return values[field]
+    if field.endswith("_id"):
+        return f"{field.upper()}_0043"
+    if field.endswith("_ids"):
+        return [f"{field.upper()}_0043"]
+    return f"{field}_fixture"
+
+
+def tokens_for(path: str) -> List[str]:
+    return TOKEN.findall(path)
+
+
+def request_for(endpoint: dict, contract: dict) -> dict:
+    params = {token: param_value(token) for token in tokens_for(endpoint["path"])}
+    body = None
+    if endpoint.get("request_fields"):
+        body = {field: field_value(field, contract, endpoint["id"]) for field in endpoint["request_fields"]}
+        if endpoint.get("revision_required"):
+            body["expected_revision"] = 1
+    return {"params": params, "body": body}
+
+
+def success_data(endpoint: dict, contract: dict) -> dict:
+    fields = endpoint.get("response_fields", [])
+    endpoint_id = endpoint["id"]
+    data: dict = {}
+    if "items" in fields:
+        declared_rows = endpoint.get("row_fields")
+        row = {}
+        for field in fields:
+            if field == "items":
+                continue
+            is_row = field in declared_rows if declared_rows is not None else field not in LIST_TOP_LEVEL_FIELDS
+            if is_row:
+                row[field] = field_value(field, contract, endpoint_id)
+            else:
+                data[field] = field_value(field, contract, endpoint_id)
+        data["items"] = [row]
+    else:
+        data = {field: field_value(field, contract, endpoint_id) for field in fields}
+    if endpoint.get("geometry_response"):
+        for field in contract["geometry_contract"]["required_response_fields"]:
+            data[field] = field_value(field, contract, endpoint_id)
+    return data
+
+
+def error_response(code: str, errors_by_code: dict) -> dict:
+    error = errors_by_code[code]
+    return {
+        "status": error["http_status"],
+        "error": {
+            "code": code, "message": error["message_template"],
+            "request_id": "req_fixture_0001", "details": None,
         },
     }
+
+
+def generate_fixture(contract: dict) -> dict:
+    """Generate one complete bundle from the accepted Contract 11 instance."""
+    errors_by_code = {error["code"]: error for error in contract["errors"]}
+    scenarios = {}
+    for endpoint in contract["endpoints"]:
+        endpoint_id = endpoint["id"]
+        request = request_for(endpoint, contract)
+        default_data = success_data(endpoint, contract)
+        if endpoint_id == "case_list":
+            # One row per mode, so a list screen meets both from day one.
+            inference_row = dict(default_data["items"][0])
+            inference_row.update({
+                "case_id": "CASE_0044", "mode_capability": "INFERENCE_REVIEW", "ground_truth_available": False,
+            })
+            default_data["items"].append(inference_row)
+        if endpoint_id == "analysis_run_metrics":
+            default_data["metric_state"] = "COMPUTED"
+        if endpoint_id == "experiment_list":
+            # 08 section 2: RAW experiments and the PROCESSED ablation share one list.
+            default_data["items"].append({"experiment_id": "EXP-D-PP", "prediction_variant": "PROCESSED"})
+        if endpoint_id == "experiment_cases":
+            rows = experiment_case_rows()
+            default_data = {"items": rows, "metric_version": field_value("metric_version", contract, endpoint_id),
+                            "prediction_variant": "RAW", "outlier_selection": outlier_selection(rows)}
+        endpoint_scenarios = {
+            "default": {"request": request, "response": {"status": 200, "data": default_data}},
+            "error_case": {
+                "request": request,
+                "response": error_response(endpoint["errors"][0], errors_by_code),
+            },
+        }
+        if "items" in endpoint.get("response_fields", []):
+            # A real backend answers an empty page (no findings yet, a filter
+            # that matches nothing): top-level fields present, items empty.
+            empty = {key: value for key, value in default_data.items() if key != "items"}
+            empty["items"] = []
+            if "outlier_selection" in empty:
+                empty["outlier_selection"] = dict(empty["outlier_selection"], cases=[])
+            endpoint_scenarios["empty"] = {"request": request, "response": {"status": 200, "data": empty}}
+        if endpoint_id == "experiment_metrics":
+            # One FAILED case: 6 intended, 5 evaluated (the WITHHELD case still counts).
+            data = json.loads(json.dumps(default_data))
+            data["evaluation_n"] = len(EVALUATED_CASE_IDS) + 1
+            endpoint_scenarios["with_failure"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
+        if endpoint_id == "experiment_cases":
+            rows = experiment_case_rows(with_failure=True)
+            data = dict(default_data, items=rows, outlier_selection=outlier_selection(rows))
+            endpoint_scenarios["with_failure"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
+        if endpoint_id == "experiment_get":
+            # EXP-D-PP: the post-processing ablation is served as PROCESSED (08 section 2).
+            processed = dict(default_data, experiment_id="EXP-D-PP", prediction_variant="PROCESSED",
+                             postprocessing_version="morphology-fixture")
+            endpoint_scenarios["processed_variant"] = {
+                "request": {"params": {"experiment_id": "EXP-D-PP"}, "body": None},
+                "response": {"status": 200, "data": processed},
+            }
+        if endpoint_id in {"ground_truth_slice_get", "analysis_slice_metrics", "analysis_run_metrics"}:
+            endpoint_scenarios["ground_truth_unavailable"] = {
+                "request": request,
+                "response": error_response("GROUND_TRUTH_UNAVAILABLE", errors_by_code),
+            }
+        if endpoint_id in {"prediction_slice_get", "analysis_slice_metrics"}:
+            endpoint_scenarios["run_not_succeeded"] = {
+                "request": request,
+                "response": error_response("RUN_NOT_SUCCEEDED", errors_by_code),
+            }
+        if endpoint_id in {"review_patch", "working_mask_put", "review_commit"}:
+            endpoint_scenarios["stale_revision"] = {
+                "request": request,
+                "response": error_response("STALE_REVISION", errors_by_code),
+            }
+        if endpoint_id == "review_patch":
+            endpoint_scenarios["invalid_transition"] = {
+                "request": request,
+                "response": error_response("INVALID_REVIEW_TRANSITION", errors_by_code),
+            }
+        if endpoint_id == "analysis_run_get":
+            for name, status in (("run_running", "RUNNING"), ("run_failed", "FAILED")):
+                data = dict(default_data)
+                data["status"] = status
+                if status == "FAILED":
+                    data["failure_code"] = "ANALYSIS_FAILED"
+                    data["failure_reason"] = "fixture failure"
+                endpoint_scenarios[name] = {
+                    "request": request, "response": {"status": 200, "data": data},
+                }
+        if endpoint_id == "case_get":
+            # INT-12 / PR-MODE-01: the inference & review capability, explicit.
+            data = dict(default_data)
+            data.update({"mode": "INFERENCE_REVIEW", "ground_truth_available": False})
+            endpoint_scenarios["inference_review"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
+        if endpoint_id == "analysis_run_metrics":
+            data = json.loads(json.dumps(default_data))
+            data["worst_slice_selection"]["slices"] = []
+            endpoint_scenarios["no_eligible_slices"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
+        if endpoint_id == "reconstruction_get":
+            endpoint_scenarios["geometry_mismatch"] = {
+                "request": request,
+                "response": error_response("GEOMETRY_MISMATCH", errors_by_code),
+            }
+        if endpoint_id == "experiment_compare":
+            endpoint_scenarios["not_comparable"] = {
+                "request": request,
+                "response": error_response("NON_COMPARABLE_EXPERIMENTS", errors_by_code),
+            }
+        scenarios[endpoint_id] = endpoint_scenarios
+
+    return {
+        "bundle": "api_contract_11_fixture_bundle", "bundle_version": "v0",
+        "generated_by": "contracts/api/generate_fixture.py",
+        "generated_command": (
+            "python contracts/api/generate_fixture.py --contract contracts/api/contract.json "
+            "--output app/core/fixtures/.generated/api_bundle.json"
+        ),
+        "data_policy": DATA_POLICY,
+        "contract": contract["contract"], "contract_version": contract["contract_version"],
+        "base_path": contract["base_path"],
+        "endpoints": [
+            {"id": e["id"], "method": e["method"], "path": e["path"], "response_kind": e["response_kind"]}
+            for e in contract["endpoints"]
+        ],
+        "errors": [{"code": e["code"], "http_status": e["http_status"]} for e in contract["errors"]],
+        "geometry": {
+            "geometry_contract_version": contract["geometry_contract"]["version"],
+            "geometry_validation_status": "GEOMETRY_NOT_VALIDATED",
+        },
+        "scenarios": scenarios,
+    }
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    here = Path(__file__).resolve().parent
+    parser = argparse.ArgumentParser(description="Generate the Contract 11 fixture bundle")
+    parser.add_argument("--contract", type=Path, default=here / "contract.json")
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    contract = json.loads(args.contract.read_text(encoding="utf-8"))
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(generate_fixture(contract), indent=2) + "\n", encoding="utf-8")
+    print(f"generated {args.output} from {args.contract}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

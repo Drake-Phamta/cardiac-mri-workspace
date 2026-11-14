@@ -404,6 +404,10 @@
         "mode_capability": {
           "enum": ["EVALUATION", "INFERENCE_REVIEW"]
         },
+        "ground_truth_withheld": {
+          "type": "boolean",
+          "description": "v1.0 / INT-12: true when the source package carries a reference mask that the product deliberately does not ingest. Requires mode_capability INFERENCE_REVIEW and ground_truth_mask null."
+        },
         "volume_id": {
           "type": "string",
           "pattern": "^VOL_[A-Za-z0-9._-]+$"

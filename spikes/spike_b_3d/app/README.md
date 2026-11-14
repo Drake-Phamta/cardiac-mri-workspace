@@ -27,3 +27,10 @@ and diagnostic only. `node app/test_picking.mjs` casts the 13 canonical fixture
 rays into this level-0 mesh and requires the exact expected slice for each.
 That verifies B3/B4's desktop fixture path only; B5/B6 on a real mesh and
 B10/B11 still require the declared Galaxy A17 run.
+
+The **run 30 s device probe** button waits three seconds, records a 30-second
+`requestAnimationFrame` interval trace while the operator orbits/pans/pinch-zooms,
+then downloads raw JSON. Run `node app/test_performance.mjs` to verify its
+nearest-rank summaries. Follow [`../MEASUREMENT_B10_B11.md`](../MEASUREMENT_B10_B11.md)
+for the physical-device protocol; an Android Studio emulator is useful for
+debugging only and cannot be used as B10/B11 evidence.

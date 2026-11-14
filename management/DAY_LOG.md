@@ -11,6 +11,8 @@
 **Mốc cố định:** `Day 1 = 2026-09-10` · **`Day 30 = 2026-10-09` — KHÔNG lùi.**
 Ngày mất **ăn vào buffer**, không đẩy hạn.
 
+> **Cập nhật 18/10/2026:** Day 30 (09/10) đã qua. Leader quyết **hạn nghiệm thu mới 31/10/2026** (Day 52); kế hoạch tại `management/day40/REPLAN_TO_2026-10-31.md`.
+
 | Chỉ số | Giá trị |
 |---|---|
 | Ngày hôm nay | **Day 11 — 2026-09-20** |
@@ -27,7 +29,144 @@ Ngày mất **ăn vào buffer**, không đẩy hạn.
 
 ---
 
-## DAY 11 — 2026-09-20 · `ĐANG MỞ` — ngày mở van
+## DAY 39 — 2026-10-18 · **`OVERRIDE MỘT NGÀY`** — **có kết quả thật**: GATE-IMG-01 đóng, holdout DINOv2, E2E 22 PASS / 0 FAIL, khung 3D
+
+Leader dùng override một ngày ([`day39/RECOVERY_OVERRIDE_DAY39.md`](day39/RECOVERY_OVERRIDE_DAY39.md)): agent làm thay mọi khối **trừ train**, merge sau QA độc lập bằng LLM + CI. Ba bạn vắng. Mục làm thay nằm trong [`day39/POST_RECOVERY_REVALIDATION_DAY40.md`](day39/POST_RECOVERY_REVALIDATION_DAY40.md).
+
+| Mảng | Kết quả | Bằng chứng |
+|---|---|---|
+| **PR tồn đọng** | #85, #86, #89 merge thường (approval của Vũ Hùng Anh ngày 02/10); #87, #88, #90 merge sau QA LLM | `ed7ea15`, `e3417ba`, `2156d24`, `b719cb1`, `7acc260`, `66a428c` |
+| **GATE-IMG-01** | **CLOSED** theo luật khai trước (#91): PP-4 thắng trên validation EXP-D-100 (0,5930 so với raw 0,5712); config đóng băng `c0a68cc7…`; QA tính lại độc lập khớp từng bit | #92 `a3c3904`, #93 `f08968a` |
+| **Holdout** | suy luận 3 run DINOv2 + EXP-D-PP, đánh giá, 4 so sánh, 4 gói Contract 2 (validator PASS), mỗi run một lần, 07:22–07:36 | `day39/RESULTS_HOLDOUT_DINOV2.md` (#96) |
+| **Kết quả** | Dice 3D trung bình (n = 54): 25 % 0,558 · 50 % 0,616 · 100 % 0,639 · PP-4 0,659. 25→100 %: +0,081 [+0,047; +0,118]; PP-4: +0,020 [+0,015; +0,026] | như trên |
+| **Contract + backend** | DR-017, N-b/N-c, QA-075 N-7, validator DR-018, DR-022 (74 case) | #94 `01bed7b` |
+| **E2E** | hero flow mức API trên dữ liệu thật: 20 PASS / 0 FAIL / 3 SKIP buổi sáng; **22 PASS / 0 FAIL / 1 SKIP** sau khung 3D (bước SKIP: UNet) | #95, #98 |
+| **3D** | khung V2 SCR-05: backend phục vụ 289 mesh L0; SCR-05 WebGL2 trong WebView, chạm → lát → mở SCR-03; deploy đóng gói `backend/mesh` (QA bắt lỗi chặn B-1) | #98 `a3bc595` |
+| **Kế hoạch** | hạn mới 31/10; kế hoạch bốn chặng; gói Day 40 và bảng | `day40/` |
+
+**Ghi đúng như thấy:**
+- Từ 02/10 tới 17/10 nhóm gần như không hoạt động trên repo: chỉ có #90 (Khánh, 04/10) và ba approval của Hùng Anh (02/10). Day 23 được giữ mở theo luật của leader rồi đóng ở trạng thái **MISSED** cho phần của ba bạn.
+- Thư mục `node_modules` dùng chung trong scratch đã mất trong hai tuần; cài lại từ lockfile.
+- Họ UNet vẫn chưa train, nên **RQ-A (UNet vs DINOv2) chưa trả lời được**.
+- Chưa có số đo nào trên thiết bị trong ngày (không có điện thoại).
+
+---
+
+## DAY 22 — 2026-10-01 · **`OVERRIDE MỘT NGÀY`** — **bắt kịp phần lớn**: cả 3 cổng đóng, Spike A và Spike B ACCEPTED, 34 PR merge
+
+Leader dùng override một ngày ([`day22/RECOVERY_OVERRIDE_DAY22.md`](day22/RECOVERY_OVERRIDE_DAY22.md)).
+- Agent của leader làm thay trong mọi khối.
+- Mỗi merge được thay duyệt của người thứ hai bằng **QA độc lập bằng LLM** (CHAT E) cộng CI xanh.
+- **Quyền sở hữu không chuyển.** Mọi mục làm thay nằm trong [`day22/POST_RECOVERY_REVALIDATION_DAY23.md`](day22/POST_RECOVERY_REVALIDATION_DAY23.md) để chủ khối duyệt lại ngày 02/10.
+- Bản QA nằm trong [`day22/qa/`](day22/qa/).
+
+| Mảng | Kết quả | Bằng chứng |
+|---|---|---|
+| **Cổng** | `GATE-SPLIT-01` **CLOSED** 11:16 (QA-005) · `GATE-ML-01` **CLOSED** 14:30 (C1 QA PASS WITH NOTES) · `GATE-MOB-01` **CLOSED** 21:17 theo quyết định rõ của leader (nhận L5; L4 PASS trên app sản phẩm) | `f5aa763`, `44350d4`, `3c02fd2`, `f06cf6d` |
+| **Spike C1** | Chạy trên dữ liệu thật, 12:14–13:23. C1-1…C1-10 có bằng chứng máy; cả hai họ hội tụ. **ADR-ML-001 ACCEPTED**: 560×560, batch 8, E = 50 | #79 → `3c02fd2` |
+| **Train** | Hàng đợi DINOv2 chạy từ 14:30 trên PC leader (DR-016). **EXP-D-025 xong lúc 17:15**: 50 epoch, epoch tốt nhất 32. Trên **validation** (20 case, độ phân giải gốc, `ml-eval-1.0.0`): Dice 3D trung bình 0,570, trung vị 0,600, 0 case lỗi. Đây là số để chọn mô hình, **không phải kết quả**. PC khởi động lại lúc khoảng 20:42 (giờ thật), làm dừng EXP-D-100 ở epoch 10. Hàng đợi chạy tiếp từ `last.pt` lúc khoảng 20:46. Từ lúc đó đồng hồ PC chậm khoảng 66 phút, nên giờ trong log train sau đó bị lệch | ngoài git |
+| **Thử end-to-end** | Chuỗi `ml/evaluate` → gói Contract 2 → backend → API chạy được trên dự đoán thật của EXP-D-025, khi nới luật quần thể trong bộ nhớ: 7/7 endpoint hợp lệ với contract 1.1.0; 20/20 run `COMPUTED`; worst-slice đúng luật đã ghim. Chặn còn lại: gói thật chỉ có thể là FINAL_HOLDOUT (sau GATE-IMG-01), và backend chưa có 54 case holdout | `day22/qa/E2E_PROOF_EXP_D_025.md` |
+| **ML pipeline** | data/models (#60), eval + export Contract 2 (#64), train/queue/infer (#70) | `b606295`, `440dab1`, `2f62923` |
+| **Contract + backend** | API contract v1.0 → 1.1.0 (#62, #71); backend FastAPI + SQLite (#68); metrics (#75). Deploy Mac mini 12:59, redeploy 15:07 | `dbee96d`, `9ba01e8`, `a7b4950`, `985c9c3` |
+| **Mô hình vertical** | V1 SCR-03 (#53, #80) · V3 (#61, sau 3 vòng QA) · V4 (#63) | `6b52628`, `c7a37e0`, `d6441bc`, `254044a` |
+| **Spike A** | S6 (#41), S8 đã có; QA-004: chưa ACCEPTED theo luật nguyên văn (L4, L5). L4 đo PASS trên app lúc 20:58; leader nhận L5 lúc 21:17 → **ACCEPTED-WITH-LIMITATIONS L1–L3, L5** | `a524b25`, QA-004 §7, #82 → `f06cf6d` |
+| **Spike B** | B10/B11 trong WebView của app RN (#44); frontier mesh thật B5/B9/B12 offline (#66); phiên S-1 tối nay: Spike B: 5 mức × 3 lượt đều 59,9 FPS, nhưng chỉ **L0** đạt B6 trên máy, nên **DR-008c = L0**. **Spike B ACCEPTED** 21:22 theo luật khai trước, sau QA final của CHAT E; B15 là ngoại lệ được ghi, chủ spike viết trước 10:00 ngày 02/10 | `8a94172`, `e5ccd38`, #73 → `40b1316` |
+| **Mobile** | Shell + V1 SCR-02/03/04 (#77, #78) và V3 SCR-01/07 (#69) **merge sau khi cổng đóng**; #65 đóng vì #77 thay thế. APK live chạy trên A17 sau khi sửa lỗi văng `latin1` trên Hermes (`ffbf763`) | `cab847a`, `92a59ff`, `f5d5384` |
+| **Quyết định của leader (21:17)** | GATE-MOB-01: nhận L5, đóng cổng · DR-016a: xác nhận (E = 50 cho cả 6 run; 4050 hỏng thì lịch trễ, công thức không đổi) | `OPEN_DECISIONS.md` |
+
+**Ghi đúng như thấy:**
+- Run C1 lần 1 chết lúc 12:11 vì cạn bộ nhớ commit trên PC dùng chung. Luật tài nguyên cho agent được đặt ngay sau đó.
+- Phiên làm việc chạm giới hạn sử dụng lúc khoảng 13:20 và chỉ chạy tiếp được sau 14:00.
+- QA bắt được các lỗi chặn thật trước khi merge, chẳng hạn:
+  - #60: autocast và đường dẫn;
+  - #68: đường dẫn máy và địa chỉ trong commit;
+  - #70: split chưa ghim, train được trên một case holdout;
+  - #61 B-4: case INT-12 có số qua đường outlier;
+  - #77: một judge L4 có thể PASS mà không đo gì.
+- DR-016a được ghi **sau** khi hàng đợi DINOv2 đã chạy, không trước như QA khuyên. Leader xác nhận lúc 21:17.
+- PC leader khởi động lại lúc khoảng 20:42; hàng đợi chạy lại từ `last.pt`. Sau đó đồng hồ PC chậm khoảng 66 phút (dịch vụ Windows Time tắt), nên bằng chứng buổi tối dùng giờ điện thoại và máy chủ.
+- Hàng đợi bị một Ctrl+C dừng lúc khoảng 20:59 trong epoch 12 của EXP-D-100; chạy lại lúc 21:30 từ `last.pt` (epoch 11), lần này tách khỏi mọi console. EXP-D-100 dự kiến xong khoảng **04:00**, EXP-D-050 khoảng **08:00–09:00** sáng 02/10.
+- APK live đầu tiên (`0bfaba3`) văng khi khởi động trên Hermes; L4 chỉ đo được sau bản sửa `ffbf763`.
+- Phiên L4 do phiên Claude của leader điều khiển điện thoại qua adb, theo yêu cầu của leader; ghi trong `PROVENANCE.md`.
+
+---
+
+## DAY 21 — 2026-09-30 · ❌ **`TRƯỢT` — không có hoạt động nào trong repo**
+
+Không commit, không review, không PR mới. Ngày mất ăn vào buffer. Leader quyết định override cho Day 22
+sáng 01/10 — [`day22/RECOVERY_OVERRIDE_DAY22.md`](day22/RECOVERY_OVERRIDE_DAY22.md).
+
+---
+
+## DAY 20 — 2026-09-29 · **`RÀ SOÁT LẠI TOÀN DỰ ÁN`** — verdict **DAY30 OUTCOME AT RISK**
+
+**Bản rà soát:** [`day20/DAY20_REBASELINE.md`](day20/DAY20_REBASELINE.md) · đăng lên bảng nhóm qua **#57**
+(`896c11a`, 22:00). Kết luận đọc từ repo, không từ trí nhớ: `MUST` **0/33** đã nghiệm thu · chưa có mã sản
+phẩm nào trên `main` · **0** lần train ML thật · `GATE-SPLIT-01`, `GATE-ML-01`, `GATE-MOB-01` còn mở · Day
+16–19 **0 hoạt động**. Không có việc kỹ thuật nào trong ngày.
+
+---
+
+## DAY 16–19 — 2026-09-25 → 2026-09-28 · ❌ **`TRƯỢT` ×4 — không có hoạt động nào trong repo**
+
+Bốn ngày liền 0 commit, 0 review. Không có kế hoạch ngày, không có bản chốt. Ghi lại để buffer phản ánh đúng.
+
+---
+
+## DAY 15 — 2026-09-24 · ❌ **`TRƯỢT` — override một ngày, không merge nào**
+
+Override Day 15 được ghi ([`day15/RECOVERY_OVERRIDE_DAY15.md`](day15/RECOVERY_OVERRIDE_DAY15.md)) nhưng
+**không có merge hay chuyển cổng nào** dưới nó; nó hết hạn 23:59 và chỉ được đóng trên giấy ngày 01/10.
+Sản phẩm duy nhất: commit chuẩn bị C1 cục bộ `8501906` (preflight, kiểm subset, dự báo lịch) — lên `main`
+qua **#59** ngày 01/10 sau khi QA bắt được và sửa ba lỗi chặn. Thêm: kịch bản thuyết trình **#56** (`2c8399b`, còn mở).
+
+---
+
+## DAY 14 — 2026-09-23 · ❌ **`TRƯỢT` — 0 commit, 0 review**
+
+Ngày buổi tư vấn môn APP. Không có hoạt động nào trong repo.
+
+---
+
+## DAY 13 — 2026-09-22 · ❌ **`TRƯỢT`** — chỉ việc thuyết trình
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| Phạm Tuấn Anh | Gói thuyết trình cho buổi tư vấn 23/09 | `8e49967`, `c98ff50`, `d742414` (nhánh tài liệu) |
+| Vũ Hùng Anh | Xem trước Marching Cubes cho Spike B | **#55** (`aad2af4`, nháp, còn mở) |
+
+Không merge nào; critical path đứng yên.
+
+---
+
+## DAY 12 — 2026-09-21 · ❌ **`TRƯỢT`** — có việc thật nhưng **không lên `main`**
+
+| Ai | Việc | Bằng chứng |
+|---|---|---|
+| Bế Quốc Khánh | Sinh lại split Path A trên manifest đã merge — #35 hết nháp | `7b72ce8` (08:35) |
+| Bế Quốc Khánh | Follow-up QA-003 F12/F13 | **#54** (`f7ccafc`) — **giữ lại tới Day 30**, vì nó đổi hash `dataset_manifest.json` mà #35 ghim |
+| Vũ Hùng Anh | Diễn giải `B10`/`B11` vào `RESULT.md` Spike B | `62d39de` (#44) |
+
+Không ai duyệt, nên không có gì merge. Cả hai việc chỉ lên `main` ngày 01/10 (#35 → `f5aa763`, #44 → `8a94172`).
+
+---
+
+## DAY 11 — 2026-09-20 · ❌ **`TRƯỢT` 0/4** — chốt muộn, trên giấy, ngày 01/10
+
+Không bản chốt nào được viết đúng ngày. Đối chiếu bốn điều kiện của [`day11/DAY11_PLAN.md`](day11/DAY11_PLAN.md):
+
+| # | Điều kiện | Kết quả |
+|---|---|---|
+| 1 | M5 có mã trên `main` (#48 + #50 + #51 + #52) | ❌ — chỉ merge ngày 01/10 |
+| 2 | Spike A `EVIDENCE_READY` (#41 + #49) | ❌ — merge ngày 01/10 |
+| 3 | Spike A `ACCEPTED` | ❌ — QA-004 chạy ngày 01/10; quyết định treo tới khi đo `L4` |
+| 4 | `GATE-SPLIT-01` `CLOSED` | ❌ — đóng ngày 01/10 11:16 |
+
+Việc thật trong ngày: mô hình V1 `SCR-03` (**#53**, `ea5bf32`) và sửa generator (`22876b0`, #50).
+
+---
+
+## DAY 11 — kế hoạch đã đặt ra lúc đầu ngày (ngày mở van)
 
 **Kế hoạch:** [`day11/DAY11_PLAN.md`](day11/DAY11_PLAN.md) · **Gói từng người:** [`day11/tasks/`](day11/tasks/)
 

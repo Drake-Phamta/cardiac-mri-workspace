@@ -6,12 +6,13 @@
 | Owned vertical | V3 — Experiment / Cohort Analysis |
 | Technical block | Dataset audit, split/subset, ML training/evaluation |
 | Secondary reviewer | Vũ Hùng Anh |
-| Prepared | 2026-09-17 (Day 8) |
+| Prepared | 2026-09-17 (Day 8); evidence index refreshed 2026-10-29 |
 | Package status | **IN PROGRESS — not yet a TC-TEAM-001 PASS** |
 
-This is the durable evidence index required by `10` §10, `14` §4 and `TC-TEAM-001`. It distinguishes work
-already evidenced from future V3 mobile implementation. Supporting dataset/ML work is not mislabeled as a
-finished mobile function.
+This is the durable evidence index required by `10` §10, `14` §4 and `TC-TEAM-001`. This refresh corrects old
+statements that V3 and the dataset/split work were still unimplemented. Project evidence does not by itself
+prove which steps Khánh personally executed; Khánh must verify personal attribution and provide the missing
+owner/device evidence before this package can pass.
 
 ## 1. Requirement and use-case ownership
 
@@ -69,8 +70,8 @@ Design rationale:
 - status text accompanies color, and unavailable/invalid states cannot look like a score of zero;
 - compact cards serve portrait; charts and the evidence table may use landscape.
 
-Required states remain to be implemented and tested: loading, legitimate unavailable, processing,
-recoverable failure/retry, invalid-data blocking and stale-version mismatch.
+The state matrix below is the acceptance target. The model and screen logic implement several of these states;
+target-device verification and the full owner acceptance record remain open.
 
 Design-state matrix (requirements for the future UI, **not** observed app behavior):
 
@@ -110,26 +111,33 @@ must be represented as unavailable states rather than bypassed.
 
 Current architecture evidence:
 
-- dataset audit and generated manifest: PR #34 (`8437526`, `f6ede8f`, `aaccae6`);
-- correlation grouping/exclusion and nested effective subsets: PR #35 (current draft head; final merged
-  commit and manifest hash must replace this pointer before C1);
+- dataset audit and generated manifest: PR #34 (merged; `management/spikes/SPIKE_D_DATASET/RESULT.md`);
+- correlation grouping/exclusion and nested effective subsets: PR #35 (merged; `management/spikes/SPIKE_C_SPLIT/`);
 - measured C0 feasibility and generated report: merged PR #36;
-- synthetic pipeline/reload skeleton: PR #37;
-- QA-002 validator hardening: PR #40;
+- synthetic pipeline/reload skeleton: PR #37 (merged);
+- QA-002 validator hardening: PR #40 (merged);
+- V3 model and SCR-01/SCR-07: PR #61 and PR #69 (merged);
+- DINOv2 holdout aggregates and PP-4 ablation: PR #96 (merged; aggregate results only);
+- UNet queue, training kit and authorization/export tooling: PR #100 (merged). This is tooling evidence, not
+  evidence that any EXP-U run has completed.
 - C1 execution design: `management/spikes/SPIKE_C_ML/C1_MEASUREMENT_PLAN.md`.
 
 ## 4. Implementation PR and commit evidence
 
 | Evidence | Contribution | Status |
 |---|---|---|
-| PR #34 | Repairs and narrows public Spike D evidence under F5 | ready; external review pending |
-| PR #35 | Predeclared threshold, groups, holdout-linked exclusions, 20/38/78 effective subsets | draft; dependent on #34 final manifest and review of screening-method counts |
-| PR #36 | C0 measurement and calendar evidence | merged |
-| PR #37 | One-epoch synthetic pipeline, checkpoint reload proof | ready; external review pending |
-| PR #40 | Eight validator hardening regressions | merged after external review |
+| PR #34 / #35 | Dataset audit and split safeguards, including correlation grouping and nested effective subsets | merged; see each PR's review/evidence record |
+| PR #36 / #37 / #40 | C0 measurement, synthetic pipeline/checkpoint reload, validator hardening | merged |
+| PR #61 / #69 | Framework-neutral V3 models and SCR-01/SCR-07 screens | merged; target-device/live-data acceptance remains open |
+| PR #87 | Mobile render smoke and bundle in CI | merged; logic/render evidence, not phone evidence |
+| PR #90 | Khánh owner revalidation of earlier delegated changes | merged |
+| PR #92–#96 | PP-4 pipeline, gate, backend holdout support, API E2E and DINOv2 aggregates | merged; no UNet result included |
+| PR #100 | UNet queue, CPU tests, authorization builder and holdout pipeline | merged; run artifacts still required separately |
+| PR #105 | Day 40 post-recovery revalidation | open; leader review requested, K3/K4 depend on leader-PC evidence |
 
-**Missing for final package:** implementation PR for SCR-01/SCR-07, integration commit with the shared case
-explorer, and actual UI-vs-design comparison. Until those exist, this package cannot pass `TC-TEAM-001`.
+**Missing for final package:** Khánh's explicit review/attribution of the V3 implementation; real-backend
+SCR-01/SCR-07 and outlier-to-case evidence; target-device checks; integrated demo and secondary-reviewer
+handoff. The implementation PRs are merged, but those merges alone do not close the acceptance test.
 
 ## 5. Test and evidence record
 
@@ -140,16 +148,17 @@ Already reproducible:
 - C0 report regeneration and GPU evidence in merged #36;
 - #37 synthetic rerun: pipeline self-test PASS, probe search 8/8, variant paths 10/10, both checkpoint reloads
   exact (`max_abs_output_difference = 0.0`), no real dataset bytes read;
-- #40 validator self-test and adversarial hardening regression 8/8.
+- #40 validator self-test and adversarial hardening regression 8/8;
+- V3 model suite: 160/160 on the refreshed local checkout;
+- V3 screen logic suite: 12/12 on the refreshed local checkout;
+- mobile render smoke and Android bundle export run in CI since PR #87 (PR #105's recorded CI baseline is green).
 
 Still required for the owned mobile function:
 
-- SCR-01/SCR-07 component/state tests;
-- comparable-run rejection and version-mismatch tests;
-- intended-N/successful-N and missing-ground-truth fixtures;
-- outlier-to-case navigation integration test;
-- target-device portrait/landscape and accessibility checks;
-- canonical integrated demo evidence.
+- owner review of the implementation and test evidence, including comparison refusal behavior;
+- real-backend SCR-01/SCR-07 and outlier-to-case evidence;
+- target-device portrait, touch/accessibility and state checks on A17;
+- canonical integrated demo evidence and secondary-reviewer handoff.
 
 ## 6. Privacy and data considerations
 
@@ -179,10 +188,14 @@ Short defense path:
 
 Known limitations/trade-offs:
 
-- V3 mobile code and integrated demo do not exist yet.
-- Spike D and the split still require independent reviews/merge.
+- V3 model and mobile screens are implemented and merged; live-data/device acceptance is still pending.
+- The current project record says the UNet family has not been trained. PR #100 supplies the queue and
+  pipeline only. The approved architecture is the project's plain `UNet2D` implementation
+  (`unet_base32_depth4`), trained from scratch under ADR-ML-001; it is not the nnU-Net framework.
+- No EXP-U run manifest is present in this checkout's external `D:\cardiac-mri-workspace-data\runs` directory;
+  it currently contains queue metadata only. Runs on another machine require checking that machine's logs.
 - Patient-level separation cannot be proven from the released package.
-- C1 has not started and all real-data feasibility fields remain unmeasured.
+- K3/K4 of the owner revalidation still require leader-PC holdout logs and `metrics_summary.json` review.
 
 ## 8. Shared-core readiness
 
@@ -200,8 +213,10 @@ Git/PR/acceptance workflow. Source: `management/onboarding/practice/PRACTICE_BE_
 - [x] current test evidence indexed
 - [x] privacy/data considerations
 - [x] defense notes and limitations
-- [ ] owned V3 mobile implementation
-- [ ] V3 UI tests and target-device evidence
+- [x] V3 model and mobile implementation merged (#61/#69)
+- [x] V3 model/screen logic tests; render smoke and bundle in CI
+- [ ] owner review and personal-contribution confirmation
+- [ ] real-backend V3 UI and target-device evidence
 - [ ] integrated demo and secondary-reviewer handoff
 
 Package verdict: **IN PROGRESS**. It is ready for review as an evidence index, but not for a

@@ -1,0 +1,21 @@
+[
+  {
+    "kind": "webview_env",
+    "ts": 1789742895672,
+    "url": "http://127.0.0.1:8765/app/?mesh=synthetic&level=0&probe_sink=/probe",
+    "ua": "Mozilla/5.0 (Linux; Android 16; SM-A176B Build/BP4A.251205.006; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/152.0.7977.64 Mobile Safari/537.36",
+    "viewport": [
+      384,
+      744
+    ],
+    "dpr": 2.8125,
+    "canvases_on_page": 1,
+    "webgl2": true,
+    "gl_version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+    "glsl_version": "WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)",
+    "renderer": "Mali-G68",
+    "vendor": "ARM",
+    "max_texture_size": 8192,
+    "antialias": true
+  }
+]
