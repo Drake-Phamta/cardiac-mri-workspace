@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  forgetWorklist, pinnedOutlierSelection, readCaseRows, readExperimentCases, readExperimentChoices, rememberedWorklist,
-  rememberWorklist, WORKLIST_SORT, worklistChip, worklistRows,
+  defaultExperimentCandidates, experimentLabel, forgetWorklist, hasExperimentName, pinnedOutlierSelection, readCaseRows,
+  readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, WORKLIST_SORT, worklistChip, worklistRows,
 } from '../src/screens/v1-cases/cases.mjs';
 import { generatedBundleJson, loadContract } from './_helpers.mjs';
 
@@ -38,7 +38,7 @@ test('VW2 chips: Dice from the server, "no GT", "run failed", "not in" - a missi
   const chip = Object.fromEntries(rows.map((r) => [r.caseId, r.chip.text]));
   assert.deepEqual(chip, {
     CASE_0001: 'no GT', CASE_0002: 'Dice 0.900', CASE_0003: 'Dice 0.600', CASE_0004: 'Dice 0.600',
-    CASE_0005: 'Dice 0.400', CASE_0006: 'run failed', CASE_0007: 'not in EXP_DEMO',
+    CASE_0005: 'Dice 0.400', CASE_0006: 'run failed', CASE_0007: 'not in this experiment',
   });
   assert.ok(rows.every((r) => !/\b0(\.0+)?$/.test(r.chip.text)), 'no chip reads 0');
   assert.deepEqual(rows.map((r) => r.runId), ['RUN_0001', 'RUN_0002', 'RUN_0003', 'RUN_0004', 'RUN_0005', 'RUN_0006', null],
@@ -68,7 +68,8 @@ test('VW3 worst first: lowest Dice first, ties by FP + FN then case id - the top
 test('VW4 values for another variant than the experiment states are not shown', () => {
   const cases = readExperimentCases(scenario('experiment_cases', 'default'), { experimentId: 'EXP-D-PP', variant: 'PROCESSED', pinned });
   assert.equal(cases.ok, false);
-  assert.match(cases.problem, /^Asked for EXP-D-PP \(PROCESSED\); the server answered with RAW values, so no Dice is shown\.$/);
+  assert.equal(cases.problem, 'Asked for DINOv2 100 % · Processed; the server answered with Raw values, so no Dice is shown.',
+    'the experiment is named as people name it; its id is for the picker and Details');
   const rows = worklistRows(caseRows, cases, { experimentId: 'EXP-D-PP', sort: WORKLIST_SORT.WORST_FIRST });
   assert.ok(rows.every((r) => r.chip === null && r.outlierRank === null));
 });
@@ -88,9 +89,40 @@ test('VW5 the outlier pick is marked only under the pinned rule and version, for
 
 test('VW6 the chosen experiment and order are kept for the session', () => {
   forgetWorklist();
-  assert.deepEqual({ ...rememberedWorklist() }, { experimentId: null, sort: WORKLIST_SORT.SERVER });
+  assert.deepEqual({ ...rememberedWorklist() }, { experimentId: undefined, sort: WORKLIST_SORT.SERVER },
+    'nothing chosen yet (undefined): the screen opens on its default experiment');
+  rememberWorklist({ experimentId: null });
+  assert.equal(rememberedWorklist().experimentId, null, 'None is a choice of its own (null), so the default does not come back');
   rememberWorklist({ experimentId: 'EXP_DEMO' });
   rememberWorklist({ sort: WORKLIST_SORT.WORST_FIRST });
   assert.deepEqual({ ...rememberedWorklist() }, { experimentId: 'EXP_DEMO', sort: WORKLIST_SORT.WORST_FIRST });
   forgetWorklist();
+});
+
+test('VW7 an experiment is named as people name it: family, data fraction, variant; the id only where it is looked up', () => {
+  assert.equal(experimentLabel('EXP-D-100', 'RAW'), 'DINOv2 100 % · Raw');
+  assert.equal(experimentLabel('EXP-D-PP', 'PROCESSED'), 'DINOv2 100 % · Processed');
+  assert.equal(experimentLabel('EXP-D-025', 'RAW'), 'DINOv2 25 % · Raw');
+  assert.equal(experimentLabel('EXP-U-050', 'RAW'), 'UNet 50 % · Raw');
+  assert.equal(experimentLabel('EXP_DEMO', 'RAW'), 'EXP_DEMO · Raw', 'an id outside the matrix stays as it is');
+  assert.equal(experimentLabel('EXP-D-100', null), 'DINOv2 100 % · variant not stated');
+  assert.equal(experimentLabel('constructor', 'RAW'), 'constructor · Raw', 'no name is looked up on the object prototype');
+  assert.deepEqual(['EXP-D-100', 'EXP_DEMO', 'toString'].map(hasExperimentName), [true, false, false]);
+});
+
+test('VW8 SCR-02 opens on DINOv2 at the largest data fraction the server lists, raw before post-processed, then the others', () => {
+  const choices = (...pairs) => pairs.map(([experimentId, variant]) => ({ experimentId, variant }));
+  const live = choices(['EXP-D-025', 'RAW'], ['EXP-D-PP', 'PROCESSED'], ['EXP-D-100', 'RAW'], ['EXP-D-050', 'RAW']);
+  assert.deepEqual([...defaultExperimentCandidates(live)], ['EXP-D-100', 'EXP-D-PP', 'EXP-D-050', 'EXP-D-025'],
+    'the listed order does not matter: 100 % raw first, then 100 % post-processed, then 50 %, then 25 %');
+  assert.deepEqual([...defaultExperimentCandidates(choices(['EXP-U-100', 'RAW'], ['EXP-D-050', 'RAW']))], ['EXP-D-050', 'EXP-U-100'],
+    'DINOv2 before UNet even at a smaller fraction');
+  assert.deepEqual([...defaultExperimentCandidates(choices(['EXP-U-025', 'RAW'], ['EXP-U-100', 'RAW']))], ['EXP-U-025', 'EXP-U-100'],
+    'no DINOv2 listed: the first listed experiment, then the rest in the server\'s order');
+  assert.deepEqual([...defaultExperimentCandidates(choices(['EXP_DEMO', 'RAW'], ['EXP-D-PP', 'PROCESSED']))], ['EXP-D-PP', 'EXP_DEMO']);
+  assert.deepEqual([...defaultExperimentCandidates([])], []);
+  assert.deepEqual([...defaultExperimentCandidates(null)], []);
+  // The rule is the one SCR-01 uses (v3-study view.mjs chooseOutlierGroup): rank = fraction x 2 + 1 for raw.
+  const served = choices(['EXP-D-100', null], ['EXP-D-PP', null]);
+  assert.deepEqual([...defaultExperimentCandidates(served)], ['EXP-D-100', 'EXP-D-PP'], 'a variant the list does not state is read from the matrix');
 });

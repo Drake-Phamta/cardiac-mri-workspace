@@ -502,6 +502,49 @@ export function variantLabel(variant) {
   return typeof variant === 'string' && variant ? variant : '?';
 }
 
+/*
+ * An experiment as people name it: "DINOv2 100 % · Raw". The id (EXP-D-100) is for the picker's second line and the
+ * Details sheet. The names are the experiment matrix of spec 08 section 2 (the same table SCR-01 reads, kept here
+ * because screen folders do not import each other); an id outside it is shown as it is.
+ */
+const EXPERIMENT_NAMES = Object.freeze({
+  'EXP-U-025': Object.freeze({ family: 'UNet', fractionPct: 25, lane: 'RAW' }),
+  'EXP-U-050': Object.freeze({ family: 'UNet', fractionPct: 50, lane: 'RAW' }),
+  'EXP-U-100': Object.freeze({ family: 'UNet', fractionPct: 100, lane: 'RAW' }),
+  'EXP-D-025': Object.freeze({ family: 'DINOv2', fractionPct: 25, lane: 'RAW' }),
+  'EXP-D-050': Object.freeze({ family: 'DINOv2', fractionPct: 50, lane: 'RAW' }),
+  'EXP-D-100': Object.freeze({ family: 'DINOv2', fractionPct: 100, lane: 'RAW' }),
+  // Post-processed from the same raw predictions as EXP-D-100.
+  'EXP-D-PP': Object.freeze({ family: 'DINOv2', fractionPct: 100, lane: 'PROCESSED' }),
+});
+const namedExperiment = (experimentId) => (
+  typeof experimentId === 'string' && Object.prototype.hasOwnProperty.call(EXPERIMENT_NAMES, experimentId)
+    ? EXPERIMENT_NAMES[experimentId] : null);
+
+// True when experimentLabel() could replace the id with a name, so the picker shows the id as a second line.
+export const hasExperimentName = (experimentId) => namedExperiment(experimentId) !== null;
+
+export function experimentLabel(experimentId, variant = null) {
+  const named = namedExperiment(experimentId);
+  const what = named ? `${named.family} ${named.fractionPct} %` : String(experimentId);
+  return `${what} · ${variant ? variantLabel(variant) : 'variant not stated'}`;
+}
+
+/*
+ * The experiments SCR-02 opens on, in order: DINOv2 at the largest data fraction the server lists, raw before
+ * post-processed (the rule SCR-01 uses for its Lowest Dice list), then the other experiments in the server's order.
+ * The first one whose per-case answer holds a Dice is the one shown: the screen moves on to the next only when the
+ * answer for the one before has no Dice at all. `choices` is readExperimentChoices().
+ */
+export function defaultExperimentCandidates(choices) {
+  const list = Array.isArray(choices) ? choices : [];
+  const lane = (e) => e.variant || (namedExperiment(e.experimentId) || {}).lane || null;
+  const rank = (e) => namedExperiment(e.experimentId).fractionPct * 2 + (lane(e) === 'RAW' ? 1 : 0);
+  const dino = list.map((e, i) => ({ e, i })).filter((x) => (namedExperiment(x.e.experimentId) || {}).family === 'DINOv2')
+    .sort((a, b) => (rank(b.e) - rank(a.e)) || (a.i - b.i)).map((x) => x.e.experimentId);
+  return Object.freeze([...dino, ...list.map((e) => e.experimentId).filter((id) => !dino.includes(id))]);
+}
+
 // The viewer's subtitle under the case id: "DINOv2 · EXP-D-100", or what is known so far.
 export function runSubtitle(run, modelFamily = null, { loading = false, error = null } = {}) {
   if (!run || !run.runId) return null;
@@ -626,7 +669,7 @@ export function readExperimentCases(data, { experimentId, variant = null, pinned
   if (!data || typeof data !== 'object') return none('The server returned no per-case results.');
   const served = typeof data.prediction_variant === 'string' ? data.prediction_variant : null;
   if (variant !== null && served !== variant) {
-    return none(`Asked for ${experimentId} (${variant}); the server answered with ${served === null ? 'no stated variant' : `${served} values`}, so no Dice is shown.`);
+    return none(`Asked for ${experimentLabel(experimentId, variant)}; the server answered with ${served === null ? 'no stated variant' : `${variantLabel(served)} values`}, so no Dice is shown.`);
   }
   const byCase = new Map();
   for (const row of Array.isArray(data.items) ? data.items : []) {
@@ -662,9 +705,10 @@ export function readExperimentCases(data, { experimentId, variant = null, pinned
 }
 
 // The chip of one case row. A case without usable ground truth says "no GT" whatever the row holds.
-export function worklistChip(row, entry, experimentId) {
+export function worklistChip(row, entry) {
   if (!row.capability.groundTruthUsable) return Object.freeze({ kind: 'NO_GT', text: 'no GT', value: null });
-  if (!entry) return Object.freeze({ kind: 'NOT_IN_EXPERIMENT', text: `not in ${experimentId}`, value: null });
+  // The experiment is named above the list, so the row does not repeat its id.
+  if (!entry) return Object.freeze({ kind: 'NOT_IN_EXPERIMENT', text: 'not in this experiment', value: null });
   switch (entry.status) {
     case 'SUCCEEDED':
       return entry.dice !== null
@@ -683,7 +727,7 @@ export function worklistChip(row, entry, experimentId) {
  * server uses for its outlier pick, so the top three agree with it. Cases without a Dice follow, in the order the
  * server listed them. Without per-case results the server order is kept.
  */
-export function worklistRows(rows, cases, { experimentId = null, sort = WORKLIST_SORT.SERVER } = {}) {
+export function worklistRows(rows, cases, { sort = WORKLIST_SORT.SERVER } = {}) {
   const usable = Boolean(cases && cases.ok);
   const out = rows.map((row) => {
     const entry = usable ? (cases.byCase.get(row.caseId) || null) : null;
@@ -691,7 +735,7 @@ export function worklistRows(rows, cases, { experimentId = null, sort = WORKLIST
       ? entry.falsePositives + entry.falseNegatives : null;
     return Object.freeze({
       ...row,
-      chip: usable ? worklistChip(row, entry, experimentId) : null,
+      chip: usable ? worklistChip(row, entry) : null,
       runId: entry ? entry.runId : null,
       outlierRank: usable ? (cases.outliers.get(row.caseId) ?? null) : null,
       errorPixels: errors,
@@ -708,10 +752,11 @@ export function worklistRows(rows, cases, { experimentId = null, sort = WORKLIST
 }
 
 // The experiment and order chosen on SCR-02, kept for the session: the list unmounts under SCR-03.
-let worklistChoice = Object.freeze({ experimentId: null, sort: WORKLIST_SORT.SERVER });
+// experimentId undefined: nothing chosen yet, so the screen opens on its default; null: the person chose "None".
+let worklistChoice = Object.freeze({ experimentId: undefined, sort: WORKLIST_SORT.SERVER });
 export const rememberedWorklist = () => worklistChoice;
 export function rememberWorklist(choice) { worklistChoice = Object.freeze({ ...worklistChoice, ...choice }); }
-export function forgetWorklist() { worklistChoice = Object.freeze({ experimentId: null, sort: WORKLIST_SORT.SERVER }); }
+export function forgetWorklist() { worklistChoice = Object.freeze({ experimentId: undefined, sort: WORKLIST_SORT.SERVER }); }
 
 /*
  * Runs one model action at a time, so two loads never race and an older slice is never drawn over a newer one.

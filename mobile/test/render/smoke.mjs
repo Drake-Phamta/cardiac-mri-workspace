@@ -2180,15 +2180,30 @@ function reviewBackend({ seedVersion = false } = {}) {
     && has(r, /^CASE$|^Case$/) && r.root.findAll((n) => n.type === 'TextInput')[0].props.placeholder === 'Search case ID'
     && !has(r, /cases? on this page/) && ctxHas(nav, /^7 cases on this page · 6 evaluation · 1 inference & review$/),
   'SCR-02 in Direction A: search, filter tabs with counts, the column heading; the page summary is in Details');
-  check('W1', has(r, /^Choose an experiment to see each case's Dice\.$/) && values().length === 0 && rowOrder().join() === ids.join()
-    && !requests.some((u) => u.includes('/experiments/EXP')), 'no experiment chosen: server order, no Dice, no per-case request');
-  const pick = async (label) => {
+  // Nothing chosen: the default. EXP-D-PP is the only DINOv2 this list names, but the server answers it with no Dice
+  // of its own, so the screen moves on to the first experiment that has values, EXP_DEMO.
+  await tick(300);
+  check('W1', has(r, /^EXP_DEMO · Raw$/) && values().includes('0.900') && !has(r, /^Choose an experiment/)
+    && requests.some((u) => u === '/api/v1/experiments/EXP-D-PP/cases') && requests.some((u) => u === '/api/v1/experiments/EXP_DEMO/cases')
+    && ctxHas(nav, /^Chosen for you: DINOv2 at the largest data fraction the server lists, raw before post-processed\./),
+  'nothing chosen: opens on the default (DINOv2 first; an answer with no Dice is skipped), server order; Details says it was chosen for you');
+  const listShort = shortTouchables(r.root);
+  check('T5', listShort.length === 0, `SCR-02: every touchable (search, filter tabs, experiment, order, rows) reaches 48 dp${listShort.length ? ` - not: ${listShort.join(', ')}` : ''}`);
+  const pick = async (id) => {
     await pressId(r, 'dice-of');
-    await press(r, label);
+    const label = (n) => String(n.props.accessibilityLabel || '');
+    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && (id === null ? label(n) === 'Show no Dice' : label(n).endsWith(`experiment ${id}`)))[0];
+    if (!row) throw new Error(`no picker row for ${id}`);
+    await act(async () => { row.props.onPress(); });
     await tick(200);
   };
+  // The picker names each experiment as people do; the id is the second line, only where the name replaced it.
+  await pressId(r, 'dice-of');
+  check('W1', has(r, /^DINOv2 100 % · Processed$/) && has(r, /^EXP-D-PP$/) && has(r, /^EXP_DEMO · Raw$/) && !has(r, /^EXP_DEMO$/)
+    && has(r, /^None \(no Dice\)$/), 'the picker: "DINOv2 100 % · Processed" with EXP-D-PP under it; an id outside the matrix once; None');
+  await closeSheet(r, 'experiment-sheet');
   await pick('EXP_DEMO');
-  check('W2', values().includes('0.900') && values().includes('0.400') && has(r, /^No GT$/) && has(r, /^Run failed$/) && has(r, /^Not in EXP_DEMO$/)
+  check('W2', values().includes('0.900') && values().includes('0.400') && has(r, /^No GT$/) && has(r, /^Run failed$/) && has(r, /^Not in this experiment$/)
     && !has(r, /^0(\.0+)?$/) && has(r, /^Dice of$/), 'EXP_DEMO: the server\'s Dice per case; No GT, Run failed and Not in the experiment in words, never 0');
   check('W2', has(r, /^Outlier 1\/3$/) && has(r, /^Outlier 3\/3$/) && ctxHas(nav, /from the server, metric metric_version_fixture/)
     && has(r, /^EXP_DEMO · Raw$/) && marks(r, 'Path').length === 0,
@@ -2202,8 +2217,15 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('W3', pushed.length === 1 && JSON.stringify(pushed[0]) === JSON.stringify(['SCR-03', { caseId: 'CASE_0005', runId: 'RUN_0005', variant: 'RAW' }]),
     `a row opens SCR-03 on the experiment's run and variant: ${JSON.stringify(pushed[0] || null)}`);
   await pick('EXP-D-PP');
-  check('W4', has(r, /^Asked for EXP-D-PP \(PROCESSED\); the server answered with RAW values, so no Dice is shown\.$/) && values().length === 0
+  check('W4', has(r, /^Asked for DINOv2 100 % · Processed; the server answered with Raw values, so no Dice is shown\.$/) && values().length === 0
     && rowOrder().join() === ids.join() && !has(r, /^No Dice for this experiment$/), 'EXP-D-PP answered with RAW values: no Dice shown, and nothing sorted by them');
+  // "None" is the person's own choice: no Dice, and the default does not come back on its own.
+  await pick(null);
+  const perCase = requests.filter((u) => /\/experiments\/[^/]+\/cases$/.test(u)).length;
+  await tick(300);
+  check('W5', has(r, /^Choose an experiment to see each case's Dice\.$/) && values().length === 0 && rowOrder().join() === ids.join()
+    && requests.filter((u) => /\/experiments\/[^/]+\/cases$/.test(u)).length === perCase,
+  'None: server order, no Dice, and no new per-case request');
   await act(async () => { r.unmount(); });
   forgetWorklist();
 }
