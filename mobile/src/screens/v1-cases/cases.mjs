@@ -5,6 +5,7 @@
  */
 
 import { PREDICTION_VARIANT, capabilityOf } from '../../lib/caseMode.mjs';
+import { formatSlice } from '../../lib/sliceNumber.mjs';
 import { STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
 import { CoreError } from '../../api/contract.mjs';
@@ -431,10 +432,12 @@ export function chooseRun(availableRunIds, requested = null) {
   return Object.freeze({ runId: null, reason: 'choose', choices: Object.freeze(ids) });
 }
 
-// 1-based "n / total" for people, plus the 0-based z the API uses.
+// The older one-line label with the 0-based z: logs and the 3D view's parity test use it. Screens show
+// formatSlice() / sliceParts() from lib/sliceNumber.mjs ("45 / 88"); the z goes to the Details sheet.
 export function sliceLabel(sliceIndex, total) {
   if (!Number.isInteger(sliceIndex) || !Number.isInteger(total)) return 'slice - / -';
-  return `slice ${sliceIndex + 1} / ${total}  (z = ${sliceIndex})`;
+  if (sliceIndex < 0 || sliceIndex >= total) return `slice ${sliceIndex + 1} / ${total}  (z = ${sliceIndex})`;
+  return `slice ${formatSlice(sliceIndex, total)}  (z = ${sliceIndex})`;
 }
 
 export function clampSlice(index, total) {
@@ -475,13 +478,46 @@ export function metricsText(metrics, variant) {
   return { text: `Slice Dice: state ${metrics.state} is not one this build knows - not shown`, tone: 'warn' };
 }
 
+// The value under "Slice Dice" in the viewer's corner: three decimals, or a word. Never 0 for a missing value; the
+// full line with variant and metric version (metricsText) goes to the Details sheet.
+export function diceCornerText(metrics) {
+  if (!metrics) return '—';
+  if (metrics.state === 'COMPUTED' && typeof metrics.value === 'number' && Number.isFinite(metrics.value)) return metrics.value.toFixed(3);
+  if (metrics.state === 'NOT_APPLICABLE') return 'Not applicable';
+  if (metrics.state === 'UNAVAILABLE') return 'Unavailable';
+  return 'Not shown';
+}
+
+// A model family as people write it ("dinov2" -> "DINOv2"); an unknown name is shown as the server wrote it.
+const FAMILY_NAMES = Object.freeze({ dinov2: 'DINOv2', unet: 'UNet', unet2d: 'UNet2D' });
+export function familyName(modelFamily) {
+  if (typeof modelFamily !== 'string' || modelFamily.trim() === '') return null;
+  return FAMILY_NAMES[modelFamily.trim().toLowerCase()] || modelFamily.trim();
+}
+
+// "RAW" -> "Raw", "PROCESSED" -> "Processed": the variant in a control or a picker.
+export function variantLabel(variant) {
+  if (variant === 'RAW') return 'Raw';
+  if (variant === 'PROCESSED') return 'Processed';
+  return typeof variant === 'string' && variant ? variant : '?';
+}
+
+// The viewer's subtitle under the case id: "DINOv2 · EXP-D-100", or what is known so far.
+export function runSubtitle(run, modelFamily = null, { loading = false, error = null } = {}) {
+  if (!run || !run.runId) return null;
+  if (loading) return 'Loading the run…';
+  if (error) return `Run ${run.runId}`;
+  const parts = [familyName(modelFamily), run.experimentId || null].filter(Boolean);
+  return parts.length ? parts.join(' · ') : `Run ${run.runId}`;
+}
+
 // The run line: run, model / experiment, precomputed or new. While analysis_run_get is loading or after it failed,
 // the line says so instead of "not stated".
 export function runText(run, modelFamily = null, { loading = false, error = null } = {}) {
   if (!run) return 'Run: -';
   if (loading) return `Run ${run.runId} · loading run details…`;
   if (error) return `Run ${run.runId} · run details unavailable (${error})`;
-  const model = modelFamily ? `${modelFamily} · ` : '';
+  const model = familyName(modelFamily) ? `${familyName(modelFamily)} · ` : '';
   const pre = run.precomputed === true ? 'precomputed' : run.precomputed === false ? 'newly executed' : 'precomputed: not stated';
   const status = run.status && run.status !== 'SUCCEEDED' ? ` · ${run.status}` : '';
   return `Run ${run.runId} · ${model}${run.experimentId || 'experiment not stated'} · ${pre}${status}`;

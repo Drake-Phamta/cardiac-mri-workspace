@@ -159,3 +159,48 @@ export function doubleTapTransform(t, fit, u, v) {
   if (t.zoom / fit.zoom > 1.5) return { ...fit };
   return zoomAbout(t, fit.zoom * 2, u, v);
 }
+
+// ----- Full-bleed framing (SCR-03) -----
+
+// The viewer opens at 1.6x fit, as in the mockup: the atrium fills the screen and the body's edges are cropped.
+export const VIEWER_ZOOM = 1.6;
+
+/*
+ * Fit and the opening view for a viewport of w x h whose top and bottom are covered by the floating app bar and
+ * the bottom panel (insets). The image is fitted into the uncovered band and centred in it; the opening view is
+ * `factor` times that fit about the band's centre. Pinch, pan and double tap start from there.
+ */
+export function framing(w, h, nx, ny, { top = 0, bottom = 0 } = {}, factor = 1) {
+  if (!(w > 0) || !(h > 0) || !(nx > 0) || !(ny > 0)) return null;
+  const band = Math.max(1, h - top - bottom);
+  const z = Math.min(w / nx, band / ny);
+  const fit = { zoom: z, panX: (w - nx * z) / 2, panY: top + (band - ny * z) / 2 };
+  const start = factor > 0 && factor !== 1 ? zoomAbout(fit, z * factor, w / 2, top + band / 2) : { ...fit };
+  return Object.freeze({ fit: Object.freeze(fit), start: Object.freeze(start) });
+}
+
+// The zoom readout ("×2.0", relative to fit), shown only away from the two views a viewer opens to or returns to:
+// fit, and the opening view. null = nothing to show.
+export function zoomReadout(t, fit, start = null) {
+  if (!t || !fit || !(fit.zoom > 0)) return null;
+  const near = (a, b) => Math.abs(a / b - 1) <= 0.01;
+  if (near(t.zoom, fit.zoom) || (start && near(t.zoom, start.zoom))) return null;
+  return `×${(t.zoom / fit.zoom).toFixed(1)}`;
+}
+
+// ----- No black frame between slices (B1) -----
+
+/*
+ * An <Image> whose source changes shows nothing until the new picture is decoded, so Play flashed black frames on
+ * the phone. The viewport keeps two images instead: the one on screen (front, the last that finished loading) and
+ * the next one (pending), drawn under it until it has loaded. `front` is the uri on screen, `uri` the one wanted.
+ *   pending   the uri to load under the front image, or null
+ *   front     the uri to keep on screen, or null
+ *   hold      true while the front image stays up for a newer uri: draw the overlays that belong to it, not the
+ *             new slice's, so image and masks change together
+ */
+export function viewerFrame(front, uri) {
+  if (!uri) return Object.freeze({ pending: null, front: null, hold: false });
+  if (front === uri) return Object.freeze({ pending: null, front, hold: false });
+  return Object.freeze({ pending: uri, front: front || null, hold: Boolean(front) });
+}

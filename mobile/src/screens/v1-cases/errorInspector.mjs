@@ -6,6 +6,7 @@
 
 import { STATE } from '../../api/states.mjs';
 import { errorClass } from '../../components/tokens.mjs';
+import { formatSlice } from '../../lib/sliceNumber.mjs';
 import { variantMismatch } from './cases.mjs';
 
 // Colour-blind safe: green / magenta / blue instead of a red-green pair, and FP's outline is dashed, so the
@@ -100,6 +101,15 @@ export function topEntries(selection, n = 5) {
 export function worstLabel(entry) {
   if (!entry) return null;
   return `z ${entry.sliceIndex} (slice ${entry.sliceIndex + 1}) · Dice ${fmt(entry.dice)} · FP ${fmt(entry.falsePositives ?? entry.fp)} · FN ${fmt(entry.falseNegatives ?? entry.fn)}`;
+}
+
+// The same entry for people, numbered like every slice in the app (lib/sliceNumber.mjs): "Slice 53 / 88 · Dice
+// 0.620 · FP 120 · FN 340". An entry outside the volume keeps its 1-based number and says it is not in the volume.
+export function worstEntryText(entry, total) {
+  if (!entry) return null;
+  const stats = `Dice ${fmt(entry.dice)} · FP ${fmt(entry.falsePositives ?? entry.fp)} · FN ${fmt(entry.falseNegatives ?? entry.fn)}`;
+  if (inVolume(entry, total)) return `Slice ${formatSlice(entry.sliceIndex, total)} · ${stats}`;
+  return `Slice ${Number.isInteger(entry.sliceIndex) ? entry.sliceIndex + 1 : '?'} (not in this volume) · ${stats}`;
 }
 
 // A server entry opens exactly the slice it names. One outside this volume (z 90 of 88 slices, or no index) is
