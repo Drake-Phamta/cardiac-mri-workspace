@@ -2,7 +2,7 @@
 // ground truth (see-through) and one marker per FP / FN error region. A tap on the surface picks the slice that made
 // that face; a tap on a marker selects its error region; "Open in 2D" opens SCR-03 on that slice.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -192,6 +192,8 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   useEffect(() => { if (ready) tell(toViewer.slice(band)); }, [ready, band, tell]);
   useEffect(() => { if (ready) tell(toViewer.cut(cut.active)); }, [ready, cut.active, tell]);
   useEffect(() => { if (ready) tell(toViewer.select(selection.marker ? selection.marker.id : null)); }, [ready, selection, tell]);
+  // Leaving the screen: the page frees its GPU buffers. A layout-effect cleanup runs while the WebView is still there.
+  useLayoutEffect(() => () => { if (webRef.current) webRef.current.postMessage(toViewer.dispose()); }, []);
 
   const onMessage = useCallback((event) => {
     const m = parseViewerMessage(event && event.nativeEvent ? event.nativeEvent.data : null);
@@ -272,7 +274,12 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
           source={{ html: VIEWER_HTML }}
           originWhitelist={['about:*', 'data:*']}
           javaScriptEnabled
+          // Privacy: nothing of this page is kept on the phone - no cache, no cookies, no storage, no history.
+          incognito
+          cacheEnabled={false}
+          cacheMode="LOAD_NO_CACHE"
           domStorageEnabled={false}
+          thirdPartyCookiesEnabled={false}
           allowFileAccess={false}
           allowUniversalAccessFromFileURLs={false}
           setSupportMultipleWindows={false}

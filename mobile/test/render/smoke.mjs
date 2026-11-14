@@ -1463,6 +1463,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 // test/v2_viewer.test.mjs, the pixels and the frame rate are the owner's device tests.
 {
   const Inspector3DScreen = (await imp('src/screens/v2-3d/Inspector3DScreen.js')).default;
+  const { VIEWER_HTML } = await imp('src/screens/v2-3d/viewerHtml.mjs');
   const { sent } = await imp('test/render/mocks/webview.mjs');
   const { boxMesh, encodeErrors, encodeMesh, ERROR_COMPONENTS } = await imp('test/_v2mesh.mjs');
   const sum = (b) => createHash('sha256').update(b).digest('hex');
@@ -1716,6 +1717,38 @@ function reviewBackend({ seedVersion = false } = {}) {
     await fromViewer(m2.r, { type: 'error', role: 'errors', code: 'VIEWER_ERROR', message: 'MARKERS_INVALID: a marker is malformed' });
     check('V2R18', web(m2.r) !== null && has(m2.r, /^error \(VIEWER_ERROR\): MARKERS_INVALID/) && has(m2.r, /^Prediction: ON$/), 'markers the viewer refused read error on the error row only');
     await act(async () => { m2.r.unmount(); });
+  }
+
+  // 10m. privacy: no cache, no storage; only voxel geometry crosses into the WebView; GPU memory is freed on leave
+  {
+    const backend = meshBackend();
+    const { r, recorded } = await mount(backend, P);
+    const w = web(r).props;
+    check('V2R19', w.incognito === true && w.cacheEnabled === false && w.cacheMode === 'LOAD_NO_CACHE' && w.domStorageEnabled === false
+      && w.thirdPartyCookiesEnabled === false && w.allowFileAccess === false && w.source.html === VIEWER_HTML && !w.injectedJavaScript,
+    'WebView: incognito, cache off, no DOM storage or cookies, no file access, the static page only');
+    await fromViewer(r, { type: 'ready' });
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
+    await fromViewer(r, { type: 'marker', id: 'FN_0001' });
+    await press(r, 'Cut at slice 12: OFF');
+    await tap(byA11y(r, 'Ground truth opacity 60%'));
+    await tap(byA11y(r, 'View from plus z'));
+    const allowed = ['mesh', 'markers', 'layers', 'opacity', 'slice', 'cut', 'select', 'view', 'fit', 'dispose'];
+    const words = ['CASE_0061', 'RUN_A', 'ART_RAW', 'MASK_CASE_0061', 'http', 'backend.invalid', 'sha256', 'MESH_', 'ERRGEOM_', sum(predBytes), sum(errBytes)];
+    const leaks = sentJson().flatMap((m) => {
+      const text = JSON.stringify({ ...m, b64: undefined });
+      return [...(allowed.includes(m.type) ? [] : [`type ${m.type}`]), ...words.filter((x) => text.includes(x))];
+    });
+    // (The page's own error codes start with MESH_, so the static page is checked for the identifiers only.)
+    const inPage = ['CASE_', 'RUN_', 'ART_RAW', 'http', 'backend.invalid', 'sha256:', 'ERRGEOM_'].filter((x) => VIEWER_HTML.includes(x));
+    check('V2R19', sentJson().length >= 8 && leaks.length === 0 && inPage.length === 0,
+      `${sentJson().length} messages: no case, run, mask, server or checksum crosses into the WebView (${[...leaks, ...inPage].join(', ') || 'none'})`);
+    const meshHeader = Buffer.from(predBytes).toString('latin1');
+    check('V2R19', !/CASE_|RUN_|MASK_/.test(meshHeader), 'the mesh bytes themselves carry no case identifier');
+    sent.length = 0;
+    await act(async () => { r.unmount(); });
+    check('V2R19', sent.length === 1 && JSON.parse(sent[0]).type === 'dispose' && recorded.pushes.length === 0, 'leaving the screen tells the page to free its GPU buffers');
   }
 
   // 10c. INFERENCE_REVIEW (INT-12): prediction mesh yes, ground truth never asked for
