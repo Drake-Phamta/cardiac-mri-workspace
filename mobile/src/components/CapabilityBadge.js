@@ -10,7 +10,7 @@ import { color, font, space } from './theme';
 
 const TONE = {
   EVALUATION: { fg: color.evaluation, bg: color.okBg },
-  INFERENCE_REVIEW: { fg: color.inference, bg: '#221a2e' },
+  INFERENCE_REVIEW: { fg: color.inference, bg: color.inferenceBg },
   UNKNOWN: { fg: color.warn, bg: color.warnBg },
 };
 
