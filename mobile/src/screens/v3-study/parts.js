@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
 import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
+import { color, font, MIN_TOUCH, radius, space } from '../../components/theme';
 import Svg, { Circle, G, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 import { pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
 import { FamilyLegend, Marker } from './charts';
@@ -75,6 +75,55 @@ export function Row({ children }) {
   return <View style={s.row}>{children}</View>;
 }
 
+// A label that is not a button, such as the server's verdict next to a number.
+export function Pill({ label, ok = false }) {
+  return (
+    <View style={[s.pill, ok ? s.pillOk : s.pillOff]}>
+      <Text style={[s.pillT, { color: ok ? color.ok : color.textDim }]}>{label}</Text>
+    </View>
+  );
+}
+
+// A summary tile on SCR-01: a title, one large number (or why there is none) and a few small lines.
+export function Tile({ title, value, text, lines = [], children, testID }) {
+  return (
+    <View style={s.tile} testID={testID}>
+      <Text style={s.tileTitle}>{title}</Text>
+      {value !== null && value !== undefined ? <Text style={s.tileValue}>{value}</Text> : null}
+      {text ? <Text style={s.tileText}>{text}</Text> : null}
+      {lines.map((l) => <Text key={l} style={s.tileText}>{l}</Text>)}
+      {children}
+    </View>
+  );
+}
+
+// One of the server's lowest-Dice cases: a tappable row with its value and a small bar as long as the Dice (0 to 1).
+export function OutlierBar({ row, barColor, onGo }) {
+  const ok = Boolean(row.route && row.route.ok);
+  return (
+    <View style={s.linkBox}>
+      <TouchableOpacity
+        style={[s.barRow, !ok && s.btnOff]}
+        onPress={() => onGo(row.route)}
+        accessibilityRole="button"
+        accessibilityLabel={`${row.caseId}, ${row.valueText}`}
+        accessibilityState={{ disabled: !ok }}
+      >
+        <View style={s.barHead}>
+          <Text style={[s.barCase, !ok && s.btnOffT]}>{row.caseId}</Text>
+          <Text style={s.barValue}>{row.valueText}</Text>
+        </View>
+        {row.bar !== null ? (
+          <View style={s.barTrack}>
+            <View style={[s.barFill, { width: `${Math.round(row.bar * 100)}%`, backgroundColor: barColor || color.accent }]} />
+          </View>
+        ) : null}
+      </TouchableOpacity>
+      {!ok && row.route && row.route.reason ? <Text style={s.reason}>{row.route.reason}</Text> : null}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   card: {
     backgroundColor: color.surface, borderColor: color.border, borderWidth: 1, borderRadius: 10,
@@ -102,6 +151,26 @@ const s = StyleSheet.create({
   chipT: { color: color.textDim, fontSize: font.body },
   chipOnT: { color: color.accent, fontWeight: '600' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginTop: space.xs },
+  pill: { alignSelf: 'flex-start', paddingHorizontal: space.s, paddingVertical: 2, borderRadius: radius.pill, borderWidth: 1 },
+  pillOk: { borderColor: color.ok, backgroundColor: color.okBg },
+  pillOff: { borderColor: color.control, backgroundColor: color.surfaceHi },
+  pillT: { fontSize: font.tiny, fontWeight: '700' },
+  tile: {
+    flexGrow: 1, flexBasis: 140, backgroundColor: color.surface, borderColor: color.border, borderWidth: 1,
+    borderRadius: radius.l, padding: space.m, gap: 2,
+  },
+  tileTitle: { color: color.textDim, fontSize: font.small, fontWeight: '700' },
+  tileValue: { color: color.text, fontSize: 28, fontWeight: '700', fontVariant: font.numeric },
+  tileText: { color: color.textDim, fontSize: font.small },
+  barRow: {
+    minHeight: MIN_TOUCH, justifyContent: 'center', paddingHorizontal: space.m, paddingVertical: space.xs, borderRadius: radius.m,
+    borderWidth: 1, borderColor: color.control, backgroundColor: color.surfaceHi, gap: space.xs,
+  },
+  barHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  barCase: { color: color.text, fontFamily: font.mono, fontSize: font.small, fontWeight: '600' },
+  barValue: { color: color.textDim, fontSize: font.small, fontVariant: font.numeric },
+  barTrack: { height: 6, borderRadius: 3, backgroundColor: color.border, overflow: 'hidden' },
+  barFill: { height: 6, borderRadius: 3 },
 });
 
 // SCR-07 strip chart: one column per experiment, one marker per evaluated case (UNet circle, DINOv2 triangle), a

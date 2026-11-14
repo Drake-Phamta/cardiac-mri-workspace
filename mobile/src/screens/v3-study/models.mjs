@@ -117,6 +117,7 @@ export function createStudyOverview(client) {
       id: c.id,
       label: c.label,
       question: c.question,
+      kind: c.kind,
       experimentIds: c.experimentIds,
       requested: c.requested,
       notRequestedReason: c.notRequestedReason,

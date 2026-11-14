@@ -17,7 +17,8 @@ import { createClient } from '../src/api/client.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';
 import { trendLayout, trendNotes, trendSeries } from '../src/screens/v3-study/trend.mjs';
 import { SIX_RUNS, v3Transport } from './_v3_server.mjs';
-import { OUTLIER_RULE } from '../src/screens/v3-study/readers.mjs';
+import { OUTLIER_RULE, readCaseCounts } from '../src/screens/v3-study/readers.mjs';
+import { casesTile, diceTile, findingsTile } from '../src/screens/v3-study/tiles.mjs';
 import {
   comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
 } from '../src/screens/v3-study/view.mjs';
@@ -224,6 +225,56 @@ test('V3U7 trend: every case, the server median and q1-q3 per run; line and band
   const countSeries = trendSeries(counts.cells, counts.comparisons, 'false_positives');
   assert.equal(trendLayout(countSeries, { width: 360, height: 220 }).offAxis, 24, 'voxel counts are off a 0-1 axis: counted, not clipped');
   assert.match(trendNotes(countSeries).at(-1), /^24 value\(s\) outside 0 to 1 are not drawn/);
+});
+
+// --- SCR-01 tiles and outlier bars --------------------------------------------
+
+test('V3U8 SCR-01 tiles: case counts, findings open / resolved, median Dice only under COMPARABLE', async () => {
+  const plain = newRuntime();
+  const snap = await createStudyOverview(plain.client).open({ studyId: plain.config.studyId });
+  assert.deepEqual({ ...casesTile(snap.caseCounts), lines: [...casesTile(snap.caseCounts).lines] },
+    { value: '2', text: 'cases in the study', lines: ['1 evaluation', '1 inference & review'] });
+  assert.deepEqual({ ...findingsTile(snap.findings) }, { open: 1, resolved: 0 });
+  const none = diceTile(snap.headline);
+  assert.equal(none.emptyText, 'No UNet vs DINOv2 pair is judged comparable by the server yet.');
+  assert.deepEqual(none.rows.map((r) => [r.label, r.chip, r.unetText]), [
+    ['25 % data', 'Not compared', null], ['50 % data', 'Not compared', null], ['100 % data', 'Not compared', null],
+  ]);
+  assert.match(none.rows[0].note, /EXP-U-025.* not available to compare/);
+
+  const full = newRuntime(FULL);
+  const fixtureDice = diceTile((await createStudyOverview(full.client).open({ studyId: full.config.studyId })).headline);
+  assert.equal(fixtureDice.emptyText, null);
+  assert.deepEqual(fixtureDice.rows.map((r) => [r.chip, r.unetText, r.dinoText, r.note]), [
+    ['Comparable', 'UNet 0.500', 'DINOv2 0.500', 'common population 5 cases'],
+    ['Comparable', 'UNet 0.500', 'DINOv2 0.500', 'common population 5 cases'],
+    ['Comparable', 'UNet 0.500', 'DINOv2 0.500', 'common population 5 cases'],
+  ]);
+  for (const r of fixtureDice.rows) assertNavigable(r.route);
+  assert.deepEqual([...fixtureDice.rows[2].route.params.experimentIds], ['EXP-U-100', 'EXP-D-100'], 'a row opens SCR-07 on its pair');
+
+  const typed = async (options) => {
+    const runtime = newRuntime();
+    const client = createClient(runtime.contract, v3Transport(contractJson, runtime.bundle, options));
+    return createStudyOverview(client).open({ studyId: runtime.config.studyId });
+  };
+  const fair = await typed({ dice: SIX_RUNS });
+  assert.deepEqual(diceTile(fair.headline).rows[0].unetText, 'UNet 0.655', "the server's median over the common population");
+  assert.deepEqual(diceTile(fair.headline).rows[0].dinoText, 'DINOv2 0.685');
+  const refused = diceTile((await typed({ dice: SIX_RUNS, compare: 'not_comparable' })).headline);
+  assert.ok(refused.rows.every((r) => r.chip === 'Not comparable' && r.unetText === null
+    && r.note === 'The experiments do not share a fair evaluation contract.'), JSON.stringify(refused.rows.map((r) => r.note)));
+
+  // The outlier rows carry a bar as long as their Dice, in the server's order.
+  const group = overviewView(fair).outliers.groups.find((g) => g.experimentId === 'EXP-U-025');
+  assert.equal(group.family, 'UNET');
+  assert.deepEqual(group.view.rows.map((r) => [r.caseId, r.bar]), [['CASE_0005', 0.4], ['CASE_0003', 0.61], ['CASE_0004', 0.7]]);
+
+  const failed = await createStudyOverview(newRuntime({ findings_list: 'error_case' }).client).open({ studyId: plain.config.studyId });
+  assert.deepEqual({ ...findingsTile(failed.findings) }, { open: null, resolved: null }, 'a failed list is not "0 open"');
+  assert.deepEqual({ ...casesTile(null), lines: [] }, { value: null, text: 'case counts unavailable', lines: [] });
+  const noTotal = casesTile(readCaseCounts({ EVALUATION: 3 }));
+  assert.deepEqual([noTotal.value, noTotal.text, [...noTotal.lines]], [null, 'total unavailable', ['3 evaluation']]);
 });
 
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {

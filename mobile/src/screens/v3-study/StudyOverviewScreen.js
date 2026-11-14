@@ -1,5 +1,6 @@
-// SCR-01 Study Overview: the study, its cases, experiments, outliers and findings, with links to each screen.
-// Data comes from createStudyOverview (models.mjs) and every string from overviewView (view.mjs).
+// SCR-01 Study Overview: the study, tiles for cases and findings, the median Dice of comparable pairs, the
+// lowest-Dice cases, the experiments and every comparison, with links to each screen.
+// Data comes from createStudyOverview (models.mjs); strings from overviewView (view.mjs) and the tiles (tiles.mjs).
 // The experiment matrix shows no metric values: numbers appear only where the server judged runs comparable.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -10,8 +11,11 @@ import { createStudyOverview } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import { Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
-import { overviewView } from './view.mjs';
+import {
+  Card, Line, LinkButton, OutlierBar, Pill, Tile, TONE_COLOR, useSnapshot,
+} from './parts';
+import { casesTile, diceTile, findingsTile } from './tiles.mjs';
+import { FAMILY_STYLE, overviewView } from './view.mjs';
 
 export default function StudyOverviewScreen({ runtime, nav, params }) {
   // The study id comes from the build config unless the caller passed another one.
@@ -36,24 +40,81 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
 
   return (
     <StateView view={snap.view} what="the study overview" onAction={onAction}>
-      {() => <Overview v={overviewView(snap)} go={go} blocked={blocked} />}
+      {() => <Overview v={overviewView(snap)} snap={snap} go={go} blocked={blocked} />}
     </StateView>
   );
 }
 
-function Overview({ v, go, blocked }) {
+function Overview({ v, snap, go, blocked }) {
+  const cases = casesTile(snap.caseCounts);
+  const findings = findingsTile(snap.findings);
+  const dice = diceTile(snap.headline);
   return (
     <ScrollView contentContainerStyle={s.root}>
       <Card title={v.study.idText} testID="scr01-study">
         <Line tone={TONE.WARN} small>{v.study.idWarning}</Line>
         <Line>{`Dataset: ${v.study.datasetText}`}</Line>
         <Line dim small>{v.study.summaryText}</Line>
-        {v.study.counts.map((c) => <Line key={c.key}>{`Cases (${c.key}): ${c.text}`}</Line>)}
-        <Line dim>{v.study.countsText}</Line>
         {v.study.capabilities.length > 0 && (
           <Line dim small>{`Capabilities: ${v.study.capabilities.join(', ')}`}</Line>
         )}
-        <LinkButton label="Open cases (SCR-02)" route={v.routes.cases} onGo={go} />
+      </Card>
+
+      <View style={s.tiles}>
+        <Tile title="Cases" value={cases.value} text={cases.text} lines={cases.lines} testID="scr01-tile-cases">
+          <LinkButton label="Open cases (SCR-02)" route={v.routes.cases} onGo={go} />
+        </Tile>
+        <Tile
+          title="Findings"
+          value={findings.open === null ? null : `${findings.open} open`}
+          text={findings.resolved === null ? null : `${findings.resolved} resolved`}
+          lines={[v.findings.text]}
+          testID="scr01-tile-findings"
+        >
+          <LinkButton label="Open findings (SCR-08)" route={v.routes.findings} onGo={go} />
+        </Tile>
+      </View>
+
+      <Card title="Median Dice, UNet vs DINOv2" testID="scr01-dice">
+        <Line dim small>Dice: 0 to 1, higher is better. Shown only for pairs the server judged comparable.</Line>
+        {dice.emptyText ? <Line>{dice.emptyText}</Line> : null}
+        {dice.rows.map((row) => (
+          <TouchableOpacity
+            key={row.id}
+            style={[s.headline, !row.route.ok && s.headlineOff]}
+            onPress={() => go(row.route)}
+            accessibilityRole="button"
+            accessibilityLabel={`${row.label}: ${row.chip}`}
+          >
+            <View style={s.diceHead}>
+              <Text style={s.headlineLabel}>{row.label}</Text>
+              <Pill label={row.chip} ok={row.fair} />
+            </View>
+            {row.fair ? (
+              <Text style={s.diceValues}>
+                <Text style={{ color: FAMILY_STYLE.UNET.color }}>● </Text>
+                {`${row.unetText}   `}
+                <Text style={{ color: FAMILY_STYLE.DINOV2.color }}>▲ </Text>
+                {row.dinoText}
+              </Text>
+            ) : null}
+            {row.note ? <Text style={s.small}>{row.note}</Text> : null}
+          </TouchableOpacity>
+        ))}
+      </Card>
+
+      <Card title="Lowest-Dice cases" testID="scr01-outliers">
+        <Line dim small>{v.outliers.rule}</Line>
+        <Line>{v.outliers.text}</Line>
+        {v.outliers.groups.map((g) => (
+          <View key={g.experimentId} style={s.family}>
+            <Text style={s.familyLabel}>{`${g.title} · ${g.experimentId}`}</Text>
+            <Line dim small>{g.view.text}</Line>
+            {g.view.rows.map((o) => (
+              <OutlierBar key={o.key} row={o} barColor={g.family ? FAMILY_STYLE[g.family].color : null} onGo={go} />
+            ))}
+          </View>
+        ))}
       </Card>
 
       <Card title="Experiments" testID="scr01-experiments">
@@ -76,7 +137,7 @@ function Overview({ v, go, blocked }) {
         <LinkButton label="Open the comparison (SCR-07)" route={v.routes.experiments} onGo={go} />
       </Card>
 
-      <Card title="Comparable metrics (server verdicts)" testID="scr01-headline">
+      <Card title="All comparisons (server verdicts)" testID="scr01-headline">
         <Line dim small>
           Numbers appear here only where the server judged the runs comparable; anything else is a label and a reason.
         </Line>
@@ -95,28 +156,6 @@ function Overview({ v, go, blocked }) {
             {h.summaryRows.map((row) => <Text key={row.experimentId} style={s.metric}>{row.text}</Text>)}
           </TouchableOpacity>
         ))}
-      </Card>
-
-      <Card title="Lowest-Dice cases" testID="scr01-outliers">
-        <Line dim small>{v.outliers.rule}</Line>
-        <Line>{v.outliers.text}</Line>
-        {v.outliers.groups.map((g) => (
-          <View key={g.experimentId} style={s.family}>
-            <Text style={s.familyLabel}>{`${g.title} · ${g.experimentId}`}</Text>
-            <Line dim small>{g.view.text}</Line>
-            {g.view.rows.map((o) => (
-              <LinkButton key={o.key} label={`${o.caseId} · ${o.valueText}`} route={o.route} onGo={go} />
-            ))}
-          </View>
-        ))}
-      </Card>
-
-      <Card title="Findings" testID="scr01-findings">
-        <Line>{v.findings.text}</Line>
-        {v.findings.byStatus.length > 0 && (
-          <Row>{v.findings.byStatus.map((t) => <Chip key={t} label={t} selected={false} onPress={() => go(v.routes.findings)} />)}</Row>
-        )}
-        <LinkButton label="Open findings (SCR-08)" route={v.routes.findings} onGo={go} />
       </Card>
 
       {blocked ? (
@@ -148,6 +187,9 @@ const s = StyleSheet.create({
   headlineVerdict: { fontSize: font.small, marginTop: 2 },
   metric: { color: color.text, fontSize: font.small, marginTop: 4 },
   small: { color: color.textDim, fontSize: font.small, marginTop: 2 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.m },
+  diceHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s },
+  diceValues: { color: color.text, fontSize: font.h2, fontWeight: '600', marginTop: space.xs, fontVariant: font.numeric },
   blocked: { padding: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.danger, backgroundColor: color.dangerBg },
   blockedT: { color: color.danger, fontSize: font.body },
 });

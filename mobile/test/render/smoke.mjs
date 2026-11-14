@@ -551,6 +551,13 @@ function noRunBackend() {
   check('V3R1', onScreen(r, 'SCR-01') && has(r, /^FIXTURE$/), 'SCR-01 renders under the FIXTURE badge');
   check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^1 of 7 matrix experiments listed by the server$/)
     && has(r, /^Lowest-Dice cases$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
+  const tileText = (id) => r.root.findAll((n) => n.props && n.props.testID === id).flatMap((n) => n.findAll((x) => x.type === 'Text').map(textOf));
+  check('V3R9', ['Cases', '2', 'cases in the study', '1 evaluation', '1 inference & review'].every((t) => tileText('scr01-tile-cases').includes(t))
+    && ['Findings', '1 open', '0 resolved'].every((t) => tileText('scr01-tile-findings').includes(t)),
+  `tiles: ${tileText('scr01-tile-cases').join(' | ')} || ${tileText('scr01-tile-findings').join(' | ')}`);
+  check('V3R9', has(r, /^No UNet vs DINOv2 pair is judged comparable by the server yet\.$/)
+    && texts(r).filter((t) => t === 'Not compared').length === 3 && !has(r, /^Comparable$/),
+  'median Dice tile: no pair is compared, so no number and no "Comparable" chip');
   await press(r, 'Open the comparison (SCR-07)');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^FIXTURE$/), 'SCR-07 opened from SCR-01, under the FIXTURE badge');
@@ -670,6 +677,29 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   const lines = inside(r, 'trend-chart', 'Path').filter((n) => n.props.fill === 'none' || n.props.fillOpacity === 0.12);
   check('V3R8', lines.length === 0 && inside(r, 'trend-chart', 'Rect').length === 6 && has(r, /^UNet: not joined - /),
     'NOT COMPARABLE trend: bars and cases per run, no line or band, and why');
+  await act(async () => { r.unmount(); });
+}
+// SCR-01 over the same typed server: comparable median Dice under a "Comparable" chip, and the lowest-Dice cases
+// as bars that open their case.
+{
+  const StudyOverviewScreen = (await imp('src/screens/v3-study/StudyOverviewScreen.js')).default;
+  const base = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const runtime = { ...base, client: createClient(base.contract, v3Transport(contractJson, base.bundle, { dice: SIX_RUNS })) };
+  const pushed = [];
+  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: false };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(StudyOverviewScreen, { runtime, nav, params: {} })), nodeMock);
+  });
+  await tick(60);
+  check('V3R10', texts(r).filter((t) => t === 'Comparable').length === 3 && has(r, /^● UNet 0\.655 {3}▲ DINOv2 0\.685$/),
+    'median Dice tile: three comparable pairs, both medians with their family marker');
+  const bars = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}dice /.test(textOf(n)));
+  check('V3R10', bars.length === 18 && textOf(bars[0]) === 'CASE_0005dice 0.400', `lowest-Dice bars: ${bars.length} (3 per run), first ${bars[0] ? textOf(bars[0]) : '-'}`);
+  if (bars.length) await act(async () => { bars[0].props.onPress(); });
+  check('V3R10', pushed.length === 1 && pushed[0][0] === 'SCR-03' && pushed[0][1].runId === 'RUN_U025_0005',
+    `a bar opens its case in its run: ${JSON.stringify(pushed[0] || null)}`);
   await act(async () => { r.unmount(); });
 }
 

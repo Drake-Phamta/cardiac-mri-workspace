@@ -259,6 +259,8 @@ export function outlierView(o) {
       key: `${c.rank}:${c.caseId}`,
       caseId: c.caseId || 'case id not returned',
       valueText: c.value.available ? `${o.metricName || 'metric'} ${fmt(c.value.value)}` : 'value unavailable',
+      // The length of the small bar on SCR-01: the Dice itself, 0 to 1. No bar for a value off that scale.
+      bar: c.value.available && c.value.value >= 0 && c.value.value <= 1 ? c.value.value : null,
       route: routeForIntent(c.intent),
     }))),
   });
@@ -309,6 +311,7 @@ export function overviewView(snap) {
     const expected = MATRIX.find((e) => e.id === o.experimentId);
     return Object.freeze({
       experimentId: o.experimentId,
+      family: expected ? expected.family : null,
       title: expected ? `${FAMILY_LABEL[expected.family]} ${expected.fractionPct} %${expected.lane === 'PROCESSED' ? ' post-processed' : ''}` : o.experimentId,
       view: outlierView(o.selection),
     });
