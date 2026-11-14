@@ -154,7 +154,7 @@ Logs, analytics, and UI shall avoid unnecessary patient-identifiable information
 
 ## 3.1 Formally tracked SHOULD / COULD requirements
 
-The following scope items have IDs so Claude may schedule them only when priority rules permit. They are **not** part of the critical-path acceptance floor unless promoted through Decision Request.
+The following scope items have IDs so the team may schedule them only when priority rules permit. They are **not** part of the critical-path acceptance floor unless promoted through Decision Request.
 
 **PR-COMP-01 — SHOULD**  
 Provide synchronized/side-by-side comparison of multiple compatible analysis runs on the same case beyond simple run switching.

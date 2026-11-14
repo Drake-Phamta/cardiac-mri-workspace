@@ -136,9 +136,9 @@ The framework shall be selected **after** technical spikes prove:
 2. stable interactive 3D mesh rendering and 3D→slice mapping;
 3. acceptable development velocity within the 30-day constraint.
 
-Candidates may include native Android/Kotlin or React Native/TypeScript (or another framework proposed by Claude), but the selected stack must be justified by spike evidence rather than familiarity alone.
+Candidates may include native Android/Kotlin or React Native/TypeScript (or another framework proposed by the team), but the selected stack must be justified by spike evidence rather than familiarity alone.
 
-Claude must generate `TECH_STACK_ADR.md` documenting:
+The team must write `TECH_STACK_ADR.md` documenting:
 
 - candidates;
 - spike implementation/evidence;
@@ -161,7 +161,6 @@ data/
 shared-contracts/
 tests/
 docs/
-management/
 ```
 
 Within each, feature-oriented boundaries should minimize overlapping edits.
