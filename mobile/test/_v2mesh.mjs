@@ -58,6 +58,58 @@ export const ERROR_COMPONENTS = Object.freeze([
   { id: 'FP_0002', class: 'FP', voxel_count: 3, slice_range: [12, 12], marker_voxel: [250, 250, 12] },
 ]);
 
+/*
+ * The canonical geometry fixture (tests/fixtures/geometry, DR-008a): grid, spacing, origin, 33 points and 13 picking
+ * rays with the slice each must resolve to. TC-MAINT-002: the same file the backend and the reference checker run.
+ */
+export const CANONICAL = JSON.parse(
+  readFileSync(join(REPO_ROOT, 'tests', 'fixtures', 'geometry', 'geometry_fixture_v0.json'), 'utf8').replace(/^﻿/, ''),
+);
+
+// Occupancy of the synthetic blob the canonical picking rays target. A COPY of the data definition in
+// backend/mesh/tests/conftest.py (itself a copy of the checker's), so no code is shared with the viewer.
+export function blobOccupied(x, y, z, [nx, ny, nz]) {
+  if (x < 0 || y < 0 || z < 0 || x >= nx || y >= ny || z >= nz) return false;
+  const [cx, cy, cz] = [nx / 2, ny / 2, nz / 2];
+  const main = ((x - cx) / (nx * 0.32)) ** 2 + ((y - cy) / (ny * 0.30)) ** 2 + ((z - cz) / (nz * 0.34)) ** 2 <= 1;
+  const lobe = ((x - cx * 1.45) / (nx * 0.16)) ** 2 + ((y - cy * 0.72) / (ny * 0.17)) ** 2 + ((z - cz * 1.2) / (nz * 0.22)) ** 2 <= 1;
+  return main || lobe;
+}
+
+// The voxel-face surface of that blob: one quad (two triangles) per foreground face whose neighbour is empty, and
+// every face carries the slice (z) of the voxel behind it, as the served mesh does.
+export function blobMesh(shape) {
+  const vertices = [];
+  const index = new Map();
+  const vertex = (x, y, z) => {
+    const key = `${x},${y},${z}`;
+    if (!index.has(key)) { index.set(key, vertices.length); vertices.push([x, y, z]); }
+    return index.get(key);
+  };
+  const triangles = [];
+  const slices = [];
+  // [neighbour offset, the four corners of the face as offsets inside the voxel]
+  const FACES = [
+    [[-1, 0, 0], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]]], [[1, 0, 0], [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]],
+    [[0, -1, 0], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]], [[0, 1, 0], [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]]],
+    [[0, 0, -1], [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]]], [[0, 0, 1], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]],
+  ];
+  for (let x = 0; x < shape[0]; x += 1) {
+    for (let y = 0; y < shape[1]; y += 1) {
+      for (let z = 0; z < shape[2]; z += 1) {
+        if (!blobOccupied(x, y, z, shape)) continue;
+        for (const [[dx, dy, dz], corners] of FACES) {
+          if (blobOccupied(x + dx, y + dy, z + dz, shape)) continue;
+          const [a, b, c, d] = corners.map(([i, j, k]) => vertex(x + i, y + j, z + k));
+          triangles.push([a, b, c], [a, c, d]);
+          slices.push(z, z);
+        }
+      }
+    }
+  }
+  return { shape, vertices, triangles, slices };
+}
+
 // The outward-wound box of voxels [x0, x1) x [y0, y1) x [z0, z1) as 12 triangles (a hand-made, valid mesh).
 export function boxMesh(shape, [x0, y0, z0], [x1, y1, z1]) {
   const v = [];
