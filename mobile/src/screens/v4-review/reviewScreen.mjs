@@ -9,7 +9,8 @@ import { createReviewCorrection } from './review.mjs';
 import { outlinePath } from './outline.mjs';
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import {
-  createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE, END_SECOND_FINGER, END_TERMINATED,
+  createBrushSession, diffRuns, brushRing, brushSizePx, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE,
+  END_SECOND_FINGER, END_TERMINATED,
 } from './brush.mjs';
 
 export { TOOL, MASK_STATE };
@@ -481,6 +482,9 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       }),
       layers: ready ? layersFor(slice) : null,
       sourceOnly,
+      // While a finger paints: the ring around the pixels the next stamp covers, in source pixels.
+      ring: brush && gesture.cursor ? brushRing(gesture.cursor, brush.radius) : null,
+      brushPx: brush ? brushSizePx(brush.radius) : null,
       transform,
       mode,
       busy,
@@ -572,10 +576,11 @@ export const MODE = Object.freeze({ BRUSH: 'brush', PAN: 'pan' });
 export function createGestureController({
   getSession, getSlice, getTransform, setTransform, getFitZoom, getMode, onStrokeEnd = null,
 }) {
-  let gest = null; // { prev: points, stroke: boolean }
+  let gest = null; // { prev: points, stroke: boolean, at: the source pixel under the painting finger, or null }
 
   function endStroke(how) {
     gest.stroke = false;
+    gest.at = null;
     const r = getSession().endStroke(how);
     if (r && onStrokeEnd) onStrokeEnd(r);
     return r;
@@ -584,13 +589,13 @@ export function createGestureController({
   function grant(points) {
     // Never inherit a stroke whose end was not delivered.
     if (gest && gest.stroke) endStroke(END_TERMINATED);
-    gest = { prev: points, stroke: false };
+    gest = { prev: points, stroke: false, at: null };
     const session = getSession();
     const t = getTransform();
     if (getMode() === MODE.BRUSH && points.length === 1 && session && t) {
       session.beginStroke(getSlice());
       gest.stroke = true;
-      session.sample(points[0].x, points[0].y, t);
+      gest.at = session.sample(points[0].x, points[0].y, t);
     }
   }
 
@@ -607,7 +612,7 @@ export function createGestureController({
     if (!t) return;
     if (gest.stroke) {
       if (points.length === 1) {
-        getSession().sample(points[0].x, points[0].y, t);
+        gest.at = getSession().sample(points[0].x, points[0].y, t);
         gest.prev = points;
         return;
       }
@@ -643,6 +648,8 @@ export function createGestureController({
     grant, fingers, move, release, terminate,
     get active() { return gest !== null; },
     get stroking() { return Boolean(gest && gest.stroke); },
+    // The source pixel [x, y] under the painting finger, for the brush ring; null when not painting.
+    get cursor() { return gest && gest.stroke ? gest.at : null; },
   });
 }
 

@@ -16,6 +16,18 @@ import { sha256Hex, base64ToBytes, bytesToBase64 } from '../../lib/bytes.mjs';
 
 export const RADII = [0, 1, 2, 3, 5];
 
+// The brush size a person reads: how many source pixels wide one stamp is (radius 2 -> 5 px).
+export const brushSizePx = (radius) => 2 * radius + 1;
+
+// The ring drawn at the finger, in source pixels: centred on the pixel (x, y) under the finger and as wide as the
+// stamp (2r + 1 pixels across), so every pixel a stamp there would change lies inside it. null when no pixel is
+// under the finger.
+export function brushRing(pixel, radius) {
+  if (!pixel) return null;
+  const [x, y] = pixel;
+  return Object.freeze({ x, y, cx: x + 0.5, cy: y + 0.5, r: radius + 0.5 });
+}
+
 // How a stroke ended. Only a normal lift commits; the other two roll back.
 export const END_RELEASE = 'release';
 export const END_SECOND_FINGER = 'second_finger';

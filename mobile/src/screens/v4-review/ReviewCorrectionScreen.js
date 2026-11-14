@@ -4,10 +4,10 @@
 
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { G, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import { RECOVERY, STATE } from '../../api/states.mjs';
-import { RADII } from './brush.mjs';
+import { brushSizePx, RADII } from './brush.mjs';
 import { runsToPath } from '../../lib/mask.mjs';
 import { decodeMaskPng } from '../../lib/maskPng';
 import { useCall } from '../../api/RuntimeContext';
@@ -128,11 +128,26 @@ function Canvas({ ctl, st }) {
             {edits && <Runs runs={layers.saved.filter((r) => r.kind === 'erase')} fill={LAYER.savedErase} opacity={0.85} />}
             {edits && <Runs runs={layers.unsaved.filter((r) => r.kind === 'add')} fill={LAYER.unsavedAdd} opacity={0.75} />}
             {edits && <Runs runs={layers.unsaved.filter((r) => r.kind === 'erase')} fill={LAYER.unsavedErase} opacity={0.75} />}
+            {/* The brush ring: as wide as one stamp, around the pixel under the finger; white on a dark rim so it
+                shows on any image. */}
+            {st.ring && (
+              <G testID="brush-ring">
+                <Circle cx={st.ring.cx} cy={st.ring.cy} r={st.ring.r} fill="none" stroke="#000000" strokeOpacity={0.6}
+                  strokeWidth={3 / t.zoom} />
+                <Circle cx={st.ring.cx} cy={st.ring.cy} r={st.ring.r} fill="none" stroke="#ffffff" strokeWidth={1.5 / t.zoom} />
+              </G>
+            )}
           </G>
         </Svg>
       )}
       {badge && (
         <Text style={[s.badge, { color: badge.fg, borderColor: badge.fg }]} testID="mask-state">{badge.label}</Text>
+      )}
+      {/* A finger hides the ring when zoomed out, so the stamp and the pixel under it are also said in words. */}
+      {st.ring && (
+        <Text style={s.painting} testID="painting">
+          {st.brush.tool === TOOL.ERASE ? 'Erase' : 'Add'} · {st.brushPx} px at x {st.ring.x}, y {st.ring.y}
+        </Text>
       )}
       {px && px.kind === PIXELS.SYNTHETIC && (
         <Text style={s.synthetic}>SYNTHETIC stand-in — fixture mode has no pixels. Not a prediction, not patient data.</Text>
@@ -352,11 +367,13 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
           <HoldSource ctl={ctl} on={st.sourceOnly} disabled={!st.layers} />
         </View>
         <View style={s.row}>
-          <Text style={s.label}>size</Text>
+          <Text style={s.label}>brush</Text>
           {RADII.map((rad) => (
-            <Btn key={rad} label={String(rad)} active={b.radius === rad} disabled={!editable} onPress={() => ctl.setRadius(rad)} />
+            <Btn key={rad} label={`${brushSizePx(rad)} px`} active={b.radius === rad} disabled={!editable}
+              onPress={() => ctl.setRadius(rad)} />
           ))}
         </View>
+        <Text style={s.hint}>Brush size is the width of one stamp in pixels of the image.</Text>
         <View style={s.row}>
           <Btn label="Undo" disabled={!editable || !b.canUndo} onPress={() => ctl.undo()} />
           <Btn label="Redo" disabled={!editable || !b.canRedo} onPress={() => ctl.redo()} />
@@ -411,6 +428,10 @@ const s = StyleSheet.create({
   badge: {
     position: 'absolute', top: space.s, left: space.s, fontFamily: font.mono, fontSize: font.small, fontWeight: '700',
     borderWidth: 1, borderRadius: 6, paddingHorizontal: space.s, paddingVertical: 2, backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  painting: {
+    position: 'absolute', top: space.s, right: space.s, fontFamily: font.mono, fontSize: font.small, color: '#ffffff',
+    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: space.s, paddingVertical: 2, borderRadius: 6,
   },
   synthetic: {
     position: 'absolute', bottom: space.s, left: space.s, right: space.s, color: color.warn, fontSize: font.small,

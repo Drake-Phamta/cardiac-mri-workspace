@@ -1203,6 +1203,19 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { byId(r, 'hold-source')[0].props.onPressOut(); });
   check('V4s', !byId(r, 'source-fill')[0] && rects() === withEdits && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
     'released: the edits and the UNSAVED state are back');
+
+  // Brush size in pixels and the ring at the finger (V4 item 2). The stroke is taken away by the system at the end,
+  // so it is rolled back and the checks below see one edit, as before.
+  check('V4t', ['1 px', '3 px', '5 px', '7 px', '11 px'].every((l) => btn(r, l)) && btn(r, '5 px').props.accessibilityState.selected === true,
+    'the brush sizes read 1, 3, 5, 7 and 11 px (the width of one stamp), 5 px by default');
+  const canvas0 = canvasOf(r);
+  await act(async () => { canvas0.onPanResponderGrant(evt(pointOf(450, 320))); });
+  const circles = byId(r, 'brush-ring')[0] ? byId(r, 'brush-ring')[0].findAll((n) => n.type === 'Circle') : [];
+  check('V4t', circles.length === 2 && circles.every((c) => c.props.cx === 450.5 && c.props.cy === 320.5 && c.props.r === 2.5)
+    && textOf(byId(r, 'painting')[0]) === 'Add · 5 px at x 450, y 320',
+  'a painting finger gets a ring 5 px across on the pixel under it, and the stamp and pixel are said in words');
+  await act(async () => { canvas0.onPanResponderTerminate(evt()); });
+  check('V4t', !byId(r, 'brush-ring')[0] && !byId(r, 'painting')[0] && rects() === withEdits, 'the ring goes with the finger');
   await pressExact(r, '‹ Back');
   await tick(60);
   const guard1 = alertNow('Unsaved edits');
@@ -1242,7 +1255,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   await pressExact(r, 'Redo');
   check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'Redo: the stroke is back');
   await pressExact(r, 'Undo');
-  await pressExact(r, '0');
+  await pressExact(r, '1 px');
   await stroke(r, [500, 300], [505, 300]);
   check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'two samples at radius 0 painted');
 
@@ -1292,7 +1305,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   'reopening the CORRECTED review continues from its latest version (N-4): SAVED, and Reset is said to go to the original prediction');
   check('V4i', be.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && be.requests.some((q) => q.path.includes('/artifacts/rev-REVMASK_1-44')),
     'the working base slice was read from the latest version (reviewed_mask_slice_get + its bytes)');
-  await pressExact(r, '3');
+  await pressExact(r, '7 px');
   await stroke(r, [100, 100]);
   be.db.review.revision += 1; // somebody else wrote: our expected_revision is stale
   await pressExact(r, 'Save');
@@ -1438,7 +1451,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   await toReview(rx);
   check('V4p', byId(rx, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0])),
     'the review starts on its latest version, REVMASK_0');
-  await pressExact(rx, '3');
+  await pressExact(rx, '7 px');
   await stroke(rx, [100, 100]);
   const theirs = bx.SOURCE.slice();
   for (let y = 250; y < 270; y += 1) for (let x = 380; x < 400; x += 1) theirs[y * 576 + x] = 1;
