@@ -18,14 +18,14 @@ import { readComparability, presentation, success } from '../src/api/index.mjs';
 import {
   COMPARISONS, MATRIX, UNAVAILABLE, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
   matrixEntry, notListedCell, stripLayout, pointAt,
-} from '../../app/verticals/v3_study_and_compare/index.mjs';
+} from '../src/screens/v3-study/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { TONE } from '../src/components/stateCopy.mjs';
 import {
   caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
-} from '../src/verticals/v3/v3View.mjs';
+} from '../src/screens/v3-study/view.mjs';
 import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
 
 const contractJson = readContractJson();
@@ -319,7 +319,7 @@ test('V3S8 a tapped strip point names its case and opens SCR-03 with case, run a
 });
 
 test('V3S9 the V3 screens use the shared models and rank nothing; React stays out of the .mjs logic', () => {
-  const dir = join(MOBILE_ROOT, 'src', 'verticals', 'v3');
+  const dir = join(MOBILE_ROOT, 'src', 'screens', 'v3-study');
   const files = readdirSync(dir).filter((f) => /\.m?js$/.test(f));
   for (const f of files) {
     const code = readFileSync(join(dir, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -328,7 +328,7 @@ test('V3S9 the V3 screens use the shared models and rank nothing; React stays ou
   }
   for (const f of ['StudyOverviewScreen.js', 'ExperimentComparisonScreen.js']) {
     const src = readFileSync(join(dir, f), 'utf8');
-    assert.match(src, /app\/verticals\/v3_study_and_compare\/index\.mjs/, `${f} must render the shared V3 model, not re-implement it`);
+    assert.match(src, /from '\.\/index\.mjs'/, `${f} must render the shared V3 model, not re-implement it`);
     assert.match(src, /import StateView from '\.\.\/\.\.\/components\/StateView'/, `${f} renders its states with the shared StateView`);
   }
 });

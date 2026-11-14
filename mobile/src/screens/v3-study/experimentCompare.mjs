@@ -29,7 +29,7 @@
 
 import {
   STATE, RECOVERY, loading, success, emptyUnavailable, stateForError,
-} from '../../../mobile/src/api/index.mjs';
+} from '../../api/index.mjs';
 import {
   MATRIX, MATRIX_IDS, UNAVAILABLE, matrixEntry, readExperimentRows, readPopulation,
 } from './readers.mjs';

@@ -11,7 +11,7 @@
  *   readers                            pure, for anything else a screen needs
  */
 
-export { createStudyOverview } from './studyOverview.mjs';
+export { createStudyOverview } from './models.mjs';
 export { createExperimentComparison, MODE } from './experimentCompare.mjs';
 export {
   CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, buildCell, notListedCell, metricContext, labelsForCell,

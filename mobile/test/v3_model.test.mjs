@@ -26,23 +26,25 @@
 // failure, nothing to install.
 
 import { readFileSync, readdirSync } from 'node:fs';
+
+import { generatedBundleJson } from './_helpers.mjs';
 import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
   STATE, RECOVERY, VERDICT, success, stateForError, readComparability, presentation,
-} from '../../../mobile/src/api/index.mjs';
+} from '../src/api/index.mjs';
 import {
   createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
   buildCell, buildTrend, deltaFor, readComparison, aggregationFor, stripLayout, pointAt, matrixEntry,
   readCount, readCohortN, readVariant, readFraction, readFamily, readMetricSummary, readOutlierSelection,
   readCaseRows, caseIntent, summaryStat, UNAVAILABLE, OUTLIER_RULE,
-} from './index.mjs';
+} from '../src/screens/v3-study/index.mjs';
 
-const ROOT = new URL('../../../', import.meta.url);
-const HERE = new URL('./', import.meta.url);
+const ROOT = new URL('../../', import.meta.url);
+const HERE = new URL('../src/screens/v3-study/', import.meta.url);
 const readJson = (p) => JSON.parse(readFileSync(new URL(p, ROOT), 'utf8'));
 
 const contract = createContract(readJson('contracts/api/contract.json'));
-const bundle = createBundle(contract, readJson('app/core/fixtures/.generated/api_bundle.json'));
+const bundle = createBundle(contract, generatedBundleJson());
 const newClient = () => createClient(contract, createFixtureTransport(bundle));
 const generated = (endpointId, name = 'default') => getScenario(bundle, endpointId, name);
 

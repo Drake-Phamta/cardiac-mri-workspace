@@ -15,7 +15,7 @@
 import { STATE } from '../../api/index.mjs';
 import {
   CELL_STATUS, FAMILY, MATRIX, OUTLIER_RULE, buildTrend, deltaFor, labelsForCell, summaryStat,
-} from '../../../../app/verticals/v3_study_and_compare/index.mjs';
+} from './index.mjs';
 import { TONE } from '../../components/stateCopy.mjs';
 
 export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV2]: 'DINOv2' });
