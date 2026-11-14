@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * fake_adb.mjs - a synthetic "phone" for testing mobile/scripts/device_session.ps1 with NO device.
+ * fake_adb.mjs - a synthetic "phone" for testing tools/device/device_session.ps1 with NO device.
  *
  * It answers the adb commands the script uses (devices, getprop, dumpsys, uiautomator dump, input tap / swipe / text,
  * monkey, logcat, install, screencap, ...) from a small model of the app's screens (SCR-01..SCR-08, the A9 dialogs),

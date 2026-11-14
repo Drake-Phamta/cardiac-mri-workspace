@@ -1,7 +1,7 @@
 # S-1 · L4 — "a slice gesture never triggers a full-volume transfer"
 
 **For:** Phạm Tuấn Anh, phone session on the Galaxy A17 5G (SM-A176B), 2026-10-01 (~19:00).
-**Decides:** Spike A L4 — `NFR-PERF-001` limb 2 — and with it `GATE-MOB-01` (leader decision, Day 22).
+**Decides:** L4 of `NFR-PERF-001` (limb 2) for the 2D viewer.
 **Evidence it produces:** the phone's logcat (`CMW_GESTURE` lines), the laptop-side verdict of
 `mobile/scripts/l4-report.mjs`, and the backend's request log for the same window.
 **Not a measurement of speed.** L4 is about *what* is transferred per gesture, not how fast. Timing lines
@@ -81,17 +81,17 @@ both windows.
 1. **The APK is the right one.** Open the `.apk.build.txt` next to the APK in `$MOBILE\release\` and check:
    `mode live` · `contract 1.1.0` · `git_sha` is the commit you expect · `built_at` is **after** that commit ·
    `source_tree staging copy of committed HEAD` · `api_base_url configured (not recorded)`.
-   Builds from now on record **nothing** about the backend address — not the URL, not a hash of it (DR-021 rule 3;
-   an unsalted SHA-256 of an overlay address can be reversed by trying every candidate address, #77 QA N-6). The
+   Builds from now on record **nothing** about the backend address — not the URL, not a hash of it (an
+   unsalted SHA-256 of a private address can be reversed by trying every candidate address). The
    sidecar therefore cannot say which backend an APK was built for: build from the checkout whose
    `mobile\.env.local` you use, and let the preflight from that same checkout (§0.2) prove the backend.
    *History:* the L4 build (`ffbf763`, below) was made before this rule and still recorded an unsalted `sha256:` of
    the URL (this step then compared it with a hash of `mobile\.env.local`); the committed evidence has that value
-   redacted to `<redacted>` (`apk_build_record.txt`). A sidecar of a build older than DR-021 rule 3 is redacted the
+   redacted to `<redacted>` (`apk_build_record.txt`). A sidecar of a build older than that rule is redacted the
    same way before it is committed; never publish its hash. Note the APK file name and its `apk_sha256` in your
    session notes. Tonight's APK:
-   `cardiac-mri-workspace-live-20261001-194641.apk`, `git_sha ffbf763`, apk_sha256 `4a66a5284aee…fe100d5a`. The first APK of the evening (`…-141939.apk`, `0bfaba3`) crashed at start on Hermes (`RangeError: Unknown encoding: latin1`, from fast-png); `ffbf763` adds the latin1 shim, and L4 was measured on that build (`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`).
-2. **The backend answers.** On the Mac mini, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
+   `cardiac-mri-workspace-live-20261001-194641.apk`, `git_sha ffbf763`, apk_sha256 `4a66a5284aee…fe100d5a`. The first APK of the evening (`…-141939.apk`, `0bfaba3`) crashed at start on Hermes (`RangeError: Unknown encoding: latin1`, from fast-png); `ffbf763` adds the latin1 shim, and L4 was measured on that build (its logcat and reports are kept as a test fixture in `tools/device/test/fixtures/l4_capture/`).
+2. **The backend answers.** On this PC, `/health` returns `"status": "ok"` and `"data_ready": true`. (The
    phone-side check is step 2.3 below: the case list loads.) Then, **on the laptop, from the checkout the APK was
    built from** (same `mobile\.env.local`), run the preflight — it drives the backend with the app's own code
    (runtime, V1 model, checksum check, mask decoder) and never prints the address:
@@ -101,7 +101,7 @@ both windows.
    ```
 
    `--no-warnings` matters: without it Node 24 prints a `MODULE_TYPELESS_PACKAGE_JSON` warning on stderr that
-   contains the absolute path of a file on this PC (#77 QA re-check R-2).
+   contains the absolute path of a file on this PC.
 
    It must end with `PREFLIGHT PASS`. Tonight P3 reads `run none - MRI + ground truth only` (no run is ingested)
    and P5 `prediction none (no analysis run)`; P4–P6 must still pass. `FAIL P1 … REBUILD` means the backend's
@@ -109,8 +109,8 @@ both windows.
    this APK was built with — the app would answer every screen with `CONTRACT_DRIFT`; stop and rebuild from a
    checkout with the backend's contract. `P6` is a one-slice rehearsal of the L4 rules (per-slice requests only; going
    back costs 0 bytes). Paste only the lines from `preflight:` to `PREFLIGHT …` into your session notes.
-3. **The network path is the acceptance path.** Phone on Wi-Fi, ZeroTier connected, `zerotier-cli peers` on the
-   Mac mini shows the phone as `DIRECT` (DEMO_STANDARD §8). Write the path down.
+3. **The network path is USB.** The backend runs on this PC; `adb reverse tcp:8000 tcp:8000` forwards the phone's
+   `127.0.0.1:8000` to it (`adb reverse --list` shows it). Write the path down.
 4. **Phone:** charged above 50 %, screen timeout ≥ 5 min, no battery saver, USB debugging on and authorised —
    the setup block above already proved one authorised SM-A176B in state `device`.
 
@@ -135,7 +135,7 @@ Start the capture **in window 2** (after its setup block) and leave it running u
 2. Tap the **Cases** tab (SCR-02).
 3. The list loads with the backend's cases. *(If it shows "Something went wrong — The backend could not be
    reached", fix the network first. The screen says `backend http://<configured>` — by design it never shows the
-   address. Check, in this order: ZeroTier on the phone, the Mac mini `/health`, and that the APK was built from
+   address. Check, in this order: `adb reverse --list`, the backend's `/health` on this PC, and that the APK was built from
    the checkout whose `mobile\.env.local` passed the preflight (§0.1, §0.2).)*
 4. Type `CASE_0061` in the search box and tap the row (or **Open CASE_0061 directly**).
 5. Tonight the viewer opens directly: the line under the case id reads **No analysis run for this case - MRI and
@@ -208,10 +208,10 @@ exactly this:
 
    Expect **31 or more** in each (`open` + 15 new + 15 revisit, plus anything you did before the run). If the
    streamed file has fewer lines than the dump, judge the dump and note it.
-2. Copy the backend's request log for the same window from the Mac mini: `requests.jsonl` from the backend data
-   directory (`<data-dir>/var/`, added by A3 for this session), and the `uvicorn.log` next to it, into `$CAP`.
+2. Copy the backend's request log for the same window: `requests.jsonl` from the backend data directory
+   (`<data-dir>/logs/`), and the `uvicorn.log` next to it, into `$CAP`.
 3. Keep, side by side in `$CAP`: the logcat files, the APK `.build.txt`, `requests.jsonl`, `uvicorn.log`, the
-   network path (`DIRECT`), device and Android version, and the time window. **Before committing any of it**
+   network path (USB, `adb reverse`), device and Android version, and the time window. **Before committing any of it**
    (copy out of `$CAP` first), replace the backend's host/IP with `<configured>` in `requests.jsonl` /
    `uvicorn.log` and in screenshots (the app's own lines never contain it).
 

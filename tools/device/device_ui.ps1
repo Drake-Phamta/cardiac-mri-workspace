@@ -1,4 +1,4 @@
-# device_ui.ps1 - adb and uiautomator helpers for mobile/scripts/device_session.ps1.
+# device_ui.ps1 - adb and uiautomator helpers for tools/device/device_session.ps1.
 #
 # Dot-source it:   . "$PSScriptRoot\device_ui.ps1"
 # Windows PowerShell 5.1, ASCII only (a BOM-less file with other characters is read as ANSI by 5.1).
@@ -6,7 +6,7 @@
 # What is in here, and nothing else:
 #   - one place that starts native programs (adb, node) and captures stdout/stderr as bytes, with a time limit;
 #   - one place that logs, and removes the device serial, private IPv4 addresses and the Windows profile path
-#     from everything that is printed or written to the session log (the repository is public, DR-019);
+#     from everything that is printed or written to the session log (the repository is public);
 #   - the uiautomator dump parser and the node lookup (exact text, content-desc, regex; centre of the bounds);
 #   - taps, long-presses, swipes, scrolls, screenshots, and the read of a logcat file that is still being written.
 # The A9 / tour / judge logic is in device_session.ps1 and device_judge.ps1.

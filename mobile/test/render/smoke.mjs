@@ -13,7 +13,7 @@
  * navigator, the states, the variant rule, the slice cache, the byte counts.
  * What it does NOT mean: anything about a device. No frame, gesture, decode
  * time or network on a phone is measured here; that evidence is logcat from
- * the A17 (mobile/S1_L4_SCRIPT.md).
+ * the A17 (tools/device/S1_L4_SCRIPT.md).
  */
 
 import { createHash } from 'node:crypto';

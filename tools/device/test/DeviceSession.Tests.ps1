@@ -1,9 +1,9 @@
 # Pester wrapper (written for Pester 3.4, also fine on 4.x) around the offline checks of device_session.ps1:
-#   Invoke-Pester mobile\test\ps
-# The same checks run without Pester:  powershell -File mobile\scripts\device_session.ps1 -SelfTest
+#   Invoke-Pester tools\device\test
+# The same checks run without Pester:  powershell -File tools\device\device_session.ps1 -SelfTest
 # No phone, no network; fixtures are generated (see DeviceSession.SelfTest.ps1).
 
-$scripts = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'scripts'
+$scripts = Split-Path -Parent $PSScriptRoot
 . (Join-Path $scripts 'device_ui.ps1')
 . (Join-Path $scripts 'device_judge.ps1')
 . (Join-Path $PSScriptRoot 'DeviceSession.SelfTest.ps1')
@@ -42,7 +42,7 @@ Describe 'device_session.ps1 files' {
   }
 }
 
-# --- end to end against the fake phone (test/ps/fake_adb): the whole session with no device -----------------------------
+# --- end to end against the fake phone (test/fake_adb): the whole session with no device -----------------------------
 # A synthetic APK + sidecar, a fake adb that models the app's screens, and the real script. About 45 s for the A9 part;
 # the tour part (about 2 min) runs when CMW_E2E_TOUR=1.
 Describe 'end to end against the fake phone' {

@@ -1,11 +1,11 @@
 # A9 · TC-PERF-001 — 30-step cached slice navigation in the product app
 
-**For:** Phạm Tuấn Anh (V1 owner), phone session on the Galaxy A17 5G (SM-A176B), Day 24, 2026-10-03.
-**Decides:** `TC-PERF-001` for V1 SCR-03, MRI + ground-truth path (scope below). The written script that
-`management/DEMO_STANDARD.md:123` (and D6, `:50`) asks for before a scripted device test.
+**For:** Phạm Tuấn Anh (V1 owner), phone session on the Galaxy A17 5G (SM-A176B), 2026-10-03.
+**Decides:** `TC-PERF-001` for V1 SCR-03, MRI + ground-truth path (scope below). The written script a scripted
+device test needs before it runs.
 **Evidence:** three repetitions of the app's own **A9 30-step** run (warm pass, then measured pass), each with its
 logcat and `dumpsys meminfo` before and after; `slice-timing-report.mjs` and `l4-report.mjs` output; the backend log.
-**Template:** `mobile/S1_L4_SCRIPT.md` (L4, 2026-10-01). "As S1_L4 §x" means: run that section exactly as written.
+**Template:** `tools/device/S1_L4_SCRIPT.md` (L4, 2026-10-01). "As S1_L4 §x" means: run that section exactly as written.
 
 ## 0 · Purpose and pass criteria
 
@@ -16,9 +16,9 @@ logcat and `dumpsys meminfo` before and after; `slice-timing-report.mjs` and `l4
 > **TC-PERF-001** — 30-step cached slice navigation meets `NFR-PERF-001` p95 ≤ 200 ms and avoids full-volume
 > request per gesture. — `docs/specs/v1.0/13_TEST_ACCEPTANCE_AND_TRACEABILITY.md:314`
 
-`DEMO_STANDARD.md`: live on the A17, release build (D1, `:45`); "the statistic the NFR defines … plus p50, over the
-defined test, on a release build, over every run — never the best one", from committed raw evidence (D5, `:49`);
-SCR-03 "slice switch p95 ≤ 200 ms measured" (`:97`, shown as "the measured p50/p95 from the evidence file", `:137`).
+The demo rules: live on the A17, release build; "the statistic the NFR defines … plus p50, over the
+defined test, on a release build, over every run — never the best one", from committed raw evidence;
+SCR-03 "slice switch p95 ≤ 200 ms measured" (shown as "the measured p50/p95 from the evidence file").
 
 **TC-PERF-001 PASS = T1–T4 hold in each of the 3 repetitions.** Otherwise FAIL — write which check, which repetition.
 Report p50 and p95 of every repetition and of the three pooled (`n  93`); none is dropped (D5). Memory: §3.5.
@@ -26,7 +26,7 @@ Report p50 and p95 of every repetition and of the three pooled (`n  93`); none i
 | # | Check | §4 |
 |---|---|---|
 | T1 | **p95 ≤ 200 ms over the measured pass**: the `A9:measured` row of `slice-timing-report.mjs` reads `n  31` and `p95` ≤ 200 (`ms_to_frame`, nearest-rank, no outlier removal — `mobile/scripts/slice-timing-report.mjs:11-16`) | 4.1 |
-| T2 | **Release, live**: no `(DEV build)` row (`DEMO_STANDARD.md:142-143`); both `CMW_RUN_START` lines read `"dev":false,"mode":"live"` | 4.1 |
+| T2 | **Release, live**: no `(DEV build)` row; both `CMW_RUN_START` lines read `"dev":false,"mode":"live"` | 4.1 |
 | T3 | **The measured pass was cached navigation**: its 31 `CMW_GESTURE` lines all read `"cache_hit":true`; the two `CMW_NET_TOTALS` lines have equal `requests`, `bytes`, `unattributed`, `late`; no `CMW_STEP_TIMEOUT` in it | 4.2 |
 | T4 | **No full-volume request per gesture**: `l4-report.mjs` shows `"problems": []` (R1–R4 on every slice gesture of the capture) | 4.3 |
 
@@ -35,9 +35,9 @@ per pass: a jump to slice 0, then Spike A's 30 steps (`mobile/src/verticals/v1/e
 (576 × 576 × 88, the L4 case): z = 1…8, 7…0, 46, 0, 87, 23, 64, 12, 76, 35, 36…41 — 22 distinct slices, 23 with the
 opening one. All 31 measured switches are cached, and all count.
 
-**Scope: MRI + ground truth, live.** The backend has 0 analysis runs until `GATE-IMG-01`
-(`management/readiness/OPEN_DECISIONS.md:57`) and the N-a / DR-018 Contract 2 work land, so CASE_0061 opens with no
-run, as for L4: MRI + GT overlay (keep it **ON**: the hero flow navigates with overlays, `DEMO_STANDARD.md:66-67`), no
+**Scope: MRI + ground truth, live.** At the time the backend had 0 analysis runs (the holdout
+predictions had not been authorised yet), so CASE_0061 opens with no
+run, as for L4: MRI + GT overlay (keep it **ON**: the hero flow navigates with overlays), no
 prediction — write "… — MRI + ground-truth path; prediction overlay not covered", and rerun with predictions once a run is in.
 **Fixture mode is not evidence:** no image store, no gesture log (`mobile/src/runtime/createRuntime.mjs:93-106`) — a
 placeholder grid, `CMW_SLICE` `"how":"no-image","mode":"fixture"`, no `CMW_GESTURE`: neither limb can be judged. D1
@@ -103,7 +103,7 @@ Android may show capitals). The menu is in every build — release or debug, liv
 fetching the 22 distinct slices once), then straight away the **measured** pass (the same 31 steps, all cached), each
 step 350 ms after the previous slice is on screen (`:578`); a slice not on screen after 6 s logs `CMW_STEP_TIMEOUT`
 (`:520-532`). It ends with an **"A9 finished"** dialog (~30–60 s). Touch nothing until then.
-*If adb drives the phone* (the leader's Claude session): only `shell input swipe <x> <y> <x> <y> 1200` (long-press,
+*If adb drives the phone* (`tools/device/device_session.ps1`): only `shell input swipe <x> <y> <x> <y> 1200` (long-press,
 label centre) and `shell input tap <bx> <by>` (**A9 30-step**), never during the run, with coordinates from
 `shell uiautomator dump /sdcard/cmw_ui.xml` (pulled into `$CAP`, never committed); PROVENANCE says so (§5).
 
@@ -130,8 +130,8 @@ foreach ($tag in "CMW_SLICE", "CMW_GESTURE", "CMW_RUN_END", "CMW_NET_TOTALS") { 
 Expect `CMW_SLICE 62` (31 + 31), `CMW_GESTURE 63` (opening slice + 62), `CMW_RUN_END 2`, `CMW_NET_TOTALS 2`; if the
 streamed file has fewer lines than the dump, judge the dump and note it (S1_L4 §3.1). Next `$k`: back to 3.1.
 *Memory only at M0 and M1:* `dumpsys meminfo` runs code in the app's process and would disturb a measured pass (whose
-start is not visible from outside). M1 is the run's peak image cache — `management/adr/TECH_STACK_ADR.md:82` measures
-it "in V1's TC-PERF-001 runs", adding no requirement. Note `TOTAL PSS`, `Native Heap`, `Graphics` (App Summary).
+start is not visible from outside). M1 is the run's peak image cache — the tech-stack decision asks for it to be measured
+"in V1's TC-PERF-001 runs", adding no requirement. Note `TOTAL PSS`, `Native Heap`, `Graphics` (App Summary).
 
 ### 3b · The one rerun
 
@@ -161,7 +161,7 @@ A9:measured                  n  31  min <ms>  p50 <ms>  p95 <ms>  max <ms>  (ms_
 
 T1 reads `A9:measured` only (`A9:warm` mixes fetches and revisits: information). `(DEV build)` or `rep k False` fails
 T2; a `manual` row is a slice moved outside the run (not TC-PERF-001 samples; note it). Yesterday's capture
-(`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/S1_L4_logcat.txt`) gives only `L4:new-15` and
+(`tools/device/test/fixtures/l4_capture/S1_L4_logcat.txt`) gives only `L4:new-15` and
 `L4:revisit-15` — **no A9 rows**: the L4 session never started A9.
 
 **4.2 Cached — T3.**
@@ -196,7 +196,7 @@ only L4 markers (`mobile/scripts/l4-report.mjs:123-131`), so A9 reads as a manua
 only, ≤ 500 KB per gesture, no response over 2 MB, nothing over 10× its endpoint median) are still checked on every
 slice gesture (`:142-169`); R5–R8 and the note's "Rerun with … L4" do not apply. Any R1–R4 line → `L4 FAIL` → T4 fails.
 
-**4.4 Server cross-check** — as S1_L4 §3.2 and §4, copy `requests.jsonl` and `uvicorn.log` from the Mac mini into `$CAP`:
+**4.4 Server cross-check** — as S1_L4 §3.2 and §4, copy `requests.jsonl` and `uvicorn.log` from the backend data folder into `$CAP`:
 
 ```powershell
 python <repo>\backend\scripts\summarize_request_log.py --log "$CAP\requests.jsonl" --since <rep-1 launch, phone time - 7 h, YYYY-MM-DDTHH:MM:SSZ> | Out-File -Encoding utf8 "$CAP\server_summary.txt"
@@ -210,31 +210,31 @@ repetition <k>` · `INCOMPLETE — k of 3` · `NOT MEASURED — <reason>`.
 
 ## 5 · Evidence folder and PROVENANCE
 
-Mirror the L4 folder (`spikes/spike_a_2d/EVIDENCE_RAW/l4_product_app_20261001T205817+0700/`). Proposed location, the
-leader decides: `management/evidence/TC_PERF_001/a9_product_app_<YYYYMMDDTHHMMSS+0700>/` (rep-1 start, phone clock).
+Mirror the L4 capture (`tools/device/test/fixtures/l4_capture/`). Name the folder
+`a9_product_app_<YYYYMMDDTHHMMSS+0700>/` (rep-1 start, phone clock); keep it outside git unless the team decides otherwise.
 
 | File | What |
 |---|---|
 | `A9_rep{1,2,3}_logcat.txt` | each repetition's streamed `ReactNativeJS` log (the app never logs a URL, host or payload) |
 | `A9_rep{1,2,3}_meminfo_M0.txt`, `…_M1.txt` | `dumpsys meminfo` before / after each run |
 | `slice_timing_rep{1,2,3}.txt`, `slice_timing_all_reps.txt`, `l4_report_rep{1,2,3}.txt`, `server_summary.txt` | §4 output (the server one aggregates only) |
-| `apk_build_record.txt`, `preflight.txt` | the APK's `.build.txt` (no backend address since DR-021 rule 3); the lines `preflight:` … `PREFLIGHT PASS` |
+| `apk_build_record.txt`, `preflight.txt` | the APK's `.build.txt` (no backend address is recorded); the lines `preflight:` … `PREFLIGHT PASS` |
 | `PROVENANCE.md` | below; plus `A9_rep{k}_attempt1_*` if §3b was used |
 
 Outside git, bytes and SHA-256 (`Get-FileHash`, of the file itself, never a redirected copy) in PROVENANCE:
-`requests.jsonl`, `uvicorn.log` (the phone's overlay address), the `_dump.txt` files, `A9_all_reps_logcat.txt`,
+`requests.jsonl`, `uvicorn.log` (they may hold a client address), the `_dump.txt` files, `A9_all_reps_logcat.txt`,
 `cmw_ui.xml`. Before copying out of `$CAP`, this must print nothing (type the address only in the terminal):
 
 ```powershell
-Select-String -Path "$CAP\*.txt" -SimpleMatch -Pattern $SERIAL, "<overlay-ip>", $env:USERNAME
+Select-String -Path "$CAP\*.txt" -SimpleMatch -Pattern $SERIAL, "<backend-ip>", $env:USERNAME
 ```
 
 **PROVENANCE.md** — the L4 file's sections:
 
 | Field | Write |
 |---|---|
-| Operator | who touched the phone. If the leader's Claude session drove it through `adb` (`input tap`, `input swipe`), say so, as for L4: Phạm Tuấn Anh connected the phone, was present and did not touch it during the runs. Also the V1 owner and the reviewer |
-| Device, network | Galaxy A17 5G SM-A176B, Android version, Motion smoothness, battery level and temperature at start; Wi-Fi + ZeroTier `DIRECT`. No serial, no addresses |
+| Operator | who touched the phone. If an automated session drove it through `adb` (`input tap`, `input swipe`), say so, as for L4: Phạm Tuấn Anh connected the phone, was present and did not touch it during the runs. Also the V1 owner and the reviewer |
+| Device, network | Galaxy A17 5G SM-A176B, Android version, Motion smoothness, battery level and temperature at start; USB with `adb reverse` to the backend on this PC. No serial, no addresses |
 | APK | file name, full SHA-256, release (Hermes), full `git_sha` (`main` with #86–#88), `built_at` |
 | Backend, preflight | contract version, deployed `main` commit, case count, 0 runs; `PREFLIGHT PASS` (`preflight.txt`) |
 | Case and scope | CASE_0061, start slice 45 (z = 44), GT overlay ON, no run → MRI + ground truth; **prediction overlay not covered** |

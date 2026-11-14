@@ -1,7 +1,7 @@
-# DeviceSession.SelfTest.ps1 - offline checks of mobile/scripts/device_session.ps1 and its two libraries.
+# DeviceSession.SelfTest.ps1 - offline checks of tools/device/device_session.ps1 and its two libraries.
 #
-#   powershell -ExecutionPolicy Bypass -File mobile\scripts\device_session.ps1 -SelfTest
-#   Invoke-Pester mobile\test\ps            (Pester 3.4 or later; wraps the same checks)
+#   powershell -ExecutionPolicy Bypass -File tools\device\device_session.ps1 -SelfTest
+#   Invoke-Pester tools\device\test         (Pester 3.4 or later; wraps the same checks)
 #
 # No phone, no network, no write into the repository: fixtures are generated in memory or in
 # %TEMP%\cmw_device_session_selftest (files are overwritten on each run, nothing is deleted).
@@ -251,8 +251,8 @@ function Invoke-FxJudge {
 
 function Get-DeviceSessionSelfChecks {
   param([string]$ScriptsDir)
-  $mobile = Split-Path -Parent $ScriptsDir
-  $repo = Split-Path -Parent $mobile
+  $repo = Split-Path -Parent (Split-Path -Parent $ScriptsDir)
+  $mobile = Join-Path $repo 'mobile'
   $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'cmw_device_session_selftest'
   if (-not (Test-Path -LiteralPath $tmp)) { [void](New-Item -ItemType Directory -Path $tmp) }
   $script:ST = @{ Scripts = $ScriptsDir; Mobile = $mobile; Repo = $repo; Tmp = $tmp }
@@ -350,8 +350,7 @@ function Get-DeviceSessionSelfChecks {
     $script:Ctx.Secrets = New-Object System.Collections.ArrayList
     try {
       Add-Secret -Value 'R58M12ABCDE' -Mask '<device-serial>'
-      # Synthetic private addresses are joined at run time: no committed line carries a dotted quad (DR-019 CI scan).
-      # The 10.x fixture is outside ZeroTier's default 10.147.x.x pool, so it cannot be the project's overlay address (QA_PR100_103_D39 #103).
+      # Synthetic private addresses are joined at run time: no committed line carries a dotted quad (the CI scan).
       $ipA = (192, 168, 1, 20) -join '.'; $ipB = (10, 250, 250, 5) -join '.'; $ipC = (172, 22, 0, 9) -join '.'
       $t = Hide-Secret ('adb -s R58M12ABCDE shell; backend ' + $ipA + ' and ' + $ipB + ' and ' + $ipC + '; ' + $env:USERPROFILE + '\x')
       Assert-True ($t -notmatch 'R58M12ABCDE') 'serial leaked'
@@ -429,8 +428,8 @@ function Get-DeviceSessionSelfChecks {
     Assert-True ($v.Line -match 'never finished') $v.Line
   }
   Add-Check 'judge: the committed L4 capture gives no A9 rows (NOT MEASURED), not a crash' {
-    $l4 = Join-Path $script:ST.Repo 'spikes\spike_a_2d\EVIDENCE_RAW\l4_product_app_20261001T205817+0700\S1_L4_logcat.txt'
-    if (-not (Test-Path -LiteralPath $l4)) { return }     # a checkout without the evidence folder: nothing to check
+    $l4 = Join-Path $script:ST.Scripts 'test\fixtures\l4_capture\S1_L4_logcat.txt'
+    Assert-True (Test-Path -LiteralPath $l4) 'the committed L4 capture fixture is missing'
     $j = Invoke-RepJudge -LogPath $l4 -Node (Find-NodeExe) -MobileDir $script:ST.Mobile -K 1 -TimingOut '' -L4Out ''
     $e = $j.Eval
     Assert-Equal $e.Verdict 'NOT MEASURED'
@@ -539,8 +538,8 @@ function Get-DeviceSessionSelfChecks {
     Assert-True (@($hits | Where-Object { $_.PSObject.Properties['Text'] }).Count -eq 0) 'the scan must not carry the matched text'
   }
   Add-Check 'redaction scan: the committed L4 evidence is clean (no false positives on real logcat text)' {
-    $dir = Join-Path $script:ST.Repo 'spikes\spike_a_2d\EVIDENCE_RAW\l4_product_app_20261001T205817+0700'
-    if (-not (Test-Path -LiteralPath $dir)) { return }
+    $dir = Join-Path $script:ST.Scripts 'test\fixtures\l4_capture'
+    Assert-True (Test-Path -LiteralPath $dir) 'the committed L4 capture fixture is missing'
     $files = @('S1_L4_logcat.txt', 'l4_report.txt', 'preflight.txt', 'apk_build_record.txt') | ForEach-Object { Join-Path $dir $_ } | Where-Object { Test-Path -LiteralPath $_ }
     $hits = @(Find-SensitiveText -Paths $files -Serials @())
     Assert-Equal $hits.Count 0 ('hits: ' + (($hits | ForEach-Object { $_.File + ':' + $_.Line + ' ' + $_.Kind }) -join ', '))
@@ -557,7 +556,7 @@ function Get-DeviceSessionSelfChecks {
   Add-Check 'outside-git: a folder inside the repository is inside, also when the repository is spelled with its 8.3 short name; another folder is outside' {
     # [System.IO.Path]::GetFullPath of Windows PowerShell 5.1 expands the short names of the folders above the last existing one
     # but leaves the last existing folder as typed, so "<repo short name>\out" (out does not exist yet) used to be judged
-    # outside the repository (QA_PR100_103_D39 #103 NB-2). Test-OutsideGit now compares long (8.3-expanded) paths.
+    # outside the repository. Test-OutsideGit now compares long (8.3-expanded) paths.
     $repo = Join-Path $script:ST.Tmp 'outside_git_probe_with_a_long_repository_folder_name'
     $inside = Join-Path $repo 'sessions_with_a_long_name'
     foreach ($d in @($repo, $inside)) { if (-not (Test-Path -LiteralPath $d)) { [void](New-Item -ItemType Directory -Path $d) } }
@@ -576,7 +575,7 @@ function Get-DeviceSessionSelfChecks {
   }
   Add-Check 'operator questions: every [y/N] question is judged by y, so Enter (an empty answer) means No' {
     # Read-Operator returns the typed text; its -Default applies only when unattended, so an interactive Enter gives ''.
-    # A question judged by "-match '^[nN]'" would therefore read Enter as Yes (QA_PR100_103_D39 #103 NB-1: the SCR-06
+    # A question judged by "-match '^[nN]'" would therefore read Enter as Yes (the SCR-06
     # question, whose answer sends a review_create to the backend). Each question line must be followed by a test on y.
     $lines = @(Get-Content -LiteralPath (Join-Path $script:ST.Scripts 'device_session.ps1'))
     $asked = 0

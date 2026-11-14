@@ -4,14 +4,14 @@
   runs (3 repetitions), a screenshot tour of SCR-01..SCR-08, and the judge. Plug in, unlock, answer a few prompts.
 
 .DESCRIPTION
-  Follows mobile/A9_TC_PERF_001_SCRIPT.md (the procedure and the pass criteria T1-T4) and mobile/S1_L4_SCRIPT.md
+  Follows tools/device/A9_TC_PERF_001_SCRIPT.md (the procedure and the pass criteria T1-T4) and tools/device/S1_L4_SCRIPT.md
   (adb conventions). It drives the phone with `adb shell uiautomator dump` + `input tap/swipe`, looks every control up
   by its on-screen text, and never touches the screen while a pass runs. If one UI step fails it saves a screenshot and
   the UI dump, says what it expected, and asks you to do that one step by hand.
 
   Everything it writes goes to -Out, which must be OUTSIDE the git repository (default
-  D:\02_Research\cardiac-runs\_device_sessions\<yyyyMMdd-HHmmss>\). The device serial is used in memory only and printed
-  as <device-serial>; no address, no screenshot and no MRI image is ever written into the repository (DR-019).
+  $env:CARDIAC_RUNS_ROOT\_device_sessions\<yyyyMMdd-HHmmss>\, else %LOCALAPPDATA%\cardiac-runs\_device_sessions\...). The device serial is used in memory only and printed
+  as <device-serial>; no address, no screenshot and no MRI image is ever written into the repository.
   Opening SCR-06 makes the app send ONE idempotent review_create (status NOT_REVIEWED) to the backend; the script asks
   before it does that, never taps Accept / Flag / Save or any other write button, and never commits a review.
 
@@ -19,7 +19,7 @@
   not PASS, 1 = stopped by an error or by the operator.
 
 .PARAMETER Apk        APK to install (default: the newest mobile\release\*live*.apk).
-.PARAMETER Out        Output folder, outside git (default D:\02_Research\cardiac-runs\_device_sessions\<timestamp>).
+.PARAMETER Out        Output folder, outside git (default <CARDIAC_RUNS_ROOT>\_device_sessions\<timestamp>).
 .PARAMETER Reps       A9 repetitions (default 3).
 .PARAMETER Steps      all (default) or a comma list of: preflight, install, a9, tour, judge.
 .PARAMETER Adb        adb.exe (default $env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe).
@@ -34,11 +34,11 @@
 .PARAMETER SelfTest   Run the offline self-checks (parser, judge, redaction) and exit.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File mobile\scripts\device_session.ps1
+  powershell -ExecutionPolicy Bypass -File tools\device\device_session.ps1
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File mobile\scripts\device_session.ps1 -DryRun
+  powershell -ExecutionPolicy Bypass -File tools\device\device_session.ps1 -DryRun
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File mobile\scripts\device_session.ps1 -Steps judge -Out D:\02_Research\cardiac-runs\_device_sessions\20261018-101500
+  powershell -ExecutionPolicy Bypass -File tools\device\device_session.ps1 -Steps judge -Out <CARDIAC_RUNS_ROOT>\_device_sessions\20261018-101500
 #>
 [CmdletBinding()]
 param(
@@ -65,7 +65,7 @@ Set-StrictMode -Version 2
 . (Join-Path $PSScriptRoot 'device_judge.ps1')
 
 if ($SelfTest) {
-  . (Join-Path $PSScriptRoot '..\test\ps\DeviceSession.SelfTest.ps1')
+  . (Join-Path $PSScriptRoot 'test\DeviceSession.SelfTest.ps1')
   $bad = Invoke-DeviceSessionSelfTest -ScriptsDir $PSScriptRoot
   if ($bad -eq 0) { exit 0 } else { exit 1 }
 }
@@ -73,7 +73,7 @@ if ($SelfTest) {
 $script:RepsGiven = $PSBoundParameters.ContainsKey('Reps')
 $script:AllSteps = @('preflight', 'install', 'a9', 'tour', 'judge')
 $script:Pkg = 'com.cardiacmri.workspace'
-$script:DefaultOutRoot = 'D:\02_Research\cardiac-runs\_device_sessions'
+$script:DefaultOutRoot = $(if ($env:CARDIAC_RUNS_ROOT) { Join-Path $env:CARDIAC_RUNS_ROOT '_device_sessions' } else { Join-Path $env:LOCALAPPDATA 'cardiac-runs\_device_sessions' })
 $script:Cap = $null               # the running logcat capture (stopped in the cleanup)
 $script:RecordHandle = $null
 $script:CurrentManual = New-Object System.Collections.ArrayList
@@ -95,7 +95,7 @@ function Resolve-Session {
   $run = @($script:AllSteps | Where-Object { $requested -contains $_ })
 
   $mobile = $MobileDir
-  if (-not $mobile) { $mobile = Split-Path -Parent $PSScriptRoot }
+  if (-not $mobile) { $mobile = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'mobile' }
   if (-not (Test-Path -LiteralPath $mobile)) { throw ("-MobileDir '{0}' does not exist" -f $mobile) }
   $mobile = (Resolve-Path -LiteralPath $mobile).Path
   $repo = Split-Path -Parent $mobile
@@ -1333,9 +1333,8 @@ function Step-Judge {
   } else { Write-Host '  Redaction scan: no device serial, no IPv4 address, no URL, no Windows user name in those files.' -ForegroundColor Green }
   if (-not $script:Ctx.Serial) { Write-Host '  (this run had no phone, so the device serial is not known: the scan checked addresses, URLs and the Windows user only; the phone session itself scanned for the serial)' -ForegroundColor Gray }
   Write-Host '  Stays outside git: the *_dump.txt files, A9_all_reps_logcat.txt, screens\, videos\, failures\, *.xml, session.log, session_state.json.' -ForegroundColor Gray
-  Write-Host '  Suggested evidence folder: management/evidence/TC_PERF_001/a9_product_app_<YYYYMMDDTHHMMSS+0700>/ (leader decides).' -ForegroundColor Gray
-  Write-Host '  Next: read SUMMARY.md; fill the TODO fields of PROVENANCE_DRAFT.md (reviewer, network path, Motion smoothness, backend commit) and save it as PROVENANCE.md;' -ForegroundColor Gray
-  Write-Host '        copy the files marked ok to the evidence folder; the server cross-check (A9 script 4.4: requests.jsonl, uvicorn.log from the Mac mini) is still done by hand.' -ForegroundColor Gray
+    Write-Host '  Next: read SUMMARY.md; fill the TODO fields of PROVENANCE_DRAFT.md (reviewer, network path, Motion smoothness, backend commit) and save it as PROVENANCE.md;' -ForegroundColor Gray
+  Write-Host '        copy the files marked ok to the evidence folder; the server cross-check (A9 script 4.4: requests.jsonl, uvicorn.log from the backend data folder) is still done by hand.' -ForegroundColor Gray
   Save-State
   return $j
 }
