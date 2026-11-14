@@ -19,11 +19,9 @@ render data/DATASET_AUDIT.md from that manifest.
 Exit codes:  0 no FAIL  ·  1 at least one FAIL  ·  2 the run could not proceed.
 
 WHO RUNS THIS
-    Spike D's Primary Owner is Bế Quốc Khánh, and SPIKE_D_DATASET/TASK.md line
-    196 reads: "All of the above must be read from the actual downloaded package
-    by Bế Quốc Khánh." This script is the harness, which the same file's line 198
-    explicitly permits Claude to write. Running it and signing the result is the
-    owner's work. The script records who ran it, and does not fill that in for
+    The dataset check's owner is Bế Quốc Khánh: the evidence must be read from the
+    actual downloaded package by the owner. This script is the harness. Running it
+    and signing the result is the owner's work. The script records who ran it, and does not fill that in for
     anyone.
 """
 

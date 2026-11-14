@@ -1,11 +1,10 @@
 # ml/ — training and evaluation pipeline
 
 Product code for the left-atrium segmentation experiments (`07`, `08`, ADR-ML-001).
-Block owner: **Bế Quốc Khánh** (ML training/evaluation). The first version was written
-under the Day 22 recovery override as recovery support; the owner reviews and adopts it.
+Block owner: **Bế Quốc Khánh** (ML training/evaluation).
 
-Nothing in `ml/` imports from `spikes/`. Code reused from the Spike C0 harness is copied
-with a provenance header (source path + commit `896c11a`).
+Nothing in `ml/` imports from `prototypes/`. Code reused from the ML probe prototype (`prototypes/ml-probe`)
+is copied with a provenance header (source path + commit `896c11a`).
 
 ## Modules
 
@@ -264,7 +263,7 @@ The checking code is `ml/holdout.py`. Format `ml-holdout-authorization/1`:
   "gate": "GATE-IMG-01",
   "gate_status": "CLOSED",
   "closed_at": "2026-10-03T09:00:00+07:00",
-  "decision_ref": "management/<day>/<GATE-IMG-01 decision record>.md",
+  "decision_ref": "<path of the decision record>",
   "split_sha256": "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d",
   "postprocessing_config_sha256": null,
   "authorized_runs": [
@@ -362,8 +361,8 @@ count are stored next to it as `worst_slice_selection_meta`.
 
 ## GATE-IMG-01: post-processing candidates and the EXP-D-PP run
 
-The candidates are the closed list pre-declared in `management/day39/RECOVERY_OVERRIDE_DAY39.md` §4
-(`ml/postprocess.py`, table `CONFIGS`); all take the raw `[z, y, x]` mask (z = slice axis = array
+The candidates are a closed list declared before any candidate was scored (`ml/postprocess.py`, table
+`CONFIGS`; the reason is in `docs/DECISIONS.md`); all take the raw `[z, y, x]` mask (z = slice axis = array
 axis 0) and return a mask of the same dtype:
 
 | ID | Operations, in order |
@@ -387,7 +386,7 @@ empty under every candidate.
 is written per candidate) with `ml.evaluate`'s case scoring, applies the rule (highest mean 3D Dice among
 PP-1 .. PP-5, a tie within 0.001 goes to the lower ID, the winner is frozen whether or not it beats PP-0, the
 change against PP-0 is worded `improves` / `worsens` / `unchanged` with a ±0.001 tolerance) and writes
-`management/day39/gate_img_01/SELECTION.md` (aggregate means only) and the frozen config
+`ml/records/gate_img_01/SELECTION.md` (aggregate means only) and the frozen config
 `postprocess_config.frozen.json` (`ml-postprocess-config/1`: `format`, `config_id`, `operations`,
 `code_version` = the last commit of `ml/postprocess.py`, `source_rule`). The sha256 of that file's bytes is the
 `postprocessing_config_sha256` of the authorization record. Per-case detail goes to
@@ -437,25 +436,25 @@ On the PC that holds the runs, from a clean checkout of `main`:
 ```
 python tools/ml/make_holdout_authorization.py --runs-root <runs> --experiments EXP-U-025 EXP-U-050 EXP-U-100 \
     --authorized-by "<your name>" --authorized-at <ISO 8601 time with offset, or now> \
-    --out management/<day>/gate_img_01/holdout_authorization_unet.json
+    --out ml/records/gate_img_01/holdout_authorization_unet.json
 ```
 
 The script reads, it does not decide. `--authorized-by` and `--authorized-at` are required and are never invented.
 Per run it needs `run_state.json` and `run_manifest.json` COMPLETE and a `checkpoints/best.pt` whose sha256 is the one
 the run recorded. `closed_at`, `decision_ref`, `split_sha256` and `postprocessing_config_sha256` are copied from the
-Day 39 gate record (`management/day39/gate_img_01/holdout_authorization.json`, option `--gate-record`); the
+DINOv2 gate record (`ml/records/gate_img_01/holdout_authorization.json`, option `--gate-record`); the
 post-processing sha256 is also checked against the frozen PP-4 config file. It refuses, listing every reason and writing
 nothing: an incomplete or altered run; a run that already has `evaluation/final_holdout`, holdout predictions or
 partial holdout predictions (a run is scored once); a checkpoint already authorized in the gate record or in a record
 named with `--also-check-record`; an existing output file. The record is written UTF-8 with LF line ends, read back
 with `ml.holdout.load_record`, and its sha256 is printed. **Commit it to `main`** before the next step: `decision_ref`
 and the record are resolved from the committed checkout. The record lists EXP-U-* only. UNet post-processing, if any,
-is declared separately (`08` §2); EXP-D-PP stays under the Day 39 record.
+is declared separately (`08` §2); EXP-D-PP stays under the DINOv2 record.
 
 ### 3. Leader: the one command
 
 ```
-python tools/ml/holdout_pipeline.py --record management/<day>/gate_img_01/holdout_authorization_unet.json \
+python tools/ml/holdout_pipeline.py --record ml/records/gate_img_01/holdout_authorization_unet.json \
     --runs-root <runs> --experiments EXP-U-025 EXP-U-050 EXP-U-100 --compare-family-pairs \
     --aggregate-out <path>\results_aggregate_unet.json --dry-run
 ```
@@ -468,7 +467,7 @@ again without `--dry-run`. The steps, each the existing module CLI in its own pr
 | per experiment, in order | `ml.infer --population holdout`, then `ml.evaluate run --population final_holdout --allow-holdout`, both with `--holdout-authorization <record>` |
 | comparisons into `<runs>\_holdout_<tag>\comparisons\` (`<tag>` is the first 8 hex of the record's sha256, or `--tag`) | within the family: 025→100, 050→100, 025→050; with `--compare-family-pairs`, the RQ-A core at equal fraction: EXP-U-025→EXP-D-025, EXP-U-050→EXP-D-050, EXP-U-100→EXP-D-100 (`ml.evaluate compare`, run b minus run a, so these deltas are DINOv2 minus UNet) |
 | Contract 2 | `ml.export_contract2 --validate` for each new run (gate states `ACCEPTED` / `ACCEPTED` by default; `--gate-split-01` / `--gate-ml-01` change them) |
-| aggregate | `tools/ml/results_aggregate.py` over the new runs, the DINOv2 runs they were compared with and the new comparisons, extending `management/day39/results_aggregate.json` (`--aggregate-base`), written to `--aggregate-out` |
+| aggregate | `tools/ml/results_aggregate.py` over the new runs, the DINOv2 runs they were compared with and the new comparisons, extending `ml/records/results_aggregate.json` (`--aggregate-base`), written to `--aggregate-out` |
 
 - **Pre-flight, before any holdout case is read:** the record is strict JSON with the gate CLOSED and the frozen
   split, and is a committed, unmodified file of this checkout **whose committed bytes are the ones on `origin/main`**
@@ -484,13 +483,13 @@ again without `--dry-run`. The steps, each the existing module CLI in its own pr
   per step. The pipeline stops at the first failure (exit 1), names the log and shows its last lines, and runs nothing
   after it. Fix the cause and run the identical command. A final table lists every step; on success it also prints the
   aggregate numbers (Dice 3D mean with CI per run, every paired delta).
-- Day 39 took about 14 minutes for four runs, so the family should take the same order of time.
+- The four DINOv2 runs took about 14 minutes, so the UNet family should take the same order of time.
 - `--derive-pp-from EXP-D-100` additionally derives EXP-D-PP between inference and evaluation. It needs a record that
   lists EXP-D-PP, so it is not used for the UNet record. `--device` and `--infer-batch` are passed to `ml.infer`.
 
 ### 4. Redeploy: from the new runs to the app
 
-1. Copy each new run directory into the backend data directory, as for the Day 39 runs (`tools/e2e/README.md`,
+1. Copy each new run directory into the backend data directory, as for the DINOv2 runs (`tools/e2e/README.md`,
    "Build the backend data directory"); the manifest is `<run>\contract2\<manifest>.json` and the run directory is its
    artifact root:
    ```
@@ -499,18 +498,13 @@ again without `--dry-run`. The steps, each the existing module CLI in its own pr
    }   # robocopy exit codes 0-7 are success
    python -m backend.mesh.build_cache --data <root>
    ```
-   The data cache needs no rebuild: it is per case and was built under the Day 39 record. `/health` must then show
+   The data cache needs no rebuild: it is per case and was built under the DINOv2 record. `/health` must then show
    7 experiments and an empty `rejected_experiment_packages`.
-2. `backend/scripts/deploy_macmini.ps1` ships the code and `data_cache` by default; add **`-ShipPackages`** to also ship
-   `<root>\experiments` and `<root>\derived_meshes` (the validation population and `last.pt` are left out; raw image
-   files refuse the upload), and `-SkipData` when the cache did not change. With `-SkipData -ShipPackages` pass
-   `-DataCache <root>\data_cache` or set `CARDIAC_BACKEND_DATA`; see `backend/README.md`, "Deploy to the Mac mini".
+2. Restart the backend on the PC (`backend/README.md`, "Run locally") so it loads the new packages.
 3. Check it with `python tools/e2e/hero_flow_api.py --base-url <host url> --no-writes --experiments EXP-D-025 EXP-D-050
    EXP-D-100 EXP-D-PP EXP-U-025 EXP-U-050 EXP-U-100`; H10 "UNet vs DINOv2" is the step that stops being a SKIP.
-4. When the results page is updated, commit a copy of the aggregate under `management/<day>/` (aggregates only: no per-case value, no path).
-   `tools/board/build_results.py` labels and charts the UNet family (EXP-U-025/050/100) as soon as an aggregate
-   contains it; the header facts and the "Giới hạn" list that say "UNet chưa train" are static strings in the script
-   and are edited by hand once the runs exist.
+4. Commit the new aggregate to `ml/records/` (aggregates only: no per-case value, no path) and update the numbers in
+   `docs/RESULTS.md`.
 
 ## Running the tests
 

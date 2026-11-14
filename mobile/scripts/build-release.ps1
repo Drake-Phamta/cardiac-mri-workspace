@@ -10,7 +10,7 @@
        - the React Native new architecture compiles C++ with CMake + ninja, and
          ninja fails on Windows once object paths pass ~250 characters
          ("manifest 'build.ninja' still dirty after 100 tries" - reproduced in
-         an agent worktree);
+         a deep worktree);
        - the APK is then exactly a commit: `git archive HEAD` of mobile/, app/
          and contracts/ is what gets built, never an uncommitted edit.
      Everything the build writes, rewrites or prunes (npm install, expo

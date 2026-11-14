@@ -255,7 +255,7 @@ def test_case_paths_refuses_a_file_claimed_by_another_case(pkg, split, dataset):
 def test_main_checkout_root_follows_a_linked_worktree(tmp_path):
     main = tmp_path / "proj" / "workspace"
     (main / ".git" / "worktrees" / "wt1").mkdir(parents=True)
-    wt = main / ".claude" / "worktrees" / "wt1"
+    wt = main / ".worktrees" / "wt1"
     wt.mkdir(parents=True)
     (wt / ".git").write_text(f"gitdir: {(main / '.git' / 'worktrees' / 'wt1').as_posix()}\n", encoding="utf-8")
     assert D.main_checkout_root(wt) == main

@@ -11,7 +11,7 @@ expo-env.d.ts
 .metro-health-check*
 
 # Native projects: `expo prebuild` regenerates them from app.json, so they are
-# build output, not source (same rule as spikes/**/android/ in the root file).
+# build output, not source (same rule as prototypes/**/android/ in the root file).
 /android/
 /ios/
 .kotlin/

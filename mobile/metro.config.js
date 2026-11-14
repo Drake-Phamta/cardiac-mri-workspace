@@ -9,8 +9,8 @@
  *
  * Metro only watches the project root by default, so the two folders are
  * added explicitly, and `.mjs` is made a source extension because every
- * app/core module is `.mjs`. spikes/** is deliberately NOT watched: product
- * code never imports a spike (copy with a provenance header instead).
+ * app/core module is `.mjs`. prototypes/** is deliberately NOT watched: product
+ * code never imports a prototype (copy with a provenance header instead).
  */
 
 const path = require('path');

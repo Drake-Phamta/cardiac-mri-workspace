@@ -260,5 +260,4 @@ Rules of the screens:
   again").
 - **State polish:** loading / unavailable / error / stale for SCR-06 and SCR-08 (`TC-MOBILE-STATE-001`), the
   `ACCEPTED` confirmation dialog, and the source / unsaved / saved visuals.
-- **`TC-TEAM-001` evidence:** extend `management/evidence/TC_TEAM_001_NGUYEN_GIA_DUC_TRUNG.md` with this code, its
-  tests and your own defense notes.
+- **`TC-TEAM-001`:** be ready to explain this code, its tests and your own defense notes.

@@ -208,4 +208,4 @@ Every readable volume **and mask** is axis-aligned — compatible with DR-012.
 > QA must inspect **the actual recorded evidence**, not this summary. A script printing
 > `PASS` closes nothing.
 
-**Related:** `management/spikes/SPIKE_D_DATASET/TASK.md` · `docs/specs/v1.0/06_DATASET_CONTRACT.md` · `data/manifests/dataset_manifest.json`
+**Related:** `docs/specs/v1.0/06_DATASET_CONTRACT.md` · `data/manifests/dataset_manifest.json`

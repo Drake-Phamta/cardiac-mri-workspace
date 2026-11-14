@@ -6,7 +6,7 @@ criterion A19 requires the file to cover every one of them. This renderer emits
 all eight whether or not the data is there: a field with no reading is printed
 as NOT MEASURED with its reason, never dropped.
 
-Why the audit is generated rather than hand-written: SPIKE_D_DATASET/TASK.md
+Why the audit is generated rather than hand-written: the dataset check
 forbids creating DATASET_AUDIT.md before real evidence exists, and requires the
 manifest to be produced by a script rather than typed. Generating the prose from
 the same manifest keeps the document and the data from drifting apart, and means
@@ -405,7 +405,7 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("> QA must inspect **the actual recorded evidence**, not this summary. A script printing")
     add("> `PASS` closes nothing.")
     add("")
-    add("**Related:** `management/spikes/SPIKE_D_DATASET/TASK.md` · "
+    add("**Related:** "
         "`docs/specs/v1.0/06_DATASET_CONTRACT.md` · `data/manifests/dataset_manifest.json`")
     add("")
     return "\n".join(L)

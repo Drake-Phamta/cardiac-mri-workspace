@@ -1,9 +1,7 @@
 """Exact voxel-face surface mesh with a per-face source slice (V2-01; PR-3D-01, PR-3D-04).
 
-STATUS
-    Built on Day 22 (2026-10-01) under the Day 22 recovery override
-    (management/day22/RECOVERY_OVERRIDE_DAY22.md, item A4). V2-01 owner
-    Vu Hung Anh adopts or rejects it on Day 23.
+OWNER
+    Vu Hung Anh (V2-01).
 
 WHAT IT BUILDS
     ``build_case_mesh(mask, level)`` turns a binary mask indexed mask[x, y, z]
@@ -78,7 +76,7 @@ PROVENANCE -- the face table and the decimation rule are a COPY, not an import.
              and np.add.at became bincount. Output was compared with the spike
              on its 48x40x24 synthetic blob at cells 1, 1.25, 2, 3, 4 and 8
              during development: identical vertices and triangles.
-    Spike code is throwaway and stays behind spikes/**; product code never
+    Prototype code stays behind prototypes/**; product code never
     imports it (reuse is by copy with provenance).
 """
 
