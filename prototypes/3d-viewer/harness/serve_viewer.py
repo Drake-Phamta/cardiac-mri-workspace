@@ -5,7 +5,7 @@ This is a local measurement helper, not a production service.  Bind it to the
 workstation loopback interface, expose it to the physical device only through
 ``adb reverse``, and provide an output directory outside the repository.
 
-    python spikes/spike_b_3d/harness/serve_viewer.py --out /path/to/session
+    python prototypes/3d-viewer/harness/serve_viewer.py --out /path/to/session
     adb -s <A17_SERIAL> reverse tcp:8765 tcp:8765
     # WebView URL: http://127.0.0.1:8765/app/?mesh=synthetic&level=0&probe_sink=/probe
 """

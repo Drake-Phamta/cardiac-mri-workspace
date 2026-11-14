@@ -2,7 +2,7 @@
 """
 Spike E backend stub — serves the four candidate transport strategies.
 
-THROWAWAY SPIKE CODE under spikes/spike_e_transport/. Not production.
+THROWAWAY SPIKE CODE under prototypes/transport/. Not production.
 
 `SPIKE_E_TRANSPORT/TASK.md` permits Claude to write this:
 

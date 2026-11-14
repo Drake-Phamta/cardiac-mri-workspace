@@ -2,7 +2,7 @@
 """
 Shape-matched synthetic volumes for the Spike C0 compute probe.
 
-THROWAWAY SPIKE CODE under spikes/spike_c_ml/. Not production.
+THROWAWAY SPIKE CODE under prototypes/ml-probe/. Not production.
 
 `SPIKE_C_ML/TASK.md` is explicit that C0 does not wait for real data:
 

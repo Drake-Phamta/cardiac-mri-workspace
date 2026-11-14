@@ -2,7 +2,7 @@
 """
 Spike C0 compute probe — peak memory, throughput, batch ceiling, output stride.
 
-THROWAWAY SPIKE CODE under spikes/spike_c_ml/. Not production.
+THROWAWAY SPIKE CODE under prototypes/ml-probe/. Not production.
 
 `SPIKE_C_ML/TASK.md` permits Claude to write this and keeps the readings with
 the owner:
@@ -85,7 +85,7 @@ try:
     import torch.nn.functional as F
 except ImportError:                                            # pragma: no cover
     raise SystemExit("This probe needs PyTorch and NumPy.\n"
-                     "    pip install -r spikes/spike_c_ml/requirements.txt")
+                     "    pip install -r prototypes/ml-probe/requirements.txt")
 
 # The cohort, as Spike D measured it. Not a placeholder any more.
 COHORT = {
@@ -168,7 +168,7 @@ def fetch_checkpoint(key: str, revision: str | None = None) -> dict:
         from huggingface_hub import snapshot_download
     except ImportError:                                        # pragma: no cover
         raise SystemExit("The DINOv2 family needs transformers and huggingface_hub.\n"
-                         "    pip install -r spikes/spike_c_ml/requirements.txt")
+                         "    pip install -r prototypes/ml-probe/requirements.txt")
     repo = DINO_CHECKPOINTS[key]["repo"]
     path = snapshot_download(repo_id=repo, revision=revision,
                              allow_patterns=["*.json", "*.safetensors"])
@@ -708,7 +708,7 @@ def build_input(args, device, dr011) -> tuple:
             hint = (" Only old int16 files are there - regenerate them; the cohort is uint8."
                     if old else "")
             raise SystemExit(f"No *_volume_uint8.npy under {args.input_from}.{hint}\n"
-                             f"Run: python spikes/spike_c_ml/synthetic/generate.py")
+                             f"Run: python prototypes/ml-probe/synthetic/generate.py")
         vol = np.load(files[0])
         mpath = files[0].replace("_volume_uint8.npy", "_mask_uint8.npy")
         mask = np.load(mpath) if os.path.exists(mpath) else None
@@ -1334,7 +1334,7 @@ def main() -> int:
     os.makedirs(args.out_dir, exist_ok=True)
     out = os.path.join(args.out_dir, f"c0_probe_{stamp}.json")
     record = {
-        "harness": "spikes/spike_c_ml/harness/probe.py revision 4 (2026-09-15) - real DINOv2; batch search runs even when the intended batch fails; OSError recorded per candidate; CUDA work isolated per process",
+        "harness": "prototypes/ml-probe/harness/probe.py revision 4 (2026-09-15) - real DINOv2; batch search runs even when the intended batch fails; OSError recorded per candidate; CUDA work isolated per process",
         "criterion_coverage": ["C0-1", "C0-2", "C0-3" if args.find_batch else "C0-3 (not run)",
                                "C0-4", "C0-5", "C0-6"],
         "captured_at": stamp,

@@ -2,7 +2,7 @@
 """
 Real-mesh decimation frontier and OFFLINE picking error — Spike B B5, B9, B12 (B14 cohorts).
 
-THROWAWAY SPIKE CODE under spikes/spike_b_3d/. Not production.
+THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Not production.
 
 Written on Day 22 (2026-10-01) by a Claude agent under the leader's one-day recovery
 override (management/day22/RECOVERY_OVERRIDE_DAY22.md). Spike B belongs to Vu Hung Anh;
@@ -95,7 +95,7 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)                      # spikes/spike_b_3d
+ROOT = os.path.dirname(HERE)                      # prototypes/3d-viewer
 REPO = os.path.dirname(os.path.dirname(ROOT))
 sys.path.insert(0, os.path.join(ROOT, "mesh"))
 sys.path.insert(0, HERE)
@@ -806,7 +806,7 @@ def main() -> int:
                                             capture_output=True, text=True).stdout.strip(),
         "working_tree_clean_for_harness": subprocess.run(
             ["git", "-C", REPO, "diff", "--quiet", "HEAD", "--",
-             "spikes/spike_b_3d/harness", "spikes/spike_b_3d/mesh/build_mesh.py"]).returncode == 0,
+             "prototypes/3d-viewer/harness", "prototypes/3d-viewer/mesh/build_mesh.py"]).returncode == 0,
         "environment": _environment(),
         "workers": args.workers,
         "command": "python " + " ".join([rel(__file__)]
@@ -826,7 +826,7 @@ def main() -> int:
                                  "sha256": hashlib.sha256(dm_bytes).hexdigest()},
             "mask_path_relative": mask_rel,
             "mask_file_hash": ("not published (F5); kept in the gitignored sidecar "
-                               "spikes/spike_b_3d/mesh/out_real/<case_id>/data_file_hashes.json"),
+                               "prototypes/3d-viewer/mesh/out_real/<case_id>/data_file_hashes.json"),
             "mask_read_ms": round(read_ms, 3),
             "shape_xyz": shape,
             "nrrd_axis_order": "x, y, z (pynrrd index_order F); slices along z (DR-008a)",

@@ -9,7 +9,7 @@ belongs to Vu Hung Anh under DR-013. `15` section 9 makes it an
 integration-sensitive area with one active owner at a time, and his member brief
 records that the **internal format is his own decision to make**.
 
-So this generator writes into `spikes/spike_b_3d/fixtures_proposal/` instead, and
+So this generator writes into `prototypes/3d-viewer/fixtures_proposal/` instead, and
 every file it emits carries `_status: PROPOSAL`. The owner adopts it, amends it,
 or throws it away and writes his own. Any of the three is a good outcome; what
 this removes is the blank page.

@@ -149,7 +149,7 @@ def main() -> int:
 
     payload = {
         "label": args.label,
-        "generated_by": "spikes/spike_c_ml/c1/forecast_matrix.py",
+        "generated_by": "prototypes/ml-probe/c1/forecast_matrix.py",
         "throughput_provenance": {
             "source_file": str(args.probe),
             "captured_at": probe.get("captured_at"),

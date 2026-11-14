@@ -447,7 +447,7 @@ def main() -> int:
         "one_case_verification": one_case,
         "preprocessing": {"version": mldata.PREPROCESSING_VERSION, "spec": mldata.PREPROCESSING,
                           "cache_status": {str(k): v for k, v in cache_status.items()}},
-        "dr011_runtime_C1_7": {"policy_file": "spikes/spike_c_ml/dr011_normalization.json",
+        "dr011_runtime_C1_7": {"policy_file": "prototypes/ml-probe/dr011_normalization.json",
                                "per_case_records": dr011, "cohort_statistics_used": False},
         "recipe": {"loss": "0.5*BCEWithLogits + 0.5*softDice", "optimizer": "AdamW lr 1e-4 constant",
                    "precision": "bf16 autocast", "seed": SEED, "threshold": 0.5, "augmentation": "none",

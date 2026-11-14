@@ -542,7 +542,7 @@ def main() -> int:
         "manifest_sha256": sha,
         "split_id": manifest.get("split_id"),
         "manifest_generated_at": manifest.get("generated_at"),
-        "verifier": "spikes/spike_c_ml/c1/verify_subsets.py",
+        "verifier": "prototypes/ml-probe/c1/verify_subsets.py",
         "method": "explicit set containment over case-id lists; no counting shortcuts; "
                   "exclusions derived from groups + development_to_holdout_links",
         "dataset_manifest_path": str(args.dataset_manifest) if args.dataset_manifest else None,

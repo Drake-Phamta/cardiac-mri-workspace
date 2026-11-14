@@ -34,8 +34,8 @@ Làm trên máy trạm ở root repository, với thư mục evidence nằm **ng
 OUT="$HOME/cardiac-mri-evidence/b10-b11-$(date +%Y%m%dT%H%M%S)"
 mkdir -p "$OUT"
 git rev-parse HEAD > "$OUT/repository_commit.txt"
-python3 spikes/spike_b_3d/mesh/build_mesh.py
-python3 spikes/spike_b_3d/harness/serve_viewer.py --out "$OUT"
+python3 prototypes/3d-viewer/mesh/build_mesh.py
+python3 prototypes/3d-viewer/harness/serve_viewer.py --out "$OUT"
 ```
 
 Giữ tiến trình `serve_viewer.py` mở ở terminal thứ nhất. Nó chỉ bind loopback,

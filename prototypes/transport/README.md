@@ -1,103 +1,36 @@
-# SPIKE_E — transport harness
+# Nguyên mẫu đo tải dữ liệu qua mạng
 
-This directory contains throwaway transport tooling, not production code. The
-Spike E owner is Nguyen Gia Duc Trung. The device operator and the owner must
-both be recorded in every real run; the tooling never invents measurements.
+**Người làm chính:** Nguyễn Gia Đức Trung. Đây là mã thử nghiệm, không phải mã sản phẩm.
 
-## Measurement path
+## Câu hỏi
 
-The canonical acceptance path is:
+Mở một case và tải lát MRI chưa có trong cache từ máy chủ về điện thoại mất bao lâu? Nên tải **từng lát** khi
+cần, **tải trước theo cửa sổ** quanh lát đang xem, hay **tải cả khối** một lần?
 
-```text
-Galaxy A17 5G -> Wi-Fi uplink (DR-003b canonical) or cellular uplink
-               -> authenticated ZeroTier overlay -> remote Mac mini M2
+## Kết luận
+
+Chưa được chấp nhận đầy đủ: bộ nhớ app, mất/nối lại kết nối và đo theo nhiều khung giờ chưa xong. Nhưng số đo đủ
+để chọn hướng cho app: **tải từng lát PNG khi cần**; không tải cả khối, không tải trước theo cửa sổ.
+
+- Tải cả khối: p50 338 905 ms (576×576×88) và 121 447 ms (640×640×88), quá chậm.
+- Tải trước theo cửa sổ chậm hơn tải từng lát: p95 28 606 ms so với 2 864 ms (576), 6 181 ms so với 1 844 ms (640).
+- Mở case, lát đầu: p50 / p95 1 126 / 3 103 ms (576×576×88, tối 2026-09-16); 338 / 557 ms (chiều 2026-09-18).
+
+Đo bằng dữ liệu giả đúng kích thước, không dùng byte dữ liệu thật. Chi tiết và nguồn: `docs/RESULTS.md`, mục 2.5.
+
+## Chạy (trên một máy, qua loopback)
+
+```powershell
+python prototypes/transport/payloads/generate.py --out prototypes/transport/payloads/out   # dữ liệu giả, không commit
+python prototypes/transport/stub/server.py --payloads prototypes/transport/payloads/out    # mặc định chỉ nghe 127.0.0.1
+python prototypes/transport/client/harness.py --help                                      # các cờ bắt buộc của client đo
+python prototypes/transport/analyze/aggregate.py <file .jsonl của các lần đo> --out summary.json
 ```
 
-Same-LAN runs are `lan-diagnostic` only and must never be merged into an
-acceptance result. `direct` and `relayed` overlay runs are also kept separate.
+## Thư mục
 
-## Layout
+- `payloads/` sinh dữ liệu giả 2 cỡ khối. `stub/` máy chủ thử phục vụ lát, cả khối, cửa sổ và lưới.
+- `client/` client đo trên máy tính (`harness.py`, `retry.py`) và bản shell chạy trên Android (`android_toybox_harness.sh`).
+- `analyze/` gộp các lần đo thành phân phối, không trộn các đường mạng khác nhau.
 
-```text
-payloads/generate.py   deterministic synthetic payload profiles
-stub/server.py         backend stub and server-side timing log
-client/harness.py      machine-readable request timing log
-client/retry.py        E9 reconnect/retry probe
-analyze/aggregate.py   p50/p95/max aggregation with failure accounting
-EVIDENCE_RAW/          raw runs supplied by the device operator
-```
-
-## A6 payload profiles
-
-Spike D measured the cohort profiles as `uint8`:
-
-| Profile | Observed cases | Raw volume bytes |
-|---|---:|---:|
-| `576x576x88` | 69 | 29,196,288 |
-| `640x640x88` | 85 | 36,044,800 |
-
-The generator produces deterministic synthetic stand-ins at both sizes. They
-are not dataset bytes and are never committed. Run:
-
-```bash
-python payloads/generate.py --out payloads/out
-```
-
-The output contains one directory per profile and a root manifest. The stub
-serves both profiles from one process; select a profile on any artifact URL:
-
-```text
-/s1/slice/44.png?profile=576x576x88
-/s3/volume.raw?profile=640x640x88
-/s4/window?z=44&radius=2&profile=576x576x88
-/mesh/2.obj?profile=640x640x88
-```
-
-If `profile` is omitted, the manifest's default profile (`576x576x88`) is
-used. Legacy single-profile payload directories remain supported.
-
-Start the stub loopback by default. Binding a ZeroTier address is allowed only
-on the authenticated overlay; never expose a public endpoint:
-
-```bash
-python stub/server.py --payloads payloads/out
-python stub/server.py --payloads payloads/out --bind <zerotier-address>
-```
-
-## Client and aggregation
-
-Both flags are mandatory so provenance cannot be guessed:
-
-```text
---path        wifi-overlay | cellular-overlay | lan-diagnostic
---connection  direct | relayed
-```
-
-Example acceptance-path run:
-
-```bash
-python client/harness.py --base http://<zerotier-address>:8787 \
-    --path wifi-overlay --connection direct \
-    --profile 576x576x88 --slices 88 --repeats 3 \
-    --operator "Pham Tuan Anh" --owner "Nguyen Gia Duc Trung" \
-    --repeats 3 --note "Wi-Fi uplink, location, time, signal"
-```
-
-Aggregate only runs with named operator/owner and one path/connection:
-
-```bash
-python analyze/aggregate.py EVIDENCE_RAW/e_transport_*.jsonl --out summary.json
-```
-
-The script reports failure rate with every distribution, refuses to merge
-paths or direct/relay samples, and exits non-zero for an unrepresentative run.
-It supplies inputs; the owner writes E10 (budget), E11 (minimal fallback) and
-E13 (recommendation). A diagnostic LAN run is never acceptance evidence.
-
-## Constraints
-
-- Do not edit `docs/specs/v1.0/`.
-- Do not commit dataset bytes, checkpoints, secrets, or generated payloads.
-- Do not create a public endpoint, port forwarding, or public artifact listing.
-- Do not create `RESULT.md` with fabricated values. Real raw evidence must
-  identify the operator, owner, device, path, connection, and conditions.
+Log thô của các lần đo đã được bỏ khỏi cây; chúng vẫn còn trong lịch sử git.

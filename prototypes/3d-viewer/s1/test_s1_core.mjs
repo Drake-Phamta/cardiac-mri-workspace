@@ -1,4 +1,4 @@
-// node spikes/spike_b_3d/s1/test_s1_core.mjs
+// node prototypes/3d-viewer/s1/test_s1_core.mjs
 //
 // Checks for the S-1 page core: the scripted camera, the auto poses, the projection that
 // turns a target into a tap, the pick record the extractor reads, and that the vendored

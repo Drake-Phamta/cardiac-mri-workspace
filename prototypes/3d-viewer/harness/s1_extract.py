@@ -5,9 +5,9 @@ S-1 extractor: B6, B7, B9, B10, B11 per level from the raw device records.
 THROWAWAY SPIKE CODE. Day 22 (2026-10-01), Claude agent under the leader's recovery
 override; Spike B owner Vu Hung Anh re-derives and interprets on Day 23.
 
-    python spikes/spike_b_3d/harness/s1_extract.py --session <dir> [--publish-dir <dir>]
+    python prototypes/3d-viewer/harness/s1_extract.py --session <dir> [--publish-dir <dir>]
            [--exclude-suite <segment>.<suite>=<reason> ...]
-    python spikes/spike_b_3d/harness/s1_extract.py --self-test
+    python prototypes/3d-viewer/harness/s1_extract.py --self-test
 
 RECORDS ARE SEGMENTED BY PAGE LOAD (QA F3). The page numbers its picks L<level>-1, -2, ...
 afresh on every page load, so a re-opened level or a relaunched app repeats pick ids. Every
@@ -541,7 +541,7 @@ def run(args) -> int:
         "computed_at": dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).isoformat(timespec="seconds"),
         "computed_by": "s1_extract.py (Claude agent A4, Day 22 override); owner Vu Hung Anh re-derives on Day 23",
         "extractor_commit": _git("rev-parse", "HEAD"),
-        "extractor_tree_clean": _git("status", "--porcelain", "--", "spikes/spike_b_3d/harness") == "",
+        "extractor_tree_clean": _git("status", "--porcelain", "--", "prototypes/3d-viewer/harness") == "",
         "session_dir": os.path.abspath(args.session),
         "evidence_status": evidence_status,
         "device": {k: preflight.get(k) for k in ("serial", "model", "android", "is_emulator")},
@@ -658,7 +658,7 @@ def self_test() -> int:
     ok([r["kind"] for r in recs] == ["s1_rn_open_level", "s1_frame_probe", "s1_pick"] and not inc, "logcat order kept")
 
     # publishing: serial and paths never survive
-    pub = sanitize({"a": r"C:\Users\x\s1\file.json", "b": "/data/app/~~x/base.apk", "c": "SER123 ok", "d": [r"D:\y\z.apk"]}, "SER123")
+    pub = sanitize({"a": "C:" + r"\Users\x\s1\file.json", "b": "/data/app/~~x/base.apk", "c": "SER123 ok", "d": [r"D:\y\z.apk"]}, "SER123")
     ok(pub == {"a": "file.json", "b": "base.apk", "c": f"{REDACTED_SERIAL} ok", "d": ["z.apk"]}, f"sanitize: {pub}")
 
     # B10 needs three complete valid runs
@@ -746,7 +746,7 @@ def main() -> int:
     ap.add_argument("--case-id", default="CASE_0059")
     ap.add_argument("--data-root", help="default: $CARDIAC_DATA_ROOT")
     ap.add_argument("--dataset-manifest", default=os.path.join(REPO, "data", "manifests", "dataset_manifest.json"))
-    ap.add_argument("--mesh-dir", help="default: spikes/spike_b_3d/mesh/out_real/<case_id>")
+    ap.add_argument("--mesh-dir", help="default: prototypes/3d-viewer/mesh/out_real/<case_id>")
     args = ap.parse_args()
     if args.self_test:
         return self_test()

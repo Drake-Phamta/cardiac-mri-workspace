@@ -2,7 +2,7 @@
 """
 Surface extraction and decimation for the Spike B picking harness.
 
-THROWAWAY SPIKE CODE under spikes/spike_b_3d/. Not production.
+THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Not production.
 
 Produces the >=3 decimation levels criterion B12 asks for, each with its
 triangle count and generation time, so the decimation frontier table has real

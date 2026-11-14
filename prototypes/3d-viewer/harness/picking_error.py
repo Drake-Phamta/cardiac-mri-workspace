@@ -2,7 +2,7 @@
 """
 Picking-error harness — how far does decimation move the resolved slice?
 
-THROWAWAY SPIKE CODE under spikes/spike_b_3d/. Not production.
+THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Not production.
 
 `SPIKE_B_3D/TASK.md` freezes the bounds before the spike runs, and this harness
 measures against them rather than negotiating with them:
@@ -257,7 +257,7 @@ def run(fixture_path: str, mesh_path: str, out_path: str | None) -> dict:
             + "\n  ".join(missing)
             + "\n\nThe .obj files are gitignored as regenerable while the JSON summary is\n"
               "tracked, so a clean checkout has the index without the meshes. Run:\n"
-              "    python spikes/spike_b_3d/mesh/build_mesh.py\n")
+              "    python prototypes/3d-viewer/mesh/build_mesh.py\n")
 
     orientations = [("identity", np.eye(3))]
     for axis, deg in [("y", 30), ("y", -45), ("x", 25), ("x", -35), ("z", 40)]:

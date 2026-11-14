@@ -13,7 +13,7 @@ Every root below is built inside that temp dir; no link ever points outside it.
 
 Usage
 -----
-    python spikes/spike_c_ml/c1/test_preflight.py [--keep]
+    python prototypes/ml-probe/c1/test_preflight.py [--keep]
 
 Prints one line per assertion and a summary; exit 0 only when every assertion holds.
 """

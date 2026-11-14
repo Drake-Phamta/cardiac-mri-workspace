@@ -27,7 +27,7 @@ BODY_HASH=0
 
 # Local connect rejections - added 2026-09-13 after run 1 (see PROVENANCE.md of
 # EVIDENCE_RAW/20260913_run1). On this handset the kernel caches the output
-# route PER CPU, and the VPN's 10.64.193.0/24 and 224.0.0.0/4 routes share one
+# route PER CPU, and the VPN's <vpn-subnet>/24 and 224.0.0.0/4 routes share one
 # cache slot (identical attributes). A multicast send on a CPU leaves a
 # multicast-flagged route there, and every TCP connect to the Mac mini from that
 # CPU then fails instantly with "Network is unreachable" - before any SYN is

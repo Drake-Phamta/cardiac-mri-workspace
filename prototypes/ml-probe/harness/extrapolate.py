@@ -2,7 +2,7 @@
 """
 Turn measured step times into a calendar verdict — criteria C0-7 and C0-8.
 
-THROWAWAY SPIKE CODE under spikes/spike_c_ml/. Not production.
+THROWAWAY SPIKE CODE under prototypes/ml-probe/. Not production.
 
 C0-7 asks for a PRELIMINARY per-run wall-clock extrapolation with the method
 shown. C0-8 asks for a preliminary calendar verdict on the experiment matrix

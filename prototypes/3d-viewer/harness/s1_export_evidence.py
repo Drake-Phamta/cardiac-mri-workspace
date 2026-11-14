@@ -5,10 +5,10 @@ generated PROVENANCE.md and a pre-commit leak check.
 THROWAWAY SPIKE CODE. Day 22 (2026-10-01), Claude agent under the leader's recovery
 override; Spike B owner Vu Hung Anh confirms on Day 23.
 
-    python spikes/spike_b_3d/harness/s1_extract.py --session <dir> [--exclude-suite ...]
-    python spikes/spike_b_3d/harness/s1_export_evidence.py --session <dir> \
-        --out spikes/spike_b_3d/EVIDENCE_RAW/20261001_s1_device [--notes <operator notes .txt>]
-    python spikes/spike_b_3d/harness/s1_export_evidence.py --check <folder>     # the leak gate only
+    python prototypes/3d-viewer/harness/s1_extract.py --session <dir> [--exclude-suite ...]
+    python prototypes/3d-viewer/harness/s1_export_evidence.py --session <dir> \
+        --out prototypes/3d-viewer/EVIDENCE_RAW/20261001_s1_device [--notes <operator notes .txt>]
+    python prototypes/3d-viewer/harness/s1_export_evidence.py --check <folder>     # the leak gate only
 
 Copied (every string passed through s1_extract.sanitize: the handset serial becomes
 <A17_SERIAL>, absolute and device paths become basenames):
@@ -44,7 +44,7 @@ sys.path.insert(0, str(HERE))
 
 from s1_extract import FPS_BOUND, MIN_RUNS, REDACTED_SERIAL, dr008c_decision, sanitize  # noqa: E402
 
-FRONTIER = REPO / "spikes" / "spike_b_3d" / "EVIDENCE_RAW" / "20261001_real_mesh" / "real_mesh_frontier.json"
+FRONTIER = REPO / "prototypes" / "3d-viewer" / "EVIDENCE_RAW" / "20261001_real_mesh" / "real_mesh_frontier.json"
 SANITIZE_JSON = ("session_state.json", "conditions_before.json", "conditions_after.json")
 KEPT_OUTSIDE = ("s1_collector.jsonl", "logcat_stream.txt", "logcat_dump.txt",
                 "s1_logcat_payloads.json", "installed_base.apk")

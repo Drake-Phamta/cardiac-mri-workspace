@@ -1,7 +1,7 @@
 /*
  * SPIKE_B S-1 — React Native container for the real-mesh device session.
  *
- * THROWAWAY SPIKE CODE under spikes/spike_b_3d/. Day 22 (2026-10-01), written by a Claude
+ * THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Day 22 (2026-10-01), written by a Claude
  * agent under the leader's recovery override; Spike B owner Vu Hung Anh adopts or rejects
  * it on Day 23. Operator: Pham Tuan Anh (DR-006a). The operator computes no B number.
  *
@@ -13,7 +13,7 @@
  *
  * What is new:
  *  - the page and the five real-mesh levels are APK ASSETS (file:///android_asset/spike_b_s1/),
- *    staged by spikes/spike_b_3d/s1/stage_assets.py and never committed;
+ *    staged by prototypes/3d-viewer/s1/stage_assets.py and never committed;
  *  - every message from the page is logged (tag SPIKE_B_S1, chunked) AND POSTed to the
  *    workstation collector through adb reverse (two independent evidence paths);
  *  - B7: a resolved pick arrives as s1_nav_request; this screen shows THAT slice of the

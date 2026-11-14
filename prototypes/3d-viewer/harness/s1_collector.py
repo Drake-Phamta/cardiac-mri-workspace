@@ -6,7 +6,7 @@ reached from the phone only through `adb reverse tcp:8766 tcp:8766`, output dire
 outside the repository. The S-1 app POSTs every record it logs, verbatim, to /s1; this
 appends each one to s1_collector.jsonl with the receive time. It computes nothing.
 
-    python spikes/spike_b_3d/harness/s1_collector.py --out <dir outside the repo>
+    python prototypes/3d-viewer/harness/s1_collector.py --out <dir outside the repo>
 """
 from __future__ import annotations
 

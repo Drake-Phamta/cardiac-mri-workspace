@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Data-free checks for real_mesh_frontier.py - runnable without the LASC data.
 
-    python spikes/spike_b_3d/harness/test_real_mesh_frontier.py
+    python prototypes/3d-viewer/harness/test_real_mesh_frontier.py
 
 1. exact_first_voxel resolves all 13 canonical fixture rays to their EXACT expected slice
    on the synthetic blob the fixture rays target (bound is exact for fixtures).

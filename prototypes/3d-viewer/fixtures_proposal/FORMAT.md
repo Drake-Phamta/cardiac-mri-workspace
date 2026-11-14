@@ -5,7 +5,7 @@
 > Vũ Hùng Anh **nhận** bản đề xuất này và công bố fixture chính thức ở
 > **`tests/fixtures/geometry/`** (PR #20): hình học giống hệt từng giá trị, cộng quyền sở hữu,
 > trạng thái `CANONICAL` và khối `b14_grouping`. **Hợp đồng là `tests/fixtures/geometry/FORMAT.md`,
-> không phải file này.** Mọi công cụ trong `spikes/spike_b_3d/` giờ đọc fixture chính thức.
+> không phải file này.** Mọi công cụ trong `prototypes/3d-viewer/` giờ đọc fixture chính thức.
 >
 > File này giữ lại làm lịch sử. Ba con số đếm bên dưới đã được **sửa cho khớp JSON** — bản đầu ghi
 > 32 điểm và `half_voxel` 3, trong khi file JSON có **33** điểm và `half_voxel` **4** (Vũ Hùng Anh
@@ -21,7 +21,7 @@
 > > *"Cấu trúc và format nội bộ của bộ geometry fixture (miễn encode được các điểm voxel↔world↔slice
 > > đã biết theo DR-008a)"* — mục "Tôi được TỰ quyết những gì"
 >
-> Nên bản này nằm ở `spikes/spike_b_3d/fixtures_proposal/`, **không** ở `tests/`. Nhận nguyên, sửa,
+> Nên bản này nằm ở `prototypes/3d-viewer/fixtures_proposal/`, **không** ở `tests/`. Nhận nguyên, sửa,
 > hay vứt đi viết lại — cả ba đều là kết quả tốt. Thứ nó bỏ đi chỉ là trang giấy trắng.
 >
 > **Vì sao có nó:** `DAY01_VU_HUNG_ANH.md` gọi việc công bố format là *"mốc mở khoá người khác sớm
@@ -135,8 +135,8 @@ suy sai.
 ## 5 · Cách kiểm — và vì sao checker không dùng chung code với generator
 
 ```bash
-python spikes/spike_b_3d/fixtures_proposal/generate.py      # sinh lại, deterministic
-python spikes/spike_b_3d/harness/conformance.py             # kiểm
+python prototypes/3d-viewer/fixtures_proposal/generate.py      # sinh lại, deterministic
+python prototypes/3d-viewer/harness/conformance.py             # kiểm
 ```
 
 `generate.py` **ghi** giá trị kỳ vọng; `conformance.py` **suy lại** từ công thức nằm trong chính

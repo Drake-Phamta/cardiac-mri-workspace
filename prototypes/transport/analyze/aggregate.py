@@ -2,7 +2,7 @@
 """
 Turn Spike E raw timing records into distributions.
 
-THROWAWAY SPIKE CODE under spikes/spike_e_transport/. Not production.
+THROWAWAY SPIKE CODE under prototypes/transport/. Not production.
 
     "Aggregation script producing p50/p95/max distributions - not hand-typed
      summaries."                                 -- SPIKE_E_TRANSPORT/TASK.md

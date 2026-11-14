@@ -4,8 +4,8 @@
   THROWAWAY SPIKE TOOLING. Written by a Claude agent under the leader's recovery
   override; Spike B owner Vu Hung Anh adopts or rejects it on Day 23.
 
-    powershell -ExecutionPolicy Bypass -File spikes\spike_b_3d\s1_app\build_release.ps1
-    powershell -ExecutionPolicy Bypass -File spikes\spike_b_3d\s1_app\build_release.ps1 -Assets <staged spike_b_s1> -BuildRoot D:\s1b
+    powershell -ExecutionPolicy Bypass -File prototypes\3d-viewer\s1_app\build_release.ps1
+    powershell -ExecutionPolicy Bypass -File prototypes\3d-viewer\s1_app\build_release.ps1 -Assets <staged spike_b_s1> -BuildRoot D:\s1b
 
   WHY A SEPARATE BUILD ROOT. React Native's native (CMake/ninja) build fails on Windows when
   object paths pass ~250 characters, which a git worktree under .claude\worktrees\ does. The
@@ -24,7 +24,7 @@ $ErrorActionPreference = "Stop"
 
 $app = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repo = (Resolve-Path (Join-Path $app "..\..\..")).Path
-$outReal = Join-Path $repo "spikes\spike_b_3d\mesh\out_real"
+$outReal = Join-Path $repo "prototypes\3d-viewer\mesh\out_real"
 if (-not $Assets) { $Assets = (Get-Content (Join-Path $outReal "s1_assets\LATEST.txt")).Trim() }
 if (-not (Test-Path (Join-Path $Assets "s1_manifest.json"))) { throw "no staged assets at $Assets - run s1\stage_assets.py" }
 if ($BuildRoot.StartsWith($repo)) { throw "-BuildRoot must be outside the repository" }
@@ -35,7 +35,7 @@ $env:Path = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path"
 
 $started = Get-Date
 $head = (git -C $repo rev-parse HEAD).Trim()
-$dirty = (git -C $repo status --porcelain -- spikes/spike_b_3d/s1 spikes/spike_b_3d/s1_app spikes/spike_b_3d/app)
+$dirty = (git -C $repo status --porcelain -- prototypes/3d-viewer/s1 prototypes/3d-viewer/s1_app prototypes/3d-viewer/app)
 Write-Host "repo HEAD $head  clean=$(-not $dirty)"
 
 New-Item -ItemType Directory -Force $BuildRoot | Out-Null

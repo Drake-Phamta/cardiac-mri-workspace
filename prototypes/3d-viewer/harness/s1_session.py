@@ -6,9 +6,9 @@ THROWAWAY SPIKE CODE. Adapted from management/day09/b10_b11_session/session.py (
 tcp:8766). It computes NO B number: harness/s1_extract.py does that afterwards, from the
 files this script and the collector leave behind.
 
-    python spikes/spike_b_3d/harness/s1_session.py start  --out <dir> [--serial <adb serial>] [--build-record <json>]
+    python prototypes/3d-viewer/harness/s1_session.py start  --out <dir> [--serial <adb serial>] [--build-record <json>]
     # ... the operator runs the session (S1_SESSION_SCRIPT.md) ...
-    python spikes/spike_b_3d/harness/s1_session.py finish --out <dir>
+    python prototypes/3d-viewer/harness/s1_session.py finish --out <dir>
 
 `start` refuses (and writes session_NOT_READY.json) unless: exactly one handset is chosen,
 its screen is on and unlocked, it is on USB power, the S-1 app is installed AND running,
@@ -281,7 +281,7 @@ def finish(args) -> int:
     print(f"logcat: {len(payloads)} payloads ({n_chunked} chunked, {len(incomplete)} incomplete) from the {state['logcat']['parsed_from']}")
     print(f"collector: {n_coll} records")
     print(f"kinds (collector): {state['collector']['kinds']}")
-    print("Hand this folder to the extractor: python spikes/spike_b_3d/harness/s1_extract.py --session <dir>")
+    print("Hand this folder to the extractor: python prototypes/3d-viewer/harness/s1_extract.py --session <dir>")
     return 0
 
 

@@ -191,12 +191,12 @@ def markdown(probes: list[dict], items: list[dict], calendars: list[dict], chart
         "",
         "## Raw evidence",
         "",
-        "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_20260916T004325+0700.json` — complete FP32 matrix.",
-        "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_probe_20260916T005659+0700.json` — complete BF16 matrix.",
-        "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_calendar_bf16_4h_20260916.json` — conservative calendar arithmetic.",
-        "- `spikes/spike_c_ml/EVIDENCE_RAW/c0_calendar_bf16_5h_20260916.json` — sensitivity arithmetic.",
-        "- `spikes/spike_c_ml/harness/probe.py` — measurement harness.",
-        "- `spikes/spike_c_ml/harness/extrapolate.py` — calendar arithmetic.",
+        "- `prototypes/ml-probe/EVIDENCE_RAW/c0_probe_20260916T004325+0700.json` — complete FP32 matrix.",
+        "- `prototypes/ml-probe/EVIDENCE_RAW/c0_probe_20260916T005659+0700.json` — complete BF16 matrix.",
+        "- `prototypes/ml-probe/EVIDENCE_RAW/c0_calendar_bf16_4h_20260916.json` — conservative calendar arithmetic.",
+        "- `prototypes/ml-probe/EVIDENCE_RAW/c0_calendar_bf16_5h_20260916.json` — sensitivity arithmetic.",
+        "- `prototypes/ml-probe/harness/probe.py` — measurement harness.",
+        "- `prototypes/ml-probe/harness/extrapolate.py` — calendar arithmetic.",
         "",
         "The raw probe logs contain one stale descriptive sentence saying PR #25 was pending review; #25 is merged "
         "and QA-002 repair PR #34 leaves the dtype/shape counts used here unchanged. The harness source is "
@@ -223,7 +223,7 @@ def main() -> int:
     items = rows(probes)
     svg_chart(items, args.chart)
     args.result.parent.mkdir(parents=True, exist_ok=True)
-    chart_rel = Path("../../../spikes/spike_c_ml") / args.chart.name
+    chart_rel = Path("../../../prototypes/ml-probe") / args.chart.name
     args.result.write_text(markdown(probes, items, calendars, chart_rel.as_posix()), encoding="utf-8")
     print(f"wrote {args.result} and {args.chart} from {len(items)} measurements")
     return 0

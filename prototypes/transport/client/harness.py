@@ -2,7 +2,7 @@
 """
 Spike E client harness — instrumented transport measurement.
 
-THROWAWAY SPIKE CODE under spikes/spike_e_transport/. Not production.
+THROWAWAY SPIKE CODE under prototypes/transport/. Not production.
 
 Emits one machine-readable record per request so the distribution survives, not
 just a summary. TASK.md requires exactly that:

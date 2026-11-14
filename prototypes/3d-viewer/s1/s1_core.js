@@ -1,7 +1,7 @@
 /*
  * SPIKE_B S-1 — pure helpers for the device session (no DOM, no WebGL).
  *
- * THROWAWAY SPIKE CODE under spikes/spike_b_3d/. Written on Day 22 (2026-10-01) by a
+ * THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Written on Day 22 (2026-10-01) by a
  * Claude agent under the leader's recovery override; Spike B owner Vu Hung Anh adopts or
  * rejects it on Day 23. Node-tested by s1/test_s1_core.mjs.
  *

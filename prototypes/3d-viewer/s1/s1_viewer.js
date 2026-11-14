@@ -1,7 +1,7 @@
 /*
  * SPIKE_B S-1 — device-session viewer: real-mesh levels, B6/B7/B9/B10/B11 probes.
  *
- * THROWAWAY SPIKE CODE under spikes/spike_b_3d/. Day 22 (2026-10-01), written by a Claude
+ * THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Day 22 (2026-10-01), written by a Claude
  * agent under the leader's recovery override; Spike B owner Vu Hung Anh adopts or rejects
  * it on Day 23.
  *

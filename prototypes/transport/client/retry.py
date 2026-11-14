@@ -2,7 +2,7 @@
 """
 Reconnect / retry characterisation — criterion E9.
 
-THROWAWAY SPIKE CODE under spikes/spike_e_transport/. Not production.
+THROWAWAY SPIKE CODE under prototypes/transport/. Not production.
 
 E9 asks for reconnect/retry behaviour to be CHARACTERISED for the canonical
 demo, and the measurements table asks for "Reconnect time after link loss".
