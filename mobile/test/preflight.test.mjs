@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
@@ -44,6 +45,17 @@ function assertNoAddress(out, port) {
   assert.ok(!out.includes(String(port)), `the port must not be printed:\n${out}`);
   assert.match(out, /http:\/\/<configured>/);
 }
+
+// The mask decoder is imported inside a try/catch that reads a failure as "fast-png is not installed", so a wrong
+// path would only skip P5 quietly. This pins the path to the file that exists.
+test('PF0 the mask decoder P5 loads is imported from the path where it lives', () => {
+  const src = readFileSync(SCRIPT, 'utf8');
+  const m = /import\(pathToFileURL\(join\(mobileRoot, ([^)]*)\)\)/.exec(src);
+  assert.ok(m, 'preflight-live.mjs imports the mask decoder through join(mobileRoot, ...)');
+  const parts = m[1].split(',').map((p) => p.trim().replace(/^'|'$/g, ''));
+  assert.deepEqual(parts, ['src', 'lib', 'maskPng.js']);
+  assert.ok(existsSync(join(MOBILE_ROOT, ...parts)), `${parts.join('/')} exists`);
+});
 
 test('PF1 a backend on another contract version fails P1 and says to rebuild', async () => {
   const srv = await serve((req, res) => sendJson(res, 200, { status: 'ok', contract_version: '0.0.0-preflight-test' }));

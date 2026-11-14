@@ -84,7 +84,7 @@ async function main() {
   const contractJson = JSON.parse(readFileSync(join(repoRoot, 'contracts', 'api', 'contract.json'), 'utf8'));
   let decodeMask = null;
   try {
-    ({ decodeMaskPng: decodeMask } = await import(pathToFileURL(join(mobileRoot, 'src', 'imaging', 'maskPng.js')).href));
+    ({ decodeMaskPng: decodeMask } = await import(pathToFileURL(join(mobileRoot, 'src', 'lib', 'maskPng.js')).href));
   } catch (_err) {
     console.log('preflight: fast-png is not installed (run `npm ci` in mobile/) - mask decoding (P5) is skipped');
   }
