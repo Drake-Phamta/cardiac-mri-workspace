@@ -31,7 +31,7 @@ build installs).
 cd mobile
 npm ci                       # once
 npm start                    # fixture mode, Metro dev server; open in a dev build
-npm test                     # 273 logic tests (node --test), no device, no emulator
+npm test                     # 284 logic tests (node --test), no device, no emulator
 ```
 
 `npm start`, `npm run android` and `npm run export:android` all run `scripts/prepare.mjs` first. It writes two
@@ -164,6 +164,10 @@ so the `10` §8 state model looks and behaves the same on every screen.
 | `src/lib/bytes.mjs` | `sha256Hex`, `bytesToBase64`, `base64ToBytes` — one copy each, Hermes has neither WebCrypto nor `Buffer` |
 | `src/api/cache.mjs` | the per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode), the MRI image store and the mask store. Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 and SCR-04 call it on open only) and `clearWhere(fn)` (one slice's keys). **Retry forgets only the slice it retries**, so a Retry cannot turn cached revisits into traffic |
 | `src/lib/caseMode.mjs` | the case mode badge logic (`capabilityOf`), `PREDICTION_VARIANT`, the variant options and the variant remembered for this session |
+| `src/components/tokens.mjs` (through `theme.js`) | design tokens v2: `color` (use `color.control` for the edge of a button, chip or input: at least 3:1; `color.border` is for card edges only), `overlay`, `errorClass`, `family` (colour + marker), `status`, `space`, `radius`, `font.numeric`; `test/shell.test.mjs` measures the contrast of every pair |
+| `nav.setContext({caseId, runId, variant})` | tells the header what the screen shows when the route params do not (SCR-03 picks its run itself) |
+| `src/components/Provenance.js` | a card, closed by default, for artifact ids and checksums (`<Provenance title=… summary=…><IdLine>…</IdLine></Provenance>`) |
+| `src/components/SessionCover.js` | covers the app after 5 min in the background or 10 min without a touch (`session.mjs`); "Clear cached images" (spec 12 §8) empties the image, mask and slice caches and reloads the open screen, unless it has unsaved work |
 
 ## V1 screens (SCR-02, SCR-03, SCR-04)
 
@@ -260,9 +264,9 @@ Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`rea
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get the real runtime (`src/api/runtime.mjs`) — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**217** at
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**235** at
 this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
-`R4`, `R5` and `V4q`). `test/render/smoke.mjs` is in numbered sections:
+`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`). `test/render/smoke.mjs` is in numbered sections:
 
 | Section | What it renders |
 |---|---|
@@ -270,6 +274,7 @@ this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with 
 | 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
 | 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
 | 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
+| 12 | **Shell**: the header (name, case, run), About this screen, the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button) and Clear cached images — checks `H1`..`H6` |
 
 - **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
   `npm run test:render`, then a fixture-mode `expo export`; every other CI job runs without
@@ -298,8 +303,10 @@ mobile/
   src/api/                             contract.mjs, states.mjs (7 screen states + error codes), client.mjs,
                                        http.mjs, content.mjs, cache.mjs, runtime.mjs, RuntimeContext.js (useCall)
   src/lib/                             bytes.mjs, mask.mjs, maskPng.js, textDecoderLatin1.mjs, viewMath.mjs, caseMode.mjs
-  src/components/                      theme.js, StateView.js, stateCopy.mjs, CapabilityBadge.js
-  src/navigation/                      routes.mjs (screen table), navigator.mjs (stack, leave guards), Navigator.js
+  src/components/                      tokens.mjs + theme.js (design tokens), StateView.js, stateCopy.mjs,
+                                       CapabilityBadge.js, Provenance.js, session.mjs + SessionCover.js
+  src/navigation/                      routes.mjs (screen table), navigator.mjs (stack, leave guards),
+                                       header.mjs (header text), Navigator.js
   src/screens/v1-cases v2-3d v3-study v4-review/   the screens, one folder per owner, each with a README
   src/generated/                       written by prepare.mjs, gitignored
   test/*.test.mjs                      node --test (CI)
