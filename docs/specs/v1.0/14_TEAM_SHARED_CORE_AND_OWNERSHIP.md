@@ -149,5 +149,5 @@ The leader owns:
 - project-state accuracy;
 - recovery decisions when deadline risk increases.
 
-The leader should not become the sole code reviewer for every PR; primary technical review is distributed according to `15_TEAM_EXECUTION_AND_PROJECT_CONTROL.md`.
+The leader should not become the sole code reviewer for every PR; primary technical review is distributed across the owners listed in this document.
 

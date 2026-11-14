@@ -7,7 +7,7 @@
     powershell -ExecutionPolicy Bypass -File prototypes\3d-viewer\s1_app\build_release.ps1 -Assets <staged spike_b_s1> -BuildRoot <short path outside repository> -JavaHome <JDK 17> -AndroidHome <Android SDK>
 
   WHY A SEPARATE BUILD ROOT. React Native's native (CMake/ninja) build fails on Windows when
-  object paths pass ~250 characters, which a git worktree under .claude\worktrees\ does. The
+  object paths pass ~250 characters, which a deeply nested git worktree does. The
   app's five source files (App.js, index.js, app.json, package.json, package-lock.json) are
   copied from this folder to a short directory OUTSIDE the repository, their SHA-256 are
   checked equal to the repository files, and the APK is built there. build_record.json
