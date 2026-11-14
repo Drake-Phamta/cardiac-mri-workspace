@@ -141,10 +141,13 @@ test('TC-3D-004 after rotate, zoom and pan a tap on a visible face still names t
     { name: 'turned right round, zoomed out', yaw: -2.4, pitch: 0.8, zoom: 0.6, pan: [-0.1, 0.1] },
     { name: 'close up from the side', yaw: 1.57, pitch: 0.1, zoom: 2.4, pan: [0, 0] },
     { name: 'from below, panned', yaw: 0.3, pitch: -1.2, zoom: 1.4, pan: [0.15, 0.05] },
+    // the full-bleed screen: the model is drawn centred between the app bar and the bottom panel
+    { name: 'full-bleed, between the bar and the panel', yaw: -0.5, pitch: 0.35, zoom: 1.6, pan: [0, 0], insets: [56, 200] },
   ];
   const samples = MESH.triangles.map((_, t) => t).filter((t) => t % 7 === 0);
   const perCamera = [];
   for (const cam of cameras) {
+    v.send({ type: 'insets', top: (cam.insets || [0, 0])[0], bottom: (cam.insets || [0, 0])[1] });
     v.api.setCamera({ yaw: cam.yaw, pitch: cam.pitch, zoom: cam.zoom, pan: cam.pan });
     let verified = 0;
     for (const t of samples) {

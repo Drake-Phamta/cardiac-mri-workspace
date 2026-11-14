@@ -38,7 +38,9 @@ export function makeViewer() {
   // The tools are drawn into this element as HTML; one delegated click listener serves every button.
   const toolsHandlers = {};
   const tools = { innerHTML: '', addEventListener: (type, fn) => { toolsHandlers[type] = fn; } };
-  const elements = { axes: axesCanvas, tools };
+  // #free is the box between the app bar and the bottom panel; the page moves its edges (style.top / bottom).
+  const free = { style: {} };
+  const elements = { axes: axesCanvas, tools, free };
   const document = { getElementById: (id) => elements[id] || canvas, addEventListener: (type, fn) => { documentHandlers[type] = fn; } };
   const frames = [];
   const window = {
@@ -66,5 +68,5 @@ export function makeViewer() {
     const m = new RegExp('<button ([^>]*aria-label="' + label.replace(/[()+]/g, '\\$&') + '"[^>]*)>').exec(tools.innerHTML);
     return m ? m[1] : null;
   };
-  return { api, posted, canvas, canvasHandlers, windowHandlers, documentHandlers, glCalls, send, load, events, rect, frame, tap, axesText, tools, press, button };
+  return { api, posted, canvas, canvasHandlers, windowHandlers, documentHandlers, glCalls, send, load, events, rect, frame, tap, axesText, tools, free, press, button };
 }

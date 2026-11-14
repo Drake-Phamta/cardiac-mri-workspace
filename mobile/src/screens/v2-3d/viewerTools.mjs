@@ -1,5 +1,7 @@
 // The tools drawn over the SCR-05 WebGL page, in the Direction A viewer language: translucent glass groups (the
 // `glass` colour and hairline edge of the tokens) with 48 px hit areas and the shared icon set's 24 grid and 1.6 stroke.
+// They sit in the free area between the app bar and the bottom panel (the app sends the two heights; the page
+// shifts its #free box), so a full-bleed page keeps them clear of both.
 //   top left     Views     +X -X +Y -Y +Z -Z and Fit (look along a voxel axis)
 //   right        Cut       hide the surface above the selected slice
 //   bottom left  Layers    Prediction and Ground truth (eye, colour key, opacity 30 / 60 / 100 %), Errors with
@@ -20,21 +22,21 @@ export const TOOLS_CSS = `
   justify-content:center;min-width:${MIN_TOUCH}px;min-height:${MIN_TOUCH}px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #tools button:disabled{opacity:.4}
 #tools .g{position:absolute;pointer-events:auto;display:flex;${GLASS}}
-#tools .views{left:12px;top:12px;padding:3px;gap:2px;border-radius:${radius.l}px}
+#tools .views{left:12px;top:8px;padding:3px;gap:2px;border-radius:${radius.l}px}
 #tools .views button{border-radius:7px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
 #tools .views button:active,#tools .cut button:active{background:${color.accentSoft}}
 #tools .sep{width:1px;margin:8px 3px;background:${color.hair}}
-#tools .cut{right:12px;top:70px;padding:3px;border-radius:${radius.l}px}
+#tools .cut{right:12px;top:66px;padding:3px;border-radius:${radius.l}px}
 #tools .cut button{flex-direction:column;gap:2px;min-width:50px;min-height:52px;border-radius:7px;color:${color.t2};
   font-size:11px;line-height:14px}
 #tools .cut button[aria-pressed=true]{background:${color.accentSoft};color:${color.accent}}
-#tools .note{position:absolute;right:12px;top:132px;padding:6px 10px;border-radius:${radius.m}px;font-size:12px;
+#tools .note{position:absolute;right:12px;top:128px;padding:6px 10px;border-radius:${radius.m}px;font-size:12px;
   ${GLASS}}
-#tools .layers{position:absolute;left:12px;bottom:12px;display:flex;flex-direction:column}
+#tools .layers{position:absolute;left:12px;bottom:6px;display:flex;flex-direction:column}
 #tools .row{display:flex;align-items:center;gap:8px;height:48px;pointer-events:none}
 #tools .row>*{pointer-events:auto}
 #tools .vis{height:36px;display:flex;align-items:center;gap:8px;border-radius:${radius.m}px;box-sizing:border-box;${GLASS}}
-#tools .chip{padding:0 12px 0 10px;color:${color.t1}}
+#tools .chip{padding:0 12px 0 10px;min-width:148px;color:${color.t1}}
 #tools .chip svg{color:${color.t2}}
 #tools button[aria-pressed=false] .chip{color:${color.t2}}
 #tools .key{width:14px;height:3px;border-radius:2px}
@@ -55,7 +57,7 @@ export const TOOLS_CSS = `
 // Page colours: the one place the tokens reach the page. Surfaces use the prediction / ground truth overlay colours
 // of the 2D screens, error markers the error-class colours, so the whole app has one legend.
 export const PALETTE = Object.freeze({
-  background: color.bg,
+  background: color.viewer,
   prediction: overlay.prediction,
   groundTruth: overlay.groundTruth,
   FN: errorClass.FN,
@@ -84,6 +86,7 @@ function icon(name, px) {
     'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + "</svg>";
 }
 function percent(a) { return Math.round(a * 100) + "%"; }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 // pressed: true / false for a toggle, null for a plain button.
 function button(act, arg, label, pressed, inner, disabled) {
   return '<button data-act="' + act + '" data-arg="' + arg + '" aria-label="' + label + '"' +
@@ -103,7 +106,8 @@ function cutHtml() {
   var can = sliceIndex !== null;
   var html = '<div class="g cut">' + button("cut", "", "Cut at the selected slice", can && cutOn,
     icon("cut", 20) + "<span>Cut</span>", !can) + "</div>";
-  if (cutOn && can) html += '<div class="note">Above slice ' + (sliceIndex + 1) + " hidden</div>";
+  // The slice number is the app's own text (sliceLabel, from the message that named the slice), not computed here.
+  if (cutOn && can) html += '<div class="note">Above ' + (sliceLabel ? "slice " + escapeHtml(sliceLabel) : "the selected slice") + " hidden</div>";
   return html;
 }
 

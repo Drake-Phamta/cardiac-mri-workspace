@@ -437,7 +437,11 @@ test('V2W20 the tools appear with the surface, each a labelled button; a layer w
   assert.match(v.button('Ground truth'), /aria-pressed="false"/, 'hidden: the switch says so');
   assert.equal(v.button('Ground truth opacity 60%'), null, 'a hidden layer shows no opacity steps');
   v.press('cut');
-  assert.match(v.tools.innerHTML, /Above slice 3 hidden/, 'the cut says what it hides, slice numbers 1-based');
+  assert.match(v.tools.innerHTML, /Above the selected slice hidden/, 'with no label from the app the note names no number');
+  v.send({ type: 'slice', index: 2, label: '3' });
+  assert.match(v.tools.innerHTML, /Above slice 3 hidden/, 'the number in the note is the one the app wrote (the page has no formatter)');
+  v.send({ type: 'slice', index: 2, label: '<b>3' });
+  assert.ok(!/<b>/.test(v.tools.innerHTML) && /&lt;b&gt;3/.test(v.tools.innerHTML), 'and it is escaped');
   v.press('step', 1);
   assert.match(v.tools.innerHTML, /1 \/ 2/, 'the stepper shows which region is selected');
   v.send({ type: 'dispose' });
@@ -509,4 +513,28 @@ test('V2W23 one legend for the app: the page takes its colours from the design t
   assert.deepEqual(uniform3('uColor'), rgb(overlay.prediction));
   assert.deepEqual(uniform3('uFN'), rgb(errorClass.FN));
   assert.deepEqual(uniform3('uFP'), rgb(errorClass.FP));
+});
+
+test('V2W24 the app tells the page how tall the app bar and the bottom panel are: tools and model stay between them', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.api.setCamera({ yaw: 0, pitch: 0, zoom: 1, pan: [0, 0] });
+  const middle = () => v.api.project([GOLDEN.shape_xyz[0] / 2, GOLDEN.shape_xyz[1] / 2, GOLDEN.shape_xyz[2] / 2]).y;
+  const before = middle();
+  assert.ok(Math.abs(before - v.rect.height / 2) < 5, `without insets the model is centred on the page (${before})`);
+  v.send({ type: 'insets', top: 56, bottom: 200 });
+  assert.deepEqual([v.free.style.top, v.free.style.bottom], ['56px', '200px'], 'the tools box takes the free area');
+  assert.deepEqual({ ...v.api.state().insets }, { top: 56, bottom: 200 });
+  const freeMiddle = 56 + (v.rect.height - 56 - 200) / 2;
+  assert.ok(Math.abs(middle() - freeMiddle) < 5, `with insets the model is centred between the bar and the panel (${middle()} vs ${freeMiddle})`);
+  // a tap where a face is drawn still resolves to that face, with the model shifted
+  const at = v.api.project([1.5, 1.5, 3]);
+  const hit = v.api.pickRay(...Object.values(v.api.rayAt(at.x, at.y)));
+  assert.equal(hit.slice, 2, 'picking goes through the same shift as drawing');
+  // refused: not numbers, negative, absurd
+  for (const bad of [{ top: -1, bottom: 10 }, { top: 'x', bottom: 10 }, { top: 10 }, { top: 5000, bottom: 10 }, { top: NaN, bottom: 1 }]) v.send({ type: 'insets', ...bad });
+  assert.deepEqual({ ...v.api.state().insets }, { top: 56, bottom: 200 }, 'a malformed insets message changes nothing');
+  v.frame();
+  const proj = v.glCalls.filter(([n]) => n === 'uniformMatrix4fv').slice(-2)[0][3];
+  assert.ok(Math.abs(proj[9] + (200 - 56) / v.rect.height) < 1e-6, 'and the projection carries the shift');
 });
