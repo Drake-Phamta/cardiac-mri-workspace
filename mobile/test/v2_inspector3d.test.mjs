@@ -1,8 +1,9 @@
 // node --test mobile/test/  - V2 SCR-05: the pure logic of the 3D Inspector (src/screens/v2-3d/inspector3d.mjs)
 //
-// Mesh reference from the id, the `cardiac-mesh/1` header (against a golden built by the Python encoder from a synthetic
-// mask), the viewer's messages, pick -> slice (H7), and the push back to SCR-03 with returnParams. No device, no GPU:
-// the viewer script itself is exercised in v2_viewer.test.mjs; the screen's rendering in test:render (section 10).
+// Mesh and error references from the id, the `cardiac-mesh/1` header (against a golden built by the Python encoder from
+// a synthetic mask), the `cardiac-error-geometry/1` markers, the viewer's messages, pick -> slice (H7), marker -> region,
+// the cut, and the push back to SCR-03 with returnParams. No device, no GPU: the viewer script itself is exercised in
+// v2_viewer.test.mjs; the screen's rendering in test:render (section 11).
 import { bytesToBase64 } from '../src/lib/bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,12 +13,15 @@ import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/nav
 import { createRuntime } from '../src/api/runtime.mjs';
 import { sliceLabel } from '../src/screens/v1-cases/cases.mjs';
 import {
-  gridMatches, LAYER, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
-  screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,
+  cutStatus, DEFAULT_OPACITY, errorSummaryText, errorsRef, gridMatches, LAYER, LAYER_COLOR, layerStatus, MARKER_COLOR,
+  markerText, maskIdForVariant, meshRef, OPACITY_STEPS, opacityText, openIn2D, parseErrorGeometry, parseMeshHeader,
+  parseViewerMessage, screenStatus, SELECTION_NONE, selectionAfterPick, selectionForMarker, sliceText, stepMarker,
+  toViewer, triangleText, VIEW_AXES,
 } from '../src/screens/v2-3d/inspector3d.mjs';
+import { errorClass, overlay } from '../src/components/tokens.mjs';
 import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
-import { GOLDEN, goldenBytes } from './_v2mesh.mjs';
+import { encodeErrors, ERROR_COMPONENTS, GOLDEN, goldenBytes } from './_v2mesh.mjs';
 const HEX = 'ab'.repeat(32);
 
 test('V2L1 a mesh id is MESH_<sha256>: it names the content route and the checksum to verify', () => {
@@ -83,7 +87,7 @@ test('V2L5 base64 for the WebView equals the standard encoding, for every length
   assert.equal(bytesToBase64(goldenBytes()), GOLDEN.bytes_b64);
   const m = JSON.parse(toViewer.mesh('prediction', goldenBytes()));
   assert.deepEqual([m.type, m.role, m.b64], ['mesh', 'prediction', GOLDEN.bytes_b64]);
-  assert.deepEqual(JSON.parse(toViewer.layers(1, 0)), { type: 'layers', prediction: true, groundTruth: false });
+  assert.deepEqual(JSON.parse(toViewer.layers({ prediction: 1, groundTruth: 0 })), { type: 'layers', prediction: true, groundTruth: false, errors: false });
   assert.deepEqual(JSON.parse(toViewer.slice(12)), { type: 'slice', index: 12 });
   assert.deepEqual(JSON.parse(toViewer.slice(null)), { type: 'slice', index: null });
   assert.deepEqual(JSON.parse(toViewer.slice(1.5)), { type: 'slice', index: null });
@@ -110,8 +114,8 @@ test('V2L6 viewer messages are checked: a malformed one is ignored, a pick slice
 
 test('V2L7 H7: a pick selects the source slice only inside the volume; a background tap clears and says so', () => {
   const pick = (slice, role = 'prediction') => ({ kind: 'pick', role, triangle: 3, slice });
-  assert.deepEqual({ ...selectionAfterPick(pick(44), 88) }, { slice: 44, role: 'prediction', note: null });
-  assert.deepEqual({ ...selectionAfterPick(pick(0, 'groundTruth'), 88) }, { slice: 0, role: 'groundTruth', note: null });
+  assert.deepEqual({ ...selectionAfterPick(pick(44), 88) }, { slice: 44, role: 'prediction', note: null, marker: null });
+  assert.deepEqual({ ...selectionAfterPick(pick(0, 'groundTruth'), 88) }, { slice: 0, role: 'groundTruth', note: null, marker: null });
   assert.equal(selectionAfterPick(pick(87), 88).slice, 87);
   const bg = selectionAfterPick({ kind: 'pick', role: null, triangle: null, slice: null }, 88);
   assert.equal(bg.slice, null);
@@ -123,7 +127,7 @@ test('V2L7 H7: a pick selects the source slice only inside the volume; a backgro
   }
   assert.equal(selectionAfterPick(pick(3), null).slice, null, 'no known volume: no selection');
   assert.equal(selectionAfterPick({ kind: 'ready' }, 88), null, 'only picks are handled');
-  assert.deepEqual({ ...SELECTION_NONE }, { slice: null, role: null, note: null });
+  assert.deepEqual({ ...SELECTION_NONE }, { slice: null, role: null, note: null, marker: null });
 });
 
 test('V2L8 "slice n / total" reads exactly as SCR-03 prints it', () => {
@@ -219,4 +223,123 @@ test('V2L14 the viewer is one self-contained page: no network, no eval, no templ
     assert.equal(word.test(VIEWER_SCRIPT), false, String(word));
   }
   assert.ok(/<meta name="viewport"/.test(VIEWER_HTML) && /touch-action:none/.test(VIEWER_HTML));
+});
+
+// ---- error markers (candidate 3: the prediction surface + one marker per FP / FN region) ----------------------------
+
+const SHAPE = [576, 576, 88];
+const SURFACE = `MESH_${HEX}`;
+const errorsOf = (over = {}) => encodeErrors({ shape: SHAPE, surface: SURFACE, components: ERROR_COMPONENTS, ...over });
+const markersOf = () => parseErrorGeometry(errorsOf(), { shape: SHAPE, surfaceMeshId: SURFACE }).markers;
+
+test('V2L15 an error geometry id is ERRGEOM_<sha256>: it names the JSON content route and the checksum', () => {
+  assert.deepEqual({ ...errorsRef('/api/v1', `ERRGEOM_${HEX}`) }, { contentUrl: `/api/v1/artifacts/${HEX}.json`, checksum: `sha256:${HEX}` });
+  for (const bad of [`MESH_${HEX}`, `ERRGEOM_${HEX.toUpperCase()}`, `ERRGEOM_${HEX}x`, 'ERROR_MESH_ARTIFACT_ID_0043', null]) {
+    assert.equal(errorsRef('/api/v1', bad), null, String(bad));
+  }
+  assert.equal(meshRef('/api/v1', `ERRGEOM_${HEX}`), null, 'an error geometry is never fetched as a mesh');
+});
+
+test('V2L16 the error geometry parses into markers in the server order, each inside its own slice range', () => {
+  const r = parseErrorGeometry(errorsOf(), { shape: SHAPE, surfaceMeshId: SURFACE });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.markers.map((m) => [m.id, m.cls, m.voxels, m.zmin, m.zmax, m.slice, [...m.at]]), [
+    ['FN_0001', 'FN', 523, 10, 12, 11, [150, 150, 11]],
+    ['FP_0001', 'FP', 40, 10, 10, 10, [200, 120, 10]],
+    ['FP_0002', 'FP', 3, 12, 12, 12, [250, 250, 12]],
+  ]);
+  const empty = parseErrorGeometry(errorsOf({ components: [] }), { shape: SHAPE, surfaceMeshId: SURFACE });
+  assert.deepEqual([empty.ok, empty.markers.length], [true, 0], 'no error region is a valid, empty answer');
+});
+
+test('V2L17 a wrong error geometry is refused whole with a code: never drawn, never clamped', () => {
+  const code = (bytes, opts = {}) => parseErrorGeometry(bytes, { shape: SHAPE, surfaceMeshId: SURFACE, ...opts }).code;
+  const one = (patch) => errorsOf({ components: [{ ...ERROR_COMPONENTS[0], ...patch }] });
+  assert.equal(code(new Uint8Array(Buffer.from('{not json'))), 'ERRORS_FORMAT');
+  assert.equal(code(null), 'ERRORS_FORMAT');
+  assert.equal(code(errorsOf({ extra: { format: 'cardiac-error-geometry/2' } })), 'ERRORS_FORMAT');
+  assert.equal(code(errorsOf({ extra: { frame: 'world-mm' } })), 'ERRORS_FORMAT', 'only the voxel-index frame is drawn');
+  assert.equal(code(errorsOf({ shape: [576, 576, 87] })), 'GEOMETRY_MISMATCH');
+  assert.equal(code(errorsOf(), { shape: [576, 576, 89] }), 'GEOMETRY_MISMATCH');
+  assert.equal(code(errorsOf({ surface: `MESH_${'cd'.repeat(32)}` })), 'ERRORS_OTHER_SURFACE', 'markers of another surface');
+  assert.equal(code(errorsOf({ surface: null })), 'ERRORS_OTHER_SURFACE');
+  assert.equal(code(errorsOf(), { surfaceMeshId: null }), 'ERRORS_OTHER_SURFACE', 'no surface on screen, no markers');
+  for (const patch of [{ class: 'FP' }, { class: 'F' }, { id: 'TP_0001', class: 'TP' }, { voxel_count: 0 }, { voxel_count: 2.5 },
+    { marker_voxel: [576, 1, 11] }, { marker_voxel: [1, 1, 13] }, { marker_voxel: [1, -1, 11] }, { marker_voxel: [1, 1] },
+    { slice_range: [12, 10] }, { slice_range: [10, 88] }, { slice_range: '10-12' }]) {
+    assert.equal(code(one(patch)), 'ERRORS_INVALID', JSON.stringify(patch));
+  }
+  assert.equal(code(errorsOf({ extra: { components: 'none' } })), 'ERRORS_FORMAT');
+});
+
+test('V2L18 marker messages: only id, class, voxel and size cross into the page; the page answers with a marker id', () => {
+  const sentMarkers = JSON.parse(toViewer.markers(markersOf().map((m) => ({ ...m, caseId: 'CASE_0042' }))));
+  assert.deepEqual(sentMarkers.items[0], { id: 'FN_0001', cls: 'FN', at: [150, 150, 11], voxels: 523 });
+  assert.ok(!JSON.stringify(sentMarkers).includes('CASE_'), 'nothing beyond the geometry is copied');
+  assert.deepEqual(JSON.parse(toViewer.select('FP_0001')), { type: 'select', id: 'FP_0001' });
+  assert.deepEqual(JSON.parse(toViewer.select(undefined)), { type: 'select', id: null });
+  assert.deepEqual(JSON.parse(toViewer.cut(1)), { type: 'cut', on: true });
+  assert.deepEqual(VIEW_AXES.map((a) => JSON.parse(toViewer.view(a)).axis), ['+x', '-x', '+y', '-y', '+z', '-z']);
+  assert.equal(JSON.parse(toViewer.view('anterior')).axis, null, 'no anatomical view: the frame is voxel indices');
+  assert.deepEqual(JSON.parse(toViewer.opacity(DEFAULT_OPACITY)), { type: 'opacity', prediction: 1, groundTruth: 0.3 });
+  assert.deepEqual(JSON.parse(toViewer.dispose()), { type: 'dispose' });
+  const p = (o) => parseViewerMessage(JSON.stringify(o));
+  assert.deepEqual(p({ type: 'marker', id: 'FN_0001' }), { kind: 'marker', id: 'FN_0001' });
+  for (const id of [null, 7, 'TP_0001', 'FN_1', 'FN_0001; x', '']) assert.equal(p({ type: 'marker', id }).kind, 'ignored', String(id));
+  assert.equal(p({ type: 'error', role: 'errors', code: 'VIEWER_ERROR' }).role, 'errors', 'a marker error belongs to the error layer');
+  assert.equal(p({ type: 'error', role: 'other', code: 'X' }).role, null);
+});
+
+test('V2L19 a marker selects its region: "FN, slices 11-13", the band and Open in 2D at the marker slice', () => {
+  const markers = markersOf();
+  const sel = selectionForMarker(markers, 'FN_0001');
+  assert.equal(sel.slice, 11, 'the slice of the marker voxel, which lies inside the region');
+  assert.equal(sel.marker.id, 'FN_0001');
+  assert.equal(markerText(sel.marker), 'FN, slices 11-13 (z = 10-12), 523 voxels');
+  assert.equal(markerText(markers[1]), 'FP, slice 11 (z = 10), 40 voxels');
+  assert.equal(markerText({ cls: 'FP', zmin: 0, zmax: 0, voxels: 1 }), 'FP, slice 1 (z = 0), 1 voxel');
+  assert.equal(markerText({ cls: 'FN', zmin: 1, zmax: 2, voxels: 12345 }), 'FN, slices 2-3 (z = 1-2), 12,345 voxels');
+  const plan = openIn2D({ caseId: 'CASE_0042', runId: 'RUN_A', variant: 'RAW', selection: sel, total: 88 });
+  assert.deepEqual({ ...plan.params }, { caseId: 'CASE_0042', runId: 'RUN_A', variant: 'RAW', sliceIndex: 11 });
+  const unknown = selectionForMarker(markers, 'FN_0009');
+  assert.deepEqual([unknown.slice, unknown.marker], [null, null]);
+  assert.match(unknown.note, /not in this error geometry/);
+  assert.equal(selectionForMarker(null, 'FN_0001').slice, null);
+  assert.equal(errorSummaryText(markers), '1 FN region (523 voxels) · 2 FP regions (43 voxels)');
+  assert.match(errorSummaryText([]), /No FP or FN region/);
+  assert.equal(errorSummaryText(null), '');
+});
+
+test('V2L20 Previous / Next step through the regions in the server order and wrap around', () => {
+  const markers = markersOf();
+  assert.equal(stepMarker(markers, null, 1).id, 'FN_0001', 'Next with nothing selected starts at the first region');
+  assert.equal(stepMarker(markers, null, -1).id, 'FP_0002', 'Previous starts at the last');
+  assert.equal(stepMarker(markers, markers[0], 1).id, 'FP_0001');
+  assert.equal(stepMarker(markers, markers[2], 1).id, 'FN_0001');
+  assert.equal(stepMarker(markers, markers[0], -1).id, 'FP_0002');
+  assert.equal(stepMarker([], null, 1), null);
+  assert.equal(stepMarker(null, null, 1), null);
+});
+
+test('V2L21 Cut at slice needs a slice inside the volume, and says what it hides', () => {
+  assert.deepEqual({ ...cutStatus(false, 44, 88) }, { available: true, active: false, label: 'Cut at slice 45: OFF', note: null });
+  assert.deepEqual({ ...cutStatus(true, 44, 88) }, { available: true, active: true, label: 'Cut at slice 45: ON', note: 'The surface above slice 45 of 88 is hidden.' });
+  for (const [slice, total] of [[null, 88], [88, 88], [-1, 88], [2.5, 88], [3, null]]) {
+    const c = cutStatus(true, slice, total);
+    assert.deepEqual([c.available, c.active, c.label], [false, false, 'Cut at slice: n/a'], `${slice}/${total}`);
+  }
+});
+
+test('V2L22 one legend for the app: layer and marker colours are the design tokens; three opacity steps', () => {
+  assert.deepEqual({ ...LAYER_COLOR }, { prediction: overlay.prediction, groundTruth: overlay.groundTruth });
+  assert.deepEqual({ ...MARKER_COLOR }, { FN: errorClass.FN, FP: errorClass.FP });
+  assert.deepEqual([...OPACITY_STEPS], [0.3, 0.6, 1]);
+  assert.deepEqual({ ...DEFAULT_OPACITY }, { prediction: 1, groundTruth: 0.3 }, 'the ground truth starts see-through');
+  assert.deepEqual(OPACITY_STEPS.map(opacityText), ['30%', '60%', '100%']);
+  // The page draws the same colours (as 0-1 RGB): FN #4c8dff, FP #f778ba.
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const page = /MARKER_COLORS = \{ FN: \[([^\]]+)\], FP: \[([^\]]+)\] \}/.exec(VIEWER_SCRIPT);
+  for (const [cls, list] of [['FN', page[1]], ['FP', page[2]]]) {
+    list.split(',').map(Number).forEach((v, i) => assert.ok(Math.abs(v - rgb(errorClass[cls])[i]) < 0.01, `${cls} channel ${i}`));
+  }
 });

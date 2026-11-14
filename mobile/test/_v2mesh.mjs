@@ -36,6 +36,28 @@ export function encodeMesh({ shape, vertices, triangles, slices, header = {}, in
   return new Uint8Array(Buffer.concat(parts));
 }
 
+/*
+ * Encode a cardiac-error-geometry/1 file (the layout of build_error_artifact in backend/mesh/error_geometry.py):
+ * { shape, surface: 'MESH_<sha256>' | null, components: [{ id, class, voxel_count, slice_range, marker_voxel }] }.
+ * `extra` overrides top-level fields (to build a damaged file).
+ */
+export function encodeErrors({ shape, surface, components, extra = {} }) {
+  const doc = {
+    format: 'cardiac-error-geometry/1', frame: 'voxel-index', index_convention: 'x=column,y=row,z=slice', shape,
+    connectivity: 26, surface_mesh_artifact_id: surface, summary: {},
+    components: components.map((c) => ({ bbox_lo: c.marker_voxel, bbox_hi: c.marker_voxel, ...c })),
+    ...extra,
+  };
+  return new Uint8Array(Buffer.from(JSON.stringify(doc), 'ascii'));
+}
+
+// Three error regions in a 576 x 576 x 88 grid, in the server's order (FN first, then FP, largest first).
+export const ERROR_COMPONENTS = Object.freeze([
+  { id: 'FN_0001', class: 'FN', voxel_count: 523, slice_range: [10, 12], marker_voxel: [150, 150, 11] },
+  { id: 'FP_0001', class: 'FP', voxel_count: 40, slice_range: [10, 10], marker_voxel: [200, 120, 10] },
+  { id: 'FP_0002', class: 'FP', voxel_count: 3, slice_range: [12, 12], marker_voxel: [250, 250, 12] },
+]);
+
 // The outward-wound box of voxels [x0, x1) x [y0, y1) x [z0, z1) as 12 triangles (a hand-made, valid mesh).
 export function boxMesh(shape, [x0, y0, z0], [x1, y1, z1]) {
   const v = [];

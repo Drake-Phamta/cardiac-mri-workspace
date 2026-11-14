@@ -1,6 +1,6 @@
-// SCR-05 3D Inspector: shows the reconstructed left atrium as two WebGL layers (prediction, ground truth) in a
-// WebView. A tap on the surface picks the slice that made that face; "Open in 2D" opens SCR-03 on that slice.
-// The error mesh is not requested: where the two surfaces differ, the layers show the disagreement.
+// SCR-05 3D Inspector: shows the reconstructed left atrium as WebGL layers in a WebView: the prediction surface, the
+// ground truth (see-through) and one marker per FP / FN error region. A tap on the surface picks the slice that made
+// that face; a tap on a marker selects its error region; "Open in 2D" opens SCR-03 on that slice.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,34 +14,37 @@ import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import { capabilityOf, variantOptions, rememberedVariant, rememberVariant } from '../../lib/caseMode.mjs';
 import {
-  gridMatches, LAYER, LAYER_COLOR, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
-  ROLE_LABEL, ROLES, screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,
+  cutStatus, DEFAULT_OPACITY, ERROR_MEANING, errorSummaryText, errorsRef, gridMatches, LAYER, LAYER_COLOR, layerStatus,
+  MARKER_COLOR, markerText, maskIdForVariant, meshRef, OPACITY_STEPS, opacityText, openIn2D, parseErrorGeometry,
+  parseMeshHeader, parseViewerMessage, ROLE_LABEL, ROLES, screenStatus, SELECTION_NONE, selectionAfterPick,
+  selectionForMarker, sliceText, stepMarker, toViewer, triangleText, VIEW_AXES,
 } from './inspector3d.mjs';
 import { VIEWER_HTML } from './viewerHtml.mjs';
 
-// Loads the mesh bytes of one reference. Latest wins, like useCall: the request is aborted on unmount and when the
-// reference changes.
-function useMeshBytes(content, ref, enabled) {
+// Loads the bytes of one artifact reference. Latest wins, like useCall: the request is aborted on unmount and when
+// the reference changes.
+function useArtifactBytes(content, ref, kind) {
   const [view, setView] = useState(loading());
   const [epoch, setEpoch] = useState(0);
   const latest = useMemo(() => createLatest(), []);
   const key = ref ? `${ref.contentUrl}|${ref.checksum}` : '';
   useEffect(() => {
-    if (!enabled || !ref) { latest.abort(); return undefined; }
+    if (!ref) { latest.abort(); return undefined; }
     const ticket = latest.start();
     setView(loading());
-    content.bytes(ref.contentUrl, { checksum: ref.checksum, signal: ticket.signal, kind: 'mesh' }).then((v) => {
+    content.bytes(ref.contentUrl, { checksum: ref.checksum, signal: ticket.signal, kind }).then((v) => {
       if (ticket.isLatest()) setView(v);
     });
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, key, enabled, epoch, latest]);
+  }, [content, key, epoch, latest]);
   useEffect(() => () => latest.abort(), [latest]);
   const refetch = useCallback(() => setEpoch((n) => n + 1), []);
   return { view, refetch };
 }
 
 const PENDING = loading();
+const AXIS_LABEL = { '+x': '+X', '-x': '−X', '+y': '+Y', '-y': '−Y', '+z': '+Z', '-z': '−Z' };
 
 export default function Inspector3DScreen({ runtime, nav, params }) {
   const { caseId, runId } = params;
@@ -95,7 +98,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const runOk = run.status === 'SUCCEEDED';
   const maskId = maskIdForVariant(run, variant);
   const wantPrediction = runOk && Boolean(maskId);
-  // Ground truth only for a case that has it, and only while a prediction mesh is wanted at all.
+  // Ground truth and the error markers only for a case that has ground truth, and only with a prediction to compare.
   const gtWanted = kase.ground_truth_available === true && wantPrediction;
 
   const basePath = runtime.contract.basePath;
@@ -117,17 +120,39 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
 
   const predCall = useCall(client, 'reconstruction_get', { run_id: runId, mask_id: maskId || '' }, { enabled: wantPrediction });
   const predRef = useMemo(() => refOf(predCall), [predCall.view]); // eslint-disable-line react-hooks/exhaustive-deps
-  const predBytes = useMeshBytes(runtime.content, predRef, Boolean(predRef));
+  const predBytes = useArtifactBytes(runtime.content, predRef, 'mesh');
 
   // The ground-truth mask id is the one the server gives on a slice, never built from a name.
   const gtSlice = useCall(client, 'ground_truth_slice_get', { case_id: caseId, slice_index: 0 }, { enabled: gtWanted });
   const gtMaskId = gtSlice.view.state === STATE.SUCCESS ? gtSlice.view.data.reference_mask_id : null;
   const gtCall = useCall(client, 'reconstruction_get', { run_id: runId, mask_id: gtMaskId || '' }, { enabled: gtWanted && Boolean(gtMaskId) });
   const gtRef = useMemo(() => refOf(gtCall), [gtCall.view]); // eslint-disable-line react-hooks/exhaustive-deps
-  const gtBytes = useMeshBytes(runtime.content, gtRef, Boolean(gtRef));
+  const gtBytes = useArtifactBytes(runtime.content, gtRef, 'mesh');
+
+  // The error geometry: one marker per FP / FN region, drawn on the prediction surface it names.
+  const errCall = useCall(client, 'error_reconstruction_get', { run_id: runId, variant }, { enabled: gtWanted });
+  const errRef = useMemo(() => (errCall.view.state === STATE.SUCCESS ? errorsRef(basePath, errCall.view.data.error_mesh_artifact_id) : null),
+    [errCall.view, basePath]);
+  const errBytes = useArtifactBytes(runtime.content, errRef, 'errors');
+  const predMeshId = predCall.view.state === STATE.SUCCESS ? predCall.view.data.mesh_artifact_id : null;
 
   const predPrepared = useMemo(() => layerOf(predCall.view, predBytes.view), [predCall.view, predBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
   const gtPrepared = useMemo(() => layerOf(gtCall.view, gtBytes.view), [gtCall.view, gtBytes.view, shape]); // eslint-disable-line react-hooks/exhaustive-deps
+  const errPrepared = useMemo(() => {
+    const call = errCall.view;
+    if (call.state !== STATE.SUCCESS) return call;
+    if (!runtime.content.live) return emptyUnavailable('FIXTURE_NO_BYTES');
+    if (call.data.prediction_mask_id !== maskId || call.data.prediction_variant !== variant) {
+      return fatalInvalid({ code: 'ERRORS_OTHER_PREDICTION', safeMessage: 'the error geometry is for another prediction than the one shown' });
+    }
+    if (!errRef) return emptyUnavailable('ERRORS_NOT_ADDRESSABLE');
+    if (errBytes.view.state !== STATE.SUCCESS) return errBytes.view;
+    const parsed = parseErrorGeometry(errBytes.view.data.bytes, { shape, surfaceMeshId: predMeshId });
+    if (!parsed.ok) return fatalInvalid({ code: parsed.code, safeMessage: parsed.message });
+    return Object.freeze({ ...errBytes.view, markers: parsed.markers });
+  }, [errCall.view, errBytes.view, errRef, predMeshId, shape, maskId, variant, runtime.content.live]);
+  const markers = errPrepared.state === STATE.SUCCESS && errPrepared.markers ? errPrepared.markers : null;
+
   const meshes = useMemo(() => ({
     prediction: predPrepared.state === STATE.SUCCESS && predPrepared.header
       ? { bytes: predPrepared.data.bytes, checksum: predPrepared.data.checksum, triangles: predPrepared.header.triangle_count } : null,
@@ -137,14 +162,18 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
 
   const webRef = useRef(null);
   const sent = useRef({});
-  const [ready, setReady] = useState(false);
+  // Counts the page's "ready" messages, so everything is sent again if the page ever restarts.
+  const [ready, setReady] = useState(0);
   const [loaded, setLoaded] = useState({});
   const [viewerErrors, setViewerErrors] = useState({});
-  const [show, setShow] = useState({ prediction: true, groundTruth: true });
+  const [show, setShow] = useState({ prediction: true, groundTruth: true, errors: true });
+  const [opacity, setOpacity] = useState(DEFAULT_OPACITY);
+  const [cutOn, setCutOn] = useState(false);
   const [selection, setSelection] = useState(SELECTION_NONE);
 
-  // The amber band shows the picked slice, else the 2D slice this screen was opened from.
+  // The amber band shows the selected slice, else the 2D slice this screen was opened from.
   const band = Number.isInteger(selection.slice) ? selection.slice : initialSlice;
+  const cut = cutStatus(cutOn, band, total);
 
   const tell = useCallback((message) => { if (webRef.current) webRef.current.postMessage(message); }, []);
   useEffect(() => {
@@ -153,20 +182,28 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
       const item = meshes[role];
       if (item && sent.current[role] !== item.checksum) { sent.current[role] = item.checksum; tell(toViewer.mesh(role, item.bytes)); }
     }
-  }, [ready, meshes, tell]);
-  useEffect(() => { if (ready) tell(toViewer.layers(show.prediction, show.groundTruth)); }, [ready, show, tell]);
+    if (markers && sent.current.errors !== errPrepared.data.checksum) {
+      sent.current.errors = errPrepared.data.checksum;
+      tell(toViewer.markers(markers));
+    }
+  }, [ready, meshes, markers, errPrepared, tell]);
+  useEffect(() => { if (ready) tell(toViewer.layers(show)); }, [ready, show, tell]);
+  useEffect(() => { if (ready) tell(toViewer.opacity(opacity)); }, [ready, opacity, tell]);
   useEffect(() => { if (ready) tell(toViewer.slice(band)); }, [ready, band, tell]);
+  useEffect(() => { if (ready) tell(toViewer.cut(cut.active)); }, [ready, cut.active, tell]);
+  useEffect(() => { if (ready) tell(toViewer.select(selection.marker ? selection.marker.id : null)); }, [ready, selection, tell]);
 
   const onMessage = useCallback((event) => {
     const m = parseViewerMessage(event && event.nativeEvent ? event.nativeEvent.data : null);
-    if (m.kind === 'ready') { sent.current = {}; setLoaded({}); setReady(true); }
+    if (m.kind === 'ready') { sent.current = {}; setLoaded({}); setReady((n) => n + 1); }
     else if (m.kind === 'loaded') setLoaded((l) => ({ ...l, [m.role]: m }));
     else if (m.kind === 'error') setViewerErrors((e) => ({ ...e, [m.role || ROLES.PREDICTION]: m }));
+    else if (m.kind === 'marker') setSelection(selectionForMarker(markers, m.id));
     else if (m.kind === 'pick') {
       const next = selectionAfterPick(m, total);
       if (next) setSelection(next);
     }
-  }, [total]);
+  }, [total, markers]);
 
   const predStatus = layerStatus({
     wanted: wantPrediction,
@@ -175,24 +212,37 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     viewerLoaded: Boolean(loaded.prediction),
     viewerError: viewerErrors.prediction,
   });
+  const gtReason = kase.ground_truth_available === true ? 'NO_PREDICTION_MESH_WANTED' : 'GROUND_TRUTH_UNAVAILABLE';
   const gtStatus = layerStatus({
     wanted: gtWanted,
-    reason: kase.ground_truth_available === true ? 'NO_PREDICTION_MESH_WANTED' : 'GROUND_TRUTH_UNAVAILABLE',
+    reason: gtReason,
     steps: gtWanted ? [gtSlice.view, gtCall.view, gtPrepared] : [],
     viewerLoaded: Boolean(loaded.groundTruth),
     viewerError: viewerErrors.groundTruth,
+  });
+  const errStatus = layerStatus({
+    wanted: gtWanted,
+    reason: gtReason,
+    steps: gtWanted ? [errCall.view, errPrepared] : [],
+    viewerLoaded: Boolean(loaded.prediction), // the markers are drawn with the prediction surface
+    viewerError: viewerErrors.errors,
   });
   const overall = screenStatus(predStatus);
 
   const retry = () => {
     setViewerErrors({}); sent.current = {};
     predCall.refetch(); predBytes.refetch(); gtSlice.refetch(); gtCall.refetch(); gtBytes.refetch();
+    errCall.refetch(); errBytes.refetch();
   };
   const onStateAction = (id) => { if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) retry(); else nav.pop(); };
 
   const plan = openIn2D({ caseId, runId, variant, selection, total });
   const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
     ? 'Voxel-index frame (x = column, y = row, z = slice). Geometry is not validated: no millimetres are shown.' : null;
+  const step = (by) => {
+    const next = stepMarker(markers, selection.marker, by);
+    if (next) setSelection(selectionForMarker(markers, next.id));
+  };
 
   // No prediction mesh: show the API's reason instead of the viewer.
   if (overall === 'unavailable' || overall === 'error') {
@@ -211,6 +261,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     );
   }
 
+  const surfacesReady = predStatus.state === LAYER.READY;
   return (
     <View style={s.root}>
       <Header caseId={caseId} capability={capability} runId={runId} variant={variant} />
@@ -239,45 +290,89 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
         ) : null}
       </View>
       <ScrollView style={s.panel} contentContainerStyle={s.panelBody}>
-        <LayerRow role={ROLES.PREDICTION} label={`Prediction (${variant})`} status={predStatus} on={show.prediction}
-          triangles={loaded.prediction && loaded.prediction.triangles}
-          onToggle={() => setShow((v) => ({ ...v, prediction: !v.prediction }))} />
-        <LayerRow role={ROLES.GROUND_TRUTH} label="Ground truth" status={gtStatus} on={show.groundTruth}
-          triangles={loaded.groundTruth && loaded.groundTruth.triangles}
-          onToggle={() => setShow((v) => ({ ...v, groundTruth: !v.groundTruth }))} />
+        <View style={s.toolbar}>
+          {VIEW_AXES.map((axis) => (
+            <TouchableOpacity key={axis} style={[s.tool, !surfacesReady && s.btnOff]} disabled={!surfacesReady}
+              onPress={() => tell(toViewer.view(axis))} accessibilityRole="button" accessibilityLabel={`View from ${axis.replace('-', 'minus ').replace('+', 'plus ')}`}>
+              <Text style={[s.toolT, !surfacesReady && s.btnTOff]}>{AXIS_LABEL[axis]}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={[s.tool, s.toolWide, !surfacesReady && s.btnOff]} disabled={!surfacesReady}
+            onPress={() => tell(toViewer.fit())} accessibilityRole="button" accessibilityLabel="Fit the model in view">
+            <Text style={[s.toolT, !surfacesReady && s.btnTOff]}>Fit</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={s.dim}>View from the side of a voxel axis (x = column, y = row, z = slice), or Fit to reset.</Text>
+        <View style={s.row}>
+          <TouchableOpacity
+            style={[s.btn, cut.active && s.btnOn, (!cut.available || !surfacesReady) && s.btnOff]}
+            disabled={!cut.available || !surfacesReady}
+            onPress={() => setCutOn((v) => !v)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: cut.active, disabled: !cut.available || !surfacesReady }}
+          >
+            <Text style={[s.btnT, (!cut.available || !surfacesReady) && s.btnTOff]}>{cut.label}</Text>
+          </TouchableOpacity>
+        </View>
+        {cut.note ? <Text style={s.dim}>{cut.note}</Text> : null}
+
         <View style={s.card}>
-          <Text style={s.label}>Selected region (tap the surface)</Text>
-          {Number.isInteger(selection.slice) ? (
+          <LayerRow role={ROLES.PREDICTION} label={`Prediction (${variant})`} status={predStatus} on={show.prediction}
+            note={triangleText(loaded.prediction && loaded.prediction.triangles)}
+            onToggle={() => setShow((v) => ({ ...v, prediction: !v.prediction }))}
+            opacity={opacity.prediction} onOpacity={(a) => setOpacity((o) => ({ ...o, prediction: a }))} />
+          <LayerRow role={ROLES.GROUND_TRUTH} label="Ground truth" status={gtStatus} on={show.groundTruth}
+            note={triangleText(loaded.groundTruth && loaded.groundTruth.triangles)}
+            onToggle={() => setShow((v) => ({ ...v, groundTruth: !v.groundTruth }))}
+            opacity={opacity.groundTruth} onOpacity={(a) => setOpacity((o) => ({ ...o, groundTruth: a }))} />
+          <LayerRow role={ROLES.ERRORS} label="Errors (FP / FN)" status={errStatus} on={show.errors}
+            note={errorSummaryText(markers)}
+            onToggle={() => setShow((v) => ({ ...v, errors: !v.errors }))} />
+          {markers ? <Legend /> : null}
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.label}>Selected region (tap the surface or a marker)</Text>
+          {selection.marker ? (
+            <MarkerDetail marker={selection.marker} markers={markers} />
+          ) : Number.isInteger(selection.slice) ? (
             <Text style={s.value}>{sliceText(selection.slice, total)} · picked on {ROLE_LABEL[selection.role].toLowerCase()}</Text>
           ) : (
             <Text style={s.dim}>{selection.note || 'Nothing selected. Tap the surface to resolve the slice that produced that face.'}</Text>
           )}
+          {markers && markers.length > 0 ? (
+            <View style={s.row}>
+              <TouchableOpacity style={s.btnSmall} onPress={() => step(-1)} accessibilityRole="button" accessibilityLabel="Previous error region">
+                <Text style={s.btnT}>‹ Previous</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.btnSmall} onPress={() => step(1)} accessibilityRole="button" accessibilityLabel="Next error region">
+                <Text style={s.btnT}>Next ›</Text>
+              </TouchableOpacity>
+              <Text style={s.dim}>error regions, largest first</Text>
+            </View>
+          ) : null}
           <Text style={s.dim}>
             {Number.isInteger(band)
-              ? `Amber band on the surface: slice ${band + 1} of ${total}${Number.isInteger(selection.slice) ? ' (the picked slice)' : ' (the 2D slice you came from)'}.`
+              ? `Amber band on the surface: slice ${band + 1} of ${total}${Number.isInteger(selection.slice) ? ' (the selected slice)' : ' (the 2D slice you came from)'}.`
               : 'No slice band: no 2D slice is selected.'}
           </Text>
         </View>
         <View style={s.row}>
           <TouchableOpacity
-            style={[s.btn, !plan && s.btnOff]}
+            style={[s.btn, s.btnWide, !plan && s.btnOff]}
             disabled={!plan}
             onPress={() => { if (plan) { rememberVariant(variant); nav.push(plan.screenId, plan.params, plan.returnParams); } }}
             accessibilityRole="button"
             accessibilityState={{ disabled: !plan }}
           >
-            <Text style={[s.btnT, !plan && s.btnTOff]}>Open in 2D (SCR-03)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.btn} onPress={() => tell(toViewer.fit())} accessibilityRole="button">
-            <Text style={s.btnT}>Fit camera</Text>
+            <Text style={[s.btnT, !plan && s.btnTOff]}>{plan ? `Open in 2D at slice ${plan.params.sliceIndex + 1}` : 'Open in 2D (SCR-03)'}</Text>
           </TouchableOpacity>
         </View>
         {!plan ? <Text style={s.dim}>Open in 2D needs a selected slice.</Text> : null}
         <Text style={s.dim}>Drag to orbit · pinch to zoom · two fingers to pan · tap to select.</Text>
-        <Text style={s.dim}>
-          {fromErrorView ? 'Opened from the Error Inspector. ' : ''}Error view: the 3D error reconstruction is not available
-          yet (DR-005 is open). Where the two surfaces differ, the prediction and the ground truth show as separate layers.
-        </Text>
+        {fromErrorView ? (
+          <Text style={s.dim}>Opened from the Error Inspector: the markers show where the prediction and the ground truth disagree.</Text>
+        ) : null}
         {geometryNote ? <Text style={s.dim}>{geometryNote}</Text> : null}
       </ScrollView>
     </View>
@@ -296,28 +391,72 @@ function Header({ caseId, capability, runId, variant }) {
   );
 }
 
-function LayerRow({ role, label, status, on, triangles, onToggle }) {
-  const usable = status.state === LAYER.READY;
-  let note = triangleText(triangles);
-  if (status.state === LAYER.LOADING) note = 'loading…';
-  else if (status.state === LAYER.UNAVAILABLE) note = `unavailable (${status.reason || 'no reason given'})`;
-  else if (status.state === LAYER.ERROR) note = `error (${status.reason || 'unknown'})${status.message ? `: ${status.message}` : ''}`;
+// FN is a round dot and FP a square, here as in the viewer, so the class never depends on colour alone.
+function Glyph({ cls }) {
+  return <View style={[s.glyph, cls === 'FP' && s.glyphSquare, { backgroundColor: MARKER_COLOR[cls] }]} />;
+}
+
+function Legend() {
   return (
-    <View style={s.layer}>
-      <View style={[s.chip, { backgroundColor: LAYER_COLOR[role] }]} />
-      <View style={s.layerText}>
-        <Text style={s.value}>{label}</Text>
-        <Text style={s.dim}>{note}</Text>
+    <View style={s.legend}>
+      {['FN', 'FP'].map((cls) => (
+        <View key={cls} style={s.legendItem}>
+          <Glyph cls={cls} />
+          <Text style={s.dim}>{`${cls} ${ERROR_MEANING[cls]}`}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function MarkerDetail({ marker, markers }) {
+  const at = markers ? markers.findIndex((m) => m.id === marker.id) : -1;
+  return (
+    <View>
+      <View style={s.legendItem}>
+        <Glyph cls={marker.cls} />
+        <Text style={s.value}>{markerText(marker)}</Text>
       </View>
-      <TouchableOpacity
-        style={[s.toggle, !usable && s.btnOff]}
-        disabled={!usable}
-        onPress={onToggle}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !usable }}
-      >
-        <Text style={[s.btnT, !usable && s.btnTOff]}>{`${label.split(' (')[0]}: ${usable ? (on ? 'ON' : 'OFF') : 'n/a'}`}</Text>
-      </TouchableOpacity>
+      <Text style={s.dim}>{`${ERROR_MEANING[marker.cls]} · region ${at + 1} of ${markers ? markers.length : 0}`}</Text>
+    </View>
+  );
+}
+
+function LayerRow({ role, label, status, on, note, onToggle, opacity, onOpacity }) {
+  const usable = status.state === LAYER.READY;
+  let text = note;
+  if (status.state === LAYER.LOADING) text = 'loading…';
+  else if (status.state === LAYER.UNAVAILABLE) text = `unavailable (${status.reason || 'no reason given'})`;
+  else if (status.state === LAYER.ERROR) text = `error (${status.reason || 'unknown'})${status.message ? `: ${status.message}` : ''}`;
+  return (
+    <View style={s.layerBlock}>
+      <View style={s.layer}>
+        {role === ROLES.ERRORS ? <Glyph cls="FN" /> : <View style={[s.chip, { backgroundColor: LAYER_COLOR[role] }]} />}
+        <View style={s.layerText}>
+          <Text style={s.value}>{label}</Text>
+          <Text style={s.dim}>{text}</Text>
+        </View>
+        <TouchableOpacity
+          style={[s.toggle, !usable && s.btnOff]}
+          disabled={!usable}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !usable }}
+        >
+          <Text style={[s.btnT, !usable && s.btnTOff]}>{`${label.split(' (')[0]}: ${usable ? (on ? 'ON' : 'OFF') : 'n/a'}`}</Text>
+        </TouchableOpacity>
+      </View>
+      {onOpacity && usable && on ? (
+        <View style={s.opacityRow}>
+          <Text style={s.dim}>Opacity</Text>
+          {OPACITY_STEPS.map((a) => (
+            <TouchableOpacity key={a} style={[s.opacityChip, a === opacity && s.opacityChipOn]} onPress={() => onOpacity(a)}
+              accessibilityRole="radio" accessibilityState={{ selected: a === opacity }} accessibilityLabel={`${label} opacity ${opacityText(a)}`}>
+              <Text style={[s.opacityT, a === opacity && s.opacityTOn]}>{opacityText(a)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -329,20 +468,37 @@ const s = StyleSheet.create({
   caseId: { color: color.text, fontSize: font.h2, fontWeight: '700', marginRight: space.s },
   h2: { color: color.text, fontSize: font.h2, fontWeight: '700', marginBottom: space.xs },
   dim: { color: color.textDim, fontSize: font.small, marginTop: 2 },
-  value: { color: color.text, fontSize: font.body },
+  value: { color: color.text, fontSize: font.body, flexShrink: 1 },
   label: { color: color.textFaint, fontSize: font.small, letterSpacing: 0.5, marginBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.s, marginTop: space.s },
   stage: { height: 300, marginHorizontal: space.l, borderWidth: 1, borderColor: color.border, borderRadius: 10, overflow: 'hidden', backgroundColor: color.surface },
   web: { flex: 1, backgroundColor: color.surface },
   overlay: { position: 'absolute', left: space.l, right: space.l, top: space.l },
   panel: { flex: 1 },
-  panelBody: { padding: space.l },
+  panelBody: { padding: space.l, paddingTop: space.s },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
+  tool: { minHeight: MIN_TOUCH, minWidth: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.control, backgroundColor: color.surface, alignItems: 'center', justifyContent: 'center' },
+  toolWide: { paddingHorizontal: space.l },
+  toolT: { color: color.text, fontSize: font.body, fontWeight: '600' },
   card: { borderWidth: 1, borderColor: color.border, backgroundColor: color.surface, borderRadius: 10, padding: space.m, marginTop: space.s },
-  layer: { flexDirection: 'row', alignItems: 'center', marginTop: space.s },
+  layerBlock: { marginBottom: space.xs },
+  layer: { flexDirection: 'row', alignItems: 'center', marginTop: space.xs },
   chip: { width: 14, height: 14, borderRadius: 3, marginRight: space.s },
+  glyph: { width: 14, height: 14, borderRadius: 7, marginRight: space.s, borderWidth: 1, borderColor: color.bg },
+  glyphSquare: { borderRadius: 2 },
   layerText: { flex: 1 },
+  legend: { marginTop: space.xs, gap: 2 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.s, marginLeft: 22, marginTop: space.xs },
+  opacityChip: { minHeight: MIN_TOUCH, minWidth: 56, borderRadius: 999, borderWidth: 1, borderColor: color.control, alignItems: 'center', justifyContent: 'center' },
+  opacityChipOn: { borderColor: color.accent, backgroundColor: color.accentBg },
+  opacityT: { color: color.textDim, fontSize: font.small, fontWeight: '600' },
+  opacityTOn: { color: color.accent },
   toggle: { minHeight: MIN_TOUCH, minWidth: 132, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg, alignItems: 'center', justifyContent: 'center' },
   btn: { minHeight: MIN_TOUCH, minWidth: 120, paddingHorizontal: space.l, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg, alignItems: 'center', justifyContent: 'center' },
+  btnWide: { flexGrow: 1 },
+  btnSmall: { minHeight: MIN_TOUCH, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg, alignItems: 'center', justifyContent: 'center' },
+  btnOn: { backgroundColor: color.accent + '33' },
   btnT: { color: color.accent, fontSize: font.body, fontWeight: '600' },
   btnOff: { borderColor: color.border, backgroundColor: color.surface },
   btnTOff: { color: color.textFaint },
