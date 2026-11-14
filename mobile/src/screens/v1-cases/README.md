@@ -1,29 +1,29 @@
 # V1 — Danh sách case, Case Explorer, Error Inspector (SCR-02, SCR-03, SCR-04)
 
-**Cho người dùng:** SCR-02 là worklist: tìm theo mã, lọc theo chế độ, chọn một experiment để mỗi case có chip Dice
-của server ("no GT", "run failed", "not in …" bằng chữ, không bao giờ là 0), sắp "Worst first" và đánh dấu "outlier n/3"
-do server chọn. SCR-03 xem từng lát MRI: mask dự đoán (RAW/PROCESSED) và ground truth vẽ Fill / Outline / Both (viền
-1–3 px), Play quét lát ~5 lát/giây, giữ ◀ ▶ để lặp, chạm đúp để zoom 2x / vừa khung. SCR-04 tô TP xanh lá, FP hồng
-(viền nét đứt), FN xanh dương, đi thẳng tới các lát server xếp tệ nhất. SCR-03/04 có **Privacy mode** (mặc định bật).
+**Giao diện Direction A** (mẫu `design/A_cases.png`, `A_viewer.png`): SCR-02 có ô tìm mã, tab lọc kèm số đếm, chọn
+"Dice of" (sheet các experiment), Server / Worst first, dòng 52 dp với thẻ Outlier n/3, thanh Dice và giá trị; khi
+Worst first, case không có Dice nằm dưới "No Dice for this experiment" và nói bằng chữ (No GT, Run failed), không bao giờ là 0.
+SCR-03 bật `CaseExplorerScreen.chrome = CHROME.VIEWER`: ảnh tràn màn hình (mở ở 1,6x), thanh đầu nổi (case, model ·
+experiment, chọn run khi có nhiều run, khiên privacy, Info, nút "more"), chip lớp, thanh Fill / Outline / Both, một
+panel dưới gồm Raw / Processed, "Slice 45 / 88", thanh trượt và nút phát. Mã, checksum, run, z, phiên bản metric nằm
+trong sheet **Details** (Info); lối sang SCR-04/05/06, độ dày viền, độ mờ, Fit, Refresh nằm trong sheet **Tools** ("more").
+SCR-04 cùng ngôn ngữ: chip TP / FP / FN (FP ô màu nét đứt), nút "Jump to the worst slice", dải metric.
 
-**File nào làm gì** (file `.js` vẽ, file `.mjs` quyết định và được `node --test` kiểm):
-- `CaseListScreen.js`, `CaseExplorerScreen.js`, `ErrorInspectorScreen.js`: ba màn hình.
-- `SliceView.js`: `SliceViewport` (ảnh, lớp mask fill/viền, cử chỉ, chạm đúp), `SliceScrubber` (thanh lát, Play, giữ để
-  lặp), `useSlicePlayer`, `OverlayStyleChips`, `PrivacyRow`, `useMaskOverlay`.
-- `sliceControls.mjs`: `overlayStyle` (độ dày viền chia cho zoom), `createPlayer` (chỉ xin lát kế khi lát trước đã hiện:
-  không bao giờ 2 lần tải song song), `createRepeater`, `isDoubleTap` / `doubleTapTransform`.
-- `cases.mjs`: `createCaseExplorer`, `chooseRun`, `metricsText`, `readCaseRows`, worklist (`readExperimentCases`,
-  `worklistChip`, `worklistRows`: cùng quy tắc xếp với outlier của server nên 3 dòng đầu khớp), `createSerialRunner`.
-- `errorInspector.mjs`: `ERROR_CLASS` (màu an toàn cho người mù màu, FP `dashed`), đọc thứ tự lát tệ nhất **do server
-  xếp** (app không sort lát), `runLevel`, `compareWithServer`.
-- `scriptedRuns.js`: chạy thử A9 / L4 (nhấn giữ nhãn lát). Dùng chung: `lib/mask.mjs` (`maskOutlinePath`), `lib/privacy.mjs`.
+**Lỗi trên máy đã sửa:** B1 ảnh cũ giữ nguyên tới khi ảnh mới giải mã xong (`viewerFrame`, không còn khung đen khi Play);
+B2 About / Provenance chuyển vào Details; B3 panel dưới hiện đủ biến thể + thanh trượt + nút phát; B5 một hàm đánh số
+`lib/sliceNumber.mjs` ("45 / 88", 1-based) dùng chung SCR-03/04, SCR-06 import được. Vùng chạm đều ≥ 48 dp.
 
-**Quyền riêng tư:** Privacy mode dùng `expo-screen-capture` (`lib/screenCapture.js`): chụp/quay/cast màn hình ra màu đen,
-ẩn ảnh trong recent apps. Module native nên **cần build APK mới**; APK cũ hiện "not available in this build". Tắt chỉ
-khi chiếu màn hình. Id/checksum nằm trong thẻ Provenance (đóng sẵn).
+**File:** `CaseListScreen.js`, `CaseExplorerScreen.js`, `ErrorInspectorScreen.js` (ba màn hình); `SliceView.js`
+(`SliceViewport` ảnh hai lớp + mask + cử chỉ, `SliceReadout`, `SliceControls`, `DrawModeToolbar`, `useSlicePlayer`,
+`useMaskOverlay`); `sliceControls.mjs` (`overlayStyle`, `createPlayer`, `framing`, `zoomReadout`, `viewerFrame`);
+`cases.mjs` (model, worklist, `diceCornerText`, `runSubtitle`); `errorInspector.mjs` (DR-010 do server xếp, app không sort);
+`scriptedRuns.js` (A9 / L4: nhấn giữ số lát).
 
-**Test** (từ thư mục gốc repo):
+**Privacy:** `expo-screen-capture` cần APK mới; APK cũ ghi "not available in this build", khiên không sáng.
+
+**Test** (từ gốc repo):
 ```powershell
 node --test mobile/test/v1*.test.mjs mobile/test/privacy.test.mjs mobile/test/readers.test.mjs
-cd mobile; npm run test:render    # kiểm O*, C1, P*, W*, V5 cùng các kiểm cũ
+cd mobile; npm run test:render    # A1..A4, B1 (F1), C1, C2, O*, P*, W0..W4, V5 cùng các kiểm cũ
 ```
+Cần điện thoại: độ mượt Play, cử chỉ trên ảnh tràn viền, màu khiên khi đã bật privacy, chữ trên mô sáng.
