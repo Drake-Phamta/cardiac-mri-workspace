@@ -1,30 +1,29 @@
 # V2 — 3D Inspector (SCR-05)
 
-**Cho người dùng:** xem mô hình 3D nhĩ trái dựng từ mask dự đoán (đặc) và ground truth (trong suốt 30%), cùng các
-**điểm lỗi**: mỗi vùng FN (chấm tròn xanh, ground truth bị bỏ sót) và FP (ô vuông hồng, dự đoán thừa) là một điểm.
-Chạm vào điểm lỗi → "FN, slices 11-13 (z = 10-12), 523 voxels" → "Open in 2D" mở SCR-03 đúng lát đó; nút Previous /
-Next đi lần lượt qua các vùng (lớn trước). Nút +X/−X/+Y/−Y/+Z/−Z nhìn theo trục voxel, Fit đưa về góc mặc định; góc
-trái dưới là trục voxel (x col, y row, z slice — không phải A/P/S vì hình học chưa kiểm định, không có mm).
-"Cut at slice" ẩn phần bề mặt phía trên lát đang chọn để nhìn vào bên trong; mỗi lớp có độ mờ 30/60/100%.
+**Cho người dùng:** xem nhĩ trái 3D dựng từ mask dự đoán (đặc) và ground truth (trong suốt), cùng các **điểm lỗi**: FN
+(chấm tròn xanh, ground truth bị bỏ sót) và FP (ô vuông hồng, dự đoán thừa). Ảnh 3D tràn màn hình, thanh đầu nổi phía trên
+(tên case, `EXP-D-100 · Raw`), không có thanh tab. Chạm điểm lỗi hoặc bề mặt → bảng dưới nói vùng đó là gì, bao nhiêu voxel,
+lát nào, "Slice 45 / 88"; "Open in 2D" mở SCR-03 đúng lát đó. Mã run, checksum, số tam giác, chỉ số z nằm trong sheet
+Details (nút ⓘ của thanh đầu).
+
+**Công cụ nằm trong trang WebView** (kính mờ Direction A, vùng chạm 48): Views (+X…−Z, Fit), Cut (ẩn bề mặt phía trên lát
+đang chọn), Layers (ẩn/hiện, độ mờ 30/60/100 %), Errors với Previous / Next. Trạng thái các công cụ do **trang** giữ; app chỉ
+gửi dữ liệu. Previous / Next bật lớp Errors trước khi chọn vùng, nên không bao giờ chọn vùng khi lớp đang tắt.
 
 **File nào làm gì:**
-- `Inspector3DScreen.js` (vẽ): gọi API, tải lưới và file lỗi, đặt `WebView`, các nút lớp/độ mờ/cắt/trục, thẻ vùng chọn.
-- `inspector3d.mjs` (quyết định, `node --test` kiểm): `meshRef`/`errorsRef` (từ id ra URL và checksum),
-  `parseMeshHeader`, `parseErrorGeometry` (điểm lỗi phải cùng lưới và cùng bề mặt dự đoán đang hiện), `toViewer`,
-  `parseViewerMessage`, `selectionAfterPick`, `selectionForMarker`, `stepMarker`, `markerText`, `cutStatus`, `openIn2D`.
-- `viewerHtml.mjs`: trang WebGL2 tự chứa chạy trong WebView: vẽ bề mặt, điểm lỗi (vẽ đè, không bị bề mặt che vì vùng FP
-  nằm bên trong bề mặt dự đoán), mặt cắt (`uCutZ`), trục voxel; trả lại tam giác hoặc điểm lỗi được chạm.
+- `Inspector3DScreen.js`: gọi API, tải lưới và file lỗi, đặt `WebView` tràn màn hình (`chrome = CHROME.VIEWER`), báo
+  tiêu đề / Details cho shell bằng `nav.setContext`, gửi cho trang chiều cao thanh đầu và bảng dưới (`insets`).
+- `SelectionPanel.js`: bảng dưới (`BottomPanel`): dự đoán nào, lát `sliceParts`, vùng được chọn, "Open in 2D".
+- `inspector3d.mjs` (quyết định, `node --test` kiểm): `meshRef`/`errorsRef`, `parseMeshHeader`, `parseErrorGeometry`,
+  `toViewer`, `parseViewerMessage`, `selectionAfterPick`, `selectionForMarker`, `selectionPanel`, `detailSections`, `openIn2D`.
+- `viewerHtml.mjs`: trang WebGL2 tự chứa (bề mặt, điểm lỗi, dải lát `bandRange`, cắt, trục voxel, chọn bằng tia).
+- `viewerTools.mjs`: CSS và mã các công cụ; màu lấy từ token (`PALETTE`), số lát do app viết (`label`), trang không tự định dạng.
 
-**Luồng dữ liệu:** `reconstruction_get` (dự đoán, ground truth) → `.cmesh`; `error_reconstruction_get` →
-`ERRGEOM_<sha256>` → `/artifacts/<sha256>.json` (kiểm SHA-256, `cardiac-error-geometry/1`, dựng sẵn bởi
-`backend/mesh/build_cache.py`) → `parseErrorGeometry` → `toViewer.markers`. Case không có ground truth thì không hỏi
-file lỗi; thiếu file lỗi thì bề mặt vẫn hiện và hàng "Errors" ghi lý do.
+**Luồng dữ liệu:** `reconstruction_get` → `.cmesh`; `error_reconstruction_get` → `ERRGEOM_<sha256>` → `.json` (kiểm SHA-256) →
+`parseErrorGeometry` → `toViewer.markers`. Case không có ground truth thì một câu nói rõ, không hỏi file lỗi.
 
-**Riêng tư:** WebView `incognito`, `cacheEnabled={false}`, không DOM storage, không cookie; vào WebView chỉ có hình học
-theo đơn vị voxel (không mã case, run, mask, server hay checksum); rời màn hình thì trang giải phóng bộ nhớ GPU.
+**Riêng tư:** WebView `incognito`, không cache / storage / cookie; vào trang chỉ có hình học theo voxel (không mã case, run,
+mask, server hay checksum); rời màn hình thì trang giải phóng GPU.
 
-**Test** (từ thư mục gốc repo):
-```powershell
-node --test mobile/test/v2_inspector3d.test.mjs mobile/test/v2_viewer.test.mjs
-cd mobile; npm run test:render    # các kiểm V2R* (V2R15-19: điểm lỗi, cắt, độ mờ, riêng tư)
-```
+**Test** (từ gốc repo): `node --test mobile/test/v2_inspector3d.test.mjs mobile/test/v2_viewer.test.mjs mobile/test/v2_geometry.test.mjs`
+(TC-3D-003/004 và TC-MAINT-002 chạy fixture hình học chuẩn qua trang); `cd mobile; npm run test:render` (V2R1–V2R20).
