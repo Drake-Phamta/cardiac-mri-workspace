@@ -16,9 +16,8 @@ import { readFileSync } from 'node:fs';
 
 import { generatedBundleJson } from './_helpers.mjs';
 import { createContract } from '../src/api/contract.mjs';
-import { createBundle, getScenario } from '../src/api/fixtures.mjs';
-import { createClient, createFixtureTransport } from '../src/api/client.mjs';
-import { RECOVERY, STATE } from '../src/api/errors.mjs';
+import { createBundle, getScenario, createClient, createFixtureTransport } from '../src/api/client.mjs';
+import { RECOVERY, STATE } from '../src/api/states.mjs';
 import {
   createReviewCorrection, checkTransition, latestVersion, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
 } from '../src/screens/v4-review/review.mjs';

@@ -16,8 +16,8 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadContract, loadClient, CONTRACT_PATH } from './_loadFromDisk.mjs';
-import { createBundle, BUNDLE_PATH } from '../src/api/fixtures.mjs';
-import { STATE } from '../src/api/errors.mjs';
+import { createBundle, BUNDLE_PATH } from '../src/api/client.mjs';
+import { STATE } from '../src/api/states.mjs';
 import { createChecker, REPO, CONTRACT_FILE } from './_harness.mjs';
 
 const { check, done } = createChecker();
@@ -98,7 +98,7 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
 // D5 — the modules the app bundles must stay importable where there is no
 // node:fs: none of them may re-export the filesystem loader.
 {
-  const modules = await Promise.all(['contract', 'fixtures', 'client'].map((m) => import(`../src/api/${m}.mjs`)));
+  const modules = await Promise.all(['contract', 'client'].map((m) => import(`../src/api/${m}.mjs`)));
   check('D5', modules.every((mod) => !('loadClient' in mod) && !('loadContract' in mod)),
     'no bundled api module re-exports the filesystem loader');
 }

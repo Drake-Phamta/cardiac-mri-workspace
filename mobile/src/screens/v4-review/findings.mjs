@@ -18,8 +18,7 @@
  * finding row one); STALE_REVISION changes nothing and offers REFRESH.
  */
 
-import { STATE } from '../../api/errors.mjs';
-import { loading, fatalInvalid } from '../../api/states.mjs';
+import { STATE, loading, fatalInvalid } from '../../api/states.mjs';
 
 // `05` §2 Finding.finding_type, FR-FIND-003.
 export const FINDING_TYPE = Object.freeze({

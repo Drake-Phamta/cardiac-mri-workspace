@@ -33,8 +33,7 @@
  * response is reported to runtime.netLog as `artifact:<kind>` with its size.
  */
 
-import { emptyUnavailable, fatalInvalid, stateForError, success } from './states.mjs';
-import { parseErrorEnvelope } from './errors.mjs';
+import { emptyUnavailable, fatalInvalid, stateForError, success, parseErrorEnvelope } from './states.mjs';
 import { sha256Hex } from '../lib/bytes.mjs';
 
 export const CONTENT_REASON = Object.freeze({

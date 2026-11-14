@@ -3,9 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { RECOVERY, STATE } from '../src/api/errors.mjs';
+import { RECOVERY, STATE } from '../src/api/states.mjs';
 import { CONTENT_REASON, bytesOrThrow, createContent } from '../src/api/content.mjs';
-import { createNetLog } from '../src/api/netLog.mjs';
+import { createNetLog } from '../src/api/http.mjs';
 import { sha256Hex } from '../src/lib/bytes.mjs';
 import { loadContract } from './_helpers.mjs';
 

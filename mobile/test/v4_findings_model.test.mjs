@@ -9,9 +9,8 @@ import { readFileSync } from 'node:fs';
 
 import { generatedBundleJson } from './_helpers.mjs';
 import { createContract } from '../src/api/contract.mjs';
-import { createBundle, getScenario } from '../src/api/fixtures.mjs';
-import { createClient, createFixtureTransport } from '../src/api/client.mjs';
-import { STATE, RECOVERY } from '../src/api/errors.mjs';
+import { createBundle, getScenario, createClient, createFixtureTransport } from '../src/api/client.mjs';
+import { STATE, RECOVERY } from '../src/api/states.mjs';
 import {
   FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND, PREDICTION_VARIANT,
   normalizeFinding, evidenceLocation, fieldsFromRecord, createFindings,

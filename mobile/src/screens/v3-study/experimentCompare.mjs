@@ -27,8 +27,7 @@
  * the server's summaries use (snapshot.metricNames) and the user picks one.
  */
 
-import { STATE, RECOVERY } from '../../api/errors.mjs';
-import { loading, success, emptyUnavailable, stateForError } from '../../api/states.mjs';
+import { STATE, RECOVERY, loading, success, emptyUnavailable, stateForError } from '../../api/states.mjs';
 import {
   MATRIX, MATRIX_IDS, UNAVAILABLE, matrixEntry, readExperimentRows, readPopulation,
 } from './readers.mjs';

@@ -3,9 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  ALL_STATES, emptyUnavailable, fatalInvalid, loading, processing, stateForError, success,
+  ALL_STATES, emptyUnavailable, fatalInvalid, loading, processing, stateForError, success, RECOVERY, STATE,
 } from '../src/api/states.mjs';
-import { RECOVERY, STATE } from '../src/api/errors.mjs';
 import { describeState, reasonText, TONE } from '../src/components/stateCopy.mjs';
 import { loadContract } from './_helpers.mjs';
 

@@ -22,7 +22,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { RECOVERY, STATE } from '../../api/errors.mjs';
+import { RECOVERY, STATE } from '../../api/states.mjs';
 import { createExperimentComparison } from './index.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';

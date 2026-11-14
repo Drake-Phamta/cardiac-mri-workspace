@@ -777,9 +777,8 @@ function noRunBackend() {
 // A call started while enabled is aborted the moment `enabled` turns false, and
 // its late answer never reaches the screen.
 {
-  const useCall = (await imp('src/api/useCall.js')).default;
-  const { STATE } = await imp('src/api/errors.mjs');
-  const { success } = await imp('src/api/states.mjs');
+  const { useCall } = await imp('src/api/RuntimeContext.js');
+  const { STATE, success } = await imp('src/api/states.mjs');
   const calls = [];
   const client = { call: (_endpointId, _params, options) => new Promise((resolve) => { calls.push({ signal: options.signal, resolve }); }) };
   function Probe({ enabled }) {

@@ -8,7 +8,7 @@
  * contract does not supply, this file cannot produce it.
  */
 
-import { parseEndpointPath } from '../src/api/endpoints.mjs';
+import { parseEndpointPath } from '../src/api/contract.mjs';
 
 const SAMPLE = {
   slice_index: 7,

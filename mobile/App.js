@@ -14,8 +14,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import NavigatorView from './src/navigation/Navigator';
 import { ROOT_SCREEN_ID } from './src/navigation/routes.mjs';
-import { loadRuntime } from './src/api/loadRuntime';
-import { RuntimeProvider } from './src/api/RuntimeContext';
+import { loadRuntime, RuntimeProvider } from './src/api/RuntimeContext';
 import { color, font, space } from './src/components/theme';
 
 function BuildInvalid({ error }) {

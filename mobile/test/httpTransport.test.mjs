@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createClient } from '../src/api/client.mjs';
-import { STATE, RECOVERY } from '../src/api/errors.mjs';
+import { STATE, RECOVERY } from '../src/api/states.mjs';
 import { TransportError, createHttpTransport, joinUrl } from '../src/api/http.mjs';
 import { loadContract } from './_helpers.mjs';
 

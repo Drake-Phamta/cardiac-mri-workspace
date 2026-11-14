@@ -15,9 +15,8 @@ import { readFileSync } from 'node:fs';
 
 import { generatedBundleJson } from './_helpers.mjs';
 import { createContract } from '../src/api/contract.mjs';
-import { createBundle, getScenario } from '../src/api/fixtures.mjs';
-import { createClient, createFixtureTransport } from '../src/api/client.mjs';
-import { STATE, RECOVERY } from '../src/api/errors.mjs';
+import { createBundle, getScenario, createClient, createFixtureTransport } from '../src/api/client.mjs';
+import { STATE, RECOVERY } from '../src/api/states.mjs';
 import { screenToSource } from '../src/lib/viewMath.mjs';
 import { sliceCacheKey } from '../src/screens/v1-cases/cacheKey.mjs';
 import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN, RUN_NOT_LISTED } from '../src/screens/v1-cases/cases.mjs';

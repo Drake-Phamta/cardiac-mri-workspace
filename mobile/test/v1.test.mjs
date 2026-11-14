@@ -6,12 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { STATE } from '../src/api/errors.mjs';
-import { createBundle } from '../src/api/fixtures.mjs';
-import { createClient, createFixtureTransport } from '../src/api/client.mjs';
+import { STATE } from '../src/api/states.mjs';
+import { createBundle, createClient, createFixtureTransport } from '../src/api/client.mjs';
 import { createCaseExplorer, LAYER } from '../src/screens/v1-cases/cases.mjs';
-import { createMaskStore } from '../src/api/maskStore.mjs';
-import { createSliceCache } from '../src/api/cache.mjs';
+import { createMaskStore, createSliceCache } from '../src/api/cache.mjs';
 import { CAPABILITY, capabilityOf, filterRows, readCaseRows } from '../src/lib/caseMode.mjs';
 import {
   buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex,

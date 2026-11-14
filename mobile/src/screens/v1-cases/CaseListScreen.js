@@ -19,8 +19,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { RECOVERY } from '../../api/errors.mjs';
-import useCall from '../../api/useCall';
+import { RECOVERY } from '../../api/states.mjs';
+import { useCall } from '../../api/RuntimeContext';
 import StateView from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';

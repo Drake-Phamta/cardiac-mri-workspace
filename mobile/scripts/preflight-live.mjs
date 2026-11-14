@@ -36,7 +36,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { STATE } from '../src/api/errors.mjs';
+import { STATE } from '../src/api/states.mjs';
 import { createCaseExplorer } from '../src/screens/v1-cases/cases.mjs';
 import { API_BASE_URL_ENV, maskBaseUrl, parseEnvFile, resolveConfig } from '../src/config.mjs';
 import { disagreementRuns } from '../src/lib/mask.mjs';

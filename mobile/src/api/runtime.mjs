@@ -12,15 +12,11 @@
  */
 
 import { createContract } from './contract.mjs';
-import { createBundle, listScenarios } from './fixtures.mjs';
-import { createClient, createFixtureTransport } from './client.mjs';
+import { createBundle, listScenarios, createClient, createFixtureTransport } from './client.mjs';
 import { MODE } from '../config.mjs';
-import { createImageStore } from './imageStore.mjs';
-import { createMaskStore } from './maskStore.mjs';
+import { createImageStore, createMaskStore, createSliceCache } from './cache.mjs';
 import { bytesOrThrow, createContent } from './content.mjs';
-import { createHttpTransport } from './http.mjs';
-import { createNetLog } from './netLog.mjs';
-import { createSliceCache } from './cache.mjs';
+import { createHttpTransport, createNetLog } from './http.mjs';
 
 export class RuntimeError extends Error {
   constructor(code, message, detail = {}) {

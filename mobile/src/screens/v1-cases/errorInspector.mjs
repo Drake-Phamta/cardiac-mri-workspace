@@ -31,7 +31,7 @@
  */
 
 import { readSelection, UNAVAILABLE_REASON as SELECTION_UNAVAILABLE_REASON } from './selection.mjs';
-import { STATE } from '../../api/errors.mjs';
+import { STATE } from '../../api/states.mjs';
 import { variantMismatch } from './cases.mjs';
 
 export const ERROR_CLASS = Object.freeze({

@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATE } from '../src/api/errors.mjs';
+import { STATE } from '../src/api/states.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';

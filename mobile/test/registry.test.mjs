@@ -1,13 +1,19 @@
-// node --test mobile/test/  - the screen registry, the vertical folders, and the import boundaries
+// node --test mobile/test/  - the screen table, the screen folders, and the import boundaries
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
-import { SCREENS, screenPath } from '../src/navigation/routes.mjs';
+import { SCREENS } from '../src/navigation/routes.mjs';
 import { MOBILE_ROOT, REPO_ROOT } from './_helpers.mjs';
 
-const registrySource = readFileSync(join(MOBILE_ROOT, 'src', 'navigation', 'registry.js'), 'utf8');
+const NAVIGATOR = join(MOBILE_ROOT, 'src', 'navigation', 'Navigator.js');
+const navigatorSource = readFileSync(NAVIGATOR, 'utf8');
+// `import CaseListScreen from '../screens/v1-cases/CaseListScreen';` -> CaseListScreen: that path
+const screenImports = new Map([...navigatorSource.matchAll(/^import\s+(\w+)\s+from\s+'(\.\.\/screens\/[^']+)';$/gm)]
+  .map((m) => [m[1], m[2]]));
+// `'SCR-02': CaseListScreen,` -> SCR-02: CaseListScreen
+const mapped = new Map([...navigatorSource.matchAll(/'(SCR-\d\d)':\s*(\w+),/g)].map((m) => [m[1], m[2]]));
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -24,14 +30,18 @@ const productFiles = [
 ];
 
 // A plain-text check, not a parse: `export default function X`, `export default X;`
-// and `export { X as default }` all count (#65 QA N-11 - the screen contract is
+// and `export { X as default }` all count (the screen contract is
 // "has a default export", not one way of writing it).
 const HAS_DEFAULT_EXPORT = /^\s*export\s+default\b|^\s*export\s*\{[^}]*\bas\s+default\b/m;
 
-test('G1 every screen in the table has a file in its vertical folder, with a default export', () => {
+test('G1 every screen in the table maps to a screen file that exists, with a default export', () => {
   for (const s of SCREENS) {
-    const p = join(MOBILE_ROOT, screenPath(s.id));
-    assert.ok(existsSync(p), `${s.id} -> ${screenPath(s.id)} is missing`);
+    const name = mapped.get(s.id);
+    assert.ok(name, `${s.id} is not mapped to a component in Navigator.js`);
+    const spec = screenImports.get(name);
+    assert.ok(spec, `${name} (${s.id}) is not imported from ../screens/ in Navigator.js`);
+    const p = join(dirname(NAVIGATOR), `${spec}.js`);
+    assert.ok(existsSync(p), `${s.id} -> ${spec}.js is missing`);
     assert.match(readFileSync(p, 'utf8'), HAS_DEFAULT_EXPORT, `${s.id} needs a default-exported component`);
   }
 });
@@ -47,16 +57,10 @@ test('G1b the default-export check accepts every way of writing one, and only th
   }
 });
 
-test('G2 registry.js statically imports exactly those files and maps each id to its own import', () => {
-  for (const s of SCREENS) {
-    const name = s.file.replace(/\.js$/, '');
-    const importLine = new RegExp(`import\\s+(\\w+)\\s+from\\s+'\\.\\./${s.folder}/${name}';`);
-    const m = importLine.exec(registrySource);
-    assert.ok(m, `registry.js does not import ../${s.folder}/${name}`);
-    assert.match(registrySource, new RegExp(`'${s.id}':\\s*${m[1]},`), `${s.id} is not mapped to ${m[1]}`);
-  }
-  const mapped = registrySource.match(/'SCR-\d\d':/g) || [];
-  assert.equal(mapped.length, SCREENS.length, 'registry maps a screen the table does not know');
+test('G2 Navigator.js maps exactly the ids of the table, each to its own statically imported screen', () => {
+  assert.deepEqual([...mapped.keys()].sort(), SCREENS.map((s) => s.id).sort(), 'Navigator.js maps a screen the table does not know');
+  assert.equal(new Set(mapped.values()).size, SCREENS.length, 'two ids share one component');
+  for (const name of mapped.values()) assert.ok(screenImports.has(name), `${name} is not a static import of a screen file`);
 });
 
 test('G3 no product file imports from prototypes/ (copy with a provenance header instead)', () => {
@@ -65,20 +69,14 @@ test('G3 no product file imports from prototypes/ (copy with a provenance header
   assert.deepEqual(offenders.map((f) => relative(REPO_ROOT, f)), []);
 });
 
-test('G4 no product file reaches app/core/node/ - a device bundle has no node:fs', () => {
-  const offenders = productFiles.filter((f) => /core\/node\//.test(readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')));
+test('G4 no product file imports from mobile/test/ - a device bundle has no node:fs', () => {
+  const offenders = productFiles.filter((f) => /from\s+['"][^'"]*\/test\//.test(readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')));
   assert.deepEqual(offenders.map((f) => relative(REPO_ROOT, f)), []);
 });
 
 test('G5 product code imports node: builtins nowhere (scripts/ and test/ are build tooling)', () => {
   const offenders = productFiles.filter((f) => /from\s+['"]node:/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(offenders.map((f) => relative(REPO_ROOT, f)), []);
-});
-
-test('G6 the shell did not put a framework manifest under app/ (app-framework-neutral)', () => {
-  for (const name of ['package.json', 'package-lock.json', 'metro.config.js']) {
-    assert.equal(existsSync(join(REPO_ROOT, 'app', name)), false, `app/${name} must not exist`);
-  }
 });
 
 test('G7 the generated inputs are gitignored, never committed', () => {

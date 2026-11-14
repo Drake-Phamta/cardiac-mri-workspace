@@ -41,8 +41,7 @@
  *   - a layer or an entry is offered only when its own data came back.
  */
 
-import { STATE, RECOVERY } from '../../api/errors.mjs';
-import { loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
+import { STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
 import { sliceCacheKey } from './cacheKey.mjs';
 

@@ -15,8 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { fatalInvalid } from '../../api/states.mjs';
-import { RECOVERY } from '../../api/errors.mjs';
+import { fatalInvalid, RECOVERY } from '../../api/states.mjs';
 
 function failed(err) {
   return Object.freeze({

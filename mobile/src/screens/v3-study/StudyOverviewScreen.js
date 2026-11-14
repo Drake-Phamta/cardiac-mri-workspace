@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { RECOVERY } from '../../api/errors.mjs';
+import { RECOVERY } from '../../api/states.mjs';
 import { createStudyOverview } from './index.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';

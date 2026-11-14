@@ -9,8 +9,9 @@
 // A resolver that assumed param === token would emit ?variant=RAW where the
 // server expects ?prediction_variant=RAW, and the fixture would still load.
 
-import { createContract } from '../src/api/contract.mjs';
-import { parseEndpointPath, tokensOf, resolveEndpoint, assertWritePreconditions } from '../src/api/endpoints.mjs';
+import {
+  createContract, parseEndpointPath, tokensOf, resolveEndpoint, assertWritePreconditions,
+} from '../src/api/contract.mjs';
 import { createChecker, loadContractJson, throwsCode } from './_harness.mjs';
 
 const { check, done } = createChecker();

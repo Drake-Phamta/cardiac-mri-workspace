@@ -10,7 +10,7 @@
  * here that call the client.
  */
 
-import { STATE } from '../../api/errors.mjs';
+import { STATE } from '../../api/states.mjs';
 import { getEndpoint } from '../../api/contract.mjs';
 import { readComparability, presentation, VERDICT } from './comparability.mjs';
 import {

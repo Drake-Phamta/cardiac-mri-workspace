@@ -5,7 +5,7 @@
 // Trung's generator can drift from the contract without anything crashing.
 
 import { createContract } from '../src/api/contract.mjs';
-import { createBundle, getScenario, listScenarios } from '../src/api/fixtures.mjs';
+import { createBundle, getScenario, listScenarios } from '../src/api/client.mjs';
 import { createChecker, loadContractJson } from './_harness.mjs';
 import { buildBundle } from './_bundle.mjs';
 

@@ -4,9 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { loading, success } from '../src/api/states.mjs';
+import { loading, success, STATE } from '../src/api/states.mjs';
 import { readSelection } from '../src/screens/v1-cases/selection.mjs';
-import { STATE } from '../src/api/errors.mjs';
 import { variantMismatch } from '../src/screens/v1-cases/cases.mjs';
 import { disagreementRuns } from '../src/lib/mask.mjs';
 import {

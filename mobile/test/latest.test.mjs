@@ -3,10 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createClient } from '../src/api/client.mjs';
-import { STATE } from '../src/api/errors.mjs';
+import { createClient, createLatest, runLatest } from '../src/api/client.mjs';
+import { STATE } from '../src/api/states.mjs';
 import { TransportError, createHttpTransport } from '../src/api/http.mjs';
-import { createLatest, runLatest } from '../src/api/latest.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();
