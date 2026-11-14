@@ -1,7 +1,7 @@
 /*
  * What the screen header says: the screen's name for people, and the case and run it shows. A screen that picks
  * its run itself (SCR-03) reports it with nav.setContext; that wins over the route params. The screen id, the
- * build and the contract version go to the folded "About this screen" panel instead.
+ * build and the contract version go to the Details sheet behind the header's Info button instead.
  */
 
 const word = (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null);
@@ -25,7 +25,7 @@ export function headerLines(meta, params = null, context = null, { studyId = nul
   });
 }
 
-// The lines of the folded panel: which screen this is in the spec, and what build answers it.
+// The lines of the Details sheet: which screen this is in the spec, and what build answers it.
 export function aboutLines(meta, config, contractVersion = null) {
   const lines = [`Screen ${meta.id} (${meta.vertical})`];
   const mode = config && config.mode ? String(config.mode).toUpperCase() : null;

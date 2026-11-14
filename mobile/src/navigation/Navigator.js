@@ -1,19 +1,24 @@
 /*
- * Draws the navigator: a header with Back, the screen's name and the case and run it shows, the top screen of
- * the stack, and the tab bar. Tapping the name opens "About this screen" (screen id, mode, contract, build,
- * and "Clear cached images"). Only the top screen is mounted; a covered screen unmounts and reloads its data
- * when shown again. Each screen sits in an error boundary, so a crash blocks only that screen with
- * FATAL_INVALID. The session cover (SessionCover.js) wraps everything.
+ * Draws the navigator: the app bar (Back, the screen's name and the case and run it shows, Live or Fixture, Info),
+ * the top screen of the stack, and the tab bar. Info opens the Details sheet (screen id, mode, contract, build, and "Clear cached images"). Only the top
+ * screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in an error
+ * boundary, so a crash blocks only that screen with FATAL_INVALID. The session cover (SessionCover.js) wraps
+ * everything.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { fatalInvalid, RECOVERY } from '../api/states.mjs';
 import { describeConfig, MODE } from '../config.mjs';
+import AppHeader from '../components/AppHeader';
+import { Button } from '../components/Controls';
+import DetailsSheet from '../components/DetailsSheet';
+import { IconAlert, IconFlag, IconFlask, IconGrid, IconGridFilled, IconList } from '../components/icons';
 import { StatePanel } from '../components/StateView';
 import SessionGate from '../components/SessionCover';
 import { clearCachedData, SESSION_LIMITS } from '../components/session.mjs';
-import { color, font, MIN_TOUCH, radius, space } from '../components/theme';
+import { color, HAIRLINE, MIN_TOUCH, radius, size, space, type } from '../components/theme';
 import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
 import { aboutLines, headerLines, sameContext } from './header.mjs';
 import { screenMeta, TABS } from './routes.mjs';
@@ -106,6 +111,7 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
 
   // Android back pops, asking the leave guard first. At the root without a guard the system default
   // applies (the app goes to the background). While a guard prompt is open, another press is ignored.
+  // (An open Details sheet takes the back press itself: it is a Modal, which closes on onRequestClose.)
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (nav.canGoBack) { nav.pop(); return true; }
@@ -150,45 +156,19 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
   return (
     <SessionGate limits={session || SESSION_LIMITS} now={session ? session.now : undefined} checkEveryMs={session ? session.checkEveryMs : null} onClearCache={clearCache}>
       <View style={s.root}>
-        <View style={s.header} testID={`screen-${meta.id}`}>
-          {nav.canGoBack ? (
-            <TouchableOpacity style={s.back} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
-              <Text style={s.backT}>‹ Back</Text>
-            </TouchableOpacity>
-          ) : <View style={s.backSpacer} />}
-          <TouchableOpacity
-            style={s.titleBox}
-            onPress={() => setAboutOpen((o) => !o)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: aboutOpen }}
-            accessibilityLabel={`${head.title}${head.subtitle ? `, ${head.subtitle}` : ''}. About this screen`}
-          >
-            <Text style={s.title} numberOfLines={1}>{head.title}</Text>
-            <Text style={s.subtitle} numberOfLines={1}>{head.subtitle ? `${head.subtitle} ` : ''}{aboutOpen ? '▴' : '▾'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.mode, fixture ? s.modeFixture : s.modeLive]}
-            onPress={() => fixture && setScenarioOpen(true)}
-            disabled={!fixture}
-            accessibilityRole="button"
-            accessibilityLabel={describeConfig(runtime.config)}
-          >
-            <Text style={[s.modeT, fixture ? s.modeFixtureT : s.modeLiveT]}>{fixture ? 'FIXTURE' : 'LIVE'}</Text>
-          </TouchableOpacity>
-        </View>
-        {aboutOpen && (
-          <View style={s.about} testID="about-screen">
-            <Text style={s.aboutH}>About this screen</Text>
-            {about.map((line) => <Text key={line} style={s.aboutLine} selectable>{line}</Text>)}
-            <TouchableOpacity style={s.aboutBtn} onPress={() => setCacheNote(clearCache().text)} accessibilityRole="button">
-              <Text style={s.aboutBtnT}>Clear cached images</Text>
-            </TouchableOpacity>
-            {cacheNote ? <Text style={s.aboutNote}>{cacheNote}</Text> : null}
-          </View>
-        )}
+        <AppHeader
+          testID={`screen-${meta.id}`}
+          title={head.title}
+          subtitle={head.subtitle}
+          onBack={nav.canGoBack ? onBack : null}
+          status={fixture ? 'fixture' : 'live'}
+          onStatusPress={fixture ? () => setScenarioOpen(true) : null}
+          statusLabel={describeConfig(runtime.config)}
+          onInfo={() => setAboutOpen(true)}
+        />
         {fixture && (
-          <Text style={s.banner} numberOfLines={1}>
-            Generated contract fixtures - not patient data, not a backend. Tap FIXTURE to choose scenarios.
+          <Text style={s.banner} numberOfLines={2}>
+            Generated contract fixtures: not patient data, not a backend. Tap Fixture to choose scenarios.
           </Text>
         )}
 
@@ -200,27 +180,19 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
 
         {navError && (
           <View style={s.toast} accessibilityRole="alert">
+            <IconAlert size={18} strokeWidth={2} color={color.danger} />
             <Text style={s.toastT}>Cannot open: {navError}</Text>
           </View>
         )}
 
-        <View style={s.tabs}>
-          {TABS.map((tab) => {
-            const active = state.stack[0].screenId === tab.screenId;
-            return (
-              <TouchableOpacity
-                key={tab.screenId}
-                style={s.tab}
-                onPress={() => nav.reset(tab.screenId, {})}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-              >
-                <View style={[s.tabBar, active && s.tabBarActive]} />
-                <Text style={[s.tabT, active && s.tabActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <TabBar activeScreenId={state.stack[0].screenId} onSelect={(id) => nav.reset(id, {})} />
+
+        <DetailsSheet visible={aboutOpen} onClose={() => setAboutOpen(false)} sections={[{ title: 'This screen', lines: about }]}>
+          <View style={s.sheetActions}>
+            <Button label="Clear cached images" variant="secondary" onPress={() => setCacheNote(clearCache().text)} />
+            {cacheNote ? <Text style={s.note}>{cacheNote}</Text> : null}
+          </View>
+        </DetailsSheet>
 
         {fixture && (
           <FixtureScenarioPanel
@@ -234,52 +206,69 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
   );
 }
 
+// The tab bar: a 22 dp icon and an 11 dp label per tab. The active tab is accent, with a 32 x 2 bar on the top
+// edge; the others are t3. The tab's name is always written, so the active one never depends on colour alone.
+const TAB_ICON = Object.freeze({
+  Study: { off: IconGrid, on: IconGridFilled },
+  Cases: { off: IconList, on: IconList },
+  Experiments: { off: IconFlask, on: IconFlask },
+  Findings: { off: IconFlag, on: IconFlag },
+});
+
+function TabBar({ activeScreenId, onSelect }) {
+  return (
+    <View style={s.tabs} accessibilityRole="tablist">
+      {TABS.map((tab) => {
+        const active = activeScreenId === tab.screenId;
+        const icons = TAB_ICON[tab.label];
+        const Icon = icons ? (active ? icons.on : icons.off) : null;
+        const tint = active ? color.accent : color.t3;
+        return (
+          <TouchableOpacity
+            key={tab.screenId}
+            style={s.tab}
+            onPress={() => onSelect(tab.screenId)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            testID={`tab-${tab.label}`}
+          >
+            {active ? <View style={s.tabIndicator} /> : null}
+            {Icon ? <Icon size={size.tabIcon} color={tint} /> : null}
+            <Text style={[s.tabT, { color: tint }]}>{tab.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.s, paddingTop: space.s,
-    paddingBottom: space.s, borderBottomWidth: 1, borderBottomColor: color.border, backgroundColor: color.surface,
-  },
-  back: { minHeight: MIN_TOUCH, minWidth: 72, justifyContent: 'center', paddingHorizontal: space.s },
-  backT: { color: color.accent, fontSize: font.h2, fontWeight: '600' },
-  backSpacer: { width: 72 },
-  titleBox: { flex: 1, alignItems: 'center', minHeight: MIN_TOUCH, justifyContent: 'center' },
-  title: { color: color.text, fontSize: font.h2, fontWeight: '700' },
-  subtitle: { color: color.textDim, fontFamily: font.mono, fontSize: font.small, marginTop: 1 },
-  mode: { minHeight: MIN_TOUCH, minWidth: 72, justifyContent: 'center', alignItems: 'center', borderRadius: radius.m, borderWidth: 1 },
-  modeFixture: { borderColor: color.warn, backgroundColor: color.warnBg },
-  modeLive: { borderColor: color.ok, backgroundColor: color.okBg },
-  modeT: { fontFamily: font.mono, fontSize: font.small, fontWeight: '700' },
-  modeFixtureT: { color: color.warn },
-  modeLiveT: { color: color.ok },
-  about: {
-    backgroundColor: color.surfaceHi, borderBottomWidth: 1, borderBottomColor: color.border,
-    paddingHorizontal: space.l, paddingVertical: space.m, gap: 2,
-  },
-  aboutH: { color: color.textDim, fontSize: font.small, fontWeight: '700', marginBottom: space.xs },
-  aboutLine: { color: color.textDim, fontFamily: font.mono, fontSize: font.small },
-  aboutBtn: {
-    alignSelf: 'flex-start', minHeight: MIN_TOUCH, paddingHorizontal: space.l, marginTop: space.s, borderRadius: radius.m,
-    borderWidth: 1, borderColor: color.control, backgroundColor: color.surface, justifyContent: 'center',
-  },
-  aboutBtnT: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  aboutNote: { color: color.textDim, fontSize: font.small, marginTop: space.xs },
   banner: {
-    color: color.warn, backgroundColor: color.warnBg, fontSize: font.small, paddingHorizontal: space.m, paddingVertical: space.xs,
+    ...type.caption, color: color.t2, paddingHorizontal: space.l, paddingVertical: space.s,
+    borderBottomWidth: HAIRLINE, borderColor: color.hair,
   },
   body: { flex: 1 },
-  crash: { flex: 1, justifyContent: 'center', padding: space.l },
+  crash: { flex: 1, justifyContent: 'center', paddingHorizontal: space.l },
   toast: {
-    position: 'absolute', left: space.l, right: space.l, bottom: 84, padding: space.m, borderRadius: radius.m,
-    backgroundColor: color.dangerBg, borderColor: color.danger, borderWidth: 1,
+    position: 'absolute', left: space.l, right: space.l, bottom: size.tabBar + HAIRLINE + space.l,
+    flexDirection: 'row', alignItems: 'center', gap: space.s,
+    paddingHorizontal: space.m, paddingVertical: space.m, borderRadius: radius.m, backgroundColor: color.raised,
   },
-  toastT: { color: color.danger, fontSize: font.body },
-  tabs: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: color.border, backgroundColor: color.surface },
-  tab: { flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
-  tabBar: { position: 'absolute', top: 0, left: space.l, right: space.l, height: 3, borderRadius: 2 },
-  tabBarActive: { backgroundColor: color.accent },
-  tabT: { color: color.textDim, fontSize: font.body, fontWeight: '600' },
-  tabActive: { color: color.accent },
+  toastT: { ...type.body, color: color.t1, flex: 1 },
+  sheetActions: { gap: space.s },
+  note: { ...type.caption, color: color.t2 },
+  tabs: {
+    height: size.tabBar + HAIRLINE, flexDirection: 'row', backgroundColor: color.bg,
+    borderTopWidth: HAIRLINE, borderColor: color.hair,
+  },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  // Sits on the tab bar's top hairline, as in the mockup.
+  tabIndicator: {
+    position: 'absolute', top: -HAIRLINE, left: '50%', marginLeft: -16, width: 32, height: 2,
+    borderBottomLeftRadius: 2, borderBottomRightRadius: 2, backgroundColor: color.accent,
+  },
+  tabT: { ...type.micro },
 });
 
 // Fixture mode only: tap an endpoint to cycle through its generated scenarios, so every screen state
@@ -301,12 +290,14 @@ function FixtureScenarioPanel({ visible, onClose, overrides }) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
-      <View style={panel.root}>
-        <Text style={panel.h1}>Fixture scenarios</Text>
-        <Text style={panel.note}>
-          Generated by contracts/api/generate_fixture.py. Tap an endpoint to cycle its scenario; the open screen
-          reloads. Live builds have no such panel.
-        </Text>
+      <SafeAreaView style={panel.root} edges={['top', 'bottom']}>
+        <View style={panel.head}>
+          <Text style={panel.h1} accessibilityRole="header">Fixture scenarios</Text>
+          <Text style={panel.note}>
+            Generated by contracts/api/generate_fixture.py. Tap an endpoint to cycle its scenario; the open screen
+            reloads. Live builds have no such panel.
+          </Text>
+        </View>
         <FlatList
           data={rows}
           keyExtractor={(r) => r.id}
@@ -318,34 +309,25 @@ function FixtureScenarioPanel({ visible, onClose, overrides }) {
           )}
         />
         <View style={panel.actions}>
-          <TouchableOpacity style={panel.btn} onPress={() => overrides.clear()} accessibilityRole="button">
-            <Text style={panel.btnT}>All default</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[panel.btn, panel.btnP]} onPress={onClose} accessibilityRole="button">
-            <Text style={panel.btnT}>Close</Text>
-          </TouchableOpacity>
+          <Button label="All default" variant="secondary" onPress={() => overrides.clear()} block />
+          <Button label="Close" onPress={onClose} block />
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const panel = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bg, padding: space.l, paddingTop: 48 },
-  h1: { color: color.text, fontSize: font.h1, fontWeight: '700' },
-  note: { color: color.textDim, fontSize: font.small, marginVertical: space.s },
+  root: { flex: 1, backgroundColor: color.bg },
+  head: { paddingHorizontal: space.l, paddingTop: space.l, paddingBottom: space.s, gap: space.s },
+  h1: { ...type.screenTitle, color: color.t1 },
+  note: { ...type.secondary, color: color.t2 },
   row: {
-    minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: color.border, paddingHorizontal: space.s,
+    minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.l,
+    marginHorizontal: space.l, borderBottomWidth: HAIRLINE, borderColor: color.hair,
   },
-  endpoint: { color: color.text, fontFamily: font.mono, fontSize: font.small, flex: 1 },
-  scenario: { color: color.textDim, fontFamily: font.mono, fontSize: font.small },
-  changed: { color: color.warn, fontWeight: '700' },
-  actions: { flexDirection: 'row', gap: space.s, marginTop: space.m, marginBottom: space.xl },
-  btn: {
-    flex: 1, minHeight: MIN_TOUCH, borderRadius: radius.m, borderWidth: 1, borderColor: color.control,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
-  },
-  btnP: { borderColor: color.accent, backgroundColor: color.accentBg },
-  btnT: { color: color.text, fontSize: font.body, fontWeight: '600' },
+  endpoint: { ...type.secondary, color: color.t1, flex: 1 },
+  scenario: { ...type.caption, color: color.t2 },
+  changed: { color: color.warn, fontWeight: '600' },
+  actions: { gap: space.s, padding: space.l },
 });

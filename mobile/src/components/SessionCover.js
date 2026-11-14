@@ -2,13 +2,18 @@
  * Wraps the app: counts touches and background time (session.mjs) and, once a limit is reached, draws an opaque
  * cover over everything until the user taps "Show the screen". The screens stay mounted underneath, so nothing
  * is lost; while covered they are hidden from accessibility services and the back button does nothing.
+ * SessionCoverContext tells a sheet (DetailsSheet.js) to hide itself, because a Modal would draw over the cover.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { createContext, useEffect, useMemo, useState } from 'react';
+import { AppState, BackHandler, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from './Controls';
+import { IconShield } from './icons';
 import { coverText, createSessionClock, SESSION_LIMITS } from './session.mjs';
-import { color, font, MIN_TOUCH, radius, space } from './theme';
+import { color, space, type } from './theme';
+
+export const SessionCoverContext = createContext(false);
 
 export default function SessionGate({ children, limits = SESSION_LIMITS, now, checkEveryMs = null, onClearCache = null }) {
   const clock = useMemo(
@@ -53,26 +58,25 @@ export default function SessionGate({ children, limits = SESSION_LIMITS, now, ch
   const text = reason ? coverText(reason, limits) : null;
 
   return (
-    <View style={s.root} onStartShouldSetResponderCapture={() => { clock.touch(); return false; }}>
-      <View style={s.root} importantForAccessibility={reason ? 'no-hide-descendants' : 'auto'} accessibilityElementsHidden={Boolean(reason)}>
-        {children}
-      </View>
-      {text ? (
-        <View style={s.cover} testID="session-cover" accessibilityViewIsModal>
-          <Text style={s.title}>{text.title}</Text>
-          <Text style={s.body}>{text.body}</Text>
-          <TouchableOpacity style={s.primary} onPress={show} accessibilityRole="button">
-            <Text style={s.primaryT}>Show the screen</Text>
-          </TouchableOpacity>
-          {onClearCache ? (
-            <TouchableOpacity style={s.secondary} onPress={clear} accessibilityRole="button">
-              <Text style={s.secondaryT}>Clear cached images</Text>
-            </TouchableOpacity>
-          ) : null}
-          {cleared ? <Text style={s.note}>{cleared}</Text> : null}
+    <SessionCoverContext.Provider value={Boolean(reason)}>
+      <View style={s.root} onStartShouldSetResponderCapture={() => { clock.touch(); return false; }}>
+        <View style={s.root} importantForAccessibility={reason ? 'no-hide-descendants' : 'auto'} accessibilityElementsHidden={Boolean(reason)}>
+          {children}
         </View>
-      ) : null}
-    </View>
+        {text ? (
+          <View style={s.cover} testID="session-cover" accessibilityViewIsModal>
+            <IconShield size={32} color={color.accent} />
+            <Text style={s.title} accessibilityRole="header">{text.title}</Text>
+            <Text style={s.body}>{text.body}</Text>
+            <View style={s.actions}>
+              <Button label="Show the screen" onPress={show} block />
+              {onClearCache ? <Button label="Clear cached images" variant="secondary" onPress={clear} block /> : null}
+            </View>
+            {cleared ? <Text style={s.note}>{cleared}</Text> : null}
+          </View>
+        ) : null}
+      </View>
+    </SessionCoverContext.Provider>
   );
 }
 
@@ -80,19 +84,10 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   cover: {
     position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: color.bg,
-    padding: space.xl, justifyContent: 'center', gap: space.m,
+    paddingHorizontal: space.xl, justifyContent: 'center', gap: space.m,
   },
-  title: { color: color.text, fontSize: font.h1, fontWeight: '700' },
-  body: { color: color.textDim, fontSize: font.body, lineHeight: 20 },
-  primary: {
-    minHeight: MIN_TOUCH, borderRadius: radius.m, backgroundColor: color.accent,
-    alignItems: 'center', justifyContent: 'center', marginTop: space.s,
-  },
-  primaryT: { color: color.bg, fontSize: font.body, fontWeight: '700' },
-  secondary: {
-    minHeight: MIN_TOUCH, borderRadius: radius.m, borderWidth: 1, borderColor: color.control,
-    backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',
-  },
-  secondaryT: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  note: { color: color.textDim, fontSize: font.small },
+  title: { ...type.screenTitle, color: color.t1, marginTop: space.xs },
+  body: { ...type.body, color: color.t2 },
+  actions: { gap: space.m, marginTop: space.m },
+  note: { ...type.caption, color: color.t2 },
 });
