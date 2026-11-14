@@ -1,27 +1,29 @@
 # V1 — Danh sách case, Case Explorer, Error Inspector (SCR-02, SCR-03, SCR-04)
 
-**Cho người dùng:** SCR-02 liệt kê các case (tìm theo mã, lọc theo chế độ Evaluation / Inference & review).
-SCR-03 mở một case: xem từng lát MRI, bật/tắt mask dự đoán (RAW hoặc PROCESSED) và ground truth, zoom/pan, đọc Dice
-của lát. SCR-04 đi thẳng tới các lát mô hình sai nhiều nhất và tô TP / FP / FN.
+**Cho người dùng:** SCR-02 là worklist: tìm theo mã, lọc theo chế độ, chọn một experiment để mỗi case có chip Dice
+của server ("no GT", "run failed", "not in …" bằng chữ, không bao giờ là 0), sắp "Worst first" và đánh dấu "outlier n/3"
+do server chọn. SCR-03 xem từng lát MRI: mask dự đoán (RAW/PROCESSED) và ground truth vẽ Fill / Outline / Both (viền
+1–3 px), Play quét lát ~5 lát/giây, giữ ◀ ▶ để lặp, chạm đúp để zoom 2x / vừa khung. SCR-04 tô TP xanh lá, FP hồng
+(viền nét đứt), FN xanh dương, đi thẳng tới các lát server xếp tệ nhất. SCR-03/04 có **Privacy mode** (mặc định bật).
 
 **File nào làm gì** (file `.js` vẽ, file `.mjs` quyết định và được `node --test` kiểm):
 - `CaseListScreen.js`, `CaseExplorerScreen.js`, `ErrorInspectorScreen.js`: ba màn hình.
-- `SliceView.js`: `SliceViewport` (ảnh + lớp mask + cử chỉ), `SliceScrubber` (thanh chọn lát), `useMaskOverlay`.
-- `cases.mjs`: mô hình trạng thái `createCaseExplorer` (open, goToSlice, setVariant, setOverlay), `chooseRun`,
-  `metricsText`, `readCaseRows` / `filterRows`, `createSerialRunner` (lát mới nhất thắng), `sliceCacheKey`.
-- `errorInspector.mjs`: `readSelection` / `readWorstSlices` đọc thứ tự lát tệ nhất **do server xếp** (app không sort),
-  `runLevel`, `compareWithServer`.
-- `scriptedRuns.js`: chạy thử A9 / L4 (nhấn giữ nhãn lát) và log thời gian `CMW_SLICE`; người dùng không cần.
+- `SliceView.js`: `SliceViewport` (ảnh, lớp mask fill/viền, cử chỉ, chạm đúp), `SliceScrubber` (thanh lát, Play, giữ để
+  lặp), `useSlicePlayer`, `OverlayStyleChips`, `PrivacyRow`, `useMaskOverlay`.
+- `sliceControls.mjs`: `overlayStyle` (độ dày viền chia cho zoom), `createPlayer` (chỉ xin lát kế khi lát trước đã hiện:
+  không bao giờ 2 lần tải song song), `createRepeater`, `isDoubleTap` / `doubleTapTransform`.
+- `cases.mjs`: `createCaseExplorer`, `chooseRun`, `metricsText`, `readCaseRows`, worklist (`readExperimentCases`,
+  `worklistChip`, `worklistRows`: cùng quy tắc xếp với outlier của server nên 3 dòng đầu khớp), `createSerialRunner`.
+- `errorInspector.mjs`: `ERROR_CLASS` (màu an toàn cho người mù màu, FP `dashed`), đọc thứ tự lát tệ nhất **do server
+  xếp** (app không sort lát), `runLevel`, `compareWithServer`.
+- `scriptedRuns.js`: chạy thử A9 / L4 (nhấn giữ nhãn lát). Dùng chung: `lib/mask.mjs` (`maskOutlinePath`), `lib/privacy.mjs`.
 
-**Luồng dữ liệu SCR-03:** `case_get` → `chooseRun` chọn run → `createCaseExplorer` gọi `mri_slice_get`,
-`prediction_slice_get`, `ground_truth_slice_get`, `analysis_slice_metrics` qua `runtime.sliceClient` (cache theo lát,
-`src/api/cache.mjs`). Server trả `content_url` + `checksum`; `runtime.imageStore` tải PNG MRI, kiểm SHA-256
-(`src/api/content.mjs`) rồi đưa data URI cho `<Image>`. Mask đi qua `runtime.maskStore` → `decodeMaskPng`
-(`src/lib/maskPng.js`) → `maskRuns` / `runsToPath` (`src/lib/mask.mjs`) → một `<Path>` SVG cùng hệ toạ độ với ảnh
-(x = cột, y = hàng). SCR-04 dùng `disagreementRuns(gt, pred)` để có ba lớp TP / FP / FN.
+**Quyền riêng tư:** Privacy mode dùng `expo-screen-capture` (`lib/screenCapture.js`): chụp/quay/cast màn hình ra màu đen,
+ẩn ảnh trong recent apps. Module native nên **cần build APK mới**; APK cũ hiện "not available in this build". Tắt chỉ
+khi chiếu màn hình. Id/checksum nằm trong thẻ Provenance (đóng sẵn).
 
-**Test** (chạy từ thư mục gốc repo):
+**Test** (từ thư mục gốc repo):
 ```powershell
-node --test mobile/test/v1.test.mjs mobile/test/v1_error.test.mjs mobile/test/v1_model.test.mjs mobile/test/v1_cache_key.test.mjs mobile/test/readers.test.mjs
-cd mobile; npm run test:render    # render các màn hình thật (kiểm S*, L*, N*, E*)
+node --test mobile/test/v1*.test.mjs mobile/test/privacy.test.mjs mobile/test/readers.test.mjs
+cd mobile; npm run test:render    # kiểm O*, C1, P*, W*, V5 cùng các kiểm cũ
 ```
