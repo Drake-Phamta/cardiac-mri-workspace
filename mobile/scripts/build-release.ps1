@@ -11,8 +11,8 @@
          ninja fails on Windows once object paths pass ~250 characters
          ("manifest 'build.ninja' still dirty after 100 tries" - reproduced in
          a deep worktree);
-       - the APK is then exactly a commit: `git archive HEAD` of mobile/, app/
-         and contracts/ is what gets built, never an uncommitted edit.
+       - the APK is then exactly a commit: `git archive HEAD` of mobile/ and
+         contracts/ is what gets built, never an uncommitted edit.
      Everything the build writes, rewrites or prunes (npm install, expo
      prebuild, gradle, -Clean) happens INSIDE the staging directory. The only
      things written outside it are the copied APK and its .build.txt, in
@@ -159,15 +159,15 @@ if ($repoFull.StartsWith($StagingDir + '\', [System.StringComparison]::OrdinalIg
 if ($StagingDir.Length -gt 40) { Write-Warning "StagingDir is $($StagingDir.Length) chars; native paths may exceed the Windows limit" }
 
 Step "staging copy of HEAD $($gitSha.Substring(0, 12)) at $StagingDir"
-$pending = git -C $repoRoot status --porcelain -- mobile app contracts
+$pending = git -C $repoRoot status --porcelain -- mobile contracts
 if ($pending) {
-  Write-Warning 'uncommitted changes under mobile/ app/ contracts/ are NOT in this build - only committed HEAD is:'
+  Write-Warning 'uncommitted changes under mobile/ contracts/ are NOT in this build - only committed HEAD is:'
   $pending | ForEach-Object { Write-Warning "  $_" }
 }
 New-Item -ItemType Directory -Force $StagingDir | Out-Null
 # One archive file inside the staging dir, overwritten by every build.
 $tarFile = Join-Path $StagingDir '.cmw-source.tar'
-Invoke-Checked 'git archive' { git -C $repoRoot archive --format=tar -o $tarFile HEAD mobile app contracts }
+Invoke-Checked 'git archive' { git -C $repoRoot archive --format=tar -o $tarFile HEAD mobile contracts }
 Invoke-Checked 'tar extract' { tar -xf $tarFile -C $StagingDir }
 $buildRoot = Join-Path $StagingDir 'mobile'
 Write-Host "building in  $buildRoot"
