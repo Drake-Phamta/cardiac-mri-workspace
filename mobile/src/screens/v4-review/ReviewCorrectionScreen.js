@@ -541,7 +541,7 @@ const s = StyleSheet.create({
   eventReason: { color: color.text, fontSize: font.small },
   btn: {
     minHeight: MIN_TOUCH, minWidth: MIN_TOUCH, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1,
-    borderColor: color.border, backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',
+    borderColor: color.control, backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',
   },
   btnActive: { borderColor: color.accent, backgroundColor: color.accentBg },
   btnDanger: { borderColor: color.danger },

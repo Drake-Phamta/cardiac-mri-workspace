@@ -218,7 +218,7 @@ const s = StyleSheet.create({
   },
   btn: {
     minHeight: MIN_TOUCH, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1,
-    borderColor: color.border, backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',
+    borderColor: color.control, backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',
   },
   tools: { gap: space.s },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.xs },
