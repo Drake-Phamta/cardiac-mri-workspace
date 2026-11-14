@@ -8,7 +8,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconChevronRight } from './icons';
-import { color, HAIRLINE, type } from './theme';
+import { color, HAIRLINE, MIN_TOUCH, type } from './theme';
 
 // cells: [{ label, value, caption, onPress?, testID? }]
 export default function MetricStrip({ cells, style }) {
@@ -47,7 +47,7 @@ export default function MetricStrip({ cells, style }) {
 
 const s = StyleSheet.create({
   strip: { flexDirection: 'row', borderBottomWidth: HAIRLINE, borderColor: color.hair },
-  cell: { flex: 1, paddingTop: 8, paddingBottom: 16, paddingLeft: 16, borderLeftWidth: HAIRLINE, borderColor: color.hair },
+  cell: { flex: 1, minHeight: MIN_TOUCH, paddingTop: 8, paddingBottom: 16, paddingLeft: 16, borderLeftWidth: HAIRLINE, borderColor: color.hair },
   first: { paddingLeft: 0, borderLeftWidth: 0 },
   label: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   labelT: { ...type.caption, fontWeight: '500', color: color.t2 },
