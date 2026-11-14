@@ -64,6 +64,39 @@ async function pressBack(r) {
   await act(async () => { hit.props.onPress(); });
 }
 const byTestId = (r, id) => r.root.findAll((n) => n.props && n.props.testID === id && typeof n.type === 'string')[0];
+// V1 in Direction A: the transport buttons are icons, found by what a screen reader says.
+const STEP = Object.freeze({
+  next: 'Next slice, hold to repeat', prev: 'Previous slice, hold to repeat', fwd10: 'Forward 10 slices', back10: 'Back 10 slices',
+  play: 'Play: sweep through the slices', pause: 'Pause the slice sweep',
+});
+const byLabel = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityLabel === label && !isHeaderControl(n));
+async function pressLabel(r, label) {
+  const hit = byLabel(r, label)[0];
+  if (!hit) throw new Error(`no button labelled "${label}"; texts: ${texts(r).slice(0, 40).join(' | ')}`);
+  await act(async () => { hit.props.onPress(); });
+}
+async function pressId(r, id) {
+  const hit = byTestId(r, id);
+  if (!hit) throw new Error(`no node "${id}"; texts: ${texts(r).slice(0, 40).join(' | ')}`);
+  await act(async () => { hit.props.onPress(); });
+}
+// The slice readout of the viewer's bottom panel: "Slice 45 / 88" (1-based; the z is in the Details sheet).
+const readout = (r) => { const n = byTestId(r, 'slice-readout'); return n ? n.findAll((x) => x.type === 'Text').map(textOf)[0] : '-'; };
+const onSlice = (r, n, total = 88) => readout(r) === `Slice ${n} / ${total}`;
+// A screen rendered on its own gets a nav that keeps what it reports to the header (nav.setContext): its title,
+// actions, "more" button and Details sections. ctxLines() flattens the Details sections.
+function ctxNav(extra = {}) {
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true, ctx: null, ...extra };
+  nav.setContext = (c) => { nav.ctx = c; };
+  return nav;
+}
+const ctxLines = (nav) => (nav.ctx && Array.isArray(nav.ctx.details) ? nav.ctx.details.flatMap((sec) => sec.lines) : []);
+const ctxHas = (nav, re) => ctxLines(nav).some((l) => re.test(l));
+const ctxAction = (nav, key) => (nav.ctx && Array.isArray(nav.ctx.actions) ? nav.ctx.actions.find((a) => a.key === key) : null);
+async function openTools(nav) { await act(async () => { nav.ctx.overflow.onPress(); }); }
+async function closeSheet(r, id) { await pressId(r, `${id}-close`); }
+// Outlines and their halos: a solid outline has a black halo under it (tokens: overlay.halo).
+const isHalo = (n) => n.props.fill === 'none' && n.props.stroke === '#000000';
 const tabBar = (r) => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'tab');
 const selectedTab = (r) => tabBar(r).filter((t) => t.props.accessibilityState.selected).map(textOf).join();
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
@@ -125,22 +158,24 @@ const bundleJson = generatedBundleJson();
   await tick(150);
   await layout(r);
   await tick(60);
-  check('S4', has(r, /slice 45 \/ 88 {2}\(z = 44\)/), `opens on the middle slice: ${texts(r).find((t) => t.startsWith('slice')) || '-'}`);
-  check('S4', has(r, /Prediction \(RAW\)/), 'prediction layer labelled with the variant');
+  check('S4', onSlice(r, 45) && !has(r, /\(z = \d+\)|^z \d+$/), `opens on the middle slice, numbered 1-based with no z on screen: ${readout(r)}`);
+  await act(async () => { byTestId(r, 'header-info').props.onPress(); });
+  check('S4', has(r, /^Slice 45 \/ 88 · z 44$/) && has(r, /^Prediction \(RAW\): /), 'the Details sheet has the z and the prediction layer with its variant');
+  await closeSheet(r, 'details-sheet');
   check('S4', has(r, /Fixture mode: no pixels/), 'fixture mode says there are no pixels');
   check('S4', gestures().length === 0, 'fixture mode writes no CMW_GESTURE line (no network to account for)');
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(150);
-  check('S5', has(r, /slice 46 \/ 88/), 'step button moves one slice');
-  await press(r, '+10');
+  check('S5', onSlice(r, 46), 'step button moves one slice');
+  await pressLabel(r, STEP.fwd10);
   await tick(150);
-  check('S5', has(r, /slice 56 \/ 88/), '+10 moves ten slices');
-  await press(r, 'PROCESSED');
+  check('S5', onSlice(r, 56), 'forward 10 moves ten slices');
+  await press(r, 'Processed');
   await tick(200);
   check('S6', has(r, /Cannot show this safely/), 'fixture serves RAW for a PROCESSED request -> blocked, not relabelled');
-  await press(r, 'RAW');
+  await press(r, 'Raw');
   await tick(200);
-  check('S6', has(r, /slice 56 \/ 88/) && !has(r, /Cannot show this safely/), 'back on RAW the viewer returns');
+  check('S6', onSlice(r, 56) && !has(r, /Cannot show this safely/), 'back on Raw the viewer returns');
   const slices = logs.filter((l) => l.startsWith('CMW_SLICE '));
   check('S7', slices.length >= 2, `CMW_SLICE timing lines logged: ${slices.length}`);
 
@@ -247,7 +282,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
   // outlive a Retry and a refresh of other slices (L9, #78 QA N-4).
   const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend({ metricsMissingAt: [45] });
   const runtime = liveRuntime(fetchImpl);
-  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const nav = ctxNav();
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -256,31 +291,53 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tick(300);
   await layout(r);
   await tick(200);
-  check('L1', has(r, /slice 45 \/ 88/), 'live: opens on the middle slice');
-  check('L1', has(r, /Run RUN_A · UNet2D · .* · precomputed/), `run line: ${texts(r).find((t) => t.startsWith('Run ')) || '-'}`);
-  check('L1', has(r, /Slice Dice \(RAW\): 0\.873 · metric m1/), 'server metric shown with variant and version');
+  check('L1', onSlice(r, 45), `live: opens on the middle slice (${readout(r)})`);
+  check('L1', ctxHas(nav, /^Run RUN_A · UNet2D · .* · precomputed$/) && !has(r, /RUN_A/),
+    `the run line is in the Details sheet, not on the screen: ${ctxLines(nav).find((t) => t.startsWith('Run ')) || '-'}`);
+  check('L1', ctxHas(nav, /^Slice Dice \(RAW\): 0\.873 · metric m1$/) && textOf(byTestId(r, 'slice-dice')) === '0.873',
+    'server metric: the value in the corner, with variant and version in Details');
+  // V1 in Direction A: what the floating app bar shows comes from the screen's report.
+  check('A1', nav.ctx.title === 'CASE_0061' && /^UNet2D · /.test(nav.ctx.subtitle) && nav.ctx.onSubtitlePress === null
+    && ctxAction(nav, 'privacy') && typeof nav.ctx.overflow.onPress === 'function',
+  `app bar: ${nav.ctx.title} / ${nav.ctx.subtitle}; privacy shield; more (one run: no run picker)`);
+  const panel = byTestId(r, 'viewer-panel');
+  const inPanel = (fn) => (panel ? panel.findAll(fn).length : 0);
+  check('A2', inPanel((n) => n.type === 'TouchableOpacity' && ['Raw', 'Processed'].includes(textOf(n))) === 2
+    && inPanel((n) => n.props && n.props.accessibilityRole === 'adjustable') === 1
+    && Object.values(STEP).filter((l) => l !== STEP.pause).every((l) => inPanel((n) => n.type === 'TouchableOpacity' && n.props.accessibilityLabel === l) === 1),
+  'B3: the bottom panel holds the variant, the slider and the five transport buttons at once');
+  check('A2', ['Ground truth', 'Prediction'].every((l) => byTestId(r, `layer-${l}`)) && ['Fill', 'Outline', 'Both'].every((l) => byLabel(r, l).length === 1)
+    && has(r, /^MRI$/) && has(r, /^Evaluation$/) && has(r, /^Slice Dice$/),
+  'layer chips, the draw-mode toolbar and the corner annotations over the image');
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
   check('L2', img() && img().props.source.uri.startsWith('data:image/png;base64,'), 'MRI drawn from fetched bytes (data URI)');
   check('L2', requests.some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')), 'the bytes came from base URL + content_url');
   let paths = marks(r, 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 1 && paths[0] > 100, `prediction overlay drawn as one path (${paths.join(',')} chars)`);
-  await press(r, 'Ground truth: OFF');
+  await pressId(r, 'layer-Ground truth');
   await tick(250);
   paths = marks(r, 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 2, `ground-truth overlay added (${paths.length} paths)`);
-  // Fill / Outline / Both (V1 item 1): the outline is a second path with no fill, traced from the boundary pixels.
+  // Fill / Outline / Both (V1 item 1): the outline is a second path with no fill, traced from the boundary pixels,
+  // drawn over a black halo so it shows on bright tissue.
   const svgPaths = () => marks(r, 'Path');
-  const outlinePaths = () => svgPaths().filter((n) => n.props.fill === 'none');
+  const outlinePaths = () => svgPaths().filter((n) => n.props.fill === 'none' && !isHalo(n));
+  const halos = () => svgPaths().filter(isHalo);
   await press(r, 'Outline');
-  check('O1', svgPaths().length === 2 && outlinePaths().length === 2
+  check('O1', svgPaths().length === 4 && outlinePaths().length === 2 && halos().length === 2
     && outlinePaths().every((n) => n.props.strokeWidth > 0 && /^M\d+ \d+[hv]/.test(n.props.d) && n.props.d.endsWith('z')),
-  `Outline: ${outlinePaths().length} outline paths, no fill (stroke ${outlinePaths()[0] ? outlinePaths()[0].props.strokeWidth.toFixed(3) : '-'} source px)`);
+  `Outline: ${outlinePaths().length} outline paths over ${halos().length} halos, no fill (stroke ${outlinePaths()[0] ? outlinePaths()[0].props.strokeWidth.toFixed(3) : '-'} source px)`);
   const w2 = outlinePaths()[0].props.strokeWidth;
+  await openTools(nav);
+  check('A3', has(r, /^Tools$/) && ['Error inspector', '3D view', 'Review and correct'].every((l) => has(r, new RegExp(`^${l}$`)))
+    && has(r, /^Outline width/) && has(r, /^Fill opacity/), 'the Tools sheet behind "more": the three views to open and the display settings');
   await press(r, '3 px');
-  check('O1', Math.abs(outlinePaths()[0].props.strokeWidth / w2 - 1.5) < 1e-9, 'the 3 px chip widens the outline 1.5 times (it is set in screen pixels)');
+  check('O1', Math.abs(outlinePaths()[0].props.strokeWidth / w2 - 1.5) < 1e-9, 'the 3 px setting widens the outline 1.5 times (it is set in screen pixels)');
   await press(r, 'Both');
-  check('O1', svgPaths().length === 4 && outlinePaths().length === 2, `Both: fill and outline for each layer (${svgPaths().length} paths)`);
+  check('O1', svgPaths().length === 6 && outlinePaths().length === 2, `Both: fill, halo and outline for each layer (${svgPaths().length} paths)`);
   await press(r, '2 px');
+  await closeSheet(r, 'tools-sheet');
+  check('A3', !has(r, /^Tools$/), 'the Tools sheet closes');
   await press(r, 'Fill');
   check('O1', svgPaths().length === 2 && outlinePaths().length === 0, 'back to Fill: the two filled layers only');
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
@@ -290,9 +347,9 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('L4', open && open.requests.length >= 5 && open.requests.every((q) => q.bytes > 0),
     `open gesture: ${open ? open.requests.length : 0} requests, every one with a byte count`);
 
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(350);
-  check('L5', img().props.source.uri.startsWith('data:') && has(r, /slice 46 \/ 88/), 'next slice displayed');
+  check('L5', img().props.source.uri.startsWith('data:') && onSlice(r, 46), 'next slice displayed');
   const fresh = gestures().filter((g) => g.kind === 'slice').pop();
   const endpoints = fresh ? fresh.requests.map((q) => q.endpoint).sort().join(',') : '';
   check('L5', fresh && fresh.from === 44 && fresh.to === 45 && !fresh.cache_hit, `new slice gesture z 44->45: ${endpoints}`);
@@ -301,7 +358,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('L5', fresh && fresh.requests.every((q) => q.endpoint !== 'case_get'), 'no case-level or volume request per slice gesture');
 
   const before = requests.length;
-  await press(r, '◀');
+  await pressLabel(r, STEP.prev);
   await tick(350);
   const sent = requests.slice(before);
   const revisit = gestures().filter((g) => g.kind === 'slice').pop();
@@ -315,18 +372,19 @@ const liveRuntime = (fetchImpl) => createRuntime({
 
   // #77 QA B-3: a slice that fails shows nothing of the slice displayed before.
   const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
-  check('L8', !has(r, /^MRI .+ · .+/) && has(r, /Provenance \(this slice\)/), 'the artifact ids are folded under Provenance by default');
-  await press(r, 'Provenance (this slice)');
-  check('L8', has(r, /^MRI .+ · .+/) && !has(r, /^MRI - · -$/) && entry('Error inspector').props.disabled === false,
+  check('L8', !has(r, /^MRI .+ · .+/) && ctxHas(nav, /^MRI \S+ · sha256:\S+$/) && !has(r, /sha256/),
+    'B2: the artifact ids and checksums are in the Details sheet, not on the screen');
+  await openTools(nav);
+  check('L8', ctxHas(nav, /^MRI \S+ · \S+$/) && !ctxHas(nav, /^MRI - · -$/) && entry('Error inspector').props.disabled === false,
     'before: provenance and the SCR-04 entry belong to the displayed slice');
   setFailSlice(43);
-  await press(r, '◀');
+  await pressLabel(r, STEP.prev);
   await tick(350);
-  check('L8', has(r, /could not be reached/) && has(r, /^Slice Dice: -$/) && !has(r, /0\.873/),
-    'slice 44 fails: the state panel shows and the metric reads "-", not the previous slice\'s Dice');
-  check('L8', has(r, /^MRI - · -$/) && has(r, /^Prediction - - · -$/) && has(r, /^Ground truth - · -$/),
+  check('L8', has(r, /could not be reached/) && ctxHas(nav, /^Slice Dice: -$/) && textOf(byTestId(r, 'slice-dice')) === '—' && !has(r, /0\.873/),
+    'slice 44 fails: the state panel shows and the metric reads "—", not the previous slice\'s Dice');
+  check('L8', ctxHas(nav, /^MRI - · -$/) && ctxHas(nav, /^Prediction - - · -$/) && ctxHas(nav, /^Ground truth - · -$/),
     'provenance reads "-" for every layer');
-  const off = ['Error inspector (SCR-04)', '3D (SCR-05)', 'Review / correct (SCR-06)'].map((l) => entry(l));
+  const off = ['Error inspector', '3D view', 'Review and correct'].map((l) => entry(l));
   check('L8', off.every((e) => e && e.props.disabled === true && textOf(e).includes('this slice did not load')),
     'SCR-04/05/06 entries disabled with the reason');
   setFailSlice(null);
@@ -334,36 +392,39 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await press(r, 'Retry');
   await tick(400);
   const retried = requests.slice(mark).map((u) => u.replace('http://backend.invalid:8000', ''));
-  check('L9', has(r, /slice 44 \/ 88/) && has(r, /Slice Dice \(RAW\): 0\.873/) && entry('Error inspector').props.disabled === false,
+  check('L9', onSlice(r, 44) && ctxHas(nav, /^Slice Dice \(RAW\): 0\.873/) && entry('Error inspector').props.disabled === false,
     'Retry brings slice 44 back with its own metric and entries');
   check('L9', retried.length > 0 && retried.every((u) => u.includes('/slices/43/') || u.startsWith('/api/v1/artifacts/')),
     `Retry asked only for that slice: ${retried.length} requests`);
+  await closeSheet(r, 'tools-sheet');
   mark = requests.length;
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(350);
-  check('L9', requests.length === mark && has(r, /slice 45 \/ 88/), 'and the slice next to it is still cached (N-2: no clear-all)');
+  check('L9', requests.length === mark && onSlice(r, 45), 'and the slice next to it is still cached (N-2: no clear-all)');
   mark = requests.length;
+  await openTools(nav);
   await press(r, 'Refresh this slice');
   await tick(400);
   const refreshed = requests.slice(mark).map((u) => u.replace('http://backend.invalid:8000', ''));
   const rg = gestures().filter((g) => g.kind === 'refresh').pop();
   check('L9', refreshed.length > 0 && refreshed.every((u) => u.includes('/slices/44/') || u.startsWith('/api/v1/artifacts/'))
-    && rg && rg.to === 44 && rg.outcome === 'shown',
-    `"Refresh this slice" re-asks for z 44 only, logged as a refresh gesture (${refreshed.length} requests)`);
+    && rg && rg.to === 44 && rg.outcome === 'shown' && !has(r, /^Tools$/),
+    `"Refresh this slice" (Tools) re-asks for z 44 only, logged as a refresh gesture (${refreshed.length} requests)`);
   // #78 QA N-4: Retry (z 43) and Refresh (z 44) forgot only their own slice - z 45's
   // cached "unavailable" metrics answer is still there, so going back asks nothing.
   mark = requests.length;
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(350);
-  check('L9', requests.length === mark && has(r, /slice 46 \/ 88/) && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
+  check('L9', requests.length === mark && onSlice(r, 46) && ctxHas(nav, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/)
+    && textOf(byTestId(r, 'slice-dice')) === 'Unavailable',
     `back to z 45 after Retry and Refresh of other slices: ${requests.length - mark} requests; its "unavailable" answer survived`);
 
   // Play (V1 item 3): one slice at a time, each on screen before the next is asked for, so no gesture is ever
   // superseded by the next one.
   const playMark = gestures().length;
-  await press(r, 'Play');
+  await pressLabel(r, STEP.play);
   for (let i = 0; i < 60 && gestures().slice(playMark).length < 4; i += 1) await tick(100);
-  await press(r, 'Pause');
+  await pressLabel(r, STEP.pause);
   await tick(500);
   const played = gestures().slice(playMark);
   check('P1', played.length >= 4 && played.every((g) => g.kind === 'slice' && g.to === g.from + 1 && g.outcome === 'shown')
@@ -371,20 +432,21 @@ const liveRuntime = (fetchImpl) => createRuntime({
   `Play: ${played.map((g) => `${g.from}->${g.to} ${g.outcome}`).join(', ')}`);
   const afterPause = gestures().length;
   await tick(600);
-  check('P1', gestures().length === afterPause && has(r, /^Play$/), 'Pause stops the sweep: no slice asked for after it');
+  check('P1', gestures().length === afterPause && byLabel(r, STEP.play).length === 1, 'Pause stops the sweep: no slice asked for after it');
 
-  // Hold ▶: one step at once, then one every 120 ms until the finger lifts; the newest slice wins.
-  const labelBefore = texts(r).find((t) => t.startsWith('slice ')) || '';
-  const from = Number((labelBefore.match(/^slice (\d+) /) || [])[1]);
-  const next = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === '▶')[0];
+  // Hold "next": one step at once, then one every 120 ms until the finger lifts; the newest slice wins.
+  const sliceNo = () => Number((readout(r).match(/^Slice (\d+) /) || [])[1]);
+  const from = sliceNo();
+  const next = byLabel(r, STEP.next)[0];
   await act(async () => { next.props.onLongPress(); });
   await tick(400);
   await act(async () => { next.props.onPressOut(); });
   await tick(800);
-  const after = Number(((texts(r).find((t) => t.startsWith('slice ')) || '').match(/^slice (\d+) /) || [])[1]);
-  check('P2', after - from >= 3 && !has(r, /loading…$/), `holding ▶ for 400 ms stepped from slice ${from} to ${after}, then stopped`);
+  const after = sliceNo();
+  check('P2', after - from >= 3, `holding "next" for 400 ms stepped from slice ${from} to ${after}, then stopped`);
 
-  // Double tap: 2x about the finger, then back to fit. (The viewport was re-mounted after the L8 error, so it lays
+  // Double tap: the viewer opens at 1.6x fit (no zoom readout there); a double tap fits the whole slice, the next
+  // one zooms 2x about the finger, the next fits again. (The viewport was re-mounted after the L8 error, so it lays
   // out again first.)
   await layout(r);
   const viewport = () => r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0].props.__pan;
@@ -394,36 +456,69 @@ const liveRuntime = (fetchImpl) => createRuntime({
       viewport().onPanResponderRelease();
     });
   };
+  check('P3', !has(r, /^×\d/), 'the opening view (1.6x fit) shows no zoom readout');
   await tapAt(200, 200);
   await tapAt(204, 203);
-  check('P3', has(r, /^×2\.0$/), `double tap zooms to 2x (${texts(r).find((t) => t.startsWith('×')) || 'no zoom label'})`);
+  check('P3', !has(r, /^×\d/), 'a double tap from the opening view fits the whole slice');
+  await tick(400);
+  await tapAt(200, 200);
+  await tapAt(204, 203);
+  check('P3', has(r, /^×2\.0$/), `the next double tap zooms to 2x (${texts(r).find((t) => t.startsWith('×')) || 'no zoom label'})`);
   await tick(400);
   await tapAt(150, 150);
   await tapAt(150, 152);
-  check('P3', !has(r, /^×\d/), 'a second double tap returns to fit');
+  check('P3', !has(r, /^×\d/), 'and the next returns to fit');
 
   // Privacy mode (V1 item 5): on by default. This test build has no expo-screen-capture, so it says it cannot block
-  // screenshots yet instead of claiming protection; the switch still records the user's choice.
-  const privacySwitch = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'switch'
-    && /^Privacy mode/.test(n.props.accessibilityLabel || ''))[0];
-  check('V5', has(r, /^Privacy mode: not available in this build$/) && has(r, /so screenshots are not blocked\.$/)
-    && privacySwitch().props.accessibilityState.checked === true, 'privacy mode on by default; without the module it says screenshots are not blocked');
-  await act(async () => { privacySwitch().props.onPress(); });
+  // screenshots yet instead of claiming protection; the shield in the app bar still records the user's choice and is
+  // accent only while the screen is really protected.
+  const shield = () => ctxAction(nav, 'privacy');
+  check('V5', shield().label === 'Privacy mode: not available in this build' && shield().active === false
+    && ctxHas(nav, /so screenshots are not blocked\.$/), 'privacy mode on by default; without the module the shield is not lit and Details says screenshots are not blocked');
+  await act(async () => { shield().onPress(); });
   await tick(30);
-  check('V5', has(r, /^Privacy mode: OFF \(not available in this build\)$/) && privacySwitch().props.accessibilityState.checked === false,
+  check('V5', shield().label === 'Privacy mode: OFF (not available in this build)' && ctxHas(nav, /^Privacy mode: OFF/),
     'switched off, it reads OFF');
-  await act(async () => { privacySwitch().props.onPress(); });
+  await act(async () => { shield().onPress(); });
   await tick(30);
   await act(async () => { r.unmount(); });
 }
 
+// ---- 2c. F1 (device bug B1): no black frame between slices (the viewport on its own) -----------
+// The fake backend serves the same MRI bytes for every slice, so this drives the viewport with two pictures: the
+// next slice loads under the one on screen, which keeps its own overlays until the next one has loaded.
+{
+  const SliceViewport = (await imp('src/screens/v1-cases/SliceView.js')).default;
+  const layer = (key, d) => ({ key, path: d, outline: null, color: '#f0883e', opacity: 0.5, visible: true });
+  const at = (uri, d) => React.createElement(SliceViewport, {
+    shape: [576, 576, 88], imageUri: uri, layers: [layer('pred', d)], resetKey: 'C', fill: true, insets: { top: 56, bottom: 168 }, initialZoom: 1.6,
+  });
+  let r;
+  await act(async () => { r = TestRenderer.create(at('data:image/png;base64,AAAA', 'M1 1h4v4h-4z'), nodeMock); });
+  await layout(r);
+  const imgs = () => r.root.findAll((n) => n.type === 'Image');
+  const drawn = () => marks(r, 'Path').map((n) => n.props.d).join('|');
+  check('F1', imgs().length === 1 && drawn() === 'M1 1h4v4h-4z', 'first slice: one picture loading, its overlay drawn');
+  await act(async () => { imgs()[0].props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
+  await act(async () => { r.update(at('data:image/png;base64,BBBB', 'M9 9h4v4h-4z')); });
+  check('F1', imgs().length === 2 && imgs()[0].props.source.uri.endsWith('BBBB') && imgs()[1].props.source.uri.endsWith('AAAA')
+    && drawn() === 'M1 1h4v4h-4z',
+  `next slice asked: it loads under the picture on screen, which keeps its overlay (${imgs().map((n) => n.props.source.uri.slice(-4)).join(' under ')}, overlay ${drawn()})`);
+  await act(async () => { imgs()[0].props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
+  check('F1', imgs().length === 1 && imgs()[0].props.source.uri.endsWith('BBBB') && drawn() === 'M9 9h4v4h-4z',
+    'once it has loaded: one picture, the new slice, with its own overlay - never a black frame in between');
+  await act(async () => { r.update(at('data:image/png;base64,CCCC', 'M2 2h4v4h-4z')); });
+  await act(async () => { imgs()[0].props.onError({ nativeEvent: { error: 'bad png' } }); });
+  check('F1', imgs().every((n) => !n.props.source.uri.endsWith('BBBB')), 'a slice that cannot be decoded does not leave the previous picture under its number');
+  await act(async () => { r.unmount(); });
+}
 // ---- 2b. an INFERENCE_REVIEW case on SCR-03 (#77 QA N-11) ------------------
 // No ground truth: no ground-truth toggle, the SCR-04 entry disabled with that
 // reason, and not one request for ground truth or metrics during the session.
 {
   const { fetchImpl, requests } = fakeBackend({ caseMode: 'INFERENCE_REVIEW' });
   const runtime = liveRuntime(fetchImpl);
-  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const nav = ctxNav();
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -432,13 +527,14 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tick(300);
   await layout(r);
   await tick(200);
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(350);
   const gtToggles = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^Ground truth/.test(textOf(n)));
-  check('L10', has(r, /slice 46 \/ 88/) && has(r, /Inference & review/) && gtToggles.length === 0
-    && has(r, /^Ground truth: none for this case \(Inference & review\) - no ground-truth layer, metric or error view is offered\.$/),
-    `INFERENCE_REVIEW: no ground-truth toggle (${gtToggles.length}), and the overlays card says why`);
-  const scr04 = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('Error inspector (SCR-04)'))[0];
+  check('L10', onSlice(r, 46) && has(r, /^Inference & review$/) && gtToggles.length === 0
+    && ctxHas(nav, /^Ground truth: none for this case \(Inference & review\) - no ground-truth layer, metric or error view is offered\.$/),
+    `INFERENCE_REVIEW: no ground-truth chip (${gtToggles.length}); the corner names the mode and Details says why`);
+  await openTools(nav);
+  const scr04 = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('Error inspector'))[0];
   check('L10', scr04 && scr04.props.disabled === true && textOf(scr04).includes('no ground truth for this case (Inference & review)'),
     `SCR-04 entry disabled with the no-ground-truth reason: ${scr04 ? textOf(scr04) : '-'}`);
   const gtOrMetrics = requests.filter((u) => /\/ground-truth|\/metrics/.test(u));
@@ -491,7 +587,7 @@ function noRunBackend() {
     config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
     contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
   });
-  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const nav = ctxNav();
   const logStart = logs.length;
   let r;
   await act(async () => {
@@ -502,22 +598,24 @@ function noRunBackend() {
   await layout(r);
   await tick(200);
   const runData = () => requests.filter((p) => p.includes('/analysis-runs') || p.includes('/experiments'));
-  check('N1', has(r, /slice 45 \/ 88/) && has(r, /^No analysis run for this case - MRI and ground truth only/) && !has(r, /No default/),
-    'no run: opens straight into the viewer on the middle slice, run line says there is no run');
+  check('N1', onSlice(r, 45) && ctxHas(nav, /^No analysis run for this case - MRI and ground truth only/) && nav.ctx.subtitle === 'No analysis run'
+    && !has(r, /No default/), 'no run: opens straight into the viewer on the middle slice; the app bar and Details say there is no run');
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
   check('N2', img() && img().props.source.uri.startsWith('data:image/png;base64,') && runData().length === 0,
     `MRI drawn from its bytes; run requests: ${runData().length}`);
   const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
-  check('N3', has(r, /^none - no analysis run for this case$/) && !has(r, /^Prediction \((RAW|PROCESSED)\)/)
-    && ['Error inspector (SCR-04)', '3D (SCR-05)', 'Review / correct (SCR-06)'].every((l) => entry(l) && entry(l).props.disabled === true && textOf(entry(l)).includes('needs an analysis run')),
-    'no prediction chips or toggle; SCR-04/05/06 disabled with "needs an analysis run"');
-  check('N4', has(r, /^Slice Dice: - \(no analysis run for this case\)$/), 'the slice metric says why it is empty');
-  await press(r, 'Ground truth: OFF');
+  await openTools(nav);
+  check('N3', has(r, /^No analysis run$/) && !byTestId(r, 'layer-Prediction') && !has(r, /^(Raw|Processed)$/)
+    && ['Error inspector', '3D view', 'Review and correct'].every((l) => entry(l) && entry(l).props.disabled === true && textOf(entry(l)).includes('needs an analysis run')),
+    'no variant control or prediction chip; SCR-04/05/06 disabled with "needs an analysis run"');
+  await closeSheet(r, 'tools-sheet');
+  check('N4', ctxHas(nav, /^Slice Dice: - \(no analysis run for this case\)$/) && textOf(byTestId(r, 'slice-dice')) === '—', 'the slice metric says why it is empty');
+  await pressId(r, 'layer-Ground truth');
   await tick(300);
   check('N5', marks(r, 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
 
-  // The L4 15 + 15 run, started the way the leader starts it: long-press the slice label.
-  const label = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.onLongPress === 'function')[0];
+  // The L4 15 + 15 run, started the way the leader starts it: long-press the slice number.
+  const label = byTestId(r, 'slice-readout');
   globalThis.__alerts = [];
   await act(async () => { label.props.onLongPress(); });
   const menu = globalThis.__alerts.find((a) => a[0] === 'Scripted slice navigation');
@@ -548,7 +646,7 @@ function noRunBackend() {
 {
   const { requests, fetchImpl } = noRunBackend();
   const runtime = liveRuntime(fetchImpl);
-  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const nav = ctxNav();
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -559,8 +657,10 @@ function noRunBackend() {
   await tick(200);
   const runData = requests.filter((p) => p.includes('/analysis-runs') || p.includes('/experiments'));
   const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
-  const scr04 = entry('Error inspector (SCR-04)');
-  check('N7', has(r, /slice 45 \/ 88/) && has(r, /^Requested run RUN_GONE is not listed for this case - MRI and ground truth only/)
+  await openTools(nav);
+  const scr04 = entry('Error inspector');
+  check('N7', onSlice(r, 45) && ctxHas(nav, /^Requested run RUN_GONE is not listed for this case - MRI and ground truth only/)
+    && nav.ctx.subtitle === 'Run RUN_GONE not listed'
     && !has(r, /No default/) && runData.length === 0,
     `requested run not listed: the no-run viewer, the run named as not listed; run requests: ${runData.length}`);
   check('N7', scr04 && scr04.props.disabled === true
@@ -582,7 +682,7 @@ function noRunBackend() {
     config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
     contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
   });
-  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const nav = ctxNav();
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -591,7 +691,7 @@ function noRunBackend() {
   await tick(300);
   await layout(r);
   await tick(200);
-  await press(r, 'Ground truth: OFF');
+  await pressId(r, 'layer-Ground truth');
   await tick(300);
   const logStart = logs.length;
   const realSetTimeout = globalThis.setTimeout;
@@ -603,7 +703,7 @@ function noRunBackend() {
     return 0;
   };
   try {
-    const label = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.onLongPress === 'function')[0];
+    const label = byTestId(r, 'slice-readout');
     globalThis.__alerts = [];
     await act(async () => { label.props.onLongPress(); });
     const menu = globalThis.__alerts.find((a) => a[0] === 'Scripted slice navigation');
@@ -680,7 +780,7 @@ function noRunBackend() {
 {
   const ErrorInspectorScreen = (await imp('src/screens/v1-cases/ErrorInspectorScreen.js')).default;
   const pushes = [];
-  const nav = { push: (id, p) => { pushes.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const nav = ctxNav({ push: (id, p) => { pushes.push([id, p]); return true; } });
   const mount = async (runtime, params) => {
     let r;
     await act(async () => {
@@ -691,6 +791,11 @@ function noRunBackend() {
     await layout(r);
     await tick(250);
     return r;
+  };
+  // The legend's heading names the slice on screen ("Slice 45 / 88"), or "-" while there is none.
+  const legendFor = (r) => {
+    const i = texts(r).indexOf('Legend');
+    return i >= 0 ? texts(r)[i + 1] : null;
   };
 
   // Fixture: a case without usable ground truth -> unavailable, never an empty chart. Contract v1.0+
@@ -717,70 +822,80 @@ function noRunBackend() {
   // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
   const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
-  // SCR-04 draws each class as fill and outline (Both) by default; `paths` counts the fills, one per class.
+  // SCR-04 draws each class as fill and outline (Both) by default; `paths` counts the fills, one per class. A solid
+  // outline has a black halo under it; FP's dashed edge has none (the halo would fill its gaps).
   const paths = () => marks(r, 'Path').filter((n) => n.props.fill !== 'none');
-  const outlines = () => marks(r, 'Path').filter((n) => n.props.fill === 'none');
+  const outlines = () => marks(r, 'Path').filter((n) => n.props.fill === 'none' && !isHalo(n));
   check('E4c', paths().length === 3, `TP / FP / FN drawn as three filled paths (${paths().length})`);
-  check('O2', outlines().length === 3 && outlines().map((n) => n.props.stroke).join() === paths().map((n) => n.props.fill).join(),
-    'Both by default: each class also has its outline, in the class colour');
+  check('O2', outlines().length === 3 && outlines().map((n) => n.props.stroke).join() === paths().map((n) => n.props.fill).join()
+    && marks(r, 'Path').filter(isHalo).length === 2,
+  'Both by default: each class also has its outline, in the class colour; the two solid ones over a halo');
   const dashedEdges = outlines().filter((n) => Array.isArray(n.props.strokeDasharray));
   check('C1', dashedEdges.length === 1 && dashedEdges[0].props.stroke === '#f778ba' && paths().map((n) => n.props.fill).join() === '#56d364,#f778ba,#4c8dff'
     && has(r, /^predicted, not in the ground truth · dashed edge$/),
   `TP green, FP magenta with the only dashed edge, FN blue (${paths().map((n) => n.props.fill).join(', ')}); the legend says "dashed edge"`);
+  const chip = (k) => byTestId(r, `class-${k}`);
+  const swatchOf = (k) => chip(k).findAll((n) => n.type === 'View' && n.props.style && [].concat(n.props.style).some((st) => st && st.borderStyle === 'dashed'));
+  check('C2', ['TP', 'FP', 'FN'].every((k) => chip(k) && /^[A-Z]{2} \d+ px$/.test(textOf(chip(k))) && chip(k).props.accessibilityState.checked === true)
+    && swatchOf('FP').length === 1 && swatchOf('TP').length === 0 && swatchOf('FN').length === 0,
+  `the legend as chips over the image, with counts; only FP's swatch is dashed (${['TP', 'FP', 'FN'].map((k) => textOf(chip(k))).join(', ')})`);
   await press(r, 'Outline');
   check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
   await press(r, 'Both');
-  check('V5', has(r, /^Privacy mode: not available in this build$/), 'SCR-04 has the same privacy switch, on by default');
+  check('V5', ctxAction(nav, 'privacy') && ctxAction(nav, 'privacy').label === 'Privacy mode: not available in this build',
+    'SCR-04 has the same privacy shield, on by default');
   check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
     'legend: every class named in words with its pixel count');
   check('E4d', has(r, /Differs from the server for this slice|Matches the server for this slice/),
     'masks on screen compared with the server\'s FP / FN for the slice');
-  check('E4e', has(r, /Jump to worst · z 52 \(slice 53\) · Dice 0\.620 · FP 120 · FN 340/),
-    'worst slice = the server\'s first entry, though DR-010 would rank z 44 (Dice 0.310) first (N-1)');
-  const listed = texts(r).filter((t) => /^(Jump to worst|#\d) · z \d+ /.test(t)).map((t) => Number(t.match(/· z (\d+) /)[1]));
-  check('E4e', has(r, /#2 · z 44/) && has(r, /#3 · z 30/) && listed.join(',') === '52,44,30',
-    `the list in the server's order, never re-ranked: z ${listed.join(', ')}`);
-  check('E4f', has(r, /Dice 0\.810 · IoU 0\.680/) && has(r, /RVE -4\.2 %/), 'case metrics as the server sent them');
+  const jump = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Jump to the worst slice')[0];
+  check('E4e', jump() && has(r, /^Slice 53 \/ 88 · Dice 0\.620 · FP 120 · FN 340$/) && !has(r, /\(z = \d+\)|· z \d+ /),
+    'worst slice = the server\'s first entry (a button), though DR-010 would rank z 44 (Dice 0.310) first (N-1); numbered 1-based, no z');
+  const listed = texts(r).filter((t) => /^Slice \d+ \/ 88 · Dice /.test(t)).map((t) => Number(t.match(/^Slice (\d+) /)[1]));
+  check('E4e', has(r, /^#2$/) && has(r, /^#3$/) && listed.join(',') === '53,45,31',
+    `the list in the server's order, never re-ranked: slices ${listed.join(', ')}`);
+  check('E4f', has(r, /^0\.810$/) && has(r, /^0\.680$/) && has(r, /^-4\.2 %$/) && has(r, /^FP 1200 · FN 900 voxels$/), 'case metrics as the server sent them');
   const bars = () => marks(r, 'Rect').filter((n) => n.props.fill !== 'none').length;
   check('E4g', bars() === 3, `profile: one bar per eligible slice, none for the rest (${bars()})`);
   const reqMark = evalBackend.requests.length;
   const gestureMark = gestures().length;
-  await press(r, 'Jump to worst');
+  await press(r, 'Jump to the worst slice');
   await tick(400);
-  check('E4h', has(r, /slice 53 \/ 88 {2}\(z = 52\)/), 'jump lands on the server\'s worst slice');
+  check('E4h', onSlice(r, 53) && legendFor(r) === 'Slice 53 / 88', 'jump lands on the server\'s worst slice');
 
-  // #78 QA N-3 (L4, NFR-PERF-001 limb 2): the jump and a ◀ / ▶ step ask for those slices and nothing else.
-  await press(r, '◀');
+  // #78 QA N-3 (L4, NFR-PERF-001 limb 2): the jump and a previous / next step ask for those slices and nothing else.
+  await pressLabel(r, STEP.prev);
   await tick(400);
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(400);
   const sinceJump = evalBackend.requests.slice(reqMark).map((u) => u.replace('http://backend.invalid:8000', ''));
   const outOfScope = sinceJump.filter((u) => !(/\/slices\/(51|52)\//.test(u) || u.startsWith('/api/v1/artifacts/')));
-  check('E4m', has(r, /slice 53 \/ 88 {2}\(z = 52\)/) && sinceJump.length > 0 && outOfScope.length === 0,
-    `jump, ◀, ▶: ${sinceJump.length} requests, each /slices/<z>/ of z 52 or 51 or an artifact${outOfScope.length ? `; other: ${outOfScope.join(' ')}` : ''}`);
+  check('E4m', onSlice(r, 53) && sinceJump.length > 0 && outOfScope.length === 0,
+    `jump, previous, next: ${sinceJump.length} requests, each /slices/<z>/ of z 52 or 51 or an artifact${outOfScope.length ? `; other: ${outOfScope.join(' ')}` : ''}`);
   const lines = gestures().slice(gestureMark);
   const seen = [...new Set(lines.flatMap((g) => g.requests.map((q) => q.endpoint)))].sort();
   check('E4m', lines.length === 3 && lines.every((g) => g.kind === 'slice' && g.requests.every((q) => PER_SLICE_ENDPOINTS.includes(q.endpoint))),
     `${lines.length} CMW_GESTURE lines, only per-slice endpoints: ${seen.join(', ')}`);
-  await press(r, 'FP - over-segmentation');
+  await pressId(r, 'class-FP');
   await tick(30);
-  check('E4i', paths().length === 2 && has(r, /FP - over-segmentation .*\(hidden\)/), 'a class can be isolated: FP hidden, named as hidden');
+  check('E4i', paths().length === 2 && has(r, /FP - over-segmentation .*\(hidden\)/) && chip('FP').props.accessibilityState.checked === false,
+    'a class can be isolated: FP hidden by its chip, named as hidden');
   await press(r, '3D error view');
   check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52 && pushes[0][1].view === 'error',
     `entry to the 3D error view with the slice: ${JSON.stringify(pushes[0] || null)}`);
 
   // #77 QA B-3, applied to SCR-04: a slice that fails shows nothing of the slice displayed before.
-  await press(r, 'Provenance (this slice)');
-  check('E4k', /^reference \S+ · prediction \S+$/.test(texts(r).find((x) => x.startsWith('reference ')) || '') && !has(r, /^reference - · prediction -$/),
-    `before: the mask ids under Provenance belong to the displayed slice (${texts(r).find((x) => x.startsWith('reference ')) || '-'})`);
+  const refLine = () => ctxLines(nav).find((x) => x.startsWith('reference ')) || '';
+  check('E4k', /^reference \S+ · prediction \S+$/.test(refLine()) && !/^reference - · prediction -$/.test(refLine()) && !has(r, /^reference /),
+    `before: the mask ids are in the Details sheet and belong to the displayed slice (${refLine() || '-'})`);
   evalBackend.setFailSlice(53);
-  await press(r, '▶');
+  await pressLabel(r, STEP.next);
   await tick(400);
-  const entry3d = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('3D error view'))[0];
-  check('E4k', has(r, /could not be reached/) && has(r, /^Legend - this slice \(-\)$/) && has(r, /^reference - · prediction -$/)
-    && has(r, /^Slice Dice: -$/) && paths().length === 0 && !has(r, /· \d+ px/),
+  const entry3d = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === '3D error view')[0];
+  check('E4k', has(r, /could not be reached/) && legendFor(r) === '-' && refLine() === 'reference - · prediction -'
+    && ctxHas(nav, /^Slice Dice: -$/) && paths().length === 0 && !has(r, /· \d+ px/) && !has(r, /^[A-Z]{2} \d+ px$/),
     'slice 54 fails: no classes, counts, ids or Dice from slice 53 stay on screen');
-  check('E4k', entry3d() && entry3d().props.disabled === true && textOf(entry3d()).includes('this slice did not load'),
+  check('E4k', entry3d() && entry3d().props.disabled === true && has(r, /^this slice did not load$/),
     'and the SCR-05 entry is disabled with the reason');
   evalBackend.setFailSlice(null);
   const before = evalBackend.requests.length;
@@ -789,23 +904,23 @@ function noRunBackend() {
   await layout(r); // the viewport was unmounted while the state panel showed; a new one lays out
   await tick(100);
   const retried = evalBackend.requests.slice(before).map((u) => u.replace('http://backend.invalid:8000', ''));
-  check('E4l', has(r, /^Legend - this slice \(z 53\)$/) && paths().length >= 1
+  check('E4l', legendFor(r) === 'Slice 54 / 88' && paths().length >= 1
     && retried.length > 0 && retried.every((u) => u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/')),
-    `Retry brings slice 54 back and asks only for it (${retried.length} requests; ${texts(r).find((t) => t.startsWith('Legend')) || '-'}; paths ${paths().length}${retried.some((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))) ? `; other: ${retried.filter((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))).join(' ')}` : ''})`);
+    `Retry brings slice 54 back and asks only for it (${retried.length} requests; legend ${legendFor(r)}; paths ${paths().length}${retried.some((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))) ? `; other: ${retried.filter((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))).join(' ')}` : ''})`);
 
   // #78 QA N-2, as SCR-03's L9: Retry forgot only the slice it retried, so the slice before it is still cached.
   const afterRetry = evalBackend.requests.length;
-  await press(r, '◀');
+  await pressLabel(r, STEP.prev);
   await tick(400);
   const stepBack = gestures().filter((g) => g.kind === 'slice').pop();
-  check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 53 \/ 88 {2}\(z = 52\)/)
+  check('E4n', evalBackend.requests.length === afterRetry && onSlice(r, 53)
     && stepBack && stepBack.to === 52 && stepBack.cache_hit === true,
     `back to z 52 after Retry: ${evalBackend.requests.length - afterRetry} requests of any kind, cache hit ${stepBack ? stepBack.cache_hit : '-'} (no clear-all)`);
   // #78 QA N-4: nor did it forget another slice's cached "unavailable" answer (z 51's metrics).
-  await press(r, '◀');
+  await pressLabel(r, STEP.prev);
   await tick(400);
-  check('E4n', evalBackend.requests.length === afterRetry && has(r, /slice 52 \/ 88 {2}\(z = 51\)/)
-    && has(r, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/),
+  check('E4n', evalBackend.requests.length === afterRetry && onSlice(r, 52)
+    && ctxHas(nav, /^Slice Dice: unavailable \(ARTIFACT_NOT_FOUND\)$/) && ctxHas(nav, /^Slice 52 \/ 88 · z 51$/),
     `on to z 51: ${evalBackend.requests.length - afterRetry} requests; its "unavailable" answer survived the Retry of z 53`);
   await act(async () => { r.unmount(); });
 
@@ -814,27 +929,27 @@ function noRunBackend() {
   const outside = fakeBackend({ selection: { ...SERVED_WORST, slices: [{ slice_index: 90, dice: 0.05, false_positives: 500, false_negatives: 600 }, ...SERVED_WORST.slices] } });
   r = await mount(liveRuntime(outside.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
   const row = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
-  const z90 = row('Worst · z 90 (slice 91)');
+  const z90 = row('WorstSlice 91 (not in this volume)');
   check('E4r', z90 && z90.props.disabled === true && textOf(z90).includes('outside this volume (z 0..87) - not opened')
-    && !has(r, /Jump to worst/) && has(r, /selection names slice 90, outside 0\.\.87/),
+    && !jump() && has(r, /selection names slice 90, outside 0\.\.87/),
     `z 90 listed, disabled and named: ${z90 ? textOf(z90) : '-'}`);
   const outMark = outside.requests.length;
-  await press(r, 'Worst · z 90');
+  await act(async () => { z90.props.onPress(); });
   await tick(400);
-  check('E4r', outside.requests.length === outMark && has(r, /slice 45 \/ 88 {2}\(z = 44\)/) && !has(r, /\(z = 87\)/),
-    `a tap on it opens nothing: ${outside.requests.length - outMark} requests, still on z 44 (no clamp to z 87)`);
-  await press(r, '#2 · z 52');
+  check('E4r', outside.requests.length === outMark && onSlice(r, 45) && !onSlice(r, 88),
+    `a tap on it opens nothing: ${outside.requests.length - outMark} requests, still on slice 45 (no clamp to the last slice)`);
+  await press(r, 'Slice 53 / 88 · Dice');
   await tick(400);
-  check('E4r', has(r, /slice 53 \/ 88 {2}\(z = 52\)/), 'the entries inside the volume still open their own slice');
+  check('E4r', onSlice(r, 53), 'the entries inside the volume still open their own slice');
   await act(async () => { r.unmount(); });
 
   // #78 QA B-2: a block of another selection version is not shown as DR-010's.
   const v2 = fakeBackend({ selection: { ...SERVED_WORST, selection_version: 'dr010-worst-slice/v2' } });
   r = await mount(liveRuntime(v2.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
   check('E4o', has(r, /^SELECTION_VERSION_UNSUPPORTED: the server sent selection_version "dr010-worst-slice\/v2"; this build shows only "dr010-worst-slice\/v1"\./)
-    && !has(r, /Jump to worst|^#\d · z/) && bars() === 0 && has(r, /^No profile: .*not one this build shows/),
+    && !jump() && !has(r, /^#\d$/) && bars() === 0 && has(r, /^No profile: .*not one this build shows/),
     'selection_version v2: unavailable, the reason and the served version named; nothing listed, jumpable or profiled');
-  check('E4o', has(r, /^Legend - this slice \(z 44\)$/) && paths().length === 3 && !has(r, /(Matches|Differs from) the server for this slice/),
+  check('E4o', legendFor(r) === 'Slice 45 / 88' && paths().length === 3 && !has(r, /(Matches|Differs from) the server for this slice/),
     'the slice is drawn, and not compared with a selection that is not shown');
   await act(async () => { r.unmount(); });
 
@@ -844,10 +959,10 @@ function noRunBackend() {
   r = await mount(liveRuntime(swapped.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'PROCESSED', sliceIndex: 44 });
   check('E4p', has(r, /Asked for PROCESSED, served RAW; a substituted variant is not shown\./) && has(r, /Cannot show this safely/),
     'run metrics for RAW under a PROCESSED request: the V1 model\'s variant-mismatch state, in its words');
-  check('E4p', !has(r, /Jump to worst|^#\d · z/) && bars() === 0 && !has(r, /Case metrics|Dice 0\.810|IoU 0\.680/)
+  check('E4p', !jump() && !has(r, /^#\d$/) && bars() === 0 && !has(r, /^Case metrics$|^0\.810$|^0\.680$/)
     && has(r, /^No profile without the run metrics/),
     'no worst-slice list, no profile, no case metrics');
-  check('E4p', has(r, /^Legend - this slice \(z 44\)$/) && paths().length === 3 && !has(r, /(Matches|Differs from) the server for this slice/)
+  check('E4p', legendFor(r) === 'Slice 45 / 88' && paths().length === 3 && !has(r, /(Matches|Differs from) the server for this slice/)
     && swapped.requests.some((u) => u.includes('/prediction?variant=PROCESSED')),
     'the PROCESSED slice is drawn, with no comparison against the RAW numbers');
   await act(async () => { r.unmount(); });
@@ -857,11 +972,11 @@ function noRunBackend() {
     { caseId: 'CASE_0043', runId: 'RUN_0043', variant, sliceIndex: 44 });
   r = await fixtureAt('PROCESSED');
   const refusals = texts(r).filter((t) => /Asked for PROCESSED, served RAW; a substituted variant is not shown\./.test(t)).length;
-  check('E4q', refusals === 2 && !has(r, /Jump to worst|^#\d · z/) && !has(r, /Case metrics/) && has(r, /^No profile without the run metrics/),
+  check('E4q', refusals === 2 && !jump() && !has(r, /^#\d$/) && !has(r, /^Case metrics$/) && has(r, /^No profile without the run metrics/),
     `fixture, PROCESSED: the slice AND the run metrics refuse RAW (${refusals} refusals); no list, case metrics or profile`);
   await act(async () => { r.unmount(); });
   r = await fixtureAt('RAW');
-  check('E4q', has(r, /Jump to worst · z 44 \(slice 45\)/) && has(r, /Dice 0\.500 · IoU 0\.250/) && !has(r, /Asked for/),
+  check('E4q', jump() && has(r, /^Slice 45 \/ 88 · Dice /) && has(r, /^0\.500$/) && has(r, /^0\.250$/) && !has(r, /Asked for/),
     'fixture, RAW: the generated DR-010 v1 block and the case metrics are shown');
   await act(async () => { r.unmount(); });
 
@@ -870,16 +985,15 @@ function noRunBackend() {
   // compared with the server's FP / FN for a mask they were not counted from.
   const otherMask = fakeBackend({ runMetricsPatch: { prediction_mask_id: 'PREDICTION_MASK_ID_OTHER' } });
   r = await mount(liveRuntime(otherMask.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
-  const drawnPred = texts(r).find((t) => t.startsWith('reference ')) || '-';
+  const drawnPred = refLine() || '-';
   check('E4s', has(r, /^The masks drawn are not the ones the server's numbers refer to: prediction drawn PREDICTION_MASK_ID_0043, run metrics name PREDICTION_MASK_ID_OTHER\. The drawn classes are not compared with the server's FP \/ FN\.$/)
     && !has(r, /reference drawn/),
     `the prediction mask id differs from the run metrics' and the screen says so (${drawnPred})`);
-  check('E4s', paths().length === 3 && has(r, /^Legend - this slice \(z 44\)$/) && !has(r, /(Matches|Differs from) the server for this slice/)
-    && has(r, /#2 · z 44/),
+  check('E4s', paths().length === 3 && legendFor(r) === 'Slice 45 / 88' && !has(r, /(Matches|Differs from) the server for this slice/)
+    && has(r, /^#2$/) && has(r, /^Slice 45 \/ 88 · Dice 0\.310/),
     'the classes are drawn and the worst slices listed, but no FP / FN comparison against the other mask\'s numbers');
   await act(async () => { r.unmount(); });
 }
-
 // ---- 7. useCall aborts when it is disabled (DR-021 rule 2, #77 QA N-8) ------
 // A call started while enabled is aborted the moment `enabled` turns false, and
 // its late answer never reaches the screen.
@@ -997,51 +1111,66 @@ function noRunBackend() {
   await tick(300);
   await layout(r);
   await tick(200);
-  await press(r, '+10');
+  await pressLabel(r, STEP.fwd10);
   await tick(350);
-  const runLine = () => texts(r).find((t) => t.startsWith('Run ')) || '-';
-  check('R1', has(r, /slice 55 \/ 88 {2}\(z = 54\)/) && /^Run RUN_B · UNet2D · /.test(runLine()) && has(r, /^Prediction \(PROCESSED\)/),
-    `SCR-03 before: ${runLine()} · PROCESSED · z 54`);
+  // What SCR-03 told the shell is read in the Details sheet behind Info (the run line, the layer and the z).
+  const info = async () => {
+    await act(async () => { byTestId(r, 'header-info').props.onPress(); });
+    const all = texts(r);
+    await closeSheet(r, 'details-sheet');
+    return all;
+  };
+  let sheet = await info();
+  const runLine = () => sheet.find((t) => t.startsWith('Run ')) || '-';
+  check('R1', onSlice(r, 55) && /^Run RUN_B · UNet2D · /.test(runLine()) && sheet.some((t) => /^Prediction \(PROCESSED\): /.test(t))
+    && sheet.includes('Slice 55 / 88 · z 54') && has(r, /^CASE_0061$/) && Boolean(byTestId(r, 'header-subtitle')),
+    `SCR-03 before: ${runLine()} · PROCESSED · z 54; two runs, so the subtitle is a run picker`);
   forgetSession();
-  await press(r, 'Error inspector (SCR-04)');
+  await pressId(r, 'header-more');
+  await press(r, 'Error inspector');
   await tick(300);
   await layout(r);
   await tick(250);
-  check('R2', onScreen(r, 'SCR-04') && has(r, /^Prediction PROCESSED vs ground truth · run RUN_B$/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
-    'SCR-04 opened on the same run, variant and slice');
+  check('R2', onScreen(r, 'SCR-04') && has(r, /^CASE_0061 · Processed vs ground truth$/) && onSlice(r, 55) && !has(r, /RUN_B/),
+    'SCR-04 opened on the same variant and slice; the run id is not on the screen');
+  sheet = await info();
+  check('R2', sheet.includes('Run RUN_B · prediction PROCESSED vs ground truth') && sheet.includes('Slice 55 / 88 · z 54'),
+    'its Details name the run and the z');
   const mark = backend.requests.length;
   await pressBack(r);
   await tick(300);
   await layout(r);
   await tick(250);
   const sent = backend.requests.slice(mark);
+  sheet = await info();
   check('R3', onScreen(r, 'SCR-03') && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
     && sent.every((u) => !u.includes('RUN_A')),
     `back on SCR-03: run RUN_B again, not asked for (${runLine()})`);
-  check('R3', has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 55 \/ 88 {2}\(z = 54\)/),
-    `variant PROCESSED and slice z 54 restored: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+  check('R3', sheet.some((t) => /^Prediction \(PROCESSED\): /.test(t)) && onSlice(r, 55),
+    `variant PROCESSED and slice z 54 restored: ${readout(r)}`);
 
   // #88 QA N-1: SCR-03's other entries carry the same returnParams. SCR-05's is held by V2R14 (the recorded push);
   // here the real navigator opens SCR-06 and Back must reopen what was on screen when it was pressed. The slice is
   // moved first: SCR-03's entry still holds the returnParams the SCR-04 trip above left in it (z 54), so a push that
   // forgot its own returnParams would bring back the OLD slice and only a moved slice can tell.
-  await press(r, '+10');
+  await pressLabel(r, STEP.fwd10);
   await tick(350);
-  check('R4', has(r, /slice 65 \/ 88 {2}\(z = 64\)/), `SCR-03 moved on to z 64 before the SCR-06 entry is pressed: ${texts(r).find((t) => t.startsWith('slice ')) || '-'}`);
+  check('R4', onSlice(r, 65), `SCR-03 moved on to z 64 before the SCR-06 entry is pressed: ${readout(r)}`);
   forgetSession();
-  await press(r, 'Review / correct (SCR-06)');
+  await pressId(r, 'header-more');
+  await press(r, 'Review and correct');
   await tick(300);
   check('R4', onScreen(r, 'SCR-06'), 'SCR-03 -> SCR-06 through the real navigator, from RUN_B / PROCESSED / z 64');
   await pressBack(r);
   await tick(300);
   await layout(r);
   await tick(250);
+  sheet = await info();
   check('R5', onScreen(r, 'SCR-03') && !has(r, /No default/) && /^Run RUN_B · UNet2D · /.test(runLine())
-    && has(r, /^Prediction \(PROCESSED\)/) && has(r, /slice 65 \/ 88 {2}\(z = 64\)/),
-  `back on SCR-03 from SCR-06: run RUN_B, variant PROCESSED, slice z 64, not the earlier z 54 (${runLine()} / ${texts(r).find((t) => t.startsWith('slice ')) || '-'})`);
+    && sheet.some((t) => /^Prediction \(PROCESSED\): /.test(t)) && onSlice(r, 65),
+  `back on SCR-03 from SCR-06: run RUN_B, variant PROCESSED, slice z 64, not the earlier z 54 (${runLine()} / ${readout(r)})`);
   await act(async () => { r.unmount(); });
 }
-
 // ---- 10. V4: SCR-06 Review / Correction and SCR-08 Findings (H8 / H9 at the screen) ----
 // A STATEFUL fake backend that answers like the real one does for the hero flow
 // (tools/e2e/hero_flow_api.py H8 / H9): review_create returns the existing review of
@@ -1817,7 +1946,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     const backend = fakeBackend();
     const runtime = liveRuntime(backend.fetchImpl);
     const recorded = [];
-    const nav = { push: (...a) => { recorded.push(a); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+    const nav = ctxNav({ push: (...a) => { recorded.push(a); return true; } });
     let r;
     await act(async () => {
       r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -1826,7 +1955,8 @@ function reviewBackend({ seedVersion = false } = {}) {
     await tick(300);
     await layout(r);
     await tick(200);
-    const three = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('3D (SCR-05)'))[0];
+    await openTools(nav);
+    const three = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith('3D view'))[0];
     check('V2R14', three && three.props.disabled === false, 'SCR-03: the 3D entry is enabled by a succeeded run that lists a reconstruction');
     await act(async () => { three.props.onPress(); });
     check('V2R14', recorded.length === 1 && recorded[0][0] === 'SCR-05'
@@ -1936,18 +2066,23 @@ function reviewBackend({ seedVersion = false } = {}) {
   await tick(300);
   await layout(r);
   await tick(250);
-  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'Case Explorer | CASE_0061 · run RUN_A · RAW | Live'
-    && Boolean(byTestId(r, 'header-back')), `SCR-03 header, with Back: ${headerTexts(r).join(' | ')}`);
-  check('H8', selectedTab(r) === 'Cases', `a pushed screen keeps the tab bar, its root tab selected: ${selectedTab(r)}`);
+  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'CASE_0061 | UNet2D · EXPERIMENT_ID_0043'
+    && Boolean(byTestId(r, 'header-back')) && Boolean(byTestId(r, 'header-action-privacy')) && Boolean(byTestId(r, 'header-more')),
+  `SCR-03 in the viewer chrome: the case and its model and experiment, Back, the privacy shield, Info and more: ${headerTexts(r).join(' | ')}`);
+  check('H8', tabBar(r).length === 0 && Boolean(byTestId(r, 'viewer-chrome')), 'the case viewer hides the tab bar (viewer chrome)');
   const cachedBefore = live.imageStore.stats().cached;
   const mark = backend.requests.length;
   await act(async () => { infoButton().props.onPress(); });
+  check('A4', ['This slice', 'Run', 'Case and layers', 'Privacy', 'This screen'].every((t) => has(r, new RegExp(`^${t}$`)))
+    && has(r, /^Slice 45 \/ 88 · z 44$/) && has(r, /^MRI \S+ · sha256:[0-9a-f]{64}$/) && has(r, /^Run RUN_A · UNet2D · /)
+    && has(r, /^Screen SCR-03 \(V1\)$/),
+  'Info on the viewer: the slice (z, ids, checksums), the run, the layers and privacy, then the shell\'s own lines');
   await press(r, 'Clear cached images');
   await tick(300);
   await layout(r);
   await tick(250);
   check('H6', cachedBefore > 0 && has(r, /^Cleared \d+ images?, \d+ masks? and \d+ cached answers? from the app's memory/)
-    && backend.requests.slice(mark).some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')) && has(r, /slice 45 \/ 88/),
+    && backend.requests.slice(mark).some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')) && onSlice(r, 45),
   `cleared ${cachedBefore} image(s); the slice on screen was fetched again (${backend.requests.length - mark} requests)`);
   await act(async () => { r.unmount(); });
 
@@ -2020,7 +2155,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   };
   const runtime = liveRuntime(fetchImpl);
   const pushed = [];
-  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: false };
+  const nav = ctxNav({ push: (id, p) => { pushed.push([id, p]); return true; }, canGoBack: false });
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -2029,29 +2164,40 @@ function reviewBackend({ seedVersion = false } = {}) {
   await tick(200);
   const rowOrder = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d+, /.test(n.props.accessibilityLabel || ''))
     .map((n) => n.props.accessibilityLabel.split(',')[0]);
-  check('W1', has(r, /^Choose an experiment to see each case's Dice\.$/) && !has(r, /^Dice \d/) && rowOrder().join() === ids.join()
+  const values = () => texts(r).filter((t) => /^\d\.\d{3}$/.test(t));
+  const tabText = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label) && n.props.accessibilityState
+    && 'selected' in n.props.accessibilityState).map(textOf)[0];
+  check('W0', tabText('All') === 'All7' && tabText('Evaluation') === 'Evaluation6' && tabText('Inference & review') === 'Inference & review1'
+    && has(r, /^CASE$|^Case$/) && r.root.findAll((n) => n.type === 'TextInput')[0].props.placeholder === 'Search case ID'
+    && !has(r, /cases? on this page/) && ctxHas(nav, /^7 cases on this page · 6 evaluation · 1 inference & review$/),
+  'SCR-02 in Direction A: search, filter tabs with counts, the column heading; the page summary is in Details');
+  check('W1', has(r, /^Choose an experiment to see each case's Dice\.$/) && values().length === 0 && rowOrder().join() === ids.join()
     && !requests.some((u) => u.includes('/experiments/EXP')), 'no experiment chosen: server order, no Dice, no per-case request');
-  await press(r, 'EXP_DEMO');
-  await tick(200);
-  check('W2', has(r, /^Dice 0\.900$/) && has(r, /^Dice 0\.400$/) && has(r, /^no GT$/) && has(r, /^run failed$/) && has(r, /^not in EXP_DEMO$/)
-    && !has(r, /^Dice 0(\.0+)?$/), 'EXP_DEMO: the server\'s Dice per case; no GT, failed and not-in-experiment in words, never 0');
-  check('W2', has(r, /^outlier 1\/3$/) && has(r, /^outlier 3\/3$/) && has(r, /from the server, metric metric_version_fixture/),
-    'the server\'s own outlier pick is marked, and the note names the metric version');
+  const pick = async (label) => {
+    await pressId(r, 'dice-of');
+    await press(r, label);
+    await tick(200);
+  };
+  await pick('EXP_DEMO');
+  check('W2', values().includes('0.900') && values().includes('0.400') && has(r, /^No GT$/) && has(r, /^Run failed$/) && has(r, /^Not in EXP_DEMO$/)
+    && !has(r, /^0(\.0+)?$/) && has(r, /^Dice of$/), 'EXP_DEMO: the server\'s Dice per case; No GT, Run failed and Not in the experiment in words, never 0');
+  check('W2', has(r, /^Outlier 1\/3$/) && has(r, /^Outlier 3\/3$/) && ctxHas(nav, /from the server, metric metric_version_fixture/)
+    && has(r, /^EXP_DEMO · Raw$/) && marks(r, 'Path').length === 0,
+  'the server\'s own outlier pick is tagged; the picker names the experiment; how the Dice is read is in Details');
   await press(r, 'Worst first');
   await tick(60);
-  check('W3', rowOrder().join() === 'CASE_0005,CASE_0003,CASE_0004,CASE_0002,CASE_0001,CASE_0006,CASE_0007' && has(r, /Sorted on this phone: lowest Dice first/),
-    `worst first: ${rowOrder().join(', ')} - the first three are the server's outliers 1, 2, 3; no-value rows follow in server order`);
+  check('W3', rowOrder().join() === 'CASE_0005,CASE_0003,CASE_0004,CASE_0002,CASE_0001,CASE_0006,CASE_0007'
+    && ctxHas(nav, /Worst first is sorted on this phone: lowest Dice first/) && has(r, /^No Dice for this experiment$/),
+  `worst first: ${rowOrder().join(', ')} - the first three are the server's outliers 1, 2, 3; no-value rows follow under their own heading`);
   await press(r, 'CASE_0005');
   check('W3', pushed.length === 1 && JSON.stringify(pushed[0]) === JSON.stringify(['SCR-03', { caseId: 'CASE_0005', runId: 'RUN_0005', variant: 'RAW' }]),
     `a row opens SCR-03 on the experiment's run and variant: ${JSON.stringify(pushed[0] || null)}`);
-  await press(r, 'EXP-D-PP');
-  await tick(200);
-  check('W4', has(r, /^Asked for EXP-D-PP \(PROCESSED\); the server answered with RAW values, so no Dice is shown\.$/) && !has(r, /^Dice 0\./)
-    && rowOrder().join() === ids.join(), 'EXP-D-PP answered with RAW values: no Dice shown, and nothing sorted by them');
+  await pick('EXP-D-PP');
+  check('W4', has(r, /^Asked for EXP-D-PP \(PROCESSED\); the server answered with RAW values, so no Dice is shown\.$/) && values().length === 0
+    && rowOrder().join() === ids.join() && !has(r, /^No Dice for this experiment$/), 'EXP-D-PP answered with RAW values: no Dice shown, and nothing sorted by them');
   await act(async () => { r.unmount(); });
   forgetWorklist();
 }
-
 console.log = origLog;
 console.error = origError;
 const appErrors = errors.filter((e) => !/act\(/.test(e) && !/react-test-renderer is deprecated/.test(e));
