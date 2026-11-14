@@ -9,6 +9,9 @@ import { TONE } from '../../components/stateCopy.mjs';
 
 export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV2]: 'DINOv2' });
 
+// The outlier rule in the words the screens use. OUTLIER_RULE keeps the contract's rule id for the code.
+export const OUTLIER_LABEL = `${OUTLIER_RULE.cardinality} lowest-Dice cases`;
+
 // Statistics the user may pick from the server's summary. No default: the contract names none yet.
 export const STAT_CHOICES = Object.freeze(['median', 'mean']);
 
@@ -27,12 +30,12 @@ const REASON = Object.freeze({
   CASES_NOT_REQUESTED: 'per-case rows not requested',
   CASES_NOT_LOADED: 'per-case rows did not load',
   NO_EXPERIMENTS_LISTED: 'the server lists no experiment yet',
-  OUTLIERS_NOT_RETURNED: 'the server returned no DR-010 outlier selection',
+  OUTLIERS_NOT_RETURNED: 'the server returned no lowest-Dice selection',
   OUTLIERS_UNREADABLE: 'the outlier selection is not in a readable form - not shown',
-  OUTLIERS_UNDER_ANOTHER_RULE: 'the selection cites another rule than DR-010 - not shown',
-  OUTLIERS_UNDER_ANOTHER_VERSION: 'the selection was made under another DR-010 selection version - not shown',
-  OUTLIERS_FOR_ANOTHER_METRIC: 'the selection ranks another metric than DR-010 pins - not shown',
-  OUTLIERS_OVER_CARDINALITY: 'the selection lists more cases than DR-010 selects - not shown',
+  OUTLIERS_UNDER_ANOTHER_RULE: 'the selection follows another rule than the lowest-Dice rule - not shown',
+  OUTLIERS_UNDER_ANOTHER_VERSION: 'the selection was made under another version of the lowest-Dice rule - not shown',
+  OUTLIERS_FOR_ANOTHER_METRIC: 'the selection ranks another metric than Dice - not shown',
+  OUTLIERS_OVER_CARDINALITY: `the selection lists more than ${OUTLIER_RULE.cardinality} cases - not shown`,
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'the selection does not name its experiment and variant - not shown',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'the selection belongs to another experiment - not shown',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'the selection was made for another variant - not shown',
@@ -238,7 +241,7 @@ export function outlierView(o) {
   }
   return Object.freeze({
     available: true,
-    text: `${OUTLIER_RULE.id} outliers for ${o.experimentId} (${o.variant.declared}), in the order the server sent`
+    text: `the ${OUTLIER_LABEL} of ${o.experimentId} (${o.variant.declared}), in the order the server sent`
       + `${o.ruleCited ? '' : ' - the server did not cite the rule'}`,
     rule: OUTLIER_RULE.text,
     rows: Object.freeze(o.cases.map((c) => Object.freeze({
@@ -273,7 +276,7 @@ export function overviewView(snap) {
 
   const notes = [];
   if (exp && exp.unreadableRows) notes.push(`${exp.unreadableRows} listed row(s) carry no experiment_id - not shown`);
-  if (exp && exp.outsideMatrix.length) notes.push(`also listed, outside the 08 §2 matrix: ${exp.outsideMatrix.join(', ')}`);
+  if (exp && exp.outsideMatrix.length) notes.push(`also listed, outside the experiment matrix: ${exp.outsideMatrix.join(', ')}`);
   if (exp && exp.population) {
     notes.push(exp.population.available ? `evaluation population: ${exp.population.label}` : 'evaluation population unavailable');
   }
@@ -324,7 +327,7 @@ export function overviewView(snap) {
     headline: Object.freeze(snap.headline.map(comparisonRow)),
     outliers: Object.freeze({
       rule: OUTLIER_RULE.text,
-      text: outlierGroups.length ? null : 'no listed experiment, so no DR-010 selection to show',
+      text: outlierGroups.length ? null : 'no listed experiment, so no lowest-Dice selection to show',
       groups: Object.freeze(outlierGroups),
     }),
     findings: findingsView(snap.findings),
@@ -341,7 +344,7 @@ function rowStatusText(row) {
     case 'PLOTTED': return 'plotted';
     case 'FAILED': return 'failed';
     case 'EXCLUDED': return 'excluded';
-    case 'WITHHELD': return 'withheld - inference-review case, no value (INT-12)';
+    case 'WITHHELD': return 'withheld - inference-review case, no value';
     case 'VALUE_NOT_RETURNED': return 'succeeded, value not returned';
     case 'NO_METRIC_SELECTED': return row.status === 'SUCCEEDED' ? 'succeeded - pick a metric' : String(row.status);
     case 'NO_CASE_ID': return 'no case id';
@@ -429,9 +432,9 @@ export function comparisonView(snap, { stat = null, selectedCellId = null } = {}
   return Object.freeze({
     modeText: snap.mode === 'EXPLICIT'
       ? `Comparing ${snap.requested.join(' · ') || 'nothing'} (opened with explicit ids)`
-      : `The 08 §2 matrix, filled from the server's experiment list`,
+      : `The experiment matrix, filled from the server's experiment list`,
     listText,
-    outsideMatrixText: snap.outsideMatrix.length ? `outside the 08 §2 matrix, not drawn: ${snap.outsideMatrix.join(', ')}` : null,
+    outsideMatrixText: snap.outsideMatrix.length ? `outside the experiment matrix, not drawn: ${snap.outsideMatrix.join(', ')}` : null,
     metric: Object.freeze({
       selected: snap.metricName,
       choices: snap.metricNames,
@@ -455,7 +458,7 @@ export function pointDetail(point, metricName) {
   if (!point) return null;
   return Object.freeze({
     text: `${point.caseId} · ${metricName || 'metric'} ${fmt(point.value)} · ${point.column}`
-      + `${point.outlier ? ' · DR-010 outlier (server)' : ''}`,
+      + `${point.outlier ? ` · one of the ${OUTLIER_LABEL} (server)` : ''}`,
     route: routeForIntent(point.intent),
   });
 }

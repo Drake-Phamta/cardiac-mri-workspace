@@ -11,7 +11,7 @@ import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { StripChart, Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
-import { comparisonView, pointDetail } from './view.mjs';
+import { comparisonView, OUTLIER_LABEL, pointDetail } from './view.mjs';
 
 export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   const ids = params && Array.isArray(params.experimentIds) ? params.experimentIds : null;
@@ -112,7 +112,7 @@ function Comparison({ v, metricName, columns, point, onPoint, onMetric, stat, on
                 {cell.summaryText ? <Text style={s.text}>{cell.summaryText}</Text> : null}
                 {cell.contextText ? <Text style={s.small}>{cell.contextText}</Text> : null}
                 {cell.contextMissing.length > 0 ? (
-                  <Text style={[s.small, { color: TONE_COLOR[TONE.WARN] }]}>{`missing for D2: ${cell.contextMissing.join(', ')}`}</Text>
+                  <Text style={[s.small, { color: TONE_COLOR[TONE.WARN] }]}>{`context missing: ${cell.contextMissing.join(', ')}`}</Text>
                 ) : null}
                 {cell.labels.map((l) => <Text key={l} style={s.small}>{l}</Text>)}
                 {cell.warnings.slice(0, 2).map((w) => (
@@ -131,7 +131,7 @@ function Comparison({ v, metricName, columns, point, onPoint, onMetric, stat, on
           onSelect={onPoint}
           label={`strip plot, one dot per successfully evaluated case${metricName ? `, ${metricName}` : ''}`}
         />
-        <Line dim small>One dot per successfully evaluated case. A ring marks the server's DR-010 outliers. Tap a dot to see its case.</Line>
+        <Line dim small>{`One dot per successfully evaluated case. A ring marks the server's ${OUTLIER_LABEL}. Tap a dot to see its case.`}</Line>
         {v.stripNotes.map((n) => <Line key={n} dim small>{n}</Line>)}
         {detail ? (
           <View style={s.detail}>
@@ -153,7 +153,7 @@ function Comparison({ v, metricName, columns, point, onPoint, onMetric, stat, on
         ))}
       </Card>
 
-      <Card title="Data-scarcity trend (RQ-A)" testID="scr07-trend">
+      <Card title="Trend over 25 → 50 → 100 % data" testID="scr07-trend">
         <Line dim small>{v.trendText}</Line>
         {v.trend.map((t) => (
           <View key={t.family} style={s.comparison}>

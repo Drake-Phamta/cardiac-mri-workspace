@@ -97,7 +97,7 @@ function Overview({ v, go, blocked }) {
         ))}
       </Card>
 
-      <Card title="Outliers (DR-010)" testID="scr01-outliers">
+      <Card title="Lowest-Dice cases" testID="scr01-outliers">
         <Line dim small>{v.outliers.rule}</Line>
         <Line>{v.outliers.text}</Line>
         {v.outliers.groups.map((g) => (

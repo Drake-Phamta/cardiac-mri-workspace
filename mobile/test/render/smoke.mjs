@@ -550,7 +550,7 @@ function noRunBackend() {
   await tick(60);
   check('V3R1', onScreen(r, 'SCR-01') && has(r, /^FIXTURE$/), 'SCR-01 renders under the FIXTURE badge');
   check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^1 of 7 matrix experiments listed by the server$/)
-    && has(r, /^Outliers \(DR-010\)$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
+    && has(r, /^Lowest-Dice cases$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
   await press(r, 'Open the comparison (SCR-07)');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^FIXTURE$/), 'SCR-07 opened from SCR-01, under the FIXTURE badge');

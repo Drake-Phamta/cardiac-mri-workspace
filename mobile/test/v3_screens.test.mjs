@@ -53,7 +53,7 @@ test('V3S1 SCR-01 on the generated bundle: study, cases, experiments, outliers a
   assert.equal(v.study.summaryText, 'experiment summary UNAVAILABLE: FIXTURE');
 
   assert.equal(v.experiments.text, '1 of 7 matrix experiments listed by the server');
-  assert.ok(v.experiments.notes.some((n) => /outside the 08 §2 matrix: EXP_DEMO/.test(n)), v.experiments.notes.join(' | '));
+  assert.ok(v.experiments.notes.some((n) => /outside the experiment matrix: EXP_DEMO/.test(n)), v.experiments.notes.join(' | '));
   assert.deepEqual(v.experiments.rows.map((r) => [r.label, r.cells.length]), [['UNet', 3], ['DINOv2', 4]]);
   for (const row of v.experiments.rows) {
     for (const cell of row.cells) {
@@ -313,7 +313,7 @@ test('V3S8 a tapped strip point names its case and opens SCR-03 with case, run a
   const p = layout.columns[0].points[0];
   const hit = pointAt(layout, p.x + 1, p.y + 1);
   const d = pointDetail(hit, 'dice');
-  assert.equal(d.text, 'CASE_0101 · dice 0.910 · EXP-D-050 · DR-010 outlier (server)');
+  assert.equal(d.text, 'CASE_0101 · dice 0.910 · EXP-D-050 · one of the 3 lowest-Dice cases (server)');
   assertNavigable(d.route);
   assert.deepEqual({ ...d.route.params }, { caseId: 'CASE_0101', runId: 'RUN_0101', variant: 'RAW', experimentId: 'EXP-D-050' });
   assert.equal(pointDetail(null, 'dice'), null);
@@ -348,7 +348,7 @@ test('V3S10 the #61 QA refusals reach the screen as words: pinned DR-010, inelig
   // B-2: DR-010 is pinned to the contract's selection version.
   const v0 = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, { selection: { selection_version: 'dr010-outlier/v0' } }).outliers);
   assert.equal(v0.available, false);
-  assert.equal(v0.text, 'the selection was made under another DR-010 selection version - not shown (server sent "dr010-outlier/v0")');
+  assert.equal(v0.text, 'the selection was made under another version of the lowest-Dice rule - not shown (server sent "dr010-outlier/v0")');
   // B-4: a selection that names the FAILED case is refused whole, and the case is named.
   const failedPick = outlierView(typedCell(matrixEntry('EXP-U-025'), 0.8, {
     selection: { cases: [{ case_id: 'CASE_0102', analysis_run_id: 'RUN_0102', metric_value: 0.12, false_positives: 9, false_negatives: 9 }] },
