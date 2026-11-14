@@ -258,4 +258,5 @@ The output is intentionally ignored by Git. Values in the bundle are synthetic
 placeholders (`data_policy`), typed by `domain_enums`/`field_shapes`; they are
 never measurements. Notable scenarios: `empty` on every list endpoint, `case_get.inference_review`,
 `analysis_run_metrics.{ground_truth_unavailable,no_eligible_slices}`,
-`review_patch.{stale_revision,invalid_transition}`.
+`review_patch.{stale_revision,invalid_transition}`, `experiment_list.full_matrix` and
+`experiment_compare.comparable` (a COMPARABLE answer that covers every RAW matrix experiment).

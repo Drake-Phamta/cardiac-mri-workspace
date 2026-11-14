@@ -165,6 +165,15 @@ def main() -> None:
     compare_page = scenarios["experiment_compare"]["default"]["response"]["data"]
     assert compare_page["common_evaluation_population"] == sorted(counted)
     assert all(all(stats["n"] == 5 for stats in per.values()) for per in compare_page["summary"].values())
+    # The full matrix and a COMPARABLE body whose summary covers every RAW matrix experiment, so a client can
+    # show a UNet vs DINOv2 pair without a live UNet run.
+    full = scenarios["experiment_list"]["full_matrix"]["response"]["data"]["items"]
+    assert [(row["experiment_id"], row["prediction_variant"]) for row in full][-1] == ("EXP-D-PP", "PROCESSED")
+    assert len(full) == 7 and all(row["prediction_variant"] == "RAW" for row in full[:6])
+    comparable = scenarios["experiment_compare"]["comparable"]["response"]["data"]
+    assert comparable["comparable"] is True and comparable["prediction_variant"] == "RAW"
+    assert set(comparable["summary"]) == {row["experiment_id"] for row in full[:6]}
+    assert comparable["common_evaluation_population"] == compare_page["common_evaluation_population"]
     with_failure = scenarios["experiment_metrics"]["with_failure"]["response"]["data"]
     assert (with_failure["evaluation_n"], with_failure["successful_n"]) == (6, 5)
     assert with_failure["evaluation_n"] == len(failure_page["items"])

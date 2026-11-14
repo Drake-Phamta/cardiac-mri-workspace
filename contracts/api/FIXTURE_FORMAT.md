@@ -84,7 +84,8 @@ the app only ever sees the JSON.
 | `review_patch` | `invalid_transition` |
 | `analysis_run_get` | `run_running`, `run_failed` |
 | `reconstruction_get` | `geometry_mismatch` |
-| `experiment_compare` | `not_comparable` |
+| `experiment_compare` | `not_comparable`; `comparable` (summary for every RAW matrix experiment) |
+| `experiment_list` | `full_matrix` (the seven experiments of 08 §2) |
 
 ## Where it goes
 

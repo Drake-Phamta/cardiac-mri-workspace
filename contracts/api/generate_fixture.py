@@ -75,6 +75,14 @@ def metric_summary(contract: dict, n: int) -> dict:
 EVALUATED_CASE_IDS = ["CASE_0002", "CASE_0003", "CASE_0004", "CASE_0005", "CASE_0001"]
 FAILED_CASE_ID = "CASE_0006"  # only in the `with_failure` scenarios
 
+# The minimum experiment matrix of 08 section 2 and the variant each one is defined on. Only the
+# `full_matrix` and `comparable` scenarios use it.
+MATRIX_EXPERIMENTS = [
+    ("EXP-U-025", "RAW"), ("EXP-U-050", "RAW"), ("EXP-U-100", "RAW"),
+    ("EXP-D-025", "RAW"), ("EXP-D-050", "RAW"), ("EXP-D-100", "RAW"),
+    ("EXP-D-PP", "PROCESSED"),
+]
+
 
 def experiment_case_rows(with_failure: bool = False) -> list:
     """Per-case rows, values only on SUCCEEDED rows.
@@ -367,10 +375,26 @@ def generate_fixture(contract: dict) -> dict:
                 "request": request,
                 "response": error_response("GEOMETRY_MISMATCH", errors_by_code),
             }
+        if endpoint_id == "experiment_list":
+            # Every matrix experiment listed, so a client meets the comparisons that need both families.
+            data = dict(default_data, items=[{"experiment_id": experiment_id, "prediction_variant": variant}
+                                             for experiment_id, variant in MATRIX_EXPERIMENTS])
+            endpoint_scenarios["full_matrix"] = {
+                "request": request, "response": {"status": 200, "data": data},
+            }
         if endpoint_id == "experiment_compare":
             endpoint_scenarios["not_comparable"] = {
                 "request": request,
                 "response": error_response("NON_COMPARABLE_EXPERIMENTS", errors_by_code),
+            }
+            # The fixture answers one body whatever ids are asked, so this COMPARABLE body summarises every RAW
+            # matrix experiment: each RAW pair finds a summary for both of its ids.
+            raw_ids = [experiment_id for experiment_id, variant in MATRIX_EXPERIMENTS if variant == "RAW"]
+            data = dict(default_data, summary={experiment_id: metric_summary(contract, len(EVALUATED_CASE_IDS))
+                                               for experiment_id in raw_ids})
+            endpoint_scenarios["comparable"] = {
+                "request": {"params": {"experiment_ids": raw_ids}, "body": None},
+                "response": {"status": 200, "data": data},
             }
         scenarios[endpoint_id] = endpoint_scenarios
 
