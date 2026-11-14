@@ -54,45 +54,51 @@ export function capabilityOf(mode, groundTruthAvailable) {
   });
 }
 
+// `11` section 6 forbids a silent variant substitution, so these are the only
+// accepted values and nothing in the app defaults one. They are the
+// variants prediction_slice_get serves. `10` section 3's "reviewed" is not one:
+// a reviewed mask is its own artifact (reviewed_mask_slice_get) and its own
+// layer, LAYER.REVIEWED_MASK, so asking prediction_slice_get for it is refused.
+export const PREDICTION_VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
+
 /*
- * case_list `data` -> rows the screen can draw. Rows without a case_id are
- * listed separately as invalid: they cannot be opened, and inventing an id
- * would be a screen choosing its subject.
+ * The prediction variants a user may choose, from the contract when it
+ * declares them (v1.0 domain_enums.prediction_variant = RAW, PROCESSED), so
+ * the screen never offers a value the server must refuse. Order is the
+ * contract's. There is NO default: the screen asks.
  */
-export function readCaseRows(data) {
-  const items = data && Array.isArray(data.items) ? data.items : [];
-  const rows = [];
-  const invalid = [];
-  items.forEach((item, i) => {
-    const caseId = item && typeof item.case_id === 'string' && item.case_id.trim() !== '' ? item.case_id : null;
-    if (!caseId) {
-      invalid.push(Object.freeze({ position: i + 1, reason: 'row has no case_id' }));
-      return;
-    }
-    rows.push(Object.freeze({
-      caseId,
-      // Contract 1.1.0 names the row field `mode_capability` (the top-level
-      // `mode` echoes the list filter); 1.0.0 called it `mode`. Read the
-      // newer name first - neither is ever inferred from the other field.
-      capability: capabilityOf(item.mode_capability ?? item.mode, item.ground_truth_available),
-    }));
-  });
-  const counts = { total: rows.length, EVALUATION: 0, INFERENCE_REVIEW: 0, UNKNOWN: 0 };
-  for (const r of rows) counts[r.capability.key] += 1;
-  return Object.freeze({
-    rows: Object.freeze(rows),
-    invalid: Object.freeze(invalid),
-    counts: Object.freeze(counts),
-    // A next page exists on the server. The contract's case_list path has no
-    // page parameter app/core can fill, so this build says so instead of
-    // pretending the first page is the whole study.
-    hasMore: data ? (data.next_page !== null && data.next_page !== undefined) : false,
-  });
+export function variantOptions(contract) {
+  const raw = contract && contract.raw ? contract.raw : contract;
+  const declared = raw && raw.domain_enums && Array.isArray(raw.domain_enums.prediction_variant)
+    ? raw.domain_enums.prediction_variant : null;
+  return Object.freeze((declared || ['RAW', 'PROCESSED']).filter((v) => v === 'RAW' || v === 'PROCESSED'));
 }
 
-// Search by id substring and filter by mode. Server order is kept.
-export function filterRows(rows, { query = '', mode = 'ALL' } = {}) {
-  const q = String(query).trim().toLowerCase();
-  return rows.filter((r) => (mode === 'ALL' || r.capability.key === mode)
-    && (q === '' || r.caseId.toLowerCase().includes(q)));
+export const VARIANT_TEXT = Object.freeze({
+  RAW: 'RAW - the network output, before post-processing',
+  PROCESSED: 'PROCESSED - after the frozen post-processing step',
+});
+
+/*
+ * What the user chose earlier in this app session, and nothing else.
+ *
+ * The prediction variant is never defaulted (`11` §6, V1 model). The first
+ * case asks; after that the user's own last choice is pre-selected for the
+ * next case and SHOWN as such ("chosen earlier this session") - a remembered
+ * explicit choice, visible on screen, not a value the app picked.
+ * Memory only: a restart asks again.
+ */
+
+const state = { variant: null };
+
+export function rememberedVariant() {
+  return state.variant;
+}
+
+export function rememberVariant(variant) {
+  if (variant === 'RAW' || variant === 'PROCESSED') state.variant = variant;
+}
+
+export function forgetSession() {
+  state.variant = null;
 }

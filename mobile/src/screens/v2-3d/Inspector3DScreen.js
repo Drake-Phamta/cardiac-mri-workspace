@@ -32,9 +32,7 @@ import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
-import { capabilityOf } from '../../lib/caseMode.mjs';
-import { variantOptions } from '../v1-cases/explorer.mjs';
-import { rememberedVariant, rememberVariant } from '../../lib/session.mjs';
+import { capabilityOf, variantOptions, rememberedVariant, rememberVariant } from '../../lib/caseMode.mjs';
 import {
   gridMatches, LAYER, LAYER_COLOR, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
   ROLE_LABEL, ROLES, screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,

@@ -8,13 +8,11 @@ import { join } from 'node:path';
 
 import { STATE } from '../src/api/states.mjs';
 import { createBundle, createClient, createFixtureTransport } from '../src/api/client.mjs';
-import { createCaseExplorer, LAYER } from '../src/screens/v1-cases/cases.mjs';
-import { createMaskStore, createSliceCache } from '../src/api/cache.mjs';
-import { CAPABILITY, capabilityOf, filterRows, readCaseRows } from '../src/lib/caseMode.mjs';
 import {
-  buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex,
-  scrubPosition, sliceLabel, variantOptions,
-} from '../src/screens/v1-cases/explorer.mjs';
+  createCaseExplorer, LAYER, filterRows, readCaseRows, buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex, scrubPosition, sliceLabel,
+} from '../src/screens/v1-cases/cases.mjs';
+import { createMaskStore, createSliceCache } from '../src/api/cache.mjs';
+import { CAPABILITY, capabilityOf, variantOptions } from '../src/lib/caseMode.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
 import { generatedBundleJson, loadContract, MOBILE_ROOT } from './_helpers.mjs';
 

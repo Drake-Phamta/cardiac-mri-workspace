@@ -7,7 +7,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readSelection, worstSlice, UNAVAILABLE_REASON, RULE_ID } from '../src/screens/v1-cases/selection.mjs';
+import { readSelection, worstSlice, UNAVAILABLE_REASON, RULE_ID } from '../src/screens/v1-cases/errorInspector.mjs';
 import { readComparability, presentation, VERDICT } from '../src/screens/v3-study/comparability.mjs';
 import { createContract } from '../src/api/contract.mjs';
 import { createChecker, HERE, loadContractJson } from './_harness.mjs';
@@ -20,9 +20,9 @@ const { check, done } = createChecker();
 // returns the selection; the client never re-derives it". Two clients ranking
 // independently is two answers to the same clinical question.
 {
-  const src = readFileSync(join(HERE, '..', 'src', 'screens', 'v1-cases', 'selection.mjs'), 'utf8');
+  const src = readFileSync(join(HERE, '..', 'src', 'screens', 'v1-cases', 'errorInspector.mjs'), 'utf8');
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  check('P1', !code.includes('.sort('), 'selection.mjs contains no .sort( outside comments');
+  check('P1', !code.includes('.sort('), 'errorInspector.mjs (the worst-slice reader) contains no .sort( outside comments');
   check('P1', RULE_ID === 'DR-010', `the frozen rule is cited as ${RULE_ID}`);
 }
 

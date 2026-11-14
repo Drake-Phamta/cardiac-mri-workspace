@@ -4,7 +4,7 @@
 // COLLIDES shows a reviewer the wrong mask under the right case id. Every
 // check here is about the second kind.
 
-import { sliceCacheKey, cacheKeyFromResponse } from '../src/screens/v1-cases/cacheKey.mjs';
+import { sliceCacheKey, cacheKeyFromResponse } from '../src/screens/v1-cases/cases.mjs';
 import { createChecker, throwsCode } from './_harness.mjs';
 
 const { check, done } = createChecker();

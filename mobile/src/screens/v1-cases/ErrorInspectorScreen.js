@@ -41,21 +41,18 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import Svg, { Rect } from 'react-native-svg';
 
 import { emptyUnavailable, RECOVERY, STATE } from '../../api/states.mjs';
-import { createCaseExplorer } from './cases.mjs';
+import { createCaseExplorer, metricsText, createSerialRunner } from './cases.mjs';
 import { disagreementRuns, runsToPath } from '../../lib/mask.mjs';
 import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
-import SliceScrubber from './SliceScrubber';
-import SliceViewport from './SliceView';
+import SliceViewport, { SliceScrubber } from './SliceView';
 import { capabilityOf } from '../../lib/caseMode.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
   profileIndexAt, profileNote, runLevel, selectionNote, worstLabel,
 } from './errorInspector.mjs';
-import { metricsText } from './explorer.mjs';
-import { createSerialRunner } from './serialRunner.mjs';
 
 const short = (s) => (typeof s === 'string' && s.length > 26 ? `${s.slice(0, 25)}…` : (s ?? '-'));
 

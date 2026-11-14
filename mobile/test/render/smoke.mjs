@@ -871,7 +871,7 @@ function noRunBackend() {
 // a slice that is not the middle one) -> SCR-04 -> Back. The session's remembered
 // variant is forgotten on the way, so only SCR-03's stack entry can bring it back.
 {
-  const { forgetSession } = await imp('src/lib/session.mjs');
+  const { forgetSession } = await imp('src/lib/caseMode.mjs');
   forgetSession();
   const backend = fakeBackend({ runIds: ['RUN_A', 'RUN_B'] });
   const runtime = liveRuntime(backend.fetchImpl);
@@ -1678,7 +1678,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
   // 10g. no variant given: the screen asks, there is no default (same rule as SCR-03)
   {
-    const { forgetSession } = await imp('src/lib/session.mjs');
+    const { forgetSession } = await imp('src/lib/caseMode.mjs');
     forgetSession();
     const backend = meshBackend();
     const { r } = await mount(backend, { caseId: 'CASE_0061', runId: 'RUN_A' });

@@ -5,14 +5,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { loading, success, STATE } from '../src/api/states.mjs';
-import { readSelection } from '../src/screens/v1-cases/selection.mjs';
+import {
+  readSelection, CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel, runMetricsView, selectionNote, topEntries, worstLabel,
+} from '../src/screens/v1-cases/errorInspector.mjs';
 import { variantMismatch } from '../src/screens/v1-cases/cases.mjs';
 import { disagreementRuns } from '../src/lib/mask.mjs';
-import {
-  CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote,
-  pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel,
-  runMetricsView, selectionNote, topEntries, worstLabel,
-} from '../src/screens/v1-cases/errorInspector.mjs';
 import { loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
 // The block exactly as contract v1.0 shapes it (selection_rules.worst_slice_selection),

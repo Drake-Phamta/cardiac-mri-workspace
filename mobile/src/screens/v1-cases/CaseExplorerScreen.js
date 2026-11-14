@@ -42,20 +42,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { loading, RECOVERY, STATE } from '../../api/states.mjs';
-import { createCaseExplorer, LAYER } from './cases.mjs';
+import {
+  createCaseExplorer, LAYER, buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel, createSerialRunner,
+} from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
-import SliceScrubber from './SliceScrubber';
-import SliceViewport from './SliceView';
-import useMaskOverlay from './useMaskOverlay';
-import { capabilityOf } from '../../lib/caseMode.mjs';
+import SliceViewport, { SliceScrubber, useMaskOverlay } from './SliceView';
 import {
-  buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel,
-  VARIANT_TEXT, variantOptions,
-} from './explorer.mjs';
-import { createSerialRunner } from './serialRunner.mjs';
-import { rememberedVariant, rememberVariant } from '../../lib/session.mjs';
+  capabilityOf, VARIANT_TEXT, variantOptions, rememberedVariant, rememberVariant,
+} from '../../lib/caseMode.mjs';
 
 export const OVERLAY_COLOR = Object.freeze({ PREDICTION: '#f0883e', GROUND_TRUTH: '#39c5cf' });
 
