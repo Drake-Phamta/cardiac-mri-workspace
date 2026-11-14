@@ -12,7 +12,7 @@ import {
   createCaseExplorer, LAYER, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel, createSerialRunner,
 } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
+import { color, font, MIN_TOUCH, overlay, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
 import SliceViewport, {
@@ -26,7 +26,8 @@ import {
 } from '../../lib/caseMode.mjs';
 import { useScriptedRuns, useSliceTiming } from './scriptedRuns';
 
-export const OVERLAY_COLOR = Object.freeze({ PREDICTION: '#f0883e', GROUND_TRUTH: '#39c5cf' });
+// Orange and cyan stay apart for every common colour-vision deficiency, and each layer is named in words too.
+export const OVERLAY_COLOR = Object.freeze({ PREDICTION: overlay.prediction, GROUND_TRUTH: overlay.groundTruth });
 
 const short = (s) => (typeof s === 'string' && s.length > 24 ? `${s.slice(0, 23)}…` : (s ?? '-'));
 

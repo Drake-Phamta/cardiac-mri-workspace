@@ -652,6 +652,10 @@ function noRunBackend() {
   check('E4c', paths().length === 3, `TP / FP / FN drawn as three filled paths (${paths().length})`);
   check('O2', outlines().length === 3 && outlines().map((n) => n.props.stroke).join() === paths().map((n) => n.props.fill).join(),
     'Both by default: each class also has its outline, in the class colour');
+  const dashedEdges = outlines().filter((n) => Array.isArray(n.props.strokeDasharray));
+  check('C1', dashedEdges.length === 1 && dashedEdges[0].props.stroke === '#f778ba' && paths().map((n) => n.props.fill).join() === '#56d364,#f778ba,#4c8dff'
+    && has(r, /^predicted, not in the ground truth · dashed edge$/),
+  `TP green, FP magenta with the only dashed edge, FN blue (${paths().map((n) => n.props.fill).join(', ')}); the legend says "dashed edge"`);
   await press(r, 'Outline');
   check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
   await press(r, 'Both');

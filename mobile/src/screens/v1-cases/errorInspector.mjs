@@ -5,26 +5,32 @@
  */
 
 import { STATE } from '../../api/states.mjs';
+import { errorClass } from '../../components/tokens.mjs';
 import { variantMismatch } from './cases.mjs';
 
+// Colour-blind safe: green / magenta / blue instead of a red-green pair, and FP's outline is dashed, so the
+// classes differ by line style and by name as well as by colour (test/v1_colours.test.mjs measures them).
 export const ERROR_CLASS = Object.freeze({
   TP: Object.freeze({
     key: 'TP',
     label: 'TP - agree',
     detail: 'predicted and in the ground truth',
-    color: '#4fbf7a',
+    color: errorClass.TP,
+    dashed: false,
   }),
   FP: Object.freeze({
     key: 'FP',
     label: 'FP - over-segmentation',
     detail: 'predicted, not in the ground truth',
-    color: '#e8635a',
+    color: errorClass.FP,
+    dashed: true,
   }),
   FN: Object.freeze({
     key: 'FN',
     label: 'FN - missed',
     detail: 'in the ground truth, not predicted',
-    color: '#4d9de0',
+    color: errorClass.FN,
+    dashed: false,
   }),
 });
 

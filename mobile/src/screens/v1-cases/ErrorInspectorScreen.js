@@ -268,12 +268,19 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
               accessibilityState={{ checked: visible[k] }}
               accessibilityLabel={`${ERROR_CLASS[k].label}, ${visible[k] ? 'shown' : 'hidden'}`}
             >
-              <View style={[s.swatch, { backgroundColor: ERROR_CLASS[k].color }, !visible[k] && s.swatchOff]} />
+              <View
+                style={[
+                  s.swatch,
+                  { borderColor: ERROR_CLASS[k].color, backgroundColor: `${ERROR_CLASS[k].color}66` },
+                  ERROR_CLASS[k].dashed && s.swatchDashed,
+                  !visible[k] && s.swatchOff,
+                ]}
+              />
               <View style={s.legendText}>
                 <Text style={s.legendLabel}>
                   {ERROR_CLASS[k].label}{classes && classes.counts ? ` · ${classes.counts[k.toLowerCase()]} px` : ''}{visible[k] ? '' : ' (hidden)'}
                 </Text>
-                <Text style={s.dim}>{ERROR_CLASS[k].detail}</Text>
+                <Text style={s.dim}>{ERROR_CLASS[k].detail}{outlined ? ` · ${ERROR_CLASS[k].dashed ? 'dashed' : 'solid'} edge` : ''}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -420,7 +427,8 @@ const s = StyleSheet.create({
   legendRow: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.s },
   legendText: { flex: 1 },
   legendLabel: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  swatch: { width: 20, height: 20, borderRadius: 4 },
+  swatch: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderStyle: 'solid' },
+  swatchDashed: { borderStyle: 'dashed' },
   swatchOff: { opacity: 0.25 },
   opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
   rowLabel: { color: color.textDim, fontSize: font.small, minWidth: 52 },
