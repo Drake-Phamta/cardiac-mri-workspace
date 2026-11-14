@@ -2,8 +2,7 @@
 """Copy the publishable part of an S-1 session into the repository, sanitized, with a
 generated PROVENANCE.md and a pre-commit leak check.
 
-THROWAWAY SPIKE CODE. Day 22 (2026-10-01), Claude agent under the leader's recovery
-override; Spike B owner Vu Hung Anh confirms on Day 23.
+THROWAWAY SPIKE CODE.
 
     python prototypes/3d-viewer/harness/s1_extract.py --session <dir> [--exclude-suite ...]
     python prototypes/3d-viewer/harness/s1_export_evidence.py --session <dir> \

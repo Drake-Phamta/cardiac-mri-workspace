@@ -1,9 +1,8 @@
 /*
  * SPIKE_B S-1 — pure helpers for the device session (no DOM, no WebGL).
  *
- * THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Written on Day 22 (2026-10-01) by a
- * Claude agent under the leader's recovery override; Spike B owner Vu Hung Anh adopts or
- * rejects it on Day 23. Node-tested by s1/test_s1_core.mjs.
+ * THROWAWAY SPIKE CODE under prototypes/3d-viewer/.
+ * Node-tested by s1/test_s1_core.mjs.
  *
  * What lives here is everything the extractor has to be able to reproduce: the scripted
  * camera of the B10/B11 probe, the fixed camera poses of the automated B6/B9 pick test,

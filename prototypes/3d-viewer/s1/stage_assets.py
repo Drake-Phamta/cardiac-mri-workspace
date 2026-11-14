@@ -2,8 +2,7 @@
 """
 Stage the S-1 device assets: page bundle, real-mesh levels, B6 targets, 2D mask slices.
 
-THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Day 22 (2026-10-01), Claude agent under
-the leader's recovery override; Spike B owner Vu Hung Anh adopts or rejects on Day 23.
+THROWAWAY SPIKE CODE under prototypes/3d-viewer/.
 
     python prototypes/3d-viewer/harness/real_mesh_frontier.py      # writes the meshes first
     python prototypes/3d-viewer/s1/stage_assets.py                 # then this

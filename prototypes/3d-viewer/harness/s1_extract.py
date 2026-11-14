@@ -2,8 +2,7 @@
 """
 S-1 extractor: B6, B7, B9, B10, B11 per level from the raw device records.
 
-THROWAWAY SPIKE CODE. Day 22 (2026-10-01), Claude agent under the leader's recovery
-override; Spike B owner Vu Hung Anh re-derives and interprets on Day 23.
+THROWAWAY SPIKE CODE.
 
     python prototypes/3d-viewer/harness/s1_extract.py --session <dir> [--publish-dir <dir>]
            [--exclude-suite <segment>.<suite>=<reason> ...]

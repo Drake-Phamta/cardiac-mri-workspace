@@ -4,14 +4,6 @@ Spike E backend stub — serves the four candidate transport strategies.
 
 THROWAWAY SPIKE CODE under prototypes/transport/. Not production.
 
-`SPIKE_E_TRANSPORT/TASK.md` permits Claude to write this:
-
-    "Claude may: write the backend stub, build the client harness and
-     instrumentation, write the aggregation scripts, prepare the result
-     template, and analyse measurements the owner supplies."
-
-and keeps the measurements attributable:
-
     DR-006a requires every evidence run to name both the device operator (the
     person who physically runs the phone) and the owner (Nguyen Gia Duc Trung,
     who owns the criteria and interpretation). The stub does not create or

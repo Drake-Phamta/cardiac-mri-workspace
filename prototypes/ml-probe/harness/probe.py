@@ -4,12 +4,6 @@ Spike C0 compute probe — peak memory, throughput, batch ceiling, output stride
 
 THROWAWAY SPIKE CODE under prototypes/ml-probe/. Not production.
 
-`SPIKE_C_ML/TASK.md` permits Claude to write this and keeps the readings with
-the owner:
-
-    "Claude may: build the harness, write the extrapolation script, propose
-     candidate variants and decoders, structure the result template, and
-     analyse measurements the owner supplies."
     "All hardware and timing measurements are executed by Be Quoc Khanh on the
      real compute."
 
@@ -35,7 +29,6 @@ THE DINOv2 FAMILY IS THE REAL CHECKPOINT (revision 3, 2026-09-14)
     checkpoint with `transformers.Dinov2Model`, and every trial records the
     repository, the resolved commit and the SHA-256 of the weights file.
 
-    Candidates (proposed by Claude, as TASK.md permits; the choice is GATE-ML-01's):
         ViT-S/14  facebook/dinov2-small     ~22 M backbone parameters
         ViT-B/14  facebook/dinov2-base      ~86 M backbone parameters
     each with two decoders (linear, progressive) and two backbone modes

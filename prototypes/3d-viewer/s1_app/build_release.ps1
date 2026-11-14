@@ -1,8 +1,7 @@
 <#
   Build the Spike B S-1 measurement APK (RELEASE). Day 22, 2026-10-01.
 
-  THROWAWAY SPIKE TOOLING. Written by a Claude agent under the leader's recovery
-  override; owner-delegated revalidation was recorded 2026-10-03.
+  THROWAWAY SPIKE TOOLING.
 
     powershell -ExecutionPolicy Bypass -File prototypes\3d-viewer\s1_app\build_release.ps1
     powershell -ExecutionPolicy Bypass -File prototypes\3d-viewer\s1_app\build_release.ps1 -Assets <staged spike_b_s1> -BuildRoot <short path outside repository> -JavaHome <JDK 17> -AndroidHome <Android SDK>

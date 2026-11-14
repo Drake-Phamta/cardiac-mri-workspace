@@ -4,8 +4,7 @@ Real-mesh decimation frontier and OFFLINE picking error — Spike B B5, B9, B12 
 
 THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Not production.
 
-Written on Day 22 (2026-10-01) by a Claude agent under the leader's one-day recovery
-override (management/day22/RECOVERY_OVERRIDE_DAY22.md). Spike B belongs to Vu Hung Anh;
+Spike B belongs to Vu Hung Anh;
 he confirms, adopts or rejects this on Day 23. Nothing here is an on-device number.
 
 WHAT IS REUSED, UNCHANGED
