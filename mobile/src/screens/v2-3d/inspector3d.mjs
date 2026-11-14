@@ -104,7 +104,7 @@ export function bytesToBase64(bytes) {
   return parts.join('');
 }
 
-/* The messages the screen sends the viewer (viewerSource.mjs protocol). */
+/* The messages the screen sends the viewer (viewerHtml.mjs protocol). */
 export const toViewer = Object.freeze({
   mesh: (role, bytes) => JSON.stringify({ type: 'mesh', role, b64: bytesToBase64(bytes) }),
   layers: (prediction, groundTruth) => JSON.stringify({ type: 'layers', prediction: Boolean(prediction), groundTruth: Boolean(groundTruth) }),

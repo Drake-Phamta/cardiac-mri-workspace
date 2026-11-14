@@ -1452,7 +1452,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 // "Open in 2D" push to SCR-03 with returnParams. It does NOT mean the surface is drawn or that a tap lands on a face:
 // the viewer script is exercised in test/v2_viewer.test.mjs, the pixels and the frame rate are the owner's device tests.
 {
-  const Inspector3DScreen = (await imp('src/verticals/v2/Inspector3DScreen.js')).default;
+  const Inspector3DScreen = (await imp('src/screens/v2-3d/Inspector3DScreen.js')).default;
   const { sent } = await imp('test/render/mocks/webview.mjs');
   const { boxMesh, encodeMesh } = await imp('test/_v2mesh.mjs');
   const sum = (b) => createHash('sha256').update(b).digest('hex');

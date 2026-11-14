@@ -5,7 +5,7 @@
  * `10` §3 and the DEMO_STANDARD §4 bar, and where each is met:
  *   reconstructed LA            reconstruction_get -> a mesh reference; the mesh bytes through the shell's one binary
  *                               path (runtime.content: timeout, error mapping, SHA-256 against the id, DR-021 rule 1);
- *                               drawn by the self-contained WebGL2 viewer (viewerSource.mjs) in a WebView. The mesh is
+ *                               drawn by the self-contained WebGL2 viewer (viewerHtml.mjs) in a WebView. The mesh is
  *                               the undecimated L0 surface (DR-008c) in the voxel-index frame: no millimetres.
  *   rotate, zoom, pan           one-finger orbit, two-finger pinch zoom and pan (in the viewer)
  *   optional error representation  prediction and ground truth as two layers with their own switch; where the surfaces
@@ -33,13 +33,13 @@ import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import { capabilityOf } from '../../lib/caseMode.mjs';
-import { variantOptions } from '../../screens/v1-cases/explorer.mjs';
+import { variantOptions } from '../v1-cases/explorer.mjs';
 import { rememberedVariant, rememberVariant } from '../../lib/session.mjs';
 import {
   gridMatches, LAYER, LAYER_COLOR, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
   ROLE_LABEL, ROLES, screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,
 } from './inspector3d.mjs';
-import { VIEWER_HTML } from './viewerSource.mjs';
+import { VIEWER_HTML } from './viewerHtml.mjs';
 
 /* The mesh bytes of one reference, latest-wins like useCall: aborted on unmount and when the reference changes. */
 function useMeshBytes(content, ref, enabled) {

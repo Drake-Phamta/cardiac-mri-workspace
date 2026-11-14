@@ -13,8 +13,8 @@ import { sliceLabel } from '../src/screens/v1-cases/explorer.mjs';
 import {
   bytesToBase64, gridMatches, LAYER, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
   screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,
-} from '../src/verticals/v2/inspector3d.mjs';
-import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/verticals/v2/viewerSource.mjs';
+} from '../src/screens/v2-3d/inspector3d.mjs';
+import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { GOLDEN, goldenBytes } from './_v2mesh.mjs';
 const HEX = 'ab'.repeat(32);
