@@ -52,7 +52,11 @@ it whole.
 - **N-c (validator).** `validate_response` now checks `outlier_selection` against the rows of the same response:
   exactly the three lowest-Dice `SUCCEEDED` rows (so a `WITHHELD`, `FAILED` or `EXCLUDED` case never appears),
   each entry's Dice, FP, FN and `analysis_run_id` equal to its row, no case twice, and the block's
-  `prediction_variant` equal to the page's.
+  `prediction_variant` equal to the page's. Given the request (`validate_response(..., request=request_params(contract,
+  endpoint_id, url))`, which reads the `{placeholders}` of the endpoint's path from the URL that was asked), the block's
+  `experiment_id` must also be the experiment in the path (QA_PR94_D39 NB-6); the backend tests and the generated
+  scenarios pass it, so a page of one experiment carrying another's outliers is refused. Without a request that one
+  comparison is skipped, as before.
 - **Why no version bump.** The freeze rule above asks for a new version string for additive changes to the
   interface (fields, enums, error codes, shapes). This amendment changes the meaning text of a population rule
   and the fixture's numbers, not a field, shape, enum, literal or error, so a consumer written against `1.1.0`

@@ -22,7 +22,7 @@ Every step is the existing module CLI in its own process (nothing is re-implemen
 
 Before the first step, a PRE-FLIGHT checks everything that can be known without reading a holdout case, so that no
 GPU hours are spent on a command that would fail later: the record (strict JSON, gate CLOSED, frozen split,
-decision_ref in the checkout, committed and unmodified in git), every run COMPLETE with a best.pt the record authorizes, a clean `ml/` tree (the
+decision_ref in the checkout, committed and unmodified in git, and the same commit's bytes on origin/main), every run COMPLETE with a best.pt the record authorizes, a clean `ml/` tree (the
 exporter refuses dirty code), the counterpart runs of the comparisons already scored, and the scored-once rule:
 
     evaluation/final_holdout exists under THIS record     the step is done; the identical command resumes after it
@@ -72,6 +72,7 @@ WITHIN_FAMILY = (("025", "100"), ("050", "100"), ("025", "050"))
 DERIVE_SOURCE, DERIVED_ID = "EXP-D-100", "EXP-D-PP"
 DEFAULT_PP_CONFIG = MA.DEFAULT_FROZEN_CONFIG
 DEFAULT_AGGREGATE_BASE = "management/day39/results_aggregate.json"
+ORIGIN_REF = "origin/main"          # where a holdout authorization record must be before it is used (ml/README.md)
 VALIDATOR = "contracts/ingestion/contract2_experiment_artifact/validate_contract2.py"
 
 
@@ -155,18 +156,20 @@ def _state(fp: dict, record_sha: str, who: str, problems: list[str]) -> str:
     return "new"
 
 
-def record_problem(path: str | Path) -> str | None:
+def record_problem(path: str | Path, root: str | Path | None = None) -> str | None:
     """Why the record is not a committed file of this checkout, or None. A holdout authorization with no commit behind
-    it leaves no trail of what was authorized, so the pipeline wants the bytes it reads to be the committed ones."""
+    it leaves no trail of what was authorized, so the pipeline wants the bytes it reads to be the committed ones.
+    (That the commit is also on origin/main is `record_origin`'s question.)"""
+    root = Path(root) if root is not None else ROOT
     p = Path(path).resolve()
     try:
-        rel = p.relative_to(ROOT.resolve()).as_posix()
+        rel = p.relative_to(root.resolve()).as_posix()
     except ValueError:
         return f"the record {p.name} is outside this repository checkout; it must be committed to main (ml/README.md)"
     try:
-        tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", "--error-unmatch", "--", rel],
+        tracked = subprocess.run(["git", "-C", str(root), "ls-files", "--error-unmatch", "--", rel],
                                  capture_output=True, text=True, timeout=30)
-        status = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain", "--", rel],
+        status = subprocess.run(["git", "-C", str(root), "status", "--porcelain", "--", rel],
                                 capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None                                # no git here: the clean-code check reports that
@@ -175,6 +178,51 @@ def record_problem(path: str | Path) -> str | None:
     if status.stdout.strip():
         return f"the record {p.name} has uncommitted changes: the bytes read must be the committed ones"
     return None
+
+
+def record_origin(path: str | Path, root: str | Path | None = None,
+                  ref: str = ORIGIN_REF) -> tuple[str | None, str | None]:
+    """(problem, note) for "the record is on origin/main, not only in this checkout" (QA_PR100_103_D39 #100 NB-1).
+
+    ml/README.md says to commit the record to main; `record_problem` proves a local commit, which a branch that was
+    never pushed or merged also has. Here the blob of the record at HEAD (the bytes `record_problem` has just shown
+    equal to the working file) must be the blob of the same path at `ref`:
+
+      * `ref` exists and holds the same blob          -> (None, None)
+      * `ref` exists and the path is missing or holds another blob
+                                                      -> a problem: merge the commit (and `git fetch` first when
+                                                         that was just done, `ref` is the last fetched state)
+      * `ref` cannot be resolved (a shallow CI checkout, a checkout with no remote)
+                                                      -> (None, note): it cannot be told, and the note says so
+                                                         instead of refusing a machine that has no origin
+    Nothing is fetched: a pre-flight has no network side effects."""
+    root = Path(root) if root is not None else ROOT
+    p = Path(path).resolve()
+    try:
+        rel = p.relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return None, None                          # outside the checkout: record_problem reports it
+
+    def git(*args: str):
+        return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=30)
+
+    try:
+        if git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").returncode != 0:
+            return None, (f"could not check that the record is on {ref}: this checkout has no {ref} "
+                          f"(a shallow clone or no remote); make sure it is merged to main")
+        local = git("rev-parse", "--verify", "--quiet", f"HEAD:{rel}")
+        remote = git("rev-parse", "--verify", "--quiet", f"{ref}:{rel}")
+    except (OSError, subprocess.SubprocessError):
+        return None, None                          # no git here: the clean-code check reports that
+    if local.returncode != 0:
+        return None, None                          # not committed at HEAD: record_problem reports it
+    if remote.returncode != 0:
+        return (f"the record {p.name} is committed here but is not on {ref}: merge the commit that adds it to main "
+                f"(and `git fetch` if that was just done; {ref} is the last fetched state) - ml/README.md"), None
+    if local.stdout.strip() != remote.stdout.strip():
+        return (f"the record {p.name} differs from the one on {ref}: the bytes read must be the ones merged to main "
+                f"(merge the commit that changes it, and `git fetch` if that was just done)"), None
+    return None, None
 
 
 def build_plan(cfg: Config, *, record: dict | None = None, record_sha: str | None = None) -> Plan:
@@ -196,11 +244,18 @@ def build_plan(cfg: Config, *, record: dict | None = None, record_sha: str | Non
     plan = Plan([], problems, notes, log_dir, comp_dir, aggregate_out, [], [], record_sha)
     if record is None:
         return plan
+    origin_note = None
     if cfg.require_committed_record:
         committed = record_problem(cfg.record_path)
         if committed:
             problems.append(committed)
+        else:                                       # only a committed record has a commit to look for on origin/main
+            on_origin, origin_note = record_origin(cfg.record_path)
+            if on_origin:
+                problems.append(on_origin)
     notes.append(f"record {Path(cfg.record_path).name} sha256 {record_sha}")
+    if origin_note:
+        notes.append(f"  {origin_note}")
     notes.append(f"  {record['gate']} {record['gate_status']} at {record['closed_at']}; signed by "
                  f"{record['authorized_by']} at {record['authorized_at']}; decision {record['decision_ref']}")
 

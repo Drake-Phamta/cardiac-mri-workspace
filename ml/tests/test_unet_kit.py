@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -427,6 +428,105 @@ def test_the_record_must_be_a_committed_file_of_the_checkout(kit):
     assert HP.record_problem(record) is not None
     committed = HP.ROOT / "management" / "day39" / "gate_img_01" / "holdout_authorization.json"
     assert HP.record_problem(committed) is None     # the Day 39 record is a clean, tracked file
+
+
+# QA_PR100_103_D39 #100 NB-1: "committed" must mean "on origin/main", not "in some local commit". The checkout is a real
+# throwaway git repository; `origin/main` is a ref made with `git update-ref`, so no remote and no network is involved.
+
+def git(repo: Path, *args: str) -> str:
+    env = dict(os.environ, GIT_AUTHOR_NAME="kit", GIT_AUTHOR_EMAIL="kit@example.invalid", GIT_COMMITTER_NAME="kit",
+               GIT_COMMITTER_EMAIL="kit@example.invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_SYSTEM=os.devnull)
+    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, env=env, check=True)
+    return done.stdout.strip()
+
+
+def commit_record(repo: Path, text: str, message: str) -> Path:
+    path = repo / "gate" / "authorization.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text.encode("utf-8"))
+    git(repo, "add", "--", "gate/authorization.json")
+    git(repo, "commit", "-q", "-m", message)
+    return path
+
+
+@pytest.fixture()
+def scratch_repo(tmp_path):
+    repo = tmp_path / "checkout"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    (repo / "README.md").write_bytes(b"x\n")
+    git(repo, "add", "--", "README.md")
+    git(repo, "commit", "-q", "-m", "base")
+    return repo
+
+
+def test_the_record_must_be_on_origin_main_not_only_in_a_local_commit(scratch_repo):
+    repo = scratch_repo
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")             # main as last fetched: no record yet
+    record = commit_record(repo, '{"v": 1}\n', "authorize")                 # committed locally, never merged to main
+    assert HP.record_problem(record, repo) is None                          # tracked and clean ...
+    problem, note = HP.record_origin(record, repo)
+    assert note is None and "is committed here but is not on origin/main" in problem and "merge" in problem
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")             # ... now it is on main
+    assert HP.record_origin(record, repo) == (None, None)
+
+
+def test_a_record_that_differs_from_the_one_on_origin_main_is_refused(scratch_repo):
+    repo = scratch_repo
+    record = commit_record(repo, '{"v": 1}\n', "authorize")
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    assert HP.record_origin(record, repo) == (None, None)
+    commit_record(repo, '{"v": 2}\n', "amend the record, not merged")       # clean and committed, but not what main has
+    assert HP.record_problem(record, repo) is None
+    problem, note = HP.record_origin(record, repo)
+    assert note is None and "differs from the one on origin/main" in problem
+
+
+def test_without_an_origin_main_ref_it_is_a_note_not_a_refusal(scratch_repo):
+    """A shallow CI checkout or a checkout with no remote cannot tell: say so, refuse nothing."""
+    record = commit_record(scratch_repo, '{"v": 1}\n', "authorize")
+    problem, note = HP.record_origin(record, scratch_repo)
+    assert problem is None and "could not check that the record is on origin/main" in note
+    assert HP.record_origin(record, scratch_repo, ref="origin/elsewhere")[0] is None   # another ref name, same rule
+
+
+def test_origin_main_is_not_asked_about_a_record_that_is_not_committed(scratch_repo, tmp_path):
+    repo = scratch_repo
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    untracked = repo / "gate" / "loose.json"
+    untracked.parent.mkdir()
+    untracked.write_bytes(b"{}")
+    assert HP.record_problem(untracked, repo) is not None                    # record_problem owns this refusal
+    assert HP.record_origin(untracked, repo) == (None, None)
+    assert HP.record_origin(tmp_path / "elsewhere.json", repo) == (None, None)   # outside the checkout: also its call
+
+
+def test_the_plan_refuses_a_record_that_is_not_on_origin_main_and_notes_when_it_cannot_tell(kit, monkeypatch):
+    repo = kit.repo                                 # holds the gate record and the frozen config; make it the checkout
+    git(repo, "init", "-q")
+    git(repo, "add", "--", ".")
+    git(repo, "commit", "-q", "-m", "base: what main has before the leader signs")
+    base = git(repo, "rev-parse", "HEAD")
+    record = ready_for_unet(kit)                    # signs kit.repo/gate/U.rec.json
+    git(repo, "add", "--", ".")
+    git(repo, "commit", "-q", "-m", "the record")
+    monkeypatch.setattr(HP, "ROOT", repo)
+
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")             # merged to main
+    git(repo, "commit", "-q", "--allow-empty", "-m", "later work, not on main")
+    on_main = HP.build_plan(config(kit, record, require_committed_record=True))
+    assert not on_main.problems, on_main.problems
+    assert not [n for n in on_main.notes if "could not check" in n]
+
+    git(repo, "update-ref", "-d", "refs/remotes/origin/main")                # no origin/main: a note, still no problem
+    unknown = HP.build_plan(config(kit, record, require_committed_record=True))
+    assert not unknown.problems, unknown.problems
+    assert any("could not check that the record is on origin/main" in n for n in unknown.notes), unknown.notes
+
+    git(repo, "update-ref", "refs/remotes/origin/main", base)                # main from before the record existed
+    refused = HP.build_plan(config(kit, record, require_committed_record=True))
+    assert any("is committed here but is not on origin/main" in p for p in refused.problems), refused.problems
+    assert not HP.build_plan(config(kit, record, require_committed_record=False)).problems   # the switch still exists
 
 
 def test_a_dirty_checkout_is_refused_before_anything_runs(kit, monkeypatch):

@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 from generate_fixture import generate_fixture
-from validate_api_contract import ContractError, validate_contract, validate_response
+from validate_api_contract import ContractError, request_params, validate_contract, validate_response
 
 
 HERE = Path(__file__).resolve().parent
@@ -70,7 +70,9 @@ def main() -> None:
         for name, scenario in by_name.items():
             response = scenario["response"]
             body = response.get("data") if response["status"] < 400 else {"error": response["error"]}
-            problems = validate_response(contract, endpoint_id, response["status"], body)
+            # The scenario's own request is passed too, so an answer that echoes its request is checked against it.
+            problems = validate_response(contract, endpoint_id, response["status"], body,
+                                         request=(scenario.get("request") or {}).get("params"))
             assert not problems, (endpoint_id, name, problems)
             checked += 1
     print(f"PASS {checked} generated scenarios validate against the contract")
@@ -240,6 +242,19 @@ def main() -> None:
         assert mutated(endpoint_id, change), (endpoint_id, change.__name__)
     print("PASS v1.1.0: echoed experiment id, PROCESSED experiment, new commit id, per-case rows, "
           "DR-010 outliers, finding variant and summary shapes, each with its refusal")
+
+    # QA_PR94_D39 NB-6: the outlier block of an experiment_cases page must name the experiment the page was asked for.
+    asked = scenarios["experiment_cases"]["default"]["request"]["params"]
+    page = scenarios["experiment_cases"]["default"]["response"]["data"]
+    assert not validate_response(contract, "experiment_cases", 200, page, request=asked)
+    wrong = validate_response(contract, "experiment_cases", 200, page, request={"experiment_id": "EXP-OTHER"})
+    assert any("not the experiment that was asked for" in item for item in wrong), wrong
+    assert not validate_response(contract, "experiment_cases", 200, page), "without a request nothing is compared"
+    assert request_params(contract, "experiment_cases", "/api/v1/experiments/EXP_DEMO/cases?limit=2") == asked
+    assert request_params(contract, "experiment_cases", "/api/v1/experiments/EXP_DEMO") == {}
+    assert request_params(contract, "reviewed_mask_slice_get", "/api/v1/reviewed-masks/RM_1/slices/44") == {
+        "reviewed_mask_id": "RM_1", "slice_index": "44"}
+    print("PASS an experiment_cases page is checked against the experiment that was asked for")
 
     broken = copy.deepcopy(contract)
     broken["errors"] = [item for item in broken["errors"] if item["code"] != "GROUND_TRUTH_UNAVAILABLE"]

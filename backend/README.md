@@ -82,11 +82,22 @@ record, or with a record that is not strict JSON of format `ml-holdout-authoriza
 `gate_status` `CLOSED` and the pinned split's sha256, it refuses before anything is written. (`ml/` is not imported:
 the backend runs on Python 3.9 without torch, so these four checks are written out in `ingest.py`; the record's
 other fields are `ml/holdout.py`'s to validate.) The record path is repository-relative (it is committed with the
-GATE-IMG-01 decision); an absolute path is accepted for a local check and only its file name is recorded. The
+GATE-IMG-01 decision): a relative path with `..`, a drive or a leading separator is refused before anything is opened
+(QA_PR94_D39 NB-3), and an absolute path is accepted for a local check and only its file name is recorded. The
 cache's `index.json` records the record's own sha256 under `holdout_authorization`, with `authorized_by` and `authorized_runs`: the
-record must name an approver and at least one `{experiment_id, checkpoint_sha256}` run (QA of PR #94), and `CaseStore` refuses a
+record must name an approver and at least one `{experiment_id, checkpoint_sha256}` run, each experiment listed once and
+named without surrounding spaces, as `ml/holdout.py` requires (QA of PR #94; QA_PR98_D39 N-7), and `CaseStore` refuses a
 cache whose record lacks either. A cache built before that change is brought up to date by re-running the same ingest
 command (every case is a NO_OP; only `index.json` is rewritten).
+
+**Served runs against the record.** When the cache carries the record, the experiment loader compares each package with
+its `authorized_runs`: a package whose `experiment_id` the record lists, but whose checkpoint
+(`experiment.checkpoint.checksum`) is not the listed one, is another model's holdout results under an authorized name and
+is rejected whole (`HOLDOUT_CHECKPOINT_NOT_AUTHORIZED`, listed in `/health` `rejected_experiment_packages`). An experiment
+the record does **not** list is served, because this cache holds one record and the UNet redeploy authorizes `EXP-U-*` in a
+second one (`ml/README.md`, "Redeploy"): "not listed" cannot be told from "authorized elsewhere" here, and the exporter
+already refused those runs without their own record. Holding more than one record in the cache, and then refusing
+unlisted experiments, is a decision for the leader (it changes DR-022's single record) and is not done.
 
 `CaseStore` keeps its lock: without that metadata a cache with more than one `final_holdout` case, or with one that
 has ground truth, still refuses to start; with it, the other holdout cases are allowed in EVALUATION mode. **The
@@ -132,7 +143,8 @@ Every served mask without a mesh simply has no reconstruction (`ARTIFACT_NOT_FOU
 no longer matches its sidecar is a `CHECKSUM_CONFLICT`, never overwritten. `CASE_0001` has no ground truth to mesh; its
 predictions are meshed. The frame, the file format and the pick rule are in `backend/mesh/artifact.py`; the contract
 conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content". The
-deploy script copies `data_cache` only: copy `derived_meshes/` (or run the build step on the host) for a deployment.
+deploy script copies `data_cache` by default and, with `-ShipPackages`, also `experiments/` and `derived_meshes/` (see
+"Deploy to the Mac mini"); or run the build step on the host.
 
 ## Tests
 
@@ -170,6 +182,16 @@ requirements as Python 3.9 macOS-arm64 wheels, copies the code to `~/cardiac-bac
 offline from the wheels, restarts uvicorn on `<overlay-address>:8000` in the background (pid file and log under
 `~/cardiac-backend-data/var/`), and curls `/health` on the host and then from the PC. Nothing is deleted on
 either side.
+
+Options for a redeploy after new runs are exported (the UNet family, `ml/README.md` "Redeploy"): **`-ShipPackages`**
+also packs `<data-root>\experiments` (Contract 2 run directories, without `predictions/validation`,
+`evaluation/validation` and `last.pt`) and `<data-root>\derived_meshes`, where `<data-root>` is the parent of
+`-DataCache`; `-SkipData` leaves the data cache alone. `-ShipPackages` needs a data cache path even with `-SkipData`
+(`-DataCache <data-root>\data_cache` or `CARDIAC_BACKEND_DATA`) and says so before it connects. Every archive is
+listed with `tar -tzf` before it is uploaded: a listing that fails, or one that holds a raw image file
+(`.nii`, `.nii.gz`, `.dcm`, `.mha`, `.mhd`, `.raw`; the data cache also refuses `.nrrd`, the packages allow it because
+their prediction masks are NRRD), refuses the deploy. `backend/tests/test_deploy_paths.py` runs the real script in
+Windows PowerShell against fake `ssh` / `scp` for these cases (skipped where PowerShell or the system `tar` is absent).
 
 Phone base URL: `http://<overlay-address>:8000/api/v1` · health: `http://<overlay-address>:8000/health`.
 If the host answers locally but not over the overlay, check ZeroTier and the macOS firewall for python3.
@@ -247,13 +269,18 @@ case's raw volume. The API has no volume endpoint, so a switch is bounded by one
 
 ## Known gaps (Day 22, updated Day 39)
 
-- Metrics, worst-slice selection and cohort endpoints answer the unavailable state until saved Contract 2 metric
-  artifacts exist. As of 2026-10-18 no holdout has been predicted: a real package needs the GATE-IMG-01 record on
-  `main`, the exporter and the validator DR-018 checks, and (for the per-case views) a cache built with
-  `--include-holdout --holdout-authorization <record>` (DR-022).
-- No Contract 2 package exists yet, so on real data there are no runs, predictions or reviews; the review flow is
-  proven on the synthetic package only. A failed case has no run (DR-018), so the FAILED-run guards
-  (`RUN_NOT_SUCCEEDED`, `ANALYSIS_FAILED`) cannot be reached by a valid package; the tests flip a loaded run to reach them.
+- Metrics, worst-slice selection and cohort endpoints answer the unavailable state when no saved Contract 2 metric
+  artifacts are served. Since 2026-10-18 the GATE-IMG-01 record is on `main` and four holdout packages (EXP-D-025,
+  EXP-D-050, EXP-D-100, EXP-D-PP) exist; they are served from a cache built with
+  `--include-holdout --holdout-authorization <record>` (DR-022), and the API-level hero flow (`tools/e2e/`) has run
+  against them on the PC and on the Mac mini. As of 2026-10-30 no UNet (`EXP-U-*`) package exists yet.
+- The review flow is proven on real data by the hero flow's H8 / H9 and on the synthetic package by the suite. A failed
+  case has no run (DR-018), so the FAILED-run guards (`RUN_NOT_SUCCEEDED`, `ANALYSIS_FAILED`) cannot be reached by a
+  valid package; the tests flip a loaded run to reach them.
+- `successful_n` is read from the metrics artifact. The contract defines it as the SUCCEEDED rows of `experiment_cases`
+  plus one for the WITHHELD (INT-12) row **when that case was evaluated**; if the ML recorded the INT-12 case as a
+  failure, its row is still WITHHELD (the backend's own reason, QA-075 N-7) and the artifact's `successful_n` does not
+  count it. Nothing is repaired or leaked; a test pins the arithmetic (QA_PR94_D39 NB-5).
 - The validator trusts the PER_CASE_METRICS artifact and the population manifest for the population; it does not
   re-derive either from the split manifest.
 - The served mesh frame is declared (voxel-index, `x=column,y=row,z=slice`, `backend/mesh/artifact.py`); the Contract 2

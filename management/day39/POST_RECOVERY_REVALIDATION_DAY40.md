@@ -12,12 +12,12 @@
 
 | # | Mục → `main` | Làm gì dưới override | Kiểm | Kết quả |
 |---|---|---|---|---|
-| K1 🔴 | #92 → `a3c3904` | `ml/postprocess.py` (PP-0…PP-5), `ml/gate_img_01.py`, dẫn xuất EXP-D-PP, exporter theo DR-018 (case lỗi, run PROCESSED) | `CUDA_VISIBLE_DEVICES=-1 PYTHONIOENCODING=utf-8 python -m pytest ml/tests -q` (263); đọc QA_PR92_D39 NB-1…NB-3 | |
-| K2 🔴 | #93 → `f08968a` | **GATE-IMG-01 đóng**: PP-4 đóng băng, bản ghi `holdout_authorization.json` | đọc `GATE_IMG_01_DECISION.md`, `gate_img_01/SELECTION.md`; kiểm sha256 của config `c0a68cc7…` | |
-| K3 🔴 | holdout 18/10 07:22–07:36 | suy luận holdout 3 run DINOv2, EXP-D-PP, đánh giá, so sánh, xuất 4 gói Contract 2 (ngoài git, trên PC leader) | đọc log trong `cardiac-runs/_holdout_d39/`; không chạy lại holdout | |
-| K4 | #96 | biên bản kết quả holdout (chỉ số tổng hợp) | đối chiếu với `metrics_summary.json` từng run | |
-| K6 🔴 | #100 → `d57be05` | **bộ công cụ UNet**: cấu hình hàng đợi đã commit, script tạo bản ghi cho phép holdout, pipeline holdout một lệnh (so sánh UNet vs DINOv2), job CI `ml tests (CPU)` | `python -m ml.queue --queue ml/configs/queues/unet_adr_ml_001.json --epochs 50 --batch 8 --dry-run`; đọc `ml/README.md` mục "UNet family" | |
-| K5 | #90 → `66a428c` | PR revalidation của chính bạn, merge sau QA LLM | — | |
+| K1 🔴 | #92 → `a3c3904` | `ml/postprocess.py` (PP-0…PP-5), `ml/gate_img_01.py`, dẫn xuất EXP-D-PP, exporter theo DR-018 (case lỗi, run PROCESSED) | `CUDA_VISIBLE_DEVICES=-1 PYTHONIOENCODING=utf-8 python -m pytest ml/tests -q` (263); đọc QA_PR92_D39 NB-1…NB-3 | **nhận** — Bế Quốc Khánh, 22:55 19/10/2026. Đã đọc QA; bộ hiện tại **304 passed, 1 skipped**. Giữ NB-1…NB-3 là follow-up không chặn. |
+| K2 🔴 | #93 → `f08968a` | **GATE-IMG-01 đóng**: PP-4 đóng băng, bản ghi `holdout_authorization.json` | đọc `GATE_IMG_01_DECISION.md`, `gate_img_01/SELECTION.md`; kiểm sha256 của config `c0a68cc7…` | **nhận** — Bế Quốc Khánh, 22:55 19/10/2026. Đã đọc hai bản ghi; SHA-256 file đóng băng khớp chính xác `c0a68cc76b598e742c474a845580dba8b8afb9eb073b2588404f11845014961e`. |
+| K3 🔴 | holdout 18/10 07:22–07:36 | suy luận holdout 3 run DINOv2, EXP-D-PP, đánh giá, so sánh, xuất 4 gói Contract 2 (ngoài git, trên PC leader) | đọc log trong `cardiac-runs/_holdout_d39/`; không chạy lại holdout | **chưa nhận trực tiếp** — Bế Quốc Khánh, 22:55 19/10/2026. Máy Khánh không có `cardiac-runs/_holdout_d39/`; không chạy lại holdout. Cần leader cho xem log hoặc xác nhận bằng chứng ngoài git. |
+| K4 | #96 | biên bản kết quả holdout (chỉ số tổng hợp) | đối chiếu với `metrics_summary.json` từng run | **chưa nhận trực tiếp** — Bế Quốc Khánh, 22:55 19/10/2026. Biên bản và aggregate đã commit khớp QA #102, nhưng máy này không có `metrics_summary.json` gốc của bốn run; cần leader cung cấp/đối chiếu. |
+| K6 🔴 | #100 → `d57be05` | **bộ công cụ UNet**: cấu hình hàng đợi đã commit, script tạo bản ghi cho phép holdout, pipeline holdout một lệnh (so sánh UNet vs DINOv2), job CI `ml tests (CPU)` | `python -m ml.queue --queue ml/configs/queues/unet_adr_ml_001.json --epochs 50 --batch 8 --dry-run`; đọc `ml/README.md` mục "UNet family" | **nhận** — Bế Quốc Khánh, 22:55 19/10/2026. Dry-run chính thức liệt kê đúng `EXP-U-025 → 050 → 100` đều `NEW`; ba file recipe bảo vệ không đổi từ `c7a37e0`; bộ ML hiện tại **304 passed, 1 skipped**. |
+| K5 | #90 → `66a428c` | PR revalidation của chính bạn, merge sau QA LLM | — | **nhận** — Bế Quốc Khánh, 22:55 19/10/2026. Đã đọc `QA_PR90_D39`; verdict MERGE, N-1…N-5 là không chặn và tiếp tục được theo dõi. |
 
 ## Nguyễn Gia Đức Trung — contract, backend, V4
 

@@ -140,6 +140,11 @@ class ExperimentStore:
                 continue
             package = Package(manifest, root)
             experiment_id = package.experiment["experiment_id"]
+            unauthorized = self._checkpoint_not_authorized(package)
+            if unauthorized:
+                self.rejected.append({"manifest": path.name, "code": "HOLDOUT_CHECKPOINT_NOT_AUTHORIZED",
+                                      "message": unauthorized})
+                continue
             clash = (
                 experiment_id in self.experiments
                 or any(artifact_id in self.artifact_owner for artifact_id in package.artifacts)
@@ -158,6 +163,31 @@ class ExperimentStore:
                     self.runs_without_case.append(run["analysis_run_id"])
                 self.runs[run["analysis_run_id"]] = RunRecord(run, experiment_id, package)
         self._load_render_index()
+
+    def _checkpoint_not_authorized(self, package: "Package") -> Optional[str]:
+        """DR-022 / QA_PR98_D39 N-7: served runs against the cache's ``authorized_runs``.
+
+        When the data cache carries the GATE-IMG-01 record, an experiment that record LISTS must come with the
+        checkpoint it lists: a package of the same experiment id built from another ``best.pt`` is a different
+        model's holdout results under an authorized name, and is rejected (never partially served).
+
+        An experiment the record does not list is served: this cache holds ONE record, and the documented UNet
+        redeploy (ml/README.md, "Redeploy") authorizes EXP-U-* in a second record that the cache was not built
+        with, so "not listed" cannot be told from "authorized elsewhere" here. The exporter checked those runs
+        against their own record (ml/export_contract2.py); backend/README.md says so.
+        """
+        authorization = self.cases.index.get("holdout_authorization")
+        if not isinstance(authorization, dict):
+            return None
+        listed = {run["experiment_id"]: run["checkpoint_sha256"] for run in authorization.get("authorized_runs") or []
+                  if isinstance(run, dict) and "experiment_id" in run and "checkpoint_sha256" in run}
+        experiment_id = package.experiment["experiment_id"]
+        if experiment_id not in listed:
+            return None
+        if package.experiment["checkpoint"]["checksum"]["value"] != listed[experiment_id]:
+            return (f"the GATE-IMG-01 record of this data cache authorizes {experiment_id} with another checkpoint "
+                    f"than the one this package was exported from")
+        return None
 
     def _load_render_index(self) -> None:
         if not self.render_cache.is_dir():

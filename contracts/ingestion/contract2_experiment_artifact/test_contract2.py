@@ -12,6 +12,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -193,6 +196,30 @@ def fresh(base: Path, change=None, failed: tuple = (), variant: str = "RAW_PREDI
     return manifest, root
 
 
+def cli_writes_utf8(base: Path) -> None:
+    """QA_PR90_D39 N-2: the validator's command line writes UTF-8 whatever the console code page is.
+
+    A Windows console defaults to cp1252, which cannot encode most Vietnamese letters; a failing path that held one
+    used to crash the report with a UnicodeEncodeError instead of printing it. PYTHONIOENCODING=cp1252 reproduces the
+    legacy code page anywhere. The path does not exist, so the CLI answers FAIL [INPUT_INVALID] with the path in it.
+    """
+    letter = "\u1ec7"                                                   # e with circumflex and dot below: not in cp1252
+    odd = base / f"th\u01b0 m\u1ee5c {letter}"
+    try:
+        letter.encode("cp1252")
+    except UnicodeEncodeError:
+        pass
+    else:  # pragma: no cover - the premise of the test
+        raise AssertionError("the probe character must not be encodable in cp1252")
+    env = dict(os.environ, PYTHONIOENCODING="cp1252")
+    done = subprocess.run([sys.executable, str(HERE / "validate_contract2.py"), "--manifest", str(odd / "manifest.json"),
+                           "--root", str(odd)], capture_output=True, env=env, timeout=120)
+    assert done.returncode == 2, (done.returncode, done.stderr[-400:])
+    assert done.stdout.startswith(b"FAIL [INPUT_INVALID]"), done.stdout[:200]
+    assert letter.encode("utf-8") in done.stdout, "the path must reach stdout as UTF-8 bytes, not be mangled or dropped"
+    assert b"UnicodeEncodeError" not in done.stderr
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="contract2-", dir=HERE) as temp:
         base = Path(temp)
@@ -358,7 +385,8 @@ def main() -> None:
             jsonschema.Draft202012Validator(schema).validate(manifest)
             jsonschema.Draft202012Validator(schema).validate(one_failure)
             print("schema_errors=0")
-        print("contract2_checks=PASS cases=9 dr018_checks=PASS")
+        cli_writes_utf8(base)
+        print("contract2_checks=PASS cases=10 dr018_checks=PASS")
 
 
 if __name__ == "__main__":

@@ -35,6 +35,10 @@ INT12 = "CASE_0031"
 INTEGRATION = "CASE_9001"
 FAILED_CASE = "CASE_9150"  # the one case whose inference "failed": no run, a listed failure (DR-018)
 POPULATION = ["CASE_0027", "CASE_0031", "CASE_9001", "CASE_9003", "CASE_9101"] + FILLERS  # 54 cases
+# Every synthetic experiment is exported from the same checkpoint bytes, so one sha256 stands for "the
+# checkpoint a GATE-IMG-01 record authorizes" in the DR-022 tests (QA_PR98_D39 N-7).
+CHECKPOINT_BYTES = b"synthetic checkpoint bytes"
+CHECKPOINT_SHA256 = hashlib.sha256(CHECKPOINT_BYTES).hexdigest()
 
 
 def mri_volume(seed: int) -> np.ndarray:
@@ -304,7 +308,7 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
                 role="FINAL_HOLDOUT", case_count=54),
             "evaluation_metric_version": METRIC_VERSION, "training_code_version": "git:synthetic",
             "checkpoint": {"checkpoint_id": f"{exp}/best", "path": "checkpoints/best.pt",
-                           "checksum": _write(run_dir, "checkpoints/best.pt", b"synthetic checkpoint bytes")},
+                           "checksum": _write(run_dir, "checkpoints/best.pt", CHECKPOINT_BYTES)},
             "evaluation_code_version": "git:synthetic", "num_test_cases": 54,
         }, **refs),
         "artifacts": artifacts,

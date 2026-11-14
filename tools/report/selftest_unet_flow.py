@@ -8,7 +8,9 @@ real runs root is read), builds the assets and the deck twice, and checks:
     1. without EXP-U-* : the deck shows the marked placeholder "CHỜ KẾT QUẢ UNET (Khánh)" and RQ-A is "chưa trả lời";
     2. with EXP-U-*    : the placeholder is gone from every slide, the aggregate carries the UNet family, the model
                          comparison appears in the forest plot data, and the figures still render;
-    3. an unknown run id is carried through as family "other", and a missing run directory is skipped with a warning.
+    3. an unknown run id is carried through as family "other", and a missing run directory is skipped with a warning;
+    4. a build whose outputs would leak (a case id, here inside a run id) exits 2 BEFORE anything is written to --out:
+       a previous good build in the same folder is left byte for byte as it was (QA_PR100_103_D39 #102 NB-1).
 
     python tools/report/selftest_unet_flow.py                  # prints PASS / FAIL, exit code 0 / 1
     python tools/report/selftest_unet_flow.py --keep <dir>     # keep the synthetic outputs there, to look at the decks
@@ -20,6 +22,7 @@ created.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import sys
 import tempfile
@@ -167,6 +170,25 @@ def main() -> int:
         check(any("UNet 100" in t for t in txt2), "UNet runs appear in the deck text", fails)
         for fig in ("fig_b_data_scarcity", "fig_f_paired_deltas"):
             check((Path(tmp) / "b" / "figures" / f"{fig}.png").is_file(), f"{fig}.png rendered with the UNet family", fails)
+
+        print("3. a leak is refused before anything is written to --out")
+        make_run(root, "EXP-X-CASE_0042", "other", None, .5, rng)    # a run id that names a case would be published as is
+        good = Path(tmp) / "b"
+
+        def snapshot(folder: Path) -> dict:
+            return {str(f.relative_to(folder)): hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(folder.rglob("*")) if f.is_file()}
+
+        before = snapshot(good)
+        rc = assets.main(["--runs-root", str(root), "--runs", "EXP-D-100", "EXP-X-CASE_0042", "--comparisons", str(cdir), "--out", str(good),
+                          "--no-local"])
+        check(rc == 2, f"a leaking build exits 2 (got {rc})", fails)
+        check(snapshot(good) == before and len(before) > 10, f"a previous good build in --out is untouched ({len(before)} files)", fails)
+        fresh = Path(tmp) / "never_written"
+        rc = assets.main(["--runs-root", str(root), "--runs", "EXP-D-100", "EXP-X-CASE_0042", "--out", str(fresh), "--no-local"])
+        check(rc == 2 and not fresh.exists(), "a refused build creates no --out at all", fails)
+        rc = assets.main(["--runs-root", str(root), "--runs", "EXP-D-100", "--out", str(fresh), "--no-local"])
+        check(rc == 0 and (fresh / "results_aggregate.json").is_file() and (fresh / "figures").is_dir(),
+              "the same build without the leaking id is published", fails)
     print("\nPASS" if not fails else f"\nFAIL ({len(fails)})")
     return 1 if fails else 0
 

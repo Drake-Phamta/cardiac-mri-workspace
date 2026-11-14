@@ -92,9 +92,10 @@ manifest (`case_ids`), and refuses (`EVALUATION_POPULATION_INVALID`,
   mask; a metric set's `prediction_mask_kind` equals the experiment's variant and
   the mask it points at; the metrics artifact's `prediction_variant` agrees.
 
-The result also reports `listed_failures`. `ml/export_contract2.py` is updated
-separately (it still refuses an export that has failed cases); its output passes
-these checks.
+The result also reports `listed_failures`. `ml/export_contract2.py` follows the same
+rules (DR-018 rule 1): a case whose inference failed is exported with no analysis run
+and stays listed, with its reason, in the PER_CASE_METRICS `failures`; its output
+passes these checks.
 
 ## Local checks
 

@@ -471,7 +471,9 @@ again without `--dry-run`. The steps, each the existing module CLI in its own pr
 | aggregate | `tools/ml/results_aggregate.py` over the new runs, the DINOv2 runs they were compared with and the new comparisons, extending `management/day39/results_aggregate.json` (`--aggregate-base`), written to `--aggregate-out` |
 
 - **Pre-flight, before any holdout case is read:** the record is strict JSON with the gate CLOSED and the frozen
-  split, and is a committed, unmodified file of this checkout; every run is COMPLETE with a `best.pt` the record authorizes; `ml/` is a clean commit (the exporter refuses
+  split, and is a committed, unmodified file of this checkout **whose committed bytes are the ones on `origin/main`**
+  (a commit on a branch that was never merged is refused; `git fetch` first if it was just merged; a checkout with no
+  `origin/main`, such as a shallow clone, cannot tell and prints a note instead of refusing); every run is COMPLETE with a `best.pt` the record authorizes; `ml/` is a clean commit (the exporter refuses
   dirty code); every EXP-D-* counterpart of a comparison already has its `evaluation/final_holdout`. One problem
   refuses the whole command (exit 2) and nothing runs. On a machine without the EXP-U-* run directories the dry run
   says exactly that, run by run.
@@ -499,14 +501,16 @@ again without `--dry-run`. The steps, each the existing module CLI in its own pr
    ```
    The data cache needs no rebuild: it is per case and was built under the Day 39 record. `/health` must then show
    7 experiments and an empty `rejected_experiment_packages`.
-2. `backend/scripts/deploy_macmini.ps1` ships the code and `data_cache` only, not `experiments/` or `derived_meshes/`.
-   Put those on the host under `~/cardiac-backend-data/` (or build the meshes there), then run the script again
-   (`-SkipData` when the cache did not change); see `backend/README.md`, "Deploy to the Mac mini".
+2. `backend/scripts/deploy_macmini.ps1` ships the code and `data_cache` by default; add **`-ShipPackages`** to also ship
+   `<root>\experiments` and `<root>\derived_meshes` (the validation population and `last.pt` are left out; raw image
+   files refuse the upload), and `-SkipData` when the cache did not change. With `-SkipData -ShipPackages` pass
+   `-DataCache <root>\data_cache` or set `CARDIAC_BACKEND_DATA`; see `backend/README.md`, "Deploy to the Mac mini".
 3. Check it with `python tools/e2e/hero_flow_api.py --base-url <host url> --no-writes --experiments EXP-D-025 EXP-D-050
    EXP-D-100 EXP-D-PP EXP-U-025 EXP-U-050 EXP-U-100`; H10 "UNet vs DINOv2" is the step that stops being a SKIP.
 4. When the results page is updated, commit a copy of the aggregate under `management/<day>/` (aggregates only: no per-case value, no path).
-   `tools/board/build_results.py` labels and charts the four DINOv2 runs only today; it needs labels for EXP-U-*
-   before it can render an aggregate that contains them.
+   `tools/board/build_results.py` labels and charts the UNet family (EXP-U-025/050/100) as soon as an aggregate
+   contains it; the header facts and the "Giới hạn" list that say "UNet chưa train" are static strings in the script
+   and are edited by hand once the runs exist.
 
 ## Running the tests
 

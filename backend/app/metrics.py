@@ -130,6 +130,10 @@ class PackageMetrics:
         self.per_slice: Dict[str, List[dict]] = documents["per_slice_metrics"]["cases"]
         self.cohort: dict = documents["metrics_summary"]["cohort"]
         self.intended_n: int = int(documents["metrics_summary"]["intended_n"])
+        # The artifact's own count, never recomputed from rows: the contract's successful_n is the SUCCEEDED rows plus
+        # one for the WITHHELD (INT-12) row only when that case was evaluated. If the ML recorded INT-12 as a failure
+        # its row is still WITHHELD and this count does not include it (QA_PR94_D39 NB-5; the test
+        # test_successful_n_counts_the_withheld_case_only_when_it_was_evaluated pins both cases).
         self.successful_n: int = int(documents["metrics_summary"]["successful_n"])
 
     def metric_set(self, run: Any, mask_id: str) -> Tuple[dict, dict]:

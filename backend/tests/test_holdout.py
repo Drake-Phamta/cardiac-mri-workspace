@@ -33,7 +33,7 @@ def write_record(path: Path, split: str, **overrides) -> Path:
                   closed_at="2026-10-18T03:00:00+00:00", authorized_by="synthetic test",
                   authorized_at="2026-10-18T03:05:00+00:00", decision_ref="management/synthetic.md",
                   postprocessing_config_sha256=None,
-                  authorized_runs=[{"experiment_id": "EXP-U-025", "checkpoint_sha256": "a" * 64}])
+                  authorized_runs=[{"experiment_id": "EXP-U-025", "checkpoint_sha256": synthetic.CHECKPOINT_SHA256}])
     record.update(overrides)
     path.write_text(json.dumps(record), encoding="utf-8")
     return path
@@ -140,6 +140,12 @@ def test_holdout_is_refused_without_a_record(environment, tmp_path, capsys):
     ({"authorized_runs": [{"experiment_id": "EXP-U-025"}]}, "authorized_runs"),
     ({"authorized_runs": [{"experiment_id": "", "checkpoint_sha256": "a" * 64}]}, "authorized_runs"),
     ({"authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": "short"}]}, "authorized_runs"),
+    # QA_PR98_D39 N-7: ml/holdout.py refuses an experiment listed twice (even with the same checkpoint), and a name
+    # that is not its own trimmed form; so does the backend now.
+    ({"authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": "a" * 64},
+                          {"experiment_id": "EXP-U-025", "checkpoint_sha256": "b" * 64}]}, "listed twice"),
+    ({"authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": "a" * 64}] * 2}, "listed twice"),
+    ({"authorized_runs": [{"experiment_id": " EXP-U-025", "checkpoint_sha256": "a" * 64}]}, "experiment_id must be"),
     ({"authorized_by": ""}, "authorized_by"),
     ({"authorized_by": "   "}, "authorized_by"),
     ({"authorized_by": None}, "authorized_by"),
@@ -175,6 +181,20 @@ def test_a_relative_record_path_is_resolved_against_the_repository(environment, 
     assert index["holdout_authorization"]["record_path"] == "management/record.json"
 
 
+@pytest.mark.parametrize("given", ["../outside.json", "management/../../outside.json", "management/../outside.json"])
+def test_a_relative_record_path_may_not_leave_the_repository(environment, tmp_path, monkeypatch, given):
+    """QA_PR94_D39 NB-3: "repository-relative" is enforced; the path is refused before anything is opened."""
+    repo = tmp_path / "repo"
+    (repo / "management").mkdir(parents=True)
+    write_record(tmp_path / "outside.json", environment["split_sha256"])  # a VALID record, one level above the repo
+    monkeypatch.setattr(ingest, "REPO_ROOT", repo)
+    out = tmp_path / "cache"
+    with pytest.raises(ingest.IngestError, match="stay inside the repository") as raised:
+        ingest_holdout(environment, out, Path(given), only=["CASE_9102"])
+    assert raised.value.code == "HOLDOUT_AUTHORIZATION_INVALID"
+    assert not out.exists()
+
+
 # -- the cache ---------------------------------------------------------------------------
 
 def test_the_cache_records_the_record_and_every_holdout_case_except_int12(environment, holdout_environment):
@@ -183,7 +203,7 @@ def test_the_cache_records_the_record_and_every_holdout_case_except_int12(enviro
     assert index["holdout_authorization"] == {
         **GATE, "split_sha256": environment["split_sha256"], "record_sha256": digest, "record_path": "authorization.json",
         "authorized_by": "synthetic test",
-        "authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": "a" * 64}]}
+        "authorized_runs": [{"experiment_id": "EXP-U-025", "checkpoint_sha256": synthetic.CHECKPOINT_SHA256}]}
     assert len(index["cases"]) == 2 + 1 + len(HOLDOUT_EVALUATED) == 54
     assert index["inference_only_case_ids"] == [INT12]
     cache = holdout_environment["cache"]
@@ -288,6 +308,7 @@ def test_a_malformed_record_in_the_cache_refuses_to_start(holdout_environment, t
     lambda a: a.update(authorized_runs=[]),
     lambda a: a.update(authorized_runs="EXP-D-100"),
     lambda a: a.update(authorized_runs=[{"experiment_id": "EXP-U-025"}]),
+    lambda a: a.update(authorized_runs=a["authorized_runs"] * 2),  # QA_PR98_D39 N-7: one experiment listed twice
     lambda a: a.pop("authorized_by"),
     lambda a: a.update(authorized_by=""),
     lambda a: a.update(authorized_by="  "),
@@ -364,6 +385,56 @@ def test_int12_is_never_served_with_ground_truth_whatever_the_record_says(holdou
         mode="INFERENCE_REVIEW", ground_truth_available=False))
     with pytest.raises(RuntimeError, match="CASE_9102"):
         CaseStore(cache)
+
+
+# -- served runs against the record's authorized_runs (QA_PR98_D39 N-7) -----------------------
+
+def experiment_store(environment, cache: Path, tmp_path: Path) -> ExperimentStore:
+    return ExperimentStore(environment["experiments"], CaseStore(cache), tmp_path / "render")
+
+
+def test_a_package_exported_from_another_checkpoint_than_the_record_lists_is_rejected(
+        environment, holdout_environment, tmp_path):
+    # Control: the record lists EXP-U-025 with the checkpoint it was exported from -> served. EXP-U-050 is not
+    # listed (a second record may authorize it, see the loader's docstring) -> served too. EXP-D-025 is rejected
+    # by its gates, as before.
+    store = experiment_store(environment, holdout_environment["cache"], tmp_path)
+    assert sorted(store.experiments) == ["EXP-U-025", "EXP-U-050"]
+    assert [item["code"] for item in store.rejected] == ["GATE_ML_01_NOT_ACCEPTED"]
+
+    # The record lists EXP-U-025 with ANOTHER checkpoint: that package is another model's results under an
+    # authorized name. It is rejected whole (no run of it is served); the unlisted package is untouched.
+    cache = copy_cache(holdout_environment["cache"], tmp_path / "other_checkpoint")
+    edit_json(cache / "index.json", lambda index: index["holdout_authorization"]["authorized_runs"][0].update(
+        checkpoint_sha256="b" * 64))
+    store = experiment_store(environment, cache, tmp_path)
+    assert sorted(store.experiments) == ["EXP-U-050"]
+    assert sorted(item["code"] for item in store.rejected) == ["GATE_ML_01_NOT_ACCEPTED", "HOLDOUT_CHECKPOINT_NOT_AUTHORIZED"]
+    assert not [run for run in store.runs.values() if run.experiment_id == "EXP-U-025"]
+    rejected = next(item for item in store.rejected if item["code"] == "HOLDOUT_CHECKPOINT_NOT_AUTHORIZED")
+    assert "EXP-U-025" in rejected["message"] and "b" * 64 not in rejected["message"]
+
+    # Without the record in the cache nothing can be judged: the old behaviour (every valid package is served).
+    store = experiment_store(environment, environment["cache"], tmp_path)
+    assert sorted(store.experiments) == ["EXP-U-025", "EXP-U-050"]
+
+
+def test_the_rejected_package_is_visible_in_health_and_not_served(environment, holdout_environment, tmp_path):
+    cache = copy_cache(holdout_environment["cache"], tmp_path / "other_checkpoint")
+    edit_json(cache / "index.json", lambda index: index["holdout_authorization"]["authorized_runs"][0].update(
+        checkpoint_sha256="c" * 64))
+    settings = Settings.from_env({
+        "data_cache": cache, "experiments_root": environment["experiments"], "db_path": tmp_path / "backend.sqlite3",
+        "render_cache": tmp_path / "render_cache", "request_log": tmp_path / "logs" / "requests.jsonl",
+    })
+    app = create_app(settings)
+    with TestClient(app) as client:
+        api = Api(client)
+        health = client.get("/health").json()
+        assert health["experiments"] == 1 and "HOLDOUT_CHECKPOINT_NOT_AUTHORIZED" in health["rejected_experiment_packages"]
+        assert api.error_code(api.call("GET", f"{B}/experiments/EXP-U-025/cases", "experiment_cases", 404)) == "ARTIFACT_NOT_FOUND"
+        api.call("GET", f"{B}/experiments/EXP-U-050/cases", "experiment_cases", 200)
+    app.state.backend.storage.close()
 
 
 # -- DR-018: the loader and the validator ---------------------------------------------------

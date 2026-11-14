@@ -109,6 +109,13 @@ export function validateRoute(screenId, params) {
  * One prompt at a time (#77 QA N-7): while a guard is being asked, any other
  * action that would ask one - a second back press, a tab - is refused at once
  * instead of opening a second dialog over the first.
+ *
+ * A guard MUST settle on every path (#88 QA N-3). One that returns a Promise has
+ * to resolve it for each button of its dialog AND when the dialog is dismissed
+ * without one (Alert.alert's onDismiss: resolve false). The shell cannot tell
+ * "still deciding" from "abandoned", so a Promise that never settles keeps
+ * hold() closed, and every later back press, tab and push on that screen is
+ * refused. V4's SCR-06 does it (render check V4q).
  */
 export function createGuards() {
   const map = new Map();

@@ -5,10 +5,12 @@ Two entry points:
 
 - ``validate_contract(contract, schema)`` checks the contract document itself
   (formal Draft 2020-12 schema first, then the semantic rules below);
-- ``validate_response(contract, endpoint_id, http_status, body)`` checks one
+- ``validate_response(contract, endpoint_id, http_status, body, request=None)`` checks one
   response a server (or the fixture generator) produced for one endpoint, and
-  returns the list of problems. The backend tests and test_api_contract.py use
-  the same function, so "validated against the contract" means one thing.
+  returns the list of problems (``request_params`` reads the path parameters of
+  the URL that was asked, for the checks that need to know what was requested).
+  The backend tests and test_api_contract.py use the same function, so
+  "validated against the contract" means one thing.
 
 Python 3.9 compatible on purpose: the backend host runs 3.9.
 """
@@ -20,6 +22,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
+from urllib.parse import unquote, urlsplit
 
 
 class ContractError(Exception):
@@ -494,11 +497,13 @@ def _check_worst_slice(contract: dict, at: str, block: Any, problems: List[str])
 
 
 def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], problems: List[str],
-                    page_variant: Any = None) -> None:
+                    page_variant: Any = None, asked_experiment_id: Optional[str] = None) -> None:
     """The DR-010 outlier block, checked against the rows of the same response (QA N-c).
 
     Count, exactly the lowest three, values and run ids equal to the rows, and the
     variant equal to the page's. Only SUCCEEDED rows qualify: a WITHHELD (INT-12) row never does.
+    When the experiment that was asked for is known (``asked_experiment_id``, from the request path), the block must
+    name that experiment (QA_PR94_D39 NB-6): a page of one experiment must not carry another's outliers.
     """
     rule = contract["selection_rules"]["outlier_selection"]
     if not isinstance(block, dict) or set(block) != set(rule["block_fields"]):
@@ -514,6 +519,9 @@ def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], proble
         problems.append(f"{at}: outlier_selection.prediction_variant {block['prediction_variant']} differs from the page's {page_variant}")
     if not (isinstance(block["experiment_id"], str) and block["experiment_id"]):
         problems.append(f"{at}: outlier_selection.experiment_id must be a non-empty string")
+    elif asked_experiment_id is not None and block["experiment_id"] != asked_experiment_id:
+        problems.append(f"{at}: outlier_selection.experiment_id {block['experiment_id']!r} is not the experiment "
+                        f"that was asked for ({asked_experiment_id!r})")
     cases = block["cases"]
     if not isinstance(cases, list) or len(cases) > rule["cardinality"]:
         problems.append(f"{at}: outlier_selection.cases must be a list of at most {rule['cardinality']}")
@@ -551,7 +559,8 @@ def _check_outliers(contract: dict, at: str, block: Any, rows: List[Any], proble
     ranked = []
     for case_id, row in succeeded_rows.items():
         values = row.get("metric_values")
-        if isinstance(values, dict) and _is_number(values.get(rule["metric_name"]))                 and _is_int(values.get("false_positives")) and _is_int(values.get("false_negatives")):
+        if (isinstance(values, dict) and _is_number(values.get(rule["metric_name"]))
+                and _is_int(values.get("false_positives")) and _is_int(values.get("false_negatives"))):
             ranked.append((values[rule["metric_name"]], -(values["false_positives"] + values["false_negatives"]), str(case_id)))
     expected = [key[2] for key in sorted(ranked)[: rule["cardinality"]]]
     if [item["case_id"] for item in cases] != expected:
@@ -593,8 +602,30 @@ def _check_summary(contract: dict, at: str, summary: Any, problems: List[str]) -
             problems.append(f"{at}: summary of {metric}.n must be a count")
 
 
-def validate_response(contract: dict, endpoint_id: str, http_status: int, body: Any) -> List[str]:
-    """Return every way one response breaks the contract (empty list = valid)."""
+def request_params(contract: dict, endpoint_id: str, url: str) -> Dict[str, str]:
+    """The ``{placeholders}`` of the endpoint's path template, read from the URL that was requested.
+
+    The query string is ignored. An unknown endpoint, or a URL that does not fit the template, gives ``{}``. Pass the
+    result to ``validate_response`` so a response that echoes its request can be checked against it.
+    """
+    endpoint = next((item for item in contract["endpoints"] if item["id"] == endpoint_id), None)
+    if endpoint is None:
+        return {}
+    template = endpoint["path"].split("?", 1)[0]
+    pattern = "".join(f"(?P<{part[1:-1]}>[^/]+)" if part.startswith("{") else re.escape(part)
+                      for part in re.split(r"(\{[A-Za-z_]+\})", template))
+    match = re.fullmatch(pattern, urlsplit(url).path)
+    return {key: unquote(value) for key, value in match.groupdict().items()} if match else {}
+
+
+def validate_response(contract: dict, endpoint_id: str, http_status: int, body: Any,
+                      request: Optional[Dict[str, str]] = None) -> List[str]:
+    """Return every way one response breaks the contract (empty list = valid).
+
+    ``request`` (optional) is the request's path parameters (see ``request_params``); with it the checks that need to
+    know what was asked for are made too: today, that an ``experiment_cases`` page's outlier selection names the
+    experiment of the page (QA_PR94_D39 NB-6). Without it they are skipped, as before.
+    """
     endpoints = {item["id"]: item for item in contract["endpoints"]}
     errors = {item["code"]: item for item in contract["errors"]}
     endpoint = endpoints.get(endpoint_id)
@@ -710,7 +741,7 @@ def validate_response(contract: dict, endpoint_id: str, http_status: int, body: 
                 problems.append(f"{where}: a {row.get('status')} row carries metric_values null, never numbers")
         if "outlier_selection" in body:
             _check_outliers(contract, at, body["outlier_selection"], body["items"], problems,
-                            body.get("prediction_variant"))
+                            body.get("prediction_variant"), (request or {}).get("experiment_id"))
     if endpoint_id == "experiment_metrics" and "metric_summary" in body:
         _check_summary(contract, f"{at}: metric_summary", body["metric_summary"], problems)
     if endpoint_id == "experiment_compare" and "summary" in body:

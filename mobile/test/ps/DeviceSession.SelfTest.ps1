@@ -351,11 +351,12 @@ function Get-DeviceSessionSelfChecks {
     try {
       Add-Secret -Value 'R58M12ABCDE' -Mask '<device-serial>'
       # Synthetic private addresses are joined at run time: no committed line carries a dotted quad (DR-019 CI scan).
-      $ipA = (192, 168, 1, 20) -join '.'; $ipB = (10, 147, 17, 5) -join '.'; $ipC = (172, 22, 0, 9) -join '.'
+      # The 10.x fixture is outside ZeroTier's default 10.147.x.x pool, so it cannot be the project's overlay address (QA_PR100_103_D39 #103).
+      $ipA = (192, 168, 1, 20) -join '.'; $ipB = (10, 250, 250, 5) -join '.'; $ipC = (172, 22, 0, 9) -join '.'
       $t = Hide-Secret ('adb -s R58M12ABCDE shell; backend ' + $ipA + ' and ' + $ipB + ' and ' + $ipC + '; ' + $env:USERPROFILE + '\x')
       Assert-True ($t -notmatch 'R58M12ABCDE') 'serial leaked'
       Assert-True ($t -match '<device-serial>') 'serial not masked'
-      Assert-True ($t -notmatch '192\.168|10\.147|172\.22') 'private address leaked'
+      Assert-True ($t -notmatch '192\.168|10\.250\.250|172\.22') 'private address leaked'
       Assert-True ($t -match '<home>') 'profile path leaked'
     } finally { $script:Ctx.Secrets = $saved }
   }
@@ -552,6 +553,41 @@ function Get-DeviceSessionSelfChecks {
     Assert-True ((ConvertTo-RedactedBuildRecord $new) -match 'configured \(not recorded\)') 'a clean record must be kept'
     $h = ConvertFrom-BuildRecord $new
     Assert-Equal $h['study_id'] 'STUDY_LA_001'
+  }
+  Add-Check 'outside-git: a folder inside the repository is inside, also when the repository is spelled with its 8.3 short name; another folder is outside' {
+    # [System.IO.Path]::GetFullPath of Windows PowerShell 5.1 expands the short names of the folders above the last existing one
+    # but leaves the last existing folder as typed, so "<repo short name>\out" (out does not exist yet) used to be judged
+    # outside the repository (QA_PR100_103_D39 #103 NB-2). Test-OutsideGit now compares long (8.3-expanded) paths.
+    $repo = Join-Path $script:ST.Tmp 'outside_git_probe_with_a_long_repository_folder_name'
+    $inside = Join-Path $repo 'sessions_with_a_long_name'
+    foreach ($d in @($repo, $inside)) { if (-not (Test-Path -LiteralPath $d)) { [void](New-Item -ItemType Directory -Path $d) } }
+    Assert-True (-not (Test-OutsideGit -Path (Join-Path $inside 'out') -Repo $repo)) 'a folder inside the repository must be inside'
+    Assert-True (-not (Test-OutsideGit -Path $repo -Repo $repo)) 'the repository folder itself is inside'
+    Assert-True (-not (Test-OutsideGit -Path (Join-Path $repo.ToUpperInvariant() 'out') -Repo $repo)) 'Windows paths ignore case: another spelling of the repository is inside'
+    Assert-True (Test-OutsideGit -Path (Join-Path $script:ST.Tmp 'somewhere_else') -Repo $repo) 'a sibling folder must be outside'
+    Assert-True (Test-OutsideGit -Path ($repo + '_sibling') -Repo $repo) 'a folder whose name only starts like the repository must be outside'
+    try { $fso = New-Object -ComObject Scripting.FileSystemObject } catch { return }    # no COM class here: nothing to compare
+    $repoShort = $fso.GetFolder($repo).ShortPath
+    if ($repoShort -eq $repo) { return }    # 8.3 names are off on this volume: nothing to compare
+    Assert-True (-not (Test-OutsideGit -Path (Join-Path $repoShort 'out') -Repo $repo)) 'the short-name spelling of the repository folder, with a new folder below it, must be inside'
+    Assert-True (-not (Test-OutsideGit -Path (Join-Path $inside 'out') -Repo $repoShort)) 'a short-name spelling of the repository must still contain its folders'
+    Assert-True (-not (Test-OutsideGit -Path (Join-Path $fso.GetFolder($inside).ShortPath 'out') -Repo $repo)) 'the short-name spelling of a folder below the repository must be inside'
+    Assert-True (Test-OutsideGit -Path (Join-Path $script:ST.Tmp 'somewhere_else') -Repo $repoShort) 'another folder stays outside when the repository is spelled short'
+  }
+  Add-Check 'operator questions: every [y/N] question is judged by y, so Enter (an empty answer) means No' {
+    # Read-Operator returns the typed text; its -Default applies only when unattended, so an interactive Enter gives ''.
+    # A question judged by "-match '^[nN]'" would therefore read Enter as Yes (QA_PR100_103_D39 #103 NB-1: the SCR-06
+    # question, whose answer sends a review_create to the backend). Each question line must be followed by a test on y.
+    $lines = @(Get-Content -LiteralPath (Join-Path $script:ST.Scripts 'device_session.ps1'))
+    $asked = 0
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+      if ($lines[$i] -notmatch 'Read-Operator .*\[y/N\]') { continue }
+      $asked++
+      $judged = ($lines[$i + 1] + ' ' + $lines[$i + 2])
+      Assert-True ($judged -match "-(not)?match '\^\[yY\]'") ('line {0}: a [y/N] question must be judged by ^[yY], got: {1}' -f ($i + 1), $judged.Trim())
+      Assert-True ($judged -notmatch "-(not)?match '\^\[nN\]'") ('line {0}: a [y/N] question must not be judged by ^[nN]' -f ($i + 1))
+    }
+    Assert-True ($asked -ge 4) ('expected the four [y/N] questions of the session, found {0}' -f $asked)
   }
   Add-Check 'preflight block: from "preflight:" to "PREFLIGHT PASS"' {
     $t = "noise`npreflight: backend http://<configured> | study S | case CASE_0061 | RAW`n  ok   P1 /health ok`nPREFLIGHT PASS`ntrailing`n"
