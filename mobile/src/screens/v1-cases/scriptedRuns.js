@@ -1,7 +1,6 @@
 /*
- * SCR-03 measurement aids: the CMW_SLICE timing of each slice switch and the scripted slice runs (A9, L4) started by
- * a long press on the slice label. They only write logcat lines; the laptop-side reports read them. Nothing here is
- * needed to use the screen.
+ * Measurement helpers for SCR-03: the CMW_SLICE timing of each slice switch and the scripted slice runs (A9, L4)
+ * started by a long press on the slice label. They only write logcat lines; the screen works without them.
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -13,10 +12,8 @@ const now = () => (global.performance ? global.performance.now() : Date.now());
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isDev = () => (typeof __DEV__ !== 'undefined' ? __DEV__ : null);
 
-/*
- * Timing of the slice in flight (CMW_SLICE) and the waiter a scripted step blocks on. The returned object never
- * changes, so the screen can call it from its memoised callbacks.
- */
+// Timing of the slice in flight (CMW_SLICE) and the waiter a scripted step blocks on. The returned object never
+// changes, so the screen can use it inside its memoised callbacks.
 export function useSliceTiming() {
   const sample = useRef(null);
   const seenImages = useRef(new Set());
@@ -75,18 +72,14 @@ export function useSliceTiming() {
   }), []);
 }
 
-/*
- * The scripted runs. `navRun` names the run in progress (the screen locks its controls meanwhile); `askScripted`
- * opens the dialog that starts one.
- */
+// navRun names the run in progress (the screen locks its controls meanwhile); askScripted opens the start dialog.
 export function useScriptedRuns({
   timing, goTo, runtime, net, caseId, runId, hasRun, total, capability, targetVariant, overlaysRef, displayedRef,
 }) {
   const [navRun, setNavRun] = useState(null);
 
-  // The timeout belongs to THIS step's waiter, compared by identity: the revisit
-  // pass steps back over slices the new pass showed, so an earlier step's timer
-  // must never time out a later step that waits on the same slice.
+  // The timeout belongs to this step's waiter, compared by identity: the revisit pass goes back over slices the
+  // first pass showed, so an earlier step's timer must not time out a later step waiting on the same slice.
   const stepTo = useCallback((n) => new Promise((resolve) => {
     let timer = null;
     const waiter = { slice: n, resolve: (v) => { clearTimeout(timer); resolve(v); } };
@@ -106,9 +99,8 @@ export function useScriptedRuns({
     for (const pass of passes) {
       setNavRun(`${name} ${pass.label}`);
       timing.passRef.current = `${name}:${pass.label}`;
-      // has_run / gt_declared / gt_overlay tell the laptop-side judge what every
-      // new slice must carry (l4-report.mjs R5): a case with no run is judged
-      // on MRI + ground truth and the report says predictions were not in it.
+      // has_run, gt_declared and gt_overlay tell the laptop report what each new slice must show; a case with no
+      // run is checked on MRI and ground truth only.
       const ov = overlaysRef.current || {};
       console.log(`CMW_RUN_START ${JSON.stringify({
         run: name, pass: pass.label, steps: pass.steps.length, sequence: pass.steps, nz: total, case_id: caseId,
@@ -122,9 +114,8 @@ export function useScriptedRuns({
         await sleep(gapMs);
       }
       console.log(`CMW_RUN_END ${JSON.stringify({ run: name, pass: pass.label, steps: pass.steps.length })}`);
-      // The session's running totals, so requests that no gesture line lists (none open when they started, or one
-      // that had already closed when they ended) are still on record. A line of its own: the laptop-side reports
-      // read CMW_RUN_END unchanged.
+      // Running totals for the session, so requests that no CMW_GESTURE line lists are still logged. A separate
+      // line, because the reports read CMW_RUN_END as it is.
       if (net) console.log(`CMW_NET_TOTALS ${JSON.stringify({ run: name, pass: pass.label, ...net.totals() })}`);
     }
     timing.passRef.current = null;
@@ -141,7 +132,7 @@ export function useScriptedRuns({
     runScripted('L4', [{ label: 'new-15', steps: fresh }, { label: 'revisit-15', steps: back }], 400);
   }, [displayedRef, runScripted, total]);
 
-  // TC-PERF-001: the 30-step sequence measured in the 2D prototype, a warm pass then a measured one.
+  // A9: the 30-step sequence from the 2D viewer prototype, a warm pass then a measured one.
   const runA9 = useCallback(() => {
     const seq = buildNavSequence(total);
     runScripted('A9', [{ label: 'warm', steps: [0, ...seq] }, { label: 'measured', steps: [0, ...seq] }], 350);

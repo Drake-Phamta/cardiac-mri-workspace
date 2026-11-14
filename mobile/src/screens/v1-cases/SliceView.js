@@ -1,27 +1,6 @@
 /*
- * The 2D slice viewport: the MRI slice, mask overlays on top, pinch-zoom and
- * pan, and a tap that reports the source pixel under the finger.
- *
- * Geometry. Everything is placed with ONE display transform {zoom, panX,
- * panY} from app/core viewMath.mjs (itself a provenance copy of Spike A's
- * measured viewerMath.js): the image at (panX, panY) sized nx*zoom by
- * ny*zoom, each overlay an SVG of the same box whose viewBox is the source
- * grid "0 0 nx ny". A mask pixel (x, y) is therefore drawn exactly over MRI
- * pixel (x, y) at every zoom and pan (TC-MASK-001), and zoom / pan never
- * touch mask data (`07` §8 invariant 2) - they only change three numbers.
- *
- * Gestures. PROVENANCE - adapted, not imported (product code never imports
- * spikes/**):
- *   source : spikes/spike_a_2d/app/App.js - pagePoints, PanResponder
- *            onPanResponderGrant / Move / Release / Terminate, S4 "Xem" mode
- *   commit : 0e3e54f "SPIKE_A S8: save/reload for A8, and the two scripts that conclude A10/A11"
- *   blob   : a8fb8a512c8a1ace2e3dbf487d11d1ee1218dc08
- *   kept   : one finger pans, two fingers pinch about their midpoint and
- *            pan by its movement, a finger added or lifted re-bases the
- *            gesture, a short still touch is a tap, Android termination
- *            ends the gesture cleanly (A2 passed 16/16 on the A17 with it)
- *   dropped: the brush (S5 - that is SCR-06's, V4), frame-gap logging, the
- *            A2 checksum harness
+ * The 2D slice view shared by SCR-03 and SCR-04: the viewport (MRI image, mask overlays, pinch-zoom, pan, tap to
+ * source pixel), the slice scrubber, and the hook that turns a mask URL into an overlay path.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -48,6 +27,13 @@ function Grid({ nx, ny }) {
   );
 }
 
+/*
+ * One display transform {zoom, panX, panY} (viewMath.mjs) places everything: the image at (panX, panY), sized
+ * nx*zoom by ny*zoom, and each overlay as an SVG of the same box with viewBox "0 0 nx ny". So mask pixel (x, y)
+ * always sits over MRI pixel (x, y), and zoom / pan never touch mask data.
+ * Gestures (adapted from the 2D viewer prototype): one finger pans, two fingers pinch about their midpoint and pan
+ * with it, adding or lifting a finger restarts the gesture, and a short still touch is a tap.
+ */
 export default function SliceViewport({
   shape, imageUri, onImageLoad, onImageError, layers = [], placeholderNote = null, resetKey, onTap,
 }) {
@@ -136,8 +122,7 @@ export default function SliceViewport({
   return (
     <View style={s.viewport} ref={viewRef} onLayout={onLayout} {...responder.panHandlers}>
       {box && imageUri ? (
-        // Same component across slices, only the source changes - Spike A's
-        // A9 path (cached switch p95 65 ms on the A17, release build).
+        // The same <Image> stays mounted across slices; only its source changes.
         <Image
           source={{ uri: imageUri }}
           style={box}
@@ -189,14 +174,9 @@ const s = StyleSheet.create({
 });
 
 /*
- * Slice navigation: a slider track plus step buttons (`10` §3 "swipe/slider
- * slice navigation"). The track maps a finger position to a slice through
- * scrubIndex() - the same x always gives the same slice, both ends are
- * reachable (TC-MRI-002). Every change is reported; the screen's serial
- * runner coalesces a fast scrub into "the slice in flight, then the last".
- *
- * React Native core has no Slider, and a dependency for one track is not
- * worth it: a View and a PanResponder are the whole component.
+ * Slice navigation: a slider track plus step buttons. scrubIndex() maps a finger x to a slice, so the same x always
+ * gives the same slice and both ends are reachable. Every change is reported; the screen's serial runner merges a
+ * fast scrub. React Native core has no Slider, so a View and a PanResponder do the job.
  */
 
 export function SliceScrubber({ index, pending, total, onChange, onLongPressLabel, disabled = false }) {
@@ -292,18 +272,9 @@ const scrub = StyleSheet.create({
 });
 
 /*
- * One mask layer for the viewport: content_url in, vector path out.
- *
- * Goes through the runtime's mask store (runtime.content.bytes -> maskPng.js
- * -> runs), keyed by the content-addressed URL and the slice size the mask
- * must have; the checksum the server stated is verified on the way in. A
- * decode that is already cached is returned in the SAME render (peek), so a
- * revisited slice draws its overlay with its image, not a frame later.
- *
- *   status  'off'      no store (fixture mode) or no URL - nothing to fetch
- *           'loading'  fetching / decoding
- *           'ready'    path is drawable
- *           'error'    the layer is unavailable; `error` says why
+ * One mask layer for the viewport: content_url in, SVG path out, through the runtime's mask store (checksum
+ * verified). A cached decode is returned in the same render, so a revisited slice draws its overlay with its image.
+ * status: 'off' (no store or no URL), 'loading', 'ready' (path drawable), 'error' (`error` says why).
  */
 
 const OFF = Object.freeze({ status: 'off', path: null, pixels: null, error: null, url: null });

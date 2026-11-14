@@ -1,39 +1,7 @@
 /*
- * SCR-04 - Error Inspector (V1, Phạm Tuấn Anh, DR-013a; built under the Day 22
- * override, to be revalidated by the owner on Day 23).
- *
- * `10` §3 / §7 and the DEMO_STANDARD §4 bar:
- *   available only with ground truth   an INFERENCE_REVIEW case gets a clear
- *                                      unavailable state - never an empty chart
- *                                      that reads as "no error" (PR-MODE-01,
- *                                      TC-MODE-001)
- *   prediction vs ground truth         TP / FP / FN drawn from the two masks the
- *                                      server served for this slice, each class
- *                                      with a colour AND a name, a count and an
- *                                      on/off switch (TC-ERR-001, TC-ERR-002)
- *   drawn masks = the server's masks   the run metrics' reference_mask_id and
- *                                      prediction_mask_id against the ids of the
- *                                      masks drawn; a difference is shown, and
- *                                      the classes are then not compared with
- *                                      the server's FP / FN (DR-013a addendum)
- *   per-slice metrics / error amounts  the server's per-slice Dice and the
- *                                      DR-010 selection's FP / FN per eligible
- *                                      slice, as a profile across the volume
- *   jump to the worst slice            the server's worst_slice_selection
- *                                      (analysis_run_metrics, DR-010a option b),
- *                                      first entry first - never ranked here;
- *                                      only under the rule_id and
- *                                      selection_version the contract pins; an
- *                                      entry outside the volume is listed as
- *                                      such and never opened (no clamping)
- *   run-level numbers                  only for the variant asked for: a
- *                                      substituted one is the V1 model's
- *                                      variant-mismatch state (`11` §6)
- *   entry to 3D error view             SCR-05 with the slice and variant
- *
- * Slice data comes from the same V1 model as SCR-03; bytes from
- * runtime.content through the mask store (checksum-verified); every slice
- * switch is a CMW_GESTURE line like SCR-03's.
+ * SCR-04 Error Inspector: TP / FP / FN of the prediction against ground truth on one slice, the server's worst
+ * slices and error profile, and the case metrics. Slice data comes from the same model as SCR-03; the run-level
+ * rules are in errorInspector.mjs. A case without ground truth gets an "unavailable" state, never an empty chart.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -71,7 +39,7 @@ export default function ErrorInspectorScreen({ runtime, nav, params }) {
   const kase = caseCall.view.data;
   const capability = capabilityOf(kase.mode, kase.ground_truth_available);
   if (!capability.groundTruthUsable) {
-    // PR-MODE-01: no ground truth, no error view - said plainly, nothing drawn.
+    // No ground truth, no error view: an empty chart would read as "no error".
     return (
       <View style={s.center}>
         <View style={s.caseRow}>
@@ -109,10 +77,8 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const height = shape ? shape[1] : null;
   const size = useMemo(() => (width && height ? { width, height } : null), [width, height]);
 
-  // Run level: case metrics and the server's worst-slice selection, through the
-  // two gates (#78 QA B-2, B-3): the variant asked for, and the rule and
-  // selection version the loaded contract pins. Nothing below reads the
-  // response any other way.
+  // Run level: case metrics and the server's worst slices, shown only for the variant asked for and the rule and
+  // selection version the contract pins (see runLevel).
   const metricsCall = useCall(runtime.client, 'analysis_run_metrics', { run_id: runId, variant });
   const pinned = useMemo(() => pinnedSelection(runtime.contract), [runtime.contract]);
   const run = useMemo(
@@ -122,7 +88,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const { metrics: runMetrics, selection, profile, worst } = run;
   const selNote = selectionNote(selection);
 
-  // Slice level: the V1 model, one action at a time, newest slice wins.
+  // Slice level: the case explorer model, one action at a time, newest slice wins.
   const model = useMemo(() => createCaseExplorer(client, { variant }), [client, variant]);
   const [current, setCurrent] = useState(model.current);
   const [shown, setShown] = useState(null);
@@ -146,9 +112,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
 
   const start = Number.isInteger(initialSlice) ? initialSlice : (Number.isInteger(total) ? Math.floor(total / 2) : 0);
   useEffect(() => {
-    // Same cache rules as SCR-03 (#77 QA N-1/N-2, #78 QA N-4): only a fresh
-    // open drops every cached "unavailable" answer; a Retry forgets only the
-    // slice it retries - that slice's answers, "unavailable" ones included.
+    // Same cache rules as SCR-03: only a fresh open drops cached "unavailable" answers; Retry forgets one slice.
     if (client.clearNegative) client.clearNegative();
     if (net) net.begin({ caseId, from: null, to: start, kind: 'open' });
     runner.run(() => model.open({ caseId, runId, sliceIndex: start }));
@@ -192,13 +156,10 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     return () => { alive = false; };
   }, [shown, runtime.imageStore, runtime.maskStore, size, net]);
 
-  // ----- what is on screen ---------------------------------------------------------
   const ok = displayed !== null;
   const state = current.view.state;
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
-  // As in SCR-03 (#77 QA B-3): while the viewer shows a state, nothing of the
-  // slice displayed before - classes, counts, comparison, ids, metric - stays
-  // on screen as if it were this one.
+  // As in SCR-03: while the viewer shows a state, nothing from the previous slice stays on screen.
   const showing = ok && !blocking;
   const z = ok ? displayed.sliceIndex : null;
   const peekMask = (r) => (r && r.contentUrl && runtime.maskStore && size ? runtime.maskStore.peek(r.contentUrl, size) : null);
@@ -221,8 +182,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     ? CLASS_ORDER.map((k) => ({ key: k, path: classes.paths[k], color: ERROR_CLASS[k].color, opacity, visible: visible[k] }))
     : [];
   const serverCell = showing && profile.cells.length ? profile.cells[z] : null;
-  // DR-013a addendum (#78 QA N-6): the server's numbers are compared with the
-  // drawn classes only when the masks drawn are the ones those numbers name.
+  // The server's FP / FN are compared with the drawn classes only when the drawn masks are the ones it names.
   const ids = classes && classes.counts ? compareMaskIds(runMetrics, displayed) : null;
   const idsDiffer = Boolean(ids && ids.checked && !ids.consistent);
   const check = classes && classes.counts && !idsDiffer ? compareWithServer(serverCell, classes.counts) : null;
@@ -311,8 +271,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             <>
               <Text style={s.dim}>{selection.ruleId} · {selection.selectionVersion} · in the order the server ranked them</Text>
               {worst.map((e, i) => {
-                // #78 QA N-7: an entry outside the volume is listed, never opened -
-                // goTo would clamp it to the edge slice.
+                // An entry outside the volume is listed but not opened: goTo would clamp it to the edge slice.
                 const opens = inVolume(e, total);
                 const away = outsideVolumeNote(e, total);
                 return (

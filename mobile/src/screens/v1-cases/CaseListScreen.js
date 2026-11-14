@@ -1,19 +1,6 @@
 /*
- * SCR-02 - Case List (V1, Phạm Tuấn Anh; built under the Day 22 override).
- *
- * `10` §3: de-identified case IDs and mode capability; select a case; a
- * simple search / filter; evaluation vs inference-only readable at a glance
- * (DEMO_STANDARD §4 bar), and consistent with the case screens (TC-CASE-002:
- * the badge is the same component and the same derivation SCR-03 uses).
- *
- * One call, case_list, through app/core. The rows are read by
- * capability.mjs; nothing here interprets an error code - StateView renders
- * whatever state app/core returned.
- *
- * What it deliberately does not do: page through the server. case_list's
- * contract path has no page parameter app/core can fill, so when the server
- * says a next page exists the screen says so instead of presenting the first
- * page as the whole study.
+ * SCR-02 Case List: the study's cases with their mode badge (the same one SCR-03 shows), a search box and a mode
+ * filter. Only the first page of case_list is shown; when the server has more, the screen says so.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -38,7 +25,7 @@ export default function CaseListScreen({ runtime, nav }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('ALL');
 
-  // useCall: latest wins, LOADING on refetch, aborted when the screen goes.
+  // useCall: the latest call wins, refetch shows LOADING, and the call is aborted when the screen closes.
   const { view, refetch: load } = useCall(runtime.client, 'case_list', { study_id: runtime.config.studyId });
 
   const onAction = useCallback((id) => {

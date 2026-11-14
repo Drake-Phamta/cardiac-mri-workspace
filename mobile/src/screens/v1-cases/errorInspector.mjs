@@ -1,33 +1,7 @@
 /*
- * SCR-04 Error Inspector - everything the screen decides that is not drawing.
- * Pure; tested in node (test/v1_error.test.mjs).
- *
- * Two sources of numbers, never mixed:
- *   - the SERVER: analysis_run_metrics (case-level metric_values, and the
- *     worst_slice_selection block of DR-010a option b) and
- *     analysis_slice_metrics (per-slice Dice). These are the metrics.
- *   - the MASKS ON SCREEN: TP / FP / FN pixel classes computed from the
- *     ground-truth and prediction masks the server served for this slice
- *     (maskPaths.disagreementRuns). These are a DRAWING of two artifacts,
- *     and the legend counts what is drawn.
- * When both describe the same slice, they are compared and a disagreement is
- * shown, not hidden.
- *
- * DR-010: "the API returns the selection; the client never re-derives it".
- * Nothing in this file orders slices. The selection is read with app/core's
- * readSelection (which preserves the server's order), the top entries are the
- * first ones the server sent, and the per-slice profile places each entry at
- * its own slice index - a position, not a rank. There is deliberately no
- * `.sort(` in this file; test V4x checks it.
- *
- * Two gates before any run-level number is shown (#78 QA B-2, B-3):
- *   - the run metrics must be for the variant asked for. Another one, or none,
- *     is the V1 model's own PREDICTION_VARIANT_MISMATCH state, and then no
- *     case metric, worst slice, profile or server comparison is shown;
- *   - the worst-slice block must state the rule_id AND selection_version the
- *     loaded contract pins. Anything else is unavailable with its reason, and
- *     nothing is ranked here in its place.
- * runLevel() applies both; the screen reads every run-level value from it.
+ * SCR-04 Error Inspector logic, plain JS that Node tests import. The server's metrics and worst slices are kept
+ * apart from the TP / FP / FN counted from the masks on screen; when both cover a slice, they are compared.
+ * Slices are never ranked here (DR-010: the server ranks, the client only reads), so this file has no `.sort(`.
  */
 
 import { STATE } from '../../api/states.mjs';
@@ -58,10 +32,7 @@ export const CLASS_ORDER = Object.freeze(['TP', 'FP', 'FN']);
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-/*
- * analysis_run_metrics data -> what the summary card shows. Values that are
- * missing or not numbers stay null and are shown as "not stated" - never 0.
- */
+// analysis_run_metrics data -> the case metrics card. Missing or non-numeric values stay null ("not stated"), never 0.
 export function readRunMetrics(data) {
   const v = (data && typeof data.metric_values === 'object' && data.metric_values) || {};
   return Object.freeze({
@@ -86,11 +57,9 @@ export function fmt(value, digits = 3) {
 }
 
 /*
- * The per-slice error profile: one cell per slice of the volume, holding the
- * server's entry for that slice or null ("not eligible": no ground truth on
- * that slice, or both empty - DR-010 eligibility). A null cell is drawn as
- * absent, never as a zero-height bar that would read as "no error".
- * Entries whose slice_index is outside the volume are reported, not dropped.
+ * The error profile: one cell per slice, holding the server's entry or null for a slice that is not eligible (no
+ * ground truth there). A null cell is drawn as no bar, never as a zero bar that would read as "no error". Entries
+ * outside the volume are reported, not dropped.
  */
 export function profileFromSelection(selection, total) {
   const cells = Array.from({ length: Number.isInteger(total) && total > 0 ? total : 0 }, () => null);
@@ -117,7 +86,7 @@ export function profileFromSelection(selection, total) {
   return Object.freeze({ cells: Object.freeze(cells), maxError, problems: Object.freeze(problems) });
 }
 
-// The first n entries in the SERVER's order (worst first). Not a sort.
+// The first n entries in the server's order (worst first).
 export function topEntries(selection, n = 5) {
   return selection && selection.available ? selection.slices.slice(0, n) : [];
 }
@@ -127,13 +96,8 @@ export function worstLabel(entry) {
   return `z ${entry.sliceIndex} (slice ${entry.sliceIndex + 1}) · Dice ${fmt(entry.dice)} · FP ${fmt(entry.falsePositives ?? entry.fp)} · FN ${fmt(entry.falseNegatives ?? entry.fn)}`;
 }
 
-/*
- * #78 QA N-7: a server entry opens exactly the slice it names. One that names
- * no slice of this volume - z 90 of an 88-slice case, or no index at all - is
- * listed as such and never opened: clamping it would open z 87, a slice the
- * server did not name. (The scrubber's clamp is another matter: it keeps a
- * gesture inside the volume.)
- */
+// A server entry opens exactly the slice it names. One outside this volume (z 90 of 88 slices, or no index) is
+// listed but never opened: clamping it would open a slice the server did not name.
 export function inVolume(entry, total) {
   return Boolean(entry) && Number.isInteger(total) && Number.isInteger(entry.sliceIndex)
     && entry.sliceIndex >= 0 && entry.sliceIndex < total;
@@ -147,11 +111,8 @@ export function outsideVolumeNote(entry, total) {
     : 'the case states no slice count - not opened';
 }
 
-/*
- * The masks on screen against the server's numbers for the same slice. The
- * selection counts in "pixels of the slice" (contract selection_rules), the
- * same unit the masks are counted in, so they must agree exactly.
- */
+// The drawn masks against the server's FP / FN for the same slice. Both count pixels of the slice, so they must
+// match exactly.
 export function compareWithServer(cell, counts) {
   if (!cell || !counts) return Object.freeze({ checked: false, consistent: null, text: null });
   const diffs = [];
@@ -167,14 +128,9 @@ export function compareWithServer(cell, counts) {
 }
 
 /*
- * DR-013a addendum (#78 QA N-6, TC-ERR-002): the classes are drawn here, but
- * every number on this screen is the server's, and those numbers are about the
- * masks the run metrics name - reference_mask_id and prediction_mask_id. The
- * masks drawn must be those masks (their ids as the slice responses state them:
- * the V1 model's groundTruthRef / predictionRef.artifactId). When they differ,
- * or the run metrics name none, the screen says so and does not compare the
- * drawn classes with the server's FP / FN: the two would describe different
- * masks. Nothing drawn (a ref missing) is nothing to check.
+ * The server's numbers are about the masks the run metrics name (reference_mask_id, prediction_mask_id). If the
+ * drawn masks have other ids, or the metrics name none, the screen says so and skips the FP / FN comparison,
+ * because the two would describe different masks. Nothing drawn means nothing to check.
  */
 export function compareMaskIds(runMetrics, displayed) {
   const gt = displayed ? displayed.groundTruthRef : null;
@@ -200,20 +156,17 @@ export function compareMaskIds(runMetrics, displayed) {
   });
 }
 
-// Slider-style mapping for the profile chart: position -> slice, deterministic.
+// Profile chart x -> slice index, the same mapping as the slider.
 export function profileIndexAt(x, width, total) {
   if (!(width > 0) || !Number.isInteger(total) || total <= 0) return null;
   return Math.max(0, Math.min(total - 1, Math.floor((x / width) * total)));
 }
 
-// ----- run level: the two gates ------------------------------------------------------
+// ----- Run level: two gates before any run-level number is shown -----
 
 /*
- * B-3 (#78 QA), `11` §6, TC-MASK-004: the run metrics belong to the variant the
- * server SAYS it served. Another one, or none, is a substituted answer. It gets
- * the state the V1 model gives a substituted prediction slice:
- * PREDICTION_VARIANT_MISMATCH, "Asked for X, served Y; a substituted variant is
- * not shown." Any other view passes through unchanged.
+ * Gate 1: the run metrics must be for the variant the server says it served (spec 11 §6). Another one, or none,
+ * gets PREDICTION_VARIANT_MISMATCH, the same state as a substituted prediction slice. Other views pass through.
  */
 export function runMetricsView(view, requested) {
   if (!view || view.state !== STATE.SUCCESS) return view;
@@ -222,11 +175,8 @@ export function runMetricsView(view, requested) {
 }
 
 /*
- * B-2 (#78 QA), DR-010: a worst-slice block is shown as DR-010's only when it
- * states the rule_id AND the selection_version that the loaded contract pins
- * in selection_rules.worst_slice_selection (contract 1.1.0: DR-010,
- * dr010-worst-slice/v1). Both values are read from the contract, never written
- * here. A contract that pins nothing lets nothing through.
+ * Gate 2: a worst-slice block is shown only when its rule_id and selection_version equal the ones the loaded
+ * contract pins in selection_rules.worst_slice_selection. A contract that pins nothing lets nothing through.
  */
 export const SELECTION_GATE = Object.freeze({
   RULE_UNSUPPORTED: 'SELECTION_RULE_UNSUPPORTED',
@@ -256,16 +206,12 @@ function unsupported(reason, served, pinned) {
   });
 }
 
-/*
- * analysis_run_metrics data -> the selection SCR-04 may show. app/core's
- * readSelection reads the block (server order kept, nothing ranked). The gate
- * then checks what the server actually SENT in that block, because
- * readSelection fills a missing rule_id with DR-010.
- */
+// analysis_run_metrics data -> the selection SCR-04 may show. The gate checks the raw block the server sent,
+// because readSelection fills a missing rule_id with DR-010.
 export function readWorstSlices(data, pinned) {
   const pin = pinned || pinnedSelection(null);
   const selection = readSelection(data);
-  // The block readSelection read: the contract's field only, no alias (#78 QA N-10).
+  // The same block readSelection reads (the contract's field name only).
   const block = data && typeof data === 'object' ? (data.worst_slice_selection ?? null) : null;
   if (!block) return selection; // not returned: unavailable, with its own reason
   const served = {
@@ -281,11 +227,8 @@ export function readWorstSlices(data, pinned) {
   return selection;
 }
 
-/*
- * Everything SCR-04 shows at run level, from one analysis_run_metrics view.
- * Outside SUCCESS (a variant mismatch included) there is no case metric, no
- * worst slice and no profile cell, so no slice is compared with the server.
- */
+// Everything SCR-04 shows at run level, through both gates. Outside SUCCESS (a variant mismatch included) there is
+// no case metric, worst slice or profile, so no slice is compared with the server.
 export function runLevel(view, { variant, pinned, total }) {
   const shown = runMetricsView(view, variant);
   const data = shown && shown.state === STATE.SUCCESS ? shown.data : null;
@@ -299,10 +242,7 @@ export function runLevel(view, { variant, pinned, total }) {
   });
 }
 
-/*
- * The worst-slice card when nothing is listed. A gated block names its reason
- * code, the value the server sent and the one this build shows.
- */
+// Worst-slice card text when nothing is listed. A gated block names its reason, the value sent and the one accepted.
 export function selectionNote(selection) {
   if (!selection || selection.available) return null;
   const gated = (field, served, pinned) => Object.freeze({
@@ -349,25 +289,9 @@ export function profileNote(level) {
 }
 
 /*
- * Worst-slice selection - READER ONLY.
- *
- * DR-010 froze the rule: among slices with non-empty ground truth, rank by
- * Dice ascending, then FP+FN descending, then slice_index ascending. It also
- * froze WHO applies it: "the API returns the selection; the client never
- * re-derives it". Two clients ranking independently is two answers to the same
- * clinical question, and the one on the phone is the one a reviewer acts on.
- *
- * So this module sorts nothing. There is deliberately no `.sort(` in this
- * file, and the app-framework-neutral CI job greps for one.
- *
- * TRANSPORT, decided 2026-10-01 (DR-010a option b, contract v1.0.0):
- * analysis_run_metrics returns a `worst_slice_selection` block - rule_id,
- * selection_version, slices[{slice_index, dice, false_positives,
- * false_negatives}] - ranked by the server, worst first. It is the only
- * endpoint that carries one. A response without the block still reads as
- * `available: false`, and SCR-04 shows EMPTY_UNAVAILABLE. It must NOT be
- * worked around by ranking analysis_slice_metrics client-side - that is
- * exactly what DR-010 forbids.
+ * Worst-slice selection reader. The server ranks slices by the DR-010 rule (RULE_TEXT) and returns the ranked list
+ * as worst_slice_selection in analysis_run_metrics; this code only reads it. A response without the block is
+ * unavailable. It is never replaced by ranking slices on the phone, which would give a second, different answer.
  */
 
 export const RULE_ID = 'DR-010';
@@ -378,8 +302,7 @@ export const UNAVAILABLE_REASON = Object.freeze({
   NOT_IN_CONTRACT: 'SELECTION_NOT_IN_CONTRACT',
   NOT_RETURNED: 'SELECTION_NOT_RETURNED',
   NO_ELIGIBLE_SLICES: 'SELECTION_NO_ELIGIBLE_SLICES',
-  // A block whose `slices` is not a list: unreadable, which is not the same
-  // as "no slice is eligible" (#78 QA N-10).
+  // `slices` is not a list: unreadable, which is not the same as "no eligible slice".
   MALFORMED: 'SELECTION_MALFORMED',
 });
 
@@ -387,12 +310,7 @@ function unavailable(reason) {
   return Object.freeze({ available: false, reason, ruleId: RULE_ID, slices: Object.freeze([]) });
 }
 
-/*
- * Reads a selection the server returned. `data` is a validated response body.
- * The field names are the ones contract v1.0.0 freezes in
- * selection_rules.worst_slice_selection - that name only; no other field is
- * read as a selection (#78 QA N-10 dropped the pre-1.0 `slice_selection`).
- */
+// Reads the selection from a validated response body. Only the contract's field name, worst_slice_selection, is read.
 export function readSelection(data) {
   if (!data || typeof data !== 'object') return unavailable(UNAVAILABLE_REASON.NOT_RETURNED);
 
@@ -403,7 +321,7 @@ export function readSelection(data) {
   if (!Array.isArray(slices)) return unavailable(UNAVAILABLE_REASON.MALFORMED);
   if (slices.length === 0) return unavailable(UNAVAILABLE_REASON.NO_ELIGIBLE_SLICES);
 
-  // Order comes from the server, in the order it sent. Preserved as-is.
+  // Kept in the order the server sent; rank is the position in that list.
   return Object.freeze({
     available: true,
     reason: null,

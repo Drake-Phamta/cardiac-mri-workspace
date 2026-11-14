@@ -1,41 +1,7 @@
 /*
- * SCR-03 - Case Explorer / 2D MRI Inspector (V1, Phạm Tuấn Anh; built under
- * the Day 22 override, to be revalidated by the owner on Day 23).
- *
- * `10` §3 and the DEMO_STANDARD §4 bar, and where each is met:
- *   current slice image            the MRI PNG from content_url, drawn by <Image>
- *                                  (one slice per request - NFR-PERF-001: no
- *                                  full-volume transfer per gesture)
- *   slice n / total                SliceScrubber, from the case's shape[2]
- *   active run / model, precomputed  the header line, from analysis_run_get +
- *                                  experiment_get; always visible. A case with
- *                                  no run yet (available_run_ids empty) says so
- *                                  and opens MRI + ground truth only: no run,
- *                                  prediction, metric or error request is made
- *   active prediction variant      the header switch; never defaulted (asked
- *                                  on first use), never switched silently - a
- *                                  switch hides the old mask until the new
- *                                  variant's answer is on screen
- *   overlay controls               prediction / ground truth toggles + opacity
- *   metrics when valid             the per-slice Dice line (server values only)
- *   entry to 3D / error / review   SCR-05 / SCR-04 / SCR-06, each disabled with
- *                                  its reason when its data is not there
- *   gestures                       pinch-zoom and pan (SliceViewport), slider
- *                                  and step buttons (SliceScrubber)
- *
- * The state lives in the V1 model (app/verticals/v1_case_explorer). This file
- * runs its actions one at a time (serialRunner: the newest slice wins) and
- * draws from the model's snapshots - the latest for its state, the last
- * SUCCESS one once its bytes are in hand for everything on screen (see
- * Explorer). A non-success state hides the image instead of leaving an older
- * slice under a newer label.
- *
- * The MRI bytes are fetched in JS (imageStore) and shown as a data URI, so
- * every byte a slice gesture costs is counted (CMW_GESTURE, L4) and a revisit
- * is provably free; Spike A measured exactly this data-URI path on the A17.
- *
- * Fixture mode has no bytes behind any URL: the viewport shows the source
- * grid (so gestures still work) and says so; nothing is fetched.
+ * SCR-03 Case Explorer: one MRI slice with prediction and ground-truth overlays, the run line, the variant switch,
+ * the slice metric and the entries to SCR-04/05/06. The state lives in the createCaseExplorer model (cases.mjs).
+ * MRI bytes are fetched in JS and shown as a data URI, so every byte a slice gesture costs is counted.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -63,8 +29,7 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   const [caseView, setCaseView] = useState(loading());
   const [epoch, setEpoch] = useState(0);
   const [runId, setRunId] = useState(params.runId || null);
-  // A variant handed in by another screen must be one the contract serves;
-  // anything else is ignored and the user is asked (never coerced).
+  // A variant from another screen is used only if the contract serves it; otherwise the user is asked.
   const allowed = variantOptions(runtime.contract);
   const [variant, setVariant] = useState(
     (allowed.includes(params.variant) && params.variant) || rememberedVariant(),
@@ -92,12 +57,8 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   const shape = Array.isArray(kase.shape) ? kase.shape : null;
   const total = shape ? shape[2] : null;
 
-  // A case with no analysis run yet (available_run_ids empty) opens straight
-  // into the viewer with MRI + ground truth only: nothing to choose, and no
-  // prediction, metric or error layer (the V1 model answers them
-  // UNAVAILABLE NO_ANALYSIS_RUN and asks for no run data). A run handed in for
-  // such a case is not listed, so it is the same no-run view, which names the
-  // run as not listed - it is never asked for (#80 QA N3).
+  // A case with no analysis run opens straight into the viewer with MRI and ground truth only. A run handed in
+  // for such a case gets the same view, which names that run; it is never requested.
   const noRun = choice.runId === null && choice.choices.length === 0;
   const notListedRunId = noRun && choice.reason === 'requested-run-not-listed' ? runId : null;
   if (!noRun && (!choice.runId || !variant)) {
@@ -136,10 +97,7 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   );
 }
 
-/* ---------------------------------------------------------------------------
- * Before the viewer: which run, which prediction variant. Nothing is picked
- * for the user except a case's only run, which is then shown as such.
- */
+// Before the viewer: choose the run and the prediction variant. Only a case's single run is picked automatically.
 function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVariant }) {
   const options = variantOptions(runtime.contract);
   return (
@@ -189,20 +147,14 @@ function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVarian
 }
 
 
-/* ---------------------------------------------------------------------------
- * The viewer.
- *
- * Three snapshots of the V1 model are in play:
- *   current    the latest one - its state decides loading / error / PROCESSING;
- *   shown      the latest SUCCESS one - what the model says is on this slice;
- *   displayed  `shown` once its MRI bytes and mask paths are in hand. The image,
- *              the overlays, the slice label, the metrics and the provenance all
- *              come from `displayed`, so they switch TOGETHER: no new label over
- *              an old image, no old mask over a new slice.
- *
- * Network accounting (L4, NFR-PERF-001 limb 2): every slice request opens a
- * gesture on runtime.netLog and the slice reaching the screen closes it, so
- * each switch writes one CMW_GESTURE line listing every request it caused.
+/*
+ * The viewer. It keeps three snapshots of the model:
+ *   current    the latest; its state decides loading / error / PROCESSING
+ *   shown      the latest SUCCESS one
+ *   displayed  `shown` once its MRI bytes and masks are loaded. Image, overlays, label, metric and provenance all
+ *              come from `displayed`, so they change together (no new label over an old image).
+ * Each slice request opens a gesture on runtime.netLog and the slice reaching the screen closes it, so every
+ * switch writes one CMW_GESTURE line with all the requests it caused.
  */
 function Explorer({
   runtime, nav, caseId, kase, capability, runId, runReason, notListedRunId, initialVariant, initialSlice, onVariantChosen,
@@ -217,8 +169,6 @@ function Explorer({
   const height = shape ? shape[1] : null;
   const size = useMemo(() => (width && height ? { width, height } : null), [width, height]);
   const options = variantOptions(runtime.contract);
-  // With no run, every "why not" names the reason: no run at all, or the run
-  // asked for is not one this case lists.
   const noRunText = notListedRunId
     ? `requested run ${notListedRunId} is not listed for this case`
     : 'no analysis run for this case';
@@ -247,12 +197,12 @@ function Explorer({
     setCurrent(c);
     overlaysRef.current = c.overlays;
     if (c.view.state === STATE.SUCCESS) {
-      // targetVariant is NOT taken from here: a slice answer that lands while
-      // a variant switch is queued must not undo the user's choice on screen.
+      // targetVariant is not set here: a slice answer that lands while a variant switch is queued must not undo
+      // the user's choice.
       setShown(c);
       timing.dataArrived(c.sliceIndex);
     } else if (c.view.state !== STATE.LOADING) {
-      // The gesture ended in a state, not on a slice: close it saying which.
+      // The gesture ended in a state, not on a slice: close it with that state.
       if (net && net.openSeq !== null) net.end({ outcome: c.view.state });
       timing.stepFailed();
     }
@@ -268,16 +218,13 @@ function Explorer({
   useEffect(() => () => runner.dispose(), [runner]);
 
   useEffect(() => {
-    // #77 QA N-1: an "unavailable" answer cached on an earlier visit is not
-    // trusted by a fresh open - the artifact may have been ingested since.
+    // A fresh open drops cached "unavailable" answers: the data may have arrived since the last visit.
     if (client.clearNegative) client.clearNegative();
     if (net) net.begin({ caseId, from: null, to: initialSlice, kind: 'open' });
     runner.run(() => model.open({ caseId, runId, sliceIndex: initialSlice }));
   }, [runner, model, net, client, caseId, runId, initialSlice]);
 
-  // The run line: run, model family, experiment, precomputed. Read once - and
-  // never with no run: a case before its first run asks for no run data, not
-  // even for a run another screen asked for that the case does not list.
+  // The run line (run, model family, experiment, precomputed), read once. With no run nothing is requested.
   useEffect(() => {
     if (!hasRun) { setRunInfo(null); return undefined; }
     let alive = true;
@@ -307,10 +254,8 @@ function Explorer({
     return () => { alive = false; };
   }, [runtime, runId, hasRun]);
 
-  // Where a snapshot's bytes are: each ref's content_url and checksum, as the
-  // server stated them. runtime.content resolves and verifies them when the
-  // stores fetch; a ref without a content_url is read back from the response
-  // the model just fetched (slice cache, no request).
+  // The content_url and checksum of each layer of a snapshot, as the server stated them. A ref without a
+  // content_url is read back from the slice cache (the response the model just fetched), with no request.
   const urlsFor = useCallback((snap) => {
     const none = { mri: null, pred: null, gt: null, sums: { mri: null, pred: null, gt: null } };
     if (!snap) return none;
@@ -335,7 +280,7 @@ function Explorer({
     };
   }, [client, caseId, runId]);
 
-  // Bring `shown`'s bytes in, then display it - image, masks and labels at once.
+  // Load the bytes of `shown`, then display it: image, masks and labels at once.
   useEffect(() => {
     if (!shown) return undefined;
     let alive = true;
@@ -391,11 +336,8 @@ function Explorer({
     if (c.view.state === STATE.SUCCESS) setShown(c);
   }, [model]);
 
-  // Retry forgets only the slice it retries (#77 QA N-2, #78 QA N-4): every
-  // cached answer for that slice, its "unavailable" ones included, and nothing
-  // else - not even another slice's "unavailable" answer, which only a fresh
-  // open drops. So a Retry in the middle of a session never turns an L4
-  // revisit pass into network traffic. SCR-04 follows the same rule.
+  // Retry forgets every cached answer for this slice only, "unavailable" ones included. Other slices keep theirs,
+  // so a Retry does not turn a later revisit pass into network traffic. SCR-04 does the same.
   const forgetSlice = useCallback((zz) => {
     if (client.clearWhere && Number.isInteger(zz)) {
       client.clearWhere((_ep, p) => p.slice_index === zz && (p.case_id === caseId || (hasRun && p.run_id === runId)));
@@ -418,7 +360,7 @@ function Explorer({
     }
   }, [current, nav, refreshSlice, runInfo]);
 
-  // ----- what is on screen: everything from `displayed` ---------------------
+  // What is on screen: everything below comes from `displayed`.
   const ok = displayed !== null;
   const state = current.view.state;
   const blocking = state !== STATE.SUCCESS && !(state === STATE.LOADING && ok);
@@ -459,9 +401,8 @@ function Explorer({
     finishSample('image-error');
   }, [finishSample]);
 
-  // No image load to wait for - fixture mode, no content_url, a fetch that
-  // failed, or the same image already on screen (an <Image> whose source did
-  // not change fires no onLoad): the sample ends when the display does.
+  // When no image load will come (fixture mode, no URL, a failed fetch, or the same image again: an <Image> whose
+  // source did not change fires no onLoad), the timing sample ends when the slice is displayed.
   useEffect(() => {
     if (!ok || !timing.waitingForImage(z)) return;
     if (!imageUri) finishSample(imageError ? 'image-error' : 'no-image');
@@ -472,11 +413,9 @@ function Explorer({
     timing, goTo, runtime, net, caseId, runId, hasRun, total, capability, targetVariant, overlaysRef, displayedRef,
   });
 
-  // ----- render ---------------------------------------------------------------
   const run = runInfo ? runInfo.run : { runId };
-  // #77 QA B-3: while the viewer shows a state instead of a slice, nothing of
-  // the slice that was displayed before may stay on screen as if it were this
-  // one - no metric, no provenance, no entry that would carry its index.
+  // While the viewer shows a state instead of a slice, nothing from the previous slice (metric, provenance,
+  // entries) stays on screen.
   const showing = ok && !blocking;
   const notLoaded = 'this slice did not load';
   let metrics;
@@ -507,9 +446,8 @@ function Explorer({
   if (!hasRun) reviewEntry = needsRun;
   else if (blocking) reviewEntry = notLoaded;
   else if (!(ok && predAvailable)) reviewEntry = 'needs this slice\'s prediction';
-  // #78 QA N-8: this screen unmounts under SCR-04/05/06, so each push leaves the
-  // run, variant and slice on screen in this screen's stack entry, in the same
-  // action - Back reopens exactly them, not the case's default run and slice.
+  // This screen unmounts under SCR-04/05/06, so each push also saves the run, variant and slice in this screen's
+  // stack entry. Back then reopens exactly them, not the case's default run and slice.
   const back = () => ({ runId, variant: displayed.variant, sliceIndex: z });
 
   return (
