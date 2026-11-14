@@ -5,6 +5,7 @@
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, loading, fatalInvalid } from '../../api/states.mjs';
 import { checkNote } from './notes.mjs';
+import { formatUtc } from './history.mjs';
 
 export const FINDING_TYPE = Object.freeze({
   UNDER_SEGMENTATION: 'UNDER_SEGMENTATION',
@@ -233,11 +234,13 @@ export function createFindings(client, { studyId } = {}) {
   };
 
   // Take a findings_list answer the screen fetched. A LOADING view keeps the items already held, but the
-  // view says LOADING, so nothing is shown as current.
+  // view says LOADING, so nothing is shown as current. The server lists oldest first (contract 1.2.0); the
+  // list is kept newest first, the order a new finding is added in.
   function adopt(view) {
     if (view.state !== STATE.SUCCESS) return set(view);
     const items = (view.data.items ?? [])
-      .map((row) => entryFor(normalizeFinding(fieldsFromRecord(row), { requireAnchor: false })));
+      .map((row) => entryFor(normalizeFinding(fieldsFromRecord(row), { requireAnchor: false })))
+      .reverse();
     return set(view, { items });
   }
 
@@ -334,6 +337,90 @@ export function createFindings(client, { studyId } = {}) {
   });
 }
 
+// How a finding reads, on the screen and in the PDF.
+
+export const TYPE_LABEL = Object.freeze({
+  UNDER_SEGMENTATION: 'Under-segmentation',
+  OVER_SEGMENTATION: 'Over-segmentation',
+  BOUNDARY_DISAGREEMENT: 'Boundary disagreement',
+  DISCONNECTED_ARTIFACT: 'Disconnected artifact',
+  OTHER: 'Other',
+});
+
+export const STATUS_LABEL = Object.freeze({ OPEN: 'Open', RESOLVED: 'Resolved' });
+
+export const typeLabel = (type) => (type ? TYPE_LABEL[type] || type : 'type not recorded');
+
+export function evidenceLine(f) {
+  const parts = [];
+  if (f.caseId) parts.push(f.caseId);
+  if (Number.isInteger(f.sliceIndex)) parts.push(`slice ${f.sliceIndex}`);
+  if (f.runId) parts.push(`run ${f.runId}`);
+  if (f.variant) parts.push(f.variant);
+  if (f.experimentId) parts.push(`exp ${f.experimentId}`);
+  if (f.region && f.region.kind === 'POINT') parts.push(`point (${f.region.x}, ${f.region.y})`);
+  if (f.region && f.region.kind === 'BOX') parts.push(`box (${f.region.x0}, ${f.region.y0})-(${f.region.x1}, ${f.region.y1})`);
+  return parts.length ? parts.join(' · ') : 'no evidence identifiers recorded';
+}
+
+// Filter chips: one status and one type at a time; ALL keeps every finding.
+export const ALL = 'ALL';
+
+export function filterFindings(items, { status = ALL, type = ALL } = {}) {
+  return items.filter((e) => (status === ALL || e.finding.status === status) && (type === ALL || e.finding.type === type));
+}
+
+// The number on each chip, counted over the whole list.
+export function countFindings(items) {
+  const status = Object.fromEntries(Object.keys(FINDING_STATUS).map((k) => [k, 0]));
+  const type = Object.fromEntries(Object.keys(FINDING_TYPE).map((k) => [k, 0]));
+  for (const { finding } of items) {
+    if (finding.status in status) status[finding.status] += 1;
+    if (finding.type in type) type[finding.type] += 1;
+  }
+  return Object.freeze({ all: items.length, status: Object.freeze(status), type: Object.freeze(type) });
+}
+
+export function filterLabel({ status = ALL, type = ALL } = {}) {
+  const s = status === ALL ? 'every status' : STATUS_LABEL[status] || status;
+  const t = type === ALL ? 'every type' : typeLabel(type);
+  return `${s}, ${t}`;
+}
+
+// The PDF is built from HTML. A note is the user's own text, so every value is escaped and can never become markup.
+export function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(text).replace(/[&<>"']/g, (c) => map[c]);
+}
+
+// The findings shown on screen as a printable page: what, status, where, note. Identifiers only, no image, and
+// the research-use notice of spec 12 section 1.
+export function findingsReportHtml({ entries, studyId, filter, generatedAt }) {
+  const rows = entries.map(({ finding: f }) => `<tr><td>${escapeHtml(typeLabel(f.type))}</td>`
+    + `<td>${escapeHtml(STATUS_LABEL[f.status] || f.status || '')}</td><td>${escapeHtml(evidenceLine(f))}</td>`
+    + `<td>${escapeHtml(f.note || '')}</td></tr>`).join('\n');
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Findings report</title>
+<style>
+body { font-family: sans-serif; font-size: 11pt; color: #111; margin: 24px; }
+h1 { font-size: 16pt; margin: 0 0 4px; }
+.meta, .notice { color: #444; font-size: 9pt; margin: 2px 0; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+th, td { border: 1px solid #999; padding: 4px 6px; text-align: left; vertical-align: top; }
+th { background: #eee; }
+</style></head>
+<body>
+<h1>Findings report</h1>
+<p class="meta">Study ${escapeHtml(studyId)} · ${escapeHtml(filterLabel(filter))} · ${entries.length} finding(s) · made ${escapeHtml(generatedAt)}</p>
+<p class="notice">Research use only, not for diagnosis. Case IDs are pseudonymous; this report holds no image and no patient identifier.</p>
+<table><thead><tr><th>Type</th><th>Status</th><th>Evidence</th><th>Note</th></tr></thead>
+<tbody>
+${rows || '<tr><td colspan="4">No finding matches these filters.</td></tr>'}
+</tbody></table>
+</body></html>
+`;
+}
+
 // Screen logic: everything SCR-08 does except drawing. FindingsScreen.js fetches the list, hands each view
 // to provideList() and renders getState(). The create form shows only when the route carries a case and
 // slice (for example from SCR-06); the tab alone shows the list.
@@ -382,12 +469,14 @@ export function reviewRouteFor(location) {
   return Object.freeze({ screenId: 'SCR-06', params: Object.freeze(p) });
 }
 
-export function createFindingsScreen({ runtime, params = {} }) {
+// printer: { available, print(html) -> { ok, message? } } (pdfExport.js on the phone); null = no PDF export.
+export function createFindingsScreen({ runtime, params = {}, printer = null }) {
   const model = createFindings(runtime.client, { studyId: runtime.config.studyId });
   const context = contextFrom(params);
   const listeners = new Set();
   const blankForm = () => ({ type: null, note: '', variant: context ? context.variant : null });
   let form = context ? blankForm() : null;
+  let filter = Object.freeze({ status: ALL, type: ALL });
   let busy = null;
   let notice = null;
   let listView = model.current.view; // the list's own state, kept apart from a failed action
@@ -446,6 +535,27 @@ export function createFindingsScreen({ runtime, params = {} }) {
     return getState();
   }
 
+  // The findings on screen as a PDF, through the system print dialog ("Save as PDF").
+  async function exportPdf(generatedAt = new Date().toISOString()) {
+    if (busy) return getState();
+    if (!(printer && printer.available)) {
+      notice = Object.freeze({ kind: 'refused', text: 'PDF export is not in this app build yet (it needs the next APK).' });
+      emit();
+      return getState();
+    }
+    const entries = filterFindings(model.current.items, filter);
+    busy = 'export';
+    emit();
+    const html = findingsReportHtml({ entries, studyId: runtime.config.studyId, filter, generatedAt: formatUtc(generatedAt) });
+    const r = await printer.print(html);
+    busy = null;
+    notice = r.ok
+      ? Object.freeze({ kind: 'exported', text: `${entries.length} finding(s) sent to the print dialog: choose "Save as PDF" to keep a file.` })
+      : Object.freeze({ kind: 'refused', text: `PDF export did not finish: ${r.message || 'the print dialog was closed'}.` });
+    emit();
+    return getState();
+  }
+
   function getState() {
     const m = model.current;
     // The note is checked as it is typed: too long blocks Create, a possible personal detail is a warning.
@@ -455,6 +565,11 @@ export function createFindingsScreen({ runtime, params = {} }) {
       view: listView,
       actionView,
       items: m.items,
+      // Newest first, narrowed by the chips; counts are over the whole list.
+      shown: Object.freeze(filterFindings(m.items, filter)),
+      filter,
+      counts: countFindings(m.items),
+      pdfAvailable: Boolean(printer && printer.available),
       context,
       form: form ? Object.freeze({ ...form }) : null,
       noteCheck,
@@ -481,6 +596,14 @@ export function createFindingsScreen({ runtime, params = {} }) {
     },
     submit,
     setStatus,
+    // { status } or { type }: ALL or one of the contract's values.
+    setFilter(patch = {}) {
+      const next = { ...filter, ...patch };
+      const okStatus = next.status === ALL || Object.prototype.hasOwnProperty.call(FINDING_STATUS, next.status);
+      const okType = next.type === ALL || Object.prototype.hasOwnProperty.call(FINDING_TYPE, next.type);
+      if (okStatus && okType) { filter = Object.freeze(next); emit(); }
+    },
+    exportPdf,
     // Routes for a listed finding, by id: where its evidence is, and where to correct it.
     routeTo: (findingId) => routeFor(model.open(findingId)),
     reviewRouteTo: (findingId) => reviewRouteFor(model.open(findingId)),

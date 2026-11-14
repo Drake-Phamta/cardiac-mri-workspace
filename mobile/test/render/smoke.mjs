@@ -1429,6 +1429,37 @@ function reviewBackend({ seedVersion = false } = {}) {
     'Refresh reads the list again (useCall refetch) and the stale banner goes');
   await act(async () => { f.unmount(); });
 
+  // --- SCR-08 list upgrades (V4 item 4): newest first, filter chips, Export PDF without expo-print ---
+  const bf = reviewBackend();
+  const seed = bf.db.findings[0];
+  bf.db.findings.push(
+    { ...seed, finding_id: 'FINDING_2', status: 'RESOLVED', finding_type: 'OVER_SEGMENTATION', note: 'second finding' },
+    { ...seed, finding_id: 'FINDING_3', status: 'OPEN', finding_type: 'OVER_SEGMENTATION', note: 'third finding' },
+  );
+  const runtimeF = liveRuntime(bf.fetchImpl);
+  let fl;
+  await act(async () => {
+    fl = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: runtimeF },
+      React.createElement(FindingsScreen, { runtime: runtimeF, nav: nav8, params: {} })), nodeMock);
+  });
+  await tick(150);
+  const notesShown = () => texts(fl).filter((t) => / finding$/.test(t)).join(' | ');
+  check('V4w', notesShown() === 'third finding | second finding | seed finding' && has(fl, /^3 of 3 shown · newest first$/),
+    `newest first, although the server lists oldest first (${notesShown()})`);
+  await pressExact(fl, 'Open (2)');
+  check('V4w', notesShown() === 'third finding | seed finding' && has(fl, /^2 of 3 shown · newest first$/), 'the Open (2) chip shows the open findings');
+  await pressExact(fl, 'Over-segmentation (2)');
+  check('V4w', notesShown() === 'third finding' && btn(fl, 'Open (2)').props.accessibilityState.selected === true
+    && btn(fl, 'Over-segmentation (2)').props.accessibilityState.selected === true, 'a type chip narrows further; both chips stay selected');
+  await pressExact(fl, 'Resolved (1)');
+  check('V4w', notesShown() === 'second finding', 'Resolved with the same type: the resolved over-segmentation');
+  await pressExact(fl, 'Under-segmentation (1)');
+  check('V4w', notesShown() === '' && has(fl, /^No finding matches these filters\.$/), 'no match: the list says so instead of looking empty');
+  check('V4w', btn(fl, 'Export PDF').props.disabled === true
+    && has(fl, /^Export PDF needs the next app build \(expo-print\)\. Everything else works\.$/),
+  'this build has no expo-print: Export PDF is off and says why, and the screen works');
+  await act(async () => { fl.unmount(); });
+
   // --- an already CORRECTED review (seeded) continues from its latest version; Reset returns to the original ---
   const bs = reviewBackend({ seedVersion: true });
   const rs = await mount(bs);

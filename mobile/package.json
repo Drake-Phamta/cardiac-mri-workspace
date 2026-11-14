@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "expo": "~57.0.21",
+    "expo-print": "~57.0.2",
     "fast-png": "8.0.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
