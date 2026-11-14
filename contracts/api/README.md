@@ -117,8 +117,8 @@ The rest of this file describes v1.0.0, which v1.1.0 keeps unchanged.
 
 # API Contract 11 — v1.0.0 (frozen 2026-10-01)
 
-This directory is the schema-first backend/mobile API contract from
-`docs/specs/v1.0/11_API_CONTRACT.md`. It defines resource semantics, endpoint
+This directory is the schema-first backend/mobile API contract, first written from spec v1.0
+`11_API_CONTRACT.md` (now summarised in `docs/spec/06_api.md`). It defines resource semantics, endpoint
 shapes, stable errors, geometry provenance, review states and revision rules,
 case capability, and fixture-generation policy. The server that implements it
 lives in `backend/`; this directory stays implementation-free.

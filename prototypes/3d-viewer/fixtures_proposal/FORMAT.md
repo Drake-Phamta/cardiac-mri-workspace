@@ -222,4 +222,4 @@ harness đọc đường dẫn qua tham số.
 **Liên quan:** [`generate.py`](generate.py) · [`../harness/conformance.py`](../harness/conformance.py) ·
 [`../harness/picking_error.py`](../harness/picking_error.py) ·
 [`../../../management/spikes/SPIKE_B_3D/TASK.md`](../../../management/spikes/SPIKE_B_3D/TASK.md) ·
-`docs/specs/v1.0/09_SYSTEM_ARCHITECTURE_SPEC.md` §6 · `docs/specs/v1.0/13_TEST_ACCEPTANCE_AND_TRACEABILITY.md` §11
+`docs/spec/04_kien-truc-cong-nghe.md` · `docs/spec/09_kiem-thu-truy-vet.md`

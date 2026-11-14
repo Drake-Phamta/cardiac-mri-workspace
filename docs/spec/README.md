@@ -1,6 +1,6 @@
 # Đặc tả sản phẩm v2 — Cardiac MRI Workspace
 
-Đặc tả mô tả đúng sản phẩm đã xây (main + 5 nhánh tính năng), viết lại tháng 11/2026 thay cho `docs/specs/v1.0/`.
+Đặc tả mô tả đúng sản phẩm đã xây (main + 5 nhánh tính năng), viết lại tháng 11/2026 thay cho đặc tả v1.0 (16 tài liệu tiếng Anh, đã xoá; còn trong lịch sử git).
 
 | File | Nội dung |
 |---|---|

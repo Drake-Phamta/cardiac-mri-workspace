@@ -1,7 +1,7 @@
 # Các quyết định kỹ thuật
 
-Mỗi mục: quyết định là gì, vì sao. Số đo đi kèm có nguồn trong [RESULTS.md](RESULTS.md). Đặc tả đầy đủ của sản phẩm
-nằm trong [specs/v1.0/](specs/v1.0/) (ví dụ `07` là `07_ML_AND_IMAGE_PROCESSING_SPEC.md`).
+Mỗi mục: quyết định là gì, vì sao. Số đo đi kèm có nguồn trong [RESULTS.md](RESULTS.md). Đặc tả của sản phẩm nằm
+trong [spec/](spec/) (ví dụ kiến trúc và công nghệ ở `spec/04_kien-truc-cong-nghe.md`).
 
 ## Sản phẩm và kiến trúc
 

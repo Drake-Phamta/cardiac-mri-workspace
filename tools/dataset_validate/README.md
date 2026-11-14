@@ -188,4 +188,4 @@ open and training remains blocked until those exact IDs are reviewed.
 workspace entirely.
 
 **Related:** [`../../docs/RESULTS.md`](../../docs/RESULTS.md) (dataset check results) ·
-[`../../docs/specs/v1.0/06_DATASET_CONTRACT.md`](../../docs/specs/v1.0/06_DATASET_CONTRACT.md)
+[`../../docs/spec/05_du-lieu-csdl.md`](../../docs/spec/05_du-lieu-csdl.md)

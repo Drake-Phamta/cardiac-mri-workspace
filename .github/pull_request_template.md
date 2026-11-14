@@ -4,7 +4,7 @@
 
 ## Yêu cầu liên quan
 
-<!-- ID trong docs/REQUIREMENTS.md (ví dụ PR-MRI-01), hoặc "không có: công cụ / tài liệu". -->
+<!-- ID trong docs/spec/ (ví dụ PR-MRI-01, FR-REV-004), hoặc "không có: công cụ / tài liệu". Đổi hành vi thì sửa cả docs/spec/ và docs/trace/matrix.csv. -->
 
 ## Kiểm tra
 

@@ -21,27 +21,6 @@ permissions:
 jobs:
 
   # --------------------------------------------------------------------------
-  spec-integrity:
-    name: "spec checksums (16/16)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: verify every checksum AND the count
-        run: |
-          cd docs/specs/v1.0
-          # sha256sum -c exits 0 on a manifest that lists nothing, and on one
-          # that silently lost a line. Both would be a pass that means nothing,
-          # so the count is asserted too: spec v1.0 keeps 16 product documents.
-          sha256sum -c SPEC_MANIFEST_SHA256.txt | tee /tmp/spec.txt
-          ok=$(grep -c ': OK$' /tmp/spec.txt || true)
-          echo "checksums OK: $ok"
-          if [ "$ok" -ne 16 ]; then
-            echo "::error::expected 16 OK lines, got $ok - the manifest itself may have changed"
-            exit 1
-          fi
-
-  # --------------------------------------------------------------------------
   # docs/spec <-> docs/trace/matrix.csv <-> code and tests (tools/trace_check.py,
   # standard library only). Refs that exist only on the feature branches listed in
   # docs/trace/pending_branches.txt are reported as PENDING. Once those branches are
