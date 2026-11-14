@@ -29,11 +29,11 @@ From the repository root:
 
 ```bash
 python3 -m venv /tmp/cardiac-mpr-demo/venv
-/tmp/cardiac-mpr-demo/venv/bin/pip install -r spikes/spike_b_3d/volume_surface_poc/requirements.txt
+/tmp/cardiac-mpr-demo/venv/bin/pip install -r prototypes/3d-viewer/volume_surface_poc/requirements.txt
 mkdir -p /tmp/cardiac-mpr-demo/input
 curl -L 'https://huggingface.co/datasets/Angelou0516/msd-cardiac/resolve/main/imagesTr/la_024.nii.gz' -o /tmp/cardiac-mpr-demo/input/la_024.nii.gz
 curl -L 'https://huggingface.co/datasets/Angelou0516/msd-cardiac/resolve/main/labelsTr/la_024.nii.gz' -o /tmp/cardiac-mpr-demo/input/la_024_label.nii.gz
-/tmp/cardiac-mpr-demo/venv/bin/python spikes/spike_b_3d/volume_surface_poc/build_demo.py \
+/tmp/cardiac-mpr-demo/venv/bin/python prototypes/3d-viewer/volume_surface_poc/build_demo.py \
   --mri /tmp/cardiac-mpr-demo/input/la_024.nii.gz \
   --label /tmp/cardiac-mpr-demo/input/la_024_label.nii.gz \
   --out /tmp/cardiac-mpr-demo/site
@@ -85,5 +85,5 @@ trial, because the public sample is distributed as NIfTI.
 Run the mapping check with:
 
 ```bash
-node spikes/spike_b_3d/volume_surface_poc/test_viewer_math.mjs
+node prototypes/3d-viewer/volume_surface_poc/test_viewer_math.mjs
 ```

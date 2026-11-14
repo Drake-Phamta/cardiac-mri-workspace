@@ -13,8 +13,8 @@ Install optional dependencies in an isolated environment, then build the viewer:
 
 ```bash
 python3 -m venv /tmp/cmw-preview-env
-/tmp/cmw-preview-env/bin/pip install -r spikes/spike_b_3d/clinical_poc/requirements-workstation.txt
-cd spikes/spike_b_3d/clinical_poc/workstation
+/tmp/cmw-preview-env/bin/pip install -r prototypes/3d-viewer/clinical_poc/requirements-workstation.txt
+cd prototypes/3d-viewer/clinical_poc/workstation
 npm ci
 npm run build
 cd ../../../..
@@ -27,9 +27,9 @@ attribution. It uses the public archive referenced by MONAI and byte ranges to
 fetch one pair rather than the entire dataset. It does not access holdout data.
 
 ```bash
-/tmp/cmw-preview-env/bin/python spikes/spike_b_3d/clinical_poc/download_msd_sample.py \
+/tmp/cmw-preview-env/bin/python prototypes/3d-viewer/clinical_poc/download_msd_sample.py \
   --out /tmp/cmw-heart-source
-/tmp/cmw-preview-env/bin/python spikes/spike_b_3d/clinical_poc/build_workstation.py \
+/tmp/cmw-preview-env/bin/python prototypes/3d-viewer/clinical_poc/build_workstation.py \
   --mri /tmp/cmw-heart-source/image.nii.gz \
   --label /tmp/cmw-heart-source/label.nii.gz \
   --provenance /tmp/cmw-heart-source/provenance.json \
@@ -96,7 +96,7 @@ array integrity is checked against local SHA-256 descriptors before rendering.
 
 ```bash
 /tmp/cmw-preview-env/bin/python -m unittest spikes.spike_b_3d.clinical_poc.test_surface_preview -v
-cd spikes/spike_b_3d/clinical_poc/workstation
+cd prototypes/3d-viewer/clinical_poc/workstation
 npm test
 # Requires the local sample server and Chrome; screenshots stay outside Git.
 node test/browser-preview.mjs
@@ -143,7 +143,7 @@ payloads without the declared voxel-centre origin and millimetre frame.
 
 ```bash
 python -m pip install nibabel numpy
-python spikes/spike_b_3d/clinical_poc/build_poc_data.py \
+python prototypes/3d-viewer/clinical_poc/build_poc_data.py \
   --mri /authorised/case.nii.gz \
   --label /authorised/case_label.nii.gz \
   --label-value 1 \
@@ -181,7 +181,7 @@ The next preview steps and their accuracy checks are described in
 
 ```bash
 python -m unittest spikes.spike_b_3d.clinical_poc.test_build_poc_data -v
-node spikes/spike_b_3d/clinical_poc/test_poc_geometry.mjs
+node prototypes/3d-viewer/clinical_poc/test_poc_geometry.mjs
 ```
 
 The Python checks create and remove synthetic NIfTI fixtures outside Git.

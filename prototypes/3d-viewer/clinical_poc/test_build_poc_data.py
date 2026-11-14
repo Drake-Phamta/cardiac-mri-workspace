@@ -22,7 +22,7 @@ except ImportError:  # the optional POC dependencies are not needed by the app
 
 
 ROOT = Path(__file__).resolve().parents[3]
-BUILDER = ROOT / "spikes/spike_b_3d/clinical_poc/build_poc_data.py"
+BUILDER = ROOT / "prototypes/3d-viewer/clinical_poc/build_poc_data.py"
 
 
 @unittest.skipIf(nib is None or np is None, "install numpy and nibabel to run POC geometry checks")

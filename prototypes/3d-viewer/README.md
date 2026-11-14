@@ -38,6 +38,9 @@ Chỉ cần `numpy` (và Node cho các test `.mjs`).
 
 - `app/` viewer WebGL2, đọc OBJ, chạm → lát (Möller–Trumbore), đo khung hình.
 - `mesh/` dựng bề mặt mặt voxel và các mức giảm tam giác. `harness/` checker hình học, sai số chạm, bảng các mức trên mask thật.
-- `s1/`, `s1_app/` bản đo trên điện thoại trong WebView. `clinical_poc/` thử nghiệm MPR liên kết. `fixtures_proposal/` bản nháp fixture hình học (bản chính ở `tests/fixtures/geometry/`).
+- `s1/`, `s1_app/` bản đo trên điện thoại trong WebView. `fixtures_proposal/` bản nháp fixture hình học (bản chính ở `tests/fixtures/geometry/`).
+- `clinical_poc/` thử nghiệm xem MRI 3 mặt phẳng (MPR) liên kết với mô hình 3D, kèm bản xem dạng workstation (VTK).
+- `volume_surface_poc/` so sánh dựng khối MRI (volume rendering) với bề mặt Marching Cubes, chạm bề mặt thì 3 mặt phẳng MPR nhảy theo.
+  Hai thư mục này có README riêng.
 
 Log thô của các phiên đo trên điện thoại đã được bỏ khỏi cây vì chứa serial thiết bị; chúng vẫn còn trong lịch sử git.
