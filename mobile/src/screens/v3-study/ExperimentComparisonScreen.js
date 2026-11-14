@@ -186,7 +186,7 @@ function Comparison({
       <Card title="Per-case differences" testID="scr07-paired">
         <Line dim small>
           Only for two runs the server judged comparable. One dot per case: its value in the second run minus the
-          first, lowest on the left. Tap a dot to open that case.
+          first, lowest on the left. Tap a dot, then open the case in either run.
         </Line>
         {pairs.emptyText ? <Line>{pairs.emptyText}</Line> : null}
         {pairs.notRequested.map((n) => <Line key={n} dim small>{n}</Line>)}
