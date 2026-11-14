@@ -15,7 +15,12 @@ import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { SliceScrubber, useMaskOverlay } from './SliceView';
+import SliceViewport, {
+  OverlayStyleChips, SliceScrubber, outlineOf, useMaskOverlay,
+} from './SliceView';
+import {
+  OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
+} from './sliceControls.mjs';
 import {
   capabilityOf, VARIANT_TEXT, variantOptions, rememberedVariant, rememberVariant,
 } from '../../lib/caseMode.mjs';
@@ -181,6 +186,12 @@ function Explorer({
   const [pending, setPending] = useState(null);
   const [targetVariant, setTargetVariant] = useState(initialVariant);
   const [opacity, setOpacity] = useState(0.5);
+  const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-03', { mode: OVERLAY_MODE.FILL, width: 2 }));
+  const changeStyle = useCallback((patch) => setStyle((st) => {
+    const next = { ...st, ...patch };
+    rememberOverlayStyle('SCR-03', next);
+    return next;
+  }), []);
   const [tap, setTap] = useState(null);
   const [imageProblem, setImageProblem] = useState(null);
   const [imageError, setImageError] = useState(null);
@@ -384,9 +395,16 @@ function Explorer({
   const gt = useMaskOverlay(runtime.maskStore, gtOn ? u.gt : null, size, u.sums.gt);
   const predAvailable = ok && displayed.layersAvailable[LAYER.PREDICTION] === true;
   const gtAvailable = ok && displayed.layersAvailable[LAYER.GROUND_TRUTH] === true && displayed.groundTruthRef !== null;
+  const outlined = needsOutline(style.mode);
   const layers = [
-    { key: 'gt', path: gt.path, color: OVERLAY_COLOR.GROUND_TRUTH, opacity, visible: !imageProblem && gtOn && gtAvailable },
-    { key: 'pred', path: pred.path, color: OVERLAY_COLOR.PREDICTION, opacity, visible: !imageProblem && !switching && overlays[LAYER.PREDICTION] === true && predAvailable },
+    {
+      key: 'gt', path: gt.path, outline: outlined ? outlineOf(gt.mask) : null, color: OVERLAY_COLOR.GROUND_TRUTH, opacity,
+      visible: !imageProblem && gtOn && gtAvailable,
+    },
+    {
+      key: 'pred', path: pred.path, outline: outlined ? outlineOf(pred.mask) : null, color: OVERLAY_COLOR.PREDICTION, opacity,
+      visible: !imageProblem && !switching && overlays[LAYER.PREDICTION] === true && predAvailable,
+    },
   ];
 
   useEffect(() => { setImageProblem(null); }, [imageUri]);
@@ -509,6 +527,8 @@ function Explorer({
             placeholderNote={pixelNote}
             resetKey={`${caseId}|${fitKey}`}
             onTap={(src, at) => setTap({ src, slice: z, zoom: at.zoom })}
+            overlayMode={style.mode}
+            outlineWidth={style.width}
           />
         )}
       </View>
@@ -558,8 +578,14 @@ function Explorer({
           ) : (
             <Text style={s.dim}>Ground truth: none for this case ({capability.label}) - no ground-truth layer, metric or error view is offered.</Text>
           )}
+          <OverlayStyleChips
+            mode={style.mode}
+            width={style.width}
+            onMode={(mode) => changeStyle({ mode })}
+            onWidth={(width) => changeStyle({ width })}
+          />
           <View style={s.opacityRow}>
-            <Text style={s.dim}>Opacity</Text>
+            <Text style={s.rowLabel}>{style.mode === OVERLAY_MODE.OUTLINE ? 'Fill (off)' : 'Fill'}</Text>
             {OPACITY_STEPS.map((o) => (
               <TouchableOpacity key={o} style={[s.step, opacity === o && s.stepOn]} onPress={() => setOpacity(o)} accessibilityRole="button">
                 <Text style={[s.stepT, opacity === o && s.stepTOn]}>{Math.round(o * 100)}%</Text>
@@ -681,8 +707,9 @@ const s = StyleSheet.create({
   swatch: { width: 18, height: 18, borderRadius: 4 },
   swatchOff: { opacity: 0.35 },
   opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
+  rowLabel: { color: color.textDim, fontSize: font.small, minWidth: 52 },
   step: {
-    minHeight: 40, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.border,
+    minHeight: MIN_TOUCH, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.control,
     alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
   },
   stepOn: { borderColor: color.accent, backgroundColor: color.accentBg },

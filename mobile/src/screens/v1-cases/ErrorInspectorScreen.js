@@ -10,13 +10,18 @@ import Svg, { Rect } from 'react-native-svg';
 
 import { emptyUnavailable, RECOVERY, STATE } from '../../api/states.mjs';
 import { createCaseExplorer, metricsText, createSerialRunner } from './cases.mjs';
-import { disagreementRuns, runsToPath } from '../../lib/mask.mjs';
+import {
+  disagreementMasks, disagreementRuns, maskOutlinePath, runsToPath,
+} from '../../lib/mask.mjs';
 import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
 import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { SliceScrubber } from './SliceView';
+import SliceViewport, { OverlayStyleChips, SliceScrubber } from './SliceView';
+import {
+  OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle,
+} from './sliceControls.mjs';
 import { capabilityOf } from '../../lib/caseMode.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
@@ -97,6 +102,13 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const [pending, setPending] = useState(null);
   const [visible, setVisible] = useState({ TP: true, FP: true, FN: true });
   const [opacity, setOpacity] = useState(0.6);
+  // Both by default: the fill shows the area, the outline its edge (FP dashed), so a class never relies on colour.
+  const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-04', { mode: OVERLAY_MODE.BOTH, width: 2 }));
+  const changeStyle = useCallback((patch) => setStyle((st) => {
+    const next = { ...st, ...patch };
+    rememberOverlayStyle('SCR-04', next);
+    return next;
+  }), []);
   const displayedRef = useRef(null);
 
   const settle = useCallback(() => {
@@ -179,8 +191,24 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
     }
   }, [predMask, gtMask]);
 
+  // Each class's outline, traced from its own mask only while an outline is shown.
+  const outlined = needsOutline(style.mode);
+  const classOutlines = useMemo(() => {
+    if (!outlined || !predMask || !gtMask || !classes || classes.error) return null;
+    const m = disagreementMasks(gtMask.mask, predMask.mask);
+    return { TP: maskOutlinePath(m.tp), FP: maskOutlinePath(m.fp), FN: maskOutlinePath(m.fn) };
+  }, [outlined, predMask, gtMask, classes]);
+
   const layers = classes && classes.paths
-    ? CLASS_ORDER.map((k) => ({ key: k, path: classes.paths[k], color: ERROR_CLASS[k].color, opacity, visible: visible[k] }))
+    ? CLASS_ORDER.map((k) => ({
+      key: k,
+      path: classes.paths[k],
+      outline: classOutlines ? classOutlines[k] : null,
+      color: ERROR_CLASS[k].color,
+      dashed: ERROR_CLASS[k].dashed === true,
+      opacity,
+      visible: visible[k],
+    }))
     : [];
   const serverCell = showing && profile.cells.length ? profile.cells[z] : null;
   // The server's FP / FN are compared with the drawn classes only when the drawn masks are the ones it names.
@@ -218,6 +246,8 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
             layers={layers}
             placeholderNote={pixelNote}
             resetKey={caseId}
+            overlayMode={style.mode}
+            outlineWidth={style.width}
           />
         )}
       </View>
@@ -247,8 +277,14 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
               </View>
             </TouchableOpacity>
           ))}
+          <OverlayStyleChips
+            mode={style.mode}
+            width={style.width}
+            onMode={(mode) => changeStyle({ mode })}
+            onWidth={(width) => changeStyle({ width })}
+          />
           <View style={s.opacityRow}>
-            <Text style={s.dim}>Opacity</Text>
+            <Text style={s.rowLabel}>{style.mode === OVERLAY_MODE.OUTLINE ? 'Fill (off)' : 'Fill'}</Text>
             {[0.4, 0.6, 0.8, 1].map((o) => (
               <TouchableOpacity key={o} style={[s.step, opacity === o && s.stepOn]} onPress={() => setOpacity(o)} accessibilityRole="button">
                 <Text style={[s.stepT, opacity === o && s.stepTOn]}>{Math.round(o * 100)}%</Text>
@@ -387,8 +423,9 @@ const s = StyleSheet.create({
   swatch: { width: 20, height: 20, borderRadius: 4 },
   swatchOff: { opacity: 0.25 },
   opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
+  rowLabel: { color: color.textDim, fontSize: font.small, minWidth: 52 },
   step: {
-    minHeight: 40, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.border,
+    minHeight: MIN_TOUCH, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.control,
     alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
   },
   stepOn: { borderColor: color.accent, backgroundColor: color.accentBg },

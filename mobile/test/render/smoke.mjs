@@ -254,6 +254,21 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await tick(250);
   paths = r.root.findAll((n) => n.type === 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 2, `ground-truth overlay added (${paths.length} paths)`);
+  // Fill / Outline / Both (V1 item 1): the outline is a second path with no fill, traced from the boundary pixels.
+  const svgPaths = () => r.root.findAll((n) => n.type === 'Path');
+  const outlinePaths = () => svgPaths().filter((n) => n.props.fill === 'none');
+  await press(r, 'Outline');
+  check('O1', svgPaths().length === 2 && outlinePaths().length === 2
+    && outlinePaths().every((n) => n.props.strokeWidth > 0 && /^M\d+ \d+[hv]/.test(n.props.d) && n.props.d.endsWith('z')),
+  `Outline: ${outlinePaths().length} outline paths, no fill (stroke ${outlinePaths()[0] ? outlinePaths()[0].props.strokeWidth.toFixed(3) : '-'} source px)`);
+  const w2 = outlinePaths()[0].props.strokeWidth;
+  await press(r, '3 px');
+  check('O1', Math.abs(outlinePaths()[0].props.strokeWidth / w2 - 1.5) < 1e-9, 'the 3 px chip widens the outline 1.5 times (it is set in screen pixels)');
+  await press(r, 'Both');
+  check('O1', svgPaths().length === 4 && outlinePaths().length === 2, `Both: fill and outline for each layer (${svgPaths().length} paths)`);
+  await press(r, '2 px');
+  await press(r, 'Fill');
+  check('O1', svgPaths().length === 2 && outlinePaths().length === 0, 'back to Fill: the two filled layers only');
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
   await tick(30);
 
@@ -631,8 +646,15 @@ function noRunBackend() {
   // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
   const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
-  const paths = () => r.root.findAll((n) => n.type === 'Path');
-  check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
+  // SCR-04 draws each class as fill and outline (Both) by default; `paths` counts the fills, one per class.
+  const paths = () => r.root.findAll((n) => n.type === 'Path' && n.props.fill !== 'none');
+  const outlines = () => r.root.findAll((n) => n.type === 'Path' && n.props.fill === 'none');
+  check('E4c', paths().length === 3, `TP / FP / FN drawn as three filled paths (${paths().length})`);
+  check('O2', outlines().length === 3 && outlines().map((n) => n.props.stroke).join() === paths().map((n) => n.props.fill).join(),
+    'Both by default: each class also has its outline, in the class colour');
+  await press(r, 'Outline');
+  check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
+  await press(r, 'Both');
   check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
     'legend: every class named in words with its pixel count');
   check('E4d', has(r, /Differs from the server for this slice|Matches the server for this slice/),

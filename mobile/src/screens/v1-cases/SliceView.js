@@ -1,14 +1,17 @@
 /*
- * The 2D slice view shared by SCR-03 and SCR-04: the viewport (MRI image, mask overlays, pinch-zoom, pan, tap to
- * source pixel), the slice scrubber, and the hook that turns a mask URL into an overlay path.
+ * The 2D slice view shared by SCR-03 and SCR-04: the viewport (MRI image, mask overlays as fill, outline or both,
+ * pinch-zoom, pan, tap to source pixel), the slice scrubber, the overlay style chips, and the hook that turns a
+ * mask URL into an overlay path.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../lib/viewMath.mjs';
-import { color, font, space, MIN_TOUCH } from '../../components/theme';
+import { maskOutlinePath } from '../../lib/mask.mjs';
+import { color, font, radius, space, MIN_TOUCH } from '../../components/theme';
 import { scrubIndex, scrubPosition, sliceLabel } from './cases.mjs';
+import { OUTLINE_WIDTHS, OVERLAY_MODE, OVERLAY_MODES, overlayStyle } from './sliceControls.mjs';
 
 const TAP_MAX_TRAVEL = 6;
 const TAP_MAX_MS = 400;
@@ -33,9 +36,12 @@ function Grid({ nx, ny }) {
  * always sits over MRI pixel (x, y), and zoom / pan never touch mask data.
  * Gestures (adapted from the 2D viewer prototype): one finger pans, two fingers pinch about their midpoint and pan
  * with it, adding or lifting a finger restarts the gesture, and a short still touch is a tap.
+ * A layer is { key, path (filled runs), outline (boundary loops), color, opacity, visible, dashed }; overlayMode
+ * and outlineWidth (screen px) say which of the two paths are drawn (sliceControls.mjs overlayStyle).
  */
 export default function SliceViewport({
   shape, imageUri, onImageLoad, onImageError, layers = [], placeholderNote = null, resetKey, onTap,
+  overlayMode = OVERLAY_MODE.FILL, outlineWidth = 2,
 }) {
   const nx = shape ? shape[0] : null;
   const ny = shape ? shape[1] : null;
@@ -137,19 +143,35 @@ export default function SliceViewport({
           <Grid nx={nx} ny={ny} />
         </Svg>
       ) : null}
-      {box ? layers.filter((l) => l.visible && l.path).map((l) => (
-        <Svg
-          key={l.key}
-          style={box}
-          width={box.width}
-          height={box.height}
-          viewBox={`0 0 ${nx} ${ny}`}
-          preserveAspectRatio="none"
-          pointerEvents="none"
-        >
-          <Path d={l.path} fill={l.color} fillOpacity={l.opacity} />
-        </Svg>
-      )) : null}
+      {box ? layers.map((l) => {
+        const st = overlayStyle({ mode: overlayMode, widthPx: outlineWidth, zoom: xf.zoom, dashed: l.dashed === true, opacity: l.opacity });
+        const fill = st.fill && l.path ? l.path : null;
+        const edge = st.stroke && l.outline ? l.outline : null;
+        if (!l.visible || (!fill && !edge)) return null;
+        return (
+          <Svg
+            key={l.key}
+            style={box}
+            width={box.width}
+            height={box.height}
+            viewBox={`0 0 ${nx} ${ny}`}
+            preserveAspectRatio="none"
+            pointerEvents="none"
+          >
+            {fill ? <Path d={fill} fill={l.color} fillOpacity={st.fillOpacity} /> : null}
+            {edge ? (
+              <Path
+                d={edge}
+                fill="none"
+                stroke={l.color}
+                strokeWidth={st.strokeWidth}
+                strokeDasharray={st.strokeDasharray || undefined}
+                strokeLinejoin="miter"
+              />
+            ) : null}
+          </Svg>
+        );
+      }) : null}
       {!imageUri && placeholderNote ? (
         <View style={s.noteBox} pointerEvents="none">
           <Text style={s.note}>{placeholderNote}</Text>
@@ -277,7 +299,7 @@ const scrub = StyleSheet.create({
  * status: 'off' (no store or no URL), 'loading', 'ready' (path drawable), 'error' (`error` says why).
  */
 
-const OFF = Object.freeze({ status: 'off', path: null, pixels: null, error: null, url: null });
+const OFF = Object.freeze({ status: 'off', path: null, pixels: null, mask: null, error: null, url: null });
 
 export function useMaskOverlay(store, url, size, checksum = null) {
   const width = size ? size.width : null;
@@ -291,17 +313,81 @@ export function useMaskOverlay(store, url, size, checksum = null) {
     if (!store || !url || !expected) { setState(OFF); return undefined; }
     if (store.peek(url, expected)) return undefined; // drawn from the cache below
     let alive = true;
-    setState({ status: 'loading', path: null, pixels: null, error: null, url });
+    setState({ status: 'loading', path: null, pixels: null, mask: null, error: null, url });
     store.load(url, expected, { checksum }).then(
-      (v) => { if (alive) setState({ status: 'ready', path: v.path, pixels: v.pixels, error: null, url }); },
-      (err) => { if (alive) setState({ status: 'error', path: null, pixels: null, error: String(err && err.message), url }); },
+      (v) => { if (alive) setState({ status: 'ready', path: v.path, pixels: v.pixels, mask: v.mask, error: null, url }); },
+      (err) => { if (alive) setState({ status: 'error', path: null, pixels: null, mask: null, error: String(err && err.message), url }); },
     );
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, url, width, height, checksum]);
 
-  if (cached) return { status: 'ready', path: cached.path, pixels: cached.pixels, error: null, url };
+  if (cached) return { status: 'ready', path: cached.path, pixels: cached.pixels, mask: cached.mask, error: null, url };
   // Never hand back a path that belongs to a previous URL.
-  if (state.url !== url) return url && store && expected ? { status: 'loading', path: null, pixels: null, error: null, url } : OFF;
+  if (state.url !== url) return url && store && expected ? { status: 'loading', path: null, pixels: null, mask: null, error: null, url } : OFF;
   return state;
 }
+
+// A mask's outline path, traced once per decoded mask and only when an outline is shown.
+const outlines = new WeakMap();
+export function outlineOf(mask) {
+  if (!mask || typeof mask !== 'object') return null;
+  if (!outlines.has(mask)) outlines.set(mask, maskOutlinePath(mask));
+  return outlines.get(mask);
+}
+
+/*
+ * The overlay style chips under a viewer: Fill / Outline / Both, and the outline width in screen pixels.
+ */
+export function OverlayStyleChips({ mode, width, onMode, onWidth }) {
+  const showsOutline = mode !== OVERLAY_MODE.FILL;
+  return (
+    <View style={chips.wrap}>
+      <View style={chips.row}>
+        <Text style={chips.label}>Draw</Text>
+        {OVERLAY_MODES.map((m) => (
+          <TouchableOpacity
+            key={m.key}
+            style={[chips.chip, mode === m.key && chips.on]}
+            onPress={() => onMode(m.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mode === m.key }}
+            accessibilityLabel={`Draw masks as ${m.label.toLowerCase()}`}
+          >
+            <Text style={[chips.t, mode === m.key && chips.tOn]}>{m.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {showsOutline ? (
+        <View style={chips.row}>
+          <Text style={chips.label}>Outline</Text>
+          {OUTLINE_WIDTHS.map((w) => (
+            <TouchableOpacity
+              key={w}
+              style={[chips.chip, width === w && chips.on]}
+              onPress={() => onWidth(w)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: width === w }}
+              accessibilityLabel={`Outline ${w} pixel${w === 1 ? '' : 's'} wide`}
+            >
+              <Text style={[chips.t, width === w && chips.tOn]}>{w} px</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const chips = StyleSheet.create({
+  wrap: { gap: space.xs },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
+  label: { color: color.textDim, fontSize: font.small, minWidth: 52 },
+  chip: {
+    minHeight: MIN_TOUCH, minWidth: 56, paddingHorizontal: space.s, borderRadius: radius.s, borderWidth: 1,
+    borderColor: color.control, alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
+  },
+  on: { borderColor: color.accent, backgroundColor: color.accentBg },
+  t: { color: color.textDim, fontSize: font.small, fontWeight: '600' },
+  tOn: { color: color.accent },
+});
