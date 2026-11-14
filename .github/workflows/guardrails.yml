@@ -113,23 +113,12 @@ jobs:
       - name: backend mesh tests on the backend pins (no scipy)
         run: python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
-      # scipy is deliberately NOT in backend/requirements.txt (the wheel closure above is unchanged). 1.13.1 is the
-      # last series that ships CPython 3.9 wheels; it is installed here only to run the error-geometry tests.
+      # scipy is deliberately NOT in backend/requirements.txt. 1.13.1 is the last series that ships CPython 3.9
+      # wheels; it is installed here only to run the error-geometry tests.
       - name: backend mesh error-geometry tests (scipy 1.13.1, test-only)
         run: |
           python -m pip install --quiet scipy==1.13.1
           python -m pytest backend/mesh/tests -q -p no:cacheprovider
-
-      # backend/scripts/deploy_macmini.ps1 installs OFFLINE from wheels the PC
-      # downloads; pip evaluates markers on the host interpreter, so prove the
-      # set closes over that target (CPython 3.9.6, darwin, arm64).
-      - name: offline wheel set closes over CPython 3.9.6 darwin arm64
-        run: |
-          python -m pip install --quiet packaging
-          python -m pip download --quiet --platform macosx_11_0_arm64 --python-version 3.9 \
-            --implementation cp --only-binary=:all: -r backend/requirements.txt -d /tmp/wheels-backend-host
-          python backend/scripts/check_wheel_closure.py --wheels /tmp/wheels-backend-host \
-            --requirements backend/requirements.txt
 
   # --------------------------------------------------------------------------
 

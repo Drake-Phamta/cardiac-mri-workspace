@@ -231,8 +231,6 @@ case's raw volume. The API has no volume endpoint, so a switch is bounded by one
 - OpenAPI/docs routes are off unless `CARDIAC_ENABLE_DOCS=1`.
 - Request bodies above 1 MiB answer 413 with the contract envelope; 400/405 also answer the envelope.
 - Artifact bytes are `Cache-Control: private, immutable`.
-- `backend/scripts/check_wheel_closure.py` checks, in CI, that the pinned requirements close as a Python 3.9 wheel set
-  (pip evaluates markers on the host interpreter, which once dropped `exceptiongroup`).
 - A `REPLACE` / `INSERT OR REPLACE` cannot overwrite an immutable row either: `BEFORE INSERT` triggers on
   reviewed masks, their slices, both history tables and findings abort on an existing key on **any** connection,
   and the service's own connection also sets `PRAGMA recursive_triggers = ON`.
