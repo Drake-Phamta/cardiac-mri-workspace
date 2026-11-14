@@ -25,7 +25,7 @@
  * `node --test` exercises the same file Metro bundles.
  */
 
-import { parseErrorEnvelope } from './index.mjs';
+import { parseErrorEnvelope } from './errors.mjs';
 import { utf8Length } from './netLog.mjs';
 
 export class TransportError extends Error {

@@ -14,7 +14,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readComparability, presentation, success } from '../src/api/index.mjs';
+import { readComparability, presentation } from '../src/screens/v3-study/comparability.mjs';
+import { success } from '../src/api/states.mjs';
 import {
   COMPARISONS, MATRIX, UNAVAILABLE, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
   matrixEntry, notListedCell, stripLayout, pointAt,

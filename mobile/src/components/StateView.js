@@ -16,7 +16,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { STATE } from '../api/index.mjs';
+import { STATE } from '../api/errors.mjs';
 import { useRuntime } from '../api/RuntimeContext';
 import { describeState, TONE } from './stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from './theme';

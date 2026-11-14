@@ -41,7 +41,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { loading, RECOVERY, STATE } from '../../api/index.mjs';
+import { loading } from '../../api/states.mjs';
+import { RECOVERY, STATE } from '../../api/errors.mjs';
 import { createCaseExplorer, LAYER } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';

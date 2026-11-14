@@ -36,7 +36,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createBundle, createContract } from '../src/api/index.mjs';
+import { createBundle } from '../src/api/fixtures.mjs';
+import { createContract } from '../src/api/contract.mjs';
 import { API_BASE_URL_ENV, describeConfig, parseEnvFile, resolveConfig } from '../src/config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));

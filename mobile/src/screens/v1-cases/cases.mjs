@@ -41,11 +41,10 @@
  *   - a layer or an entry is offered only when its own data came back.
  */
 
-import {
-  STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError,
-  screenToSource, fitTransform, clampZoom, zoomAbout, panBy,
-  sliceCacheKey,
-} from '../../api/index.mjs';
+import { STATE, RECOVERY } from '../../api/errors.mjs';
+import { loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
+import { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
+import { sliceCacheKey } from './cacheKey.mjs';
 
 // `10` section 4. MRI is always on; the rest are toggles.
 export const LAYER = Object.freeze({

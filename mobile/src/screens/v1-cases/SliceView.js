@@ -28,7 +28,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, PanResponder, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 
-import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../api/index.mjs';
+import { clampZoom, fitTransform, panBy, screenToSource, zoomAbout } from '../../lib/viewMath.mjs';
 import { color, font, space } from '../../components/theme';
 
 const TAP_MAX_TRAVEL = 6;

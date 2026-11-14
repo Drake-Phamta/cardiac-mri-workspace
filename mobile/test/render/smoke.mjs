@@ -778,7 +778,8 @@ function noRunBackend() {
 // its late answer never reaches the screen.
 {
   const useCall = (await imp('src/api/useCall.js')).default;
-  const { STATE, success } = await imp('src/api/index.mjs');
+  const { STATE } = await imp('src/api/errors.mjs');
+  const { success } = await imp('src/api/states.mjs');
   const calls = [];
   const client = { call: (_endpointId, _params, options) => new Promise((resolve) => { calls.push({ signal: options.signal, resolve }); }) };
   function Probe({ enabled }) {
@@ -1105,7 +1106,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
 {
   const { BackHandler } = await import('react-native');
-  const { fitTransform } = await imp('src/api/index.mjs');
+  const { fitTransform } = await imp('src/lib/viewMath.mjs');
   const pressExact = async (r, label) => {
     const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label);
     if (!hits.length) throw new Error(`no button "${label}" exactly; texts: ${texts(r).slice(0, 50).join(' | ')}`);

@@ -10,9 +10,9 @@
  * here that call the client.
  */
 
-import {
-  STATE, getEndpoint, readComparability, presentation, VERDICT,
-} from '../../api/index.mjs';
+import { STATE } from '../../api/errors.mjs';
+import { getEndpoint } from '../../api/contract.mjs';
+import { readComparability, presentation, VERDICT } from './comparability.mjs';
 import {
   COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE, matrixEntry,
   readExperimentIdentity, readCohortN, readMetricSummary, readVariant, readCaseRows,

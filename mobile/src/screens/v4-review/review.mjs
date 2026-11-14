@@ -36,7 +36,8 @@
  *        saving over a stale base would drop the newer corrections.
  */
 
-import { STATE, RECOVERY, loading, fatalInvalid } from '../../api/index.mjs';
+import { STATE, RECOVERY } from '../../api/errors.mjs';
+import { loading, fatalInvalid } from '../../api/states.mjs';
 import { SOURCE_KIND_FOR_VARIANT } from './brush.mjs';
 
 export const REVIEW_STATUS = Object.freeze({

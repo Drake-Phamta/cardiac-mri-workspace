@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBundle } from '../src/api/index.mjs';
+import { createBundle } from '../src/api/fixtures.mjs';
 import { parseArgs, runGenerator } from '../scripts/prepare.mjs';
 import { loadContract } from './_helpers.mjs';
 

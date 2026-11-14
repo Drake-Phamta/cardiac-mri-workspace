@@ -95,13 +95,12 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
   }
 }
 
-// D5 — app/core/index.mjs must stay importable where there is no node:fs.
-// Re-exporting loadFromDisk from the barrel would break the bundle on a
-// device, and it is an easy mistake to make while adding an export.
+// D5 — the modules the app bundles must stay importable where there is no
+// node:fs: none of them may re-export the filesystem loader.
 {
-  const barrel = await import('../src/api/index.mjs');
-  check('D5', !('loadClient' in barrel) && !('loadContract' in barrel),
-    'the barrel does not re-export the filesystem module');
+  const modules = await Promise.all(['contract', 'fixtures', 'client'].map((m) => import(`../src/api/${m}.mjs`)));
+  check('D5', modules.every((mod) => !('loadClient' in mod) && !('loadContract' in mod)),
+    'no bundled api module re-exports the filesystem loader');
 }
 
 // D6 — the documented path. CI regenerates the bundle at BUNDLE_PATH before

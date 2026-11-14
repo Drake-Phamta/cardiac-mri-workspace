@@ -16,7 +16,8 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { fatalInvalid, RECOVERY } from '../api/index.mjs';
+import { fatalInvalid } from '../api/states.mjs';
+import { RECOVERY } from '../api/errors.mjs';
 import { describeConfig, MODE } from '../config.mjs';
 import { componentFor } from './registry';
 import { StatePanel } from '../components/StateView';

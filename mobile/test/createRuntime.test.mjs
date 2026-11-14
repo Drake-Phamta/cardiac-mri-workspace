@@ -2,7 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATE, listScenarios } from '../src/api/index.mjs';
+import { STATE } from '../src/api/errors.mjs';
+import { listScenarios } from '../src/api/fixtures.mjs';
 import { MODE, resolveConfig } from '../src/config.mjs';
 import { RuntimeError, createRuntime } from '../src/api/runtime.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';

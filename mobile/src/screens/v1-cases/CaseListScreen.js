@@ -19,7 +19,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { RECOVERY } from '../../api/index.mjs';
+import { RECOVERY } from '../../api/errors.mjs';
 import useCall from '../../api/useCall';
 import StateView from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';

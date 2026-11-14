@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { STATE } from '../src/api/index.mjs';
+import { STATE } from '../src/api/errors.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createImageStore } from '../src/api/imageStore.mjs';
 import { bytesToBase64 } from '../src/lib/bytes.mjs';

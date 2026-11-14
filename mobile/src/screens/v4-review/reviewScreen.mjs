@@ -53,9 +53,9 @@
  */
 
 import { maskRuns } from '../../lib/mask.mjs';
-import {
-  STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError, fitTransform, clampZoom, zoomAbout,
-} from '../../api/index.mjs';
+import { STATE, RECOVERY } from '../../api/errors.mjs';
+import { loading, emptyUnavailable, fatalInvalid, stateForError } from '../../api/states.mjs';
+import { fitTransform, clampZoom, zoomAbout } from '../../lib/viewMath.mjs';
 import { createReviewCorrection, PREDICTION_VARIANT } from './review.mjs';
 import { createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE } from './brush.mjs';
 import { syntheticSourceSlice } from './syntheticSource.mjs';

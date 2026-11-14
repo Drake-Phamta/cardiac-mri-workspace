@@ -30,7 +30,8 @@
  * runLevel() applies both; the screen reads every run-level value from it.
  */
 
-import { readSelection, SELECTION_UNAVAILABLE_REASON, STATE } from '../../api/index.mjs';
+import { readSelection, UNAVAILABLE_REASON as SELECTION_UNAVAILABLE_REASON } from './selection.mjs';
+import { STATE } from '../../api/errors.mjs';
 import { variantMismatch } from './cases.mjs';
 
 export const ERROR_CLASS = Object.freeze({

@@ -28,10 +28,12 @@
 import { readFileSync, readdirSync } from 'node:fs';
 
 import { generatedBundleJson } from './_helpers.mjs';
-import {
-  createContract, createBundle, createClient, createFixtureTransport, getScenario,
-  STATE, RECOVERY, VERDICT, success, stateForError, readComparability, presentation,
-} from '../src/api/index.mjs';
+import { createContract } from '../src/api/contract.mjs';
+import { createBundle, getScenario } from '../src/api/fixtures.mjs';
+import { createClient, createFixtureTransport } from '../src/api/client.mjs';
+import { STATE, RECOVERY } from '../src/api/errors.mjs';
+import { VERDICT, readComparability, presentation } from '../src/screens/v3-study/comparability.mjs';
+import { success, stateForError } from '../src/api/states.mjs';
 import {
   createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
   buildCell, buildTrend, deltaFor, readComparison, aggregationFor, stripLayout, pointAt, matrixEntry,

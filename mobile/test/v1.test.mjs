@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { STATE, createBundle, createClient, createFixtureTransport } from '../src/api/index.mjs';
+import { STATE } from '../src/api/errors.mjs';
+import { createBundle } from '../src/api/fixtures.mjs';
+import { createClient, createFixtureTransport } from '../src/api/client.mjs';
 import { createCaseExplorer, LAYER } from '../src/screens/v1-cases/cases.mjs';
 import { createMaskStore } from '../src/api/maskStore.mjs';
 import { createSliceCache } from '../src/api/cache.mjs';

@@ -11,9 +11,9 @@
  * invisible to it, which is what lets V1-V4 be written once.
  */
 
-import {
-  createContract, createBundle, createClient, createFixtureTransport, listScenarios,
-} from './index.mjs';
+import { createContract } from './contract.mjs';
+import { createBundle, listScenarios } from './fixtures.mjs';
+import { createClient, createFixtureTransport } from './client.mjs';
 import { MODE } from '../config.mjs';
 import { createImageStore } from './imageStore.mjs';
 import { createMaskStore } from './maskStore.mjs';

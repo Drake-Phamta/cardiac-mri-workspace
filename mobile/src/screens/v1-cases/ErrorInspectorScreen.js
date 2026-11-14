@@ -40,7 +40,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 
-import { emptyUnavailable, RECOVERY, STATE } from '../../api/index.mjs';
+import { emptyUnavailable } from '../../api/states.mjs';
+import { RECOVERY, STATE } from '../../api/errors.mjs';
 import { createCaseExplorer } from './cases.mjs';
 import { disagreementRuns, runsToPath } from '../../lib/mask.mjs';
 import useCall from '../../api/useCall';

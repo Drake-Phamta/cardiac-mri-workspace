@@ -12,7 +12,7 @@
  *     variant (the model's caseIntent); otherwise the reason is shown.
  */
 
-import { STATE } from '../../api/index.mjs';
+import { STATE } from '../../api/errors.mjs';
 import {
   CELL_STATUS, FAMILY, MATRIX, OUTLIER_RULE, buildTrend, deltaFor, labelsForCell, summaryStat,
 } from './index.mjs';

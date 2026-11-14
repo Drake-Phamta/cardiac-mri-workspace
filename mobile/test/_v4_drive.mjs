@@ -8,7 +8,7 @@
 // open sequence is the one read the V4 model runs itself; see reviewController.)
 import { createHash } from 'node:crypto';
 
-import { success } from '../src/api/index.mjs';
+import { success } from '../src/api/states.mjs';
 
 // Serve what the review controller wants, until it wants nothing.
 export async function drive(ctl, client, { max = 40 } = {}) {

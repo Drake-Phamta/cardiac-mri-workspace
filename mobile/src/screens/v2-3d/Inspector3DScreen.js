@@ -26,7 +26,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { emptyUnavailable, fatalInvalid, loading, RECOVERY, STATE } from '../../api/index.mjs';
+import { emptyUnavailable, fatalInvalid, loading } from '../../api/states.mjs';
+import { RECOVERY, STATE } from '../../api/errors.mjs';
 import { createLatest } from '../../api/latest.mjs';
 import useCall from '../../api/useCall';
 import StateView, { StatePanel } from '../../components/StateView';

@@ -11,7 +11,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATE, RECOVERY, fitTransform, fatalInvalid } from '../src/api/index.mjs';
+import { STATE, RECOVERY } from '../src/api/errors.mjs';
+import { fitTransform } from '../src/lib/viewMath.mjs';
+import { fatalInvalid } from '../src/api/states.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { maskRuns } from '../src/lib/mask.mjs';
