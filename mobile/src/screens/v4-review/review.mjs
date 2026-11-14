@@ -5,6 +5,7 @@
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, RECOVERY, loading, fatalInvalid } from '../../api/states.mjs';
 import { SOURCE_KIND_FOR_VARIANT } from './brush.mjs';
+import { checkNote } from './notes.mjs';
 
 export const REVIEW_STATUS = Object.freeze({
   NOT_REVIEWED: 'NOT_REVIEWED',
@@ -213,21 +214,31 @@ export function createReviewCorrection(client) {
     return open({ caseId, runId, sourceMaskId, predictionVariant, ...options });
   }
 
-  // Refused locally, with nothing sent, when the transition is not allowed or lacks a needed confirmation.
+  // Refused locally, with nothing sent, when the transition is not allowed, lacks a needed confirmation, or is
+  // a flag without a reason. The reason (contract 1.2.0) is kept with the change in the review's history.
   // A 2xx means the server applied exactly `to`, so the status is not read back (the fixture answers a
   // fixed placeholder). On failure the status and revision stay as they were.
-  async function patchStatus(to, { scenario = 'default', confirmed = false } = {}) {
+  async function patchStatus(to, { scenario = 'default', confirmed = false, reason = null } = {}) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;
     const check = checkTransition(current.status, to);
     if (!check.ok) return reject(check.code, check.reason, { from: current.status, to });
+    const text = typeof reason === 'string' ? reason.trim() : '';
+    const note = checkNote(text);
+    if (to === REVIEW_STATUS.FLAGGED && note.empty) {
+      return reject('REASON_REQUIRED', 'Say why the prediction is flagged before flagging it.', { from: current.status, to });
+    }
+    if (note.tooLong) {
+      return reject('VALIDATION_ERROR', `The reason is ${note.length} characters; at most ${note.max} are kept.`,
+        { from: current.status, to });
+    }
     if (check.confirm && confirmed !== true) {
       return reject('CONFIRMATION_REQUIRED',
         `${current.status} -> ${to} reopens an accepted review; confirm it first`, { from: current.status, to });
     }
-    const view = await client.call('review_patch', { review_id: current.reviewId }, {
-      body: { status: to, expected_revision: current.revision }, scenario,
-    });
+    const body = { status: to, expected_revision: current.revision };
+    if (text) body.reason = text;
+    const view = await client.call('review_patch', { review_id: current.reviewId }, { body, scenario });
     if (view.state !== STATE.SUCCESS) return set(view);
     return set(view, {
       status: to, revision: revisionFrom(view.data, current.revision), etag: view.data.etag ?? current.etag,

@@ -980,7 +980,12 @@ function reviewBackend({ seedVersion = false } = {}) {
       evidence: { study_id: 'STUDY_DEMO', experiment_id: 'EXP_DEMO', case_id: 'CASE_0061', analysis_run_id: 'RUN_A', prediction_variant: 'RAW', slice_index: 44, region_reference: null },
     }],
     nextFinding: 2,
+    history: [], // review_history_list rows, oldest first, as the backend keeps them (contract 1.2.0)
   };
+  const logHistory = (action, from, to, extra = {}) => db.history.push({
+    revision: db.review.revision, action, from_status: from, to_status: to, reviewer_id: 'project-reviewer', reason: null,
+    slice_index: null, reviewed_mask_id: null, at: `2026-11-15T09:${String(db.history.length).padStart(2, '0')}:00Z`, ...extra,
+  });
   const geometry = () => {
     const g = gen('case_get');
     return { geometry_contract_version: g.geometry_contract_version, geometry_validation_status: g.geometry_validation_status,
@@ -1003,6 +1008,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   const ensureReview = (runId, body) => {
     if (db.review) return { review: db.review, created: false };
     db.review = { review_id: 'REVIEW_1', run_id: runId, status: 'NOT_REVIEWED', revision: 1, source_mask_id: body.source_mask_id, prediction_variant: body.prediction_variant };
+    logHistory('CREATE', null, 'NOT_REVIEWED');
     if (seedVersion) {
       // an earlier session already corrected slice 44: its version differs from the source there
       const earlier = SOURCE.slice();
@@ -1057,6 +1063,7 @@ function reviewBackend({ seedVersion = false } = {}) {
       if (body.mask_payload.encoding !== 'BITPACK_BASE64') return err(422, 'VALIDATION_ERROR');
       db.working.set(Number(m[2]), unpack(body.mask_payload));
       db.review.revision += 1;
+      logHistory('WORKING_SLICE', db.review.status, db.review.status, { slice_index: Number(m[2]) });
       return json(200, { review_id: db.review.review_id, working_revision: db.review.revision, source_mask_id: db.review.source_mask_id,
         slice_index: Number(m[2]), ...geometry() });
     }
@@ -1068,15 +1075,22 @@ function reviewBackend({ seedVersion = false } = {}) {
       db.versions.push(v);
       db.working.clear();
       db.review.revision += 1;
+      logHistory('COMMIT', db.review.status, 'CORRECTED', { reviewed_mask_id: v.id });
       db.review.status = 'CORRECTED';
       return json(201, { ...row(v), status: 'CORRECTED', source_mask_kind: 'RAW_PREDICTION', revision: db.review.revision, ...geometry() });
     }
     if ((m = /^\/api\/v1\/reviews\/([^/]+)$/.exec(path)) && method === 'PATCH') {
       if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
       if (body.status === 'CORRECTED') return err(409, 'INVALID_REVIEW_TRANSITION');
+      const from = db.review.status;
       db.review.status = body.status;
       db.review.revision += 1;
+      logHistory('TRANSITION', from, body.status, { reason: body.reason ?? null });
       return json(200, reviewBody(db.review));
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/history$/.exec(path)) && method === 'GET') {
+      if (!db.review || db.review.review_id !== m[1]) return err(404, 'ARTIFACT_NOT_FOUND');
+      return json(200, { review_id: m[1], items: db.history });
     }
     if ((m = /^\/api\/v1\/reviewed-masks\/([^/]+)\/slices\/(\d+)$/.exec(path)) && method === 'GET') {
       const v = db.versions.find((x) => x.id === m[1]);
@@ -1260,10 +1274,20 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'two samples at radius 0 painted');
 
   // --- flag with the review status (H8), then save (H9) ---
+  // Flag asks why first (V4 item 3); the reason is checked like a note and sent with the change.
   await pressExact(r, 'Flag');
+  check('V4u', byId(r, 'flag-box')[0] && btn(r, 'Flag with this reason').props.disabled === true && !be.writes().some((q) => q.method === 'PATCH'),
+    'Flag opens the reason box; its send button is off while the reason is empty, and nothing is sent');
+  const reasonBox = () => r.root.findAll((n) => n.type === 'TextInput' && n.props.accessibilityLabel === 'Flag reason')[0];
+  await act(async () => { reasonBox().props.onChangeText('Seen with Dr Smith'); });
+  check('V4u', btn(r, 'Flag anyway') && /looks like a person.s name/.test(textOf(byId(r, 'note-warning')[0])),
+    'a reason that may name a person is warned about: the button reads "Flag anyway"');
+  await act(async () => { reasonBox().props.onChangeText('Boundary misses the septal wall on this slice.'); });
+  await pressExact(r, 'Flag with this reason');
   await tick(80);
-  check('V4f', has(r, /^Review: FLAGGED · rev 2$/) && be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'FLAGGED' && q.body.expected_revision === 1),
-    'Flag sends review_patch with expected_revision and the review reads FLAGGED');
+  check('V4f', has(r, /^Review: FLAGGED · rev 2$/) && be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'FLAGGED' && q.body.expected_revision === 1
+    && q.body.reason === 'Boundary misses the septal wall on this slice.') && !byId(r, 'flag-box')[0],
+  'the flag sends review_patch with expected_revision and the reason; the review reads FLAGGED and the box closes');
   check('V4f', btn(r, 'Mark corrected').props.disabled === true && has(r, /CORRECTED is reached only by saving a correction/),
     'CORRECTED is not offered as a status: only Save reaches it');
   await pressExact(r, 'Save');
@@ -1289,6 +1313,16 @@ function reviewBackend({ seedVersion = false } = {}) {
     && textOf(byId(r, 'mask-state')[0]) === 'SAVED', 'the header reads CORRECTED, the latest version and its source, and the slice SAVED');
   check('V4g', !be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'CORRECTED'), 'no PATCH to CORRECTED ever: the commit alone made it');
   check('V4g', btn(r, 'Save').props.disabled === true, 'Save is disabled again: nothing changed since the commit');
+
+  // The review timeline (V4 item 3): read from review_history_list when opened, newest first, one line per save.
+  await pressExact(r, 'History');
+  await tick(120);
+  const timeline = byId(r, 'history')[0] ? byId(r, 'history')[0].findAll((n) => n.type === 'Text').map(textOf) : [];
+  check('V4v', be.requests.some((q) => q.method === 'GET' && q.path === '/api/v1/reviews/REVIEW_1/history')
+    && timeline[1] === 'Saved correction REVMASK_1, slice 44' && timeline.includes('Flagged (was not reviewed)')
+    && timeline.includes('Reason: Boundary misses the septal wall on this slice.') && timeline[timeline.length - 2] === 'Review opened'
+    && timeline.filter((t) => /^2026-11-15 09:\d\d UTC · project-reviewer$/.test(t)).length === 3,
+  `the timeline: newest first, the save with its slice, the flag with its reason, each with time and the project alias (${timeline.join(' | ')})`);
   await pressExact(r, '‹ Back');
   await tick(60);
   check('V4g', onScreen(r, 'SCR-08'), 'saved: Back leaves without asking');

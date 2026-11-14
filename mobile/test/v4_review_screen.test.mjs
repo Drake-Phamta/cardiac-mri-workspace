@@ -84,7 +84,7 @@ test('RS1 a route without a variant asks for one - nothing is called, nothing de
   assert.equal(s.phase, PHASE.CHOOSE_VARIANT);
   await drive(ctl, runtime.client);
   assert.deepEqual(calls, []);
-  assert.deepEqual(s.wants, { run: null, slice: null }, 'it wants nothing before a variant is chosen');
+  assert.deepEqual(s.wants, { run: null, slice: null, history: null }, 'it wants nothing before a variant is chosen');
   const bad = await ctl.chooseVariant('REVIEWED');
   assert.equal(bad.phase, PHASE.CHOOSE_VARIANT, 'only RAW or PROCESSED can scope a review');
 });
@@ -251,10 +251,10 @@ test('RS10 review status from the screen: transitions as the model allows, ACCEP
   const ctl = await readyScreen();
   let s = await ctl.setStatus('ACCEPTED');
   assert.equal(s.review.status, 'ACCEPTED');
-  s = await ctl.setStatus('FLAGGED');
+  s = await ctl.setStatus('FLAGGED', { reason: 'Misses the septal wall.' });
   assert.equal(s.notice.code, 'CONFIRMATION_REQUIRED');
   assert.equal(s.review.status, 'ACCEPTED');
-  s = await ctl.setStatus('FLAGGED', { confirmed: true });
+  s = await ctl.setStatus('FLAGGED', { confirmed: true, reason: 'Misses the septal wall.' });
   assert.equal(s.review.status, 'FLAGGED');
   s = await ctl.setStatus('ACCEPTED');
   assert.equal(s.notice.code, 'INVALID_REVIEW_TRANSITION');
@@ -289,7 +289,7 @@ test('RS12 a live runtime without a mask decoder says so, keeps the review contr
   ctl.touch.grant([at(380, 276)]);
   ctl.touch.release();
   assert.equal(ctl.getState().brush.undoDepth, 0);
-  const t = await ctl.setStatus('FLAGGED');
+  const t = await ctl.setStatus('FLAGGED', { reason: 'Misses the septal wall.' });
   assert.equal(t.review.status, 'FLAGGED');
 });
 

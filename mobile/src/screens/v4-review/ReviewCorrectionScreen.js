@@ -3,7 +3,7 @@
 // reviewScreen.mjs; this file only draws its state and forwards taps and touches.
 
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import { RECOVERY, STATE } from '../../api/states.mjs';
@@ -14,6 +14,7 @@ import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { createReviewScreen, MASK_STATE, MODE, PHASE, PIXELS, TOOL } from './reviewScreen.mjs';
+import NoteCheck from './NoteCheck';
 
 // Layer colours (dark theme). The source is a blue line, the edits are filled; an unsaved add (green) and an unsaved
 // erase (magenta) are never a red / green pair. Each layer also has a text label, so colour is never the only cue.
@@ -197,6 +198,67 @@ function SliceReader({ ctl, client, want }) {
   return null;
 }
 
+// The review's history, read only while the timeline is open (review_history_list, contract 1.2.0).
+function HistoryReader({ ctl, client, want }) {
+  const { view } = useCall(client, 'review_history_list', { review_id: want.reviewId });
+  useEffect(() => { if (view.state !== STATE.LOADING) ctl.provideHistory(want.revision, view); }, [view, ctl, want.revision]);
+  return null;
+}
+
+// Flag asks why first. The reason is checked like a note: required, at most 500 characters, and a warning when
+// it may hold a personal detail.
+function FlagBox({ ctl, flag, transition, writable }) {
+  const send = () => {
+    if (transition && transition.confirm) {
+      confirm('Flag?', 'This review was ACCEPTED. Flagging it keeps the earlier decision in the review history.',
+        () => ctl.submitFlag({ confirmed: true }));
+    } else ctl.submitFlag();
+  };
+  return (
+    <View style={s.panel} testID="flag-box">
+      <Text style={s.panelH}>Why flag this prediction?</Text>
+      <TextInput
+        style={s.input}
+        value={flag.text}
+        onChangeText={(v) => ctl.setFlagReason(v)}
+        placeholder="What is wrong on the image, and where (required)"
+        placeholderTextColor={color.textFaint}
+        multiline
+        accessibilityLabel="Flag reason"
+      />
+      <NoteCheck check={flag.check} />
+      <View style={s.row}>
+        <Btn label="Cancel" onPress={() => ctl.cancelFlag()} />
+        <Btn label={flag.check.warnings.length ? 'Flag anyway' : 'Flag with this reason'} active
+          disabled={!flag.canSubmit || !writable} onPress={send} />
+      </View>
+    </View>
+  );
+}
+
+// Who changed the review, what, and when; newest first. The reviewer is the project alias the server recorded.
+function HistoryPanel({ ctl, history }) {
+  const failed = history.view && history.view.state !== STATE.SUCCESS;
+  return (
+    <View style={s.panel} testID="history">
+      <Text style={s.panelH}>Review history</Text>
+      {!history.view && <Text style={s.hint}>Loading the history…</Text>}
+      {failed && (
+        <StatePanel view={history.view} what="the review history" compact
+          onAction={(id) => (id === RECOVERY.BACK ? ctl.toggleHistory() : ctl.retryHistory())} />
+      )}
+      {history.lines.map((l) => (
+        <View key={l.key} style={s.event}>
+          <Text style={s.eventWhat}>{l.what}</Text>
+          {l.reason && <Text style={s.eventReason}>Reason: {l.reason}</Text>}
+          <Text style={s.mono}>{l.when} · {l.who}</Text>
+        </View>
+      ))}
+      {history.view && !failed && history.lines.length === 0 && <Text style={s.hint}>Nothing recorded yet.</Text>}
+    </View>
+  );
+}
+
 function Legend() {
   const item = (fill, label, line = false) => (
     <View style={s.legendItem} key={label}>
@@ -287,6 +349,10 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
     <>
       {st.wants.run && <RunReader key={`run#${st.wants.run.epoch}`} ctl={ctl} client={client} runId={st.wants.run.runId} />}
       {st.wants.slice && <SliceReader key={`slice#${st.wants.slice.ticket}`} ctl={ctl} client={client} want={st.wants.slice} />}
+      {st.wants.history && (
+        <HistoryReader key={`history#${st.wants.history.reviewId}#${st.wants.history.revision}`} ctl={ctl} client={client}
+          want={st.wants.history} />
+      )}
     </>
   );
   if (st.phase !== PHASE.READY) {
@@ -386,12 +452,19 @@ export default function ReviewCorrectionScreen({ runtime, nav, params }) {
         <View style={s.row}>
           <Text style={s.label}>review</Text>
           {r.transitions.map((t) => (
-            <Btn key={t.to} label={TRANSITION_LABEL[t.to] || t.to} disabled={!writable || !t.ok} onPress={() => askStatus(t)} />
+            <Btn key={t.to} label={TRANSITION_LABEL[t.to] || t.to} disabled={!writable || !t.ok}
+              active={t.to === 'FLAGGED' && Boolean(st.flag)}
+              onPress={() => (t.to === 'FLAGGED' ? ctl.startFlag() : askStatus(t))} />
           ))}
+          <Btn label="History" active={st.history.open} onPress={() => ctl.toggleHistory()} testID="history-toggle" />
         </View>
         {r.transitions.some((t) => t.code === 'CORRECTED_BY_COMMIT_ONLY') && (
           <Text style={s.hint}>CORRECTED is reached only by saving a correction (Save), never by a status change.</Text>
         )}
+        {st.flag && (
+          <FlagBox ctl={ctl} flag={st.flag} writable={writable} transition={r.transitions.find((t) => t.to === 'FLAGGED')} />
+        )}
+        {st.history.open && <HistoryPanel ctl={ctl} history={st.history} />}
         <View style={s.row}>
           <Btn label="Cancel edits" disabled={!editable || b.unsavedSlices.length === 0}
             onPress={() => confirm('Discard unsaved edits?', 'The working mask goes back to the last save (or the source).', () => ctl.cancel())} />
@@ -455,6 +528,17 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.xs },
   label: { color: color.textDim, fontSize: font.small, minWidth: 40 },
   hint: { color: color.textDim, fontSize: font.small },
+  panel: {
+    backgroundColor: color.surface, borderColor: color.border, borderWidth: 1, borderRadius: 10, padding: space.m, gap: space.xs,
+  },
+  panelH: { color: color.text, fontSize: font.h2, fontWeight: '700' },
+  input: {
+    minHeight: 56, color: color.text, borderColor: color.control, borderWidth: 1, borderRadius: 8, padding: space.s,
+    fontSize: font.body, textAlignVertical: 'top',
+  },
+  event: { borderLeftWidth: 2, borderLeftColor: color.accent, paddingLeft: space.s, paddingVertical: 2, gap: 2 },
+  eventWhat: { color: color.text, fontSize: font.body, fontWeight: '600' },
+  eventReason: { color: color.text, fontSize: font.small },
   btn: {
     minHeight: MIN_TOUCH, minWidth: MIN_TOUCH, paddingHorizontal: space.m, borderRadius: 8, borderWidth: 1,
     borderColor: color.border, backgroundColor: color.surfaceHi, alignItems: 'center', justifyContent: 'center',

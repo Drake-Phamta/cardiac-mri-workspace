@@ -147,10 +147,10 @@ const unpack = (payload) => {
     && sent.length === n0 && r2.view.state === STATE.SUCCESS && r2.canWrite && r2.status === 'NOT_REVIEWED',
   'APPROVED and NOT_REVIEWED -> NOT_REVIEWED refused locally: nothing sent, still writable, status kept');
 
-  const flagged = await model.patchStatus(REVIEW_STATUS.FLAGGED);
+  const flagged = await model.patchStatus(REVIEW_STATUS.FLAGGED, { reason: 'Misses the septal wall.' });
   const patch = sent[sent.length - 1];
   check('V4-3', flagged.status === 'FLAGGED' && flagged.rejection === null && patch.endpointId === 'review_patch'
-    && patch.body.status === 'FLAGGED' && patch.body.expected_revision === 1,
+    && patch.body.status === 'FLAGGED' && patch.body.expected_revision === 1 && patch.body.reason === 'Misses the septal wall.',
   `NOT_REVIEWED -> FLAGGED sent with expected_revision ${patch.body.expected_revision}; status ${flagged.status}`);
 
   const n1 = sent.length;
@@ -167,8 +167,8 @@ const unpack = (payload) => {
   await model.open(OPEN);
   await model.patchStatus(REVIEW_STATUS.ACCEPTED);
   const n = sent.length;
-  const unconfirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED);
-  const confirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED, { confirmed: true });
+  const unconfirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED, { reason: 'Misses the septal wall.' });
+  const confirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED, { confirmed: true, reason: 'Misses the septal wall.' });
   check('V4-4', unconfirmed.rejection?.code === 'CONFIRMATION_REQUIRED' && unconfirmed.status === 'ACCEPTED'
     && sent.length === n + 1 && confirmed.status === 'FLAGGED',
   'ACCEPTED -> FLAGGED: refused unconfirmed (nothing sent), sent once confirmed');
@@ -178,7 +178,7 @@ const unpack = (payload) => {
 {
   const { model, sent } = fresh();
   await model.open(OPEN);
-  const stale = await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: 'stale_revision' });
+  const stale = await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: 'stale_revision', reason: 'Misses the septal wall.' });
   check('V4-5', stale.view.state === STATE.STALE_MISMATCH && stale.canWrite === false
     && stale.view.actions.includes(RECOVERY.REFRESH) && !stale.view.actions.includes(RECOVERY.RETRY),
   `stale response -> ${stale.view.state}, canWrite=${stale.canWrite}, actions ${stale.view.actions.join('/')}`);
@@ -392,7 +392,7 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
   for (const name of ['stale_revision', 'default']) {
     const { model, sent } = fresh();
     await model.open(OPEN);
-    await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: name });
+    await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: name, reason: 'Misses the septal wall.' });
     if (name === 'default') await model.saveCorrection(editedSession());
     all.push(...sent);
   }

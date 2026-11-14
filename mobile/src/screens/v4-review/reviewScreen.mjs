@@ -5,8 +5,10 @@
 import { maskRuns } from '../../lib/mask.mjs';
 import { STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
-import { createReviewCorrection } from './review.mjs';
+import { createReviewCorrection, REVIEW_STATUS } from './review.mjs';
 import { outlinePath } from './outline.mjs';
+import { checkNote } from './notes.mjs';
+import { timelineLines } from './history.mjs';
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import {
   createBrushSession, diffRuns, brushRing, brushSizePx, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE,
@@ -67,6 +69,9 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let fit = null;
   let mode = MODE.BRUSH;
   let sourceOnly = false;     // while the Source button is held: the source prediction alone, no edits drawn
+  let flagDraft = null;       // the flag reason being typed, or null when the reason box is closed
+  let historyOpen = false;    // the timeline panel
+  let history = null;         // { revision, view, lines }: the last history read, and the review revision it was for
   let busy = null;            // 'opening' | 'slice' | 'status' | 'saving' | null
   let notice = null;          // the outcome of the last action, for a banner
   let lastStroke = null;
@@ -334,15 +339,54 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     return getState();
   }
 
-  async function setStatus(to, { confirmed = false } = {}) {
+  async function setStatus(to, { confirmed = false, reason = null } = {}) {
     if (phase !== PHASE.READY || busy === 'status' || busy === 'saving') return getState();
     busy = 'status';
     emit();
-    const r = await review.patchStatus(to, { confirmed });
+    const r = await review.patchStatus(to, { confirmed, reason });
     busy = null;
     notice = r.rejection
       ? Object.freeze({ kind: 'refused', code: r.rejection.code, text: r.rejection.reason })
       : r.view.state === STATE.SUCCESS ? Object.freeze({ kind: 'status', text: `Review is now ${r.status}.` }) : null;
+    // A flag that went through closes the reason box; a refused one keeps the text so nothing typed is lost.
+    if (to === REVIEW_STATUS.FLAGGED && !r.rejection && r.view.state === STATE.SUCCESS) flagDraft = null;
+    emit();
+    return getState();
+  }
+
+  // Flag: the screen opens a reason box first (a flag must say why), then sends the reason with the change.
+  function flagState() {
+    if (flagDraft === null) return null;
+    const check = checkNote(flagDraft);
+    return Object.freeze({ text: flagDraft, check, canSubmit: !check.empty && check.ok && !busy });
+  }
+
+  // The timeline: while its panel is open the screen reads review_history_list, again after every write
+  // (each write moves the review revision). Nothing is read while the panel is closed.
+  function historyWant() {
+    const r = review.current;
+    if (!historyOpen || phase !== PHASE.READY || !r.reviewId) return null;
+    if (history && history.revision === r.revision) return null;
+    return Object.freeze({ reviewId: r.reviewId, revision: r.revision });
+  }
+
+  function provideHistory(revision, view) {
+    const want = historyWant();
+    if (!want || want.revision !== revision) return getState();
+    let shown = view;
+    // Live: the answer must be the review that was asked for (fixture ids are placeholders).
+    if (view.state === STATE.SUCCESS && !fixture && view.data.review_id !== want.reviewId) {
+      shown = fatalInvalid({
+        code: 'CONTRACT_DRIFT',
+        safeMessage: 'The history that answered is not this review\'s.',
+        detail: { endpointId: 'review_history_list', problems: [`review_id is ${view.data.review_id}, asked ${want.reviewId}`] },
+      });
+    }
+    history = Object.freeze({
+      revision,
+      view: shown,
+      lines: shown.state === STATE.SUCCESS ? timelineLines(shown.data.items) : Object.freeze([]),
+    });
     emit();
     return getState();
   }
@@ -467,10 +511,11 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       review: review.current,
       brush,
       shape,
-      // What the screen must fetch with useCall and hand back (provideRun, provideSlice).
+      // What the screen must fetch with useCall and hand back (provideRun, provideSlice, provideHistory).
       wants: Object.freeze({
         run: runPending ? Object.freeze({ runId: params.runId, epoch: runEpoch }) : null,
         slice: sliceWant,
+        history: historyWant(),
       }),
       slice: slice === null ? null : Object.freeze({
         index: slice,
@@ -490,6 +535,14 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       busy,
       notice,
       lastStroke,
+      flag: flagState(),
+      // The timeline panel: closed, loading (no answer yet for this revision), or the answer with its lines.
+      history: Object.freeze({
+        open: historyOpen,
+        view: history ? history.view : null,
+        lines: history ? history.lines : Object.freeze([]),
+        current: Boolean(history && history.revision === review.current.revision),
+      }),
       canEdit: editable(),
       canSave: phase === PHASE.READY && review.current.canWrite && !busy && Boolean(brush)
         && brush.unsavedSlices.length > 0,
@@ -542,6 +595,19 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       notice = Object.freeze({ kind: 'info', text: 'Unsaved changes discarded.' });
     }),
     setStatus,
+    // The flag reason box: open it, type, send (with the reason) or close it. Sending checks the reason first.
+    startFlag: () => act(() => { if (flagDraft === null) flagDraft = ''; }),
+    setFlagReason: (text) => act(() => { if (flagDraft !== null && typeof text === 'string') flagDraft = text; }),
+    cancelFlag: () => act(() => { flagDraft = null; }),
+    submitFlag({ confirmed = false } = {}) {
+      const f = flagState();
+      if (!f || !f.canSubmit) return Promise.resolve(getState());
+      return setStatus(REVIEW_STATUS.FLAGGED, { confirmed, reason: f.text });
+    },
+    toggleHistory: () => act(() => { historyOpen = !historyOpen; }),
+    provideHistory,
+    // Read the history again (its Retry / Refresh).
+    retryHistory: () => act(() => { history = null; }),
     save,
     setViewport(width, height) {
       if (!(width > 0 && height > 0)) return;
