@@ -3,8 +3,8 @@
  * built as a skeleton under the Day 39 recovery override - the owner completes, measures and defends it).
  *
  * PROVENANCE. Adapted from the Spike B diagnostic viewer, which stays throwaway behind spikes/**:
- *   spikes/spike_b_3d/app/viewer.js   blob 52cd8fdc53a0 (last changed ba492ae)  camera, shaders, gestures
- *   spikes/spike_b_3d/app/picking.js  blob 696af3dd3314 (last changed 9e839ef)  Moller-Trumbore ray cast
+ *   prototypes/3d-viewer/app/viewer.js   blob 52cd8fdc53a0 (last changed ba492ae)  camera, shaders, gestures
+ *   prototypes/3d-viewer/app/picking.js  blob 696af3dd3314 (last changed 9e839ef)  Moller-Trumbore ray cast
  * copied 2026-10-18 and changed as follows. Product code never imports a spike.
  *   - the input is the served `cardiac-mesh/1` artifact (backend/mesh/artifact.py), not an OBJ: indexed vertices in
  *     the voxel-index frame (x = column, y = row, z = slice) and the source slice of every triangle;

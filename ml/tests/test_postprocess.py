@@ -35,7 +35,7 @@ def box(a, z, y, x):
 
 # --- the candidate table = the override record -------------------------------------------------
 
-# management/day39/RECOVERY_OVERRIDE_DAY39.md section 4, candidate set (closed)
+# the closed candidate set of the selection rule (PP.SOURCE_RULE)
 RECORD = {"PP-0": [], "PP-1": ["largest_component_3d"],
           "PP-2": ["fill_holes_2d_per_slice", "largest_component_3d"],
           "PP-3": ["closing_3d", "largest_component_3d"],

@@ -24,7 +24,7 @@ artifacts `GATE-DATA-01` needs (`06` §9.1):
 
 ```text
 data/manifests/dataset_manifest.json     machine-readable, generated  (criterion A20)
-management/DATASET_AUDIT.md              rendered from that manifest  (criterion A19)
+data/DATASET_AUDIT.md                    rendered from that manifest  (criterion A19)
 ```
 
 It answers **16 of the 20** acceptance criteria mechanically. It refuses to answer the other

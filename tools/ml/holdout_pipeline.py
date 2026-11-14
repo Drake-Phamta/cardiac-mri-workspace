@@ -35,7 +35,7 @@ One problem refuses the whole command (exit 2) before anything runs. After that 
 identical command again to continue. Exit 0 means every step finished. A summary table is printed at the end.
 
 The gate states passed to the exporter default to ACCEPTED / ACCEPTED, which is what the Day 39 exports asserted and
-what `validate_contract2.py` requires (both gates are CLOSED in management/PROJECT_STATE.yaml); override them with
+what `validate_contract2.py` requires (both gates were closed before the holdout was used); override them with
 --gate-split-01 / --gate-ml-01.
 """
 
@@ -71,7 +71,7 @@ FRACTIONS = ("025", "050", "100")
 WITHIN_FAMILY = (("025", "100"), ("050", "100"), ("025", "050"))
 DERIVE_SOURCE, DERIVED_ID = "EXP-D-100", "EXP-D-PP"
 DEFAULT_PP_CONFIG = MA.DEFAULT_FROZEN_CONFIG
-DEFAULT_AGGREGATE_BASE = "management/day39/results_aggregate.json"
+DEFAULT_AGGREGATE_BASE = "ml/records/results_aggregate.json"
 ORIGIN_REF = "origin/main"          # where a holdout authorization record must be before it is used (ml/README.md)
 VALIDATOR = "contracts/ingestion/contract2_experiment_artifact/validate_contract2.py"
 

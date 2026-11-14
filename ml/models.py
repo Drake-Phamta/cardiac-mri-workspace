@@ -2,8 +2,8 @@
 
 PROVENANCE
     UNet2D, DinoSeg, fetch_checkpoint, autocast_for, PeakTracker and _rss are COPIED from
-        spikes/spike_c_ml/harness/probe.py  at commit 896c11a  (Spike C0 harness, revision 4)
-    Product code must not import from spikes/, so the code is copied, not imported. The
+        prototypes/ml-probe/harness/probe.py  at commit 896c11a  (Spike C0 harness, revision 4)
+    Product code must not import from prototypes/, so the code is copied, not imported. The
     network definitions (UNet2D, DinoSeg) are unchanged line for line, so a checkpoint
     trained here has the same parameter names as the C0 measurements. Every deliberate
     change against the source is marked "CHANGED vs probe.py" next to the object.

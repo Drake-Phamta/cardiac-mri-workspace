@@ -18,7 +18,7 @@ with --also-check-record. Refusals are all listed, nothing is written.
 
     python tools/ml/make_holdout_authorization.py --runs-root <runs> --experiments EXP-U-025 EXP-U-050 EXP-U-100 \\
         --authorized-by "<the leader's name>" --authorized-at 2026-10-20T09:00:00+07:00 \\
-        --out management/<day>/gate_img_01/holdout_authorization_unet.json
+        --out ml/records/gate_img_01/holdout_authorization_unet.json
 
 The file is written UTF-8 with LF line ends, to a NEW path (never over an existing file), re-read with
 `ml.holdout.load_record` (strict JSON, every field and type checked) and every run is verified against it with
@@ -44,8 +44,8 @@ from ml import data as D          # noqa: E402
 from ml import holdout as H       # noqa: E402
 from ml import manifests as MF    # noqa: E402
 
-DEFAULT_GATE_RECORD = "management/day39/gate_img_01/holdout_authorization.json"
-DEFAULT_FROZEN_CONFIG = "management/day39/gate_img_01/postprocess_config.frozen.json"
+DEFAULT_GATE_RECORD = "ml/records/gate_img_01/holdout_authorization.json"
+DEFAULT_FROZEN_CONFIG = "ml/records/gate_img_01/postprocess_config.frozen.json"
 PARTITION = D.HOLDOUT_PARTITION
 CORE_ID_RE = re.compile(r"^EXP-([UD])-(025|050|100)$")
 CORE_FRACTIONS = {"025": 0.25, "050": 0.5, "100": 1.0}

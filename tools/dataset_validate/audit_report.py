@@ -1,5 +1,5 @@
 """
-Render management/DATASET_AUDIT.md from a generated manifest.
+Render data/DATASET_AUDIT.md from a generated manifest.
 
 `06` section 9.1 names the eight fields the audit must record, and Spike D
 criterion A19 requires the file to cover every one of them. This renderer emits

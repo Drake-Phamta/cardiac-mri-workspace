@@ -45,7 +45,7 @@ Run from the repository root; `<root>` is a directory outside any git work tree.
 ```powershell
 # 1. Contract 1 cache: 20 validation + INT-12 + 53 holdout cases = 74 (DR-022; needs the closed GATE-IMG-01 record)
 python -m backend.app.ingest --package-root <LASC extracted root> --out <root>\data_cache `
-    --include-holdout --holdout-authorization management/day39/gate_img_01/holdout_authorization.json
+    --include-holdout --holdout-authorization ml/records/gate_img_01/holdout_authorization.json
 
 # 2. Contract 2 packages: copy each run directory as a whole (never move). The manifest lives at
 #    <run>\contract2\<manifest>.json with the run directory as artifact root. The validation predictions/evaluation

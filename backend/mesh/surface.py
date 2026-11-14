@@ -16,7 +16,7 @@ WHAT IT BUILDS
 
 WHY VOXEL FACES AND NOT MARCHING CUBES
     DAY20 row V2-01 names Marching Cubes. This module deliberately keeps the
-    spike's exact voxel faces (spikes/spike_b_3d/mesh/build_mesh.py explains
+    spike's exact voxel faces (prototypes/3d-viewer/mesh/build_mesh.py explains
     why): every surface point lies on a cell boundary, so the source slice of
     each face is unambiguous and picking can be checked EXACTLY against the
     canonical fixture. An interpolated surface makes the "true" slice of a
@@ -62,7 +62,7 @@ LEVELS AND DR-008c
     kept, so counts match the Spike B frontier table.
 
 PROVENANCE -- the face table and the decimation rule are a COPY, not an import.
-    source : spikes/spike_b_3d/mesh/build_mesh.py (_FACES, extract_surface,
+    source : prototypes/3d-viewer/mesh/build_mesh.py (_FACES, extract_surface,
              decimate, to_world)
     commit : origin/main f5aa763; file last changed in ee9ef60
              "SPIKE_B tooling: merge picking harness and fixture proposal"

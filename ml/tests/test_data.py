@@ -44,7 +44,7 @@ def train_paths(pkg, split, dataset, subset="100_percent"):
 # --- configuration ---------------------------------------------------------------
 
 def test_dr011_parameters_match_the_spike_config():
-    cfg = json.loads((D.REPO_ROOT / "spikes" / "spike_c_ml" / "dr011_normalization.json")
+    cfg = json.loads((D.REPO_ROOT / "prototypes" / "ml-probe" / "dr011_normalization.json")
                      .read_text(encoding="utf-8"))["implementation"]
     assert D.DR011 == {"p_low": float(cfg["p_low"]), "p_high": float(cfg["p_high"])}
 

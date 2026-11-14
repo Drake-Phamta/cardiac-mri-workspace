@@ -2,7 +2,7 @@
 
     python -m ml.gate_img_01 --source-run <EXP-D-100 run> --population validation
 
-The rule is pre-declared in `management/day39/RECOVERY_OVERRIDE_DAY39.md` section 4 and implemented
+The rule was declared before any candidate was scored (docs/DECISIONS.md, post-processing) and is implemented
 here without parameters of its own:
   * evidence: the RAW validation predictions of EXP-D-100 (20 cases, best.pt) and nothing else;
   * candidates: PP-0 (identity, reference only, not eligible) and PP-1 .. PP-5 (ml.postprocess.CONFIGS),
@@ -22,7 +22,7 @@ before anything is read; the final holdout is never opened here (only the valida
 ml.data.CaseAllowlist.for_validation, is ever built).
 
 Writes (nothing is overwritten):
-  <selection-dir> (default management/day39/gate_img_01, in git):
+  <selection-dir> (default ml/records/gate_img_01, in git):
       SELECTION.md                     aggregate means only, no per-case value, no absolute path
       postprocess_config.frozen.json   the winner as ml-postprocess-config/1; its sha256 is in SELECTION.md
   <detail-dir> (default <CARDIAC_RUNS_ROOT>/_gate_img_01, OUTSIDE git):
@@ -50,7 +50,7 @@ from ml import postprocess as PP
 SOURCE_RULE = PP.SOURCE_RULE
 TIE_TOLERANCE = 0.001
 SOURCE_EXPERIMENT = PP.SOURCE_EXPERIMENT_ID
-DEFAULT_SELECTION_DIR = Path("management/day39/gate_img_01")
+DEFAULT_SELECTION_DIR = Path("ml/records/gate_img_01")
 DEFAULT_DETAIL_DIR = Path(os.environ.get("CARDIAC_RUNS_ROOT") or D.main_checkout_root().parent / "cardiac-runs") / "_gate_img_01"
 SELECTION_FILE = "SELECTION.md"
 FROZEN_FILE = PP.FROZEN_CONFIG_NAME
@@ -287,7 +287,7 @@ outside git. Relative volume error (RVE) is in voxels (`07` section 6); spacing 
 
 | Item | Value |
 |---|---|
-| File | `management/day39/gate_img_01/{FROZEN_FILE}` |
+| File | `ml/records/gate_img_01/{FROZEN_FILE}` |
 | Format | `ml-postprocess-config/1` |
 | config_id | `{winner}` |
 | **sha256 of the file bytes** (the `postprocessing_config_sha256` of the authorization record) | `{summary['frozen_config_sha256']}` |

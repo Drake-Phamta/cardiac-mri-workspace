@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Aggregate-only results JSON (format `cardiac-results-aggregate/1`) from evaluated run directories.
 
-This is the builder behind `management/day39/results_aggregate.json`, the file `tools/board/build_results.py`
-renders into the public results page. It reads, for every run, only the aggregate files `ml.evaluate` wrote:
+This is the builder behind `ml/records/results_aggregate.json` (the numbers in docs/RESULTS.md). It reads, for every run, only the aggregate files `ml.evaluate` wrote:
 
     <run>/run_manifest.json                                training fraction
     <run>/evaluation/<population>/metrics_summary.json     cohort statistics (+ the DR-002b sensitivity slot)
@@ -14,7 +13,7 @@ timestamp ends up in the output, so the result is the same bytes on every run ov
     from results_aggregate import build_aggregate, write_aggregate        # importable (tools/ml/holdout_pipeline.py)
 
     python tools/ml/results_aggregate.py --runs-root <runs> --experiments EXP-U-025 EXP-U-050 EXP-U-100 \\
-        --comparisons <runs>/_holdout_<tag>/comparisons --base management/day39/results_aggregate.json \\
+        --comparisons <runs>/_holdout_<tag>/comparisons --base ml/records/results_aggregate.json \\
         --out <results_aggregate.json>
     python tools/ml/results_aggregate.py --run-dirs <run> <run> ... --out <results_aggregate.json>
 
@@ -201,7 +200,7 @@ def build_aggregate(run_dirs: Sequence[str | Path], comparison_files: Iterable[s
 
 
 def aggregate_bytes(aggregate: dict) -> bytes:
-    """UTF-8, indent 1, LF, trailing newline: the layout of management/day39/results_aggregate.json."""
+    """UTF-8, indent 1, LF, trailing newline: the layout of ml/records/results_aggregate.json."""
     return (json.dumps(aggregate, indent=1, ensure_ascii=False) + "\n").encode("utf-8")
 
 

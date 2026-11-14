@@ -16,7 +16,7 @@ def test_level_table_and_default():
 
 
 def test_triangle_counts_reproduce_the_spike_b_table(canonical_fixture, blob_mask):
-    """Same 48x40x24 blob as spikes/spike_b_3d/mesh/out/mesh_levels.json (origin/main f5aa763):
+    """Same 48x40x24 blob as prototypes/3d-viewer/mesh/out/mesh_levels.json (origin/main f5aa763):
     6855 foreground voxels; triangles 5648 / 1448 / 356 at cells 1 / 2 / 4."""
     spacing, origin = canonical_fixture["spacing_xyz_mm"], canonical_fixture["origin_world_mm"]
     assert int(blob_mask.sum()) == 6855

@@ -4,7 +4,7 @@ Spike D dataset validator — command-line entry point.
 
 Runs the `06` section 9 checks against an extracted LASC 2018 package, emits the
 machine-readable manifest required by `06` section 9.1 / criterion A20, and can
-render management/DATASET_AUDIT.md from that manifest.
+render data/DATASET_AUDIT.md from that manifest.
 
     # prove the tool works, without the real package
     python validate.py --selftest
@@ -45,7 +45,7 @@ from dataset_scan import (make_public_manifest, restricted_manifest_bytes,
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 DEFAULT_MANIFEST = os.path.join(REPO_ROOT, "data", "manifests", "dataset_manifest.json")
-DEFAULT_AUDIT = os.path.join(REPO_ROOT, "management", "DATASET_AUDIT.md")
+DEFAULT_AUDIT = os.path.join(REPO_ROOT, "data", "DATASET_AUDIT.md")
 RESTRICTED_BASENAME = "dataset_manifest_restricted.json"
 
 

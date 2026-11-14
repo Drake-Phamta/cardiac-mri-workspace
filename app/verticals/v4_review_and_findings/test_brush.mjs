@@ -3,10 +3,10 @@
 // The SCR-06 brush model (brush.mjs), offline. Needs no fixture bundle.
 //
 // Independent references, so the module is never checked against itself:
-//   copied function bodies       the spike files they were copied from      (B0)
-//   pixels and hashes per stroke spike fixtures/brush_ops.json, computed by
-//                                the spike's own Python oracle (generate.py) (B1)
-//   touch -> source pixel        spike fixtures/brush_cases.json             (B2)
+//   pixels and hashes per stroke fixtures/brush_ops.json, computed by an
+//                                independent Python oracle (the 2D prototype's
+//                                generate.py, in git history)                (B1)
+//   touch -> source pixel        fixtures/brush_cases.json                   (B2)
 //                                and the pixel-centre construction           (B5)
 //   stroke footprint             a closed-form line rule + a brute-force disc (B6)
 //   SHA-256                      node:crypto, never the module's sha256Hex
@@ -21,9 +21,7 @@ import * as B from './brush.mjs';
 import * as P from './maskPayload.mjs';
 import { sha256Hex } from './sha256.mjs';
 
-const ROOT = new URL('../../../', import.meta.url);
 const HERE = new URL('./', import.meta.url);
-const text = (url) => readFileSync(url, 'utf8').replace(/\r\n/g, '\n');
 const json = (url) => JSON.parse(readFileSync(url, 'utf8'));
 
 let failures = 0;
@@ -66,59 +64,11 @@ function blob(nx, ny, cx, cy, rx, ry) {
   return b;
 }
 
-// --- B0 provenance: the copies still equal the code the device measured ------
-{
-  const bodyOf = (src, name) => {
-    const at = src.indexOf(`export function ${name}(`);
-    if (at === -1) return null;
-    let depth = 0;
-    let i = src.indexOf('{', at);
-    for (; i < src.length; i++) {
-      if (src[i] === '{') depth += 1;
-      else if (src[i] === '}') { depth -= 1; if (depth === 0) break; }
-    }
-    return src.slice(at, i + 1);
-  };
-  const block = (src, from, to) => {
-    const a = src.indexOf(from);
-    return a === -1 ? null : src.slice(a, src.indexOf(to, a) + to.length);
-  };
-  const groups = [
-    ['spikes/spike_a_2d/app/brushMath.js', 'brush.mjs', ['footprint', 'linePixels', 'beginStroke', 'strokeSample',
-      'rollbackStroke', 'createHistory', 'commitStroke', 'endStroke', 'undo', 'redo', 'diffRuns'],
-    ['export const RADII = [0, 1, 2, 3, 5];', "export const END_RELEASE = 'release';",
-      "export const END_SECOND_FINGER = 'second_finger';", "export const END_TERMINATED = 'terminated';"], []],
-    ['spikes/spike_a_2d/app/viewerMath.js', 'sha256.mjs', ['sha256Hex'], [],
-      [['const K = new Uint32Array([', ']);']]],
-    ['spikes/spike_a_2d/app/viewerMath.js', 'maskPayload.mjs', ['base64ToBytes'],
-      ["const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';"],
-      [['const B64_INV = (() => {', '})();']]],
-  ];
-  for (const [path, file, fns, lines, blocks] of groups) {
-    const url = new URL(path, ROOT);
-    if (!existsSync(url)) {
-      // The spike is labelled throwaway; once retired, the header carries the provenance.
-      check('B0', true, `${path} retired — provenance frozen in ${file}'s header`);
-      continue;
-    }
-    const spike = text(url);
-    const copy = text(new URL(file, HERE));
-    const diverged = fns.filter((n) => bodyOf(spike, n) === null || bodyOf(spike, n) !== bodyOf(copy, n));
-    const lineMiss = lines.filter((l) => !spike.includes(l) || !copy.includes(l));
-    const blockMiss = blocks.filter(([a, b]) => block(spike, a, b) === null || block(spike, a, b) !== block(copy, a, b));
-    check('B0', diverged.length === 0 && lineMiss.length === 0 && blockMiss.length === 0,
-      `${file}: ${fns.join(', ')}${lines.length ? ` + ${lines.length} constant(s)` : ''}${blocks.length ? ` + ${blocks.length} table(s)` : ''}` +
-      ` identical to ${path}` +
-      (diverged.length ? ` — diverged: ${diverged.join(', ')}` : '') + (lineMiss.length ? ' — constants differ' : '') +
-      (blockMiss.length ? ' — a table differs' : ''));
-  }
-}
-
-// --- B1 the spike's Python oracle, replayed through the session ----------------
-const FIX = new URL('spikes/spike_a_2d/fixtures/', ROOT);
+// --- B1 the Python oracle, replayed through the session ----------------------
+const FIX = new URL('fixtures/', HERE);
 const haveOracle = existsSync(new URL('brush_ops.json', FIX));
 if (!haveOracle) {
-  check('B1', true, 'spike oracle retired — A3–A7 evidence frozen in the brush.mjs header');
+  check('B1', false, 'fixtures/brush_ops.json is missing: the oracle strokes cannot be replayed');
 } else {
   const mask = json(new URL('mask_synthetic.json', FIX));
   const ops = json(new URL('brush_ops.json', FIX));
@@ -172,9 +122,9 @@ if (!haveOracle) {
     'caller\'s buffers still hash to the fixture');
 }
 
-// --- B2 A5 cases: touch -> source pixel after zoom/pan, through the session ----
+// --- B2 touch cases: touch -> source pixel after zoom/pan, through the session -
 if (!haveOracle) {
-  check('B2', true, 'spike brush cases retired — A5 evidence frozen in the brush.mjs header');
+  check('B2', false, 'fixtures/brush_cases.json is missing: the touch cases cannot be replayed');
 } else {
   const cases = json(new URL('brush_cases.json', FIX)).cases;
   const ops = json(new URL('brush_ops.json', FIX));

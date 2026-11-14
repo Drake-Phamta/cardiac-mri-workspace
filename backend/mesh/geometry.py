@@ -21,7 +21,7 @@ compares it with the version it was built for by exact string equality
 coerced to a "compatible" one (TC-REL-003).
 
 The floor rule uses the same ``FLOOR_EPS = 1e-9`` voxel guard as the reference
-adapter in spikes/spike_b_3d/harness/conformance.py: it absorbs the
+adapter in prototypes/3d-viewer/harness/conformance.py: it absorbs the
 representation error of ``(world - origin) / spacing`` for a point that lies on
 a cell boundary (``origin + k * spacing`` can divide back to ``k - 4e-16``).
 It is a numerical guard, not a tolerance on slices.

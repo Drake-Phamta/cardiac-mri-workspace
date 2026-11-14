@@ -25,7 +25,7 @@ The fixture declares the version itself. The reusable checker takes the
 consumer's expected version explicitly:
 
 ```bash
-python spikes/spike_b_3d/harness/conformance.py \
+python prototypes/3d-viewer/harness/conformance.py \
   --fixture tests/fixtures/geometry/geometry_fixture_v0.json \
   --expect-contract-version dr008a-dr012/v1.0.0
 ```

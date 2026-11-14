@@ -1,7 +1,7 @@
 """Deterministic post-processing of binary 3D prediction masks (GATE-IMG-01, `07` section 5).
 
-The candidate set is the closed list pre-declared in
-`management/day39/RECOVERY_OVERRIDE_DAY39.md` section 4. Every candidate takes the RAW binary
+The candidate set is a closed list declared before any candidate was scored (its identifier is
+SOURCE_RULE below; docs/DECISIONS.md explains it). Every candidate takes the RAW binary
 mask volume, `[z, y, x]` as `ml.infer` / `ml.data.read_nrrd_zyx` give it (`z`, the slice axis,
 is array axis 0), and returns a binary mask of the SAME dtype ({0, 1}, uint8 for the masks
 `ml.infer` writes). The input array is never modified.

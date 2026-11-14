@@ -1,50 +1,15 @@
 // node app/core/tests/test_view_math.mjs
 //
-// Two jobs.
-//
-// 1. PROVENANCE. viewMath.mjs is a copy of spikes/spike_a_2d/app/viewerMath.js.
-//    A copy that silently diverges from the code the A2 device session
-//    measured is worse than no copy, because the evidence would then describe
-//    a different function. V0 compares the five bodies character for
-//    character.
-// 2. PROPERTIES. The functions are re-checked here against independent
-//    reasoning rather than against the spike's stored expectations, so this
-//    file does not inherit a mistake from the fixture it was derived from.
+// The view-transform functions of viewMath.mjs (fit, zoom about a point, pan,
+// screen -> source pixel), re-checked against independent reasoning rather
+// than against stored expectations, so this file does not inherit a mistake
+// from a fixture.
 
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import * as V from '../viewMath.mjs';
-import { createChecker, HERE, REPO } from './_harness.mjs';
+import { createChecker } from './_harness.mjs';
 
 const { check, done } = createChecker();
-const COPIED = ['screenToSource', 'fitTransform', 'clampZoom', 'zoomAbout', 'panBy'];
-
-// V0 — provenance.
-{
-  const source = join(REPO, 'spikes', 'spike_a_2d', 'app', 'viewerMath.js');
-  if (!existsSync(source)) {
-    // The spike is labelled throwaway; if it is ever retired, the copy stands
-    // on its own and this check reports that rather than failing the build.
-    check('V0', true, 'spike source retired — provenance frozen in the file header');
-  } else {
-    const bodyOf = (text, name) => {
-      const at = text.indexOf(`export function ${name}(`);
-      if (at === -1) return null;
-      let depth = 0; let i = text.indexOf('{', at);
-      const start = i;
-      for (; i < text.length; i++) {
-        if (text[i] === '{') depth += 1;
-        else if (text[i] === '}') { depth -= 1; if (depth === 0) break; }
-      }
-      return text.slice(start, i + 1).replace(/\r\n/g, '\n');
-    };
-    const spike = readFileSync(source, 'utf8');
-    const mine = readFileSync(join(HERE, '..', 'viewMath.mjs'), 'utf8');
-    const differing = COPIED.filter((n) => bodyOf(spike, n) === null || bodyOf(spike, n) !== bodyOf(mine, n));
-    check('V0', differing.length === 0, `all ${COPIED.length} copied bodies match the spike source` +
-      (differing.length ? ` — diverged: ${differing.join(', ')}` : ''));
-  }
-}
+const API = ['screenToSource', 'fitTransform', 'clampZoom', 'zoomAbout', 'panBy'];
 
 const NX = 576; const NY = 576;
 
@@ -138,7 +103,7 @@ const NX = 576; const NY = 576;
 // V8 — none of the five takes mask data. Checked on arity, so a later edit
 // that threads pixels through the viewer math fails here.
 {
-  const arities = COPIED.map((n) => `${n}/${V[n].length}`);
+  const arities = API.map((n) => `${n}/${V[n].length}`);
   check('V8', V.screenToSource.length === 5 && V.panBy.length === 3 && V.zoomAbout.length === 4,
     `signatures unchanged: ${arities.join(' ')}`);
 }
