@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cardiac MRI · volume and surface POC</title>
+  <style>
+    :root { color-scheme: dark; font: 14px Inter, ui-sans-serif, system-ui, sans-serif; background:#07121a; color:#e7f1f3; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:16px; }
+    main { width:min(1600px,100%); margin:auto; }
+    header { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #2c444c; }
+    h1 { margin:0; font-size:18px; letter-spacing:.03em; }
+    header p { margin:0; color:#9db6bd; font-size:12px; }
+    .layout { display:grid; grid-template-columns:minmax(420px,.9fr) minmax(560px,1.1fr); gap:14px; }
+    .panel { min-width:0; overflow:hidden; border:1px solid #29434d; border-radius:8px; background:#0b1821; }
+    h2 { margin:0; padding:9px 11px; border-bottom:1px solid #29434d; color:#b9d0d5; font-size:11px; letter-spacing:.07em; }
+    .mpr { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:9px; }
+    .slice { min-width:0; }
+    .slice h3 { margin:0; padding:7px 8px; color:#9fb9bf; font-size:10px; font-weight:600; letter-spacing:.04em; }
+    canvas.mpr-view { display:block; width:100%; aspect-ratio:1; background:#000; cursor:crosshair; image-rendering:pixelated; touch-action:none; }
+    .sagittal { grid-column:1 / -1; max-width:50%; justify-self:center; }
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:10px; border-top:1px solid #29434d; color:#9fb9bf; font-size:12px; }
+    button { padding:6px 9px; border:1px solid #3c5a64; border-radius:5px; background:#122632; color:#d9e9eb; font:inherit; cursor:pointer; }
+    button[aria-pressed="true"] { border-color:#62d4df; background:#17404a; color:#fff; }
+    button:hover { background:#1a3541; }
+    .controls label { display:flex; align-items:center; gap:6px; }
+    input[type="range"] { width:100px; accent-color:#65d2dc; }
+    .stage { position:relative; background:#050d14; }
+    canvas#gl { display:block; width:100%; height:min(66vh,700px); min-height:440px; touch-action:none; }
+    .legend { display:flex; flex-wrap:wrap; gap:10px; padding:0 11px 10px; color:#9fb9bf; font-size:11px; }
+    .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; background:#f1742e; }
+    .readout { color:#79dbe4; }
+    footer { margin-top:12px; color:#9db6bd; font-size:11px; line-height:1.5; }
+    .warn { color:#f0bc7c; }
+    @media (max-width:1050px) { .layout { grid-template-columns:1fr; } canvas#gl { height:58vh; } }
+    @media (max-width:560px) { body { padding:8px; } .mpr { gap:5px; padding:5px; } .sagittal { max-width:none; } canvas#gl { min-height:340px; } header { align-items:flex-start; flex-direction:column; gap:4px; } }
+  </style>
+</head>
+<body><main>
+  <header>
+    <h1>CARDIAC MRI · SOURCE MPR + 3D COMPARISON</h1>
+    <p id="status">Loading local MRI, labelmap, and derived surface…</p>
+  </header>
+  <section class="layout">
+    <section class="panel">
+      <h2>2D SOURCE VOLUME · LABELMAP OVERLAY</h2>
+      <div class="mpr">
+        <div class="slice"><h3>AXIAL · click to choose X,Y · wheel changes Z</h3><canvas class="mpr-view" id="axial" width="320" height="320"></canvas></div>
+        <div class="slice"><h3>CORONAL · click to choose X,Z · wheel changes Y</h3><canvas class="mpr-view" id="coronal" width="320" height="320"></canvas></div>
+        <div class="slice sagittal"><h3>SAGITTAL · click to choose Y,Z · wheel changes X</h3><canvas class="mpr-view" id="sagittal" width="320" height="320"></canvas></div>
+      </div>
+      <div class="controls">
+        <label>X <input id="x" type="range"></label>
+        <label>Y <input id="y" type="range"></label>
+        <label>Z <input id="z" type="range"></label>
+        <span class="readout" id="voxel">—</span>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>3D · RAW MRI VOLUME RAY-CAST + MARCHING CUBES LABEL SURFACE</h2>
+      <div class="stage"><canvas id="gl" aria-label="Interactive cardiac MRI volume and segmentation surface"></canvas></div>
+      <div class="controls">
+        <button data-mode="volume" type="button">MRI volume</button>
+        <button data-mode="both" type="button" aria-pressed="true">Volume + label</button>
+        <button data-mode="surface" type="button">Label surface</button>
+        <button id="fit" type="button">Fit</button>
+        <button id="smoothing" type="button">Surface: raw label</button>
+        <label>Window low <input id="window-low" type="range" min="0" max="80" value="15"></label>
+        <label>Window high <input id="window-high" type="range" min="20" max="100" value="95"></label>
+        <label>Volume opacity <input id="opacity" type="range" min="0" max="200" value="70"></label>
+        <label><input id="ray-jitter" type="checkbox"> Ray jitter</label>
+        <span id="pick" class="readout">Tap the orange surface to jump to its source voxel</span>
+      </div>
+      <div class="legend"><span><i class="dot"></i>source segmentation label</span><span id="mesh-info">—</span></div>
+    </section>
+  </section>
+  <footer>
+    <span id="source-note">Slicer-inspired GPU ray casting displays the MRI intensities; the mesh is derived from the labelmap. This is a diagnostic POC.</span>
+    <span class="warn"> This public sample contains only one left-atrium label; it is not a whole-heart model and is not for clinical use.</span>
+  </footer>
+</main><script type="module" src="./viewer.js"></script></body>
+</html>
