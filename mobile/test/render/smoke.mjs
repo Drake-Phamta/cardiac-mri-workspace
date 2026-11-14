@@ -562,6 +562,8 @@ function noRunBackend() {
   await layout(r);
   await tick(30);
   check('V3R2', r.root.findAll((n) => n.type === 'Svg').length === 1, 'the strip plot is drawn, empty');
+  check('V3R2', has(r, /^No UNet vs DINOv2 pair is loaded here: both runs of a pair must be listed by the server\.$/),
+    'no pair is loaded, so the paired card says why instead of drawing');
   await act(async () => { r.unmount(); });
 }
 {
@@ -587,6 +589,63 @@ function noRunBackend() {
   const [screenId, p] = pushed[0] || [];
   check('V3R3', pushed.length === 1 && screenId === 'SCR-03' && p.caseId && p.runId && p.variant === 'RAW' && p.experimentId === 'EXP-U-100',
     `a tapped dot opens SCR-03 with case, run and variant: ${JSON.stringify(pushed[0] || null)}`);
+  await act(async () => { r.unmount(); });
+}
+
+// SCR-07 paired view over a typed server that answers each run with its own rows (test/_v3_server.mjs; the
+// fixture serves one set of rows for every run). COMPARABLE draws one dot per paired case and a tapped dot opens
+// either run; NOT COMPARABLE and a run with no rows draw no chart and say why.
+const { v3Transport } = await imp('test/_v3_server.mjs');
+const { createClient } = await imp('src/api/client.mjs');
+const inside = (r, testID, type) => {
+  const box = r.root.findAll((n) => n.props && n.props.testID === testID)[0];
+  return box ? box.findAll((n) => n.type === type) : [];
+};
+async function mountTypedPair(options, ids = ['EXP-U-025', 'EXP-D-025']) {
+  const base = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const runtime = { ...base, client: createClient(base.contract, v3Transport(contractJson, base.bundle, options)) };
+  const pushed = [];
+  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ids } })), nodeMock);
+  });
+  await tick(60);
+  await press(r, 'dice');
+  await layout(r);
+  await tick(30);
+  return { r, pushed };
+}
+{
+  const { r, pushed } = await mountTypedPair({});
+  const dots = inside(r, 'paired-RQ-A-025', 'Circle');
+  check('V3R4', dots.length === 4 && has(r, /^dice, DINOv2 25 % minus UNet 25 %: 4 cases, median difference \+0\.065$/),
+    `COMPARABLE pair: ${dots.length} paired dots (4) and the median difference`);
+  check('V3R4', inside(r, 'strip-chart', 'Circle').length === 4 && inside(r, 'strip-chart', 'Path').length === 4,
+    'the strip draws UNet as 4 circles and DINOv2 as 4 triangles');
+  const chart = inside(r, 'paired-RQ-A-025', 'Pressable')[0];
+  if (chart && dots.length) {
+    await act(async () => { chart.props.onPress({ nativeEvent: { locationX: dots[0].props.cx, locationY: dots[0].props.cy } }); });
+  }
+  check('V3R4', has(r, /^CASE_0003: UNet 25 % 0\.610, DINOv2 25 % 0\.580, difference -0\.030$/),
+    'the leftmost dot is the lowest difference, and a tap names its case and both values');
+  if (has(r, /^Open in DINOv2 25 %$/)) await press(r, 'Open in DINOv2 25 %');
+  const [screenId, p] = pushed[0] || [];
+  check('V3R4', pushed.length === 1 && screenId === 'SCR-03' && p.caseId === 'CASE_0003' && p.runId === 'RUN_D025_0003'
+    && p.variant === 'RAW' && p.experimentId === 'EXP-D-025', `"Open in DINOv2 25 %" opens that run: ${JSON.stringify(pushed[0] || null)}`);
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r } = await mountTypedPair({ compare: 'not_comparable' });
+  check('V3R5', inside(r, 'scr07-paired', 'Svg').length === 0
+    && has(r, /^Not shown: the server says these runs are not comparable: /), 'NOT COMPARABLE: no paired chart, the server\'s reason');
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r } = await mountTypedPair({ noRows: ['EXP-D-025'] });
+  check('V3R6', inside(r, 'scr07-paired', 'Svg').length === 0
+    && has(r, /^Not shown: EXP-D-025 has no per-case dice value: no per-case result yet$/), 'a run with no rows: no chart, and why');
   await act(async () => { r.unmount(); });
 }
 

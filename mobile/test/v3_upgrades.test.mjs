@@ -6,10 +6,16 @@
 // the same rows for every experiment.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createExperimentComparison, createStudyOverview } from '../src/screens/v3-study/models.mjs';
+import {
+  median, pairAt, pairDetail, pairedCards, pairedLayout, whyNoPairs,
+} from '../src/screens/v3-study/paired.mjs';
+import { createClient } from '../src/api/client.mjs';
+import { validateRoute } from '../src/navigation/navigator.mjs';
+import { v3Transport } from './_v3_server.mjs';
 import { OUTLIER_RULE } from '../src/screens/v3-study/readers.mjs';
 import {
   comparisonView, FAMILY_STYLE, OUTLIER_LABEL, overviewView, trianglePath,
@@ -64,4 +70,118 @@ test('V3U2 families differ by colour AND marker: UNet blue circle, DINOv2 orange
     'both markers are at least 3:1 on the card surface');
   // A closed triangle around its centre: apex above, base below.
   assert.equal(trianglePath(100, 50, 5), 'M100 44 L105.5 54 L94.5 54 Z');
+});
+
+// --- paired per-case differences (SCR-07) ------------------------------------
+
+const assertNavigable = (route) => {
+  assert.equal(route.ok, true, `route not ok: ${route.reason}`);
+  assert.doesNotThrow(() => validateRoute(route.screenId, route.params), `${route.screenId} refuses ${JSON.stringify(route.params)}`);
+};
+// SCR-07 over the typed per-run server (_v3_server.mjs), opened for one pair.
+async function typedComparison(options = {}, ids = ['EXP-U-025', 'EXP-D-025']) {
+  const runtime = newRuntime();
+  const client = createClient(runtime.contract, v3Transport(contractJson, runtime.bundle, options));
+  const model = createExperimentComparison(client);
+  await model.open({ experimentIds: ids });
+  return model;
+}
+
+test('V3U3 a COMPARABLE pair: one dot per case with a Dice in both runs, lowest difference first, median line', async () => {
+  const model = await typedComparison();
+  const before = pairedCards(model.current);
+  assert.equal(before.cards.length, 1);
+  assert.equal(before.cards[0].available, false, 'no metric picked yet: nothing is drawn');
+  assert.equal(before.cards[0].reason, 'pick a metric above to see the per-case differences');
+
+  const { cards, emptyText } = pairedCards(model.selectMetric('dice'));
+  assert.equal(emptyText, null);
+  const card = cards[0];
+  assert.equal(card.id, 'RQ-A-025');
+  assert.equal(card.available, true, card.reason);
+  // DINOv2 minus UNet: 0002 +0.04, 0003 -0.03, 0004 +0.09, 0005 +0.12; the withheld CASE_0001 has no value.
+  assert.deepEqual(card.pairs.map((p) => p.caseId), ['CASE_0003', 'CASE_0002', 'CASE_0004', 'CASE_0005']);
+  assert.deepEqual(card.pairs.map((p) => p.delta.toFixed(2)), ['-0.03', '0.04', '0.09', '0.12']);
+  assert.equal(card.median.toFixed(3), '0.065', 'median of an even count: the mean of the two middle differences');
+  assert.equal(card.summaryText, 'dice, DINOv2 25 % minus UNet 25 %: 4 cases, median difference +0.065');
+  assert.equal(card.directionText, 'Above 0: DINOv2 25 % higher. Below 0: UNet 25 % higher.');
+  assert.equal(card.unpairedText, '1 case of the common population without a value in both runs - not drawn');
+
+  const detail = pairDetail(card.pairs[0], card);
+  assert.equal(detail.text, 'CASE_0003: UNet 25 % 0.610, DINOv2 25 % 0.580, difference -0.030');
+  assert.deepEqual(detail.links.map((l) => l.label), ['Open in UNet 25 %', 'Open in DINOv2 25 %']);
+  for (const l of detail.links) assertNavigable(l.route);
+  assert.deepEqual(detail.links.map((l) => l.route.params.runId), ['RUN_U025_0003', 'RUN_D025_0003'], 'each button opens its own run');
+
+  const layout = pairedLayout(card.pairs, card.median, { width: 360, height: 200 });
+  assert.equal(layout.limit, 0.2, 'the axis is symmetric around 0 and just covers the largest difference');
+  const xs = layout.points.map((p) => p.x);
+  assert.ok(xs.every((x, i) => i === 0 || x > xs[i - 1]), 'left to right in the given order');
+  assert.ok(layout.points.every((p, i) => i === 0 || p.y <= layout.points[i - 1].y), 'a larger difference is drawn higher');
+  assert.ok(layout.points[0].y > layout.zeroY && layout.points[1].y < layout.zeroY, 'below the zero line means UNet higher');
+  assert.ok(layout.medianY < layout.zeroY, 'a positive median sits above the zero line');
+  const p = layout.points[2];
+  assert.equal(pairAt(layout, p.x + 3, p.y - 3).caseId, 'CASE_0004');
+  assert.equal(pairAt(layout, 1, 1), null, 'a tap on empty space selects nothing');
+
+  assert.equal(median([]), null);
+  assert.equal(median([3, 1, 2]), 2);
+  assert.equal(median([4, 1, 3, 2]), 2.5);
+});
+
+test('V3U4 no paired view unless the server says COMPARABLE: not comparable, undecided and withheld say why', async () => {
+  const refused = pairedCards((await typedComparison({ compare: 'not_comparable' })).selectMetric('dice')).cards[0];
+  assert.equal(refused.available, false);
+  assert.deepEqual([...refused.pairs], []);
+  assert.match(refused.reason, /^the server says these runs are not comparable: /);
+
+  for (const [scenarios, why] of [
+    [{}, /without a summary for EXP-U-100, EXP-D-100/],
+    [{ experiment_compare: 'not_comparable' }, /^the server says these runs are not comparable: The experiments do not share a fair evaluation contract\.$/],
+  ]) {
+    const model = createExperimentComparison(newRuntime(scenarios).client);
+    await model.open({ experimentIds: ['EXP-U-100', 'EXP-D-100'] });
+    const card = pairedCards(model.selectMetric('dice')).cards[0];
+    assert.equal(card.available, false);
+    assert.match(card.reason, why);
+  }
+
+  // Numbers the model withholds (raw vs post-processed) are withheld here too, with the same reason.
+  const ablation = { requested: true, kind: 'ABLATION', experimentIds: ['EXP-D-100', 'EXP-D-PP'], numbersWithheld: { reason: 'mixed variants' } };
+  assert.equal(whyNoPairs(ablation), 'mixed variants');
+});
+
+test('V3U5 empty states: no pair loaded, a run with no rows, and the fixture whose runs share one set of rows', async () => {
+  const model = createExperimentComparison(newRuntime().client);
+  await model.open({});
+  const none = pairedCards(model.selectMetric('dice'));
+  assert.deepEqual([...none.cards], []);
+  assert.match(none.emptyText, /both runs of a pair must be listed by the server/);
+  assert.equal(none.notRequested.length, 3, 'each UNet vs DINOv2 pair says why it is missing');
+
+  const noRows = pairedCards((await typedComparison({ noRows: ['EXP-D-025'] })).selectMetric('dice')).cards[0];
+  assert.equal(noRows.available, false);
+  assert.equal(noRows.reason, 'EXP-D-025 has no per-case dice value: no per-case result yet');
+
+  // The generated rows are the same for every run, so every difference is 0 - drawn as such, not hidden.
+  const fixture = createExperimentComparison(newRuntime(FULL).client);
+  await fixture.open({});
+  const flat = pairedCards(fixture.selectMetric('dice'));
+  assert.deepEqual(flat.cards.map((c) => [c.id, c.available, c.pairs.length]), [
+    ['RQ-A-025', true, 4], ['RQ-A-050', true, 4], ['RQ-A-100', true, 4],
+  ]);
+  assert.ok(flat.cards.every((c) => c.median === 0 && c.pairs.every((p) => p.delta === 0)));
+});
+
+test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {
+  const sorting = readdirSync(V3_DIR).filter((f) => /\.m?js$/.test(f)).filter((f) => {
+    const code = readFileSync(join(V3_DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    return code.includes('.sort(') || code.includes('.toSorted(');
+  });
+  assert.deepEqual(sorting, ['paired.mjs']);
+  const model = await typedComparison();
+  const snap = model.selectMetric('dice');
+  pairedCards(snap);
+  const u = snap.cells.find((c) => c.id === 'EXP-U-025');
+  assert.deepEqual(u.outliers.cases.map((c) => c.caseId), ['CASE_0005', 'CASE_0003', 'CASE_0004'], 'as the server ranked them');
 });

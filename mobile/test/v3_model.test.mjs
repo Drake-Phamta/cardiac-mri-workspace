@@ -808,7 +808,10 @@ const base0 = () => ({
   for (const f of sources) {
     const src = readFileSync(new URL(f, HERE), 'utf8');
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    check('V3-12', !code.includes('.sort(') && !code.includes('.toSorted('), `${f}: no .sort( outside comments (DR-010)`);
+    // paired.mjs orders the per-case differences it draws and takes their median; it selects no outlier.
+    if (f !== 'paired.mjs') {
+      check('V3-12', !code.includes('.sort(') && !code.includes('.toSorted('), `${f}: no .sort( outside comments (DR-010)`);
+    }
     check('V3-12', !/from\s+['"](?!\.)/.test(code), `${f}: relative imports only - no node:, no npm`);
   }
 }

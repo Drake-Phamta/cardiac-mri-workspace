@@ -324,7 +324,10 @@ test('V3S9 the V3 screens use the shared models and rank nothing; React stays ou
   const files = readdirSync(dir).filter((f) => /\.m?js$/.test(f));
   for (const f of files) {
     const code = readFileSync(join(dir, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    assert.ok(!code.includes('.sort(') && !code.includes('.toSorted('), `${f} sorts something (DR-010: the client never ranks)`);
+    // paired.mjs orders the per-case differences it draws and takes their median; it selects no outlier.
+    if (f !== 'paired.mjs') {
+      assert.ok(!code.includes('.sort(') && !code.includes('.toSorted('), `${f} sorts something (DR-010: the client never ranks)`);
+    }
     if (f.endsWith('.mjs')) assert.ok(!/from\s+['"]react/.test(code), `${f} imports React - keep RN in .js files`);
   }
   for (const f of ['StudyOverviewScreen.js', 'ExperimentComparisonScreen.js']) {

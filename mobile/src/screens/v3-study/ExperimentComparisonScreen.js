@@ -1,4 +1,5 @@
-// SCR-07 Experiment Comparison: UNet vs DINOv2 at 25 / 50 / 100 % data, per-case strip plot, trend and case links.
+// SCR-07 Experiment Comparison: UNet vs DINOv2 at 25 / 50 / 100 % data, per-case strip plot, paired per-case
+// differences, trend and case links.
 // Opened with params.experimentIds for a pair or group, else the full matrix. The metric and statistic have no
 // default, and comparability is always the server's verdict, never decided here.
 
@@ -11,6 +12,8 @@ import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { StripChart, Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
+import { PairedChart } from './charts';
+import { pairDetail, pairedCards } from './paired.mjs';
 import { comparisonView, OUTLIER_LABEL, pointDetail } from './view.mjs';
 
 export default function ExperimentComparisonScreen({ runtime, nav, params }) {
@@ -21,10 +24,13 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   const [stat, setStat] = useState(null);
   const [cellId, setCellId] = useState(null);
   const [point, setPoint] = useState(null);
+  // The tapped dot of a paired chart: { cardId, pair }.
+  const [paired, setPaired] = useState(null);
   const [blocked, setBlocked] = useState(null);
 
   useEffect(() => {
     setPoint(null);
+    setPaired(null);
     run(() => model.open(ids ? { experimentIds: ids } : {}));
     // idsKey, not ids: a new array with the same ids is the same request.
   }, [model, idsKey, run]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -37,11 +43,12 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
 
   const onAction = useCallback((id) => {
     if (id === RECOVERY.BACK) nav.pop();
-    else { setPoint(null); run(() => model.refresh()); }
+    else { setPoint(null); setPaired(null); run(() => model.refresh()); }
   }, [nav, run, model]);
 
   const pickMetric = useCallback((name) => {
     setPoint(null);
+    setPaired(null);
     setSnap(model.selectMetric(name));
   }, [model, setSnap]);
 
@@ -53,10 +60,13 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
       {() => (
         <Comparison
           v={comparisonView(snap, { stat, selectedCellId: cellId })}
+          pairs={pairedCards(snap)}
           metricName={snap.metricName}
           columns={columns}
           point={point}
           onPoint={setPoint}
+          paired={paired}
+          onPaired={setPaired}
           onMetric={pickMetric}
           stat={stat}
           onStat={setStat}
@@ -70,7 +80,9 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   );
 }
 
-function Comparison({ v, metricName, columns, point, onPoint, onMetric, stat, onStat, cellId, onCell, go, blocked }) {
+function Comparison({
+  v, pairs, metricName, columns, point, onPoint, paired, onPaired, onMetric, stat, onStat, cellId, onCell, go, blocked,
+}) {
   const detail = pointDetail(point, metricName);
   return (
     <ScrollView contentContainerStyle={s.root}>
@@ -153,6 +165,18 @@ function Comparison({ v, metricName, columns, point, onPoint, onMetric, stat, on
         ))}
       </Card>
 
+      <Card title="Per-case differences" testID="scr07-paired">
+        <Line dim small>
+          Only for two runs the server judged comparable. One dot per case: its value in the second run minus the
+          first, lowest on the left. Tap a dot to open that case.
+        </Line>
+        {pairs.emptyText ? <Line>{pairs.emptyText}</Line> : null}
+        {pairs.notRequested.map((n) => <Line key={n} dim small>{n}</Line>)}
+        {pairs.cards.map((card) => (
+          <PairedSection key={card.id} card={card} paired={paired} onPaired={onPaired} go={go} />
+        ))}
+      </Card>
+
       <Card title="Trend over 25 → 50 → 100 % data" testID="scr07-trend">
         <Line dim small>{v.trendText}</Line>
         {v.trend.map((t) => (
@@ -190,6 +214,33 @@ function Comparison({ v, metricName, columns, point, onPoint, onMetric, stat, on
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+// One requested UNet vs DINOv2 pair: the chart when the server judged it comparable, otherwise why not.
+function PairedSection({ card, paired, onPaired, go }) {
+  const selected = paired && paired.cardId === card.id ? paired.pair : null;
+  const detail = pairDetail(selected, card);
+  return (
+    <View style={s.comparison}>
+      <Text style={s.text}>{card.title}</Text>
+      {card.available ? (
+        <>
+          <Text style={s.small}>{card.summaryText}</Text>
+          <PairedChart card={card} selected={selected} onSelect={(pair) => onPaired(pair ? { cardId: card.id, pair } : null)} />
+          <Text style={s.small}>{card.directionText}</Text>
+          {card.unpairedText ? <Text style={s.small}>{card.unpairedText}</Text> : null}
+          {detail ? (
+            <View style={s.detail}>
+              <Line mono>{detail.text}</Line>
+              {detail.links.map((l) => <LinkButton key={l.label} label={l.label} route={l.route} onGo={go} />)}
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <Text style={[s.small, { color: TONE_COLOR[TONE.WARN] }]}>{`Not shown: ${card.reason}`}</Text>
+      )}
+    </View>
   );
 }
 
