@@ -153,7 +153,7 @@ const s = StyleSheet.create({
   segmentTOn: { color: color.accent },
   chip: {
     height: size.chip, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 10, paddingRight: 12,
-    borderRadius: radius.m, backgroundColor: color.glass, borderWidth: 1, borderColor: color.glassEdge, alignSelf: 'flex-start',
+    borderRadius: radius.m, backgroundColor: color.glass, borderWidth: 1, borderColor: color.glassEdge,
   },
   swatch: { width: 14, height: 3, borderRadius: 2 },
   swatchOff: { opacity: 0.35 },
