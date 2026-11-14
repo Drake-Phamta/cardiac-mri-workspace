@@ -1,5 +1,5 @@
 // The SCR-05 WebGL2 page, kept as a string for react-native-webview; adapted from the team's 3D viewer prototype.
-// It draws the prediction and ground-truth surfaces, the FP / FN error markers and the axis marker, shows the tools
+// It draws the prediction and ground-truth surfaces, the FP / FN error markers and the corner axis gizmo, shows the tools
 // over them (viewerTools.mjs) and talks to the app with JSON messages (inspector3d.mjs builds and checks them).
 // The script has no template literals, so it can live in a JS string and the Node tests can run it too.
 
@@ -29,7 +29,9 @@ export const VIEWER_SCRIPT = [
   'var COLORS = { prediction: rgb(PALETTE.prediction), groundTruth: rgb(PALETTE.groundTruth) };',
   'var background = rgb(PALETTE.background);',
   'var MARKER_COLORS = { FN: rgb(PALETTE.FN), FP: rgb(PALETTE.FP) };',
-  'var markers = [], markersLoaded = false, markerVao = null, markerBuffer = null, markerCount = 0, markersDirty = true, selectedId = null;',
+  // `markers` are the error regions as the app sent them: largest first, each with its drawn size and whether it is small.
+  // Small regions are left out until the Small regions switch is on.
+  'var markers = [], markersLoaded = false, markerVao = null, markerBuffer = null, markerCount = 0, markersDirty = true, selectedId = null, showSmall = false;',
   'var cam = { yaw: -0.5, pitch: 0.35, zoom: 1, pan: [0, 0], scale: 1, center: [0, 0, 0], base: 2.8 };',
   // [yaw, pitch] that put the camera on the named side of a voxel axis, looking at the model.
   'var VIEWS = { "+x": [-HALF_PI, 0], "-x": [HALF_PI, 0], "+y": [0, HALF_PI], "-y": [0, -HALF_PI], "+z": [0, 0], "-z": [Math.PI, 0] };',
@@ -175,11 +177,15 @@ export const VIEWER_SCRIPT = [
   '  var nx = v[0] / (-v[2] * TAN_HALF * aspect), ny = v[1] / (-v[2] * TAN_HALF) + lift();',
   '  return { x: r.left + (nx * 0.5 + 0.5) * r.width, y: r.top + (0.5 - ny * 0.5) * r.height };',
   '}',
-  // Markers drawn now: all of them, less those above the cut. A marker sits at the centre of its voxel.
+  // The regions that count now: all of them, or without the small ones, in the app's order (largest first).
+  // Previous / Next, the count and the markers drawn all use this list.
+  'function regionsShown() { return showSmall ? markers : markers.filter(function (m) { return !m.small; }); }',
+  'function smallCount() { return markers.filter(function (m) { return m.small; }).length; }',
+  // Markers drawn now: those regions, less those above the cut. A marker sits at the centre of its voxel.
   'function shownMarkers() {',
   '  var z = cutZ();',
   '  if (!visible.errors) return [];',
-  '  return markers.filter(function (m) { return z === null || m.at[2] < z; });',
+  '  return regionsShown().filter(function (m) { return z === null || m.at[2] < z; });',
   '}',
   'function markerCentre(m) { return [m.at[0] + 0.5, m.at[1] + 0.5, m.at[2] + 0.5]; }',
   // The marker nearest the tap on screen, within MARKER_TAP_PX. Markers are drawn over the surface, so they win.
@@ -210,19 +216,30 @@ export const VIEWER_SCRIPT = [
   '  renderTools();',
   '  return hit;',
   '}',
+  // The place of the selected region among the regions shown, or -1.
   'function selectedIndex() {',
-  '  for (var i = 0; i < markers.length; i++) if (markers[i].id === selectedId) return i;',
+  '  var list = regionsShown();',
+  '  for (var i = 0; i < list.length; i++) if (list[i].id === selectedId) return i;',
   '  return -1;',
   '}',
-  // Previous / Next: the region after (by 1) or before (by -1) the selected one, in the server's order, wrapping around.
-  // With nothing selected Next starts at the first and Previous at the last. Stepping shows the error layer first, so a
-  // region is never selected while its layer is hidden.
+  // Previous / Next: the region after (by 1) or before (by -1) the selected one among the regions shown (largest first),
+  // wrapping around. With nothing selected Next starts at the first and Previous at the last. Stepping shows the error
+  // layer first, so a region is never selected while its layer is hidden.
   'function step(by) {',
-  '  if (!markers.length) return;',
+  '  var list = regionsShown();',
+  '  if (!list.length) return;',
   '  visible.errors = true;',
   '  var at = selectedIndex();',
-  '  var next = at < 0 ? (by < 0 ? markers.length - 1 : 0) : (at + by + markers.length) % markers.length;',
-  '  selectMarker(markers[next]);',
+  '  var next = at < 0 ? (by < 0 ? list.length - 1 : 0) : (at + by + list.length) % list.length;',
+  '  selectMarker(list[next]);',
+  '}',
+  // The Small regions switch. Hiding them while one is selected leaves nothing selected; the app is told the switch (and
+  // does the same with its own selection), so its panel can say how many regions are hidden.
+  'function setSmall(on) {',
+  '  if (!markersLoaded || typeof on !== "boolean" || on === showSmall) return;',
+  '  showSmall = on; markersDirty = true; dirty = true;',
+  '  if (selectedId !== null && selectedIndex() < 0) selectedId = null;',
+  '  post({ type: "small", on: showSmall });',
   '}',
   // Layer switches. A layer with nothing loaded has no switch (the tools do not draw one).
   'function setLayer(role, on) {',
@@ -386,15 +403,19 @@ export const VIEWER_SCRIPT = [
   '  gl.bindVertexArray(layer.vao);',
   '  gl.drawElements(gl.TRIANGLES, layer.nt * 3, layer.indexType, 0);',
   '}',
-  'function markerSize(voxels) { return Math.min(28, 7 + 2.5 * Math.cbrt(voxels)); }',   // grows with the region
-  // One vertex per shown marker: centre (3) + style (3). The selected marker goes last, so it is drawn on top.
+  // One vertex per shown marker: centre (3) + style (3), the size being the one the app worked out for the region.
+  // Large markers are drawn first and small ones over them, so a small region is never hidden under a large one; the
+  // selected marker goes last, on top of all.
   'function uploadMarkers() {',
   '  markersDirty = false;',
   '  var shown = shownMarkers(), data = new Float32Array(shown.length * 6);',
-  '  shown.sort(function (a, b) { return (a.id === selectedId ? 1 : 0) - (b.id === selectedId ? 1 : 0); });',
+  '  shown.sort(function (a, b) {',
+  '    if ((a.id === selectedId) !== (b.id === selectedId)) return a.id === selectedId ? 1 : -1;',
+  '    return b.size - a.size;',
+  '  });',
   '  shown.forEach(function (m, i) {',
   '    var c = markerCentre(m);',
-  '    data.set([c[0], c[1], c[2], markerSize(m.voxels), m.cls === "FP" ? 1 : 0, m.id === selectedId ? 1 : 0], i * 6);',
+  '    data.set([c[0], c[1], c[2], m.size, m.cls === "FP" ? 1 : 0, m.id === selectedId ? 1 : 0], i * 6);',
   '  });',
   '  if (!markerVao) {',
   '    markerVao = gl.createVertexArray();',
@@ -426,32 +447,29 @@ export const VIEWER_SCRIPT = [
   '  gl.drawArrays(gl.POINTS, 0, markerCount);',
   '  gl.enable(gl.DEPTH_TEST);',
   '}',
-  // The axis marker (top left): where the voxel axes point now. Voxel axes, not anatomy: the frame has no A/P/S.
-  // All three are neutral grey and named in words, so no hue competes with the prediction, ground truth or error colours.
-  'var AXES = [["x col", 0], ["y row", 1], ["z slice", 2]];',
+  // The corner gizmo (under the Views group, top left): where the voxel axes point now, as three lines that each end in
+  // a disc with its letter, x, y or z. Only letters: what they mean (voxel axes, not anatomy) is in the Details sheet.
+  // The disc is where the label goes, so a letter never lands on the model, a marker or another axis. An axis along the
+  // line of sight has no length on screen, so its disc sits on the centre. Neutral grey, so no hue competes with the
+  // prediction, ground truth or error colours; an axis pointing away from you is dimmer and drawn first.
+  'var AXES = [["x", 0], ["y", 1], ["z", 2]];',
   'function drawAxes() {',
   '  var ctx = axesCanvas && axesCanvas.getContext ? axesCanvas.getContext("2d") : null;',
   '  if (!ctx) return;',
-  '  var ratio = window.devicePixelRatio || 1, size = 112, c = 54, len = 22, r = rotation();',
+  '  var ratio = window.devicePixelRatio || 1, size = 48, c = 24, len = 14.5, dot = 6.5, r = rotation();',
   '  if (axesCanvas.width !== size * ratio) { axesCanvas.width = size * ratio; axesCanvas.height = size * ratio; }',
   '  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);',
   '  ctx.clearRect(0, 0, size, size);',
-  '  ctx.lineWidth = 2; ctx.font = "11px Roboto, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";',
+  '  ctx.lineWidth = 2; ctx.font = "600 10px Roboto, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";',
   '  AXES.slice().sort(function (a, b) { return r[6 + a[1]] - r[6 + b[1]]; }).forEach(function (axis) {',   // far ones first
-  '    var i = axis[1], dx = r[i] * len, dy = -r[3 + i] * len, toward = r[6 + i];',
-  '    ctx.globalAlpha = toward < -0.2 ? 0.55 : 1;',
+  '    var i = axis[1], x = c + r[i] * len, y = c - r[3 + i] * len;',
+  '    ctx.globalAlpha = r[6 + i] < -0.2 ? 0.55 : 1;',
   '    ctx.strokeStyle = PALETTE.axis; ctx.fillStyle = PALETTE.axis;',
-  '    if (Math.abs(toward) > 0.9) {',
-  // An axis along the line of sight has no length on screen: a dot (toward you) or a ring (away), labelled below.
-  '      ctx.beginPath(); ctx.arc(c, c, 4, 0, 2 * Math.PI);',
-  '      if (toward > 0) ctx.fill(); else ctx.stroke();',
-  '      ctx.fillText(axis[0], c, c + 14);',
-  '      return;',
-  '    }',
-  '    ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(c + dx, c + dy); ctx.stroke();',
-  '    ctx.fillText(axis[0], c + dx * 1.6, c + dy * 1.6);',
+  '    ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(x, y); ctx.stroke();',
+  '    ctx.beginPath(); ctx.arc(x, y, dot, 0, 2 * Math.PI); ctx.fill();',
+  '    ctx.fillStyle = PALETTE.background; ctx.fillText(axis[0], x, y + 0.5);',
   '  });',
-  '  ctx.globalAlpha = 1; ctx.fillStyle = PALETTE.axisCaption; ctx.fillText("voxel axes", c, size - 7);',
+  '  ctx.globalAlpha = 1;',
   '}',
   'function draw() {',
   '  window.requestAnimationFrame(draw);',
@@ -510,9 +528,10 @@ export const VIEWER_SCRIPT = [
   '  if (!Array.isArray(items)) throw new Error("MARKERS_INVALID: no marker list");',
   '  markers = items.map(function (m) {',
   '    var ok = m && typeof m.id === "string" && (m.cls === "FN" || m.cls === "FP") && typeof m.voxels === "number" && m.voxels > 0',
-  '      && Array.isArray(m.at) && m.at.length === 3 && m.at.every(function (v) { return typeof v === "number" && isFinite(v) && v >= 0; });',
+  '      && Array.isArray(m.at) && m.at.length === 3 && m.at.every(function (v) { return typeof v === "number" && isFinite(v) && v >= 0; })',
+  '      && typeof m.size === "number" && m.size >= 1 && m.size <= 64 && typeof m.small === "boolean";',
   '    if (!ok) throw new Error("MARKERS_INVALID: a marker is malformed");',
-  '    return { id: m.id, cls: m.cls, at: m.at.slice(), voxels: m.voxels };',
+  '    return { id: m.id, cls: m.cls, at: m.at.slice(), voxels: m.voxels, size: m.size, small: m.small };',
   '  });',
   '  markersLoaded = true; markersDirty = true; dirty = true;',
   '  renderTools();',
@@ -624,6 +643,7 @@ export const VIEWER_SCRIPT = [
   '  state: function () {',
   '    return { slice: sliceIndex, label: sliceLabel, insets: insets, cut: cutZ(), visible: visible, opacity: opacity, selected: selectedId, disposed: disposed,',
   '      markers: markers.length, markersLoaded: markersLoaded, shownMarkers: shownMarkers().map(function (m) { return m.id; }),',
+  '      showSmall: showSmall, smallCount: smallCount(),',
   '      loaded: { prediction: !!layers.prediction, groundTruth: !!layers.groundTruth } };',
   '  }',
   '};',
@@ -637,9 +657,9 @@ export const VIEWER_HTML = [
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">',
   '<style>html,body{margin:0;height:100%;background:' + PALETTE.background + ';overflow:hidden}',
   '#gl{width:100%;height:100%;display:block;touch-action:none;outline:none}',
-  // The voxel-axis marker sits under the Views group (top left), inside the free area.
+  // The corner gizmo sits under the Views group (top left), inside the free area, clear of the model: 48 px, taps pass through.
   '#free{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}',
-  '#axes{position:absolute;left:6px;top:66px;width:112px;height:112px;pointer-events:none}',
+  '#axes{position:absolute;left:12px;top:68px;width:48px;height:48px;pointer-events:none}',
   TOOLS_CSS + '</style></head>',
   '<body><canvas id="gl" aria-label="3D surface"></canvas><div id="free"><canvas id="axes" aria-hidden="true"></canvas><div id="tools"></div></div><script>',
   VIEWER_SCRIPT,

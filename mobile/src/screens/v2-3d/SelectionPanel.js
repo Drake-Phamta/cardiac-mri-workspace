@@ -1,7 +1,7 @@
 // The bottom panel of SCR-05 in the viewer language (BottomPanel of the shared components): which prediction is on
 // screen and the selected slice as "Slice 45 / 88", then what the selection is in words (an error region with its
-// size, a picked point of the surface, or a hint), and Open in 2D. What to say comes from inspector3d.mjs
-// (selectionPanel); the slice number from lib/sliceNumber.mjs. Ids, checksums and mesh sizes are not here: the
+// size, a picked point of the surface, or a hint; how many small regions are hidden), and Open in 2D. What to say comes
+// from inspector3d.mjs (selectionPanel); the slice number from lib/sliceNumber.mjs. Ids, checksums and mesh sizes are not here: the
 // shell's Details sheet has them (the screen reports them with nav.setContext).
 // The panel floats over the bottom of the page and tells its height, so the page keeps its tools above it.
 
@@ -50,6 +50,7 @@ export default function SelectionPanel({
           <Text style={s.meaning}>{content.meaning}</Text>
           {content.facts.length ? <Text style={s.facts}>{content.facts.join(' · ')}</Text> : null}
           {content.kind === 'none' && summary ? <Text style={s.facts}>{summary}</Text> : null}
+          {content.hidden ? <Text style={s.facts} testID="hidden-regions">{content.hidden}</Text> : null}
           {content.kind === 'none' ? notices.map((n) => (
             <View key={n} style={s.notice}>
               <IconInfo size={16} strokeWidth={2} color={color.t2} />

@@ -1489,6 +1489,13 @@ function reviewBackend({ seedVersion = false } = {}) {
   const MESH_ID = (b) => `MESH_${sum(b)}`;
   const errBytes = encodeErrors({ shape: SHAPE, surface: MESH_ID(predBytes), components: ERROR_COMPONENTS });
   const otherSurfaceErrBytes = encodeErrors({ shape: SHAPE, surface: MESH_ID(gtBytes), components: ERROR_COMPONENTS });
+  // Six regions with three of them small (0.5 % of the largest, 6,000 voxels, is 30: 31 stays, 29, 5 and 2 do not).
+  const region = (id, voxels, at) => ({ id, class: id.slice(0, 2), voxel_count: voxels, slice_range: [at[2], at[2]], marker_voxel: at });
+  const MANY_COMPONENTS = [
+    region('FN_0001', 6000, [150, 150, 11]), region('FN_0002', 2, [280, 280, 15]),
+    region('FP_0001', 800, [200, 120, 10]), region('FP_0002', 31, [250, 250, 12]), region('FP_0003', 29, [260, 260, 13]), region('FP_0004', 5, [270, 270, 14]),
+  ];
+  const manyErrBytes = encodeErrors({ shape: SHAPE, surface: MESH_ID(predBytes), components: MANY_COMPONENTS });
 
   // The base fake already serves case_get, the JSON of the MRI / GT / prediction slices and their PNGs. This one adds
   // what SCR-05 asks for: run ids, reconstruction_get, the ground-truth mask id and the mesh bytes.
@@ -1518,12 +1525,12 @@ function reviewBackend({ seedVersion = false } = {}) {
       }
       if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)\/error-reconstruction\?prediction_variant=(RAW|PROCESSED)$/.exec(path))) {
         if (errors === 'missing') return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'no error geometry for this prediction' } });
-        const bytes = errors === 'other-surface' ? otherSurfaceErrBytes : errBytes;
+        const bytes = errors === 'other-surface' ? otherSurfaceErrBytes : errors === 'many' ? manyErrBytes : errBytes;
         return json(200, { ...gen('error_reconstruction_get'), error_mesh_artifact_id: `ERRGEOM_${sum(bytes)}`, reference_mask_id: 'MASK_CASE_0061',
           prediction_mask_id: m[2] === 'RAW' ? 'ART_RAW' : 'ART_PROC', prediction_variant: m[2] });
       }
       if ((m = /^\/api\/v1\/artifacts\/([0-9a-f]{64})\.json$/.exec(path))) {
-        const bytes = [errBytes, otherSurfaceErrBytes].find((b) => sum(b) === m[1]);
+        const bytes = [errBytes, otherSurfaceErrBytes, manyErrBytes].find((b) => sum(b) === m[1]);
         if (!bytes) return json(404, { error: { code: 'ARTIFACT_NOT_FOUND', message: 'x' } });
         const served = errors === 'tamper' ? Uint8Array.from(bytes, (v, i) => (i === 3 ? v ^ 1 : v)) : bytes;
         return { status: 200, headers: { get: (k) => ({ 'content-type': 'application/json', etag: `"sha256:${m[1]}"` })[k.toLowerCase()] ?? null },
@@ -1612,8 +1619,9 @@ function reviewBackend({ seedVersion = false } = {}) {
       && meshMsgs.find((m) => m.role === 'groundTruth').b64 === Buffer.from(gtBytes).toString('base64'), 'after ready: the verified prediction and ground-truth artifacts, byte for byte');
     check('V2R2', out.some((m) => m.type === 'slice' && m.index === 44), 'and the band at the 2D slice the screen was opened from');
     const markerMsg = out.find((m) => m.type === 'markers');
-    check('V2R2', markerMsg && JSON.stringify(markerMsg.items) === JSON.stringify(ERROR_COMPONENTS.map((c) => ({ id: c.id, cls: c.class, at: c.marker_voxel, voxels: c.voxel_count }))),
-      `the three verified markers, in the server's order: ${markerMsg ? markerMsg.items.map((m) => m.id).join(',') : '-'}`);
+    check('V2R2', markerMsg && JSON.stringify(markerMsg.items.map(({ size, small, ...m }) => m)) === JSON.stringify(ERROR_COMPONENTS.map((c) => ({ id: c.id, cls: c.class, at: c.marker_voxel, voxels: c.voxel_count })))
+      && markerMsg.items.every((m) => m.size >= 6 && m.size <= 28 && m.small === false) && markerMsg.items[0].size === 28,
+    `the three verified markers, largest first, each with its drawn size and none of them small: ${markerMsg ? markerMsg.items.map((m) => `${m.id} ${m.size}`).join(',') : '-'}`);
     await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
     await fromViewer(r, { type: 'loaded', role: 'groundTruth', triangles: 12, vertices: 8 });
     check('V2R3', !has(r, /^LOADING$/) && web(r) !== null, 'once the surface is drawn the loading state is gone');
@@ -1624,7 +1632,9 @@ function reviewBackend({ seedVersion = false } = {}) {
     const hex = sum(predBytes);
     check('V2R3', hasDetail(new RegExp(`^Prediction MESH_${hex}$`)) && hasDetail(/^Prediction: 12 triangles · 8 vertices$/) && hasDetail(new RegExp(`^Prediction checksum sha256:${hex}$`))
       && hasDetail(/^Case CASE_0061$/) && hasDetail(/^Run RUN_A$/) && hasDetail(/^Prediction RAW · Evaluation$/), 'the Details sheet (the shell\'s, from nav.setContext) has the ids, checksums and mesh sizes');
-    check('V2R4', hasDetail(/Voxel-index frame \(x = column, y = row, z = slice\)\. Geometry is not validated: no millimetres are shown\./), 'and the frame note');
+    check('V2R4', hasDetail(/Voxel-index frame\. Geometry is not validated: no millimetres are shown\./), 'and the frame note');
+    check('V2R4', hasDetail(/voxel axes, not anatomical directions: x = column, y = row, z = slice/), 'and what the x, y, z of the corner gizmo mean: voxel axes, column, row, slice');
+    check('V2R4', !has(r, /voxel axes|x = column/), 'which the main surface does not say');
     check('V2R3', hasDetail(/^Error geometry ERRGEOM_/) && hasDetail(/^1 FN region/), 'and the error geometry');
     await act(async () => { r.unmount(); });
   }
@@ -1708,6 +1718,38 @@ function reviewBackend({ seedVersion = false } = {}) {
       'and draws no layer, opacity, cut, view or Previous / Next control: they are the page\'s');
     const sizes = r.root.findAll((n) => n.type === 'TouchableOpacity').map(hitSize);
     check('V2R16', sizes.length >= 1 && sizes.every(([w, h]) => w >= 48 && h >= 48), `every control of the screen has a touch target of at least 48 dp: ${JSON.stringify(sizes)}`);
+    await act(async () => { r.unmount(); });
+  }
+
+  // 10k2. many regions: the small ones are left out by default and the panel says how many; the page's Small regions
+  // switch (a message to the app) changes the count of "Region k of N" and the words about what is hidden
+  {
+    const backend = meshBackend({ errors: 'many' });
+    const { r } = await mount(backend, P);
+    await fromViewer(r, { type: 'ready' });
+    await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    const items = lastSent('markers').items;
+    check('V2R21', items.map((m) => m.id).join() === 'FN_0001,FP_0001,FP_0002,FP_0003,FP_0004,FN_0002' && items.map((m) => m.small).join() === 'false,false,false,true,true,true',
+      `the viewer gets all six regions, largest first, the last three marked small: ${items.map((m) => `${m.id}${m.small ? '*' : ''}`).join(',')}`);
+    check('V2R21', items[0].size === 28 && items[5].size < 8 && items.every((m, i) => i === 0 || m.size <= items[i - 1].size), `marker sizes fall with the region size: ${items.map((m) => m.size).join(',')}`);
+    check('V2R21', has(r, /^2 FN regions \(6,002 voxels\) · 4 FP regions \(865 voxels\)$/), 'the totals count every region, hidden or not');
+    check('V2R21', has(r, /^3 small regions hidden \(under 30 voxels\)$/), `the panel says how many are hidden: ${texts(r).find((t) => /hidden/.test(t)) || '-'}`);
+    await fromViewer(r, { type: 'marker', id: 'FP_0002' });
+    check('V2R21', has(r, /^31 voxels · Slice 13 · Region 3 of 3$/) && has(r, /^3 small regions hidden \(under 30 voxels\)$/),
+      `a region is a place among the regions shown (3 of 3, not of 6) and the hidden count stays: ${texts(r).find((t) => /Region/.test(t)) || '-'}`);
+    await fromViewer(r, { type: 'small', on: true });
+    check('V2R21', !has(r, /hidden/) && has(r, /^31 voxels · Slice 13 · Region 3 of 6$/), 'with the small regions on nothing is hidden and the walk has six regions');
+    await fromViewer(r, { type: 'marker', id: 'FP_0004' });
+    check('V2R21', has(r, /^5 voxels · Slice 15 · Region 5 of 6$/) && lastSent('select').id === 'FP_0004', 'a small region can be selected once it is shown');
+    check('V2R21', hasDetail(/^Small regions: 3 of 6, under 30 voxels \(0\.5 % of the largest region, 6,000\)$/), 'Details has the rule, in numbers');
+    await fromViewer(r, { type: 'small', on: false });
+    check('V2R21', has(r, /^Tap the surface to pick a slice, or an error marker to see its region\.$/) && lastSent('select').id === null && isOpen2D(r).props.disabled === true,
+      'switching them off with a small region selected leaves nothing selected');
+    check('V2R21', has(r, /^3 small regions hidden \(under 30 voxels\)$/) && has(r, /^2 FN regions \(6,002 voxels\) · 4 FP regions \(865 voxels\)$/), 'the count is back and the totals have not moved');
+    await fromViewer(r, { type: 'small', on: true });
+    await fromViewer(r, { type: 'ready' });
+    check('V2R21', has(r, /^3 small regions hidden \(under 30 voxels\)$/), 'a page that starts again starts with the small regions off, and the panel follows');
+    check('V2R21', Boolean(byTestId(r, 'hidden-regions')), 'the hidden count is its own line of the panel');
     await act(async () => { r.unmount(); });
   }
 

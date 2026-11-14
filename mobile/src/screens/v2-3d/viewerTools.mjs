@@ -5,10 +5,11 @@
 //   top left     Views     +X -X +Y -Y +Z -Z and Fit (look along a voxel axis)
 //   right        Cut       hide the surface above the selected slice
 //   bottom left  Layers    Prediction and Ground truth (eye, colour key, opacity 30 / 60 / 100 %), Errors with
-//                          Previous / Next through the FP / FN regions
-// The page owns this state (which layers are shown, their opacity, the cut): the app only sends data and learns about
-// a selection. TOOLS_SCRIPT is not a module: viewerHtml.mjs splices it into the page script, so it shares that script's
-// variables (visible, opacity, markers, layers, sliceIndex ...). It is ES5 and has no backtick or dollar-brace,
+//                          Previous / Next through the FP / FN regions shown (largest first) and, under it, the quiet
+//                          "Small regions (N)" switch that brings the small ones back
+// The page owns this state (which layers are shown, their opacity, the cut, the small regions): the app only sends data
+// and learns about a selection and the small-regions switch. TOOLS_SCRIPT is not a module: viewerHtml.mjs splices it into
+// the page script, so it shares that script's variables (visible, opacity, markers, layers, sliceIndex ...). It is ES5 and has no backtick or dollar-brace,
 // because it is carried inside a String.raw template here.
 
 import { color, errorClass, HAIRLINE, MIN_TOUCH, overlay, radius } from '../../components/tokens.mjs';
@@ -63,7 +64,6 @@ export const PALETTE = Object.freeze({
   FN: errorClass.FN,
   FP: errorClass.FP,
   axis: color.t2,
-  axisCaption: color.t3,
 });
 
 // Appended to the page script, after the state and the actions it calls (setLayer, setOpacity, setCut, view, fit, step).
@@ -128,16 +128,26 @@ function surfaceRow(role) {
 }
 
 // FN is a round dot and FP a square, here as on the surface, so the class never depends on colour alone.
+// The count and Previous / Next are over the regions shown (the small ones are left out until they are switched on).
 function errorsRow() {
   if (!markersLoaded) return "";
   var key = '<span class="keys"><i class="dot" style="background:' + PALETTE.FN + '"></i><i class="sq" style="background:' + PALETTE.FP + '"></i></span>';
   var at = selectedIndex();
-  var n = markers.length;
+  var n = regionsShown().length;
   var stepper = n === 0 ? '<span class="none">None</span>' :
     '<div class="step">' + button("step", "-1", "Previous error region", null, icon("prev", 18), false) +
     '<span class="count">' + (at < 0 ? n + (n === 1 ? " region" : " regions") : (at + 1) + " / " + n) + "</span>" +
     button("step", "1", "Next error region", null, icon("next", 18), false) + "</div>";
-  return '<div class="row">' + chipHtml("errors", key) + stepper + "</div>";
+  return '<div class="row">' + chipHtml("errors", key) + stepper + "</div>" + smallRow();
+}
+// "Small regions (58)": the one quiet switch of the Errors group, an eye like the layer chips (crossed while they are
+// hidden). Only while the error layer is shown and there is a small region to show.
+function smallRow() {
+  var count = smallCount();
+  if (!count || !visible.errors) return "";
+  var label = "Small regions (" + count + ")";
+  return '<div class="row">' + button("small", "", label, showSmall,
+    '<span class="vis chip">' + icon(showSmall ? "eye" : "eyeOff", 18) + "<span>" + label + "</span></span>", false) + "</div>";
 }
 
 function toolsMarkup() {
@@ -157,6 +167,7 @@ function onToolClick(e) {
   else if (act === "view") view(arg);
   else if (act === "fit") fit();
   else if (act === "step") step(Number(arg));
+  else if (act === "small") setSmall(!showSmall);
   renderTools();
 }
 if (toolsEl) toolsEl.addEventListener("click", onToolClick);

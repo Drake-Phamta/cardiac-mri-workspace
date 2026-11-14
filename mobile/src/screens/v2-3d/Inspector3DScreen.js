@@ -22,8 +22,8 @@ import { sliceParts } from '../../lib/sliceNumber.mjs';
 import { CHROME } from '../../navigation/routes.mjs';
 import {
   detailSections, errorSummaryText, errorsRef, gridMatches, LAYER, layerNotices, layerStatus, maskIdForVariant, meshRef,
-  openIn2D, parseErrorGeometry, parseMeshHeader, parseViewerMessage, ROLES, screenStatus, SELECTION_NONE,
-  selectionAfterPick, selectionForMarker, selectionPanel, toViewer, VARIANT_LABEL,
+  openIn2D, parseErrorGeometry, parseMeshHeader, parseViewerMessage, regionList, ROLES, screenStatus, SELECTION_NONE,
+  selectionAfterPick, selectionAfterSmallToggle, selectionForMarker, selectionPanel, toViewer, VARIANT_LABEL,
 } from './inspector3d.mjs';
 import SelectionPanel from './SelectionPanel';
 import { VIEWER_HTML } from './viewerHtml.mjs';
@@ -173,7 +173,8 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     if (errBytes.view.state !== STATE.SUCCESS) return errBytes.view;
     const parsed = parseErrorGeometry(errBytes.view.data.bytes, { shape, surfaceMeshId: predMeshId });
     if (!parsed.ok) return fatalInvalid({ code: parsed.code, safeMessage: parsed.message });
-    return Object.freeze({ ...errBytes.view, markers: parsed.markers });
+    // The regions largest first, each with its marker size and whether it is small: the one list the page and the panel follow.
+    return Object.freeze({ ...errBytes.view, markers: regionList(parsed.markers) });
   }, [errCall.view, errBytes.view, errRef, predMeshId, shape, maskId, variant, runtime.content.live]);
   const markers = errPrepared.state === STATE.SUCCESS && errPrepared.markers ? errPrepared.markers : null;
 
@@ -191,6 +192,8 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const [loaded, setLoaded] = useState({});
   const [viewerErrors, setViewerErrors] = useState({});
   const [selection, setSelection] = useState(SELECTION_NONE);
+  // The page's "Small regions" switch (off by default): the panel counts the regions it leaves out.
+  const [showSmall, setShowSmall] = useState(false);
   const [panelHeight, setPanelHeight] = useState(PANEL_GUESS);
 
   // The band on the surface shows the selected slice, else the 2D slice this screen was opened from.
@@ -219,10 +222,11 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
 
   const onMessage = useCallback((event) => {
     const m = parseViewerMessage(event && event.nativeEvent ? event.nativeEvent.data : null);
-    if (m.kind === 'ready') { sent.current = {}; setLoaded({}); setReady((n) => n + 1); }
+    if (m.kind === 'ready') { sent.current = {}; setLoaded({}); setShowSmall(false); setReady((n) => n + 1); }
     else if (m.kind === 'loaded') setLoaded((l) => ({ ...l, [m.role]: m }));
     else if (m.kind === 'error') setViewerErrors((e) => ({ ...e, [m.role || ROLES.PREDICTION]: m }));
     else if (m.kind === 'marker') setSelection(selectionForMarker(markers, m.id));
+    else if (m.kind === 'small') { setShowSmall(m.on); setSelection((s) => selectionAfterSmallToggle(s, m.on)); }
     else if (m.kind === 'pick') {
       const next = selectionAfterPick(m, total);
       if (next) setSelection(next);
@@ -265,7 +269,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   // The shell's app bar (the case, then the experiment and prediction) and Details sheet (what the main surface leaves
   // out: ids, checksums, mesh sizes, the z index, the frame, why a layer is missing).
   const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
-    ? 'Voxel-index frame (x = column, y = row, z = slice). Geometry is not validated: no millimetres are shown.' : null;
+    ? 'Voxel-index frame. Geometry is not validated: no millimetres are shown.' : null;
   const surfaceInfo = (label, meshId, mesh, seen) => ({
     label, id: meshId, checksum: mesh ? mesh.checksum : null, triangles: seen ? seen.triangles : null, vertices: seen ? seen.vertices : null,
   });
@@ -344,7 +348,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
         capability={capability}
         band={band}
         total={total}
-        content={selectionPanel(selection, markers, total)}
+        content={selectionPanel(selection, markers, total, showSmall)}
         summary={markers ? errorSummaryText(markers) : null}
         notices={layerNotices(gtStatus, errStatus)}
         openLabel={plan ? `Open in 2D at slice ${bandLabel}` : 'Open in 2D'}

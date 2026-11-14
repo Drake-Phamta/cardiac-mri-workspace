@@ -21,6 +21,8 @@ export const ERROR_MEANING = Object.freeze({
   FN: 'Ground truth that the prediction left out.',
   FP: 'Predicted where the ground truth has none.',
 });
+// The corner gizmo of the page shows only the letters x, y and z; this says what they are (Details, section Frame).
+export const AXES_NOTE = 'The x, y and z of the corner gizmo are the voxel axes, not anatomical directions: x = column, y = row, z = slice.';
 
 // Both ids are <PREFIX>_<sha256 of the bytes>, so the download URL and the checksum come from the id alone.
 // Any other id has no content route: null.
@@ -111,12 +113,64 @@ export function parseErrorGeometry(bytes, { shape, surfaceMeshId }) {
   return Object.freeze({ ok: true, markers: Object.freeze(markers) });
 }
 
+// ---- the error regions: marker size, which regions are small, and the order they are stepped through ---------------
+// A real case has dozens of tiny regions beside a few huge ones (CASE_0029, EXP-D-100 Raw: 3 FN and 61 FP regions, the
+// largest 164,622 voxels, 40 of them under 100 voxels). Drawn all alike, they hide the surface.
+// So a marker's size says how big its region is, and by default the small regions are left out.
+//
+// "Small" means fewer voxels than 0.5 % of the case's largest region. Relative, so the largest region always stays
+// (a nearly perfect prediction, whose biggest error is 40 voxels, still shows it) and the rule scales with the case.
+// On CASE_0029 the limit is 824 voxels: 6 regions stay (164,622 / 99,420 / 2,111 / 1,822 / 1,100 / 1,075 voxels) and
+// 58 are hidden, together 2.2 % of the error voxels. Over the 212 error geometries on the project PC a median case has
+// 89 regions, about 80 of them small, which hold a median 2.7 % of its error voxels (never more than 9.1 %).
+export const SMALL_REGION_FRACTION = 0.005;
+// A marker is a point drawn between these two sizes, in CSS px (28 is the size every marker had before).
+export const MARKER_PX = Object.freeze({ min: 6, max: 28 });
+
+// The marker's size grows with the cube root of its region's voxel count, from the smallest size (a tiny region)
+// to the largest (the case's largest region): the cube root is the region's linear size, which is what the eye compares.
+export function markerSize(voxels, largest) {
+  const share = voxels > 0 && largest > 0 ? Math.min(1, voxels / largest) : 0;
+  return Math.round((MARKER_PX.min + (MARKER_PX.max - MARKER_PX.min) * Math.cbrt(share)) * 10) / 10;
+}
+
+// The regions largest first (equal sizes keep the server's order), each with the size its marker is drawn at and
+// whether it is small. Previous / Next, "Region k of N" and the markers on the page all follow this one list.
+export function regionList(markers) {
+  if (!Array.isArray(markers) || markers.length === 0) return Object.freeze([]);
+  const largest = Math.max(...markers.map((m) => m.voxels));
+  const limit = largest * SMALL_REGION_FRACTION;
+  return Object.freeze(markers
+    .map((m, i) => [m, i])
+    .sort((a, b) => b[0].voxels - a[0].voxels || a[1] - b[1])
+    .map(([m]) => Object.freeze({ ...m, size: markerSize(m.voxels, largest), small: m.voxels < limit })));
+}
+
+// The regions on screen: all of them, or without the small ones. Previous / Next step through these only.
+export const visibleRegions = (regions, showSmall) => (Array.isArray(regions) ? regions.filter((m) => showSmall || m.small !== true) : []);
+const smallRegions = (regions) => (Array.isArray(regions) ? regions.filter((m) => m.small === true) : []);
+const largestOf = (regions) => Math.max(...regions.map((m) => m.voxels));
+// The smallest voxel count that is not small ("small" is fewer than this).
+const smallLimit = (regions) => Math.ceil(largestOf(regions) * SMALL_REGION_FRACTION);
+
+// "58 small regions hidden (under 824 voxels)", or null when nothing is hidden.
+export function hiddenRegionsText(regions, showSmall) {
+  const n = showSmall ? 0 : smallRegions(regions).length;
+  return n ? `${n} small region${n === 1 ? '' : 's'} hidden (under ${thousands(smallLimit(regions))} voxels)` : null;
+}
+
+// Switching the small regions off while one of them is selected leaves nothing selected (the page does the same).
+export function selectionAfterSmallToggle(selection, showSmall) {
+  return !showSmall && selection && selection.marker && selection.marker.small === true ? SELECTION_NONE : selection;
+}
+
 // Messages to the WebView page (viewerHtml.mjs reads them). Only geometry in voxel units crosses: no case, run,
 // mask or server name, so the page never holds anything that identifies a case.
 export const toViewer = Object.freeze({
   mesh: (role, bytes) => JSON.stringify({ type: 'mesh', role, b64: bytesToBase64(bytes) }),
+  // Largest first, with each marker's size and whether it is small: the page draws and steps through what it is given.
   markers: (markers) => JSON.stringify({
-    type: 'markers', items: markers.map((m) => ({ id: m.id, cls: m.cls, at: m.at, voxels: m.voxels })),
+    type: 'markers', items: regionList(markers).map((m) => ({ id: m.id, cls: m.cls, at: m.at, voxels: m.voxels, size: m.size, small: m.small })),
   }),
   select: (markerId) => JSON.stringify({ type: 'select', id: typeof markerId === 'string' ? markerId : null }),
   // `label` is the slice number as the app writes it (lib/sliceNumber.mjs), for the one place the page shows it.
@@ -153,6 +207,9 @@ export function parseViewerMessage(raw) {
     }
     case 'marker':
       return typeof data.id === 'string' && MARKER_ID.test(data.id) ? { kind: 'marker', id: data.id } : { kind: 'ignored', reason: 'malformed marker' };
+    // The "Small regions" switch of the page: the app only needs to know it, to say how many regions are hidden.
+    case 'small':
+      return typeof data.on === 'boolean' ? { kind: 'small', on: data.on } : { kind: 'ignored', reason: 'malformed small' };
     default: return { kind: 'ignored', reason: `unknown type ${data.type.slice(0, 20)}` };
   }
 }
@@ -253,11 +310,14 @@ export function triangleText(n) {
 }
 
 // What the bottom panel says about the selection, as plain strings (the screen only lays them out): a tapped region
-// (what it is in words, its size and slices), a picked surface point, or a hint when nothing is selected.
-export function selectionPanel(selection, markers, total) {
+// (what it is in words, its size and slices, its place among the regions on screen), a picked surface point, or a hint
+// when nothing is selected. `hidden` says how many small regions are left out; the totals elsewhere stay true.
+export function selectionPanel(selection, markers, total, showSmall = false) {
   const marker = selection && selection.marker;
+  const hidden = hiddenRegionsText(markers, showSmall);
   if (marker) {
-    const at = Array.isArray(markers) ? markers.findIndex((m) => m.id === marker.id) : -1;
+    const shown = visibleRegions(markers, showSmall);
+    const at = shown.findIndex((m) => m.id === marker.id);
     return Object.freeze({
       kind: 'marker',
       cls: marker.cls,
@@ -266,8 +326,9 @@ export function selectionPanel(selection, markers, total) {
       facts: Object.freeze([
         `${thousands(marker.voxels)} voxel${marker.voxels === 1 ? '' : 's'}`,
         marker.zmin === marker.zmax ? `Slice ${slicePart(marker.zmin, total)}` : `Slices ${slicePart(marker.zmin, total)}\u2013${slicePart(marker.zmax, total)}`,
-        ...(at >= 0 ? [`Region ${at + 1} of ${markers.length}`] : []),
+        ...(at >= 0 ? [`Region ${at + 1} of ${shown.length}`] : []),
       ]),
+      hidden,
     });
   }
   if (selection && Number.isInteger(selection.slice)) {
@@ -277,6 +338,7 @@ export function selectionPanel(selection, markers, total) {
       title: `Picked on the ${ROLE_LABEL[selection.role].toLowerCase()}`,
       meaning: 'The 2D slice that produced this part of the surface.',
       facts: Object.freeze([]),
+      hidden: null,
     });
   }
   return Object.freeze({
@@ -285,6 +347,7 @@ export function selectionPanel(selection, markers, total) {
     title: null,
     meaning: (selection && selection.note) || 'Tap the surface to pick a slice, or an error marker to see its region.',
     facts: Object.freeze([]),
+    hidden,
   });
 }
 
@@ -330,9 +393,14 @@ export function detailSections({
     });
   }
   if (Array.isArray(markers)) {
+    const small = smallRegions(markers);
     sections.push({
       title: 'Error regions',
-      lines: [...(errorGeometryId ? [`Error geometry ${errorGeometryId}`] : []), errorSummaryText(markers)],
+      lines: [
+        ...(errorGeometryId ? [`Error geometry ${errorGeometryId}`] : []),
+        errorSummaryText(markers),
+        ...(small.length ? [`Small regions: ${small.length} of ${markers.length}, under ${thousands(smallLimit(markers))} voxels (${SMALL_REGION_FRACTION * 100} % of the largest region, ${thousands(largestOf(markers))})`] : []),
+      ],
     });
   }
   if (selection && selection.marker) {
@@ -342,6 +410,7 @@ export function detailSections({
   }
   const problems = statuses.map(([label, status]) => layerLine(label, status)).filter(Boolean);
   if (problems.length) sections.push({ title: 'Layers', lines: problems });
-  if (geometryNote) sections.push({ title: 'Frame', lines: [geometryNote] });
+  // The frame: what the x, y, z letters of the corner gizmo mean (the page itself carries no words for them).
+  sections.push({ title: 'Frame', lines: [AXES_NOTE, ...(geometryNote ? [geometryNote] : [])] });
   return sections;
 }

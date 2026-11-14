@@ -5,7 +5,9 @@
 // through its camera to the face's source slice (H7), never resolves a background tap to a slice, honours the layer
 // switches, and turns pointer events into orbit / pinch zoom / pan / tap; that a tap on an error marker names it, the
 // cut hides (and does not pick) what lies above the slice, the axis views look along the voxel axes, see-through layers
-// are drawn after the solid ones, the axis marker is labelled with voxel axes, and dispose frees every GPU object.
+// are drawn after the solid ones, the corner gizmo is the letters x, y, z only, marker sizes follow the region sizes the
+// app sends, small regions are left out until the Small regions switch is on (Previous / Next and the count follow the
+// regions shown), and dispose frees every GPU object.
 // The tools the page draws over the surface (layers, opacity, cut, views, Previous / Next) are pressed here the way the
 // page's own click listener sees them (data-act / data-arg), so the same code path serves a finger and a test.
 // What it cannot prove: how it looks, or how fast it draws on the A17 - that is the owner's device test.
@@ -17,6 +19,7 @@ import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs'
 import { boxMesh, encodeMesh, GOLDEN, goldenBytes } from './_v2mesh.mjs';
 import { errorClass, overlay } from '../src/components/tokens.mjs';
 import { makeViewer } from './_v2viewer.mjs';
+import { MARKER_PX, regionList, toViewer } from '../src/screens/v2-3d/inspector3d.mjs';
 import { PALETTE } from '../src/screens/v2-3d/viewerTools.mjs';
 
 const FACE_ON_TOP = { x: 1.5, y: 1.5, z: 3 };   // the top of the tower at column 1, row 1: voxels z 0..2 -> source slice 2
@@ -248,10 +251,11 @@ test('V2W12 no WebGL2: the page says so (the screen shows an error state), and d
 
 // ---- error markers, cut, axis views, opacity, axis marker, dispose ------------------------------------------------
 
-// Two markers on the golden L shape: an FP inside the top of the tower at (1, 1) and an FN beside it.
+// Two markers on the golden L shape: an FP inside the top of the tower at (1, 1) and an FN beside it. As the app sends
+// them: largest first, each with the size it is drawn at (px) and whether it is small (neither is).
 const MARKERS = [
-  { id: 'FN_0001', cls: 'FN', at: [3, 3, 0], voxels: 6 },
-  { id: 'FP_0001', cls: 'FP', at: [1, 1, 2], voxels: 1 },
+  { id: 'FN_0001', cls: 'FN', at: [3, 3, 0], voxels: 6, size: 28, small: false },
+  { id: 'FP_0001', cls: 'FP', at: [1, 1, 2], voxels: 1, size: 18.1, small: false },
 ];
 const centre = (m) => [m.at[0] + 0.5, m.at[1] + 0.5, m.at[2] + 0.5];
 const topDown = (v) => v.api.setCamera({ yaw: 0, pitch: 0, zoom: 1, pan: [0, 0] });
@@ -283,7 +287,8 @@ test('V2W14 the app picks the selected marker; a malformed marker list is refuse
   assert.equal(v.api.state().selected, 'FN_0001');
   v.send({ type: 'select', id: 7 });
   assert.equal(v.api.state().selected, null);
-  for (const items of [null, [{ ...MARKERS[0], cls: 'TP' }], [{ ...MARKERS[0], at: [1, 1] }], [{ ...MARKERS[0], at: [1, -1, 0] }], [{ ...MARKERS[0], voxels: 0 }]]) {
+  for (const items of [null, [{ ...MARKERS[0], cls: 'TP' }], [{ ...MARKERS[0], at: [1, 1] }], [{ ...MARKERS[0], at: [1, -1, 0] }], [{ ...MARKERS[0], voxels: 0 }],
+    [{ ...MARKERS[0], size: undefined }], [{ ...MARKERS[0], size: 0 }], [{ ...MARKERS[0], size: 400 }], [{ ...MARKERS[0], small: undefined }], [{ ...MARKERS[0], small: 'no' }]]) {
     v.send({ type: 'markers', items });
     const e = v.events('error').pop();
     assert.equal(e.role, 'errors', JSON.stringify(items));
@@ -373,12 +378,21 @@ test('V2W17 opacity: solid layers are drawn first into the depth buffer, see-thr
   assert.ok(v.glCalls.some(([n, mode, , count]) => n === 'drawArrays' && mode === 'POINTS' && count === 2), 'the two markers are drawn as points');
 });
 
-test('V2W18 the axis marker names the voxel axes, never anatomy', () => {
+test('V2W18 the corner gizmo is three letters, x, y and z - no words, no anatomy (what they mean is in Details)', () => {
   const v = makeViewer();
   v.load('prediction', goldenBytes());
   v.frame();
-  assert.deepEqual([...new Set(v.axesText)].sort(), ['voxel axes', 'x col', 'y row', 'z slice']);
-  assert.ok(!v.axesText.some((t) => /^(A|P|S|I|L|R)$|anterior|superior|mm/i.test(t)));
+  assert.deepEqual([...new Set(v.axesText)].sort(), ['x', 'y', 'z']);
+  assert.equal(v.axesText.length, 3, 'one letter per axis, drawn once');
+  for (const view of ['+x', '-x', '+y', '-y', '+z', '-z']) {
+    v.press('view', view);
+    v.axesText.length = 0;
+    v.frame();
+    assert.deepEqual(v.axesText.slice().sort(), ['x', 'y', 'z'], `looking along ${view}: still just the three letters`);
+  }
+  assert.ok(!/voxel axes|y row|x col|z slice/.test(VIEWER_HTML), 'the words of the old triad are not in the page');
+  // 48 px, under the Views group, taps pass through to the model
+  assert.match(VIEWER_HTML, /#axes\{[^}]*left:12px;top:68px;width:48px;height:48px;pointer-events:none/);
 });
 
 test('V2W19 dispose frees every buffer, vertex array, shader and program, and loses the context; then the page is quiet', () => {
@@ -492,6 +506,12 @@ test('V2W22 every tool is at least 48 px wide and tall; the markup carries no id
   v.load('prediction', goldenBytes());
   v.load('groundTruth', goldenBytes());
   v.send({ type: 'markers', items: MARKERS });
+  // A drawn box smaller than 48 (a 36 px chip, a 44 x 32 opacity step) is only what is painted inside the button: every
+  // control, the Small regions switch included, is a <button> and so gets that minimum as its hit area.
+  const many = withClutter();
+  const actions = many.tools.innerHTML.match(/data-act=/g).length;
+  assert.equal(actions, many.tools.innerHTML.match(/<button data-act=/g).length, 'every control is a button element, none a bare span or div');
+  assert.ok(many.button('Small regions (3)'), 'and the Small regions switch is one of them');
   assert.ok((v.tools.innerHTML.match(/<button /g) || []).length >= 17, 'six views, Fit, Cut, two layers with three steps each, errors with Previous / Next');
   assert.ok(!/CASE_|RUN_|MASK_|MESH_|http/.test(v.tools.innerHTML + VIEWER_HTML.replace(/MESH_[A-Z]+:/g, '')), 'the page holds nothing that names a case');
 });
@@ -537,4 +557,139 @@ test('V2W24 the app tells the page how tall the app bar and the bottom panel are
   v.frame();
   const proj = v.glCalls.filter(([n]) => n === 'uniformMatrix4fv').slice(-2)[0][3];
   assert.ok(Math.abs(proj[9] + (200 - 56) / v.rect.height) < 1e-6, 'and the projection carries the shift');
+});
+
+// ---- many regions: marker sizes, the small ones left out, Previous / Next over what is shown ---------------------------
+
+// Seven regions with the proportions of a real case (CASE_0029: two huge regions, a few thousand voxels, a tail of tiny ones),
+// as the app's parser gives them. The limit is 0.5 % of the largest: 824 voxels, so FN_0003, FP_0003 and FP_0004 are small.
+const region = (id, voxels, at) => ({ id, cls: id.slice(0, 2), voxels, at, zmin: at[2], zmax: at[2], slice: at[2] });
+const CLUTTER = [
+  region('FN_0001', 164622, [1, 1, 0]), region('FN_0002', 1822, [4, 1, 1]), region('FN_0003', 17, [5, 4, 3]),
+  region('FP_0001', 99420, [1, 3, 2]), region('FP_0002', 2111, [3, 3, 3]), region('FP_0003', 100, [0, 4, 1]), region('FP_0004', 1, [2, 0, 2]),
+];
+const LARGEST_FIRST = ['FN_0001', 'FP_0001', 'FP_0002', 'FN_0002'];   // the regions not small, in the order of the app's list
+const SMALL_IDS = ['FN_0003', 'FP_0003', 'FP_0004'];
+// A viewer with the golden surface and these regions, sent the way the app sends them.
+const withClutter = () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.send(toViewer.markers(CLUTTER));
+  return v;
+};
+// The sizes of the markers drawn in the last frame, in the order they were drawn (read from the marker buffer).
+const drawnSizes = (v) => {
+  v.glCalls.length = 0;
+  v.press('fit');
+  v.frame();
+  const upload = v.glCalls.filter(([n, , , usage]) => n === 'bufferData' && usage === 'DYNAMIC_DRAW').pop();
+  const data = upload[2];
+  return Array.from({ length: data.length / 6 }, (_, i) => data[6 * i + 3]);
+};
+
+test('V2W25 marker size follows the region size: the largest region full size, a tiny one a small dot, large drawn first', () => {
+  const v = withClutter();
+  v.press('small');
+  const sizes = drawnSizes(v);
+  const sent = regionList(CLUTTER).map((m) => Math.fround(m.size));
+  assert.deepEqual(sizes, [...sent].sort((a, b) => b - a), 'every region is drawn at the size the app worked out for it, largest first');
+  assert.equal(sizes[0], MARKER_PX.max, 'the largest region has the full size every marker used to have');
+  assert.ok(sizes[sizes.length - 1] < 9 && sizes[sizes.length - 1] >= MARKER_PX.min, `a one-voxel region is a small dot: ${sizes[sizes.length - 1]} px`);
+  assert.equal(new Set(sizes).size, sizes.length, 'seven different sizes for seven different regions');
+  // the selected region is drawn last, on top of every other
+  v.press('step', 1);
+  v.glCalls.length = 0;
+  v.frame();
+  const data = v.glCalls.filter(([n, , , usage]) => n === 'bufferData' && usage === 'DYNAMIC_DRAW').pop()[2];
+  const styles = Array.from({ length: data.length / 6 }, (_, i) => data[6 * i + 5]);
+  assert.deepEqual(styles, [0, 0, 0, 0, 0, 0, 1], 'one selected marker, last');
+  assert.equal(v.api.state().selected, 'FN_0001');
+});
+
+test('V2W26 small regions are left out by default; the Small regions switch (with its count) brings them back', () => {
+  const v = withClutter();
+  assert.deepEqual([...v.api.state().shownMarkers].sort(), [...LARGEST_FIRST].sort(), 'by default only the regions that are not small are drawn');
+  assert.equal(v.api.state().showSmall, false);
+  assert.equal(v.api.state().smallCount, 3);
+  assert.equal(v.api.state().markers, 7, 'all seven are held: nothing was dropped');
+  assert.match(v.button('Small regions (3)'), /aria-pressed="false"/, 'a quiet switch in the Errors group, named with its count');
+  assert.match(v.tools.innerHTML, /4 regions/, 'the stepper counts the regions shown');
+  assert.equal(drawnSizes(v).length, 4);
+  v.press('small');
+  assert.deepEqual(v.events('small'), [{ type: 'small', on: true }], 'the app is told');
+  assert.deepEqual([...v.api.state().shownMarkers].sort(), [...LARGEST_FIRST, ...SMALL_IDS].sort());
+  assert.match(v.button('Small regions (3)'), /aria-pressed="true"/);
+  assert.match(v.tools.innerHTML, /7 regions/);
+  assert.equal(drawnSizes(v).length, 7);
+  v.press('small');
+  assert.deepEqual(v.events('small').map((m) => m.on), [true, false]);
+  assert.equal(drawnSizes(v).length, 4, 'and off again');
+  // the switch has a 48 px hit area like every tool, and it is part of the Errors group (after the Errors row)
+  const html = v.tools.innerHTML;
+  assert.ok(html.indexOf('aria-label="Next error region"') > 0 && html.indexOf('aria-label="Next error region"') < html.indexOf('aria-label="Small regions (3)"'));
+  // no small region, no switch; the Errors layer hidden, no switch
+  const none = makeViewer();
+  none.load('prediction', goldenBytes());
+  none.send({ type: 'markers', items: MARKERS });
+  assert.doesNotMatch(none.tools.innerHTML, /Small regions/, 'nothing is small: nothing to switch');
+  v.press('layer', 'errors');
+  assert.doesNotMatch(v.tools.innerHTML, /Small regions/, 'with the layer hidden there is nothing to switch');
+  v.press('layer', 'errors');
+  assert.match(v.tools.innerHTML, /Small regions \(3\)/);
+  // a malformed switch from the app does nothing; the app cannot flip it (it belongs to the tools, like the layers)
+  v.send({ type: 'small', on: true });
+  assert.equal(v.api.state().showSmall, false);
+});
+
+test('V2W27 Previous / Next step through the regions shown only, largest first, wrapping; small ones join when switched on', () => {
+  const v = withClutter();
+  const stepped = () => v.events('marker').map((m) => m.id);
+  v.press('step', 1);
+  v.press('step', 1);
+  v.press('step', 1);
+  v.press('step', 1);
+  v.press('step', 1);
+  assert.deepEqual(stepped(), [...LARGEST_FIRST, 'FN_0001'], 'four steps visit the four regions that are not small, the fifth wraps to the first');
+  assert.ok(!stepped().some((id) => SMALL_IDS.includes(id)), 'no step ever lands on a hidden small region');
+  assert.match(v.tools.innerHTML, /1 \/ 4/, 'the count is over the regions shown');
+  v.press('step', -1);
+  assert.equal(stepped().pop(), 'FN_0002', 'Previous from the first wraps to the last of those shown');
+  // from nothing selected, Previous starts at the last region shown
+  const w = withClutter();
+  w.press('step', -1);
+  assert.equal(w.events('marker')[0].id, 'FN_0002');
+  // small regions on: they are in the walk, after the larger ones
+  w.press('small');
+  w.press('step', 1);
+  assert.equal(w.api.state().selected, 'FP_0003', 'after FN_0002 (1,822 voxels) comes the largest of the small regions, FP_0003 (100): all seven go by size');
+  const order = [];
+  for (let i = 0; i < 7; i += 1) { w.press('step', 1); order.push(w.api.state().selected); }
+  assert.deepEqual(order, ['FN_0003', 'FP_0004', 'FN_0001', 'FP_0001', 'FP_0002', 'FN_0002', 'FP_0003'], 'seven regions in all, largest first, then round again');
+  assert.match(w.tools.innerHTML, /5 \/ 7/, 'FP_0003 is the fifth of the seven');
+});
+
+test('V2W28 a hidden small region cannot be tapped; switched off with one selected, nothing stays selected', () => {
+  const v = withClutter();
+  topDown(v);
+  const at = (id) => v.api.project(centre(CLUTTER.find((m) => m.id === id)));
+  const small = at('FP_0004');
+  assert.equal(v.api.markerAt(small.x, small.y), null, 'hidden: no marker answers the tap');
+  const near = LARGEST_FIRST.map(at).map((p) => Math.hypot(p.x - small.x, p.y - small.y));
+  assert.ok(near.every((d) => d > 40), `no other marker is within a tap of the small one (${near.map(Math.round)})`);
+  v.press('small');
+  assert.equal(v.api.markerAt(small.x, small.y).id, 'FP_0004', 'switched on: the tap names it');
+  v.tap(small.x, small.y);
+  assert.deepEqual([v.api.state().selected, v.events('marker').pop().id], ['FP_0004', 'FP_0004']);
+  v.press('small');
+  assert.equal(v.api.state().selected, null, 'switching the small regions off while one is selected leaves nothing selected');
+  assert.deepEqual(v.events('small').map((m) => m.on), [true, false]);
+  // a selected large region stays selected when they go
+  v.press('small');
+  const big = at('FP_0001');
+  v.tap(big.x, big.y);
+  assert.equal(v.api.state().selected, 'FP_0001');
+  v.press('small');
+  assert.equal(v.api.state().selected, 'FP_0001');
+  // a marker list with nothing but small... cannot happen: the largest region is never small
+  assert.equal(regionList([region('FN_0001', 3, [1, 1, 1])])[0].small, false);
 });
