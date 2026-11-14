@@ -17,9 +17,9 @@ import CaseListScreen from '../screens/v1-cases/CaseListScreen';
 import CaseExplorerScreen from '../screens/v1-cases/CaseExplorerScreen';
 import ErrorInspectorScreen from '../screens/v1-cases/ErrorInspectorScreen';
 import Inspector3DScreen from '../screens/v2-3d/Inspector3DScreen';
-import ReviewCorrectionScreen from '../verticals/v4/ReviewCorrectionScreen';
+import ReviewCorrectionScreen from '../screens/v4-review/ReviewCorrectionScreen';
 import ExperimentComparisonScreen from '../screens/v3-study/ExperimentComparisonScreen';
-import FindingsScreen from '../verticals/v4/FindingsScreen';
+import FindingsScreen from '../screens/v4-review/FindingsScreen';
 
 export const REGISTRY = Object.freeze({
   'SCR-01': StudyOverviewScreen,

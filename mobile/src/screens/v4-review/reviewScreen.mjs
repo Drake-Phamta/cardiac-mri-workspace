@@ -55,8 +55,8 @@
 import {
   STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError, fitTransform, clampZoom, zoomAbout,
 } from '../../api/index.mjs';
-import { createReviewCorrection, PREDICTION_VARIANT } from '../../../../app/verticals/v4_review_and_findings/index.mjs';
-import { createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE } from '../../../../app/verticals/v4_review_and_findings/brush.mjs';
+import { createReviewCorrection, PREDICTION_VARIANT } from './review.mjs';
+import { createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE } from './brush.mjs';
 import { syntheticSourceSlice } from './syntheticSource.mjs';
 import { createGestureController, MODE } from './gesture.mjs';
 

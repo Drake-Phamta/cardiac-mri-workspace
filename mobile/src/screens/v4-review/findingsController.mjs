@@ -25,7 +25,7 @@
 import { STATE } from '../../api/index.mjs';
 import {
   createFindings, FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, PREDICTION_VARIANT,
-} from '../../../../app/verticals/v4_review_and_findings/findings.mjs';
+} from './findings.mjs';
 
 export { FINDING_TYPE, FINDING_STATUS, PREDICTION_VARIANT };
 

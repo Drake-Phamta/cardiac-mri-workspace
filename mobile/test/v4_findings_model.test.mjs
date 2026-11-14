@@ -6,16 +6,18 @@
 // "nothing was sent" is checked, not assumed.
 
 import { readFileSync } from 'node:fs';
-import { createContract, createBundle, createClient, createFixtureTransport, getScenario, STATE, RECOVERY } from '../../../mobile/src/api/index.mjs';
+
+import { generatedBundleJson } from './_helpers.mjs';
+import { createContract, createBundle, createClient, createFixtureTransport, getScenario, STATE, RECOVERY } from '../src/api/index.mjs';
 import {
   FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND, PREDICTION_VARIANT,
   normalizeFinding, evidenceLocation, fieldsFromRecord, createFindings,
-} from './findings.mjs';
+} from '../src/screens/v4-review/findings.mjs';
 
-const ROOT = new URL('../../../', import.meta.url);
+const ROOT = new URL('../../', import.meta.url);
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, ROOT), 'utf8'));
 const contract = createContract(readJson('contracts/api/contract.json'));
-const bundle = createBundle(contract, readJson('app/core/fixtures/.generated/api_bundle.json'));
+const bundle = createBundle(contract, generatedBundleJson());
 
 function recorder(transform = null) {
   const inner = createFixtureTransport(bundle);

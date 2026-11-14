@@ -11,7 +11,7 @@ import { STATE } from '../src/api/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';
-import { createFindingsScreen, contextFrom, routeFor, reviewRouteFor } from '../src/verticals/v4/findingsController.mjs';
+import { createFindingsScreen, contextFrom, routeFor, reviewRouteFor } from '../src/screens/v4-review/findingsController.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { loadList } from './_v4_drive.mjs';
 

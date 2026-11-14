@@ -16,12 +16,12 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { fitTransform, zoomAbout, panBy, clampZoom } from '../../../mobile/src/api/index.mjs';
-import * as B from './brush.mjs';
-import * as P from './maskPayload.mjs';
-import { sha256Hex } from './sha256.mjs';
+import { fitTransform, zoomAbout, panBy, clampZoom } from '../src/api/index.mjs';
+import * as B from '../src/screens/v4-review/brush.mjs';
+import * as P from '../src/screens/v4-review/maskPayload.mjs';
+import { sha256Hex } from '../src/screens/v4-review/sha256.mjs';
 
-const HERE = new URL('./', import.meta.url);
+const HERE = new URL('../src/screens/v4-review/', import.meta.url);
 const json = (url) => JSON.parse(readFileSync(url, 'utf8'));
 
 let failures = 0;

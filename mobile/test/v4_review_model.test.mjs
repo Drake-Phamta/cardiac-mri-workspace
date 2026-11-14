@@ -13,16 +13,18 @@
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createContract, createBundle, createClient, createFixtureTransport, getScenario, RECOVERY, STATE } from '../../../mobile/src/api/index.mjs';
+
+import { generatedBundleJson } from './_helpers.mjs';
+import { createContract, createBundle, createClient, createFixtureTransport, getScenario, RECOVERY, STATE } from '../src/api/index.mjs';
 import {
   createReviewCorrection, checkTransition, latestVersion, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
-} from './index.mjs';
-import { createBrushSession, SOURCE_KIND, SOURCE_KIND_FOR_VARIANT, MASK_STATE, TOOL } from './brush.mjs';
+} from '../src/screens/v4-review/review.mjs';
+import { createBrushSession, SOURCE_KIND, SOURCE_KIND_FOR_VARIANT, MASK_STATE, TOOL } from '../src/screens/v4-review/brush.mjs';
 
-const ROOT = new URL('../../../', import.meta.url);
+const ROOT = new URL('../../', import.meta.url);
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, ROOT), 'utf8'));
 const contract = createContract(readJson('contracts/api/contract.json'));
-const bundle = createBundle(contract, readJson('app/core/fixtures/.generated/api_bundle.json'));
+const bundle = createBundle(contract, generatedBundleJson());
 
 const RUN = getScenario(bundle, 'analysis_run_get', 'default').response.data;
 const CASE = getScenario(bundle, 'case_get', 'default').response.data;

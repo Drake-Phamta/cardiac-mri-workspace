@@ -26,9 +26,9 @@ export const SCREENS = Object.freeze([
   { id: 'SCR-03', title: 'Case Explorer', vertical: 'V1', folder: 'screens/v1-cases', file: 'CaseExplorerScreen.js', required: ['caseId'], tab: null },
   { id: 'SCR-04', title: 'Error Inspector', vertical: 'V1', folder: 'screens/v1-cases', file: 'ErrorInspectorScreen.js', required: ['caseId', 'runId', 'variant'], tab: null },
   { id: 'SCR-05', title: '3D Inspector', vertical: 'V2', folder: 'screens/v2-3d', file: 'Inspector3DScreen.js', required: ['caseId', 'runId'], tab: null },
-  { id: 'SCR-06', title: 'Review / Correction', vertical: 'V4', folder: 'verticals/v4', file: 'ReviewCorrectionScreen.js', required: ['runId'], tab: null },
+  { id: 'SCR-06', title: 'Review / Correction', vertical: 'V4', folder: 'screens/v4-review', file: 'ReviewCorrectionScreen.js', required: ['runId'], tab: null },
   { id: 'SCR-07', title: 'Experiment Comparison', vertical: 'V3', folder: 'screens/v3-study', file: 'ExperimentComparisonScreen.js', required: [], tab: 'Experiments' },
-  { id: 'SCR-08', title: 'Findings', vertical: 'V4', folder: 'verticals/v4', file: 'FindingsScreen.js', required: [], tab: 'Findings' },
+  { id: 'SCR-08', title: 'Findings', vertical: 'V4', folder: 'screens/v4-review', file: 'FindingsScreen.js', required: [], tab: 'Findings' },
 ].map((s) => Object.freeze({ ...s, required: Object.freeze([...s.required]) })));
 
 export const OWNERS = Object.freeze({

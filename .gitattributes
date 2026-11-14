@@ -10,7 +10,7 @@ docs/specs/v1.0/**          -text
 # Manifests and checksummed fixtures must round-trip byte for byte.
 *.sha256                    -text
 SPEC_MANIFEST_SHA256.txt    -text
-app/verticals/**/fixtures/** -text
+mobile/src/screens/**/fixtures/** -text
 prototypes/**/fixtures/**   -text
 prototypes/**/fixtures_proposal/** -text
 data/manifests/**           -text
