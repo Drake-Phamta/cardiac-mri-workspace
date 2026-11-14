@@ -70,13 +70,25 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   const ready = snap.view && snap.view.state === STATE.SUCCESS;
   const columns = useMemo(() => (ready ? model.stripColumns() : []), [ready, snap, model]);
 
+  // The lines the page leaves out (how the matrix was filled, the server's list, each run's context) go to the
+  // shell's Details sheet, not to "About this data". The shell compares the report by identity, so `details` is memoized.
+  const details = useMemo(() => {
+    if (!ready) return [];
+    const v = comparisonView(snap, { stat: STAT });
+    const cells = v.rows.flatMap((row) => row.cells);
+    return runDetails([v.modeText, v.listText, v.outsideMatrixText, ...cells.map((cell) => cell.contextText)].filter(Boolean));
+  }, [ready, snap]);
+  useEffect(() => {
+    if (typeof nav.setContext !== 'function') return undefined;
+    nav.setContext({ details });
+    return () => nav.setContext(null);
+  }, [nav, details]);
+
   return (
     <StateView view={snap.view} what="the experiment comparison" onAction={onAction}>
       {() => {
         const v = comparisonView(snap, { stat: STAT, selectedCellId: cellId });
         const cells = v.rows.flatMap((row) => row.cells);
-        // The lines the page leaves out: how the matrix was filled, the server's list, each run's context.
-        const details = [v.modeText, v.listText, v.outsideMatrixText, ...cells.map((cell) => cell.contextText)].filter(Boolean);
         const trend = trendSeries(snap.cells, snap.comparisons, snap.metricName);
         return (
           <>
@@ -101,7 +113,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
             />
             <AboutDataSheet
               visible={sheet === 'about'}
-              sections={[...aboutData({ fixture: snap.source === 'fixture' }), ...runDetails(details)]}
+              sections={aboutData({ fixture: snap.source === 'fixture' })}
               onClose={() => setSheet(null)}
             />
             <Sheet visible={sheet === 'metrics'} onClose={() => setSheet(null)} title="Metric definitions" testID="metric-sheet">

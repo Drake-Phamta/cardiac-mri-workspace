@@ -300,9 +300,9 @@ test('V3U9 the legend covers every case metric of the contract and locks the one
 });
 
 test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts and scores only, research use', () => {
-  const sheet = aboutData({ datasetText: 'fixture dataset · version fixture (DATASET_FIXTURE)', fixture: true });
+  const sheet = aboutData({ datasetName: 'fixture dataset', fixture: true });
   assert.deepEqual(sheet.map((s) => s.title), [
-    'Where the data comes from', 'Terms of use', 'Case IDs', 'What these screens show', 'Use', 'This build',
+    'Where the data comes from', 'Terms of use', 'Case IDs', 'What these screens show', 'Lowest-Dice list', 'Use', 'This build',
   ]);
   const text = sheet.flatMap((s) => s.lines).join('\n');
   const spec06 = readFileSync(join(REPO_ROOT, 'docs', 'specs', 'v1.0', '06_DATASET_CONTRACT.md'), 'utf8');
@@ -314,18 +314,44 @@ test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts a
   assert.match(text, /no name, birth date or hospital record number/);
   assert.match(text, /Counts and scores only/);
   assert.match(text, /Not for diagnosis or treatment decisions/);
-  assert.match(text, /The server names this study's dataset: fixture dataset/);
+  assert.match(text, /In this study the dataset is named "fixture dataset"\./);
   assert.match(text, /generated placeholder, not a result/);
+  assert.match(text, /The lowest-Dice list shows the few cases where an experiment's prediction overlaps the reference outline least/);
   assert.doesNotMatch(text, PROCESS_ID);
   const live = aboutData();
-  assert.equal(live.length, 5, 'a live build has no fixture section');
-  assert.ok(!live.flatMap((s) => s.lines).some((l) => /server names/.test(l)), 'no dataset line when the server named none');
+  assert.equal(live.length, 6, 'a live build has no fixture section');
+  assert.ok(!live.flatMap((s) => s.lines).some((l) => /dataset is named/.test(l)), 'no dataset line when the server named none');
 });
 
-test('V3U11 the technical lines SCR-01 leaves off its surface go into the sheet; the dataset name stands alone', async () => {
-  const details = studyDetails({ summaryText: 'experiment summary: 4 experiment(s) available', capabilities: ['review'], outlierRule: 'the rule' });
+// P2 (device round 2): the sheet is plain language. No checksum, capability name, experiment id, field name or tie-break.
+test('V3U10b "About this data" holds no developer text, even for a live dataset with a manifest version', async () => {
+  const runtime = newRuntime(FULL);
+  const snap = await createStudyOverview(runtime.client).open({ studyId: runtime.config.studyId });
+  const v = overviewView(snap);
+  const live = aboutData({ datasetName: 'LASC 2018 left-atrium segmentation (official Cardiac Atlas source)' });
+  const text = live.flatMap((s) => s.lines).join('\n');
+  assert.doesNotMatch(text, /sha256|manifest|version|ground_truth_evaluation|inference_review|reconstruction_3d|EXP-|case_id|ties|FP\+FN/i);
+  assert.match(text, /named "LASC 2018 left-atrium segmentation/);
+  // What the sheet no longer says is still in the view for the Details sheet.
+  assert.match(v.study.datasetText, /version /);
+  assert.match(v.outliers.rule, /case_id/);
+});
+
+test('V3U11 the technical lines SCR-01 leaves off its surface go to the Details sheet; the dataset name stands alone', async () => {
+  const details = studyDetails({
+    datasetText: 'LASC 2018 · version dataset-manifest-sha256:f64d461f (LASC2018)',
+    summaryText: 'experiment summary: 4 experiment(s) available',
+    capabilities: ['ground_truth_evaluation', 'review'],
+    outlierRule: 'the rule',
+    pairLines: ['25 % data: EXP-U-025, EXP-D-025 not available to compare'],
+  });
   assert.deepEqual(details.map((d) => [d.title, [...d.lines]]), [
-    ['Server details', ['experiment summary: 4 experiment(s) available', 'Capabilities: review']],
+    ['Server details', [
+      'Dataset: LASC 2018 · version dataset-manifest-sha256:f64d461f (LASC2018)',
+      'experiment summary: 4 experiment(s) available',
+      'Capabilities: ground_truth_evaluation, review',
+    ]],
+    ['Median Dice pairs', ['25 % data: EXP-U-025, EXP-D-025 not available to compare']],
     ['Lowest-Dice lists', ['the rule']],
   ]);
   assert.deepEqual(studyDetails(), [], 'no lines, no section');

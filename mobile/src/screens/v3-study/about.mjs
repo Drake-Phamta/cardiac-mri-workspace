@@ -1,6 +1,10 @@
 // What the study screens tell people about their data and their numbers: the "About this data" sheet (spec 12:
 // research use only, de-identified case IDs, the dataset's source and terms) and the metric legend.
 // The facts come from the project's dataset record (data/DATASET_AUDIT.md) and the API contract.
+// The sheet is plain language. Versions, ids, capability names and exact rules go to the shell's Details sheet.
+
+// The metric SCR-07 opens with: Dice, the study's primary metric (spec 08 section 5). The user can pick another.
+export const PRIMARY_METRIC = 'dice';
 
 export const DATASET_SOURCE_URL = 'https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/';
 // The short source line under the dataset name on SCR-01.
@@ -8,15 +12,15 @@ export const DATASET_SOURCE_NAME = 'Atrial Segmentation Challenge, Cardiac Atlas
 
 const section = (title, lines) => Object.freeze({ title, lines: Object.freeze(lines.filter(Boolean)) });
 
-/* The sheet's sections. `datasetText` is the dataset the server names; `fixture` adds that numbers are placeholders. */
-export function aboutData({ datasetText = null, fixture = false } = {}) {
+/* The sheet's sections. `datasetName` is the dataset's name alone; `fixture` adds that numbers are placeholders. */
+export function aboutData({ datasetName = null, fixture = false } = {}) {
   return Object.freeze([
     section('Where the data comes from', [
       'Left-atrium LGE MRI from the 2018 Atria Segmentation Challenge (LASC 2018), downloaded from the official '
         + 'Cardiac Atlas Project page:',
       DATASET_SOURCE_URL,
       'This is the LASC 2018 challenge data, not the later LAScarQS 2022 data.',
-      datasetText ? `The server names this study's dataset: ${datasetText}.` : null,
+      datasetName ? `In this study the dataset is named "${datasetName}".` : null,
     ]),
     section('Terms of use', [
       'Used under the Cardiac Atlas Project data-use policy kept with the download. Images, masks and results stay '
@@ -29,6 +33,10 @@ export function aboutData({ datasetText = null, fixture = false } = {}) {
     section('What these screens show', [
       'Counts and scores only: summaries per experiment and one score per case ID. No image is shown here.',
     ]),
+    section('Lowest-Dice list', [
+      'The lowest-Dice list shows the few cases where an experiment\'s prediction overlaps the reference outline '
+        + 'least (Dice is that overlap, from 0 to 1).',
+    ]),
     section('Use', [
       'For research and teaching on how the models behave. Not for diagnosis or treatment decisions, and not a '
         + 'medical device.',
@@ -38,12 +46,14 @@ export function aboutData({ datasetText = null, fixture = false } = {}) {
 }
 
 /*
- * The technical lines the main surface leaves out, as extra sections of the sheet: what the server's summary
- * contains, which capabilities it lists, why a pair was not compared, and the rule behind the lowest-Dice lists.
+ * The technical lines SCR-01 leaves out of its pages and its About sheet, as sections for the shell's Details sheet
+ * (nav.setContext): the dataset as the server names it, with its version; what the server's summary contains; which
+ * capabilities it lists; why a pair was not compared; and the exact rule behind the lowest-Dice lists.
  */
-export function studyDetails({ summaryText = null, capabilities = [], outlierRule = null, pairLines = [] } = {}) {
+export function studyDetails({ datasetText = null, summaryText = null, capabilities = [], outlierRule = null, pairLines = [] } = {}) {
   return Object.freeze([
     section('Server details', [
+      datasetText ? `Dataset: ${datasetText}` : null,
       summaryText,
       capabilities.length ? `Capabilities: ${capabilities.join(', ')}` : null,
     ]),
@@ -52,7 +62,7 @@ export function studyDetails({ summaryText = null, capabilities = [], outlierRul
   ].filter((s) => s.lines.length > 0));
 }
 
-// SCR-07's per-run context lines (family, variant, cohort level, population, N, metric version): one sheet section.
+// SCR-07's per-run context lines (family, variant, cohort level, population, N, metric version): one Details section.
 export function runDetails(lines = []) {
   return Object.freeze([section('Run details', lines)].filter((s) => s.lines.length > 0));
 }

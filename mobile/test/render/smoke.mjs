@@ -599,11 +599,14 @@ function noRunBackend() {
   check('V3R11', sheetOpen() && has(r, /^https:\/\/www\.cardiacatlas\.org\/atriaseg2018-challenge\/atria-seg-data\/$/)
     && has(r, /^Cases are named CASE_0001 to CASE_0154/) && has(r, /Not for diagnosis or treatment decisions/)
     && has(r, /^This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\.$/)
-    && has(r, /^The server names this study's dataset: fixture dataset/) && has(r, /^Fixture mode: every number/),
-  'the sheet names the source, LASC 2018, the case IDs, research use only, the served dataset and that fixture numbers are placeholders');
-  check('V3R11', has(r, /^Capabilities: /) && has(r, /^experiment summary/) && has(r, /lowest case-level 3D Dice/)
-    && has(r, /^25 % data: EXP-U-025, EXP-D-025 not available to compare$/),
-  'the technical lines moved into the sheet: server summary, capabilities, why a pair is not compared, the lowest-Dice rule');
+    && has(r, /^In this study the dataset is named "fixture dataset"\.$/) && has(r, /^Fixture mode: every number/),
+  'the sheet names the source, LASC 2018, the case IDs, research use only, the dataset by name and that fixture numbers are placeholders');
+  check('V3R11', has(r, /^The lowest-Dice list shows the few cases where an experiment's prediction overlaps the reference outline least/),
+    'the sheet explains the lowest-Dice list in one plain sentence');
+  // P2: plain language only. The version, the server details and the exact rule are in the Details sheet (V3R21).
+  const aboutTexts = sheetTexts(r, 'about-data') || [];
+  check('V3R11', aboutTexts.length > 0 && !aboutTexts.some((t) => /sha256|manifest|version|ground_truth_evaluation|inference_review|reconstruction_3d|Capabilities|experiment summary|SERVER DETAILS|EXP-|case_id|DATASET_FIXTURE|not available to compare|ties:/i.test(t)),
+  'the About sheet holds no developer text: no version string, server details, capability names, experiment ids or tie-break');
   await act(async () => { byTestId(r, 'about-data-close').props.onPress(); });
   check('V3R11', !sheetOpen(), 'Close closes it');
   await press(r, 'Experiments');
@@ -675,6 +678,37 @@ function noRunBackend() {
   await act(async () => { r.unmount(); });
 }
 
+// P2: what the About sheet no longer says (dataset version, server summary, capabilities, why a pair is not
+// compared, the exact lowest-Dice rule) is reported to the shell with nav.setContext({ details }), and the shell's
+// Details sheet draws it above "This screen". The recording nav stands in for the shell here.
+{
+  const StudyOverviewScreen = (await imp('src/screens/v3-study/StudyOverviewScreen.js')).default;
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const reports = [];
+  const nav = {
+    push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: false,
+    setContext: (c) => { reports.push(c); },
+  };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(StudyOverviewScreen, { runtime, nav, params: {} })), nodeMock);
+  });
+  await tick(60);
+  const sent = reports.filter((c) => c && c.details && c.details.length).pop();
+  const section = (title) => (sent ? sent.details.find((d) => d.title === title) : null);
+  const linesOf = (title) => (section(title) ? [...section(title).lines] : []);
+  check('V3R21', linesOf('Server details').includes('Dataset: fixture dataset · version fixture (DATASET_FIXTURE)')
+    && linesOf('Server details').some((l) => /^experiment summary/.test(l)),
+  `SCR-01 reports the dataset version and the server summary to the Details sheet: ${linesOf('Server details').join(' | ')}`);
+  check('V3R21', linesOf('Median Dice pairs').includes('25 % data: EXP-U-025, EXP-D-025 not available to compare'),
+    'SCR-01 reports why a pair is not compared (it names the runs by id)');
+  check('V3R21', linesOf('Lowest-Dice lists').some((l) => /lowest case-level 3D Dice/.test(l) && /case_id/.test(l)),
+    'SCR-01 reports the exact lowest-Dice rule, tie-break included');
+  await act(async () => { r.unmount(); });
+  check('V3R21', reports[reports.length - 1] === null, 'leaving the screen clears what it reported');
+}
+
 // SCR-07 paired view over a typed server that answers each run with its own rows (test/_v3_server.mjs; the
 // fixture serves one set of rows for every run). COMPARABLE draws one dot per paired case and a tapped dot opens
 // either run; NOT COMPARABLE and a run with no rows draw no chart and say why.
@@ -688,7 +722,11 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   const base = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
   const runtime = { ...base, client: createClient(base.contract, v3Transport(contractJson, base.bundle, options)) };
   const pushed = [];
-  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  const reports = [];
+  const nav = {
+    push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true,
+    setContext: (c) => { reports.push(c); },
+  };
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
@@ -698,10 +736,21 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   await press(r, 'Dice');
   await layout(r);
   await tick(30);
-  return { r, pushed };
+  return { r, pushed, reports };
 }
 {
-  const { r, pushed } = await mountTypedPair({});
+  const { r, pushed, reports } = await mountTypedPair({});
+  // P2: SCR-07's run context (ids, N, cohort level, metric version) is reported for the Details sheet, not drawn in About.
+  const runLines = (reports.filter((c) => c && c.details && c.details.length).pop() || { details: [] }).details
+    .filter((d) => d.title === 'Run details').flatMap((d) => [...d.lines]);
+  check('V3R21', runLines.some((l) => /^EXP-U-025 · model /.test(l) && /N intended/.test(l)) && runLines.some((l) => /^Comparing /.test(l)),
+    `SCR-07 reports the runs' context to the Details sheet: ${runLines.length} lines`);
+  await press(r, 'About this data');
+  const about7 = sheetTexts(r, 'about-data') || [];
+  check('V3R21', about7.length > 0 && about7.some((t) => /LASC 2018/.test(t))
+    && !about7.some((t) => /sha256|EXP-|N intended|COHORT|metric mv1|case_id|Run details/i.test(t)),
+  'the About sheet of SCR-07 is plain language too: no experiment ids, N, cohort level or metric version');
+  await closeSheet(r, 'about-data');
   const dots = inside(r, 'paired-RQ-A-025', 'Circle');
   check('V3R4', dots.length === 4 && has(r, /^DINOv2 25 % − UNet 25 % · 4 cases · median \+0\.065$/)
     && has(r, /^1 case without a value in both runs is not drawn$/),

@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { RECOVERY } from '../../api/states.mjs';
+import { RECOVERY, STATE } from '../../api/states.mjs';
 import { createStudyOverview } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
@@ -34,6 +34,23 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
 
   useEffect(() => { run(() => model.open({ studyId })); }, [model, studyId, run]);
 
+  const v = useMemo(() => (snap.view && snap.view.state === STATE.SUCCESS ? overviewView(snap) : null), [snap]);
+  // The ids, versions and exact rules the pages leave out go to the shell's Details sheet (the Info button), not to
+  // "About this data". The shell compares the report by identity, so `details` is memoized.
+  const details = useMemo(() => (v ? studyDetails({
+    datasetText: v.study.datasetText,
+    summaryText: v.study.summaryText,
+    capabilities: v.study.capabilities,
+    outlierRule: v.outliers.rule,
+    // Why a pair is not compared names the runs by id, so it lives in Details.
+    pairLines: diceTile(snap.headline).rows.filter((r) => r.note).map((r) => `${r.label}: ${r.note}`),
+  }) : []), [v, snap]);
+  useEffect(() => {
+    if (typeof nav.setContext !== 'function') return undefined;
+    nav.setContext({ details });
+    return () => nav.setContext(null);
+  }, [nav, details]);
+
   const go = useCallback((route) => {
     if (!route || !route.ok) { setBlocked(route ? route.reason : 'no link'); return; }
     setBlocked(null);
@@ -48,25 +65,16 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
 
   return (
     <StateView view={snap.view} what="the study overview" onAction={onAction}>
-      {() => {
-        const v = overviewView(snap);
-        const sections = [
-          ...aboutData({ datasetText: v.study.datasetText, fixture: snap.source === 'fixture' }),
-          ...studyDetails({
-            summaryText: v.study.summaryText,
-            capabilities: v.study.capabilities,
-            outlierRule: v.outliers.rule,
-            // Why a pair is not compared names the runs by id, so it lives in the sheet.
-            pairLines: diceTile(snap.headline).rows.filter((r) => r.note).map((r) => `${r.label}: ${r.note}`),
-          }),
-        ];
-        return (
-          <>
-            <Overview v={v} snap={snap} go={go} blocked={blocked} onAbout={() => setAboutOpen(true)} />
-            <AboutDataSheet visible={aboutOpen} sections={sections} onClose={() => setAboutOpen(false)} />
-          </>
-        );
-      }}
+      {() => (
+        <>
+          <Overview v={v} snap={snap} go={go} blocked={blocked} onAbout={() => setAboutOpen(true)} />
+          <AboutDataSheet
+            visible={aboutOpen}
+            sections={aboutData({ datasetName: v.study.datasetName, fixture: snap.source === 'fixture' })}
+            onClose={() => setAboutOpen(false)}
+          />
+        </>
+      )}
     </StateView>
   );
 }
