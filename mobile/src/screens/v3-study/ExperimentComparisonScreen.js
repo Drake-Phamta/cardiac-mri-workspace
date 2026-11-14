@@ -1,23 +1,6 @@
-/*
- * SCR-07 - Experiment Comparison (V3, owner Bế Quốc Khánh). Day 22 skeleton,
- * built under the recovery override; the owner reviews and completes it from
- * D23.
- *
- * `10` SCR-07 asks for: UNet vs DINOv2, 25 / 50 / 100 %, aggregate /
- * distribution / trend, and case evidence links. The model is
- * createExperimentComparison (app/verticals/v3_study_and_compare, PR #61);
- * every string drawn here comes from v3View.mjs, which node --test checks.
- *
- *   params.experimentIds  optional - a pair or group opened from SCR-01.
- *                         Without it the screen shows the `08` section 2
- *                         matrix, filled from the server's experiment list.
- *
- * Choices with NO default, on purpose: the plotted metric (the contract does
- * not name the metrics yet - the chips are the names the server's summaries
- * use) and the statistic for trend and differences. Comparability is never
- * decided here: every label is the server's verdict, and a difference or a
- * trend line appears only under the server's COMPARABLE.
- */
+// SCR-07 Experiment Comparison: UNet vs DINOv2 at 25 / 50 / 100 % data, per-case strip plot, trend and case links.
+// Opened with params.experimentIds for a pair or group, else the full matrix. The metric and statistic have no
+// default, and comparability is always the server's verdict, never decided here.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

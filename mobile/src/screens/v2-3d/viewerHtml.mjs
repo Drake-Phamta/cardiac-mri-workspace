@@ -1,30 +1,6 @@
-/*
- * SCR-05 viewer: a self-contained WebGL2 page, as a string for react-native-webview (V2, Vũ Hùng Anh owns it;
- * built as a skeleton under the Day 39 recovery override - the owner completes, measures and defends it).
- *
- * PROVENANCE. Adapted from the 3D viewer prototype, which stays behind prototypes/**:
- *   prototypes/3d-viewer/app/viewer.js   blob 52cd8fdc53a0 (last changed ba492ae)  camera, shaders, gestures
- *   prototypes/3d-viewer/app/picking.js  blob 696af3dd3314 (last changed 9e839ef)  Moller-Trumbore ray cast
- * copied 2026-10-18 and changed as follows. Product code never imports a spike.
- *   - the input is the served `cardiac-mesh/1` artifact (backend/mesh/artifact.py), not an OBJ: indexed vertices in
- *     the voxel-index frame (x = column, y = row, z = slice) and the source slice of every triangle;
- *   - a tap resolves to face_source_slice[t] of the first triangle hit (PR-3D-04, DR-008c = L0), NOT to the floor
- *     of the hit point, and a miss posts slice null (it never navigates);
- *   - flat shading from screen-space derivatives, so no normal buffer is needed; two layers (prediction, ground
- *     truth) with their own visibility; the selected slice is a band on the surface;
- *   - measurement code (the 30 s frame probe) is NOT carried over: B10 / B11 on the device are the owner's.
- *
- * PROTOCOL (JSON strings through window.ReactNativeWebView.postMessage / WebView.postMessage)
- *   in   {type:'mesh', role:'prediction'|'groundTruth', b64}   a verified artifact, base64
- *        {type:'layers', prediction:bool, groundTruth:bool}    visibility
- *        {type:'slice', index:int|null}                        the slice the 2D viewer shows (band on the surface)
- *        {type:'fit'}                                          reset the camera
- *   out  {type:'ready'} {type:'loaded', role, triangles, vertices} {type:'error', code, message, role|null}
- *        {type:'pick', role:'prediction'|'groundTruth'|null, triangle:int|null, slice:int|null}
- *
- * The script avoids template literals and backslash escapes so it can live in a JS string; mobile/test/
- * v2_viewer.test.mjs runs it in node against a stubbed canvas, the golden artifact and the Python pick cases.
- */
+// The SCR-05 WebGL2 page, kept as a string for react-native-webview; adapted from the team's 3D viewer prototype.
+// It talks to the app with JSON messages (inspector3d.mjs builds and checks them). The script has no template
+// literals or backslash escapes, so it can live in a JS string and the Node tests can run it too.
 
 export const VIEWER_SCRIPT = [
   '(function () {',
@@ -49,7 +25,6 @@ export const VIEWER_SCRIPT = [
   '}',
   'function fail(code, message, role) { post({ type: "error", code: code, message: message, role: role || null }); }',
 
-  // ---- the artifact ----------------------------------------------------------------------------------------
   'function b64ToBytes(b64) {',
   '  var bin = atob(b64), n = bin.length, out = new Uint8Array(n);',
   '  for (var i = 0; i < n; i++) out[i] = bin.charCodeAt(i);',
@@ -91,7 +66,7 @@ export const VIEWER_SCRIPT = [
   '  return { header: header, positions: positions, triangles: triangles, slices: slices, nv: nv, nt: nt };',
   '}',
 
-  // ---- ray casting (Moller-Trumbore, back faces accepted; picking.js) -------------------------------------
+  // Ray casting with Moller-Trumbore; back faces count as hits.
   'function rayCast(layer, o, d) {',
   '  var v = layer.positions, t = layer.triangles, best = -1, bestT = Infinity;',
   '  var ox = o[0], oy = o[1], oz = o[2], dx = d[0], dy = d[1], dz = d[2];',
@@ -118,7 +93,7 @@ export const VIEWER_SCRIPT = [
   '  var l = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);',
   '  return l > 1e-12 ? [d[0] / l, d[1] / l, d[2] / l] : null;',
   '}',
-  // The nearest hit over the visible layers. A miss is null: it never resolves to a slice.
+  // The nearest hit over the visible layers. A miss is null, never a slice.
   'function pickRay(origin, direction) {',
   '  var d = normalise(direction), best = null;',
   '  if (!d) return null;',
@@ -133,7 +108,7 @@ export const VIEWER_SCRIPT = [
   '  return best;',
   '}',
 
-  // ---- camera: model -> view is  v = R * (scale * (m - center)) + (panX, panY, -dist)  --------------------
+  // Camera: view = R * (scale * (model - center)) + (panX, panY, -distance).
   'function rotation() {',
   '  var cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), cx = Math.cos(cam.pitch), sx = Math.sin(cam.pitch);',
   // R = Rx(pitch) * Ry(yaw), row-major
@@ -167,7 +142,7 @@ export const VIEWER_SCRIPT = [
   '  var dv = [nx * TAN_HALF * aspect, ny * TAN_HALF, -1];',
   '  return { origin: fromView([0, 0, 0]), direction: dirFromView(dv) };',
   '}',
-  // Where a model point lands on screen (tests and the owner's measurements).
+  // Where a model point lands on screen (used by the tests).
   'function project(m) {',
   '  var v = toView(m), r = rect(), aspect = r.width / r.height;',
   '  var nx = v[0] / (-v[2] * TAN_HALF * aspect), ny = v[1] / (-v[2] * TAN_HALF);',
@@ -201,7 +176,7 @@ export const VIEWER_SCRIPT = [
   '  cam.scale = radius > 0 ? 1 / radius : 1;',
   '}',
 
-  // ---- WebGL -------------------------------------------------------------------------------------------------
+  // Flat shading comes from screen-space derivatives (dFdx, dFdy), so no normal buffer is needed.
   'var VS = [',
   '  "#version 300 es",',
   '  "in vec3 aPos;",',
@@ -304,7 +279,6 @@ export const VIEWER_SCRIPT = [
   '  gl.depthMask(true); gl.bindVertexArray(null);',
   '}',
 
-  // ---- messages in ---------------------------------------------------------------------------------------------
   'function loadMesh(role, bytes) {',
   '  if (role !== "prediction" && role !== "groundTruth") throw new Error("MESH_ROLE: " + role);',
   '  var mesh = decodeMesh(bytes);',
@@ -335,7 +309,7 @@ export const VIEWER_SCRIPT = [
   '  } catch (e) { fail("VIEWER_ERROR", String(e && e.message ? e.message : e), data.type === "mesh" ? data.role : null); }',
   '}',
 
-  // ---- gestures: orbit, pinch zoom, two-finger pan, tap to pick -----------------------------------------------
+  // Gestures: one finger orbits, two fingers zoom and pan, a short still tap picks.
   'function count() { return Object.keys(pointers).length; }',
   'function two() { var k = Object.keys(pointers); return [pointers[k[0]], pointers[k[1]]]; }',
   'function onDown(e) {',
@@ -383,7 +357,6 @@ export const VIEWER_SCRIPT = [
   '  setZoom(cam.zoom * Math.exp(-e.deltaY * 0.001));',
   '}',
 
-  // ---- start ----------------------------------------------------------------------------------------------------
   'try { initGl(); } catch (e) { fail("WEBGL_INIT", String(e && e.message ? e.message : e)); }',
   'canvas.addEventListener("pointerdown", onDown);',
   'canvas.addEventListener("pointermove", onMove);',

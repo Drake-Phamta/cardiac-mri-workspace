@@ -1,53 +1,14 @@
-/*
- * V3 readers - pure functions over VALIDATED response data.
- *
- * Every function here READS what the server said and reports what it could
- * not read. None of them computes a scientific result:
- *
- *   - comparability is the server's verdict (`11` section 5), read through
- *     app/core comparability.mjs, never derived from manifest ids;
- *   - outliers are the server's DR-010 selection, kept in the order served.
- *     There is deliberately no `.sort(` anywhere in this vertical, and
- *     test_study_and_compare.mjs fails the build if one appears;
- *   - a count or a metric that is absent, or present with the wrong type, is
- *     UNAVAILABLE with a reason and the value that was served. It is never 0,
- *     never NaN, never a blank that a chart would draw as 0 (`10` section 7).
- *
- * THE SHAPES ARE THE CONTRACT'S (API contract 1.1.0)
- *
- * Every inner shape read here is defined by contracts/api/contract.json -
- * there is no V3-side assumption left. The section each reader follows:
- *
- *   study_get.dataset / case_counts /    field_shapes.dataset, .case_counts,
- *     capabilities / experiment_summary    .capabilities, .experiment_summary
- *   experiment_list rows                 row_fields: experiment_id, prediction_variant;
- *                                        evaluation_population top-level
- *   experiment_metrics.metric_summary    metric_rules.summary_rule / summary_statistics
- *   experiment_compare.summary           metric_rules.summary_rule (per compared id,
- *                                        over the common evaluation population)
- *   experiment_cases rows                row_fields + field_shapes.metric_values;
- *                                        status is domain_enums.case_result_status
- *   experiment_cases.outlier_selection   selection_rules.outlier_selection (DR-010)
- *
- * If a later contract renames one of these, the reader that uses it changes,
- * and nothing else does.
- */
+// Plain functions that read validated server data for SCR-01 and SCR-07 and report what they could not read. They
+// compute no scientific result: comparability and outliers are the server's, kept in the served order, and a missing
+// or wrongly typed count or metric is UNAVAILABLE with a reason, never 0 or NaN. The tests fail if anything sorts here.
 
 export const FAMILY = Object.freeze({ UNET: 'UNET', DINOV2: 'DINOV2' });
 
-// The two prediction variants an experiment can be evaluated on. These are the
-// same spellings V1's createCaseExplorer accepts, so a navigation intent can be
-// handed to SCR-03 unchanged.
+// The same variant spellings SCR-03 accepts, so a navigation intent passes to it unchanged.
 export const LANE = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
 
-/*
- * `08` section 2 - the minimum experiment matrix, in the spec's order. The
- * order is a layout, never a ranking: Khánh's design rationale (TC-TEAM-001
- * package section 2) is that the UI cannot reorder to imply a winner.
- *
- * `lane` is the prediction variant `08` section 2 defines the experiment BY.
- * It is checked against what the server declares, never substituted for it.
- */
+// The minimum experiment matrix of spec 08 §2, in the spec's order. The order is layout, never a ranking, so the UI
+// cannot reorder to imply a winner. `lane` is checked against what the server declares, never substituted for it.
 export const MATRIX = Object.freeze([
   { id: 'EXP-U-025', family: FAMILY.UNET, fractionPct: 25, lane: LANE.RAW, question: 'RQ-A' },
   { id: 'EXP-U-050', family: FAMILY.UNET, fractionPct: 50, lane: LANE.RAW, question: 'RQ-A' },
@@ -55,7 +16,7 @@ export const MATRIX = Object.freeze([
   { id: 'EXP-D-025', family: FAMILY.DINOV2, fractionPct: 25, lane: LANE.RAW, question: 'RQ-A' },
   { id: 'EXP-D-050', family: FAMILY.DINOV2, fractionPct: 50, lane: LANE.RAW, question: 'RQ-A' },
   { id: 'EXP-D-100', family: FAMILY.DINOV2, fractionPct: 100, lane: LANE.RAW, question: 'RQ-A' },
-  // Derived from the SAME raw predictions as EXP-D-100 (`08` section 2, section 9).
+  // Post-processed from the same raw predictions as EXP-D-100.
   { id: 'EXP-D-PP', family: FAMILY.DINOV2, fractionPct: 100, lane: LANE.PROCESSED, question: 'RQ-B', derivedFrom: 'EXP-D-100' },
 ].map((e) => Object.freeze(e)));
 
@@ -65,15 +26,9 @@ export function matrixEntry(id) {
   return MATRIX.find((e) => e.id === id) ?? null;
 }
 
-/*
- * The comparisons this vertical asks the SERVER to judge. Each is one
- * experiment_compare call; the verdict, its reason and the common population
- * come back from the server and are shown as served.
- *
- * The two TREND groups decide whether a family's 25 -> 50 -> 100 points may be
- * joined into a line. A line between points from different populations would
- * be a trend the data does not support, so it is drawn only on COMPARABLE.
- */
+// The comparisons the server is asked to judge, one experiment_compare call each. A TREND group decides whether a
+// family's 25 -> 50 -> 100 points may be joined by a line: only on COMPARABLE, because points from different
+// populations would show a trend the data does not support.
 export const COMPARISONS = Object.freeze([
   { id: 'RQ-A-025', question: 'RQ-A', kind: 'HEAD_TO_HEAD', label: 'UNet vs DINOv2 at 25 %', experimentIds: ['EXP-U-025', 'EXP-D-025'] },
   { id: 'RQ-A-050', question: 'RQ-A', kind: 'HEAD_TO_HEAD', label: 'UNet vs DINOv2 at 50 %', experimentIds: ['EXP-U-050', 'EXP-D-050'] },
@@ -83,12 +38,8 @@ export const COMPARISONS = Object.freeze([
   { id: 'RQ-B', question: 'RQ-B', kind: 'ABLATION', label: 'DINOv2 100 %: raw vs post-processed', experimentIds: ['EXP-D-100', 'EXP-D-PP'] },
 ].map((c) => Object.freeze({ ...c, experimentIds: Object.freeze([...c.experimentIds]) })));
 
-/*
- * DR-010, approved: the operational "outlier". Cited, never applied here.
- * The pinned values are contract.json selection_rules.outlier_selection;
- * test_study_and_compare.mjs fails if a contract bump changes them, so a
- * new selection version is a deliberate change here, not a silent drift.
- */
+// The server's outlier rule (DR-010), quoted for display and never applied here. The values match the contract's
+// outlier_selection, and a test fails if the contract changes them.
 export const OUTLIER_RULE = Object.freeze({
   id: 'DR-010',
   selectionVersion: 'dr010-outlier/v1',
@@ -98,14 +49,11 @@ export const OUTLIER_RULE = Object.freeze({
     + 'selected experiment and prediction variant; ties: higher FP+FN voxel count first, then case_id',
 });
 
-// Own-key lookup: a status or variant string such as "constructor" must not
-// match through the prototype of a plain object.
+// Own keys only, so a string such as "constructor" never matches through the object prototype.
 const has = (table, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);
 
-// Per-case row statuses - contract domain_enums.case_result_status. `08`
-// section 8.1: failed and excluded cases are never dropped, so every row is
-// kept; only SUCCEEDED rows with a value are plotted. WITHHELD is an
-// INFERENCE_REVIEW case (INT-12): visible, with its reason, never a value.
+// Failed and excluded rows are never dropped; only SUCCEEDED rows with a value are plotted. WITHHELD is an
+// inference-review case (INT-12): shown with its reason, never with a value.
 export const ROW_STATUS = Object.freeze({
   SUCCEEDED: 'SUCCEEDED', FAILED: 'FAILED', EXCLUDED: 'EXCLUDED', WITHHELD: 'WITHHELD',
 });
@@ -124,24 +72,18 @@ export const UNAVAILABLE = Object.freeze({
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'OUTLIERS_FOR_ANOTHER_EXPERIMENT',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'OUTLIERS_FOR_ANOTHER_VARIANT',
   OUTLIERS_DUPLICATE_CASE_ID: 'OUTLIERS_DUPLICATE_CASE_ID',
-  // The selection names a case that the same experiment_cases answer does not
-  // list as SUCCEEDED (a FAILED, EXCLUDED or WITHHELD row, or no row at all).
-  // DR-010 selects only among successfully evaluated cases, and an
-  // INFERENCE_REVIEW case (INT-12) never has a per-case value.
+  // The selection names a case that is not SUCCEEDED in the same experiment_cases answer. The rule picks only
+  // successfully evaluated cases.
   OUTLIERS_NAME_INELIGIBLE_CASE: 'OUTLIERS_NAME_INELIGIBLE_CASE',
   NO_ELIGIBLE_CASES: 'NO_ELIGIBLE_CASES',
-  // experiment_list answered with no rows: no experiment is listed yet.
   NO_EXPERIMENTS_LISTED: 'NO_EXPERIMENTS_LISTED',
 });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const absent = (v) => v === undefined || v === null;
 
-/*
- * What a screen shows for a value it could not read: the reason AND what the
- * server actually sent, so "unavailable" is diagnosable rather than mysterious.
- * `served` is shortened, never interpreted.
- */
+// Next to the reason, a screen shows what the server actually sent (shortened, not interpreted), so "unavailable"
+// can be diagnosed.
 function servedForDisplay(v) {
   if (absent(v)) return null;
   const text = typeof v === 'string' ? v : JSON.stringify(v);
@@ -167,12 +109,8 @@ export function readNumber(v) {
   return unavailableValue(v);
 }
 
-/*
- * `08` section 8.1 and NFR-REP-003: intended N and successful N are two
- * numbers and are always shown as two. They are not subtracted into a "failed"
- * count here - the failed and excluded rows themselves come from
- * experiment_cases, with their reasons, which is what `08` asks for.
- */
+// Intended N and successful N are always shown as two numbers, never subtracted into a "failed" count: the failed
+// and excluded rows come from experiment_cases, with their reasons.
 export function readCohortN(data) {
   const intended = readCount(data?.evaluation_n);
   const successful = readCount(data?.successful_n);
@@ -191,11 +129,8 @@ export function readCohortN(data) {
 
 const VARIANT_SPELLINGS = LANE;
 
-/*
- * API contract 1.1.0 enumerates exactly RAW / PROCESSED. `declared` keeps the
- * server's own spelling for display; aliases and case changes are drift, not
- * values the client silently normalises.
- */
+// The contract allows exactly RAW and PROCESSED. Other spellings are drift and are not normalised; `declared` keeps
+// what the server sent.
 export function readVariant(v) {
   const key = typeof v === 'string' ? v : null;
   const lane = has(VARIANT_SPELLINGS, key) ? VARIANT_SPELLINGS[key] : null;
@@ -212,8 +147,7 @@ export function readFamily(v) {
   return Object.freeze({ declared: absent(v) ? null : v, family, readable: family !== null });
 }
 
-// Contract 2 enumerates training_fraction as 0.25 | 0.5 | 1.0. Nothing else is
-// read as a fraction: "25" or 25 would be a guess about units.
+// training_fraction is 0.25, 0.5 or 1.0. Nothing else is read: "25" or 25 would be a guess about units.
 const FRACTIONS = new Map([[0.25, 25], [0.5, 50], [1, 100]]);
 
 export function readFraction(v) {
@@ -221,11 +155,8 @@ export function readFraction(v) {
   return Object.freeze({ declared: absent(v) ? null : v, pct, readable: pct !== null });
 }
 
-/*
- * An evaluation population is a manifest id, an object with an id and n, or a
- * list of case ids. It is shown as served; `n` is only filled when the server
- * gave a count or a list to count.
- */
+// A population is a manifest id, an object with an id and n, or a list of case ids. `n` is set only when the server
+// gave a count or a list to count.
 export function readPopulation(v) {
   if (Array.isArray(v)) {
     return Object.freeze({ available: true, label: `${v.length} cases`, n: v.length, served: servedForDisplay(v) });
@@ -249,13 +180,8 @@ const PROVENANCE_FIELDS = Object.freeze([
   'checkpoint', 'evaluation_version',
 ]);
 
-/*
- * experiment_get, checked against the `08` section 2 cell it is meant to fill.
- *
- * A mismatch is REPORTED, never repaired: the cell is not moved to wherever the
- * server's declaration would put it, and the declaration is not overwritten by
- * the spec's. The screen shows both and says they disagree.
- */
+// Checks experiment_get against the matrix cell it should fill. A mismatch is reported, never repaired: the screen
+// shows both values and says they disagree.
 export function readExperimentIdentity(data, expected) {
   const servedId = data?.experiment_id ?? null;
   const family = readFamily(data?.model_family);
@@ -286,16 +212,11 @@ export function readExperimentIdentity(data, expected) {
   });
 }
 
-// contract metric_rules.summary_statistics, each a number or null (null = not
-// computed). Read one by one: a null std does not hide a present median.
+// Each statistic is a number or null (not computed).
 const SUMMARY_STATS = Object.freeze(['n', 'mean', 'median', 'std', 'q1', 'q3', 'min', 'max', 'ci95_low', 'ci95_high']);
 
-/*
- * A metric summary as served (PROPOSED_SHAPES.metric_summary). Each statistic
- * is read on its own; one missing std does not hide a present median, and a
- * missing median is null, not 0. Keys whose value is not an object are listed
- * in `ignored` so nothing the server sent disappears silently.
- */
+// Each statistic is read on its own, so a missing std does not hide a present median, and a missing value is null,
+// not 0. Keys whose value is not an object go to `ignored`, so nothing the server sent disappears silently.
 export function readMetricSummary(summary) {
   if (!isObject(summary)) {
     return Object.freeze({
@@ -332,13 +253,9 @@ export function summaryStat(summary, metricName, stat) {
   return m ? m.stats[stat] ?? null : null;
 }
 
-/*
- * A navigation intent for SCR-03. Every point on a V3 chart and every outlier
- * row produces one. It is enabled only when the server named all three of case,
- * run and variant: SCR-03 needs a run (V1's open() takes a runId), and the
- * variant must never be defaulted (`11` section 6). A disabled intent says
- * which field was missing, so the screen can say why the tap does nothing.
- */
+// A navigation intent to SCR-03, from a chart point or an outlier row. It is enabled only when the server named the
+// case, run and variant: SCR-03 needs a run, and the variant is never defaulted (spec 11 §6). A disabled intent says
+// which field was missing, so the screen can say why the tap does nothing.
 export function caseIntent({ caseId, runId, variant, experimentId, from }) {
   const missing = [];
   if (!caseId) missing.push('case_id');
@@ -357,20 +274,9 @@ export function caseIntent({ caseId, runId, variant, experimentId, from }) {
   });
 }
 
-/*
- * experiment_cases rows (contract row_fields + field_shapes.metric_values).
- * Every row is kept, in the order served. `plotState` says why a row is or is
- * not a point: a FAILED, EXCLUDED or WITHHELD case stays visible with its
- * reason (`08` section 8.1, INT-12), and a SUCCEEDED row with no value is
- * "not returned", not a point at 0. `servedVariant` is the variant the server
- * says these rows are for (top-level prediction_variant).
- *
- * A value exists ONLY on a SUCCEEDED row. The contract says metric_values is
- * null otherwise, and that no per-case value of an INFERENCE_REVIEW case is
- * served (case_capability.case_level_scope). A value that arrives anyway on a
- * FAILED / EXCLUDED / WITHHELD row is dropped - never shown, never plotted -
- * and the row keeps `servedValueIgnored: true` so the drift stays visible.
- */
+// Every experiment_cases row is kept, in the served order. `plotState` says why a row is or is not a point: a
+// FAILED, EXCLUDED or WITHHELD case stays visible with its reason, and a SUCCEEDED row with no value is not a point
+// at 0. Only a SUCCEEDED row has a value; one sent on another row is dropped and flagged as `servedValueIgnored`.
 export function readCaseRows(data, {
   metricName, variant, experimentId, disabledIntentReason = null,
 } = {}) {
@@ -447,18 +353,9 @@ export function readCaseRows(data, {
   });
 }
 
-/*
- * The DR-010 outlier selection, READ ONLY - the same discipline as app/core
- * selection.mjs. The server applies the rule; this keeps the server's order
- * and ranks nothing. Refused rather than shown when:
- *   - it does not cite DR-010, at the pinned selection version and metric
- *     (contract selection_rules.outlier_selection) - a second definition of
- *     "outlier" on screen is two answers to one question;
- *   - it does not name its experiment and variant (DR-010: both are explicit
- *     inputs, never defaults);
- *   - it was made for another experiment or variant than the one displayed;
- *   - it lists more cases than the rule's cardinality.
- */
+// Reads the server's outlier selection and keeps its order; nothing is ranked here. It is refused, not shown, when
+// it cites another rule, version or metric, does not name its experiment and variant, was made for another
+// experiment or variant, or lists more cases than the rule allows.
 export function readOutlierSelection(block, { experimentId, variant } = {}) {
   const unavailable = (reason, extra = {}) => Object.freeze({
     available: false, reason, ruleId: OUTLIER_RULE.id, cases: Object.freeze([]), ...extra,
@@ -497,7 +394,7 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
     return unavailable(UNAVAILABLE.OUTLIERS_DUPLICATE_CASE_ID, { served: duplicateSelectedIds.join(', ') });
   }
 
-  // Order comes from the server, in the order it sent. Preserved as-is.
+  // `rank` is the position the server sent.
   const cases = block.cases.map((c, rank) => {
     const caseId = typeof c?.case_id === 'string' && c.case_id ? c.case_id : null;
     const runId = typeof c?.analysis_run_id === 'string' && c.analysis_run_id ? c.analysis_run_id : null;
@@ -506,7 +403,7 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
       caseId,
       runId,
       value: readNumber(c?.metric_value),
-      // The tie-break the server applied (DR-010): FP+FN, shown, never re-ranked.
+      // FP and FN are the server's tie-break: shown, never used to re-rank.
       falsePositives: readCount(c?.false_positives),
       falseNegatives: readCount(c?.false_negatives),
       intent: caseIntent({
@@ -527,7 +424,7 @@ export function readOutlierSelection(block, { experimentId, variant } = {}) {
   });
 }
 
-/* study_get.dataset - contract field_shapes.dataset { dataset_id, name, version }; shown as served. */
+/* study_get.dataset is { dataset_id, name, version }, shown as served. */
 export function readDataset(v) {
   if (!isObject(v)) {
     return Object.freeze({ available: false, label: null, datasetId: null, name: null, version: null, served: servedForDisplay(v) });
@@ -544,11 +441,7 @@ export function readDataset(v) {
   });
 }
 
-/*
- * study_get.experiment_summary - contract field_shapes.experiment_summary
- * { status: AVAILABLE | UNAVAILABLE, experiment_ids, reason }. UNAVAILABLE is
- * a legitimate answer with a reason, never an invented summary.
- */
+// UNAVAILABLE is a valid answer with a reason; no summary is invented for it.
 export function readExperimentSummary(v) {
   if (!isObject(v)) {
     return Object.freeze({ available: false, status: null, reason: absent(v) ? UNAVAILABLE.NOT_RETURNED : UNAVAILABLE.WRONG_TYPE, experimentIds: Object.freeze([]) });
@@ -562,7 +455,7 @@ export function readExperimentSummary(v) {
   });
 }
 
-/* study_get.case_counts - every key the server sent, each read as a count. */
+/* study_get.case_counts: every key the server sent, each read as a count. */
 export function readCaseCounts(v) {
   if (!isObject(v)) return Object.freeze({ available: false, reason: absent(v) ? UNAVAILABLE.NOT_RETURNED : UNAVAILABLE.WRONG_TYPE, counts: Object.freeze([]) });
   const counts = Object.entries(v).map(([key, raw]) => Object.freeze({ key, count: readCount(raw) }));
@@ -574,11 +467,8 @@ export function readCaseCounts(v) {
   });
 }
 
-/*
- * study_get.capabilities - a list of names, or an object of flags. A flag is
- * on only when it is === true: a fixture or a drifted server can put a STRING
- * in typed fields, and a string is truthy.
- */
+// Capabilities are a list of names or an object of flags. A flag is on only when it is === true, because a drifted
+// server can send a string, and a string is truthy.
 export function readCapabilities(v) {
   if (Array.isArray(v)) return Object.freeze({ available: true, names: Object.freeze(v.filter((x) => typeof x === 'string')) });
   if (isObject(v)) {
@@ -600,11 +490,7 @@ export function readIdRows(data, idField) {
   return Object.freeze({ ids: Object.freeze(ids), total: items.length, unreadable });
 }
 
-/*
- * experiment_list rows (contract 1.1.0: each row states its own
- * prediction_variant). A matrix experiment listed under another variant than
- * `08` section 2 defines it by is reported here - never re-filed.
- */
+// A matrix experiment listed under another variant than the spec gives it is reported, never moved.
 export function readExperimentRows(data) {
   const base = readIdRows(data, 'experiment_id');
   const variants = {};
@@ -622,18 +508,8 @@ export function readExperimentRows(data) {
   return Object.freeze({ ...base, variants: Object.freeze(variants), problems: Object.freeze(problems) });
 }
 
-/*
- * Experiment comparability - READER ONLY.
- *
- * `11` section 5: "The client must not label a comparison as fair/comparable
- * when this contract says false." The server decides; this module only reads
- * the decision and makes it hard to ignore.
- *
- * The failure mode this guards against is not a crash. It is a chart with two
- * bars that looks like a comparison, drawn from two experiments evaluated on
- * different populations. It renders perfectly and it is wrong, so the only
- * defence is that the reason is as easy to render as the numbers.
- */
+// Comparability: the server decides and the app only reads the verdict (spec 11 §5). Two bars from different
+// populations would render fine and still be wrong, so the reason must be as easy to show as the numbers.
 
 export const VERDICT = Object.freeze({
   COMPARABLE: 'COMPARABLE',
@@ -641,11 +517,7 @@ export const VERDICT = Object.freeze({
   UNDECIDED: 'UNDECIDED',
 });
 
-/*
- * Note the middle branch. A response whose `comparable` is missing or not a
- * boolean is UNDECIDED, never comparable. Defaulting an absent flag to true is
- * how an unfair comparison gets labelled fair by a typo.
- */
+// A missing or non-boolean `comparable` is UNDECIDED, never comparable, so a typo cannot label a comparison fair.
 export function readComparability(data) {
   const comparable = data?.comparable;
   let verdict;
@@ -666,11 +538,8 @@ export function readComparability(data) {
   });
 }
 
-/*
- * What a screen is allowed to draw. A vertical calls this instead of writing
- * its own `if (comparable)`, so "may I show the delta between the two?" has
- * one answer in the codebase rather than one per chart.
- */
+// What a screen may draw for a verdict. Screens call this instead of their own `if (comparable)`, so the app has
+// one answer to "may I show the difference?".
 export function presentation(comparability) {
   const fair = comparability.verdict === VERDICT.COMPARABLE;
   return Object.freeze({

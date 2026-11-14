@@ -1,26 +1,6 @@
-/*
- * SCR-05 - 3D Inspector (V2, Vũ Hùng Anh). A WORKING SKELETON built under the Day 39 recovery override so that the hero
- * steps H6 and H7 run end to end on real data; the owner completes, measures (TC-3D-*, TC-PERF-002) and defends it.
- *
- * `10` §3 and the DEMO_STANDARD §4 bar, and where each is met:
- *   reconstructed LA            reconstruction_get -> a mesh reference; the mesh bytes through the shell's one binary
- *                               path (runtime.content: timeout, error mapping, SHA-256 against the id, DR-021 rule 1);
- *                               drawn by the self-contained WebGL2 viewer (viewerHtml.mjs) in a WebView. The mesh is
- *                               the undecimated L0 surface (DR-008c) in the voxel-index frame: no millimetres.
- *   rotate, zoom, pan           one-finger orbit, two-finger pinch zoom and pan (in the viewer)
- *   optional error representation  prediction and ground truth as two layers with their own switch; where the surfaces
- *                               differ the disagreement shows. error_reconstruction_get stays unavailable while DR-005
- *                               is open and is not requested here: no fabricated error mesh.
- *   select (H7)                 a tap resolves to the source slice of the first face hit and the screen shows
- *                               "slice n / total"; "Open in 2D" pushes SCR-03 at that slice for the same run and
- *                               variant, with returnParams so Back reopens this screen on the same slice. A tap on the
- *                               background clears the selection and says so: nothing navigates by accident.
- *   states                      loading, unavailable (with the API's own reason), error, success - app/core states
- *                               drawn by StateView; every data call goes through useCall (DR-021 rule 2).
- *
- * Fixture mode has no bytes behind any URL, so it shows the honest unavailable state (FIXTURE_NO_BYTES), not a mesh.
- * Ground truth is requested only for a case that has it (INT-12: its prediction mesh is served, its ground truth never).
- */
+// SCR-05 3D Inspector: shows the reconstructed left atrium as two WebGL layers (prediction, ground truth) in a
+// WebView. A tap on the surface picks the slice that made that face; "Open in 2D" opens SCR-03 on that slice.
+// The error mesh is not requested: where the two surfaces differ, the layers show the disagreement.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -39,7 +19,8 @@ import {
 } from './inspector3d.mjs';
 import { VIEWER_HTML } from './viewerHtml.mjs';
 
-/* The mesh bytes of one reference, latest-wins like useCall: aborted on unmount and when the reference changes. */
+// Loads the mesh bytes of one reference. Latest wins, like useCall: the request is aborted on unmount and when the
+// reference changes.
 function useMeshBytes(content, ref, enabled) {
   const [view, setView] = useState(loading());
   const [epoch, setEpoch] = useState(0);
@@ -76,7 +57,7 @@ export default function Inspector3DScreen({ runtime, nav, params }) {
   if (caseCall.view.state !== STATE.SUCCESS) return <StateView view={caseCall.view} what={`case ${caseId}`} onAction={onAction} />;
   if (runCall.view.state !== STATE.SUCCESS) return <StateView view={runCall.view} what={`run ${runId}`} onAction={onAction} />;
   if (!variant) {
-    // Never defaulted (`11` §6): the screen asks, like SCR-03.
+    // The variant has no default (spec 11 §6), so the screen asks, like SCR-03.
     return (
       <View style={s.center}>
         <Text style={s.h2}>Prediction variant</Text>
@@ -118,8 +99,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const gtWanted = kase.ground_truth_available === true && wantPrediction;
 
   const basePath = runtime.contract.basePath;
-  // What the viewer is asked to draw: bytes that hash to the id (runtime.content) AND parse as the format AND fit
-  // this case's grid. One memo per layer, so the viewer is told once per mesh.
+  // A layer is drawn only if its bytes match the checksum, parse as a mesh file and fit this case's grid.
   const layerOf = (call, bytes) => {
     if (call.state !== STATE.SUCCESS) return call;
     if (!runtime.content.live) return emptyUnavailable('FIXTURE_NO_BYTES'); // no bytes exist behind any fixture reference
@@ -135,12 +115,11 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   };
   const refOf = (call) => (call.view.state === STATE.SUCCESS ? meshRef(basePath, call.view.data.mesh_artifact_id) : null);
 
-  // 1. prediction mesh reference, then its bytes
   const predCall = useCall(client, 'reconstruction_get', { run_id: runId, mask_id: maskId || '' }, { enabled: wantPrediction });
   const predRef = useMemo(() => refOf(predCall), [predCall.view]); // eslint-disable-line react-hooks/exhaustive-deps
   const predBytes = useMeshBytes(runtime.content, predRef, Boolean(predRef));
 
-  // 2. ground truth: its mask id is the one the server states on a slice, never derived from a name
+  // The ground-truth mask id is the one the server gives on a slice, never built from a name.
   const gtSlice = useCall(client, 'ground_truth_slice_get', { case_id: caseId, slice_index: 0 }, { enabled: gtWanted });
   const gtMaskId = gtSlice.view.state === STATE.SUCCESS ? gtSlice.view.data.reference_mask_id : null;
   const gtCall = useCall(client, 'reconstruction_get', { run_id: runId, mask_id: gtMaskId || '' }, { enabled: gtWanted && Boolean(gtMaskId) });
@@ -156,7 +135,6 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
       ? { bytes: gtPrepared.data.bytes, checksum: gtPrepared.data.checksum, triangles: gtPrepared.header.triangle_count } : null,
   }), [predPrepared, gtPrepared]);
 
-  // the viewer
   const webRef = useRef(null);
   const sent = useRef({});
   const [ready, setReady] = useState(false);
@@ -165,7 +143,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const [show, setShow] = useState({ prediction: true, groundTruth: true });
   const [selection, setSelection] = useState(SELECTION_NONE);
 
-  // The band on the surface: the picked slice, else the 2D slice this screen was opened from.
+  // The amber band shows the picked slice, else the 2D slice this screen was opened from.
   const band = Number.isInteger(selection.slice) ? selection.slice : initialSlice;
 
   const tell = useCallback((message) => { if (webRef.current) webRef.current.postMessage(message); }, []);
@@ -190,7 +168,6 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
     }
   }, [total]);
 
-  // layer states
   const predStatus = layerStatus({
     wanted: wantPrediction,
     reason: !runOk ? 'RUN_NOT_SUCCEEDED' : 'NO_PREDICTION_FOR_VARIANT',
@@ -217,7 +194,7 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
     ? 'Voxel-index frame (x = column, y = row, z = slice). Geometry is not validated: no millimetres are shown.' : null;
 
-  // not a mesh: say why, with the API's reason (the prediction decides the screen)
+  // No prediction mesh: show the API's reason instead of the viewer.
   if (overall === 'unavailable' || overall === 'error') {
     const view = predStatus.view
       || (predStatus.state === LAYER.ERROR

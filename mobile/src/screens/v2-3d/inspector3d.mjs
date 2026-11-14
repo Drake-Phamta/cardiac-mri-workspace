@@ -1,19 +1,5 @@
-/*
- * SCR-05 - everything the 3D Inspector decides that is not drawing (V2, Vũ Hùng Anh; skeleton built under the
- * Day 39 recovery override, which the owner completes, measures and defends). Pure, so `node --test` checks the
- * same code Hermes runs.
- *
- *   mesh reference     reconstruction_get answers `mesh_artifact_id` = MESH_<sha256 of the mesh bytes>; the content
- *                      route and the checksum the app must verify (DR-021 rule 1) come from that id alone
- *                      (contracts/api/README.md, "3-D mesh content")
- *   artifact header    the `cardiac-mesh/1` header, read before the bytes go to the WebView (backend/mesh/artifact.py)
- *   viewer messages    what the WebView posts, checked: a malformed message is ignored, never acted on
- *   pick -> slice      H7: a tap resolves to face_source_slice[t] of the first triangle hit; a background tap
- *                      resolves nothing and CLEARS the selection, so nothing can navigate by accident
- *   open in 2D         the push to SCR-03 at the picked slice, same run and variant, with the returnParams that put
- *                      this screen back on the same slice (the 3D plane follows the 2D slice)
- *   layers             prediction and ground truth, each with its own state; ground truth only for a case that has it
- */
+// What the 3D Inspector (SCR-05) decides apart from drawing: mesh references, the mesh file header, viewer messages,
+// tap-to-slice and the layer states. Plain JS, so the Node tests check the same code the phone runs.
 
 import { bytesToBase64 } from '../../lib/bytes.mjs';
 
@@ -21,22 +7,16 @@ export const MESH_FORMAT = 'cardiac-mesh/1';
 export const MESH_ID = /^MESH_([0-9a-f]{64})$/;
 export const ROLES = Object.freeze({ PREDICTION: 'prediction', GROUND_TRUTH: 'groundTruth' });
 export const ROLE_LABEL = Object.freeze({ prediction: 'Prediction', groundTruth: 'Ground truth' });
-// The same colours as the 2D overlays (SCR-03 OVERLAY_COLOR): one legend across the app.
+// Same colours as the 2D overlays on SCR-03, so the whole app has one legend.
 export const LAYER_COLOR = Object.freeze({ prediction: '#f0883e', groundTruth: '#39c5cf' });
 
-/* ------------------------------------------------------------------ mesh reference */
-
-/*
- * { contentUrl, checksum } for a mesh_artifact_id, or null when it is not `MESH_<64 hex>` (a Contract 2 package
- * that lists its own mesh uses its own ids: the app has no content route for those and says so).
- */
+// The id is MESH_<sha256 of the mesh bytes>, so both the download URL and the checksum come from the id alone.
+// Any other id has no content route: null.
 export function meshRef(basePath, meshArtifactId) {
   const m = typeof meshArtifactId === 'string' ? MESH_ID.exec(meshArtifactId) : null;
   if (!m || typeof basePath !== 'string' || !basePath.startsWith('/')) return null;
   return Object.freeze({ contentUrl: `${basePath.replace(/\/+$/, '')}/artifacts/${m[1]}.cmesh`, checksum: `sha256:${m[1]}` });
 }
-
-/* ------------------------------------------------------------------ artifact header */
 
 const ascii = (bytes, from, to) => {
   let out = '';
@@ -45,11 +25,8 @@ const ascii = (bytes, from, to) => {
 };
 const pad4 = (n) => (4 - (n % 4)) % 4;
 
-/*
- * Reads and checks the header of a `cardiac-mesh/1` artifact: magic, JSON, level 0 in the voxel-index frame, and that
- * the sections fill the file exactly. Mirrors backend/mesh/artifact.py read_header. { ok, header } or { ok: false,
- * code, message } - never a throw, so a damaged file is a state, not a crash.
- */
+// Checks a cardiac-mesh/1 file with the same rules as read_header in backend/mesh/artifact.py. It returns
+// { ok: false, code, message } instead of throwing, so a damaged file becomes a screen state, not a crash.
 export function parseMeshHeader(bytes) {
   const bad = (code, message) => ({ ok: false, code, message });
   if (!(bytes instanceof Uint8Array) || bytes.length < 12 || ascii(bytes, 0, 8) !== 'CARDMESH') {
@@ -78,15 +55,13 @@ export function parseMeshHeader(bytes) {
   return Object.freeze({ ok: true, header: Object.freeze(header) });
 }
 
-/* A mesh must live in the grid of the case it is shown for, and the two layers must share one grid. */
+// A mesh must be built on the grid of the case it is shown for, so both layers share one grid.
 export function gridMatches(header, caseShape) {
   return Boolean(header) && Array.isArray(caseShape) && caseShape.length === 3
     && header.shape.every((v, i) => v === caseShape[i]);
 }
 
-/* ------------------------------------------------------------------ bytes -> WebView */
-
-/* The messages the screen sends the viewer (viewerHtml.mjs protocol). */
+// Messages to the WebView page (viewerHtml.mjs reads them).
 export const toViewer = Object.freeze({
   mesh: (role, bytes) => JSON.stringify({ type: 'mesh', role, b64: bytesToBase64(bytes) }),
   layers: (prediction, groundTruth) => JSON.stringify({ type: 'layers', prediction: Boolean(prediction), groundTruth: Boolean(groundTruth) }),
@@ -94,12 +69,8 @@ export const toViewer = Object.freeze({
   fit: () => JSON.stringify({ type: 'fit' }),
 });
 
-/* ------------------------------------------------------------------ viewer -> screen */
-
-/*
- * One message the WebView posted, checked. { kind: 'ready' | 'loaded' | 'error' | 'pick' | 'ignored', ... }.
- * A pick carries `slice` as an integer or null; anything else is ignored (never coerced into a slice).
- */
+// Checks one message from the WebView. A malformed message becomes { kind: 'ignored' }; a pick slice must be an
+// integer or null and is never coerced.
 export function parseViewerMessage(raw) {
   let data = raw;
   if (typeof raw === 'string') {
@@ -124,15 +95,10 @@ export function parseViewerMessage(raw) {
   }
 }
 
-/* ------------------------------------------------------------------ pick -> slice (H7) */
-
 export const SELECTION_NONE = Object.freeze({ slice: null, role: null, note: null });
 
-/*
- * The selection after a pick message. A background tap clears the selection and says so; a slice outside the volume
- * (a viewer that disagrees with the case's shape) is refused and clears it too - nothing is clamped into range. Only a
- * slice inside [0, total) is ever selected, and only it can be opened in 2D.
- */
+// A background tap clears the selection with a note, so a tap never navigates by accident. A slice outside
+// [0, total) is refused, not clamped.
 export function selectionAfterPick(pick, total) {
   if (!pick || pick.kind !== 'pick') return null;
   if (pick.slice === null) {
@@ -144,17 +110,14 @@ export function selectionAfterPick(pick, total) {
   return Object.freeze({ slice: pick.slice, role: pick.role, note: null });
 }
 
-// `10` §3: slice n / total. 1-based for people with the 0-based index the API uses, as SCR-03 prints it.
+// 1-based for people, then the 0-based index the API uses, as SCR-03 prints it.
 export function sliceText(slice, total) {
   if (!Number.isInteger(slice) || !Number.isInteger(total)) return 'slice - / -';
   return `slice ${slice + 1} / ${total}  (z = ${slice})`;
 }
 
-/*
- * The push to SCR-03 for the selected slice: same case, run and variant, `sliceIndex` = the picked slice.
- * `returnParams` go into THIS screen's stack entry in the same action, so Back from SCR-03 reopens SCR-05 on the slice
- * that was opened (the band on the surface follows the 2D slice). null when nothing valid is selected.
- */
+// The push to SCR-03 at the picked slice, or null. returnParams update this screen's stack entry, so Back from
+// SCR-03 reopens it on the same slice.
 export function openIn2D({ caseId, runId, variant, selection, total }) {
   if (!selection || !Number.isInteger(selection.slice) || !Number.isInteger(total) || selection.slice < 0 || selection.slice >= total) return null;
   if (!caseId || !runId || (variant !== 'RAW' && variant !== 'PROCESSED')) return null;
@@ -165,8 +128,6 @@ export function openIn2D({ caseId, runId, variant, selection, total }) {
   });
 }
 
-/* ------------------------------------------------------------------ layers */
-
 export function maskIdForVariant(run, variant) {
   if (!run) return null;
   const id = variant === 'RAW' ? run.raw_prediction_artifact_id : variant === 'PROCESSED' ? run.processed_prediction_artifact_id : null;
@@ -175,10 +136,7 @@ export function maskIdForVariant(run, variant) {
 
 export const LAYER = Object.freeze({ IDLE: 'IDLE', LOADING: 'LOADING', READY: 'READY', UNAVAILABLE: 'UNAVAILABLE', ERROR: 'ERROR' });
 
-/*
- * What the screen says about one layer, from the state of its steps (reconstruction_get view, bytes view, viewer
- * report). `steps` is an array of app/core screen states in order; the first that is not SUCCESS decides.
- */
+// `steps` are the layer's screen states in order (API call, bytes, ...); the first one that is not SUCCESS decides.
 export function layerStatus({ wanted = true, reason = null, steps = [], viewerLoaded = false, viewerError = null }) {
   if (!wanted) return Object.freeze({ state: LAYER.UNAVAILABLE, reason: reason || 'NOT_APPLICABLE', code: reason || null });
   if (viewerError) return Object.freeze({ state: LAYER.ERROR, reason: viewerError.code, code: viewerError.code, message: viewerError.message });
@@ -190,7 +148,7 @@ export function layerStatus({ wanted = true, reason = null, steps = [], viewerLo
   return Object.freeze({ state: viewerLoaded ? LAYER.READY : LAYER.LOADING, reason: null, code: null });
 }
 
-/* The screen's overall state: the prediction decides it (a 3D view without the prediction is not what was asked for). */
+// The prediction layer decides the whole screen: a 3D view without the prediction is not what the user asked for.
 export function screenStatus(prediction) {
   switch (prediction.state) {
     case LAYER.READY: return 'success';

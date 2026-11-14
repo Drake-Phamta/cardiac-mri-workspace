@@ -1,14 +1,6 @@
-/*
- * V3 cohort assembly - shared by SCR-01 and SCR-07.
- *
- * Turns the core screen states of experiment_get / experiment_metrics /
- * experiment_cases into one CELL of the `08` section 2 matrix, and asks the
- * server for the comparability of the pairs and groups in COMPARISONS.
- *
- * buildCell is pure (core states in, frozen cell out) so the logic is tested
- * without a transport; requestCell / requestComparisons are the only functions
- * here that call the client.
- */
+// Builds one cell of the experiment matrix from the experiment_get, experiment_metrics and experiment_cases states,
+// and asks the server to judge each comparison. Used by SCR-01 and SCR-07. Only requestCell and requestComparisons
+// call the client; the rest is plain logic the tests check without a network.
 
 import { STATE } from '../../api/states.mjs';
 import { getEndpoint } from '../../api/contract.mjs';
@@ -31,13 +23,9 @@ export const CELL_STATUS = Object.freeze({
 
 export const CELL_UNAVAILABLE = Object.freeze({
   CELL_NOT_LOADED: 'CELL_NOT_LOADED',
-  // experiment_cases answered with no rows: the experiment has no per-case
-  // result yet. A legitimate absence (`10` section 8), said as such - an empty
-  // strip with no words would read as "no cases failed".
+  // No per-case result yet. Said in words, because an empty strip alone would read as "no cases failed".
   NO_CASE_RESULTS: 'NO_CASE_RESULTS',
-  // experiment_cases says its rows are for another variant than the metrics
-  // were served for (or says none): the rows stay listed, nothing is drawn or
-  // linked - the same silent-substitution rule as VARIANT_MISMATCH.
+  // The case rows are for another variant than the metrics: they stay listed, but nothing is drawn or linked.
   CASES_FOR_ANOTHER_VARIANT: 'CASES_FOR_ANOTHER_VARIANT',
 });
 
@@ -53,11 +41,7 @@ function statusFromView(view) {
   }
 }
 
-/*
- * The aggregation level is a fact about the endpoint, and the contract states
- * it. It is read from contract.json rather than typed here, so D2's
- * "aggregation level" on screen traces to the contract.
- */
+// The aggregation level is read from the contract, not typed here, so the level shown on screen traces to it.
 export function aggregationFor(contract) {
   return Object.freeze({
     cohort: Object.freeze({ level: 'COHORT', source: `contract: experiment_metrics - ${getEndpoint(contract, 'experiment_metrics').semantic}` }),
@@ -81,21 +65,10 @@ export function notListedCell(expected, status = CELL_STATUS.NOT_LISTED) {
   });
 }
 
-/*
- * One cell, from up to three core states. The rule for what a screen may draw:
- *
- *   - status LOADED needs experiment_metrics SUCCESS *and* a served variant
- *     equal to the one `08` section 2 defines the experiment by. A served
- *     PROCESSED for EXP-D-100 is the silent substitution `11` section 6
- *     forbids, so the cell is VARIANT_MISMATCH and shows no number.
- *   - points (the strip plot) and outliers exist only for a LOADED cell.
- *     Per-case rows are kept whenever experiment_cases succeeded, because
- *     failed and excluded cases stay visible (`08` section 8.1) - but a row
- *     whose variant the server never confirmed has a disabled intent.
- *   - an identity that disagrees with `08` section 2 is reported in
- *     identity.problems and does not move the cell. The numbers stay visible
- *     (they were served for this URL), labelled "identity unconfirmed".
- */
+// One matrix cell from up to three screen states. It is LOADED only when the metrics were served for the variant
+// the spec defines the experiment by; otherwise it is VARIANT_MISMATCH with no number (spec 11 §6: no silent
+// substitution). Points and outliers exist only for a LOADED cell. Case rows are kept whenever experiment_cases
+// succeeded, so failed and excluded cases stay visible. An identity mismatch is reported but moves nothing.
 export function buildCell(expected, {
   identityView = null, metricsView = null, casesView = null,
   population = null, metricName = null, aggregation = null,
@@ -125,9 +98,8 @@ export function buildCell(expected, {
     }
   }
 
-  // `lane` (spread from `expected`) is the variant `08` section 2 defines the
-  // experiment by; `confirmedLane` is the one the server served. Only the
-  // second is ever handed to SCR-03.
+  // `lane` is the variant the spec defines; `confirmedLane` is the one the server served. Only confirmedLane is ever
+  // passed to SCR-03.
   const confirmedLane = status === CELL_STATUS.LOADED ? servedVariant.lane : null;
   const loaded = status === CELL_STATUS.LOADED;
   const casesOk = Boolean(casesView && casesView.state === STATE.SUCCESS);
@@ -157,16 +129,10 @@ export function buildCell(expected, {
 
   let outliers;
   if (casesMatch) {
-    // contract selection_rules.outlier_selection: the server's DR-010 block,
-    // read as served - never computed here.
     outliers = readOutlierSelection(casesView.data.outlier_selection, { experimentId: expected.id, variant: confirmedLane });
-    // Every case the selection names must be a SUCCEEDED row of this same
-    // answer: FAILED, EXCLUDED and WITHHELD rows are never candidates
-    // (outlier_selection.eligibility), and the INT-12 case never shows a value.
-    // The WHOLE selection is refused - dropping an entry would re-derive the
-    // selection on the client, which DR-010 forbids (#61 QA B-4). While
-    // experiment_cases is not paged, "not a SUCCEEDED row here" is exact; once
-    // it is paged, this must test "a non-SUCCEEDED row here" or move server-side.
+    // Every case the selection names must be a SUCCEEDED row of this same answer. If not, the whole selection is
+    // refused: dropping one entry would re-derive the selection on the client. This check is exact only while
+    // experiment_cases is not paged; with paging it must test for a non-SUCCEEDED row instead, or move to the server.
     if (outliers.available) {
       const succeeded = new Set(cases.rows.filter((r) => r.status === ROW_STATUS.SUCCEEDED && r.caseId).map((r) => r.caseId));
       const ineligible = outliers.cases.filter((c) => !succeeded.has(c.caseId)).map((c) => c.caseId ?? '?');
@@ -214,12 +180,8 @@ export function buildCell(expected, {
   return Object.freeze(cell);
 }
 
-/*
- * DEMO_STANDARD rule D2: a metric on screen names its run/model, prediction
- * variant, aggregation level, evaluation population and N (intended and
- * successful). This is that list for one cell, with every missing item named
- * as missing - `complete` is false until the server has supplied all of them.
- */
+// Rule D2 (the "missing for D2" line on SCR-07): a metric on screen names its model, variant, aggregation level,
+// population and N. Each missing item is named, and `complete` stays false until the server supplied all of them.
 export function metricContext(cell, aggregation) {
   const fields = {
     experiment: cell.id,
@@ -249,11 +211,8 @@ export function metricContext(cell, aggregation) {
 
 const pick = (scenarios, endpointId) => (scenarios && scenarios[endpointId]) || 'default';
 
-/*
- * Fetch one cell's three endpoints concurrently. The fixture transport ignores
- * the id; a real server does not - which is why readExperimentIdentity checks
- * the experiment_id that comes back against the one asked for.
- */
+// Fetches one cell's three endpoints in parallel. The fixture transport ignores the id and a real server does not,
+// so readExperimentIdentity checks the experiment_id that comes back.
 export async function requestCell(client, expected, {
   scenarios, withIdentity = true, withCases = true,
 } = {}) {
@@ -266,10 +225,7 @@ export async function requestCell(client, expected, {
   return { identityView, metricsView, casesView };
 }
 
-/*
- * The server's verdict on each comparison whose members are all present;
- * readComparison (below) decides what of each answer a screen may use.
- */
+// Asks only for comparisons whose members are all present; readComparison decides what a screen may use.
 export async function requestComparisons(client, present, { scenarios } = {}) {
   return Promise.all(COMPARISONS.map(async (c) => {
     const missing = c.experimentIds.filter((id) => !present.has(id));
@@ -293,42 +249,24 @@ export async function requestComparisons(client, present, { scenarios } = {}) {
 }
 
 export const COMPARE_UNAVAILABLE = Object.freeze({
-  // The compare was served for another variant than its runs are defined on.
   COMPARE_FOR_ANOTHER_VARIANT: 'COMPARE_FOR_ANOTHER_VARIANT',
-  // RQ-B mixes RAW and PROCESSED; contract 1.1.0 gives a compare ONE
-  // prediction_variant, so it cannot describe that pair's numbers yet.
+  // RQ-B mixes RAW and PROCESSED, but a compare has one prediction_variant, so it cannot describe that pair yet.
   MIXED_VARIANT_COMPARE_UNDEFINED: 'MIXED_VARIANT_COMPARE_UNDEFINED',
-  // A comparable:true whose summary does not cover every compared id.
   SUMMARY_DOES_NOT_COVER_EVERY_ID: 'SUMMARY_DOES_NOT_COVER_EVERY_ID',
 });
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-// The one variant every member is defined on (`08` section 2), or null when
-// the members mix variants (RQ-B).
+// The one variant all members are defined on, or null when they mix variants (RQ-B).
 function commonLane(c) {
   const lanes = new Set(c.experimentIds.map((id) => (matrixEntry(id) ? matrixEntry(id).lane : null)));
   return lanes.size === 1 ? [...lanes][0] : null;
 }
 
-/*
- * One comparison, from the core state of its experiment_compare call. Pure,
- * so every branch is tested without a transport.
- *
- * NON_COMPARABLE_EXPERIMENTS is an ANSWER, not a failure: the server has
- * decided the runs are not comparable. It is read through core's
- * readComparability like a `comparable: false` body. Any other failure leaves
- * the verdict UNDECIDED - which core already treats as not comparable.
- *
- * A successful body is used only when it is about THESE runs:
- *   - HEAD_TO_HEAD and TREND compare runs of one variant; a body served for
- *     another variant is not their comparison - the verdict becomes UNDECIDED
- *     with both variants named, and its numbers are withheld (`11` section 6);
- *   - ABLATION (RQ-B) mixes RAW and PROCESSED: the verdict is shown as served,
- *     the numbers are withheld until the contract defines a mixed compare;
- *   - a comparable:true that does not carry a summary for every compared id
- *     is unconfirmed (UNDECIDED): a fair label needs the numbers it vouches for.
- */
+// One comparison from its experiment_compare state. NON_COMPARABLE_EXPERIMENTS is an answer, not a failure, and reads
+// like `comparable: false`; any other failure leaves the verdict UNDECIDED. Numbers are withheld when the body was
+// served for another variant, when the pair mixes RAW and PROCESSED (RQ-B), or when a comparable verdict comes
+// without a summary for every compared id: a fair label needs the numbers it vouches for.
 export function readComparison(c, view) {
   let comparability;
   let summaries = null;
@@ -377,7 +315,7 @@ export function readComparison(c, view) {
   });
 }
 
-/* Every server verdict that involves this cell - the label a screen puts on it. */
+/* Every server verdict that involves this cell: the labels a screen puts on it. */
 export function labelsForCell(cellId, comparisons) {
   return Object.freeze(comparisons
     .filter((c) => c.requested && c.experimentIds.includes(cellId))
@@ -390,13 +328,9 @@ export function labelsForCell(cellId, comparisons) {
     })));
 }
 
-/*
- * A head-to-head difference, only where the server said the pair is
- * comparable - core's presentation().mayShowDelta - and only from the
- * server's summaries over the COMMON population. The per-experiment summaries
- * may cover different cases, so subtracting those would compare populations,
- * not models.
- */
+// A head-to-head difference, only where the server judged the pair comparable, and only from its summaries over the
+// common population. Per-experiment summaries may cover different cases, so subtracting them would compare
+// populations, not models.
 export function deltaFor(comparison, { metricName, stat }) {
   if (!comparison?.requested) return Object.freeze({ allowed: false, reason: comparison?.notRequestedReason ?? 'not requested' });
   if (comparison.kind !== 'HEAD_TO_HEAD' || comparison.experimentIds.length !== 2) {
@@ -415,12 +349,8 @@ export function deltaFor(comparison, { metricName, stat }) {
   return Object.freeze({ allowed: true, reason: null, from: a, to: b, metricName, stat, a: va, b: vb, delta: vb - va });
 }
 
-/*
- * The data-scarcity trend (RQ-A): one series per family over 25 / 50 / 100 %,
- * from each LOADED cell's served summary. Points are joined into a line only
- * when the server judged the family's three runs comparable; otherwise they
- * stay separate points with the reason.
- */
+// The data-scarcity trend (RQ-A): one series per family over 25 / 50 / 100 %. Points are joined into a line only
+// when the server judged the family's three runs comparable; otherwise they stay separate, with the reason.
 export function buildTrend(cells, comparisons, { metricName, stat }) {
   return Object.freeze(['UNET', 'DINOV2'].map((family) => {
     const group = comparisons.find((c) => c.kind === 'TREND' && c.family === family) ?? null;
@@ -433,8 +363,8 @@ export function buildTrend(cells, comparisons, { metricName, stat }) {
         n: cell.n,
         status: cell.status,
       }));
-    // Every run of the group must be present with a value: `every` over an
-    // empty list is true, and a line through no points is still a claim.
+    // Every run must be present with a value: `every` over an empty list is true, and a line through no points is
+    // still a claim.
     const connected = group?.comparability.verdict === VERDICT.COMPARABLE
       && points.length === group.experimentIds.length
       && points.every((p) => p.value !== null);

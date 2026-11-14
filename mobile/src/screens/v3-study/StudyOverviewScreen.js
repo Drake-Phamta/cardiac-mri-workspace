@@ -1,19 +1,6 @@
-/*
- * SCR-01 - Study Overview (V3, owner Bế Quốc Khánh). Day 22 skeleton, built
- * under the recovery override; the owner reviews and completes it from D23.
- *
- * `10` SCR-01 asks for: study name/dataset, case count, available
- * experiments, high-level comparable metrics, outlier entry points, findings
- * summary; and the actions open cases / experiments / outlier case /
- * findings. Each comes from the framework-neutral model
- * createStudyOverview (app/verticals/v3_study_and_compare, PR #61); every
- * string drawn here comes from v3View.mjs, which node --test checks.
- *
- * What the experiment matrix deliberately does NOT show: metric values. Two
- * numbers side by side there would carry no comparability label. This screen
- * shows N and status per experiment, and compact common-population numbers
- * only inside a comparison with the server's own COMPARABLE verdict.
- */
+// SCR-01 Study Overview: the study, its cases, experiments, outliers and findings, with links to each screen.
+// Data comes from createStudyOverview (models.mjs) and every string from overviewView (view.mjs).
+// The experiment matrix shows no metric values: numbers appear only where the server judged runs comparable.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -27,8 +14,7 @@ import { Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './pa
 import { overviewView } from './view.mjs';
 
 export default function StudyOverviewScreen({ runtime, nav, params }) {
-  // The study is the build's (scripts/prepare.mjs --study-id), unless a
-  // caller opened this screen for another one. Never invented here.
+  // The study id comes from the build config unless the caller passed another one.
   const studyId = (params && params.studyId) || runtime.config.studyId;
   const model = useMemo(() => createStudyOverview(runtime.client), [runtime]);
   const [snap, run] = useSnapshot(model);
@@ -42,8 +28,7 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
     nav.push(route.screenId, route.params);
   }, [nav]);
 
-  // RETRY, REFRESH and REAUTH all re-request; BACK leaves. app/core decided
-  // which of them this state offers.
+  // BACK leaves; every other recovery action (RETRY, REFRESH, REAUTH) loads again.
   const onAction = useCallback((id) => {
     if (id === RECOVERY.BACK) nav.pop();
     else run(() => model.refresh());

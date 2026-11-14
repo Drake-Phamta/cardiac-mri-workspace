@@ -1,10 +1,5 @@
-/*
- * Small presentational pieces shared by SCR-01 and SCR-07. No data logic -
- * every string they draw comes from v3View.mjs.
- *
- * Status is always printed as words next to its colour (`10` section 9:
- * never colour alone), and every tappable element is at least MIN_TOUCH.
- */
+// Small UI pieces shared by SCR-01 and SCR-07. No data logic: every string they draw comes from view.mjs.
+// Status is always words next to its colour, never colour alone, and every tap target is at least MIN_TOUCH.
 
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
@@ -42,10 +37,7 @@ export function Line({ children, dim = false, mono = false, tone = null, small =
   );
 }
 
-/*
- * A link that either opens its route or says why it cannot. A disabled link
- * keeps its label and shows the reason - it never silently does nothing.
- */
+// A link that cannot open keeps its label and shows the reason, so a tap never silently does nothing.
 export function LinkButton({ label, route, onGo, testID }) {
   const ok = Boolean(route && route.ok);
   return (
@@ -111,21 +103,8 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginTop: space.xs },
 });
 
-/*
- * SCR-07 distribution: one strip per experiment of the `08` section 2
- * matrix, one dot per successfully evaluated case, drawn with
- * react-native-svg.
- *
- * Geometry and hit-testing are app/verticals/v3_study_and_compare/strip.mjs
- * (stripLayout, pointAt) - pure and tested in node. This file only draws
- * what they computed. A strip and not a box, because Tukey whiskers would be
- * a second definition of "outlier" next to DR-010; the server's DR-010 cases
- * get a ring, and are also listed as text under the chart (never colour
- * alone).
- *
- * A tap selects the nearest dot within reach; the screen then shows the case
- * and an "Open case" link, so a dense strip cannot navigate by accident.
- */
+// SCR-07 strip chart: one column per experiment, one dot per evaluated case, a ring on the server's outliers.
+// stripLayout and pointAt (view.mjs) do the geometry. A tap only selects a dot; opening the case needs the link.
 
 export const STRIP_HEIGHT = 240;
 
@@ -199,20 +178,9 @@ export function StripChart({ columns, selected, onSelect, label }) {
   );
 }
 
-/*
- * Holds a V3 state model's snapshot in React state.
- *
- * The models (app/verticals/v3_study_and_compare) are async factories that
- * return frozen snapshots wrapping an app/core screen state. This hook is the
- * only place a V3 screen awaits one:
- *   - the LOADING snapshot is shown as soon as a request starts, so a refresh
- *     never leaves the previous numbers on screen as if they were current
- *     (`10` section 8: stale content is not silently mixed);
- *   - only the LATEST request may update the screen - an older answer that
- *     arrives late is dropped, not drawn over a newer one;
- *   - a model that throws becomes a FATAL_INVALID state with the message, not
- *     an unhandled promise rejection.
- */
+// Keeps a model's snapshot (models.mjs) in React state. The LOADING snapshot shows as soon as a request starts, so
+// old numbers never stay on screen as if current. Only the latest request may update the screen, and a model that
+// throws becomes a FATAL_INVALID state instead of an unhandled promise rejection.
 
 function failed(err) {
   return Object.freeze({

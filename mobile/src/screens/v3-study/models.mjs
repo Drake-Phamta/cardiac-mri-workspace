@@ -1,33 +1,6 @@
-/*
- * V3 - SCR-01 Study Overview, as a state model.
- *
- * What `10` SCR-01 requires and where each comes from:
- *   study name / dataset       study_get: study_id, dataset
- *   case count                 study_get: case_counts, every key as served
- *   available experiments      experiment_list against the `08` section 2
- *                              matrix: listed or not, plus N intended /
- *                              N successful per listed cell (experiment_metrics)
- *   high-level comparable      experiment_compare: the server's verdict per
- *   metrics                    comparison, and its common-population summary
- *                              ONLY where the server said COMPARABLE
- *   outlier entry points       experiment_cases.outlier_selection of each
- *                              listed matrix experiment - the server's DR-010
- *                              selection for THAT experiment and variant
- *                              (contract 1.1.0 selection_rules), never computed
- *   experiment summary         study_get.experiment_summary: AVAILABLE or
- *                              UNAVAILABLE with a reason
- *   findings summary           findings_list, counted as returned
- *
- * Per-experiment metric VALUES are deliberately absent from the matrix. Two
- * numbers side by side there would read as a comparison without its verdict.
- * SCR-01 may show compact common-population summaries only inside a comparison
- * the server labelled COMPARABLE; SCR-07 carries the detailed statistics.
- * The matrix itself shows what Khánh's design artifact requires: N and status.
- *
- * study_get is the screen: if it fails, its state is the screen's state. The
- * other sections fail on their own, each with its own core state, so a
- * findings outage does not hide the study.
- */
+// State models for SCR-01 Study Overview and SCR-07 Experiment Comparison: factories over the API client whose
+// actions return frozen snapshots wrapping a screen state (`view`). On SCR-01 a failed study_get is the screen's
+// state; the other sections fail on their own, so a findings outage does not hide the study.
 
 import { STATE, loading, success, RECOVERY, emptyUnavailable, stateForError } from '../../api/states.mjs';
 import {
@@ -52,15 +25,15 @@ function overviewSnapshot(view, f) {
     experimentSummary: f.experimentSummary ?? null,
     experiments: f.experiments ?? null,
     headline: Object.freeze([...(f.headline ?? [])]),
-    // One DR-010 selection per listed matrix experiment, in matrix order:
-    // [{ experimentId, selection }]. DR-010 makes the experiment an explicit
-    // input, so there is no single "study outlier list" to show.
+    // One outlier selection per listed experiment, in matrix order. The rule takes the experiment as an input, so
+    // there is no single study-wide outlier list.
     outliers: Object.freeze([...(f.outliers ?? [])]),
     findings: f.findings ?? null,
   });
 }
 
-/* What one matrix cell shows on the overview: N and status, no value. */
+// One matrix cell on the overview: N and status, no metric value. Two values side by side would read as a
+// comparison without the server's verdict.
 function overviewRow(cell) {
   return Object.freeze({
     id: cell.id,
@@ -103,13 +76,10 @@ export function createStudyOverview(client) {
 
   const set = (view, patch = {}) => { current = overviewSnapshot(view, { ...current, ...patch }); return current; };
 
-  /*
-   * `studyId` has no default: SCR-01 is about one study, and which one is
-   * the caller's decision.
-   */
+  // `studyId` has no default: which study to show is the caller's decision.
   async function open({ studyId, scenarios } = {}) {
     if (!studyId) throw new Error('createStudyOverview.open needs an explicit studyId');
-    // Only the latest open() may write the snapshot (see experimentCompare.mjs).
+    // Only the latest open() may write the snapshot, so a slow earlier answer never covers a newer one.
     seq += 1;
     const mine = seq;
     const stale = () => mine !== seq;
@@ -131,9 +101,7 @@ export function createStudyOverview(client) {
     const population = listView.state === STATE.SUCCESS ? readPopulation(listView.data.evaluation_population) : null;
     const listedMatrix = MATRIX.filter((e) => listed.has(e.id));
 
-    // Metrics (N and status) and cases (only for the server's DR-010
-    // selection) of each listed matrix experiment. No identity call: this
-    // screen shows no provenance.
+    // Metrics and cases of each listed experiment. No identity call: this screen shows no provenance.
     const fetched = new Map();
     await Promise.all(listedMatrix.map(async (e) => {
       fetched.set(e.id, await requestCell(client, e, { scenarios, withIdentity: false, withCases: true }));
@@ -156,9 +124,8 @@ export function createStudyOverview(client) {
       fair: c.presentation.mayLabelFair,
       reason: c.presentation.reason,
       population: c.population ?? null,
-      // The server's common-population summaries, shown only under its own
-      // COMPARABLE verdict and only when they are about these runs (variant,
-      // coverage - readComparison). Anything else is a label and a reason.
+      // Summaries only under the server's COMPARABLE verdict and only when they are about these runs; otherwise
+      // the screen shows a label and a reason.
       summaries: c.presentation.mayLabelFair && !c.numbersWithheld ? c.summaries : null,
       numbersWithheld: c.numbersWithheld ?? null,
       view: c.view,
@@ -175,8 +142,7 @@ export function createStudyOverview(client) {
       experimentSummary: readExperimentSummary(study.data.experiment_summary),
       experiments: Object.freeze({
         view: listView,
-        // A list that answered with no rows is a legitimate absence ("no
-        // experiment listed yet"), not a list of experiments with N 0.
+        // No rows means "no experiment listed yet", not experiments with N 0.
         reason: rows && rows.total === 0 ? UNAVAILABLE.NO_EXPERIMENTS_LISTED : null,
         listedIds: rows ? rows.ids : Object.freeze([]),
         totalRows: rows ? rows.total : null,
@@ -199,7 +165,7 @@ export function createStudyOverview(client) {
     open,
     refresh: () => (lastOpen ? open(lastOpen) : Promise.resolve(current)),
 
-    /* `10` SCR-01 actions, as navigation intents. The shell routes them. */
+    // SCR-01 actions, as navigation intents that the screen routes.
     openCases: () => Object.freeze({ screen: 'SCR-02', studyId: current.studyId, enabled: current.studyId !== null }),
     openExperiments: () => Object.freeze({ screen: 'SCR-07', experimentIds: null, enabled: true }),
     openComparison(comparisonId) {
@@ -211,7 +177,7 @@ export function createStudyOverview(client) {
         reason: h ? h.notRequestedReason : `unknown comparison ${comparisonId}`,
       });
     },
-    /* DR-010: the experiment is an explicit input; the rank is the server's. */
+    // The experiment is an explicit input of the outlier rule, and the rank is the server's.
     openOutlier(experimentId, rank) {
       const entry = current.outliers.find((o) => o.experimentId === experimentId);
       const o = entry ? entry.selection : null;
@@ -227,43 +193,16 @@ export function createStudyOverview(client) {
   });
 }
 
-/*
- * V3 - SCR-07 Experiment Comparison, as a state model.
- *
- * Framework-neutral, in the shape V1 and V4 use: a factory over a core
- * client, every action returning the same frozen snapshot the getter returns,
- * and the snapshot WRAPPING a core screen state (`view`) with the screen's own
- * fields next to it.
- *
- * What `10` SCR-07 requires and where each comes from:
- *   UNet vs DINOv2               cells of the `08` section 2 matrix, family rows
- *   25 / 50 / 100 %              cell columns; EXP-D-PP is the raw-vs-processed
- *                                ablation next to EXP-D-100 (PR-EXP-04, PR-IMG-01)
- *   aggregate                    experiment_metrics: N intended + N successful,
- *                                the served summary, as served
- *   distribution                 experiment_cases rows -> strip points (strip.mjs)
- *   trend                        buildTrend: joined only where the server says
- *                                the family's runs are comparable
- *   case evidence links          every point and every DR-010 outlier carries a
- *                                caseIntent for SCR-03
- *   comparability                experiment_compare verdicts, read by core
- *
- * Two ways in:
- *   open({ metricName })                      MATRIX - the cells the server lists
- *   open({ experimentIds: [...], metricName }) EXPLICIT - e.g. one pair from SCR-01
- * `metricName` picks the per-case metric the strip plots. It has no default:
- * the contract does not name the metrics yet, so the screen offers the names
- * the server's summaries use (snapshot.metricNames) and the user picks one.
- */
+// SCR-07 Experiment Comparison. open() without experimentIds shows every listed matrix experiment (MATRIX); with
+// them, only those (EXPLICIT, for example a pair from SCR-01). metricName has no default: the contract does not name
+// the metrics, so the user picks from the names the server's summaries use.
 
 export const MODE = Object.freeze({ MATRIX: 'MATRIX', EXPLICIT: 'EXPLICIT' });
 
 function comparisonSnapshot(view, f) {
   return Object.freeze({
     view,
-    // 'fixture' means generated contract placeholders, not results. A screen
-    // shows that, always - `13` TC-REP-003 is about not passing one off as
-    // the other.
+    // 'fixture' means generated placeholders, not results, and the screen always says so.
     source: f.source ?? null,
     mode: f.mode ?? null,
     requested: Object.freeze([...(f.requested ?? [])]),
@@ -282,8 +221,7 @@ export function createExperimentComparison(client) {
   let current = comparisonSnapshot(loading(), { source: client.transportKind });
   let lastOpen = null;
   let fetched = null; // the core states behind the cells, so selectMetric never re-fetches
-  // Only the latest open() may write the snapshot: a slower earlier call that
-  // resolves last must not put its answer over a newer one (`10` section 8).
+  // Only the latest open() may write the snapshot, so a slow earlier answer never covers a newer one.
   let seq = 0;
 
   const set = (view, patch = {}) => { current = comparisonSnapshot(view, { ...current, ...patch }); return current; };
@@ -310,16 +248,14 @@ export function createExperimentComparison(client) {
     const mine = seq;
     const stale = () => mine !== seq;
     lastOpen = { experimentIds, metricName, scenarios };
-    // Forget the previous fetch first: selectMetric after a failed re-open
-    // must not rebuild cells from the run before it.
+    // Forget the previous fetch first, so selectMetric after a failed re-open cannot rebuild old cells.
     fetched = null;
     const mode = Array.isArray(experimentIds) ? MODE.EXPLICIT : MODE.MATRIX;
     current = comparisonSnapshot(loading(), { mode, metricName, source: client.transportKind });
 
     const listView = await client.call('experiment_list', {}, { scenario: pick(scenarios, 'experiment_list') });
     if (stale()) return current;
-    // Without the list, MATRIX mode has nothing to show; EXPLICIT mode still
-    // has its ids, and only loses the evaluation population the list carries.
+    // Without the list, MATRIX mode has nothing to show; EXPLICIT mode only loses the population the list carries.
     if (mode === MODE.MATRIX && listView.state !== STATE.SUCCESS) {
       return set(listView, { mode, cells: MATRIX.map((e) => notListedCell(e, CELL_STATUS.NOT_REQUESTED)) });
     }
@@ -332,17 +268,13 @@ export function createExperimentComparison(client) {
       // null when the list call failed: an unknown count is not 0.
       totalRows: rows ? rows.total : null,
       unreadableRows: rows ? rows.unreadable : null,
-      // contract 1.1.0: one population shared by every listed experiment, or
-      // null when they do not share one - shown as unavailable, never guessed.
+      // One population shared by every listed experiment, or null: shown as unavailable, never guessed.
       population: listView.state === STATE.SUCCESS ? readPopulation(listView.data.evaluation_population) : null,
-      // Each row's own prediction_variant, and any row that contradicts `08` §2.
       variants: rows ? rows.variants : Object.freeze({}),
       variantProblems: rows ? rows.problems : Object.freeze([]),
     });
 
-    // `10` section 8 "empty/unavailable": the server lists no experiment yet
-    // (no run has finished). A legitimate absence with REFRESH - not a matrix
-    // of blank cells that reads as results, and never an N of 0.
+    // No experiment listed yet (no run has finished) is an empty state with REFRESH, not blank cells or an N of 0.
     if (mode === MODE.MATRIX && rows.total === 0) {
       return set(emptyUnavailable(UNAVAILABLE.NO_EXPERIMENTS_LISTED, [RECOVERY.REFRESH]), {
         mode, list, requested: [],
@@ -352,7 +284,7 @@ export function createExperimentComparison(client) {
 
     const wanted = mode === MODE.EXPLICIT ? experimentIds : rows.ids;
     const requestedIds = wanted.filter((id) => matrixEntry(id) !== null);
-    // Listed (or asked for) but outside `08` section 2: shown by id, never dropped.
+    // Ids outside the matrix are shown by id, never dropped.
     const outsideMatrix = wanted.filter((id) => matrixEntry(id) === null);
     if (mode === MODE.EXPLICIT && requestedIds.length === 0) {
       return set(stateForError(client.contract, 'VALIDATION_ERROR'), {
@@ -382,7 +314,7 @@ export function createExperimentComparison(client) {
     get current() { return current; },
     open,
 
-    /* Re-runs the last open() - the RETRY / REFRESH action of a failed state. */
+    /* Re-runs the last open(): the RETRY and REFRESH action of a failed state. */
     refresh: () => open(lastOpen ?? {}),
 
     /* Picks the per-case metric the strip plots. Never re-fetches. */

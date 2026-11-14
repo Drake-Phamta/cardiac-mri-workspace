@@ -1,16 +1,6 @@
-/*
- * V3 screen copy and routing - pure, so `node --test` checks exactly what
- * SCR-01 and SCR-07 say. The React files next to this one only draw it.
- *
- * Everything here READS the V3 state models of app/verticals/v3_study_and_compare
- * (PR #61). Nothing here decides a scientific question:
- *   - comparability is the server's verdict, already read by the model;
- *   - an unavailable value is printed as "unavailable" with its reason and
- *     what the server sent - never as 0, never as a dash that could be read
- *     as one;
- *   - a link to SCR-03 exists only when the server named case, run and
- *     variant (the model's caseIntent); otherwise the reason is shown.
- */
+// The text and links of SCR-01 and SCR-07, plus the strip-plot geometry. Plain JS, so the tests check exactly what
+// the screens say; the React files only draw it. An unreadable value prints as "unavailable" with its reason and
+// what the server sent, never as 0 or a dash.
 
 import { STATE } from '../../api/states.mjs';
 import { CELL_STATUS, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
@@ -19,8 +9,7 @@ import { TONE } from '../../components/stateCopy.mjs';
 
 export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV2]: 'DINOv2' });
 
-// The statistics a screen may ask the server's summary for. Picked by the
-// user; there is no default (the contract names none yet - README TODO 3).
+// Statistics the user may pick from the server's summary. No default: the contract names none yet.
 export const STAT_CHOICES = Object.freeze(['median', 'mean']);
 
 const REASON = Object.freeze({
@@ -41,7 +30,6 @@ const REASON = Object.freeze({
   OUTLIERS_NOT_RETURNED: 'the server returned no DR-010 outlier selection',
   OUTLIERS_UNREADABLE: 'the outlier selection is not in a readable form - not shown',
   OUTLIERS_UNDER_ANOTHER_RULE: 'the selection cites another rule than DR-010 - not shown',
-  // #61 QA B-2: DR-010 is pinned to the contract's selection version, metric and cardinality.
   OUTLIERS_UNDER_ANOTHER_VERSION: 'the selection was made under another DR-010 selection version - not shown',
   OUTLIERS_FOR_ANOTHER_METRIC: 'the selection ranks another metric than DR-010 pins - not shown',
   OUTLIERS_OVER_CARDINALITY: 'the selection lists more cases than DR-010 selects - not shown',
@@ -49,7 +37,6 @@ const REASON = Object.freeze({
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'the selection belongs to another experiment - not shown',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'the selection was made for another variant - not shown',
   OUTLIERS_DUPLICATE_CASE_ID: 'the selection repeats a case id - the whole selection is refused',
-  // #61 QA B-4: refused whole - dropping the entry would re-derive DR-010 here.
   OUTLIERS_NAME_INELIGIBLE_CASE: 'the selection names a case that was not successfully evaluated - the whole selection is refused',
   NO_ELIGIBLE_CASES: 'no successfully evaluated case to select from',
   ARTIFACT_NOT_FOUND: 'the server has no such artifact',
@@ -74,8 +61,8 @@ export function reasonLabel(code) {
   if (code === null || code === undefined || code === '') return null;
   if (REASON[code]) return REASON[code];
   const text = String(code);
-  // A future contract code must still be readable. Keep ordinary server
-  // sentences unchanged; only turn CODE_LIKE_THIS into words.
+  // A code from a newer contract must still be readable: CODE_LIKE_THIS becomes words, server sentences stay as
+  // they are.
   return /^[A-Z][A-Z0-9_]*$/.test(text) ? text.toLowerCase().replaceAll('_', ' ') : text;
 }
 
@@ -150,11 +137,8 @@ function labelTexts(cell, comparisons) {
   });
 }
 
-/*
- * One matrix cell as a card. `withValues: false` is SCR-01: N and status
- * only, because a value there would sit next to another with no
- * comparability label.
- */
+// One matrix cell as a card. SCR-01 passes `withValues: false` (N and status only), because a value there would sit
+// next to another with no comparability label.
 export function cellCard(cell, { metricName = null, comparisons = [], withValues = true } = {}) {
   const warnings = [];
   if (cell.identity && cell.identity.problems.length) warnings.push(...cell.identity.problems);
@@ -176,7 +160,7 @@ export function cellCard(cell, { metricName = null, comparisons = [], withValues
   });
 }
 
-/* Cards grouped into the two family rows of `08` section 2, in matrix order. */
+/* Cards grouped into the two family rows, in matrix order. */
 export function familyRows(cards) {
   return Object.freeze([FAMILY.UNET, FAMILY.DINOV2].map((family) => Object.freeze({
     family,
@@ -185,16 +169,11 @@ export function familyRows(cards) {
   })));
 }
 
-/*
- * SCR-07 passes the model's comparison (comparability + presentation); SCR-01
- * passes its headline row, the same answer flattened (verdict, fair, reason).
- * Both are read here the same way.
- */
+// SCR-07 passes the model's comparison and SCR-01 its flattened headline row; these read both the same way.
 const verdictOf = (c) => (c.comparability ? c.comparability.verdict : c.verdict);
 const fairOf = (c) => Boolean(c.presentation ? c.presentation.mayLabelFair : c.fair);
 const reasonOf = (c) => (c.presentation ? c.presentation.reason : c.reason) || null;
-// The model can keep a verdict and withhold its numbers (#61 QA B-3): RQ-B
-// mixes RAW and PROCESSED, which the contract cannot compare yet.
+// A verdict can come with its numbers withheld, for example RQ-B, which mixes RAW and PROCESSED.
 const withheldOf = (c) => (c.numbersWithheld ? c.numbersWithheld.reason : null);
 
 function headlineSummaryRows(c) {
@@ -208,9 +187,8 @@ function headlineSummaryRows(c) {
       });
     }
     const metrics = summary.metrics.filter((m) => m.available).map((m) => {
-      // SCR-01 has no metric/statistic selector. Median is the compact
-      // high-level value; when absent, mean is the honest fallback. All
-      // detailed statistics and user selection remain on SCR-07.
+      // SCR-01 has no metric or statistic picker, so it shows the median, or the mean when the median is missing.
+      // The detailed statistics stay on SCR-07.
       const stat = m.stats.median !== null ? 'median' : (m.stats.mean !== null ? 'mean' : null);
       return stat ? `${m.name} ${stat} ${fmt(m.stats[stat])}` : null;
     }).filter(Boolean);
@@ -312,8 +290,7 @@ export function overviewView(snap) {
       : `experiment summary ${summary.status || 'unreadable'}${summary.reason ? `: ${summary.reason}` : ''}`;
   }
 
-  // DR-010 makes the experiment an explicit input: one group per listed
-  // matrix experiment, each the server's own selection or its reason.
+  // One outlier group per listed experiment, because the rule takes the experiment as an input.
   const outlierGroups = snap.outliers.map((o) => {
     const expected = MATRIX.find((e) => e.id === o.experimentId);
     return Object.freeze({
@@ -385,13 +362,10 @@ export function caseTable(cell) {
     });
   }
   const c = cell.cases.counts;
-  // #61 QA B-1: a value served on a row that did not succeed is dropped by the
-  // model and flagged, so the drift stays visible instead of silently gone.
+  // The model drops a value sent on a row that did not succeed; it is counted here so the drift stays visible.
   const ignored = c.servedValueIgnored ? `; ${c.servedValueIgnored} value(s) served on rows that did not succeed - ignored` : '';
-  // `11` section 6 (#69 QA B-1): a number is shown, and a row called plotted,
-  // only when THIS cell drew it. The model keeps every row of a cell whose
-  // variant it refused (listed, never dropped) and still knows each row's own
-  // value; printing it would put RAW numbers under a PROCESSED column.
+  // A number is shown, and a row called plotted, only when this cell drew it. A refused cell still lists its rows,
+  // and printing their values would put RAW numbers under a PROCESSED column.
   const drawn = new Set(cell.points.map((p) => p.index));
   const withheld = rowsWithheldText(cell);
   return Object.freeze({
@@ -488,32 +462,15 @@ export function pointDetail(point, metricName) {
 
 export { summaryStat };
 
-/*
- * Strip-plot geometry for SCR-07 - pure numbers, no rendering.
- *
- * WHY A STRIP AND NOT A BOX. A box plot's whiskers flag "outliers" by Tukey's
- * 1.5 x IQR rule. This project froze a different definition (DR-010: the three
- * lowest successfully evaluated cases, chosen by the server). Two outlier
- * definitions on one screen are two answers to the same question, so this
- * draws every successfully evaluated case as its own point, marks the
- * server's DR-010 cases, and draws no whisker. With 54 holdout cases per run
- * a strip is still readable, and every point is a case a tap can open
- * (DEMO_STANDARD SCR-07: "any point opens its case").
- *
- * Horizontal jitter is deterministic (a golden-ratio sequence over the row
- * index), so the same data draws the same picture on every build - nothing
- * random, nothing sorted.
- */
+// Strip-plot geometry for SCR-07: numbers only, no drawing. Not a box plot, because its whiskers would flag
+// outliers by Tukey's 1.5 x IQR rule, a second definition next to the server's. Every case is its own point that a
+// tap can open. Jitter follows a golden-ratio sequence, so the same data always draws the same picture.
 
 const GOLDEN = 0.6180339887498949;
 
-/*
- * columns: [{ key, label, group, points: [{ caseId, value, intent, ... }],
- *             highlight: [caseId, ...] }]
- * axis:    the value range drawn. [0, 1] fits Dice and IoU; a value outside it
- *          is listed in `offAxis` rather than clipped onto the edge, where it
- *          would read as a 0 or a 1 it is not.
- */
+// columns: [{ key, label, group, points: [{ caseId, value, intent }], highlight: [caseId] }].
+// `axis` is the value range drawn; [0, 1] fits Dice and IoU. A value outside it goes to `offAxis` instead of being
+// clipped to the edge, where it would read as a 0 or a 1 it is not.
 export function stripLayout(columns, {
   width, height, padding = 32, axis = [0, 1], pointRadius = 5, jitter = 0.6, ticks = 5,
 } = {}) {
@@ -575,11 +532,8 @@ export function stripLayout(columns, {
   });
 }
 
-/*
- * The point a tap lands on: the nearest point within its radius plus `slop`
- * (touch targets are larger than dots - `10` section 9), or null. A linear
- * scan for the minimum; equal distances keep the first point drawn.
- */
+// The point a tap lands on: the nearest one within its radius plus `slop` (a finger is bigger than a dot), or null.
+// On equal distances the first point drawn wins.
 export function pointAt(layout, x, y, slop = 12) {
   let best = null;
   let bestD = Infinity;
