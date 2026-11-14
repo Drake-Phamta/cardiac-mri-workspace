@@ -6,7 +6,7 @@
  * after `npm ci --ignore-scripts` from the lockfile (DR-021 rule 4); the
  * other CI jobs have no node_modules. It renders the real shell, V1, V3 and V4
  * screens in Node with host-string React Native stand-ins (hooks.mjs), a real
- * app/core runtime, and either the generated fixture bundle or a fake live
+ * app runtime, and either the generated fixture bundle or a fake live
  * backend whose PNGs are encoded here with node:zlib.
  *
  * What a PASS means: the screens' LOGIC renders and reacts as described - the
@@ -65,13 +65,13 @@ const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; watchdog
 
 const imp = (p) => import(new URL(p, `file:///${MOBILE.replace(/\\/g, '/')}/`).href);
 const { resolveConfig } = await imp('src/config.mjs');
-const { createRuntime } = await imp('src/runtime/createRuntime.mjs');
-const { RuntimeProvider } = await imp('src/runtime/RuntimeContext.js');
-const NavigatorView = (await imp('src/nav/NavigatorView.js')).default;
-const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
-const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
-const FindingsScreen = (await imp('src/verticals/v4/FindingsScreen.js')).default;
-const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
+const { createRuntime } = await imp('src/api/runtime.mjs');
+const { RuntimeProvider } = await imp('src/api/RuntimeContext.js');
+const NavigatorView = (await imp('src/navigation/Navigator.js')).default;
+const CaseExplorerScreen = (await imp('src/screens/v1-cases/CaseExplorerScreen.js')).default;
+const ExperimentComparisonScreen = (await imp('src/screens/v3-study/ExperimentComparisonScreen.js')).default;
+const FindingsScreen = (await imp('src/screens/v4-review/FindingsScreen.js')).default;
+const { decodeMaskPng } = await imp('src/lib/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
@@ -586,7 +586,7 @@ function noRunBackend() {
 
 // ---- 6. SCR-04 Error Inspector -------------------------------------------------
 {
-  const ErrorInspectorScreen = (await imp('src/verticals/v1/ErrorInspectorScreen.js')).default;
+  const ErrorInspectorScreen = (await imp('src/screens/v1-cases/ErrorInspectorScreen.js')).default;
   const pushes = [];
   const nav = { push: (id, p) => { pushes.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
   const mount = async (runtime, params) => {
@@ -777,8 +777,8 @@ function noRunBackend() {
 // A call started while enabled is aborted the moment `enabled` turns false, and
 // its late answer never reaches the screen.
 {
-  const useCall = (await imp('src/runtime/useCall.js')).default;
-  const { STATE, success } = await imp('../app/core/index.mjs');
+  const { useCall } = await imp('src/api/RuntimeContext.js');
+  const { STATE, success } = await imp('src/api/states.mjs');
   const calls = [];
   const client = { call: (_endpointId, _params, options) => new Promise((resolve) => { calls.push({ signal: options.signal, resolve }); }) };
   function Probe({ enabled }) {
@@ -871,7 +871,7 @@ function noRunBackend() {
 // a slice that is not the middle one) -> SCR-04 -> Back. The session's remembered
 // variant is forgotten on the way, so only SCR-03's stack entry can bring it back.
 {
-  const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+  const { forgetSession } = await imp('src/lib/caseMode.mjs');
   forgetSession();
   const backend = fakeBackend({ runIds: ['RUN_A', 'RUN_B'] });
   const runtime = liveRuntime(backend.fetchImpl);
@@ -1105,7 +1105,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
 {
   const { BackHandler } = await import('react-native');
-  const { fitTransform } = await imp('../app/core/index.mjs');
+  const { fitTransform } = await imp('src/lib/viewMath.mjs');
   const pressExact = async (r, label) => {
     const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label);
     if (!hits.length) throw new Error(`no button "${label}" exactly; texts: ${texts(r).slice(0, 50).join(' | ')}`);
@@ -1452,7 +1452,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 // "Open in 2D" push to SCR-03 with returnParams. It does NOT mean the surface is drawn or that a tap lands on a face:
 // the viewer script is exercised in test/v2_viewer.test.mjs, the pixels and the frame rate are the owner's device tests.
 {
-  const Inspector3DScreen = (await imp('src/verticals/v2/Inspector3DScreen.js')).default;
+  const Inspector3DScreen = (await imp('src/screens/v2-3d/Inspector3DScreen.js')).default;
   const { sent } = await imp('test/render/mocks/webview.mjs');
   const { boxMesh, encodeMesh } = await imp('test/_v2mesh.mjs');
   const sum = (b) => createHash('sha256').update(b).digest('hex');
@@ -1678,7 +1678,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
   // 10g. no variant given: the screen asks, there is no default (same rule as SCR-03)
   {
-    const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+    const { forgetSession } = await imp('src/lib/caseMode.mjs');
     forgetSession();
     const backend = meshBackend();
     const { r } = await mount(backend, { caseId: 'CASE_0061', runId: 'RUN_A' });

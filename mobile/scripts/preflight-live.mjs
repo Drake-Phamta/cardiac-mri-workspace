@@ -36,12 +36,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { STATE } from '../../app/core/index.mjs';
-import { createCaseExplorer } from '../../app/verticals/v1_case_explorer/index.mjs';
+import { STATE } from '../src/api/states.mjs';
+import { createCaseExplorer, readCaseRows } from '../src/screens/v1-cases/cases.mjs';
 import { API_BASE_URL_ENV, maskBaseUrl, parseEnvFile, resolveConfig } from '../src/config.mjs';
-import { disagreementRuns } from '../src/imaging/maskPaths.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { capabilityOf, readCaseRows } from '../src/verticals/v1/capability.mjs';
+import { disagreementRuns } from '../src/lib/mask.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { capabilityOf } from '../src/lib/caseMode.mjs';
 import { PER_SLICE_ENDPOINTS } from './l4-report.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -84,7 +84,7 @@ async function main() {
   const contractJson = JSON.parse(readFileSync(join(repoRoot, 'contracts', 'api', 'contract.json'), 'utf8'));
   let decodeMask = null;
   try {
-    ({ decodeMaskPng: decodeMask } = await import(pathToFileURL(join(mobileRoot, 'src', 'imaging', 'maskPng.js')).href));
+    ({ decodeMaskPng: decodeMask } = await import(pathToFileURL(join(mobileRoot, 'src', 'lib', 'maskPng.js')).href));
   } catch (_err) {
     console.log('preflight: fast-png is not installed (run `npm ci` in mobile/) - mask decoding (P5) is skipped');
   }
@@ -101,7 +101,7 @@ async function main() {
   try {
     res = await fetch(`${config.apiBaseUrl}/health`, { signal: AbortSignal.timeout(config.timeoutMs) });
   } catch (err) {
-    check('P1', false, `/health did not answer (${err.name}) - overlay down, backend stopped, or wrong URL`);
+    check('P1', false, `/health did not answer (${err.name}) - the backend must be running on the computer and the phone connected by USB (or the URL is wrong); then retry`);
     return 1;
   }
   try {

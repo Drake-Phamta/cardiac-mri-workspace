@@ -60,7 +60,7 @@ it whole.
 - **Why no version bump.** The freeze rule above asks for a new version string for additive changes to the
   interface (fields, enums, error codes, shapes). This amendment changes the meaning text of a population rule
   and the fixture's numbers, not a field, shape, enum, literal or error, so a consumer written against `1.1.0`
-  keeps working unchanged; a bump would force every pin (`app/core/contract.mjs`, the backend, mobile, the
+  keeps working unchanged; a bump would force every pin (`mobile/src/api/contract.mjs`, the backend, the
   fixtures) to move for no interface change. DR-017 lists text, fixture and tests only, and DR-020 sets the
   same precedent ("No API version bump"). The Contract 2 validator checks of DR-018 and the DR-022 holdout
   cases (backend ingest) do not touch this contract.
@@ -126,7 +126,7 @@ lives in `backend/`; this directory stays implementation-free.
 ## Version and freeze
 
 `contract_version` was **`1.0.0`** (now `1.1.0`, see above), frozen on 2026-10-01 (INT-11). It replaces
-`DRAFT v0`. Every consumer compares the whole string: `app/core/contract.mjs`
+`DRAFT v0`. Every consumer compares the whole string: `mobile/src/api/contract.mjs`
 refuses any other value, and so does the fixture loader. After the freeze,
 changes are additive only, by a PR from the contract owner (Nguyễn Gia Đức
 Trung) reviewed by Phạm Tuấn Anh, with regenerated fixtures and a new version
@@ -247,11 +247,11 @@ generates the fixture bundle, and passes **every generated scenario** through
 live response. No clinical image, mask, mesh, or patient-derived byte is
 committed.
 
-Generate the bundle consumed by `app/core` and the verticals with:
+Generate the bundle the app's fixture mode uses (from `mobile/`, `node scripts/prepare.mjs` does the same) with:
 
 ```powershell
-python generate_fixture.py --contract contract.json --output ../../app/core/fixtures/.generated/api_bundle.json
-node ../../app/core/tests/run_all.mjs
+python generate_fixture.py --contract contract.json --output ../../mobile/src/generated/api_bundle.json
+node --test ../../mobile/test/*.test.mjs
 ```
 
 The output is intentionally ignored by Git. Values in the bundle are synthetic

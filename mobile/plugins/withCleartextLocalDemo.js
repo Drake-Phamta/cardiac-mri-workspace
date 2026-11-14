@@ -2,10 +2,9 @@
  * Allow plain-HTTP requests in a LIVE release build, for the LOCAL_DEMO
  * profile - and in no other build (DR-021 rule 5, QA #65 N-12b).
  *
- * Why: live mode talks to the FastAPI backend over the private overlay
- * network of DR-003 / DR-003a (the URL is set at build time, never in git).
- * The overlay is the encrypted, private transport; the HTTP inside it has no
- * TLS certificate. Android 9+ refuses cleartext by default, and Expo's
+ * Why: live mode talks to the FastAPI backend on the team's computer, reached
+ * over USB with `adb reverse` (the URL is set at build time, never in git).
+ * That is plain HTTP to 127.0.0.1, with no TLS certificate. Android 9+ refuses cleartext by default, and Expo's
  * template only re-enables it for DEBUG builds - so without this a release
  * APK in live mode fails every request as TRANSPORT_UNREACHABLE. A fixture
  * build makes no network request at all, so it gets no cleartext.

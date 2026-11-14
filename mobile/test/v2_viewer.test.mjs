@@ -9,7 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-import { VIEWER_SCRIPT } from '../src/verticals/v2/viewerSource.mjs';
+import { VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
 import { boxMesh, encodeMesh, GOLDEN, goldenBytes } from './_v2mesh.mjs';
 
 function makeViewer() {

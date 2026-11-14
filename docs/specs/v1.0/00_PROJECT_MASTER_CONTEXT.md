@@ -18,9 +18,9 @@
 
 ## 1. Purpose of this document
 
-This is the first document every implementation/planning agent must read. It defines the project identity, source-of-truth order, non-negotiable product decisions, unresolved engineering decisions, terminology, academic constraints, and the boundaries within which implementation plans may be produced.
+This is the first document every team member must read. It defines the project identity, source-of-truth order, non-negotiable product decisions, unresolved engineering decisions, terminology, academic constraints, and the boundaries within which implementation plans may be produced.
 
-This file does **not** replace the detailed specifications in `01`–`17`. When a later specification provides more detail without contradicting this file, the later specification governs that detail.
+This file does **not** replace the detailed specifications in `01`–`16`. When a later specification provides more detail without contradicting this file, the later specification governs that detail.
 
 ---
 
@@ -176,7 +176,7 @@ Until geometry is verified:
 
 The product requirements are technology-neutral. The mobile framework is **not frozen in the core specification**.
 
-Before production repository architecture is frozen, Claude must run two technical spikes and produce an ADR:
+Before production repository architecture is frozen, the team must run two technical spikes and produce an ADR:
 
 ### Spike A — 2D scientific viewer/editor
 Load an MRI slice; zoom/pan; draw and erase a mask with coordinate accuracy; undo/redo; persist/reload the correction.
@@ -191,7 +191,7 @@ The chosen framework must demonstrate these critical interactions with acceptabl
 
 ## 11.1 Controlled decision gates
 
-Freezing this specification does **not** mean every implementation value is already known. The following items are controlled gates: they may be resolved after evidence is collected, but Claude/team members may not choose them silently.
+Freezing this specification does **not** mean every implementation value is already known. The following items are controlled gates: they may be resolved after evidence is collected, but team members may not choose them silently.
 
 | Gate | Decision required before | Required artifact | Decision owner |
 |---|---|---|---|
@@ -221,11 +221,9 @@ A gate resolution becomes part of project truth only when recorded in an approve
 13. `12_PRIVACY_SECURITY_AND_DATA_GOVERNANCE.md`
 14. `13_TEST_ACCEPTANCE_AND_TRACEABILITY.md`
 15. `14_TEAM_SHARED_CORE_AND_OWNERSHIP.md`
-16. `15_TEAM_EXECUTION_AND_PROJECT_CONTROL.md`
-17. `16_DEMO_REPORT_AND_DEFENSE_MAPPING.md`
-18. `17_LEADER_CLAUDE_ORCHESTRATION_PROTOCOL.md`
+16. `16_DEMO_REPORT_AND_DEFENSE_MAPPING.md`
 
-Execution artifacts generated later by Claude (30-day plan, daily plans, repo structure, ADRs, project state, risk register, backlog) do **not** override these specifications.
+Execution artifacts produced later by the team (30-day plan, daily plans, repo structure, ADRs, project state, risk register, backlog) do **not** override these specifications.
 
 ### Specification conflict rule
 
@@ -238,7 +236,7 @@ Execution artifacts generated later by Claude (30-day plan, daily plans, repo st
 
 ## 13. Change-control rule
 
-Claude, developers, and reviewers may identify specification issues but must not silently change product scope, dataset protocol, scientific meaning, domain semantics, or acceptance criteria.
+Team members and reviewers may identify specification issues but must not silently change product scope, dataset protocol, scientific meaning, domain semantics, or acceptance criteria.
 
 Required process:
 

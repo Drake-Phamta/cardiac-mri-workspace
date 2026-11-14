@@ -1,7 +1,7 @@
 // node --test mobile/test/  - V3 SCR-01 / SCR-07: what the two screens say and where their links go
 //
-// The screens draw only what src/verticals/v3/v3View.mjs computes from the V3
-// state models (app/verticals/v3_study_and_compare, PR #61), so these tests
+// The screens draw only what src/screens/v3-study/view.mjs computes from the V3
+// state models (models.mjs), so these tests
 // check the words and routes a user sees without a device.
 //
 // V3S1-V3S6 run the models over the GENERATED fixture bundle through a real
@@ -14,18 +14,19 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readComparability, presentation, success } from '../../app/core/index.mjs';
 import {
-  COMPARISONS, MATRIX, UNAVAILABLE, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
-  matrixEntry, notListedCell, stripLayout, pointAt,
-} from '../../app/verticals/v3_study_and_compare/index.mjs';
+  readComparability, presentation, COMPARISONS, MATRIX, UNAVAILABLE, caseIntent, matrixEntry,
+} from '../src/screens/v3-study/readers.mjs';
+import { success } from '../src/api/states.mjs';
+import { aggregationFor, buildCell, notListedCell } from '../src/screens/v3-study/cohort.mjs';
+import { createExperimentComparison, createStudyOverview } from '../src/screens/v3-study/models.mjs';
+import {
+  stripLayout, pointAt, caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
+} from '../src/screens/v3-study/view.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { validateRoute } from '../src/nav/navigator.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { TONE } from '../src/ui/stateCopy.mjs';
-import {
-  caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
-} from '../src/verticals/v3/v3View.mjs';
+import { validateRoute } from '../src/navigation/navigator.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { TONE } from '../src/components/stateCopy.mjs';
 import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
 
 const contractJson = readContractJson();
@@ -319,7 +320,7 @@ test('V3S8 a tapped strip point names its case and opens SCR-03 with case, run a
 });
 
 test('V3S9 the V3 screens use the shared models and rank nothing; React stays out of the .mjs logic', () => {
-  const dir = join(MOBILE_ROOT, 'src', 'verticals', 'v3');
+  const dir = join(MOBILE_ROOT, 'src', 'screens', 'v3-study');
   const files = readdirSync(dir).filter((f) => /\.m?js$/.test(f));
   for (const f of files) {
     const code = readFileSync(join(dir, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -328,8 +329,8 @@ test('V3S9 the V3 screens use the shared models and rank nothing; React stays ou
   }
   for (const f of ['StudyOverviewScreen.js', 'ExperimentComparisonScreen.js']) {
     const src = readFileSync(join(dir, f), 'utf8');
-    assert.match(src, /app\/verticals\/v3_study_and_compare\/index\.mjs/, `${f} must render the shared V3 model, not re-implement it`);
-    assert.match(src, /import StateView from '\.\.\/\.\.\/ui\/StateView'/, `${f} renders its states with the shared StateView`);
+    assert.match(src, /from '\.\/models\.mjs'/, `${f} must render the shared V3 model, not re-implement it`);
+    assert.match(src, /import StateView from '\.\.\/\.\.\/components\/StateView'/, `${f} renders its states with the shared StateView`);
   }
 });
 

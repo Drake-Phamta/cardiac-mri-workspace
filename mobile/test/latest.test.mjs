@@ -1,11 +1,11 @@
-// node --test mobile/test/  - latest-wins requests (src/runtime/latest.mjs) and the
+// node --test mobile/test/  - latest-wins requests (src/api/client.mjs) and the
 // caller's AbortSignal through the HTTP transport (N-6)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createClient, STATE } from '../../app/core/index.mjs';
-import { TransportError, createHttpTransport } from '../src/runtime/httpTransport.mjs';
-import { createLatest, runLatest } from '../src/runtime/latest.mjs';
+import { createClient, createLatest, runLatest } from '../src/api/client.mjs';
+import { STATE } from '../src/api/states.mjs';
+import { TransportError, createHttpTransport } from '../src/api/http.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();
@@ -46,7 +46,7 @@ test('Q3 the transport honours the caller\'s signal: an aborted request never la
     (e) => e.code === 'ABORTED',
     'an already-aborted signal never sends',
   );
-  // Through app/core, an aborted call is a recoverable state - and useCall drops it as stale anyway.
+  // Through the client, an aborted call is a recoverable state - and useCall drops it as stale anyway.
   const view = await createClient(contract, transport).call('case_get', { case_id: 'C' }, { signal: controller.signal });
   assert.equal(view.state, STATE.RECOVERABLE_ERROR);
 });

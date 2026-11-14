@@ -379,7 +379,7 @@ def generate_fixture(contract: dict) -> dict:
         "generated_by": "contracts/api/generate_fixture.py",
         "generated_command": (
             "python contracts/api/generate_fixture.py --contract contracts/api/contract.json "
-            "--output app/core/fixtures/.generated/api_bundle.json"
+            "--output mobile/src/generated/api_bundle.json"
         ),
         "data_policy": DATA_POLICY,
         "contract": contract["contract"], "contract_version": contract["contract_version"],

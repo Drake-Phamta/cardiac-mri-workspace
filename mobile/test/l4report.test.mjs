@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createNetLog } from '../src/runtime/netLog.mjs';
+import { createNetLog } from '../src/api/http.mjs';
 import { byteStats, judge, parseLog } from '../scripts/l4-report.mjs';
 import { nearestRank, parseSlices, summarize } from '../scripts/slice-timing-report.mjs';
 

@@ -1,20 +1,21 @@
-// node --test mobile/test/  - V2 SCR-05: the pure logic of the 3D Inspector (src/verticals/v2/inspector3d.mjs)
+// node --test mobile/test/  - V2 SCR-05: the pure logic of the 3D Inspector (src/screens/v2-3d/inspector3d.mjs)
 //
 // Mesh reference from the id, the `cardiac-mesh/1` header (against a golden built by the Python encoder from a synthetic
 // mask), the viewer's messages, pick -> slice (H7), and the push back to SCR-03 with returnParams. No device, no GPU:
 // the viewer script itself is exercised in v2_viewer.test.mjs; the screen's rendering in test:render (section 10).
+import { bytesToBase64 } from '../src/lib/bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { resolveConfig } from '../src/config.mjs';
-import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/nav/navigator.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { sliceLabel } from '../src/verticals/v1/explorer.mjs';
+import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/navigation/navigator.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { sliceLabel } from '../src/screens/v1-cases/cases.mjs';
 import {
-  bytesToBase64, gridMatches, LAYER, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
+  gridMatches, LAYER, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
   screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,
-} from '../src/verticals/v2/inspector3d.mjs';
-import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/verticals/v2/viewerSource.mjs';
+} from '../src/screens/v2-3d/inspector3d.mjs';
+import { VIEWER_HTML, VIEWER_SCRIPT } from '../src/screens/v2-3d/viewerHtml.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { GOLDEN, goldenBytes } from './_v2mesh.mjs';
 const HEX = 'ab'.repeat(32);

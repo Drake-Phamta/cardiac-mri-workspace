@@ -1,16 +1,16 @@
-// node --test mobile/test/  - what the shared StateView says in each of the 7 states (src/ui/stateCopy.mjs)
+// node --test mobile/test/  - what the shared StateView says in each of the 7 states (src/components/stateCopy.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  ALL_STATES, RECOVERY, STATE, emptyUnavailable, fatalInvalid, loading, processing, stateForError, success,
-} from '../../app/core/index.mjs';
-import { describeState, reasonText, TONE } from '../src/ui/stateCopy.mjs';
+  ALL_STATES, emptyUnavailable, fatalInvalid, loading, processing, stateForError, success, RECOVERY, STATE,
+} from '../src/api/states.mjs';
+import { describeState, reasonText, TONE } from '../src/components/stateCopy.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();
 
-test('S1 every one of the seven app/core states has a rendering, and none falls through', () => {
+test('S1 every one of the seven screen states has a rendering, and none falls through', () => {
   assert.equal(ALL_STATES.length, 7);
   const samples = {
     [STATE.LOADING]: loading(),
@@ -80,6 +80,11 @@ test('S9 an unknown state is treated as invalid, never as success', () => {
   const d = describeState({ state: 'MAYBE', actions: [] });
   assert.equal(d.state, STATE.FATAL_INVALID);
   assert.equal(d.blocking, true);
+});
+
+test('S3b an unreachable backend says what to check: the backend on the computer, the phone on USB', () => {
+  assert.equal(reasonText('TRANSPORT_UNREACHABLE'),
+    'The backend could not be reached. Make sure it is running on the computer and the phone is connected by USB, then retry.');
 });
 
 test('S10 reason text exists for the codes a researcher meets, and is null otherwise', () => {

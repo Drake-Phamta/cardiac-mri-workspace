@@ -1,20 +1,17 @@
 // node --test mobile/test/  - V1 screen logic: SCR-02 rows and capability, SCR-03 helpers,
-// the slice cache and the mask store (src/verticals/v1/*.mjs, src/runtime/sliceCache.mjs,
-// src/imaging/maskStore.mjs)
+// the slice cache and the mask store (src/screens/v1-cases/*.mjs, src/api/cache.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { STATE, createBundle, createClient, createFixtureTransport } from '../../app/core/index.mjs';
-import { createCaseExplorer, LAYER } from '../../app/verticals/v1_case_explorer/index.mjs';
-import { createMaskStore } from '../src/imaging/maskStore.mjs';
-import { createSliceCache } from '../src/runtime/sliceCache.mjs';
-import { CAPABILITY, capabilityOf, filterRows, readCaseRows } from '../src/verticals/v1/capability.mjs';
+import { STATE } from '../src/api/states.mjs';
+import { createBundle, createClient, createFixtureTransport } from '../src/api/client.mjs';
 import {
-  buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex,
-  scrubPosition, sliceLabel, variantOptions,
-} from '../src/verticals/v1/explorer.mjs';
+  createCaseExplorer, LAYER, filterRows, readCaseRows, buildNavSequence, chooseRun, clampSlice, metricsText, runText, scrubIndex, scrubPosition, sliceLabel,
+} from '../src/screens/v1-cases/cases.mjs';
+import { createMaskStore, createSliceCache } from '../src/api/cache.mjs';
+import { CAPABILITY, capabilityOf, variantOptions } from '../src/lib/caseMode.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
 import { generatedBundleJson, loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
@@ -257,7 +254,7 @@ test('V1n4 #78 QA N-4: Retry forgets only the slice it retries - its "unavailabl
   await ask(5);
   assert.equal(sent, 1, 'slice 5\'s "unavailable" answer survived the Retry: no request');
   // And in both screens clearNegative() is called once - on open, never on Retry.
-  for (const f of ['src/verticals/v1/CaseExplorerScreen.js', 'src/verticals/v1/ErrorInspectorScreen.js']) {
+  for (const f of ['src/screens/v1-cases/CaseExplorerScreen.js', 'src/screens/v1-cases/ErrorInspectorScreen.js']) {
     const code = readFileSync(join(MOBILE_ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     const calls = code.split('\n').filter((l) => /\.clearNegative\(\)/.test(l));
     assert.equal(calls.length, 1, `${f}: ${calls.map((l) => l.trim()).join(' | ')}`);

@@ -1,17 +1,15 @@
-// node --test mobile/test/  - SCR-04 Error Inspector logic (src/verticals/v1/errorInspector.mjs)
+// node --test mobile/test/  - SCR-04 Error Inspector logic (src/screens/v1-cases/errorInspector.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { loading, readSelection, STATE, success } from '../../app/core/index.mjs';
-import { variantMismatch } from '../../app/verticals/v1_case_explorer/index.mjs';
-import { disagreementRuns } from '../src/imaging/maskPaths.mjs';
+import { loading, success, STATE } from '../src/api/states.mjs';
 import {
-  CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote,
-  pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel,
-  runMetricsView, selectionNote, topEntries, worstLabel,
-} from '../src/verticals/v1/errorInspector.mjs';
+  readSelection, CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel, runMetricsView, selectionNote, topEntries, worstLabel,
+} from '../src/screens/v1-cases/errorInspector.mjs';
+import { variantMismatch } from '../src/screens/v1-cases/cases.mjs';
+import { disagreementRuns } from '../src/lib/mask.mjs';
 import { loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
 // The block exactly as contract v1.0 shapes it (selection_rules.worst_slice_selection),
@@ -29,7 +27,7 @@ const block = {
   metric_version: 'm1',
 };
 
-test('V4a the worst slice is the SERVER\'s first entry, read through app/core - never re-ranked', () => {
+test('V4a the worst slice is the SERVER\'s first entry, read through readSelection - never re-ranked', () => {
   const sel = readSelection(block);
   assert.equal(sel.available, true);
   assert.deepEqual(topEntries(sel, 2).map((e) => e.sliceIndex), [44, 12], 'server order kept');
@@ -227,13 +225,13 @@ test('V4m B-2: a missing selection_version is unsupported - never read as v1', (
   assert.match(selectionNote(lv.selection).text, /^SELECTION_VERSION_UNSUPPORTED: the server sent no selection_version; this build shows only "dr010-worst-slice\/v1"\./);
 });
 
-test('V4n B-2: another rule_id, or none, is SELECTION_RULE_UNSUPPORTED - app/core\'s DR-010 default is not trusted', () => {
+test('V4n B-2: another rule_id, or none, is SELECTION_RULE_UNSUPPORTED - readSelection\'s DR-010 default is not trusted', () => {
   const other = level(body({ worst_slice_selection: { ...ws, rule_id: 'DR-999' } }));
   assert.equal(other.selection.reason, 'SELECTION_RULE_UNSUPPORTED');
   assert.deepEqual(onScreen(other), { worst: [], bars: 0, compared: false });
   assert.match(selectionNote(other.selection).text, /^SELECTION_RULE_UNSUPPORTED: the server sent rule_id "DR-999"; this build shows only "DR-010"\./);
   const { rule_id: _r, ...noRule } = ws;
-  assert.equal(readSelection({ worst_slice_selection: noRule }).ruleId, 'DR-010', 'app/core fills a missing rule_id in...');
+  assert.equal(readSelection({ worst_slice_selection: noRule }).ruleId, 'DR-010', 'readSelection fills a missing rule_id in...');
   const unstated = level(body({ worst_slice_selection: noRule }));
   assert.equal(unstated.selection.reason, 'SELECTION_RULE_UNSUPPORTED', '...the gate does not');
   assert.match(selectionNote(unstated.selection).text, /the server sent no rule_id/);
@@ -288,7 +286,7 @@ test('V4p #78 QA N-10: only worst_slice_selection is read; a block with no list 
 });
 
 test('V4x DR-010: no ordering of slices anywhere in the SCR-04 logic or screen', () => {
-  for (const f of ['src/verticals/v1/errorInspector.mjs', 'src/verticals/v1/ErrorInspectorScreen.js']) {
+  for (const f of ['src/screens/v1-cases/errorInspector.mjs', 'src/screens/v1-cases/ErrorInspectorScreen.js']) {
     const code = readFileSync(join(MOBILE_ROOT, f), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     assert.doesNotMatch(code, /\.sort\(|\.toSorted\(/, `${f} must not rank slices`);

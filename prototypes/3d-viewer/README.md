@@ -1,7 +1,7 @@
 # Nguyên mẫu viewer 3D (WebGL2)
 
 **Người làm chính:** Vũ Hùng Anh (V2). Đây là mã thử nghiệm, không phải mã sản phẩm: app không import từ đây,
-phần dùng lại được chép sang `mobile/src/verticals/v2/viewerSource.mjs` và `backend/mesh/` kèm ghi chú nguồn gốc.
+phần dùng lại được chép sang `mobile/src/screens/v2-3d/viewerHtml.mjs` và `backend/mesh/` kèm ghi chú nguồn gốc.
 
 ## Câu hỏi
 

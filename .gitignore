@@ -115,10 +115,3 @@ prototypes/**/mesh/out_real/
 # tracked and the bytes are not. Regenerate with payloads/generate.py.
 prototypes/**/payloads/out/
 prototypes/**/payloads/out_*/
-
-# --- GENERATED FIXTURE BUNDLE ---------------------------------------------
-# contract.json says fixture_rules.handwritten_fixtures_allowed = false, so a
-# committed bundle would be a fixture nobody can prove was generated. CI
-# regenerates it from the contract on every run; app/core/fixtures/FORMAT.md
-# is the tracked artifact, the bundle is not.
-app/core/fixtures/.generated/

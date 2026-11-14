@@ -538,7 +538,7 @@ function Step-Preflight {
   $health = Test-BackendHealth
   $script:S.BackendHealth = $health
   Write-Log ('backend health from the PC: {0}' -f $health)
-  if ($health -eq 'unreachable') { Add-Warning 'the backend did not answer /health from this PC (overlay down? backend stopped?): the phone will not load cases either' }
+  if ($health -eq 'unreachable') { Add-Warning 'the backend did not answer /health from this PC (is it running on this computer?): the phone will not load cases either' }
   if ($health -eq 'not configured') { Write-Log 'no EXPO_PUBLIC_API_BASE_URL in the environment or mobile\.env.local: the PC cannot check the backend; the phone-side check is that the case list loads' }
 
   # the app's own preflight (drives the backend with the app's code; never prints the address)

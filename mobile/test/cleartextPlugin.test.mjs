@@ -3,7 +3,7 @@
 // helpers load without node_modules.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
@@ -19,7 +19,7 @@ function manifest(appAttrs = { 'android:name': '.MainApplication' }) {
 }
 const appAttrs = (m) => m.manifest.application[0].$;
 
-test('K1 a live build allows cleartext HTTP (LOCAL_DEMO over the private overlay)', () => {
+test('K1 a live build allows cleartext HTTP (LOCAL_DEMO: the backend on the computer, reached over USB)', () => {
   const m = applyCleartextPolicy(manifest(), 'live');
   assert.equal(appAttrs(m)[ATTR], 'true');
   assert.equal(appAttrs(m)['android:name'], '.MainApplication', 'other attributes are untouched');
@@ -65,4 +65,14 @@ test('K5 the plugin is registered and every native build runs prepare.mjs before
   const prepareAt = release.indexOf("Invoke-Checked 'prepare.mjs'");
   const prebuildAt = release.indexOf("Invoke-Checked 'expo prebuild'");
   assert.ok(prepareAt > 0 && prebuildAt > prepareAt, 'build-release.ps1 runs prepare.mjs before expo prebuild');
+});
+
+// `git archive` fails on a path that is not in the commit, so every folder the release build archives must exist.
+test('K6 every folder build-release.ps1 archives exists in the repository', () => {
+  const release = readFileSync(join(MOBILE_ROOT, 'scripts', 'build-release.ps1'), 'utf8');
+  const m = /archive --format=tar -o \$tarFile HEAD ([\w ./-]+?) \}/.exec(release);
+  assert.ok(m, 'build-release.ps1 runs git archive of HEAD');
+  const folders = m[1].trim().split(/\s+/);
+  assert.deepEqual(folders, ['mobile', 'contracts']);
+  for (const f of folders) assert.ok(existsSync(join(MOBILE_ROOT, '..', f)), `${f}/ exists`);
 });

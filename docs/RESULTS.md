@@ -123,7 +123,7 @@ Nguồn: `management/day39/RESULTS_HOLDOUT_DINOV2.md` (565bf5e) dòng "Geometry"
 
 Spike là thí nghiệm nhỏ làm trước khi xây sản phẩm, để trả lời một câu hỏi kỹ thuật bằng số đo. Mã của các spike
 B, C, E nằm trong `prototypes/` (`3d-viewer`, `ml-probe`, `transport`); mã spike A đã rời cây (fixture brush của nó
-nằm ở `app/verticals/v4_review_and_findings/fixtures/`); công cụ của spike D là `tools/dataset_validate` và `tools/dataset_split`. Trạng thái cuối lấy từ
+nằm ở `mobile/src/screens/v4-review/fixtures/`); công cụ của spike D là `tools/dataset_validate` và `tools/dataset_split`. Trạng thái cuối lấy từ
 `management/spikes/SPIKE_PHASE_STATE.yaml` (565bf5e); khi khác `RESULT.md` thì theo tệp trạng thái vì nó mới hơn. Phép đo
 trên thiết bị dùng một điện thoại Android thật (Galaxy A17, Android 16).
 

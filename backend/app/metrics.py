@@ -1,28 +1,14 @@
-"""Metric endpoints, served from the saved Contract 2 metric artifacts.
+"""Metric endpoints, served from the saved Contract 2 metric files that ``ml/evaluate.py`` writes (FORMATS).
 
-Source formats (``ml/evaluate.py``, evaluation_metric_version ``ml-eval-1.0.0``):
+Nothing is recomputed from images. When a file is missing, malformed, or its provenance does not match what
+this backend ingested, the endpoint answers ``ARTIFACT_NOT_FOUND`` with a reason.
 
-    METRICS_SUMMARY     ml-metrics-summary/1   cohort statistics (+ bootstrap 95 % CIs)
-    PER_CASE_METRICS    ml-per-case-metrics/1  one record per successful case + failures
-    PER_SLICE_METRICS   ml-per-slice-metrics/1 per case, one row per slice (07 section 6)
-    METRIC_SET          ml-metric-set/1        one case: prediction/reference identity
+The two DR-010 selections are made here, on the server (the client never ranks):
 
-Every value served comes from those files; nothing is recomputed from images
-and nothing is invented. When an artifact is missing, malformed, or its
-provenance does not match what this backend ingested, the endpoint answers the
-contract's unavailable state (``ARTIFACT_NOT_FOUND`` with a reason).
-
-The two DR-010 selections are applied here, on the server, from the saved
-per-slice and per-case values (the client never ranks):
-
-- worst slice: slices with non-empty ground truth, Dice ascending, then
-  FP+FN descending, then slice_index ascending - every eligible slice, ranked;
-- outlier: the three SUCCEEDED cases with the lowest case Dice, then FP+FN
-  descending, then case_id ascending. An INFERENCE_REVIEW case (INT-12) is
-  WITHHELD and never a candidate (the exclusion is part of DR-010's outlier selection, DR-017 N-b); its
-  row is WITHHELD even if the ML listed it as failed (QA-075 N-7). Cohort summaries and the compare
-  population keep the whole evaluated population, that case included (DR-017: hidden, not blinded).
-  A case that failed has no run (DR-018) and is a FAILED row from the PER_CASE_METRICS failures list.
+- worst slice: slices with non-empty ground truth, Dice ascending, then FP+FN descending, then slice_index;
+- outlier: the three SUCCEEDED cases with the lowest Dice, then FP+FN descending, then case_id. The INT-12
+  case is always WITHHELD and never a candidate; cohort summaries and compare still count it. A failed case
+  has no run and is a FAILED row from the PER_CASE_METRICS failures list.
 """
 
 from __future__ import annotations
@@ -130,10 +116,8 @@ class PackageMetrics:
         self.per_slice: Dict[str, List[dict]] = documents["per_slice_metrics"]["cases"]
         self.cohort: dict = documents["metrics_summary"]["cohort"]
         self.intended_n: int = int(documents["metrics_summary"]["intended_n"])
-        # The artifact's own count, never recomputed from rows: the contract's successful_n is the SUCCEEDED rows plus
-        # one for the WITHHELD (INT-12) row only when that case was evaluated. If the ML recorded INT-12 as a failure
-        # its row is still WITHHELD and this count does not include it (QA_PR94_D39 NB-5; the test
-        # test_successful_n_counts_the_withheld_case_only_when_it_was_evaluated pins both cases).
+        # Taken from the file, never recounted from rows: it counts the WITHHELD INT-12 row only when that case
+        # was evaluated (if the ML recorded it as a failure, its row is still WITHHELD but not counted).
         self.successful_n: int = int(documents["metrics_summary"]["successful_n"])
 
     def metric_set(self, run: Any, mask_id: str) -> Tuple[dict, dict]:
@@ -181,7 +165,6 @@ class MetricsService:
     def withheld(self, case_id: str) -> bool:
         return case_id in self.cases.inference_only_ids
 
-    # -- one run ---------------------------------------------------------------
     def _run_context(self, run: Any, variant: str) -> Tuple[PackageMetrics, dict, dict, List[dict]]:
         loaded = self.package_metrics(run.package)
         if variant != loaded.variant:
@@ -240,7 +223,6 @@ class MetricsService:
         raise _unavailable("NO_ERROR_ARTIFACT", detail="no versioned slice-error artifact is exported; "
                                                        "derive the overlay from the GT and prediction slices")
 
-    # -- one experiment --------------------------------------------------------
     def experiment_metrics(self, package: Any) -> Dict[str, Any]:
         loaded = self.package_metrics(package)
         source = loaded.cohort.get("metrics") or {}
@@ -267,8 +249,8 @@ class MetricsService:
         for case_id in sorted(loaded.population, key=lambda value: int(value.split("_", 1)[1])):
             run_id = package.run_by_case.get(case_id)
             if self.withheld(case_id):
-                # INT-12 first (QA-075 N-7, DR-017): whatever the ML recorded for this case - a value, a
-                # failure or nothing - the row is WITHHELD, with this backend's reason and no value.
+                # Checked first: whatever the ML recorded for the INT-12 case (a value, a failure or
+                # nothing), its row is WITHHELD with no value.
                 rows.append({"case_id": case_id, "status": "WITHHELD", "reason": WITHHELD_REASON,
                              "analysis_run_id": run_id, "metric_values": None})
             elif case_id in loaded.failures:

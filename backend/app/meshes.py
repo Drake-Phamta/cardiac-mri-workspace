@@ -1,17 +1,13 @@
-"""Read side of the derived-mesh cache that ``backend/mesh/build_cache.py`` writes (V2-01, SCR-05).
+"""Read side of the mesh cache that ``backend/mesh/build_cache.py`` writes.
 
-``<data>/derived_meshes/<mask_sha256>.l0.json`` describes ``<mask_sha256>.l0.cmesh``: the undecimated (L0,
-DR-008c) voxel-face surface of one mask in the voxel-index frame, with the source slice of every face
-(``backend/mesh/artifact.py``, format ``cardiac-mesh/1``). Nothing is built here: a mask without a sidecar simply
-has no reconstruction, and ``reconstruction_get`` says so (ARTIFACT_NOT_FOUND).
+``<data>/derived_meshes/<mask_sha256>.l0.json`` describes ``<mask_sha256>.l0.cmesh``: the full-resolution (L0)
+voxel-face surface of one mask in the voxel-index frame (format ``cardiac-mesh/1``, see ``backend/mesh/artifact.py``).
+Nothing is built here: a mask without a sidecar has no reconstruction.
 
-Identity. A mesh is content-addressed by the sha256 of its bytes. ``mesh_artifact_id`` is ``MESH_<that sha256>``,
-so the client derives both the content route (``/api/v1/artifacts/<sha256>.cmesh``) and the checksum it must verify
-from the id alone - API Contract 11 has no ``content_url`` field on ``reconstruction_get`` and adding one would
-change the contract (see contracts/api/README.md, "3-D mesh content"). ``reconstruction_version`` names the builder
-and the source mask: ``dr008c-L0/v1 sha256:<mask sha256>``.
-
-The bytes are verified when served (like every artifact); the sidecar is trusted for counts and shape only.
+A mesh is addressed by the sha256 of its bytes: ``mesh_artifact_id`` is ``MESH_<sha256>``, so the client gets both
+the content route (``/api/v1/artifacts/<sha256>.cmesh``) and the checksum to verify from the id alone, because
+``reconstruction_get`` has no ``content_url`` field in API Contract 11. The bytes are verified when served; the
+sidecar is trusted for counts and shape only.
 """
 
 from __future__ import annotations

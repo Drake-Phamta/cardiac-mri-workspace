@@ -27,7 +27,7 @@ và chế độ fixture của app dùng dữ liệu giả sinh từ chính hợp
 
 ```text
  Điện thoại Android ── mobile/ (Expo / React Native)
-   │   màn hình V1–V4, dùng logic chung app/core
+   │   màn hình V1–V4 (mobile/src/screens), logic chung trong mobile/src/api và lib
    │   HTTP JSON + ảnh PNG từng lát, qua USB (adb reverse tcp:8000 tcp:8000)
    ▼
  Backend ── backend/ (FastAPI + SQLite, 127.0.0.1:8000, trên máy tính)
@@ -47,8 +47,7 @@ và chế độ fixture của app dùng dữ liệu giả sinh từ chính hợp
 
 | Thư mục | Nội dung |
 |---|---|
-| `mobile/` | App Expo / React Native: màn hình, runtime gọi API, cache lát, test logic và render |
-| `app/` | Logic dùng chung không phụ thuộc framework (`app/core`) và mô hình logic của từng vertical |
+| `mobile/` | App Expo / React Native. `src/api` (gọi API, 7 trạng thái màn hình, cache, tải byte có kiểm checksum), `src/lib` (toán zoom/pan, mask, SHA-256), `src/components`, `src/navigation`, `src/screens/` (mỗi người một thư mục); `test/` là test logic và render |
 | `backend/` | API FastAPI + SQLite, nhập dữ liệu (Contract 1), dựng lưới 3D (`backend/mesh`) |
 | `ml/` | Train, dự đoán, chấm điểm, hậu xử lý, xuất gói Contract 2; `ml/records/` giữ bản ghi chọn hậu xử lý và số tổng hợp |
 | `contracts/` | Hợp đồng API (`contracts/api/contract.json`) và hai hợp đồng nhập liệu, kèm bộ kiểm |
@@ -100,20 +99,12 @@ powershell -ExecutionPolicy Bypass -File mobile\scripts\build-release.ps1 -Mode 
 Tất cả chạy từ thư mục gốc repo, không cần điện thoại hay GPU. Số trong ngoặc là kết quả lần chạy gần nhất.
 
 ```powershell
-# app/core và các vertical (10 script + 4 vertical); cần sinh bundle fixture trước
-python -c "import json,sys,os; sys.path.insert(0,'contracts/api'); from generate_fixture import generate_fixture; os.makedirs('app/core/fixtures/.generated', exist_ok=True); json.dump(generate_fixture(json.load(open('contracts/api/contract.json', encoding='utf-8'))), open('app/core/fixtures/.generated/api_bundle.json','w', encoding='utf-8'), indent=2)"
-node app/core/tests/run_all.mjs
-node app/verticals/v1_case_explorer/test_case_explorer.mjs
-node app/verticals/v3_study_and_compare/test_study_and_compare.mjs
-node app/verticals/v4_review_and_findings/test_review_correction.mjs
-node app/verticals/v4_review_and_findings/test_brush.mjs
-node app/verticals/v4_review_and_findings/test_findings.mjs
-
-# mobile: test logic (255 test; 16 test cần fast-png bị bỏ qua nếu chưa chạy npm ci) và render smoke (cần npm ci)
+# mobile: test logic (273 test, tự sinh bundle fixture bằng Python; 16 test cần fast-png bị bỏ qua nếu chưa chạy
+# npm ci) và render smoke (217 kiểm, cần npm ci)
 node --test mobile/test/*.test.mjs
 cd mobile; npm ci; npm run test:render; cd ..
 
-# backend (135 test) và lưới 3D (141 test)
+# backend (125 test) và lưới 3D (141 test)
 python -m pytest backend/tests -q -p no:cacheprovider
 python -m pytest backend/mesh/tests -q -p no:cacheprovider
 
@@ -135,15 +126,15 @@ kiểm checksum của đặc tả, và chặn commit ảnh y tế, checkpoint, s
 
 ## Nhóm
 
-| Phần | Màn hình | Người phụ trách |
-|---|---|---|
-| **V1** Case Explorer + Error Inspector | SCR-02, SCR-03, SCR-04 | **Phạm Tuấn Anh** (nhóm trưởng; kiêm khung app, tích hợp, CI) |
-| **V2** 3D Inspector | SCR-05 | **Vũ Hùng Anh** (kiêm `backend/mesh`) |
-| **V3** Study overview + Experiment comparison | SCR-01, SCR-07 | **Bế Quốc Khánh** (kiêm pipeline ML `ml/`) |
-| **V4** Review/Correction + Findings | SCR-06, SCR-08 | **Nguyễn Gia Đức Trung** (kiêm backend API) |
+| Phần | Màn hình | Thư mục | Người phụ trách |
+|---|---|---|---|
+| **V1** Case Explorer + Error Inspector | SCR-02, SCR-03, SCR-04 | `mobile/src/screens/v1-cases/` | **Phạm Tuấn Anh** (nhóm trưởng; kiêm khung app, tích hợp, CI) |
+| **V2** 3D Inspector | SCR-05 | `mobile/src/screens/v2-3d/` | **Vũ Hùng Anh** (kiêm `backend/mesh`) |
+| **V3** Study overview + Experiment comparison | SCR-01, SCR-07 | `mobile/src/screens/v3-study/` | **Bế Quốc Khánh** (kiêm pipeline ML `ml/`) |
+| **V4** Review/Correction + Findings | SCR-06, SCR-08 | `mobile/src/screens/v4-review/` | **Nguyễn Gia Đức Trung** (kiêm backend API) |
 
-Mỗi người giải thích được mã của mình: màn hình trong `mobile/src/verticals/v<N>/`, logic trong `app/verticals/`,
-và phần kiêm nhiệm ghi trong ngoặc.
+Mỗi người giải thích được mã trong thư mục của mình: file `.js` vẽ màn hình, file `.mjs` cạnh nó quyết định (test
+bằng `node --test`), và README ngắn trong thư mục nói file nào làm gì. Phần kiêm nhiệm ghi trong ngoặc.
 
 ## Trạng thái (2026-11-14)
 

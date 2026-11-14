@@ -1,12 +1,12 @@
-// node --test mobile/test/  - runtime.content, the one binary path (src/runtime/content.mjs, sha256.mjs)
+// node --test mobile/test/  - runtime.content, the one binary path (src/api/content.mjs, src/lib/bytes.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { RECOVERY, STATE } from '../../app/core/index.mjs';
-import { CONTENT_REASON, bytesOrThrow, createContent } from '../src/runtime/content.mjs';
-import { createNetLog } from '../src/runtime/netLog.mjs';
-import { sha256Hex } from '../src/runtime/sha256.mjs';
+import { RECOVERY, STATE } from '../src/api/states.mjs';
+import { CONTENT_REASON, bytesOrThrow, createContent } from '../src/api/content.mjs';
+import { createNetLog } from '../src/api/http.mjs';
+import { sha256Hex } from '../src/lib/bytes.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();
@@ -123,7 +123,7 @@ test('B7 network failure, timeout and 5xx-without-code are TRANSPORT_UNREACHABLE
   assert.equal((await crash.bytes(PATH, { checksum: SUM })).reason, 'TRANSPORT_UNREACHABLE');
 });
 
-test('B8 a contract error envelope maps through app/core; a bare 4xx is drift', async () => {
+test('B8 a contract error envelope maps to its screen state; a bare 4xx is drift', async () => {
   const gone = live(async () => answer(404, new Uint8Array(0), {
     'content-type': 'application/json', 'x-body': '{"error":{"code":"ARTIFACT_NOT_FOUND","message":"x"}}',
   }));

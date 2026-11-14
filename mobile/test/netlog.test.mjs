@@ -1,14 +1,15 @@
-// node --test mobile/test/  - per-gesture network accounting (src/runtime/netLog.mjs) and
-// the counted MRI image store (src/imaging/imageStore.mjs) behind L4 / NFR-PERF-001 limb 2
+// node --test mobile/test/  - per-gesture network accounting (src/api/http.mjs) and
+// the counted MRI image store (src/api/cache.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { STATE } from '../../app/core/index.mjs';
+import { STATE } from '../src/api/states.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { bytesToBase64, createImageStore } from '../src/imaging/imageStore.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { createNetLog, utf8Length } from '../src/runtime/netLog.mjs';
+import { createImageStore } from '../src/api/cache.mjs';
+import { bytesToBase64 } from '../src/lib/bytes.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { createNetLog, utf8Length } from '../src/api/http.mjs';
 import { readContractJson } from './_helpers.mjs';
 
 function capture() {

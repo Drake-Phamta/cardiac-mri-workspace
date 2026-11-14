@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBundle } from '../../app/core/index.mjs';
+import { createBundle } from '../src/api/client.mjs';
 import { parseArgs, runGenerator } from '../scripts/prepare.mjs';
 import { loadContract } from './_helpers.mjs';
 
@@ -27,7 +27,7 @@ test('P2 a flag with no value, or an unknown flag, is an error', () => {
   assert.throws(() => parseArgs(['--fast']), /unknown argument/);
 });
 
-test('P3 the bundle comes from contracts/api/generate_fixture.py and passes app/core FORMAT.md checks', () => {
+test('P3 the bundle comes from contracts/api/generate_fixture.py and passes the FIXTURE_FORMAT.md checks', () => {
   const { json } = runGenerator({ python: process.env.PYTHON });
   const bundle = createBundle(loadContract(), json);
   assert.equal(json.contract, 'api_contract_11');

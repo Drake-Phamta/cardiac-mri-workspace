@@ -1,8 +1,7 @@
-"""The accepted API contract, loaded once, and the error envelope built from it.
+"""The API contract, loaded once, and the error envelope built from it.
 
-The service refuses to start on any contract other than the exact version it
-was written for: a drifted contract is a deployment error, never something to
-serve around (the same rule app/core/contract.mjs applies on the phone).
+The service refuses to start on any contract version other than the one it was written for; the phone's
+src/api/contract.mjs applies the same rule.
 """
 
 from __future__ import annotations

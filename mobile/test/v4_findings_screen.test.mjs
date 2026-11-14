@@ -1,4 +1,4 @@
-// node --test mobile/test/  - SCR-08 Findings controller (src/verticals/v4/findingsController.mjs)
+// node --test mobile/test/  - SCR-08 Findings controller (src/screens/v4-review/findings.mjs)
 //
 // Fixture runtime over the GENERATED bundle; scenarios are switched with the
 // runtime's own override API, never a hand-written body. The controller reads
@@ -7,11 +7,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATE } from '../../app/core/index.mjs';
+import { STATE } from '../src/api/states.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { validateRoute } from '../src/nav/navigator.mjs';
-import { createFindingsScreen, contextFrom, routeFor, reviewRouteFor } from '../src/verticals/v4/findingsController.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { validateRoute } from '../src/navigation/navigator.mjs';
+import { createFindingsScreen, contextFrom, routeFor, reviewRouteFor } from '../src/screens/v4-review/findings.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { loadList } from './_v4_drive.mjs';
 

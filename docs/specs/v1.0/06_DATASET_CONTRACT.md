@@ -169,7 +169,7 @@ Minimum automated checks:
 
 ## 9.1 Dataset acceptance artifact
 
-The dataset is considered READY only when `management/DATASET_AUDIT.md` and a machine-readable `data/manifests/dataset_manifest.*` exist and record:
+The dataset is considered READY only when `data/DATASET_AUDIT.md` and a machine-readable `data/manifests/dataset_manifest.*` exist and record:
 
 - source URL and acquisition timestamp;
 - package checksum(s) where practical;

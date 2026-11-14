@@ -27,7 +27,7 @@ Example:
 
 ## 3. Execution RTM schema
 
-Claude Project Control shall maintain `management/REQUIREMENTS_TRACEABILITY_MATRIX.md` (or equivalent machine-readable representation) with at least:
+The team shall maintain a requirements traceability matrix (`docs/REQUIREMENTS.md` or an equivalent machine-readable representation) with at least:
 
 | Requirement | Priority | Child FR/NFR | Use Case | Owner | Implementation | Test | Status | Evidence |
 |---|---|---|---|---|---|---|---|---|
@@ -49,7 +49,7 @@ Only `ACCEPTED` counts as complete.
 
 ## 4. Frozen product-requirement trace map
 
-This is the baseline semantic map. Claude may add implementation links/owners but may not remove coverage silently.
+This is the baseline semantic map. The team may add implementation links/owners but may not remove coverage silently.
 
 | Product requirement | Priority | FR/NFR / governing spec | Use case / UI | Acceptance test family |
 |---|---|---|---|---|

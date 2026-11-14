@@ -1,9 +1,7 @@
 /*
  * SPIKE_B S-1 — device-session viewer: real-mesh levels, B6/B7/B9/B10/B11 probes.
  *
- * THROWAWAY SPIKE CODE under prototypes/3d-viewer/. Day 22 (2026-10-01), written by a Claude
- * agent under the leader's recovery override; Spike B owner Vu Hung Anh adopts or rejects
- * it on Day 23.
+ * THROWAWAY SPIKE CODE under prototypes/3d-viewer/.
  *
  * PROVENANCE. The renderer (shaders, compile/link, perspective, modelMatrix, setup) and the
  * orbit / two-finger pan / pinch handlers are copied from app/viewer.js at PR #44 head

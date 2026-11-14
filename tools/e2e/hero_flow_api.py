@@ -304,7 +304,7 @@ def print_step(chk):
 
 
 def fetch_artifact(chk, api, meta, label):
-    """The app's one binary path (mobile/src/runtime/content.mjs): fetch content_url, hash it, compare."""
+    """The app's one binary path (mobile/src/api/content.mjs): fetch content_url, hash it, compare."""
     url = meta.get("content_url")
     checksum = meta.get("checksum")
     chk.ok(isinstance(url, str) and url.startswith(BASE + "/artifacts/"), "%s: content_url is not under %s/artifacts/" % (label, BASE))
@@ -1232,7 +1232,7 @@ def build_steps(runner, args):
             err = (r.json or {}).get("error", {})
             c.ev("%s: NON_COMPARABLE_EXPERIMENTS details=%s" % (label, json.dumps(err.get("details"), sort_keys=True)[:200]))
         elif r.status == 200:
-            # the contract carries comparable:false + compatibility_reason; the app reads that (app/core/comparability.mjs)
+            # the contract carries comparable:false + compatibility_reason; the app reads that (mobile/src/screens/v3-study/readers.mjs)
             d = r.json or {}
             c.ok(d.get("comparable") is False, "%s: a variant mismatch was served as comparable=%s" % (label, d.get("comparable")))
             c.ok("prediction variant" in str(d.get("compatibility_reason")), "%s: reason %r does not name the variant mismatch" % (label, d.get("compatibility_reason")))

@@ -30,8 +30,8 @@ Report p50 and p95 of every repetition and of the three pooled (`n  93`); none i
 | T3 | **The measured pass was cached navigation**: its 31 `CMW_GESTURE` lines all read `"cache_hit":true`; the two `CMW_NET_TOTALS` lines have equal `requests`, `bytes`, `unattributed`, `late`; no `CMW_STEP_TIMEOUT` in it | 4.2 |
 | T4 | **No full-volume request per gesture**: `l4-report.mjs` shows `"problems": []` (R1–R4 on every slice gesture of the capture) | 4.3 |
 
-**Why 31 samples.** `runA9` (`mobile/src/verticals/v1/CaseExplorerScreen.js:575-579`) runs `[0, ...buildNavSequence(nz)]`
-per pass: a jump to slice 0, then Spike A's 30 steps (`mobile/src/verticals/v1/explorer.mjs:117-150`). For CASE_0061
+**Why 31 samples.** `runA9` (`mobile/src/screens/v1-cases/scriptedRuns.js`) runs `[0, ...buildNavSequence(nz)]`
+per pass: a jump to slice 0, then Spike A's 30 steps (`buildNavSequence` in `mobile/src/screens/v1-cases/cases.mjs`). For CASE_0061
 (576 × 576 × 88, the L4 case): z = 1…8, 7…0, 46, 0, 87, 23, 64, 12, 76, 35, 36…41 — 22 distinct slices, 23 with the
 opening one. All 31 measured switches are cached, and all count.
 
@@ -39,7 +39,7 @@ opening one. All 31 measured switches are cached, and all count.
 predictions had not been authorised yet), so CASE_0061 opens with no
 run, as for L4: MRI + GT overlay (keep it **ON**: the hero flow navigates with overlays), no
 prediction — write "… — MRI + ground-truth path; prediction overlay not covered", and rerun with predictions once a run is in.
-**Fixture mode is not evidence:** no image store, no gesture log (`mobile/src/runtime/createRuntime.mjs:93-106`) — a
+**Fixture mode is not evidence:** no image store, no gesture log (fixture branch of `createRuntime`, `mobile/src/api/runtime.mjs`) — a
 placeholder grid, `CMW_SLICE` `"how":"no-image","mode":"fixture"`, no `CMW_GESTURE`: neither limb can be judged. D1
 wants the live product; the fallback is "never an offline product mode" (`:168-169`). Rehearse taps with it only.
 **L4 cannot be reused for timing:** its cached `revisit-15` pass is 15 steps of −1, no jump, one run — not the 30 steps.
@@ -68,7 +68,7 @@ on S1_L4's abort list ("Phone budget"; "L4 finished" read as "A9 finished") or i
 
    ```powershell
    git -C <repo> switch main; git -C <repo> pull --ff-only
-   git -C <repo> grep -c CMW_NET_TOTALS HEAD -- mobile/src/verticals/v1/CaseExplorerScreen.js   # 1 or more
+   git -C <repo> grep -c CMW_NET_TOTALS HEAD -- mobile/src/screens/v1-cases/scriptedRuns.js   # 1 or more
    powershell -ExecutionPolicy Bypass -File <repo>\mobile\scripts\build-release.ps1 -Mode live  # mobile/README.md:105
    ```
 
@@ -97,7 +97,7 @@ outline; same in every repetition). Touch nothing else.
 `& $adb -s $SERIAL shell dumpsys meminfo com.cardiacmri.workspace | Out-File -Encoding utf8 "$CAP\A9_rep${k}_meminfo_M0.txt"`
 
 **3.4 Start A9.** **Long-press the slice label** (`slice 45 / 88 …`, under the image) ~1 s (≥ 800 ms,
-`mobile/src/verticals/v1/SliceScrubber.js:52`) → **A9 30-step** in "Scripted slice navigation" (not **L4 15 + 15**;
+`SliceScrubber` in `mobile/src/screens/v1-cases/SliceView.js`) → **A9 30-step** in "Scripted slice navigation" (not **L4 15 + 15**;
 Android may show capitals). The menu is in every build — release or debug, live or fixture — behind no dev switch
 (`CaseExplorerScreen.js:581-591`, `:693`). Controls locked, the app runs the **warm** pass (31 steps from slice 45,
 fetching the 22 distinct slices once), then straight away the **measured** pass (the same 31 steps, all cached), each
@@ -181,7 +181,7 @@ foreach ($k in 1..3) {
 
 Pass: `measured gestures 31  not cache hits 0  step timeouts 0`; the `"pass":"warm"` and `"pass":"measured"` totals
 equal in `requests`, `bytes`, `unattributed`, `late` — they run from app start and include requests no gesture line lists
-(`mobile/src/runtime/netLog.mjs:21-26`). A measured-pass step timeout is a FAIL, never an excluded sample; a warm one is noted.
+(`createNetLog` in `mobile/src/api/http.mjs`). A measured-pass step timeout is a FAIL, never an excluded sample; a warm one is noted.
 
 **4.3 No full-volume request — T4.**
 
@@ -250,7 +250,7 @@ Select-String -Path "$CAP\*.txt" -SimpleMatch -Pattern $SERIAL, "<backend-ip>", 
 | Long-press does nothing | hold ≥ 1 s on the label text, not the track; the menu needs the slice count and ignores a long-press while a run is in progress (`CaseExplorerScreen.js:535`) |
 | No "A9 finished" after ~2 min | §3b — the stale step-timer hang, fixed in `458219d`, which `main` contains |
 | `no CMW_SLICE line`, or `A9:measured` n < 31 | wrong file, a cut capture, or a step never on screen: judge the `_dump.txt` if complete, look for `CMW_STEP_TIMEOUT`; n < 31 cannot pass |
-| A measured `"cache_hit":false` | the cache lost a slice (image LRU 48, `mobile/src/imaging/imageStore.mjs:49`, > the 23 of a run): T3 FAIL; keep the capture, open an issue |
+| A measured `"cache_hit":false` | the cache lost a slice (image LRU 48, `createImageStore` in `mobile/src/api/cache.mjs`, > the 23 of a run): T3 FAIL; keep the capture, open an issue |
 | p95 > 200 ms | T1 FAIL; do not rerun for it. Note battery temperature and Motion smoothness |
 | `dumpsys meminfo`: `No process found` | the app is not running — look for `FATAL` / `RangeError` in the logcat |
 | adb loses the device | rerun the S1_L4 setup block in both windows; the repetition in progress is disturbed (§3b) |

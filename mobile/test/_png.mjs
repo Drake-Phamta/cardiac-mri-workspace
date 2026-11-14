@@ -99,7 +99,7 @@ export function ellipseMask(width, height, cx, cy, rx, ry, value = 255) {
 // fast-png may be absent: the caller skips with this reason instead of failing.
 export async function importMaskPngOrSkip(t) {
   try {
-    return await import('../src/imaging/maskPng.js');
+    return await import('../src/lib/maskPng.js');
   } catch (err) {
     if (err && err.code === 'ERR_MODULE_NOT_FOUND') {
       t.skip('fast-png is not installed here (CI runs without npm install) - run `npm ci` in mobile/ to check this');
