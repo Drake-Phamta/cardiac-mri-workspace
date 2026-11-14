@@ -1,7 +1,8 @@
-"""DR-005 candidate 3 skeleton: prediction surface + FP/FN component markers (V2-03)."""
+"""Candidate 3 error geometry: prediction surface + FP/FN component markers, and the artifact the app downloads."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 import numpy as np
@@ -251,3 +252,44 @@ def test_random_pairs_satisfy_the_component_invariants(seed):
         assert region[c["class"]][tuple(c["marker_voxel"])]
         lo, hi = c["bbox_voxel"]["lo"], c["bbox_voxel"]["hi"]
         assert all(lo[i] <= c["marker_voxel"][i] <= hi[i] for i in range(3))
+
+
+# -- the served artifact (build_error_artifact) ---------------------------------------------------------------------
+
+def zyx(volume_xyz):
+    return np.ascontiguousarray(np.transpose(volume_xyz, (2, 1, 0)))
+
+
+def test_the_served_artifact_is_the_component_list_in_voxel_indices():
+    from backend.mesh.error_geometry import build_error_artifact
+
+    pred, gt = shifted_cube_case()
+    surface = "MESH_" + "ab" * 32
+    payload, info = build_error_artifact(zyx(pred), zyx(gt), surface)
+    document = json.loads(payload.decode("ascii"))
+    assert payload == json.dumps(document, sort_keys=True, separators=(",", ":")).encode("ascii")
+    assert (document["format"], document["frame"], document["index_convention"]) == \
+        ("cardiac-error-geometry/1", "voxel-index", "x=column,y=row,z=slice")
+    assert document["shape"] == list(SHAPE) and document["connectivity"] == 26
+    assert document["surface_mesh_artifact_id"] == surface
+    assert [(c["id"], c["class"], c["voxel_count"], c["slice_range"]) for c in document["components"]] == [
+        ("FN_0001", "FN", 25, [4, 4]), ("FP_0001", "FP", 25, [9, 9]), ("FP_0002", "FP", 8, [2, 3])]
+    blob = document["components"][2]
+    assert (blob["bbox_lo"], blob["bbox_hi"]) == ([14, 14, 2], [15, 15, 3]) and pred[tuple(blob["marker_voxel"])]
+    assert document["summary"] == {"pred_voxels": 133, "gt_voxels": 125, "tp_voxels": 100, "fp_voxels": 33,
+                                   "fn_voxels": 25, "fp_components": 2, "fn_components": 1}
+    assert info == {"shape": list(SHAPE), "components": 3, "bytes": len(payload),
+                    "error_sha256": hashlib.sha256(payload).hexdigest()}
+    assert "world" not in payload.decode("ascii"), "no world (millimetre) coordinates are served"
+
+
+def test_the_served_artifact_is_deterministic_and_needs_matching_grids():
+    from backend.mesh.error_geometry import build_error_artifact
+
+    pred, gt = shifted_cube_case()
+    first, _ = build_error_artifact(zyx(pred), zyx(gt), None)
+    again, _ = build_error_artifact(zyx(pred).astype(np.uint8) * 255, zyx(gt), None)
+    assert first == again and json.loads(first)["surface_mesh_artifact_id"] is None
+    with pytest.raises(GeometryError) as raised:
+        build_error_artifact(zyx(pred)[:-1], zyx(gt), None)
+    assert raised.value.code == "GEOMETRY_MISMATCH"

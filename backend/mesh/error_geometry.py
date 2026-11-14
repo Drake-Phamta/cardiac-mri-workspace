@@ -1,17 +1,11 @@
-"""DR-005 candidate 3 error geometry: prediction surface + FP/FN component markers (V2-03).
+"""Candidate 3 error geometry: prediction surface + FP/FN component markers (PR-ERR-03, PR-3D-05).
 
-STATUS -- WORKING SKELETON, NOT A DECISION
-    DR-005 (how 3-D error is represented; PR-ERR-03, PR-3D-05) is not decided.
-    It is decided on Day 24: V2-03 owner Vu Hung Anh brings the recommendation
-    from MOB-09 (compressed Spike F: F5/F6 determinism and the +/-1 bound
-    offline, F7/F8 on device) and the leader records the decision (DAY20
-    plan, D24 18:30). This module implements candidate 3 -- "surface + FP/FN
-    connected-component markers with precomputed slice ranges" -- so V2-03 has
-    something real to adopt or discard. Built on Day 22 (2026-10-01) under the
-    Day 22 recovery override; Vu Hung Anh adopts or rejects it on Day 23.
-    Candidate 1 (TP/FP/FN meshes, the desktop control) can be assembled from
-    the same pieces: ``include_component_meshes=True`` gives every FP/FN
-    component its own voxel-face mesh, and a TP mesh is
+STATUS
+    Candidate 3 is the 3-D error representation the app serves (chosen 2026-11-14): the prediction surface
+    plus one marker per FP / FN connected component, with the exact slice range of each component.
+    ``build_error_artifact`` turns it into the JSON the app downloads; the surface itself is the prediction's
+    ``cardiac-mesh/1`` artifact. Candidate 1 (TP/FP/FN meshes) can still be assembled from the same pieces:
+    ``include_component_meshes=True`` gives every FP/FN component its own voxel-face mesh, and a TP mesh is
     ``build_case_mesh(pred & gt)``.
 
 DEFINITIONS
@@ -57,6 +51,7 @@ from typing import Any
 
 import numpy as np
 
+from .artifact import FRAME, INDEX_CONVENTION, mask_from_zyx
 from .geometry import (
     CONNECTIVITY_UNSUPPORTED,
     CONTRACT_VERSION,
@@ -223,7 +218,7 @@ def build_error_geometry(pred_mask: Any, gt_mask: Any, *, spacing: Any, origin: 
     }
     return {
         "kind": "error_geometry",
-        "candidate": "DR-005 candidate 3: surface + FP/FN component markers (skeleton; DR-005 undecided)",
+        "candidate": "candidate 3: prediction surface + FP/FN component markers",
         "geometry_contract_version": geometry.geometry_contract_version,
         "geometry": geometry.to_dict(),
         "connectivity": connectivity,
@@ -266,5 +261,36 @@ def error_geometry_sha256(result: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-__all__ = ["CONNECTIVITY_RANK", "DEFAULT_CONNECTIVITY", "CLASS_ORDER", "build_error_geometry",
-           "error_geometry_to_dict", "error_geometry_sha256"]
+ERROR_ARTIFACT_FORMAT = "cardiac-error-geometry/1"
+SUMMARY_FIELDS = ("pred_voxels", "gt_voxels", "tp_voxels", "fp_voxels", "fn_voxels", "fp_components", "fn_components")
+
+
+def build_error_artifact(pred_zyx: Any, gt_zyx: Any, surface_mesh_artifact_id: Any) -> tuple[bytes, dict[str, Any]]:
+    """The error geometry the app downloads, for one prediction and its ground truth: ``(bytes, info)``.
+
+    Both volumes are (z, y, x), like the masks ``artifact.build_mesh_artifact`` takes. The bytes are JSON (sorted
+    keys, compact, ASCII) in the voxel-index frame: every number is a voxel index or a voxel count, never a length.
+    ``surface_mesh_artifact_id`` names the prediction mesh the markers are drawn on (None for an empty prediction),
+    so the app can refuse markers that belong to another surface. Same masks, same bytes.
+    """
+    pred, gt = mask_from_zyx(np.asarray(pred_zyx)), mask_from_zyx(np.asarray(gt_zyx))
+    result = build_error_geometry(pred, gt, spacing=(1.0, 1.0, 1.0), origin=(0.0, 0.0, 0.0))
+    components = [{
+        "id": c["id"], "class": c["class"], "voxel_count": c["voxel_count"],
+        "slice_range": c["source_slice_range"], "marker_voxel": c["marker_voxel"],
+        "bbox_lo": c["bbox_voxel"]["lo"], "bbox_hi": c["bbox_voxel"]["hi"],
+    } for c in result["components"]]
+    document = {
+        "format": ERROR_ARTIFACT_FORMAT, "frame": FRAME, "index_convention": INDEX_CONVENTION,
+        "shape": [int(v) for v in pred.shape], "connectivity": result["connectivity"],
+        "surface_mesh_artifact_id": surface_mesh_artifact_id,
+        "summary": {key: result["summary"][key] for key in SUMMARY_FIELDS},
+        "components": components,
+    }
+    payload = json.dumps(document, sort_keys=True, separators=(",", ":")).encode("ascii")
+    return payload, {"shape": document["shape"], "components": len(components), "bytes": len(payload),
+                     "error_sha256": hashlib.sha256(payload).hexdigest()}
+
+
+__all__ = ["CONNECTIVITY_RANK", "DEFAULT_CONNECTIVITY", "CLASS_ORDER", "ERROR_ARTIFACT_FORMAT", "build_error_artifact",
+           "build_error_geometry", "error_geometry_to_dict", "error_geometry_sha256"]

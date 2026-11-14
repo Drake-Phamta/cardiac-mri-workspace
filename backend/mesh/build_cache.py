@@ -14,6 +14,13 @@ ground truth the mask checksum recorded by the ingest). Files are write-once lik
 NO_OP, and a file that exists with other bytes is a CHECKSUM_CONFLICT, never overwritten. The sidecar is written
 last, so a mesh without a sidecar is an interrupted build and is rebuilt.
 
+For each prediction of a case with ground truth it also writes the error geometry (``error_geometry.py``,
+format ``cardiac-error-geometry/1``: one marker per FP / FN component with its slice range) as
+
+    <data>/derived_meshes/<prediction_mask_sha256>.<ground_truth_mask_sha256>.errors.json
+
+This step needs scipy; without it the step is skipped and says so (the meshes are still built).
+
 Contract 2 and API Contract 11 are unchanged: this step only adds derived, patient-derived files outside git.
 CASE_0001 (INT-12) has no ground truth in the cache, so none is built for it; its predictions are meshed.
 
@@ -37,10 +44,12 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from . import artifact
+from .error_geometry import build_error_artifact
 
 DERIVED_DIR = "derived_meshes"
 MESH_SUFFIX = ".l0.cmesh"
 SIDECAR_SUFFIX = ".l0.json"
+ERRORS_SUFFIX = ".errors.json"
 DATA_ENV = "CARDIAC_BACKEND_DATA"
 
 
@@ -56,6 +65,43 @@ def mesh_path(root: Path, mask_sha256: str) -> Path:
 
 def sidecar_path(root: Path, mask_sha256: str) -> Path:
     return Path(root) / f"{mask_sha256}{SIDECAR_SUFFIX}"
+
+
+def errors_path(root: Path, prediction_sha256: str, ground_truth_sha256: str) -> Path:
+    return Path(root) / f"{prediction_sha256}.{ground_truth_sha256}{ERRORS_SUFFIX}"
+
+
+def surface_mesh_id(root: Path, mask_sha256: str) -> Optional[str]:
+    """``MESH_<sha256>`` of the mesh already built for this mask, or None (empty mask or not built)."""
+    side = sidecar_path(root, mask_sha256)
+    if not side.is_file():
+        return None
+    record = json.loads(side.read_text(encoding="utf-8"))
+    return None if record.get("empty") else f"MESH_{record['mesh_sha256']}"
+
+
+def store_errors(root: Path, prediction_sha256: str, ground_truth_sha256: str, volumes_zyx: Any) -> Dict[str, Any]:
+    """Build and store the error geometry of one prediction against its ground truth, write-once.
+
+    ``volumes_zyx`` is a callable giving the (prediction, ground truth) (z, y, x) volumes; it is not called when the
+    file already exists. The prediction's mesh must be built first: the file names it as the surface.
+    """
+    path = errors_path(root, prediction_sha256, ground_truth_sha256)
+    if path.is_file():
+        payload = path.read_bytes()
+        return {"action": "NO_OP", "bytes": len(payload), "components": len(json.loads(payload)["components"])}
+    prediction, ground_truth = volumes_zyx()
+    payload, info = build_error_artifact(prediction, ground_truth, surface_mesh_id(root, prediction_sha256))
+    _write_atomic(path, payload)
+    return dict(info, action="NEW")
+
+
+def scipy_available() -> bool:
+    try:
+        import scipy.ndimage  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def _write_atomic(path: Path, payload: bytes) -> None:
@@ -174,7 +220,47 @@ def build_all(data: Path, runs: Optional[List[str]] = None, ground_truth: bool =
                 continue
             record(f"{case.case_id} GROUND_TRUTH", case.data["mask_sha256"],
                    lambda case=case: ground_truth_volume(case), "ground_truth_slices")
-    return summarise(results)
+    summary = summarise(results)
+    summary["error_geometry"] = (build_errors(root, selected, cases, experiments, log) if ground_truth
+                                 else {"skipped": "--no-ground-truth"})
+    return summary
+
+
+def build_errors(root: Path, runs: List[Any], cases: Any, experiments: Any, log=print) -> Dict[str, Any]:
+    """The error geometry of every prediction whose case has ground truth (after the meshes, which it names)."""
+    if not scipy_available():
+        log("SKIP  error geometry: scipy is not installed (only this step needs it)", flush=True)
+        return {"skipped": "scipy is not installed"}
+    counts = {"new": 0, "no_op": 0}
+    last_gt: Dict[str, np.ndarray] = {}  # one ground truth in memory at a time
+
+    def gt_of(case: Any) -> np.ndarray:
+        if case.case_id not in last_gt:
+            last_gt.clear()
+            last_gt[case.case_id] = ground_truth_volume(case)
+        return last_gt[case.case_id]
+
+    for run in runs:
+        case = cases.get(run.case_id)
+        if run.status != "SUCCEEDED" or case is None or not case.ground_truth_available \
+                or not case.data.get("mask_sha256"):
+            continue
+        for variant in ("RAW", "PROCESSED"):
+            mask_id = run.mask_id(variant)
+            if mask_id is None:
+                continue
+            started = time.perf_counter()
+
+            def volumes(run=run, variant=variant, case=case):  # read only when the file is not built yet
+                return experiments.prediction_volume(run, variant)[2], gt_of(case)
+
+            result = store_errors(root, run.package.artifacts[mask_id]["checksum"]["value"], case.data["mask_sha256"],
+                                  volumes)
+            counts["new" if result["action"] == "NEW" else "no_op"] += 1
+            label = f"{run.run_id} {variant} ERRORS"
+            log(f"{result['action']:5} {label:34} markers={result['components']:>5} bytes={result['bytes']:>8} "
+                f"{time.perf_counter() - started:6.2f}s", flush=True)
+    return counts
 
 
 def summarise(results: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -200,7 +286,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--data", type=Path, default=Path(os.environ[DATA_ENV]) if os.environ.get(DATA_ENV) else None,
                         required=DATA_ENV not in os.environ, help=f"the backend data root (or set {DATA_ENV})")
     parser.add_argument("--runs", nargs="*", help="only these run ids (and, for ground truth, their cases)")
-    parser.add_argument("--no-ground-truth", action="store_true", help="skip the ground-truth meshes")
+    parser.add_argument("--no-ground-truth", action="store_true",
+                        help="skip the ground-truth meshes and the error geometry")
     args = parser.parse_args(argv)
     try:
         summary = build_all(args.data, args.runs, ground_truth=not args.no_ground_truth)
