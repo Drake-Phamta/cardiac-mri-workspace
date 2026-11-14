@@ -274,7 +274,7 @@ SCR-03) run end to end on real data. Vũ Hùng Anh completes, measures and defen
 ```powershell
 cd mobile
 npm ci
-npm run test:render        # node --import ./test/render/hooks.mjs test/render/smoke.mjs
+npm run test:render        # test/render/smoke.mjs, then test/render/touch_targets.mjs (both with ./test/render/hooks.mjs)
 ```
 
 Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`react-test-renderer` 19.2.3** (exact-pinned
@@ -294,6 +294,11 @@ this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with 
 | 12 | **Shell**: the header (name, case, run, Back, Live / Fixture), the tab bar, the Details sheet behind Info (and that it hides under the session cover), the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button), Clear cached images, and the viewer chrome a screen can opt in to (floating app bar, no tab bar) — checks `H1`..`H9` |
 | 13 | **V1**: SCR-02 as a worklist on a fake backend — search, filter tabs with counts, Dice bars, No GT, worst first with the No Dice group, the server's outlier tags, a variant mismatch — checks `W0`..`W4` |
 
+- **Touch targets.** `test/render/touch_targets.mjs` runs after the smoke and prints `TOUCH TARGETS PASS - N checks`. It
+  renders every shared component of `src/components/` (and the shell's tab bar, header and sheets) and checks that each
+  touchable reaches 48 dp: its height from the styles plus its `hitSlop` (`hitSlopFor()` in `tokens.mjs`), and a
+  `minWidth` where the label can be shorter than 48 dp. It also fails if a new `src/components` file with a touchable is
+  not listed in it. Style arithmetic only: the phone's own check is the uiautomator dump of the device session.
 - **In CI in one job only** — `mobile-render-bundle` runs `npm ci --ignore-scripts` from the lockfile, then
   `npm run test:render`, then a fixture-mode `expo export`; every other CI job runs without
   `node_modules`. Still run it locally before pushing screen changes. Each vertical adds its checks in its own

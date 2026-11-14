@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  color, contrastRatio, errorClass, family, flatten, font, overlay, radius, space, status, type,
+  color, contrastRatio, errorClass, family, flatten, font, hitSlopFor, MIN_TOUCH, overlay, radius, size, space, status, type,
 } from '../src/components/tokens.mjs';
 import {
   clearCachedData, COVER_REASON, coverText, createSessionClock, SESSION_LIMITS,
@@ -104,6 +104,21 @@ test('SH13 spacing sits on the 4 dp grid, radii come from the design scale, and 
   assert.deepEqual([...type.metric.fontVariant], ['proportional-nums'], 'a large standalone number is proportional');
   assert.ok(Object.values(type).every((t) => !('fontFamily' in t)), 'one family: the system Roboto');
   assert.equal(font.body, type.body.fontSize);
+});
+
+test('SH14 hitSlopFor lifts a short control to 48 dp above and below it, never sideways, and leaves a tall one alone', () => {
+  // Visible heights measured on the phone (device session 2026-11-15): segment 28, finding chip 32, layer chip 36,
+  // button 40, filter tab 44. Each reaches MIN_TOUCH with its slop; the control's own box is unchanged.
+  for (const visual of [28, 32, size.chip, size.button, 44, 47, 1]) {
+    const slop = hitSlopFor(visual);
+    assert.ok(visual + slop.top + slop.bottom >= MIN_TOUCH, `${visual} dp -> ${visual + slop.top + slop.bottom} dp`);
+    assert.ok(visual + slop.top + slop.bottom <= MIN_TOUCH + 1, `${visual} dp is not padded by more than one rounding step`);
+    assert.deepEqual([slop.left, slop.right], [0, 0], 'no sideways slop: it would run into the neighbouring control');
+    assert.equal(slop.top, slop.bottom);
+  }
+  assert.deepEqual(hitSlopFor(28), { top: 10, bottom: 10, left: 0, right: 0 });
+  assert.deepEqual(hitSlopFor(MIN_TOUCH), { top: 0, bottom: 0, left: 0, right: 0 });
+  assert.deepEqual(hitSlopFor(56), { top: 0, bottom: 0, left: 0, right: 0 }, 'taller than 48: no slop, never negative');
 });
 
 test('SH5 header: a name for people plus the case, run and variant; the study on a tab root', () => {

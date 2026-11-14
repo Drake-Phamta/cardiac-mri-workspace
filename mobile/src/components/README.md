@@ -25,5 +25,6 @@ Kích thước: `space.xs..xxl` (4–32), `radius.xs..l` (4–10), `size.*` (chi
 | Chế độ case | `CapabilityBadge` | chữ trên thẻ trung tính, không màu |
 
 Quy tắc: màu không bao giờ đứng một mình (luôn kèm chữ hoặc biểu tượng); `t3` không đặt trên `glass`;
-mọi vùng chạm ≥ 48 dp (`hitSlop` nếu phần nhìn thấy nhỏ hơn); giá trị thiếu là một chữ, không phải 0.
+mọi vùng chạm ≥ 48 dp (phần nhìn thấy thấp hơn thì `hitSlop={hitSlopFor(chiều cao)}`, nhãn có thể ngắn hơn 48 dp thì thêm `minWidth: MIN_TOUCH`;
+`test/render/touch_targets.mjs` đo từng thành phần dùng chung); giá trị thiếu là một chữ, không phải 0.
 Đếm path / chấm trong test: bỏ qua biểu tượng (Svg có `testID` bắt đầu bằng `icon-`).
