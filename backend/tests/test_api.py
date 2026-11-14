@@ -612,6 +612,21 @@ def test_review_history_lists_every_write_oldest_first(api):
     assert api.error_code(missing) == "ARTIFACT_NOT_FOUND"
 
 
+def test_review_writes_carry_the_project_alias_never_an_address(api):
+    """Spec 12 section 5: a write is attributed to an alias; without a valid header, the configured one."""
+    rid = _new_review(api).json()["review_id"]
+    api.call("PATCH", f"{B}/reviews/{rid}", "review_patch", 200, json_body={"status": "ACCEPTED", "expected_revision": 1},
+             headers={"X-Reviewer-Id": "someone@example.org"})
+    api.call("PATCH", f"{B}/reviews/{rid}", "review_patch", 200,
+             json_body={"status": "FLAGGED", "expected_revision": 2, "reason": "second look"},
+             headers={"X-Reviewer-Id": "reader-2"})
+    rows = api.call("GET", f"{B}/reviews/{rid}/history", "review_history_list", 200).json()["items"]
+    assert [row["reviewer_id"] for row in rows] == ["project-reviewer", "project-reviewer", "reader-2"]
+    corrected, _ = _review_in_state(api, "CORRECTED")
+    versions = api.call("GET", f"{B}/reviews/{corrected}/reviewed-masks", "reviewed_masks_list", 200).json()["items"]
+    assert versions[0]["provenance"]["reviewer_id"] == "project-reviewer"
+
+
 def test_a_flag_reason_is_optional_text_of_at_most_500_characters(api):
     rid = _new_review(api).json()["review_id"]
     url = f"{B}/reviews/{rid}"

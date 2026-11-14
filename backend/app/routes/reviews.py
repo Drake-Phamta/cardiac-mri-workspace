@@ -62,8 +62,12 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
     base, enums = contract.base_path, contract.enums
 
     def reviewer_of(request: Request) -> Optional[str]:
-        value = request.headers.get(settings.reviewer_header)
-        return value if value and REVIEWER.fullmatch(value) else None
+        # Every write is attributed to an alias (spec 12 section 5): the header's when it is a valid alias, else the
+        # one this backend is configured with. The phone sends no header, so its writes carry the configured alias.
+        for value in (request.headers.get(settings.reviewer_header), settings.reviewer_alias):
+            if value and REVIEWER.fullmatch(value):
+                return value
+        return None
 
     def review_payload(row: Any) -> Dict[str, Any]:
         return {"review_id": row["review_id"], "status": row["status"], "revision": row["revision"],

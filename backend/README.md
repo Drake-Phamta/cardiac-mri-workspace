@@ -76,8 +76,9 @@ mesh; the sha256 is the one in `mesh_artifact_id`).
   one before `FLAGGED`. A request without it is valid as before.
 - **Immutability**: a commit writes a new `ReviewedMask` version (`RM_<review>_V<n>`, parent = previous version,
   checksum = sha256 of the uint8 `(z, y, x)` {0, 255} volume bytes) with FR-REV-010 provenance (source mask, case,
-  run, time, reviewer from the optional `X-Reviewer-Id` header: an alias of letters, digits, `_`, `.` and `-`, so
-  never an email address). SQLite **triggers refuse UPDATE/DELETE and
+  run, time, reviewer). The reviewer is always a project alias (spec `12` section 5): the `X-Reviewer-Id` header
+  when it is letters, digits, `_`, `.` and `-` (so never an email address), else `CARDIAC_REVIEWER_ALIAS` (default
+  `project-reviewer`); the phone sends no header. SQLite **triggers refuse UPDATE/DELETE and
   REPLACE** on reviewed masks, their slices and both history tables; finding evidence columns cannot be updated. The source
   prediction file is never written (its checksum is re-verified when loaded).
 - **Working-mask payload**: `{encoding, data}` with `BITPACK_BASE64` (Ny·Nx bits, row-major, MSB first) or
