@@ -3,8 +3,10 @@
 // What this proves: the page's own code decodes the served `cardiac-mesh/1` artifact (the Python golden), refuses a
 // damaged one, casts a pick ray with the same result as the Python reference on the golden's cases, resolves a TAP
 // through its camera to the face's source slice (H7), never resolves a background tap to a slice, honours the layer
-// switches, and turns pointer events into orbit / pinch zoom / pan / tap. What it cannot prove: how it looks, or how fast
-// it draws on the A17 - that is the owner's TC-3D-001/002 and TC-PERF-002 on the device.
+// switches, and turns pointer events into orbit / pinch zoom / pan / tap; that a tap on an error marker names it, the
+// cut hides (and does not pick) what lies above the slice, the axis views look along the voxel axes, see-through layers
+// are drawn after the solid ones, the axis marker is labelled with voxel axes, and dispose frees every GPU object.
+// What it cannot prove: how it looks, or how fast it draws on the A17 - that is the owner's device test.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -18,23 +20,37 @@ function makeViewer() {
   const windowHandlers = {};
   const documentHandlers = {};
   const glCalls = [];
+  let created = 0;
   const gl = new Proxy({}, {
     get: (_t, name) => {
       if (typeof name !== 'string') return undefined;
       if (/^[A-Z_0-9]+$/.test(name)) return name; // GL constants
-      return (...args) => { glCalls.push([name, ...args]); return name === 'getUniformLocation' || name.startsWith('create') ? { name } : true; };
+      if (name === 'getExtension') return (ext) => (ext === 'WEBGL_lose_context' ? { loseContext: () => glCalls.push(['loseContext']) } : null);
+      return (...args) => {
+        glCalls.push([name, ...args]);
+        if (name.startsWith('create')) { created += 1; return { name, id: created }; }
+        return name === 'getUniformLocation' ? { name } : true;
+      };
     },
   });
+  // The axis marker draws on its own 2D canvas; this one records what is written on it.
+  const axesText = [];
+  const axes2d = new Proxy({}, {
+    get: (_t, name) => (name === 'fillText' ? (text) => axesText.push(text) : () => true),
+    set: () => true,
+  });
+  const axesCanvas = { width: 0, height: 0, getContext: (kind) => (kind === '2d' ? axes2d : null) };
   const rect = { left: 0, top: 0, width: 400, height: 400 };
   const canvas = {
     clientWidth: 400, clientHeight: 400, width: 0, height: 0, getContext: () => gl, setPointerCapture() {},
     getBoundingClientRect: () => rect, addEventListener: (type, fn) => { canvasHandlers[type] = fn; },
   };
-  const document = { getElementById: () => canvas, addEventListener: (type, fn) => { documentHandlers[type] = fn; } };
+  const document = { getElementById: (id) => (id === 'axes' ? axesCanvas : canvas), addEventListener: (type, fn) => { documentHandlers[type] = fn; } };
+  const frames = [];
   const window = {
     ReactNativeWebView: { postMessage: (m) => posted.push(JSON.parse(m)) },
     addEventListener: (type, fn) => { windowHandlers[type] = fn; },
-    requestAnimationFrame: () => 0, devicePixelRatio: 1,
+    requestAnimationFrame: (fn) => { frames.push(fn); return frames.length; }, devicePixelRatio: 1,
   };
   const context = vm.createContext({ window, document, atob: globalThis.atob, console });
   new vm.Script(VIEWER_SCRIPT, { filename: 'viewer-script.js' }).runInContext(context);
@@ -43,7 +59,13 @@ function makeViewer() {
   const b64 = (bytes) => Buffer.from(bytes).toString('base64');
   const load = (role, bytes) => send({ type: 'mesh', role, b64: b64(bytes) });
   const events = (type) => posted.filter((m) => m.type === type);
-  return { api, posted, canvas, canvasHandlers, windowHandlers, documentHandlers, glCalls, send, load, events, rect };
+  // Runs the page's next animation frame (draw), as the browser would.
+  const frame = () => { const fn = frames.shift(); if (fn) fn(); };
+  const tap = (x, y) => {
+    canvasHandlers.pointerdown({ pointerId: 9, clientX: x, clientY: y });
+    canvasHandlers.pointerup({ type: 'pointerup', pointerId: 9, clientX: x, clientY: y });
+  };
+  return { api, posted, canvas, canvasHandlers, windowHandlers, documentHandlers, glCalls, send, load, events, rect, frame, tap, axesText };
 }
 
 const FACE_ON_TOP = { x: 1.5, y: 1.5, z: 3 };   // the top of the tower at column 1, row 1: voxels z 0..2 -> source slice 2
@@ -269,4 +291,164 @@ test('V2W12 no WebGL2: the page says so (the screen shows an error state), and d
   new vm.Script(VIEWER_SCRIPT).runInContext(context);
   assert.equal(posted[0].type, 'error');
   assert.equal(posted[0].code, 'WEBGL2_UNAVAILABLE');
+});
+
+// ---- error markers, cut, axis views, opacity, axis marker, dispose ------------------------------------------------
+
+// Two markers on the golden L shape: an FP inside the top of the tower at (1, 1) and an FN beside it.
+const MARKERS = [
+  { id: 'FN_0001', cls: 'FN', at: [3, 3, 0], voxels: 6 },
+  { id: 'FP_0001', cls: 'FP', at: [1, 1, 2], voxels: 1 },
+];
+const centre = (m) => [m.at[0] + 0.5, m.at[1] + 0.5, m.at[2] + 0.5];
+const topDown = (v) => v.api.setCamera({ yaw: 0, pitch: 0, zoom: 1, pan: [0, 0] });
+
+test('V2W13 a tap on an error marker names it and moves the band to its slice; markers are drawn over the surface', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  topDown(v);
+  const fp = v.api.project(centre(MARKERS[1]));
+  v.tap(fp.x, fp.y);
+  assert.deepEqual(v.events('marker'), [{ type: 'marker', id: 'FP_0001' }], 'the marker wins over the tower top just under it');
+  assert.equal(v.events('pick').length, 0);
+  assert.deepEqual([v.api.state().slice, v.api.state().selected], [2, 'FP_0001']);
+  v.tap(fp.x + 40, fp.y + 40);
+  assert.equal(v.events('marker').length, 1, 'a tap 40 px away is not a marker tap');
+  assert.equal(v.events('pick').length, 1, 'it falls through to the surface pick');
+  assert.equal(v.api.state().selected, null, 'and clears the marker selection');
+  v.send({ type: 'layers', errors: false });
+  v.tap(fp.x, fp.y);
+  assert.deepEqual(v.events('pick').pop().slice, 2, 'with the error layer off the same tap picks the surface');
+  assert.deepEqual([...v.api.state().shownMarkers], []);
+});
+
+test('V2W14 the app picks the selected marker; a malformed marker list is refused for the error layer only', () => {
+  const v = makeViewer();
+  v.send({ type: 'markers', items: MARKERS });
+  v.send({ type: 'select', id: 'FN_0001' });
+  assert.equal(v.api.state().selected, 'FN_0001');
+  v.send({ type: 'select', id: 7 });
+  assert.equal(v.api.state().selected, null);
+  for (const items of [null, [{ ...MARKERS[0], cls: 'TP' }], [{ ...MARKERS[0], at: [1, 1] }], [{ ...MARKERS[0], at: [1, -1, 0] }], [{ ...MARKERS[0], voxels: 0 }]]) {
+    v.send({ type: 'markers', items });
+    const e = v.events('error').pop();
+    assert.equal(e.role, 'errors', JSON.stringify(items));
+    assert.match(e.message, /^MARKERS_INVALID/);
+  }
+  assert.equal(v.api.state().markers, 2, 'the last good markers stay');
+});
+
+test('V2W15 Cut at slice: nothing above the slice is drawn or picked, markers above it are hidden', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  const down = (x, y) => v.api.pickRay([x, y, 10], [0, 0, -1]);
+  assert.deepEqual([down(1.5, 1.5).slice, down(1.5, 1.5).distance], [2, 7], 'no cut: the tower top (z = 3)');
+  v.send({ type: 'slice', index: 1 });
+  v.send({ type: 'cut', on: true });
+  assert.equal(v.api.state().cut, 2, 'slice 1 keeps everything up to z = 2');
+  assert.deepEqual([down(1.5, 1.5).slice, down(1.5, 1.5).distance], [0, 10], 'the hidden top is skipped: the ray reaches the bottom face');
+  assert.deepEqual([...v.api.state().shownMarkers], ['FN_0001'], 'the marker on slice 2 is above the cut');
+  v.send({ type: 'slice', index: 2 });
+  assert.deepEqual([down(4.5, 3.5).slice, down(4.5, 3.5).distance], [2, 8], 'the voxel on slice 3 is cut away, its slice-2 voxel stays');
+  assert.deepEqual([...v.api.state().shownMarkers], ['FN_0001', 'FP_0001']);
+  v.send({ type: 'cut', on: false });
+  assert.equal(v.api.state().cut, null);
+  assert.equal(down(4.5, 3.5).slice, 3);
+  v.send({ type: 'cut', on: true });
+  v.send({ type: 'slice', index: null });
+  assert.equal(v.api.state().cut, null, 'no slice, nothing to cut at');
+  v.frame();
+  assert.ok(v.glCalls.some(([n, , value]) => n === 'uniform1f' && value === -1), 'the shader gets -1: no cut');
+});
+
+test('V2W16 axis views look along each voxel axis from its named side; Fit returns to the default view', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  const look = () => {
+    const ray = v.api.rayAt(200, 200);
+    const n = Math.hypot(...ray.direction);
+    return Array.from(ray.direction, (x) => Math.round((x / n) * 1000) / 1000 + 0);  // + 0 turns -0 into 0
+  };
+  const expected = { '+x': [-1, 0, 0], '-x': [1, 0, 0], '+y': [0, -1, 0], '-y': [0, 1, 0], '+z': [0, 0, -1], '-z': [0, 0, 1] };
+  for (const [axis, dir] of Object.entries(expected)) {
+    v.send({ type: 'view', axis });
+    assert.deepEqual(look(), dir, `from ${axis} the camera looks along ${dir}`);
+    assert.deepEqual([v.api.camera().zoom, ...v.api.camera().pan], [1, 0, 0]);
+  }
+  v.send({ type: 'view', axis: 'anterior' });
+  assert.deepEqual(look(), [0, 0, 1], 'an unknown view changes nothing');
+  v.send({ type: 'view', axis: '+y' });
+  v.canvasHandlers.pointerdown({ pointerId: 1, clientX: 100, clientY: 100 });
+  v.canvasHandlers.pointermove({ pointerId: 1, clientX: 100, clientY: 200 });
+  v.canvasHandlers.pointerup({ type: 'pointerup', pointerId: 1, clientX: 100, clientY: 200 });
+  assert.ok(v.api.camera().pitch <= Math.PI / 2 + 1e-12, 'orbiting never tips past the pole');
+  v.send({ type: 'fit' });
+  assert.deepEqual([v.api.camera().yaw, v.api.camera().pitch], [-0.5, 0.35]);
+});
+
+test('V2W17 opacity: solid layers are drawn first into the depth buffer, see-through layers after, blended', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.load('groundTruth', goldenBytes());
+  const draws = () => {
+    v.glCalls.length = 0;
+    v.send({ type: 'fit' });   // anything that asks for a new frame
+    v.frame();
+    let depth = null, blend = null, alpha = null;
+    const out = [];
+    for (const [n, a, b] of v.glCalls) {
+      if (n === 'depthMask') depth = a;
+      if (n === 'enable' && a === 'BLEND') blend = true;
+      if (n === 'disable' && a === 'BLEND') blend = false;
+      if (n === 'uniform1f') alpha = b;
+      if (n === 'drawElements') out.push([depth, blend, alpha]);
+    }
+    return out;
+  };
+  assert.deepEqual(draws(), [[true, false, 1], [false, true, 0.3]], 'default: a solid prediction, then the ground truth at 30%');
+  v.send({ type: 'opacity', prediction: 0.6, groundTruth: 1 });
+  assert.deepEqual(draws(), [[true, false, 1], [false, true, 0.6]], 'a solid ground truth first, then the prediction at 60%');
+  v.send({ type: 'opacity', prediction: 0, groundTruth: 2 });
+  v.send({ type: 'opacity', prediction: 'x' });
+  assert.deepEqual({ ...v.api.state().opacity }, { prediction: 0.6, groundTruth: 1 }, 'values outside (0, 1] are ignored');
+  v.send({ type: 'markers', items: MARKERS });
+  v.frame();
+  assert.ok(v.glCalls.some(([n, mode, , count]) => n === 'drawArrays' && mode === 'POINTS' && count === 2), 'the two markers are drawn as points');
+});
+
+test('V2W18 the axis marker names the voxel axes, never anatomy', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.frame();
+  assert.deepEqual([...new Set(v.axesText)].sort(), ['voxel axes', 'x col', 'y row', 'z slice']);
+  assert.ok(!v.axesText.some((t) => /^(A|P|S|I|L|R)$|anterior|superior|mm/i.test(t)));
+});
+
+test('V2W19 dispose frees every buffer, vertex array, shader and program, and loses the context; then the page is quiet', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.load('groundTruth', goldenBytes());
+  v.load('prediction', goldenBytes());   // a replaced layer frees its old buffers at once
+  v.send({ type: 'markers', items: MARKERS });
+  v.frame();
+  const count = (name) => v.glCalls.filter(([n]) => n === name).length;
+  assert.equal(count('deleteBuffer'), 2, 'the replaced prediction layer');
+  assert.equal(typeof v.windowHandlers.pagehide, 'function', 'the page also frees everything when it is unloaded');
+  v.send({ type: 'dispose' });
+  assert.equal(count('deleteBuffer'), count('createBuffer'));
+  assert.equal(count('deleteVertexArray'), count('createVertexArray'));
+  assert.equal(count('deleteShader'), count('createShader'));
+  assert.equal(count('deleteProgram'), count('createProgram'));
+  assert.deepEqual([count('createProgram'), count('loseContext')], [2, 1]);
+  const before = v.glCalls.length;
+  v.canvasHandlers.webglcontextlost({ preventDefault() {} });
+  v.load('prediction', goldenBytes());
+  v.frame();
+  v.windowHandlers.pagehide();
+  assert.equal(v.events('error').length, 0, 'losing the context on purpose is not an error');
+  assert.equal(v.events('loaded').length, 3, 'nothing is loaded after dispose');
+  assert.equal(v.glCalls.length, before, 'and nothing touches the GPU again');
+  assert.equal(v.api.state().disposed, true);
 });
