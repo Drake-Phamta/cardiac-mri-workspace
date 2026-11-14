@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readSelection, worstSlice, UNAVAILABLE_REASON, RULE_ID } from '../src/screens/v1-cases/errorInspector.mjs';
-import { readComparability, presentation, VERDICT } from '../src/screens/v3-study/comparability.mjs';
+import { readComparability, presentation, VERDICT } from '../src/screens/v3-study/readers.mjs';
 import { createContract } from '../src/api/contract.mjs';
 import { createChecker, HERE, loadContractJson } from './_harness.mjs';
 

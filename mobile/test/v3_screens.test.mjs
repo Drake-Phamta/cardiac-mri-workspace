@@ -14,19 +14,19 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readComparability, presentation } from '../src/screens/v3-study/comparability.mjs';
-import { success } from '../src/api/states.mjs';
 import {
-  COMPARISONS, MATRIX, UNAVAILABLE, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
-  matrixEntry, notListedCell, stripLayout, pointAt,
-} from '../src/screens/v3-study/index.mjs';
+  readComparability, presentation, COMPARISONS, MATRIX, UNAVAILABLE, caseIntent, matrixEntry,
+} from '../src/screens/v3-study/readers.mjs';
+import { success } from '../src/api/states.mjs';
+import { aggregationFor, buildCell, notListedCell } from '../src/screens/v3-study/cohort.mjs';
+import { createExperimentComparison, createStudyOverview } from '../src/screens/v3-study/models.mjs';
+import {
+  stripLayout, pointAt, caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
+} from '../src/screens/v3-study/view.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { TONE } from '../src/components/stateCopy.mjs';
-import {
-  caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
-} from '../src/screens/v3-study/view.mjs';
 import { MOBILE_ROOT, generatedBundleJson, readContractJson } from './_helpers.mjs';
 
 const contractJson = readContractJson();
@@ -329,7 +329,7 @@ test('V3S9 the V3 screens use the shared models and rank nothing; React stays ou
   }
   for (const f of ['StudyOverviewScreen.js', 'ExperimentComparisonScreen.js']) {
     const src = readFileSync(join(dir, f), 'utf8');
-    assert.match(src, /from '\.\/index\.mjs'/, `${f} must render the shared V3 model, not re-implement it`);
+    assert.match(src, /from '\.\/models\.mjs'/, `${f} must render the shared V3 model, not re-implement it`);
     assert.match(src, /import StateView from '\.\.\/\.\.\/components\/StateView'/, `${f} renders its states with the shared StateView`);
   }
 });

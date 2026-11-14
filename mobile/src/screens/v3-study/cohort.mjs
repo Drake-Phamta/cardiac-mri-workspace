@@ -12,11 +12,8 @@
 
 import { STATE } from '../../api/states.mjs';
 import { getEndpoint } from '../../api/contract.mjs';
-import { readComparability, presentation, VERDICT } from './comparability.mjs';
 import {
-  COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE, matrixEntry,
-  readExperimentIdentity, readCohortN, readMetricSummary, readVariant, readCaseRows,
-  readOutlierSelection, readPopulation, summaryStat,
+  readComparability, presentation, VERDICT, COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE, matrixEntry, readExperimentIdentity, readCohortN, readMetricSummary, readVariant, readCaseRows, readOutlierSelection, readPopulation, summaryStat,
 } from './readers.mjs';
 
 export const CELL_STATUS = Object.freeze({

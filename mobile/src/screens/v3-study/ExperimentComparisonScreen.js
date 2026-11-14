@@ -23,13 +23,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { RECOVERY, STATE } from '../../api/states.mjs';
-import { createExperimentComparison } from './index.mjs';
+import { createExperimentComparison } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import StripChart from './StripChart';
-import { Card, Chip, Line, LinkButton, Row, TONE_COLOR } from './parts';
-import { useSnapshot } from './useSnapshot';
+import { StripChart, Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
 import { comparisonView, pointDetail } from './view.mjs';
 
 export default function ExperimentComparisonScreen({ runtime, nav, params }) {

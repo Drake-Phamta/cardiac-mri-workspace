@@ -31,13 +31,14 @@ import { generatedBundleJson } from './_helpers.mjs';
 import { createContract } from '../src/api/contract.mjs';
 import { createBundle, getScenario, createClient, createFixtureTransport } from '../src/api/client.mjs';
 import { STATE, RECOVERY, success, stateForError } from '../src/api/states.mjs';
-import { VERDICT, readComparability, presentation } from '../src/screens/v3-study/comparability.mjs';
 import {
-  createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
-  buildCell, buildTrend, deltaFor, readComparison, aggregationFor, stripLayout, pointAt, matrixEntry,
-  readCount, readCohortN, readVariant, readFraction, readFamily, readMetricSummary, readOutlierSelection,
-  readCaseRows, caseIntent, summaryStat, UNAVAILABLE, OUTLIER_RULE,
-} from '../src/screens/v3-study/index.mjs';
+  VERDICT, readComparability, presentation, MATRIX, MATRIX_IDS, COMPARISONS, matrixEntry, readCount, readCohortN, readVariant, readFraction, readFamily, readMetricSummary, readOutlierSelection, readCaseRows, caseIntent, summaryStat, UNAVAILABLE, OUTLIER_RULE,
+} from '../src/screens/v3-study/readers.mjs';
+import { createStudyOverview, createExperimentComparison } from '../src/screens/v3-study/models.mjs';
+import {
+  CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, buildCell, buildTrend, deltaFor, readComparison, aggregationFor,
+} from '../src/screens/v3-study/cohort.mjs';
+import { stripLayout, pointAt } from '../src/screens/v3-study/view.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
 const HERE = new URL('../src/screens/v3-study/', import.meta.url);

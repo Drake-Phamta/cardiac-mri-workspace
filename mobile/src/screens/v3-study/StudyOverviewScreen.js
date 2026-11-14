@@ -19,12 +19,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { RECOVERY } from '../../api/states.mjs';
-import { createStudyOverview } from './index.mjs';
+import { createStudyOverview } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import { Card, Chip, Line, LinkButton, Row, TONE_COLOR } from './parts';
-import { useSnapshot } from './useSnapshot';
+import { Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
 import { overviewView } from './view.mjs';
 
 export default function StudyOverviewScreen({ runtime, nav, params }) {
