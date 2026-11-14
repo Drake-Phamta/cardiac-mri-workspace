@@ -42,6 +42,25 @@ jobs:
           fi
 
   # --------------------------------------------------------------------------
+  # docs/spec <-> docs/trace/matrix.csv <-> code and tests (tools/trace_check.py,
+  # standard library only). Refs that exist only on the feature branches listed in
+  # docs/trace/pending_branches.txt are reported as PENDING. Once those branches are
+  # merged: delete that file and run the check with --strict instead.
+  traceability:
+    name: "traceability (spec, matrix, code)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: trace check tests
+        run: python -m unittest discover -s tools/tests -v
+
+      - name: trace check (pending branches allowed)
+        run: python -I tools/trace_check.py --allow-pending docs/trace/pending_branches.txt
+
   # --------------------------------------------------------------------------
   geometry-contract:
     name: "canonical geometry contract (TC-MAINT-002)"
