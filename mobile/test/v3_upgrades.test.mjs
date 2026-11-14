@@ -23,7 +23,7 @@ import {
   aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND, metricLabel, runDetails, studyDetails,
 } from '../src/screens/v3-study/about.mjs';
 import {
-  chooseOutlierGroup, comparisonView, experimentLabel, FAMILY_STYLE, OUTLIER_LABEL, overviewView, plainText, pointDetail,
+  chooseOutlierGroup, comparisonView, experimentLabel, FAMILY_STYLE, OUTLIER_LABEL, overviewView, plainText, pointAt, pointDetail,
   trianglePath,
 } from '../src/screens/v3-study/view.mjs';
 import { color, contrastRatio, family } from '../src/components/tokens.mjs';
@@ -461,4 +461,17 @@ test('V3U14 SCR-07 opens on the screen\'s default metric when the server names i
   await model.open({ experimentIds: ids, defaultMetric: 'dice' });
   assert.equal(model.selectMetric('iou').metricName, 'iou', 'the user can pick another');
   assert.equal((await model.refresh()).metricName, 'dice', 'a refresh opens the same way again');
+});
+
+// Touch targets (device round 2): a chart dot is 5 dp across, but a tap within 24 dp of it must pick it, so the hit
+// area is at least 48 dp across. The nearest dot still wins, so crowded dots stay separable.
+test('V3U15 a chart dot has a hit area of at least 48 dp, in the strip plot and in the paired chart', () => {
+  const strip = { columns: [{ points: [{ x: 100, y: 100, r: 5, id: 'a' }, { x: 112, y: 100, r: 5, id: 'b' }] }] };
+  const pairs = { points: [{ x: 100, y: 100, r: 5, id: 'a' }, { x: 112, y: 100, r: 5, id: 'b' }] };
+  for (const [name, at, layout] of [['strip', pointAt, strip], ['paired', pairAt, pairs]]) {
+    assert.equal(at(layout, 100, 100 - 23).id, 'a', `${name}: 23 dp above a dot still picks it`);
+    assert.equal(at(layout, 100 - 23, 100).id, 'a', `${name}: 23 dp to its left still picks it`);
+    assert.equal(at(layout, 100 - 25, 100), null, `${name}: 25 dp away is empty space`);
+    assert.equal(at(layout, 109, 100).id, 'b', `${name}: between two dots the nearer one wins`);
+  }
 });

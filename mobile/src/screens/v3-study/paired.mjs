@@ -4,6 +4,7 @@
 // Pairs come from each run's plotted points, so a failed, withheld, excluded or duplicated case is never paired.
 // This is the only V3 file that orders values: the order is for drawing, and the outliers stay the server's.
 
+import { MIN_TOUCH } from '../../components/tokens.mjs';
 import { VERDICT, matrixEntry } from './readers.mjs';
 import { FAMILY_LABEL, reasonLabel, routeForIntent } from './view.mjs';
 
@@ -162,12 +163,13 @@ export function pairedLayout(pairs, medianValue, { width, height, padding = 44, 
 }
 
 // The dot a tap lands on: the nearest within its radius plus `slop` (a finger is bigger than a dot), or null.
+// A dot is reachable from at least MIN_TOUCH / 2 away, so its hit area is never under 48 dp across.
 export function pairAt(layout, x, y, slop = 12) {
   let best = null;
   let bestD = Infinity;
   for (const p of layout.points) {
     const d = (p.x - x) ** 2 + (p.y - y) ** 2;
-    if (d <= (p.r + slop) ** 2 && d < bestD) { best = p; bestD = d; }
+    if (d <= Math.max(p.r + slop, MIN_TOUCH / 2) ** 2 && d < bestD) { best = p; bestD = d; }
   }
   return best;
 }

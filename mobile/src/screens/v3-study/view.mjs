@@ -7,7 +7,7 @@ import { CELL_STATUS, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
 import { FAMILY, MATRIX, OUTLIER_RULE, matrixEntry, summaryStat } from './readers.mjs';
 import { metricLabel } from './about.mjs';
 import { TONE } from '../../components/stateCopy.mjs';
-import { family } from '../../components/tokens.mjs';
+import { family, MIN_TOUCH } from '../../components/tokens.mjs';
 
 export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV2]: 'DINOv2' });
 
@@ -631,6 +631,7 @@ export function stripLayout(columns, {
 }
 
 // The point a tap lands on: the nearest one within its radius plus `slop` (a finger is bigger than a dot), or null.
+// A dot is reachable from at least MIN_TOUCH / 2 away, so its hit area is never under 48 dp across.
 // On equal distances the first point drawn wins.
 export function pointAt(layout, x, y, slop = 12) {
   let best = null;
@@ -638,7 +639,7 @@ export function pointAt(layout, x, y, slop = 12) {
   for (const col of layout.columns) {
     for (const p of col.points) {
       const d = (p.x - x) ** 2 + (p.y - y) ** 2;
-      const reach = (p.r + slop) ** 2;
+      const reach = Math.max(p.r + slop, MIN_TOUCH / 2) ** 2;
       if (d <= reach && d < bestD) { best = p; bestD = d; }
     }
   }
