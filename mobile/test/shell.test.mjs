@@ -9,9 +9,9 @@ import {
 import {
   clearCachedData, COVER_REASON, coverText, createSessionClock, SESSION_LIMITS,
 } from '../src/components/session.mjs';
-import { aboutLines, headerLines, sameContext } from '../src/navigation/header.mjs';
+import { aboutLines, contextDetails, headerLines, sameContext } from '../src/navigation/header.mjs';
 import { bindNav, initialNavState } from '../src/navigation/navigator.mjs';
-import { screenMeta } from '../src/navigation/routes.mjs';
+import { CHROME, chromeOf, screenMeta } from '../src/navigation/routes.mjs';
 import { createImageStore, createSliceCache } from '../src/api/cache.mjs';
 
 const SURFACES = { bg: color.bg, surface: color.surface, field: color.field, raised: color.raised };
@@ -138,6 +138,27 @@ test('SH7 nav.setContext reports to the shell under the screen\'s own key', () =
   nav.setContext(null);
   assert.deepEqual(got, [['SCR-02#1', { runId: 'R' }], ['SCR-02#1', null]]);
   assert.doesNotThrow(() => bindNav(() => {}, initialNavState('SCR-02')).setContext({ runId: 'R' }), 'no listener: a no-op');
+});
+
+test('SH7b viewer chrome is opt-in per screen; a screen\'s report can name the header and add Details sections', () => {
+  assert.equal(chromeOf(null), CHROME.DEFAULT);
+  assert.equal(chromeOf(function Plain() { return null; }), CHROME.DEFAULT, 'a screen that says nothing keeps the default chrome');
+  const Viewer = function Viewer() { return null; };
+  Viewer.chrome = CHROME.VIEWER;
+  assert.equal(chromeOf(Viewer), CHROME.VIEWER);
+  Viewer.chrome = 'fullscreen';
+  assert.equal(chromeOf(Viewer), CHROME.DEFAULT, 'an unknown value is not an opt-in');
+  const scr03 = screenMeta('SCR-03');
+  const named = headerLines(scr03, { caseId: 'CASE_0029' }, { title: 'CASE_0029', subtitle: 'DINOv2 · EXP-D-100', runId: 'R' });
+  assert.deepEqual([named.title, named.subtitle], ['CASE_0029', 'DINOv2 · EXP-D-100'], 'the reported title and subtitle win');
+  assert.equal(headerLines(scr03, { caseId: 'C' }, { title: '  ' }).title, 'Case Explorer', 'a blank title is not a title');
+  assert.deepEqual(contextDetails({ details: [
+    { title: 'This slice', lines: ['Slice 45 / 88 · z 44', '', null] },
+    { title: '', lines: ['no title'] },
+    { title: 'Empty', lines: [] },
+    null,
+  ] }).map((sec) => [sec.title, [...sec.lines]]), [['This slice', ['Slice 45 / 88 · z 44']]]);
+  assert.deepEqual([...contextDetails(null)], []);
 });
 
 test('SH8 session clock: 10 minutes without a touch covers the screen; a touch restarts the count', () => {
