@@ -65,7 +65,7 @@ Cần Python 3.9 trở lên (máy nhóm dùng 3.12). Chạy từ thư mục gố
 ```powershell
 pip install -r backend/requirements-dev.txt
 $env:CARDIAC_BACKEND_DATA = "<thư mục dữ liệu, ngoài git>"
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 curl http://127.0.0.1:8000/health
 ```
 

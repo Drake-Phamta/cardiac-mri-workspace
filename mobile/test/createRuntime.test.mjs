@@ -49,13 +49,13 @@ test('R5 live mode sends to the configured backend and has no fixture panel', as
     return { status: 401, headers: { get: () => 'application/json' }, json: async () => ({ error: { code: 'UNAUTHORIZED' } }) };
   };
   const runtime = createRuntime({
-    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }), contractJson, fetchImpl,
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'https://backend.invalid' }), contractJson, fetchImpl,
   });
   assert.equal(runtime.mode, MODE.LIVE);
   assert.equal(runtime.fixtureScenarios, null);
   assert.equal(runtime.bundle, null);
   const view = await runtime.client.call('study_get', { study_id: 'STUDY_DEMO' });
-  assert.deepEqual(urls, ['http://backend.invalid:8000/api/v1/studies/STUDY_DEMO']);
+  assert.deepEqual(urls, ['https://backend.invalid/api/v1/studies/STUDY_DEMO']);
   assert.equal(view.state, STATE.RECOVERABLE_ERROR);
   assert.equal(view.reason, 'UNAUTHORIZED');
 });
@@ -63,7 +63,7 @@ test('R5 live mode sends to the configured backend and has no fixture panel', as
 test('R6 live mode never falls back to fixtures when the backend is down', async () => {
   const fetchImpl = async () => { throw new TypeError('Network request failed'); };
   const runtime = createRuntime({
-    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'https://backend.invalid' }),
     contractJson,
     bundleJson: generatedBundleJson(),
     fetchImpl,

@@ -23,7 +23,9 @@
  *   - no buildConfig.json -> treated as not live, with a warning (fails closed).
  *
  * Scope: `09` §10 LOCAL_DEMO - "no public internet exposure", private trusted
- * network. A REMOTE_DEMO deployment must remove this plugin and serve HTTPS.
+ * network. normalizeBaseUrl (src/config.mjs) refuses http:// to any host but
+ * loopback, so the only cleartext this allows is to 127.0.0.1 through adb
+ * reverse; a remote backend must serve HTTPS (NFR-SEC-002).
  *
  * Uses expo/config-plugins (shipped inside `expo`), so it adds no dependency.
  * It is required lazily, so test/cleartextPlugin.test.mjs can load the pure

@@ -24,8 +24,13 @@ export class ConfigError extends Error {
   }
 }
 
+// The phone reaches the backend on this PC through `adb reverse`, so the app only talks to 127.0.0.1.
+const LOOPBACK_HOST = /^(localhost|127(\.\d{1,3}){3}|\[::1\])(:\d+)?$/i;
+
 // Contract paths already start with /api/v1, so the base URL is only scheme://host[:port].
 // A base ending in /api/v1 is refused here instead of showing up as a 404 on the phone.
+// Plain http:// is accepted only for a loopback host (NFR-SEC-002): any other host must use https://,
+// so no build can send MRI slices in cleartext over a real network.
 export function normalizeBaseUrl(raw) {
   if (typeof raw !== 'string' || raw.trim() === '') {
     throw new ConfigError('apiBaseUrl is empty');
@@ -43,7 +48,14 @@ export function normalizeBaseUrl(raw) {
       { raw },
     );
   }
-  return `${m[1].toLowerCase()}://${m[2]}${path}`;
+  const scheme = m[1].toLowerCase();
+  if (scheme === 'http' && !LOOPBACK_HOST.test(m[2])) {
+    throw new ConfigError(
+      `apiBaseUrl uses http:// to a host other than this device - use https://, or http://127.0.0.1 with adb reverse: ${raw}`,
+      { raw, code: 'CONFIG_CLEARTEXT_REMOTE' },
+    );
+  }
+  return `${scheme}://${m[2]}${path}`;
 }
 
 function normalizeStudyId(raw) {

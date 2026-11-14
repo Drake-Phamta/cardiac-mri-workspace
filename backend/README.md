@@ -140,7 +140,7 @@ package is listed by code in `/health` and never partially served.
 ```powershell
 pip install -r backend/requirements-dev.txt          # runtime pins + httpx/pytest
 $env:CARDIAC_BACKEND_DATA = "<data-root>"            # a folder outside any git work tree
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 # or: powershell -ExecutionPolicy Bypass -File backend\scripts\run_local.ps1 -DataRoot "<data-root>"
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/api/v1/cases/CASE_0061/slices/44/mri

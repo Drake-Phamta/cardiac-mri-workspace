@@ -7,7 +7,8 @@ import {
   resolveConfig,
 } from '../src/config.mjs';
 
-const HOST = 'http://backend.invalid:8000'; // RFC 2606 reserved name - no real host in git
+const HOST = 'http://127.0.0.1:8000'; // the backend on this PC, reached through adb reverse
+const REMOTE = 'https://backend.invalid:8443'; // RFC 2606 reserved name - no real host in git
 
 test('C1 an empty input is fixture mode, needs nothing configured, and carries no backend URL', () => {
   const c = resolveConfig({});
@@ -47,10 +48,22 @@ test('C5 a base URL that already carries /api/v1 is refused (contract paths are 
 
 test('C6 malformed URLs and the unedited README placeholder are refused', () => {
   for (const bad of ['', '   ', 'ftp://x', 'backend.invalid:8000', 'file:///etc/passwd', null,
-    'http://<mac-mini-overlay-ip>:8000']) {
+    'http://<host>:8000']) {
     assert.throws(() => normalizeBaseUrl(bad), ConfigError, String(bad));
   }
-  assert.throws(() => resolveConfig({ mode: 'live', apiBaseUrl: 'http://<mac-mini-overlay-ip>:8000' }), /placeholder/);
+  assert.throws(() => resolveConfig({ mode: 'live', apiBaseUrl: 'http://<host>:8000' }), /placeholder/);
+});
+
+test('C6b http:// is only for this device; any other host must use https:// (NFR-SEC-002)', () => {
+  for (const ok of ['http://127.0.0.1:8000', 'http://localhost:8000', 'HTTP://127.0.0.1', 'http://[::1]:8000']) {
+    assert.match(normalizeBaseUrl(ok), /^http:\/\//, ok);
+  }
+  assert.equal(normalizeBaseUrl(REMOTE), REMOTE);
+  for (const bad of ['http://backend.invalid:8000', 'http://192.0.2.10:8000', 'http://10.0.2.2:8000',
+    'http://127.0.0.1.backend.invalid', 'http://localhost.backend.invalid:8000']) {
+    assert.throws(() => normalizeBaseUrl(bad), (err) => err.code === 'CONFIG_CLEARTEXT_REMOTE', bad);
+  }
+  assert.throws(() => resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }), /https:\/\//);
 });
 
 test('C7 a study id must be a de-identified token', () => {
@@ -92,7 +105,7 @@ test('C11 .env.local parsing: comments, blanks, quotes and export are handled', 
 test('C12 fixture mode drops a backend address completely, even when one is supplied (N-4)', () => {
   const c = resolveConfig({ mode: 'fixture', apiBaseUrl: HOST });
   assert.equal(c.apiBaseUrl, null);
-  assert.equal(resolveConfig({ mode: 'fixture', apiBaseUrl: 'http://<mac-mini-overlay-ip>:8000' }).apiBaseUrl, null,
+  assert.equal(resolveConfig({ mode: 'fixture', apiBaseUrl: 'http://<host>:8000' }).apiBaseUrl, null,
     'not even validated - it is not used');
 });
 
@@ -100,5 +113,6 @@ test('C13 maskBaseUrl keeps the scheme and hides host and port', () => {
   assert.equal(maskBaseUrl('http://192.0.2.10:8000'), 'http://<configured>'); // RFC 5737 documentation address
   assert.equal(maskBaseUrl('HTTPS://backend.invalid'), 'https://<configured>');
   assert.equal(maskBaseUrl(null), '<not configured>');
-  assert.ok(!describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: HOST })).includes('backend.invalid'));
+  assert.ok(!describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: HOST })).includes('127.0.0.1'));
+  assert.ok(!describeConfig(resolveConfig({ mode: 'live', apiBaseUrl: REMOTE })).includes('backend.invalid'));
 });
