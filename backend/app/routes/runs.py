@@ -97,9 +97,8 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
     @endpoint(contract, "reconstruction_get")
     def reconstruction_get(run_id: str, source_mask_id: Optional[str] = Query(None)) -> Any:
         """A mesh reference for one source mask of the run: its RAW or PROCESSED prediction, or the case's ground
-        truth. The mesh is the undecimated L0 voxel-face surface (DR-008c) derived by backend.mesh.build_cache,
-        in the voxel-index frame (vertex x = column, y = row, z = slice), hence the identity transform; its bytes
-        are served at /artifacts/<sha256>.cmesh, the sha256 being the one inside ``mesh_artifact_id``."""
+        truth. Meshes are in the voxel-index frame (x = column, y = row, z = slice), hence the identity transform;
+        the bytes are served at /artifacts/<sha256>.cmesh, with the sha256 taken from ``mesh_artifact_id``."""
         run = backend.get_run(run_id)
         case = backend.run_case(run)
         require_succeeded(run)
@@ -113,8 +112,8 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
         elif case.ground_truth_available and source_mask_id == case.reference_mask_id:
             source_kind, mask_sha = "GROUND_TRUTH", case.data.get("mask_sha256")
         elif not case.ground_truth_available and source_mask_id == f"MASK_{case.case_id}":
-            # INT-12: reconstruction_get has no GROUND_TRUTH_UNAVAILABLE in its error list (adding it would change
-            # the contract), so the refusal is ARTIFACT_NOT_FOUND carrying the reason (contracts/api/README.md).
+            # The INT-12 case: GROUND_TRUTH_UNAVAILABLE is not in reconstruction_get's error list, so the
+            # refusal is ARTIFACT_NOT_FOUND carrying that reason.
             raise ApiError("ARTIFACT_NOT_FOUND", {"reason": "GROUND_TRUTH_UNAVAILABLE", "case_id": case.case_id,
                                                   "mode": case.mode})
         else:
@@ -127,8 +126,7 @@ def add_routes(app: FastAPI, backend: Backend) -> None:
                 "mesh_artifact_id": entry.artifact_id, "source_mask_id": source_mask_id,
                 "source_mask_kind": source_kind,
                 "reconstruction_version": mesh_module.reconstruction_version(str(mask_sha)),
-                # Voxel-index frame, axes x=column, y=row, z=slice; with geometry not validated there is no
-                # physical world frame to map to.
+                # Identity: with geometry not validated there is no physical world frame to map to.
                 "mesh_to_world_transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
             }
             payload.update(case.geometry())

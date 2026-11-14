@@ -1,19 +1,12 @@
-"""SQLite persistence: reviews, reviewed-mask versions, findings.
+"""SQLite storage for reviews, reviewed-mask versions and findings.
 
 Rules enforced here, not left to callers:
-
-- review states are the four of FR-REV-001 and only the transitions of
-  ``domain_enums.review_status_transitions`` are accepted (05 section 6);
-  ``CORRECTED`` needs a persisted reviewed mask; every write checks
-  ``expected_revision`` (STALE_REVISION, never last-write-wins);
-- every state change is appended to ``review_history``;
-- a reviewed mask is a new immutable version: the database refuses UPDATE and
-  DELETE on ``reviewed_masks``, ``reviewed_mask_slices`` and both history
-  tables, and an INSERT that meets an existing key (REPLACE) on those and on
-  ``findings`` (triggers), so an overwrite is impossible even from a bug or
-  another connection;
-- a finding's evidence columns cannot be updated (trigger); only note and
-  status change, each change appended to ``finding_history``.
+- only the transitions of ``domain_enums.review_status_transitions`` are accepted (spec 05 §6), and every
+  write checks ``expected_revision`` (STALE_REVISION, never last-write-wins);
+- reviewed masks, their slices and both history tables are append-only: triggers refuse UPDATE, DELETE and
+  REPLACE, so even a bug or another connection cannot overwrite a version;
+- a finding is never deleted and its evidence columns never change; only note and status do, each change
+  appended to ``finding_history``.
 """
 
 from __future__ import annotations
@@ -158,9 +151,8 @@ CREATE TRIGGER IF NOT EXISTS findings_no_replace BEFORE INSERT ON findings
   BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_ARTIFACT'); END;
 """
 
-# Contract 1.1.0: a finding anchor records the prediction variant it was made
-# on. Added as a column (an existing database is migrated in place) and made
-# immutable like the rest of the evidence.
+# A finding records the prediction variant it was made on (contract 1.1.0). An older database gets the
+# column here, and a trigger makes it immutable like the rest of the evidence.
 MIGRATIONS = [
     ("findings", "prediction_variant", "ALTER TABLE findings ADD COLUMN prediction_variant TEXT"),
 ]
@@ -192,9 +184,8 @@ class Storage:
         self._conn = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
-        # REPLACE / INSERT OR REPLACE deletes the conflicting row first; with
-        # recursive triggers that implicit delete fires the BEFORE DELETE
-        # immutability triggers, so a REPLACE cannot overwrite a version either.
+        # REPLACE deletes the conflicting row first; with recursive triggers that delete fires the
+        # BEFORE DELETE immutability triggers, so a REPLACE cannot overwrite a version either.
         self._conn.execute("PRAGMA recursive_triggers = ON")
         self._conn.executescript(SCHEMA)
         for table, column, statement in MIGRATIONS:
@@ -227,7 +218,6 @@ class Storage:
         with self._lock:
             self._conn.execute(sql, params)
 
-    # -- reviews -------------------------------------------------------------
     def _history(self, conn: sqlite3.Connection, review_id: str, revision: int, action: str,
                  from_status: Optional[str], to_status: str, reviewer: Optional[str], detail: Any = None) -> None:
         conn.execute(
@@ -321,12 +311,10 @@ class Storage:
 
     def commit(self, review_id: str, expected_revision: int, build: VolumeBuilder,
                reviewer: Optional[str]) -> sqlite3.Row:
-        """Working edits -> a new immutable reviewed-mask version, atomically.
+        """Working edits -> a new immutable reviewed-mask version, in one transaction.
 
-        One transaction: the version, its slices, the move to CORRECTED and
-        exactly one revision step are committed together or rolled back
-        together. Valid from every review state (05 section 6 edges into
-        CORRECTED, or a further version of a CORRECTED review).
+        The version, its slices, the move to CORRECTED and one revision step commit or roll back together.
+        Allowed from every review state (spec 05 §6), including a further version of a CORRECTED review.
         """
         with self._tx() as conn:
             row = self._locked_review(conn, review_id, expected_revision)
@@ -404,7 +392,6 @@ class Storage:
             " ORDER BY s.reviewed_mask_id, s.slice_index LIMIT ?", (digest, limit))
         return [(row["id"], row["case_id"], int(row["z"])) for row in rows]
 
-    # -- findings ------------------------------------------------------------
     def create_finding(self, values: Dict[str, Any]) -> sqlite3.Row:
         finding_id = "FINDING_" + uuid.uuid4().hex[:12].upper()
         stamp = now()

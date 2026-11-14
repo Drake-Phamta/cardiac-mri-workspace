@@ -63,11 +63,8 @@ _APP: Optional[FastAPI] = None
 
 
 def __getattr__(name: str) -> Any:
-    """``backend.app.main:app`` for uvicorn, built on first access only.
-
-    Importing this module (tests, tools) therefore opens no database and reads
-    no data cache; only the server process does.
-    """
+    """``backend.app.main:app`` for uvicorn, built on first access, so importing this module (tests,
+    tools) opens no database and reads no data cache."""
     global _APP
     if name == "app":
         if _APP is None:

@@ -1,4 +1,4 @@
-"""The stores a request needs, built once per app, and the lookups several routers share.
+"""The stores a request needs, built once per app, and the lookups several route modules share.
 
 Each lookup raises ApiError with a contract error code; the route's endpoint guard turns it into the answer.
 """
@@ -21,8 +21,6 @@ SLICE = re.compile(r"[0-9]{1,6}")
 
 
 class Backend:
-    """Everything a request needs, built once per process."""
-
     def __init__(self, settings: Settings):
         settings.refuse_data_inside_git()
         self.settings = settings

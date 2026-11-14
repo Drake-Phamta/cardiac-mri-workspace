@@ -1,32 +1,15 @@
-"""Contract 1 ingestion of the rule-selected cases into the derived data cache.
+"""Contract 1 ingestion: copies the rule-selected cases into the derived data cache.
 
-Selection (leader decisions 2026-10-01, all rule-based, chosen before any
-metric exists):
+Selection, fixed by rule before any metric existed:
+- all 20 ``validation`` cases in EVALUATION mode; the lowest-numbered one is INTEGRATION_CASE_001;
+- the INT-12 case = the lowest-numbered ``final_holdout`` case other than CASE_0027 (flagged by the
+  similarity screen), in INFERENCE_REVIEW mode; its ground-truth file is never opened;
+- only with ``--include-holdout --holdout-authorization <record>``: every other ``final_holdout`` case, in
+  EVALUATION mode. The record is checked here, not by ``ml/``, because the backend runs without torch.
 
-- INTEGRATION_CASE_001 = the lowest-numbered case of the split's ``validation``
-  partition;
-- every one of the 20 ``validation`` cases, in EVALUATION mode;
-- the INT-12 inference-only case = the lowest-numbered ``final_holdout`` case
-  other than CASE_0027, in INFERENCE_REVIEW mode. Its ground-truth file is
-  never opened: nothing derived from it reaches the cache;
-- DR-022 (only with ``--include-holdout --holdout-authorization <record>``): every other
-  ``final_holdout`` case (CASE_0027, the DR-002b suspected case, included), in EVALUATION mode with role
-  FINAL_HOLDOUT, so the evaluated cases have SCR-03 / SCR-04 views. The INT-12 case stays
-  INFERENCE_REVIEW without ground truth in every mode. The record must be a file of
-  format ``ml-holdout-authorization/1`` for gate GATE-IMG-01 with gate_status CLOSED and the pinned
-  split's sha256; the cache records the record's own sha256. The backend does not import ``ml/``
-  (it runs on Python 3.9 without torch), so these checks are written out here.
-
-What Contract 1 asks for and this does: GATE-DATA-01 ACCEPTED is asserted;
-every artifact is addressed by sha256; re-ingesting identical bytes is a
-NO_OP and changed bytes are CHECKSUM_CONFLICT, never an overwrite; masks must
-be exactly {0, 255}; MRI and mask geometry must match exactly; no metadata
-beyond the allowlist is copied. The one recorded deviation: LASC headers are
-the default affine (QA-002 F2), which Contract 1 rejects as a validated
-geometry. Here the case is ingested with geometry_validation_status
-GEOMETRY_NOT_VALIDATED and served in voxel-index units only - no mm, no mL.
-
-Output (derived from patient images; refused inside any git work tree):
+Artifacts are addressed by sha256 and never overwritten (same bytes = NO_OP, other bytes = CHECKSUM_CONFLICT).
+LASC headers are the default affine, so every case is GEOMETRY_NOT_VALIDATED and served in voxel-index units
+only (no mm, no mL). The output is patient-derived, so it is refused inside any git work tree:
 
     <out>/index.json                     what was ingested + sha256 -> file index
     <out>/contract1_record.json          Contract-1-shaped record of the ingest
@@ -34,8 +17,7 @@ Output (derived from patient images; refused inside any git work tree):
     <out>/cases/<CASE>/mri/<z>.png       8-bit slices at native resolution
     <out>/cases/<CASE>/gt/<z>.png        reference mask slices, EVALUATION only
 
-``<out>`` defaults to ``$CARDIAC_BACKEND_DATA/data_cache``. Usage (from the
-repository root):
+Usage, from the repository root (``<out>`` defaults to ``$CARDIAC_BACKEND_DATA/data_cache``):
 
     $env:CARDIAC_BACKEND_DATA = "<data-root>"
     python -m backend.app.ingest --package-root "<LASC extracted root>"
@@ -64,10 +46,10 @@ EXCLUDED_FROM_INT12 = "CASE_0027"
 PACKAGE_ROOT_ENV = "CARDIAC_PACKAGE_ROOT"
 DEFAULT_DATASET_MANIFEST = REPO_ROOT / "data" / "manifests" / "dataset_manifest.json"
 DEFAULT_SPLIT_MANIFEST = REPO_ROOT / "data" / "manifests" / "split_manifest_path_a_seed2024.json"
-# sha256 of the committed split blob (split_id path_a_seed2024_dr002b_v1, PR #35 at 7b72ce8). A cache is
-# built from exactly this split; another split needs a deliberate --split-sha256 and a fresh cache.
+# sha256 of the committed split manifest bytes. A cache is built from exactly this split; another split
+# needs --split-sha256 and a fresh cache directory.
 PINNED_SPLIT_SHA256 = "c5c65a0913b03945a39438302d64ad027faaa6c5a8057953f28375c42b37396d"
-# DR-022: the record GATE-IMG-01 closes with (written by the leader; the same literals as ml/holdout.py).
+# The holdout authorization record (same literals as ml/holdout.py).
 HOLDOUT_AUTHORIZATION_FORMAT = "ml-holdout-authorization/1"
 HOLDOUT_GATE = "GATE-IMG-01"
 HOLDOUT_GATE_CLOSED = "CLOSED"
@@ -101,20 +83,15 @@ def _no_constants(name):
 
 
 def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
-    """The GATE-IMG-01 record, checked, as the metadata the cache records (DR-022).
+    """The holdout authorization record, checked, as the metadata the cache stores; nothing else is opened.
 
-    ``path`` is repository-relative (the record is committed with the gate decision; a relative path with
-    ``..`` or a drive is refused); an absolute path is accepted for a local check and only its file name is
-    recorded. Refused unless the file exists, is strict JSON, has format
-    ``ml-holdout-authorization/1``, gate ``GATE-IMG-01``, gate_status ``CLOSED`` and the split sha256
-    this ingest is pinned to. Nothing is opened but the record.
+    ``path`` is repository-relative; an absolute path works for a local check, and only its file name is recorded.
     """
     if path is None:
         raise IngestError("HOLDOUT_AUTHORIZATION_REQUIRED",
                           "holdout cases need --holdout-authorization <ml-holdout-authorization/1 record>")
     given = Path(path)
-    # The "repository-relative" promise is enforced, not assumed (QA_PR94_D39 NB-3): a relative path may not climb
-    # out of the repository or name a drive/root, and is refused before anything is opened.
+    # Before anything is opened: a relative path may not leave the repository or name a drive or root.
     if not given.is_absolute() and (".." in given.parts or given.drive or given.root):
         raise IngestError("HOLDOUT_AUTHORIZATION_INVALID",
                           f"{given.name}: a relative record path must stay inside the repository "
@@ -141,7 +118,7 @@ def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
         problems.append(f"gate_status is {record.get('gate_status')!r}: {HOLDOUT_GATE} is not {HOLDOUT_GATE_CLOSED}")
     if record.get("split_sha256") != split_sha256:
         problems.append("split_sha256 is not the split this backend is pinned to")
-    # QA of PR #94: a record that authorizes no run, or names nobody, is not an authorization.
+    # A record that authorizes no run, or names nobody, is not an authorization.
     runs = record.get("authorized_runs")
     problems.extend(authorized_runs_problems(runs))
     if not authorized_by_valid(record.get("authorized_by")):
@@ -157,11 +134,7 @@ def load_holdout_authorization(path: Path, split_sha256: str) -> dict:
 
 
 def rule_based_selection(split: dict, include_holdout: bool = False) -> List[Dict[str, str]]:
-    """The cases this backend serves, by the leader's rules, in a stable order.
-
-    ``include_holdout`` (DR-022, only after GATE-IMG-01) adds every ``final_holdout`` case except the
-    INT-12 case, in EVALUATION mode; the INT-12 case is always the one inference-only case.
-    """
+    """The cases this backend serves, in a stable order (rules in the module docstring)."""
     partitions = split["partitions"]
     validation = sorted(partitions["validation"]["case_ids"], key=_case_number)
     holdout = sorted(partitions["final_holdout"]["case_ids"], key=_case_number)

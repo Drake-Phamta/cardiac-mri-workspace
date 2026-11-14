@@ -1,9 +1,8 @@
 """NRRD reading, slice PNG encoding, checksums and mask-payload decoding.
 
-Axis convention (DR-008a, contract index_convention ``x=column,y=row,z=slice``):
-pynrrd returns NRRD data in (x, y, z) order. A served slice z is the 2-D array
-``data[:, :, z].T`` of shape (Ny, Nx): row = y, column = x, top-left origin.
-Volumes held in memory here are (z, y, x), so slice z is simply ``vol[z]``.
+Axis convention (contract index_convention ``x=column,y=row,z=slice``): pynrrd returns data in
+(x, y, z) order. A served slice z is ``data[:, :, z].T`` of shape (Ny, Nx): row = y, column = x,
+top-left origin. Volumes in memory are (z, y, x), so slice z is ``vol[z]``.
 """
 
 from __future__ import annotations
@@ -50,10 +49,9 @@ def to_zyx(data_xyz: np.ndarray) -> np.ndarray:
 
 
 def geometry_from_header(header: dict) -> Dict[str, object]:
-    """Spacing/origin/direction exactly as the header states them.
+    """Spacing, origin and direction exactly as the header states them.
 
-    The values are reported, never trusted: geometry_validation_status stays
-    GEOMETRY_NOT_VALIDATED (QA-002 F2: every LASC header is the default affine).
+    Reported, never trusted: every LASC header is the default affine, so geometry stays GEOMETRY_NOT_VALIDATED.
     """
     directions = np.asarray(header.get("space directions"), dtype=float)
     if directions.shape != (3, 3) or not np.all(np.isfinite(directions)):
@@ -62,8 +60,8 @@ def geometry_from_header(header: dict) -> Dict[str, object]:
     if np.any(spacing <= 0):
         raise ValueError("zero-length space direction")
     unit = directions / spacing[:, None]
-    # The frozen transform has no direction term. A negative diagonal is a
-    # flipped axis, so only the positive identity orientation is representable.
+    # The contract's transform has no direction term, and a negative diagonal is a flipped axis,
+    # so only the identity orientation can be represented.
     axis_aligned = bool(np.allclose(unit, np.eye(3), rtol=0.0, atol=1e-6))
     origin = np.asarray(header.get("space origin", [0.0, 0.0, 0.0]), dtype=float)
     default_header = bool(

@@ -1,10 +1,7 @@
-"""Runtime configuration, from environment variables.
+"""Runtime settings, read from environment variables.
 
-Derived patient data (slice PNGs, masks, the review database, rendered
-predictions, Contract 2 packages) never defaults to a path inside the
-repository: everything lives under ``CARDIAC_BACKEND_DATA`` (or the explicit
-per-path variables), and a path inside any git work tree is refused - the same
-rule as ``ml/data.py``'s ``inside_git_worktree``.
+Derived patient data never lives in the repository: every data path comes from ``CARDIAC_BACKEND_DATA``
+(or a per-path variable), and a path inside any git work tree is refused.
 
 Layout under ``CARDIAC_BACKEND_DATA``::
 
@@ -12,12 +9,11 @@ Layout under ``CARDIAC_BACKEND_DATA``::
     experiments/           Contract 2 packages (predictions, metrics)
     var/backend.sqlite3    reviews, reviewed masks, findings
     var/render_cache/      prediction slices rendered on demand
-    derived_meshes/        L0 meshes written by `python -m backend.mesh.build_cache` (SCR-05)
+    derived_meshes/        meshes written by `python -m backend.mesh.build_cache`
     logs/requests.jsonl    one JSON line per request (no client address)
 
-Other settings: CARDIAC_CORS_ORIGINS (comma-separated allowlist; empty = no
-CORS, the React Native app needs none), CARDIAC_ENABLE_DOCS=1 (OpenAPI/docs
-routes, off by default).
+CARDIAC_CORS_ORIGINS is a comma-separated allowlist (empty = no CORS; the phone app needs none).
+CARDIAC_ENABLE_DOCS=1 turns on the OpenAPI docs routes.
 """
 
 from __future__ import annotations
@@ -62,7 +58,7 @@ class Settings:
     experiments_root: Path
     render_cache: Path
     request_log: Path
-    # None = no derived meshes (every reconstruction is then unavailable); built by backend.mesh.build_cache.
+    # None = no derived meshes, so every reconstruction is unavailable.
     derived_meshes: Optional[Path] = None
     study_id: str = "STUDY_LA_001"
     reviewer_header: str = "X-Reviewer-Id"

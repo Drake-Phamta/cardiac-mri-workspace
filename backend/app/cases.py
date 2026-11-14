@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
-# INT-12 (DR-017): the inference-only case. The rule is "CASE_0001 is always INFERENCE_REVIEW" - the store
-# enforces it on its own, whatever the cache index designates.
+# The INT-12 inference-only case: always INFERENCE_REVIEW without ground truth, whatever the cache index says.
 INT12_CASE_ID = "CASE_0001"
 
 
@@ -20,10 +19,8 @@ def authorized_by_valid(value: object) -> bool:
 def authorized_runs_problems(runs: object) -> List[str]:
     """Why ``runs`` is not a valid ``authorized_runs`` list; empty when it is.
 
-    A non-empty list of exactly ``{experiment_id, checkpoint_sha256}`` (the shape ml/holdout.py writes), each
-    experiment listed once: ml/holdout.py refuses a record that lists an experiment twice, and a record that
-    named one experiment with two checkpoints would authorize whichever the reader happens to find first
-    (QA_PR98_D39 N-7).
+    Valid: a non-empty list of exactly ``{experiment_id, checkpoint_sha256}`` (the shape ml/holdout.py
+    writes), each experiment listed once, so one experiment can never be authorized with two checkpoints.
     """
     if not isinstance(runs, list) or not runs:
         return ["authorized_runs must be a non-empty list"]
@@ -118,19 +115,17 @@ class CaseStore:
                 for z, digest in enumerate(record.data["slices"][kind]):
                     self.digest_owners.setdefault(digest, []).append((case_id, kind, z))
         self._refuse_unsafe_holdout()
-        # INT-12: the cases whose ground-truth-derived values are never served. CASE_0001 is always one of
-        # them, whatever the index says (the index is data on disk; the rule is code).
+        # Cases whose ground-truth values are never served; the INT-12 case always is one, whatever the index says.
         self.inference_only_ids = set(self.index.get("inference_only_case_ids", [])) | {INT12_CASE_ID} | {
             case_id for case_id, record in self.cases.items() if record.mode == "INFERENCE_REVIEW"}
         self.modes_known = "inference_only_case_ids" in self.index
 
     def _refuse_unsafe_holdout(self) -> None:
-        """The holdout lock.
+        """Refuse to start on a cache that would leak holdout ground truth.
 
-        Without the DR-022 authorization metadata: at most one final_holdout case (the INT-12 case), and
-        never with its ground truth. With it (a cache built by ``ingest --include-holdout`` under a closed
-        GATE-IMG-01 record): the other holdout cases may be served in EVALUATION mode, but the INT-12 case -
-        every case the cache lists as inference-only - is INFERENCE_REVIEW without ground truth, always.
+        Without a holdout authorization record: at most one final_holdout case (the INT-12 case), never with
+        its ground truth. With one (``ingest --include-holdout``), the other holdout cases may be served in
+        EVALUATION mode, but every inference-only case stays INFERENCE_REVIEW without ground truth.
         """
         int12 = self.cases.get(INT12_CASE_ID)
         if int12 is not None and (int12.mode != "INFERENCE_REVIEW" or self._serves_ground_truth(int12)):

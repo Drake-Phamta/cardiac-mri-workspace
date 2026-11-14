@@ -1,21 +1,14 @@
-"""Contract 2 experiment artifacts: experiments, analysis runs, prediction masks.
+"""Contract 2 experiment packages: experiments, analysis runs and prediction masks.
 
-Every package under ``experiments_root`` is checked with the repository's own
-``validate_contract2.validate_manifest`` before anything in it is served: both
-gates ACCEPTED, precomputed, checksums verified, provenance intact. A package
-that fails is listed in ``rejected`` with its code and is never partially
-served. Without any accepted package every run, metric and mesh endpoint
-answers its legitimately-unavailable state.
+Each package under ``experiments_root`` must pass ``validate_contract2.validate_manifest`` before anything in
+it is served; a package that fails goes to ``rejected`` with its code and is never partly served.
+A manifest is any ``*.json`` whose ``contract`` is ``contract2_experiment_artifact``, found at:
 
-Layouts found (a manifest is any ``*.json`` whose ``contract`` is
-``contract2_experiment_artifact``):
+    <experiments_root>/<package>/<manifest>.json
+    <experiments_root>/<run>/contract2/<manifest>.json    (ml/export_contract2.py)
 
-    <experiments_root>/<package>/<manifest>.json          root = <package>
-    <experiments_root>/<run>/contract2/<manifest>.json    root = <run>  (ml/export_contract2.py)
-
-Runs are registered whether or not their case is ingested: run identity,
-status and saved metrics need no image. Endpoints that serve pixels or
-reviews still require the case to be in the data cache.
+Runs are registered even when their case is not ingested (run status and saved metrics need no image);
+endpoints that serve pixels or reviews still need the case in the data cache.
 """
 
 from __future__ import annotations
@@ -59,7 +52,7 @@ class RunRecord:
         self.processed_mask_id: Optional[str] = run.get("processed_prediction_mask_id")
         self.metric_set_ids: List[str] = list(run.get("metric_set_ids") or [])
         self.reconstruction_ids: List[str] = list(run.get("reconstruction_ids") or [])
-        # Meshes derived from this run's masks by backend.mesh.build_cache (MeshStore.run_mesh_ids), set at startup.
+        # Filled at startup by Backend, from MeshStore.run_mesh_ids.
         self.derived_reconstruction_ids: List[str] = []
         self.failure_reason: Optional[str] = run.get("failure_reason")
         self.package = package
@@ -113,7 +106,6 @@ class ExperimentStore:
         self._lock = threading.Lock()
         self._load()
 
-    # -- loading -------------------------------------------------------------
     def _candidates(self) -> List[Path]:
         if not self.root.is_dir():
             return []
@@ -165,16 +157,11 @@ class ExperimentStore:
         self._load_render_index()
 
     def _checkpoint_not_authorized(self, package: "Package") -> Optional[str]:
-        """DR-022 / QA_PR98_D39 N-7: served runs against the cache's ``authorized_runs``.
+        """Why the package's checkpoint is not the one the holdout record authorizes, or None.
 
-        When the data cache carries the GATE-IMG-01 record, an experiment that record LISTS must come with the
-        checkpoint it lists: a package of the same experiment id built from another ``best.pt`` is a different
-        model's holdout results under an authorized name, and is rejected (never partially served).
-
-        An experiment the record does not list is served: this cache holds ONE record, and the documented UNet
-        redeploy (ml/README.md, "Redeploy") authorizes EXP-U-* in a second record that the cache was not built
-        with, so "not listed" cannot be told from "authorized elsewhere" here. The exporter checked those runs
-        against their own record (ml/export_contract2.py); backend/README.md says so.
+        A listed experiment built from another ``best.pt`` would show another model's holdout results under an
+        authorized name. An unlisted experiment is served: a second record that this cache was not built with
+        may authorize it (see backend/README.md).
         """
         authorization = self.cases.index.get("holdout_authorization")
         if not isinstance(authorization, dict):
@@ -207,7 +194,6 @@ class ExperimentStore:
                 if (directory.name, z) not in owners:
                     owners.append((directory.name, z))
 
-    # -- queries -------------------------------------------------------------
     def run(self, run_id: str) -> Optional[RunRecord]:
         return self.runs.get(run_id)
 

@@ -1,8 +1,7 @@
-"""Pure ASGI middleware: a JSONL request log and a request-body cap.
+"""Plain ASGI middleware: a JSONL request log and a request-body size limit.
 
-Request log (for the L4 measurement, NFR-PERF-001 limb 2 - "no full-volume
-transfer per slice gesture"): one JSON line per HTTP request in
-``$CARDIAC_BACKEND_DATA/logs/requests.jsonl``::
+The request log shows that a slice change never transfers a whole volume. It writes one JSON line per
+HTTP request to ``$CARDIAC_BACKEND_DATA/logs/requests.jsonl``::
 
     {"t": "...Z", "method": "GET", "route": "/api/v1/cases/{case_id}/slices/{slice_index}/mri",
      "case_id": "CASE_0061", "slice_index": 44, "view": "mri", "digest": "<sha256 hex>",
@@ -10,14 +9,8 @@ transfer per slice gesture"): one JSON line per HTTP request in
     {"t": "...Z", "method": "GET", "route": "/api/v1/artifacts/{name}", "digest": "<sha256 hex>",
      "kind": "mri", "case_id": "CASE_0061", "slice_index": 44, "status": 200, "bytes": 52011, "ms": 1.2}
 
-``route`` is the path template; ``case_id`` / ``slice_index`` come from the path,
-with run, review and reviewed-mask ids resolved to their case. A slice view
-(``view`` = mri | gt | prediction | reviewed) records the ``digest`` its
-content_url names; an artifact fetch records the digest it served and only the
-kind / case / slice that every owner of that digest shares (``shared`` and
-``owners`` when identical bytes belong to several slices). ``bytes`` counts the
-response body actually sent. No client address, header or request body is
-recorded; only allowlisted query keys are.
+``route`` is the path template and ``bytes`` the response body actually sent. For privacy, no client
+address, header or request body is recorded, and only allowlisted query keys are.
 """
 
 from __future__ import annotations
@@ -148,7 +141,7 @@ def make_describe(app: Any, backend: Backend) -> Describe:
     base = backend.contract.base_path
     cases, experiments, storage = backend.cases, backend.experiments, backend.storage
 
-    # The slice views a slice switch starts with (L4); each answers one content_url.
+    # The slice views a slice change starts with; each answers one content_url.
     slice_views = {
         f"{base}/cases/{{case_id}}/slices/{{slice_index}}/mri": "mri",
         f"{base}/cases/{{case_id}}/slices/{{slice_index}}/ground-truth": "gt",
