@@ -5,28 +5,16 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 
-import { color, radius, type } from './theme';
+import { Tag } from './Controls';
 
 export default function CapabilityBadge({ capability, compact = false }) {
   const warn = !capability.consistent;
+  const label = `${compact ? capability.short : capability.label}${warn ? ' · inconsistent' : ''}`;
   return (
-    <View style={[s.tag, warn && s.warnTag]} accessibilityLabel={`mode ${capability.label}`}>
-      <Text style={[s.label, warn && s.warnLabel]}>
-        {compact ? capability.short : capability.label}
-        {warn ? ' · inconsistent' : ''}
-      </Text>
+    <View accessibilityLabel={`mode ${capability.label}`}>
+      <Tag label={label} tone={warn ? 'warn' : 'neutral'} />
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  tag: {
-    alignSelf: 'flex-start', height: 20, justifyContent: 'center', paddingHorizontal: 6,
-    borderRadius: radius.xs, backgroundColor: color.raised,
-  },
-  warnTag: { backgroundColor: color.warnSoft },
-  label: { ...type.micro, fontWeight: '600', color: color.t2 },
-  warnLabel: { color: color.warn },
-});

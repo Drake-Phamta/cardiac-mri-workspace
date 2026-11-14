@@ -1,7 +1,8 @@
 /*
  * The icons of the Direction A mockups, drawn on a 24 dp grid with round caps and joins (design/build/icons.svg,
  * path for path). Every icon takes size (dp), color and strokeWidth: <IconBack size={24} color={color.t1} />.
- * Icons are decoration for screen readers: the button around one carries the accessibilityLabel.
+ * Icons are decoration for screen readers: the button around one carries the accessibilityLabel. Each Svg has
+ * testID "icon-<Name>", so a test that counts drawn marks (overlay paths, chart dots) can leave icons out.
  */
 
 import React from 'react';
@@ -15,7 +16,14 @@ export const ICON_STROKE = 1.6;
 function make(name, draw) {
   function Icon({ size = 24, color = palette.t2, strokeWidth = ICON_STROKE }) {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        testID={`icon-${name}`}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         <G fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
           {draw(color)}
         </G>

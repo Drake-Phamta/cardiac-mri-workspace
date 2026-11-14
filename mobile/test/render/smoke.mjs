@@ -38,6 +38,11 @@ const tick = async (ms = 30) => { await act(async () => { await sleep(ms); }); }
 const textOf = (node) => (node.children || []).map((c) => (typeof c === 'string' ? c : textOf(c))).join('');
 const texts = (r) => r.root.findAll((n) => n.type === 'Text').map(textOf);
 const has = (r, re) => texts(r).some((t) => re.test(t));
+// Icons (src/components/icons.js) are react-native-svg drawings too; each icon's Svg has testID "icon-<Name>". A check
+// that counts drawn marks (overlay paths, chart dots, mask rects, a chart's Svg) counts only the marks outside an icon.
+const isIcon = (n) => n.type === 'Svg' && typeof n.props.testID === 'string' && n.props.testID.startsWith('icon-');
+const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return true; return false; };
+const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
   const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
@@ -248,11 +253,11 @@ const liveRuntime = (fetchImpl) => createRuntime({
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
   check('L2', img() && img().props.source.uri.startsWith('data:image/png;base64,'), 'MRI drawn from fetched bytes (data URI)');
   check('L2', requests.some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')), 'the bytes came from base URL + content_url');
-  let paths = r.root.findAll((n) => n.type === 'Path').map((n) => n.props.d.length);
+  let paths = marks(r, 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 1 && paths[0] > 100, `prediction overlay drawn as one path (${paths.join(',')} chars)`);
   await press(r, 'Ground truth: OFF');
   await tick(250);
-  paths = r.root.findAll((n) => n.type === 'Path').map((n) => n.props.d.length);
+  paths = marks(r, 'Path').map((n) => n.props.d.length);
   check('L3', paths.length === 2, `ground-truth overlay added (${paths.length} paths)`);
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 576, height: 576 } } }); });
   await tick(30);
@@ -282,7 +287,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
   await act(async () => { img().props.onLoad({ nativeEvent: { source: { width: 575, height: 576 } } }); });
   await tick(30);
   check('L7', has(r, /575x576 but the case geometry says 576x576/), 'an MRI of the wrong size blocks the overlays and says why');
-  check('L7', r.root.findAll((n) => n.type === 'Path').length === 0, 'and no overlay is drawn over it');
+  check('L7', marks(r, 'Path').length === 0, 'and no overlay is drawn over it');
 
   // #77 QA B-3: a slice that fails shows nothing of the slice displayed before.
   const entry = (label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(label))[0];
@@ -428,7 +433,7 @@ function noRunBackend() {
   check('N4', has(r, /^Slice Dice: - \(no analysis run for this case\)$/), 'the slice metric says why it is empty');
   await press(r, 'Ground truth: OFF');
   await tick(300);
-  check('N5', r.root.findAll((n) => n.type === 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
+  check('N5', marks(r, 'Path').length === 1, 'ground-truth overlay drawn (the only mask)');
 
   // The L4 15 + 15 run, started the way the leader starts it: long-press the slice label.
   const label = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.onLongPress === 'function')[0];
@@ -561,7 +566,7 @@ function noRunBackend() {
   check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/), 'no metric to pick, and it says so');
   await layout(r);
   await tick(30);
-  check('V3R2', r.root.findAll((n) => n.type === 'Svg').length === 1, 'the strip plot is drawn, empty');
+  check('V3R2', marks(r, 'Svg').length === 1, 'the strip plot is drawn, empty');
   await act(async () => { r.unmount(); });
 }
 {
@@ -577,7 +582,7 @@ function noRunBackend() {
   await press(r, 'dice');
   await layout(r);
   await tick(30);
-  const dots = r.root.findAll((n) => n.type === 'Circle');
+  const dots = marks(r, 'Circle');
   check('V3R3', dots.length === 4, `EXP-U-100 strip: ${dots.length} dots, one per successful case (4)`);
   const strip = r.root.findAll((n) => n.type === 'Pressable')[0];
   if (strip && dots.length) {
@@ -631,7 +636,7 @@ function noRunBackend() {
   // slice metrics are not ingested, so its "unavailable" answer is cached (E4n).
   const evalBackend = fakeBackend({ metricsMissingAt: [51] });
   r = await mount(liveRuntime(evalBackend.fetchImpl), { caseId: 'CASE_0061', runId: 'RUN_A', variant: 'RAW', sliceIndex: 44 });
-  const paths = () => r.root.findAll((n) => n.type === 'Path');
+  const paths = () => marks(r, 'Path');
   check('E4c', paths().length === 3, `TP / FP / FN drawn as three paths (${paths().length})`);
   check('E4c', has(r, /TP - agree · \d+ px/) && has(r, /FP - over-segmentation · \d+ px/) && has(r, /FN - missed · \d+ px/),
     'legend: every class named in words with its pixel count');
@@ -643,7 +648,7 @@ function noRunBackend() {
   check('E4e', has(r, /#2 · z 44/) && has(r, /#3 · z 30/) && listed.join(',') === '52,44,30',
     `the list in the server's order, never re-ranked: z ${listed.join(', ')}`);
   check('E4f', has(r, /Dice 0\.810 · IoU 0\.680/) && has(r, /RVE -4\.2 %/), 'case metrics as the server sent them');
-  const bars = () => r.root.findAll((n) => n.type === 'Rect' && n.props.fill !== 'none').length;
+  const bars = () => marks(r, 'Rect').filter((n) => n.props.fill !== 'none').length;
   check('E4g', bars() === 3, `profile: one bar per eligible slice, none for the rest (${bars()})`);
   const reqMark = evalBackend.requests.length;
   const gestureMark = gestures().length;
@@ -1186,9 +1191,9 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('V4b', !has(r, /SYNTHETIC/) && !has(r, /decoder is pending/i), 'nothing is labelled SYNTHETIC or pending in live mode');
 
   // --- one brush stroke at SOURCE resolution ---
-  const rectsBefore = r.root.findAll((n) => n.type === 'Rect').length;
+  const rectsBefore = marks(r, 'Rect').length;
   await stroke(r, [500, 300]);
-  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && r.root.findAll((n) => n.type === 'Rect').length > rectsBefore,
+  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && marks(r, 'Rect').length > rectsBefore,
     'a one-finger stroke paints (radius 2 by default) and the slice reads UNSAVED');
   await pressExact(r, '‹ Back');
   await tick(60);
