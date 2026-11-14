@@ -1739,8 +1739,9 @@ function reviewBackend({ seedVersion = false } = {}) {
   }
 }
 
-// ---- 12. Shell: header, About this screen, state panels ----
+// ---- 12. Shell: header, About this screen, state panels, session cover, cache clear ----
 {
+  const { AppState, BackHandler } = await import('react-native');
   const { default: StateView } = await imp('src/components/StateView.js');
   const { loading, recoverableError } = await imp('src/api/states.mjs');
   const headerTexts = (r) => {
@@ -1750,10 +1751,13 @@ function reviewBackend({ seedVersion = false } = {}) {
 
   // Header: a name for people and the study; no screen id in the header or the tab bar.
   const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  let t = 0;
   let r;
   await act(async () => {
     r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
-      React.createElement(NavigatorView, { runtime, initialScreenId: 'SCR-01' })), nodeMock);
+      React.createElement(NavigatorView, {
+        runtime, initialScreenId: 'SCR-01', session: { idleMs: 600, backgroundMs: 300, checkEveryMs: 20, now: () => t },
+      })), nodeMock);
   });
   await tick(60);
   check('H1', onScreen(r, 'SCR-01') && headerTexts(r)[0] === 'Study Overview' && /^Study STUDY_DEMO ▾$/.test(headerTexts(r)[1] || ''),
@@ -1763,7 +1767,38 @@ function reviewBackend({ seedVersion = false } = {}) {
   await act(async () => { titleBox().props.onPress(); });
   check('H2', has(r, /^About this screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),
     `tapping the name opens About this screen: ${texts(r).filter((x) => /^(Screen|Mode|Contract|Build) /.test(x)).join(' | ')}`);
+  await press(r, 'Clear cached images');
+  check('H2', has(r, /^Nothing to clear: this build keeps no images \(fixture mode\)\.$/), 'fixture mode: nothing to clear, and it says so');
+
+  // Session cover: idle, then the back button is held, then "Show the screen".
+  const root = r.root.findAll((n) => typeof n.props.onStartShouldSetResponderCapture === 'function')[0];
+  t = 500;
+  await act(async () => { root.props.onStartShouldSetResponderCapture(); });
+  await tick(60);
+  check('H3', !has(r, /^Screen hidden$/), 'a touch at 500 ms keeps the screen (idle limit 600 ms)');
+  t = 1200;
+  await tick(80);
+  const cover = () => r.root.findAll((n) => n.props && n.props.testID === 'session-cover')[0];
+  check('H3', Boolean(cover()) && has(r, /^Screen hidden$/) && has(r, /^Nobody touched the screen for 0\.6 seconds\./),
+    `700 ms without a touch: the cover is up (${texts(r).find((x) => x.startsWith('Nobody')) || '-'})`);
+  let handled;
+  await act(async () => { handled = BackHandler.__press(); });
+  check('H3', handled === true && onScreen(r, 'SCR-01'), 'while covered the back button changes nothing');
+  await press(r, 'Show the screen');
+  check('H3', !cover() && BackHandler.__listeners === 1, 'Show the screen removes the cover and its back-button hold');
+
+  // Background for longer than the limit covers the screen on return; a short trip does not.
+  await act(async () => { AppState.__set('background'); });
+  t += 100;
+  await act(async () => { AppState.__set('active'); });
+  check('H4', !cover(), 'back after 100 ms in the background: no cover');
+  await act(async () => { AppState.__set('background'); });
+  t += 400;
+  await act(async () => { AppState.__set('active'); });
+  check('H4', Boolean(cover()) && has(r, /in the background for/), `back after 400 ms (limit 300): ${texts(r).find((x) => x.startsWith('The app was')) || '-'}`);
+  await press(r, 'Show the screen');
   await act(async () => { r.unmount(); });
+  check('H4', AppState.__listeners === 0, 'the AppState listener is removed with the navigator');
 
   // State panel: a placeholder while loading; an error shows its cause, its code, one action, details folded.
   await act(async () => { r = TestRenderer.create(React.createElement(StateView, { view: loading(), what: 'the case list' })); });
@@ -1781,7 +1816,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('H5', has(r, /^HTTP 503$/) && has(r, /^request req_7$/) && acted.join() === 'RETRY', 'Details shows the HTTP status and request id; Retry answers RETRY');
   await act(async () => { r.unmount(); });
 
-  // Live: the header names the run SCR-03 picked.
+  // Live: the header names the run SCR-03 picked; "Clear cached images" empties the stores and reloads the slice.
   (await imp('src/lib/caseMode.mjs')).forgetSession();
   const backend = fakeBackend();
   const live = liveRuntime(backend.fetchImpl);
@@ -1798,6 +1833,16 @@ function reviewBackend({ seedVersion = false } = {}) {
   await tick(250);
   check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === '‹ Back | Case Explorer | CASE_0061 · run RUN_A · RAW ▾ | LIVE',
     `SCR-03 header: ${headerTexts(r).join(' | ')}`);
+  const cachedBefore = live.imageStore.stats().cached;
+  const mark = backend.requests.length;
+  await act(async () => { titleBox().props.onPress(); });
+  await press(r, 'Clear cached images');
+  await tick(300);
+  await layout(r);
+  await tick(250);
+  check('H6', cachedBefore > 0 && has(r, /^Cleared \d+ images?, \d+ masks? and \d+ cached answers? from the app's memory/)
+    && backend.requests.slice(mark).some((u) => u.endsWith('/api/v1/artifacts/mri-44.png')) && has(r, /slice 45 \/ 88/),
+  `cleared ${cachedBefore} image(s); the slice on screen was fetched again (${backend.requests.length - mark} requests)`);
   await act(async () => { r.unmount(); });
 }
 

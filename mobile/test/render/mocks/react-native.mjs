@@ -50,8 +50,23 @@ export const BackHandler = {
 export const Alert = {
   alert: (...args) => { (globalThis.__alerts = globalThis.__alerts || []).push(args); },
 };
+// The session cover listens to AppState; __set('background' | 'active') plays a state change to the listeners.
+const appStateListeners = [];
+export const AppState = {
+  currentState: 'active',
+  addEventListener(event, fn) {
+    const entry = { event, fn };
+    appStateListeners.push(entry);
+    return { remove() { const i = appStateListeners.indexOf(entry); if (i >= 0) appStateListeners.splice(i, 1); } };
+  },
+  __set(next) {
+    AppState.currentState = next;
+    for (const { event, fn } of [...appStateListeners]) if (event === 'change') fn(next);
+  },
+  get __listeners() { return appStateListeners.length; },
+};
 
 export default {
   View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
-  StyleSheet, PanResponder, BackHandler, Alert,
+  StyleSheet, PanResponder, BackHandler, Alert, AppState,
 };

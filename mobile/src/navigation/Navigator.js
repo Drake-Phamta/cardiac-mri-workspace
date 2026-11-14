@@ -1,7 +1,9 @@
 /*
  * Draws the navigator: a header with Back, the screen's name and the case and run it shows, the top screen of
- * the stack, and the tab bar. Tapping the name opens "About this screen" (screen id, mode, contract, build).
- * Only the top screen is mounted; a covered screen unmounts and reloads its data when shown again. Each screen sits in an error boundary, so a crash blocks only that screen with FATAL_INVALID.
+ * the stack, and the tab bar. Tapping the name opens "About this screen" (screen id, mode, contract, build,
+ * and "Clear cached images"). Only the top screen is mounted; a covered screen unmounts and reloads its data
+ * when shown again. Each screen sits in an error boundary, so a crash blocks only that screen with
+ * FATAL_INVALID. The session cover (SessionCover.js) wraps everything.
  */
 
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
@@ -9,6 +11,8 @@ import { BackHandler, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal 
 import { fatalInvalid, RECOVERY } from '../api/states.mjs';
 import { describeConfig, MODE } from '../config.mjs';
 import { StatePanel } from '../components/StateView';
+import SessionGate from '../components/SessionCover';
+import { clearCachedData, SESSION_LIMITS } from '../components/session.mjs';
 import { color, font, MIN_TOUCH, radius, space } from '../components/theme';
 import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
 import { aboutLines, headerLines, sameContext } from './header.mjs';
@@ -71,11 +75,13 @@ class ScreenBoundary extends React.Component {
   }
 }
 
-export default function NavigatorView({ runtime, initialScreenId }) {
+// `session` overrides the cover limits (tests use seconds instead of minutes).
+export default function NavigatorView({ runtime, initialScreenId, session = null }) {
   const [state, dispatch] = useReducer(navReducer, initialScreenId, (id) => initialNavState(id));
   const [navError, setNavError] = useState(null);
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [cacheNote, setCacheNote] = useState(null);
   const [epoch, setEpoch] = useState(0);
   const [reported, setReported] = useState(null); // { key, context } from nav.setContext
   const guards = useMemo(() => createGuards(), []);
@@ -96,7 +102,7 @@ export default function NavigatorView({ runtime, initialScreenId }) {
   // A guard lives only while its screen is on top. Child effects run first, so the new top
   // screen's own guard is already set when this prunes the others.
   useEffect(() => { guards.prune([current.key]); }, [current.key, guards]);
-  useEffect(() => { setAboutOpen(false); }, [current.key]);
+  useEffect(() => { setAboutOpen(false); setCacheNote(null); }, [current.key]);
 
   // Android back pops, asking the leave guard first. At the root without a guard the system default
   // applies (the app goes to the background). While a guard prompt is open, another press is ignored.
@@ -126,88 +132,105 @@ export default function NavigatorView({ runtime, initialScreenId }) {
     return runtime.fixtureScenarios.subscribe(() => setEpoch((n) => n + 1));
   }, [runtime]);
 
+  // "Clear cached images" (spec 12 §8). A screen with unsaved work (a leave guard) is never reloaded under the
+  // user: the caches stay and the note says why. Otherwise the open screen reloads what it shows.
+  const clearCache = useCallback(() => {
+    if (guards.get(current.key)) {
+      return { cleared: false, text: 'Not cleared: this screen has unsaved work. Save it or leave the screen first.' };
+    }
+    const result = clearCachedData(runtime);
+    if (result.cleared) setEpoch((n) => n + 1);
+    return result;
+  }, [guards, current.key, runtime]);
+
   const onBack = useCallback(() => nav.pop(), [nav]);
   const fixture = runtime.mode === MODE.FIXTURE;
   const about = aboutLines(meta, runtime.config, runtime.contract ? runtime.contract.contractVersion : null);
 
   return (
-    <View style={s.root}>
-      <View style={s.header} testID={`screen-${meta.id}`}>
-        {nav.canGoBack ? (
-          <TouchableOpacity style={s.back} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
-            <Text style={s.backT}>‹ Back</Text>
-          </TouchableOpacity>
-        ) : <View style={s.backSpacer} />}
-        <TouchableOpacity
-          style={s.titleBox}
-          onPress={() => setAboutOpen((o) => !o)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: aboutOpen }}
-          accessibilityLabel={`${head.title}${head.subtitle ? `, ${head.subtitle}` : ''}. About this screen`}
-        >
-          <Text style={s.title} numberOfLines={1}>{head.title}</Text>
-          <Text style={s.subtitle} numberOfLines={1}>{head.subtitle ? `${head.subtitle} ` : ''}{aboutOpen ? '▴' : '▾'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.mode, fixture ? s.modeFixture : s.modeLive]}
-          onPress={() => fixture && setScenarioOpen(true)}
-          disabled={!fixture}
-          accessibilityRole="button"
-          accessibilityLabel={describeConfig(runtime.config)}
-        >
-          <Text style={[s.modeT, fixture ? s.modeFixtureT : s.modeLiveT]}>{fixture ? 'FIXTURE' : 'LIVE'}</Text>
-        </TouchableOpacity>
-      </View>
-      {aboutOpen && (
-        <View style={s.about} testID="about-screen">
-          <Text style={s.aboutH}>About this screen</Text>
-          {about.map((line) => <Text key={line} style={s.aboutLine} selectable>{line}</Text>)}
-        </View>
-      )}
-      {fixture && (
-        <Text style={s.banner} numberOfLines={1}>
-          Generated contract fixtures - not patient data, not a backend. Tap FIXTURE to choose scenarios.
-        </Text>
-      )}
-
-      <View style={s.body}>
-        <ScreenBoundary key={`${current.key}:${epoch}`} screenId={current.screenId} title={meta.title} onBack={onBack}>
-          {Screen ? <Screen runtime={runtime} nav={nav} params={current.params} /> : null}
-        </ScreenBoundary>
-      </View>
-
-      {navError && (
-        <View style={s.toast} accessibilityRole="alert">
-          <Text style={s.toastT}>Cannot open: {navError}</Text>
-        </View>
-      )}
-
-      <View style={s.tabs}>
-        {TABS.map((tab) => {
-          const active = state.stack[0].screenId === tab.screenId;
-          return (
-            <TouchableOpacity
-              key={tab.screenId}
-              style={s.tab}
-              onPress={() => nav.reset(tab.screenId, {})}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-            >
-              <View style={[s.tabBar, active && s.tabBarActive]} />
-              <Text style={[s.tabT, active && s.tabActive]}>{tab.label}</Text>
+    <SessionGate limits={session || SESSION_LIMITS} now={session ? session.now : undefined} checkEveryMs={session ? session.checkEveryMs : null} onClearCache={clearCache}>
+      <View style={s.root}>
+        <View style={s.header} testID={`screen-${meta.id}`}>
+          {nav.canGoBack ? (
+            <TouchableOpacity style={s.back} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
+              <Text style={s.backT}>‹ Back</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
+          ) : <View style={s.backSpacer} />}
+          <TouchableOpacity
+            style={s.titleBox}
+            onPress={() => setAboutOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: aboutOpen }}
+            accessibilityLabel={`${head.title}${head.subtitle ? `, ${head.subtitle}` : ''}. About this screen`}
+          >
+            <Text style={s.title} numberOfLines={1}>{head.title}</Text>
+            <Text style={s.subtitle} numberOfLines={1}>{head.subtitle ? `${head.subtitle} ` : ''}{aboutOpen ? '▴' : '▾'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.mode, fixture ? s.modeFixture : s.modeLive]}
+            onPress={() => fixture && setScenarioOpen(true)}
+            disabled={!fixture}
+            accessibilityRole="button"
+            accessibilityLabel={describeConfig(runtime.config)}
+          >
+            <Text style={[s.modeT, fixture ? s.modeFixtureT : s.modeLiveT]}>{fixture ? 'FIXTURE' : 'LIVE'}</Text>
+          </TouchableOpacity>
+        </View>
+        {aboutOpen && (
+          <View style={s.about} testID="about-screen">
+            <Text style={s.aboutH}>About this screen</Text>
+            {about.map((line) => <Text key={line} style={s.aboutLine} selectable>{line}</Text>)}
+            <TouchableOpacity style={s.aboutBtn} onPress={() => setCacheNote(clearCache().text)} accessibilityRole="button">
+              <Text style={s.aboutBtnT}>Clear cached images</Text>
+            </TouchableOpacity>
+            {cacheNote ? <Text style={s.aboutNote}>{cacheNote}</Text> : null}
+          </View>
+        )}
+        {fixture && (
+          <Text style={s.banner} numberOfLines={1}>
+            Generated contract fixtures - not patient data, not a backend. Tap FIXTURE to choose scenarios.
+          </Text>
+        )}
 
-      {fixture && (
-        <FixtureScenarioPanel
-          visible={scenarioOpen}
-          onClose={() => setScenarioOpen(false)}
-          overrides={runtime.fixtureScenarios}
-        />
-      )}
-    </View>
+        <View style={s.body}>
+          <ScreenBoundary key={`${current.key}:${epoch}`} screenId={current.screenId} title={meta.title} onBack={onBack}>
+            {Screen ? <Screen runtime={runtime} nav={nav} params={current.params} /> : null}
+          </ScreenBoundary>
+        </View>
+
+        {navError && (
+          <View style={s.toast} accessibilityRole="alert">
+            <Text style={s.toastT}>Cannot open: {navError}</Text>
+          </View>
+        )}
+
+        <View style={s.tabs}>
+          {TABS.map((tab) => {
+            const active = state.stack[0].screenId === tab.screenId;
+            return (
+              <TouchableOpacity
+                key={tab.screenId}
+                style={s.tab}
+                onPress={() => nav.reset(tab.screenId, {})}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+              >
+                <View style={[s.tabBar, active && s.tabBarActive]} />
+                <Text style={[s.tabT, active && s.tabActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {fixture && (
+          <FixtureScenarioPanel
+            visible={scenarioOpen}
+            onClose={() => setScenarioOpen(false)}
+            overrides={runtime.fixtureScenarios}
+          />
+        )}
+      </View>
+    </SessionGate>
   );
 }
 
@@ -235,6 +258,12 @@ const s = StyleSheet.create({
   },
   aboutH: { color: color.textDim, fontSize: font.small, fontWeight: '700', marginBottom: space.xs },
   aboutLine: { color: color.textDim, fontFamily: font.mono, fontSize: font.small },
+  aboutBtn: {
+    alignSelf: 'flex-start', minHeight: MIN_TOUCH, paddingHorizontal: space.l, marginTop: space.s, borderRadius: radius.m,
+    borderWidth: 1, borderColor: color.control, backgroundColor: color.surface, justifyContent: 'center',
+  },
+  aboutBtnT: { color: color.text, fontSize: font.body, fontWeight: '600' },
+  aboutNote: { color: color.textDim, fontSize: font.small, marginTop: space.xs },
   banner: {
     color: color.warn, backgroundColor: color.warnBg, fontSize: font.small, paddingHorizontal: space.m, paddingVertical: space.xs,
   },

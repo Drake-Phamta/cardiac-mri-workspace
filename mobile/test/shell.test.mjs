@@ -1,14 +1,18 @@
-// node --test mobile/test/  - the shared shell: design tokens and their contrast, the header lines
-// (src/components/tokens.mjs, src/navigation/header.mjs)
+// node --test mobile/test/  - the shared shell: design tokens and their contrast, the header lines, the session
+// cover clock and the cache clear (src/components/tokens.mjs, session.mjs, src/navigation/header.mjs)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   color, contrastRatio, errorClass, family, overlay, status,
 } from '../src/components/tokens.mjs';
+import {
+  clearCachedData, COVER_REASON, coverText, createSessionClock, SESSION_LIMITS,
+} from '../src/components/session.mjs';
 import { aboutLines, headerLines, sameContext } from '../src/navigation/header.mjs';
 import { bindNav, initialNavState } from '../src/navigation/navigator.mjs';
 import { screenMeta } from '../src/navigation/routes.mjs';
+import { createImageStore, createSliceCache } from '../src/api/cache.mjs';
 
 const SURFACES = { bg: color.bg, surface: color.surface, surfaceHi: color.surfaceHi };
 
@@ -80,4 +84,65 @@ test('SH7 nav.setContext reports to the shell under the screen\'s own key', () =
   nav.setContext(null);
   assert.deepEqual(got, [['SCR-02#1', { runId: 'R' }], ['SCR-02#1', null]]);
   assert.doesNotThrow(() => bindNav(() => {}, initialNavState('SCR-02')).setContext({ runId: 'R' }), 'no listener: a no-op');
+});
+
+test('SH8 session clock: 10 minutes without a touch covers the screen; a touch restarts the count', () => {
+  let t = 0;
+  const c = createSessionClock({ now: () => t });
+  t = SESSION_LIMITS.idleMs - 1;
+  assert.equal(c.tick().covered, false);
+  c.touch();
+  t += SESSION_LIMITS.idleMs - 1;
+  assert.equal(c.tick().covered, false, 'the touch restarted the count');
+  t += 1;
+  assert.deepEqual({ ...c.tick() }, { covered: true, reason: COVER_REASON.IDLE });
+  t += 10;
+  c.touch();
+  assert.equal(c.covered, true, 'a covered session ignores touches until uncover()');
+  assert.equal(c.uncover().covered, false);
+  assert.equal(c.tick().covered, false, 'uncover restarts the idle count');
+});
+
+test('SH9 session clock: 5 minutes in the background covers on return; a shorter trip does not', () => {
+  let t = 0;
+  const c = createSessionClock({ now: () => t });
+  c.toBackground();
+  t += SESSION_LIMITS.backgroundMs - 1;
+  assert.equal(c.toForeground().covered, false);
+  c.toBackground();
+  t += 1000;
+  c.toBackground(); // a second "background" event keeps the first time
+  t += SESSION_LIMITS.backgroundMs - 1000;
+  assert.deepEqual({ ...c.toForeground() }, { covered: true, reason: COVER_REASON.BACKGROUND });
+  // While in the background the idle timer does not fire (the cover is decided on return).
+  const d = createSessionClock({ now: () => t });
+  d.toBackground();
+  t += SESSION_LIMITS.idleMs * 2;
+  assert.equal(d.tick().covered, false);
+  assert.equal(d.toForeground().reason, COVER_REASON.BACKGROUND);
+});
+
+test('SH10 cover text names the reason and the limit in words', () => {
+  assert.match(coverText(COVER_REASON.IDLE).body, /^Nobody touched the screen for 10 minutes\. The MRI and case data are hidden/);
+  assert.match(coverText(COVER_REASON.BACKGROUND).body, /^The app was in the background for 5 minutes or more\./);
+  assert.match(coverText(COVER_REASON.IDLE, { idleMs: 60000, backgroundMs: 1 }).body, /for 1 minute\./);
+  assert.equal(coverText(COVER_REASON.IDLE).title, 'Screen hidden');
+});
+
+test('SH11 clear cached data empties the image store and the slice cache and counts them; fixture mode has none', async () => {
+  const images = createImageStore({ fetchBytes: async () => Uint8Array.from([1, 2, 3]) });
+  await images.load('/api/v1/artifacts/a.png');
+  await images.load('/api/v1/artifacts/b.png');
+  const base = { resolve: (id, p) => ({ url: `/x/${p.slice_index}` }), call: async () => ({ state: 'SUCCESS', data: {} }) };
+  const slices = createSliceCache(base);
+  await slices.call('mri_slice_get', { case_id: 'C', slice_index: 1 });
+  const result = clearCachedData({ imageStore: images, maskStore: null, sliceClient: slices });
+  assert.deepEqual({ images: result.images, masks: result.masks, answers: result.answers, cleared: result.cleared },
+    { images: 2, masks: 0, answers: 1, cleared: true });
+  assert.equal(images.stats().cached, 0);
+  assert.equal(slices.size, 0);
+  assert.match(result.text, /^Cleared 2 images, 0 masks and 1 cached answer from the app's memory/);
+  const fixture = clearCachedData({ imageStore: null, maskStore: null, sliceClient: { call: () => {} } });
+  assert.equal(fixture.cleared, false);
+  assert.match(fixture.text, /^Nothing to clear/);
 });
