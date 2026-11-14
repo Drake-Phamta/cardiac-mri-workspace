@@ -1,8 +1,9 @@
 // SCR-07 Experiment Comparison, Direction A: sections of dense rows with one value each. The experiment list, the
 // comparisons and the trend rows open a sheet for everything else (ids, mean, q1, q3, N, the server's verdicts and
 // reasons); the per-case charts keep their validated colours and marker shapes.
-// Opened with params.experimentIds for a pair or group, else the full matrix. The metric has no default, the
-// statistic is the median, and comparability is always the server's verdict, never decided here.
+// Opened with params.experimentIds for a pair or group, else the full matrix. It opens on Dice (the study's primary
+// metric) when the server names it; a picker row ("Metric  Dice") changes it. The statistic is the median, and
+// comparability is always the server's verdict, never decided here.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -11,7 +12,6 @@ import { RECOVERY, STATE } from '../../api/states.mjs';
 import { createExperimentComparison } from './models.mjs';
 import { CELL_STATUS } from './cohort.mjs';
 import StateView from '../../components/StateView';
-import { SegmentedControl } from '../../components/Controls';
 import DetailsSheet, { Sheet } from '../../components/DetailsSheet';
 import { IconDatabase, IconInfo } from '../../components/icons';
 import ListRow, { SectionLabel } from '../../components/ListRow';
@@ -20,7 +20,8 @@ import {
   Blocked, Body, ExperimentRow, InfoRow, LinkRow, MetricLegend, Note, Section, StripChart, useSnapshot, ValueRow,
 } from './parts';
 import AboutDataSheet from './AboutDataSheet';
-import { aboutData, metricLabel, runDetails } from './about.mjs';
+import { PickerRow, PickerSheet } from './Picker';
+import { aboutData, metricLabel, PRIMARY_METRIC, runDetails } from './about.mjs';
 import { FamilyLegend, PairedChart, TrendChart } from './charts';
 import { pairDetail, pairedCards } from './paired.mjs';
 import { trendNotes, trendSeries } from './trend.mjs';
@@ -41,12 +42,12 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   // The tapped dot of a paired chart: { cardId, pair }.
   const [paired, setPaired] = useState(null);
   const [blocked, setBlocked] = useState(null);
-  const [sheet, setSheet] = useState(null); // 'about' | 'metrics' | null
+  const [sheet, setSheet] = useState(null); // 'about' | 'metrics' | 'pick-metric' | null
 
   useEffect(() => {
     setPoint(null);
     setPaired(null);
-    run(() => model.open(ids ? { experimentIds: ids } : {}));
+    run(() => model.open({ ...(ids ? { experimentIds: ids } : {}), defaultMetric: PRIMARY_METRIC }));
     // idsKey, not ids: a new array with the same ids is the same request.
   }, [model, idsKey, run]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -103,7 +104,6 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
               onPoint={setPoint}
               paired={paired}
               onPaired={setPaired}
-              onMetric={pickMetric}
               onCell={setCellId}
               onCompare={setCompareId}
               onTrend={setTrendFamily}
@@ -119,6 +119,15 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
             <Sheet visible={sheet === 'metrics'} onClose={() => setSheet(null)} title="Metric definitions" testID="metric-sheet">
               <MetricLegend selected={snap.metricName} />
             </Sheet>
+            <PickerSheet
+              visible={sheet === 'pick-metric'}
+              title="Metric"
+              options={v.metric.choices.map((m) => ({ id: m, label: metricLabel(m) }))}
+              value={snap.metricName}
+              onPick={pickMetric}
+              onClose={() => setSheet(null)}
+              testID="scr07-metric-sheet"
+            />
             <ExperimentSheet
               cell={cells.find((c) => c.id === cellId) || null}
               v={v}
@@ -140,7 +149,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
 }
 
 function Comparison({
-  v, cells, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onMetric, onCell, onCompare, onTrend, go, blocked,
+  v, cells, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onCell, onCompare, onTrend, go, blocked,
   onSheet,
 }) {
   const detail = pointDetail(point, metricName);
@@ -155,20 +164,18 @@ function Comparison({
         <ListRow title="Metric definitions" icon={IconInfo} onPress={() => onSheet('metrics')} divider="both" testID="scr07-metrics" />
       </View>
 
-      <Section title="Metric" testID="scr07-choices">
+      <View style={s.metric} testID="scr07-choices">
         {v.metric.emptyText ? <Body>{v.metric.emptyText}</Body> : (
-          // Up to five metrics: a segmented control wider than the screen scrolls sideways.
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <SegmentedControl
-              label="Metric"
-              value={v.metric.selected}
-              onChange={onMetric}
-              options={v.metric.choices.map((m) => ({ value: m, label: metricLabel(m) }))}
-            />
-          </ScrollView>
+          // The same picker row and sheet as SCR-01's experiment: up to five metrics never run off the screen.
+          <PickerRow
+            label="Metric"
+            value={v.metric.selected ? metricLabel(v.metric.selected) : 'Choose'}
+            onPress={() => onSheet('pick-metric')}
+            testID="scr07-pick-metric"
+          />
         )}
         {!v.metric.emptyText && !v.metric.selected ? <Note>Pick a metric to see values.</Note> : null}
-      </Section>
+      </View>
 
       <Section title="Experiments" meta={metricName ? `${metricLabel(metricName)} · median` : null} testID="scr07-matrix">
         {listed.map((cell, i) => <ExperimentRow key={cell.id} cell={cell} first={i === 0} onPress={() => onCell(cell.id)} />)}
@@ -325,6 +332,7 @@ function TrendSheet({ row, verdict, notes, onClose }) {
 const s = StyleSheet.create({
   page: { paddingHorizontal: space.l, paddingBottom: space.xl },
   top: { paddingTop: space.s },
+  metric: { marginTop: space.s },
   detail: { marginTop: space.s },
   sheetRows: { marginTop: space.xs },
 });

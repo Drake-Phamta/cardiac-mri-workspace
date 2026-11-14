@@ -219,7 +219,7 @@ const check = (id, ok, detail) => {
   const picked = cm.selectMetric('iou');
   check('V3-4', opened.metricName === null
     && opened.cells.find((c) => c.id === 'EXP-U-100').pointsWithheld === 'NO_METRIC_SELECTED',
-    'no metric is plotted until one is picked - there is no default metric');
+    'no metric is plotted until one is picked: the model has no default of its own (a screen may pass defaultMetric)');
   check('V3-4', sends === before && picked.metricName === 'iou' && picked.cells.length === 7
     && picked.cells.find((c) => c.id === 'EXP-U-100').points.length === plotted.length,
     `selectMetric re-reads the cached states: ${sends - before} extra calls`);

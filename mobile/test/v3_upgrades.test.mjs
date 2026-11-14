@@ -435,3 +435,30 @@ test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is
   const u = snap.cells.find((c) => c.id === 'EXP-U-025');
   assert.deepEqual(u.outliers.cases.map((c) => c.caseId), ['CASE_0005', 'CASE_0003', 'CASE_0004'], 'as the server ranked them');
 });
+
+// Default metric (device round 2): SCR-07 opened with no metric chosen and every row looked empty. A screen may pass
+// defaultMetric; the model applies it only when the server's summaries name that metric, and never picks one by itself.
+test('V3U14 SCR-07 opens on the screen\'s default metric when the server names it; the model picks none by itself', async () => {
+  const runtime = newRuntime();
+  const client = createClient(runtime.contract, v3Transport(contractJson, runtime.bundle, {}));
+  const ids = ['EXP-U-025', 'EXP-D-025'];
+
+  const model = createExperimentComparison(client);
+  assert.equal((await model.open({ experimentIds: ids })).metricName, null, 'no defaultMetric: nothing is chosen');
+  const dice = await model.open({ experimentIds: ids, defaultMetric: 'dice' });
+  assert.equal(dice.metricName, 'dice');
+  assert.deepEqual([...dice.metricNames], ['dice', 'iou', 'false_positives', 'false_negatives', 'relative_volume_error']);
+  const unet = dice.cells.find((c) => c.id === 'EXP-U-025');
+  assert.equal(unet.points.length, 4, 'the per-case Dice of the run is plotted from the first render');
+  assert.equal(unet.pointsWithheld, null);
+  const view = comparisonView(dice, { stat: 'median' });
+  assert.equal(view.metric.selected, 'dice');
+  assert.equal(view.rows.flatMap((r) => r.cells).find((c) => c.id === 'EXP-U-025').valueText, '0.655', 'and the row has its median');
+
+  assert.equal((await model.open({ experimentIds: ids, defaultMetric: 'not_a_metric' })).metricName, null, 'a metric the server does not name is not chosen');
+  assert.equal((await model.open({ experimentIds: ids, metricName: 'iou', defaultMetric: 'dice' })).metricName, 'iou', 'an explicit metric wins');
+
+  await model.open({ experimentIds: ids, defaultMetric: 'dice' });
+  assert.equal(model.selectMetric('iou').metricName, 'iou', 'the user can pick another');
+  assert.equal((await model.refresh()).metricName, 'dice', 'a refresh opens the same way again');
+});

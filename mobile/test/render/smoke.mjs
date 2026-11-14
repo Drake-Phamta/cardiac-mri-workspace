@@ -617,7 +617,8 @@ function noRunBackend() {
   'SCR-07 draws its model: the experiment list and the comparisons, without the intro lines');
   // The generated list names one matrix experiment (EXP-D-PP, refused), so no
   // summary names a metric: no chip is offered, and the screen says why.
-  check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/), 'no metric to pick, and it says so');
+  check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/) && !byTestId(r, 'scr07-pick-metric'),
+    'no metric to pick, so no picker row, and it says so');
   await layout(r);
   await tick(30);
   check('V3R2', marks(r, 'Svg').length === 1, 'the strip plot is drawn, empty');
@@ -650,7 +651,9 @@ function noRunBackend() {
       React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ['EXP-U-100'] } })), nodeMock);
   });
   await tick(60);
-  await press(r, 'Dice');
+  // It opens on Dice: the pick the screen used to wait for is already made.
+  check('V3R22', byTestId(r, 'scr07-pick-metric').props.accessibilityLabel === 'Metric: Dice' && !has(r, /^Pick a metric to see values.$/),
+    'SCR-07 opens with Dice selected, so there is nothing to press before the strip draws');
   await layout(r);
   await tick(30);
   // The trend chart draws the same cases too, so only the strip's markers are counted.
@@ -733,10 +736,42 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
       React.createElement(ExperimentComparisonScreen, { runtime, nav, params })), nodeMock);
   });
   await tick(60);
-  await press(r, 'Dice');
   await layout(r);
   await tick(30);
   return { r, pushed, reports };
+}
+// P8 and the default metric: one picker row ("Metric  Dice") instead of a strip of buttons that ran off the screen,
+// the same row and sheet SCR-01 uses for its experiment; the page opens on Dice, so every experiment row has a value.
+{
+  const { r } = await mountTypedPair({});
+  const pick = byTestId(r, 'scr07-pick-metric');
+  check('V3R22', pick && pick.props.accessibilityLabel === 'Metric: Dice' && has(r, /^Metric$/) && has(r, /^Dice$/),
+    'the metric row reads "Metric", "Dice" and opens on Dice');
+  check('V3R22', has(r, /^Dice · median$/) && texts(r).includes('0.655') && texts(r).includes('0.685') && !has(r, /^Pick a metric to see values\.$/),
+    'with Dice (the median) selected the experiment rows show their values, not "Pick a metric to see values"');
+  check('V3R22', !r.root.findAll((n) => n.type === 'TouchableOpacity' && ['IoU', 'False positives'].includes(textOf(n))).length
+    && !r.root.findAll((n) => n.type === 'ScrollView' && n.props.horizontal).length,
+  'no sideways-scrolling strip of metric buttons on the page');
+  check('V3R13', shortPressables(r).length === 0 && pick.props.style && flatStyle(pick.props.style).minHeight >= 48,
+    'the metric row is at least 48 dp high');
+  check('V3R22', sheetTexts(r, 'scr07-metric-sheet') === null, 'the metric sheet is closed until asked for');
+  await act(async () => { pick.props.onPress(); });
+  const metricModal = () => r.root.findAll((n) => n.type === 'Modal').find((m) => m.findAll((x) => x.props && x.props.testID === 'scr07-metric-sheet').length > 0);
+  const option = (label) => (metricModal() ? metricModal().findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label)[0] : null);
+  const listed = (sheetTexts(r, 'scr07-metric-sheet') || []).filter((t) => t !== 'Metric');
+  check('V3R22', ['Dice', 'IoU', 'False positives', 'False negatives', 'Relative volume error'].every((m) => listed.includes(m))
+    && !listed.some((t) => /_/.test(t)) && option('Dice').props.accessibilityState.selected === true && option('IoU').props.accessibilityState.selected === false,
+  `the sheet lists the server's metrics by name, Dice marked as the current one: ${listed.join(' | ')}`);
+  await act(async () => { option('IoU').props.onPress(); });
+  check('V3R22', sheetTexts(r, 'scr07-metric-sheet') === null && byTestId(r, 'scr07-pick-metric').props.accessibilityLabel === 'Metric: IoU'
+    && has(r, /^IoU · median$/), 'picking IoU closes the sheet and the row, and the page, say IoU');
+  await act(async () => { byTestId(r, 'scr07-pick-metric').props.onPress(); });
+  check('V3R22', option('IoU').props.accessibilityState.selected === true && option('Dice').props.accessibilityState.selected === false,
+    'the sheet marks IoU as the current metric');
+  await act(async () => { option('Dice').props.onPress(); });
+  check('V3R22', byTestId(r, 'scr07-pick-metric').props.accessibilityLabel === 'Metric: Dice' && texts(r).includes('0.655'),
+    'and Dice brings the values back');
+  await act(async () => { r.unmount(); });
 }
 {
   const { r, pushed, reports } = await mountTypedPair({});

@@ -1,5 +1,5 @@
 // A compact picker, the dropdown of the design: a row with a caption, the picked value and a chevron, which opens
-// a sheet listing the options. Used for the experiment of the lowest-Dice list on SCR-01.
+// a sheet listing the options. Used for the experiment of the lowest-Dice list on SCR-01 and the metric on SCR-07.
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
