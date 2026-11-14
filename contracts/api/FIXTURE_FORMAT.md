@@ -1,7 +1,7 @@
-# Fixture bundle format — what `app/core` reads
+# Fixture bundle format — what the app's fixture mode reads
 
-**Owner of the generator: Nguyễn Gia Đức Trung** (Day 10, task 6). **Owner of this format: the leader.**
-Anything the four verticals need from a fixture, they get from a bundle in this shape.
+Anything a screen needs from a fixture, it gets from a bundle in this shape (`createBundle` in
+`mobile/src/api/client.mjs` checks it).
 
 The bundle is **generated**, never hand-written. `contracts/api/contract.json` says so itself:
 
@@ -21,9 +21,8 @@ The bundle is **generated**, never hand-written. `contracts/api/contract.json` s
 
 Every value in `scenarios` is derivable from `contract["endpoints"][*]`, so the generator stays a generator.
 
-`generate_fixture.py` on `main` is a **function with no CLI** — the `--contract/--output` entry point is still on
-an unmerged branch. Whichever of the two you land, keep the function signature: `app/core` only ever sees the
-JSON.
+`generate_fixture.py` exposes the function and a `--contract/--output` command line; keep the function signature:
+the app only ever sees the JSON.
 
 ```json
 {
@@ -89,18 +88,18 @@ JSON.
 
 ## Where it goes
 
-`app/core/fixtures/.generated/api_bundle.json` — **gitignored**. CI regenerates it from the contract on every run;
-nobody commits a bundle. Until `scenarios` exists, the core still loads the bundle and every screen renders the
+`mobile/src/generated/api_bundle.json` — **gitignored**, written by `mobile/scripts/prepare.mjs`; the tests generate
+their own copy in memory. Nobody commits a bundle. Without `scenarios` the app still loads the bundle and every screen renders the
 `EMPTY_UNAVAILABLE` state with reason `FIXTURE_SCENARIO_MISSING`. That is a working screen, and it lights up with
 no code change the moment the scenarios land.
 
 ## How to check your generator output
 
 ```bash
-node -e "import('./app/core/index.mjs').then(async (core) => {
+node -e "Promise.all([import('./mobile/src/api/contract.mjs'), import('./mobile/src/api/client.mjs')]).then(async ([c, client]) => {
   const fs = await import('node:fs/promises');
-  const contract = core.createContract(JSON.parse(await fs.readFile('contracts/api/contract.json','utf8')));
-  const bundle = core.createBundle(contract, JSON.parse(await fs.readFile(process.argv[1],'utf8')));
+  const contract = c.createContract(JSON.parse(await fs.readFile('contracts/api/contract.json','utf8')));
+  const bundle = client.createBundle(contract, JSON.parse(await fs.readFile(process.argv[1],'utf8')));
   console.log('bundle ok, scenarios for', Object.keys(bundle.scenarios).length, 'endpoints');
 })" path/to/api_bundle.json
 ```
