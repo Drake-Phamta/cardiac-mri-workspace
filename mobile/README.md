@@ -23,6 +23,7 @@ build installs).
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
 | `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, run in CI only by the `mobile-render-bundle` job, never bundled. Pulls in a **nested `react-is` 19.3.0** (MIT; its own caret range `^19.2.3`, locked at `node_modules/react-test-renderer/node_modules/react-is`) next to React 19.2.3 — harmless for a test-only renderer; the top-level `react-is` 18.3.1 belongs to other packages |
+| `expo-print` | `~57.0.2` | MIT | SCR-08 "Export PDF": opens Android's print dialog on the findings shown ("Save as PDF"). No dependencies, no install script; the version Expo 57 lists. A native module: it works after the next APK build; `src/screens/v4-review/pdfExport.js` loads it with `require` inside `try` (Metro treats it as optional), so an older APK, the render harness and an export without it show the button off and say why — V4 |
 | `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — the one adapter is `src/lib/maskPng.js`, shared by V1 (SCR-03, SCR-04) and V4 (SCR-06). Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
 ## Run it
@@ -31,7 +32,7 @@ build installs).
 cd mobile
 npm ci                       # once
 npm start                    # fixture mode, Metro dev server; open in a dev build
-npm test                     # 284 logic tests (node --test), no device, no emulator
+npm test                     # 312 logic tests (node --test), no device, no emulator
 ```
 
 `npm start`, `npm run android` and `npm run export:android` all run `scripts/prepare.mjs` first. It writes two
@@ -264,15 +265,16 @@ Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`rea
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get the real runtime (`src/api/runtime.mjs`) — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**235** at
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**252** at
 this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
-`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`). `test/render/smoke.mjs` is in numbered sections:
+`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`, 252 with the V4
+upgrades `V4r`..`V4w`). `test/render/smoke.mjs` is in numbered sections:
 
 | Section | What it renders |
 |---|---|
 | 1 – 4, 2b, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 (`R1`..`R3`) and from SCR-06 (`R4`, `R5`) restoring SCR-03's run, variant and slice (the SCR-05 entry's `returnParams` are held by `V2R14`) |
 | 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
-| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
+| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`); the upgrades: note privacy warning (`V4r`), source edge and Hold: source (`V4s`), sizes in px and the brush ring (`V4t`), the flag reason (`V4u`), the review history (`V4v`), findings newest first, filter chips and Export PDF without expo-print (`V4w`) |
 | 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
 | 12 | **Shell**: the header (name, case, run), About this screen, the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button) and Clear cached images — checks `H1`..`H6` |
 
