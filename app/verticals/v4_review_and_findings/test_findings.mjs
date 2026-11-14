@@ -6,7 +6,7 @@
 // "nothing was sent" is checked, not assumed.
 
 import { readFileSync } from 'node:fs';
-import { createContract, createBundle, createClient, createFixtureTransport, getScenario, STATE, RECOVERY } from '../../core/index.mjs';
+import { createContract, createBundle, createClient, createFixtureTransport, getScenario, STATE, RECOVERY } from '../../../mobile/src/api/index.mjs';
 import {
   FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND, PREDICTION_VARIANT,
   normalizeFinding, evidenceLocation, fieldsFromRecord, createFindings,

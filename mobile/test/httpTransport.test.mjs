@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createClient, STATE, RECOVERY } from '../../app/core/index.mjs';
-import { TransportError, createHttpTransport, joinUrl } from '../src/runtime/httpTransport.mjs';
+import { createClient, STATE, RECOVERY } from '../src/api/index.mjs';
+import { TransportError, createHttpTransport, joinUrl } from '../src/api/http.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const BASE = 'http://backend.invalid:8000';

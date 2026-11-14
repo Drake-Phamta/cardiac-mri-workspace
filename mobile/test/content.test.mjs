@@ -3,10 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { RECOVERY, STATE } from '../../app/core/index.mjs';
-import { CONTENT_REASON, bytesOrThrow, createContent } from '../src/runtime/content.mjs';
-import { createNetLog } from '../src/runtime/netLog.mjs';
-import { sha256Hex } from '../src/runtime/sha256.mjs';
+import { RECOVERY, STATE } from '../src/api/index.mjs';
+import { CONTENT_REASON, bytesOrThrow, createContent } from '../src/api/content.mjs';
+import { createNetLog } from '../src/api/netLog.mjs';
+import { sha256Hex } from '../src/lib/bytes.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();

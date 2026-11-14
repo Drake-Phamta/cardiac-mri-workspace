@@ -19,10 +19,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { RECOVERY } from '../../../../app/core/index.mjs';
-import useCall from '../../runtime/useCall';
-import StateView from '../../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { RECOVERY } from '../../api/index.mjs';
+import useCall from '../../api/useCall';
+import StateView from '../../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from './CapabilityBadge';
 import { filterRows, readCaseRows } from './capability.mjs';
 

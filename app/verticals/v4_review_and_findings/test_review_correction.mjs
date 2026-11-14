@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createContract, createBundle, createClient, createFixtureTransport, getScenario, RECOVERY, STATE } from '../../core/index.mjs';
+import { createContract, createBundle, createClient, createFixtureTransport, getScenario, RECOVERY, STATE } from '../../../mobile/src/api/index.mjs';
 import {
   createReviewCorrection, checkTransition, latestVersion, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
 } from './index.mjs';

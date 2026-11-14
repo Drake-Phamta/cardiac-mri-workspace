@@ -12,14 +12,14 @@
  * require would be a screen that exists in git but not in the APK.
  */
 
-import StudyOverviewScreen from './verticals/v3/StudyOverviewScreen';
-import CaseListScreen from './verticals/v1/CaseListScreen';
-import CaseExplorerScreen from './verticals/v1/CaseExplorerScreen';
-import ErrorInspectorScreen from './verticals/v1/ErrorInspectorScreen';
-import Inspector3DScreen from './verticals/v2/Inspector3DScreen';
-import ReviewCorrectionScreen from './verticals/v4/ReviewCorrectionScreen';
-import ExperimentComparisonScreen from './verticals/v3/ExperimentComparisonScreen';
-import FindingsScreen from './verticals/v4/FindingsScreen';
+import StudyOverviewScreen from '../verticals/v3/StudyOverviewScreen';
+import CaseListScreen from '../verticals/v1/CaseListScreen';
+import CaseExplorerScreen from '../verticals/v1/CaseExplorerScreen';
+import ErrorInspectorScreen from '../verticals/v1/ErrorInspectorScreen';
+import Inspector3DScreen from '../verticals/v2/Inspector3DScreen';
+import ReviewCorrectionScreen from '../verticals/v4/ReviewCorrectionScreen';
+import ExperimentComparisonScreen from '../verticals/v3/ExperimentComparisonScreen';
+import FindingsScreen from '../verticals/v4/FindingsScreen';
 
 export const REGISTRY = Object.freeze({
   'SCR-01': StudyOverviewScreen,

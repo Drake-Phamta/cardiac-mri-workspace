@@ -46,7 +46,7 @@
  *     beside it, not inside it.
  */
 
-import { CoreError, screenToSource } from '../../core/index.mjs';
+import { CoreError, screenToSource } from '../../../mobile/src/api/index.mjs';
 import { sha256Hex } from './sha256.mjs';
 import { encodeMaskPayload } from './maskPayload.mjs';
 

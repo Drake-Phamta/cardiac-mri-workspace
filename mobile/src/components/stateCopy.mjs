@@ -18,7 +18,7 @@
  * offered RETRY would re-render the same lie.
  */
 
-import { STATE, RECOVERY } from '../../../app/core/index.mjs';
+import { STATE, RECOVERY } from '../api/index.mjs';
 import { maskBaseUrl } from '../config.mjs';
 
 export const TONE = Object.freeze({ NEUTRAL: 'neutral', INFO: 'info', WARN: 'warn', DANGER: 'danger' });

@@ -9,8 +9,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { TONE } from '../../ui/stateCopy.mjs';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { TONE } from '../../components/stateCopy.mjs';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 
 export const TONE_COLOR = Object.freeze({
   [TONE.NEUTRAL]: color.textDim,

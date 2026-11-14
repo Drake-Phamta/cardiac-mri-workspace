@@ -19,7 +19,7 @@ import { Pressable, View } from 'react-native';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 
 import { pointAt, stripLayout } from '../../../../app/verticals/v3_study_and_compare/index.mjs';
-import { color } from '../../ui/theme';
+import { color } from '../../components/theme';
 import { FAMILY_LABEL } from './v3View.mjs';
 
 export const STRIP_HEIGHT = 240;

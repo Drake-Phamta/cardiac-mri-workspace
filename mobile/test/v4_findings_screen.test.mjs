@@ -7,10 +7,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATE } from '../../app/core/index.mjs';
+import { STATE } from '../src/api/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { validateRoute } from '../src/nav/navigator.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { validateRoute } from '../src/navigation/navigator.mjs';
 import { createFindingsScreen, contextFrom, routeFor, reviewRouteFor } from '../src/verticals/v4/findingsController.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { loadList } from './_v4_drive.mjs';

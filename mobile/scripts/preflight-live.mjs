@@ -36,11 +36,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { STATE } from '../../app/core/index.mjs';
+import { STATE } from '../src/api/index.mjs';
 import { createCaseExplorer } from '../../app/verticals/v1_case_explorer/index.mjs';
 import { API_BASE_URL_ENV, maskBaseUrl, parseEnvFile, resolveConfig } from '../src/config.mjs';
-import { disagreementRuns } from '../src/imaging/maskPaths.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
+import { disagreementRuns } from '../src/lib/mask.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
 import { capabilityOf, readCaseRows } from '../src/verticals/v1/capability.mjs';
 import { PER_SLICE_ENDPOINTS } from './l4-report.mjs';
 

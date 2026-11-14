@@ -45,7 +45,7 @@ import {
   STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError,
   screenToSource, fitTransform, clampZoom, zoomAbout, panBy,
   sliceCacheKey,
-} from '../../core/index.mjs';
+} from '../../../mobile/src/api/index.mjs';
 
 // `10` section 4. MRI is always on; the rest are toggles.
 export const LAYER = Object.freeze({

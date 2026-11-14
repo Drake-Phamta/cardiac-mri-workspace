@@ -22,7 +22,7 @@
  *   Buffer (an independent implementation) in test_brush.mjs B10.
  */
 
-import { CoreError } from '../../core/index.mjs';
+import { CoreError } from '../../../mobile/src/api/index.mjs';
 
 export const MASK_PAYLOAD_ENCODING = Object.freeze({
   BITPACK_BASE64: 'BITPACK_BASE64',

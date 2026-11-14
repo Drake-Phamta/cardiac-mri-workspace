@@ -14,15 +14,15 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { readComparability, presentation, success } from '../../app/core/index.mjs';
+import { readComparability, presentation, success } from '../src/api/index.mjs';
 import {
   COMPARISONS, MATRIX, UNAVAILABLE, aggregationFor, buildCell, caseIntent, createExperimentComparison, createStudyOverview,
   matrixEntry, notListedCell, stripLayout, pointAt,
 } from '../../app/verticals/v3_study_and_compare/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { validateRoute } from '../src/nav/navigator.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { TONE } from '../src/ui/stateCopy.mjs';
+import { validateRoute } from '../src/navigation/navigator.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { TONE } from '../src/components/stateCopy.mjs';
 import {
   caseTable, comparisonRow, comparisonView, outlierView, overviewView, pointDetail, reasonLabel, routeForIntent,
 } from '../src/verticals/v3/v3View.mjs';
@@ -329,7 +329,7 @@ test('V3S9 the V3 screens use the shared models and rank nothing; React stays ou
   for (const f of ['StudyOverviewScreen.js', 'ExperimentComparisonScreen.js']) {
     const src = readFileSync(join(dir, f), 'utf8');
     assert.match(src, /app\/verticals\/v3_study_and_compare\/index\.mjs/, `${f} must render the shared V3 model, not re-implement it`);
-    assert.match(src, /import StateView from '\.\.\/\.\.\/ui\/StateView'/, `${f} renders its states with the shared StateView`);
+    assert.match(src, /import StateView from '\.\.\/\.\.\/components\/StateView'/, `${f} renders its states with the shared StateView`);
   }
 });
 

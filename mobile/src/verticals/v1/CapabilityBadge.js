@@ -7,7 +7,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { color, font, space } from '../../ui/theme';
+import { color, font, space } from '../../components/theme';
 
 const TONE = {
   EVALUATION: { fg: color.evaluation, bg: color.okBg },

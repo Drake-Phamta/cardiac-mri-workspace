@@ -25,10 +25,10 @@
 import React, { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { RECOVERY } from '../../../../app/core/index.mjs';
-import useCall from '../../runtime/useCall';
-import StateView, { StatePanel } from '../../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { RECOVERY } from '../../api/index.mjs';
+import useCall from '../../api/useCall';
+import StateView, { StatePanel } from '../../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { createFindingsScreen, FINDING_TYPE, PREDICTION_VARIANT } from './findingsController.mjs';
 
 const TYPE_LABEL = Object.freeze({

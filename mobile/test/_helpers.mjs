@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createContract } from '../../app/core/index.mjs';
+import { createContract } from '../src/api/index.mjs';
 import { runGenerator } from '../scripts/prepare.mjs';
 
 export const MOBILE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');

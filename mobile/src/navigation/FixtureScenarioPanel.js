@@ -12,7 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { color, font, MIN_TOUCH, space } from './theme';
+import { color, font, MIN_TOUCH, space } from '../components/theme';
 
 export default function FixtureScenarioPanel({ visible, onClose, overrides }) {
   const [, setTick] = useState(0);

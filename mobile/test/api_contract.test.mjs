@@ -3,7 +3,7 @@
 // Checks the loader against the REAL contracts/api/contract.json, not a
 // miniature. A loader tested only against its own fixture agrees with itself.
 
-import { createContract, EXPECTED } from '../contract.mjs';
+import { createContract, EXPECTED } from '../src/api/contract.mjs';
 import { createChecker, loadContractJson, throwsCode } from './_harness.mjs';
 
 const { check, done } = createChecker();

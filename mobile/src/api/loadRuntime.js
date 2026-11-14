@@ -10,8 +10,8 @@
  */
 
 import { resolveConfig, MODE } from '../config.mjs';
-import { decodeMaskPng } from '../imaging/maskPng';
-import { createRuntime } from './createRuntime.mjs';
+import { decodeMaskPng } from '../lib/maskPng';
+import { createRuntime } from './runtime.mjs';
 
 const contractJson = require('../../../contracts/api/contract.json');
 const buildConfigJson = require('../generated/buildConfig.json');

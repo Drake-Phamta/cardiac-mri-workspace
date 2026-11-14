@@ -20,7 +20,7 @@
  * changes when the push does not happen (a leave guard said no).
  */
 
-import { ROOT_SCREEN_ID, isScreenId, missingParams } from './screens.mjs';
+import { ROOT_SCREEN_ID, isScreenId, missingParams } from './routes.mjs';
 
 export const NAV = Object.freeze({ PUSH: 'PUSH', POP: 'POP', REPLACE: 'REPLACE', RESET: 'RESET' });
 

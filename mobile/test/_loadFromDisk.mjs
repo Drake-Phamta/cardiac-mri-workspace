@@ -10,9 +10,9 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { createContract } from '../contract.mjs';
-import { createBundle, BUNDLE_PATH } from '../fixtures/loader.mjs';
-import { createFixtureTransport, createClient } from '../transport.mjs';
+import { createContract } from '../src/api/contract.mjs';
+import { createBundle, BUNDLE_PATH } from '../src/api/fixtures.mjs';
+import { createFixtureTransport, createClient } from '../src/api/client.mjs';
 
 export const CONTRACT_PATH = 'contracts/api/contract.json';
 

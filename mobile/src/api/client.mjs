@@ -16,8 +16,8 @@
 import { CoreError } from './contract.mjs';
 import { resolveEndpoint, assertWritePreconditions } from './endpoints.mjs';
 import { classifyError } from './errors.mjs';
-import * as screen from './screenState.mjs';
-import { getScenario } from './fixtures/loader.mjs';
+import * as screen from './states.mjs';
+import { getScenario } from './fixtures.mjs';
 
 export function validateResponse(contract, resolved, response) {
   const problems = [];

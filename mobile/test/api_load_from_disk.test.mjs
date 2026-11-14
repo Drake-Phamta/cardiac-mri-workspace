@@ -15,9 +15,9 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadContract, loadClient, CONTRACT_PATH } from '../node/loadFromDisk.mjs';
-import { createBundle, BUNDLE_PATH } from '../fixtures/loader.mjs';
-import { STATE } from '../errors.mjs';
+import { loadContract, loadClient, CONTRACT_PATH } from './_loadFromDisk.mjs';
+import { createBundle, BUNDLE_PATH } from '../src/api/fixtures.mjs';
+import { STATE } from '../src/api/errors.mjs';
 import { createChecker, REPO, CONTRACT_FILE } from './_harness.mjs';
 
 const { check, done } = createChecker();
@@ -99,7 +99,7 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
 // Re-exporting loadFromDisk from the barrel would break the bundle on a
 // device, and it is an easy mistake to make while adding an export.
 {
-  const barrel = await import('../index.mjs');
+  const barrel = await import('../src/api/index.mjs');
   check('D5', !('loadClient' in barrel) && !('loadContract' in barrel),
     'the barrel does not re-export the filesystem module');
 }

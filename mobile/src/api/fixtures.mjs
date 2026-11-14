@@ -9,10 +9,10 @@
  * generator author gets one list, not one problem per run.
  */
 
-import { CoreError } from '../contract.mjs';
-import { parseEndpointPath } from '../endpoints.mjs';
+import { CoreError } from './contract.mjs';
+import { parseEndpointPath } from './endpoints.mjs';
 
-export const BUNDLE_PATH = 'app/core/fixtures/.generated/api_bundle.json';
+export const BUNDLE_PATH = 'mobile/src/generated/api_bundle.json';
 
 function rowFieldsPresent(items, name) {
   return Array.isArray(items) && items.length > 0

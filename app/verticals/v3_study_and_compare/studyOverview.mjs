@@ -29,7 +29,7 @@
  * findings outage does not hide the study.
  */
 
-import { STATE, loading, success } from '../../core/index.mjs';
+import { STATE, loading, success } from '../../../mobile/src/api/index.mjs';
 import {
   MATRIX, UNAVAILABLE, matrixEntry, readExperimentRows, readPopulation, readDataset, readCaseCounts, readCapabilities,
   readExperimentSummary,

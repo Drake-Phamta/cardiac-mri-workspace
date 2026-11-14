@@ -26,11 +26,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { emptyUnavailable, fatalInvalid, loading, RECOVERY, STATE } from '../../../../app/core/index.mjs';
-import { createLatest } from '../../runtime/latest.mjs';
-import useCall from '../../runtime/useCall';
-import StateView, { StatePanel } from '../../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { emptyUnavailable, fatalInvalid, loading, RECOVERY, STATE } from '../../api/index.mjs';
+import { createLatest } from '../../api/latest.mjs';
+import useCall from '../../api/useCall';
+import StateView, { StatePanel } from '../../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../v1/CapabilityBadge';
 import { capabilityOf } from '../v1/capability.mjs';
 import { variantOptions } from '../v1/explorer.mjs';

@@ -13,14 +13,14 @@
 
 import {
   createContract, createBundle, createClient, createFixtureTransport, listScenarios,
-} from '../../../app/core/index.mjs';
+} from './index.mjs';
 import { MODE } from '../config.mjs';
-import { createImageStore } from '../imaging/imageStore.mjs';
-import { createMaskStore } from '../imaging/maskStore.mjs';
+import { createImageStore } from './imageStore.mjs';
+import { createMaskStore } from './maskStore.mjs';
 import { bytesOrThrow, createContent } from './content.mjs';
-import { createHttpTransport } from './httpTransport.mjs';
+import { createHttpTransport } from './http.mjs';
 import { createNetLog } from './netLog.mjs';
-import { createSliceCache } from './sliceCache.mjs';
+import { createSliceCache } from './cache.mjs';
 
 export class RuntimeError extends Error {
   constructor(code, message, detail = {}) {

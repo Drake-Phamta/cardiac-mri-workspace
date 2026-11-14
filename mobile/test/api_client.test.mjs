@@ -3,11 +3,11 @@
 // The client must hand a screen a state, never a raw response, and must never
 // hand it a response the contract did not license.
 
-import { createContract } from '../contract.mjs';
-import { createBundle } from '../fixtures/loader.mjs';
-import { createFixtureTransport, createClient, validateResponse } from '../transport.mjs';
-import { resolveEndpoint } from '../endpoints.mjs';
-import { STATE, RECOVERY } from '../errors.mjs';
+import { createContract } from '../src/api/contract.mjs';
+import { createBundle } from '../src/api/fixtures.mjs';
+import { createFixtureTransport, createClient, validateResponse } from '../src/api/client.mjs';
+import { resolveEndpoint } from '../src/api/endpoints.mjs';
+import { STATE, RECOVERY } from '../src/api/errors.mjs';
 import { createChecker, loadContractJson } from './_harness.mjs';
 import { buildBundle } from './_bundle.mjs';
 

@@ -65,13 +65,13 @@ const check = (id, ok, detail) => { count += 1; if (!ok) failures += 1; watchdog
 
 const imp = (p) => import(new URL(p, `file:///${MOBILE.replace(/\\/g, '/')}/`).href);
 const { resolveConfig } = await imp('src/config.mjs');
-const { createRuntime } = await imp('src/runtime/createRuntime.mjs');
-const { RuntimeProvider } = await imp('src/runtime/RuntimeContext.js');
-const NavigatorView = (await imp('src/nav/NavigatorView.js')).default;
+const { createRuntime } = await imp('src/api/runtime.mjs');
+const { RuntimeProvider } = await imp('src/api/RuntimeContext.js');
+const NavigatorView = (await imp('src/navigation/Navigator.js')).default;
 const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
 const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
 const FindingsScreen = (await imp('src/verticals/v4/FindingsScreen.js')).default;
-const { decodeMaskPng } = await imp('src/imaging/maskPng.js');
+const { decodeMaskPng } = await imp('src/lib/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
@@ -777,8 +777,8 @@ function noRunBackend() {
 // A call started while enabled is aborted the moment `enabled` turns false, and
 // its late answer never reaches the screen.
 {
-  const useCall = (await imp('src/runtime/useCall.js')).default;
-  const { STATE, success } = await imp('../app/core/index.mjs');
+  const useCall = (await imp('src/api/useCall.js')).default;
+  const { STATE, success } = await imp('src/api/index.mjs');
   const calls = [];
   const client = { call: (_endpointId, _params, options) => new Promise((resolve) => { calls.push({ signal: options.signal, resolve }); }) };
   function Probe({ enabled }) {
@@ -1105,7 +1105,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
 {
   const { BackHandler } = await import('react-native');
-  const { fitTransform } = await imp('../app/core/index.mjs');
+  const { fitTransform } = await imp('src/api/index.mjs');
   const pressExact = async (r, label) => {
     const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label);
     if (!hits.length) throw new Error(`no button "${label}" exactly; texts: ${texts(r).slice(0, 50).join(' | ')}`);

@@ -4,8 +4,8 @@
 // names it. These are the six rules in FORMAT.md, and they are the six ways
 // Trung's generator can drift from the contract without anything crashing.
 
-import { createContract } from '../contract.mjs';
-import { createBundle, getScenario, listScenarios } from '../fixtures/loader.mjs';
+import { createContract } from '../src/api/contract.mjs';
+import { createBundle, getScenario, listScenarios } from '../src/api/fixtures.mjs';
 import { createChecker, loadContractJson } from './_harness.mjs';
 import { buildBundle } from './_bundle.mjs';
 

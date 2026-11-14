@@ -31,12 +31,12 @@ import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'reac
 import { Alert, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { G, Rect } from 'react-native-svg';
 
-import { RECOVERY, STATE } from '../../../../app/core/index.mjs';
+import { RECOVERY, STATE } from '../../api/index.mjs';
 import { RADII } from '../../../../app/verticals/v4_review_and_findings/brush.mjs';
-import { decodeMaskPng } from '../../imaging/maskPng';
-import useCall from '../../runtime/useCall';
-import StateView, { StatePanel } from '../../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { decodeMaskPng } from '../../lib/maskPng';
+import useCall from '../../api/useCall';
+import StateView, { StatePanel } from '../../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { createReviewScreen, MASK_STATE, MODE, PHASE, PIXELS, TOOL } from './reviewController.mjs';
 
 // Layer colours (dark theme). Each layer also has a text label in the legend.

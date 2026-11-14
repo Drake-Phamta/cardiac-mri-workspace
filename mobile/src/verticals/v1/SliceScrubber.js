@@ -12,7 +12,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import { scrubIndex, scrubPosition, sliceLabel } from './explorer.mjs';
 
 export default function SliceScrubber({ index, pending, total, onChange, onLongPressLabel, disabled = false }) {

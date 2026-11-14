@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { loading } from '../../../app/core/index.mjs';
+import { loading } from './index.mjs';
 import { createLatest } from './latest.mjs';
 
 export default function useCall(client, endpointId, params = {}, { enabled = true, scenario } = {}) {

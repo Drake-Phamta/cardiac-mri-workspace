@@ -13,7 +13,7 @@ import zlib from 'node:zlib';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';
 import {
   disagreementRuns, foregroundCount, maskRuns, runPixelCount, runsToPath,
-} from '../src/imaging/maskPaths.mjs';
+} from '../src/lib/mask.mjs';
 
 const toBits = (d) => Uint8Array.from(d, (v) => (v === 255 ? 1 : 0));
 

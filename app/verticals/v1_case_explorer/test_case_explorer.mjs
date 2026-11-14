@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
   STATE, RECOVERY, screenToSource, sliceCacheKey,
-} from '../../core/index.mjs';
+} from '../../../mobile/src/api/index.mjs';
 import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN, RUN_NOT_LISTED } from './index.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);

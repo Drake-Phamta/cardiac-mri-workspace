@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { SCREENS, screenPath } from '../src/nav/screens.mjs';
+import { SCREENS, screenPath } from '../src/navigation/routes.mjs';
 import { MOBILE_ROOT, REPO_ROOT } from './_helpers.mjs';
 
-const registrySource = readFileSync(join(MOBILE_ROOT, 'src', 'registry.js'), 'utf8');
+const registrySource = readFileSync(join(MOBILE_ROOT, 'src', 'navigation', 'registry.js'), 'utf8');
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -50,9 +50,9 @@ test('G1b the default-export check accepts every way of writing one, and only th
 test('G2 registry.js statically imports exactly those files and maps each id to its own import', () => {
   for (const s of SCREENS) {
     const name = s.file.replace(/\.js$/, '');
-    const importLine = new RegExp(`import\\s+(\\w+)\\s+from\\s+'\\./verticals/${s.folder}/${name}';`);
+    const importLine = new RegExp(`import\\s+(\\w+)\\s+from\\s+'\\.\\./verticals/${s.folder}/${name}';`);
     const m = importLine.exec(registrySource);
-    assert.ok(m, `registry.js does not import ./verticals/${s.folder}/${name}`);
+    assert.ok(m, `registry.js does not import ../verticals/${s.folder}/${name}`);
     assert.match(registrySource, new RegExp(`'${s.id}':\\s*${m[1]},`), `${s.id} is not mapped to ${m[1]}`);
   }
   const mapped = registrySource.match(/'SCR-\d\d':/g) || [];

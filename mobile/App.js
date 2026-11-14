@@ -12,11 +12,11 @@ import React, { useMemo } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import NavigatorView from './src/nav/NavigatorView';
-import { ROOT_SCREEN_ID } from './src/nav/screens.mjs';
-import { loadRuntime } from './src/runtime/loadRuntime';
-import { RuntimeProvider } from './src/runtime/RuntimeContext';
-import { color, font, space } from './src/ui/theme';
+import NavigatorView from './src/navigation/Navigator';
+import { ROOT_SCREEN_ID } from './src/navigation/routes.mjs';
+import { loadRuntime } from './src/api/loadRuntime';
+import { RuntimeProvider } from './src/api/RuntimeContext';
+import { color, font, space } from './src/components/theme';
 
 function BuildInvalid({ error }) {
   const config = typeof error.code === 'string' && error.code.startsWith('CONFIG_');
@@ -30,7 +30,7 @@ function BuildInvalid({ error }) {
       <Text style={s.hint}>
         {config
           ? 'Nothing was requested from any server. Fixture builds need no configuration; a live build needs the backend URL at build time (mobile/README.md, "Live mode").'
-          : 'Regenerate the build inputs with `npm run prepare-app` in mobile/, then rebuild. If the contract changed, app/core/contract.mjs and the generator must agree with it first.'}
+          : 'Regenerate the build inputs with `npm run prepare-app` in mobile/, then rebuild. If the contract changed, mobile/src/api/contract.mjs and the generator must agree with it first.'}
       </Text>
     </ScrollView>
   );

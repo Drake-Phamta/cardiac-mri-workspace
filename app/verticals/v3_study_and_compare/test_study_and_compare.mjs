@@ -29,7 +29,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
   STATE, RECOVERY, VERDICT, success, stateForError, readComparability, presentation,
-} from '../../core/index.mjs';
+} from '../../../mobile/src/api/index.mjs';
 import {
   createStudyOverview, createExperimentComparison, CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, MATRIX, MATRIX_IDS, COMPARISONS,
   buildCell, buildTrend, deltaFor, readComparison, aggregationFor, stripLayout, pointAt, matrixEntry,

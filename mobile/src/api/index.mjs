@@ -13,13 +13,13 @@ export { STATE, RECOVERY, CLIENT_CODES, classifyError, parseErrorEnvelope, error
 export {
   ALL_STATES, loading, processing, success, emptyUnavailable,
   recoverableError, fatalInvalid, staleMismatch, stateForError, isTerminal, canRetry,
-} from './screenState.mjs';
-export { BUNDLE_PATH, createBundle, getScenario, listScenarios } from './fixtures/loader.mjs';
-export { validateResponse, createFixtureTransport, createClient, classify } from './transport.mjs';
-export { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from './viewMath.mjs';
-export { sliceCacheKey, cacheKeyFromResponse } from './cacheKey.mjs';
+} from './states.mjs';
+export { BUNDLE_PATH, createBundle, getScenario, listScenarios } from './fixtures.mjs';
+export { validateResponse, createFixtureTransport, createClient, classify } from './client.mjs';
+export { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../lib/viewMath.mjs';
+export { sliceCacheKey, cacheKeyFromResponse } from '../screens/v1-cases/cacheKey.mjs';
 export {
   RULE_ID as SELECTION_RULE_ID, RULE_TEXT as SELECTION_RULE_TEXT,
   UNAVAILABLE_REASON as SELECTION_UNAVAILABLE_REASON, readSelection, worstSlice,
-} from './selection.mjs';
-export { VERDICT, readComparability, presentation } from './comparability.mjs';
+} from '../screens/v1-cases/selection.mjs';
+export { VERDICT, readComparability, presentation } from '../screens/v3-study/comparability.mjs';

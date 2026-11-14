@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { loading, readSelection, STATE, success } from '../../app/core/index.mjs';
+import { loading, readSelection, STATE, success } from '../src/api/index.mjs';
 import { variantMismatch } from '../../app/verticals/v1_case_explorer/index.mjs';
-import { disagreementRuns } from '../src/imaging/maskPaths.mjs';
+import { disagreementRuns } from '../src/lib/mask.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote,
   pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel,

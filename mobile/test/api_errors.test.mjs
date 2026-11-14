@@ -4,8 +4,8 @@
 // if someone adds a 16th code to the contract and not to the table, R1 fails
 // here rather than showing a blank screen in a vertical.
 
-import { createContract } from '../contract.mjs';
-import { STATE, RECOVERY, CLIENT_CODES, classifyError, parseErrorEnvelope } from '../errors.mjs';
+import { createContract } from '../src/api/contract.mjs';
+import { STATE, RECOVERY, CLIENT_CODES, classifyError, parseErrorEnvelope } from '../src/api/errors.mjs';
 import { createChecker, loadContractJson } from './_harness.mjs';
 
 const { check, done } = createChecker();

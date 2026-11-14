@@ -3,9 +3,9 @@
 // The four invariants in screenState.mjs, checked against all 15 codes rather
 // than against the three a reviewer would think of.
 
-import { createContract } from '../contract.mjs';
-import { STATE, RECOVERY } from '../errors.mjs';
-import * as screen from '../screenState.mjs';
+import { createContract } from '../src/api/contract.mjs';
+import { STATE, RECOVERY } from '../src/api/errors.mjs';
+import * as screen from '../src/api/states.mjs';
 import { createChecker, loadContractJson, throwsCode } from './_harness.mjs';
 
 const { check, done } = createChecker();

@@ -11,9 +11,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATE, RECOVERY, fitTransform, fatalInvalid } from '../../app/core/index.mjs';
+import { STATE, RECOVERY, fitTransform, fatalInvalid } from '../src/api/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
 import { createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE, maskRuns } from '../src/verticals/v4/reviewController.mjs';
 import { syntheticSourceSlice } from '../src/verticals/v4/syntheticSource.mjs';
 import { diffRuns } from '../../app/verticals/v4_review_and_findings/brush.mjs';

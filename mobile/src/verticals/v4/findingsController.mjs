@@ -22,7 +22,7 @@
  *     prefilled with that context; the tab alone shows the list.
  */
 
-import { STATE } from '../../../../app/core/index.mjs';
+import { STATE } from '../../api/index.mjs';
 import {
   createFindings, FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, PREDICTION_VARIANT,
 } from '../../../../app/verticals/v4_review_and_findings/findings.mjs';

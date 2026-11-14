@@ -12,7 +12,7 @@
 
 import {
   STATE, getEndpoint, readComparability, presentation, VERDICT,
-} from '../../core/index.mjs';
+} from '../../../mobile/src/api/index.mjs';
 import {
   COMPARISONS, OUTLIER_RULE, ROW_STATUS, UNAVAILABLE, matrixEntry,
   readExperimentIdentity, readCohortN, readMetricSummary, readVariant, readCaseRows,

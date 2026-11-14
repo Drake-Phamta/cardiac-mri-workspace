@@ -27,24 +27,24 @@ class HermesLikeTextDecoder {
 test('TD1 index.js imports the latin1 shim before anything else', () => {
   const src = readFileSync(join(MOBILE_ROOT, 'index.js'), 'utf8');
   const imports = src.split('\n').filter((l) => /^import\s/.test(l));
-  assert.match(imports[0], /src\/polyfills\/textDecoderLatin1\.mjs/, `first import is: ${imports[0]}`);
+  assert.match(imports[0], /src\/lib\/textDecoderLatin1\.mjs/, `first import is: ${imports[0]}`);
 });
 
 // #77 QA NB-1: the shim only wraps a TextDecoder that already exists, so the
 // mask decoder imports it too, right before fast-png - safe in either load order.
 test('TD3 maskPng.js imports the latin1 shim immediately before fast-png', () => {
-  const src = readFileSync(join(MOBILE_ROOT, 'src', 'imaging', 'maskPng.js'), 'utf8');
+  const src = readFileSync(join(MOBILE_ROOT, 'src', 'lib', 'maskPng.js'), 'utf8');
   const imports = src.split('\n').filter((l) => /^import\s/.test(l));
   const at = imports.findIndex((l) => /from 'fast-png'/.test(l));
   assert.ok(at > 0, `fast-png is imported, and not first: ${imports.join(' | ')}`);
-  assert.match(imports[at - 1], /^import '\.\.\/polyfills\/textDecoderLatin1\.mjs';$/, `import before fast-png is: ${imports[at - 1]}`);
+  assert.match(imports[at - 1], /^import '\.\/textDecoderLatin1\.mjs';$/, `import before fast-png is: ${imports[at - 1]}`);
 });
 
 test('TD2 on a Hermes-like runtime the shim makes fast-png load and decode; latin1 is ISO-8859-1', async (t) => {
   globalThis.TextDecoder = HermesLikeTextDecoder;
   try {
     assert.throws(() => new globalThis.TextDecoder('latin1'), /Unknown encoding: latin1/, 'the runtime reproduces the device error');
-    const { installLatin1TextDecoder } = await import('../src/polyfills/textDecoderLatin1.mjs');
+    const { installLatin1TextDecoder } = await import('../src/lib/textDecoderLatin1.mjs');
     assert.notEqual(globalThis.TextDecoder, HermesLikeTextDecoder, 'the shim replaced the runtime decoder');
     assert.equal(installLatin1TextDecoder(globalThis), false, 'installing twice changes nothing');
 

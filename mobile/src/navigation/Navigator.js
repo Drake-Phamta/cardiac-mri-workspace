@@ -16,14 +16,14 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { fatalInvalid, RECOVERY } from '../../../app/core/index.mjs';
+import { fatalInvalid, RECOVERY } from '../api/index.mjs';
 import { describeConfig, MODE } from '../config.mjs';
-import { componentFor } from '../registry';
-import { StatePanel } from '../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../ui/theme';
-import FixtureScenarioPanel from '../ui/FixtureScenarioPanel';
+import { componentFor } from './registry';
+import { StatePanel } from '../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../components/theme';
+import FixtureScenarioPanel from './FixtureScenarioPanel';
 import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
-import { screenMeta, TABS } from './screens.mjs';
+import { screenMeta, TABS } from './routes.mjs';
 
 class ScreenBoundary extends React.Component {
   constructor(props) {

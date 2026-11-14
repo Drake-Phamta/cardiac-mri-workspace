@@ -5,7 +5,7 @@
 // than against stored expectations, so this file does not inherit a mistake
 // from a fixture.
 
-import * as V from '../viewMath.mjs';
+import * as V from '../src/lib/viewMath.mjs';
 import { createChecker } from './_harness.mjs';
 
 const { check, done } = createChecker();

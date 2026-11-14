@@ -4,11 +4,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { STATE } from '../../app/core/index.mjs';
+import { STATE } from '../src/api/index.mjs';
 import { resolveConfig } from '../src/config.mjs';
-import { bytesToBase64, createImageStore } from '../src/imaging/imageStore.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
-import { createNetLog, utf8Length } from '../src/runtime/netLog.mjs';
+import { bytesToBase64, createImageStore } from '../src/api/imageStore.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
+import { createNetLog, utf8Length } from '../src/api/netLog.mjs';
 import { readContractJson } from './_helpers.mjs';
 
 function capture() {

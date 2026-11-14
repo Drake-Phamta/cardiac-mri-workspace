@@ -40,12 +40,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 
-import { emptyUnavailable, RECOVERY, STATE } from '../../../../app/core/index.mjs';
+import { emptyUnavailable, RECOVERY, STATE } from '../../api/index.mjs';
 import { createCaseExplorer } from '../../../../app/verticals/v1_case_explorer/index.mjs';
-import { disagreementRuns, runsToPath } from '../../imaging/maskPaths.mjs';
-import useCall from '../../runtime/useCall';
-import StateView, { StatePanel } from '../../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import { disagreementRuns, runsToPath } from '../../lib/mask.mjs';
+import useCall from '../../api/useCall';
+import StateView, { StatePanel } from '../../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from './CapabilityBadge';
 import SliceScrubber from './SliceScrubber';
 import SliceViewport from './SliceViewport';

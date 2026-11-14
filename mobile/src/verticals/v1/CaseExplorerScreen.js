@@ -41,10 +41,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { loading, RECOVERY, STATE } from '../../../../app/core/index.mjs';
+import { loading, RECOVERY, STATE } from '../../api/index.mjs';
 import { createCaseExplorer, LAYER } from '../../../../app/verticals/v1_case_explorer/index.mjs';
-import StateView, { StatePanel } from '../../ui/StateView';
-import { color, font, MIN_TOUCH, space } from '../../ui/theme';
+import StateView, { StatePanel } from '../../components/StateView';
+import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from './CapabilityBadge';
 import SliceScrubber from './SliceScrubber';
 import SliceViewport from './SliceViewport';

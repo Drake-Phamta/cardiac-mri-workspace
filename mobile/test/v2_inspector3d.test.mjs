@@ -7,8 +7,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { resolveConfig } from '../src/config.mjs';
-import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/nav/navigator.mjs';
-import { createRuntime } from '../src/runtime/createRuntime.mjs';
+import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/navigation/navigator.mjs';
+import { createRuntime } from '../src/api/runtime.mjs';
 import { sliceLabel } from '../src/verticals/v1/explorer.mjs';
 import {
   bytesToBase64, gridMatches, LAYER, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,

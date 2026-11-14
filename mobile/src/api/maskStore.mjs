@@ -17,7 +17,7 @@
  * the same mask cost one request.
  */
 
-import { maskRuns, runPixelCount, runsToPath } from './maskPaths.mjs';
+import { maskRuns, runPixelCount, runsToPath } from '../lib/mask.mjs';
 
 export function createMaskStore({ fetchBytes, decode, maxEntries = 300, now = () => Date.now() } = {}) {
   if (typeof fetchBytes !== 'function') throw new Error('createMaskStore needs fetchBytes(contentUrl)');

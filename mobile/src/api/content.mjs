@@ -35,8 +35,8 @@
 
 import {
   emptyUnavailable, fatalInvalid, parseErrorEnvelope, stateForError, success,
-} from '../../../app/core/index.mjs';
-import { sha256Hex } from './sha256.mjs';
+} from './index.mjs';
+import { sha256Hex } from '../lib/bytes.mjs';
 
 export const CONTENT_REASON = Object.freeze({
   FIXTURE_NO_BYTES: 'FIXTURE_NO_BYTES',

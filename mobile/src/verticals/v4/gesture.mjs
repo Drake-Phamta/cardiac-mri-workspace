@@ -20,7 +20,7 @@
  * view a finger landed on.
  */
 
-import { clampZoom, zoomAbout, panBy } from '../../../../app/core/index.mjs';
+import { clampZoom, zoomAbout, panBy } from '../../api/index.mjs';
 import { END_RELEASE, END_SECOND_FINGER, END_TERMINATED } from '../../../../app/verticals/v4_review_and_findings/brush.mjs';
 
 export const MODE = Object.freeze({ BRUSH: 'brush', PAN: 'pan' });

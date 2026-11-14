@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 
 import {
   ALL_STATES, RECOVERY, STATE, emptyUnavailable, fatalInvalid, loading, processing, stateForError, success,
-} from '../../app/core/index.mjs';
-import { describeState, reasonText, TONE } from '../src/ui/stateCopy.mjs';
+} from '../src/api/index.mjs';
+import { describeState, reasonText, TONE } from '../src/components/stateCopy.mjs';
 import { loadContract } from './_helpers.mjs';
 
 const contract = loadContract();

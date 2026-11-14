@@ -16,7 +16,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { fitTransform, zoomAbout, panBy, clampZoom } from '../../core/index.mjs';
+import { fitTransform, zoomAbout, panBy, clampZoom } from '../../../mobile/src/api/index.mjs';
 import * as B from './brush.mjs';
 import * as P from './maskPayload.mjs';
 import { sha256Hex } from './sha256.mjs';

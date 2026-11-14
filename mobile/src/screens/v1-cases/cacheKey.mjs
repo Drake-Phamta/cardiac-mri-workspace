@@ -19,7 +19,7 @@
  * second definition of the format.
  */
 
-import { CoreError } from './contract.mjs';
+import { CoreError } from '../../api/contract.mjs';
 
 const SEP = '|';
 

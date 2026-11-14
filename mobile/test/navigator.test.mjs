@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 
 import {
   MAX_DEPTH, NAV, NavError, bindNav, canGoBack, createGuards, initialNavState, navReducer, top, validateRoute,
-} from '../src/nav/navigator.mjs';
-import { ROOT_SCREEN_ID, SCREEN_IDS, TABS, missingParams, screenMeta } from '../src/nav/screens.mjs';
+} from '../src/navigation/navigator.mjs';
+import { ROOT_SCREEN_ID, SCREEN_IDS, TABS, missingParams, screenMeta } from '../src/navigation/routes.mjs';
 
 test('N1 the table registers exactly SCR-01..SCR-08, and the root is Study Overview (`10` §2)', () => {
   assert.deepEqual([...SCREEN_IDS], ['SCR-01', 'SCR-02', 'SCR-03', 'SCR-04', 'SCR-05', 'SCR-06', 'SCR-07', 'SCR-08']);
