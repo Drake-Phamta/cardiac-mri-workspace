@@ -11,10 +11,10 @@ logcat and `dumpsys meminfo` before and after; `slice-timing-report.mjs` and `l4
 
 > **NFR-PERF-001** — On the target demo device, switching among already available/cached slices shall update the
 > visible slice within **200 ms p95** during a 30-step navigation test; normal slice gestures shall not trigger a
-> full-volume network transfer. — `docs/specs/v1.0/04_FUNCTIONAL_AND_NONFUNCTIONAL_SPEC.md:102`
+> full-volume network transfer. — spec v1.0 `04_FUNCTIONAL_AND_NONFUNCTIONAL_SPEC.md:102` (now `docs/spec/03_yeu-cau-phi-chuc-nang.md`)
 
 > **TC-PERF-001** — 30-step cached slice navigation meets `NFR-PERF-001` p95 ≤ 200 ms and avoids full-volume
-> request per gesture. — `docs/specs/v1.0/13_TEST_ACCEPTANCE_AND_TRACEABILITY.md:314`
+> request per gesture. — spec v1.0 `13_TEST_ACCEPTANCE_AND_TRACEABILITY.md:314` (now `docs/spec/09_kiem-thu-truy-vet.md`)
 
 The demo rules: live on the A17, release build; "the statistic the NFR defines … plus p50, over the
 defined test, on a release build, over every run — never the best one", from committed raw evidence;
