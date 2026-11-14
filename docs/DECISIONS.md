@@ -15,10 +15,15 @@ có số đo thật trên điện thoại mục tiêu (Galaxy A17): viewer 2D, z
 từng pixel, chuyển lát p95 dưới 200 ms (RESULTS 2.1). Android native (Kotlin) và web app (PWA) không có số đo nào và
 sẽ phải làm lại phần đã đo trong thời gian còn lại. Viewer 3D vẫn là WebGL2, chạy bên trong WebView của app.
 
-**3. Logic dùng chung nằm trong `app/core`, không phụ thuộc framework.** Hợp đồng API, 7 trạng thái màn hình, chuyển
-mã lỗi, toán zoom/pan, đọc lựa chọn "lát tệ nhất" đều là file `.mjs` thuần, test bằng `node` không cần điện thoại.
-Lý do: bốn người làm bốn vertical song song từ trước khi chọn framework; logic viết và test một lần, mọi màn hình
-dùng chung. Một job CI chặn mọi import framework hay npm trong `app/`.
+**3. Logic nằm cạnh màn hình dùng nó, dưới dạng file `.mjs` thuần mà test Node import thẳng.** (Thay quyết định cũ
+"logic dùng chung trong `app/core`, không phụ thuộc framework".) Toàn bộ mã app ở một cây `mobile/src/`: `api/` (hợp
+đồng API, 7 trạng thái màn hình, client, cache, tải byte có kiểm checksum), `lib/` (toán zoom/pan, mask, SHA-256),
+`components/`, `navigation/`, và mỗi người một thư mục `screens/v1-cases`, `v2-3d`, `v3-study`, `v4-review`. Trong
+mỗi thư mục, file `.js` chỉ vẽ (React Native), file `.mjs` quyết định và không bao giờ import React hay file `.js`, nên
+`node --test` kiểm đúng mã chạy trên điện thoại mà không cần điện thoại. Lý do đổi: `app/core` được tách ra khi chưa chọn
+framework; khi đã chọn React Native, hai cây (`app/` và `mobile/src/`) làm mỗi màn hình rải ở hai nơi, có helper bị
+chép hai ba lần, và người giải thích một màn hình phải đi qua nhiều lớp. Một cây, một thư mục cho mỗi người, mỗi helper
+một bản là dễ đọc và dễ bảo vệ hơn. Test `registry.test.mjs` (G8) chặn một thư mục màn hình import thư mục màn hình khác.
 
 **4. Backend là Python + FastAPI + SQLite, chạy trên máy tính của nhóm.** Python cùng ngôn ngữ với phần ML; SQLite là
 một file, không cần cài máy chủ CSDL. Điện thoại nối với máy tính bằng cáp USB và `adb reverse tcp:8000 tcp:8000`,

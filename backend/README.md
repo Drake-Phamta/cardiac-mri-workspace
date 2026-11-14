@@ -12,6 +12,27 @@ predictions and Contract 2 packages all live under `CARDIAC_BACKEND_DATA` (a dir
 tree); the service and the ingest CLI refuse a path inside a work tree, ignored or not (the rule of
 `ml/data.py`'s `inside_git_worktree`). Host names and addresses are parameters, never committed.
 
+## Code layout
+
+| File | What |
+|---|---|
+| `app/main.py` | `create_app()`: builds the `Backend`, the FastAPI app, CORS (only if configured), the body limit, the request log, the two error handlers, then adds the routes of each module in a fixed order |
+| `app/state.py` | `Backend` (the stores, built once per app: cases, experiments, metrics, meshes, SQLite storage) and the lookups several routes share (`get_case`, `get_run`, `run_case`, `variant_or_not_found`, `parse_slice`, `require_ground_truth`, `require_succeeded`) |
+| `app/routes/common.py` | the `endpoint(contract, id)` guard (a route may answer only its endpoint's error codes), `ok` / `error`, request-body checks |
+| `app/routes/health.py` | `/health` and the artifact bytes, `/api/v1/artifacts/<sha256>.png` and `.cmesh` |
+| `app/routes/cases.py` | study, case list, case, MRI and ground-truth slices, geometry |
+| `app/routes/experiments.py` | experiment list, comparison, one experiment, its metrics and per-case rows |
+| `app/routes/runs.py` | analysis runs: run, run metrics, slice metrics, slice error, prediction slice, 3-D meshes |
+| `app/routes/reviews.py` | review create / patch, working-mask upload, commit, reviewed masks |
+| `app/routes/findings.py` | finding create / list / patch |
+| `app/middleware.py` | the JSONL request log (and `make_describe`, which names each request by its route template) and the body limit |
+| `app/cases.py`, `experiments.py`, `metrics.py`, `meshes.py`, `storage.py`, `imaging.py`, `ingest.py`, `config.py`, `contract.py` | the data behind the routes |
+
+Each route module has `add_routes(app, backend)` and adds its routes straight to the app, with full paths
+(`/api/v1/...`). The order matters: FastAPI matches the first route that fits, so `/experiments/compare` comes before
+`/experiments/{experiment_id}`. `tests/test_routes.py` pins the route table (method, path, name, position,
+parameters), the middleware order and the route each request is logged under.
+
 ## What it serves
 
 All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented against real data first.
@@ -154,6 +175,9 @@ conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/READM
 ```powershell
 python -m pytest backend/tests backend/mesh/tests -q -p no:cacheprovider
 ```
+
+`test_routes.py` keeps the route table, the middleware order and the request-log route values fixed, so moving
+routes between modules cannot change what the API answers.
 
 TestClient on a synthetic package (generated NRRDs with the real package's header, a synthetic split with
 CASE_0027 in the holdout and 49 filler holdout cases, a synthetic 54-case Contract 2 package with RAW + PROCESSED
