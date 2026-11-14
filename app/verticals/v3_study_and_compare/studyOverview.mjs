@@ -18,10 +18,11 @@
  *                              UNAVAILABLE with a reason
  *   findings summary           findings_list, counted as returned
  *
- * Per-experiment metric VALUES are deliberately not on this screen. Two
- * numbers side by side read as a comparison, and here they would have no
- * comparability label; SCR-07 carries both. This screen shows, per cell, what
- * Khánh's design artifact shows: N and status.
+ * Per-experiment metric VALUES are deliberately absent from the matrix. Two
+ * numbers side by side there would read as a comparison without its verdict.
+ * SCR-01 may show compact common-population summaries only inside a comparison
+ * the server labelled COMPARABLE; SCR-07 carries the detailed statistics.
+ * The matrix itself shows what Khánh's design artifact requires: N and status.
  *
  * study_get is the screen: if it fails, its state is the screen's state. The
  * other sections fail on their own, each with its own core state, so a

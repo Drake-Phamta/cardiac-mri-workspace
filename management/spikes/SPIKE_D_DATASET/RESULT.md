@@ -26,7 +26,7 @@ a time. The expanded 14.2 GiB package was **not** extracted on this machine.
   measures remain disabled.
 - `CASE_0056` and `CASE_0097` have byte-identical `laendo.nrrd` and
   `lawall.nrrd` (two reported anomalies). QA-002 separately measured MRI
-  Pearson r ≈ 0.9965. Under the leader's `DR-002a`, they form one known
+  Pearson r above 0.99; the exact score is restricted under F5 (`DR-002c`). Under the leader's `DR-002a`, they form one known
   acquisition group and both are pinned to train.
 - Testing labels are physically present in 54/54 directories of the obtained
   release; this does not claim they were public during the challenge.

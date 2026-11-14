@@ -25,6 +25,8 @@ export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV
 export const STAT_CHOICES = Object.freeze(['median', 'mean']);
 
 const REASON = Object.freeze({
+  CASE_NOT_FOUND: 'the requested case does not exist',
+  SLICE_OUT_OF_RANGE: 'the requested slice is outside the validated volume',
   NOT_LISTED: "not in the server's experiment list",
   NOT_REQUESTED: 'not requested on this screen',
   NOT_RETURNED: 'not returned by the server',
@@ -53,8 +55,16 @@ const REASON = Object.freeze({
   NO_ELIGIBLE_CASES: 'no successfully evaluated case to select from',
   ARTIFACT_NOT_FOUND: 'the server has no such artifact',
   GROUND_TRUTH_UNAVAILABLE: 'ground truth unavailable - metrics cannot exist, not zero',
+  INVALID_REVIEW_TRANSITION: 'the requested review state transition is not allowed',
+  STALE_REVISION: 'the resource changed; refresh before writing',
+  IMMUTABLE_ARTIFACT: 'an immutable artifact version cannot be overwritten',
+  GEOMETRY_NOT_VALIDATED: 'the source geometry is not validated for this operation',
+  GEOMETRY_MISMATCH: 'the supplied geometry does not match the source contract',
+  RUN_NOT_DEPLOYABLE: 'the requested experiment configuration is not deployable',
   RUN_NOT_SUCCEEDED: 'the run has not produced a successful result yet',
   NON_COMPARABLE_EXPERIMENTS: 'the server says these experiments are not comparable',
+  ANALYSIS_FAILED: 'the analysis run failed; inspect its recorded failure reason',
+  VALIDATION_ERROR: 'the request failed contract validation',
   TRANSPORT_UNREACHABLE: 'the backend could not be reached',
   FIXTURE_SCENARIO_MISSING: 'the fixture bundle has no scenario for this request',
   CONTRACT_DRIFT: 'the response does not match the API contract',
@@ -63,7 +73,11 @@ const REASON = Object.freeze({
 
 export function reasonLabel(code) {
   if (code === null || code === undefined || code === '') return null;
-  return REASON[code] || String(code);
+  if (REASON[code]) return REASON[code];
+  const text = String(code);
+  // A future contract code must still be readable. Keep ordinary server
+  // sentences unchanged; only turn CODE_LIKE_THIS into words.
+  return /^[A-Z][A-Z0-9_]*$/.test(text) ? text.toLowerCase().replaceAll('_', ' ') : text;
 }
 
 const fmt = (v) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(3) : null);
@@ -184,6 +198,30 @@ const reasonOf = (c) => (c.presentation ? c.presentation.reason : c.reason) || n
 // mixes RAW and PROCESSED, which the contract cannot compare yet.
 const withheldOf = (c) => (c.numbersWithheld ? c.numbersWithheld.reason : null);
 
+function headlineSummaryRows(c) {
+  if (!c.requested || !fairOf(c) || withheldOf(c) || !c.summaries) return Object.freeze([]);
+  return Object.freeze(c.experimentIds.map((experimentId) => {
+    const summary = c.summaries[experimentId];
+    if (!summary || !summary.available) {
+      return Object.freeze({
+        experimentId,
+        text: `${experimentId}: summary unavailable${summary?.reason ? ` (${reasonLabel(summary.reason)})` : ''}`,
+      });
+    }
+    const metrics = summary.metrics.filter((m) => m.available).map((m) => {
+      // SCR-01 has no metric/statistic selector. Median is the compact
+      // high-level value; when absent, mean is the honest fallback. All
+      // detailed statistics and user selection remain on SCR-07.
+      const stat = m.stats.median !== null ? 'median' : (m.stats.mean !== null ? 'mean' : null);
+      return stat ? `${m.name} ${stat} ${fmt(m.stats[stat])}` : null;
+    }).filter(Boolean);
+    return Object.freeze({
+      experimentId,
+      text: `${experimentId}: ${metrics.length ? metrics.join(' · ') : 'summary unavailable'}`,
+    });
+  }));
+}
+
 export function verdictText(c) {
   if (!c.requested) return 'not requested';
   switch (verdictOf(c)) {
@@ -207,6 +245,7 @@ export function comparisonRow(c) {
     tone,
     reason: c.requested ? (reasonOf(c) || withheldOf(c)) : c.notRequestedReason,
     populationText: c.population && c.population.available ? `common population ${c.population.label}` : null,
+    summaryRows: headlineSummaryRows(c),
     route: c.requested
       ? route('SCR-07', { experimentIds: [...c.experimentIds] })
       : Object.freeze({ ok: false, reason: c.notRequestedReason }),

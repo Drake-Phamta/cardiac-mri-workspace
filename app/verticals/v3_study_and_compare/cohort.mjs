@@ -135,9 +135,20 @@ export function buildCell(expected, {
   const loaded = status === CELL_STATUS.LOADED;
   const casesOk = Boolean(casesView && casesView.state === STATE.SUCCESS);
   // Rows count as this cell's only if experiment_cases states the same variant.
-  const casesMatch = loaded && casesOk && readVariant(casesView.data.prediction_variant).lane === confirmedLane;
+  const casesVariant = casesOk ? readVariant(casesView.data.prediction_variant) : null;
+  const casesMatch = loaded && casesOk && casesVariant.lane === confirmedLane;
+  const disabledIntentReason = casesMatch ? null : (!loaded
+    ? (statusReason || 'this experiment is not loaded, so its case links are disabled')
+    : casesVariant?.lane
+      ? `the per-case rows were served for ${casesVariant.declared}, not the experiment's ${confirmedLane} variant - listed, not drawn, not linked`
+      : `the server did not confirm the per-case prediction variant (served ${casesVariant?.declared ?? 'no variant'}) - listed, not drawn, not linked`);
   const cases = casesOk
-    ? readCaseRows(casesView.data, { metricName, variant: casesMatch ? confirmedLane : null, experimentId: expected.id })
+    ? readCaseRows(casesView.data, {
+      metricName,
+      variant: casesMatch ? confirmedLane : null,
+      experimentId: expected.id,
+      disabledIntentReason,
+    })
     : null;
   const points = casesMatch ? Object.freeze(cases.rows.filter((r) => r.plotted)) : Object.freeze([]);
   let pointsWithheld = null;
