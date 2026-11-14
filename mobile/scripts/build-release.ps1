@@ -232,7 +232,7 @@ $sizeMb = [math]::Round((Get-Item $outApk).Length / 1MB, 1)
 # Evidence redaction (N-4; #77 QA N-6, DR-021 rule 3): this sidecar may be
 # committed next to device evidence in a public repository. It records only
 # WHETHER a backend URL was configured - never the URL and no hash of it: an
-# unsalted SHA-256 of an overlay address is reversed by hashing every
+# unsalted SHA-256 of a backend address is reversed by hashing every
 # candidate address, so the field is dropped, not salted. Paths are relative
 # to the repository root only.
 $apiBaseUrlRecord = 'none (fixture build: no backend address)'

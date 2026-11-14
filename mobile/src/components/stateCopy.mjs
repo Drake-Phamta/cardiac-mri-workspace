@@ -46,7 +46,7 @@ const REASON_TEXT = Object.freeze({
   SELECTION_NOT_RETURNED: 'The server did not return a worst-slice selection for this run.',
   SELECTION_NO_ELIGIBLE_SLICES: 'No slice has non-empty ground truth, so there is no worst slice to rank.',
   SELECTION_MALFORMED: 'The server\'s worst-slice selection carries no list of slices, so it cannot be read.',
-  TRANSPORT_UNREACHABLE: 'The backend could not be reached. Check the overlay network, then retry.',
+  TRANSPORT_UNREACHABLE: 'The backend could not be reached. Make sure it is running on the computer and the phone is connected by USB, then retry.',
   FIXTURE_NO_BYTES: 'Fixture mode: no bytes exist behind any content_url, so nothing is fetched.',
   NO_CONTENT_URL: 'The response carries no content_url, so there are no bytes to fetch.',
   REQUEST_ABORTED: 'The request was cancelled because the screen moved on.',

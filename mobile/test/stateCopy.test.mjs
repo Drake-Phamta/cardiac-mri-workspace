@@ -82,6 +82,11 @@ test('S9 an unknown state is treated as invalid, never as success', () => {
   assert.equal(d.blocking, true);
 });
 
+test('S3b an unreachable backend says what to check: the backend on the computer, the phone on USB', () => {
+  assert.equal(reasonText('TRANSPORT_UNREACHABLE'),
+    'The backend could not be reached. Make sure it is running on the computer and the phone is connected by USB, then retry.');
+});
+
 test('S10 reason text exists for the codes a researcher meets, and is null otherwise', () => {
   for (const code of ['GROUND_TRUTH_UNAVAILABLE', 'TRANSPORT_UNREACHABLE', 'FIXTURE_SCENARIO_MISSING', 'STALE_REVISION', 'CONTRACT_DRIFT']) {
     assert.ok(reasonText(code), code);

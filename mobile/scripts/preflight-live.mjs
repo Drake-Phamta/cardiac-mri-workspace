@@ -101,7 +101,7 @@ async function main() {
   try {
     res = await fetch(`${config.apiBaseUrl}/health`, { signal: AbortSignal.timeout(config.timeoutMs) });
   } catch (err) {
-    check('P1', false, `/health did not answer (${err.name}) - overlay down, backend stopped, or wrong URL`);
+    check('P1', false, `/health did not answer (${err.name}) - the backend must be running on the computer and the phone connected by USB (or the URL is wrong); then retry`);
     return 1;
   }
   try {

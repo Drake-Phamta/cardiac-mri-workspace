@@ -86,6 +86,7 @@ test('PF3 nothing listening: P1 says the backend did not answer, without the add
   const { code, out } = await run([], url);
   assert.equal(code, 1, out);
   assert.match(out, /FAIL P1 \/health did not answer/);
+  assert.match(out, /the backend must be running on the computer and the phone connected by USB/);
   assertNoAddress(out, port);
 });
 
