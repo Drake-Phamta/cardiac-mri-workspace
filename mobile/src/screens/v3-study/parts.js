@@ -7,11 +7,11 @@ import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-nativ
 import Svg, { Circle, G, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 
 import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, HAIRLINE, MIN_TOUCH, space, type } from '../../components/theme';
+import { color, font, HAIRLINE, MIN_TOUCH, size, space, type } from '../../components/theme';
 import { IconAlert, IconChevronRight } from '../../components/icons';
-import { SectionLabel } from '../../components/ListRow';
+import { MiniBar, SectionLabel } from '../../components/ListRow';
 import { pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
-import { FamilyLegend, Marker } from './charts';
+import { FamilyKey, FamilyLegend, Marker } from './charts';
 import { LOCKED_METRICS, METRIC_LEGEND } from './about.mjs';
 import { fatalInvalid, RECOVERY } from '../../api/states.mjs';
 
@@ -79,27 +79,44 @@ export function LinkRow({ title, notes = [], route, onGo, accessibilityLabel, te
   );
 }
 
-// One cell of the experiment matrix (UNet 25 %, DINOv2 100 %, ...): tap to list its cases. The picked one is tinted.
-export function CellRow({ cell, selected, onPress }) {
+// One experiment of the list, as a dense row like the case rows: the family marker, "UNet 25 %", a secondary line
+// ("5 of 5 cases", or a status in words when the run is not simply loaded), then the chosen metric's median as a
+// bar and a number. Tap it for everything else about the run.
+export function ExperimentRow({ cell, first, onPress }) {
+  const sub = cell.statusWord || cell.casesText;
   return (
     <TouchableOpacity
-      style={[s.linkRow, selected && s.rowOn]}
+      style={[s.expRow, !first && s.rowLine]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${cell.title}: ${cell.statusText}`}
-      accessibilityState={{ selected }}
+      accessibilityLabel={`${cell.title}${cell.valueText ? `, ${cell.valueText}` : ''}${sub ? `, ${sub}` : ''}`}
     >
+      <View style={s.expKey}><FamilyKey group={cell.family} /></View>
       <View style={s.rowText}>
-        <Text style={s.rowTitle}>{`${cell.title} · ${cell.id}`}</Text>
-        <Text style={[s.state, { color: TONE_COLOR[cell.tone] }]}>{cell.statusText}</Text>
-        {cell.nText ? <Text style={s.note}>{cell.nText}</Text> : null}
-        {cell.summaryText ? <Text style={s.detail}>{cell.summaryText}</Text> : null}
-        {cell.contextMissing.length > 0 ? (
-          <Text style={[s.note, { color: color.warn }]}>{`context missing: ${cell.contextMissing.join(', ')}`}</Text>
-        ) : null}
-        {cell.labels.map((l) => <Text key={l} style={s.note}>{l}</Text>)}
-        {cell.warnings.slice(0, 2).map((w) => <Text key={w} style={[s.note, { color: color.warn }]}>{w}</Text>)}
+        <Text style={s.rowTitle}>{cell.title}</Text>
+        {sub ? <Text style={[s.note, cell.statusWord && { color: TONE_COLOR[cell.tone] }]}>{sub}</Text> : null}
       </View>
+      {cell.bar !== null ? <MiniBar value={cell.bar} style={s.expBar} /> : null}
+      {cell.valueText ? <Text style={s.expValue}>{cell.valueText}</Text> : null}
+      <IconChevronRight size={16} color={color.t3} />
+    </TouchableOpacity>
+  );
+}
+
+// A row with one value on its right and the rest on tap: a comparison ("UNet vs DINOv2 · 25 %", "+0.030") or a
+// trend. `value` is the number; `muted` is a word in t3 ("Not compared") shown when there is no number.
+export function ValueRow({ title, value = null, muted = null, first, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[s.valueRow, !first && s.rowLine]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={[title, value || muted].filter(Boolean).join(', ')}
+    >
+      <Text style={[s.rowTitle, s.rowGrow]}>{title}</Text>
+      {value ? <Text style={s.expValue}>{value}</Text> : null}
+      {!value && muted ? <Text style={s.mutedText}>{muted}</Text> : null}
+      <IconChevronRight size={16} color={color.t3} />
     </TouchableOpacity>
   );
 }
@@ -111,7 +128,7 @@ export function MetricLegend({ selected = null }) {
       {METRIC_LEGEND.map((m) => (
         <Text key={m.name} style={[s.legendLine, m.name === selected && s.legendOn]}>
           <Text style={s.legendName}>{m.label}</Text>
-          {` (${m.name}): ${m.text}`}
+          {`: ${m.text}`}
         </Text>
       ))}
       {LOCKED_METRICS.map((m) => (
@@ -145,14 +162,22 @@ const s = StyleSheet.create({
     minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s,
     borderTopWidth: HAIRLINE, borderColor: color.hair,
   },
-  rowOn: { backgroundColor: color.accentSoft },
+  rowLine: { borderTopWidth: HAIRLINE, borderColor: color.hair },
+  expRow: { minHeight: size.caseRow, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
+  valueRow: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
+  rowGrow: { flex: 1 },
+  // The circle (8 dp) and the triangle (10 dp) sit in one box, so every title starts at the same x.
+  expKey: { width: 12, alignItems: 'center' },
+  expBar: { width: 56 },
+  expValue: { ...type.rowId, width: 48, textAlign: 'right', color: color.t1, letterSpacing: 0 },
+  mutedText: { ...type.secondary, color: color.t3 },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { ...type.body, fontWeight: '500', color: color.t1, fontVariant: font.numeric },
   rowTitleOff: { color: color.t2 },
   state: { ...type.secondary },
   detail: { ...type.secondary, color: color.t2 },
-  legend: { gap: space.xs },
-  legendLine: { ...type.caption, color: color.t3 },
+  legend: { gap: space.m },
+  legendLine: { ...type.secondary, lineHeight: 18, color: color.t2 },
   legendOn: { color: color.t1 },
   legendName: { fontWeight: '600' },
   blocked: { flexDirection: 'row', alignItems: 'center', gap: space.s, marginTop: space.l },

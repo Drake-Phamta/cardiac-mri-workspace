@@ -52,6 +52,12 @@ const shortPressables = (r) => r.root.findAll((n) => n.type === 'TouchableOpacit
   const slop = n.props.hitSlop || {};
   return typeof h === 'number' && h + (slop.top || 0) + (slop.bottom || 0) < 48;
 });
+// The texts of the sheet with this testID, or null while it is closed (a closed sheet draws nothing).
+const sheetTexts = (r, testID) => {
+  const modal = r.root.findAll((n) => n.type === 'Modal').find((m) => m.findAll((x) => x.props && x.props.testID === testID).length > 0);
+  return modal ? modal.findAll((x) => x.type === 'Text').map(textOf) : null;
+};
+const closeSheet = async (r, testID) => { await act(async () => { byTestId(r, `${testID}-close`).props.onPress(); }); };
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
   const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
@@ -574,17 +580,19 @@ function noRunBackend() {
   check('V3R1', onScreen(r, 'SCR-01') && has(r, /^Fixture$/), 'SCR-01 renders under the Fixture indicator');
   check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^Dataset$/) && has(r, /^fixture dataset$/) && has(r, /^About this data$/)
     && has(r, /^Median Dice · UNet vs DINOv2$/) && has(r, /^Lowest Dice · /), 'SCR-01 draws its model: study, dataset, counts, median Dice, lowest Dice');
-  check('V3R12', !texts(r).some((t) => /sha256|ground_truth_evaluation|inference_review|SCR-0\d|DATASET_FIXTURE|version fixture|DR-\d/.test(t)),
-    'no developer text on the main surface: no checksum, capability name, screen id or dataset id');
+  check('V3R12', !texts(r).some((t) => /sha256|ground_truth_evaluation|inference_review|SCR-0\d|DATASET_FIXTURE|version fixture|DR-\d|EXP-/.test(t)),
+    'no developer text on the main surface: no checksum, capability name, screen id, dataset id or experiment id');
   const tileText = (id) => r.root.findAll((n) => n.props && n.props.testID === id).flatMap((n) => n.findAll((x) => x.type === 'Text').map(textOf));
   check('V3R9', ['Cases', '2', 'in this study'].every((t) => tileText('scr01-tile-cases').includes(t))
     && ['Findings', '1', 'open'].every((t) => tileText('scr01-tile-findings').includes(t))
     && ['Resolved', '0', 'findings'].every((t) => tileText('scr01-tile-resolved').includes(t))
     && has(r, /^1 evaluation$/) && has(r, /^1 inference & review$/),
   `metric strip: ${['cases', 'findings', 'resolved'].map((k) => tileText(`scr01-tile-${k}`).join(' / ')).join(' | ')}`);
-  check('V3R9', has(r, /^No UNet vs DINOv2 pair is judged comparable by the server yet\.$/)
+  check('V3R9', has(r, /^No UNet vs DINOv2 pair is judged comparable yet\.$/)
     && texts(r).filter((t) => t === 'Not compared').length === 3 && has(r, /^0 of 3 comparable$/),
-  'median Dice rows: no pair is compared, so "Not compared" and no number');
+  'median Dice rows: no pair is compared, so "Not compared", no number and one plain sentence under the rows');
+  check('V3R9', !has(r, /not available to compare/), 'the per-pair reasons (they name runs by id) are not on the page');
+  check('V3R16', r.root.findAll((n) => n.props && n.props.testID === 'scr01-thumb')[0].findAll((n) => n.type === 'Path').length >= 3 && !has(r, /^No image/), 'the dataset picture is a drawing: slice, chamber and a contour');
   const sheetOpen = () => r.root.findAll((n) => n.type === 'Modal').some((m) => m.findAll((x) => x.props && x.props.testID === 'about-data').length > 0);
   check('V3R11', !sheetOpen(), '"About this data" is closed until asked for');
   await press(r, 'About this data');
@@ -593,15 +601,17 @@ function noRunBackend() {
     && has(r, /^This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\.$/)
     && has(r, /^The server names this study's dataset: fixture dataset/) && has(r, /^Fixture mode: every number/),
   'the sheet names the source, LASC 2018, the case IDs, research use only, the served dataset and that fixture numbers are placeholders');
-  check('V3R11', has(r, /^Capabilities: /) && has(r, /^experiment summary/) && has(r, /lowest case-level 3D Dice/),
-    'the technical lines moved into the sheet: server summary, capabilities and the lowest-Dice rule');
+  check('V3R11', has(r, /^Capabilities: /) && has(r, /^experiment summary/) && has(r, /lowest case-level 3D Dice/)
+    && has(r, /^25 % data: EXP-U-025, EXP-D-025 not available to compare$/),
+  'the technical lines moved into the sheet: server summary, capabilities, why a pair is not compared, the lowest-Dice rule');
   await act(async () => { byTestId(r, 'about-data-close').props.onPress(); });
   check('V3R11', !sheetOpen(), 'Close closes it');
   await press(r, 'Experiments');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^Fixture$/), 'SCR-07 opened from SCR-01, under the Fixture indicator');
-  check('V3R2', has(r, /filled from the server's experiment list$/) && has(r, /^Comparisons \(server verdicts\)$/),
-    'SCR-07 draws its model: the matrix and the server verdicts');
+  check('V3R2', has(r, /^Experiments$/) && has(r, /^Comparisons$/) && has(r, /^Not listed by the server$/)
+    && !has(r, /filled from the server's experiment list|experiment\(s\) listed by the server/),
+  'SCR-07 draws its model: the experiment list and the comparisons, without the intro lines');
   // The generated list names one matrix experiment (EXP-D-PP, refused), so no
   // summary names a metric: no chip is offered, and the screen says why.
   check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/), 'no metric to pick, and it says so');
@@ -610,8 +620,21 @@ function noRunBackend() {
   check('V3R2', marks(r, 'Svg').length === 1, 'the strip plot is drawn, empty');
   check('V3R2', has(r, /^No UNet vs DINOv2 pair is loaded here: both runs of a pair must be listed by the server\.$/),
     'no pair is loaded, so the paired card says why instead of drawing');
-  check('V3R2', has(r, /^Dice \(dice\): overlap of prediction and reference, 0 to 1; higher is better$/)
-    && has(r, /^HD95: locked: /), 'the metric legend explains Dice and shows HD95 as locked');
+  check('V3R14', !texts(r).some((t) => /EXP-|\(server|N intended|COHORT level|metric mv1|\(dice\)|false_positives/.test(t))
+    && !has(r, /^What the metrics mean$/), 'no developer text on SCR-07: no experiment id, no "(server ...)", no N, no code names');
+  check('V3R17', sheetTexts(r, 'metric-sheet') === null, 'the metric definitions are not on the page');
+  await press(r, 'Metric definitions');
+  const defs = sheetTexts(r, 'metric-sheet') || [];
+  check('V3R17', defs.includes('Dice: overlap of prediction and reference, 0 to 1; higher is better')
+    && defs.some((d) => /^HD95: locked: /.test(d)) && !defs.some((d) => /\(dice\)|\(iou\)|false_positives|relative_volume_error/.test(d)),
+  'the "Metric definitions" sheet explains Dice, shows HD95 as locked and names no code');
+  await closeSheet(r, 'metric-sheet');
+  check('V3R17', sheetTexts(r, 'metric-sheet') === null, 'Close closes it');
+  await press(r, 'UNet 25 %');
+  const run = sheetTexts(r, 'experiment-details') || [];
+  check('V3R18', run.includes('Experiment EXP-U-025') && run.includes('not listed by the server'),
+    `an experiment row opens its details: id and status, ${run.slice(0, 3).join(' | ')}`);
+  await closeSheet(r, 'experiment-details');
   await act(async () => { r.unmount(); });
 }
 {
@@ -639,6 +662,16 @@ function noRunBackend() {
   const [screenId, p] = pushed[0] || [];
   check('V3R3', pushed.length === 1 && screenId === 'SCR-03' && p.caseId && p.runId && p.variant === 'RAW' && p.experimentId === 'EXP-U-100',
     `a tapped dot opens SCR-03 with case, run and variant: ${JSON.stringify(pushed[0] || null)}`);
+  // The experiment row opens its details, with every case and a link to each; a link closes the sheet and opens the case.
+  await press(r, 'UNet 100 %');
+  const sheet = sheetTexts(r, 'experiment-details') || [];
+  check('V3R18', sheet.includes('Experiment EXP-U-100') && sheet.some((t) => /^dice: median .* mean .* q1 .* q3 /.test(t))
+    && sheet.some((t) => /^N intended \d+ · N successful \d+$/.test(t)) && sheet.some((t) => /^CASE_\d{4} · plotted · 0\.\d{3}$/.test(t)),
+  'the details hold the id, median, mean, q1, q3, N and the cases');
+  const caseRow = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4} · plotted/.test(textOf(n)))[0];
+  await act(async () => { caseRow.props.onPress(); });
+  check('V3R18', pushed.length === 2 && pushed[1][0] === 'SCR-03' && pushed[1][1].experimentId === 'EXP-U-100'
+    && sheetTexts(r, 'experiment-details') === null, `a case link in the details opens the case and closes the sheet: ${JSON.stringify(pushed[1] || null)}`);
   await act(async () => { r.unmount(); });
 }
 
@@ -670,11 +703,27 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
 {
   const { r, pushed } = await mountTypedPair({});
   const dots = inside(r, 'paired-RQ-A-025', 'Circle');
-  check('V3R4', dots.length === 4 && has(r, /^dice, DINOv2 25 % minus UNet 25 %: 4 cases, median difference \+0\.065$/),
-    `COMPARABLE pair: ${dots.length} paired dots (4) and the median difference`);
+  check('V3R4', dots.length === 4 && has(r, /^DINOv2 25 % − UNet 25 % · 4 cases · median \+0\.065$/)
+    && has(r, /^1 case without a value in both runs is not drawn$/),
+  `COMPARABLE pair: ${dots.length} paired dots (4), a one-line caption with the median difference, and the case not drawn`);
   check('V3R13', shortPressables(r).length === 0, `SCR-07: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
-  check('V3R14', !has(r, /COHORT level|metric mv1|FINAL_HOLDOUT/) && has(r, /^Metric$/) && has(r, /^Statistic$/),
-    'SCR-07: the run context (cohort level, population, metric version) is not on the page; Metric and Statistic are sections');
+  check('V3R14', !texts(r).some((t) => /EXP-|\(server|N intended|COHORT level|metric mv1|FINAL_HOLDOUT|\(dice\)/.test(t))
+    && has(r, /^Metric$/) && !has(r, /^Statistic$/) && !has(r, /^Nothing is pre-selected/),
+  'no developer text on SCR-07 with data: no experiment id, no "(server ...)", no N, no cohort level or metric version');
+  // Comparisons: one row per pair with the median difference as its value; the rest is in a sheet.
+  check('V3R19', texts(r).includes('UNet vs DINOv2 · 25 %') && texts(r).includes('+0.030'), 'the comparison row says "UNet vs DINOv2 · 25 %" and "+0.030"');
+  await press(r, 'UNet vs DINOv2 · 25 %');
+  const cmp = sheetTexts(r, 'comparison-details') || [];
+  check('V3R19', cmp.includes('comparable (server verdict)') && cmp.includes('common population 5 cases')
+    && cmp.some((c) => /^median dice: EXP-D-025 0\.685 vs EXP-U-025 0\.655, difference \+0\.030/.test(c)),
+  `the comparison details hold the verdict, the population and both medians: ${cmp.join(' | ')}`);
+  await closeSheet(r, 'comparison-details');
+  check('V3R19', sheetTexts(r, 'comparison-details') === null, 'Close closes it');
+  await press(r, 'UNet 25 %');
+  const exp = sheetTexts(r, 'experiment-details') || [];
+  check('V3R18', exp.includes('Experiment EXP-U-025') && exp.some((e) => /^comparable with EXP-D-025/.test(e)),
+    'the experiment details hold the id and the verdicts that involve the run');
+  await closeSheet(r, 'experiment-details');
   check('V3R4', inside(r, 'strip-chart', 'Circle').length === 4 && inside(r, 'strip-chart', 'Path').length === 4,
     'the strip draws UNet as 4 circles and DINOv2 as 4 triangles');
   const chart = inside(r, 'paired-RQ-A-025', 'Pressable')[0];
@@ -698,7 +747,7 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
 {
   const { r } = await mountTypedPair({ noRows: ['EXP-D-025'] });
   check('V3R6', inside(r, 'scr07-paired', 'Svg').length === 0
-    && has(r, /^Not shown: EXP-D-025 has no per-case dice value: no per-case result yet$/), 'a run with no rows: no chart, and why');
+    && has(r, /^Not shown: DINOv2 25 % has no per-case dice value: no per-case result yet$/), 'a run with no rows: no chart, and why (the run by name)');
   await act(async () => { r.unmount(); });
 }
 // The trend chart over all six RAW runs: per run 4 cases, a q1-q3 bar and a median tick; a line and band per
@@ -710,7 +759,11 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   check('V3R7', inside(r, 'trend-chart', 'Rect').length === 6 && inside(r, 'trend-chart', 'Circle').length === 12
     && paths.length === 12 + 4 && lines.length === 2 && lines.filter((n) => n.props.strokeDasharray === '6 4').length === 1,
     `COMPARABLE trend: 6 q1-q3 bars, 12 UNet circles, 12 DINOv2 triangles, 2 bands and 2 lines (one dashed): paths ${paths.length}`);
-  check('V3R7', has(r, /^UNet: joined - the server judged the three runs comparable$/), 'the join is explained under the chart');
+  check('V3R7', texts(r).includes('UNet 25 → 50 → 100 %') && !texts(r).includes('Not joined'), 'a trend row per family, nothing extra while the runs are joined');
+  await press(r, 'UNet 25 → 50 → 100 %');
+  check('V3R7', (sheetTexts(r, 'trend-details') || []).includes('UNet: joined - the server judged the three runs comparable'),
+    'the join is explained in the trend details');
+  await closeSheet(r, 'trend-details');
   // The three UNet vs DINOv2 pairs each get a paired chart.
   check('V3R7', ['RQ-A-025', 'RQ-A-050', 'RQ-A-100'].every((id) => inside(r, `paired-${id}`, 'Circle').length === 4),
     'all three pairs are comparable: three paired charts of 4 cases');
@@ -719,8 +772,11 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
 {
   const { r } = await mountTypedPair({ dice: SIX_RUNS, compare: 'not_comparable' }, {});
   const lines = inside(r, 'trend-chart', 'Path').filter((n) => n.props.fill === 'none' || n.props.fillOpacity === 0.12);
-  check('V3R8', lines.length === 0 && inside(r, 'trend-chart', 'Rect').length === 6 && has(r, /^UNet: not joined - /),
-    'NOT COMPARABLE trend: bars and cases per run, no line or band, and why');
+  check('V3R8', lines.length === 0 && inside(r, 'trend-chart', 'Rect').length === 6 && texts(r).filter((x) => x === 'Not joined').length === 2,
+    'NOT COMPARABLE trend: bars and cases per run, no line or band, and "Not joined" on each row');
+  await press(r, 'UNet 25 → 50 → 100 %');
+  check('V3R8', (sheetTexts(r, 'trend-details') || []).some((x) => /^UNet: not joined - /.test(x)), 'and the reason is in the trend details');
+  await closeSheet(r, 'trend-details');
   await act(async () => { r.unmount(); });
 }
 // SCR-01 over the same typed server: comparable median Dice under a "Comparable" chip, and the lowest-Dice cases
@@ -744,10 +800,23 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   check('V3R10', inside(r, 'scr01-dice', 'Svg').length === 12 && inside(r, 'scr01-dice', 'Circle').length === 6
     && inside(r, 'scr01-dice', 'Path').length === 6, 'each comparable pair draws a UNet circle and a DINOv2 triangle on its track');
   const label = (n) => (typeof n.props.accessibilityLabel === 'string' ? n.props.accessibilityLabel : '');
-  const bars = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}, dice /.test(label(n)));
-  check('V3R10', bars.length === 18 && label(bars[0]) === 'CASE_0005, dice 0.400', `lowest-Dice rows: ${bars.length} (3 per run), first ${bars[0] ? label(bars[0]) : '-'}`);
+  const caseRows = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}, dice /.test(label(n)));
+  const bars = caseRows();
+  // One lowest-Dice list: DINOv2 at the largest fraction that has one.
+  check('V3R20', has(r, /^Lowest Dice · DINOv2 100 %$/) && texts(r).filter((x) => /^Lowest Dice · /.test(x)).length === 1
+    && bars.length === 3 && label(bars[0]) === 'CASE_0005, dice 0.660', `one list, DINOv2 100 %: ${bars.length} rows, first ${bars[0] ? label(bars[0]) : '-'}`);
+  check('V3R20', has(r, /^Experiment$/) && has(r, /^DINOv2 100 %$/), 'a compact picker names the experiment of the list');
   check('V3R13', shortPressables(r).length === 0, `SCR-01: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
-  if (bars.length) await act(async () => { bars[0].props.onPress(); });
+  check('V3R20', sheetTexts(r, 'scr01-picker-sheet') === null, 'the picker sheet is closed until asked for');
+  await press(r, 'Experiment');
+  const options = sheetTexts(r, 'scr01-picker-sheet') || [];
+  check('V3R20', ['UNet 25 %', 'UNet 50 %', 'UNet 100 %', 'DINOv2 25 %', 'DINOv2 50 %', 'DINOv2 100 %'].every((o) => options.includes(o)),
+    `the picker lists the experiments of the server: ${options.join(' | ')}`);
+  await press(r, 'UNet 25 %');
+  check('V3R20', sheetTexts(r, 'scr01-picker-sheet') === null && has(r, /^Lowest Dice · UNet 25 %$/) && caseRows().length === 3
+    && label(caseRows()[0]) === 'CASE_0005, dice 0.400', 'picking UNet 25 % closes the sheet and swaps the list');
+  const picked = caseRows();
+  if (picked.length) await act(async () => { picked[0].props.onPress(); });
   check('V3R10', pushed.length === 1 && pushed[0][0] === 'SCR-03' && pushed[0][1].runId === 'RUN_U025_0005',
     `a bar opens its case in its run: ${JSON.stringify(pushed[0] || null)}`);
   await act(async () => { r.unmount(); });

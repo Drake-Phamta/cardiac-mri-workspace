@@ -10,17 +10,19 @@ import { RECOVERY } from '../../api/states.mjs';
 import { createStudyOverview } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
-import { IconDatabase, IconOutline } from '../../components/icons';
+import { IconDatabase } from '../../components/icons';
 import ListRow from '../../components/ListRow';
 import MetricStrip from '../../components/MetricStrip';
 import { color, space, type } from '../../components/theme';
 import { Blocked, Note, Section, useSnapshot } from './parts';
+import DatasetThumb from './DatasetThumb';
+import { PickerRow, PickerSheet } from './Picker';
 import { FamilyLegend } from './charts';
 import DiceRows from './DiceRows';
 import AboutDataSheet from './AboutDataSheet';
 import { aboutData, DATASET_SOURCE_NAME, studyDetails } from './about.mjs';
 import { casesTile, diceTile, findingsTile } from './tiles.mjs';
-import { overviewView } from './view.mjs';
+import { chooseOutlierGroup, overviewView } from './view.mjs';
 
 export default function StudyOverviewScreen({ runtime, nav, params }) {
   // The study id comes from the build config unless the caller passed another one.
@@ -50,7 +52,13 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
         const v = overviewView(snap);
         const sections = [
           ...aboutData({ datasetText: v.study.datasetText, fixture: snap.source === 'fixture' }),
-          ...studyDetails({ summaryText: v.study.summaryText, capabilities: v.study.capabilities, outlierRule: v.outliers.rule }),
+          ...studyDetails({
+            summaryText: v.study.summaryText,
+            capabilities: v.study.capabilities,
+            outlierRule: v.outliers.rule,
+            // Why a pair is not compared names the runs by id, so it lives in the sheet.
+            pairLines: diceTile(snap.headline).rows.filter((r) => r.note).map((r) => `${r.label}: ${r.note}`),
+          }),
         ];
         return (
           <>
@@ -68,17 +76,21 @@ function Overview({ v, snap, go, blocked, onAbout }) {
   const findings = findingsTile(snap.findings);
   const dice = diceTile(snap.headline);
   const comparable = dice.rows.filter((r) => r.fair).length;
-  // What the server said about each pair: why it is not compared, or the population it was compared on.
-  const diceNotes = [dice.emptyText, ...new Set(dice.rows.map((r) => r.note))].filter(Boolean);
+  // One plain sentence under the rows: that no pair is compared, or the one population all pairs were compared on.
+  const populations = [...new Set(dice.rows.filter((r) => r.fair).map((r) => r.note).filter(Boolean))];
+  const diceNote = dice.emptyText || (populations.length === 1 ? populations[0].charAt(0).toUpperCase() + populations[0].slice(1) : null);
   const fixture = snap.source === 'fixture';
+  // One lowest-Dice list: DINOv2 at the largest data fraction unless the picker chose another experiment.
+  const [pickedId, setPickedId] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const groups = v.outliers.groups;
+  const group = chooseOutlierGroup(groups, pickedId);
   return (
     <ScrollView contentContainerStyle={s.page}>
       {v.study.idWarning ? <Note tone={TONE.WARN}>{v.study.idWarning}</Note> : null}
 
       <View style={s.dataset}>
-        <View style={s.thumb}>
-          <IconOutline size={40} color={color.t3} />
-        </View>
+        <DatasetThumb />
         <View style={s.datasetText}>
           <Text style={s.overline}>Dataset</Text>
           <Text style={s.datasetName}>{v.study.datasetName || 'Dataset unavailable'}</Text>
@@ -137,31 +149,35 @@ function Overview({ v, snap, go, blocked, onAbout }) {
         <View style={s.diceRows}>
           <DiceRows rows={dice.rows} onGo={go} />
         </View>
-        <View style={s.notes}>
-          {diceNotes.map((text) => <Note key={text}>{text}</Note>)}
-        </View>
+        {diceNote ? <View style={s.notes}><Note>{diceNote}</Note></View> : null}
       </Section>
 
       <View testID="scr01-outliers">
-        {v.outliers.groups.length === 0 ? (
+        {group === null ? (
           <Section title="Lowest Dice"><Note>{v.outliers.text}</Note></Section>
-        ) : v.outliers.groups.map((g) => (
-          <Section
-            key={g.experimentId}
-            title={`Lowest Dice · ${g.title}`}
-            meta={g.view.available ? g.view.variantText : null}
-          >
-            {g.view.available ? (
+        ) : (
+          <Section title={`Lowest Dice · ${group.title}`} meta={group.view.available ? group.view.variantText : null}>
+            {groups.length > 1 ? (
+              <PickerRow label="Experiment" value={group.title} onPress={() => setPickerOpen(true)} testID="scr01-pick-experiment" />
+            ) : null}
+            {group.view.available ? (
               <>
-                {g.view.rows.map((o, i) => (
-                  <OutlierRow key={o.key} row={o} first={i === 0} go={go} />
-                ))}
-                <Note>{g.view.warning}</Note>
+                {group.view.rows.map((o, i) => <OutlierRow key={o.key} row={o} first={i === 0} go={go} />)}
+                <Note>{group.view.warning}</Note>
               </>
-            ) : <Note>{g.view.text}</Note>}
+            ) : <Note>{group.view.text}</Note>}
           </Section>
-        ))}
+        )}
       </View>
+      <PickerSheet
+        visible={pickerOpen}
+        title="Lowest Dice of"
+        options={groups.map((g) => ({ id: g.experimentId, label: g.title, note: g.view.available ? null : 'No lowest-Dice list' }))}
+        value={group ? group.experimentId : null}
+        onPick={setPickedId}
+        onClose={() => setPickerOpen(false)}
+        testID="scr01-picker-sheet"
+      />
 
       <Blocked text={blocked} />
     </ScrollView>
@@ -193,10 +209,6 @@ function OutlierRow({ row, first, go }) {
 const s = StyleSheet.create({
   page: { paddingHorizontal: space.l, paddingBottom: space.xl },
   dataset: { flexDirection: 'row', alignItems: 'center', gap: space.l, paddingTop: space.s, paddingBottom: space.l },
-  thumb: {
-    width: 72, height: 72, borderRadius: 6, backgroundColor: color.viewer, borderWidth: 1, borderColor: color.hair,
-    alignItems: 'center', justifyContent: 'center',
-  },
   datasetText: { flex: 1 },
   overline: { ...type.overline, color: color.t3 },
   datasetName: { ...type.title, color: color.t1, marginTop: 2 },
