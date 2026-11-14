@@ -92,9 +92,30 @@ for additive changes to the interface; this is a use of what is already there).
   in its error list (adding one would be a version bump), so the answer is `ARTIFACT_NOT_FOUND` with
   `details.reason` = `GROUND_TRUTH_UNAVAILABLE` and nothing else; `error_reconstruction_get` answers the contract's own
   `GROUND_TRUTH_UNAVAILABLE`. Its prediction meshes are served.
-- `error_reconstruction_get` stays the honest `ARTIFACT_NOT_FOUND` (reason names DR-005, which is open).
+- `error_reconstruction_get`: see the next section (it was the honest `ARTIFACT_NOT_FOUND` until the 3-D error
+  representation was chosen).
 - A run lists the meshes derived from its masks in `analysis_run_get.reconstruction_ids` (so SCR-03 enables 3D), and
   `study_get.capabilities.reconstruction_3d` is true once any run has one.
+
+### 3-D error content (candidate 3, 2026-11-14; no wire change, no version bump)
+
+The 3-D error representation is candidate 3: the prediction surface plus one marker per FP / FN connected component
+(`backend/mesh/error_geometry.py`). `error_reconstruction_get` answers exactly its declared fields; as for meshes, the
+id carries the digest, so nothing is added to `contract.json`:
+
+- `error_mesh_artifact_id` is `ERRGEOM_<64 hex>`, the sha256 of a JSON file served at
+  `GET /api/v1/artifacts/<sha256>.json` (`application/json`, `ETag: "sha256:<hex>"`, immutable, verified on every read).
+  The client derives the URL and the checksum from the id and treats bytes that do not hash to it as `CONTRACT_DRIFT`.
+- The file is `cardiac-error-geometry/1` in the **voxel-index frame** (`index_convention`, `shape`): per component its
+  `id`, `class` (`FN` / `FP`), `voxel_count`, `slice_range`, `marker_voxel` (a voxel of the region) and bounding box,
+  plus `surface_mesh_artifact_id`, the `MESH_<sha256>` of the prediction surface it belongs to. Counts are voxels; no
+  length, area, volume or world coordinate is served, in line with `unvalidated_geometry_rule`.
+- `prediction_mask_id` and `prediction_variant` name the run's own RAW or PROCESSED mask (never substituted),
+  `reference_mask_id` the case's ground truth. An `INFERENCE_REVIEW` case answers `GROUND_TRUTH_UNAVAILABLE`; a
+  prediction whose file has not been built answers `ARTIFACT_NOT_FOUND`; a file built on another grid answers
+  `GEOMETRY_MISMATCH`.
+- `hero_flow.picking` still says an error-region -> slice map is not part of v1.0; it is served under 1.1.0 by this
+  convention, and that sentence can be reworded at the next version bump.
 
 ### Deviations from the frozen specs, and where they are translated
 
