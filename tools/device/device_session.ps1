@@ -709,7 +709,7 @@ function Open-CaseFromList {
       Start-Sleep -Seconds 4
       continue
     }
-    if (Test-UiText -Nodes $d.Nodes -Regex 'cases? on this page' -Package $script:Pkg) {
+    if (Test-UiText -Nodes $d.Nodes -Regex '^case$' -Package $script:Pkg) {    # the list's CASE column heading
       if ($scrolls -lt 6) { Invoke-UiScroll -Dump $d; $scrolls++ } else { break }
     } else { Start-Sleep -Seconds 2 }
   }
@@ -790,23 +790,39 @@ function Enter-CaseExplorer {
   } else { Start-Sleep -Seconds 4 }
   $d = Get-UiDump
   $mode = 'no-run'
-  if ($d -and -not (Test-UiText -Nodes $d.Nodes -Regex 'No analysis run for this case' -Package $script:Pkg)) { $mode = 'run' }
+  if ($d -and -not (Test-UiText -Nodes $d.Nodes -Regex '^No analysis run$|No analysis run for this case' -Package $script:Pkg)) { $mode = 'run' }
   return $mode
 }
 
+function Test-LayerOn {
+  # A layer chip over the image is a switch named after its layer; "checked" says the layer is shown.
+  param($Dump, [string]$Label)
+  if (-not $Dump) { return $false }
+  return (@(Find-UiNodes -Nodes $Dump.Nodes -Text $Label -NoSubstring -Package $script:Pkg | Where-Object { $_.Checked }).Count -gt 0)
+}
+
 function Set-Overlay {
-  # Brings "<Label>: OFF" to ON (or leaves it). The toggle is below the image, in the screen's own scroll area.
-  param([string]$LabelRegex)    # e.g. '^Ground truth: (ON|OFF)$'
-  for ($i = 1; $i -le 8; $i++) {
+  # Turns a layer chip ON (or leaves it on): 'Ground truth' or 'Prediction'. Taps once at most, so a phone that
+  # does not report the switch state falls back to the operator instead of toggling the layer back off.
+  param([string]$Label)
+  for ($i = 1; $i -le 6; $i++) {
     $d = Get-UiDump
     if (-not $d) { Start-Sleep -Seconds 1; continue }
-    $n = Get-TapNode -Dump $d -Regex $LabelRegex
-    if ($null -eq $n) { Invoke-UiScroll -Dump $d; continue }
-    if ($n.TextN -match ': ON$' -or $n.DescN -match ': ON$') { return $true }
-    Invoke-UiTapNode -Node $n -Why 'overlay on'
+    $n = Get-TapNode -Dump $d -Text $Label -NoSubstring
+    if ($null -eq $n) { Start-Sleep -Seconds 1; continue }
+    if (Test-LayerOn -Dump $d -Label $Label) { return $true }
+    Invoke-UiTapNode -Node $n -Why ('layer ' + $Label + ' on')
     Start-Sleep -Milliseconds 1800
+    return (Test-LayerOn -Dump (Get-UiDump) -Label $Label)
   }
   return $false
+}
+
+function Open-ViewerEntry {
+  # The case viewer's entries to SCR-04 / SCR-05 / SCR-06 are in its Tools sheet, behind "more" in the app bar.
+  param([string]$Label, [int]$TimeoutSec = 30)
+  if (-not (Invoke-TapText -Regex '^Tools' -YMax 0.2 -TimeoutSec 10)) { return $false }
+  return (Invoke-TapText -Text $Label -NoSubstring -EnabledOnly -TimeoutSec $TimeoutSec)
 }
 
 function Save-Meminfo {
@@ -886,7 +902,7 @@ function Invoke-A9Rep {
 
   $mode = ''
   $script:modeOut = ''
-  $r = Invoke-UiStep -Name ("open {0}" -f $Case) -Expected ("tap the Cases tab (bottom), then the row {0}; the case viewer opens with the MRI and the label under the image reads 'slice 45 / 88 (z = 44)'" -f $Case) `
+  $r = Invoke-UiStep -Name ("open {0}" -f $Case) -Expected ("tap the Cases tab (bottom), then the row {0}; the case viewer opens with the MRI and the bottom panel reads 'Slice 45 / 88'" -f $Case) `
     -Action { $script:modeOut = Enter-CaseExplorer -CaseId $Case -LogFile $log; [bool]$script:modeOut } `
     -Verify { $d = Get-UiDump; [bool]($d -and (Test-UiText -Nodes $d.Nodes -Regex '^slice \d+ / \d+' -Package $script:Pkg)) }
   if ($r -eq 'skip') { return @{ Ok = $false; Disturbed = $false; Reason = 'the case did not open' } }
@@ -898,15 +914,15 @@ function Invoke-A9Rep {
     if ($lab) {
       Write-Log ('viewer label: {0}' -f $lab.TextN)
       $meta['ViewerLabel'] = $lab.TextN
-      if ($Case -eq 'CASE_0061' -and $lab.TextN -notmatch '^slice 45 / 88') { Add-Warning ("the viewer opened on '{0}', the written script expects 'slice 45 / 88 (z = 44)'" -f $lab.TextN) }
+      if ($Case -eq 'CASE_0061' -and $lab.TextN -notmatch '^slice 45 / 88') { Add-Warning ("the viewer opened on '{0}', the written script expects 'Slice 45 / 88' (z = 44)" -f $lab.TextN) }
     }
-    if (Test-UiText -Nodes $d.Nodes -Regex 'No analysis run for this case') { Write-Log 'scope: no analysis run for this case - MRI and ground truth only' }
+    if (Test-UiText -Nodes $d.Nodes -Regex '^No analysis run$|No analysis run for this case') { Write-Log 'scope: no analysis run for this case - MRI and ground truth only' }
     elseif ($mode) { Add-Deviation ("{0} has an analysis run now, so the viewer asked for a run / variant (RAW was chosen); the A9 scope is MRI + ground truth + prediction overlay." -f $Case) }
   }
 
-  $r = Invoke-UiStep -Name 'ground truth overlay ON' -Expected "in the case viewer, under Overlays, tap 'Ground truth: OFF' so that it reads 'Ground truth: ON' (cyan outline on the image)" `
-    -Action { Set-Overlay -LabelRegex '^Ground truth: (ON|OFF)$' } `
-    -Verify { $d = Get-UiDump; [bool]($d -and (Test-UiText -Nodes $d.Nodes -Regex '^Ground truth: ON$' -Package $script:Pkg)) }
+  $r = Invoke-UiStep -Name 'ground truth overlay ON' -Expected "in the case viewer, tap the 'Ground truth' chip over the image (bottom left) so that its eye is open (cyan outline on the image)" `
+    -Action { Set-Overlay -Label 'Ground truth' } `
+    -Verify { Test-LayerOn -Dump (Get-UiDump) -Label 'Ground truth' }
   if ($r -eq 'skip') { Add-Warning ('Repetition {0}: the ground-truth overlay was NOT switched on; the written script keeps it ON (the run logs gt_overlay)' -f $K); Add-Deviation ('Repetition {0} ran with the ground-truth overlay OFF.' -f $K) }
   Start-Sleep -Seconds 3      # the GT mask of this slice is on screen before M0
 
@@ -914,7 +930,7 @@ function Invoke-A9Rep {
   [void](Save-Meminfo -Path (Join-Path $out ("A9_rep{0}_meminfo_M0.txt" -f $K)))
   Write-Log 'M0 meminfo saved'
 
-  $r = Invoke-UiStep -Name 'long-press the slice label, choose A9 30-step' -Expected "long-press the text 'slice 45 / 88 ...' under the image for 1 second; in the dialog 'Scripted slice navigation' tap 'A9 30-step' (NOT 'L4 15 + 15')" -Attempts 2 `
+  $r = Invoke-UiStep -Name 'long-press the slice number, choose A9 30-step' -Expected "long-press 'Slice 45 / 88' in the bottom panel for 1 second; in the dialog 'Scripted slice navigation' tap 'A9 30-step' (NOT 'L4 15 + 15')" -Attempts 2 `
     -Action {
       $dd = Get-UiDump
       if (-not $dd) { return $false }
@@ -1101,13 +1117,13 @@ function Invoke-TourHero {
   [void](Switch-Tab 'Experiments'); Start-Sleep -Seconds 4
   $mode = Enter-CaseExplorer -CaseId $TourCase -LogFile $LogFile
   if ($mode -eq 'run') {
-    [void](Set-Overlay -LabelRegex '^Prediction \((RAW|PROCESSED)\): (ON|OFF)$')
-    if (Invoke-TapText -Text 'Error inspector (SCR-04)' -NoSubstring -Scroll -EnabledOnly -TimeoutSec 20) {
+    [void](Set-Overlay -Label 'Prediction')
+    if (Open-ViewerEntry -Label 'Error inspector' -TimeoutSec 20) {
       Start-Sleep -Seconds 3
-      [void](Invoke-TapText -Regex '^Jump to worst' -Scroll -EnabledOnly -TimeoutSec 20)
+      [void](Invoke-TapText -Regex '^Jump to (the )?worst' -Scroll -EnabledOnly -TimeoutSec 20)
       Start-Sleep -Seconds 4
     }
-  } elseif ($mode) { [void](Set-Overlay -LabelRegex '^Ground truth: (ON|OFF)$') }
+  } elseif ($mode) { [void](Set-Overlay -Label 'Ground truth') }
   Start-Sleep -Seconds 2
 }
 
@@ -1143,7 +1159,7 @@ function Step-Tour {
   # SCR-02 Case list
   [void](Step-TourScreen -Screen 'SCR-02 case list' -Expected 'tap the Cases tab (bottom); wait until the list of cases is shown' -Action {
     if (-not (Switch-Tab 'Cases')) { return $false }
-    $w = Wait-UiNode -Regex 'cases? on this page' -TimeoutSec 40 -AppOnly
+    $w = Wait-UiNode -Regex '^case$' -TimeoutSec 40 -AppOnly    # the list's CASE column heading
     if ($null -eq $w) { return $false }
     [void](Save-TourShot -File '03_SCR-02_case_list.png' -Screen 'SCR-02 case list' -SettleSec 2)
     return $true
@@ -1156,12 +1172,12 @@ function Step-Tour {
     if (-not $m) { return $false }
     $script:TourMode = $m
     if ($m -eq 'run') {
-      [void](Set-Overlay -LabelRegex '^Prediction \((RAW|PROCESSED)\): (ON|OFF)$')
-      [void](Set-Overlay -LabelRegex '^Ground truth: (ON|OFF)$')
+      [void](Set-Overlay -Label 'Prediction')
+      [void](Set-Overlay -Label 'Ground truth')
       Start-Sleep -Seconds 2
       [void](Save-TourShot -File '04_SCR-03_explorer_prediction_overlay.png' -Screen ('SCR-03 explorer ' + $TourCase + ' (prediction + ground truth overlay ON)') -SettleSec 2)
     } else {
-      [void](Set-Overlay -LabelRegex '^Ground truth: (ON|OFF)$')
+      [void](Set-Overlay -Label 'Ground truth')
       Start-Sleep -Seconds 2
       [void](Save-TourShot -File '04_SCR-03_explorer_no_run.png' -Screen ('SCR-03 explorer ' + $TourCase + ' (no analysis run: ground truth overlay only)') -SettleSec 2)
       Add-TourEntry -Screen 'SCR-04 / SCR-05 / SCR-06' -Status 'skipped' -Note ($TourCase + ' has no analysis run, so the error inspector, 3D and review entries are disabled')
@@ -1171,13 +1187,13 @@ function Step-Tour {
 
   if ($r3 -and $script:TourMode -eq 'run') {
     # SCR-04 Error inspector, then the worst slice
-    [void](Step-TourScreen -Screen 'SCR-04 error inspector' -Expected "in the case viewer scroll down and tap 'Error inspector (SCR-04)'; then tap 'Jump to worst' in the Worst slices card" -Action {
-      if (-not (Invoke-TapText -Text 'Error inspector (SCR-04)' -NoSubstring -Scroll -EnabledOnly -TimeoutSec 30)) { return $false }
+    [void](Step-TourScreen -Screen 'SCR-04 error inspector' -Expected "in the case viewer tap 'more' (top right), then 'Error inspector'; then tap 'Jump to the worst slice' under Worst slices" -Action {
+      if (-not (Open-ViewerEntry -Label 'Error inspector')) { return $false }
       $w = Wait-UiNode -Regex '^Worst slices' -TimeoutSec 60 -AppOnly
       if ($null -eq $w) { return $false }
       Start-Sleep -Seconds 4
       [void](Save-TourShot -File '05_SCR-04_error_inspector.png' -Screen 'SCR-04 error inspector' -SettleSec 2)
-      if (Invoke-TapText -Regex '^Jump to worst' -Scroll -EnabledOnly -TimeoutSec 30) {
+      if (Invoke-TapText -Regex '^Jump to (the )?worst' -Scroll -EnabledOnly -TimeoutSec 30) {
         Start-Sleep -Seconds 5
         [void](Save-TourShot -File '05b_SCR-04_worst_slice.png' -Screen 'SCR-04 error inspector (worst slice)' -SettleSec 2)
       } else { Add-TourEntry -Screen 'SCR-04 worst slice' -Status 'skipped' -Note 'no enabled Jump to worst entry (the server returned no worst-slice selection?)' }
@@ -1186,8 +1202,8 @@ function Step-Tour {
 
     # SCR-05 3D: wait for the mesh, tap a surface point, Open in 2D
     $script:ThreeD = $false
-    [void](Step-TourScreen -Screen 'SCR-05 3D inspector' -Expected "in the error inspector scroll down and tap '3D error view (SCR-05)'; wait for the surface to appear (the layer rows show a triangle count)" -Action {
-      if (-not (Invoke-TapText -Text '3D error view (SCR-05)' -NoSubstring -Scroll -EnabledOnly -TimeoutSec 30)) { return $false }
+    [void](Step-TourScreen -Screen 'SCR-05 3D inspector' -Expected "in the error inspector scroll down and tap '3D error view'; wait for the surface to appear (the layer rows show a triangle count)" -Action {
+      if (-not (Invoke-TapText -Text '3D error view' -NoSubstring -Scroll -EnabledOnly -TimeoutSec 30)) { return $false }
       $mesh = Wait-UiNode -Regex '^\d[\d,]* triangles$' -TimeoutSec 150 -PollMs 2500 -AppOnly
       if ($null -eq $mesh) {
         $d = Get-UiDump
@@ -1242,8 +1258,8 @@ function Step-Tour {
     $a = Read-Operator '  Open SCR-06 for the screenshot? [y/N] (Enter = No)' -Default 'n'
     if ($a -notmatch '^[yY]') { Add-TourEntry -Screen 'SCR-06 review' -Status 'skipped' -Note 'operator chose not to open it (review_create)' }
     else {
-      [void](Step-TourScreen -Screen 'SCR-06 review (read-only)' -Expected "in the case viewer scroll down and tap 'Review / correct (SCR-06)'; take no action in it" -Action {
-        if (-not (Invoke-TapText -Text 'Review / correct (SCR-06)' -NoSubstring -Scroll -EnabledOnly -TimeoutSec 30)) { return $false }
+      [void](Step-TourScreen -Screen 'SCR-06 review (read-only)' -Expected "in the case viewer tap 'more' (top right), then 'Review and correct'; take no action in it" -Action {
+        if (-not (Open-ViewerEntry -Label 'Review and correct')) { return $false }
         $w = Wait-UiNode -Regex '^Review: ' -TimeoutSec 60 -AppOnly
         if ($null -eq $w) { return $false }
         Start-Sleep -Seconds 5
@@ -1397,9 +1413,9 @@ function Show-Plan {
         Write-Host ('  {0}. a9: {1} repetition(s), each cold (the cache is empty)' -f $n, $Reps) -ForegroundColor White
         Write-Host '       per repetition:'
         Write-Host '         am force-stop; logcat -c; start "logcat -v threadtime -s ReactNativeJS:V" into A9_rep<k>_logcat.txt; monkey launch'
-        Write-Host '         wait for the LIVE badge -> Cases tab -> the case row -> wait for slice 45 / 88 and the "open ... shown" gesture in logcat'
-        Write-Host '         Ground truth: OFF -> ON; wait 3 s; dumpsys meminfo -> A9_rep<k>_meminfo_M0.txt'
-        Write-Host '         long-press the slice label (input swipe x y x y 1200) -> tap "A9 30-step" (case-insensitive)'
+        Write-Host '         wait for the Live badge -> Cases tab -> the case row -> wait for "Slice 45 / 88" and the "open ... shown" gesture in logcat'
+        Write-Host '         the Ground truth chip ON (checked); wait 3 s; dumpsys meminfo -> A9_rep<k>_meminfo_M0.txt'
+        Write-Host '         long-press "Slice 45 / 88" in the bottom panel (input swipe x y x y 1200) -> tap "A9 30-step" (case-insensitive)'
         Write-Host '         from then on NO touch and no uiautomator call: poll the logcat file for CMW_RUN_END of the measured pass (3 min limit)'
         Write-Host '         dumpsys meminfo -> ..._M1.txt BEFORE tapping OK on "A9 finished"; stop the capture; logcat -d -> ..._logcat_dump.txt'
         Write-Host '         count CMW_SLICE / CMW_GESTURE / CMW_RUN_END / CMW_NET_TOTALS (expect 62 / 63 / 2 / 2); ask whether the phone was disturbed'
