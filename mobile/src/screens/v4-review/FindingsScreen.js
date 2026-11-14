@@ -29,7 +29,8 @@ import { RECOVERY } from '../../api/states.mjs';
 import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import { createFindingsScreen, FINDING_TYPE, PREDICTION_VARIANT } from './findingsController.mjs';
+import { createFindingsScreen, FINDING_TYPE } from './findings.mjs';
+import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 
 const TYPE_LABEL = Object.freeze({
   UNDER_SEGMENTATION: 'Under-segmentation',

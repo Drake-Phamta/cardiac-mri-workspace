@@ -19,8 +19,9 @@ import { createContract } from '../src/api/contract.mjs';
 import { createBundle, getScenario, createClient, createFixtureTransport } from '../src/api/client.mjs';
 import { RECOVERY, STATE } from '../src/api/states.mjs';
 import {
-  createReviewCorrection, checkTransition, latestVersion, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES, PREDICTION_VARIANT,
+  createReviewCorrection, checkTransition, latestVersion, REVIEW_STATUS, REVIEW_TRANSITIONS, REVIEW_RULES,
 } from '../src/screens/v4-review/review.mjs';
+import { PREDICTION_VARIANT } from '../src/lib/caseMode.mjs';
 import { createBrushSession, SOURCE_KIND, SOURCE_KIND_FOR_VARIANT, MASK_STATE, TOOL } from '../src/screens/v4-review/brush.mjs';
 
 const ROOT = new URL('../../', import.meta.url);

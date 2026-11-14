@@ -54,13 +54,14 @@
 
 import { maskRuns } from '../../lib/mask.mjs';
 import { STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError } from '../../api/states.mjs';
-import { fitTransform, clampZoom, zoomAbout } from '../../lib/viewMath.mjs';
-import { createReviewCorrection, PREDICTION_VARIANT } from './review.mjs';
-import { createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE } from './brush.mjs';
-import { syntheticSourceSlice } from './syntheticSource.mjs';
-import { createGestureController, MODE } from './gesture.mjs';
+import { fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
+import { createReviewCorrection } from './review.mjs';
+import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
+import {
+  createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE, END_SECOND_FINGER, END_TERMINATED,
+} from './brush.mjs';
 
-export { MODE, TOOL, MASK_STATE };
+export { TOOL, MASK_STATE };
 
 export const PHASE = Object.freeze({
   CHOOSE_VARIANT: 'CHOOSE_VARIANT', // the route named no variant; the user picks one
@@ -619,4 +620,149 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       terminate() { gesture.terminate(); emit(); },
     }),
   });
+}
+
+/*
+ * SCR-06 touch handling — pure, so node can test it; ReviewCorrectionScreen.js
+ * only feeds it PanResponder events.
+ *
+ * The rules are the ones Spike A measured as A11 on the A17 (12/12 second-finger
+ * interruptions rolled back, 0 strokes committed in a multi-finger gesture),
+ * ADAPTED from the responder in spikes/spike_a_2d/app/App.js (stages S5/S8) -
+ * re-written as a pure module, not imported:
+ *   - in BRUSH mode one finger paints from the moment it lands: one gesture,
+ *     one stroke;
+ *   - a second finger makes the gesture navigation and ROLLS BACK the stroke
+ *     (END_SECOND_FINGER) - `10` §5: navigation must not edit;
+ *   - the system taking the gesture away rolls it back too (END_TERMINATED);
+ *   - only a clean lift commits (END_RELEASE);
+ *   - two fingers pinch-zoom about their midpoint and pan; one finger pans in
+ *     PAN mode, and in a gesture that has already become navigation.
+ *
+ * Points are CANVAS coordinates: page coordinates minus the canvas origin,
+ * which is how the spike got coordinates that do not depend on which child
+ * view a finger landed on.
+ */
+
+export const MODE = Object.freeze({ BRUSH: 'brush', PAN: 'pan' });
+
+export function createGestureController({
+  getSession, getSlice, getTransform, setTransform, getFitZoom, getMode, onStrokeEnd = null,
+}) {
+  let gest = null; // { prev: points, stroke: boolean }
+
+  function endStroke(how) {
+    gest.stroke = false;
+    const r = getSession().endStroke(how);
+    if (r && onStrokeEnd) onStrokeEnd(r);
+    return r;
+  }
+
+  function grant(points) {
+    // Never inherit a stroke whose end was not delivered.
+    if (gest && gest.stroke) endStroke(END_TERMINATED);
+    gest = { prev: points, stroke: false };
+    const session = getSession();
+    const t = getTransform();
+    if (getMode() === MODE.BRUSH && points.length === 1 && session && t) {
+      session.beginStroke(getSlice());
+      gest.stroke = true;
+      session.sample(points[0].x, points[0].y, t);
+    }
+  }
+
+  // A finger landed while the gesture is live (the first one also arrives here).
+  function fingers(points) {
+    if (!gest) return;
+    if (gest.stroke && points.length >= 2) endStroke(END_SECOND_FINGER);
+    gest.prev = points;
+  }
+
+  function move(points) {
+    if (!gest) return;
+    const t = getTransform();
+    if (!t) return;
+    if (gest.stroke) {
+      if (points.length === 1) {
+        getSession().sample(points[0].x, points[0].y, t);
+        gest.prev = points;
+        return;
+      }
+      endStroke(END_SECOND_FINGER); // the second finger showed up on a move first
+    }
+    if (points.length !== gest.prev.length) { gest.prev = points; return; } // a finger added or lifted
+    if (points.length >= 2) {
+      const dist = (p) => Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+      const mid = (p) => ({ x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 });
+      const d0 = dist(gest.prev);
+      const m0 = mid(gest.prev);
+      const m1 = mid(points);
+      let next = t;
+      if (d0 > 0) next = zoomAbout(next, clampZoom(t.zoom * (dist(points) / d0), getFitZoom()), m0.x, m0.y);
+      setTransform(panBy(next, m1.x - m0.x, m1.y - m0.y));
+    } else {
+      setTransform(panBy(t, points[0].x - gest.prev[0].x, points[0].y - gest.prev[0].y));
+    }
+    gest.prev = points;
+  }
+
+  function release() {
+    if (gest && gest.stroke) endStroke(END_RELEASE);
+    gest = null;
+  }
+
+  function terminate() {
+    if (gest && gest.stroke) endStroke(END_TERMINATED);
+    gest = null;
+  }
+
+  return Object.freeze({
+    grant, fingers, move, release, terminate,
+    get active() { return gest !== null; },
+    get stroking() { return Boolean(gest && gest.stroke); },
+  });
+}
+
+/*
+ * FIXTURE MODE ONLY — a synthetic stand-in source mask for SCR-06.
+ *
+ * The generated fixture bundle carries metadata and checksums, never pixels:
+ * mask bytes live at content_url (contract v1.0 binary_delivery), and in
+ * fixture mode there is no server behind that URL. The brush still needs
+ * something to edit so add / erase / undo / redo / reset / save can be shown on
+ * a phone, so fixture mode draws THIS: a lobed blob, largest on the middle
+ * slice and absent outside the middle third of the volume.
+ *
+ * It is not a prediction and not patient data. The screen labels it SYNTHETIC,
+ * the brush session carries source.synthetic = true, and the V4 model refuses
+ * to send a synthetic session to any transport but the fixture one.
+ *
+ * Deterministic: the same (nx, ny, z, nz) always gives the same bytes, so the
+ * demo and the tests see the same mask.
+ */
+
+export function syntheticSourceSlice(nx, ny, z, nz) {
+  const out = new Uint8Array(nx * ny);
+  const centre = (nz - 1) / 2;
+  const d = Math.abs(z - centre) / (nz / 3);
+  if (!(d < 1)) return out;
+  const scale = Math.sqrt(1 - d * d);
+  const cx = nx * 0.52;
+  const cy = ny * 0.48;
+  const rx = nx * 0.11 * scale;
+  const ry = ny * 0.085 * scale;
+  const x0 = Math.max(0, Math.floor(cx - rx * 1.2));
+  const x1 = Math.min(nx - 1, Math.ceil(cx + rx * 1.2));
+  const y0 = Math.max(0, Math.floor(cy - ry * 1.2));
+  const y1 = Math.min(ny - 1, Math.ceil(cy + ry * 1.2));
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const dx = (x - cx) / rx;
+      const dy = (y - cy) / ry;
+      // An ellipse with three gentle lobes, so both add and erase have an
+      // obvious edge to work on.
+      if (dx * dx + dy * dy <= 1 + 0.12 * Math.cos(3 * Math.atan2(dy, dx))) out[y * nx + x] = 1;
+    }
+  }
+  return out;
 }

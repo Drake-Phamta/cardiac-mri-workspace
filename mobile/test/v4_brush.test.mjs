@@ -18,7 +18,6 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fitTransform, zoomAbout, panBy, clampZoom } from '../src/lib/viewMath.mjs';
 import * as B from '../src/screens/v4-review/brush.mjs';
-import * as P from '../src/screens/v4-review/maskPayload.mjs';
 import { bytesToBase64, sha256Hex } from '../src/lib/bytes.mjs';
 
 const HERE = new URL('../src/screens/v4-review/', import.meta.url);
@@ -385,16 +384,16 @@ if (!haveOracle) {
   // Round trip through the module's own decoder, a size that is not a multiple
   // of 8 (zero-padded tail), and base64 against Buffer on every tail length.
   const odd = new Uint8Array(15).map((_, i) => (i % 3 === 0 ? 1 : 0));
-  const oddPayload = P.encodeMaskPayload(odd, 5, 3);
+  const oddPayload = B.encodeMaskPayload(odd, 5, 3);
   const oddIndep = unpack(oddPayload.data, 15);
-  const roundTrip = sha(P.decodeMaskPayload(entry.maskPayload, NX, NY)) === sha(s.workingSlice(0))
-    && sha(P.decodeMaskPayload(oddPayload, 5, 3)) === sha(odd) && sha(oddIndep.out) === sha(odd) && oddIndep.bytes === 2;
+  const roundTrip = sha(B.decodeMaskPayload(entry.maskPayload, NX, NY)) === sha(s.workingSlice(0))
+    && sha(B.decodeMaskPayload(oddPayload, 5, 3)) === sha(odd) && sha(oddIndep.out) === sha(odd) && oddIndep.bytes === 2;
   const b64Bad = [0, 1, 2, 3, 4, 5, 7, 31, 32, 33].filter((n) => {
     const b = new Uint8Array(n).map((_, i) => (i * 97 + n) & 0xff);
     return bytesToBase64(b) !== Buffer.from(b).toString('base64');
   });
-  const wrongSize = codeOf(() => P.encodeMaskPayload(new Uint8Array(10), 4, 3));
-  const unsupported = codeOf(() => P.decodeMaskPayload({ encoding: 'PNG_BASE64', data: '' }, 4, 3));
+  const wrongSize = codeOf(() => B.encodeMaskPayload(new Uint8Array(10), 4, 3));
+  const unsupported = codeOf(() => B.decodeMaskPayload({ encoding: 'PNG_BASE64', data: '' }, 4, 3));
   check('B10', roundTrip && b64Bad.length === 0 && wrongSize === 'MASK_SHAPE_MISMATCH' && unsupported === 'MASK_PAYLOAD_UNSUPPORTED',
     'decodeMaskPayload inverts it, a 5x3 slice packs into 2 zero-padded bytes, bytesToBase64 equals Buffer at every ' +
     'tail length; a wrong-size slice or a non-BITPACK payload is refused' +

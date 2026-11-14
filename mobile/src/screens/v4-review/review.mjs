@@ -36,6 +36,7 @@
  *        saving over a stale base would drop the newer corrections.
  */
 
+import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, RECOVERY, loading, fatalInvalid } from '../../api/states.mjs';
 import { SOURCE_KIND_FOR_VARIANT } from './brush.mjs';
 
@@ -68,9 +69,6 @@ export const REVIEW_RULES = Object.freeze({
   // INVALID_REVIEW_TRANSITION.
   correctedOnlyVia: 'review_commit',
 });
-
-// domain_enums.prediction_variant - the variants a review can be scoped to.
-export const PREDICTION_VARIANT = Object.freeze({ RAW: 'RAW', PROCESSED: 'PROCESSED' });
 
 /*
  * The newest committed version: highest provenance.version, else highest

@@ -16,8 +16,9 @@ import { fitTransform } from '../src/lib/viewMath.mjs';
 import { resolveConfig } from '../src/config.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
 import { maskRuns } from '../src/lib/mask.mjs';
-import { createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE } from '../src/screens/v4-review/reviewScreen.mjs';
-import { syntheticSourceSlice } from '../src/screens/v4-review/syntheticSource.mjs';
+import {
+  createReviewScreen, PHASE, PIXELS, MODE, TOOL, MASK_STATE, syntheticSourceSlice,
+} from '../src/screens/v4-review/reviewScreen.mjs';
 import { diffRuns } from '../src/screens/v4-review/brush.mjs';
 import { generatedBundleJson, readContractJson } from './_helpers.mjs';
 import { ellipseMask, encodePng, importMaskPngOrSkip } from './_png.mjs';

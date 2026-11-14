@@ -12,9 +12,9 @@ import { createContract } from '../src/api/contract.mjs';
 import { createBundle, getScenario, createClient, createFixtureTransport } from '../src/api/client.mjs';
 import { STATE, RECOVERY } from '../src/api/states.mjs';
 import {
-  FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND, PREDICTION_VARIANT,
-  normalizeFinding, evidenceLocation, fieldsFromRecord, createFindings,
+  FINDING_TYPE, FINDING_STATUS, EVIDENCE_SCREEN, REGION_KIND, normalizeFinding, evidenceLocation, fieldsFromRecord, createFindings,
 } from '../src/screens/v4-review/findings.mjs';
+import { PREDICTION_VARIANT } from '../src/lib/caseMode.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, ROOT), 'utf8'));
