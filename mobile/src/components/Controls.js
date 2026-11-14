@@ -146,7 +146,11 @@ const s = StyleSheet.create({
     flexDirection: 'row', height: size.segmented, padding: 2, borderRadius: radius.m, backgroundColor: color.field,
     alignSelf: 'flex-start',
   },
-  segment: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, borderRadius: radius.s },
+  // minWidth keeps a short label ("IoU", "Raw") at least MIN_TOUCH wide; hitSlop adds the height.
+  segment: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 12,
+    minWidth: MIN_TOUCH, borderRadius: radius.s,
+  },
   segmentIcon: { paddingHorizontal: 10 },
   segmentOn: { backgroundColor: color.accentSoft },
   segmentT: { ...type.secondary, fontWeight: '500', color: color.t2 },

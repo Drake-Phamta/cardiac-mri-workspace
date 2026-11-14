@@ -11,7 +11,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconChevronRight } from './icons';
-import { color, HAIRLINE, size, type } from './theme';
+import { color, HAIRLINE, MIN_TOUCH, size, type } from './theme';
 
 /*
  * variant 'section' sits inside the page margin, with an optional caption on the right ("0 of 3 comparable").
@@ -47,6 +47,12 @@ export function MiniBar({ value, tone = 'neutral', style }) {
   );
 }
 
+// A row shorter than MIN_TOUCH (the 40 dp meter row) pads its hit area up to 48 dp, top and bottom.
+const slop = (height) => {
+  const pad = Math.max(0, Math.ceil((MIN_TOUCH - height) / 2));
+  return { top: pad, bottom: pad, left: 0, right: 0 };
+};
+
 const SHAPE = {
   nav: { height: size.row, gap: 16, chevron: 20 },
   meter: { height: size.meterRow, gap: 16, chevron: 16 },
@@ -81,6 +87,7 @@ export default function ListRow({
     <TouchableOpacity
       style={style}
       onPress={onPress}
+      hitSlop={slop(shape.height)}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       testID={testID}
