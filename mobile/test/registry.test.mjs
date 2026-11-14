@@ -50,9 +50,9 @@ test('G1b the default-export check accepts every way of writing one, and only th
 test('G2 registry.js statically imports exactly those files and maps each id to its own import', () => {
   for (const s of SCREENS) {
     const name = s.file.replace(/\.js$/, '');
-    const importLine = new RegExp(`import\\s+(\\w+)\\s+from\\s+'\\.\\./verticals/${s.folder}/${name}';`);
+    const importLine = new RegExp(`import\\s+(\\w+)\\s+from\\s+'\\.\\./${s.folder}/${name}';`);
     const m = importLine.exec(registrySource);
-    assert.ok(m, `registry.js does not import ../verticals/${s.folder}/${name}`);
+    assert.ok(m, `registry.js does not import ../${s.folder}/${name}`);
     assert.match(registrySource, new RegExp(`'${s.id}':\\s*${m[1]},`), `${s.id} is not mapped to ${m[1]}`);
   }
   const mapped = registrySource.match(/'SCR-\d\d':/g) || [];

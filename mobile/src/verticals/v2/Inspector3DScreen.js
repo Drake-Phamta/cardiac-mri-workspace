@@ -31,10 +31,10 @@ import { createLatest } from '../../api/latest.mjs';
 import useCall from '../../api/useCall';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import CapabilityBadge from '../v1/CapabilityBadge';
-import { capabilityOf } from '../v1/capability.mjs';
-import { variantOptions } from '../v1/explorer.mjs';
-import { rememberedVariant, rememberVariant } from '../v1/session.mjs';
+import CapabilityBadge from '../../components/CapabilityBadge';
+import { capabilityOf } from '../../lib/caseMode.mjs';
+import { variantOptions } from '../../screens/v1-cases/explorer.mjs';
+import { rememberedVariant, rememberVariant } from '../../lib/session.mjs';
 import {
   gridMatches, LAYER, LAYER_COLOR, layerStatus, maskIdForVariant, meshRef, openIn2D, parseMeshHeader, parseViewerMessage,
   ROLE_LABEL, ROLES, screenStatus, SELECTION_NONE, selectionAfterPick, sliceText, toViewer, triangleText,

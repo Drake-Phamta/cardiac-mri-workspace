@@ -13,9 +13,9 @@
  */
 
 import StudyOverviewScreen from '../verticals/v3/StudyOverviewScreen';
-import CaseListScreen from '../verticals/v1/CaseListScreen';
-import CaseExplorerScreen from '../verticals/v1/CaseExplorerScreen';
-import ErrorInspectorScreen from '../verticals/v1/ErrorInspectorScreen';
+import CaseListScreen from '../screens/v1-cases/CaseListScreen';
+import CaseExplorerScreen from '../screens/v1-cases/CaseExplorerScreen';
+import ErrorInspectorScreen from '../screens/v1-cases/ErrorInspectorScreen';
 import Inspector3DScreen from '../verticals/v2/Inspector3DScreen';
 import ReviewCorrectionScreen from '../verticals/v4/ReviewCorrectionScreen';
 import ExperimentComparisonScreen from '../verticals/v3/ExperimentComparisonScreen';

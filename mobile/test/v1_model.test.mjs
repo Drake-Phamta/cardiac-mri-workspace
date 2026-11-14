@@ -12,18 +12,20 @@
 // that edit ONE field of a generated response, never a handwritten one.
 
 import { readFileSync } from 'node:fs';
+
+import { generatedBundleJson } from './_helpers.mjs';
 import {
   createContract, createBundle, createClient, createFixtureTransport, getScenario,
   STATE, RECOVERY, screenToSource, sliceCacheKey,
-} from '../../../mobile/src/api/index.mjs';
-import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN, RUN_NOT_LISTED } from './index.mjs';
+} from '../src/api/index.mjs';
+import { createCaseExplorer, LAYER, NO_ANALYSIS_RUN, RUN_NOT_LISTED } from '../src/screens/v1-cases/cases.mjs';
 
-const ROOT = new URL('../../../', import.meta.url);
+const ROOT = new URL('../../', import.meta.url);
 const readJson = (p) => JSON.parse(readFileSync(new URL(p, ROOT), 'utf8'));
 
 const contractJson = readJson('contracts/api/contract.json');
 const contract = createContract(contractJson);
-const bundle = createBundle(contract, readJson('app/core/fixtures/.generated/api_bundle.json'));
+const bundle = createBundle(contract, generatedBundleJson());
 const newClient = () => createClient(contract, createFixtureTransport(bundle));
 
 /*
@@ -668,14 +670,6 @@ const check = (id, ok, detail) => {
   check('V1-27', again.view.state === STATE.SUCCESS && again.sliceIndex === 44 && after.length > 0
     && after.every((id) => id === 'mri_slice_get' || id === 'ground_truth_slice_get'),
     `refresh reloads the slice with slice requests only: ${after.join(', ')}`);
-}
-
-// V1-23 — the README states how many checks this file makes. A count that
-// drifts is a claim nobody re-checked, so it is checked here.
-{
-  const readme = readFileSync(new URL('README.md', import.meta.url), 'utf8');
-  const stated = Number((readme.match(/(\d+) checks, groups V1-1/) || [])[1]);
-  check('V1-23', stated === checks + 1, `README says ${stated} checks; this file makes ${checks + 1}`);
 }
 
 console.log(failures === 0

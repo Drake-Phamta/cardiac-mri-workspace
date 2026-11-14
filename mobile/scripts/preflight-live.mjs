@@ -37,11 +37,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { STATE } from '../src/api/index.mjs';
-import { createCaseExplorer } from '../../app/verticals/v1_case_explorer/index.mjs';
+import { createCaseExplorer } from '../src/screens/v1-cases/cases.mjs';
 import { API_BASE_URL_ENV, maskBaseUrl, parseEnvFile, resolveConfig } from '../src/config.mjs';
 import { disagreementRuns } from '../src/lib/mask.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
-import { capabilityOf, readCaseRows } from '../src/verticals/v1/capability.mjs';
+import { capabilityOf, readCaseRows } from '../src/lib/caseMode.mjs';
 import { PER_SLICE_ENDPOINTS } from './l4-report.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));

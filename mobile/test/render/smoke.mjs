@@ -68,7 +68,7 @@ const { resolveConfig } = await imp('src/config.mjs');
 const { createRuntime } = await imp('src/api/runtime.mjs');
 const { RuntimeProvider } = await imp('src/api/RuntimeContext.js');
 const NavigatorView = (await imp('src/navigation/Navigator.js')).default;
-const CaseExplorerScreen = (await imp('src/verticals/v1/CaseExplorerScreen.js')).default;
+const CaseExplorerScreen = (await imp('src/screens/v1-cases/CaseExplorerScreen.js')).default;
 const ExperimentComparisonScreen = (await imp('src/verticals/v3/ExperimentComparisonScreen.js')).default;
 const FindingsScreen = (await imp('src/verticals/v4/FindingsScreen.js')).default;
 const { decodeMaskPng } = await imp('src/lib/maskPng.js');
@@ -586,7 +586,7 @@ function noRunBackend() {
 
 // ---- 6. SCR-04 Error Inspector -------------------------------------------------
 {
-  const ErrorInspectorScreen = (await imp('src/verticals/v1/ErrorInspectorScreen.js')).default;
+  const ErrorInspectorScreen = (await imp('src/screens/v1-cases/ErrorInspectorScreen.js')).default;
   const pushes = [];
   const nav = { push: (id, p) => { pushes.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
   const mount = async (runtime, params) => {
@@ -871,7 +871,7 @@ function noRunBackend() {
 // a slice that is not the middle one) -> SCR-04 -> Back. The session's remembered
 // variant is forgotten on the way, so only SCR-03's stack entry can bring it back.
 {
-  const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+  const { forgetSession } = await imp('src/lib/session.mjs');
   forgetSession();
   const backend = fakeBackend({ runIds: ['RUN_A', 'RUN_B'] });
   const runtime = liveRuntime(backend.fetchImpl);
@@ -1678,7 +1678,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
   // 10g. no variant given: the screen asks, there is no default (same rule as SCR-03)
   {
-    const { forgetSession } = await imp('src/verticals/v1/session.mjs');
+    const { forgetSession } = await imp('src/lib/session.mjs');
     forgetSession();
     const backend = meshBackend();
     const { r } = await mount(backend, { caseId: 'CASE_0061', runId: 'RUN_A' });

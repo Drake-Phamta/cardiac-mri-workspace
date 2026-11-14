@@ -23,8 +23,8 @@ import { RECOVERY } from '../../api/index.mjs';
 import useCall from '../../api/useCall';
 import StateView from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import CapabilityBadge from './CapabilityBadge';
-import { filterRows, readCaseRows } from './capability.mjs';
+import CapabilityBadge from '../../components/CapabilityBadge';
+import { filterRows, readCaseRows } from '../../lib/caseMode.mjs';
 
 const MODES = [
   { key: 'ALL', label: 'All' },

@@ -31,7 +31,7 @@
  */
 
 import { readSelection, SELECTION_UNAVAILABLE_REASON, STATE } from '../../api/index.mjs';
-import { variantMismatch } from '../../../../app/verticals/v1_case_explorer/index.mjs';
+import { variantMismatch } from './cases.mjs';
 
 export const ERROR_CLASS = Object.freeze({
   TP: Object.freeze({

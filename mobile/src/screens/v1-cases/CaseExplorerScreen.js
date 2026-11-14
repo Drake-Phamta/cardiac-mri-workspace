@@ -42,20 +42,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { loading, RECOVERY, STATE } from '../../api/index.mjs';
-import { createCaseExplorer, LAYER } from '../../../../app/verticals/v1_case_explorer/index.mjs';
+import { createCaseExplorer, LAYER } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import CapabilityBadge from './CapabilityBadge';
+import CapabilityBadge from '../../components/CapabilityBadge';
 import SliceScrubber from './SliceScrubber';
-import SliceViewport from './SliceViewport';
+import SliceViewport from './SliceView';
 import useMaskOverlay from './useMaskOverlay';
-import { capabilityOf } from './capability.mjs';
+import { capabilityOf } from '../../lib/caseMode.mjs';
 import {
   buildNavSequence, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel,
   VARIANT_TEXT, variantOptions,
 } from './explorer.mjs';
 import { createSerialRunner } from './serialRunner.mjs';
-import { rememberedVariant, rememberVariant } from './session.mjs';
+import { rememberedVariant, rememberVariant } from '../../lib/session.mjs';
 
 export const OVERLAY_COLOR = Object.freeze({ PREDICTION: '#f0883e', GROUND_TRUTH: '#39c5cf' });
 

@@ -5,13 +5,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { loading, readSelection, STATE, success } from '../src/api/index.mjs';
-import { variantMismatch } from '../../app/verticals/v1_case_explorer/index.mjs';
+import { variantMismatch } from '../src/screens/v1-cases/cases.mjs';
 import { disagreementRuns } from '../src/lib/mask.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, SELECTION_GATE, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote,
   pinnedSelection, profileFromSelection, profileIndexAt, profileNote, readRunMetrics, readWorstSlices, runLevel,
   runMetricsView, selectionNote, topEntries, worstLabel,
-} from '../src/verticals/v1/errorInspector.mjs';
+} from '../src/screens/v1-cases/errorInspector.mjs';
 import { loadContract, MOBILE_ROOT } from './_helpers.mjs';
 
 // The block exactly as contract v1.0 shapes it (selection_rules.worst_slice_selection),
@@ -288,7 +288,7 @@ test('V4p #78 QA N-10: only worst_slice_selection is read; a block with no list 
 });
 
 test('V4x DR-010: no ordering of slices anywhere in the SCR-04 logic or screen', () => {
-  for (const f of ['src/verticals/v1/errorInspector.mjs', 'src/verticals/v1/ErrorInspectorScreen.js']) {
+  for (const f of ['src/screens/v1-cases/errorInspector.mjs', 'src/screens/v1-cases/ErrorInspectorScreen.js']) {
     const code = readFileSync(join(MOBILE_ROOT, f), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     assert.doesNotMatch(code, /\.sort\(|\.toSorted\(/, `${f} must not rank slices`);

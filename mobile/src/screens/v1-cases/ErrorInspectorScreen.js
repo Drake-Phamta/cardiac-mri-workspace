@@ -41,15 +41,15 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import Svg, { Rect } from 'react-native-svg';
 
 import { emptyUnavailable, RECOVERY, STATE } from '../../api/index.mjs';
-import { createCaseExplorer } from '../../../../app/verticals/v1_case_explorer/index.mjs';
+import { createCaseExplorer } from './cases.mjs';
 import { disagreementRuns, runsToPath } from '../../lib/mask.mjs';
 import useCall from '../../api/useCall';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import CapabilityBadge from './CapabilityBadge';
+import CapabilityBadge from '../../components/CapabilityBadge';
 import SliceScrubber from './SliceScrubber';
-import SliceViewport from './SliceViewport';
-import { capabilityOf } from './capability.mjs';
+import SliceViewport from './SliceView';
+import { capabilityOf } from '../../lib/caseMode.mjs';
 import {
   CLASS_ORDER, ERROR_CLASS, compareMaskIds, compareWithServer, fmt, inVolume, outsideVolumeNote, pinnedSelection,
   profileIndexAt, profileNote, runLevel, selectionNote, worstLabel,
