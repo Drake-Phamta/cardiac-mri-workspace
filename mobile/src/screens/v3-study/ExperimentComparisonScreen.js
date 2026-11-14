@@ -1,22 +1,24 @@
-// SCR-07 Experiment Comparison: UNet vs DINOv2 at 25 / 50 / 100 % data, per-case strip plot, paired per-case
-// differences, trend and case links.
+// SCR-07 Experiment Comparison, Direction A: UNet vs DINOv2 at 25 / 50 / 100 % data, per-case strip plot, paired
+// per-case differences, trend and case links, as sections of rows under hairlines.
 // Opened with params.experimentIds for a pair or group, else the full matrix. The metric and statistic have no
 // default, and comparability is always the server's verdict, never decided here.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RECOVERY, STATE } from '../../api/states.mjs';
 import { createExperimentComparison } from './models.mjs';
 import StateView from '../../components/StateView';
-import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
+import { SegmentedControl } from '../../components/Controls';
+import { IconDatabase } from '../../components/icons';
+import ListRow from '../../components/ListRow';
+import { color, space, type } from '../../components/theme';
 import {
-  Button, StripChart, Card, Chip, Line, LinkButton, MetricLegend, Row, TONE_COLOR, useSnapshot,
+  Blocked, Body, CellRow, InfoRow, LinkRow, MetricLegend, Note, Section, StripChart, useSnapshot,
 } from './parts';
 import AboutDataSheet from './AboutDataSheet';
-import { aboutData } from './about.mjs';
-import { FamilyLegend, PairedChart, TrendChart } from './charts';
+import { aboutData, metricLabel, runDetails } from './about.mjs';
+import { FamilyKey, FamilyLegend, PairedChart, TrendChart } from './charts';
 import { pairDetail, pairedCards } from './paired.mjs';
 import { trendNotes, trendSeries } from './trend.mjs';
 import { comparisonView, OUTLIER_LABEL, pointDetail } from './view.mjs';
@@ -63,37 +65,44 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
 
   return (
     <StateView view={snap.view} what="the experiment comparison" onAction={onAction}>
-      {() => (
-        <>
-          <Comparison
-            v={comparisonView(snap, { stat, selectedCellId: cellId })}
-            pairs={pairedCards(snap)}
-            trend={trendSeries(snap.cells, snap.comparisons, snap.metricName)}
-            metricName={snap.metricName}
-            columns={columns}
-            point={point}
-            onPoint={setPoint}
-            paired={paired}
-            onPaired={setPaired}
-            onMetric={pickMetric}
-            stat={stat}
-            onStat={setStat}
-            cellId={cellId}
-            onCell={setCellId}
-            go={go}
-            blocked={blocked}
-            onAbout={() => setAboutOpen(true)}
-          />
-          <AboutDataSheet
-            visible={aboutOpen}
-            sections={aboutData({ fixture: snap.source === 'fixture' })}
-            onClose={() => setAboutOpen(false)}
-          />
-        </>
-      )}
+      {() => {
+        const v = comparisonView(snap, { stat, selectedCellId: cellId });
+        // Each run's context line (cohort level, population, N, metric version) is technical: it lives in the sheet.
+        const contexts = v.rows.flatMap((row) => row.cells).map((cell) => cell.contextText).filter(Boolean);
+        return (
+          <>
+            <Comparison
+              v={v}
+              pairs={pairedCards(snap)}
+              trend={trendSeries(snap.cells, snap.comparisons, snap.metricName)}
+              metricName={snap.metricName}
+              columns={columns}
+              point={point}
+              onPoint={setPoint}
+              paired={paired}
+              onPaired={setPaired}
+              onMetric={pickMetric}
+              stat={stat}
+              onStat={setStat}
+              cellId={cellId}
+              onCell={setCellId}
+              go={go}
+              blocked={blocked}
+              onAbout={() => setAboutOpen(true)}
+            />
+            <AboutDataSheet
+              visible={aboutOpen}
+              sections={[...aboutData({ fixture: snap.source === 'fixture' }), ...runDetails(contexts)]}
+              onClose={() => setAboutOpen(false)}
+            />
+          </>
+        );
+      }}
     </StateView>
   );
 }
+
+const capitalise = (word) => word.charAt(0).toUpperCase() + word.slice(1);
 
 function Comparison({
   v, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onMetric, stat, onStat, cellId, onCell, go, blocked,
@@ -101,147 +110,129 @@ function Comparison({
 }) {
   const detail = pointDetail(point, metricName);
   return (
-    <ScrollView contentContainerStyle={s.root}>
-      <Card title="What is compared" testID="scr07-header">
-        <Line>{v.modeText}</Line>
-        <Line dim small>{v.listText}</Line>
-        <Line dim small>{v.outsideMatrixText}</Line>
-        <Button label="About this data" onPress={onAbout} />
-      </Card>
+    <ScrollView contentContainerStyle={s.page}>
+      <View style={s.intro} testID="scr07-header">
+        <Body>{v.modeText}</Body>
+        <Note>{v.listText}</Note>
+        <Note>{v.outsideMatrixText}</Note>
+      </View>
+      <ListRow title="About this data" icon={IconDatabase} onPress={onAbout} divider="both" />
 
-      <Card title="Metric and statistic" testID="scr07-choices">
-        <Line dim small>Nothing is pre-selected: pick what to plot and how to summarise it.</Line>
-        {v.metric.emptyText ? <Line>{v.metric.emptyText}</Line> : (
-          <Row>
-            {v.metric.choices.map((m) => <Chip key={m} label={m} selected={m === v.metric.selected} onPress={() => onMetric(m)} />)}
-          </Row>
+      <Section title="Metric" testID="scr07-choices">
+        {v.metric.emptyText ? <Body>{v.metric.emptyText}</Body> : (
+          // Up to five metrics: a segmented control wider than the screen scrolls sideways.
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <SegmentedControl
+              label="Metric"
+              value={v.metric.selected}
+              onChange={onMetric}
+              options={v.metric.choices.map((m) => ({ value: m, label: metricLabel(m) }))}
+            />
+          </ScrollView>
         )}
-        <Row>
-          {v.stat.choices.map((st) => (
-            <Chip key={st} label={st} selected={st === stat} onPress={() => onStat(st === stat ? null : st)} />
-          ))}
-        </Row>
+        {v.metric.emptyText ? null : <Note>Nothing is pre-selected: pick what to plot and how to summarise it.</Note>}
+      </Section>
+      <Section title="Statistic">
+        <SegmentedControl
+          label="Statistic"
+          value={stat}
+          onChange={(st) => onStat(st === stat ? null : st)}
+          options={v.stat.choices.map((st) => ({ value: st, label: capitalise(st) }))}
+        />
+      </Section>
+      <Section title="What the metrics mean">
         <MetricLegend selected={metricName} />
-      </Card>
+      </Section>
 
-      <Card title="UNet vs DINOv2 · 25 / 50 / 100 %" testID="scr07-matrix">
+      <Section title="UNet vs DINOv2 · 25 / 50 / 100 %" testID="scr07-matrix">
         {v.rows.map((row) => (
           <View key={row.family} style={s.family}>
-            <Text style={s.familyLabel}>{row.label}</Text>
+            <View style={s.familyHead}>
+              <FamilyKey group={row.family} />
+              <Text style={s.familyName}>{row.label}</Text>
+            </View>
             {row.cells.map((cell) => (
-              <TouchableOpacity
-                key={cell.id}
-                style={[s.cell, cell.id === cellId && s.cellOn]}
-                onPress={() => onCell(cell.id === cellId ? null : cell.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${cell.title}: ${cell.statusText}`}
-              >
-                <Text style={s.cellTitle}>{`${cell.title} · ${cell.id}`}</Text>
-                <Text style={[s.cellStatus, { color: TONE_COLOR[cell.tone] }]}>{cell.statusText}</Text>
-                {cell.nText ? <Text style={s.mono}>{cell.nText}</Text> : null}
-                {cell.summaryText ? <Text style={s.text}>{cell.summaryText}</Text> : null}
-                {cell.contextText ? <Text style={s.small}>{cell.contextText}</Text> : null}
-                {cell.contextMissing.length > 0 ? (
-                  <Text style={[s.small, { color: TONE_COLOR[TONE.WARN] }]}>{`context missing: ${cell.contextMissing.join(', ')}`}</Text>
-                ) : null}
-                {cell.labels.map((l) => <Text key={l} style={s.small}>{l}</Text>)}
-                {cell.warnings.slice(0, 2).map((w) => (
-                  <Text key={w} style={[s.small, { color: TONE_COLOR[TONE.WARN] }]}>{w}</Text>
-                ))}
-              </TouchableOpacity>
+              <CellRow key={cell.id} cell={cell} selected={cell.id === cellId} onPress={() => onCell(cell.id === cellId ? null : cell.id)} />
             ))}
           </View>
         ))}
-      </Card>
+      </Section>
 
-      <Card title={`Distribution per case${metricName ? ` - ${metricName}` : ''}`} testID="scr07-strip">
+      <Section title="Distribution per case" meta={metricName ? metricLabel(metricName) : null} testID="scr07-strip">
         <StripChart
           columns={columns}
           selected={point}
           onSelect={onPoint}
           label={`strip plot, one dot per successfully evaluated case${metricName ? `, ${metricName}` : ''}`}
         />
-        <Line dim small>{`One dot per successfully evaluated case. A ring marks the server's ${OUTLIER_LABEL}. Tap a dot to see its case.`}</Line>
-        {v.stripNotes.map((n) => <Line key={n} dim small>{n}</Line>)}
+        <Note>{`One dot per successfully evaluated case. A ring marks the server's ${OUTLIER_LABEL}. Tap a dot to see its case.`}</Note>
+        {v.stripNotes.map((text) => <Note key={text}>{text}</Note>)}
         {detail ? (
           <View style={s.detail}>
-            <Line mono>{detail.text}</Line>
-            <LinkButton label="Open this case (SCR-03)" route={detail.route} onGo={go} />
+            <Body>{detail.text}</Body>
+            <LinkRow title="Open this case" route={detail.route} onGo={go} />
           </View>
         ) : null}
-      </Card>
+      </Section>
 
-      <Card title="Comparisons (server verdicts)" testID="scr07-comparisons">
+      <Section title="Comparisons (server verdicts)" testID="scr07-comparisons">
         {v.comparisons.map((c) => (
-          <View key={c.id} style={s.comparison}>
-            <Text style={s.text}>{c.label}</Text>
-            <Text style={[s.small, { color: TONE_COLOR[c.tone] }]}>{c.verdictText}</Text>
-            {c.reason ? <Text style={s.small}>{c.reason}</Text> : null}
-            {c.populationText ? <Text style={s.small}>{c.populationText}</Text> : null}
-            {c.deltaText ? <Text style={s.small}>{c.deltaText}</Text> : null}
-          </View>
+          <InfoRow key={c.id} title={c.label} state={c.verdictText} tone={c.tone} notes={[c.reason, c.populationText, c.deltaText]} />
         ))}
-      </Card>
+      </Section>
 
-      <Card title="Per-case differences" testID="scr07-paired">
-        <Line dim small>
+      <Section title="Per-case differences" testID="scr07-paired">
+        <Note>
           Only for two runs the server judged comparable. One dot per case: its value in the second run minus the
           first, lowest on the left. Tap a dot, then open the case in either run.
-        </Line>
-        {pairs.emptyText ? <Line>{pairs.emptyText}</Line> : null}
-        {pairs.notRequested.map((n) => <Line key={n} dim small>{n}</Line>)}
+        </Note>
+        <Body>{pairs.emptyText}</Body>
+        {pairs.notRequested.map((text) => <Note key={text}>{text}</Note>)}
         {pairs.cards.map((card) => (
           <PairedSection key={card.id} card={card} paired={paired} onPaired={onPaired} go={go} />
         ))}
-      </Card>
+      </Section>
 
-      <Card title="Trend over 25 → 50 → 100 % data" testID="scr07-trend">
+      <Section title="Trend over 25 → 50 → 100 % data" testID="scr07-trend">
         {trend.length ? (
           <>
             <TrendChart series={trend} label={`trend of ${metricName} over 25, 50 and 100 % training data`} />
             <FamilyLegend />
-            <Line dim small>
+            <Note>
               {'Markers: every case. Bar: the middle half of the cases (q1 to q3); tick: the median, both from the '
                 + "server's summary. A line and band join the runs only where the server judged them comparable."}
-            </Line>
-            {trendNotes(trend).map((n) => <Line key={n} small>{n}</Line>)}
+            </Note>
+            {trendNotes(trend).map((text) => <Note key={text}>{text}</Note>)}
           </>
-        ) : <Line dim small>Pick a metric above to draw the trend.</Line>}
-        <Line dim small>{v.trendText}</Line>
-        {v.trend.map((t) => (
-          <View key={t.family} style={s.comparison}>
-            <Text style={s.text}>{`${t.label}: ${t.pointsText}`}</Text>
-            <Text style={s.small}>{t.text}</Text>
-          </View>
-        ))}
-      </Card>
+        ) : <Note>Pick a metric above to draw the trend.</Note>}
+        <Note>{v.trendText}</Note>
+        {v.trend.map((t) => <InfoRow key={t.family} title={`${t.label}: ${t.pointsText}`} notes={[t.text]} />)}
+      </Section>
 
       {v.selected ? (
-        <Card title={`Cases - ${v.selected.title} (${v.selected.id})`} testID="scr07-cases">
-          <Line dim small>{v.selected.text}</Line>
-          {v.selectedOutliers ? <Line dim small>{`Outliers: ${v.selectedOutliers.text}`}</Line> : null}
+        <Section title={`Cases · ${v.selected.title} · ${v.selected.id}`} testID="scr07-cases">
+          <Note>{v.selected.text}</Note>
+          {v.selectedOutliers ? <Note>{`Outliers: ${v.selectedOutliers.text}`}</Note> : null}
           {v.selectedOutliers && v.selectedOutliers.rows.map((o) => (
-            <LinkButton key={`o-${o.key}`} label={`Outlier ${o.caseId} · ${o.valueText}`} route={o.route} onGo={go} />
+            <LinkRow key={`o-${o.key}`} title={`Outlier ${o.caseId} · ${o.valueText}`} route={o.route} onGo={go} />
           ))}
           {v.selected.rows.map((r) => (
-            <View key={r.key} style={s.caseRow}>
-              <Text style={s.mono}>{`${r.caseId} · ${r.statusText}${r.valueText ? ` · ${r.valueText}` : ''}`}</Text>
-              {r.reason ? <Text style={s.small}>{`reason: ${r.reason}`}</Text> : null}
-              <LinkButton label="Open case (SCR-03)" route={r.route} onGo={go} />
-            </View>
+            <LinkRow
+              key={r.key}
+              title={`${r.caseId} · ${r.statusText}${r.valueText ? ` · ${r.valueText}` : ''}`}
+              notes={r.reason ? [`reason: ${r.reason}`] : []}
+              route={r.route}
+              onGo={go}
+            />
           ))}
-        </Card>
+        </Section>
       ) : (
-        <Card title="Cases">
-          <Line dim small>Tap an experiment above to list every case the server returned for it, failed and excluded included.</Line>
-        </Card>
+        <Section title="Cases">
+          <Note>Tap an experiment above to list every case the server returned for it, failed and excluded included.</Note>
+        </Section>
       )}
 
-      {blocked ? (
-        <View style={s.blocked} accessibilityRole="alert">
-          <Text style={s.blockedT}>{`Cannot open: ${blocked}`}</Text>
-        </View>
-      ) : null}
+      <Blocked text={blocked} />
     </ScrollView>
   );
 }
@@ -250,46 +241,27 @@ function Comparison({
 function PairedSection({ card, paired, onPaired, go }) {
   const selected = paired && paired.cardId === card.id ? paired.pair : null;
   const detail = pairDetail(selected, card);
+  if (!card.available) return <InfoRow title={card.title} state={`Not shown: ${card.reason}`} />;
   return (
-    <View style={s.comparison}>
-      <Text style={s.text}>{card.title}</Text>
-      {card.available ? (
-        <>
-          <Text style={s.small}>{card.summaryText}</Text>
-          <PairedChart card={card} selected={selected} onSelect={(pair) => onPaired(pair ? { cardId: card.id, pair } : null)} />
-          <Text style={s.small}>{card.directionText}</Text>
-          {card.unpairedText ? <Text style={s.small}>{card.unpairedText}</Text> : null}
-          {detail ? (
-            <View style={s.detail}>
-              <Line mono>{detail.text}</Line>
-              {detail.links.map((l) => <LinkButton key={l.label} label={l.label} route={l.route} onGo={go} />)}
-            </View>
-          ) : null}
-        </>
-      ) : (
-        <Text style={[s.small, { color: TONE_COLOR[TONE.WARN] }]}>{`Not shown: ${card.reason}`}</Text>
-      )}
-    </View>
+    <InfoRow title={card.title} notes={[card.summaryText]}>
+      <PairedChart card={card} selected={selected} onSelect={(pair) => onPaired(pair ? { cardId: card.id, pair } : null)} />
+      <Note>{card.directionText}</Note>
+      <Note>{card.unpairedText}</Note>
+      {detail ? (
+        <View style={s.detail}>
+          <Body>{detail.text}</Body>
+          {detail.links.map((l) => <LinkRow key={l.label} title={l.label} route={l.route} onGo={go} />)}
+        </View>
+      ) : null}
+    </InfoRow>
   );
 }
 
 const s = StyleSheet.create({
-  root: { padding: space.l, gap: space.m },
-  family: { marginTop: space.s, gap: space.s },
-  familyLabel: { color: color.text, fontSize: font.body, fontWeight: '700' },
-  cell: {
-    minHeight: MIN_TOUCH, borderWidth: 1, borderColor: color.border, borderRadius: 8, padding: space.s,
-    backgroundColor: color.surfaceHi,
-  },
-  cellOn: { borderColor: color.accent },
-  cellTitle: { color: color.text, fontSize: font.small, fontWeight: '700' },
-  cellStatus: { fontSize: font.small, marginTop: 2 },
-  text: { color: color.text, fontSize: font.body, marginTop: 2 },
-  small: { color: color.textDim, fontSize: font.small, marginTop: 2 },
-  mono: { color: color.text, fontFamily: font.mono, fontSize: 11, marginTop: 2 },
-  detail: { marginTop: space.s, paddingTop: space.s, borderTopWidth: 1, borderTopColor: color.border },
-  comparison: { borderTopWidth: 1, borderTopColor: color.border, paddingVertical: space.s },
-  caseRow: { borderTopWidth: 1, borderTopColor: color.border, paddingVertical: space.s },
-  blocked: { padding: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.danger, backgroundColor: color.dangerBg },
-  blockedT: { color: color.danger, fontSize: font.body },
+  page: { paddingHorizontal: space.l, paddingBottom: space.xl },
+  intro: { paddingTop: space.s, paddingBottom: space.m, gap: 2 },
+  family: { marginTop: space.s },
+  familyHead: { flexDirection: 'row', alignItems: 'center', gap: space.s, paddingBottom: space.xs },
+  familyName: { ...type.body, fontWeight: '500', color: color.t1 },
+  detail: { marginTop: space.s },
 });

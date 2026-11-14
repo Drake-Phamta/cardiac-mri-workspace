@@ -5,7 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line as SvgLine, Path, Rect, Text as SvgText } from 'react-native-svg';
 
-import { color, font, space } from '../../components/theme';
+import { color, space, type } from '../../components/theme';
 import { pairAt, pairedLayout } from './paired.mjs';
 import { trendLayout } from './trend.mjs';
 import { FAMILY_LABEL, FAMILY_STYLE, trianglePath } from './view.mjs';
@@ -14,7 +14,7 @@ import { FAMILY_LABEL, FAMILY_STYLE, trianglePath } from './view.mjs';
 export function Marker({ group, x, y, r, ring = false }) {
   const style = FAMILY_STYLE[group];
   const paint = {
-    fill: style ? style.color : color.text,
+    fill: style ? style.color : color.t1,
     fillOpacity: 0.8,
     stroke: ring ? color.warn : 'none',
     strokeWidth: ring ? 2 : 0,
@@ -23,14 +23,24 @@ export function Marker({ group, x, y, r, ring = false }) {
   return <Circle cx={x} cy={y} r={r} {...paint} />;
 }
 
-export function FamilyLegend() {
+// The family's marker as a small view, for legends: an 8 dp circle (UNet) or a 10 x 9 dp triangle (DINOv2).
+export function FamilyKey({ group }) {
+  const style = FAMILY_STYLE[group];
+  if (style && style.marker === 'triangle') {
+    return <View style={[s.triangle, { borderBottomColor: style.color }]} />;
+  }
+  return <View style={[s.dot, { backgroundColor: style ? style.color : color.t2 }]} />;
+}
+
+// "● UNet  ▲ DINOv2": the colour and the shape both say which family a mark belongs to.
+export function FamilyLegend({ style }) {
   return (
-    <View style={s.legend}>
+    <View style={[s.legend, style]} accessibilityLabel="Legend: UNet is a circle, DINOv2 is a triangle">
       {Object.keys(FAMILY_STYLE).map((group) => (
-        <Text key={group} style={s.item}>
-          <Text style={{ color: FAMILY_STYLE[group].color }}>{FAMILY_STYLE[group].marker === 'triangle' ? '▲' : '●'}</Text>
-          {` ${FAMILY_LABEL[group]}`}
-        </Text>
+        <View key={group} style={s.legendItem}>
+          <FamilyKey group={group} />
+          <Text style={s.legendText}>{FAMILY_LABEL[group]}</Text>
+        </View>
       ))}
     </View>
   );
@@ -57,21 +67,21 @@ export function PairedChart({ card, selected, onSelect }) {
           <Svg width={layout.width} height={layout.height}>
             {layout.ticks.map((t) => (
               <G key={`tick-${t.value}`}>
-                <SvgLine x1={layout.plot.x0} x2={layout.plot.x1} y1={t.y} y2={t.y} stroke={color.border} strokeWidth={1} />
-                <SvgText x={layout.plot.x0 - 6} y={t.y + 4} fill={color.textDim} fontSize={10} textAnchor="end">
+                <SvgLine x1={layout.plot.x0} x2={layout.plot.x1} y1={t.y} y2={t.y} stroke={color.hair} strokeWidth={1} />
+                <SvgText x={layout.plot.x0 - 6} y={t.y + 4} fill={color.t3} fontSize={11} textAnchor="end">
                   {`${t.value > 0 ? '+' : ''}${t.value.toFixed(2)}`}
                 </SvgText>
               </G>
             ))}
             <SvgLine
               x1={layout.plot.x0} x2={layout.plot.x1} y1={layout.zeroY} y2={layout.zeroY}
-              stroke={color.textDim} strokeWidth={1} strokeDasharray="4 4"
+              stroke={color.t3} strokeWidth={1} strokeDasharray="4 4"
             />
             <SvgLine
               x1={layout.plot.x0} x2={layout.plot.x1} y1={layout.medianY} y2={layout.medianY}
               stroke={color.accent} strokeWidth={2}
             />
-            {layout.points.map((p) => <Circle key={p.caseId} cx={p.x} cy={p.y} r={p.r} fill={color.text} fillOpacity={0.85} />)}
+            {layout.points.map((p) => <Circle key={p.caseId} cx={p.x} cy={p.y} r={p.r} fill={color.t1} fillOpacity={0.85} />)}
             {selected ? (
               <Circle cx={selected.x} cy={selected.y} r={selected.r + 5} fill="none" stroke={color.accent} strokeWidth={2} />
             ) : null}
@@ -83,7 +93,7 @@ export function PairedChart({ card, selected, onSelect }) {
       <Text style={s.item}>
         <Text style={{ color: color.accent }}>━</Text>
         {' median difference   '}
-        <Text style={{ color: color.textDim }}>┄</Text>
+        <Text style={{ color: color.t3 }}>┄</Text>
         {' no difference (0)'}
       </Text>
     </View>
@@ -107,19 +117,19 @@ export function TrendChart({ series, label }) {
         <Svg width={layout.width} height={layout.height}>
           {layout.ticks.map((t) => (
             <G key={`tick-${t.value}`}>
-              <SvgLine x1={layout.plot.x0} x2={layout.plot.x1} y1={t.y} y2={t.y} stroke={color.border} strokeWidth={1} />
-              <SvgText x={layout.plot.x0 - 6} y={t.y + 4} fill={color.textDim} fontSize={10} textAnchor="end">
+              <SvgLine x1={layout.plot.x0} x2={layout.plot.x1} y1={t.y} y2={t.y} stroke={color.hair} strokeWidth={1} />
+              <SvgText x={layout.plot.x0 - 6} y={t.y + 4} fill={color.t3} fontSize={11} textAnchor="end">
                 {t.value.toFixed(2)}
               </SvgText>
             </G>
           ))}
           {layout.labels.map((l) => (
-            <SvgText key={l.text} x={l.x} y={layout.plot.y1 + 16} fill={color.textDim} fontSize={11} textAnchor="middle">
+            <SvgText key={l.text} x={l.x} y={layout.plot.y1 + 16} fill={color.t3} fontSize={11} textAnchor="middle">
               {l.text}
             </SvgText>
           ))}
           {layout.families.map((f) => {
-            const paint = FAMILY_STYLE[f.family] ? FAMILY_STYLE[f.family].color : color.text;
+            const paint = FAMILY_STYLE[f.family] ? FAMILY_STYLE[f.family].color : color.t1;
             const dashed = FAMILY_STYLE[f.family] && FAMILY_STYLE[f.family].marker === 'triangle';
             return (
               <G key={f.family}>
@@ -150,6 +160,13 @@ export function TrendChart({ series, label }) {
 }
 
 const s = StyleSheet.create({
-  legend: { flexDirection: 'row', gap: space.l, marginTop: space.xs },
-  item: { color: color.text, fontSize: font.small, marginTop: space.xs },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: space.l, marginTop: space.s },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendText: { ...type.caption, color: color.t2 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  triangle: {
+    width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderBottomWidth: 9,
+    borderLeftColor: 'transparent', borderRightColor: 'transparent',
+  },
+  item: { ...type.caption, color: color.t2, marginTop: space.xs },
 });

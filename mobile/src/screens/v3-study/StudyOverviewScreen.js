@@ -1,23 +1,26 @@
-// SCR-01 Study Overview: the study, tiles for cases and findings, the median Dice of comparable pairs, the
-// lowest-Dice cases, the experiments and every comparison, with links to each screen.
+// SCR-01 Study Overview, Direction A: the dataset, "About this data", three counts, the median Dice of each
+// UNet vs DINOv2 pair, and the lowest-Dice cases. Rows and hairlines, no cards.
 // Data comes from createStudyOverview (models.mjs); strings from overviewView (view.mjs) and the tiles (tiles.mjs).
-// The experiment matrix shows no metric values: numbers appear only where the server judged runs comparable.
+// Numbers appear only where the server judged runs comparable; anything else is a word and a reason.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RECOVERY } from '../../api/states.mjs';
 import { createStudyOverview } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import {
-  Button, Card, Line, LinkButton, OutlierBar, Pill, Tile, TONE_COLOR, useSnapshot,
-} from './parts';
+import { IconDatabase, IconOutline } from '../../components/icons';
+import ListRow from '../../components/ListRow';
+import MetricStrip from '../../components/MetricStrip';
+import { color, space, type } from '../../components/theme';
+import { Blocked, Note, Section, useSnapshot } from './parts';
+import { FamilyLegend } from './charts';
+import DiceRows from './DiceRows';
 import AboutDataSheet from './AboutDataSheet';
-import { aboutData } from './about.mjs';
+import { aboutData, DATASET_SOURCE_NAME, studyDetails } from './about.mjs';
 import { casesTile, diceTile, findingsTile } from './tiles.mjs';
-import { FAMILY_STYLE, overviewView } from './view.mjs';
+import { overviewView } from './view.mjs';
 
 export default function StudyOverviewScreen({ runtime, nav, params }) {
   // The study id comes from the build config unless the caller passed another one.
@@ -45,14 +48,14 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
     <StateView view={snap.view} what="the study overview" onAction={onAction}>
       {() => {
         const v = overviewView(snap);
+        const sections = [
+          ...aboutData({ datasetText: v.study.datasetText, fixture: snap.source === 'fixture' }),
+          ...studyDetails({ summaryText: v.study.summaryText, capabilities: v.study.capabilities, outlierRule: v.outliers.rule }),
+        ];
         return (
           <>
             <Overview v={v} snap={snap} go={go} blocked={blocked} onAbout={() => setAboutOpen(true)} />
-            <AboutDataSheet
-              visible={aboutOpen}
-              sections={aboutData({ datasetText: v.study.datasetText, fixture: snap.source === 'fixture' })}
-              onClose={() => setAboutOpen(false)}
-            />
+            <AboutDataSheet visible={aboutOpen} sections={sections} onClose={() => setAboutOpen(false)} />
           </>
         );
       }}
@@ -64,151 +67,149 @@ function Overview({ v, snap, go, blocked, onAbout }) {
   const cases = casesTile(snap.caseCounts);
   const findings = findingsTile(snap.findings);
   const dice = diceTile(snap.headline);
+  const comparable = dice.rows.filter((r) => r.fair).length;
+  // What the server said about each pair: why it is not compared, or the population it was compared on.
+  const diceNotes = [dice.emptyText, ...new Set(dice.rows.map((r) => r.note))].filter(Boolean);
+  const fixture = snap.source === 'fixture';
   return (
-    <ScrollView contentContainerStyle={s.root}>
-      <Card title={v.study.idText} testID="scr01-study">
-        <Line tone={TONE.WARN} small>{v.study.idWarning}</Line>
-        <Line>{`Dataset: ${v.study.datasetText}`}</Line>
-        <Line dim small>{v.study.summaryText}</Line>
-        {v.study.capabilities.length > 0 && (
-          <Line dim small>{`Capabilities: ${v.study.capabilities.join(', ')}`}</Line>
-        )}
-        <Button label="About this data" onPress={onAbout} />
-      </Card>
+    <ScrollView contentContainerStyle={s.page}>
+      {v.study.idWarning ? <Note tone={TONE.WARN}>{v.study.idWarning}</Note> : null}
 
-      <View style={s.tiles}>
-        <Tile title="Cases" value={cases.value} text={cases.text} lines={cases.lines} testID="scr01-tile-cases">
-          <LinkButton label="Open cases (SCR-02)" route={v.routes.cases} onGo={go} />
-        </Tile>
-        <Tile
-          title="Findings"
-          value={findings.open === null ? null : `${findings.open} open`}
-          text={findings.resolved === null ? null : `${findings.resolved} resolved`}
-          lines={[v.findings.text]}
-          testID="scr01-tile-findings"
-        >
-          <LinkButton label="Open findings (SCR-08)" route={v.routes.findings} onGo={go} />
-        </Tile>
+      <View style={s.dataset}>
+        <View style={s.thumb}>
+          <IconOutline size={40} color={color.t3} />
+        </View>
+        <View style={s.datasetText}>
+          <Text style={s.overline}>Dataset</Text>
+          <Text style={s.datasetName}>{v.study.datasetName || 'Dataset unavailable'}</Text>
+          <Text style={s.datasetSource}>{fixture ? 'Generated placeholder data' : DATASET_SOURCE_NAME}</Text>
+        </View>
+      </View>
+      <ListRow title="About this data" icon={IconDatabase} onPress={onAbout} divider="both" testID="scr01-about" />
+
+      <MetricStrip
+        style={s.strip}
+        cells={[
+          {
+            label: 'Cases',
+            value: cases.value === null ? '—' : cases.value,
+            caption: cases.value === null ? cases.text : 'in this study',
+            onPress: () => go(v.routes.cases),
+            testID: 'scr01-tile-cases',
+          },
+          {
+            label: 'Findings',
+            value: findings.open === null ? '—' : String(findings.open),
+            caption: 'open',
+            onPress: () => go(v.routes.findings),
+            testID: 'scr01-tile-findings',
+          },
+          {
+            label: 'Resolved',
+            value: findings.resolved === null ? '—' : String(findings.resolved),
+            caption: 'findings',
+            testID: 'scr01-tile-resolved',
+          },
+        ]}
+      />
+      <View style={s.counts}>
+        {cases.lines.map((line) => {
+          const [count, ...words] = line.split(' ');
+          return (
+            <Text key={line} style={s.countText}>
+              <Text style={s.countNumber}>{count}</Text>
+              {` ${words.join(' ')}`}
+            </Text>
+          );
+        })}
+      </View>
+      {findings.open === null ? <View style={s.counts}><Note>{v.findings.text}</Note></View> : null}
+
+      <Section
+        title="Median Dice · UNet vs DINOv2"
+        meta={dice.rows.length ? `${comparable} of ${dice.rows.length} comparable` : null}
+        testID="scr01-median-dice"
+      >
+        <View style={s.legend}>
+          <Text style={s.legendText}>0 to 1, higher is better</Text>
+          <FamilyLegend style={s.legendKeys} />
+        </View>
+        <View style={s.diceRows}>
+          <DiceRows rows={dice.rows} onGo={go} />
+        </View>
+        <View style={s.notes}>
+          {diceNotes.map((text) => <Note key={text}>{text}</Note>)}
+        </View>
+      </Section>
+
+      <View testID="scr01-outliers">
+        {v.outliers.groups.length === 0 ? (
+          <Section title="Lowest Dice"><Note>{v.outliers.text}</Note></Section>
+        ) : v.outliers.groups.map((g) => (
+          <Section
+            key={g.experimentId}
+            title={`Lowest Dice · ${g.title}`}
+            meta={g.view.available ? g.view.variantText : null}
+          >
+            {g.view.available ? (
+              <>
+                {g.view.rows.map((o, i) => (
+                  <OutlierRow key={o.key} row={o} first={i === 0} go={go} />
+                ))}
+                <Note>{g.view.warning}</Note>
+              </>
+            ) : <Note>{g.view.text}</Note>}
+          </Section>
+        ))}
       </View>
 
-      <Card title="Median Dice, UNet vs DINOv2" testID="scr01-dice">
-        <Line dim small>
-          Dice: 0 to 1, higher is better. Shown only for pairs the server judged comparable. HD95 stays locked until
-          the geometry is validated.
-        </Line>
-        {dice.emptyText ? <Line>{dice.emptyText}</Line> : null}
-        {dice.rows.map((row) => (
-          <TouchableOpacity
-            key={row.id}
-            style={[s.headline, !row.route.ok && s.headlineOff]}
-            onPress={() => go(row.route)}
-            accessibilityRole="button"
-            accessibilityLabel={`${row.label}: ${row.chip}`}
-          >
-            <View style={s.diceHead}>
-              <Text style={s.headlineLabel}>{row.label}</Text>
-              <Pill label={row.chip} ok={row.fair} />
-            </View>
-            {row.fair ? (
-              <Text style={s.diceValues}>
-                <Text style={{ color: FAMILY_STYLE.UNET.color }}>● </Text>
-                {`${row.unetText}   `}
-                <Text style={{ color: FAMILY_STYLE.DINOV2.color }}>▲ </Text>
-                {row.dinoText}
-              </Text>
-            ) : null}
-            {row.note ? <Text style={s.small}>{row.note}</Text> : null}
-          </TouchableOpacity>
-        ))}
-      </Card>
-
-      <Card title="Lowest-Dice cases" testID="scr01-outliers">
-        <Line dim small>{v.outliers.rule}</Line>
-        <Line>{v.outliers.text}</Line>
-        {v.outliers.groups.map((g) => (
-          <View key={g.experimentId} style={s.family}>
-            <Text style={s.familyLabel}>{`${g.title} · ${g.experimentId}`}</Text>
-            <Line dim small>{g.view.text}</Line>
-            {g.view.rows.map((o) => (
-              <OutlierBar key={o.key} row={o} barColor={g.family ? FAMILY_STYLE[g.family].color : null} onGo={go} />
-            ))}
-          </View>
-        ))}
-      </Card>
-
-      <Card title="Experiments" testID="scr01-experiments">
-        <Line>{v.experiments.text}</Line>
-        {v.experiments.notes.map((n) => <Line key={n} dim small>{n}</Line>)}
-        {v.experiments.rows.map((row) => (
-          <View key={row.family} style={s.family}>
-            <Text style={s.familyLabel}>{row.label}</Text>
-            <View style={s.cells}>
-              {row.cells.map((cell) => (
-                <View key={cell.id} style={s.cell}>
-                  <Text style={s.cellTitle}>{cell.title}</Text>
-                  <Text style={[s.cellStatus, { color: TONE_COLOR[cell.tone] }]}>{cell.statusText}</Text>
-                  {cell.nText ? <Text style={s.cellN}>{cell.nText}</Text> : null}
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-        <LinkButton label="Open the comparison (SCR-07)" route={v.routes.experiments} onGo={go} />
-      </Card>
-
-      <Card title="All comparisons (server verdicts)" testID="scr01-headline">
-        <Line dim small>
-          Numbers appear here only where the server judged the runs comparable; anything else is a label and a reason.
-        </Line>
-        {v.headline.map((h) => (
-          <TouchableOpacity
-            key={h.id}
-            style={[s.headline, !h.route.ok && s.headlineOff]}
-            onPress={() => go(h.route)}
-            accessibilityRole="button"
-            accessibilityLabel={`${h.label}: ${h.verdictText}`}
-          >
-            <Text style={s.headlineLabel}>{h.label}</Text>
-            <Text style={[s.headlineVerdict, { color: TONE_COLOR[h.tone] }]}>{h.verdictText}</Text>
-            {h.reason ? <Text style={s.small}>{h.reason}</Text> : null}
-            {h.populationText ? <Text style={s.small}>{h.populationText}</Text> : null}
-            {h.summaryRows.map((row) => <Text key={row.experimentId} style={s.metric}>{row.text}</Text>)}
-          </TouchableOpacity>
-        ))}
-      </Card>
-
-      {blocked ? (
-        <View style={s.blocked} accessibilityRole="alert">
-          <Text style={s.blockedT}>{`Cannot open: ${blocked}`}</Text>
-        </View>
-      ) : null}
+      <Blocked text={blocked} />
     </ScrollView>
   );
 }
 
+// One of the server's lowest-Dice cases: the id, a bar as long as the Dice (0 to 1), the Dice, a chevron.
+function OutlierRow({ row, first, go }) {
+  const common = {
+    variant: 'meter',
+    title: row.caseId,
+    onPress: () => go(row.route),
+    divider: first ? 'none' : 'top',
+    accessibilityLabel: `${row.caseId}, ${row.valueText}`,
+  };
+  return (
+    <>
+      {row.bar === null ? (
+        // No bar for a value that is missing or off the 0 to 1 scale: the value is a word, in the bar's place.
+        <ListRow {...common} bar={null} trailing={<View style={s.noBar}><Text style={s.noBarText}>{row.scoreText}</Text></View>} />
+      ) : (
+        <ListRow {...common} bar={row.bar} barTone="warn" value={row.scoreText} />
+      )}
+      {row.route.ok ? null : <Note>{row.route.reason}</Note>}
+    </>
+  );
+}
+
 const s = StyleSheet.create({
-  root: { padding: space.l, gap: space.m },
-  family: { marginTop: space.s },
-  familyLabel: { color: color.text, fontSize: font.body, fontWeight: '700' },
-  cells: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginTop: space.xs },
-  cell: {
-    minWidth: 96, flexGrow: 1, flexBasis: 96, borderWidth: 1, borderColor: color.border, borderRadius: 8,
-    padding: space.s, backgroundColor: color.surfaceHi,
+  page: { paddingHorizontal: space.l, paddingBottom: space.xl },
+  dataset: { flexDirection: 'row', alignItems: 'center', gap: space.l, paddingTop: space.s, paddingBottom: space.l },
+  thumb: {
+    width: 72, height: 72, borderRadius: 6, backgroundColor: color.viewer, borderWidth: 1, borderColor: color.hair,
+    alignItems: 'center', justifyContent: 'center',
   },
-  cellTitle: { color: color.text, fontSize: font.small, fontWeight: '700' },
-  cellStatus: { fontSize: font.small, marginTop: 2 },
-  cellN: { color: color.text, fontFamily: font.mono, fontSize: 11, marginTop: 2 },
-  headline: {
-    minHeight: MIN_TOUCH, borderTopWidth: 1, borderTopColor: color.border, paddingVertical: space.s,
-  },
-  headlineOff: { opacity: 0.7 },
-  headlineLabel: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  headlineVerdict: { fontSize: font.small, marginTop: 2 },
-  metric: { color: color.text, fontSize: font.small, marginTop: 4 },
-  small: { color: color.textDim, fontSize: font.small, marginTop: 2 },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.m },
-  diceHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s },
-  diceValues: { color: color.text, fontSize: font.h2, fontWeight: '600', marginTop: space.xs, fontVariant: font.numeric },
-  blocked: { padding: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.danger, backgroundColor: color.dangerBg },
-  blockedT: { color: color.danger, fontSize: font.body },
+  datasetText: { flex: 1 },
+  overline: { ...type.overline, color: color.t3 },
+  datasetName: { ...type.title, color: color.t1, marginTop: 2 },
+  datasetSource: { ...type.secondary, color: color.t2 },
+  strip: { marginTop: space.l },
+  counts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.l, marginTop: space.s },
+  countText: { ...type.caption, color: color.t2, fontVariant: ['tabular-nums'] },
+  countNumber: { fontWeight: '500', color: color.t1 },
+  legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  legendText: { ...type.caption, color: color.t2 },
+  legendKeys: { marginTop: 0 },
+  diceRows: { marginTop: space.s },
+  notes: { marginTop: space.s, gap: 2 },
+  noBar: { flex: 1, alignItems: 'flex-end' },
+  noBarText: { ...type.body, color: color.t3 },
 });

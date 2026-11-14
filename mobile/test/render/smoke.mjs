@@ -43,6 +43,15 @@ const has = (r, re) => texts(r).some((t) => re.test(t));
 const isIcon = (n) => n.type === 'Svg' && typeof n.props.testID === 'string' && n.props.testID.startsWith('icon-');
 const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return true; return false; };
 const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
+// Touch targets: a pressable that declares a height (or minHeight) reaches 48 dp with its hitSlop. Pressables sized
+// by their content (the metric strip's cells, a segment between its padding) declare none and are not measured.
+const flatStyle = (st) => (Array.isArray(st) ? Object.assign({}, ...st.map(flatStyle)) : (st && typeof st === 'object' ? st : {}));
+const shortPressables = (r) => r.root.findAll((n) => n.type === 'TouchableOpacity').filter((n) => {
+  const st = flatStyle(n.props.style);
+  const h = st.height ?? st.minHeight;
+  const slop = n.props.hitSlop || {};
+  return typeof h === 'number' && h + (slop.top || 0) + (slop.bottom || 0) < 48;
+});
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
   const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
@@ -563,25 +572,32 @@ function noRunBackend() {
   });
   await tick(60);
   check('V3R1', onScreen(r, 'SCR-01') && has(r, /^Fixture$/), 'SCR-01 renders under the Fixture indicator');
-  check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^1 of 7 matrix experiments listed by the server$/)
-    && has(r, /^Lowest-Dice cases$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
+  check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^Dataset$/) && has(r, /^fixture dataset$/) && has(r, /^About this data$/)
+    && has(r, /^Median Dice · UNet vs DINOv2$/) && has(r, /^Lowest Dice · /), 'SCR-01 draws its model: study, dataset, counts, median Dice, lowest Dice');
+  check('V3R12', !texts(r).some((t) => /sha256|ground_truth_evaluation|inference_review|SCR-0\d|DATASET_FIXTURE|version fixture|DR-\d/.test(t)),
+    'no developer text on the main surface: no checksum, capability name, screen id or dataset id');
   const tileText = (id) => r.root.findAll((n) => n.props && n.props.testID === id).flatMap((n) => n.findAll((x) => x.type === 'Text').map(textOf));
-  check('V3R9', ['Cases', '2', 'cases in the study', '1 evaluation', '1 inference & review'].every((t) => tileText('scr01-tile-cases').includes(t))
-    && ['Findings', '1 open', '0 resolved'].every((t) => tileText('scr01-tile-findings').includes(t)),
-  `tiles: ${tileText('scr01-tile-cases').join(' | ')} || ${tileText('scr01-tile-findings').join(' | ')}`);
+  check('V3R9', ['Cases', '2', 'in this study'].every((t) => tileText('scr01-tile-cases').includes(t))
+    && ['Findings', '1', 'open'].every((t) => tileText('scr01-tile-findings').includes(t))
+    && ['Resolved', '0', 'findings'].every((t) => tileText('scr01-tile-resolved').includes(t))
+    && has(r, /^1 evaluation$/) && has(r, /^1 inference & review$/),
+  `metric strip: ${['cases', 'findings', 'resolved'].map((k) => tileText(`scr01-tile-${k}`).join(' / ')).join(' | ')}`);
   check('V3R9', has(r, /^No UNet vs DINOv2 pair is judged comparable by the server yet\.$/)
-    && texts(r).filter((t) => t === 'Not compared').length === 3 && !has(r, /^Comparable$/),
-  'median Dice tile: no pair is compared, so no number and no "Comparable" chip');
+    && texts(r).filter((t) => t === 'Not compared').length === 3 && has(r, /^0 of 3 comparable$/),
+  'median Dice rows: no pair is compared, so "Not compared" and no number');
   const sheetOpen = () => r.root.findAll((n) => n.type === 'Modal').some((m) => m.findAll((x) => x.props && x.props.testID === 'about-data').length > 0);
   check('V3R11', !sheetOpen(), '"About this data" is closed until asked for');
   await press(r, 'About this data');
   check('V3R11', sheetOpen() && has(r, /^https:\/\/www\.cardiacatlas\.org\/atriaseg2018-challenge\/atria-seg-data\/$/)
     && has(r, /^Cases are named CASE_0001 to CASE_0154/) && has(r, /Not for diagnosis or treatment decisions/)
+    && has(r, /^This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\.$/)
     && has(r, /^The server names this study's dataset: fixture dataset/) && has(r, /^Fixture mode: every number/),
-  'the sheet names the source, the case IDs, research use only, the served dataset and that fixture numbers are placeholders');
-  await press(r, 'Close');
+  'the sheet names the source, LASC 2018, the case IDs, research use only, the served dataset and that fixture numbers are placeholders');
+  check('V3R11', has(r, /^Capabilities: /) && has(r, /^experiment summary/) && has(r, /lowest case-level 3D Dice/),
+    'the technical lines moved into the sheet: server summary, capabilities and the lowest-Dice rule');
+  await act(async () => { byTestId(r, 'about-data-close').props.onPress(); });
   check('V3R11', !sheetOpen(), 'Close closes it');
-  await press(r, 'Open the comparison (SCR-07)');
+  await press(r, 'Experiments');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^Fixture$/), 'SCR-07 opened from SCR-01, under the Fixture indicator');
   check('V3R2', has(r, /filled from the server's experiment list$/) && has(r, /^Comparisons \(server verdicts\)$/),
@@ -608,7 +624,7 @@ function noRunBackend() {
       React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ['EXP-U-100'] } })), nodeMock);
   });
   await tick(60);
-  await press(r, 'dice');
+  await press(r, 'Dice');
   await layout(r);
   await tick(30);
   // The trend chart draws the same cases too, so only the strip's markers are counted.
@@ -619,7 +635,7 @@ function noRunBackend() {
   if (strip && dots.length) {
     await act(async () => { strip.props.onPress({ nativeEvent: { locationX: dots[0].props.cx, locationY: dots[0].props.cy } }); });
   }
-  if (has(r, /^Open this case \(SCR-03\)$/)) await press(r, 'Open this case (SCR-03)');
+  if (has(r, /^Open this case$/)) await press(r, 'Open this case');
   const [screenId, p] = pushed[0] || [];
   check('V3R3', pushed.length === 1 && screenId === 'SCR-03' && p.caseId && p.runId && p.variant === 'RAW' && p.experimentId === 'EXP-U-100',
     `a tapped dot opens SCR-03 with case, run and variant: ${JSON.stringify(pushed[0] || null)}`);
@@ -646,7 +662,7 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
       React.createElement(ExperimentComparisonScreen, { runtime, nav, params })), nodeMock);
   });
   await tick(60);
-  await press(r, 'dice');
+  await press(r, 'Dice');
   await layout(r);
   await tick(30);
   return { r, pushed };
@@ -656,6 +672,9 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   const dots = inside(r, 'paired-RQ-A-025', 'Circle');
   check('V3R4', dots.length === 4 && has(r, /^dice, DINOv2 25 % minus UNet 25 %: 4 cases, median difference \+0\.065$/),
     `COMPARABLE pair: ${dots.length} paired dots (4) and the median difference`);
+  check('V3R13', shortPressables(r).length === 0, `SCR-07: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
+  check('V3R14', !has(r, /COHORT level|metric mv1|FINAL_HOLDOUT/) && has(r, /^Metric$/) && has(r, /^Statistic$/),
+    'SCR-07: the run context (cohort level, population, metric version) is not on the page; Metric and Statistic are sections');
   check('V3R4', inside(r, 'strip-chart', 'Circle').length === 4 && inside(r, 'strip-chart', 'Path').length === 4,
     'the strip draws UNet as 4 circles and DINOv2 as 4 triangles');
   const chart = inside(r, 'paired-RQ-A-025', 'Pressable')[0];
@@ -718,10 +737,16 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
       React.createElement(StudyOverviewScreen, { runtime, nav, params: {} })), nodeMock);
   });
   await tick(60);
-  check('V3R10', texts(r).filter((t) => t === 'Comparable').length === 3 && has(r, /^● UNet 0\.655 {3}▲ DINOv2 0\.685$/),
-    'median Dice tile: three comparable pairs, both medians with their family marker');
-  const bars = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}dice /.test(textOf(n)));
-  check('V3R10', bars.length === 18 && textOf(bars[0]) === 'CASE_0005dice 0.400', `lowest-Dice bars: ${bars.length} (3 per run), first ${bars[0] ? textOf(bars[0]) : '-'}`);
+  check('V3R10', has(r, /^3 of 3 comparable$/) && texts(r).filter((t) => /^0\.\d{3} · 0\.\d{3}$/.test(t)).length === 3
+    && has(r, /^0\.655 · 0\.685$/) && !has(r, /^Not compared$/),
+  `median Dice rows: three comparable pairs, both medians (UNet first): ${texts(r).filter((t) => /comparable$|^0\.\d{3} · /.test(t)).join(' | ')}`);
+  // Per pair: a ring and a shape for each family, so four small drawings.
+  check('V3R10', inside(r, 'scr01-dice', 'Svg').length === 12 && inside(r, 'scr01-dice', 'Circle').length === 6
+    && inside(r, 'scr01-dice', 'Path').length === 6, 'each comparable pair draws a UNet circle and a DINOv2 triangle on its track');
+  const label = (n) => (typeof n.props.accessibilityLabel === 'string' ? n.props.accessibilityLabel : '');
+  const bars = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}, dice /.test(label(n)));
+  check('V3R10', bars.length === 18 && label(bars[0]) === 'CASE_0005, dice 0.400', `lowest-Dice rows: ${bars.length} (3 per run), first ${bars[0] ? label(bars[0]) : '-'}`);
+  check('V3R13', shortPressables(r).length === 0, `SCR-01: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
   if (bars.length) await act(async () => { bars[0].props.onPress(); });
   check('V3R10', pushed.length === 1 && pushed[0][0] === 'SCR-03' && pushed[0][1].runId === 'RUN_U025_0005',
     `a bar opens its case in its run: ${JSON.stringify(pushed[0] || null)}`);
