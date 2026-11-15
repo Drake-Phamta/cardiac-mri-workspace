@@ -82,9 +82,11 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   - Dòng "About this data" mở sheet cùng tên.
   - Dải ba ô: "Cases" (tổng số ca, chú thích "in this study"), "Findings" (số đang mở, chú thích "open"), "Resolved" (số
     đã xử lý, chú thích "findings"). Dưới dải là số ca theo chế độ ("1 evaluation", "1 inference & review").
-  - Mục "Median Dice · UNet vs DINOv2", bên phải ghi "n of 3 comparable". Một dòng chú giải "0 to 1, higher is better"
+  - Mục "Median Dice · UNet vs DINOv2", bên phải ghi "n of 3 comparable" (ở 320 dp hoặc cỡ chữ 1,3 mà không đủ chỗ thì
+    câu này xuống dòng ngay dưới tên mục, không bị cắt; mọi tên mục của SCR-01 và SCR-07 làm như vậy). Một dòng chú giải "0 to 1, higher is better"
     và khoá họ ("UNet" chấm tròn xanh, "DINOv2" tam giác cam). Ba dòng "25 % data", "50 % data", "100 % data", mỗi dòng
-    có một thang 0 – 1 (vạch 0, 0.5, 1). Cặp mà server nói so sánh được thì thang có một chấm tròn UNet và một tam giác
+    có một thang 0 – 1 (vạch 0, 0.5, 1); nhãn dòng và số nằm trên một dòng và chỉ phóng chữ tới 1,15 lần, cột nhãn đủ rộng cho
+    "100 % data" ở mức đó (không còn xuống hai dòng và bị đường kẻ cắt ở cỡ chữ 1,3). Cặp mà server nói so sánh được thì thang có một chấm tròn UNet và một tam giác
     DINOv2 đặt ở Dice trung vị của mỗi bên, và bên phải ghi hai số ("0.655 · 0.685", UNet trước). Các cặp khác thì thang
     ghi "Not compared" và giá trị là "—", không có số. Dưới ba dòng có một câu: "No UNet vs DINOv2 pair is judged
     comparable yet." khi không cặp nào so sánh được, hoặc quần thể chung khi các cặp đã so sánh cùng một quần thể (ví dụ

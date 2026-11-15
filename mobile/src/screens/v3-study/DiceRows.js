@@ -6,10 +6,13 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { color, family, HAIRLINE, font, size, type } from '../../components/theme';
+import { color, family, HAIRLINE, font, LABEL_FONT_CAP, size, type } from '../../components/theme';
 import { trianglePath } from './view.mjs';
 
-const LABEL_WIDTH = 72;
+// The three tracks line up, so the label column has one width. "100 % data" is about 71 dp at 14 sp; the label stops
+// growing at LABEL_FONT_CAP (1.15, about 82 dp), so 88 dp holds it at font scale 1.3 without wrapping into two lines
+// that the next row's rule would cut. The value column is capped the same way.
+const LABEL_WIDTH = 88;
 const GAP = 16;
 const VALUE_WIDTH = 40; // "—"
 const VALUE_WIDTH_PAIR = 104; // "0.655 · 0.685"
@@ -73,16 +76,16 @@ export default function DiceRows({ rows, onGo }) {
           accessibilityRole="button"
           accessibilityLabel={`${row.label}: ${row.chip}`}
         >
-          <Text style={s.label}>{row.label}</Text>
+          <Text style={s.label} numberOfLines={1} maxFontSizeMultiplier={LABEL_FONT_CAP}>{row.label}</Text>
           <Track row={row} />
-          <Text style={[s.value, { width: valueWidth }, row.fair && s.valueFair]}>
+          <Text style={[s.value, { width: valueWidth }, row.fair && s.valueFair]} numberOfLines={1} maxFontSizeMultiplier={LABEL_FONT_CAP}>
             {row.fair ? `${row.unet.toFixed(3)} · ${row.dino.toFixed(3)}` : '—'}
           </Text>
         </TouchableOpacity>
       ))}
       <View style={[s.axis, { marginRight: valueWidth + GAP }]}>
         {[['0', '0%'], ['0.5', '50%'], ['1', '100%']].map(([text, left]) => (
-          <Text key={text} style={[s.axisLabel, { left }]}>{text}</Text>
+          <Text key={text} style={[s.axisLabel, { left }]} maxFontSizeMultiplier={LABEL_FONT_CAP}>{text}</Text>
         ))}
       </View>
     </View>

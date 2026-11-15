@@ -141,6 +141,7 @@ const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { shortTouchables } = await imp('test/render/touch_measure.mjs');
+const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -1135,6 +1136,20 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   // Per pair: a ring and a shape for each family, so four small drawings.
   check('V3R10', inside(r, 'scr01-dice', 'Svg').length === 12 && inside(r, 'scr01-dice', 'Circle').length === 6
     && inside(r, 'scr01-dice', 'Path').length === 6, 'each comparable pair draws a UNet circle and a DINOv2 triangle on its track');
+  // Responsive (device session r4): a row label and a value are one line and stop growing at the label cap, the label
+  // column holds "100 % data" at that cap (4.9 em in Roboto Medium, 5.1 here: 5.1 x 14 sp x 1.15 = 83 dp), and a section's
+  // caption wraps under its overline instead of running off the edge ("0 of 3 comparable" cut to "compara").
+  const hostOf = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return p; };
+  const diceTexts = r.root.findAll((n) => n.props && n.props.testID === 'scr01-dice')[0].findAll((n) => n.type === 'Text');
+  const rowLabels = diceTexts.filter((n) => /^(25|50|100) % data$/.test(textOf(n)));
+  const rowValues = diceTexts.filter((n) => /^0\.\d{3} · 0\.\d{3}$/.test(textOf(n)));
+  const captionRow = hostOf(r.root.findAll((n) => n.type === 'Text' && textOf(n) === '3 of 3 comparable')[0]);
+  check('RP-V3a', rowLabels.length === 3 && rowValues.length === 3
+    && [...rowLabels, ...rowValues].every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP)
+    && rowLabels.every((n) => flatStyle(n.props.style).width >= Math.ceil(5.1 * 14 * LABEL_FONT_CAP))
+    && rowValues.every((n) => flatStyle(n.props.style).width >= Math.ceil(4.8 * 14 * LABEL_FONT_CAP))
+    && flatStyle(captionRow.props.style).flexWrap === 'wrap',
+  'SCR-01: the row labels and values are one line, capped at font scale 1.15, in columns wide enough for that; the section caption can wrap');
   const label = (n) => (typeof n.props.accessibilityLabel === 'string' ? n.props.accessibilityLabel : '');
   const caseRows = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}, dice /.test(label(n)));
   const bars = caseRows();

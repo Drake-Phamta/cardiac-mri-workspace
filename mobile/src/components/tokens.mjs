@@ -128,6 +128,15 @@ export const font = Object.freeze({
   proportional: Object.freeze(['proportional-nums']),
 });
 
+/*
+ * The system font size multiplies every sp size, and the app is tested up to 1.3 (spec 03, NFR-USAB). Body text always
+ * follows it. A one-line label whose room does not grow with the text (a tab bar label is a quarter of the width, a tool
+ * label sits in a 48 dp button, a row label beside a chart) stops growing at this multiplier (Text
+ * maxFontSizeMultiplier), so "Experiments" and "Outline" stay whole at 320 dp and at font scale 1.3. A number in a list
+ * row is not capped: its cell is wide enough for 1.3 (minWidth).
+ */
+export const LABEL_FONT_CAP = 1.15;
+
 // The type scale. Spread a role into a Text style: { ...type.body, color: color.t1 }.
 // letterSpacing is in dp (the mockups give em: 0.08em at 11 dp = 0.88 dp).
 export const type = Object.freeze({

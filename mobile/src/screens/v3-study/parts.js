@@ -34,11 +34,13 @@ export function Body({ children }) {
   return <Text style={s.body}>{children}</Text>;
 }
 
-// A section of a page: the overline (with an optional caption on its right), then the content 4 dp below it.
+// A section of a page: the overline (with an optional caption on its right), then the content 4 dp below it. The
+// header row wraps: when the caption does not fit beside the overline (320 dp, or font scale 1.3: "MEDIAN DICE · UNET VS
+// DINOV2" and "0 of 3 comparable"), it drops to its own line instead of running off the edge.
 export function Section({ title, meta = null, children, testID }) {
   return (
     <View style={s.section} testID={testID}>
-      <SectionLabel title={title} meta={meta} />
+      <SectionLabel title={title} meta={meta} style={s.sectionHead} />
       <View style={s.sectionBody}>{children}</View>
     </View>
   );
@@ -162,6 +164,7 @@ const s = StyleSheet.create({
   note: { ...type.caption, color: color.t3 },
   body: { ...type.body, color: color.t1 },
   section: { marginTop: space.xl },
+  sectionHead: { flexWrap: 'wrap', rowGap: 2 },
   sectionBody: { marginTop: space.xs, gap: space.xs },
   infoRow: { paddingVertical: space.s, gap: 2, borderTopWidth: HAIRLINE, borderColor: color.hair },
   linkRow: {
