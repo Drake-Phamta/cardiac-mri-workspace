@@ -1,0 +1,71 @@
+{
+ "recipe": "bce_dice+on",
+ "loss": "bce_dice",
+ "aug": "on",
+ "val_dice": 0.8315131045659564,
+ "n_seeds": 3,
+ "chosen_on": "validation Dice, mean over seeds of the mean over the validation volumes",
+ "provisional": false,
+ "incomplete_recipes": [],
+ "val_dice_of_every_recipe": {
+  "bce_dice+none": 0.8244471017412748,
+  "soft_dice+none": 0.7956766140178146,
+  "focal_tversky+none": 0.7922508148738392,
+  "bce_dice+on": 0.8315131045659564,
+  "soft_dice+on": 0.7855080633291608,
+  "focal_tversky+on": 0.7958773180306543
+ },
+ "night3_args": {
+  "0": [
+   "code/train_ml.py",
+   "--model",
+   "unet",
+   "--labels",
+   "full",
+   "--loss",
+   "bce_dice",
+   "--aug",
+   "on",
+   "--seed",
+   "0",
+   "--device",
+   "cuda",
+   "--out",
+   "runs_ml/recipe72_best_s0"
+  ],
+  "1": [
+   "code/train_ml.py",
+   "--model",
+   "unet",
+   "--labels",
+   "full",
+   "--loss",
+   "bce_dice",
+   "--aug",
+   "on",
+   "--seed",
+   "1",
+   "--device",
+   "cuda",
+   "--out",
+   "runs_ml/recipe72_best_s1"
+  ],
+  "2": [
+   "code/train_ml.py",
+   "--model",
+   "unet",
+   "--labels",
+   "full",
+   "--loss",
+   "bce_dice",
+   "--aug",
+   "on",
+   "--seed",
+   "2",
+   "--device",
+   "cuda",
+   "--out",
+   "runs_ml/recipe72_best_s2"
+  ]
+ }
+}
