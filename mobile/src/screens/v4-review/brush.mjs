@@ -16,6 +16,18 @@ import { sha256Hex, base64ToBytes, bytesToBase64 } from '../../lib/bytes.mjs';
 
 export const RADII = [0, 1, 2, 3, 5];
 
+// The brush size a person reads: how many source pixels wide one stamp is (radius 2 -> 5 px).
+export const brushSizePx = (radius) => 2 * radius + 1;
+
+// The ring drawn at the finger, in source pixels: centred on the pixel (x, y) under the finger and as wide as the
+// stamp (2r + 1 pixels across), so every pixel a stamp there would change lies inside it. null when no pixel is
+// under the finger.
+export function brushRing(pixel, radius) {
+  if (!pixel) return null;
+  const [x, y] = pixel;
+  return Object.freeze({ x, y, cx: x + 0.5, cy: y + 0.5, r: radius + 0.5 });
+}
+
 // How a stroke ended. Only a normal lift commits; the other two roll back.
 export const END_RELEASE = 'release';
 export const END_SECOND_FINGER = 'second_finger';
@@ -243,9 +255,17 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
   const srcSha = [];    // SHA-256 of each source copy, taken at load
   const working = [];   // what strokes write into
   const saved = [];     // the bytes the last successful save committed
+  // The state of an open slice (SOURCE / UNSAVED / SAVED) is found by comparing the whole slice (331 776 bytes at 576 x 576; a slice
+  // that is unchanged is read to its last byte), and state() asks for it after every touch move. Asked of every open slice each time,
+  // a stroke read each slice the person had stepped through, so it got dearer with every slice step (SCR-06 on the phone, 2026-11-15,
+  // r6: 39 ms a stroke on the slice it opened on, about 200 ms after six steps). So the answer is kept for each slice until that
+  // slice's bytes are written (a stamp that changed pixels, a rollback, undo, redo, reset, cancel) or what it is compared with changes
+  // (a save): a touch move then compares the one slice under the finger, however many are open. totals.scans counts the comparisons.
+  const known = [];
+  const changed = (z) => { known[z] = undefined; };
   const uploaded = new Set();
   const history = createHistory();
-  const totals = { strokes: 0, committed: 0, rolledBack: 0, received: 0, applied: 0, outside: 0 };
+  const totals = { strokes: 0, committed: 0, rolledBack: 0, received: 0, applied: 0, outside: 0, scans: 0 };
   let tool = TOOL.ADD;
   let radius = 2;
   let active = null;
@@ -313,6 +333,7 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     totals.received += s.received;
     totals.applied += s.applied;
     totals.outside += s.outside;
+    if (!r.committed) changed(s.slice); // a rollback wrote the slice back
     return Object.freeze({
       slice: s.slice, tool: s.tool, radius: s.radius, end, committed: r.committed, changed: r.changed,
       received: s.received, applied: s.applied, outside: s.outside,
@@ -334,7 +355,10 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
 
   function sample(u, v, t) {
     if (!active) throw new CoreError('NO_ACTIVE_STROKE', {});
-    return strokeSample(active, working[active.slice], u, v, t, nx, ny);
+    const before = active.indices.length;
+    const c = strokeSample(active, working[active.slice], u, v, t, nx, ny);
+    if (active.indices.length !== before) changed(active.slice); // the stroke lists each pixel it writes
+    return c;
   }
 
   function end(how = END_RELEASE) {
@@ -345,14 +369,20 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
   function restoreAll(from) {
     settle();
     for (const z of loaded()) working[z].set(from(z));
+    known.length = 0;
     history.undo.length = 0;
     history.redo.length = 0;
   }
 
   function maskState(z) {
     requireLoaded(z);
-    if (saved[z]) return sameBytes(working[z], saved[z]) ? MASK_STATE.SAVED : MASK_STATE.UNSAVED;
-    return sameBytes(working[z], src[z]) ? MASK_STATE.SOURCE : MASK_STATE.UNSAVED;
+    if (known[z] !== undefined) return known[z];
+    totals.scans += 1;
+    let now;
+    if (saved[z]) now = sameBytes(working[z], saved[z]) ? MASK_STATE.SAVED : MASK_STATE.UNSAVED;
+    else now = sameBytes(working[z], src[z]) ? MASK_STATE.SOURCE : MASK_STATE.UNSAVED;
+    known[z] = now;
+    return now;
   }
 
   const unsavedSlices = () => loaded().filter((z) => maskState(z) === MASK_STATE.UNSAVED);
@@ -370,7 +400,11 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     settle();
     const snapshot = new Map(loaded().map((z) => [z, Uint8Array.from(working[z])]));
     const entries = slicesToUpload().map((z) => exportEntry(z, snapshot.get(z), nx, ny));
-    return Object.freeze({ source: identity, entries: Object.freeze(entries), snapshot });
+    return Object.freeze({
+      source: identity, entries: Object.freeze(entries), snapshot,
+      // how many steps the history held: what the save contains, and so what a successful save may forget
+      undoDepth: history.undo.length, redoDepth: history.redo.length,
+    });
   }
 
   function markUploaded(z) {
@@ -380,8 +414,15 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
 
   function markSaved(prepared, commit = {}) {
     for (const [z, bytes] of prepared.snapshot) saved[z] = bytes;
+    known.length = 0; // what each slice is compared with has changed
     // The commit consumed the server's working copies and is now the version the next edit continues from.
     uploaded.clear();
+    // The saved strokes are no longer steps to undo: undoing one would change the saved version on screen without
+    // saving it. Steps added or undone while the save was in flight are not part of it, so then nothing is dropped.
+    if (history.undo.length === prepared.undoDepth && history.redo.length === prepared.redoDepth) {
+      history.undo.length = 0;
+      history.redo.length = 0;
+    }
     if (typeof commit.reviewedMaskId === 'string' && commit.reviewedMaskId !== '') baseId = commit.reviewedMaskId;
     lastSave = Object.freeze({ ...commit, slices: Object.freeze(prepared.entries.map((e) => e.sliceIndex)) });
     return lastSave;
@@ -436,8 +477,8 @@ export function createBrushSession({ nx, ny, source, base = null } = {}) {
     beginStroke: begin,
     sample,
     endStroke: end,
-    undo: () => { settle(); return undo(history, working); },
-    redo: () => { settle(); return redo(history, working); },
+    undo: () => { settle(); const e = undo(history, working); if (e) changed(e.slice); return e; },
+    redo: () => { settle(); const e = redo(history, working); if (e) changed(e.slice); return e; },
     // Every open slice back to the exact source; the history goes too, since its edits no longer exist.
     reset: () => { restoreAll((z) => src[z]); return state(); },
     // Back to the last save, or to the source when nothing has been saved yet.
