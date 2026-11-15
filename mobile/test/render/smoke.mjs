@@ -329,6 +329,16 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('RP-V1a', toolNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
     && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
   `SCR-03 draw-mode names: one line, as wide as the 48 dp button, capped at font scale ${LABEL_FONT_CAP}`);
+  // The layer chips over the image are as wide as their own text too ("Ground truth", "Prediction"): the stretched one-line label of the
+  // responsive round is for the tool buttons and the tabs, not for a chip, so nothing cuts a longer chip text (the TP chip of SCR-04 read
+  // "TP 546" instead of "TP 546 px" in the device session r5; RP-V1e).
+  {
+    const chipText = (l) => byTestId(r, `layer-${l}`).findAll((n) => n.type === 'Text')[0];
+    const sizedByCell = (n) => { const st = flat(n.props.style); return st.width !== undefined || st.maxWidth !== undefined || st.alignSelf === 'stretch'; };
+    check('RP-V1g', ['Ground truth', 'Prediction'].every((l) => chipText(l).props.children === l && chipText(l).props.maxFontSizeMultiplier === undefined
+      && chipText(l).props.numberOfLines === undefined && !sizedByCell(chipText(l)) && !sizedByCell(byTestId(r, `layer-${l}`))),
+    'SCR-03 layer chips: the whole name, no font-scale cap, no line limit, no fixed or stretched width');
+  }
   // Responsive (device session r5): at 320 dp and font scale 1.3 the panel's first row (label, variant, "Slice 45 / 88")
   // is wider than the screen. It wraps, so the slice number drops to a line of its own at the right instead of being
   // pushed past the edge ("Slice" was all that showed), and the panel measures its rows: the picture, the layer chips
