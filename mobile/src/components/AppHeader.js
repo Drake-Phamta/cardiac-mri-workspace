@@ -12,7 +12,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconButton } from './Controls';
 import { IconBack, IconChevronDown, IconInfo, IconMore } from './icons';
-import { color, MIN_TOUCH, size, type } from './theme';
+import { color, LABEL_FONT_CAP, MIN_TOUCH, size, type } from './theme';
 
 // Live: a green dot with a soft ring. Fixture: the same slot with a grey dot. The word always says which.
 export function StatusIndicator({ mode, onPress = null, accessibilityLabel, testID }) {
@@ -37,14 +37,18 @@ export function StatusIndicator({ mode, onPress = null, accessibilityLabel, test
 
 // Title and subtitle. With onSubtitlePress the whole block (the bar's full height) is one button, and a chevron
 // follows the subtitle, so the run picker has a 56 dp target although the subtitle line is 16 dp.
-function TitleBlock({ title, subtitle, large, onSubtitlePress, subtitleLabel }) {
+// The floating bar of a viewer has Back and up to three icon buttons round the title, so the room it leaves does not
+// grow with the text: at 320 dp and font scale 1.3 "CASE_0029" and "DINOv2 100 %" showed as "CASE_00..." and "DINOv2 10...".
+// There both lines stop growing at LABEL_FONT_CAP; a bar with a plain screen title keeps following the system size.
+function TitleBlock({ title, subtitle, large, floating, onSubtitlePress, subtitleLabel }) {
+  const cap = floating ? LABEL_FONT_CAP : undefined;
   const lines = (
     <>
-      <Text style={large ? s.titleTwoLine : s.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
+      <Text style={large ? s.titleTwoLine : s.title} numberOfLines={1} maxFontSizeMultiplier={cap} accessibilityRole="header">{title}</Text>
       {subtitle ? (
         <View style={s.subtitleRow}>
-          <Text style={[s.subtitle, s.subtitleIn]} numberOfLines={1}>{subtitle}</Text>
-          {onSubtitlePress ? <IconChevronDown size={14} strokeWidth={2} color={color.t2} /> : null}
+          <Text style={[s.subtitle, s.subtitleIn]} numberOfLines={1} maxFontSizeMultiplier={cap}>{subtitle}</Text>
+          {onSubtitlePress ? <IconChevronDown size={12} strokeWidth={2} color={color.t2} /> : null}
         </View>
       ) : null}
     </>
@@ -74,6 +78,7 @@ export default function AppHeader({
         title={title}
         subtitle={subtitle}
         large={Boolean(subtitle) || floating}
+        floating={floating}
         onSubtitlePress={subtitle ? onSubtitlePress : null}
         subtitleLabel={subtitleLabel}
       />
