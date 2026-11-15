@@ -3,7 +3,7 @@
 // what the server sent, never as 0 or a dash.
 
 import { STATE } from '../../api/states.mjs';
-import { CELL_STATUS, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
+import { CELL_STATUS, COMPARE_UNAVAILABLE, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
 import { FAMILY, MATRIX, OUTLIER_RULE, matrixEntry, summaryStat } from './readers.mjs';
 import { metricLabel } from './about.mjs';
 import { TONE } from '../../components/stateCopy.mjs';
@@ -475,16 +475,34 @@ function rowsWithheldText(cell) {
   return null;
 }
 
+// Why the server's summaries of a comparison are not shown, for a pair it judged fair, in words for the row.
+const WITHHELD_WORDS = Object.freeze({
+  [COMPARE_UNAVAILABLE.MIXED_VARIANT_COMPARE_UNDEFINED]: 'Raw and post-processed runs are not summarised together yet, so no difference is shown',
+});
+
+// What a comparison row says where its number would be. No number and not fair: "Not compared". Fair, but no number
+// (raw vs post-processed has no common summary, or the summary lacks the statistic): "Not shown" and the reason under
+// the title, so the row never shows a title alone. With no metric picked the page already asks for one.
+function rowWords(c, delta, metricName) {
+  const none = Object.freeze({ mutedText: null, whyText: null });
+  if (c.kind === 'TREND' || delta.value !== null) return none;
+  if (!c.requested || !fairOf(c)) return Object.freeze({ mutedText: 'Not compared', whyText: null });
+  if (withheldOf(c)) {
+    return Object.freeze({ mutedText: 'Not shown', whyText: WITHHELD_WORDS[c.numbersWithheld.code] ?? plainText(withheldOf(c)) });
+  }
+  return metricName && delta.reason ? Object.freeze({ mutedText: 'Not shown', whyText: capitalise(plainText(delta.reason)) }) : none;
+}
+
 // The difference of a comparison as a sentence (for its details) and as the signed number a row shows.
 function deltaInfo(c, metricName, stat) {
-  const none = (text) => ({ text, value: null });
+  const none = (text, reason = null) => ({ text, value: null, reason });
   if (c.kind === 'TREND' || !c.requested) return none(null);
   // Never "pick a metric" for numbers the model will not release.
   if (withheldOf(c)) return none(`no difference shown: ${withheldOf(c)}`);
   if (!c.presentation.mayShowDelta) return none(`no difference shown: ${c.presentation.reason || 'not comparable'}`);
   if (!metricName || !stat) return none('pick a metric and a statistic to see the difference');
   const d = deltaFor(c, { metricName, stat });
-  if (!d.allowed) return none(`no difference shown: ${d.reason}`);
+  if (!d.allowed) return none(`no difference shown: ${d.reason}`, d.reason);
   const sign = d.delta > 0 ? '+' : '';
   return {
     text: `${stat} ${metricName}: ${d.to} ${fmt(d.b)} vs ${d.from} ${fmt(d.a)}, difference ${sign}${fmt(d.delta)} `
@@ -544,6 +562,7 @@ export function comparisonView(snap, { stat = null, selectedCellId = null } = {}
         rowLabel: rowLabel(c.label),
         deltaText: delta.text,
         deltaValueText: delta.value,
+        ...rowWords(c, delta, snap.metricName),
       });
     })),
     trend: trendRows(snap, stat),

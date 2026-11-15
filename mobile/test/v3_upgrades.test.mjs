@@ -458,6 +458,33 @@ test('V3U16 a link that cannot open says why in words: no experiment id, rule id
   }
 });
 
+// Raw vs post-processed: the server's verdict stands but the app has no summary to subtract, so the row used to show its
+// title alone. A fair row without a number says "Not shown" and why; a row that is not fair still says "Not compared".
+test('V3U17 a comparison judged fair whose numbers are withheld says why on its row, not only its title', async () => {
+  const model = createExperimentComparison(newRuntime().client);
+  await model.open({ experimentIds: ['EXP-U-100', 'EXP-D-100', 'EXP-D-PP'] });
+  const row = (view, id) => view.comparisons.find((c) => c.id === id);
+  const view = comparisonView(model.selectMetric('dice'), { stat: 'median' });
+  const ablation = row(view, 'RQ-B');
+  assert.equal(ablation.fair, true, "the server's verdict on raw vs post-processed stands");
+  assert.equal(ablation.deltaValueText, null, 'and the app has no number for it');
+  assert.equal(ablation.mutedText, 'Not shown');
+  assert.equal(ablation.whyText, 'Raw and post-processed runs are not summarised together yet, so no difference is shown');
+  assert.doesNotMatch(ablation.whyText, /EXP-|contract|HEAD_TO_HEAD/, 'the row names no id and no contract');
+  assert.equal(ablation.rowLabel, 'DINOv2 100 % · raw vs post-processed');
+  assert.deepEqual([row(view, 'RQ-A-100').mutedText, row(view, 'RQ-A-100').whyText], ['Not compared', null],
+    'a pair that is not judged comparable keeps its word and has no note');
+  // Numbers that are withheld are withheld whichever metric is picked, or none.
+  const none = comparisonView(model.selectMetric(null), { stat: 'median' });
+  assert.equal(row(none, 'RQ-B').mutedText, 'Not shown');
+
+  // A comparable pair with numbers shows the number and neither word nor note.
+  const pair = comparisonView((await typedComparison({ dice: SIX_RUNS })).selectMetric('dice'), { stat: 'median' });
+  assert.deepEqual([row(pair, 'RQ-A-025').deltaValueText, row(pair, 'RQ-A-025').mutedText, row(pair, 'RQ-A-025').whyText], ['+0.030', null, null]);
+  const refused = comparisonView((await typedComparison({ dice: SIX_RUNS, compare: 'not_comparable' })).selectMetric('dice'), { stat: 'median' });
+  assert.deepEqual([row(refused, 'RQ-A-025').mutedText, row(refused, 'RQ-A-025').whyText], ['Not compared', null]);
+});
+
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {
   const sorting = readdirSync(V3_DIR).filter((f) => /\.m?js$/.test(f)).filter((f) => {
     const code = readFileSync(join(V3_DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

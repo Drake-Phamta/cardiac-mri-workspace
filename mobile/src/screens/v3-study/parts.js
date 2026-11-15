@@ -104,16 +104,20 @@ export function ExperimentRow({ cell, first, onPress }) {
 }
 
 // A row with one value on its right and the rest on tap: a comparison ("UNet vs DINOv2 · 25 %", "+0.030") or a
-// trend. `value` is the number; `muted` is a word in t3 ("Not compared") shown when there is no number.
-export function ValueRow({ title, value = null, muted = null, first, onPress }) {
+// trend. `value` is the number; `muted` is a word in t3 ("Not compared") shown when there is no number, and `note` a
+// caption under the title that says why.
+export function ValueRow({ title, value = null, muted = null, note = null, first, onPress }) {
   return (
     <TouchableOpacity
       style={[s.valueRow, !first && s.rowLine]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={[title, value || muted].filter(Boolean).join(', ')}
+      accessibilityLabel={[title, value || muted, note].filter(Boolean).join(', ')}
     >
-      <Text style={[s.rowTitle, s.rowGrow]}>{title}</Text>
+      <View style={s.rowText}>
+        <Text style={s.rowTitle}>{title}</Text>
+        {note ? <Text style={s.note}>{note}</Text> : null}
+      </View>
       {value ? <Text style={s.expValue}>{value}</Text> : null}
       {!value && muted ? <Text style={s.mutedText}>{muted}</Text> : null}
       <IconChevronRight size={16} color={color.t3} />
@@ -167,7 +171,6 @@ const s = StyleSheet.create({
   rowLine: { borderTopWidth: HAIRLINE, borderColor: color.hair },
   expRow: { minHeight: size.caseRow, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
   valueRow: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
-  rowGrow: { flex: 1 },
   // The circle (8 dp) and the triangle (10 dp) sit in one box, so every title starts at the same x.
   expKey: { width: 12, alignItems: 'center' },
   expBar: { width: 56 },

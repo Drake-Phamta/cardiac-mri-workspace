@@ -905,6 +905,34 @@ function noRunBackend() {
   await act(async () => { r.unmount(); });
 }
 
+// A comparison the server judged fair whose numbers are withheld (raw vs post-processed) says why on its row, in the
+// same place "Not compared" stands for the others, instead of showing its title alone.
+{
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ['EXP-U-100', 'EXP-D-100', 'EXP-D-PP'] } })), nodeMock);
+  });
+  await tick(60);
+  const rowTexts = (title) => {
+    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(title))[0];
+    return row ? { texts: row.findAll((x) => x.type === 'Text').map(textOf), label: row.props.accessibilityLabel } : null;
+  };
+  const ablation = rowTexts('DINOv2 100 % · raw vs post-processed');
+  const why = 'Raw and post-processed runs are not summarised together yet, so no difference is shown';
+  check('V3R24', ablation && JSON.stringify(ablation.texts) === JSON.stringify(['DINOv2 100 % · raw vs post-processed', why, 'Not shown']),
+    `a fair comparison with withheld numbers shows its title, why, and "Not shown": ${ablation ? ablation.texts.join(' | ') : 'no row'}`);
+  check('V3R24', ablation && ablation.label === `DINOv2 100 % · raw vs post-processed, Not shown, ${why}` && !/EXP-/.test(ablation.label),
+    'and a screen reader hears the same, with no experiment id');
+  const refused = rowTexts('UNet vs DINOv2 · 100 %');
+  check('V3R24', refused && JSON.stringify(refused.texts) === JSON.stringify(['UNet vs DINOv2 · 100 %', 'Not compared']),
+    `a pair that is not judged comparable keeps "Not compared" and gets no note: ${refused ? refused.texts.join(' | ') : 'no row'}`);
+  check('V3R13', shortPressables(r).length === 0, `SCR-07 with a note under a comparison title: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
+  await act(async () => { r.unmount(); });
+}
+
 // P2: what the About sheet no longer says (dataset version, server summary, capabilities, why a pair is not
 // compared, the exact lowest-Dice rule) is reported to the shell with nav.setContext({ details }), and the shell's
 // Details sheet draws it above "This screen". The recording nav stands in for the shell here.

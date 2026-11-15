@@ -205,7 +205,8 @@ function Comparison({
             key={c.id}
             title={c.rowLabel}
             value={c.deltaValueText}
-            muted={c.fair ? null : 'Not compared'}
+            muted={c.mutedText}
+            note={c.whyText}
             first={i === 0}
             onPress={() => onCompare(c.id)}
           />

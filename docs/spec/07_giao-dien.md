@@ -271,8 +271,11 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
     "Open this case".
   - Mục "Comparisons": mỗi phép so sánh một dòng ("UNet vs DINOv2 · 25 %", "UNet vs DINOv2 · 50 %", "UNet vs DINOv2 ·
     100 %", "DINOv2 100 % · raw vs post-processed") với hiệu số trung vị có dấu (DINOv2 trừ UNet, ví dụ "+0.030") hoặc
-    chữ "Not compared" khi server không nói so sánh được. Dòng so sánh được mà không có hiệu số (chưa chọn chỉ số, hoặc
-    thô vs hậu xử lý vì server giữ lại số) chỉ có tên.
+    chữ "Not compared" khi server không nói so sánh được. Dòng mà server nói so sánh được nhưng app không có hiệu số để
+    hiện (thô vs hậu xử lý: app chưa có tóm tắt chung cho hai biến thể; hoặc tóm tắt của server thiếu thống kê cần dùng)
+    ghi "Not shown" ở chỗ của số và một câu lý do dưới tên, ví dụ "Raw and post-processed runs are not summarised together
+    yet, so no difference is shown". Chưa chọn chỉ số thì dòng so sánh được chỉ có tên (trang đã có dòng "Pick a metric
+    to see values."), trừ dòng bị giữ số như trên.
   - Mục "Per-case differences": dòng "One dot per case, lowest difference on the left · tap a dot". Mỗi cặp UNet vs DINOv2
     có đủ dữ liệu là một khối: tên cặp, câu "DINOv2 25 % − UNet 25 % · 4 cases · median +0.065", biểu đồ (trục đối xứng
     quanh 0, đường đứt là 0, đường liền là trung vị, mỗi ca có giá trị ở cả hai run là một chấm, hiệu số thấp nhất ở bên
