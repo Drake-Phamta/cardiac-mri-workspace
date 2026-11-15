@@ -112,6 +112,8 @@ def _nrrd_bytes(tmp: Path, volume: np.ndarray) -> bytes:
 
 
 METRIC_VERSION = "ml-eval-1.0.0"
+# The words ml/evaluate.py records as GEOMETRY_POLICY in every metric file it writes.
+GEOMETRY_POLICY = "voxel-units; spacing is an identity placeholder; no physical volume or distance"
 
 
 def _zyx(volume_xyz: np.ndarray) -> np.ndarray:
@@ -262,6 +264,7 @@ def build_contract2(run_dir: Path, package: Dict[str, object], experiment_id: st
     header = {"evaluation_metric_version": METRIC_VERSION, "experiment_id": exp,
               "population": {"role": "FINAL_HOLDOUT", "partition": "final_holdout", "case_ids": population},
               "prediction_variant": "RAW_PREDICTION", "reference_mask_kind": "GROUND_TRUTH",
+              "geometry_policy": GEOMETRY_POLICY,
               "intended_n": len(population), "successful_n": len(records), "failed_n": len(failures),
               "failures": failures}
     cohort = {"metrics": {key: _describe([record[key] for record in records])
