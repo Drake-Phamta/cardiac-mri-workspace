@@ -273,7 +273,9 @@ class Storage:
     def _count_versions(self, conn: sqlite3.Connection, review_id: str) -> int:
         return conn.execute("SELECT COUNT(*) FROM reviewed_masks WHERE review_id = ?", (review_id,)).fetchone()[0]
 
-    def patch_review(self, review_id: str, status: str, expected_revision: int, reviewer: Optional[str]) -> sqlite3.Row:
+    def patch_review(self, review_id: str, status: str, expected_revision: int, reviewer: Optional[str],
+                     reason: Optional[str] = None) -> sqlite3.Row:
+        """A status change; its reason (a flag's, say) is kept with it in the append-only history."""
         with self._tx() as conn:
             row = self._locked_review(conn, review_id, expected_revision)
             allowed = [state for state in self.transitions.get(row["status"], []) if state != "CORRECTED"]
@@ -287,7 +289,8 @@ class Storage:
             revision = row["revision"] + 1
             conn.execute("UPDATE reviews SET status = ?, revision = ?, updated_at = ? WHERE review_id = ?",
                          (status, revision, now(), review_id))
-            self._history(conn, review_id, revision, "TRANSITION", row["status"], status, reviewer)
+            self._history(conn, review_id, revision, "TRANSITION", row["status"], status, reviewer,
+                          None if reason is None else {"reason": reason})
             return conn.execute("SELECT * FROM reviews WHERE review_id = ?", (review_id,)).fetchone()
 
     def put_working_slice(self, review_id: str, slice_index: int, png: bytes, expected_revision: int,
@@ -416,7 +419,9 @@ class Storage:
                 clauses.append(f"{column} = ?")
                 params.append(filters[column])
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-        return self._read(f"SELECT * FROM findings{where} ORDER BY created_at, finding_id", tuple(params))
+        # Oldest first, as the contract states (1.2.0). created_at has one-second steps; rowid keeps the insert order
+        # within a second (finding ids are random, so ordering by them would not).
+        return self._read(f"SELECT * FROM findings{where} ORDER BY created_at, rowid", tuple(params))
 
     def patch_finding(self, finding_id: str, expected_revision: int, note: Optional[str],
                       status: Optional[str]) -> sqlite3.Row:

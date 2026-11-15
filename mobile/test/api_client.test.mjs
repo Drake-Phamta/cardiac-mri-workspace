@@ -14,7 +14,7 @@ const contract = createContract(loadContractJson());
 const bundle = createBundle(contract, buildBundle(contract));
 const client = createClient(contract, createFixtureTransport(bundle));
 
-// T1 — every one of the 28 endpoints answers SUCCESS from the bundle. This is
+// T1 — every one of the 29 endpoints answers SUCCESS from the bundle. This is
 // the check that says the four verticals can actually build today.
 {
   const failures = [];

@@ -18,7 +18,7 @@ const { check, done } = createChecker();
 const contract = createContract(loadContractJson());
 
 // E1 — every endpoint resolves when every token is supplied, and no resolved
-// URL keeps a brace. This walks all 28, so a new endpoint cannot slip past.
+// URL keeps a brace. This walks all 29, so a new endpoint cannot slip past.
 {
   const failures = [];
   for (const [id, endpoint] of contract.endpointsById) {
