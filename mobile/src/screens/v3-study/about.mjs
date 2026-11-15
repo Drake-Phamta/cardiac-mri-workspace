@@ -10,10 +10,29 @@ export const DATASET_SOURCE_URL = 'https://www.cardiacatlas.org/atriaseg2018-cha
 // The short source line under the dataset name on SCR-01.
 export const DATASET_SOURCE_NAME = 'Atrial Segmentation Challenge, Cardiac Atlas Project';
 
+// LASC 2018 has 154 cases, CASE_0001 to CASE_0154 (data/DATASET_AUDIT.md: "154 unique CASE_NNNN IDs"). A study lists
+// some of them (the server's case count says how many), so the range is the dataset's, not the study's.
+export const DATASET_CASE_COUNT = 154;
+const caseId = (n) => `CASE_${String(n).padStart(4, '0')}`;
+
 const section = (title, lines) => Object.freeze({ title, lines: Object.freeze(lines.filter(Boolean)) });
 
-/* The sheet's sections. `datasetName` is the dataset's name alone; `fixture` adds that numbers are placeholders. */
-export function aboutData({ datasetName = null, fixture = false } = {}) {
+// What the sheet says about how many of the dataset's cases this study lists: the count the server gave (a number or
+// its text), or only that it is some of them when none was given or it does not fit the dataset.
+function listedLine(studyCaseCount) {
+  const n = studyCaseCount === null || studyCaseCount === undefined || studyCaseCount === '' ? NaN : Number(studyCaseCount);
+  if (Number.isInteger(n) && n >= 0 && n < DATASET_CASE_COUNT) {
+    return `This study lists ${n} of them, so the case list skips some of the numbers.`;
+  }
+  if (n === DATASET_CASE_COUNT) return 'This study lists all of them.';
+  return 'This study lists only some of them, so the case list skips some of the numbers.';
+}
+
+/*
+ * The sheet's sections. `datasetName` is the dataset's name alone; `fixture` adds that numbers are placeholders;
+ * `studyCaseCount` is how many cases the study lists (study_get case_counts), for the Case IDs section.
+ */
+export function aboutData({ datasetName = null, fixture = false, studyCaseCount = null } = {}) {
   return Object.freeze([
     section('Where the data comes from', [
       'Left-atrium LGE MRI from the 2018 Atria Segmentation Challenge (LASC 2018), downloaded from the official '
@@ -27,7 +46,9 @@ export function aboutData({ datasetName = null, fixture = false } = {}) {
         + 'inside this project until that policy or a data-use agreement allows sharing them.',
     ]),
     section('Case IDs', [
-      'Cases are named CASE_0001 to CASE_0154: IDs this project gave each case when the data was imported.',
+      `The dataset has ${DATASET_CASE_COUNT} cases, named ${caseId(1)} to ${caseId(DATASET_CASE_COUNT)}: IDs this project `
+        + 'gave each case when the data was imported.',
+      listedLine(studyCaseCount),
       'The app receives only these IDs: no name, birth date or hospital record number.',
     ]),
     section('What these screens show', [

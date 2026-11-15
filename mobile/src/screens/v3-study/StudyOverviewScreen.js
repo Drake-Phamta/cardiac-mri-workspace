@@ -72,7 +72,11 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
           <Blocked notice={blocked} onDone={clearBlocked} />
           <AboutDataSheet
             visible={aboutOpen}
-            sections={aboutData({ datasetName: v.study.datasetName, fixture: snap.source === 'fixture' })}
+            sections={aboutData({
+              datasetName: v.study.datasetName,
+              fixture: snap.source === 'fixture',
+              studyCaseCount: casesTile(snap.caseCounts).value,
+            })}
             onClose={() => setAboutOpen(false)}
           />
         </>

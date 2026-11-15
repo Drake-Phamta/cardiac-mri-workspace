@@ -815,7 +815,8 @@ function noRunBackend() {
   check('V3R11', !sheetOpen(), '"About this data" is closed until asked for');
   await press(r, 'About this data');
   check('V3R11', sheetOpen() && has(r, /^https:\/\/www\.cardiacatlas\.org\/atriaseg2018-challenge\/atria-seg-data\/$/)
-    && has(r, /^Cases are named CASE_0001 to CASE_0154/) && has(r, /Not for diagnosis or treatment decisions/)
+    && has(r, /^The dataset has 154 cases, named CASE_0001 to CASE_0154/) && has(r, /^This study lists 2 of them, so the case list skips some of the numbers\.$/)
+    && has(r, /Not for diagnosis or treatment decisions/)
     && has(r, /^This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\.$/)
     && has(r, /^In this study the dataset is named "fixture dataset"\.$/) && has(r, /^Fixture mode: every number/),
   'the sheet names the source, LASC 2018, the case IDs, research use only, the dataset by name and that fixture numbers are placeholders');

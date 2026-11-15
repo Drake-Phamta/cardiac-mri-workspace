@@ -10,7 +10,7 @@ từng case). Trang chỉ hiện trung vị. "About this data" chỉ có chữ t
 id EXP-…, phiên bản metric, cohort, luật xếp hạng chính xác) màn báo cho shell bằng `nav.setContext({ details })` và nằm trong sheet
 Details (nút Info trên thanh trên); "Metric definitions" là một sheet riêng.
 
-**Riêng tư:** hai màn chỉ nhận và vẽ **con số và mã case giả danh** (CASE_0001…CASE_0154, do dự án gán lúc nhập): không ảnh MRI,
+**Riêng tư:** hai màn chỉ nhận và vẽ **con số và mã case giả danh** (CASE_0001…CASE_0154 là dải mã của cả bộ dữ liệu, do dự án gán lúc nhập; study chỉ liệt kê một phần, sheet "About this data" nói rõ): không ảnh MRI,
 không tên, ngày sinh hay số hồ sơ bệnh viện (ô hình ở SCR-01 là hình vẽ). Không lưu gì xuống máy, không log nội dung.
 Dữ liệu là bộ LASC 2018 (không phải LAScarQS 2022), chỉ dùng nghiên cứu và giảng dạy, không dùng chẩn đoán. Fixture: mọi số là giả.
 

@@ -101,7 +101,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   (thí nghiệm chưa có danh sách ghi "No lowest-Dice list"), dấu tích ở thí nghiệm đang xem; chọn một dòng thì đổi danh sách.
 - **Sheet "About this data"**: chữ thường cho người đọc, gồm các mục "Where the data comes from" (bộ LASC 2018 tải từ
   trang Cardiac Atlas Project, kèm đường dẫn, câu "This is the LASC 2018 challenge data, not the later LAScarQS 2022
-  data." và tên bộ dữ liệu của study), "Terms of use", "Case IDs" ("Cases are named CASE_0001 to CASE_0154 …"; app không
+  data." và tên bộ dữ liệu của study), "Terms of use", "Case IDs" ("The dataset has 154 cases, named CASE_0001 to CASE_0154 …" là dải mã của cả bộ dữ liệu, 154 như bản kiểm kê bộ dữ liệu ghi; câu sau nêu số ca study này liệt kê, lấy từ ô "Cases", ví dụ "This study lists 74 of them, so the case list skips some of the numbers.", và khi chưa biết số thì "This study lists only some of them …"; app không
   nhận tên, ngày sinh hay số hồ sơ), "What these screens show" ("Counts and scores only … No image is shown here."),
   "Lowest-Dice list", "Use" (nghiên cứu và giảng dạy, "Not for diagnosis or treatment decisions"). Ở FIXTURE có thêm mục
   "This build" ("Fixture mode: every number on these screens is a generated placeholder, not a result."). Sheet không có

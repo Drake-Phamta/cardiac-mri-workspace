@@ -20,7 +20,7 @@ import { SIX_RUNS, v3Transport } from './_v3_server.mjs';
 import { caseIntent, OUTLIER_RULE, readCaseCounts } from '../src/screens/v3-study/readers.mjs';
 import { casesTile, diceTile, findingsTile } from '../src/screens/v3-study/tiles.mjs';
 import {
-  aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND, metricLabel, runDetails, studyDetails,
+  aboutData, DATASET_CASE_COUNT, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND, metricLabel, runDetails, studyDetails,
 } from '../src/screens/v3-study/about.mjs';
 import {
   blockedText, caseTable, chooseOutlierGroup, comparisonView, experimentLabel, FAMILY_STYLE, OUTLIER_LABEL, overviewView, plainText,
@@ -309,7 +309,8 @@ test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts a
   const audit = readFileSync(join(REPO_ROOT, 'data', 'DATASET_AUDIT.md'), 'utf8');
   assert.ok(audit.includes(DATASET_SOURCE_URL) && text.includes(DATASET_SOURCE_URL), 'the source is the one the dataset audit names');
   assert.match(audit, /154 unique CASE_NNNN IDs/, 'the case ID range shown matches the dataset audit');
-  assert.match(text, /CASE_0001 to CASE_0154/);
+  assert.equal(DATASET_CASE_COUNT, Number(/(\d+) unique CASE_NNNN IDs/.exec(audit)[1]), "and the count in the sentence is the audit's");
+  assert.match(text, /The dataset has 154 cases, named CASE_0001 to CASE_0154: IDs this project gave each case when the data was imported\./);
   assert.match(text, /This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\./);
   assert.match(text, /no name, birth date or hospital record number/);
   assert.match(text, /Counts and scores only/);
@@ -321,6 +322,26 @@ test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts a
   const live = aboutData();
   assert.equal(live.length, 6, 'a live build has no fixture section');
   assert.ok(!live.flatMap((s) => s.lines).some((l) => /dataset is named/.test(l)), 'no dataset line when the server named none');
+});
+
+// Device session r4: the sheet said "Cases are named CASE_0001 to CASE_0154" under a study that lists 74 cases. The
+// range is the dataset's (154, as the audit counts them); the study's own count is the server's, and the sentence says
+// the case list skips numbers.
+test('V3U10c "About this data" says the dataset has 154 cases and how many of them this study lists', () => {
+  const ids = (sheet) => sheet.find((s) => s.title === 'Case IDs').lines;
+  const withCount = (n) => ids(aboutData({ studyCaseCount: n }));
+  assert.deepEqual(withCount(74), [
+    'The dataset has 154 cases, named CASE_0001 to CASE_0154: IDs this project gave each case when the data was imported.',
+    'This study lists 74 of them, so the case list skips some of the numbers.',
+    'The app receives only these IDs: no name, birth date or hospital record number.',
+  ]);
+  assert.equal(withCount('74')[1], 'This study lists 74 of them, so the case list skips some of the numbers.', 'the tile hands over its text');
+  assert.equal(withCount(0)[1], 'This study lists 0 of them, so the case list skips some of the numbers.');
+  assert.equal(withCount(154)[1], 'This study lists all of them.');
+  const generic = 'This study lists only some of them, so the case list skips some of the numbers.';
+  for (const unusable of [null, undefined, '', 'many', -1, 155, 74.5, NaN]) assert.equal(withCount(unusable)[1], generic, `no count given: ${String(unusable)}`);
+  assert.equal(ids(aboutData())[1], generic, 'SCR-07 does not know the count and does not claim one');
+  assert.equal(DATASET_CASE_COUNT, 154);
 });
 
 // P2 (device round 2): the sheet is plain language. No checksum, capability name, experiment id, field name or tie-break.
