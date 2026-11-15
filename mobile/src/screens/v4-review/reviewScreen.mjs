@@ -5,10 +5,15 @@
 import { maskRuns } from '../../lib/mask.mjs';
 import { STATE, RECOVERY, loading, emptyUnavailable, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
-import { createReviewCorrection } from './review.mjs';
+import { createReviewCorrection, REVIEW_STATUS } from './review.mjs';
+import { outlinePath } from './outline.mjs';
+import { checkNote } from './notes.mjs';
+import { timelineLines } from './history.mjs';
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
+import { sliceNumber, statusWord } from './format.mjs';
 import {
-  createBrushSession, diffRuns, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE, END_SECOND_FINGER, END_TERMINATED,
+  createBrushSession, diffRuns, brushRing, brushSizePx, SOURCE_KIND_FOR_VARIANT, TOOL, MASK_STATE, END_RELEASE,
+  END_SECOND_FINGER, END_TERMINATED,
 } from './brush.mjs';
 
 export { TOOL, MASK_STATE };
@@ -53,6 +58,8 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let slice = null;
   const pixels = new Map();   // slice -> { kind, reason?, servedMaskId? (live: always the run's artifact), checksum? }
   const runsCache = new Map(); // slice -> source mask runs
+  const outlineCache = new Map(); // slice -> the source mask's edge as an SVG path
+  const savedRunsCache = new Map(); // slice -> { bytes, runs }: where the saved version differs from the source, until a save replaces `bytes`
   const mriUris = new Map();   // slice -> { uri, reason } (live), absent in fixture mode
   const inflight = new Set();  // slices whose provided answers are being turned into pixels
   let runPending = false;     // waiting for provideRun
@@ -63,6 +70,10 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
   let transform = null;
   let fit = null;
   let mode = MODE.BRUSH;
+  let sourceOnly = false;     // while the Source button is held: the source prediction alone, no edits drawn
+  let flagDraft = null;       // the flag reason being typed, or null when the reason box is closed
+  let historyOpen = false;    // the timeline panel
+  let history = null;         // { revision, view, lines }: the last history read, and the review revision it was for
   let busy = null;            // 'opening' | 'slice' | 'status' | 'saving' | null
   let notice = null;          // the outcome of the last action, for a banner
   let lastStroke = null;
@@ -155,7 +166,11 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     const sourceMaskId = variant === PREDICTION_VARIANT.RAW
       ? run.data.raw_prediction_artifact_id : run.data.processed_prediction_artifact_id;
     if (!sourceMaskId) return block(emptyUnavailable('ARTIFACT_NOT_FOUND', [RECOVERY.BACK]));
-    target = Object.freeze({ runId: params.runId, caseId: params.caseId || run.data.case_id, variant, sourceMaskId });
+    // The experiment is the run's own, so a finding made from this screen names it (PR-FIND-01).
+    target = Object.freeze({
+      runId: params.runId, caseId: params.caseId || run.data.case_id, variant, sourceMaskId,
+      experimentId: run.data.experiment_id || params.experimentId || null,
+    });
 
     // Step 3: the review. review.open() does its own reads: the sequence ends in a POST and
     // each step needs the answer before it.
@@ -168,6 +183,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     session = newSession();
     pixels.clear();
     runsCache.clear();
+    outlineCache.clear();
     mriUris.clear();
     inflight.clear();
     sliceWant = null;
@@ -316,9 +332,17 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     }));
   }
 
+  // The picture that fits between the insets: the canvas fills the screen, and the bar above and the panel below
+  // (which float over it) are not part of what is fitted or what zooming turns around.
+  function fitFor(v) {
+    const t = v.top || 0;
+    const f = fitTransform(v.width, v.height - t - (v.bottom || 0), shape[0], shape[1]);
+    return { zoom: f.zoom, panX: f.panX, panY: f.panY + t };
+  }
+
   function fitView() {
     if (!viewport || !shape) return;
-    fit = fitTransform(viewport.width, viewport.height, shape[0], shape[1]);
+    fit = fitFor(viewport);
     transform = fit;
   }
 
@@ -329,15 +353,54 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     return getState();
   }
 
-  async function setStatus(to, { confirmed = false } = {}) {
+  async function setStatus(to, { confirmed = false, reason = null } = {}) {
     if (phase !== PHASE.READY || busy === 'status' || busy === 'saving') return getState();
     busy = 'status';
     emit();
-    const r = await review.patchStatus(to, { confirmed });
+    const r = await review.patchStatus(to, { confirmed, reason });
     busy = null;
     notice = r.rejection
       ? Object.freeze({ kind: 'refused', code: r.rejection.code, text: r.rejection.reason })
-      : r.view.state === STATE.SUCCESS ? Object.freeze({ kind: 'status', text: `Review is now ${r.status}.` }) : null;
+      : r.view.state === STATE.SUCCESS ? Object.freeze({ kind: 'status', text: `Review marked ${statusWord(r.status)}.` }) : null;
+    // A flag that went through closes the reason box; a refused one keeps the text so nothing typed is lost.
+    if (to === REVIEW_STATUS.FLAGGED && !r.rejection && r.view.state === STATE.SUCCESS) flagDraft = null;
+    emit();
+    return getState();
+  }
+
+  // Flag: the screen opens a reason box first (a flag must say why), then sends the reason with the change.
+  function flagState() {
+    if (flagDraft === null) return null;
+    const check = checkNote(flagDraft);
+    return Object.freeze({ text: flagDraft, check, canSubmit: !check.empty && check.ok && !busy });
+  }
+
+  // The timeline: while its panel is open the screen reads review_history_list, again after every write
+  // (each write moves the review revision). Nothing is read while the panel is closed.
+  function historyWant() {
+    const r = review.current;
+    if (!historyOpen || phase !== PHASE.READY || !r.reviewId) return null;
+    if (history && history.revision === r.revision) return null;
+    return Object.freeze({ reviewId: r.reviewId, revision: r.revision });
+  }
+
+  function provideHistory(revision, view) {
+    const want = historyWant();
+    if (!want || want.revision !== revision) return getState();
+    let shown = view;
+    // Live: the answer must be the review that was asked for (fixture ids are placeholders).
+    if (view.state === STATE.SUCCESS && !fixture && view.data.review_id !== want.reviewId) {
+      shown = fatalInvalid({
+        code: 'CONTRACT_DRIFT',
+        safeMessage: 'The history that answered is not this review\'s.',
+        detail: { endpointId: 'review_history_list', problems: [`review_id is ${view.data.review_id}, asked ${want.reviewId}`] },
+      });
+    }
+    history = Object.freeze({
+      revision,
+      view: shown,
+      lines: shown.state === STATE.SUCCESS ? timelineLines(shown.data.items) : Object.freeze([]),
+    });
     emit();
     return getState();
   }
@@ -354,9 +417,9 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       const c = r.lastCommit;
       notice = Object.freeze({
         kind: 'saved',
-        // Name the new version and the prediction it corrects.
-        text: `Saved as a new version ${c.reviewed_mask_id} (revision ${c.revision}) of the ${target.variant} prediction `
-          + `${c.source_mask_id} (${c.source_mask_kind}). Review is ${r.status}.`,
+        // One short line, as the viewer says things; the version's id, its revision and the prediction it corrects are
+        // in the Details sheet, and the status tag over the picture already reads Corrected.
+        text: `Saved · version ${r.reviewedMasks.length}`,
         reviewedMaskId: c.reviewed_mask_id, checksum: c.checksum, sourceMaskId: c.source_mask_id, sourceMaskKind: c.source_mask_kind,
       });
     } else {
@@ -385,8 +448,8 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
         if (unsavedNow()) {
           notice = Object.freeze({
             kind: 'refused', code: 'BASE_VERSION_MISMATCH',
-            text: `The review's latest version is ${wantBase ?? 'the original prediction'}; your edits continue from `
-              + `${session.baseId ?? 'the original prediction'}. Cancel the edits, then Refresh again to continue from the latest version.`,
+            text: 'Another reviewer saved a newer version, and your edits continue from an older one. '
+              + 'Cancel the edits, then Refresh to continue from the newest version.',
           });
         } else {
           rebuild();
@@ -402,6 +465,7 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     session = newSession();
     pixels.clear();
     runsCache.clear();
+    outlineCache.clear();
     inflight.clear();
     sliceWant = null;
     const z = slice;
@@ -435,13 +499,53 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     if (!session || !pixelsReady(z)) return null;
     const [nx, ny] = shape;
     if (!runsCache.has(z)) runsCache.set(z, maskRuns({ width: nx, height: ny, data: session.sourceSlice(z) }));
+    if (!outlineCache.has(z)) outlineCache.set(z, outlinePath(session.sourceSlice(z), nx, ny));
     const saved = session.savedSlice(z);
+    // The saved layer does not change while the person paints, so it is not scanned on every touch (a 576 x 576 slice is
+    // 331 776 pixels); the same array comes back until a save gives the slice new bytes, so the canvas builds its path once.
+    let savedRuns = [];
+    if (saved) {
+      const kept = savedRunsCache.get(z);
+      if (kept && kept.bytes === saved) savedRuns = kept.runs;
+      else {
+        savedRuns = diffRuns(saved, session.sourceSlice(z), nx, ny);
+        savedRunsCache.set(z, { bytes: saved, runs: savedRuns });
+      }
+    }
     return Object.freeze({
       source: runsCache.get(z),
+      // The source's edge, drawn as a line under the see-through edits, so where the prediction was stays visible.
+      sourceOutline: outlineCache.get(z),
       // The saved correction relative to the source, then the unsaved edits
       // relative to what is saved - three layers a reader can tell apart.
-      saved: saved ? diffRuns(saved, session.sourceSlice(z), nx, ny) : [],
+      saved: savedRuns,
       unsaved: diffRuns(session.workingSlice(z), saved ?? session.sourceSlice(z), nx, ny),
+    });
+  }
+
+  // Why a control is off, in plain words: it goes into the control's accessibility hint, and a tap on the control shows
+  // it as a one-line note (say). null = the control is on, or off for a moment only (a save says "Saving…" itself).
+  function whyOff(brush, layers, canSave) {
+    const px = slice === null ? null : pixels.get(slice);
+    let edit = null;
+    if (busy !== 'saving' && !pixelsReady(slice)) {
+      edit = px && px.kind === PIXELS.UNAVAILABLE ? 'This slice is not drawn, so it cannot be edited.' : 'The slice is still loading.';
+    }
+    const total = shape ? shape[2] : null;
+    let save = null;
+    if (!canSave) {
+      if (!review.current.canWrite) save = 'Nothing can be saved until the review is refreshed.';
+      else if (!busy) save = 'No unsaved edits to save.';
+    }
+    return Object.freeze({
+      edit, // Add, Erase and the brush size
+      undo: edit || (brush && !brush.canUndo ? 'Nothing to undo.' : null),
+      redo: edit || (brush && !brush.canRedo ? 'Nothing to redo.' : null),
+      reset: edit || (brush && brush.maskState === MASK_STATE.SOURCE && !brush.canRedo ? 'Nothing to reset: the slice is still the source.' : null),
+      save,
+      source: layers ? null : 'The slice is not drawn yet.',
+      prev: slice !== null && slice <= 0 ? 'This is the first slice.' : null,
+      next: slice !== null && total !== null && slice >= total - 1 ? 'This is the last slice.' : null,
     });
   }
 
@@ -449,6 +553,9 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     const brush = session ? session.state() : null;
     const ready = slice !== null && pixelsReady(slice);
     const mri = slice === null ? null : mriUris.get(slice) ?? null;
+    const layers = ready ? layersFor(slice) : null;
+    const canSave = phase === PHASE.READY && review.current.canWrite && !busy && Boolean(brush)
+      && brush.unsavedSlices.length > 0;
     return Object.freeze({
       version,
       phase,
@@ -458,10 +565,11 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
       review: review.current,
       brush,
       shape,
-      // What the screen must fetch with useCall and hand back (provideRun, provideSlice).
+      // What the screen must fetch with useCall and hand back (provideRun, provideSlice, provideHistory).
       wants: Object.freeze({
         run: runPending ? Object.freeze({ runId: params.runId, epoch: runEpoch }) : null,
         slice: sliceWant,
+        history: historyWant(),
       }),
       slice: slice === null ? null : Object.freeze({
         index: slice,
@@ -471,19 +579,31 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
         mriUri: mri ? mri.uri : null,
         mriReason: mri ? mri.reason : null,
       }),
-      layers: ready ? layersFor(slice) : null,
+      layers,
+      sourceOnly,
+      // While a finger paints: the ring around the pixels the next stamp covers, in source pixels.
+      ring: brush && gesture.cursor ? brushRing(gesture.cursor, brush.radius) : null,
+      brushPx: brush ? brushSizePx(brush.radius) : null,
       transform,
       mode,
       busy,
       notice,
       lastStroke,
+      flag: flagState(),
+      // The timeline panel: closed, loading (no answer yet for this revision), or the answer with its lines.
+      history: Object.freeze({
+        open: historyOpen,
+        view: history ? history.view : null,
+        lines: history ? history.lines : Object.freeze([]),
+        current: Boolean(history && history.revision === review.current.revision),
+      }),
       canEdit: editable(),
-      canSave: phase === PHASE.READY && review.current.canWrite && !busy && Boolean(brush)
-        && brush.unsavedSlices.length > 0,
+      canSave,
+      why: whyOff(brush, layers, canSave),
       // The navigator unmounts a covered screen, so the screen sets a leave guard while this is false.
       canLeave: !(brush && brush.unsavedSlices.length > 0),
       leaveBlockedReason: brush && brush.unsavedSlices.length > 0
-        ? `Slice ${brush.unsavedSlices.join(', ')} has unsaved edits; leaving this screen discards them.`
+        ? `Slice ${brush.unsavedSlices.map(sliceNumber).join(', ')} has unsaved edits; leaving this screen discards them.`
         : null,
     });
   }
@@ -512,34 +632,70 @@ export function createReviewScreen({ runtime, params = {}, decodeMaskPng = null,
     setTool: (tool) => act(() => session.setTool(tool)),
     setRadius: (r) => act(() => session.setRadius(r)),
     setMode: (m) => act(() => { if (m === MODE.BRUSH || m === MODE.PAN) mode = m; }),
+    // Press and hold Source: only the source prediction is drawn until the button is released. Nothing is
+    // painted meanwhile, and a stroke in progress is rolled back, so comparing never edits.
+    holdSource: (on) => act(() => {
+      sourceOnly = Boolean(on);
+      if (sourceOnly && gesture.active) gesture.terminate();
+    }),
     undo: () => act(() => { session.undo(); }),
     redo: () => act(() => { session.redo(); }),
     reset: () => act(() => {
       session.reset();
-      notice = Object.freeze({ kind: 'info', text: 'Back to the original prediction; history cleared.' });
+      notice = Object.freeze({ kind: 'info', text: 'Back to the original prediction.' });
     }),
+    // Tap on the message to dismiss it. A new stroke dismisses a finished one too ("saved" must not hang over new edits);
+    // a refusal stays until it is dismissed or the next action replaces it.
+    dismissNotice: () => act(() => { notice = null; }),
+    // A one-line note over the picture, for a tap on a control that is off (its reason is in `why`).
+    say: (text) => act(() => { notice = Object.freeze({ kind: 'info', text }); }),
     cancel: () => act(() => {
       session.cancel();
       notice = Object.freeze({ kind: 'info', text: 'Unsaved changes discarded.' });
     }),
     setStatus,
+    // The flag reason box: open it, type, send (with the reason) or close it. Sending checks the reason first.
+    startFlag: () => act(() => { if (flagDraft === null) flagDraft = ''; }),
+    setFlagReason: (text) => act(() => { if (flagDraft !== null && typeof text === 'string') flagDraft = text; }),
+    cancelFlag: () => act(() => { flagDraft = null; }),
+    submitFlag({ confirmed = false } = {}) {
+      const f = flagState();
+      if (!f || !f.canSubmit) return Promise.resolve(getState());
+      return setStatus(REVIEW_STATUS.FLAGGED, { confirmed, reason: f.text });
+    },
+    toggleHistory: () => act(() => { historyOpen = !historyOpen; }),
+    provideHistory,
+    // Read the history again (its Retry / Refresh).
+    retryHistory: () => act(() => { history = null; }),
     save,
-    setViewport(width, height) {
-      if (!(width > 0 && height > 0)) return;
-      if (viewport && viewport.width === width && viewport.height === height) return;
-      viewport = { width, height };
-      fitView();
+    // The canvas changed size (first layout, a banner above it, the keyboard). A view that was still "fit" is
+    // fitted again; a view the user zoomed or panned stays as it is (B7), only the fit it clamps against is new.
+    setViewport(width, height, { top = 0, bottom = 0 } = {}) {
+      if (!(width > 0 && height > top + bottom)) return;
+      if (viewport && viewport.width === width && viewport.height === height && viewport.top === top && viewport.bottom === bottom) return;
+      const wasFit = !transform || !fit
+        || (transform.zoom === fit.zoom && transform.panX === fit.panX && transform.panY === fit.panY);
+      viewport = { width, height, top, bottom };
+      if (wasFit) fitView();
+      else if (shape) fit = fitFor(viewport);
       emit();
     },
     zoomBy(factor) {
       if (!transform || !viewport) return;
-      transform = zoomAbout(transform, clampZoom(transform.zoom * factor, fit.zoom), viewport.width / 2, viewport.height / 2);
+      const middleY = (viewport.top || 0) + (viewport.height - (viewport.top || 0) - (viewport.bottom || 0)) / 2;
+      transform = zoomAbout(transform, clampZoom(transform.zoom * factor, fit.zoom), viewport.width / 2, middleY);
       emit();
     },
     fitView() { fitView(); emit(); },
     // Touches, already in canvas coordinates.
     touch: Object.freeze({
-      grant(points) { if (editable() || mode === MODE.PAN) { gesture.grant(points); emit(); } },
+      grant(points) {
+        if ((editable() && !sourceOnly) || mode === MODE.PAN) {
+          gesture.grant(points);
+          if (gesture.stroking && notice && notice.kind !== 'refused') notice = null;
+          emit();
+        }
+      },
       fingers(points) { gesture.fingers(points); emit(); },
       move(points) { gesture.move(points); emit(); },
       release() { gesture.release(); emit(); },
@@ -557,10 +713,11 @@ export const MODE = Object.freeze({ BRUSH: 'brush', PAN: 'pan' });
 export function createGestureController({
   getSession, getSlice, getTransform, setTransform, getFitZoom, getMode, onStrokeEnd = null,
 }) {
-  let gest = null; // { prev: points, stroke: boolean }
+  let gest = null; // { prev: points, stroke: boolean, at: the source pixel under the painting finger, or null }
 
   function endStroke(how) {
     gest.stroke = false;
+    gest.at = null;
     const r = getSession().endStroke(how);
     if (r && onStrokeEnd) onStrokeEnd(r);
     return r;
@@ -569,13 +726,13 @@ export function createGestureController({
   function grant(points) {
     // Never inherit a stroke whose end was not delivered.
     if (gest && gest.stroke) endStroke(END_TERMINATED);
-    gest = { prev: points, stroke: false };
+    gest = { prev: points, stroke: false, at: null };
     const session = getSession();
     const t = getTransform();
     if (getMode() === MODE.BRUSH && points.length === 1 && session && t) {
       session.beginStroke(getSlice());
       gest.stroke = true;
-      session.sample(points[0].x, points[0].y, t);
+      gest.at = session.sample(points[0].x, points[0].y, t);
     }
   }
 
@@ -592,7 +749,7 @@ export function createGestureController({
     if (!t) return;
     if (gest.stroke) {
       if (points.length === 1) {
-        getSession().sample(points[0].x, points[0].y, t);
+        gest.at = getSession().sample(points[0].x, points[0].y, t);
         gest.prev = points;
         return;
       }
@@ -628,6 +785,8 @@ export function createGestureController({
     grant, fingers, move, release, terminate,
     get active() { return gest !== null; },
     get stroking() { return Boolean(gest && gest.stroke); },
+    // The source pixel [x, y] under the painting finger, for the brush ring; null when not painting.
+    get cursor() { return gest && gest.stroke ? gest.at : null; },
   });
 }
 
