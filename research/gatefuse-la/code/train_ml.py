@@ -67,6 +67,9 @@ def parse(argv=None):
     a = ap.parse_args(argv)
     if a.fusion != "token" and a.model != "gate":
         ap.error("--fusion only applies to --model gate")
+    if a.aug != "none" and a.model != "unet":
+        ap.error(f"--aug {a.aug} needs --model unet: the other models train on encoder features "
+                 "cached once from the original slices, which an augmented image would not match")
     a.iters = a.iters or (4000 if a.labels == "full" else 2000)
     a.eval_every = a.eval_every or (250 if a.labels == "full" else 200)
     a.out = Path(a.out)
