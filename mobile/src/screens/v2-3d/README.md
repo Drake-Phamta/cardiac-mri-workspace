@@ -7,8 +7,9 @@ lát nào, "Slice 45 / 88"; "Open in 2D" mở SCR-03 đúng lát đó. Mã run, 
 Details (nút ⓘ của thanh đầu).
 
 **Công cụ nằm trong trang WebView** (kính mờ Direction A, vùng chạm 48): Views (+X…−Z, Fit), Cut (ẩn bề mặt phía trên lát
-đang chọn), Layers (ẩn/hiện, độ mờ 30/60/100 %), Errors với Previous / Next và công cụ lặng "Small regions (N)". Trạng thái
-các công cụ do **trang** giữ; app chỉ gửi dữ liệu. Previous / Next bật lớp Errors trước khi chọn vùng, nên không bao giờ chọn
+đang chọn), Layers (ẩn/hiện, độ mờ 30/60/100 %), Errors với Previous / Next và công cụ lặng "Small regions (N)". Các nhóm
+công cụ không đè lên nhau: nhóm lớp có hộp riêng dưới nhóm Views / Cut / gizmo và cuộn nếu vùng trống quá thấp (307 px ở 320 dp,
+cỡ chữ 1,3). Trạng thái các công cụ do **trang** giữ; app chỉ gửi dữ liệu. Previous / Next bật lớp Errors trước khi chọn vùng, nên không bao giờ chọn
 vùng khi lớp đang tắt. Góc trên trái có gizmo trục nhỏ (chỉ chữ x / y / z, cách xa mô hình); chữ đó nghĩa là gì (trục voxel,
 x = cột, y = hàng, z = lát) nằm ở mục Frame của sheet Details.
 

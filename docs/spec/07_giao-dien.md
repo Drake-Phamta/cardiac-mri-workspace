@@ -194,11 +194,18 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   px (320 dp) nó là lưới bốn cột 48 px (hai hàng, "Fit" ở hàng hai) và "Cut" lên ngang hàng đầu ở bên phải, nên "Fit" không còn bị
   đẩy ra khỏi màn hình; mỗi hàng chip lớp tự xuống dòng khi chip và nhóm điều khiển của nó không vừa một dòng (nhóm xuống ngay dưới
   chip), tên chip nằm trên một dòng ("Ground truth" không vỡ thành hai dòng), và dưới 384 px chip rộng bằng tên của nó thay vì
-  chung 148 px, nên hàng độ mờ và nút › của "Errors" không chạm mép phải (ở 320 dp trước đây nút › tới x = 320):
+  chung 148 px, nên hàng độ mờ và nút › của "Errors" không chạm mép phải (ở 320 dp trước đây nút › tới x = 320). Các nhóm không
+  bao giờ đè lên nhau, dù vùng trống giữa header và panel dưới cao bao nhiêu (307 px ở 320 dp và cỡ chữ 1,3; 380 px ở cỡ chữ 1,0;
+  trước đây ở 320 dp và cỡ chữ 1,3 hai hàng lớp đè lên "Fit", "+Z", "−Z" và gizmo): nhóm lớp có hộp riêng, bắt đầu dưới nhóm "Views",
+  "Cut" và gizmo (132 px; 110 px ở trang hẹp) và kết thúc ở đáy vùng trống; các hàng nằm sát đáy hộp, không bao giờ bị co lại, và
+  nếu chúng cao hơn hộp (vùng trống rất thấp, hoặc có ghi chú của "Cut") thì hộp cuộn, ghi chú là thứ bị cắt trước chứ không hàng nào
+  bị đẩy lên đè nhóm phía trên. Ở trang hẹp gizmo nằm trong ô thứ tám còn trống của lưới "Views" (bảy nút trong lưới 4 × 2), còn lưới,
+  chip tên và nút độ mờ được thu gọn hết mức nút 48 px cho phép, nên bốn hàng lớp (4 × 48 px) vừa 307 px ngay dưới lưới (lưới kết
+  thúc ở 108 px) và hàng "Ground truth" cùng ba nút độ mờ vẫn nằm trên một dòng ở chữ 1,15:
   - góc trên trái: nhóm "Views" gồm "+X", "−X", "+Y", "−Y", "+Z", "−Z" (nhìn mô hình từ phía đó của trục voxel) và "Fit" (về góc
-    nhìn mặc định); dưới nhóm là gizmo trục, chỉ có ba chữ x, y, z;
+    nhìn mặc định); dưới nhóm (ở trang hẹp: trong ô thứ tám còn trống của lưới) là gizmo trục, chỉ có ba chữ x, y, z;
   - bên phải: nút "Cut" ẩn phần bề mặt và điểm lỗi phía trên lát đang chọn; khoá khi chưa có lát; khi bật có ghi chú
-    "Above slice 45 hidden";
+    "Above slice 45 hidden" ở dòng cuối của nhóm lớp (dưới các hàng lớp, sát bên phải);
   - góc dưới trái: chip "Prediction" và "Ground truth" (biểu tượng mắt, ô màu; chạm để ẩn / hiện), mỗi chip kèm ba nút độ mờ
     "30%", "60%", "100%" khi lớp đang hiện (mặc định dự đoán "100%", GT "30%"); chip "Errors" (mắt, chấm tròn FN, ô vuông FP) kèm hai
     nút ‹ › ("Previous error region", "Next error region") và số vùng: "3 regions" khi chưa chọn vùng nào, "1 / 3" khi đã chọn,
