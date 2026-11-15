@@ -68,6 +68,11 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   gì; nút "Show the screen" hiện lại, nút "Clear cached images" xoá cache.
 - **Vùng chạm**: ở thành phần dùng chung, khung app và SCR-02, SCR-03, SCR-04, mọi nút, chip và dòng chạm được cao ít
   nhất 48 dp (`MIN_TOUCH`); phần nhìn thấy thấp hơn thì vùng chạm được nới thêm (`hitSlopFor`).
+- **Bề ngang và cỡ chữ** (NFR-USAB-006): bố cục được kiểm ở 320, 384 (mặc định) và 480 dp, và ở cỡ chữ hệ thống 1,3.
+  Nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng bằng ô chứa nó và chỉ phóng chữ tới 1,15 lần
+  (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy); số
+  (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3; hàng nhãn rộng hơn màn hình (tab lọc của SCR-02) cuộn
+  ngang; chữ thân bài phóng hết, mã thí nghiệm và mã khác chỉ hiện ở sheet Details.
 
 ## 2. Từng màn hình
 

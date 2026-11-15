@@ -27,4 +27,8 @@ Kích thước: `space.xs..xxl` (4–32), `radius.xs..l` (4–10), `size.*` (chi
 Quy tắc: màu không bao giờ đứng một mình (luôn kèm chữ hoặc biểu tượng); `t3` không đặt trên `glass`;
 mọi vùng chạm ≥ 48 dp (phần nhìn thấy thấp hơn thì `hitSlop={hitSlopFor(chiều cao)}`, nhãn có thể ngắn hơn 48 dp thì thêm `minWidth: MIN_TOUCH`;
 `test/render/touch_targets.mjs` đo từng thành phần dùng chung); giá trị thiếu là một chữ, không phải 0.
+Bề ngang và cỡ chữ (320–480 dp, cỡ chữ hệ thống đến 1,3): nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng
+bằng ô chứa nó (`alignSelf: 'stretch'`, `textAlign: 'center'`), `numberOfLines={1}` và
+`maxFontSizeMultiplier={LABEL_FONT_CAP}` (thẻ `Tag` chỉ cần giới hạn phóng chữ); ô số dùng `minWidth` đủ cho cỡ chữ 1,3 chứ không dùng `width`; hàng nhãn có thể
+rộng hơn màn hình thì là `ScrollView horizontal`; chữ thân bài không bị giới hạn.
 Đếm path / chấm trong test: bỏ qua biểu tượng (Svg có `testID` bắt đầu bằng `icon-`).
