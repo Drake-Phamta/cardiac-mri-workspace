@@ -19,7 +19,9 @@ format ``cardiac-error-geometry/1``: one marker per FP / FN component with its s
 
     <data>/derived_meshes/<prediction_mask_sha256>.<ground_truth_mask_sha256>.errors.json
 
-This step needs scipy; without it the step is skipped and says so (the meshes are still built).
+This step needs scipy; without it the step is skipped and says so (the meshes are still built). An error file is
+write-once like a mesh: it is kept (NO_OP) only while it names the prediction's mesh as it is now; one that names
+another surface, or none because it was built before the mesh was, is a CHECKSUM_CONFLICT and is never overwritten.
 
 Contract 2 and API Contract 11 are unchanged: this step only adds derived, patient-derived files outside git.
 CASE_0001 (INT-12) has no ground truth in the cache, so none is built for it; its predictions are meshed.
@@ -44,7 +46,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from . import artifact
-from .error_geometry import build_error_artifact
+from .error_geometry import ERROR_ARTIFACT_FORMAT, build_error_artifact
 
 DERIVED_DIR = "derived_meshes"
 MESH_SUFFIX = ".l0.cmesh"
@@ -85,13 +87,34 @@ def store_errors(root: Path, prediction_sha256: str, ground_truth_sha256: str, v
 
     ``volumes_zyx`` is a callable giving the (prediction, ground truth) (z, y, x) volumes; it is not called when the
     file already exists. The prediction's mesh must be built first: the file names it as the surface.
+
+    An existing file is treated the way ``store_volume`` treats an existing mesh. The markers are a function of the
+    two masks, which the file's name pins, so the one thing that can have changed since it was written is the surface
+    it names (a file built before the mesh was has none, and the app refuses markers of another surface). If it names
+    the prediction's mesh as it is now, it is a NO_OP and no mask is read; if it is unreadable or names another
+    surface it is a CHECKSUM_CONFLICT, never overwritten and never silently kept.
     """
     path = errors_path(root, prediction_sha256, ground_truth_sha256)
+    surface = surface_mesh_id(root, prediction_sha256)
     if path.is_file():
         payload = path.read_bytes()
-        return {"action": "NO_OP", "bytes": len(payload), "components": len(json.loads(payload)["components"])}
+        try:
+            document = json.loads(payload)
+        except ValueError:
+            document = None
+        readable = (isinstance(document, dict) and document.get("format") == ERROR_ARTIFACT_FORMAT
+                    and isinstance(document.get("components"), list))
+        if not readable:
+            raise BuildError("CHECKSUM_CONFLICT", f"{path.name} is not a readable error geometry; derived files are "
+                                                  f"never overwritten - move it aside to rebuild it")
+        named = document.get("surface_mesh_artifact_id")
+        if named != surface:
+            raise BuildError("CHECKSUM_CONFLICT", f"{path.name} names the surface {named} but the prediction's mesh is "
+                                                  f"{surface}; derived files are never overwritten - move it aside "
+                                                  f"to rebuild it")
+        return {"action": "NO_OP", "bytes": len(payload), "components": len(document["components"])}
     prediction, ground_truth = volumes_zyx()
-    payload, info = build_error_artifact(prediction, ground_truth, surface_mesh_id(root, prediction_sha256))
+    payload, info = build_error_artifact(prediction, ground_truth, surface)
     _write_atomic(path, payload)
     return dict(info, action="NEW")
 

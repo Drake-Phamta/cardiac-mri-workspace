@@ -373,6 +373,136 @@ def test_error_files_are_write_once_checked_on_load_and_on_every_read(environmen
         backend.storage.close()
 
 
+
+# -- an existing error file is kept only while it names the prediction's mesh as it is now (like a mesh, write-once) --
+
+PRED_SHA, GT_SHA = "a" * 64, "b" * 64
+
+
+def small_masks():
+    """A prediction and a ground truth (z, y, x) that disagree both ways: one FP block and one FN block."""
+    pred = np.zeros((4, 6, 8), dtype=np.uint8)
+    gt = np.zeros((4, 6, 8), dtype=np.uint8)
+    pred[1:3, 1:4, 1:4] = 1
+    gt[1:3, 2:5, 2:5] = 1
+    return pred, gt
+
+
+def errors_file(derived: Path) -> Path:
+    return build_cache.errors_path(derived, PRED_SHA, GT_SHA)
+
+
+def aside(path: Path) -> None:
+    """Move a file aside, as the conflict message says. A short name: two sha256 in a name nearly fill a Windows path."""
+    path.rename(path.with_name("moved-aside.json"))
+
+
+@needs_scipy
+def test_an_existing_error_file_is_a_no_op_while_it_names_the_prediction_mesh(tmp_path):
+    derived = tmp_path / "derived"
+    pred, gt = small_masks()
+    build_cache.store_volume(derived, PRED_SHA, pred, "prediction")
+    surface = build_cache.surface_mesh_id(derived, PRED_SHA)
+    assert surface and surface.startswith("MESH_")
+    first = build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: (pred, gt))
+    assert first["action"] == "NEW" and first["components"] == 2
+    assert json.loads(errors_file(derived).read_bytes())["surface_mesh_artifact_id"] == surface
+    before = errors_file(derived).read_bytes()
+    again = build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: pytest.fail("a re-run reads no mask"))
+    assert (again["action"], again["components"], again["bytes"]) == ("NO_OP", 2, len(before))
+    assert errors_file(derived).read_bytes() == before
+
+
+@needs_scipy
+def test_an_error_file_built_before_its_mesh_is_a_conflict_and_is_never_kept_or_overwritten(tmp_path):
+    derived = tmp_path / "derived"
+    derived.mkdir()
+    pred, gt = small_masks()
+    # Built while the prediction had no mesh yet: the file names no surface, and the app would refuse its markers.
+    early = build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: (pred, gt))
+    assert early["action"] == "NEW" and json.loads(errors_file(derived).read_bytes())["surface_mesh_artifact_id"] is None
+    # Still no mesh: the file is what would be written now, so it is kept.
+    assert build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: pytest.fail("read again"))["action"] == "NO_OP"
+    # The mesh is built afterwards: the old file now names another surface than the prediction's.
+    build_cache.store_volume(derived, PRED_SHA, pred, "prediction")
+    stale = errors_file(derived).read_bytes()
+    with pytest.raises(build_cache.BuildError) as raised:
+        build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: pytest.fail("a conflict reads no mask"))
+    assert raised.value.code == "CHECKSUM_CONFLICT" and "move it aside" in str(raised.value)
+    assert errors_file(derived).read_bytes() == stale, "never overwritten"
+    # Moved aside, as the message says, it is rebuilt against the mesh, and that file is then kept.
+    aside(errors_file(derived))
+    rebuilt = build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: (pred, gt))
+    surface = build_cache.surface_mesh_id(derived, PRED_SHA)
+    assert rebuilt["action"] == "NEW"
+    assert json.loads(errors_file(derived).read_bytes())["surface_mesh_artifact_id"] == surface
+    assert build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: pytest.fail("read again"))["action"] == "NO_OP"
+
+
+def test_an_error_file_that_names_another_surface_or_cannot_be_read_is_a_conflict(tmp_path):
+    derived = tmp_path / "derived"
+    pred, _ = small_masks()
+    build_cache.store_volume(derived, PRED_SHA, pred, "prediction")
+    surface = build_cache.surface_mesh_id(derived, PRED_SHA)
+    good = {"format": "cardiac-error-geometry/1", "surface_mesh_artifact_id": surface, "components": []}
+    wrong = {
+        "another surface": dict(good, surface_mesh_artifact_id="MESH_" + "c" * 64),
+        "no surface": dict(good, surface_mesh_artifact_id=None),
+        "another format": dict(good, format="cardiac-error-geometry/2"),
+        "no components": {key: value for key, value in good.items() if key != "components"},
+    }
+
+    def conflict():
+        with pytest.raises(build_cache.BuildError) as raised:
+            build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: pytest.fail("a conflict reads no mask"))
+        assert raised.value.code == "CHECKSUM_CONFLICT"
+        return str(raised.value)
+
+    for label, document in wrong.items():
+        errors_file(derived).write_text(json.dumps(document), encoding="ascii")
+        assert conflict(), label
+    for label, text in {"not json": "{not json", "not an object": "[]"}.items():
+        errors_file(derived).write_text(text, encoding="ascii")
+        assert "not a readable error geometry" in conflict(), label
+    assert errors_file(derived).read_text(encoding="ascii") == "[]", "never overwritten"
+    # A file that names the prediction's mesh is kept, and no mask is read.
+    errors_file(derived).write_text(json.dumps(good), encoding="ascii")
+    assert build_cache.store_errors(derived, PRED_SHA, GT_SHA, lambda: pytest.fail("read again"))["action"] == "NO_OP"
+    # An empty prediction has no mesh, so the surface a matching file names is none.
+    empty_sha = "d" * 64
+    build_cache.store_volume(derived, empty_sha, np.zeros((2, 3, 4), dtype=np.uint8), "prediction")
+    assert build_cache.surface_mesh_id(derived, empty_sha) is None
+    build_cache.errors_path(derived, empty_sha, GT_SHA).write_text(json.dumps(dict(good, surface_mesh_artifact_id=None)), encoding="ascii")
+    assert build_cache.store_errors(derived, empty_sha, GT_SHA, lambda: pytest.fail("read again"))["action"] == "NO_OP"
+
+
+@needs_scipy
+def test_the_build_stops_on_an_error_file_of_another_surface_and_resumes_once_it_is_moved_aside(environment, built, tmp_path, capsys):
+    copy = tmp_path / "root"
+    copy.mkdir()
+    shutil.copytree(environment["cache"], copy / "data_cache")
+    shutil.copytree(environment["experiments"], copy / "experiments")
+    shutil.copytree(built["dir"], copy / "derived_meshes")
+    files = sorted((copy / "derived_meshes").glob("*.errors.json"))
+    victim = files[0]
+    document = json.loads(victim.read_bytes())
+    document["surface_mesh_artifact_id"] = None  # as if built before the mesh existed
+    stale = json.dumps(document, sort_keys=True, separators=(",", ":")).encode("ascii")
+    victim.write_bytes(stale)
+    with pytest.raises(build_cache.BuildError) as raised:
+        build_cache.build_all(copy, log=lambda *a, **k: None)
+    assert raised.value.code == "CHECKSUM_CONFLICT" and victim.name in str(raised.value)
+    assert victim.read_bytes() == stale, "never overwritten"
+    assert build_cache.main(["--data", str(copy)]) == 2
+    assert "FAIL [CHECKSUM_CONFLICT]" in capsys.readouterr().err
+    aside(victim)
+    resumed = build_cache.build_all(copy, log=lambda *a, **k: None)["error_geometry"]
+    assert resumed["new"] == 1, "only the file that was moved aside is built again"  # runs sharing the masks share the file
+    assert victim.read_bytes() == (built["dir"] / victim.name).read_bytes(), "rebuilt to exactly what the first build wrote"
+    assert build_cache.build_all(copy, log=lambda *a, **k: None)["error_geometry"]["new"] == 0
+    assert len(list((copy / "derived_meshes").glob("*.errors.json"))) == len(files)
+
+
 def test_without_derived_meshes_nothing_is_offered(bare_api):
     api = bare_api
     assert api.error_code(reconstruction(api, "RUN_9001", "ART_RUN_9001_RAW", 404)) == "ARTIFACT_NOT_FOUND"

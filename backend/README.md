@@ -166,7 +166,9 @@ python -m backend.mesh.build_cache --data "<data-root>" [--runs RUN_ID ...] [--n
 ```
 
 Every served mask without a mesh simply has no reconstruction (`ARTIFACT_NOT_FOUND`). A re-run is a NO_OP; a mesh that
-no longer matches its sidecar is a `CHECKSUM_CONFLICT`, never overwritten. `CASE_0001` has no ground truth to mesh; its
+no longer matches its sidecar is a `CHECKSUM_CONFLICT`, never overwritten. An error file is treated the same way: it is
+kept only while it names the prediction's mesh as it is now, and one that names another surface (or none, because it was
+built before the mesh was) is a `CHECKSUM_CONFLICT` too; move it aside and re-run to rebuild it. `CASE_0001` has no ground truth to mesh; its
 predictions are meshed. The frame, the file format and the pick rule are in `backend/mesh/artifact.py`; the contract
 conventions (mesh id, content route, INT-12 refusal) are in `contracts/api/README.md`, "3-D mesh content".
 

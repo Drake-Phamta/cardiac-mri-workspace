@@ -163,7 +163,9 @@ keys, compact, ASCII; same masks, same bytes) in the **voxel-index frame**, ever
 
 No world coordinates and no lengths are served (geometry is not validated). `build_cache.py` writes one file per
 prediction of a case with ground truth, `<pred_sha256>.<gt_sha256>.errors.json` in `derived_meshes/`, write-once; this
-step needs scipy and is skipped (with a log line) without it. The API answers `error_reconstruction_get` with
+step needs scipy and is skipped (with a log line) without it. Write-once is the rule meshes follow: a re-run keeps a file
+only while its `surface_mesh_artifact_id` is the prediction's mesh as it is now (no mask is read), and a file that names
+another surface, or none because it was built before the mesh was, is a `CHECKSUM_CONFLICT` (move it aside to rebuild). The API answers `error_reconstruction_get` with
 `error_mesh_artifact_id` = `ERRGEOM_<sha256 of the file>`; the bytes are at `/api/v1/artifacts/<sha256>.json`, verified
 on every read (`contracts/api/README.md`). A z-connected component spans consecutive slices, so the range is the slice
 set.
