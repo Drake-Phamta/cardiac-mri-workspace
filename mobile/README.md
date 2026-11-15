@@ -23,6 +23,7 @@ build installs).
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
 | `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, run in CI only by the `mobile-render-bundle` job, never bundled. Pulls in a **nested `react-is` 19.3.0** (MIT; its own caret range `^19.2.3`, locked at `node_modules/react-test-renderer/node_modules/react-is`) next to React 19.2.3 — harmless for a test-only renderer; the top-level `react-is` 18.3.1 belongs to other packages |
+| `expo-screen-capture` | `~57.0.4` (locked 57.0.4) | MIT | V1 privacy mode on SCR-03 / SCR-04 (Android secure-window flag: screenshots, recording, casting and the recent-apps preview go black). A **native module**: it works only in an APK built after it was added; older APKs and the render harness read "not available in this build". Loaded only in `src/lib/screenCapture.js`, with `require` inside `try` (Metro: optional). No dependencies, no install script (`npm view expo-screen-capture@57.0.4`) |
 | `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — the one adapter is `src/lib/maskPng.js`, shared by V1 (SCR-03, SCR-04) and V4 (SCR-06). Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
 ## Run it
@@ -31,7 +32,7 @@ build installs).
 cd mobile
 npm ci                       # once
 npm start                    # fixture mode, Metro dev server; open in a dev build
-npm test                     # 284 logic tests (node --test), no device, no emulator
+npm test                     # 309 logic tests (node --test), no device, no emulator
 ```
 
 `npm start`, `npm run android` and `npm run export:android` all run `scripts/prepare.mjs` first. It writes two
@@ -163,7 +164,8 @@ so the `10` §8 state model looks and behaves the same on every screen.
 | `useCall` (`src/api/RuntimeContext.js`) | `const { view, refetch } = useCall(runtime.client, endpointId, params)` — latest wins, LOADING on every refetch, the previous request aborted (its `signal` reaches the transport), aborted on unmount and when `enabled` turns false |
 | `nav.setLeaveGuard(fn)` (`src/navigation/navigator.mjs`) | a screen with unsaved work registers `fn({type, screenId, params}) → true / false / Promise`; Back, the Android back button, tabs, push, replace and reset all ask it first, one prompt at a time (an action while a prompt is open is refused). **A guard must settle on every path:** a guard that returns a Promise must resolve it for each button *and* when the prompt is dismissed without one (`Alert.alert(..., { cancelable: true, onDismiss: () => resolve(false) })`); a Promise that never settles keeps the one-prompt latch closed and refuses every later Back, tab and push on that screen (SCR-06 does it, render check `V4q`). **Only the top screen is mounted**: a covered screen unmounts, its guard is dropped, and it must re-read what it needs — `nav.push(id, params, returnParams)` merges `returnParams` into the covered entry so Back reopens what was on screen |
 | `src/lib/maskPng.js` | **the app's one mask PNG decoder** (fast-png): `decodeMaskPng(bytes, {width, height})` → `{width, height, data: Uint8Array of 0/1}`. Strict: 8-bit single-channel, values exactly 0/255, the expected slice size — anything else throws `MaskPngError` with code `CONTRACT_DRIFT` |
-| `src/lib/mask.mjs` | a decoded mask → row runs (`maskRuns`) → one SVG path in source-pixel units (`runsToPath`); `disagreementRuns(gt, pred)` → TP / FP / FN |
+| `src/lib/mask.mjs` | a decoded mask → row runs (`maskRuns`) → one SVG path in source-pixel units (`runsToPath`), or its outline from the boundary pixels as closed loops (`maskOutlinePath`); `disagreementRuns(gt, pred)` / `disagreementMasks(gt, pred)` → TP / FP / FN |
+| `src/lib/privacy.mjs` + `src/lib/screenCapture.js` | privacy mode: `usePrivacyMode(key)` blocks screen capture while a screen that shows MRI is open (on by default, kept for the session); it reports what is in force and never says ON without the native module |
 | `src/lib/bytes.mjs` | `sha256Hex`, `bytesToBase64`, `base64ToBytes` — one copy each, Hermes has neither WebCrypto nor `Buffer` |
 | `src/api/cache.mjs` | the per-slice response cache (`runtime.sliceClient` in live mode; the plain client in fixture mode), the MRI image store and the mask store. Keeps SUCCESS; keeps `EMPTY_UNAVAILABLE` only for `ARTIFACT_NOT_FOUND` / `GROUND_TRUTH_UNAVAILABLE`, 5 min; never errors. `clearNegative()` (SCR-03 and SCR-04 call it on open only) and `clearWhere(fn)` (one slice's keys). **Retry forgets only the slice it retries**, so a Retry cannot turn cached revisits into traffic |
 | `src/lib/caseMode.mjs` | the case mode badge logic (`capabilityOf`), `PREDICTION_VARIANT`, the variant options and the variant remembered for this session |
@@ -175,28 +177,41 @@ so the `10` §8 state model looks and behaves the same on every screen.
 
 ## V1 screens (SCR-02, SCR-03, SCR-04)
 
-- **SCR-02 Case List** — `case_list` for the configured study; de-identified ids; the mode badge (*Evaluation* /
-  *Inference & review*) is the same component and derivation SCR-03 uses (TC-CASE-002); search by id and mode
-  filter; a typed id that is not on the page can be opened directly (the case screen checks it with the server).
-- **SCR-03 Case Explorer** — built on the state model `createCaseExplorer` (`src/screens/v1-cases/cases.mjs`). Asks for the prediction
-  variant on first use (no default), then keeps it on screen; opens on the middle slice; slider + step buttons;
-  pinch-zoom and pan; prediction (orange) and ground-truth (cyan) overlays with an opacity control, each toggle
-  labelled in words; the per-slice Dice exactly as the server sent it; a run line with run, model family,
-  experiment and precomputed flag ("loading run details…" until the run answers, "run details unavailable (reason)"
-  if it fails); entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason. Back from any of them reopens
-  the run, variant and slice that were on screen. While the viewer shows a state instead of a slice,
-  the metric and provenance read "-" and the entries are disabled ("this slice did not load") — nothing of the
-  previously displayed slice stays on screen. **Refresh this slice** re-asks the server for the current slice
-  only. A case with **no analysis run yet** (`available_run_ids` empty) opens straight into the viewer with MRI +
-  ground truth only: the run line says so, no run / prediction / metric / error request is made, and SCR-04/05/06
-  are disabled with "needs an analysis run" (`NO_ANALYSIS_RUN`).
+- **SCR-02 Case List** (Direction A, `A_cases.png`) — `case_list` for the configured study; de-identified ids; a
+  search field, filter tabs with counts (All / Evaluation / Inference & review, the same derivation SCR-03 uses,
+  TC-CASE-002); a typed id that is not on the page can be opened directly (the case screen checks it with the
+  server). As a worklist: the **Dice of** picker (a sheet of the server's experiments) gives each 52 dp row its Dice
+  from `experiment_cases` as a bar and three decimals; values for another variant are not shown. **Worst first**
+  sorts by the rule of the server's outlier pick, whose own ranks are tagged "Outlier n/3", and lists the cases
+  without a Dice under **No Dice for this experiment**, in words ("No GT", "Run failed", "Not in …"), never 0. How
+  the Dice is read and sorted and the page summary are in the Details sheet behind Info; a row opens that
+  experiment's run and variant.
+- **SCR-03 Case Explorer** (Direction A, `A_viewer.png`) — opts in to the shell's viewer chrome: the slice fills the
+  screen (opening at 1.6x fit, centred between the bar and the panel) under the floating app bar, which names the
+  case and the model and experiment ("DINOv2 · EXP-D-100", a run picker when the case has several runs) and holds
+  the privacy shield (accent only while the screen is really protected), Info and **more**. Over the image: corner
+  annotations (mode, slice Dice), the layer chips (Ground truth, Prediction) and the draw-mode toolbar (Fill /
+  Outline / Both; each solid outline on a black halo). One bottom panel holds the variant (Raw / Processed),
+  **Slice 45 / 88** (`lib/sliceNumber.mjs`, 1-based, long-press for the scripted runs), the slider with a tick every
+  10 slices and the transport (back 10, previous, Play / Pause, next, forward 10; hold previous / next to repeat).
+  Pinch, pan and double tap (fit / 2x) as before. Built on `createCaseExplorer` (`cases.mjs`); asks for the
+  variant on first use (no default). **Details** (Info): the slice with its z, the per-slice Dice exactly as the
+  server sent it with variant and metric version, the MRI / prediction / ground-truth ids and checksums, the run
+  line (run, model family, experiment, precomputed), the layers and why one is off, privacy. **Tools** (more): the
+  entries to SCR-04 / SCR-05 / SCR-06, each disabled with its reason, outline width, fill opacity, Fit to screen
+  and **Refresh this slice** (re-asks the server for the current slice only). Back from SCR-04/05/06 reopens the
+  run, variant and slice that were on screen. The viewport double-buffers the picture: a new slice loads under
+  the one on screen, which keeps its overlays until the new one has loaded, so Play shows no black frame. While
+  the viewer shows a state instead of a slice, the corner Dice reads "—", Details reads "-" and the entries are
+  disabled ("this slice did not load"). A case with **no analysis run yet** (`available_run_ids` empty) opens
+  straight into the viewer with MRI + ground truth only: the app bar says "No analysis run", no run / prediction /
+  metric / error request is made, and SCR-04/05/06 are disabled with "needs an analysis run" (`NO_ANALYSIS_RUN`).
   A run handed in by another screen that such a case does not list gets the same view, and every reason names it
-  ("requested run … is not listed for this case"); it is never asked for.
-- **SCR-04 Error Inspector** — only with ground truth: an *Inference & review* case gets a clear unavailable state,
+  ("requested run … is not listed for this case"); it is never asked for.- **SCR-04 Error Inspector** (in the viewer's language) — only with ground truth: an *Inference & review* case gets a clear unavailable state,
   never an empty chart. TP / FP / FN are drawn from the two masks the server served for the slice, each class with
-  a colour **and** a name, a pixel count and a show/hide switch; the counts are compared with the server's FP / FN
+  a colour-blind safe colour (TP green, FP magenta with a dashed edge and swatch, FN blue) **and** a name, a pixel count and a layer chip that hides or shows it; the counts are compared with the server's FP / FN
   for that slice — only when the masks drawn are the ones the run metrics name (`reference_mask_id`,
-  `prediction_mask_id`); otherwise the screen says they differ and compares nothing. The worst slice is the **server's** `worst_slice_selection`, first entry first
+  `prediction_mask_id`); otherwise the screen says they differ and compares nothing. The worst slice is the **server's** `worst_slice_selection`, first entry first (a button, numbered like every slice: Slice 53 / 88)
   — nothing is ranked on the phone (test V4x); an entry outside the volume is listed as such and never opened
   (no clamping). The per-slice profile places the server's entries by slice index; slices the server
   did not list are absent, not 0. Case metrics (Dice, IoU, FP, FN, RVE) exactly as the server sent them; entry to
@@ -224,7 +239,7 @@ so the `10` §8 state model looks and behaves the same on every screen.
   masks through `maskPng.js`, and a one-slice rehearsal of the L4 rules. The address is never printed.
 - **Timing evidence (TC-PERF-001)** — every slice switch also logs
   `CMW_SLICE {"slice","ms_to_data","ms_to_image","ms_to_frame","meta_cached","image_seen_before","how","pass","dev","mode"}`.
-  **Long-press the slice label** for the scripted runs: **L4 15 + 15** (15 new slices, then the same 15 revisited)
+  **Long-press the slice number** (the readout of SCR-03's bottom panel) for the scripted runs: **L4 15 + 15** (15 new slices, then the same 15 revisited)
   and **A9 30-step** (the TC-PERF-001 sequence, a warm pass then a measured pass). The phone computes
   nothing: `node mobile/scripts/slice-timing-report.mjs <logcat.txt>` prints n / p50 / p95 per pass
   (nearest-rank), and keeps DEV-build samples apart.
@@ -268,17 +283,18 @@ Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`rea
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get the real runtime (`src/api/runtime.mjs`) — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**243** at
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**279** at
 this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
-`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`, 240 with the tab bar and Details sheet checks `H7`, `H8`, 243 with the viewer chrome `H9`). Counts of drawn marks (overlay paths, chart dots, mask rects) leave icons out: an icon's Svg has a `testID` starting with `icon-`. `test/render/smoke.mjs` is in numbered sections:
+`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`, 240 with the tab bar and Details sheet checks `H7`, `H8`, 243 with the viewer chrome `H9`, 264 with the V1 upgrades, 279 with V1 in Direction A: `A1`..`A4`, `C2`, `F1`, `W0`). Counts of drawn marks (overlay paths, chart dots, mask rects) leave icons out: an icon's Svg has a `testID` starting with `icon-`. `test/render/smoke.mjs` is in numbered sections:
 
 | Section | What it renders |
 |---|---|
-| 1 – 4, 2b, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 (`R1`..`R3`) and from SCR-06 (`R4`, `R5`) restoring SCR-03's run, variant and slice (the SCR-05 entry's `returnParams` are held by `V2R14`) |
+| 1 – 4, 2b, 2c, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 (`R1`..`R3`) and from SCR-06 (`R4`, `R5`) restoring SCR-03's run, variant and slice (the SCR-05 entry's `returnParams` are held by `V2R14`); overlay styles `O1`, `O2`, error colours `C1`, Play / hold / double tap `P1`..`P3`, privacy mode `V5`; Direction A: the app bar a viewer reports, the bottom panel, chips and toolbar, the Tools sheet and the Details sheet (`A1`..`A4`), SCR-04's class chips (`C2`), no black frame between slices (`F1`) |
 | 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
 | 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
 | 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
 | 12 | **Shell**: the header (name, case, run, Back, Live / Fixture), the tab bar, the Details sheet behind Info (and that it hides under the session cover), the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button), Clear cached images, and the viewer chrome a screen can opt in to (floating app bar, no tab bar) — checks `H1`..`H9` |
+| 13 | **V1**: SCR-02 as a worklist on a fake backend — search, filter tabs with counts, Dice bars, No GT, worst first with the No Dice group, the server's outlier tags, a variant mismatch — checks `W0`..`W4` |
 
 - **Touch targets.** `test/render/touch_targets.mjs` runs after the smoke and prints `TOUCH TARGETS PASS - N checks`. It
   renders every shared component of `src/components/` (and the shell's tab bar, header and sheets) and checks that each
@@ -311,7 +327,8 @@ mobile/
   src/config.mjs                       build mode, base URL, study id
   src/api/                             contract.mjs, states.mjs (7 screen states + error codes), client.mjs,
                                        http.mjs, content.mjs, cache.mjs, runtime.mjs, RuntimeContext.js (useCall)
-  src/lib/                             bytes.mjs, mask.mjs, maskPng.js, textDecoderLatin1.mjs, viewMath.mjs, caseMode.mjs
+  src/lib/                             bytes.mjs, mask.mjs, maskPng.js, textDecoderLatin1.mjs, viewMath.mjs, caseMode.mjs,
+                                       privacy.mjs, screenCapture.js, sliceNumber.mjs (the one slice number)
   src/components/                      tokens.mjs + theme.js (design tokens), icons.js, AppHeader.js, Controls.js,
                                        ListRow.js, MetricStrip.js, Floating.js, DetailsSheet.js, StateView.js,
                                        stateCopy.mjs, CapabilityBadge.js, Provenance.js, session.mjs + SessionCover.js,
