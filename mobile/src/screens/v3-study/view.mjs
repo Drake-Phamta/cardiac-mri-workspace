@@ -90,6 +90,20 @@ export function reasonLabel(code) {
   return /^[A-Z][A-Z0-9_]*$/.test(text) ? text.toLowerCase().replaceAll('_', ' ') : text;
 }
 
+// Why a link cannot open, for the "Cannot open:" line of SCR-01 and SCR-07. The models keep their exact sentences (the
+// Details sheets and the tests read them), so this is the one place that makes a reason plain: a bare code becomes
+// words, experiment ids become names, the lowest-Dice rule id and the pointers into the spec ("08 section 2",
+// "(11 section 6)") are left out, and a field name (analysis_run_id) is written as words.
+export function blockedText(reason) {
+  const text = reasonLabel(reason);
+  if (!text) return null;
+  return plainText(text)
+    .replaceAll(OUTLIER_RULE.id, 'the lowest-Dice rule')
+    .replace(/\s*\(\d+ section \d+\)/g, '')
+    .replace(/\b\d+ section \d+ (defines|makes)\b/g, 'the study plan $1')
+    .replace(/\b[a-z]+(?:_[a-z]+)+\b/g, (name) => name.replaceAll('_', ' '));
+}
+
 const fmt = (v) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(3) : null);
 const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const served = (s) => (s ? ` (server sent "${s}")` : '');

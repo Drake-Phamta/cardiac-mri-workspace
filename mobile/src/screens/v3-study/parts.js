@@ -10,7 +10,7 @@ import { TONE } from '../../components/stateCopy.mjs';
 import { color, font, HAIRLINE, MIN_TOUCH, size, space, type } from '../../components/theme';
 import { IconAlert, IconChevronRight } from '../../components/icons';
 import { MiniBar, SectionLabel } from '../../components/ListRow';
-import { pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
+import { blockedText, pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
 import { FamilyKey, FamilyLegend, Marker } from './charts';
 import { LOCKED_METRICS, METRIC_LEGEND } from './about.mjs';
 import { fatalInvalid, RECOVERY } from '../../api/states.mjs';
@@ -141,13 +141,15 @@ export function MetricLegend({ selected = null }) {
   );
 }
 
-// Why a tap did nothing: a link that cannot open (the reason comes from the model), as a plain danger row.
+// Why a tap did nothing: a link that cannot open (the reason comes from the model), as a plain danger row. The reason
+// goes through blockedText, so neither screen shows an experiment id or a rule id here.
 export function Blocked({ text }) {
-  if (!text) return null;
+  const reason = blockedText(text);
+  if (!reason) return null;
   return (
     <View style={s.blocked} accessibilityRole="alert">
       <IconAlert size={16} strokeWidth={2} color={color.danger} />
-      <Text style={s.blockedText}>{`Cannot open: ${text}`}</Text>
+      <Text style={s.blockedText}>{`Cannot open: ${reason}`}</Text>
     </View>
   );
 }

@@ -17,14 +17,14 @@ import { createClient } from '../src/api/client.mjs';
 import { validateRoute } from '../src/navigation/navigator.mjs';
 import { trendLayout, trendNotes, trendSeries } from '../src/screens/v3-study/trend.mjs';
 import { SIX_RUNS, v3Transport } from './_v3_server.mjs';
-import { OUTLIER_RULE, readCaseCounts } from '../src/screens/v3-study/readers.mjs';
+import { caseIntent, OUTLIER_RULE, readCaseCounts } from '../src/screens/v3-study/readers.mjs';
 import { casesTile, diceTile, findingsTile } from '../src/screens/v3-study/tiles.mjs';
 import {
   aboutData, DATASET_SOURCE_URL, LOCKED_METRICS, METRIC_LEGEND, metricLabel, runDetails, studyDetails,
 } from '../src/screens/v3-study/about.mjs';
 import {
-  chooseOutlierGroup, comparisonView, experimentLabel, FAMILY_STYLE, OUTLIER_LABEL, overviewView, plainText, pointAt, pointDetail,
-  trianglePath,
+  blockedText, caseTable, chooseOutlierGroup, comparisonView, experimentLabel, FAMILY_STYLE, OUTLIER_LABEL, overviewView, plainText,
+  pointAt, pointDetail, routeForIntent, trianglePath,
 } from '../src/screens/v3-study/view.mjs';
 import { color, contrastRatio, family } from '../src/components/tokens.mjs';
 import { resolveConfig } from '../src/config.mjs';
@@ -421,6 +421,41 @@ test('V3U13 SCR-01 lists the lowest-Dice cases of one experiment: DINOv2 at the 
   assert.equal(chooseOutlierGroup(empty).experimentId, groups[0].experimentId, 'no list at all: the first group says why');
   assert.equal(chooseOutlierGroup([]), null);
   assert.deepEqual(groups.find((g) => g.experimentId === 'EXP-D-100').view.rows.map((r) => r.scoreText), ['0.660', '0.720', '0.840'].sort(), 'the three lowest of the run');
+});
+
+// The "Cannot open:" line of both screens goes through blockedText, so a reason never shows an experiment id, a rule id,
+// a pointer into the spec or a field name. The models keep their exact sentences for the Details sheets.
+test('V3U16 a link that cannot open says why in words: no experiment id, rule id, spec pointer or field name', async () => {
+  assert.equal(blockedText('EXP-U-025, EXP-D-025 not available to compare'), 'UNet 25 %, DINOv2 25 % not available to compare');
+  assert.equal(blockedText('ARTIFACT_NOT_FOUND'), 'the server has no such artifact', 'a bare code becomes words');
+  assert.equal(blockedText('the server did not return analysis_run_id for this case'), 'the server did not return analysis run id for this case');
+  assert.equal(blockedText('08 section 2 defines EXP-D-PP on PROCESSED; the metrics were served for RAW - refused, not relabelled (11 section 6)'),
+    'the study plan defines DINOv2 100 % post-processed on PROCESSED; the metrics were served for RAW - refused, not relabelled');
+  assert.equal(blockedText(`the selection follows ${OUTLIER_RULE.id}`), 'the selection follows the lowest-Dice rule');
+  assert.equal(blockedText(null), null);
+  assert.equal(blockedText(''), null);
+
+  // Every reason a link of the two screens can give, from the models over the generated bundle (the default
+  // scenarios, and the full matrix where every pair is asked for) and from a case link that lacks its run.
+  const technical = /\bEXP-|\bDR-\d|\bINT-\d|\d section \d|[a-z]+_[a-z]+/;
+  const reasons = new Set([routeForIntent(caseIntent({ caseId: 'CASE_0101', runId: null, variant: 'RAW', experimentId: 'EXP-U-100' })).reason]);
+  for (const scenarios of [{}, FULL]) {
+    const runtime = newRuntime(scenarios);
+    const overview = overviewView(await createStudyOverview(runtime.client).open({ studyId: runtime.config.studyId }));
+    for (const h of overview.headline) if (!h.route.ok) reasons.add(h.route.reason);
+    for (const g of overview.outliers.groups) for (const r of g.view.rows) if (!r.route.ok) reasons.add(r.route.reason);
+    const model = createExperimentComparison(runtime.client);
+    await model.open({ experimentIds: ['EXP-U-100', 'EXP-D-100', 'EXP-D-PP'] });
+    const snap = model.selectMetric('dice');
+    for (const c of comparisonView(snap, { stat: 'median' }).comparisons) if (!c.route.ok) reasons.add(c.route.reason);
+    for (const cell of snap.cells) for (const r of caseTable(cell).rows) if (!r.route.ok) reasons.add(r.route.reason);
+  }
+  assert.ok(reasons.size >= 4, `reasons found: ${[...reasons].join(' | ')}`);
+  assert.ok([...reasons].some((r) => technical.test(r)), 'the models do use ids and field names, so this check has something to clean');
+  for (const reason of reasons) {
+    const words = blockedText(reason);
+    assert.ok(words && !technical.test(words), `not plain: "${words}" (from "${reason}")`);
+  }
 });
 
 test('V3U6 only paired.mjs orders values, and the server\'s lowest-Dice order is kept on the same screen', async () => {

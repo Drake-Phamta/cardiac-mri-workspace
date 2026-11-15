@@ -826,6 +826,13 @@ function noRunBackend() {
   'the About sheet holds no developer text: no version string, server details, capability names, experiment ids or tie-break');
   await act(async () => { byTestId(r, 'about-data-close').props.onPress(); });
   check('V3R11', !sheetOpen(), 'Close closes it');
+  // A pair that cannot open says why in words: a tap on a "Not compared" Median Dice row names the runs, not their ids.
+  check('V3R23', !has(r, /^Cannot open: /), 'no "Cannot open" line until a link is tapped');
+  await press(r, '25 % data');
+  const cannotOpen = texts(r).filter((t) => /^Cannot open: /.test(t));
+  check('V3R23', cannotOpen.length === 1 && cannotOpen[0] === 'Cannot open: UNet 25 %, DINOv2 25 % not available to compare'
+    && onScreen(r, 'SCR-01'), `a Median Dice row that cannot open says why with run names, and stays on SCR-01: ${cannotOpen.join(' | ')}`);
+  check('V3R23', !texts(r).some((t) => /EXP-|DR-\d|INT-\d|section \d/.test(t)), 'with that line on the page there is still no experiment id or rule id');
   await press(r, 'Experiments');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^Fixture$/), 'SCR-07 opened from SCR-01, under the Fixture indicator');
