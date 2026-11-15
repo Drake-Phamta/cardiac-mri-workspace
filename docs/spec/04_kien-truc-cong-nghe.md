@@ -50,7 +50,7 @@ Hai chế độ chạy của app:
 |---|---|
 | `screens/v1-cases`, `v2-3d`, `v3-study`, `v4-review` | Màn hình của từng vertical; file `.js` chỉ vẽ, file `.mjs` quyết định và được `node --test` kiểm thẳng |
 | `api/` | Hợp đồng (kiểm mọi phản hồi), client HTTP, 7 trạng thái màn hình, cache bộ nhớ, tải byte có kiểm SHA-256 |
-| `lib/` | Toán zoom / di, mask, PNG, SHA-256, chế độ ca, privacy mode, đánh số lát cho người đọc (đếm từ 1) |
+| `lib/` | Toán zoom / di, mask, PNG, SHA-256, chế độ ca, privacy mode, đánh số lát cho người đọc (đếm từ 1), tên thí nghiệm cho người đọc (`experimentNames.mjs`, dùng chung vì một thư mục màn hình không import thư mục khác) |
 | `navigation/` | Bảng màn hình, 4 tab + ngăn xếp, header và sheet Details, khung viewer (`CHROME.VIEWER`), ranh giới lỗi từng màn hình |
 | `components/` | Thành phần dùng chung theo hướng thiết kế A: token (màu, cỡ chữ, khoảng cách, vùng chạm 48 dp), header, sheet, nút, chip lớp, công cụ nổi trên ảnh, dòng danh sách, khung trạng thái, nhãn chế độ, lớp che phiên |
 

@@ -41,7 +41,11 @@ import { useScriptedRuns, useSliceTiming } from './scriptedRuns';
 export const OVERLAY_COLOR = Object.freeze({ PREDICTION: overlay.prediction, GROUND_TRUTH: overlay.groundTruth });
 
 // The bottom panel without the gesture inset (the app's SafeAreaView keeps that free), and the draw-mode toolbar.
+// PANEL is the panel's height when its first row does not wrap. At 320 dp or a large font the slice number drops to a
+// line of its own, so the panel measures its rows (PANEL_CHROME is what it adds round them: 16 + 16 and the hairline)
+// and the picture, the chips and the toolbar are laid out above the height it reports.
 const PANEL = size.bottomPanel - 20;
+const PANEL_CHROME = 2 * space.l + HAIRLINE;
 const TOOLBAR = 3 * size.tool + 2 * 2 + 2 * 3 + 2 * HAIRLINE;
 // Corner annotations sit 8 dp under the floating bar, as in the mockup.
 const CORNER_TOP = size.appBar + space.s;
@@ -205,6 +209,7 @@ function Explorer({
     : 'no analysis run for this case';
 
   const model = useMemo(() => createCaseExplorer(client, { variant: initialVariant }), [client, initialVariant]);
+  const [panelH, setPanelH] = useState(PANEL);
   const [current, setCurrent] = useState(model.current);
   const [shown, setShown] = useState(null);
   const [displayed, setDisplayed] = useState(null);
@@ -590,9 +595,9 @@ function Explorer({
       {blocking ? null : (
         <SliceViewport
           fill
-          insets={{ top: size.appBar, bottom: PANEL }}
+          insets={{ top: size.appBar, bottom: panelH }}
           initialZoom={VIEWER_ZOOM}
-          zoomLabelStyle={s.zoomAt}
+          zoomLabelStyle={[s.zoomAt, { bottom: panelH + TOOLBAR + space.s }]}
           shape={shape}
           imageUri={imageUri}
           onImageLoad={onImageLoad}
@@ -628,11 +633,11 @@ function Explorer({
       ) : null}
 
       {blocking ? (
-        <View style={s.blocked}>
+        <View style={[s.blocked, { bottom: panelH }]}>
           <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={onStateAction} />
         </View>
       ) : (
-        <View style={s.chips}>
+        <View style={[s.chips, { bottom: panelH + space.l }]}>
           {capability.groundTruthUsable ? (
             <LayerChip label="Ground truth" swatch={OVERLAY_COLOR.GROUND_TRUTH} on={gtOn} available={gtAvailable} why={gtWhy}
               onToggle={(on) => setOverlay(LAYER.GROUND_TRUTH, on)} />
@@ -644,34 +649,37 @@ function Explorer({
         </View>
       )}
 
-      <DrawModeToolbar style={s.toolbar} mode={style.mode} onMode={(mode) => changeStyle({ mode })} />
+      <DrawModeToolbar style={[s.toolbar, { bottom: panelH }]} mode={style.mode} onMode={(mode) => changeStyle({ mode })} />
 
       <BottomPanel testID="viewer-panel">
-        <View style={s.row1}>
-          <Text style={s.panelLabel}>Prediction</Text>
-          {hasRun ? (
-            <View style={navRun ? s.locked : null} pointerEvents={navRun ? 'none' : 'auto'}>
-              <SegmentedControl
-                label="Prediction variant"
-                options={options.map((v) => ({ value: v, label: variantLabel(v) }))}
-                value={targetVariant}
-                onChange={switchVariant}
-              />
+        <View testID="panel-rows" onLayout={(e) => setPanelH(Math.max(PANEL, Math.round(e.nativeEvent.layout.height + PANEL_CHROME)))}>
+          <View style={s.row1}>
+            <Text style={s.panelLabel}>Prediction</Text>
+            {hasRun ? (
+              <View style={navRun ? s.locked : null} pointerEvents={navRun ? 'none' : 'auto'}>
+                <SegmentedControl
+                  label="Prediction variant"
+                  options={options.map((v) => ({ value: v, label: variantLabel(v) }))}
+                  value={targetVariant}
+                  onChange={switchVariant}
+                />
+              </View>
+            ) : <Text style={s.panelNone}>No analysis run</Text>}
+            <View style={s.readout}>
+              <SliceReadout index={scrubAt} total={total} onLongPress={askScripted} />
             </View>
-          ) : <Text style={s.panelNone}>No analysis run</Text>}
-          <View style={s.spacer} />
-          <SliceReadout index={scrubAt} total={total} onLongPress={askScripted} />
-        </View>
-        <View style={s.row2}>
-          <SliceControls
-            index={scrubAt}
-            pending={pending}
-            total={total}
-            onChange={userGoTo}
-            disabled={Boolean(navRun)}
-            playing={player.playing}
-            onPlay={player.toggle}
-          />
+          </View>
+          <View style={s.row2}>
+            <SliceControls
+              index={scrubAt}
+              pending={pending}
+              total={total}
+              onChange={userGoTo}
+              disabled={Boolean(navRun)}
+              playing={player.playing}
+              onPlay={player.toggle}
+            />
+          </View>
         </View>
       </BottomPanel>
 
@@ -780,22 +788,25 @@ const s = StyleSheet.create({
   cornerLabel: { ...type.caption, color: color.t2, ...shadow },
   cornerValue: { ...type.caption, fontWeight: '500', color: color.t1, fontVariant: ['tabular-nums'], ...shadow },
   right: { textAlign: 'right' },
-  zoomAt: { right: space.l, bottom: PANEL + TOOLBAR + space.s },
+  zoomAt: { right: space.l },
   notes: {
     position: 'absolute', top: CORNER_TOP + 32 + space.m, left: space.l, right: space.l, gap: space.s,
     padding: space.m, borderRadius: radius.m, backgroundColor: color.glass, borderWidth: HAIRLINE, borderColor: color.glassEdge,
   },
   noteT: { ...type.caption, color: color.t2 },
   noteWarn: { color: color.warn },
-  blocked: { position: 'absolute', left: space.l, right: space.l, top: size.appBar, bottom: PANEL, justifyContent: 'center' },
-  chips: { position: 'absolute', left: space.l, bottom: PANEL + space.l, gap: space.s, alignItems: 'flex-start' },
+  blocked: { position: 'absolute', left: space.l, right: space.l, top: size.appBar, justifyContent: 'center' },
+  chips: { position: 'absolute', left: space.l, gap: space.s, alignItems: 'flex-start' },
   chipOff: { opacity: 0.45 },
-  toolbar: { position: 'absolute', right: space.l, bottom: PANEL },
-  row1: { height: size.segmented, flexDirection: 'row', alignItems: 'center', gap: space.s },
+  toolbar: { position: 'absolute', right: space.l },
+  // The first row wraps: where the label, the variant and the slice number do not fit one line (320 dp, a large font), the
+  // slice number drops to a line of its own at the right instead of being pushed past the edge ("Slice" was all that showed).
+  row1: { minHeight: size.segmented, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.s },
   panelLabel: { ...type.caption, color: color.t3 },
   panelNone: { ...type.secondary, color: color.t2 },
   locked: { opacity: 0.4 },
-  spacer: { flex: 1 },
+  // marginLeft auto: at the right of its line, beside the variant or on a line of its own.
+  readout: { marginLeft: 'auto', flexShrink: 0 },
   row2: { marginTop: space.m },
   sheetSection: { gap: space.xs },
   setting: { gap: space.s, paddingVertical: space.s },

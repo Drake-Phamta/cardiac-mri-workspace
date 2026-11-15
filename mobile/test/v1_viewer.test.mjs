@@ -119,8 +119,14 @@ test('V1v4 the words of the viewer: corner Dice, model names, variant labels, th
   assert.equal(variantLabel('RAW'), 'Raw');
   assert.equal(variantLabel('PROCESSED'), 'Processed');
   const run = { runId: 'RUN_EXP-D-100_CASE_0029', experimentId: 'EXP-D-100' };
-  assert.equal(runSubtitle(run, 'dinov2'), 'DINOv2 · EXP-D-100');
-  assert.equal(runSubtitle(run, null, { loading: true }), 'Loading the run…');
-  assert.equal(runSubtitle(run, null, { error: 'ARTIFACT_NOT_FOUND' }), 'Run RUN_EXP-D-100_CASE_0029');
+  // The app bar names the experiment as people do and never writes its id; the run's details are not needed for that.
+  assert.equal(runSubtitle(run, 'dinov2'), 'DINOv2 100 %');
+  assert.equal(runSubtitle(run, null, { loading: true }), 'DINOv2 100 %', 'the name does not wait for the run details');
+  assert.equal(runSubtitle(run, null, { error: 'ARTIFACT_NOT_FOUND' }), 'DINOv2 100 %', 'and does not fall back to the run id');
+  assert.equal(runSubtitle({ runId: 'R', experimentId: 'EXP_DEMO' }, 'UNet2D'), 'EXP_DEMO', 'an id outside the matrix stays as it is');
+  assert.equal(runSubtitle({ runId: 'R' }, null, { loading: true }), 'Loading the run…');
+  assert.equal(runSubtitle({ runId: 'R' }, null, { error: 'ARTIFACT_NOT_FOUND' }), 'Run R');
+  assert.equal(runSubtitle({ runId: 'R' }, 'dinov2'), 'DINOv2');
   assert.equal(runSubtitle({ runId: 'R' }, null), 'Run R');
+  assert.ok(!/EXP-/.test(runSubtitle(run, 'dinov2')), 'no experiment id in the subtitle');
 });

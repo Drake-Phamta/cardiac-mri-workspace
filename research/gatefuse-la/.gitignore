@@ -1,0 +1,30 @@
+# Data, cached features, run outputs and weights stay out of git (see README.md).
+# They live in LA_WORK, which defaults to work/ next to code/.
+work/
+data/
+prep/
+features/
+runs/
+runs_ml/
+splits/
+weights/
+hf/
+logs/
+
+# Arrays, volumes and checkpoints, wherever they end up
+*.h5
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.nii
+*.nii.gz
+*.nrrd
+*.mha
+
+# Python and tool caches
+__pycache__/
+.pytest_cache/
+.venv/

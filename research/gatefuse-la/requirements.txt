@@ -1,0 +1,18 @@
+# Python 3.12. On Linux/Windows install the CUDA build of torch from pytorch.org first.
+torch==2.15.0
+torchvision==0.29.2
+timm==1.0.31          # provides vit_base_patch16_dinov3.lvd1689m (DINOv3 ViT-B/16)
+numpy==2.5.4
+scipy==1.18.1
+scikit-image==0.26.0
+pandas==3.1.1
+h5py==3.16.0
+pillow==13.0.0
+matplotlib==3.11.2
+safetensors==0.8.0
+huggingface_hub==2.4.0
+gdown==6.5.1          # downloads the MRI-CORE checkpoint from Google Drive
+# make_video.py additionally needs: pip install imageio-ffmpeg
+# only needed to export the slides to .pptx
+pymupdf==2.1
+python-pptx==1.0.2

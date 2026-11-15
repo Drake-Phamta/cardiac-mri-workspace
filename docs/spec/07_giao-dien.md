@@ -43,8 +43,12 @@ flowchart LR
 Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 - **Header** (56 dp): nút Back khi màn hình được mở từ màn hình khác; tên màn hình cho người đọc và dòng phụ
-  "ca · run RUN · biến thể" (ở gốc một tab là "Study <mã study>"). Màn hình tự báo được tiêu đề, dòng phụ và nút riêng
-  (`nav.setContext`); mã màn hình không hiện trên header. Bên phải: chỉ báo chế độ (một chấm và chữ "Live" hoặc
+  là mã ca (ở gốc một tab là "Study <mã study>"). Màn hình tự báo được tiêu đề, dòng phụ và nút riêng
+  (`nav.setContext`), ví dụ SCR-03 ghi tên thí nghiệm "DINOv2 100 %", SCR-04 ghi "ca · biến thể"; mã màn hình và mã run
+  không hiện trên header, kể cả lúc màn hình đang tải (vòng 8 thấy "CASE_0029 · run RUN_EXP-D-100_…" trong khoảng nửa giây
+  lúc SCR-04 tải, nay dòng phụ mặc định chỉ là mã ca). SCR-04 báo dòng phụ và khiên privacy cho header ngay từ khung đầu,
+  kể cả lúc đang tải, nên header không xô lệch khi ca tải xong (vòng 8 thấy khiên hiện muộn đẩy "Live" sang trái và
+  thoáng hiện "Error Insp…"); khi chỗ cho tiêu đề vẫn hẹp lại, dòng được vẽ ngay ở cỡ ước lượng từ bề rộng đã đo. Bên phải: chỉ báo chế độ (một chấm và chữ "Live" hoặc
   "Fixture"), nút biểu tượng của màn hình (khiên privacy ở SCR-03, SCR-04), nút Info, và nút "more" khi màn hình có
   menu riêng.
 - **Sheet Details** (nút Info): các mục của màn hình (mã, checksum, phiên bản, `z` của lát), rồi mục "This screen"
@@ -56,13 +60,36 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   lớp tối phía trên, không có thanh tab. Ở LIVE header này không ghi chữ "Live"; ở FIXTURE vẫn ghi "Fixture" và không
   có banner.
 - **Thanh 4 tab** dưới cùng: Study, Cases, Experiments, Findings, mỗi tab một biểu tượng và tên; tab đang chọn tô màu
-  nhấn và có vạch ở mép trên. Nút Back (và phím back của Android) quay lại màn hình trước trong ngăn xếp.
+  nhấn và có vạch ở mép trên. Tên tab rộng bằng cả tab, nằm trên một dòng và chỉ phóng tới 1,15 lần khi cỡ chữ hệ
+  thống lớn, nên "Study" không bị cắt thành "Stud" ở 480 dp và "Experiments" vừa một phần tư màn hình 320 dp ở cỡ chữ 1,3. Nút Back (và phím back của Android) quay lại màn hình trước trong ngăn xếp.
 - **7 trạng thái** dùng chung cho mọi vùng dữ liệu, tên trạng thái luôn viết thành chữ: đang tải (khung giữ chỗ,
   "Loading …"); đang xử lý ("Analysis is still running", không có phần trăm giả); thành công; không có dữ liệu
   ("Unavailable", nêu lý do); lỗi khôi phục được ("Something went wrong", nút "Retry"); dữ liệu sai bị chặn ("Cannot show
   this safely", kèm mã tham chiếu); bản cũ lệch phiên bản ("Version mismatch", nút "Refresh", không trộn dữ liệu hai
   run). Chi tiết thêm (mã HTTP, request id) gập dưới "Details (n)". Một màn hình lỗi khi vẽ chỉ chặn màn hình đó
   (`SCREEN_CRASHED`).
+- **Bề ngang và cỡ chữ** (NFR-USAB-006): bố cục được kiểm ở 320, 384 (mặc định) và 480 dp, và ở cỡ chữ hệ thống 1,3.
+  Nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng bằng ô chứa nó và chỉ phóng chữ tới 1,15 lần
+  (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy; tên màn hình và dòng phụ trong mọi header cũng vậy, cả header thường lẫn header nổi của khung viewer, vì Back, chữ "Live" và tới
+  ba nút biểu tượng quanh chúng chiếm chỗ không đổi: ở 320 dp và cỡ chữ 1,3, "CASE_0029" không còn bị cắt thành
+  "CASE_00…"; hai dòng đó còn tự đo bề rộng chữ và vẽ nhỏ lại cho vừa trước khi bị cắt: mỗi dòng có một bản chữ ẩn (cùng kiểu chữ, không
+  giới hạn số dòng, không nhìn thấy, trình đọc màn hình bỏ qua) cho bề rộng thật của dòng qua `onTextLayout`, hộp tiêu đề cho chỗ
+  có sẵn qua `onLayout`, và cỡ chữ giảm từng 0,5 sp, mỗi cỡ đo lại, đến khi dòng vừa chỗ trừ 1 dp, tối thiểu 0,6 lần với tên và
+  0,75 lần với dòng phụ (`BAR_TEXT_MIN_SCALE`); chỉ khi ở mức tối thiểu vẫn không vừa thì dòng mới bị cắt bằng "…". Mỗi lần đổi
+  chữ, chỗ có sẵn hoặc cỡ chữ hệ thống chỉ đo lại cho tới khi chốt cỡ, rồi không đo nữa (không dùng `adjustsFontSizeToFit` của
+  Text vì Android không co chữ: phiên 2026-11-15 vòng 7 vẫn thấy "Error Insp…"; vòng 8 thấy SCR-04 vẫn bị cắt vì cách đo
+  này lúc đó chỉ bật cho header nổi, mà SCR-04 dùng header thường). Ở 320 dp chỗ giữa Back và "Live" chỉ 96 dp
+  (89 dp ở cỡ chữ 1,3) mà "Error Inspector" cần 117 dp (134 dp ở mức giới hạn 1,15), nên tiêu đề SCR-04 cần co còn nhiều nhất khoảng
+  0,82 (0,67 ở cỡ chữ 1,3) lần cỡ của nó; app lấy bậc 0,5 sp lớn nhất mà dòng còn vừa, theo số đo của điện thoại là 13,5 sp
+  (11 sp ở cỡ chữ 1,3) thay vì 17 sp, nên không thành "Error Insp…", và dòng phụ "CASE_0029 · Raw" đủ chữ thay vì "CASE_0029…" (9,5 sp ở cỡ chữ 1,3); dòng phụ có mũi tên của bộ chọn
+  run trừ 14 dp cho mũi tên và khoảng hở; tên màn hình vẫn là "Error Inspector", khớp mục
+  Tools và các tài liệu này); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
+  luôn đủ chữ; số (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3, và mã ca trong danh sách có hàng thanh
+  (lowest-Dice của SCR-01) nằm trong ô có `minWidth` chứ không có bề rộng cố định, nên không bị cắt thành "CASE_00…" ở cỡ chữ 1,3; hàng
+  nhãn rộng hơn màn hình (tab lọc của SCR-02) cuộn ngang, và dưới 360 dp khoảng cách giữa các tab là 16 dp thay vì 24 dp để ở
+  320 dp, cỡ chữ 1,0 tab thứ ba nằm trọn trong màn hình, cách mép 13 dp lúc nghỉ (trước đây nó vượt mép 3 dp và chữ số cuối chạm
+  mép); chữ thân bài phóng hết, mã thí nghiệm và mã khác chỉ hiện ở
+  sheet Details.
 - **Lớp che phiên**: sau 5 phút ở nền hoặc 10 phút không chạm, màn hình bị che ("Screen hidden") và phím back không làm
   gì; nút "Show the screen" hiện lại, nút "Clear cached images" xoá cache.
 - **Vùng chạm**: ở thành phần dùng chung, khung app và SCR-02, SCR-03, SCR-04, SCR-06, SCR-08, mọi nút, chip và dòng chạm
@@ -87,10 +114,11 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 - **Mục đích**: tìm ca, xếp ca theo Dice của một thí nghiệm và mở ca.
 - **Thành phần**: ô tìm "Search case ID"; ba tab lọc "All", "Evaluation", "Inference & review", mỗi tab kèm số ca của
-  trang đã tải; nút "Dice of" ghi thí nghiệm theo tên người đọc ("DINOv2 100 % · Raw"), chạm mở sheet "Dice of" với
-  "None (no Dice)" và các thí nghiệm (mã thí nghiệm ở dòng phụ); nút thứ tự "Server" / "Worst first"; tiêu đề cột
+  trang đã tải (hàng tab cuộn ngang khi ba tab rộng hơn màn hình, ở 320 dp hoặc cỡ chữ 1,3, và có lề 16 dp ở hai đầu; dưới 360 dp khoảng cách giữa các tab là 16 dp thay vì 24 dp, nên ở 320 dp, cỡ chữ 1,0 ba tab nằm trọn trong màn hình với lề ở đầu cuối); nút "Dice of" ghi thí nghiệm theo tên người đọc ("DINOv2 100 % · Raw"), chạm mở sheet "Dice of" với
+  "None (no Dice)" và các thí nghiệm, mỗi thí nghiệm một dòng ghi tên (không ghi mã thí nghiệm, mã chỉ nằm ở sheet Details); nút thứ tự "Server" / "Worst first"; tiêu đề cột
   "Case" và "Dice". Mỗi dòng ca cao 52 dp: mã ẩn danh, một thẻ ("Outlier n/3" là lựa chọn của server; "Mode unclear" khi
-  chế độ và cờ GT mâu thuẫn; tên chế độ khi ca không phải Evaluation), thanh Dice và giá trị 3 chữ số. Ca không có Dice
+  chế độ và cờ GT mâu thuẫn; tên chế độ khi ca không phải Evaluation), thanh Dice và giá trị 3 chữ số (giá trị nằm trên một dòng, ô giá trị rộng đủ cho 5 ký tự ở cỡ chữ 1,3; màn hình hẹp
+  thì thanh Dice co lại trước, mã ca và thẻ không bị cắt). Ca không có Dice
   ghi bằng chữ ("No GT", "Run failed", "Not in this experiment", "Excluded", "Dice not stated"), không bao giờ là 0. Với
   "Worst first", ca có Dice xếp từ thấp lên (bằng nhau thì nhiều FP + FN hơn trước, rồi theo mã ca), ca không có Dice
   nằm dưới tiêu đề "No Dice for this experiment" theo thứ tự server. Sheet Details: thí nghiệm, biến thể và phiên bản
@@ -119,13 +147,17 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   screen and never changes by itself.", chọn "Raw" hoặc "Processed"). Ca chỉ có một run thì mở luôn run đó; biến thể đã
   chọn trước đó trong phiên được chọn sẵn.
 - **Thành phần** (khung viewer): ảnh MRI tràn màn hình, mở ở 1,6 lần vừa khung và ở lát giữa nếu đường dẫn không nêu
-  lát. Header nổi: Back, mã ca, dòng phụ "họ mô hình · thí nghiệm" (ca có nhiều run thì dòng phụ có mũi tên, chạm để
-  chọn lại run), khiên privacy, Info, "more". Góc trái ghi "MRI" và chế độ ca ("Evaluation" / "Inference & review"); góc
+  lát. Header nổi: Back, mã ca, dòng phụ là tên thí nghiệm của run ("DINOv2 100 %", không ghi mã EXP-…; biến thể do panel dưới ghi) (ca có nhiều run thì dòng phụ có mũi tên, chạm để
+  chọn lại run), khiên privacy, Info, "more". Mã ca và dòng phụ nằm một dòng và chỉ phóng tới 1,15 lần. Góc trái ghi "MRI" và chế độ ca ("Evaluation" / "Inference & review"); góc
   phải ghi "Slice Dice" và giá trị 3 chữ số hoặc một chữ ("Not applicable", "Unavailable"), "—" khi không có số. Chip
   lớp "Ground truth" (chỉ khi ca có GT) và "Prediction" (chỉ khi có run), cả hai bật sẵn; chip có biểu tượng mắt và ô
-  màu, lớp mà lát này không có thì chip mờ đi. Thanh công cụ "Fill" / "Outline" / "Both" (mặc định "Fill"). Panel dưới:
+  màu, lớp mà lát này không có thì chip mờ đi. Thanh công cụ "Fill" / "Outline" / "Both" (mặc định "Fill"; tên mỗi nút nằm trên một dòng, rộng bằng nút 48 dp
+  và chỉ phóng tới 1,15 lần, nên "Outline" và "Both" không bị cắt ở 320 và 480 dp). Panel dưới:
   "Prediction" với "Raw" / "Processed" (không có run thì ghi "No analysis run"), số lát "Slice 45 / 88" (đếm từ 1),
-  thanh trượt có vạch mỗi 10 lát, và năm nút: lùi 10 lát, lát trước, Play / Pause, lát sau, tiến 10 lát. Khi zoom khác
+  thanh trượt có vạch mỗi 10 lát, và năm nút: lùi 10 lát, lát trước, Play / Pause, lát sau, tiến 10 lát. Hàng đầu của panel
+  tự xuống dòng khi không đủ chỗ (320 dp ở cỡ chữ 1,3): số lát xuống một dòng riêng ở bên phải thay vì bị đẩy ra mép (trước
+  đây chỉ thấy chữ "Slice"). Panel đo chiều cao của các hàng và báo lại, nên ảnh, chip lớp và thanh công cụ được đặt phía trên
+  chiều cao đó (168 dp khi hàng đầu không xuống dòng). Khi zoom khác
   vừa khung và khác lúc mở, góc ảnh ghi mức zoom ("×2.0").
 - **Sheet Tools** (nút "more"): mục "Open" có "Error inspector", "3D view", "Review and correct", mỗi dòng ghi nó mở gì
   hoặc vì sao đang khoá ("no ground truth for this case (Inference & review)", "needs an analysis run - …", "needs a
@@ -154,7 +186,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 - **Thành phần**: header thường (tiêu đề "Error Inspector", dòng phụ "ca · biến thể", chỉ báo chế độ, khiên privacy,
   Info) và thanh tab. Ô ảnh vuông rộng hết màn hình: lát với lớp TP / FP / FN, mặc định vẽ cả phần tô và viền ("Both"),
   viền FP nét đứt; góc trái "Prediction" và "Raw vs ground truth" (hoặc "Processed …"); góc phải "Slice Dice"; chip
-  "TP n px", "FP n px", "FN n px" (biểu tượng mắt, ô màu, ô của FP nét đứt), chạm để ẩn / hiện lớp; thanh "Fill" /
+  "TP n px", "FP n px", "FN n px" (biểu tượng mắt, ô màu, ô của FP nét đứt; nhãn là một chuỗi rộng bằng chữ của nó, không
+  ô cố định, nên "px" không bị cắt), chạm để ẩn / hiện lớp; thanh "Fill" /
   "Outline" / "Both". Panel: "Errors of" và biến thể, "Slice 45 / 88", thanh trượt và năm nút như SCR-03. Mục "Legend"
   (kèm số lát): mỗi lớp một dòng ("TP - agree", "FP - over-segmentation", "FN - missed", số pixel, "(hidden)" khi đang
   ẩn); dòng "Matches the server for this slice (…)" hoặc "Differs from the server for this slice: …"; cảnh báo khi mask
@@ -174,7 +207,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   số hay mã của lát trước, nút "3D error view" khoá ("this slice did not load"); 7 trạng thái chung.
 - **Thao tác**: chạm "Jump to the worst slice", một dòng lát tệ hoặc một cột biểu đồ để tới lát đó; chuyển lát, Play;
   ẩn / hiện lớp lỗi; đổi kiểu vẽ, độ mờ, độ dày viền; chụm để zoom, kéo để di, chạm đúp.
-- **Điều hướng**: "3D error view" mở SCR-05 tại lát hiện tại, lớp lỗi bật sẵn.
+- **Điều hướng**: "3D error view" mở SCR-05 tại lát hiện tại, lớp lỗi bật sẵn; chỉ truyền ca, run, biến thể và lát, không
+  có tham số nào SCR-05 bỏ qua.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-04.png` (chưa có).
 
 ### SCR-05 — 3D Inspector (Vũ Hùng Anh)

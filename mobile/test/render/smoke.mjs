@@ -36,12 +36,15 @@ console.error = (...a) => { errors.push(a.map(String).join(' ')); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tick = async (ms = 30) => { await act(async () => { await sleep(ms); }); };
 const textOf = (node) => (node.children || []).map((c) => (typeof c === 'string' ? c : textOf(c))).join('');
-const texts = (r) => r.root.findAll((n) => n.type === 'Text').map(textOf);
+const texts = (r) => r.root.findAll((n) => n.type === 'Text' && !inProbe(n)).map(textOf);
 const has = (r, re) => texts(r).some((t) => re.test(t));
 // Icons (src/components/icons.js) are react-native-svg drawings too; each icon's Svg has testID "icon-<Name>". A check
 // that counts drawn marks (overlay paths, chart dots, mask rects, a chart's Svg) counts only the marks outside an icon.
 const isIcon = (n) => n.type === 'Svg' && typeof n.props.testID === 'string' && n.props.testID.startsWith('icon-');
 const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return true; return false; };
+// The floating bar measures its title and subtitle with a hidden copy of each (FitText.js, testID "fit-probe"): never visible, and not
+// text a person reads, so the helpers that list the screen's texts leave it out, as they leave out the icons.
+const inProbe = (n) => { for (let p = n; p; p = p.parent) if (p.props && p.props.testID === 'fit-probe') return true; return false; };
 const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
@@ -98,6 +101,13 @@ async function openTools(nav) { await act(async () => { nav.ctx.overflow.onPress
 async function closeSheet(r, id) { await pressId(r, `${id}-close`); }
 // Outlines and their halos: a solid outline has a black halo under it (tokens: overlay.halo).
 const isHalo = (n) => n.props.fill === 'none' && n.props.stroke === '#000000';
+// A value such as "0.048" in tabular digits is about 2.56 em wide (a digit 0.57 em, a full stop 0.28 em). A cell fits it at the
+// largest tested font scale (1.3) when it has no fixed width and a minWidth that large, so it never wraps into "0.04" and "8".
+const valueEm = (text) => [...text].reduce((w, c) => w + (c === '.' ? 0.28 : 0.57), 0);
+const valueCellFits = (n) => {
+  const st = flat(n.props.style);
+  return n.props.numberOfLines === 1 && typeof st.width !== 'number' && st.minWidth >= Math.ceil(valueEm(textOf(n)) * st.fontSize * 1.3);
+};
 const tabBar = (r) => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'tab');
 const selectedTab = (r) => tabBar(r).filter((t) => t.props.accessibilityState.selected).map(textOf).join();
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
@@ -130,8 +140,10 @@ const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { shortTouchables } = await imp('test/render/touch_measure.mjs');
-const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
+const { LABEL_FONT_CAP, BAR_TEXT_MIN_SCALE } = await imp('src/components/tokens.mjs');
+const { FIT_PROBE_WIDTH } = await imp('src/components/fitFontSize.mjs');
 
+const { flat } = await imp('test/render/touch_measure.mjs');
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
 
@@ -285,6 +297,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
 {
   // z 45's slice metrics are not ingested: its cached "unavailable" answer must
   // outlive a Retry and a refresh of other slices (L9, #78 QA N-4).
+  const { experimentName } = await imp('src/screens/v1-cases/cases.mjs');
   const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend({ metricsMissingAt: [45] });
   const runtime = liveRuntime(fetchImpl);
   const nav = ctxNav();
@@ -302,8 +315,10 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('L1', ctxHas(nav, /^Slice Dice \(RAW\): 0\.873 · metric m1$/) && textOf(byTestId(r, 'slice-dice')) === '0.873',
     'server metric: the value in the corner, with variant and version in Details');
   // V1 in Direction A: what the floating app bar shows comes from the screen's report.
-  check('A1', nav.ctx.title === 'CASE_0061' && /^UNet2D · /.test(nav.ctx.subtitle) && nav.ctx.onSubtitlePress === null
-    && ctxAction(nav, 'privacy') && typeof nav.ctx.overflow.onPress === 'function',
+  // The app bar names the run's experiment as people do (cases.mjs experimentName); the id is in the Details sheet's Run line.
+  const runExperiment = (ctxLines(nav).find((l) => l.startsWith('Run RUN_A · ')) || '').split(' · ')[2];
+  check('A1', nav.ctx.title === 'CASE_0061' && Boolean(runExperiment) && nav.ctx.subtitle === experimentName(runExperiment)
+    && nav.ctx.onSubtitlePress === null && ctxAction(nav, 'privacy') && typeof nav.ctx.overflow.onPress === 'function',
   `app bar: ${nav.ctx.title} / ${nav.ctx.subtitle}; privacy shield; more (one run: no run picker)`);
   const panel = byTestId(r, 'viewer-panel');
   const inPanel = (fn) => (panel ? panel.findAll(fn).length : 0);
@@ -314,6 +329,48 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('A2', ['Ground truth', 'Prediction'].every((l) => byTestId(r, `layer-${l}`)) && ['Fill', 'Outline', 'Both'].every((l) => byLabel(r, l).length === 1)
     && has(r, /^MRI$/) && has(r, /^Evaluation$/) && has(r, /^Slice Dice$/) && Boolean(byTestId(r, 'viewer-scrim')),
   'layer chips, the draw-mode toolbar and the corner annotations over the image; the screen draws the top scrim under them');
+  // Responsive (device session r4): a tool's name is one line as wide as its 48 dp button, capped at the label cap, so
+  // "Outline" and "Both" are not cut to "Outlin" and "Bot" at 320 and 480 dp.
+  const toolNames = ['Fill', 'Outline', 'Both'].map((l) => byLabel(r, l)[0].findAll((n) => n.type === 'Text')[0]);
+  check('RP-V1a', toolNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
+    && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
+  `SCR-03 draw-mode names: one line, as wide as the 48 dp button, capped at font scale ${LABEL_FONT_CAP}`);
+  // The layer chips over the image are as wide as their own text too ("Ground truth", "Prediction"): the stretched one-line label of the
+  // responsive round is for the tool buttons and the tabs, not for a chip, so nothing cuts a longer chip text (the TP chip of SCR-04 read
+  // "TP 546" instead of "TP 546 px" in the device session r5; RP-V1e).
+  {
+    const chipText = (l) => byTestId(r, `layer-${l}`).findAll((n) => n.type === 'Text')[0];
+    const sizedByCell = (n) => { const st = flat(n.props.style); return st.width !== undefined || st.maxWidth !== undefined || st.alignSelf === 'stretch'; };
+    check('RP-V1g', ['Ground truth', 'Prediction'].every((l) => chipText(l).props.children === l && chipText(l).props.maxFontSizeMultiplier === undefined
+      && chipText(l).props.numberOfLines === undefined && !sizedByCell(chipText(l)) && !sizedByCell(byTestId(r, `layer-${l}`))),
+    'SCR-03 layer chips: the whole name, no font-scale cap, no line limit, no fixed or stretched width');
+  }
+  // Responsive (device session r5): at 320 dp and font scale 1.3 the panel's first row (label, variant, "Slice 45 / 88")
+  // is wider than the screen. It wraps, so the slice number drops to a line of its own at the right instead of being
+  // pushed past the edge ("Slice" was all that showed), and the panel measures its rows: the picture, the layer chips
+  // and the draw-mode toolbar are laid out above whatever height it has.
+  {
+    const rowsEl = byTestId(r, 'panel-rows');
+    const wrapRows = rowsEl.findAll((n) => n.type === 'View' && flat(n.props.style).flexWrap === 'wrap');
+    const readoutCell = rowsEl.findAll((n) => n.type === 'View' && flat(n.props.style).marginLeft === 'auto');
+    const readoutBox = flat(byTestId(r, 'slice-readout').props.style);
+    const toolbarEl = r.root.findAll((n) => n.type === 'View' && n.props.accessibilityLabel === 'Draw masks as')[0];
+    const pictureW = () => flat(r.root.findAll((n) => n.type === 'Image')[0].props.style).width;
+    const bottomOf = (el) => flat(el.props.style).bottom;
+    const [w0, toolbar0] = [pictureW(), bottomOf(toolbarEl)];
+    check('RP-V1f', wrapRows.length === 1 && readoutCell.length === 1 && flat(readoutCell[0].props.style).flexShrink === 0
+      && readoutBox.flexShrink === 0 && toolbar0 === 168,
+    'SCR-03 panel: the first row wraps, the slice number is at the right of its line and never shrunk, the toolbar sits on a 168 dp panel');
+    // A 320 dp screen at font scale 1.3: the slice number on a line of its own, so the rows are 168 dp high, not about 136,
+    // and the panel is 168 + 33 = 201 dp (the minimum of 168 dp holds while the rows are 135 dp or less).
+    await act(async () => { rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 288, height: 168 } } }); });
+    await tick(30);
+    check('RP-V1f', bottomOf(toolbarEl) === 201 && pictureW() < w0,
+      `a taller panel (201 dp): the draw-mode toolbar sits on it (bottom ${bottomOf(toolbarEl)}) and the picture is fitted again, smaller (${w0.toFixed(0)} -> ${pictureW().toFixed(0)} dp)`);
+    await act(async () => { rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 288, height: 135 } } }); });
+    await tick(30);
+    check('RP-V1f', bottomOf(toolbarEl) === 168 && Math.abs(pictureW() - w0) < 0.5, `and back to 168 dp when the row fits one line (${bottomOf(toolbarEl)} dp)`);
+  }
   const viewerShort = shortTouchables(r.root);
   check('T5', viewerShort.length === 0, `SCR-03: every touchable (layer chips, draw modes, variant, transport) reaches 48 dp${viewerShort.length ? ` - not: ${viewerShort.join(', ')}` : ''}`);
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];
@@ -866,6 +923,10 @@ function noRunBackend() {
   check('E4b', has(r, /Inference & review/) && has(r, /Ground-truth-dependent|no ground-truth mask|not zero/),
     'INFERENCE_REVIEW case -> unavailable, says why');
   check('E4b', !inference.requests.some((u) => /metrics|ground-truth/.test(u)), 'and asks the server for no GT-dependent data');
+  // The app bar has its subtitle and the privacy shield without the error view too (loading, a failure, no ground truth),
+  // so it does not change when the case has loaded (device session r8: the shield appeared then and "Error Insp..." showed).
+  check('RP-SH8', Boolean(nav.ctx) && nav.ctx.subtitle === 'CASE_0001 · Raw' && Boolean(ctxAction(nav, 'privacy')) && !nav.ctx.details,
+    `SCR-04 without its error view still gives the app bar "${nav.ctx && nav.ctx.subtitle}" and the privacy shield`);
   await act(async () => { r.unmount(); });
 
   // Live, EVALUATION: classes, legend, server selection, profile, jump. z 51's
@@ -889,6 +950,15 @@ function noRunBackend() {
   check('C2', ['TP', 'FP', 'FN'].every((k) => chip(k) && /^[A-Z]{2} \d+ px$/.test(textOf(chip(k))) && chip(k).props.accessibilityState.checked === true)
     && swatchOf('FP').length === 1 && swatchOf('TP').length === 0 && swatchOf('FN').length === 0,
   `the legend as chips over the image, with counts; only FP's swatch is dashed (${['TP', 'FP', 'FN'].map((k) => textOf(chip(k))).join(', ')})`);
+  // The chip is as wide as its text (device session r5: "TP 546 px" showed as "TP 546"): the label is one string on one line, with
+  // no width, no stretch and no font-scale cap (those are for a label in a fixed cell, such as a tool button), and neither has the chip.
+  {
+    const label = (k) => chip(k).findAll((n) => n.type === 'Text')[0];
+    const sized = (n) => { const st = flat(n.props.style); return st.width !== undefined || st.maxWidth !== undefined || st.minWidth !== undefined || st.alignSelf === 'stretch'; };
+    check('RP-V1e', ['TP', 'FP', 'FN'].every((k) => typeof label(k).props.children === 'string' && /^[A-Z]{2} \d+ px$/.test(label(k).props.children)
+      && label(k).props.maxFontSizeMultiplier === undefined && !sized(label(k)) && !sized(chip(k))),
+    `SCR-04 class chips: the label is one whole string (${['TP', 'FP', 'FN'].map((k) => label(k).props.children).join(', ')}), sized by its text, not by a fixed cell`);
+  }
   await press(r, 'Outline');
   check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
   await press(r, 'Both');
@@ -939,8 +1009,9 @@ function noRunBackend() {
   check('E4i', paths().length === 2 && has(r, /FP - over-segmentation .*\(hidden\)/) && chip('FP').props.accessibilityState.checked === false,
     'a class can be isolated: FP hidden by its chip, named as hidden');
   await press(r, '3D error view');
-  check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52 && pushes[0][1].view === 'error',
-    `entry to the 3D error view with the slice: ${JSON.stringify(pushes[0] || null)}`);
+  check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52
+    && Object.keys(pushes[0][1]).sort().join() === 'caseId,runId,sliceIndex,variant',
+    `entry to the 3D error view with the slice and nothing SCR-05 would ignore (no view parameter): ${JSON.stringify(pushes[0] || null)}`);
 
   // #77 QA B-3, applied to SCR-04: a slice that fails shows nothing of the slice displayed before.
   const refLine = () => ctxLines(nav).find((x) => x.startsWith('reference ')) || '';
@@ -1191,6 +1262,14 @@ function noRunBackend() {
   await tick(250);
   check('R2', onScreen(r, 'SCR-04') && has(r, /^CASE_0061 · Processed$/) && has(r, /^Processed vs ground truth$/) && onSlice(r, 55) && !has(r, /RUN_B/),
     'SCR-04 opened on the same variant and slice; the run id is not on the screen');
+  {
+    // The bar the shell really draws for SCR-04 (device session r8): a plain bar, not the viewer's floating one, and its title is measured too.
+    const bar04 = r.root.findAll((n) => n.props && n.props.testID === 'screen-SCR-04' && 'floating' in n.props)[0];
+    const title04 = bar04 && bar04.findAll((n) => n.type === 'Text' && n.props.accessibilityRole === 'header')[0];
+    check('RP-SH6', Boolean(title04) && bar04.props.floating === false && textOf(title04) === 'Error Inspector'
+      && title04.props.maxFontSizeMultiplier === LABEL_FONT_CAP && typeof title04.parent.props.onLayout === 'function',
+    'the real SCR-04 bar is a plain bar, and its title "Error Inspector" is capped and measured like every bar title');
+  }
   sheet = await info();
   check('R2', sheet.includes('Run RUN_B · prediction PROCESSED vs ground truth') && sheet.includes('Slice 55 / 88 · z 54'),
     'its Details name the run and the z');
@@ -2490,7 +2569,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   const { loading, recoverableError } = await imp('src/api/states.mjs');
   const headerTexts = (r) => {
     const h = r.root.findAll((n) => n.props && typeof n.props.testID === 'string' && n.props.testID.startsWith('screen-'))[0];
-    return h ? h.findAll((n) => n.type === 'Text').map(textOf) : [];
+    return h ? h.findAll((n) => n.type === 'Text' && !inProbe(n)).map(textOf) : [];
   };
 
   // Header: a name for people and the study; no screen id in the header or the tab bar.
@@ -2510,6 +2589,169 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('H8', tabBar(r).map(textOf).join() === 'Study,Cases,Experiments,Findings'
     && tabBar(r).every((tab) => tab.findAll((n) => isIcon(n)).length === 1) && selectedTab(r) === 'Study',
   `tab bar: four tabs, each an icon and its name; selected: ${selectedTab(r)}`);
+  // Responsive (device session r4): a tab's name is one line as wide as its tab, and stops growing at the label cap, so
+  // "Study" is not cut to "Stud" at 480 dp and "Experiments" fits a quarter of 320 dp at font scale 1.3.
+  const tabNames = tabBar(r).map((tab) => tab.findAll((n) => n.type === 'Text')[0]);
+  check('RP-SH1', tabNames.length === 4 && tabNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
+    && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
+  `tab names: one line, as wide as the tab, capped at font scale ${LABEL_FONT_CAP}`);
+  // Responsive (device sessions r5, r8): a bar has Back, the Live word and up to three icon buttons round the title, so the
+  // room for the title does not grow with the text: its title and subtitle stop growing at the label cap ("CASE_0029"
+  // showed as "CASE_00..." at 320 dp and font scale 1.3), in the viewer's floating bar and in a plain bar alike.
+  {
+    const { default: AppHeader } = await imp('src/components/AppHeader.js');
+    const bar = async (floating) => {
+      let h;
+      await act(async () => {
+        h = TestRenderer.create(React.createElement(AppHeader, { title: 'CASE_0029', subtitle: 'DINOv2 100 %', onBack: () => {}, onInfo: () => {}, floating }));
+      });
+      return h;
+    };
+    const lineOf = (h, text) => h.root.findAll((n) => n.type === 'Text' && textOf(n) === text)[0];
+    const [viewer, plain] = [await bar(true), await bar(false)];
+    check('RP-SH2', [viewer, plain].every((h) => ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(h, t).props.numberOfLines === 1
+      && lineOf(h, t).props.maxFontSizeMultiplier === LABEL_FONT_CAP)),
+    `the floating bar and a plain bar: title and subtitle on one line, capped at font scale ${LABEL_FONT_CAP}`);
+    // Responsive (device session r6, r7): at 320 dp the room beside Back, Live, the shield and Info is 96 dp, and "Error Inspector" read "Error Insp...".
+    // Text adjustsFontSizeToFit did not shrink it on Android, so the bar measures a hidden copy of each line (FitText.js, a Text with the same
+    // style and no numberOfLines in a wide box, invisible and hidden from screen readers) and picks the size itself; the visible line keeps numberOfLines 1,
+    // so what still does not fit at the minimum is cut with "..." as before. SCR-04 has a plain bar (r8: measuring only the floating bar left it at
+    // "Error Insp..."), so every bar measures its lines.
+    const probesOf = (h) => h.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'fit-probe');
+    const probeText = (p) => p.findAll((n) => n.type === 'Text')[0];
+    const probed = (h) => probesOf(h).map((p) => `${textOf(probeText(p))}@${flat(probeText(p).props.style).fontSize}`);
+    const sizeOf = (h, text) => flat(lineOf(h, text).props.style).fontSize;
+    const headerOf = (h) => h.root.findAll((n) => n.type === 'Text' && n.props.accessibilityRole === 'header')[0];
+    const boxOf = (h) => headerOf(h).parent; // the title box: the View (or the run picker button) whose layout is the room of both lines
+    const noFitProps = (n) => n.props.adjustsFontSizeToFit === undefined && n.props.minimumFontScale === undefined;
+    check('RP-SH3', ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(viewer, t).props.numberOfLines === 1 && noFitProps(lineOf(viewer, t)))
+      && ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(plain, t).props.numberOfLines === 1 && noFitProps(lineOf(plain, t)))
+      && [viewer, plain].every((h) => probesOf(h).length === 2 && typeof boxOf(h).props.onLayout === 'function')
+      && [...probesOf(viewer), ...probesOf(plain)].every((p) => {
+        const st = flat(p.props.style);
+        const t = probeText(p);
+        return p.props.pointerEvents === 'none' && p.props.accessibilityElementsHidden === true && p.props.importantForAccessibility === 'no-hide-descendants'
+          && st.position === 'absolute' && st.opacity === 0 && st.width >= FIT_PROBE_WIDTH && t.props.numberOfLines === undefined
+          && t.props.maxFontSizeMultiplier === LABEL_FONT_CAP && typeof t.props.onTextLayout === 'function';
+      })
+      && [viewer, plain].every((h) => sizeOf(h, 'CASE_0029') === 17 && sizeOf(h, 'DINOv2 100 %') === 12 && probed(h).join() === 'CASE_0029@17,DINOv2 100 %@12'),
+    `the floating bar and a plain bar measure a hidden, invisible, screen-reader-hidden copy of their title and subtitle (starting at their own sizes, no numberOfLines) instead of adjustsFontSizeToFit; the visible lines stay on one line`);
+
+    // The phone, as numbers: widths at the style's size from the device sessions (r6/r7: "Error Inspector" 117 dp at 17 sp, "CASE_0029 · Raw" 95 dp at 12 sp),
+    // grown by the system font scale up to the bar's cap, and proportional to the size, as the text engine lays it out ("DINOv2 100 %" 80 dp and "CASE_0029" 70 dp are estimates).
+    const NATURAL = { 'Error Inspector': [117, 17], 'CASE_0029 · Raw': [95, 12], 'DINOv2 100 %': [80, 12], CASE_0029: [70, 17] };
+    const widthAt = (text, size, fontScale) => NATURAL[text][0] * (size / NATURAL[text][1]) * Math.min(fontScale, LABEL_FONT_CAP);
+    // Lays the bar out at `room` dp (the title box) and answers every measurement the way the phone would, until nothing is left to measure.
+    // Returns how many rounds of measurements it took.
+    async function settle(h, room, fontScale) {
+      await act(async () => { boxOf(h).props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: room, height: 56 } } }); });
+      let rounds = 0;
+      for (; rounds < 12 && probesOf(h).length; rounds += 1) {
+        const pending = probesOf(h).map((p) => ({ p, text: textOf(probeText(p)), size: flat(probeText(p).props.style).fontSize }));
+        await act(async () => {
+          for (const { p, text, size } of pending) {
+            probeText(p).props.onTextLayout({ nativeEvent: { lines: [{ text, x: 0, y: 0, width: widthAt(text, size, fontScale), height: 22 }] } });
+          }
+        });
+      }
+      return rounds;
+    }
+    // SCR-04's bar as the shell draws it: a plain bar with Back, the Live word, the privacy shield and Info. SCR-03 passes floating and a run picker.
+    const barProps = (title, subtitle, extra = {}) => ({ title, subtitle, onBack: () => {}, onInfo: () => {}, status: 'live', ...extra });
+    const barOf = async (title, subtitle, extra) => {
+      let h;
+      await act(async () => { h = TestRenderer.create(React.createElement(AppHeader, barProps(title, subtitle, extra))); });
+      return h;
+    };
+    {
+      // SCR-04 at 320 dp, font scale 1.0: 96 dp between Back and Live. The title is measured at 17 sp (117 dp), then at the size the ratio gives (13.5 sp), and fits.
+      globalThis.__window = { width: 320, fontScale: 1 };
+      const h = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      const rounds = await settle(h, 96, 1);
+      const t = sizeOf(h, 'Error Inspector');
+      const sub = sizeOf(h, 'CASE_0029 · Raw');
+      check('RP-SH4', t === 13.5 && widthAt('Error Inspector', t, 1) <= 95 && t / 17 >= BAR_TEXT_MIN_SCALE.title && sub === 12 && rounds <= 3 && probesOf(h).length === 0
+        && lineOf(h, 'Error Inspector').props.numberOfLines === 1,
+      `SCR-04 at 320 dp, font scale 1.0 (room 96 dp): "Error Inspector" is drawn at ${t} sp (${(t / 17).toFixed(2)} of 17, ${widthAt('Error Inspector', t, 1).toFixed(1)} dp), the subtitle stays at ${sub} sp, settled in ${rounds} rounds, no copy left`);
+      // The size is settled: the same room again starts nothing.
+      await act(async () => { boxOf(h).props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 96.2, height: 56 } } }); });
+      check('RP-SH4', probesOf(h).length === 0 && sizeOf(h, 'Error Inspector') === 13.5,
+        'a settled bar is not measured again for the same text, room and font size (96.2 dp is the same room)');
+      await act(async () => { h.unmount(); });
+
+      // SCR-04 while its case loads has no privacy shield, so the title fits at 17 sp; when the shield appears the room
+      // shrinks to 96 dp. The device session r8 showed "Error Insp..." for a few frames there, because the line kept 17 sp
+      // until 17 sp was found too wide again. It is now drawn at once at the estimate from the width already measured.
+      const hs = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      await settle(hs, 130, 1);
+      const before = sizeOf(hs, 'Error Inspector');
+      await act(async () => { boxOf(hs).props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 96, height: 56 } } }); });
+      const meanwhile = sizeOf(hs, 'Error Inspector');
+      const pending = probed(hs);
+      await settle(hs, 96, 1);
+      check('RP-SH7', before === 17 && meanwhile === 13.5 && pending.includes('Error Inspector@13.5') && sizeOf(hs, 'Error Inspector') === 13.5 && probesOf(hs).length === 0,
+        `a room that shrinks under a settled title draws the estimate at once (${before} -> ${meanwhile} sp while ${pending.join(', ')} is measured), not the old size cut with "..."`);
+      await act(async () => { hs.unmount(); });
+
+      // 320 dp, font scale 1.3: the room is 89 dp and the lines are capped at 1.15: the title needs 0.65 of its size, the subtitle (no run picker) 0.82.
+      globalThis.__window = { width: 320, fontScale: 1.3 };
+      const h13 = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      const rounds13 = await settle(h13, 89, 1.3);
+      const t13 = sizeOf(h13, 'Error Inspector');
+      const s13 = sizeOf(h13, 'CASE_0029 · Raw');
+      check('RP-SH4', t13 === 11 && widthAt('Error Inspector', t13, 1.3) <= 88 && t13 / 17 >= BAR_TEXT_MIN_SCALE.title
+        && s13 === 9.5 && widthAt('CASE_0029 · Raw', s13, 1.3) <= 88 && s13 / 12 >= BAR_TEXT_MIN_SCALE.subtitle && probesOf(h13).length === 0,
+      `SCR-04 at 320 dp, font scale 1.3 (room 89 dp, lines capped at ${LABEL_FONT_CAP}): the title is drawn at ${t13} sp and the subtitle at ${s13} sp, both whole (${rounds13} rounds)`);
+      // The system font size changes while the bar is open: what was measured is not trusted, the bar is measured again.
+      globalThis.__window = { width: 320, fontScale: 1 };
+      await act(async () => { h13.update(React.createElement(AppHeader, barProps('Error Inspector', 'CASE_0029 · Raw'))); });
+      check('RP-SH5', probed(h13).includes('Error Inspector@17'), 'a new system font size starts a new measurement of the same text');
+      await settle(h13, 96, 1);
+      check('RP-SH5', sizeOf(h13, 'Error Inspector') === 13.5 && probesOf(h13).length === 0, 'and the title is drawn at 13.5 sp once that is measured');
+      // Another text restarts it too, and a text that fits as it is keeps its style untouched.
+      await act(async () => { h13.update(React.createElement(AppHeader, barProps('CASE_0029', 'CASE_0029 · Raw'))); });
+      const rounds1 = await settle(h13, 96, 1);
+      check('RP-SH5', sizeOf(h13, 'CASE_0029') === 17 && flat(lineOf(h13, 'CASE_0029').props.style).fontSize === 17 && probesOf(h13).length === 0 && rounds1 === 1,
+        `a new title that fits (70 dp in 96) keeps its own 17 sp and is measured once (${rounds1} round)`);
+      await act(async () => { h13.unmount(); });
+
+      // The run picker's chevron (12 dp and a 2 dp gap) takes room from the subtitle: SCR-03 at 320 dp, "DINOv2 100 %" with a chevron has 82 dp.
+      globalThis.__window = { width: 320, fontScale: 1 };
+      const hp = await barOf('CASE_0029', 'DINOv2 100 %', { onSubtitlePress: () => {}, floating: true, status: null });
+      await settle(hp, 96, 1);
+      const sp = sizeOf(hp, 'DINOv2 100 %');
+      check('RP-SH5', sp === 12 && sizeOf(hp, 'CASE_0029') === 17 && typeof boxOf(hp).props.onLayout === 'function' && probesOf(hp).length === 0,
+        `with a run picker the subtitle's room is the box less the chevron: "DINOv2 100 %" (80 dp) fits the 81 dp left at ${sp} sp`);
+      const hq = await barOf('CASE_0029', 'DINOv2 100 %', { onSubtitlePress: () => {}, floating: true, status: null });
+      await settle(hq, 90, 1);
+      check('RP-SH5', sizeOf(hq, 'DINOv2 100 %') === 11 && widthAt('DINOv2 100 %', 11, 1) <= 75, `a narrower room (90 dp, 76 for the subtitle) shrinks the subtitle to ${sizeOf(hq, 'DINOv2 100 %')} sp`);
+      await act(async () => { hp.unmount(); hq.unmount(); });
+
+      // Below the minimum the line is cut, as before: a 40 dp room is not enough for the title even at 0.6 of its size.
+      const hn = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      const roundsN = await settle(hn, 40, 1);
+      const tn = sizeOf(hn, 'Error Inspector');
+      check('RP-SH5', Math.abs(tn - 17 * BAR_TEXT_MIN_SCALE.title) < 1e-9 && Math.abs(sizeOf(hn, 'CASE_0029 · Raw') - 12 * BAR_TEXT_MIN_SCALE.subtitle) < 1e-9
+        && lineOf(hn, 'Error Inspector').props.numberOfLines === 1 && probesOf(hn).length === 0 && roundsN <= 4,
+      `a room that is too small ends at the minimum (title ${tn} sp = 0.6 of 17, subtitle ${sizeOf(hn, 'CASE_0029 · Raw')} sp = 0.75 of 12), still one line with the ellipsis (${roundsN} rounds)`);
+      await act(async () => { hn.unmount(); });
+      delete globalThis.__window;
+    }
+    await act(async () => { viewer.unmount(); plain.unmount(); });
+  }
+  // Responsive (device session r5): the id of a meter row ("CASE_0029" in the lowest-Dice list) is 97 dp wide at font scale 1.3,
+  // so its box has a minWidth (the bar gives way), not a width of 88 dp that cut it to "CASE_00...".
+  {
+    const { default: ListRow } = await imp('src/components/ListRow.js');
+    let lr;
+    await act(async () => { lr = TestRenderer.create(React.createElement(ListRow, { variant: 'meter', title: 'CASE_0029', bar: 0.1, value: '0.048', onPress: () => {} })); });
+    const idText = lr.root.findAll((n) => n.type === 'Text' && textOf(n) === 'CASE_0029')[0];
+    const idBox = idText.parent;
+    const st = flat(idBox.props.style);
+    check('RP-LR1', st.width === undefined && st.minWidth === 88 && st.flexShrink === 0 && idText.props.numberOfLines === 1,
+      `a meter row's id box: minWidth ${st.minWidth}, no fixed width, never shrunk (flexShrink ${st.flexShrink}), one line`);
+    await act(async () => { lr.unmount(); });
+  }
   const infoButton = () => byTestId(r, 'header-info');
   await act(async () => { infoButton().props.onPress(); });
   check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.2\.0$/),
@@ -2582,9 +2824,9 @@ function reviewBackend({ seedVersion = false } = {}) {
   await tick(300);
   await layout(r);
   await tick(250);
-  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'CASE_0061 | UNet2D · EXPERIMENT_ID_0043'
+  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'CASE_0061 | EXPERIMENT_ID_0043'
     && Boolean(byTestId(r, 'header-back')) && Boolean(byTestId(r, 'header-action-privacy')) && Boolean(byTestId(r, 'header-more')),
-  `SCR-03 in the viewer chrome: the case and its model and experiment, Back, the privacy shield, Info and more: ${headerTexts(r).join(' | ')}`);
+  `SCR-03 in the viewer chrome: the case and its experiment (an id outside the matrix is its own name), Back, the privacy shield, Info and more: ${headerTexts(r).join(' | ')}`);
   check('H8', tabBar(r).length === 0 && Boolean(byTestId(r, 'viewer-chrome')), 'the case viewer hides the tab bar (viewer chrome)');
   const cachedBefore = live.imageStore.stats().cached;
   const mark = backend.requests.length;
@@ -2687,6 +2929,28 @@ function reviewBackend({ seedVersion = false } = {}) {
     && has(r, /^CASE$|^Case$/) && r.root.findAll((n) => n.type === 'TextInput')[0].props.placeholder === 'Search case ID'
     && !has(r, /cases? on this page/) && ctxHas(nav, /^7 cases on this page · 6 evaluation · 1 inference & review$/),
   'SCR-02 in Direction A: search, filter tabs with counts, the column heading; the page summary is in Details');
+  // Responsive (device session r4): the filter tabs scroll sideways, with their own side margin, instead of running off
+  // a 320 dp screen or off 384 dp at font scale 1.3.
+  const filterTabs = byTestId(r, 'filter-tabs');
+  check('RP-V1c', Boolean(filterTabs) && filterTabs.type === 'ScrollView' && filterTabs.props.horizontal === true
+    && filterTabs.props.showsHorizontalScrollIndicator === false && flat(filterTabs.props.contentContainerStyle).paddingHorizontal === 16
+    && filterTabs.findAll((n) => n.type === 'TouchableOpacity').map(textOf).join() === 'All7,Evaluation6,Inference & review1',
+  'SCR-02 filter tabs: all three in one horizontal ScrollView with a 16 dp margin at each end');
+  // Responsive (device session r6): at 320 dp the three tabs were 19 dp wider than the screen, so at rest the third ended at the edge; below 360 dp
+  // the gap between the tabs is 16 dp, from 360 dp it is 24 dp, and until the row has a width it is the wide one.
+  {
+    const rowOf = () => byTestId(r, 'filter-tabs');
+    const gapAt = async (width) => {
+      const bar = rowOf().parent;
+      await act(async () => { bar.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width, height: 44 } } }); });
+      return flat(rowOf().props.contentContainerStyle).gap;
+    };
+    const before = flat(rowOf().props.contentContainerStyle).gap;
+    const [narrow, wide] = [await gapAt(320), await gapAt(384)];
+    check('RP-V1h', typeof rowOf().parent.props.onLayout === 'function' && [before, narrow, wide].join() === `${before},16,24` && (before === 24 || before === 16)
+      && flat(rowOf().props.contentContainerStyle).paddingHorizontal === 16,
+    `SCR-02 filter tabs: a 16 dp gap on a 320 dp screen, 24 dp on a 384 dp one (${narrow}, ${wide}), the 16 dp margin at the ends kept`);
+  }
   // Nothing chosen: the default. EXP-D-PP is the only DINOv2 this list names, but the server answers it with no Dice
   // of its own, so the screen moves on to the first experiment that has values, EXP_DEMO.
   await tick(300);
@@ -2694,20 +2958,29 @@ function reviewBackend({ seedVersion = false } = {}) {
     && requests.some((u) => u === '/api/v1/experiments/EXP-D-PP/cases') && requests.some((u) => u === '/api/v1/experiments/EXP_DEMO/cases')
     && ctxHas(nav, /^Chosen for you: DINOv2 at the largest data fraction the server lists, raw before post-processed\./),
   'nothing chosen: opens on the default (DINOv2 first; an answer with no Dice is skipped), server order; Details says it was chosen for you');
+  // Responsive: a Dice value is one line in a cell wide enough for five tabular characters at font scale 1.3.
+  const diceCells = r.root.findAll((n) => n.type === 'Text' && /^\d\.\d{3}$/.test(textOf(n)));
+  check('RP-V1b', diceCells.length >= 3 && diceCells.every(valueCellFits),
+    `SCR-02: ${diceCells.length} Dice values, each on one line in a cell of at least ${Math.ceil(valueEm('0.000') * 15 * 1.3)} dp, no fixed width`);
   const listShort = shortTouchables(r.root);
   check('T5', listShort.length === 0, `SCR-02: every touchable (search, filter tabs, experiment, order, rows) reaches 48 dp${listShort.length ? ` - not: ${listShort.join(', ')}` : ''}`);
   const pick = async (id) => {
     await pressId(r, 'dice-of');
-    const label = (n) => String(n.props.accessibilityLabel || '');
-    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && (id === null ? label(n) === 'Show no Dice' : label(n).endsWith(`experiment ${id}`)))[0];
+    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.testID === `dice-pick-${id === null ? 'none' : id}`)[0];
     if (!row) throw new Error(`no picker row for ${id}`);
     await act(async () => { row.props.onPress(); });
     await tick(200);
   };
-  // The picker names each experiment as people do; the id is the second line, only where the name replaced it.
+  // The picker names each experiment as people do and writes no id of its own: not as a second line, not in what a
+  // screen reader says. An id outside the matrix is the name there is, so it stays as the name.
   await pressId(r, 'dice-of');
-  check('W1', has(r, /^DINOv2 100 % · Processed$/) && has(r, /^EXP-D-PP$/) && has(r, /^EXP_DEMO · Raw$/) && !has(r, /^EXP_DEMO$/)
-    && has(r, /^None \(no Dice\)$/), 'the picker: "DINOv2 100 % · Processed" with EXP-D-PP under it; an id outside the matrix once; None');
+  const pickRows = r.root.findAll((n) => n.type === 'TouchableOpacity' && String(n.props.testID || '').startsWith('dice-pick-'));
+  check('W1', has(r, /^DINOv2 100 % · Processed$/) && has(r, /^EXP_DEMO · Raw$/) && !has(r, /^EXP_DEMO$/)
+    && has(r, /^None \(no Dice\)$/), 'the picker: "DINOv2 100 % · Processed"; an id outside the matrix once, as the name; None');
+  check('RP-V1d', pickRows.length === 3 && !texts(r).some((x) => /^EXP-[A-Z]-/.test(x))
+    && pickRows.every((n) => !/EXP-/.test(n.props.accessibilityLabel) && !/, experiment /.test(n.props.accessibilityLabel))
+    && pickRows.every((n) => n.findAll((x) => x.type === 'Text').length === 1),
+  'SCR-02 picker: one line per experiment (its name), no experiment id on screen or in the screen-reader label');
   await closeSheet(r, 'experiment-sheet');
   await pick('EXP_DEMO');
   check('W2', values().includes('0.900') && values().includes('0.400') && has(r, /^No GT$/) && has(r, /^Run failed$/) && has(r, /^Not in this experiment$/)

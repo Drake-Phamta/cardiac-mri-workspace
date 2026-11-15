@@ -1,11 +1,13 @@
 /*
- * What the screen header says: the screen's name for people, and the case and run it shows. A screen that picks
- * its run itself (SCR-03) reports it with nav.setContext; that wins over the route params. The screen id, the
- * build and the contract version go to the Details sheet behind the header's Info button instead.
+ * What the screen header says: the screen's name for people, and the case it shows. A screen names its run, model
+ * and variant for people itself (title, subtitle with nav.setContext, e.g. "DINOv2 100 %" or "CASE_0029 · Raw"); until
+ * it does, the subtitle is the case alone, never a run id (the device session r8 saw "CASE_0029 · run RUN_EXP-D-100_..."
+ * for half a second while SCR-04 loaded). Run ids, the screen id, the build and the contract version go to the Details
+ * sheet behind the header's Info button instead.
  *
  * What a screen may report with nav.setContext (all optional; memoize arrays and functions, the shell compares the
  * report shallowly and re-renders only when it changed):
- *   caseId, runId, variant   the default subtitle, "CASE · run RUN · VARIANT"
+ *   caseId                   the default subtitle, the case (wins over the route params)
  *   title, subtitle          strings that replace the header's two lines (a viewer names the case and the model)
  *   onSubtitlePress          the subtitle becomes a button with a chevron (a run picker)
  *   actions                  [{ key, icon, label, active, onPress }]: icon buttons before Info (a privacy shield)
@@ -19,11 +21,7 @@ export function headerLines(meta, params = null, context = null, { studyId = nul
   const p = { ...(params || {}), ...(context || {}) };
   const parts = [];
   const caseId = word(p.caseId);
-  const runId = word(p.runId);
-  const variant = word(p.variant);
   if (caseId) parts.push(caseId);
-  if (runId) parts.push(`run ${runId}`);
-  if (runId && variant) parts.push(variant);
   let subtitle = parts.join(' · ');
   if (!subtitle) subtitle = word(studyId) ? `Study ${studyId}` : '';
   const ctx = context || {};

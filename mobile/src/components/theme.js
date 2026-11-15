@@ -5,5 +5,5 @@
  */
 
 export {
-  MIN_TOUCH, HAIRLINE, hitSlopFor, LABEL_FONT_CAP, color, overlay, errorClass, family, status, space, radius, size, font, type,
+  MIN_TOUCH, HAIRLINE, hitSlopFor, LABEL_FONT_CAP, BAR_TEXT_MIN_SCALE, color, overlay, errorClass, family, status, space, radius, size, font, type,
 } from './tokens.mjs';
