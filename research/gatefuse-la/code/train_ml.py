@@ -155,7 +155,8 @@ def predict(model, src, idx, dev, unet, bs=32):
         logits, g = forward(model, src.get(idx[s:s + bs], with_labels=False), dev, unet)
         probs.append(torch.sigmoid(logits)[:, 0].cpu().numpy().astype(np.float16))
         if g is not None:
-            gates.append(g[:, 0].cpu().numpy().astype(np.float16))
+            g = g[:, 0] if g.shape[1] == 1 else g[:, :, 0, 0]     # token, scalar: (B, h, w); channel: (B, width)
+            gates.append(g.cpu().numpy().astype(np.float16))
     model.train()
     return np.concatenate(probs), (np.concatenate(gates) if gates else None)
 
