@@ -406,6 +406,6 @@ def render(manifest: dict, results: list, summary: dict) -> str:
     add("> `PASS` closes nothing.")
     add("")
     add("**Related:** "
-        "`docs/specs/v1.0/06_DATASET_CONTRACT.md` · `data/manifests/dataset_manifest.json`")
+        "`docs/spec/05_du-lieu-csdl.md` · `data/manifests/dataset_manifest.json`")
     add("")
     return "\n".join(L)
