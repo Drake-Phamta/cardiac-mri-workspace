@@ -211,6 +211,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   nhỏ.
 - **Panel dưới**: dòng đầu ghi "Prediction · Raw" (hoặc "· Processed"), thẻ chế độ ca ("Evaluation" / "Inference & review") và bên
   phải "Slice 45 / 88" (đếm từ 1): lát của dải, tức lát mà SCR-05 được mở từ đó hoặc lát vừa chọn; chưa có lát thì "Slice - / 88".
+  Dòng này tự xuống dòng khi không đủ chỗ (320 dp ở cỡ chữ 1,3): số lát xuống một dòng riêng ở bên phải và không bao giờ bị thu
+  hẹp, nhãn "Prediction · Raw" không bị cắt thành một dòng ("Predicti…" trước đây).
   Phần thân nói lựa chọn bằng lời:
   - chưa chọn gì: "Tap the surface to pick a slice, or an error marker to see its region." (sau một lần chạm vào nền: "No
     surface at that point: nothing selected. Tap the surface to pick a slice."), dòng tổng "1 FN region (523 voxels) · 2 FP

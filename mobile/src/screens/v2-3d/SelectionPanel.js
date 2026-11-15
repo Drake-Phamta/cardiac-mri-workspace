@@ -28,9 +28,9 @@ export default function SelectionPanel({
   return (
     <View style={s.dock} onLayout={(e) => onHeight(e.nativeEvent.layout.height)} pointerEvents="box-none" testID="selection-dock">
       <BottomPanel style={s.panel} testID="selection-panel">
-        <View style={s.top}>
+        <View style={s.top} testID="selection-top">
           <View style={s.what}>
-            <Text style={s.label} numberOfLines={1}>{`Prediction · ${VARIANT_LABEL[variant] || variant}`}</Text>
+            <Text style={s.label}>{`Prediction · ${VARIANT_LABEL[variant] || variant}`}</Text>
             <CapabilityBadge capability={capability} />
           </View>
           <Text style={s.readout} testID="slice-readout">
@@ -69,10 +69,13 @@ const s = StyleSheet.create({
   dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   // The shared BottomPanel pins itself to the bottom edge of its parent; the dock is that parent and measures it.
   panel: { position: 'relative', gap: space.m },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.m },
-  what: { flexDirection: 'row', alignItems: 'center', gap: space.s, flexShrink: 1 },
+  // The first row wraps (320 dp at font scale 1.3: the label, the mode badge and "Slice 45 / 88" are wider than the panel, and the
+  // label was cut to "Predicti..."): the slice number drops to a line of its own at the right and is never shrunk; the label is not
+  // cut to one line, it wraps if it has to.
+  top: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.m, rowGap: space.xs },
+  what: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.s, rowGap: space.xs, flexShrink: 1 },
   label: { ...type.body, color: color.t2, flexShrink: 1 },
-  readout: { ...type.readout, color: color.t1 },
+  readout: { ...type.readout, color: color.t1, marginLeft: 'auto', flexShrink: 0 },
   readoutLabel: { fontSize: font.body, fontWeight: '400', color: color.t2 },
   readoutNow: { fontSize: 22, lineHeight: 26, fontWeight: '600', color: color.t1, fontVariant: font.numeric },
   body: { gap: space.xs, minHeight: 64 },

@@ -1897,6 +1897,18 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R4', has(r, /^Tap the surface to pick a slice, or an error marker to see its region\.$/) && isOpen2D(r).props.disabled === true,
       'no selection: Open in 2D is disabled and the hint says what to do');
     check('V2R4', !has(r, /Voxel-index frame|no millimetres/), 'the frame note is not on the main surface');
+    // Responsive (device session r5): the panel's first row wraps, with the slice number never shrunk and the label not cut to one line,
+    // so "Predicti..." and a pushed "Slice" cannot happen at 320 dp and font scale 1.3.
+    {
+      const flat = (st) => (Array.isArray(st) ? Object.assign({}, ...st.map(flat)) : (st && typeof st === 'object' ? st : {}));
+      const top = flat(byTestId(r, 'selection-top').props.style);
+      const what = byTestId(r, 'selection-top').children.find((c) => typeof c.type === 'string' && flat(c.props.style).flexShrink === 1);
+      const readoutStyle = flat(byTestId(r, 'slice-readout').props.style);
+      const label = r.root.findAll((n) => n.type === 'Text' && /^Prediction · /.test(textOf(n)))[0];
+      check('RP-V2c', top.flexWrap === 'wrap' && Boolean(what) && flat(what.props.style).flexWrap === 'wrap' && readoutStyle.marginLeft === 'auto' && readoutStyle.flexShrink === 0
+        && label.props.numberOfLines === undefined,
+      'SCR-05 panel: the first row wraps, the slice number is at the right of its line and never shrunk, the label is not cut to one line');
+    }
     // Responsive (device session r5): the WebView page's text follows the system font size up to the label cap (the page's tools are laid out
     // for that: viewerTools.mjs), instead of the 17 px that broke "Ground truth" into two lines at font scale 1.3.
     {
