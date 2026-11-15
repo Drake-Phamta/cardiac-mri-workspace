@@ -1,0 +1,8 @@
+# One name per person in git log and git shortlog. Each line maps the email (and old names) a commit was made with
+# to the person's name. GitHub does not read this file; it links commits to accounts by email.
+Phạm Tuấn Anh <darkt1401@gmail.com>
+Vũ Hùng Anh <vuhunganh0301@gmail.com>
+Vũ Hùng Anh <vuhunganh0301@gmail.com> <89725902+scalliontor@users.noreply.github.com>
+Vũ Hùng Anh <vuhunganh0301@gmail.com> <macbookpro@MacBook-cua-hanh.local>
+Bế Quốc Khánh <bequockhanh2005@gmail.com>
+Nguyễn Gia Đức Trung <giaductrungnguyen@gmail.com>
