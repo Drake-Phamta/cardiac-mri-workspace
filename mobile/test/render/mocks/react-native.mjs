@@ -29,6 +29,10 @@ export const StyleSheet = {
   create: (s) => s, absoluteFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }, hairlineWidth: 1,
 };
 export const PanResponder = { create: (cfg) => ({ panHandlers: { __pan: cfg } }) };
+// The window of a 384 dp phone at the default font size; a check changes it through globalThis.__window (FitText reads fontScale).
+export function useWindowDimensions() {
+  return { width: 384, height: 832, scale: 3.375, fontScale: 1, ...(globalThis.__window || {}) };
+}
 // Keeps its listeners (#77 QA N-7), so a check can press the hardware back
 // button: __press() calls them newest first, as Android does, until one
 // returns true, and answers whether one did (false = the system default, the
@@ -71,5 +75,5 @@ export const AppState = {
 
 export default {
   View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
-  StyleSheet, PanResponder, BackHandler, Alert, AppState,
+  StyleSheet, PanResponder, BackHandler, Alert, AppState, useWindowDimensions,
 };

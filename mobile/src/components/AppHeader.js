@@ -7,10 +7,11 @@
  * chevron (a run picker); `overflow` adds a "more" button after Info for the screen's own menu.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconButton } from './Controls';
+import { FitProbe, useFitFontSize } from './FitText';
 import { IconBack, IconChevronDown, IconInfo, IconMore } from './icons';
 import { BAR_TEXT_MIN_SCALE, color, LABEL_FONT_CAP, MIN_TOUCH, size, type } from './theme';
 
@@ -35,23 +36,42 @@ export function StatusIndicator({ mode, onPress = null, accessibilityLabel, test
   );
 }
 
+// The chevron after a subtitle and the gap before it, so the subtitle's room is the box minus this.
+const CHEVRON_SIZE = 12;
+const SUBTITLE_GAP = 2;
+
+// A Text style with the fitted size when there is one; a line that is not fitted keeps its style as it is.
+const sized = (style, fit) => (fit.size === null ? style : [style, { fontSize: fit.size }]);
+
 // Title and subtitle. With onSubtitlePress the whole block (the bar's full height) is one button, and a chevron
 // follows the subtitle, so the run picker has a 56 dp target although the subtitle line is 16 dp.
 // The floating bar of a viewer has Back and up to three icon buttons round the title, so the room it leaves does not
 // grow with the text: at 320 dp and font scale 1.3 "CASE_0029" and "DINOv2 100 %" showed as "CASE_00..." and "DINOv2 10...".
 // There both lines stop growing at LABEL_FONT_CAP; a bar with a plain screen title keeps following the system size. A line that still does
-// not fit shrinks to fit (tokens.mjs BAR_TEXT_MIN_SCALE) instead of ending in "...": "Error Insp..." at 320 dp was the title of SCR-04.
+// not fit is measured and drawn smaller (FitText.js, fitFontSize.mjs, tokens.mjs BAR_TEXT_MIN_SCALE) instead of ending in "...":
+// "Error Insp..." at 320 dp was the title of SCR-04, and Text adjustsFontSizeToFit did not shrink it on Android.
 function TitleBlock({ title, subtitle, large, floating, onSubtitlePress, subtitleLabel }) {
   const cap = floating ? LABEL_FONT_CAP : undefined;
-  const fit = floating ? { adjustsFontSizeToFit: true } : null;
+  const titleStyle = large ? s.titleTwoLine : s.title;
+  // The width of this box does not depend on the text (flex 1, minWidth 0), so the sizes picked from it do not move it.
+  const [room, setRoom] = useState(null);
+  const onBoxLayout = floating ? (e) => {
+    const w = e.nativeEvent.layout.width;
+    setRoom((cur) => (cur !== null && Math.abs(cur - w) < 0.5 ? cur : w));
+  } : undefined;
+  const titleFit = useFitFontSize({
+    text: title, base: (large ? type.viewerTitle : type.screenTitle).fontSize, minScale: BAR_TEXT_MIN_SCALE.title, available: room, enabled: floating,
+  });
+  const subtitleFit = useFitFontSize({
+    text: subtitle || '', base: type.caption.fontSize, minScale: BAR_TEXT_MIN_SCALE.subtitle,
+    available: room === null ? null : room - (onSubtitlePress ? CHEVRON_SIZE + SUBTITLE_GAP : 0), enabled: floating && Boolean(subtitle),
+  });
   const lines = (
     <>
       <Text
-        style={large ? s.titleTwoLine : s.title}
+        style={sized(titleStyle, titleFit)}
         numberOfLines={1}
         maxFontSizeMultiplier={cap}
-        {...fit}
-        minimumFontScale={floating ? BAR_TEXT_MIN_SCALE.title : undefined}
         accessibilityRole="header"
       >
         {title}
@@ -59,24 +79,25 @@ function TitleBlock({ title, subtitle, large, floating, onSubtitlePress, subtitl
       {subtitle ? (
         <View style={s.subtitleRow}>
           <Text
-            style={[s.subtitle, s.subtitleIn]}
+            style={sized([s.subtitle, s.subtitleIn], subtitleFit)}
             numberOfLines={1}
             maxFontSizeMultiplier={cap}
-            {...fit}
-            minimumFontScale={floating ? BAR_TEXT_MIN_SCALE.subtitle : undefined}
           >
             {subtitle}
           </Text>
-          {onSubtitlePress ? <IconChevronDown size={12} strokeWidth={2} color={color.t2} /> : null}
+          {onSubtitlePress ? <IconChevronDown size={CHEVRON_SIZE} strokeWidth={2} color={color.t2} /> : null}
         </View>
       ) : null}
+      {floating ? <FitProbe fit={titleFit} text={title} style={titleStyle} maxFontSizeMultiplier={cap} /> : null}
+      {floating && subtitle ? <FitProbe fit={subtitleFit} text={subtitle} style={s.subtitle} maxFontSizeMultiplier={cap} /> : null}
     </>
   );
-  if (!onSubtitlePress) return <View style={s.titleBox}>{lines}</View>;
+  if (!onSubtitlePress) return <View style={s.titleBox} onLayout={onBoxLayout}>{lines}</View>;
   return (
     <TouchableOpacity
       style={[s.titleBox, s.titleBtn]}
       onPress={onSubtitlePress}
+      onLayout={onBoxLayout}
       accessibilityRole="button"
       accessibilityLabel={subtitleLabel || `${title}, ${subtitle}`}
       testID="header-subtitle"
@@ -125,7 +146,7 @@ const s = StyleSheet.create({
   title: { ...type.screenTitle, color: color.t1 },
   titleTwoLine: { ...type.viewerTitle, color: color.t1 },
   subtitle: { ...type.caption, color: color.t2, fontVariant: ['tabular-nums'] },
-  subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: SUBTITLE_GAP },
   subtitleIn: { flexShrink: 1 },
   // The dot's 3 dp ring takes 3 of the mockup's 8 dp gap, so 5 dp remain before the word.
   status: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8 },

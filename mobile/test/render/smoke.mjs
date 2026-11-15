@@ -36,12 +36,15 @@ console.error = (...a) => { errors.push(a.map(String).join(' ')); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tick = async (ms = 30) => { await act(async () => { await sleep(ms); }); };
 const textOf = (node) => (node.children || []).map((c) => (typeof c === 'string' ? c : textOf(c))).join('');
-const texts = (r) => r.root.findAll((n) => n.type === 'Text').map(textOf);
+const texts = (r) => r.root.findAll((n) => n.type === 'Text' && !inProbe(n)).map(textOf);
 const has = (r, re) => texts(r).some((t) => re.test(t));
 // Icons (src/components/icons.js) are react-native-svg drawings too; each icon's Svg has testID "icon-<Name>". A check
 // that counts drawn marks (overlay paths, chart dots, mask rects, a chart's Svg) counts only the marks outside an icon.
 const isIcon = (n) => n.type === 'Svg' && typeof n.props.testID === 'string' && n.props.testID.startsWith('icon-');
 const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return true; return false; };
+// The floating bar measures its title and subtitle with a hidden copy of each (FitText.js, testID "fit-probe"): never visible, and not
+// text a person reads, so the helpers that list the screen's texts leave it out, as they leave out the icons.
+const inProbe = (n) => { for (let p = n; p; p = p.parent) if (p.props && p.props.testID === 'fit-probe') return true; return false; };
 const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
@@ -136,6 +139,7 @@ const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs')
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { shortTouchables } = await imp('test/render/touch_measure.mjs');
 const { LABEL_FONT_CAP, BAR_TEXT_MIN_SCALE } = await imp('src/components/tokens.mjs');
+const { FIT_PROBE_WIDTH } = await imp('src/components/fitFontSize.mjs');
 
 const { flat } = await imp('test/render/touch_measure.mjs');
 const contractJson = readContractJson();
@@ -2093,7 +2097,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   const { loading, recoverableError } = await imp('src/api/states.mjs');
   const headerTexts = (r) => {
     const h = r.root.findAll((n) => n.props && typeof n.props.testID === 'string' && n.props.testID.startsWith('screen-'))[0];
-    return h ? h.findAll((n) => n.type === 'Text').map(textOf) : [];
+    return h ? h.findAll((n) => n.type === 'Text' && !inProbe(n)).map(textOf) : [];
   };
 
   // Header: a name for people and the study; no screen id in the header or the tab bar.
@@ -2136,12 +2140,115 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('RP-SH2', ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(viewer, t).props.numberOfLines === 1 && lineOf(viewer, t).props.maxFontSizeMultiplier === LABEL_FONT_CAP)
       && ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(plain, t).props.maxFontSizeMultiplier === undefined),
     `the viewer's floating bar: title and subtitle on one line, capped at font scale ${LABEL_FONT_CAP}; a plain bar is not capped`);
-    // Responsive (device session r6): at 320 dp the room beside Back, Live, the shield and Info is 96 dp, and "Error Inspector" read "Error Insp...":
-    // a floating bar's two lines shrink to fit (down to BAR_TEXT_MIN_SCALE) before they are cut; a plain bar has room and keeps its size.
-    check('RP-SH3', lineOf(viewer, 'CASE_0029').props.adjustsFontSizeToFit === true && lineOf(viewer, 'CASE_0029').props.minimumFontScale === BAR_TEXT_MIN_SCALE.title
-      && lineOf(viewer, 'DINOv2 100 %').props.adjustsFontSizeToFit === true && lineOf(viewer, 'DINOv2 100 %').props.minimumFontScale === BAR_TEXT_MIN_SCALE.subtitle
-      && ['CASE_0029', 'DINOv2 100 %'].every((t) => !lineOf(plain, t).props.adjustsFontSizeToFit && lineOf(plain, t).props.minimumFontScale === undefined),
-    `the viewer's floating bar shrinks its title (to ${BAR_TEXT_MIN_SCALE.title}) and subtitle (to ${BAR_TEXT_MIN_SCALE.subtitle}) to fit instead of ending in "..."; a plain bar does not`);
+    // Responsive (device session r6, r7): at 320 dp the room beside Back, Live, the shield and Info is 96 dp, and "Error Inspector" read "Error Insp...".
+    // Text adjustsFontSizeToFit did not shrink it on Android, so the floating bar measures a hidden copy of each line (FitText.js, a Text with the same
+    // style and no numberOfLines in a wide box, invisible and hidden from screen readers) and picks the size itself; the visible line keeps numberOfLines 1,
+    // so what still does not fit at the minimum is cut with "..." as before. A plain bar has room and keeps its size: no copy, no fit props, no onLayout.
+    const probesOf = (h) => h.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'fit-probe');
+    const probeText = (p) => p.findAll((n) => n.type === 'Text')[0];
+    const probed = (h) => probesOf(h).map((p) => `${textOf(probeText(p))}@${flat(probeText(p).props.style).fontSize}`);
+    const sizeOf = (h, text) => flat(lineOf(h, text).props.style).fontSize;
+    const headerOf = (h) => h.root.findAll((n) => n.type === 'Text' && n.props.accessibilityRole === 'header')[0];
+    const boxOf = (h) => headerOf(h).parent; // the title box: the View (or the run picker button) whose layout is the room of both lines
+    const noFitProps = (n) => n.props.adjustsFontSizeToFit === undefined && n.props.minimumFontScale === undefined;
+    check('RP-SH3', ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(viewer, t).props.numberOfLines === 1 && noFitProps(lineOf(viewer, t)))
+      && probesOf(viewer).length === 2 && probesOf(plain).length === 0 && typeof boxOf(viewer).props.onLayout === 'function' && boxOf(plain).props.onLayout === undefined
+      && ['CASE_0029', 'DINOv2 100 %'].every((t) => !lineOf(plain, t).props.adjustsFontSizeToFit && lineOf(plain, t).props.minimumFontScale === undefined)
+      && probesOf(viewer).every((p) => {
+        const st = flat(p.props.style);
+        const t = probeText(p);
+        return p.props.pointerEvents === 'none' && p.props.accessibilityElementsHidden === true && p.props.importantForAccessibility === 'no-hide-descendants'
+          && st.position === 'absolute' && st.opacity === 0 && st.width >= FIT_PROBE_WIDTH && t.props.numberOfLines === undefined
+          && t.props.maxFontSizeMultiplier === LABEL_FONT_CAP && typeof t.props.onTextLayout === 'function';
+      })
+      && sizeOf(viewer, 'CASE_0029') === 17 && sizeOf(viewer, 'DINOv2 100 %') === 12 && probed(viewer).join() === 'CASE_0029@17,DINOv2 100 %@12',
+    `the viewer's floating bar measures a hidden, invisible, screen-reader-hidden copy of its title and subtitle (starting at their own sizes, no numberOfLines) instead of adjustsFontSizeToFit; the visible lines stay on one line; a plain bar has no copy and no onLayout`);
+
+    // The phone, as numbers: widths at the style's size from the device sessions (r6/r7: "Error Inspector" 117 dp at 17 sp, "CASE_0029 · Raw" 95 dp at 12 sp),
+    // grown by the system font scale up to the bar's cap, and proportional to the size, as the text engine lays it out ("DINOv2 100 %" 80 dp and "CASE_0029" 70 dp are estimates).
+    const NATURAL = { 'Error Inspector': [117, 17], 'CASE_0029 · Raw': [95, 12], 'DINOv2 100 %': [80, 12], CASE_0029: [70, 17] };
+    const widthAt = (text, size, fontScale) => NATURAL[text][0] * (size / NATURAL[text][1]) * Math.min(fontScale, LABEL_FONT_CAP);
+    // Lays the bar out at `room` dp (the title box) and answers every measurement the way the phone would, until nothing is left to measure.
+    // Returns how many rounds of measurements it took.
+    async function settle(h, room, fontScale) {
+      await act(async () => { boxOf(h).props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: room, height: 56 } } }); });
+      let rounds = 0;
+      for (; rounds < 12 && probesOf(h).length; rounds += 1) {
+        const pending = probesOf(h).map((p) => ({ p, text: textOf(probeText(p)), size: flat(probeText(p).props.style).fontSize }));
+        await act(async () => {
+          for (const { p, text, size } of pending) {
+            probeText(p).props.onTextLayout({ nativeEvent: { lines: [{ text, x: 0, y: 0, width: widthAt(text, size, fontScale), height: 22 }] } });
+          }
+        });
+      }
+      return rounds;
+    }
+    const barProps = (title, subtitle, extra = {}) => ({ title, subtitle, onBack: () => {}, onInfo: () => {}, floating: true, ...extra });
+    const barOf = async (title, subtitle, extra) => {
+      let h;
+      await act(async () => { h = TestRenderer.create(React.createElement(AppHeader, barProps(title, subtitle, extra))); });
+      return h;
+    };
+    {
+      // SCR-04 at 320 dp, font scale 1.0: 96 dp between Back and Live. The title is measured at 17 sp (117 dp), then at the size the ratio gives (13.5 sp), and fits.
+      globalThis.__window = { width: 320, fontScale: 1 };
+      const h = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      const rounds = await settle(h, 96, 1);
+      const t = sizeOf(h, 'Error Inspector');
+      const sub = sizeOf(h, 'CASE_0029 · Raw');
+      check('RP-SH4', t === 13.5 && widthAt('Error Inspector', t, 1) <= 95 && t / 17 >= BAR_TEXT_MIN_SCALE.title && sub === 12 && rounds <= 3 && probesOf(h).length === 0
+        && lineOf(h, 'Error Inspector').props.numberOfLines === 1,
+      `SCR-04 at 320 dp, font scale 1.0 (room 96 dp): "Error Inspector" is drawn at ${t} sp (${(t / 17).toFixed(2)} of 17, ${widthAt('Error Inspector', t, 1).toFixed(1)} dp), the subtitle stays at ${sub} sp, settled in ${rounds} rounds, no copy left`);
+      // The size is settled: the same room again starts nothing.
+      await act(async () => { boxOf(h).props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 96.2, height: 56 } } }); });
+      check('RP-SH4', probesOf(h).length === 0 && sizeOf(h, 'Error Inspector') === 13.5,
+        'a settled bar is not measured again for the same text, room and font size (96.2 dp is the same room)');
+      await act(async () => { h.unmount(); });
+
+      // 320 dp, font scale 1.3: the room is 89 dp and the lines are capped at 1.15: the title needs 0.65 of its size, the subtitle (no run picker) 0.82.
+      globalThis.__window = { width: 320, fontScale: 1.3 };
+      const h13 = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      const rounds13 = await settle(h13, 89, 1.3);
+      const t13 = sizeOf(h13, 'Error Inspector');
+      const s13 = sizeOf(h13, 'CASE_0029 · Raw');
+      check('RP-SH4', t13 === 11 && widthAt('Error Inspector', t13, 1.3) <= 88 && t13 / 17 >= BAR_TEXT_MIN_SCALE.title
+        && s13 === 9.5 && widthAt('CASE_0029 · Raw', s13, 1.3) <= 88 && s13 / 12 >= BAR_TEXT_MIN_SCALE.subtitle && probesOf(h13).length === 0,
+      `SCR-04 at 320 dp, font scale 1.3 (room 89 dp, lines capped at ${LABEL_FONT_CAP}): the title is drawn at ${t13} sp and the subtitle at ${s13} sp, both whole (${rounds13} rounds)`);
+      // The system font size changes while the bar is open: what was measured is not trusted, the bar is measured again.
+      globalThis.__window = { width: 320, fontScale: 1 };
+      await act(async () => { h13.update(React.createElement(AppHeader, barProps('Error Inspector', 'CASE_0029 · Raw'))); });
+      check('RP-SH5', probed(h13).includes('Error Inspector@17'), 'a new system font size starts a new measurement of the same text');
+      await settle(h13, 96, 1);
+      check('RP-SH5', sizeOf(h13, 'Error Inspector') === 13.5 && probesOf(h13).length === 0, 'and the title is drawn at 13.5 sp once that is measured');
+      // Another text restarts it too, and a text that fits as it is keeps its style untouched.
+      await act(async () => { h13.update(React.createElement(AppHeader, barProps('CASE_0029', 'CASE_0029 · Raw'))); });
+      const rounds1 = await settle(h13, 96, 1);
+      check('RP-SH5', sizeOf(h13, 'CASE_0029') === 17 && flat(lineOf(h13, 'CASE_0029').props.style).fontSize === 17 && probesOf(h13).length === 0 && rounds1 === 1,
+        `a new title that fits (70 dp in 96) keeps its own 17 sp and is measured once (${rounds1} round)`);
+      await act(async () => { h13.unmount(); });
+
+      // The run picker's chevron (12 dp and a 2 dp gap) takes room from the subtitle: SCR-03 at 320 dp, "DINOv2 100 %" with a chevron has 82 dp.
+      globalThis.__window = { width: 320, fontScale: 1 };
+      const hp = await barOf('CASE_0029', 'DINOv2 100 %', { onSubtitlePress: () => {} });
+      await settle(hp, 96, 1);
+      const sp = sizeOf(hp, 'DINOv2 100 %');
+      check('RP-SH5', sp === 12 && sizeOf(hp, 'CASE_0029') === 17 && typeof boxOf(hp).props.onLayout === 'function' && probesOf(hp).length === 0,
+        `with a run picker the subtitle's room is the box less the chevron: "DINOv2 100 %" (80 dp) fits the 81 dp left at ${sp} sp`);
+      const hq = await barOf('CASE_0029', 'DINOv2 100 %', { onSubtitlePress: () => {} });
+      await settle(hq, 90, 1);
+      check('RP-SH5', sizeOf(hq, 'DINOv2 100 %') === 11 && widthAt('DINOv2 100 %', 11, 1) <= 75, `a narrower room (90 dp, 76 for the subtitle) shrinks the subtitle to ${sizeOf(hq, 'DINOv2 100 %')} sp`);
+      await act(async () => { hp.unmount(); hq.unmount(); });
+
+      // Below the minimum the line is cut, as before: a 40 dp room is not enough for the title even at 0.6 of its size.
+      const hn = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      const roundsN = await settle(hn, 40, 1);
+      const tn = sizeOf(hn, 'Error Inspector');
+      check('RP-SH5', Math.abs(tn - 17 * BAR_TEXT_MIN_SCALE.title) < 1e-9 && Math.abs(sizeOf(hn, 'CASE_0029 · Raw') - 12 * BAR_TEXT_MIN_SCALE.subtitle) < 1e-9
+        && lineOf(hn, 'Error Inspector').props.numberOfLines === 1 && probesOf(hn).length === 0 && roundsN <= 4,
+      `a room that is too small ends at the minimum (title ${tn} sp = 0.6 of 17, subtitle ${sizeOf(hn, 'CASE_0029 · Raw')} sp = 0.75 of 12), still one line with the ellipsis (${roundsN} rounds)`);
+      await act(async () => { hn.unmount(); });
+      delete globalThis.__window;
+    }
     await act(async () => { viewer.unmount(); plain.unmount(); });
   }
   // Responsive (device session r5): the id of a meter row ("CASE_0029" in the lowest-Dice list) is 97 dp wide at font scale 1.3,
