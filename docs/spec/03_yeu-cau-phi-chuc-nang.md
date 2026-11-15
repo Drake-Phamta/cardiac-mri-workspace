@@ -40,7 +40,7 @@ Chi tiết từng biện pháp và nơi trong mã: [08_bao-mat-rieng-tu.md](08_b
 | NFR-SEC-009 | WebView 3D ẩn danh: không cache, không DOM storage, không cookie, chỉ nhận hình học voxel | Test viewer, render smoke | Vũ Hùng Anh | MUST | Đã có |
 | NFR-SEC-010 | Kiểm tra chữ tự do (ghi chú, lý do gắn cờ) trên điện thoại: tối đa 500 ký tự, cảnh báo khi giống thông tin cá nhân | Test `checkNote`, render smoke | Nguyễn Gia Đức Trung | MUST | Đã có |
 | NFR-SEC-011 | Mọi thao tác ghi gắn với bí danh dự án (`project-reviewer`), không bao giờ lưu email | Test backend | Nguyễn Gia Đức Trung | MUST | Đã có |
-| NFR-SEC-012 | App ghi rõ nguồn dữ liệu, điều khoản, mã ca giả danh và "chỉ dùng cho nghiên cứu" | Test "About this data" | Bế Quốc Khánh | MUST | Đã có |
+| NFR-SEC-012 | Sheet "About this data" (SCR-01, SCR-07) ghi rõ nguồn dữ liệu, điều khoản, mã ca giả danh và "chỉ dùng cho nghiên cứu", bằng chữ thường, không có phiên bản hay mã thí nghiệm | Test "About this data", render smoke | Bế Quốc Khánh | MUST | Đã có |
 | NFR-SEC-013 | Backend không mở ra ngoài: chỉ nghe `127.0.0.1`, giới hạn thân request 1 MiB, tắt trang tài liệu, không CORS, không liệt kê thư mục | Test transport, ghi kiểm tra cổng trên máy | Nguyễn Gia Đức Trung | MUST | Một phần: chưa ghi kiểm tra backend chỉ nghe 127.0.0.1 |
 
 ## 4. Bảo trì và truy vết
@@ -61,5 +61,5 @@ Chi tiết từng biện pháp và nơi trong mã: [08_bao-mat-rieng-tu.md](08_b
 | NFR-REL-003 | Siêu dữ liệu hình học đi kèm và được kiểm cùng mỗi sản phẩm; lệch phiên bản thì từ chối | Test lưới, hợp đồng | Vũ Hùng Anh | MUST | Đã có |
 | NFR-REP-001 | Kết quả truy được cấu hình mô hình, split, tiền / hậu xử lý, seed, checkpoint (manifest gói Contract 2, `ml/records`) | Test Contract 2, test ML | Bế Quốc Khánh | MUST | Đã có |
 | NFR-REP-002 | Chia dữ liệu theo ca, gộp ca có mask trùng, sàng lọc ảnh giống nhau (LASC 2018 không có bảng ca → bệnh nhân) | Test split | Bế Quốc Khánh | MUST | Đã có |
-| NFR-REP-003 | Số đo hiện ra ghi rõ mức tổng hợp, quần thể đánh giá và N | Test V3 | Bế Quốc Khánh | MUST | Đã có |
+| NFR-REP-003 | Số đo hiện ra ghi rõ mức tổng hợp, quần thể đánh giá và N: dòng thí nghiệm ở SCR-07 ghi số ca ("5 of 5 cases"); sheet của thí nghiệm và mục "Run details" của sheet Details ghi đủ "COHORT level", quần thể, "N intended" và "N successful" | Test V3, render smoke | Bế Quốc Khánh | MUST | Đã có |
 | NFR-REP-004 | Chỉ gọi là "so sánh được" khi cùng quần thể / split, cùng phiên bản đánh giá, biến thể rõ ràng, cùng loại mask tham chiếu và chính sách hình học | Test ML và backend | Bế Quốc Khánh | MUST | Một phần: server chưa kiểm loại mask tham chiếu và chính sách hình học |

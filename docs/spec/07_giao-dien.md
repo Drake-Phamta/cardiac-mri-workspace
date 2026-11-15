@@ -1,9 +1,10 @@
 # 07 — Giao diện
 
 Giao diện theo hướng thiết kế A **"Clinical viewer"**: nền gần đen, ảnh MRI là trung tâm, một màu nhấn xanh cho thứ
-đang chọn, đường kẻ 1 dp thay cho khung. Khung app và SCR-02, SCR-03, SCR-04 đã theo hướng này trên `main`; các màn hình
-còn lại đang được làm lại trên nhánh của từng người. Trang này mô tả **thành phần, trạng thái, thao tác và điều hướng**,
-không mô tả màu hay bố cục pixel. Ở khung app và SCR-02, SCR-03, SCR-04, chữ trong ngoặc kép là nhãn đúng như app hiện.
+đang chọn, đường kẻ 1 dp thay cho khung. Khung app và SCR-02, SCR-03, SCR-04 đã theo hướng này trên `main`; SCR-01 và
+SCR-07 theo hướng này trên nhánh `v3/khanh-upgrades`; các màn hình còn lại đang được làm lại trên nhánh của từng người.
+Trang này mô tả **thành phần, trạng thái, thao tác và điều hướng**, không mô tả màu hay bố cục pixel. Ở khung app và
+SCR-01, SCR-02, SCR-03, SCR-04, SCR-07, chữ trong ngoặc kép là nhãn đúng như app hiện.
 App chỉ chạy màn hình dọc. Mỗi màn hình có một dòng chừa sẵn cho đường dẫn ảnh chụp cuối cùng (chụp trên APK gộp).
 
 ## 1. Danh sách màn hình và điều hướng
@@ -28,7 +29,7 @@ flowchart LR
   T4[Tab Findings] --> S8[SCR-08]
   S1 --> S2 & S8
   S1 -->|một phép so sánh| S7
-  S1 -->|ca bất thường| S3[SCR-03]
+  S1 -->|ca Dice thấp| S3[SCR-03]
   S2 --> S3
   S7 -->|mở ca trong một run| S3
   S3 --> S4[SCR-04] & S5[SCR-05] & S6[SCR-06]
@@ -72,15 +73,56 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 ### SCR-01 — Study Overview (Bế Quốc Khánh)
 
-- **Mục đích**: nhìn cả nghiên cứu trong một màn hình và đi xuống bằng chứng.
-- **Thành phần**: tên và phiên bản bộ dữ liệu; thẻ số ca; thẻ finding (đang mở / đã xử lý); thẻ Dice trung vị của từng
-  cặp UNet–DINOv2 kèm chip "Comparable" / "Not compared" / "Not comparable" / "Not confirmed", chỉ hiện số khi server nói
-  so sánh được; 3 ca Dice thấp nhất của mỗi thí nghiệm dạng thanh nhỏ (thứ tự của server); ma trận thí nghiệm và phán
-  quyết của server cho từng phép so sánh; nút "About this data".
-- **Trạng thái**: 7 trạng thái chung; dữ liệu thật chưa có UNet nên thẻ Dice ghi rõ chưa có cặp so sánh được.
-- **Thao tác**: mở danh sách ca, mở một phép so sánh, mở danh sách finding; chạm thanh ca bất thường để mở ca đó.
-- **Điều hướng**: SCR-02, SCR-07 (với các thí nghiệm của phép so sánh), SCR-08, SCR-03 (ca, run và biến thể do server
-  nêu).
+- **Mục đích**: nhìn cả nghiên cứu trong một màn hình và đi xuống ca cần xem.
+- **Thành phần** (từ trên xuống; chữ và đường kẻ, không có thẻ):
+  - Dòng bộ dữ liệu: một hình vẽ 72 dp (hình minh hoạ, không phải ảnh MRI của ca nào), chữ "Dataset", tên bộ dữ liệu
+    ("Dataset unavailable" khi server không nêu) và dòng nguồn "Atrial Segmentation Challenge, Cardiac Atlas Project" (ở
+    FIXTURE là "Generated placeholder data"). Khi server trả study khác study app hỏi, phía trên có một dòng cảnh báo
+    ("the server answered for … - shown, not relabelled").
+  - Dòng "About this data" mở sheet cùng tên.
+  - Dải ba ô: "Cases" (tổng số ca, chú thích "in this study"), "Findings" (số đang mở, chú thích "open"), "Resolved" (số
+    đã xử lý, chú thích "findings"). Dưới dải là số ca theo chế độ ("1 evaluation", "1 inference & review").
+  - Mục "Median Dice · UNet vs DINOv2", bên phải ghi "n of 3 comparable". Một dòng chú giải "0 to 1, higher is better"
+    và khoá họ ("UNet" chấm tròn xanh, "DINOv2" tam giác cam). Ba dòng "25 % data", "50 % data", "100 % data", mỗi dòng
+    có một thang 0 – 1 (vạch 0, 0.5, 1). Cặp mà server nói so sánh được thì thang có một chấm tròn UNet và một tam giác
+    DINOv2 đặt ở Dice trung vị của mỗi bên, và bên phải ghi hai số ("0.655 · 0.685", UNet trước). Các cặp khác thì thang
+    ghi "Not compared" và giá trị là "—", không có số. Dưới ba dòng có một câu: "No UNet vs DINOv2 pair is judged
+    comparable yet." khi không cặp nào so sánh được, hoặc quần thể chung khi các cặp đã so sánh cùng một quần thể (ví dụ
+    "Common population 5 cases").
+  - Mục "Lowest Dice · <thí nghiệm>" (ví dụ "Lowest Dice · DINOv2 100 %"), bên phải ghi biến thể ("Raw"). Hàng chọn
+    "Experiment" kèm tên thí nghiệm đang xem (chỉ có khi có hơn một thí nghiệm). Dưới đó là tối đa 3 dòng ca do server
+    chọn, theo thứ tự của server: mã ca ẩn danh, một thanh dài bằng Dice (0 – 1), Dice 3 chữ số, mũi tên. Dice thiếu thì
+    hiện "—" thay cho thanh; Dice ngoài 0 – 1 thì hiện số mà không vẽ thanh.
+- **Mặc định**: danh sách "Lowest Dice" mở sẵn thí nghiệm DINOv2 ở tỉ lệ dữ liệu lớn nhất có danh sách, Raw trước
+  Processed. Không có DINOv2 thì lấy thí nghiệm đầu tiên có danh sách; không thí nghiệm nào có danh sách thì lấy thí
+  nghiệm đầu tiên và ghi lý do. Chạm hàng "Experiment" mở sheet "Lowest Dice of": mỗi thí nghiệm server liệt kê một dòng
+  (thí nghiệm chưa có danh sách ghi "No lowest-Dice list"), dấu tích ở thí nghiệm đang xem; chọn một dòng thì đổi danh sách.
+- **Sheet "About this data"**: chữ thường cho người đọc, gồm các mục "Where the data comes from" (bộ LASC 2018 tải từ
+  trang Cardiac Atlas Project, kèm đường dẫn, câu "This is the LASC 2018 challenge data, not the later LAScarQS 2022
+  data." và tên bộ dữ liệu của study), "Terms of use", "Case IDs" ("Cases are named CASE_0001 to CASE_0154 …"; app không
+  nhận tên, ngày sinh hay số hồ sơ), "What these screens show" ("Counts and scores only … No image is shown here."),
+  "Lowest-Dice list", "Use" (nghiên cứu và giảng dạy, "Not for diagnosis or treatment decisions"). Ở FIXTURE có thêm mục
+  "This build" ("Fixture mode: every number on these screens is a generated placeholder, not a result."). Sheet không có
+  phiên bản, mã thí nghiệm, tên capability hay checksum.
+- **Sheet Details** (nút Info): "Server details" (bộ dữ liệu kèm phiên bản, dòng tóm tắt thí nghiệm của server,
+  "Capabilities: …"), "Median Dice pairs" (mỗi cặp một dòng, ví dụ "25 % data: EXP-U-025, EXP-D-025 not available to
+  compare": lý do không so sánh, hoặc quần thể chung), "Lowest-Dice lists" (luật chọn 3 ca, kể cả cách xếp khi bằng
+  nhau), rồi mục "This screen".
+- **Trạng thái**: 7 trạng thái chung cho cả màn hình (study không lấy được thì cả màn hình báo lỗi). Các phần còn lại
+  lỗi riêng: danh sách finding lỗi thì ô "Findings" và "Resolved" hiện "—" kèm một dòng lý do, không bao giờ là 0; số ca
+  không đọc được thì ô "Cases" hiện "—" kèm "case counts unavailable" hoặc "total unavailable"; chưa thí nghiệm nào được
+  liệt kê thì mục "Lowest Dice" ghi "no listed experiment, so no lowest-Dice selection to show"; thí nghiệm không có danh
+  sách thì lý do của nó nằm dưới hàng "Experiment". Dữ liệu thật chưa có UNet nên cả ba dòng Median Dice ghi "Not
+  compared".
+- **Thao tác**: chạm ô "Cases" hoặc "Findings"; chạm một dòng Median Dice; chọn thí nghiệm ở hàng "Experiment"; chạm một
+  dòng ca Dice thấp; mở "About this data". Link không mở được (một thí nghiệm của cặp chưa có, hoặc ca không nêu run)
+  thì hiện dòng "Cannot open: <lý do>", app không làm gì khác. Ô "Resolved" chỉ để đọc.
+- **Điều hướng**: SCR-02 (ô "Cases"), SCR-08 (ô "Findings"), SCR-07 (dòng Median Dice, kèm hai thí nghiệm của cặp),
+  SCR-03 (dòng ca Dice thấp, kèm ca, run, biến thể và thí nghiệm do server nêu). Tab Experiments của thanh tab mở SCR-07
+  cho cả ma trận.
+- **Vùng chạm**: mỗi dòng và hàng chạm được cao ít nhất 48 dp (dòng Median Dice và dòng ca Dice thấp cao 40 dp nên được
+  nới `hitSlop`); ô của dải ba ô là thành phần dùng chung đã đo ở `touch_targets.mjs`. Đo từ style trong render smoke,
+  chưa đo trên điện thoại.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-01.png` (chưa có).
 
 ### SCR-02 — Case List (Phạm Tuấn Anh)
@@ -210,17 +252,71 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 ### SCR-07 — Experiment Comparison (Bế Quốc Khánh)
 
 - **Mục đích**: so sánh thí nghiệm theo đúng phán quyết của server.
-- **Thành phần**: mở từ tab là cả ma trận thí nghiệm, mở từ SCR-01 là các thí nghiệm của một phép so sánh; thẻ
-  "Comparisons (server verdicts)" liệt kê sáu phép so sánh cố định (UNet vs DINOv2 ở 25 / 50 / 100 %; xu hướng UNet; xu
-  hướng DINOv2; DINOv2 100 % thô vs hậu xử lý) kèm phán quyết, lý do, quần thể chung; bộ chọn chỉ số và thống kê
-  (median / mean), không mặc định, kèm chú giải chỉ số (HD95 và mL khoá); mỗi ô: mô hình, biến thể, mức tổng hợp, quần
-  thể, N; biểu đồ giá trị từng ca theo chỉ số đã chọn (UNet chấm tròn, DINOv2 tam giác, vòng quanh 3 ca thấp nhất); biểu đồ hiệu số từng ca cho cặp so sánh được; biểu đồ xu hướng
-  25 → 50 → 100 % (từng ca, trung vị, q1–q3, chỉ nối khi server cho phép); bảng ca của mỗi thí nghiệm kể cả FAILED /
-  EXCLUDED / WITHHELD có lý do; nút "About this data".
-- **Trạng thái**: chưa chọn chỉ số thì không vẽ gì; cặp không so sánh được thì ghi lý do, không vẽ hiệu số; thí nghiệm
-  không có dữ liệu ghi "not available to compare".
-- **Thao tác**: chọn chỉ số, thống kê; chạm một điểm hay một dòng để mở ca ("Open in <run>", "Open this case (SCR-03)").
-- **Điều hướng**: SCR-03 (ca, run, biến thể).
+- **Thành phần**: mở từ tab Experiments là cả ma trận (bảy thí nghiệm; thí nghiệm server chưa liệt kê ghi "Not listed by
+  the server"); mở từ một dòng Median Dice của SCR-01 là hai thí nghiệm của cặp đó. Từ trên xuống:
+  - Hai dòng "About this data" và "Metric definitions", mỗi dòng mở một sheet.
+  - Hàng chọn "Metric" kèm tên chỉ số ("Dice"). Chạm mở sheet "Metric" liệt kê các chỉ số server nêu bằng tên người đọc
+    ("Dice", "IoU", "False positives", "False negatives", "Relative volume error"), dấu tích ở chỉ số đang chọn.
+  - Mục "Experiments", bên phải ghi "Dice · median". Mỗi thí nghiệm một dòng: khoá họ (UNet chấm tròn xanh, DINOv2 tam
+    giác cam), tên ("UNet 25 %", "DINOv2 100 % post-processed"), dòng phụ "5 of 5 cases" (hoặc trạng thái bằng chữ khi
+    thí nghiệm chưa tải bình thường, ví dụ "Not listed by the server"), thanh dài bằng trung vị (khi trung vị trong
+    0 – 1) và trung vị 3 chữ số.
+  - Mục "Distribution per case", bên phải ghi tên chỉ số. Biểu đồ chấm: mỗi thí nghiệm một cột (nhãn "25 %", "50 %",
+    "100 %", "100 % PP", tên họ ở dưới), mỗi ca một chấm (UNet tròn, DINOv2 tam giác), một vòng quanh các ca Dice thấp
+    nhất do server chọn. Dưới biểu đồ: khoá họ, dòng "One dot per case · a ring marks the 3 lowest-Dice cases · tap a
+    dot", và mỗi thí nghiệm không vẽ được chấm có một dòng "<tên>: <lý do>" (trừ thí nghiệm không được liệt kê hay không
+    được hỏi). Chạm một chấm hiện "CASE_0003 · 0.610", dòng "Dice · UNet 25 % · one of the 3 lowest-Dice cases" và dòng
+    "Open this case".
+  - Mục "Comparisons": mỗi phép so sánh một dòng ("UNet vs DINOv2 · 25 %", "UNet vs DINOv2 · 50 %", "UNet vs DINOv2 ·
+    100 %", "DINOv2 100 % · raw vs post-processed") với hiệu số trung vị có dấu (DINOv2 trừ UNet, ví dụ "+0.030") hoặc
+    chữ "Not compared" khi server không nói so sánh được. Dòng so sánh được mà không có hiệu số (chưa chọn chỉ số, hoặc
+    thô vs hậu xử lý vì server giữ lại số) chỉ có tên.
+  - Mục "Per-case differences": dòng "One dot per case, lowest difference on the left · tap a dot". Mỗi cặp UNet vs DINOv2
+    có đủ dữ liệu là một khối: tên cặp, câu "DINOv2 25 % − UNet 25 % · 4 cases · median +0.065", biểu đồ (trục đối xứng
+    quanh 0, đường đứt là 0, đường liền là trung vị, mỗi ca có giá trị ở cả hai run là một chấm, hiệu số thấp nhất ở bên
+    trái), dòng "━ median difference ┄ no difference (0)" và, khi có, "1 case without a value in both runs is not
+    drawn". Chạm một chấm hiện "CASE_0003: UNet 25 % 0.610, DINOv2 25 % 0.580, difference -0.030" cùng hai dòng "Open in
+    UNet 25 %" và "Open in DINOv2 25 %". Cặp mà server không nói so sánh được, hoặc một run không có giá trị từng ca, thì
+    không vẽ và ghi "Not shown: <lý do>". Chưa có cặp nào thì ghi "No UNet vs DINOv2 pair is loaded here: both runs of a
+    pair must be listed by the server."
+  - Mục "Trend over 25 → 50 → 100 %": mỗi họ một nhóm; mỗi run vẽ mọi ca (chấm nhỏ), một thanh q1 – q3 và một vạch trung
+    vị. Khi server nói ba run của họ so sánh được thì có thêm một đường qua ba trung vị và một dải q1 – q3 (đường DINOv2
+    nét đứt); không thì không có đường hay dải. Dưới biểu đồ: khoá họ và dòng "Dots: cases · bar: q1 to q3 · tick:
+    median". Mỗi họ một dòng ("UNet 25 → 50 → 100 %", "DINOv2 25 → 50 → 100 %"), ghi "Not joined" khi không nối.
+- **Mặc định**: SCR-07 mở sẵn "Dice" khi tóm tắt của server nêu Dice (chỉ số chính của nghiên cứu); đổi sang chỉ số khác
+  bằng hàng "Metric". Trang chỉ hiện trung vị; mean, std, q1, q3 nằm trong sheet của thí nghiệm. Nếu server không nêu
+  Dice thì app không tự chọn chỉ số khác: hàng "Metric" ghi "Choose" và có dòng "Pick a metric to see values.".
+- **Sheet khi chạm một dòng**:
+  - Dòng của "Experiments" mở sheet mang tên thí nghiệm. Mục "Run": "Experiment EXP-U-025", trạng thái, "N intended 5 · N
+    successful 5", dòng tóm tắt "dice: median … · mean … · std … · q1 … · q3 … (server summary)", dòng ngữ cảnh (mô hình,
+    biến thể, mức "COHORT", quần thể, N, phiên bản chỉ số). Mục "Comparability" (ví dụ "comparable with EXP-D-025
+    (server)") và "Warnings". Rồi mục "Cases": số dòng ("5 row(s) returned, 4 plotted"), các ca Dice thấp nhất ("Outlier
+    CASE_0005 · dice 0.400") và từng ca ("CASE_0001 · plotted · 0.910"; ca FAILED, EXCLUDED, WITHHELD ghi lý do và không
+    có số). Mỗi ca là một dòng mở SCR-03 và đóng sheet.
+  - Dòng của "Comparisons" mở sheet mang tên phép so sánh. Mục "Verdict" (ví dụ "comparable (server verdict)", lý do của
+    server, "common population …"), "Difference" ("median dice: EXP-D-025 0.685 vs EXP-U-025 0.655, difference +0.030
+    (server common-population summaries)" hoặc "no difference shown: …") và "Values".
+  - Dòng của "Trend over 25 → 50 → 100 %" mở sheet mang tên dòng đó. Mục "Values" (giá trị từng mức), "Line"
+    ("joined: the server judged these runs comparable" hoặc "not joined: <lý do>") và "Verdict".
+  - "Metric definitions": nghĩa của từng chỉ số ("Dice: overlap of prediction and reference, 0 to 1; higher is better",
+    …), chỉ số đang chọn sáng hơn; "HD95", "Volume (mL)", "Surface distance (mm)" ghi "locked" vì hình học chưa kiểm
+    định. "About this data": cùng nội dung với SCR-01, trừ dòng tên bộ dữ liệu.
+- **Sheet Details** (nút Info): mục "Run details": cách ma trận được lấp ("The experiment matrix, filled from the
+  server's experiment list" hoặc "Comparing … (opened with explicit ids)"), "n experiment(s) listed by the server",
+  thí nghiệm ngoài ma trận, và dòng ngữ cảnh của từng thí nghiệm; rồi mục "This screen". Mã thí nghiệm, mức tổng hợp,
+  quần thể và phiên bản chỉ số chỉ nằm trong các sheet, không nằm trên trang (trên trang chỉ có số ca, ví dụ "5 of 5
+  cases").
+- **Trạng thái**: 7 trạng thái chung (server chưa liệt kê thí nghiệm nào thì "Unavailable" kèm "Refresh"). Server không
+  nêu chỉ số nào thì không có hàng "Metric" và trang ghi "The server's summaries name no metric yet - nothing to plot.".
+  Cặp không so sánh được thì dòng "Comparisons" ghi "Not compared", lý do nằm trong sheet, không vẽ hiệu số, hai dòng
+  xu hướng ghi "Not joined", không có đường hay dải. Mở cho một cặp thì các thí nghiệm và phép so sánh không được hỏi
+  không hiện.
+- **Thao tác**: đổi chỉ số; chạm một chấm rồi "Open this case" hoặc "Open in <run>"; chạm một dòng của "Experiments",
+  "Comparisons" hay xu hướng để mở sheet; mở "Metric definitions" và "About this data".
+- **Điều hướng**: SCR-03 (ca, run, biến thể và thí nghiệm do server nêu). Link không mở được thì hiện lý do dưới dòng
+  hoặc "Cannot open: <lý do>".
+- **Vùng chạm**: mỗi dòng và hàng chọn cao ít nhất 48 dp; một chấm trên biểu đồ (strip, hiệu số) chọn được khi chạm trong
+  bán kính 24 dp quanh tâm, chấm gần nhất được chọn. Đo từ style và phép thử chạm trong test, chưa đo trên điện thoại.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-07.png` (chưa có).
 
 ### SCR-08 — Findings (Nguyễn Gia Đức Trung)

@@ -49,7 +49,7 @@ nghiệm thu.
 | TC-REL-003 | Lệch phiên bản hình học bị từ chối / báo không có, không vẽ như đã khớp | test_mesh_conformance, test_meshes, render smoke, v2_inspector3d, api_client | Vũ Hùng Anh | Đã có |
 | TC-SCI-002 | Chặn mL / khoảng cách thật khi hình học chưa kiểm định | test_api, render smoke | Vũ Hùng Anh | Đã có |
 | TC-MAINT-002 | Mã hình học backend và app qua cùng bộ fixture chuẩn | v2_viewer, test_mesh_conformance | Vũ Hùng Anh | Một phần: phía app dùng file mẫu Python, chưa dùng fixture chuẩn |
-| TC-STUDY-001 | Tổng quan nạp bộ dữ liệu, tóm tắt ca / thí nghiệm, điều hướng, không bịa số | v3_screens, v3_model, render smoke + điện thoại | Bế Quốc Khánh | Đã có |
+| TC-STUDY-001 | Tổng quan nạp bộ dữ liệu, số ca, finding và Dice trung vị, điều hướng, không bịa số (không có số thì "—", không phải 0) | v3_upgrades, v3_model, render smoke + điện thoại | Bế Quốc Khánh | Đã có |
 | TC-EXP-001 | Manifest thí nghiệm đủ cấu hình, split, tiền / hậu xử lý, seed, checkpoint, mã nguồn, phiên bản đánh giá | test_export_contract2 | Bế Quốc Khánh | Đã có |
 | TC-EXP-002 | Giá trị từng ca trỏ đúng mask và khớp khi tính lại | test_evaluate, test_api | Bế Quốc Khánh | Đã có |
 | TC-EXP-003 | Tổng hợp cohort tính lại từ giá trị từng ca; N dự kiến / thành công | test_evaluate, test_api | Bế Quốc Khánh | Đã có |
@@ -61,9 +61,9 @@ nghiệm thu.
 | TC-EXP-009 | Luật Dice lát rỗng và chỉ số 3D theo ca | test_evaluate | Bế Quốc Khánh | Đã có |
 | TC-REP-001 | Thí nghiệm báo cáo truy được cấu hình, checkpoint, split, phiên bản | test_api, test_export_contract2 | Bế Quốc Khánh | Đã có |
 | TC-REP-002 | Chia theo ca, gộp ca trùng, sàng lọc giống nhau; test rò rỉ qua | test_evaluate | Bế Quốc Khánh | Đã có |
-| TC-REP-003 | Màn hình hiện số đo ghi mức tổng hợp, quần thể và N | v3_screens | Bế Quốc Khánh | Đã có |
+| TC-REP-003 | Màn hình hiện số đo ghi mức tổng hợp, quần thể và N | v3_screens, render smoke | Bế Quốc Khánh | Đã có |
 | TC-REP-004 | Bộ kiểm "so sánh được" áp đủ điều kiện | test_evaluate | Bế Quốc Khánh | Một phần: bộ kiểm của server thiếu hai điều kiện |
-| TC-SCI-001 | App / báo cáo ghi LASC 2018, không gọi số đo là tái lập LAScarQS | v3_upgrades | Bế Quốc Khánh | Một phần: chưa có câu "không phải tái lập LAScarQS 2022" |
+| TC-SCI-001 | App / báo cáo ghi LASC 2018, không gọi số đo là tái lập LAScarQS | v3_upgrades | Bế Quốc Khánh | Một phần: app đã ghi dữ liệu không phải LAScarQS 2022; `docs/RESULTS.md` chưa ghi |
 | TC-SCI-003 | Bảng kết quả sinh từ tổng hợp đóng băng, giữ thứ tự quan sát | test_unet_kit | Bế Quốc Khánh | Đã có |
 | TC-REV-001 | Chuyển trạng thái review: hợp lệ thì qua, sai / cũ thì lỗi mà không mất trạng thái hay lịch sử | test_api, v4_review_model | Nguyễn Gia Đức Trung | Đã có |
 | TC-REV-002 | Bút thêm / xoá chỉ đổi pixel định sửa; GT không là nguồn | v4_brush, test_api | Nguyễn Gia Đức Trung | Đã có |

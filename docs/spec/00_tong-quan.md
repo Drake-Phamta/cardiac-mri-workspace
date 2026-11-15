@@ -54,8 +54,8 @@ Sản phẩm cuối là nhánh `main` cộng 3 nhánh tính năng chưa gộp: `
 Đặc tả mô tả sản phẩm **sau khi gộp**. Những yêu cầu mà mã chỉ có trên một nhánh được ghi ở cột `pending_branch` của ma
 trận [`docs/trace/matrix.csv`](../trace/matrix.csv); khi gộp xong, cột đó trống và bước kiểm tra chạy chế độ nghiêm ngặt
 (xem [09_kiem-thu-truy-vet.md](09_kiem-thu-truy-vet.md)). Khung app và SCR-02, SCR-03, SCR-04 trên `main` đã theo hướng
-thiết kế A "Clinical viewer"; các màn hình còn lại đang được làm lại trên nhánh, nên phần giao diện mô tả thành phần,
-trạng thái và hành vi, không mô tả màu hay bố cục pixel.
+thiết kế A "Clinical viewer", SCR-01 và SCR-07 theo hướng đó trên nhánh `v3/khanh-upgrades`; các màn hình còn lại đang
+được làm lại trên nhánh, nên phần giao diện mô tả thành phần, trạng thái và hành vi, không mô tả màu hay bố cục pixel.
 
 ## 6. Cách đọc mức và trạng thái
 

@@ -86,12 +86,13 @@ flowchart LR
 ## 4. Mô tả ngắn
 
 **UC-01 Mở tổng quan nghiên cứu.** Tiền điều kiện: backend có study `STUDY_LA_001` (hoặc app ở chế độ FIXTURE).
-Luồng chính: mở tab Study (màn hình gốc); app hiện tên và phiên bản bộ dữ liệu, thẻ số ca, thẻ finding (đang mở /
-đã xử lý), Dice trung vị của từng cặp UNet–DINOv2 *chỉ khi server nói cặp đó so sánh được* (chip "Comparable"), 3 ca
-Dice thấp nhất của mỗi thí nghiệm (do server chọn) dạng thanh nhỏ, ma trận thí nghiệm với phán quyết của server cho
-từng phép so sánh. Từ đây mở danh sách ca, so sánh thí nghiệm, một ca bất thường (SCR-03) hoặc danh sách finding.
-Nút "About this data" mở trang nguồn dữ liệu. Thay thế: dữ liệu thật chưa có UNet nên thẻ Dice ghi rõ chưa có cặp nào
-so sánh được.
+Luồng chính: mở tab Study (màn hình gốc); app hiện tên bộ dữ liệu và nguồn, dải ba ô "Cases" / "Findings" /
+"Resolved", số ca theo chế độ, ba dòng "Median Dice · UNet vs DINOv2" (hai số của mỗi cặp chỉ hiện *khi server nói cặp
+đó so sánh được*, không thì ghi "Not compared") và danh sách "Lowest Dice" của một thí nghiệm: 3 ca do server chọn, mở
+sẵn DINOv2 ở tỉ lệ dữ liệu lớn nhất, đổi thí nghiệm bằng hàng "Experiment". Từ đây mở danh sách ca (ô "Cases"), danh
+sách finding (ô "Findings"), so sánh một cặp (dòng Median Dice) hoặc một ca Dice thấp (SCR-03). "About this data" mở
+trang nguồn dữ liệu; mã, phiên bản và luật chọn ca nằm trong sheet Details. Thay thế: dữ liệu thật chưa có UNet nên cả
+ba dòng ghi "Not compared" kèm câu "No UNet vs DINOv2 pair is judged comparable yet.".
 
 **UC-02 Duyệt danh sách ca.** Luồng chính: mở tab Cases; app liệt kê ca theo thứ tự server, mỗi dòng có mã ẩn danh;
 ca không phải Evaluation có thẻ tên chế độ ("Inference & review"). Danh sách mở sẵn Dice của một thí nghiệm ("Dice of":
@@ -134,18 +135,22 @@ lát đó. Chạm vào nền không gây điều hướng.
 và FP (ô vuông) liên thông là một điểm; chạm điểm → "FN, slices 11-13 (z = 10-12), 523 voxels" → "Open in 2D";
 Previous / Next đi qua các vùng (hết FN rồi tới FP, mỗi loại vùng lớn trước).
 
-**UC-10 So sánh thí nghiệm.** Luồng chính: mở tab Experiments (cả ma trận thí nghiệm) hoặc mở một phép so sánh từ
-SCR-01 (chỉ các thí nghiệm của phép đó). SCR-07 liệt kê sáu phép so sánh cố định (UNet vs DINOv2 ở 25 / 50 / 100 %, xu
-hướng của từng họ, DINOv2 thô vs hậu xử lý) kèm phán quyết của server; người dùng chọn chỉ số và thống kê (không mặc
-định); với cặp so sánh được, app vẽ tóm tắt và hiệu số từng ca; chạm một ca để mở nó trong một run ở SCR-03. Thay thế:
-thô vs hậu xử lý khác biến thể nên server ghi "không so sánh được" và app không vẽ hiệu số.
+**UC-10 So sánh thí nghiệm.** Luồng chính: mở tab Experiments (cả ma trận thí nghiệm) hoặc chạm một dòng Median Dice ở
+SCR-01 (chỉ hai thí nghiệm của cặp đó). SCR-07 mở sẵn chỉ số Dice (hàng "Metric" đổi sang chỉ số khác server nêu) và
+liệt kê các phép so sánh ("UNet vs DINOv2 · 25 %", …, "DINOv2 100 % · raw vs post-processed"), mỗi dòng có hiệu số
+trung vị khi server nói so sánh được, không thì "Not compared". Chạm một dòng mở sheet với phán quyết, lý do và quần thể
+chung của server. Với cặp so sánh được, mục "Per-case differences" vẽ hiệu số từng ca; chạm một chấm rồi "Open in UNet
+25 %" hoặc "Open in DINOv2 25 %" để mở ca đó trong một run ở SCR-03. Thay thế: thô vs hậu xử lý khác biến thể nên
+server ghi "không so sánh được" và app không vẽ hiệu số.
 
-**UC-11 Xem xu hướng theo lượng dữ liệu.** Luồng chính: chọn xu hướng 25 → 50 → 100 % của một họ mô hình; app vẽ từng
-ca, trung vị, khoảng q1–q3, chỉ nối các mức khi server cho phép; bảng ca của từng thí nghiệm có link mở ca. Dữ liệu
-thật hiện có DINOv2; phần UNet nằm trong *Hướng phát triển*.
+**UC-11 Xem xu hướng theo lượng dữ liệu.** Luồng chính: mở mục "Trend over 25 → 50 → 100 %" ở SCR-07 (đổi chỉ số bằng
+hàng "Metric" nếu cần); với mỗi họ mô hình app vẽ từng ca, trung vị và khoảng q1–q3 của ba mức dữ liệu, chỉ nối các mức
+bằng đường và dải khi server nói ba run so sánh được, không thì dòng của họ ghi "Not joined". Chạm dòng "UNet 25 → 50 →
+100 %" để xem giá trị và lý do; chạm một thí nghiệm ở "Experiments" để xem sheet có danh sách ca, mỗi ca là một link mở
+ca. Dữ liệu thật hiện có DINOv2; phần UNet nằm trong *Hướng phát triển*.
 
-**UC-12 Điều tra ca bất thường.** Luồng chính: từ thanh ca Dice thấp ở SCR-01 hoặc thẻ "Outlier n/3" ở SCR-02, mở ca
-ở SCR-03 với run và biến thể của thí nghiệm đó; đi tiếp tới các lát tệ nhất ở SCR-04.
+**UC-12 Điều tra ca bất thường.** Luồng chính: từ một dòng của danh sách "Lowest Dice · …" ở SCR-01 hoặc thẻ "Outlier
+n/3" ở SCR-02, mở ca ở SCR-03 với run và biến thể của thí nghiệm đó; đi tiếp tới các lát tệ nhất ở SCR-04.
 
 **UC-13 Rà soát dự đoán.** Tiền điều kiện: run thành công. Luồng chính: mở SCR-06 (chọn biến thể nếu đường dẫn chưa
 có); review bắt đầu ở NOT_REVIEWED; người dùng chấp nhận (Accept) hoặc gắn cờ (Flag, bắt buộc ghi lý do); nút History
