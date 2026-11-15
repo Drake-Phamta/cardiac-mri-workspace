@@ -128,6 +128,12 @@ def load_scores(path, split="test", pp="raw") -> pd.DataFrame:
     return df[(df.split == split) & (df.pp == pp)].copy()
 
 
+def concat(tables) -> pd.DataFrame:
+    """pd.concat of the non-empty tables: an empty one would turn the integer columns into floats."""
+    tables = [t for t in tables if len(t)]
+    return pd.concat(tables, ignore_index=True) if tables else pd.DataFrame()
+
+
 def with_arm(scores: pd.DataFrame, arm_of) -> pd.DataFrame:
     """scores with an 'arm' column set to arm_of(row); rows that belong to no arm (None) are dropped."""
     return scores.assign(arm=[arm_of(r) for r in scores.itertuples()]).dropna(subset=["arm"])
@@ -167,7 +173,7 @@ def cv_comparisons(scores: pd.DataFrame) -> pd.DataFrame:
             pairs = [(f"{where}_gate_{lab}", f"{where}_unet_{lab}") for lab in ("few", "full")]
             res = compare(table, pairs, f"{where}_{metric}", higher_is_better=higher)
             parts.append(res.assign(metric=metric))
-    out = pd.concat(parts, ignore_index=True)
+    out = concat(parts)
     if len(out):
         out["ci_width"] = out.ci_high - out.ci_low
     return out

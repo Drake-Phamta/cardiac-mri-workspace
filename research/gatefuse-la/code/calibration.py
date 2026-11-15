@@ -203,7 +203,7 @@ def gate_vs_unet(vols: pd.DataFrame) -> pd.DataFrame:
         table = S.per_volume(vols, metric)
         pairs = [(f"{w}_gate_{lab}", f"{w}_unet_{lab}") for w in ("ip", "cv") for lab in ("few", "full")]
         parts.append(S.compare(table, pairs, metric, higher_is_better=False).assign(metric=metric))
-    return pd.concat(parts, ignore_index=True)
+    return S.concat(parts)
 
 
 def flagging(dis: pd.DataFrame) -> pd.DataFrame:
@@ -254,7 +254,7 @@ def plot_disagreement(dis: pd.DataFrame, out: Path):
                        edgecolors="white", linewidths=1, label="GateFuse" if model == "gate" else "U-Net")
         ax.axhline(BAD_DICE, color=S.INK2, lw=0.8, ls="--")
         ax.set_title(f"IP test, {lab} labels", fontsize=9)
-        ax.set_xlabel("seed disagreement (1 - mean pairwise Dice)")
+    fig.supxlabel("seed disagreement = 1 - mean Dice between the masks of the seeds", fontsize=8)
     axes[0, 0].set_ylabel("mean Dice over seeds")
     axes[0, 0].legend(frameon=False, fontsize=8, loc="lower left")
     S.save_fig(fig, out, "disagreement")

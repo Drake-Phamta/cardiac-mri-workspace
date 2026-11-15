@@ -86,6 +86,7 @@ def test_main_compares_ip_test_and_cv(make_scores, tmp_path):
     res = pd.read_csv(tmp_path / "out" / "comparisons.csv")
     dice = res[res.metric == "dice"].set_index("family")
     assert dice.loc["ip_dice", "n_vols"] == 20 and dice.loc["cv_dice", "n_vols"] == 80
+    assert res.n_vols.dtype.kind == "i"                       # the missing "full" comparisons leave no floats
     assert dice.loc["cv_dice", "ci_width"] < dice.loc["ip_dice", "ci_width"]
     assert (pd.read_csv(tmp_path / "out" / "cv_coverage.csv").n_vols == 16).all()
     assert (tmp_path / "out" / "ci_width.png").exists()
