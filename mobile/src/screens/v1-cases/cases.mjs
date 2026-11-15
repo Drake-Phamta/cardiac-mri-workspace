@@ -5,6 +5,7 @@
  */
 
 import { PREDICTION_VARIANT, capabilityOf } from '../../lib/caseMode.mjs';
+import { experimentName, namedExperiment } from '../../lib/experimentNames.mjs';
 import { formatSlice } from '../../lib/sliceNumber.mjs';
 import { STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
@@ -505,31 +506,8 @@ export function variantLabel(variant) {
   return typeof variant === 'string' && variant ? variant : '?';
 }
 
-/*
- * An experiment as people name it: "DINOv2 100 %", or with its variant "DINOv2 100 % · Raw". The id (EXP-D-100) belongs
- * in the Details sheet only: no app bar, picker or list row shows it. The names are the experiment matrix of spec 08
- * section 2 (the same table SCR-01 reads, kept here because screen folders do not import each other); an id outside
- * it is shown as it is, because it is all there is.
- */
-const EXPERIMENT_NAMES = Object.freeze({
-  'EXP-U-025': Object.freeze({ family: 'UNet', fractionPct: 25, lane: 'RAW' }),
-  'EXP-U-050': Object.freeze({ family: 'UNet', fractionPct: 50, lane: 'RAW' }),
-  'EXP-U-100': Object.freeze({ family: 'UNet', fractionPct: 100, lane: 'RAW' }),
-  'EXP-D-025': Object.freeze({ family: 'DINOv2', fractionPct: 25, lane: 'RAW' }),
-  'EXP-D-050': Object.freeze({ family: 'DINOv2', fractionPct: 50, lane: 'RAW' }),
-  'EXP-D-100': Object.freeze({ family: 'DINOv2', fractionPct: 100, lane: 'RAW' }),
-  // Post-processed from the same raw predictions as EXP-D-100.
-  'EXP-D-PP': Object.freeze({ family: 'DINOv2', fractionPct: 100, lane: 'PROCESSED' }),
-});
-const namedExperiment = (experimentId) => (
-  typeof experimentId === 'string' && Object.prototype.hasOwnProperty.call(EXPERIMENT_NAMES, experimentId)
-    ? EXPERIMENT_NAMES[experimentId] : null);
-
-// "DINOv2 100 %": the experiment's name without a variant, for a place where the variant is shown beside it (SCR-03's app bar).
-export function experimentName(experimentId) {
-  const named = namedExperiment(experimentId);
-  return named ? `${named.family} ${named.fractionPct} %` : String(experimentId);
-}
+// An experiment as people name it, "DINOv2 100 % · Raw": lib/experimentNames.mjs has the names, this adds the variant.
+export { experimentName };
 
 export function experimentLabel(experimentId, variant = null) {
   return `${experimentName(experimentId)} · ${variant ? variantLabel(variant) : 'variant not stated'}`;
