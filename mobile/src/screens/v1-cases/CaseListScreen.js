@@ -10,7 +10,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { loading, RECOVERY, STATE } from '../../api/states.mjs';
 import { useCall } from '../../api/RuntimeContext';
@@ -37,8 +37,8 @@ const SORTS = [
   { value: WORKLIST_SORT.WORST_FIRST, label: 'Worst first', icon: IconSort },
 ];
 
-// A tab is the 44 dp row less its 1 dp bottom hairline.
-const TAB_HEIGHT = size.filterTabs - HAIRLINE;
+// A tab is as high as the 44 dp row; the 1 dp hairline under the row is drawn behind the selected tab's line.
+const TAB_HEIGHT = size.filterTabs;
 const CASE_ID_SHAPE = /^[A-Za-z0-9_.-]{1,64}$/;
 const GROUP = Object.freeze({ group: true, key: 'no-dice' });
 
@@ -158,24 +158,27 @@ export default function CaseListScreen({ runtime, nav }) {
         />
       </Pressable>
 
-      <View style={s.tabs}>
-        {MODES.map((m) => {
-          const on = mode === m.key;
-          return (
-            <TouchableOpacity
-              key={m.key}
-              style={s.tab}
-              onPress={() => setMode(m.key)}
-              hitSlop={hitSlopFor(TAB_HEIGHT)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-            >
-              <Text style={[s.tabT, on && s.tabTOn]}>{m.label}</Text>
-              {read ? <Text style={s.tabCount}>{read.counts[m.count]}</Text> : null}
-              {on ? <View style={s.tabLine} /> : null}
-            </TouchableOpacity>
-          );
-        })}
+      <View style={s.tabsBar}>
+        <View style={s.tabsRule} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs} testID="filter-tabs">
+          {MODES.map((m) => {
+            const on = mode === m.key;
+            return (
+              <TouchableOpacity
+                key={m.key}
+                style={s.tab}
+                onPress={() => setMode(m.key)}
+                hitSlop={hitSlopFor(TAB_HEIGHT)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[s.tabT, on && s.tabTOn]} numberOfLines={1}>{m.label}</Text>
+                {read ? <Text style={s.tabCount} numberOfLines={1}>{read.counts[m.count]}</Text> : null}
+                {on ? <View style={s.tabLine} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <View style={s.controls}>
@@ -373,16 +376,18 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space.s, paddingHorizontal: space.m,
   },
   searchInput: { flex: 1, height: size.search, padding: 0, ...type.body, color: color.t1 },
-  tabs: {
-    height: size.filterTabs, marginTop: space.xs, flexDirection: 'row', gap: space.xl, paddingHorizontal: space.l,
-    borderBottomWidth: HAIRLINE, borderColor: color.hair,
-  },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // The three filter tabs are a row that scrolls sideways: "Inference & review 1" is wider than a 320 dp screen, and
+  // than a 384 dp one at font scale 1.3, and a fixed row ran off the edge with no way to reach it. The side padding
+  // is part of the scrolled content, so the last tab ends 16 dp from the edge once scrolled to the end.
+  tabsBar: { height: size.filterTabs, marginTop: space.xs },
+  tabsRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: HAIRLINE, backgroundColor: color.hair },
+  tabs: { flexDirection: 'row', gap: space.xl, paddingHorizontal: space.l },
+  tab: { height: TAB_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabT: { ...type.body, fontWeight: '500', color: color.t2 },
   tabTOn: { color: color.t1 },
   tabCount: { ...type.body, color: color.t3, fontVariant: ['tabular-nums'] },
   tabLine: {
-    position: 'absolute', left: 0, right: 0, bottom: -HAIRLINE, height: 2,
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 2,
     borderTopLeftRadius: 2, borderTopRightRadius: 2, backgroundColor: color.accent,
   },
   // One row: the experiment on the left, the order on the right. A name too long for the room (Processed, a large

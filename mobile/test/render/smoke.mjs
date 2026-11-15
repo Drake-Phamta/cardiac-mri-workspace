@@ -97,6 +97,13 @@ async function openTools(nav) { await act(async () => { nav.ctx.overflow.onPress
 async function closeSheet(r, id) { await pressId(r, `${id}-close`); }
 // Outlines and their halos: a solid outline has a black halo under it (tokens: overlay.halo).
 const isHalo = (n) => n.props.fill === 'none' && n.props.stroke === '#000000';
+// A value such as "0.048" in tabular digits is about 2.56 em wide (a digit 0.57 em, a full stop 0.28 em). A cell fits it at the
+// largest tested font scale (1.3) when it has no fixed width and a minWidth that large, so it never wraps into "0.04" and "8".
+const valueEm = (text) => [...text].reduce((w, c) => w + (c === '.' ? 0.28 : 0.57), 0);
+const valueCellFits = (n) => {
+  const st = flat(n.props.style);
+  return n.props.numberOfLines === 1 && typeof st.width !== 'number' && st.minWidth >= Math.ceil(valueEm(textOf(n)) * st.fontSize * 1.3);
+};
 const tabBar = (r) => r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.accessibilityRole === 'tab');
 const selectedTab = (r) => tabBar(r).filter((t) => t.props.accessibilityState.selected).map(textOf).join();
 const gestures = () => logs.filter((l) => l.startsWith('CMW_GESTURE ')).map((l) => JSON.parse(l.slice(12)));
@@ -2238,6 +2245,13 @@ function reviewBackend({ seedVersion = false } = {}) {
     && has(r, /^CASE$|^Case$/) && r.root.findAll((n) => n.type === 'TextInput')[0].props.placeholder === 'Search case ID'
     && !has(r, /cases? on this page/) && ctxHas(nav, /^7 cases on this page · 6 evaluation · 1 inference & review$/),
   'SCR-02 in Direction A: search, filter tabs with counts, the column heading; the page summary is in Details');
+  // Responsive (device session r4): the filter tabs scroll sideways, with their own side margin, instead of running off
+  // a 320 dp screen or off 384 dp at font scale 1.3.
+  const filterTabs = byTestId(r, 'filter-tabs');
+  check('RP-V1c', Boolean(filterTabs) && filterTabs.type === 'ScrollView' && filterTabs.props.horizontal === true
+    && filterTabs.props.showsHorizontalScrollIndicator === false && flat(filterTabs.props.contentContainerStyle).paddingHorizontal === 16
+    && filterTabs.findAll((n) => n.type === 'TouchableOpacity').map(textOf).join() === 'All7,Evaluation6,Inference & review1',
+  'SCR-02 filter tabs: all three in one horizontal ScrollView with a 16 dp margin at each end');
   // Nothing chosen: the default. EXP-D-PP is the only DINOv2 this list names, but the server answers it with no Dice
   // of its own, so the screen moves on to the first experiment that has values, EXP_DEMO.
   await tick(300);
@@ -2245,6 +2259,10 @@ function reviewBackend({ seedVersion = false } = {}) {
     && requests.some((u) => u === '/api/v1/experiments/EXP-D-PP/cases') && requests.some((u) => u === '/api/v1/experiments/EXP_DEMO/cases')
     && ctxHas(nav, /^Chosen for you: DINOv2 at the largest data fraction the server lists, raw before post-processed\./),
   'nothing chosen: opens on the default (DINOv2 first; an answer with no Dice is skipped), server order; Details says it was chosen for you');
+  // Responsive: a Dice value is one line in a cell wide enough for five tabular characters at font scale 1.3.
+  const diceCells = r.root.findAll((n) => n.type === 'Text' && /^\d\.\d{3}$/.test(textOf(n)));
+  check('RP-V1b', diceCells.length >= 3 && diceCells.every(valueCellFits),
+    `SCR-02: ${diceCells.length} Dice values, each on one line in a cell of at least ${Math.ceil(valueEm('0.000') * 15 * 1.3)} dp, no fixed width`);
   const listShort = shortTouchables(r.root);
   check('T5', listShort.length === 0, `SCR-02: every touchable (search, filter tabs, experiment, order, rows) reaches 48 dp${listShort.length ? ` - not: ${listShort.join(', ')}` : ''}`);
   const pick = async (id) => {
