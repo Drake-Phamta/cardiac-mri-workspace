@@ -311,6 +311,12 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('A2', ['Ground truth', 'Prediction'].every((l) => byTestId(r, `layer-${l}`)) && ['Fill', 'Outline', 'Both'].every((l) => byLabel(r, l).length === 1)
     && has(r, /^MRI$/) && has(r, /^Evaluation$/) && has(r, /^Slice Dice$/) && Boolean(byTestId(r, 'viewer-scrim')),
   'layer chips, the draw-mode toolbar and the corner annotations over the image; the screen draws the top scrim under them');
+  // Responsive (device session r4): a tool's name is one line as wide as its 48 dp button, capped at the label cap, so
+  // "Outline" and "Both" are not cut to "Outlin" and "Bot" at 320 and 480 dp.
+  const toolNames = ['Fill', 'Outline', 'Both'].map((l) => byLabel(r, l)[0].findAll((n) => n.type === 'Text')[0]);
+  check('RP-V1a', toolNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
+    && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
+  `SCR-03 draw-mode names: one line, as wide as the 48 dp button, capped at font scale ${LABEL_FONT_CAP}`);
   const viewerShort = shortTouchables(r.root);
   check('T5', viewerShort.length === 0, `SCR-03: every touchable (layer chips, draw modes, variant, transport) reaches 48 dp${viewerShort.length ? ` - not: ${viewerShort.join(', ')}` : ''}`);
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];

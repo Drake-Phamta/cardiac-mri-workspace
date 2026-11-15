@@ -124,7 +124,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   chọn lại run), khiên privacy, Info, "more". Góc trái ghi "MRI" và chế độ ca ("Evaluation" / "Inference & review"); góc
   phải ghi "Slice Dice" và giá trị 3 chữ số hoặc một chữ ("Not applicable", "Unavailable"), "—" khi không có số. Chip
   lớp "Ground truth" (chỉ khi ca có GT) và "Prediction" (chỉ khi có run), cả hai bật sẵn; chip có biểu tượng mắt và ô
-  màu, lớp mà lát này không có thì chip mờ đi. Thanh công cụ "Fill" / "Outline" / "Both" (mặc định "Fill"). Panel dưới:
+  màu, lớp mà lát này không có thì chip mờ đi. Thanh công cụ "Fill" / "Outline" / "Both" (mặc định "Fill"; tên mỗi nút nằm trên một dòng, rộng bằng nút 48 dp
+  và chỉ phóng tới 1,15 lần, nên "Outline" và "Both" không bị cắt ở 320 và 480 dp). Panel dưới:
   "Prediction" với "Raw" / "Processed" (không có run thì ghi "No analysis run"), số lát "Slice 45 / 88" (đếm từ 1),
   thanh trượt có vạch mỗi 10 lát, và năm nút: lùi 10 lát, lát trước, Play / Pause, lát sau, tiến 10 lát. Khi zoom khác
   vừa khung và khác lúc mở, góc ảnh ghi mức zoom ("×2.0").
