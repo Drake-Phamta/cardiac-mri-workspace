@@ -45,33 +45,32 @@ const sized = (style, fit) => (fit.size === null ? style : [style, { fontSize: f
 
 // Title and subtitle. With onSubtitlePress the whole block (the bar's full height) is one button, and a chevron
 // follows the subtitle, so the run picker has a 56 dp target although the subtitle line is 16 dp.
-// The floating bar of a viewer has Back and up to three icon buttons round the title, so the room it leaves does not
-// grow with the text: at 320 dp and font scale 1.3 "CASE_0029" and "DINOv2 100 %" showed as "CASE_00..." and "DINOv2 10...".
-// There both lines stop growing at LABEL_FONT_CAP; a bar with a plain screen title keeps following the system size. A line that still does
-// not fit is measured and drawn smaller (FitText.js, fitFontSize.mjs, tokens.mjs BAR_TEXT_MIN_SCALE) instead of ending in "...":
-// "Error Insp..." at 320 dp was the title of SCR-04, and Text adjustsFontSizeToFit did not shrink it on Android.
-function TitleBlock({ title, subtitle, large, floating, onSubtitlePress, subtitleLabel }) {
-  const cap = floating ? LABEL_FONT_CAP : undefined;
+// Back, the Live word and up to three icon buttons sit round the title, so the room it has does not grow with the text:
+// at 320 dp and font scale 1.3 "CASE_0029" and "DINOv2 100 %" showed as "CASE_00..." and "DINOv2 10...", and SCR-04, a
+// plain bar, read "Error Insp...". In every bar both lines stop growing at LABEL_FONT_CAP, and a line that still does not
+// fit is measured and drawn smaller (FitText.js, fitFontSize.mjs, tokens.mjs BAR_TEXT_MIN_SCALE) instead of ending in
+// "..."; Text adjustsFontSizeToFit did not shrink it on Android. A line that fits keeps its style as it is.
+function TitleBlock({ title, subtitle, large, onSubtitlePress, subtitleLabel }) {
   const titleStyle = large ? s.titleTwoLine : s.title;
   // The width of this box does not depend on the text (flex 1, minWidth 0), so the sizes picked from it do not move it.
   const [room, setRoom] = useState(null);
-  const onBoxLayout = floating ? (e) => {
+  const onBoxLayout = (e) => {
     const w = e.nativeEvent.layout.width;
     setRoom((cur) => (cur !== null && Math.abs(cur - w) < 0.5 ? cur : w));
-  } : undefined;
+  };
   const titleFit = useFitFontSize({
-    text: title, base: (large ? type.viewerTitle : type.screenTitle).fontSize, minScale: BAR_TEXT_MIN_SCALE.title, available: room, enabled: floating,
+    text: title, base: (large ? type.viewerTitle : type.screenTitle).fontSize, minScale: BAR_TEXT_MIN_SCALE.title, available: room, enabled: true,
   });
   const subtitleFit = useFitFontSize({
     text: subtitle || '', base: type.caption.fontSize, minScale: BAR_TEXT_MIN_SCALE.subtitle,
-    available: room === null ? null : room - (onSubtitlePress ? CHEVRON_SIZE + SUBTITLE_GAP : 0), enabled: floating && Boolean(subtitle),
+    available: room === null ? null : room - (onSubtitlePress ? CHEVRON_SIZE + SUBTITLE_GAP : 0), enabled: Boolean(subtitle),
   });
   const lines = (
     <>
       <Text
         style={sized(titleStyle, titleFit)}
         numberOfLines={1}
-        maxFontSizeMultiplier={cap}
+        maxFontSizeMultiplier={LABEL_FONT_CAP}
         accessibilityRole="header"
       >
         {title}
@@ -81,15 +80,15 @@ function TitleBlock({ title, subtitle, large, floating, onSubtitlePress, subtitl
           <Text
             style={sized([s.subtitle, s.subtitleIn], subtitleFit)}
             numberOfLines={1}
-            maxFontSizeMultiplier={cap}
+            maxFontSizeMultiplier={LABEL_FONT_CAP}
           >
             {subtitle}
           </Text>
           {onSubtitlePress ? <IconChevronDown size={CHEVRON_SIZE} strokeWidth={2} color={color.t2} /> : null}
         </View>
       ) : null}
-      {floating ? <FitProbe fit={titleFit} text={title} style={titleStyle} maxFontSizeMultiplier={cap} /> : null}
-      {floating && subtitle ? <FitProbe fit={subtitleFit} text={subtitle} style={s.subtitle} maxFontSizeMultiplier={cap} /> : null}
+      <FitProbe fit={titleFit} text={title} style={titleStyle} maxFontSizeMultiplier={LABEL_FONT_CAP} />
+      {subtitle ? <FitProbe fit={subtitleFit} text={subtitle} style={s.subtitle} maxFontSizeMultiplier={LABEL_FONT_CAP} /> : null}
     </>
   );
   if (!onSubtitlePress) return <View style={s.titleBox} onLayout={onBoxLayout}>{lines}</View>;
@@ -118,7 +117,6 @@ export default function AppHeader({
         title={title}
         subtitle={subtitle}
         large={Boolean(subtitle) || floating}
-        floating={floating}
         onSubtitlePress={subtitle ? onSubtitlePress : null}
         subtitleLabel={subtitleLabel}
       />

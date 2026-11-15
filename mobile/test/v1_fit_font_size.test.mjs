@@ -1,4 +1,4 @@
-// node --test mobile/test/  - the pure part of the floating bar's fit: from the widths measured so far, which size to measure next and which
+// node --test mobile/test/  - the pure part of the app bar's fit: from the widths measured so far, which size to measure next and which
 // size to draw (src/components/fitFontSize.mjs, used by FitText.js and AppHeader). The widths here are the ones measured on the phone
 // (device sessions 2026-11-15, r6 and r7: "Error Inspector" 117 dp at 17 sp, room 96 dp at 320 dp and 89 dp at font scale 1.3), or
 // proportional to the size, as the text engine lays a line out.

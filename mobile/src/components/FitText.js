@@ -1,6 +1,6 @@
 /*
- * One line of text that shrinks to fit a known width, decided by the app and not by the text engine (the floating app
- * bar's title and subtitle: Android did not apply Text adjustsFontSizeToFit, the device session of 2026-11-15, r7).
+ * One line of text that shrinks to fit a known width, decided by the app and not by the text engine (the app bar's
+ * title and subtitle: Android did not apply Text adjustsFontSizeToFit, the device session of 2026-11-15, r7).
  *
  *   const fit = useFitFontSize({ text, base: 17, minScale: 0.6, available: 96, enabled: true });
  *   <Text style={[style, fit.size === null ? null : { fontSize: fit.size }]} numberOfLines={1}>{text}</Text>

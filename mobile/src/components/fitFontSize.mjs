@@ -1,6 +1,6 @@
 /*
- * Fitting one line of text into a known width, decided from measured widths. Used by the floating app bar of a viewer
- * (AppHeader.js, FitText.js): its title and subtitle have a room that does not grow with the text, 96 dp at 320 dp, and
+ * Fitting one line of text into a known width, decided from measured widths. Used by the app bar (AppHeader.js,
+ * FitText.js): its title and subtitle have a room that does not grow with the text, 96 dp on SCR-04 at 320 dp, and
  * Android did not shrink them with Text adjustsFontSizeToFit (the device session of 2026-11-15, r7: "Error Insp..."), so the
  * app measures the text itself and picks the size.
  *

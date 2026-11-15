@@ -30,7 +30,7 @@ mọi vùng chạm ≥ 48 dp (phần nhìn thấy thấp hơn thì `hitSlop={hit
 Bề ngang và cỡ chữ (320–480 dp, cỡ chữ hệ thống đến 1,3): nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng
 bằng ô chứa nó (`alignSelf: 'stretch'`, `textAlign: 'center'`), `numberOfLines={1}` và
 `maxFontSizeMultiplier={LABEL_FONT_CAP}` (thẻ `Tag` chỉ cần giới hạn phóng chữ); ô số dùng `minWidth` đủ cho cỡ chữ 1,3 chứ không dùng `width`; hàng nhãn có thể
-rộng hơn màn hình thì là `ScrollView horizontal`; chữ thân bài không bị giới hạn. Mã ca và dòng phụ của header nổi (khung viewer) cũng bị giới hạn
+rộng hơn màn hình thì là `ScrollView horizontal`; chữ thân bài không bị giới hạn. Tên màn hình và dòng phụ trên header (mọi header, kể cả header nổi của khung viewer) cũng bị giới hạn
 như nhãn trong ô cố định, vì các nút quanh chúng chiếm chỗ không đổi; dòng nào vẫn không vừa thì app tự đo rồi vẽ nhỏ lại (`FitText.js`, quyết định ở
 `fitFontSize.mjs`: một bản chữ ẩn cho bề rộng, cỡ chữ giảm từng 0,5 sp đến khi vừa, tối thiểu `BAR_TEXT_MIN_SCALE`, hết mức đó mới cắt bằng "…"), không dùng `adjustsFontSizeToFit` vì Android không co chữ. Một chip trên ảnh thì ngược lại: rộng bằng chữ của nó, không `width`, không `alignSelf: 'stretch'`,
 không giới hạn phóng chữ, để chữ dài như "TP 546 px" không bị cắt.

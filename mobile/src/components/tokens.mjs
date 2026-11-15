@@ -138,13 +138,14 @@ export const font = Object.freeze({
 export const LABEL_FONT_CAP = 1.15;
 
 /*
- * The floating bar of a viewer has Back, the Live word and up to two icon buttons round its title, so the room the title has does
- * not grow with the text: 96 dp at 320 dp (89 dp at font scale 1.3, where the Live word is wider), and "Error Inspector" is 117 dp at
- * 17 sp, 134 dp at the cap. A name or a subtitle that does not fit is measured and drawn smaller (FitText.js, fitFontSize.mjs: a
+ * An app bar has Back, the Live word and up to three icon buttons round its title, so the room the title has does not grow
+ * with the text: 96 dp on SCR-04 at 320 dp (89 dp at font scale 1.3, where the Live word is wider), and "Error Inspector" is
+ * 117 dp at 17 sp, 134 dp at the cap. Its title and subtitle stop growing at LABEL_FONT_CAP, in every bar (a pushed screen's
+ * name is a one-line label too). A name or a subtitle that does not fit is measured and drawn smaller (FitText.js, fitFontSize.mjs: a
  * hidden copy of the text gives its width, and the size is lowered in 0.5 sp steps until the line fits) instead of being cut to
  * "Error Insp...", down to these fractions of its size, and is cut with "..." only if it still does not fit there. (Text
  * adjustsFontSizeToFit does the same on paper, but on the Android phone it left "Error Insp...".) At 320 dp the title needs 0.82 of its
- * size at font scale 1.0 and 0.67 at 1.3, the subtitle ("CASE_0029 · Raw") 1.0 and 0.82. A plain bar keeps following the system size.
+ * size at font scale 1.0 and 0.67 at 1.3, the subtitle ("CASE_0029 · Raw") 1.0 and 0.82.
  */
 export const BAR_TEXT_MIN_SCALE = Object.freeze({ title: 0.6, subtitle: 0.75 });
 
