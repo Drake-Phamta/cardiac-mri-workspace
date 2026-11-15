@@ -7,6 +7,16 @@
 
 export const MIN_TOUCH = 48;
 
+/*
+ * The hitSlop that lifts a control `visual` dp high to MIN_TOUCH, half above and half below it, so it looks the same
+ * and still has a 48 dp hit area. A control already MIN_TOUCH high gets none. Only the height is padded: a control
+ * that is too narrow (a short label) gets a minWidth instead, because a side slop would run into its neighbour.
+ */
+export function hitSlopFor(visual) {
+  const pad = Math.max(0, Math.ceil((MIN_TOUCH - visual) / 2));
+  return { top: pad, bottom: pad, left: 0, right: 0 };
+}
+
 // Separators are 1 dp, as in the mockups (StyleSheet.hairlineWidth would be thinner on a dense screen).
 export const HAIRLINE = 1;
 

@@ -24,7 +24,10 @@ export function FlatList({ data, renderItem, keyExtractor, ListHeaderComponent, 
     items.length ? items : (ListEmptyComponent || null), ListFooterComponent || null);
 }
 
-export const StyleSheet = { create: (s) => s, absoluteFill: {}, hairlineWidth: 1 };
+// absoluteFill is React Native's own value, so a check can tell a full-bleed backdrop from a control with no size.
+export const StyleSheet = {
+  create: (s) => s, absoluteFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }, hairlineWidth: 1,
+};
 export const PanResponder = { create: (cfg) => ({ panHandlers: { __pan: cfg } }) };
 // Keeps its listeners (#77 QA N-7), so a check can press the hardware back
 // button: __press() calls them newest first, as Android does, until one

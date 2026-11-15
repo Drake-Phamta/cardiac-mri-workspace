@@ -28,4 +28,6 @@ if (-not (Test-Path (Join-Path $DataRoot "data_cache\index.json"))) {
   Write-Warning "No data cache under $DataRoot yet: every case endpoint will answer CASE_NOT_FOUND. Build it with: python -m backend.app.ingest"
 }
 Write-Host "Serving API Contract 11 on http://${BindHost}:${Port} (health: /health, API: /api/v1), data: $DataRoot"
-python -m uvicorn backend.app.main:app --host $BindHost --port $Port
+# --no-access-log: uvicorn's access line carries the client address; the service's own request log
+# (<data root>\logs\requests.jsonl) records route, case, slice and bytes without it.
+python -m uvicorn backend.app.main:app --host $BindHost --port $Port --no-access-log
