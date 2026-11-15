@@ -1766,7 +1766,7 @@ function reviewBackend({ seedVersion = false } = {}) {
 
   // The base fake already serves case_get, the JSON of the MRI / GT / prediction slices and their PNGs. This one adds
   // what SCR-05 asks for: run ids, reconstruction_get, the ground-truth mask id and the mesh bytes.
-  function meshBackend({ caseMode = 'EVALUATION', processed = false, missing = [], tamper = [], reconstructionStatus = null, listFail = false, errors = 'ok' } = {}) {
+  function meshBackend({ caseMode = 'EVALUATION', processed = false, missing = [], tamper = [], reconstructionStatus = null, listFail = false, errors = 'ok', experimentId = null } = {}) {
     const base = fakeBackend({ caseMode });
     const requests = [];
     const gen = (id) => ({ ...bundleJson.scenarios[id].default.response.data });
@@ -1780,7 +1780,8 @@ function reviewBackend({ seedVersion = false } = {}) {
       let m;
       if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)$/.exec(path))) {
         return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED', raw_prediction_artifact_id: 'ART_RAW',
-          processed_prediction_artifact_id: processed ? 'ART_PROC' : null, reconstruction_ids: [MESH_ID(predBytes)] });
+          processed_prediction_artifact_id: processed ? 'ART_PROC' : null, reconstruction_ids: [MESH_ID(predBytes)],
+          ...(experimentId ? { experiment_id: experimentId } : {}) });
       }
       if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)\/reconstruction\?source_mask_id=([^&]+)$/.exec(path))) {
         const mask = decodeURIComponent(m[2]);
@@ -2101,6 +2102,16 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R20', !has(r, /^Details$/), 'the panel has no Details button: the app bar\'s Info opens the sheet');
     await act(async () => { r.unmount(); });
     check('V2R20', recorded.contexts[recorded.contexts.length - 1] === null, 'leaving the screen clears what it reported');
+    // Responsive (device session r4): the app bar names the experiment as people do and writes no experiment id; the id
+    // is the Details sheet's "Experiment" line.
+    const named = await mount(meshBackend({ experimentId: 'EXP-D-100' }), P);
+    await fromViewer(named.r, { type: 'ready' });
+    await fromViewer(named.r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 });
+    const namedHead = headerLines(screenMeta('SCR-05'), P, reported(named.recorded), { studyId: null });
+    check('RP-V2a', namedHead.title === 'CASE_0061' && namedHead.subtitle === 'DINOv2 100 % · Raw' && !/EXP-/.test(namedHead.subtitle)
+      && hasDetail(/^Experiment EXP-D-100$/, named.recorded),
+    `SCR-05 app bar: "${namedHead.title}" / "${namedHead.subtitle}"; the id is in Details`);
+    await act(async () => { named.r.unmount(); });
     // the states before there is a viewer: the app bar names the case, content starts below it
     const loadingBackend = meshBackend({ missing: ['ART_RAW'] });
     const m2 = await mount(loadingBackend, P);

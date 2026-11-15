@@ -374,12 +374,14 @@ const layerLine = (label, status) => {
 // The Details sheet: what the main surface leaves out (ids, checksums, counts, indices, the frame). Sections of
 // { title, lines }; `surfaces` are the drawn meshes: { label, id, checksum, triangles, vertices }.
 export function detailSections({
-  caseId, runId, variant, modeLabel, total = null, surfaces = [], errorGeometryId = null, markers = null, selection = null,
-  statuses = [], geometryNote = null,
+  caseId, runId, experimentId = null, variant, modeLabel, total = null, surfaces = [], errorGeometryId = null, markers = null,
+  selection = null, statuses = [], geometryNote = null,
 }) {
+  // The app bar names the experiment as people do; its id is here, with the run's.
   const sections = [{
     title: 'This view',
-    lines: [`Case ${caseId}`, `Run ${runId}`, `Prediction ${variant} · ${modeLabel}`, 'Surface: level L0, undecimated'],
+    lines: [`Case ${caseId}`, `Run ${runId}`, ...(experimentId ? [`Experiment ${experimentId}`] : []),
+      `Prediction ${variant} · ${modeLabel}`, 'Surface: level L0, undecimated'],
   }];
   const drawn = surfaces.filter((m) => m.id);
   if (drawn.length) {

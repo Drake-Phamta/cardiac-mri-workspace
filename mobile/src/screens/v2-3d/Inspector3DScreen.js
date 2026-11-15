@@ -18,6 +18,7 @@ import { TopScrim } from '../../components/Floating';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, size, space, type } from '../../components/theme';
 import { capabilityOf, variantOptions, rememberedVariant, rememberVariant } from '../../lib/caseMode.mjs';
+import { experimentName } from '../../lib/experimentNames.mjs';
 import { sliceParts } from '../../lib/sliceNumber.mjs';
 import { CHROME } from '../../navigation/routes.mjs';
 import {
@@ -273,9 +274,11 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   const surfaceInfo = (label, meshId, mesh, seen) => ({
     label, id: meshId, checksum: mesh ? mesh.checksum : null, triangles: seen ? seen.triangles : null, vertices: seen ? seen.vertices : null,
   });
+  const experimentId = run.experiment_id;
   const sections = detailSections({
     caseId,
     runId,
+    experimentId,
     variant,
     modeLabel: capability.label,
     total,
@@ -291,9 +294,13 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
   });
   const detailsKey = JSON.stringify(sections);
   const details = useMemo(() => sections, [detailsKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const experimentId = run.experiment_id;
+  // The app bar names the experiment as people do ("DINOv2 100 % · Raw"); the id is in the Details sheet.
   const context = useMemo(
-    () => ({ title: caseId, subtitle: [experimentId, VARIANT_LABEL[variant]].filter(Boolean).join(' · '), details }),
+    () => ({
+      title: caseId,
+      subtitle: [experimentId ? experimentName(experimentId) : null, VARIANT_LABEL[variant]].filter(Boolean).join(' · '),
+      details,
+    }),
     [caseId, experimentId, variant, details],
   );
   useShellContext(nav, context);

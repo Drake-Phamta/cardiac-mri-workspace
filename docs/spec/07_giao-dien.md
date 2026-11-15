@@ -186,7 +186,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   lưới nào. Biến thể đã chọn được nhớ trong phiên. Khi còn hỏi, hoặc khi ca / run đang tải, header ghi mã ca và dòng phụ
   "3D view".
 - **Khung viewer**: trang WebView WebGL2 tràn cả màn hình; header nổi trên trang (có lớp tối phía trên), không có thanh tab;
-  panel dưới nổi trên đáy trang. Header ghi mã ca và dòng phụ "mã thí nghiệm · Raw" (hoặc "· Processed"), không ghi mã run;
+  panel dưới nổi trên đáy trang. Header ghi mã ca và dòng phụ "tên thí nghiệm · Raw" (ví dụ "DINOv2 100 % · Raw"; hoặc "· Processed"), không ghi mã thí nghiệm hay mã run (mã thí nghiệm nằm ở sheet Details);
   không có nút biểu tượng riêng (không có khiên privacy) và không có "more".
 - **Trong trang** (vẽ bên trong WebView, nằm giữa header và panel dưới; mọi nút cao và rộng ít nhất 48 px; chỉ hiện khi đã
   có ít nhất một bề mặt):
@@ -218,7 +218,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   - chọn một điểm trên bề mặt: "Picked on the prediction" hoặc "Picked on the ground truth" ("The 2D slice that produced this
     part of the surface.");
   - nút "Open in 2D": khoá khi chưa chọn gì; khi mở được, tên truy cập ghi lát ("Open in 2D at slice 53").
-- **Sheet Details** (nút Info của header) có các mục: "This view" ("Case …", "Run …", "Prediction RAW · Evaluation", "Surface:
+- **Sheet Details** (nút Info của header) có các mục: "This view" ("Case …", "Run …", "Experiment EXP-…", "Prediction RAW · Evaluation", "Surface:
   level L0, undecimated"); "Surfaces" (mã `MESH_…`, số tam giác và đỉnh, checksum của lớp "Prediction" và "Ground truth" đã có
   mã lưới); "Error regions" (mã `ERRGEOM_…`, dòng tổng như ở panel, và luật vùng nhỏ: "Small regions: 3 of 6, under 30 voxels (0.5 %
   of the largest region, 6,000)"); "Selected region" (mã vùng và "FN, slices 11-13 (z 10-12), 523 voxels") hoặc "Selected slice"

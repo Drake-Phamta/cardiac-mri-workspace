@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import { resolveConfig } from '../src/config.mjs';
 import { initialNavState, navReducer, NAV, top, validateRoute } from '../src/navigation/navigator.mjs';
 import { createRuntime } from '../src/api/runtime.mjs';
+import { experimentName } from '../src/lib/experimentNames.mjs';
 import {
   AXES_NOTE, detailSections, ERROR_MEANING, ERROR_TITLE, errorSummaryText, errorsRef, gridMatches, hiddenRegionsText, LAYER,
   layerNotices, layerStatus, MARKER_COLOR, MARKER_PX, markerSize, markerText, maskIdForVariant, meshRef, openIn2D,
@@ -376,6 +377,14 @@ test('V2L22 the Details sheet takes what the main surface leaves out: ids, check
   assert.deepEqual(slice[2].lines, [AXES_NOTE], 'and with no geometry note it is the axes alone');
   assert.match(AXES_NOTE, /voxel axes/);
   assert.match(AXES_NOTE, /x = column, y = row, z = slice/);
+});
+
+test('V2L23 the experiment id is a line of the Details sheet, after the run; the app bar carries its name', () => {
+  const base = { caseId: 'CASE_0029', runId: 'RUN_EXP-D-100_CASE_0029', variant: 'RAW', modeLabel: 'Evaluation', total: 88 };
+  const withId = detailSections({ ...base, experimentId: 'EXP-D-100' })[0];
+  assert.deepEqual(withId.lines, ['Case CASE_0029', 'Run RUN_EXP-D-100_CASE_0029', 'Experiment EXP-D-100', 'Prediction RAW · Evaluation', 'Surface: level L0, undecimated']);
+  assert.ok(!detailSections(base)[0].lines.some((l) => l.startsWith('Experiment ')), 'a run that names no experiment gets no such line');
+  assert.equal(experimentName('EXP-D-100'), 'DINOv2 100 %', 'what the app bar shows in its place');
 });
 
 test('V2L23 the panel marks the error classes with the Error Inspector colours (the page takes the same from the tokens)', () => {
