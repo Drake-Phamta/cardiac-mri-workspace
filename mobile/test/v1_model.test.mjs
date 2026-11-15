@@ -117,7 +117,22 @@ const check = (id, ok, detail) => {
   check('V1-3', s.groundTruthAvailable === false && s.layersAvailable[LAYER.GROUND_TRUTH] === false,
     'an INFERENCE_REVIEW case does not enable the ground-truth layer');
   const after = m.setOverlay(LAYER.GROUND_TRUTH, true);
-  check('V1-3', after.overlays[LAYER.GROUND_TRUTH] === false, 'and the layer cannot be switched on');
+  check('V1-3', after === s && after.layersAvailable[LAYER.GROUND_TRUTH] === false && after.groundTruthRef === null,
+    'and the layer cannot be switched on: nothing changes, no mask is offered or drawn');
+}
+
+// V1-3b — both masks are on from the start (P12: the mockup opens with ground truth and prediction drawn). The
+// switch is the person's intent; a layer is drawn only on a slice that has its data.
+{
+  const m = createCaseExplorer(newClient(), { variant: 'RAW' });
+  check('V1-3b', m.current.overlays[LAYER.PREDICTION] === true && m.current.overlays[LAYER.GROUND_TRUTH] === true
+    && m.current.overlays[LAYER.ERROR] === false && m.current.overlays[LAYER.REVIEWED_MASK] === false,
+  'prediction and ground truth start on; error and reviewed mask are not offered here');
+  await m.open({ caseId: CASE, runId: RUN, sliceIndex: 44 });
+  check('V1-3b', m.current.overlays[LAYER.GROUND_TRUTH] === true && m.current.layersAvailable[LAYER.GROUND_TRUTH] === true
+    && m.current.groundTruthRef !== null, 'a case with ground truth: the layer is on and available');
+  const off = m.setOverlay(LAYER.GROUND_TRUTH, false);
+  check('V1-3b', off.overlays[LAYER.GROUND_TRUTH] === false, 'and the person can still switch it off');
 }
 
 // V1-4 — an out-of-range slice blocks the view and offers no RETRY. The model
