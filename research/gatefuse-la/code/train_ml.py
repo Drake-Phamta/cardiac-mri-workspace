@@ -186,6 +186,10 @@ def main():
     dev = torch.device(a.device)
     meta = load_meta()
     train_vols, val_vols, test_vols = read_splits(a)
+    # an unknown id would silently drop out of train_idx; with none left, Batches would loop forever
+    unknown = set(train_vols + val_vols + test_vols) - set(meta.vol)
+    if unknown:
+        raise SystemExit(f"volumes not in prep/meta.csv: {sorted(unknown)}")
     train_idx = meta.index[meta.vol.isin(train_vols)].to_numpy()
 
     unet = a.model == "unet"

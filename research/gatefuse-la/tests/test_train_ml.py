@@ -69,6 +69,13 @@ def test_split_file_with_the_ip_lists_changes_nothing(tiny_work, train_on_tiny_w
     assert_same_run(default, from_file)
 
 
+def test_split_file_with_unknown_volumes_is_refused(train_on_tiny_work, tmp_path):
+    split_file = tmp_path / "typo.json"
+    split_file.write_text(json.dumps(dict(train=["T1", "T9"], val=["V1"], test=["S1"])))
+    with pytest.raises(AssertionError, match=r"not in prep/meta.csv: \['T9'\]"):
+        train_on_tiny_work("train_ml.py", ["--model", "gate", "--split-file", str(split_file)], tmp_path / "run")
+
+
 def test_split_file_overlapping_test_is_refused(tmp_path):
     split_file = tmp_path / "leak.json"
     split_file.write_text(json.dumps(dict(train=["A", "B"], val=["C"], test=["B"])))
