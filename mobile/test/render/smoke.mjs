@@ -921,6 +921,10 @@ function noRunBackend() {
   check('E4b', has(r, /Inference & review/) && has(r, /Ground-truth-dependent|no ground-truth mask|not zero/),
     'INFERENCE_REVIEW case -> unavailable, says why');
   check('E4b', !inference.requests.some((u) => /metrics|ground-truth/.test(u)), 'and asks the server for no GT-dependent data');
+  // The app bar has its subtitle and the privacy shield without the error view too (loading, a failure, no ground truth),
+  // so it does not change when the case has loaded (device session r8: the shield appeared then and "Error Insp..." showed).
+  check('RP-SH8', Boolean(nav.ctx) && nav.ctx.subtitle === 'CASE_0001 · Raw' && Boolean(ctxAction(nav, 'privacy')) && !nav.ctx.details,
+    `SCR-04 without its error view still gives the app bar "${nav.ctx && nav.ctx.subtitle}" and the privacy shield`);
   await act(async () => { r.unmount(); });
 
   // Live, EVALUATION: classes, legend, server selection, profile, jump. z 51's
