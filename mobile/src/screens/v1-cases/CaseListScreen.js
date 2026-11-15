@@ -23,7 +23,7 @@ import { IconAlert, IconCheck, IconChevronDown, IconChevronRight, IconSearch, Ic
 import { color, HAIRLINE, hitSlopFor, MIN_TOUCH, size, space, type } from '../../components/theme';
 import {
   defaultExperimentCandidates, experimentLabel, filterRows, pinnedOutlierSelection, readCaseRows,
-  readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, WORKLIST_SORT, worklistRows,
+  readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, tabGap, WORKLIST_SORT, worklistRows,
 } from './cases.mjs';
 
 const MODES = [
@@ -49,6 +49,7 @@ const experimentText = (e) => experimentLabel(e.experimentId, e.variant);
 export default function CaseListScreen({ runtime, nav }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('ALL');
+  const [barW, setBarW] = useState(null); // the screen's width, from the tab row's own layout
   const [pickerOpen, setPickerOpen] = useState(false);
   const [choice, setChoice] = useState(rememberedWorklist);
   const choose = useCallback((patch) => setChoice((c) => {
@@ -158,9 +159,9 @@ export default function CaseListScreen({ runtime, nav }) {
         />
       </Pressable>
 
-      <View style={s.tabsBar}>
+      <View style={s.tabsBar} onLayout={(e) => setBarW(e.nativeEvent.layout.width)}>
         <View style={s.tabsRule} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs} testID="filter-tabs">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.tabs, { gap: tabGap(barW) }]} testID="filter-tabs">
           {MODES.map((m) => {
             const on = mode === m.key;
             return (
@@ -381,7 +382,7 @@ const s = StyleSheet.create({
   // is part of the scrolled content, so the last tab ends 16 dp from the edge once scrolled to the end.
   tabsBar: { height: size.filterTabs, marginTop: space.xs },
   tabsRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: HAIRLINE, backgroundColor: color.hair },
-  tabs: { flexDirection: 'row', gap: space.xl, paddingHorizontal: space.l },
+  tabs: { flexDirection: 'row', paddingHorizontal: space.l }, // the gap is tabGap(width): 24 dp, 16 dp on a screen narrower than 360 dp
   tab: { height: TAB_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabT: { ...type.body, fontWeight: '500', color: color.t2 },
   tabTOn: { color: color.t1 },

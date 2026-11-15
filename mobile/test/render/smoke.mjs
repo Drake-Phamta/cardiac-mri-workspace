@@ -2341,6 +2341,21 @@ function reviewBackend({ seedVersion = false } = {}) {
     && filterTabs.props.showsHorizontalScrollIndicator === false && flat(filterTabs.props.contentContainerStyle).paddingHorizontal === 16
     && filterTabs.findAll((n) => n.type === 'TouchableOpacity').map(textOf).join() === 'All7,Evaluation6,Inference & review1',
   'SCR-02 filter tabs: all three in one horizontal ScrollView with a 16 dp margin at each end');
+  // Responsive (device session r6): at 320 dp the three tabs were 19 dp wider than the screen, so at rest the third ended at the edge; below 360 dp
+  // the gap between the tabs is 16 dp, from 360 dp it is 24 dp, and until the row has a width it is the wide one.
+  {
+    const rowOf = () => byTestId(r, 'filter-tabs');
+    const gapAt = async (width) => {
+      const bar = rowOf().parent;
+      await act(async () => { bar.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width, height: 44 } } }); });
+      return flat(rowOf().props.contentContainerStyle).gap;
+    };
+    const before = flat(rowOf().props.contentContainerStyle).gap;
+    const [narrow, wide] = [await gapAt(320), await gapAt(384)];
+    check('RP-V1h', typeof rowOf().parent.props.onLayout === 'function' && [before, narrow, wide].join() === `${before},16,24` && (before === 24 || before === 16)
+      && flat(rowOf().props.contentContainerStyle).paddingHorizontal === 16,
+    `SCR-02 filter tabs: a 16 dp gap on a 320 dp screen, 24 dp on a 384 dp one (${narrow}, ${wide}), the 16 dp margin at the ends kept`);
+  }
   // Nothing chosen: the default. EXP-D-PP is the only DINOv2 this list names, but the server answers it with no Dice
   // of its own, so the screen moves on to the first experiment that has values, EXP_DEMO.
   await tick(300);

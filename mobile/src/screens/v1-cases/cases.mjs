@@ -609,6 +609,14 @@ export function readCaseRows(data) {
 }
 
 // Search by id substring and filter by mode. The order it is given is kept.
+// The filter tabs of SCR-02 are a row that scrolls sideways, with 16 dp of margin at both ends of the scrolled content. At 320 dp and font scale 1.0
+// the three tabs were 19 dp wider than the screen (the row scrolled 63 px on the phone), so at rest the third tab ended 3 dp past the edge: its
+// last digit touched the edge, neither whole with a margin nor clearly cut. On a screen narrower than TAB_NARROW_BELOW the gap between tabs is
+// 16 dp instead of 24, which takes the 32 dp the mockup's gap would need off the row: the tabs fit and the last one ends 13 dp from the edge.
+export const TAB_GAP = Object.freeze({ wide: 24, narrow: 16 });
+export const TAB_NARROW_BELOW = 360;
+export const tabGap = (width) => (Number.isFinite(width) && width > 0 && width < TAB_NARROW_BELOW ? TAB_GAP.narrow : TAB_GAP.wide);
+
 export function filterRows(rows, { query = '', mode = 'ALL' } = {}) {
   const q = String(query).trim().toLowerCase();
   return rows.filter((r) => (mode === 'ALL' || r.capability.key === mode)
