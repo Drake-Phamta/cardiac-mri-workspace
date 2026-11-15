@@ -952,8 +952,9 @@ function noRunBackend() {
   check('E4i', paths().length === 2 && has(r, /FP - over-segmentation .*\(hidden\)/) && chip('FP').props.accessibilityState.checked === false,
     'a class can be isolated: FP hidden by its chip, named as hidden');
   await press(r, '3D error view');
-  check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52 && pushes[0][1].view === 'error',
-    `entry to the 3D error view with the slice: ${JSON.stringify(pushes[0] || null)}`);
+  check('E4j', pushes.length === 1 && pushes[0][0] === 'SCR-05' && pushes[0][1].sliceIndex === 52
+    && Object.keys(pushes[0][1]).sort().join() === 'caseId,runId,sliceIndex,variant',
+    `entry to the 3D error view with the slice and nothing SCR-05 would ignore (no view parameter): ${JSON.stringify(pushes[0] || null)}`);
 
   // #77 QA B-3, applied to SCR-04: a slice that fails shows nothing of the slice displayed before.
   const refLine = () => ctxLines(nav).find((x) => x.startsWith('reference ')) || '';

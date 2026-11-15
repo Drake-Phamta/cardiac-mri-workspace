@@ -435,7 +435,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           variant="secondary"
           block
           disabled={blocking}
-          onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z ?? start, variant, view: 'error' })}
+          onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z ?? start, variant })}
         />
         {blocking ? <Text style={s.caption}>this slice did not load</Text> : null}
       </View>

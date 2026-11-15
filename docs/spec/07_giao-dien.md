@@ -177,7 +177,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   số hay mã của lát trước, nút "3D error view" khoá ("this slice did not load"); 7 trạng thái chung.
 - **Thao tác**: chạm "Jump to the worst slice", một dòng lát tệ hoặc một cột biểu đồ để tới lát đó; chuyển lát, Play;
   ẩn / hiện lớp lỗi; đổi kiểu vẽ, độ mờ, độ dày viền; chụm để zoom, kéo để di, chạm đúp.
-- **Điều hướng**: "3D error view" mở SCR-05 tại lát hiện tại, lớp lỗi bật sẵn.
+- **Điều hướng**: "3D error view" mở SCR-05 tại lát hiện tại, lớp lỗi bật sẵn; chỉ truyền ca, run, biến thể và lát, không
+  có tham số nào SCR-05 bỏ qua.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-04.png` (chưa có).
 
 ### SCR-05 — 3D Inspector (Vũ Hùng Anh)
