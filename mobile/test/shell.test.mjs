@@ -121,14 +121,18 @@ test('SH14 hitSlopFor lifts a short control to 48 dp above and below it, never s
   assert.deepEqual(hitSlopFor(56), { top: 0, bottom: 0, left: 0, right: 0 }, 'taller than 48: no slop, never negative');
 });
 
-test('SH5 header: a name for people plus the case, run and variant; the study on a tab root', () => {
+test('SH5 header: a name for people plus the case, never a run id; the study on a tab root', () => {
   const scr03 = screenMeta('SCR-03');
   assert.deepEqual({ ...headerLines(scr03, { caseId: 'CASE_0061' }) },
     { title: 'Case Explorer', subtitle: 'CASE_0061', screenId: 'SCR-03', vertical: 'V1' });
-  assert.equal(headerLines(scr03, { caseId: 'CASE_0061' }, { runId: 'RUN_A', variant: 'RAW' }).subtitle, 'CASE_0061 · run RUN_A · RAW');
-  // What the screen reports wins over the route: a run the case does not list is not named.
+  // A run id never reaches the bar (device session r8: "CASE_0029 · run RUN_EXP-D-100_..." while SCR-04 loaded): the
+  // screen names its run for people itself (subtitle), and until then the subtitle is the case.
+  assert.equal(headerLines(scr03, { caseId: 'CASE_0061' }, { runId: 'RUN_A', variant: 'RAW' }).subtitle, 'CASE_0061');
   assert.equal(headerLines(scr03, { caseId: 'C', runId: 'RUN_GONE', variant: 'RAW' }, { runId: null, variant: null }).subtitle, 'C');
-  assert.equal(headerLines(screenMeta('SCR-04'), { caseId: 'C', runId: 'R', variant: 'PROCESSED', sliceIndex: 4 }).subtitle, 'C · run R · PROCESSED');
+  assert.equal(headerLines(screenMeta('SCR-04'), { caseId: 'C', runId: 'R', variant: 'PROCESSED', sliceIndex: 4 }).subtitle, 'C');
+  assert.equal(headerLines(screenMeta('SCR-04'), { caseId: 'C', runId: 'R' }, { subtitle: 'C · Processed' }).subtitle, 'C · Processed');
+  // What the screen reports wins over the route.
+  assert.equal(headerLines(scr03, { caseId: 'C' }, { caseId: 'D' }).subtitle, 'D');
   assert.equal(headerLines(scr03, { caseId: 'C', variant: 'RAW' }).subtitle, 'C', 'a variant without a run is not shown');
   assert.equal(headerLines(screenMeta('SCR-02'), {}, null, { studyId: 'STUDY_DEMO' }).subtitle, 'Study STUDY_DEMO');
   assert.equal(headerLines(screenMeta('SCR-02'), {}, null).subtitle, null);

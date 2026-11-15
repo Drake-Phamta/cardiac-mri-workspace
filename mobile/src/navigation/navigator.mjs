@@ -100,8 +100,8 @@ export function createGuards() {
  * The nav object a screen receives, e.g. nav.push('SCR-03', { caseId }). A bad route returns false and goes
  * to onError before dispatch, instead of throwing from a tap handler (a crash in a release build).
  * Each action returns true or false, or a Promise of it when a leave guard had to be asked.
- * setContext({ caseId, runId, variant }) tells the header what the screen shows when the route params do not say
- * it (SCR-03 picks its run itself); onContext(key, context) receives it.
+ * setContext({ title, subtitle, caseId, ... }) tells the header what the screen shows when the route params do not
+ * say it (header.mjs lists the keys); onContext(key, context) receives it.
  */
 export function bindNav(dispatch, state, onError = null, guards = null, onContext = null) {
   const current = top(state);
