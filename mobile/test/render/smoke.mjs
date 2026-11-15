@@ -126,7 +126,8 @@ const { decodeMaskPng } = await imp('src/lib/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
-const { shortTouchables } = await imp('test/render/touch_measure.mjs');
+const { flat, shortTouchables } = await imp('test/render/touch_measure.mjs');
+const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -2048,6 +2049,12 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('H8', tabBar(r).map(textOf).join() === 'Study,Cases,Experiments,Findings'
     && tabBar(r).every((tab) => tab.findAll((n) => isIcon(n)).length === 1) && selectedTab(r) === 'Study',
   `tab bar: four tabs, each an icon and its name; selected: ${selectedTab(r)}`);
+  // Responsive (device session r4): a tab's name is one line as wide as its tab, and stops growing at the label cap, so
+  // "Study" is not cut to "Stud" at 480 dp and "Experiments" fits a quarter of 320 dp at font scale 1.3.
+  const tabNames = tabBar(r).map((tab) => tab.findAll((n) => n.type === 'Text')[0]);
+  check('RP-SH1', tabNames.length === 4 && tabNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
+    && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
+  `tab names: one line, as wide as the tab, capped at font scale ${LABEL_FONT_CAP}`);
   const infoButton = () => byTestId(r, 'header-info');
   await act(async () => { infoButton().props.onPress(); });
   check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),
