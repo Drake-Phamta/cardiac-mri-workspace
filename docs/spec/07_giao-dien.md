@@ -43,8 +43,12 @@ flowchart LR
 Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 - **Header** (56 dp): nút Back khi màn hình được mở từ màn hình khác; tên màn hình cho người đọc và dòng phụ
-  "ca · run RUN · biến thể" (ở gốc một tab là "Study <mã study>"). Màn hình tự báo được tiêu đề, dòng phụ và nút riêng
-  (`nav.setContext`); mã màn hình không hiện trên header. Bên phải: chỉ báo chế độ (một chấm và chữ "Live" hoặc
+  là mã ca (ở gốc một tab là "Study <mã study>"). Màn hình tự báo được tiêu đề, dòng phụ và nút riêng
+  (`nav.setContext`), ví dụ SCR-03 ghi tên thí nghiệm "DINOv2 100 %", SCR-04 ghi "ca · biến thể"; mã màn hình và mã run
+  không hiện trên header, kể cả lúc màn hình đang tải (vòng 8 thấy "CASE_0029 · run RUN_EXP-D-100_…" trong khoảng nửa giây
+  lúc SCR-04 tải, nay dòng phụ mặc định chỉ là mã ca). SCR-04 báo dòng phụ và khiên privacy cho header ngay từ khung đầu,
+  kể cả lúc đang tải, nên header không xô lệch khi ca tải xong (vòng 8 thấy khiên hiện muộn đẩy "Live" sang trái và
+  thoáng hiện "Error Insp…"); khi chỗ cho tiêu đề vẫn hẹp lại, dòng được vẽ ngay ở cỡ ước lượng từ bề rộng đã đo. Bên phải: chỉ báo chế độ (một chấm và chữ "Live" hoặc
   "Fixture"), nút biểu tượng của màn hình (khiên privacy ở SCR-03, SCR-04), nút Info, và nút "more" khi màn hình có
   menu riêng.
 - **Sheet Details** (nút Info): các mục của màn hình (mã, checksum, phiên bản, `z` của lát), rồi mục "This screen"
@@ -66,19 +70,20 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   (`SCREEN_CRASHED`).
 - **Bề ngang và cỡ chữ** (NFR-USAB-006): bố cục được kiểm ở 320, 384 (mặc định) và 480 dp, và ở cỡ chữ hệ thống 1,3.
   Nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng bằng ô chứa nó và chỉ phóng chữ tới 1,15 lần
-  (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy; mã ca và dòng phụ trong header nổi của khung viewer cũng vậy, vì Back và tới
+  (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy; tên màn hình và dòng phụ trong mọi header cũng vậy, cả header thường lẫn header nổi của khung viewer, vì Back, chữ "Live" và tới
   ba nút biểu tượng quanh chúng chiếm chỗ không đổi: ở 320 dp và cỡ chữ 1,3, "CASE_0029" không còn bị cắt thành
   "CASE_00…"; hai dòng đó còn tự đo bề rộng chữ và vẽ nhỏ lại cho vừa trước khi bị cắt: mỗi dòng có một bản chữ ẩn (cùng kiểu chữ, không
   giới hạn số dòng, không nhìn thấy, trình đọc màn hình bỏ qua) cho bề rộng thật của dòng qua `onTextLayout`, hộp tiêu đề cho chỗ
   có sẵn qua `onLayout`, và cỡ chữ giảm từng 0,5 sp, mỗi cỡ đo lại, đến khi dòng vừa chỗ trừ 1 dp, tối thiểu 0,6 lần với tên và
   0,75 lần với dòng phụ (`BAR_TEXT_MIN_SCALE`); chỉ khi ở mức tối thiểu vẫn không vừa thì dòng mới bị cắt bằng "…". Mỗi lần đổi
   chữ, chỗ có sẵn hoặc cỡ chữ hệ thống chỉ đo lại cho tới khi chốt cỡ, rồi không đo nữa (không dùng `adjustsFontSizeToFit` của
-  Text vì Android không co chữ: phiên 2026-11-15 vòng 7 vẫn thấy "Error Insp…"). Ở 320 dp chỗ giữa Back và "Live" chỉ 96 dp
+  Text vì Android không co chữ: phiên 2026-11-15 vòng 7 vẫn thấy "Error Insp…"; vòng 8 thấy SCR-04 vẫn bị cắt vì cách đo
+  này lúc đó chỉ bật cho header nổi, mà SCR-04 dùng header thường). Ở 320 dp chỗ giữa Back và "Live" chỉ 96 dp
   (89 dp ở cỡ chữ 1,3) mà "Error Inspector" cần 117 dp (134 dp ở mức giới hạn 1,15), nên tiêu đề SCR-04 cần co còn nhiều nhất khoảng
   0,82 (0,67 ở cỡ chữ 1,3) lần cỡ của nó; app lấy bậc 0,5 sp lớn nhất mà dòng còn vừa, theo số đo của điện thoại là 13,5 sp
   (11 sp ở cỡ chữ 1,3) thay vì 17 sp, nên không thành "Error Insp…", và dòng phụ "CASE_0029 · Raw" đủ chữ thay vì "CASE_0029…" (9,5 sp ở cỡ chữ 1,3); dòng phụ có mũi tên của bộ chọn
   run trừ 14 dp cho mũi tên và khoảng hở; tên màn hình vẫn là "Error Inspector", khớp mục
-  Tools và các tài liệu này, header thường không co chữ); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
+  Tools và các tài liệu này); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
   luôn đủ chữ; số (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3, và mã ca trong danh sách có hàng thanh
   (lowest-Dice của SCR-01) nằm trong ô có `minWidth` chứ không có bề rộng cố định, nên không bị cắt thành "CASE_00…" ở cỡ chữ 1,3; hàng
   nhãn rộng hơn màn hình (tab lọc của SCR-02) cuộn ngang, và dưới 360 dp khoảng cách giữa các tab là 16 dp thay vì 24 dp để ở
