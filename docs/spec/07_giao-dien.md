@@ -66,7 +66,10 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   (`SCREEN_CRASHED`).
 - **Bề ngang và cỡ chữ** (NFR-USAB-006): bố cục được kiểm ở 320, 384 (mặc định) và 480 dp, và ở cỡ chữ hệ thống 1,3.
   Nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng bằng ô chứa nó và chỉ phóng chữ tới 1,15 lần
-  (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy); số (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3; hàng
+  (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy; mã ca và dòng phụ trong header nổi của khung viewer cũng vậy, vì Back và tới
+  ba nút biểu tượng quanh chúng chiếm chỗ không đổi: ở 320 dp và cỡ chữ 1,3, "CASE_0029" không còn bị cắt thành
+  "CASE_00…"); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
+  luôn đủ chữ; số (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3; hàng
   nhãn rộng hơn màn hình (tab lọc của SCR-02) cuộn ngang; chữ thân bài phóng hết, mã thí nghiệm và mã khác chỉ hiện ở
   sheet Details.
 - **Lớp che phiên**: sau 5 phút ở nền hoặc 10 phút không chạm, màn hình bị che ("Screen hidden") và phím back không làm
