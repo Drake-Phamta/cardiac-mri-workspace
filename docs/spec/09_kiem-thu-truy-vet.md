@@ -85,7 +85,7 @@ nghiệm thu.
 | TC-MAINT-003 | Module quan trọng có test đăng ký trong CI | registry | Cả nhóm | Đã có |
 | TC-E2E-001 | Luồng demo MRI → dự đoán → lỗi → 3D → liên kết → rà soát / sửa → bản đã lưu, trên main | hero_flow_api, render smoke + điện thoại | Cả nhóm | Một phần: chưa chạy trên điện thoại với bản gộp |
 | TC-USAB-005 | Luồng demo chạy 5 lần liền trên thiết bị / bản build mục tiêu | + điện thoại | Cả nhóm | Chưa có |
-| TC-USAB-006 | Không chữ nào bị cắt, không số nào xuống dòng ở 320 / 384 / 480 dp và cỡ chữ 1,3 | render smoke (thuộc tính bố cục) + v1_bar_title và v1_tab_gap (số đo của điện thoại) + điện thoại | Phạm Tuấn Anh | Một phần: khung app, SCR-02 – SCR-04 đã sửa (SCR-03 kể cả 320 dp ở cỡ chữ 1,3, chip SCR-04 đủ chữ, tiêu đề SCR-04 co chữ cho vừa ở 320 dp, tab thứ ba của SCR-02 không chạm mép), chờ phiên điện thoại kiểm lại và các nhánh còn lại |
+| TC-USAB-006 | Không chữ nào bị cắt, không số nào xuống dòng ở 320 / 384 / 480 dp và cỡ chữ 1,3 | render smoke (thuộc tính bố cục) + v1_bar_title, v1_fit_font_size và v1_tab_gap (số đo của điện thoại) + điện thoại | Phạm Tuấn Anh | Một phần: khung app, SCR-02 – SCR-04 đã sửa (SCR-03 kể cả 320 dp ở cỡ chữ 1,3, chip SCR-04 đủ chữ, tiêu đề SCR-04 tự đo và co chữ cho vừa ở 320 dp, sửa lần hai sau vòng 7 vì Android không co chữ theo `adjustsFontSizeToFit`; tab thứ ba của SCR-02 không chạm mép), chờ phiên điện thoại kiểm lại (kiểm SCR-04 bằng ảnh chụp, không bằng dump giao diện) và các nhánh còn lại |
 | TC-PERF-004 | Yêu cầu bất đồng bộ đạt NFR-PERF-004 | — | Cả nhóm | Hướng phát triển |
 | TC-AN-001 | Vòng đời lượt chạy phân tích | — | Cả nhóm | Hướng phát triển |
 | TC-METRIC-001 | HD95 kiểm theo fixture khoảng cách bề mặt | — | Bế Quốc Khánh | Hướng phát triển |

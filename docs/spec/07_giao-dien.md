@@ -68,10 +68,16 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   Nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng bằng ô chứa nó và chỉ phóng chữ tới 1,15 lần
   (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy; mã ca và dòng phụ trong header nổi của khung viewer cũng vậy, vì Back và tới
   ba nút biểu tượng quanh chúng chiếm chỗ không đổi: ở 320 dp và cỡ chữ 1,3, "CASE_0029" không còn bị cắt thành
-  "CASE_00…"; hai dòng đó còn thu nhỏ chữ cho vừa trước khi bị cắt (`adjustsFontSizeToFit`, tối thiểu 0,6 lần với tên và 0,75 lần
-  với dòng phụ, `BAR_TEXT_MIN_SCALE`): ở 320 dp chỗ giữa Back và "Live" chỉ 96 dp (89 dp ở cỡ chữ 1,3) mà "Error Inspector" cần
-  117 dp (134 dp ở mức giới hạn 1,15), nên tiêu đề SCR-04 co còn 0,82 (0,67 ở cỡ chữ 1,3) lần cỡ của nó thay vì thành
-  "Error Insp…", và dòng phụ "CASE_0029 · Raw" đủ chữ thay vì "CASE_0029…"; tên màn hình vẫn là "Error Inspector", khớp mục
+  "CASE_00…"; hai dòng đó còn tự đo bề rộng chữ và vẽ nhỏ lại cho vừa trước khi bị cắt: mỗi dòng có một bản chữ ẩn (cùng kiểu chữ, không
+  giới hạn số dòng, không nhìn thấy, trình đọc màn hình bỏ qua) cho bề rộng thật của dòng qua `onTextLayout`, hộp tiêu đề cho chỗ
+  có sẵn qua `onLayout`, và cỡ chữ giảm từng 0,5 sp, mỗi cỡ đo lại, đến khi dòng vừa chỗ trừ 1 dp, tối thiểu 0,6 lần với tên và
+  0,75 lần với dòng phụ (`BAR_TEXT_MIN_SCALE`); chỉ khi ở mức tối thiểu vẫn không vừa thì dòng mới bị cắt bằng "…". Mỗi lần đổi
+  chữ, chỗ có sẵn hoặc cỡ chữ hệ thống chỉ đo lại cho tới khi chốt cỡ, rồi không đo nữa (không dùng `adjustsFontSizeToFit` của
+  Text vì Android không co chữ: phiên 2026-11-15 vòng 7 vẫn thấy "Error Insp…"). Ở 320 dp chỗ giữa Back và "Live" chỉ 96 dp
+  (89 dp ở cỡ chữ 1,3) mà "Error Inspector" cần 117 dp (134 dp ở mức giới hạn 1,15), nên tiêu đề SCR-04 cần co còn nhiều nhất khoảng
+  0,82 (0,67 ở cỡ chữ 1,3) lần cỡ của nó; app lấy bậc 0,5 sp lớn nhất mà dòng còn vừa, theo số đo của điện thoại là 13,5 sp
+  (11 sp ở cỡ chữ 1,3) thay vì 17 sp, nên không thành "Error Insp…", và dòng phụ "CASE_0029 · Raw" đủ chữ thay vì "CASE_0029…" (9,5 sp ở cỡ chữ 1,3); dòng phụ có mũi tên của bộ chọn
+  run trừ 14 dp cho mũi tên và khoảng hở; tên màn hình vẫn là "Error Inspector", khớp mục
   Tools và các tài liệu này, header thường không co chữ); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
   luôn đủ chữ; số (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3, và mã ca trong danh sách có hàng thanh
   (lowest-Dice của SCR-01) nằm trong ô có `minWidth` chứ không có bề rộng cố định, nên không bị cắt thành "CASE_00…" ở cỡ chữ 1,3; hàng
