@@ -17,7 +17,7 @@ import { IconDatabase, IconInfo } from '../../components/icons';
 import ListRow, { SectionLabel } from '../../components/ListRow';
 import { space } from '../../components/theme';
 import {
-  Blocked, Body, ExperimentRow, InfoRow, LinkRow, MetricLegend, Note, Section, StripChart, useSnapshot, ValueRow,
+  Blocked, blockedNotice, Body, ExperimentRow, InfoRow, LinkRow, MetricLegend, Note, Section, StripChart, useSnapshot, ValueRow,
 } from './parts';
 import AboutDataSheet from './AboutDataSheet';
 import { PickerRow, PickerSheet } from './Picker';
@@ -55,10 +55,11 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   }, [model, idsKey, run]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = useCallback((route) => {
-    if (!route || !route.ok) { setBlocked(route ? route.reason : 'no link'); return; }
+    if (!route || !route.ok) { setBlocked(blockedNotice(route ? route.reason : 'no link')); return; }
     setBlocked(null);
     nav.push(route.screenId, route.params);
   }, [nav]);
+  const clearBlocked = useCallback(() => setBlocked(null), []);
 
   const onAction = useCallback((id) => {
     if (id === RECOVERY.BACK) nav.pop();
@@ -111,9 +112,9 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
               onCompare={setCompareId}
               onTrend={setTrendFamily}
               go={go}
-              blocked={blocked}
               onSheet={setSheet}
             />
+            <Blocked notice={blocked} onDone={clearBlocked} />
             <AboutDataSheet
               visible={sheet === 'about'}
               sections={aboutData({ fixture: snap.source === 'fixture' })}
@@ -152,8 +153,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
 }
 
 function Comparison({
-  v, cells, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onCell, onCompare, onTrend, go, blocked,
-  onSheet,
+  v, cells, pairs, trend, metricName, columns, point, onPoint, paired, onPaired, onCell, onCompare, onTrend, go, onSheet,
 }) {
   const detail = pointDetail(point, metricName);
   // Opened for a pair, the runs and comparisons that were not asked for are left out; with the full matrix they stay,
@@ -242,8 +242,6 @@ function Comparison({
           />
         ))}
       </Section>
-
-      <Blocked text={blocked} />
     </ScrollView>
   );
 }

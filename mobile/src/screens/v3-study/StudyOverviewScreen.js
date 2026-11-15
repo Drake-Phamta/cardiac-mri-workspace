@@ -14,7 +14,7 @@ import { IconDatabase } from '../../components/icons';
 import ListRow from '../../components/ListRow';
 import MetricStrip from '../../components/MetricStrip';
 import { color, space, type } from '../../components/theme';
-import { Blocked, Note, Section, useSnapshot } from './parts';
+import { Blocked, blockedNotice, Note, Section, useSnapshot } from './parts';
 import DatasetThumb from './DatasetThumb';
 import { PickerRow, PickerSheet } from './Picker';
 import { FamilyLegend } from './charts';
@@ -52,10 +52,11 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
   }, [nav, details]);
 
   const go = useCallback((route) => {
-    if (!route || !route.ok) { setBlocked(route ? route.reason : 'no link'); return; }
+    if (!route || !route.ok) { setBlocked(blockedNotice(route ? route.reason : 'no link')); return; }
     setBlocked(null);
     nav.push(route.screenId, route.params);
   }, [nav]);
+  const clearBlocked = useCallback(() => setBlocked(null), []);
 
   // BACK leaves; every other recovery action (RETRY, REFRESH, REAUTH) loads again.
   const onAction = useCallback((id) => {
@@ -67,7 +68,8 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
     <StateView view={snap.view} what="the study overview" onAction={onAction}>
       {() => (
         <>
-          <Overview v={v} snap={snap} go={go} blocked={blocked} onAbout={() => setAboutOpen(true)} />
+          <Overview v={v} snap={snap} go={go} onAbout={() => setAboutOpen(true)} />
+          <Blocked notice={blocked} onDone={clearBlocked} />
           <AboutDataSheet
             visible={aboutOpen}
             sections={aboutData({ datasetName: v.study.datasetName, fixture: snap.source === 'fixture' })}
@@ -79,7 +81,7 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
   );
 }
 
-function Overview({ v, snap, go, blocked, onAbout }) {
+function Overview({ v, snap, go, onAbout }) {
   const cases = casesTile(snap.caseCounts);
   const findings = findingsTile(snap.findings);
   const dice = diceTile(snap.headline);
@@ -186,8 +188,6 @@ function Overview({ v, snap, go, blocked, onAbout }) {
         onClose={() => setPickerOpen(false)}
         testID="scr01-picker-sheet"
       />
-
-      <Blocked text={blocked} />
     </ScrollView>
   );
 }

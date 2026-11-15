@@ -118,7 +118,9 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   compared".
 - **Thao tác**: chạm ô "Cases" hoặc "Findings"; chạm một dòng Median Dice; chọn thí nghiệm ở hàng "Experiment"; chạm một
   dòng ca Dice thấp; mở "About this data". Link không mở được (một thí nghiệm của cặp chưa có, hoặc ca không nêu run)
-  thì hiện dòng "Cannot open: <lý do>", app không làm gì khác. Lý do viết bằng chữ thường: tên thí nghiệm thay cho mã
+  thì hiện thông báo "Cannot open: <lý do>", app không làm gì khác. Thông báo gắn vào màn hình (nổi trên trang, sát đáy
+  vùng nội dung, như thông báo cùng tên của khung app), không nằm ở cuối trang dài, nên chạm ở đầu trang vẫn thấy ngay; nó tự
+  tắt sau 4 giây và không chặn thao tác bên dưới. Lý do viết bằng chữ thường: tên thí nghiệm thay cho mã
   ("Cannot open: UNet 25 %, DINOv2 25 % not available to compare"), không có mã luật, chỗ trỏ tới đặc tả hay tên trường.
   Câu đầy đủ của model vẫn nằm trong sheet Details. Ô "Resolved" chỉ để đọc.
 - **Điều hướng**: SCR-02 (ô "Cases"), SCR-08 (ô "Findings"), SCR-07 (dòng Median Dice, kèm hai thí nghiệm của cặp),
@@ -323,7 +325,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 - **Thao tác**: đổi chỉ số; chạm một chấm rồi "Open this case" hoặc "Open in <run>"; chạm một dòng của "Experiments",
   "Comparisons" hay xu hướng để mở sheet; mở "Metric definitions" và "About this data".
 - **Điều hướng**: SCR-03 (ca, run, biến thể và thí nghiệm do server nêu). Link không mở được thì hiện lý do dưới dòng
-  hoặc "Cannot open: <lý do>". Dòng "Cannot open" của SCR-07 viết lý do giống SCR-01 (cùng một hàm, `blockedText`).
+  hoặc thông báo "Cannot open: <lý do>". Thông báo của SCR-07 gắn vào màn hình và viết lý do giống SCR-01 (cùng một thành
+  phần `Blocked` và một hàm, `blockedText`).
 - **Vùng chạm**: mỗi dòng và hàng chọn cao ít nhất 48 dp; một chấm trên biểu đồ (strip, hiệu số) chọn được khi chạm trong
   bán kính 24 dp quanh tâm, chấm gần nhất được chọn. Đo từ style và phép thử chạm trong test, chưa đo trên điện thoại.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-07.png` (chưa có).

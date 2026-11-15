@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-nativ
 import Svg, { Circle, G, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 
 import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, HAIRLINE, MIN_TOUCH, size, space, type } from '../../components/theme';
+import { color, font, HAIRLINE, MIN_TOUCH, radius, size, space, type } from '../../components/theme';
 import { IconAlert, IconChevronRight } from '../../components/icons';
 import { MiniBar, SectionLabel } from '../../components/ListRow';
 import { blockedText, pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
@@ -147,14 +147,27 @@ export function MetricLegend({ selected = null }) {
   );
 }
 
-// Why a tap did nothing: a link that cannot open (the reason comes from the model), as a plain danger row. The reason
-// goes through blockedText, so neither screen shows an experiment id or a rule id here.
-export function Blocked({ text }) {
-  const reason = blockedText(text);
+// Why a tap did nothing: a link that cannot open (the reason comes from the model). It is a notice anchored to the
+// screen, over the page, like the shell's own "Cannot open" notice: the page is long, so a line at its end was out of
+// sight when the tap was near the top. It goes away by itself after NOTICE_MS (touches pass through it). The reason goes
+// through blockedText, so neither screen shows an experiment id or a rule id here. A screen keeps a notice from
+// blockedNotice(reason): a new one for the same reason shows again, and starts the clock again.
+export const NOTICE_MS = 4000;
+let noticeSeq = 0;
+export const blockedNotice = (reason) => Object.freeze({ reason, n: (noticeSeq += 1) });
+
+export function Blocked({ notice = null, onDone = null, ms = NOTICE_MS }) {
+  const reason = notice ? blockedText(notice.reason) : null;
+  const n = notice ? notice.n : 0;
+  useEffect(() => {
+    if (!reason || typeof onDone !== 'function') return undefined;
+    const timer = setTimeout(onDone, ms);
+    return () => clearTimeout(timer);
+  }, [reason, n, onDone, ms]);
   if (!reason) return null;
   return (
-    <View style={s.blocked} accessibilityRole="alert">
-      <IconAlert size={16} strokeWidth={2} color={color.danger} />
+    <View style={s.blocked} accessibilityRole="alert" pointerEvents="none" testID="blocked-notice">
+      <IconAlert size={18} strokeWidth={2} color={color.danger} />
       <Text style={s.blockedText}>{`Cannot open: ${reason}`}</Text>
     </View>
   );
@@ -192,8 +205,11 @@ const s = StyleSheet.create({
   legendLine: { ...type.secondary, lineHeight: 18, color: color.t2 },
   legendOn: { color: color.t1 },
   legendName: { fontWeight: '600' },
-  blocked: { flexDirection: 'row', alignItems: 'center', gap: space.s, marginTop: space.l },
-  blockedText: { ...type.secondary, flex: 1, color: color.danger },
+  blocked: {
+    position: 'absolute', left: space.l, right: space.l, bottom: space.l, flexDirection: 'row', alignItems: 'center',
+    gap: space.s, padding: space.m, borderRadius: radius.m, backgroundColor: color.raised,
+  },
+  blockedText: { ...type.body, flex: 1, color: color.t1 },
 });
 
 // SCR-07 strip chart: one column per experiment, one marker per evaluated case (UNet circle, DINOv2 triangle), a

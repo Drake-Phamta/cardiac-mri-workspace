@@ -834,6 +834,29 @@ function noRunBackend() {
   check('V3R23', cannotOpen.length === 1 && cannotOpen[0] === 'Cannot open: UNet 25 %, DINOv2 25 % not available to compare'
     && onScreen(r, 'SCR-01'), `a Median Dice row that cannot open says why with run names, and stays on SCR-01: ${cannotOpen.join(' | ')}`);
   check('V3R23', !texts(r).some((t) => /EXP-|DR-\d|INT-\d|section \d/.test(t)), 'with that line on the page there is still no experiment id or rule id');
+  // Responsive (device session r4): the notice is anchored to the screen, over the page, not at the end of the long page
+  // (a tap near the top showed nothing); touches pass through it, and it goes away by itself.
+  const notice = byTestId(r, 'blocked-notice');
+  const underScroll = (n) => { for (let p = n.parent; p; p = p.parent) if (p.type === 'ScrollView') return true; return false; };
+  check('RP-V3c', Boolean(notice) && !underScroll(notice) && flatStyle(notice.props.style).position === 'absolute'
+    && flatStyle(notice.props.style).bottom >= 0 && notice.props.accessibilityRole === 'alert' && notice.props.pointerEvents === 'none',
+  'SCR-01: "Cannot open" is a notice over the screen, outside the scrolled page, an alert that lets touches through');
+  {
+    const { Blocked, blockedNotice } = await imp('src/screens/v3-study/parts.js');
+    let done = 0;
+    let nr;
+    const shown = () => nr.root.findAll((n) => n.type === 'Text').map(textOf).join('|');
+    await act(async () => {
+      nr = TestRenderer.create(React.createElement(Blocked, { notice: blockedNotice('EXP-U-025, EXP-D-025 not available to compare'), onDone: () => { done += 1; }, ms: 40 }));
+    });
+    const before = shown();
+    await tick(150);
+    check('RP-V3c', before === 'Cannot open: UNet 25 %, DINOv2 25 % not available to compare' && done === 1,
+      `the notice names the runs, not their ids, and asks to be cleared after its time (${done} call)`);
+    await act(async () => { nr.update(React.createElement(Blocked, { notice: null, onDone: () => { done += 1; }, ms: 40 })); });
+    check('RP-V3c', shown() === '' && blockedNotice('x').n !== blockedNotice('x').n, 'no notice, nothing drawn; the same reason twice is a new notice');
+    await act(async () => { nr.unmount(); });
+  }
   await press(r, 'Experiments');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^Fixture$/), 'SCR-07 opened from SCR-01, under the Fixture indicator');
