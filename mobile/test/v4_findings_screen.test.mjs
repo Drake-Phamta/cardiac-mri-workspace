@@ -135,6 +135,27 @@ test('FS7 a route with a run but no variant makes the form ask for it before cre
   assert.equal(s.items[0].finding.variant, 'PROCESSED');
 });
 
+test('FS9 the note is checked as it is typed: a possible personal detail warns, too long blocks and sends nothing', async () => {
+  const runtime = fixtureRuntime();
+  const sent = [];
+  const client = { ...runtime.client, call: (id, p, o) => { sent.push(id); return runtime.client.call(id, p, o); } };
+  const ctl = createFindingsScreen({ runtime: { ...runtime, client }, params: { caseId: 'CASE_0043', sliceIndex: 44 } });
+  await loadList(ctl, client);
+  ctl.setType('OTHER');
+  ctl.setNote('Seen with Dr Smith on 12/03/2024');
+  let s = ctl.getState();
+  assert.deepEqual([...s.noteCheck.warnings], ['looks like a date', 'looks like a person\'s name (a title before a name)']);
+  assert.equal(s.canSubmit, true, 'a warning does not block: the user may create anyway');
+  ctl.setNote('x'.repeat(501));
+  s = ctl.getState();
+  assert.equal(s.noteCheck.tooLong, true);
+  assert.equal(s.canSubmit, false);
+  s = await ctl.submit();
+  assert.equal(s.notice.kind, 'refused');
+  assert.match(s.notice.text, /at most 500/);
+  assert.deepEqual(sent, ['findings_list'], 'nothing was sent for the over-long note');
+});
+
 test('FS8 a stale Resolve keeps the list, shows Refresh, and a freshly read list clears the banner', async () => {
   const runtime = fixtureRuntime();
   // The generator has no stale scenario for finding_patch, so the generator's own
