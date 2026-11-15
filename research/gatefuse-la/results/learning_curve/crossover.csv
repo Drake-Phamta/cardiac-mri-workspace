@@ -1,0 +1,2 @@
+gap_threshold,n_star,boot_median,boot_lo,boot_hi,n_boot_fits,share_no_crossover_below_2000
+0.005,34.61504769931605,34.61504769931605,10.604555172394418,98.75921076077184,1000,0.021
