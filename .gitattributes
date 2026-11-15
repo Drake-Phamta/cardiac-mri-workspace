@@ -1,15 +1,12 @@
 # Line-ending policy.
 #
-# The specification is checked with `sha256sum -c` (docs/specs/v1.0), which
-# hashes the WORKING COPY. On Windows, core.autocrlf=true would rewrite LF to
-# CRLF on checkout and change every hash although the committed blob is
-# correct. -text turns conversion off, so the working copy stays byte-identical
-# to the blob on every platform and the checksum check means what it says.
-docs/specs/v1.0/**          -text
+# Files checked with `sha256sum -c` hash the WORKING COPY. On Windows,
+# core.autocrlf=true would rewrite LF to CRLF on checkout and change every hash
+# although the committed blob is correct. -text turns conversion off, so the
+# working copy stays byte-identical to the blob on every platform.
 
 # Manifests and checksummed fixtures must round-trip byte for byte.
 *.sha256                    -text
-SPEC_MANIFEST_SHA256.txt    -text
 mobile/src/screens/**/fixtures/** -text
 prototypes/**/fixtures/**   -text
 prototypes/**/fixtures_proposal/** -text
@@ -27,6 +24,7 @@ data/manifests/**           -text
 *.html    text eol=lf
 *.sh      text eol=lf
 *.ps1     text eol=lf
+*.csv     text eol=lf
 
 # Binary.
 *.png     binary

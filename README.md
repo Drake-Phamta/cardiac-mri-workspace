@@ -14,8 +14,8 @@ thoại không train và không chạy mô hình.
 |---|---|
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Các quyết định kỹ thuật quan trọng và lý do |
 | [docs/RESULTS.md](docs/RESULTS.md) | Kết quả đo được: ML trên tập holdout, các thí nghiệm công nghệ |
-| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 33 yêu cầu bắt buộc, ai phụ trách, trạng thái |
-| [docs/specs/v1.0/](docs/specs/v1.0/) | Đặc tả sản phẩm đầy đủ (16 tài liệu, có checksum) |
+| [docs/spec/](docs/spec/) | Đặc tả sản phẩm (tiếng Việt, 10 chương): yêu cầu, ai phụ trách, trạng thái, màn hình, API |
+| [docs/trace/matrix.csv](docs/trace/matrix.csv) | Ma trận truy vết yêu cầu → mã → test, kiểm bằng `tools/trace_check.py` trong CI |
 
 ## Kiến trúc
 
@@ -142,4 +142,4 @@ Có: app chạy hai chế độ fixture và live, đủ khung các màn hình V1
 kết quả DINOv2 trên 54 case holdout (Dice 3D trung bình 0,6390, sau hậu xử lý 0,6590); luồng demo H1–H10 chạy được qua
 API (trừ bước so sánh UNet). Chưa có: UNet
 chưa train nên chưa so sánh được UNet với DINOv2; biểu diễn lỗi trên mô hình 3D chưa làm; phần lớn yêu cầu còn thiếu
-bằng chứng chạy trên điện thoại. Chưa yêu cầu MUST nào được nghiệm thu chính thức ([docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)).
+bằng chứng chạy trên điện thoại. Chưa yêu cầu MUST nào được nghiệm thu chính thức (trạng thái từng yêu cầu: [docs/spec/02_yeu-cau-chuc-nang.md](docs/spec/02_yeu-cau-chuc-nang.md)).
