@@ -996,6 +996,11 @@ function noRunBackend() {
     check('RP-V3f', notCompared.length === 3 && notCompared.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP)
       && track.minHeight === 16 && track.height === undefined && Boolean(line),
     'SCR-01 "Not compared": one line, capped at font scale 1.15, in a track with a minHeight (a fixed 16 dp cut the tail of the "p"), the line placed from the middle');
+    const legendNote = r.root.findAll((n) => n.type === 'Text' && textOf(n) === '0 to 1, higher is better')[0];
+    const legendRow = flatStyle(hostBox(legendNote).props.style);
+    const keys = r.root.findAll((n) => n.type === 'View' && n.props.accessibilityLabel === 'Legend: UNet is a circle, DINOv2 is a triangle')[0];
+    check('RP-V3g', legendRow.flexWrap === 'wrap' && legendRow.columnGap >= 12 && flatStyle(keys.props.style).marginLeft === 'auto',
+      'SCR-01 legend: the note and the two family keys wrap, 12 dp apart when they share a line, the keys at the right of their line');
   }
   await act(async () => { r.unmount(); });
   check('V3R21', reports[reports.length - 1] === null, 'leaving the screen clears what it reported');

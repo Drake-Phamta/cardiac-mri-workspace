@@ -230,9 +230,11 @@ const s = StyleSheet.create({
   counts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.l, marginTop: space.s },
   countText: { ...type.caption, color: color.t2, fontVariant: ['tabular-nums'] },
   countNumber: { fontWeight: '500', color: color.t1 },
-  legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // The note and the two family keys share a line when they fit it, 12 dp apart; at 320 dp and font scale 1.3 they do not, and the
+  // keys drop to a line of their own at the right instead of touching the note ("higher is better" ran into the UNet dot).
+  legend: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.m, rowGap: space.xs },
   legendText: { ...type.caption, color: color.t2 },
-  legendKeys: { marginTop: 0 },
+  legendKeys: { marginTop: 0, marginLeft: 'auto' },
   diceRows: { marginTop: space.s },
   notes: { marginTop: space.s, gap: 2 },
   noBar: { flex: 1, alignItems: 'flex-end' },

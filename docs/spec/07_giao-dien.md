@@ -84,7 +84,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
     đã xử lý, chú thích "findings"). Dưới dải là số ca theo chế độ ("1 evaluation", "1 inference & review").
   - Mục "Median Dice · UNet vs DINOv2", bên phải ghi "n of 3 comparable" (ở 320 dp hoặc cỡ chữ 1,3 mà không đủ chỗ thì
     câu này xuống dòng ngay dưới tên mục, không bị cắt; mọi tên mục của SCR-01 và SCR-07 làm như vậy). Một dòng chú giải "0 to 1, higher is better"
-    và khoá họ ("UNet" chấm tròn xanh, "DINOv2" tam giác cam). Ba dòng "25 % data", "50 % data", "100 % data", mỗi dòng
+    và khoá họ ("UNet" chấm tròn xanh, "DINOv2" tam giác cam); hai phần này cách nhau 12 dp khi chung một dòng, và khi không đủ chỗ
+    (320 dp ở cỡ chữ 1,3) khoá họ xuống một dòng riêng ở bên phải thay vì chạm vào chấm "UNet". Ba dòng "25 % data", "50 % data", "100 % data", mỗi dòng
     có một thang 0 – 1 (vạch 0, 0.5, 1); nhãn dòng và số nằm trên một dòng và chỉ phóng chữ tới 1,15 lần, cột nhãn đủ rộng cho
     "100 % data" ở mức đó (không còn xuống hai dòng và bị đường kẻ cắt ở cỡ chữ 1,3). Cặp mà server nói so sánh được thì thang có một chấm tròn UNet và một tam giác
     DINOv2 đặt ở Dice trung vị của mỗi bên, và bên phải ghi hai số ("0.655 · 0.685", UNet trước). Các cặp khác thì thang
