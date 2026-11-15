@@ -54,6 +54,64 @@ def tiny_work(tmp_path_factory):
     return make_tiny_work(tmp_path_factory.mktemp("work"))
 
 
+def tiny_volume(work: Path, vol: str):
+    """(reference mask cropped to the volume, label slices on the canvas) of one tiny_work volume."""
+    from data import gt_volume, volume_index
+    meta = pd.read_csv(work / "prep" / "meta.csv", index_col="idx")
+    labels = np.load(work / "prep" / "labels.npy")
+    return gt_volume(meta, labels, vol), labels[volume_index(meta, vol)].astype(bool)
+
+
+@pytest.fixture(scope="session")
+def fake_run(tiny_work):
+    """fake_run(folder, prob=..., gate=..., finished=True, **config) writes a run folder like train_ml.py does.
+
+    prob(gt, rng) gives the uint8 probabilities of a volume from its reference mask (default: perfect);
+    gate(canvas_labels) gives its gate values (default: no gate file); config overrides config.json fields."""
+    def make(folder, prob=lambda gt, rng: gt * 255, gate=None, finished=True, **config):
+        cfg = dict(model="gate", labels="few", seed=0, iters=200, batch=16, width=128, unet_base=16, eval_every=100,
+                   n_params=1000, n_train_slices=6, n_train_vols=2)
+        cfg.update(config)
+        folder.mkdir(parents=True)
+        (folder / "config.json").write_text(json.dumps(cfg))
+        rng = np.random.default_rng(cfg["seed"])
+        for split in ("val", "test"):
+            vols = {v: tiny_volume(tiny_work, v) for v in TINY_SPLITS[split]}
+            np.savez_compressed(folder / f"pred_{split}.npz",
+                                **{v: np.asarray(prob(gt, rng)).astype(np.uint8) for v, (gt, _) in vols.items()})
+            if gate is not None:
+                np.savez_compressed(folder / f"gate_{split}.npz",
+                                    **{v: np.asarray(gate(canvas), np.float16) for v, (_, canvas) in vols.items()})
+        if finished:
+            pd.DataFrame(dict(iter=[100, 200], loss=[0.5, 0.4], val_dice=[0.8, 0.9], lr=[1e-3, 1e-5],
+                              sec=[10.0, 20.0])).to_csv(folder / "history.csv", index=False)
+            (folder / "summary.json").write_text(json.dumps(dict(best_iter=200, best_val_dice=0.9, train_sec=20.0,
+                                                                 n_params=cfg["n_params"])))
+        return folder
+    return make
+
+
+SCORE_DEFAULTS = dict(source="runs", model="gate", labels="few", fusion="token", width=128, unet_base=16,
+                      loss="bce_dice", aug="none", split_set="ip", n_train_vols=8, iters=2000)
+
+
+@pytest.fixture(scope="session")
+def make_scores():
+    """make_scores(dice, seeds=(0, 1, 2), **fields): rows of evaluate_ml.py's per_case.csv for one
+    configuration. dice holds one value per volume (seed s adds 0.001 * s); fields override
+    SCORE_DEFAULTS and the split ("test"), post-processing ("raw") and volume names."""
+    def make(dice, seeds=(0, 1, 2), split="test", pp="raw", vols=None, hd95=None, **fields):
+        f = dict(SCORE_DEFAULTS, **fields)
+        vols = vols or [f"v{i:02d}" for i in range(len(dice))]
+        hd95 = 20 * (1 - np.asarray(dice)) if hd95 is None else np.asarray(hd95)
+        name = "_".join(str(f[k]) for k in ("model", "labels", "split_set", "fusion", "width", "loss", "aug", "iters"))
+        rows = [dict(f, run=f"{name}_s{s}", seed=s, split=split, pp=pp, vol=v, dice=d + 0.001 * s,
+                     jaccard=(d + 0.001 * s) / (2 - d - 0.001 * s), hd95=h, asd=h / 4, vol_err=5.0)
+                for s in seeds for v, d, h in zip(vols, dice, hd95)]
+        return pd.DataFrame(rows)
+    return make
+
+
 @pytest.fixture(scope="session")
 def train_on_tiny_work(tiny_work):
     """train_on_tiny_work("train_ml.py", [options], out_dir) runs 5 iterations on the CPU."""
