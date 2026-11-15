@@ -23,6 +23,7 @@ build installs).
 | `react-native-svg` | `15.15.4` | MIT | vector mask overlays in source-pixel coordinates |
 | `react-native-safe-area-context` | `~5.7.0` | MIT | Android 16 draws edge-to-edge; header and tab bar need the insets |
 | `react-test-renderer` *(devDependency)* | `19.2.3` (exact) | MIT | the render-smoke harness only — deprecated upstream, test-only, run in CI only by the `mobile-render-bundle` job, never bundled. Pulls in a **nested `react-is` 19.3.0** (MIT; its own caret range `^19.2.3`, locked at `node_modules/react-test-renderer/node_modules/react-is`) next to React 19.2.3 — harmless for a test-only renderer; the top-level `react-is` 18.3.1 belongs to other packages |
+| `expo-print` | `~57.0.2` | MIT | SCR-08 "Export PDF": opens Android's print dialog on the findings shown ("Save as PDF"). No dependencies, no install script; the version Expo 57 lists. A native module: it works after the next APK build; `src/screens/v4-review/pdfExport.js` loads it with `require` inside `try` (Metro treats it as optional), so an older APK, the render harness and an export without it show the button off and say why — V4 |
 | `expo-screen-capture` | `~57.0.4` (locked 57.0.4) | MIT | V1 privacy mode on SCR-03 / SCR-04 (Android secure-window flag: screenshots, recording, casting and the recent-apps preview go black). A **native module**: it works only in an APK built after it was added; older APKs and the render harness read "not available in this build". Loaded only in `src/lib/screenCapture.js`, with `require` inside `try` (Metro: optional). No dependencies, no install script (`npm view expo-screen-capture@57.0.4`) |
 | `fast-png` | `8.0.0` (exact) | MIT | decodes the contract's 8-bit mask PNGs (`content_url`) to pixels — the one adapter is `src/lib/maskPng.js`, shared by V1 (SCR-03, SCR-04) and V4 (SCR-06). Pulls in `fflate` 0.8.3 (MIT) and `iobuffer` 6.0.1 (MIT). Checked: `npm view fast-png version license dependencies` → 8.0.0, MIT, `{fflate ^0.8.2, iobuffer ^6.0.1}`; `test/deps.test.mjs` decodes a 2×2 grey PNG; Metro bundled it to Hermes bytecode (`expo export:embed --bytecode`, 17 modules) |
 
@@ -32,7 +33,7 @@ build installs).
 cd mobile
 npm ci                       # once
 npm start                    # fixture mode, Metro dev server; open in a dev build
-npm test                     # 309 logic tests (node --test), no device, no emulator
+npm test                     # logic tests (node --test), no device, no emulator
 ```
 
 `npm start`, `npm run android` and `npm run export:android` all run `scripts/prepare.mjs` first. It writes two
@@ -243,6 +244,15 @@ so the `10` §8 state model looks and behaves the same on every screen.
   and **A9 30-step** (the TC-PERF-001 sequence, a warm pass then a measured pass). The phone computes
   nothing: `node mobile/scripts/slice-timing-report.mjs <logcat.txt>` prints n / p50 / p95 per pass
   (nearest-rank), and keeps DEV-build samples apart.
+- **Stroke timing (TC-PERF-003, NFR-PERF-003)** — SCR-06 writes one line per stroke when its last frame has been shown:
+  `CMW_STROKE {"stroke","slice","tool","px","strokes_before","runs_start","runs_end","ms_to_frame","moves","move_p50","move_p95","move_max","frames","gap_p50","gap_max","end","dev","mode"}`
+  (`src/screens/v4-review/strokeTiming.mjs` says what each field is). `ms_to_frame` runs from the gesture's start in JS to the
+  first `requestAnimationFrame` after the update that drew the first stamp; `move_*` is the same for each later move, `gap_*`
+  the time between frames while painting, `strokes_before` and `runs_*` what the cost is read against. No case, run or review id,
+  no coordinate and no pixel is logged. On the laptop: `adb logcat --pid <pid> -v threadtime > logcat.txt`, paint (about 30
+  strokes on one slice, then a few on another), then `node mobile/scripts/stroke-timing-report.mjs logcat.txt` prints n / p50 /
+  p95 / max by how many strokes were already committed and judges p95 <= 100 ms. The time leaves out the touch panel and ends at
+  the frame callback, up to one frame before the pixels are lit.
 
 ## V2 screen (SCR-05) - a working skeleton
 
@@ -283,15 +293,13 @@ Renders the real shell and the **V1, V2, V3 and V4** screens in Node with **`rea
 **devDependency**, MIT, **deprecated upstream**) and host-string stand-ins for React Native, react-native-svg,
 safe-area-context and react-native-webview (`test/render/mocks/`; the WebView mock records the messages the screen sends); screens get the real runtime (`src/api/runtime.mjs`) — the generated fixture bundle, or a
 fake live backend whose PNGs are encoded with `node:zlib`. It checks navigation, the state panels, the variant rule,
-the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count (**279** at
-this commit: 159 with the shell, V1, V2 and V3, 205 with `V4a`..`V4n`, 212 with the V4 follow-ups `V4o` and `V4p`, 217 with
-`R4`, `R5` and `V4q`, 235 with the shell checks `H1`..`H6` and the folded Provenance in `L8` / `E4k`, 240 with the tab bar and Details sheet checks `H7`, `H8`, 243 with the viewer chrome `H9`, 264 with the V1 upgrades, 279 with V1 in Direction A: `A1`..`A4`, `C2`, `F1`, `W0`). Counts of drawn marks (overlay paths, chart dots, mask rects) leave icons out: an icon's Svg has a `testID` starting with `icon-`. `test/render/smoke.mjs` is in numbered sections:
+the slice cache, the overlay paths and the `CMW_GESTURE` byte counts. The harness prints its check count. Counts of drawn marks (overlay paths, chart dots, mask rects) leave icons out: an icon's Svg has a `testID` starting with `icon-`. `test/render/smoke.mjs` is in numbered sections:
 
 | Section | What it renders |
 |---|---|
 | 1 – 4, 2b, 2c, 3b, 6 – 9 | the shell and **V1** (SCR-02, SCR-03, SCR-04): navigation, state panels, the variant rule, the slice cache, overlays and the `CMW_GESTURE` byte counts; the hardware back button and leave guards; `useCall` aborting when disabled; Back from SCR-04 (`R1`..`R3`) and from SCR-06 (`R4`, `R5`) restoring SCR-03's run, variant and slice (the SCR-05 entry's `returnParams` are held by `V2R14`); overlay styles `O1`, `O2`, error colours `C1`, Play / hold / double tap `P1`..`P3`, privacy mode `V5`; Direction A: the app bar a viewer reports, the bottom panel, chips and toolbar, the Tools sheet and the Details sheet (`A1`..`A4`), SCR-04's class chips (`C2`), no black frame between slices (`F1`) |
 | 5 | **V3**: SCR-01 and SCR-07 on the fixture runtime |
-| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`) |
+| 10 | **V4**: SCR-06 Review / Correction and SCR-08 Findings against a stateful fake backend that answers like the real one (hero steps H8 / H9) — checks `V4a`..`V4q`, including the leave guard (and that dismissing its prompt is an answer, `V4q`), a stale revision, continuing a `CORRECTED` review, a slice of another mask than the run's artifact (`V4o`) and another reviewer's newer version (`V4p`); the upgrades: note privacy warning (`V4r`), source edge and Hold: source (`V4s`), sizes in px and the brush ring (`V4t`), the flag reason (`V4u`), the review history (`V4v`), findings newest first, filter tabs and chips and Export PDF without expo-print (`V4w`); the Direction A restyle: the viewer chrome and the slice row that no text can push (`V4x`, `V4xa`), Hold source that does not fade (`V4y`), the view and Undo after Save (`V4z`) |
 | 11 | **V2**: SCR-05 3D Inspector on the live runtime with the WebView mocked (H6 / H7) — checks `V2R1`..`V2R14` |
 | 12 | **Shell**: the header (name, case, run, Back, Live / Fixture), the tab bar, the Details sheet behind Info (and that it hides under the session cover), the state panel (placeholder, code, one action, folded details), the session cover (idle, background, back button), Clear cached images, and the viewer chrome a screen can opt in to (floating app bar, no tab bar) — checks `H1`..`H9` |
 | 13 | **V1**: SCR-02 as a worklist on a fake backend — search, filter tabs with counts, Dice bars, No GT, worst first with the No Dice group, the server's outlier tags, a variant mismatch — checks `W0`..`W4` |
