@@ -135,7 +135,7 @@ const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { shortTouchables } = await imp('test/render/touch_measure.mjs');
-const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
+const { LABEL_FONT_CAP, BAR_TEXT_MIN_SCALE } = await imp('src/components/tokens.mjs');
 
 const { flat } = await imp('test/render/touch_measure.mjs');
 const contractJson = readContractJson();
@@ -2136,6 +2136,12 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('RP-SH2', ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(viewer, t).props.numberOfLines === 1 && lineOf(viewer, t).props.maxFontSizeMultiplier === LABEL_FONT_CAP)
       && ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(plain, t).props.maxFontSizeMultiplier === undefined),
     `the viewer's floating bar: title and subtitle on one line, capped at font scale ${LABEL_FONT_CAP}; a plain bar is not capped`);
+    // Responsive (device session r6): at 320 dp the room beside Back, Live, the shield and Info is 96 dp, and "Error Inspector" read "Error Insp...":
+    // a floating bar's two lines shrink to fit (down to BAR_TEXT_MIN_SCALE) before they are cut; a plain bar has room and keeps its size.
+    check('RP-SH3', lineOf(viewer, 'CASE_0029').props.adjustsFontSizeToFit === true && lineOf(viewer, 'CASE_0029').props.minimumFontScale === BAR_TEXT_MIN_SCALE.title
+      && lineOf(viewer, 'DINOv2 100 %').props.adjustsFontSizeToFit === true && lineOf(viewer, 'DINOv2 100 %').props.minimumFontScale === BAR_TEXT_MIN_SCALE.subtitle
+      && ['CASE_0029', 'DINOv2 100 %'].every((t) => !lineOf(plain, t).props.adjustsFontSizeToFit && lineOf(plain, t).props.minimumFontScale === undefined),
+    `the viewer's floating bar shrinks its title (to ${BAR_TEXT_MIN_SCALE.title}) and subtitle (to ${BAR_TEXT_MIN_SCALE.subtitle}) to fit instead of ending in "..."; a plain bar does not`);
     await act(async () => { viewer.unmount(); plain.unmount(); });
   }
   // Responsive (device session r5): the id of a meter row ("CASE_0029" in the lowest-Dice list) is 97 dp wide at font scale 1.3,

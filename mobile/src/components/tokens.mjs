@@ -137,6 +137,15 @@ export const font = Object.freeze({
  */
 export const LABEL_FONT_CAP = 1.15;
 
+/*
+ * The floating bar of a viewer has Back, the Live word and up to two icon buttons round its title, so the room the title has does
+ * not grow with the text: 96 dp at 320 dp (89 dp at font scale 1.3, where the Live word is wider), and "Error Inspector" is 117 dp at
+ * 17 sp, 134 dp at the cap. A name or a subtitle that does not fit shrinks (Text adjustsFontSizeToFit) instead of being cut to
+ * "Error Insp...", down to these fractions of its size, and is cut only if it still does not fit. At 320 dp the title needs 0.82 of its
+ * size at font scale 1.0 and 0.67 at 1.3, the subtitle ("CASE_0029 · Raw") 1.0 and 0.82. A plain bar keeps following the system size.
+ */
+export const BAR_TEXT_MIN_SCALE = Object.freeze({ title: 0.6, subtitle: 0.75 });
+
 // The type scale. Spread a role into a Text style: { ...type.body, color: color.t1 }.
 // letterSpacing is in dp (the mockups give em: 0.08em at 11 dp = 0.88 dp).
 export const type = Object.freeze({

@@ -12,7 +12,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconButton } from './Controls';
 import { IconBack, IconChevronDown, IconInfo, IconMore } from './icons';
-import { color, LABEL_FONT_CAP, MIN_TOUCH, size, type } from './theme';
+import { BAR_TEXT_MIN_SCALE, color, LABEL_FONT_CAP, MIN_TOUCH, size, type } from './theme';
 
 // Live: a green dot with a soft ring. Fixture: the same slot with a grey dot. The word always says which.
 export function StatusIndicator({ mode, onPress = null, accessibilityLabel, testID }) {
@@ -39,15 +39,34 @@ export function StatusIndicator({ mode, onPress = null, accessibilityLabel, test
 // follows the subtitle, so the run picker has a 56 dp target although the subtitle line is 16 dp.
 // The floating bar of a viewer has Back and up to three icon buttons round the title, so the room it leaves does not
 // grow with the text: at 320 dp and font scale 1.3 "CASE_0029" and "DINOv2 100 %" showed as "CASE_00..." and "DINOv2 10...".
-// There both lines stop growing at LABEL_FONT_CAP; a bar with a plain screen title keeps following the system size.
+// There both lines stop growing at LABEL_FONT_CAP; a bar with a plain screen title keeps following the system size. A line that still does
+// not fit shrinks to fit (tokens.mjs BAR_TEXT_MIN_SCALE) instead of ending in "...": "Error Insp..." at 320 dp was the title of SCR-04.
 function TitleBlock({ title, subtitle, large, floating, onSubtitlePress, subtitleLabel }) {
   const cap = floating ? LABEL_FONT_CAP : undefined;
+  const fit = floating ? { adjustsFontSizeToFit: true } : null;
   const lines = (
     <>
-      <Text style={large ? s.titleTwoLine : s.title} numberOfLines={1} maxFontSizeMultiplier={cap} accessibilityRole="header">{title}</Text>
+      <Text
+        style={large ? s.titleTwoLine : s.title}
+        numberOfLines={1}
+        maxFontSizeMultiplier={cap}
+        {...fit}
+        minimumFontScale={floating ? BAR_TEXT_MIN_SCALE.title : undefined}
+        accessibilityRole="header"
+      >
+        {title}
+      </Text>
       {subtitle ? (
         <View style={s.subtitleRow}>
-          <Text style={[s.subtitle, s.subtitleIn]} numberOfLines={1} maxFontSizeMultiplier={cap}>{subtitle}</Text>
+          <Text
+            style={[s.subtitle, s.subtitleIn]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={cap}
+            {...fit}
+            minimumFontScale={floating ? BAR_TEXT_MIN_SCALE.subtitle : undefined}
+          >
+            {subtitle}
+          </Text>
           {onSubtitlePress ? <IconChevronDown size={12} strokeWidth={2} color={color.t2} /> : null}
         </View>
       ) : null}
