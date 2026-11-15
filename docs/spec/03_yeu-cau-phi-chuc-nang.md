@@ -9,7 +9,7 @@ trên máy tính của nhóm (Windows), điện thoại nối qua cáp USB. Các
 | ID | Yêu cầu | Cách kiểm | Người phụ trách | Mức | Trạng thái |
 |---|---|---|---|---|---|
 | NFR-PERF-001 | Chuyển sang lát đã cache: p95 ≤ 200 ms qua 30 bước; không tải cả khối 3D mỗi cử chỉ (tải từng lát PNG) | Kịch bản A9 / L4 trên điện thoại (nhấn giữ số lát ở panel dưới SCR-03), log mạng theo cử chỉ; bản thử nghiệm p95 98,72 ms | Phạm Tuấn Anh | MUST | Một phần: chờ đo trên APK gộp |
-| NFR-PERF-002 | Xoay / zoom 3D: FPS trung vị ≥ 20, không khựng > 500 ms | Đo FPS trên điện thoại; bản thử nghiệm lưới L0 đạt 59,88 FPS | Vũ Hùng Anh | MUST | Một phần: chờ đo SCR-05 có lớp lỗi trên APK gộp |
+| NFR-PERF-002 | Xoay / zoom 3D: FPS trung vị ≥ 20, không khựng > 500 ms | Đo FPS trên điện thoại; bản thử nghiệm lưới L0 đạt 59,88 FPS | Vũ Hùng Anh | MUST | Một phần: chờ đo SCR-05 đầy đủ (hai lớp, điểm lỗi, "Cut") trên APK gộp |
 | NFR-PERF-003 | Nét bút phản hồi ≤ 100 ms trên máy, không mất mẫu nào đã vẽ | Test không mất mẫu (tự động); đo thời gian trên điện thoại, bản thử nghiệm tối đa 30,48 ms | Nguyễn Gia Đức Trung | MUST | Một phần: chờ đo trên APK gộp |
 | NFR-PERF-004 | Yêu cầu bất đồng bộ trả lời trong 2 s, giao diện không đứng | — | Cả nhóm | MUST | Hướng phát triển |
 
@@ -37,7 +37,7 @@ Chi tiết từng biện pháp và nơi trong mã: [08_bao-mat-rieng-tu.md](08_b
 | NFR-SEC-006 | Che màn hình sau 5 phút ở nền hoặc 10 phút không chạm; nút "Clear cached images" | Test đồng hồ phiên, render smoke | Phạm Tuấn Anh | MUST | Đã có |
 | NFR-SEC-007 | Privacy mode ở SCR-03 / SCR-04, bật mặc định, bật / tắt bằng khiên trên header: chụp, quay, chiếu màn hình ra màu đen, ảnh xem trước trong danh sách app gần đây bị ẩn | Test, cần APK build từ mã này | Phạm Tuấn Anh | MUST | Đã có |
 | NFR-SEC-008 | Cache chỉ trong bộ nhớ, giới hạn kích thước, khoá theo phiên bản / checksum / biến thể | Test cache | Phạm Tuấn Anh | MUST | Đã có |
-| NFR-SEC-009 | WebView 3D ẩn danh: không cache, không DOM storage, không cookie, chỉ nhận hình học voxel | Test viewer, render smoke | Vũ Hùng Anh | MUST | Đã có |
+| NFR-SEC-009 | WebView 3D ẩn danh: không cache, không DOM storage, không cookie, không truy cập file, chỉ nhận hình học voxel; rời màn hình thì giải phóng bộ nhớ GPU | Test viewer, render smoke | Vũ Hùng Anh | MUST | Đã có |
 | NFR-SEC-010 | Kiểm tra chữ tự do (ghi chú, lý do gắn cờ) trên điện thoại: tối đa 500 ký tự, cảnh báo khi giống thông tin cá nhân | Test `checkNote`, render smoke | Nguyễn Gia Đức Trung | MUST | Đã có |
 | NFR-SEC-011 | Mọi thao tác ghi gắn với bí danh dự án (`project-reviewer`), không bao giờ lưu email | Test backend | Nguyễn Gia Đức Trung | MUST | Đã có |
 | NFR-SEC-012 | App ghi rõ nguồn dữ liệu, điều khoản, mã ca giả danh và "chỉ dùng cho nghiên cứu" | Test "About this data" | Bế Quốc Khánh | MUST | Đã có |
@@ -48,7 +48,7 @@ Chi tiết từng biện pháp và nơi trong mã: [08_bao-mat-rieng-tu.md](08_b
 | ID | Yêu cầu | Cách kiểm | Người phụ trách | Mức | Trạng thái |
 |---|---|---|---|---|---|
 | NFR-MAINT-001 | Ranh giới module rõ: mỗi người một thư mục màn hình; file `.mjs` quyết định, file `.js` chỉ vẽ; bảng route backend cố định | Test G8, test bảng route | Phạm Tuấn Anh | MUST | Đã có |
-| NFR-MAINT-002 | Hợp đồng API và quy ước hình học định nghĩa một lần, hai phía cùng kiểm theo một bộ fixture | Test hợp đồng hai phía, fixture hình học | Vũ Hùng Anh | MUST | Một phần: phép chọn điểm 3D của app chỉ kiểm theo file mẫu Python, chưa theo fixture hình học chuẩn |
+| NFR-MAINT-002 | Hợp đồng API và quy ước hình học định nghĩa một lần, hai phía cùng kiểm theo một bộ fixture | Test hợp đồng hai phía; fixture hình học chuẩn qua mã backend (`test_mesh_conformance`) và qua trang 3D của app (`v2_geometry`) | Vũ Hùng Anh | MUST | Đã có |
 | NFR-MAINT-003 | Module quan trọng có test tự động chạy trong CI | `.github/workflows/guardrails.yml` | Cả nhóm | MUST | Đã có |
 | NFR-AUDIT-001 | Mọi ID trong đặc tả có dòng trong ma trận; mọi MUST "Đã có" có test; mọi tham chiếu mã / test tồn tại | `tools/trace_check.py` trong CI (job `traceability`) | Phạm Tuấn Anh | MUST | Đã có |
 

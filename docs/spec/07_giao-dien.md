@@ -179,16 +179,76 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 ### SCR-05 — 3D Inspector (Vũ Hùng Anh)
 
-- **Mục đích**: xem hình 3D nhĩ trái, lỗi 3D, và nhảy về đúng lát 2D.
-- **Thành phần**: dòng "Run … · prediction … · L0 surface (undecimated)"; WebView 3D với bề mặt dự đoán (đặc), bề mặt GT
-  (trong suốt) và điểm lỗi (FN chấm tròn, FP ô vuông) kèm chú giải và số đếm; dải lát hiện tại; trục voxel ở góc; hàng
-  công tắc từng lớp và độ mờ 30 / 60 / 100 % cho hai bề mặt, số tam giác mỗi lớp; nút ±X / ±Y / ±Z, Fit, "Cut at slice",
-  Previous / Next; thẻ vùng chọn với "Open in 2D".
-- **Trạng thái**: không có lưới → báo lý do; ca không GT → không có lớp GT và điểm lỗi; thiếu file lỗi → bề mặt vẫn hiện,
-  hàng "Errors" ghi lý do; ghi chú hình học chưa kiểm định (không mm, không hướng giải phẫu).
-- **Thao tác**: xoay, zoom, di; chạm bề mặt hoặc điểm lỗi để chọn; Previous / Next qua các vùng (hết FN rồi FP, vùng lớn
-  trước); cắt tại lát; đổi góc nhìn.
-- **Điều hướng**: "Open in 2D" → SCR-03 tại lát đã chọn (chỉ khi bấm).
+- **Mục đích**: xem hình 3D nhĩ trái dựng từ mask dự đoán (và từ GT nếu ca có), thấy từng vùng lỗi FP / FN, chọn một điểm rồi
+  mở đúng lát 2D tương ứng.
+- **Trước khi xem**: khi đường dẫn chưa nêu biến thể và phiên chưa nhớ biến thể nào, màn hình hỏi "Which prediction?"
+  ("Choose the prediction the 3D surface is built from.") với hai nút "Raw" và "Processed", không có mặc định, và chưa xin
+  lưới nào. Biến thể đã chọn được nhớ trong phiên. Khi còn hỏi, hoặc khi ca / run đang tải, header ghi mã ca và dòng phụ
+  "3D view".
+- **Khung viewer**: trang WebView WebGL2 tràn cả màn hình; header nổi trên trang (có lớp tối phía trên), không có thanh tab;
+  panel dưới nổi trên đáy trang. Header ghi mã ca và dòng phụ "mã thí nghiệm · Raw" (hoặc "· Processed"), không ghi mã run;
+  không có nút biểu tượng riêng (không có khiên privacy) và không có "more".
+- **Trong trang** (vẽ bên trong WebView, nằm giữa header và panel dưới; mọi nút cao và rộng ít nhất 48 px; chỉ hiện khi đã
+  có ít nhất một bề mặt):
+  - góc trên trái: nhóm "Views" gồm "+X", "−X", "+Y", "−Y", "+Z", "−Z" (nhìn mô hình từ phía đó của trục voxel) và "Fit" (về góc
+    nhìn mặc định); dưới nhóm là gizmo trục, chỉ có ba chữ x, y, z;
+  - bên phải: nút "Cut" ẩn phần bề mặt và điểm lỗi phía trên lát đang chọn; khoá khi chưa có lát; khi bật có ghi chú
+    "Above slice 45 hidden";
+  - góc dưới trái: chip "Prediction" và "Ground truth" (biểu tượng mắt, ô màu; chạm để ẩn / hiện), mỗi chip kèm ba nút độ mờ
+    "30%", "60%", "100%" khi lớp đang hiện (mặc định dự đoán "100%", GT "30%"); chip "Errors" (mắt, chấm tròn FN, ô vuông FP) kèm hai
+    nút ‹ › ("Previous error region", "Next error region") và số vùng: "3 regions" khi chưa chọn vùng nào, "1 / 3" khi đã chọn,
+    "None" khi không có vùng nào; dòng "Small regions (N)" khi lớp "Errors" đang hiện và có vùng nhỏ. Hàng "Ground truth" chỉ có
+    khi đã tải được lưới GT, hàng "Errors" chỉ có khi đã tải được điểm lỗi.
+- **Điểm lỗi**: mỗi vùng FN (chấm tròn xanh) và FP (ô vuông hồng) liên thông là một điểm tại voxel đánh dấu của vùng, vẽ đè lên
+  bề mặt. Cỡ điểm lớn dần theo căn bậc ba số voxel của vùng, từ 6 px (vùng rất nhỏ) đến 28 px (vùng lớn nhất của ca); điểm lớn
+  vẽ trước, điểm nhỏ vẽ đè lên, điểm đang chọn vẽ sau cùng, to thêm 8 px và có viền trắng. Vùng có ít voxel hơn 0,5 % vùng lớn nhất của ca là
+  vùng nhỏ: không vẽ và không nằm trong lượt đi của nút ‹ › cho tới khi bật "Small regions (N)"; vùng lớn nhất không bao giờ
+  nhỏ.
+- **Panel dưới**: dòng đầu ghi "Prediction · Raw" (hoặc "· Processed"), thẻ chế độ ca ("Evaluation" / "Inference & review") và bên
+  phải "Slice 45 / 88" (đếm từ 1): lát của dải, tức lát mà SCR-05 được mở từ đó hoặc lát vừa chọn; chưa có lát thì "Slice - / 88".
+  Phần thân nói lựa chọn bằng lời:
+  - chưa chọn gì: "Tap the surface to pick a slice, or an error marker to see its region." (sau một lần chạm vào nền: "No
+    surface at that point: nothing selected. Tap the surface to pick a slice."), dòng tổng "1 FN region (523 voxels) · 2 FP
+    regions (43 voxels)" (hoặc "No FP or FN region: the prediction matches the ground truth voxel for voxel."), dòng "58 small
+    regions hidden (under 824 voxels)" khi còn vùng nhỏ bị ẩn, và các câu báo lớp không có (mục Trạng thái);
+  - chọn một vùng lỗi: tiêu đề "Missed region (FN)" ("Ground truth that the prediction left out.") hoặc "Extra region (FP)"
+    ("Predicted where the ground truth has none."), có chấm tròn hoặc ô vuông cùng màu, và dòng "523 voxels · Slices 11–13 ·
+    Region 1 of 3" ("Slice 11" nếu vùng nằm trên một lát; "Region k of N" tính trong các vùng đang hiện); nếu còn vùng nhỏ bị ẩn
+    thì có thêm dòng "N small regions hidden (under X voxels)";
+  - chọn một điểm trên bề mặt: "Picked on the prediction" hoặc "Picked on the ground truth" ("The 2D slice that produced this
+    part of the surface.");
+  - nút "Open in 2D": khoá khi chưa chọn gì; khi mở được, tên truy cập ghi lát ("Open in 2D at slice 53").
+- **Sheet Details** (nút Info của header) có các mục: "This view" ("Case …", "Run …", "Prediction RAW · Evaluation", "Surface:
+  level L0, undecimated"); "Surfaces" (mã `MESH_…`, số tam giác và đỉnh, checksum của lớp "Prediction" và "Ground truth" đã có
+  mã lưới); "Error regions" (mã `ERRGEOM_…`, dòng tổng như ở panel, và luật vùng nhỏ: "Small regions: 3 of 6, under 30 voxels (0.5 %
+  of the largest region, 6,000)"); "Selected region" (mã vùng và "FN, slices 11-13 (z 10-12), 523 voxels") hoặc "Selected slice"
+  ("Slice 53 / 88 · z 52"); "Layers" (lớp nào không có và vì sao, kèm mã, ví dụ "Errors: unavailable (ARTIFACT_NOT_FOUND)"); "Frame"
+  (nghĩa ba chữ của gizmo: "The x, y and z of the corner gizmo are the voxel axes, not anatomical directions: x = column, y = row,
+  z = slice", và "Voxel-index frame. Geometry is not validated: no millimetres are shown.").
+- **Trạng thái**:
+  - ca hoặc run chưa tải được → 7 trạng thái chung;
+  - đang tải → chữ "Loading the 3D surface" phủ lên trang cho tới khi trang báo đã vẽ bề mặt dự đoán;
+  - không có lưới dự đoán → bảng trạng thái nêu mã lý do và dòng "No 3D surface is shown. The 2D viewer still shows this run's
+    slices."; không dựng WebView. Các lý do: `RUN_NOT_SUCCEEDED` (run chưa xong), `NO_PREDICTION_FOR_VARIANT` (run không có dự đoán
+    của biến thể đã chọn; không bao giờ đưa lưới RAW ra thay), `ARTIFACT_NOT_FOUND` (server chưa dựng lưới), `FIXTURE_NO_BYTES`
+    (FIXTURE không có byte nào sau mã tham chiếu), `GEOMETRY_MISMATCH` (lưới dựng cho lưới khác của ca), `CONTRACT_DRIFT` (byte không
+    khớp checksum, không có nút Retry), `WEBGL2_UNAVAILABLE` (WebView không có WebGL2);
+  - ca không GT ("Inference & review") → không hỏi GT lẫn file lỗi; panel ghi "This case has no ground truth, so only the
+    prediction is shown."; Details ghi "Ground truth: unavailable (GROUND_TRUTH_UNAVAILABLE)" và "Errors: unavailable
+    (GROUND_TRUTH_UNAVAILABLE)";
+  - lưới GT hoặc file lỗi không dùng được (thiếu, byte sai checksum, thuộc dự đoán hay bề mặt khác, sai lưới của ca, một vùng sai
+    khuôn) → bề mặt dự đoán vẫn hiện; panel ghi "The ground-truth surface is not available." hoặc "The error markers are not
+    available for this prediction."; mã nằm ở mục "Layers" của Details. File lỗi sai thì bỏ cả file, không vẽ điểm nào.
+- **Thao tác**: một ngón kéo để xoay; hai ngón chụm để zoom (từ 0,35 đến 8 lần góc nhìn mặc định) và di. Chạm nhanh (nhả trong
+  450 ms, ngón di chuyển không quá 8 px) thì chọn: nếu có điểm lỗi đang hiện trong 24 px quanh ngón thì chọn vùng đó, nếu không
+  thì tia từ ngón xuyên qua mô hình và chọn lát đã tạo ra mặt gần nhất bị tia trúng (lớp đang ẩn hoặc phần bị "Cut" không chọn được);
+  chạm nền không chọn gì. Chọn một điểm hay một vùng thì dải lát và "Slice n / total" chuyển sang lát đó. Nút ‹ ›: bật lớp "Errors"
+  nếu đang tắt, rồi chọn vùng kế tiếp (hoặc trước đó) trong các vùng đang hiện, vùng lớn trước, đi hết vòng thì quay lại; lần đầu
+  "Next" chọn vùng lớn nhất, "Previous" chọn vùng nhỏ nhất đang hiện. Tắt "Small regions (N)" khi đang chọn một vùng nhỏ thì bỏ
+  chọn. Các nút "Views", "Fit", "Cut", chip lớp và độ mờ do trang xử lý, app không vẽ nút nào trong số đó.
+- **Điều hướng**: vào từ SCR-03 ("3D view" trong sheet Tools) và SCR-04 ("3D error view"), đều tại lát đang xem. "Open in 2D" →
+  SCR-03 cùng ca, run và biến thể, tại lát đã chọn (chỉ số lát là thứ duy nhất được truyền); Back từ SCR-03 mở lại SCR-05 với dải ở
+  lát đó. Rời màn hình thì app gửi lệnh `dispose` và trang giải phóng bộ nhớ GPU.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-05.png` (chưa có).
 
 ### SCR-06 — Review / Correction (Nguyễn Gia Đức Trung)

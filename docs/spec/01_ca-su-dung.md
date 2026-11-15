@@ -120,19 +120,31 @@ người dùng bấm "Jump to the worst slice" hoặc chạm một lát để t�
 lớp lỗi, xem dòng "Matches / Differs from the server". Thay thế: ca không có GT → lối vào bị khoá kèm lý do, SCR-04 báo
 "Unavailable", không có biểu đồ "lỗi bằng 0".
 
-**UC-06 Xem mô hình 3D.** Tiền điều kiện: run thành công có lưới đã dựng. Luồng chính: mở SCR-05; app hiện bề mặt dự
-đoán (đặc) và bề mặt GT (trong suốt) nếu có; xoay, zoom, di bằng cử chỉ; nút nhìn theo trục ±X / ±Y / ±Z và Fit; độ
-mờ 30 / 60 / 100 % cho từng bề mặt; "Cut at slice" ẩn phần trên lát đang chọn.
+**UC-06 Xem mô hình 3D.** Tiền điều kiện: run thành công có lưới đã dựng sẵn (ngoại tuyến). Luồng chính: mở SCR-05 (nếu
+đường dẫn chưa nêu biến thể thì chọn "Raw" hoặc "Processed"); app hiện bề mặt dự đoán (đặc) và, nếu ca có GT, bề mặt GT
+(mặc định trong suốt 30 %). Một ngón xoay, hai ngón chụm để zoom và di. Công cụ nằm trong chính trang 3D: nhóm "Views" (nhìn theo trục
+voxel: +X, −X, +Y, −Y, +Z, −Z, và "Fit"), chip "Prediction" / "Ground truth" để ẩn / hiện từng lớp kèm độ mờ "30%" /
+"60%" / "100%", nút "Cut" ẩn phần bề mặt phía trên lát đang chọn. Thay thế: không có lưới (run chưa xong, run
+không có dự đoán của biến thể đã chọn, server chưa dựng lưới, FIXTURE) → bảng trạng thái nêu lý do, không có hình 3D; ca
+không có GT → chỉ có bề mặt dự đoán, kèm một câu nói rõ.
 
-**UC-07 Từ lát 2D sang 3D.** Luồng chính: từ SCR-03 ("3D view" trong sheet Tools) hoặc SCR-04 ("3D error view") mở 3D;
-lát đang xem hiện thành một dải trên mô hình 3D. Một lát chọn trong 3D thay dải đó.
+**UC-07 Từ lát 2D sang 3D.** Luồng chính: từ SCR-03 ("3D view" trong sheet Tools) hoặc SCR-04 ("3D error view") mở SCR-05
+tại lát đang xem; phần bề mặt nằm trong lát đó được tô sáng thành một dải và bảng dưới ghi "Slice 45 / 88". Chọn một điểm
+trên bề mặt hay một điểm lỗi thì dải chuyển sang lát được chọn. Thay thế: đường dẫn không nêu lát thì chưa có dải, bảng
+dưới ghi "Slice - / 88" tới khi người dùng chọn.
 
-**UC-08 Từ 3D về lát 2D.** Luồng chính: chạm một điểm trên bề mặt; app tính ra số lát; bấm "Open in 2D" mở SCR-03 đúng
-lát đó. Chạm vào nền không gây điều hướng.
+**UC-08 Từ 3D về lát 2D.** Luồng chính: chạm nhanh một điểm trên bề mặt dự đoán hoặc GT; app lấy lát đã tạo ra mặt bị
+chạm, ghi "Picked on the prediction" (hoặc "Picked on the ground truth") và "Slice 53 / 88"; bấm "Open in 2D" mở SCR-03 đúng
+lát đó, cùng ca, run và biến thể; Back về SCR-05 thì dải ở lát đó. Thay thế: chạm vào nền, hoặc một lát nằm ngoài khối →
+không chọn gì và "Open in 2D" bị khoá; số lát không bao giờ bị kéo về lát gần nhất trong khối.
 
-**UC-09 Xem điểm lỗi 3D.** Tiền điều kiện: ca có GT và file hình học lỗi đã dựng. Luồng chính: mỗi vùng FN (chấm tròn)
-và FP (ô vuông) liên thông là một điểm; chạm điểm → "FN, slices 11-13 (z = 10-12), 523 voxels" → "Open in 2D";
-Previous / Next đi qua các vùng (hết FN rồi tới FP, mỗi loại vùng lớn trước).
+**UC-09 Xem điểm lỗi 3D.** Tiền điều kiện: ca có GT và file hình học lỗi đã dựng (`build_cache`, cần scipy). Luồng chính:
+mỗi vùng FN (chấm tròn xanh) và FP (ô vuông hồng) liên thông là một điểm trên mô hình, to hay nhỏ theo cỡ vùng; vùng có ít
+voxel hơn 0,5 % vùng lớn nhất của ca bị ẩn mặc định, "Small regions (N)" cho hiện lại. Chạm một điểm → bảng dưới ghi
+"Missed region (FN)" hoặc "Extra region (FP)", số voxel, dải lát và vị trí ("523 voxels · Slices 11–13 · Region 1 of 3"),
+dải lát chuyển sang lát của voxel đánh dấu, "Open in 2D" mở lát đó. Hai nút ‹ › ("Previous error region" / "Next error
+region") đi qua các vùng đang hiện, vùng lớn trước (FN và FP xếp chung theo số voxel). Thay thế: ca không GT, hoặc server
+chưa có file lỗi → bề mặt vẫn hiện, một câu nói điểm lỗi không có.
 
 **UC-10 So sánh thí nghiệm.** Luồng chính: mở tab Experiments (cả ma trận thí nghiệm) hoặc mở một phép so sánh từ
 SCR-01 (chỉ các thí nghiệm của phép đó). SCR-07 liệt kê sáu phép so sánh cố định (UNet vs DINOv2 ở 25 / 50 / 100 %, xu

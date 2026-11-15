@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Logic app | `node --test mobile/test/*.test.mjs` | Đúng file `.mjs` chạy trên điện thoại: mô hình màn hình, cache, hợp đồng, bút, toán zoom | `mobile-shell` |
 | Render smoke | `cd mobile; npm run test:render` | Vẽ cả app bằng `react-test-renderer`, bấm nút, kiểm chữ trên màn hình (`check('ID', …)`); `touch_targets.mjs` đo vùng chạm từ style; không thay cho bằng chứng trên máy | `mobile-render-bundle` |
-| Backend | `python -m pytest backend/tests backend/mesh/tests` | Mọi endpoint, mọi phản hồi kiểm theo hợp đồng, CSDL, lưới 3D (Python 3.9) | `backend-tests` |
+| Backend | `python -m pytest backend/tests backend/mesh/tests` | Mọi endpoint, mọi phản hồi kiểm theo hợp đồng, CSDL, lưới 3D (Python 3.9); test hình học lỗi chỉ chạy khi có scipy, nên CI cài scipy 1.13.1 riêng cho bước đó (scipy không nằm trong `backend/requirements.txt`) | `backend-tests` |
 | Hợp đồng | `python test_contract1.py`, `test_contract2.py`, `test_api_contract.py` | Hai hợp đồng nhập liệu và hợp đồng API | `contract-tests` |
 | ML | `python -m pytest ml/tests` | Chia dữ liệu, chấm điểm, hậu xử lý, xuất gói (CPU) | `ml-tests` |
 | Truy vết | `python tools/trace_check.py --allow-pending docs/trace/pending_branches.txt` | Đặc tả ↔ ma trận ↔ mã ↔ test (mục 3) | `traceability` |
@@ -41,14 +41,14 @@ nghiệm thu.
 | TC-MAINT-001 | Bản đồ sở hữu thể hiện ranh giới module | registry | Phạm Tuấn Anh | Đã có |
 | TC-AUDIT-001 | `tools/trace_check.py`: ID đặc tả = ID ma trận, MUST "Đã có" có test, tham chiếu tồn tại | test_trace_check | Phạm Tuấn Anh | Đã có |
 | TC-3D-001 | Lưới dựng từ đúng mask nguồn đã khai, giữ phiên bản hình học | test_meshes, v2_inspector3d | Vũ Hùng Anh | Đã có |
-| TC-3D-002 | Xoay / zoom / di không đổi ánh xạ nguồn; đạt TC-PERF-002 | v2_viewer + điện thoại | Vũ Hùng Anh | Một phần: sau khi xoay chỉ kiểm "lát trong khoảng"; chờ đo trên máy |
-| TC-3D-003 | Lát k đặt dải lát đúng vị trí theo fixture hình học chuẩn | v2_viewer | Vũ Hùng Anh | Một phần: chưa so dải lát với fixture hình học |
-| TC-3D-004 | Điểm đã biết trên lưới cho đúng lát, kể cả sau khi xoay / zoom | v2_viewer, test_mesh_conformance + điện thoại | Vũ Hùng Anh | Một phần: sau khi xoay / zoom chưa kiểm đúng lát |
-| TC-3D-005 | Vùng lỗi mẫu: đúng loại lỗi, dẫn tới đúng lát | test_mesh_error_geometry, v2_inspector3d, render smoke + điện thoại | Vũ Hùng Anh | Đã có |
+| TC-3D-002 | Xoay / zoom / di không đổi ánh xạ nguồn; đạt TC-PERF-002 | v2_viewer, v2_geometry + điện thoại | Vũ Hùng Anh | Một phần: chờ đo FPS trên máy |
+| TC-3D-003 | Lát k đặt dải lát đúng vị trí theo fixture hình học chuẩn | v2_geometry, v2_viewer | Vũ Hùng Anh | Đã có |
+| TC-3D-004 | Điểm đã biết trên lưới cho đúng lát, kể cả sau khi xoay / zoom / di | v2_geometry, v2_viewer, test_mesh_conformance + điện thoại | Vũ Hùng Anh | Đã có |
+| TC-3D-005 | Vùng lỗi mẫu: đúng loại lỗi, dẫn tới đúng lát | test_mesh_error_geometry, test_meshes, v2_inspector3d, render smoke + điện thoại | Vũ Hùng Anh | Đã có |
 | TC-PERF-002 | Tương tác 3D đạt NFR-PERF-002 trên thiết bị demo | + điện thoại | Vũ Hùng Anh | Một phần: chờ đo trên APK gộp |
 | TC-REL-003 | Lệch phiên bản hình học bị từ chối / báo không có, không vẽ như đã khớp | test_mesh_conformance, test_meshes, render smoke, v2_inspector3d, api_client | Vũ Hùng Anh | Đã có |
 | TC-SCI-002 | Chặn mL / khoảng cách thật khi hình học chưa kiểm định | test_api, render smoke | Vũ Hùng Anh | Đã có |
-| TC-MAINT-002 | Mã hình học backend và app qua cùng bộ fixture chuẩn | v2_viewer, test_mesh_conformance | Vũ Hùng Anh | Một phần: phía app dùng file mẫu Python, chưa dùng fixture chuẩn |
+| TC-MAINT-002 | Mã hình học backend và app qua cùng bộ fixture chuẩn | v2_geometry, test_mesh_conformance | Vũ Hùng Anh | Đã có |
 | TC-STUDY-001 | Tổng quan nạp bộ dữ liệu, tóm tắt ca / thí nghiệm, điều hướng, không bịa số | v3_screens, v3_model, render smoke + điện thoại | Bế Quốc Khánh | Đã có |
 | TC-EXP-001 | Manifest thí nghiệm đủ cấu hình, split, tiền / hậu xử lý, seed, checkpoint, mã nguồn, phiên bản đánh giá | test_export_contract2 | Bế Quốc Khánh | Đã có |
 | TC-EXP-002 | Giá trị từng ca trỏ đúng mask và khớp khi tính lại | test_evaluate, test_api | Bế Quốc Khánh | Đã có |

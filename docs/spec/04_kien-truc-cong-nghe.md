@@ -63,12 +63,14 @@ Test `registry.test.mjs` (G8) chặn một thư mục màn hình import thư m�
 | `routes/` (`cases`, `experiments`, `runs`, `reviews`, `findings`, `health`) | Mỗi endpoint của hợp đồng; lỗi trả theo mẫu chung của hợp đồng |
 | `contract.py` | Nạp hợp đồng; backend từ chối khởi động nếu sai phiên bản |
 | `cases.py`, `experiments.py`, `metrics.py`, `imaging.py` | Đọc dữ liệu đã nhập và gói kết quả, tính tổng hợp và so sánh, cắt lát PNG |
-| `meshes.py` và `backend/mesh/` | Phục vụ lưới 3D và hình học lỗi đã dựng sẵn |
+| `meshes.py` và `backend/mesh/` | `meshes.py` đọc `derived_meshes/` (lưới `.cmesh`, file lỗi `.json`) và đưa byte ra route `/artifacts/<sha256>`; `backend/mesh/` dựng lưới, phép chọn điểm → lát và hình học lỗi (chạy ngoại tuyến bằng `build_cache`) |
 | `storage.py` | SQLite cho review, reviewed mask, finding (xem [05_du-lieu-csdl.md](05_du-lieu-csdl.md)) |
 | `middleware.py`, `config.py` | Giới hạn thân request, log không có địa chỉ client, đường dẫn dữ liệu ngoài repo |
 
 **Ngoại tuyến** — `ml/` (train, suy luận, hậu xử lý, chấm điểm, xuất gói Contract 2), `tools/` (chia dữ liệu, kiểm dữ
 liệu, phiên đo trên điện thoại, luồng API end-to-end), `backend/mesh/build_cache.py` (dựng lưới và hình học lỗi).
+
+**Đường đi của hình 3D (SCR-05)** — `build_cache` ghi lưới và file lỗi vào `derived_meshes/`. `reconstruction_get` và `error_reconstruction_get` trả mã `MESH_<sha256>` và `ERRGEOM_<sha256>`; từ mã đó app tự suy ra địa chỉ `/api/v1/artifacts/<sha256>.cmesh` hay `.json` và checksum. App tải byte, kiểm SHA-256, định dạng, lưới của ca và (với file lỗi) bề mặt mà các điểm thuộc về, rồi gửi vào trang WebView bằng `postMessage`; chỉ có hình học theo voxel đi vào trang. Trang tự giữ trạng thái các công cụ (lớp, độ mờ, cắt, góc nhìn, vùng nhỏ) và chỉ báo lại cho app lát được chọn, điểm lỗi được chọn và công tắc "Small regions (N)"; app hiện lựa chọn ở bảng dưới và mở SCR-03 khi người dùng bấm "Open in 2D".
 
 ## 3. Công nghệ và lý do chọn
 
@@ -76,7 +78,7 @@ liệu, phiên đo trên điện thoại, luồng API end-to-end), `backend/mesh
 |---|---|
 | React Native 0.86.3 + Expo SDK 57, JavaScript | Ứng viên duy nhất có số đo thật trên Galaxy A17: viewer 2D, zoom / di, bút, undo / redo, lưu / mở lại khớp từng pixel, chuyển lát p95 dưới 200 ms (DECISIONS 2) |
 | Viewer 3D WebGL2 trong `react-native-webview` | Lưới L0 (61 424 tam giác) đạt FPS trung vị 59,88 và chạm → lát sai tối đa 1 lát; lưới giảm tam giác chạm sai tới 5–16 lát (DECISIONS 15) |
-| Biểu diễn lỗi 3D: bề mặt dự đoán + một điểm cho mỗi vùng FP / FN (phương án 3) | Quyết định của trưởng nhóm 2026-11-14 (`backend/mesh/error_geometry.py`): điểm lỗi không bị bề mặt che, chạm được, dẫn thẳng tới dải lát; FPS trên máy với lớp lỗi chưa đo |
+| Biểu diễn lỗi 3D: bề mặt dự đoán + một điểm cho mỗi vùng FP / FN (phương án 3) | Quyết định của trưởng nhóm 2026-11-14 (`backend/mesh/error_geometry.py`): điểm lỗi vẽ không qua kiểm tra độ sâu nên không bị bề mặt che, chạm được, dẫn thẳng tới dải lát; cỡ điểm theo cỡ vùng và vùng nhỏ ẩn mặc định để hàng chục vùng nhỏ không phủ kín bề mặt; FPS trên máy với lớp lỗi chưa đo |
 | `react-native-svg` | Vẽ mask, viền, biểu đồ V3 bằng vector, khớp toạ độ khi zoom |
 | `expo-screen-capture`, `expo-print` | Privacy mode (chặn chụp màn hình) và xuất PDF finding; module native nên cần APK mới |
 | Python + FastAPI + uvicorn | Cùng ngôn ngữ với phần ML; tự kiểm request theo kiểu; chạy được trên máy của nhóm (DECISIONS 4) |
@@ -92,6 +94,6 @@ liệu, phiên đo trên điện thoại, luồng API end-to-end), `backend/mesh
   đã xem trả từ bộ nhớ (0 byte mạng). Play chỉ xin lát kế khi lát trước đã hiện, không bao giờ hai lần tải song song.
   Ảnh cũ và lớp mask của nó ở lại trên màn hình tới khi ảnh mới giải mã xong, nên chuyển lát không nháy đen.
 - **Bút phải phản hồi ngay**: nét vẽ xử lý trên máy, không chờ mạng; chỉ khi lưu mới gửi các lát đã sửa.
-- **3D mượt**: dựng lưới trước (ngoại tuyến), app chỉ tải byte đã kiểm checksum; WebView giải phóng bộ nhớ GPU khi rời
-  màn hình.
+- **3D mượt**: dựng lưới trước (ngoại tuyến), app chỉ tải byte đã kiểm checksum và định dạng; trang WebGL2 chỉ vẽ lại khi có
+  thay đổi; điểm lỗi nhỏ ẩn mặc định; rời màn hình thì app gửi lệnh `dispose` để trang giải phóng bộ nhớ GPU.
 - **Ghi đồng thời**: mỗi lần ghi gửi `expected_revision`; bản cũ bị từ chối (`STALE_REVISION`), không có "ghi sau thắng".

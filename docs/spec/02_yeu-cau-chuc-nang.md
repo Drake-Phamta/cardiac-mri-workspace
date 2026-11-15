@@ -67,17 +67,18 @@ thích ở [00_tong-quan.md](00_tong-quan.md) mục 6; mã và test chứng minh
 | PR-3D-05 | Khi có GT, mô hình 3D hiện lỗi và chỉ ra các lát gây lỗi | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | PR-ERR-03 | Biểu diễn lỗi phân vùng trên 3D, nối với bằng chứng 2D | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | PR-SCI-02 | Không hiện thể tích hay khoảng cách thật (mm, mL) khi hình học chưa kiểm định | SCR-05, SCR-07 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-001 | Dựng bề mặt 3D (lưới L0, không giảm tam giác) từ mask bằng bước ngoại tuyến `python -m backend.mesh.build_cache` | Backend | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-002 | Xoay, zoom, di bằng cử chỉ | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-003 | Lát 2D ánh xạ sang vị trí z trong 3D theo cùng quy ước voxel; dải lát đứng yên đúng chỗ khi xoay / zoom | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-001 | Dựng bề mặt 3D (lưới L0 `cardiac-mesh/1` gồm các mặt voxel, không giảm tam giác) cho mỗi mask dự đoán RAW / PROCESSED và mỗi GT của ca có GT bằng bước ngoại tuyến `python -m backend.mesh.build_cache`; bước này cũng dựng file hình học lỗi (cần scipy); ghi một lần, không ghi đè | Backend | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-002 | Một ngón kéo để xoay; hai ngón chụm để zoom (từ 0,35 đến 8 lần góc nhìn mặc định) và di | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-003 | Lát 2D k ánh xạ sang tấm z = k đến z = k + 1 của hệ chỉ số voxel (quy tắc làm tròn xuống của hợp đồng hình học); dải lát đứng yên đúng chỗ khi xoay / zoom | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | FR-3D-004 | Mở SCR-05 từ một lát thì lát đó hiện thành dải; lát chọn trong 3D thay dải đó | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-005 | Chạm điểm hợp lệ trên bề mặt cho ra số lát; chạm nền không gây điều hướng | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-005 | Chạm nhanh một điểm hợp lệ trên bề mặt cho ra số lát đã tạo ra mặt bị chạm; chạm nền không chọn gì và không điều hướng | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | FR-3D-006 | "Open in 2D" (bấm rõ ràng) mở SCR-03 tại lát đó; chỉ truyền số lát | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-007 | Khi có GT, biểu diễn lỗi 3D: bề mặt dự đoán và một điểm cho mỗi vùng FP / FN liên thông (26 láng giềng), đọc từ file `cardiac-error-geometry/1` do backend dựng sẵn | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-008 | Chạm điểm lỗi hiện loại, dải lát, số voxel và "Open in 2D"; Previous / Next đi qua các vùng (hết FN rồi FP, mỗi loại vùng lớn trước) | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-009 | Bề mặt dự đoán (đặc) và GT (trong suốt), công tắc từng lớp, độ mờ 30 / 60 / 100 % cho mỗi bề mặt | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
-| FR-3D-010 | "Cut at slice" ẩn phần bề mặt và điểm lỗi phía trên lát đang chọn | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
-| FR-3D-011 | Nút nhìn theo trục voxel ±X / ±Y / ±Z và Fit; trục voxel ở góc (x cột, y hàng, z lát), không ghi hướng giải phẫu | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
+| FR-3D-007 | Khi có GT, biểu diễn lỗi 3D: bề mặt dự đoán và một điểm cho mỗi vùng FP / FN liên thông (26 láng giềng), đọc từ file `cardiac-error-geometry/1` do backend dựng sẵn; app bỏ cả file nếu sai khuôn, sai lưới của ca hoặc thuộc về dự đoán hay bề mặt khác | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-008 | Chạm điểm lỗi hiện loại, số voxel, dải lát và vị trí trong danh sách ("Region 1 of 3") ở bảng dưới, kèm "Open in 2D" mở lát của voxel đánh dấu; hai nút ‹ › đi qua các vùng đang hiện, vùng lớn trước (FN và FP xếp chung theo số voxel) | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-009 | Bề mặt dự đoán (đặc) và GT (mặc định trong suốt 30 %), công tắc mắt cho từng lớp kể cả "Errors", độ mờ "30%" / "60%" / "100%" cho mỗi bề mặt | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
+| FR-3D-010 | "Cut" ẩn phần bề mặt và điểm lỗi phía trên lát đang chọn; phần bị ẩn không chọn được; nút khoá khi chưa có lát | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
+| FR-3D-011 | Nhóm "Views" nhìn theo trục voxel +X, −X, +Y, −Y, +Z, −Z và "Fit"; gizmo ở góc chỉ có ba chữ x, y, z (nghĩa là trục voxel: x cột, y hàng, z lát, ghi ở mục "Frame" của sheet Details), không ghi hướng giải phẫu | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
+| FR-3D-012 | Cỡ điểm lỗi theo cỡ vùng (căn bậc ba số voxel, từ 6 đến 28 px); vùng có ít voxel hơn 0,5 % vùng lớn nhất của ca bị ẩn mặc định và hiện lại bằng "Small regions (N)"; tổng số vùng và voxel vẫn đủ, bảng dưới nói còn ẩn bao nhiêu vùng | SCR-05 | Vũ Hùng Anh | SHOULD | Đã có |
 
 ## 4. V3 — Bế Quốc Khánh: Study Overview, Experiment Comparison
 
