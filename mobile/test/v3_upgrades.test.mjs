@@ -305,9 +305,9 @@ test('V3U10 "About this data": source and terms, pseudonymous case IDs, counts a
     'Where the data comes from', 'Terms of use', 'Case IDs', 'What these screens show', 'Lowest-Dice list', 'Use', 'This build',
   ]);
   const text = sheet.flatMap((s) => s.lines).join('\n');
-  const spec06 = readFileSync(join(REPO_ROOT, 'docs', 'specs', 'v1.0', '06_DATASET_CONTRACT.md'), 'utf8');
-  assert.ok(spec06.includes(DATASET_SOURCE_URL) && text.includes(DATASET_SOURCE_URL), 'the source is the one spec 06 names');
+  // The source the sheet names is the one the dataset audit recorded when the data was downloaded.
   const audit = readFileSync(join(REPO_ROOT, 'data', 'DATASET_AUDIT.md'), 'utf8');
+  assert.ok(audit.includes(DATASET_SOURCE_URL) && text.includes(DATASET_SOURCE_URL), 'the source is the one the dataset audit names');
   assert.match(audit, /154 unique CASE_NNNN IDs/, 'the case ID range shown matches the dataset audit');
   assert.match(text, /CASE_0001 to CASE_0154/);
   assert.match(text, /This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\./);
