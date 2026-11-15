@@ -1921,6 +1921,21 @@ function reviewBackend({ seedVersion = false } = {}) {
       globalThis.__fontScale = 1;
       check('RP-V2d', zooms.join() === '100,115,115', `the WebView's textZoom follows the system font size and stops at the label cap: scale 1, 1.3, 2 give ${zooms.join(', ')} %`);
     }
+    // Responsive (device session r6): the page the WebView is given keeps the layer rows in a box of their own under the Views group, Cut and the
+    // compass (they ran up over +Z, -Z, Fit and the compass at 320 dp and font scale 1.3, where the free area is 307 px high): the box starts at
+    // TOP_BELOW, scrolls when its rows do not fit, and the four rows fit that worst case without scrolling. Style arithmetic, not device evidence.
+    {
+      const { TOP_BELOW } = await imp('src/screens/v2-3d/viewerTools.mjs');
+      const html = web(r).props.source.html;
+      const rule = (selector, from = 0) => { const i = html.indexOf(`${selector}{`, from); return i < 0 ? '' : html.slice(i, html.indexOf('}', i)); };
+      const narrowAt = html.lastIndexOf('@media (max-width:383px)'); // the tools' own rules, after the gizmo's
+      const wide = rule('#tools .layers');
+      const narrow = rule('#tools .layers', narrowAt);
+      const narrowBottom = Number(/bottom:(\d+)px/.exec(narrow)[1]);
+      check('RP-V2e', html === VIEWER_HTML && wide.includes(`top:${TOP_BELOW.wide}px;bottom:6px`) && /overflow-y:auto/.test(wide) && html.includes('#tools .layers>*{flex:none}')
+        && narrow.includes(`top:${TOP_BELOW.narrow}px`) && 4 * 48 <= 307 - TOP_BELOW.narrow - narrowBottom && html.includes('#axes{left:161px;top:57px}'),
+      `SCR-05 page: the layer rows have their own box under the groups above (starts at ${TOP_BELOW.wide} px, ${TOP_BELOW.narrow} px on a narrow page), the compass is in the grid's eighth cell, and four rows fit 307 px`);
+    }
     const hex = sum(predBytes);
     check('V2R3', hasDetail(new RegExp(`^Prediction MESH_${hex}$`)) && hasDetail(/^Prediction: 12 triangles · 8 vertices$/) && hasDetail(new RegExp(`^Prediction checksum sha256:${hex}$`))
       && hasDetail(/^Case CASE_0061$/) && hasDetail(/^Run RUN_A$/) && hasDetail(/^Prediction RAW · Evaluation$/), 'the Details sheet (the shell\'s, from nav.setContext) has the ids, checksums and mesh sizes');
