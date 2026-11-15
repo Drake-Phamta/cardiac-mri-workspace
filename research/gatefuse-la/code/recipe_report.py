@@ -13,14 +13,21 @@ augmented itself, because it reads features cached from the original slices.
   best recipe = the highest VALIDATION Dice (mean over seeds of the mean over the 8 validation
                 volumes). The test set plays no part in the choice. Night 3 trains it at 72 volumes.
 
+Once the chosen recipe has been trained at 72 volumes (runs_ml/recipe72_best_s*), it is compared there with the
+IP U-Net (night-1 runs/unet_full_s*) and with GateFuse (runs/gate_full_s*), on the 20 test volumes, exactly like
+the 8-volume comparisons: one score per volume = the mean over seeds, Wilcoxon + bootstrap CI, Holm over the two
+comparisons of each metric (Dice, HD95). The three arms are named like at 8 volumes.
+
 Output in --out (default LA_WORK/analysis/recipe_report/):
   recipes.csv  friedman.csv  comparisons.csv  best_recipe.json  recipes.png
+  recipe72_arms.csv  recipe72_comparisons.csv      only once the chosen recipe has runs at 72 volumes
 
   python code/recipe_report.py --scores LA_WORK/analysis/evaluate_ml/per_case.csv
 """
 import argparse
 import json
 import sys
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -36,11 +43,13 @@ RECIPES = [f"{loss}+{aug}" for aug in AUGS for loss in LOSSES]
 BASELINE = "bce_dice+none"
 GATE = "GateFuse"
 N_SEEDS = 3
+LABELS = {8: "few", 72: "full"}          # the IP training set: the first 8 volumes, or all 72
 
 
-def recipe_arm(r):
-    """<loss>+<aug> for a U-Net trained on the IP 8-volume set, GateFuse for the IP gate there."""
-    if r.split_set != "ip" or r.labels != "few" or r.n_train_vols != 8:
+def recipe_arm(r, n_vols=8):
+    """<loss>+<aug> for a U-Net trained on the first n_vols volumes of the IP split (8 or 72), GateFuse for the
+    IP gate there."""
+    if r.split_set != "ip" or r.labels != LABELS[n_vols] or r.n_train_vols != n_vols:
         return None
     if r.model == "unet" and r.unet_base == 16:
         return f"{r.loss}+{r.aug}"
@@ -90,6 +99,32 @@ def choose(table):
     return choice
 
 
+def at_72(test, val, recipe):
+    """The recipe chosen on validation against the IP U-Net and GateFuse at 72 labelled volumes.
+
+    test and val hold the rows of the arms named by recipe_arm(r, 72). Same statistics as the 8-volume
+    comparisons: one score per volume = the mean over seeds, then stats_ml.compare (Wilcoxon, bootstrap CI)
+    with Holm over the two comparisons of each metric. Returns (arms, comparisons), or None while the recipe
+    has no runs at 72 volumes (or is the IP U-Net itself, which needs none)."""
+    arms = [recipe, BASELINE, GATE]
+    if recipe == BASELINE or any(a not in set(test.arm) for a in arms):
+        return None
+    dice, hd95 = S.per_volume(test, "dice"), S.per_volume(test, "hd95")
+    role = {recipe: "chosen", BASELINE: "ip_unet", GATE: "gatefuse"}
+    val_dice = val.groupby(["arm", "seed"]).dice.mean().groupby("arm").mean()
+    rows = []
+    for metric, table in (("dice", dice), ("hd95", hd95)):
+        for a in arms:
+            lo, hi = S.bootstrap_ci(table[a].dropna())
+            seeds = test[test.arm == a].groupby("seed")[metric].mean()
+            rows.append(dict(metric=metric, arm=a, role=role[a], n_vols=int(table[a].notna().sum()),
+                             n_seeds=len(seeds), mean=table[a].mean(), ci_low=lo, ci_high=hi, seed_sd=seeds.std(),
+                             val_dice=val_dice.get(a, np.nan)))
+    comp = S.concat([S.compare(dice, [(recipe, BASELINE), (recipe, GATE)], "recipe72_dice"),
+                     S.compare(hd95, [(recipe, BASELINE), (recipe, GATE)], "recipe72_hd95", higher_is_better=False)])
+    return pd.DataFrame(rows), comp
+
+
 def plot(table, choice, out):
     if table.empty:
         return
@@ -118,8 +153,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    test = S.with_arm(S.load_scores(a.scores, "test", "raw"), recipe_arm)
-    val = S.with_arm(S.load_scores(a.scores, "val", "raw"), recipe_arm)
+    test_rows, val_rows = S.load_scores(a.scores, "test", "raw"), S.load_scores(a.scores, "val", "raw")
+    test, val = S.with_arm(test_rows, recipe_arm), S.with_arm(val_rows, recipe_arm)
     missing = [r for r in RECIPES + [GATE] if r not in set(test.arm)]
     if missing:
         print("missing (not trained or not scored yet): " + ", ".join(missing))
@@ -147,6 +182,17 @@ def main(argv=None):
         print(f"best recipe on VALIDATION: {choice['recipe']} (val Dice {choice['val_dice']:.4f}, "
               f"{choice['n_seeds']} seeds)" + ("  PROVISIONAL, incomplete: " + ", ".join(choice["incomplete_recipes"])
                                                if choice["provisional"] else ""))
+        big = at_72(S.with_arm(test_rows, partial(recipe_arm, n_vols=72)),
+                    S.with_arm(val_rows, partial(recipe_arm, n_vols=72)), choice["recipe"])
+        if big is None:
+            print(f"72 volumes: nothing to compare ({choice['recipe']} has no scored runs there, or is the IP U-Net)")
+        else:
+            arms72, comp72 = big
+            arms72.to_csv(out / "recipe72_arms.csv", index=False)
+            comp72.to_csv(out / "recipe72_comparisons.csv", index=False)
+            print(arms72.round(4).to_string(index=False))
+            print(comp72[["family", "a", "b", "diff", "ci_low", "ci_high", "a_better", "p", "p_holm"]].round(4)
+                  .to_string(index=False))
     plot(table, choice, out)
 
 
