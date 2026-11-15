@@ -147,10 +147,10 @@ const unpack = (payload) => {
     && sent.length === n0 && r2.view.state === STATE.SUCCESS && r2.canWrite && r2.status === 'NOT_REVIEWED',
   'APPROVED and NOT_REVIEWED -> NOT_REVIEWED refused locally: nothing sent, still writable, status kept');
 
-  const flagged = await model.patchStatus(REVIEW_STATUS.FLAGGED);
+  const flagged = await model.patchStatus(REVIEW_STATUS.FLAGGED, { reason: 'Misses the septal wall.' });
   const patch = sent[sent.length - 1];
   check('V4-3', flagged.status === 'FLAGGED' && flagged.rejection === null && patch.endpointId === 'review_patch'
-    && patch.body.status === 'FLAGGED' && patch.body.expected_revision === 1,
+    && patch.body.status === 'FLAGGED' && patch.body.expected_revision === 1 && patch.body.reason === 'Misses the septal wall.',
   `NOT_REVIEWED -> FLAGGED sent with expected_revision ${patch.body.expected_revision}; status ${flagged.status}`);
 
   const n1 = sent.length;
@@ -167,8 +167,8 @@ const unpack = (payload) => {
   await model.open(OPEN);
   await model.patchStatus(REVIEW_STATUS.ACCEPTED);
   const n = sent.length;
-  const unconfirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED);
-  const confirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED, { confirmed: true });
+  const unconfirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED, { reason: 'Misses the septal wall.' });
+  const confirmed = await model.patchStatus(REVIEW_STATUS.FLAGGED, { confirmed: true, reason: 'Misses the septal wall.' });
   check('V4-4', unconfirmed.rejection?.code === 'CONFIRMATION_REQUIRED' && unconfirmed.status === 'ACCEPTED'
     && sent.length === n + 1 && confirmed.status === 'FLAGGED',
   'ACCEPTED -> FLAGGED: refused unconfirmed (nothing sent), sent once confirmed');
@@ -178,7 +178,7 @@ const unpack = (payload) => {
 {
   const { model, sent } = fresh();
   await model.open(OPEN);
-  const stale = await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: 'stale_revision' });
+  const stale = await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: 'stale_revision', reason: 'Misses the septal wall.' });
   check('V4-5', stale.view.state === STATE.STALE_MISMATCH && stale.canWrite === false
     && stale.view.actions.includes(RECOVERY.REFRESH) && !stale.view.actions.includes(RECOVERY.RETRY),
   `stale response -> ${stale.view.state}, canWrite=${stale.canWrite}, actions ${stale.view.actions.join('/')}`);
@@ -392,7 +392,7 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
   for (const name of ['stale_revision', 'default']) {
     const { model, sent } = fresh();
     await model.open(OPEN);
-    await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: name });
+    await model.patchStatus(REVIEW_STATUS.FLAGGED, { scenario: name, reason: 'Misses the septal wall.' });
     if (name === 'default') await model.saveCorrection(editedSession());
     all.push(...sent);
   }
@@ -468,14 +468,20 @@ const WRITES = new Set(['review_patch', 'working_mask_put', 'review_commit']);
   check('V4-15', next.view.state === STATE.SUCCESS && calls.map((c) => `${c.endpointId}${c.body?.slice_index ?? ''}`).join(',') === 'working_mask_put45,review_commit'
     && next.reviewedMasks.length === first.reviewedMasks.length + 1 && next.lastCommit.reviewed_mask_id === 'REVIEWED_MASK_TEST_2',
   'a real edit after a save sends ONLY the changed slice (45), and commits the next version');
-  // Undoing that edit again differs from the commit, so it is a real change to save; once saved, nothing is left.
-  s.undo();
+  // A save leaves no undo steps (B7): undoing a saved stroke would change the version on screen without saving it.
+  check('V4-15', !s.state().canUndo && !s.state().canRedo && s.undo() === null && s.state().maskState === MASK_STATE.SAVED,
+    'after a save the undo and redo history is empty: nothing to undo, and the slice stays SAVED');
+  // Painting the erased pixels back differs from the commit, so it is a real change to save; once saved, nothing is left.
+  s.setTool(TOOL.ADD);
+  s.beginStroke(45);
+  s.sample(305.5, 282.5, { zoom: 1, panX: 0, panY: 0 });
+  s.endStroke();
   const u = sent.length;
   const undone = await model.saveCorrection(s);
   const again2 = await model.saveCorrection(s);
   check('V4-15', s.state().maskState === MASK_STATE.SAVED && undone.view.state === STATE.SUCCESS
     && again2.rejection?.code === 'NOTHING_TO_SAVE' && sent.slice(u).filter((c) => c.endpointId === 'review_commit').length === 1,
-  'undoing a committed edit is a change (one more version); saving again straight after is NOTHING_TO_SAVE');
+  'painting a committed edit back is a change (one more version); saving again straight after is NOTHING_TO_SAVE');
 }
 
 // V4-16 (QA-063 N-4): continuing a review that is already CORRECTED.
