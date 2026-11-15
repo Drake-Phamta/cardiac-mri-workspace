@@ -248,8 +248,26 @@ jobs:
             fail=1
           fi
 
+          # TC-SEC-004: the content of every added line, not only file names. Hits name the file,
+          # the line and the kind of secret, never the secret itself.
+          if ! python3 tools/secret_scan.py --diff "$BASE" "$HEAD"; then
+            fail=1
+          fi
+
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "no forbidden bytes in this change"
+
+      # A scan that never fires proves nothing: plant a key in a temp folder and expect a hit.
+      # The key is assembled at run time, so this file does not trip the scan itself.
+      - name: the secret scan catches a planted key
+        run: |
+          mkdir -p "$RUNNER_TEMP/planted"
+          printf -- '-----BEGIN %s-----\n' "PRIVATE KEY" > "$RUNNER_TEMP/planted/id_test"
+          if python3 tools/secret_scan.py --dir "$RUNNER_TEMP/planted" > /dev/null; then
+            echo "::error::tools/secret_scan.py missed a planted private key"
+            exit 1
+          fi
+          echo "the planted key was found"
 
   # --------------------------------------------------------------------------
   mobile-shell:
@@ -274,17 +292,23 @@ jobs:
 
       # prepare.mjs is what every build runs first; running it here proves the
       # generator output passes the bundle checks of src/api/client.mjs and the build config
-      # resolves in both modes. The live URL is never in git: CI uses a
+      # resolves in both modes. CI uses loopback (the local demo) and a
       # reserved .invalid name, and checks that a live build without any URL
-      # warns (the app shows a configuration error) and that --strict, which
-      # build-release.ps1 uses, refuses it.
+      # warns (the app shows a configuration error), that --strict, which
+      # build-release.ps1 uses, refuses it, and that http:// to a host other
+      # than the device is refused (NFR-SEC-002).
       - name: generate the build inputs (fixture, live with and without a URL)
         run: |
           node mobile/scripts/prepare.mjs --mode fixture --strict
-          EXPO_PUBLIC_API_BASE_URL=http://backend.invalid:8000 node mobile/scripts/prepare.mjs --mode live --strict
+          EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 node mobile/scripts/prepare.mjs --mode live --strict
+          EXPO_PUBLIC_API_BASE_URL=https://backend.invalid node mobile/scripts/prepare.mjs --mode live --strict
           node mobile/scripts/prepare.mjs --mode live
           if node mobile/scripts/prepare.mjs --mode live --strict; then
             echo "::error::prepare.mjs --strict accepted a live build with no backend URL"
+            exit 1
+          fi
+          if EXPO_PUBLIC_API_BASE_URL=http://backend.invalid:8000 node mobile/scripts/prepare.mjs --mode live; then
+            echo "::error::prepare.mjs accepted plain http:// to a remote host"
             exit 1
           fi
           node mobile/scripts/prepare.mjs --mode fixture
@@ -364,6 +388,10 @@ jobs:
             echo "::error::expo export wrote no files"
             exit 1
           fi
+
+      # TC-SEC-004 for what ships: no key or token inside the exported bundle.
+      - name: secret scan of the exported bundle
+        run: python tools/secret_scan.py --dir "$RUNNER_TEMP/expo-dist"
 
   # --------------------------------------------------------------------------
   # ml/: training, inference, evaluation, the holdout lock, the Contract 2
