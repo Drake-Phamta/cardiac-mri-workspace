@@ -1,33 +1,20 @@
 /*
- * The case mode badge, on the case list rows and the case screen header, so a case reads the same in both.
- * The mode is written as text, not shown by colour alone.
+ * The case mode tag, on the case list rows and the case screen header, so a case reads the same in both.
+ * The mode is a word on a neutral tag: Direction A keeps colour for data and state, so the two modes get none.
+ * A mode that disagrees with the case's data is the one coloured case (warn), and says so in words.
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 
-import { color, font, space } from './theme';
-
-const TONE = {
-  EVALUATION: { fg: color.evaluation, bg: color.okBg },
-  INFERENCE_REVIEW: { fg: color.inference, bg: '#221a2e' },
-  UNKNOWN: { fg: color.warn, bg: color.warnBg },
-};
+import { Tag } from './Controls';
 
 export default function CapabilityBadge({ capability, compact = false }) {
-  const tone = TONE[capability.key] || TONE.UNKNOWN;
+  const warn = !capability.consistent;
+  const label = `${compact ? capability.short : capability.label}${warn ? ' · inconsistent' : ''}`;
   return (
-    <View style={[s.badge, { borderColor: tone.fg, backgroundColor: tone.bg }]} accessibilityLabel={`mode ${capability.label}`}>
-      <Text style={[s.label, { color: tone.fg }]}>{compact ? capability.short : capability.label}</Text>
-      {!capability.consistent && <Text style={[s.label, { color: color.warn }]}> · inconsistent</Text>}
+    <View accessibilityLabel={`mode ${capability.label}`}>
+      <Tag label={label} tone={warn ? 'warn' : 'neutral'} />
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  badge: {
-    flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 1, borderRadius: 6,
-    paddingHorizontal: space.s, paddingVertical: 2,
-  },
-  label: { fontSize: font.small, fontWeight: '700', fontFamily: font.mono },
-});

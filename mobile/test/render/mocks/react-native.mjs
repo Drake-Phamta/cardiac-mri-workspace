@@ -24,7 +24,10 @@ export function FlatList({ data, renderItem, keyExtractor, ListHeaderComponent, 
     items.length ? items : (ListEmptyComponent || null), ListFooterComponent || null);
 }
 
-export const StyleSheet = { create: (s) => s, absoluteFill: {}, hairlineWidth: 1 };
+// absoluteFill is React Native's own value, so a check can tell a full-bleed backdrop from a control with no size.
+export const StyleSheet = {
+  create: (s) => s, absoluteFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }, hairlineWidth: 1,
+};
 export const PanResponder = { create: (cfg) => ({ panHandlers: { __pan: cfg } }) };
 // Keeps its listeners (#77 QA N-7), so a check can press the hardware back
 // button: __press() calls them newest first, as Android does, until one
@@ -50,8 +53,23 @@ export const BackHandler = {
 export const Alert = {
   alert: (...args) => { (globalThis.__alerts = globalThis.__alerts || []).push(args); },
 };
+// The session cover listens to AppState; __set('background' | 'active') plays a state change to the listeners.
+const appStateListeners = [];
+export const AppState = {
+  currentState: 'active',
+  addEventListener(event, fn) {
+    const entry = { event, fn };
+    appStateListeners.push(entry);
+    return { remove() { const i = appStateListeners.indexOf(entry); if (i >= 0) appStateListeners.splice(i, 1); } };
+  },
+  __set(next) {
+    AppState.currentState = next;
+    for (const { event, fn } of [...appStateListeners]) if (event === 'change') fn(next);
+  },
+  get __listeners() { return appStateListeners.length; },
+};
 
 export default {
   View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
-  StyleSheet, PanResponder, BackHandler, Alert,
+  StyleSheet, PanResponder, BackHandler, Alert, AppState,
 };

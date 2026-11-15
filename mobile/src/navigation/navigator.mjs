@@ -100,8 +100,10 @@ export function createGuards() {
  * The nav object a screen receives, e.g. nav.push('SCR-03', { caseId }). A bad route returns false and goes
  * to onError before dispatch, instead of throwing from a tap handler (a crash in a release build).
  * Each action returns true or false, or a Promise of it when a leave guard had to be asked.
+ * setContext({ caseId, runId, variant }) tells the header what the screen shows when the route params do not say
+ * it (SCR-03 picks its run itself); onContext(key, context) receives it.
  */
-export function bindNav(dispatch, state, onError = null, guards = null) {
+export function bindNav(dispatch, state, onError = null, guards = null, onContext = null) {
   const current = top(state);
   // Read when the action runs: a screen usually sets its guard in an effect, after this object exists.
   const guardNow = () => (guards ? guards.get(current.key) : null);
@@ -140,6 +142,7 @@ export function bindNav(dispatch, state, onError = null, guards = null) {
     reset: (screenId, params) => routed(NAV.RESET, screenId, params),
     pop: () => (canGoBack(state) ? leave({ type: NAV.POP }) : false),
     setLeaveGuard: (fn) => { if (guards) guards.set(current.key, fn); },
+    setContext: (context) => { if (onContext) onContext(current.key, context && typeof context === 'object' ? { ...context } : null); },
     hasLeaveGuard: () => Boolean(guardNow()),
     canGoBack: canGoBack(state),
     depth: state.stack.length,

@@ -2,7 +2,7 @@
 
 Run from the repository root (derived data under CARDIAC_BACKEND_DATA, outside any git work tree):
 
-    python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+    python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 """
 
 from __future__ import annotations

@@ -10,13 +10,17 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import NavigatorView from './src/navigation/Navigator';
 import { ROOT_SCREEN_ID } from './src/navigation/routes.mjs';
 import { loadRuntime, RuntimeProvider } from './src/api/RuntimeContext';
-import { color, font, space } from './src/components/theme';
+import { IconAlert } from './src/components/icons';
+import { color, space, type } from './src/components/theme';
 
 function BuildInvalid({ error }) {
   const config = typeof error.code === 'string' && error.code.startsWith('CONFIG_');
   return (
     <ScrollView contentContainerStyle={s.invalid}>
-      <Text style={s.tag}>{config ? 'CONFIGURATION ERROR' : 'FATAL INVALID'}</Text>
+      <View style={s.tagRow}>
+        <IconAlert size={18} strokeWidth={2} color={color.danger} />
+        <Text style={s.tag}>{config ? 'CONFIGURATION ERROR' : 'FATAL INVALID'}</Text>
+      </View>
       <Text style={s.h1}>{config ? 'This build is not configured' : 'This build cannot start safely'}</Text>
       <Text style={s.body}>{error.message}</Text>
       {error.code ? <Text style={s.problem} selectable>code {error.code}</Text> : null}
@@ -50,10 +54,11 @@ export default function App() {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
-  invalid: { padding: space.xl },
-  tag: { color: color.danger, fontFamily: font.mono, fontSize: font.small, letterSpacing: 1 },
-  h1: { color: color.danger, fontSize: font.h1, fontWeight: '700', marginVertical: space.s },
-  body: { color: color.text, fontSize: font.body },
-  problem: { color: color.textDim, fontFamily: font.mono, fontSize: font.small, marginTop: space.xs },
-  hint: { color: color.textDim, fontSize: font.small, marginTop: space.l },
+  invalid: { padding: space.l, paddingTop: space.xl },
+  tagRow: { flexDirection: 'row', alignItems: 'center', gap: space.s },
+  tag: { ...type.overline, color: color.danger },
+  h1: { ...type.screenTitle, color: color.t1, marginTop: space.s, marginBottom: space.xs },
+  body: { ...type.body, color: color.t2 },
+  problem: { ...type.caption, color: color.t3, fontVariant: ['tabular-nums'], marginTop: space.xs },
+  hint: { ...type.caption, color: color.t2, marginTop: space.l },
 });

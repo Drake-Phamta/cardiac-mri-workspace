@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
 import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
+import { color, family, font, MIN_TOUCH, space } from '../../components/theme';
 import Svg, { Circle, G, Line as SvgLine, Text as SvgText } from 'react-native-svg';
 import { pointAt, stripLayout, FAMILY_LABEL } from './view.mjs';
 import { fatalInvalid, RECOVERY } from '../../api/states.mjs';
@@ -108,7 +108,7 @@ const s = StyleSheet.create({
 
 export const STRIP_HEIGHT = 240;
 
-const FAMILY_COLOR = Object.freeze({ UNET: color.accent, DINOV2: color.inference });
+const FAMILY_COLOR = Object.freeze({ UNET: family.UNET.color, DINOV2: family.DINOV2.color });
 
 export function StripChart({ columns, selected, onSelect, label }) {
   const [width, setWidth] = useState(0);
