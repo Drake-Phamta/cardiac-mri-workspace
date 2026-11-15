@@ -93,7 +93,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
     "Common population 5 cases").
   - Mục "Lowest Dice · <thí nghiệm>" (ví dụ "Lowest Dice · DINOv2 100 %"), bên phải ghi biến thể ("Raw"). Hàng chọn
     "Experiment" kèm tên thí nghiệm đang xem (chỉ có khi có hơn một thí nghiệm). Dưới đó là tối đa 3 dòng ca do server
-    chọn, theo thứ tự của server: mã ca ẩn danh, một thanh dài bằng Dice (0 – 1), Dice 3 chữ số, mũi tên. Dice thiếu thì
+    chọn, theo thứ tự của server: mã ca ẩn danh (nằm trong ô có `minWidth` 88 dp, không có bề rộng cố định, nên "CASE_0029" không bị cắt
+    thành "CASE_00…" ở cỡ chữ 1,3; thanh co lại trước), một thanh dài bằng Dice (0 – 1), Dice 3 chữ số, mũi tên. Dice thiếu thì
     hiện "—" thay cho thanh; Dice ngoài 0 – 1 thì hiện số mà không vẽ thanh.
 - **Mặc định**: danh sách "Lowest Dice" mở sẵn thí nghiệm DINOv2 ở tỉ lệ dữ liệu lớn nhất có danh sách, Raw trước
   Processed. Không có DINOv2 thì lấy thí nghiệm đầu tiên có danh sách; không thí nghiệm nào có danh sách thì lấy thí

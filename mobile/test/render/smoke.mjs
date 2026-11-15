@@ -1190,6 +1190,13 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   check('V3R20', has(r, /^Lowest Dice · DINOv2 100 %$/) && texts(r).filter((x) => /^Lowest Dice · /.test(x)).length === 1
     && bars.length === 3 && label(bars[0]) === 'CASE_0005, dice 0.660', `one list, DINOv2 100 %: ${bars.length} rows, first ${bars[0] ? label(bars[0]) : '-'}`);
   check('V3R20', has(r, /^Experiment$/) && has(r, /^DINOv2 100 %$/), 'a compact picker names the experiment of the list');
+  // Responsive (device session r5): the id in the lowest-Dice list was cut to "CASE_00..." at font scale 1.3 (a fixed 88 dp box for a 97 dp id).
+  {
+    const idTexts = r.root.findAll((n) => n.type === 'Text' && /^CASE_\d{4}$/.test(textOf(n)) && /^TouchableOpacity$/.test(String((() => { let p = n.parent; while (p && p.type !== 'TouchableOpacity') p = p.parent; return p ? p.type : ''; })())));
+    const boxOf = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return flatStyle(p.props.style); };
+    check('RP-V3e', idTexts.length === 3 && idTexts.every((n) => n.props.numberOfLines === 1 && boxOf(n).minWidth === 88 && boxOf(n).width === undefined && boxOf(n).flexShrink === 0),
+      `SCR-01 lowest-Dice ids (${idTexts.map(textOf).join(', ')}): one line, in a box with a minWidth of 88 dp and no fixed width, never shrunk`);
+  }
   check('V3R13', shortPressables(r).length === 0, `SCR-01: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
   check('V3R20', sheetTexts(r, 'scr01-picker-sheet') === null, 'the picker sheet is closed until asked for');
   await press(r, 'Experiment');
