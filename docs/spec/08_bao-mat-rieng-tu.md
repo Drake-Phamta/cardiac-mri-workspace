@@ -23,12 +23,12 @@ giả danh `CASE_0001` … `CASE_0154`. Mọi biện pháp dưới đây đều 
 
 | Biện pháp | Ở đâu | ID |
 |---|---|---|
-| Privacy mode ở SCR-03 / SCR-04, bật mặc định: chụp, quay, chiếu màn hình ra màu đen, ảnh bị ẩn trong danh sách app gần đây (cần APK có `expo-screen-capture`; APK cũ ghi "not available in this build") | `mobile/src/lib/privacy.mjs`, `lib/screenCapture.js` | NFR-SEC-007 |
-| Che màn hình sau 5 phút ở nền hoặc 10 phút không chạm | `mobile/src/components/session.mjs`, `SessionCover.js` | NFR-SEC-006 |
-| "Clear cached images" ở About this screen và lớp che phiên; từ chối khi còn nét sửa chưa lưu | `components/session.mjs`, `navigation/Navigator.js` | NFR-SEC-006 |
+| Privacy mode ở SCR-03 / SCR-04, bật mặc định, bật / tắt bằng khiên trên header ("Privacy mode: ON" / "Privacy mode: OFF"): chụp, quay, chiếu màn hình ra màu đen, ảnh bị ẩn trong danh sách app gần đây; rời màn hình thì bỏ chặn. Cần APK có `expo-screen-capture`; APK cũ ghi "Privacy mode: not available in this build" | `mobile/src/lib/privacy.mjs`, `lib/screenCapture.js` | NFR-SEC-007 |
+| Che màn hình sau 5 phút ở nền hoặc 10 phút không chạm ("Screen hidden"); sheet đang mở cũng ẩn theo | `mobile/src/components/session.mjs`, `SessionCover.js` | NFR-SEC-006 |
+| "Clear cached images" ở sheet Details và lớp che phiên; từ chối khi màn hình còn thay đổi chưa lưu | `components/session.mjs`, `navigation/Navigator.js` | NFR-SEC-006 |
 | Cache chỉ trong RAM, có giới hạn, khoá theo phiên bản, checksum, biến thể; không ghi file | `mobile/src/api/cache.mjs` | NFR-SEC-008 |
 | Log mạng theo cử chỉ (logcat) ghi mã ca, lát, endpoint, mã HTTP, kích thước và thời gian; không có URL, host hay nội dung | `mobile/src/api/http.mjs` | NFR-SEC-003 |
-| Mã và checksum nằm trong thẻ Provenance gập sẵn, không hiện mặc định | `mobile/src/components/Provenance.js` | FR-MRI-007 |
+| Mã, checksum, dòng run và `z` của lát nằm trong sheet Details (nút Info), không hiện trên ảnh | `screens/v1-cases/CaseExplorerScreen.js`, `ErrorInspectorScreen.js`, `components/DetailsSheet.js` | FR-MRI-007 |
 | Ca không GT không bao giờ có số đo cần GT | `mobile/src/lib/caseMode.mjs` | PR-MODE-01 |
 
 ## 3. Vũ Hùng Anh — SCR-05, lưới 3D

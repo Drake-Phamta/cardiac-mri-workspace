@@ -140,7 +140,7 @@ App **không ghi gì xuống bộ nhớ máy** (không file, không CSDL cục b
 | Cache phản hồi | Phản hồi thành công của 5 endpoint theo lát (MRI, dự đoán, GT, chỉ số lát, lát reviewed mask), khoá theo URL nên RAW và PROCESSED không lẫn | 600 mục; câu trả lời "không có" được nhớ 5 phút |
 | Kho ảnh MRI | PNG đã kiểm SHA-256 | 48 ảnh |
 | Kho mask | Mask đã giải mã để vẽ | 300 mask |
-| Nhớ trong phiên | Biến thể đã chọn, kiểu vẽ mask, thí nghiệm và thứ tự của worklist | Chỉ chọn sẵn và nói rõ trên màn hình; lần đầu luôn hỏi |
+| Nhớ trong phiên | Biến thể đã chọn, kiểu vẽ mask của từng màn hình, thí nghiệm và thứ tự của worklist | Biến thể: lần đầu luôn hỏi, sau đó chọn sẵn và hiện ở panel dưới của SCR-03; worklist chưa chọn thì mở trên thí nghiệm mặc định và sheet Details ghi "Chosen for you" |
 
-"Clear cached images" (bảng About this screen và lớp che phiên) xoá các kho trên; bị từ chối khi một màn hình còn nét
-sửa chưa lưu. WebView 3D chạy ẩn danh, không cache. Nét bút chưa lưu chỉ nằm trong bộ nhớ của SCR-06 cho tới khi Save.
+"Clear cached images" (sheet Details và lớp che phiên) xoá các kho trên; bị từ chối khi một màn hình còn thay đổi chưa
+lưu. WebView 3D chạy ẩn danh, không cache. Nét bút chưa lưu chỉ nằm trong bộ nhớ của SCR-06 cho tới khi Save.

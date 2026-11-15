@@ -8,7 +8,7 @@ trên máy tính của nhóm (Windows), điện thoại nối qua cáp USB. Các
 
 | ID | Yêu cầu | Cách kiểm | Người phụ trách | Mức | Trạng thái |
 |---|---|---|---|---|---|
-| NFR-PERF-001 | Chuyển sang lát đã cache: p95 ≤ 200 ms qua 30 bước; không tải cả khối 3D mỗi cử chỉ (tải từng lát PNG) | Kịch bản A9 / L4 trên điện thoại (nhấn giữ nhãn lát), log mạng theo cử chỉ; bản thử nghiệm p95 98,72 ms | Phạm Tuấn Anh | MUST | Một phần: chờ đo trên APK gộp |
+| NFR-PERF-001 | Chuyển sang lát đã cache: p95 ≤ 200 ms qua 30 bước; không tải cả khối 3D mỗi cử chỉ (tải từng lát PNG) | Kịch bản A9 / L4 trên điện thoại (nhấn giữ số lát ở panel dưới SCR-03), log mạng theo cử chỉ; bản thử nghiệm p95 98,72 ms | Phạm Tuấn Anh | MUST | Một phần: chờ đo trên APK gộp |
 | NFR-PERF-002 | Xoay / zoom 3D: FPS trung vị ≥ 20, không khựng > 500 ms | Đo FPS trên điện thoại; bản thử nghiệm lưới L0 đạt 59,88 FPS | Vũ Hùng Anh | MUST | Một phần: chờ đo SCR-05 có lớp lỗi trên APK gộp |
 | NFR-PERF-003 | Nét bút phản hồi ≤ 100 ms trên máy, không mất mẫu nào đã vẽ | Test không mất mẫu (tự động); đo thời gian trên điện thoại, bản thử nghiệm tối đa 30,48 ms | Nguyễn Gia Đức Trung | MUST | Một phần: chờ đo trên APK gộp |
 | NFR-PERF-004 | Yêu cầu bất đồng bộ trả lời trong 2 s, giao diện không đứng | — | Cả nhóm | MUST | Hướng phát triển |
@@ -20,7 +20,7 @@ trên máy tính của nhóm (Windows), điện thoại nối qua cáp USB. Các
 | NFR-USAB-001 | Mọi thao tác chính làm được bằng cảm ứng trên thiết bị mục tiêu, màn hình dọc | Render harness (tự động) và một phiên dùng thử ghi lại trên điện thoại | Phạm Tuấn Anh | MUST | Một phần: chưa ghi phiên dùng thử trên APK gộp |
 | NFR-USAB-002 | Cử chỉ vẽ không bao giờ gây điều hướng; thao tác làm mất dữ liệu (rời màn hình khi chưa lưu, Reset, Cancel) phải hỏi xác nhận | Test bộ điều khiển cử chỉ, render smoke | Phạm Tuấn Anh | MUST | Đã có |
 | NFR-USAB-003 | Tính năng cần GT nói rõ khi không dùng được; chú giải và chỉ số không dựa vào màu đơn thuần (có hình, chữ) | Test và render smoke | Phạm Tuấn Anh | MUST | Đã có |
-| NFR-USAB-004 | Nút chính ≥ 48 dp (`MIN_TOUCH`), không có điểm chạm nhỏ cho thao tác sửa | Đọc style, cần một test style | Phạm Tuấn Anh | MUST | Một phần: chip RAW / PROCESSED / Run…, nút "Refresh this slice", "Fetch the image again", "Details" và nhãn lát còn 40 dp |
+| NFR-USAB-004 | Vùng chạm ≥ 48 dp (`MIN_TOUCH`); phần nhìn thấy thấp hơn được nới vùng chạm (`hitSlopFor`), nhãn ngắn có bề ngang tối thiểu; không có điểm chạm nhỏ cho thao tác sửa | `test/render/touch_targets.mjs` đo từ style các thành phần dùng chung và khung app; render smoke (T5) đo SCR-02, SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Một phần: SCR-01, SCR-05 – SCR-08 chưa được đo trên `main`; chưa đo trên điện thoại |
 | NFR-USAB-005 | Luồng demo chính chạy thành công 5 lần liền trên thiết bị mục tiêu | Chạy trên điện thoại, ghi kèm bản build | Cả nhóm | MUST | Chưa có |
 
 ## 3. Bảo mật và riêng tư
@@ -35,7 +35,7 @@ Chi tiết từng biện pháp và nơi trong mã: [08_bao-mat-rieng-tu.md](08_b
 | NFR-SEC-004 | Không có bí mật trong git hay trong app; dữ liệu bệnh nhân ở ngoài repo | CI chặn file ảnh y tế, checkpoint, secret, file > 10 MB, IP nội bộ | Cả nhóm | MUST | Đã có |
 | NFR-SEC-005 | Nhập liệu chỉ nhận siêu dữ liệu trong danh sách cho phép; trường định danh lạ bị từ chối | Test Contract 1 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | NFR-SEC-006 | Che màn hình sau 5 phút ở nền hoặc 10 phút không chạm; nút "Clear cached images" | Test đồng hồ phiên, render smoke | Phạm Tuấn Anh | MUST | Đã có |
-| NFR-SEC-007 | Privacy mode ở SCR-03 / SCR-04, bật mặc định: chụp, quay, chiếu màn hình ra màu đen | Test, cần APK build từ mã này | Phạm Tuấn Anh | MUST | Đã có |
+| NFR-SEC-007 | Privacy mode ở SCR-03 / SCR-04, bật mặc định, bật / tắt bằng khiên trên header: chụp, quay, chiếu màn hình ra màu đen, ảnh xem trước trong danh sách app gần đây bị ẩn | Test, cần APK build từ mã này | Phạm Tuấn Anh | MUST | Đã có |
 | NFR-SEC-008 | Cache chỉ trong bộ nhớ, giới hạn kích thước, khoá theo phiên bản / checksum / biến thể | Test cache | Phạm Tuấn Anh | MUST | Đã có |
 | NFR-SEC-009 | WebView 3D ẩn danh: không cache, không DOM storage, không cookie, chỉ nhận hình học voxel | Test viewer, render smoke | Vũ Hùng Anh | MUST | Đã có |
 | NFR-SEC-010 | Kiểm tra chữ tự do (ghi chú, lý do gắn cờ) trên điện thoại: tối đa 500 ký tự, cảnh báo khi giống thông tin cá nhân | Test `checkNote`, render smoke | Nguyễn Gia Đức Trung | MUST | Đã có |

@@ -5,7 +5,7 @@
 | Lớp kiểm | Lệnh (từ thư mục gốc repo) | Kiểm gì | Job CI |
 |---|---|---|---|
 | Logic app | `node --test mobile/test/*.test.mjs` | Đúng file `.mjs` chạy trên điện thoại: mô hình màn hình, cache, hợp đồng, bút, toán zoom | `mobile-shell` |
-| Render smoke | `cd mobile; npm run test:render` | Vẽ cả app bằng `react-test-renderer`, bấm nút, kiểm chữ trên màn hình (`check('ID', …)`); không thay cho bằng chứng trên máy | `mobile-render-bundle` |
+| Render smoke | `cd mobile; npm run test:render` | Vẽ cả app bằng `react-test-renderer`, bấm nút, kiểm chữ trên màn hình (`check('ID', …)`); `touch_targets.mjs` đo vùng chạm từ style; không thay cho bằng chứng trên máy | `mobile-render-bundle` |
 | Backend | `python -m pytest backend/tests backend/mesh/tests` | Mọi endpoint, mọi phản hồi kiểm theo hợp đồng, CSDL, lưới 3D (Python 3.9) | `backend-tests` |
 | Hợp đồng | `python test_contract1.py`, `test_contract2.py`, `test_api_contract.py` | Hai hợp đồng nhập liệu và hợp đồng API | `contract-tests` |
 | ML | `python -m pytest ml/tests` | Chia dữ liệu, chấm điểm, hậu xử lý, xuất gói (CPU) | `ml-tests` |
@@ -22,7 +22,7 @@ nghiệm thu.
 |---|---|---|---|---|
 | TC-CASE-001 | Danh sách ca ẩn danh; chọn ca thì mở ca | v1, render smoke, test_api | Phạm Tuấn Anh | Đã có |
 | TC-CASE-002 | Chế độ ca nhất quán ở danh sách, chi tiết và giao diện | v1, render smoke, test_api | Phạm Tuấn Anh | Đã có |
-| TC-MRI-001 | Lát k hiện đúng ảnh và "k / tổng" | test_api, v1, render smoke + điện thoại | Phạm Tuấn Anh | Đã có |
+| TC-MRI-001 | Lát `z` hiện đúng ảnh và nhãn "Slice z+1 / tổng" | test_api, v1_viewer, render smoke + điện thoại | Phạm Tuấn Anh | Đã có |
 | TC-MRI-002 | Kéo thanh lát và nút bước đổi lát xác định; khi vẽ ở SCR-06 không điều hướng | v1, v4_review_screen, render smoke + điện thoại | Phạm Tuấn Anh | Đã có |
 | TC-MRI-003 | Đổi ca / run không để lại lớp hay số của ca / run trước | v1_model, render smoke | Phạm Tuấn Anh | Đã có |
 | TC-MASK-001 | Lớp mask khớp ảnh qua zoom / di | view_math, v1_model, render smoke, imaging + điện thoại | Phạm Tuấn Anh | Đã có |
@@ -36,7 +36,7 @@ nghiệm thu.
 | TC-MOBILE-STATE-001 | Màn hình chính đi qua đủ trạng thái tải, không có, xử lý, lỗi, thử lại, chặn dữ liệu sai | stateCopy, api_states, v1_model, render smoke + điện thoại | Phạm Tuấn Anh | Đã có |
 | TC-USAB-001 | Luồng chính làm được bằng cảm ứng trên thiết bị mục tiêu | render smoke + điện thoại | Phạm Tuấn Anh | Một phần: chưa ghi phiên trên APK gộp |
 | TC-USAB-003 | Trạng thái thiếu GT dễ hiểu, không trông như lỗi bằng 0 | stateCopy, render smoke, v1_error + điện thoại | Phạm Tuấn Anh | Đã có |
-| TC-USAB-004 | Nút chính đạt kích thước chạm tối thiểu | cần test style + điện thoại | Phạm Tuấn Anh | Chưa có |
+| TC-USAB-004 | Nút chính đạt kích thước chạm tối thiểu | touch_targets, render smoke + điện thoại | Phạm Tuấn Anh | Một phần: SCR-01, SCR-05 – SCR-08 chưa được đo trên `main` |
 | TC-PERF-001 | 30 bước chuyển lát đã cache p95 ≤ 200 ms, không tải cả khối | v1, render smoke + điện thoại | Phạm Tuấn Anh | Một phần: chờ đo trên APK gộp |
 | TC-MAINT-001 | Bản đồ sở hữu thể hiện ranh giới module | registry | Phạm Tuấn Anh | Đã có |
 | TC-AUDIT-001 | `tools/trace_check.py`: ID đặc tả = ID ma trận, MUST "Đã có" có test, tham chiếu tồn tại | test_trace_check | Phạm Tuấn Anh | Đã có |
@@ -101,7 +101,7 @@ dòng, phân biệt bằng `sub_item`). Ma trận viết bằng tiếng Anh ng�
 | `priority`, `status`, `action` | MUST / SHOULD / COULD; DONE / PARTIAL / NOT_DONE / FUTURE_WORK; NONE / IMPLEMENT / DEVICE_RUN / FUTURE_WORK |
 | `code_refs`, `test_refs` | `đường-dẫn:ký-hiệu; …` — ký hiệu phải có nguyên văn trong file; test là một phần tên `test('…')`, một `check('ID'` của render smoke, hoặc tên `def` pytest |
 | `device_evidence` | yes = cần một lần chạy trên điện thoại để nghiệm thu |
-| `pending_branch` | Nhánh chưa gộp chứa mã của dòng này (`shell`, `v1` … `v4`, nối bằng `+`) |
+| `pending_branch` | Nhánh chưa gộp chứa mã của dòng này (hiện còn `v2`, `v3`, `v4`; nối bằng `+`) |
 | `gap`, `source` | Chỗ còn thiếu; ID của bản kiểm tra đặc tả cũ mà dòng này kế thừa (`CNS:n` = tính năng có trong mã nhưng đặc tả cũ chưa có) |
 
 Quy tắc trạng thái: DONE đi với NONE; PARTIAL / NOT_DONE phải ghi `gap` và có IMPLEMENT (cần mã hoặc test) hoặc
@@ -121,12 +121,13 @@ là tổng hợp các dòng không phải FUTURE_WORK: tất cả DONE → "Đã
 
 Test của chính bước kiểm tra: `python -m pytest tools/tests` (hoặc `python -m unittest discover -s tools/tests`).
 
-**Hiện nay (trước khi gộp)**: mã của nhiều dòng chỉ có trên 5 nhánh tính năng. CI chạy
+**Hiện nay (trước khi gộp)**: khung app (`shell/design-system`) và V1 (`v1/tuan-anh-upgrades`) đã gộp vào `main`; mã
+của nhiều dòng còn chỉ có trên 3 nhánh tính năng `v2`, `v3`, `v4`. CI chạy
 `python tools/trace_check.py --allow-pending docs/trace/pending_branches.txt`: tham chiếu không tìm thấy trên một dòng
 có `pending_branch` nằm trong danh sách được báo **PENDING** thay vì lỗi; phiên bản hợp đồng (main 1.1.0, đặc tả 1.2.0)
 và endpoint `review_history_list` cũng được nới như vậy.
 
-**Sau khi gộp cả 5 nhánh vào main**: xoá `docs/trace/pending_branches.txt`, đổi job `traceability` sang
+**Sau khi gộp cả 3 nhánh còn lại vào main**: xoá `docs/trace/pending_branches.txt`, đổi job `traceability` sang
 `python tools/trace_check.py --strict`. Chế độ nghiêm ngặt không chấp nhận tham chiếu nào thiếu; nó in danh sách các
 dòng mà `pending_branch` có thể xoá cho gọn. Muốn kiểm trước trên một bản gộp thử ở thư mục khác:
 `python tools/trace_check.py --strict --code-root <thư-mục-bản-gộp>`.

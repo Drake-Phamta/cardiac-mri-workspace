@@ -27,7 +27,7 @@ phân vùng sai ở ca MRI này, và người nghiên cứu làm gì được v�
 
   | Vertical | Người phụ trách | Màn hình và phần chung |
   |---|---|---|
-  | V1 | Phạm Tuấn Anh | Danh sách ca SCR-02, Case Explorer SCR-03, Error Inspector SCR-04; khung app (điều hướng, header, chế độ fixture) |
+  | V1 | Phạm Tuấn Anh | Danh sách ca SCR-02, Case Explorer SCR-03, Error Inspector SCR-04; khung app (điều hướng, header, sheet Details, chế độ fixture, lớp che phiên, thành phần dùng chung) |
   | V2 | Vũ Hùng Anh | 3D Inspector SCR-05; dựng lưới 3D và hình học lỗi ở backend (`backend/mesh/`) |
   | V3 | Bế Quốc Khánh | Study Overview SCR-01, Experiment Comparison SCR-07; quy trình ML ngoại tuyến |
   | V4 | Nguyễn Gia Đức Trung | Review / Correction SCR-06, Findings SCR-08; API backend và CSDL |
@@ -49,13 +49,13 @@ thoại. Những việc có thể làm tiếp nằm ở mục *Hướng phát tr
 
 ## 5. Đặc tả này mô tả bản nào
 
-Sản phẩm cuối là nhánh `main` cộng 5 nhánh tính năng chưa gộp: `shell/design-system` (khung giao diện),
-`v1/tuan-anh-upgrades`, `v2/hung-anh-upgrades`, `v3/khanh-upgrades`, `v4/trung-upgrades`. Đặc tả mô tả sản phẩm
-**sau khi gộp**. Những yêu cầu mà mã chỉ có trên một nhánh được ghi ở cột `pending_branch` của ma trận
-[`docs/trace/matrix.csv`](../trace/matrix.csv); khi gộp xong, cột đó trống và bước kiểm tra chạy chế độ nghiêm ngặt
-(xem [09_kiem-thu-truy-vet.md](09_kiem-thu-truy-vet.md)). Giao diện đang được làm lại theo hướng thiết kế A
-"Clinical viewer" trên các nhánh, nên phần giao diện mô tả thành phần, trạng thái và hành vi, không mô tả màu hay bố cục
-pixel.
+Sản phẩm cuối là nhánh `main` cộng 3 nhánh tính năng chưa gộp: `v2/hung-anh-upgrades`, `v3/khanh-upgrades`,
+`v4/trung-upgrades`. Khung giao diện (`shell/design-system`) và phần V1 (`v1/tuan-anh-upgrades`) đã gộp vào `main`.
+Đặc tả mô tả sản phẩm **sau khi gộp**. Những yêu cầu mà mã chỉ có trên một nhánh được ghi ở cột `pending_branch` của ma
+trận [`docs/trace/matrix.csv`](../trace/matrix.csv); khi gộp xong, cột đó trống và bước kiểm tra chạy chế độ nghiêm ngặt
+(xem [09_kiem-thu-truy-vet.md](09_kiem-thu-truy-vet.md)). Khung app và SCR-02, SCR-03, SCR-04 trên `main` đã theo hướng
+thiết kế A "Clinical viewer"; các màn hình còn lại đang được làm lại trên nhánh, nên phần giao diện mô tả thành phần,
+trạng thái và hành vi, không mô tả màu hay bố cục pixel.
 
 ## 6. Cách đọc mức và trạng thái
 
@@ -75,7 +75,7 @@ pixel.
 | Thuật ngữ | Nghĩa |
 |---|---|
 | Ca (case) | Một lần chụp MRI 3D của một bệnh nhân, có mã ẩn danh `CASE_xxxx` |
-| Lát (slice) | Một ảnh 2D trong khối 3D; chỉ số `z` đếm từ 0. SCR-03 / SCR-04 hiện "slice z+1 / tổng (z = k)"; SCR-06 và SCR-08 hiện thẳng `z` |
+| Lát (slice) | Một ảnh 2D trong khối 3D; chỉ số `z` đếm từ 0. SCR-03 / SCR-04 đánh số lát từ 1 ("Slice 45 / 88" là `z` = 44), còn `z` của lát đang xem nằm trong sheet Details; SCR-06 và SCR-08 hiện thẳng `z` |
 | Mask | Ảnh nhị phân đánh dấu pixel thuộc nhĩ trái |
 | Ground truth (GT) | Mask nhãn chuẩn của bộ dữ liệu; không phải mask đã rà soát |
 | Dự đoán RAW / PROCESSED | Mask mô hình dự đoán thô / sau hậu xử lý PP-4; người dùng luôn chọn rõ, không có mặc định |

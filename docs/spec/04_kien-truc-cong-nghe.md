@@ -49,9 +49,9 @@ Hai chế độ chạy của app:
 |---|---|
 | `screens/v1-cases`, `v2-3d`, `v3-study`, `v4-review` | Màn hình của từng vertical; file `.js` chỉ vẽ, file `.mjs` quyết định và được `node --test` kiểm thẳng |
 | `api/` | Hợp đồng (kiểm mọi phản hồi), client HTTP, 7 trạng thái màn hình, cache bộ nhớ, tải byte có kiểm SHA-256 |
-| `lib/` | Toán zoom / di, mask, PNG, SHA-256, chế độ ca, privacy mode |
-| `navigation/` | Bảng màn hình, 4 tab + ngăn xếp, header, ranh giới lỗi từng màn hình |
-| `components/` | Thành phần dùng chung: khung trạng thái, thẻ Provenance, nhãn chế độ, lớp che phiên, token màu |
+| `lib/` | Toán zoom / di, mask, PNG, SHA-256, chế độ ca, privacy mode, đánh số lát cho người đọc (đếm từ 1) |
+| `navigation/` | Bảng màn hình, 4 tab + ngăn xếp, header và sheet Details, khung viewer (`CHROME.VIEWER`), ranh giới lỗi từng màn hình |
+| `components/` | Thành phần dùng chung theo hướng thiết kế A: token (màu, cỡ chữ, khoảng cách, vùng chạm 48 dp), header, sheet, nút, chip lớp, công cụ nổi trên ảnh, dòng danh sách, khung trạng thái, nhãn chế độ, lớp che phiên |
 
 Test `registry.test.mjs` (G8) chặn một thư mục màn hình import thư mục màn hình khác.
 
@@ -89,6 +89,7 @@ liệu, phiên đo trên điện thoại, luồng API end-to-end), `backend/mesh
 
 - **Dữ liệu lớn trên điện thoại yếu**: không tải khối 3D; mỗi cử chỉ chỉ xin một lát (MRI tối đa khoảng 155 KB), lát
   đã xem trả từ bộ nhớ (0 byte mạng). Play chỉ xin lát kế khi lát trước đã hiện, không bao giờ hai lần tải song song.
+  Ảnh cũ và lớp mask của nó ở lại trên màn hình tới khi ảnh mới giải mã xong, nên chuyển lát không nháy đen.
 - **Bút phải phản hồi ngay**: nét vẽ xử lý trên máy, không chờ mạng; chỉ khi lưu mới gửi các lát đã sửa.
 - **3D mượt**: dựng lưới trước (ngoại tuyến), app chỉ tải byte đã kiểm checksum; WebView giải phóng bộ nhớ GPU khi rời
   màn hình.

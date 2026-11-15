@@ -93,34 +93,39 @@ từng phép so sánh. Từ đây mở danh sách ca, so sánh thí nghiệm, m�
 Nút "About this data" mở trang nguồn dữ liệu. Thay thế: dữ liệu thật chưa có UNet nên thẻ Dice ghi rõ chưa có cặp nào
 so sánh được.
 
-**UC-02 Duyệt danh sách ca.** Luồng chính: mở tab Cases; app liệt kê ca theo thứ tự server, mỗi dòng có mã ẩn danh
-và nhãn chế độ (Evaluation / Inference & review). Người dùng tìm theo mã, lọc theo chế độ (trên trang đã tải), hoặc
-chọn một thí nghiệm để mỗi ca có chip Dice của server ("no GT", "run failed", "not in …" ghi bằng chữ, không bao giờ là
-0), sắp "Worst first" và thấy dấu "outlier n/3" do server chọn. Chạm một ca để mở SCR-03. Thay thế: mã gõ vào không có
-trong trang đã tải thì có nút "Open <ID> directly".
+**UC-02 Duyệt danh sách ca.** Luồng chính: mở tab Cases; app liệt kê ca theo thứ tự server, mỗi dòng có mã ẩn danh;
+ca không phải Evaluation có thẻ tên chế độ ("Inference & review"). Danh sách mở sẵn Dice của một thí nghiệm ("Dice of":
+DINOv2 ở tỉ lệ dữ liệu lớn nhất server liệt kê, Raw trước Processed): mỗi ca có Dice của server, hoặc một chữ ("No GT",
+"Run failed", "Not in this experiment"), không bao giờ là 0, và thẻ "Outlier n/3" do server chọn. Người dùng tìm theo mã,
+lọc theo chế độ (trên trang đã tải), chọn thí nghiệm khác hoặc "None (no Dice)", xếp "Worst first". Chạm một ca để mở
+SCR-03 với run và biến thể của thí nghiệm đó. Thay thế: mã gõ vào không có trong trang đã tải thì có dòng "Open <ID>
+directly".
 
 **UC-03 Xem MRI từng lát.** Tiền điều kiện: ca tồn tại. Luồng chính: nếu ca có nhiều run, người dùng chọn run; chọn
-biến thể dự đoán RAW hoặc PROCESSED (không có mặc định); chuyển lát bằng thanh trượt (kéo), nút ◀ ▶ (giữ để lặp),
-−10 / +10, Play / Pause (khoảng 5 lát mỗi giây); chụm hai ngón để zoom, kéo một ngón để di ảnh, chạm đúp để zoom 2x
-hoặc về vừa khung; nhãn "slice n / tổng (z = k)". Thay thế: ca chưa có run thì chỉ hiện MRI (và GT nếu có) kèm lý do.
-Lỗi: thiếu lát → trạng thái "không có" với nút Refresh; dữ liệu sai (lát ngoài khoảng, sai kích thước, sai biến thể) →
-chặn màn hình kèm mã tham chiếu; mất kết nối backend → lỗi khôi phục được với nút Retry.
+biến thể dự đoán Raw hoặc Processed (không có mặc định; lần sau trong phiên được chọn sẵn); chuyển lát bằng thanh trượt
+(kéo), nút lát trước / lát sau (giữ để lặp), lùi / tiến 10 lát, Play / Pause (khoảng 5 lát mỗi giây); chụm hai ngón để
+zoom, kéo một ngón để di ảnh, chạm đúp để zoom 2x hoặc về vừa khung; số lát đếm từ 1 ("Slice 45 / 88"), `z` nằm trong
+sheet Details. Thay thế: ca chưa có run thì chỉ hiện MRI (và GT nếu có) kèm lý do. Lỗi: thiếu lát → trạng thái "không
+có" với nút Refresh; dữ liệu sai (lát ngoài khoảng, sai kích thước, sai biến thể) → chặn kèm mã tham chiếu; mất kết nối
+backend → lỗi khôi phục được với nút Retry.
 
-**UC-04 Xem lớp dự đoán và ground truth.** Tiền điều kiện: đã chọn run và biến thể. Luồng chính: bật / tắt lớp dự
-đoán và lớp GT (chỉ khi ca có GT), chọn độ mờ 25 / 50 / 75 / 100 %, kiểu vẽ Fill / Outline / Both, độ dày viền
-1 / 2 / 3 px; đổi biến thể qua bộ chọn, không bao giờ tự đổi ngầm. Mask luôn khớp ảnh khi zoom / di.
+**UC-04 Xem lớp dự đoán và ground truth.** Tiền điều kiện: đã chọn run và biến thể. Luồng chính: chip "Prediction" và
+"Ground truth" (chỉ khi ca có GT) bật sẵn, chạm để tắt / bật; chọn kiểu vẽ "Fill" / "Outline" / "Both" trên ảnh; trong
+sheet Tools chọn độ mờ 25 / 50 / 75 / 100 % và độ dày viền 1 / 2 / 3 px; đổi biến thể bằng "Raw" / "Processed" ở panel
+dưới, không bao giờ tự đổi ngầm. Mask luôn khớp ảnh khi zoom / di.
 
-**UC-05 Khảo sát lỗi phân vùng.** Tiền điều kiện: ca có GT và run thành công. Luồng chính: mở Error Inspector từ
-SCR-03; app tô TP / FP / FN, hiện chỉ số của lát và của ca, danh sách lát tệ nhất theo thứ tự server; người dùng chạm
-một lát để tới đó, chạm chú giải để ẩn / hiện một lớp lỗi, xem dòng "Matches / Differs from the server". Thay thế: ca
-không có GT → nút bị khoá kèm giải thích, không có biểu đồ "lỗi bằng 0".
+**UC-05 Khảo sát lỗi phân vùng.** Tiền điều kiện: ca có GT và run thành công. Luồng chính: mở "Error inspector" trong
+sheet Tools của SCR-03; app tô TP / FP / FN, hiện chỉ số của lát và của ca, danh sách lát tệ nhất theo thứ tự server;
+người dùng bấm "Jump to the worst slice" hoặc chạm một lát để tới đó, chạm chip TP / FP / FN trên ảnh để ẩn / hiện một
+lớp lỗi, xem dòng "Matches / Differs from the server". Thay thế: ca không có GT → lối vào bị khoá kèm lý do, SCR-04 báo
+"Unavailable", không có biểu đồ "lỗi bằng 0".
 
 **UC-06 Xem mô hình 3D.** Tiền điều kiện: run thành công có lưới đã dựng. Luồng chính: mở SCR-05; app hiện bề mặt dự
 đoán (đặc) và bề mặt GT (trong suốt) nếu có; xoay, zoom, di bằng cử chỉ; nút nhìn theo trục ±X / ±Y / ±Z và Fit; độ
 mờ 30 / 60 / 100 % cho từng bề mặt; "Cut at slice" ẩn phần trên lát đang chọn.
 
-**UC-07 Từ lát 2D sang 3D.** Luồng chính: từ SCR-03 hoặc SCR-04 bấm mở 3D; lát đang xem hiện thành một dải trên mô hình
-3D. Một lát chọn trong 3D thay dải đó.
+**UC-07 Từ lát 2D sang 3D.** Luồng chính: từ SCR-03 ("3D view" trong sheet Tools) hoặc SCR-04 ("3D error view") mở 3D;
+lát đang xem hiện thành một dải trên mô hình 3D. Một lát chọn trong 3D thay dải đó.
 
 **UC-08 Từ 3D về lát 2D.** Luồng chính: chạm một điểm trên bề mặt; app tính ra số lát; bấm "Open in 2D" mở SCR-03 đúng
 lát đó. Chạm vào nền không gây điều hướng.
@@ -139,8 +144,8 @@ thô vs hậu xử lý khác biến thể nên server ghi "không so sánh đư�
 ca, trung vị, khoảng q1–q3, chỉ nối các mức khi server cho phép; bảng ca của từng thí nghiệm có link mở ca. Dữ liệu
 thật hiện có DINOv2; phần UNet nằm trong *Hướng phát triển*.
 
-**UC-12 Điều tra ca bất thường.** Luồng chính: từ thanh ca Dice thấp ở SCR-01 hoặc dấu "outlier" ở SCR-02, mở ca ở
-SCR-03 với run và biến thể của thí nghiệm đó; đi tiếp tới các lát tệ nhất ở SCR-04.
+**UC-12 Điều tra ca bất thường.** Luồng chính: từ thanh ca Dice thấp ở SCR-01 hoặc thẻ "Outlier n/3" ở SCR-02, mở ca
+ở SCR-03 với run và biến thể của thí nghiệm đó; đi tiếp tới các lát tệ nhất ở SCR-04.
 
 **UC-13 Rà soát dự đoán.** Tiền điều kiện: run thành công. Luồng chính: mở SCR-06 (chọn biến thể nếu đường dẫn chưa
 có); review bắt đầu ở NOT_REVIEWED; người dùng chấp nhận (Accept) hoặc gắn cờ (Flag, bắt buộc ghi lý do); nút History

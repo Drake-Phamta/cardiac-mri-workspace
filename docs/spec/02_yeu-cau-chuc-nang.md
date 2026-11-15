@@ -30,30 +30,30 @@ thích ở [00_tong-quan.md](00_tong-quan.md) mục 6; mã và test chứng minh
 | PR-MOBILE-01 | App điện thoại là công cụ tương tác chính, mọi tính năng chạy thật (không phải ảnh tĩnh) | Tất cả | Phạm Tuấn Anh | MUST | Đã có |
 | PR-MOBILE-02 | Mọi màn hình có 7 trạng thái: đang tải, đang xử lý, thành công, không có dữ liệu, lỗi khôi phục được (Retry), dữ liệu sai bị chặn (kèm mã tham chiếu), bản cũ lệch phiên bản (Refresh); không vẽ phần trăm tiến độ giả; một màn hình lỗi khi vẽ chỉ chặn màn hình đó | Tất cả | Phạm Tuấn Anh | MUST | Một phần: chưa có test cho màn hình lỗi khi vẽ (SCREEN_CRASHED) |
 | PR-CACHE-01 | Giữ trong bộ nhớ các lát và phản hồi đã mở, khoá theo phiên bản và checksum; xoá được khi muốn | SCR-03, SCR-04 | Phạm Tuấn Anh | SHOULD | Đã có |
-| FR-NAV-001 | Bốn tab Study / Cases / Experiments / Findings và một ngăn xếp màn hình; gốc là SCR-01; SCR-02 mở SCR-03; SCR-03 mở SCR-04, SCR-05, SCR-06; Case Explorer và trình xem MRI 2D là một màn hình; tab Experiments mở thẳng SCR-07 | Tất cả | Phạm Tuấn Anh | MUST | Đã có |
-| FR-NAV-002 | Header mỗi màn hình ghi ca, run và biến thể; chạm tiêu đề mở "About this screen" (mã màn hình, chế độ, hợp đồng, bản build) | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
-| FR-NAV-003 | Chế độ FIXTURE / LIVE: huy hiệu trên header, banner và bảng chọn kịch bản fixture; ở FIXTURE, SCR-06 vẽ mask thay thế ghi rõ SYNTHETIC | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
-| FR-CASE-001 | Liệt kê ca theo mã ẩn danh (trang đầu của danh sách, thứ tự server); mở thẳng một mã gõ vào khi mã đó không có trong trang | SCR-02 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-NAV-001 | Bốn tab Study / Cases / Experiments / Findings và một ngăn xếp màn hình; gốc là SCR-01; SCR-02 mở SCR-03; SCR-03 mở SCR-04, SCR-05, SCR-06 qua sheet Tools; Case Explorer và trình xem MRI 2D là một màn hình; tab Experiments mở thẳng SCR-07 | Tất cả | Phạm Tuấn Anh | MUST | Đã có |
+| FR-NAV-002 | Header ghi tên màn hình và dòng phụ "ca · run · biến thể" ("Study <mã>" ở gốc tab); màn hình tự đặt được tiêu đề và dòng phụ (SCR-03: mã ca và "họ mô hình · thí nghiệm"; SCR-04: "ca · biến thể"). Nút Info mở sheet Details: các mục của màn hình, rồi "This screen" (mã màn hình, chế độ, hợp đồng, bản build) và "Clear cached images" | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
+| FR-NAV-003 | Chế độ FIXTURE / LIVE: chỉ báo "Fixture" / "Live" (chấm và chữ) trên header, khung viewer không ghi "Live"; ở FIXTURE có banner, chạm "Fixture" mở bảng chọn kịch bản; ở FIXTURE, SCR-06 vẽ mask thay thế ghi rõ SYNTHETIC | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
+| FR-CASE-001 | Liệt kê ca theo mã ẩn danh (trang đầu của danh sách, thứ tự server); mở thẳng một mã gõ vào khi mã đó không có trong trang ("Open <ID> directly") | SCR-02 | Phạm Tuấn Anh | MUST | Đã có |
 | FR-CASE-002 | Mỗi ca cho biết có GT hay không (EVALUATION / INFERENCE_REVIEW); chế độ và cờ GT mâu thuẫn thì báo, không tự chọn | SCR-02, SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
 | FR-CASE-003 | Server trả chi tiết ca gồm kích thước khối, khoảng cách voxel, gốc, hướng, quy ước chỉ số, phiên bản và trạng thái hình học; SCR-03 dùng kích thước để kiểm từng lát và hiện ghi chú trạng thái hình học | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-CASE-004 | Worklist: tìm theo mã, lọc chế độ; chọn thí nghiệm để có chip Dice của server cho mỗi ca ("no GT", "run failed", "not in …" bằng chữ, không bao giờ là 0); "Server order" / "Worst first"; dấu "outlier n/3" do server chọn | SCR-02 | Phạm Tuấn Anh | SHOULD | Đã có |
+| FR-CASE-004 | Worklist: tìm theo mã, tab lọc chế độ kèm số ca; "Dice of" chọn thí nghiệm, mở sẵn DINOv2 ở tỉ lệ dữ liệu lớn nhất server liệt kê (Raw trước Processed) cho tới khi người dùng chọn thí nghiệm khác hoặc "None (no Dice)"; mỗi ca có Dice của server (thanh và 3 chữ số) hoặc một chữ ("No GT", "Run failed", "Not in this experiment"), không bao giờ là 0; thứ tự "Server" / "Worst first"; thẻ "Outlier n/3" do server chọn | SCR-02 | Phạm Tuấn Anh | SHOULD | Đã có |
 | FR-MRI-001 | Hiện một lát MRI của khối 3D; ca chưa có run mở với MRI (và GT nếu có) kèm lý do | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-002 | Chuyển lát bằng thanh trượt, nút ◀ ▶ (giữ để lặp) và −10 / +10 | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-003 | Cử chỉ đổi lát nằm trên thanh lát; kéo một ngón trên ảnh là di ảnh, nên đổi lát không lẫn với di ảnh hay vẽ | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-004 | Chụm hai ngón để zoom, kéo để di, chạm đúp zoom 2x / về vừa khung; SCR-03 có thêm nút Fit | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-005 | Ảnh và mask luôn khớp sau zoom / di; chạm ảnh hiện toạ độ pixel nguồn (x, y, lát, zoom) | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-006 | Hiện "slice n / tổng (z = k)" | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-007 | Trình xem luôn khớp ca và run đang chọn, đổi ca / run không để lại lớp hay số cũ; mã và checksum nằm trong thẻ "Provenance" gập sẵn | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MRI-008 | Play / Pause quét lát khoảng 5 lát mỗi giây, chỉ tải lát kế khi lát trước đã hiện | SCR-03, SCR-04 | Phạm Tuấn Anh | SHOULD | Đã có |
-| FR-MASK-001 | Bật / tắt lớp dự đoán (tắt thì chỉ còn MRI); không chồng mọi lớp cùng lúc | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MASK-002 | Lớp GT chỉ có khi ca có GT | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MASK-003 | Độ mờ lớp mask 25 / 50 / 75 / 100 % | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MASK-004 | Chọn run (khi có nhiều) và biến thể RAW / PROCESSED trước khi xem, không mặc định, không đổi ngầm; app nhớ lựa chọn trong phiên | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-002 | Chuyển lát bằng thanh trượt, nút lát trước / lát sau (giữ để lặp) và nút lùi / tiến 10 lát | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-003 | Đổi lát chỉ bằng thanh trượt và các nút ở panel dưới; kéo một ngón trên ảnh là di ảnh, nên đổi lát không lẫn với di ảnh hay vẽ | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-004 | Chụm hai ngón để zoom (từ vừa khung tới 16 lần, chụm vào dừng ở vừa khung), kéo để di, chạm đúp zoom 2x / về vừa khung; SCR-03 mở ở 1,6 lần vừa khung và có nút "Fit to screen" trong sheet Tools | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-005 | Ảnh và mask luôn khớp sau zoom / di; chạm ảnh ghi toạ độ pixel nguồn (x, y, lát, zoom) vào sheet Details | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-006 | Hiện số lát đếm từ 1 ("Slice 45 / 88"); chỉ số `z` (đếm từ 0) của lát đang xem nằm trong sheet Details | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-007 | Trình xem luôn khớp ca và run đang chọn, đổi ca / run không để lại lớp hay số cũ; mã, checksum, dòng run, `z` và phiên bản chỉ số nằm trong sheet Details, không nằm trên ảnh | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MRI-008 | Play / Pause quét lát khoảng 5 lát mỗi giây, chỉ tải lát kế khi lát trước đã hiện; dừng ở lát cuối, bấm Play ở lát cuối thì chạy lại từ lát 1 | SCR-03, SCR-04 | Phạm Tuấn Anh | SHOULD | Đã có |
+| FR-MASK-001 | Chip "Prediction" bật / tắt lớp dự đoán; tắt cả hai chip thì chỉ còn MRI; lỗi TP / FP / FN xem ở SCR-04, không chồng lên SCR-03 | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MASK-002 | Chip "Ground truth" chỉ có khi ca có GT; lớp GT bật sẵn cùng lớp dự đoán | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MASK-003 | Độ mờ phần tô 25 / 50 / 75 / 100 % ("Fill opacity" trong sheet Tools) | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-MASK-004 | Chọn run (khi có nhiều) và biến thể Raw / Processed trước khi xem, không mặc định, không đổi ngầm; đổi run bằng dòng phụ của header, đổi biến thể ở panel dưới; app nhớ trong phiên biến thể đã chọn, kiểu vẽ mask và lựa chọn của worklist | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
 | FR-MASK-005 | Mask vẽ theo đúng hình học của lát, không kéo giãn riêng | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-MASK-006 | Kiểu vẽ mask Fill / Outline / Both, viền 1 / 2 / 3 px | SCR-03, SCR-04 | Phạm Tuấn Anh | SHOULD | Đã có |
+| FR-MASK-006 | Thanh công cụ "Fill" / "Outline" / "Both" trên ảnh (SCR-03 mặc định Fill, SCR-04 mặc định Both), viền 1 / 2 / 3 px | SCR-03, SCR-04 | Phạm Tuấn Anh | SHOULD | Đã có |
 | FR-ERR-001 | Khi có GT, tính TP / FP / FN cho từng pixel của lát | SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-ERR-002 | Tô TP / FP / FN kèm chú giải gọn (bảng màu an toàn cho người mù màu, FP viền nét đứt); chạm chú giải để ẩn / hiện một lớp; dòng "Matches / Differs from the server" so phần vẽ với số của server; lỗi xem ở màn hình riêng, không phải một lớp ở SCR-03 | SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
-| FR-ERR-003 | Đi tới lát tệ nhất theo thứ tự server chọn (app không tự xếp hạng lát) | SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-ERR-002 | Tô TP / FP / FN kèm chú giải gọn (bảng màu an toàn cho người mù màu, FP viền nét đứt); chạm chip TP / FP / FN trên ảnh để ẩn / hiện một lớp; dòng "Matches / Differs from the server" so phần vẽ với số của server; lỗi xem ở màn hình riêng, không phải một lớp ở SCR-03 | SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
+| FR-ERR-003 | Đi tới lát tệ nhất theo thứ tự server chọn ("Jump to the worst slice", danh sách tối đa 5 lát, biểu đồ lỗi chạm để mở lát); app không tự xếp hạng lát | SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
 | FR-ERR-004 | Ca không GT: nút và số đo lỗi bị khoá kèm giải thích, không bao giờ trông như "lỗi bằng 0" | SCR-03, SCR-04 | Phạm Tuấn Anh | MUST | Đã có |
 
 ## 3. V2 — Vũ Hùng Anh: 3D Inspector, lưới 3D và hình học lỗi
