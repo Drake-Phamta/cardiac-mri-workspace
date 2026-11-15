@@ -5,7 +5,7 @@ Resolved), số case theo chế độ, các hàng "Median Dice · UNet vs DINOv2
 và hai số, còn lại "Not compared" và "—"; dưới hàng chỉ một câu) và **một** danh sách "Lowest Dice" (mặc định DINOv2 ở tỉ lệ dữ liệu
 lớn nhất; hàng "Experiment" mở sheet để đổi). SCR-07 là các mục gồm hàng dày, mỗi hàng một giá trị: hàng chọn "Metric · Dice" (cùng `PickerRow` + sheet với SCR-01; **mở sẵn Dice**
 nếu server có metric đó), Experiments (dấu họ, tên, "5 of 5 cases", thanh + trung vị), Distribution, Comparisons (hiệu số trung vị,
-hoặc "Not compared"), Per-case differences, Trend. Chạm một hàng để mở sheet chi tiết (id, mean, q1, q3, N, phán quyết của server, lý do,
+hoặc "Not compared"; "Not shown" kèm lý do khi server nói so sánh được nhưng giữ số), Per-case differences, Trend. Chạm một hàng để mở sheet chi tiết (id, mean, q1, q3, N, phán quyết của server, lý do,
 từng case). Trang chỉ hiện trung vị. "About this data" chỉ có chữ thường cho người đọc. Mã kỹ thuật (phiên bản dataset, capability,
 id EXP-…, phiên bản metric, cohort, luật xếp hạng chính xác) màn báo cho shell bằng `nav.setContext({ details })` và nằm trong sheet
 Details (nút Info trên thanh trên); "Metric definitions" là một sheet riêng.
