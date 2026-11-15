@@ -95,7 +95,7 @@ test('G3c the live runtime tags JSON calls and artifact bytes with the gesture o
   });
   const lines = [];
   const runtime = createRuntime({
-    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'https://backend.invalid' }),
     contractJson: readContractJson(), fetchImpl, log: (l) => lines.push(l),
   });
   runtime.netLog.begin({ caseId: 'C', from: 0, to: 1 });
