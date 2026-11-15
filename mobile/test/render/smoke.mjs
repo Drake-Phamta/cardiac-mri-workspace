@@ -1897,6 +1897,18 @@ function reviewBackend({ seedVersion = false } = {}) {
     check('V2R4', has(r, /^Tap the surface to pick a slice, or an error marker to see its region\.$/) && isOpen2D(r).props.disabled === true,
       'no selection: Open in 2D is disabled and the hint says what to do');
     check('V2R4', !has(r, /Voxel-index frame|no millimetres/), 'the frame note is not on the main surface');
+    // Responsive (device session r5): the WebView page's text follows the system font size up to the label cap (the page's tools are laid out
+    // for that: viewerTools.mjs), instead of the 17 px that broke "Ground truth" into two lines at font scale 1.3.
+    {
+      const zooms = [];
+      for (const fs of [1, 1.3, 2]) {
+        globalThis.__fontScale = fs;
+        await act(async () => { await fromViewer(r, { type: 'loaded', role: 'prediction', triangles: 12, vertices: 8 }); });
+        zooms.push(web(r).props.textZoom);
+      }
+      globalThis.__fontScale = 1;
+      check('RP-V2d', zooms.join() === '100,115,115', `the WebView's textZoom follows the system font size and stops at the label cap: scale 1, 1.3, 2 give ${zooms.join(', ')} %`);
+    }
     const hex = sum(predBytes);
     check('V2R3', hasDetail(new RegExp(`^Prediction MESH_${hex}$`)) && hasDetail(/^Prediction: 12 triangles · 8 vertices$/) && hasDetail(new RegExp(`^Prediction checksum sha256:${hex}$`))
       && hasDetail(/^Case CASE_0061$/) && hasDetail(/^Run RUN_A$/) && hasDetail(/^Prediction RAW · Evaluation$/), 'the Details sheet (the shell\'s, from nav.setContext) has the ids, checksums and mesh sizes');

@@ -7,7 +7,7 @@
 // The app bar says the case and the prediction; the ids, checksums and sizes are the shell's Details sheet (nav.setContext).
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { emptyUnavailable, fatalInvalid, loading, RECOVERY, STATE } from '../../api/states.mjs';
@@ -28,6 +28,7 @@ import {
 } from './inspector3d.mjs';
 import SelectionPanel from './SelectionPanel';
 import { VIEWER_HTML } from './viewerHtml.mjs';
+import { pageTextZoom } from './viewerTools.mjs';
 
 // Loads the bytes of one artifact reference. Latest wins, like useCall: the request is aborted on unmount and when
 // the reference changes.
@@ -325,6 +326,8 @@ function Inspector({ runtime, nav, caseId, runId, variant, kase, run, initialSli
         ref={webRef}
         style={s.web}
         source={{ html: VIEWER_HTML }}
+        // The page's text follows the system font size, up to the label cap (viewerTools.mjs pageTextZoom).
+        textZoom={pageTextZoom(PixelRatio.getFontScale())}
         originWhitelist={['about:*', 'data:*']}
         javaScriptEnabled
         // Privacy: nothing of this page is kept on the phone - no cache, no cookies, no storage, no history.

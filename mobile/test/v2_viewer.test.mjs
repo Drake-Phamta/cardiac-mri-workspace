@@ -20,7 +20,7 @@ import { boxMesh, encodeMesh, GOLDEN, goldenBytes } from './_v2mesh.mjs';
 import { errorClass, overlay } from '../src/components/tokens.mjs';
 import { makeViewer } from './_v2viewer.mjs';
 import { MARKER_PX, regionList, toViewer } from '../src/screens/v2-3d/inspector3d.mjs';
-import { PALETTE } from '../src/screens/v2-3d/viewerTools.mjs';
+import { NARROW, pageTextZoom, PALETTE, TOOLS_CSS } from '../src/screens/v2-3d/viewerTools.mjs';
 
 const FACE_ON_TOP = { x: 1.5, y: 1.5, z: 3 };   // the top of the tower at column 1, row 1: voxels z 0..2 -> source slice 2
 
@@ -692,4 +692,54 @@ test('V2W28 a hidden small region cannot be tapped; switched off with one select
   assert.equal(v.api.state().selected, 'FP_0001');
   // a marker list with nothing but small... cannot happen: the largest region is never small
   assert.equal(regionList([region('FN_0001', 3, [1, 1, 1])])[0].small, false);
+});
+
+// The CSS of the tools is plain text, so what it promises is read from it: the numbers below are the ones the layout is built from.
+const cssRule = (selector, css = TOOLS_CSS) => {
+  const start = css.indexOf(`${selector}{`);
+  if (start < 0) return null;
+  return css.slice(start + selector.length + 1, css.indexOf('}', start));
+};
+const narrowCss = () => {
+  const i = TOOLS_CSS.indexOf('@media');
+  return i < 0 ? '' : TOOLS_CSS.slice(i);
+};
+
+test('V2W29 the tools fit a 320 px page: the Views group is a grid of four 48 px columns, Cut beside it, Fit among the buttons', () => {
+  assert.equal(NARROW, 384, 'the 384 dp default of the A17 is the first width with the one-row Views group');
+  const narrow = narrowCss();
+  assert.ok(narrow.startsWith(`@media (max-width:${NARROW - 1}px)`), 'the narrow rules are for pages narrower than NARROW');
+  assert.match(cssRule('#tools .views', narrow), /display:grid;grid-template-columns:repeat\(4,48px\)/);
+  assert.ok(narrow.includes('#tools .sep{display:none}'), 'the separator before Fit has no place in a grid');
+  assert.match(cssRule('#tools .cut', narrow), /right:8px;top:8px/, 'Cut moves up beside the grid');
+  // 4 x 48 + 3 gaps of 2 + 3 + 3 padding + 2 x 1 edge, at 8 px from the left, leaves room for Cut (50 + 6 + 2 wide) at 8 px from the right
+  const grid = 4 * 48 + 3 * 2 + 6 + 2;
+  const cut = 50 + 6 + 2;
+  assert.ok(8 + grid + 8 + cut + 8 <= 320, `grid ${grid} px + Cut ${cut} px fit 320 px with 8 px margins and between them`);
+  // the one-row group needs 7 buttons x 48 + the separator (1 + 2 x 3) + 7 gaps of 2 + 3 + 3 padding + 2 x 1 edge; it starts 12 px in
+  const row = 7 * 48 + 7 + 6 * 2 + 6 + 2;
+  assert.ok(12 + row <= NARROW, `the one-row Views group (${row} px) fits ${NARROW} px`);
+  const button = cssRule('#tools button');
+  assert.ok(button.includes('min-width:48px') && button.includes('min-height:48px'), 'every button stays 48 px both ways');
+});
+
+test('V2W30 a layer row wraps instead of running past the edge, and a name is one line', () => {
+  assert.ok(cssRule('#tools .row').startsWith('display:flex;flex-wrap:wrap;'));
+  assert.match(cssRule('#tools .row'), /min-height:48px/);
+  assert.doesNotMatch(cssRule('#tools .row'), /[^-]height:48px/, 'a fixed height would cut a wrapped row');
+  assert.match(cssRule('#tools .layers'), /max-width:calc\(100% - 24px\)/, 'the group is as wide as the page less its margins, so its rows have a width to wrap at');
+  assert.match(cssRule('#tools .vis'), /white-space:nowrap/);
+  assert.match(cssRule('#tools .count'), /white-space:nowrap/);
+  assert.ok(TOOLS_CSS.includes('#tools .seg,#tools .step{margin:6px 0}'), 'a 36 px group with 48 px buttons owns 6 px above and below, so two lines do not overlap');
+  assert.match(cssRule('#tools .chip', narrowCss()), /min-width:0/, 'on a narrow page a name chip is as wide as its name');
+  assert.ok(VIEWER_HTML.includes(`@media (max-width:${NARROW - 1}px){#axes{left:8px;top:118px}}`), 'the corner gizmo goes under the two-row grid');
+});
+
+test('V2W31 the page text follows the system font size up to the label cap (the WebView textZoom, in percent)', () => {
+  assert.equal(pageTextZoom(1), 100);
+  assert.equal(pageTextZoom(1.15), 115);
+  assert.equal(pageTextZoom(1.3), 115, 'font scale 1.3 stops at the cap');
+  assert.equal(pageTextZoom(2), 115);
+  assert.equal(pageTextZoom(0.85), 85, 'a smaller system font is followed');
+  for (const bad of [undefined, null, 0, -1, NaN, '1.3']) assert.equal(pageTextZoom(bad), 100, `${String(bad)} is no font scale`);
 });

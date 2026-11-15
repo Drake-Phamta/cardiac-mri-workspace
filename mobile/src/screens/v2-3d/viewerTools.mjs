@@ -12,9 +12,31 @@
 // the page script, so it shares that script's variables (visible, opacity, markers, layers, sliceIndex ...). It is ES5 and has no backtick or dollar-brace,
 // because it is carried inside a String.raw template here.
 
-import { color, errorClass, HAIRLINE, MIN_TOUCH, overlay, radius } from '../../components/tokens.mjs';
+import { color, errorClass, HAIRLINE, LABEL_FONT_CAP, MIN_TOUCH, overlay, radius } from '../../components/tokens.mjs';
 
 const GLASS = `background:${color.glass};border:${HAIRLINE}px solid ${color.glassEdge}`;
+
+// The page is as wide as the screen in CSS px (the viewport is device-width), and its text follows the system font size (the
+// app sets the WebView's textZoom, capped at LABEL_FONT_CAP like the app's own labels). The tools are laid out for that:
+//   - every control stays 48 px (MIN_TOUCH) in both directions, so they cannot shrink to fit; what does not fit wraps;
+//   - the Views group (six axes and Fit, 7 x 48 px) is one row from NARROW px up (the 384 dp default of the A17 needs 371 px), and
+//     below it a grid of four columns, with Cut at the right of its top row: 6 x 48 px did not fit 320 px with Fit after them, and
+//     "Fit" was pushed off the screen;
+//   - a layer row (the name chip, then its opacity steps or its Previous / Next) wraps when the two do not fit one line, so
+//     the right control is never at, or past, the screen's edge (the Errors stepper ran to x = 320 at 320 dp);
+//   - the opacity steps and the Previous / Next group are 36 px high with 48 px buttons, so each has 6 px above and below: a line is 48 px
+//     high whether it holds one control or the group wrapped under its chip, and the 48 px buttons of two lines never overlap;
+//   - a name is one line (nowrap): "Ground truth" never breaks into two lines inside its chip.
+// Below NARROW the name chips are as wide as their name instead of a common 148 px, so the control beside them has room.
+export const NARROW = 384;
+
+// The Android WebView sets its own text size from the system font scale (its textZoom), so at font scale 1.3 the page's 13 px
+// labels were 17 px and "Ground truth" broke into two lines. The page's text follows the system size like the app's own text but
+// stops at LABEL_FONT_CAP, as every label in a fixed cell does: this is the WebView's textZoom, in percent (100 = the CSS sizes).
+export function pageTextZoom(fontScale) {
+  const scale = typeof fontScale === 'number' && fontScale > 0 ? fontScale : 1;
+  return Math.round(100 * Math.min(scale, LABEL_FONT_CAP));
+}
 
 export const TOOLS_CSS = `
 #tools{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;color:${color.t1};
@@ -23,7 +45,7 @@ export const TOOLS_CSS = `
   justify-content:center;min-width:${MIN_TOUCH}px;min-height:${MIN_TOUCH}px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #tools button:disabled{opacity:.4}
 #tools .g{position:absolute;pointer-events:auto;display:flex;${GLASS}}
-#tools .views{left:12px;top:8px;padding:3px;gap:2px;border-radius:${radius.l}px}
+#tools .views{left:12px;top:8px;padding:3px;gap:2px;border-radius:${radius.l}px;max-width:calc(100% - 24px)}
 #tools .views button{border-radius:7px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
 #tools .views button:active,#tools .cut button:active{background:${color.accentSoft}}
 #tools .sep{width:1px;margin:8px 3px;background:${color.hair}}
@@ -33,10 +55,10 @@ export const TOOLS_CSS = `
 #tools .cut button[aria-pressed=true]{background:${color.accentSoft};color:${color.accent}}
 #tools .note{position:absolute;right:12px;top:128px;padding:6px 10px;border-radius:${radius.m}px;font-size:12px;
   ${GLASS}}
-#tools .layers{position:absolute;left:12px;bottom:6px;display:flex;flex-direction:column}
-#tools .row{display:flex;align-items:center;gap:8px;height:48px;pointer-events:none}
+#tools .layers{position:absolute;left:12px;bottom:6px;display:flex;flex-direction:column;max-width:calc(100% - 24px)}
+#tools .row{display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:0 8px;min-height:48px;pointer-events:none}
 #tools .row>*{pointer-events:auto}
-#tools .vis{height:36px;display:flex;align-items:center;gap:8px;border-radius:${radius.m}px;box-sizing:border-box;${GLASS}}
+#tools .vis{height:36px;display:flex;align-items:center;gap:8px;border-radius:${radius.m}px;box-sizing:border-box;white-space:nowrap;${GLASS}}
 #tools .chip{padding:0 12px 0 10px;min-width:148px;color:${color.t1}}
 #tools .chip svg{color:${color.t2}}
 #tools button[aria-pressed=false] .chip{color:${color.t2}}
@@ -47,12 +69,21 @@ export const TOOLS_CSS = `
 #tools .dot{border-radius:4px}
 #tools .sq{border-radius:1px}
 #tools .seg,#tools .step{display:flex;align-items:center;height:36px;border-radius:${radius.m}px;box-sizing:border-box;${GLASS}}
+#tools .seg,#tools .step{margin:6px 0}
 #tools .seg{padding:2px}
 #tools .seg .vis{width:44px;justify-content:center;height:32px;border:0;background:none;border-radius:${radius.s}px;
   color:${color.t2};font-size:12px;font-variant-numeric:tabular-nums}
 #tools .seg button[aria-pressed=true] .vis{background:${color.accentSoft};color:${color.accent}}
-#tools .count{min-width:60px;text-align:center;font-variant-numeric:tabular-nums}
+#tools .count{min-width:60px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 #tools .none{color:${color.t2};padding:0 4px}
+@media (max-width:${NARROW - 1}px){
+  #tools .views{display:grid;grid-template-columns:repeat(4,${MIN_TOUCH}px);left:8px;max-width:none}
+  #tools .sep{display:none}
+  #tools .cut{right:8px;top:8px}
+  #tools .note{right:8px;top:118px}
+  #tools .layers{left:8px;max-width:calc(100% - 16px)}
+  #tools .chip{min-width:0}
+}
 `;
 
 // Page colours: the one place the tokens reach the page. Surfaces use the prediction / ground truth overlay colours

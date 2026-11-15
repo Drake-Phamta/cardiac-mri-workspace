@@ -29,6 +29,8 @@ export const StyleSheet = {
   create: (s) => s, absoluteFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }, hairlineWidth: 1,
 };
 export const PanResponder = { create: (cfg) => ({ panHandlers: { __pan: cfg } }) };
+// The system font scale (Settings > Font size): a check sets globalThis.__fontScale and renders again.
+export const PixelRatio = { getFontScale: () => (typeof globalThis.__fontScale === 'number' ? globalThis.__fontScale : 1), get: () => 2 };
 // Keeps its listeners (#77 QA N-7), so a check can press the hardware back
 // button: __press() calls them newest first, as Android does, until one
 // returns true, and answers whether one did (false = the system default, the
@@ -71,5 +73,5 @@ export const AppState = {
 
 export default {
   View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Image, ActivityIndicator, StatusBar, Modal, FlatList,
-  StyleSheet, PanResponder, BackHandler, Alert, AppState,
+  StyleSheet, PanResponder, PixelRatio, BackHandler, Alert, AppState,
 };

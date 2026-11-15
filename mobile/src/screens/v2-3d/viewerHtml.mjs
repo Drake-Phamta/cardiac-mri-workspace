@@ -3,7 +3,7 @@
 // over them (viewerTools.mjs) and talks to the app with JSON messages (inspector3d.mjs builds and checks them).
 // The script has no template literals, so it can live in a JS string and the Node tests can run it too.
 
-import { PALETTE, TOOLS_CSS, TOOLS_SCRIPT } from './viewerTools.mjs';
+import { NARROW, PALETTE, TOOLS_CSS, TOOLS_SCRIPT } from './viewerTools.mjs';
 
 export const VIEWER_SCRIPT = [
   '(function () {',
@@ -660,6 +660,8 @@ export const VIEWER_HTML = [
   // The corner gizmo sits under the Views group (top left), inside the free area, clear of the model: 48 px, taps pass through.
   '#free{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}',
   '#axes{position:absolute;left:12px;top:68px;width:48px;height:48px;pointer-events:none}',
+  // On a narrow screen the Views group is two rows high (viewerTools.mjs NARROW), so the gizmo sits under both.
+  '@media (max-width:' + (NARROW - 1) + 'px){#axes{left:8px;top:118px}}',
   TOOLS_CSS + '</style></head>',
   '<body><canvas id="gl" aria-label="3D surface"></canvas><div id="free"><canvas id="axes" aria-hidden="true"></canvas><div id="tools"></div></div><script>',
   VIEWER_SCRIPT,

@@ -189,7 +189,12 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   panel dưới nổi trên đáy trang. Header ghi mã ca và dòng phụ "tên thí nghiệm · Raw" (ví dụ "DINOv2 100 % · Raw"; hoặc "· Processed"), không ghi mã thí nghiệm hay mã run (mã thí nghiệm nằm ở sheet Details);
   không có nút biểu tượng riêng (không có khiên privacy) và không có "more".
 - **Trong trang** (vẽ bên trong WebView, nằm giữa header và panel dưới; mọi nút cao và rộng ít nhất 48 px; chỉ hiện khi đã
-  có ít nhất một bề mặt):
+  có ít nhất một bề mặt). Chữ của trang theo cỡ chữ hệ thống nhưng dừng ở 1,15 lần (`textZoom` của WebView, như nhãn trong ô cố
+  định của app), và bố cục dựng cho bề ngang 320 – 480 px: từ 384 px trở lên nhóm "Views" là một hàng (bảy nút, 371 px); dưới 384
+  px (320 dp) nó là lưới bốn cột 48 px (hai hàng, "Fit" ở hàng hai) và "Cut" lên ngang hàng đầu ở bên phải, nên "Fit" không còn bị
+  đẩy ra khỏi màn hình; mỗi hàng chip lớp tự xuống dòng khi chip và nhóm điều khiển của nó không vừa một dòng (nhóm xuống ngay dưới
+  chip), tên chip nằm trên một dòng ("Ground truth" không vỡ thành hai dòng), và dưới 384 px chip rộng bằng tên của nó thay vì
+  chung 148 px, nên hàng độ mờ và nút › của "Errors" không chạm mép phải (ở 320 dp trước đây nút › tới x = 320):
   - góc trên trái: nhóm "Views" gồm "+X", "−X", "+Y", "−Y", "+Z", "−Z" (nhìn mô hình từ phía đó của trục voxel) và "Fit" (về góc
     nhìn mặc định); dưới nhóm là gizmo trục, chỉ có ba chữ x, y, z;
   - bên phải: nút "Cut" ẩn phần bề mặt và điểm lỗi phía trên lát đang chọn; khoá khi chưa có lát; khi bật có ghi chú
