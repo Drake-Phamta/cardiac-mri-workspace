@@ -12,9 +12,11 @@ giả danh `CASE_0001` … `CASE_0154`. Mọi biện pháp dưới đây đều 
 | Không lưu tên, ngày sinh, số định danh, số hồ sơ, liên lạc; chỉ mã ca ẩn danh và siêu dữ liệu kỹ thuật cần cho hình học | Mô hình dữ liệu backend, fixture, hợp đồng API | NFR-SEC-001, PR-PRIV-02 |
 | Nhập liệu chỉ nhận siêu dữ liệu trong danh sách cho phép; trường lạ bị từ chối (`METADATA_NOT_ALLOWED`) | `contracts/ingestion/contract1_raw_dataset/` | NFR-SEC-005 |
 | Ảnh, mask, checkpoint, gói kết quả, CSDL nằm ngoài repo (`CARDIAC_BACKEND_DATA`); backend từ chối đường dẫn nằm trong git work tree | `backend/app/config.py` | NFR-SEC-004 |
-| CI chặn file ảnh y tế, checkpoint, secret, file > 10 MB và địa chỉ IPv4 nội bộ trong mỗi thay đổi | Job `no-forbidden-bytes` trong `.github/workflows/guardrails.yml` | NFR-SEC-004 |
+| CI chặn file ảnh y tế, checkpoint, secret, file > 10 MB và địa chỉ IPv4 nội bộ trong mỗi thay đổi; `tools/secret_scan.py` quét nội dung mọi dòng thêm vào tìm khoá riêng và token (báo file, dòng, loại bí mật, không in bí mật); mỗi lần chạy CI thử bộ quét bằng một khoá giả | Job `no-forbidden-bytes` trong `.github/workflows/guardrails.yml` | NFR-SEC-004 |
+| Bundle app xuất bằng `expo export` được quét bí mật bằng cùng công cụ | Job `mobile-render-bundle` | NFR-SEC-004 |
 | App chỉ mang địa chỉ backend, không có token hay khoá nào | `mobile/src/config.mjs` | NFR-SEC-004 |
-| Log request mỗi dòng có phương thức, route, mã trạng thái, thời gian, số byte, các mã ẩn danh (ca, lát, run, review, thí nghiệm, digest sản phẩm) và giá trị query trong danh sách cho phép; không có địa chỉ client, header, thân request hay byte ảnh | `backend/app/middleware.py` (`RequestLogMiddleware`) | NFR-SEC-003 |
+| Địa chỉ backend dùng `http://` chỉ được nhận cho host loopback (`localhost`, `127.…`, `[::1]`); host khác phải dùng `https://`, nếu không cả bước chuẩn bị bản build lẫn app báo lỗi `CONFIG_CLEARTEXT_REMOTE` | `mobile/src/config.mjs` (`normalizeBaseUrl`), job `mobile-shell` | NFR-SEC-002 |
+| Log request mỗi dòng có phương thức, route, mã trạng thái, thời gian, số byte, các mã ẩn danh (ca, lát, run, review, thí nghiệm, digest sản phẩm) và giá trị query trong danh sách cho phép; không có địa chỉ client, header, thân request hay byte ảnh. uvicorn chạy với `--no-access-log`, nên console không in địa chỉ client | `backend/app/middleware.py` (`RequestLogMiddleware`), `backend/scripts/run_local.ps1` | NFR-SEC-003 |
 | Backend chỉ nghe `127.0.0.1`; điện thoại vào qua cáp USB (`adb reverse`); không có mạng overlay hay máy chủ công khai | `backend/scripts/run_local.ps1`, `docs/DECISIONS.md` mục 4 | NFR-SEC-002, NFR-SEC-013 |
 | Thân request tối đa 1 MiB (413), phương thức lạ trả 405 theo mẫu lỗi, trang tài liệu OpenAPI tắt, không bật CORS nếu không khai báo | `backend/app/middleware.py`, `backend/app/main.py` | NFR-SEC-013 |
 | Thư mục dữ liệu không bao giờ được phục vụ dạng liệt kê; byte chỉ trả theo sha256 đã biết | Route `/api/v1/artifacts/<sha256>` | NFR-SEC-013 |
@@ -58,7 +60,6 @@ giả danh `CASE_0001` … `CASE_0154`. Mọi biện pháp dưới đây đều 
 
 ## 6. Chỗ còn thiếu (đã biết)
 
-- Bản live cho phép HTTP tới mọi host; cần chặn `http://` tới host không phải loopback (NFR-SEC-002).
-- Log truy cập của uvicorn trên console còn in địa chỉ 127.0.0.1; cần chạy với `--no-access-log` (NFR-SEC-003).
 - Chưa ghi lại kiểm tra cổng cho thấy backend chỉ nghe `127.0.0.1` (NFR-SEC-013).
+- `tools/secret_scan.py` chưa có unit test; CI chỉ thử nó bằng một khoá riêng giả (TC-SEC-004).
 - Kiểm chữ tự do chỉ làm trên điện thoại; server nhận ghi chú finding tới 4000 ký tự mà không kiểm (NFR-SEC-010).

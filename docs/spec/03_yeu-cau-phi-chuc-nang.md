@@ -30,9 +30,9 @@ Chi tiết từng biện pháp và nơi trong mã: [08_bao-mat-rieng-tu.md](08_b
 | ID | Yêu cầu | Cách kiểm | Người phụ trách | Mức | Trạng thái |
 |---|---|---|---|---|---|
 | NFR-SEC-001 | Không cần và không lưu thông tin định danh bệnh nhân; chỉ mã ca ẩn danh và siêu dữ liệu kỹ thuật | Test backend, fixture | Cả nhóm | MUST | Đã có |
-| NFR-SEC-002 | Kênh truyền an toàn: chỉ đi qua cáp USB tới `127.0.0.1` | Cấu hình, test bản build | Cả nhóm | MUST | Một phần: bản live cho phép HTTP tới mọi host, chưa chặn host không phải loopback |
-| NFR-SEC-003 | Log không chứa ảnh, mask, bí mật hay địa chỉ client | Test log backend | Cả nhóm | MUST | Một phần: log truy cập của uvicorn trên console còn in địa chỉ 127.0.0.1 |
-| NFR-SEC-004 | Không có bí mật trong git hay trong app; dữ liệu bệnh nhân ở ngoài repo | CI chặn file ảnh y tế, checkpoint, secret, file > 10 MB, IP nội bộ | Cả nhóm | MUST | Đã có |
+| NFR-SEC-002 | Kênh truyền an toàn: `http://` chỉ tới host loopback (`localhost`, địa chỉ `127.…`, `[::1]`), tức backend trên máy tính qua cáp USB và `adb reverse`; host khác phải dùng `https://` | Test cấu hình (`normalizeBaseUrl` từ chối với mã `CONFIG_CLEARTEXT_REMOTE`), CI thử `prepare.mjs` với `http://` tới host lạ | Cả nhóm | MUST | Đã có |
+| NFR-SEC-003 | Log không chứa ảnh, mask, bí mật hay địa chỉ client | Test log backend; uvicorn chạy với `--no-access-log` | Cả nhóm | MUST | Đã có |
+| NFR-SEC-004 | Không có bí mật trong git hay trong app; dữ liệu bệnh nhân ở ngoài repo | CI chặn file ảnh y tế, checkpoint, secret, file > 10 MB, IP nội bộ; `tools/secret_scan.py` quét nội dung mọi dòng thêm vào và bundle app đã xuất tìm khoá riêng, token | Cả nhóm | MUST | Đã có |
 | NFR-SEC-005 | Nhập liệu chỉ nhận siêu dữ liệu trong danh sách cho phép; trường định danh lạ bị từ chối | Test Contract 1 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | NFR-SEC-006 | Che màn hình sau 5 phút ở nền hoặc 10 phút không chạm; nút "Clear cached images" | Test đồng hồ phiên, render smoke | Phạm Tuấn Anh | MUST | Đã có |
 | NFR-SEC-007 | Privacy mode ở SCR-03 / SCR-04, bật mặc định, bật / tắt bằng khiên trên header: chụp, quay, chiếu màn hình ra màu đen, ảnh xem trước trong danh sách app gần đây bị ẩn | Test, cần APK build từ mã này | Phạm Tuấn Anh | MUST | Đã có |

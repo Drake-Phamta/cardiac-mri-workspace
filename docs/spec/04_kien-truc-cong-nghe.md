@@ -37,7 +37,8 @@ flowchart LR
 Hai chế độ chạy của app:
 
 - **LIVE**: app gọi backend thật ở địa chỉ đặt lúc build (`EXPO_PUBLIC_API_BASE_URL`); cấu hình của nhóm là
-  `http://127.0.0.1:8000` qua `adb reverse tcp:8000 tcp:8000` (cáp USB), nên backend không mở ra mạng nào.
+  `http://127.0.0.1:8000` qua `adb reverse tcp:8000 tcp:8000` (cáp USB), nên backend không mở ra mạng nào. `http://` chỉ
+  được nhận cho host loopback; một backend ở host khác phải dùng `https://`.
 - **FIXTURE**: app không cần backend; dữ liệu được *sinh* từ hợp đồng API (`contracts/api/generate_fixture.py`), có
   bảng chọn kịch bản (ví dụ ma trận đủ UNet / DINOv2) để demo và test.
 

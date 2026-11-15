@@ -79,9 +79,9 @@ nghiệm thu.
 | TC-SEC-005 | Danh sách siêu dữ liệu cho phép từ chối trường định danh lạ | test_contract1, hardening_regression | Nguyễn Gia Đức Trung | Đã có |
 | TC-USAB-002 | Chế độ vẽ / di không gây vẽ nhầm hay điều hướng nhầm | v4_review_screen + điện thoại | Nguyễn Gia Đức Trung | Một phần: chưa ghi lần chạy kịch bản trên máy |
 | TC-SEC-001 | App và CSDL chạy không cần danh tính; fixture chỉ có mã ẩn danh | config, test_contract1 | Cả nhóm | Đã có |
-| TC-SEC-002 | Hồ sơ cục bộ đúng như khai (loopback qua USB) | cleartextPlugin + điện thoại | Cả nhóm | Một phần: chưa ghi kiểm tra cổng, chưa chặn HTTP tới host lạ |
+| TC-SEC-002 | Hồ sơ cục bộ đúng như khai (loopback qua USB) | config, cleartextPlugin + điện thoại | Cả nhóm | Một phần: chưa ghi kiểm tra cổng |
 | TC-SEC-003 | Log không có byte ảnh / mask, bí mật hay siêu dữ liệu thừa | test_api, netlog | Cả nhóm | Đã có |
-| TC-SEC-004 | Quét bí mật trong repo và bundle app | CI `no-forbidden-bytes` | Cả nhóm | Một phần: CI chỉ kiểm tên / đuôi file, chưa quét nội dung và bundle |
+| TC-SEC-004 | Quét bí mật trong repo và bundle app | CI `no-forbidden-bytes` và `mobile-render-bundle` (`tools/secret_scan.py`) | Cả nhóm | Một phần: `tools/secret_scan.py` chưa có unit test, CI chỉ thử bằng một khoá giả |
 | TC-MAINT-003 | Module quan trọng có test đăng ký trong CI | registry | Cả nhóm | Đã có |
 | TC-E2E-001 | Luồng demo MRI → dự đoán → lỗi → 3D → liên kết → rà soát / sửa → bản đã lưu, trên main | hero_flow_api, render smoke + điện thoại | Cả nhóm | Một phần: chưa chạy trên điện thoại với bản gộp |
 | TC-USAB-005 | Luồng demo chạy 5 lần liền trên thiết bị / bản build mục tiêu | + điện thoại | Cả nhóm | Chưa có |
