@@ -84,7 +84,7 @@ test('RS1 a route without a variant asks for one - nothing is called, nothing de
   assert.equal(s.phase, PHASE.CHOOSE_VARIANT);
   await drive(ctl, runtime.client);
   assert.deepEqual(calls, []);
-  assert.deepEqual(s.wants, { run: null, slice: null }, 'it wants nothing before a variant is chosen');
+  assert.deepEqual(s.wants, { run: null, slice: null, history: null }, 'it wants nothing before a variant is chosen');
   const bad = await ctl.chooseVariant('REVIEWED');
   assert.equal(bad.phase, PHASE.CHOOSE_VARIANT, 'only RAW or PROCESSED can scope a review');
 });
@@ -217,7 +217,10 @@ test('RS8 save: a new version with its source identity, the review CORRECTED, sa
   assert.equal(s.review.latestVersion.reviewed_mask_id, s.notice.reviewedMaskId);
   assert.equal(s.notice.sourceMaskId, RUN.raw_prediction_artifact_id);
   assert.equal(s.notice.sourceMaskKind, 'RAW_PREDICTION');
-  assert.match(s.notice.text, new RegExp(`${s.notice.reviewedMaskId}.*RAW prediction ${RUN.raw_prediction_artifact_id} \\(RAW_PREDICTION\\)`));
+  // the notice is one short line in words (the count of saved versions, as the Details sheet counts them); the ids
+  // stay in the notice's fields, for the Details sheet
+  assert.equal(s.notice.text, `Saved · version ${versions + 1}`);
+  assert.doesNotMatch(s.notice.text, /REVMASK|REVIEW_|sha256|ART_/);
   // an edit after the save (outside the blob, so it changes pixels) is
   // UNSAVED on top of the saved layer
   ctl.touch.grant([at(450, 300)]);
@@ -225,6 +228,38 @@ test('RS8 save: a new version with its source identity, the review CORRECTED, sa
   s = ctl.getState();
   assert.equal(s.slice.maskState, MASK_STATE.UNSAVED);
   assert.ok(s.layers.saved.length > 0 && s.layers.unsaved.length > 0);
+});
+
+test('RS8b a control that is off has a reason in plain words; a control that is on has none; a tap on it says it as a note', async () => {
+  const ctl = await readyScreen();
+  let s = ctl.getState();
+  // a fresh review on its middle slice: nothing to save, undo, redo or reset, but the tools work
+  assert.equal(s.why.edit, null);
+  assert.equal(s.why.save, 'No unsaved edits to save.');
+  assert.equal(s.why.undo, 'Nothing to undo.');
+  assert.equal(s.why.redo, 'Nothing to redo.');
+  assert.equal(s.why.reset, 'Nothing to reset: the slice is still the source.');
+  assert.equal(s.why.source, null);
+  assert.equal(s.why.prev, null);
+  assert.equal(s.why.next, null);
+  ctl.touch.grant([at(380, 276)]);
+  ctl.touch.release();
+  s = ctl.getState();
+  assert.deepEqual([s.why.save, s.why.undo, s.why.reset], [null, null, null], 'a stroke turns Save, Undo and Reset on');
+  assert.equal(s.canSave, true);
+  assert.equal(s.why.redo, 'Nothing to redo.');
+  // every reason is a plain sentence: no id, no code, no revision
+  for (const text of Object.values(s.why).filter(Boolean)) assert.match(text, /^[A-Z][^_]*\.$/, text);
+  // the ends of the volume
+  await ctl.setSlice(0);
+  assert.equal(ctl.getState().why.prev, 'This is the first slice.');
+  await ctl.setSlice(87);
+  assert.equal(ctl.getState().why.next, 'This is the last slice.');
+  // a tap on a control that is off shows its reason as a one-line note (kind info), and the note can be dismissed
+  s = ctl.say(s.why.redo);
+  assert.deepEqual({ kind: s.notice.kind, text: s.notice.text }, { kind: 'info', text: 'Nothing to redo.' });
+  s = ctl.dismissNotice();
+  assert.equal(s.notice, null);
 });
 
 test('RS9 STALE_REVISION while saving keeps the edits, offers Refresh only, and saves after it', async () => {
@@ -251,10 +286,10 @@ test('RS10 review status from the screen: transitions as the model allows, ACCEP
   const ctl = await readyScreen();
   let s = await ctl.setStatus('ACCEPTED');
   assert.equal(s.review.status, 'ACCEPTED');
-  s = await ctl.setStatus('FLAGGED');
+  s = await ctl.setStatus('FLAGGED', { reason: 'Misses the septal wall.' });
   assert.equal(s.notice.code, 'CONFIRMATION_REQUIRED');
   assert.equal(s.review.status, 'ACCEPTED');
-  s = await ctl.setStatus('FLAGGED', { confirmed: true });
+  s = await ctl.setStatus('FLAGGED', { confirmed: true, reason: 'Misses the septal wall.' });
   assert.equal(s.review.status, 'FLAGGED');
   s = await ctl.setStatus('ACCEPTED');
   assert.equal(s.notice.code, 'INVALID_REVIEW_TRANSITION');
@@ -289,7 +324,7 @@ test('RS12 a live runtime without a mask decoder says so, keeps the review contr
   ctl.touch.grant([at(380, 276)]);
   ctl.touch.release();
   assert.equal(ctl.getState().brush.undoDepth, 0);
-  const t = await ctl.setStatus('FLAGGED');
+  const t = await ctl.setStatus('FLAGGED', { reason: 'Misses the septal wall.' });
   assert.equal(t.review.status, 'FLAGGED');
 });
 
@@ -354,7 +389,7 @@ test('RS14 with unsaved slices canLeave is false, so the screen registers the sh
   ctl.touch.release();
   let s = ctl.getState();
   assert.equal(s.canLeave, false);
-  assert.match(s.leaveBlockedReason, /[Ss]lice 44/);
+  assert.match(s.leaveBlockedReason, /^Slice 45 has unsaved edits/, 'slice 44 (z) is slice 45 for a person');
   ctl.undo();
   assert.equal(ctl.getState().canLeave, true, 'undone back to the source: nothing to lose');
   ctl.redo();
@@ -714,7 +749,8 @@ test('RS22 Refresh over a newer latest version refuses to drop unsaved edits; Ca
   let s = await ctl.refresh();
   assert.equal(s.notice.kind, 'refused');
   assert.equal(s.notice.code, 'BASE_VERSION_MISMATCH');
-  assert.ok(s.notice.text.includes(rv.A) && s.notice.text.includes(rv.B), `the refusal names both versions: ${s.notice.text}`);
+  assert.match(s.notice.text, /^Another reviewer saved a newer version/);
+  assert.ok(!s.notice.text.includes(rv.A) && !s.notice.text.includes(rv.B), 'the refusal is in words, with no version ids');
   assert.equal(s.review.latestVersion.reviewed_mask_id, rv.B, 'the review itself was reloaded');
   assert.equal(s.brush.baseId, rv.A, 'the session still continues from A');
   assert.deepEqual(s.brush.unsavedSlices, [44], 'the unsaved slice is still there');

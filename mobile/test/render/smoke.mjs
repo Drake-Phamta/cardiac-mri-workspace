@@ -45,7 +45,8 @@ const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return t
 const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
-  const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
+  // SCR-06's bottom panel measures its own rows (a height, not the 400 x 400 of a canvas), so it is not given the canvas size.
+  const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function' && n.props.testID !== 'panel-rows');
   await act(async () => { for (const v of views) v.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } } }); });
 }
 // The header's controls (Back, the Live / Fixture indicator, Info) have testIDs "header-..."; a check that presses a
@@ -122,11 +123,14 @@ const NavigatorView = (await imp('src/navigation/Navigator.js')).default;
 const CaseExplorerScreen = (await imp('src/screens/v1-cases/CaseExplorerScreen.js')).default;
 const ExperimentComparisonScreen = (await imp('src/screens/v3-study/ExperimentComparisonScreen.js')).default;
 const FindingsScreen = (await imp('src/screens/v4-review/FindingsScreen.js')).default;
+const ReviewCorrectionScreen = (await imp('src/screens/v4-review/ReviewCorrectionScreen.js')).default;
+const { COLUMN_HEIGHT } = await imp('src/screens/v4-review/ReviewTools.js');
 const { decodeMaskPng } = await imp('src/lib/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { shortTouchables } = await imp('test/render/touch_measure.mjs');
+const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -1261,7 +1265,12 @@ function reviewBackend({ seedVersion = false } = {}) {
       evidence: { study_id: 'STUDY_DEMO', experiment_id: 'EXP_DEMO', case_id: 'CASE_0061', analysis_run_id: 'RUN_A', prediction_variant: 'RAW', slice_index: 44, region_reference: null },
     }],
     nextFinding: 2,
+    history: [], // review_history_list rows, oldest first, as the backend keeps them (contract 1.2.0)
   };
+  const logHistory = (action, from, to, extra = {}) => db.history.push({
+    revision: db.review.revision, action, from_status: from, to_status: to, reviewer_id: 'project-reviewer', reason: null,
+    slice_index: null, reviewed_mask_id: null, at: `2026-11-15T09:${String(db.history.length).padStart(2, '0')}:00Z`, ...extra,
+  });
   const geometry = () => {
     const g = gen('case_get');
     return { geometry_contract_version: g.geometry_contract_version, geometry_validation_status: g.geometry_validation_status,
@@ -1284,6 +1293,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   const ensureReview = (runId, body) => {
     if (db.review) return { review: db.review, created: false };
     db.review = { review_id: 'REVIEW_1', run_id: runId, status: 'NOT_REVIEWED', revision: 1, source_mask_id: body.source_mask_id, prediction_variant: body.prediction_variant };
+    logHistory('CREATE', null, 'NOT_REVIEWED');
     if (seedVersion) {
       // an earlier session already corrected slice 44: its version differs from the source there
       const earlier = SOURCE.slice();
@@ -1315,7 +1325,7 @@ function reviewBackend({ seedVersion = false } = {}) {
       return { status: 200, headers: { get: (k) => ({ 'content-type': 'image/png', etag: `"${sum(bytes)}"` })[k.toLowerCase()] ?? null }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
     }
     if ((m = /^\/api\/v1\/analysis-runs\/([^/]+)$/.exec(path)) && method === 'GET') {
-      return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED' });
+      return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', experiment_id: 'EXP_DEMO', status: 'SUCCEEDED' });
     }
     if ((m = /^\/api\/v1\/cases\/([^/]+)$/.exec(path)) && method === 'GET') return json(200, { ...gen('case_get'), case_id: m[1] });
     if ((m = /^\/api\/v1\/cases\/[^/]+\/slices\/(\d+)\/mri$/.exec(path))) {
@@ -1338,6 +1348,7 @@ function reviewBackend({ seedVersion = false } = {}) {
       if (body.mask_payload.encoding !== 'BITPACK_BASE64') return err(422, 'VALIDATION_ERROR');
       db.working.set(Number(m[2]), unpack(body.mask_payload));
       db.review.revision += 1;
+      logHistory('WORKING_SLICE', db.review.status, db.review.status, { slice_index: Number(m[2]) });
       return json(200, { review_id: db.review.review_id, working_revision: db.review.revision, source_mask_id: db.review.source_mask_id,
         slice_index: Number(m[2]), ...geometry() });
     }
@@ -1349,15 +1360,22 @@ function reviewBackend({ seedVersion = false } = {}) {
       db.versions.push(v);
       db.working.clear();
       db.review.revision += 1;
+      logHistory('COMMIT', db.review.status, 'CORRECTED', { reviewed_mask_id: v.id });
       db.review.status = 'CORRECTED';
       return json(201, { ...row(v), status: 'CORRECTED', source_mask_kind: 'RAW_PREDICTION', revision: db.review.revision, ...geometry() });
     }
     if ((m = /^\/api\/v1\/reviews\/([^/]+)$/.exec(path)) && method === 'PATCH') {
       if (body.expected_revision !== db.review.revision) return err(409, 'STALE_REVISION');
       if (body.status === 'CORRECTED') return err(409, 'INVALID_REVIEW_TRANSITION');
+      const from = db.review.status;
       db.review.status = body.status;
       db.review.revision += 1;
+      logHistory('TRANSITION', from, body.status, { reason: body.reason ?? null });
       return json(200, reviewBody(db.review));
+    }
+    if ((m = /^\/api\/v1\/reviews\/([^/]+)\/history$/.exec(path)) && method === 'GET') {
+      if (!db.review || db.review.review_id !== m[1]) return err(404, 'ARTIFACT_NOT_FOUND');
+      return json(200, { review_id: m[1], items: db.history });
     }
     if ((m = /^\/api\/v1\/reviewed-masks\/([^/]+)\/slices\/(\d+)$/.exec(path)) && method === 'GET') {
       const v = db.versions.find((x) => x.id === m[1]);
@@ -1396,25 +1414,81 @@ function reviewBackend({ seedVersion = false } = {}) {
 {
   const { BackHandler } = await import('react-native');
   const { fitTransform } = await imp('src/lib/viewMath.mjs');
+  // A button is found by its text, or by its accessibilityLabel when it is an icon (Undo, Zoom in, Next slice ...).
+  const isBtn = (n, label) => n.type === 'TouchableOpacity' && (textOf(n) === label || n.props.accessibilityLabel === label);
   const pressExact = async (r, label) => {
-    const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label);
+    const hits = r.root.findAll((n) => isBtn(n, label));
     if (!hits.length) throw new Error(`no button "${label}" exactly; texts: ${texts(r).slice(0, 50).join(' | ')}`);
     await act(async () => { hits[0].props.onPress(); });
   };
-  const btn = (r, label) => r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label)[0];
+  const btn = (r, label) => r.root.findAll((n) => isBtn(n, label))[0];
+  // SCR-08 rows open a sheet with the finding's actions; the row is found by the words a screen reader says.
+  const openFinding = async (r, startsWith = '') => {
+    const hits = r.root.findAll((n) => n.type === 'TouchableOpacity' && typeof n.props.accessibilityLabel === 'string'
+      && / · Slice \d+/.test(n.props.accessibilityLabel) && n.props.accessibilityLabel.startsWith(startsWith));
+    if (!hits.length) throw new Error(`no finding row; labels: ${r.root.findAll((x) => x.props && x.props.accessibilityLabel).map((x) => x.props.accessibilityLabel).slice(0, 20).join(' | ')}`);
+    await act(async () => { hits[0].props.onPress(); });
+  };
+  // Details is the shell's sheet behind the header's Info button; SCR-06 reports its sections with nav.setContext.
+  const openDetails = async (r) => { await act(async () => { byId(r, 'header-info')[0].props.onPress(); }); };
+  const closeDetails = async (r) => { await act(async () => { byId(r, 'details-sheet-close')[0].props.onPress(); }); };
+  // The review sheet (status, history, edits and view) opens from the status tag over the picture.
+  const openReview = async (r) => { await act(async () => { byId(r, 'review-status')[0].props.onPress(); }); await tick(120); };
+  const closeReview = async (r) => { await act(async () => { byId(r, 'review-sheet-close')[0].props.onPress(); }); };
   const byId = (r, id) => r.root.findAll((n) => n.props && n.props.testID === id);
-  const alertNow = (title) => (globalThis.__alerts || []).filter((a) => a[0] === title).pop();
-  const answerAlert = async (title, label) => {
-    const a = alertNow(title);
-    if (!a) throw new Error(`no alert "${title}"; alerts: ${(globalThis.__alerts || []).map((x) => x[0]).join(' | ')}`);
-    const b = a[2].find((x) => x.text === label);
-    await act(async () => { b.onPress(); });
+  // Every Cancel / OK question of V4 is the viewer's own sheet (confirm.js), never the system dialog: it is found by its
+  // title, its lines are read, and it is answered with one of its buttons.
+  const confirmOf = (r, title) => {
+    const sheet = byId(r, 'confirm-sheet')[0];
+    const head = sheet ? sheet.findAll((n) => n.props.accessibilityRole === 'header')[0] : null;
+    if (!sheet || !head || textOf(head) !== title) return null;
+    return { sheet, lines: sheet.findAll((n) => n.props.testID === 'confirm-line').map(textOf) };
+  };
+  const answerConfirm = async (r, title, label) => {
+    const c = confirmOf(r, title);
+    if (!c) throw new Error(`no question "${title}" on screen; questions open: ${byId(r, 'confirm-sheet').length}`);
+    const b = c.sheet.findAll((n) => isBtn(n, label))[0];
+    if (!b) throw new Error(`question "${title}" has no button "${label}"`);
+    await act(async () => { b.props.onPress(); });
     await tick(80);
+  };
+  const openSheets = (r) => r.root.findAll((n) => n.type === 'View' && n.props.testID === 'confirm-sheet').length;
+  // Dismissed with no button: the sheet's own close button, or the system back button (the Modal's onRequestClose).
+  const dismissConfirm = async (r, how) => {
+    if (how === 'close') {
+      await act(async () => { byId(r, 'confirm-sheet-close')[0].props.onPress(); });
+    } else {
+      const modal = r.root.findAll((n) => typeof n.props.onRequestClose === 'function' && n.props.visible === true
+        && n.findAll((x) => x.props.testID === 'confirm-sheet').length > 0)[0];
+      await act(async () => { modal.props.onRequestClose(); });
+    }
+    await tick(60);
+  };
+  // The touch area of a control is its own height plus its hitSlop above and below (a width likewise). A control with
+  // no height of its own (its parent sizes it) is not measured here.
+  const flatStyle = (st) => (Array.isArray(st) ? Object.assign({}, ...st.map(flatStyle)) : (st && typeof st === 'object' ? st : {}));
+  const touchAreas = (root) => root.findAll((n) => (n.type === 'TouchableOpacity' || n.type === 'Pressable') && n.props.onPress).map((n) => {
+    const st = flatStyle(n.props.style);
+    const h = typeof st.height === 'number' ? st.height : (typeof st.minHeight === 'number' ? st.minHeight : null);
+    const slop = n.props.hitSlop || {};
+    return { label: n.props.accessibilityLabel || textOf(n), h: h === null ? null : h + (slop.top || 0) + (slop.bottom || 0) };
+  });
+  const noticeIconOf = (r) => {
+    const box = byId(r, 'canvas-notice')[0];
+    return box ? box.findAll(isIcon).map((n) => n.props.testID).join() : null;
   };
   const canvasOf = (r) => r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0].props.__pan;
   const evt = (...pts) => ({ nativeEvent: { touches: pts.map((p) => ({ pageX: p.x, pageY: p.y })) } });
-  const fit = fitTransform(400, 400, 576, 576);
+  // The picture is fitted between the floating bar (56 dp) and the bottom panel (137 dp) of a 400 x 400 canvas.
+  const fit = (() => { const f = fitTransform(400, 400 - 56 - 137, 576, 576); return { ...f, panY: f.panY + 56 }; })();
   const pointOf = (x, y) => ({ x: fit.panX + (x + 0.5) * fit.zoom, y: fit.panY + (y + 0.5) * fit.zoom });
+  // Two fingers moving apart: zoom in about the middle (the gesture the screen has instead of a zoom button).
+  const pinchOut = async (r) => {
+    const c = canvasOf(r);
+    await act(async () => { c.onPanResponderGrant(evt({ x: 150, y: 200 }, { x: 250, y: 200 })); });
+    await act(async () => { c.onPanResponderMove(evt({ x: 100, y: 200 }, { x: 300, y: 200 })); });
+    await act(async () => { c.onPanResponderRelease(evt()); });
+  };
   const stroke = async (r, ...pixels) => {
     const c = canvasOf(r);
     await act(async () => { c.onPanResponderGrant(evt(pointOf(...pixels[0]))); });
@@ -1439,6 +1513,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     return r;
   };
   const toReview = async (r) => {
+    await openFinding(r);
     await pressExact(r, 'Review / correct');
     await tick(250);
     await layout(r);
@@ -1448,11 +1523,93 @@ function reviewBackend({ seedVersion = false } = {}) {
   // --- H8: Findings tab -> Review / correct -> SCR-06 on RAW (the finding recorded it) ---
   const be = reviewBackend();
   const r = await mount(be);
-  check('V4a', onScreen(r, 'SCR-08') && has(r, /seed finding/) && has(r, /CASE_0061 · slice 44 · run RUN_A · RAW/),
-    'SCR-08 lists the finding with its evidence (case, slice, run, variant)');
+  check('V4a', onScreen(r, 'SCR-08') && has(r, /seed finding/) && has(r, /^Under-segmentation$/) && has(r, /^Open$/)
+    && has(r, /^CASE_0061 · Slice 45 · Raw$/) && !has(r, /RUN_A|EXP_DEMO|FINDING_1/),
+  'SCR-08 lists the finding as a row: type, status tag, case, slice counted from 1 and the prediction (this experiment has no label, so none is written), and no run, experiment or finding id on the page');
+  await openFinding(r);
+  check('V4a', has(r, /^Finding FINDING_1$/) && has(r, /^Run RUN_A$/) && has(r, /^Experiment EXP_DEMO$/) && has(r, /^Slice 45$/) && !has(r, /\bz = /)
+    && has(r, /^Prediction RAW$/) && btn(r, 'Open evidence') && btn(r, 'Review / correct') && btn(r, 'Resolve'),
+  'the finding\'s sheet has its actions and, in full, its ids and the slice counted from 1 (no z)');
   await toReview(r);
-  check('V4b', onScreen(r, 'SCR-06') && !has(r, /Which prediction do you want to review/) && has(r, /^RAW · /) && has(r, /^Review: NOT_REVIEWED · rev 1$/),
-    'SCR-06 opens on RAW (the finding\'s own variant: no question, no default) with the review NOT_REVIEWED');
+  await openDetails(r);
+  check('V4b', onScreen(r, 'SCR-06') && !has(r, /Which prediction do you want to review/) && has(r, /^Prediction RAW$/) && has(r, /^Status Not reviewed \(revision 1\)$/)
+    && has(r, /^Experiment EXP_DEMO$/) && has(r, /^Slice 45 \/ 88 · z 44$/),
+  'SCR-06 opens on RAW (the finding\'s own variant: no question, no default) with the review NOT_REVIEWED; ids and revisions are in the Details sheet');
+  check('V4pm', has(r, /^Privacy$/) && has(r, /^Privacy mode: not available in this build$/) && has(r, /so screenshots are not blocked\.$/),
+    'the Details sheet of SCR-06 has a Privacy section; this test build has no expo-screen-capture, so it says screenshots are not blocked');
+  await closeDetails(r);
+  const sliceNav = byId(r, 'slice-nav')[0];
+  check('V4x', has(r, /^Not reviewed$/) && has(r, /^Slice 45 \/ 88$/)
+    && sliceNav.findAll((x) => x.type === 'TouchableOpacity').map((x) => x.props.accessibilityLabel).join() === 'Previous slice,Next slice'
+    && !texts(r).some((t) => /\brev\b|REVIEW_1|NOT_REVIEWED/.test(t)) && !sliceNav.findAll((x) => x.type === 'Text').some((x) => /Not reviewed/.test(textOf(x)))
+    && JSON.stringify(sliceNav.props.style).includes('"flexShrink":0'),
+  'B4: with the review NOT_REVIEWED the slice buttons sit in a row of their own that cannot shrink, the status is a tag over the picture, and no revision number is on the page');
+  // Responsive (device session r4): the panel's rows wrap, so Reset and Save drop under the slice buttons (and the brush
+  // size under its label) on a 320 dp screen or at a large font instead of running off the edge ("Sa"); the panel
+  // measures its own height and the picture and the tool column are laid out above that height.
+  {
+    const panelEl = byId(r, 'viewer-panel')[0];
+    const rowsEl = byId(r, 'panel-rows')[0];
+    const wrapRows = rowsEl.findAll((n) => n.type === 'View' && flatStyle(n.props.style).flexWrap === 'wrap');
+    const actions = flatStyle(byId(r, 'panel-actions')[0].props.style);
+    const toolsEl = r.root.findAll((n) => n.props && n.props.accessibilityLabel === 'Drawing tools')[0];
+    const pictureW = () => flatStyle(r.root.findAll((n) => n.type === 'Image')[0].props.style).width;
+    const [w0, bottom0] = [pictureW(), flatStyle(toolsEl.props.style).bottom];
+    check('RP-V4a', wrapRows.length === 2 && actions.marginLeft === 'auto' && actions.flexShrink === 0
+      && flatStyle(sliceNav.props.style).flexShrink === 0 && typeof flatStyle(panelEl.props.style).height !== 'number' && bottom0 === 137 + 16,
+    'SCR-06 panel: two rows that wrap, Reset and Save at the right of their line and never shrunk, the panel as high as its rows (137 dp unwrapped)');
+    // A 320 dp screen: Reset and Save on a line of their own and the brush size under its label: 48 + 8 + 48, 8, 16 + 8 + 48.
+    await act(async () => { rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 288, height: 184 } } }); });
+    await tick(30);
+    check('RP-V4a', flatStyle(toolsEl.props.style).bottom === 184 + 33 + 16 && pictureW() < w0,
+      `a taller panel (217 dp): the tool column sits above it (bottom ${flatStyle(toolsEl.props.style).bottom}) and the picture is fitted again, smaller (${w0.toFixed(0)} -> ${pictureW().toFixed(0)} dp)`);
+    await act(async () => { rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 352, height: 104 } } }); });
+    await tick(30);
+    check('RP-V4a', flatStyle(toolsEl.props.style).bottom === bottom0 && Math.abs(pictureW() - w0) < 0.5, 'and back to 137 dp when the rows fit one line each');
+    // The tool names: one line, as wide as the 48 dp button, capped (Add, Erase and Pan are the shared ToolButton).
+    const toolNames = ['Add', 'Erase', 'Pan', 'Source'].map((l) => toolsEl.findAll((n) => n.type === 'Text' && textOf(n) === l)[0]);
+    check('RP-V4b', toolNames.every((n) => n && n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
+      && flatStyle(n.props.style).alignSelf === 'stretch' && flatStyle(n.props.style).textAlign === 'center'),
+    'SCR-06 tool names (Add, Erase, Pan, Source): one line, as wide as the 48 dp button, capped at font scale 1.15: "Pan" was cut to "Pa" at 320 dp');
+    // Responsive (device session r5): the readout at the top right ("Edits", "Saved") is capped like a label in a corner and
+    // stays at the edge only where the tool column starts below it; on a short screen (320 dp: the panel wraps and is taller)
+    // it stops left of the column, which would otherwise hide "Saved" (it did, with the title cut to "CASE_00...").
+    const canvasView = r.root.findAll((n) => n.type === 'View' && n.props.__pan)[0];
+    const readoutBox = () => { for (let q = byId(r, 'mask-state')[0]; q; q = q.parent) { if (flatStyle(q.props.style).maxWidth === '55%') return q; } return null; };
+    const rightOf = () => flatStyle(readoutBox().props.style).right;
+    const chipsRight = () => flatStyle(byId(r, 'canvas-chips')[0].props.style).right;
+    const sized = async (width, height, panel) => {
+      await act(async () => {
+        canvasView.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width, height } } });
+        rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: width - 32, height: panel - 33 } } });
+      });
+      await tick(30);
+    };
+    const labels = byId(r, 'mask-state')[0].parent.findAll((n) => n.type === 'Text');
+    const edges = async (width, height, panel) => { await sized(width, height, panel); return [rightOf(), chipsRight()]; };
+    const at384 = await edges(384, 781, 137);
+    const at320 = await edges(320, 648, 217);
+    const at320big = await edges(320, 648, 221);
+    await sized(400, 400, 137);
+    check('RP-V4c', labels.length === 2 && labels.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP)
+      && at384.join() === '16,16' && at320.join() === '80,80' && at320big.join() === '80,80' && COLUMN_HEIGHT === 325,
+    `SCR-06 readout and stamp chip: at the right edge on a 384 x 781 dp screen (${at384.join(' / ')} dp), left of the tool column on a 320 x 648 dp one at font 1.0 and 1.3 (${at320.join(' / ')}, ${at320big.join(' / ')} dp)`);
+  }
+  const header = texts(r).join(' | ');
+  check('V4xa', onScreen(r, 'SCR-06') && byTestId(r, 'viewer-chrome') && tabBar(r).length === 0 && has(r, /^CASE_0061$/) && has(r, /^Raw prediction$/)
+    && !/RUN_A|run RUN/.test(header) && byTestId(r, 'header-more') && byTestId(r, 'header-more').props.accessibilityLabel === 'Review: status, history, edits and view',
+  'SCR-06 opts in to the viewer chrome: a floating bar with the case, "Raw prediction" (short enough for 320 dp), Info and "more" (no run id), and no tab bar');
+  // Responsive (device session r5): the bar's case id and subtitle are one line capped at the label cap, because Back, the shield, Info and
+  // "more" take a fixed 192 dp of a 320 dp bar: "CASE_0061" showed as "CASE_00..." at font scale 1.3.
+  {
+    const bar = (text) => r.root.findAll((n) => n.type === 'Text' && textOf(n) === text)[0];
+    check('RP-V4d', ['CASE_0061', 'Raw prediction'].every((t) => bar(t).props.numberOfLines === 1 && bar(t).props.maxFontSizeMultiplier === LABEL_FONT_CAP),
+      `SCR-06 bar: the case id and "Raw prediction" are one line, capped at font scale ${LABEL_FONT_CAP}`);
+  }
+  // Privacy mode (V4 item 6): SCR-06 shows the MRI and the masks, so its bar has the shield of SCR-03 and SCR-04, on by
+  // default. Without the module it is not lit and says it cannot block screenshots yet, instead of claiming protection.
+  check('V4pm', byTestId(r, 'header-action-privacy') && byTestId(r, 'header-action-privacy').props.accessibilityLabel === 'Privacy mode: not available in this build',
+    'SCR-06 has the privacy shield in its bar (with Info and "more"), on by default');
   const reqs = be.requests.map((q) => `${q.method} ${q.path.replace(/\?.*/, '')}`);
   check('V4b', reqs.includes('GET /api/v1/analysis-runs/RUN_A') && reqs.some((q) => q === 'POST /api/v1/analysis-runs/RUN_A/reviews')
     && reqs.some((q) => /GET .*\/slices\/44\/prediction/.test(q)) && reqs.some((q) => /GET .*\/slices\/44\/mri/.test(q))
@@ -1461,71 +1618,185 @@ function reviewBackend({ seedVersion = false } = {}) {
   const create = be.requests.find((q) => q.method === 'POST' && q.path.endsWith('/reviews'));
   check('V4b', create.body.status === 'NOT_REVIEWED' && create.body.source_mask_id === be.RAW_ID && create.body.prediction_variant === 'RAW',
     'review_create sends status NOT_REVIEWED with the run\'s RAW artifact as the source and the variant');
-  check('V4b', byId(r, 'mask-state')[0] && textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits'
+  check('V4b', byId(r, 'mask-state')[0] && textOf(byId(r, 'mask-state')[0]) === 'Source'
     && r.root.findAll((n) => n.type === 'Image').some((n) => /^data:image\/png;base64,/.test(n.props.source.uri)),
-  'the real mask is decoded (no stand-in, no "decoder pending") and the MRI is drawn from its verified bytes');
-  check('V4b', !has(r, /SYNTHETIC/) && !has(r, /decoder is pending/i), 'nothing is labelled SYNTHETIC or pending in live mode');
+  'the real mask is decoded (not the stand-in) and the MRI is drawn from its verified bytes');
+  check('V4b', !has(r, /Synthetic stand-in/) && !has(r, /fixture mode has no pixels/) && !has(r, /cannot draw masks/) && !byId(r, 'pixels-unavailable')[0],
+    'live mode: the picture is the server\'s own, with no "Synthetic stand-in" chip and no "cannot draw masks" message');
+  {
+    // Fixture mode has no pixels behind any reference: SCR-06 draws a stand-in mask, says so on the picture, and draws no PNG.
+    const fixture = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+    const fnav = ctxNav();
+    let fr;
+    await act(async () => {
+      fr = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: fixture },
+        React.createElement(ReviewCorrectionScreen, { runtime: fixture, nav: fnav, params: { runId: 'RUN_0043', caseId: 'CASE_0043', variant: 'RAW' } })), nodeMock);
+    });
+    await tick(200);
+    await layout(fr);
+    await tick(100);
+    check('V4b', has(fr, /^Synthetic stand-in: fixture mode has no pixels\. Not a prediction, not patient data\.$/)
+      && byId(fr, 'mask-state')[0] && textOf(byId(fr, 'mask-state')[0]) === 'Source'
+      && !fr.root.findAll((n) => n.type === 'Image').some((n) => /^data:image\/png/.test(n.props.source && n.props.source.uri)),
+    'fixture mode: the stand-in mask is labelled "Synthetic stand-in" on the picture, and no PNG is drawn');
+    check('V4pm', ctxAction(fnav, 'privacy') && ctxAction(fnav, 'privacy').label === 'Privacy mode: not available in this build'
+      && ctxHas(fnav, /^Privacy mode: not available in this build$/), 'the fixture picture has the shield and the Privacy section too');
+    await act(async () => { fr.unmount(); });
+  }
 
   // --- one brush stroke at SOURCE resolution ---
-  const rectsBefore = marks(r, 'Rect').length;
+  // The edits are four paths (saved / unsaved, add / erase), one "M" per run; the number drawn is the number of runs.
+  const editMarks = () => marks(r, 'Path').filter((n) => typeof n.props.testID === 'string' && n.props.testID.startsWith('edit-'))
+    .reduce((sum, n) => sum + (n.props.d.match(/M/g) || []).length, 0);
+  const editsBefore = editMarks();
   await stroke(r, [500, 300]);
-  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && marks(r, 'Rect').length > rectsBefore,
+  check('V4c', textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits' && editMarks() > editsBefore,
     'a one-finger stroke paints (radius 2 by default) and the slice reads UNSAVED');
+  // NFR-PERF-003: the stroke wrote one CMW_STROKE line, with times and counts and nothing that names a case or a place on the slice.
+  await tick(60);
+  {
+    const lines = logs.filter((l) => l.startsWith('CMW_STROKE '));
+    const rec = lines.length ? JSON.parse(lines[0].slice(11)) : null;
+    check('V4st', lines.length === 1 && rec.stroke === 1 && rec.tool === 'add' && rec.px === 5 && rec.end === 'release' && rec.mode === 'live' && rec.dev === false
+      && Number.isFinite(rec.ms_to_frame) && rec.ms_to_frame >= 0 && rec.runs_end >= rec.runs_start && rec.moves === 0 && rec.strokes_before === 0 && rec.slices_open === 1
+      && !/CASE_|RUN_|REVIEW|REVMASK|sha256|https?:/.test(lines[0]),
+    `one stroke, one CMW_STROKE line: ${lines[0] || '-'}`);
+  }
+
+  // Hold Source (V4 item 1): the source prediction alone, filled; the edits come back on release.
+  const rects = editMarks;
+  const withEdits = rects();
+  check('V4s', byId(r, 'source-outline')[0] && /^M\d+ \d+h\d+/.test(byId(r, 'source-outline')[0].props.d) && !byId(r, 'source-fill')[0],
+    'the source is drawn as its edge (a path of pixel sides), not filled, while the edits show');
+  await act(async () => { byId(r, 'hold-source')[0].props.onPressIn(); });
+  // B6: held, the button is selected and enabled (a pressed TouchableOpacity fades to 20% unless activeOpacity is 1),
+  // and its message is a chip that stays inside the picture's edges.
+  const cornerBox = (() => {
+    for (let q = byId(r, 'mask-state')[0]; q; q = q.parent) {
+      const st = flatStyle(q.props.style);
+      if (st.maxWidth === '55%' && typeof st.right === 'number') return q;
+    }
+    return null;
+  })();
+  check('V4y', byId(r, 'hold-source')[0].props.activeOpacity === 1 && byId(r, 'hold-source')[0].props.accessibilityState.disabled === false
+    && byId(r, 'hold-source')[0].props.accessibilityState.selected === true && cornerBox
+    && byId(r, 'mask-state')[0].props.numberOfLines === 1 && textOf(byId(r, 'mask-state')[0]) === 'Source only',
+  'B6: while held, Hold source shows as selected, not dimmed or disabled, and its message is one short line in a corner box that stops at 55% of the width');
+  check('V4s', byId(r, 'source-fill')[0] && rects() < withEdits
+    && textOf(byId(r, 'mask-state')[0]) === 'Source only',
+  'held: the source prediction filled, no edit drawn, and the corner says what is shown');
+  await act(async () => { byId(r, 'hold-source')[0].props.onPressOut(); });
+  check('V4s', !byId(r, 'source-fill')[0] && rects() === withEdits && textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits',
+    'released: the edits and the UNSAVED state are back');
+
+  // Brush size in pixels and the ring at the finger (V4 item 2). The stroke is taken away by the system at the end,
+  // so it is rolled back and the checks below see one edit, as before.
+  check('V4t', ['1 px', '3 px', '5 px', '7 px', '11 px'].every((l) => btn(r, l)) && btn(r, '5 px').props.accessibilityState.selected === true,
+    'the brush sizes read 1, 3, 5, 7 and 11 px (the width of one stamp), 5 px by default');
+  const canvas0 = canvasOf(r);
+  await act(async () => { canvas0.onPanResponderGrant(evt(pointOf(450, 320))); });
+  const circles = byId(r, 'brush-ring')[0] ? byId(r, 'brush-ring')[0].findAll((n) => n.type === 'Circle') : [];
+  check('V4t', circles.length === 2 && circles.every((c) => c.props.cx === 450.5 && c.props.cy === 320.5 && c.props.r === 2.5)
+    && textOf(byId(r, 'painting')[0]) === 'Add · 5 px' && byId(r, 'painting')[0].props.accessibilityLabel === 'Add · 5 px wide, at x 450, y 320',
+  'a painting finger gets a ring 5 px across on the pixel under it; the page says the stamp, a screen reader also the pixel');
+  await act(async () => { canvas0.onPanResponderTerminate(evt()); });
+  check('V4t', !byId(r, 'brush-ring')[0] && !byId(r, 'painting')[0] && rects() === withEdits, 'the ring goes with the finger');
   await pressBack(r);
   await tick(60);
-  const guard1 = alertNow('Unsaved edits');
-  check('V4d', guard1 && /Slice 44 has unsaved edits/.test(guard1[1]) && onScreen(r, 'SCR-06'),
-    'LEAVE GUARD: Back with unsaved edits asks first, and nothing has moved yet');
-  await answerAlert('Unsaved edits', 'Stay');
-  check('V4d', onScreen(r, 'SCR-06') && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', '"Stay" keeps the screen and the edit');
+  const guard1 = confirmOf(r, 'Unsaved edits');
+  check('V4d', guard1 && /Slice 45 has unsaved edits/.test(guard1.lines[0]) && guard1.lines[1] === 'Leave anyway?' && onScreen(r, 'SCR-06')
+    && openSheets(r) === 1 && !(globalThis.__alerts || []).some((a) => /^(Unsaved edits|Save correction\?|Reset to the source\?)$/.test(a[0])),
+  'LEAVE GUARD: Back with unsaved edits asks first (in the viewer\'s own sheet, not a system dialog), and nothing has moved yet');
+  await answerConfirm(r, 'Unsaved edits', 'Stay');
+  check('V4d', onScreen(r, 'SCR-06') && textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits' && !confirmOf(r, 'Unsaved edits'),
+    '"Stay" closes the question and keeps the screen and the edit');
   let handled;
-  globalThis.__alerts = [];
   await act(async () => { handled = BackHandler.__press(); });
   await tick(60);
-  check('V4d', handled === true && alertNow('Unsaved edits'), 'the Android back button asks too');
-  await answerAlert('Unsaved edits', 'Stay');
+  check('V4d', handled === true && confirmOf(r, 'Unsaved edits'), 'the Android back button asks too');
+  await answerConfirm(r, 'Unsaved edits', 'Stay');
 
-  // #88 QA N-3: a guard must settle on EVERY path. Dismissing the prompt without pressing a button (Android: a tap
-  // outside it) is an answer too - onDismiss says "stay". A guard that never settled would keep the shell's
-  // one-prompt latch closed and refuse every later Back, tab and push on this screen.
-  globalThis.__alerts = [];
+  // #88 QA N-3: a guard must settle on EVERY path. Dismissing the question without pressing its button (its close
+  // button, the system back button, a tap outside it) is an answer too: "stay". A guard that never settled would keep
+  // the shell's one-prompt latch closed and refuse every later Back, tab and push on this screen.
   await pressBack(r);
   await tick(60);
-  const dismissable = alertNow('Unsaved edits');
-  check('V4q', dismissable && dismissable[3] && dismissable[3].cancelable === true && typeof dismissable[3].onDismiss === 'function',
-    'the leave prompt can be dismissed without a button, and says what dismissing means (onDismiss)');
-  await act(async () => { dismissable[3].onDismiss(); });
-  await tick(60);
-  globalThis.__alerts = [];
+  check('V4q', confirmOf(r, 'Unsaved edits') && r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.testID === 'confirm-sheet-close').length === 1,
+    'the leave question can be dismissed without its button: it has a close button, and the system back button closes it');
+  await dismissConfirm(r, 'close');
+  check('V4q', !confirmOf(r, 'Unsaved edits') && onScreen(r, 'SCR-06'), 'its close button means Stay');
   await pressBack(r);
   await tick(60);
-  check('V4q', Boolean(alertNow('Unsaved edits')) && onScreen(r, 'SCR-06') && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits',
-    'after a dismissed prompt the next Back asks again (the latch was released) and nothing moved or was lost');
-  await answerAlert('Unsaved edits', 'Stay');
+  check('V4q', Boolean(confirmOf(r, 'Unsaved edits')) && onScreen(r, 'SCR-06') && textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits',
+    'after a dismissed question the next Back asks again (the latch was released) and nothing moved or was lost');
+  await dismissConfirm(r, 'back');
+  await pressBack(r);
+  await tick(60);
+  check('V4q', Boolean(confirmOf(r, 'Unsaved edits')) && onScreen(r, 'SCR-06'),
+    'the system back button dismisses the question too, and the next Back asks again');
+  await answerConfirm(r, 'Unsaved edits', 'Stay');
 
   // --- undo / redo, then exactly one pixel at radius 0 ---
   await pressExact(r, 'Undo');
-  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'SOURCE — no edits' && btn(r, 'Undo').props.disabled === true && btn(r, 'Redo').props.disabled === false,
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'Source' && btn(r, 'Undo').props.disabled === true && btn(r, 'Redo').props.disabled === false,
     'Undo: back to the source (nothing to undo, Redo available)');
   await pressExact(r, 'Redo');
-  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'Redo: the stroke is back');
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits', 'Redo: the stroke is back');
   await pressExact(r, 'Undo');
-  await pressExact(r, '0');
+  await pressExact(r, '1 px');
   await stroke(r, [500, 300], [505, 300]);
-  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits', 'two samples at radius 0 painted');
+  check('V4e', textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits', 'two samples at radius 0 painted');
 
   // --- flag with the review status (H8), then save (H9) ---
+  // Flag asks why first (V4 item 3); the reason is checked like a note and sent with the change. It is an action
+  // of the review sheet.
+  // P11: every control of the picture, its tools and its panel has a touch area of at least 48 dp (its own height plus
+  // hitSlop). The brush sizes have no height of their own: the shared SegmentedControl sizes them with its track.
+  const areasPanel = touchAreas(r.root).filter((a) => a.h !== null);
+  check('V4P11', areasPanel.length >= 10 && areasPanel.every((a) => a.h >= 48),
+    `P11: ${areasPanel.length} controls on SCR-06 measured (tools, slice buttons, Reset, Save, status), none under 48 dp (shortest ${Math.min(...areasPanel.map((a) => a.h))})`);
+  await openReview(r);
+  const areasSheet = touchAreas(byId(r, 'review-sheet')[0]).filter((a) => a.h !== null);
+  check('V4P11', areasSheet.length >= 6 && areasSheet.every((a) => a.h >= 48),
+    `P11: ${areasSheet.length} controls of the review sheet measured (Accept, Flag, Not reviewed, Cancel edits, zoom, New finding), none under 48 dp (shortest ${Math.min(...areasSheet.map((a) => a.h))})`);
   await pressExact(r, 'Flag');
+  check('V4u', byId(r, 'flag-box')[0] && btn(r, 'Flag with this reason').props.disabled === true && !be.writes().some((q) => q.method === 'PATCH'),
+    'Flag opens the reason box; its send button is off while the reason is empty, and nothing is sent');
+  check('V4Pe', byId(r, 'flag-why').length === 1 && textOf(byId(r, 'flag-why')[0]) === 'A flag needs a reason: say what is wrong first.',
+    'P13: with no reason typed, the off send button says why, in a quiet line');
+  const reasonBox = () => r.root.findAll((n) => n.type === 'TextInput' && n.props.accessibilityLabel === 'Flag reason')[0];
+  await act(async () => { reasonBox().props.onChangeText('Seen with Dr Smith'); });
+  check('V4Pe', byId(r, 'flag-why').length === 0, 'the line goes once there is a reason');
+  check('V4u', btn(r, 'Flag anyway') && /looks like a person.s name/.test(textOf(byId(r, 'note-warning')[0])),
+    'a reason that may name a person is warned about: the button reads "Flag anyway"');
+  await act(async () => { reasonBox().props.onChangeText('Boundary misses the septal wall on this slice.'); });
+  await pressExact(r, 'Flag with this reason');
   await tick(80);
-  check('V4f', has(r, /^Review: FLAGGED · rev 2$/) && be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'FLAGGED' && q.body.expected_revision === 1),
-    'Flag sends review_patch with expected_revision and the review reads FLAGGED');
-  check('V4f', btn(r, 'Mark corrected').props.disabled === true && has(r, /CORRECTED is reached only by saving a correction/),
-    'CORRECTED is not offered as a status: only Save reaches it');
+  check('V4f', has(r, /^Flagged$/) && be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'FLAGGED' && q.body.expected_revision === 1
+    && q.body.reason === 'Boundary misses the septal wall on this slice.') && !byId(r, 'flag-box')[0],
+  'the flag sends review_patch with expected_revision and the reason; the review reads FLAGGED and the box closes');
+  check('V4f', !btn(r, 'Mark corrected') && has(r, /^A flagged review changes only when a correction is saved, which marks it Corrected\.$/)
+    && btn(r, 'Accept').props.disabled === true && btn(r, 'Not reviewed').props.disabled === true,
+  'CORRECTED is not offered as a status: only Save reaches it, and the page says so, next to the two buttons that are off');
+  await closeReview(r);
+  // B7: zoom in (two fingers) before Save, and the view after Save is the view before it, even though the canvas changes size.
+  await pinchOut(r);
+  const viewNow = () => r.root.findAll((x) => x.type === 'G' && typeof x.props.transform === 'string' && /scale/.test(x.props.transform))[0].props.transform;
+  const viewBeforeSave = viewNow();
+  check('V4z', /scale\((\d+\.?\d*)\)/.exec(viewBeforeSave) && Number(/scale\((\d+\.?\d*)\)/.exec(viewBeforeSave)[1]) > fit.zoom * 1.5, 'two fingers moving apart zoomed the picture in');
   await pressExact(r, 'Save');
-  const ask = alertNow('Save correction?');
-  check('V4g', ask && ask[1].includes(`Source: RAW prediction ${be.RAW_ID}`) && /FLAGGED -> CORRECTED/.test(ask[1]) && !be.writes().some((q) => q.method === 'PUT'),
-    'Save names the source mask first, and nothing is sent until it is confirmed');
-  await answerAlert('Save correction?', 'OK');
+  const ask = confirmOf(r, 'Save correction?');
+  const askText = ask ? ask.sheet.findAll((n) => n.type === 'Text').map(textOf).join(' | ') : '';
+  check('V4g', ask && ask.lines.join(' | ') === 'Flagged → Corrected | Slice 45 | The source prediction is never changed.'
+    && !askText.includes(be.RAW_ID) && !/ART_|RAW prediction|REVIEW_|sha256/.test(askText) && !be.writes().some((q) => q.method === 'PUT'),
+  `Save asks in the viewer's own sheet, in plain words and with no id ("${askText}"), and nothing is sent until it is confirmed`);
+  check('V4g', ask && ['Cancel', 'Save'].every((l) => ask.sheet.findAll((n) => isBtn(n, l)).length === 1)
+    && ask.sheet.findAll((n) => n.type === 'TouchableOpacity' && n.props.testID === 'confirm-ok').length === 1,
+  'the question has one Cancel and one Save button');
+  await answerConfirm(r, 'Save correction?', 'Cancel');
+  check('V4g', !confirmOf(r, 'Save correction?') && !be.writes().some((q) => q.method === 'PUT'), 'Cancel closes the question and sends nothing');
+  await pressExact(r, 'Save');
+  await answerConfirm(r, 'Save correction?', 'Save');
   await tick(150);
   const puts = be.writes().filter((q) => q.method === 'PUT');
   const commits = be.writes().filter((q) => q.method === 'POST' && q.path.endsWith('/commit'));
@@ -1538,12 +1809,71 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('V4g', puts[0].body.source_mask_id === be.RAW_ID && puts[0].body.expected_revision === 2 && commits.length === 1 && commits[0].body.expected_revision === 3,
     'the PUT names the review\'s source and carries expected_revision 2; the commit carries 3 (revision moves with every write)');
   const notice = byId(r, 'notice')[0];
-  check('V4g', notice && /Saved as a new version REVMASK_1 \(revision 4\) of the RAW prediction .* \(RAW_PREDICTION\)\. Review is CORRECTED\./.test(textOf(notice)),
-    `the new version is shown with its source identity: ${notice ? textOf(notice) : '-'}`);
-  check('V4g', has(r, /^Review: CORRECTED · rev 4$/) && byId(r, 'latest-version')[0] && /Latest version REVMASK_1 · source .* \(RAW_PREDICTION\) · 1 version/.test(textOf(byId(r, 'latest-version')[0]))
-    && textOf(byId(r, 'mask-state')[0]) === 'SAVED', 'the header reads CORRECTED, the latest version and its source, and the slice SAVED');
+  check('V4g', notice && textOf(notice) === 'Saved · version 1', `the notice is one short line in words: ${notice ? textOf(notice) : '-'}`);
+  // P1: the text must be able to show. A Text that grows (flex: 1) inside a box that is only as wide as its content
+  // collapses to nothing and leaves the check mark alone in an empty box; a Text that shrinks (flexShrink) does not.
+  const noticeStyle = flatStyle(notice.props.style);
+  const noticeBox = byId(r, 'canvas-notice')[0];
+  check('V4g', noticeStyle.flexShrink === 1 && noticeStyle.flex === undefined && noticeStyle.flexGrow === undefined && textOf(notice).trim().length > 0
+    && noticeBox && flatStyle(noticeBox.props.style).minHeight >= 48 && noticeBox.props.accessibilityLiveRegion === 'polite',
+  'P1: the notice text shrinks, never grows (so it cannot collapse beside the icon), the box is a 48 dp touch target and a live region');
+  check('V4g', noticeIconOf(r) === 'icon-IconCheck', 'a saved notice has a check mark and its words');
+  await openDetails(r);
+  check('V4g', has(r, /^Latest version REVMASK_1$/) && has(r, /^Made from .* \(RAW_PREDICTION\)$/) && has(r, /^1 version in all$/) && has(r, /^Status Corrected \(revision 4\)$/)
+    && has(r, /^Edits continue from version REVMASK_1$/),
+  'the new version, the prediction it corrects, its revision and what the next edit continues from are in the Details sheet');
+  await closeDetails(r);
+  check('V4g', has(r, /^Corrected$/) && textOf(byId(r, 'mask-state')[0]) === 'Saved', 'the page reads Corrected, and the slice Saved');
+  // B7: the notice and the new state change the canvas; the zoom and pan are what they were, and Undo has nothing to undo.
+  const canvasView = r.root.findAll((x) => x.type === 'View' && x.props.__pan)[0];
+  await act(async () => { canvasView.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 340 } } }); });
+  check('V4z', viewNow() === viewBeforeSave && btn(r, 'Undo').props.disabled === true && btn(r, 'Redo').props.disabled === true,
+    'B7: after Save the zoom and pan are unchanged (also when the canvas then changes size), and Undo and Redo are disabled');
   check('V4g', !be.writes().some((q) => q.method === 'PATCH' && q.body.status === 'CORRECTED'), 'no PATCH to CORRECTED ever: the commit alone made it');
   check('V4g', btn(r, 'Save').props.disabled === true, 'Save is disabled again: nothing changed since the commit');
+
+  // A message about something that went well fades by itself (NOTICE_MS); it is not left over the picture.
+  await tick(4300);
+  check('V4g', !byId(r, 'canvas-notice')[0] && !byId(r, 'notice')[0] && textOf(byId(r, 'mask-state')[0]) === 'Saved',
+    'the "Saved" notice goes by itself after a few seconds; the state it announced (Corrected, Saved) stays on the page');
+
+  // P13: once the review is Corrected its status buttons are off, and the sheet says why next to them. Cancel edits
+  // is off too (nothing unsaved), and says so.
+  await openReview(r);
+  check('V4Pa', btn(r, 'Accept').props.disabled === true && btn(r, 'Flag').props.disabled === true && btn(r, 'Not reviewed').props.disabled === true
+    && textOf(byId(r, 'status-hint')[0]) === 'A corrected review is final: its status does not change.'
+    && btn(r, 'Cancel edits').props.disabled === true && textOf(byId(r, 'cancel-edits-why')[0]) === 'No unsaved edits to cancel.',
+  'P13: a Corrected review is final: Accept, Flag and Not reviewed are off and the sheet says why; Cancel edits is off and says there is nothing to cancel');
+  await closeReview(r);
+  // The tools that are off say why too: Undo and Redo after a save, by hint, and by a note when tapped.
+  const undoWhy = r.root.findAll((n) => n.type === 'Pressable' && n.props.accessibilityLabel === 'Undo')[0];
+  check('V4Pb', undoWhy && undoWhy.props.accessibilityHint === 'Nothing to undo.' && undoWhy.props.accessibilityState.disabled === true
+    && btn(r, 'Undo').props.disabled === true,
+  'P13: Undo is off after a save, and its accessibility hint says "Nothing to undo."');
+  await act(async () => { undoWhy.props.onPress(); });
+  check('V4Pb', textOf(byId(r, 'notice')[0]) === 'Nothing to undo.' && noticeIconOf(r) === 'icon-IconInfo',
+    'P13: a tap on it says so in a one-line note (an info mark, not a check)');
+  await act(async () => { byId(r, 'canvas-notice')[0].props.onPress(); });
+  check('V4Pb', !byId(r, 'notice')[0], 'P13: tapping the note dismisses it');
+  const saveWhy = r.root.findAll((n) => n.type === 'Pressable' && n.props.accessibilityLabel === 'Save')[0];
+  check('V4Pb', saveWhy && saveWhy.props.accessibilityHint === 'No unsaved edits to save.' && btn(r, 'Save').props.disabled === true,
+    'P13: Save is off after a save, and says "No unsaved edits to save."');
+
+  // The review timeline (V4 item 3): read from review_history_list when opened, newest first, one line per save.
+  await openReview(r);
+  const timeline = byId(r, 'history')[0] ? byId(r, 'history')[0].findAll((n) => n.type === 'Text').map(textOf) : [];
+  check('V4v', be.requests.some((q) => q.method === 'GET' && q.path === '/api/v1/reviews/REVIEW_1/history')
+    && timeline[0] === 'Saved correction, slice 45' && timeline.includes('Flagged (was not reviewed)')
+    && timeline.includes('Reason: Boundary misses the septal wall on this slice.') && timeline[timeline.length - 3] === 'Review opened'
+    && timeline.filter((t) => /^\d+ Nov 09:\d\d UTC$/.test(t)).length === 3 && timeline.filter((t) => t === 'project-reviewer').length === 3
+    && !timeline.some((t) => /REVMASK|REVIEW_1/.test(t)),
+  `the history as rows: newest first, the save with its slice counted from 1, the flag with its reason, each with a short time and the project alias, no ids (${timeline.join(' | ')})`);
+  await closeReview(r);
+  await openDetails(r);
+  check('V4v', has(r, /^Revision \d+ · 2026-11-15 09:\d\d UTC · project-reviewer · Saved correction, slice 45 \(REVMASK_1\)$/)
+    && has(r, /^Revision \d+ · 2026-11-15 09:\d\d UTC · project-reviewer · Flagged \(was not reviewed\) — Boundary misses the septal wall on this slice\.$/),
+  'the Details sheet has the history in full: revision, the full time, the alias, the mask id of the save, the reason');
+  await closeDetails(r);
   await pressBack(r);
   await tick(60);
   check('V4g', onScreen(r, 'SCR-08'), 'saved: Back leaves without asking');
@@ -1555,57 +1885,86 @@ function reviewBackend({ seedVersion = false } = {}) {
 
   // --- STALE_REVISION keeps the edit and offers Refresh (not Retry) ---
   await toReview(r);
-  check('V4i', has(r, /^Review: CORRECTED · rev 4$/) && byId(r, 'continuing')[0] && /Continuing from version REVMASK_1; Reset returns to the original RAW prediction\./.test(textOf(byId(r, 'continuing')[0]))
-    && textOf(byId(r, 'mask-state')[0]) === 'SAVED',
-  'reopening the CORRECTED review continues from its latest version (N-4): SAVED, and Reset is said to go to the original prediction');
+  await pressExact(r, 'Reset');
+  const resetAsk = confirmOf(r, 'Reset to the source?');
+  check('V4i', has(r, /^Corrected$/) && textOf(byId(r, 'mask-state')[0]) === 'Saved'
+    && resetAsk && /original prediction, not to your last saved version/.test(resetAsk.lines[0]),
+  'reopening the CORRECTED review continues from its latest version (N-4): Saved, and the Reset question says it goes to the original prediction');
+  await answerConfirm(r, 'Reset to the source?', 'Cancel');
   check('V4i', be.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && be.requests.some((q) => q.path.includes('/artifacts/rev-REVMASK_1-44')),
     'the working base slice was read from the latest version (reviewed_mask_slice_get + its bytes)');
-  await pressExact(r, '3');
+  await pressExact(r, '7 px');
   await stroke(r, [100, 100]);
   be.db.review.revision += 1; // somebody else wrote: our expected_revision is stale
   await pressExact(r, 'Save');
-  await answerAlert('Save correction?', 'OK');
+  await answerConfirm(r, 'Save correction?', 'Save');
   await tick(150);
   check('V4j', has(r, /STALE MISMATCH/), 'the stale save is the STALE_MISMATCH state');
+  const staleSave = r.root.findAll((n) => n.type === 'Pressable' && n.props.accessibilityLabel === 'Save')[0];
+  check('V4Pc', staleSave && staleSave.props.accessibilityHint === 'Nothing can be saved until the review is refreshed.',
+    'P13: Save is off while the review is stale, and says it must be refreshed first');
   check('V4j', r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Refresh').length >= 1
     && r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Retry').length === 0
-    && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && btn(r, 'Save').props.disabled === true,
+    && textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits' && btn(r, 'Save').props.disabled === true,
   'STALE_REVISION: Refresh is offered, Retry is not, the edit is still UNSAVED, and Save cannot resend the stale write');
   const stalePuts = be.requests.filter((q) => q.method === 'PUT').length;
   await pressExact(r, 'Refresh');
   await tick(200);
-  check('V4j', btn(r, 'Save').props.disabled === false && textOf(byId(r, 'mask-state')[0]) === 'UNSAVED edits' && has(r, /^Review: CORRECTED · rev 5$/),
+  await openDetails(r);
+  const reloaded = has(r, /^Status Corrected \(revision 5\)$/);
+  await closeDetails(r);
+  check('V4j', btn(r, 'Save').props.disabled === false && textOf(byId(r, 'mask-state')[0]) === 'Unsaved edits' && reloaded,
     'after Refresh the review is reloaded at the server\'s revision and the edit is still there');
   await pressExact(r, 'Save');
-  await answerAlert('Save correction?', 'OK');
+  await answerConfirm(r, 'Save correction?', 'Save');
   await tick(150);
   const secondPut = be.requests.filter((q) => q.method === 'PUT').slice(stalePuts)[0];
   check('V4j', secondPut && secondPut.body.expected_revision === 5 && be.db.versions.length === 2
-    && textOf(byId(r, 'mask-state')[0]) === 'SAVED' && has(r, /^Review: CORRECTED · rev 7$/),
+    && textOf(byId(r, 'mask-state')[0]) === 'Saved',
   'saving again sends the reloaded revision and makes version 2 (the server\'s own revision, not a retry of the stale write)');
 
   // --- New finding here: SCR-08 with the context, create, and Back restores the review ---
+  // Privacy mode is switched off first: the choice is the session's, so SCR-06 is still off when Back reopens it.
+  await pressId(r, 'header-action-privacy');
+  await tick(40);
+  check('V4pm', byTestId(r, 'header-action-privacy').props.accessibilityLabel === 'Privacy mode: OFF (not available in this build)',
+    'one press on the shield switches privacy mode off, and it reads OFF');
+  await openReview(r);
   await pressExact(r, 'New finding here');
   await tick(150);
-  check('V4k', onScreen(r, 'SCR-08') && has(r, /^CASE_0061 · slice 44 · run RUN_A · RAW$/) && has(r, /New finding/),
-    'New finding here opens SCR-08 with the case, slice, run and variant of the review');
+  check('V4pm', onScreen(r, 'SCR-08') && !byTestId(r, 'header-action-privacy'), 'SCR-08 shows no image, so its bar has no privacy shield');
+  check('V4k', onScreen(r, 'SCR-08') && textOf(byId(r, 'finding-context')[0]) === 'CASE_0061 · Slice 45 · Raw' && has(r, /^New finding$/)
+    && has(r, /^CASE_0061 · Slice 45$/) && !has(r, /run RUN_A|EXP_DEMO/),
+  'New finding here opens SCR-08 with the case, slice and prediction of the review (this experiment has no label, so none is written); the bar says where, not the run');
   await pressExact(r, 'Over-segmentation');
   const note = r.root.findAll((n) => n.type === 'TextInput')[0];
+  // Privacy (V4 item 5): a note that may hold a personal detail is warned about before it is saved.
+  await act(async () => { note.props.onChangeText('Seen by Dr Smith on 12/03/2024'); });
+  check('V4r', byId(r, 'note-warning')[0] && /looks like a date, looks like a person.s name/.test(textOf(byId(r, 'note-warning')[0]))
+    && btn(r, 'Create anyway') && has(r, /^30 \/ 500$/),
+  'a note that looks like it holds a date and a name is warned about, with its length, and Create reads "Create anyway"');
   await act(async () => { note.props.onChangeText('Leaks into the right ventricle.'); });
+  check('V4r', !byId(r, 'note-warning')[0] && btn(r, 'Create finding') && has(r, /^31 \/ 500$/), 'an image-only note: no warning, plain "Create finding"');
   await pressExact(r, 'Create finding');
   await tick(150);
   const posted = be.requests.find((q) => q.method === 'POST' && q.path === '/api/v1/findings');
   check('V4k', posted && posted.body.case_id === 'CASE_0061' && posted.body.analysis_run_id === 'RUN_A' && posted.body.prediction_variant === 'RAW'
     && posted.body.slice_index === 44 && posted.body.finding_type === 'OVER_SEGMENTATION' && posted.body.study_id === 'STUDY_DEMO'
-    && 'region_reference' in posted.body && 'experiment_id' in posted.body,
-  'finding_create sends the contract\'s fields: case, run, variant, slice, type, note, study');
-  check('V4k', has(r, /Finding FINDING_2 created \(OPEN\)/) && has(r, /Leaks into the right ventricle\./), 'the new finding is listed with its note');
+    && 'region_reference' in posted.body && posted.body.experiment_id === 'EXP_DEMO',
+  'finding_create sends the contract\'s fields: case, run, variant, slice, type, note, study, and the experiment of the run (PR-FIND-01)');
+  check('V4k', has(r, /^Finding created\.$/) && has(r, /Leaks into the right ventricle\./) && !has(r, /FINDING_2/), 'the new finding is listed with its note, and the message is in words');
   await pressBack(r);
   await tick(250);
   await layout(r);
   await tick(150);
-  check('V4k', onScreen(r, 'SCR-06') && !has(r, /Which prediction do you want to review/) && has(r, /slice 44 \/ 88/) && has(r, /^RAW · /),
+  check('V4k', onScreen(r, 'SCR-06') && !has(r, /Which prediction do you want to review/) && has(r, /^Slice 45 \/ 88$/) && btn(r, 'Previous slice'),
     'Back from SCR-08 reopens SCR-06 on the same variant and slice (returnParams), without asking again');
+  check('V4pm', byTestId(r, 'header-action-privacy').props.accessibilityLabel === 'Privacy mode: OFF (not available in this build)',
+    'SCR-06 reopens as the session left it: privacy mode is still off');
+  await pressId(r, 'header-action-privacy');
+  await tick(40);
+  check('V4pm', byTestId(r, 'header-action-privacy').props.accessibilityLabel === 'Privacy mode: not available in this build',
+    'and one press turns it on again, as it is by default on every screen');
   await act(async () => { r.unmount(); });
 
   // --- SCR-08: create / list / open evidence / resolve, with a recording nav ---
@@ -1619,45 +1978,135 @@ function reviewBackend({ seedVersion = false } = {}) {
       React.createElement(FindingsScreen, { runtime: runtime8, nav: nav8, params: {} })), nodeMock);
   });
   await tick(150);
-  check('V4l', has(f, /seed finding/) && has(f, /Under-segmentation/) && has(f, /^OPEN$/) && !has(f, /^New finding$/),
+  check('V4l', has(f, /seed finding/) && has(f, /^Under-segmentation$/) && has(f, /^Open$/) && !has(f, /^New finding$/),
     'SCR-08 opened bare lists the finding (type, status, note) and offers no create form');
+  await openFinding(f);
   await pressExact(f, 'Open evidence');
   check('V4l', pushes.length === 1 && pushes[0][0] === 'SCR-03' && pushes[0][1].caseId === 'CASE_0061' && pushes[0][1].sliceIndex === 44
     && pushes[0][1].runId === 'RUN_A' && pushes[0][1].variant === 'RAW',
   'Open evidence pushes SCR-03 at the finding\'s case, slice, run and variant');
+  await openFinding(f);
   await pressExact(f, 'Review / correct');
   check('V4l', pushes[1][0] === 'SCR-06' && pushes[1][1].runId === 'RUN_A' && pushes[1][1].variant === 'RAW' && pushes[1][1].sliceIndex === 44,
     'Review / correct pushes SCR-06 with the run, variant and slice');
+  await openFinding(f);
   await pressExact(f, 'Resolve');
   await tick(100);
   const patchReq = be8.requests.find((q) => q.method === 'PATCH' && q.path.includes('/findings/'));
-  check('V4l', patchReq && patchReq.body.status === 'RESOLVED' && patchReq.body.expected_revision === 1 && has(f, /^RESOLVED$/) && btn(f, 'Reopen'),
-    'Resolve sends finding_patch with the finding\'s own revision; the list shows RESOLVED and offers Reopen');
+  check('V4l', patchReq && patchReq.body.status === 'RESOLVED' && patchReq.body.expected_revision === 1 && has(f, /^Resolved$/) && has(f, /^Finding resolved\.$/) && btn(f, 'Reopen'),
+    'Resolve sends finding_patch with the finding\'s own revision; the row reads Resolved and the sheet offers Reopen');
   be8.db.findings[0].revision += 1; // somebody else changed it
   await pressExact(f, 'Reopen');
   await tick(100);
   check('V4l', has(f, /STALE MISMATCH/) && f.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === 'Refresh').length >= 1
-    && has(f, /^RESOLVED$/), 'a stale Reopen shows Refresh, and the list keeps what it had');
+    && has(f, /^Resolved$/), 'a stale Reopen shows Refresh, and the list keeps what it had');
   await pressExact(f, 'Refresh');
   await tick(150);
-  check('V4l', !has(f, /STALE MISMATCH/) && has(f, /^RESOLVED$/) === (be8.db.findings[0].status === 'RESOLVED'),
+  check('V4l', !has(f, /STALE MISMATCH/) && has(f, /^Resolved$/) === (be8.db.findings[0].status === 'RESOLVED'),
     'Refresh reads the list again (useCall refetch) and the stale banner goes');
   await act(async () => { f.unmount(); });
+
+  // --- SCR-08 list upgrades (V4 item 4): newest first, filter chips, Export PDF without expo-print ---
+  const bf = reviewBackend();
+  const seed = bf.db.findings[0];
+  bf.db.findings.push(
+    { ...seed, finding_id: 'FINDING_2', status: 'RESOLVED', finding_type: 'OVER_SEGMENTATION', note: 'second finding' },
+    { ...seed, finding_id: 'FINDING_3', status: 'OPEN', finding_type: 'OVER_SEGMENTATION', note: 'third finding' },
+  );
+  const runtimeF = liveRuntime(bf.fetchImpl);
+  let fl;
+  await act(async () => {
+    fl = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: runtimeF },
+      React.createElement(FindingsScreen, { runtime: runtimeF, nav: nav8, params: {} })), nodeMock);
+  });
+  await tick(150);
+  const notesShown = () => texts(fl).filter((t) => / finding$/.test(t)).join(' | ');
+  check('V4w', notesShown() === 'third finding | second finding | seed finding' && has(fl, /^3 of 3 shown · newest first$/),
+    `newest first, although the server lists oldest first (${notesShown()})`);
+  await pressExact(fl, 'Open 2');
+  check('V4w', notesShown() === 'third finding | seed finding' && has(fl, /^2 of 3 shown · newest first$/), 'the Open tab shows the open findings');
+  await pressExact(fl, 'Over-segmentation 2');
+  check('V4w', notesShown() === 'third finding' && btn(fl, 'Open 2').props.accessibilityState.selected === true
+    && btn(fl, 'Over-segmentation 2').props.accessibilityState.selected === true, 'a type chip narrows further; the tab and the chip stay selected');
+  await pressExact(fl, 'Resolved 1');
+  check('V4w', notesShown() === 'second finding', 'Resolved with the same type: the resolved over-segmentation');
+  await pressExact(fl, 'Under-segmentation 1');
+  check('V4w', notesShown() === '' && has(fl, /^No finding matches these filters\.$/), 'no match: the list says so instead of looking empty');
+  check('V4w', btn(fl, 'Export PDF').props.disabled === true
+    && has(fl, /^PDF export is not available in this version of the app\.$/),
+  'this build has no expo-print: Export PDF is off and says why in plain words, and the screen works');
+  await act(async () => { fl.unmount(); });
+
+  // --- the experiment by its label (P5, P6), type chips that wrap (P8), 48 dp touch areas (P11), a reason for a button
+  // that is off (P13). The route is the one SCR-06's "New finding here" pushes, on the study's real experiment EXP-D-100. ---
+  const bl = reviewBackend();
+  const seedL = bl.db.findings[0];
+  bl.db.findings.push({
+    ...seedL, finding_id: 'FINDING_5', revision: null, note: 'no version finding',
+    evidence: { ...seedL.evidence, experiment_id: 'EXP-D-PP', prediction_variant: 'PROCESSED' },
+  });
+  const runtimeL = liveRuntime(bl.fetchImpl);
+  let fz;
+  await act(async () => {
+    fz = TestRenderer.create(React.createElement(RuntimeProvider, { runtime: runtimeL },
+      React.createElement(FindingsScreen, {
+        runtime: runtimeL, nav: nav8,
+        params: { caseId: 'CASE_0061', sliceIndex: 44, runId: 'RUN_A', variant: 'RAW', experimentId: 'EXP-D-100' },
+      })), nodeMock);
+  });
+  await tick(150);
+  check('V4P6', byId(fz, 'finding-context').length === 1 && textOf(byId(fz, 'finding-context')[0]) === 'CASE_0061 · Slice 45 · DINOv2 100 % · Raw'
+    && !has(fz, /EXP-|RUN_|FINDING_/),
+  'P6: the new-finding form names the experiment by its label ("CASE_0061 · Slice 45 · DINOv2 100 % · Raw"), and no id is on the page');
+  const chipBox = byId(fz, 'type-chips')[0];
+  const chipStyle = flatStyle(chipBox.props.style);
+  check('V4P8', chipStyle.flexWrap === 'wrap' && !fz.root.findAll((n) => n.type === 'ScrollView' && n.props.horizontal).length
+    && chipBox.findAll((n) => n.type === 'TouchableOpacity').length === 6
+    && byId(fz, 'finding-form')[0].findAll((n) => n.type === 'View' && flatStyle(n.props.style).flexWrap === 'wrap').length >= 1,
+  'P8: the type chips on SCR-08 wrap into lines (no row that scrolls sideways), in the list and in the form');
+  const areasL = touchAreas(fz.root).filter((a) => a.h !== null);
+  const shortL = areasL.filter((a) => a.h < 48);
+  check('V4P11', areasL.length >= 12 && shortL.length === 0 && chipStyle.rowGap >= 16,
+    `P11: ${areasL.length} controls on SCR-08 measured, none under 48 dp (shortest ${Math.min(...areasL.map((a) => a.h))}); chip rows are 16 dp apart so their touch areas do not overlap${shortL.length ? ` (short: ${shortL.map((a) => `${a.label} ${a.h}`).join(', ')})` : ''}`);
+  await pressExact(fz, 'Boundary disagreement');
+  await pressExact(fz, 'Create finding');
+  await tick(150);
+  check('V4P5', has(fz, /^CASE_0061 · Slice 45 · DINOv2 100 % · Raw$/) && has(fz, /^CASE_0061 · Slice 45 · DINOv2 100 % post-processed$/)
+    && has(fz, /^CASE_0061 · Slice 45 · Raw$/) && !has(fz, /EXP-|RUN_|FINDING_/),
+  'P5: the rows name the experiment by its label ("DINOv2 100 %", "post-processed"; none where the id has no label), and no id is on the page');
+  await openFinding(fz, 'Boundary disagreement');
+  const sheetL = byId(fz, 'finding-sheet')[0];
+  const detailsL = byId(fz, 'finding-details')[0].findAll((n) => n.type === 'Text').map(textOf);
+  const aboveDetails = sheetL.findAll((n) => n.type === 'Text').map(textOf).filter((t) => !detailsL.includes(t));
+  check('V4P5', textOf(byId(fz, 'finding-where')[0]) === 'CASE_0061 · Slice 45 · DINOv2 100 % · Raw'
+    && !aboveDetails.some((t) => /EXP-|RUN_|FINDING_|\bz = /.test(t))
+    && detailsL.includes('Experiment EXP-D-100') && detailsL.includes('Slice 45') && detailsL.some((t) => /^Run RUN_A$/.test(t)) && detailsL.some((t) => /^Finding FINDING_\d+$/.test(t))
+    && !detailsL.some((t) => /\bz = /.test(t)),
+  'P5: the finding sheet names the experiment by its label; FINDING_, RUN_ and EXP- appear only in its Details section, and "(z = 44)" nowhere');
+  await act(async () => { byId(fz, 'finding-sheet-close')[0].props.onPress(); });
+  const postL = bl.requests.find((q) => q.method === 'POST' && q.path === '/api/v1/findings');
+  check('V4P5', postL && postL.body.experiment_id === 'EXP-D-100' && postL.body.prediction_variant === 'RAW',
+    'the label is only for reading: the finding is still created with the experiment id');
+  await openFinding(fz, 'Under-segmentation');
+  check('V4P13', textOf(byId(fz, 'finding-where')[0]) === 'CASE_0061 · Slice 45 · DINOv2 100 % post-processed'
+    && btn(fz, 'Resolve').props.disabled === true
+    && textOf(byId(fz, 'finding-status-why')[0]) === 'The server sent no version of this finding, so its status cannot be changed here.',
+  'P13: a finding with no version cannot be resolved here, and the sheet says why in plain words');
+  await act(async () => { fz.unmount(); });
 
   // --- an already CORRECTED review (seeded) continues from its latest version; Reset returns to the original ---
   const bs = reviewBackend({ seedVersion: true });
   const rs = await mount(bs);
   await toReview(rs);
-  check('V4m', has(rs, /^Review: CORRECTED · rev 2$/) && byId(rs, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rs, 'continuing')[0]))
-    && textOf(byId(rs, 'mask-state')[0]) === 'SAVED' && btn(rs, 'Save').props.disabled === true,
+  check('V4m', has(rs, /^Corrected$/) && textOf(byId(rs, 'mask-state')[0]) === 'Saved' && btn(rs, 'Save').props.disabled === true,
   'a CORRECTED review opens SAVED on its latest version, with nothing to save');
   const sentBefore = bs.writes().length;
   await pressExact(rs, 'Reset');
-  await answerAlert('Reset to the source?', 'OK');
-  check('V4m', textOf(byId(rs, 'mask-state')[0]) === 'UNSAVED edits' && btn(rs, 'Save').props.disabled === false && bs.writes().length === sentBefore,
+  await answerConfirm(rs, 'Reset to the source?', 'Reset');
+  check('V4m', textOf(byId(rs, 'mask-state')[0]) === 'Unsaved edits' && btn(rs, 'Save').props.disabled === false && bs.writes().length === sentBefore,
     'Reset goes back to the ORIGINAL prediction (not the last version): UNSAVED against the version, and nothing is sent by it');
   await pressExact(rs, 'Save');
-  await answerAlert('Save correction?', 'OK');
+  await answerConfirm(rs, 'Save correction?', 'Save');
   await tick(150);
   const putReset = bs.writes().find((q) => q.method === 'PUT');
   check('V4m', putReset && same(unpackBody(putReset.body), bs.SOURCE) && bs.db.versions.length === 2
@@ -1672,7 +2121,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     ? { status: 500, headers: { get: () => null }, text: async () => '', json: async () => null } : bd.fetchImpl(url, init));
   const rd = await mount({ ...bd, fetchImpl: downFetch });
   await toReview(rd);
-  check('V4n', has(rd, /continues from its latest version, but that version.s slice could not be read/) && !byId(rd, 'mask-state')[0]
+  check('V4n', has(rd, /continues from its latest version, but that version.s slice could not be loaded/) && !byId(rd, 'mask-state')[0]
     && btn(rd, 'Retry slice'),
   'the base slice cannot be fetched: the slice is not drawn as editable, the reason is said and Retry slice is offered');
   await act(async () => { rd.unmount(); });
@@ -1688,7 +2137,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   };
   const rm = await mount({ ...bm, fetchImpl: otherMask });
   await toReview(rm);
-  check('V4o', has(rm, /served a slice of another mask than this review.s source prediction/) && !byId(rm, 'mask-state')[0]
+  check('V4o', has(rm, /sent a slice of another mask than this review.s source prediction/) && !byId(rm, 'mask-state')[0]
     && !btn(rm, 'Retry slice') && btn(rm, 'Save').props.disabled === true
     && bm.requests.some((q) => /\/slices\/44\/prediction/.test(q.path)) && !bm.requests.some((q) => q.path.startsWith('/api/v1/artifacts/pred-')),
   "a slice that names another mask than the run's artifact is not drawn as editable, the reason is said, and its bytes were never fetched");
@@ -1698,38 +2147,51 @@ function reviewBackend({ seedVersion = false } = {}) {
   const bx = reviewBackend({ seedVersion: true });
   const rx = await mount(bx);
   await toReview(rx);
-  check('V4p', byId(rx, 'continuing')[0] && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0])),
+  await openDetails(rx);
+  check('V4p', has(rx, /^Edits continue from version REVMASK_0$/),
     'the review starts on its latest version, REVMASK_0');
-  await pressExact(rx, '3');
+  await closeDetails(rx);
+  await pressExact(rx, '7 px');
   await stroke(rx, [100, 100]);
   const theirs = bx.SOURCE.slice();
   for (let y = 250; y < 270; y += 1) for (let x = 380; x < 400; x += 1) theirs[y * 576 + x] = 1;
   bx.db.versions.push({ id: 'REVMASK_1', version: 2, revision: 3, parent: bx.db.versions[0], slices: new Map([[44, theirs]]) });
   bx.db.review.revision += 1; // their commit moved the review: our expected_revision is stale
   await pressExact(rx, 'Save');
-  await answerAlert('Save correction?', 'OK');
+  await answerConfirm(rx, 'Save correction?', 'Save');
   await tick(150);
-  check('V4p', has(rx, /STALE MISMATCH/) && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits', 'the save is stale: somebody else committed, the edit is still UNSAVED');
+  check('V4p', has(rx, /STALE MISMATCH/) && textOf(byId(rx, 'mask-state')[0]) === 'Unsaved edits', 'the save is stale: somebody else committed, the edit is still UNSAVED');
   await pressExact(rx, 'Refresh');
   await tick(200);
   const sentAfterRefresh = bx.writes().length; // Refresh re-opens the review (an idempotent POST); nothing after it may write
   const refused = byId(rx, 'notice')[0];
-  check('V4p', refused && /latest version is REVMASK_1; your edits continue from REVMASK_0\. Cancel the edits/.test(textOf(refused))
-    && textOf(byId(rx, 'mask-state')[0]) === 'UNSAVED edits' && /Continuing from version REVMASK_0/.test(textOf(byId(rx, 'continuing')[0]))
-    && byId(rx, 'latest-version')[0] && /Latest version REVMASK_1/.test(textOf(byId(rx, 'latest-version')[0])),
-  'Refresh found REVMASK_1 but does not drop the unsaved edit: it says so, and the edit still continues from REVMASK_0');
+  await openDetails(rx);
+  const versionsNow = has(rx, /^Latest version REVMASK_1$/) && has(rx, /^Edits continue from version REVMASK_0$/);
+  await closeDetails(rx);
+  check('V4p', refused && /^Another reviewer saved a newer version, and your edits continue from an older one\. Cancel the edits/.test(textOf(refused))
+    && textOf(byId(rx, 'mask-state')[0]) === 'Unsaved edits' && versionsNow,
+  'Refresh found REVMASK_1 but does not drop the unsaved edit: it says so in words, and the edit still continues from REVMASK_0');
   await pressExact(rx, 'Save');
-  await answerAlert('Save correction?', 'OK');
+  await answerConfirm(rx, 'Save correction?', 'Save');
   await tick(100);
-  check('V4p', /latest version is REVMASK_1; this session continues from REVMASK_0/.test(textOf(byId(rx, 'notice')[0])) && bx.writes().length === sentAfterRefresh,
+  check('V4p', /^Another reviewer saved a newer version, and these edits continue from an older one\./.test(textOf(byId(rx, 'notice')[0])) && bx.writes().length === sentAfterRefresh,
     'saving over the older base is refused on the device: nothing is sent');
+  // a refusal has to be read: it does not go by itself (the notices that report success do)
+  await tick(4300);
+  check('V4p', Boolean(byId(rx, 'notice')[0]) && noticeIconOf(rx) === 'icon-IconAlert',
+    'a refusal stays over the picture after the time a success notice would have faded, with an alert mark');
+  await openReview(rx);
   await pressExact(rx, 'Cancel edits');
-  await answerAlert('Discard unsaved edits?', 'OK');
+  await answerConfirm(rx, 'Discard unsaved edits?', 'Discard');
+  await closeReview(rx);
   await pressBack(rx);
   await tick(60);
   check('V4p', onScreen(rx, 'SCR-08'), 'with the edit cancelled, Back leaves without asking');
   await toReview(rx);
-  check('V4p', /Continuing from version REVMASK_1/.test(textOf(byId(rx, 'continuing')[0])) && textOf(byId(rx, 'mask-state')[0]) === 'SAVED'
+  await openDetails(rx);
+  const continuesFromB = has(rx, /^Edits continue from version REVMASK_1$/);
+  await closeDetails(rx);
+  check('V4p', continuesFromB && textOf(byId(rx, 'mask-state')[0]) === 'Saved'
     && bx.requests.some((q) => q.path.includes('/reviewed-masks/REVMASK_1/slices/44')) && bx.db.versions.length === 2,
   "reopened, the review continues from REVMASK_1 (read from the server), and the other reviewer's version is untouched");
   await act(async () => { rx.unmount(); });
@@ -2050,7 +2512,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   `tab bar: four tabs, each an icon and its name; selected: ${selectedTab(r)}`);
   const infoButton = () => byTestId(r, 'header-info');
   await act(async () => { infoButton().props.onPress(); });
-  check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),
+  check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.2\.0$/),
     `Info opens the Details sheet: ${texts(r).filter((x) => /^(Screen|Mode|Contract|Build) /.test(x)).join(' | ')}`);
   await press(r, 'Clear cached images');
   check('H2', has(r, /^Nothing to clear: this build keeps no images \(fixture mode\)\.$/), 'fixture mode: nothing to clear, and it says so');
