@@ -68,10 +68,16 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   Nhãn một dòng trong ô cố định (tên tab, tên công cụ) rộng bằng ô chứa nó và chỉ phóng chữ tới 1,15 lần
   (`LABEL_FONT_CAP`, thẻ cạnh mã ca cũng vậy; mã ca và dòng phụ trong header nổi của khung viewer cũng vậy, vì Back và tới
   ba nút biểu tượng quanh chúng chiếm chỗ không đổi: ở 320 dp và cỡ chữ 1,3, "CASE_0029" không còn bị cắt thành
-  "CASE_00…"); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
+  "CASE_00…"; hai dòng đó còn thu nhỏ chữ cho vừa trước khi bị cắt (`adjustsFontSizeToFit`, tối thiểu 0,6 lần với tên và 0,75 lần
+  với dòng phụ, `BAR_TEXT_MIN_SCALE`): ở 320 dp chỗ giữa Back và "Live" chỉ 96 dp (89 dp ở cỡ chữ 1,3) mà "Error Inspector" cần
+  117 dp (134 dp ở mức giới hạn 1,15), nên tiêu đề SCR-04 co còn 0,82 (0,67 ở cỡ chữ 1,3) lần cỡ của nó thay vì thành
+  "Error Insp…", và dòng phụ "CASE_0029 · Raw" đủ chữ thay vì "CASE_0029…"; tên màn hình vẫn là "Error Inspector", khớp mục
+  Tools và các tài liệu này, header thường không co chữ); chip trên ảnh rộng bằng chữ của chính nó, không đặt ô cố định và không giới hạn phóng chữ, nên "TP 546 px"
   luôn đủ chữ; số (Dice, số đếm) nằm trên một dòng trong ô đủ rộng cho cỡ chữ 1,3, và mã ca trong danh sách có hàng thanh
   (lowest-Dice của SCR-01) nằm trong ô có `minWidth` chứ không có bề rộng cố định, nên không bị cắt thành "CASE_00…" ở cỡ chữ 1,3; hàng
-  nhãn rộng hơn màn hình (tab lọc của SCR-02) cuộn ngang; chữ thân bài phóng hết, mã thí nghiệm và mã khác chỉ hiện ở
+  nhãn rộng hơn màn hình (tab lọc của SCR-02) cuộn ngang, và dưới 360 dp khoảng cách giữa các tab là 16 dp thay vì 24 dp để ở
+  320 dp, cỡ chữ 1,0 tab thứ ba nằm trọn trong màn hình, cách mép 13 dp lúc nghỉ (trước đây nó vượt mép 3 dp và chữ số cuối chạm
+  mép); chữ thân bài phóng hết, mã thí nghiệm và mã khác chỉ hiện ở
   sheet Details.
 - **Lớp che phiên**: sau 5 phút ở nền hoặc 10 phút không chạm, màn hình bị che ("Screen hidden") và phím back không làm
   gì; nút "Show the screen" hiện lại, nút "Clear cached images" xoá cache.
@@ -97,7 +103,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 - **Mục đích**: tìm ca, xếp ca theo Dice của một thí nghiệm và mở ca.
 - **Thành phần**: ô tìm "Search case ID"; ba tab lọc "All", "Evaluation", "Inference & review", mỗi tab kèm số ca của
-  trang đã tải (hàng tab cuộn ngang khi ba tab rộng hơn màn hình, ở 320 dp hoặc cỡ chữ 1,3, và có lề 16 dp ở hai đầu); nút "Dice of" ghi thí nghiệm theo tên người đọc ("DINOv2 100 % · Raw"), chạm mở sheet "Dice of" với
+  trang đã tải (hàng tab cuộn ngang khi ba tab rộng hơn màn hình, ở 320 dp hoặc cỡ chữ 1,3, và có lề 16 dp ở hai đầu; dưới 360 dp khoảng cách giữa các tab là 16 dp thay vì 24 dp, nên ở 320 dp, cỡ chữ 1,0 ba tab nằm trọn trong màn hình với lề ở đầu cuối); nút "Dice of" ghi thí nghiệm theo tên người đọc ("DINOv2 100 % · Raw"), chạm mở sheet "Dice of" với
   "None (no Dice)" và các thí nghiệm, mỗi thí nghiệm một dòng ghi tên (không ghi mã thí nghiệm, mã chỉ nằm ở sheet Details); nút thứ tự "Server" / "Worst first"; tiêu đề cột
   "Case" và "Dice". Mỗi dòng ca cao 52 dp: mã ẩn danh, một thẻ ("Outlier n/3" là lựa chọn của server; "Mode unclear" khi
   chế độ và cờ GT mâu thuẫn; tên chế độ khi ca không phải Evaluation), thanh Dice và giá trị 3 chữ số (giá trị nằm trên một dòng, ô giá trị rộng đủ cho 5 ký tự ở cỡ chữ 1,3; màn hình hẹp
