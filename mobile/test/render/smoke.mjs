@@ -2128,6 +2128,19 @@ function reviewBackend({ seedVersion = false } = {}) {
     `the viewer's floating bar: title and subtitle on one line, capped at font scale ${LABEL_FONT_CAP}; a plain bar is not capped`);
     await act(async () => { viewer.unmount(); plain.unmount(); });
   }
+  // Responsive (device session r5): the id of a meter row ("CASE_0029" in the lowest-Dice list) is 97 dp wide at font scale 1.3,
+  // so its box has a minWidth (the bar gives way), not a width of 88 dp that cut it to "CASE_00...".
+  {
+    const { default: ListRow } = await imp('src/components/ListRow.js');
+    let lr;
+    await act(async () => { lr = TestRenderer.create(React.createElement(ListRow, { variant: 'meter', title: 'CASE_0029', bar: 0.1, value: '0.048', onPress: () => {} })); });
+    const idText = lr.root.findAll((n) => n.type === 'Text' && textOf(n) === 'CASE_0029')[0];
+    const idBox = idText.parent;
+    const st = flat(idBox.props.style);
+    check('RP-LR1', st.width === undefined && st.minWidth === 88 && st.flexShrink === 0 && idText.props.numberOfLines === 1,
+      `a meter row's id box: minWidth ${st.minWidth}, no fixed width, never shrunk (flexShrink ${st.flexShrink}), one line`);
+    await act(async () => { lr.unmount(); });
+  }
   const infoButton = () => byTestId(r, 'header-info');
   await act(async () => { infoButton().props.onPress(); });
   check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),

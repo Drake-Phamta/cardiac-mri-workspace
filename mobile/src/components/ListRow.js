@@ -116,7 +116,9 @@ const s = StyleSheet.create({
   titleBox: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
   // An id and its tag are never cut: on a narrow screen at a large font the bar (barFixed) gives way first.
   idBox: { flexShrink: 0 },
-  meterTitle: { width: 88 },
+  // minWidth, not width: "CASE_0029" is 97 dp wide at font scale 1.3 (14 sp x 1.3 x 5.3 em), so a fixed 88 dp cut it to "CASE_00...".
+  // The id box never shrinks (idBox), so past 1.3 it grows and the bar gives way.
+  meterTitle: { minWidth: 88 },
   title: { ...type.body, color: color.t1, flexShrink: 1 },
   id: { ...type.rowId },
   meterId: { fontSize: 14, letterSpacing: 0 },
