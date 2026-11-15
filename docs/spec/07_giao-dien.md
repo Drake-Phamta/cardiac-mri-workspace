@@ -127,7 +127,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   chọn trước đó trong phiên được chọn sẵn.
 - **Thành phần** (khung viewer): ảnh MRI tràn màn hình, mở ở 1,6 lần vừa khung và ở lát giữa nếu đường dẫn không nêu
   lát. Header nổi: Back, mã ca, dòng phụ là tên thí nghiệm của run ("DINOv2 100 %", không ghi mã EXP-…; biến thể do panel dưới ghi) (ca có nhiều run thì dòng phụ có mũi tên, chạm để
-  chọn lại run), khiên privacy, Info, "more". Góc trái ghi "MRI" và chế độ ca ("Evaluation" / "Inference & review"); góc
+  chọn lại run), khiên privacy, Info, "more". Mã ca và dòng phụ nằm một dòng và chỉ phóng tới 1,15 lần. Góc trái ghi "MRI" và chế độ ca ("Evaluation" / "Inference & review"); góc
   phải ghi "Slice Dice" và giá trị 3 chữ số hoặc một chữ ("Not applicable", "Unavailable"), "—" khi không có số. Chip
   lớp "Ground truth" (chỉ khi ca có GT) và "Prediction" (chỉ khi có run), cả hai bật sẵn; chip có biểu tượng mắt và ô
   màu, lớp mà lát này không có thì chip mờ đi. Thanh công cụ "Fill" / "Outline" / "Both" (mặc định "Fill"; tên mỗi nút nằm trên một dòng, rộng bằng nút 48 dp

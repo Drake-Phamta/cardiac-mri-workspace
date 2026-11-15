@@ -2073,6 +2073,25 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('RP-SH1', tabNames.length === 4 && tabNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
     && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
   `tab names: one line, as wide as the tab, capped at font scale ${LABEL_FONT_CAP}`);
+  // Responsive (device session r5): the floating bar of a viewer has Back and up to three icon buttons round the title, so
+  // the room for the title does not grow with the text: its title and subtitle stop growing at the label cap ("CASE_0029"
+  // showed as "CASE_00..." at 320 dp and font scale 1.3). A bar with a plain screen title keeps following the system size.
+  {
+    const { default: AppHeader } = await imp('src/components/AppHeader.js');
+    const bar = async (floating) => {
+      let h;
+      await act(async () => {
+        h = TestRenderer.create(React.createElement(AppHeader, { title: 'CASE_0029', subtitle: 'DINOv2 100 %', onBack: () => {}, onInfo: () => {}, floating }));
+      });
+      return h;
+    };
+    const lineOf = (h, text) => h.root.findAll((n) => n.type === 'Text' && textOf(n) === text)[0];
+    const [viewer, plain] = [await bar(true), await bar(false)];
+    check('RP-SH2', ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(viewer, t).props.numberOfLines === 1 && lineOf(viewer, t).props.maxFontSizeMultiplier === LABEL_FONT_CAP)
+      && ['CASE_0029', 'DINOv2 100 %'].every((t) => lineOf(plain, t).props.maxFontSizeMultiplier === undefined),
+    `the viewer's floating bar: title and subtitle on one line, capped at font scale ${LABEL_FONT_CAP}; a plain bar is not capped`);
+    await act(async () => { viewer.unmount(); plain.unmount(); });
+  }
   const infoButton = () => byTestId(r, 'header-info');
   await act(async () => { infoButton().props.onPress(); });
   check('H2', has(r, /^Details$/) && has(r, /^This screen$/) && has(r, /^Screen SCR-01 \(V3\)$/) && has(r, /^Mode FIXTURE · study STUDY_DEMO$/) && has(r, /^Contract 1\.1\.0$/),
