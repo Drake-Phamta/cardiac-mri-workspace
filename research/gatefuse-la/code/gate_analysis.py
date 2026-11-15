@@ -89,7 +89,7 @@ def compare_arms(scores):
             if len(res):
                 res["within_0005"] = (res.ci_low > -NO_EFFECT) & (res.ci_high < NO_EFFECT)
             comp.append(res)
-    return pd.DataFrame([f for f in fried if f]), pd.concat(comp, ignore_index=True) if comp else pd.DataFrame()
+    return pd.DataFrame([f for f in fried if f]), S.concat(comp)
 
 
 # ---------------------------------------------------------------- gate values by region
@@ -165,23 +165,24 @@ def plot_fusion(arms, comp, out):
     panels = [lab for lab in SIZES if (arms.labels == lab).any()] if len(arms) else []
     if not panels:
         return
-    fig, axes = S.plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 3.0), squeeze=False)
+    fig, axes = S.plt.subplots(1, len(panels), figsize=(5.0 * len(panels), 3.0), squeeze=False)
     for ax, labels in zip(axes[0], panels):
         t = arms[arms.labels == labels].set_index("arm")
         names = [a for a in FUSION if a in t.index]
+        ticks = []
         for i, a in enumerate(names):
             color = S.BLUE if a == TOKEN else S.GREY
             ax.errorbar(t.dice[a], i, xerr=[[t.dice[a] - t.dice_lo[a]], [t.dice_hi[a] - t.dice[a]]], fmt="o", ms=7,
                         color=color, ecolor=color, elinewidth=1.5, capsize=3)
             c = comp[(comp.family == f"fusion_{labels}") & (comp.b == a)] if len(comp) else comp
-            if len(c):
-                ax.text(1.01, i, f"p_Holm {c.p_holm.iloc[0]:.3f}", transform=ax.get_yaxis_transform(), va="center",
-                        fontsize=7, color=S.INK2)
-        ax.set_yticks(range(len(names)), ["token gate (IP)" if a == TOKEN else a for a in names])
+            ticks.append("token gate (IP)" if a == TOKEN else
+                         f"{a}  (p_Holm {c.p_holm.iloc[0]:.3f})" if len(c) else a)
+        ax.set_yticks(range(len(names)), ticks)
         ax.invert_yaxis()
         ax.grid(axis="y", visible=False)
         ax.set_title(f"{SIZES[labels]} labelled volumes", fontsize=9)
         ax.set_xlabel("test Dice (95 % bootstrap CI)")
+    fig.tight_layout(w_pad=2)
     S.save_fig(fig, out, "fusion")
 
 
@@ -197,13 +198,14 @@ def plot_width(arms, eff, out):
     ax.errorbar(t.width, t.dice, yerr=[t.dice - t.dice_lo, t.dice_hi - t.dice], fmt="-o", ms=7, color=S.BLUE,
                 ecolor=S.BLUE, elinewidth=1.5, capsize=3)
     e = eff[eff.labels == "few"].set_index("arm") if len(eff) else pd.DataFrame()
-    for r in t.itertuples():
-        if r.arm in e.index:
-            ax.annotate(f"{e.n_params[r.arm] / 1000:.0f}k params\n{e.ms_per_iter[r.arm]:.0f} ms/it",
-                        (r.width, r.dice_lo), textcoords="offset points", xytext=(0, -6), ha="center", va="top",
-                        fontsize=7, color=S.INK2)
+    ticks = []
+    for w in WIDTHS:
+        a = f"token_w{w}"
+        ticks.append(f"{w}\n{e.n_params[a] / 1000:.0f}k params\n{e.ms_per_iter[a]:.0f} ms/it" if a in e.index
+                     else str(w))
     ax.set_xscale("log", base=2)
-    ax.set_xticks(WIDTHS, [str(w) for w in WIDTHS])
+    ax.set_xticks(WIDTHS, ticks, fontsize=7.5)
+    ax.set_xlim(26, 315)
     ax.minorticks_off()
     ax.set_xlabel("width of the token-gate head (8 labelled volumes)")
     ax.set_ylabel("test Dice (95 % bootstrap CI)")
