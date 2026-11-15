@@ -75,7 +75,7 @@ trạng thái và hành vi, không mô tả màu hay bố cục pixel.
 | Thuật ngữ | Nghĩa |
 |---|---|
 | Ca (case) | Một lần chụp MRI 3D của một bệnh nhân, có mã ẩn danh `CASE_xxxx` |
-| Lát (slice) | Một ảnh 2D trong khối 3D; chỉ số `z` đếm từ 0. SCR-03 / SCR-04 đánh số lát từ 1 ("Slice 45 / 88" là `z` = 44), còn `z` của lát đang xem nằm trong sheet Details; SCR-06 và SCR-08 hiện thẳng `z` |
+| Lát (slice) | Một ảnh 2D trong khối 3D; chỉ số `z` đếm từ 0. SCR-03, SCR-04 và SCR-06 đánh số lát từ 1 ("Slice 45 / 88" là `z` = 44), còn `z` của lát đang xem nằm trong sheet Details; SCR-08 cũng đếm từ 1 ("Slice 45") và không ghi `z` |
 | Mask | Ảnh nhị phân đánh dấu pixel thuộc nhĩ trái |
 | Ground truth (GT) | Mask nhãn chuẩn của bộ dữ liệu; không phải mask đã rà soát |
 | Dự đoán RAW / PROCESSED | Mask mô hình dự đoán thô / sau hậu xử lý PP-4; người dùng luôn chọn rõ, không có mặc định |

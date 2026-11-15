@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Logic app | `node --test mobile/test/*.test.mjs` | Đúng file `.mjs` chạy trên điện thoại: mô hình màn hình, cache, hợp đồng, bút, toán zoom | `mobile-shell` |
 | Render smoke | `cd mobile; npm run test:render` | Vẽ cả app bằng `react-test-renderer`, bấm nút, kiểm chữ trên màn hình (`check('ID', …)`); `touch_targets.mjs` đo vùng chạm từ style; không thay cho bằng chứng trên máy | `mobile-render-bundle` |
-| Backend | `python -m pytest backend/tests backend/mesh/tests` | Mọi endpoint, mọi phản hồi kiểm theo hợp đồng, CSDL, lưới 3D (Python 3.9) | `backend-tests` |
+| Backend | `python -m pytest backend/tests backend/mesh/tests` | Mọi endpoint, mọi phản hồi JSON của test kiểm theo hợp đồng (`backend/tests/api_support.py`), CSDL, lưới 3D (Python 3.9) | `backend-tests` |
 | Hợp đồng | `python test_contract1.py`, `test_contract2.py`, `test_api_contract.py` | Hai hợp đồng nhập liệu và hợp đồng API | `contract-tests` |
 | ML | `python -m pytest ml/tests` | Chia dữ liệu, chấm điểm, hậu xử lý, xuất gói (CPU) | `ml-tests` |
 | Truy vết | `python tools/trace_check.py --allow-pending docs/trace/pending_branches.txt` | Đặc tả ↔ ma trận ↔ mã ↔ test (mục 3) | `traceability` |
@@ -36,7 +36,7 @@ nghiệm thu.
 | TC-MOBILE-STATE-001 | Màn hình chính đi qua đủ trạng thái tải, không có, xử lý, lỗi, thử lại, chặn dữ liệu sai | stateCopy, api_states, v1_model, render smoke + điện thoại | Phạm Tuấn Anh | Đã có |
 | TC-USAB-001 | Luồng chính làm được bằng cảm ứng trên thiết bị mục tiêu | render smoke + điện thoại | Phạm Tuấn Anh | Một phần: chưa ghi phiên trên APK gộp |
 | TC-USAB-003 | Trạng thái thiếu GT dễ hiểu, không trông như lỗi bằng 0 | stateCopy, render smoke, v1_error + điện thoại | Phạm Tuấn Anh | Đã có |
-| TC-USAB-004 | Nút chính đạt kích thước chạm tối thiểu | touch_targets, render smoke + điện thoại | Phạm Tuấn Anh | Một phần: SCR-01, SCR-05 – SCR-08 chưa được đo trên `main` |
+| TC-USAB-004 | Nút chính đạt kích thước chạm tối thiểu | touch_targets, render smoke (T5, V4P11) + điện thoại | Phạm Tuấn Anh | Một phần: SCR-01, SCR-05, SCR-07 chưa được đo trên `main` |
 | TC-PERF-001 | 30 bước chuyển lát đã cache p95 ≤ 200 ms, không tải cả khối | v1, render smoke + điện thoại | Phạm Tuấn Anh | Một phần: chờ đo trên APK gộp |
 | TC-MAINT-001 | Bản đồ sở hữu thể hiện ranh giới module | registry | Phạm Tuấn Anh | Đã có |
 | TC-AUDIT-001 | `tools/trace_check.py`: ID đặc tả = ID ma trận, MUST "Đã có" có test, tham chiếu tồn tại | test_trace_check | Phạm Tuấn Anh | Đã có |
@@ -56,13 +56,13 @@ nghiệm thu.
 | TC-EXP-004 | Có đủ run UNet và DINOv2 25 / 50 / 100 % với tập con lồng nhau | test_data | Bế Quốc Khánh | Hướng phát triển |
 | TC-EXP-005 | Ablation thô / hậu xử lý dùng cùng dự đoán thô, cùng checkpoint, một cấu hình PP đóng băng | test_postprocess | Bế Quốc Khánh | Đã có |
 | TC-EXP-006 | Chọn ca / ca bất thường từ phân tích mở đúng bằng chứng | render smoke, v3_screens + điện thoại | Bế Quốc Khánh | Đã có |
-| TC-EXP-007 | Lệch split / quần thể / phiên bản / biến thể / chính sách tham chiếu thì "không so sánh được" | test_evaluate, v3_model | Bế Quốc Khánh | Một phần: server chưa kiểm loại mask tham chiếu và hình học, chưa có test nhánh false ở backend |
+| TC-EXP-007 | Lệch split / quần thể / phiên bản / biến thể / chính sách tham chiếu thì "không so sánh được" | test_evaluate, test_api, v3_model | Bế Quốc Khánh | Đã có |
 | TC-EXP-008 | Không ca nào nằm ở hai tập; tập con lồng nhau | test_data, test_api | Bế Quốc Khánh | Đã có |
 | TC-EXP-009 | Luật Dice lát rỗng và chỉ số 3D theo ca | test_evaluate | Bế Quốc Khánh | Đã có |
 | TC-REP-001 | Thí nghiệm báo cáo truy được cấu hình, checkpoint, split, phiên bản | test_api, test_export_contract2 | Bế Quốc Khánh | Đã có |
 | TC-REP-002 | Chia theo ca, gộp ca trùng, sàng lọc giống nhau; test rò rỉ qua | test_evaluate | Bế Quốc Khánh | Đã có |
 | TC-REP-003 | Màn hình hiện số đo ghi mức tổng hợp, quần thể và N | v3_screens | Bế Quốc Khánh | Đã có |
-| TC-REP-004 | Bộ kiểm "so sánh được" áp đủ điều kiện | test_evaluate | Bế Quốc Khánh | Một phần: bộ kiểm của server thiếu hai điều kiện |
+| TC-REP-004 | Bộ kiểm "so sánh được" áp đủ điều kiện | test_evaluate, test_api | Bế Quốc Khánh | Đã có |
 | TC-SCI-001 | App / báo cáo ghi LASC 2018, không gọi số đo là tái lập LAScarQS | v3_upgrades | Bế Quốc Khánh | Một phần: chưa có câu "không phải tái lập LAScarQS 2022" |
 | TC-SCI-003 | Bảng kết quả sinh từ tổng hợp đóng băng, giữ thứ tự quan sát | test_unet_kit | Bế Quốc Khánh | Đã có |
 | TC-REV-001 | Chuyển trạng thái review: hợp lệ thì qua, sai / cũ thì lỗi mà không mất trạng thái hay lịch sử | test_api, v4_review_model | Nguyễn Gia Đức Trung | Đã có |
@@ -73,8 +73,8 @@ nghiệm thu.
 | TC-REV-006 | Checksum mask nguồn không đổi sau khi lưu; phiên bản cũ bất biến | test_api, v4_brush, render smoke | Nguyễn Gia Đức Trung | Đã có |
 | TC-FIND-001 | Finding giữ tham chiếu study / ca / run / lát / vùng; mở lại về đúng bằng chứng | v4_findings_screen, test_api, render smoke + điện thoại | Nguyễn Gia Đức Trung | Đã có |
 | TC-FIND-002 | Sửa ghi chú / trạng thái không đổi nguồn; loại / trạng thái sai bị từ chối | test_api, v4_findings_model | Nguyễn Gia Đức Trung | Đã có |
-| TC-PERF-003 | Phản hồi bút và không mất mẫu đạt NFR-PERF-003 | v4_brush + điện thoại | Nguyễn Gia Đức Trung | Một phần: chờ đo trên APK gộp |
-| TC-REL-001 | Checksum chứng minh MRI / GT / dự đoán gốc không đổi qua thao tác thường | test_api, hero_flow_api | Nguyễn Gia Đức Trung | Một phần: mới băm lại dự đoán gốc, chưa băm MRI và GT |
+| TC-PERF-003 | Phản hồi bút và không mất mẫu đạt NFR-PERF-003 | v4_brush + v4_stroke_timing (dòng `CMW_STROKE`, báo cáo) + v4_stroke_cost (chi phí một lần di ngón không tăng theo số lát đã bước qua) + điện thoại (`adb logcat --pid <pid>`, rồi `node mobile/scripts/stroke-timing-report.mjs <logcat>`; đo cả 30 nét trên lát tới sau ≥ 6 lần bước lát, và đọc bảng "by slices open") | Nguyễn Gia Đức Trung | Một phần: vòng 6 đo p95 553 ms trên lát tới sau nhiều lần bước lát, nguyên nhân đã sửa và có test; chờ một phiên điện thoại với APK đã sửa |
+| TC-REL-001 | Checksum chứng minh MRI / GT (file gói và lát đã cắt) và dự đoán gốc không đổi qua một lần rà soát có lưu | test_api, hero_flow_api | Nguyễn Gia Đức Trung | Đã có |
 | TC-REL-002 | Ngắt giữa lúc lưu không làm hỏng bản đã lưu; thử lại an toàn | test_api, v4_review_model, render smoke + điện thoại | Nguyễn Gia Đức Trung | Đã có |
 | TC-SEC-005 | Danh sách siêu dữ liệu cho phép từ chối trường định danh lạ | test_contract1, hardening_regression | Nguyễn Gia Đức Trung | Đã có |
 | TC-USAB-002 | Chế độ vẽ / di không gây vẽ nhầm hay điều hướng nhầm | v4_review_screen + điện thoại | Nguyễn Gia Đức Trung | Một phần: chưa ghi lần chạy kịch bản trên máy |
@@ -124,8 +124,8 @@ Test của chính bước kiểm tra: `python -m pytest tools/tests` (hoặc `py
 **Hiện nay (trước khi gộp)**: khung app (`shell/design-system`) và V1 (`v1/tuan-anh-upgrades`) đã gộp vào `main`; mã
 của nhiều dòng còn chỉ có trên 3 nhánh tính năng `v2`, `v3`, `v4`. CI chạy
 `python tools/trace_check.py --allow-pending docs/trace/pending_branches.txt`: tham chiếu không tìm thấy trên một dòng
-có `pending_branch` nằm trong danh sách được báo **PENDING** thay vì lỗi; phiên bản hợp đồng (main 1.1.0, đặc tả 1.2.0)
-và endpoint `review_history_list` cũng được nới như vậy.
+có `pending_branch` nằm trong danh sách được báo **PENDING** thay vì lỗi; phiên bản hợp đồng mà đặc tả nêu
+và endpoint `EP-*` của các dòng chưa gộp cũng được nới như vậy.
 
 **Sau khi gộp cả 3 nhánh còn lại vào main**: xoá `docs/trace/pending_branches.txt`, đổi job `traceability` sang
 `python tools/trace_check.py --strict`. Chế độ nghiêm ngặt không chấp nhận tham chiếu nào thiếu; nó in danh sách các

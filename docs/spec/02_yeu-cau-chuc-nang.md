@@ -32,7 +32,7 @@ thích ở [00_tong-quan.md](00_tong-quan.md) mục 6; mã và test chứng minh
 | PR-CACHE-01 | Giữ trong bộ nhớ các lát và phản hồi đã mở, khoá theo phiên bản và checksum; xoá được khi muốn | SCR-03, SCR-04 | Phạm Tuấn Anh | SHOULD | Đã có |
 | FR-NAV-001 | Bốn tab Study / Cases / Experiments / Findings và một ngăn xếp màn hình; gốc là SCR-01; SCR-02 mở SCR-03; SCR-03 mở SCR-04, SCR-05, SCR-06 qua sheet Tools; Case Explorer và trình xem MRI 2D là một màn hình; tab Experiments mở thẳng SCR-07 | Tất cả | Phạm Tuấn Anh | MUST | Đã có |
 | FR-NAV-002 | Header ghi tên màn hình và dòng phụ "ca · run · biến thể" ("Study <mã>" ở gốc tab); màn hình tự đặt được tiêu đề và dòng phụ (SCR-03: mã ca và "họ mô hình · thí nghiệm"; SCR-04: "ca · biến thể"). Nút Info mở sheet Details: các mục của màn hình, rồi "This screen" (mã màn hình, chế độ, hợp đồng, bản build) và "Clear cached images" | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
-| FR-NAV-003 | Chế độ FIXTURE / LIVE: chỉ báo "Fixture" / "Live" (chấm và chữ) trên header, khung viewer không ghi "Live"; ở FIXTURE có banner, chạm "Fixture" mở bảng chọn kịch bản; ở FIXTURE, SCR-06 vẽ mask thay thế ghi rõ SYNTHETIC | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
+| FR-NAV-003 | Chế độ FIXTURE / LIVE: chỉ báo "Fixture" / "Live" (chấm và chữ) trên header, khung viewer không ghi "Live"; ở FIXTURE có banner, chạm "Fixture" mở bảng chọn kịch bản; ở FIXTURE, SCR-06 vẽ mask thay thế và ghi "Synthetic stand-in" | Tất cả | Phạm Tuấn Anh | SHOULD | Đã có |
 | FR-CASE-001 | Liệt kê ca theo mã ẩn danh (trang đầu của danh sách, thứ tự server); mở thẳng một mã gõ vào khi mã đó không có trong trang ("Open <ID> directly") | SCR-02 | Phạm Tuấn Anh | MUST | Đã có |
 | FR-CASE-002 | Mỗi ca cho biết có GT hay không (EVALUATION / INFERENCE_REVIEW); chế độ và cờ GT mâu thuẫn thì báo, không tự chọn | SCR-02, SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
 | FR-CASE-003 | Server trả chi tiết ca gồm kích thước khối, khoảng cách voxel, gốc, hướng, quy ước chỉ số, phiên bản và trạng thái hình học; SCR-03 dùng kích thước để kiểm từng lát và hiện ghi chú trạng thái hình học | SCR-03 | Phạm Tuấn Anh | MUST | Đã có |
@@ -109,26 +109,26 @@ thích ở [00_tong-quan.md](00_tong-quan.md) mục 6; mã và test chứng minh
 | PR-REV-01 | Ghi trạng thái rà soát NOT_REVIEWED / ACCEPTED / FLAGGED / CORRECTED | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | PR-REV-02 | Sửa mask dự đoán 2D bằng bút thêm / xoá và lưu mask đã rà soát | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | PR-PROV-01 | Dự đoán gốc bất biến; mỗi lần sửa tạo phiên bản riêng truy được nguồn | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| PR-FIND-01 | Tạo finding gắn bằng chứng: thí nghiệm, ca, run, biến thể, lát | SCR-06, SCR-08 | Nguyễn Gia Đức Trung | MUST | Một phần: SCR-06 chưa truyền experiment_id của run |
+| PR-FIND-01 | Tạo finding gắn bằng chứng: thí nghiệm (của run), ca, run, biến thể, lát | SCR-06, SCR-08 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-001 | Trạng thái và chuyển trạng thái theo hợp đồng; CORRECTED chỉ đạt được qua lưu (commit) | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-002 | Bút thêm (Add) | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-003 | Bút xoá (Erase) | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| FR-REV-004 | Cỡ bút 1 / 3 / 5 / 7 / 11 px, vòng tròn bút hiện ở ngón tay | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
+| FR-REV-004 | Cỡ bút 1 / 3 / 5 / 7 / 11 px (bề ngang một nhát bút, mặc định 5 px), vòng tròn bút hiện ở ngón tay kèm "Add · 5 px" / "Erase · 5 px" | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-005 | Undo | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-006 | Redo | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| FR-REV-007 | Reset về đúng mask nguồn của phiên chưa lưu; Cancel bỏ mọi thay đổi chưa lưu | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| FR-REV-008 | Lưu tạo một phiên bản reviewed mask mới bất biến; review CORRECTED sửa tiếp từ phiên bản mới nhất; reviewed mask chỉ vẽ ở SCR-06 | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
+| FR-REV-007 | Reset ("Reset to the source?") đưa mọi lát đang mở về đúng mask nguồn và xoá Undo / Redo; "Cancel edits" ("Discard unsaved edits?") bỏ mọi thay đổi chưa lưu, về lần lưu gần nhất (chưa lưu lần nào thì về mask nguồn) | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
+| FR-REV-008 | Save (hỏi "Save correction?" trước) tạo một phiên bản reviewed mask mới bất biến; review CORRECTED sửa tiếp từ phiên bản mới nhất (Reset vẫn về dự đoán gốc); reviewed mask chỉ vẽ ở SCR-06 | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-009 | Lưu không đổi dự đoán gốc; GT không bao giờ là nguồn để sửa | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| FR-REV-010 | Phiên bản lưu ghi nguồn, ca, run, thời điểm và bí danh người rà soát; app hiện nguồn và biến thể trước khi lưu; không gọi mask đã sửa là ground truth | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
+| FR-REV-010 | Phiên bản lưu ghi nguồn, ca, run, thời điểm và bí danh người rà soát; header SCR-06 nêu dự đoán đang sửa ("Raw prediction"), sheet Details ghi mã mask nguồn, còn câu hỏi "Save correction?" nêu đổi trạng thái và lát, không nêu mã; không gọi mask đã sửa là ground truth | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-REV-011 | Toạ độ bút đúng sau zoom / di (biến đổi ngược từ màn hình về pixel nguồn) | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| FR-REV-012 | Gắn cờ (Flag) bắt buộc ghi lý do 1–500 ký tự | SCR-06 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
-| FR-REV-013 | Nút History: dòng thời gian ai (bí danh), làm gì, lúc nào, kèm lý do gắn cờ | SCR-06 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
-| FR-REV-014 | Mask nguồn vẽ thành viền dưới nét sửa; giữ "Hold: source" để xem riêng mask nguồn | SCR-06 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
-| FR-FIND-001 | Tạo finding từ một lát ở SCR-06 (ghi ca, run, biến thể, lát) | SCR-06, SCR-08 | Nguyễn Gia Đức Trung | MUST | Đã có |
+| FR-REV-012 | Gắn cờ (Flag) bắt buộc ghi lý do 1–500 ký tự, hỏi bằng một hộp trước khi gửi và lưu cùng lần đổi trạng thái | SCR-06 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
+| FR-REV-013 | Mục History của sheet Review: dòng thời gian ai (bí danh), làm gì, lúc nào, mới nhất trước, kèm lý do gắn cờ; chỉ đọc từ server khi sheet đang mở | SCR-06 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
+| FR-REV-014 | Mask nguồn vẽ thành viền dưới nét sửa; giữ nút "Source" để xem riêng mask nguồn | SCR-06 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
+| FR-FIND-001 | Tạo finding từ một lát ở SCR-06 (ghi ca, lát, run, biến thể và thí nghiệm của run) | SCR-06, SCR-08 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-FIND-002 | API nhận vùng tuỳ chọn cho finding (`region_reference`, một đối tượng JSON tối đa 4096 ký tự); app đọc dạng POINT / BOX theo pixel nguồn | Backend | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-FIND-003 | Loại finding: UNDER_SEGMENTATION, OVER_SEGMENTATION, BOUNDARY_DISAGREEMENT, DISCONNECTED_ARTIFACT, OTHER | SCR-08 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | FR-FIND-004 | Finding giữ nguyên tham chiếu bằng chứng; chỉ ghi chú và trạng thái được sửa; không đổi dữ liệu nguồn | SCR-08 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| FR-FIND-005 | Danh sách mới nhất trước; lọc theo trạng thái và loại, có đếm | SCR-08 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
+| FR-FIND-005 | Danh sách mới nhất trước; tab trạng thái (All / Open / Resolved) và chip loại, có đếm | SCR-08 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
 | FR-FIND-006 | Resolve / Reopen; "Open evidence" mở lại bằng chứng mạnh nhất (ca và lát ở SCR-03, hoặc SCR-07 nếu finding chỉ gắn thí nghiệm); "Review / correct" mở SCR-06 của run | SCR-08 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
 | FR-FIND-007 | "Export PDF" các finding đang hiện (hộp thoại in Android, ghi "Research use only", ghi chú được escape HTML, không có ảnh); cần APK build từ mã này | SCR-08 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
 

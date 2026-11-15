@@ -1,8 +1,9 @@
 # 06 — API
 
 Nguồn chuẩn là [`contracts/api/contract.json`](../../contracts/api/contract.json) (`api_contract_11`,
-`contract_version`: **1.2.0**, kèm `schema.json` và `README.md` cùng thư mục). Trang này chỉ tóm tắt. Phiên bản 1.2.0
-nằm trên nhánh `v4/trung-upgrades`; `main` còn ghim 1.1.0 cho tới khi gộp (1.2.0 chỉ thêm, không đổi gì của 1.1.0).
+`contract_version`: **1.2.0**, kèm `schema.json` và `README.md` cùng thư mục). Trang này chỉ tóm tắt. Phiên bản 1.2.0 chỉ
+thêm, không đổi gì của 1.1.0: endpoint `review_history_list` (kèm enum `review_history_action`), trường `reason` tuỳ chọn
+của `review_patch`, và thứ tự "cũ trước" của `findings_list` được ghi thành quy tắc.
 Phiên bản được ghim ở năm nơi và bước kiểm tra truy vết bắt chúng phải trùng nhau: `contract.json`, `schema.json`,
 `backend/app/contract.py`, `mobile/src/api/contract.mjs`, `contracts/api/validate_api_contract.py`.
 
@@ -14,7 +15,7 @@ Phiên bản được ghim ở năm nơi và bước kiểm tra truy vết bắt
 | API-02 | Lỗi có mã máy ổn định và lời nhắn an toàn, dạng `{"error": {"code", "message", "request_id", "details"}}` (bảng mục 3) | Nguyễn Gia Đức Trung | MUST | Đã có |
 | API-03 | Mọi thao tác ghi (PATCH, PUT, commit) gửi `expected_revision`; bản cũ bị từ chối `STALE_REVISION`; không có "ghi sau thắng" | Nguyễn Gia Đức Trung | MUST | Đã có |
 | API-04 | Mọi sản phẩm mang hình học ghi `geometry_contract_version` và trạng thái hình học; lệch thì `GEOMETRY_MISMATCH`; fixture hình học chuẩn kiểm chính xác trong CI | Vũ Hùng Anh | MUST | Đã có |
-| API-05 | Backend và app cùng kiểm phản hồi theo hợp đồng; dữ liệu FIXTURE sinh từ hợp đồng, không viết tay; app không tự đoán GT, chỉ số hay biến thể từ giá trị mặc định | Nguyễn Gia Đức Trung | MUST | Đã có |
+| API-05 | App kiểm mọi phản hồi theo hợp đồng ngay khi chạy (phản hồi sai thành trạng thái "Cannot show this safely", không vẽ); phản hồi của backend được kiểm theo hợp đồng trong test (`backend/tests/api_support.py`), còn lúc chạy backend chỉ giữ mỗi endpoint trong danh sách mã lỗi của hợp đồng và từ chối khởi động khi sai phiên bản hợp đồng; dữ liệu FIXTURE sinh từ hợp đồng, không viết tay; app không tự đoán GT, chỉ số hay biến thể từ giá trị mặc định | Nguyễn Gia Đức Trung | MUST | Đã có |
 
 ## 2. Endpoint
 
@@ -41,15 +42,15 @@ Phiên bản được ghim ở năm nơi và bước kiểm tra truy vết bắt
 | EP-prediction_slice_get | GET `/analysis-runs/{run_id}/slices/{slice_index}/prediction?variant=…` | SCR-03, SCR-04, SCR-06 | Đúng biến thể đã hỏi, không bao giờ thay ngầm |
 | EP-reconstruction_get | GET `/analysis-runs/{run_id}/reconstruction?source_mask_id=…` | SCR-05 | `mesh_artifact_id` = `MESH_<sha256>`, byte ở `/artifacts/<sha256>.cmesh`; mã và loại mask nguồn, phiên bản hình học, phương pháp |
 | EP-error_reconstruction_get | GET `/analysis-runs/{run_id}/error-reconstruction?prediction_variant=…` | SCR-05 | Chỉ khi có GT; `error_mesh_artifact_id` = `ERRGEOM_<sha256>`, file `cardiac-error-geometry/1` ở `/artifacts/<sha256>.json`: mỗi vùng FN / FP liên thông kèm dải lát và voxel đánh dấu |
-| EP-review_create | POST `/analysis-runs/{run_id}/reviews` | SCR-06 | Thân: `status` (NOT_REVIEWED, ACCEPTED hoặc FLAGGED), `source_mask_id`, `prediction_variant`; nếu đã có review cùng run, nguồn, biến thể thì trả lại nó khi trạng thái hỏi là NOT_REVIEWED hoặc trùng trạng thái hiện tại, còn lại là `INVALID_REVIEW_TRANSITION` |
-| EP-review_patch | PATCH `/reviews/{review_id}` | SCR-06 | Chuyển trạng thái hợp lệ, `expected_revision`, `reason` tuỳ chọn 1–500 ký tự (1.2.0); PATCH sang CORRECTED bị từ chối |
-| EP-review_history_list | GET `/reviews/{review_id}/history` | SCR-06 | Mới thêm ở 1.2.0, chỉ đọc: mỗi lần ghi một dòng, cũ trước (CREATE, TRANSITION kèm lý do, WORKING_SLICE, COMMIT), bí danh và giờ UTC; không có byte mask |
-| EP-working_mask_put | PUT `/reviews/{review_id}/working-mask/slices/{slice_index}` | SCR-06 | Một lát đã sửa, gắn đúng mask nguồn, `expected_revision`, phiên bản và trạng thái hình học; từ chối GT làm nguồn và hình học lệch |
-| EP-review_commit | POST `/reviews/{review_id}/commit` | SCR-06 | Tạo phiên bản reviewed mask mới bất biến (mã, checksum, phiên bản), chuyển sang CORRECTED trong cùng giao dịch |
+| EP-review_create | POST `/analysis-runs/{run_id}/reviews` | SCR-06 | Thân: `status` (NOT_REVIEWED, ACCEPTED hoặc FLAGGED), `source_mask_id`, `prediction_variant`; nếu đã có review cùng run, nguồn, biến thể thì trả lại nó khi trạng thái hỏi là NOT_REVIEWED hoặc trùng trạng thái hiện tại, còn lại là `INVALID_REVIEW_TRANSITION`; trả 201 khi tạo mới, 200 khi trả lại review có sẵn |
+| EP-review_patch | PATCH `/reviews/{review_id}` | SCR-06 | Chuyển trạng thái hợp lệ, `expected_revision`, `reason` tuỳ chọn (1.2.0): null, hoặc 1–500 ký tự không chỉ có dấu cách, được cắt khoảng trắng đầu cuối và lưu cùng lần chuyển (xem ở lịch sử); PATCH sang CORRECTED bị từ chối (`INVALID_REVIEW_TRANSITION`) |
+| EP-review_history_list | GET `/reviews/{review_id}/history` | SCR-06 | Mới thêm ở 1.2.0, chỉ đọc: mỗi lần ghi một dòng, cũ trước (CREATE, TRANSITION kèm lý do, WORKING_SLICE kèm số lát, COMMIT kèm mã phiên bản) với `revision`, `from_status`, `to_status`, bí danh người ghi (null nếu không có) và giờ UTC `at`; trường không áp dụng cho dòng đó là null; không có byte mask hay checksum. SCR-06 đọc khi sheet Review mở |
+| EP-working_mask_put | PUT `/reviews/{review_id}/working-mask/slices/{slice_index}` | SCR-06 | Một lát đã sửa, gắn đúng mask nguồn, `expected_revision`, phiên bản và trạng thái hình học; từ chối GT làm nguồn và hình học lệch; `mask_payload` là PNG_BASE64 hoặc BITPACK_BASE64 (app gửi BITPACK_BASE64); mỗi lần đẩy tăng revision của review một bậc |
+| EP-review_commit | POST `/reviews/{review_id}/commit` | SCR-06 | Tạo phiên bản reviewed mask mới bất biến (mã, checksum, phiên bản), chuyển sang CORRECTED trong cùng giao dịch; hợp lệ từ mọi trạng thái (review đã CORRECTED thì thêm một phiên bản); không có lát đang sửa thì `VALIDATION_ERROR`; các lát đang sửa bị xoá sau khi lưu; trả 201 |
 | EP-reviewed_masks_list | GET `/reviews/{review_id}/reviewed-masks` | SCR-06 | Các phiên bản và nguồn gốc của chúng |
 | EP-reviewed_mask_slice_get | GET `/reviewed-masks/{reviewed_mask_id}/slices/{slice_index}` | SCR-06 | Một lát của một phiên bản, qua địa chỉ theo nội dung |
-| EP-finding_create | POST `/findings` | SCR-08 | Study, thí nghiệm, ca, run, biến thể (bắt buộc khi có run), lát, loại, ghi chú (server nhận tối đa 4000 ký tự), vùng tuỳ chọn |
-| EP-findings_list | GET `/findings` | SCR-01, SCR-08 | Cũ trước; lọc tuỳ chọn `case_id`, `analysis_run_id`, `experiment_id`, `status`, `finding_type` |
+| EP-finding_create | POST `/findings` | SCR-08 | Study, thí nghiệm, ca, run, biến thể (bắt buộc khi có run), lát, loại, ghi chú (server nhận tối đa 4000 ký tự), vùng tuỳ chọn; run phải thuộc ca và thí nghiệm đã nêu; finding mới là OPEN, revision 1 |
+| EP-findings_list | GET `/findings` | SCR-01, SCR-08 | Cũ trước (theo thứ tự tạo; SCR-08 đảo lại để mới nhất trước); SCR-08 không gửi tham số lọc, nó lọc trên điện thoại; lọc tuỳ chọn `case_id`, `analysis_run_id`, `experiment_id`, `status`, `finding_type` |
 | EP-finding_patch | PATCH `/findings/{finding_id}` | SCR-08 | Chỉ sửa `note` và `status` (OPEN / RESOLVED), cần `expected_revision`; bằng chứng giữ nguyên |
 
 ## 3. Mã lỗi (API-02)
@@ -89,4 +90,5 @@ stateDiagram-v2
 ```
 
 Không có review nghĩa là NOT_REVIEWED. "ACCEPTED" là người rà soát của dự án chấp nhận cho nghiên cứu, không phải xác
-nhận lâm sàng.
+nhận lâm sàng. Mỗi lần ghi (đổi trạng thái, đẩy một lát, lưu) tăng `revision` của review một bậc, và `review_history_list`
+liệt kê từng lần.

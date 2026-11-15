@@ -79,7 +79,7 @@ flowchart LR
 | UC-13 | Rà soát dự đoán | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | UC-14 | Sửa mask bằng bút | SCR-06 | Nguyễn Gia Đức Trung | MUST | Đã có |
 | UC-15 | Tạo finding | SCR-06 → SCR-08 | Nguyễn Gia Đức Trung | MUST | Đã có |
-| UC-16 | Mở ca chỉ suy luận | SCR-02 … SCR-06 | Phạm Tuấn Anh | MUST | Một phần: thiếu test rà soát / finding trên ca không GT |
+| UC-16 | Mở ca chỉ suy luận | SCR-02 … SCR-06 | Phạm Tuấn Anh | MUST | Một phần: chưa có test màn hình SCR-06, SCR-08 trên ca không GT |
 | UC-17 | Yêu cầu chạy phân tích mới | — | Cả nhóm | SHOULD | Hướng phát triển |
 | UC-18 | Quản lý finding | SCR-08 | Nguyễn Gia Đức Trung | SHOULD | Đã có |
 
@@ -148,17 +148,21 @@ thật hiện có DINOv2; phần UNet nằm trong *Hướng phát triển*.
 ở SCR-03 với run và biến thể của thí nghiệm đó; đi tiếp tới các lát tệ nhất ở SCR-04.
 
 **UC-13 Rà soát dự đoán.** Tiền điều kiện: run thành công. Luồng chính: mở SCR-06 (chọn biến thể nếu đường dẫn chưa
-có); review bắt đầu ở NOT_REVIEWED; người dùng chấp nhận (Accept) hoặc gắn cờ (Flag, bắt buộc ghi lý do); nút History
-mở dòng thời gian ai, làm gì, lúc nào; có thể tạo finding từ lát đang xem ("New finding here").
+có); review mới bắt đầu ở NOT_REVIEWED, còn run, mask nguồn và biến thể đó đã có review thì mở lại chính nó; chạm thẻ
+trạng thái để mở sheet "Review"; người dùng chấp nhận ("Accept") hoặc gắn cờ ("Flag", bắt buộc ghi lý do 1–500 ký tự, lưu
+cùng lần đổi trạng thái); mục "History" ghi ai (bí danh), làm gì, lúc nào, mới nhất trước; có thể tạo finding từ lát đang
+xem ("New finding here"). Review đã "Accepted" chỉ gắn cờ được, sau khi app hỏi lại; review đã "Corrected" không đổi
+trạng thái nữa.
 
-**UC-14 Sửa mask bằng bút.** Luồng chính: chọn Add hoặc Erase, cỡ bút 1 / 3 / 5 / 7 / 11 px; một ngón vẽ, chế độ Pan
-hoặc ngón thứ hai để di ảnh; Undo / Redo / Reset; giữ "Hold: source" để xem riêng mask gốc; Save tạo một phiên bản mask
-mới bất biến. Quy tắc: dự đoán gốc không bao giờ bị ghi đè; GT không bao giờ là nguồn để sửa. Rời màn hình khi còn nét
-chưa lưu, Reset hay Cancel đều hỏi xác nhận.
+**UC-14 Sửa mask bằng bút.** Luồng chính: chọn "Add" hoặc "Erase", cỡ bút 1 / 3 / 5 / 7 / 11 px (mặc định 5); một ngón
+vẽ, chế độ "Pan" hoặc hai ngón để di và zoom ảnh; "Undo" / "Redo" / "Reset"; giữ "Source" để xem riêng mask nguồn; "Save"
+hỏi "Save correction?" rồi tạo một phiên bản mask mới bất biến ("Saved · version N"). Quy tắc: dự đoán gốc không bao giờ
+bị ghi đè; GT không bao giờ là nguồn để sửa. Rời màn hình khi còn nét chưa lưu, Reset và "Cancel edits" đều hỏi xác nhận.
 
-**UC-15 Tạo finding.** Luồng chính: từ SCR-06 bấm "New finding here"; form ở SCR-08 đã điền ca, run, biến thể, lát;
-người dùng chọn loại (thiếu vùng, thừa vùng, lệch biên, mảnh rời, khác), viết ghi chú (tối đa 500 ký tự, cảnh báo nếu
-giống thông tin cá nhân); lưu. Gắn finding với thí nghiệm, cohort hay một vùng vẽ trên ảnh: *Hướng phát triển*.
+**UC-15 Tạo finding.** Luồng chính: từ SCR-06 bấm "New finding here"; form ở SCR-08 đã điền ca, lát, biến thể và run (thí
+nghiệm lấy từ run); người dùng chọn loại (thiếu vùng, thừa vùng, lệch biên, mảnh rời, khác), viết ghi chú (tối đa 500 ký
+tự, cảnh báo nếu giống thông tin cá nhân, khi đó nút đổi thành "Create anyway"); bấm "Create finding". Tạo finding từ một
+thí nghiệm hay cohort (không qua một ca), hoặc vẽ một vùng trên ảnh: *Hướng phát triển*.
 
 **UC-16 Mở ca chỉ suy luận.** Tiền điều kiện: ca ở chế độ INFERENCE_REVIEW (không có GT). Luồng chính: xem MRI, dự
 đoán, mô hình 3D dự đoán, rà soát và sửa như ca thường; không có lớp GT, Dice / IoU, bản đồ FP / FN, điểm lỗi 3D hay
@@ -174,7 +178,6 @@ xếp hạng độ chính xác. Bảng chế độ:
 **UC-17 Yêu cầu chạy phân tích mới.** Backend có endpoint nhưng luôn trả `RUN_NOT_DEPLOYABLE`; app không có lối vào.
 Thuộc *Hướng phát triển*.
 
-**UC-18 Quản lý finding.** Luồng chính: mở tab Findings; danh sách mới nhất trước, lọc theo trạng thái và loại (có đếm);
-"Open evidence" mở lại đúng ca / lát (hoặc SCR-07 nếu finding chỉ gắn thí nghiệm); "Review / correct" mở SCR-06 của
-run đó; Resolve / Reopen; "Export PDF" in các
-finding đang hiện.
+**UC-18 Quản lý finding.** Luồng chính: mở tab Findings; danh sách mới nhất trước, lọc bằng tab trạng thái và chip loại
+(có đếm); chạm một dòng mở sheet của finding: "Open evidence" mở lại đúng ca / lát (hoặc SCR-07 nếu finding chỉ gắn thí
+nghiệm); "Review / correct" mở SCR-06 của run đó; "Resolve" / "Reopen"; "Export PDF" in các finding đang hiện.

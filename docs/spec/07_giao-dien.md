@@ -1,10 +1,10 @@
 # 07 — Giao diện
 
 Giao diện theo hướng thiết kế A **"Clinical viewer"**: nền gần đen, ảnh MRI là trung tâm, một màu nhấn xanh cho thứ
-đang chọn, đường kẻ 1 dp thay cho khung. Khung app và SCR-02, SCR-03, SCR-04 đã theo hướng này trên `main`; các màn hình
-còn lại đang được làm lại trên nhánh của từng người. Trang này mô tả **thành phần, trạng thái, thao tác và điều hướng**,
-không mô tả màu hay bố cục pixel. Ở khung app và SCR-02, SCR-03, SCR-04, chữ trong ngoặc kép là nhãn đúng như app hiện.
-App chỉ chạy màn hình dọc. Mỗi màn hình có một dòng chừa sẵn cho đường dẫn ảnh chụp cuối cùng (chụp trên APK gộp).
+đang chọn, đường kẻ 1 dp thay cho khung. Khung app và SCR-02, SCR-03, SCR-04 đã theo hướng này trên `main`, SCR-06 và
+SCR-08 trên nhánh V4; các màn hình còn lại đang được làm lại trên nhánh của từng người. Trang này mô tả **thành phần,
+trạng thái, thao tác và điều hướng**, không mô tả màu hay bố cục pixel. Ở khung app và SCR-02, SCR-03, SCR-04, SCR-06,
+SCR-08, chữ trong ngoặc kép là nhãn đúng như app hiện. App chỉ chạy màn hình dọc. Mỗi màn hình có một dòng chừa sẵn cho đường dẫn ảnh chụp cuối cùng (chụp trên APK gộp).
 
 ## 1. Danh sách màn hình và điều hướng
 
@@ -52,7 +52,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 - **Chế độ FIXTURE**: chạm chữ "Fixture" mở bảng "Fixture scenarios" (chạm một endpoint để đổi kịch bản, "All default",
   "Close"); dưới header có banner "Generated contract fixtures: not patient data, not a backend. Tap Fixture to choose
   scenarios."
-- **Khung viewer** (`CHROME.VIEWER`; trên `main` chỉ SCR-03 dùng): ảnh chiếm cả chiều cao, header nổi trên ảnh với một
+- **Khung viewer** (`CHROME.VIEWER`; SCR-03 và SCR-06 dùng): ảnh chiếm cả chiều cao, header nổi trên ảnh với một
   lớp tối phía trên, không có thanh tab. Ở LIVE header này không ghi chữ "Live"; ở FIXTURE vẫn ghi "Fixture" và không
   có banner.
 - **Thanh 4 tab** dưới cùng: Study, Cases, Experiments, Findings, mỗi tab một biểu tượng và tên; tab đang chọn tô màu
@@ -65,8 +65,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   (`SCREEN_CRASHED`).
 - **Lớp che phiên**: sau 5 phút ở nền hoặc 10 phút không chạm, màn hình bị che ("Screen hidden") và phím back không làm
   gì; nút "Show the screen" hiện lại, nút "Clear cached images" xoá cache.
-- **Vùng chạm**: ở thành phần dùng chung, khung app và SCR-02, SCR-03, SCR-04, mọi nút, chip và dòng chạm được cao ít
-  nhất 48 dp (`MIN_TOUCH`); phần nhìn thấy thấp hơn thì vùng chạm được nới thêm (`hitSlopFor`).
+- **Vùng chạm**: ở thành phần dùng chung, khung app và SCR-02, SCR-03, SCR-04, SCR-06, SCR-08, mọi nút, chip và dòng chạm
+  được cao ít nhất 48 dp (`MIN_TOUCH`); phần nhìn thấy thấp hơn thì vùng chạm được nới thêm (`hitSlopFor`).
 
 ## 2. Từng màn hình
 
@@ -193,18 +193,112 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 
 ### SCR-06 — Review / Correction (Nguyễn Gia Đức Trung)
 
-- **Mục đích**: chấp nhận, gắn cờ hoặc sửa mask dự đoán mà không ghi đè bản gốc.
-- **Thành phần**: câu hỏi "Which prediction do you want to review?" khi đường dẫn chưa nêu biến thể (RAW / PROCESSED);
-  trạng thái review và nguồn (mã mask, biến thể); nút Accept và Flag (hộp lý do bắt buộc, bộ đếm ký tự, cảnh báo riêng
-  tư, nút "Flag anyway"); nút ‹ › chuyển lát với nhãn "slice z / tổng" (z đếm từ 0); vùng ảnh: mask nguồn vẽ thành
-  viền, nét sửa trong suốt bên trên, vòng tròn bút ở ngón tay và dòng "Add · 5 px at x, y"; thanh công cụ Brush / Pan, Add / Erase, cỡ bút 1 / 3 / 5 / 7 / 11 px, Undo / Redo / Reset,
-  − / Fit / +; nút giữ "Hold: source"; History; "Cancel edits", Save; "New finding here". Ở FIXTURE, mask thay thế ghi rõ
-  SYNTHETIC.
-- **Trạng thái**: đang lưu / đã lưu ("SAVED"); "Continuing from version …" khi review đã CORRECTED; bản cũ lệch revision
-  → Refresh, không ghi đè; 7 trạng thái chung.
-- **Thao tác**: một ngón vẽ; Pan hoặc ngón thứ hai để di; rời màn hình khi còn nét chưa lưu, Reset, Cancel đều hỏi xác
-  nhận; Save hỏi "Save correction?" rồi tạo phiên bản mới.
-- **Điều hướng**: SCR-08 (form finding đã điền ca, run, biến thể, lát); Back về màn hình trước.
+- **Mục đích**: chấp nhận, gắn cờ hoặc sửa mask dự đoán mà không ghi đè bản gốc. Một review gắn với đúng một run, một mask
+  nguồn và một biến thể (Raw hoặc Processed).
+- **Trước khi xem**: khi đường dẫn không nêu biến thể, màn hình hỏi "Which prediction do you want to review?" ("A review
+  covers one prediction. Choose the one you want to correct; the app never picks one for you.") với hai nút "RAW
+  prediction" và "PROCESSED prediction". Có biến thể thì mở thẳng, ở lát đường dẫn nêu, không thì ở lát giữa. Khi mở, app
+  đọc run, tạo review cho đúng run, mask nguồn và biến thể đó (đã có thì lấy lại chính nó), đọc các phiên bản đã lưu rồi
+  đọc lát. Trong lúc đó header ghi "Opening the review".
+- **Thành phần** (khung viewer như SCR-03: ảnh tràn màn hình, header nổi, không có thanh tab):
+  - Header: Back, mã ca, dòng phụ "Raw prediction" (hoặc "Processed prediction"; không thêm chữ "review" vì "Raw prediction ·
+    review" bị cắt ở 320 dp), chỉ báo "Fixture" khi ở FIXTURE, khiên Privacy mode, nút Info và "more". Header không ghi mã run.
+    Mã ca và dòng phụ nằm một dòng và chỉ phóng tới 1,15 lần, vì bốn nút quanh chúng chiếm chỗ không đổi: "CASE_0011" không còn
+    bị cắt thành "CASE_00…" ở 320 dp và cỡ chữ 1,3.
+  - Góc trái trên: thẻ trạng thái của review ("Not reviewed", "Accepted", "Flagged", "Corrected") kèm mũi tên; chạm mở sheet
+    "Review". Góc phải trên: "Edits" và tình trạng của lát đang xem: "Source" (lát còn bằng mask nguồn), "Unsaved edits",
+    "Saved", hoặc "Source only" khi đang giữ nút Source (hai dòng này và dòng "Add · 5 px" chỉ phóng tới 1,15 lần). Cột công cụ
+    nằm trên panel dưới nên đỉnh cột phụ thuộc chiều cao panel; ở màn hình thấp (320 dp, nơi panel xuống dòng nên cao hơn, hoặc
+    cỡ chữ lớn) cột vươn lên tới góc phải trên, khi đó "Edits" và "Add · 5 px" dừng ở bên trái cột thay vì sát mép phải, nên
+    "Saved" không bị cột che (trước đây ở 320 dp "Saved" chạm đỉnh cột, và ở cỡ chữ 1,3 bị che hẳn). Ở 384 dp chúng vẫn sát mép.
+  - Ảnh: lát MRI; mask nguồn chỉ vẽ thành viền; nét sửa vẽ trong suốt bên trên, tách các lớp: đã lưu (thêm và xoá), chưa lưu
+    thêm, chưa lưu xoá. Mỗi lớp là một path SVG (bốn path tất cả, dù lát có bao nhiêu nét), không phải một hình cho mỗi đoạn hàng:
+    lần đo trên điện thoại cho chi phí vẽ mỗi khung tăng từ 16 lên 39 ms sau 30 nét trên một lát khi mỗi đoạn là một hình riêng; lớp
+    đã lưu không đổi khi đang vẽ nên không bị quét lại ở mỗi lần chạm. Phiên cọ cũng không so sánh lại cả lát ở mỗi lần di ngón:
+    trạng thái của mỗi lát (nguồn, chưa lưu, đã lưu) được giữ tới khi lát bị ghi (một nhát làm đổi pixel, nét bị huỷ, Undo, Redo,
+    Reset, Cancel) hoặc cái nó được so với đổi (một lần Save), nên một lần di ngón chỉ so sánh lát dưới ngón dù đã bước qua bao nhiêu
+    lát. Trước đây mỗi lần di ngón so sánh cả từng lát đã mở (331 776 byte một lát chưa sửa), nên trên điện thoại một nét tốn 39 ms
+    trên lát vừa mở nhưng ~113 ms sau 3 lần bước lát và ~204 ms sau 6 lần (phiên vòng 6). Mỗi nét ghi một dòng `CMW_STROKE` lên
+    logcat (NFR-PERF-003): thời gian từ lúc ngón chạm tới khung đầu tiên có nét, từ mỗi lần di ngón tới khung của nó, khoảng giữa các
+    khung, số nét đã có, số lát đang mở và số đoạn hàng đang vẽ; không có mã ca, mã run, toạ độ hay pixel. `mobile/scripts/stroke-timing-report.mjs` đọc dòng đó trên
+    máy tính. Chú giải ở góc dưới trái ghi bằng chữ "Source edge", "Saved", "Added", "Erased", nên không chỉ dựa
+    vào màu. Khi một ngón đang vẽ, vòng tròn bút hiện quanh pixel nguồn dưới ngón, rộng bằng một nhát bút, kèm dòng "Add ·
+    5 px" hoặc "Erase · 5 px".
+  - Dòng thông báo ngắn, trên chú giải: kết quả của thao tác vừa làm ("Saved · version 1", "Review marked Accepted.", "Back to
+    the original prediction.", "Unsaved changes discarded.") hoặc lý do một nút đang tắt. Chạm vào để tắt nó. Thông báo
+    thành công tự mất sau 4 giây; thông báo từ chối ở lại tới khi chạm.
+  - Cột công cụ bên phải: "Add", "Erase", "Pan", "Source" (nhấn giữ), rồi "Undo" và "Redo". Tên công cụ nằm trên một dòng, rộng
+    bằng nút 48 dp và chỉ phóng tới 1,15 lần, nên "Pan" không bị cắt thành "Pa" ở 320 dp.
+  - Panel dưới: hàng đầu có nút lát trước, "Slice 45 / 88" (đếm từ 1), nút lát sau, "Reset" và "Save" ("Saving…" khi đang
+    lưu). Hàng hai có "Brush size" và "1 px", "3 px", "5 px", "7 px", "11 px" (mặc định 5 px; số này là bề ngang một nhát
+    bút, tính bằng pixel nguồn). Mỗi hàng tự xuống dòng khi không đủ chỗ (màn hình 320 dp, hoặc cỡ chữ lớn): "Reset" và
+    "Save" xuống một dòng riêng ở bên phải, "1 px" … "11 px" xuống dưới chữ "Brush size", nên không nút nào bị đẩy ra khỏi mép
+    (trước đây "Save" chỉ còn thấy "Sa" ở 320 dp). Panel cao bằng các hàng của nó (137 dp khi không hàng nào xuống dòng) và
+    tự báo chiều cao đo được; ảnh và cột công cụ được đặt phía trên chiều cao đó.
+  - Sheet "Review" (chạm thẻ trạng thái hoặc nút "more"): hàng "Status"; nút "Accept", "Flag", "Not reviewed" và một dòng chữ
+    nói vì sao nút đang tắt; hộp lý do của Flag; mục "History"; mục "Edits and view" với "Cancel edits", thu nhỏ, "Fit",
+    phóng to; nút "New finding here".
+  - Hộp lý do của Flag: "Why flag this prediction?", ô nhập "What is wrong on the image, and where (required)", bộ đếm
+    "n / 500", cảnh báo riêng tư, nút "Cancel" và "Flag with this reason" (đổi thành "Flag anyway" khi lý do có cảnh báo).
+  - "History": mỗi lần ghi một dòng, mới nhất trước. Dòng ghi việc đã làm ("Review opened", "Flagged (was not reviewed)",
+    "Saved correction, slice 45", "Uploaded slice 45, not saved yet"), giờ UTC ngắn ("1 Oct 09:05 UTC"), "Reason: …" nếu có
+    và bí danh người ghi. Mục này chỉ đọc từ server khi sheet đang mở.
+  - Sheet Details (nút Info): "This review" (mã review, "Status … (revision n)", dự đoán, mã mask nguồn), "Where" (ca, run,
+    thí nghiệm, "Slice 45 / 88 · z 44"), "Versions" (phiên bản mới nhất, mask nguồn và checksum của nó, số phiên bản,
+    phiên bản mà nét sửa đang nối tiếp), "History, in full" (revision, giờ UTC đầy đủ, bí danh, việc đã làm, mã phiên bản,
+    lý do), rồi "Privacy" (Privacy mode đang bật hay tắt, và vì sao). Mã, revision, checksum và `z` chỉ nằm ở đây.
+- **Luật trạng thái**: từ "Not reviewed" chọn được "Accept" hoặc "Flag". Từ "Accepted" chỉ còn "Flag", và app hỏi "Flag?"
+  trước ("This review was Accepted. Flagging it keeps the earlier decision in the review history."). "Not reviewed" không
+  bao giờ chọn được. "Corrected" không có nút: chỉ Save đưa tới đó, từ bất kỳ trạng thái nào. Review đã "Corrected" thì
+  trạng thái không đổi nữa ("A corrected review is final: its status does not change."); Save chỉ thêm phiên bản. "Flag"
+  cần lý do 1–500 ký tự và gửi lý do cùng lần đổi. "Accept" không gửi lý do.
+- **Trạng thái**: 7 trạng thái chung, và thêm:
+  - Chưa mở được (run chưa thành công; run trả về không phải run hay ca mà đường dẫn nêu; run không có mask của biến thể đó;
+    không tạo hoặc không đọc được review): bảng trạng thái thay cả màn hình, header ghi "Review not available".
+  - Lát đang tải ghi "Loading slice…". Lát không vẽ được thì nói lý do bằng lời, kèm "Retry slice" khi thử lại có ích; lát
+    đó không sửa được và các nút sửa mờ đi. Các lý do: app không có bộ giải mã mask; mask server gửi không qua kiểm; server
+    gửi biến thể khác, hoặc lát của mask khác với mask nguồn của review; không tải được; review đã "Corrected" mà lát của
+    phiên bản mới nhất không tải được.
+  - Ảnh MRI không tải được: mask vẫn vẽ trên nền tối, kèm dòng "The MRI image could not be loaded; the masks are drawn on a
+    dark background.".
+  - Một lần ghi thất bại: bảng trạng thái nhỏ hiện trên ảnh (bản cũ: "Version mismatch" với "Refresh"; mất kết nối:
+    "Something went wrong" với "Retry"). Nét chưa lưu còn nguyên. Save tắt tới khi tải lại review ("Nothing can be saved
+    until the review is refreshed.").
+  - Tải lại mà người khác đã lưu phiên bản mới hơn, còn trên máy có nét chưa lưu: app không bỏ nét đó. Nó báo "Another
+    reviewer saved a newer version, and your edits continue from an older one. Cancel the edits, then Refresh to continue
+    from the newest version." và từ chối Save.
+  - Điều khiển đang tắt có lý do bằng lời, đọc qua accessibility hint. Chạm vào thì lý do hiện thành dòng thông báo trên ảnh
+    ("Nothing to undo.", "No unsaved edits to save.", "This is the last slice.", "The slice is still loading.", …).
+- **Chế độ FIXTURE**: không có điểm ảnh nào sau địa chỉ nội dung, nên app vẽ một mảng thay thế và ghi "Synthetic stand-in:
+  fixture mode has no pixels. Not a prediction, not patient data.". Câu hỏi Save thêm dòng "Fixture mode: the mask is a
+  stand-in, not a prediction.". Mảng đó không bao giờ được gửi tới backend thật.
+- **Thao tác**:
+  - Vẽ: chọn "Add" hoặc "Erase", một ngón vẽ. Mỗi nhát từ lúc chạm tới lúc nhấc là một bước Undo. Nếu ngón thứ hai chạm
+    xuống, hoặc hệ thống lấy lại cử chỉ, nhát đó bị huỷ như chưa vẽ; chỉ nhấc ngón bình thường mới giữ nhát. Cử chỉ vẽ
+    không bao giờ đổi lát hay rời màn hình.
+  - Xem: "Pan" cho một ngón di ảnh. Hai ngón luôn zoom và di (từ một phần tư tới 16 lần mức vừa khung). Sheet "Review" có
+    thu nhỏ, "Fit" và phóng to. Giữ "Source" thì thấy riêng mask nguồn (tô đặc, nét sửa tạm ẩn, không vẽ được); nhả ra thì
+    nét sửa về lại.
+  - "Undo" và "Redo". "Reset" hỏi "Reset to the source?" rồi đưa mọi lát đang mở về mask nguồn và xoá Undo / Redo. Với review
+    đã "Corrected", Reset về dự đoán gốc chứ không về bản đã lưu, và câu hỏi nói rõ như vậy. "Cancel edits" hỏi "Discard
+    unsaved edits?" rồi về lần lưu gần nhất (chưa lưu lần nào thì về mask nguồn).
+  - "Save" hỏi "Save correction?" (nút "Cancel" và "Save") bằng chữ, không có mã: đổi trạng thái ("Flagged → Corrected"), các
+    lát sẽ lưu ("Slice 45"), "The source prediction is never changed."; khi review đang "Accepted" có thêm "The earlier
+    decision stays in the review history.".
+  - Đồng ý lưu thì app gửi từng lát đã sửa rồi lưu một lần. Xong thì ghi "Saved · version N" (N là số phiên bản đã lưu của
+    review); thẻ trạng thái thành "Corrected", lát thành "Saved"; Undo và Redo trống (nét đã lưu không còn là bước để hoàn
+    tác); zoom và vị trí ảnh giữ nguyên.
+  - Review đã "Corrected" thì nét sửa nối tiếp từ phiên bản mới nhất. Save thêm một phiên bản; phiên bản cũ giữ nguyên.
+  - Rời màn hình khi còn nét chưa lưu (Back, phím back của Android, đổi tab, mở màn hình khác): sheet "Unsaved edits" ghi
+    "Slice 45 has unsaved edits; leaving this screen discards them." và "Leave anyway?", với "Stay" và "Discard and leave".
+    Đóng sheet bằng nút đóng, phím back hay chạm ra ngoài đều là "Stay". "Clear cached images" bị từ chối khi còn nét chưa lưu.
+- **Điều hướng**: "New finding here" mở SCR-08 với form đã điền ca, lát, thí nghiệm của run và biến thể (còn nét chưa lưu thì
+  app hỏi "Unsaved edits" trước). Back từ SCR-08 mở lại SCR-06 ở đúng biến thể và lát đó. Back về màn hình trước.
+- **Riêng tư**: SCR-06 hiện ảnh MRI và mask nên có Privacy mode như SCR-03 và SCR-04: bật mặc định, khiên trên header
+  ("Privacy mode: ON" hoặc "OFF", chạm để đổi), chụp, quay và chiếu màn hình ra màu đen, ảnh xem trước trong danh sách app
+  gần đây bị ẩn; rời màn hình thì bỏ chặn. Lựa chọn được nhớ trong phiên và dùng chung với SCR-03 và SCR-04 (tắt ở một màn
+  thì màn kia mở ra cũng tắt). APK chưa có `expo-screen-capture` thì khiên ghi "Privacy mode: not available in this build"
+  và không bao giờ nói là đã chặn. Chế độ có từ lúc màn hình mở, kể cả khi còn đang hỏi biến thể hay chưa mở được review.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-06.png` (chưa có).
 
 ### SCR-07 — Experiment Comparison (Bế Quốc Khánh)
@@ -226,13 +320,49 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 ### SCR-08 — Findings (Nguyễn Gia Đức Trung)
 
 - **Mục đích**: ghi và quản lý phát hiện gắn bằng chứng.
-- **Thành phần**: khi mở từ SCR-06: form tạo finding (loại, ghi chú tối đa 500 ký tự với bộ đếm và cảnh báo riêng tư,
-  nút "Create anyway"); danh sách mới nhất trước ("n of m shown · newest first") với ca, lát, run, biến thể, loại, trạng
-  thái; chip lọc trạng thái và loại có đếm; mỗi finding có "Open evidence", Resolve / Reopen, "Review / correct" (khi có
-  run); nút "Export PDF".
-- **Trạng thái**: 7 trạng thái chung; APK chưa có `expo-print` thì nút PDF tắt và nói rõ.
-- **Thao tác**: tạo, lọc, đánh dấu đã xử lý / mở lại, mở bằng chứng, xuất PDF.
-- **Điều hướng**: SCR-03 (bằng chứng ca / lát), SCR-07 (finding chỉ gắn thí nghiệm), SCR-06.
+- **Thành phần** (header thường, tiêu đề "Findings", có thanh tab; khi mở từ SCR-06, dòng phụ ghi "CASE_0029 · Slice 45"):
+  - Form "New finding", chỉ khi đường dẫn mang ca và lát (ví dụ từ "New finding here" của SCR-06): dòng nói ở đâu ("CASE_0029 ·
+    Slice 45 · DINOv2 100 % · Raw": ca, lát đếm từ 1, thí nghiệm theo nhãn, dự đoán), năm chip loại ("Under-segmentation",
+    "Over-segmentation", "Boundary disagreement", "Disconnected artifact", "Other"), ô ghi chú ("Note: what you see on the
+    image, and where"), bộ đếm "n / 500" kèm cảnh báo riêng tư, nút "Create finding" (đổi thành "Create anyway" khi ghi
+    chú có cảnh báo). Nếu đường dẫn có run mà không có biến thể thì form hỏi "Which prediction was on screen?" (RAW /
+    PROCESSED) trước khi tạo.
+  - Danh sách: các tab "All n", "Open n", "Resolved n"; hàng chip "All types" và năm loại, mỗi chip có số đếm trên cả
+    danh sách; dòng "n of m shown · newest first" và nút "Export PDF", dưới đó là một dòng ghi chú ("The PDF lists the
+    findings shown: case IDs, slices, types and notes, no image."). Mỗi finding một dòng: loại, thẻ trạng thái ("Open" nổi
+    bật, "Resolved" nhạt), dòng ca · lát · thí nghiệm · dự đoán, hai dòng đầu của ghi chú; dấu cảnh báo khi bản ghi server
+    trả về có chỗ không hợp lệ.
+  - Chạm một dòng mở sheet của finding: thẻ trạng thái, dòng nói ở đâu, cả ghi chú ("No note." nếu rỗng), nút "Open
+    evidence", "Review / correct" (chỉ khi finding có run), "Resolve" hoặc "Reopen"; cuối sheet là mục "Details" ghi mọi mã:
+    "Finding …", "Case …", "Slice 45", "Run …", "Prediction RAW", "Experiment …", vùng, "Study …", "Revision n".
+  - Trên trang chính chỉ có mã ca. Mã run, thí nghiệm và finding chỉ ở mục "Details"; thí nghiệm được gọi bằng nhãn
+    ("DINOv2 100 %", "UNet 25 %", "DINOv2 100 % post-processed"), mã không có nhãn thì bỏ; lát đếm từ 1 và `z` không hiện.
+- **Trạng thái**: 7 trạng thái chung cho danh sách, và thêm:
+  - Danh sách rỗng ghi "No findings yet." kèm "Open a slice in Review / Correction and tap New finding here."; có lọc mà
+    không khớp thì ghi "No finding matches these filters.".
+  - Tạo hay đổi trạng thái thất bại: một bảng trạng thái nhỏ hiện trên danh sách, danh sách giữ nguyên. Với bản cũ, bảng có
+    "Refresh"; bấm thì danh sách được đọc lại và bảng mất.
+  - Ghi chú quá 500 ký tự ("Too long: n of at most 500 characters.") thì không tạo được.
+  - Finding không có `revision`: "Resolve" tắt, kèm "The server sent no version of this finding, so its status cannot be
+    changed here.".
+  - Finding không ghi ca và lát, cũng không ghi thí nghiệm: "Open evidence" tắt, kèm "This finding records no case and
+    slice, so there is no evidence to open.".
+  - APK chưa có `expo-print`: "Export PDF" tắt, kèm "PDF export is not available in this version of the app.".
+- **Thao tác**:
+  - Tạo: chọn loại, gõ ghi chú, "Create finding". App ghi "Finding created."; form về trống, finding mới nằm đầu danh sách.
+  - Lọc: chạm tab và chip (một trạng thái và một loại cùng lúc). Chạm một dòng để mở sheet của finding.
+  - Trong sheet: "Open evidence"; "Review / correct"; "Resolve" và "Reopen" (app ghi "Finding resolved." hoặc "Finding
+    reopened.").
+  - "Export PDF" mở hộp thoại in của Android; chọn "Save as PDF" để giữ file. File gồm các finding đang hiện: một bảng
+    "Type", "Status", "Evidence" (ca, lát, run, biến thể, thí nghiệm, vùng), "Note", và dòng "Research use only, not for
+    diagnosis. Case IDs are pseudonymous; this report holds no image and no patient identifier.". Mọi ghi chú được escape
+    HTML; app không giữ bản sao. Sau khi mở hộp thoại, app ghi "n findings sent to the print dialog. Choose "Save as PDF" to
+    keep a file."; nếu in không xong thì ghi "PDF export did not finish: …".
+- **Điều hướng**: "Open evidence" mở SCR-03 tại ca, lát, run, biến thể và vùng mà finding ghi, chỉ những thứ đó, không đoán;
+  finding chỉ gắn thí nghiệm thì mở SCR-07. "Review / correct" mở SCR-06 của run, ở lát đó (kèm biến thể nếu finding ghi,
+  không thì SCR-06 hỏi). Mở từ SCR-06 thì Back về SCR-06.
+- **Riêng tư**: SCR-08 không hiện ảnh MRI hay mask nào (danh sách, sheet của finding và file PDF chỉ có chữ), nên không có
+  Privacy mode và header không có khiên. Các màn hình hiện ảnh mà SCR-08 mở ra (SCR-03, SCR-06) có chế độ riêng.
 - Ảnh chụp màn hình: `docs/figures/screens/SCR-08.png` (chưa có).
 
 ### SCR-09 — Trạng thái lượt chạy phân tích
