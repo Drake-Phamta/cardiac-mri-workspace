@@ -930,6 +930,15 @@ function noRunBackend() {
   check('C2', ['TP', 'FP', 'FN'].every((k) => chip(k) && /^[A-Z]{2} \d+ px$/.test(textOf(chip(k))) && chip(k).props.accessibilityState.checked === true)
     && swatchOf('FP').length === 1 && swatchOf('TP').length === 0 && swatchOf('FN').length === 0,
   `the legend as chips over the image, with counts; only FP's swatch is dashed (${['TP', 'FP', 'FN'].map((k) => textOf(chip(k))).join(', ')})`);
+  // The chip is as wide as its text (device session r5: "TP 546 px" showed as "TP 546"): the label is one string on one line, with
+  // no width, no stretch and no font-scale cap (those are for a label in a fixed cell, such as a tool button), and neither has the chip.
+  {
+    const label = (k) => chip(k).findAll((n) => n.type === 'Text')[0];
+    const sized = (n) => { const st = flat(n.props.style); return st.width !== undefined || st.maxWidth !== undefined || st.minWidth !== undefined || st.alignSelf === 'stretch'; };
+    check('RP-V1e', ['TP', 'FP', 'FN'].every((k) => typeof label(k).props.children === 'string' && /^[A-Z]{2} \d+ px$/.test(label(k).props.children)
+      && label(k).props.maxFontSizeMultiplier === undefined && !sized(label(k)) && !sized(chip(k))),
+    `SCR-04 class chips: the label is one whole string (${['TP', 'FP', 'FN'].map((k) => label(k).props.children).join(', ')}), sized by its text, not by a fixed cell`);
+  }
   await press(r, 'Outline');
   check('O2', paths().length === 0 && outlines().length === 3, 'Outline: the three class edges only, the MRI shows through');
   await press(r, 'Both');

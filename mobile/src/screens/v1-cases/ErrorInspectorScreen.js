@@ -460,7 +460,8 @@ function ClassChip({ k, count, on, onPress }) {
     >
       <Eye size={18} color={color.t2} />
       <View style={[s.chipSwatch, { borderColor: c.color, backgroundColor: c.dashed ? 'transparent' : c.color }, c.dashed && s.swatchDashed, !on && s.swatchOff]} />
-      <Text style={[s.chipT, !on && s.chipTOff]}>{k}{count !== null ? ` ${count} px` : ''}</Text>
+      {/* One string, sized to its own text: the chip is as wide as "TP 546 px" and no fixed width or stretch can cut it. */}
+      <Text style={[s.chipT, !on && s.chipTOff]} numberOfLines={1}>{`${k}${count !== null ? ` ${count} px` : ''}`}</Text>
     </TouchableOpacity>
   );
 }
