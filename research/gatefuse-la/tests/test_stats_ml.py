@@ -89,4 +89,42 @@ def test_main_compares_ip_test_and_cv(make_scores, tmp_path):
     assert res.n_vols.dtype.kind == "i"                       # the missing "full" comparisons leave no floats
     assert dice.loc["cv_dice", "ci_width"] < dice.loc["ip_dice", "ci_width"]
     assert (pd.read_csv(tmp_path / "out" / "cv_coverage.csv").n_vols == 16).all()
+    folds = pd.read_csv(tmp_path / "out" / "cv_folds.csv")
+    assert len(folds) == 10 and (folds.n_vols == 16).all() and folds.dice.between(0.8, 1.0).all()
     assert (tmp_path / "out" / "ci_width.png").exists()
+
+
+def fold_scores(make_scores, seeds=(0,)):
+    """Three folds of 4 volumes, GateFuse 0.03 above U-Net, fold k 0.01 k above fold 0, and runs to ignore."""
+    base = np.array([0.80, 0.82, 0.84, 0.86])
+    parts = []
+    for model, shift in (("gate", 0.03), ("unet", 0.0)):
+        for k in range(3):
+            vols = [f"cv{i:02d}" for i in range(4 * k, 4 * k + 4)]
+            parts.append(make_scores(base + shift + 0.01 * k, seeds=seeds, vols=vols, model=model, source="runs_ml",
+                                     split_set=f"fold{k}_few"))
+    parts.append(make_scores(np.full(4, 0.5), model="gate", width=32, split_set="fold0_few"))      # not the IP recipe
+    parts.append(make_scores(np.full(20, 0.9), model="gate"))                                # the IP split: no fold
+    return pd.concat(parts, ignore_index=True)
+
+
+def test_cv_folds_gives_the_mean_of_every_model_and_fold(make_scores):
+    folds = S.cv_folds(fold_scores(make_scores))
+    assert list(folds.columns) == ["model", "split_set", "n_vols", "n_seeds", "dice", "hd95", "n_train_vols", "iters"]
+    assert list(folds.model) == ["gate"] * 3 + ["unet"] * 3
+    assert list(folds.split_set) == ["fold0_few", "fold1_few", "fold2_few"] * 2
+    assert (folds.n_vols == 4).all() and (folds.n_seeds == 1).all() and (folds.n_train_vols == 8).all()
+    assert (folds.iters == 2000).all()
+    assert folds.dice.tolist() == pytest.approx([0.83 + shift + 0.01 * k for shift in (0.03, 0.0) for k in range(3)])
+    assert folds.hd95.tolist() == pytest.approx((20 * (1 - folds.dice)).tolist())
+
+
+def test_cv_folds_scores_a_volume_as_the_mean_over_its_seeds(make_scores):
+    folds = S.cv_folds(fold_scores(make_scores, seeds=(0, 1, 2)))
+    assert (folds.n_seeds == 3).all() and (folds.n_vols == 4).all()
+    assert folds.dice.tolist() == pytest.approx([0.831 + shift + 0.01 * k for shift in (0.03, 0.0) for k in range(3)])
+
+
+def test_cv_folds_is_empty_without_fold_runs(make_scores):
+    folds = S.cv_folds(make_scores(np.full(20, 0.9), model="gate"))
+    assert folds.empty and "dice" in folds.columns

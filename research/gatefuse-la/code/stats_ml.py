@@ -18,6 +18,7 @@ test volumes? Output in --out (default LA_WORK/analysis/stats_ml/):
 
   comparisons.csv   GateFuse vs U-Net, IP test and CV, 8 and full labels, Dice and HD95
   cv_coverage.csv   out-of-fold volumes per CV arm and fold (80 when all folds are done)
+  cv_folds.csv      mean Dice and HD95 of every model and fold (the 16 volumes that fold tests)
   ci_width.png      the CIs side by side
 
   python code/stats_ml.py --scores LA_WORK/analysis/evaluate_ml/per_case.csv
@@ -184,6 +185,22 @@ def cv_coverage(scores: pd.DataFrame) -> pd.DataFrame:
     return cv.groupby(["model", "split_set"]).agg(n_vols=("vol", "nunique"), n_seeds=("seed", "nunique")).reset_index()
 
 
+def cv_folds(scores: pd.DataFrame) -> pd.DataFrame:
+    """Mean Dice and HD95 of each fold run set (IP recipe): one row per model and split_set (fold3_full, ...),
+    over the volumes that fold tests, one score per volume = the mean over seeds."""
+    cols = ["model", "split_set", "n_vols", "n_seeds", "dice", "hd95", "n_train_vols", "iters"]
+    scores = with_arm(scores, cv_arm)
+    scores = scores[scores.split_set.str.startswith("fold")]
+    if scores.empty:
+        return pd.DataFrame(columns=cols)
+    per_vol = scores.groupby(["model", "split_set", "vol"])[["dice", "hd95"]].mean().reset_index()
+    means = per_vol.groupby(["model", "split_set"]).agg(n_vols=("vol", "size"), dice=("dice", "mean"),
+                                                        hd95=("hd95", "mean"))
+    runs = scores.groupby(["model", "split_set"]).agg(n_seeds=("seed", "nunique"),
+                                                      n_train_vols=("n_train_vols", "first"), iters=("iters", "first"))
+    return means.join(runs).reset_index()[cols]
+
+
 def plot_ci_width(res: pd.DataFrame, out: Path):
     res = res[res.metric == "dice"]
     if res.empty:
@@ -222,6 +239,10 @@ def main(argv=None):
         print("no CV runs scored yet: only the IP test comparisons")
     else:
         print(cov.to_string(index=False))
+    folds = cv_folds(scores)
+    folds.to_csv(out / "cv_folds.csv", index=False)
+    if len(folds):
+        print(folds.round(4).to_string(index=False))
     res = cv_comparisons(scores)
     res.to_csv(out / "comparisons.csv", index=False)
     if len(res):
