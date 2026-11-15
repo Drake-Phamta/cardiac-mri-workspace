@@ -37,7 +37,6 @@ nghiệm thu.
 | TC-USAB-001 | Luồng chính làm được bằng cảm ứng trên thiết bị mục tiêu | render smoke + điện thoại | Phạm Tuấn Anh | Một phần: chưa ghi phiên trên APK gộp |
 | TC-USAB-003 | Trạng thái thiếu GT dễ hiểu, không trông như lỗi bằng 0 | stateCopy, render smoke, v1_error + điện thoại | Phạm Tuấn Anh | Đã có |
 | TC-USAB-004 | Nút chính đạt kích thước chạm tối thiểu | touch_targets, render smoke + điện thoại | Phạm Tuấn Anh | Một phần: SCR-01, SCR-05 – SCR-08 chưa được đo trên `main` |
-| TC-USAB-006 | Không chữ nào bị cắt, không số nào xuống dòng ở 320 / 384 / 480 dp và cỡ chữ 1,3 | render smoke (thuộc tính bố cục) + điện thoại | Phạm Tuấn Anh | Một phần: khung app, SCR-02 – SCR-04 đã sửa, chờ phiên điện thoại kiểm lại và các nhánh còn lại |
 | TC-PERF-001 | 30 bước chuyển lát đã cache p95 ≤ 200 ms, không tải cả khối | v1, render smoke + điện thoại | Phạm Tuấn Anh | Một phần: chờ đo trên APK gộp |
 | TC-MAINT-001 | Bản đồ sở hữu thể hiện ranh giới module | registry | Phạm Tuấn Anh | Đã có |
 | TC-AUDIT-001 | `tools/trace_check.py`: ID đặc tả = ID ma trận, MUST "Đã có" có test, tham chiếu tồn tại | test_trace_check | Phạm Tuấn Anh | Đã có |
@@ -86,6 +85,7 @@ nghiệm thu.
 | TC-MAINT-003 | Module quan trọng có test đăng ký trong CI | registry | Cả nhóm | Đã có |
 | TC-E2E-001 | Luồng demo MRI → dự đoán → lỗi → 3D → liên kết → rà soát / sửa → bản đã lưu, trên main | hero_flow_api, render smoke + điện thoại | Cả nhóm | Một phần: chưa chạy trên điện thoại với bản gộp |
 | TC-USAB-005 | Luồng demo chạy 5 lần liền trên thiết bị / bản build mục tiêu | + điện thoại | Cả nhóm | Chưa có |
+| TC-USAB-006 | Không chữ nào bị cắt, không số nào xuống dòng ở 320 / 384 / 480 dp và cỡ chữ 1,3 | render smoke (thuộc tính bố cục) + điện thoại | Phạm Tuấn Anh | Một phần: khung app, SCR-02 – SCR-04 đã sửa, chờ phiên điện thoại kiểm lại và các nhánh còn lại |
 | TC-PERF-004 | Yêu cầu bất đồng bộ đạt NFR-PERF-004 | — | Cả nhóm | Hướng phát triển |
 | TC-AN-001 | Vòng đời lượt chạy phân tích | — | Cả nhóm | Hướng phát triển |
 | TC-METRIC-001 | HD95 kiểm theo fixture khoảng cách bề mặt | — | Bế Quốc Khánh | Hướng phát triển |

@@ -133,10 +133,10 @@ const { decodeMaskPng } = await imp('src/lib/maskPng.js');
 const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
-const { flat, shortTouchables } = await imp('test/render/touch_measure.mjs');
+const { shortTouchables } = await imp('test/render/touch_measure.mjs');
 const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
-const { experimentName } = await imp('src/screens/v1-cases/cases.mjs');
 
+const { flat } = await imp('test/render/touch_measure.mjs');
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
 
@@ -290,6 +290,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
 {
   // z 45's slice metrics are not ingested: its cached "unavailable" answer must
   // outlive a Retry and a refresh of other slices (L9, #78 QA N-4).
+  const { experimentName } = await imp('src/screens/v1-cases/cases.mjs');
   const { fetchImpl, requests, mriPng, setFailSlice } = fakeBackend({ metricsMissingAt: [45] });
   const runtime = liveRuntime(fetchImpl);
   const nav = ctxNav();
