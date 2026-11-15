@@ -67,7 +67,7 @@ thích ở [00_tong-quan.md](00_tong-quan.md) mục 6; mã và test chứng minh
 | PR-3D-05 | Khi có GT, mô hình 3D hiện lỗi và chỉ ra các lát gây lỗi | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | PR-ERR-03 | Biểu diễn lỗi phân vùng trên 3D, nối với bằng chứng 2D | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | PR-SCI-02 | Không hiện thể tích hay khoảng cách thật (mm, mL) khi hình học chưa kiểm định | SCR-05, SCR-07 | Vũ Hùng Anh | MUST | Đã có |
-| FR-3D-001 | Dựng bề mặt 3D (lưới L0 `cardiac-mesh/1` gồm các mặt voxel, không giảm tam giác) cho mỗi mask dự đoán RAW / PROCESSED và mỗi GT của ca có GT bằng bước ngoại tuyến `python -m backend.mesh.build_cache`; bước này cũng dựng file hình học lỗi (cần scipy); ghi một lần, không ghi đè | Backend | Vũ Hùng Anh | MUST | Đã có |
+| FR-3D-001 | Dựng bề mặt 3D (lưới L0 `cardiac-mesh/1` gồm các mặt voxel, không giảm tam giác) cho mỗi mask dự đoán RAW / PROCESSED và mỗi GT của ca có GT bằng bước ngoại tuyến `python -m backend.mesh.build_cache`; bước này cũng dựng file hình học lỗi (cần scipy); ghi một lần, không ghi đè: file có sẵn mà không khớp (lưới khác, hoặc file lỗi nêu bề mặt khác lưới hiện tại) là `CHECKSUM_CONFLICT`, không bị giữ lặng lẽ | Backend | Vũ Hùng Anh | MUST | Đã có |
 | FR-3D-002 | Một ngón kéo để xoay; hai ngón chụm để zoom (từ 0,35 đến 8 lần góc nhìn mặc định) và di | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | FR-3D-003 | Lát 2D k ánh xạ sang tấm z = k đến z = k + 1 của hệ chỉ số voxel (quy tắc làm tròn xuống của hợp đồng hình học); dải lát đứng yên đúng chỗ khi xoay / zoom | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
 | FR-3D-004 | Mở SCR-05 từ một lát thì lát đó hiện thành dải; lát chọn trong 3D thay dải đó | SCR-05 | Vũ Hùng Anh | MUST | Đã có |
