@@ -506,9 +506,10 @@ export function variantLabel(variant) {
 }
 
 /*
- * An experiment as people name it: "DINOv2 100 % · Raw". The id (EXP-D-100) is for the picker's second line and the
- * Details sheet. The names are the experiment matrix of spec 08 section 2 (the same table SCR-01 reads, kept here
- * because screen folders do not import each other); an id outside it is shown as it is.
+ * An experiment as people name it: "DINOv2 100 %", or with its variant "DINOv2 100 % · Raw". The id (EXP-D-100) belongs
+ * in the Details sheet only: no app bar, picker or list row shows it. The names are the experiment matrix of spec 08
+ * section 2 (the same table SCR-01 reads, kept here because screen folders do not import each other); an id outside
+ * it is shown as it is, because it is all there is.
  */
 const EXPERIMENT_NAMES = Object.freeze({
   'EXP-U-025': Object.freeze({ family: 'UNet', fractionPct: 25, lane: 'RAW' }),
@@ -524,13 +525,14 @@ const namedExperiment = (experimentId) => (
   typeof experimentId === 'string' && Object.prototype.hasOwnProperty.call(EXPERIMENT_NAMES, experimentId)
     ? EXPERIMENT_NAMES[experimentId] : null);
 
-// True when experimentLabel() could replace the id with a name, so the picker shows the id as a second line.
-export const hasExperimentName = (experimentId) => namedExperiment(experimentId) !== null;
+// "DINOv2 100 %": the experiment's name without a variant, for a place where the variant is shown beside it (SCR-03's app bar).
+export function experimentName(experimentId) {
+  const named = namedExperiment(experimentId);
+  return named ? `${named.family} ${named.fractionPct} %` : String(experimentId);
+}
 
 export function experimentLabel(experimentId, variant = null) {
-  const named = namedExperiment(experimentId);
-  const what = named ? `${named.family} ${named.fractionPct} %` : String(experimentId);
-  return `${what} · ${variant ? variantLabel(variant) : 'variant not stated'}`;
+  return `${experimentName(experimentId)} · ${variant ? variantLabel(variant) : 'variant not stated'}`;
 }
 
 /*
@@ -548,13 +550,15 @@ export function defaultExperimentCandidates(choices) {
   return Object.freeze([...dino, ...list.map((e) => e.experimentId).filter((id) => !dino.includes(id))]);
 }
 
-// The viewer's subtitle under the case id: "DINOv2 · EXP-D-100", or what is known so far.
+// The viewer's subtitle under the case id: the run's experiment as people name it ("DINOv2 100 %"), never its id. The
+// name needs only the run's experiment, so it shows before the run's details have loaded. The variant is not in it: the
+// panel under the image names it and switches it. A run that names no experiment: what is known so far.
 export function runSubtitle(run, modelFamily = null, { loading = false, error = null } = {}) {
   if (!run || !run.runId) return null;
+  if (run.experimentId) return experimentName(run.experimentId);
   if (loading) return 'Loading the run…';
   if (error) return `Run ${run.runId}`;
-  const parts = [familyName(modelFamily), run.experimentId || null].filter(Boolean);
-  return parts.length ? parts.join(' · ') : `Run ${run.runId}`;
+  return familyName(modelFamily) || `Run ${run.runId}`;
 }
 
 // The run line: run, model / experiment, precomputed or new. While analysis_run_get is loading or after it failed,

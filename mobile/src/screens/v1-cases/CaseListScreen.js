@@ -2,8 +2,8 @@
  * SCR-02 Case List, Direction A: a search field, filter tabs with counts, the "Dice of" experiment picker and the
  * Server / Worst first order, then dense 52 dp rows (id, outlier tag, Dice bar, value). It opens on an experiment:
  * DINOv2 at the largest data fraction the server lists, raw first (cases.mjs defaultExperimentCandidates), until
- * the person picks another or "None". The picker names an experiment as people do ("DINOv2 100 % · Raw") and shows
- * its id on a second line in the sheet. With Worst first, the cases without a Dice follow under "No Dice for this
+ * the person picks another or "None". The picker names an experiment as people do ("DINOv2 100 % · Raw") and never
+ * shows its id; the id is in the Details sheet. With Worst first, the cases without a Dice follow under "No Dice for this
  * experiment" and say why in words ("No GT", "Run failed"), never 0. How the Dice is read and sorted, and the
  * experiment's id, go to the Details sheet behind Info. Only the first page of case_list is shown; when the server
  * has more, the list says so.
@@ -22,7 +22,7 @@ import ListRow, { SectionLabel } from '../../components/ListRow';
 import { IconAlert, IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconSort } from '../../components/icons';
 import { color, HAIRLINE, hitSlopFor, MIN_TOUCH, size, space, type } from '../../components/theme';
 import {
-  defaultExperimentCandidates, experimentLabel, filterRows, hasExperimentName, pinnedOutlierSelection, readCaseRows,
+  defaultExperimentCandidates, experimentLabel, filterRows, pinnedOutlierSelection, readCaseRows,
   readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, WORKLIST_SORT, worklistRows,
 } from './cases.mjs';
 
@@ -229,11 +229,11 @@ export default function CaseListScreen({ runtime, nav }) {
                 onPress={() => { choose({ experimentId: e.experimentId }); setPickerOpen(false); }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                accessibilityLabel={e.experimentId ? `Show the Dice of ${experimentText(e)}, experiment ${e.experimentId}` : 'Show no Dice'}
+                accessibilityLabel={e.experimentId ? `Show the Dice of ${experimentText(e)}` : 'Show no Dice'}
+                testID={`dice-pick-${e.experimentId || 'none'}`}
               >
                 <View style={s.pickText}>
                   <Text style={s.pickTitle} numberOfLines={1}>{e.experimentId ? experimentText(e) : 'None (no Dice)'}</Text>
-                  {e.experimentId && hasExperimentName(e.experimentId) ? <Text style={s.pickId}>{e.experimentId}</Text> : null}
                 </View>
                 {on ? <IconCheck size={20} strokeWidth={2} color={color.accent} /> : null}
               </TouchableOpacity>
@@ -402,9 +402,8 @@ const s = StyleSheet.create({
   dropdownPlaceholder: { color: color.t2 },
   pick: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
   pickLine: { borderBottomWidth: HAIRLINE, borderColor: color.hair },
-  pickText: { flex: 1, gap: 2 },
+  pickText: { flex: 1 },
   pickTitle: { ...type.body, fontWeight: '500', color: color.t1 },
-  pickId: { ...type.caption, color: color.t3, fontVariant: ['tabular-nums'] },
   off: { opacity: 0.4 },
   note: { ...type.caption, color: color.t3, paddingHorizontal: space.l, marginTop: -space.xs, marginBottom: space.s },
   noteWarn: { color: color.warn },

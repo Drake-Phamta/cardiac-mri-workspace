@@ -89,7 +89,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 - **Mục đích**: tìm ca, xếp ca theo Dice của một thí nghiệm và mở ca.
 - **Thành phần**: ô tìm "Search case ID"; ba tab lọc "All", "Evaluation", "Inference & review", mỗi tab kèm số ca của
   trang đã tải (hàng tab cuộn ngang khi ba tab rộng hơn màn hình, ở 320 dp hoặc cỡ chữ 1,3, và có lề 16 dp ở hai đầu); nút "Dice of" ghi thí nghiệm theo tên người đọc ("DINOv2 100 % · Raw"), chạm mở sheet "Dice of" với
-  "None (no Dice)" và các thí nghiệm (mã thí nghiệm ở dòng phụ); nút thứ tự "Server" / "Worst first"; tiêu đề cột
+  "None (no Dice)" và các thí nghiệm, mỗi thí nghiệm một dòng ghi tên (không ghi mã thí nghiệm, mã chỉ nằm ở sheet Details); nút thứ tự "Server" / "Worst first"; tiêu đề cột
   "Case" và "Dice". Mỗi dòng ca cao 52 dp: mã ẩn danh, một thẻ ("Outlier n/3" là lựa chọn của server; "Mode unclear" khi
   chế độ và cờ GT mâu thuẫn; tên chế độ khi ca không phải Evaluation), thanh Dice và giá trị 3 chữ số (giá trị nằm trên một dòng, ô giá trị rộng đủ cho 5 ký tự ở cỡ chữ 1,3; màn hình hẹp
   thì thanh Dice co lại trước, mã ca và thẻ không bị cắt). Ca không có Dice
@@ -121,7 +121,7 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   screen and never changes by itself.", chọn "Raw" hoặc "Processed"). Ca chỉ có một run thì mở luôn run đó; biến thể đã
   chọn trước đó trong phiên được chọn sẵn.
 - **Thành phần** (khung viewer): ảnh MRI tràn màn hình, mở ở 1,6 lần vừa khung và ở lát giữa nếu đường dẫn không nêu
-  lát. Header nổi: Back, mã ca, dòng phụ "họ mô hình · thí nghiệm" (ca có nhiều run thì dòng phụ có mũi tên, chạm để
+  lát. Header nổi: Back, mã ca, dòng phụ là tên thí nghiệm của run ("DINOv2 100 %", không ghi mã EXP-…; biến thể do panel dưới ghi) (ca có nhiều run thì dòng phụ có mũi tên, chạm để
   chọn lại run), khiên privacy, Info, "more". Góc trái ghi "MRI" và chế độ ca ("Evaluation" / "Inference & review"); góc
   phải ghi "Slice Dice" và giá trị 3 chữ số hoặc một chữ ("Not applicable", "Unavailable"), "—" khi không có số. Chip
   lớp "Ground truth" (chỉ khi ca có GT) và "Prediction" (chỉ khi có run), cả hai bật sẵn; chip có biểu tượng mắt và ô

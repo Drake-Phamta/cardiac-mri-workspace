@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  defaultExperimentCandidates, experimentLabel, forgetWorklist, hasExperimentName, pinnedOutlierSelection, readCaseRows,
+  defaultExperimentCandidates, experimentLabel, experimentName, forgetWorklist, pinnedOutlierSelection, readCaseRows,
   readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, WORKLIST_SORT, worklistChip, worklistRows,
 } from '../src/screens/v1-cases/cases.mjs';
 import { generatedBundleJson, loadContract } from './_helpers.mjs';
@@ -99,7 +99,7 @@ test('VW6 the chosen experiment and order are kept for the session', () => {
   forgetWorklist();
 });
 
-test('VW7 an experiment is named as people name it: family, data fraction, variant; the id only where it is looked up', () => {
+test('VW7 an experiment is named as people name it: family, data fraction, variant; an id only when nothing names it', () => {
   assert.equal(experimentLabel('EXP-D-100', 'RAW'), 'DINOv2 100 % · Raw');
   assert.equal(experimentLabel('EXP-D-PP', 'PROCESSED'), 'DINOv2 100 % · Processed');
   assert.equal(experimentLabel('EXP-D-025', 'RAW'), 'DINOv2 25 % · Raw');
@@ -107,7 +107,8 @@ test('VW7 an experiment is named as people name it: family, data fraction, varia
   assert.equal(experimentLabel('EXP_DEMO', 'RAW'), 'EXP_DEMO · Raw', 'an id outside the matrix stays as it is');
   assert.equal(experimentLabel('EXP-D-100', null), 'DINOv2 100 % · variant not stated');
   assert.equal(experimentLabel('constructor', 'RAW'), 'constructor · Raw', 'no name is looked up on the object prototype');
-  assert.deepEqual(['EXP-D-100', 'EXP_DEMO', 'toString'].map(hasExperimentName), [true, false, false]);
+  assert.deepEqual(['EXP-D-100', 'EXP-D-PP', 'EXP-U-025', 'EXP_DEMO', 'toString'].map(experimentName),
+    ['DINOv2 100 %', 'DINOv2 100 %', 'UNet 25 %', 'EXP_DEMO', 'toString'], 'the name alone, for a place that shows the variant beside it');
 });
 
 test('VW8 SCR-02 opens on DINOv2 at the largest data fraction the server lists, raw before post-processed, then the others', () => {

@@ -135,6 +135,7 @@ const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs')
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { flat, shortTouchables } = await imp('test/render/touch_measure.mjs');
 const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
+const { experimentName } = await imp('src/screens/v1-cases/cases.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -306,8 +307,10 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('L1', ctxHas(nav, /^Slice Dice \(RAW\): 0\.873 · metric m1$/) && textOf(byTestId(r, 'slice-dice')) === '0.873',
     'server metric: the value in the corner, with variant and version in Details');
   // V1 in Direction A: what the floating app bar shows comes from the screen's report.
-  check('A1', nav.ctx.title === 'CASE_0061' && /^UNet2D · /.test(nav.ctx.subtitle) && nav.ctx.onSubtitlePress === null
-    && ctxAction(nav, 'privacy') && typeof nav.ctx.overflow.onPress === 'function',
+  // The app bar names the run's experiment as people do (cases.mjs experimentName); the id is in the Details sheet's Run line.
+  const runExperiment = (ctxLines(nav).find((l) => l.startsWith('Run RUN_A · ')) || '').split(' · ')[2];
+  check('A1', nav.ctx.title === 'CASE_0061' && Boolean(runExperiment) && nav.ctx.subtitle === experimentName(runExperiment)
+    && nav.ctx.onSubtitlePress === null && ctxAction(nav, 'privacy') && typeof nav.ctx.overflow.onPress === 'function',
   `app bar: ${nav.ctx.title} / ${nav.ctx.subtitle}; privacy shield; more (one run: no run picker)`);
   const panel = byTestId(r, 'viewer-panel');
   const inPanel = (fn) => (panel ? panel.findAll(fn).length : 0);
@@ -2140,9 +2143,9 @@ function reviewBackend({ seedVersion = false } = {}) {
   await tick(300);
   await layout(r);
   await tick(250);
-  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'CASE_0061 | UNet2D · EXPERIMENT_ID_0043'
+  check('H6', onScreen(r, 'SCR-03') && headerTexts(r).join(' | ') === 'CASE_0061 | EXPERIMENT_ID_0043'
     && Boolean(byTestId(r, 'header-back')) && Boolean(byTestId(r, 'header-action-privacy')) && Boolean(byTestId(r, 'header-more')),
-  `SCR-03 in the viewer chrome: the case and its model and experiment, Back, the privacy shield, Info and more: ${headerTexts(r).join(' | ')}`);
+  `SCR-03 in the viewer chrome: the case and its experiment (an id outside the matrix is its own name), Back, the privacy shield, Info and more: ${headerTexts(r).join(' | ')}`);
   check('H8', tabBar(r).length === 0 && Boolean(byTestId(r, 'viewer-chrome')), 'the case viewer hides the tab bar (viewer chrome)');
   const cachedBefore = live.imageStore.stats().cached;
   const mark = backend.requests.length;
@@ -2267,16 +2270,21 @@ function reviewBackend({ seedVersion = false } = {}) {
   check('T5', listShort.length === 0, `SCR-02: every touchable (search, filter tabs, experiment, order, rows) reaches 48 dp${listShort.length ? ` - not: ${listShort.join(', ')}` : ''}`);
   const pick = async (id) => {
     await pressId(r, 'dice-of');
-    const label = (n) => String(n.props.accessibilityLabel || '');
-    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && (id === null ? label(n) === 'Show no Dice' : label(n).endsWith(`experiment ${id}`)))[0];
+    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && n.props.testID === `dice-pick-${id === null ? 'none' : id}`)[0];
     if (!row) throw new Error(`no picker row for ${id}`);
     await act(async () => { row.props.onPress(); });
     await tick(200);
   };
-  // The picker names each experiment as people do; the id is the second line, only where the name replaced it.
+  // The picker names each experiment as people do and writes no id of its own: not as a second line, not in what a
+  // screen reader says. An id outside the matrix is the name there is, so it stays as the name.
   await pressId(r, 'dice-of');
-  check('W1', has(r, /^DINOv2 100 % · Processed$/) && has(r, /^EXP-D-PP$/) && has(r, /^EXP_DEMO · Raw$/) && !has(r, /^EXP_DEMO$/)
-    && has(r, /^None \(no Dice\)$/), 'the picker: "DINOv2 100 % · Processed" with EXP-D-PP under it; an id outside the matrix once; None');
+  const pickRows = r.root.findAll((n) => n.type === 'TouchableOpacity' && String(n.props.testID || '').startsWith('dice-pick-'));
+  check('W1', has(r, /^DINOv2 100 % · Processed$/) && has(r, /^EXP_DEMO · Raw$/) && !has(r, /^EXP_DEMO$/)
+    && has(r, /^None \(no Dice\)$/), 'the picker: "DINOv2 100 % · Processed"; an id outside the matrix once, as the name; None');
+  check('RP-V1d', pickRows.length === 3 && !texts(r).some((x) => /^EXP-[A-Z]-/.test(x))
+    && pickRows.every((n) => !/EXP-/.test(n.props.accessibilityLabel) && !/, experiment /.test(n.props.accessibilityLabel))
+    && pickRows.every((n) => n.findAll((x) => x.type === 'Text').length === 1),
+  'SCR-02 picker: one line per experiment (its name), no experiment id on screen or in the screen-reader label');
   await closeSheet(r, 'experiment-sheet');
   await pick('EXP_DEMO');
   check('W2', values().includes('0.900') && values().includes('0.400') && has(r, /^No GT$/) && has(r, /^Run failed$/) && has(r, /^Not in this experiment$/)
