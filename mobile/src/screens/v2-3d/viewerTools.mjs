@@ -28,7 +28,16 @@ const GLASS = `background:${color.glass};border:${HAIRLINE}px solid ${color.glas
 //     high whether it holds one control or the group wrapped under its chip, and the 48 px buttons of two lines never overlap;
 //   - a name is one line (nowrap): "Ground truth" never breaks into two lines inside its chip.
 // Below NARROW the name chips are as wide as their name instead of a common 148 px, so the control beside them has room.
+// The groups cannot overlap, whatever the height of the free area (the app bar and the bottom panel take what they take: 307 px at
+// 320 dp and font scale 1.3, 380 px at font scale 1.0). The Views group, Cut and the compass sit at the top at fixed places and
+// the Layers group has its own box under them: it starts below them (TOP_BELOW) and ends at the bottom edge, its rows sit at the
+// bottom of that box, and when they are taller than the box (a very short free area, or Cut's note under them) the box scrolls
+// instead of the rows running up over the groups above. On a narrow page the compass sits in the empty eighth cell of the Views
+// grid (4 x 2 cells, 7 buttons), and the grid, the name chips and the opacity steps are as tight as 48 px buttons allow, so the four
+// rows of the Layers group (4 x 48 px) fit the 307 px of the worst case under the 108 px the Views grid ends at.
 export const NARROW = 384;
+// Where the Layers box starts: under the lowest of the Views group, Cut and the compass (wide: Cut ends at 126; narrow: the grid ends at 108).
+export const TOP_BELOW = Object.freeze({ wide: 132, narrow: 110 });
 
 // The Android WebView sets its own text size from the system font scale (its textZoom), so at font scale 1.3 the page's 13 px
 // labels were 17 px and "Ground truth" broke into two lines. The page's text follows the system size like the app's own text but
@@ -53,9 +62,13 @@ export const TOOLS_CSS = `
 #tools .cut button{flex-direction:column;gap:2px;min-width:50px;min-height:52px;border-radius:7px;color:${color.t2};
   font-size:11px;line-height:14px}
 #tools .cut button[aria-pressed=true]{background:${color.accentSoft};color:${color.accent}}
-#tools .note{position:absolute;right:12px;top:128px;padding:6px 10px;border-radius:${radius.m}px;font-size:12px;
+#tools .note{align-self:flex-end;margin:6px 0 0;padding:6px 10px;border-radius:${radius.m}px;font-size:12px;
   ${GLASS}}
-#tools .layers{position:absolute;left:12px;bottom:6px;display:flex;flex-direction:column;max-width:calc(100% - 24px)}
+#tools .layers{position:absolute;left:12px;top:${TOP_BELOW.wide}px;bottom:6px;display:flex;flex-direction:column;
+  max-width:calc(100% - 24px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+#tools .layers::-webkit-scrollbar{display:none}
+#tools .layers>*{flex:none}
+#tools .layers>:first-child{margin-top:auto}
 #tools .row{display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:0 8px;min-height:48px;pointer-events:none}
 #tools .row>*{pointer-events:auto}
 #tools .vis{height:36px;display:flex;align-items:center;gap:8px;border-radius:${radius.m}px;box-sizing:border-box;white-space:nowrap;${GLASS}}
@@ -77,12 +90,14 @@ export const TOOLS_CSS = `
 #tools .count{min-width:60px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 #tools .none{color:${color.t2};padding:0 4px}
 @media (max-width:${NARROW - 1}px){
-  #tools .views{display:grid;grid-template-columns:repeat(4,${MIN_TOUCH}px);left:8px;max-width:none}
+  #tools .views{display:grid;grid-template-columns:repeat(4,${MIN_TOUCH}px);left:8px;top:4px;padding:2px;max-width:none}
   #tools .sep{display:none}
-  #tools .cut{right:8px;top:8px}
-  #tools .note{right:8px;top:118px}
-  #tools .layers{left:8px;max-width:calc(100% - 16px)}
-  #tools .chip{min-width:0}
+  #tools .cut{right:8px;top:4px}
+  #tools .layers{left:8px;top:${TOP_BELOW.narrow}px;bottom:3px;max-width:calc(100% - 16px)}
+  #tools .chip{min-width:0;padding:0 9px 0 7px;gap:5px}
+  #tools .chip svg{width:16px;height:16px}
+  #tools .key{width:12px}
+  #tools .seg{padding:0}
 }
 `;
 
@@ -137,9 +152,14 @@ function cutHtml() {
   var can = sliceIndex !== null;
   var html = '<div class="g cut">' + button("cut", "", "Cut at the selected slice", can && cutOn,
     icon("cut", 20) + "<span>Cut</span>", !can) + "</div>";
-  // The slice number is the app's own text (sliceLabel, from the message that named the slice), not computed here.
-  if (cutOn && can) html += '<div class="note">Above ' + (sliceLabel ? "slice " + escapeHtml(sliceLabel) : "the selected slice") + " hidden</div>";
   return html;
+}
+// Cut's note is the last line of the Layers group (right-aligned under its rows), so it has a place of its own that nothing else covers,
+// and when the box has to scroll it is the note that is cut off, not a row.
+// The slice number is the app's own text (sliceLabel, from the message that named the slice), not computed here.
+function noteHtml() {
+  if (!(cutOn && sliceIndex !== null)) return "";
+  return '<div class="note">Above ' + (sliceLabel ? "slice " + escapeHtml(sliceLabel) : "the selected slice") + " hidden</div>";
 }
 
 // One layer chip: an eye (crossed when hidden), the layer's colour key and its name. Tap to show or hide.
@@ -183,9 +203,17 @@ function smallRow() {
 
 function toolsMarkup() {
   if (!layers.prediction && !layers.groundTruth) return "";   // nothing to look at yet: no tools
-  return viewsHtml() + cutHtml() + '<div class="layers">' + surfaceRow("prediction") + surfaceRow("groundTruth") + errorsRow() + "</div>";
+  return viewsHtml() + cutHtml() + '<div class="layers">' + surfaceRow("prediction") + surfaceRow("groundTruth") + errorsRow() + noteHtml() + "</div>";
 }
-function renderTools() { if (toolsEl) toolsEl.innerHTML = toolsMarkup(); }
+// The Layers group scrolls only when its rows do not fit; a tap rewrites the markup, so the scroll position is put back.
+function renderTools() {
+  if (!toolsEl) return;
+  var old = toolsEl.querySelector ? toolsEl.querySelector(".layers") : null;
+  var kept = old ? old.scrollTop : 0;
+  toolsEl.innerHTML = toolsMarkup();
+  var now = kept && toolsEl.querySelector ? toolsEl.querySelector(".layers") : null;
+  if (now) now.scrollTop = kept;
+}
 
 // One listener for every tool: the button says what it does in data-act / data-arg.
 function onToolClick(e) {

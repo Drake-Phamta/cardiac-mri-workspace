@@ -660,8 +660,9 @@ export const VIEWER_HTML = [
   // The corner gizmo sits under the Views group (top left), inside the free area, clear of the model: 48 px, taps pass through.
   '#free{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}',
   '#axes{position:absolute;left:12px;top:68px;width:48px;height:48px;pointer-events:none}',
-  // On a narrow screen the Views group is two rows high (viewerTools.mjs NARROW), so the gizmo sits under both.
-  '@media (max-width:' + (NARROW - 1) + 'px){#axes{left:8px;top:118px}}',
+  // On a narrow screen the Views group is a grid of four columns and two rows with seven buttons (viewerTools.mjs NARROW): the gizmo
+  // sits in its empty eighth cell (8 px from the left, 1 px edge, 2 px padding, three 48 px columns and gaps of 2; 4 + 1 + 2 + 48 + 2 down).
+  '@media (max-width:' + (NARROW - 1) + 'px){#axes{left:161px;top:57px}}',
   TOOLS_CSS + '</style></head>',
   '<body><canvas id="gl" aria-label="3D surface"></canvas><div id="free"><canvas id="axes" aria-hidden="true"></canvas><div id="tools"></div></div><script>',
   VIEWER_SCRIPT,

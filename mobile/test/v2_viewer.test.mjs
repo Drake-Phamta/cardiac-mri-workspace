@@ -20,7 +20,7 @@ import { boxMesh, encodeMesh, GOLDEN, goldenBytes } from './_v2mesh.mjs';
 import { errorClass, overlay } from '../src/components/tokens.mjs';
 import { makeViewer } from './_v2viewer.mjs';
 import { MARKER_PX, regionList, toViewer } from '../src/screens/v2-3d/inspector3d.mjs';
-import { NARROW, pageTextZoom, PALETTE, TOOLS_CSS } from '../src/screens/v2-3d/viewerTools.mjs';
+import { NARROW, pageTextZoom, PALETTE, TOOLS_CSS, TOP_BELOW } from '../src/screens/v2-3d/viewerTools.mjs';
 
 const FACE_ON_TOP = { x: 1.5, y: 1.5, z: 3 };   // the top of the tower at column 1, row 1: voxels z 0..2 -> source slice 2
 
@@ -711,9 +711,9 @@ test('V2W29 the tools fit a 320 px page: the Views group is a grid of four 48 px
   assert.ok(narrow.startsWith(`@media (max-width:${NARROW - 1}px)`), 'the narrow rules are for pages narrower than NARROW');
   assert.match(cssRule('#tools .views', narrow), /display:grid;grid-template-columns:repeat\(4,48px\)/);
   assert.ok(narrow.includes('#tools .sep{display:none}'), 'the separator before Fit has no place in a grid');
-  assert.match(cssRule('#tools .cut', narrow), /right:8px;top:8px/, 'Cut moves up beside the grid');
-  // 4 x 48 + 3 gaps of 2 + 3 + 3 padding + 2 x 1 edge, at 8 px from the left, leaves room for Cut (50 + 6 + 2 wide) at 8 px from the right
-  const grid = 4 * 48 + 3 * 2 + 6 + 2;
+  assert.match(cssRule('#tools .cut', narrow), /right:8px;top:4px/, 'Cut moves up beside the grid');
+  // 4 x 48 + 3 gaps of 2 + 2 + 2 padding + 2 x 1 edge, at 8 px from the left, leaves room for Cut (50 + 6 + 2 wide) at 8 px from the right
+  const grid = 4 * 48 + 3 * 2 + 4 + 2;
   const cut = 50 + 6 + 2;
   assert.ok(8 + grid + 8 + cut + 8 <= 320, `grid ${grid} px + Cut ${cut} px fit 320 px with 8 px margins and between them`);
   // the one-row group needs 7 buttons x 48 + the separator (1 + 2 x 3) + 7 gaps of 2 + 3 + 3 padding + 2 x 1 edge; it starts 12 px in
@@ -732,7 +732,7 @@ test('V2W30 a layer row wraps instead of running past the edge, and a name is on
   assert.match(cssRule('#tools .count'), /white-space:nowrap/);
   assert.ok(TOOLS_CSS.includes('#tools .seg,#tools .step{margin:6px 0}'), 'a 36 px group with 48 px buttons owns 6 px above and below, so two lines do not overlap');
   assert.match(cssRule('#tools .chip', narrowCss()), /min-width:0/, 'on a narrow page a name chip is as wide as its name');
-  assert.ok(VIEWER_HTML.includes(`@media (max-width:${NARROW - 1}px){#axes{left:8px;top:118px}}`), 'the corner gizmo goes under the two-row grid');
+  assert.ok(VIEWER_HTML.includes(`@media (max-width:${NARROW - 1}px){#axes{left:161px;top:57px}}`), 'the corner gizmo goes in the empty eighth cell of the grid');
 });
 
 test('V2W31 the page text follows the system font size up to the label cap (the WebView textZoom, in percent)', () => {
@@ -742,4 +742,74 @@ test('V2W31 the page text follows the system font size up to the label cap (the 
   assert.equal(pageTextZoom(2), 115);
   assert.equal(pageTextZoom(0.85), 85, 'a smaller system font is followed');
   for (const bad of [undefined, null, 0, -1, NaN, '1.3']) assert.equal(pageTextZoom(bad), 100, `${String(bad)} is no font scale`);
+});
+
+// The groups of the tools cannot overlap, whatever the height of the free area (device session 2026-11-15, r6: at 320 dp and font scale 1.3 the free
+// area is 307 px high, and the layer rows ran up over +Z, -Z, Fit and the compass). The numbers below are read from the CSS and checked against each other.
+const px = (rule, prop) => { const m = new RegExp(`(?:^|;)${prop}:(-?\\d+(?:\\.\\d+)?)px`).exec(rule); return m ? Number(m[1]) : null; };
+
+test('V2W32 the Layers group has a box of its own under the Views group, Cut and the compass, and scrolls rather than run up over them', () => {
+  const narrow = narrowCss();
+  const BORDER = 1;
+  const rows = 4 * 48; // Prediction, Ground truth, Errors, Small regions: a row is 48 px high whether its controls wrap or not
+  // wide: the Views group is one row (8 + 3 + 48 + 3 + 2 edges = 64 down), the compass under it (68 + 48), Cut under the row at the right (66 + 3 + 52 + 3 + 2)
+  const wideViews = px(cssRule('#tools .views'), 'top') + 3 + 48 + 3 + 2 * BORDER;
+  const wideCompass = Number(/#axes\{[^}]*top:(\d+)px/.exec(VIEWER_HTML)[1]) + 48;
+  const wideCut = px(cssRule('#tools .cut'), 'top') + 3 + 52 + 3 + 2 * BORDER;
+  assert.ok(wideViews <= wideCompass, 'the compass is under the one-row Views group');
+  assert.ok(Math.max(wideViews, wideCompass, wideCut) + 6 <= TOP_BELOW.wide, `wide: the groups end at ${Math.max(wideViews, wideCompass, wideCut)}, the Layers box starts at ${TOP_BELOW.wide}`);
+  assert.equal(px(cssRule('#tools .layers'), 'top'), TOP_BELOW.wide);
+  // narrow: the grid is 2 x 48 + 2 gap + 2 + 2 padding + 2 edges high, Cut is 3 + 52 + 3 + 2
+  const gridTop = px(cssRule('#tools .views', narrow), 'top');
+  const gridPad = px(cssRule('#tools .views', narrow), 'padding');
+  const gridBottom = gridTop + BORDER + gridPad + 48 + 2 + 48 + gridPad + BORDER;
+  const cutBottom = px(cssRule('#tools .cut', narrow), 'top') + 3 + 52 + 3 + 2 * BORDER;
+  assert.ok(Math.max(gridBottom, cutBottom) + 2 <= TOP_BELOW.narrow, `narrow: the groups end at ${Math.max(gridBottom, cutBottom)}, the Layers box starts at ${TOP_BELOW.narrow}`);
+  assert.equal(px(cssRule('#tools .layers', narrow), 'top'), TOP_BELOW.narrow);
+  // the compass is the grid's eighth cell: 3 columns of 48 + 2 gap after the padding and the edge, one row of 48 + 2 down
+  const left = px(cssRule('#tools .views', narrow), 'left');
+  const cellX = left + BORDER + gridPad + 3 * (48 + 2);
+  const cellY = gridTop + BORDER + gridPad + 48 + 2;
+  assert.ok(VIEWER_HTML.includes(`#axes{left:${cellX}px;top:${cellY}px}`), `the compass sits at (${cellX}, ${cellY}), the eighth cell of the grid`);
+  assert.ok(cellX + 48 <= left + BORDER + gridPad + 4 * 48 + 3 * 2, 'and fits it');
+  // the worst case measured on the phone: 320 dp at font scale 1.3 leaves a free area of 307 px; the four rows fit under the grid
+  const room = 307 - TOP_BELOW.narrow - px(cssRule('#tools .layers', narrow), 'bottom');
+  assert.ok(rows <= room, `${rows} px of rows in ${room} px of room at 320 dp, font scale 1.3`);
+  // and where they do not fit, the box scrolls and its rows keep their height (they used to shrink and overlap)
+  const layers = cssRule('#tools .layers');
+  assert.match(layers, /top:\d+px;bottom:\d+px/, 'the box is bounded above and below');
+  assert.match(layers, /overflow-y:auto/);
+  assert.ok(TOOLS_CSS.includes('#tools .layers>*{flex:none}'), 'a row never shrinks below its content');
+  assert.ok(TOOLS_CSS.includes('#tools .layers>:first-child{margin-top:auto}'), 'the rows sit at the bottom of the box, and scroll from its top when they overflow');
+  // the name chips and the steps are as tight as 48 px buttons allow, so "Ground truth" and its three steps stay on one line at 320 px, text zoom 1.15
+  assert.match(cssRule('#tools .seg', narrow), /padding:0/);
+  assert.match(cssRule('#tools .chip', narrow), /min-width:0;padding:0 9px 0 7px;gap:5px/);
+});
+
+test('V2W33 the cut note is the last line of the Layers group, and a tap keeps the group scroll position', () => {
+  const v = makeViewer();
+  v.load('prediction', goldenBytes());
+  v.load('groundTruth', goldenBytes());
+  v.send({ type: 'markers', items: MARKERS });
+  v.send({ type: 'slice', index: 12, label: '13' });
+  assert.ok(!/class="note"/.test(v.tools.innerHTML), 'no note while Cut is off');
+  v.press('cut');
+  const html = v.tools.innerHTML;
+  const open = html.indexOf('<div class="layers">');
+  const note = html.indexOf('<div class="note">Above slice 13 hidden</div>');
+  assert.ok(open > html.indexOf('class="g cut"'), 'the Layers group follows Cut');
+  assert.ok(note > open, 'the note is inside the Layers group');
+  assert.ok(note > html.indexOf('Previous error region'), 'and after its last row, so a box that has to scroll cuts the note, not a row');
+  assert.equal(html.indexOf('</div>', note) + '</div>'.length, html.length - '</div>'.length, 'it is the last thing in the group');
+  // the tools are rewritten on every tap; the Layers group keeps where it was scrolled to
+  const sets = [];
+  let top = 40;
+  const group = { get scrollTop() { return top; }, set scrollTop(n) { sets.push(n); top = n; } };
+  v.tools.querySelector = (sel) => (sel === '.layers' ? group : null);
+  v.press('opacity', 'prediction:0.6');
+  assert.deepEqual(sets, [40], 'the scroll position is put back after the rewrite');
+  top = 0;
+  sets.length = 0;
+  v.press('opacity', 'prediction:1');
+  assert.deepEqual(sets, [], 'a group that was not scrolled is left alone');
 });
