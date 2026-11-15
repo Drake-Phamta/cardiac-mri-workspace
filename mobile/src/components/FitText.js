@@ -28,10 +28,14 @@ export function useFitFontSize({ text, base, minScale, available, enabled }) {
   const [store, setStore] = useState({ id, widths: NONE });
   const widths = store.id === id ? store.widths : NONE;
   const decision = enabled ? fitFontSize({ base, minScale, available, widths }) : IDLE;
-  // While a new width of the room is being measured, the line keeps the size it had for this text.
+  // While a size is being measured, the line is drawn at that size when this text was measured before: it is the estimate
+  // from a width measured at another size, rounded down to a step, so a room that shrinks (SCR-04's privacy shield appears
+  // when the case has loaded, device session r8) does not show "Error Insp..." for a few frames. With no measurement of
+  // this text yet the line keeps the size it had for it, or its style's own.
   const last = useRef({ id: null, size: null });
   if (decision.settled) last.current = { id, size: decision.size };
-  const shown = decision.settled ? decision.size : (last.current.id === id ? last.current.size : null);
+  const estimate = decision.probe !== null && Object.keys(widths).length > 0 ? decision.probe : null;
+  const shown = decision.settled ? decision.size : (estimate !== null ? estimate : (last.current.id === id ? last.current.size : null));
 
   const measured = useCallback((probeSize, width) => {
     setStore((cur) => {

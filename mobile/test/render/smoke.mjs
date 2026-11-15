@@ -2215,6 +2215,20 @@ function reviewBackend({ seedVersion = false } = {}) {
         'a settled bar is not measured again for the same text, room and font size (96.2 dp is the same room)');
       await act(async () => { h.unmount(); });
 
+      // SCR-04 while its case loads has no privacy shield, so the title fits at 17 sp; when the shield appears the room
+      // shrinks to 96 dp. The device session r8 showed "Error Insp..." for a few frames there, because the line kept 17 sp
+      // until 17 sp was found too wide again. It is now drawn at once at the estimate from the width already measured.
+      const hs = await barOf('Error Inspector', 'CASE_0029 · Raw');
+      await settle(hs, 130, 1);
+      const before = sizeOf(hs, 'Error Inspector');
+      await act(async () => { boxOf(hs).props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 96, height: 56 } } }); });
+      const meanwhile = sizeOf(hs, 'Error Inspector');
+      const pending = probed(hs);
+      await settle(hs, 96, 1);
+      check('RP-SH7', before === 17 && meanwhile === 13.5 && pending.includes('Error Inspector@13.5') && sizeOf(hs, 'Error Inspector') === 13.5 && probesOf(hs).length === 0,
+        `a room that shrinks under a settled title draws the estimate at once (${before} -> ${meanwhile} sp while ${pending.join(', ')} is measured), not the old size cut with "..."`);
+      await act(async () => { hs.unmount(); });
+
       // 320 dp, font scale 1.3: the room is 89 dp and the lines are capped at 1.15: the title needs 0.65 of its size, the subtitle (no run picker) 0.82.
       globalThis.__window = { width: 320, fontScale: 1.3 };
       const h13 = await barOf('Error Inspector', 'CASE_0029 · Raw');
