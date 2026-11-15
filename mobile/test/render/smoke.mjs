@@ -180,7 +180,7 @@ function fakeBackend({
   let failSlice = null; // a slice whose every request fails like a dropped network
   const fetchImpl = async (url) => {
     requests.push(url);
-    const path = url.replace('http://backend.invalid:8000', '');
+    const path = url.replace('https://backend.invalid', '');
     if (failSlice !== null && path.includes(`/slices/${failSlice}/`)) throw new TypeError('fetch failed');
     if (path.startsWith('/api/v1/artifacts/')) {
       const bytes = path.includes('gt-') ? gtPng : (path.includes('pred-') ? predPng : mriPng);
@@ -219,7 +219,7 @@ function fakeBackend({
 }
 
 const liveRuntime = (fetchImpl) => createRuntime({
-  config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+  config: resolveConfig({ mode: 'live', apiBaseUrl: 'https://backend.invalid' }),
   contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
 });
 
@@ -298,7 +298,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
   let mark = requests.length;
   await press(r, 'Retry');
   await tick(400);
-  const retried = requests.slice(mark).map((u) => u.replace('http://backend.invalid:8000', ''));
+  const retried = requests.slice(mark).map((u) => u.replace('https://backend.invalid', ''));
   check('L9', has(r, /slice 44 \/ 88/) && has(r, /Slice Dice \(RAW\): 0\.873/) && entry('Error inspector').props.disabled === false,
     'Retry brings slice 44 back with its own metric and entries');
   check('L9', retried.length > 0 && retried.every((u) => u.includes('/slices/43/') || u.startsWith('/api/v1/artifacts/')),
@@ -310,7 +310,7 @@ const liveRuntime = (fetchImpl) => createRuntime({
   mark = requests.length;
   await press(r, 'Refresh this slice');
   await tick(400);
-  const refreshed = requests.slice(mark).map((u) => u.replace('http://backend.invalid:8000', ''));
+  const refreshed = requests.slice(mark).map((u) => u.replace('https://backend.invalid', ''));
   const rg = gestures().filter((g) => g.kind === 'refresh').pop();
   check('L9', refreshed.length > 0 && refreshed.every((u) => u.includes('/slices/44/') || u.startsWith('/api/v1/artifacts/'))
     && rg && rg.to === 44 && rg.outcome === 'shown',
@@ -374,7 +374,7 @@ function noRunBackend() {
   };
   const requests = [];
   const fetchImpl = async (url) => {
-    const path = url.replace('http://backend.invalid:8000', '');
+    const path = url.replace('https://backend.invalid', '');
     requests.push(path);
     if (path.startsWith('/api/v1/artifacts/')) {
       const bytes = path.includes('gt-') ? gtPng : mriPng;
@@ -396,7 +396,7 @@ function noRunBackend() {
 {
   const { requests, fetchImpl } = noRunBackend();
   const runtime = createRuntime({
-    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'https://backend.invalid' }),
     contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
   });
   const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
@@ -487,7 +487,7 @@ function noRunBackend() {
 {
   const { fetchImpl } = noRunBackend();
   const runtime = createRuntime({
-    config: resolveConfig({ mode: 'live', apiBaseUrl: 'http://backend.invalid:8000' }),
+    config: resolveConfig({ mode: 'live', apiBaseUrl: 'https://backend.invalid' }),
     contractJson, fetchImpl, decodeMask: decodeMaskPng, log: (line) => logs.push(line),
   });
   const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
@@ -650,7 +650,7 @@ function noRunBackend() {
   await tick(400);
   await press(r, '▶');
   await tick(400);
-  const sinceJump = evalBackend.requests.slice(reqMark).map((u) => u.replace('http://backend.invalid:8000', ''));
+  const sinceJump = evalBackend.requests.slice(reqMark).map((u) => u.replace('https://backend.invalid', ''));
   const outOfScope = sinceJump.filter((u) => !(/\/slices\/(51|52)\//.test(u) || u.startsWith('/api/v1/artifacts/')));
   check('E4m', has(r, /slice 53 \/ 88 {2}\(z = 52\)/) && sinceJump.length > 0 && outOfScope.length === 0,
     `jump, ◀, ▶: ${sinceJump.length} requests, each /slices/<z>/ of z 52 or 51 or an artifact${outOfScope.length ? `; other: ${outOfScope.join(' ')}` : ''}`);
@@ -681,7 +681,7 @@ function noRunBackend() {
   await tick(400);
   await layout(r); // the viewport was unmounted while the state panel showed; a new one lays out
   await tick(100);
-  const retried = evalBackend.requests.slice(before).map((u) => u.replace('http://backend.invalid:8000', ''));
+  const retried = evalBackend.requests.slice(before).map((u) => u.replace('https://backend.invalid', ''));
   check('E4l', has(r, /^Legend - this slice \(z 53\)$/) && paths().length >= 1
     && retried.length > 0 && retried.every((u) => u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/')),
     `Retry brings slice 54 back and asks only for it (${retried.length} requests; ${texts(r).find((t) => t.startsWith('Legend')) || '-'}; paths ${paths().length}${retried.some((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))) ? `; other: ${retried.filter((u) => !(u.includes('/slices/53/') || u.startsWith('/api/v1/artifacts/'))).join(' ')}` : ''})`);
@@ -1008,7 +1008,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     source_mask_id: r.source_mask_id, prediction_variant: r.prediction_variant });
 
   const fetchImpl = async (url, init = {}) => {
-    const path = url.replace('http://backend.invalid:8000', '');
+    const path = url.replace('https://backend.invalid', '');
     const method = (init.method || 'GET').toUpperCase();
     const body = init.body ? JSON.parse(init.body) : null;
     requests.push({ method, path, body });
@@ -1475,7 +1475,7 @@ function reviewBackend({ seedVersion = false } = {}) {
     };
     const fetchImpl = async (url, init) => {
       requests.push(url);
-      const path = url.replace('http://backend.invalid:8000', '');
+      const path = url.replace('https://backend.invalid', '');
       let m;
       if ((m = /^\/api\/v1\/analysis-runs\/([^/?]+)$/.exec(path))) {
         return json(200, { ...gen('analysis_run_get'), run_id: m[1], case_id: 'CASE_0061', status: 'SUCCEEDED', raw_prediction_artifact_id: 'ART_RAW',
@@ -1531,7 +1531,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   {
     const backend = meshBackend();
     const { r } = await mount(backend, P);
-    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    const paths = backend.requests.map((u) => u.replace('https://backend.invalid', ''));
     check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=ART_RAW'), 'the prediction mesh is asked for by the RUN\'s own RAW mask id');
     check('V2R1', paths.some((p) => p === '/api/v1/analysis-runs/RUN_A/reconstruction?source_mask_id=MASK_CASE_0061'), 'the ground-truth mesh by the id the server stated on a ground-truth slice');
     check('V2R1', paths.includes(`/api/v1/artifacts/${sum(predBytes)}.cmesh`) && paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`), 'both meshes come from the content route named by their ids');
@@ -1596,7 +1596,7 @@ function reviewBackend({ seedVersion = false } = {}) {
   {
     const backend = meshBackend({ caseMode: 'INFERENCE_REVIEW' });
     const { r } = await mount(backend, P);
-    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    const paths = backend.requests.map((u) => u.replace('https://backend.invalid', ''));
     check('V2R7', !paths.some((p) => p.includes('/ground-truth')) && !paths.some((p) => p.includes('MASK_CASE_0061')) && !paths.includes(`/api/v1/artifacts/${sum(gtBytes)}.cmesh`),
       'no request for ground truth, nor for its mesh');
     check('V2R7', paths.some((p) => p.endsWith('source_mask_id=ART_RAW')) && has(r, /unavailable \(GROUND_TRUTH_UNAVAILABLE\)/), 'the prediction mesh is requested; the ground-truth layer says why it is unavailable');
@@ -1630,13 +1630,13 @@ function reviewBackend({ seedVersion = false } = {}) {
     // RAW-only run asked for PROCESSED: no mask id exists, so no reconstruction is requested at all
     const backend = meshBackend({ processed: false });
     const { r } = await mount(backend, { ...P, variant: 'PROCESSED' });
-    const paths = backend.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    const paths = backend.requests.map((u) => u.replace('https://backend.invalid', ''));
     check('V2R9', !paths.some((p) => p.includes('/reconstruction')) && has(r, /(code|reason) NO_PREDICTION_FOR_VARIANT/) && web(r) === null,
       'a PROCESSED request on a RAW-only run is unavailable (NO_PREDICTION_FOR_VARIANT): never the RAW mesh relabelled');
     await act(async () => { r.unmount(); });
     const withProc = meshBackend({ processed: true });
     const m2 = await mount(withProc, { ...P, variant: 'PROCESSED' });
-    const p2 = withProc.requests.map((u) => u.replace('http://backend.invalid:8000', ''));
+    const p2 = withProc.requests.map((u) => u.replace('https://backend.invalid', ''));
     check('V2R9', p2.some((p) => p.endsWith('source_mask_id=ART_PROC')) && has(m2.r, /Prediction \(PROCESSED\)/) && web(m2.r) !== null, 'a run with a PROCESSED prediction shows it, labelled PROCESSED');
     await act(async () => { m2.r.unmount(); });
   }
