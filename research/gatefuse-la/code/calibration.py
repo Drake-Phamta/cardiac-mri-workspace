@@ -20,7 +20,9 @@ one of 256 levels. Each volume is reduced to a 2 x 256 table of voxel counts
 Seed disagreement: for an arm with 2 or more seeds, per test volume,
 1 - the mean Dice between the masks of its seeds. It needs no reference, so it
 could warn about a bad volume at use time. AUROC of this score for flagging the
-volumes whose mean seed Dice is below 0.85, and its Spearman correlation with Dice.
+volumes whose mean seed Dice is below 0.85, with a 95 % bootstrap CI over the
+test volumes (the pooled row resamples volumes, not rows, because every arm
+tests the same volumes), and its Spearman correlation with Dice.
 
 Output in --out (default LA_WORK/analysis/calibration/):
   calibration_runs.csv      per run: T and test ECE and Brier, before and after scaling
@@ -28,7 +30,7 @@ Output in --out (default LA_WORK/analysis/calibration/):
   calibration_volumes.csv   per run and test volume
   calibration_tests.csv     GateFuse vs U-Net on per-volume ECE and Brier (Wilcoxon, bootstrap CI, Holm)
   reliability.csv / .png    fraction of atrium vs mean p in each bin, pooled over seeds
-  disagreement.csv, disagreement_auroc.csv, disagreement.png
+  disagreement.csv, disagreement_auroc.csv (AUROC, one-sided p, CI, volumes below 0.85, Spearman), disagreement.png
 
   python code/calibration.py
 """
@@ -128,6 +130,33 @@ def auroc(bad, good) -> tuple:
     return float(res.statistic / (len(bad) * len(good))), float(res.pvalue)
 
 
+def auroc_ci(score, bad, units=None, n_boot=S.N_BOOT, seed=0, level=0.95) -> tuple:
+    """(low, high, n_used): percentile CI of the AUROC of score for flagging bad, resampling volumes with replacement.
+
+    score and bad hold one row per volume. When several rows belong to one volume (units = the volume of each row,
+    as when the arms are pooled and all test the same volumes) a resample draws volumes and keeps all their rows.
+    The seed makes the resamples repeatable. A resample with no flagged or no good volume has no AUROC and is left
+    out: n_used counts the resamples that have one. The AUROC is the same one as auroc(), ties count one half."""
+    score, bad = np.asarray(score, float), np.asarray(bad, bool)
+    if bad.all() or not bad.any():
+        return float("nan"), float("nan"), 0
+    unit = np.arange(len(score)) if units is None else np.unique(np.asarray(units), return_inverse=True)[1].ravel()
+    n_units = int(unit.max()) + 1
+    draw = np.random.default_rng(seed).integers(0, n_units, size=(n_boot, n_units))
+    times = np.bincount((draw + n_units * np.arange(n_boot)[:, None]).ravel(),
+                        minlength=n_boot * n_units).reshape(n_boot, n_units)       # how often each volume is drawn
+    w = times[:, unit]                                                             # weight of each row in each resample
+    w_bad, w_good = w * bad, w * ~bad
+    above = (score[:, None] > score[None, :]) + 0.5 * (score[:, None] == score[None, :])      # row i beats row j
+    n_pairs = w_bad.sum(axis=1) * w_good.sum(axis=1)
+    used = n_pairs > 0
+    if not used.any():
+        return float("nan"), float("nan"), 0
+    a = ((w_bad @ above) * w_good).sum(axis=1)[used] / n_pairs[used]
+    lo, hi = np.percentile(a, [50 * (1 - level), 50 * (1 + level)])
+    return float(lo), float(hi), int(used.sum())
+
+
 # ---------------------------------------------------------------- reading the runs
 def arm_of(info: dict):
     return S.cv_arm(SimpleNamespace(**info))
@@ -212,9 +241,10 @@ def flagging(dis: pd.DataFrame) -> pd.DataFrame:
     for arm, d in list(dis.groupby("arm")) + [("all_arms_pooled", dis)]:
         bad = d.mean_dice < BAD_DICE
         a, p = auroc(d.disagreement[bad], d.disagreement[~bad])
+        lo, hi, n_used = auroc_ci(d.disagreement, bad, units=d.vol)
         rho, rho_p = spearmanr(d.disagreement, d.mean_dice) if len(d) > 2 else (float("nan"), float("nan"))
-        rows.append(dict(arm=arm, n_vols=len(d), n_below_085=int(bad.sum()), auroc=a, auroc_p=p,
-                         spearman_rho=float(rho), spearman_p=float(rho_p)))
+        rows.append(dict(arm=arm, n_vols=len(d), n_below_085=int(bad.sum()), auroc=a, auroc_p=p, auroc_lo=lo,
+                         auroc_hi=hi, auroc_n_boot=n_used, spearman_rho=float(rho), spearman_p=float(rho_p)))
     return pd.DataFrame(rows)
 
 
