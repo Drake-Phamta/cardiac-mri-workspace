@@ -204,7 +204,8 @@ function OutlierRow({ row, first, go }) {
   return (
     <>
       {row.bar === null ? (
-        // No bar for a value that is missing or off the 0 to 1 scale: the value is a word, in the bar's place.
+        // No bar for a value that is missing or off the 0 to 1 scale: the bare number stands in the bar's place, or "—"
+        // when the server sent none.
         <ListRow {...common} bar={null} trailing={<View style={s.noBar}><Text style={s.noBarText}>{row.scoreText}</Text></View>} />
       ) : (
         <ListRow {...common} bar={row.bar} barTone="warn" value={row.scoreText} />
