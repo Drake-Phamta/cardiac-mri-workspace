@@ -33,9 +33,6 @@ export function trianglePath(x, y, r) {
 // The outlier rule in the words the screens use. OUTLIER_RULE keeps the contract's rule id for the code.
 export const OUTLIER_LABEL = `${OUTLIER_RULE.cardinality} lowest-Dice cases`;
 
-// Statistics the user may pick from the server's summary. No default: the contract names none yet.
-export const STAT_CHOICES = Object.freeze(['median', 'mean']);
-
 const REASON = Object.freeze({
   CASE_NOT_FOUND: 'the requested case does not exist',
   SLICE_OUT_OF_RANGE: 'the requested slice is outside the validated volume',
@@ -415,7 +412,6 @@ export function overviewView(snap) {
     findings: findingsView(snap.findings),
     routes: Object.freeze({
       cases: route('SCR-02', { studyId: snap.studyId }),
-      experiments: route('SCR-07', {}),
       findings: route('SCR-08', {}),
     }),
   });
@@ -531,7 +527,6 @@ export function comparisonView(snap, { stat = null, selectedCellId = null } = {}
       choices: snap.metricNames,
       emptyText: snap.metricNames.length ? null : "The server's summaries name no metric yet - nothing to plot.",
     }),
-    stat: Object.freeze({ selected: stat, choices: STAT_CHOICES }),
     rows: familyRows(cards),
     stripNotes: Object.freeze(cards.filter((c) => c.withheldText).map((c) => `${c.title}: ${c.withheldText}`)),
     // The same, without the runs the experiment list already says are not listed or not requested.

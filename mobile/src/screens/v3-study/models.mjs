@@ -165,32 +165,6 @@ export function createStudyOverview(client) {
     get current() { return current; },
     open,
     refresh: () => (lastOpen ? open(lastOpen) : Promise.resolve(current)),
-
-    // SCR-01 actions, as navigation intents that the screen routes.
-    openCases: () => Object.freeze({ screen: 'SCR-02', studyId: current.studyId, enabled: current.studyId !== null }),
-    openExperiments: () => Object.freeze({ screen: 'SCR-07', experimentIds: null, enabled: true }),
-    openComparison(comparisonId) {
-      const h = current.headline.find((x) => x.id === comparisonId);
-      return Object.freeze({
-        screen: 'SCR-07',
-        experimentIds: h ? [...h.experimentIds] : null,
-        enabled: Boolean(h && h.requested),
-        reason: h ? h.notRequestedReason : `unknown comparison ${comparisonId}`,
-      });
-    },
-    // The experiment is an explicit input of the outlier rule, and the rank is the server's.
-    openOutlier(experimentId, rank) {
-      const entry = current.outliers.find((o) => o.experimentId === experimentId);
-      const o = entry ? entry.selection : null;
-      if (!o || !o.available) {
-        return Object.freeze({
-          screen: 'SCR-03', enabled: false,
-          reason: o ? o.reason : `no outlier selection for ${experimentId}`,
-        });
-      }
-      return o.cases[rank]?.intent ?? Object.freeze({ screen: 'SCR-03', enabled: false, reason: `no outlier at rank ${rank}` });
-    },
-    openFindings: () => Object.freeze({ screen: 'SCR-08', enabled: true }),
   });
 }
 

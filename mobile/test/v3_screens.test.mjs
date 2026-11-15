@@ -74,8 +74,8 @@ test('V3S1 SCR-01 on the generated bundle: study, cases, experiments, outliers a
 
   assertNavigable(v.routes.cases);
   assert.equal(v.routes.cases.screenId, 'SCR-02');
-  assertNavigable(v.routes.experiments);
   assertNavigable(v.routes.findings);
+  assert.equal(v.routes.findings.screenId, 'SCR-08');
 });
 
 test('V3S2 SCR-01 matrix has no unlabeled per-experiment metric values; comparison summaries carry their verdict', async () => {
