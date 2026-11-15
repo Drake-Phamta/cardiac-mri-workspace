@@ -2,15 +2,15 @@
  * SCR-02 Case List, Direction A: a search field, filter tabs with counts, the "Dice of" experiment picker and the
  * Server / Worst first order, then dense 52 dp rows (id, outlier tag, Dice bar, value). It opens on an experiment:
  * DINOv2 at the largest data fraction the server lists, raw first (cases.mjs defaultExperimentCandidates), until
- * the person picks another or "None". The picker names an experiment as people do ("DINOv2 100 % · Raw") and shows
- * its id on a second line in the sheet. With Worst first, the cases without a Dice follow under "No Dice for this
+ * the person picks another or "None". The picker names an experiment as people do ("DINOv2 100 % · Raw") and never
+ * shows its id; the id is in the Details sheet. With Worst first, the cases without a Dice follow under "No Dice for this
  * experiment" and say why in words ("No GT", "Run failed"), never 0. How the Dice is read and sorted, and the
  * experiment's id, go to the Details sheet behind Info. Only the first page of case_list is shown; when the server
  * has more, the list says so.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { loading, RECOVERY, STATE } from '../../api/states.mjs';
 import { useCall } from '../../api/RuntimeContext';
@@ -22,8 +22,8 @@ import ListRow, { SectionLabel } from '../../components/ListRow';
 import { IconAlert, IconCheck, IconChevronDown, IconChevronRight, IconSearch, IconSort } from '../../components/icons';
 import { color, HAIRLINE, hitSlopFor, MIN_TOUCH, size, space, type } from '../../components/theme';
 import {
-  defaultExperimentCandidates, experimentLabel, filterRows, hasExperimentName, pinnedOutlierSelection, readCaseRows,
-  readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, WORKLIST_SORT, worklistRows,
+  defaultExperimentCandidates, experimentLabel, filterRows, pinnedOutlierSelection, readCaseRows,
+  readExperimentCases, readExperimentChoices, rememberedWorklist, rememberWorklist, tabGap, WORKLIST_SORT, worklistRows,
 } from './cases.mjs';
 
 const MODES = [
@@ -37,8 +37,8 @@ const SORTS = [
   { value: WORKLIST_SORT.WORST_FIRST, label: 'Worst first', icon: IconSort },
 ];
 
-// A tab is the 44 dp row less its 1 dp bottom hairline.
-const TAB_HEIGHT = size.filterTabs - HAIRLINE;
+// A tab is as high as the 44 dp row; the 1 dp hairline under the row is drawn behind the selected tab's line.
+const TAB_HEIGHT = size.filterTabs;
 const CASE_ID_SHAPE = /^[A-Za-z0-9_.-]{1,64}$/;
 const GROUP = Object.freeze({ group: true, key: 'no-dice' });
 
@@ -49,6 +49,7 @@ const experimentText = (e) => experimentLabel(e.experimentId, e.variant);
 export default function CaseListScreen({ runtime, nav }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('ALL');
+  const [barW, setBarW] = useState(null); // the screen's width, from the tab row's own layout
   const [pickerOpen, setPickerOpen] = useState(false);
   const [choice, setChoice] = useState(rememberedWorklist);
   const choose = useCallback((patch) => setChoice((c) => {
@@ -158,24 +159,27 @@ export default function CaseListScreen({ runtime, nav }) {
         />
       </Pressable>
 
-      <View style={s.tabs}>
-        {MODES.map((m) => {
-          const on = mode === m.key;
-          return (
-            <TouchableOpacity
-              key={m.key}
-              style={s.tab}
-              onPress={() => setMode(m.key)}
-              hitSlop={hitSlopFor(TAB_HEIGHT)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-            >
-              <Text style={[s.tabT, on && s.tabTOn]}>{m.label}</Text>
-              {read ? <Text style={s.tabCount}>{read.counts[m.count]}</Text> : null}
-              {on ? <View style={s.tabLine} /> : null}
-            </TouchableOpacity>
-          );
-        })}
+      <View style={s.tabsBar} onLayout={(e) => setBarW(e.nativeEvent.layout.width)}>
+        <View style={s.tabsRule} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.tabs, { gap: tabGap(barW) }]} testID="filter-tabs">
+          {MODES.map((m) => {
+            const on = mode === m.key;
+            return (
+              <TouchableOpacity
+                key={m.key}
+                style={s.tab}
+                onPress={() => setMode(m.key)}
+                hitSlop={hitSlopFor(TAB_HEIGHT)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[s.tabT, on && s.tabTOn]} numberOfLines={1}>{m.label}</Text>
+                {read ? <Text style={s.tabCount} numberOfLines={1}>{read.counts[m.count]}</Text> : null}
+                {on ? <View style={s.tabLine} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <View style={s.controls}>
@@ -226,11 +230,11 @@ export default function CaseListScreen({ runtime, nav }) {
                 onPress={() => { choose({ experimentId: e.experimentId }); setPickerOpen(false); }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                accessibilityLabel={e.experimentId ? `Show the Dice of ${experimentText(e)}, experiment ${e.experimentId}` : 'Show no Dice'}
+                accessibilityLabel={e.experimentId ? `Show the Dice of ${experimentText(e)}` : 'Show no Dice'}
+                testID={`dice-pick-${e.experimentId || 'none'}`}
               >
                 <View style={s.pickText}>
                   <Text style={s.pickTitle} numberOfLines={1}>{e.experimentId ? experimentText(e) : 'None (no Dice)'}</Text>
-                  {e.experimentId && hasExperimentName(e.experimentId) ? <Text style={s.pickId}>{e.experimentId}</Text> : null}
                 </View>
                 {on ? <IconCheck size={20} strokeWidth={2} color={color.accent} /> : null}
               </TouchableOpacity>
@@ -373,16 +377,18 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space.s, paddingHorizontal: space.m,
   },
   searchInput: { flex: 1, height: size.search, padding: 0, ...type.body, color: color.t1 },
-  tabs: {
-    height: size.filterTabs, marginTop: space.xs, flexDirection: 'row', gap: space.xl, paddingHorizontal: space.l,
-    borderBottomWidth: HAIRLINE, borderColor: color.hair,
-  },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // The three filter tabs are a row that scrolls sideways: "Inference & review 1" is wider than a 320 dp screen, and
+  // than a 384 dp one at font scale 1.3, and a fixed row ran off the edge with no way to reach it. The side padding
+  // is part of the scrolled content, so the last tab ends 16 dp from the edge once scrolled to the end.
+  tabsBar: { height: size.filterTabs, marginTop: space.xs },
+  tabsRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: HAIRLINE, backgroundColor: color.hair },
+  tabs: { flexDirection: 'row', paddingHorizontal: space.l }, // the gap is tabGap(width): 24 dp, 16 dp on a screen narrower than 360 dp
+  tab: { height: TAB_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabT: { ...type.body, fontWeight: '500', color: color.t2 },
   tabTOn: { color: color.t1 },
   tabCount: { ...type.body, color: color.t3, fontVariant: ['tabular-nums'] },
   tabLine: {
-    position: 'absolute', left: 0, right: 0, bottom: -HAIRLINE, height: 2,
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 2,
     borderTopLeftRadius: 2, borderTopRightRadius: 2, backgroundColor: color.accent,
   },
   // One row: the experiment on the left, the order on the right. A name too long for the room (Processed, a large
@@ -397,9 +403,8 @@ const s = StyleSheet.create({
   dropdownPlaceholder: { color: color.t2 },
   pick: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
   pickLine: { borderBottomWidth: HAIRLINE, borderColor: color.hair },
-  pickText: { flex: 1, gap: 2 },
+  pickText: { flex: 1 },
   pickTitle: { ...type.body, fontWeight: '500', color: color.t1 },
-  pickId: { ...type.caption, color: color.t3, fontVariant: ['tabular-nums'] },
   off: { opacity: 0.4 },
   note: { ...type.caption, color: color.t3, paddingHorizontal: space.l, marginTop: -space.xs, marginBottom: space.s },
   noteWarn: { color: color.warn },

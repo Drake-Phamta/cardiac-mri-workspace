@@ -5,6 +5,7 @@
  */
 
 import { PREDICTION_VARIANT, capabilityOf } from '../../lib/caseMode.mjs';
+import { experimentName, namedExperiment } from '../../lib/experimentNames.mjs';
 import { formatSlice } from '../../lib/sliceNumber.mjs';
 import { STATE, RECOVERY, loading, processing, success, fatalInvalid, stateForError } from '../../api/states.mjs';
 import { screenToSource, fitTransform, clampZoom, zoomAbout, panBy } from '../../lib/viewMath.mjs';
@@ -505,32 +506,11 @@ export function variantLabel(variant) {
   return typeof variant === 'string' && variant ? variant : '?';
 }
 
-/*
- * An experiment as people name it: "DINOv2 100 % · Raw". The id (EXP-D-100) is for the picker's second line and the
- * Details sheet. The names are the experiment matrix of spec 08 section 2 (the same table SCR-01 reads, kept here
- * because screen folders do not import each other); an id outside it is shown as it is.
- */
-const EXPERIMENT_NAMES = Object.freeze({
-  'EXP-U-025': Object.freeze({ family: 'UNet', fractionPct: 25, lane: 'RAW' }),
-  'EXP-U-050': Object.freeze({ family: 'UNet', fractionPct: 50, lane: 'RAW' }),
-  'EXP-U-100': Object.freeze({ family: 'UNet', fractionPct: 100, lane: 'RAW' }),
-  'EXP-D-025': Object.freeze({ family: 'DINOv2', fractionPct: 25, lane: 'RAW' }),
-  'EXP-D-050': Object.freeze({ family: 'DINOv2', fractionPct: 50, lane: 'RAW' }),
-  'EXP-D-100': Object.freeze({ family: 'DINOv2', fractionPct: 100, lane: 'RAW' }),
-  // Post-processed from the same raw predictions as EXP-D-100.
-  'EXP-D-PP': Object.freeze({ family: 'DINOv2', fractionPct: 100, lane: 'PROCESSED' }),
-});
-const namedExperiment = (experimentId) => (
-  typeof experimentId === 'string' && Object.prototype.hasOwnProperty.call(EXPERIMENT_NAMES, experimentId)
-    ? EXPERIMENT_NAMES[experimentId] : null);
-
-// True when experimentLabel() could replace the id with a name, so the picker shows the id as a second line.
-export const hasExperimentName = (experimentId) => namedExperiment(experimentId) !== null;
+// An experiment as people name it, "DINOv2 100 % · Raw": lib/experimentNames.mjs has the names, this adds the variant.
+export { experimentName };
 
 export function experimentLabel(experimentId, variant = null) {
-  const named = namedExperiment(experimentId);
-  const what = named ? `${named.family} ${named.fractionPct} %` : String(experimentId);
-  return `${what} · ${variant ? variantLabel(variant) : 'variant not stated'}`;
+  return `${experimentName(experimentId)} · ${variant ? variantLabel(variant) : 'variant not stated'}`;
 }
 
 /*
@@ -548,13 +528,15 @@ export function defaultExperimentCandidates(choices) {
   return Object.freeze([...dino, ...list.map((e) => e.experimentId).filter((id) => !dino.includes(id))]);
 }
 
-// The viewer's subtitle under the case id: "DINOv2 · EXP-D-100", or what is known so far.
+// The viewer's subtitle under the case id: the run's experiment as people name it ("DINOv2 100 %"), never its id. The
+// name needs only the run's experiment, so it shows before the run's details have loaded. The variant is not in it: the
+// panel under the image names it and switches it. A run that names no experiment: what is known so far.
 export function runSubtitle(run, modelFamily = null, { loading = false, error = null } = {}) {
   if (!run || !run.runId) return null;
+  if (run.experimentId) return experimentName(run.experimentId);
   if (loading) return 'Loading the run…';
   if (error) return `Run ${run.runId}`;
-  const parts = [familyName(modelFamily), run.experimentId || null].filter(Boolean);
-  return parts.length ? parts.join(' · ') : `Run ${run.runId}`;
+  return familyName(modelFamily) || `Run ${run.runId}`;
 }
 
 // The run line: run, model / experiment, precomputed or new. While analysis_run_get is loading or after it failed,
@@ -627,6 +609,14 @@ export function readCaseRows(data) {
 }
 
 // Search by id substring and filter by mode. The order it is given is kept.
+// The filter tabs of SCR-02 are a row that scrolls sideways, with 16 dp of margin at both ends of the scrolled content. At 320 dp and font scale 1.0
+// the three tabs were 19 dp wider than the screen (the row scrolled 63 px on the phone), so at rest the third tab ended 3 dp past the edge: its
+// last digit touched the edge, neither whole with a margin nor clearly cut. On a screen narrower than TAB_NARROW_BELOW the gap between tabs is
+// 16 dp instead of 24, which takes the 32 dp the mockup's gap would need off the row: the tabs fit and the last one ends 13 dp from the edge.
+export const TAB_GAP = Object.freeze({ wide: 24, narrow: 16 });
+export const TAB_NARROW_BELOW = 360;
+export const tabGap = (width) => (Number.isFinite(width) && width > 0 && width < TAB_NARROW_BELOW ? TAB_GAP.narrow : TAB_GAP.wide);
+
 export function filterRows(rows, { query = '', mode = 'ALL' } = {}) {
   const q = String(query).trim().toLowerCase();
   return rows.filter((r) => (mode === 'ALL' || r.capability.key === mode)

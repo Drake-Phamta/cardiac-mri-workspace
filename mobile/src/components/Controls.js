@@ -9,7 +9,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconEye, IconEyeOff } from './icons';
-import { color, hitSlopFor, MIN_TOUCH, radius, size, type } from './theme';
+import { color, hitSlopFor, LABEL_FONT_CAP, MIN_TOUCH, radius, size, type } from './theme';
 
 // A 48 dp round button around one icon. `label` is what a screen reader says.
 export function IconButton({
@@ -112,12 +112,13 @@ export function Chip({ label, swatch = null, on = true, onPress, testID }) {
   );
 }
 
-// A 20 dp tag next to an id: neutral (a mode, "Inference & review"), warn ("Outlier 1/3") or danger.
+// A 20 dp tag next to an id: neutral (a mode, "Inference & review"), warn ("Outlier 1/3") or danger. Its 20 dp height
+// and the room beside the id are fixed, so its text stops growing at LABEL_FONT_CAP.
 export function Tag({ label, tone = 'neutral' }) {
   const t = TAG[tone] || TAG.neutral;
   return (
     <View style={[s.tag, { backgroundColor: t.bg }]}>
-      <Text style={[s.tagT, { color: t.fg }]}>{label}</Text>
+      <Text style={[s.tagT, { color: t.fg }]} maxFontSizeMultiplier={LABEL_FONT_CAP}>{label}</Text>
     </View>
   );
 }

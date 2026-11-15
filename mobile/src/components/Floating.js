@@ -9,7 +9,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { color, HAIRLINE, radius, size, type } from './theme';
+import { color, HAIRLINE, LABEL_FONT_CAP, radius, size, type } from './theme';
 
 /*
  * The viewer's top scrim: black fading to clear, so the floating app bar (viewer chrome) and the corner
@@ -41,7 +41,10 @@ export function FloatingToolbar({ children, label, style }) {
   );
 }
 
-// One 52 dp tool: a 20 dp icon over an 11 dp label. Selected = accent on accent-soft.
+// One 52 dp tool: a 20 dp icon over an 11 dp label. Selected = accent on accent-soft. The label is as wide as the
+// 48 dp button (alignSelf stretch in toolT), not sized to its own text: at 320 and 480 dp on the A17 a box sized to the
+// text lost its last letters to a wrapped line ("Outlin", "Bot"). It stays on one line and stops growing at
+// LABEL_FONT_CAP, so "Outline" fits 48 dp at font scale 1.3.
 export function ToolButton({ icon: Icon, label, selected = false, onPress, testID }) {
   const tint = selected ? color.accent : color.t2;
   return (
@@ -54,7 +57,7 @@ export function ToolButton({ icon: Icon, label, selected = false, onPress, testI
       testID={testID}
     >
       <Icon size={size.iconSmall} color={tint} />
-      <Text style={[s.toolT, { color: tint }]}>{label}</Text>
+      <Text style={[s.toolT, { color: tint }]} numberOfLines={1} maxFontSizeMultiplier={LABEL_FONT_CAP}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -74,7 +77,7 @@ const s = StyleSheet.create({
   // 7 = the toolbar's 10 dp corner minus its 3 dp padding.
   tool: { height: size.tool, borderRadius: 7, alignItems: 'center', justifyContent: 'center', gap: 2 },
   toolOn: { backgroundColor: color.accentSoft },
-  toolT: { ...type.micro, letterSpacing: 0 },
+  toolT: { ...type.micro, letterSpacing: 0, alignSelf: 'stretch', textAlign: 'center' },
   // 188 dp in the mockup includes the 20 dp gesture inset, which the app's SafeAreaView already keeps free.
   panel: {
     position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: size.bottomPanel - 20,

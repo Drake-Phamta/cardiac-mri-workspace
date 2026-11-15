@@ -288,7 +288,8 @@ export function SliceReadout({ index, total, onLongPress = null }) {
 }
 
 const ro = StyleSheet.create({
-  box: { minHeight: MIN_TOUCH, justifyContent: 'center', marginVertical: -8 },
+  // flexShrink 0: no row squeezes the slice number (at 320 dp and font scale 1.3 only "Slice" showed).
+  box: { minHeight: MIN_TOUCH, justifyContent: 'center', marginVertical: -8, flexShrink: 0 },
   t: { ...type.secondary, color: color.t2, fontVariant: ['tabular-nums'] },
   n: { ...type.readout, color: color.t1 },
 });

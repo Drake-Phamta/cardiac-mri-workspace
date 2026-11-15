@@ -63,7 +63,7 @@ export default function ListRow({
   const body = (
     <>
       {Icon ? <Icon size={size.iconSmall} color={color.t2} /> : null}
-      <View style={[s.titleBox, variant === 'meter' && s.meterTitle]}>
+      <View style={[s.titleBox, isId && s.idBox, variant === 'meter' && s.meterTitle]}>
         <Text style={[s.title, isId && s.id, variant === 'meter' && s.meterId]} numberOfLines={1}>{title}</Text>
         {tag}
       </View>
@@ -71,7 +71,7 @@ export default function ListRow({
       {bar !== undefined ? <MiniBar value={bar} tone={barTone} style={variant === 'meter' ? s.barFlex : s.barFixed} /> : null}
       {trailing}
       {value !== null && !trailing ? (
-        <Text style={[s.value, variant === 'case' ? s.valueCase : s.valueMeter]}>{value}</Text>
+        <Text style={[s.value, variant === 'case' ? s.valueCase : s.valueMeter]} numberOfLines={1}>{value}</Text>
       ) : null}
       {chevron ? <IconChevronRight size={shape.chevron} color={color.t3} /> : null}
     </>
@@ -114,16 +114,23 @@ const s = StyleSheet.create({
   meta: { ...type.caption, color: color.t2, fontVariant: ['tabular-nums'] },
   row: { flexDirection: 'row', alignItems: 'center' },
   titleBox: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
-  meterTitle: { width: 88 },
+  // An id and its tag are never cut: on a narrow screen at a large font the bar (barFixed) gives way first.
+  idBox: { flexShrink: 0 },
+  // minWidth, not width: "CASE_0029" is 97 dp wide at font scale 1.3 (14 sp x 1.3 x 5.3 em), so a fixed 88 dp cut it to "CASE_00...".
+  // The id box never shrinks (idBox), so past 1.3 it grows and the bar gives way.
+  meterTitle: { minWidth: 88 },
   title: { ...type.body, color: color.t1, flexShrink: 1 },
   id: { ...type.rowId },
   meterId: { fontSize: 14, letterSpacing: 0 },
   spacer: { flex: 1 },
   bar: { height: 4, borderRadius: 2, backgroundColor: color.barTrack, overflow: 'hidden' },
   barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 2 },
-  barFixed: { width: 56 },
+  barFixed: { width: 56, flexShrink: 1 },
   barFlex: { flex: 1 },
-  value: { color: color.t1, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  valueCase: { ...type.rowId, width: 48, letterSpacing: 0 },
-  valueMeter: { ...type.body, width: 40 },
+  // A value ("0.048") is one line in a cell that is never narrower than the digits need at font scale 1.3 (a number is 2.5
+  // em wide in tabular digits: 15 sp x 1.3 = 49 dp, 14 sp x 1.3 = 46 dp), so it does not wrap into "0.04" and "8".
+  // minWidth, not width: past 1.3 the cell grows and the bar gives way.
+  value: { color: color.t1, textAlign: 'right', fontVariant: ['tabular-nums'], flexShrink: 0 },
+  valueCase: { ...type.rowId, minWidth: 52, letterSpacing: 0 },
+  valueMeter: { ...type.body, minWidth: 48 },
 });

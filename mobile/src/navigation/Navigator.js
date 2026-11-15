@@ -23,7 +23,7 @@ import { IconAlert, IconFlag, IconFlask, IconGrid, IconGridFilled, IconList } fr
 import { StatePanel } from '../components/StateView';
 import SessionGate from '../components/SessionCover';
 import { clearCachedData, SESSION_LIMITS } from '../components/session.mjs';
-import { color, HAIRLINE, MIN_TOUCH, radius, size, space, type } from '../components/theme';
+import { color, HAIRLINE, LABEL_FONT_CAP, MIN_TOUCH, radius, size, space, type } from '../components/theme';
 import { bindNav, createGuards, initialNavState, navReducer, top } from './navigator.mjs';
 import { aboutLines, contextDetails, headerLines, sameContext } from './header.mjs';
 import { CHROME, chromeOf, screenMeta, TABS } from './routes.mjs';
@@ -244,6 +244,9 @@ export default function NavigatorView({ runtime, initialScreenId, session = null
 
 // The tab bar: a 22 dp icon and an 11 dp label per tab. The active tab is accent, with a 32 x 2 bar on the top
 // edge; the others are t3. The tab's name is always written, so the active one never depends on colour alone.
+// The label is as wide as its tab (alignSelf stretch in tabT), not sized to its own text: at 480 dp on the A17 a box sized
+// to the text lost its last letter to a wrapped line and showed "Stud". It stays on one line, and stops growing at
+// LABEL_FONT_CAP so "Experiments" fits a quarter of a 320 dp screen at font scale 1.3.
 const TAB_ICON = Object.freeze({
   Study: { off: IconGrid, on: IconGridFilled },
   Cases: { off: IconList, on: IconList },
@@ -270,7 +273,7 @@ function TabBar({ activeScreenId, onSelect }) {
           >
             {active ? <View style={s.tabIndicator} /> : null}
             {Icon ? <Icon size={size.tabIcon} color={tint} /> : null}
-            <Text style={[s.tabT, { color: tint }]}>{tab.label}</Text>
+            <Text style={[s.tabT, { color: tint }]} numberOfLines={1} maxFontSizeMultiplier={LABEL_FONT_CAP}>{tab.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -308,7 +311,7 @@ const s = StyleSheet.create({
     position: 'absolute', top: -HAIRLINE, left: '50%', marginLeft: -16, width: 32, height: 2,
     borderBottomLeftRadius: 2, borderBottomRightRadius: 2, backgroundColor: color.accent,
   },
-  tabT: { ...type.micro },
+  tabT: { ...type.micro, alignSelf: 'stretch', textAlign: 'center' },
 });
 
 // Fixture mode only: tap an endpoint to cycle through its generated scenarios, so every screen state

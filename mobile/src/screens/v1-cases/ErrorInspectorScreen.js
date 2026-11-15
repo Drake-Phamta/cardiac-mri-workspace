@@ -39,21 +39,46 @@ import {
 
 const OPACITY = [0.4, 0.6, 0.8, 1];
 
+// The app bar's subtitle and privacy shield depend on nothing the screen loads.
+function useAppBar(privacy, caseId, variant) {
+  const priv = privacyText(privacy.status, privacy.on);
+  const actions = useMemo(() => [{
+    key: 'privacy', icon: IconShield, label: priv.title, active: privacy.status === PRIVACY.PROTECTED, onPress: privacy.toggle,
+  }], [priv.title, privacy.status, privacy.toggle]);
+  // The corner says "vs ground truth"; the app bar keeps to the case and the variant, so it fits beside Live and Info.
+  const subtitle = `${caseId} · ${variantLabel(variant)}`;
+  return { priv, actions, subtitle };
+}
+
 export default function ErrorInspectorScreen({ runtime, nav, params }) {
   const { caseId, runId, variant } = params;
   const caseCall = useCall(runtime.client, 'case_get', { case_id: caseId });
+  // Privacy mode (on by default: screenshots and casting of this screen show black while it is on) and the app bar
+  // start with the screen, not when the case has loaded: a shield that appeared later moved Live and narrowed the
+  // title for a few frames (device session r8: "Error Insp..." at 320 dp).
+  const privacy = usePrivacyMode('SCR-04');
+  const bar = useAppBar(privacy, caseId, variant);
 
   const onAction = useCallback((id) => {
     if (id === RECOVERY.RETRY || id === RECOVERY.REFRESH) caseCall.refetch();
     else nav.pop();
   }, [caseCall, nav]);
 
-  if (caseCall.view.state !== STATE.SUCCESS) {
+  const kase = caseCall.view.state === STATE.SUCCESS ? caseCall.view.data : null;
+  const capability = kase ? capabilityOf(kase.mode, kase.ground_truth_available) : null;
+  const errorView = Boolean(capability && capability.groundTruthUsable);
+  // Without the error view (loading, a failure, no ground truth) the app bar still gets the subtitle and the shield;
+  // the error view reports them itself, with its Details.
+  useEffect(() => {
+    if (errorView || typeof nav.setContext !== 'function') return;
+    nav.setContext({ subtitle: bar.subtitle, actions: bar.actions });
+  }, [nav, errorView, bar.subtitle, bar.actions]);
+  useEffect(() => () => { if (typeof nav.setContext === 'function') nav.setContext(null); }, [nav]);
+
+  if (!kase) {
     return <StateView view={caseCall.view} what={`case ${caseId}`} onAction={onAction} />;
   }
-  const kase = caseCall.view.data;
-  const capability = capabilityOf(kase.mode, kase.ground_truth_available);
-  if (!capability.groundTruthUsable) {
+  if (!errorView) {
     // No ground truth, no error view: an empty chart would read as "no error".
     return (
       <View style={s.center}>
@@ -79,11 +104,12 @@ export default function ErrorInspectorScreen({ runtime, nav, params }) {
       kase={kase}
       capability={capability}
       initialSlice={params.sliceIndex}
+      bar={bar}
     />
   );
 }
 
-function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, initialSlice }) {
+function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, initialSlice, bar }) {
   const client = runtime.sliceClient || runtime.client;
   const net = runtime.netLog || null;
   const shape = Array.isArray(kase.shape) ? kase.shape : null;
@@ -111,8 +137,6 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const [pending, setPending] = useState(null);
   const [visible, setVisible] = useState({ TP: true, FP: true, FN: true });
   const [opacity, setOpacity] = useState(0.6);
-  // Privacy mode (on by default): screenshots and casting of this screen show black while it is on.
-  const privacy = usePrivacyMode('SCR-04');
   // Both by default: the fill shows the area, the outline its edge (FP dashed), so a class never relies on colour.
   const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-04', { mode: OVERLAY_MODE.BOTH, width: 2 }));
   const changeStyle = useCallback((patch) => setStyle((st) => {
@@ -241,10 +265,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const counts = classes && classes.counts ? classes.counts : null;
 
   // ----- The app bar and the Details sheet (nav.setContext) -----
-  const priv = privacyText(privacy.status, privacy.on);
-  const actions = useMemo(() => [{
-    key: 'privacy', icon: IconShield, label: priv.title, active: privacy.status === PRIVACY.PROTECTED, onPress: privacy.toggle,
-  }], [priv.title, privacy.status, privacy.toggle]);
+  const { priv, actions, subtitle } = bar;
   const ref = (r) => (showing && r ? r.artifactId ?? '-' : '-');
   const detailSections = [
     {
@@ -277,8 +298,6 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
   const detailsKey = JSON.stringify(detailSections);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const details = useMemo(() => detailSections, [detailsKey]);
-  // The corner says "vs ground truth"; the app bar keeps to the case and the variant, so it fits beside Live and Info.
-  const subtitle = `${caseId} · ${variantLabel(variant)}`;
   useEffect(() => {
     if (typeof nav.setContext !== 'function') return;
     nav.setContext({ subtitle, actions, details });
@@ -435,7 +454,7 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           variant="secondary"
           block
           disabled={blocking}
-          onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z ?? start, variant, view: 'error' })}
+          onPress={() => nav.push('SCR-05', { caseId, runId, sliceIndex: z ?? start, variant })}
         />
         {blocking ? <Text style={s.caption}>this slice did not load</Text> : null}
       </View>
@@ -460,7 +479,8 @@ function ClassChip({ k, count, on, onPress }) {
     >
       <Eye size={18} color={color.t2} />
       <View style={[s.chipSwatch, { borderColor: c.color, backgroundColor: c.dashed ? 'transparent' : c.color }, c.dashed && s.swatchDashed, !on && s.swatchOff]} />
-      <Text style={[s.chipT, !on && s.chipTOff]}>{k}{count !== null ? ` ${count} px` : ''}</Text>
+      {/* One string, sized to its own text: the chip is as wide as "TP 546 px" and no fixed width or stretch can cut it. */}
+      <Text style={[s.chipT, !on && s.chipTOff]} numberOfLines={1}>{`${k}${count !== null ? ` ${count} px` : ''}`}</Text>
     </TouchableOpacity>
   );
 }
