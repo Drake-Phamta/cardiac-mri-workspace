@@ -14,7 +14,7 @@ import { useRuntime } from '../api/RuntimeContext';
 import { Button } from './Controls';
 import { IconAlert, IconChevronDown, IconChevronUp, IconInfo } from './icons';
 import { describeState, TONE } from './stateCopy.mjs';
-import { color, HAIRLINE, MIN_TOUCH, radius, space, type } from './theme';
+import { color, hitSlopFor, HAIRLINE, MIN_TOUCH, radius, space, type } from './theme';
 
 const TONE_COLOR = {
   [TONE.NEUTRAL]: color.t3,
@@ -54,7 +54,7 @@ export function StatePanel({ view, what, onAction, compact = false }) {
         <TouchableOpacity
           style={s.more}
           onPress={() => setOpen((o) => !o)}
-          hitSlop={{ top: 4, bottom: 4 }}
+          hitSlop={hitSlopFor(MORE_HEIGHT)}
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
         >
@@ -98,6 +98,9 @@ export default function StateView({ view, what, onAction, children }) {
   );
 }
 
+// The "Details (n)" link is 40 dp high; hitSlopFor adds the other 8.
+const MORE_HEIGHT = MIN_TOUCH - 8;
+
 const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', paddingHorizontal: space.l, gap: space.xl },
   panel: {
@@ -110,7 +113,7 @@ const s = StyleSheet.create({
   title: { ...type.title, color: color.t1 },
   body: { ...type.body, color: color.t2 },
   detail: { ...type.caption, color: color.t3, fontVariant: ['tabular-nums'] },
-  more: { alignSelf: 'flex-start', minHeight: MIN_TOUCH - 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  more: { alignSelf: 'flex-start', minHeight: MORE_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 4 },
   moreT: { ...type.secondary, fontWeight: '500', color: color.accent },
   actions: { flexDirection: 'row', flexWrap: 'wrap', marginTop: space.m, gap: space.s },
   placeholder: { gap: space.s },

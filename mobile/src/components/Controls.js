@@ -1,19 +1,15 @@
 /*
  * The small controls of Direction A: an icon button, a text button, a compact segmented control, the layer chip
  * that floats over the image, and a tag. Every control's hit area is at least 48 x 48; where the visual is
- * smaller (a 32 dp segment, a 36 dp chip, a 40 dp button) hitSlop pads it.
+ * smaller (a 32 dp segment, a 36 dp chip, a 40 dp button) hitSlopFor() pads it from its height, and a control that
+ * can be narrower than 48 dp (a short label) has a minWidth. test/render/touch_targets.mjs measures every one.
  */
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { IconEye, IconEyeOff } from './icons';
-import { color, MIN_TOUCH, radius, size, type } from './theme';
-
-const slop = (visual) => {
-  const pad = Math.max(0, Math.ceil((MIN_TOUCH - visual) / 2));
-  return { top: pad, bottom: pad, left: 0, right: 0 };
-};
+import { color, hitSlopFor, MIN_TOUCH, radius, size, type } from './theme';
 
 // A 48 dp round button around one icon. `label` is what a screen reader says.
 export function IconButton({
@@ -47,7 +43,7 @@ export function Button({
       style={[s.btn, { backgroundColor: v.bg }, variant === 'quiet' && s.btnQuiet, block && s.block, disabled && s.disabled]}
       onPress={onPress}
       disabled={disabled}
-      hitSlop={slop(size.button)}
+      hitSlop={hitSlopFor(size.button)}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || label}
       accessibilityState={{ disabled }}
@@ -80,7 +76,7 @@ export function SegmentedControl({ options, value, onChange, label, testID }) {
             key={String(o.value)}
             style={[s.segment, Icon && s.segmentIcon, on && s.segmentOn]}
             onPress={() => onChange(o.value)}
-            hitSlop={slop(size.segmented - 4)}
+            hitSlop={hitSlopFor(SEGMENT_HEIGHT)}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
           >
@@ -103,7 +99,7 @@ export function Chip({ label, swatch = null, on = true, onPress, testID }) {
     <TouchableOpacity
       style={s.chip}
       onPress={onPress}
-      hitSlop={slop(size.chip)}
+      hitSlop={hitSlopFor(size.chip)}
       accessibilityRole="switch"
       accessibilityLabel={label}
       accessibilityState={{ checked: on }}
@@ -132,14 +128,18 @@ const TAG = {
   danger: { bg: color.dangerSoft, fg: color.danger },
 };
 
+// A segment is the track's height less its 2 dp padding above and below.
+const SEGMENT_HEIGHT = size.segmented - 4;
+
 const s = StyleSheet.create({
   iconBtn: { width: MIN_TOUCH, height: MIN_TOUCH, borderRadius: MIN_TOUCH / 2, alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.4 },
   btn: {
-    height: size.button, paddingHorizontal: 16, borderRadius: radius.m,
+    height: size.button, minWidth: MIN_TOUCH, paddingHorizontal: 16, borderRadius: radius.m,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'flex-start',
   },
-  btnQuiet: { paddingHorizontal: 0 },
+  // Text only: flush left, so the minWidth that keeps a short word 48 dp wide does not move the word.
+  btnQuiet: { paddingHorizontal: 0, justifyContent: 'flex-start' },
   block: { alignSelf: 'stretch' },
   btnT: { ...type.body, fontWeight: '500' },
   track: {

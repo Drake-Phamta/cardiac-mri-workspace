@@ -1,6 +1,9 @@
 /*
- * SCR-03 Case Explorer: one MRI slice with prediction and ground-truth overlays, the run line, the variant switch,
- * the slice metric and the entries to SCR-04/05/06. The state lives in the createCaseExplorer model (cases.mjs).
+ * SCR-03 Case Explorer, Direction A "Clinical viewer": the MRI slice fills the screen under the shell's floating app
+ * bar (case, model and experiment, a run picker, the privacy shield, Info), with the layer chips, the draw-mode
+ * toolbar and the bottom panel (variant, "Slice 45 / 88", slider, transport) floating over it. Ids, checksums, the
+ * run line, the z index and the metric version go to the Details sheet; the entries to SCR-04/05/06 and the display
+ * settings to the Tools sheet behind "more". The state lives in the createCaseExplorer model (cases.mjs).
  * MRI bytes are fetched in JS and shown as a data URI, so every byte a slice gesture costs is counted.
  */
 
@@ -9,21 +12,39 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { loading, RECOVERY, STATE } from '../../api/states.mjs';
 import {
-  createCaseExplorer, LAYER, chooseRun, metricsText, OPACITY_STEPS, runText, sliceLabel, createSerialRunner,
+  createCaseExplorer, LAYER, chooseRun, diceCornerText, metricsText, OPACITY_STEPS, runSubtitle, runText,
+  createSerialRunner, variantLabel,
 } from './cases.mjs';
 import StateView, { StatePanel } from '../../components/StateView';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import CapabilityBadge from '../../components/CapabilityBadge';
-import Provenance, { IdLine } from '../../components/Provenance';
-import SliceViewport, { SliceScrubber, useMaskOverlay } from './SliceView';
+import { BottomPanel, TopScrim } from '../../components/Floating';
+import { Button, Chip, SegmentedControl } from '../../components/Controls';
+import { Sheet } from '../../components/DetailsSheet';
+import { SectionLabel } from '../../components/ListRow';
+import { IconChevronRight, IconShield } from '../../components/icons';
+import { color, HAIRLINE, MIN_TOUCH, overlay, radius, size, space, type } from '../../components/theme';
+import { CHROME } from '../../navigation/routes.mjs';
+import SliceViewport, {
+  DrawModeToolbar, outlineOf, SliceControls, SliceReadout, useMaskOverlay, useSlicePlayer,
+} from './SliceView';
+import { usePrivacyMode } from '../../lib/screenCapture';
+import { PRIVACY, privacyText } from '../../lib/privacy.mjs';
+import { sliceDetail } from '../../lib/sliceNumber.mjs';
+import {
+  OUTLINE_WIDTHS, OVERLAY_MODE, needsOutline, rememberedOverlayStyle, rememberOverlayStyle, VIEWER_ZOOM,
+} from './sliceControls.mjs';
 import {
   capabilityOf, VARIANT_TEXT, variantOptions, rememberedVariant, rememberVariant,
 } from '../../lib/caseMode.mjs';
 import { useScriptedRuns, useSliceTiming } from './scriptedRuns';
 
-export const OVERLAY_COLOR = Object.freeze({ PREDICTION: '#f0883e', GROUND_TRUTH: '#39c5cf' });
+// Orange and cyan stay apart for every common colour-vision deficiency, and each layer is named in words too.
+export const OVERLAY_COLOR = Object.freeze({ PREDICTION: overlay.prediction, GROUND_TRUTH: overlay.groundTruth });
 
-const short = (s) => (typeof s === 'string' && s.length > 24 ? `${s.slice(0, 23)}…` : (s ?? '-'));
+// The bottom panel without the gesture inset (the app's SafeAreaView keeps that free), and the draw-mode toolbar.
+const PANEL = size.bottomPanel - 20;
+const TOOLBAR = 3 * size.tool + 2 * 2 + 2 * 3 + 2 * HAIRLINE;
+// Corner annotations sit 8 dp under the floating bar, as in the mockup.
+const CORNER_TOP = size.appBar + space.s;
 
 export default function CaseExplorerScreen({ runtime, nav, params }) {
   const caseId = params.caseId;
@@ -35,6 +56,8 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   const [variant, setVariant] = useState(
     (allowed.includes(params.variant) && params.variant) || rememberedVariant(),
   );
+  // Stable, because it goes into what the screen reports to the header (a new function would re-render the shell).
+  const changeRun = useCallback(() => setRunId(null), []);
 
   useEffect(() => {
     let alive = true;
@@ -49,7 +72,11 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
   }, [nav]);
 
   if (caseView.state !== STATE.SUCCESS) {
-    return <StateView view={caseView} what={`case ${caseId}`} onAction={onCaseAction} />;
+    return (
+      <View style={s.underBar}>
+        <StateView view={caseView} what={`case ${caseId}`} onAction={onCaseAction} />
+      </View>
+    );
   }
 
   const kase = caseView.data;
@@ -93,24 +120,24 @@ export default function CaseExplorerScreen({ runtime, nav, params }) {
       initialVariant={noRun ? null : variant}
       initialSlice={initialSlice}
       onVariantChosen={rememberVariant}
-      onChangeRun={choice.choices.length > 1 ? () => setRunId(null) : null}
+      onChangeRun={choice.choices.length > 1 ? changeRun : null}
     />
   );
 }
+
+// The shell draws the app bar over this screen (viewer chrome) and hides the tab bar.
+CaseExplorerScreen.chrome = CHROME.VIEWER;
 
 // Before the viewer: choose the run and the prediction variant. Only a case's single run is picked automatically.
 function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVariant }) {
   const options = variantOptions(runtime.contract);
   return (
-    <ScrollView contentContainerStyle={s.chooser}>
-      <View style={s.caseRow}>
-        <Text style={s.caseId}>{caseId}</Text>
-        <CapabilityBadge capability={capability} />
-      </View>
-      <Text style={s.dim}>{capability.detail}</Text>
+    <ScrollView style={s.chooserRoot} contentContainerStyle={s.chooser}>
+      <Text style={s.chooserTitle}>{caseId}</Text>
+      <Text style={s.dim}>{capability.label} · {capability.detail}</Text>
       {!capability.consistent && <Text style={s.warn}>{capability.problem}</Text>}
 
-      <Text style={s.h2}>Analysis run</Text>
+      <SectionLabel title="Analysis run" style={s.chooserSection} />
       {choice.reason === 'no-runs' && (
         <Text style={s.body}>This case lists no analysis run (available_run_ids is empty), so there is no prediction to inspect.</Text>
       )}
@@ -122,12 +149,13 @@ function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVarian
       ) : choice.choices.map((id) => (
         <TouchableOpacity key={id} style={s.choice} onPress={() => onRun(id)} accessibilityRole="button">
           <Text style={s.choiceT}>{id}</Text>
+          <IconChevronRight size={16} color={color.t3} />
         </TouchableOpacity>
       ))}
 
       {choice.reason !== 'no-runs' && (
         <>
-          <Text style={s.h2}>Prediction variant</Text>
+          <SectionLabel title="Prediction variant" style={s.chooserSection} />
           <Text style={s.dim}>No default: choose which prediction to inspect. It stays on screen and never changes by itself.</Text>
           {options.map((v) => (
             <TouchableOpacity
@@ -137,8 +165,10 @@ function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVarian
               accessibilityRole="button"
               accessibilityState={{ selected: variant === v }}
             >
-              <Text style={s.choiceT}>{v}</Text>
-              <Text style={s.dim}>{VARIANT_TEXT[v] || v}</Text>
+              <View style={s.choiceText}>
+                <Text style={[s.choiceT, variant === v && s.choiceTOn]}>{variantLabel(v)}</Text>
+                <Text style={s.dim}>{VARIANT_TEXT[v] || v}</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </>
@@ -152,8 +182,8 @@ function Chooser({ runtime, caseId, capability, choice, variant, onRun, onVarian
  * The viewer. It keeps three snapshots of the model:
  *   current    the latest; its state decides loading / error / PROCESSING
  *   shown      the latest SUCCESS one
- *   displayed  `shown` once its MRI bytes and masks are loaded. Image, overlays, label, metric and provenance all
- *              come from `displayed`, so they change together (no new label over an old image).
+ *   displayed  `shown` once its MRI bytes and masks are loaded. Image, overlays, readout, metric and provenance all
+ *              come from `displayed`, so they change together (no new number over an old image).
  * Each slice request opens a gesture on runtime.netLog and the slice reaching the screen closes it, so every
  * switch writes one CMW_GESTURE line with all the requests it caused.
  */
@@ -168,7 +198,7 @@ function Explorer({
   const total = shape ? shape[2] : null;
   const width = shape ? shape[0] : null;
   const height = shape ? shape[1] : null;
-  const size = useMemo(() => (width && height ? { width, height } : null), [width, height]);
+  const size2d = useMemo(() => (width && height ? { width, height } : null), [width, height]);
   const options = variantOptions(runtime.contract);
   const noRunText = notListedRunId
     ? `requested run ${notListedRunId} is not listed for this case`
@@ -181,17 +211,28 @@ function Explorer({
   const [pending, setPending] = useState(null);
   const [targetVariant, setTargetVariant] = useState(initialVariant);
   const [opacity, setOpacity] = useState(0.5);
+  // Privacy mode (on by default): screenshots and casting of this screen show black while it is on.
+  const privacy = usePrivacyMode('SCR-03');
+  const [style, setStyle] = useState(() => rememberedOverlayStyle('SCR-03', { mode: OVERLAY_MODE.FILL, width: 2 }));
+  const changeStyle = useCallback((patch) => setStyle((st) => {
+    const next = { ...st, ...patch };
+    rememberOverlayStyle('SCR-03', next);
+    return next;
+  }), []);
   const [tap, setTap] = useState(null);
   const [imageProblem, setImageProblem] = useState(null);
   const [imageError, setImageError] = useState(null);
   const [prepareEpoch, setPrepareEpoch] = useState(0);
   const [runInfo, setRunInfo] = useState(null);
   const [fitKey, setFitKey] = useState(0);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const timing = useSliceTiming();
   const displayedRef = useRef(null);
   const overlaysRef = useRef(model.current.overlays);
   const lastLoadedUri = useRef(null);
+  // Set to the Play button's stop() below; any slice action of the user's own stops a sweep first.
+  const stopPlay = useRef(() => {});
 
   const settle = useCallback(() => {
     const c = model.current;
@@ -217,13 +258,6 @@ function Explorer({
     },
   }), [settle]);
   useEffect(() => () => runner.dispose(), [runner]);
-
-  // The header names the run and variant on screen; the route may not, because this screen can pick the run itself.
-  useEffect(() => {
-    if (typeof nav.setContext !== 'function') return undefined;
-    nav.setContext({ runId: hasRun ? runId : null, variant: hasRun ? targetVariant : null });
-    return () => nav.setContext(null);
-  }, [nav, hasRun, runId, targetVariant]);
 
   useEffect(() => {
     // A fresh open drops cached "unavailable" answers: the data may have arrived since the last visit.
@@ -300,11 +334,11 @@ function Explorer({
         (err) => ({ ok: false, mri: true, message: String(err && err.message) }),
       ));
     }
-    if (u.pred && runtime.maskStore && size) {
-      jobs.push(runtime.maskStore.load(u.pred, size, { checksum: u.sums.pred }).catch(() => null));
+    if (u.pred && runtime.maskStore && size2d) {
+      jobs.push(runtime.maskStore.load(u.pred, size2d, { checksum: u.sums.pred }).catch(() => null));
     }
-    if (u.gt && runtime.maskStore && size && overlaysRef.current && overlaysRef.current[LAYER.GROUND_TRUTH]) {
-      jobs.push(runtime.maskStore.load(u.gt, size, { checksum: u.sums.gt }).catch(() => null));
+    if (u.gt && runtime.maskStore && size2d && overlaysRef.current && overlaysRef.current[LAYER.GROUND_TRUTH]) {
+      jobs.push(runtime.maskStore.load(u.gt, size2d, { checksum: u.sums.gt }).catch(() => null));
     }
     Promise.all(jobs).then((results) => {
       if (!alive) return;
@@ -316,7 +350,7 @@ function Explorer({
       timing.stepShown(shown.sliceIndex);
     });
     return () => { alive = false; };
-  }, [shown, prepareEpoch, urlsFor, runtime.imageStore, runtime.maskStore, size, net]);
+  }, [shown, prepareEpoch, urlsFor, runtime.imageStore, runtime.maskStore, size2d, net]);
 
   const goTo = useCallback((n) => {
     if (!Number.isInteger(n) || !Number.isInteger(total)) return;
@@ -330,6 +364,7 @@ function Explorer({
 
   const switchVariant = useCallback((v) => {
     if (!hasRun || v === targetVariant) return;
+    stopPlay.current();
     onVariantChosen(v);
     setTargetVariant(v);
     const z = displayedRef.current ? displayedRef.current.sliceIndex : null;
@@ -353,6 +388,7 @@ function Explorer({
   }, [client, caseId, hasRun, runId]);
 
   const refreshSlice = useCallback(() => {
+    stopPlay.current();
     const zz = model.current.sliceIndex;
     forgetSlice(zz);
     if (net && Number.isInteger(zz)) net.begin({ caseId, from: zz, to: zz, kind: 'refresh' });
@@ -380,13 +416,21 @@ function Explorer({
 
   const overlays = current.overlays || {};
   const gtOn = overlays[LAYER.GROUND_TRUTH] === true;
-  const pred = useMaskOverlay(runtime.maskStore, u.pred, size, u.sums.pred);
-  const gt = useMaskOverlay(runtime.maskStore, gtOn ? u.gt : null, size, u.sums.gt);
+  const predOn = overlays[LAYER.PREDICTION] === true;
+  const pred = useMaskOverlay(runtime.maskStore, u.pred, size2d, u.sums.pred);
+  const gt = useMaskOverlay(runtime.maskStore, gtOn ? u.gt : null, size2d, u.sums.gt);
   const predAvailable = ok && displayed.layersAvailable[LAYER.PREDICTION] === true;
   const gtAvailable = ok && displayed.layersAvailable[LAYER.GROUND_TRUTH] === true && displayed.groundTruthRef !== null;
+  const outlined = needsOutline(style.mode);
   const layers = [
-    { key: 'gt', path: gt.path, color: OVERLAY_COLOR.GROUND_TRUTH, opacity, visible: !imageProblem && gtOn && gtAvailable },
-    { key: 'pred', path: pred.path, color: OVERLAY_COLOR.PREDICTION, opacity, visible: !imageProblem && !switching && overlays[LAYER.PREDICTION] === true && predAvailable },
+    {
+      key: 'gt', path: gt.path, outline: outlined ? outlineOf(gt.mask) : null, color: OVERLAY_COLOR.GROUND_TRUTH, opacity,
+      visible: !imageProblem && gtOn && gtAvailable,
+    },
+    {
+      key: 'pred', path: pred.path, outline: outlined ? outlineOf(pred.mask) : null, color: OVERLAY_COLOR.PREDICTION, opacity,
+      visible: !imageProblem && !switching && predOn && predAvailable,
+    },
   ];
 
   useEffect(() => { setImageProblem(null); }, [imageUri]);
@@ -397,12 +441,12 @@ function Explorer({
   const onImageLoad = useCallback((e) => {
     lastLoadedUri.current = imageUri;
     const src = e && e.nativeEvent && e.nativeEvent.source;
-    if (src && size && Number.isFinite(src.width) && Number.isFinite(src.height)
-      && (src.width !== size.width || src.height !== size.height)) {
-      setImageProblem(`MRI slice is ${src.width}x${src.height} but the case geometry says ${size.width}x${size.height}; overlays are not drawn over it.`);
+    if (src && size2d && Number.isFinite(src.width) && Number.isFinite(src.height)
+      && (src.width !== size2d.width || src.height !== size2d.height)) {
+      setImageProblem(`MRI slice is ${src.width}x${src.height} but the case geometry says ${size2d.width}x${size2d.height}; overlays are not drawn over it.`);
     }
     finishSample('image');
-  }, [finishSample, size, imageUri]);
+  }, [finishSample, size2d, imageUri]);
 
   const onImageError = useCallback((e) => {
     setImageProblem(`MRI slice image failed to decode: ${(e && e.nativeEvent && e.nativeEvent.error) || 'unknown error'}`);
@@ -421,6 +465,12 @@ function Explorer({
     timing, goTo, runtime, net, caseId, runId, hasRun, total, capability, targetVariant, overlaysRef, displayedRef,
   });
 
+  // Play sweeps the slices one at a time (each one on screen before the next is asked for); a scripted run or a
+  // slice that fails stops it.
+  const player = useSlicePlayer({ total, goTo, displayed, failed: blocking, locked: Boolean(navRun) });
+  stopPlay.current = player.stop;
+  const userGoTo = useCallback((n) => { player.stop(); goTo(n); }, [player.stop, goTo]);
+
   const run = runInfo ? runInfo.run : { runId };
   // While the viewer shows a state instead of a slice, nothing from the previous slice (metric, provenance,
   // entries) stays on screen.
@@ -431,7 +481,10 @@ function Explorer({
   else if (!hasRun) metrics = { text: `Slice Dice: - (${noRunText})`, tone: 'neutral' };
   else if (ok && !switching) metrics = metricsText(displayed.metrics, displayed.variant);
   else metrics = { text: switching ? `Slice Dice: switching to ${targetVariant}…` : 'Slice Dice: -', tone: 'neutral' };
-  const scrubIndex = blocking ? current.sliceIndex : (ok ? displayed.sliceIndex : current.sliceIndex);
+  let corner = '—';
+  if (!blocking && hasRun && ok && !switching) corner = diceCornerText(displayed.metrics);
+  else if (switching) corner = 'Switching…';
+  const scrubAt = blocking ? current.sliceIndex : (ok ? displayed.sliceIndex : current.sliceIndex);
   const geometryNote = kase.geometry_validation_status === 'GEOMETRY_NOT_VALIDATED'
     ? 'Geometry not validated: index space only - no millimetre values are shown.' : null;
   let pixelNote = null;
@@ -454,267 +507,323 @@ function Explorer({
   if (!hasRun) reviewEntry = needsRun;
   else if (blocking) reviewEntry = notLoaded;
   else if (!(ok && predAvailable)) reviewEntry = 'needs this slice\'s prediction';
+  const predWhy = switching ? `switching to ${targetVariant}…` : (pred.status === 'error' ? pred.error : (ok && !predAvailable ? 'not available for this slice' : null));
+  const gtWhy = gt.status === 'error' ? gt.error : (ok && !gtAvailable ? 'not available for this slice' : null);
   // This screen unmounts under SCR-04/05/06, so each push also saves the run, variant and slice in this screen's
   // stack entry. Back then reopens exactly them, not the case's default run and slice.
   const back = () => ({ runId, variant: displayed.variant, sliceIndex: z });
+  const open = (screenId, p) => { setToolsOpen(false); nav.push(screenId, p, back()); };
+
+  // ----- What the shell's app bar and Details sheet show (nav.setContext) -----
+  const priv = privacyText(privacy.status, privacy.on);
+  const subtitle = hasRun
+    ? runSubtitle(run, runInfo ? runInfo.modelFamily : null, { loading: runInfo === null, error: runInfo ? runInfo.error : null })
+    : (notListedRunId ? `Run ${notListedRunId} not listed` : 'No analysis run');
+  const openTools = useCallback(() => setToolsOpen(true), []);
+  const actions = useMemo(() => [{
+    key: 'privacy', icon: IconShield, label: priv.title, active: privacy.status === PRIVACY.PROTECTED, onPress: privacy.toggle,
+  }], [priv.title, privacy.status, privacy.toggle]);
+  const overflow = useMemo(() => ({ label: 'Tools: error inspector, 3D view, review, display', onPress: openTools }), [openTools]);
+  const id = (ref) => (showing && ref ? `${ref.artifactId ?? '-'} · ${ref.checksum ?? '-'}` : '- · -');
+  const detailSections = [
+    {
+      title: 'This slice',
+      lines: [
+        sliceDetail(showing ? z : null, total),
+        metrics.text,
+        `MRI ${id(displayed && displayed.imageRef)}`,
+        hasRun ? `Prediction ${showing ? displayed.variant : '-'} ${id(displayed && displayed.predictionRef)}` : `Prediction - (${noRunText})`,
+        capability.groundTruthUsable ? `Ground truth ${id(displayed && displayed.groundTruthRef)}` : null,
+        tap ? `Last tap: source pixel ${tap.src ? `x ${tap.src[0]}, y ${tap.src[1]}` : 'outside the image'} on ${sliceDetail(tap.slice, total)} · zoom ×${tap.zoom.toFixed(1)}` : null,
+      ].filter(Boolean),
+    },
+    {
+      title: 'Run',
+      lines: [
+        hasRun ? runText(run, runInfo ? runInfo.modelFamily : null, { loading: runInfo === null, error: runInfo ? runInfo.error : null }) : noRunLine,
+        runReason === 'only-run' ? 'The only run for this case' : null,
+      ].filter(Boolean),
+    },
+    {
+      title: 'Case and layers',
+      lines: [
+        `${capability.label}: ${capability.detail}`,
+        capability.consistent ? null : capability.problem,
+        hasRun ? `Prediction (${ok ? displayed.variant : targetVariant}): ${predOn && predAvailable && !switching ? 'shown' : 'hidden'}${predWhy ? ` - ${predWhy}` : ''}`
+          : `Prediction: none - ${noRunText} (no prediction, metric or error layer).`,
+        capability.groundTruthUsable
+          ? `Ground truth: ${gtOn && gtAvailable ? 'shown' : 'hidden'}${gtWhy ? ` - ${gtWhy}` : ''}`
+          : `Ground truth: none for this case (${capability.label}) - no ground-truth layer, metric or error view is offered.`,
+        geometryNote,
+      ].filter(Boolean),
+    },
+    { title: 'Privacy', lines: [priv.title, priv.detail].filter(Boolean) },
+    { title: 'Scripted runs', lines: ['Long-press the slice number for the scripted runs (L4, A9); timings and bytes go to logcat.'] },
+  ];
+  const detailsKey = JSON.stringify(detailSections);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const details = useMemo(() => detailSections, [detailsKey]);
+
+  useEffect(() => {
+    if (typeof nav.setContext !== 'function') return;
+    nav.setContext({
+      runId: hasRun ? runId : null,
+      variant: hasRun ? targetVariant : null,
+      title: caseId,
+      subtitle,
+      onSubtitlePress: onChangeRun || null,
+      actions,
+      overflow,
+      details,
+    });
+  }, [nav, hasRun, runId, targetVariant, caseId, subtitle, onChangeRun, actions, overflow, details]);
+  useEffect(() => () => { if (typeof nav.setContext === 'function') nav.setContext(null); }, [nav]);
+
+  const notes = [
+    navRun ? { key: 'run', text: `Scripted run in progress (${navRun}) - controls are locked.`, warn: true } : null,
+    imageProblem ? { key: 'image', text: imageProblem, warn: true } : null,
+    pixelNote && !blocking ? { key: 'pixels', text: pixelNote, warn: false } : null,
+  ].filter(Boolean);
 
   return (
     <View style={s.root}>
-      <View style={s.head}>
-        <View style={s.caseRow}>
-          <Text style={s.caseId}>{caseId}</Text>
-          <CapabilityBadge capability={capability} />
-        </View>
-        <Text style={s.runLine} numberOfLines={2}>
-          {hasRun
-            ? runText(run, runInfo ? runInfo.modelFamily : null, { loading: runInfo === null, error: runInfo ? runInfo.error : null })
-            : noRunLine}
-          {runReason === 'only-run' ? ' · only run' : ''}
-        </Text>
-        <View style={s.variantRow}>
-          <Text style={s.variantLabel}>Prediction</Text>
-          {!hasRun && <Text style={s.dim}>none - {noRunText}</Text>}
-          {hasRun && options.map((v) => (
-            <TouchableOpacity
-              key={v}
-              style={[s.variant, targetVariant === v && s.variantOn]}
-              onPress={() => switchVariant(v)}
-              disabled={Boolean(navRun)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: targetVariant === v }}
-            >
-              <Text style={[s.variantT, targetVariant === v && s.variantTOn]}>{v}</Text>
-            </TouchableOpacity>
-          ))}
-          {onChangeRun && (
-            <TouchableOpacity style={s.variant} onPress={onChangeRun} accessibilityRole="button">
-              <Text style={s.variantT}>Run…</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+      {blocking ? null : (
+        <SliceViewport
+          fill
+          insets={{ top: size.appBar, bottom: PANEL }}
+          initialZoom={VIEWER_ZOOM}
+          zoomLabelStyle={s.zoomAt}
+          shape={shape}
+          imageUri={imageUri}
+          onImageLoad={onImageLoad}
+          onImageError={onImageError}
+          layers={layers}
+          placeholderNote={pixelNote}
+          resetKey={`${caseId}|${fitKey}`}
+          onTap={(src, at) => setTap({ src, slice: z, zoom: at.zoom })}
+          overlayMode={style.mode}
+          outlineWidth={style.width}
+        />
+      )}
+
+      {/* The scrim under the floating app bar: above the image, below the corner annotations. */}
+      <TopScrim />
+
+      <View style={[s.corner, s.cornerLeft]} pointerEvents="none">
+        <Text style={s.cornerLabel}>MRI</Text>
+        <Text style={s.cornerValue}>{capability.label}</Text>
+      </View>
+      <View style={[s.corner, s.cornerRight]} pointerEvents="none">
+        <Text style={[s.cornerLabel, s.right]}>Slice Dice</Text>
+        <Text style={[s.cornerValue, s.right]} testID="slice-dice">{corner}</Text>
       </View>
 
-      <View style={s.viewerBox}>
-        {blocking ? (
-          <View style={s.blocked}>
-            <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={onStateAction} />
-          </View>
-        ) : (
-          <SliceViewport
-            shape={shape}
-            imageUri={imageUri}
-            onImageLoad={onImageLoad}
-            onImageError={onImageError}
-            layers={layers}
-            placeholderNote={pixelNote}
-            resetKey={`${caseId}|${fitKey}`}
-            onTap={(src, at) => setTap({ src, slice: z, zoom: at.zoom })}
-          />
-        )}
-      </View>
+      {notes.length || imageError ? (
+        <View style={s.notes} pointerEvents="box-none">
+          {notes.map((n) => <Text key={n.key} style={[s.noteT, n.warn && s.noteWarn]}>{n.text}</Text>)}
+          {imageError ? (
+            <Button label="Fetch the image again" variant="secondary" onPress={() => setPrepareEpoch((n) => n + 1)} />
+          ) : null}
+        </View>
+      ) : null}
 
-      <SliceScrubber
-        index={scrubIndex}
-        pending={pending}
-        total={total}
-        onChange={goTo}
-        onLongPressLabel={askScripted}
-        disabled={Boolean(navRun)}
-      />
-
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollIn}>
-        {navRun && <Text style={s.warn}>Scripted run in progress ({navRun}) - controls are locked.</Text>}
-        {imageProblem && <Text style={s.warn}>{imageProblem}</Text>}
-        {imageError && (
-          <TouchableOpacity style={s.smallBtn} onPress={() => setPrepareEpoch((n) => n + 1)} accessibilityRole="button">
-            <Text style={s.smallBtnT}>Fetch the image again</Text>
-          </TouchableOpacity>
-        )}
-        {pixelNote && !blocking ? <Text style={s.dim}>{pixelNote}</Text> : null}
-
-        <View style={s.card}>
-          <Text style={s.cardH}>Overlays</Text>
-          {hasRun ? (
-            <LayerToggle
-              label={`Prediction (${ok ? displayed.variant : targetVariant})`}
-              swatch={OVERLAY_COLOR.PREDICTION}
-              on={overlays[LAYER.PREDICTION] === true}
-              available={predAvailable && !switching}
-              why={switching ? `switching to ${targetVariant}…` : (pred.status === 'error' ? pred.error : (ok && !predAvailable ? 'not available for this slice' : null))}
-              onToggle={(on) => setOverlay(LAYER.PREDICTION, on)}
-            />
-          ) : (
-            <Text style={s.dim}>Prediction: none - {noRunText} (no prediction, metric or error layer).</Text>
-          )}
+      {blocking ? (
+        <View style={s.blocked}>
+          <StatePanel view={current.view} what={`slice ${(current.sliceIndex ?? 0) + 1}`} onAction={onStateAction} />
+        </View>
+      ) : (
+        <View style={s.chips}>
           {capability.groundTruthUsable ? (
-            <LayerToggle
-              label="Ground truth"
-              swatch={OVERLAY_COLOR.GROUND_TRUTH}
-              on={gtOn}
-              available={gtAvailable}
-              why={gt.status === 'error' ? gt.error : (ok && !gtAvailable ? 'not available for this slice' : null)}
-              onToggle={(on) => setOverlay(LAYER.GROUND_TRUTH, on)}
+            <LayerChip label="Ground truth" swatch={OVERLAY_COLOR.GROUND_TRUTH} on={gtOn} available={gtAvailable} why={gtWhy}
+              onToggle={(on) => setOverlay(LAYER.GROUND_TRUTH, on)} />
+          ) : null}
+          {hasRun ? (
+            <LayerChip label="Prediction" swatch={OVERLAY_COLOR.PREDICTION} on={predOn} available={predAvailable && !switching} why={predWhy}
+              onToggle={(on) => setOverlay(LAYER.PREDICTION, on)} />
+          ) : null}
+        </View>
+      )}
+
+      <DrawModeToolbar style={s.toolbar} mode={style.mode} onMode={(mode) => changeStyle({ mode })} />
+
+      <BottomPanel testID="viewer-panel">
+        <View style={s.row1}>
+          <Text style={s.panelLabel}>Prediction</Text>
+          {hasRun ? (
+            <View style={navRun ? s.locked : null} pointerEvents={navRun ? 'none' : 'auto'}>
+              <SegmentedControl
+                label="Prediction variant"
+                options={options.map((v) => ({ value: v, label: variantLabel(v) }))}
+                value={targetVariant}
+                onChange={switchVariant}
+              />
+            </View>
+          ) : <Text style={s.panelNone}>No analysis run</Text>}
+          <View style={s.spacer} />
+          <SliceReadout index={scrubAt} total={total} onLongPress={askScripted} />
+        </View>
+        <View style={s.row2}>
+          <SliceControls
+            index={scrubAt}
+            pending={pending}
+            total={total}
+            onChange={userGoTo}
+            disabled={Boolean(navRun)}
+            playing={player.playing}
+            onPlay={player.toggle}
+          />
+        </View>
+      </BottomPanel>
+
+      <Sheet visible={toolsOpen} onClose={() => setToolsOpen(false)} title="Tools" testID="tools-sheet">
+        <View style={s.sheetSection}>
+          <SectionLabel title="Open" />
+          <View>
+            <EntryRow
+              label="Error inspector"
+              detail="TP, FP and FN of this slice against ground truth"
+              why={errorEntry}
+              onPress={() => open('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z })}
             />
-          ) : (
-            <Text style={s.dim}>Ground truth: none for this case ({capability.label}) - no ground-truth layer, metric or error view is offered.</Text>
-          )}
-          <View style={s.opacityRow}>
-            <Text style={s.dim}>Opacity</Text>
-            {OPACITY_STEPS.map((o) => (
-              <TouchableOpacity key={o} style={[s.step, opacity === o && s.stepOn]} onPress={() => setOpacity(o)} accessibilityRole="button">
-                <Text style={[s.stepT, opacity === o && s.stepTOn]}>{Math.round(o * 100)}%</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={s.step} onPress={() => setFitKey((k) => k + 1)} accessibilityRole="button">
-              <Text style={s.stepT}>Fit</Text>
-            </TouchableOpacity>
+            <EntryRow
+              label="3D view"
+              detail="The case's surfaces, with this slice marked"
+              why={threeDEntry}
+              onPress={() => open('SCR-05', { caseId, runId, variant: displayed.variant, sliceIndex: z })}
+            />
+            <EntryRow
+              label="Review and correct"
+              detail="Accept, flag or correct this prediction"
+              why={reviewEntry}
+              onPress={() => open('SCR-06', { runId, caseId, variant: displayed.variant, sliceIndex: z })}
+              last
+            />
           </View>
         </View>
-
-        <View style={s.card}>
-          <Text style={[s.metric, metrics.tone === 'ok' && s.ok, metrics.tone === 'warn' && s.warnT]}>{metrics.text}</Text>
-          <TouchableOpacity
-            style={[s.smallBtn, navRun && s.toggleOff]}
-            onPress={refreshSlice}
-            disabled={Boolean(navRun)}
-            accessibilityRole="button"
-          >
-            <Text style={s.smallBtnT}>Refresh this slice</Text>
-          </TouchableOpacity>
-          {tap && (
-            <Text style={s.dim}>
-              Tap → source pixel {tap.src ? `(x ${tap.src[0]}, y ${tap.src[1]})` : 'outside the image'} on {sliceLabel(tap.slice, total)} · zoom ×{tap.zoom.toFixed(1)}
-            </Text>
-          )}
-          {geometryNote && <Text style={s.dim}>{geometryNote}</Text>}
+        <View style={s.sheetSection}>
+          <SectionLabel title="Display" />
+          <View style={s.setting}>
+            <View style={s.settingHead}>
+              <Text style={[s.settingT, style.mode === OVERLAY_MODE.FILL && s.settingOff]}>Outline width</Text>
+              {style.mode === OVERLAY_MODE.FILL ? <Text style={s.settingNote}>not used while Fill is chosen</Text> : null}
+            </View>
+            <SegmentedControl
+              label="Outline width"
+              options={OUTLINE_WIDTHS.map((w) => ({ value: w, label: `${w} px` }))}
+              value={style.width}
+              onChange={(w) => changeStyle({ width: w })}
+            />
+          </View>
+          <View style={s.setting}>
+            <View style={s.settingHead}>
+              <Text style={[s.settingT, style.mode === OVERLAY_MODE.OUTLINE && s.settingOff]}>Fill opacity</Text>
+              {style.mode === OVERLAY_MODE.OUTLINE ? <Text style={s.settingNote}>not used while Outline is chosen</Text> : null}
+            </View>
+            <SegmentedControl
+              label="Fill opacity"
+              options={OPACITY_STEPS.map((o) => ({ value: o, label: `${Math.round(o * 100)} %` }))}
+              value={opacity}
+              onChange={setOpacity}
+            />
+          </View>
+          <View style={s.sheetButtons}>
+            <Button label="Fit to screen" variant="secondary" onPress={() => { setFitKey((k) => k + 1); setToolsOpen(false); }} />
+            <Button label="Refresh this slice" variant="secondary" disabled={Boolean(navRun)} onPress={() => { setToolsOpen(false); refreshSlice(); }} />
+          </View>
         </View>
-
-        <Provenance title="Provenance (this slice)" summary="artifact ids and checksums of the MRI and masks">
-          <IdLine>MRI {short(showing && displayed.imageRef ? displayed.imageRef.artifactId : null)} · {short(showing && displayed.imageRef ? displayed.imageRef.checksum : null)}</IdLine>
-          {hasRun ? (
-            <IdLine>Prediction {showing ? displayed.variant : '-'} {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)} · {short(showing && displayed.predictionRef ? displayed.predictionRef.checksum : null)}</IdLine>
-          ) : (
-            <IdLine>Prediction - ({noRunText})</IdLine>
-          )}
-          {capability.groundTruthUsable && (
-            <IdLine>Ground truth {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.checksum : null)}</IdLine>
-          )}
-        </Provenance>
-
-        <View style={s.entries}>
-          <Entry
-            label="Error inspector (SCR-04)"
-            why={errorEntry}
-            onPress={() => nav.push('SCR-04', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())}
-          />
-          <Entry label="3D (SCR-05)" why={threeDEntry} onPress={() => nav.push('SCR-05', { caseId, runId, variant: displayed.variant, sliceIndex: z }, back())} />
-          <Entry
-            label="Review / correct (SCR-06)"
-            why={reviewEntry}
-            onPress={() => nav.push('SCR-06', { runId, caseId, variant: displayed.variant, sliceIndex: z }, back())}
-          />
-        </View>
-        <Text style={s.hint}>Long-press the slice label for the scripted runs (L4, A9) - timings and bytes go to logcat.</Text>
-      </ScrollView>
+      </Sheet>
     </View>
   );
 }
 
-function LayerToggle({ label, swatch, on, available, why, onToggle }) {
+// A layer chip; a layer the slice does not have is dimmed and says why to a screen reader (Details says it too).
+function LayerChip({ label, swatch, on, available, why, onToggle }) {
   return (
-    <TouchableOpacity
-      style={[s.toggle, !available && s.toggleOff]}
-      onPress={() => available && onToggle(!on)}
-      disabled={!available}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: on && available, disabled: !available }}
+    <View
+      style={!available && s.chipOff}
+      pointerEvents={available ? 'auto' : 'none'}
+      accessibilityLabel={available ? undefined : `${label}: ${why || 'not available'}`}
     >
-      <View style={[s.swatch, { backgroundColor: swatch }, !(on && available) && s.swatchOff]} />
-      <View style={s.toggleText}>
-        <Text style={s.toggleLabel}>{label}: {on && available ? 'ON' : 'OFF'}</Text>
-        {why ? <Text style={s.dim}>{why}</Text> : null}
-      </View>
-    </TouchableOpacity>
+      <Chip label={label} swatch={swatch} on={on && available} onPress={() => onToggle(!on)} testID={`layer-${label}`} />
+    </View>
   );
 }
 
-function Entry({ label, why, onPress }) {
+// One entry of the Tools sheet: a 56 dp row with the screen's name, what it shows (or why it is closed) and a chevron.
+function EntryRow({ label, detail, why, onPress, last = false }) {
   return (
     <TouchableOpacity
-      style={[s.entry, why && s.entryOff]}
+      style={[s.entry, !last && s.entryLine, why && s.entryOff]}
       onPress={onPress}
       disabled={Boolean(why)}
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(why) }}
     >
-      <Text style={[s.entryT, why && s.entryTOff]}>{label}</Text>
-      {why ? <Text style={s.dim}>{why}</Text> : null}
+      <View style={s.entryText}>
+        <Text style={s.entryT}>{label}</Text>
+        <Text style={why ? s.entryWhy : s.entryDetail}>{why || detail}</Text>
+      </View>
+      {why ? null : <IconChevronRight size={20} color={color.t3} />}
     </TouchableOpacity>
   );
 }
 
+const shadow = { textShadowColor: '#000000', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } };
+
 const s = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: space.m, paddingTop: space.s },
-  head: { gap: 2, marginBottom: space.s },
-  caseRow: { flexDirection: 'row', alignItems: 'center', gap: space.s },
-  caseId: { color: color.text, fontFamily: font.mono, fontSize: font.h2, fontWeight: '700' },
-  runLine: { color: color.textDim, fontSize: font.small },
-  variantRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginTop: 2 },
-  variantLabel: { color: color.textDim, fontSize: font.small, marginRight: space.xs },
-  variant: {
-    minHeight: MIN_TOUCH - 8, minWidth: 64, paddingHorizontal: space.s, borderRadius: 6, borderWidth: 1,
-    borderColor: color.border, alignItems: 'center', justifyContent: 'center', backgroundColor: color.surface,
+  root: { flex: 1, backgroundColor: color.viewer },
+  // The shell's floating app bar covers the top 56 dp of a viewer-chrome screen.
+  underBar: { flex: 1, paddingTop: size.appBar, backgroundColor: color.bg },
+  corner: { position: 'absolute', top: CORNER_TOP },
+  cornerLeft: { left: space.l },
+  cornerRight: { right: space.l },
+  cornerLabel: { ...type.caption, color: color.t2, ...shadow },
+  cornerValue: { ...type.caption, fontWeight: '500', color: color.t1, fontVariant: ['tabular-nums'], ...shadow },
+  right: { textAlign: 'right' },
+  zoomAt: { right: space.l, bottom: PANEL + TOOLBAR + space.s },
+  notes: {
+    position: 'absolute', top: CORNER_TOP + 32 + space.m, left: space.l, right: space.l, gap: space.s,
+    padding: space.m, borderRadius: radius.m, backgroundColor: color.glass, borderWidth: HAIRLINE, borderColor: color.glassEdge,
   },
-  variantOn: { borderColor: OVERLAY_COLOR.PREDICTION, backgroundColor: '#2a1d12' },
-  variantT: { color: color.textDim, fontFamily: font.mono, fontSize: font.small, fontWeight: '700' },
-  variantTOn: { color: OVERLAY_COLOR.PREDICTION },
-  viewerBox: { width: '100%', aspectRatio: 1 },
-  blocked: { flex: 1, justifyContent: 'center' },
-  scroll: { flex: 1, marginTop: space.xs },
-  scrollIn: { paddingBottom: space.xl, gap: space.s },
-  card: { backgroundColor: color.surface, borderColor: color.border, borderWidth: 1, borderRadius: 10, padding: space.m, gap: space.xs },
-  cardH: { color: color.textDim, fontSize: font.small, fontWeight: '700', letterSpacing: 0.5 },
-  toggle: { minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.s },
-  toggleOff: { opacity: 0.55 },
-  toggleText: { flex: 1 },
-  toggleLabel: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  swatch: { width: 18, height: 18, borderRadius: 4 },
-  swatchOff: { opacity: 0.35 },
-  opacityRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexWrap: 'wrap' },
-  step: {
-    minHeight: 40, minWidth: 52, borderRadius: 6, borderWidth: 1, borderColor: color.border,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: color.surfaceHi,
-  },
-  stepOn: { borderColor: color.accent, backgroundColor: color.accentBg },
-  stepT: { color: color.textDim, fontSize: font.small, fontWeight: '600' },
-  stepTOn: { color: color.accent },
-  metric: { color: color.text, fontSize: font.body },
-  ok: { color: color.ok },
-  warnT: { color: color.warn },
-  entries: { gap: space.s },
-  entry: {
-    minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.accent, backgroundColor: color.accentBg,
-    paddingHorizontal: space.m, paddingVertical: space.s, justifyContent: 'center',
-  },
-  entryOff: { borderColor: color.border, backgroundColor: color.surface },
-  entryT: { color: color.accent, fontSize: font.body, fontWeight: '700' },
-  entryTOff: { color: color.textFaint },
-  problem: { gap: space.xs },
-  smallBtn: {
-    alignSelf: 'flex-start', minHeight: 40, paddingHorizontal: space.m, borderRadius: 6, borderWidth: 1,
-    borderColor: color.warn, justifyContent: 'center',
-  },
-  smallBtnT: { color: color.warn, fontSize: font.small, fontWeight: '700' },
-  dim: { color: color.textDim, fontSize: font.small },
-  warn: { color: color.warn, fontSize: font.small },
-  body: { color: color.text, fontSize: font.body },
-  hint: { color: color.textFaint, fontSize: 11, textAlign: 'center' },
-  h2: { color: color.text, fontSize: font.h2, fontWeight: '700', marginTop: space.l },
-  chooser: { padding: space.l, gap: space.s },
+  noteT: { ...type.caption, color: color.t2 },
+  noteWarn: { color: color.warn },
+  blocked: { position: 'absolute', left: space.l, right: space.l, top: size.appBar, bottom: PANEL, justifyContent: 'center' },
+  chips: { position: 'absolute', left: space.l, bottom: PANEL + space.l, gap: space.s, alignItems: 'flex-start' },
+  chipOff: { opacity: 0.45 },
+  toolbar: { position: 'absolute', right: space.l, bottom: PANEL },
+  row1: { height: size.segmented, flexDirection: 'row', alignItems: 'center', gap: space.s },
+  panelLabel: { ...type.caption, color: color.t3 },
+  panelNone: { ...type.secondary, color: color.t2 },
+  locked: { opacity: 0.4 },
+  spacer: { flex: 1 },
+  row2: { marginTop: space.m },
+  sheetSection: { gap: space.xs },
+  setting: { gap: space.s, paddingVertical: space.s },
+  settingT: { ...type.body, color: color.t1 },
+  settingOff: { color: color.t2 },
+  settingHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.s },
+  settingNote: { ...type.caption, color: color.t3 },
+  sheetButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, paddingTop: space.s },
+  entry: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s },
+  entryLine: { borderBottomWidth: HAIRLINE, borderColor: color.hair },
+  entryOff: { opacity: 0.55 },
+  entryText: { flex: 1, gap: 2 },
+  entryT: { ...type.body, fontWeight: '500', color: color.t1 },
+  entryDetail: { ...type.caption, color: color.t2 },
+  entryWhy: { ...type.caption, color: color.t3 },
+  dim: { ...type.caption, color: color.t2 },
+  warn: { ...type.caption, color: color.warn },
+  body: { ...type.body, color: color.t1 },
+  chooserRoot: { flex: 1, backgroundColor: color.bg },
+  chooser: { paddingTop: size.appBar + space.s, paddingHorizontal: space.l, paddingBottom: space.xl, gap: space.s },
+  chooserTitle: { ...type.screenTitle, color: color.t1, fontVariant: ['tabular-nums'] },
+  chooserSection: { marginTop: space.l },
   choice: {
-    minHeight: MIN_TOUCH, borderRadius: 8, borderWidth: 1, borderColor: color.border, backgroundColor: color.surface,
-    paddingHorizontal: space.m, paddingVertical: space.s, justifyContent: 'center',
+    minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s,
+    borderBottomWidth: HAIRLINE, borderColor: color.hair,
   },
-  choiceOn: { borderColor: OVERLAY_COLOR.PREDICTION },
-  choiceT: { color: color.text, fontFamily: font.mono, fontSize: font.body, fontWeight: '700' },
+  choiceOn: { borderColor: color.accent },
+  choiceText: { flex: 1, gap: 2 },
+  choiceT: { ...type.rowId, color: color.t1, flex: 1 },
+  choiceTOn: { color: color.accent },
 });
