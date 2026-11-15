@@ -15,6 +15,7 @@ import { useCall } from '../../api/RuntimeContext';
 import StateView, { StatePanel } from '../../components/StateView';
 import { color, font, MIN_TOUCH, space } from '../../components/theme';
 import CapabilityBadge from '../../components/CapabilityBadge';
+import Provenance, { IdLine } from '../../components/Provenance';
 import SliceViewport, { SliceScrubber } from './SliceView';
 import { capabilityOf } from '../../lib/caseMode.mjs';
 import {
@@ -257,9 +258,12 @@ function ErrorView({ runtime, nav, caseId, runId, variant, kase, capability, ini
           <Text style={s.dim}>Counted from the two masks drawn here; tap a class to hide or show it.</Text>
           {idsDiffer && <Text style={s.warn}>{ids.text}</Text>}
           {check && check.checked && <Text style={check.consistent ? s.ok : s.warn}>{check.text}</Text>}
-          <Text style={s.mono}>reference {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · prediction {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)}</Text>
           <Text style={[s.metric, metricsLine.tone === 'ok' && s.ok]}>{metricsLine.text}</Text>
         </View>
+
+        <Provenance title="Provenance (this slice)" summary="the mask ids the classes were counted from">
+          <IdLine>reference {short(showing && displayed.groundTruthRef ? displayed.groundTruthRef.artifactId : null)} · prediction {short(showing && displayed.predictionRef ? displayed.predictionRef.artifactId : null)}</IdLine>
+        </Provenance>
 
         <View style={s.card}>
           <Text style={s.cardH}>Worst slices (server, {pinned.ruleId || 'no rule pinned by the contract'})</Text>
@@ -409,5 +413,4 @@ const s = StyleSheet.create({
   ok: { color: color.ok, fontSize: font.small },
   warn: { color: color.warn, fontSize: font.small },
   dim: { color: color.textDim, fontSize: font.small },
-  mono: { color: color.textDim, fontFamily: font.mono, fontSize: 11 },
 });
