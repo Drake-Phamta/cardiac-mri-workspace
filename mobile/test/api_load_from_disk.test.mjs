@@ -23,7 +23,7 @@ import { createChecker, REPO, CONTRACT_FILE } from './_harness.mjs';
 const { check, done } = createChecker();
 
 const contract = await loadContract(CONTRACT_FILE);
-check('D1', contract.endpointsById.size === 28, `contract.json loads from disk: ${contract.endpointsById.size} endpoints`);
+check('D1', contract.endpointsById.size === 29, `contract.json loads from disk: ${contract.endpointsById.size} endpoints`);
 check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${CONTRACT_PATH}`);
 
 // D2 — the real generator's output loads. Run through the module, not a copy
@@ -52,7 +52,7 @@ check('D1', CONTRACT_PATH === 'contracts/api/contract.json', `default path is ${
       (problems.length ? ` — ${problems.slice(0, 3).join('; ')}` : ''));
 
     const bundle = createBundle(contract, generated);
-    check('D2', bundle.hasScenarios && Object.keys(bundle.scenarios).length === 28,
+    check('D2', bundle.hasScenarios && Object.keys(bundle.scenarios).length === 29,
       'and has one generated scenario group for every endpoint');
     check('D2', ['review_patch', 'working_mask_put', 'review_commit'].every(
       (id) => bundle.scenarios[id]?.stale_revision,

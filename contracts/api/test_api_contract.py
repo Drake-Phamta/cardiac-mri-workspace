@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic checks for API Contract 11 v1.1.0."""
+"""Synthetic checks for API Contract 11 v1.2.0."""
 
 from __future__ import annotations
 
@@ -43,13 +43,13 @@ def main() -> None:
     assert result == {
         "status": "PASS",
         "contract": "api_contract_11",
-        "version": "1.1.0",
-        "endpoint_count": 28,
+        "version": "1.2.0",
+        "endpoint_count": 29,
         "error_count": 15,
         "hero_endpoint_count": 23,
     }, result
     fixture = generate_fixture(contract)
-    assert fixture["contract_version"] == "1.1.0"
+    assert fixture["contract_version"] == "1.2.0"
     assert {item["id"] for item in fixture["endpoints"]} == {item["id"] for item in contract["endpoints"]}
     assert {item["code"] for item in fixture["errors"]} == {item["code"] for item in contract["errors"]}
     assert fixture["geometry"]["geometry_contract_version"] == "dr008a-dr012/v1.0.0"
@@ -127,7 +127,8 @@ def main() -> None:
     # and neither is a row that lacks a row field.
     list_ids = [item["id"] for item in contract["endpoints"] if "items" in item["response_fields"]]
     assert sorted(list_ids) == sorted(
-        ["case_list", "experiment_list", "experiment_cases", "reviewed_masks_list", "findings_list"]
+        ["case_list", "experiment_list", "experiment_cases", "reviewed_masks_list", "findings_list",
+         "review_history_list"]
     )
     for endpoint_id in list_ids:
         empty = fixture["scenarios"][endpoint_id]["empty"]["response"]["data"]
@@ -255,6 +256,36 @@ def main() -> None:
     assert request_params(contract, "reviewed_mask_slice_get", "/api/v1/reviewed-masks/RM_1/slices/44") == {
         "reviewed_mask_id": "RM_1", "slice_index": "44"}
     print("PASS an experiment_cases page is checked against the experiment that was asked for")
+
+    # --- v1.2.0: the review history and the flag reason ----------------------------
+    patch_request = scenarios["review_patch"]["default"]["request"]["body"]
+    assert patch_request["status"] == "FLAGGED" and patch_request["reason"].strip(), patch_request
+    history = scenarios["review_history_list"]["default"]["response"]["data"]
+    assert [row["action"] for row in history["items"]] == ["CREATE", "TRANSITION", "WORKING_SLICE", "COMMIT"]
+    assert [row["revision"] for row in history["items"]] == [1, 2, 3, 4], "oldest first"
+    flagged = history["items"][1]
+    assert flagged["to_status"] == "FLAGGED" and flagged["reason"] == patch_request["reason"]
+    assert history["items"][3]["reviewed_mask_id"] == listed, "the COMMIT row names the listed version"
+    assert all(row["reviewer_id"] == "project-reviewer" for row in history["items"])
+
+    def history_change(change):
+        data = json.loads(json.dumps(history))
+        change(data["items"])
+        return validate_response(contract, "review_history_list", 200, data)
+
+    for name, change in (
+        ("newest first", lambda rows: rows.reverse()),
+        ("unknown action", lambda rows: rows[0].update(action="DELETE")),
+        ("reason on a CREATE row", lambda rows: rows[0].update(reason="why")),
+        ("slice on a COMMIT row", lambda rows: rows[3].update(slice_index=44)),
+        ("an email as reviewer", lambda rows: rows[1].update(reviewer_id="someone@example.org")),
+        ("a reason of spaces", lambda rows: rows[1].update(reason="   ")),
+        ("a reason over 500 characters", lambda rows: rows[1].update(reason="x" * 501)),
+        ("a local time", lambda rows: rows[0].update(at="2026-10-01 09:00")),
+        ("an unknown from_status", lambda rows: rows[1].update(from_status="APPROVED")),
+    ):
+        assert history_change(change), name
+    print("PASS v1.2.0: review history oldest first with typed rows, and the flag reason, each with its refusal")
 
     broken = copy.deepcopy(contract)
     broken["errors"] = [item for item in broken["errors"] if item["code"] != "GROUND_TRUTH_UNAVAILABLE"]
@@ -390,11 +421,24 @@ def main() -> None:
     broken["enum_bindings"]["case_result_status"] = ["experiment_list.experiment_id"]
     expect_error(broken, "ENUM_INVALID", schema)
 
+    # --- v1.2.0 rules ---------------------------------------------------------
+    broken = copy.deepcopy(contract)
+    broken["enum_bindings"]["review_history_action"] = []
+    expect_error(broken, "SCHEMA_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    broken["enum_bindings"]["review_status"].remove("review_history_list.to_status")
+    expect_error(broken, "ENUM_INVALID", schema)
+
+    broken = copy.deepcopy(contract)
+    endpoint(broken, "review_history_list")["id"] = "review_audit"
+    expect_error(broken, "ENDPOINT_CATALOG_INCOMPLETE", schema)
+
     with tempfile.TemporaryDirectory(prefix="api-contract-") as temp:
         output = Path(temp) / "generated_fixture.json"
         output.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
         assert json.loads(output.read_text(encoding="utf-8"))["base_path"] == "/api/v1"
-    print("api_contract_checks=PASS cases=34")
+    print("api_contract_checks=PASS cases=37")
 
 
 if __name__ == "__main__":

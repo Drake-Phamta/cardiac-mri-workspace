@@ -1,4 +1,24 @@
-# API Contract 11 — v1.1.0 (v1.0.0 frozen 2026-10-01, v1.1.0 additive the same day)
+# API Contract 11 — v1.2.0 (v1.0.0 frozen 2026-10-01, v1.1.0 additive the same day, v1.2.0 additive 2026-11-15)
+
+## v1.2.0 — review history and the flag reason (additive)
+
+Asked for by SCR-06 (V4): a flag needs a reason, and the reviewer needs to see who changed the review, what and when.
+The backend already kept an append-only `review_history` table (`review_rules.audit_history_required`); no endpoint
+returned it. Every change is additive, so a 1.1.0 request is still valid; the version string changes because
+consumers compare it whole (the freeze rule below).
+
+| Change | Where |
+|---|---|
+| New read-only endpoint `review_history_list`, `GET /api/v1/reviews/{review_id}/history`: top-level `review_id`, rows `revision`, `action`, `from_status`, `to_status`, `reviewer_id`, `reason`, `slice_index`, `reviewed_mask_id`, `at`, **oldest first**. Errors `ARTIFACT_NOT_FOUND`, `UNAUTHORIZED`. Not hero-flow (still 23 of 29). | `endpoints` |
+| New enum `review_history_action` = `CREATE`, `TRANSITION`, `WORKING_SLICE`, `COMMIT`, bound to the rows' `action`; `review_status` is also bound to the rows' `to_status` (`from_status` is `null` on `CREATE`). | `domain_enums`, `enum_bindings` |
+| `review_patch` takes an optional `reason`: `null`, or 1 to 500 characters that are not only spaces. It is kept with the transition and shown on its history row. | `review_patch.request_fields`, notes |
+| `findings_list` states its order: oldest first, in creation order (what the backend served); the app reverses it to list newest first. | `findings_list.notes` |
+
+`validate_response` checks the history rows: oldest first, `reason` only on `TRANSITION`, `slice_index` only on
+`WORKING_SLICE`, `reviewed_mask_id` only on `COMMIT`, `at` a UTC time (`...Z`), and `reviewer_id` a project alias
+(letters, digits, `_ . -`, so never an email address; spec `12` section 5). `test_api_contract.py` has a refusal for
+each. Pins moved with the version: `backend/app/contract.py`, `mobile/src/api/contract.mjs` (29 endpoints),
+`validate_api_contract.py`, `schema.json`, `tools/e2e/hero_flow_api.py`.
 
 ## v1.1.0 — the V3/V4 freeze follow-ups (additive)
 

@@ -4,7 +4,7 @@
 
 The product backend: Python + FastAPI + SQLite. It runs on the team's PC (`127.0.0.1:8000`); the phone reaches it
 over USB with `adb reverse tcp:8000 tcp:8000` (see "Run locally"). It serves **exactly** the version of
-`contracts/api/contract.json` pinned in `app/contract.py` (`EXPECTED_VERSION`, currently 1.1.0) and refuses to start
+`contracts/api/contract.json` pinned in `app/contract.py` (`EXPECTED_VERSION`, currently 1.2.0) and refuses to start
 on any other. The code stays compatible with Python 3.9 (CI runs the suite on 3.9).
 
 **Derived patient data never lives in the repository.** Slice PNGs, masks, the review database, rendered
@@ -23,7 +23,7 @@ tree); the service and the ingest CLI refuse a path inside a work tree, ignored 
 | `app/routes/cases.py` | study, case list, case, MRI and ground-truth slices, geometry |
 | `app/routes/experiments.py` | experiment list, comparison, one experiment, its metrics and per-case rows |
 | `app/routes/runs.py` | analysis runs: run, run metrics, slice metrics, slice error, prediction slice, 3-D meshes |
-| `app/routes/reviews.py` | review create / patch, working-mask upload, commit, reviewed masks |
+| `app/routes/reviews.py` | review create / patch, working-mask upload, commit, reviewed masks, the review's history |
 | `app/routes/findings.py` | finding create / list / patch |
 | `app/middleware.py` | the JSONL request log (and `make_describe`, which names each request by its route template) and the body limit |
 | `app/cases.py`, `experiments.py`, `metrics.py`, `meshes.py`, `storage.py`, `imaging.py`, `ingest.py`, `config.py`, `contract.py` | the data behind the routes |
@@ -35,14 +35,14 @@ parameters), the middleware order and the route each request is logged under.
 
 ## What it serves
 
-All 28 contract endpoints are routed; the 23 marked `hero_flow` are implemented against real data first.
+All 29 contract endpoints are routed; the 23 marked `hero_flow` are implemented against real data first.
 
 | Area | Endpoints | Source |
 |---|---|---|
 | Study, cases, geometry | `study_get`, `case_list`, `case_get`, `geometry_get` | derived data cache (Contract 1 ingest) |
 | Slices | `mri_slice_get`, `ground_truth_slice_get` | 8-bit PNG per slice at native resolution, content-addressed |
 | Runs, predictions per variant | `analysis_run_get`, `prediction_slice_get` | Contract 2 packages under `backend/experiments/` |
-| Reviews, reviewed masks | `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `reviewed_masks_list`, `reviewed_mask_slice_get` | SQLite |
+| Reviews, reviewed masks | `review_create`, `review_patch`, `working_mask_put`, `review_commit`, `reviewed_masks_list`, `reviewed_mask_slice_get`, `review_history_list` | SQLite |
 | Findings | `finding_create`, `findings_list`, `finding_patch` | SQLite |
 | Metrics, worst slice, cohort | `analysis_run_metrics`, `analysis_slice_metrics`, `experiment_metrics`, `experiment_cases`, … | **unavailable state** (`ARTIFACT_NOT_FOUND`, reason `METRICS_NOT_INGESTED`) until saved Contract 2 metric artifacts are ingested — never an invented number |
 | Mesh | `reconstruction_get`, `error_reconstruction_get` | L0 meshes derived from the served masks by `python -m backend.mesh.build_cache` into `derived_meshes/` (see "3-D meshes"); Contract 2 `RECONSTRUCTION_3D` references still honoured; error mesh unavailable (the 3D error representation is not decided yet) |
@@ -68,9 +68,17 @@ mesh; the sha256 is the one in `mesh_artifact_id`).
   run + source mask + variant; `review_create` must send `source_mask_id` and `prediction_variant`.
 - **Revisions**: every write carries `expected_revision`; a stale one is `STALE_REVISION`. The review revision is a
   single counter advanced by every status change, working-slice upload and commit.
+- **Review history (contract 1.2.0)**: `GET /api/v1/reviews/{review_id}/history` (`review_history_list`) lists every
+  write of the review, oldest first: `CREATE`, `TRANSITION` (from / to status and its `reason`), `WORKING_SLICE`
+  (`slice_index`) and `COMMIT` (`reviewed_mask_id`), each with `revision`, `reviewer_id` and the UTC time `at`; a
+  field that does not belong to the row's action is `null`, and no checksum or mask byte is listed. `review_patch`
+  takes an optional `reason` (`null`, or 1 to 500 characters once trimmed, else `VALIDATION_ERROR`); the app asks for
+  one before `FLAGGED`. A request without it is valid as before.
 - **Immutability**: a commit writes a new `ReviewedMask` version (`RM_<review>_V<n>`, parent = previous version,
   checksum = sha256 of the uint8 `(z, y, x)` {0, 255} volume bytes) with FR-REV-010 provenance (source mask, case,
-  run, time, reviewer from the optional `X-Reviewer-Id` header). SQLite **triggers refuse UPDATE/DELETE and
+  run, time, reviewer). The reviewer is always a project alias (spec `12` section 5): the `X-Reviewer-Id` header
+  when it is letters, digits, `_`, `.` and `-` (so never an email address), else `CARDIAC_REVIEWER_ALIAS` (default
+  `project-reviewer`); the phone sends no header. SQLite **triggers refuse UPDATE/DELETE and
   REPLACE** on reviewed masks, their slices and both history tables; finding evidence columns cannot be updated. The source
   prediction file is never written (its checksum is re-verified when loaded).
 - **Working-mask payload**: `{encoding, data}` with `BITPACK_BASE64` (Ny·Nx bits, row-major, MSB first) or
@@ -186,7 +194,7 @@ the validator rejects). `test_holdout.py` covers the holdout ingest: refused wit
 sha256 or a malformed record; accepted with a valid one (54 cases in the synthetic cache); INT-12 never served with ground
 truth; the old lock when the cache has no record. **Every JSON response is validated** with
 `contracts/api/validate_api_contract.validate_response` — the same function the contract test applies to the
-generated fixtures. Covered: routes for all 28 endpoints, the INT-12 selection rule, slice pixels equal to the
+generated fixtures. Covered: routes for all 29 endpoints, the INT-12 selection rule, slice pixels equal to the
 source (rows = y, columns = x), ground truth served only in EVALUATION mode and never derived for INT-12, every
 transition and refusal of the review state machine, stale revisions, working-mask geometry checks, two committed
 versions with parent links, unchanged v1 and source checksums, database-level immutability (REPLACE included, on a
@@ -214,7 +222,7 @@ Served from the saved files (`ml/evaluate.py`, `ml-eval-1.0.0` formats), never r
 | `analysis_slice_metrics` | `PER_SLICE_METRICS` | `NOT_APPLICABLE` with `null` for a both-empty slice (`07` §6) |
 | `experiment_metrics` | `METRICS_SUMMARY` cohort | `n/mean/std/median/q1/q3/min/max` + the saved bootstrap CI as `ci95_low/high`. **INT-12 is hidden, not blinded:** the evaluated INT-12 case counts in `evaluation_n`, `successful_n` and every `n`, so its value can be derived from the cohort statistics; the app serves no per-case value of it |
 | `experiment_cases` | `PER_CASE_METRICS` | `SUCCEEDED / FAILED / EXCLUDED / WITHHELD` rows; a failed case has no run and is a `FAILED` row from the `failures` list with `analysis_run_id` null; the INT-12 case is `WITHHELD` (no values), and WITHHELD is checked **before** FAILED and EXCLUDED; the `outlier_selection` is ranked here over `SUCCEEDED` rows only (the WITHHELD case is never an outlier) |
-| `experiment_compare` | per-case records of each package | comparable = same population, split, metric version and variant; summaries over the common population, the INT-12 case included when it was evaluated (CIs `null`, not computed here) |
+| `experiment_compare` | per-case records of each package | comparable = same population, split, metric version, variant, reference-mask kind and geometry policy (the last two as `per_case_metrics.json` records them; a package that does not record one is not comparable, and `compatibility_reason` names each check that failed, such as `not same geometry policy`); summaries over the common population, the INT-12 case included when it was evaluated (CIs `null`, not computed here) |
 
 Provenance checks per request: the metric set scored exactly the run's prediction bytes (C2 checksum) and exactly
 the reference file this backend ingested (sha256 of the mask NRRD bytes); the per-slice rows cover the volume;

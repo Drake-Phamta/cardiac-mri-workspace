@@ -109,6 +109,10 @@ class PackageMetrics:
         self.metric_version: str = package.experiment["evaluation_metric_version"]
         self.variant: str = C2_VARIANT[package.experiment["prediction_variant"]]
         per_case = documents["per_case_metrics"]
+        # What the ML recorded about how the numbers were made (08 section 7, comparable-run gate): the kind of
+        # reference mask scored against, and the geometry policy (voxel units here). None = the file does not say.
+        self.reference_mask_kind: Optional[str] = per_case.get("reference_mask_kind")
+        self.geometry_policy: Optional[str] = per_case.get("geometry_policy")
         self.population: List[str] = list(per_case["population"]["case_ids"])
         self.records: Dict[str, dict] = {record["case_id"]: record for record in per_case["cases"]
                                          if record.get("status") == "SUCCEEDED"}
@@ -290,7 +294,8 @@ class MetricsService:
         loaded = [self.package_metrics(package) for package in packages]
 
         def same(values: List[Any]) -> bool:
-            return len(set(values)) == 1
+            # A package that does not record a value cannot be shown to agree with the others.
+            return None not in values and len(set(values)) == 1
 
         checks = {
             "same evaluation population": same([p.experiment["evaluation_population_manifest"]["checksum"]["value"]
@@ -298,6 +303,8 @@ class MetricsService:
             "same split manifest": same([p.experiment["split_manifest"]["checksum"]["value"] for p in packages]),
             "same evaluation metric version": same([item.metric_version for item in loaded]),
             "same prediction variant": same([item.variant for item in loaded]),
+            "same reference mask kind": same([item.reference_mask_kind for item in loaded]),
+            "same geometry policy": same([item.geometry_policy for item in loaded]),
         }
         failed = [name for name, ok in checks.items() if not ok]
         common = sorted(set.intersection(*[set(item.records) for item in loaded]),

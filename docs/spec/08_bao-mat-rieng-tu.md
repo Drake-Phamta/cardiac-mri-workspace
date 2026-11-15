@@ -25,7 +25,7 @@ giả danh `CASE_0001` … `CASE_0154`. Mọi biện pháp dưới đây đều 
 
 | Biện pháp | Ở đâu | ID |
 |---|---|---|
-| Privacy mode ở SCR-03 / SCR-04, bật mặc định, bật / tắt bằng khiên trên header ("Privacy mode: ON" / "Privacy mode: OFF"): chụp, quay, chiếu màn hình ra màu đen, ảnh bị ẩn trong danh sách app gần đây; rời màn hình thì bỏ chặn. Cần APK có `expo-screen-capture`; APK cũ ghi "Privacy mode: not available in this build" | `mobile/src/lib/privacy.mjs`, `lib/screenCapture.js` | NFR-SEC-007 |
+| Privacy mode ở SCR-03 / SCR-04 (SCR-06 dùng cùng cơ chế, xem mục 5), bật mặc định, bật / tắt bằng khiên trên header ("Privacy mode: ON" / "Privacy mode: OFF"): chụp, quay, chiếu màn hình ra màu đen, ảnh bị ẩn trong danh sách app gần đây; rời màn hình thì bỏ chặn. Cần APK có `expo-screen-capture`; APK cũ ghi "Privacy mode: not available in this build" | `mobile/src/lib/privacy.mjs`, `lib/screenCapture.js` | NFR-SEC-007 |
 | Che màn hình sau 5 phút ở nền hoặc 10 phút không chạm ("Screen hidden"); sheet đang mở cũng ẩn theo | `mobile/src/components/session.mjs`, `SessionCover.js` | NFR-SEC-006 |
 | "Clear cached images" ở sheet Details và lớp che phiên; từ chối khi màn hình còn thay đổi chưa lưu | `components/session.mjs`, `navigation/Navigator.js` | NFR-SEC-006 |
 | Cache chỉ trong RAM, có giới hạn, khoá theo phiên bản, checksum, biến thể; không ghi file | `mobile/src/api/cache.mjs` | NFR-SEC-008 |
@@ -52,14 +52,20 @@ giả danh `CASE_0001` … `CASE_0154`. Mọi biện pháp dưới đây đều 
 
 | Biện pháp | Ở đâu | ID |
 |---|---|---|
-| Kiểm chữ tự do (ghi chú finding, lý do gắn cờ) ngay khi gõ: tối đa 500 ký tự (quá thì chặn); cảnh báo ngày tháng, dãy số giống CCCD / số điện thoại, email, danh xưng + tên; cảnh báo không chặn ("Create anyway", "Flag anyway") | `mobile/src/screens/v4-review/notes.mjs`, `NoteCheck.js` | NFR-SEC-010 |
-| Mọi thao tác ghi lưu bí danh `CARDIAC_REVIEWER_ALIAS` (mặc định `project-reviewer`); header `X-Reviewer-Id` hợp lệ có thể nêu bí danh khác; bí danh có `@` bị bỏ, nên không bao giờ lưu email | `backend/app/config.py`, `backend/app/routes/reviews.py` | NFR-SEC-011 |
-| PDF finding: mọi ghi chú được escape HTML, không có ảnh, ghi "Research use only" | `screens/v4-review/findings.mjs`, `pdfExport.js` | FR-FIND-007 |
+| Kiểm chữ tự do (ghi chú finding, lý do gắn cờ) ngay khi gõ: tối đa 500 ký tự (quá thì không gửi); cảnh báo ngày tháng, dãy số giống CCCD / số điện thoại, email, danh xưng + tên; cảnh báo không chặn, nút đổi thành "Create anyway" / "Flag anyway" | `mobile/src/screens/v4-review/notes.mjs`, `NoteCheck.js`, `ReviewPanels.js`, `FindingsScreen.js` | NFR-SEC-010 |
+| Mọi lần ghi của review (tạo, đổi trạng thái, đẩy một lát, lưu) lưu bí danh `CARDIAC_REVIEWER_ALIAS` (mặc định `project-reviewer`); header `X-Reviewer-Id` gồm chữ, số, `_`, `.`, `-` (tối đa 64 ký tự) có thể nêu bí danh khác; giá trị có `@` bị bỏ, nên không bao giờ lưu hay trả về email; điện thoại không gửi header. Finding không ghi người tạo | `backend/app/config.py`, `backend/app/routes/reviews.py` | NFR-SEC-011 |
+| PDF finding: mọi ghi chú được escape HTML, không có ảnh, ghi "Research use only, not for diagnosis. Case IDs are pseudonymous; this report holds no image and no patient identifier."; app không giữ bản sao | `screens/v4-review/findings.mjs`, `pdfExport.js` | FR-FIND-007 |
+| Privacy mode ở SCR-06, nơi hiện ảnh MRI và mask: dùng chung hook `usePrivacyMode` (khoá `SCR-06`), bật mặc định, cùng khiên trên header và cùng lựa chọn nhớ trong phiên với SCR-03 / SCR-04; rời màn hình thì bỏ chặn. SCR-08 không hiện ảnh nào (danh sách, sheet, PDF chỉ có chữ) nên không có chế độ này | `screens/v4-review/ReviewCorrectionScreen.js`, `lib/privacy.mjs`, `lib/screenCapture.js` | NFR-SEC-007 |
 | Lịch sử review và finding chỉ thêm, không sửa, không xoá (trigger SQLite) | `backend/app/storage.py` | NFR-REL-001 |
-| Mask đã sửa không bao giờ được gọi là ground truth | `screens/v4-review/ReviewCorrectionScreen.js` | FR-REV-010 |
+| Mask đã sửa không bao giờ được gọi là ground truth: SCR-06 và SCR-08 gọi nó là "version", "Corrected", "Saved"; nguồn của review chỉ là dự đoán RAW / PROCESSED của run, server từ chối GT làm nguồn | `screens/v4-review/ReviewCanvas.js`, `ReviewPanels.js`, `backend/app/routes/reviews.py` | FR-REV-010 |
+| Mã review, run, thí nghiệm, finding, revision và checksum không hiện trên trang chính: chúng nằm trong sheet Details của SCR-06 và mục "Details" của sheet finding ở SCR-08; trang chính gọi thí nghiệm bằng nhãn và đếm lát từ 1 | `screens/v4-review/reviewDetails.mjs`, `FindingsScreen.js`, `format.mjs` | SCR-06, SCR-08 |
 
 ## 6. Chỗ còn thiếu (đã biết)
 
 - Chưa ghi lại kiểm tra cổng cho thấy backend chỉ nghe `127.0.0.1` (NFR-SEC-013).
 - `tools/secret_scan.py` chưa có unit test; CI chỉ thử nó bằng một khoá riêng giả (TC-SEC-004).
-- Kiểm chữ tự do chỉ làm trên điện thoại; server nhận ghi chú finding tới 4000 ký tự mà không kiểm (NFR-SEC-010).
+- Kiểm chữ tự do chỉ làm trên điện thoại: server nhận ghi chú finding tới 4000 ký tự và không tìm thông tin cá nhân; riêng
+  lý do gắn cờ server giới hạn 500 ký tự (NFR-SEC-010).
+- Privacy mode (chặn chụp màn hình) có ở ba màn hình hiện ảnh MRI: SCR-03, SCR-04 và SCR-06. Chưa có bằng chứng trên điện
+  thoại rằng chụp màn hình thật sự ra màu đen, và APK build trước khi có `expo-screen-capture` chỉ ghi "not available in
+  this build" (NFR-SEC-007).

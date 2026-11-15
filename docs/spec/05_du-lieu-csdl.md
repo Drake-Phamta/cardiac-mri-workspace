@@ -61,7 +61,7 @@ erDiagram
     TEXT from_status
     TEXT to_status
     TEXT reviewer_id "bí danh"
-    TEXT detail "lý do gắn cờ"
+    TEXT detail "JSON: lý do, số lát, mã phiên bản"
     TEXT at
   }
   working_slices {
@@ -124,7 +124,14 @@ erDiagram
 Ràng buộc chính:
 
 - `reviews`: duy nhất theo `(run_id, source_mask_id, prediction_variant)` — mỗi review gắn đúng một mask nguồn và một
-  biến thể; nguồn chỉ là dự đoán RAW / PROCESSED, không bao giờ là GT.
+  biến thể; nguồn chỉ là dự đoán RAW / PROCESSED, không bao giờ là GT. `revision` là một bộ đếm tăng một bậc sau mỗi lần
+  ghi (đổi trạng thái, đẩy một lát, lưu).
+- `review_history`: mỗi lần ghi một dòng, `revision` là số sau lần ghi đó; `reviewer_id` là bí danh, không bao giờ là
+  email; `detail` là JSON: `reason` (lần chuyển trạng thái; đã cắt khoảng trắng, 1–500 ký tự), `slice_index` và `sha256`
+  (lát đang sửa), `reviewed_mask_id` và `version` (lần lưu). Tạo một review ở trạng thái khác NOT_REVIEWED ghi hai dòng
+  cùng revision 1 (CREATE rồi TRANSITION). API trả các dòng này, cũ trước, không kèm `sha256`.
+- `working_slices`: mỗi `(review_id, slice_index)` một dòng, lần đẩy sau ghi đè lần trước; các dòng của một review bị xoá
+  khi lưu (commit) xong. Bảng này không có trigger chặn sửa hay xoá.
 - `reviewed_masks`: duy nhất theo `(review_id, version)`; không sửa, không xoá; `parent_reviewed_mask_id` nối phiên bản
   trước. Lưu (commit) ghi phiên bản mới, chuyển review sang CORRECTED và tăng revision trong cùng một giao dịch.
 - `findings`: không bao giờ bị xoá; các cột bằng chứng (study, thí nghiệm, ca, run, biến thể, lát, vùng, loại) không đổi

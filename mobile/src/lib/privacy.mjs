@@ -1,9 +1,9 @@
 /*
- * Privacy mode for the screens that show MRI (SCR-03, SCR-04). While it is on, Android's secure-window flag (set by
- * expo-screen-capture) turns screenshots, screen recordings, casting and the recent-apps thumbnail black. It is on
- * by default and is turned off only for a projector or screen sharing. The native module arrives with the next
- * APK; until then the mode says it is unavailable and nothing breaks. Plain JS: the module is passed in, so node
- * tests use a fake. screenCapture.js loads the real one.
+ * Privacy mode for the screens that show MRI (SCR-03, SCR-04, SCR-06). While it is on, Android's secure-window flag
+ * (set by expo-screen-capture) turns screenshots, screen recordings, casting and the recent-apps thumbnail black. It
+ * is on by default and is turned off only for a projector or screen sharing. The native module arrives with the
+ * next APK; until then the mode says it is unavailable and nothing breaks. Plain JS: the module is passed in, so
+ * node tests use a fake. screenCapture.js loads the real one.
  */
 
 export const PRIVACY = Object.freeze({

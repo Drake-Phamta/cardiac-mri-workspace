@@ -13,6 +13,8 @@ Layout under ``CARDIAC_BACKEND_DATA``::
     logs/requests.jsonl    one JSON line per request (no client address)
 
 CARDIAC_CORS_ORIGINS is a comma-separated allowlist (empty = no CORS; the phone app needs none).
+CARDIAC_REVIEWER_ALIAS is the alias review writes are recorded under when no X-Reviewer-Id header names one
+(default project-reviewer).
 CARDIAC_ENABLE_DOCS=1 turns on the OpenAPI docs routes.
 """
 
@@ -62,6 +64,8 @@ class Settings:
     derived_meshes: Optional[Path] = None
     study_id: str = "STUDY_LA_001"
     reviewer_header: str = "X-Reviewer-Id"
+    # Spec 12 section 5: review writes are attributed to the project reviewer alias, never a person's name.
+    reviewer_alias: str = "project-reviewer"
     cors_origins: Tuple[str, ...] = ()
     enable_docs: bool = False
     max_body_bytes: int = 1024 * 1024
@@ -79,6 +83,7 @@ class Settings:
             "request_log": _env_path("CARDIAC_REQUEST_LOG") or (root / "logs" / "requests.jsonl" if root else None),
             "derived_meshes": _env_path("CARDIAC_DERIVED_MESHES") or (root / "derived_meshes" if root else None),
             "study_id": os.environ.get("CARDIAC_STUDY_ID", "STUDY_LA_001"),
+            "reviewer_alias": os.environ.get("CARDIAC_REVIEWER_ALIAS", "project-reviewer"),
             "cors_origins": origins,
             "enable_docs": os.environ.get("CARDIAC_ENABLE_DOCS") == "1",
         }

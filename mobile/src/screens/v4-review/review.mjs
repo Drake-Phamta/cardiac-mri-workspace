@@ -5,6 +5,7 @@
 import { PREDICTION_VARIANT } from '../../lib/caseMode.mjs';
 import { STATE, RECOVERY, loading, fatalInvalid } from '../../api/states.mjs';
 import { SOURCE_KIND_FOR_VARIANT } from './brush.mjs';
+import { checkNote } from './notes.mjs';
 
 export const REVIEW_STATUS = Object.freeze({
   NOT_REVIEWED: 'NOT_REVIEWED',
@@ -73,6 +74,20 @@ export function transitionsFrom(status) {
   return Object.freeze(Object.keys(REVIEW_STATUS)
     .filter((to) => to !== status)
     .map((to) => Object.freeze({ to, ...checkTransition(status, to) })));
+}
+
+// The one quiet line under the status buttons: why some of them are off, or what a save does. null = nothing to say.
+// `canWrite` is false while the review is stale or could not be read (it is refreshed first); a button that is off only
+// for a moment (a write in flight) needs no line.
+export function statusHint(status, canWrite = true) {
+  if (!canWrite) return 'The status cannot change until the review is refreshed.';
+  switch (status) {
+    case REVIEW_STATUS.NOT_REVIEWED: return 'Saving a correction marks the review Corrected.';
+    case REVIEW_STATUS.ACCEPTED: return 'An accepted review cannot go back to Not reviewed. Saving a correction marks it Corrected.';
+    case REVIEW_STATUS.FLAGGED: return 'A flagged review changes only when a correction is saved, which marks it Corrected.';
+    case REVIEW_STATUS.CORRECTED: return 'A corrected review is final: its status does not change.';
+    default: return null;
+  }
 }
 
 function snapshot(view, fields) {
@@ -213,21 +228,31 @@ export function createReviewCorrection(client) {
     return open({ caseId, runId, sourceMaskId, predictionVariant, ...options });
   }
 
-  // Refused locally, with nothing sent, when the transition is not allowed or lacks a needed confirmation.
+  // Refused locally, with nothing sent, when the transition is not allowed, lacks a needed confirmation, or is
+  // a flag without a reason. The reason (contract 1.2.0) is kept with the change in the review's history.
   // A 2xx means the server applied exactly `to`, so the status is not read back (the fixture answers a
   // fixed placeholder). On failure the status and revision stay as they were.
-  async function patchStatus(to, { scenario = 'default', confirmed = false } = {}) {
+  async function patchStatus(to, { scenario = 'default', confirmed = false, reason = null } = {}) {
     const rejected = requireOpenWrite();
     if (rejected) return rejected;
     const check = checkTransition(current.status, to);
     if (!check.ok) return reject(check.code, check.reason, { from: current.status, to });
+    const text = typeof reason === 'string' ? reason.trim() : '';
+    const note = checkNote(text);
+    if (to === REVIEW_STATUS.FLAGGED && note.empty) {
+      return reject('REASON_REQUIRED', 'Say why the prediction is flagged before flagging it.', { from: current.status, to });
+    }
+    if (note.tooLong) {
+      return reject('VALIDATION_ERROR', `The reason is ${note.length} characters; at most ${note.max} are kept.`,
+        { from: current.status, to });
+    }
     if (check.confirm && confirmed !== true) {
       return reject('CONFIRMATION_REQUIRED',
         `${current.status} -> ${to} reopens an accepted review; confirm it first`, { from: current.status, to });
     }
-    const view = await client.call('review_patch', { review_id: current.reviewId }, {
-      body: { status: to, expected_revision: current.revision }, scenario,
-    });
+    const body = { status: to, expected_revision: current.revision };
+    if (text) body.reason = text;
+    const view = await client.call('review_patch', { review_id: current.reviewId }, { body, scenario });
     if (view.state !== STATE.SUCCESS) return set(view);
     return set(view, {
       status: to, revision: revisionFrom(view.data, current.revision), etag: view.data.etag ?? current.etag,
@@ -341,8 +366,8 @@ export function createReviewCorrection(client) {
     const wantBase = current.baseVersion ? current.baseVersion.reviewed_mask_id : null;
     if ((session.baseId ?? null) !== wantBase) {
       return reject('BASE_VERSION_MISMATCH', wantBase
-        ? `The latest version is ${wantBase}; this session continues from ${session.baseId ?? 'the source prediction'}. Reload the review before saving.`
-        : `This session continues from ${session.baseId}, which is not a version of this review.`);
+        ? 'Another reviewer saved a newer version, and these edits continue from an older one. Cancel the edits, then Refresh, before saving.'
+        : 'These edits continue from a version that is not part of this review. Cancel the edits, then Refresh, before saving.');
     }
     if (src.synthetic && client.transportKind !== 'fixture') {
       return reject('SYNTHETIC_SOURCE', 'A synthetic stand-in mask is never sent to a backend.');

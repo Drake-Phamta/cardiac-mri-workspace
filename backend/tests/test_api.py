@@ -317,6 +317,36 @@ def test_experiment_metrics_cases_outliers_and_compare(api, environment):
     assert compare["summary"]["EXP-U-025"]["dice"]["ci95_low"] is None  # not computed here, never invented
 
 
+def test_compare_needs_the_same_reference_mask_kind_and_geometry_policy(api):
+    """Comparable-run gate (spec 08 section 7): besides population, split, metric version and variant, the two runs
+    must score against the same kind of reference mask and use the same geometry policy; the verdict says which."""
+    url = f"{B}/experiments/compare?ids=EXP-U-025,EXP-U-050"
+    loaded = api.app.state.backend.metrics.package_metrics(api.app.state.backend.experiments.experiments["EXP-U-050"])
+    # The two values come from the metric files the ML wrote.
+    assert loaded.reference_mask_kind == "GROUND_TRUTH" and loaded.geometry_policy == synthetic.GEOMETRY_POLICY
+
+    verdict = api.call("GET", url, "experiment_compare", 200).json()  # happy path: both files agree
+    assert verdict["comparable"] is True and verdict["compatibility_reason"] is None
+    assert verdict["common_evaluation_population"] and set(verdict["summary"]) == {"EXP-U-025", "EXP-U-050"}
+
+    loaded.reference_mask_kind = "REVIEWED"  # one run scored a reviewed mask, the other the ground truth
+    verdict = api.call("GET", url, "experiment_compare", 200).json()
+    assert verdict["comparable"] is False and verdict["compatibility_reason"] == "not same reference mask kind"
+
+    loaded.reference_mask_kind = "GROUND_TRUTH"
+    loaded.geometry_policy = "physical units (mm); spacing from the header"  # another geometry policy
+    verdict = api.call("GET", url, "experiment_compare", 200).json()
+    assert verdict["comparable"] is False and verdict["compatibility_reason"] == "not same geometry policy"
+
+    loaded.geometry_policy = None  # a file that does not say cannot be shown to agree
+    verdict = api.call("GET", url, "experiment_compare", 200).json()
+    assert verdict["comparable"] is False and verdict["compatibility_reason"] == "not same geometry policy"
+
+    loaded.reference_mask_kind = "REVIEWED"  # both wrong: both are named, in the order of the checks
+    verdict = api.call("GET", url, "experiment_compare", 200).json()
+    assert verdict["compatibility_reason"] == "not same reference mask kind; not same geometry policy"
+
+
 def test_withheld_case_wins_over_a_recorded_failure_or_nothing(api):
     """QA-075 N-7: the INT-12 row is WITHHELD whatever the ML recorded for it (a value, a failure, no record)."""
     loaded = api.app.state.backend.metrics.package_metrics(api.app.state.backend.experiments.experiments["EXP-U-025"])
@@ -448,9 +478,23 @@ def _working_body(source, revision, z, mask, encoding="BITPACK_BASE64", geometry
             "mask_payload": {"encoding": encoding, "data": data}}
 
 
+def _evidence_files_sha256(environment, case_id="CASE_9001", run_id="RUN_9001"):
+    """sha256 of every file the review must never change (TC-REL-001): the case's MRI and ground truth, as the
+    package holds them and as the data cache serves them, and the run's raw prediction."""
+    manifest = json.loads(environment["dataset_manifest"].read_text(encoding="utf-8"))
+    case = next(item for item in manifest["cases"] if item["case_id"] == case_id)
+    files = [environment["package"] / case["mri"]["path_relative"], environment["package"] / case["mask"]["path_relative"]]
+    files += sorted((environment["cache"] / "cases" / case_id).glob("mri/*.png"))
+    files += sorted((environment["cache"] / "cases" / case_id).glob("gt/*.png"))
+    files.append(environment["accepted"]["prediction_files"][run_id])
+    return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
+
+
 def test_correction_creates_immutable_versions_and_never_touches_the_source(api, environment):
     source_file = environment["accepted"]["prediction_files"]["RUN_9001"]
-    source_sha_before = hashlib.sha256(source_file.read_bytes()).hexdigest()
+    evidence_before = _evidence_files_sha256(environment)
+    # not vacuous: the package files, one cache PNG per slice for each of MRI and ground truth, and the prediction
+    assert len(evidence_before) == 2 + 2 * synthetic.NZ + 1
     review = _new_review(api).json()
     rid, source = review["review_id"], "ART_RUN_9001_RAW"
     url = f"{B}/reviews/{rid}/working-mask/slices/2"
@@ -511,7 +555,12 @@ def test_correction_creates_immutable_versions_and_never_touches_the_source(api,
                 "UPDATE reviewed_mask_slices SET png = x''", "DELETE FROM review_history"):
         with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
             storage.raw_execute(sql)
-    assert hashlib.sha256(source_file.read_bytes()).hexdigest() == source_sha_before  # the raw prediction is untouched
+    for z in (0, 2):  # ordinary use of the same case during the review: the MRI and the ground truth are read
+        api.call("GET", f"{B}/cases/CASE_9001/slices/{z}/mri", "mri_slice_get", 200)
+        api.call("GET", f"{B}/cases/CASE_9001/slices/{z}/ground-truth", "ground_truth_slice_get", 200)
+    # TC-REL-001: MRI, ground truth and the raw prediction are byte for byte what they were before the review
+    assert _evidence_files_sha256(environment) == evidence_before
+    assert source_file.exists()
     raw_again = api.call("GET", f"{B}/analysis-runs/RUN_9001/slices/2/prediction?variant=RAW", "prediction_slice_get", 200).json()
     expected_raw = (environment["accepted"]["predictions"]["RUN_9001"][:, :, 2].T != 0).astype(np.uint8) * 255
     assert np.array_equal(png_array(api.client.get(raw_again["content_url"]).content), expected_raw)
@@ -585,6 +634,66 @@ def test_commit_is_atomic(api, monkeypatch):
     assert committed["status"] == "CORRECTED" and committed["revision"] == revision + 1
 
 
+def test_review_history_lists_every_write_oldest_first(api):
+    """Contract 1.2.0: review_history_list says who changed what and when; a flag keeps its reason."""
+    rid = _new_review(api).json()["review_id"]
+    api.call("PATCH", f"{B}/reviews/{rid}", "review_patch", 200, json_body={
+        "status": "FLAGGED", "expected_revision": 1, "reason": "  Misses the septal wall on slice 2.  "})
+    mask = np.zeros((synthetic.NY, synthetic.NX), dtype=np.uint8)
+    revision = api.call("PUT", f"{B}/reviews/{rid}/working-mask/slices/2", "working_mask_put", 200,
+                        json_body=_working_body("ART_RUN_9001_RAW", 2, 2, mask)).json()["working_revision"]
+    committed = api.call("POST", f"{B}/reviews/{rid}/commit", "review_commit", 201,
+                         json_body={"expected_revision": revision}).json()
+
+    history = api.call("GET", f"{B}/reviews/{rid}/history", "review_history_list", 200).json()
+    rows = history["items"]
+    assert history["review_id"] == rid
+    assert [(row["action"], row["from_status"], row["to_status"]) for row in rows] == [
+        ("CREATE", None, "NOT_REVIEWED"), ("TRANSITION", "NOT_REVIEWED", "FLAGGED"),
+        ("WORKING_SLICE", "FLAGGED", "FLAGGED"), ("COMMIT", "FLAGGED", "CORRECTED")]
+    assert [row["revision"] for row in rows] == [1, 2, 3, 4]
+    assert rows[1]["reason"] == "Misses the septal wall on slice 2."  # kept trimmed
+    assert rows[2]["slice_index"] == 2 and rows[3]["reviewed_mask_id"] == committed["reviewed_mask_id"]
+    assert [row["reason"] for row in rows].count(None) == 3, "only the flag carries a reason"
+    assert "sha256" not in json.dumps(history), "no working-slice checksum is listed"
+    assert all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", row["at"]) for row in rows)
+    missing = api.call("GET", f"{B}/reviews/R_NONE/history", "review_history_list", 404)
+    assert api.error_code(missing) == "ARTIFACT_NOT_FOUND"
+
+
+def test_review_writes_carry_the_project_alias_never_an_address(api):
+    """Spec 12 section 5: a write is attributed to an alias; without a valid header, the configured one."""
+    rid = _new_review(api).json()["review_id"]
+    api.call("PATCH", f"{B}/reviews/{rid}", "review_patch", 200, json_body={"status": "ACCEPTED", "expected_revision": 1},
+             headers={"X-Reviewer-Id": "someone@example.org"})
+    api.call("PATCH", f"{B}/reviews/{rid}", "review_patch", 200,
+             json_body={"status": "FLAGGED", "expected_revision": 2, "reason": "second look"},
+             headers={"X-Reviewer-Id": "reader-2"})
+    rows = api.call("GET", f"{B}/reviews/{rid}/history", "review_history_list", 200).json()["items"]
+    assert [row["reviewer_id"] for row in rows] == ["project-reviewer", "project-reviewer", "reader-2"]
+    corrected, _ = _review_in_state(api, "CORRECTED")
+    versions = api.call("GET", f"{B}/reviews/{corrected}/reviewed-masks", "reviewed_masks_list", 200).json()["items"]
+    assert versions[0]["provenance"]["reviewer_id"] == "project-reviewer"
+
+
+def test_a_flag_reason_is_optional_text_of_at_most_500_characters(api):
+    rid = _new_review(api).json()["review_id"]
+    url = f"{B}/reviews/{rid}"
+    for reason in ("", "   ", 42, "x" * 501):
+        refused = api.call("PATCH", url, "review_patch", 422,
+                           json_body={"status": "FLAGGED", "expected_revision": 1, "reason": reason})
+        assert api.error_code(refused) == "VALIDATION_ERROR", reason
+    assert api.app.state.backend.storage.get_review(rid)["revision"] == 1  # nothing moved
+    api.call("PATCH", url, "review_patch", 200, json_body={"status": "ACCEPTED", "expected_revision": 1})  # as before 1.2.0
+    api.call("PATCH", url, "review_patch", 200, json_body={"status": "FLAGGED", "expected_revision": 2, "reason": None})
+    other = _new_review(api, run="RUN_9001", variant="PROCESSED").json()["review_id"]
+    api.call("PATCH", f"{B}/reviews/{other}", "review_patch", 200,
+             json_body={"status": "FLAGGED", "expected_revision": 1, "reason": "y" * 500})
+    reasons = [row["reason"] for row in api.call("GET", f"{url}/history", "review_history_list", 200).json()["items"]]
+    assert reasons == [None, None, None]
+    assert api.call("GET", f"{B}/reviews/{other}/history", "review_history_list", 200).json()["items"][1]["reason"] == "y" * 500
+
+
 def test_inference_only_case_on_every_ground_truth_dependent_endpoint(api):
     """N1: the INT-12 case answers GROUND_TRUTH_UNAVAILABLE on each case-scoped GT-dependent endpoint."""
     case, run = synthetic.INT12, "RUN_0031"
@@ -652,6 +761,15 @@ def test_findings_keep_their_evidence(api):
     for sql in ("UPDATE findings SET case_id = 'CASE_9003'", "UPDATE findings SET prediction_variant = 'RAW'"):
         with pytest.raises(sqlite3.IntegrityError, match="IMMUTABLE_ARTIFACT"):
             storage.raw_execute(sql)
+
+
+def test_findings_are_listed_oldest_first(api):
+    """Contract 1.2.0 states the order; findings made within one second keep their creation order."""
+    made = [api.call("POST", f"{B}/findings", "finding_create", 201, json_body={
+        "study_id": STUDY, "finding_type": "OTHER", "note": f"finding {n}", "case_id": "CASE_9001"}).json()["finding_id"]
+        for n in range(5)]
+    listed = api.call("GET", f"{B}/findings", "findings_list", 200).json()["items"]
+    assert [item["finding_id"] for item in listed] == made
 
 
 def test_no_response_carries_a_physical_unit(api):
