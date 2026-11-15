@@ -134,8 +134,8 @@ def main(argv=None):
     if res:
         print(f"Friedman over {res['k']} recipes, {res['n_vols']} volumes: chi2 {res['statistic']:.2f}, "
               f"p {res['p']:.4f}, Kendall W {res['kendall_w']:.3f}")
-    comp = pd.concat([S.compare(dice, [(r, BASELINE) for r in RECIPES if r != BASELINE], "vs_ip_unet"),
-                      S.compare(dice, [(r, GATE) for r in RECIPES], "vs_gatefuse")], ignore_index=True)
+    comp = S.concat([S.compare(dice, [(r, BASELINE) for r in RECIPES if r != BASELINE], "vs_ip_unet"),
+                     S.compare(dice, [(r, GATE) for r in RECIPES], "vs_gatefuse")])
     comp.to_csv(out / "comparisons.csv", index=False)
     if len(comp):
         print(comp[["family", "a", "b", "diff", "ci_low", "ci_high", "p", "p_holm"]].round(4).to_string(index=False))

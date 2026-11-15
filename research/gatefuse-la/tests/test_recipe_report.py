@@ -72,6 +72,7 @@ def test_choice_is_provisional_while_recipes_are_missing(make_scores, tmp_path):
     choice = json.loads((tmp_path / "out" / "best_recipe.json").read_text())
     assert choice["recipe"] == "soft_dice+none" and choice["provisional"]
     assert len(choice["incomplete_recipes"]) == 4
+    assert pd.read_csv(tmp_path / "out" / "comparisons.csv").n_vols.dtype.kind == "i"
 
 
 def test_baseline_as_best_needs_no_night3_run(make_scores, tmp_path):
