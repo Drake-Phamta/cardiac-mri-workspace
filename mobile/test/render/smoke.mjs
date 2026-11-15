@@ -1047,6 +1047,15 @@ async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', '
   check('V3R14', !texts(r).some((t) => /EXP-|\(server|N intended|COHORT level|metric mv1|FINAL_HOLDOUT|\(dice\)/.test(t))
     && has(r, /^Metric$/) && !has(r, /^Statistic$/) && !has(r, /^Nothing is pre-selected/),
   'no developer text on SCR-07 with data: no experiment id, no "(server ...)", no N, no cohort level or metric version');
+  // Responsive (device session r4): a number is one line in a cell wide enough for its digits at font scale 1.3 (0.57 em a
+  // digit or a sign, 0.28 em a full stop), never a fixed width; the app bar's title is short enough for 320 dp.
+  const valueEm = (text) => [...text].reduce((w, c) => w + (c === '.' ? 0.28 : 0.57), 0);
+  const numberCells = r.root.findAll((n) => n.type === 'Text' && /^[+−-]?\d\.\d{3}$/.test(textOf(n)));
+  check('RP-V3b', numberCells.length >= 3 && numberCells.every((n) => {
+    const st = flatStyle(n.props.style);
+    return n.props.numberOfLines === 1 && typeof st.width !== 'number' && st.minWidth >= Math.ceil(valueEm(textOf(n)) * st.fontSize * 1.3);
+  }), `SCR-07: ${numberCells.length} numbers (medians and differences), each one line in a cell of at least its digits at 1.3x, no fixed width`);
+  check('RP-V3b', reports.some((c) => c && c.title === 'Experiments'), 'SCR-07 reports a short app bar title ("Experiments"): "Experiment Comparison" was cut at 320 dp');
   // Comparisons: one row per pair with the median difference as its value; the rest is in a sheet.
   check('V3R19', texts(r).includes('UNet vs DINOv2 · 25 %') && texts(r).includes('+0.030'), 'the comparison row says "UNet vs DINOv2 · 25 %" and "+0.030"');
   await press(r, 'UNet vs DINOv2 · 25 %');

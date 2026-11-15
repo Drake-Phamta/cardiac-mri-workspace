@@ -99,7 +99,7 @@ export function ExperimentRow({ cell, first, onPress }) {
         {sub ? <Text style={[s.note, cell.statusWord && { color: TONE_COLOR[cell.tone] }]}>{sub}</Text> : null}
       </View>
       {cell.bar !== null ? <MiniBar value={cell.bar} style={s.expBar} /> : null}
-      {cell.valueText ? <Text style={s.expValue}>{cell.valueText}</Text> : null}
+      {cell.valueText ? <Text style={s.expValue} numberOfLines={1}>{cell.valueText}</Text> : null}
       <IconChevronRight size={16} color={color.t3} />
     </TouchableOpacity>
   );
@@ -120,7 +120,7 @@ export function ValueRow({ title, value = null, muted = null, note = null, first
         <Text style={s.rowTitle}>{title}</Text>
         {note ? <Text style={s.note}>{note}</Text> : null}
       </View>
-      {value ? <Text style={s.expValue}>{value}</Text> : null}
+      {value ? <Text style={s.deltaValue} numberOfLines={1}>{value}</Text> : null}
       {!value && muted ? <Text style={s.mutedText}>{muted}</Text> : null}
       <IconChevronRight size={16} color={color.t3} />
     </TouchableOpacity>
@@ -177,7 +177,11 @@ const s = StyleSheet.create({
   // The circle (8 dp) and the triangle (10 dp) sit in one box, so every title starts at the same x.
   expKey: { width: 12, alignItems: 'center' },
   expBar: { width: 56 },
-  expValue: { ...type.rowId, width: 48, textAlign: 'right', color: color.t1, letterSpacing: 0 },
+  // A number is one line in a cell that is never narrower than its digits need at font scale 1.3 (2.5 em wide for
+  // "0.604": 15 sp x 1.3 = 49 dp; 3.1 em for a signed difference "+0.030": 61 dp). minWidth, not width, so past 1.3 the
+  // cell grows and the bar and the title give way. It used to be a fixed 48 dp and "0.604" wrapped into "0.60" and "4".
+  expValue: { ...type.rowId, minWidth: 52, flexShrink: 0, textAlign: 'right', color: color.t1, letterSpacing: 0 },
+  deltaValue: { ...type.rowId, minWidth: 64, flexShrink: 0, textAlign: 'right', color: color.t1, letterSpacing: 0 },
   mutedText: { ...type.secondary, color: color.t3 },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { ...type.body, fontWeight: '500', color: color.t1, fontVariant: font.numeric },

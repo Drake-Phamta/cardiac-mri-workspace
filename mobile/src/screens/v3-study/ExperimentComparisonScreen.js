@@ -29,6 +29,9 @@ import { comparisonView, OUTLIER_LABEL, plainText, pointDetail } from './view.mj
 
 // The page shows medians: the mean, q1 and q3 are in an experiment's details.
 const STAT = 'median';
+// The app bar's title. The tab says "Experiments"; the screen's longer name, "Experiment Comparison", did not fit beside
+// "Live" and Info on a 320 dp screen (it read "Experiment Comparis…") and fits even less after a Back button.
+const BAR_TITLE = 'Experiments';
 
 export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   const ids = params && Array.isArray(params.experimentIds) ? params.experimentIds : null;
@@ -81,7 +84,7 @@ export default function ExperimentComparisonScreen({ runtime, nav, params }) {
   }, [ready, snap]);
   useEffect(() => {
     if (typeof nav.setContext !== 'function') return undefined;
-    nav.setContext({ details });
+    nav.setContext({ title: BAR_TITLE, details });
     return () => nav.setContext(null);
   }, [nav, details]);
 

@@ -256,15 +256,17 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
 ### SCR-07 — Experiment Comparison (Bế Quốc Khánh)
 
 - **Mục đích**: so sánh thí nghiệm theo đúng phán quyết của server.
-- **Thành phần**: mở từ tab Experiments là cả ma trận (bảy thí nghiệm; thí nghiệm server chưa liệt kê ghi "Not listed by
-  the server"); mở từ một dòng Median Dice của SCR-01 là hai thí nghiệm của cặp đó. Từ trên xuống:
+- **Thành phần**: header ghi tiêu đề "Experiments" (tên tab; tên màn hình "Experiment Comparison" quá dài, bị cắt thành
+  "Experiment Comparis…" ở 320 dp). Mở từ tab Experiments là cả ma trận (bảy thí nghiệm; thí nghiệm server chưa liệt kê ghi
+  "Not listed by the server"); mở từ một dòng Median Dice của SCR-01 là hai thí nghiệm của cặp đó. Từ trên xuống:
   - Hai dòng "About this data" và "Metric definitions", mỗi dòng mở một sheet.
   - Hàng chọn "Metric" kèm tên chỉ số ("Dice"). Chạm mở sheet "Metric" liệt kê các chỉ số server nêu bằng tên người đọc
     ("Dice", "IoU", "False positives", "False negatives", "Relative volume error"), dấu tích ở chỉ số đang chọn.
   - Mục "Experiments", bên phải ghi "Dice · median". Mỗi thí nghiệm một dòng: khoá họ (UNet chấm tròn xanh, DINOv2 tam
     giác cam), tên ("UNet 25 %", "DINOv2 100 % post-processed"), dòng phụ "5 of 5 cases" (hoặc trạng thái bằng chữ khi
     thí nghiệm chưa tải bình thường, ví dụ "Not listed by the server"), thanh dài bằng trung vị (khi trung vị trong
-    0 – 1) và trung vị 3 chữ số.
+    0 – 1) và trung vị 3 chữ số (ô số rộng đủ cho cỡ chữ 1,3 và nằm trên một dòng, không xuống dòng thành "0.60" và "4";
+    cột hiệu số của mục "Comparisons" cũng vậy).
   - Mục "Distribution per case", bên phải ghi tên chỉ số. Biểu đồ chấm: mỗi thí nghiệm một cột (nhãn "25 %", "50 %",
     "100 %", "100 % PP", tên họ ở dưới), mỗi ca một chấm (UNet tròn, DINOv2 tam giác), một vòng quanh các ca Dice thấp
     nhất do server chọn. Dưới biểu đồ: khoá họ, dòng "One dot per case · a ring marks the 3 lowest-Dice cases · tap a
