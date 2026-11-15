@@ -41,6 +41,8 @@ function TrackMarker({ value, group, part }) {
   );
 }
 
+// The track is 16 dp high, and every mark on it (the line, the ticks, the markers) is placed from its middle, so a taller label
+// ("Not compared" at font scale 1.3 is a 20 dp line) grows the track round the same middle instead of being cut at 16 dp.
 function Track({ row }) {
   return (
     <View style={s.track}>
@@ -56,7 +58,7 @@ function Track({ row }) {
           <TrackMarker value={row.dino} group="DINOV2" part="shape" />
         </>
       ) : (
-        <Text style={s.notCompared}>Not compared</Text>
+        <Text style={s.notCompared} numberOfLines={1} maxFontSizeMultiplier={LABEL_FONT_CAP}>Not compared</Text>
       )}
     </View>
   );
@@ -96,11 +98,13 @@ const s = StyleSheet.create({
   row: { height: size.meterRow, flexDirection: 'row', alignItems: 'center', gap: GAP },
   rowLine: { borderTopWidth: HAIRLINE, borderColor: color.hair },
   label: { ...type.body, width: LABEL_WIDTH, fontWeight: '500', color: color.t1, fontVariant: font.numeric },
-  track: { flex: 1, height: 16, justifyContent: 'center' },
-  line: { position: 'absolute', left: 0, right: 0, top: 7.5, height: 1, backgroundColor: color.track },
-  tick: { position: 'absolute', top: 4, width: 1, height: 8, backgroundColor: color.tick },
+  // minHeight, not height: the label ("Not compared") loses the tail of its "p" when a fixed 16 dp box is smaller than its line.
+  // The marks sit at 50 % less half their own height, so they stay on the middle whatever the track's height.
+  track: { flex: 1, minHeight: 16, justifyContent: 'center' },
+  line: { position: 'absolute', left: 0, right: 0, top: '50%', marginTop: -0.5, height: 1, backgroundColor: color.track },
+  tick: { position: 'absolute', top: '50%', marginTop: -4, width: 1, height: 8, backgroundColor: color.tick },
   notCompared: { ...type.caption, alignSelf: 'center', paddingHorizontal: 8, backgroundColor: color.bg, color: color.t3 },
-  mark: { position: 'absolute', top: 1, width: MARK, height: MARK, marginLeft: -MARK / 2 },
+  mark: { position: 'absolute', top: '50%', marginTop: -MARK / 2, width: MARK, height: MARK, marginLeft: -MARK / 2 },
   value: { ...type.body, textAlign: 'right', color: color.t3, fontVariant: font.numeric },
   valueFair: { color: color.t1 },
   // The 0 / 0.5 / 1 labels sit under the track: it starts after the label column and ends before the value column.

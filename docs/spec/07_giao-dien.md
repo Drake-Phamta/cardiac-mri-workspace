@@ -88,7 +88,8 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
     có một thang 0 – 1 (vạch 0, 0.5, 1); nhãn dòng và số nằm trên một dòng và chỉ phóng chữ tới 1,15 lần, cột nhãn đủ rộng cho
     "100 % data" ở mức đó (không còn xuống hai dòng và bị đường kẻ cắt ở cỡ chữ 1,3). Cặp mà server nói so sánh được thì thang có một chấm tròn UNet và một tam giác
     DINOv2 đặt ở Dice trung vị của mỗi bên, và bên phải ghi hai số ("0.655 · 0.685", UNet trước). Các cặp khác thì thang
-    ghi "Not compared" và giá trị là "—", không có số. Dưới ba dòng có một câu: "No UNet vs DINOv2 pair is judged
+    ghi "Not compared" (một dòng, chỉ phóng chữ tới 1,15 lần, trên thang có chiều cao tối thiểu 16 dp và mọi nét vẽ đặt từ giữa thang,
+    nên chữ "p" không bị cắt đuôi ở cỡ chữ 1,3) và giá trị là "—", không có số. Dưới ba dòng có một câu: "No UNet vs DINOv2 pair is judged
     comparable yet." khi không cặp nào so sánh được, hoặc quần thể chung khi các cặp đã so sánh cùng một quần thể (ví dụ
     "Common population 5 cases").
   - Mục "Lowest Dice · <thí nghiệm>" (ví dụ "Lowest Dice · DINOv2 100 %"), bên phải ghi biến thể ("Raw"). Hàng chọn

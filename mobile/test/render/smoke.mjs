@@ -985,6 +985,18 @@ function noRunBackend() {
     'SCR-01 reports why a pair is not compared (it names the runs by id)');
   check('V3R21', linesOf('Lowest-Dice lists').some((l) => /lowest case-level 3D Dice/.test(l) && /case_id/.test(l)),
     'SCR-01 reports the exact lowest-Dice rule, tie-break included');
+  // Responsive (device session r5): at font scale 1.3 the id in the lowest-Dice list was cut to "CASE_00..." (a fixed 88 dp box for a 97 dp
+  // id), "Not compared" lost the tail of its "p" (a fixed 16 dp track for a 20 dp line), and at 320 dp "0 to 1, higher is better" touched the
+  // UNet key (one line for two things that do not fit it).
+  {
+    const hostBox = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return p; };
+    const notCompared = r.root.findAll((n) => n.type === 'Text' && textOf(n) === 'Not compared');
+    const track = notCompared.length ? flatStyle(hostBox(notCompared[0]).props.style) : {};
+    const line = r.root.findAll((n) => n.type === 'View' && flatStyle(n.props.style).height === 1 && flatStyle(n.props.style).top === '50%')[0];
+    check('RP-V3f', notCompared.length === 3 && notCompared.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP)
+      && track.minHeight === 16 && track.height === undefined && Boolean(line),
+    'SCR-01 "Not compared": one line, capped at font scale 1.15, in a track with a minHeight (a fixed 16 dp cut the tail of the "p"), the line placed from the middle');
+  }
   await act(async () => { r.unmount(); });
   check('V3R21', reports[reports.length - 1] === null, 'leaving the screen clears what it reported');
 }
