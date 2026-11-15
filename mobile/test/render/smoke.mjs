@@ -45,7 +45,8 @@ const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return t
 const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
-  const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
+  // SCR-06's bottom panel measures its own rows (a height, not the 400 x 400 of a canvas), so it is not given the canvas size.
+  const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function' && n.props.testID !== 'panel-rows');
   await act(async () => { for (const v of views) v.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } } }); });
 }
 // The header's controls (Back, the Live / Fixture indicator, Info) have testIDs "header-..."; a check that presses a
@@ -328,6 +329,32 @@ const liveRuntime = (fetchImpl) => createRuntime({
   check('RP-V1a', toolNames.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP
     && flat(n.props.style).alignSelf === 'stretch' && flat(n.props.style).textAlign === 'center'),
   `SCR-03 draw-mode names: one line, as wide as the 48 dp button, capped at font scale ${LABEL_FONT_CAP}`);
+  // Responsive (device session r5): at 320 dp and font scale 1.3 the panel's first row (label, variant, "Slice 45 / 88")
+  // is wider than the screen. It wraps, so the slice number drops to a line of its own at the right instead of being
+  // pushed past the edge ("Slice" was all that showed), and the panel measures its rows: the picture, the layer chips
+  // and the draw-mode toolbar are laid out above whatever height it has.
+  {
+    const rowsEl = byTestId(r, 'panel-rows');
+    const wrapRows = rowsEl.findAll((n) => n.type === 'View' && flat(n.props.style).flexWrap === 'wrap');
+    const readoutCell = rowsEl.findAll((n) => n.type === 'View' && flat(n.props.style).marginLeft === 'auto');
+    const readoutBox = flat(byTestId(r, 'slice-readout').props.style);
+    const toolbarEl = r.root.findAll((n) => n.type === 'View' && n.props.accessibilityLabel === 'Draw masks as')[0];
+    const pictureW = () => flat(r.root.findAll((n) => n.type === 'Image')[0].props.style).width;
+    const bottomOf = (el) => flat(el.props.style).bottom;
+    const [w0, toolbar0] = [pictureW(), bottomOf(toolbarEl)];
+    check('RP-V1f', wrapRows.length === 1 && readoutCell.length === 1 && flat(readoutCell[0].props.style).flexShrink === 0
+      && readoutBox.flexShrink === 0 && toolbar0 === 168,
+    'SCR-03 panel: the first row wraps, the slice number is at the right of its line and never shrunk, the toolbar sits on a 168 dp panel');
+    // A 320 dp screen at font scale 1.3: the slice number on a line of its own, so the rows are 168 dp high, not about 136,
+    // and the panel is 168 + 33 = 201 dp (the minimum of 168 dp holds while the rows are 135 dp or less).
+    await act(async () => { rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 288, height: 168 } } }); });
+    await tick(30);
+    check('RP-V1f', bottomOf(toolbarEl) === 201 && pictureW() < w0,
+      `a taller panel (201 dp): the draw-mode toolbar sits on it (bottom ${bottomOf(toolbarEl)}) and the picture is fitted again, smaller (${w0.toFixed(0)} -> ${pictureW().toFixed(0)} dp)`);
+    await act(async () => { rowsEl.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 288, height: 135 } } }); });
+    await tick(30);
+    check('RP-V1f', bottomOf(toolbarEl) === 168 && Math.abs(pictureW() - w0) < 0.5, `and back to 168 dp when the row fits one line (${bottomOf(toolbarEl)} dp)`);
+  }
   const viewerShort = shortTouchables(r.root);
   check('T5', viewerShort.length === 0, `SCR-03: every touchable (layer chips, draw modes, variant, transport) reaches 48 dp${viewerShort.length ? ` - not: ${viewerShort.join(', ')}` : ''}`);
   const img = () => r.root.findAll((n) => n.type === 'Image')[0];

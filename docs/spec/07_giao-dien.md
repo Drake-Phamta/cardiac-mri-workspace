@@ -133,7 +133,10 @@ Thành phần chung của mọi màn hình (khung app, Phạm Tuấn Anh):
   màu, lớp mà lát này không có thì chip mờ đi. Thanh công cụ "Fill" / "Outline" / "Both" (mặc định "Fill"; tên mỗi nút nằm trên một dòng, rộng bằng nút 48 dp
   và chỉ phóng tới 1,15 lần, nên "Outline" và "Both" không bị cắt ở 320 và 480 dp). Panel dưới:
   "Prediction" với "Raw" / "Processed" (không có run thì ghi "No analysis run"), số lát "Slice 45 / 88" (đếm từ 1),
-  thanh trượt có vạch mỗi 10 lát, và năm nút: lùi 10 lát, lát trước, Play / Pause, lát sau, tiến 10 lát. Khi zoom khác
+  thanh trượt có vạch mỗi 10 lát, và năm nút: lùi 10 lát, lát trước, Play / Pause, lát sau, tiến 10 lát. Hàng đầu của panel
+  tự xuống dòng khi không đủ chỗ (320 dp ở cỡ chữ 1,3): số lát xuống một dòng riêng ở bên phải thay vì bị đẩy ra mép (trước
+  đây chỉ thấy chữ "Slice"). Panel đo chiều cao của các hàng và báo lại, nên ảnh, chip lớp và thanh công cụ được đặt phía trên
+  chiều cao đó (168 dp khi hàng đầu không xuống dòng). Khi zoom khác
   vừa khung và khác lúc mở, góc ảnh ghi mức zoom ("×2.0").
 - **Sheet Tools** (nút "more"): mục "Open" có "Error inspector", "3D view", "Review and correct", mỗi dòng ghi nó mở gì
   hoặc vì sao đang khoá ("no ground truth for this case (Inference & review)", "needs an analysis run - …", "needs a
