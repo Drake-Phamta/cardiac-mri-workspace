@@ -95,7 +95,7 @@ outside Git. `meta.json` and `ATTRIBUTION.json` retain local provenance. Browser
 array integrity is checked against local SHA-256 descriptors before rendering.
 
 ```bash
-/tmp/cmw-preview-env/bin/python -m unittest spikes.spike_b_3d.clinical_poc.test_surface_preview -v
+/tmp/cmw-preview-env/bin/python -m unittest prototypes.3d-viewer.clinical_poc.test_surface_preview -v
 cd prototypes/3d-viewer/clinical_poc/workstation
 npm test
 # Requires the local sample server and Chrome; screenshots stay outside Git.
@@ -180,7 +180,7 @@ The next preview steps and their accuracy checks are described in
 ## Geometry regression checks
 
 ```bash
-python -m unittest spikes.spike_b_3d.clinical_poc.test_build_poc_data -v
+python -m unittest prototypes.3d-viewer.clinical_poc.test_build_poc_data -v
 node prototypes/3d-viewer/clinical_poc/test_poc_geometry.mjs
 ```
 
