@@ -8,7 +8,7 @@ production module or framework decision is made here.
 
 ## Run locally
 
-From `spikes/spike_b_3d/`:
+From `prototypes/3d-viewer/`:
 
 ```bash
 python mesh/build_mesh.py
