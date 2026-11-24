@@ -117,6 +117,7 @@ export function createStudyOverview(client) {
       id: c.id,
       label: c.label,
       question: c.question,
+      kind: c.kind,
       experimentIds: c.experimentIds,
       requested: c.requested,
       notRequestedReason: c.notRequestedReason,
@@ -164,38 +165,14 @@ export function createStudyOverview(client) {
     get current() { return current; },
     open,
     refresh: () => (lastOpen ? open(lastOpen) : Promise.resolve(current)),
-
-    // SCR-01 actions, as navigation intents that the screen routes.
-    openCases: () => Object.freeze({ screen: 'SCR-02', studyId: current.studyId, enabled: current.studyId !== null }),
-    openExperiments: () => Object.freeze({ screen: 'SCR-07', experimentIds: null, enabled: true }),
-    openComparison(comparisonId) {
-      const h = current.headline.find((x) => x.id === comparisonId);
-      return Object.freeze({
-        screen: 'SCR-07',
-        experimentIds: h ? [...h.experimentIds] : null,
-        enabled: Boolean(h && h.requested),
-        reason: h ? h.notRequestedReason : `unknown comparison ${comparisonId}`,
-      });
-    },
-    // The experiment is an explicit input of the outlier rule, and the rank is the server's.
-    openOutlier(experimentId, rank) {
-      const entry = current.outliers.find((o) => o.experimentId === experimentId);
-      const o = entry ? entry.selection : null;
-      if (!o || !o.available) {
-        return Object.freeze({
-          screen: 'SCR-03', enabled: false,
-          reason: o ? o.reason : `no outlier selection for ${experimentId}`,
-        });
-      }
-      return o.cases[rank]?.intent ?? Object.freeze({ screen: 'SCR-03', enabled: false, reason: `no outlier at rank ${rank}` });
-    },
-    openFindings: () => Object.freeze({ screen: 'SCR-08', enabled: true }),
   });
 }
 
 // SCR-07 Experiment Comparison. open() without experimentIds shows every listed matrix experiment (MATRIX); with
-// them, only those (EXPLICIT, for example a pair from SCR-01). metricName has no default: the contract does not name
-// the metrics, so the user picks from the names the server's summaries use.
+// them, only those (EXPLICIT, for example a pair from SCR-01). The model picks no metric by itself: the contract does
+// not name the metrics, so the user picks from the names the server's summaries use. A screen may pass
+// `defaultMetric` (SCR-07 passes Dice) to open with it chosen; that applies only when the summaries name that metric,
+// and the user can pick another.
 
 export const MODE = Object.freeze({ MATRIX: 'MATRIX', EXPLICIT: 'EXPLICIT' });
 
@@ -243,11 +220,11 @@ export function createExperimentComparison(client) {
     return { cells, metricNames: metricNamesOf(cells) };
   }
 
-  async function open({ experimentIds, metricName = null, scenarios } = {}) {
+  async function open({ experimentIds, metricName = null, defaultMetric = null, scenarios } = {}) {
     seq += 1;
     const mine = seq;
     const stale = () => mine !== seq;
-    lastOpen = { experimentIds, metricName, scenarios };
+    lastOpen = { experimentIds, metricName, defaultMetric, scenarios };
     // Forget the previous fetch first, so selectMetric after a failed re-open cannot rebuild old cells.
     fetched = null;
     const mode = Array.isArray(experimentIds) ? MODE.EXPLICIT : MODE.MATRIX;
@@ -304,9 +281,16 @@ export function createExperimentComparison(client) {
     if (stale()) return current;
 
     fetched = { mode, requestedIds, listed, list, raw };
-    const { cells, metricNames } = assemble(metricName);
+    let shown = assemble(metricName);
+    let chosen = metricName;
+    // No metric asked for: open with the screen's default, if the server's summaries name it.
+    if (chosen === null && defaultMetric !== null && shown.metricNames.includes(defaultMetric)) {
+      chosen = defaultMetric;
+      shown = assemble(chosen);
+    }
     return set(success(Object.freeze({ mode, requested: requestedIds })), {
-      mode, list, outsideMatrix, requested: requestedIds, cells, comparisons, metricName, metricNames, aggregation,
+      mode, list, outsideMatrix, requested: requestedIds, cells: shown.cells, comparisons, metricName: chosen,
+      metricNames: shown.metricNames, aggregation,
     });
   }
 

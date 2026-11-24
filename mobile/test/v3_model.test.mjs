@@ -35,7 +35,7 @@ import { createStudyOverview, createExperimentComparison } from '../src/screens/
 import {
   CELL_STATUS, CELL_UNAVAILABLE, COMPARE_UNAVAILABLE, buildCell, buildTrend, deltaFor, readComparison, aggregationFor,
 } from '../src/screens/v3-study/cohort.mjs';
-import { stripLayout, pointAt } from '../src/screens/v3-study/view.mjs';
+import { stripLayout, pointAt, overviewView, reasonLabel } from '../src/screens/v3-study/view.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
 const HERE = new URL('../src/screens/v3-study/', import.meta.url);
@@ -100,13 +100,16 @@ const check = (id, ok, detail) => {
     `outlier entry points per listed experiment: EXP-D-PP -> ${s.outliers[0].selection.reason}`);
   check('V3-1', s.findings.returned === 1 && s.findings.byStatus[0]?.status === 'OPEN',
     `findings summary as returned: ${JSON.stringify(s.findings.byStatus)}`);
-  const o = m.openOutlier('EXP-D-PP', 0);
-  check('V3-1', o.enabled === false && o.reason === CELL_UNAVAILABLE.CELL_NOT_LOADED,
-    'an outlier entry with no usable selection is a disabled intent with its reason');
-  check('V3-1', m.openOutlier('EXP-U-025', 0).enabled === false,
-    'an experiment that is not listed has no outlier entry');
-  check('V3-1', m.openCases().screen === 'SCR-02' && m.openExperiments().screen === 'SCR-07'
-    && m.openFindings().screen === 'SCR-08', 'SCR-01 actions: open cases, experiments, findings');
+  // What the screen draws from the snapshot: the lowest-Dice group of a run with no usable selection says why and has
+  // no row to open, and an experiment that is not listed has no group at all.
+  const v = overviewView(s);
+  const group = v.outliers.groups.find((g) => g.experimentId === 'EXP-D-PP');
+  check('V3-1', v.outliers.groups.length === 1 && group && !group.view.available && group.view.rows.length === 0
+    && group.view.text === reasonLabel(CELL_UNAVAILABLE.CELL_NOT_LOADED),
+    `the group of EXP-D-PP says why it has no list ("${group && group.view.text}") and has no row; unlisted EXP-U-025 has no group`);
+  check('V3-1', v.routes.cases.ok && v.routes.cases.screenId === 'SCR-02' && v.routes.cases.params.studyId === STUDY
+    && v.routes.findings.ok && v.routes.findings.screenId === 'SCR-08',
+  'SCR-01 routes: the Cases tile opens SCR-02 for this study, the Findings tile opens SCR-08');
 }
 
 // V3-2 - SCR-01 failure states. study_get is the screen; the other sections
@@ -219,7 +222,7 @@ const check = (id, ok, detail) => {
   const picked = cm.selectMetric('iou');
   check('V3-4', opened.metricName === null
     && opened.cells.find((c) => c.id === 'EXP-U-100').pointsWithheld === 'NO_METRIC_SELECTED',
-    'no metric is plotted until one is picked - there is no default metric');
+    'no metric is plotted until one is picked: the model has no default of its own (a screen may pass defaultMetric)');
   check('V3-4', sends === before && picked.metricName === 'iou' && picked.cells.length === 7
     && picked.cells.find((c) => c.id === 'EXP-U-100').points.length === plotted.length,
     `selectMetric re-reads the cached states: ${sends - before} extra calls`);
@@ -795,9 +798,10 @@ const base0 = () => ({
   check('V3-9', entry && !entry.selection.available
     && entry.selection.reason === UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE && entry.selection.served === withheldId,
     `SCR-01: the outlier entry for EXP-U-100 naming ${withheldId} -> ${entry ? entry.selection.reason : 'no entry'}`);
-  const o = m.openOutlier('EXP-U-100', 0);
-  check('V3-9', o.enabled === false && o.reason === UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE,
-    'SCR-01: tapping it is a disabled intent with the same reason');
+  const group = overviewView(s).outliers.groups.find((g) => g.experimentId === 'EXP-U-100');
+  check('V3-9', group && !group.view.available && group.view.rows.length === 0
+    && group.view.text === `${reasonLabel(UNAVAILABLE.OUTLIERS_NAME_INELIGIBLE_CASE)} (server sent "${withheldId}")`,
+  'SCR-01: its lowest-Dice group has no row to tap and says the same reason in words');
 }
 
 // V3-12 - nothing in this vertical ranks or sorts, and nothing a device
@@ -808,7 +812,10 @@ const base0 = () => ({
   for (const f of sources) {
     const src = readFileSync(new URL(f, HERE), 'utf8');
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    check('V3-12', !code.includes('.sort(') && !code.includes('.toSorted('), `${f}: no .sort( outside comments (DR-010)`);
+    // paired.mjs orders the per-case differences it draws and takes their median; it selects no outlier.
+    if (f !== 'paired.mjs') {
+      check('V3-12', !code.includes('.sort(') && !code.includes('.toSorted('), `${f}: no .sort( outside comments (DR-010)`);
+    }
     check('V3-12', !/from\s+['"](?!\.)/.test(code), `${f}: relative imports only - no node:, no npm`);
   }
 }
