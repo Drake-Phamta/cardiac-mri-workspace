@@ -43,6 +43,20 @@ const has = (r, re) => texts(r).some((t) => re.test(t));
 const isIcon = (n) => n.type === 'Svg' && typeof n.props.testID === 'string' && n.props.testID.startsWith('icon-');
 const inIcon = (n) => { for (let p = n; p; p = p.parent) if (isIcon(p)) return true; return false; };
 const marks = (r, type) => r.root.findAll((n) => n.type === type && !inIcon(n));
+// Touch targets: a pressable that declares a height (or minHeight) reaches 48 dp with its hitSlop. Pressables sized
+// by their content (the metric strip's cells, a segment between its padding) declare none and are not measured.
+const flatStyle = (st) => (Array.isArray(st) ? Object.assign({}, ...st.map(flatStyle)) : (st && typeof st === 'object' ? st : {}));
+const shortPressables = (r) => r.root.findAll((n) => n.type === 'TouchableOpacity').filter((n) => {
+  const st = flatStyle(n.props.style);
+  const h = st.height ?? st.minHeight;
+  const slop = n.props.hitSlop || {};
+  return typeof h === 'number' && h + (slop.top || 0) + (slop.bottom || 0) < 48;
+});
+// The texts of the sheet with this testID, or null while it is closed (a closed sheet draws nothing).
+const sheetTexts = (r, testID) => {
+  const modal = r.root.findAll((n) => n.type === 'Modal').find((m) => m.findAll((x) => x.props && x.props.testID === testID).length > 0);
+  return modal ? modal.findAll((x) => x.type === 'Text').map(textOf) : null;
+};
 const nodeMock = { createNodeMock: () => ({ measure: (cb) => cb(0, 0, 400, 400, 0, 0) }) };
 async function layout(r) {
   const views = r.root.findAll((n) => typeof n.type === 'string' && typeof n.props.onLayout === 'function');
@@ -127,6 +141,7 @@ const { encodePng, ellipseMask } = await imp('test/_png.mjs');
 const { generatedBundleJson, readContractJson } = await imp('test/_helpers.mjs');
 const { judge, parseLog, PER_SLICE_ENDPOINTS } = await imp('scripts/l4-report.mjs');
 const { shortTouchables } = await imp('test/render/touch_measure.mjs');
+const { LABEL_FONT_CAP } = await imp('src/components/tokens.mjs');
 
 const contractJson = readContractJson();
 const bundleJson = generatedBundleJson();
@@ -781,19 +796,98 @@ function noRunBackend() {
   });
   await tick(60);
   check('V3R1', onScreen(r, 'SCR-01') && has(r, /^Fixture$/), 'SCR-01 renders under the Fixture indicator');
-  check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^1 of 7 matrix experiments listed by the server$/)
-    && has(r, /^Outliers \(DR-010\)$/) && has(r, /^1 finding returned$/), 'SCR-01 draws its model: study, matrix, outliers, findings');
-  await press(r, 'Open the comparison (SCR-07)');
+  check('V3R1', has(r, /^Study STUDY_DEMO$/) && has(r, /^Dataset$/) && has(r, /^fixture dataset$/) && has(r, /^About this data$/)
+    && has(r, /^Median Dice · UNet vs DINOv2$/) && has(r, /^Lowest Dice · /), 'SCR-01 draws its model: study, dataset, counts, median Dice, lowest Dice');
+  check('V3R12', !texts(r).some((t) => /sha256|ground_truth_evaluation|inference_review|SCR-0\d|DATASET_FIXTURE|version fixture|DR-\d|EXP-/.test(t)),
+    'no developer text on the main surface: no checksum, capability name, screen id, dataset id or experiment id');
+  const tileText = (id) => r.root.findAll((n) => n.props && n.props.testID === id).flatMap((n) => n.findAll((x) => x.type === 'Text').map(textOf));
+  check('V3R9', ['Cases', '2', 'in this study'].every((t) => tileText('scr01-tile-cases').includes(t))
+    && ['Findings', '1', 'open'].every((t) => tileText('scr01-tile-findings').includes(t))
+    && ['Resolved', '0', 'findings'].every((t) => tileText('scr01-tile-resolved').includes(t))
+    && has(r, /^1 evaluation$/) && has(r, /^1 inference & review$/),
+  `metric strip: ${['cases', 'findings', 'resolved'].map((k) => tileText(`scr01-tile-${k}`).join(' / ')).join(' | ')}`);
+  check('V3R9', has(r, /^No UNet vs DINOv2 pair is judged comparable yet\.$/)
+    && texts(r).filter((t) => t === 'Not compared').length === 3 && has(r, /^0 of 3 comparable$/),
+  'median Dice rows: no pair is compared, so "Not compared", no number and one plain sentence under the rows');
+  check('V3R9', !has(r, /not available to compare/), 'the per-pair reasons (they name runs by id) are not on the page');
+  check('V3R16', r.root.findAll((n) => n.props && n.props.testID === 'scr01-thumb')[0].findAll((n) => n.type === 'Path').length >= 3 && !has(r, /^No image/), 'the dataset picture is a drawing: slice, chamber and a contour');
+  const sheetOpen = () => r.root.findAll((n) => n.type === 'Modal').some((m) => m.findAll((x) => x.props && x.props.testID === 'about-data').length > 0);
+  check('V3R11', !sheetOpen(), '"About this data" is closed until asked for');
+  await press(r, 'About this data');
+  check('V3R11', sheetOpen() && has(r, /^https:\/\/www\.cardiacatlas\.org\/atriaseg2018-challenge\/atria-seg-data\/$/)
+    && has(r, /^The dataset has 154 cases, named CASE_0001 to CASE_0154/) && has(r, /^This study lists 2 of them, so the case list skips some of the numbers\.$/)
+    && has(r, /Not for diagnosis or treatment decisions/)
+    && has(r, /^This is the LASC 2018 challenge data, not the later LAScarQS 2022 data\.$/)
+    && has(r, /^In this study the dataset is named "fixture dataset"\.$/) && has(r, /^Fixture mode: every number/),
+  'the sheet names the source, LASC 2018, the case IDs, research use only, the dataset by name and that fixture numbers are placeholders');
+  check('V3R11', has(r, /^The lowest-Dice list shows the few cases where an experiment's prediction overlaps the reference outline least/),
+    'the sheet explains the lowest-Dice list in one plain sentence');
+  // P2: plain language only. The version, the server details and the exact rule are in the Details sheet (V3R21).
+  const aboutTexts = sheetTexts(r, 'about-data') || [];
+  check('V3R11', aboutTexts.length > 0 && !aboutTexts.some((t) => /sha256|manifest|version|ground_truth_evaluation|inference_review|reconstruction_3d|Capabilities|experiment summary|SERVER DETAILS|EXP-|case_id|DATASET_FIXTURE|not available to compare|ties:/i.test(t)),
+  'the About sheet holds no developer text: no version string, server details, capability names, experiment ids or tie-break');
+  await act(async () => { byTestId(r, 'about-data-close').props.onPress(); });
+  check('V3R11', !sheetOpen(), 'Close closes it');
+  // A pair that cannot open says why in words: a tap on a "Not compared" Median Dice row names the runs, not their ids.
+  check('V3R23', !has(r, /^Cannot open: /), 'no "Cannot open" line until a link is tapped');
+  await press(r, '25 % data');
+  const cannotOpen = texts(r).filter((t) => /^Cannot open: /.test(t));
+  check('V3R23', cannotOpen.length === 1 && cannotOpen[0] === 'Cannot open: UNet 25 %, DINOv2 25 % not available to compare'
+    && onScreen(r, 'SCR-01'), `a Median Dice row that cannot open says why with run names, and stays on SCR-01: ${cannotOpen.join(' | ')}`);
+  check('V3R23', !texts(r).some((t) => /EXP-|DR-\d|INT-\d|section \d/.test(t)), 'with that line on the page there is still no experiment id or rule id');
+  // Responsive (device session r4): the notice is anchored to the screen, over the page, not at the end of the long page
+  // (a tap near the top showed nothing); touches pass through it, and it goes away by itself.
+  const notice = byTestId(r, 'blocked-notice');
+  const underScroll = (n) => { for (let p = n.parent; p; p = p.parent) if (p.type === 'ScrollView') return true; return false; };
+  check('RP-V3c', Boolean(notice) && !underScroll(notice) && flatStyle(notice.props.style).position === 'absolute'
+    && flatStyle(notice.props.style).bottom >= 0 && notice.props.accessibilityRole === 'alert' && notice.props.pointerEvents === 'none',
+  'SCR-01: "Cannot open" is a notice over the screen, outside the scrolled page, an alert that lets touches through');
+  {
+    const { Blocked, blockedNotice } = await imp('src/screens/v3-study/parts.js');
+    let done = 0;
+    let nr;
+    const shown = () => nr.root.findAll((n) => n.type === 'Text').map(textOf).join('|');
+    await act(async () => {
+      nr = TestRenderer.create(React.createElement(Blocked, { notice: blockedNotice('EXP-U-025, EXP-D-025 not available to compare'), onDone: () => { done += 1; }, ms: 40 }));
+    });
+    const before = shown();
+    await tick(150);
+    check('RP-V3c', before === 'Cannot open: UNet 25 %, DINOv2 25 % not available to compare' && done === 1,
+      `the notice names the runs, not their ids, and asks to be cleared after its time (${done} call)`);
+    await act(async () => { nr.update(React.createElement(Blocked, { notice: null, onDone: () => { done += 1; }, ms: 40 })); });
+    check('RP-V3c', shown() === '' && blockedNotice('x').n !== blockedNotice('x').n, 'no notice, nothing drawn; the same reason twice is a new notice');
+    await act(async () => { nr.unmount(); });
+  }
+  await press(r, 'Experiments');
   await tick(60);
   check('V3R2', onScreen(r, 'SCR-07') && has(r, /^Fixture$/), 'SCR-07 opened from SCR-01, under the Fixture indicator');
-  check('V3R2', has(r, /filled from the server's experiment list$/) && has(r, /^Comparisons \(server verdicts\)$/),
-    'SCR-07 draws its model: the matrix and the server verdicts');
+  check('V3R2', has(r, /^Experiments$/) && has(r, /^Comparisons$/) && has(r, /^Not listed by the server$/)
+    && !has(r, /filled from the server's experiment list|experiment\(s\) listed by the server/),
+  'SCR-07 draws its model: the experiment list and the comparisons, without the intro lines');
   // The generated list names one matrix experiment (EXP-D-PP, refused), so no
   // summary names a metric: no chip is offered, and the screen says why.
-  check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/), 'no metric to pick, and it says so');
+  check('V3R2', has(r, /^The server's summaries name no metric yet - nothing to plot\.$/) && !byTestId(r, 'scr07-pick-metric'),
+    'no metric to pick, so no picker row, and it says so');
   await layout(r);
   await tick(30);
   check('V3R2', marks(r, 'Svg').length === 1, 'the strip plot is drawn, empty');
+  check('V3R2', has(r, /^No UNet vs DINOv2 pair is loaded here: both runs of a pair must be listed by the server\.$/),
+    'no pair is loaded, so the paired card says why instead of drawing');
+  check('V3R14', !texts(r).some((t) => /EXP-|\(server|N intended|COHORT level|metric mv1|\(dice\)|false_positives/.test(t))
+    && !has(r, /^What the metrics mean$/), 'no developer text on SCR-07: no experiment id, no "(server ...)", no N, no code names');
+  check('V3R17', sheetTexts(r, 'metric-sheet') === null, 'the metric definitions are not on the page');
+  await press(r, 'Metric definitions');
+  const defs = sheetTexts(r, 'metric-sheet') || [];
+  check('V3R17', defs.includes('Dice: overlap of prediction and reference, 0 to 1; higher is better')
+    && defs.some((d) => /^HD95: locked: /.test(d)) && !defs.some((d) => /\(dice\)|\(iou\)|false_positives|relative_volume_error/.test(d)),
+  'the "Metric definitions" sheet explains Dice, shows HD95 as locked and names no code');
+  await closeSheet(r, 'metric-sheet');
+  check('V3R17', sheetTexts(r, 'metric-sheet') === null, 'Close closes it');
+  await press(r, 'UNet 25 %');
+  const run = sheetTexts(r, 'experiment-details') || [];
+  check('V3R18', run.includes('Experiment EXP-U-025') && run.includes('not listed by the server'),
+    `an experiment row opens its details: id and status, ${run.slice(0, 3).join(' | ')}`);
+  await closeSheet(r, 'experiment-details');
   await act(async () => { r.unmount(); });
 }
 {
@@ -806,19 +900,333 @@ function noRunBackend() {
       React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ['EXP-U-100'] } })), nodeMock);
   });
   await tick(60);
-  await press(r, 'dice');
+  // It opens on Dice: the pick the screen used to wait for is already made.
+  check('V3R22', byTestId(r, 'scr07-pick-metric').props.accessibilityLabel === 'Metric: Dice' && !has(r, /^Pick a metric to see values.$/),
+    'SCR-07 opens with Dice selected, so there is nothing to press before the strip draws');
   await layout(r);
   await tick(30);
-  const dots = marks(r, 'Circle');
+  // The trend chart draws the same cases too, so only the strip's markers are counted.
+  const stripBox = r.root.findAll((n) => n.props && n.props.testID === 'strip-chart')[0];
+  const dots = stripBox ? stripBox.findAll((n) => n.type === 'Circle') : [];
   check('V3R3', dots.length === 4, `EXP-U-100 strip: ${dots.length} dots, one per successful case (4)`);
-  const strip = r.root.findAll((n) => n.type === 'Pressable')[0];
+  const strip = stripBox ? stripBox.findAll((n) => n.type === 'Pressable')[0] : null;
   if (strip && dots.length) {
     await act(async () => { strip.props.onPress({ nativeEvent: { locationX: dots[0].props.cx, locationY: dots[0].props.cy } }); });
   }
-  if (has(r, /^Open this case \(SCR-03\)$/)) await press(r, 'Open this case (SCR-03)');
+  if (has(r, /^Open this case$/)) await press(r, 'Open this case');
   const [screenId, p] = pushed[0] || [];
   check('V3R3', pushed.length === 1 && screenId === 'SCR-03' && p.caseId && p.runId && p.variant === 'RAW' && p.experimentId === 'EXP-U-100',
     `a tapped dot opens SCR-03 with case, run and variant: ${JSON.stringify(pushed[0] || null)}`);
+  // The experiment row opens its details, with every case and a link to each; a link closes the sheet and opens the case.
+  await press(r, 'UNet 100 %');
+  const sheet = sheetTexts(r, 'experiment-details') || [];
+  check('V3R18', sheet.includes('Experiment EXP-U-100') && sheet.some((t) => /^dice: median .* mean .* q1 .* q3 /.test(t))
+    && sheet.some((t) => /^N intended \d+ · N successful \d+$/.test(t)) && sheet.some((t) => /^CASE_\d{4} · plotted · 0\.\d{3}$/.test(t)),
+  'the details hold the id, median, mean, q1, q3, N and the cases');
+  const caseRow = r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4} · plotted/.test(textOf(n)))[0];
+  await act(async () => { caseRow.props.onPress(); });
+  check('V3R18', pushed.length === 2 && pushed[1][0] === 'SCR-03' && pushed[1][1].experimentId === 'EXP-U-100'
+    && sheetTexts(r, 'experiment-details') === null, `a case link in the details opens the case and closes the sheet: ${JSON.stringify(pushed[1] || null)}`);
+  await act(async () => { r.unmount(); });
+}
+
+// A comparison the server judged fair whose numbers are withheld (raw vs post-processed) says why on its row, in the
+// same place "Not compared" stands for the others, instead of showing its title alone.
+{
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const nav = { push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: true };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(ExperimentComparisonScreen, { runtime, nav, params: { experimentIds: ['EXP-U-100', 'EXP-D-100', 'EXP-D-PP'] } })), nodeMock);
+  });
+  await tick(60);
+  const rowTexts = (title) => {
+    const row = r.root.findAll((n) => n.type === 'TouchableOpacity' && textOf(n).startsWith(title))[0];
+    return row ? { texts: row.findAll((x) => x.type === 'Text').map(textOf), label: row.props.accessibilityLabel } : null;
+  };
+  const ablation = rowTexts('DINOv2 100 % · raw vs post-processed');
+  const why = 'Raw and post-processed runs are not summarised together yet, so no difference is shown';
+  check('V3R24', ablation && JSON.stringify(ablation.texts) === JSON.stringify(['DINOv2 100 % · raw vs post-processed', why, 'Not shown']),
+    `a fair comparison with withheld numbers shows its title, why, and "Not shown": ${ablation ? ablation.texts.join(' | ') : 'no row'}`);
+  check('V3R24', ablation && ablation.label === `DINOv2 100 % · raw vs post-processed, Not shown, ${why}` && !/EXP-/.test(ablation.label),
+    'and a screen reader hears the same, with no experiment id');
+  const refused = rowTexts('UNet vs DINOv2 · 100 %');
+  check('V3R24', refused && JSON.stringify(refused.texts) === JSON.stringify(['UNet vs DINOv2 · 100 %', 'Not compared']),
+    `a pair that is not judged comparable keeps "Not compared" and gets no note: ${refused ? refused.texts.join(' | ') : 'no row'}`);
+  check('V3R13', shortPressables(r).length === 0, `SCR-07 with a note under a comparison title: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
+  await act(async () => { r.unmount(); });
+}
+
+// P2: what the About sheet no longer says (dataset version, server summary, capabilities, why a pair is not
+// compared, the exact lowest-Dice rule) is reported to the shell with nav.setContext({ details }), and the shell's
+// Details sheet draws it above "This screen". The recording nav stands in for the shell here.
+{
+  const StudyOverviewScreen = (await imp('src/screens/v3-study/StudyOverviewScreen.js')).default;
+  const runtime = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const reports = [];
+  const nav = {
+    push: () => true, pop: () => true, replace: () => true, reset: () => true, canGoBack: false,
+    setContext: (c) => { reports.push(c); },
+  };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(StudyOverviewScreen, { runtime, nav, params: {} })), nodeMock);
+  });
+  await tick(60);
+  const sent = reports.filter((c) => c && c.details && c.details.length).pop();
+  const section = (title) => (sent ? sent.details.find((d) => d.title === title) : null);
+  const linesOf = (title) => (section(title) ? [...section(title).lines] : []);
+  check('V3R21', linesOf('Server details').includes('Dataset: fixture dataset · version fixture (DATASET_FIXTURE)')
+    && linesOf('Server details').some((l) => /^experiment summary/.test(l)),
+  `SCR-01 reports the dataset version and the server summary to the Details sheet: ${linesOf('Server details').join(' | ')}`);
+  check('V3R21', linesOf('Median Dice pairs').includes('25 % data: EXP-U-025, EXP-D-025 not available to compare'),
+    'SCR-01 reports why a pair is not compared (it names the runs by id)');
+  check('V3R21', linesOf('Lowest-Dice lists').some((l) => /lowest case-level 3D Dice/.test(l) && /case_id/.test(l)),
+    'SCR-01 reports the exact lowest-Dice rule, tie-break included');
+  // Responsive (device session r5): at font scale 1.3 the id in the lowest-Dice list was cut to "CASE_00..." (a fixed 88 dp box for a 97 dp
+  // id), "Not compared" lost the tail of its "p" (a fixed 16 dp track for a 20 dp line), and at 320 dp "0 to 1, higher is better" touched the
+  // UNet key (one line for two things that do not fit it).
+  {
+    const hostBox = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return p; };
+    const notCompared = r.root.findAll((n) => n.type === 'Text' && textOf(n) === 'Not compared');
+    const track = notCompared.length ? flatStyle(hostBox(notCompared[0]).props.style) : {};
+    const line = r.root.findAll((n) => n.type === 'View' && flatStyle(n.props.style).height === 1 && flatStyle(n.props.style).top === '50%')[0];
+    check('RP-V3f', notCompared.length === 3 && notCompared.every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP)
+      && track.minHeight === 16 && track.height === undefined && Boolean(line),
+    'SCR-01 "Not compared": one line, capped at font scale 1.15, in a track with a minHeight (a fixed 16 dp cut the tail of the "p"), the line placed from the middle');
+    const legendNote = r.root.findAll((n) => n.type === 'Text' && textOf(n) === '0 to 1, higher is better')[0];
+    const legendRow = flatStyle(hostBox(legendNote).props.style);
+    const keys = r.root.findAll((n) => n.type === 'View' && n.props.accessibilityLabel === 'Legend: UNet is a circle, DINOv2 is a triangle')[0];
+    check('RP-V3g', legendRow.flexWrap === 'wrap' && legendRow.columnGap >= 12 && flatStyle(keys.props.style).marginLeft === 'auto',
+      'SCR-01 legend: the note and the two family keys wrap, 12 dp apart when they share a line, the keys at the right of their line');
+  }
+  await act(async () => { r.unmount(); });
+  check('V3R21', reports[reports.length - 1] === null, 'leaving the screen clears what it reported');
+}
+
+// SCR-07 paired view over a typed server that answers each run with its own rows (test/_v3_server.mjs; the
+// fixture serves one set of rows for every run). COMPARABLE draws one dot per paired case and a tapped dot opens
+// either run; NOT COMPARABLE and a run with no rows draw no chart and say why.
+const { SIX_RUNS, v3Transport } = await imp('test/_v3_server.mjs');
+const { createClient } = await imp('src/api/client.mjs');
+const inside = (r, testID, type) => {
+  const box = r.root.findAll((n) => n.props && n.props.testID === testID)[0];
+  return box ? box.findAll((n) => n.type === type) : [];
+};
+async function mountTypedPair(options, params = { experimentIds: ['EXP-U-025', 'EXP-D-025'] }) {
+  const base = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const runtime = { ...base, client: createClient(base.contract, v3Transport(contractJson, base.bundle, options)) };
+  const pushed = [];
+  const reports = [];
+  const nav = {
+    push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: true,
+    setContext: (c) => { reports.push(c); },
+  };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(ExperimentComparisonScreen, { runtime, nav, params })), nodeMock);
+  });
+  await tick(60);
+  await layout(r);
+  await tick(30);
+  return { r, pushed, reports };
+}
+// P8 and the default metric: one picker row ("Metric  Dice") instead of a strip of buttons that ran off the screen,
+// the same row and sheet SCR-01 uses for its experiment; the page opens on Dice, so every experiment row has a value.
+{
+  const { r } = await mountTypedPair({});
+  const pick = byTestId(r, 'scr07-pick-metric');
+  check('V3R22', pick && pick.props.accessibilityLabel === 'Metric: Dice' && has(r, /^Metric$/) && has(r, /^Dice$/),
+    'the metric row reads "Metric", "Dice" and opens on Dice');
+  check('V3R22', has(r, /^Dice · median$/) && texts(r).includes('0.655') && texts(r).includes('0.685') && !has(r, /^Pick a metric to see values\.$/),
+    'with Dice (the median) selected the experiment rows show their values, not "Pick a metric to see values"');
+  check('V3R22', !r.root.findAll((n) => n.type === 'TouchableOpacity' && ['IoU', 'False positives'].includes(textOf(n))).length
+    && !r.root.findAll((n) => n.type === 'ScrollView' && n.props.horizontal).length,
+  'no sideways-scrolling strip of metric buttons on the page');
+  check('V3R13', shortPressables(r).length === 0 && pick.props.style && flatStyle(pick.props.style).minHeight >= 48,
+    'the metric row is at least 48 dp high');
+  check('V3R22', sheetTexts(r, 'scr07-metric-sheet') === null, 'the metric sheet is closed until asked for');
+  await act(async () => { pick.props.onPress(); });
+  const metricModal = () => r.root.findAll((n) => n.type === 'Modal').find((m) => m.findAll((x) => x.props && x.props.testID === 'scr07-metric-sheet').length > 0);
+  const option = (label) => (metricModal() ? metricModal().findAll((n) => n.type === 'TouchableOpacity' && textOf(n) === label)[0] : null);
+  const listed = (sheetTexts(r, 'scr07-metric-sheet') || []).filter((t) => t !== 'Metric');
+  check('V3R22', ['Dice', 'IoU', 'False positives', 'False negatives', 'Relative volume error'].every((m) => listed.includes(m))
+    && !listed.some((t) => /_/.test(t)) && option('Dice').props.accessibilityState.selected === true && option('IoU').props.accessibilityState.selected === false,
+  `the sheet lists the server's metrics by name, Dice marked as the current one: ${listed.join(' | ')}`);
+  await act(async () => { option('IoU').props.onPress(); });
+  check('V3R22', sheetTexts(r, 'scr07-metric-sheet') === null && byTestId(r, 'scr07-pick-metric').props.accessibilityLabel === 'Metric: IoU'
+    && has(r, /^IoU · median$/), 'picking IoU closes the sheet and the row, and the page, say IoU');
+  await act(async () => { byTestId(r, 'scr07-pick-metric').props.onPress(); });
+  check('V3R22', option('IoU').props.accessibilityState.selected === true && option('Dice').props.accessibilityState.selected === false,
+    'the sheet marks IoU as the current metric');
+  await act(async () => { option('Dice').props.onPress(); });
+  check('V3R22', byTestId(r, 'scr07-pick-metric').props.accessibilityLabel === 'Metric: Dice' && texts(r).includes('0.655'),
+    'and Dice brings the values back');
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r, pushed, reports } = await mountTypedPair({});
+  // P2: SCR-07's run context (ids, N, cohort level, metric version) is reported for the Details sheet, not drawn in About.
+  const runLines = (reports.filter((c) => c && c.details && c.details.length).pop() || { details: [] }).details
+    .filter((d) => d.title === 'Run details').flatMap((d) => [...d.lines]);
+  check('V3R21', runLines.some((l) => /^EXP-U-025 · model /.test(l) && /N intended/.test(l)) && runLines.some((l) => /^Comparing /.test(l)),
+    `SCR-07 reports the runs' context to the Details sheet: ${runLines.length} lines`);
+  await press(r, 'About this data');
+  const about7 = sheetTexts(r, 'about-data') || [];
+  check('V3R21', about7.length > 0 && about7.some((t) => /LASC 2018/.test(t))
+    && !about7.some((t) => /sha256|EXP-|N intended|COHORT|metric mv1|case_id|Run details/i.test(t)),
+  'the About sheet of SCR-07 is plain language too: no experiment ids, N, cohort level or metric version');
+  await closeSheet(r, 'about-data');
+  const dots = inside(r, 'paired-RQ-A-025', 'Circle');
+  check('V3R4', dots.length === 4 && has(r, /^DINOv2 25 % − UNet 25 % · 4 cases · median \+0\.065$/)
+    && has(r, /^1 case without a value in both runs is not drawn$/),
+  `COMPARABLE pair: ${dots.length} paired dots (4), a one-line caption with the median difference, and the case not drawn`);
+  check('V3R13', shortPressables(r).length === 0, `SCR-07: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
+  check('V3R14', !texts(r).some((t) => /EXP-|\(server|N intended|COHORT level|metric mv1|FINAL_HOLDOUT|\(dice\)/.test(t))
+    && has(r, /^Metric$/) && !has(r, /^Statistic$/) && !has(r, /^Nothing is pre-selected/),
+  'no developer text on SCR-07 with data: no experiment id, no "(server ...)", no N, no cohort level or metric version');
+  // Responsive (device session r4): a number is one line in a cell wide enough for its digits at font scale 1.3 (0.57 em a
+  // digit or a sign, 0.28 em a full stop), never a fixed width; the app bar's title is short enough for 320 dp.
+  const valueEm = (text) => [...text].reduce((w, c) => w + (c === '.' ? 0.28 : 0.57), 0);
+  const numberCells = r.root.findAll((n) => n.type === 'Text' && /^[+−-]?\d\.\d{3}$/.test(textOf(n)));
+  check('RP-V3b', numberCells.length >= 3 && numberCells.every((n) => {
+    const st = flatStyle(n.props.style);
+    return n.props.numberOfLines === 1 && typeof st.width !== 'number' && st.minWidth >= Math.ceil(valueEm(textOf(n)) * st.fontSize * 1.3);
+  }), `SCR-07: ${numberCells.length} numbers (medians and differences), each one line in a cell of at least its digits at 1.3x, no fixed width`);
+  check('RP-V3b', reports.some((c) => c && c.title === 'Experiments'), 'SCR-07 reports a short app bar title ("Experiments"): "Experiment Comparison" was cut at 320 dp');
+  // Comparisons: one row per pair with the median difference as its value; the rest is in a sheet.
+  check('V3R19', texts(r).includes('UNet vs DINOv2 · 25 %') && texts(r).includes('+0.030'), 'the comparison row says "UNet vs DINOv2 · 25 %" and "+0.030"');
+  await press(r, 'UNet vs DINOv2 · 25 %');
+  const cmp = sheetTexts(r, 'comparison-details') || [];
+  check('V3R19', cmp.includes('comparable (server verdict)') && cmp.includes('common population 5 cases')
+    && cmp.some((c) => /^median dice: EXP-D-025 0\.685 vs EXP-U-025 0\.655, difference \+0\.030/.test(c)),
+  `the comparison details hold the verdict, the population and both medians: ${cmp.join(' | ')}`);
+  await closeSheet(r, 'comparison-details');
+  check('V3R19', sheetTexts(r, 'comparison-details') === null, 'Close closes it');
+  await press(r, 'UNet 25 %');
+  const exp = sheetTexts(r, 'experiment-details') || [];
+  check('V3R18', exp.includes('Experiment EXP-U-025') && exp.some((e) => /^comparable with EXP-D-025/.test(e)),
+    'the experiment details hold the id and the verdicts that involve the run');
+  await closeSheet(r, 'experiment-details');
+  check('V3R4', inside(r, 'strip-chart', 'Circle').length === 4 && inside(r, 'strip-chart', 'Path').length === 4,
+    'the strip draws UNet as 4 circles and DINOv2 as 4 triangles');
+  const chart = inside(r, 'paired-RQ-A-025', 'Pressable')[0];
+  if (chart && dots.length) {
+    await act(async () => { chart.props.onPress({ nativeEvent: { locationX: dots[0].props.cx, locationY: dots[0].props.cy } }); });
+  }
+  check('V3R4', has(r, /^CASE_0003: UNet 25 % 0\.610, DINOv2 25 % 0\.580, difference -0\.030$/),
+    'the leftmost dot is the lowest difference, and a tap names its case and both values');
+  if (has(r, /^Open in DINOv2 25 %$/)) await press(r, 'Open in DINOv2 25 %');
+  const [screenId, p] = pushed[0] || [];
+  check('V3R4', pushed.length === 1 && screenId === 'SCR-03' && p.caseId === 'CASE_0003' && p.runId === 'RUN_D025_0003'
+    && p.variant === 'RAW' && p.experimentId === 'EXP-D-025', `"Open in DINOv2 25 %" opens that run: ${JSON.stringify(pushed[0] || null)}`);
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r } = await mountTypedPair({ compare: 'not_comparable' });
+  check('V3R5', inside(r, 'scr07-paired', 'Svg').length === 0
+    && has(r, /^Not shown: the server says these runs are not comparable: /), 'NOT COMPARABLE: no paired chart, the server\'s reason');
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r } = await mountTypedPair({ noRows: ['EXP-D-025'] });
+  check('V3R6', inside(r, 'scr07-paired', 'Svg').length === 0
+    && has(r, /^Not shown: DINOv2 25 % has no per-case dice value: no per-case result yet$/), 'a run with no rows: no chart, and why (the run by name)');
+  await act(async () => { r.unmount(); });
+}
+// The trend chart over all six RAW runs: per run 4 cases, a q1-q3 bar and a median tick; a line and band per
+// family only under COMPARABLE, DINOv2's line dashed.
+{
+  const { r } = await mountTypedPair({ dice: SIX_RUNS }, {});
+  const paths = inside(r, 'trend-chart', 'Path');
+  const lines = paths.filter((n) => n.props.fill === 'none');
+  check('V3R7', inside(r, 'trend-chart', 'Rect').length === 6 && inside(r, 'trend-chart', 'Circle').length === 12
+    && paths.length === 12 + 4 && lines.length === 2 && lines.filter((n) => n.props.strokeDasharray === '6 4').length === 1,
+    `COMPARABLE trend: 6 q1-q3 bars, 12 UNet circles, 12 DINOv2 triangles, 2 bands and 2 lines (one dashed): paths ${paths.length}`);
+  check('V3R7', texts(r).includes('UNet 25 → 50 → 100 %') && !texts(r).includes('Not joined'), 'a trend row per family, nothing extra while the runs are joined');
+  await press(r, 'UNet 25 → 50 → 100 %');
+  check('V3R7', (sheetTexts(r, 'trend-details') || []).includes('UNet: joined - the server judged the three runs comparable'),
+    'the join is explained in the trend details');
+  await closeSheet(r, 'trend-details');
+  // The three UNet vs DINOv2 pairs each get a paired chart.
+  check('V3R7', ['RQ-A-025', 'RQ-A-050', 'RQ-A-100'].every((id) => inside(r, `paired-${id}`, 'Circle').length === 4),
+    'all three pairs are comparable: three paired charts of 4 cases');
+  await act(async () => { r.unmount(); });
+}
+{
+  const { r } = await mountTypedPair({ dice: SIX_RUNS, compare: 'not_comparable' }, {});
+  const lines = inside(r, 'trend-chart', 'Path').filter((n) => n.props.fill === 'none' || n.props.fillOpacity === 0.12);
+  check('V3R8', lines.length === 0 && inside(r, 'trend-chart', 'Rect').length === 6 && texts(r).filter((x) => x === 'Not joined').length === 2,
+    'NOT COMPARABLE trend: bars and cases per run, no line or band, and "Not joined" on each row');
+  await press(r, 'UNet 25 → 50 → 100 %');
+  check('V3R8', (sheetTexts(r, 'trend-details') || []).some((x) => /^UNet: not joined - /.test(x)), 'and the reason is in the trend details');
+  await closeSheet(r, 'trend-details');
+  await act(async () => { r.unmount(); });
+}
+// SCR-01 over the same typed server: comparable median Dice under a "Comparable" chip, and the lowest-Dice cases
+// as bars that open their case.
+{
+  const StudyOverviewScreen = (await imp('src/screens/v3-study/StudyOverviewScreen.js')).default;
+  const base = createRuntime({ config: resolveConfig({ mode: 'fixture' }), contractJson, bundleJson });
+  const runtime = { ...base, client: createClient(base.contract, v3Transport(contractJson, base.bundle, { dice: SIX_RUNS })) };
+  const pushed = [];
+  const nav = { push: (id, p) => { pushed.push([id, p]); return true; }, pop: () => true, replace: () => true, reset: () => true, canGoBack: false };
+  let r;
+  await act(async () => {
+    r = TestRenderer.create(React.createElement(RuntimeProvider, { runtime },
+      React.createElement(StudyOverviewScreen, { runtime, nav, params: {} })), nodeMock);
+  });
+  await tick(60);
+  check('V3R10', has(r, /^3 of 3 comparable$/) && texts(r).filter((t) => /^0\.\d{3} · 0\.\d{3}$/.test(t)).length === 3
+    && has(r, /^0\.655 · 0\.685$/) && !has(r, /^Not compared$/),
+  `median Dice rows: three comparable pairs, both medians (UNet first): ${texts(r).filter((t) => /comparable$|^0\.\d{3} · /.test(t)).join(' | ')}`);
+  // Per pair: a ring and a shape for each family, so four small drawings.
+  check('V3R10', inside(r, 'scr01-dice', 'Svg').length === 12 && inside(r, 'scr01-dice', 'Circle').length === 6
+    && inside(r, 'scr01-dice', 'Path').length === 6, 'each comparable pair draws a UNet circle and a DINOv2 triangle on its track');
+  // Responsive (device session r4): a row label and a value are one line and stop growing at the label cap, the label
+  // column holds "100 % data" at that cap (4.9 em in Roboto Medium, 5.1 here: 5.1 x 14 sp x 1.15 = 83 dp), and a section's
+  // caption wraps under its overline instead of running off the edge ("0 of 3 comparable" cut to "compara").
+  const hostOf = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return p; };
+  const diceTexts = r.root.findAll((n) => n.props && n.props.testID === 'scr01-dice')[0].findAll((n) => n.type === 'Text');
+  const rowLabels = diceTexts.filter((n) => /^(25|50|100) % data$/.test(textOf(n)));
+  const rowValues = diceTexts.filter((n) => /^0\.\d{3} · 0\.\d{3}$/.test(textOf(n)));
+  const captionRow = hostOf(r.root.findAll((n) => n.type === 'Text' && textOf(n) === '3 of 3 comparable')[0]);
+  check('RP-V3a', rowLabels.length === 3 && rowValues.length === 3
+    && [...rowLabels, ...rowValues].every((n) => n.props.numberOfLines === 1 && n.props.maxFontSizeMultiplier === LABEL_FONT_CAP)
+    && rowLabels.every((n) => flatStyle(n.props.style).width >= Math.ceil(5.1 * 14 * LABEL_FONT_CAP))
+    && rowValues.every((n) => flatStyle(n.props.style).width >= Math.ceil(4.8 * 14 * LABEL_FONT_CAP))
+    && flatStyle(captionRow.props.style).flexWrap === 'wrap',
+  'SCR-01: the row labels and values are one line, capped at font scale 1.15, in columns wide enough for that; the section caption can wrap');
+  const label = (n) => (typeof n.props.accessibilityLabel === 'string' ? n.props.accessibilityLabel : '');
+  const caseRows = () => r.root.findAll((n) => n.type === 'TouchableOpacity' && /^CASE_\d{4}, dice /.test(label(n)));
+  const bars = caseRows();
+  // One lowest-Dice list: DINOv2 at the largest fraction that has one.
+  check('V3R20', has(r, /^Lowest Dice · DINOv2 100 %$/) && texts(r).filter((x) => /^Lowest Dice · /.test(x)).length === 1
+    && bars.length === 3 && label(bars[0]) === 'CASE_0005, dice 0.660', `one list, DINOv2 100 %: ${bars.length} rows, first ${bars[0] ? label(bars[0]) : '-'}`);
+  check('V3R20', has(r, /^Experiment$/) && has(r, /^DINOv2 100 %$/), 'a compact picker names the experiment of the list');
+  // Responsive (device session r5): the id in the lowest-Dice list was cut to "CASE_00..." at font scale 1.3 (a fixed 88 dp box for a 97 dp id).
+  {
+    const idTexts = r.root.findAll((n) => n.type === 'Text' && /^CASE_\d{4}$/.test(textOf(n)) && /^TouchableOpacity$/.test(String((() => { let p = n.parent; while (p && p.type !== 'TouchableOpacity') p = p.parent; return p ? p.type : ''; })())));
+    const boxOf = (n) => { let p = n.parent; while (p && typeof p.type !== 'string') p = p.parent; return flatStyle(p.props.style); };
+    check('RP-V3e', idTexts.length === 3 && idTexts.every((n) => n.props.numberOfLines === 1 && boxOf(n).minWidth === 88 && boxOf(n).width === undefined && boxOf(n).flexShrink === 0),
+      `SCR-01 lowest-Dice ids (${idTexts.map(textOf).join(', ')}): one line, in a box with a minWidth of 88 dp and no fixed width, never shrunk`);
+  }
+  check('V3R13', shortPressables(r).length === 0, `SCR-01: every pressable with a declared height reaches 48 dp (${shortPressables(r).length} short)`);
+  check('V3R20', sheetTexts(r, 'scr01-picker-sheet') === null, 'the picker sheet is closed until asked for');
+  await press(r, 'Experiment');
+  const options = sheetTexts(r, 'scr01-picker-sheet') || [];
+  check('V3R20', ['UNet 25 %', 'UNet 50 %', 'UNet 100 %', 'DINOv2 25 %', 'DINOv2 50 %', 'DINOv2 100 %'].every((o) => options.includes(o)),
+    `the picker lists the experiments of the server: ${options.join(' | ')}`);
+  await press(r, 'UNet 25 %');
+  check('V3R20', sheetTexts(r, 'scr01-picker-sheet') === null && has(r, /^Lowest Dice · UNet 25 %$/) && caseRows().length === 3
+    && label(caseRows()[0]) === 'CASE_0005, dice 0.400', 'picking UNet 25 % closes the sheet and swaps the list');
+  const picked = caseRows();
+  if (picked.length) await act(async () => { picked[0].props.onPress(); });
+  check('V3R10', pushed.length === 1 && pushed[0][0] === 'SCR-03' && pushed[0][1].runId === 'RUN_U025_0005',
+    `a bar opens its case in its run: ${JSON.stringify(pushed[0] || null)}`);
   await act(async () => { r.unmount(); });
 }
 
