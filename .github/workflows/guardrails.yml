@@ -3,11 +3,13 @@ name: guardrails
 # One job per check, so a failing job name says what broke without reading a log.
 #
 # No third-party actions beyond actions/checkout, actions/setup-python and
-# actions/setup-node. Two jobs install packages, each from pinned versions:
+# actions/setup-node. Three jobs install packages, each from pinned versions:
 #   mobile-render-bundle  `npm ci --ignore-scripts` from the committed
 #                         mobile/package-lock.json (render smoke + bundle export);
 #   ml-tests              CPU PyTorch from the official PyTorch wheel index plus
-#                         six PyPI packages, every version pinned.
+#                         six PyPI packages, every version pinned;
+#   prototype-3d-tests    the four PyPI packages pinned in
+#                         prototypes/3d-viewer/clinical_poc/requirements-workstation.txt.
 # Every other job installs no npm package.
 
 on:
@@ -56,6 +58,41 @@ jobs:
             --fixture tests/fixtures/geometry/geometry_fixture_v0.json \
             --expect-contract-version dr008a-dr012/v1.0.0 \
             --implementation-name reference
+
+  # --------------------------------------------------------------------------
+  # V2 3D viewer prototypes: research code, not product code, but their geometry
+  # and orientation checks must still run after files move. Synthetic fixtures
+  # only; every builder refuses an output path inside the repository. The Node
+  # checks import nothing from npm and use the runner's own node.
+  prototype-3d-tests:
+    name: "3D viewer prototype tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: install the pinned prototype requirements
+        run: python -m pip install --quiet -r prototypes/3d-viewer/clinical_poc/requirements-workstation.txt
+
+      - name: clinical POC builder, orientation and surface checks
+        run: >-
+          python -m unittest -v
+          prototypes.3d-viewer.clinical_poc.test_build_poc_data
+          prototypes.3d-viewer.clinical_poc.test_surface_preview
+
+      # app/test_obj and app/test_picking read the gitignored synthetic OBJ that
+      # build_mesh.py regenerates from the canonical geometry fixture.
+      - name: Node checks (MPR geometry, workstation, viewer math, S-1 core, app)
+        run: |
+          python prototypes/3d-viewer/mesh/build_mesh.py
+          node --version
+          node prototypes/3d-viewer/clinical_poc/test_poc_geometry.mjs
+          node --test prototypes/3d-viewer/clinical_poc/workstation/test/*.test.mjs
+          node prototypes/3d-viewer/volume_surface_poc/test_viewer_math.mjs
+          node prototypes/3d-viewer/s1/test_s1_core.mjs
+          for t in obj performance picking webview_probe; do node prototypes/3d-viewer/app/test_$t.mjs; done
 
   # --------------------------------------------------------------------------
   contract-tests:

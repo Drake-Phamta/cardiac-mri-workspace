@@ -1,7 +1,7 @@
 """Geometry checks for the local cardiac MPR POC builder.
 
 Run with a Python environment containing numpy and nibabel:
-    python -m unittest spikes.spike_b_3d.clinical_poc.test_build_poc_data
+    python -m unittest prototypes.3d-viewer.clinical_poc.test_build_poc_data   # from the repository root
 """
 from __future__ import annotations
 
@@ -165,7 +165,7 @@ class BuildPocDataTests(unittest.TestCase):
         self.assertIn("must be outside the repository", result.stderr)
 
     def test_scanner_header_orientation_is_reported_as_verified(self):
-        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair
+        from .build_poc_data import load_canonical_pair
         pair = load_canonical_pair(self.mri_path, self.label_path)
         self.assertEqual(pair["orientation"]["status"], "header")
         self.assertEqual(pair["orientation"]["array_axes"], "RAS")
@@ -173,7 +173,7 @@ class BuildPocDataTests(unittest.TestCase):
     def test_placeholder_header_is_unverified_instead_of_labelled_ras(self):
         # MSD Task02 Heart ships identity directions at origin 0: numerically
         # valid, anatomically meaningless. Its "axial" plane is really sagittal.
-        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair
+        from .build_poc_data import load_canonical_pair
         self._save(np.diag([0.7, 0.8, 2.4, 1.0]))
         pair = load_canonical_pair(self.mri_path, self.label_path)
         self.assertEqual(pair["orientation"]["status"], "unverified")
@@ -185,7 +185,7 @@ class BuildPocDataTests(unittest.TestCase):
         self.assertEqual(meta["orientation"]["status"], "unverified")
 
     def test_declared_array_axes_reorient_placeholder_geometry_without_resampling(self):
-        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair
+        from .build_poc_data import load_canonical_pair
         self._save(np.diag([0.7, 0.8, 2.4, 1.0]))
         # Stored axis 0 runs anterior, axis 1 superior, axis 2 toward the left.
         pair = load_canonical_pair(self.mri_path, self.label_path, "ASL")
@@ -199,7 +199,7 @@ class BuildPocDataTests(unittest.TestCase):
         np.testing.assert_allclose(native @ [0, 0, 0, 1], [0, 0, 7, 1], atol=1e-9)
 
     def test_declared_array_axes_never_override_a_scanner_header(self):
-        from spikes.spike_b_3d.clinical_poc.build_poc_data import load_canonical_pair, parse_array_axes
+        from .build_poc_data import load_canonical_pair, parse_array_axes
         with self.assertRaisesRegex(ValueError, "already declares"):
             load_canonical_pair(self.mri_path, self.label_path, "ASL")
         for bad in ("AS", "ASX", "AAL", "RLS"):

@@ -2,8 +2,26 @@
 from __future__ import annotations
 
 import numpy as np
-import vtk
-from vtk.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray, vtk_to_numpy
+# Data-model and filter modules only: `import vtk` would also load the
+# rendering stack, which needs an OpenGL library that a headless CI runner
+# may not have. Nothing here renders.
+from vtkmodules.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray, vtk_to_numpy
+from vtkmodules.vtkCommonCore import vtkIdTypeArray, vtkPoints
+from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkImageData, vtkPolyData
+from vtkmodules.vtkCommonTransforms import vtkTransform
+from vtkmodules.vtkFiltersCore import (
+    vtkMassProperties,
+    vtkPolyDataConnectivityFilter,
+    vtkPolyDataNormals,
+    vtkSurfaceNets3D,
+    vtkTriangleFilter,
+    vtkWindowedSincPolyDataFilter,
+)
+from vtkmodules.vtkFiltersGeneral import (
+    vtkDiscreteFlyingEdges3D,
+    vtkDistancePolyDataFilter,
+    vtkTransformPolyDataFilter,
+)
 
 from backend.mesh.surface import build_case_mesh
 
@@ -17,12 +35,12 @@ VARIANTS = {
 
 
 def polydata(vertices, triangles):
-    result = vtk.vtkPolyData()
-    points = vtk.vtkPoints()
+    result = vtkPolyData()
+    points = vtkPoints()
     points.SetData(numpy_to_vtk(np.ascontiguousarray(vertices, dtype=np.float64), deep=True))
     result.SetPoints(points)
     cells = np.column_stack((np.full(len(triangles), 3), triangles)).astype(np.int64)
-    cell_array = vtk.vtkCellArray()
+    cell_array = vtkCellArray()
     cell_array.ImportLegacyFormat(numpy_to_vtkIdTypeArray(cells.ravel(), deep=True))
     result.SetPolys(cell_array)
     return result
@@ -30,14 +48,14 @@ def polydata(vertices, triangles):
 
 def legacy_cells(poly):
     """Triangles as the flat [3, a, b, c, ...] layout the browser loader reads."""
-    exported = vtk.vtkIdTypeArray()
+    exported = vtkIdTypeArray()
     poly.GetPolys().ExportLegacyFormat(exported)
     return vtk_to_numpy(exported)
 
 
 def image_for_mask(mask):
     padded = np.pad(mask.astype(np.uint8), 1)
-    image = vtk.vtkImageData()
+    image = vtkImageData()
     image.SetDimensions(padded.shape)
     image.SetOrigin(-1, -1, -1)
     image.SetSpacing(1, 1, 1)
@@ -53,14 +71,14 @@ def surface(mask, affine, variant):
     else:
         image = image_for_mask(mask)
         if settings["method"] == "nets":
-            extractor = vtk.vtkSurfaceNets3D()
+            extractor = vtkSurfaceNets3D()
             extractor.SetNumberOfIterations(5)
             extractor.AutomaticSmoothingConstraintsOff()
             extractor.SetConstraintStrategyToConstraintDistance()
             extractor.SetConstraintDistance(0.35)
             extractor.SmoothingOn()
         else:
-            extractor = vtk.vtkDiscreteFlyingEdges3D()
+            extractor = vtkDiscreteFlyingEdges3D()
             extractor.ComputeNormalsOff()
             extractor.ComputeGradientsOff()
         extractor.SetInputData(image)
@@ -69,7 +87,7 @@ def surface(mask, affine, variant):
         source = extractor.GetOutput()
         factor = settings["factor"]
         if factor:
-            smoother = vtk.vtkWindowedSincPolyDataFilter()
+            smoother = vtkWindowedSincPolyDataFilter()
             smoother.SetInputData(source)
             smoother.SetNumberOfIterations(int(20 + 40 * factor))
             smoother.SetPassBand(10 ** (-4 * factor))
@@ -79,14 +97,14 @@ def surface(mask, affine, variant):
             smoother.NormalizeCoordinatesOn()
             smoother.Update()
             source = smoother.GetOutput()
-    transform = vtk.vtkTransform()
+    transform = vtkTransform()
     transform.SetMatrix(np.asarray(affine, dtype=np.float64).ravel())
-    transformed = vtk.vtkTransformPolyDataFilter()
+    transformed = vtkTransformPolyDataFilter()
     transformed.SetInputData(source)
     transformed.SetTransform(transform)
-    triangulated = vtk.vtkTriangleFilter()
+    triangulated = vtkTriangleFilter()
     triangulated.SetInputConnection(transformed.GetOutputPort())
-    normals = vtk.vtkPolyDataNormals()
+    normals = vtkPolyDataNormals()
     normals.SetInputConnection(triangulated.GetOutputPort())
     normals.SplittingOff()
     normals.ConsistencyOn()
@@ -96,7 +114,7 @@ def surface(mask, affine, variant):
     normals.AutoOrientNormalsOn()
     normals.ComputePointNormalsOn()
     normals.Update()
-    result = vtk.vtkPolyData()
+    result = vtkPolyData()
     result.DeepCopy(normals.GetOutput())
     return result
 
@@ -105,11 +123,11 @@ def topology(poly):
     triangles = legacy_cells(poly).reshape(-1, 4)[:, 1:]
     edges = np.sort(np.concatenate((triangles[:, :2], triangles[:, 1:], triangles[:, ::2])), axis=1)
     unique, counts = np.unique(edges, axis=0, return_counts=True)
-    connected = vtk.vtkPolyDataConnectivityFilter()
+    connected = vtkPolyDataConnectivityFilter()
     connected.SetInputData(poly)
     connected.SetExtractionModeToAllRegions()
     connected.Update()
-    mass = vtk.vtkMassProperties()
+    mass = vtkMassProperties()
     mass.SetInputData(poly)
     mass.Update()
     return {
@@ -123,7 +141,7 @@ def topology(poly):
 
 
 def comparison(poly, reference, label_volume_ml):
-    distance = vtk.vtkDistancePolyDataFilter()
+    distance = vtkDistancePolyDataFilter()
     distance.SetInputData(0, poly)
     distance.SetInputData(1, reference)
     distance.SignedDistanceOff()
