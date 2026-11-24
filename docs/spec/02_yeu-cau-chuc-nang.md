@@ -90,16 +90,16 @@ thích ở [00_tong-quan.md](00_tong-quan.md) mục 6; mã và test chứng minh
 | PR-EXP-02 | So sánh run tương thích ở mức cohort và từng ca theo luật so sánh được của server | SCR-07 | Bế Quốc Khánh | MUST | Một phần: server chưa kiểm loại mask tham chiếu và chính sách hình học |
 | PR-EXP-03 | Kết quả theo 25 / 50 / 100 % dữ liệu có nhãn; màn hình xử lý cả hai họ mô hình | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
 | PR-EXP-04 | DINOv2 thô (EXP-D-100) và hậu xử lý (EXP-D-PP) hiện thành hai tóm tắt có nhãn; server ghi "không so sánh được" vì khác biến thể; hiệu số ghép cặp nằm trong `docs/RESULTS.md` | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
-| PR-SCI-01 | App ghi rõ dữ liệu là LASC 2018 (nguồn, điều khoản), không phải tái lập kết quả LAScarQS 2022 của bài báo gốc | SCR-01, SCR-07 | Bế Quốc Khánh | MUST | Một phần: chưa có câu "không phải tái lập LAScarQS 2022" trong app và RESULTS.md |
+| PR-SCI-01 | App ghi rõ dữ liệu là LASC 2018 (nguồn, điều khoản), không phải tái lập kết quả LAScarQS 2022 của bài báo gốc | SCR-01, SCR-07 | Bế Quốc Khánh | MUST | Một phần: app đã ghi trong "About this data" ("This is the LASC 2018 challenge data, not the later LAScarQS 2022 data."); `docs/RESULTS.md` chưa phân biệt hai bộ dữ liệu |
 | PR-SCI-03 | Bảng kết quả sinh từ tổng hợp đóng băng theo thứ tự cố định; báo đúng kết quả quan sát, kể cả khi không khác biệt | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
 | FR-STUDY-001 | Server trả thông tin bộ dữ liệu, số ca theo chế độ, danh sách thí nghiệm và khả năng của study | SCR-01 | Bế Quốc Khánh | MUST | Đã có |
 | FR-EXP-001 | Mỗi thí nghiệm có họ mô hình, % dữ liệu, tiền / hậu xử lý, split, phiên bản checkpoint và đánh giá | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
 | FR-EXP-002 | Server lưu và trả chỉ số từng ca của run đánh giá | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
 | FR-EXP-003 | Server tính thống kê cohort từ chỉ số từng ca, ghi N dự kiến và N thành công | SCR-01, SCR-07 | Bế Quốc Khánh | MUST | Đã có |
-| FR-EXP-004 | Ma trận UNet / DINOv2 × 25 / 50 / 100 % và biểu đồ xu hướng (từng ca, trung vị, q1–q3, chỉ nối khi server cho phép); dữ liệu thật hiện có DINOv2, ma trận đủ chạy bằng dữ liệu fixture | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
+| FR-EXP-004 | Ma trận UNet / DINOv2 × 25 / 50 / 100 % (mỗi thí nghiệm một dòng ở mục "Experiments") và biểu đồ xu hướng (từng ca, trung vị, q1–q3, chỉ nối khi server cho phép; dòng "Not joined" khi không nối); dữ liệu thật hiện có DINOv2, ma trận đủ chạy bằng dữ liệu fixture | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
 | FR-EXP-005 | Thô và hậu xử lý là hai thí nghiệm có nhãn; phép so sánh giữa chúng là "không so sánh được" | SCR-07 | Bế Quốc Khánh | MUST | Đã có |
-| FR-EXP-006 | Mở bằng chứng ca từ kết quả; bảng ca của mỗi thí nghiệm liệt kê mọi dòng, kể cả FAILED / EXCLUDED / WITHHELD có lý do | SCR-01, SCR-07 | Bế Quốc Khánh | MUST | Đã có |
-| FR-EXP-007 | Bộ chọn chỉ số và thống kê (median / mean) không mặc định; chú giải chỉ số, HD95 và mL bị khoá vì hình học chưa kiểm định | SCR-07 | Bế Quốc Khánh | SHOULD | Đã có |
+| FR-EXP-006 | Mở bằng chứng ca từ kết quả (dòng "Lowest Dice" ở SCR-01; chấm, hiệu số và sheet của thí nghiệm ở SCR-07); sheet của mỗi thí nghiệm liệt kê mọi dòng ca, kể cả FAILED / EXCLUDED / WITHHELD có lý do | SCR-01, SCR-07 | Bế Quốc Khánh | MUST | Đã có |
+| FR-EXP-007 | Hàng chọn chỉ số "Metric" mở sẵn Dice khi server nêu Dice, đổi được sang chỉ số khác server nêu; trang chỉ hiện trung vị (mean, std, q1, q3 nằm trong sheet của thí nghiệm); sheet "Metric definitions" giải thích từng chỉ số, HD95 và mL bị khoá vì hình học chưa kiểm định | SCR-07 | Bế Quốc Khánh | SHOULD | Đã có |
 | FR-EXP-008 | Biểu đồ hiệu số từng ca cho cặp server nói so sánh được: xếp từ thấp tới cao, đường trung vị, chạm để mở ca | SCR-07 | Bế Quốc Khánh | SHOULD | Đã có |
 
 ## 5. V4 — Nguyễn Gia Đức Trung: Review / Correction, Findings, API backend

@@ -45,8 +45,9 @@ giả danh `CASE_0001` … `CASE_0154`. Mọi biện pháp dưới đây đều 
 
 | Biện pháp | Ở đâu | ID |
 |---|---|---|
-| Trang "About this data": nguồn LASC 2018, điều khoản, mã ca giả danh, chỉ số tổng hợp, "chỉ dùng cho nghiên cứu" | `mobile/src/screens/v3-study/about.mjs`, `AboutDataSheet.js` | NFR-SEC-012 |
-| SCR-01 và SCR-07 chỉ hiện số tổng hợp và chỉ số từng ca, không có ảnh; ca chỉ suy luận là dòng WITHHELD không có số | `screens/v3-study/readers.mjs`, `view.mjs` | UC-16 |
+| Sheet "About this data" (SCR-01, SCR-07): nguồn LASC 2018 và đường dẫn, điều khoản, mã ca giả danh (`CASE_0001` … `CASE_0154`, không tên, ngày sinh hay số hồ sơ), "Counts and scores only", "Not for diagnosis or treatment decisions"; chữ thường, không có phiên bản, mã thí nghiệm hay tên capability | `mobile/src/screens/v3-study/about.mjs` (`aboutData`), `AboutDataSheet.js` | NFR-SEC-012 |
+| SCR-01 và SCR-07 chỉ hiện số tổng hợp, chỉ số từng ca và mã ca giả danh, không có ảnh MRI (hình cạnh tên bộ dữ liệu ở SCR-01 là hình vẽ minh hoạ); ca chỉ suy luận là dòng WITHHELD không có số | `screens/v3-study/readers.mjs`, `view.mjs`, `DatasetThumb.js` | UC-16 |
+| Mã thí nghiệm, phiên bản bộ dữ liệu, tên capability, phiên bản chỉ số và luật chọn ca không hiện trên trang; chúng nằm trong sheet Details (nút Info) và các sheet của SCR-07 | `about.mjs` (`studyDetails`, `runDetails`), `nav.setContext` | NFR-SEC-012 |
 
 ## 5. Nguyễn Gia Đức Trung — SCR-06, SCR-08, API backend
 
