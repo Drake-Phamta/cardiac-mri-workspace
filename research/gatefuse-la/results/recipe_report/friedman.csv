@@ -1,0 +1,2 @@
+family,arms,k,n_vols,statistic,p,kendall_w
+recipes,bce_dice+none soft_dice+none focal_tversky+none bce_dice+on soft_dice+on focal_tversky+on,6,20,38.88571428571424,2.5039996853248727e-07,0.38885714285714246
