@@ -1,0 +1,115 @@
+// What the study screens tell people about their data and their numbers: the "About this data" sheet (spec 12:
+// research use only, de-identified case IDs, the dataset's source and terms) and the metric legend.
+// The facts come from the project's dataset record (data/DATASET_AUDIT.md) and the API contract.
+// The sheet is plain language. Versions, ids, capability names and exact rules go to the shell's Details sheet.
+
+// The metric SCR-07 opens with: Dice, the study's primary metric (spec 08 section 5). The user can pick another.
+export const PRIMARY_METRIC = 'dice';
+
+export const DATASET_SOURCE_URL = 'https://www.cardiacatlas.org/atriaseg2018-challenge/atria-seg-data/';
+// The short source line under the dataset name on SCR-01.
+export const DATASET_SOURCE_NAME = 'Atrial Segmentation Challenge, Cardiac Atlas Project';
+
+// LASC 2018 has 154 cases, CASE_0001 to CASE_0154 (data/DATASET_AUDIT.md: "154 unique CASE_NNNN IDs"). A study lists
+// some of them (the server's case count says how many), so the range is the dataset's, not the study's.
+export const DATASET_CASE_COUNT = 154;
+const caseId = (n) => `CASE_${String(n).padStart(4, '0')}`;
+
+const section = (title, lines) => Object.freeze({ title, lines: Object.freeze(lines.filter(Boolean)) });
+
+// What the sheet says about how many of the dataset's cases this study lists: the count the server gave (a number or
+// its text), or only that it is some of them when none was given or it does not fit the dataset.
+function listedLine(studyCaseCount) {
+  const n = studyCaseCount === null || studyCaseCount === undefined || studyCaseCount === '' ? NaN : Number(studyCaseCount);
+  if (Number.isInteger(n) && n >= 0 && n < DATASET_CASE_COUNT) {
+    return `This study lists ${n} of them, so the case list skips some of the numbers.`;
+  }
+  if (n === DATASET_CASE_COUNT) return 'This study lists all of them.';
+  return 'This study lists only some of them, so the case list skips some of the numbers.';
+}
+
+/*
+ * The sheet's sections. `datasetName` is the dataset's name alone; `fixture` adds that numbers are placeholders;
+ * `studyCaseCount` is how many cases the study lists (study_get case_counts), for the Case IDs section.
+ */
+export function aboutData({ datasetName = null, fixture = false, studyCaseCount = null } = {}) {
+  return Object.freeze([
+    section('Where the data comes from', [
+      'Left-atrium LGE MRI from the 2018 Atria Segmentation Challenge (LASC 2018), downloaded from the official '
+        + 'Cardiac Atlas Project page:',
+      DATASET_SOURCE_URL,
+      'This is the LASC 2018 challenge data, not the later LAScarQS 2022 data.',
+      datasetName ? `In this study the dataset is named "${datasetName}".` : null,
+    ]),
+    section('Terms of use', [
+      'Used under the Cardiac Atlas Project data-use policy kept with the download. Images, masks and results stay '
+        + 'inside this project until that policy or a data-use agreement allows sharing them.',
+    ]),
+    section('Case IDs', [
+      `The dataset has ${DATASET_CASE_COUNT} cases, named ${caseId(1)} to ${caseId(DATASET_CASE_COUNT)}: IDs this project `
+        + 'gave each case when the data was imported.',
+      listedLine(studyCaseCount),
+      'The app receives only these IDs: no name, birth date or hospital record number.',
+    ]),
+    section('What these screens show', [
+      'Counts and scores only: summaries per experiment and one score per case ID. No image is shown here.',
+    ]),
+    section('Lowest-Dice list', [
+      'The lowest-Dice list shows the few cases where an experiment\'s prediction overlaps the reference outline '
+        + 'least (Dice is that overlap, from 0 to 1).',
+    ]),
+    section('Use', [
+      'For research and teaching on how the models behave. Not for diagnosis or treatment decisions, and not a '
+        + 'medical device.',
+    ]),
+    fixture ? section('This build', ['Fixture mode: every number on these screens is a generated placeholder, not a result.']) : null,
+  ].filter(Boolean));
+}
+
+/*
+ * The technical lines SCR-01 leaves out of its pages and its About sheet, as sections for the shell's Details sheet
+ * (nav.setContext): the dataset as the server names it, with its version; what the server's summary contains; which
+ * capabilities it lists; why a pair was not compared; and the exact rule behind the lowest-Dice lists.
+ */
+export function studyDetails({ datasetText = null, summaryText = null, capabilities = [], outlierRule = null, pairLines = [] } = {}) {
+  return Object.freeze([
+    section('Server details', [
+      datasetText ? `Dataset: ${datasetText}` : null,
+      summaryText,
+      capabilities.length ? `Capabilities: ${capabilities.join(', ')}` : null,
+    ]),
+    section('Median Dice pairs', pairLines),
+    section('Lowest-Dice lists', [outlierRule]),
+  ].filter((s) => s.lines.length > 0));
+}
+
+// SCR-07's per-run context lines (family, variant, cohort level, population, N, metric version): one Details section.
+export function runDetails(lines = []) {
+  return Object.freeze([section('Run details', lines)].filter((s) => s.lines.length > 0));
+}
+
+// One line per case metric the server sends (contract metric_rules.case_metric_fields), in the contract's order.
+export const METRIC_LEGEND = Object.freeze([
+  { name: 'dice', label: 'Dice', text: 'overlap of prediction and reference, 0 to 1; higher is better' },
+  { name: 'iou', label: 'IoU', text: 'overlap divided by the union of both, 0 to 1; higher is better' },
+  { name: 'false_positives', label: 'False positives', text: 'voxels predicted outside the reference; lower is better' },
+  { name: 'false_negatives', label: 'False negatives', text: 'reference voxels the prediction missed; lower is better' },
+  {
+    name: 'relative_volume_error',
+    label: 'Relative volume error',
+    text: 'predicted minus reference voxel count, in % of the reference; closer to 0 is better',
+  },
+].map((m) => Object.freeze(m)));
+
+// The name a metric is called on the screens: the legend's label ("Dice"), or the server's own name if it has none.
+export function metricLabel(name) {
+  const known = METRIC_LEGEND.find((m) => m.name === name);
+  return known ? known.label : String(name);
+}
+
+// Metrics in mm or mL stay locked: the contract blocks them while the geometry is not validated.
+export const LOCKED_METRICS = Object.freeze([
+  { name: 'hd95', label: 'HD95', text: 'locked: a distance in mm needs validated geometry, which is not validated yet' },
+  { name: 'volume_ml', label: 'Volume (mL)', text: 'locked for the same reason; volumes are voxel counts' },
+  { name: 'surface_distance_mm', label: 'Surface distance (mm)', text: 'locked for the same reason' },
+].map((m) => Object.freeze(m)));
