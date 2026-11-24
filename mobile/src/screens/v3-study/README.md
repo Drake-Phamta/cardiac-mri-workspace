@@ -1,27 +1,32 @@
-# V3 — Study Overview và Experiment Comparison (SCR-01, SCR-07)
+# V3 — Study Overview và Experiment Comparison (SCR-01, SCR-07), giao diện Direction A
 
-**Cho người dùng:** SCR-01 là màn hình gốc: bộ dữ liệu, số case theo chế độ, ma trận thí nghiệm (UNet / DINOv2,
-25 / 50 / 100 % dữ liệu, có hoặc không hậu xử lý), các case ngoại lai và tóm tắt finding. SCR-07 so sánh các thí
-nghiệm: phân bố Dice từng case (strip chart), thống kê, và **chỉ hiện hiệu số khi server nói hai thí nghiệm so sánh
-được**.
+**Cho người dùng:** SCR-01 theo `A_overview`: dòng dataset (hình vẽ minh hoạ + tên), "About this data", dải 3 số (Cases / Findings /
+Resolved), số case theo chế độ, các hàng "Median Dice · UNet vs DINOv2" (**chỉ khi server nói so sánh được** mới có điểm tròn / tam giác
+và hai số, còn lại "Not compared" và "—"; dưới hàng chỉ một câu) và **một** danh sách "Lowest Dice" (mặc định DINOv2 ở tỉ lệ dữ liệu
+lớn nhất; hàng "Experiment" mở sheet để đổi). SCR-07 là các mục gồm hàng dày, mỗi hàng một giá trị: hàng chọn "Metric · Dice" (cùng `PickerRow` + sheet với SCR-01; **mở sẵn Dice**
+nếu server có metric đó), Experiments (dấu họ, tên, "5 of 5 cases", thanh + trung vị), Distribution, Comparisons (hiệu số trung vị,
+hoặc "Not compared"; "Not shown" kèm lý do khi server nói so sánh được nhưng giữ số), Per-case differences, Trend. Chạm một hàng để mở sheet chi tiết (id, mean, q1, q3, N, phán quyết của server, lý do,
+từng case). Trang chỉ hiện trung vị. "About this data" chỉ có chữ thường cho người đọc. Mã kỹ thuật (phiên bản dataset, capability,
+id EXP-…, phiên bản metric, cohort, luật xếp hạng chính xác) màn báo cho shell bằng `nav.setContext({ details })` và nằm trong sheet
+Details (nút Info trên thanh trên); "Metric definitions" là một sheet riêng.
 
-**File nào làm gì** (file `.js` vẽ, file `.mjs` quyết định và được `node --test` kiểm):
-- `StudyOverviewScreen.js`, `ExperimentComparisonScreen.js`: hai màn hình.
-- `parts.js`: khối giao diện dùng chung (`Card`, `Line`, `LinkButton`, `Chip`), `StripChart`, hook `useSnapshot`.
-- `models.mjs`: hai mô hình trạng thái `createStudyOverview` và `createExperimentComparison`.
-- `cohort.mjs`: mỗi ô của ma trận (`buildCell`, `requestCell`) và các cặp so sánh (`requestComparisons`, `deltaFor`).
-- `readers.mjs`: đọc từng trường server trả về (`readMetricSummary`, `readOutlierSelection`, ...);
-  `readComparability` / `presentation` quyết định có được hiện hiệu số hay không.
-- `view.mjs`: biến snapshot thành chữ và màu để vẽ (`overviewView`, `comparisonView`), toạ độ strip (`stripLayout`,
-  `pointAt`).
+**Riêng tư:** hai màn chỉ nhận và vẽ **con số và mã case giả danh** (CASE_0001…CASE_0154 là dải mã của cả bộ dữ liệu, do dự án gán lúc nhập; study chỉ liệt kê một phần, sheet "About this data" nói rõ): không ảnh MRI,
+không tên, ngày sinh hay số hồ sơ bệnh viện (ô hình ở SCR-01 là hình vẽ). Không lưu gì xuống máy, không log nội dung.
+Dữ liệu là bộ LASC 2018 (không phải LAScarQS 2022), chỉ dùng nghiên cứu và giảng dạy, không dùng chẩn đoán. Fixture: mọi số là giả.
 
-**Luồng dữ liệu:** màn hình tạo mô hình bằng `runtime.client` → `useSnapshot` chạy `model.open()` →
-SCR-01 gọi `study_get`, `experiment_list`, `findings_list`; mỗi ô gọi `experiment_metrics` / `experiment_cases`;
-SCR-07 thêm `experiment_compare` → `readers.mjs` đọc → snapshot đóng băng → `overviewView` / `comparisonView` →
-`parts.js` vẽ. Không có chỗ nào tự xếp hạng (không `.sort(`): thứ tự ngoại lai là của server.
+**File nào làm gì** (`.js` vẽ, `.mjs` quyết định và được `node --test` kiểm):
+- `StudyOverviewScreen.js`, `ExperimentComparisonScreen.js`: hai màn. `DiceRows.js`: hàng Median Dice. `DatasetThumb.js`: hình vẽ. `Picker.js`: hàng + sheet chọn.
+- `parts.js`: `Section`, `Note`, `ExperimentRow`, `ValueRow`, `LinkRow`, `MetricLegend`, `StripChart`, `useSnapshot`. `charts.js`: `Marker`, `FamilyKey`, biểu đồ.
+- Dùng từ `components/`: `ListRow`, `MetricStrip`, `DetailsSheet` / `Sheet`; chạm ≥ 48 dp (`hitSlop` khi hàng thấp hơn; chấm trên biểu đồ chọn được từ 24 dp quanh tâm).
+- `models.mjs`, `cohort.mjs`, `readers.mjs`: trạng thái, ô ma trận, đọc từng trường server; `readComparability` quyết định so sánh.
+- `view.mjs` (chữ, tên, giá trị từng hàng), `tiles.mjs`, `about.mjs` (nội dung sheet), `paired.mjs`, `trend.mjs`: chữ và số cho hai màn.
 
-**Test** (chạy từ thư mục gốc repo):
+**Luồng dữ liệu:** `runtime.client` → `model.open()` (qua `useSnapshot`) → `study_get`, `experiment_list`, `findings_list`,
+`experiment_metrics` / `experiment_cases`, `experiment_compare` → `readers.mjs` → snapshot → `.mjs` ra chữ và toạ độ → `.js` vẽ.
+**Demo FIXTURE:** chạm Fixture → `experiment_list: full_matrix`, `experiment_compare: comparable`; test dùng `test/_v3_server.mjs`.
+
+**Test** (từ thư mục gốc repo):
 ```powershell
-node --test mobile/test/v3_model.test.mjs mobile/test/v3_screens.test.mjs mobile/test/readers.test.mjs
+node --test mobile/test/v3_model.test.mjs mobile/test/v3_screens.test.mjs mobile/test/v3_upgrades.test.mjs
 cd mobile; npm run test:render
 ```
