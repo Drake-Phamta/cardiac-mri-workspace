@@ -3,14 +3,35 @@
 // what the server sent, never as 0 or a dash.
 
 import { STATE } from '../../api/states.mjs';
-import { CELL_STATUS, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
-import { FAMILY, MATRIX, OUTLIER_RULE, summaryStat } from './readers.mjs';
+import { CELL_STATUS, COMPARE_UNAVAILABLE, buildTrend, deltaFor, labelsForCell } from './cohort.mjs';
+import { FAMILY, MATRIX, OUTLIER_RULE, matrixEntry, summaryStat } from './readers.mjs';
+import { metricLabel } from './about.mjs';
 import { TONE } from '../../components/stateCopy.mjs';
+import { family, MIN_TOUCH } from '../../components/tokens.mjs';
 
 export const FAMILY_LABEL = Object.freeze({ [FAMILY.UNET]: 'UNet', [FAMILY.DINOV2]: 'DINOv2' });
 
-// Statistics the user may pick from the server's summary. No default: the contract names none yet.
-export const STAT_CHOICES = Object.freeze(['median', 'mean']);
+// An experiment as people name it: "UNet 25 %", "DINOv2 100 % post-processed". An id the matrix does not know stays as is.
+export function experimentLabel(experimentId) {
+  const e = matrixEntry(experimentId);
+  return e ? `${FAMILY_LABEL[e.family]} ${e.fractionPct} %${e.lane === 'PROCESSED' ? ' post-processed' : ''}` : experimentId;
+}
+
+// A sentence with its experiment ids (EXP-U-025) written as names, for text that sits on a main surface.
+export const plainText = (text) => String(text).replace(/\bEXP-[UD]-(?:\d{3}|PP)\b/g, (id) => experimentLabel(id));
+
+// Each family is drawn with its own colour AND marker shape (UNet blue circle, DINOv2 orange triangle), so a chart
+// never depends on colour alone.
+export const FAMILY_STYLE = Object.freeze({ [FAMILY.UNET]: family.UNET, [FAMILY.DINOV2]: family.DINOV2 });
+
+// SVG path of a triangle marker centred on (x, y), about as large as a circle of radius r.
+export function trianglePath(x, y, r) {
+  const t = (v) => Number(v.toFixed(2));
+  return `M${t(x)} ${t(y - r * 1.2)} L${t(x + r * 1.1)} ${t(y + r * 0.8)} L${t(x - r * 1.1)} ${t(y + r * 0.8)} Z`;
+}
+
+// The outlier rule in the words the screens use. OUTLIER_RULE keeps the contract's rule id for the code.
+export const OUTLIER_LABEL = `${OUTLIER_RULE.cardinality} lowest-Dice cases`;
 
 const REASON = Object.freeze({
   CASE_NOT_FOUND: 'the requested case does not exist',
@@ -27,12 +48,12 @@ const REASON = Object.freeze({
   CASES_NOT_REQUESTED: 'per-case rows not requested',
   CASES_NOT_LOADED: 'per-case rows did not load',
   NO_EXPERIMENTS_LISTED: 'the server lists no experiment yet',
-  OUTLIERS_NOT_RETURNED: 'the server returned no DR-010 outlier selection',
+  OUTLIERS_NOT_RETURNED: 'the server returned no lowest-Dice selection',
   OUTLIERS_UNREADABLE: 'the outlier selection is not in a readable form - not shown',
-  OUTLIERS_UNDER_ANOTHER_RULE: 'the selection cites another rule than DR-010 - not shown',
-  OUTLIERS_UNDER_ANOTHER_VERSION: 'the selection was made under another DR-010 selection version - not shown',
-  OUTLIERS_FOR_ANOTHER_METRIC: 'the selection ranks another metric than DR-010 pins - not shown',
-  OUTLIERS_OVER_CARDINALITY: 'the selection lists more cases than DR-010 selects - not shown',
+  OUTLIERS_UNDER_ANOTHER_RULE: 'the selection follows another rule than the lowest-Dice rule - not shown',
+  OUTLIERS_UNDER_ANOTHER_VERSION: 'the selection was made under another version of the lowest-Dice rule - not shown',
+  OUTLIERS_FOR_ANOTHER_METRIC: 'the selection ranks another metric than Dice - not shown',
+  OUTLIERS_OVER_CARDINALITY: `the selection lists more than ${OUTLIER_RULE.cardinality} cases - not shown`,
   OUTLIERS_WITHOUT_EXPERIMENT_OR_VARIANT: 'the selection does not name its experiment and variant - not shown',
   OUTLIERS_FOR_ANOTHER_EXPERIMENT: 'the selection belongs to another experiment - not shown',
   OUTLIERS_FOR_ANOTHER_VARIANT: 'the selection was made for another variant - not shown',
@@ -66,7 +87,22 @@ export function reasonLabel(code) {
   return /^[A-Z][A-Z0-9_]*$/.test(text) ? text.toLowerCase().replaceAll('_', ' ') : text;
 }
 
+// Why a link cannot open, for the "Cannot open:" line of SCR-01 and SCR-07. The models keep their exact sentences (the
+// Details sheets and the tests read them), so this is the one place that makes a reason plain: a bare code becomes
+// words, experiment ids become names, the lowest-Dice rule id and the pointers into the spec ("08 section 2",
+// "(11 section 6)") are left out, and a field name (analysis_run_id) is written as words.
+export function blockedText(reason) {
+  const text = reasonLabel(reason);
+  if (!text) return null;
+  return plainText(text)
+    .replaceAll(OUTLIER_RULE.id, 'the lowest-Dice rule')
+    .replace(/\s*\(\d+ section \d+\)/g, '')
+    .replace(/\b\d+ section \d+ (defines|makes)\b/g, 'the study plan $1')
+    .replace(/\b[a-z]+(?:_[a-z]+)+\b/g, (name) => name.replaceAll('_', ' '));
+}
+
 const fmt = (v) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(3) : null);
+const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const served = (s) => (s ? ` (server sent "${s}")` : '');
 
 /* A link a screen can follow, or the reason it cannot. Never both. */
@@ -143,11 +179,22 @@ export function cellCard(cell, { metricName = null, comparisons = [], withValues
   const warnings = [];
   if (cell.identity && cell.identity.problems.length) warnings.push(...cell.identity.problems);
   if (cell.status === CELL_STATUS.VARIANT_MISMATCH && cell.statusReason) warnings.push(cell.statusReason);
+  // The row of the experiment list: the chosen metric's median as a number and a bar (a bar only on the 0 to 1
+  // scale), "5 of 5 cases", and a status word only when the run is not simply loaded.
+  const median = withValues && metricName && cell.status === CELL_STATUS.LOADED ? summaryStat(cell.summary, metricName, 'median') : null;
+  const normal = cell.status === CELL_STATUS.LOADED && cell.identityConfirmed !== false;
+  const intended = cell.n && cell.n.intended.available ? cell.n.intended.value : null;
+  const successful = cell.n && cell.n.successful.available ? cell.n.successful.value : null;
   return Object.freeze({
     id: cell.id,
     family: cell.family,
+    status: cell.status,
     title: cellTitle(cell),
     statusText: cellStatusText(cell),
+    statusWord: normal ? null : capitalise(cellStatusText(cell)),
+    casesText: intended !== null && successful !== null ? `${successful} of ${intended} cases` : null,
+    valueText: fmt(median),
+    bar: median !== null && median >= 0 && median <= 1 ? median : null,
     tone: cellTone(cell),
     nText: cell.n ? cell.n.text : null,
     warnings: Object.freeze(warnings),
@@ -229,6 +276,12 @@ export function comparisonRow(c) {
   });
 }
 
+// "RAW" -> "Raw": the prediction variant as the screens write it.
+const variantLabel = (declared) => {
+  const text = String(declared ?? '');
+  return text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : null;
+};
+
 export function outlierView(o) {
   if (!o) return Object.freeze({ available: false, text: 'not loaded', rule: OUTLIER_RULE.text, rows: Object.freeze([]) });
   if (!o.available) {
@@ -238,16 +291,40 @@ export function outlierView(o) {
   }
   return Object.freeze({
     available: true,
-    text: `${OUTLIER_RULE.id} outliers for ${o.experimentId} (${o.variant.declared}), in the order the server sent`
+    text: `the ${OUTLIER_LABEL} of ${o.experimentId} (${o.variant.declared}), in the order the server sent`
       + `${o.ruleCited ? '' : ' - the server did not cite the rule'}`,
     rule: OUTLIER_RULE.text,
+    // SCR-01 draws the list under "Lowest Dice · <run>" with the variant ("Raw") on the right.
+    variantText: variantLabel(o.variant.declared),
+    warning: o.ruleCited ? null : 'the server did not cite the lowest-Dice rule',
     rows: Object.freeze(o.cases.map((c) => Object.freeze({
       key: `${c.rank}:${c.caseId}`,
       caseId: c.caseId || 'case id not returned',
       valueText: c.value.available ? `${o.metricName || 'metric'} ${fmt(c.value.value)}` : 'value unavailable',
+      // The bare number for a row that has no room for the metric name.
+      scoreText: c.value.available ? fmt(c.value.value) : '—',
+      // The length of the small bar on SCR-01: the Dice itself, 0 to 1. No bar for a value off that scale.
+      bar: c.value.available && c.value.value >= 0 && c.value.value <= 1 ? c.value.value : null,
       route: routeForIntent(c.intent),
     }))),
   });
+}
+
+/*
+ * SCR-01 shows one lowest-Dice list. The picked experiment if there is one; otherwise DINOv2 at the largest data
+ * fraction that has a list (raw before post-processed); otherwise the first experiment that has a list; otherwise
+ * the first group, which then says why it has none.
+ */
+export function chooseOutlierGroup(groups, pickedId = null) {
+  const picked = groups.find((g) => g.experimentId === pickedId);
+  if (picked) return picked;
+  const withRows = groups.filter((g) => g.view.available && g.view.rows.length > 0);
+  const dino = withRows.filter((g) => g.family === FAMILY.DINOV2);
+  if (dino.length) {
+    const rank = (g) => (g.fractionPct ?? 0) * 2 + (g.lane === 'RAW' ? 1 : 0);
+    return dino.reduce((best, g) => (rank(g) > rank(best) ? g : best));
+  }
+  return withRows[0] ?? groups[0] ?? null;
 }
 
 function findingsView(f) {
@@ -273,7 +350,7 @@ export function overviewView(snap) {
 
   const notes = [];
   if (exp && exp.unreadableRows) notes.push(`${exp.unreadableRows} listed row(s) carry no experiment_id - not shown`);
-  if (exp && exp.outsideMatrix.length) notes.push(`also listed, outside the 08 §2 matrix: ${exp.outsideMatrix.join(', ')}`);
+  if (exp && exp.outsideMatrix.length) notes.push(`also listed, outside the experiment matrix: ${exp.outsideMatrix.join(', ')}`);
   if (exp && exp.population) {
     notes.push(exp.population.available ? `evaluation population: ${exp.population.label}` : 'evaluation population unavailable');
   }
@@ -295,6 +372,9 @@ export function overviewView(snap) {
     const expected = MATRIX.find((e) => e.id === o.experimentId);
     return Object.freeze({
       experimentId: o.experimentId,
+      family: expected ? expected.family : null,
+      fractionPct: expected ? expected.fractionPct : null,
+      lane: expected ? expected.lane : null,
       title: expected ? `${FAMILY_LABEL[expected.family]} ${expected.fractionPct} %${expected.lane === 'PROCESSED' ? ' post-processed' : ''}` : o.experimentId,
       view: outlierView(o.selection),
     });
@@ -309,6 +389,8 @@ export function overviewView(snap) {
         : null,
       datasetText: snap.dataset && snap.dataset.available
         ? snap.dataset.label : `dataset unavailable${served(snap.dataset && snap.dataset.served)}`,
+      // The dataset's name alone for the main surface; its version and id stay in datasetText, in the About sheet.
+      datasetName: snap.dataset && snap.dataset.available ? (snap.dataset.name ?? snap.dataset.datasetId) : null,
       counts: Object.freeze(counts),
       countsText: snap.caseCounts && !snap.caseCounts.available ? 'case counts unavailable' : null,
       capabilities: Object.freeze(snap.capabilities ? [...snap.capabilities.names] : []),
@@ -324,13 +406,12 @@ export function overviewView(snap) {
     headline: Object.freeze(snap.headline.map(comparisonRow)),
     outliers: Object.freeze({
       rule: OUTLIER_RULE.text,
-      text: outlierGroups.length ? null : 'no listed experiment, so no DR-010 selection to show',
+      text: outlierGroups.length ? null : 'no listed experiment, so no lowest-Dice selection to show',
       groups: Object.freeze(outlierGroups),
     }),
     findings: findingsView(snap.findings),
     routes: Object.freeze({
       cases: route('SCR-02', { studyId: snap.studyId }),
-      experiments: route('SCR-07', {}),
       findings: route('SCR-08', {}),
     }),
   });
@@ -341,7 +422,7 @@ function rowStatusText(row) {
     case 'PLOTTED': return 'plotted';
     case 'FAILED': return 'failed';
     case 'EXCLUDED': return 'excluded';
-    case 'WITHHELD': return 'withheld - inference-review case, no value (INT-12)';
+    case 'WITHHELD': return 'withheld - inference-review case, no value';
     case 'VALUE_NOT_RETURNED': return 'succeeded, value not returned';
     case 'NO_METRIC_SELECTED': return row.status === 'SUCCEEDED' ? 'succeeded - pick a metric' : String(row.status);
     case 'NO_CASE_ID': return 'no case id';
@@ -394,24 +475,51 @@ function rowsWithheldText(cell) {
   return null;
 }
 
-function deltaText(c, metricName, stat) {
-  if (c.kind === 'TREND' || !c.requested) return null;
-  // Never "pick a metric" for numbers the model will not release.
-  if (withheldOf(c)) return `no difference shown: ${withheldOf(c)}`;
-  if (!c.presentation.mayShowDelta) return `no difference shown: ${c.presentation.reason || 'not comparable'}`;
-  if (!metricName || !stat) return 'pick a metric and a statistic to see the difference';
-  const d = deltaFor(c, { metricName, stat });
-  if (!d.allowed) return `no difference shown: ${d.reason}`;
-  const sign = d.delta > 0 ? '+' : '';
-  return `${stat} ${metricName}: ${d.to} ${fmt(d.b)} vs ${d.from} ${fmt(d.a)}, difference ${sign}${fmt(d.delta)} `
-    + '(server common-population summaries)';
+// Why the server's summaries of a comparison are not shown, for a pair it judged fair, in words for the row.
+const WITHHELD_WORDS = Object.freeze({
+  [COMPARE_UNAVAILABLE.MIXED_VARIANT_COMPARE_UNDEFINED]: 'Raw and post-processed runs are not summarised together yet, so no difference is shown',
+});
+
+// What a comparison row says where its number would be. No number and not fair: "Not compared". Fair, but no number
+// (raw vs post-processed has no common summary, or the summary lacks the statistic): "Not shown" and the reason under
+// the title, so the row never shows a title alone. With no metric picked the page already asks for one.
+function rowWords(c, delta, metricName) {
+  const none = Object.freeze({ mutedText: null, whyText: null });
+  if (c.kind === 'TREND' || delta.value !== null) return none;
+  if (!c.requested || !fairOf(c)) return Object.freeze({ mutedText: 'Not compared', whyText: null });
+  if (withheldOf(c)) {
+    return Object.freeze({ mutedText: 'Not shown', whyText: WITHHELD_WORDS[c.numbersWithheld.code] ?? plainText(withheldOf(c)) });
+  }
+  return metricName && delta.reason ? Object.freeze({ mutedText: 'Not shown', whyText: capitalise(plainText(delta.reason)) }) : none;
 }
+
+// The difference of a comparison as a sentence (for its details) and as the signed number a row shows.
+function deltaInfo(c, metricName, stat) {
+  const none = (text, reason = null) => ({ text, value: null, reason });
+  if (c.kind === 'TREND' || !c.requested) return none(null);
+  // Never "pick a metric" for numbers the model will not release.
+  if (withheldOf(c)) return none(`no difference shown: ${withheldOf(c)}`);
+  if (!c.presentation.mayShowDelta) return none(`no difference shown: ${c.presentation.reason || 'not comparable'}`);
+  if (!metricName || !stat) return none('pick a metric and a statistic to see the difference');
+  const d = deltaFor(c, { metricName, stat });
+  if (!d.allowed) return none(`no difference shown: ${d.reason}`, d.reason);
+  const sign = d.delta > 0 ? '+' : '';
+  return {
+    text: `${stat} ${metricName}: ${d.to} ${fmt(d.b)} vs ${d.from} ${fmt(d.a)}, difference ${sign}${fmt(d.delta)} `
+      + '(server common-population summaries)',
+    value: `${sign}${fmt(d.delta)}`,
+  };
+}
+
+// "UNet vs DINOv2 at 25 %" -> "UNet vs DINOv2 · 25 %", "UNet 25 -> 50 -> 100 %" -> "UNet 25 → 50 → 100 %".
+const rowLabel = (label) => label.replace(' at ', ' · ').replace(/ -> /g, ' → ').replace(': ', ' · ');
 
 function trendRows(snap, stat) {
   if (!snap.metricName || !stat) return Object.freeze([]);
   return Object.freeze(buildTrend(snap.cells, snap.comparisons, { metricName: snap.metricName, stat }).map((t) => Object.freeze({
     family: t.family,
     label: FAMILY_LABEL[t.family],
+    rowLabel: `${FAMILY_LABEL[t.family]} 25 → 50 → 100 %`,
     pointsText: t.points.map((p) => `${p.fractionPct} % ${p.value !== null ? fmt(p.value) : 'unavailable'}`).join(' · '),
     connected: t.connected,
     text: t.connected ? 'joined: the server judged these runs comparable' : `not joined: ${t.reason}`,
@@ -429,22 +537,36 @@ export function comparisonView(snap, { stat = null, selectedCellId = null } = {}
   return Object.freeze({
     modeText: snap.mode === 'EXPLICIT'
       ? `Comparing ${snap.requested.join(' · ') || 'nothing'} (opened with explicit ids)`
-      : `The 08 §2 matrix, filled from the server's experiment list`,
+      : `The experiment matrix, filled from the server's experiment list`,
     listText,
-    outsideMatrixText: snap.outsideMatrix.length ? `outside the 08 §2 matrix, not drawn: ${snap.outsideMatrix.join(', ')}` : null,
+    outsideMatrixText: snap.outsideMatrix.length ? `outside the experiment matrix, not drawn: ${snap.outsideMatrix.join(', ')}` : null,
     metric: Object.freeze({
       selected: snap.metricName,
       choices: snap.metricNames,
       emptyText: snap.metricNames.length ? null : "The server's summaries name no metric yet - nothing to plot.",
     }),
-    stat: Object.freeze({ selected: stat, choices: STAT_CHOICES }),
     rows: familyRows(cards),
     stripNotes: Object.freeze(cards.filter((c) => c.withheldText).map((c) => `${c.title}: ${c.withheldText}`)),
-    comparisons: Object.freeze(snap.comparisons.map((c) => Object.freeze({
-      ...comparisonRow(c), deltaText: deltaText(c, snap.metricName, stat),
-    }))),
+    // The same, without the runs the experiment list already says are not listed or not requested.
+    plotNotes: Object.freeze(cards
+      .filter((c) => c.withheldText && c.status !== CELL_STATUS.NOT_LISTED && c.status !== CELL_STATUS.NOT_REQUESTED)
+      .map((c) => `${c.title}: ${plainText(c.withheldText)}`)),
+    explicit: snap.mode === 'EXPLICIT',
+    comparisons: Object.freeze(snap.comparisons.map((c) => {
+      const delta = deltaInfo(c, snap.metricName, stat);
+      return Object.freeze({
+        ...comparisonRow(c),
+        kind: c.kind,
+        family: c.family ?? null,
+        requested: c.requested,
+        rowLabel: rowLabel(c.label),
+        deltaText: delta.text,
+        deltaValueText: delta.value,
+        ...rowWords(c, delta, snap.metricName),
+      });
+    })),
     trend: trendRows(snap, stat),
-    trendText: snap.metricName && stat ? null : 'pick a metric and a statistic to see the 25 -> 50 -> 100 % trend',
+    trendText: snap.metricName && !stat ? "pick a statistic to list each run's value under the chart" : null,
     selected: caseTable(selected),
     selectedOutliers: selected ? outlierView(selected.outliers) : null,
   });
@@ -454,8 +576,12 @@ export function comparisonView(snap, { stat = null, selectedCellId = null } = {}
 export function pointDetail(point, metricName) {
   if (!point) return null;
   return Object.freeze({
+    // What the page shows: the case and its value, then the metric, the run and whether it is a lowest-Dice case.
+    title: `${point.caseId} · ${fmt(point.value)}`,
+    caption: `${metricName ? metricLabel(metricName) : 'Metric'} · ${experimentLabel(point.column)}`
+      + `${point.outlier ? ` · one of the ${OUTLIER_LABEL}` : ''}`,
     text: `${point.caseId} · ${metricName || 'metric'} ${fmt(point.value)} · ${point.column}`
-      + `${point.outlier ? ' · DR-010 outlier (server)' : ''}`,
+      + `${point.outlier ? ` · one of the ${OUTLIER_LABEL} (server)` : ''}`,
     route: routeForIntent(point.intent),
   });
 }
@@ -533,6 +659,7 @@ export function stripLayout(columns, {
 }
 
 // The point a tap lands on: the nearest one within its radius plus `slop` (a finger is bigger than a dot), or null.
+// A dot is reachable from at least MIN_TOUCH / 2 away, so its hit area is never under 48 dp across.
 // On equal distances the first point drawn wins.
 export function pointAt(layout, x, y, slop = 12) {
   let best = null;
@@ -540,7 +667,7 @@ export function pointAt(layout, x, y, slop = 12) {
   for (const col of layout.columns) {
     for (const p of col.points) {
       const d = (p.x - x) ** 2 + (p.y - y) ** 2;
-      const reach = (p.r + slop) ** 2;
+      const reach = Math.max(p.r + slop, MIN_TOUCH / 2) ** 2;
       if (d <= reach && d < bestD) { best = p; bestD = d; }
     }
   }
