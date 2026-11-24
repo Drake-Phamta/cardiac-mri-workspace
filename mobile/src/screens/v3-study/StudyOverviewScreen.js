@@ -1,17 +1,28 @@
-// SCR-01 Study Overview: the study, its cases, experiments, outliers and findings, with links to each screen.
-// Data comes from createStudyOverview (models.mjs) and every string from overviewView (view.mjs).
-// The experiment matrix shows no metric values: numbers appear only where the server judged runs comparable.
+// SCR-01 Study Overview, Direction A: the dataset, "About this data", three counts, the median Dice of each
+// UNet vs DINOv2 pair, and the lowest-Dice cases. Rows and hairlines, no cards.
+// Data comes from createStudyOverview (models.mjs); strings from overviewView (view.mjs) and the tiles (tiles.mjs).
+// Numbers appear only where the server judged runs comparable; anything else is a word and a reason.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { RECOVERY } from '../../api/states.mjs';
+import { RECOVERY, STATE } from '../../api/states.mjs';
 import { createStudyOverview } from './models.mjs';
 import StateView from '../../components/StateView';
 import { TONE } from '../../components/stateCopy.mjs';
-import { color, font, MIN_TOUCH, space } from '../../components/theme';
-import { Card, Chip, Line, LinkButton, Row, TONE_COLOR, useSnapshot } from './parts';
-import { overviewView } from './view.mjs';
+import { IconDatabase } from '../../components/icons';
+import ListRow from '../../components/ListRow';
+import MetricStrip from '../../components/MetricStrip';
+import { color, space, type } from '../../components/theme';
+import { Blocked, blockedNotice, Note, Section, useSnapshot } from './parts';
+import DatasetThumb from './DatasetThumb';
+import { PickerRow, PickerSheet } from './Picker';
+import { FamilyLegend } from './charts';
+import DiceRows from './DiceRows';
+import AboutDataSheet from './AboutDataSheet';
+import { aboutData, DATASET_SOURCE_NAME, studyDetails } from './about.mjs';
+import { casesTile, diceTile, findingsTile } from './tiles.mjs';
+import { chooseOutlierGroup, overviewView } from './view.mjs';
 
 export default function StudyOverviewScreen({ runtime, nav, params }) {
   // The study id comes from the build config unless the caller passed another one.
@@ -19,14 +30,33 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
   const model = useMemo(() => createStudyOverview(runtime.client), [runtime]);
   const [snap, run] = useSnapshot(model);
   const [blocked, setBlocked] = useState(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   useEffect(() => { run(() => model.open({ studyId })); }, [model, studyId, run]);
 
+  const v = useMemo(() => (snap.view && snap.view.state === STATE.SUCCESS ? overviewView(snap) : null), [snap]);
+  // The ids, versions and exact rules the pages leave out go to the shell's Details sheet (the Info button), not to
+  // "About this data". The shell compares the report by identity, so `details` is memoized.
+  const details = useMemo(() => (v ? studyDetails({
+    datasetText: v.study.datasetText,
+    summaryText: v.study.summaryText,
+    capabilities: v.study.capabilities,
+    outlierRule: v.outliers.rule,
+    // Why a pair is not compared names the runs by id, so it lives in Details.
+    pairLines: diceTile(snap.headline).rows.filter((r) => r.note).map((r) => `${r.label}: ${r.note}`),
+  }) : []), [v, snap]);
+  useEffect(() => {
+    if (typeof nav.setContext !== 'function') return undefined;
+    nav.setContext({ details });
+    return () => nav.setContext(null);
+  }, [nav, details]);
+
   const go = useCallback((route) => {
-    if (!route || !route.ok) { setBlocked(route ? route.reason : 'no link'); return; }
+    if (!route || !route.ok) { setBlocked(blockedNotice(route ? route.reason : 'no link')); return; }
     setBlocked(null);
     nav.push(route.screenId, route.params);
   }, [nav]);
+  const clearBlocked = useCallback(() => setBlocked(null), []);
 
   // BACK leaves; every other recovery action (RETRY, REFRESH, REAUTH) loads again.
   const onAction = useCallback((id) => {
@@ -36,118 +66,177 @@ export default function StudyOverviewScreen({ runtime, nav, params }) {
 
   return (
     <StateView view={snap.view} what="the study overview" onAction={onAction}>
-      {() => <Overview v={overviewView(snap)} go={go} blocked={blocked} />}
+      {() => (
+        <>
+          <Overview v={v} snap={snap} go={go} onAbout={() => setAboutOpen(true)} />
+          <Blocked notice={blocked} onDone={clearBlocked} />
+          <AboutDataSheet
+            visible={aboutOpen}
+            sections={aboutData({
+              datasetName: v.study.datasetName,
+              fixture: snap.source === 'fixture',
+              studyCaseCount: casesTile(snap.caseCounts).value,
+            })}
+            onClose={() => setAboutOpen(false)}
+          />
+        </>
+      )}
     </StateView>
   );
 }
 
-function Overview({ v, go, blocked }) {
+function Overview({ v, snap, go, onAbout }) {
+  const cases = casesTile(snap.caseCounts);
+  const findings = findingsTile(snap.findings);
+  const dice = diceTile(snap.headline);
+  const comparable = dice.rows.filter((r) => r.fair).length;
+  // One plain sentence under the rows: that no pair is compared, or the one population all pairs were compared on.
+  const populations = [...new Set(dice.rows.filter((r) => r.fair).map((r) => r.note).filter(Boolean))];
+  const diceNote = dice.emptyText || (populations.length === 1 ? populations[0].charAt(0).toUpperCase() + populations[0].slice(1) : null);
+  const fixture = snap.source === 'fixture';
+  // One lowest-Dice list: DINOv2 at the largest data fraction unless the picker chose another experiment.
+  const [pickedId, setPickedId] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const groups = v.outliers.groups;
+  const group = chooseOutlierGroup(groups, pickedId);
   return (
-    <ScrollView contentContainerStyle={s.root}>
-      <Card title={v.study.idText} testID="scr01-study">
-        <Line tone={TONE.WARN} small>{v.study.idWarning}</Line>
-        <Line>{`Dataset: ${v.study.datasetText}`}</Line>
-        <Line dim small>{v.study.summaryText}</Line>
-        {v.study.counts.map((c) => <Line key={c.key}>{`Cases (${c.key}): ${c.text}`}</Line>)}
-        <Line dim>{v.study.countsText}</Line>
-        {v.study.capabilities.length > 0 && (
-          <Line dim small>{`Capabilities: ${v.study.capabilities.join(', ')}`}</Line>
-        )}
-        <LinkButton label="Open cases (SCR-02)" route={v.routes.cases} onGo={go} />
-      </Card>
+    <ScrollView contentContainerStyle={s.page}>
+      {v.study.idWarning ? <Note tone={TONE.WARN}>{v.study.idWarning}</Note> : null}
 
-      <Card title="Experiments" testID="scr01-experiments">
-        <Line>{v.experiments.text}</Line>
-        {v.experiments.notes.map((n) => <Line key={n} dim small>{n}</Line>)}
-        {v.experiments.rows.map((row) => (
-          <View key={row.family} style={s.family}>
-            <Text style={s.familyLabel}>{row.label}</Text>
-            <View style={s.cells}>
-              {row.cells.map((cell) => (
-                <View key={cell.id} style={s.cell}>
-                  <Text style={s.cellTitle}>{cell.title}</Text>
-                  <Text style={[s.cellStatus, { color: TONE_COLOR[cell.tone] }]}>{cell.statusText}</Text>
-                  {cell.nText ? <Text style={s.cellN}>{cell.nText}</Text> : null}
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-        <LinkButton label="Open the comparison (SCR-07)" route={v.routes.experiments} onGo={go} />
-      </Card>
-
-      <Card title="Comparable metrics (server verdicts)" testID="scr01-headline">
-        <Line dim small>
-          Numbers appear here only where the server judged the runs comparable; anything else is a label and a reason.
-        </Line>
-        {v.headline.map((h) => (
-          <TouchableOpacity
-            key={h.id}
-            style={[s.headline, !h.route.ok && s.headlineOff]}
-            onPress={() => go(h.route)}
-            accessibilityRole="button"
-            accessibilityLabel={`${h.label}: ${h.verdictText}`}
-          >
-            <Text style={s.headlineLabel}>{h.label}</Text>
-            <Text style={[s.headlineVerdict, { color: TONE_COLOR[h.tone] }]}>{h.verdictText}</Text>
-            {h.reason ? <Text style={s.small}>{h.reason}</Text> : null}
-            {h.populationText ? <Text style={s.small}>{h.populationText}</Text> : null}
-            {h.summaryRows.map((row) => <Text key={row.experimentId} style={s.metric}>{row.text}</Text>)}
-          </TouchableOpacity>
-        ))}
-      </Card>
-
-      <Card title="Outliers (DR-010)" testID="scr01-outliers">
-        <Line dim small>{v.outliers.rule}</Line>
-        <Line>{v.outliers.text}</Line>
-        {v.outliers.groups.map((g) => (
-          <View key={g.experimentId} style={s.family}>
-            <Text style={s.familyLabel}>{`${g.title} · ${g.experimentId}`}</Text>
-            <Line dim small>{g.view.text}</Line>
-            {g.view.rows.map((o) => (
-              <LinkButton key={o.key} label={`${o.caseId} · ${o.valueText}`} route={o.route} onGo={go} />
-            ))}
-          </View>
-        ))}
-      </Card>
-
-      <Card title="Findings" testID="scr01-findings">
-        <Line>{v.findings.text}</Line>
-        {v.findings.byStatus.length > 0 && (
-          <Row>{v.findings.byStatus.map((t) => <Chip key={t} label={t} selected={false} onPress={() => go(v.routes.findings)} />)}</Row>
-        )}
-        <LinkButton label="Open findings (SCR-08)" route={v.routes.findings} onGo={go} />
-      </Card>
-
-      {blocked ? (
-        <View style={s.blocked} accessibilityRole="alert">
-          <Text style={s.blockedT}>{`Cannot open: ${blocked}`}</Text>
+      <View style={s.dataset}>
+        <DatasetThumb />
+        <View style={s.datasetText}>
+          <Text style={s.overline}>Dataset</Text>
+          <Text style={s.datasetName}>{v.study.datasetName || 'Dataset unavailable'}</Text>
+          <Text style={s.datasetSource}>{fixture ? 'Generated placeholder data' : DATASET_SOURCE_NAME}</Text>
         </View>
-      ) : null}
+      </View>
+      <ListRow title="About this data" icon={IconDatabase} onPress={onAbout} divider="both" testID="scr01-about" />
+
+      <MetricStrip
+        style={s.strip}
+        cells={[
+          {
+            label: 'Cases',
+            value: cases.value === null ? '—' : cases.value,
+            caption: cases.value === null ? cases.text : 'in this study',
+            onPress: () => go(v.routes.cases),
+            testID: 'scr01-tile-cases',
+          },
+          {
+            label: 'Findings',
+            value: findings.open === null ? '—' : String(findings.open),
+            caption: 'open',
+            onPress: () => go(v.routes.findings),
+            testID: 'scr01-tile-findings',
+          },
+          {
+            label: 'Resolved',
+            value: findings.resolved === null ? '—' : String(findings.resolved),
+            caption: 'findings',
+            testID: 'scr01-tile-resolved',
+          },
+        ]}
+      />
+      <View style={s.counts}>
+        {cases.lines.map((line) => {
+          const [count, ...words] = line.split(' ');
+          return (
+            <Text key={line} style={s.countText}>
+              <Text style={s.countNumber}>{count}</Text>
+              {` ${words.join(' ')}`}
+            </Text>
+          );
+        })}
+      </View>
+      {findings.open === null ? <View style={s.counts}><Note>{v.findings.text}</Note></View> : null}
+
+      <Section
+        title="Median Dice · UNet vs DINOv2"
+        meta={dice.rows.length ? `${comparable} of ${dice.rows.length} comparable` : null}
+        testID="scr01-median-dice"
+      >
+        <View style={s.legend}>
+          <Text style={s.legendText}>0 to 1, higher is better</Text>
+          <FamilyLegend style={s.legendKeys} />
+        </View>
+        <View style={s.diceRows}>
+          <DiceRows rows={dice.rows} onGo={go} />
+        </View>
+        {diceNote ? <View style={s.notes}><Note>{diceNote}</Note></View> : null}
+      </Section>
+
+      <View testID="scr01-outliers">
+        {group === null ? (
+          <Section title="Lowest Dice"><Note>{v.outliers.text}</Note></Section>
+        ) : (
+          <Section title={`Lowest Dice · ${group.title}`} meta={group.view.available ? group.view.variantText : null}>
+            {groups.length > 1 ? (
+              <PickerRow label="Experiment" value={group.title} onPress={() => setPickerOpen(true)} testID="scr01-pick-experiment" />
+            ) : null}
+            {group.view.available ? (
+              <>
+                {group.view.rows.map((o, i) => <OutlierRow key={o.key} row={o} first={i === 0} go={go} />)}
+                <Note>{group.view.warning}</Note>
+              </>
+            ) : <Note>{group.view.text}</Note>}
+          </Section>
+        )}
+      </View>
+      <PickerSheet
+        visible={pickerOpen}
+        title="Lowest Dice of"
+        options={groups.map((g) => ({ id: g.experimentId, label: g.title, note: g.view.available ? null : 'No lowest-Dice list' }))}
+        value={group ? group.experimentId : null}
+        onPick={setPickedId}
+        onClose={() => setPickerOpen(false)}
+        testID="scr01-picker-sheet"
+      />
     </ScrollView>
   );
 }
 
+// One of the server's lowest-Dice cases: the id, a bar as long as the Dice (0 to 1), the Dice, a chevron.
+function OutlierRow({ row, first, go }) {
+  const common = {
+    variant: 'meter',
+    title: row.caseId,
+    onPress: () => go(row.route),
+    divider: first ? 'none' : 'top',
+    accessibilityLabel: `${row.caseId}, ${row.valueText}`,
+  };
+  return (
+    <>
+      {row.bar === null ? (
+        // No bar for a value that is missing or off the 0 to 1 scale: the bare number stands in the bar's place, or "—"
+        // when the server sent none.
+        <ListRow {...common} bar={null} trailing={<View style={s.noBar}><Text style={s.noBarText}>{row.scoreText}</Text></View>} />
+      ) : (
+        <ListRow {...common} bar={row.bar} barTone="warn" value={row.scoreText} />
+      )}
+      {row.route.ok ? null : <Note>{row.route.reason}</Note>}
+    </>
+  );
+}
+
 const s = StyleSheet.create({
-  root: { padding: space.l, gap: space.m },
-  family: { marginTop: space.s },
-  familyLabel: { color: color.text, fontSize: font.body, fontWeight: '700' },
-  cells: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginTop: space.xs },
-  cell: {
-    minWidth: 96, flexGrow: 1, flexBasis: 96, borderWidth: 1, borderColor: color.border, borderRadius: 8,
-    padding: space.s, backgroundColor: color.surfaceHi,
-  },
-  cellTitle: { color: color.text, fontSize: font.small, fontWeight: '700' },
-  cellStatus: { fontSize: font.small, marginTop: 2 },
-  cellN: { color: color.text, fontFamily: font.mono, fontSize: 11, marginTop: 2 },
-  headline: {
-    minHeight: MIN_TOUCH, borderTopWidth: 1, borderTopColor: color.border, paddingVertical: space.s,
-  },
-  headlineOff: { opacity: 0.7 },
-  headlineLabel: { color: color.text, fontSize: font.body, fontWeight: '600' },
-  headlineVerdict: { fontSize: font.small, marginTop: 2 },
-  metric: { color: color.text, fontSize: font.small, marginTop: 4 },
-  small: { color: color.textDim, fontSize: font.small, marginTop: 2 },
-  blocked: { padding: space.m, borderRadius: 8, borderWidth: 1, borderColor: color.danger, backgroundColor: color.dangerBg },
-  blockedT: { color: color.danger, fontSize: font.body },
+  page: { paddingHorizontal: space.l, paddingBottom: space.xl },
+  dataset: { flexDirection: 'row', alignItems: 'center', gap: space.l, paddingTop: space.s, paddingBottom: space.l },
+  datasetText: { flex: 1 },
+  overline: { ...type.overline, color: color.t3 },
+  datasetName: { ...type.title, color: color.t1, marginTop: 2 },
+  datasetSource: { ...type.secondary, color: color.t2 },
+  strip: { marginTop: space.l },
+  counts: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.l, marginTop: space.s },
+  countText: { ...type.caption, color: color.t2, fontVariant: ['tabular-nums'] },
+  countNumber: { fontWeight: '500', color: color.t1 },
+  // The note and the two family keys share a line when they fit it, 12 dp apart; at 320 dp and font scale 1.3 they do not, and the
+  // keys drop to a line of their own at the right instead of touching the note ("higher is better" ran into the UNet dot).
+  legend: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.m, rowGap: space.xs },
+  legendText: { ...type.caption, color: color.t2 },
+  legendKeys: { marginTop: 0, marginLeft: 'auto' },
+  diceRows: { marginTop: space.s },
+  notes: { marginTop: space.s, gap: 2 },
+  noBar: { flex: 1, alignItems: 'flex-end' },
+  noBarText: { ...type.body, color: color.t3 },
 });
